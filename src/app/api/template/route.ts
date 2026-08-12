@@ -277,6 +277,14 @@ async function initializeLocalTemplateProject(params: {
     previewUrl = previewSessionStarted.result.previewUrl?.trim() || null;
     if (previewUrl) {
       await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
+    } else {
+      // A host response without a usable URL cannot be previewed, even if the
+      // transport-level start call itself returned `ok: true`.
+      previewStartFailed = true;
+      previewStartError = PREVIEW_START_FAILED_MESSAGE;
+      console.warn(
+        "[API /template] Preview session returned no URL — version saved without live preview.",
+      );
     }
   } else {
     // Advisory, never blocks the import: the version is saved and the user can
@@ -289,17 +297,19 @@ async function initializeLocalTemplateProject(params: {
       previewSessionStarted.error.message,
     );
   }
-  await recordImportedRepoPreviewOutcome({
-    versionId: version.id,
-    filesRevision: previewSessionStarted.ok
-      ? (previewSessionStarted.result.filesRevision ?? version.files_revision ?? null)
-      : null,
-    outcome: previewSessionStarted.ok
-      ? previewSessionStarted.result.runtimeReady === true
-        ? "runtime-ready"
-        : "pending"
-      : "failed",
-  });
+  if (previewSessionStarted.ok && previewUrl) {
+    await recordImportedRepoPreviewOutcome({
+      versionId: version.id,
+      filesRevision: previewSessionStarted.result.filesRevision ?? version.files_revision ?? null,
+      outcome: previewSessionStarted.result.runtimeReady === true ? "runtime-ready" : "pending",
+    });
+  } else {
+    await recordImportedRepoPreviewOutcome({
+      versionId: version.id,
+      filesRevision: null,
+      outcome: "failed",
+    });
+  }
 
   // Imported templates skip the generation preflight (skipRepair +
   // skipProjectScaffold), so run the hydration-risk detector here too and log a

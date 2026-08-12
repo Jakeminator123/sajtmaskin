@@ -22,7 +22,8 @@ export interface ImportedRepoOrigin {
 
 export type ImportedRepoFramework = "next" | "vite" | "astro" | "remix" | "sveltekit" | "unknown";
 
-export type ImportedRepoRouter = "app" | "pages" | "mixed" | "none";
+export type ImportedRepoRouter =
+  "app" | "pages" | "mixed" | "astro-pages" | "remix-routes" | "sveltekit-routes" | "none";
 export type ImportedRepoSourceRoot = "root" | "src" | "mixed" | "unknown";
 export type ImportedRepoPackageManager = "pnpm" | "npm" | "yarn" | "bun" | "unknown";
 export type ImportedRepoScriptFamily =
@@ -127,7 +128,7 @@ const CONFIG_BASENAMES = new Set([
 const ENTRY_RE =
   /^(?:src\/)?(?:app\/(?:.*\/)?(?:page|layout|template|error|not-found)|pages\/(?:.*\/)?(?:index|_app|_document)|main|index|App)\.(?:[cm]?[jt]sx?)$/;
 const STYLE_RE = /(?:^|\/)(?:globals?|index|styles?|theme|tokens?)\.(?:css|scss|sass|less)$/i;
-const SAFE_PATH_RE = /^[A-Za-z0-9@_./()[\]{}+* -]+$/;
+const SAFE_PATH_RE = /^[A-Za-z0-9@_.$/()[\]{}+* -]+$/;
 const SAFE_META_RE = /^[A-Za-z0-9@_./+ -]+$/;
 const SAFE_PACKAGE_RE = /^(?:@[a-z0-9._-]+\/)?[a-z0-9._-]+$/;
 const SAFE_VERSION_RE = /^[0-9A-Za-z.*^~<>=|+_ -]+$/;
@@ -145,7 +146,15 @@ const FRAMEWORKS = new Set<ImportedRepoFramework>([
   "sveltekit",
   "unknown",
 ]);
-const ROUTERS = new Set<ImportedRepoRouter>(["app", "pages", "mixed", "none"]);
+const ROUTERS = new Set<ImportedRepoRouter>([
+  "app",
+  "pages",
+  "mixed",
+  "astro-pages",
+  "remix-routes",
+  "sveltekit-routes",
+  "none",
+]);
 const SOURCE_ROOTS = new Set<ImportedRepoSourceRoot>(["root", "src", "mixed", "unknown"]);
 const PACKAGE_MANAGERS = new Set<ImportedRepoPackageManager>([
   "pnpm",
@@ -363,6 +372,37 @@ function pagesRoute(path: string): string | null {
   return `/${relative.replace(/\/index$/, "").replace(/^index$/, "")}`.replace(/\/$/, "") || "/";
 }
 
+function astroRoute(path: string): string | null {
+  const match = /^(?:src\/)?pages\/(.+)\.(?:astro|mdx?|html)$/i.exec(path);
+  if (!match) return null;
+  const relative = match[1];
+  return `/${relative.replace(/\/index$/, "").replace(/^index$/, "")}`.replace(/\/$/, "") || "/";
+}
+
+function remixRoute(path: string): string | null {
+  const match = /^app\/routes\/(.+)\.[cm]?[jt]sx?$/.exec(path);
+  if (!match) return null;
+  const relative = match[1].replace(/\/route$/, "");
+  const segments = relative
+    .split(/[./]/)
+    .filter(Boolean)
+    .filter((segment) => segment !== "_index" && !segment.startsWith("_"))
+    .map((segment) => segment.replace(/_$/, ""))
+    .map((segment) => (segment.startsWith("$") ? `[${segment.slice(1)}]` : segment))
+    .filter(Boolean);
+  return `/${segments.join("/")}`.replace(/\/$/, "") || "/";
+}
+
+function svelteKitRoute(path: string): string | null {
+  const match = /^src\/routes\/(?:(.*)\/)?\+page\.svelte$/.exec(path);
+  if (!match) return null;
+  const segments = (match[1] ?? "")
+    .split("/")
+    .filter(Boolean)
+    .filter((segment) => !(segment.startsWith("(") && segment.endsWith(")")));
+  return `/${segments.join("/")}`.replace(/\/$/, "") || "/";
+}
+
 function readAliases(filesByPath: Map<string, CodeFile>): {
   aliases: Array<{ name: string; target: string }>;
   truncated: boolean;
@@ -454,10 +494,28 @@ export function analyzeImportedRepo(
   }
   if (!scripts.dev) risks.add("missing-dev-script");
 
+  const framework = frameworkFromSignals(dependencies, paths);
+  if (framework === "unknown") risks.add("unknown-framework");
+
   const hasApp = Array.from(paths).some((path) => /^(?:src\/)?app\/.+/.test(path));
   const hasPages = Array.from(paths).some((path) => /^(?:src\/)?pages\/.+/.test(path));
+  const hasAstroPages = Array.from(paths).some((path) => astroRoute(path) !== null);
+  const hasRemixRoutes = Array.from(paths).some((path) => remixRoute(path) !== null);
+  const hasSvelteKitRoutes = Array.from(paths).some((path) => svelteKitRoute(path) !== null);
   const router: ImportedRepoRouter =
-    hasApp && hasPages ? "mixed" : hasApp ? "app" : hasPages ? "pages" : "none";
+    framework === "astro" && hasAstroPages
+      ? "astro-pages"
+      : framework === "remix" && hasRemixRoutes
+        ? "remix-routes"
+        : framework === "sveltekit" && hasSvelteKitRoutes
+          ? "sveltekit-routes"
+          : hasApp && hasPages
+            ? "mixed"
+            : hasApp
+              ? "app"
+              : hasPages
+                ? "pages"
+                : "none";
   if (router === "mixed") risks.add("mixed-router");
 
   const hasSrcRoot = Array.from(paths).some((path) => path.startsWith("src/"));
@@ -468,12 +526,16 @@ export function analyzeImportedRepo(
     hasSrcRoot && hasRootSource ? "mixed" : hasSrcRoot ? "src" : hasRootSource ? "root" : "unknown";
   if (sourceRoot === "mixed") risks.add("mixed-source-roots");
 
-  const framework = frameworkFromSignals(dependencies, paths);
-  if (framework === "unknown") risks.add("unknown-framework");
-
   const allRoutes = uniqueSorted(
     Array.from(paths).flatMap(
-      (path) => [appRoute(path), pagesRoute(path)].filter(Boolean) as string[],
+      (path) =>
+        [
+          appRoute(path),
+          pagesRoute(path),
+          astroRoute(path),
+          remixRoute(path),
+          svelteKitRoute(path),
+        ].filter(Boolean) as string[],
     ),
   );
   if (allRoutes.length > MAX_PATHS) risks.add("routes-truncated");
@@ -499,10 +561,15 @@ export function analyzeImportedRepo(
   const sortedEnvKeys = uniqueSorted(envKeys);
   if (sortedEnvKeys.length > MAX_ENV_KEYS) risks.add("env-keys-truncated");
 
-  const entries = uniqueSorted(Array.from(paths).filter((path) => ENTRY_RE.test(path))).slice(
-    0,
-    MAX_PATHS,
-  );
+  const entries = uniqueSorted(
+    Array.from(paths).filter(
+      (path) =>
+        ENTRY_RE.test(path) ||
+        astroRoute(path) !== null ||
+        remixRoute(path) !== null ||
+        svelteKitRoute(path) !== null,
+    ),
+  ).slice(0, MAX_PATHS);
   const configs = uniqueSorted(
     Array.from(paths).filter((path) => CONFIG_BASENAMES.has(path.split("/").at(-1) ?? "")),
   ).slice(0, MAX_PATHS);

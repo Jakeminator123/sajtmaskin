@@ -377,6 +377,58 @@ describe("POST /api/template", () => {
     expect(commitCredits).toHaveBeenCalled();
   });
 
+  it("treats an ok preview response without a usable URL as a failed preview", async () => {
+    const source = {
+      templateId: "tmpl_1",
+      archivePath: "C:\\templates_v0\\downloads\\AI\\tmpl_1\\repo.zip",
+      sourceSlugs: ["ai"],
+      sourceLabelsSv: ["AI"],
+      categoryLabel: "AI",
+      timestamp: freshTimestamp(),
+    };
+    getLocalV0TemplateSourceById.mockResolvedValue(source);
+    loadLocalV0TemplateFiles.mockResolvedValue({
+      source,
+      files: [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page() { return <div>Repo</div>; }",
+          language: "tsx",
+        },
+      ],
+    });
+    startPreviewSession.mockResolvedValue({
+      ok: true,
+      result: {
+        previewUrl: "   ",
+        runtimeReady: true,
+        filesRevision: "booted_revision",
+      },
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: "tmpl_1", quality: "standard" }),
+      }) as never,
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      success: true,
+      previewUrl: null,
+      previewStartFailed: true,
+    });
+    expect(chatRepoUpdateVersionPreviewUrl).not.toHaveBeenCalled();
+    expect(recordImportedRepoPreviewOutcome).toHaveBeenCalledWith({
+      versionId: "ver_import",
+      filesRevision: null,
+      outcome: "failed",
+    });
+  });
+
   it("surfaces stale=true and emits a devLog entry when the local source is older than 30 days", async () => {
     const staleTimestamp = "2025-01-01T00:00:00Z";
     getLocalV0TemplateSourceById.mockResolvedValue({

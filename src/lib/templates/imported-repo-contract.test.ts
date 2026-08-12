@@ -168,6 +168,57 @@ describe("analyzeImportedRepo", () => {
     expect(contract.structure.routes).not.toContain("/_app");
   });
 
+  it.each([
+    {
+      name: "Astro",
+      packageJson: {
+        scripts: { dev: "astro dev" },
+        dependencies: { astro: "^5.0.0" },
+      },
+      routeFiles: ["src/pages/index.astro", "src/pages/about.astro", "src/pages/blog/[slug].astro"],
+      framework: "astro",
+      router: "astro-pages",
+      routes: ["/", "/about", "/blog/[slug]"],
+    },
+    {
+      name: "Remix",
+      packageJson: {
+        scripts: { dev: "remix dev" },
+        dependencies: { "@remix-run/react": "^2.16.0" },
+      },
+      routeFiles: ["app/routes/_index.tsx", "app/routes/about.tsx", "app/routes/blog.$slug.tsx"],
+      framework: "remix",
+      router: "remix-routes",
+      routes: ["/", "/about", "/blog/[slug]"],
+    },
+    {
+      name: "SvelteKit",
+      packageJson: {
+        scripts: { dev: "vite dev" },
+        dependencies: { "@sveltejs/kit": "^2.0.0", svelte: "^5.0.0", vite: "^6.0.0" },
+      },
+      routeFiles: [
+        "src/routes/+page.svelte",
+        "src/routes/(marketing)/about/+page.svelte",
+        "src/routes/blog/[slug]/+page.svelte",
+      ],
+      framework: "sveltekit",
+      router: "sveltekit-routes",
+      routes: ["/", "/about", "/blog/[slug]"],
+    },
+  ])("discovers authoritative $name file-based routes", (fixture) => {
+    const contract = analyzeImportedRepo(
+      [packageFile(fixture.packageJson), ...fixture.routeFiles.map((path) => file(path))],
+      { kind: "zip" },
+    );
+
+    expect(contract.structure.framework).toBe(fixture.framework);
+    expect(contract.structure.router).toBe(fixture.router);
+    expect(contract.structure.routes).toEqual(fixture.routes);
+    expect(contract.structure.entries).toHaveLength(fixture.routeFiles.length);
+    expect(contract.structure.entries).toEqual(expect.arrayContaining(fixture.routeFiles));
+  });
+
   it("flags mixed routers, source roots, package roots and lockfile managers", () => {
     const contract = analyzeImportedRepo(
       [
