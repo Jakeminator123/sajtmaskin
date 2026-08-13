@@ -180,6 +180,7 @@ export type OwnEngineGenerationStreamMetaInput = {
   customInstructionsLength: number;
   scaffoldId: string | null;
   variantId?: string | null;
+  variantTemplateId?: string | null;
 } & (
   | { routeVariant: "new-chat"; chatPrivacy: string; scaffoldLabel: string | null }
   | { routeVariant: "follow-up" }
@@ -251,6 +252,7 @@ export function buildOwnEngineGenerationStreamMeta(
     f3ApprovedProviders: orch.f3ApprovedProviders ?? [],
     customInstructionsLength: input.customInstructionsLength,
     variantId: input.variantId ?? null,
+    variantTemplateId: input.variantTemplateId ?? null,
   };
   if (input.routeVariant === "new-chat") {
     (meta as Record<string, unknown>).chatPrivacy = input.chatPrivacy;

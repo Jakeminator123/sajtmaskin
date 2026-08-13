@@ -8,20 +8,20 @@ export default function SettingsPage() {
     <div className="space-y-8 p-8">
       <div className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight">Inställningar</h1>
-        <p className="text-muted-foreground">Konfigurera workspace, notifieringar och teampreferenser.</p>
+        <p className="text-muted-foreground">Konfigurera arbetsyta, notifieringar och teampreferenser.</p>
       </div>
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle>Workspace</CardTitle>
+          <CardTitle>Arbetsyta</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="workspace-name">Workspace-namn</Label>
-            <Input id="workspace-name" placeholder="[Workspace]" />
+            <Label htmlFor="workspace-name">Namn på arbetsyta</Label>
+            <Input id="workspace-name" placeholder="[Arbetsyta]" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="notification-channel">Notifieringskanal</Label>
-            <Input id="notification-channel" placeholder="Slack / Teams / Email" />
+            <Input id="notification-channel" placeholder="Slack / Teams / E-post" />
           </div>
           <Button>Spara</Button>
         </CardContent>

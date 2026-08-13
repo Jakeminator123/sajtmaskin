@@ -72,7 +72,7 @@ when you adapt the route; do not remove the canned fallback.
 
 - Show a clear empty state with 2-3 example prompts the user can click.
 - Stream tokens visibly — never wait for the full response before rendering.
-- Display a "Stop generating" button while a response is streaming.
+- Visa en "Stoppa generering"-knapp medan svaret streamas.
 - Respect prefers-reduced-motion: skip the typing-indicator animation.
 - Cap visible message history to ~50 turns; older messages can be collapsed.
 

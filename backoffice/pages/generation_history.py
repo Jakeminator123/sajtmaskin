@@ -46,6 +46,10 @@ _TIMEOUT_S = 60
 COLUMN_QUALITY_GATE = "Kvalitetsgrind"
 COLUMN_NORMALIZE = "Normalize"
 COLUMN_REPAIR_GATE = "RepairGate"
+COLUMN_FINDINGS_BEFORE = "Fynd före"
+COLUMN_FINDINGS_AFTER = "Fynd efter"
+COLUMN_REPAIR_HELPED = "Repair hjälpte"
+COLUMN_RISKY_FIXES = "Risky fixar"
 
 GATE_COLUMN_LEGEND = (
     f"**{COLUMN_QUALITY_GATE}** = RenderGate när Stage är `design`/F2, ReleaseGate när "
@@ -53,8 +57,22 @@ GATE_COLUMN_LEGEND = (
     f"**{COLUMN_NORMALIZE}** = mekaniska, deterministiska fixar kördes "
     "(DB: `autofix_applied`) · "
     f"**{COLUMN_REPAIR_GATE}** = LLM-repair behövdes efter dem "
-    "(DB: `syntax_fixer_used`)."
+    "(DB: `syntax_fixer_used`) · "
+    f"**{COLUMN_REPAIR_HELPED}** = verifier-repair minskade fynd "
+    "(`meta.postStreamSteps.verifier.fixerImproved`; visas bara när `fixerUsed`) · "
+    f"**{COLUMN_RISKY_FIXES}** = antal riskfyllda autofix "
+    "(`meta.autofix.riskyFixCount`)."
 )
+
+
+def _repair_helped_label(fixer_used: Any, fixer_improved: Any) -> str:
+    if fixer_used is not True:
+        return "—"
+    if fixer_improved is True:
+        return "ja"
+    if fixer_improved is False:
+        return "nej"
+    return "—"
 
 
 def _run_history(repo_root, extra_args: list[str]) -> dict[str, Any]:
@@ -228,6 +246,19 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
                         "Retry": t.get("retry_count"),
                         COLUMN_NORMALIZE: "ja" if t.get("autofix_applied") else "nej",
                         COLUMN_REPAIR_GATE: "ja" if t.get("syntax_fixer_used") else "nej",
+                        COLUMN_FINDINGS_BEFORE: t.get("verifier_findings_before")
+                        if t.get("verifier_findings_before") is not None
+                        else "—",
+                        COLUMN_FINDINGS_AFTER: t.get("verifier_findings_after")
+                        if t.get("verifier_findings_after") is not None
+                        else "—",
+                        COLUMN_REPAIR_HELPED: _repair_helped_label(
+                            t.get("verifier_fixer_used"),
+                            t.get("verifier_fixer_improved"),
+                        ),
+                        COLUMN_RISKY_FIXES: t.get("autofix_risky_count")
+                        if t.get("autofix_risky_count") is not None
+                        else "—",
                         "Preflight E/W": f"{t.get('preflight_error_count', 0)}/{t.get('preflight_warning_count', 0)}",
                         "Blocking": _short(t.get("preview_blocking_reason"), 40) or "—",
                     }

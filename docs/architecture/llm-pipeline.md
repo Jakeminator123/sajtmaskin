@@ -306,7 +306,7 @@ promptkontrakt dölja befintliga integrationer eller återinflatera spekulativa.
 
 **Klient-auto-continue:** kontraktet ovan är oförändrat på servern. Klienten (`MessageList.tsx`) har ingen "Svar krävs"-dialog längre — ALLA väntande frågor (klargörande frågor, planblockerare, kontraktsgrind, scope-val, F3-continuation) renderas inline i chattflödet, aldrig som blockerande overlay (ägarbeslut 2026-07-09; en flytande "Svar krävs"-knapp scrollar bara till frågan). För `f3-continuation`-markern specifikt: en marker som anländer LIVE i sessionen auto-skickar `Godkänn förslag` exakt en gång (lugn inline-rad "Integrationsbygget fortsätter automatiskt…"); loop-breakern är säkerhetsnätet så att max en auto-retry + en auto-loop-retry kan ske innan tredje rundan stänger terminalt. En marker som redan fanns vid mount (reload av gammal historik) auto-körs inte — då visas de vanliga inline-quick-replies (Godkänn/Avvisa/Annat). Auto-approve förbrukar credits för retry-rundan (medvetet ägarval).
 
-Tier-3-stub-placeholders (`41-tier3-stub-placeholders.env.txt`-värden i `.env.local`/`env.example`) är inte integrationsbevis: de filtreras ur både `detect-integrations` och follow-up-filkontexten (`stub-env-filter.ts`).
+Tier-3-stub-placeholders (`41-tier3-stub-placeholders.env.txt`-värden i `.env.local`/`env.example`) är inte integrationsbevis: `detectIntegrationsFromVersionFiles` filtrerar stub-/kommentarsrader ur env-artefakter innan provider-regexen körs (`stub-env-filter.ts`). Samma väg används när F3-manifestet räknas om via `injectIntegrationManifestIntoFilesJson` — rå `detectIntegrations(combined)` utan stub-filter får inte längre mata manifestet. Follow-up-filkontexten filtrerar stubbar på samma sätt.
 
 ## Fast Edit Lane
 

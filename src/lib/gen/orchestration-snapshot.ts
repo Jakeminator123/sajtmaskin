@@ -15,6 +15,7 @@ const MAX_DEPTH = 8;
 const MAX_KEYS = 80;
 const PROTECTED_TOP_LEVEL_KEYS = [
   "variantId",
+  "variantTemplateId",
   "scaffoldId",
   "lineageHash",
   "versionId",
@@ -202,6 +203,9 @@ export function mergePersistedOrchestrationSnapshots(
   // passes that lost these values during sanitization.
   if (typeof base.variantId === "string" && next.variantId === null) {
     merged.variantId = base.variantId;
+  }
+  if (typeof base.variantTemplateId === "string" && next.variantTemplateId === null) {
+    merged.variantTemplateId = base.variantTemplateId;
   }
   if (typeof base.scaffoldId === "string" && next.scaffoldId === null) {
     merged.scaffoldId = base.scaffoldId;

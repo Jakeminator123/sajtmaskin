@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { label: "Features", href: "#features" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Funktioner", href: "#features" },
+  { label: "Priser", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ];
 
@@ -20,7 +20,7 @@ export function MarketingHeader() {
               {item.label}
             </a>
           ))}
-          <Button size="sm" className="rounded-full">Start free</Button>
+          <Button size="sm" className="rounded-full">Starta gratis</Button>
         </nav>
       </div>
     </header>

@@ -75,6 +75,38 @@ function resolveSsl() {
 
 const client = new pg.Client({ connectionString: url.toString(), ssl: resolveSsl() });
 
+/**
+ * Project verifier/autofix outcome fields from telemetry `meta` onto each row.
+ * Older rows lack these keys — keep null rather than inventing defaults.
+ */
+function projectTelemetryMetaFields(row) {
+  const meta = row?.meta && typeof row.meta === "object" && !Array.isArray(row.meta) ? row.meta : null;
+  const verifier =
+    meta?.postStreamSteps &&
+    typeof meta.postStreamSteps === "object" &&
+    !Array.isArray(meta.postStreamSteps)
+      ? meta.postStreamSteps.verifier
+      : null;
+  const autofix = meta?.autofix && typeof meta.autofix === "object" && !Array.isArray(meta.autofix)
+    ? meta.autofix
+    : null;
+  const verifierObj =
+    verifier && typeof verifier === "object" && !Array.isArray(verifier) ? verifier : null;
+  return {
+    ...row,
+    verifier_findings_before:
+      typeof verifierObj?.findingsBefore === "number" ? verifierObj.findingsBefore : null,
+    verifier_findings_after:
+      typeof verifierObj?.findingsAfter === "number" ? verifierObj.findingsAfter : null,
+    verifier_fixer_used:
+      typeof verifierObj?.fixerUsed === "boolean" ? verifierObj.fixerUsed : null,
+    verifier_fixer_improved:
+      typeof verifierObj?.fixerImproved === "boolean" ? verifierObj.fixerImproved : null,
+    autofix_risky_count:
+      typeof autofix?.riskyFixCount === "number" ? autofix.riskyFixCount : null,
+  };
+}
+
 const RECENT_QUERY = `
   SELECT
     gt.created_at,
@@ -171,7 +203,7 @@ try {
       generatedAt: new Date().toISOString(),
       chat: meta.rows[0] ?? { id: chatId, missing: true },
       versions: versions.rows,
-      telemetry: telemetry.rows,
+      telemetry: telemetry.rows.map(projectTelemetryMetaFields),
       errorLogs: errorLogs.rows,
       generationLogs: genLogs.rows,
     };
@@ -184,7 +216,7 @@ try {
   }
 
   const result = await client.query(RECENT_QUERY, [limit]);
-  const rows = result.rows;
+  const rows = result.rows.map(projectTelemetryMetaFields);
   let success = 0;
   let failed = 0;
   let pending = 0;

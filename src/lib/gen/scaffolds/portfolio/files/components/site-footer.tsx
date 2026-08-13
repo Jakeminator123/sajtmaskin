@@ -1,6 +1,6 @@
 const links = {
-  Navigation: ["Work", "Writing", "About"],
-  Connect: ["Email", "LinkedIn", "GitHub"],
+  Navigering: ["Arbete", "Text", "Om"],
+  Kontakt: ["E-post", "LinkedIn", "GitHub"],
 };
 
 export function SiteFooter() {
@@ -10,7 +10,7 @@ export function SiteFooter() {
         <div className="space-y-4">
           <p className="text-lg font-semibold tracking-tight">[Företagsnamn]</p>
           <p className="max-w-sm text-sm leading-7 text-muted-foreground">
-            Personal portfolio starter for creatives, consultants, and founder-led brands that need a sharper first impression.
+            Personlig portfoliostart för kreatörer, konsulter och grundarledda varumärken som behöver ett skarpare första intryck.
           </p>
         </div>
         {Object.entries(links).map(([title, items]) => (

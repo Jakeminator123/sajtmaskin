@@ -50,6 +50,27 @@ describe("sanitizeOrchestrationSnapshotForStorage — variantId roundtrip", () =
     expect(out.variantId).toBe("editorial-lux");
     expect(out.scaffoldId).toBe("landing-page");
   });
+
+  it("preserves variantTemplateId under heavy buildSpec budget", () => {
+    const heavyBuildSpec: Record<string, unknown> = {};
+    for (let i = 0; i < 100; i++) {
+      heavyBuildSpec[`field_${i}`] = `value_${i}`;
+    }
+    const out = buildPersistedOrchestrationSnapshot({
+      streamMeta: {
+        modelId: "gpt-5.3-codex",
+        scaffoldId: "blog",
+        buildSpec: heavyBuildSpec,
+        variantId: "editorial-lux",
+        variantTemplateId: "1fwaS3xF7MM",
+      },
+      versionId: "ver_1",
+      chatId: "chat_1",
+      buildIntent: "website",
+    });
+    expect(out.variantTemplateId).toBe("1fwaS3xF7MM");
+    expect(out.variantId).toBe("editorial-lux");
+  });
 });
 
 describe("mergePersistedOrchestrationSnapshots — variantId protection", () => {
@@ -79,5 +100,19 @@ describe("mergePersistedOrchestrationSnapshots — variantId protection", () => 
     const next = { scaffoldId: null, capturedAt: "2026-01-02T00:00:00Z" };
     const merged = mergePersistedOrchestrationSnapshots(base, next);
     expect(merged.scaffoldId).toBe("landing-page");
+  });
+
+  it("base.variantTemplateId='X', next.variantTemplateId=null => keeps X", () => {
+    const base = { variantTemplateId: "1fwaS3xF7MM", capturedAt: "2026-01-01T00:00:00Z" };
+    const next = { variantTemplateId: null, capturedAt: "2026-01-02T00:00:00Z" };
+    const merged = mergePersistedOrchestrationSnapshots(base, next);
+    expect(merged.variantTemplateId).toBe("1fwaS3xF7MM");
+  });
+
+  it("base.variantTemplateId='X', next.variantTemplateId='Y' => takes Y", () => {
+    const base = { variantTemplateId: "1fwaS3xF7MM", capturedAt: "2026-01-01T00:00:00Z" };
+    const next = { variantTemplateId: "otherTemplate", capturedAt: "2026-01-02T00:00:00Z" };
+    const merged = mergePersistedOrchestrationSnapshots(base, next);
+    expect(merged.variantTemplateId).toBe("otherTemplate");
   });
 });

@@ -7,8 +7,8 @@ import { SiteFooter } from "@/components/site-footer";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Blog Starter",
-  description: "A content-first blog starter with article list, post layout, and reading-friendly typography.",
+  title: "Bloggstart",
+  description: "En innehållsdriven bloggstart med artikellista, inläggslayout och läsvänlig typografi.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
