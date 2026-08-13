@@ -454,7 +454,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
     if (acceptAndHoldWebSocket(req, socket)) {
       // Även en host-hållen stub-socket betyder "en iframe är öppen" — räkna
       // den så idle-reapern inte stoppar en runtime någon tittar på.
-      registerPreviewSocket(info.chatId, socket);
+      registerPreviewSocket(info.chatId, socket, { handshakeComplete: true });
       return true;
     }
     // Malformed upgrade request (no Sec-WebSocket-Key); close the socket.
@@ -482,7 +482,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
     if (!state.running) {
       if (!state.booting) queueRuntimeBoot(info.chatId);
       if (acceptAndHoldWebSocket(req, socket)) {
-        registerPreviewSocket(info.chatId, socket);
+        registerPreviewSocket(info.chatId, socket, { handshakeComplete: true });
         return true;
       }
       try { socket.destroy(); } catch { /* already closed */ }

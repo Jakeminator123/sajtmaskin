@@ -1466,7 +1466,7 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     writeFileSync(storePath, JSON.stringify(store), "utf8");
     await runtime.ensureRuntimeForChat(ghostChat, { restart: true });
     const ghostSocket = fakePreviewSocket();
-    registerPreviewSocket(ghostChat, ghostSocket);
+    registerPreviewSocket(ghostChat, ghostSocket, { handshakeComplete: true });
     check(
       "restart with a prior runtime port still delivers reload to a late HMR reconnect",
       wroteReloadPage(ghostSocket),
@@ -1477,12 +1477,22 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     const reconnectChat = "guard-reload-reconnect";
     markPendingPreviewClientReload(reconnectChat);
     const reconnectSocket = fakePreviewSocket();
-    registerPreviewSocket(reconnectChat, reconnectSocket);
+    registerPreviewSocket(reconnectChat, reconnectSocket, { handshakeComplete: true });
     check(
       "pending reload is delivered when a socket connects after the old runtime died",
       wroteReloadPage(reconnectSocket),
     );
     clearPendingPreviewClientReload(reconnectChat);
+
+    const proxyChat = "guard-reload-proxy-handshake";
+    markPendingPreviewClientReload(proxyChat);
+    const proxySocket = fakePreviewSocket();
+    registerPreviewSocket(proxyChat, proxySocket);
+    check(
+      "pending reload is not written before the WebSocket handshake completes",
+      proxySocket.writes.length === 0,
+    );
+    clearPendingPreviewClientReload(proxyChat);
 
     const boomChat = "guard-reload-failsafe";
     const boomSession = seedReloadSession(boomChat);

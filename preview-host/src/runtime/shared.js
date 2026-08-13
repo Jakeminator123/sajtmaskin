@@ -175,7 +175,7 @@ function requestPreviewClientReload(chatId) {
   return { sent };
 }
 
-function registerPreviewSocket(chatId, socket) {
+function registerPreviewSocket(chatId, socket, options = {}) {
   if (!chatId || !socket) return;
   let set = activePreviewSocketsByChat.get(chatId);
   if (!set) {
@@ -191,7 +191,10 @@ function registerPreviewSocket(chatId, socket) {
       activePreviewSocketsByChat.delete(chatId);
     }
   });
-  if (hasPendingPreviewClientReload(chatId)) {
+  // Only emit reloadPage once this socket has completed a WebSocket
+  // handshake we own (the HMR stub). The proxied path calls this BEFORE
+  // `proxy.ws` — writing a frame there would corrupt the upgrade.
+  if (options.handshakeComplete === true && hasPendingPreviewClientReload(chatId)) {
     requestPreviewClientReload(chatId);
   }
 }
