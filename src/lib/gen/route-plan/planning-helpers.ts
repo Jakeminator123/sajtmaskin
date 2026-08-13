@@ -1,5 +1,5 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { escapeRegexLiteral, uWordRegex } from "@/lib/utils/unicode-word-boundary";
+import { escapeRegexLiteral, uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import { APP_ROUTE_PATTERNS, type RoutePatternEntry, WEBSITE_ROUTE_PATTERNS } from "./route-patterns";
 import { normalizeRoutePath } from "./path-utils";
@@ -37,8 +37,68 @@ const EXPLICIT_ADD_ROUTE_PATTERNS = [
   /\b(?:ny\s+)(?:sida|route)\b/i,
 ];
 
-const EXPLICIT_PAGE_COUNT_RE =
-  /\b(\d{1,2})\s*(?:sidor|sida|pages?|routes?|vyer?|views?)\b/i;
+const PAGE_NOUN = String.raw`(?:sidor|sida|pages?|routes?|vyer?|views?)`;
+const PAGE_NOUN_PLURAL = String.raw`(?:sidor|pages|routes|vyer|views)`;
+const PAGE_NOUN_SINGULAR = String.raw`(?:sidan?|pages?|routes?|vyer?|views?)`;
+
+const EXPLICIT_PAGE_COUNT_RE = new RegExp(uWord(String.raw`(\d{1,2})\s*${PAGE_NOUN}`), "iu");
+
+const WORD_NUMBER_COUNTS: Readonly<Record<string, number>> = {
+  två: 2,
+  tre: 3,
+  fyra: 4,
+  fem: 5,
+  sex: 6,
+  sju: 7,
+  åtta: 8,
+  nio: 9,
+  tio: 10,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+};
+
+const WORD_PAGE_COUNT_RE = new RegExp(
+  uWord(
+    String.raw`(två|tre|fyra|fem|sex|sju|åtta|nio|tio|two|three|four|five|six|seven|eight|nine|ten)\s+${PAGE_NOUN_PLURAL}`,
+  ),
+  "iu",
+);
+
+/**
+ * "en sida" / "one page" is an article or add-intent far more often than a
+ * cap. Require a restrictive marker (bara/endast/enda/only/single/…).
+ * Marker and page noun may be a few words apart for "den enda sida".
+ */
+const RESTRICTIVE_ONE_PAGE_RE = new RegExp(
+  uWord(
+    String.raw`(?:` +
+      String.raw`(?:bara|endast|enbart)\s+(?:på\s+)?en\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|(?:en|den)\s+enda\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|(?:max|högst)\s+en\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|en\s*\(\s*1\s*\)\s*${PAGE_NOUN_SINGULAR}` +
+      String.raw`|en\s+${PAGE_NOUN_SINGULAR}\s+totalt` +
+      String.raw`|allt(?:\s+\p{L}+){0,3}\s+på\s+en\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|(?:only|just)\s+one\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|a\s+single\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|single-${PAGE_NOUN_SINGULAR}` +
+      String.raw`|one\s+${PAGE_NOUN_SINGULAR}\s+only` +
+      String.raw`|(?:all\s+)?on\s+one\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`)`,
+  ),
+  "iu",
+);
+
+const INDEFINITE_PAGE_MENTION_RE = new RegExp(
+  uWord(String.raw`(?:en|ett|one|a)\s+${PAGE_NOUN_SINGULAR}`),
+  "giu",
+);
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -344,15 +404,40 @@ export function neutralizeExplicitPageNameLiterals(
   return out;
 }
 
+function countIndefinitePageMentions(prompt: string): number {
+  INDEFINITE_PAGE_MENTION_RE.lastIndex = 0;
+  return prompt.match(INDEFINITE_PAGE_MENTION_RE)?.length ?? 0;
+}
+
 /**
- * Detect when the user explicitly states a page count ("3 sidor", "5 pages").
- * Returns the count or null when no match is found.
+ * Detect when the user explicitly states a page count ("3 sidor", "två sidor",
+ * "bara en sida"). Returns the count or null when no match is found.
+ *
+ * Bare "en sida" / "one page" is not a count: it is often an article
+ * ("en sida med priser och en sida med kontakt") or an add-intent
+ * ("lägg till en sida"). One-page phrasing requires a restrictive marker.
  */
 export function detectExplicitPageCount(prompt: string): number | null {
-  const match = prompt.match(EXPLICIT_PAGE_COUNT_RE);
-  if (!match) return null;
-  const count = parseInt(match[1]!, 10);
-  return count >= 1 && count <= 20 ? count : null;
+  if (!prompt) return null;
+
+  const digitMatch = prompt.match(EXPLICIT_PAGE_COUNT_RE);
+  if (digitMatch) {
+    const count = parseInt(digitMatch[1]!, 10);
+    if (count >= 1 && count <= 20) return count;
+  }
+
+  const wordMatch = prompt.match(WORD_PAGE_COUNT_RE);
+  if (wordMatch) {
+    const count = WORD_NUMBER_COUNTS[wordMatch[1]!.toLowerCase()];
+    if (count !== undefined && count >= 2 && count <= 20) return count;
+  }
+
+  // Two "en sida" / "one page" mentions are a list of pages, not a cap of 1.
+  if (RESTRICTIVE_ONE_PAGE_RE.test(prompt) && countIndefinitePageMentions(prompt) < 2) {
+    return 1;
+  }
+
+  return null;
 }
 
 export function buildRoutesFromBrief(
