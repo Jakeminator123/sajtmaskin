@@ -16,7 +16,7 @@ vi.mock("@/lib/config", () => ({
   },
 }));
 
-import * as envVarCipher from "./crypto/env-var-cipher";
+import * as envVarCipher from "@/lib/crypto/env-var-cipher";
 import {
   deleteStoredProjectEnvVars,
   getStoredProjectEnvVarMap,

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { createProject, deleteProject } from "@/lib/project-client"
+import { createProject, deleteProject } from "@/lib/projects/project-client"
 import { resolveLandingRouteTarget } from "@/components/landing-v2/route-target"
 import { categories, siteTypes } from "@/components/landing-v2/landing-chat-data"
 import {

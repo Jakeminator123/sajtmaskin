@@ -6,7 +6,7 @@ import {
 } from "@/lib/db/services/projects";
 import type { Project } from "@/lib/db/services/shared";
 import { getCache, setCache, deleteCache } from "@/lib/data/redis";
-import { canCreateProject } from "@/lib/project-cleanup";
+import { canCreateProject } from "@/lib/projects/project-cleanup";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest, getSessionIdFromRequest } from "@/lib/auth/session";
 

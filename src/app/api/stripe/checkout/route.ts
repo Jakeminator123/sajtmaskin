@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getPackageById } from "@/lib/stripe";
+import { getPackageById } from "@/lib/billing/stripe";
 import { URLS, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getTransactionByStripeSession } from "@/lib/db/services/transactions";

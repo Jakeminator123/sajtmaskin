@@ -1,4 +1,4 @@
-import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
+import { getStoredProjectEnvVarMap } from "@/lib/projects/project-env-vars";
 
 /**
  * Project-scoped `configured` signal for hard dossiers (fix-isconfigured).

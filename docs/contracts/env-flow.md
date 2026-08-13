@@ -150,7 +150,7 @@ blockera på det som verkligen kräver en riktig integration.
   Nyckelfria dossiers, som analytics, använder sitt effektiva läge utan att
   hitta på ett env-krav.
 - **Enforcement styr blockering, inte "finns nyckeln i `env.example`".**
-  `buildBlockingKeys` (`src/lib/project-env-resolver.ts`) = de build-enforced
+  `buildBlockingKeys` (`src/lib/projects/project-env-resolver.ts`) = de build-enforced
   nycklar som saknar både ett riktigt projektvärde och en godkänd
   katalog-placeholder. Efter #468 är `clerk-auth` den enda dossiern med
   `build`-nycklar (`CLERK_SECRET_KEY` +

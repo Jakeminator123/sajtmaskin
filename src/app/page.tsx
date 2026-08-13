@@ -22,7 +22,7 @@ import {
 } from "@/lib/builder/build-intent";
 import type { AuditResult } from "@/types/audit";
 import { toast } from "sonner";
-import { createProject } from "@/lib/project-client";
+import { createProject } from "@/lib/projects/project-client";
 
 declare global {
   interface Window {

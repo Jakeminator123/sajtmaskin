@@ -10,7 +10,7 @@ import {
   type PaletteState,
 } from "@/lib/builder/palette";
 import type { ChatMessage } from "@/lib/builder/types";
-import { getProject, saveProjectData } from "@/lib/project-client";
+import { getProject, saveProjectData } from "@/lib/projects/project-client";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuilderEntryKind } from "../builder-entry";
 import { asRecord, parsePreviewOverride } from "../builder-page-preview-helpers";
@@ -120,7 +120,7 @@ export function useBuilderProjectHydration({
     }
 
     autoProjectCreateInFlightRef.current = true;
-    import("@/lib/project-client")
+    import("@/lib/projects/project-client")
       .then(({ createProject }) =>
         createProject("Untitled Project")
           .then((project) => {

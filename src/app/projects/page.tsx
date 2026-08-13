@@ -9,7 +9,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { Loader2, Plus, Trash2, ExternalLink, Clock, Folder } from "lucide-react";
-import { getProjects, deleteProject, Project } from "@/lib/project-client";
+import { getProjects, deleteProject, Project } from "@/lib/projects/project-client";
 import { ProjectThumbnail } from "@/components/projects/project-thumbnail";
 import {
   AlertDialog,

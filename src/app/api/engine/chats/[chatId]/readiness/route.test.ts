@@ -52,12 +52,12 @@ vi.mock("@/lib/db/services/version-errors", () => ({
 
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
 
-vi.mock("@/lib/project-env-resolver", () => ({
+vi.mock("@/lib/projects/project-env-resolver", () => ({
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 }));
 
-vi.mock("@/lib/project-env-vars", () => ({ readAllowPlaceholdersInF3 }));
+vi.mock("@/lib/projects/project-env-vars", () => ({ readAllowPlaceholdersInF3 }));
 
 vi.mock("@/lib/gen/dossiers/snapshot-selection", () => ({
   resolveSelectedDossiersFromSnapshot,

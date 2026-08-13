@@ -97,7 +97,7 @@ vi.mock("@/lib/integrations/tier3-build-spec", () => ({
   mapProviderKeysToBackingDossierIds,
 }));
 
-vi.mock("@/lib/project-env-vars", () => ({
+vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap,
   readAllowPlaceholdersInF3,
 }));

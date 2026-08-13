@@ -7,7 +7,7 @@ const createProject = vi.hoisted(() => vi.fn());
 const getProject = vi.hoisted(() => vi.fn());
 const saveProjectData = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/project-client", () => ({ createProject, getProject, saveProjectData }));
+vi.mock("@/lib/projects/project-client", () => ({ createProject, getProject, saveProjectData }));
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 
 const { useBuilderProjectHydration } = await import("./useBuilderProjectHydration");

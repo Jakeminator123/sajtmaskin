@@ -12,7 +12,7 @@ const getLatestEngineVersionErrorLogForCategory = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
-vi.mock("@/lib/project-env-vars", () => ({
+vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap,
 }));
 // Bara `loadPlaceholderKeySet` behöver stubbas. Resten av modulen kommer från

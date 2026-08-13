@@ -39,7 +39,7 @@ vi.mock("../autofix/repair-generated-files", () => ({
   repairGeneratedFiles: vi.fn((files) => ({ files })),
 }));
 
-vi.mock("@/lib/project-env-vars", () => ({
+vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap: vi.fn(async () => ({
     STRIPE_SECRET_KEY: "sk_from_project",
   })),

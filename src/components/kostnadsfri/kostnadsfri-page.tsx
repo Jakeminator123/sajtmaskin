@@ -8,7 +8,7 @@ import { ThinkingSpinner } from "./thinking-spinner";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
 import { buildPromptFromWizardData } from "@/lib/kostnadsfri";
 import type { KostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
-import { createProject } from "@/lib/project-client";
+import { createProject } from "@/lib/projects/project-client";
 
 declare global {
   interface Window {

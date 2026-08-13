@@ -3,7 +3,7 @@ import { usePreviewSurfaceMode } from "@/components/builder/preview-panel/usePre
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
-import { saveProjectData } from "@/lib/project-client";
+import { saveProjectData } from "@/lib/projects/project-client";
 import {
   readAutofixLocalStorageOnly,
   writeAutofixLocalStorage,

@@ -461,7 +461,7 @@ export async function POST(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════════
 
     if (action === "run-cleanup") {
-      const { runCleanup, getCleanupStats } = await import("@/lib/project-cleanup");
+      const { runCleanup, getCleanupStats } = await import("@/lib/projects/project-cleanup");
       const statsBefore = await getCleanupStats();
       const result = await runCleanup();
       const statsAfter = await getCleanupStats();
@@ -476,7 +476,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "get-cleanup-stats") {
-      const { getCleanupStats, CLEANUP_CONFIG } = await import("@/lib/project-cleanup");
+      const { getCleanupStats, CLEANUP_CONFIG } = await import("@/lib/projects/project-cleanup");
       const stats = await getCleanupStats();
       return NextResponse.json({
         success: true,

@@ -6,7 +6,7 @@ import {
   deleteStoredProjectEnvVars,
   getStoredProjectEnvVars,
   upsertStoredProjectEnvVars,
-} from "@/lib/project-env-vars";
+} from "@/lib/projects/project-env-vars";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { debugLog, errorLog } from "@/lib/utils/debug";
