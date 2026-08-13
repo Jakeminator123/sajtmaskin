@@ -138,11 +138,11 @@ class ScaffoldTreePaginationTests(unittest.TestCase):
         self.assertEqual(_tree_page_slice(ids, 1), ids[:TREE_VIEW_PAGE_SIZE])
         self.assertEqual(_tree_page_slice(ids, 2), ids[TREE_VIEW_PAGE_SIZE:])
 
-    def test_out_of_range_page_falls_back_to_first_page(self) -> None:
-        ids = ["a", "b", "c"]
+    def test_out_of_range_page_clamps_to_valid_range(self) -> None:
+        ids = [f"scaffold-{index}" for index in range(TREE_VIEW_PAGE_SIZE + 3)]
 
-        self.assertEqual(_tree_page_slice(ids, 0), ids)
-        self.assertEqual(_tree_page_slice(ids, 99), ids)
+        self.assertEqual(_tree_page_slice(ids, 0), ids[:TREE_VIEW_PAGE_SIZE])
+        self.assertEqual(_tree_page_slice(ids, 99), ids[TREE_VIEW_PAGE_SIZE:])
         self.assertEqual(_tree_page_count(0), 1)
 
 

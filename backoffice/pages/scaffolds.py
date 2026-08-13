@@ -52,7 +52,7 @@ def _tree_page_slice(
     page: int,
     page_size: int = TREE_VIEW_PAGE_SIZE,
 ) -> list[str]:
-    """Ids for `page` (1-indexerad). Out-of-range faller tillbaka till sida 1."""
+    """Ids for `page` (1-indexerad). Out-of-range klampar till giltigt spann (1 eller sista)."""
     page_count = _tree_page_count(len(scaffold_ids), page_size)
     safe_page = min(max(page, 1), page_count)
     start = (safe_page - 1) * page_size
