@@ -404,6 +404,63 @@ export default function DashboardPage() {
     expect(runLlmRepairGate).not.toHaveBeenCalled();
   });
 
+  // Bugbot HIGH on this diff: a compound finding that mixes a catalog name
+  // (toast) with an unresolvable one (FooBarBaz) never got any finding
+  // dropped, so the old `staleCheck.dropped.length > 0` gate threw away the
+  // correct sonner import. Partial repair must land; the finding stays.
+  it("keeps a mixed finding as blocker but lands the partial catalog import", async () => {
+    const page = fencedFile(
+      "app/page.tsx",
+      `"use client";
+
+export default function Page() {
+  return (
+    <div>
+      <button onClick={() => toast.success("Saved")}>Save</button>
+      {FooBarBaz}
+    </div>
+  );
+}`,
+    );
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [
+          {
+            id: "missing-imports-runtime",
+            detail:
+              "app/page.tsx: uses `toast` but does not import it, and uses `FooBarBaz` but does not import it.",
+          },
+        ],
+        quality: [],
+      })
+      .mockResolvedValue({ blocking: [], quality: [] });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: page,
+        fixedFiles: [],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: false,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.5",
+      deduped: false,
+    });
+
+    const result = await runVerifierPhase(baseParams(page));
+
+    expect(result.contentForVersion).toContain('import { toast } from "sonner"');
+    expect(result.verifierBlockingFindings).toEqual([
+      expect.objectContaining({
+        id: "missing-imports-runtime",
+        detail: expect.stringContaining("FooBarBaz"),
+      }),
+    ]);
+    expect(runLlmRepairGate).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps an unknown missing-imports-runtime name as a blocker (FooBarBaz)", async () => {
     const page = fencedFile(
       "app/page.tsx",

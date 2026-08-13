@@ -218,55 +218,62 @@ export async function runVerifierPhase(params: {
             { previewPolicy: params.buildSpec?.previewPolicy },
           );
           if (repair.fixed) {
-            // Confirm against the repaired files — `checkUndefinedJsxSymbols`
-            // only sees JSX tags, so toast/z/FormEvent would look "resolved"
-            // even if the catalog no-op'd. The stale-check is fail-closed.
+            // Adopt the repaired content whenever the catalog committed a
+            // change: `fixed` is receipt-guarded per file (post-injection
+            // dedupe + parse-regression revert), and only KNOWN-module
+            // imports are injected. Bugbot HIGH on this diff: a compound
+            // finding mixing a fixable name (toast) with an unresolvable one
+            // kept `staleCheck.dropped` empty, which used to throw the
+            // correct imports away — the LLM gate then redid catalog work.
+            contentForVersion = repair.content;
+            // The stale-check stays fail-closed for the BLOCKING LIST:
+            // `checkUndefinedJsxSymbols` only sees JSX tags, so toast/z/
+            // FormEvent would look "resolved" even if the catalog no-op'd.
+            // A finding is dropped only when EVERY referenced symbol is
+            // confirmed bound in the repaired files; mixed findings stay.
             const staleCheck = dropResolvedVerifierFindings(
               policyFindings.blocking,
               parseCodeProject(repair.content).files,
             );
-            if (staleCheck.dropped.length > 0) {
-              contentForVersion = repair.content;
-              findings = {
-                ...policyFindings,
-                blocking: staleCheck.kept,
-              };
-              devLogAppend("in-progress", {
-                type: "verifier-pass.deterministic-import-fix",
+            findings = {
+              ...policyFindings,
+              blocking: staleCheck.kept,
+            };
+            devLogAppend("in-progress", {
+              type: "verifier-pass.deterministic-import-fix",
+              chatId,
+              resolvedCount: staleCheck.dropped.length,
+              residualBlocking: findings.blocking.length,
+              resolvedSymbols: repair.cannotFindSummary.resolvedNames,
+              // M#imp1 telemetry: per residual name WHY it stayed residual
+              // (tier3_gated / ambiguous_shadcn_lucide / unknown_name /
+              // not_applied) + which cannot-find codes were involved.
+              cannotFindSummary: repair.cannotFindSummary,
+              scaffoldId: resolvedScaffold?.id ?? null,
+            });
+            for (const finding of staleCheck.dropped.slice(0, 5)) {
+              appendErrorLogEvent({
+                phase: "post-gen",
+                subphase: "verifier-pass",
+                creator: "verifier",
+                fixer: "deterministic-import-repair",
+                severity: "warning",
+                fault: finding.id,
+                faultText: finding.detail,
+                fixText: FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR,
+                modelTier: resolvedTier ?? null,
+                model,
+                provider: "own-engine",
+                repairPassIndex,
+                result: "fixed",
                 chatId,
-                resolvedCount: staleCheck.dropped.length,
-                residualBlocking: findings.blocking.length,
-                resolvedSymbols: repair.cannotFindSummary.resolvedNames,
-                // M#imp1 telemetry: per residual name WHY it stayed residual
-                // (tier3_gated / ambiguous_shadcn_lucide / unknown_name /
-                // not_applied) + which cannot-find codes were involved.
-                cannotFindSummary: repair.cannotFindSummary,
+                versionId: null,
                 scaffoldId: resolvedScaffold?.id ?? null,
+                routePath: ragRoutePath,
+                capabilityIds: ragCapabilityIds,
+                generationMode: ragGenerationMode,
+                lineageHash: null,
               });
-              for (const finding of staleCheck.dropped.slice(0, 5)) {
-                appendErrorLogEvent({
-                  phase: "post-gen",
-                  subphase: "verifier-pass",
-                  creator: "verifier",
-                  fixer: "deterministic-import-repair",
-                  severity: "warning",
-                  fault: finding.id,
-                  faultText: finding.detail,
-                  fixText: FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR,
-                  modelTier: resolvedTier ?? null,
-                  model,
-                  provider: "own-engine",
-                  repairPassIndex,
-                  result: "fixed",
-                  chatId,
-                  versionId: null,
-                  scaffoldId: resolvedScaffold?.id ?? null,
-                  routePath: ragRoutePath,
-                  capabilityIds: ragCapabilityIds,
-                  generationMode: ragGenerationMode,
-                  lineageHash: null,
-                });
-              }
             }
           }
         }
