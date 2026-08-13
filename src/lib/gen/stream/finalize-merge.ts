@@ -10,9 +10,11 @@ import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
 import { mapDossierPathToOutput } from "@/lib/gen/dossiers/output-path";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
+import { syncNavItemsFromRoutePlan } from "@/lib/gen/scaffolds/sync-nav-from-route-plan";
 import {
   extractAppRoutePathsFromFilePaths,
   findSupersededScaffoldRoutes,
+  type RoutePlan,
 } from "@/lib/gen/route-plan";
 
 interface ImportFix {
@@ -91,6 +93,11 @@ export interface MergeGeneratedProjectFilesParams {
   selectedDossiers?: DossierEntry[];
   /** File-evidenced dossiers explicitly removed by this follow-up. */
   removedDossiers?: DossierEntry[];
+  /**
+   * Init-only: rewrite dashboard `navItems` from this plan when the sidebar
+   * still has the scaffold `{ label, href, icon }` form. Ignored on follow-up.
+   */
+  routePlan?: RoutePlan | null;
 }
 
 export interface MergeGeneratedProjectFilesResult {
@@ -232,6 +239,24 @@ function isLlmOnlyPath(path: string): boolean {
   return LLM_ONLY_PATHS.has(path.replace(/\\/g, "/"));
 }
 
+function applyNavPlanSync(
+  files: CodeFile[],
+  routePlan: RoutePlan | null | undefined,
+  chatId: string,
+  isFollowUp: boolean,
+): { files: CodeFile[]; changed: boolean } {
+  if (!routePlan || isFollowUp) return { files, changed: false };
+  const result = syncNavItemsFromRoutePlan({ files, routePlan, isFollowUp });
+  if (result.changedPaths.length > 0) {
+    devLogAppend("in-progress", {
+      type: "scaffold-nav-plan-sync",
+      chatId,
+      changedPaths: result.changedPaths,
+    });
+  }
+  return { files: result.files, changed: result.changedPaths.length > 0 };
+}
+
 /**
  * SCAFFOLD_PROTECTED_PATHS — counterpart of `LLM_ONLY_PATHS`.
  *
@@ -248,6 +273,7 @@ export function mergeGeneratedProjectFiles({
   previousFiles,
   selectedDossiers,
   removedDossiers,
+  routePlan,
 }: MergeGeneratedProjectFilesParams): MergeGeneratedProjectFilesResult {
   // B05: ids of the dossiers selected for THIS generation. Threaded into
   // checkCrossFileImports so the refuseDossierStubs gate only fires for an
@@ -511,9 +537,15 @@ export function mergeGeneratedProjectFiles({
       selectedDossiers: selectedDossiers ?? [],
       chatId,
     });
+    const navSyncedInit = applyNavPlanSync(
+      verbatimResult2.files,
+      routePlan,
+      chatId,
+      false,
+    );
 
     return {
-      filesJson: JSON.stringify(verbatimResult2.files),
+      filesJson: JSON.stringify(navSyncedInit.files),
       rejectedShrinks: [],
       rejectedStructural: [],
       scaffoldDefaultsBlocked,
@@ -546,8 +578,14 @@ export function mergeGeneratedProjectFiles({
       selectedDossiers: selectedDossiers ?? [],
       chatId,
     });
+    const navSyncedNoScaffold = applyNavPlanSync(
+      verbatimResult3.files,
+      routePlan,
+      chatId,
+      false,
+    );
     return {
-      filesJson: JSON.stringify(verbatimResult3.files),
+      filesJson: JSON.stringify(navSyncedNoScaffold.files),
       rejectedShrinks: [],
       rejectedStructural: [],
       scaffoldDefaultsBlocked: [],
@@ -586,12 +624,18 @@ export function mergeGeneratedProjectFiles({
     selectedDossiers: selectedDossiers ?? [],
     chatId,
   });
+  const navSyncedFallback = applyNavPlanSync(
+    verbatimResult4.files,
+    routePlan,
+    chatId,
+    false,
+  );
   const hasVerbatimRestorations = verbatimResult4.restored.length > 0;
   const hasFilteredOriginal = originalPartition.dropped.length > 0;
   return {
     filesJson:
-      hasVerbatimRestorations || hasFilteredOriginal
-        ? JSON.stringify(verbatimResult4.files)
+      hasVerbatimRestorations || hasFilteredOriginal || navSyncedFallback.changed
+        ? JSON.stringify(navSyncedFallback.files)
         : originalFilesJson,
     rejectedShrinks: [],
     rejectedStructural: [],

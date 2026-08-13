@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   crossCheckHrefsAgainstRoutes,
+  crossCheckRoutesAgainstHrefs,
   extractHrefsFromFiles,
   formatMismatchMessage,
+  formatUnlinkedRouteMessage,
   type HrefRouteMismatch,
 } from "./href-route-cross-check";
 
@@ -109,6 +111,19 @@ describe("extractHrefsFromFiles", () => {
       file("README.md", `See [the post](/blogg/foo)`),
     ]);
     expect(hrefs).toEqual([]);
+  });
+
+  it("extracts object-literal href: entries used by navItems arrays", () => {
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/dashboard-sidebar.tsx",
+        `const navItems = [
+  { label: "Översikt", href: "/", icon: LayoutDashboard },
+  { label: "Analys", href: "/analytics", icon: BarChart3 },
+];`,
+      ),
+    ]);
+    expect(hrefs.map((h) => h.raw)).toEqual(["/", "/analytics"]);
   });
 
   it("captures line numbers (1-based)", () => {
@@ -261,5 +276,34 @@ describe("formatMismatchMessage", () => {
     const msg = formatMismatchMessage(mismatch);
     expect(msg).toContain("/foo-bar-baz");
     expect(msg).not.toContain("Did you mean");
+  });
+});
+
+describe("crossCheckRoutesAgainstHrefs", () => {
+  it("flags a planned route that no navigation href points to", () => {
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/dashboard-sidebar.tsx",
+        `const navItems = [
+  { label: "Hem", href: "/", icon: LayoutDashboard },
+];`,
+      ),
+    ]);
+    const unlinked = crossCheckRoutesAgainstHrefs(["/", "/dashboard"], hrefs);
+    expect(unlinked.map((entry) => entry.path)).toEqual(["/dashboard"]);
+    expect(formatUnlinkedRouteMessage(unlinked[0]!)).toContain("/dashboard");
+  });
+
+  it("does not flag a planned route that appears as href: in navItems", () => {
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/dashboard-sidebar.tsx",
+        `const navItems = [
+  { label: "Hem", href: "/", icon: LayoutDashboard },
+  { label: "Översikt", href: "/dashboard", icon: LayoutDashboard },
+];`,
+      ),
+    ]);
+    expect(crossCheckRoutesAgainstHrefs(["/", "/dashboard"], hrefs)).toEqual([]);
   });
 });

@@ -414,6 +414,7 @@ async function evaluatePrompt(
     // green/red parity matches the production streaming finalize path.
     selectedDossiers:
       generationInput.dossierSelection?.selected.map((s) => s.entry) ?? [],
+    routePlan: generationInput.routePlan,
   });
   const selectedDossiers =
     generationInput.dossierSelection?.selected.map((selected) => selected.entry) ?? [];

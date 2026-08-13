@@ -4,7 +4,7 @@
  * touches our generated code, where does it run, what failure mode does it
  * catch?" without grep:ing through 40+ files.
  *
- * NOT in this registry (two code-mutating steps run outside `runAutoFix` and
+ * NOT in this registry (code-mutating steps that run outside `runAutoFix` and
  * emit no `FixEntry`, so they have no id to register — look here first when a
  * change to generated code has no matching registry entry):
  *
@@ -12,6 +12,11 @@
  *   runs from `finalize-merge.ts` because it needs the merged file set to know
  *   what exists. Stubs or refuses imports of local modules the merge result
  *   does not contain; reports as `merge:cross-file-stub` error-log rows.
+ * - `syncNavItemsFromRoutePlan` (`scaffolds/sync-nav-from-route-plan.ts`) —
+ *   runs from `finalize-merge.ts` on init only. Rewrites dashboard `navItems`
+ *   from the route plan while the array still has the scaffold
+ *   `{ label, href, icon }` form. Follow-up is frozen (user-deleted links
+ *   must not come back).
  * - `runSecurityChecks` (`gen/security/run-security-checks.ts`) — last step of
  *   the autofix pipeline, warning-only.
  *

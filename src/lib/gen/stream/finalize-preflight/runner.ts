@@ -681,10 +681,12 @@ export async function runFinalizePreflight({
     const actualRoutes = extractAppRoutePathsFromFilePaths(
       completeProjectFiles.map((file) => file.path),
     );
+    const effectiveRoutePlan = routePlan ?? buildContractBackedRoutePlan(orchestrationContract);
     const preflightAll = runFinalizePreflightAll({
       files: completeProjectFiles,
       actualRoutes,
       importedRepoMode,
+      plannedRoutePaths: (effectiveRoutePlan?.routes ?? []).map((route) => route.path),
     });
     preflightIssues.push(...preflightAll.issues);
     if (preflightAll.unresolvedImportFallbackUsed) {
@@ -706,7 +708,6 @@ export async function runFinalizePreflight({
       }
     }
 
-    const effectiveRoutePlan = routePlan ?? buildContractBackedRoutePlan(orchestrationContract);
     const missingPlannedRoutes = findMissingPlannedRoutes(effectiveRoutePlan, actualRoutes);
 
     // Deterministic href ↔ actual-route cross-check. Today this only emits
@@ -726,6 +727,13 @@ export async function runFinalizePreflight({
           suggestion: m.suggestion,
         })),
         actualRouteCount: actualRoutes.length,
+      });
+    }
+    if (preflightAll.unlinkedPlannedRoutes.length > 0) {
+      devLogAppend("in-progress", {
+        type: "href-route.unlinked-planned",
+        chatId,
+        paths: preflightAll.unlinkedPlannedRoutes.map((route) => route.path),
       });
     }
 
