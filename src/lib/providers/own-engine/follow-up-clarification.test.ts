@@ -105,6 +105,15 @@ describe("follow-up clarification intent classification", () => {
     expect(resolveFollowUpClarification(prompt)).toBeNull();
   });
 
+  it("does NOT treat English adjective 'marginal' as a layout target", () => {
+    // Bugbot: bare `marginal(?:…)?` lät "fix marginal issues" slippa förbi.
+    expect(classifyFollowUpIntent("fix marginal issues")).toBe("ambiguous-followup");
+    expect(resolveFollowUpClarification("fix marginal issues")?.reason).toBe(
+      "followup_edit_underspecified",
+    );
+    expect(classifyFollowUpIntent("ändra marginalerna")).not.toBe("ambiguous-followup");
+  });
+
   it.each([
     "förbättra den",
     "fixa designen",

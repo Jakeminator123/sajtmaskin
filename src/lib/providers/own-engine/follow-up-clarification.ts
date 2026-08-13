@@ -76,7 +76,8 @@ const FOLLOW_UP_SPECIFIC_TARGET_PATTERNS = [
   // till Hej" föll därför i ambiguous-followup fast det är en specifik edit.
   /(?<![\p{L}\p{N}_])(?:rubrik|rubriken|title|titeln|headline|underrubrik|tagline|slogan)(?![\p{L}\p{N}_])/iu,
   // Layout-/meny-targets som saknade engelsk stam ("spacing") eller bestämd form.
-  /(?<![\p{L}\p{N}_])(?:padding(?:en|ens)?|marginal(?:en|er|erna|ens)?|margins?|meny(?:n|ns)?|menus?|stavfel(?:et|en|ens)?)(?![\p{L}\p{N}_])/iu,
+  // `marginal` bare = engelsk adjektiv ("fix marginal issues") — kräv svensk böjning.
+  /(?<![\p{L}\p{N}_])(?:padding(?:en|ens)?|marginal(?:en|er|erna|ens)|margins?|meny(?:n|ns)?|menus?|stavfel(?:et|en|ens)?)(?![\p{L}\p{N}_])/iu,
   /\b(?:page\.tsx|layout\.tsx|globals\.css|app\/|src\/)\b/i,
 ];
 
