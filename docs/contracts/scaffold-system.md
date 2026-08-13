@@ -308,7 +308,9 @@ precomputed variant-embeddings. **Source of truth:** Vercel Blob
 [`config/embeddings-blob-manifest.json`](../../config/embeddings-blob-manifest.json).
 
 Regenerate: `npm run scaffolds:variant-embeddings` (skriver Blob när
-`BLOB_READ_WRITE_TOKEN` finns). Sync cache: `npm run embeddings:sync`.
+`BLOB_READ_WRITE_TOKEN` finns). Backoffice-knapparna skickar `--require-blob`
+så en saknad token failar stängt i stället för att bara skriva lokal cache.
+Sync cache: `npm run embeddings:sync`.
 Promote befintlig lokal JSON: `npm run embeddings:promote`.
 
 **Sedan 2026-04-18:** `create-chat-stream-post.ts` låser keyword-pre-match-varianten via `OrchestrationInput.persistedVariantId`, så orchestrate hämtar samma variant via `getVariantById` istället för att köra async-pickaren. Async körs då bara som fallback (id stale, plan-mode, eval). Eliminerar drift mellan brief-LLM-hint och codegen-variant.

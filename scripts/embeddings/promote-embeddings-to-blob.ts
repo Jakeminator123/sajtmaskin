@@ -10,7 +10,7 @@
  *
  * Requires BLOB_READ_WRITE_TOKEN.
  */
-import "dotenv/config";
+import { loadLocalEnv } from "./load-local-env";
 import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import {
@@ -39,6 +39,7 @@ function parseOnly(argv: string[]): EmbeddingsArtifactId[] | null {
 }
 
 async function main(): Promise<void> {
+  loadLocalEnv();
   const argv = process.argv.slice(2);
   const deleteLocal = argv.includes("--delete-local");
   const untrack = argv.includes("--untrack");

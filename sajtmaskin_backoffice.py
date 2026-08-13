@@ -33,9 +33,11 @@ def main() -> None:
 
     from backoffice.app_main import run_backoffice_app
 
-    # override=True: local `.env.local` is the operator source of truth for the
-    # backoffice, so it wins over any stale/conflicting OS-level OPENAI_API_KEY
-    # (etc.) already set at User/Machine scope on the host.
+    # Same order as embeddings `loadLocalEnv()`: `.env` fills gaps, then
+    # `.env.local` wins so a placeholder token in `.env` cannot hide the
+    # operator file — and a token that only lives in `.env` still reaches
+    # wizard gates that read `os.environ`.
+    load_dotenv(".env", override=False)
     load_dotenv(".env.local", override=True)
     run_backoffice_app()
 

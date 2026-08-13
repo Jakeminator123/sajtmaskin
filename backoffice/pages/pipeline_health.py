@@ -78,13 +78,40 @@ SCRIPTS: tuple[HealthScript, ...] = (
         tags=("ui",),
     ),
     HealthScript(
+        id="embeddings-sync",
+        label="Embeddings · synka från Blob",
+        command=("npm", "run", "embeddings:sync"),
+        description=(
+            "Laddar ner template/scaffold/variant-index från Vercel Blob "
+            "(eller den committade URL-pekaren) till gitignorerad lokal cache. "
+            "Ingen OpenAI-kostnad — använd för att se att Blob och disk stämmer."
+        ),
+        cost="fast",
+        requires_api=False,
+        tags=("embeddings-read",),
+    ),
+    HealthScript(
+        id="embeddings-ensure",
+        label="Embeddings · kontrollera Blob-paritet",
+        command=("npm", "run", "embeddings:ensure"),
+        description=(
+            "Failar om embedding-JSON är git-tracked, Blob-URL:en är otillgänglig, "
+            "ett index är tomt, eller scaffold-id inte matchar registret. "
+            "Synkar cache som del av kontrollen."
+        ),
+        cost="fast",
+        requires_api=False,
+        tags=("embeddings-read",),
+    ),
+    HealthScript(
         id="scaffolds-variant-embeddings",
         label="Scaffolds · variant-embeddings",
-        command=("npm", "run", "scaffolds:variant-embeddings"),
+        command=("npm", "run", "scaffolds:variant-embeddings", "--", "--require-blob"),
         description=(
             "Genererar embeddings för scaffold-varianter via OpenAI och "
-            "skriver till Vercel Blob (lokal JSON är cache). "
-            "Kör efter att variant-prompts/patterns ändrats."
+            "publicerar till Vercel Blob (lokal JSON är gitignorerad cache). "
+            "Kräver BLOB_READ_WRITE_TOKEN — misslyckas i stället för att bara "
+            "skriva lokalt. Kör efter att variant-prompts/patterns ändrats."
         ),
         cost="expensive",
         requires_api=True,
@@ -98,12 +125,26 @@ SCRIPTS: tuple[HealthScript, ...] = (
     # repo, use the Dossiers page (AI-kuration tab) or
     # `npm run dossiers:curate -- --reference=<id> --class=<hard|soft> --id=<new-id>`.
     HealthScript(
+        id="scaffolds-embeddings",
+        label="Scaffolds · embeddings",
+        command=("npm", "run", "scaffolds:embeddings", "--", "--require-blob"),
+        description=(
+            "Genererar scaffold-embeddings via OpenAI och publicerar till "
+            "Vercel Blob (lokal JSON är gitignorerad cache). "
+            "Kräver BLOB_READ_WRITE_TOKEN."
+        ),
+        cost="expensive",
+        requires_api=True,
+        tags=("embeddings",),
+    ),
+    HealthScript(
         id="templates-embeddings",
         label="Templates · embeddings",
-        command=("npm", "run", "templates:embeddings"),
+        command=("npm", "run", "templates:embeddings", "--", "--require-blob"),
         description=(
-            "Genererar template-embeddings via OpenAI och skriver till Vercel Blob "
-            "(lokal JSON är cache)."
+            "Genererar template-embeddings via OpenAI och publicerar till "
+            "Vercel Blob (lokal JSON är gitignorerad cache). "
+            "Kräver BLOB_READ_WRITE_TOKEN."
         ),
         cost="expensive",
         requires_api=True,
@@ -192,6 +233,16 @@ def _run_script(ctx: BackofficeContext, script: HealthScript) -> dict[str, Any]:
         "stdoutTail": stdout[-4000:],
         "stderrTail": stderr[-4000:],
     }
+
+
+def _blob_publish_line(result: dict[str, Any]) -> str | None:
+    """First stdout/stderr line that proves a Blob URL was published."""
+    text = f"{result.get('stdoutTail') or ''}\n{result.get('stderrTail') or ''}"
+    for line in text.splitlines():
+        stripped = line.strip()
+        if "blob.vercel-storage.com" in stripped or "Blob:" in stripped:
+            return stripped
+    return None
 
 
 def _status_text(result: dict[str, Any] | None) -> str:
@@ -437,6 +488,9 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("Snabbåtgärder")
     st.caption(
         "Embeddings-skript kostar OpenAI-tokens och tar minuter. "
+        "De publicerar till Vercel Blob (`--require-blob`) — saknas "
+        "`BLOB_READ_WRITE_TOKEN` i `.env.local` blir knappen röd i stället "
+        "för att bara skriva gitignorerad lokal cache. "
         "Kör helst en grupp i taget."
     )
     col_a, col_b, col_c = st.columns(3)
@@ -518,6 +572,14 @@ def render(ctx: BackofficeContext) -> None:
 
             if result.get("exitCode") == 0:
                 st.success(f"Lyckades på {result.get('elapsedSec')}s.")
+                blob_line = _blob_publish_line(result)
+                if blob_line:
+                    st.caption(f"Publicerad: `{blob_line}`")
+                elif "embeddings" in script.tags and script.requires_api:
+                    st.warning(
+                        "Exit 0 men ingen Blob-URL i loggen. "
+                        "Kör om med `--require-blob` eller kolla BLOB_READ_WRITE_TOKEN."
+                    )
             else:
                 st.error(
                     f"Misslyckades (exit {result.get('exitCode')}) efter "

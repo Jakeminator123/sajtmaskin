@@ -507,6 +507,15 @@ class PlannedWritesTests(unittest.TestCase):
                     f"{name} körs av autorun-kedjan men redovisas inte i skrivplanen",
                 )
 
+    def test_embeddings_autorun_requires_blob(self) -> None:
+        embeddings = next(
+            step
+            for step in sw._post_create_steps("warm-clay")
+            if step["key"] == "embeddings"
+        )
+        self.assertIn("--require-blob", embeddings["command"])
+        self.assertTrue(embeddings["needs_blob"])
+
     def test_condition_is_stated_whether_or_not_the_key_exists(self) -> None:
         """Utan nyckel skrivs autorun-filerna inte — rutan får inte lova dem."""
         for autorun in (True, False):
@@ -522,6 +531,7 @@ class PlannedWritesTests(unittest.TestCase):
                 self.assertIn("automatiskt", rendered)
             else:
                 self.assertIn("skrivs inte", rendered)
+                self.assertIn("BLOB_READ_WRITE_TOKEN", rendered)
 
 
 if __name__ == "__main__":

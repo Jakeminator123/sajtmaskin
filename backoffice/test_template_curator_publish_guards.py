@@ -270,6 +270,77 @@ class AddendumCandidatePublicationTests(unittest.TestCase):
         )
         self.assertEqual(page._addendum_write_commands({}), ())
 
+    def test_npm_command_tuple_keeps_runner_owned_ids(self) -> None:
+        self.assertEqual(
+            page._npm_command_tuple(
+                "npm run templates:addenda -- --write --ids=approved"
+            ),
+            (
+                "npm",
+                "run",
+                "templates:addenda",
+                "--",
+                "--write",
+                "--ids=approved",
+            ),
+        )
+
+    def test_npm_command_tuple_rejects_non_npm(self) -> None:
+        with self.assertRaises(ValueError):
+            page._npm_command_tuple("python -c pass")
+
+    def test_addenda_write_runs_every_runner_command(self) -> None:
+        calls: list[tuple[str, ...]] = []
+
+        def _fake_run(_root, command, timeout=1200):
+            del timeout
+            calls.append(tuple(command))
+            return {"ok": True, "stdoutTail": " ".join(command), "stderrTail": ""}
+
+        with mock.patch.object(page, "run_repo_command", side_effect=_fake_run):
+            result = page._run_addenda_write_commands(
+                Path.cwd(),
+                (
+                    "npm run templates:addenda -- --write --ids=one",
+                    "npm run templates:addenda -- --write --ids=two",
+                ),
+            )
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0][-1], "--ids=one")
+        self.assertEqual(calls[1][-1], "--ids=two")
+
+    def test_addenda_write_stops_closed_on_first_failure(self) -> None:
+        calls: list[tuple[str, ...]] = []
+
+        def _fake_run(_root, command, timeout=1200):
+            del timeout
+            calls.append(tuple(command))
+            if len(calls) == 1:
+                return {"ok": False, "error": "batch 1 failed", "stderrTail": "nope"}
+            return {"ok": True}
+
+        with mock.patch.object(page, "run_repo_command", side_effect=_fake_run):
+            result = page._run_addenda_write_commands(
+                Path.cwd(),
+                (
+                    "npm run templates:addenda -- --write --ids=one",
+                    "npm run templates:addenda -- --write --ids=two",
+                ),
+            )
+        self.assertFalse(result["ok"])
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(result["error"], "batch 1 failed")
+
+    def test_addenda_check_success_does_not_claim_write(self) -> None:
+        source = Path(page.__file__).read_text(encoding="utf-8")
+        self.assertIn("_store_addenda_command_result", source)
+        self.assertIn(
+            "Addenda-registret är giltigt. Inget skrevs — det här var bara en kontroll.",
+            source,
+        )
+        self.assertIn('write_result.get("kind") == "check"', source)
+
 
 if __name__ == "__main__":
     unittest.main()
