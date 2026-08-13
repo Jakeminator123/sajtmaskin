@@ -2,7 +2,7 @@
   "ok": true,
   "baselineId": "control-stats-2026-07-02-14d",
   "baselineFrozenAt": "2026-07-02T00:00:00.000Z",
-  "source": "docs/schemas/quality-gate.md#baslinje-2026-07-02-kontrollflode-konsolidering-fas-0",
+  "source": "docs/architecture/quality-gate-flow.md#historisk-baslinje",
   "windowDays": 14,
   "windowEndsAt": "2026-07-02",
   "volume": [

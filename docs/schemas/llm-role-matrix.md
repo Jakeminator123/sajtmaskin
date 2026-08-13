@@ -1,89 +1,62 @@
-# LLM Role Matrix
+# LLM-rollmatris
 
-Det här dokumentet beskriver de **LLM-roller** som faktiskt finns i Sajtmaskins builder-/own-engine-kedja.
+Formyta för **vilka LLM-steg som finns**. Modell-ID, profiler och phase-routing
+ägs av [`model-build-profiles.md`](model-build-profiles.md) och
+[`config/ai_models/manifest.json`](../../config/ai_models/manifest.json). Körflöde
+ägs av [`../architecture/llm-pipeline.md`](../architecture/llm-pipeline.md).
 
-Kanonisk kodsanning ligger fortfarande i:
+## Canonical ownership
 
-- `src/lib/gen/defaults.ts`
-- `src/lib/models/phase-routing.ts`
-- `config/ai_models/manifest.json`
-- `src/lib/builder/site-brief-generation.ts`
-- `src/lib/builder/prompt-assist/` (post-OMTAG-03 package; `runner.ts` orchestrator, `formatters.ts`, `domain-hints.ts`, `index.ts`)
+| Faktatyp | Ägare |
+| --- | --- |
+| Phase-routade roller (`planner`, `generator`, `fixer`, `verifier`, `deploy-assistant`) | `config/ai_models/manifest.json` + `src/lib/models/phase-routing.ts` |
+| Klient-Deep Brief | `src/lib/hooks/useInitBrief.ts` → `POST /api/ai/brief` → `src/lib/builder/site-brief-generation.ts` |
+| Server auto-brief | `tryGenerateServerAutoBrief` i `site-brief-generation.ts`, policy i `src/lib/builder/server-auto-brief-policy.ts` |
+| Delta-brief vid clear-redesign | `runClearRedesignDeltaBriefPhase` i `src/lib/api/engine/chats/chat-message-stream/delta-brief-phase.ts` |
+| SEO-copy vid publish | `improveSeoCopyWithLlm` (`src/lib/seo/llm-copy.ts`), workload `seo_publish_copy` |
+| Assist-modell | Request-meta `promptAssistModel` — modell-hint till brief, inte en agent |
 
-Det här dokumentet är den mänskligt läsbara översikten över **vilka modeller/roller som finns**, **när de används**, och **vad de producerar**.
+## Live pre-codegen-steg
 
-## Roller
+Tre brief-steg körs före codegen. De är **samma structured brief-typ**, startade från olika ställen:
 
-| Roll                      | Typ av steg                  | Primär funktion                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Viktiga filer                                                                                                           |
-| ------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Prompt polish             | LLM                          | lätt copy-polish av prompten utan att lägga till ny scope                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `src/lib/builder/prompt-assist/`, `/api/ai/chat`                                                                        |
-| Prompt rewrite / improve  | LLM                          | skriver om och förbättrar prompten till en bättre byggprompt                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `src/lib/builder/prompt-assist/`, `/api/ai/chat`                                                                        |
-| Deep brief                | LLM                          | bygger strukturerad site brief från användarprompten                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief`                                                             |
-| Server auto-brief         | LLM                          | kör Deep brief server-side när klienten inte redan skickat brief                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `src/lib/api/engine/chats/create-chat-stream-post.ts`, `src/lib/builder/server-auto-brief-policy.ts`                    |
-| Planner                   | LLM                          | används i plan mode för plan-/JSON-artifact, inte sajtkod                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `src/lib/own-engine/session/own-engine-plan-mode.ts`                                                                    |
-| Generator                 | LLM                          | genererar själva sajtkoden/projektfilerna                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `src/lib/providers/own-engine/generation-stream.ts`                                                                     |
-| RepairGate (syntax fixer) | LLM                          | riktad kodreparation efter syntaxvalidering när Normalize inte räcker                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `src/lib/gen/autofix/validate-and-fix.ts`, `src/lib/gen/autofix/llm-fixer.ts`                                           |
-| Verifier                  | Hybrid (deterministic + LLM) | Kör först deterministiska guards (`undefined-jsx-symbol` med TS-generic-registrering, `motion-reduce-canvas-trap`, `motion-reduce-overlay-trap`) och därefter LLM-quality-findings. Blocking-fynd matas in i `runLlmFixer` via `formatVerifierFindingsAsFixerErrors()`. I F2 gate:ar build-breaking-klassen (`isBuildBreakingFinding`: import-/namnupplösning som `import-name-collision`/`build-*-import`, `undefined-jsx-symbol`, TS2304/2307/2440 m.fl.) verifiering → `verifier_failed` → promote-guard blockerar; produktkvalitetsfynd förblir Advisory. F3 gate:ar alla blocking-fynd. Lyckad fixer (ren rerun) rensar `verifierBlockingFindings`. | `src/lib/gen/verify/verifier-pass.ts`, `src/lib/gen/preview/should-start-preview.ts`, `src/lib/models/phase-routing.ts` |
-| Deploy assistant          | LLM-roll                     | hjälpfas i phase routing för deploy-/auxiliary-steg                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `src/lib/models/phase-routing.ts`                                                                                       |
+| Steg | När | Start | Output |
+| --- | --- | --- | --- |
+| Klient Deep Brief | Init när UI/default ber om det (`DEFAULT_PROMPT_ASSIST.deep`, `forceDeepBrief` på första create-chat) | `POST /api/ai/brief` | `meta.brief` |
+| Server auto-brief | Create-chat när klienten **inte** skickat `meta.brief` (hoppas över follow-up, audit, technical-preserve, `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF=1`) | `tryGenerateServerAutoBrief` från `create-chat-stream-post.ts` | samma brief-form; `serverAutoBriefGenerated` / `serverAutoBriefModel` i response-meta |
+| Delta-brief | Follow-up med `followUpIntent === "clear-redesign"` | `runClearRedesignDeltaBriefPhase` | ny brief skriven tillbaka till `parsedMeta.brief` |
 
-## Fasrouting
+`formatPrompt()` i `prompt-assist/formatters.ts` är **ingen LLM**. Den wrappas
+fortfarande i prompt-wizard och i `buildDynamicInstructionAddendumFromPrompt`
+när brief hoppas över. Init-vägen `useCreateChat` skickar rå user-prompt.
 
-De phase-routade rollerna definieras kanoniskt i manifestet och i phase-routing-koden:
+## Phase-routade roller
 
-- `planner`
-- `generator`
-- `fixer`
-- `verifier`
-- `deploy-assistant`
+Värden och thinking-policy ägs av manifestet; kopiera dem inte hit.
 
-Se:
+| Roll | Funktion | Kod |
+| --- | --- | --- |
+| Planner | Plan mode: plan-/JSON-artifact, inte sajtkod | `src/lib/own-engine/session/own-engine-plan-mode.ts` |
+| Generator | Sajtkod / projektfiler | `src/lib/providers/own-engine/generation-stream.ts` |
+| RepairGate (`fixer`) | LLM-repair efter att Normalize inte räcker. En produktions-callsite: `runLlmRepairGate` | `src/lib/gen/autofix/llm-repair-gate.ts` |
+| Verifier | Hybrid: deterministiska guards + LLM-findings. Flöde: [`../architecture/quality-gate-flow.md`](../architecture/quality-gate-flow.md) | `src/lib/gen/verify/verifier-pass.ts` |
+| Deploy assistant | Hjälpfas i phase routing, inte en separat produktagent | `src/lib/models/phase-routing.ts` |
 
-- `config/ai_models/manifest.json`
-- `src/lib/ai-models/load-manifest.ts`
-- `src/lib/models/phase-routing.ts`
+## Övriga live LLM-steg utanför phase-routing
 
-Phase routing bär nu tre signaler per fas:
+| Steg | Funktion | Inte |
+| --- | --- | --- |
+| SEO-copy vid publish | Skriver om `title` och `description` i metadata (`improveSeoCopyWithLlm`, workload `seo_publish_copy`) | Inte Polish, inte prompt-rewrite, rör inte JSX |
 
-- **modellval** via `phaseRouting.defaultByTier`
-- **thinking / reasoningEffort** via `phaseRouting.thinkingByTier`
-- **reasoningMode** (`standard` / `pro`, valfritt och GPT-5.6-specifikt) via
-  samma faspost. Premium använder `pro` för planner/generator.
+## Inte live
 
-## Prompt-assist-kedjan i detalj
+| Påstående | Sant idag |
+| --- | --- |
+| "Förbättra" / "Skriv om" via `POST /api/ai/chat` | Knappen borttagen 2026-04-21 (`usePromptRewrite`, `buildPolishSystemPrompt`, `buildRewriteSystemPrompt`). Routen `src/app/api/ai/chat/route.ts` finns kvar utan builder-callsite. |
+| `promptAssistMode` `polish` / `rewrite` | Död kod: state, Zod och prompt-logg accepterar värdet; ingen UI sätter det till ett live steg. |
+| "Assist Model" som agent | Modell-hint (`promptAssistModel`) till brief. |
+| `specMode` / `briefToSpec` / `promptToSpec` / `/api/ai/spec` | Finns inte i koden. |
+| Polish-lane som pre-codegen | Död. `DEFAULT_PROMPT_POLISH_MODEL` är leftover; använd inte som runtime-sanning. |
 
-Två lager bearbetar prompten **före** kodgenerering:
-
-| Lager                                   | Vad det gör                                                                                                                                                                                                                                                                    | Var output hamnar                                                                                                                                                                                                   | Kodfiler                                                            |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| **Deep brief** (`/api/ai/brief`)        | LLM-anrop som producerar en **strukturerad JSON** (sidor, sektioner, visuell riktning, imagery, SEO, m.m.). Kanonisk semantisk expansion för init.                                                                                                                             | `meta.brief` → systemprompten via `buildDynamicContext()`. Storlek varierar med prompt, scaffold, dossiers och follow-up-policy; mät aktuell verklighet via `promptSize` i `GenerationInputPackage` / prompt-dumps. | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief`         |
-| **`formatPrompt()`** _(legacy wrapper)_ | Enkel client-side formatter som wrappar text i `MÅL / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. **Inte längre i `useCreateChat`-init-vägen** (sedan 2026-04-28 — Core Rules bar redan kraven, wrappern var brus). Lever kvar i prompt-wizard och `prompt-assist/runner`. | User-meddelandet i de paths som fortfarande använder den.                                                                                                                                                           | `src/lib/builder/prompt-assist/formatters.ts` (post-OMTAG-03 split) |
-
-Flödet vid freeform create-chat:
-
-1. Användaren skriver prompt (t.ex. 400 tecken)
-2. `/api/ai/brief` producerar strukturerad JSON (deep brief, ~28s)
-3. Brief-objektet skickas via `meta.brief` till servern
-4. Serverns `buildDynamicContext(brief)` bygger rik dynamisk kontext (mät via `promptSize.dynamicContext`)
-5. Kontexten injiceras i **systemprompten** (dynamisk del)
-6. Användarens **råa prompttext** skickas som user-message (ingen MÅL/CONSTRAINTS-wrappning)
-7. Kodgeneratorn ser: statisk kärna + dynamisk kontext + rå user-message; exakta storlekar mäts i prompt-telemetrin (den arkiverade uppföljningsplanen `prompt-slim-systemprompt.md` lever i git-historiken).
-
-**Utan** deep brief (t.ex. om `promptAssistDeep: false` eller briefen misslyckas) skickar `useCreateChat` user-prompten rå (sedan 2026-04-28) och kör `buildDynamicInstructionAddendumFromPrompt()` för en enklare prompt-baserad expansion. `formatPrompt()` används inte i den vägen längre.
-
-## Viktiga noter
-
-- `Thinking` är **inte** en egen LLM-roll. Det är en separat flagga som påverkar resonemangs-/reasoning-exponering. Planner/generator kräver nu både den vanliga builder-togglen och att fasen är aktiverad i `phaseRouting.thinkingByTier`; fixer/verifier/manual repair/server verify använder fasinställningen direkt. Legacy-aliaset `SAJTMASKIN_SHOW_THINKING` togs bort i omtag-04 (2026-04-23); använd `SAJTMASKIN_DEFAULT_THINKING`.
-- Prompt assist, Deep brief och spec-first ligger **utanför** phase-routingtabellen och fungerar mer som för-/pre-generation-lager.
-- Deep brief och server auto-brief bygger **samma typ av structured brief**, men startas från olika ställen i kedjan.
-- `specMode` är nu `false` som standard; spec-layer-koden finns kvar men körs inte i freeform-flödet.
-
-## När detta dokument uppdateras
-
-Uppdatera dokumentet när något av detta ändras:
-
-- ny LLM-roll tillkommer
-- phase routing ändras
-- prompt assist / brief / spec-first byter ansvar
-- samma roll börjar producera annan typ av output
-
-Om du i stället bara ändrar modell-ID:n eller env-nycklar: uppdatera även `docs/schemas/model-build-profiles.md` och `config/ai_models/_READ_ME_FIRST.md`.
+Thinking är en flagga (`phaseRouting.thinkingByTier`), inte en LLM-roll.
+Se [`model-build-profiles.md`](model-build-profiles.md).

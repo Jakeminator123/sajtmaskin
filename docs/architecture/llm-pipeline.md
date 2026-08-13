@@ -155,7 +155,7 @@ Typisk ordning i runtime:
 14. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån
     gate-resultat och promote-guard. En version som hinner ersättas av en
     nyare under gaten settlas terminal-neutralt som `superseded` ("Ersatt",
-    aldrig rött `failed`; se `docs/schemas/quality-gate.md`).
+    aldrig rött `failed`; se [`quality-gate-flow.md`](quality-gate-flow.md).
 
 Viktig ordningsregel: Normalize, verifier och preflight ligger före persist.
 VM-gaten (RenderGate/ReleaseGate) ligger efter persist och arbetar på den

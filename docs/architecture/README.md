@@ -15,8 +15,9 @@ filinventarier eller historik från dessa owners.
 2. [`../concepts/mental-model.md`](../concepts/mental-model.md) — begreppen i ett sammanhang.
 3. [`llm-pipeline.md`](./llm-pipeline.md) — init, follow-up, F2/F3 och generationens körväg.
 4. [`runtime-contracts.md`](./runtime-contracts.md) — invariants för BuildSpec, dossiers, quality gate, preview, status och env.
-5. [`code-map.md`](./code-map.md) — var du hittar koden.
-6. [`glossary.md`](./glossary.md) — korta termer och namnskuggor.
+5. [`quality-gate-flow.md`](./quality-gate-flow.md) — när RenderGate/ReleaseGate körs och hur de kopplas till repair. Fält: [`../schemas/quality-gate.md`](../schemas/quality-gate.md).
+6. [`code-map.md`](./code-map.md) — var du hittar koden.
+7. [`glossary.md`](./glossary.md) — korta termer och namnskuggor.
 
 Runbooks ska ligga utanför denna kärna, t.ex. `docs/runbooks/preview-white-screen.md`.
 

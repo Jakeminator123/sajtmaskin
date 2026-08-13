@@ -8,12 +8,12 @@
 <!-- source-fingerprint: docs/schemas/strict/db-health-check-report.schema.json sha256:cf2768d09f0d3090 -->
 <!-- source-fingerprint: docs/schemas/strict/db-perf-indexes-audit-line.schema.json sha256:19bda2322c4e4ede -->
 <!-- source-fingerprint: docs/schemas/strict/domain-rules.schema.json sha256:fade2032ef57bc1c -->
-<!-- source-fingerprint: docs/schemas/strict/dossier-stub-created.schema.json sha256:8ac54956f4a9a386 -->
+<!-- source-fingerprint: docs/schemas/strict/dossier-stub-created.schema.json sha256:679b125ad148dea6 -->
 <!-- source-fingerprint: docs/schemas/strict/dossier-verbatim-restored.schema.json sha256:dbeaefe19ccead17 -->
 <!-- source-fingerprint: docs/schemas/strict/dossier.schema.json sha256:5f70fb39d4e9739b -->
 <!-- source-fingerprint: docs/schemas/strict/embeddings-blob-manifest.schema.json sha256:6c21539f9d39980d -->
 <!-- source-fingerprint: docs/schemas/strict/env-policy.schema.json sha256:6fead5ada9616f55 -->
-<!-- source-fingerprint: docs/schemas/strict/image-replaced-with-placeholder.schema.json sha256:ccc8383867471175 -->
+<!-- source-fingerprint: docs/schemas/strict/image-replaced-with-placeholder.schema.json sha256:08f1d3d1cba188ad -->
 <!-- source-fingerprint: docs/schemas/strict/llm-fixer-aborted.schema.json sha256:1419d25b0f17519d -->
 <!-- source-fingerprint: docs/schemas/strict/llm-fixer-partial-response.schema.json sha256:5b95c26c840b7ca7 -->
 <!-- source-fingerprint: docs/schemas/strict/llm-repair-gate-deduped.schema.json sha256:9edfc1931c76d7a9 -->

@@ -53,4 +53,5 @@ Bindande invariants och fördjupning:
 
 - [`../architecture/llm-pipeline.md`](../architecture/llm-pipeline.md)
 - [`../architecture/runtime-contracts.md`](../architecture/runtime-contracts.md)
+- [`../schemas/builder-entry-contract.md`](../schemas/builder-entry-contract.md) — URL/state när `/builder` öppnas
 - [`mental-model.md`](mental-model.md)

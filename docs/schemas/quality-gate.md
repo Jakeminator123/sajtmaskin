@@ -1,859 +1,131 @@
-# RenderGate och ReleaseGate
+# RenderGate och ReleaseGate — fält och ägare
 
-## Scope
+Formyta: check-id:n, responsefält, repair-outcome och telemetrikolumner.
+Körflöde: [`../architecture/quality-gate-flow.md`](../architecture/quality-gate-flow.md).
+Invariants: [`../architecture/runtime-contracts.md`](../architecture/runtime-contracts.md).
+Aktuella lane-checklistor: `config/ai_models/manifest.json#qualityGateTiers`
+(projektion [`../generated/policies.generated.md`](../generated/policies.generated.md)).
 
-Denna sida samlar den mänskligt läsbara kontraktsbilden för Sajtmaskins
-RenderGate (kod: `designPreview` quality gate) och ReleaseGate (kod:
-`integrationsBuild` quality gate): vilka checks som körs, var de körs, när de
-triggas och hur de kopplas till preview, `server-verify` och repair. Kodens
-identifierare, telemetri-kategorier och DB-strängar heter fortsatt `quality
-gate`, `designPreview`, `integrationsBuild`, `server-verify` och
-`product_postcheck.*`; docs använder kanoniska begrepp och mappar till kodnamnen
-vid behov.
+Kodnamn: RenderGate = `designPreview`, ReleaseGate = `integrationsBuild`.
 
-Primära kodkällor:
+## Canonical ownership
 
-- `src/lib/gen/verify/quality-gate-checks.ts`
-- `src/lib/gen/verify/preview-quality-gate.ts`
-- `src/lib/gen/verify/server-verify.ts`
-- `src/lib/gen/verify/repair-loop.ts`
-- `src/lib/db/chat-repository-pg.ts`
-- `src/lib/gen/stream/post-finalize-policies.ts`
-- `src/app/api/engine/chats/[chatId]/quality-gate/route.ts`
-- `src/app/api/engine/chats/[chatId]/repair/route.ts`
-- `src/app/api/engine/chats/[chatId]/accept-repair/route.ts`
-- `src/lib/gen/stream/builder-stream-contract.ts`
-- `preview-host/src/runtime.js`
-
-Närliggande docs:
-
-- `docs/schemas/preview-session-contract.md`
-- `docs/architecture/llm-pipeline.md` § FAS 3
-- `docs/architecture/llm-pipeline.md` § FAS 2
-
-## Vad RenderGate / ReleaseGate är
-
-RenderGate och ReleaseGate är builderns samlingsnamn för verifieringar som
-kräver en riktig Next-/Node-miljö och därför körs i preview-hostens isolerade
-verify-lane, inte i samma workspace som den live dev-preview användaren ser i
-iframen.
-
-De svarar främst på frågan:
-
-- Går det här projektet att installera, typechecka, linta eller bygga enligt
-  den policy som gäller för den aktuella versionen?
-
-De är alltså inte samma sak som:
-
-- Normalize (kod: url-expand + autofix + deterministisk import-repair)
-- syntaxvalidering i finalize
-- verifier-pass (hybrid: deterministiska checks + LLM-audit) — kör
-  regex-/AST-baserade guards (t.ex. `undefined-jsx-symbol`,
-  `r3f-client-boundary`, `navigation-placeholder-actions`,
-  `motion-reduce-canvas-trap`, `motion-reduce-overlay-trap`) innan
-  LLM-passet och matar eventuella Blocker-fynd in i RepairGate.
-  LLM-fynd i import-/namnupplösningsklassen (`import-name-collision`,
-  `build-*-import`) klassas som build-breaking (`isBuildBreakingFinding`)
-  och gate:ar F2-verifiering; de force-promotas även från `quality`-
-  till `blocking`-lanen om modellen felbucketar dem
-- live-previewns `npm run dev`
-- CapabilitySmoke (kod: `product_postcheck.*`) som gör en begränsad
-  DOM-/runtime-smoke efter preview och rapporterar varningar/degradations; den
-  skickar inte verkliga provideranrop för varje Byggblock
-
-## Verifier-pass policy efter Normalize
-
-Verifier-pass (hybrid: deterministiska guards + LLM-audit) styrs fortfarande
-först av `resolveVerifierPassPolicy()`:
-
-- light/fast follow-up och repair-pass kan fortfarande hoppa över verifiern
-- env-/feature-flaggen `isVerifierPassEnabled()` respekteras
-- `strict`, högre quality target, app-intent, heavy context och riskabla
-  BuildSpec-scope kan fortfarande välja att köra verifiern
-
-Efter det grundbeslutet används **riskklassad Normalize** i stället för
-den tidigare volymtröskeln:
-
-| Normalize-resultat                                                                                                                           | Verifier-beslut när grundpolicyn säger `run`                                                                                                                                                                     |
-| -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `safeFixCount > 0` och `riskyFixCount === 0`                                                                                                 | Verifiern får hoppas över med reason `safe_fixes_only`.                                                                                                                                                          |
-| `riskyFixCount > 0`                                                                                                                          | Verifiern körs med trigger/reason `risky_fixes`.                                                                                                                                                                 |
-| 3D-signal (`BuildSpec.capabilityFlags.signals` innehåller `needs3D`/`needsPhysics`, eller orchestration-capability `visual-3d`/`physics-3d`) | Verifiern körs; safe-only-skip används inte.                                                                                                                                                                     |
-| RepairGate i validate-fasen (`validateAndFix` rapporterar `fixerUsed`/`llmFixCount > 0` — esbuild-syntaxfix eller warm-tsc)                  | Verifiern körs med trigger `llm_fixes_in_validate`; safe-only-skip används inte. LLM-omskrivningar är risky per definition. Ren deterministisk import-repair med warm-tsc-kvitto blockerar däremot inte skippet. |
-| Grundpolicyn säger `run: false`                                                                                                              | Oförändrat: Fas 2 tvingar inte på verifiern på nya vägar.                                                                                                                                                        |
-
-`FIXER_REGISTRY` är riskkällan (`risk: "safe" | "risky"`). Okända fixer-id:n
-behandlas konservativt som `risky`.
-
-### Normalize risk telemetry
-
-Nya writers skriver `engine_version_error_logs` med category `autofix` och
-`meta.event = "autofix_risk"`:
-
-```json
-{
-  "event": "autofix_risk",
-  "fixCount": 4,
-  "safeFixCount": 3,
-  "riskyFixCount": 1,
-  "riskyFixerIds": ["local-symbol-import-fixer"]
-}
-```
-
-`generation_telemetry.meta.autofix` bär samma riskfält. Historiska
-`autofix_heavy_load`-rader skrivs inte längre, men läsare som
-`scripts/db/control-stats.mjs` mappar dem som legacy-historik i äldre fönster.
-
-## Preview-lane vs verify-lane
-
-| Lane         | Syfte                                               | Typisk körning                        |
-| ------------ | --------------------------------------------------- | ------------------------------------- |
-| Preview-lane | Ge användaren snabb live-preview                    | `npm install` + `npm run dev`         |
-| Verify-lane  | Bekräfta export-/buildbarhet och ge repair-underlag | `tsc`, ev. `eslint`, ev. `next build` |
-
-Live-previewn kan därför vara redo eller starta samtidigt som RenderGate/ReleaseGate
-fortfarande kör i bakgrunden.
+| Faktatyp | Ägare |
+| --- | --- |
+| Check-id:n | `QUALITY_GATE_CHECK_VALUES` i `src/lib/gen/verify/quality-gate-checks.ts` |
+| Lane-checklistor | `config/ai_models/manifest.json#qualityGateTiers` via `getQualityGateTiersFromManifest()` |
+| F2 typecheck-only Advisory | `isTypecheckOnlyAdvisory()` i `quality-gate-checks.ts` |
+| Verify-lane körning | `src/lib/gen/verify/preview-quality-gate.ts`, `preview-host/src/runtime.js` |
+| Server-verify | `src/lib/gen/verify/server-verify.ts` |
+| Repair-loop | `src/lib/gen/verify/repair-loop.ts` |
+| Repair-port | `runLlmRepairGate` i `src/lib/gen/autofix/llm-repair-gate.ts` |
+| Repair-outcome | `resolveServerRepairOutcome` i `src/lib/gen/verify/server-verify-log-meta.ts` |
+| Promote-guard | `src/lib/db/promote-guard.ts` |
+| Explicit gate-route | `src/app/api/engine/chats/[chatId]/quality-gate/route.ts` |
+| Accept-repair | `src/app/api/engine/chats/[chatId]/accept-repair/route.ts` |
 
 ## Checks
 
-RenderGate/ReleaseGate använder dessa kod-check-id:n:
+Tillåtna check-id:n: `typecheck`, `lint`, `build`. Kommandon och
+install-signaler (`install-cache-share`, `install-peer-fallback`) ägs av
+`quality-gate-checks.ts` / verify-lane. Kopiera inte aktuella lane-arrayer hit.
 
-| Check       | Kommando                                                                 |
-| ----------- | ------------------------------------------------------------------------ |
-| `typecheck` | `node ./node_modules/typescript/bin/tsc --noEmit`                        |
-| `lint`      | `node ./node_modules/eslint/bin/eslint.js . --format stylish --no-color` |
-| `build`     | `node ./node_modules/next/dist/bin/next build`                           |
+`runQualityGateChecks` kräver att varje **begärd** check finns i `results[]`.
+Saknas någon i ett svar där inget failat → `unavailable`
+(`QualityGateUnavailableError`). Install-fail före de kanoniska checkarna är
+redan rött och behåller sitt failure-verdikt.
 
-Definitioner finns i `src/lib/gen/verify/quality-gate-checks.ts`.
+Lane-konstanter: `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` (F2) och
+`INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` (F3). Defaultvärden sanitizeras från
+manifestet.
 
-Verify-lane kan också returnera informativa install-signaler i `results[]`:
+## F2 Advisory-svar
 
-| Check                   | Meaning                                                                                                                                              |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `install-cache-share`   | Verify workspace kopierade `node_modules` från live workspace vid exakt dependency fingerprint + install-policy-match; installationen hoppas då över |
-| `install-peer-fallback` | Peer-konflikt upptäcktes och fallback med `--legacy-peer-deps` användes                                                                              |
+När `isTypecheckOnlyAdvisory()` är sann (bara F2, bara `typecheck`, bara
+advisory-safe tsc-koder):
 
-### Svaret måste vara komplett (M#gs8)
+| Fält | Betydelse |
+| --- | --- |
+| `passed` | `true` (klientvägen promotar via `assertPromoteAllowed`) |
+| `vmGatePassed` | `false` — inte solid-grön VM-gate |
+| `designAdvisory` | `true` |
+| `advisoryChecks` | t.ex. `["typecheck"]` |
+| `promoteError` / `promoteGuardUnavailable` | transient promote-fel; `designAdvisory` följer med så klienten inte auto-reparerar |
 
-`runQualityGateChecks` kräver att **varje begärd** check ovan finns bland
-`results[]`. Saknas någon i ett svar där inget failat behandlas körningen som
-`unavailable` (`QualityGateUnavailableError`, ej retrybar) — samma fail-closed-väg
-som en onåbar verify-lane, i stället för att `qualityGateAllPassed` läser de
-returnerade raderna som "alla passed". Kollen gäller bara när inget failat:
-verify-lanen avbryter medvetet före de kanoniska checkarna när `install` failar,
-och det svaret är redan rött (och ofta repairable), så det behåller sitt
-failure-verdikt.
+Render-risk-koder (`RENDER_RISK_TS_CODES`) och oparsebar tsc-output failar
+hårt. Listan ägs av koden, inte av den här filen.
 
-## Standardprofiler
+## En repair-port
 
-Profilerna laddas från `config/ai_models/manifest.json` under
-`qualityGateTiers` (via `getQualityGateTiersFromManifest()`), med nuvarande
-defaultvärden:
-
-| Profil                                   | Checks                   | Var den används                                                                                                                                                                                                                                       |
-| ---------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DESIGN_PREVIEW_QUALITY_GATE_CHECKS`     | `["typecheck"]`          | RenderGate för F2 (live-preview + bakgrunds-`server-verify` + repair re-check). Slimmad 2026-04-23.                                                                                                                                                   |
-| `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "build"]` | ReleaseGate för F3 / promotion-flödet (`/finalize-design`). Lint togs bort ur den blockerande lanen 2026-07-22 (stilregler som `react-hooks/set-state-in-effect` blockerade sajter vars typecheck+build passerade — 21/24 F3-körningar föll på lint). |
-
-### Deterministisk F3-fork
-
-När F3-specen saknar required build-nycklar skapar `finalize-design` först en
-ny `engine_versions`-rad med `lifecycle_stage = integrations`,
-`parent_version_id = <vald F2>` och exakt samma `files_json` som F2-föräldern.
-ReleaseGate körs sedan på den nya F3-raden; den får aldrig promotera F2-raden.
-Ett direkt `gate: "integrationsBuild"` accepterar bara en tenant-/chat-säkrad
-F3-version och återkör den delade env-/Product Postcheck-grinden innan
-typecheck och build. `passed` räcker inte som klientframgång:
-`promoted = true`, ej `superseded`, ej `promoteError` och
-`vmGatePassed !== false` krävs.
-
-F2 behåller en typecheck-only RenderGate med render-first Advisory-semantik.
-Warm ESLint är endast explicit opt-in lokal diagnostik och kan inte starta
-RepairGate eller påverka promotion. F3 har en enda auktoritativ VM-ReleaseGate
-som kör den exporterade sajtens projektlokala verktyg i ordningen
-`typecheck → build`.
-
-Lint är sedan 2026-07-22 borttagen ur den blockerande F3-lanen (ägarbeslut):
-prod-datan visade 21/24 F3-körningar failade på lint-stilregler (t.ex.
-`react-hooks/set-state-in-effect`) trots att typecheck+build passerade. VM:ens
-lint-check + `classifyLintResult` finns kvar i koden (preview-hostens
-verify-lane stödjer fortfarande `lint`), så checken kan återaktiveras via
-manifestets `qualityGateTiers.integrationsBuild`. När den körs gäller: errors
-= Blocker (repairable), warnings = `advisory: true`, saknad lokal ESLint =
-`failureKind: "tooling"` med `repairable: false` — aldrig en grön skip.
-Verify-lanen använder inga `npx`-kommandon och kan därför inte ladda ned
-verktyg implicit.
-
-Revert: sätt `qualityGateTiers.designPreview` till
-`["typecheck", "lint", "build"]` i `config/ai_models/manifest.json` om
-du behöver VM-build-skyddsnätet igen (t.ex. vid debug av Next-runtime-fel).
-
-### F2 render-first: typecheck-only är Advisory (#330, 2026-07-02)
-
-I F2 (`lifecycle_stage !== "integrations"`) failar ett **typecheck-only**-fel
-inte längre versionen. `next dev` kör JS oavsett TS-typfel, så previewn
-renderar — därför behandlas typfelet som **Advisory**.
-
-**Regelägare (single source of truth):** `isTypecheckOnlyAdvisory()` i
-`src/lib/gen/verify/quality-gate-checks.ts`. Båda gate-vägarna använder samma
-predikat så de aldrig är oense:
-
-- **Klientvägen** `POST .../quality-gate` promotar versionen (fortfarande via
-  `assertPromoteAllowed`) och svarar
-  `{ passed: true, vmGatePassed: false, designAdvisory: true, advisoryChecks: ["typecheck"] }`
-  i stället för `failVersionVerification`. Vid transient promote-fel
-  (`promoteError`/`promoteGuardUnavailable`) följer `designAdvisory` med i
-  svaret så klienten inte auto-reparerar en Advisory ändå.
-- **Bakgrundsvägen** `triggerServerVerification` (`server-verify.ts`) speglar
-  regeln: Advisory → `promoteVersion` FÖRSÖKS FÖRE terminal-emit, och
-  `version.verifier.done`-utfallet härleds från om promotionen faktiskt tog
-  (`advisoryPromoted`, kodfält). En promote-no-op (lease-takeover/guard/DB) emitterar
-  INGEN terminal bus-händelse — terminal bus-`failed` är sticky i
-  `reconcileTerminalDbState`, så en förhastad `failed` skulle pinna en falsk
-  röd status även efter att versionen promotats någon annanstans. Bussen
-  lämnas snurrande; DB-`passed` uppgraderar den, watchdog är backstop.
-- `post-checks.ts` kör **ingen** auto-repair-loop (`passed: true` +
-  explicit `!data.designAdvisory`-grind).
-- Diagnostiken bevaras: summary-loggen blir `warning` (ej `error`) och
-  typecheck-raden loggas under `quality-gate:typecheck-advisory`.
-
-**Falsk-grön-skydd** (varför detta inte blir tyst grön):
-
-- Bara F2. F3 (`integrations`) kör alltid full `typecheck + build`.
-- Bara när **varje** failande check är `typecheck`. Ett `build`- eller
-  `lint`-fel (t.ex. build-origin-repair, `forceBuildCheck`) är Blocker som förr.
-- **Bara Advisory-safe diagnostik:** tsc-koder för trasig modul-/export-
-  resolution (TS2304/TS2305/TS2307/TS2552/TS2613/TS2614/TS1361/TS2300/TS2440 —
-  `RENDER_RISK_TS_CODES`) bryter även `next dev` i runtime och failar hårt.
-  Oparsebar tsc-output (inga TS-koder) failar också hårt (fail-closed).
-  Advisory gäller alltså bara semantiska typfel (TS2322, TS2339, TS7006, …)
-  som `next dev` bevisligen renderar igenom.
-- `verifier`/promote-guard (`assertPromoteAllowed`) förblir Blocker — i F2
-  blockerar verifierns build-breaking-klass (import-/namnupplösning m.m. via
-  `isBuildBreakingFinding` → `verifier_failed`) medan produktkvalitetsfynd
-  förblir Advisory; F3 blockerar alla verifier-blocking-fynd.
-  `diagnosticOnly`-läget i server-verify Advisory-promotar aldrig.
-- Att sidan _över huvud taget_ renderar ägs uppströms av finalize-preflight
-  (`buildPreviewHtml` + home-route-gate) — en version som inte kan rendera
-  når aldrig Advisory-promote.
-- `vmGatePassed: false` bevaras så ingen konsument läser Advisory som
-  solid-grön build, och båda vägarna emitterar `version.degraded
-{typecheck_advisory}` så status-projektionen visar "klar med varningar"
-  (aldrig solid grön). Chat-panelen visar "Godkänd med varningar (typecheck
-  advisory)" i amber. Durabelt: promotade radens `verification_summary` bär
-  Advisory-texten + `warning`-raden i `engine_version_error_logs`.
-
-`tier2`, `serverVerify`, `promotion` och `interactive` är konsoliderade till
-`designPreview` + `integrationsBuild`. Lint ägs blockerande endast av VM-gaten;
-det finns ingen andra blockerande warm-eslint-ägare.
-
-## När RenderGate / ReleaseGate körs
-
-### 1. Asynkt efter finalize
-
-Efter att `finalizeAndSaveVersion()` har sparat versionen kan
-`resolvePostFinalizeServerVerifyDecision()` välja att trigga
-`triggerServerVerification()`.
-
-Detta händer inte alltid. Vanliga skäl att hoppa över:
-
-- `verificationPolicy === "fast"`
-- versionen är inte eligible
-- `previewBlocked === true`
-- F2-init utan preflight-fel och utan verifier-Blocker
-
-Vanliga skäl att köra är F3 (`previewPolicy: "fidelity3"`), repair-pass,
-icke-blockerande kvalitetsvarningar eller verifier-Blocker. Verifier-Blocker kan
-köra diagnostic-only: findings syns, men promotion/reparation sker inte automatiskt.
-
-### 2. Explicit via route
-
-`POST /api/engine/chats/[chatId]/quality-gate`
-
-Accepterar en legacy-kompatibel `checks`-lista, men serverns
-`lifecycle_stage` väljer alltid den kanoniska lanen: F2 typecheck-only och F3
-typecheck → build. Klient-body kan varken upp- eller nedgradera checks.
-
-### 3. Efter repair
-
-Både `server-verify` och den explicita `repair`-routen kan re-köra RenderGate/ReleaseGate
-efter att en reparationsomgång har producerat nya filer.
-
-## Hur RenderGate / ReleaseGate förhåller sig till repair
-
-RenderGate/ReleaseGate är i första hand verifiering, men i dagens arkitektur
-används gate-output också som exakt felkälla för RepairGate:
-
-1. RenderGate/ReleaseGate failar
-2. feloutput (`typecheck`, `lint`, `build`) samlas
-3. **deterministisk, diagnostik-driven import-repair körs FÖRST** (se nedan) på
-   de exakta tsc-koderna innan RepairGate
-4. om gate:n passerar efter den deterministiska fixen promotas versionen utan
-   ett enda LLM-anrop (`method: "deterministic"`, `llmPasses: 0`)
-5. annars kör delad `runRepairLoop()` via RepairGate på **residuet** med samma policy
-   för både `server-verify` och manuell `/repair`. Loopens LLM-anrop går via
-   `runLlmRepairGate()` (Fas 3, se "En repair-port" nedan) med
-   ursprungsdiagnostiken (tsc-output inkl. TS-koder) som primära structured
-   errors + prior-patch-noter vid pass > 0. Gate-class-failures (ursprunget
-   var typecheck/build/lint, esbuild-syntaxen redan ren) bär LLM:ens edit
-   vidare till final-gaten och får ETT andra pass inom samma `maxLlmPasses`-
-   budget innan loopen ger upp — rena syntaxfel stannar som förut vid första
-   syntax-rena passet
-6. warm repair försöker skicka bara trasiga filer (+ relevanta imports) till
-   RepairGate när felmängden är lokal
-7. RenderGate/ReleaseGate re-körs enligt **samma-signal-kontraktet**
-   (`resolveSameSignalGateChecks`): varje check som failade i ursprungsgaten
-   måste passera igen (union med baslanen) innan versionen blir
-   `repair_available`. Ett pass som lagar syntax men inte når
-   ursprungssignalens pass rapporteras aldrig som lyckat
-   (`syntax_clean_gate_failed`)
-
-### Deterministisk import-repair före LLM
-
-Källa: `src/lib/gen/autofix/deterministic-import-repair.ts`. EN delad
-implementation, tre entrypoints:
-
-- **server-repair:** anropas överst i `runRepairLoop()` på RenderGate/ReleaseGate-
-  diagnostiken (som tidigare)
-- **finalize normalize (Fas 1 kontrollflöde):** anropas i `validateAndFix()`
-  (`autofix/validate-and-fix.ts`) när warm-tsc-passet failar — därefter körs
-  warm-tsc EN gång till (inget loop, kostnadstak) och endast residuet går
-  vidare till `runLlmRepairGate` (phase `warm-tsc`)
-- **verifier-pass (prod-incident 2026-07-03):** `runVerifierPhase`
-  (`finalize-version/verifier-phase.ts`) översätter `undefined-jsx-symbol`-
-  Blockers till `Cannot find name 'X'`-diagnostik
-  (`parseUndefinedJsxSymbolFinding`) och kör pre-passen INNAN
-  `runLlmRepairGate` (phase `verifier`). Fixen bekräftas med en omkörning av
-  den deterministiska `checkUndefinedJsxSymbols`-scannen; bara bekräftat lösta
-  findings släpps (RAG-rad `fixer: deterministic-import-repair`,
-  `result: fixed`) och residuet går till LLM-fixern. Utan detta lämnade en
-  timeoutad LLM-repair trivialt fixbara imports (Link/Button/Badge) som
-  Blockers och versionen failade verifieringen.
-
-Bakgrund (prod-telemetri 2026-06/07): av de versioner vars RenderGate/ReleaseGate failade
-på `tsc --noEmit` blev **noll** promotade, och 84 % av typecheck-felen är
-importhantering. De dominerande felen är import-only och har redan Normalize-
-ägare som körs blint i `runAutoFix()` — men de når ändå gate:n eftersom de
-blinda heuristikerna är tvetydiga. tsc-diagnostiken namnger exakt symbol + fil,
-vilket tar bort tvetydigheten. Pre-passen konsumerar diagnostiken och dirigerar
-varje fall till rätt **befintlig** fixer:
-
-| Kod               | Felklass                                                                    | Återanvänd fixer                                                                                                                          |
-| ----------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| TS2304 / TS2552   | saknad import (shadcn, Clerk-server, Stripe, lucide, Next)                  | `ts2304-known-import-fixer`                                                                                                               |
-| TS2304 (residual) | egen komponent/symbol som versionens egna filer exporterar (t.ex. `Reveal`) | `own-component-import-fixer` (named: unik-kandidat-injektorn; default: exakt en egen fil)                                                 |
-| TS1361            | `import type { X }` använd som värde                                        | `value-used-from-type-import-fixer` (med bekräftade symboler)                                                                             |
-| TS2440            | import krockar med lokal deklaration (self-import)                          | `fixImportedDeclarationConflicts` (path-medveten)                                                                                         |
-| TS2300            | duplicerad identifierare                                                    | `consolidateReactImports` (react-överlapp, value-wins) → `duplicate-import-binding-fixer` → `duplicate-import-local-type-collision-fixer` |
-
-Obligatoriskt eftersteg per fil som fick import-injektioner: react/same-module-
-dedupe + kvitto — `consolidateReactImports`, sedan dubbelbindnings-pruning, och
-om filen fortfarande bär **introducerade** dubbelbindningar eller nya parse-fel
-revertas filens ändringar (diagnostiken förblir synlig för RepairGate). Ingen
-fixer får lämna ifrån sig två import-statements som re-deklarerar samma lokala
-bindning (stänger "smörsajt"-klassen: dubbel React-import → TS2300 →
-webpack-krasch → preview-500).
-
-Konservativ: bara dessa import-koder rörs. Logik-/typfel (TS2554, TS7006,
-TS7009, generiska mismatchar) lämnas till RepairGate. Okända namn utan matchande egen
-fil lämnas orörda (befintlig cross-file-checker/stub-hantering nedströms —
-Normalize skapar inga nya tysta stubbar). shadcn∩lucide-krocknamn
-(`Badge`, `Calendar`, `Table`, …) löses användningsmedvetet (M#badge1):
-children/`variant=`/`asChild` ⇒ shadcn-komponenten, ikon-aktig självstängande
-användning ⇒ lucide, oklart (t.ex. propp-lös `<Calendar />`) ⇒ lämnas till RepairGate.
-Stripe löses bara i API-route-/route-handler-filer. Alla fixers är idempotenta.
-
-**F2/F3-kontrakt (tier-3 SDK):** F2-guarden (`tier3-sdk-guard-fixer`) strippar
-tier-3 backend-SDK-importer (`stripe`, `@clerk/nextjs/server`, …) i F2. Pre-passen
-får därför INTE lägga tillbaka dem i F2 — det skulle kunna tyst-promota en F2-
-version med förbjuden backend-import (promotion-gaten kör bara tsc/lint/build och
-re-enforce:ar inte F2/F3). Pre-passen tar `previewPolicy` (trådad från
-versionens `lifecycle_stage`: `integrations` ⇒ `fidelity3`) och löser tier-3-
-moduler (enligt `isTier3SdkModule`) **endast** i F3. I F2/okänt lämnas de
-residual så gaten blockerar. Icke-tier-3 (shadcn/lucide/next) är opåverkat.
-
-Telemetri: `validate.tsc.import-repair` (handledCodes, fixCount, fixers,
-cannotFindSummary) och `validate.tsc.import-repair.resolved`
-(`llmSkippedBecauseResolved: true`) i dev-loggen, så prod-analys kan se om
-autofix saknades, lagade eller orsakade felet. `handledCodes` registrerar
-varje faktisk tsc-kod för sig — TS2552 ("Cannot find name … Did you mean …")
-särskiljs från TS2304 även om båda löses av samma known-import-fixer, så
-statistiken inte buntar ihop dem.
-
-`cannotFindSummary` (stabilisering våg 1, M#imp1-arkeologi) redovisar
-cannot-find-klassen per körning: `seenCodes` (distinkta TS2304/TS2552),
-`resolvedNames` (`fil::namn` som fick import) och `residual` med `reason`
-per namn — `tier3_gated` (resolvbar SDK men F2-gaten stoppade, t.ex.
-Stripe/Resend i fidelity2), `ambiguous_shadcn_lucide` (kollision utan
-usage-signal), `type_export_value_usage` (typ-only-export som `LucideIcon`
-använd i VÄRDE-position — ingen import kan lösa det; modellen måste byta
-till en riktig ikon, residualen går till LLM-fixern), `unknown_name` (finns
-inte i någon mappning) eller `not_applied` (resolvad men injektionsguard
-hoppade över — redan importerad, lokalt deklarerad, server-only-modul i
-client-fil, self-import). Samma fält
-emitteras på `verifier-pass.deterministic-import-fix` i finalize.
-Repair-loopens event loggas även när INGET var fixbart (fixCount 0) så en
-körning där alla kandidater gate:ades är observerbar i stället för tyst.
-
-Det betyder att RenderGate/ReleaseGate i nuläget är både verifieringslager och källa till
-repair-kontext, medan själva LLM-reparationen fortfarande går genom RepairGate.
-
-### En repair-port: RepairGate (Fas 3)
-
-**All LLM-repair går genom EN port:** `runLlmRepairGate()`
-(`src/lib/gen/autofix/llm-repair-gate.ts`). `runLlmFixer` har exakt EN
-produktions-callsite (inuti gaten) — vaktad av
-`src/lib/gen/autofix/llm-fixer-callsite-guard.test.ts`. Det gäller både
-finalize-lanes (syntax/warm-tsc, verifier, preflight, home-route
-recovery, partial-file, merged-syntax) och post-finalize `runRepairLoop()`
-(server-verify, build-error-repair, manuell `/repair`).
+All LLM-repair går genom `runLlmRepairGate()`. `runLlmFixer` har exakt en
+produktions-callsite (inuti gaten), vaktad av
+`src/lib/gen/autofix/llm-fixer-callsite-guard.test.ts`.
 
 `RepairLedger` dedupe:ar på
-`scopeId:chatId:contentHash:diagnosticFingerprint:requiredFiles`:
-
-- **Inom finalize:** en ledger per finalize-run (`repairScopeId` =
-  `{targetVersionId|lineageHash|chatId}:{root|repair-N}`), samma fel i annan
-  phase dedupe:as (`phase` loggas men ingår inte i nyckeln).
-- **Över lanes (Fas 3):** finalize lämnar över sin ledger + scope via
-  `FinalizeResult.repairLedger`/`repairScopeId` →
-  `triggerServerVerification`/`triggerBuildErrorRepair` → `runRepairLoop`.
-  Samma innehåll + samma diagnostik som redan LLM-lagats i finalize lagas inte
-  igen i server-repair. Nyckeln innehåller `contentHash`, så legitima retries
-  på NYTT innehåll blockeras aldrig.
-- **Manuell `/repair`:** egen HTTP-invokation → fresh per-run ledger med scope
-  `{versionId}:manual-repair` (dedupe skyddar identiska retries inom körningen).
-- **Aborted-undantag:** ett avbrutet (timeout) försök blockerar inte den
-  omedelbara reducerade-budget-retryn — bara fullbordade försök dedupe:ar.
-
-### Base-aware tidig abort (Fas 3)
-
-`runRepairLoop` tar `shouldAbortSuperseded` och kollar vid varje pass-start och
-före slutverifieringen om versionen hunnit bli inaktuell (nyare version finns,
-eller `files_json` avancerade förbi repair-basen). Om ja avbryts loopen med
-`earlyStopReason: "superseded"` → outcome `superseded_by_newer_version`, i
-stället för att jobba klart och få resultatet kastat av den bas-bundna saven.
-Server-verify markerar då raden superseded (nyare version) eller re-verifierar
-aktuella filer (files-advanced, samma väg som stale-base-no-op); leasen släpps
-alltid via `finally`.
-
-### Terminal-neutral `superseded` (2026-07)
-
-`markVersionSupersededByRepair` skriver `verification_state = "superseded"` —
-ett eget terminalt, **neutralt** tillstånd (tidigare skrevs `failed`, vilket
-gjorde ~26 % av prod-versionerna falskt röda). Semantik:
-
-- UI: amber "Ersatt" (versionshistorikens verifierings-badge + derived
-  `retrying`-lifecycle-badge) — aldrig röd "Fel", inget rosa gate-kort
-  (klienten respekterar `superseded: true` i gate-svaret och startar aldrig
-  repair/autofix mot raden).
-- Deploy-gate: som `pending` — F2 deploybar, F3 kräver fortfarande grön
-  ReleaseGate.
-- `selectPreferredEngineVersion` väljer aldrig en superseded rad.
-- Readiness: ingen blocker/varning (den nyare versionen äger sin readiness).
-- Stale-watchdog: terminal → rör aldrig raden.
-- `/quality-gate`-routen gör dessutom en **tidig** supersede-check efter
-  lease-acquire men före VM-checkarna, så en inaktuell version aldrig bränner
-  verify-lanens ~30–45 s (`quality-gate:superseded` med `meta.early: true`).
-  "Nyare" här är **preferred head** (`selectPreferredEngineVersion` via
-  `isPreferredHeadVersion`), inte rå `getLatestVersion` — en failad F3-rad
-  får inte göra en fortfarande användbar F2-design till `superseded`.
-
-Rader som supersedades före 2026-07 behåller sitt historiska `failed`.
-
-## Repair-accept (ingen tyst filersättning)
-
-När post-repair RenderGate/ReleaseGate passerar skrivs inte reparerade filer direkt över
-`engine_versions.files_json`.
-
-I stället:
-
-1. reparerade filer sparas i `engine_versions.repaired_files_json`
-2. versionen sätts till `verification_state = "repair_available"` med `repair_available_at`
-3. stream kan skicka `version-repair-available` och versions-API visar `hasPendingRepair`
-4. användaren applicerar fixen via `POST /api/engine/chats/[chatId]/accept-repair`
-5. timeout-fallback kan auto-accepta efter `repairPolicies.repairAcceptTimeoutMinutes`
-
-Detta gör serverreparation transparent i live-preview: fixen är en synlig,
-explicit acceptpunkt i stället för en osynlig overwrite.
-
-### Base-bound accept (#265)
-
-Sedan #265 lagras `repaired_files_json` som ett kuvert `{ v, baseFilesHash, files }`,
-där `baseFilesHash` är SHA-256 av exakt det `files_json` repairen baserades på.
-`saveRepairedFiles` binder skrivningen atomiskt till basen (`WHERE files_json = base`),
-och `acceptRepair` + timeout-autoaccept vägrar promota om nuvarande `files_json`-hash
-≠ `baseFilesHash` (en samtidig user-edit hann emellan) eller om payloaden är en legacy
-plain-array utan bas-hash (fail-closed → användaren kör om repair). Promoteringen körs
-dessutom under en aktiv-lease-grind (`engine_version_jobs`). Detta stänger
-repair-vs-user-edit-clobbern (#260 P2 #5).
-
-## Strukturerat repair-underlag (`errorManifest`)
-
-`runRepairLoop()` använder `buildGroupedRepairErrorContext()` för att gruppera
-fel per fil och prioritera utifrån importgraf:
-
-- diagnostics extraheras från RenderGate/ReleaseGate-output + syntaxfel
-- grupperas till `RepairErrorManifest` (`file`, `importedByCount`, `dependsOn`, diagnostics)
-- sorteras så hög-impact-filer hanteras först
-
-Samma manifest sparas i verify/repair-loggarnas metadata (`errorManifest`) så
-det går att se exakt vilket felunderlag repair-fasen jobbade med.
-
-## Installstrategi i verify-lane
-
-Verify-lane installerar nu i två steg:
-
-1. kör normal install utan `--legacy-peer-deps`
-2. bara vid detekterad peer-konflikt, kör fallback med `--legacy-peer-deps`
-
-Samtidigt försöker verify-lane dela `node_modules` mellan live och verify
-workspace när dependency fingerprint matchar, för att minska dubbla installer.
-
-## Blocker och Advisory
-
-I preflight-/preview-kontraktet finns en viktig skillnad:
-
-- **Blocker** kan stoppa preview, verification eller promote.
-- **Advisory** ska synas i status/diagnostik men inte stoppa preview.
-
-Typiska Blocker-fall:
-
-- `code_structure_failure`
-- `dependency_install_failure`
-- `env_config_missing`
-
-Typiska Advisory-fall:
-
-- SEO-signaler
-- analytics-varningar
-- vissa scaffold-/kvalitetssignaler
-
-SEO-varningar ska alltså inte tolkas som att RenderGate/ReleaseGate blockerar previewn.
-
-## Relation till andra steg i pipeline
-
-RenderGate/ReleaseGate ligger efter finalize/persist och efter preview-start-handoff i den
-större builder-kedjan:
-
-```mermaid
-flowchart TD
-    codegen[CodegenStream] --> normalize[Normalize]
-    normalize --> syntax[SyntaxValidation]
-    syntax --> verifier[VerifierPass]
-    verifier --> preflight[MergeAndPreflight]
-    preflight --> persist[VersionPersist]
-    persist --> preview[PreviewStart]
-    preview --> renderGate[RenderGate F2]
-    preview --> releaseGate[ReleaseGate F3]
-    renderGate -->|pass| promoted[PromoteVersion]
-    renderGate -->|"typecheck-only Advisory"| promoted
-    renderGate -->|Blocker| repair[RepairGate / server repair]
-    releaseGate -->|pass| promoted
-    releaseGate -->|Blocker| repair
-    repair --> renderGate
-    repair --> releaseGate
-    renderGate -->|repair pass| repairAvailable[RepairAvailable]
-    releaseGate -->|repair pass| repairAvailable
-    repairAvailable --> acceptRepair[AcceptRepair]
-    acceptRepair --> promoted
-```
-
-### Promote-guard fail-closed-policy (false-green-härdning, B08)
-
-`PromoteVersion`/`AcceptRepair` konsulterar `assertPromoteAllowed`
-(`src/lib/db/promote-guard.ts`): en version får inte nå `promoted` medan
-finalize-telemetrin (`generation_telemetry.quality_gate_result`) säger
-`verifier_failed`/`preflight_failed`.
-
-- **`/quality-gate`-routen failar closed men retrybar** vid läsfel: routen anropar
-  guarden med `{ onReadError: "indeterminate" }`. Kan signalen inte läsas (DB-/guard-fel)
-  → ingen promotion, men raden markeras **inte** terminalt `failed` (svar `passed:false` +
-  `promoteError:true` + `promoteGuardUnavailable:true`, klienten kan retry:a). Detta stänger
-  fail-open-hålet där ett telemetri-läsfel kunde promota en `verifier_failed`-version.
-- **`shouldPromoteAfterRepair` promotar aldrig på tomma results:** när verify-lanen saknas
-  (`!isQualityGateConfigured()`) returneras `promote:false`/`results:null` — en overifierad
-  repair tolkas aldrig som grön.
-- **Medvetet kvar (back-compat):** ett `null`-signal (ingen telemetri-rad: template-import,
-  rollback-drafts, äldre rader) tillåter fortfarande promotion. Kanoniska
-  `promoteVersion`/`acceptRepair` behåller default-fail-open på läsfel; routen opt:ar in i
-  fail-closed via `onReadError`.
-
-### Innehållsrevision: ett verdikt gäller ett innehåll (steg 3, flaggad)
-
-Bakom `SAJTMASKIN_CONTENT_REVISION_GATE` (**default av** — att släppa flaggan är ett
-ägarbeslut) läser guarden `getLatestQualityGateSignalForVersion`, som väljer senaste
-telemetri-raden för **aktuell** `files_revision` i stället för senaste raden för
-`versionId`.
-
-| Läge                                                         | Guardens svar                                                                                     | Varför                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Revisionen matchar innehållet                                | dagens beslut (`preflight_passed` → allow, `verifier_failed`/`preflight_failed` → explicit block) | verdiktet är ett svar om det innehåll som promotas                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Känd mismatch** (verdiktet bär en annan revision)          | `{ allowed: false, indeterminate: true, staleRevision: true, staleSignal, staleSignalBlocking }`  | Symmetriskt: ett `passed` från revision N får inte grönmarkera N+1, och ett `failed` från N får inte terminal-faila N+1. `indeterminate` betyder "kör gaten igen". **`/quality-gate` gör det:** när VM-checken redan passerat på nuvarande innehåll stämplar routen ett färskt `preflight_passed` för aktuell `files_revision` (`recordQualityGatePassedForCurrentContent`) och gör **exakt ett** guard-omt ag — utan att flytta ett gammalt verdikts revision framåt. **Men bara när det överspelade verdiktet inte var blockerande:** mismatchen klassas före blocking-checken, så `staleRevision` täcker även "verifieraren underkände revision N, sedan muterades filerna till N+1" — och att stämpla ett pass där vore false-green på enbart VM-checkarna. `staleSignalBlocking` bär det svaret maskinläsbart (guarden äger definitionen; konsumenter härleder den inte ur `PROMOTE_BLOCKING_QUALITY_GATE_RESULTS` och parsar aldrig `reason`). Övriga anropare (`promoteVersion` / `promoteVersionIfUnleased`) returnerar fortfarande `null` (ej promotad, retrybart) och settlar **inte** raden terminalt |
-| Okänd revision (rad före steg 2, versionslös rad, flagga av) | dagens fail-open                                                                                  | Back-compat: "vet inte" får aldrig bli en spärr                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-
-`acceptRepair` skickar `promotedFilesJson` (den avkodade reparerade payloaden) till
-guarden. Innehållet som promotas ligger i `repaired_files_json` fram till samma
-UPDATE, så en jämförelse mot versionens nuvarande `files_json` skulle kalla
-repair-passets verdikt stale och kila fast varje legitim accept. Samma explicita
-mönster som `assessedFilesJson` (#646): jämför mot det innehåll verdiktet gäller —
-stämpla aldrig om en befintlig telemetrirads revision.
-
-Frekvensen av känd mismatch mäts med Prometheus-räknaren
-`sajtmaskin_content_revision_mismatch_total{surface,verdict}` (`surface` =
-`promote_guard` · `preview_receipt` · `status_projection` · `versions_list`).
-`versions_list` (historiklistan `GET .../versions`, restlista-R15) tickar per
-poll så länge en stale rad visas — läs den som varaktighet, inte händelseantal.
-
-## Server-repair outcome metadata (Wave 5 hot-fix #3)
-
-`buildServerRepairOutcomeMeta` i `src/lib/gen/verify/server-verify-log-meta.ts`
-producerar `repair-outcome`-loggar med följande fält:
-
-| Fält                    | Typ                                                                                  | Beskrivning                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| `method`                | `"deterministic" \| "llm"`                                                           | Vilken repair-strategi som kördes                                    |
-| `llmPasses`             | `number`                                                                             | Antal RepairGate-anrop i loopen                                      |
-| `repaired`              | `boolean`                                                                            | True om RenderGate/ReleaseGate passerade efter repair                |
-| `remainingErrors`       | `number?`                                                                            | Antal kvarvarande **esbuild-syntax**-fel — ej tsc/build              |
-| `remainingErrorsSource` | `"esbuild_syntax" \| "quality_gate"`                                                 | Vilken pass siffran kommer från (Wave 5)                             |
-| `syntaxCleanGateFailed` | `boolean`                                                                            | True när esbuild = 0 men typecheck/build fortfarande failar (Wave 5) |
-| `earlyStopReason`       | `"fixer_noop" \| "no_improvement" \| "time_budget_exceeded" \| "superseded" \| null` | Varför loopen bröts                                                  |
-| `outcome`               | `ServerRepairOutcome`                                                                | **Kanonisk outcome-enum (Fas 0)** — se nedan                         |
-
-**Varför detta finns:** Tidigare loggar visade "Kvarvarande fel: 0" samtidigt
-som typecheck failade. Det beror på att `remainingErrors` läses från
-`validateGeneratedCode` (esbuild parse), inte från RenderGate/ReleaseGate. Wave 5
-lade till `remainingErrorsSource` + `syntaxCleanGateFailed` så UI/loggar
-kan disambigueras: "0 syntaxfel (esbuild) — men RenderGate/ReleaseGate failar fortfarande".
-
-### Kanonisk repair-outcome-taxonomi (Fas 0)
-
-`resolveServerRepairOutcome` (`src/lib/gen/verify/server-verify-log-meta.ts`) är
-**en enda ägare** för både `meta.outcome` och loggmeddelandet. Både
-`server-verify.ts` (`logRepairOutcome`) och `repair/route.ts` (`logRepair`)
-bygger meddelandet härifrån — inga egna fritext-ternärer. `control-stats.mjs`
-grupperar på `meta->>'outcome'` (query `serverRepairOutcomes`).
-
-| `outcome`                     | Betyder                                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `repaired`                    | Gate passerade efter repair (samma-signal-kontraktet uppfyllt)                                         |
-| `syntax_clean_gate_failed`    | esbuild rent, men typecheck/build failar                                                               |
-| `syntax_errors_remain`        | esbuild-syntaxfel kvar efter alla pass                                                                 |
-| `time_budget_exceeded`        | Loopen bröts på wall-clock-budget                                                                      |
-| `superseded_by_newer_version` | Fas 3: tidig abort — versionen blev inaktuell under repairen (nyare version / `files_json` avancerade) |
-| `no_improvement`              | Loopen förbättrade inget (icke-tyst fallback)                                                          |
-| `fixer_noop`                  | Fixern producerade ingen ändring (inkl. ledger-dedupad attempt)                                        |
-| `no_context`                  | Ingen actionable felkontext att repair:a                                                               |
-
-**Gammal→ny-mappning** (fritext ersatt, inte parallellt namn):
-
-| Gammal fritext                                        | Ny `outcome`                                |
-| ----------------------------------------------------- | ------------------------------------------- |
-| `Server repair succeeded (…).`                        | `repaired`                                  |
-| `…syntax clean but quality gate still failing…`       | `syntax_clean_gate_failed` (legacy-fritext) |
-| `…N esbuild syntax errors remain…`                    | `syntax_errors_remain`                      |
-| `…time budget exceeded…`                              | `time_budget_exceeded`                      |
-| `…0 errors remain…` (route-loggen, gate failade ändå) | `syntax_clean_gate_failed` (**bugfix**)     |
-
-Historiska rader saknar `meta.outcome`; läsare (`control-stats`, backoffice)
-bucketar dem som `(historisk/utan-outcome)`.
-
-## Telemetri-fält: dossier-val & deploy-utfall (Fas 0)
-
-`generation_telemetry` skrivs av `persist-telemetry.ts` + deploy-flödet:
-
-| Fält / plats                                                                               | Skrivs av                                                                                                             | Läses av                                                                             |
-| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `meta.streamMs` (`number`)                                                                 | `persistTelemetryRecord` (wall-clock engine-stream-start → finalize-start; samma mått som Prometheus-fasen `codegen`) | `/logg` via `dump-logs --kinds=telemetry`, latensanalys                              |
-| `meta.postStreamSteps` (per-steg-map, inkl. `materialize_images`)                          | `persistTelemetryRecord` från finalize `finalizeStepTelemetry`                                                        | `/logg`, latensanalys; Prometheus speglar faserna via `sajtmaskin_phase_duration_ms` |
-| `meta.selectedDossierIds` (`string[]`)                                                     | `persistTelemetryRecord` (endast när ≥1 dossier valdes)                                                               | `control-stats` (`dossierUsage`)                                                     |
-| `deploy_result` (kolumn, t.ex. `production:ready` / `preview:queued` / `production:error`) | `recordDeployResultForVersion` från `POST /api/v0/deployments` (best-effort, senaste telemetri-raden för versionId)   | `control-stats` (`deployOutcomes`), backoffice generation-history                    |
-
-Ingen migration: `deploy_result`-kolumnen finns redan och dossier-val lagras i
-befintlig `meta` (jsonb). Tomma dossier-listor skrivs inte → historiska rader
-utan nyckeln = "ingen dossier".
-
-## Telemetri-fält: `variant_id` (scaffold-variant per generation)
-
-`generation_telemetry.variant_id` (kolumn, text nullable; migration
-`add-generation-telemetry-variant-id.sql`) är den orchestrate-låsta
-scaffold-varianten (stilriktningen) för generationen, t.ex. `corporate-grid`.
-
-| Läge             | Betyder                                                                                                                             |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `"<variant-id>"` | Varianten som `finalizeOrchestrationPrompts` låste — samma värde som `orchestrationStreamMeta.variantId` / snapshotens `variantId`. |
-| `null`           | Rad skriven före kolumnen fanns, legacy-snapshot utan variant, eller eval/synthetisk körning.                                       |
-
-Skrivs av `persistTelemetryRecord` (finalize) och ärvs av repair-raden i
-`recordRepairPassedQualityGate` (samma princip som `chatId`/`model`). Innan
-kolumnen fanns var enda källan `engine_chats.orchestration_snapshot.variantId`,
-som bara håller chattens _senaste_ tillstånd — per-version-historik och
-fördelningsanalys över tid var omöjlig.
-
-## Telemetri-fält: ärlig `preview_success` (M#pv1)
-
-`generation_telemetry.preview_success` (kolumn `boolean` nullable) är en
-**tri-state** som betyder "svarade preview-runtimen?", inte "blockerade
-preflighten previewn?". Semantiken ägs numera av två skrivare:
-
-| Läge    | Betyder                                                                                                                                                             | Skrivs av                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `true`  | Runtime-ready-kvitto: preview-host `/status` rapporterade `running: true` för versionens session (verifierad via `tryResumeTier2Runtime`/`fetchPreviewHostStatus`). | `recordPreviewRuntimeOutcomeForVersion` — stämplas vid kvittopunkterna: **`POST /preview-heartbeat` (normalvägen — klienten heartbeat:ar ~25 s medan iframen lever; routen verifierar kvittot med ETT host-`/status`-anrop innan stämpel, one-shot per version/instans via confirmed-cachen)**, `GET /preview-status` (running-grenen, suspect/recovery-vägen), `POST /preview-session` (resume-verifierad väg) och post-finalize (resume-verifierad start). |
-| `false` | Bekräftat ingen fungerande preview: previewn blockerades (preflight/verifier) eller preview-sessionen kunde inte startas.                                           | `persistTelemetryRecord` (preflight-block) + `recordPreviewRuntimeOutcomeForVersion` (start-fel i post-finalize)                                                                                                                                                                                                                                                                                                                                             |
-| `null`  | Pending/obekräftat: en färsk boot köades men bekräftades aldrig, eller ingen preview kördes.                                                                        | `persistTelemetryRecord` (default)                                                                                                                                                                                                                                                                                                                                                                                                                           |
-
-**Monotont OCH atomiskt kontrakt** (en enda writer,
-`recordPreviewRuntimeOutcomeForVersion`): monotoniteten sitter i själva
-UPDATE-satsens `WHERE` (en enda villkorad sats, ingen förläsning — två racande
-kvitton kan aldrig låta "sist committad vinner"): `true`-stämpel kräver
-`preview_success IS DISTINCT FROM true` (`null→true`, `false→true` OK — senare
-bekräftad boot vinner över tidigare startfel); `false`-stämpel kräver
-`preview_success IS NULL` (endast `null→false`; en fördröjd `false` kan aldrig
-skriva över en bekräftad `true`). Målraden (senaste telemetri-raden för
-versionen) löses av en subquery i samma sats. Best-effort: kastar aldrig i het
-väg; `GET /preview-status` schemalägger stämpeln via `after()` (post-response,
-blockerar aldrig status-svaret) och writerns per-instans confirmed-cache gör
-upprepade polls efter bekräftelse helt DB-fria. Stämplar bara när versionen är
-knuten till sessionen (`/preview-status` kräver session↔version-match innan
-running-grenen, och hostens `/status` re-verifierar versionId). Ingen ny
-polling — alla stämpelpunkter hänger på befintliga anrop.
-
-**Innehållsrevision steg 3 (flagga `SAJTMASKIN_CONTENT_REVISION_GATE`, default av)
-stänger M#pv4:** kvittot band sig till `versionId`, inte till innehållsrevisionen
-VM:en servar, så ett `running:true` för den gamla sessionen kunde stämpla en NY
-telemetrirad grön (ett repair-varv som passerade sin gate skapar en rad för
-innehåll i `repaired_files_json` som aldrig bootats). Med flaggan på:
-
-- **Stämpeln** får en revisionsgrind i samma villkorade UPDATE som monotoniteten —
-  målraden är senaste raden som INTE är en känd mismatch (`files_revision IS NULL`
-  = okänd, fortfarande stämpelbar, eller lika med versionens nuvarande revision).
-  Subselecten utvärderas vid exekvering, så en omskrivning mellan förläsning och
-  skrivning kan inte göra en mismatchad rad till mål.
-- **Cachen** nycklas på revision i stället för `versionId`
-  (`shouldVerifyPreviewRuntimeReceipt`), så en same-version-rewrite inte
-  kortsluter stämplingen av den nya raden på en instans som redan sett ett kvitto.
-  Den extra `files_revision`-läsningen sker bara för versioner instansen redan
-  bekräftat; en aldrig bekräftad version svarar DB-fritt som förut.
-- **Residual (dokumenterad, konservativ riktning):** "det VM:en servar" härleds ur
-  versionens nuvarande revision, inte ur ett revisionsfält på preview-sessionen.
-  Efter en accepterad repair håller `files_json` det reparerade innehållet medan
-  VM:en kan servera det gamla tills nästa update — då kan kvittot landa på den
-  reparerade raden. En exakt bindning kräver att sessionen bär revisionen
-  (`session-store.ts`), vilket är en egen leverans.
-
-**Varför:** preview-host `/preview/session/start` (+ `/update`) köar bootet och
-svarar `201` **innan** `npm run dev` servar. Session-skapad ≠ runtime-överlevde.
-Prod-bevis 2026-07-03: `preview_success=true` på verifier-blockerade versioner och
-på en version vars dev-runtime dog i en EADDRINUSE/orphan-loop.
-
-**Lifecycle-telemetrin följer samma semantik (runda 4):** post-finalize loggar
-`kind: "preview_url_handoff"` för en köad boot (URL:en lämnad till klienten,
-runtime EJ bekräftad — samma fält som `preview_ready` så latens-analys
-fungerar) och reserverar `kind: "preview_ready"` för det resume-verifierade
-kvittot — incident-tooling som läser `preview_ready` som "runtime uppe" får
-inga falska gröna. `preview-ready`-**SSE:n** emitteras oförändrat i båda
-fallen (den är klientens URL-handoff: `stream-handlers.ts` sätter iframe-URL
-
-- sessionsmetadata på den, och sync-JSON-fallbacks läser den) men bär nu det
-  ärliga fältet `runtimeConfirmed: boolean` (additivt i
-  `BuilderPreviewReadyPayload`).
-
-**Gammal→ny-mappning** (ersatt semantik, inte parallellt fält):
-
-| Gammalt värde (skrevs vid finalize)           | Betydde                                                                        | Ny semantik                                                                 |
-| --------------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| `true` (`!hasPreviewBlockingPreflightErrors`) | "preflight blockerade inte previewn" — sattes FÖRE previewförsöket, ljög grönt | Skrivs inte längre vid finalize. `true` kräver nu ett runtime-ready-kvitto. |
-| `false` (`hasPreviewBlockingPreflightErrors`) | preflight blockerade previewn                                                  | Oförändrat `false` (bekräftat ingen preview).                               |
-
-**Läsare (redan tri-state-medvetna, ingen ny kolumn):**
-
-- `scaffold-scoring.ts` (SAJ-49) och `scripts/db/scaffold-scores.mjs`
-  exkluderar `null` (pending/infra-brus) och rankar bara bekräftade utfall.
-- `scripts/db/control-stats.mjs` `telemetryTotals` skiljer
-  `preview_ready` / `preview_failed` / `preview_pending` (tidigare buntades
-  `null` in i `preview_not_ok`) och redovisar pre-cutoff-rader separat som
-  `legacy_preview_flag`; `byScaffold` har samma tri-state per scaffold
-  (post-cutoff `runs` så ready+failed+pending = runs; `preview_legacy` för
-  pre-cutoff). `nullScaffoldCohorts` delar `scaffold_id IS NULL` i
-  `imported_repo` / `scaffold_off` / `invalid_manual` / `unknown_null`.
-- Backoffice `generation_history._preview_label`: `ready` / `failed` /
-  `pending`, och pre-cutoff `true` renderas som `legacy (preflight)` (läser
-  radens `created_at`; cutoff-värdet dupliceras från `control-stats.mjs` med
-  käll-pekare — oparsebar timestamp behandlas konservativt som legacy).
-
-**Historiska rader — hård cutoff i aggregaten:** rader före semantik-cutoffen
-(`PREVIEW_SUCCESS_SEMANTIC_CUTOFF = 2026-07-03T14:30:00Z` i
-`scripts/db/control-stats.mjs` — satt EFTER förväntad merge+deploy av PR #377
-med marginal; justeras framåt om deployen sker senare) bär gamla,
-överoptimistiska `true`-värden. Ett 14-dagarsfönster som straddlar bytet
-skulle annars rapportera exakt den false-green semantikbytet tar bort — därför
-räknas pre-cutoff-rader ALDRIG in i `preview_ready`-KPI:n utan bucketas som
-`legacy_preview_flag`. Fel-riktningen är medvetet konservativ: en
-ny-semantik-rad som hamnar före cutoffen bucketas som legacy (underskattar
-`preview_ready`, aldrig false-green). Ingen migration — semantiken bor i
-skrivarna/läsarna, inte i kolumnen.
-
-## Baslinje 2026-07-02 (Kontrollflöde-konsolidering, Fas 0)
-
-Fryst referens för Fas 6-mätningen. 14-dagarsfönster t.o.m. 2026-07-02
-(115 genereringar, 41 chattar). **OBS:** fönstret ligger mestadels _före_
-render-first-bytet och dagens punktfixar (#346/#354/#356) — effekten mäts om
-per våg, inte rakt mot dessa tal.
-
-| Mätvärde                       | Baslinje           | Mål (efter Fas 1–4) |
-| ------------------------------ | ------------------ | ------------------- |
-| RenderGate/ReleaseGate pass    | 84 %               | 90–93 %             |
-| Typecheck som first failure    | 99 % av gate-fails | < 60 %              |
-| Importrelaterade TS-fel        | 84 % av felträffar | < 35 %              |
-| Verifier skippad               | 69 % (volymstyrd)  | riskbaserad         |
-| Gate-failade räddade av repair | 1/28 (3,6 %)       | > 25 %              |
-| Versioner som slutar failed    | 38 %               | < 25 %              |
-
-Källa: `scripts/db/control-stats.mjs` (14 d) + kodverifiering mot master 2026-07-02.
-
-### Fas 6 mätavstämning
-
-Den här toolingen äger bara jämförelse och syntetiska fixtures. Själva
-prod-mätningen ägs av orkestratorn/ägaren, eftersom den kräver prod-snapshot
-och databasåtkomst.
-
-Kör avstämningen så här:
-
-```bash
-npm run env:pull:prod-snapshot
-node scripts/db/control-stats.mjs --json --env=.env.vercel.production.pulled --days=14 --allow-insecure-ssl > /tmp/control-stats-current.json
-npm run stats:compare -- --baseline scripts/observability/control-stats-baseline-2026-07-02.json --current /tmp/control-stats-current.json --md
-```
-
-Eval-sviten för de historiska import-/repair-klasserna är CI-buren via vanlig
-Vitest och kan köras riktat med:
-
-```bash
-npx vitest run src/lib/gen/autofix/eval/
-```
-
-## RepairGate incomplete-files-skydd (Wave 5 hot-fix #5)
-
-`runLlmFixer` (kod-legacy bakom RepairGate) i `src/lib/gen/autofix/llm-fixer.ts` validerar varje returnerad
-fil **före merge** med `validateCompleteFiles`. Filer som flaggas som ofullständiga
-exkluderas från merge och rapporteras tillbaka i `FixerResult.incompleteFiles`:
-
-| `reason`                          | Heuristik                                                                         |
-| --------------------------------- | --------------------------------------------------------------------------------- |
-| `shrink_below_50pct`              | Ny fil < 50 % av originalets längd (för originalfiler ≥ 200 tecken)               |
-| `ellipsis_or_rest_unchanged_tail` | Slutar med `// ...`, `/* rest unchanged */`, `// rest of the code unchanged` etc. |
-| `unbalanced_delimiters`           | `{` `(` `[` obalanserade (string/comment-aware räknare)                           |
-
-Detta är klassen av bugg bakom historiska "missing `}`"- och "ButtonProps"-incidenter:
-RepairGate returnerade tidigare en partial file som mergades direkt och korrumperade projektet
-medan esbuild-passet senare rapporterade 0 fel.
-
-## Dokumentationsstatus
-
-RenderGate/ReleaseGate finns redan dokumenterad, men utspritt:
-
-- `docs/schemas/preview-session-contract.md` — verify-lane och API-kontrakt
-- `docs/architecture/llm-pipeline.md` § FAS 3 — runtimebild, tier-2 vs verify-lane
-- `docs/architecture/llm-pipeline.md` § FAS 2 — relation till finalize och `server-verify`
-
-Den här sidan finns för att ge en enda sammanhållen ingångspunkt.
+`scopeId:chatId:contentHash:diagnosticFingerprint:requiredFiles`.
+`contentHash` i nyckeln gör att nytt innehåll aldrig blockeras. Flöde:
+[`../architecture/quality-gate-flow.md`](../architecture/quality-gate-flow.md).
+
+### Repair-accept-kuvert
+
+`repaired_files_json` är `{ v, baseFilesHash, files }`. `baseFilesHash` är
+SHA-256 av exakt det `files_json` repairen baserades på. Accept vägrar om
+nuvarande hash ≠ `baseFilesHash` eller om payloaden är en legacy plain-array.
+
+## Server-repair outcome-fält
+
+Skrivs av `buildServerRepairOutcomeMeta` / `resolveServerRepairOutcome`.
+Enumvärden ägs av `ServerRepairOutcome` och `ServerRepairEarlyStop` i
+`server-verify-log-meta.ts` — kopiera inte unionen hit.
+
+| Fält | Typägare | Betydelse |
+| --- | --- | --- |
+| `method` | `"deterministic" \| "llm"` | Vilken strategi som kördes |
+| `llmPasses` | `number` | Antal RepairGate-anrop |
+| `repaired` | `boolean` | True om gaten passerade efter repair (samma-signal) |
+| `remainingErrors` | `number?` | Kvarvarande **esbuild-syntax**-fel, inte tsc/build |
+| `remainingErrorsSource` | `"esbuild_syntax" \| "quality_gate"` | Vilken pass siffran kommer från |
+| `syntaxCleanGateFailed` | `boolean` | esbuild = 0 men typecheck/build failar |
+| `earlyStopReason` | `ServerRepairEarlyStop \| null` | Varför loopen bröts |
+| `outcome` | `ServerRepairOutcome` | Kanonisk taxonomi; `control-stats.mjs` grupperar på `meta->>'outcome'` |
+
+`verification_state = "superseded"` är ett eget terminalt neutralt tillstånd
+(UI: amber "Ersatt"). Deploy-gate behandlar det som `pending`.
+
+Historisk fritext → `outcome` (samma mappning som kommentaren i
+`server-verify-log-meta.ts`): `Server repair succeeded` → `repaired`;
+syntax clean but gate failing / `"0 errors remain"` med failad gate →
+`syntax_clean_gate_failed`; N esbuild errors → `syntax_errors_remain`;
+time budget → `time_budget_exceeded`; no-context-skip → `no_context`.
+
+## Telemetri-fält (form)
+
+Skrivs av `persist-telemetry.ts` och relaterade writers. Kolumner och `meta`-nycklar:
+
+| Fält | Skrivs av | Läses av |
+| --- | --- | --- |
+| `meta.streamMs` | `persistTelemetryRecord` | `/logg`, latensanalys |
+| `meta.postStreamSteps` | samma, från finalize `finalizeStepTelemetry` | `/logg`; Prometheus `sajtmaskin_phase_duration_ms` |
+| `meta.selectedDossierIds` | `persistTelemetryRecord` när ≥1 dossier valdes | `control-stats` (`dossierUsage`) |
+| `deploy_result` | `recordDeployResultForVersion` från `POST /api/v0/deployments` | `control-stats` (`deployOutcomes`) |
+| `variant_id` | `persistTelemetryRecord`; ärvs av repair-raden | per-generation scaffold-variant |
+| `preview_success` | se nedan | `control-stats`, scaffold-scoring, backoffice |
+
+### `preview_success` (tri-state)
+
+Ägare: `recordPreviewRuntimeOutcomeForVersion`. Monoton UPDATE: `true` kräver
+`IS DISTINCT FROM true`; `false` kräver `IS NULL`.
+
+| Värde | Betydelse |
+| --- | --- |
+| `true` | Preview-host `/status` rapporterade `running: true` för versionens session |
+| `false` | Bekräftat ingen fungerande preview (preflight-block eller start-fel) |
+| `null` | Pending/obekräftat |
+
+Cutoff för legacy-semantik (preflight-`true` som ljög grönt):
+`PREVIEW_SUCCESS_SEMANTIC_CUTOFF` i `scripts/db/control-stats.mjs`.
+
+`generation_telemetry.quality_gate_result` är promote-guardens signal
+(`verifier_failed` / `preflight_failed` / `preflight_passed`).
+Innehållsrevision bakom `SAJTMASKIN_CONTENT_REVISION_GATE` jämför
+`files_revision` på verdikt vs version — se runtime-contracts.
