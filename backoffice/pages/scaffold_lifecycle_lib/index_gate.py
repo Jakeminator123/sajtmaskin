@@ -22,9 +22,10 @@ INDEX_RESULTS_KEY = "scaffold_lifecycle_index_results"
 def indexing_steps(*, new_scaffold: bool, push_only: bool = False) -> list[dict[str, Any]]:
     """npm commands that publish match indexes to Blob. No design-pattern step.
 
-    ``push_only`` is for delete: the local JSON is already pruned, so we only
-    upload it. A full ``scaffolds:*-embeddings`` rebuild would demand OpenAI
-    just to republish a smaller index.
+    ``push_only`` uploads an already-pruned local cache without OpenAI.
+    Backoffice delete/reset still queues a full ``--require-blob`` rebuild:
+    a stale local file (failed ``embeddings:sync``) would otherwise overwrite
+    Blob and break Auto-match for scaffolds that were not deleted.
     """
 
     if push_only:
