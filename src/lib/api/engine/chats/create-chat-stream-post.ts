@@ -676,7 +676,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           const plannerGenerationLock = await acquireChatGenerationLock(plannerChat.id);
           if (plannerGenerationLock.status !== "acquired") {
             return attachSessionCookie(
-              chatGenerationLockFailureResponse(plannerGenerationLock.status),
+              chatGenerationLockFailureResponse(plannerGenerationLock.status, {
+                chatId: plannerChat.id,
+              }),
             );
           }
           acquiredGenerationLock = plannerGenerationLock.lock;
@@ -953,7 +955,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             const contractGenerationLock = await acquireChatGenerationLock(engineChat.id);
             if (contractGenerationLock.status !== "acquired") {
               return attachSessionCookie(
-                chatGenerationLockFailureResponse(contractGenerationLock.status),
+                chatGenerationLockFailureResponse(contractGenerationLock.status, {
+                  chatId: engineChat.id,
+                }),
               );
             }
             acquiredGenerationLock = contractGenerationLock.lock;
@@ -1082,7 +1086,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           const initGenerationLock = await acquireChatGenerationLock(engineChat.id);
           if (initGenerationLock.status !== "acquired") {
             return attachSessionCookie(
-              chatGenerationLockFailureResponse(initGenerationLock.status),
+              chatGenerationLockFailureResponse(initGenerationLock.status, {
+                chatId: engineChat.id,
+              }),
             );
           }
           acquiredGenerationLock = initGenerationLock.lock;

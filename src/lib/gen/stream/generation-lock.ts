@@ -28,13 +28,16 @@ export type AcquireChatGenerationLockResult =
 
 export function chatGenerationLockFailureResponse(
   status: "held" | "unavailable",
+  extras?: { chatId?: string },
 ): Response {
+  const chatId = extras?.chatId?.trim();
   if (status === "held") {
     return new Response(
       JSON.stringify({
         error: "generation_in_progress",
         reason: "generation_in_progress",
         message: "En generation pågår redan för den här sajten. Vänta tills den är klar.",
+        ...(chatId ? { chatId } : {}),
       }),
       { status: 409, headers: { "content-type": "application/json" } },
     );
@@ -44,6 +47,7 @@ export function chatGenerationLockFailureResponse(
       error: "generation_lock_unavailable",
       reason: "generation_lock_unavailable",
       message: "Kunde inte starta generationen just nu. Försök igen om en stund.",
+      ...(chatId ? { chatId } : {}),
     }),
     { status: 503, headers: { "content-type": "application/json" } },
   );

@@ -375,6 +375,9 @@ describe("POST quality-gate", () => {
   });
 
   it("does not treat a failed newer head as preferred — the usable version stays the gate target", async () => {
+    // Wiring test: when `isPreferredHeadVersion` says this row is still the
+    // usable head, the gate must not supersede. The selection rule itself
+    // (failed F3 vs passed F2) is locked in `engine-version-lifecycle.test.ts`.
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat-1" },
       version: { id: "ver-1" },

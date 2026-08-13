@@ -61,6 +61,8 @@ describe("chat generation lock", () => {
     const unavailable = chatGenerationLockFailureResponse("unavailable");
     expect(unavailable.status).toBe(503);
     expect(await unavailable.json()).toMatchObject({ reason: "generation_lock_unavailable" });
+    const withChat = chatGenerationLockFailureResponse("unavailable", { chatId: "chat-created" });
+    expect(await withChat.json()).toMatchObject({ chatId: "chat-created" });
   });
 
   it("släpper JSON-svar omedelbart så nästa generation kan starta", async () => {
