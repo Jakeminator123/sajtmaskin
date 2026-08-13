@@ -23,6 +23,7 @@ from backoffice.ai_workloads import (
     model_supports_vision,
     resolve_model_choices,
 )
+from backoffice.pages.scaffold_lifecycle_lib.index_gate import indexing_steps
 from backoffice.pages.scaffold_lifecycle import (
     BUILD_INTENT_OPTIONS,
     COMPLEXITY_OPTIONS,
@@ -715,6 +716,8 @@ def _autorun_writes(draft: dict[str, Any]) -> list[dict[str, str]]:
     * ``scaffolds:variant-patterns`` → ``auto-curate-variant-patterns.ts``
       skriver ``writeFileSync(ref.filePath, …)``, alltså variantfilen själv
       (``--only`` gör att bara den nyss skapade varianten rörs).
+    * ``scaffolds:embeddings`` (bara ny scaffold) → ``generate-scaffold-embeddings.ts``
+      ``saveEmbeddingsArtifact("scaffold")`` → Blob ``embeddings/scaffold-embeddings.json``.
     * ``scaffolds:variant-embeddings`` → ``generate-variant-embeddings.ts``
       anropar ``saveEmbeddingsArtifact("variant")`` → Vercel Blob
       ``embeddings/variant-embeddings.json`` (+ lokal cache under
@@ -729,27 +732,42 @@ def _autorun_writes(draft: dict[str, Any]) -> list[dict[str, str]]:
     variant = draft.get("variant") or {}
     scaffold_id = str(variant.get("scaffoldId", "")).strip() or "<scaffold>"
     variant_id = str(variant.get("id", "")).strip() or "<variant>"
+    new_scaffold = draft.get("mode") == "new-scaffold"
 
-    return [
+    rows: list[dict[str, str]] = [
         {
             "path": f"config/scaffold-variants/{scaffold_id}/{variant_id}.json",
             "script": "scaffolds:variant-patterns",
             "source": "scripts/scaffolds/auto-curate-variant-patterns.ts",
             "note": "variantfilen skrivs om med `signaturePatterns` (bara din variant)",
         },
-        {
-            "path": "config/scaffold-variants/_index/variant-embeddings.json",
-            "script": "scaffolds:variant-embeddings",
-            "source": "scripts/scaffolds/generate-variant-embeddings.ts",
-            "note": "lokal cache (gitignorerad); källan är Vercel Blob embeddings/variant-embeddings.json",
-        },
-        {
-            "path": "config/embeddings-blob-manifest.json",
-            "script": "scaffolds:variant-embeddings",
-            "source": "scripts/scaffolds/generate-variant-embeddings.ts",
-            "note": "committad URL-pekare; uppdateras bara när Blob-upload lyckas (`--require-blob`)",
-        },
     ]
+    if new_scaffold:
+        rows.append(
+            {
+                "path": "src/lib/gen/scaffolds/scaffold-embeddings.json",
+                "script": "scaffolds:embeddings",
+                "source": "scripts/embeddings/generate-scaffold-embeddings.ts",
+                "note": "lokal cache (gitignorerad); källan är Vercel Blob embeddings/scaffold-embeddings.json",
+            }
+        )
+    rows.extend(
+        [
+            {
+                "path": "config/scaffold-variants/_index/variant-embeddings.json",
+                "script": "scaffolds:variant-embeddings",
+                "source": "scripts/scaffolds/generate-variant-embeddings.ts",
+                "note": "lokal cache (gitignorerad); källan är Vercel Blob embeddings/variant-embeddings.json",
+            },
+            {
+                "path": "config/embeddings-blob-manifest.json",
+                "script": "scaffolds:variant-embeddings",
+                "source": "scripts/scaffolds/generate-variant-embeddings.ts",
+                "note": "committad URL-pekare; uppdateras bara när Blob-upload lyckas (`--require-blob`)",
+            },
+        ]
+    )
+    return rows
 
 
 def _render_planned_writes(
@@ -1026,6 +1044,7 @@ def _render_step_validate(ctx: BackofficeContext) -> None:
                 "variantId": str((payload or {}).get("id", "")),
                 "scaffoldId": str((payload or {}).get("scaffoldId", "")),
                 "message": message,
+                "newScaffold": draft.get("mode") == "new-scaffold",
             }
             st.session_state["swz_autorun"] = True
             for key in ("swz_draft", "swz_analysis", "swz_template", "swz_repo_summary"):
@@ -1047,40 +1066,34 @@ def _render_step_validate(ctx: BackofficeContext) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _post_create_steps(variant_id: str) -> list[dict[str, Any]]:
-    """De tre efter-stegen som annars körs manuellt i terminalen."""
-    return [
-        {
-            "key": "patterns",
-            "label": "1. Fyll designmönster (AI)",
-            "command": ("npm", "run", "scaffolds:variant-patterns", "--", f"--only={variant_id}"),
-            "needs_api": True,
-            "help": (
-                "Låter en modell skriva layouts/motifs/antiPatterns för just den här "
-                "varianten. `--only` gör att bara din variant rörs — de andra lämnas orörda."
-            ),
-        },
-        {
-            "key": "embeddings",
-            "label": "2. Bygg om matchning",
-            "command": ("npm", "run", "scaffolds:variant-embeddings", "--", "--require-blob"),
-            "needs_api": True,
-            "needs_blob": True,
-            "help": (
-                "Bygger om variant-embeddings så matchern kan välja varianten, "
-                "och publicerar till Vercel Blob (`--require-blob`). Anropar "
-                "OpenAI för alla varianter — kan ta en stund. Kräver "
-                "`OPENAI_API_KEY` och `BLOB_READ_WRITE_TOKEN` i `.env.local`."
-            ),
-        },
-        {
-            "key": "validate",
-            "label": "3. Validera",
-            "command": ("npm", "run", "scaffolds:validate"),
-            "needs_api": False,
-            "help": "Kör schema + kollisionskontroller. Snabb, ingen API-nyckel behövs.",
-        },
-    ]
+def _post_create_steps(variant_id: str, *, new_scaffold: bool = False) -> list[dict[str, Any]]:
+    """Efter-stegen som annars körs manuellt i terminalen."""
+    pattern_step = {
+        "key": "patterns",
+        "label": "1. Fyll designmönster (AI)",
+        "command": ("npm", "run", "scaffolds:variant-patterns", "--", f"--only={variant_id}"),
+        "needs_api": True,
+        "help": (
+            "Låter en modell skriva layouts/motifs/antiPatterns för just den här "
+            "varianten. `--only` gör att bara din variant rörs — de andra lämnas orörda."
+        ),
+    }
+    index_steps = indexing_steps(new_scaffold=new_scaffold)
+    offset = 2
+    labeled_index: list[dict[str, Any]] = []
+    for step in index_steps:
+        labeled = dict(step)
+        labeled["label"] = f"{offset}. {step['label']}"
+        labeled_index.append(labeled)
+        offset += 1
+    validate_step = {
+        "key": "validate",
+        "label": f"{offset}. Validera",
+        "command": ("npm", "run", "scaffolds:validate"),
+        "needs_api": False,
+        "help": "Kör schema + kollisionskontroller. Snabb, ingen API-nyckel behövs.",
+    }
+    return [pattern_step, *labeled_index, validate_step]
 
 
 def _variant_has_patterns(ctx: BackofficeContext, scaffold_id: str, variant_id: str) -> bool:
@@ -1116,11 +1129,32 @@ def _post_create_validation_passed(results: dict[str, Any]) -> bool:
     )
 
 
+def _post_create_integrity_passed(
+    results: dict[str, Any], steps: list[dict[str, Any]]
+) -> bool:
+    """True only when every after-step succeeded — skipped embeddings are not enough.
+
+    ``scaffolds:validate`` can pass while Auto-match still lacks the new vector.
+    """
+    if not _post_create_validation_passed(results):
+        return False
+    for step in steps:
+        res = results.get(step["key"])
+        if not isinstance(res, dict):
+            return False
+        if res.get("skipped"):
+            return False
+        ok = bool(res.get("verifiedOk")) if "verifiedOk" in res else bool(res.get("ok"))
+        if not ok:
+            return False
+    return bool(steps)
+
+
 def _invalidate_validation_after_mutation(
     results: dict[str, Any], step_key: str
 ) -> None:
     """A write after validation makes that validation result historical."""
-    if step_key in {"patterns", "embeddings"}:
+    if step_key in {"patterns", "embeddings", "scaffold_embeddings"}:
         results.pop("validate", None)
 
 
@@ -1149,7 +1183,8 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
     if not has_key:
         st.warning(
             "Ingen `OPENAI_API_KEY` i miljön (`.env.local`) — AI-stegen (designmönster + "
-            "embeddings) är avstängda. Valideringen (steg 3) går ändå."
+            "embeddings) är avstängda. Valideringen kan köras, men utan publicerad "
+            "matchning är ändringen **inte redo för master**."
         )
     elif not has_blob:
         st.warning(
@@ -1158,7 +1193,7 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
             "tills token finns. Lokal JSON-cache räknas inte som publicerad."
         )
 
-    steps = _post_create_steps(variant_id)
+    steps = _post_create_steps(variant_id, new_scaffold=bool(created.get("newScaffold")))
     def _run(step: dict[str, Any]) -> None:
         _invalidate_validation_after_mutation(results, str(step["key"]))
         st.session_state["swz_cmd_results"] = results
@@ -1253,13 +1288,14 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
 
     # Derive display status only after handlers may have popped validate.
     validation_passed = _post_create_validation_passed(results)
+    integrity_passed = _post_create_integrity_passed(results, steps)
     with status_slot.container():
-        if validation_passed:
+        if integrity_passed:
             st.subheader("Integritetsgrinden är grön")
             st.success(
                 f"{created.get('message', 'Varianten skapades.')} "
-                "`npm run scaffolds:validate` passerar. Granska fortfarande diffen "
-                "innan commit eller merge."
+                "Matchning är publicerad till Blob och `npm run scaffolds:validate` passerar. "
+                "Granska fortfarande diffen innan commit eller merge."
             )
             if not st.session_state.get("swz_balloons_shown"):
                 st.balloons()
@@ -1267,10 +1303,17 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
         else:
             st.subheader("Varianten är skapad — integritetskontroller återstår")
             st.info(created.get("message", "Varianten skapades."))
-            st.warning(
-                "Filerna finns i worktreet, men ändringen är inte integritetsklar eller "
-                "redo för master förrän efter-stegen avslutas med en grön validering."
-            )
+            if validation_passed:
+                st.warning(
+                    "Valideringen är grön, men matchningen är inte publicerad till Vercel Blob. "
+                    "Auto-match pekar fel tills index-stegen lyckas — inte redo för master."
+                )
+            else:
+                st.warning(
+                    "Filerna finns i worktreet, men ändringen är inte integritetsklar eller "
+                    "redo för master förrän efter-stegen avslutas med publicerad matchning "
+                    "och en grön validering."
+                )
 
     for step in steps:
         res = results.get(step["key"])

@@ -1095,6 +1095,7 @@ class CreateScaffoldValidationTests(unittest.TestCase):
         self.assertIn("if create_start_variant:", self.source)
         self.assertIn("validerad startvariant", self.source)
         self.assertIn("utan startvariant", self.source)
+        self.assertIn("queue_index_after_create", self.source)
 
     def test_duplicate_and_empty_fields_are_still_rejected(self) -> None:
         self.assertIn("finns redan", self.source)
@@ -1212,6 +1213,18 @@ class PostCreateStatusTests(unittest.TestCase):
             sw._post_create_validation_passed({"validate": {"ok": True}})
         )
 
+    def test_skipped_embeddings_block_integrity_green(self) -> None:
+        steps = sw._post_create_steps("warm-clay")
+        results = {
+            "patterns": {"ok": True, "verifiedOk": True},
+            "embeddings": {"skipped": True},
+            "validate": {"ok": True},
+        }
+        self.assertTrue(sw._post_create_validation_passed(results))
+        self.assertFalse(sw._post_create_integrity_passed(results, steps))
+        results["embeddings"] = {"ok": True}
+        self.assertTrue(sw._post_create_integrity_passed(results, steps))
+
     def test_post_create_copy_does_not_claim_completion_early(self) -> None:
         source = inspect.getsource(sw._render_post_create)
         self.assertNotIn("Klart — varianten är skapad", source)
@@ -1227,6 +1240,7 @@ class PostCreateStatusTests(unittest.TestCase):
         )
         self.assertGreater(button_pos, -1)
         self.assertGreater(status_pos, button_pos)
+        self.assertIn("integrity_passed = _post_create_integrity_passed(results, steps)", source)
         self.assertIn("status_slot", source)
 
     def test_mutation_invalidates_an_earlier_green_validation(self) -> None:

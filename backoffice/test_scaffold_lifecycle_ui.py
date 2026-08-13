@@ -516,6 +516,33 @@ class PlannedWritesTests(unittest.TestCase):
         self.assertIn("--require-blob", embeddings["command"])
         self.assertTrue(embeddings["needs_blob"])
 
+    def test_new_scaffold_chain_indexes_scaffold_and_variant(self) -> None:
+        steps = sw._post_create_steps("warm-clay", new_scaffold=True)
+        keys = [step["key"] for step in steps]
+        self.assertEqual(keys[0], "patterns")
+        self.assertIn("scaffold_embeddings", keys)
+        self.assertIn("embeddings", keys)
+        self.assertEqual(keys[-1], "validate")
+        scaffold_step = next(step for step in steps if step["key"] == "scaffold_embeddings")
+        self.assertIn("--require-blob", scaffold_step["command"])
+        self.assertEqual(scaffold_step["command"][2], "scaffolds:embeddings")
+        listed = {row["script"] for row in sw._autorun_writes(self._draft("new-scaffold"))}
+        self.assertIn("scaffolds:embeddings", listed)
+        for step in steps:
+            for name in _npm_script_names(step["command"]):
+                if name in READ_ONLY_AUTORUN_SCRIPTS:
+                    continue
+                self.assertIn(name, listed)
+        scaffold_row = next(
+            row
+            for row in sw._autorun_writes(self._draft("new-scaffold"))
+            if row["script"] == "scaffolds:embeddings"
+        )
+        self.assertEqual(
+            _write_targets(scaffold_row["source"]),
+            {"saveEmbeddingsArtifact:scaffold"},
+        )
+
     def test_condition_is_stated_whether_or_not_the_key_exists(self) -> None:
         """Utan nyckel skrivs autorun-filerna inte — rutan får inte lova dem."""
         for autorun in (True, False):

@@ -33,6 +33,10 @@ from backoffice.shared import extract_ts_string_array_field as _extract_ts_strin
 from backoffice.shared import extract_ts_string_field as _extract_ts_string_field
 
 
+from backoffice.pages.scaffold_lifecycle_lib.index_gate import (
+    queue_index_after_create,
+    render_index_gate,
+)
 from .scaffold_lifecycle_lib.constants import (
     PAGE_NAME,
     THEME_TOKEN_KEYS,
@@ -43,7 +47,6 @@ from .scaffold_lifecycle_lib.constants import (
     _SIG_MIN_MOTIFS,
     _SIG_MIN_ANTI,
     _POST_ACTION_NOTE_KEY,
-    _REBUILD_EMBEDDINGS_HINT,
     BLOB_MANIFEST_REL,
     BASELINE_TAG,
     BASELINE_PATHS,
@@ -392,7 +395,12 @@ def _render_create_variant(scaffold_ids: list[str], ctx: BackofficeContext) -> N
     target_path.parent.mkdir(parents=True, exist_ok=True)
     write_json(target_path, payload)
     rel = target_path.relative_to(ctx.repo_root).as_posix()
-    _flash_note(f"Skapade `{rel}`. {_REBUILD_EMBEDDINGS_HINT}", level="warning")
+    queue_index_after_create(new_scaffold=False, scaffold_id=scaffold_id)
+    _flash_note(
+        f"Skapade `{rel}`. Indexera varianten med knapparna ovan innan master — "
+        "Auto-match pekar fel tills Blob har vektorn.",
+        level="warning",
+    )
     st.rerun()
 
 
@@ -676,13 +684,15 @@ def _render_edit_variant(
         return
 
     rel = variant_path.relative_to(ctx.repo_root).as_posix()
+    queue_index_after_create(new_scaffold=False, scaffold_id=selected_scaffold)
     if handoff_current_id is not None:
-        st.success(
+        note = (
             f"Sparade `{rel}` och flyttade default från `{handoff_current_id}` "
-            f"till `{defaults['id']}`."
+            f"till `{defaults['id']}`. Indexera varianten med knapparna ovan."
         )
     else:
-        st.success(f"Sparade `{rel}`.")
+        note = f"Sparade `{rel}`. Indexera varianten med knapparna ovan — keywords/label styr matchningen."
+    _flash_note(note, level="warning")
     st.rerun()
 
 
@@ -910,18 +920,17 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
         st.error(_exception_message(error))
         return
 
+    queue_index_after_create(new_scaffold=True, scaffold_id=scaffold_id)
     if create_start_variant:
         flash = (
             f"Skapade scaffolden `{scaffold_id}` från `{source_scaffold_id}` med en "
-            "schema- och provenance-validerad startvariant. Den är ännu inte "
-            "integritetsklar: bygg om embeddings/research och kör "
-            "`npm run scaffolds:validate` innan ändringen bedöms redo för master."
+            "schema- och provenance-validerad startvariant. Indexera scaffold + variant "
+            "med knapparna ovan innan master — Auto-match pekar fel tills Blob har vektorerna."
         )
     else:
         flash = (
             f"Skapade scaffolden `{scaffold_id}` från `{source_scaffold_id}` "
-            "utan startvariant. Lägg till minst en variant och kör "
-            "`npm run scaffolds:validate` innan ändringen bedöms redo för master."
+            "utan startvariant. Lägg till minst en variant och indexera innan master."
         )
     _flash_note(flash, level="warning")
     st.rerun()
@@ -969,6 +978,7 @@ def render(ctx: BackofficeContext) -> None:
     # var sin tabb, och `st.rerun()` landar alltid på den första. Renderades noten
     # inne i en tabb skulle "kör om embeddings"-påminnelsen bli osynlig.
     _render_flashed_note()
+    render_index_gate(ctx)
 
     # Tabbarna följer verben: var tittar jag / var skapar jag / var ändrar jag /
     # var är det farligt / vad kör jag efteråt.
