@@ -10,9 +10,10 @@ kopiera inte kön hit.
 ## Pågående spår
 
 - [`handoff-question-flow-and-scaffold-routes.md`](handoff-question-flow-and-scaffold-routes.md)
-  (2026-08-13) — kontext för två spår: var buildern ställer frågor, och varför
-  scaffoldernas navigering länkar till rutter planeraren inte garanterar. Spår B
-  väntar på ett ägarbeslut. Backloggraderna äger defekterna; filen äger bakgrunden.
+  (2026-08-13) — kontext för tre spår: var buildern ställer frågor, varför
+  scaffoldernas navigering länkar till rutter planeraren inte garanterar, och att
+  struktur och domän delar samma val i scaffold-matchningen. Spår B och C väntar
+  på ägarbeslut. Backloggraderna äger defekterna; filen äger bakgrunden.
 
 Välj annars nästa konkreta defekt, repro, ägarbeslut eller skuld ur
 [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) och skapa först då en
