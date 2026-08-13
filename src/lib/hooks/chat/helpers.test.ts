@@ -210,6 +210,45 @@ describe("buildPromptStrategySteps", () => {
 
     expect(steps).not.toContain("Källa: Auto-repair (server-driven)");
     expect(steps).toContain("Typ: followup_technical");
+    expect(steps.some((step) => step.startsWith("Längd:"))).toBe(true);
+    expect(steps.some((step) => step.startsWith("Langd:"))).toBe(false);
+  });
+});
+
+describe("buildModelInfoSteps — Swedish labels", () => {
+  it("keeps diacritics in engine-path and model-tier labels", () => {
+    const steps = buildModelInfoSteps({
+      modelId: "gpt-5.6-sol",
+      modelTier: "premium",
+      enginePath: "own-engine",
+      buildProfileLabel: "Premium",
+      buildProfileId: "premium",
+    });
+
+    expect(steps).toContain("Motorväg: egen motor");
+    expect(steps).toContain("Körmodell: gpt-5.6-sol");
+    expect(steps).not.toContain("Motorvag: egen motor");
+    expect(steps).not.toContain("Kormodell: gpt-5.6-sol");
+    expect(steps).not.toContain("Kömodell: gpt-5.6-sol");
+  });
+
+  it("labels plan-mode as planläge", () => {
+    const steps = buildModelInfoSteps({
+      modelId: "gpt-5.5",
+      enginePath: "plan-mode",
+    });
+
+    expect(steps).toContain("Motorväg: planläge");
+    expect(steps).not.toContain("Motorväg: planlage");
+  });
+
+  it("uses okänd when model id is missing", () => {
+    const steps = buildModelInfoSteps({
+      modelTier: "pro",
+    });
+
+    expect(steps).toContain("Körmodell: okänd");
+    expect(steps).not.toContain("Körmodell: okand");
   });
 });
 
