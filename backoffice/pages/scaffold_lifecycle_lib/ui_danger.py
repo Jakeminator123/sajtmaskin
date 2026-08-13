@@ -25,7 +25,7 @@ from .variants import (
 from .scaffold_ops import _scan_scaffold_dependencies, _delete_scaffold
 
 from .flash import _flash_note
-from .index_gate import queue_index_after_create
+from .index_gate import can_push_pruned_index, queue_index_after_create
 
 from .baseline import (
     _run_git,
@@ -190,7 +190,9 @@ def _render_delete_variant(
             "En snapshot ligger kvar under **Återställning**."
         )
     queue_index_after_create(
-        new_scaffold=False, scaffold_id=selected_scaffold, push_only=True
+        new_scaffold=False,
+        scaffold_id=selected_scaffold,
+        push_only=can_push_pruned_index(ctx, new_scaffold=False),
     )
     _flash_note(note, level="warning")
     st.rerun()
@@ -349,7 +351,9 @@ def _render_delete_scaffold(
         st.error(str(error))
         return
     queue_index_after_create(
-        new_scaffold=True, scaffold_id=selected_scaffold, push_only=True
+        new_scaffold=True,
+        scaffold_id=selected_scaffold,
+        push_only=can_push_pruned_index(ctx, new_scaffold=True),
     )
     _flash_note(
         f"Raderade `{selected_scaffold}`. Indexera om till Blob så Auto-match "

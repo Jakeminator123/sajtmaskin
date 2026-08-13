@@ -8,6 +8,7 @@ easy to skip, so Backoffice must run the same ``--require-blob`` commands.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
@@ -111,6 +112,23 @@ def indexing_steps(*, new_scaffold: bool, push_only: bool = False) -> list[dict[
         }
     )
     return steps
+
+
+def can_push_pruned_index(ctx: BackofficeContext, *, new_scaffold: bool) -> bool:
+    """True when local caches exist so ``embeddings:push`` can publish a prune.
+
+    Missing cache → push exits «nothing uploaded» and Auto-match keeps the
+    deleted id in Blob. Callers must fall back to a full ``--require-blob``
+    rebuild in that case.
+    """
+    variant_path = ctx.variants_dir / "_index" / "variant-embeddings.json"
+    if not variant_path.is_file():
+        return False
+    if new_scaffold:
+        path = getattr(ctx, "embeddings_json", None)
+        if not isinstance(path, Path) or not path.is_file():
+            return False
+    return True
 
 
 def indexing_complete(results: Mapping[str, Any], steps: list[dict[str, Any]]) -> bool:

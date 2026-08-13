@@ -619,13 +619,12 @@ class IndexGateQueueTests(unittest.TestCase):
 
         delete_src = inspect.getsource(ui_danger._render_delete_scaffold)
         reset_src = inspect.getsource(ui_danger._render_baseline_tab)
-        self.assertIn("queue_index_after_create", delete_src)
-        self.assertIn("new_scaffold=True", delete_src)
-        self.assertIn("push_only=True", delete_src)
+        self.assertIn("can_push_pruned_index", delete_src)
+        self.assertIn("push_only=", delete_src)
         self.assertIn("queue_index_after_create(new_scaffold=True", reset_src)
         self.assertNotIn("push_only=True", reset_src)
         delete_variant_src = inspect.getsource(ui_danger._render_delete_variant)
-        self.assertIn("push_only=True", delete_variant_src)
+        self.assertIn("can_push_pruned_index", delete_variant_src)
         self.assertIn("queue_index_after_create", delete_variant_src)
         warning = inspect.getsource(self.ig.render_index_gate)
         self.assertIn("if not complete:", warning)
@@ -655,6 +654,17 @@ class IndexGateQueueTests(unittest.TestCase):
         pending = self.state[self.ig.INDEX_PENDING_KEY]
         self.assertTrue(pending["new_scaffold"])
         self.assertFalse(pending["push_only"])
+
+    def test_missing_cache_cannot_push_pruned_index(self) -> None:
+        from types import SimpleNamespace
+        from pathlib import Path
+
+        ctx = SimpleNamespace(
+            variants_dir=Path("/no/such/variants"),
+            embeddings_json=Path("/no/such/scaffold-embeddings.json"),
+        )
+        self.assertFalse(self.ig.can_push_pruned_index(ctx, new_scaffold=False))
+        self.assertFalse(self.ig.can_push_pruned_index(ctx, new_scaffold=True))
 
 
 if __name__ == "__main__":
