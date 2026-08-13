@@ -39,6 +39,14 @@ describe("chat generation lock", () => {
     expect(b).not.toBeNull();
   });
 
+  it("failar stängt när Redis är konfigurerad men SET kastar", async () => {
+    getRedis.mockReturnValue({
+      set: vi.fn().mockRejectedValue(new Error("redis down")),
+    });
+    const lock = await acquireChatGenerationLock("chat-redis-down");
+    expect(lock).toBeNull();
+  });
+
   it("släpper JSON-svar omedelbart så nästa generation kan starta", async () => {
     const lock = await acquireChatGenerationLock("chat-json");
     expect(lock).not.toBeNull();

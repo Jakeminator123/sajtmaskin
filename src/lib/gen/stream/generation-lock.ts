@@ -59,7 +59,10 @@ export async function acquireChatGenerationLock(
       if (ok === "OK") return { chatId: trimmed, token };
       return null;
     } catch {
-      // Fall through to in-process lock rather than failing the generation.
+      // Redis is the cross-instance mutex. Falling through to the in-process
+      // map would let another instance keep (or take) the Redis lock while
+      // this instance also streams. Fail closed — the client retries.
+      return null;
     }
   }
   if (pruneMemoryLock(trimmed)) return null;
