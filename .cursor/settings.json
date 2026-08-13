@@ -9,9 +9,6 @@
     "docs-canvas": {
       "enabled": true
     },
-    "vercel": {
-      "enabled": true
-    },
     "supabase": {
       "enabled": true
     }
