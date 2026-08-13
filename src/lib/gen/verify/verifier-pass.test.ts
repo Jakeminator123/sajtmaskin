@@ -7,6 +7,7 @@ import {
   checkUseReducedMotionStub,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
+  parseImportRepairRefsFromFinding,
   promoteForcedBlockingFindings,
   suppressTier3StrippedImportFindings,
   suppressValidInPageAnchorNavigationFindings,
@@ -506,6 +507,93 @@ describe("checkUndefinedJsxSymbols", () => {
     expect(findings).toEqual([]);
   });
 
+  // Prod 2026-08-13 Offertlyftet chat 759ad7e2: scaffold `stats-card.tsx`
+  // binds the glyph via `function StatsCard({ icon: Icon }: Props)` and
+  // renders `<Icon />`. Alias collection covered `const { icon: Icon } =`
+  // but not function-parameter destructure, so F2 flagged a false
+  // `undefined-jsx-symbol` blocker.
+  it("does NOT flag a JSX tag bound via function-parameter object destructure alias (scaffold StatsCard)", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/stats-card.tsx",
+        content: [
+          "type Props = { icon: React.ComponentType<{ className?: string }> };",
+          "export function StatsCard({ icon: Icon }: Props) {",
+          '  return <Icon className="h-4 w-4" />;',
+          "}",
+        ].join("\n"),
+      },
+    ]);
+    expect(findings).toEqual([]);
+  });
+
+  it("does NOT flag a JSX tag bound via arrow-function parameter object destructure alias", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/stats-card.tsx",
+        content: [
+          "type Props = { icon: React.ComponentType<{ className?: string }> };",
+          'const StatsCard = ({ icon: Icon }: Props) => <Icon className="h-4 w-4" />;',
+        ].join("\n"),
+      },
+    ]);
+    expect(findings).toEqual([]);
+  });
+
+  it("still flags a genuinely undeclared JSX tag next to a param-destructure alias", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/stats-card.tsx",
+        content: [
+          "type Props = { icon: React.ComponentType<{ className?: string }> };",
+          "export function StatsCard({ icon: Icon }: Props) {",
+          "  return (",
+          "    <div>",
+          "      <Icon />",
+          "      <Foo />",
+          "    </div>",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("undefined-jsx-symbol");
+    expect(findings[0]?.detail).toContain("<Foo");
+  });
+
+  // Nested object patterns used to abort the whole destructure body, so a
+  // sibling alias (`icon: Icon` next to `nested: { x }`) was never registered.
+  it("registers a top-level param-destructure alias beside a nested sibling", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/stats-card.tsx",
+        content: [
+          "type Props = { icon: React.ComponentType<{ className?: string }>; nested: { x: number } };",
+          "export function StatsCard({ icon: Icon, nested: { x } }: Props) {",
+          "  return <Icon data-x={x} />;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+    expect(findings).toEqual([]);
+  });
+
+  it("flags <Icon /> in a sibling function that does not bind the param alias", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/cards.tsx",
+        content: [
+          "function A({ icon: Icon }: Props) { return <Icon />; }",
+          "function B() { return <Icon />; }",
+        ].join("\n"),
+      },
+    ]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("undefined-jsx-symbol");
+    expect(findings[0]?.detail).toContain("<Icon");
+  });
+
   it("ignores undefined-looking symbols that only appear inside comments or strings", () => {
     const findings = checkUndefinedJsxSymbols([
       {
@@ -643,6 +731,72 @@ describe("checkUndefinedJsxSymbols", () => {
       maxFindings: 5,
     });
     expect(findings).toHaveLength(5);
+  });
+});
+
+describe("parseImportRepairRefsFromFinding", () => {
+  it("parses missing-imports-runtime `uses X` details into file+symbol refs", () => {
+    expect(
+      parseImportRepairRefsFromFinding({
+        id: "missing-imports-runtime",
+        detail: "app/page.tsx: uses `toast` but does not import it.",
+      }),
+    ).toEqual([{ file: "app/page.tsx", symbol: "toast" }]);
+  });
+
+  it("returns [] for a genuinely unknown finding class", () => {
+    expect(
+      parseImportRepairRefsFromFinding({
+        id: "navigation-placeholder-actions",
+        detail: "app/page.tsx: uses `toast` but the CTA href is empty.",
+      }),
+    ).toEqual([]);
+  });
+
+  it("does not parse the DOM-interface undefined-jsx wording (owned by dom-builtin-jsx-fixer)", () => {
+    expect(
+      parseImportRepairRefsFromFinding({
+        id: "undefined-jsx-symbol",
+        detail:
+          "app/kontakt/page.tsx: `<HTMLFormElement />` is a DOM interface type, not a JSX component. Replace it with the lowercase HTML tag `<form>` and keep the same props/children. Do NOT import a library or introduce a new component to satisfy `HTMLFormElement`.",
+      }),
+    ).toEqual([]);
+  });
+
+  it("parses a Next route-group path so the catalog can see the file", () => {
+    expect(
+      parseImportRepairRefsFromFinding({
+        id: "missing-imports-runtime",
+        detail: "app/(marketing)/page.tsx: uses `toast` but does not import it.",
+      }),
+    ).toEqual([{ file: "app/(marketing)/page.tsx", symbol: "toast" }]);
+  });
+
+  it("parses a route-group path with a directory after the group", () => {
+    expect(
+      parseImportRepairRefsFromFinding({
+        id: "missing-imports-runtime",
+        detail: "app/(marketing)/contact/page.tsx: uses `toast` but does not import it.",
+      }),
+    ).toEqual([{ file: "app/(marketing)/contact/page.tsx", symbol: "toast" }]);
+  });
+
+  it("still extracts the inner path from parenthetical prose, not a paren-stained segment", () => {
+    expect(
+      parseImportRepairRefsFromFinding({
+        id: "missing-imports-runtime",
+        detail: "(see app/page.tsx) uses `toast` but does not import it.",
+      }),
+    ).toEqual([{ file: "app/page.tsx", symbol: "toast" }]);
+  });
+
+  it("does not treat a bare route-group parenthetical as a file path", () => {
+    expect(
+      parseImportRepairRefsFromFinding({
+        id: "missing-imports-runtime",
+        detail: "the group (marketing)/page.tsx uses `toast` but does not import it.",
+      }),
+    ).toEqual([]);
   });
 });
 

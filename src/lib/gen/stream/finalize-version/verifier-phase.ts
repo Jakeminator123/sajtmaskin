@@ -29,13 +29,13 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import {
-  checkUndefinedJsxSymbols,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
-  parseUndefinedJsxSymbolFinding,
+  parseImportRepairRefsFromFinding,
   runVerifierPass,
   suppressTier3StrippedImportFindings,
 } from "@/lib/gen/verify/verifier-pass";
+import { dropResolvedVerifierFindings } from "@/lib/gen/verify/stale-verifier-findings";
 import { runDeterministicImportRepair } from "@/lib/gen/autofix/deterministic-import-repair";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import {
@@ -180,18 +180,19 @@ export async function runVerifierPhase(params: {
     const ragRoutePath = params.buildSpec?.routeRealization?.primaryRoutePath ?? null;
 
     // Deterministic import pre-fix, BEFORE the verifier → LLM handoff (prod
-    // incident 2026-07-03, chat e8420220): `undefined-jsx-symbol` findings for
-    // KNOWN imports (Link → next/link, Button/Badge → shadcn, lucide glyphs,
-    // unique own components) are mechanically solvable via the shared
-    // `runDeterministicImportRepair` — the same owner the warm-tsc normalize
-    // pass and the server repair-loop already use. Previously these findings
-    // went straight to the LLM repair gate; when that call timed out
-    // (AbortSignal at VERIFIER_REPAIR_TIMEOUT_MS) five trivially-fixable
-    // missing imports were left blocking and the version failed verification.
-    // Findings are translated to `Cannot find name 'X'` diagnostics, the fix
-    // is confirmed by re-running the deterministic `checkUndefinedJsxSymbols`
-    // scan, and only confirmed-resolved findings are dropped — the residue
-    // (ambiguous names, non-import findings) still reaches the LLM fixer.
+    // incident 2026-07-03, chat e8420220 + Offertlyftet 2026-08-13 759ad7e2):
+    // `undefined-jsx-symbol` AND LLM `missing-imports-runtime` findings for
+    // KNOWN imports (Link → next/link, toast → sonner, FormEvent → react type,
+    // z → zod, Button/Badge → shadcn, lucide glyphs, unique own components)
+    // are mechanically solvable via the shared `runDeterministicImportRepair`
+    // — the same owner the warm-tsc normalize pass and the server repair-loop
+    // already use. F2-init skips warm-tsc (`skipWarmTsc`), so the catalog
+    // never saw those names until this verifier-lane translation. Findings
+    // become synthetic `Cannot find name 'X'` diagnostics; the fix is
+    // confirmed by `dropResolvedVerifierFindings` against the repaired files,
+    // and only confirmed-resolved findings are dropped — the residue
+    // (unknown names, ambiguous shadcn∩lucide, non-import findings) still
+    // reaches the LLM fixer. No new LLM entry: this is catalog-only.
     // F2 strips tier-3 SDK imports by policy, so a finding about that missing
     // import describes the policy, not a defect. Drop it before it becomes a
     // Blocker and burns a repair call that policy forbids from succeeding.
@@ -204,83 +205,75 @@ export async function runVerifierPhase(params: {
     let findings = policyFindings;
     if (policyFindings.blocking.length > 0) {
       try {
-        const importable = policyFindings.blocking
-          .map((finding) => ({
-            finding,
-            ref: parseUndefinedJsxSymbolFinding(finding),
-          }))
-          .filter(
-            (entry): entry is { finding: (typeof policyFindings.blocking)[number]; ref: { file: string; symbol: string } } =>
-              entry.ref !== null,
-          );
-        if (importable.length > 0) {
+        const diagnostics = policyFindings.blocking.flatMap((finding) =>
+          parseImportRepairRefsFromFinding(finding).map((ref) => ({
+            file: ref.file,
+            message: `Cannot find name '${ref.symbol}'.`,
+          })),
+        );
+        if (diagnostics.length > 0) {
           const repair = runDeterministicImportRepair(
             contentForVersion,
-            importable.map(({ ref }) => ({
-              file: ref.file,
-              message: `Cannot find name '${ref.symbol}'.`,
-            })),
+            diagnostics,
             { previewPolicy: params.buildSpec?.previewPolicy },
           );
           if (repair.fixed) {
-            const stillBroken = new Set(
-              checkUndefinedJsxSymbols(parseCodeProject(repair.content).files, {
-                maxFindings: 1000,
-              })
-                .map((finding) => parseUndefinedJsxSymbolFinding(finding))
-                .filter((ref): ref is { file: string; symbol: string } => ref !== null)
-                .map((ref) => `${ref.file}::${ref.symbol}`),
+            // Adopt the repaired content whenever the catalog committed a
+            // change: `fixed` is receipt-guarded per file (post-injection
+            // dedupe + parse-regression revert), and only KNOWN-module
+            // imports are injected. Bugbot HIGH on this diff: a compound
+            // finding mixing a fixable name (toast) with an unresolvable one
+            // kept `staleCheck.dropped` empty, which used to throw the
+            // correct imports away — the LLM gate then redid catalog work.
+            contentForVersion = repair.content;
+            // The stale-check stays fail-closed for the BLOCKING LIST:
+            // `checkUndefinedJsxSymbols` only sees JSX tags, so toast/z/
+            // FormEvent would look "resolved" even if the catalog no-op'd.
+            // A finding is dropped only when EVERY referenced symbol is
+            // confirmed bound in the repaired files; mixed findings stay.
+            const staleCheck = dropResolvedVerifierFindings(
+              policyFindings.blocking,
+              parseCodeProject(repair.content).files,
             );
-            const resolved = importable.filter(
-              ({ ref }) => !stillBroken.has(`${ref.file}::${ref.symbol}`),
-            );
-            if (resolved.length > 0) {
-              contentForVersion = repair.content;
-              const resolvedFindings = new Set(resolved.map(({ finding }) => finding));
-              findings = {
-                ...policyFindings,
-                blocking: policyFindings.blocking.filter(
-                  (finding) => !resolvedFindings.has(finding),
-                ),
-              };
-              devLogAppend("in-progress", {
-                type: "verifier-pass.deterministic-import-fix",
+            findings = {
+              ...policyFindings,
+              blocking: staleCheck.kept,
+            };
+            devLogAppend("in-progress", {
+              type: "verifier-pass.deterministic-import-fix",
+              chatId,
+              resolvedCount: staleCheck.dropped.length,
+              residualBlocking: findings.blocking.length,
+              resolvedSymbols: repair.cannotFindSummary.resolvedNames,
+              // M#imp1 telemetry: per residual name WHY it stayed residual
+              // (tier3_gated / ambiguous_shadcn_lucide / unknown_name /
+              // not_applied) + which cannot-find codes were involved.
+              cannotFindSummary: repair.cannotFindSummary,
+              scaffoldId: resolvedScaffold?.id ?? null,
+            });
+            for (const finding of staleCheck.dropped.slice(0, 5)) {
+              appendErrorLogEvent({
+                phase: "post-gen",
+                subphase: "verifier-pass",
+                creator: "verifier",
+                fixer: "deterministic-import-repair",
+                severity: "warning",
+                fault: finding.id,
+                faultText: finding.detail,
+                fixText: FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR,
+                modelTier: resolvedTier ?? null,
+                model,
+                provider: "own-engine",
+                repairPassIndex,
+                result: "fixed",
                 chatId,
-                resolvedCount: resolved.length,
-                residualBlocking: findings.blocking.length,
-                resolvedSymbols: resolved.map(
-                  ({ ref }) => `${ref.file}::${ref.symbol}`,
-                ),
-                // M#imp1 telemetry: per residual name WHY it stayed residual
-                // (tier3_gated / ambiguous_shadcn_lucide / unknown_name /
-                // not_applied) + which cannot-find codes were involved.
-                cannotFindSummary: repair.cannotFindSummary,
+                versionId: null,
                 scaffoldId: resolvedScaffold?.id ?? null,
+                routePath: ragRoutePath,
+                capabilityIds: ragCapabilityIds,
+                generationMode: ragGenerationMode,
+                lineageHash: null,
               });
-              for (const { finding } of resolved.slice(0, 5)) {
-                appendErrorLogEvent({
-                  phase: "post-gen",
-                  subphase: "verifier-pass",
-                  creator: "verifier",
-                  fixer: "deterministic-import-repair",
-                  severity: "warning",
-                  fault: finding.id,
-                  faultText: finding.detail,
-                  fixText: FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR,
-                  modelTier: resolvedTier ?? null,
-                  model,
-                  provider: "own-engine",
-                  repairPassIndex,
-                  result: "fixed",
-                  chatId,
-                  versionId: null,
-                  scaffoldId: resolvedScaffold?.id ?? null,
-                  routePath: ragRoutePath,
-                  capabilityIds: ragCapabilityIds,
-                  generationMode: ragGenerationMode,
-                  lineageHash: null,
-                });
-              }
             }
           }
         }

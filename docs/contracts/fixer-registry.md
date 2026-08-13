@@ -107,14 +107,17 @@ A fixer can run in more than one phase: `ownerPhase` is the primary/grouping
 phase, `additionalOwnerPhases` lists the rest. Example: the diagnostic-driven
 import fixers (`ts2304-known-import-fixer`, `own-component-import-fixer`) run in
 the shared deterministic import-repair (`autofix/deterministic-import-repair.ts`)
-from BOTH the finalize Normalize pass on warm-tsc failure (`post-syntax`, before
-`runLlmRepairGate`) and the server repair-loop pre-pass (`server-repair`, before
-RepairGate).
+from three entrypoints: the finalize Normalize pass on warm-tsc failure
+(`post-syntax`, before `runLlmRepairGate`), the server repair-loop pre-pass
+(`server-repair`, before RepairGate), and the F2 verifier-phase which
+synthesizes `Cannot find name 'X'` diagnostics from missing-import findings
+so skipWarmTsc F2-init still reaches the catalog.
 
-## Deterministic import-repair order (Normalize + server-repair)
+## Deterministic import-repair order (Normalize + server-repair + F2 verifier-phase)
 
 When tsc diagnostics exist (warm-tsc fail in finalize, or RenderGate/ReleaseGate fail in
-server-repair), the deterministic import-repair runs BEFORE RepairGate, in
+server-repair), **or** when the F2 verifier emits missing-import findings, the
+deterministic import-repair runs BEFORE RepairGate, in
 this order:
 
 1. `ts2304-known-import-fixer` — TS2304/TS2552 names resolvable to a known

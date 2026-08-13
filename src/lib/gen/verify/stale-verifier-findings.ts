@@ -74,8 +74,11 @@ function isMissingImportClassId(id: string): boolean {
   return MISSING_IMPORT_ID_RE.test(normalized) || BUILD_IMPORT_ID_RE.test(normalized);
 }
 
+// Same grammar as `IMPORT_REPAIR_FILE_RE` in verifier-pass.ts: Next route
+// groups are allowed only after a normal directory segment, so parenthetical
+// prose cannot stain the captured path.
 const FILE_PATH_RE =
-  /(?:^|[\s`"'(\[-])((?:[A-Za-z0-9_.@\[\]-]+\/)*[A-Za-z0-9_.\[\]-]+\.(?:tsx|ts|jsx|js|mjs|cjs))(?=$|[\s`"'):\],])/;
+  /(?:^|[\s`"'(\[-])((?:[A-Za-z0-9_.@\[\]-]+\/(?:\([^\/)]*\)[A-Za-z0-9_.@\[\]-]*\/)*)*[A-Za-z0-9_.\[\]-]+\.(?:tsx|ts|jsx|js|mjs|cjs))(?=$|[\s`"'):\],])/;
 
 /**
  * Words the targeted symbol patterns can capture that are prose, not

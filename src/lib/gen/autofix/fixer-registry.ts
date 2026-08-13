@@ -414,6 +414,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
       "TS2304/TS2552 missing import for a name resolvable with certainty (lucide icon, lucide type-only export, known module specifier, shadcn component, Next default, Clerk server helper, Stripe SDK, Resend SDK)",
     triggers: [
       "warm-tsc / quality-gate tsc `Cannot find name 'X'` where X resolves to a known module",
+      "F2 verifier findings (`undefined-jsx-symbol`, `missing-imports-runtime`, …) translated to the same diagnostic shape",
     ],
     status: "active",
     ownerPhase: "post-syntax",
@@ -422,9 +423,11 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
       "Diagnostic-driven (consumes tsc output) rather than a JSX scan, so it " +
       "also catches non-JSX value usages. Runs in the shared deterministic " +
       "import-repair (autofix/deterministic-import-repair.ts) BEFORE any LLM " +
-      "fixer, from BOTH entrypoints: the finalize normalize pass on warm-tsc " +
-      "failure (validate-and-fix.ts) and the server repair-loop pre-pass " +
-      "(verify/repair-loop.ts). shadcn∩lucide collision names (Badge, Calendar, " +
+      "fixer, from three entrypoints: the finalize normalize pass on warm-tsc " +
+      "failure (validate-and-fix.ts), the server repair-loop pre-pass " +
+      "(verify/repair-loop.ts), and the F2 verifier-phase (verifier-phase.ts) " +
+      "which synthesizes `Cannot find name 'X'` diagnostics from missing-import " +
+      "findings so skipWarmTsc F2-init still reaches the catalog. shadcn∩lucide collision names (Badge, Calendar, " +
       "Table, …) are resolved usage-aware (M#badge1): children/variant/asChild → " +
       "shadcn, icon-ish self-closing → lucide, unclear → left for the LLM. Stripe " +
       "(default import) and Resend (named import) resolve only in server-safe " +

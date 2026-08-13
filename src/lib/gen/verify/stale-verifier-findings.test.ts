@@ -128,6 +128,25 @@ describe("dropResolvedVerifierFindings — missing-import class", () => {
     expect(result.dropped).toHaveLength(0);
   });
 
+  it("drops a missing-import finding for a Next route-group path once the symbol is bound", () => {
+    const finding = {
+      id: "missing-imports-runtime",
+      detail: "app/(marketing)/page.tsx: uses `toast` but does not import it.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [
+        {
+          path: "app/(marketing)/page.tsx",
+          content:
+            'import { toast } from "sonner";\nexport default function Page() { toast.success("ok"); return <main>ok</main>; }',
+        },
+      ],
+    );
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
   it("drops an undefined-jsx-symbol finding once the component is imported", () => {
     const finding = {
       id: "undefined-jsx-symbol",

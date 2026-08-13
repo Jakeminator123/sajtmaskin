@@ -545,6 +545,108 @@ export function parseUndefinedJsxSymbolFinding(finding: {
   return { file: match[1].trim(), symbol: match[2] };
 }
 
+/** LLM finding ids for the missing-import class (`missing-imports-runtime`, `missing-resend-import`, …). */
+const MISSING_IMPORT_CLASS_ID_RE = /^missing-[a-z0-9-]*imports?(?:-[a-z0-9-]+)?$/i;
+/** Deterministic/build-lane ids for the same class (`build-breaking-missing-imports`, …). */
+const BUILD_IMPORT_CLASS_ID_RE = /^build-[a-z-]*imports?$/i;
+
+/**
+ * True for verifier findings that claim a symbol is used without an import.
+ * `import-name-collision` is deliberately excluded — a collision is not an
+ * absence, so it must not be routed to the known-import catalog.
+ */
+export function isMissingImportClassFindingId(id: string): boolean {
+  const normalized = id.trim().toLowerCase();
+  if (normalized === "undefined-jsx-symbol") return true;
+  if (normalized === "import-name-collision") return false;
+  return MISSING_IMPORT_CLASS_ID_RE.test(normalized) || BUILD_IMPORT_CLASS_ID_RE.test(normalized);
+}
+
+// Directory segments may include a Next route-group/intercept `(name)/`
+// AFTER a normal segment (`app/(marketing)/page.tsx`). `()` is NOT added to
+// the general class: `(see app/page.tsx)` must keep extracting `app/page.tsx`,
+// and a prefix-`(` must not swallow `marketing)/page.tsx`.
+const IMPORT_REPAIR_FILE_RE =
+  /(?:^|[\s`"'(\[-])((?:[A-Za-z0-9_.@\[\]-]+\/(?:\([^\/)]*\)[A-Za-z0-9_.@\[\]-]*\/)*)*[A-Za-z0-9_.\[\]-]+\.(?:tsx|ts|jsx|js|mjs|cjs))(?=$|[\s`"'):\],])/;
+
+const IMPORT_REPAIR_SYMBOL_STOP_WORDS = new Set([
+  "it",
+  "its",
+  "the",
+  "a",
+  "an",
+  "this",
+  "that",
+  "these",
+  "those",
+  "them",
+  "from",
+  "for",
+  "and",
+  "nor",
+  "or",
+  "of",
+  "in",
+  "is",
+  "are",
+  "was",
+  "any",
+  "anything",
+  "something",
+  "one",
+]);
+
+const IMPORT_REPAIR_SYMBOL_RES: readonly RegExp[] = [
+  /\buses\s+[`<]{0,2}([A-Za-z_$][\w$]*)/gi,
+  /\b(?:import|imports|imported|importing)\s+[`<]{0,2}([A-Za-z_$][\w$]*)/gi,
+  /`<?([A-Za-z_$][\w$]*)\s*\/?>?`\s+is\s+(?:used|referenced|missing|undefined|neither|not|never)/gi,
+];
+
+/**
+ * Translate a verifier finding into `{ file, symbol }` refs the deterministic
+ * import repair can consume as synthetic `Cannot find name 'X'` diagnostics.
+ *
+ * Covers `undefined-jsx-symbol` (canonical wording only — the DOM-interface
+ * variant stays with `dom-builtin-jsx-fixer`) and LLM/build missing-import
+ * ids (`missing-imports-runtime`, `build-breaking-missing-imports`, …).
+ * Returns `[]` when the finding is not an import-absence claim or cannot
+ * be parsed — the residue still reaches the LLM gate.
+ */
+export function parseImportRepairRefsFromFinding(finding: {
+  id: string;
+  detail: string;
+}): Array<{ file: string; symbol: string }> {
+  if (finding.id === "undefined-jsx-symbol") {
+    const parsed = parseUndefinedJsxSymbolFinding(finding);
+    return parsed ? [parsed] : [];
+  }
+  if (!isMissingImportClassFindingId(finding.id)) return [];
+
+  const bulletLines = finding.detail
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "));
+  const segments = bulletLines.length > 0 ? bulletLines : [finding.detail];
+  const refs: Array<{ file: string; symbol: string }> = [];
+  for (const segment of segments) {
+    const fileMatch = segment.match(IMPORT_REPAIR_FILE_RE);
+    if (!fileMatch?.[1]) continue;
+    const file = fileMatch[1];
+    const symbols = new Set<string>();
+    for (const pattern of IMPORT_REPAIR_SYMBOL_RES) {
+      pattern.lastIndex = 0;
+      for (const match of segment.matchAll(pattern)) {
+        const symbol = match[1];
+        if (!symbol) continue;
+        if (IMPORT_REPAIR_SYMBOL_STOP_WORDS.has(symbol.toLowerCase())) continue;
+        symbols.add(symbol);
+      }
+    }
+    for (const symbol of symbols) refs.push({ file, symbol });
+  }
+  return refs;
+}
+
 export function checkUndefinedJsxSymbols(
   files: Array<Pick<CodeFile, "path" | "content">>,
   options: { maxFindings?: number } = {},
@@ -573,6 +675,7 @@ export function checkUndefinedJsxSymbols(
 
     const scrubbed = stripCommentsAndStrings(f.content);
     const declared = collectDeclaredIdentifiers(scrubbed);
+    const paramAliasScopes = collectParamAliasScopes(scrubbed);
     const seen = new Set<string>();
     // The React Three Fiber hint is only relevant for files that actually use
     // R3F. Appending it to every undefined-symbol finding misled the fixer into
@@ -603,9 +706,15 @@ export function checkUndefinedJsxSymbols(
     while ((match = JSX_OPENING_TAG.exec(scrubbed)) !== null) {
       const name = match[1];
       if (!name || seen.has(name)) continue;
+      if (ALWAYS_IN_SCOPE.has(name) || declared.has(name)) {
+        seen.add(name);
+        continue;
+      }
+      // Param-destructure aliases (`{ icon: Icon }`) are function-scoped.
+      // Do not mark `seen` on an in-scope hit — a later `<Icon />` in a
+      // sibling function is a real ReferenceError and must still be flagged.
+      if (isBoundByParamAlias(paramAliasScopes, match.index, name)) continue;
       seen.add(name);
-      if (declared.has(name)) continue;
-      if (ALWAYS_IN_SCOPE.has(name)) continue;
       findings.push({
         id: "undefined-jsx-symbol",
         detail: buildUndefinedJsxDetail(f.path, name, fileUsesR3F),
@@ -624,6 +733,250 @@ export function checkUndefinedJsxSymbols(
  * is included because some toolchains auto-inject it.
  */
 const ALWAYS_IN_SCOPE = new Set<string>(["React", "Fragment"]);
+
+/**
+ * Bindings introduced by `{ A, B: C, ...rest = Default }`. Nested object/array
+ * parts are skipped — we'd rather miss a nested alias than invent names —
+ * but top-level siblings beside them (`icon: Icon` next to `nested: { x }`)
+ * are still registered.
+ */
+function addObjectDestructureBindings(body: string | undefined, declared: Set<string>): void {
+  if (!body) return;
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (ch === "{" || ch === "[") depth += 1;
+    else if (ch === "}" || ch === "]") depth = Math.max(0, depth - 1);
+    else if (ch === "," && depth === 0) {
+      parts.push(body.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(body.slice(start));
+  for (const part of parts) {
+    if (part.includes("{") || part.includes("[")) continue;
+    let trimmed = part.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith("...")) trimmed = trimmed.slice(3).trim();
+    const eq = trimmed.indexOf("=");
+    if (eq !== -1) trimmed = trimmed.slice(0, eq).trim();
+    const alias = trimmed.split(/\s*:\s*/).pop();
+    const id = alias?.trim();
+    if (id && /^[A-Za-z_$][\w$]*$/.test(id)) declared.add(id);
+  }
+}
+
+type ParamAliasScope = {
+  aliases: Set<string>;
+  start: number;
+  end: number;
+};
+
+/**
+ * Quote-aware balanced close for `{` / `(` / `[`. Copied in spirit from
+ * `extractArrayBody` (sync-nav-from-route-plan) / `findBalancedRange`
+ * (home-route-analysis): depth count, skip quoted spans, return null on
+ * mismatch/EOF so callers can fail closed.
+ */
+function findBalancedClose(source: string, openIndex: number): number | null {
+  const open = source[openIndex];
+  const close = open === "{" ? "}" : open === "(" ? ")" : open === "[" ? "]" : null;
+  if (!close) return null;
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = openIndex; i < source.length; i++) {
+    const ch = source[i];
+    if (quote) {
+      if (ch === "\\") {
+        i++;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === open) depth += 1;
+    else if (ch === close) {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return null;
+}
+
+function skipWhitespace(source: string, i: number): number {
+  while (i < source.length && /\s/.test(source[i]!)) i += 1;
+  return i;
+}
+
+/**
+ * Skip optional `: Type` after a parameter list. Stops at a depth-0 `{`
+ * (function body) or `=>` (arrow) without consuming it. Returns null if
+ * the type never terminates — fail closed.
+ */
+function skipOptionalTypeAnnotation(source: string, from: number): number | null {
+  let i = skipWhitespace(source, from);
+  if (source[i] !== ":") return i;
+  i = skipWhitespace(source, i + 1);
+  let angle = 0;
+  let paren = 0;
+  let brace = 0;
+  let bracket = 0;
+  let quote: string | null = null;
+  let started = false;
+  while (i < source.length) {
+    const ch = source[i]!;
+    if (quote) {
+      if (ch === "\\") {
+        i += 2;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      i += 1;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      i += 1;
+      continue;
+    }
+    if (angle === 0 && paren === 0 && brace === 0 && bracket === 0) {
+      if (started && (ch === "{" || (ch === "=" && source[i + 1] === ">"))) {
+        return i;
+      }
+    }
+    if (ch === "<") angle += 1;
+    else if (ch === ">" && angle > 0) angle -= 1;
+    else if (ch === "(") paren += 1;
+    else if (ch === ")" && paren > 0) paren -= 1;
+    else if (ch === "{") brace += 1;
+    else if (ch === "}" && brace > 0) brace -= 1;
+    else if (ch === "[") bracket += 1;
+    else if (ch === "]" && bracket > 0) bracket -= 1;
+    if (!/\s/.test(ch)) started = true;
+    i += 1;
+  }
+  return null;
+}
+
+/**
+ * Arrow without a brace body (`=> <Icon />`, `=> (<div/>)`): span is the
+ * expression until the next top-level delimiter (`;`, `,`, unmatched close)
+ * or, failing that, the rest of the enclosing expression through EOF —
+ * never the whole file from index 0.
+ */
+function scanExpressionEnd(source: string, start: number): number {
+  let paren = 0;
+  let brace = 0;
+  let bracket = 0;
+  let quote: string | null = null;
+  for (let i = start; i < source.length; i++) {
+    const ch = source[i]!;
+    if (quote) {
+      if (ch === "\\") {
+        i += 1;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(") paren += 1;
+    else if (ch === ")") {
+      if (paren === 0) return i - 1;
+      paren -= 1;
+    } else if (ch === "{") brace += 1;
+    else if (ch === "}") {
+      if (brace === 0) return i - 1;
+      brace -= 1;
+    } else if (ch === "[") bracket += 1;
+    else if (ch === "]") {
+      if (bracket === 0) return i - 1;
+      bracket -= 1;
+    } else if ((ch === ";" || ch === ",") && paren === 0 && brace === 0 && bracket === 0) {
+      return i - 1;
+    }
+  }
+  return source.length - 1;
+}
+
+function scopeFromParamObjectHead(
+  source: string,
+  matchIndex: number,
+  matchText: string,
+  kind: "function" | "arrow",
+): ParamAliasScope | null {
+  const openBrace = matchIndex + matchText.length - 1;
+  if (source[openBrace] !== "{") return null;
+  const destructClose = findBalancedClose(source, openBrace);
+  if (destructClose === null) return null;
+  const aliases = new Set<string>();
+  addObjectDestructureBindings(source.slice(openBrace + 1, destructClose), aliases);
+  if (aliases.size === 0) return null;
+
+  const parenOpen = matchIndex + matchText.lastIndexOf("(");
+  if (source[parenOpen] !== "(") return null;
+  const paramClose = findBalancedClose(source, parenOpen);
+  if (paramClose === null) return null;
+
+  const afterParams = skipOptionalTypeAnnotation(source, paramClose + 1);
+  if (afterParams === null) return null;
+
+  if (kind === "function") {
+    if (source[afterParams] !== "{") return null;
+    const bodyClose = findBalancedClose(source, afterParams);
+    if (bodyClose === null) return null;
+    return { aliases, start: afterParams, end: bodyClose };
+  }
+
+  if (source[afterParams] !== "=" || source[afterParams + 1] !== ">") return null;
+  const bodyStart = skipWhitespace(source, afterParams + 2);
+  if (bodyStart >= source.length) return null;
+  const head = source[bodyStart];
+  if (head === "{" || head === "(") {
+    const close = findBalancedClose(source, bodyStart);
+    if (close === null) return null;
+    return { aliases, start: bodyStart, end: close };
+  }
+  const exprEnd = scanExpressionEnd(source, bodyStart);
+  if (exprEnd < bodyStart) return null;
+  return { aliases, start: bodyStart, end: exprEnd };
+}
+
+function collectParamAliasScopes(scrubbedSource: string): ParamAliasScope[] {
+  const scopes: ParamAliasScope[] = [];
+
+  const FN_PARAM_OBJECT_DESTRUCT_RE =
+    /\b(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s*\*?\s*(?:[A-Za-z_$][\w$]*)?\s*(?:<[^<>]*>)?\s*\(\s*\{/g;
+  let m: RegExpExecArray | null;
+  while ((m = FN_PARAM_OBJECT_DESTRUCT_RE.exec(scrubbedSource)) !== null) {
+    const scope = scopeFromParamObjectHead(scrubbedSource, m.index, m[0], "function");
+    if (scope) scopes.push(scope);
+  }
+
+  const ARROW_PARAM_OBJECT_DESTRUCT_RE = /\(\s*\{/g;
+  while ((m = ARROW_PARAM_OBJECT_DESTRUCT_RE.exec(scrubbedSource)) !== null) {
+    const scope = scopeFromParamObjectHead(scrubbedSource, m.index, m[0], "arrow");
+    if (scope) scopes.push(scope);
+  }
+
+  return scopes;
+}
+
+function isBoundByParamAlias(scopes: ParamAliasScope[], index: number, name: string): boolean {
+  for (const scope of scopes) {
+    if (index >= scope.start && index <= scope.end && scope.aliases.has(name)) return true;
+  }
+  return false;
+}
 
 function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
   const declared = new Set<string>();
@@ -671,17 +1024,11 @@ function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
   }
 
   // Object-destructured consts: `const { A, B: C } = obj;`
+  // File-wide by design (pre-existing). Parameter-destructure aliases are
+  // NOT registered here — they are function-scoped via collectParamAliasScopes.
   const OBJECT_DESTRUCT_RE = /\b(?:const|let|var)\s*\{([^}]+)\}\s*=/g;
   while ((m = OBJECT_DESTRUCT_RE.exec(scrubbedSource)) !== null) {
-    const body = m[1];
-    if (!body) continue;
-    for (const part of body.split(",")) {
-      const trimmed = part.trim();
-      if (!trimmed) continue;
-      const alias = trimmed.split(/\s*:\s*/).pop();
-      const id = alias?.trim();
-      if (id && /^[A-Za-z_$][\w$]*$/.test(id)) declared.add(id);
-    }
+    addObjectDestructureBindings(m[1], declared);
   }
 
   // Array-destructured consts: `const [A, B = Default, ...rest] = tuple;`
