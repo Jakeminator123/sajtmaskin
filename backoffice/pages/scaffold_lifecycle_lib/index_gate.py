@@ -19,10 +19,58 @@ INDEX_PENDING_KEY = "scaffold_lifecycle_index_pending"
 INDEX_RESULTS_KEY = "scaffold_lifecycle_index_results"
 
 
-def indexing_steps(*, new_scaffold: bool) -> list[dict[str, Any]]:
-    """npm commands that publish match indexes to Blob. No design-pattern step."""
+def indexing_steps(*, new_scaffold: bool, push_only: bool = False) -> list[dict[str, Any]]:
+    """npm commands that publish match indexes to Blob. No design-pattern step.
 
-    steps: list[dict[str, Any]] = []
+    ``push_only`` is for delete: the local JSON is already pruned, so we only
+    upload it. A full ``scaffolds:*-embeddings`` rebuild would demand OpenAI
+    just to republish a smaller index.
+    """
+
+    if push_only:
+        steps: list[dict[str, Any]] = []
+        if new_scaffold:
+            steps.append(
+                {
+                    "key": "push_scaffold",
+                    "label": "Publicera scaffold-index",
+                    "command": (
+                        "npm",
+                        "run",
+                        "embeddings:push",
+                        "--",
+                        "--only=scaffold",
+                    ),
+                    "needs_api": False,
+                    "needs_blob": True,
+                    "help": (
+                        "Laddar upp den lokala scaffold-embeddings-cachen till "
+                        "Vercel Blob. Ingen OpenAI-nyckel — filen är redan rensad."
+                    ),
+                }
+            )
+        steps.append(
+            {
+                "key": "push_variant",
+                "label": "Publicera variant-index",
+                "command": (
+                    "npm",
+                    "run",
+                    "embeddings:push",
+                    "--",
+                    "--only=variant",
+                ),
+                "needs_api": False,
+                "needs_blob": True,
+                "help": (
+                    "Laddar upp den rensade variant-embeddings-cachen till "
+                    "Vercel Blob. Ingen OpenAI-nyckel — prune har redan skrivit filen."
+                ),
+            }
+        )
+        return steps
+
+    steps = []
     if new_scaffold:
         steps.append(
             {
@@ -75,19 +123,28 @@ def indexing_complete(results: Mapping[str, Any], steps: list[dict[str, Any]]) -
     return bool(steps)
 
 
-def queue_index_after_create(*, new_scaffold: bool, scaffold_id: str) -> None:
-    """Queue Blob-index after create/edit. Merge with an unfinished gate.
+def queue_index_after_create(
+    *,
+    new_scaffold: bool,
+    scaffold_id: str,
+    push_only: bool = False,
+) -> None:
+    """Queue Blob-index after create/edit/delete. Merge with an unfinished gate.
 
     A later variant-create must not drop a pending scaffold-embeddings step —
     ``scaffolds:embeddings`` is the Auto-match vector, and variant indexing
-    does not publish it.
+    does not publish it. A rebuild pending must not be downgraded to push-only.
     """
     pending = st.session_state.get(INDEX_PENDING_KEY)
     prior_new = isinstance(pending, Mapping) and bool(pending.get("new_scaffold"))
+    prior_push_only = isinstance(pending, Mapping) and bool(pending.get("push_only"))
     prior_id = ""
     if isinstance(pending, Mapping):
         prior_id = str(pending.get("scaffold_id") or "").strip()
     merged_new = prior_new or new_scaffold
+    merged_push_only = (
+        push_only if not isinstance(pending, Mapping) else prior_push_only and push_only
+    )
     ids = [part for part in prior_id.split(", ") if part]
     if scaffold_id and scaffold_id not in ids:
         ids.append(scaffold_id)
@@ -100,11 +157,14 @@ def queue_index_after_create(*, new_scaffold: bool, scaffold_id: str) -> None:
         results = dict(results)
     if new_scaffold:
         results.pop("scaffold_embeddings", None)
+        results.pop("push_scaffold", None)
     results.pop("embeddings", None)
+    results.pop("push_variant", None)
 
     st.session_state[INDEX_PENDING_KEY] = {
         "new_scaffold": merged_new,
         "scaffold_id": display_id,
+        "push_only": merged_push_only,
     }
     st.session_state[INDEX_RESULTS_KEY] = results
 
@@ -115,24 +175,27 @@ def render_index_gate(ctx: BackofficeContext) -> None:
         return
 
     new_scaffold = bool(pending.get("new_scaffold"))
+    push_only = bool(pending.get("push_only"))
     scaffold_id = str(pending.get("scaffold_id") or "")
-    steps = indexing_steps(new_scaffold=new_scaffold)
+    steps = indexing_steps(new_scaffold=new_scaffold, push_only=push_only)
     has_key = bool(get_openai_api_key())
     has_blob = bool(get_blob_read_write_token())
     results: dict[str, Any] = st.session_state.setdefault(INDEX_RESULTS_KEY, {})
+    complete = indexing_complete(results, steps)
 
-    st.warning(
-        f"Worktreet och Vercel Blob är ur synk efter `{scaffold_id}`. "
-        "Publicera matchningen med knapparna — Auto-match pekar fel tills Blob "
-        "speglar filerna (saknad *eller* raderad post)."
-    )
-    if not has_key:
-        st.error("OPENAI_API_KEY saknas — indexeringen kan inte köras.")
-    if not has_blob:
-        st.error(
-            "BLOB_READ_WRITE_TOKEN saknas — lokal cache räknas inte. "
-            "Index-knapparna är avstängda."
+    if not complete:
+        st.warning(
+            f"Worktreet och Vercel Blob är ur synk efter `{scaffold_id}`. "
+            "Publicera matchningen med knapparna — Auto-match pekar fel tills Blob "
+            "speglar filerna (saknad *eller* raderad post)."
         )
+        if not has_key and any(step.get("needs_api") for step in steps):
+            st.error("OPENAI_API_KEY saknas — indexeringen kan inte köras.")
+        if not has_blob:
+            st.error(
+                "BLOB_READ_WRITE_TOKEN saknas — lokal cache räknas inte. "
+                "Index-knapparna är avstängda."
+            )
 
     def _disabled(step: dict[str, Any]) -> bool:
         return bool(
@@ -180,7 +243,7 @@ def render_index_gate(ctx: BackofficeContext) -> None:
             error = res.get("error") or res.get("stderrTail") or "okänt fel"
             st.error(f"{step['label']} misslyckades: {error}")
 
-    if indexing_complete(results, steps):
+    if complete:
         st.success(
             "Matchningsindexen är publicerade. Kör `npm run scaffolds:validate` "
             "innan commit."

@@ -178,16 +178,21 @@ def _render_delete_variant(
     )
     if removed:
         note = (
-            f"Raderade `{rel}` och rensade {removed} post ur matchnings-indexet "
-            "(`variant-embeddings.json`) så CI-grinden inte fäller en förlegad post. "
-            f"{handoff_note} En snapshot ligger kvar under **Återställning**."
+            f"Raderade `{rel}` och rensade {removed} post ur den lokala cachen"
+            f"{handoff_note}. Publicera till Blob med knapparna ovan — "
+            "best-effort-push räcker inte, Auto-match kan annars välja den raderade "
+            "varianten. En snapshot ligger kvar under **Återställning**."
         )
     else:
         note = (
-            f"Raderade `{rel}` (ingen matchande post i `variant-embeddings.json`). "
-            f"{handoff_note} En snapshot ligger kvar under **Återställning**."
+            f"Raderade `{rel}` (ingen matchande post i den lokala cachen)"
+            f"{handoff_note}. Publicera variant-indexet till Blob med knapparna ovan. "
+            "En snapshot ligger kvar under **Återställning**."
         )
-    _flash_note(note, level="success")
+    queue_index_after_create(
+        new_scaffold=False, scaffold_id=selected_scaffold, push_only=True
+    )
+    _flash_note(note, level="warning")
     st.rerun()
 
 

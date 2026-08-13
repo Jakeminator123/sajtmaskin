@@ -621,9 +621,29 @@ class IndexGateQueueTests(unittest.TestCase):
         reset_src = inspect.getsource(ui_danger._render_baseline_tab)
         self.assertIn("queue_index_after_create(new_scaffold=True", delete_src)
         self.assertIn("queue_index_after_create(new_scaffold=True", reset_src)
+        delete_variant_src = inspect.getsource(ui_danger._render_delete_variant)
+        self.assertIn("push_only=True", delete_variant_src)
+        self.assertIn("queue_index_after_create", delete_variant_src)
         warning = inspect.getsource(self.ig.render_index_gate)
+        self.assertIn("if not complete:", warning)
         self.assertIn("ur synk", warning)
         self.assertNotIn("är skriven i worktreet", warning)
+
+    def test_variant_delete_push_does_not_need_openai(self) -> None:
+        steps = self.ig.indexing_steps(new_scaffold=False, push_only=True)
+        self.assertEqual([step["key"] for step in steps], ["push_variant"])
+        self.assertFalse(steps[0]["needs_api"])
+        self.assertTrue(steps[0]["needs_blob"])
+        self.assertEqual(steps[0]["command"][2], "embeddings:push")
+
+    def test_rebuild_pending_is_not_downgraded_to_push_only(self) -> None:
+        self.ig.queue_index_after_create(new_scaffold=True, scaffold_id="alpha")
+        self.ig.queue_index_after_create(
+            new_scaffold=False, scaffold_id="alpha", push_only=True
+        )
+        pending = self.state[self.ig.INDEX_PENDING_KEY]
+        self.assertTrue(pending["new_scaffold"])
+        self.assertFalse(pending["push_only"])
 
 
 if __name__ == "__main__":
