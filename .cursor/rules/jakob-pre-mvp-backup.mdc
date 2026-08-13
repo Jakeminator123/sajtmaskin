@@ -1,0 +1,23 @@
+---
+description: "Ägarens pre-MVP backup-branch får inte raderas eller skrivas över av agenter."
+alwaysApply: true
+---
+
+# Pre-MVP backup-branch
+
+Ägaren har reserverat branchen **`JAKOB_BRA_9999_INNNAN_MVP_BRA`** som en
+fryst kopia av `master` precis före vidare MVP-arbete (skapad 2026-08-13,
+SHA `991bb82` = Godnatt-bugg #953).
+
+## Förbjudet utan uttrycklig ägarorder i den aktuella chatten
+
+- `git branch -D` / `git push origin --delete` / `gh api` delete mot branchen
+- force-push, rebase, reset, merge in i den, eller återanvända namnet
+- "städa remote-branches", worktree-svep, Godnatt-cleanup eller liknande
+  som råkar matcha namnet
+
+GitHub-ruleset **Protect JAKOB_BRA_9999_INNNAN_MVP_BRA** blockerar radering
+och non-fast-forward. Det är inte ett tillstånd att försöka ändå.
+
+Endast ägaren (`Jakeminator123`) får radera eller flytta branchen, och då
+måste det sägas uttryckligen i chatten — inte som del av ett allmänt städ-svep.
