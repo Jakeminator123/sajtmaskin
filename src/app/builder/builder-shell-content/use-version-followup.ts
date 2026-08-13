@@ -87,10 +87,13 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
     if (!vm.latestVersionId || vm.latestVersionId === vm.activeVersionId) {
       return activeVersionStatus;
     }
-    return mapVersionStatusToDisplay(preferredVersionBusStatus, {
-      isLatest: true,
-      releaseState: preferredVersionSummary?.releaseState ?? null,
-    }).status;
+    return mapVersionStatusToDisplay(
+      preferredVersionBusStatus ?? preferredVersionSummary?.busStatus ?? null,
+      {
+        isLatest: true,
+        releaseState: preferredVersionSummary?.releaseState ?? null,
+      },
+    ).status;
   }, [
     vm.latestVersionId,
     vm.activeVersionId,
