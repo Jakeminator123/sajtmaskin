@@ -916,10 +916,19 @@ function ensureRuntimeForChat(chatId, options = {}) {
         const canReplaceRuntime =
           session.filesJson && typeof session.filesJson === "object";
         if (canReplaceRuntime) {
+          // Open HMR sockets are the common case, but the iframe can still be
+          // showing the old document while the socket is mid-reconnect (HMR
+          // proxy tears it down with the dying Next process). A tracked child
+          // or an assigned runtimePort means this is a swap, not a fresh boot
+          // — mark pending so a late registerPreviewSocket still gets reloadPage.
           const openClient = activePreviewSocketCount(chatId) > 0;
-          if (openClient) markPendingPreviewClientReload(chatId);
+          const hadTrackedRuntime = runtimeChildren.has(session.sessionId);
+          const hadAssignedPort =
+            Number.isFinite(Number(session.runtimePort)) && Number(session.runtimePort) > 0;
+          const shouldSignalClient = openClient || hadTrackedRuntime || hadAssignedPort;
+          if (shouldSignalClient) markPendingPreviewClientReload(chatId);
           await stopRuntimeForSession(session);
-          if (openClient) {
+          if (shouldSignalClient) {
             const signaled = requestPreviewClientReload(chatId);
             await appendRuntimeLog(
               session.previewSessionId,

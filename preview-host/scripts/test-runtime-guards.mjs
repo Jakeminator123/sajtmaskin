@@ -1370,8 +1370,13 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
 // document from the previous Next process hydrates against the new process's
 // HTML/JS and throws. Non-restart boots must not send an extra signal.
 {
-  const { registerPreviewSocket, setBootRunnerForTesting, clearRuntimeStateForTesting } =
-    runtime.__testing;
+  const {
+    registerPreviewSocket,
+    setBootRunnerForTesting,
+    clearRuntimeStateForTesting,
+    markPendingPreviewClientReload,
+    clearPendingPreviewClientReload,
+  } = runtime.__testing;
 
   function fakePreviewSocket() {
     const socket = new EventEmitter();
@@ -1453,8 +1458,22 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     );
     clearRuntimeStateForTesting(freshChat, freshSession.sessionId);
 
-    const { markPendingPreviewClientReload, clearPendingPreviewClientReload } =
-      runtime.__testing;
+    const ghostChat = "guard-reload-ghost";
+    const ghostSession = seedReloadSession(ghostChat);
+    const storePath = join(dataDir, "preview-host-store.json");
+    const store = JSON.parse(readFileSync(storePath, "utf8"));
+    store.sessions[ghostSession.sessionId].runtimePort = 4201;
+    writeFileSync(storePath, JSON.stringify(store), "utf8");
+    await runtime.ensureRuntimeForChat(ghostChat, { restart: true });
+    const ghostSocket = fakePreviewSocket();
+    registerPreviewSocket(ghostChat, ghostSocket);
+    check(
+      "restart with a prior runtime port still delivers reload to a late HMR reconnect",
+      wroteReloadPage(ghostSocket),
+    );
+    clearRuntimeStateForTesting(ghostChat, ghostSession.sessionId);
+    clearPendingPreviewClientReload(ghostChat);
+
     const reconnectChat = "guard-reload-reconnect";
     markPendingPreviewClientReload(reconnectChat);
     const reconnectSocket = fakePreviewSocket();

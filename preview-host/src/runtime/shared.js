@@ -106,7 +106,7 @@ const activePreviewSocketsByChat = new Map();
 // fångar HMR-reconnects efter att proxade sockets dog med den gamla processen.
 // Fail-safe: ingen socket / misslyckad write = samma beteende som före fixen.
 const pendingPreviewClientReloadByChat = new Map();
-const PREVIEW_CLIENT_RELOAD_PENDING_MS = 120_000;
+const PREVIEW_CLIENT_RELOAD_PENDING_MS = 30_000;
 const PREVIEW_CLIENT_RELOAD_PAYLOAD = JSON.stringify({
   type: "reloadPage",
   action: "reloadPage",
