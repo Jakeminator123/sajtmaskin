@@ -426,7 +426,6 @@ export function useBuilderPageController() {
       systemPrompt: state.customInstructions,
       promptAssistModel: state.promptAssistModel,
       promptAssistDeep: state.promptAssistDeep,
-      promptAssistMode: state.promptAssistMode,
       buildIntent: state.resolvedBuildIntent,
       setBuildIntent: state.setBuildIntent,
       buildMethod: state.buildMethod,
@@ -492,7 +491,6 @@ export function useBuilderPageController() {
     setEntryIntentActive: state.setEntryIntentActive,
     setIsPreparingPrompt: state.setIsPreparingPrompt,
     setCustomInstructions: state.setCustomInstructions,
-    setPromptAssistMode: state.setPromptAssistMode,
     setDesignTheme: state.setDesignTheme,
     setPaletteState: state.setPaletteState,
     generateDynamicInstructions,
@@ -895,7 +893,6 @@ export function useBuilderPageController() {
     isRepublishRepairing: deployActions.isRepublishRepairing,
 
     // Prompt actions
-    handlePromptAssistModeReset: promptActions.clearPromptAssistMode,
     requestCreateChat: promptActions.requestCreateChat,
     handleStartFromTemplate: promptActions.handleStartFromTemplate,
     templateSwitchDialog: promptActions.templateSwitchDialog,

@@ -307,7 +307,7 @@ def _render_markdown_docs(ctx: BackofficeContext) -> None:
             st.success("Sparat.")
 
 
-def _render_assist_brief_polish(man_path, manifest: dict[str, Any]) -> None:
+def _render_assist_brief(man_path, manifest: dict[str, Any]) -> None:
     prompt_assist = manifest.setdefault("promptAssist", {})
     prompt_defaults = prompt_assist.setdefault("defaults", {})
     prompt_allowed = prompt_assist.setdefault("allowed", {})
@@ -317,11 +317,6 @@ def _render_assist_brief_polish(man_path, manifest: dict[str, Any]) -> None:
         "Standard: Prompt assist-modell",
         value=str(prompt_defaults.get("assist", "")),
         key="assist_default_model",
-    )
-    polish_default = st.text_input(
-        "Standard: Prompt polish-modell",
-        value=str(prompt_defaults.get("polish", "")),
-        key="polish_default_model",
     )
     request_model = st.text_input(
         "API `/api/ai/brief` (förvald modell)",
@@ -351,9 +346,10 @@ def _render_assist_brief_polish(man_path, manifest: dict[str, Any]) -> None:
         key="assist_anthropic_direct_models",
     )
 
-    if st.button("Spara assist / brief / polish", type="primary"):
+    if st.button("Spara assist / brief", type="primary"):
         prompt_defaults["assist"] = assist_default.strip()
-        prompt_defaults["polish"] = polish_default.strip()
+        prompt_defaults.pop("polish", None)
+        prompt_assist.setdefault("envKeys", {}).pop("polish", None)
         prompt_allowed["gatewayClassModels"] = normalize_nonempty_lines(gateway_text)
         prompt_allowed["anthropicDirectModels"] = normalize_nonempty_lines(
             anthropic_direct_text
@@ -363,7 +359,7 @@ def _render_assist_brief_polish(man_path, manifest: dict[str, Any]) -> None:
         briefing["serverAutoAnthropic"] = auto_anthropic.strip()
         _guard_manifest_or_stop(manifest)
         write_json(man_path, manifest)
-        st.success("Sparat assist / brief / polish.")
+        st.success("Sparat assist / brief.")
         st.rerun()
 
 
@@ -408,12 +404,6 @@ def _render_prompt_orchestration(man_path, manifest: dict[str, Any]) -> None:
         value=int((hard_caps.get("maxAiBriefPromptChars") or {}).get("default", 800000)),
         step=5000,
         key="po_max_brief",
-    )
-    max_ai_chat = st.number_input(
-        "Max längd: prompt till assist-chat",
-        value=int((hard_caps.get("maxAiChatMessageChars") or {}).get("default", 600000)),
-        step=5000,
-        key="po_max_ai_chat",
     )
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -482,7 +472,7 @@ def _render_prompt_orchestration(man_path, manifest: dict[str, Any]) -> None:
         hard_caps.setdefault("warnChatSystemChars", {})["default"] = int(warn_chat_system)
         hard_caps.setdefault("maxPromptHandoffChars", {})["default"] = int(max_handoff)
         hard_caps.setdefault("maxAiBriefPromptChars", {})["default"] = int(max_brief_prompt)
-        hard_caps.setdefault("maxAiChatMessageChars", {})["default"] = int(max_ai_chat)
+        hard_caps.pop("maxAiChatMessageChars", None)
         soft_targets.setdefault("freeformChars", {})["default"] = int(soft_freeform)
         soft_targets.setdefault("templateChars", {})["default"] = int(soft_template)
         soft_targets.setdefault("followupChars", {})["default"] = int(soft_followup)
@@ -901,7 +891,7 @@ def render(ctx: BackofficeContext) -> None:
     elif models_part == "Markdown / .txt":
         _render_markdown_docs(ctx)
     elif models_part == "Assist / brief / polish":
-        _render_assist_brief_polish(man_path, manifest)
+        _render_assist_brief(man_path, manifest)
     elif models_part == "Första prompten / orkestrering":
         _render_prompt_orchestration(man_path, manifest)
     elif models_part == "Provider / kontrakt":

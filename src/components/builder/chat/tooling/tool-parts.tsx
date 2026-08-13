@@ -43,7 +43,7 @@ export function StructuredToolParts({
   // are suppressed. The inline block at the list bottom owns the pending
   // interaction, and an unrelated quick action would send a user message
   // that the pending gate consumes as its answer
-  // (`collectConfirmedContractAnswers` reads the NEXT user message) —
+  // (`collectFollowUpClarificationAnswer` reads the NEXT user message) —
   // silently mis-answering the active gate. This also prevents duplicate
   // button sets for the pending message itself.
   const suppressQuickActions = Boolean(pendingReply);

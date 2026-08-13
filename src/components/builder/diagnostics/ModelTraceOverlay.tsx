@@ -350,9 +350,6 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                           ? "Requested but inactive"
                           : "Off"}
                     </span>
-
-                    <span className="text-slate-400">Skriv om</span>
-                    <span className="break-all">{selected.polishModel}</span>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -371,14 +368,6 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                       )}
                     >
                       Assist allowlist: {selected.promptAssistAllowed ? "ok" : "blocked"}
-                    </span>
-                    <span
-                      className={cn(
-                        "rounded-full border px-2 py-1 text-[11px]",
-                        statusChipClass(selected.polishModelAllowed),
-                      )}
-                    >
-                      Polish allowlist: {selected.polishModelAllowed ? "ok" : "blocked"}
                     </span>
                   </div>
                 </section>

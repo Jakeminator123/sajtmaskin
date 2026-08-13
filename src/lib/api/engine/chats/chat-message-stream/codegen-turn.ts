@@ -1,7 +1,7 @@
 /**
  * Codegen turn of the follow-up stream handler: request-kind short-circuit,
- * orchestration resolve, contract-clarification gate, prompt finalization and
- * the own-engine pipeline/generation stream. Extracted verbatim from
+ * orchestration resolve, prompt finalization and the own-engine
+ * pipeline/generation stream. Extracted verbatim from
  * `chat-message-stream-post.ts`.
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -10,11 +10,6 @@ import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capabi
 import type { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import {
-  buildContractClarificationQuestion,
-  buildStoredContractClarificationUiPart,
-} from "@/lib/gen/contract/clarification";
-import type { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 import {
   buildGenerationInputPackage,
@@ -43,10 +38,8 @@ import { wrapStreamForPromptToDoneMetric } from "@/lib/observability/prompt-to-d
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import {
   buildOwnEngineGenerationStreamMeta,
-  buildPreGenerationContractGateParams,
 } from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
-import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import { createSSEHeaders } from "@/lib/streaming";
 import { debugLog } from "@/lib/utils/debug";
 import { buildEngineStreamResponse } from "../stream-error-response";
@@ -91,7 +84,6 @@ export async function runCodegenTurn(params: {
   requestAttachments: ReturnType<typeof normalizeRequestAttachments>;
   designReferences: ReturnType<typeof summarizeDesignReferences>;
   promptOrchestration: ReturnType<typeof orchestratePromptMessage>;
-  contractAnswerContext: ReturnType<typeof collectConfirmedContractAnswers>;
   previousFiles: CodeFile[];
   hasFollowUpBase: boolean;
   existingRoutePaths: string[];
@@ -146,7 +138,6 @@ export async function runCodegenTurn(params: {
     requestAttachments,
     designReferences,
     promptOrchestration,
-    contractAnswerContext,
     previousFiles,
     hasFollowUpBase,
     existingRoutePaths,
@@ -296,7 +287,6 @@ export async function runCodegenTurn(params: {
     // window (Opus 4.8 on the anthropic tier), not the tier build-default.
     engineModelId: generatorModel,
     persistedVariantId: snapshotVariantId,
-    contractAnswers: contractAnswerContext.confirmedAnswers,
     customInstructions: trimmedSystem || undefined,
     chatId,
     priorQualityTarget,
@@ -333,10 +323,6 @@ export async function runCodegenTurn(params: {
     contextPolicy: orchestrationBase.buildSpec.contextPolicy,
   });
   const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
-  const contractClarification = buildContractClarificationQuestion({
-    buildIntent: engineIntent,
-    context: preGenerationContracts,
-  });
   devLogAppend("in-progress", {
     type: "contracts.inferred",
     chatId,
@@ -421,55 +407,9 @@ export async function runCodegenTurn(params: {
     // timeline shows that the delta-brief pass was skipped and why.
     ...(deltaBriefSkipReason ? { briefSkipReason: deltaBriefSkipReason } : {}),
   });
-  if (contractClarification) {
-    const assistantQuestion = await chatRepo
-      .addMessage(chatId, "assistant", contractClarification.question, undefined, [
-        buildStoredContractClarificationUiPart(contractClarification),
-      ])
-      .catch(() => null);
-    devLogAppend("in-progress", {
-      type: "contracts.clarification-requested",
-      chatId,
-      kind: contractClarification.kind,
-      reason: contractClarification.reason,
-    });
-    const contractGateStream = createPreGenerationContractGateReadableStream(
-      buildPreGenerationContractGateParams({
-        routeVariant: "follow-up",
-        sseChatId: chatId,
-        assistantMessageId: assistantQuestion?.id ?? null,
-        contractClarification,
-        preGenerationContracts,
-        engineModel,
-        resolvedModelTier,
-        buildProfileId,
-        buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-        resolvedThinking,
-        resolvedImageGenerations,
-        resolvedScaffold,
-        strategyMeta: promptOrchestration.strategyMeta,
-        buildSpec: orchestrationBase.buildSpec,
-        metaBriefApplied: Boolean(metaBrief) || hasPersistedBrief,
-        customInstructionsLength: trimmedSystem?.length ?? 0,
-      }),
-    );
-    return attachSessionCookie(
-      new Response(
-        wrapStreamForPromptToDoneMetric(contractGateStream, {
-          kind: "followup",
-          promptStartedAt,
-          signal: req.signal,
-          chatId,
-        }),
-        { headers: createSSEHeaders() },
-      ),
-    );
-  }
-  // Persisted only AFTER the contract gate let the round through: a gate-only
-  // exit matched on an INCOMPLETE prompt, and pinning that match would make
-  // the next turn treat it as `persistedScaffoldId` and skip the rematch.
-  // Imported-repo chats never persist a scaffold id — the repo is the
-  // project, and a pinned scaffold would poison every later follow-up.
+  // Persist scaffold only when this round actually generates. Imported-repo
+  // chats never persist a scaffold id — the repo is the project, and a pinned
+  // scaffold would poison every later follow-up.
   if (
     resolvedScaffold &&
     !importedRepoMode &&

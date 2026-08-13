@@ -266,8 +266,7 @@ export function classifyF3ContinuationReply(message: string): F3ContinuationRepl
  * awaiting-input. Shape follows `persistFollowUpClarification` so the builder
  * UI re-renders the question (with the canonical quick-replies) after a
  * refresh. `output.f3Continuation: true` is the machine-readable marker the
- * follow-up route derives the lifecycle stage from — deliberately NOT
- * `contractClarification`, so `collectConfirmedContractAnswers` ignores it.
+ * follow-up route derives the lifecycle stage from.
  */
 export function buildF3AwaitingInputUiPart(params: {
   question: string;
@@ -344,8 +343,8 @@ function readF3ContinuationMarker(
  * with no user message after it. The current (not-yet-persisted) request is
  * by definition the direct reply in that state. Non-marker assistant
  * messages (background repair summaries, QA answers persisted before the
- * reply, …) do not consume the pending question — only a user message does,
- * mirroring `collectConfirmedContractAnswers` semantics. This walk is the
+ * reply, …) do not consume the pending question — only a user message does.
+ * This walk is the
  * cheap pre-filter; the authoritative arbiter is the conditional DB write in
  * `consumeF3ContinuationMarker`.
  */

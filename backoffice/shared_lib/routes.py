@@ -9,7 +9,6 @@ from .io import read_text
 ROUTE_TIMEOUT_DISPLAY: tuple[tuple[str, str], ...] = (
     ("src/app/api/engine/chats/stream/route.ts", "engineRouteMaxDurationSeconds"),
     ("src/app/api/engine/chats/[chatId]/stream/route.ts", "engineRouteMaxDurationSeconds"),
-    ("src/app/api/ai/chat/route.ts", "assistRouteMaxDurationSeconds"),
     ("src/app/api/ai/brief/route.ts", "assistRouteMaxDurationSeconds"),
     ("src/app/api/engine/chats/[chatId]/repair/route.ts", "verifyRepairRouteMaxDurationSeconds"),
     (

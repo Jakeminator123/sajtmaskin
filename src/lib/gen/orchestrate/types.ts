@@ -17,10 +17,7 @@ import type {
 } from "../system-prompt";
 import type { InferredCapabilities } from "../capability-inference";
 import type { RoutePlan } from "../route-plan";
-import type {
-  ConfirmedContractAnswer,
-  PreGenerationContractContext,
-} from "../contract/pre-generation-contracts";
+import type { PreGenerationContractContext } from "../contract/pre-generation-contracts";
 import type { OrchestrationContract } from "../orchestration-contract";
 import type { BuildSpec, BuildSpecComplexityHint, BuildSpecQualityTarget } from "../build-spec";
 import type { ShadcnUiRecipe } from "../data/shadcn-ui-recipes";
@@ -131,8 +128,6 @@ export interface OrchestrationInput {
   designReferences?: DesignReferenceAsset[];
   /** Optional persisted scaffold id from a previous turn in the same chat */
   persistedScaffoldId?: string | null;
-  /** Previously confirmed contract answers reconstructed from chat history */
-  contractAnswers?: ConfirmedContractAnswer[];
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
   /**

@@ -388,7 +388,7 @@ describe("StructuredToolParts", () => {
   it("suppresses its own quick-reply buttons while ANY pendingReply exists (Codex P1 på #482)", () => {
     // A quick action sends a plain user message, and the pending gate
     // consumes the NEXT user message as its answer
-    // (`collectConfirmedContractAnswers`) — clicking an unrelated card
+    // (`collectFollowUpClarificationAnswer`) — clicking an unrelated card
     // button while a clarification waits would silently mis-answer the
     // gate. The inline block at the list bottom owns the pending
     // interaction; every card's quick actions stay hidden until it is

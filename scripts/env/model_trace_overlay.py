@@ -86,7 +86,6 @@ def build_target_env(args: argparse.Namespace) -> OrderedDict[str, str]:
             ("SAJTMASKIN_MODEL_CODEX", args.codex_model),
             ("SAJTMASKIN_MODEL_ANTHROPIC", args.anthropic_model),
             ("SAJTMASKIN_ASSIST_MODEL", args.assist_model),
-            ("SAJTMASKIN_POLISH_MODEL", args.polish_model),
         ]
     )
 
@@ -202,7 +201,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--codex-model", default="gpt-5.3-codex")
     parser.add_argument("--anthropic-model", default="claude-opus-4.8")
     parser.add_argument("--assist-model", default="openai/gpt-5.6-sol")
-    parser.add_argument("--polish-model", default="openai/gpt-5.3-codex")
 
     return parser
 

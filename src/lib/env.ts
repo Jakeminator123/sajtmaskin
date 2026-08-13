@@ -169,7 +169,6 @@ export const serverSchema = z.object({
   /** Canonical server-side default for own-engine reasoning/thinking when the client omits an explicit toggle. */
   SAJTMASKIN_DEFAULT_THINKING: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
-  AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_LLM_FIXER_TIMEOUT_MS: z.string().optional(),
@@ -190,7 +189,6 @@ export const serverSchema = z.object({
   SAJTMASKIN_MODEL_CODEX: z.string().optional(),
   SAJTMASKIN_MODEL_ANTHROPIC: z.string().optional(),
   SAJTMASKIN_ASSIST_MODEL: z.string().optional(),
-  SAJTMASKIN_POLISH_MODEL: z.string().optional(),
   SAJTMASKIN_VERIFIER_PASS: z.string().optional(),
   SAJTMASKIN_BRIEF_MODEL: z.string().optional(),
   SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI: z.string().optional(),

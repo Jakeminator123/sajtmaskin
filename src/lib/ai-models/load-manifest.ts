@@ -63,11 +63,9 @@ const _qualityLevelSchema = z.enum(["light", "standard", "pro", "premium", "max"
 const promptAssistSchema = z.object({
   defaults: z.object({
     assist: z.string(),
-    polish: z.string(),
   }),
   envKeys: z.object({
     assist: z.string(),
-    polish: z.string(),
   }),
   allowed: z.object({
     gatewayClassModels: z.array(z.string()),
@@ -159,7 +157,6 @@ const promptOrchestrationSchema = z.object({
     warnChatSystemChars: numericEnvSettingSchema,
     maxPromptHandoffChars: numericEnvSettingSchema,
     maxAiBriefPromptChars: numericEnvSettingSchema,
-    maxAiChatMessageChars: numericEnvSettingSchema,
   }),
   softTargets: z.object({
     freeformChars: numericEnvSettingSchema,

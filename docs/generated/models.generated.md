@@ -4,8 +4,8 @@
 > Source: `src/lib/ai-models/load-manifest.ts#getAiModelsManifest`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:b74d949a83292ae4 -->
-<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:a88c74e67e978b81 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:4de04ffad9ee0e10 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:64f92a61c55b6985 -->
 
 # Models
 
@@ -34,7 +34,6 @@ Canonical owner: committed AI-model manifest. Validator/runtime consumer: `getAi
 
 ## Prompt assist
 
-| Workload | Default model          | Override env key          |
-| -------- | ---------------------- | ------------------------- |
-| `assist` | `openai/gpt-5.6-sol`   | `SAJTMASKIN_ASSIST_MODEL` |
-| `polish` | `openai/gpt-5.3-codex` | `SAJTMASKIN_POLISH_MODEL` |
+| Workload | Default model        | Override env key          |
+| -------- | -------------------- | ------------------------- |
+| `assist` | `openai/gpt-5.6-sol` | `SAJTMASKIN_ASSIST_MODEL` |

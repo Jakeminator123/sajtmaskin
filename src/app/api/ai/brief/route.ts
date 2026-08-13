@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       const botError = requireNotBot(req);
       if (botError) return botError;
 
-      // Same auth gate as `/api/ai/chat`: this endpoint runs full LLM
+      // Same auth gate as other paid LLM routes: this endpoint runs full LLM
       // generation against paid provider keys, so anonymous and guest
       // sessions must not be able to consume it. Discovered in Wave 5
       // security audit (2026-04-24).

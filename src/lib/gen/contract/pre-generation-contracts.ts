@@ -25,22 +25,12 @@ import type {
 
 type ContractDecisionKind = "database" | "auth" | "payment" | "integration" | "env";
 
-export interface ConfirmedContractAnswer {
-  kind: "integration" | "env" | "database" | "auth" | "payment" | "unclear" | "scope";
-  question: string;
-  answer: string;
-  options?: string[];
-  blocking?: boolean;
-  reason?: string;
-}
-
 export interface PreGenerationContractContext {
   contracts: PlanContracts;
   unresolvedDecisions: Array<{
     kind: ContractDecisionKind;
     reason: string;
   }>;
-  confirmedAnswers: ConfirmedContractAnswer[];
 }
 
 type ProviderRule = {
@@ -272,228 +262,20 @@ function inferDataMode(
   return "none";
 }
 
-function removeUnresolved(
-  unresolvedDecisions: PreGenerationContractContext["unresolvedDecisions"],
-  kind: ContractDecisionKind,
-) {
-  const index = unresolvedDecisions.findIndex((entry) => entry.kind === kind);
-  if (index !== -1) {
-    unresolvedDecisions.splice(index, 1);
-  }
-}
-
-function normalizedAnswer(answer: string): string {
-  return answer
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
-
-function answerMentions(answer: string, patterns: RegExp[]): boolean {
-  return patterns.some((pattern) => pattern.test(answer));
-}
-
-function applyAuthAnswer(
-  answer: string,
-  contracts: PlanContracts,
-  unresolvedDecisions: PreGenerationContractContext["unresolvedDecisions"],
-) {
-  const normalized = normalizedAnswer(answer);
-  if (/\b(ingen auth|ingen autentisering|utan auth|utan autentisering|no auth|placeholder)\b/i.test(normalized)) {
-    contracts.authProvider = "ingen";
-    removeUnresolved(unresolvedDecisions, "auth");
-    return;
-  }
-  for (const rule of PROVIDER_RULES.filter((entry) => entry.kind === "auth")) {
-    if (!answerMentions(normalized, rule.patterns)) continue;
-    contracts.authProvider = rule.provider;
-    pushIntegration(contracts.integrations, {
-      provider: rule.provider,
-      name: rule.name,
-      reason: "Bekräftat av användarens svar på auth-frågan.",
-      status: "chosen",
-      envVars: rule.envVars,
-    });
-    pushEnvVars(contracts.envVars, rule.envVars, "Bekräftat auth-val.", true);
-    removeUnresolved(unresolvedDecisions, "auth");
-    return;
-  }
-  // UI option "Annat / vet inte än" — ship without auth for now.
-  if (
-    /\bannat\b/i.test(normalized) ||
-    /\bvet inte\b/i.test(normalized) ||
-    /\b(osäker|osaker)\b/i.test(normalized)
-  ) {
-    contracts.authProvider = "ingen";
-    removeUnresolved(unresolvedDecisions, "auth");
-  }
-}
-
-function applyPaymentAnswer(
-  answer: string,
-  contracts: PlanContracts,
-  unresolvedDecisions: PreGenerationContractContext["unresolvedDecisions"],
-) {
-  const normalized = normalizedAnswer(answer);
-  if (/\b(ingen|utan betalning|utan payment|placeholder|senare)\b/i.test(normalized)) {
-    contracts.paymentProvider = "ingen";
-    removeUnresolved(unresolvedDecisions, "payment");
-    return;
-  }
-  for (const rule of PROVIDER_RULES.filter((entry) => entry.kind === "payment")) {
-    if (!answerMentions(normalized, rule.patterns)) continue;
-    contracts.paymentProvider = rule.provider;
-    pushIntegration(contracts.integrations, {
-      provider: rule.provider,
-      name: rule.name,
-      reason: "Bekräftat av användarens svar på payment-frågan.",
-      status: "chosen",
-      envVars: rule.envVars,
-    });
-    pushEnvVars(contracts.envVars, rule.envVars, "Bekräftat payment-val.", true);
-    removeUnresolved(unresolvedDecisions, "payment");
-    return;
-  }
-  // UI option "Annat / vet inte än" — no payment flow yet.
-  if (
-    /\bannat\b/i.test(normalized) ||
-    /\bvet inte\b/i.test(normalized) ||
-    /\b(osäker|osaker)\b/i.test(normalized)
-  ) {
-    contracts.paymentProvider = "ingen";
-    removeUnresolved(unresolvedDecisions, "payment");
-  }
-}
-
-function applyDatabaseAnswer(
-  answer: string,
-  contracts: PlanContracts,
-  unresolvedDecisions: PreGenerationContractContext["unresolvedDecisions"],
-) {
-  const normalized = normalizedAnswer(answer);
-  if (/\b(mock|mockad|mockat|demo data|placeholder)\b/i.test(normalized)) {
-    contracts.databaseProvider = "mock data";
-    contracts.dataMode = "mocked";
-    removeUnresolved(unresolvedDecisions, "database");
-    return;
-  }
-  for (const rule of PROVIDER_RULES.filter((entry) => entry.kind === "database")) {
-    if (!answerMentions(normalized, rule.patterns)) continue;
-    contracts.databaseProvider = rule.provider;
-    contracts.dataMode = "persisted";
-    pushIntegration(contracts.integrations, {
-      provider: rule.provider,
-      name: rule.name,
-      reason: "Bekräftat av användarens svar på databas-frågan.",
-      status: "chosen",
-      envVars: rule.envVars,
-    });
-    pushEnvVars(contracts.envVars, rule.envVars, "Bekräftat databasval.", true);
-    removeUnresolved(unresolvedDecisions, "database");
-    return;
-  }
-  // UI option "Annat / vet inte än" — proceed with mock data first (defers real DB).
-  if (
-    /\bannat\b/i.test(normalized) ||
-    /\bvet inte\b/i.test(normalized) ||
-    /\b(osäker|osaker)\b/i.test(normalized)
-  ) {
-    contracts.databaseProvider = "mock data";
-    contracts.dataMode = "mocked";
-    removeUnresolved(unresolvedDecisions, "database");
-  }
-}
-
-function applyIntegrationAnswer(
-  answer: string,
-  contracts: PlanContracts,
-  unresolvedDecisions: PreGenerationContractContext["unresolvedDecisions"],
-) {
-  const normalized = normalizedAnswer(answer);
-  if (/\b(mock|mockad|mockat|senare|placeholder)\b/i.test(normalized)) {
-    if (contracts.dataMode === "none") {
-      contracts.dataMode = "mocked";
-    } else if (contracts.dataMode === "persisted") {
-      contracts.dataMode = "mixed";
-    }
-    removeUnresolved(unresolvedDecisions, "integration");
-    return;
-  }
-  if (
-    /\b(osäker|osaker|vet inte|annat|unsure)\b/i.test(normalized) ||
-    /behöver välja senare/i.test(normalized)
-  ) {
-    if (contracts.dataMode === "none") {
-      contracts.dataMode = "mocked";
-    } else if (contracts.dataMode === "persisted") {
-      contracts.dataMode = "mixed";
-    }
-    removeUnresolved(unresolvedDecisions, "integration");
-    return;
-  }
-
-  for (const rule of PROVIDER_RULES.filter((entry) => entry.kind === "integration")) {
-    if (!answerMentions(normalized, rule.patterns)) continue;
-    pushIntegration(contracts.integrations, {
-      provider: rule.provider,
-      name: rule.name,
-      reason: "Bekräftat av användarens svar på integrations-frågan.",
-      status: "chosen",
-      envVars: rule.envVars,
-    });
-    pushEnvVars(contracts.envVars, rule.envVars, "Bekräftat integrationsval.", true);
-    removeUnresolved(unresolvedDecisions, "integration");
-    return;
-  }
-}
-
-function applyConfirmedAnswers(
-  confirmedAnswers: ConfirmedContractAnswer[],
-  contracts: PlanContracts,
-  unresolvedDecisions: PreGenerationContractContext["unresolvedDecisions"],
-) {
-  for (const confirmed of confirmedAnswers) {
-    const answer = asString(confirmed.answer);
-    if (!answer) continue;
-    switch (confirmed.kind) {
-      case "auth":
-        applyAuthAnswer(answer, contracts, unresolvedDecisions);
-        break;
-      case "payment":
-        applyPaymentAnswer(answer, contracts, unresolvedDecisions);
-        break;
-      case "database":
-        applyDatabaseAnswer(answer, contracts, unresolvedDecisions);
-        break;
-      case "integration":
-        applyIntegrationAnswer(answer, contracts, unresolvedDecisions);
-        break;
-      case "env":
-        removeUnresolved(unresolvedDecisions, "env");
-        break;
-      default:
-        break;
-    }
-  }
-}
-
 /**
  * Infer pre-generation contracts from prompt, brief, and capabilities.
  *
  * **Invariant (preview-first):** `unresolvedDecisions` is always returned empty
  * for the default flow — defaults (SQLite, NextAuth Credentials, Stripe test)
- * are applied automatically.  `buildContractClarificationQuestion` guards the
- * gate with `previewFirst` so first generation never blocks on missing env.
+ * are applied automatically. First generation never blocks on missing env.
  */
 export function inferPreGenerationContracts(params: {
   prompt: string;
   buildIntent: BuildIntent;
   brief?: Record<string, unknown> | null;
   capabilities: InferredCapabilities;
-  contractAnswers?: ConfirmedContractAnswer[];
 }): PreGenerationContractContext {
-  const { prompt, buildIntent, brief = null, capabilities, contractAnswers = [] } = params;
+  const { prompt, buildIntent, brief = null, capabilities } = params;
   const corpus = getPromptCorpus(prompt, brief);
   const visualOnly = isVisualOnlyFollowUpPrompt(corpus);
   const suppressAuth = visualOnly || hasNegatedAuthIntent(corpus);
@@ -574,8 +356,6 @@ export function inferPreGenerationContracts(params: {
   // Vague "integration" hints no longer block the stream — codegen stubs or uses placeholders.
   // (Previously `oauth` in this regex caused spurious blocking modals.)
 
-  applyConfirmedAnswers(contractAnswers, contracts, unresolvedDecisions);
-
   // Preview is the first delivery target: keep env requirements visible in
   // `contracts.envVars`, but never stop first generation on missing keys. Placeholder
   // `.env.local` + project env UI handles the handoff to production-grade config later.
@@ -583,6 +363,5 @@ export function inferPreGenerationContracts(params: {
   return {
     contracts,
     unresolvedDecisions,
-    confirmedAnswers: contractAnswers,
   };
 }

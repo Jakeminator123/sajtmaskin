@@ -1,5 +1,4 @@
 import {
-  DEFAULT_PROMPT_POLISH_MODEL,
   MODEL_TIER_OPTIONS,
   PROMPT_ASSIST_MODEL_OPTIONS,
   getDefaultPromptAssistModel,
@@ -112,9 +111,6 @@ export interface ModelTraceSnapshot {
     promptAssistDeepRequested: boolean;
     promptAssistDeepActive: boolean;
     canUseDeepBrief: boolean;
-    polishModel: string;
-    polishModelAllowed: boolean;
-    polishProviderFamily: ModelProviderFamily;
   };
   buildProfiles: BuildProfileTrace[];
   promptAssistOptions: PromptAssistOptionTrace[];
@@ -263,13 +259,6 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
       active: !canUseDeepBrief,
     },
     {
-      key: "prompt-assist-chat",
-      label: "Forbattra / shallow",
-      route: "/api/ai/chat",
-      purpose: "Prompt rewrite/polish before generation.",
-      active: !isPromptAssistOff(selectedAssistModel) && !promptAssistDeepActive,
-    },
-    {
       key: "deep-brief",
       label: "Deep brief",
       route: "/api/ai/brief",
@@ -317,11 +306,6 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
       "Deep Brief was requested, but the selected prompt assist model is not deep-brief eligible.",
     );
   }
-  if (!isPromptAssistModelAllowed(DEFAULT_PROMPT_POLISH_MODEL)) {
-    warnings.push(
-      `The configured polish model "${DEFAULT_PROMPT_POLISH_MODEL}" is not on the current prompt-assist allowlist.`,
-    );
-  }
 
   return {
     generatedAt: new Date().toISOString(),
@@ -342,9 +326,6 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
       promptAssistDeepRequested,
       promptAssistDeepActive,
       canUseDeepBrief,
-      polishModel: DEFAULT_PROMPT_POLISH_MODEL,
-      polishModelAllowed: isPromptAssistModelAllowed(DEFAULT_PROMPT_POLISH_MODEL),
-      polishProviderFamily: resolvePromptAssistProviderFamily(DEFAULT_PROMPT_POLISH_MODEL),
     },
     buildProfiles,
     promptAssistOptions,
@@ -353,7 +334,6 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
     warnings,
     notes: [
       '"/api/v0/*" builder generation routes currently resolve to the own engine, not the legacy v0 builder.',
-      '"Skriv om" normally uses the dedicated polish model, but follows Anthropic when the active assist lane is Anthropic.',
       "Thinking is a boolean generation flag. It is not a separate model profile.",
       "Prompt-assist model strings are provider-coded. Build profiles are internal tiers that resolve later.",
       "OpenAI prompt assist uses createDirectModel() with OPENAI_API_KEY.",

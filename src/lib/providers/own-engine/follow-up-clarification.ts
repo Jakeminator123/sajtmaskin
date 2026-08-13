@@ -389,9 +389,8 @@ export async function persistFollowUpClarification(params: {
         // collectFollowUpClarificationAnswer() recovers the ORIGINAL follow-up
         // prompt when the user answers with a quick-reply option — otherwise
         // the short option text becomes the whole generation prompt.
-        // Deliberately NOT `contractClarification` (would be consumed by
-        // collectConfirmedContractAnswers) and NOT `f3Continuation` — same
-        // marker discipline as buildF3AwaitingInputUiPart.
+        // Deliberately NOT `f3Continuation` — same marker discipline as
+        // buildF3AwaitingInputUiPart.
         followUpClarification: true,
         sourceUserMessage: message,
       },
@@ -448,8 +447,8 @@ function readFollowUpClarificationMarker(
 }
 
 /**
- * Mirror of `collectConfirmedContractAnswers` for follow-up SCOPE
- * clarifications ({@link persistFollowUpClarification}). Finds the latest
+ * Collects a follow-up SCOPE clarification answer from chat history
+ * ({@link persistFollowUpClarification}). Finds the latest
  * assistant message carrying the `followUpClarification` marker with no user
  * message after it (same pending semantics as `getLatestPendingReply` /
  * `hasUserMessageAfter` in BuilderMessageTooling), and treats `currentReply`

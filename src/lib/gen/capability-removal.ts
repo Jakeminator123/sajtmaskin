@@ -139,9 +139,6 @@ export function filterRemovedCapabilitiesFromContracts(
     unresolvedDecisions: context.unresolvedDecisions.filter(
       (decision) => !removedDecisionKinds.has(decision.kind),
     ),
-    confirmedAnswers: context.confirmedAnswers.filter(
-      (answer) => !removedDecisionKinds.has(answer.kind),
-    ),
   };
 }
 

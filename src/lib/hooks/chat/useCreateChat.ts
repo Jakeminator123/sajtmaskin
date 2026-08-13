@@ -62,7 +62,6 @@ export function useCreateChat(
     systemPrompt,
     promptAssistModel,
     promptAssistDeep,
-    promptAssistMode,
     buildIntent,
     setBuildIntent,
     buildMethod,
@@ -164,7 +163,6 @@ export function useCreateChat(
           buildIntent: effectiveBuildIntent,
           buildIntentExplicit: Boolean(initChoicesMeta.buildIntentExplicit),
           planMode: options.planMode,
-          promptAssistMode,
           promptAssistModel,
           promptAssistDeep,
           paletteState,
@@ -477,7 +475,6 @@ export function useCreateChat(
         };
         if (promptAssistModel) promptMeta.promptAssistModel = promptAssistModel;
         if (typeof promptAssistDeep === "boolean") promptMeta.promptAssistDeep = promptAssistDeep;
-        if (promptAssistMode) promptMeta.promptAssistMode = promptAssistMode;
         if (effectiveBuildIntent) promptMeta.buildIntent = effectiveBuildIntent;
         if (initChoicesMeta.buildIntentExplicit) promptMeta.buildIntentExplicit = true;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
@@ -634,7 +631,6 @@ export function useCreateChat(
               autoFixHandlerRef,
               promptAssistModel,
               promptAssistDeep,
-              promptAssistMode,
             },
             streamController.signal,
           );
@@ -772,7 +768,6 @@ export function useCreateChat(
       pendingBriefRef,
       promptAssistModel,
       promptAssistDeep,
-      promptAssistMode,
       chatPrivacy,
       startStreamSafetyTimer,
       touchStreamSafetyTimer,

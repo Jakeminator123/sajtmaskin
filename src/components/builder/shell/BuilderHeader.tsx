@@ -399,9 +399,8 @@ export function BuilderHeader(props: {
                           <TooltipContent side="left" className="max-w-xs">
                             <p className="text-xs">
                               Byggprofiler: Premium, Lagom, Tänker, Kod Max och Anthropic. Varje
-                              profil väljer en konkret modell i den egna motorn. Förbättra nedan är
-                              separat och används till promptförbättring, mallval och designbrief
-                              innan första bygget.
+                              profil väljer en konkret modell i den egna motorn. Assist-modellen
+                              nedan är bara en hint till Deep Brief / auto-brief före första bygget.
                             </p>
                           </TooltipContent>
                         </Tooltip>

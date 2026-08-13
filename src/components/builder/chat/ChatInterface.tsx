@@ -128,7 +128,6 @@ interface ChatInterfaceProps {
     message: string,
     options?: MessageOptions,
   ) => Promise<SendMessageOutcome>;
-  onPromptAssistModeReset?: () => void;
   isFigmaInputOpen?: boolean;
   onFigmaInputOpenChange?: (open: boolean) => void;
   isBusy?: boolean;
@@ -212,7 +211,6 @@ export function ChatInterface({
   initialPrompt,
   onCreateChat,
   onSendMessage,
-  onPromptAssistModeReset,
   isFigmaInputOpen: controlledFigmaInputOpen,
   onFigmaInputOpenChange,
   isBusy,
@@ -275,7 +273,6 @@ export function ChatInterface({
 
   const handleInputChange = (value: string) => {
     setInput(value);
-    onPromptAssistModeReset?.();
   };
 
   const prefilledPromptRef = useRef<string | null>(null);

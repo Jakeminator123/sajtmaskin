@@ -4,7 +4,7 @@ import {
   ASSIST_MODELS,
   isPromptAssistModelAllowed,
 } from "@/lib/builder/prompt-assist";
-import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
+import { ASSIST_MODEL } from "@/lib/gen/defaults";
 import { existsSync } from "node:fs";
 
 import {
@@ -51,16 +51,13 @@ describe("config/ai_models/manifest.json parity", () => {
     if (!process.env.SAJTMASKIN_ASSIST_MODEL?.trim()) {
       expect(ASSIST_MODEL).toBe(m.promptAssist.defaults.assist);
     }
-    if (!process.env.SAJTMASKIN_POLISH_MODEL?.trim()) {
-      expect(POLISH_MODEL).toBe(m.promptAssist.defaults.polish);
-    }
   });
 
   it("retains pre-#221 prompt-assist ids for back-compat (MB-1 regression guard)", () => {
     // #221 bumped prompt-assist to gpt-5.5 / claude-opus-4.8 but must APPEND,
     // not replace: a deployment/env/persisted value still set to one of the
     // previous ids must keep passing isPromptAssistModelAllowed() instead of
-    // 400-ing /api/ai/chat or /api/ai/brief.
+    // 400-ing /api/ai/brief.
     const allowed = getPromptAssistAllowedFromManifest();
     const backCompatGateway = ["openai/gpt-5.4", "anthropic/claude-opus-4.6"];
     const backCompatDirect = ["anthropic-direct/claude-opus-4-6"];
@@ -90,7 +87,7 @@ describe("config/ai_models/manifest.json parity", () => {
     }
 
     // Sonnet 4.6 was retired from the allow-list but persisted selections must
-    // still pass via aliasRetiredModelId() — never 400 on /api/ai/chat or brief.
+    // still pass via aliasRetiredModelId() — never 400 on /api/ai/brief.
     for (const id of ["anthropic/claude-sonnet-4.6", "anthropic-direct/claude-sonnet-4-6"]) {
       expect(allowed.models).not.toContain(id);
       expect(isPromptAssistModelAllowed(id)).toBe(true);
