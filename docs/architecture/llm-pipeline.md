@@ -219,7 +219,10 @@ i buildern). Escape: `ready` / `promoted` / `failed` / `degraded` / `blocked` /
 `idle` / `retrying` (det sista täcker även terminal `superseded`). Autofix får
 fortfarande anropa `sendMessage` — låset sitter på composer/version-select, inte
 på själva send. Servern svarar `409 generation_in_progress` om två codegen-strömmar
-tävlade om samma `chatId` (Redis SET NX, annars in-process). Quality-gate avgör
+tävlade om samma `chatId` (Redis SET NX, annars in-process). Om Redis är
+konfigurerad men `SET` kastar svarar servern `503 generation_lock_unavailable`
+i stället för att ljuga om en pågående generation eller släppa igenom en
+andra ström. Quality-gate avgör
 "senaste version" via `selectPreferredEngineVersion`, inte rå `getLatestVersion`,
 så en failad F3-head inte gör en grön F2-design till `superseded`.
 

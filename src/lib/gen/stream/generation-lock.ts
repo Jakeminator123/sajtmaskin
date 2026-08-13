@@ -21,6 +21,11 @@ export type ChatGenerationLock = {
   token: string;
 };
 
+export type AcquireChatGenerationLockResult =
+  | { status: "acquired"; lock: ChatGenerationLock }
+  | { status: "held" }
+  | { status: "unavailable" };
+
 const REDIS_LOCK_PREFIX = `${REDIS_KEY_PREFIX}generation-lock:`;
 
 type MemoryLock = { token: string; expiresAt: number };
@@ -42,9 +47,9 @@ function pruneMemoryLock(chatId: string): MemoryLock | undefined {
 
 export async function acquireChatGenerationLock(
   chatId: string,
-): Promise<ChatGenerationLock | null> {
+): Promise<AcquireChatGenerationLockResult> {
   const trimmed = chatId.trim();
-  if (!trimmed) return null;
+  if (!trimmed) return { status: "unavailable" };
   const token = randomUUID();
   const redis = getRedis();
   if (redis) {
@@ -56,21 +61,22 @@ export async function acquireChatGenerationLock(
         CHAT_GENERATION_LOCK_TTL_SECONDS,
         "NX",
       );
-      if (ok === "OK") return { chatId: trimmed, token };
-      return null;
+      if (ok === "OK") return { status: "acquired", lock: { chatId: trimmed, token } };
+      return { status: "held" };
     } catch {
-      // Redis is the cross-instance mutex. Falling through to the in-process
-      // map would let another instance keep (or take) the Redis lock while
-      // this instance also streams. Fail closed — the client retries.
-      return null;
+      // Redis is the cross-instance mutex. Do not fall through to the
+      // in-process map (another instance may hold the Redis lock). Do not
+      // pretend a generation is already running either — callers map this
+      // to 503 so the user can retry.
+      return { status: "unavailable" };
     }
   }
-  if (pruneMemoryLock(trimmed)) return null;
+  if (pruneMemoryLock(trimmed)) return { status: "held" };
   memoryLocks.set(trimmed, {
     token,
     expiresAt: Date.now() + CHAT_GENERATION_LOCK_TTL_SECONDS * 1000,
   });
-  return { chatId: trimmed, token };
+  return { status: "acquired", lock: { chatId: trimmed, token } };
 }
 
 export async function releaseChatGenerationLock(

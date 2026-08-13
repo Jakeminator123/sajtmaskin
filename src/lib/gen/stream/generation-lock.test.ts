@@ -10,7 +10,17 @@ import {
   bindChatGenerationLockToResponse,
   releaseChatGenerationLock,
   resetChatGenerationLocksForTests,
+  type AcquireChatGenerationLockResult,
+  type ChatGenerationLock,
 } from "./generation-lock";
+
+function expectAcquired(result: AcquireChatGenerationLockResult): ChatGenerationLock {
+  expect(result).toEqual(expect.objectContaining({ status: "acquired" }));
+  if (result.status !== "acquired") {
+    throw new Error(`expected acquired, got ${result.status}`);
+  }
+  return result.lock;
+}
 
 describe("chat generation lock", () => {
   beforeEach(() => {
@@ -23,33 +33,28 @@ describe("chat generation lock", () => {
   });
 
   it("låter bara en lock-hållare per chat i samma process", async () => {
-    const first = await acquireChatGenerationLock("chat-a");
-    const second = await acquireChatGenerationLock("chat-a");
-    expect(first).not.toBeNull();
-    expect(second).toBeNull();
-    await releaseChatGenerationLock(first!);
-    const third = await acquireChatGenerationLock("chat-a");
-    expect(third).not.toBeNull();
+    const first = expectAcquired(await acquireChatGenerationLock("chat-a"));
+    expect(await acquireChatGenerationLock("chat-a")).toEqual({ status: "held" });
+    await releaseChatGenerationLock(first);
+    expectAcquired(await acquireChatGenerationLock("chat-a"));
   });
 
   it("isolerar olika chattar", async () => {
-    const a = await acquireChatGenerationLock("chat-a");
-    const b = await acquireChatGenerationLock("chat-b");
-    expect(a).not.toBeNull();
-    expect(b).not.toBeNull();
+    expectAcquired(await acquireChatGenerationLock("chat-a"));
+    expectAcquired(await acquireChatGenerationLock("chat-b"));
   });
 
-  it("failar stängt när Redis är konfigurerad men SET kastar", async () => {
+  it("rapporterar unavailable när Redis är konfigurerad men SET kastar", async () => {
     getRedis.mockReturnValue({
       set: vi.fn().mockRejectedValue(new Error("redis down")),
     });
-    const lock = await acquireChatGenerationLock("chat-redis-down");
-    expect(lock).toBeNull();
+    expect(await acquireChatGenerationLock("chat-redis-down")).toEqual({
+      status: "unavailable",
+    });
   });
 
   it("släpper JSON-svar omedelbart så nästa generation kan starta", async () => {
-    const lock = await acquireChatGenerationLock("chat-json");
-    expect(lock).not.toBeNull();
+    const lock = expectAcquired(await acquireChatGenerationLock("chat-json"));
     const response = bindChatGenerationLockToResponse(
       new Response(JSON.stringify({ error: "nope" }), {
         status: 409,
@@ -59,13 +64,11 @@ describe("chat generation lock", () => {
     );
     expect(response.status).toBe(409);
     await Promise.resolve();
-    const again = await acquireChatGenerationLock("chat-json");
-    expect(again).not.toBeNull();
+    expectAcquired(await acquireChatGenerationLock("chat-json"));
   });
 
   it("håller locken tills SSE-bodyn stängs", async () => {
-    const lock = await acquireChatGenerationLock("chat-sse");
-    expect(lock).not.toBeNull();
+    const lock = expectAcquired(await acquireChatGenerationLock("chat-sse"));
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new TextEncoder().encode("event: delta\ndata: x\n\n"));
@@ -76,12 +79,10 @@ describe("chat generation lock", () => {
       new Response(stream, { headers: { "content-type": "text/event-stream" } }),
       lock,
     );
-    const blocked = await acquireChatGenerationLock("chat-sse");
-    expect(blocked).toBeNull();
+    expect(await acquireChatGenerationLock("chat-sse")).toEqual({ status: "held" });
     await response.text();
     await vi.waitFor(async () => {
-      const after = await acquireChatGenerationLock("chat-sse");
-      expect(after).not.toBeNull();
+      expectAcquired(await acquireChatGenerationLock("chat-sse"));
     });
   });
 });

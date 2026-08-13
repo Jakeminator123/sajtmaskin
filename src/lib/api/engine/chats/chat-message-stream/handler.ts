@@ -163,8 +163,8 @@ export async function handleMessageStreamRequest(
           );
         }
 
-        const generationLock = await acquireChatGenerationLock(engineChat.id);
-        if (!generationLock) {
+        const generationLockResult = await acquireChatGenerationLock(engineChat.id);
+        if (generationLockResult.status === "held") {
           return attachSessionCookie(
             NextResponse.json(
               {
@@ -177,7 +177,19 @@ export async function handleMessageStreamRequest(
             ),
           );
         }
-        acquiredGenerationLock = generationLock;
+        if (generationLockResult.status === "unavailable") {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                error: "generation_lock_unavailable",
+                reason: "generation_lock_unavailable",
+                message: "Kunde inte starta generationen just nu. Försök igen om en stund.",
+              },
+              { status: 503 },
+            ),
+          );
+        }
+        acquiredGenerationLock = generationLockResult.lock;
 
         // P0 stream-abort recovery (2026-04-26). Versionless-chat hard guard.
         // If the most recent generation/repair stream for this chat died

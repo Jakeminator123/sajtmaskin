@@ -341,6 +341,8 @@ export type ChatMessagingParams = {
  *   built on, and the single auto-rebase retry did not resolve it (409).
  * - `generation_in_progress` — another codegen stream already holds the
  *   chat-level lock (409). Distinct from stale-base: do not auto-rebase.
+ * - `generation_lock_unavailable` — Redis lock could not be taken (503).
+ *   Distinct from in-progress: retry, do not wait on a phantom generation.
  * - `tier3_env_not_ready` — F3 needs real build keys first. Reported both by a
  *   direct 412 and by the nested finalize round's `missing_env` verdict.
  * - `f3_build_required` — the nested finalize round found that the F3 spec needs
@@ -351,6 +353,7 @@ export type SendMessageRejectionReason =
   | "create_chat_failed"
   | "stale_base_version"
   | "generation_in_progress"
+  | "generation_lock_unavailable"
   | "tier3_env_not_ready"
   | "f3_build_required";
 

@@ -170,6 +170,15 @@ export function useSendMessage(
         settleRejectedTurn("En generation pågår redan — vänta tills den är klar.");
         return true;
       };
+      const handleGenerationLockUnavailable = (
+        status: number,
+        errorData: Record<string, unknown> | null,
+      ): boolean => {
+        if (status !== 503 || errorData?.reason !== "generation_lock_unavailable") return false;
+        toast.error("Kunde inte starta generationen just nu. Försök igen om en stund.");
+        settleRejectedTurn("Kunde inte starta generationen just nu — försök igen om en stund.");
+        return true;
+      };
       const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
       const engineModel = canonicalModelIdToOwnModelId(canonicalTier);
       const buildProfileId = getBuildProfileId(canonicalTier);
@@ -535,6 +544,9 @@ export function useSendMessage(
           } catch {
             // ignore
           }
+          if (handleGenerationLockUnavailable(response.status, errorData)) {
+            return { status: "rejected", reason: "generation_lock_unavailable", turnRecorded: false };
+          }
           if (
             response.status === 412 &&
             errorData?.error === "tier3_env_not_ready" &&
@@ -693,6 +705,9 @@ export function useSendMessage(
             return outcome;
           }
           // 5-2 stale-base gate (client half) — delad hanterare, se ovan.
+          if (handleGenerationLockUnavailable(response.status, errorData)) {
+            return { status: "rejected", reason: "generation_lock_unavailable", turnRecorded: false };
+          }
           if (handleGenerationInProgress(response.status, errorData)) {
             return { status: "rejected", reason: "generation_in_progress", turnRecorded: false };
           }
@@ -776,6 +791,9 @@ export function useSendMessage(
               }
               // PR #355-triage #20: fallbacken ska ge samma stale-base-reload-UX
               // som stream-vägen — inte ett generiskt "Failed to send message".
+              if (handleGenerationLockUnavailable(fallbackRes.status, errorData)) {
+                return { status: "rejected", reason: "generation_lock_unavailable", turnRecorded: false };
+              }
               if (handleGenerationInProgress(fallbackRes.status, errorData)) {
                 return { status: "rejected", reason: "generation_in_progress", turnRecorded: false };
               }

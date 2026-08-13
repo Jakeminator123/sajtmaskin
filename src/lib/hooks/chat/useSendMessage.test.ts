@@ -686,6 +686,28 @@ describe("useSendMessage outcome contract", () => {
     expect(String(toast.error.mock.calls[0]?.[0])).toMatch(/generation pågår/i);
   });
 
+  it("reports rejected/generation_lock_unavailable on a 503 from the lock", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(503, {
+        error: "generation_lock_unavailable",
+        reason: "generation_lock_unavailable",
+      }),
+    );
+    const { result } = createHarness({
+      activeVersionId: "ver_old",
+      latestKnownVersionId: "ver_old",
+    });
+
+    expect(await send(result, "Uppdatera hero copy")).toEqual({
+      status: "rejected",
+      reason: "generation_lock_unavailable",
+      turnRecorded: false,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(handleSseStream).not.toHaveBeenCalled();
+    expect(String(toast.error.mock.calls[0]?.[0])).toMatch(/försök igen/i);
+  });
+
   it("reports rejected/tier3_env_not_ready on a 412 from the F3 stream", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(412, {
