@@ -9,8 +9,12 @@ kopiera inte kön hit.
 
 ## Pågående spår
 
-Inga daterade initiativ styr arbete här just nu. Välj nästa konkreta defekt,
-repro, ägarbeslut eller skuld ur
+- [`handoff-question-flow-and-scaffold-routes.md`](handoff-question-flow-and-scaffold-routes.md)
+  (2026-08-13) — kontext för två spår: var buildern ställer frågor, och varför
+  scaffoldernas navigering länkar till rutter planeraren inte garanterar. Spår B
+  väntar på ett ägarbeslut. Backloggraderna äger defekterna; filen äger bakgrunden.
+
+Välj annars nästa konkreta defekt, repro, ägarbeslut eller skuld ur
 [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) och skapa först då en
 smal aktiv plan om arbetet behöver mer än backloggraden.
 
