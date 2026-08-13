@@ -79,9 +79,9 @@ const WORD_PAGE_COUNT_RE = new RegExp(
 const RESTRICTIVE_ONE_PAGE_RE = new RegExp(
   uWord(
     String.raw`(?:` +
-      String.raw`(?:bara|endast|enbart)\s+(?:på\s+)?en\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`(?:bara|endast|enbart)\s+(?:på\s+)?en\s+${PAGE_NOUN_SINGULAR}(?!\s+till(?![\p{L}\p{N}_]))` +
       String.raw`|(?:en|den)\s+enda\s+${PAGE_NOUN_SINGULAR}` +
-      String.raw`|(?:max|högst)\s+en\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|(?:max|högst)\s+en\s+${PAGE_NOUN_SINGULAR}(?!\s+till(?![\p{L}\p{N}_]))` +
       String.raw`|en\s*\(\s*1\s*\)\s*${PAGE_NOUN_SINGULAR}` +
       String.raw`|en\s+${PAGE_NOUN_SINGULAR}\s+totalt` +
       String.raw`|allt(?:\s+\p{L}+){0,3}\s+på\s+en\s+${PAGE_NOUN_SINGULAR}` +
@@ -113,8 +113,10 @@ const ADDITIONAL_NAMED_PAGE_RE = new RegExp(
   uWord(
     String.raw`(?:` +
       String.raw`another\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|on\s+another` +
       String.raw`|other\s+${PAGE_NOUN_PLURAL}` +
       String.raw`|en\s+annan\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|på\s+en\s+annan` +
       String.raw`|fler(?:a)?\s+${PAGE_NOUN_PLURAL}` +
       String.raw`|(?:a|an)\s+(?!single|only|just)[\p{L}]+(?:\s+[\p{L}]+){0,2}\s+${PAGE_NOUN_SINGULAR}` +
       String.raw`)`,
@@ -445,7 +447,10 @@ export function detectExplicitPageCount(prompt: string): number | null {
   const digitMatch = prompt.match(EXPLICIT_PAGE_COUNT_RE);
   if (digitMatch) {
     const count = parseInt(digitMatch[1]!, 10);
-    if (count >= 1 && count <= 20) return count;
+    if (count >= 1 && count <= 20) {
+      // "lägg till 1 sida" is an add, not a site cap. Counts ≥ 2 stay as-is.
+      if (count !== 1 || !FOLLOW_UP_ADD_PAGE_RE.test(prompt)) return count;
+    }
   }
 
   const wordMatch = prompt.match(WORD_PAGE_COUNT_RE);

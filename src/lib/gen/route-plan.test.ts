@@ -840,6 +840,11 @@ describe("detectExplicitPageCount", () => {
     "lägg till bara en sida",
     "add just one page",
     "single-page landing plus an about page",
+    "contact only on one page and pricing on another",
+    "endast en sida till",
+    "bara en sida till",
+    "lägg till 1 sida",
+    "add 1 page",
   ])("does not treat %s as a page-count cap", (prompt) => {
     expect(detectExplicitPageCount(prompt)).toBeNull();
   });
