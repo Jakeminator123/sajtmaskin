@@ -21,7 +21,10 @@ export const CHAT_COLLAPSE_STATUS_MAX_CHARS = 60;
  * går att nå.
  */
 const VERSION_FAILURE_TEXTS: Partial<Record<VersionDisplayStatus, string>> = {
-  failed: "Versionen gick inte att bygga",
+  // Display-token `failed` covers F2 diagnostic verify (typecheck/imports)
+  // as well as real preview-build fails. Do not say "bygga" here — F2
+  // never runs `npm run build`. Preview `build-failed` has its own copy.
+  failed: "Versionen misslyckades",
   blocked: "Versionen stoppades av en kontroll",
 };
 

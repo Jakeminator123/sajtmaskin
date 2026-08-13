@@ -972,6 +972,199 @@ describe("runPostGenerationChecks", () => {
     expect(fetchCalls.some((call) => call.url.includes("/repair"))).toBe(false);
   });
 
+  it("shows F2 typecheck advisory as Varning and never queues repair", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: true,
+            vmGatePassed: false,
+            designAdvisory: true,
+            advisoryChecks: ["typecheck"],
+            checks: [
+              {
+                check: "typecheck",
+                passed: false,
+                advisory: true,
+                exitCode: 2,
+                output: "TS2339",
+                durationMs: 12,
+              },
+            ],
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = (qualityGate?.output as Record<string, unknown>) ?? {};
+    const steps = Array.isArray(output.steps) ? output.steps.map(String) : [];
+    expect(qualityGate?.state).toBe("output-available");
+    expect(output.passed).toBe(true);
+    expect(output.designAdvisory).toBe(true);
+    expect(steps).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("typecheck: Varning"),
+        expect.stringContaining("F2 render-first"),
+      ]),
+    );
+    expect(steps.some((step) => step.includes("typecheck: Underkänd"))).toBe(false);
+    expect(onAutoFix).not.toHaveBeenCalled();
+    expect(fetchCalls.some((call) => call.url.includes("/repair"))).toBe(false);
+  });
+
+  it("treats F2 typecheck as Varning from designAdvisory when the check omits advisory", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: true,
+            vmGatePassed: false,
+            designAdvisory: true,
+            advisoryChecks: ["typecheck"],
+            checks: [
+              {
+                check: "typecheck",
+                passed: false,
+                exitCode: 2,
+                output: "TS2339",
+                durationMs: 12,
+              },
+            ],
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = (qualityGate?.output as Record<string, unknown>) ?? {};
+    const steps = Array.isArray(output.steps) ? output.steps.map(String) : [];
+    expect(output.passed).toBe(true);
+    expect(output.designAdvisory).toBe(true);
+    expect(steps).toEqual(
+      expect.arrayContaining([expect.stringContaining("typecheck: Varning")]),
+    );
+    expect(onAutoFix).not.toHaveBeenCalled();
+  });
+
+  // Bugbot medium på fas 1-diffen: superseded-grenen returnerar stämplade
+  // checks utan designAdvisory-envelopen. Advisory-stämpeln ensam måste
+  // räcka för att typecheck aldrig hamnar i failedChecks → ingen repair.
+  it("does not queue repair for an advisory-stamped check even without designAdvisory", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({ ok: true, skipped: true, skippedReason: "feature_disabled" });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: false,
+            vmGatePassed: false,
+            checks: [
+              {
+                check: "typecheck",
+                passed: false,
+                advisory: true,
+                exitCode: 2,
+                output: "TS2339",
+                durationMs: 12,
+              },
+            ],
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(onAutoFix).not.toHaveBeenCalled();
+    expect(fetchCalls.some((call) => call.url.includes("/repair"))).toBe(false);
+  });
+
   it("does not send lint tooling/config failures to code repair", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();

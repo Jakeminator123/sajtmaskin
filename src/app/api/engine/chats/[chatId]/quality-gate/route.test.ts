@@ -1583,6 +1583,14 @@ describe("POST quality-gate", () => {
     expect(body.vmGatePassed).toBe(false);
     expect(body.designAdvisory).toBe(true);
     expect(body.advisoryChecks).toEqual(["typecheck"]);
+    expect(body.checks).toEqual([
+      expect.objectContaining({
+        check: "typecheck",
+        passed: false,
+        advisory: true,
+        exitCode: 2,
+      }),
+    ]);
   });
 
   it("deterministic F3 integrationsBuild keeps a typecheck failure hard and never promotes", async () => {
@@ -1646,6 +1654,13 @@ describe("POST quality-gate", () => {
     expect(body.passed).toBe(false);
     expect(body.promoted).toBe(false);
     expect(body.designAdvisory).toBeUndefined();
+    expect(body.checks?.[0]).toEqual(
+      expect.objectContaining({
+        check: "typecheck",
+        passed: false,
+      }),
+    );
+    expect(body.checks?.[0]?.advisory).toBeUndefined();
   });
 
   it("F3 promotes warning-only lint as advisory without failing the gate", async () => {

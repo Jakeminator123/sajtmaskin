@@ -27,7 +27,7 @@ describe("resolveChatCollapseStatusText", () => {
   it("visar en misslyckad version", () => {
     expect(
       resolveChatCollapseStatusText({ ...NOTHING, activeVersionStatus: "failed" }),
-    ).toBe("Versionen gick inte att bygga");
+    ).toBe("Versionen misslyckades");
   });
 
   it("visar en version som en kontroll stoppat", () => {
@@ -111,7 +111,7 @@ describe("resolveChatCollapseStatusText", () => {
         deployBlocker: { id: "missing-env", title: "Obligatoriska nycklar saknas.", detail: null },
         f3Status: { tone: "error", title: "Integrationerna är inte klara." },
       }),
-    ).toBe("Versionen gick inte att bygga");
+    ).toBe("Versionen misslyckades");
   });
 
   it("låter publiceringsspärren gå före F3-utfallet", () => {
