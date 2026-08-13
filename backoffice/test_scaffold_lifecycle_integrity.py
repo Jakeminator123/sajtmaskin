@@ -932,6 +932,41 @@ class PruneVariantEmbeddingsTests(unittest.TestCase):
             self.assertEqual(sl._prune_variant_embeddings(ctx, "landing-page", ["x"]), 0)
 
 
+class PruneScaffoldEmbeddingsTests(unittest.TestCase):
+    def test_prune_removes_matching_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "scaffold-embeddings.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "_meta": {"count": 2},
+                        "embeddings": [
+                            {"id": "keep", "embedding": [0.1]},
+                            {"id": "gone", "embedding": [0.2]},
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            ctx = SimpleNamespace(
+                embeddings_json=path,
+                variants_dir=Path(tmp) / "variants",
+            )
+            removed = variants_lib._prune_scaffold_embeddings(ctx, "gone")
+            self.assertEqual(removed, 1)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual([e["id"] for e in data["embeddings"]], ["keep"])
+            self.assertEqual(data["_meta"]["count"], 1)
+
+    def test_prune_noop_when_file_missing(self) -> None:
+        ctx = SimpleNamespace(
+            embeddings_json=Path("/no/such/scaffold-embeddings.json"),
+            variants_dir=Path("/no/such/variants"),
+        )
+        self.assertEqual(variants_lib._prune_scaffold_embeddings(ctx, "gone"), 0)
+
+
 class DeadSourceTemplateTests(unittest.TestCase):
     def setUp(self) -> None:
         self.ctx = build_backoffice_context()

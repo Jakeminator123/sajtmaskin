@@ -559,6 +559,39 @@ def _prune_variant_embeddings(
     return removed
 
 
+def _prune_scaffold_embeddings(ctx: BackofficeContext, scaffold_id: str) -> int:
+    """Remove the deleted scaffold's vector from the local scaffold-embeddings cache.
+
+    Variant prune already covers ``variant-embeddings.json``. Auto-match reads
+    ``scaffold-embeddings.json`` separately — without this, ``embeddings:push
+    --only=scaffold`` would republish the raderade id. No-op when the cache is
+    missing. Does not upload; the index gate publishes fail-closed.
+    """
+    _sync_variant_embeddings_cache(ctx)
+    path = getattr(ctx, "embeddings_json", None)
+    if not isinstance(path, Path) or not path.is_file():
+        return 0
+    try:
+        data = read_json(path)
+    except Exception:
+        return 0
+    if not isinstance(data, dict) or not isinstance(data.get("embeddings"), list):
+        return 0
+    original = data["embeddings"]
+    filtered = [
+        entry
+        for entry in original
+        if not (isinstance(entry, dict) and str(entry.get("id", "")) == scaffold_id)
+    ]
+    removed = len(original) - len(filtered)
+    if removed:
+        data["embeddings"] = filtered
+        if isinstance(data.get("_meta"), dict):
+            data["_meta"]["count"] = len(filtered)
+        write_json(path, data)
+    return removed
+
+
 def _push_variant_embeddings_to_blob(ctx: BackofficeContext) -> None:
     """Best-effort: upload pruned local variant-embeddings JSON to Vercel Blob.
 

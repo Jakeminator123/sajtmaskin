@@ -348,7 +348,9 @@ def _render_delete_scaffold(
     except Exception as error:
         st.error(str(error))
         return
-    queue_index_after_create(new_scaffold=True, scaffold_id=selected_scaffold)
+    queue_index_after_create(
+        new_scaffold=True, scaffold_id=selected_scaffold, push_only=True
+    )
     _flash_note(
         f"Raderade `{selected_scaffold}`. Indexera om till Blob så Auto-match "
         "inte pekar på den raderade posten.",

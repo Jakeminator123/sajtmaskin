@@ -619,8 +619,11 @@ class IndexGateQueueTests(unittest.TestCase):
 
         delete_src = inspect.getsource(ui_danger._render_delete_scaffold)
         reset_src = inspect.getsource(ui_danger._render_baseline_tab)
-        self.assertIn("queue_index_after_create(new_scaffold=True", delete_src)
+        self.assertIn("queue_index_after_create", delete_src)
+        self.assertIn("new_scaffold=True", delete_src)
+        self.assertIn("push_only=True", delete_src)
         self.assertIn("queue_index_after_create(new_scaffold=True", reset_src)
+        self.assertNotIn("push_only=True", reset_src)
         delete_variant_src = inspect.getsource(ui_danger._render_delete_variant)
         self.assertIn("push_only=True", delete_variant_src)
         self.assertIn("queue_index_after_create", delete_variant_src)
@@ -629,7 +632,15 @@ class IndexGateQueueTests(unittest.TestCase):
         self.assertIn("ur synk", warning)
         self.assertNotIn("är skriven i worktreet", warning)
 
-    def test_variant_delete_push_does_not_need_openai(self) -> None:
+    def test_scaffold_delete_push_includes_scaffold_and_variant(self) -> None:
+        steps = self.ig.indexing_steps(new_scaffold=True, push_only=True)
+        self.assertEqual(
+            [step["key"] for step in steps], ["push_scaffold", "push_variant"]
+        )
+        for step in steps:
+            self.assertFalse(step["needs_api"])
+            self.assertTrue(step["needs_blob"])
+            self.assertEqual(step["command"][2], "embeddings:push")
         steps = self.ig.indexing_steps(new_scaffold=False, push_only=True)
         self.assertEqual([step["key"] for step in steps], ["push_variant"])
         self.assertFalse(steps[0]["needs_api"])

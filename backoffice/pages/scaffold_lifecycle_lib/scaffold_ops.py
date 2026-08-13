@@ -23,6 +23,7 @@ from . import client_projection
 
 from .variants import (
     _prune_variant_embeddings,
+    _prune_scaffold_embeddings,
     _neutral_variant_payload,
     _validate_variant_payload,
     _variant_integrity_errors,
@@ -818,6 +819,7 @@ def _delete_scaffold(
     # integrity gate (variant-integrity.test.ts) fails on stale index rows.
     try:
         _prune_variant_embeddings(ctx, scaffold_id)
+        _prune_scaffold_embeddings(ctx, scaffold_id)
     except Exception:
         # This cache/prune helper is explicitly best-effort and must not turn a
         # committed repo transaction into an apparent failed delete.
