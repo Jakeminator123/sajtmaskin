@@ -17,10 +17,21 @@ trött på att varje fix föder ett nytt hörnfall. Bygg inte nya lager. Backlog
 | `dbb3463` (#971) | Backoffice kan inte längre säga «matchning publicerad» när bara lokal cache skrevs |
 | `a5d54ca` (#973) | `db:init` fäller vid RLS-fel; CI-Postgres emulerar `service_role` |
 | `a0338fd` (#972) | Generationslåset läcker inte mellan SSE-tester |
+| `ddd7da2` (#976) | Sidtaket klassar en namngiven **och** required rutt som `required`, så den överlever nödbromsen |
+| `12964dd` (#977) | Döda dokumentreferenser rättade; `ecommerce` planerar inte längre en olänkad `/cart` |
+| `f0836d2` (#975) | Färre onödiga klargöringsfrågor — svensk böjning räknas som specifikt mål |
+| `b98e3bf` (#978) | Sidantal skrivet i ord känns igen (`bara en sida`, `den enda sida`, `två sidor`) |
+| `8a3b8a7` (#980) | Preview-klienten laddas om när runtimen byts, så server-HTML och klient-JS inte kommer från olika byggen (`SM-044`) |
 
-Gemensam form för alla fem: **två källor som måste stämma överens, ingen grind
+Gemensam form för de flesta: **två källor som måste stämma överens, ingen grind
 som kontrollerar att de gör det, och signalen visar grönt.** Använd det som
 lukttest när du bedömer ett nytt fynd.
+
+**Stängd dubblett:** #979 löste `SM-044` parallellt med #980 (uppgiften
+delegerades två gånger). Den är stängd, men branchen `fix/preview-runtime-restart-race`
+ligger kvar och innehåller en **trafikgrind** som #980 saknar. Om hydration-felet
+återkommer i skarp drift — alltså om en request träffar mitt i bytesfönstret — är
+det första stället att titta.
 
 ## Spår A — frågeflödet i buildern
 
@@ -165,17 +176,20 @@ interna länkar, matcha dynamiska mot mönster, och kräv att varje kvarvarande 
 finns i manifestets ruttkontrakt. Hade fångat `/products`-buggen före runtime, och
 fångar `/categories`, `/pipeline`, `/forgot-password` **idag**.
 
-### Öppen precedensbugg från #962 (PR i arbete)
+### Precedensfallgropen — stängd i #976, men läs den innan du rör trimningen
 
-`classifyCeilingTrim` returnerar första matchande klass, och `named` prövas före
-`required`. Efter #962 är `required` den mest skyddade klassen vid nödbromsen, så
-en rutt som är **både** namngiven av användaren och required av scaffolden klassas
-`named` och kan kapas före rena required-rutter. En användare som ber om en
-webshop och själv räknar upp produktsidan bland 9 sidor kan alltså tappa
-`/products` — samma döda länkar, annan dörr. Grenen för explicit sidantal har
-omvänd ordning och är korrekt som den är, så fixen måste vara ordningsmedveten:
-klassen ska vara den matchande klass som trimmas **sist** i den aktiva ordningen.
-Branch: `fix/ceiling-class-precedence`.
+`classifyCeilingTrim` returnerade första matchande klass, och `named` prövades
+före `required`. När #962 gjorde `required` mest skyddad vid nödbromsen blev en
+rutt som är **både** namngiven och required klassad `named` — och därmed sämre
+skyddad än före #962. En användare som ber om en webshop och själv räknar upp
+produktsidan bland nio sidor kunde alltså tappa `/products`.
+
+Klassningen är nu **ordningsmedveten**: klassen är den matchande klass som trimmas
+**sist** i den aktiva ordningen. Det spelar roll att de två grenarna har olika
+ordning — vid nödbromsen är `required` mest skyddad, vid explicit sidantal är
+`named` det. Ändrar du trimordningen i en gren måste du tänka om klassningen i
+båda. Lärdomen: en fix som flyttar prioritet kan göra ett fall sämre än före
+fixen, så leta alltid efter rutter som tillhör två klasser samtidigt.
 
 ### Varför inte en LLM-verifierare här
 
