@@ -7,7 +7,7 @@ import { appendToolPartToMessage } from "./helpers-ui-parts";
 function formatEnginePathLabel(enginePath: string | null | undefined): string | null {
   if (!enginePath) return null;
   if (enginePath === "own-engine") return "egen motor";
-  if (enginePath === "plan-mode") return "planlage";
+  if (enginePath === "plan-mode") return "planläge";
   return enginePath;
 }
 
@@ -38,9 +38,9 @@ export function buildModelInfoSteps(info: ModelInfoData): string[] {
   }
   const enginePathLabel = formatEnginePathLabel(info.enginePath);
   if (enginePathLabel) {
-    steps.push(`Motorvag: ${enginePathLabel}`);
+    steps.push(`Motorväg: ${enginePathLabel}`);
   }
-  steps.push(`${modelTier ? "Kormodell" : "Model"}: ${modelId || "okand"}`);
+  steps.push(`${modelTier ? "Kömodell" : "Model"}: ${modelId || "okänd"}`);
   if (typeof info.thinking === "boolean") {
     steps.push(`Thinking: ${info.thinking ? "på" : "av"}`);
   }
@@ -249,8 +249,8 @@ export function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
   // budgetTarget = soft ceiling (ORCHESTRATION_SOFT_TARGET_*); NOT a goal length for the user prompt.
   const lengthLine =
     meta.originalLength !== meta.optimizedLength
-      ? `Langd: ${meta.originalLength} → ${meta.optimizedLength} tecken (mjuk orkestreringsgräns ~${meta.budgetTarget})`
-      : `Langd: ${meta.originalLength} tecken (mjuk orkestreringsgräns ~${meta.budgetTarget} innan ev. sammandragning)`;
+      ? `Längd: ${meta.originalLength} → ${meta.optimizedLength} tecken (mjuk orkestreringsgräns ~${meta.budgetTarget})`
+      : `Längd: ${meta.originalLength} tecken (mjuk orkestreringsgräns ~${meta.budgetTarget} innan ev. sammandragning)`;
 
   const steps: string[] = [];
   if (meta.promptSource === "auto_repair") {
