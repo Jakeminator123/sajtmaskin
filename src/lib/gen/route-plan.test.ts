@@ -789,6 +789,7 @@ describe("detectExplicitPageCount", () => {
     ["bara en sida", 1],
     ["endast en sida", 1],
     ["en enda sida", 1],
+    ["skapa en enda sida", 1],
     ["den enda sida som sajten består av", 1],
     ["enbart en sida", 1],
     ["en (1) sida", 1],
@@ -802,8 +803,9 @@ describe("detectExplicitPageCount", () => {
     ["a single page", 1],
     ["single-page", 1],
     ["one page only", 1],
-    ["on one page", 1],
+    ["just on one page", 1],
     ["all on one page", 1],
+    ["only on one page", 1],
   ] as const)("detects restrictive one-page phrasing: %s", (prompt, expected) => {
     expect(detectExplicitPageCount(prompt)).toBe(expected);
   });
@@ -833,6 +835,11 @@ describe("detectExplicitPageCount", () => {
     "gör en snygg sida",
     "one of the pages should be about us",
     "every single page should have a footer",
+    "on one page",
+    "put the contact form on one page and prices on another",
+    "lägg till bara en sida",
+    "add just one page",
+    "single-page landing plus an about page",
   ])("does not treat %s as a page-count cap", (prompt) => {
     expect(detectExplicitPageCount(prompt)).toBeNull();
   });

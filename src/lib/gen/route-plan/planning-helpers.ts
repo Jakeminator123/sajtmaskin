@@ -89,7 +89,9 @@ const RESTRICTIVE_ONE_PAGE_RE = new RegExp(
       String.raw`|a\s+single\s+${PAGE_NOUN_SINGULAR}` +
       String.raw`|single-${PAGE_NOUN_SINGULAR}` +
       String.raw`|one\s+${PAGE_NOUN_SINGULAR}\s+only` +
-      String.raw`|(?:all\s+)?on\s+one\s+${PAGE_NOUN_SINGULAR}` +
+      // Bare "on one page" is location ("put X on one page and Y on another"),
+      // not a site cap — require all/just/only/everything.
+      String.raw`|(?:all|everything|just|only)\s+on\s+one\s+${PAGE_NOUN_SINGULAR}` +
       String.raw`)`,
   ),
   "iu",
@@ -98,6 +100,26 @@ const RESTRICTIVE_ONE_PAGE_RE = new RegExp(
 const INDEFINITE_PAGE_MENTION_RE = new RegExp(
   uWord(String.raw`(?:en|ett|one|a)\s+${PAGE_NOUN_SINGULAR}`),
   "giu",
+);
+
+/** Follow-up add verbs. "skapa/create" stay out so init "skapa en enda sida" still caps. */
+const FOLLOW_UP_ADD_PAGE_RE = new RegExp(
+  `${uWord(String.raw`lägg\s+till`)}|${uWord(String.raw`add`)}[\\s\\S]{0,32}${uWord(String.raw`(?:new\s+)?(?:page|route)`)}`,
+  "iu",
+);
+
+/** Extra named pages besides a one-page marker ("an about page", "another page"). */
+const ADDITIONAL_NAMED_PAGE_RE = new RegExp(
+  uWord(
+    String.raw`(?:` +
+      String.raw`another\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|other\s+${PAGE_NOUN_PLURAL}` +
+      String.raw`|en\s+annan\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|fler(?:a)?\s+${PAGE_NOUN_PLURAL}` +
+      String.raw`|(?:a|an)\s+(?!single|only|just)[\p{L}]+(?:\s+[\p{L}]+){0,2}\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`)`,
+  ),
+  "iu",
 );
 
 function asString(value: unknown): string {
@@ -433,7 +455,14 @@ export function detectExplicitPageCount(prompt: string): number | null {
   }
 
   // Two "en sida" / "one page" mentions are a list of pages, not a cap of 1.
-  if (RESTRICTIVE_ONE_PAGE_RE.test(prompt) && countIndefinitePageMentions(prompt) < 2) {
+  // Follow-up "lägg till bara en sida" is an add, not a site-wide cap.
+  // "single-page plus an about page" names extra routes, so it is not a cap either.
+  if (
+    RESTRICTIVE_ONE_PAGE_RE.test(prompt) &&
+    countIndefinitePageMentions(prompt) < 2 &&
+    !FOLLOW_UP_ADD_PAGE_RE.test(prompt) &&
+    !ADDITIONAL_NAMED_PAGE_RE.test(prompt)
+  ) {
     return 1;
   }
 
