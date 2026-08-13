@@ -2,9 +2,10 @@
  * Deterministic href ↔ App Router route cross-check.
  *
  * Scans generated `.tsx` / `.jsx` files for navigation expressions
- * (`<Link href="/...">`, `href="/..."`, `router.push("/...")`,
- * `redirect("/...")`) and validates that every internal href resolves to an
- * actual app-route present in the generated files.
+ * (`<Link href="/...">`, `href="/..."`, object-literal `href: "/..."` in
+ * navItems arrays, `router.push("/...")`, `redirect("/...")`) and validates
+ * that every internal href resolves to an actual app-route present in the
+ * generated files.
  *
  * Designed as a safety net behind {@link buildRoutePlan}'s locale-alternate
  * dedupe: even when the LLM gets a clean route plan, it can still emit stale
@@ -52,6 +53,7 @@ const SCANNED_FILE_RE = /\.(tsx|jsx)$/i;
 /**
  * Match navigation hrefs that start with `/`. Captures:
  * - `<Link href="/foo">` / `href='/foo'`
+ * - Object-literal navItems: `{ href: "/foo" }` / `{ href : '/foo' }`
  * - `href={"/foo"}` / `href={'/foo'}`
  * - `` href={`/foo/${id}`} `` (template literals — captured up to the first `${`)
  * - `router.push("/foo")` / `router.replace("/foo")` / `router.prefetch("/foo")`
@@ -68,9 +70,10 @@ const HREF_PATTERNS = [
   // href="..." and href='...'
   String.raw`\bhref=\s*"(\/[^"\s]*)"`,
   String.raw`\bhref=\s*'(\/[^'\s]*)'`,
-  // Object-literal navItems: { label, href: "/...", icon }
-  String.raw`\bhref:\s*"(\/[^"\s]*)"`,
-  String.raw`\bhref:\s*'(\/[^'\s]*)'`,
+  // Object-literal navItems: { label, href: "/...", icon } — whitespace around `:`
+  String.raw`\bhref\s*:\s*"(\/[^"\s]*)"`,
+  String.raw`\bhref\s*:\s*'(\/[^'\s]*)'`,
+
   // href={"..."} and href={'...'}
   String.raw`\bhref=\s*\{\s*"(\/[^"\s]*)"\s*\}`,
   String.raw`\bhref=\s*\{\s*'(\/[^'\s]*)'\s*\}`,
