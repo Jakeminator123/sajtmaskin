@@ -7,6 +7,10 @@ Lets the user browse all ~40 fixers grouped by category + owner-phase, see
 status badges, source paths, telemetry counters, and triggers — without
 greping through 40+ TypeScript files. The view also checks whether the JSON
 snapshot is stale compared with the TypeScript source and can regenerate it.
+
+Usage stats (read-only) come from `scripts/observability/fault-matrix.mjs
+--by-fixer --json` against `error_log_events`, joined onto the catalog by
+fixer id. Catalog entries without events show 0; unknown fixer ids are drift.
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ from typing import Any
 import streamlit as st
 
 from backoffice.shared import BackofficeContext
+from backoffice.subprocess_runners import resolve_node_command
 
 
 SNAPSHOT_PATH_PARTS = ("data", "observability", "fixer-registry.snapshot.json")
@@ -31,6 +36,11 @@ FIXER_REGISTRY_SOURCE_PARTS = (
     "autofix",
     "fixer-registry.ts",
 )
+FAULT_MATRIX_SCRIPT_PARTS = ("scripts", "observability", "fault-matrix.mjs")
+MISSING_FIXER_LABEL = "(ingen fixer)"
+_USAGE_TIMEOUT_S = 60
+_USAGE_LIMIT = "200"
+_USAGE_STATE_KEY = "fixer_registry_usage"
 
 
 def _snapshot_path(repo_root: Path) -> Path:
@@ -147,6 +157,216 @@ def _load_snapshot(repo_root: Path) -> dict[str, Any] | None:
         return None
 
 
+def _format_top_faults(raw: Any) -> str:
+    if not isinstance(raw, list) or not raw:
+        return "—"
+    parts: list[str] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        fault = item.get("fault") or "?"
+        parts.append(f"{fault}:{item.get('count', 0)}")
+    return ", ".join(parts) if parts else "—"
+
+
+def _format_seen(value: Any) -> str:
+    if value is None or value == "":
+        return "—"
+    return str(value)
+
+
+def _run_fixer_usage(repo_root: Path, *, use_prod: bool) -> dict[str, Any]:
+    """Read-only `--by-fixer` aggregate via fault-matrix.mjs (SELECT only)."""
+    script = repo_root.joinpath(*FAULT_MATRIX_SCRIPT_PARTS)
+    if not script.exists():
+        return {"ok": False, "error": "fault-matrix.mjs saknas."}
+    node = resolve_node_command()
+    if node is None:
+        return {"ok": False, "error": "`node` saknas på PATH."}
+    args = [*node, str(script), "--by-fixer", "--json", "--limit", _USAGE_LIMIT]
+    if use_prod:
+        args.append("--prod")
+    try:
+        result = subprocess.run(
+            args,
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=_USAGE_TIMEOUT_S,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "ok": False,
+            "error": f"Skriptet tog längre än {_USAGE_TIMEOUT_S} sekunder.",
+        }
+    except FileNotFoundError:
+        return {"ok": False, "error": "`node` saknas på PATH."}
+    except Exception as exc:
+        return {"ok": False, "error": _cap_output(str(exc))}
+
+    stdout = (result.stdout or "").strip()
+    if not stdout:
+        return {
+            "ok": False,
+            "error": _cap_output(result.stderr or "Tomt svar från skriptet."),
+        }
+    try:
+        data = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        return {"ok": False, "error": f"Kunde inte tolka JSON: {exc}"}
+    if not isinstance(data, dict):
+        return {"ok": False, "error": "Oväntat svarsformat (förväntade objekt)."}
+    if not data.get("ok"):
+        return {
+            "ok": False,
+            "error": str(data.get("error") or result.stderr or "Okänt fel."),
+        }
+    return data
+
+
+def _join_catalog_usage(
+    entries: list[dict[str, Any]],
+    usage_rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None, list[dict[str, Any]]]:
+    """Join catalog entries with `--by-fixer` rows.
+
+    Returns (catalog_rows_with_counts, none_fixer_row, drift_rows).
+    Catalog ids without events get 0. Unknown event fixer-ids are drift.
+    """
+    by_id: dict[str, dict[str, Any]] = {}
+    for row in usage_rows:
+        fid = str(row.get("fixer") or "")
+        if fid:
+            by_id[fid] = row
+    catalog_ids = {str(e.get("id") or "") for e in entries if e.get("id")}
+
+    joined: list[dict[str, Any]] = []
+    for entry in entries:
+        fid = str(entry.get("id") or "")
+        usage = by_id.get(fid) or {}
+        joined.append(
+            {
+                "id": fid,
+                "kategori": entry.get("category"),
+                "risk": entry.get("risk"),
+                "status": entry.get("status"),
+                "användningar": int(usage.get("total") or 0),
+                "lyckades": int(usage.get("fixed") or 0),
+                "misslyckades": int(usage.get("failed") or 0),
+                "övriga": int(usage.get("other") or 0),
+                "unika_chattar": int(usage.get("chats") or 0),
+                "toppfel": _format_top_faults(usage.get("top_faults")),
+                "först_sedd": _format_seen(usage.get("first_seen")),
+                "senast_sedd": _format_seen(usage.get("last_seen")),
+            }
+        )
+    joined.sort(key=lambda r: (-int(r["användningar"]), str(r["id"])))
+
+    none_row = by_id.get(MISSING_FIXER_LABEL)
+    drift = [
+        row
+        for fid, row in by_id.items()
+        if fid not in catalog_ids and fid != MISSING_FIXER_LABEL
+    ]
+    drift.sort(key=lambda r: -int(r.get("total") or 0))
+    return joined, none_row, drift
+
+
+def _render_usage_section(ctx: BackofficeContext, entries: list[dict[str, Any]]) -> None:
+    st.divider()
+    st.subheader("Användning (error_log_events)")
+    st.caption(
+        "Read-only SELECT via `node scripts/observability/fault-matrix.mjs "
+        "--by-fixer --json`. Katalogposter utan events visas som 0. "
+        "Fixer-id i loggen som saknas i katalogen flaggas som drift. "
+        "Hämta med knappen — sidan slår inte mot databasen av sig själv."
+    )
+
+    env_label = st.radio(
+        "Databas",
+        ("Dev (.env.local)", "Prod (.env.vercel.production.pulled)"),
+        horizontal=True,
+        key="fixer_registry_usage_env",
+    )
+    use_prod = env_label.startswith("Prod")
+
+    if st.button("Hämta användningsstatistik", key="fixer_registry_usage_fetch"):
+        st.session_state[_USAGE_STATE_KEY] = {
+            "use_prod": use_prod,
+            "env_label": env_label,
+            "payload": _run_fixer_usage(ctx.repo_root, use_prod=use_prod),
+        }
+
+    state = st.session_state.get(_USAGE_STATE_KEY)
+    if not isinstance(state, dict) or "payload" not in state:
+        st.info("Ingen statistik hämtad ännu.")
+        return
+
+    payload = state.get("payload") or {}
+    fetched_env = state.get("env_label") or ("Prod" if state.get("use_prod") else "Dev")
+    if not payload.get("ok"):
+        st.error(payload.get("error") or "Kunde inte läsa användningsstatistik.")
+        return
+    if payload.get("tableMissing"):
+        st.info("Tabellen `error_log_events` saknas i den valda databasen ännu.")
+        return
+
+    usage_rows = list(payload.get("fixers") or [])
+    joined, none_row, drift = _join_catalog_usage(entries, usage_rows)
+    unused = sum(1 for row in joined if int(row["användningar"]) == 0)
+
+    st.caption(
+        f"Hämtat från **{fetched_env}** · {payload.get('totalRows', 0)} rader · "
+        f"{payload.get('distinctFixers', 0)} distinkta fixer-nycklar i loggen · "
+        f"{unused} katalog-fixers utan events."
+    )
+
+    metrics = st.columns(4)
+    metrics[0].metric("Events", payload.get("totalRows", 0))
+    metrics[1].metric("Fixers i loggen", payload.get("distinctFixers", 0))
+    metrics[2].metric("Katalog utan events", unused)
+    metrics[3].metric("Drift (okänt id)", len(drift))
+
+    st.dataframe(joined, use_container_width=True, hide_index=True)
+
+    if none_row:
+        st.warning(
+            f"{MISSING_FIXER_LABEL}: {int(none_row.get('total') or 0)} events "
+            f"utan fixer-id "
+            f"(lyckades={int(none_row.get('fixed') or 0)}, "
+            f"misslyckades={int(none_row.get('failed') or 0)}, "
+            f"övriga={int(none_row.get('other') or 0)}, "
+            f"chattar={int(none_row.get('chats') or 0)}). "
+            f"Toppfel: {_format_top_faults(none_row.get('top_faults'))}."
+        )
+
+    if drift:
+        st.error(
+            f"{len(drift)} fixer-id i `error_log_events` saknas i katalogen "
+            "(drift — runtime emitterar ett id som inte finns i "
+            "`FIXER_REGISTRY`)."
+        )
+        st.dataframe(
+            [
+                {
+                    "fixer": row.get("fixer"),
+                    "användningar": int(row.get("total") or 0),
+                    "lyckades": int(row.get("fixed") or 0),
+                    "misslyckades": int(row.get("failed") or 0),
+                    "övriga": int(row.get("other") or 0),
+                    "unika_chattar": int(row.get("chats") or 0),
+                    "toppfel": _format_top_faults(row.get("top_faults")),
+                    "först_sedd": _format_seen(row.get("first_seen")),
+                    "senast_sedd": _format_seen(row.get("last_seen")),
+                }
+                for row in drift
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+
 CATEGORY_COLORS = {
     "mechanical-import": "#2563eb",
     "mechanical-syntax": "#0891b2",
@@ -191,7 +411,9 @@ def render(ctx: BackofficeContext) -> None:
         "Den här vyn läser snapshot:en `data/observability/fixer-registry.snapshot.json` "
         "som regenereras vid `npm run dev|build|start`. Manuell uppdatering: "
         "`node scripts/observability/dump-fixer-registry.mjs`. "
-        "Stale-status under: snapshoten flaggas röd om den är äldre än källfilen."
+        "Stale-status under: snapshoten flaggas röd om den är äldre än källfilen. "
+        "Användningsstatistik (hur ofta, utfall) hämtas separat mot "
+        "`error_log_events` via `--by-fixer`."
     )
     _render_snapshot_status_panel(ctx)
     snap = _load_snapshot(ctx.repo_root)
@@ -206,6 +428,7 @@ def render(ctx: BackofficeContext) -> None:
 
     if not entries:
         st.info("Snapshot är tom.")
+        _render_usage_section(ctx, entries)
         return
 
     by_category: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -284,3 +507,5 @@ def render(ctx: BackofficeContext) -> None:
                 }
             )
         st.dataframe(rows, use_container_width=True, hide_index=True)
+
+    _render_usage_section(ctx, entries)

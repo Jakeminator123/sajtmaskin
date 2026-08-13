@@ -178,7 +178,7 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         "LLM & prompts",
         fixer_registry.render,
         mode="run",
-        blurb="Katalog över alla fixers (Normalize/RepairGate) med status och triggers.",
+        blurb="Katalog och användningsstatistik för alla fixers (Normalize/RepairGate).",
     ),
     PageSpec(
         "Eval",
