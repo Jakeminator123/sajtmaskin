@@ -1031,6 +1031,29 @@ describe("buildRoutePlan — per-round page ceiling", () => {
     expect(plan.reason).toMatch(/named|required|explicit/i);
   });
 
+  // pr-ai-review: required-klassningen tittade bara på rutter som
+  // applyScaffoldDefaults själv la till. /products från briefen blev "brief"
+  // och trimmas vid mjuka taket — samma path måste räknas required oavsett källa.
+  it("keeps brief /products as required when the ecommerce scaffold already demands it", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      resolvedScaffold: getScaffoldById("ecommerce"),
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/om", name: "Om oss", purpose: "Företaget" },
+          { path: "/tjanster", name: "Tjänster", purpose: "Utbud" },
+          { path: "/products", name: "Produkter", purpose: "Katalog" },
+        ],
+      },
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(paths).toContain("/products");
+    expect(paths).not.toContain("/cart");
+    expect(plan.routes.length).toBeGreaterThan(MAX_ROUTES_PER_GENERATION);
+  });
+
   it("caps a fourteen-name list at the absolute brake and keeps named pages", () => {
     const names = [
       "alfa",
@@ -1142,6 +1165,40 @@ describe("extractExplicitNamedPages — obundna namn kapas vid satsgräns", () =
     expect(
       extractExplicitNamedPages("Sidor: start, projekt, om oss, kontakt").map((page) => page.path),
     ).toEqual(["/projekt", "/om-oss", "/kontakt"]);
+  });
+
+  // pr-ai-review: kolonlistan slukade efterföljande instruktioner på samma rad
+  // ("Contact. Style: minimal" → skräproute med namngivet undantag).
+  it("kapar kolonlistan vid meningsgräns så efterföljande instruktion inte blir en sida", () => {
+    expect(
+      extractExplicitNamedPages("Pages: Home, About, Contact. Style: minimal").map(
+        (page) => page.path,
+      ),
+    ).toEqual(["/about", "/contact"]);
+    expect(
+      extractExplicitNamedPages("Sidor: start, kontakt. Stil: mörk").map((page) => page.path),
+    ).toEqual(["/kontakt"]);
+  });
+
+  it("planerar inte en style-skräproute från kolonlista + efterföljande instruktion", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Pages: Home, About, Contact. Style: minimal",
+      locale: "en",
+    });
+    const paths = plan.routes.map((route) => route.path);
+    expect(paths).toEqual(["/", "/about", "/contact"]);
+    expect(paths.some((path) => path.includes("style"))).toBe(false);
+  });
+
+  // pr-ai-review: Oxford-komma lämnade "and Contact" / "och kontakt" som item.
+  it("stripar ledande och/and efter Oxford-komma i kolonlistan", () => {
+    expect(
+      extractExplicitNamedPages("Pages: Home, About, and Contact").map((page) => page.path),
+    ).toEqual(["/about", "/contact"]);
+    expect(
+      extractExplicitNamedPages("Sidor: start, om oss, och kontakt").map((page) => page.path),
+    ).toEqual(["/om-oss", "/kontakt"]);
   });
 
   // Granskningsfynd: en kolonträff med EN post är oftast prosa, inte en

@@ -8,6 +8,7 @@ import {
   applyScaffoldDefaults,
   buildRoutesFromBrief,
   collectExplicitRouteRemovals,
+  collectScaffoldRequiredPaths,
   detectExplicitPageCount,
   extractExplicitNamedPages,
   hasExplicitAddRouteIntent,
@@ -56,7 +57,7 @@ function classifyCeilingTrim(
   if (namedPaths.has(path) || namedNames.has(route.name.trim().toLowerCase())) {
     return "named";
   }
-  if (route.required && scaffoldRequiredPaths.has(path)) return "required";
+  if (scaffoldRequiredPaths.has(path)) return "required";
   if (briefRoutePaths.has(path)) return "brief";
   return "guessed";
 }
@@ -293,13 +294,9 @@ export function buildRoutePlan(params: {
       .filter((path) => !pathsBeforeScaffoldDefaults.has(path)),
   );
   const scaffoldAddedRoutes = scaffoldAddedPaths.size > 0;
-  const scaffoldRequiredPaths = new Set(
-    routes
-      .filter(
-        (route) =>
-          route.required && scaffoldAddedPaths.has(normalizeRoutePath(route.path)),
-      )
-      .map((route) => normalizeRoutePath(route.path)),
+  const scaffoldRequiredPaths = collectScaffoldRequiredPaths(
+    buildIntent,
+    resolvedScaffold,
   );
 
   // Symmetric downward trim: detectExplicitPageCount is also used below to

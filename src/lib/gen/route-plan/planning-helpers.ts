@@ -203,19 +203,47 @@ function cleanExplicitPageName(raw: string): string {
 /** Labeled lists like `Sidor: start, projekt, om oss, kontakt`. */
 const LABELED_PAGE_LIST_RE = /\b(?:sidor|pages|routes)\s*:\s*([^\n]+)/giu;
 const PAGE_LIST_SPLIT_RE = /\s*,\s*|\s+och\s+|\s+and\s+/iu;
+const PAGE_LIST_OXFORD_PREFIX_RE = /^(?:och|and)\s+/iu;
 const MAX_NAMED_PAGES_FROM_LIST = 20;
+
+/**
+ * Split a labeled page list and stop at the first item that contains a
+ * sentence boundary followed by more text (`Contact. Style: minimal`).
+ * Leading Oxford `and`/`och` after a comma is stripped so it never becomes
+ * part of the path (`and Contact` → `Contact`).
+ */
+function consumeLabeledPageList(rawList: string): string[] {
+  const items: string[] = [];
+  for (const part of rawList.split(PAGE_LIST_SPLIT_RE)) {
+    const stripped = part.replace(PAGE_LIST_OXFORD_PREFIX_RE, "").trim();
+    if (!stripped) continue;
+    const punct = stripped.search(/[.;!?]/);
+    if (punct >= 0 && stripped.slice(punct + 1).trim().length > 0) {
+      const before = stripped.slice(0, punct).trim();
+      if (before) items.push(before);
+      break;
+    }
+    items.push(stripped);
+  }
+  return items;
+}
+
+function parseExplicitPageName(raw: string): ExplicitNamedPage | null {
+  const name = cleanExplicitPageName(raw.replace(/[.;:]+$/g, ""));
+  if (!name || name.length < 2) return null;
+  return { name, path: inferPathFromPageName(name) };
+}
 
 function pushExplicitNamedPage(
   raw: string,
   seenPaths: Set<string>,
   out: ExplicitNamedPage[],
 ): void {
-  const name = cleanExplicitPageName(raw.replace(/[.;:]+$/g, ""));
-  if (!name || name.length < 2) return;
-  const path = inferPathFromPageName(name);
-  if (path === "/" || seenPaths.has(path)) return;
-  seenPaths.add(path);
-  out.push({ name, path });
+  const page = parseExplicitPageName(raw);
+  if (!page) return;
+  if (page.path === "/" || seenPaths.has(page.path)) return;
+  seenPaths.add(page.path);
+  out.push(page);
 }
 
 export function extractExplicitNamedPages(prompt: string): ExplicitNamedPage[] {
@@ -242,11 +270,19 @@ export function extractExplicitNamedPages(prompt: string): ExplicitNamedPage[] {
     // ovan fortfarande räknas mot listans två.
     const listSeen = new Set<string>();
     const listPages: ExplicitNamedPage[] = [];
-    for (const raw of rawList.split(PAGE_LIST_SPLIT_RE)) {
+    let validListItems = 0;
+    for (const raw of consumeLabeledPageList(rawList)) {
       if (listPages.length >= MAX_NAMED_PAGES_FROM_LIST) break;
-      pushExplicitNamedPage(raw, listSeen, listPages);
+      const page = parseExplicitPageName(raw);
+      if (!page) continue;
+      // Home-mapped names still count toward the ≥2 gate (`Sidor: start,
+      // kontakt`) so a real two-item list is not rejected as prose.
+      validListItems += 1;
+      if (page.path === "/" || listSeen.has(page.path)) continue;
+      listSeen.add(page.path);
+      listPages.push(page);
     }
-    if (listPages.length < 2) continue;
+    if (validListItems < 2) continue;
     for (const page of listPages) {
       if (seenPaths.has(page.path)) continue;
       seenPaths.add(page.path);
@@ -329,75 +365,98 @@ export function applyPromptPatterns(
   return routes.some((route) => !before.has(normalizeRoutePath(route.path)));
 }
 
+function getScaffoldDefaultRoutes(
+  buildIntent: BuildIntent,
+  resolvedScaffold: ScaffoldManifest | null,
+): RouteLike[] {
+  switch (resolvedScaffold?.id) {
+    case "blog":
+      return [
+        {
+          path: "/blog",
+          name: "Blog",
+          intent: "Keep an editorial route for articles and archives.",
+          required: buildIntent !== "app",
+        },
+      ];
+    case "ecommerce":
+      return [
+        {
+          path: "/products",
+          name: "Products",
+          intent: "Keep a storefront route for the product catalog.",
+          required: true,
+        },
+        {
+          path: "/cart",
+          name: "Cart",
+          intent: "Keep a cart route for purchase flow continuity.",
+          required: false,
+        },
+      ];
+    case "auth-pages":
+      return [
+        {
+          path: "/login",
+          name: "Login",
+          intent: "Keep a dedicated authentication entry route.",
+          required: true,
+        },
+        {
+          path: "/signup",
+          name: "Signup",
+          intent: "Keep a dedicated registration route when auth is in scope.",
+          required: false,
+        },
+      ];
+    case "dashboard":
+      if (buildIntent !== "app") return [];
+      return [
+        {
+          path: "/analytics",
+          name: "Analytics",
+          intent: "Dashboard apps benefit from an analytics or metrics route.",
+          required: false,
+        },
+        {
+          path: "/settings",
+          name: "Settings",
+          intent: "App shells should usually expose at least one management/settings route.",
+          required: false,
+        },
+      ];
+    case "app-shell":
+      if (buildIntent !== "app") return [];
+      return [
+        {
+          path: "/settings",
+          name: "Settings",
+          intent: "App shells should usually expose at least one management/settings route.",
+          required: false,
+        },
+      ];
+    default:
+      return [];
+  }
+}
+
+export function collectScaffoldRequiredPaths(
+  buildIntent: BuildIntent,
+  resolvedScaffold: ScaffoldManifest | null,
+): Set<string> {
+  return new Set(
+    getScaffoldDefaultRoutes(buildIntent, resolvedScaffold)
+      .filter((route) => route.required)
+      .map((route) => normalizeRoutePath(route.path)),
+  );
+}
+
 export function applyScaffoldDefaults(
   buildIntent: BuildIntent,
   resolvedScaffold: ScaffoldManifest | null,
   routes: RouteLike[],
 ): void {
-  switch (resolvedScaffold?.id) {
-    case "blog":
-      upsertRoute(routes, {
-        path: "/blog",
-        name: "Blog",
-        intent: "Keep an editorial route for articles and archives.",
-        required: buildIntent !== "app",
-      });
-      break;
-    case "ecommerce":
-      upsertRoute(routes, {
-        path: "/products",
-        name: "Products",
-        intent: "Keep a storefront route for the product catalog.",
-        required: true,
-      });
-      upsertRoute(routes, {
-        path: "/cart",
-        name: "Cart",
-        intent: "Keep a cart route for purchase flow continuity.",
-        required: false,
-      });
-      break;
-    case "auth-pages":
-      upsertRoute(routes, {
-        path: "/login",
-        name: "Login",
-        intent: "Keep a dedicated authentication entry route.",
-        required: true,
-      });
-      upsertRoute(routes, {
-        path: "/signup",
-        name: "Signup",
-        intent: "Keep a dedicated registration route when auth is in scope.",
-        required: false,
-      });
-      break;
-    case "dashboard":
-      if (buildIntent === "app") {
-        upsertRoute(routes, {
-          path: "/analytics",
-          name: "Analytics",
-          intent: "Dashboard apps benefit from an analytics or metrics route.",
-          required: false,
-        });
-        upsertRoute(routes, {
-          path: "/settings",
-          name: "Settings",
-          intent: "App shells should usually expose at least one management/settings route.",
-          required: false,
-        });
-      }
-      break;
-    case "app-shell":
-      if (buildIntent === "app") {
-        upsertRoute(routes, {
-          path: "/settings",
-          name: "Settings",
-          intent: "App shells should usually expose at least one management/settings route.",
-          required: false,
-        });
-      }
-      break;
-    default:
-      break;
+  for (const route of getScaffoldDefaultRoutes(buildIntent, resolvedScaffold)) {
+    upsertRoute(routes, route);
   }
 }
