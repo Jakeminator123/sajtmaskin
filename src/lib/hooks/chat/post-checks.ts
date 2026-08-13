@@ -52,6 +52,31 @@ export function abortPostChecksForChat(chatId: string): void {
   postCheckControllers.delete(chatId);
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+const ABORTED_VERIFY_REASON =
+  "Verifieringen avbröts — en ny generation startade.";
+
+function appendAbortedQualityGateCard(
+  setMessages: SetMessages,
+  assistantMessageId: string,
+  toolCallId: string,
+): void {
+  appendToolPartToMessage(setMessages, assistantMessageId, {
+    type: "tool:quality-gate",
+    toolName: "Quality gate",
+    toolCallId,
+    state: "output-available",
+    output: {
+      skipped: true,
+      aborted: true,
+      reason: ABORTED_VERIFY_REASON,
+    },
+  } as UiMessagePart);
+}
+
 /**
  * Exported for the resume-verify lane (`useResumePendingVerification`), which
  * mirrors this lane's tail and must persist the SAME log rows — notably the
@@ -478,25 +503,40 @@ export async function runPostGenerationChecks(params: {
       } as UiMessagePart);
     }
   } catch (error) {
-    void persistVersionErrorLogs({
-      chatId,
-      versionId,
-      logs: [
-        {
-          level: "error",
-          category: "post-check",
-          message: error instanceof Error ? error.message : "Post-check failed",
+    if (isAbortError(error)) {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:post-check",
+        toolName: "Post-check",
+        toolCallId,
+        state: "output-available",
+        input: { chatId, versionId },
+        output: {
+          skipped: true,
+          aborted: true,
+          reason: ABORTED_VERIFY_REASON,
         },
-      ],
-    });
-    appendToolPartToMessage(setMessages, assistantMessageId, {
-      type: "tool:post-check",
-      toolName: "Post-check",
-      toolCallId,
-      state: "output-error",
-      input: { chatId, versionId },
-      errorText: error instanceof Error ? error.message : "Post-check failed",
-    });
+      });
+    } else {
+      void persistVersionErrorLogs({
+        chatId,
+        versionId,
+        logs: [
+          {
+            level: "error",
+            category: "post-check",
+            message: error instanceof Error ? error.message : "Post-check failed",
+          },
+        ],
+      });
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:post-check",
+        toolName: "Post-check",
+        toolCallId,
+        state: "output-error",
+        input: { chatId, versionId },
+        errorText: error instanceof Error ? error.message : "Post-check failed",
+      });
+    }
   } finally {
     if (!spawnedVerifyLane) {
       if (postCheckControllers.get(chatId) === controller) {
@@ -620,11 +660,17 @@ async function runTier2VerifyLane(params: {
       res.status === QUALITY_GATE_RETRYABLE_STATUS && attempt <= QUALITY_GATE_503_MAX_RETRIES;
       attempt++
     ) {
-      if (abortController?.signal.aborted) return;
+      if (abortController?.signal.aborted) {
+        appendAbortedQualityGateCard(setMessages, assistantMessageId, toolCallId);
+        return;
+      }
       await new Promise((resolve) =>
         setTimeout(resolve, QUALITY_GATE_503_RETRY_BASE_DELAY_MS * attempt),
       );
-      if (abortController?.signal.aborted) return;
+      if (abortController?.signal.aborted) {
+        appendAbortedQualityGateCard(setMessages, assistantMessageId, toolCallId);
+        return;
+      }
       res = await postQualityGate();
     }
 
@@ -867,7 +913,10 @@ async function runTier2VerifyLane(params: {
       handleVisualQaAutofix({ chatId, versionId, visualQa, onAutoFix });
     }
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") return;
+    if (isAbortError(error)) {
+      appendAbortedQualityGateCard(setMessages, assistantMessageId, toolCallId);
+      return;
+    }
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: "tool:quality-gate",
       toolName: "Quality gate",
