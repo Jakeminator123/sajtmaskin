@@ -1111,6 +1111,60 @@ describe("runPostGenerationChecks", () => {
     expect(onAutoFix).not.toHaveBeenCalled();
   });
 
+  // Bugbot medium på fas 1-diffen: superseded-grenen returnerar stämplade
+  // checks utan designAdvisory-envelopen. Advisory-stämpeln ensam måste
+  // räcka för att typecheck aldrig hamnar i failedChecks → ingen repair.
+  it("does not queue repair for an advisory-stamped check even without designAdvisory", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({ ok: true, skipped: true, skippedReason: "feature_disabled" });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: false,
+            vmGatePassed: false,
+            checks: [
+              {
+                check: "typecheck",
+                passed: false,
+                advisory: true,
+                exitCode: 2,
+                output: "TS2339",
+                durationMs: 12,
+              },
+            ],
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(onAutoFix).not.toHaveBeenCalled();
+    expect(fetchCalls.some((call) => call.url.includes("/repair"))).toBe(false);
+  });
+
   it("does not send lint tooling/config failures to code repair", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();
