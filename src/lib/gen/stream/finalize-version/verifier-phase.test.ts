@@ -408,6 +408,53 @@ export default function DashboardPage() {
   // (toast) with an unresolvable one (FooBarBaz) never got any finding
   // dropped, so the old `staleCheck.dropped.length > 0` gate threw away the
   // correct sonner import. Partial repair must land; the finding stays.
+  // Review P1a: a stale missing-imports-runtime finding must not inject
+  // sonner when `toast` is already bound from another module. The catalog's
+  // already-imported guard + per-file receipt + stale-drop are the nets.
+  it("does not inject sonner toast when the file already imports toast from another module", async () => {
+    const page = fencedFile(
+      "app/page.tsx",
+      `"use client";
+
+import { toast } from "react-hot-toast";
+
+export default function Page() {
+  return <button onClick={() => toast.success("Saved")}>Save</button>;
+}`,
+    );
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [
+          {
+            id: "missing-imports-runtime",
+            detail: "app/page.tsx: uses `toast` but does not import it.",
+          },
+        ],
+        quality: [],
+      })
+      .mockResolvedValue({ blocking: [], quality: [] });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: page,
+        fixedFiles: [],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: false,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.5",
+      deduped: false,
+    });
+
+    const result = await runVerifierPhase(baseParams(page));
+
+    expect(result.contentForVersion).toContain('import { toast } from "react-hot-toast"');
+    expect(result.contentForVersion).not.toContain("sonner");
+    expect(result.contentForVersion.match(/import\s*\{[^}]*\btoast\b/g)).toHaveLength(1);
+  });
+
   it("keeps a mixed finding as blocker but lands the partial catalog import", async () => {
     const page = fencedFile(
       "app/page.tsx",

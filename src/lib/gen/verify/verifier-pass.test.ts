@@ -562,6 +562,23 @@ describe("checkUndefinedJsxSymbols", () => {
     expect(findings[0]?.detail).toContain("<Foo");
   });
 
+  // Nested object patterns used to abort the whole destructure body, so a
+  // sibling alias (`icon: Icon` next to `nested: { x }`) was never registered.
+  it("registers a top-level param-destructure alias beside a nested sibling", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/stats-card.tsx",
+        content: [
+          "type Props = { icon: React.ComponentType<{ className?: string }>; nested: { x: number } };",
+          "export function StatsCard({ icon: Icon, nested: { x } }: Props) {",
+          "  return <Icon data-x={x} />;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+    expect(findings).toEqual([]);
+  });
+
   it("ignores undefined-looking symbols that only appear inside comments or strings", () => {
     const findings = checkUndefinedJsxSymbols([
       {
@@ -727,6 +744,42 @@ describe("parseImportRepairRefsFromFinding", () => {
         id: "undefined-jsx-symbol",
         detail:
           "app/kontakt/page.tsx: `<HTMLFormElement />` is a DOM interface type, not a JSX component. Replace it with the lowercase HTML tag `<form>` and keep the same props/children. Do NOT import a library or introduce a new component to satisfy `HTMLFormElement`.",
+      }),
+    ).toEqual([]);
+  });
+
+  it("parses a Next route-group path so the catalog can see the file", () => {
+    expect(
+      parseImportRepairRefsFromFinding({
+        id: "missing-imports-runtime",
+        detail: "app/(marketing)/page.tsx: uses `toast` but does not import it.",
+      }),
+    ).toEqual([{ file: "app/(marketing)/page.tsx", symbol: "toast" }]);
+  });
+
+  it("parses a route-group path with a directory after the group", () => {
+    expect(
+      parseImportRepairRefsFromFinding({
+        id: "missing-imports-runtime",
+        detail: "app/(marketing)/contact/page.tsx: uses `toast` but does not import it.",
+      }),
+    ).toEqual([{ file: "app/(marketing)/contact/page.tsx", symbol: "toast" }]);
+  });
+
+  it("still extracts the inner path from parenthetical prose, not a paren-stained segment", () => {
+    expect(
+      parseImportRepairRefsFromFinding({
+        id: "missing-imports-runtime",
+        detail: "(see app/page.tsx) uses `toast` but does not import it.",
+      }),
+    ).toEqual([{ file: "app/page.tsx", symbol: "toast" }]);
+  });
+
+  it("does not treat a bare route-group parenthetical as a file path", () => {
+    expect(
+      parseImportRepairRefsFromFinding({
+        id: "missing-imports-runtime",
+        detail: "the group (marketing)/page.tsx uses `toast` but does not import it.",
       }),
     ).toEqual([]);
   });

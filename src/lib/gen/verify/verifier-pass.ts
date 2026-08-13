@@ -562,8 +562,12 @@ export function isMissingImportClassFindingId(id: string): boolean {
   return MISSING_IMPORT_CLASS_ID_RE.test(normalized) || BUILD_IMPORT_CLASS_ID_RE.test(normalized);
 }
 
+// Directory segments may include a Next route-group/intercept `(name)/`
+// AFTER a normal segment (`app/(marketing)/page.tsx`). `()` is NOT added to
+// the general class: `(see app/page.tsx)` must keep extracting `app/page.tsx`,
+// and a prefix-`(` must not swallow `marketing)/page.tsx`.
 const IMPORT_REPAIR_FILE_RE =
-  /(?:^|[\s`"'(\[-])((?:[A-Za-z0-9_.@\[\]-]+\/)*[A-Za-z0-9_.\[\]-]+\.(?:tsx|ts|jsx|js|mjs|cjs))(?=$|[\s`"'):\],])/;
+  /(?:^|[\s`"'(\[-])((?:[A-Za-z0-9_.@\[\]-]+\/(?:\([^\/)]*\)[A-Za-z0-9_.@\[\]-]*\/)*)*[A-Za-z0-9_.\[\]-]+\.(?:tsx|ts|jsx|js|mjs|cjs))(?=$|[\s`"'):\],])/;
 
 const IMPORT_REPAIR_SYMBOL_STOP_WORDS = new Set([
   "it",
@@ -725,11 +729,27 @@ const ALWAYS_IN_SCOPE = new Set<string>(["React", "Fragment"]);
 
 /**
  * Bindings introduced by `{ A, B: C, ...rest = Default }`. Nested object/array
- * patterns are skipped — we'd rather miss a nested alias than invent names.
+ * parts are skipped — we'd rather miss a nested alias than invent names —
+ * but top-level siblings beside them (`icon: Icon` next to `nested: { x }`)
+ * are still registered.
  */
 function addObjectDestructureBindings(body: string | undefined, declared: Set<string>): void {
-  if (!body || body.includes("{") || body.includes("[")) return;
-  for (const part of body.split(",")) {
+  if (!body) return;
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (ch === "{" || ch === "[") depth += 1;
+    else if (ch === "}" || ch === "]") depth = Math.max(0, depth - 1);
+    else if (ch === "," && depth === 0) {
+      parts.push(body.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(body.slice(start));
+  for (const part of parts) {
+    if (part.includes("{") || part.includes("[")) continue;
     let trimmed = part.trim();
     if (!trimmed) continue;
     if (trimmed.startsWith("...")) trimmed = trimmed.slice(3).trim();
@@ -796,8 +816,8 @@ function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
   // Offertlyftet chat 759ad7e2): `function StatsCard({ icon: Icon }: Props)`
   // and `const StatsCard = ({ icon: Icon }: Props) => …`. Alias collection
   // already covered `const { icon: Icon } = …` but not parameter lists, so
-  // `<Icon />` was flagged as `undefined-jsx-symbol`. Nested destructure is
-  // skipped — same conservative rule as the const form.
+  // `<Icon />` was flagged as `undefined-jsx-symbol`. Nested parts are
+  // skipped; top-level siblings beside them are still registered.
   const FN_PARAM_OBJECT_DESTRUCT_RE =
     /\b(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s*\*?\s*(?:[A-Za-z_$][\w$]*)?\s*(?:<[^<>]*>)?\s*\(\s*\{([^}]+)\}/g;
   while ((m = FN_PARAM_OBJECT_DESTRUCT_RE.exec(scrubbedSource)) !== null) {
