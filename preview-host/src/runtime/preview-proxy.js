@@ -370,6 +370,8 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
         restart: state.session.prewarmReplacementPending === true,
       });
     }
+    const trackedForPrewarmActivity = runtimeChildren.get(state.session.sessionId);
+    if (trackedForPrewarmActivity) trackedForPrewarmActivity.lastActivityAt = Date.now();
     sendRuntimeStartingPage(res, state.session);
     return true;
   }
@@ -377,7 +379,11 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
     sendHeldPreviewErrorPage(res, state.session);
     return true;
   }
-  if (state.running && state.runtimePort && state.acceptingTraffic) {
+  if (
+    state.running &&
+    state.runtimePort &&
+    (state.acceptingTraffic || state.session.readinessState === "failed")
+  ) {
     const trackedForActivity = runtimeChildren.get(state.session.sessionId);
     if (trackedForActivity) trackedForActivity.lastActivityAt = Date.now();
     const inspectTag = inspectInjectionTag(search);
@@ -415,6 +421,8 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
     }
     return true;
   }
+  const trackedForStartingActivity = runtimeChildren.get(state.session.sessionId);
+  if (trackedForStartingActivity) trackedForStartingActivity.lastActivityAt = Date.now();
   queueRuntimeBoot(info.chatId);
   sendRuntimeStartingPage(res, state.session);
   return true;
@@ -490,7 +498,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   const runtime = await ensureRuntimeForChat(info.chatId);
   if (!runtime) return false;
   const live = getRuntimeStateForChat(info.chatId);
-  if (!live.acceptingTraffic) {
+  if (!live.acceptingTraffic && live.session?.readinessState !== "failed") {
     if (acceptAndHoldWebSocket(req, socket)) {
       registerPreviewSocket(info.chatId, socket);
       return true;

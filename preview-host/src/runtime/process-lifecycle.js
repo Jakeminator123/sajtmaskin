@@ -776,12 +776,21 @@ async function bootRuntimeForSession(session, options = {}) {
               stored.readinessState = "failed";
               stored.readinessError = message;
               stored.updatedAt = nowIso();
-            }).then(() =>
-              appendRuntimeLog(
+            }).then(() => {
+              // Keep status as-is (e.g. warm_project). Opening the gate lets
+              // the live Next process show its build-error overlay — the
+              // pre-gate behavior. Do not set status "error" here: that would
+              // trip isFailedRuntimeTraffic and replace the overlay with the
+              // generic held page. Prewarm replacement still awaits this
+              // same promise and rethrows into the outer catch, which sets
+              // status "error" and stops the process; shouldHoldPrewarmTraffic
+              // is checked first, so opening the gate is a no-op there.
+              exposeRuntimeToClients(session, { restart, runtimePort });
+              return appendRuntimeLog(
                 session.previewSessionId,
                 `Readiness failed (runtime process alive but page not ready): ${message}`,
-              ),
-            );
+              );
+            });
           });
       } else {
         void readiness
@@ -970,6 +979,7 @@ function getRuntimeStateForChat(chatId) {
       persistedStarting: false,
       acceptingTraffic: false,
       runtimePort: null,
+      lastActivityAt: null,
     };
   }
   const tracked = runtimeChildren.get(session.sessionId);
@@ -984,6 +994,7 @@ function getRuntimeStateForChat(chatId) {
     persistedStarting: session.status === "starting",
     acceptingTraffic: Boolean(running && tracked && tracked.acceptingTraffic !== false),
     runtimePort: tracked?.port ?? (Number.isFinite(Number(session.runtimePort)) ? Number(session.runtimePort) : null),
+    lastActivityAt: Number.isFinite(tracked?.lastActivityAt) ? tracked.lastActivityAt : null,
   };
 }
 
@@ -1010,6 +1021,14 @@ async function sweepIdleRuntimes(nowMs = Date.now()) {
     if (chatId && inflightBootByChat.has(chatId)) continue;
     if (chatId && activeVerifyChatKeys.has(safeChatKey(chatId))) continue;
     if (chatId && activePreviewSocketCount(chatId) > 0) continue;
+    const session = chatId ? findSessionByChatId(readStoreSync(), chatId) : null;
+    if (
+      session?.readinessState === "starting" &&
+      tracked.child &&
+      tracked.child.exitCode === null
+    ) {
+      continue;
+    }
     const lastActivityAt = Number.isFinite(tracked.lastActivityAt)
       ? tracked.lastActivityAt
       : 0;
@@ -1056,7 +1075,7 @@ function setRuntimeStateForTesting(params) {
       port: params.runtimePort,
       chatId: params.chatId,
       previewSessionId: params.previewSessionId ?? "",
-      lastActivityAt: Date.now(),
+      lastActivityAt: Number.isFinite(params.lastActivityAt) ? params.lastActivityAt : Date.now(),
       acceptingTraffic: params.acceptingTraffic !== false,
     });
   } else {

@@ -290,6 +290,261 @@ check(
   }
 }
 
+{
+  const lifecycleSrc = readFileSync(
+    new URL("../src/runtime/process-lifecycle.js", import.meta.url),
+    "utf8",
+  );
+  const failedReadinessLog = "Readiness failed (runtime process alive but page not ready)";
+  const failedReadinessAt = lifecycleSrc.indexOf(failedReadinessLog);
+  const failedReadinessWindow =
+    failedReadinessAt >= 0
+      ? lifecycleSrc.slice(Math.max(0, failedReadinessAt - 500), failedReadinessAt + failedReadinessLog.length)
+      : "";
+  check(
+    "failed readiness on a live process opens the traffic gate (not just readinessState=failed)",
+    /exposeRuntimeToClients\(session/.test(failedReadinessWindow),
+  );
+}
+
+{
+  const store = require("../src/store.js");
+  const queuedBoots = [];
+  const previousQueue = runtime.queueRuntimeBoot;
+  runtime.queueRuntimeBoot = (id, options = {}) => queuedBoots.push({ id, options });
+
+  const overlay = http.createServer((_req, res) => {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end("<!doctype html><html><body>BUILD_ERROR_OVERLAY</body></html>");
+  });
+  overlay.listen(0, "127.0.0.1");
+  await once(overlay, "listening");
+  const overlayAddress = overlay.address();
+
+  const { createServer } = require("../src/server.js");
+  const host = createServer();
+  host.listen(0, "127.0.0.1");
+  await once(host, "listening");
+  const hostAddress = host.address();
+  const hostBase = `http://127.0.0.1:${hostAddress.port}`;
+  const chatId = "swap-failed-readiness";
+  const sessionId = `session-${chatId}`;
+  const previewSessionId = `ps-${chatId}`;
+
+  store.writeStoreAtomicSync({
+    sessions: {
+      [sessionId]: {
+        sessionId,
+        previewSessionId,
+        chatId,
+        versionId: "v-failed",
+        previewUrl: `${hostBase}/${chatId}`,
+        status: "warm_project",
+        lastAction: "start",
+        changeClass: "fresh",
+        startOutcome: "resumed",
+        filesJson: { "app/page.tsx": "BROKEN" },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+        runtimePort: overlayAddress.port,
+        readinessState: "failed",
+        readinessError: "readiness probe timed out",
+      },
+    },
+    logs: {},
+    previewSessionToSession: { [previewSessionId]: sessionId },
+    prewarmLeases: {},
+  });
+  runtime.__testing.setRuntimeStateForTesting({
+    chatId,
+    sessionId,
+    previewSessionId,
+    runtimePort: overlayAddress.port,
+    running: true,
+    booting: false,
+    acceptingTraffic: false,
+  });
+
+  try {
+    const response = await fetch(`${hostBase}/${chatId}/`);
+    const body = await response.text();
+    check(
+      "live runtime with failed readiness does not stay on the starting page",
+      !/Startar/.test(body),
+    );
+    check(
+      "live runtime with failed readiness shows the overlay or the held error page",
+      /BUILD_ERROR_OVERLAY/.test(body) || /Preview kunde inte starta/.test(body),
+    );
+  } finally {
+    runtime.queueRuntimeBoot = previousQueue;
+    runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
+    host.close();
+    host.closeAllConnections?.();
+    overlay.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+{
+  const store = require("../src/store.js");
+  const chatId = "swap-idle-gated";
+  const sessionId = "swap-idle-gated-session";
+  const previewSessionId = "ps-swap-idle-gated";
+  const staleActivityAt = Date.now() - 11 * 60 * 1000;
+  store.writeStoreAtomicSync({
+    sessions: {
+      [sessionId]: {
+        sessionId,
+        previewSessionId,
+        chatId,
+        versionId: "v-idle-gated",
+        previewUrl: `http://localhost/${chatId}`,
+        status: "warm_project",
+        lastAction: "start",
+        sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        runtimePort: 40123,
+        readinessState: "starting",
+      },
+    },
+    logs: {},
+    previewSessionToSession: { [previewSessionId]: sessionId },
+    prewarmLeases: {},
+  });
+  runtime.__testing.setRuntimeStateForTesting({
+    chatId,
+    sessionId,
+    previewSessionId,
+    runtimePort: 40123,
+    running: true,
+    booting: false,
+    acceptingTraffic: false,
+    lastActivityAt: staleActivityAt,
+  });
+  const swept = await runtime.sweepIdleRuntimes(Date.now());
+  const afterSweep = runtime.getRuntimeStateForChat(chatId);
+  check(
+    "idle reaper does not stop a live runtime that is still waiting for readiness",
+    swept.stoppedRuntimes === 0 && afterSweep.running === true,
+  );
+  runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
+}
+
+{
+  const store = require("../src/store.js");
+  const queuedBoots = [];
+  const previousQueue = runtime.queueRuntimeBoot;
+  runtime.queueRuntimeBoot = (id, options = {}) => queuedBoots.push({ id, options });
+
+  const { createServer } = require("../src/server.js");
+  const host = createServer();
+  host.listen(0, "127.0.0.1");
+  await once(host, "listening");
+  const hostAddress = host.address();
+  const hostBase = `http://127.0.0.1:${hostAddress.port}`;
+  const chatId = "swap-starting-activity";
+  const sessionId = `session-${chatId}`;
+  const previewSessionId = `ps-${chatId}`;
+  const staleActivityAt = Date.now() - 11 * 60 * 1000;
+
+  store.writeStoreAtomicSync({
+    sessions: {
+      [sessionId]: {
+        sessionId,
+        previewSessionId,
+        chatId,
+        versionId: "v-activity",
+        previewUrl: `${hostBase}/${chatId}`,
+        status: "warm_project",
+        lastAction: "start",
+        changeClass: "fresh",
+        startOutcome: "resumed",
+        filesJson: { "app/page.tsx": "WAIT" },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+        runtimePort: 40124,
+        readinessState: "starting",
+      },
+    },
+    logs: {},
+    previewSessionToSession: { [previewSessionId]: sessionId },
+    prewarmLeases: {},
+  });
+  runtime.__testing.setRuntimeStateForTesting({
+    chatId,
+    sessionId,
+    previewSessionId,
+    runtimePort: 40124,
+    running: true,
+    booting: false,
+    acceptingTraffic: false,
+    lastActivityAt: staleActivityAt,
+  });
+
+  try {
+    await fetch(`${hostBase}/${chatId}/`);
+    const after = runtime.getRuntimeStateForChat(chatId);
+    check(
+      "starting-page traffic counts as activity while the runtime is gated",
+      typeof after.lastActivityAt === "number" && after.lastActivityAt > staleActivityAt,
+    );
+  } finally {
+    runtime.queueRuntimeBoot = previousQueue;
+    runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
+    host.close();
+    host.closeAllConnections?.();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+{
+  const store = require("../src/store.js");
+  const chatId = "swap-idle-ready";
+  const sessionId = "swap-idle-ready-session";
+  const previewSessionId = "ps-swap-idle-ready";
+  store.writeStoreAtomicSync({
+    sessions: {
+      [sessionId]: {
+        sessionId,
+        previewSessionId,
+        chatId,
+        versionId: "v-idle-ready",
+        previewUrl: `http://localhost/${chatId}`,
+        status: "warm_project",
+        lastAction: "start",
+        sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        runtimePort: 40125,
+        readinessState: "ready",
+      },
+    },
+    logs: {},
+    previewSessionToSession: { [previewSessionId]: sessionId },
+    prewarmLeases: {},
+  });
+  runtime.__testing.setRuntimeStateForTesting({
+    chatId,
+    sessionId,
+    previewSessionId,
+    runtimePort: 40125,
+    running: true,
+    booting: false,
+    acceptingTraffic: true,
+    lastActivityAt: Date.now() - 11 * 60 * 1000,
+  });
+  const swept = await runtime.sweepIdleRuntimes(Date.now());
+  check(
+    "idle reaper still stops a ready runtime with no traffic",
+    swept.stoppedRuntimes === 1,
+  );
+  runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
+}
+
 rmSync(dataDir, { recursive: true, force: true });
 
 if (failures > 0) {
