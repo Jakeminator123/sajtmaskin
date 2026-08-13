@@ -221,33 +221,49 @@ Halva modellen finns redan: `structureProfile`, `contentProfile`, `siteKind` och
 `features` ligger i manifestet. Det som saknas är att runtime väljer **paket**
 i stället för att sätta samman struktur + domän + funktioner.
 
-### Kärnan i spår C: ingen modell tolkar prompten
+### Kärnan i spår C: briefen tolkar, men den explicita begränsningen överlever inte
 
-`src/lib/gen/orchestrate/resolve-base.ts` heter orkestrering men är
-deterministisk: den väljer scaffold via embedding-likhet, hämtar UI-recept och
-anropar `buildRoutePlan` — ren regex- och nyckelordslogik. **Ingen LLM läser
-prompten för att avgöra vad som ska byggas.** Modellen kommer in efteråt som
-kodskrivare och får ruttplanen som färdig instruktion. Planläge har en riktig
-planner-modell, men det är ett separat opt-in-flöde.
+**Rättelse 2026-08-13:** ett tidigare påstående i den här handoffen — att
+*ingen* LLM läser prompten i freeform-init — var fel. Det belades i prod
+(`llm_usage` för generationsfönstret 2026-08-13 19:02–19:12 UTC: `phase: brief`,
+`workload: dynamic_instructions`, modell `gpt-5.6-sol`, ~52 mUSD, sex sekunder
+före embeddings; `generation_telemetry.brief_influenced_selection = true` för
+chat `90624ed9-01e2-4d9a-8e7c-ca55f2477511`).
 
-Det är därför «den enda sida» inte förstods: en regex som bara kan siffror satt
-och gjorde ett omdömesarbete. Regexen gör det som kräver tolkning, modellen gör
-det som är mekaniskt — omvänt mot principen *modell för smakfrågor, kod för
-sanningsfrågor*.
+Init-freeform kör redan ett brief-steg **före** scaffold-matchningen:
 
-Rätt uppdelning, och den kräver inget nytt lager:
+| Steg | Fil-ankare |
+|---|---|
+| Klient triggar Deep Brief | `useBuilderPromptActions.applyDynamicInstructionsForNewChat` → `generateDynamicInstructions(..., { forceDeepBrief: true })` i `src/app/builder/useBuilderPromptActions.ts` |
+| Hook → HTTP | `useInitBrief` (`src/lib/hooks/useInitBrief.ts`) POST:ar `/api/ai/brief` med `source: "dynamic_instructions"` |
+| Route → modell | `src/app/api/ai/brief/route.ts` anropar `generateSiteBriefObject` |
+| Schema + usage | `generateSiteBriefObject` i `src/lib/builder/site-brief-generation.ts` kör `generateObject` mot `siteBriefSchema` och loggar `recordLlmUsage({ phase: "brief", workload: <source> })` |
 
-| Steg | Vem | Vad |
+`resolveOrchestrationBase` (`src/lib/gen/orchestrate/resolve-base.ts`) är
+**fortfarande** deterministisk i sig: den tar emot briefen som `input.brief`,
+väljer scaffold via embedding-likhet och bygger ruttplanen. `buildRoutesFromBrief`
+(`src/lib/gen/route-plan/planning-helpers.ts`) gör `brief.pages[]` till rutter med
+`required: true`. Poängen är alltså inte «ingen tolkning finns» utan att
+**användarens explicita begränsning inte överlever briefen** — briefen kan
+expandera sidlistan, och den deterministiska vägen har ingen separat grind som
+tvingar tillbaka den.
+
+En verklig brist kvarstår i regexen: `EXPLICIT_PAGE_COUNT_RE` i
+`planning-helpers.ts` kräver siffror (`\d{1,2}` + sidor/pages/…), så ordform
+som «en sida» / «enda sidan» missas. Öppen PR #978 täcker den delen.
+
+Uppdelningen finns redan i princip — det som saknas är att den explicita
+begränsningen når fram och respekteras:
+
+| Steg | Vem | Status idag |
 |---|---|---|
-| Tolka | Billig modell | Fyll ett schema: struktur, sidlista med namn, domän, funktioner |
-| Kontrollera | Kod | Validera schemat mot scaffoldens ruttkontrakt, tillämpa tak, vägra omöjliga kombinationer |
-| Bygga | Kodmodell | Som idag, men med en plan som speglar prompten |
+| Tolka | Billig modell (`phase: brief`) | Körs redan via `/api/ai/brief` + `siteBriefSchema` |
+| Kontrollera | Kod | Delvis: `buildRoutesFromBrief` + sidtak/regex, men ingen grind som håller kvar användarens explicita tak mot briefens expansion |
+| Bygga | Kodmodell | Som idag, med ruttplan som färdig instruktion |
 
-Schemat finns till hälften: `buildRoutesFromBrief` gör `brief.pages` till rutter
-med `required: true`, så när en Deep Brief finns kommer sidlistan **redan** från
-en modell. Freeform-vägen får ingen brief och faller därför tillbaka på regexen.
-Uppgiften är alltså att låta freeform producera samma schema som brief-vägen
-redan producerar — inte att bygga en ny planerare.
+Uppgiften är alltså inte att bygga en ny planerare, utan att se till att den
+tolkning som redan sker inte får radera eller kringgå användarens uttryckliga
+scope — och att den sifferfria sidräkningen (#978) når `detectExplicitPageCount`.
 
 Rätt ordning enligt både merge-agenten och ägarens coach: gör spår B först
 (manifest → ruttkontrakt → planerare → validator). Bredda inte till en
@@ -267,7 +283,10 @@ och att bredda den är en förlängning — inte nytt arbete.
 > svarar alltså «finns inte» om filen tillkom idag. Kontrollera alltid mot
 > `git ls-tree -r --name-only origin/master -- <path>` eller i en färsk worktree.
 > Repots `workflow.mdc` varnar för kallt sökindex; en gammal checkout ger samma
-> fel utan att indexet är inblandat.
+> fel utan att indexet är inblandat. Samma kväll missade ett `llm_usage`-svep
+> brief-raden för att det filtrerade på `chat_id` — briefraden har
+> `chat_id: null` (se `SM-045`), så räkna alltid i tidsfönstret också, inte bara
+> via claimat chatt-id.
 
 ## Öppna trådar
 
