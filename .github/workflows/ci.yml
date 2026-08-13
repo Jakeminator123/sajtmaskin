@@ -38,8 +38,12 @@ jobs:
           POSTGRES_DB: sajtmaskin_test
         ports:
           - 5432:5432
+        # Default `pg_isready` runs as container user `root`, which is not a
+        # Postgres role. Docker keeps probing every --health-interval, so
+        # `FATAL: role "root" does not exist` repeats for the whole job.
+        # `-U postgres` matches POSTGRES_USER.
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
