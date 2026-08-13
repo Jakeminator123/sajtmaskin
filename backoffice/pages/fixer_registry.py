@@ -222,6 +222,16 @@ def _run_fixer_usage(repo_root: Path, *, use_prod: bool) -> dict[str, Any]:
             "ok": False,
             "error": str(data.get("error") or result.stderr or "Okänt fel."),
         }
+    # Bugbot på diffen: utan mode-validering skulle ett by-fault-svar (äldre
+    # skript som ignorerar --by-fixer) passera och alla katalogposter visa 0.
+    if data.get("mode") != "by-fixer" or "fixers" not in data:
+        return {
+            "ok": False,
+            "error": (
+                "Svaret är inte i by-fixer-läge (saknar mode/fixers) — "
+                "stöder fault-matrix.mjs i den här checkouten --by-fixer?"
+            ),
+        }
     return data
 
 
