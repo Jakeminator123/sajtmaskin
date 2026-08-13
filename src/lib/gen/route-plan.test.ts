@@ -839,6 +839,27 @@ describe("detectExplicitPageCount", () => {
     expect(detectExplicitPageCount(TVSPEL_BLOG_ONE_PAGE_PROMPT)).toBe(1);
   });
 
+  // Prod-körningen hade en brief (brief_influenced_selection = true).
+  // buildRoutesFromBrief sätter required:true på brief.pages[], så utan brief
+  // i testet täcks inte den konfiguration som faktiskt levererade tre sidor.
+  it("plans only the root route for the tvspel-blog prompt even when the brief lists a blog page", () => {
+    const blogScaffold = getScaffoldById("blog");
+    expect(blogScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      prompt: TVSPEL_BLOG_ONE_PAGE_PROMPT,
+      buildIntent: "website",
+      resolvedScaffold: blogScaffold,
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Startsida med bloggflöde" },
+          { path: "/blog", name: "Blogg", purpose: "Inläggslista" },
+        ],
+      },
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+    expect(plan.routes).toHaveLength(1);
+  });
+
   it.each([
     "En hemsida om tvspel",
     "Jag vill ha en sida med priser och en sida med kontakt",
