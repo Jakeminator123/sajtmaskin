@@ -40,7 +40,7 @@ export function buildModelInfoSteps(info: ModelInfoData): string[] {
   if (enginePathLabel) {
     steps.push(`Motorväg: ${enginePathLabel}`);
   }
-  steps.push(`${modelTier ? "Kömodell" : "Model"}: ${modelId || "okänd"}`);
+  steps.push(`${modelTier ? "Körmodell" : "Model"}: ${modelId || "okänd"}`);
   if (typeof info.thinking === "boolean") {
     steps.push(`Thinking: ${info.thinking ? "på" : "av"}`);
   }

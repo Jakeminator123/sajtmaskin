@@ -226,9 +226,10 @@ describe("buildModelInfoSteps — Swedish labels", () => {
     });
 
     expect(steps).toContain("Motorväg: egen motor");
-    expect(steps).toContain("Kömodell: gpt-5.6-sol");
+    expect(steps).toContain("Körmodell: gpt-5.6-sol");
     expect(steps).not.toContain("Motorvag: egen motor");
     expect(steps).not.toContain("Kormodell: gpt-5.6-sol");
+    expect(steps).not.toContain("Kömodell: gpt-5.6-sol");
   });
 
   it("labels plan-mode as planläge", () => {
@@ -246,8 +247,8 @@ describe("buildModelInfoSteps — Swedish labels", () => {
       modelTier: "pro",
     });
 
-    expect(steps).toContain("Kömodell: okänd");
-    expect(steps).not.toContain("Kömodell: okand");
+    expect(steps).toContain("Körmodell: okänd");
+    expect(steps).not.toContain("Körmodell: okand");
   });
 });
 
