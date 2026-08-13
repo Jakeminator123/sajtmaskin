@@ -96,6 +96,8 @@ import {
   acquireChatGenerationLock,
   bindChatGenerationLockToResponse,
   chatGenerationLockFailureResponse,
+  releaseChatGenerationLock,
+  type ChatGenerationLock,
 } from "@/lib/gen/stream/generation-lock";
 
 /** Shared create handler (SSE). Used by `POST` and by sync `POST /chats` JSON adapter. */
@@ -116,6 +118,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         }
         return response;
       };
+      let acquiredGenerationLock: ChatGenerationLock | null = null;
       try {
         const botError = requireNotBot(req);
         if (botError) return attachSessionCookie(botError);
@@ -676,6 +679,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               chatGenerationLockFailureResponse(plannerGenerationLock.status),
             );
           }
+          acquiredGenerationLock = plannerGenerationLock.lock;
           debugLog("engine", "Chat DB bootstrap complete", {
             durationMs: Date.now() - plannerChatDbStartedAt,
             mode: "plan",
@@ -952,6 +956,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 chatGenerationLockFailureResponse(contractGenerationLock.status),
               );
             }
+            acquiredGenerationLock = contractGenerationLock.lock;
             debugLog("engine", "Chat DB bootstrap complete", {
               durationMs: Date.now() - contractGateDbStartedAt,
               mode: "pre-generation-contract-gate",
@@ -1080,6 +1085,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               chatGenerationLockFailureResponse(initGenerationLock.status),
             );
           }
+          acquiredGenerationLock = initGenerationLock.lock;
           debugLog("engine", "Chat DB bootstrap complete", {
             durationMs: Date.now() - engineChatDbStartedAt,
             mode: "own-engine",
@@ -1206,6 +1212,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           );
         }
       } catch (err) {
+        if (acquiredGenerationLock) {
+          await releaseChatGenerationLock(acquiredGenerationLock).catch(() => {});
+        }
         return buildStreamErrorResponse({
           err,
           req,
