@@ -100,6 +100,14 @@ export const RUNS_INDEX_FILE = ".runs.json";
 export const EVENTS_NDJSON_FILE = "events.ndjson";
 
 /**
+ * LRU-tak för versionsmappar i tmp-spegeln (Vercel /tmp ~512 MB, delad av
+ * Chromium + läckta profiler + den här NDJSON-spegeln). Lokal `data/runs/`
+ * under repo-roten ska förbli inspekterbar och rörs inte — se
+ * `isInsideTmpDir(RUNS_ROOT_DIR)` innan prune.
+ */
+export const MAX_TMP_MIRROR_VERSION_DIRS = 50;
+
+/**
  * When a caller emits an event without an explicit `runId`, we fall
  * back to a deterministic bootstrap run so the event still lands on
  * disk under a stable path. `"root"` was picked instead of `"default"`
@@ -162,13 +170,53 @@ function appendNdjsonLine(filePath: string, event: EngineEvent): void {
 }
 
 function appendRunIndex(versionId: string, entry: RunIndexEntry): void {
-  ensureDir(versionDir(versionId));
+  const dir = versionDir(versionId);
+  const createdNewVersionDir = !fs.existsSync(dir);
+  ensureDir(dir);
   const file = indexPath(versionId);
   const existing = readJsonSafe<RunIndexEntry[]>(file) ?? [];
   const alreadyIndexed = existing.some((e) => e.runId === entry.runId);
   if (alreadyIndexed) return;
   existing.push(entry);
   fs.writeFileSync(file, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
+  if (createdNewVersionDir) pruneTmpMirrorVersionDirsBestEffort();
+}
+
+/**
+ * Lokal kopia av generation-log-writerns `lruPruneSubdirs`-idé (äldst mtime
+ * ryker först). Importeras inte därifrån — de två writer-vägarna ska inte
+ * kopplas ihop. Bara tmp-spegeln; emit() får aldrig kasta härifrån.
+ */
+function pruneTmpMirrorVersionDirsBestEffort(): void {
+  if (!isInsideTmpDir(RUNS_ROOT_DIR)) return;
+  try {
+    if (!fs.existsSync(RUNS_ROOT_DIR)) return;
+    const scored = fs
+      .readdirSync(RUNS_ROOT_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => {
+        const dir = path.join(RUNS_ROOT_DIR, entry.name);
+        let mtimeMs = 0;
+        try {
+          mtimeMs = fs.statSync(dir).mtimeMs;
+        } catch {
+          mtimeMs = 0;
+        }
+        return { name: entry.name, mtimeMs };
+      });
+    if (scored.length <= MAX_TMP_MIRROR_VERSION_DIRS) return;
+    scored.sort((a, b) => a.mtimeMs - b.mtimeMs);
+    const toRemove = scored.slice(0, scored.length - MAX_TMP_MIRROR_VERSION_DIRS);
+    for (const { name } of toRemove) {
+      try {
+        fs.rmSync(path.join(RUNS_ROOT_DIR, name), { recursive: true, force: true });
+      } catch {
+        /* en låst mapp får inte stoppa resten eller emit() */
+      }
+    }
+  } catch {
+    /* best-effort — spegeln är replay-hjälp, inte sanning */
+  }
 }
 
 /**

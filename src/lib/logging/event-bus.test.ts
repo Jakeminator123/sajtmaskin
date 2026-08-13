@@ -162,6 +162,65 @@ describe("event-bus", () => {
     });
     expect(received).toEqual(["version.done"]);
   });
+
+  it("prunes oldest tmp-mirror version dirs when the cap is exceeded", () => {
+    const cap = bus.MAX_TMP_MIRROR_VERSION_DIRS;
+    const started = (versionId: string) =>
+      bus.emit({
+        t: "version.started",
+        versionId,
+        generationKind: "create",
+      });
+
+    for (let i = 0; i < cap; i++) {
+      const id = `old_${String(i).padStart(2, "0")}`;
+      started(id);
+      const dir = path.join(bus.RUNS_ROOT_DIR, id);
+      const mtime = new Date(Date.now() - (cap - i) * 60_000);
+      fs.utimesSync(dir, mtime, mtime);
+    }
+
+    started("newest");
+
+    const dirs = fs
+      .readdirSync(bus.RUNS_ROOT_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+
+    expect(dirs).toHaveLength(cap);
+    expect(dirs).toContain("newest");
+    expect(dirs).not.toContain("old_00");
+    expect(fs.existsSync(path.join(bus.RUNS_ROOT_DIR, "newest", bus.RUNS_INDEX_FILE))).toBe(true);
+    expect(bus.readAll("newest")).toHaveLength(1);
+  });
+
+  it("lets emit succeed when tmp-mirror prune cannot delete", () => {
+    for (let i = 0; i < bus.MAX_TMP_MIRROR_VERSION_DIRS; i++) {
+      bus.emit({
+        t: "version.started",
+        versionId: `old_${i}`,
+        generationKind: "create",
+      });
+    }
+    const rmSpy = vi.spyOn(fs, "rmSync").mockImplementation(() => {
+      throw new Error("rm boom");
+    });
+    try {
+      expect(() =>
+        bus.emit({
+          t: "version.started",
+          versionId: "newest",
+          generationKind: "create",
+        }),
+      ).not.toThrow();
+      expect(bus.readAll("newest").map((event) => event.t)).toEqual(["version.started"]);
+      expect(
+        fs.existsSync(path.join(bus.RUNS_ROOT_DIR, "newest", "root", "events.ndjson")),
+      ).toBe(true);
+    } finally {
+      rmSpy.mockRestore();
+    }
+  });
 });
 
 describe("event-bus RUNS_ROOT_DIR resolution", () => {
