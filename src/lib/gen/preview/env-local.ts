@@ -320,7 +320,7 @@ export async function resolvePreviewEnvLayers(params: {
   const pid = typeof params.appProjectId === "string" ? params.appProjectId.trim() : "";
   if (pid && params.includeStoredProjectEnvVars !== false) {
     try {
-      const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+      const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
       project = await getStoredProjectEnvVarMap(pid);
     } catch (err) {
       console.warn(

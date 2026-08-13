@@ -78,7 +78,7 @@ import {
   mapProviderKeysToDossierCapabilities,
   validateTier3Readiness,
 } from "@/lib/integrations/tier3-build-spec";
-import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
+import { getStoredProjectEnvVarMap } from "@/lib/projects/project-env-vars";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import type { DossierOverviewEntry, DossierOverviewResponse } from "@/lib/builder/dossier-overview";
 

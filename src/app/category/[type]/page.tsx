@@ -34,7 +34,7 @@ import {
   getTemplateImageUrl,
   type Template,
 } from "@/lib/templates/template-data";
-import { createProject } from "@/lib/project-client";
+import { createProject } from "@/lib/projects/project-client";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { getTemplateCatalogItemById } from "@/lib/templates/template-catalog";
 import { PreviewModal } from "@/components/templates/preview-modal";

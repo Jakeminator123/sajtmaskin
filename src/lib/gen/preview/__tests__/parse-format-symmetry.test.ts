@@ -20,7 +20,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/project-env-vars", () => ({
+vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap: vi.fn(async () => ({})),
 }));
 

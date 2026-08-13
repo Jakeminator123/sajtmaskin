@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/project-env-vars", () => ({
+vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap: vi.fn(async () => ({})),
 }));
 
@@ -44,7 +44,7 @@ describe("buildProjectEnvFileContents", () => {
   });
 
   it("never loads or renders stored project values", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     const getStoredMap = vi.mocked(getStoredProjectEnvVarMap);
     getStoredMap.mockClear();
     const body = await buildProjectEnvFileContents({
@@ -321,7 +321,7 @@ describe("buildProjectEnvFileContents — dossier-scoped env.example (wave 1)", 
   });
 
   it("keeps stored values out of injected files_json", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     const getStoredMap = vi.mocked(getStoredProjectEnvVarMap);
     getStoredMap.mockClear();
     const next = await injectProjectEnvFileIntoFilesJson(

@@ -63,7 +63,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateVersionFiles,
 }));
 
-vi.mock("@/lib/image-assets", () => ({
+vi.mock("@/lib/images/image-assets", () => ({
   materializeImagesInTextFiles: vi.fn(),
 }));
 

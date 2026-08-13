@@ -21,7 +21,7 @@
  * integrations build until every required tier-3 key has a real value.
  */
 
-import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
+import { getStoredProjectEnvVarMap } from "@/lib/projects/project-env-vars";
 import {
   loadPlaceholderKeySet,
   type PreviewLifecycleStage,

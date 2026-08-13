@@ -5,7 +5,7 @@ import {
   resolveCanonicalVercelProjectForDomain,
   updateDeploymentStatus,
 } from "@/lib/deployment";
-import { materializeImagesInTextFiles, type ImageAssetStrategy } from "@/lib/image-assets";
+import { materializeImagesInTextFiles, type ImageAssetStrategy } from "@/lib/images/image-assets";
 import {
   createVercelDeployment,
   checkVercelProjectDomain,
@@ -30,7 +30,7 @@ import { buildDeployReadiness } from "@/lib/deploy/deploy-readiness";
 import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
-} from "@/lib/project-env-resolver";
+} from "@/lib/projects/project-env-resolver";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
 import {
   clearProjectBrandedDomainVerification,

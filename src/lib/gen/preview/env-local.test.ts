@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/project-env-vars", () => ({
+vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap: vi.fn(async () => ({})),
 }));
 
@@ -43,7 +43,7 @@ describe("mergePreviewEnvRecords", () => {
 
 describe("buildPreviewEnvLocalContents", () => {
   it("includes placeholder keys and applies project map when mocked", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
       STRIPE_SECRET_KEY: "sk_from_project",
     });
@@ -59,7 +59,7 @@ describe("buildPreviewEnvLocalContents", () => {
   });
 
   it("groups output by provenance with section comments", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
       MY_REAL_KEY: "real_value",
     });
@@ -77,7 +77,7 @@ describe("buildPreviewEnvLocalContents", () => {
   });
 
   it("strips tier-3 stub layer for F3 (lifecycleStage='integrations')", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({});
     const body = await buildPreviewEnvLocalContents({
       appProjectId: "proj_test",
@@ -94,7 +94,7 @@ describe("buildPreviewEnvLocalContents", () => {
 
 describe("dotenv round-trip (parseDotenvBody ↔ quoteEnvValue)", () => {
   it("does NOT inflate escape levels across one round-trip", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
 
     // A value with all the chars that quoteEnvValue escapes:
     // backslash, double-quote, newline, plus a regular space (forces quoting).
@@ -118,7 +118,7 @@ describe("dotenv round-trip (parseDotenvBody ↔ quoteEnvValue)", () => {
   });
 
   it("leaves single-quoted values literal (POSIX shell semantics)", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({});
     const { merged } = await resolvePreviewEnvLayers({
       appProjectId: "proj_rt",
@@ -130,7 +130,7 @@ describe("dotenv round-trip (parseDotenvBody ↔ quoteEnvValue)", () => {
 
 describe("resolvePreviewEnvLayers", () => {
   it("can exclude stored project values for persisted artifact callers", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     const getStoredMap = vi.mocked(getStoredProjectEnvVarMap);
     getStoredMap.mockClear();
 
@@ -148,7 +148,7 @@ describe("resolvePreviewEnvLayers", () => {
   });
 
   it("tracks provenance per key with later layers winning", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
       STRIPE_SECRET_KEY: "sk_real",
     });
@@ -166,7 +166,7 @@ describe("resolvePreviewEnvLayers", () => {
   });
 
   it("omits tier-3 stub provenance when lifecycleStage='integrations'", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({});
     const { merged, provenance } = await resolvePreviewEnvLayers({
       appProjectId: "proj_test",
@@ -182,7 +182,7 @@ describe("resolvePreviewEnvLayers", () => {
   // actually stored (or the model emitted) — a demo value that overwrites a real
   // key would render "Byggd — demo aktiv" for a dossier that is in fact live.
   it("lets user and generated values beat the F2 dossier-mock seed", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
       OPENAI_API_KEY: "sk_user_real",
     });
@@ -203,7 +203,7 @@ describe("resolvePreviewEnvLayers", () => {
   });
 
   it("never seeds dossier-mock values in F3 (lifecycleStage='integrations')", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({});
     const { merged } = await resolvePreviewEnvLayers({
       appProjectId: "proj_test",
@@ -258,7 +258,7 @@ describe("resolvePreviewEnvLayers — catalog scoping (scopePlaceholdersToFiles)
   });
 
   it("never filters user or generated layers", async () => {
-    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const { getStoredProjectEnvVarMap } = await import("@/lib/projects/project-env-vars");
     vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
       MY_USER_KEY: "user_value",
     });

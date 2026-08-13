@@ -3,9 +3,9 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { DomainSearchResult } from "@/lib/builder/domain-types";
 import type { ChatReadiness } from "@/lib/chat-readiness";
-import type { ImageAssetStrategy } from "@/lib/image-assets";
+import type { ImageAssetStrategy } from "@/lib/images/image-assets";
 import type { SeoReportPayload } from "@/app/api/v0/deployments/seo-publish";
-import { saveProjectData, updateProject } from "@/lib/project-client";
+import { saveProjectData, updateProject } from "@/lib/projects/project-client";
 import { useCallback, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";

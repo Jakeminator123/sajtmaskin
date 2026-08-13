@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 // `project-env-resolver` transitively imports `getStoredProjectEnvVarMap`
-// from `@/lib/project-env-vars`, which in turn pulls in the Postgres client
+// from `@/lib/projects/project-env-vars`, which in turn pulls in the Postgres client
 // at module load. We mock both so the focused enforcement-bucketing tests
 // run without a database connection.
-vi.mock("@/lib/project-env-vars", () => ({
+vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap: async () => ({}),
 }));
 
@@ -12,7 +12,7 @@ import {
   resolveEnvRequirementsFromDetected,
   type ResolvedProjectEnv,
 } from "./project-env-resolver";
-import type { DetectedIntegration } from "./gen/detect-integrations";
+import type { DetectedIntegration } from "@/lib/gen/detect-integrations";
 
 function envFixture(configured: Record<string, string>): ResolvedProjectEnv {
   return {

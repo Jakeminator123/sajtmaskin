@@ -16,7 +16,7 @@ import { getVersionFiles } from "@/lib/gen/version-manager";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
 import { getLatestEngineVersionErrorLogForCategory } from "@/lib/db/services/version-errors";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
-import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
+import { getStoredProjectEnvVarMap } from "@/lib/projects/project-env-vars";
 import {
   deriveTier3BuildSpec,
   deriveTier3BuildSpecForDossierIds,

@@ -114,7 +114,7 @@ vi.mock("@/lib/tenant", () => ({
   getEngineChatByIdForRequest,
 }));
 
-vi.mock("@/lib/project-env-vars", () => ({
+vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap,
   readAllowPlaceholdersInF3,
 }));

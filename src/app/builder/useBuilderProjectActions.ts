@@ -13,7 +13,7 @@ import {
 import { DEFAULT_DESIGN_THEME, type DesignTheme } from "@/lib/builder/theme-presets";
 import { clearPersistedMessages } from "@/lib/builder/messages-storage";
 import { suggestProjectNameFromPrompt } from "@/lib/builder/project-name-suggestion";
-import { createProject, saveProjectData } from "@/lib/project-client";
+import { createProject, saveProjectData } from "@/lib/projects/project-client";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction, type TransitionStartFunction } from "react";
 import { toast } from "sonner";

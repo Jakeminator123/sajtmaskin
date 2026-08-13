@@ -33,7 +33,7 @@ import { findInvalidJsonConfigPaths } from "@/lib/deploy/version-file-integrity"
 import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
-} from "@/lib/project-env-resolver";
+} from "@/lib/projects/project-env-resolver";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
 import { resolvePendingIntegrationDossiers } from "@/lib/gen/dossiers";
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
