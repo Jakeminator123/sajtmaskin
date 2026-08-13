@@ -388,6 +388,158 @@ check(
 }
 
 {
+  const lifecycleSrc = readFileSync(
+    new URL("../src/runtime/process-lifecycle.js", import.meta.url),
+    "utf8",
+  );
+  const startingWrite = lifecycleSrc.match(
+    /stored\.status = "starting";[\s\S]{0,1600}?stored\.updatedAt = nowIso\(\);\s*\}\);/,
+  );
+  check(
+    "boot start resets non-prewarm readiness in the same write as status=starting",
+    Boolean(
+      startingWrite &&
+        /session\.prewarm !== true/.test(startingWrite[0]) &&
+        /readinessState = "starting"/.test(startingWrite[0]),
+    ),
+  );
+  check(
+    "boot start does not write readinessState for prewarm sessions",
+    Boolean(startingWrite && /if \(session\.prewarm !== true\)/.test(startingWrite[0])),
+  );
+}
+
+{
+  const store = require("../src/store.js");
+  const queuedBoots = [];
+  const previousQueue = runtime.queueRuntimeBoot;
+  runtime.queueRuntimeBoot = (id, options = {}) => queuedBoots.push({ id, options });
+
+  let releaseInstall;
+  const installHung = new Promise((resolve, reject) => {
+    releaseInstall = { resolve, reject };
+  });
+  runtime.__testing.setBootInstallRunnersForTesting({
+    installRunner: () =>
+      installHung.then(() => ({
+        passed: true,
+        exitCode: 0,
+        durationMs: 1,
+        output: "test hang",
+        usedFallback: false,
+        peerConflictDetected: false,
+      })),
+  });
+
+  const upstream = http.createServer((_req, res) => {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end("<!doctype html><html><body>STALE_FAILED_NEW_CHILD_HTML</body></html>");
+  });
+  upstream.listen(0, "127.0.0.1");
+  await once(upstream, "listening");
+  const upstreamAddress = upstream.address();
+
+  const { createServer } = require("../src/server.js");
+  const host = createServer();
+  host.listen(0, "127.0.0.1");
+  await once(host, "listening");
+  const hostAddress = host.address();
+  const hostBase = `http://127.0.0.1:${hostAddress.port}`;
+  const chatId = "swap-stale-failed-gap";
+  const sessionId = `session-${chatId}`;
+  const previewSessionId = `ps-${chatId}`;
+  const versionId = "v-stale-failed";
+  const priorCleanExits = [1_000_000, 1_000_500];
+
+  store.writeStoreAtomicSync({
+    sessions: {
+      [sessionId]: {
+        sessionId,
+        previewSessionId,
+        chatId,
+        versionId,
+        previewUrl: `${hostBase}/${chatId}`,
+        status: "warm_project",
+        lastAction: "start",
+        changeClass: "fresh",
+        startOutcome: "resumed",
+        filesJson: {
+          "app/page.tsx": "export default function Page(){return null}",
+          "package.json": JSON.stringify({ name: "stale-failed-gap", private: true }),
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        sessionExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+        runtimePort: upstreamAddress.port,
+        readinessState: "failed",
+        readinessError: "previous boot overlay",
+        runtimeCleanExitVersionId: versionId,
+        runtimeCleanExitTimestamps: priorCleanExits,
+      },
+    },
+    logs: {},
+    previewSessionToSession: { [previewSessionId]: sessionId },
+    prewarmLeases: {},
+  });
+
+  const bootPromise = runtime.__testing.bootRuntimeForSession(
+    store.readStoreSync().sessions[sessionId],
+    { restart: false },
+  );
+
+  try {
+    let started = null;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      started = store.readStoreSync().sessions[sessionId];
+      if (started?.status === "starting") break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    check(
+      "stale-failed boot reaches status=starting while install is still in flight",
+      started?.status === "starting",
+    );
+    check(
+      "stale failed readiness is cleared before a new child can be registered",
+      started?.readinessState === "starting" && started?.readinessError == null,
+    );
+    check(
+      "clean-exit budget is preserved when the previous status was not starting",
+      Array.isArray(started?.runtimeCleanExitTimestamps) &&
+        started.runtimeCleanExitTimestamps.length === 2 &&
+        started.runtimeCleanExitVersionId === versionId,
+    );
+
+    runtime.__testing.setRuntimeStateForTesting({
+      chatId,
+      sessionId,
+      previewSessionId,
+      runtimePort: upstreamAddress.port,
+      running: true,
+      booting: true,
+      acceptingTraffic: false,
+    });
+    const response = await fetch(`${hostBase}/${chatId}/`);
+    const body = await response.text();
+    check(
+      "stale failed readiness must not open the gate for a newly spawned gated runtime",
+      response.status === 200 &&
+        /Startar/.test(body) &&
+        !/STALE_FAILED_NEW_CHILD_HTML/.test(body),
+    );
+  } finally {
+    releaseInstall.reject(new Error("stale-failed-gap test abort"));
+    runtime.__testing.setBootInstallRunnersForTesting();
+    runtime.queueRuntimeBoot = previousQueue;
+    runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
+    await bootPromise.catch(() => undefined);
+    host.close();
+    host.closeAllConnections?.();
+    upstream.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+{
   const store = require("../src/store.js");
   const chatId = "swap-idle-gated";
   const sessionId = "swap-idle-gated-session";

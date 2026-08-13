@@ -702,6 +702,15 @@ async function bootRuntimeForSession(session, options = {}) {
       stored.runtimeCleanExitVersionId = session.versionId;
       stored.runtimeCleanExitTimestamps = [];
     }
+    // Drop a previous boot's readiness verdict before any new child is
+    // spawned. A stale `failed` plus a gated live process opens the
+    // SM-044 traffic bypass (`running && readinessState === "failed"`).
+    // Port-matching cannot close that hole: resolvePortForChat often
+    // reuses the same port. Prewarm skeletons stay stateless.
+    if (session.prewarm !== true) {
+      stored.readinessState = "starting";
+      stored.readinessError = null;
+    }
     stored.updatedAt = nowIso();
   });
 
