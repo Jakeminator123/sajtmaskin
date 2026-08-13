@@ -1085,6 +1085,34 @@ describe("buildRoutePlan — per-round page ceiling", () => {
     expect(plan.reason).toMatch(/ceiling of 8/i);
   });
 
+  // Scaffoldens egna filer länkar hårdkodat till sina required-rutter (ecommerce
+  // länkar /products från header, footer och hero), så en kapad required-rutt ger
+  // döda länkar. Vid nödbromsen får en namngiven sida vika i stället — den syns
+  // för användaren och kan begäras igen i nästa runda.
+  it("keeps the required scaffold route and cuts a named page at the absolute brake", () => {
+    const names = [
+      "start",
+      "projekt",
+      "om oss",
+      "kontakt",
+      "priser",
+      "team",
+      "blogg",
+      "villkor",
+    ];
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: `Webbutik. Sidor: ${names.join(", ")}`,
+      resolvedScaffold: getScaffoldById("ecommerce"),
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(plan.routes).toHaveLength(ABSOLUTE_MAX_ROUTES_PER_GENERATION);
+    expect(paths).toContain("/products");
+    expect(
+      paths.filter((path) => path !== "/" && path !== "/products").length,
+    ).toBeLessThan(names.length);
+  });
+
   it("lets an explicit lower page count win over four named pages", () => {
     const plan = buildRoutePlan({
       ...websiteBase,

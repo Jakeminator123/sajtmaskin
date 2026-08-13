@@ -345,7 +345,8 @@ export function buildRoutePlan(params: {
   // so the least user-driven routes go first. Unnamed brief pages are still
   // trimmed at the soft ceiling. Init rounds keep prompt-named pages and required
   // scaffold companions above 3, then cut at ABSOLUTE_MAX_ROUTES_PER_GENERATION
-  // (guessed, then required, then named). An explicit lower count still wins.
+  // (guessed, then brief, then named, then required). An explicit lower count
+  // still wins, and it cuts required BEFORE named — see both branches below.
   const effectiveRouteCeiling =
     !useFollowUpFreeze && earlyExplicitPageCount !== null
       ? Math.min(MAX_ROUTES_PER_GENERATION, earlyExplicitPageCount)
@@ -410,7 +411,11 @@ export function buildRoutePlan(params: {
     );
     if (routes.length > ABSOLUTE_MAX_ROUTES_PER_GENERATION) {
       absoluteCeilingApplied = true;
-      for (const cls of ["guessed", "brief", "required", "named"] as const) {
+      // Named yields before required here. A scaffold's own files hardcode links
+      // to its required routes (ecommerce links /products from header, footer and
+      // hero), so cutting one ships dead links, while a cut named page is visible
+      // and can be asked for again in a later round.
+      for (const cls of ["guessed", "brief", "named", "required"] as const) {
         ceilingTrimmedCount += trimRoutesOverCeiling(
           routes,
           ABSOLUTE_MAX_ROUTES_PER_GENERATION,
