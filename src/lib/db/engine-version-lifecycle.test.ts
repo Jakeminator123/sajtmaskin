@@ -262,6 +262,14 @@ describe("selectPreferredEngineVersion", () => {
     const preferred = selectPreferredEngineVersion(versions);
     expect(preferred?.versionNumber).toBe(1);
   });
+
+  it("skips a failed newer head and keeps the passed design", () => {
+    const versions = [
+      { versionNumber: 1, verificationState: "passed", releaseState: "promoted" },
+      { versionNumber: 3, verificationState: "failed" },
+    ];
+    expect(selectPreferredEngineVersion(versions)?.versionNumber).toBe(1);
+  });
 });
 
 describe("canExposeEnginePreview — superseded", () => {

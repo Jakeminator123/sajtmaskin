@@ -561,6 +561,32 @@ export function useCreateChat(
           } catch {
             // ignore
           }
+          const recoveredChatId =
+            typeof errorData?.chatId === "string" ? errorData.chatId.trim() : "";
+          if (recoveredChatId) {
+            setChatId(recoveredChatId);
+            const params = buildBuilderParams({
+              chatId: recoveredChatId,
+              project: appProjectId ?? undefined,
+              buildIntent: effectiveBuildIntent,
+            });
+            router.replace(`/builder?${params.toString()}`);
+            if (pendingCreateKeyRef.current) {
+              updateCreateChatLockChatId(pendingCreateKeyRef.current, recoveredChatId);
+            }
+          }
+          const lockReason = errorData?.reason;
+          if (
+            lockReason === "generation_lock_unavailable" ||
+            lockReason === "generation_in_progress"
+          ) {
+            toast.error(
+              typeof errorData?.message === "string" && errorData.message.trim()
+                ? errorData.message
+                : "Kunde inte starta generationen just nu. Försök igen om en stund.",
+            );
+            return Boolean(recoveredChatId);
+          }
           throw new Error(
             buildApiErrorMessage({ response, errorData, fallbackMessage: "Failed to create chat" }),
           );

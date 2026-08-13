@@ -53,11 +53,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   const {
     isBusy,
+    isInteractionLocked,
     isPreviewLoading,
     activeVersionSummary,
     activeVersionIsLatest,
     activeVersionBusStatus,
     activeVersionStatus,
+    preferredVersionStatus,
     followUpBaseInfo,
     sendMessage,
     handleComposerAiFallback,
@@ -102,7 +104,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     catalogPickDisabled,
     handleShadcnItemInsert,
     handleRequestDossier,
-  } = useShellRegistryInsert(vm, sendMessage, isBusy);
+  } = useShellRegistryInsert(vm, sendMessage, isInteractionLocked);
 
   useShellDevContextEffects(vm, {
     activeVersionStatus,
@@ -125,12 +127,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     setF3Requirements,
     setF3Status,
     sendMessage,
+    isInteractionLocked,
   });
 
   // Ö9: nedfällt läge döljer chattflödet, så en spärr som bara syns där måste
   // följa med upp i raden — annars gömmer nedfällningen felet.
   const chatCollapseStatusText = resolveChatCollapseStatusText({
     activeVersionStatus,
+    preferredVersionStatus,
     deployBlocker: deployReadinessBlocker,
     f3Status: visibleF3Status,
   });
@@ -193,6 +197,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         isDeploying={vm.isDeploying}
         isCreatingChat={vm.isCreatingChat}
         isAnyStreaming={vm.isAnyStreaming}
+        pipelineLocked={isInteractionLocked}
         isSavingProject={vm.isSavingProject}
         canDeploy={canDeploy}
         canManageDomain={Boolean(vm.chatId && vm.activeVersionId && !isDeployActionBusy)}
@@ -216,7 +221,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             versionId={vm.activeVersionId}
             previewUrl={vm.currentPreviewUrl}
             lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
-            isBusy={isBusy}
+            isBusy={isInteractionLocked}
             onClear={handleClearPreview}
             clearDisabled={isPreviewLoading}
             onRequestDossier={handleRequestDossier}
@@ -351,7 +356,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 await sendMessage(text, options);
               }}
               onApproveBuildPlan={handleApproveBuildPlan}
-              quickReplyDisabled={isBusy}
+              quickReplyDisabled={isInteractionLocked}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               isStreaming={vm.isAnyStreaming}
             />
@@ -382,7 +387,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onPromptAssistModeReset={vm.handlePromptAssistModeReset}
               isFigmaInputOpen={isFigmaInputOpen}
               onFigmaInputOpenChange={setIsFigmaInputOpen}
-              isBusy={isBusy}
+              isBusy={isInteractionLocked}
               isPreparingPrompt={vm.isPreparingPrompt}
               mediaEnabled={vm.mediaEnabled}
               continuePlanMode={Boolean(latestPendingReply?.planMode)}
@@ -483,6 +488,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 versions={vm.effectiveVersionsList}
                 mutateVersions={vm.mutateVersions}
                 lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+                selectDisabled={isInteractionLocked}
               />
             </div>
           )}

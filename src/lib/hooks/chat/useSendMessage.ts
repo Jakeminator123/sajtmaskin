@@ -18,7 +18,7 @@ import {
   isClientInitiatedAbort,
   isNetworkError,
 } from "./helpers";
-import { runPostGenerationChecks } from "./post-checks";
+import { runPostGenerationChecks, abortPostChecksForChat } from "./post-checks";
 import { triggerImageMaterialization } from "./post-checks-fetch";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
@@ -159,6 +159,24 @@ export function useSendMessage(
         settleRejectedTurn(
           "En nyare version finns – ladda om för att bygga vidare på den senaste versionen.",
         );
+        return true;
+      };
+      const handleGenerationInProgress = (
+        status: number,
+        errorData: Record<string, unknown> | null,
+      ): boolean => {
+        if (status !== 409 || errorData?.reason !== "generation_in_progress") return false;
+        toast.error("En generation pågår redan. Vänta tills den är klar.");
+        settleRejectedTurn("En generation pågår redan — vänta tills den är klar.");
+        return true;
+      };
+      const handleGenerationLockUnavailable = (
+        status: number,
+        errorData: Record<string, unknown> | null,
+      ): boolean => {
+        if (status !== 503 || errorData?.reason !== "generation_lock_unavailable") return false;
+        toast.error("Kunde inte starta generationen just nu. Försök igen om en stund.");
+        settleRejectedTurn("Kunde inte starta generationen just nu — försök igen om en stund.");
         return true;
       };
       const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
@@ -464,6 +482,7 @@ export function useSendMessage(
           requestBody.attachments = options.attachments;
         }
 
+        abortPostChecksForChat(chatId);
         streamAbortRef.current?.abort();
         streamController = new AbortController();
         streamAbortRef.current = streamController;
@@ -490,6 +509,9 @@ export function useSendMessage(
             .clone()
             .json()
             .catch(() => null)) as Record<string, unknown> | null;
+          if (handleGenerationInProgress(response.status, staleData)) {
+            return { status: "rejected", reason: "generation_in_progress", turnRecorded: false };
+          }
           const latestVersionIdFromServer =
             staleData?.reason === "stale_base_version" &&
             typeof staleData.latestVersionId === "string"
@@ -521,6 +543,9 @@ export function useSendMessage(
             errorData = (await response.json()) as Record<string, unknown>;
           } catch {
             // ignore
+          }
+          if (handleGenerationLockUnavailable(response.status, errorData)) {
+            return { status: "rejected", reason: "generation_lock_unavailable", turnRecorded: false };
           }
           if (
             response.status === 412 &&
@@ -680,6 +705,12 @@ export function useSendMessage(
             return outcome;
           }
           // 5-2 stale-base gate (client half) — delad hanterare, se ovan.
+          if (handleGenerationLockUnavailable(response.status, errorData)) {
+            return { status: "rejected", reason: "generation_lock_unavailable", turnRecorded: false };
+          }
+          if (handleGenerationInProgress(response.status, errorData)) {
+            return { status: "rejected", reason: "generation_in_progress", turnRecorded: false };
+          }
           if (handleStaleBaseVersion(response.status, errorData)) {
             return { status: "rejected", reason: "stale_base_version", turnRecorded: false };
           }
@@ -760,6 +791,12 @@ export function useSendMessage(
               }
               // PR #355-triage #20: fallbacken ska ge samma stale-base-reload-UX
               // som stream-vägen — inte ett generiskt "Failed to send message".
+              if (handleGenerationLockUnavailable(fallbackRes.status, errorData)) {
+                return { status: "rejected", reason: "generation_lock_unavailable", turnRecorded: false };
+              }
+              if (handleGenerationInProgress(fallbackRes.status, errorData)) {
+                return { status: "rejected", reason: "generation_in_progress", turnRecorded: false };
+              }
               if (handleStaleBaseVersion(fallbackRes.status, errorData)) {
                 return { status: "rejected", reason: "stale_base_version", turnRecorded: false };
               }

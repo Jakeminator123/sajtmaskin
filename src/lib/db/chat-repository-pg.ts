@@ -50,6 +50,7 @@ export {
   createAndPromoteDraftVersion,
   getLatestVersion,
   getPreferredVersion,
+  isPreferredHeadVersion,
   getVersionsByChat,
   getVersionById,
   chatHasImportedRepoVersion,

@@ -89,4 +89,9 @@ export interface VersionHistoryProps {
    * VersionDiagnosticsDialog) that conditionally render env-panel actions.
    */
   lifecycleStage?: import("@/lib/db/engine-version-lifecycle").EngineVersionLifecycleStage | null;
+  /**
+   * When true, row click / restore / accept-repair are no-ops. The panel
+   * still opens for viewing, and Compare stays enabled.
+   */
+  selectDisabled?: boolean;
 }

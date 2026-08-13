@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getRequestUserId = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
-const getLatestVersion = vi.hoisted(() => vi.fn());
+const isPreferredHeadVersion = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
 const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
 const markVersionVerifying = vi.hoisted(() => vi.fn());
@@ -72,7 +72,7 @@ vi.mock("@/lib/gen/version-manager", () => ({
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
-  getLatestVersion,
+  isPreferredHeadVersion,
   getVersionById,
   markVersionVerifying,
   markVersionSupersededByRepair,
@@ -124,7 +124,7 @@ describe("POST quality-gate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getRequestUserId.mockResolvedValue("user-1");
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     getVersionById.mockResolvedValue({ id: "ver-f2", chat_id: "chat-1" });
     checkTier3ReadinessForVersion.mockResolvedValue({
       ok: true,
@@ -351,7 +351,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-2" });
+    isPreferredHeadVersion.mockResolvedValue(false);
 
     const res = await POST(
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
@@ -372,6 +372,45 @@ describe("POST quality-gate", () => {
     // a version a newer one already replaced — settle before markVersionVerifying.
     expect(runQualityGateChecks).not.toHaveBeenCalled();
     expect(markVersionVerifying).not.toHaveBeenCalled();
+  });
+
+  it("does not treat a failed newer head as preferred — the usable version stays the gate target", async () => {
+    // Wiring test: when `isPreferredHeadVersion` says this row is still the
+    // usable head, the gate must not supersede. The selection rule itself
+    // (failed F3 vs passed F2) is locked in `engine-version-lifecycle.test.ts`.
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([{ path: "app/page.tsx", content: "export default function Page(){}" }]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([{ path: "app/page.tsx", content: "export default function Page(){}" }]);
+    exportableToQualityGateFiles.mockReturnValue([{ name: "app/page.tsx", content: "export default function Page(){}" }]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    isPreferredHeadVersion.mockResolvedValue(true);
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.superseded).not.toBe(true);
+    expect(markVersionSupersededByRepair).not.toHaveBeenCalled();
+    expect(runQualityGateChecks).toHaveBeenCalled();
   });
 
   it("does NOT early-short-circuit as superseded when the lease-guarded settle writes no row (Bugbot false-green)", async () => {
@@ -397,7 +436,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-2" });
+    isPreferredHeadVersion.mockResolvedValue(false);
     // The EARLY lease-guarded settle writes no row (guard mismatch) → null.
     markVersionSupersededByRepair.mockResolvedValueOnce(null);
 
@@ -527,7 +566,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-f3" });
+    isPreferredHeadVersion.mockResolvedValue(true);
 
     const res = await POST(
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
@@ -570,7 +609,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     // Finalize verifier flagged blocking findings → guard refuses promotion.
     assertPromoteAllowed.mockResolvedValue({
       allowed: false,
@@ -626,7 +665,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     // Guard allows, but the promote write fails transiently (DB hiccup/race).
     assertPromoteAllowed.mockResolvedValue({ allowed: true });
     promoteVersion.mockResolvedValue(null);
@@ -675,7 +714,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     assertPromoteAllowed.mockResolvedValue({ allowed: true });
     // First promote UPDATE dies on the prod-incident statement_timeout, then the
     // bounded retry succeeds. This must NOT leave the row false-red.
@@ -732,7 +771,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     assertPromoteAllowed.mockResolvedValue({ allowed: true });
     // Every attempt times out → exhaust the bounded retries and surface a
     // retryable promoteError. The row is NEVER marked failed (no false-red).
@@ -786,7 +825,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     // Guard allows promotion (default mock returns a truthy promoted row).
     promoteVersion.mockResolvedValue({ id: "ver-1" });
 
@@ -835,7 +874,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     // Guard could not read the finalize signal (DB error) → indeterminate.
     // Not staleRevision — must NOT stamp / re-check (DB blip ≠ content mismatch).
     assertPromoteAllowed.mockResolvedValue({
@@ -899,7 +938,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     assertPromoteAllowed
       .mockResolvedValueOnce({
         allowed: false,
@@ -963,7 +1002,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     assertPromoteAllowed.mockResolvedValue({
       allowed: false,
       indeterminate: true,
@@ -1022,7 +1061,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     assertPromoteAllowed.mockResolvedValue({
       allowed: false,
       signal: "verifier_failed",
@@ -1077,7 +1116,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     // Guard throws unexpectedly → route .catch must fail closed, not open.
     assertPromoteAllowed.mockRejectedValue(new Error("boom"));
 
@@ -1285,7 +1324,7 @@ describe("POST quality-gate", () => {
     describeQualityGateVerification.mockReturnValue("ok");
     buildServerVerifyQualityGateMeta.mockReturnValue({});
     maybeAnalyzeVisualQAForPassedExportable.mockResolvedValue(null);
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     assertPromoteAllowed.mockResolvedValue({ allowed: true });
     promoteVersion.mockResolvedValue({ id: "ver-1" });
 
@@ -1393,7 +1432,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
 
     const res = await POST(
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
@@ -1452,7 +1491,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
 
     const res = await POST(
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
@@ -1518,7 +1557,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(true);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
 
     const res = await POST(
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
@@ -1560,7 +1599,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(false);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
     assertPromoteAllowed.mockResolvedValue({ allowed: true });
     promoteVersion.mockResolvedValue({ id: "ver-1" });
 
@@ -1629,7 +1668,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(false);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
 
     const res = await POST(
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
@@ -1765,7 +1804,7 @@ describe("POST quality-gate", () => {
       });
       qualityGateAllPassed.mockReturnValue(false);
       buildServerVerifyQualityGateMeta.mockReturnValue({});
-      getLatestVersion.mockResolvedValue({ id: "ver-1" });
+      isPreferredHeadVersion.mockResolvedValue(true);
 
       const res = await POST(
         new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
@@ -1816,7 +1855,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(false);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
 
     const res = await POST(
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
@@ -1864,7 +1903,7 @@ describe("POST quality-gate", () => {
     });
     qualityGateAllPassed.mockReturnValue(false);
     buildServerVerifyQualityGateMeta.mockReturnValue({});
-    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    isPreferredHeadVersion.mockResolvedValue(true);
 
     const res = await POST(
       new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {

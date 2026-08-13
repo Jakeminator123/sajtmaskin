@@ -15,13 +15,26 @@ describe("resolveChatCollapseStatusText", () => {
     expect(resolveChatCollapseStatusText({ ...NOTHING })).toBeNull();
   });
 
-  it("tiger när versionen bara är på väg", () => {
+  it("visar när versionen kontrolleras eller repareras", () => {
     expect(
       resolveChatCollapseStatusText({ ...NOTHING, activeVersionStatus: "verifying" }),
-    ).toBeNull();
+    ).toBe("Kontrollerar versionen");
+    expect(
+      resolveChatCollapseStatusText({ ...NOTHING, activeVersionStatus: "repairing" }),
+    ).toBe("Reparerar versionen");
     expect(
       resolveChatCollapseStatusText({ ...NOTHING, activeVersionStatus: "ready" }),
     ).toBeNull();
+  });
+
+  it("visar preferred-headens kontroll även om den aktiva versionen är klar", () => {
+    expect(
+      resolveChatCollapseStatusText({
+        ...NOTHING,
+        activeVersionStatus: "ready",
+        preferredVersionStatus: "verifying",
+      }),
+    ).toBe("Kontrollerar versionen");
   });
 
   it("visar en misslyckad version", () => {

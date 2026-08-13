@@ -310,6 +310,22 @@ export async function getPreferredVersion(chatId: string): Promise<Version | nul
   return selectPreferredEngineVersion(versions) ?? null;
 }
 
+/**
+ * True when `versionId` is the chat's preferred head (newest non-failed,
+ * non-superseded). Falls back to raw latest when every row is rejected.
+ * Quality-gate and server-verify must share this — a failed F3 head must
+ * not make the still-usable design version look superseded.
+ */
+export async function isPreferredHeadVersion(
+  chatId: string,
+  versionId: string,
+): Promise<boolean> {
+  const preferred =
+    (await getPreferredVersion(chatId).catch(() => null)) ??
+    (await getLatestVersion(chatId).catch(() => null));
+  return !preferred || preferred.id === versionId;
+}
+
 export async function getVersionsByChat(chatId: string): Promise<Version[]> {
   const rows = await db
     .select()

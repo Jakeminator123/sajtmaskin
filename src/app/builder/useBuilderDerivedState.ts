@@ -2,6 +2,7 @@
 
 import type { ChatMessage } from "@/lib/builder/types";
 import { selectPreferredEngineVersion } from "@/lib/db/engine-version-lifecycle";
+import type { VersionStatus } from "@/lib/logging/event-bus-types";
 import { useMemo } from "react";
 
 export type VersionSummary = {
@@ -18,6 +19,8 @@ export type VersionSummary = {
   promotedAt?: string | Date | null;
   /** Own-engine rows use `false`; legacy mapped chats use `true`. */
   canPin?: boolean;
+  /** Event-bus projection from GET /versions — seeds UI lock before poll. */
+  busStatus?: VersionStatus | null;
 };
 
 export type ChatData = {
