@@ -13,7 +13,7 @@ own-engine path only; v0 Platform API is not used for `createGenerationPipeline`
 ```
 Builder/API prompt
     │
-    ├─ orchestratePromptMessage()  (promptOrchestration.ts) — alltid
+    ├─ orchestratePromptMessage()  (prompt-orchestration.ts) — alltid
     ├─ (create-chat) ev. server Deep Brief → meta.brief  (site-brief-generation.ts)
     │
     └─ prepareGenerationContext()  (orchestrate.ts)

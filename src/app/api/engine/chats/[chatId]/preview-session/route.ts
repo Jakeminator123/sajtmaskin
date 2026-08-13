@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import {
   getPreferredVersion,
   getLatestVersion,
@@ -19,7 +19,7 @@ import {
   TIER2_PREVIEW_SETUP_HINT,
 } from "@/lib/gen/preview/tier2-config";
 import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { incIngressEvent } from "@/lib/observability/metrics";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 

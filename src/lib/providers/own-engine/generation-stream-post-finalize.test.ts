@@ -47,7 +47,7 @@ vi.mock("@/lib/db/client", () => ({
   dbConfigured: true,
 }));
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend,
   devLogFinalizeSite: vi.fn(),
 }));

@@ -1,6 +1,6 @@
 import { NextResponse, after } from "next/server";
 import { z } from "zod";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import {
   getLlmUsageContext,
   runWithLlmUsageContext,
@@ -43,7 +43,7 @@ import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";

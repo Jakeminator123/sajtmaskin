@@ -1,7 +1,7 @@
 "use client";
 
 import { dispatchInspectCaptureEvent } from "@/lib/builder/inspect-events";
-import { buildFileTree } from "@/lib/builder/fileTree";
+import { buildFileTree } from "@/lib/builder/file-tree";
 import {
   matchCapturedElement,
   type JsxElementRegistryItem,

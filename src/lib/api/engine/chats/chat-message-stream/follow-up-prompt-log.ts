@@ -2,7 +2,7 @@
  * Follow-up prompt-log recording (best-effort). Extracted verbatim from
  * `chat-message-stream-post.ts`.
  */
-import type { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import type { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import type { prepareCredits } from "@/lib/credits/server";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";

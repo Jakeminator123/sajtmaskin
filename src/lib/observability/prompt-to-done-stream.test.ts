@@ -5,7 +5,7 @@ import {
   resetMetricsForTest,
 } from "./metrics";
 import { wrapStreamForPromptToDoneMetric } from "./prompt-to-done-stream";
-import * as devLogModule from "@/lib/logging/devLog";
+import * as devLogModule from "@/lib/logging/dev-log";
 
 function sseSource(chunks: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();

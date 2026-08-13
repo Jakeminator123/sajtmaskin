@@ -20,7 +20,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { addDomainToProject, isVercelConfigured } from "@/lib/vercel/vercel-client";
 import { addZoneRecord, isLoopiaConfigured } from "@/lib/loopia/loopia-client";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { resolveVercelProjectForChat } from "@/lib/domains/resolve-vercel-project";
 
 export const maxDuration = 15;

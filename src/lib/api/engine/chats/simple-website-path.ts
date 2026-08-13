@@ -1,5 +1,5 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import { uWordRegex } from "@/lib/utils/unicode-word-boundary";

@@ -14,7 +14,7 @@ Primary code sources:
 
 - `src/lib/db/schema.ts`
 - `scripts/db/db-init.mjs`
-- `src/lib/validations/chatSchemas.ts`
+- `src/lib/validations/chat-schemas.ts`
 - `src/lib/templates/template-data.ts`
 - `src/lib/gen/dossiers/types.ts`
 - `docs/schemas/strict/dossier.schema.json`
@@ -99,7 +99,7 @@ These tables are used by the own-engine build path and are fully integrated:
 
 Important request-validation schemas currently live in:
 
-- `src/lib/validations/chatSchemas.ts`
+- `src/lib/validations/chat-schemas.ts`
 
 This file defines:
 

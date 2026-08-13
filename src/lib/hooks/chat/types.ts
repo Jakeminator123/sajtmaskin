@@ -7,7 +7,7 @@ import type { PaletteState } from "@/lib/builder/palette";
 import type { PromptSourceMeta } from "@/lib/builder/prompt-builder";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import type { OpenClawPreparedPromptSource } from "@/lib/openclaw/prepared-prompt";
-import type { ModelTier } from "@/lib/validations/chatSchemas";
+import type { ModelTier } from "@/lib/validations/chat-schemas";
 import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
 import type { MutableRefObject } from "react";
 

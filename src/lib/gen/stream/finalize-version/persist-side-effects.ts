@@ -14,7 +14,7 @@
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import {
   createEngineVersionErrorLogs,

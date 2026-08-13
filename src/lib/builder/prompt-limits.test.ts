@@ -13,7 +13,7 @@ describe("promptLimits", () => {
   });
 
   it("uses default values when env vars are not set", async () => {
-    const limits = await import("./promptLimits");
+    const limits = await import("./prompt-limits");
     expect(limits.MAX_CHAT_MESSAGE_CHARS).toBe(800_000);
     expect(limits.WARN_CHAT_MESSAGE_CHARS).toBe(500_000);
     expect(limits.MAX_CHAT_SYSTEM_CHARS).toBe(600_000);
@@ -22,36 +22,36 @@ describe("promptLimits", () => {
 
   it("respects env var overrides", async () => {
     process.env.SAJTMASKIN_MAX_PROMPT_LENGTH = "80000";
-    const limits = await import("./promptLimits");
+    const limits = await import("./prompt-limits");
     expect(limits.MAX_CHAT_MESSAGE_CHARS).toBe(80_000);
   });
 
   it("clamps values below the minimum", async () => {
     process.env.SAJTMASKIN_MAX_PROMPT_LENGTH = "100";
-    const limits = await import("./promptLimits");
+    const limits = await import("./prompt-limits");
     expect(limits.MAX_CHAT_MESSAGE_CHARS).toBe(5_000);
   });
 
   it("clamps values above the maximum", async () => {
     process.env.SAJTMASKIN_MAX_PROMPT_LENGTH = "9999999";
-    const limits = await import("./promptLimits");
+    const limits = await import("./prompt-limits");
     expect(limits.MAX_CHAT_MESSAGE_CHARS).toBe(2_000_000);
   });
 
   it("falls back to default for non-numeric env values", async () => {
     process.env.SAJTMASKIN_MAX_PROMPT_LENGTH = "not-a-number";
-    const limits = await import("./promptLimits");
+    const limits = await import("./prompt-limits");
     expect(limits.MAX_CHAT_MESSAGE_CHARS).toBe(800_000);
   });
 
   it("floors floating point env values", async () => {
     process.env.SAJTMASKIN_MAX_PROMPT_LENGTH = "75000.9";
-    const limits = await import("./promptLimits");
+    const limits = await import("./prompt-limits");
     expect(limits.MAX_CHAT_MESSAGE_CHARS).toBe(75_000);
   });
 
   it("exports orchestration soft targets with sane defaults", async () => {
-    const limits = await import("./promptLimits");
+    const limits = await import("./prompt-limits");
     expect(limits.ORCHESTRATION_SOFT_TARGET_FREEFORM_CHARS).toBe(75_000);
     expect(limits.ORCHESTRATION_SOFT_TARGET_WIZARD_CHARS).toBe(85_000);
     expect(limits.ORCHESTRATION_PHASE_FORCE_CHARS).toBe(180_000);

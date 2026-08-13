@@ -15,7 +15,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import type { DossierEntry } from "./types";
 import { getDossierFileContent } from "./registry";
 import { mapDossierPathToOutput } from "./output-path";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 
 export interface VerbatimRestoreEvent {
   path: string;

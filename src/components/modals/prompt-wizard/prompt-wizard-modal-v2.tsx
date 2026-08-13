@@ -10,7 +10,7 @@ import {
 } from "@/components/forms/color-palette-picker";
 import { useAuth } from "@/lib/auth/auth-store";
 import { formatPrompt } from "@/lib/builder/prompt-assist";
-import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
+import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/prompt-limits";
 import {
   CLARIFY_FALLBACK_ID,
   INDUSTRY_OPTIONS,

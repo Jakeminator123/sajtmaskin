@@ -9,7 +9,7 @@ const getLatestVersion = vi.hoisted(() => vi.fn());
 const emit = vi.hoisted(() => vi.fn());
 const getLatestQualityGateSignalForVersion = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 

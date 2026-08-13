@@ -48,7 +48,7 @@
     },
     "slug": {
       "type": ["string", "null"],
-      "description": "Run-slug. Sätts av enrichEntryWithSlug i devLog.ts."
+      "description": "Run-slug. Sätts av enrichEntryWithSlug i dev-log.ts."
     }
   }
 }

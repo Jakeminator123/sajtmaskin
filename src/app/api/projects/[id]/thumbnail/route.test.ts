@@ -22,7 +22,7 @@ vi.mock("@/lib/db/services/projects", () => ({
 }));
 vi.mock("@/lib/data/redis", () => ({ deleteCache }));
 vi.mock("@/lib/ssrf-guard", () => ({ isDisallowedHost, hostResolvesToPrivate }));
-vi.mock("@/lib/rateLimit", () => ({ withRateLimit }));
+vi.mock("@/lib/rate-limit", () => ({ withRateLimit }));
 vi.mock("@/lib/vercel/blob-service", () => ({ uploadBlob, deleteBlob }));
 // Bara captureringen mockas — `isTransientCaptureAbort` körs på riktigt så
 // rutans 502-vs-200-beslut testas mot den faktiska klassificeringen.

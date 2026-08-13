@@ -12,7 +12,7 @@ vi.mock("@/lib/auth/session", () => ({
   getSessionIdFromRequest,
 }));
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 

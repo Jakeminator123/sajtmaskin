@@ -14,7 +14,7 @@ vi.mock("@/lib/auth/auth", () => ({
   getCurrentUser,
 }));
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 
@@ -32,7 +32,7 @@ vi.mock("@/lib/db/services/projects", () => ({
   getProjectById,
   setProjectVerifiedCustomDomain,
 }));
-vi.mock("@/lib/vercelDeploy", () => ({
+vi.mock("@/lib/vercel-deploy", () => ({
   checkVercelProjectDomain,
 }));
 

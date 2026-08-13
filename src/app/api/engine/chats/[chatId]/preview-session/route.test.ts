@@ -32,7 +32,7 @@ const PREVIEW_URL_PERSIST_OPTIONS = {
   retryDelayMs: 300,
 } as const;
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { MAX_CHAT_MESSAGE_CHARS } from "@/lib/builder/promptLimits";
-import { createChatSchema, sendMessageSchema } from "./chatSchemas";
+import { MAX_CHAT_MESSAGE_CHARS } from "@/lib/builder/prompt-limits";
+import { createChatSchema, sendMessageSchema } from "./chat-schemas";
 
 describe("chatSchemas prompt metadata guards", () => {
   it("rejects oversized create-chat prompt metadata payloads", () => {

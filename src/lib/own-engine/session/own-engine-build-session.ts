@@ -2,7 +2,7 @@
  * Shared own-engine stream assembly for POST /chats/stream and POST /chats/[chatId]/stream.
  * Routes keep auth, credits, and persistence; this module keeps generation SSE meta consistent.
  */
-import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ContractClarificationQuestion } from "@/lib/gen/contract/clarification";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";

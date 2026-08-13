@@ -3,7 +3,7 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { recordPreviewRuntimeOutcomeForVersion } from "@/lib/db/services/generation-telemetry";
 import { dbConfigured } from "@/lib/db/client";
-import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
+import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/dev-log";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 // Side-effect import: ensures the devLog-mirror subscriber is active
 // before `server-verify.policy` is emitted through the bus.

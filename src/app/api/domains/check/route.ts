@@ -22,7 +22,7 @@ import { isVercelConfigured } from "@/lib/vercel/vercel-client";
 import { isLoopiaConfigured } from "@/lib/loopia/loopia-client";
 import { resolveDomainOffer, type DomainOffer } from "@/lib/domains/registrar";
 import { lookupWhois, summarizeWhois, type WhoisSummary } from "@/lib/domains/rdap-client";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 20;
 

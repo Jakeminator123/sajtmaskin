@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
 import {
   getActivePreviewSessionAsync,

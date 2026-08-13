@@ -41,7 +41,7 @@ const QualityGateUnavailableError = vi.hoisted(
 // Pass-through the rate limiter so the suite is deterministic regardless of how
 // many requests the tests fire (the real in-memory limiter otherwise starts
 // returning 429 after ~a dozen calls in a single run).
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: unknown, _key: unknown, fn: () => unknown) => fn(),
 }));
 

@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setDeploymentDomainForRequest } from "@/lib/deployment";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "domains:save", async () => {

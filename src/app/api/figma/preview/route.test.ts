@@ -8,11 +8,11 @@ vi.mock("@/lib/config", () => ({
   SECRETS: { figmaAccessToken: "figma-token" },
 }));
 
-vi.mock("@/lib/botProtection", () => ({
+vi.mock("@/lib/bot-protection", () => ({
   requireNotBot: () => null,
 }));
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_request: Request, _bucket: string, handler: () => Promise<Response>) =>
     handler(),
 }));

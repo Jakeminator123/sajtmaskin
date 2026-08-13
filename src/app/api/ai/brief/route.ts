@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { requireNotBot } from "@/lib/botProtection";
-import { withRateLimit } from "@/lib/rateLimit";
+import { requireNotBot } from "@/lib/bot-protection";
+import { withRateLimit } from "@/lib/rate-limit";
 import { getRequestUserId } from "@/lib/tenant";
 import { debugLog, errorLog } from "@/lib/utils/debug";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
 import { normalizeAssistModel } from "@/lib/builder/prompt-assist";
 import {

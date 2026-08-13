@@ -13,7 +13,7 @@ import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "@/lib/gen/prompt-du
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 
 export type PlanModePlannerOrchestrationSlice = {
   dynamicContext: string;

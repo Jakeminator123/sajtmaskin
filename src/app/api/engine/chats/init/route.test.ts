@@ -58,7 +58,7 @@ vi.mock("@/lib/models/selection", () => ({
   resolveEngineModelId: () => "gpt-5.4",
 }));
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 

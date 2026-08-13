@@ -13,7 +13,7 @@ vi.mock("../models", () => ({
   isAnthropicModel: (id: string) => id.startsWith("claude-"),
 }));
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: devLogAppendMock,
 }));
 

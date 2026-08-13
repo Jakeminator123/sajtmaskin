@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireNotBot } from "@/lib/botProtection";
-import { withRateLimit } from "@/lib/rateLimit";
+import { requireNotBot } from "@/lib/bot-protection";
+import { withRateLimit } from "@/lib/rate-limit";
 import { getRequestUserId } from "@/lib/tenant";
 import { errorLog } from "@/lib/utils/debug";
 import { isShadcnDescribeEnabled } from "@/lib/shadcn/describe-feature";

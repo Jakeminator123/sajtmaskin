@@ -10,7 +10,7 @@
  * All keys are prefixed with REDIS_KEY_PREFIX ("prod:" or "dev:")
  * so dev and prod never collide even on a shared instance.
  *
- * Rate Limiting (separat fil): se `src/lib/rateLimit.ts` — Upstash REST +
+ * Rate Limiting (separat fil): se `src/lib/rate-limit.ts` — Upstash REST +
  * in-memory fallback. Denna fil hanterar inte rate-limit längre.
  *
  * General Cache:

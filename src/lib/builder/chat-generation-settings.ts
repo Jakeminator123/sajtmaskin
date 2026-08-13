@@ -2,7 +2,7 @@ import {
   DEFAULT_IMAGE_GENERATIONS,
   MODEL_TIER_OPTIONS,
 } from "@/lib/builder/defaults";
-import type { ModelTier } from "@/lib/validations/chatSchemas";
+import type { ModelTier } from "@/lib/validations/chat-schemas";
 import { canonicalizeModelId } from "@/lib/models/catalog";
 
 export type ChatGenerationSettings = {

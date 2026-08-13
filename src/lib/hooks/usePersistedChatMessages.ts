@@ -1,6 +1,6 @@
 import type { ChatMessage } from "@/lib/builder/types";
-import { sanitizeChatMessageContentForDisplay } from "@/lib/builder/messageAdapter";
-import { loadPersistedMessages, persistMessages } from "@/lib/builder/messagesStorage";
+import { sanitizeChatMessageContentForDisplay } from "@/lib/builder/message-adapter";
+import { loadPersistedMessages, persistMessages } from "@/lib/builder/messages-storage";
 import { useEffect } from "react";
 
 function normalizeServerMessages(input: ChatMessage[] | undefined): ChatMessage[] {

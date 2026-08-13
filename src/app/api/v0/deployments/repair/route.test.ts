@@ -29,11 +29,11 @@ vi.mock("drizzle-orm", () => ({
   }),
 }));
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 
-vi.mock("@/lib/botProtection", () => ({
+vi.mock("@/lib/bot-protection", () => ({
   requireNotBot: () => null,
 }));
 

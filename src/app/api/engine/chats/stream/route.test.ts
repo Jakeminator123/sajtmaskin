@@ -95,13 +95,13 @@ vi.mock("@/lib/db/schema", () => ({
   versions: {},
 }));
 
-vi.mock("@/lib/validations/chatSchemas", () => ({
+vi.mock("@/lib/validations/chat-schemas", () => ({
   createChatSchema: {
     safeParse: createChatSchemaSafeParse,
   },
 }));
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 
@@ -122,14 +122,14 @@ vi.mock("@/lib/auth/session", () => ({
   ensureSessionIdFromRequest: () => ({ sessionId: "sess_1", setCookie: null }),
 }));
 
-vi.mock("@/lib/builder/promptLimits", () => ({
+vi.mock("@/lib/builder/prompt-limits", () => ({
   WARN_CHAT_MESSAGE_CHARS: 20_000,
   WARN_CHAT_SYSTEM_CHARS: 20_000,
   MAX_AI_BRIEF_PROMPT_CHARS: 20_000,
   MAX_PROMPT_HANDOFF_CHARS: 20_000,
 }));
 
-vi.mock("@/lib/builder/promptOrchestration", () => ({
+vi.mock("@/lib/builder/prompt-orchestration", () => ({
   orchestratePromptMessage: ({ message }: { message: string }) => ({
     finalMessage: message,
     strategyMeta: {
@@ -158,11 +158,11 @@ vi.mock("@/lib/tenant", () => ({
   resolveAppProjectIdForRequest,
 }));
 
-vi.mock("@/lib/botProtection", () => ({
+vi.mock("@/lib/bot-protection", () => ({
   requireNotBot: () => null,
 }));
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: vi.fn(),
   devLogFinalizeSite: vi.fn(),
   devLogStartNewSite: vi.fn(),

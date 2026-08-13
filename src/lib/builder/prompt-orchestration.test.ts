@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MAX_CHAT_MESSAGE_CHARS } from "./promptLimits";
-import { buildSectionAwareHandoff, orchestratePromptMessage } from "./promptOrchestration";
+import { MAX_CHAT_MESSAGE_CHARS } from "./prompt-limits";
+import { buildSectionAwareHandoff, orchestratePromptMessage } from "./prompt-orchestration";
 
 describe("promptOrchestration", () => {
   it("classifies first prompts from freeform entry as freeform", () => {

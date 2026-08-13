@@ -9,7 +9,7 @@ import { db } from "@/lib/db/client";
 import { chats, versions, deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { sanitizeMetadata } from "@/lib/sanitize/sanitize-metadata";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import { resolveDeploymentLiveUrlForChat } from "@/lib/deployment";

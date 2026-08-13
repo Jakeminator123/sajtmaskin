@@ -3,7 +3,7 @@ import JSZip from "jszip";
 import { extractContent } from "@/lib/backoffice/content-extractor";
 import { generateBackofficeFiles } from "@/lib/backoffice/template-generator";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";

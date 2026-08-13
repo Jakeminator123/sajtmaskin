@@ -40,7 +40,7 @@ vi.mock("@/lib/logging/error-log-rag", () => ({
   appendErrorLogEvent,
 }));
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend,
 }));
 

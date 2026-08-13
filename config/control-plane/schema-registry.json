@@ -88,7 +88,7 @@
     },
     {
       "id": "chat-request-schemas",
-      "sourceOfTruth": "src/lib/validations/chatSchemas.ts",
+      "sourceOfTruth": "src/lib/validations/chat-schemas.ts",
       "type": "runtime-authority",
       "validator": "test:ci",
       "ciStatus": "hard",

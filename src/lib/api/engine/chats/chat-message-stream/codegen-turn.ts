@@ -7,7 +7,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { isAppScaffold } from "@/lib/builder/build-intent";
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
-import type { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import type { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import {
@@ -34,7 +34,7 @@ import type {
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { compressUrls } from "@/lib/gen/url-compress";
 import type { Tier3BuildSpec } from "@/lib/integrations/tier3-build-spec";
-import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
+import { devLogAppend, devLogStartGeneration } from "@/lib/logging/dev-log";
 import type { BuildProfileId, CanonicalModelId } from "@/lib/models/catalog";
 import { canonicalModelIdToOwnModelId, MODEL_LABELS } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";

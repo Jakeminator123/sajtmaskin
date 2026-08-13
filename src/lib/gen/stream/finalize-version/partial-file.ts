@@ -12,7 +12,7 @@
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import { PARTIAL_FILE_REPAIR_MAX_ATTEMPTS } from "@/lib/gen/defaults";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { incPartialFileRepair } from "@/lib/observability/metrics";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { BuildSpec } from "@/lib/gen/build-spec";

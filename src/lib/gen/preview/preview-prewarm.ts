@@ -5,7 +5,7 @@ import { buildCompleteProject, mergePackageJsonWithBaseline } from "@/lib/gen/ex
 import { runDepCompleter } from "@/lib/gen/autofix/dep-completer";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
 import type { CodeFile } from "@/lib/gen/parser";
-import { getClientId } from "@/lib/rateLimit";
+import { getClientId } from "@/lib/rate-limit";
 import { createHmac } from "node:crypto";
 
 /**

@@ -5,7 +5,7 @@ import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
-import { materializeImagesInTextFiles } from "@/lib/imageAssets";
+import { materializeImagesInTextFiles } from "@/lib/image-assets";
 import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manager";
 import type { CodeFile } from "@/lib/gen/parser";

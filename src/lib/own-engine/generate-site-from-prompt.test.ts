@@ -59,7 +59,7 @@ vi.mock("@/lib/gen/preview/preview-session", () => ({
   startPreviewSession: startPreviewSessionMock,
 }));
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: vi.fn(),
   devLogFinalizeSite: vi.fn(),
 }));

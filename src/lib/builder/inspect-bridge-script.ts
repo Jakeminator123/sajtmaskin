@@ -278,7 +278,7 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
   /**
    * True när barnets vertikala utsträckning är nästan identisk med förälderns
    * (topp- och bottendiff < 1 % av viewporten). Speglar
-   * isNearIdenticalParentSectionRect i sectionAnalyzer.ts — håll i synk.
+   * isNearIdenticalParentSectionRect i section-analyzer.ts — håll i synk.
    * querySelectorAll är document-order (förälder före barn), så den yttersta
    * i en wrapper-stack räknas mot taket; nästlade dubbletter hoppas över.
    */

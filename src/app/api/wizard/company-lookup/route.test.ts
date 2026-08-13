@@ -5,8 +5,8 @@ const prepareCredits = vi.hoisted(() => vi.fn());
 const debugLog = vi.hoisted(() => vi.fn());
 const braveWebSearch = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/botProtection", () => ({ requireNotBot }));
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/bot-protection", () => ({ requireNotBot }));
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_request: Request, _bucket: string, handler: () => Promise<Response>) =>
     handler(),
 }));

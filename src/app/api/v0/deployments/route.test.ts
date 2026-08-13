@@ -51,11 +51,11 @@ vi.mock("@/lib/db/client", () => ({
   dbConfigured: false,
 }));
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 
-vi.mock("@/lib/botProtection", () => ({
+vi.mock("@/lib/bot-protection", () => ({
   requireNotBot: () => null,
 }));
 
@@ -71,7 +71,7 @@ vi.mock("@/lib/deployment", () => ({
   setLatestDeploymentLiveUrlForChat,
 }));
 
-vi.mock("@/lib/vercelDeploy", () => ({
+vi.mock("@/lib/vercel-deploy", () => ({
   createVercelDeployment,
   getVercelDeployment: vi.fn(),
   mapVercelReadyStateToStatus: vi.fn(() => ({ status: "ready" })),
@@ -2252,7 +2252,7 @@ describe("POST /api/v0/deployments", () => {
       inspectorUrl: "https://vercel.com/i/dpl_err",
       readyState: "ERROR",
     });
-    const vercelDeployMocks = await import("@/lib/vercelDeploy");
+    const vercelDeployMocks = await import("@/lib/vercel-deploy");
     vi.mocked(vercelDeployMocks.mapVercelReadyStateToStatus).mockReturnValueOnce({
       status: "error",
     } as ReturnType<typeof vercelDeployMocks.mapVercelReadyStateToStatus>);

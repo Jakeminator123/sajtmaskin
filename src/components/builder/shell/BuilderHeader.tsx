@@ -1,7 +1,7 @@
 "use client";
 
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import type { ModelTier } from "@/lib/validations/chatSchemas";
+import type { ModelTier } from "@/lib/validations/chat-schemas";
 import {
   MODEL_TIER_OPTIONS,
   getDefaultCustomInstructions,

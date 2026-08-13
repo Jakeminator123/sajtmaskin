@@ -16,7 +16,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { lookupWhois } from "@/lib/domains/rdap-client";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 15;
 

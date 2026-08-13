@@ -1,4 +1,4 @@
-import { placementToInstruction, type DetectedSection } from "@/lib/builder/sectionAnalyzer";
+import { placementToInstruction, type DetectedSection } from "@/lib/builder/section-analyzer";
 
 export type PlacementOption = string;
 

@@ -35,7 +35,7 @@ vi.mock("@/lib/config", () => ({
   REDIS_KEY_PREFIX: "test:",
 }));
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: vi.fn(),
 }));
 
@@ -45,7 +45,7 @@ import {
   readBriefCache,
   writeBriefCache,
 } from "./brief-cache";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 
 const devLogAppendMock = devLogAppend as unknown as ReturnType<typeof vi.fn>;
 

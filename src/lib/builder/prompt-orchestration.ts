@@ -16,7 +16,7 @@ import {
   ORCHESTRATION_SOFT_TARGET_TECHNICAL_CHARS,
   ORCHESTRATION_SOFT_TARGET_TEMPLATE_CHARS,
   ORCHESTRATION_SOFT_TARGET_WIZARD_CHARS,
-} from "@/lib/builder/promptLimits";
+} from "@/lib/builder/prompt-limits";
 
 export type PromptStrategy = "direct" | "phase_plan_build_refine" | "preserved";
 export type PromptType =

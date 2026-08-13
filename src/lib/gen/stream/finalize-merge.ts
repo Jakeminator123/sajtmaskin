@@ -3,7 +3,7 @@ import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import
 import { fixTypeOnlyModuleDefaultImports } from "@/lib/gen/autofix/rules/type-only-module-default-import-fixer";
 import type { CodeFile } from "@/lib/gen/parser";
 import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-manager";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { warnLog } from "@/lib/utils/debug";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";

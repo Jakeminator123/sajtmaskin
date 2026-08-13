@@ -33,7 +33,7 @@ import { getKnownBrokenImageReplacements } from "@/lib/db/chat-repository-pg";
 import { dropResolvedVerifierFindings } from "@/lib/gen/verify/stale-verifier-findings";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import { FIX_LESSON_POST_MERGE_STALE_FINDING } from "@/lib/logging/error-log-fix-lessons";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { applyKnownImageReplacementsToContent } from "@/lib/utils/image-validator";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
 import {

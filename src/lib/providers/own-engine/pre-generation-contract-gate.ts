@@ -1,6 +1,6 @@
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
-import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-generation-contracts";

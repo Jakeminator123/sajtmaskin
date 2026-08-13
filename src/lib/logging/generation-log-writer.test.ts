@@ -27,7 +27,7 @@ describe("generation-log writer", () => {
     vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "abc123repohead");
     vi.stubEnv("VERCEL_GIT_COMMIT_REF", "master");
 
-    const { devLogAppend, devLogStartGeneration } = await import("./devLog");
+    const { devLogAppend, devLogStartGeneration } = await import("./dev-log");
 
     devLogStartGeneration({
       message: "Bygg en retrospelhall",
@@ -229,7 +229,7 @@ describe("generation-log writer", () => {
     vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
     vi.stubEnv("GENERATIONSLOGG", "1");
 
-    const { devLogStartGeneration, devLogAppend } = await import("./devLog");
+    const { devLogStartGeneration, devLogAppend } = await import("./dev-log");
 
     // Create 9 runs; expect prune to retain the 5 most recent.
     // We zero-pad the slug so lexicographic sort matches numeric order even
@@ -319,7 +319,7 @@ describe("generation-log writer", () => {
     vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
     vi.stubEnv("GENERATIONSLOGG", "1");
 
-    const { devLogAppend, devLogStartGeneration } = await import("./devLog");
+    const { devLogAppend, devLogStartGeneration } = await import("./dev-log");
 
     devLogStartGeneration({
       message: "Bygg en tydlig startsida",
@@ -392,7 +392,7 @@ describe("generation-log writer", () => {
     vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
     vi.stubEnv("GENERATIONSLOGG", "1");
 
-    const { devLogAppend, devLogStartGeneration } = await import("./devLog");
+    const { devLogAppend, devLogStartGeneration } = await import("./dev-log");
     const { readRunStatusForChat } = await import("./generation-log-writer");
 
     devLogStartGeneration({
@@ -428,7 +428,7 @@ describe("generation-log writer", () => {
     vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
     vi.stubEnv("GENERATIONSLOGG", "1");
 
-    const { devLogAppend, devLogStartGeneration } = await import("./devLog");
+    const { devLogAppend, devLogStartGeneration } = await import("./dev-log");
     const writerModule = await import("./generation-log-writer");
 
     devLogStartGeneration({
@@ -475,7 +475,7 @@ describe("generation-log writer", () => {
     vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
     vi.stubEnv("GENERATIONSLOGG", "1");
 
-    const { devLogAppend, devLogStartGeneration } = await import("./devLog");
+    const { devLogAppend, devLogStartGeneration } = await import("./dev-log");
     const { readRunStatusForChat } = await import("./generation-log-writer");
 
     devLogStartGeneration({
@@ -504,7 +504,7 @@ describe("generation-log writer", () => {
     vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
     vi.stubEnv("GENERATIONSLOGG", "1");
 
-    const { devLogAppend, devLogStartGeneration } = await import("./devLog");
+    const { devLogAppend, devLogStartGeneration } = await import("./dev-log");
 
     const runFollowup = (versionId: string, promptSource: "user" | "auto_repair") => {
       devLogStartGeneration({

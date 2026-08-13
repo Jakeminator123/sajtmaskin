@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_CHAT_MESSAGE_CHARS, MAX_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
+import { MAX_CHAT_MESSAGE_CHARS, MAX_CHAT_SYSTEM_CHARS } from "@/lib/builder/prompt-limits";
 import {
   ACCEPTED_MODEL_IDS,
   DEFAULT_MODEL_ID,

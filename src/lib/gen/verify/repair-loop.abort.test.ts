@@ -19,7 +19,7 @@ const validateGeneratedCode = vi.hoisted(() =>
 );
 
 vi.mock("@/lib/gen/autofix/llm-fixer", () => ({ runLlmFixer }));
-vi.mock("@/lib/logging/devLog", () => ({ devLogAppend }));
+vi.mock("@/lib/logging/dev-log", () => ({ devLogAppend }));
 vi.mock("@/lib/gen/autofix/pipeline", () => ({ runAutoFix }));
 vi.mock("@/lib/gen/retry/validate-syntax", () => ({ validateGeneratedCode }));
 

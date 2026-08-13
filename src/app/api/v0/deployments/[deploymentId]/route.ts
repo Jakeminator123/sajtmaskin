@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDeploy";
+import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercel-deploy";
 import {
   resolveDeploymentLiveUrlForChat,
   updateDeploymentStatus,
 } from "@/lib/deployment";
 import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 

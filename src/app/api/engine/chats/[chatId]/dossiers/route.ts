@@ -53,7 +53,7 @@
  */
 import { NextResponse } from "next/server";
 import { transientDbResponseIfRetryable } from "@/lib/api/transient-db-response";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";

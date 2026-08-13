@@ -7,7 +7,7 @@ import {
   saveMediaLibraryItem,
 } from "@/lib/db/services/media";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { errorLog, warnLog } from "@/lib/utils/debug";
 
 /**

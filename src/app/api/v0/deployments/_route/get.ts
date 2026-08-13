@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import {
   resolveLatestOrCachedVercelProjectId,
   setLatestDeploymentLiveUrlForChat,
@@ -12,7 +12,7 @@ import {
   checkVercelProjectDomain,
   getVercelDeployment,
   mapVercelReadyStateToStatus,
-} from "@/lib/vercelDeploy";
+} from "@/lib/vercel-deploy";
 import {
   getChatByIdForRequest,
   getChatByV0ChatIdForRequest,

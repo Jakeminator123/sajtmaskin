@@ -16,7 +16,7 @@ const [{ db }, { appProjects, deployments, engineChats }, projectServices, deplo
     import("@/lib/db/services/projects"),
     import("@/lib/deployment"),
     import("@/lib/live-site-url"),
-    import("@/lib/vercelDeploy"),
+    import("@/lib/vercel-deploy"),
   ]);
 const {
   clearProjectBrandedDomainVerification,

@@ -15,7 +15,7 @@ import {
   buildJsxElementRegistry,
   type RegistryMatch,
 } from "@/lib/builder/jsx-element-registry";
-import type { InsertionPoint } from "@/lib/builder/sectionAnalyzer";
+import type { InsertionPoint } from "@/lib/builder/section-analyzer";
 import {
   PreviewPanelComposerOverlay,
   PreviewPanelComposerPalette,

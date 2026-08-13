@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OPENCLAW } from "@/lib/config";
 import { prepareCredits } from "@/lib/credits/server";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { resolveFileContext } from "@/lib/openclaw/resolve-file-context";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 

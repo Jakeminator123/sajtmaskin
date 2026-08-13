@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-generation-contracts";
 import type { ContractClarificationQuestion } from "@/lib/gen/contract/clarification";
-import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";

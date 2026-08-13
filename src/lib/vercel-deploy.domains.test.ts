@@ -16,7 +16,7 @@ const {
   checkVercelProjectDomain,
   ensureVercelProject,
   ensureVercelProjectDomain,
-} = await import("./vercelDeploy");
+} = await import("./vercel-deploy");
 
 afterEach(() => {
   vi.unstubAllEnvs();

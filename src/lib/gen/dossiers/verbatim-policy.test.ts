@@ -15,7 +15,7 @@ vi.mock("./registry", () => ({
 }));
 
 const mockDevLogAppend = vi.fn();
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: (...args: unknown[]) => mockDevLogAppend(...args),
 }));
 

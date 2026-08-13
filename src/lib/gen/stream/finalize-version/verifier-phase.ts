@@ -43,7 +43,7 @@ import {
   FIX_LESSON_VERIFIER_FIXER_REWRITE,
   verifierFixerPartialFixLesson,
 } from "@/lib/logging/error-log-fix-lessons";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { parseCodeProject } from "@/lib/gen/parser";
 import { fixDomBuiltinJsxTags } from "@/lib/gen/autofix/rules/dom-builtin-jsx-fixer";
 import { rebuildContent, type AutoFixResult } from "@/lib/gen/autofix/pipeline";

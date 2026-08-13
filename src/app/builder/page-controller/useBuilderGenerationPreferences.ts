@@ -8,7 +8,7 @@ import {
 } from "@/lib/builder/chat-generation-settings";
 import { normalizeDesignTheme, type DesignTheme } from "@/lib/builder/theme-presets";
 import { useLocalStorageBooleanSync } from "@/lib/hooks/useLocalStorageSync";
-import type { ModelTier } from "@/lib/validations/chatSchemas";
+import type { ModelTier } from "@/lib/validations/chat-schemas";
 
 type Params = {
   chatId: string | null;

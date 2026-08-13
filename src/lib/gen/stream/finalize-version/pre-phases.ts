@@ -13,7 +13,7 @@ import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import type { FixEntry } from "@/lib/gen/autofix/types";
 import { getFixerRiskById } from "@/lib/gen/autofix/fixer-registry";
 import { expandUrls } from "@/lib/gen/url-compress";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
 import type {
   FinalizeProgressCallback,

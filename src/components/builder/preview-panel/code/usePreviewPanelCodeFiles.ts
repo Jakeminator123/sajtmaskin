@@ -1,7 +1,7 @@
 "use client";
 
 import { patchEngineChatFile } from "@/lib/builder/engine-files-patch";
-import { buildFileTree } from "@/lib/builder/fileTree";
+import { buildFileTree } from "@/lib/builder/file-tree";
 import type { FileNode } from "@/lib/builder/types";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";

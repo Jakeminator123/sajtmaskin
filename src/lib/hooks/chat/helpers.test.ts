@@ -14,7 +14,7 @@ import {
   integrationSignalToToolPart,
   mergeStreamingText,
 } from "./helpers";
-import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 
 describe("mergeStreamingText", () => {
   it("does not drop a short corrective chunk that incidentally overlaps the tail", () => {

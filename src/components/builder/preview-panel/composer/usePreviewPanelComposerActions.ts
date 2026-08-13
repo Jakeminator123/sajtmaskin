@@ -22,7 +22,7 @@ import {
   tryInsertPageBlockIntoHomePage,
 } from "@/lib/builder/page-block-patch";
 import { patchEngineChatFile } from "@/lib/builder/engine-files-patch";
-import type { InsertionPoint, SectionZone } from "@/lib/builder/sectionAnalyzer";
+import type { InsertionPoint, SectionZone } from "@/lib/builder/section-analyzer";
 import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import {
   buildComposerDropDetail,

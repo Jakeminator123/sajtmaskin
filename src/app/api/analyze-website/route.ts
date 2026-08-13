@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { quickScrapeWebsite } from "@/lib/webscraper";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 
 export const maxDuration = 60;

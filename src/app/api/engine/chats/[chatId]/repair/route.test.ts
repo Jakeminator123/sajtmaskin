@@ -41,7 +41,7 @@ const QualityGateUnavailableError = vi.hoisted(
     },
 );
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: unknown, _key: string, fn: () => unknown) => {
     withRateLimit();
     return fn();
@@ -118,7 +118,7 @@ vi.mock("@/lib/models/phase-routing", () => ({
 vi.mock("@/lib/logging/recurring-patterns-reader", () => ({
   readRecurringPatternsForChat: () => [],
 }));
-vi.mock("@/lib/logging/devLog", () => ({ devLogAppend: vi.fn() }));
+vi.mock("@/lib/logging/dev-log", () => ({ devLogAppend: vi.fn() }));
 vi.mock("@/lib/logging/event-bus", () => ({ emit: emitBusEvent }));
 // Capture after() callbacks (stale-base re-verify is scheduled via after()) so
 // we can assert + run them instead of executing post-response in the test.

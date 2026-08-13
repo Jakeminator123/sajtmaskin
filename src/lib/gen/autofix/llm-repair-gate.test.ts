@@ -7,7 +7,7 @@ vi.mock("./llm-fixer", () => ({
   runLlmFixer,
 }));
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend,
 }));
 

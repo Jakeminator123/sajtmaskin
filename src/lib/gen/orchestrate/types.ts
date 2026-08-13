@@ -3,7 +3,7 @@
  * (structural split, no behavior change).
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { CapabilitySpecificityTier } from "@/lib/builder/follow-up-capability-detection";

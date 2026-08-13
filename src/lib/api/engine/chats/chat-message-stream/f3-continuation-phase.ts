@@ -24,7 +24,7 @@ import {
   approvedProvidersShipConfigNotice,
   mapProviderKeysToDossierCapabilities,
 } from "@/lib/integrations/tier3-build-spec";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { wrapStreamForPromptToDoneMetric } from "@/lib/observability/prompt-to-done-stream";
 import { createSSEHeaders } from "@/lib/streaming";
 import { debugLog } from "@/lib/utils/debug";

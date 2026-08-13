@@ -33,7 +33,7 @@ vi.mock("@/lib/gen/stream/finalize-version", () => ({
   finalizeAndSaveVersion: finalizeAndSaveVersionMock,
 }));
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: vi.fn(),
   devLogFinalizeSite: vi.fn(),
 }));
@@ -44,7 +44,7 @@ vi.mock("@/lib/utils/debug", () => ({
 }));
 
 import { createOwnEngineGenerationStream } from "./generation-stream";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 
 async function collectSseEvents(stream: ReadableStream<Uint8Array>): Promise<
   Array<{ event: string; data: unknown }>

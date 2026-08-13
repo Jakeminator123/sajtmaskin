@@ -1,5 +1,5 @@
 import { getPromptAssistModelLabel } from "@/lib/builder/defaults";
-import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId } from "@/lib/models/catalog";
 import type { ModelInfoData, SetMessages } from "./types";
 import { appendToolPartToMessage } from "./helpers-ui-parts";
