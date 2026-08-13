@@ -168,6 +168,18 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/blog")).toBe(true);
   });
 
+  it("does not plan /cart from ecommerce scaffold defaults at init", () => {
+    const ecommerceScaffold = getScaffoldById("ecommerce");
+    expect(ecommerceScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg en webbutik med produkter.",
+      resolvedScaffold: ecommerceScaffold,
+    });
+    expect(plan.routes.some((r) => r.path === "/products")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
+  });
+
   it("follow-up keeps existing routes and does not add scaffold defaults by default", () => {
     const ecommerceScaffold = getScaffoldById("ecommerce");
     expect(ecommerceScaffold).not.toBeNull();
