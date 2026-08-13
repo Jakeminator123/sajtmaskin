@@ -371,6 +371,8 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
         restart: state.session.prewarmReplacementPending === true,
       });
     }
+    const trackedForPrewarmActivity = runtimeChildren.get(state.session.sessionId);
+    if (trackedForPrewarmActivity) trackedForPrewarmActivity.lastActivityAt = Date.now();
     sendRuntimeStartingPage(res, state.session);
     return true;
   }
@@ -420,6 +422,8 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
     }
     return true;
   }
+  const trackedForStartingActivity = runtimeChildren.get(state.session.sessionId);
+  if (trackedForStartingActivity) trackedForStartingActivity.lastActivityAt = Date.now();
   queueRuntimeBoot(info.chatId);
   sendRuntimeStartingPage(res, state.session);
   return true;
