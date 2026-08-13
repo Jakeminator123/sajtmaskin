@@ -200,6 +200,24 @@ function cleanExplicitPageName(raw: string): string {
     .slice(0, 48);
 }
 
+/** Labeled lists like `Sidor: start, projekt, om oss, kontakt`. */
+const LABELED_PAGE_LIST_RE = /\b(?:sidor|pages|routes)\s*:\s*([^\n]+)/giu;
+const PAGE_LIST_SPLIT_RE = /\s*,\s*|\s+och\s+|\s+and\s+/iu;
+const MAX_NAMED_PAGES_FROM_LIST = 20;
+
+function pushExplicitNamedPage(
+  raw: string,
+  seenPaths: Set<string>,
+  out: ExplicitNamedPage[],
+): void {
+  const name = cleanExplicitPageName(raw.replace(/[.;:]+$/g, ""));
+  if (!name || name.length < 2) return;
+  const path = inferPathFromPageName(name);
+  if (path === "/" || seenPaths.has(path)) return;
+  seenPaths.add(path);
+  out.push({ name, path });
+}
+
 export function extractExplicitNamedPages(prompt: string): ExplicitNamedPage[] {
   if (!prompt) return [];
   const seenPaths = new Set<string>();
@@ -210,12 +228,29 @@ export function extractExplicitNamedPages(prompt: string): ExplicitNamedPage[] {
       const quoted = match[1];
       const raw =
         typeof quoted === "string" ? quoted : trimBarePageName(match[2] ?? "");
-      const name = cleanExplicitPageName(raw);
-      if (!name || name.length < 2) continue;
-      const path = inferPathFromPageName(name);
-      if (path === "/" || seenPaths.has(path)) continue;
-      seenPaths.add(path);
-      out.push({ name, path });
+      pushExplicitNamedPage(raw, seenPaths, out);
+    }
+  }
+  LABELED_PAGE_LIST_RE.lastIndex = 0;
+  for (const match of prompt.matchAll(LABELED_PAGE_LIST_RE)) {
+    const rawList = (match[1] ?? "").trim();
+    if (!rawList) continue;
+    // Parsa listan isolerat och acceptera den bara vid ≥2 giltiga poster.
+    // En ensam träff är oftast prosa ("routes: se nedan") — utan spärren
+    // blir löptexten en riktig skräpsida i planen (granskningsfynd).
+    // Egen seen-mängd så en sida som redan fångats av de smala mönstren
+    // ovan fortfarande räknas mot listans två.
+    const listSeen = new Set<string>();
+    const listPages: ExplicitNamedPage[] = [];
+    for (const raw of rawList.split(PAGE_LIST_SPLIT_RE)) {
+      if (listPages.length >= MAX_NAMED_PAGES_FROM_LIST) break;
+      pushExplicitNamedPage(raw, listSeen, listPages);
+    }
+    if (listPages.length < 2) continue;
+    for (const page of listPages) {
+      if (seenPaths.has(page.path)) continue;
+      seenPaths.add(page.path);
+      out.push(page);
     }
   }
   return out;
