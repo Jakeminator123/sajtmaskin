@@ -502,6 +502,31 @@ check(
 }
 
 {
+  // Windows hides a broken fake child: sweep uses taskkill and never calls
+  // child.kill(). Linux does, then waits for `close`. This is the contract
+  // the ready-idle negative control depends on.
+  const child = runtime.__testing.createFakeRuntimeChildForTesting();
+  let posixThrew = null;
+  try {
+    try {
+      process.kill(-child.pid, "SIGTERM");
+    } catch {
+      child.kill("SIGTERM");
+    }
+  } catch (err) {
+    posixThrew = err;
+  }
+  const closed = await Promise.race([
+    new Promise((resolve) => child.once("close", () => resolve(true))),
+    new Promise((resolve) => setTimeout(() => resolve(false), 200)),
+  ]);
+  check(
+    "fake runtime child is stoppable on the POSIX reaper path",
+    posixThrew == null && closed === true && child.exitCode !== null,
+  );
+}
+
+{
   const store = require("../src/store.js");
   const chatId = "swap-idle-ready";
   const sessionId = "swap-idle-ready-session";

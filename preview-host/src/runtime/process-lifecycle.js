@@ -5,6 +5,7 @@
 // Ren extraktion ur runtime.js — ingen beteendeändring.
 
 const { spawn } = require("node:child_process");
+const { EventEmitter } = require("node:events");
 
 const { readStoreSync } = require("./../store.js");
 const {
@@ -1067,11 +1068,30 @@ async function sweepIdleRuntimes(nowMs = Date.now()) {
   return { stoppedRuntimes };
 }
 
+function createFakeRuntimeChildForTesting() {
+  // Must be stoppable on POSIX. `stopChildProcessTree` signals first, then
+  // waits for `close`. A plain `{ exitCode: null }` throws on Linux
+  // (`child.kill is not a function`) so the idle reaper counts 0 — Windows
+  // hides this because it uses taskkill and only waits for that helper.
+  // Emit `close` asynchronously: the production stop path registers the
+  // listener after kill(), matching a real child_process.
+  const child = new EventEmitter();
+  child.exitCode = null;
+  child.killed = false;
+  child.kill = () => {
+    if (child.exitCode !== null) return;
+    child.killed = true;
+    child.exitCode = 1;
+    queueMicrotask(() => child.emit("close", 1, null));
+  };
+  return child;
+}
+
 function setRuntimeStateForTesting(params) {
   const sessionId = params.sessionId;
   if (params.running) {
     runtimeChildren.set(sessionId, {
-      child: { exitCode: null },
+      child: createFakeRuntimeChildForTesting(),
       port: params.runtimePort,
       chatId: params.chatId,
       previewSessionId: params.previewSessionId ?? "",
@@ -1120,6 +1140,7 @@ module.exports = {
   hibernateChatRuntime,
   sweepIdleRuntimes,
   setRuntimeStateForTesting,
+  createFakeRuntimeChildForTesting,
   clearRuntimeStateForTesting,
   setBootRunnerForTesting,
 };

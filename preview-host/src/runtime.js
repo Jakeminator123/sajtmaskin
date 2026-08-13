@@ -99,6 +99,7 @@ module.exports = {
     NEXT_INTERNAL_ROOT_PATH_RE: previewProxy.NEXT_INTERNAL_ROOT_PATH_RE,
     shouldHoldPrewarmTraffic: previewProxy.shouldHoldPrewarmTraffic,
     setRuntimeStateForTesting: processLifecycle.setRuntimeStateForTesting,
+    createFakeRuntimeChildForTesting: processLifecycle.createFakeRuntimeChildForTesting,
     clearRuntimeStateForTesting: processLifecycle.clearRuntimeStateForTesting,
     setBootRunnerForTesting: processLifecycle.setBootRunnerForTesting,
     setVerifyRunnersForTesting: verifyJobs.setVerifyRunnersForTesting,
