@@ -746,6 +746,9 @@ describe("findSupersededScaffoldRoutes", () => {
 });
 
 describe("detectExplicitPageCount", () => {
+  const TVSPEL_BLOG_ONE_PAGE_PROMPT =
+    "En hemsida om tvspel. Jag vill ha en sajt som är en blogg. Bloggen ska bara finnas på den enda sida som faktist min sajt ska bestå av";
+
   it("detects Swedish page count", () => {
     expect(detectExplicitPageCount("Jag vill ha 3 sidor")).toBe(3);
     expect(detectExplicitPageCount("5 sidor med bra design")).toBe(5);
@@ -760,6 +763,137 @@ describe("detectExplicitPageCount", () => {
   it("rejects unreasonable counts", () => {
     expect(detectExplicitPageCount("jag vill ha 0 sidor")).toBeNull();
     expect(detectExplicitPageCount("50 pages of nonsense")).toBeNull();
+  });
+
+  it.each([
+    ["2 sidor", 2],
+    ["5 pages", 5],
+  ] as const)("still detects digit counts: %s", (prompt, expected) => {
+    expect(detectExplicitPageCount(prompt)).toBe(expected);
+  });
+
+  it.each([
+    ["två sidor", 2],
+    ["tre sidor", 3],
+    ["fyra sidor", 4],
+    ["fem sidor", 5],
+    ["sex sidor", 6],
+    ["sju sidor", 7],
+    ["åtta sidor", 8],
+    ["nio sidor", 9],
+    ["tio sidor", 10],
+    ["two pages", 2],
+    ["three pages", 3],
+    ["four pages", 4],
+    ["five pages", 5],
+    ["six pages", 6],
+    ["seven pages", 7],
+    ["eight pages", 8],
+    ["nine pages", 9],
+    ["ten pages", 10],
+    ["two routes", 2],
+    ["tre vyer", 3],
+  ] as const)("detects plural number words: %s", (prompt, expected) => {
+    expect(detectExplicitPageCount(prompt)).toBe(expected);
+  });
+
+  it.each([
+    ["bara en sida", 1],
+    ["endast en sida", 1],
+    ["en enda sida", 1],
+    ["skapa en enda sida", 1],
+    ["den enda sida som sajten består av", 1],
+    ["enbart en sida", 1],
+    ["en (1) sida", 1],
+    ["max en sida", 1],
+    ["högst en sida", 1],
+    ["bara på en sida", 1],
+    ["allt på en sida", 1],
+    ["en sida totalt", 1],
+    ["only one page", 1],
+    ["just one page", 1],
+    ["a single page", 1],
+    ["single-page", 1],
+    ["one page only", 1],
+    ["just on one page", 1],
+    ["all on one page", 1],
+    ["only on one page", 1],
+  ] as const)("detects restrictive one-page phrasing: %s", (prompt, expected) => {
+    expect(detectExplicitPageCount(prompt)).toBe(expected);
+  });
+
+  it("detects the production tvspel-blog prompt as a one-page cap", () => {
+    expect(detectExplicitPageCount(TVSPEL_BLOG_ONE_PAGE_PROMPT)).toBe(1);
+  });
+
+  it("plans exactly the root route for the production tvspel-blog prompt", () => {
+    const blogScaffold = getScaffoldById("blog");
+    expect(blogScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      prompt: TVSPEL_BLOG_ONE_PAGE_PROMPT,
+      buildIntent: "website",
+      resolvedScaffold: blogScaffold,
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+    expect(plan.routes).toHaveLength(1);
+    expect(detectExplicitPageCount(TVSPEL_BLOG_ONE_PAGE_PROMPT)).toBe(1);
+  });
+
+  // Prod-körningen hade en brief (brief_influenced_selection = true).
+  // buildRoutesFromBrief sätter required:true på brief.pages[], så utan brief
+  // i testet täcks inte den konfiguration som faktiskt levererade tre sidor.
+  it("plans only the root route for the tvspel-blog prompt even when the brief lists a blog page", () => {
+    const blogScaffold = getScaffoldById("blog");
+    expect(blogScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      prompt: TVSPEL_BLOG_ONE_PAGE_PROMPT,
+      buildIntent: "website",
+      resolvedScaffold: blogScaffold,
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Startsida med bloggflöde" },
+          { path: "/blog", name: "Blogg", purpose: "Inläggslista" },
+        ],
+      },
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+    expect(plan.routes).toHaveLength(1);
+  });
+
+  it.each([
+    "En hemsida om tvspel",
+    "Jag vill ha en sida med priser och en sida med kontakt",
+    "en sida i taget",
+    "lägg till en sida",
+    "gör en snygg sida",
+    "one of the pages should be about us",
+    "every single page should have a footer",
+    "on one page",
+    "put the contact form on one page and prices on another",
+    "lägg till bara en sida",
+    "add just one page",
+    "single-page landing plus an about page",
+    "contact only on one page and pricing on another",
+    "endast en sida till",
+    "bara en sida till",
+    "lägg till 1 sida",
+    "add 1 page",
+  ])("does not treat %s as a page-count cap", (prompt) => {
+    expect(detectExplicitPageCount(prompt)).toBeNull();
+  });
+
+  it("does not read an add-page follow-up as a one-page cap", () => {
+    const prompt = "lägg till en sida";
+    expect(hasExplicitAddRouteIntent(prompt)).toBe(true);
+    expect(detectExplicitPageCount(prompt)).toBeNull();
+    const plan = buildRoutePlan({
+      prompt,
+      buildIntent: "website",
+      resolvedScaffold: getScaffoldById("landing-page"),
+      generationMode: "followUp",
+      existingRoutePaths: ["/", "/om"],
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/", "/om"]);
   });
 });
 
