@@ -26,6 +26,29 @@ export type AcquireChatGenerationLockResult =
   | { status: "held" }
   | { status: "unavailable" };
 
+export function chatGenerationLockFailureResponse(
+  status: "held" | "unavailable",
+): Response {
+  if (status === "held") {
+    return new Response(
+      JSON.stringify({
+        error: "generation_in_progress",
+        reason: "generation_in_progress",
+        message: "En generation pågår redan för den här sajten. Vänta tills den är klar.",
+      }),
+      { status: 409, headers: { "content-type": "application/json" } },
+    );
+  }
+  return new Response(
+    JSON.stringify({
+      error: "generation_lock_unavailable",
+      reason: "generation_lock_unavailable",
+      message: "Kunde inte starta generationen just nu. Försök igen om en stund.",
+    }),
+    { status: 503, headers: { "content-type": "application/json" } },
+  );
+}
+
 const REDIS_LOCK_PREFIX = `${REDIS_KEY_PREFIX}generation-lock:`;
 
 type MemoryLock = { token: string; expiresAt: number };

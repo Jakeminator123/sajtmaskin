@@ -92,6 +92,11 @@ import {
   formatVariantHintsForPrompt,
 } from "@/lib/gen/scaffold-variants/variant-hints";
 import { classifySimpleWebsitePath } from "./simple-website-path";
+import {
+  acquireChatGenerationLock,
+  bindChatGenerationLockToResponse,
+  chatGenerationLockFailureResponse,
+} from "@/lib/gen/stream/generation-lock";
 
 /** Shared create handler (SSE). Used by `POST` and by sync `POST /chats` JSON adapter. */
 export async function handleCreateChatStreamPost(req: Request): Promise<Response> {
@@ -665,6 +670,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           // loggar mer förbrukning efter detta.
           setLlmUsageContext({ chatId: plannerChat.id });
           attachChatToPendingUsage(sessionId, plannerChat.id);
+          const plannerGenerationLock = await acquireChatGenerationLock(plannerChat.id);
+          if (plannerGenerationLock.status !== "acquired") {
+            return attachSessionCookie(
+              chatGenerationLockFailureResponse(plannerGenerationLock.status),
+            );
+          }
           debugLog("engine", "Chat DB bootstrap complete", {
             durationMs: Date.now() - plannerChatDbStartedAt,
             mode: "plan",
@@ -745,12 +756,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             chatId: plannerChat.id,
           });
           return attachSessionCookie(
-            withPromptToDoneMetricResponse(planModeResponse, {
-              kind: "init",
-              promptStartedAt: requestStartedAt,
-              signal: req.signal,
-              chatId: plannerChat.id,
-            }),
+            bindChatGenerationLockToResponse(
+              withPromptToDoneMetricResponse(planModeResponse, {
+                kind: "init",
+                promptStartedAt: requestStartedAt,
+                signal: req.signal,
+                chatId: plannerChat.id,
+              }),
+              plannerGenerationLock.lock,
+            ),
           );
         }
 
@@ -932,6 +946,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             await chatRepo.addMessage(engineChat.id, "user", message);
             setLlmUsageContext({ chatId: engineChat.id });
             attachChatToPendingUsage(sessionId, engineChat.id);
+            const contractGenerationLock = await acquireChatGenerationLock(engineChat.id);
+            if (contractGenerationLock.status !== "acquired") {
+              return attachSessionCookie(
+                chatGenerationLockFailureResponse(contractGenerationLock.status),
+              );
+            }
             debugLog("engine", "Chat DB bootstrap complete", {
               durationMs: Date.now() - contractGateDbStartedAt,
               mode: "pre-generation-contract-gate",
@@ -996,14 +1016,17 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               chatId: engineChat.id,
             });
             return attachSessionCookie(
-              new Response(
-                wrapStreamForPromptToDoneMetric(contractGateStream, {
-                  kind: "init",
-                  promptStartedAt: requestStartedAt,
-                  signal: req.signal,
-                  chatId: engineChat.id,
-                }),
-                { headers: createSSEHeaders() },
+              bindChatGenerationLockToResponse(
+                new Response(
+                  wrapStreamForPromptToDoneMetric(contractGateStream, {
+                    kind: "init",
+                    promptStartedAt: requestStartedAt,
+                    signal: req.signal,
+                    chatId: engineChat.id,
+                  }),
+                  { headers: createSSEHeaders() },
+                ),
+                contractGenerationLock.lock,
               ),
             );
           }
@@ -1051,6 +1074,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           setLlmUsageContext({ chatId: engineChat.id });
           // Brief och scaffold-embeddings kördes innan chatten fanns — claima dem.
           attachChatToPendingUsage(sessionId, engineChat.id);
+          const initGenerationLock = await acquireChatGenerationLock(engineChat.id);
+          if (initGenerationLock.status !== "acquired") {
+            return attachSessionCookie(
+              chatGenerationLockFailureResponse(initGenerationLock.status),
+            );
+          }
           debugLog("engine", "Chat DB bootstrap complete", {
             durationMs: Date.now() - engineChatDbStartedAt,
             mode: "own-engine",
@@ -1164,14 +1193,17 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             mode: "own-engine",
             chatId: engineChat.id,
           });
-          return buildEngineStreamResponse({
-            engineStream,
-            req,
-            promptStartedAt: requestStartedAt,
-            kind: "init",
-            attachSessionCookie,
-            chatId: engineChat.id,
-          });
+          return bindChatGenerationLockToResponse(
+            buildEngineStreamResponse({
+              engineStream,
+              req,
+              promptStartedAt: requestStartedAt,
+              kind: "init",
+              attachSessionCookie,
+              chatId: engineChat.id,
+            }),
+            initGenerationLock.lock,
+          );
         }
       } catch (err) {
         return buildStreamErrorResponse({

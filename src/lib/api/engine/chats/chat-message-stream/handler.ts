@@ -41,6 +41,7 @@ import { wrapStreamForPromptToDoneMetric } from "@/lib/observability/prompt-to-d
 import {
   acquireChatGenerationLock,
   bindChatGenerationLockToResponse,
+  chatGenerationLockFailureResponse,
   releaseChatGenerationLock,
   type ChatGenerationLock,
 } from "@/lib/gen/stream/generation-lock";
@@ -164,29 +165,9 @@ export async function handleMessageStreamRequest(
         }
 
         const generationLockResult = await acquireChatGenerationLock(engineChat.id);
-        if (generationLockResult.status === "held") {
+        if (generationLockResult.status !== "acquired") {
           return attachSessionCookie(
-            NextResponse.json(
-              {
-                error: "generation_in_progress",
-                reason: "generation_in_progress",
-                message:
-                  "En generation pågår redan för den här sajten. Vänta tills den är klar.",
-              },
-              { status: 409 },
-            ),
-          );
-        }
-        if (generationLockResult.status === "unavailable") {
-          return attachSessionCookie(
-            NextResponse.json(
-              {
-                error: "generation_lock_unavailable",
-                reason: "generation_lock_unavailable",
-                message: "Kunde inte starta generationen just nu. Försök igen om en stund.",
-              },
-              { status: 503 },
-            ),
+            chatGenerationLockFailureResponse(generationLockResult.status),
           );
         }
         acquiredGenerationLock = generationLockResult.lock;

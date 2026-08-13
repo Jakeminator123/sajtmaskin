@@ -8,6 +8,7 @@ vi.mock("@/lib/config", () => ({ REDIS_KEY_PREFIX: "test:" }));
 import {
   acquireChatGenerationLock,
   bindChatGenerationLockToResponse,
+  chatGenerationLockFailureResponse,
   releaseChatGenerationLock,
   resetChatGenerationLocksForTests,
   type AcquireChatGenerationLockResult,
@@ -51,6 +52,15 @@ describe("chat generation lock", () => {
     expect(await acquireChatGenerationLock("chat-redis-down")).toEqual({
       status: "unavailable",
     });
+  });
+
+  it("mappar held till 409 och unavailable till 503", async () => {
+    const held = chatGenerationLockFailureResponse("held");
+    expect(held.status).toBe(409);
+    expect(await held.json()).toMatchObject({ reason: "generation_in_progress" });
+    const unavailable = chatGenerationLockFailureResponse("unavailable");
+    expect(unavailable.status).toBe(503);
+    expect(await unavailable.json()).toMatchObject({ reason: "generation_lock_unavailable" });
   });
 
   it("släpper JSON-svar omedelbart så nästa generation kan starta", async () => {
