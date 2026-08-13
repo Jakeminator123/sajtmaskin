@@ -14,8 +14,9 @@
  * inspection — this module is the pure code-analysis counterpart.
  *
  * Severity is owned by the caller. Today {@link runFinalizePreflight} emits
- * mismatches as `non_blocking_quality_warning` (see plan
- * `docs/plans/active/repair-loop-hardening.md` for the gate-flip path).
+ * mismatches as `non_blocking_quality_warning`. The check stays non-blocking
+ * because false positives would stall the repair gate; see
+ * `docs/plans/active/handoff-question-flow-and-scaffold-routes.md`.
  *
  * Reverse direction ({@link crossCheckRoutesAgainstHrefs}): a planned route
  * with no matching navigation href is also a `non_blocking_quality_warning`.
