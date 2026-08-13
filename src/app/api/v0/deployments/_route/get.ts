@@ -12,7 +12,7 @@ import {
   checkVercelProjectDomain,
   getVercelDeployment,
   mapVercelReadyStateToStatus,
-} from "@/lib/vercel-deploy";
+} from "@/lib/vercel/vercel-deploy";
 import {
   getChatByIdForRequest,
   getChatByV0ChatIdForRequest,

@@ -16,7 +16,7 @@ import {
   sanitizeVercelProjectName,
   syncEnvVarsToVercelProject,
   toVercelFilesFromTextFiles,
-} from "@/lib/vercel-deploy";
+} from "@/lib/vercel/vercel-deploy";
 import { getAppProjectByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/bot-protection";
 import { devLogAppend } from "@/lib/logging/dev-log";

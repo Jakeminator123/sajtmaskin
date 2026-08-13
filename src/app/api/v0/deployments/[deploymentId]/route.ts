@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercel-deploy";
+import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercel/vercel-deploy";
 import {
   resolveDeploymentLiveUrlForChat,
   updateDeploymentStatus,

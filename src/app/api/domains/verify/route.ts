@@ -19,7 +19,7 @@ import {
   clearProjectCustomDomainVerification,
   setProjectVerifiedCustomDomain,
 } from "@/lib/db/services/projects";
-import { checkVercelProjectDomain } from "@/lib/vercel-deploy";
+import { checkVercelProjectDomain } from "@/lib/vercel/vercel-deploy";
 import { setLatestDeploymentLiveUrlForChat } from "@/lib/deployment";
 
 export const maxDuration = 15;

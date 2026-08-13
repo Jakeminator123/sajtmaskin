@@ -9,7 +9,7 @@ vi.mock("@/lib/db/client", () => ({
 }));
 
 import { POST } from "./route";
-import { verifyOpenAiWebhookSignature } from "@/lib/openai-webhooks";
+import { verifyOpenAiWebhookSignature } from "@/lib/openai/openai-webhooks";
 
 const TEST_SECRET = `whsec_${Buffer.from("sajtmaskin-test-signing-secret").toString("base64")}`;
 

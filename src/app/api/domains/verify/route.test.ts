@@ -32,7 +32,7 @@ vi.mock("@/lib/db/services/projects", () => ({
   getProjectById,
   setProjectVerifiedCustomDomain,
 }));
-vi.mock("@/lib/vercel-deploy", () => ({
+vi.mock("@/lib/vercel/vercel-deploy", () => ({
   checkVercelProjectDomain,
 }));
 

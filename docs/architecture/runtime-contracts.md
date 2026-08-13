@@ -231,7 +231,7 @@ Invariants:
 Publicerad URL-state ägs av användarprojektet och hosting-projektet, inte av en
 enskild deployment eller en process-global SEO-env.
 
-Ägs av: `src/lib/live-site-url.ts`, `src/lib/vercel-deploy.ts`,
+Ägs av: `src/lib/live-site-url.ts`, `src/lib/vercel/vercel-deploy.ts`,
 `src/app/api/v0/deployments/`, `src/app/api/domains/` och
 `app_projects`/`deployments` i `src/lib/db/schema.ts`.
 

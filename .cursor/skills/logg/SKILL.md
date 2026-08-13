@@ -273,7 +273,7 @@ Säkerhet: <%>. Verifierat mot <källor>; inte live-kört mot X.
 
 - Kommando: [`.cursor/commands/logg.md`](../../commands/logg.md)
 - Read-only DB-dumper: `scripts/db/dump-logs.mjs` · senaste sajt: `scripts/db/latest-site.mjs`
-- Log Drain-mottagare (`--kinds=drain`): `src/lib/vercel-log-drain.ts`, `src/app/api/drains/vercel/route.ts` · setup + URL: [`docs/runbooks/vercel-log-drain.md`](../../../docs/runbooks/vercel-log-drain.md)
+- Log Drain-mottagare (`--kinds=drain`): `src/lib/vercel/vercel-log-drain.ts`, `src/app/api/drains/vercel/route.ts` · setup + URL: [`docs/runbooks/vercel-log-drain.md`](../../../docs/runbooks/vercel-log-drain.md)
 - Observability-regel: [`.cursor/rules/agent-observatory.mdc`](../../rules/agent-observatory.mdc)
 - Preview-host & Fly: `preview-host/README.md`
 - Env-sanning: [`docs/ENV.md`](../../../docs/ENV.md)
