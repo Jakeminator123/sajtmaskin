@@ -144,10 +144,11 @@ gitignorerade `data/backoffice/template-curator/`-ytan och binds till det
 ordnade urvalet, varje arkiv-SHA, aktuell extractor-SHA samt addendum-postens
 status/innehåll. En gammal rapport visas därför inte som aktuell efter drift.
 
-Kuratorn skriver aldrig `config/variant-template-addenda.json`. UI:t visar i
-stället exakt `templates:addenda`-kommando för det valda urvalet. Att ersätta
-en `reviewed`-post kräver fortfarande den separata, uttryckliga
-`--refresh-reviewed`-flaggan.
+Kuratorn skriver inte `config/variant-template-addenda.json` under analysen.
+Efter en bunden rapport visar UI:t det runner-ägda `templates:addenda --write
+--ids=…`-kommandot och en explicit knapp som kör det. Att ersätta en
+`reviewed`-post kräver fortfarande den separata, uttryckliga
+`--refresh-reviewed`-flaggan (knappen skickar den inte).
 
 ## 9. Termer — Template ≠ Scaffold ≠ Dossier
 

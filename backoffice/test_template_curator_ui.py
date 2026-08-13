@@ -103,6 +103,15 @@ class CatalogUiHelpersTests(unittest.TestCase):
             {"id": "a", "path": "profiles/a.json"},
         )
 
+    def test_format_catalog_option_accepts_already_formatted_label(self) -> None:
+        record = _record("0brPGNpjNkt", title="Brutalist Void")
+        lookup = {"0brPGNpjNkt": record}
+        label = page._format_catalog_option("0brPGNpjNkt", lookup)
+        self.assertEqual(
+            page._format_catalog_option(label, lookup),
+            label,
+        )
+
 
 class ReportBindingTests(unittest.TestCase):
     def _snapshot(self, **overrides) -> SimpleNamespace:

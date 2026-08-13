@@ -752,12 +752,15 @@ def _autorun_writes(draft: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
-def _render_planned_writes(draft: dict[str, Any], *, autorun: bool) -> None:
+def _render_planned_writes(
+    draft: dict[str, Any], *, autorun: bool, blob_ready: bool = False
+) -> None:
     """"Vad kommer att skrivas?" — filerna och spara-läget, före checklistan.
 
-    ``autorun`` = finns ``OPENAI_API_KEY``. Efter-stegen körs automatiskt efter
-    skapandet men bara med nyckel, så villkoret skrivs ut i båda fallen: rutan
-    får varken lova skrivningar som inte sker eller dölja dem som sker.
+    ``autorun`` = finns ``OPENAI_API_KEY``. Embeddings publiceras bara när
+    ``BLOB_READ_WRITE_TOKEN`` också finns (``blob_ready``). Villkoren skrivs
+    ut i båda fallen så rutan varken lovar Blob-skrivning som inte sker
+    eller döljer den som sker.
     """
     st.markdown("#### Vad kommer att skrivas?")
 
@@ -778,18 +781,25 @@ def _render_planned_writes(draft: dict[str, Any], *, autorun: bool) -> None:
         )
         for row in autorun_rows:
             st.markdown(f"- `{row['path']}` — {row['note']} (`{row['script']}`)")
-        st.caption(
-            "Designmönster landar i variant-JSON (repo → master). "
-            "Embeddings publiceras till Vercel Blob; den lokala JSON-filen är "
-            "gitignorerad cache. `config/embeddings-blob-manifest.json` är den "
-            "committade URL-pekaren. Stannar kedjan på ett rött steg skrivs "
-            "de senare filerna inte."
-        )
+        if blob_ready:
+            st.caption(
+                "Designmönster landar i variant-JSON (repo → master). "
+                "Embeddings publiceras till Vercel Blob; den lokala JSON-filen är "
+                "gitignorerad cache. `config/embeddings-blob-manifest.json` är den "
+                "committade URL-pekaren. Stannar kedjan på ett rött steg skrivs "
+                "de senare filerna inte."
+            )
+        else:
+            st.caption(
+                "Designmönster körs. Matchning (embeddings) kräver också "
+                "`BLOB_READ_WRITE_TOKEN` och hoppas över utan den — lokal cache "
+                "räknas inte som publicerad."
+            )
     else:
         st.markdown(
             "**Efter-stegen skrivs inte nu** — ingen `OPENAI_API_KEY` i miljön, så "
-            "designmönster och matchning hoppas över. Med nyckel skrivs även dessa om "
-            "(spara-läge `repo`):"
+            "designmönster och matchning hoppas över. Med nyckel *och* "
+            "`BLOB_READ_WRITE_TOKEN` publiceras embeddings till Vercel Blob:"
         )
         for row in autorun_rows:
             st.markdown(f"- `{row['path']}` — {row['note']} (`{row['script']}`)")
@@ -975,7 +985,11 @@ def _render_step_validate(ctx: BackofficeContext) -> None:
         "transaktionslogik som **Scaffolds & varianter** (rollback vid fel)."
     )
 
-    _render_planned_writes(draft, autorun=bool(wiz.get_openai_api_key()))
+    _render_planned_writes(
+        draft,
+        autorun=bool(wiz.get_openai_api_key()),
+        blob_ready=bool(wiz.get_blob_read_write_token()),
+    )
 
     checks, payload = _run_checks(ctx, draft)
     st.dataframe(pd.DataFrame(checks), width="stretch", hide_index=True)
@@ -1051,11 +1065,12 @@ def _post_create_steps(variant_id: str) -> list[dict[str, Any]]:
             "label": "2. Bygg om matchning",
             "command": ("npm", "run", "scaffolds:variant-embeddings", "--", "--require-blob"),
             "needs_api": True,
+            "needs_blob": True,
             "help": (
                 "Bygger om variant-embeddings så matchern kan välja varianten, "
                 "och publicerar till Vercel Blob (`--require-blob`). Anropar "
                 "OpenAI för alla varianter — kan ta en stund. Kräver "
-                "`BLOB_READ_WRITE_TOKEN` i `.env.local`."
+                "`OPENAI_API_KEY` och `BLOB_READ_WRITE_TOKEN` i `.env.local`."
             ),
         },
         {
@@ -1174,11 +1189,23 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
             if step["needs_api"] and not has_key:
                 results[step["key"]] = {"skipped": True, "command": " ".join(step["command"])}
                 continue
+            if step.get("needs_blob") and not has_blob:
+                results[step["key"]] = {
+                    "skipped": True,
+                    "command": " ".join(step["command"]),
+                    "warn": (
+                        "BLOB_READ_WRITE_TOKEN saknas — embeddings publiceras inte "
+                        "till Vercel Blob. Lokal cache räknas inte."
+                    ),
+                }
+                continue
             _run(step)
             # Fail-fast: a red step (e.g. designmönster-steget som inte gav
             # signaturePatterns) must stop the chain — annars byggs embeddings
             # och validering på halvfärdigt innehåll och visar falskt grönt.
             res = results.get(step["key"], {})
+            if res.get("skipped"):
+                continue
             step_ok = bool(res.get("verifiedOk")) if "verifiedOk" in res else bool(res.get("ok"))
             if not step_ok:
                 results[step["key"]] = {
@@ -1193,7 +1220,13 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
     # behöva veta att knappen finns. Flaggan konsumeras så en manuell
     # om-körning fortfarande går via knappen.
     if st.session_state.pop("swz_autorun", False):
-        st.info("Kör efter-stegen automatiskt (designmönster → matchning → validering)…")
+        if has_key and not has_blob:
+            st.info(
+                "Kör efter-stegen automatiskt. Matchning hoppas över tills "
+                "`BLOB_READ_WRITE_TOKEN` finns — embeddings publiceras inte lokalt."
+            )
+        else:
+            st.info("Kör efter-stegen automatiskt (designmönster → matchning → validering)…")
         _run_chain()
         st.rerun()
 
@@ -1204,7 +1237,10 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
     cols = st.columns(len(steps))
     for step, col in zip(steps, cols):
         with col:
-            disabled = bool(step["needs_api"] and not has_key)
+            disabled = bool(
+                (step["needs_api"] and not has_key)
+                or (step.get("needs_blob") and not has_blob)
+            )
             if st.button(
                 step["label"], key=f"swz_run_{step['key']}", disabled=disabled, help=step["help"]
             ):

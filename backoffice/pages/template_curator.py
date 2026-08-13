@@ -1,9 +1,13 @@
-"""Read-only selection UI for the bounded Template (v0-mall) curator.
+"""Selection UI for the bounded Template (v0-mall) curator.
 
 Loading and filtering the catalog only reads committed files. Network access is
 deferred until the operator has selected exact template ids and presses
 ``Analysera valda``. The runner verifies each Blob archive against the manifest
 SHA and treats ZIP contents as data; it never extracts or executes template code.
+
+Addenda are not written during analysis. After a fresh report the operator can
+press an explicit button that runs the runner-owned ``templates:addenda --write
+--ids=…`` command.
 """
 
 from __future__ import annotations
@@ -11,6 +15,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import shlex
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -20,6 +25,7 @@ import streamlit as st
 from backoffice.shared import (
     BackofficeContext,
     render_building_blocks_nav,
+    run_repo_command,
     tech_details,
 )
 
@@ -28,6 +34,7 @@ PAGE_NAME = "Mallar (v0): kurera Blob-arkiv"
 _REPORT_STATE_KEY = "template_curator_report"
 _REPORT_BINDING_KEY = "template_curator_report_binding"
 _REPORT_ERROR_KEY = "template_curator_report_error"
+_ADDENDA_WRITE_RESULT_KEY = "template_curator_addenda_write"
 _FILTER_STATE_KEY = "template_curator_catalog_filter"
 _REPORT_VIEW_FILTER_KEYS = (
     "template_curator_decision_filter",
@@ -61,7 +68,7 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, (list, tuple, set, frozenset)):
         return [_jsonable(item) for item in value]
     if isinstance(value, Path):
-        return str(value)
+        return value.as_posix()
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     return str(value)
@@ -85,6 +92,21 @@ def _record_archive_sha(record: Any) -> str:
         .strip()
         .lower()
     )
+
+
+def _format_catalog_option(template_id: str, lookup: Mapping[str, Any]) -> str:
+    """Label for the multiselect. Tolerate AppTest re-feeding the formatted label."""
+
+    key = str(template_id)
+    record = lookup.get(key)
+    if record is None and " · " in key:
+        maybe_id = key.rsplit(" · ", 1)[-1].strip()
+        record = lookup.get(maybe_id)
+        if record is not None:
+            key = maybe_id
+    if record is None:
+        return key
+    return f"{_record_title(record)} · {_record_category(record)} · {key}"
 
 
 def _record_lookup(snapshot: Any) -> dict[str, Any]:
@@ -288,6 +310,15 @@ def _addendum_write_commands(report: Any) -> tuple[str, ...]:
     )
 
 
+def _npm_command_tuple(command: str) -> tuple[str, ...]:
+    """Parse a runner-owned npm command. Reject anything that is not npm."""
+
+    parts = tuple(part for part in shlex.split(command, posix=True) if part)
+    if len(parts) < 3 or parts[0] != "npm" or parts[1] != "run":
+        raise ValueError(f"vägrade köra icke-npm-kommando: {command}")
+    return parts
+
+
 def _render_profile(profile: Any, record: Any | None) -> None:
     template_id = _profile_id(profile)
     title = _record_title(record) if record is not None else template_id
@@ -370,7 +401,7 @@ def _render_profile(profile: Any, record: Any | None) -> None:
         )
 
 
-def _render_report(report: Any, snapshot: Any) -> None:
+def _render_report(ctx: BackofficeContext, report: Any, snapshot: Any) -> None:
     payload = _jsonable(report)
     profiles = _report_profiles(report)
     decisions = sorted({_profile_decision(profile) for profile in profiles})
@@ -423,21 +454,82 @@ def _render_report(report: Any, snapshot: Any) -> None:
     )
 
     st.markdown(
-        "**Addenda uppdateras aldrig av denna sida.** Granska rapporten och kör vid behov:"
+        "**Addenda skrivs inte av analysen.** Efter granskning kan du köra det "
+        "runner-ägda kommandot här — det uppdaterar `config/variant-template-addenda.json` "
+        "för just de analyserade kandidaterna (inte rejected, bara runtime-kvalificerade)."
     )
     candidate_commands = _addendum_write_commands(report)
     if candidate_commands:
         st.code("\n".join(candidate_commands), language="bash")
+        write_col, check_col = st.columns(2)
+        with write_col:
+            if st.button(
+                "Skriv addenda för kandidaterna",
+                type="primary",
+                key="template_curator_write_addenda",
+                help="Kör runner-kommandot oförändrat. Hämtar SHA-verifierade ZIP:ar och skriver registret.",
+            ):
+                try:
+                    command = _npm_command_tuple(candidate_commands[0])
+                except ValueError as exc:
+                    st.session_state[_ADDENDA_WRITE_RESULT_KEY] = {
+                        "ok": False,
+                        "error": str(exc),
+                    }
+                else:
+                    with st.spinner("Skriver variant-template-addenda.json …"):
+                        st.session_state[_ADDENDA_WRITE_RESULT_KEY] = run_repo_command(
+                            ctx.repo_root, command, timeout=1200
+                        )
+        with check_col:
+            check_command = _value(report, "addendaCheckCommand", default=None)
+            if isinstance(check_command, str) and check_command:
+                if st.button(
+                    "Kontrollera addenda-registret",
+                    key="template_curator_check_addenda",
+                    help=check_command,
+                ):
+                    try:
+                        command = _npm_command_tuple(check_command)
+                    except ValueError as exc:
+                        st.session_state[_ADDENDA_WRITE_RESULT_KEY] = {
+                            "ok": False,
+                            "error": str(exc),
+                        }
+                    else:
+                        with st.spinner("Kör templates:addenda:check …"):
+                            st.session_state[_ADDENDA_WRITE_RESULT_KEY] = run_repo_command(
+                                ctx.repo_root, command, timeout=180
+                            )
     else:
         st.caption(
             "Inga analyserade mallar klarade både besluts- och runtime-grinden för addendum."
         )
-    check_command = _value(report, "addendaCheckCommand", default=None)
-    if isinstance(check_command, str) and check_command:
-        st.code(check_command, language="bash")
+        check_command = _value(report, "addendaCheckCommand", default=None)
+        if isinstance(check_command, str) and check_command:
+            st.code(check_command, language="bash")
+    write_result = st.session_state.get(_ADDENDA_WRITE_RESULT_KEY)
+    if isinstance(write_result, Mapping):
+        if write_result.get("ok"):
+            st.success(
+                "Kommandot lyckades. `config/variant-template-addenda.json` är uppdaterad "
+                "i worktreet — committa när du granskat diffen."
+            )
+        else:
+            error = write_result.get("error") or write_result.get("stderrTail") or "okänt fel"
+            st.error(f"Addenda-kommandot misslyckades: {error}")
+        stdout_tail = str(write_result.get("stdoutTail") or "").strip()
+        stderr_tail = str(write_result.get("stderrTail") or "").strip()
+        if stdout_tail:
+            with st.expander("stdout", expanded=False):
+                st.code(stdout_tail, language="text")
+        if stderr_tail:
+            with st.expander("stderr", expanded=not write_result.get("ok")):
+                st.code(stderr_tail, language="text")
     st.caption(
         "Om en manuellt granskad post har blivit stale krävs det uttryckliga "
-        "tillägget `--refresh-reviewed`; det ersätter manuella utdrag."
+        "tillägget `--refresh-reviewed`; det ersätter manuella utdrag. "
+        "Den knappen skickar inte den flaggan."
     )
 
 
@@ -455,6 +547,7 @@ def _clear_report_state() -> None:
         _REPORT_STATE_KEY,
         _REPORT_BINDING_KEY,
         _REPORT_ERROR_KEY,
+        _ADDENDA_WRITE_RESULT_KEY,
         *_REPORT_VIEW_FILTER_KEYS,
     ):
         st.session_state.pop(key, None)
@@ -475,7 +568,8 @@ def render(ctx: BackofficeContext) -> None:
             "- Lokala rapporter/cache: `data/backoffice/template-curator/` (gitignored)"
         )
         st.markdown(
-            "- Addenda: `config/variant-template-addenda.json` (endast status; skrivs inte här)"
+            "- Addenda: `config/variant-template-addenda.json` (analysen är read-only; "
+            "skrivning sker bara via den explicita knappen efter analys)"
         )
 
     try:
@@ -534,9 +628,8 @@ def render(ctx: BackofficeContext) -> None:
         st.multiselect(
             "Exakt urval",
             options=option_ids,
-            format_func=lambda template_id: (
-                f"{_record_title(visible_lookup[template_id])} "
-                f"· {_record_category(visible_lookup[template_id])} · {template_id}"
+            format_func=lambda template_id: _format_catalog_option(
+                template_id, visible_lookup
             ),
             help="Bara dessa id:n hämtas när du startar analysen.",
         )
@@ -583,4 +676,4 @@ def render(ctx: BackofficeContext) -> None:
         return
 
     st.success(f"Analysen är bunden till {len(selected_ids)} valda mallar.")
-    _render_report(report, snapshot)
+    _render_report(ctx, report, snapshot)

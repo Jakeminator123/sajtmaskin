@@ -514,6 +514,7 @@ class PlannedWritesTests(unittest.TestCase):
             if step["key"] == "embeddings"
         )
         self.assertIn("--require-blob", embeddings["command"])
+        self.assertTrue(embeddings["needs_blob"])
 
     def test_condition_is_stated_whether_or_not_the_key_exists(self) -> None:
         """Utan nyckel skrivs autorun-filerna inte — rutan får inte lova dem."""
@@ -530,6 +531,7 @@ class PlannedWritesTests(unittest.TestCase):
                 self.assertIn("automatiskt", rendered)
             else:
                 self.assertIn("skrivs inte", rendered)
+                self.assertIn("BLOB_READ_WRITE_TOKEN", rendered)
 
 
 if __name__ == "__main__":

@@ -270,6 +270,25 @@ class AddendumCandidatePublicationTests(unittest.TestCase):
         )
         self.assertEqual(page._addendum_write_commands({}), ())
 
+    def test_npm_command_tuple_keeps_runner_owned_ids(self) -> None:
+        self.assertEqual(
+            page._npm_command_tuple(
+                "npm run templates:addenda -- --write --ids=approved"
+            ),
+            (
+                "npm",
+                "run",
+                "templates:addenda",
+                "--",
+                "--write",
+                "--ids=approved",
+            ),
+        )
+
+    def test_npm_command_tuple_rejects_non_npm(self) -> None:
+        with self.assertRaises(ValueError):
+            page._npm_command_tuple("python -c pass")
+
 
 if __name__ == "__main__":
     unittest.main()
