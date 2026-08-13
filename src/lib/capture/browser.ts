@@ -103,12 +103,15 @@ function pruneLeakedPlaywrightProfilesBestEffort(): number {
       if (Date.now() - started >= PLAYWRIGHT_PROFILE_SWEEP_BUDGET_MS) break;
       if (!entry.isDirectory()) continue;
       if (!entry.name.startsWith(PLAYWRIGHT_PROFILE_PREFIX)) continue;
-      candidates += 1;
-      if (candidates > PLAYWRIGHT_PROFILE_SWEEP_MAX_CANDIDATES) break;
       const dir = path.join(tmp, entry.name);
       try {
         const ageMs = Date.now() - fs.statSync(dir).mtimeMs;
         if (ageMs < PLAYWRIGHT_PROFILE_MAX_AGE_MS) continue;
+        // Kandidat-taket räknar bara RADERINGSFÖRSÖK (Bugbot high på diffen:
+        // färska profiler fick inte äta budgeten så att gamla läckor aldrig
+        // nåddes). Unga skips är redan tidsbundna via svep-budgeten ovan.
+        candidates += 1;
+        if (candidates > PLAYWRIGHT_PROFILE_SWEEP_MAX_CANDIDATES) break;
         fs.rmSync(dir, { recursive: true, force: true });
         pruned += 1;
       } catch {
