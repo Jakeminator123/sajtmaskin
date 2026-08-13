@@ -1,6 +1,6 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { escapeRegexLiteral, uWord, uWordRegex } from "@/lib/utils/unicode-word-boundary";
-import type { ScaffoldManifest } from "../scaffolds/types";
+import type { ScaffoldContractRoute, ScaffoldManifest } from "../scaffolds/types";
 import { APP_ROUTE_PATTERNS, type RoutePatternEntry, WEBSITE_ROUTE_PATTERNS } from "./route-patterns";
 import { normalizeRoutePath } from "./path-utils";
 
@@ -521,73 +521,50 @@ export function applyPromptPatterns(
   return routes.some((route) => !before.has(normalizeRoutePath(route.path)));
 }
 
+/**
+ * Derive the scaffold's default plan contribution from its manifest route
+ * contract (`ScaffoldManifest.routeContract`). The contract replaced the
+ * former hardcoded per-scaffold switch here, so the truth about a
+ * scaffold's routes lives next to its files. Categories:
+ *
+ *  - `requiredRoutes` are planned as required (unless the entry limits
+ *    required-ness to specific build intents, in which case other intents
+ *    still plan the route but as optional — blog's `/blog` under "app").
+ *  - `optionalRoutes` are planned as non-required (trimmable).
+ *  - `declaredRoutePaths` and `dynamicRoutePatterns` are never planned;
+ *    they exist for the link-vs-contract gate in
+ *    `scaffold-manifest-validation.test.ts`.
+ */
 function getScaffoldDefaultRoutes(
   buildIntent: BuildIntent,
   resolvedScaffold: ScaffoldManifest | null,
 ): RouteLike[] {
-  switch (resolvedScaffold?.id) {
-    case "blog":
-      return [
-        {
-          path: "/blog",
-          name: "Blog",
-          intent: "Keep an editorial route for articles and archives.",
-          required: buildIntent !== "app",
-        },
-      ];
-    case "ecommerce":
-      return [
-        {
-          path: "/products",
-          name: "Products",
-          intent: "Keep a storefront route for the product catalog.",
-          required: true,
-        },
-      ];
-    case "auth-pages":
-      return [
-        {
-          path: "/login",
-          name: "Login",
-          intent: "Keep a dedicated authentication entry route.",
-          required: true,
-        },
-        {
-          path: "/signup",
-          name: "Signup",
-          intent: "Keep a dedicated registration route when auth is in scope.",
-          required: false,
-        },
-      ];
-    case "dashboard":
-      if (buildIntent !== "app") return [];
-      return [
-        {
-          path: "/analytics",
-          name: "Analytics",
-          intent: "Dashboard apps benefit from an analytics or metrics route.",
-          required: false,
-        },
-        {
-          path: "/settings",
-          name: "Settings",
-          intent: "App shells should usually expose at least one management/settings route.",
-          required: false,
-        },
-      ];
-    case "app-shell":
-      if (buildIntent !== "app") return [];
-      return [
-        {
-          path: "/settings",
-          name: "Settings",
-          intent: "App shells should usually expose at least one management/settings route.",
-          required: false,
-        },
-      ];
-    default:
-      return [];
+  const contract = resolvedScaffold?.routeContract;
+  if (!contract) return [];
+  const plannedForIntent = (route: ScaffoldContractRoute): boolean =>
+    !route.planOnlyForBuildIntents || route.planOnlyForBuildIntents.includes(buildIntent);
+  const routes: RouteLike[] = [];
+  for (const route of contract.requiredRoutes) {
+    if (!plannedForIntent(route)) continue;
+    routes.push({
+      path: route.path,
+      name: route.name,
+      intent: route.planIntent,
+      required:
+        !route.requiredOnlyForBuildIntents ||
+        route.requiredOnlyForBuildIntents.includes(buildIntent),
+    });
   }
+  for (const route of contract.optionalRoutes) {
+    if (!plannedForIntent(route)) continue;
+    routes.push({
+      path: route.path,
+      name: route.name,
+      intent: route.planIntent,
+      required: false,
+    });
+  }
+  return routes;
 }
 
 export function collectScaffoldRequiredPaths(

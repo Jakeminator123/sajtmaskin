@@ -73,7 +73,8 @@ The plan may draw routes from:
 
 - `brief` — explicit pages from the current brief/spec
 - `prompt` — prompt-pattern inference in `src/lib/gen/route-plan/`
-- `scaffold` — scaffold defaults that add real routes (for example blog/auth/commerce helpers)
+- `scaffold` — scaffold defaults that add real routes, derived from the
+  manifest's `routeContract` (see [Route contract](#route-contract))
 
 After all sources contribute, `buildRoutePlan()` runs `dedupePlannedRoutesInPlaceByLocale()` (since 2026-04-21) to collapse locale-alternate route pairs (`/blog`↔`/blogg`, `/contact`↔`/kontakt`, `/about`↔`/om`, `/services`↔`/tjanster`) down to the variant matching the project's resolved locale (default `sv`). This means scaffolds that contribute `/blog` plus a brief that defines `/blogg` will reach the LLM as a single `/blogg` route — the LLM should never see both variants. Scaffold authors do not need to worry about locale-alternate collisions.
 
@@ -92,6 +93,8 @@ After all sources contribute, `buildRoutePlan()` runs `dedupePlannedRoutesInPlac
 - `allowedBuildIntents`
 - `tags`
 - `promptHints`
+- `routeContract` (optional in the type for test fixtures; validation requires
+  it on every registered scaffold — see [Route contract](#route-contract))
 - `files`
 - optional `qualityChecklist`
 - optional `research`
@@ -113,6 +116,58 @@ Supporting subtypes:
   - `categorySlug`
   - `qualityScore`
   - `strengths`
+
+### Route contract
+
+`ScaffoldManifest.routeContract` is the single owner of which routes a
+scaffold's starter files assume. It replaced the former hardcoded
+per-scaffold `switch` in `src/lib/gen/route-plan/planning-helpers.ts`
+(2026-08-14): `getScaffoldDefaultRoutes()` now derives the scaffold's plan
+contribution from the manifest, so the route truth lives in the same folder
+as the files that depend on it. The manifests own the actual lists — do not
+copy them into docs.
+
+Four categories:
+
+| Field | Meaning | Planned? |
+|---|---|---|
+| `requiredRoutes` | The plan must include the route; the scaffold's files may link to it unconditionally | Yes, as `required` |
+| `optionalRoutes` | May be planned; may be trimmed by the per-round page ceiling | Yes, as non-required |
+| `declaredRoutePaths` | A page file exists in the scaffold but the plan does not need to include the route every round | Never |
+| `dynamicRoutePatterns` | Patterns like `/product/[id]` — links are matched against them, never planned as list entries | Never |
+
+Two categories are not enough: ecommerce ships real files for
+`/category/[slug]` and `/product/[id]` and links to example data such as
+`/category/category-1`, none of which belongs in a planned-routes list.
+
+`requiredRoutes`/`optionalRoutes` entries carry `path`, `name`, `planIntent`
+(forwarded verbatim to the planned route) and two optional build-intent
+scopes that preserve the old switch semantics exactly:
+
+- `planOnlyForBuildIntents` — the route is contributed only for these
+  intents (dashboard/app-shell defaults apply to `app` only).
+- `requiredOnlyForBuildIntents` — required-routes only: planned as required
+  for these intents and as optional for the rest (blog's `/blog` is required
+  for `website`/`template` but optional for `app`).
+
+**Link ↔ contract gate.** A deterministic, blocking test in
+`src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts` (runs in
+`npm run scaffolds:validate` and therefore in the `quality` CI job) checks
+both directions per scaffold:
+
+1. every internal `href`/`Link` path extracted from `files/**` must resolve
+   against the contract (`/` plus required/optional/declared, dynamic links
+   matched against `dynamicRoutePatterns`), and
+2. every contract route must be reachable — at least one link or one starter
+   page file — so the contract cannot promise junk routes.
+
+Known drift is pinned in the test's explicit exception list
+(`KNOWN_ROUTE_CONTRACT_VIOLATIONS`): the four SM-042 scaffolds
+(`ecommerce`, `app-shell`, `auth-pages`, `dashboard`) link to routes the
+plan never guaranteed, and SM-043's `/cart` is contract junk. The list is
+compared with exact equality, so drift can neither grow nor disappear
+silently — each exception is removed together with the owner's direction
+decision.
 
 ### Scaffold Contract V2 — render policy
 
@@ -192,6 +247,10 @@ handkuraterad för auto-matchning eller retry-heuristik.
 
 `validateScaffoldManifest()` currently checks:
 
+- `routeContract` present on every registered scaffold, with normalized
+  paths, exactly one category per path, dynamic segments only in
+  `dynamicRoutePatterns`, non-empty `name`/`planIntent` on planned entries,
+  and valid build-intent scopes (all errors)
 - duplicate file paths
 - required `app/globals.css`
 - presence of `@theme inline` tokens in `app/globals.css` as a warning

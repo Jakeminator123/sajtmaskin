@@ -109,6 +109,14 @@ Unicode-klasser (`\p{L}`, `u`-flagga) — ASCII `\w`/`\b` missar `ändra`,
 
 ## Spår B — scaffoldernas ruttsanning
 
+**Status 2026-08-14:** flytten och grinden är byggda (PR
+`feat/scaffold-route-contract`): `ScaffoldManifest.routeContract` äger nu
+ruttkontraktet (required/optional/declared/dynamic), switchen i
+`planning-helpers.ts` är borta, och grinden i
+`scaffold-manifest-validation.test.ts` fäller på SM-042-fallen + SM-043:s
+`/cart` via en explicit undantagslista. **Ägarbeslutet nedan är fortfarande
+öppet** — undantagen tas bort först när riktningen är vald.
+
 **Problemet:** scaffoldernas navigering länkar hårdkodat till sidor som
 ruttplaneraren inte garanterar. Kapas eller planeras inte rutten får den
 genererade sajten döda länkar.

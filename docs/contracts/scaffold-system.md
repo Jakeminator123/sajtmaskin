@@ -140,7 +140,7 @@ fritext/init, medan importerade repo-flöden fortfarande kör utan scaffold.
 Flaggor: `needsAuth`, `needsEcommerce`, `needsAppShell`, `needsForms`, `needsCharts`, `needs3D`, `needsMotion`, m.fl. + `hasHeavyCapabilities()`. Boostar matchning + prioriterar filer + matar BuildSpec.
 
 ### STEG 5 — Route Plan (`src/lib/gen/route-plan/`)
-Källprioritet: brief pages > scaffold defaults > prompt patterns. Output: `RoutePlan { routes[], siteType, provenance }`.
+Källprioritet: brief pages > scaffold defaults > prompt patterns. Output: `RoutePlan { routes[], siteType, provenance }`. Scaffold defaults härleds ur manifestets `routeContract` (fyra kategorier: required/optional/declared/dynamic) — manifesten äger listorna, och en deterministisk grind jämför scaffoldens länkar mot kontraktet. Se [`../schemas/scaffold-contract.md`](../schemas/scaffold-contract.md) § Route contract.
 
 ### STEG 6 — Pre-generation Contracts (`pre-generation-contracts.ts`)
 Auth, Payment, Database, Env vars, Integrations. Output: `contracts[]`, `unresolvedDecisions[]`, `confirmedAnswers[]`.

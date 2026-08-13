@@ -44,5 +44,31 @@ export const dashboardManifest: ScaffoldManifest = {
       { id: "saas-router-so-headless-forms-and-lead-routing", title: "Router.so Headless Forms", categorySlug: "saas", qualityScore: 96, strengths: ["verified Next.js codebase", "data-driven UI patterns", "form routing"] },
     ],
   },
+  // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
+  // planning-helpers): /analytics and /settings were planned as optional,
+  // and only when buildIntent was "app".
+  // SM-042: files/ links unconditionally to /users, but the plan never
+  // guaranteed it — deliberately NOT listed here until the owner picks a
+  // direction (see the route-contract gate in
+  // scaffold-manifest-validation.test.ts).
+  routeContract: {
+    requiredRoutes: [],
+    optionalRoutes: [
+      {
+        path: "/analytics",
+        name: "Analytics",
+        planIntent: "Dashboard apps benefit from an analytics or metrics route.",
+        planOnlyForBuildIntents: ["app"],
+      },
+      {
+        path: "/settings",
+        name: "Settings",
+        planIntent: "App shells should usually expose at least one management/settings route.",
+        planOnlyForBuildIntents: ["app"],
+      },
+    ],
+    declaredRoutePaths: [],
+    dynamicRoutePatterns: [],
+  },
   files: loadScaffoldFiles("dashboard"),
 };

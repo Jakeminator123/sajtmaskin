@@ -49,5 +49,13 @@ export const saasLandingManifest: ScaffoldManifest = {
       { id: "saas-update-starter-subscriptions-and-auth-for-saas", title: "Update Starter — Subscriptions and Auth", categorySlug: "saas", qualityScore: 96, strengths: ["verified Next.js codebase", "subscription flow", "auth integration"] },
     ],
   },
+  // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
+  // planning-helpers): this scaffold contributed no default routes.
+  routeContract: {
+    requiredRoutes: [],
+    optionalRoutes: [],
+    declaredRoutePaths: [],
+    dynamicRoutePatterns: [],
+  },
   files: loadScaffoldFiles("saas-landing"),
 };
