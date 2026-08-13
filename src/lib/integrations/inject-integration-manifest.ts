@@ -1,4 +1,4 @@
-import { detectIntegrations } from "@/lib/gen/detect-integrations";
+import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
 import {
   buildManifestJsonFromDetected,
   isIntegrationManifestPath,
@@ -15,7 +15,10 @@ import type { PreviewLifecycleStage } from "@/lib/gen/preview/env-local";
  * file and skip recomputation entirely. F3 (`integrations`) builds the
  * full manifest as before so readiness/deploy can validate tier-3 keys.
  *
- * See `.cursor/rules/env-flow-f2-mute.mdc`.
+ * Detection goes through `detectIntegrationsFromVersionFiles` so F2 auto-
+ * stubs in env artifacts (e.g. `STRIPE_SECRET_KEY=sk_test_placeholder_…`)
+ * are filtered before provider regexes run — same path as version-file
+ * detection. See `.cursor/rules/env-flow-f2-mute.mdc`.
  */
 export function injectIntegrationManifestIntoFilesJson(
   filesJson: string,
@@ -42,10 +45,10 @@ export function injectIntegrationManifestIntoFilesJson(
     return JSON.stringify(withoutManifest);
   }
 
-  const combined = withoutManifest
-    .map((f) => `// File: ${f.path}\n${f.content}`)
-    .join("\n\n");
-  const detected = combined.trim() ? detectIntegrations(combined) : [];
+  const detected = detectIntegrationsFromVersionFiles(
+    withoutManifest.map((f) => ({ name: f.path, content: f.content })),
+    { lifecycleStage: options.lifecycleStage },
+  );
   const manifestContent = buildManifestJsonFromDetected(detected);
 
   const next = [

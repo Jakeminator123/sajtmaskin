@@ -179,4 +179,54 @@ describe("integration manifest", () => {
     const twice = injectIntegrationManifestIntoFilesJson(once);
     expect(twice).toBe(once);
   });
+
+  it("injectIntegrationManifestIntoFilesJson ignores stub env artifact keys", () => {
+    const base = JSON.stringify([
+      {
+        path: "env.example",
+        content:
+          "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real\nRESEND_API_KEY=re_placeholder_not_real\n",
+        language: "env",
+      },
+      {
+        path: ".env.local",
+        content:
+          "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real\nRESEND_API_KEY=re_placeholder_not_real\n",
+        language: "env",
+      },
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <main>Hej</main>; }\n",
+        language: "tsx",
+      },
+    ]);
+    const injected = injectIntegrationManifestIntoFilesJson(base);
+    const files = JSON.parse(injected) as Array<{ path: string; content: string }>;
+    const manifestFile = files.find((f) => f.path === SAJTMASKIN_INTEGRATION_MANIFEST_FILENAME);
+    expect(manifestFile).toBeDefined();
+    const parsed = tryParseIntegrationManifest(manifestFile!.content);
+    expect(parsed?.integrations.some((i) => i.key === "stripe")).toBe(false);
+    expect(parsed?.integrations.some((i) => i.key === "resend")).toBe(false);
+  });
+
+  it("injectIntegrationManifestIntoFilesJson still detects real Stripe imports", () => {
+    const base = JSON.stringify([
+      {
+        path: "env.example",
+        content: "STRIPE_SECRET_KEY=sk_test_placeholder_preview_not_real\n",
+        language: "env",
+      },
+      {
+        path: "lib/pay.ts",
+        content: 'import Stripe from "stripe";\n',
+        language: "ts",
+      },
+    ]);
+    const injected = injectIntegrationManifestIntoFilesJson(base);
+    const files = JSON.parse(injected) as Array<{ path: string; content: string }>;
+    const manifestFile = files.find((f) => f.path === SAJTMASKIN_INTEGRATION_MANIFEST_FILENAME);
+    expect(manifestFile).toBeDefined();
+    const parsed = tryParseIntegrationManifest(manifestFile!.content);
+    expect(parsed?.integrations.some((i) => i.key === "stripe")).toBe(true);
+  });
 });

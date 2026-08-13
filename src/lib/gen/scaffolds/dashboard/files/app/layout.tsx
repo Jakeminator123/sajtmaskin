@@ -6,8 +6,8 @@ import { DashboardSidebar } from "@/components/dashboard-sidebar";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "Analytics and overview dashboard with stats, tables, and charts.",
+  title: "Instrumentpanel",
+  description: "Analys- och översiktsdashboard med statistik, tabeller och diagram.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -9,7 +9,11 @@
 
 1. Install `next-sanity` and `server-only`.
 2. Add the Sanity env vars: `NEXT_PUBLIC_SANITY_PROJECT_ID` and `NEXT_PUBLIC_SANITY_DATASET` (required for any read), plus `SANITY_API_TOKEN` (server-only, required for draft preview / private datasets — same key as the integration registry) and the optional `NEXT_PUBLIC_SANITY_API_VERSION` / `NEXT_PUBLIC_SANITY_STUDIO_URL`.
-3. Emit the helpers under `lib/sanity/*` and import them via `@/lib/sanity/*`. Do NOT use the upstream `@/sanity/lib/*` layout.
+3. Emit dossier files to their project outputs (source → output):
+   - `components/lib/sanity/*` → `lib/sanity/*` (import via `@/lib/sanity/*`; do NOT use the upstream `@/sanity/lib/*` layout)
+   - `components/sanity-config-notice.tsx` → `components/sanity-config-notice.tsx`
+   - `components/api/draft-mode/enable/route.ts` → `app/api/draft-mode/enable/route.ts`
+   - `components/api/draft-mode/disable/route.ts` → `app/api/draft-mode/disable/route.ts`
 4. Read published content from server components / route handlers / metadata + sitemap loaders with `sanityFetch({ query, params })`. It queries the public CDN client (no token).
 5. SEED FALLBACK CONTRACT (required, mock: seed): every page/section that shows Sanity content must branch on `isSanityConfigured()` from `@/lib/sanity/api` (placeholder-aware — preview stubs count as NOT configured). Configured → query via `sanityFetch()`. Not configured → render `seedContent` from `@/lib/sanity/seed-content` and mount a discreet `<SanityConfigNotice />` from `@/components/sanity-config-notice` near that section. Rewrite `seedContent` to mirror the app's real document types (same shape as the GROQ results). The site must render fully without any Sanity env vars — never crash and never surface a raw error.
 6. For draft preview, mount the `/api/draft-mode/enable` and `/api/draft-mode/disable` routes and point the Sanity Presentation Tool `previewMode.enable` at `/api/draft-mode/enable`. Use `sanityFetch({ query, perspective: "drafts" })` only inside `draftMode().isEnabled` branches; gate it on `isSanityDraftTokenConfigured()`.

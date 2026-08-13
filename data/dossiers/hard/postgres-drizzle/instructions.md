@@ -9,7 +9,13 @@
 
 - Install `drizzle-orm`, `pg`, `@types/pg`, `server-only`, and `drizzle-kit`.
 - Add `DATABASE_URL` from the Postgres provider.
-- Emit the DB client at `lib/db/index.ts`, schema at `lib/db/schema.ts`, seed data at `lib/db/seed-data.ts`, and `drizzle.config.ts` at the project root.
+- Emit dossier files to their project outputs (source → output):
+  - `components/lib/db/index.ts` → `lib/db/index.ts`
+  - `components/lib/db/schema.ts` → `lib/db/schema.ts`
+  - `components/lib/db/seed-data.ts` → `lib/db/seed-data.ts`
+  - `components/drizzle.config.ts` → `drizzle.config.ts` (project root)
+  - `components/db-config-notice.tsx` → `components/db-config-notice.tsx`
+  - `components/api/health/db/route.ts` → `app/api/health/db/route.ts`
 - Replace the starter `items` schema table AND the matching `seedData` rows with tables/rows required by the app domain.
 - Access the database ONLY through `getDb()` / `getPool()` from `@/lib/db` — never construct a Pool or Drizzle client yourself, and never at module level.
 - SEED FALLBACK CONTRACT (required — this is the dossier's `mock: seed` mode): every page/section that shows database content must branch on `isDbConfigured()` from `@/lib/db`. Configured → query via `getDb()`. Not configured (missing OR a `preview`/`placeholder` stub URL) → render `seedData` from `@/lib/db/seed-data` and mount a discreet `<DbConfigNotice />` (from `@/components/db-config-notice`) near that section. The site must render fully without `DATABASE_URL`, so the DB view looks alive in an F2/preview without a real database.

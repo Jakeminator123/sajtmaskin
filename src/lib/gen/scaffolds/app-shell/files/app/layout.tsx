@@ -6,8 +6,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Workspace Dashboard",
-  description: "A reusable application starter with navigation, stats, and data views.",
+  title: "Arbetsyta",
+  description: "En återanvändbar appstart med navigering, statistik och datavyer.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

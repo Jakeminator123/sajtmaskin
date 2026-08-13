@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 const links = {
-  Blog: ["All posts", "Categories"],
-  Connect: ["Email", "LinkedIn", "Twitter"],
+  Blogg: ["Alla inlägg", "Kategorier"],
+  Kontakt: ["E-post", "LinkedIn", "Twitter"],
 };
 
 export function SiteFooter() {
@@ -10,9 +10,9 @@ export function SiteFooter() {
     <footer className="px-6 py-12 sm:px-8">
       <div className="mx-auto grid max-w-6xl gap-10 rounded-4xl border bg-card/80 p-8 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <div className="space-y-4">
-          <p className="text-lg font-semibold tracking-tight">Blog</p>
+          <p className="text-lg font-semibold tracking-tight">Blogg</p>
           <p className="max-w-sm text-sm leading-7 text-muted-foreground">
-            A content-first blog starter. Adapt the categories, authors, and post structure to your topic.
+            En innehållsdriven bloggstart. Anpassa kategorier, författare och inläggsstruktur efter ditt ämne.
           </p>
         </div>
         {Object.entries(links).map(([title, items]) => (

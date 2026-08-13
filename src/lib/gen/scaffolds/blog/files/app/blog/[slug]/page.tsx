@@ -4,28 +4,28 @@ import { notFound } from "next/navigation";
 
 const posts: Record<string, { title: string; excerpt: string; date: string; author: string; category: string; body: string }> = {
   "getting-started-with-content": {
-    title: "Getting started with content-first design",
-    excerpt: "How to structure a blog for readability and engagement.",
+    title: "Kom igång med innehållsdriven design",
+    excerpt: "Så strukturerar du en blogg för läsbarhet och engagemang.",
     date: "2026-03-10",
     author: "Alex",
     category: "Design",
-    body: "This is a placeholder for the full article body. Replace with real content. The scaffold provides a structure for metadata (date, author, category), a main heading, and a prose area for the article body.",
+    body: "Det här är en platshållare för hela artikeltexten. Byt ut mot riktigt innehåll. Scaffolden ger dig struktur för metadata (datum, författare, kategori), en huvudrubrik och ett prose-område för brödtexten.",
   },
   "typography-for-readers": {
-    title: "Typography choices that make readers stay",
-    excerpt: "Font sizes, line heights, and spacing for long-form content.",
+    title: "Typografi som får läsare att stanna kvar",
+    excerpt: "Teckenstorlekar, radavstånd och marginaler för längre texter.",
     date: "2026-03-08",
     author: "Alex",
     category: "Design",
-    body: "Placeholder content. Use this layout to structure your post: title, metadata, and a readable body. Add prose classes for typography.",
+    body: "Platshållarinnehåll. Använd den här layouten för att strukturera ditt inlägg: titel, metadata och en läsbar brödtext. Lägg till prose-klasser för typografi.",
   },
   "building-a-blog": {
-    title: "Building a blog from scratch",
-    excerpt: "A step-by-step guide to setting up a modern blog.",
+    title: "Bygg en blogg från grunden",
+    excerpt: "En steg-för-steg-guide till en modern blogg.",
     date: "2026-03-05",
     author: "Alex",
-    category: "Tutorial",
-    body: "Placeholder. Replace with your article content. Keep the metadata structure and layout.",
+    category: "Guide",
+    body: "Platshållare. Byt ut mot ditt artikelinnehåll. Behåll metadatastrukturen och layouten.",
   },
 };
 
@@ -45,7 +45,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
             href="/blog"
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Back to blog
+            Tillbaka till bloggen
           </Link>
           <Badge variant="secondary" className="rounded-full">{post.category}</Badge>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{post.title}</h1>

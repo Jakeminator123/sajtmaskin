@@ -263,6 +263,16 @@ class GlossaryColumnHeaderTests(unittest.TestCase):
         # Grinden bär två tier-namn eftersom samma kolumn används av båda.
         self.assertIn("RenderGate", gh.GATE_COLUMN_LEGEND)
         self.assertIn("ReleaseGate", gh.GATE_COLUMN_LEGEND)
+        self.assertIn("fixerImproved", gh.GATE_COLUMN_LEGEND)
+        self.assertIn("riskyFixCount", gh.GATE_COLUMN_LEGEND)
+        self.assertIn(gh.COLUMN_REPAIR_HELPED, gh.GATE_COLUMN_LEGEND)
+        self.assertIn(gh.COLUMN_RISKY_FIXES, gh.GATE_COLUMN_LEGEND)
+
+    def test_repair_helped_label(self) -> None:
+        self.assertEqual(gh._repair_helped_label(True, True), "ja")
+        self.assertEqual(gh._repair_helped_label(True, False), "nej")
+        self.assertEqual(gh._repair_helped_label(False, True), "—")
+        self.assertEqual(gh._repair_helped_label(None, None), "—")
 
     def test_no_legacy_header_literal_left_in_the_code(self) -> None:
         """Bara koden granskas — kommentaren som förklarar bytet nämner

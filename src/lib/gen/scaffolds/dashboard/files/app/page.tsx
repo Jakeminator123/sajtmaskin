@@ -46,7 +46,7 @@ export default function DashboardPage() {
     <div className="space-y-8 p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Översikt</h1>
-        <p className="text-muted-foreground">Dashboard för mars 2026</p>
+        <p className="text-muted-foreground">Översikt för mars 2026</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -78,7 +78,7 @@ export default function DashboardPage() {
                           : "border-amber-500/30 text-amber-400"
                       }
                     >
-                      {item.status}
+                      {item.status === "success" ? "klar" : item.status === "pending" ? "väntar" : item.status}
                     </Badge>
                   </div>
                 </div>

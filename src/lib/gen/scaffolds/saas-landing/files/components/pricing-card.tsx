@@ -23,7 +23,7 @@ export function PricingCard({
       <CardHeader className="space-y-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl">{name}</CardTitle>
-          {featured && <Badge className="rounded-full">Popular</Badge>}
+          {featured && <Badge className="rounded-full">Populärast</Badge>}
         </div>
         <div>
           <p className="text-4xl font-semibold tracking-tight">{price}</p>
@@ -40,7 +40,7 @@ export function PricingCard({
       </CardContent>
       <CardFooter>
         <Button className="w-full rounded-full" variant={featured ? "default" : "outline"}>
-          Choose plan
+          Välj plan
         </Button>
       </CardFooter>
     </Card>

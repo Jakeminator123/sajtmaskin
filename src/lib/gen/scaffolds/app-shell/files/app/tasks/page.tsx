@@ -11,7 +11,7 @@ export default function TasksPage() {
   return (
     <div className="space-y-8 p-8">
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Uppgifter</h1>
         <p className="text-muted-foreground">Prioriterade aktiviteter för teamet denna vecka.</p>
       </div>
       <Card className="bg-card border-border">

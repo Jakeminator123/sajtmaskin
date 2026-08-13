@@ -1,6 +1,6 @@
 const links = {
-  Product: ["Features", "Pricing", "FAQ"],
-  Company: ["About", "Contact", "Support"],
+  Produkt: ["Funktioner", "Priser", "FAQ"],
+  Företag: ["Om oss", "Kontakt", "Support"],
 };
 
 export function MarketingFooter() {
@@ -12,7 +12,7 @@ export function MarketingFooter() {
             {"{{PRODUCT_NAME}}"}
           </p>
           <p className="max-w-sm text-sm leading-7 text-muted-foreground">
-            Product-led SaaS starter for clearer positioning, pricing, and launch messaging.
+            Produktledd SaaS-start för tydligare positionering, priser och lanseringsbudskap.
           </p>
         </div>
         {Object.entries(links).map(([title, items]) => (

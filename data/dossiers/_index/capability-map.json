@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-08-12T07:04:01.559Z",
+  "generatedAt": "2026-08-13T01:53:39.745Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -1018,7 +1018,7 @@
     ]
   },
   "sourceFiles": {
-    "data/dossiers/hard/clerk-auth/manifest.json": "aa952b4feef8f9d952191d6016df83282034bdd09ef543ebc4814fc6d982e0bd",
+    "data/dossiers/hard/clerk-auth/manifest.json": "9889e637a8a6b460711bb28054abd0220de78e0d80d4ff39653c3a33b0cb7c5b",
     "data/dossiers/hard/mailchimp-newsletter/manifest.json": "8b3400858050d66a5c383db99675264df32883c2d9d3a3ff954a309f336ea0f4",
     "data/dossiers/hard/openai-chat/manifest.json": "b929ec00bac5d4a7f25478eee88444c8916f08b0b24c931fef23f95bcdcd19a2",
     "data/dossiers/hard/postgres-drizzle/manifest.json": "11d7a2c25db545916907c6fdb5ae86b883cbf8b11facb1a823d8061057ded4e7",

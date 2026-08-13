@@ -14,9 +14,9 @@ import {
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { label: "Workspace", href: "/", icon: LayoutDashboard },
-  { label: "Pipeline", href: "/pipeline", icon: Workflow },
-  { label: "Tasks", href: "/tasks", icon: ListTodo },
+  { label: "Arbetsyta", href: "/", icon: LayoutDashboard },
+  { label: "Flöde", href: "/pipeline", icon: Workflow },
+  { label: "Uppgifter", href: "/tasks", icon: ListTodo },
   { label: "Inställningar", href: "/settings", icon: Settings },
 ];
 
@@ -26,7 +26,7 @@ export function AppSidebar() {
   return (
     <aside className="flex h-full w-(--sidebar-width) flex-col border-r border-border bg-card">
       <div className="flex h-16 items-center px-6">
-        <span className="text-lg font-bold tracking-tight">Workspace</span>
+        <span className="text-lg font-bold tracking-tight">Arbetsyta</span>
       </div>
 
       <Separator />
@@ -64,7 +64,7 @@ export function AppSidebar() {
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">Team Member</p>
+          <p className="text-sm font-medium truncate">Teammedlem</p>
           <p className="text-xs text-muted-foreground truncate">team@example.com</p>
         </div>
       </div>

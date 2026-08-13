@@ -23,7 +23,7 @@
       "required": true,
       "enforcement": "build",
       "setupUrl": "https://clerk.com/docs/guides/development/clerk-environment-variables",
-      "purpose": "Client-side Clerk SDK init. Clerk dashboard → API Keys → Publishable keys (pk_test_/pk_live_). Tagged 'build' because auth is non-functional without it. ClerkProviderShell validates the key structurally and renders an 'Auth not configured' banner on missing/placeholder values instead of letting <ClerkProvider> throw."
+      "purpose": "Client-side Clerk SDK init. Clerk dashboard → API Keys → Publishable keys (pk_test_/pk_live_). Tagged 'build' because auth is non-functional without it. ClerkProviderShell validates the key structurally and renders an 'Inloggning i demoläge' banner on missing/placeholder values instead of letting <ClerkProvider> throw."
     },
     {
       "key": "NEXT_PUBLIC_CLERK_SIGN_IN_URL",

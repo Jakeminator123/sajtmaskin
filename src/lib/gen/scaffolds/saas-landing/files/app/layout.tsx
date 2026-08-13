@@ -7,8 +7,8 @@ import { MarketingFooter } from "@/components/marketing-footer";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "SaaS Landing Starter",
-  description: "A product-led SaaS marketing starter with pricing, product preview, and FAQ.",
+  title: "SaaS-landningssida",
+  description: "En produktledd SaaS-marknadsstart med priser, produktförhandsvisning och FAQ.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

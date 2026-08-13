@@ -5,8 +5,8 @@ import { useState } from "react";
 import Link from "next/link";
 
 const navItems = [
-  { label: "Home", href: "/" },
-  { label: "Blog", href: "/blog" },
+  { label: "Start", href: "/" },
+  { label: "Blogg", href: "/blog" },
 ];
 
 export function SiteHeader() {
@@ -16,7 +16,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Link href="/" className="font-semibold tracking-tight">
-          Blog
+          Blogg
         </Link>
 
         <nav className="hidden items-center gap-7 md:flex">

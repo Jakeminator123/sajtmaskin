@@ -6,8 +6,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Auth Pages Starter",
-  description: "Login, signup, and forgot-password pages with form layout.",
+  title: "Auth-sidor",
+  description: "Sidor för inloggning, registrering och glömt lösenord med formulärlayout.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

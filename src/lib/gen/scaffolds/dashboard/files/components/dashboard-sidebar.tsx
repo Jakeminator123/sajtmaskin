@@ -21,7 +21,7 @@ export function DashboardSidebar() {
   return (
     <aside className="flex h-full w-(--sidebar-width) flex-col border-r border-border bg-card">
       <div className="flex h-16 items-center px-6">
-        <span className="text-lg font-bold tracking-tight">Dashboard</span>
+        <span className="text-lg font-bold tracking-tight">Instrumentpanel</span>
       </div>
 
       <Separator />
