@@ -1229,6 +1229,35 @@ describe("extractExplicitNamedPages — obundna namn kapas vid satsgräns", () =
     ).toEqual(["/om-oss", "/kontakt"]);
   });
 
+  // bugbot HIGH: och/and-split matade instruktionssvansen via parseExplicitPageName
+  // (utan trimBarePageName) → `/lanka-den-i-footern`, `/gor-knapparna-grona`.
+  // Oxford-listor utan instruktionssvans måste fortfarande ge tre sidor.
+  it("avvisar instruktionssvans efter och/and i kolonlista men behåller Oxford-sidor", () => {
+    expect(
+      extractExplicitNamedPages(
+        "Sidor: start, projekt, kontakt och länka den i footern",
+      ).map((page) => page.path),
+    ).toEqual(["/projekt", "/kontakt"]);
+    expect(
+      extractExplicitNamedPages("Sidor: start, projekt och kontakt").map(
+        (page) => page.path,
+      ),
+    ).toEqual(["/projekt", "/kontakt"]);
+    expect(
+      extractExplicitNamedPages("Sidor: Home, About and Contact").map(
+        (page) => page.path,
+      ),
+    ).toEqual(["/about", "/contact"]);
+    expect(
+      extractExplicitNamedPages(
+        "Sidor: start, projekt, kontakt och gör knapparna gröna",
+      ).map((page) => page.path),
+    ).toEqual(["/projekt", "/kontakt"]);
+    expect(
+      extractExplicitNamedPages("Bygg en portfolio och länka den i headern"),
+    ).toEqual([]);
+  });
+
   // Granskningsfynd: en kolonträff med EN post är oftast prosa, inte en
   // sidlista — utan spärren blev "routes: se nedan" en riktig skräpsida.
   it("avvisar kolonlistor med färre än två giltiga poster", () => {
