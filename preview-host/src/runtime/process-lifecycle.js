@@ -11,6 +11,8 @@ const {
   LOOPBACK,
   activePreviewSocketCount,
   activeVerifyChatKeys,
+  markPendingPreviewClientReload,
+  requestPreviewClientReload,
   appendRuntimeLog,
   findSessionByChatId,
   getSessionChatId,
@@ -906,6 +908,28 @@ function ensureRuntimeForChat(chatId, options = {}) {
       const data = readStoreSync();
       const session = findSessionByChatId(data, chatId);
       if (!session) return null;
+      if (restart) {
+        // SM-044: stop the old process first so a document reload cannot mix
+        // HTML from the dying runtime with JS from the next one, then tell any
+        // still-open iframe (HMR stub or reconnect) to reload. Missing filesJson
+        // lets bootRuntimeForSession throw without killing a healthy preview.
+        const canReplaceRuntime =
+          session.filesJson && typeof session.filesJson === "object";
+        if (canReplaceRuntime) {
+          const openClient = activePreviewSocketCount(chatId) > 0;
+          if (openClient) markPendingPreviewClientReload(chatId);
+          await stopRuntimeForSession(session);
+          if (openClient) {
+            const signaled = requestPreviewClientReload(chatId);
+            await appendRuntimeLog(
+              session.previewSessionId,
+              signaled.sent > 0
+                ? `Signaled preview client reload after runtime stop (${signaled.sent} open socket(s)).`
+                : "Runtime stopped under an open preview; reload pending until HMR reconnects.",
+            );
+          }
+        }
+      }
       const result = await bootRunnerForChat(session, options);
       return { session, runtimePort: result.runtimePort };
     });

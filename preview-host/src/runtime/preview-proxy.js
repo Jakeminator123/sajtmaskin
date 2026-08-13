@@ -465,8 +465,10 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   // ett `proxy.ws` mot en ej-lyssnande port ge ECONNREFUSED → destroy →
   // klientens HMR-reconnect-storm (syns som Fly `[PU02] connection closed`-spam
   // under hela reboot-fönstret). Vänta i stället en boot (om ingen redan pågår)
-  // och håll socketen tyst tills runtimen är uppe; nästa full-reload via
-  // refreshToken plockar upp det nya innehållet.
+  // och håll socketen tyst tills runtimen är uppe. Ett runtime-byte under en
+  // öppen iframe (SM-044) skickar reloadPage på dessa sockets så klienten inte
+  // hydrerar gammal JS mot den nya processens HTML; refreshToken täcker nya
+  // generationer som buildern redan känner till.
   if (isHmrProxyEnabled() && isHmrPath(info.restPath)) {
     // Unknown session: there is no preview session for this chatId, so there is
     // nothing to boot or hold open for. Close the socket instead of holding a

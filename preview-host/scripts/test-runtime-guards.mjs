@@ -1365,6 +1365,127 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   }
 }
 
+// SM-044: swapping the runtime under an open iframe must tell that client to
+// reload. The preview URL is stable (host proxies /{chatId}/), so a leftover
+// document from the previous Next process hydrates against the new process's
+// HTML/JS and throws. Non-restart boots must not send an extra signal.
+{
+  const { registerPreviewSocket, setBootRunnerForTesting, clearRuntimeStateForTesting } =
+    runtime.__testing;
+
+  function fakePreviewSocket() {
+    const socket = new EventEmitter();
+    socket.writes = [];
+    socket.destroyed = false;
+    socket.writable = true;
+    socket.write = (buf) => {
+      socket.writes.push(Buffer.from(buf));
+      return true;
+    };
+    return socket;
+  }
+
+  function seedReloadSession(chatId) {
+    const session = {
+      sessionId: `sess-${chatId}`,
+      previewSessionId: `ps-${chatId}`,
+      chatId,
+      versionId: "v1",
+      previewUrl: `http://localhost/${chatId}`,
+      status: "warm_project",
+      lastAction: "start",
+      sessionExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      filesJson: { "package.json": "{}" },
+    };
+    mkdirSync(dataDir, { recursive: true });
+    writeFileSync(
+      join(dataDir, "preview-host-store.json"),
+      JSON.stringify({
+        sessions: { [session.sessionId]: session },
+        logs: {},
+        previewSessionToSession: { [session.previewSessionId]: session.sessionId },
+      }),
+      "utf8",
+    );
+    return session;
+  }
+
+  function wroteReloadPage(socket) {
+    return socket.writes.some((buf) => /reloadPage/.test(buf.toString("utf8")));
+  }
+
+  setBootRunnerForTesting(async () => ({ runtimePort: 4202 }));
+
+  try {
+    const swapChat = "guard-reload-swap";
+    const swapSession = seedReloadSession(swapChat);
+    const openSocket = fakePreviewSocket();
+    registerPreviewSocket(swapChat, openSocket);
+    await runtime.ensureRuntimeForChat(swapChat, { restart: true });
+    check(
+      "runtime swap with an open iframe sends reloadPage on preview sockets",
+      wroteReloadPage(openSocket),
+    );
+    clearRuntimeStateForTesting(swapChat, swapSession.sessionId);
+
+    const keepChat = "guard-reload-keep";
+    const keepSession = seedReloadSession(keepChat);
+    const quietSocket = fakePreviewSocket();
+    registerPreviewSocket(keepChat, quietSocket);
+    await runtime.ensureRuntimeForChat(keepChat, {});
+    check(
+      "session without runtime swap does not send reloadPage",
+      quietSocket.writes.length === 0 && !wroteReloadPage(quietSocket),
+    );
+    clearRuntimeStateForTesting(keepChat, keepSession.sessionId);
+
+    const freshChat = "guard-reload-fresh";
+    const freshSession = seedReloadSession(freshChat);
+    await runtime.ensureRuntimeForChat(freshChat, { restart: true });
+    const lateSocket = fakePreviewSocket();
+    registerPreviewSocket(freshChat, lateSocket);
+    await new Promise((resolve) => setImmediate(resolve));
+    check(
+      "restart without an open iframe does not leave a pending reload for later sockets",
+      lateSocket.writes.length === 0,
+    );
+    clearRuntimeStateForTesting(freshChat, freshSession.sessionId);
+
+    const { markPendingPreviewClientReload, clearPendingPreviewClientReload } =
+      runtime.__testing;
+    const reconnectChat = "guard-reload-reconnect";
+    markPendingPreviewClientReload(reconnectChat);
+    const reconnectSocket = fakePreviewSocket();
+    registerPreviewSocket(reconnectChat, reconnectSocket);
+    check(
+      "pending reload is delivered when a socket connects after the old runtime died",
+      wroteReloadPage(reconnectSocket),
+    );
+    clearPendingPreviewClientReload(reconnectChat);
+
+    const boomChat = "guard-reload-failsafe";
+    const boomSession = seedReloadSession(boomChat);
+    const boomSocket = fakePreviewSocket();
+    boomSocket.write = () => {
+      throw new Error("write failed");
+    };
+    registerPreviewSocket(boomChat, boomSocket);
+    let bootThrew = false;
+    try {
+      await runtime.ensureRuntimeForChat(boomChat, { restart: true });
+    } catch {
+      bootThrew = true;
+    }
+    check("reload write failure does not fail the restart boot", bootThrew === false);
+    clearRuntimeStateForTesting(boomChat, boomSession.sessionId);
+    clearPendingPreviewClientReload(boomChat);
+  } finally {
+    setBootRunnerForTesting(null);
+  }
+}
+
 rmSync(dataDir, { recursive: true, force: true });
 
 if (failures > 0) {

@@ -25,6 +25,10 @@ legacy-alias där kontraktet fortfarande kräver kompatibilitet. En `previewUrl`
 - Install och runtimeprocesser måste ha timeout, cleanup och process-tree-stop.
 - Samma chat får inte bootas parallellt; en väntande restart ska använda senaste
   snapshotet.
+- Ett runtime-byte under en öppen iframe ska signalera `reloadPage` på preview-
+  sockets (HMR-stub eller reconnect). Preview-URL:en är stabil, så utan reload
+  hydrerar klienten gammal JS mot den nya processens HTML. Saknas socket är
+  signalen en no-op.
 - Prewarm är opt-in, får inte exponera skelettet publikt och måste deployas på
   hosten före aktivering i huvudappen.
 - Saknade lokala TypeScript-, ESLint- eller Next-binaries är toolingfel, inte

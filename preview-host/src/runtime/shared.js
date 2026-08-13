@@ -100,6 +100,78 @@ function runInInstallSlot(task) {
 // En öppen socket ≈ en öppen iframe — idle-reapern stoppar aldrig en runtime
 // som fortfarande har en betraktare, även om sidan inte genererar HTTP-trafik.
 const activePreviewSocketsByChat = new Map();
+// SM-044: när en live-runtime byts under en öppen iframe måste klienten göra
+// en full document-reload. Preview-URL:en är stabil (hosten proxar /{chatId}/),
+// så utan signal hydrerar gammal JS mot den nya processens HTML. Pending-flaggan
+// fångar HMR-reconnects efter att proxade sockets dog med den gamla processen.
+// Fail-safe: ingen socket / misslyckad write = samma beteende som före fixen.
+const pendingPreviewClientReloadByChat = new Map();
+const PREVIEW_CLIENT_RELOAD_PENDING_MS = 120_000;
+const PREVIEW_CLIENT_RELOAD_PAYLOAD = JSON.stringify({
+  type: "reloadPage",
+  action: "reloadPage",
+  data: "preview-runtime-swap",
+});
+
+function encodeUnmaskedWsTextFrame(payload) {
+  const data = Buffer.from(payload, "utf8");
+  const len = data.length;
+  if (len >= 126) {
+    throw new Error("preview reload payload too large for a 1-byte WS length");
+  }
+  const frame = Buffer.alloc(2 + len);
+  frame[0] = 0x81;
+  frame[1] = len;
+  data.copy(frame, 2);
+  return frame;
+}
+
+function clearPendingPreviewClientReload(chatId) {
+  if (!chatId) return;
+  const timeoutId = pendingPreviewClientReloadByChat.get(chatId);
+  if (timeoutId) clearTimeout(timeoutId);
+  pendingPreviewClientReloadByChat.delete(chatId);
+}
+
+function markPendingPreviewClientReload(chatId) {
+  if (!chatId) return;
+  clearPendingPreviewClientReload(chatId);
+  const timeoutId = setTimeout(() => {
+    pendingPreviewClientReloadByChat.delete(chatId);
+  }, PREVIEW_CLIENT_RELOAD_PENDING_MS);
+  if (typeof timeoutId.unref === "function") timeoutId.unref();
+  pendingPreviewClientReloadByChat.set(chatId, timeoutId);
+}
+
+function hasPendingPreviewClientReload(chatId) {
+  return Boolean(chatId) && pendingPreviewClientReloadByChat.has(chatId);
+}
+
+function requestPreviewClientReload(chatId) {
+  if (!chatId) return { sent: 0 };
+  const sockets = activePreviewSocketsByChat.get(chatId);
+  if (!sockets || sockets.size === 0) return { sent: 0 };
+  let frame;
+  try {
+    frame = encodeUnmaskedWsTextFrame(PREVIEW_CLIENT_RELOAD_PAYLOAD);
+  } catch {
+    return { sent: 0 };
+  }
+  let sent = 0;
+  for (const socket of [...sockets]) {
+    try {
+      if (socket.destroyed === true) continue;
+      if (socket.writable === false) continue;
+      if (typeof socket.write !== "function") continue;
+      socket.write(frame);
+      sent += 1;
+    } catch {
+      // Fail-safe: missing the signal is the previous behavior.
+    }
+  }
+  if (sent > 0) clearPendingPreviewClientReload(chatId);
+  return { sent };
+}
 
 function registerPreviewSocket(chatId, socket) {
   if (!chatId || !socket) return;
@@ -117,6 +189,9 @@ function registerPreviewSocket(chatId, socket) {
       activePreviewSocketsByChat.delete(chatId);
     }
   });
+  if (hasPendingPreviewClientReload(chatId)) {
+    requestPreviewClientReload(chatId);
+  }
 }
 
 function activePreviewSocketCount(chatId) {
@@ -566,6 +641,9 @@ module.exports = {
   runInInstallSlot,
   registerPreviewSocket,
   activePreviewSocketCount,
+  markPendingPreviewClientReload,
+  clearPendingPreviewClientReload,
+  requestPreviewClientReload,
   nowIso,
   getSessionChatId,
   safeChatKey,
