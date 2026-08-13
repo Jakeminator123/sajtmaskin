@@ -579,6 +579,21 @@ describe("checkUndefinedJsxSymbols", () => {
     expect(findings).toEqual([]);
   });
 
+  it("flags <Icon /> in a sibling function that does not bind the param alias", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "components/cards.tsx",
+        content: [
+          "function A({ icon: Icon }: Props) { return <Icon />; }",
+          "function B() { return <Icon />; }",
+        ].join("\n"),
+      },
+    ]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("undefined-jsx-symbol");
+    expect(findings[0]?.detail).toContain("<Icon");
+  });
+
   it("ignores undefined-looking symbols that only appear inside comments or strings", () => {
     const findings = checkUndefinedJsxSymbols([
       {
