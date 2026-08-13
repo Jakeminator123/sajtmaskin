@@ -36,6 +36,8 @@ vi.mock("@/lib/capture/pinned-fetch", () => ({ fetchWithPinnedDns }));
 vi.mock("node:fs/promises", () => ({ statfs }));
 vi.mock("node:os", () => ({ default: { tmpdir: mockTmpdir }, tmpdir: mockTmpdir }));
 
+const realOs = await vi.importActual<typeof import("node:os")>("node:os");
+
 const ORIGINAL_VERCEL = process.env.VERCEL;
 const ALLOWLIST_ENV_KEY = "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES";
 const ORIGINAL_ALLOWLIST = process.env[ALLOWLIST_ENV_KEY];
@@ -43,9 +45,7 @@ const PLAYWRIGHT_PROFILE_PREFIX = "playwright_chromiumdev_profile-";
 const PROFILE_MAX_AGE_MS = 15 * 60 * 1000;
 
 function realOsTmpdir(): string {
-  const value = process.env.TEMP ?? process.env.TMP ?? process.env.TMPDIR;
-  if (!value) throw new Error("TEMP/TMP/TMPDIR saknas — kan inte skapa fixture-tmpdir");
-  return value;
+  return realOs.tmpdir();
 }
 
 let sweepTmp: string | undefined;
