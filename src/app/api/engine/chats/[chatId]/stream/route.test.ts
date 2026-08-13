@@ -472,6 +472,7 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 
+import { resetChatGenerationLocksForTests } from "@/lib/gen/stream/generation-lock";
 import { POST, maxDuration, runtime } from "./route";
 
 describe("POST /api/engine/chats/[chatId]/stream", () => {
@@ -540,6 +541,9 @@ function buildPipelineStream(events: Array<{ event: string; data: unknown }>) {
 
 describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (migrated from v0)", () => {
   beforeEach(async () => {
+    // SSE-cases often assert status without draining the body. The in-process
+    // generation lock otherwise leaks into the next case (same chat_1).
+    resetChatGenerationLocksForTests();
     vi.clearAllMocks();
     addMessage.mockResolvedValue(null);
     updateChatScaffoldId.mockResolvedValue(true);

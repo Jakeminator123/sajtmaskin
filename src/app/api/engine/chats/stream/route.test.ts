@@ -352,6 +352,7 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
   looksLikeIncompleteJson: vi.fn(),
 }));
 
+import { resetChatGenerationLocksForTests } from "@/lib/gen/stream/generation-lock";
 import { POST, maxDuration, runtime } from "./route";
 
 const realHandleCreateChatStreamPost = (
@@ -422,6 +423,9 @@ async function readSseEvents(response: Response) {
 
 describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", () => {
   beforeEach(() => {
+    // SSE-cases often assert status without draining the body. The in-process
+    // generation lock otherwise leaks into the next case (same engine_chat_1).
+    resetChatGenerationLocksForTests();
     vi.clearAllMocks();
     failVersionVerification.mockResolvedValue(null);
     buildGenerationInputPackage.mockImplementation(

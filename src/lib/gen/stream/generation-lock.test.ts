@@ -97,4 +97,21 @@ describe("chat generation lock", () => {
       expectAcquired(await acquireChatGenerationLock("chat-sse"));
     });
   });
+
+  it("resetChatGenerationLocksForTests släpper olästa SSE-lås", async () => {
+    const lock = expectAcquired(await acquireChatGenerationLock("chat-unread"));
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("event: delta\ndata: x\n\n"));
+        controller.close();
+      },
+    });
+    bindChatGenerationLockToResponse(
+      new Response(stream, { headers: { "content-type": "text/event-stream" } }),
+      lock,
+    );
+    expect(await acquireChatGenerationLock("chat-unread")).toEqual({ status: "held" });
+    resetChatGenerationLocksForTests();
+    expectAcquired(await acquireChatGenerationLock("chat-unread"));
+  });
 });
