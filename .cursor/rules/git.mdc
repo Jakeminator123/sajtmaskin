@@ -22,10 +22,16 @@ Agenten får redigera `.gitignore`, `.cursorignore` och `.cursorindexingignore` 
 
 ## Branch-modell — master är trunk
 
-- **`master` är slutmålet.** Allt arbete ska till slut nå `master` — men bara när grinden är grön (allt är som det ska). `master` är den slutgiltiga, enda långlivade branchen och ska alltid vara grön och deploybar.
-- **Vi testar ofta Sajtmaskin via Vercels production, som är länkad till `master`:** varje merge till master triggar en prod-deploy. Därför måste master alltid vara deploybar — en trasig master = trasig prod-test.
+- **`master` är slutmålet.** Allt arbete ska till slut nå `master`. `master` är den enda långlivade branchen och ska alltid vara grön och deploybar.
+- **Vi testar ofta Sajtmaskin via Vercels production, som är länkad till `master`:** varje push/merge till master triggar en prod-deploy. En trasig master = trasig prod-test.
 - **Alla PR:er går mot `master`** (base = master).
-- Arbeta på en feature-branch (`fix/...`, `feat/...`, `chore/...`), pusha den, öppna PR mot master, merga in. Se `agent-worktree.mdc` (flera agenter → egen worktree).
-- Ingen direktcommit/-push till master. Feature-branchen är bara mellanlager tills grinden passerar — den "ligger inte efter" master, den väntar på merge.
-- Ocommittade ändringar i huvudcheckouten är pågående arbete, inte ett fel: commit/push/PR sker bara på explicit begäran.
+- **Default för riktigt arbete:** feature-branch (`fix/...`, `feat/...`, `chore/...`) → pusha branchen → PR mot master → merge-grind ([`pr-merge.mdc`](pr-merge.mdc)). Se [`agent-worktree.mdc`](agent-worktree.mdc) när flera agenter skriver samtidigt. Feature-branchen är mellanlager tills grinden passerar.
+- **Direkt commit + push till master är tillåtet** för ägaren och agenter — utan ny branch, worktree, PR och städ — när **allt** detta stämmer:
+  1. **Rimligt:** dokumentation, Cursor-regler, ignore-filer eller annan liten ändring i filer som ska finnas på GitHub. Inte runtime (`src/`, `migrations/`, `.github/workflows/`, env, auth/tenant/db).
+  2. **Litet:** få filer, ingen arkitektur, ingen dataförlust- eller cross-tenant-risk.
+  3. **Granskat:** diffen är granskad i chatten (ägare eller bugbot). Före push: bugbot-pass enligt punkten ovan.
+  4. **Nämnt:** agenten skriver en mening till ägaren *före* push — vad som går in, varför genvägen, att målet är `master`. Säger ägaren stopp: stoppa. Påtvinga inte branch/PR-ritualen för den här klassen.
+- GitHub-ruleset **Protect master** kräver annars PR + required checks. Direkt-push går via ägarens admin-bypass — därför den smala listan ovan, aldrig `--force`. Ändra inte rulesetet.
+- Commit/push i övrigt bara på explicit begäran (eller när ägaren bett att ändringen ska landas).
+- Ocommittade ändringar i huvudcheckouten är pågående arbete, inte ett fel.
 - **`JAKOB_BRA_9999_INNNAN_MVP_BRA` är ägarens frysta pre-MVP-backup.** Radera, force-pusha eller återanvänd den aldrig i städ-/worktree-svep. Se [`jakob-pre-mvp-backup.mdc`](jakob-pre-mvp-backup.mdc).

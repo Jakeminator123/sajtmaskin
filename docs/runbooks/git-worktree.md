@@ -14,6 +14,7 @@ Huvudcheckouten delas av användaren och alla agenter. `git checkout`/`git switc
 - köra typecheck/test mot aktuell HEAD
 - `git push origin <local>:<remote>` om användaren bett om push
 - `git stash push -m "namn" -- <filer>` vid räddning
+- små docs-/regel-landningar direkt på `master` enligt [`.cursor/rules/git.mdc`](../../.cursor/rules/git.mdc) — då behövs ingen worktree
 
 ## Skapa en worktree
 

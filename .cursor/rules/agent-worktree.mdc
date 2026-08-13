@@ -1,5 +1,5 @@
 ---
-description: "Delat working tree: agenter får inte byta branch i huvudcheckouten. Använd git worktree för skrivarbete."
+description: "Delat working tree: agenter får inte byta branch i huvudcheckouten. Worktree för skrivarbete som kan ta tid; små master-landningar enligt git.mdc undantas."
 alwaysApply: true
 ---
 
@@ -18,6 +18,8 @@ alwaysApply: true
 Läsning, `git status/diff/log/fetch`, tester och `git push origin <local>:<remote>` (på begäran) är OK.
 
 ## Skrivarbete som kan ta tid
+
+Små docs-/regeländringar som landas direkt på `master` enligt [`git.mdc`](git.mdc) får göras i huvudcheckouten — spinn inte worktree+PR för det.
 
 Egen worktree bredvid repo-roten, aldrig under `.cursor/`:
 

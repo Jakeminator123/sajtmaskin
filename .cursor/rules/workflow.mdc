@@ -47,7 +47,7 @@ Docs ska spegla runtime. Ersätt gammal text, lägg inte nya lager ovanpå. Ta b
 
 ## Innan PR eller push till master
 
-Bugbot-plikt: se `git.mdc` (en ägare). Protected-path, 7-min/Codex och `merge:ready`: `pr-merge.mdc`.
+Bugbot-plikt: se `git.mdc` (en ägare). Direkt-push till master: bara den smala genvägen i `git.mdc` (docs/regler/smått, granskat, nämnt). Protected-path, 7-min/Codex och `merge:ready`: `pr-merge.mdc` (PR-vägen).
 
 `/automat` = bred audit (inte diff-granskning). Buggfix → `/kedja`.
 
