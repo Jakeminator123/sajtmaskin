@@ -305,6 +305,14 @@ def _render_usage_section(ctx: BackofficeContext, entries: list[dict[str, Any]])
 
     payload = state.get("payload") or {}
     fetched_env = state.get("env_label") or ("Prod" if state.get("use_prod") else "Dev")
+    # Bugbot på diffen: väljaren kan peka på en annan databas än den tabellen
+    # hämtades från. Källan står redan i rubriken, men säg det rakt ut så
+    # ingen läser prod-siffror som dev eller tvärtom.
+    if state.get("use_prod") != use_prod:
+        st.warning(
+            f"Väljaren pekar på **{env_label}** men tabellen nedan visar "
+            f"**{fetched_env}** — klicka «Hämta användningsstatistik» igen."
+        )
     if not payload.get("ok"):
         st.error(payload.get("error") or "Kunde inte läsa användningsstatistik.")
         return
@@ -313,6 +321,16 @@ def _render_usage_section(ctx: BackofficeContext, entries: list[dict[str, Any]])
         return
 
     usage_rows = list(payload.get("fixers") or [])
+    # Bugbot på diffen: joinen behandlar saknade nycklar som 0 användningar.
+    # Om skript-limiten någonsin trunkerar (fler distinkta fixers än limit)
+    # ska vyn säga det i stället för att visa falska nollor.
+    distinct_in_log = int(payload.get("distinctFixers") or 0)
+    if distinct_in_log > len(usage_rows):
+        st.warning(
+            f"Visar {len(usage_rows)} av {distinct_in_log} fixer-nycklar "
+            f"(limit {_USAGE_LIMIT}) — 0-rader och drift-flaggor kan vara "
+            "ofullständiga för resten."
+        )
     joined, none_row, drift = _join_catalog_usage(entries, usage_rows)
     unused = sum(1 for row in joined if int(row["användningar"]) == 0)
 
