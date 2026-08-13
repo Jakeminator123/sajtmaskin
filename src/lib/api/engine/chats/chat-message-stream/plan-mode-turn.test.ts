@@ -16,7 +16,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateChatScaffoldId: vi.fn(),
 }));
 vi.mock("@/lib/db/services/prompt-logs", () => ({ createPromptLog: vi.fn() }));
-vi.mock("@/lib/logging/devLog", () => ({ devLogAppend: vi.fn() }));
+vi.mock("@/lib/logging/dev-log", () => ({ devLogAppend: vi.fn() }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog: vi.fn() }));
 vi.mock("@/lib/gen/orchestrate", () => ({ prepareGenerationContext: vi.fn() }));
 vi.mock("../follow-up-orchestration-input", () => ({

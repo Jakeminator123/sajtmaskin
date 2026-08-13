@@ -126,7 +126,7 @@ export function buildRegistryMarkdownPreview(
   return lines.join("\n\n");
 }
 
-import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
+import type { DetectedSection } from "@/lib/builder/section-analyzer";
 
 /**
  * Hard ceiling on a single registry add-prompt. The block/component source code

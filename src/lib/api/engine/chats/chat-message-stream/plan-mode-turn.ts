@@ -5,7 +5,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { isAppScaffold } from "@/lib/builder/build-intent";
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
-import type { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import type { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";

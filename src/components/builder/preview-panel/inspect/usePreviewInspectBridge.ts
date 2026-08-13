@@ -2,7 +2,7 @@
 
 import { INSPECT_BRIDGE_MESSAGE } from "@/lib/builder/inspect-bridge-feature";
 import { dispatchInspectCaptureEvent } from "@/lib/builder/inspect-events";
-import type { BridgeSectionCandidate } from "@/lib/builder/sectionAnalyzer";
+import type { BridgeSectionCandidate } from "@/lib/builder/section-analyzer";
 import {
   matchCapturedElement,
   type JsxElementRegistryItem,

@@ -1,4 +1,4 @@
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import {
   type PromptToDoneKind,
   recordPromptToDone,

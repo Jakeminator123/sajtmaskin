@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import {
   createDeploymentRecord,
   resolveCanonicalVercelProjectForDomain,
   updateDeploymentStatus,
 } from "@/lib/deployment";
-import { materializeImagesInTextFiles, type ImageAssetStrategy } from "@/lib/imageAssets";
+import { materializeImagesInTextFiles, type ImageAssetStrategy } from "@/lib/image-assets";
 import {
   createVercelDeployment,
   checkVercelProjectDomain,
@@ -16,10 +16,10 @@ import {
   sanitizeVercelProjectName,
   syncEnvVarsToVercelProject,
   toVercelFilesFromTextFiles,
-} from "@/lib/vercelDeploy";
+} from "@/lib/vercel-deploy";
 import { getAppProjectByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { requireNotBot } from "@/lib/botProtection";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { requireNotBot } from "@/lib/bot-protection";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { prepareCredits } from "@/lib/credits/server";
 import { InsufficientCreditsError } from "@/lib/db/services/transactions";
 import { getVersionFiles } from "@/lib/gen/version-manager";

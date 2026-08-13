@@ -11,7 +11,7 @@ import {
   type BuildProfileId,
 } from "@/lib/ai-models/load-manifest";
 import { debugLog, errorLog } from "@/lib/utils/debug";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
   isAnthropicAssistModel,
@@ -25,7 +25,7 @@ import {
   DOMAIN_PROFILES,
   inferSiteTypeHintFromDomain,
 } from "@/lib/builder/domain-inference";
-import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/promptLimits";
+import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/prompt-limits";
 import {
   ASSIST_MAX_OUTPUT_TOKENS,
   AUTO_BRIEF_MODEL_ANTHROPIC,

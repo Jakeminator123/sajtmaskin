@@ -8,7 +8,7 @@ const put = vi.hoisted(() => vi.fn());
 
 vi.mock("@vercel/blob", () => ({ put }));
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 

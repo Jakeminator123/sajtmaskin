@@ -7,7 +7,7 @@ const clearPreviewSessionAsync = vi.hoisted(() => vi.fn());
 const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const destroyPreviewHostSession = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 

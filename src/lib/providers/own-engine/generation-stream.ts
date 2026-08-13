@@ -21,7 +21,7 @@ import {
 } from "@/lib/gen/stream/f3-continuation";
 import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
 import { dossierRequiresF3 } from "@/lib/gen/dossiers/types";
-import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
+import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/dev-log";
 import { warnLog } from "@/lib/utils/debug";
 import { emitOwnEngineToolCallSse } from "./generation-stream-tools";
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";

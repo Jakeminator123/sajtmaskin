@@ -1,7 +1,7 @@
 import { FEATURES, SECRETS } from "@/lib/config";
-import { requireNotBot } from "@/lib/botProtection";
+import { requireNotBot } from "@/lib/bot-protection";
 import { FIGMA_PREVIEW_NOT_CONFIGURED } from "@/lib/api/figma-preview-contract";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 import { parseFigmaUrl } from "./figma-url";
 

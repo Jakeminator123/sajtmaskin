@@ -7,7 +7,7 @@ import { getCreditCost, type CreditAction } from "@/lib/credits/pricing";
 import { scrapeWebsite, validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
 import { buildAuditPrompt, extractFirstJsonObject, parseJsonWithRepair } from "@/lib/audit-prompts";
 import { FEATURES, SECRETS } from "@/lib/config";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import type { AuditMode, AuditResult, AuditRequest } from "@/types/audit";
 import { AUDIT_STRUCTURED_DEFAULT_MODEL } from "@/lib/gen/defaults";
 import { inFlightAudits } from "./in-flight";

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { OPENCLAW } from "@/lib/config";
 import {
   decideOpenClawRoutingIntent,

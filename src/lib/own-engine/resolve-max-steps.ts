@@ -1,4 +1,4 @@
-import { looksDesignHeavyMessage } from "@/lib/builder/promptOrchestration";
+import { looksDesignHeavyMessage } from "@/lib/builder/prompt-orchestration";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 
 /**

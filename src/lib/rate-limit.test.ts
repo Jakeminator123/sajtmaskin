@@ -4,7 +4,7 @@ import {
   checkRateLimit,
   getClientId,
   withRateLimit,
-} from "./rateLimit";
+} from "./rate-limit";
 
 const originalUpstashUrl = process.env.UPSTASH_REDIS_REST_URL;
 const originalUpstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;

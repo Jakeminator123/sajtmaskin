@@ -27,7 +27,7 @@ import { ANTHROPIC_ASSIST_MODELS, ASSIST_MODELS } from "./prompt-assist";
 import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import { DEFAULT_MODEL_ID, aliasRetiredModelId } from "@/lib/models/catalog";
-import type { ModelTier } from "@/lib/validations/chatSchemas";
+import type { ModelTier } from "@/lib/validations/chat-schemas";
 
 // ============================================
 // MODEL TIER OPTIONS

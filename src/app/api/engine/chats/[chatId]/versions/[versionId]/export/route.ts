@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {

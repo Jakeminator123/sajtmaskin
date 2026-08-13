@@ -4,7 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
 import type { BuildMethod } from "@/lib/builder/build-intent";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
-import type { ModelTier } from "@/lib/validations/chatSchemas";
+import type { ModelTier } from "@/lib/validations/chat-schemas";
 
 type Params = {
   isAuthenticated: boolean;

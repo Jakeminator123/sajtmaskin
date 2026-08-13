@@ -2,7 +2,7 @@ import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import { runLlmRepairGate, type RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import { normPath } from "./file-heuristics";

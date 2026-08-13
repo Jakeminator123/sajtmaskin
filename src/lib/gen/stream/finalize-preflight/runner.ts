@@ -18,7 +18,7 @@ import { capDegeneratePayload, detectDegenerateFiles } from "@/lib/gen/verify/de
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { buildPreviewStartContract } from "../preflight-contract";
 import {
   collectBaseIdenticalPaths,

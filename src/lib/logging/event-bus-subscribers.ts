@@ -16,7 +16,7 @@
  * caches. See OMTAG/06-unified-status-eventbus.md.
  */
 
-import { devLogAppend } from "./devLog";
+import { devLogAppend } from "./dev-log";
 import { subscribe } from "./event-bus";
 import type { EngineEvent } from "./event-bus-types";
 

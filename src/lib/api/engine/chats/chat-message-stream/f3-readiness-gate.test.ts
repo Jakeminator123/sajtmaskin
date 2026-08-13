@@ -36,7 +36,7 @@ vi.mock("@/lib/gen/orchestration-snapshot", () => ({
   // and the gate answers `tier3_readiness_unavailable` instead of its verdict.
   readF3ApprovedFromSnapshot,
 }));
-vi.mock("@/lib/logging/devLog", () => ({ devLogAppend: vi.fn() }));
+vi.mock("@/lib/logging/dev-log", () => ({ devLogAppend: vi.fn() }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog: vi.fn() }));
 
 import * as chatRepo from "@/lib/db/chat-repository-pg";

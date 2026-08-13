@@ -7,7 +7,7 @@ import {
   type RepairLedger,
 } from "@/lib/gen/autofix/llm-repair-gate";
 import { countByFixer } from "@/lib/gen/autofix/types";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import {
   FIX_LESSON_REPAIR_LOOP_DETERMINISTIC,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
 import {

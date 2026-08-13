@@ -29,7 +29,7 @@ vi.mock("@/lib/config", () => ({
   FEATURES: { useResponsesApi: false },
   SECRETS: { openaiApiKey: "openai-key" },
 }));
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_request: NextRequest, _bucket: string, handler: () => Promise<Response>) =>
     handler(),
 }));

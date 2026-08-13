@@ -22,7 +22,7 @@
 <!-- source-fingerprint: docs/schemas/strict/prompt-heuristic-tokens.schema.json sha256:db774abfd1233892 -->
 <!-- source-fingerprint: docs/schemas/strict/redis-health-check-report.schema.json sha256:312d296d7ed1c096 -->
 <!-- source-fingerprint: docs/schemas/strict/scaffold-variant.schema.json sha256:aa178426b70885af -->
-<!-- source-fingerprint: docs/schemas/strict/site-aborted.schema.json sha256:b97a706a951d3218 -->
+<!-- source-fingerprint: docs/schemas/strict/site-aborted.schema.json sha256:91182df09e1d54e8 -->
 <!-- source-fingerprint: docs/schemas/strict/site-done-telemetry.schema.json sha256:9337a91da1cc0def -->
 <!-- source-fingerprint: docs/schemas/strict/tier3-sdk-deny.schema.json sha256:a23409cd21cf4fce -->
 <!-- source-fingerprint: docs/schemas/strict/variant-template-addenda.schema.json sha256:a083c7210bd808d9 -->

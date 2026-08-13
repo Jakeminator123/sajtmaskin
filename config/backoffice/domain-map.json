@@ -93,7 +93,7 @@
         "src/lib/ai-models/load-manifest.ts",
         "src/lib/ai-models/load-generated-site-placeholders.ts",
         "src/lib/gen/defaults.ts",
-        "src/lib/builder/promptLimits.ts",
+        "src/lib/builder/prompt-limits.ts",
         "src/lib/builder/server-auto-brief-policy.ts",
         "src/lib/gen/build-spec/builder.ts",
         "src/lib/own-engine/session/own-engine-pipeline-generation.ts",
@@ -330,7 +330,7 @@
         "scripts/db/redis-health-check.mjs",
         "src/lib/data/redis.ts",
         "src/lib/redis-pubsub.ts",
-        "src/lib/rateLimit.ts"
+        "src/lib/rate-limit.ts"
       ],
       "docsPaths": ["docs/contracts/data-layer.md"],
       "humanSchemaPaths": [],

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { deletePromptHandoffCache, getCachedPromptHandoff } from "@/lib/data/redis";
 import {
   consumePromptHandoffForOwner,

@@ -3,9 +3,9 @@ import {
   withPromptToDoneMetricResponse,
   wrapStreamForPromptToDoneMetric,
 } from "@/lib/observability/prompt-to-done-stream";
-import { createChatSchema } from "@/lib/validations/chatSchemas";
+import { createChatSchema } from "@/lib/validations/chat-schemas";
 import { NextResponse } from "next/server";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import {
   attachChatToPendingUsage,
   runWithLlmUsageContext,
@@ -18,16 +18,16 @@ import {
   MAX_PROMPT_HANDOFF_CHARS,
   WARN_CHAT_MESSAGE_CHARS,
   WARN_CHAT_SYSTEM_CHARS,
-} from "@/lib/builder/promptLimits";
-import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+} from "@/lib/builder/prompt-limits";
+import { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
 import { shouldRunServerAutoBrief } from "@/lib/builder/server-auto-brief-policy";
 import { tryGenerateServerAutoBrief, type BriefTrace } from "@/lib/builder/site-brief-generation";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { resolveConfiguredEnvKeys } from "./configured-env-keys";
-import { requireNotBot } from "@/lib/botProtection";
-import { devLogAppend, devLogStartNewSite } from "@/lib/logging/devLog";
+import { requireNotBot } from "@/lib/bot-protection";
+import { devLogAppend, devLogStartNewSite } from "@/lib/logging/dev-log";
 import { debugLog } from "@/lib/utils/debug";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";

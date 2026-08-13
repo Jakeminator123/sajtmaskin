@@ -17,7 +17,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import type { CreateChatOptions } from "./types";
-import type { ModelTier } from "@/lib/validations/chatSchemas";
+import type { ModelTier } from "@/lib/validations/chat-schemas";
 import { debugLog } from "@/lib/utils/debug";
 
 export type TemplateSwitchDialogState =

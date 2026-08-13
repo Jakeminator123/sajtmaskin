@@ -5,7 +5,7 @@ import {
   getVersionById,
   type Version,
 } from "@/lib/db/chat-repository-pg";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { incIngressEvent } from "@/lib/observability/metrics";
 import { parseCodeProject, type CodeFile } from "./parser";
 import { extractStructuralElements } from "./context/structural-elements";

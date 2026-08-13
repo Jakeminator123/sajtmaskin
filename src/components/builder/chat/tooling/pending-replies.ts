@@ -1,4 +1,4 @@
-import type { AIElementsMessage } from "@/lib/builder/messageAdapter";
+import type { AIElementsMessage } from "@/lib/builder/message-adapter";
 import type { ToolUIPart } from "ai";
 import type { EnvRequirementHint, PendingReplyModalData, ToolPart } from "./types";
 import {

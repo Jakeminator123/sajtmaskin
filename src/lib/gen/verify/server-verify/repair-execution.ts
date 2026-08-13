@@ -16,7 +16,7 @@ import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { warnLog } from "@/lib/utils/debug";
 import {
   partitionGeneratedFilesForProtectedPaths,

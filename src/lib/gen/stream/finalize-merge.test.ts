@@ -34,7 +34,7 @@ const checkCrossFileImports = vi.hoisted(() =>
   ),
 );
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: vi.fn(),
   devLogFinalizeSite: vi.fn(),
 }));

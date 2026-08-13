@@ -9,7 +9,7 @@ import {
   ToolInput,
   ToolOutput,
 } from "@/components/ai-elements/tool";
-import { hasToolData } from "@/lib/builder/messageAdapter";
+import { hasToolData } from "@/lib/builder/message-adapter";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";

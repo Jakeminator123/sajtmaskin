@@ -62,7 +62,7 @@ vi.mock("@/lib/gen/export/project-scaffold-ui-reader", () => ({
   collectRequiredUiComponents: vi.fn().mockReturnValue([]),
 }));
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: vi.fn(),
 }));
 

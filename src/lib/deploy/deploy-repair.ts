@@ -15,7 +15,7 @@ import { dbConfigured } from "@/lib/db/client";
 import { REPAIR_LOOP_BUDGET_MS } from "@/lib/gen/defaults";
 import { triggerBuildErrorRepair } from "@/lib/gen/verify/server-verify";
 import { isQualityGateConfigured } from "@/lib/gen/verify/preview-quality-gate";
-import { getVercelDeploymentBuildLogText } from "@/lib/vercelDeploy";
+import { getVercelDeploymentBuildLogText } from "@/lib/vercel-deploy";
 
 export type DeployRepairStatus =
   /** En repair sparades och väntar på accept + manuell ompublicering. */

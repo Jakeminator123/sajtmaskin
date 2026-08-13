@@ -19,7 +19,7 @@
 import { NextResponse } from "next/server";
 import { recordPromptToDone } from "@/lib/observability/metrics";
 import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { errorLog } from "@/lib/utils/debug";
 
 export type StreamErrorKind = "init" | "followup";

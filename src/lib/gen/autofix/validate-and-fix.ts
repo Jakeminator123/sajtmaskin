@@ -3,7 +3,7 @@ import { runAutoFix } from "./pipeline";
 import { runDeterministicImportRepair } from "./deterministic-import-repair";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { CanonicalModelId } from "@/lib/models/catalog";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { incEarlyStop, recordPhaseDuration } from "@/lib/observability/metrics";
 import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
 import { normalizeErrorPattern, countByFixer, type FixEntry } from "./types";

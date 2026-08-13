@@ -279,7 +279,7 @@ redeploy med hård polling).
 | Klient                       | Path                                               | Användning                                                                        |
 | ---------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------- |
 | `ioredis` (TCP)              | `src/lib/data/redis.ts`, `src/lib/redis-pubsub.ts` | Ad-hoc cache, prompt-handoff, audit-cache, preview-session, deploy-status pub/sub |
-| `@upstash/redis` (HTTP/REST) | `src/lib/rateLimit.ts`                             | Rate-limiting (cold-start-vänligt i serverless)                                   |
+| `@upstash/redis` (HTTP/REST) | `src/lib/rate-limit.ts`                             | Rate-limiting (cold-start-vänligt i serverless)                                   |
 
 Båda pratar med samma Upstash-instans. Detta är teknisk skuld vi
 medvetet bär — full migration till HTTP-klienten lever på P2-listan.
@@ -304,7 +304,7 @@ prod:health:probe:*                  → backoffice self-test, TTL 30s
 ```
 
 Källa: `src/lib/data/redis.ts` toppkommentar, `src/lib/api/ai/brief-cache.ts`,
-`src/lib/rateLimit.ts`.
+`src/lib/rate-limit.ts`.
 
 ### Best-practices vi följer
 
@@ -475,6 +475,6 @@ flowchart TD
 - `scripts/db/db-health-check.mjs` — DB-diagnos-script
 - `scripts/db/redis-health-check.mjs` — Redis-diagnos-script
 - `src/lib/data/redis.ts` — ioredis-klient + cache-funktioner
-- `src/lib/rateLimit.ts` — `@upstash/redis` HTTP-klient
+- `src/lib/rate-limit.ts` — `@upstash/redis` HTTP-klient
 - `src/lib/redis-pubsub.ts` — pub/sub för deploy-status
 - Git-historik för tidigare lineage-loggar från 2026-04-24

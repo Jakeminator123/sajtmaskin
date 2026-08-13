@@ -1,7 +1,7 @@
 "use client";
 
 import { saveProjectData } from "@/lib/project-client";
-import type { ModelTier } from "@/lib/validations/chatSchemas";
+import type { ModelTier } from "@/lib/validations/chat-schemas";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";

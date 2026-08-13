@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { buildFileTree } from "@/lib/builder/fileTree";
+import { buildFileTree } from "@/lib/builder/file-tree";
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import {
   INSPECT_BRIDGE_QUERY_PARAM,

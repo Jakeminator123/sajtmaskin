@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDeploy";
+import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercel-deploy";
 import {
   resolveDeploymentLiveUrlForChat,
   updateDeploymentStatus,
@@ -10,7 +10,7 @@ import {
 import { logDeployError } from "@/lib/deploy/deploy-error-log";
 import { createRedisSubscriber, deployStatusChannel } from "@/lib/redis-pubsub";
 import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;

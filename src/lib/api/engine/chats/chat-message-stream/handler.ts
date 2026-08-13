@@ -10,8 +10,8 @@ import {
   type FollowUpCapabilityDetection,
 } from "@/lib/builder/follow-up-capability-detection";
 import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
-import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
-import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/prompt-limits";
+import { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import { prepareCredits } from "@/lib/credits/server";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { isShellPageContent } from "@/lib/gen/build-spec";
@@ -32,7 +32,7 @@ import {
   resolveChatPreferredVersionId,
   resolveFollowUpPreviousFiles,
 } from "@/lib/gen/version-manager";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
 import { DEFAULT_MODEL_ID, getBuildProfileId } from "@/lib/models/catalog";
@@ -48,7 +48,7 @@ import {
   shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import { classifyFollowUpIntentWithStrategy } from "@/lib/providers/own-engine/follow-up-intent-router";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import {
   runWithLlmUsageContext,
   safeUsageOwnerId,
@@ -61,7 +61,7 @@ import {
   getRequestUserId,
 } from "@/lib/tenant";
 import { debugLog } from "@/lib/utils/debug";
-import { sendMessageSchema } from "@/lib/validations/chatSchemas";
+import { sendMessageSchema } from "@/lib/validations/chat-schemas";
 import { createCommitCreditsOnce } from "../credits-handler";
 import { buildFollowUpFileContextDecision } from "../follow-up-file-context";
 import { parseChatRequestMeta } from "../parse-chat-request-meta";
@@ -699,7 +699,7 @@ export async function handleMessageStreamRequest(
           return attachSessionCookie(creditCheck.response);
         }
         // The host enforces this opaque subject lease before it creates a
-        // prewarm session. The digest reuses rateLimit.ts identity (verified
+        // prewarm session. The digest reuses rate-limit.ts identity (verified
         // user, else trusted IP), never the rotatable guest cookie.
         const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
           userId: creditCheck.user.id,

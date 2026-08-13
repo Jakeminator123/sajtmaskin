@@ -2,11 +2,11 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { streamText } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { withRateLimit } from "@/lib/rateLimit";
-import { requireNotBot } from "@/lib/botProtection";
+import { withRateLimit } from "@/lib/rate-limit";
+import { requireNotBot } from "@/lib/bot-protection";
 import { getRequestUserId } from "@/lib/tenant";
 import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
   isAnthropicAssistModel,
@@ -19,7 +19,7 @@ import {
   createDirectModel,
   getTemperatureConfig,
 } from "@/lib/builder/direct-model";
-import { MAX_AI_CHAT_MESSAGE_CHARS } from "@/lib/builder/promptLimits";
+import { MAX_AI_CHAT_MESSAGE_CHARS } from "@/lib/builder/prompt-limits";
 export const runtime = "nodejs";
 export const maxDuration = 750;
 

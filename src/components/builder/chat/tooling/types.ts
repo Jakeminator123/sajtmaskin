@@ -1,4 +1,4 @@
-import type { MessagePart } from "@/lib/builder/messageAdapter";
+import type { MessagePart } from "@/lib/builder/message-adapter";
 
 export type ToolPart = Extract<MessagePart, { type: "tool" }>;
 

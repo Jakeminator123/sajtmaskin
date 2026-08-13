@@ -16,8 +16,8 @@ vi.mock("@/lib/config", () => ({
   FEATURES: config.features,
   SECRETS: config.secrets,
 }));
-vi.mock("@/lib/botProtection", () => ({ requireNotBot }));
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/bot-protection", () => ({ requireNotBot }));
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_request: Request, _bucket: string, handler: () => Promise<Response>) =>
     handler(),
 }));

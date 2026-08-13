@@ -26,7 +26,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { FEATURES, SECRETS, URLS } from "@/lib/config";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { resolveDomainOffer } from "@/lib/domains/registrar";
 import { sekToOre } from "@/lib/domains/pricing";
 import { resolveChatProjectContext } from "@/lib/domains/resolve-vercel-project";

@@ -4,7 +4,7 @@ import { createProject as createAppProject, saveProjectData } from "@/lib/db/ser
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { DEFAULT_MODEL_ID, type QualityLevel } from "@/lib/models/catalog";
 import { resolveEngineModelId } from "@/lib/models/selection";
 import {
@@ -28,7 +28,7 @@ import {
   markLockfileStaleInFiles,
 } from "@/lib/gen/autofix/dep-completer";
 import { runHydrationPreflightChecks } from "@/lib/gen/validation/hydration-preflight";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { buildImportedRepoBaselineSnapshot } from "@/lib/templates/imported-repo-contract";
 import {
   persistImportedRepoInitialization,

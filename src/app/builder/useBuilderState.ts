@@ -26,7 +26,7 @@ import {
   isDefaultCustomInstructions,
   getDefaultPromptAssistModel,
 } from "@/lib/builder/defaults";
-import type { ModelTier } from "@/lib/validations/chatSchemas";
+import type { ModelTier } from "@/lib/validations/chat-schemas";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 

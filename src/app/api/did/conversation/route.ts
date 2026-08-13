@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { SECRETS } from "@/lib/config";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 
 export const runtime = "nodejs";

@@ -1,4 +1,4 @@
-import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
 import { getDossierById } from "@/lib/gen/dossiers";

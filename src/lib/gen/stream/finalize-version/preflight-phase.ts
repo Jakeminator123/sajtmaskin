@@ -28,7 +28,7 @@ import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import type { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { warnLog } from "@/lib/utils/debug";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { injectIntegrationManifestIntoFilesJson } from "@/lib/integrations/inject-integration-manifest";
 import { injectProjectEnvFileIntoFilesJson } from "@/lib/gen/preview/project-env-file";

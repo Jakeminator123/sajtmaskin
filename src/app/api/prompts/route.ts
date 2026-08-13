@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { createPromptHandoff } from "@/lib/db/services/projects";
 import { cachePromptHandoff } from "@/lib/data/redis";
-import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
+import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/prompt-limits";
 
 const createPromptSchema = z.object({
   prompt: z

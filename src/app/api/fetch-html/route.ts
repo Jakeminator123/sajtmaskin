@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { validateSsrfTarget, safeFetch } from "@/lib/ssrf-guard";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 

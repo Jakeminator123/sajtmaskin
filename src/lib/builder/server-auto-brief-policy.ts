@@ -1,4 +1,4 @@
-import type { PromptType } from "@/lib/builder/promptOrchestration";
+import type { PromptType } from "@/lib/builder/prompt-orchestration";
 
 /**
  * Whether create-chat should run canonical server-side Deep Brief when the client

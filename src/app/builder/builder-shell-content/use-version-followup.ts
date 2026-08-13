@@ -1,7 +1,7 @@
 import type { ComposerAiFallbackPayload } from "@/components/builder/preview-panel/preview-panel-types";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
-import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
+import { analyzeSections } from "@/lib/builder/section-analyzer";
 import { mapVersionStatusToDisplay } from "@/lib/builder/version-status-display";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
 import { dispatchVersionStatusRefreshed } from "@/lib/builder/project-env-events";

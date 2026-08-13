@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { FEATURES } from "@/lib/config";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { runProductPostcheck } from "@/lib/gen/verify/product-postcheck";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";

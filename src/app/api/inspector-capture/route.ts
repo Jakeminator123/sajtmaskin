@@ -3,7 +3,7 @@ import type { Page } from "playwright-core";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import {
   applyCaptureRequestGate,
   assertFinalUrlAllowed,

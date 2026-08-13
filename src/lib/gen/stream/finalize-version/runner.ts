@@ -26,7 +26,7 @@
  */
 
 import { debugLog } from "@/lib/utils/debug";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { observePhase, recordPhaseDuration } from "@/lib/observability/metrics";
 // Side-effect import: installs the default devLog-mirror subscriber so

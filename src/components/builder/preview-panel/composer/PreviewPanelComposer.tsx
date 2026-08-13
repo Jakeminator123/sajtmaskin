@@ -12,7 +12,7 @@ import {
   nearestInsertionPoint,
   type InsertionPoint,
   type SectionZone,
-} from "@/lib/builder/sectionAnalyzer";
+} from "@/lib/builder/section-analyzer";
 import type { PlacementAnchorSection } from "@/lib/builder/inspect-events";
 
 export const PAGE_BLOCK_DND_TYPE = "application/x-sajtmaskin-page-block";

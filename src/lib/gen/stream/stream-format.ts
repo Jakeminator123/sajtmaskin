@@ -4,7 +4,7 @@ import {
   type BuilderStreamEventName,
 } from "@/lib/gen/stream/builder-stream-contract";
 import { formatSSEEvent } from "@/lib/streaming";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { debugLog } from "@/lib/utils/debug";
 import { classifyProviderError } from "@/lib/providers/own-engine/provider-error-messages";

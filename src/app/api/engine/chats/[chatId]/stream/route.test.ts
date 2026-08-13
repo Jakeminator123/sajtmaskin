@@ -89,7 +89,7 @@ vi.mock("drizzle-orm", () => ({
   }),
 }));
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 
@@ -108,7 +108,7 @@ vi.mock("@/lib/credits/server", () => ({
   prepareCredits,
 }));
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: vi.fn(),
   devLogFinalizeSite: vi.fn(),
   devLogStartGeneration: vi.fn(),
@@ -133,20 +133,20 @@ vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
   }),
 }));
 
-vi.mock("@/lib/validations/chatSchemas", () => ({
+vi.mock("@/lib/validations/chat-schemas", () => ({
   sendMessageSchema: {
     safeParse: sendMessageSchemaSafeParse,
   },
 }));
 
-vi.mock("@/lib/builder/promptLimits", () => ({
+vi.mock("@/lib/builder/prompt-limits", () => ({
   WARN_CHAT_MESSAGE_CHARS: 20_000,
   WARN_CHAT_SYSTEM_CHARS: 20_000,
   MAX_AI_BRIEF_PROMPT_CHARS: 20_000,
   MAX_PROMPT_HANDOFF_CHARS: 20_000,
 }));
 
-vi.mock("@/lib/builder/promptOrchestration", () => ({
+vi.mock("@/lib/builder/prompt-orchestration", () => ({
   orchestratePromptMessage: ({ message }: { message: string }) => ({
     finalMessage: message,
     strategyMeta: {
@@ -468,7 +468,7 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
 
 import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { buildFollowUpBriefFromSnapshot } from "@/lib/gen/orchestration-snapshot";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 

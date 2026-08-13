@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { searchTemplates } from "@/lib/templates/template-search";
 
 export async function POST(req: Request) {

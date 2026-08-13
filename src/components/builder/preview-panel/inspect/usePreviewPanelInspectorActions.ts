@@ -8,7 +8,7 @@ import {
   type SetStateAction,
 } from "react";
 import { toast } from "sonner";
-import { buildFileTree } from "@/lib/builder/fileTree";
+import { buildFileTree } from "@/lib/builder/file-tree";
 import type { RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import {
   buildDeleteElementOps,

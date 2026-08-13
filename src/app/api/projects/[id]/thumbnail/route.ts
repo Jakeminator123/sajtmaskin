@@ -25,7 +25,7 @@ import {
   isAllowedCaptureUrl,
 } from "@/lib/capture/preview-allowlist";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { deleteBlob, uploadBlob } from "@/lib/vercel/blob-service";
 import {
   captureThumbnailScreenshot,

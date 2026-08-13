@@ -24,7 +24,7 @@ def _orch_ts_sources(ctx: BackofficeContext) -> dict[str, Path]:
         / "src"
         / "lib"
         / "builder"
-        / "promptOrchestration.ts",
+        / "prompt-orchestration.ts",
         "Capability tiers": ctx.repo_root
         / "src"
         / "lib"

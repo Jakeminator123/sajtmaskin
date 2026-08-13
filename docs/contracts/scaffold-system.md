@@ -106,7 +106,7 @@ därför inte den gamla repo-cache-/template-library-mappen.
 
 ## 5. Runtime-flödet steg för steg
 
-### STEG 1 — Prompt-bearbetning (`promptOrchestration.ts`)
+### STEG 1 — Prompt-bearbetning (`prompt-orchestration.ts`)
 Klassificerar `PromptType` och väljer `PromptStrategy` (`direct` / `summarize` / `phase_plan_build_refine` / `preserved`). Output: budgeterad `finalMessage`. Scope: bara prompttext, ingen scaffold-logik.
 
 ### STEG 2 — Deep Brief (`site-brief-generation.ts`)

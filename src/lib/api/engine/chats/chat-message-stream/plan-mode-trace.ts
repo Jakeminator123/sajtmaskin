@@ -30,7 +30,7 @@
  */
 import { after } from "next/server";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 
 export const PLAN_MODE_TURN_ENTRY_EVENT = "plan_mode_turn_entry";
 export const PLAN_MODE_TURN_EXIT_EVENT = "plan_mode_turn_exit";

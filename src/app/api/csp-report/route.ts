@@ -11,7 +11,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 
 function summarizeReport(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "non-object payload";

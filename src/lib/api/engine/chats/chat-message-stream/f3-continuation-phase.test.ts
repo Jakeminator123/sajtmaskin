@@ -18,13 +18,13 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 vi.mock("@/lib/gen/version-manager", () => ({
   resolveChatPreferredVersionId: vi.fn(),
 }));
-vi.mock("@/lib/logging/devLog", () => ({ devLogAppend: vi.fn() }));
+vi.mock("@/lib/logging/dev-log", () => ({ devLogAppend: vi.fn() }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog: vi.fn() }));
 
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import { F3_CONTINUATION_DESIGN_ROUND_NOTICE } from "@/lib/gen/stream/f3-continuation";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import type { ParsedChatRequestMeta } from "../parse-chat-request-meta";
 import {
   consumeF3MarkerPhaseB,

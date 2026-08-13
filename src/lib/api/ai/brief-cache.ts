@@ -11,7 +11,7 @@
 import { createHash } from "node:crypto";
 import { FEATURES, REDIS_KEY_PREFIX } from "@/lib/config";
 import { getRedis } from "@/lib/data/redis";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 
 export type BriefCacheKey = {
   chatId: string | null;

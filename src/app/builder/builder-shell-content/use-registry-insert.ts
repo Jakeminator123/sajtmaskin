@@ -1,6 +1,6 @@
 import { getLatestPendingReply as getLatestPendingReplyFromTooling } from "@/components/builder/BuilderMessageTooling";
 import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
-import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
+import { toAIElementsFormat } from "@/lib/builder/message-adapter";
 import {
   buildShadcnInsertMessage,
   type ShadcnInsertSelection,

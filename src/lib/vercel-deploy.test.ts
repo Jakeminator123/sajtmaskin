@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeVercelProjectName } from "./vercelDeploy";
+import { sanitizeVercelProjectName } from "./vercel-deploy";
 
 describe("sanitizeVercelProjectName", () => {
   it("normalizes to a valid lowercase hyphenated slug", () => {

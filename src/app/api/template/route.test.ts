@@ -56,11 +56,11 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getChat: chatRepoGetChat,
 }));
 
-vi.mock("@/lib/rateLimit", () => ({
+vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend,
 }));
 

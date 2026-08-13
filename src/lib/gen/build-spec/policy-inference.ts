@@ -10,7 +10,7 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import {
   looksDesignHeavyMessage,
   type PromptStrategyMeta,
-} from "@/lib/builder/promptOrchestration";
+} from "@/lib/builder/prompt-orchestration";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import type { PreGenerationContractContext } from "../contract/pre-generation-contracts";
 import {

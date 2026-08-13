@@ -13,7 +13,7 @@ import {
   sectionZonesFromCode,
   type BridgeSectionCandidate,
   type InsertionPoint,
-} from "@/lib/builder/sectionAnalyzer";
+} from "@/lib/builder/section-analyzer";
 import type { ElementMapItem, ElementMapResponse } from "@/lib/builder/types";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { InspectEngine } from "../preview-panel-types";

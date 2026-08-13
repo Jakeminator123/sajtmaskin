@@ -153,7 +153,7 @@ vi.mock("@/lib/logging/event-bus", () => ({
 
 const devLogAppend = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/logging/devLog", () => ({
+vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend,
 }));
 

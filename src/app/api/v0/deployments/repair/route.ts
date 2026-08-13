@@ -3,8 +3,8 @@ import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
-import { withRateLimit } from "@/lib/rateLimit";
-import { requireNotBot } from "@/lib/botProtection";
+import { withRateLimit } from "@/lib/rate-limit";
+import { requireNotBot } from "@/lib/bot-protection";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { runDeployBuildRepair } from "@/lib/deploy/deploy-repair";
 

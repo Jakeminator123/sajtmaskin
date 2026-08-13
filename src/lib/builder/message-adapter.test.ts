@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   sanitizeChatMessageContentForDisplay,
   toAIElementsFormat,
-} from "./messageAdapter";
+} from "./message-adapter";
 
 describe("messageAdapter user prompt sanitizing", () => {
   it("unwraps stored follow-up prompt wrappers for display", () => {

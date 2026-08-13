@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OPENCLAW } from "@/lib/config";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import {
   decideOpenClawRoutingIntent,
   OPENCLAW_ROUTING_STRATEGY,

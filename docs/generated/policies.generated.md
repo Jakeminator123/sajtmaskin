@@ -8,9 +8,9 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:9a6a41ad676f3084 -->
+<!-- source-fingerprint: config/env-policy.json sha256:14408e95c6dfc526 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:1df82ad99d801a14 -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:f2212a0ead2a11ad -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:58bf6977a6cef5d5 -->
 
 # Policies
 
@@ -235,7 +235,7 @@ This index contains 55 control-plane entries. It is a map to canonical owners, n
 | `ai-models-manifest`                          | `schema`            | `config/ai_models/manifest.json`                                  | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `ai-models-manifest-jsonschema`               | `schema`            | `config/ai_models/manifest.schema.json`                           | —                       | `none`    | `n/a`           | No               |
 | `backoffice-domain-map-schema`                | `schema`            | `docs/schemas/strict/backoffice-domain-map.schema.json`           | `test:ci`               | `hard`    | `n/a`           | No               |
-| `chat-request-schemas`                        | `runtime-authority` | `src/lib/validations/chatSchemas.ts`                              | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `chat-request-schemas`                        | `runtime-authority` | `src/lib/validations/chat-schemas.ts`                             | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `control-plane-registry-schema`               | `schema`            | `docs/schemas/strict/control-plane-registry.schema.json`          | `control-plane:check`   | `hard`    | `n/a`           | No               |
 | `db-health-report-schema`                     | `schema`            | `docs/schemas/strict/db-health-check-report.schema.json`          | `test:ci`               | `hard`    | `declared-only` | No               |
 | `db-performance-audit-line-schema`            | `schema`            | `docs/schemas/strict/db-perf-indexes-audit-line.schema.json`      | `test:ci`               | `hard`    | `declared-only` | No               |

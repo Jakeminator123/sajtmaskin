@@ -7,7 +7,7 @@ import {
   sectionZonesFromCode,
   type BridgeSectionCandidate,
   type SectionZone,
-} from "./sectionAnalyzer";
+} from "./section-analyzer";
 
 const ZONES: SectionZone[] = [
   { id: "hero", label: "Hero", type: "hero", top: 0, bottom: 40, height: 40 },

@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { DEFAULT_MODEL_ID, type CanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import type { ReasoningEffort, ReasoningMode } from "../engine";
 import type { RecurringFailurePattern } from "./fixer-prompt";
 import { runLlmFixer, type FixerResult } from "./llm-fixer";

@@ -231,7 +231,7 @@ def build_log_tail(payload: Any, *, max_lines: int = 60) -> list[str]:
     Vercels event-svar kommer i kronologisk ordning även med
     `direction=backward` (bakåt gäller pagineringen, inte raderna), så slutet är
     det intressanta. Samma val som `getVercelDeploymentBuildLogText` i
-    `src/lib/vercelDeploy.ts` gör.
+    `src/lib/vercel-deploy.ts` gör.
     """
     lines = [text for row in _event_rows(payload) if (text := event_text(row).strip())]
     return lines[-max_lines:]

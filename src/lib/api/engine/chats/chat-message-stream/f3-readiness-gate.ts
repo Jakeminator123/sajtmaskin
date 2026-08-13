@@ -18,7 +18,7 @@ import {
   type Tier3BuildSpec,
 } from "@/lib/integrations/tier3-build-spec";
 import { logTier3MissingEnvBlockedDetached } from "@/lib/integrations/log-tier3-missing-env";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { debugLog } from "@/lib/utils/debug";
 import type { ParsedChatRequestMeta } from "../parse-chat-request-meta";
 import { approveRoundNeedsDossierInjection } from "./f3-approve-round";

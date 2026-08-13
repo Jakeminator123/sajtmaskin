@@ -15,7 +15,7 @@ import {
   setUserDiamonds,
 } from "@/lib/db/services/users";
 import { sendVerificationEmail } from "@/lib/email/send";
-import { withRateLimit } from "@/lib/rateLimit";
+import { withRateLimit } from "@/lib/rate-limit";
 import { URLS } from "@/lib/config";
 
 const ADMIN_DIAMONDS = Number(process.env.SUPERADMIN_DIAMONDS) || 10_000;

@@ -11,7 +11,7 @@ import {
   type RecurringFailurePattern,
 } from "./fixer-prompt";
 import { canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
-import { devLogAppend } from "@/lib/logging/devLog";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 
 export interface FixerResult {
