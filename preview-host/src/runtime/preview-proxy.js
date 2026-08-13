@@ -12,6 +12,7 @@ const {
   LOOPBACK,
   findSessionByChatId,
   getSessionChatId,
+  hasPendingPreviewClientReload,
   isHmrProxyEnabled,
   registerPreviewSocket,
   routeInfoFromPathname,
@@ -481,6 +482,18 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
     }
     if (!state.running) {
       if (!state.booting) queueRuntimeBoot(info.chatId);
+      if (acceptAndHoldWebSocket(req, socket)) {
+        registerPreviewSocket(info.chatId, socket, { handshakeComplete: true });
+        return true;
+      }
+      try { socket.destroy(); } catch { /* already closed */ }
+      return true;
+    }
+    // SM-044: the replacement runtime may already be listening, but the iframe
+    // still has the previous document. Proxying this upgrade would complete
+    // Next's handshake without ever sending reloadPage. Stub, signal, and let
+    // the reloaded page connect to live HMR on the next upgrade.
+    if (hasPendingPreviewClientReload(info.chatId)) {
       if (acceptAndHoldWebSocket(req, socket)) {
         registerPreviewSocket(info.chatId, socket, { handshakeComplete: true });
         return true;

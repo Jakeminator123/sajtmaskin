@@ -649,6 +649,7 @@ module.exports = {
   markPendingPreviewClientReload,
   clearPendingPreviewClientReload,
   requestPreviewClientReload,
+  hasPendingPreviewClientReload,
   PREVIEW_CLIENT_RELOAD_PENDING_MS,
   nowIso,
   getSessionChatId,
