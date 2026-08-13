@@ -1153,9 +1153,16 @@ def _post_create_integrity_passed(
 def _invalidate_validation_after_mutation(
     results: dict[str, Any], step_key: str
 ) -> None:
-    """A write after validation makes that validation result historical."""
+    """A write after a step makes that step's earlier green result historical.
+
+    ``patterns`` rewrites ``signaturePatterns``, which is part of the variant
+    embedding text (``scripts/scaffolds/generate-variant-embeddings.ts``), so an
+    embedding published before the rewrite no longer matches the file on disk.
+    """
     if step_key in {"patterns", "embeddings", "scaffold_embeddings"}:
         results.pop("validate", None)
+    if step_key == "patterns":
+        results.pop("embeddings", None)
 
 
 def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None:

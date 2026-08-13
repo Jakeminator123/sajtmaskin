@@ -1306,6 +1306,20 @@ class PostCreateStatusTests(unittest.TestCase):
         self.assertNotIn("validate", results)
         self.assertFalse(sw._post_create_validation_passed(results))
 
+    def test_rerunning_patterns_invalidates_the_published_embedding(self) -> None:
+        """`patterns` skriver om signaturePatterns, som ingår i embedding-texten."""
+        steps = sw._post_create_steps("warm-clay")
+        results = {
+            "patterns": {"ok": True, "verifiedOk": True},
+            "embeddings": {"ok": True},
+            "validate": {"ok": True},
+        }
+        self.assertTrue(sw._post_create_integrity_passed(results, steps))
+        sw._invalidate_validation_after_mutation(results, "patterns")
+        self.assertNotIn("embeddings", results)
+        self.assertNotIn("validate", results)
+        self.assertFalse(sw._post_create_integrity_passed(results, steps))
+
     def test_validation_step_does_not_invalidate_itself(self) -> None:
         results = {"validate": {"ok": True}}
         sw._invalidate_validation_after_mutation(results, "validate")
