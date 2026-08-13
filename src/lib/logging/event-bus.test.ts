@@ -163,6 +163,21 @@ describe("event-bus", () => {
     expect(received).toEqual(["version.done"]);
   });
 
+  /** Backdatera HELA versionsmappen (mapp + run-mappar + events.ndjson) —
+   * prunen läser nyaste aktivitet på djupet, inte bara katalog-mtimen. */
+  function backdateVersionDeep(versionId: string, mtime: Date): void {
+    const dir = path.join(bus.RUNS_ROOT_DIR, versionId);
+    for (const child of fs.readdirSync(dir, { withFileTypes: true })) {
+      const childPath = path.join(dir, child.name);
+      if (child.isDirectory()) {
+        const events = path.join(childPath, "events.ndjson");
+        if (fs.existsSync(events)) fs.utimesSync(events, mtime, mtime);
+      }
+      fs.utimesSync(childPath, mtime, mtime);
+    }
+    fs.utimesSync(dir, mtime, mtime);
+  }
+
   it("prunes oldest tmp-mirror version dirs when the cap is exceeded", () => {
     const cap = bus.MAX_TMP_MIRROR_VERSION_DIRS;
     const started = (versionId: string) =>
@@ -175,9 +190,7 @@ describe("event-bus", () => {
     for (let i = 0; i < cap; i++) {
       const id = `old_${String(i).padStart(2, "0")}`;
       started(id);
-      const dir = path.join(bus.RUNS_ROOT_DIR, id);
-      const mtime = new Date(Date.now() - (cap - i) * 60_000);
-      fs.utimesSync(dir, mtime, mtime);
+      backdateVersionDeep(id, new Date(Date.now() - (cap - i) * 60_000));
     }
 
     started("newest");
@@ -192,6 +205,43 @@ describe("event-bus", () => {
     expect(dirs).not.toContain("old_00");
     expect(fs.existsSync(path.join(bus.RUNS_ROOT_DIR, "newest", bus.RUNS_INDEX_FILE))).toBe(true);
     expect(bus.readAll("newest")).toHaveLength(1);
+  });
+
+  // Bugbot på denna diff: en append till en BEFINTLIG run rör bara
+  // events.ndjson-mtimen — versionsmappen står still. En gammal men aktiv
+  // version får inte LRU-klassas bort medan en idle mellanversion står kvar.
+  it("keeps an old-but-active version and prunes the least recently active one", () => {
+    const cap = bus.MAX_TMP_MIRROR_VERSION_DIRS;
+    const started = (versionId: string) =>
+      bus.emit({
+        t: "version.started",
+        versionId,
+        generationKind: "create",
+      });
+
+    for (let i = 0; i < cap; i++) {
+      const id = `old_${String(i).padStart(2, "0")}`;
+      started(id);
+      backdateVersionDeep(id, new Date(Date.now() - (cap - i) * 60_000));
+    }
+
+    // old_00 är äldst skapad men FÅR en färsk append (aktiv körning) —
+    // bara barnfilen touchas, precis som mirrorToDisk gör på riktigt.
+    const activeEvents = path.join(bus.RUNS_ROOT_DIR, "old_00", "root", "events.ndjson");
+    const now = new Date();
+    fs.utimesSync(activeEvents, now, now);
+
+    started("newest");
+
+    const dirs = fs
+      .readdirSync(bus.RUNS_ROOT_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+
+    expect(dirs).toHaveLength(cap);
+    expect(dirs).toContain("old_00");
+    expect(dirs).toContain("newest");
+    expect(dirs).not.toContain("old_01");
   });
 
   it("lets emit succeed when tmp-mirror prune cannot delete", () => {

@@ -183,9 +183,47 @@ function appendRunIndex(versionId: string, entry: RunIndexEntry): void {
 }
 
 /**
- * Lokal kopia av generation-log-writerns `lruPruneSubdirs`-idé (äldst mtime
- * ryker först). Importeras inte därifrån — de två writer-vägarna ska inte
- * kopplas ihop. Bara tmp-spegeln; emit() får aldrig kasta härifrån.
+ * Senaste aktivitet för en versionsmapp. Bugbot på denna diff: en append till
+ * en BEFINTLIG run uppdaterar bara `<runId>/events.ndjson` (och run-mappen) —
+ * inte versionsmappens egen mtime. Med enbart katalog-mtime kunde en gammal
+ * men fortfarande aktiv version LRU-klassas och raderas mitt i körningen.
+ * Därför: nyaste av versionsmappen, dess run-barn och varje runs
+ * `events.ndjson`. Bounded — körs bara när taket redan är passerat, en nivå
+ * barn per mapp.
+ */
+function newestActivityMtimeMs(dir: string): number {
+  let newest = 0;
+  try {
+    newest = fs.statSync(dir).mtimeMs;
+  } catch {
+    return 0;
+  }
+  let children: fs.Dirent[] = [];
+  try {
+    children = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return newest;
+  }
+  for (const child of children) {
+    const childPath = path.join(dir, child.name);
+    try {
+      const childStat = fs.statSync(childPath);
+      if (childStat.mtimeMs > newest) newest = childStat.mtimeMs;
+      if (child.isDirectory()) {
+        const eventsStat = fs.statSync(path.join(childPath, EVENTS_NDJSON_FILE));
+        if (eventsStat.mtimeMs > newest) newest = eventsStat.mtimeMs;
+      }
+    } catch {
+      // Run utan events.ndjson än, eller hann försvinna — hoppa över.
+    }
+  }
+  return newest;
+}
+
+/**
+ * Lokal kopia av generation-log-writerns `lruPruneSubdirs`-idé (äldsta
+ * aktivitet ryker först). Importeras inte därifrån — de två writer-vägarna
+ * ska inte kopplas ihop. Bara tmp-spegeln; emit() får aldrig kasta härifrån.
  */
 function pruneTmpMirrorVersionDirsBestEffort(): void {
   if (!isInsideTmpDir(RUNS_ROOT_DIR)) return;
@@ -194,16 +232,10 @@ function pruneTmpMirrorVersionDirsBestEffort(): void {
     const scored = fs
       .readdirSync(RUNS_ROOT_DIR, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => {
-        const dir = path.join(RUNS_ROOT_DIR, entry.name);
-        let mtimeMs = 0;
-        try {
-          mtimeMs = fs.statSync(dir).mtimeMs;
-        } catch {
-          mtimeMs = 0;
-        }
-        return { name: entry.name, mtimeMs };
-      });
+      .map((entry) => ({
+        name: entry.name,
+        mtimeMs: newestActivityMtimeMs(path.join(RUNS_ROOT_DIR, entry.name)),
+      }));
     if (scored.length <= MAX_TMP_MIRROR_VERSION_DIRS) return;
     scored.sort((a, b) => a.mtimeMs - b.mtimeMs);
     const toRemove = scored.slice(0, scored.length - MAX_TMP_MIRROR_VERSION_DIRS);
