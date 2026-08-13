@@ -79,6 +79,99 @@ describe("projectProductPostcheckReadiness", () => {
     );
   });
 
+  it("keeps advisory findings in warnings but omits them from the F3-blocked reason", () => {
+    const projection = projectProductPostcheckReadiness([
+      log(
+        "product_postcheck.fake_form",
+        "Formulär ser aktivt ut men saknar action/integration.",
+        { code: "fake_form" },
+        "2026-08-14T10:00:03Z",
+      ),
+      log(
+        "product_postcheck.mobile_menu_failed",
+        "Mobilmeny kunde inte verifieras: no toggle found.",
+        { code: "mobile_menu_failed" },
+        "2026-08-14T10:00:02Z",
+      ),
+      log("product_postcheck.summary", "F2 Product Postcheck found 2 warning(s).", {
+        warningCount: 2,
+        productBlocked: true,
+      }, "2026-08-14T10:00:01Z"),
+    ]);
+
+    expect(projection.blocksF3).toBe(true);
+    expect(projection.blockedReason).toBe("Mobilmeny kunde inte verifieras: no toggle found.");
+    expect(projection.blockedReason).not.toContain("Formulär");
+    expect(projection.warnings[0]?.detail).toBe(projection.blockedReason);
+    expect(projection.warnings.map((item) => item.id)).toEqual([
+      "product-postcheck-blocks-f3",
+      "product-postcheck-fake_form",
+      "product-postcheck-mobile_menu_failed",
+    ]);
+  });
+
+  it("includes broken_anchor in the F3 reason only at the blocking threshold", () => {
+    const twoAnchors = projectProductPostcheckReadiness([
+      log("product_postcheck.fake_form", "Formulär ser aktivt ut men saknar action/integration.", {
+        code: "fake_form",
+      }, "2026-08-14T10:00:04Z"),
+      log("product_postcheck.broken_anchor", "Trasig länk: #b.", { code: "broken_anchor", href: "#b" }, "2026-08-14T10:00:03Z"),
+      log("product_postcheck.broken_anchor", "Trasig länk: #a.", { code: "broken_anchor", href: "#a" }, "2026-08-14T10:00:02Z"),
+      log("product_postcheck.summary", "F2 Product Postcheck found 3 warning(s).", {
+        warningCount: 3,
+        productBlocked: true,
+      }, "2026-08-14T10:00:01Z"),
+    ]);
+
+    expect(twoAnchors.blocksF3).toBe(true);
+    expect(twoAnchors.blockedReason).toContain("Trasig länk: #a.");
+    expect(twoAnchors.blockedReason).toContain("Trasig länk: #b.");
+    expect(twoAnchors.blockedReason).not.toContain("Formulär");
+
+    const oneAnchor = projectProductPostcheckReadiness([
+      log("product_postcheck.fake_form", "Formulär ser aktivt ut men saknar action/integration.", {
+        code: "fake_form",
+      }, "2026-08-14T10:00:03Z"),
+      log("product_postcheck.broken_anchor", "Trasig länk: #a.", { code: "broken_anchor", href: "#a" }, "2026-08-14T10:00:02Z"),
+      log("product_postcheck.summary", "F2 Product Postcheck found 2 warning(s).", {
+        warningCount: 2,
+        productBlocked: false,
+      }, "2026-08-14T10:00:01Z"),
+    ]);
+
+    expect(oneAnchor.blocksF3).toBe(false);
+    expect(oneAnchor.blockedReason).toBeNull();
+    expect(oneAnchor.warnings.map((item) => item.id)).toEqual([
+      "product-postcheck-fake_form",
+      "product-postcheck-broken_anchor",
+    ]);
+  });
+
+  it("uses the preview-boot finding in the F3 reason and omits advisory codes", () => {
+    const projection = projectProductPostcheckReadiness([
+      log(
+        "product_postcheck.fake_form",
+        "Formulär ser aktivt ut men saknar action/integration.",
+        { code: "fake_form" },
+        "2026-08-14T10:00:03Z",
+      ),
+      log(
+        "product_postcheck.preview_boot_page",
+        "Preview-host visar fortfarande start-/omstartssidan — sajten är inte ready än.",
+        { code: "preview_boot_page" },
+        "2026-08-14T10:00:02Z",
+      ),
+      log("product_postcheck.summary", "F2 Product Postcheck found 2 warning(s).", {
+        warningCount: 2,
+        productBlocked: true,
+      }, "2026-08-14T10:00:01Z"),
+    ]);
+
+    expect(projection.blocksF3).toBe(true);
+    expect(projection.blockedReason).toContain("start-/omstartssidan");
+    expect(projection.blockedReason).not.toContain("Formulär");
+  });
+
   it("returns empty warnings when there is no postcheck summary (unchanged)", () => {
     expect(
       projectProductPostcheckReadiness([

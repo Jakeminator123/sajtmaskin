@@ -82,7 +82,10 @@ export type ChatReadinessInfo = {
    * gate is closed.
    */
   productPostcheckBlocksF3?: boolean;
-  /** Plain-language why Bygg integrationer is gated, when `productPostcheckBlocksF3`. */
+  /**
+   * Plain-language why Bygg integrationer is gated, when `productPostcheckBlocksF3`.
+   * Titles of findings that actually set `productBlocked` only — not advisory codes.
+   */
   productPostcheckBlockedReason?: string | null;
 };
 
@@ -182,8 +185,35 @@ function pickNewestSummary(
   return newest;
 }
 
-function blockedReasonFromFindings(findings: ChatReadinessItem[]): string {
-  const titles = findings.map((item) => item.title).filter((title) => title.trim().length > 0);
+type ProjectedFinding = {
+  code: string;
+  item: ChatReadinessItem;
+};
+
+/**
+ * Codes that set `productBlocked` in `product-postcheck.ts` (DOM eval,
+ * runtime eval, or leftover preview-host boot page). Duplicated here on
+ * purpose: that module pulls Playwright and must not enter the client bundle
+ * that imports this file. One broken_anchor is advisory; two or more gate F3.
+ */
+const F3_ALWAYS_BLOCKING_CODES = new Set([
+  "mobile_menu_failed",
+  "runtime_crash",
+  "preview_boot_page",
+]);
+
+function findingsThatGateF3(findings: readonly ProjectedFinding[]): ProjectedFinding[] {
+  const brokenAnchorCount = findings.filter((row) => row.code === "broken_anchor").length;
+  return findings.filter((row) => {
+    if (F3_ALWAYS_BLOCKING_CODES.has(row.code)) return true;
+    return row.code === "broken_anchor" && brokenAnchorCount >= 2;
+  });
+}
+
+function blockedReasonFromFindings(findings: readonly ProjectedFinding[]): string {
+  const titles = findings
+    .map((row) => row.item.title)
+    .filter((title) => title.trim().length > 0);
   if (titles.length === 0) {
     return "Produktkontrollen hittade fel som stoppar Bygg integrationer.";
   }
@@ -207,7 +237,7 @@ export function projectProductPostcheckReadiness(
   }
 
   const newestMs = createdAtMs(newestSummary);
-  const findings: ChatReadinessItem[] = [];
+  const findings: ProjectedFinding[] = [];
   const seenIds = new Map<string, number>();
 
   for (const log of logs) {
@@ -225,21 +255,24 @@ export function projectProductPostcheckReadiness(
         ? log.message.trim()
         : "Produktkontrollen hittade ett problem.";
     findings.push({
-      id: n === 0 ? `product-postcheck-${code}` : `product-postcheck-${code}-${n}`,
-      title,
-      detail: findingDetail(meta),
-      severity: "warning",
-      category: "advisory",
-      action: "preview",
+      code,
+      item: {
+        id: n === 0 ? `product-postcheck-${code}` : `product-postcheck-${code}-${n}`,
+        title,
+        detail: findingDetail(meta),
+        severity: "warning",
+        category: "advisory",
+        action: "preview",
+      },
     });
   }
 
   const newestMeta = readMeta(newestSummary.meta);
   const blocksF3 = newestMeta?.productBlocked === true;
-  const warnings = [...findings];
+  const warnings = findings.map((row) => row.item);
   let blockedReason: string | null = null;
   if (blocksF3) {
-    blockedReason = blockedReasonFromFindings(findings);
+    blockedReason = blockedReasonFromFindings(findingsThatGateF3(findings));
     warnings.unshift({
       id: "product-postcheck-blocks-f3",
       title: "Bygg integrationer är spärrat.",

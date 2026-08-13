@@ -65,8 +65,11 @@ De är alltså inte samma sak som:
   och på Lansering-kortet. De blir aldrig `canDeploy`-blockers.
   `productBlocked` på den nyaste `product_postcheck.summary`-raden sätter
   `info.productPostcheckBlocksF3` så UI:t kan säga att Bygg integrationer är
-  spärrat — men **promotion** (`assertPromoteAllowed`) läser fortfarande inte
-  fältet. F3-grinden (`checkTier3ReadinessForVersion`) är oförändrad.
+  spärrat. `info.productPostcheckBlockedReason` listar bara fynd som faktiskt
+  sätter `productBlocked` (`mobile_menu_failed`, ≥2 `broken_anchor`,
+  `runtime_crash`, `preview_boot_page`); rådgivande koder stannar i `warnings`.
+  **Promotion** (`assertPromoteAllowed`) läser fortfarande inte fältet.
+  F3-grinden (`checkTier3ReadinessForVersion`) är oförändrad.
 
 ## Verifier-pass policy efter Normalize
 
