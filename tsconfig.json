@@ -25,6 +25,9 @@
       "@/*": [
         "./src/*"
       ],
+      // Test/typecheck only (see tests/stubs/README.md). Not Sajtmaskin
+      // production runtime. Generated user sites install real @clerk/nextjs
+      // from the clerk-auth dossier manifest, not this alias.
       "@clerk/nextjs": [
         "./tests/stubs/clerk-nextjs.tsx"
       ],
