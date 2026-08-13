@@ -6,22 +6,40 @@
  *
  * Requires OPENAI_API_KEY. Persists to Vercel Blob when BLOB_READ_WRITE_TOKEN
  * is set; always writes a local cache when the FS is writable.
+ * Backoffice buttons pass `--require-blob` so a missing token fails closed.
  */
 
-import "dotenv/config";
 import {
   generateTemplateEmbeddings,
   TEMPLATE_EMBEDDING_BATCH_SIZE,
   TEMPLATE_EMBEDDING_DIMENSIONS,
   TEMPLATE_EMBEDDING_MODEL,
 } from "../../src/lib/templates/template-embeddings-core";
-import { saveEmbeddingsArtifact } from "../../src/lib/gen/embeddings/embeddings-storage";
+import {
+  getBlobReadWriteToken,
+  saveEmbeddingsArtifact,
+} from "../../src/lib/gen/embeddings/embeddings-storage";
+import { loadLocalEnv } from "./load-local-env";
+import {
+  blobSaveFailedMessage,
+  missingBlobTokenMessage,
+  parseRequireBlobFlag,
+  shouldAbortForLocalOnlySave,
+  shouldAbortForMissingBlobToken,
+} from "./require-blob";
 
 const MODEL = TEMPLATE_EMBEDDING_MODEL;
 const DIMENSIONS = TEMPLATE_EMBEDDING_DIMENSIONS;
 const BATCH_SIZE = TEMPLATE_EMBEDDING_BATCH_SIZE;
 
 async function main() {
+  loadLocalEnv();
+  const requireBlob = parseRequireBlobFlag(process.argv.slice(2));
+  if (shouldAbortForMissingBlobToken(requireBlob, getBlobReadWriteToken())) {
+    console.error(missingBlobTokenMessage());
+    process.exit(1);
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     console.error("❌ OPENAI_API_KEY is not set. Aborting.");
@@ -39,6 +57,10 @@ async function main() {
   });
 
   const saved = await saveEmbeddingsArtifact("template", output);
+  if (shouldAbortForLocalOnlySave(requireBlob, saved)) {
+    console.error(blobSaveFailedMessage(saved));
+    process.exit(1);
+  }
 
   console.info(`\n✅ Saved ${output.embeddings.length} embeddings (${saved.storage})`);
   if (saved.blobUrl) console.info(`   Blob: ${saved.blobUrl}`);

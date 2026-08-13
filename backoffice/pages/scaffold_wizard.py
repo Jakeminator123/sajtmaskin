@@ -741,13 +741,13 @@ def _autorun_writes(draft: dict[str, Any]) -> list[dict[str, str]]:
             "path": "config/scaffold-variants/_index/variant-embeddings.json",
             "script": "scaffolds:variant-embeddings",
             "source": "scripts/scaffolds/generate-variant-embeddings.ts",
-            "note": "lokal cache (gitignorerad); Blob-nyckel embeddings/variant-embeddings.json",
+            "note": "lokal cache (gitignorerad); källan är Vercel Blob embeddings/variant-embeddings.json",
         },
         {
             "path": "config/embeddings-blob-manifest.json",
             "script": "scaffolds:variant-embeddings",
             "source": "scripts/scaffolds/generate-variant-embeddings.ts",
-            "note": "committad URL-manifest uppdateras när BLOB_READ_WRITE_TOKEN + upload lyckas",
+            "note": "committad URL-pekare; uppdateras bara när Blob-upload lyckas (`--require-blob`)",
         },
     ]
 
@@ -779,8 +779,10 @@ def _render_planned_writes(draft: dict[str, Any], *, autorun: bool) -> None:
         for row in autorun_rows:
             st.markdown(f"- `{row['path']}` — {row['note']} (`{row['script']}`)")
         st.caption(
-            "Samma spara-läge `repo` — även dessa filer ligger i repot och når produktionen "
-            "först via commit + merge till `master`. Stannar kedjan på ett rött steg skrivs "
+            "Designmönster landar i variant-JSON (repo → master). "
+            "Embeddings publiceras till Vercel Blob; den lokala JSON-filen är "
+            "gitignorerad cache. `config/embeddings-blob-manifest.json` är den "
+            "committade URL-pekaren. Stannar kedjan på ett rött steg skrivs "
             "de senare filerna inte."
         )
     else:
@@ -1047,11 +1049,13 @@ def _post_create_steps(variant_id: str) -> list[dict[str, Any]]:
         {
             "key": "embeddings",
             "label": "2. Bygg om matchning",
-            "command": ("npm", "run", "scaffolds:variant-embeddings"),
+            "command": ("npm", "run", "scaffolds:variant-embeddings", "--", "--require-blob"),
             "needs_api": True,
             "help": (
-                "Bygger om variant-embeddings så matchern kan välja varianten. Anropar "
-                "OpenAI för alla varianter — kan ta en stund."
+                "Bygger om variant-embeddings så matchern kan välja varianten, "
+                "och publicerar till Vercel Blob (`--require-blob`). Anropar "
+                "OpenAI för alla varianter — kan ta en stund. Kräver "
+                "`BLOB_READ_WRITE_TOKEN` i `.env.local`."
             ),
         },
         {
@@ -1126,10 +1130,17 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
     )
 
     has_key = bool(wiz.get_openai_api_key())
+    has_blob = bool(wiz.get_blob_read_write_token())
     if not has_key:
         st.warning(
             "Ingen `OPENAI_API_KEY` i miljön (`.env.local`) — AI-stegen (designmönster + "
             "embeddings) är avstängda. Valideringen (steg 3) går ändå."
+        )
+    elif not has_blob:
+        st.warning(
+            "Ingen `BLOB_READ_WRITE_TOKEN` i miljön (`.env.local`) — "
+            "matchningssteget kräver Vercel Blob och kommer att misslyckas "
+            "tills token finns. Lokal JSON-cache räknas inte som publicerad."
         )
 
     steps = _post_create_steps(variant_id)

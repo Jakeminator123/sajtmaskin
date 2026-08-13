@@ -9,7 +9,7 @@
  *   npx tsx scripts/embeddings/ensure-embeddings.ts
  *   npm run embeddings:ensure
  */
-import "dotenv/config";
+import { loadLocalEnv } from "./load-local-env";
 import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -83,6 +83,7 @@ async function headOk(url: string): Promise<boolean> {
 }
 
 async function main(): Promise<void> {
+  loadLocalEnv();
   runUntrackedGate();
 
   let raw: string;

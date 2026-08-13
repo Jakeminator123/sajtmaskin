@@ -9,7 +9,7 @@
  *   npm run scaffolds:embeddings:check
  */
 
-import "dotenv/config";
+import { loadLocalEnv } from "./load-local-env";
 import { getAllScaffolds } from "../../src/lib/gen/scaffolds/registry";
 import type { ScaffoldEmbeddingsFile } from "../../src/lib/gen/scaffolds/scaffold-embeddings-core";
 import {
@@ -30,6 +30,7 @@ function fail(msg: string): never {
 }
 
 async function main(): Promise<void> {
+  loadLocalEnv();
   let data = (await loadEmbeddingsArtifact("scaffold")) as ScaffoldEmbeddingsFile | null;
 
   if (!data) {

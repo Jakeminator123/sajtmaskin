@@ -80,11 +80,12 @@ SCRIPTS: tuple[HealthScript, ...] = (
     HealthScript(
         id="scaffolds-variant-embeddings",
         label="Scaffolds · variant-embeddings",
-        command=("npm", "run", "scaffolds:variant-embeddings"),
+        command=("npm", "run", "scaffolds:variant-embeddings", "--", "--require-blob"),
         description=(
             "Genererar embeddings för scaffold-varianter via OpenAI och "
-            "skriver till Vercel Blob (lokal JSON är cache). "
-            "Kör efter att variant-prompts/patterns ändrats."
+            "publicerar till Vercel Blob (lokal JSON är gitignorerad cache). "
+            "Kräver BLOB_READ_WRITE_TOKEN — misslyckas i stället för att bara "
+            "skriva lokalt. Kör efter att variant-prompts/patterns ändrats."
         ),
         cost="expensive",
         requires_api=True,
@@ -98,12 +99,26 @@ SCRIPTS: tuple[HealthScript, ...] = (
     # repo, use the Dossiers page (AI-kuration tab) or
     # `npm run dossiers:curate -- --reference=<id> --class=<hard|soft> --id=<new-id>`.
     HealthScript(
+        id="scaffolds-embeddings",
+        label="Scaffolds · embeddings",
+        command=("npm", "run", "scaffolds:embeddings", "--", "--require-blob"),
+        description=(
+            "Genererar scaffold-embeddings via OpenAI och publicerar till "
+            "Vercel Blob (lokal JSON är gitignorerad cache). "
+            "Kräver BLOB_READ_WRITE_TOKEN."
+        ),
+        cost="expensive",
+        requires_api=True,
+        tags=("embeddings",),
+    ),
+    HealthScript(
         id="templates-embeddings",
         label="Templates · embeddings",
-        command=("npm", "run", "templates:embeddings"),
+        command=("npm", "run", "templates:embeddings", "--", "--require-blob"),
         description=(
-            "Genererar template-embeddings via OpenAI och skriver till Vercel Blob "
-            "(lokal JSON är cache)."
+            "Genererar template-embeddings via OpenAI och publicerar till "
+            "Vercel Blob (lokal JSON är gitignorerad cache). "
+            "Kräver BLOB_READ_WRITE_TOKEN."
         ),
         cost="expensive",
         requires_api=True,
@@ -437,6 +452,9 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("Snabbåtgärder")
     st.caption(
         "Embeddings-skript kostar OpenAI-tokens och tar minuter. "
+        "De publicerar till Vercel Blob (`--require-blob`) — saknas "
+        "`BLOB_READ_WRITE_TOKEN` i `.env.local` blir knappen röd i stället "
+        "för att bara skriva gitignorerad lokal cache. "
         "Kör helst en grupp i taget."
     )
     col_a, col_b, col_c = st.columns(3)

@@ -8,7 +8,7 @@
  * Prefers BLOB_READ_WRITE_TOKEN; falls back to config/embeddings-blob-manifest.json
  * public URLs (no secrets — used by CI).
  */
-import "dotenv/config";
+import { loadLocalEnv } from "./load-local-env";
 import { promises as fs } from "node:fs";
 import {
   EMBEDDINGS_ARTIFACTS,
@@ -29,6 +29,7 @@ async function hasManifestUrls(): Promise<boolean> {
 }
 
 async function main(): Promise<void> {
+  loadLocalEnv();
   if (!(await hasManifestUrls()) && !process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
     console.error(
       `Need BLOB_READ_WRITE_TOKEN or a populated ${EMBEDDINGS_BLOB_MANIFEST_REL}.`,

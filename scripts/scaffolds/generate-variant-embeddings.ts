@@ -16,13 +16,24 @@
  *   npm run scaffolds:variant-embeddings
  *
  * Requires OPENAI_API_KEY in .env.local. BLOB_READ_WRITE_TOKEN to publish.
+ * Backoffice buttons pass `--require-blob` so a missing token fails closed.
  */
-import "dotenv/config";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import OpenAI from "openai";
-import { saveEmbeddingsArtifact } from "../../src/lib/gen/embeddings/embeddings-storage";
+import {
+  getBlobReadWriteToken,
+  saveEmbeddingsArtifact,
+} from "../../src/lib/gen/embeddings/embeddings-storage";
 import { invalidateVariantEmbeddingsCache } from "../../src/lib/gen/scaffold-variants/matcher";
+import { loadLocalEnv } from "../embeddings/load-local-env";
+import {
+  blobSaveFailedMessage,
+  missingBlobTokenMessage,
+  parseRequireBlobFlag,
+  shouldAbortForLocalOnlySave,
+  shouldAbortForMissingBlobToken,
+} from "../embeddings/require-blob";
 
 const WORKSPACE_ROOT = process.cwd();
 const VARIANTS_ROOT = resolve(WORKSPACE_ROOT, "config", "scaffold-variants");
@@ -112,6 +123,13 @@ function buildEmbeddingText(v: Variant): string {
 }
 
 async function main(): Promise<void> {
+  loadLocalEnv();
+  const requireBlob = parseRequireBlobFlag(process.argv.slice(2));
+  if (shouldAbortForMissingBlobToken(requireBlob, getBlobReadWriteToken())) {
+    console.error(missingBlobTokenMessage());
+    process.exit(1);
+  }
+
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
     console.error("OPENAI_API_KEY required. Set in .env.local.");
@@ -151,6 +169,10 @@ async function main(): Promise<void> {
     embeddings: all,
   };
   const saved = await saveEmbeddingsArtifact("variant", out);
+  if (shouldAbortForLocalOnlySave(requireBlob, saved)) {
+    console.error(blobSaveFailedMessage(saved));
+    process.exit(1);
+  }
   invalidateVariantEmbeddingsCache();
   console.log(`[variant-embed] Saved ${all.length} embeddings (${saved.storage})`);
   if (saved.blobUrl) console.log(`[variant-embed] Blob: ${saved.blobUrl}`);

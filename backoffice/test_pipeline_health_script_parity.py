@@ -35,6 +35,24 @@ class PipelineHealthScriptParityTests(unittest.TestCase):
             + ", ".join(f"{hs_id} -> npm run {name}" for hs_id, name in missing),
         )
 
+    def test_embedding_scripts_require_blob_and_cover_all_artifacts(self) -> None:
+        """Operator-knappar får inte lyckas med bara gitignorerad lokal cache."""
+        embedding = [s for s in HEALTH_SCRIPTS if "embeddings" in s.tags]
+        self.assertEqual(
+            {s.id for s in embedding},
+            {
+                "scaffolds-variant-embeddings",
+                "scaffolds-embeddings",
+                "templates-embeddings",
+            },
+        )
+        for script in embedding:
+            self.assertIn(
+                "--require-blob",
+                script.command,
+                f"{script.id} måste faila stängt utan BLOB_READ_WRITE_TOKEN",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

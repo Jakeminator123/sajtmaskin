@@ -241,6 +241,11 @@ def get_openai_api_key() -> str | None:
     return key or None
 
 
+def get_blob_read_write_token() -> str | None:
+    token = os.environ.get("BLOB_READ_WRITE_TOKEN", "").strip()
+    return token or None
+
+
 def usable_still_image_url(template_meta: dict[str, Any]) -> str:
     """Mallens stillbild om den går att skicka till OpenAI, annars tom sträng.
 
