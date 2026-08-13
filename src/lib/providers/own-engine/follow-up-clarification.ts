@@ -67,11 +67,16 @@ const FOLLOW_UP_EXPLICIT_DIRECTION_PATTERNS = [
   /(?<![\p{L}\p{N}_])(?:current\s+design|keep\s+the\s+current\s+design|same\s+design)(?![\p{L}\p{N}_])/iu,
 ];
 const FOLLOW_UP_SPECIFIC_TARGET_PATTERNS = [
-  /(?<![\p{L}\p{N}_])(?:hero|footer|header|nav|navigation|layout|spacing|copy|text|färg|color|bild|image|animation|knapp|button)(?![\p{L}\p{N}_])/iu,
-  /(?<![\p{L}\p{N}_])(?:section|sektion|card|kort|font|typografi|logo|cta|pricing|pris|kontakt|about|seo)(?![\p{L}\p{N}_])/iu,
+  // Svenska bestämda/pluralformer måste räknas: `knapp` matchade inte
+  // `knappen`/`knapparna` (negativ look-ahead stoppade på böjningen), så
+  // "ändra knappen till Skicka" föll i ambiguous-followup trots tydligt mål.
+  /(?<![\p{L}\p{N}_])(?:hero(?:n|ns)?|footer(?:n|ns)?|header(?:n|ns)?|nav(?:en|ens)?|navigation(?:en|ens)?|layout(?:en|ens)?|spacing(?:en|ens)?|copy(?:n|ns)?|text(?:en|er|erna|ens)?|färg(?:en|er|erna|ens)?|colors?|bild(?:en|er|erna|ens)?|images?|animation(?:en|er|erna|ens)?|knapp(?:en|ar|arna|ens|arnas)?|buttons?)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:sections?|sektion(?:en|er|erna|ens)?|cards?|kort(?:et|en|ens)?|fonts?|typografi(?:n|ns)?|logo(?:t|n|ns)?|logotyp(?:en|ens)?|cta(?:t|n)?|pricing|pris(?:et|ens)?|kontakt(?:en|uppgifter(?:na)?)?|about|seo)(?![\p{L}\p{N}_])/iu,
   // "rubrik"/"title"/"headline" var tidigare okända targets — "Ändra rubriken
   // till Hej" föll därför i ambiguous-followup fast det är en specifik edit.
   /(?<![\p{L}\p{N}_])(?:rubrik|rubriken|title|titeln|headline|underrubrik|tagline|slogan)(?![\p{L}\p{N}_])/iu,
+  // Layout-/meny-targets som saknade engelsk stam ("spacing") eller bestämd form.
+  /(?<![\p{L}\p{N}_])(?:padding(?:en|ens)?|marginal(?:en|er|erna|ens)?|margins?|meny(?:n|ns)?|menus?|stavfel(?:et|en|ens)?)(?![\p{L}\p{N}_])/iu,
   /\b(?:page\.tsx|layout\.tsx|globals\.css|app\/|src\/)\b/i,
 ];
 

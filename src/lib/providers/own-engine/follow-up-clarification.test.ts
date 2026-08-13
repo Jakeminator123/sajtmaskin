@@ -67,6 +67,58 @@ describe("follow-up clarification intent classification", () => {
     expect(classifyFollowUpIntent("ny kontaktuppgift i footern")).not.toBe("clear-redesign");
   });
 
+  // Bestämda/pluralformer av targets (knappen, texten, buttons …) måste räknas
+  // som specifikt mål — annars blockerar isUnderspecifiedFollowUp codegen.
+  it.each([
+    "ändra knappen till Skicka",
+    "ändra knapparna till grönt",
+    "fixa knappen",
+    "ändra texten till Hej",
+    "fixa texten",
+    "ändra bilden",
+    "ändra headern",
+    "ändra footern",
+    "uppdatera footern",
+    "ändra layouten",
+    "ändra sektionen",
+    "ändra logotypen",
+    "ändra menyn",
+    "uppdatera navigationen",
+    "ändra paddingen",
+    "ändra marginalerna",
+    "fixa stavfelet",
+    "ändra kontaktuppgifterna",
+    "fix the buttons",
+    "update the buttons",
+    "gör headern mörkare",
+    "byt ut hero-bilden",
+    "lägg till en prissida",
+    "flytta kontaktknappen till toppen",
+    "ändra rubriken till Välkommen",
+    "ta bort footern",
+    "lägg till en FAQ-sektion",
+    "fixa stavfelet i rubriken",
+    "make the header sticky",
+    "add a pricing page",
+  ])("does NOT block a clear follow-up with a specific target: %s", (prompt) => {
+    expect(classifyFollowUpIntent(prompt)).not.toBe("ambiguous-followup");
+    expect(resolveFollowUpClarification(prompt)).toBeNull();
+  });
+
+  it.each([
+    "förbättra den",
+    "fixa designen",
+    "fixa det",
+    "can you improve it",
+    "make it better",
+    "polish the design",
+  ])("still blocks a vague underspecified follow-up: %s", (prompt) => {
+    expect(classifyFollowUpIntent(prompt)).toBe("ambiguous-followup");
+    expect(resolveFollowUpClarification(prompt)?.reason).toBe(
+      "followup_edit_underspecified",
+    );
+  });
+
   it("does NOT treat noun-without-verb as clear-redesign (Fix B)", () => {
     // "snyggare färgschema" har noun (färg) men inget redesign-verb -> faller
     // ner i andra grenar; ska inte plötsligt klassas som clear-redesign.
