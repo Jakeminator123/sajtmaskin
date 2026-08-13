@@ -5,7 +5,10 @@ import {
   hasExplicitAddRouteIntent,
   neutralizeExplicitPageNameLiterals,
 } from "./route-plan/planning-helpers";
-import { MAX_ROUTES_PER_GENERATION } from "./route-plan/route-plan-builder";
+import {
+  ABSOLUTE_MAX_ROUTES_PER_GENERATION,
+  MAX_ROUTES_PER_GENERATION,
+} from "./route-plan/route-plan-builder";
 import {
   buildRoutePlan,
   deduplicateLocaleAlternateRoutes,
@@ -861,6 +864,7 @@ describe("buildRoutePlan — per-round page ceiling", () => {
 
   it("exposes the ceiling as a constant", () => {
     expect(MAX_ROUTES_PER_GENERATION).toBe(3);
+    expect(ABSOLUTE_MAX_ROUTES_PER_GENERATION).toBe(8);
   });
 
   it("trims a brief with more pages than the ceiling", () => {
@@ -952,7 +956,10 @@ describe("buildRoutePlan — per-round page ceiling", () => {
       prompt: "Webbutik med kontaktsida, blogg och prissida.",
       resolvedScaffold: getScaffoldById("ecommerce"),
     });
-    expect(plan.routes.length).toBeLessThanOrEqual(MAX_ROUTES_PER_GENERATION);
+    expect(plan.routes.some((r) => r.path === "/products")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
+    expect(plan.routes.length).toBeGreaterThan(MAX_ROUTES_PER_GENERATION);
+    expect(plan.routes.length).toBeLessThanOrEqual(ABSOLUTE_MAX_ROUTES_PER_GENERATION);
   });
 
   it("never trims frozen existing routes on a follow-up, even above the ceiling", () => {
@@ -984,6 +991,134 @@ describe("buildRoutePlan — per-round page ceiling", () => {
     for (const path of existing) {
       expect(plan.routes.some((r) => r.path === path)).toBe(true);
     }
+  });
+
+  // Live 2026-08-13: Atelier Nord listed four pages in the prompt; the ceiling
+  // dropped /kontakt and the model faked it as a dialog. Named pages must stay.
+  it("keeps every page the user named even when that exceeds the soft ceiling", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Atelier Nord. Sidor: start, projekt, om oss, kontakt",
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(paths).toHaveLength(4);
+    expect(paths).toContain("/");
+    expect(paths.some((path) => path === "/projekt" || path === "/work")).toBe(true);
+    expect(paths.some((path) => path === "/om" || path === "/om-oss")).toBe(true);
+    expect(paths.some((path) => path === "/kontakt" || path === "/contact")).toBe(true);
+    expect(plan.reason).toMatch(/ceiling/i);
+    expect(plan.reason).toMatch(/named|required|explicit/i);
+  });
+
+  it("keeps a required scaffold companion on top of a three-page brief", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      resolvedScaffold: getScaffoldById("ecommerce"),
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/om", name: "Om oss", purpose: "Företaget" },
+          { path: "/tjanster", name: "Tjänster", purpose: "Utbud" },
+        ],
+      },
+    });
+    expect(plan.routes.some((r) => r.path === "/products")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
+    expect(plan.routes.length).toBeGreaterThan(MAX_ROUTES_PER_GENERATION);
+    expect(plan.routes.length).toBeLessThanOrEqual(ABSOLUTE_MAX_ROUTES_PER_GENERATION);
+    expect(plan.reason).toMatch(/ceiling/i);
+    expect(plan.reason).toMatch(/named|required|explicit/i);
+  });
+
+  // pr-ai-review: required-klassningen tittade bara på rutter som
+  // applyScaffoldDefaults själv la till. /products från briefen blev "brief"
+  // och trimmas vid mjuka taket — samma path måste räknas required oavsett källa.
+  it("keeps brief /products as required when the ecommerce scaffold already demands it", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      resolvedScaffold: getScaffoldById("ecommerce"),
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/om", name: "Om oss", purpose: "Företaget" },
+          { path: "/tjanster", name: "Tjänster", purpose: "Utbud" },
+          { path: "/products", name: "Produkter", purpose: "Katalog" },
+        ],
+      },
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(paths).toContain("/products");
+    expect(paths).not.toContain("/cart");
+    expect(plan.routes.length).toBeGreaterThan(MAX_ROUTES_PER_GENERATION);
+  });
+
+  it("caps a fourteen-name list at the absolute brake and keeps named pages", () => {
+    const names = [
+      "alfa",
+      "beta",
+      "gamma",
+      "delta",
+      "epsilon",
+      "zeta",
+      "eta",
+      "theta",
+      "iota",
+      "kappa",
+      "lambda",
+      "my",
+      "ny",
+      "xi",
+    ];
+    const namedPaths = new Set(names.map((name) => `/${name}`));
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: `Sidor: ${names.join(", ")}`,
+    });
+    expect(plan.routes).toHaveLength(ABSOLUTE_MAX_ROUTES_PER_GENERATION);
+    expect(plan.routes.some((r) => r.path === "/")).toBe(true);
+    for (const route of plan.routes) {
+      if (route.path === "/") continue;
+      expect(namedPaths.has(route.path)).toBe(true);
+    }
+    expect(plan.reason).toMatch(/ceiling of 8/i);
+  });
+
+  // Scaffoldens egna filer länkar hårdkodat till sina required-rutter (ecommerce
+  // länkar /products från header, footer och hero), så en kapad required-rutt ger
+  // döda länkar. Vid nödbromsen får en namngiven sida vika i stället — den syns
+  // för användaren och kan begäras igen i nästa runda.
+  it("keeps the required scaffold route and cuts a named page at the absolute brake", () => {
+    const names = [
+      "start",
+      "projekt",
+      "om oss",
+      "kontakt",
+      "priser",
+      "team",
+      "blogg",
+      "villkor",
+    ];
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: `Webbutik. Sidor: ${names.join(", ")}`,
+      resolvedScaffold: getScaffoldById("ecommerce"),
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(plan.routes).toHaveLength(ABSOLUTE_MAX_ROUTES_PER_GENERATION);
+    expect(paths).toContain("/products");
+    expect(
+      paths.filter((path) => path !== "/" && path !== "/products").length,
+    ).toBeLessThan(names.length);
+  });
+
+  it("lets an explicit lower page count win over four named pages", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "2 sidor. Sidor: start, projekt, om oss, kontakt",
+    });
+    expect(plan.routes).toHaveLength(2);
   });
 });
 
@@ -1052,6 +1187,82 @@ describe("extractExplicitNamedPages — obundna namn kapas vid satsgräns", () =
       "Skapa en sida som ska heta Alfa Beta Gamma Delta Epsilon Zeta",
     );
     expect(page?.name.split(" ")).toHaveLength(4);
+  });
+
+  it("parsar en kolonlista 'Sidor: start, projekt, om oss, kontakt'", () => {
+    expect(
+      extractExplicitNamedPages("Sidor: start, projekt, om oss, kontakt").map((page) => page.path),
+    ).toEqual(["/projekt", "/om-oss", "/kontakt"]);
+  });
+
+  // pr-ai-review: kolonlistan slukade efterföljande instruktioner på samma rad
+  // ("Contact. Style: minimal" → skräproute med namngivet undantag).
+  it("kapar kolonlistan vid meningsgräns så efterföljande instruktion inte blir en sida", () => {
+    expect(
+      extractExplicitNamedPages("Pages: Home, About, Contact. Style: minimal").map(
+        (page) => page.path,
+      ),
+    ).toEqual(["/about", "/contact"]);
+    expect(
+      extractExplicitNamedPages("Sidor: start, kontakt. Stil: mörk").map((page) => page.path),
+    ).toEqual(["/kontakt"]);
+  });
+
+  it("planerar inte en style-skräproute från kolonlista + efterföljande instruktion", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Pages: Home, About, Contact. Style: minimal",
+      locale: "en",
+    });
+    const paths = plan.routes.map((route) => route.path);
+    expect(paths).toEqual(["/", "/about", "/contact"]);
+    expect(paths.some((path) => path.includes("style"))).toBe(false);
+  });
+
+  // pr-ai-review: Oxford-komma lämnade "and Contact" / "och kontakt" som item.
+  it("stripar ledande och/and efter Oxford-komma i kolonlistan", () => {
+    expect(
+      extractExplicitNamedPages("Pages: Home, About, and Contact").map((page) => page.path),
+    ).toEqual(["/about", "/contact"]);
+    expect(
+      extractExplicitNamedPages("Sidor: start, om oss, och kontakt").map((page) => page.path),
+    ).toEqual(["/om-oss", "/kontakt"]);
+  });
+
+  // bugbot HIGH: och/and-split matade instruktionssvansen via parseExplicitPageName
+  // (utan trimBarePageName) → `/lanka-den-i-footern`, `/gor-knapparna-grona`.
+  // Oxford-listor utan instruktionssvans måste fortfarande ge tre sidor.
+  it("avvisar instruktionssvans efter och/and i kolonlista men behåller Oxford-sidor", () => {
+    expect(
+      extractExplicitNamedPages(
+        "Sidor: start, projekt, kontakt och länka den i footern",
+      ).map((page) => page.path),
+    ).toEqual(["/projekt", "/kontakt"]);
+    expect(
+      extractExplicitNamedPages("Sidor: start, projekt och kontakt").map(
+        (page) => page.path,
+      ),
+    ).toEqual(["/projekt", "/kontakt"]);
+    expect(
+      extractExplicitNamedPages("Sidor: Home, About and Contact").map(
+        (page) => page.path,
+      ),
+    ).toEqual(["/about", "/contact"]);
+    expect(
+      extractExplicitNamedPages(
+        "Sidor: start, projekt, kontakt och gör knapparna gröna",
+      ).map((page) => page.path),
+    ).toEqual(["/projekt", "/kontakt"]);
+    expect(
+      extractExplicitNamedPages("Bygg en portfolio och länka den i headern"),
+    ).toEqual([]);
+  });
+
+  // Granskningsfynd: en kolonträff med EN post är oftast prosa, inte en
+  // sidlista — utan spärren blev "routes: se nedan" en riktig skräpsida.
+  it("avvisar kolonlistor med färre än två giltiga poster", () => {
+    expect(extractExplicitNamedPages("Se våra routes: se nedan")).toEqual([]);
+    expect(extractExplicitNamedPages("Sidor: kontakt")).toEqual([]);
   });
 
   it("planerar /bilder — inte den slukade varianten — för hela instruktionen", () => {

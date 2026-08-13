@@ -8,6 +8,7 @@ import {
   applyScaffoldDefaults,
   buildRoutesFromBrief,
   collectExplicitRouteRemovals,
+  collectScaffoldRequiredPaths,
   detectExplicitPageCount,
   extractExplicitNamedPages,
   hasExplicitAddRouteIntent,
@@ -18,7 +19,7 @@ import { APP_ROUTE_PATTERNS, WEBSITE_ROUTE_PATTERNS } from "./route-patterns";
 import type { PlannedRoute, RoutePlan, RoutePlanSiteType, RoutePlanSource } from "./route-plan-types";
 
 /**
- * Hard ceiling on how many routes a single generation round may plan.
+ * Soft ceiling on how many routes a single generation round may plan.
  *
  * Byggval's slider tops out at the same number, but three other sources could
  * each push past it on their own: prompt text ("5 sidor"), a Deep Brief with up
@@ -27,8 +28,56 @@ import type { PlannedRoute, RoutePlan, RoutePlanSiteType, RoutePlanSource } from
  *
  * Follow-ups measure only NEW routes against it. A site is allowed to grow past
  * three pages across several rounds — it just cannot get there in one.
+ *
+ * Init rounds may keep pages above this number when the user named them in the
+ * prompt or a scaffold requires them; {@link ABSOLUTE_MAX_ROUTES_PER_GENERATION}
+ * is the hard stop for that exemption.
  */
 export const MAX_ROUTES_PER_GENERATION = 3;
+
+/**
+ * Absolute brake on routes per init round, even with named/required exemptions.
+ * A prompt that lists 14 page names must still be cut so one generation does
+ * not try to build a whole sitemap.
+ */
+export const ABSOLUTE_MAX_ROUTES_PER_GENERATION = 8;
+
+type CeilingTrimClass = "keep" | "named" | "required" | "brief" | "guessed";
+
+function classifyCeilingTrim(
+  route: PlannedRoute,
+  frozenRoutePaths: Set<string>,
+  namedPaths: Set<string>,
+  namedNames: Set<string>,
+  scaffoldRequiredPaths: Set<string>,
+  briefRoutePaths: Set<string>,
+): CeilingTrimClass {
+  const path = normalizeRoutePath(route.path);
+  if (path === "/" || frozenRoutePaths.has(path)) return "keep";
+  if (namedPaths.has(path) || namedNames.has(route.name.trim().toLowerCase())) {
+    return "named";
+  }
+  if (scaffoldRequiredPaths.has(path)) return "required";
+  if (briefRoutePaths.has(path)) return "brief";
+  return "guessed";
+}
+
+function trimRoutesOverCeiling(
+  routes: PlannedRoute[],
+  limit: number,
+  classesToTrim: ReadonlySet<CeilingTrimClass>,
+  classify: (route: PlannedRoute) => CeilingTrimClass,
+  score: (routes: PlannedRoute[]) => number,
+): number {
+  let trimmed = 0;
+  for (let i = routes.length - 1; i >= 0 && score(routes) > limit; i -= 1) {
+    const cls = classify(routes[i]!);
+    if (cls === "keep" || !classesToTrim.has(cls)) continue;
+    routes.splice(i, 1);
+    trimmed += 1;
+  }
+  return trimmed;
+}
 
 function inferSiteType(buildIntent: BuildIntent, routeCount: number): RoutePlanSiteType {
   if (buildIntent === "app") return "app-shell";
@@ -239,8 +288,15 @@ export function buildRoutePlan(params: {
   if (!useFollowUpFreeze && !skipScaffoldDefaults) {
     applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
   }
-  const scaffoldAddedRoutes = routes.some(
-    (route) => !pathsBeforeScaffoldDefaults.has(normalizeRoutePath(route.path)),
+  const scaffoldAddedPaths = new Set(
+    routes
+      .map((route) => normalizeRoutePath(route.path))
+      .filter((path) => !pathsBeforeScaffoldDefaults.has(path)),
+  );
+  const scaffoldAddedRoutes = scaffoldAddedPaths.size > 0;
+  const scaffoldRequiredPaths = collectScaffoldRequiredPaths(
+    buildIntent,
+    resolvedScaffold,
   );
 
   // Symmetric downward trim: detectExplicitPageCount is also used below to
@@ -286,9 +342,11 @@ export function buildRoutePlan(params: {
   //
   // Trimming from the end respects the insertion order used above — brief pages,
   // then explicitly named pages, then keyword patterns, then scaffold defaults —
-  // so the least user-driven routes go first. Unlike the explicit-count trim,
-  // brief routes are NOT exempt here: the ceiling is absolute, and a ten-page
-  // brief would otherwise walk straight through it.
+  // so the least user-driven routes go first. Unnamed brief pages are still
+  // trimmed at the soft ceiling. Init rounds keep prompt-named pages and required
+  // scaffold companions above 3, then cut at ABSOLUTE_MAX_ROUTES_PER_GENERATION
+  // (guessed, then brief, then named, then required). An explicit lower count
+  // still wins, and it cuts required BEFORE named — see both branches below.
   const effectiveRouteCeiling =
     !useFollowUpFreeze && earlyExplicitPageCount !== null
       ? Math.min(MAX_ROUTES_PER_GENERATION, earlyExplicitPageCount)
@@ -296,18 +354,92 @@ export function buildRoutePlan(params: {
   const frozenRoutePaths = useFollowUpFreeze
     ? new Set(normalizedExistingPaths)
     : new Set<string>();
-  let newRouteCount = routes.filter(
-    (route) => !frozenRoutePaths.has(normalizeRoutePath(route.path)),
-  ).length;
+  const namedPaths = new Set(
+    explicitNamedPages.map((page) => normalizeRoutePath(page.path)),
+  );
+  const namedNames = new Set(
+    explicitNamedPages.map((page) => page.name.trim().toLowerCase()),
+  );
+  const classify = (route: PlannedRoute): CeilingTrimClass =>
+    classifyCeilingTrim(
+      route,
+      frozenRoutePaths,
+      namedPaths,
+      namedNames,
+      scaffoldRequiredPaths,
+      briefRoutePaths,
+    );
+  const allowCeilingExemptions =
+    !useFollowUpFreeze &&
+    (earlyExplicitPageCount === null ||
+      earlyExplicitPageCount >= MAX_ROUTES_PER_GENERATION);
+  const totalScore = (current: PlannedRoute[]): number =>
+    current.filter((route) => !frozenRoutePaths.has(normalizeRoutePath(route.path))).length;
+  const softScore = (current: PlannedRoute[]): number =>
+    current.filter((route) => {
+      const cls = classify(route);
+      return cls === "keep" || cls === "brief" || cls === "guessed";
+    }).length;
   let ceilingTrimmedCount = 0;
-  for (let i = routes.length - 1; i >= 0 && newRouteCount > effectiveRouteCeiling; i -= 1) {
-    const normalizedPath = normalizeRoutePath(routes[i]!.path);
-    if (normalizedPath === "/") continue;
-    if (frozenRoutePaths.has(normalizedPath)) continue;
-    routes.splice(i, 1);
-    newRouteCount -= 1;
-    ceilingTrimmedCount += 1;
+  let absoluteCeilingApplied = false;
+  if (useFollowUpFreeze) {
+    let newRouteCount = totalScore(routes);
+    for (let i = routes.length - 1; i >= 0 && newRouteCount > effectiveRouteCeiling; i -= 1) {
+      const normalizedPath = normalizeRoutePath(routes[i]!.path);
+      if (normalizedPath === "/") continue;
+      if (frozenRoutePaths.has(normalizedPath)) continue;
+      routes.splice(i, 1);
+      newRouteCount -= 1;
+      ceilingTrimmedCount += 1;
+    }
+  } else if (allowCeilingExemptions) {
+    // Soft cap counts home + unnamed brief + keyword guesses. Named pages and
+    // required scaffold companions may sit above 3 until the absolute brake.
+    ceilingTrimmedCount += trimRoutesOverCeiling(
+      routes,
+      effectiveRouteCeiling,
+      new Set(["guessed"]),
+      classify,
+      softScore,
+    );
+    ceilingTrimmedCount += trimRoutesOverCeiling(
+      routes,
+      effectiveRouteCeiling,
+      new Set(["brief"]),
+      classify,
+      softScore,
+    );
+    if (routes.length > ABSOLUTE_MAX_ROUTES_PER_GENERATION) {
+      absoluteCeilingApplied = true;
+      // Named yields before required here. A scaffold's own files hardcode links
+      // to its required routes (ecommerce links /products from header, footer and
+      // hero), so cutting one ships dead links, while a cut named page is visible
+      // and can be asked for again in a later round.
+      for (const cls of ["guessed", "brief", "named", "required"] as const) {
+        ceilingTrimmedCount += trimRoutesOverCeiling(
+          routes,
+          ABSOLUTE_MAX_ROUTES_PER_GENERATION,
+          new Set([cls]),
+          classify,
+          totalScore,
+        );
+      }
+    }
+  } else {
+    for (const cls of ["guessed", "brief", "required", "named"] as const) {
+      ceilingTrimmedCount += trimRoutesOverCeiling(
+        routes,
+        effectiveRouteCeiling,
+        new Set([cls]),
+        classify,
+        totalScore,
+      );
+    }
   }
+  const retainedAboveSoftCeiling =
+    allowCeilingExemptions && routes.length > MAX_ROUTES_PER_GENERATION
+      ? routes.length - MAX_ROUTES_PER_GENERATION
+      : 0;
 
   const sources: RoutePlanSource[] = [];
   if (hasBriefRoutes) sources.push("brief");
@@ -343,10 +475,21 @@ export function buildRoutePlan(params: {
       ? "Prompt analysis suggests a multi-route build; keep real App Router pages instead of collapsing everything into one page."
       : "Prompt analysis suggests a compact default route structure unless the model has strong evidence to add more pages.";
 
-  const reason =
-    ceilingTrimmedCount > 0
-      ? `${baseReason} Per-round page ceiling of ${effectiveRouteCeiling} applied: trimmed ${ceilingTrimmedCount} route(s). Remaining pages can be added in a later round.`
-      : baseReason;
+  const reason = (() => {
+    if (absoluteCeilingApplied && ceilingTrimmedCount > 0) {
+      return `${baseReason} Per-round page ceiling of ${effectiveRouteCeiling} waived for explicitly named or required routes; absolute ceiling of ${ABSOLUTE_MAX_ROUTES_PER_GENERATION} applied: trimmed ${ceilingTrimmedCount} route(s). Remaining pages can be added in a later round.`;
+    }
+    if (retainedAboveSoftCeiling > 0 && ceilingTrimmedCount > 0) {
+      return `${baseReason} Per-round page ceiling of ${effectiveRouteCeiling} applied: trimmed ${ceilingTrimmedCount} route(s); retained ${retainedAboveSoftCeiling} explicitly named or required route(s) above the ceiling. Remaining pages can be added in a later round.`;
+    }
+    if (retainedAboveSoftCeiling > 0) {
+      return `${baseReason} Per-round page ceiling of ${effectiveRouteCeiling} applied: retained ${retainedAboveSoftCeiling} explicitly named or required route(s) above the ceiling.`;
+    }
+    if (ceilingTrimmedCount > 0) {
+      return `${baseReason} Per-round page ceiling of ${effectiveRouteCeiling} applied: trimmed ${ceilingTrimmedCount} route(s). Remaining pages can be added in a later round.`;
+    }
+    return baseReason;
+  })();
 
   const effectiveRouteCount = explicitPageCountActive
     ? Math.max(routes.length, explicitPageCount)
