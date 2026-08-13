@@ -1187,7 +1187,11 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
         st.session_state["swz_cmd_results"] = results
         for step in steps:
             if step["needs_api"] and not has_key:
-                results[step["key"]] = {"skipped": True, "command": " ".join(step["command"])}
+                results[step["key"]] = {
+                    "skipped": True,
+                    "command": " ".join(step["command"]),
+                    "warn": "OPENAI_API_KEY saknas — AI-steget hoppades över.",
+                }
                 continue
             if step.get("needs_blob") and not has_blob:
                 results[step["key"]] = {
@@ -1273,7 +1277,10 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
         if not res:
             continue
         if res.get("skipped"):
-            st.caption(f"• {step['label']}: hoppad (ingen API-nyckel).")
+            reason = str(res.get("warn") or "ingen API-nyckel").split(" — ")[0]
+            st.caption(f"• {step['label']}: hoppad ({reason}).")
+            if res.get("warn"):
+                st.warning(res["warn"])
             continue
         # For pattern curation, trust the file-verified outcome over exit code.
         ok = bool(res.get("verifiedOk")) if "verifiedOk" in res else bool(res.get("ok"))

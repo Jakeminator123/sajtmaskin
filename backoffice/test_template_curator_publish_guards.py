@@ -289,6 +289,15 @@ class AddendumCandidatePublicationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             page._npm_command_tuple("python -c pass")
 
+    def test_addenda_check_success_does_not_claim_write(self) -> None:
+        source = Path(page.__file__).read_text(encoding="utf-8")
+        self.assertIn("_store_addenda_command_result", source)
+        self.assertIn(
+            "Addenda-registret är giltigt. Inget skrevs — det här var bara en kontroll.",
+            source,
+        )
+        self.assertIn('write_result.get("kind") == "check"', source)
+
 
 if __name__ == "__main__":
     unittest.main()

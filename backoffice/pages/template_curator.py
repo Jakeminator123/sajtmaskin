@@ -319,6 +319,10 @@ def _npm_command_tuple(command: str) -> tuple[str, ...]:
     return parts
 
 
+def _store_addenda_command_result(kind: str, result: Mapping[str, Any]) -> None:
+    st.session_state[_ADDENDA_WRITE_RESULT_KEY] = {**dict(result), "kind": kind}
+
+
 def _render_profile(profile: Any, record: Any | None) -> None:
     template_id = _profile_id(profile)
     title = _record_title(record) if record is not None else template_id
@@ -472,14 +476,14 @@ def _render_report(ctx: BackofficeContext, report: Any, snapshot: Any) -> None:
                 try:
                     command = _npm_command_tuple(candidate_commands[0])
                 except ValueError as exc:
-                    st.session_state[_ADDENDA_WRITE_RESULT_KEY] = {
-                        "ok": False,
-                        "error": str(exc),
-                    }
+                    _store_addenda_command_result(
+                        "write", {"ok": False, "error": str(exc)}
+                    )
                 else:
                     with st.spinner("Skriver variant-template-addenda.json …"):
-                        st.session_state[_ADDENDA_WRITE_RESULT_KEY] = run_repo_command(
-                            ctx.repo_root, command, timeout=1200
+                        _store_addenda_command_result(
+                            "write",
+                            run_repo_command(ctx.repo_root, command, timeout=1200),
                         )
         with check_col:
             check_command = _value(report, "addendaCheckCommand", default=None)
@@ -492,14 +496,14 @@ def _render_report(ctx: BackofficeContext, report: Any, snapshot: Any) -> None:
                     try:
                         command = _npm_command_tuple(check_command)
                     except ValueError as exc:
-                        st.session_state[_ADDENDA_WRITE_RESULT_KEY] = {
-                            "ok": False,
-                            "error": str(exc),
-                        }
+                        _store_addenda_command_result(
+                            "check", {"ok": False, "error": str(exc)}
+                        )
                     else:
                         with st.spinner("Kör templates:addenda:check …"):
-                            st.session_state[_ADDENDA_WRITE_RESULT_KEY] = run_repo_command(
-                                ctx.repo_root, command, timeout=180
+                            _store_addenda_command_result(
+                                "check",
+                                run_repo_command(ctx.repo_root, command, timeout=180),
                             )
     else:
         st.caption(
@@ -511,10 +515,15 @@ def _render_report(ctx: BackofficeContext, report: Any, snapshot: Any) -> None:
     write_result = st.session_state.get(_ADDENDA_WRITE_RESULT_KEY)
     if isinstance(write_result, Mapping):
         if write_result.get("ok"):
-            st.success(
-                "Kommandot lyckades. `config/variant-template-addenda.json` är uppdaterad "
-                "i worktreet — committa när du granskat diffen."
-            )
+            if write_result.get("kind") == "check":
+                st.success(
+                    "Addenda-registret är giltigt. Inget skrevs — det här var bara en kontroll."
+                )
+            else:
+                st.success(
+                    "Kommandot lyckades. `config/variant-template-addenda.json` är uppdaterad "
+                    "i worktreet — committa när du granskat diffen."
+                )
         else:
             error = write_result.get("error") or write_result.get("stderrTail") or "okänt fel"
             st.error(f"Addenda-kommandot misslyckades: {error}")
