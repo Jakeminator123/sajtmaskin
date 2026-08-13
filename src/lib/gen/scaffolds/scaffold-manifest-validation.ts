@@ -184,10 +184,45 @@ function validateRouteContract(
     }
   };
 
-  for (const route of contract.requiredRoutes) checkPlannedRoute(route, "requiredRoutes");
-  for (const route of contract.optionalRoutes) checkPlannedRoute(route, "optionalRoutes");
-  for (const path of contract.declaredRoutePaths) checkPath(path, "declaredRoutePaths", false);
-  for (const pattern of contract.dynamicRoutePatterns) {
+  // Guard the collection shapes before iterating: a runtime manifest written
+  // as text (backoffice lifecycle) or a legacy payload can carry null or
+  // non-array fields, and the validator must report that as a structural
+  // error instead of throwing (PR #982 AI-review finding F-3750ddc9db97).
+  const readCollection = (name: string): unknown[] | null => {
+    const value = (contract as unknown as Record<string, unknown>)[name];
+    if (!Array.isArray(value)) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: ${name} must be an array (got ${value === null ? "null" : typeof value})`,
+      });
+      return null;
+    }
+    return value;
+  };
+
+  const checkPlannedEntry = (entry: unknown, category: string): void => {
+    if (typeof entry !== "object" || entry === null) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: ${category} contains a non-object entry (got ${entry === null ? "null" : typeof entry})`,
+      });
+      return;
+    }
+    checkPlannedRoute(entry as ScaffoldContractRoute, category);
+  };
+
+  for (const route of readCollection("requiredRoutes") ?? []) {
+    checkPlannedEntry(route, "requiredRoutes");
+  }
+  for (const route of readCollection("optionalRoutes") ?? []) {
+    checkPlannedEntry(route, "optionalRoutes");
+  }
+  for (const path of readCollection("declaredRoutePaths") ?? []) {
+    checkPath(path, "declaredRoutePaths", false);
+  }
+  for (const pattern of readCollection("dynamicRoutePatterns") ?? []) {
     checkPath(pattern, "dynamicRoutePatterns", true);
   }
 }

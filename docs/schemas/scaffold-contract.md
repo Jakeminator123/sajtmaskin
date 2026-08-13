@@ -158,8 +158,11 @@ both directions per scaffold:
 1. every internal `href`/`Link` path extracted from `files/**` must resolve
    against the contract (`/` plus required/optional/declared, dynamic links
    matched against `dynamicRoutePatterns`), and
-2. every contract route must be reachable — at least one link or one starter
-   page file — so the contract cannot promise junk routes.
+2. every contract route must be backed by reality: planned routes
+   (required/optional) need at least one link or one starter page file,
+   while non-planned routes (`declaredRoutePaths`, `dynamicRoutePatterns`)
+   must ship their page file — a link alone never satisfies them, since
+   nothing plans those routes and the link would be dead.
 
 Known drift is pinned in the test's explicit exception list
 (`KNOWN_ROUTE_CONTRACT_VIOLATIONS`): the four SM-042 scaffolds
@@ -247,10 +250,12 @@ handkuraterad för auto-matchning eller retry-heuristik.
 
 `validateScaffoldManifest()` currently checks:
 
-- `routeContract` present on every registered scaffold, with normalized
-  paths, exactly one category per path, dynamic segments only in
-  `dynamicRoutePatterns`, non-empty `name`/`planIntent` on planned entries,
-  and valid build-intent scopes (all errors)
+- `routeContract` present on every registered scaffold, with array-shaped
+  collections and object-shaped planned entries (malformed shapes are
+  reported as errors, never thrown), normalized paths, exactly one category
+  per path, dynamic segments only in `dynamicRoutePatterns`, non-empty
+  `name`/`planIntent` on planned entries, and valid build-intent scopes
+  (all errors)
 - duplicate file paths
 - required `app/globals.css`
 - presence of `@theme inline` tokens in `app/globals.css` as a warning
