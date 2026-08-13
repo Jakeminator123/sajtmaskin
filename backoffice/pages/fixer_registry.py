@@ -10,7 +10,8 @@ snapshot is stale compared with the TypeScript source and can regenerate it.
 
 Usage stats (read-only) come from `scripts/observability/fault-matrix.mjs
 --by-fixer --json` against `error_log_events`, joined onto the catalog by
-fixer id. Catalog entries without events show 0; unknown fixer ids are drift.
+fixer id. Catalog entries without events show 0 (or «okänd» when the
+response is truncated); unknown fixer ids are drift.
 """
 
 from __future__ import annotations
@@ -238,11 +239,15 @@ def _run_fixer_usage(repo_root: Path, *, use_prod: bool) -> dict[str, Any]:
 def _join_catalog_usage(
     entries: list[dict[str, Any]],
     usage_rows: list[dict[str, Any]],
+    *,
+    truncated: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None, list[dict[str, Any]]]:
     """Join catalog entries with `--by-fixer` rows.
 
     Returns (catalog_rows_with_counts, none_fixer_row, drift_rows).
-    Catalog ids without events get 0. Unknown event fixer-ids are drift.
+    Catalog ids without events get 0. When `truncated`, catalog ids missing
+    from the partial response are «okänd» instead of 0. Unknown event
+    fixer-ids are drift.
     """
     by_id: dict[str, dict[str, Any]] = {}
     for row in usage_rows:
@@ -254,7 +259,27 @@ def _join_catalog_usage(
     joined: list[dict[str, Any]] = []
     for entry in entries:
         fid = str(entry.get("id") or "")
-        usage = by_id.get(fid) or {}
+        usage = by_id.get(fid)
+        unknown = truncated and usage is None
+        if unknown:
+            joined.append(
+                {
+                    "id": fid,
+                    "kategori": entry.get("category"),
+                    "risk": entry.get("risk"),
+                    "status": entry.get("status"),
+                    "användningar": "okänd",
+                    "lyckades": "okänd",
+                    "misslyckades": "okänd",
+                    "övriga": "okänd",
+                    "unika_chattar": "okänd",
+                    "toppfel": "okänd",
+                    "först_sedd": "okänd",
+                    "senast_sedd": "okänd",
+                }
+            )
+            continue
+        usage = usage or {}
         joined.append(
             {
                 "id": fid,
@@ -271,7 +296,13 @@ def _join_catalog_usage(
                 "senast_sedd": _format_seen(usage.get("last_seen")),
             }
         )
-    joined.sort(key=lambda r: (-int(r["användningar"]), str(r["id"])))
+    joined.sort(
+        key=lambda r: (
+            0 if isinstance(r["användningar"], int) else 1,
+            -int(r["användningar"]) if isinstance(r["användningar"], int) else 0,
+            str(r["id"]),
+        )
+    )
 
     none_row = by_id.get(MISSING_FIXER_LABEL)
     drift = [
@@ -288,7 +319,8 @@ def _render_usage_section(ctx: BackofficeContext, entries: list[dict[str, Any]])
     st.subheader("Användning (error_log_events)")
     st.caption(
         "Read-only SELECT via `node scripts/observability/fault-matrix.mjs "
-        "--by-fixer --json`. Katalogposter utan events visas som 0. "
+        "--by-fixer --json`. Katalogposter utan events visas som 0; saknas "
+        "de i ett trunkerat svar visas de som okänd. "
         "Fixer-id i loggen som saknas i katalogen flaggas som drift. "
         "Hämta med knappen — sidan slår inte mot databasen av sig själv."
     )
@@ -335,25 +367,31 @@ def _render_usage_section(ctx: BackofficeContext, entries: list[dict[str, Any]])
     # Om skript-limiten någonsin trunkerar (fler distinkta fixers än limit)
     # ska vyn säga det i stället för att visa falska nollor.
     distinct_in_log = int(payload.get("distinctFixers") or 0)
-    if distinct_in_log > len(usage_rows):
+    truncated = distinct_in_log > len(usage_rows)
+    if truncated:
         st.warning(
             f"Visar {len(usage_rows)} av {distinct_in_log} fixer-nycklar "
             f"(limit {_USAGE_LIMIT}) — 0-rader och drift-flaggor kan vara "
             "ofullständiga för resten."
         )
-    joined, none_row, drift = _join_catalog_usage(entries, usage_rows)
-    unused = sum(1 for row in joined if int(row["användningar"]) == 0)
+    joined, none_row, drift = _join_catalog_usage(
+        entries, usage_rows, truncated=truncated
+    )
+    if truncated:
+        unused_display: int | str = "–"
+    else:
+        unused_display = sum(1 for row in joined if row["användningar"] == 0)
 
     st.caption(
         f"Hämtat från **{fetched_env}** · {payload.get('totalRows', 0)} rader · "
         f"{payload.get('distinctFixers', 0)} distinkta fixer-nycklar i loggen · "
-        f"{unused} katalog-fixers utan events."
+        f"{unused_display} katalog-fixers utan events."
     )
 
     metrics = st.columns(4)
     metrics[0].metric("Events", payload.get("totalRows", 0))
     metrics[1].metric("Fixers i loggen", payload.get("distinctFixers", 0))
-    metrics[2].metric("Katalog utan events", unused)
+    metrics[2].metric("Katalog utan events", unused_display)
     metrics[3].metric("Drift (okänt id)", len(drift))
 
     st.dataframe(joined, use_container_width=True, hide_index=True)

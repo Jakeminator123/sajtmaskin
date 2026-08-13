@@ -17,7 +17,7 @@ registerpost:
 
 **Visualised in:** `backoffice/pages/fixer_registry.py` (Streamlit table grouped by category + phase, plus a usage section joined onto the catalog).
 
-**Användningsstatistik:** katalogen säger vilka fixers som *finns*. Hur de *använts* (antal, `result`-utfall, unika chattar, toppfel, först/senast sedd) läses live ur `error_log_events` med `node scripts/observability/fault-matrix.mjs --by-fixer --json` (`--prod` för produktionssnapshotten). Ingen egen tabell — samma durable store som fault-matrisen. Rader utan fixer-id redovisas som `(ingen fixer)`. Backoffice-sidan joinar utfallet mot katalogen (0 om inga events; okända id:n flaggas som drift).
+**Användningsstatistik:** katalogen säger vilka fixers som *finns*. Hur de *använts* (antal, `result`-utfall, unika chattar, toppfel, först/senast sedd) läses live ur `error_log_events` med `node scripts/observability/fault-matrix.mjs --by-fixer --json` (`--prod` för produktionssnapshotten). Ingen egen tabell — samma durable store som fault-matrisen. Null/blank fixer-id redovisas som `(ingen fixer)`; icke-tomma id:n trimmas inte (mellanslag runt ett känt id är drift, inte katalogträff). Backoffice-sidan joinar utfallet mot katalogen (0 om inga events; «okänd» om svaret är trunkerat och posten saknas; okända id:n flaggas som drift).
 
 Docs använder kontrollbegreppen Normalize och RepairGate. Registry-id:n,
 category-värden, lane-värden och telemetry counters är kod-legacy och döps inte

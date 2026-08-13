@@ -144,18 +144,26 @@ try {
   if (byFixer) {
     const totals = await pool.query(
       `select count(*)::int as rows,
-              count(distinct coalesce(nullif(btrim(fixer), ''), $1))::int as fixers
+              count(distinct case
+                when fixer is null or btrim(fixer) = '' then $1
+                else fixer
+              end)::int as fixers
        from error_log_events`,
       [MISSING_FIXER],
     );
 
     // Per-fixer aggregate: total, distinct chats, verbatim result breakdown,
     // top-3 faults, first/last seen. NULL/blank fixer → «(ingen fixer)».
+    // Trim only for the emptiness test — keep the original id otherwise so
+    // whitespace-padded values (e.g. 'known-fixer ') surface as drift.
     // Result + fault subqueries are pre-grouped so jsonb_object_agg /
     // jsonb_agg never see duplicate keys (same Bugbot constraint as --by-fault).
     const perFixer = await pool.query(
       `with keyed as (
-         select coalesce(nullif(btrim(fixer), ''), $2) as fixer,
+         select case
+                  when fixer is null or btrim(fixer) = '' then $2
+                  else fixer
+                end as fixer,
                 fault,
                 coalesce(result, 'unknown') as result_key,
                 chat_id,
