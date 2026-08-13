@@ -28,3 +28,4 @@ Agenten får redigera `.gitignore`, `.cursorignore` och `.cursorindexingignore` 
 - Arbeta på en feature-branch (`fix/...`, `feat/...`, `chore/...`), pusha den, öppna PR mot master, merga in. Se `agent-worktree.mdc` (flera agenter → egen worktree).
 - Ingen direktcommit/-push till master. Feature-branchen är bara mellanlager tills grinden passerar — den "ligger inte efter" master, den väntar på merge.
 - Ocommittade ändringar i huvudcheckouten är pågående arbete, inte ett fel: commit/push/PR sker bara på explicit begäran.
+- **`JAKOB_BRA_9999_INNNAN_MVP_BRA` är ägarens frysta pre-MVP-backup.** Radera, force-pusha eller återanvänd den aldrig i städ-/worktree-svep. Se [`jakob-pre-mvp-backup.mdc`](jakob-pre-mvp-backup.mdc).
