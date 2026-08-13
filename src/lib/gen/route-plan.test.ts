@@ -1113,6 +1113,69 @@ describe("buildRoutePlan — per-round page ceiling", () => {
     ).toBeLessThan(names.length);
   });
 
+  // Regression: när användaren själv namnger /products blir rutten både named
+  // och required. Klassningen måste välja den mest skyddade klassen i den
+  // aktiva trimordningen — annars kapas /products som named före taket 8 medan
+  // scaffolden fortfarande länkar dit.
+  it("keeps named+required /products at the absolute brake when the user listed it", () => {
+    const names = [
+      "alfa",
+      "beta",
+      "gamma",
+      "delta",
+      "epsilon",
+      "zeta",
+      "eta",
+      "theta",
+      "products",
+    ];
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: `Webbutik. Sidor: ${names.join(", ")}`,
+      resolvedScaffold: getScaffoldById("ecommerce"),
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(plan.routes).toHaveLength(ABSOLUTE_MAX_ROUTES_PER_GENERATION);
+    expect(paths).toContain("/products");
+  });
+
+  // Explicit sidantal trimmar required före named. En named+required-rutt ska
+  // därför fortfarande räknas som named här (oförändrat mot pre-fix).
+  it("keeps named+required /products over a pure named page under an explicit page count", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "2 sidor. Webbutik. Sidor: products, kontakt",
+      resolvedScaffold: getScaffoldById("ecommerce"),
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(paths).toEqual(["/", "/products"]);
+  });
+
+  // Ren required vs ren named vid nödbromsen: named viker först — utan att
+  // blanda in dubbelklassningen ovan.
+  it("cuts a pure named page before a pure required scaffold route at the absolute brake", () => {
+    const names = [
+      "alfa",
+      "beta",
+      "gamma",
+      "delta",
+      "epsilon",
+      "zeta",
+      "eta",
+      "theta",
+      "iota",
+    ];
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: `Webbutik. Sidor: ${names.join(", ")}`,
+      resolvedScaffold: getScaffoldById("ecommerce"),
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(plan.routes).toHaveLength(ABSOLUTE_MAX_ROUTES_PER_GENERATION);
+    expect(paths).toContain("/products");
+    expect(paths).not.toContain("/iota");
+  });
+
   it("lets an explicit lower page count win over four named pages", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
