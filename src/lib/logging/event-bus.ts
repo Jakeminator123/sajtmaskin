@@ -108,6 +108,14 @@ export const EVENTS_NDJSON_FILE = "events.ndjson";
 export const MAX_TMP_MIRROR_VERSION_DIRS = 50;
 
 /**
+ * Åldersgolv för LRU-prunen. Finalize + verify + repair ryms i ~16 min via
+ * maxDuration 950 s — en mapp yngre än golvet kan tillhöra en pågående
+ * körning och taket är hygien, inte en hård gräns; hellre tillfälligt >50
+ * mappar än en raderad aktiv spegel.
+ */
+export const TMP_MIRROR_PRUNE_MIN_IDLE_MS = 20 * 60 * 1000;
+
+/**
  * When a caller emits an event without an explicit `runId`, we fall
  * back to a deterministic bootstrap run so the event still lands on
  * disk under a stable path. `"root"` was picked instead of `"default"`
@@ -238,7 +246,13 @@ function pruneTmpMirrorVersionDirsBestEffort(): void {
       }));
     if (scored.length <= MAX_TMP_MIRROR_VERSION_DIRS) return;
     scored.sort((a, b) => a.mtimeMs - b.mtimeMs);
-    const toRemove = scored.slice(0, scored.length - MAX_TMP_MIRROR_VERSION_DIRS);
+    const overflow = scored.length - MAX_TMP_MIRROR_VERSION_DIRS;
+    const idleFloor = Date.now() - TMP_MIRROR_PRUNE_MIN_IDLE_MS;
+    // Filtrera bort färsk aktivitet INNAN slice så äldre mappar bortom
+    // golvet fortfarande städas. Taket får överskridas när allt är färskt.
+    const toRemove = scored
+      .filter((entry) => entry.mtimeMs <= idleFloor)
+      .slice(0, overflow);
     for (const { name } of toRemove) {
       try {
         fs.rmSync(path.join(RUNS_ROOT_DIR, name), { recursive: true, force: true });

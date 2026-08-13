@@ -244,6 +244,39 @@ describe("event-bus", () => {
     expect(dirs).not.toContain("old_01");
   });
 
+  // Bugbot medium: tyst finalize/verify kan gå flera minuter utan emit.
+  // LRU får inte radera en mapp med aktivitet inom åldersgolvet bara för
+  // att 50+ nyare versioner registrerats på samma varma instans.
+  it("does not prune tmp-mirror dirs younger than the idle floor even when over cap", () => {
+    const cap = bus.MAX_TMP_MIRROR_VERSION_DIRS;
+    const started = (versionId: string) =>
+      bus.emit({
+        t: "version.started",
+        versionId,
+        generationKind: "create",
+      });
+
+    for (let i = 0; i < cap; i++) {
+      const id = `fresh_${String(i).padStart(2, "0")}`;
+      started(id);
+      // Alla under golvet (20 min) — 1–19 s räcker för att skilja mtime
+      // utan att någon blir prunbar.
+      backdateVersionDeep(id, new Date(Date.now() - (i + 1) * 1000));
+    }
+
+    expect(() => started("newest")).not.toThrow();
+
+    const dirs = fs
+      .readdirSync(bus.RUNS_ROOT_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+
+    expect(dirs).toHaveLength(cap + 1);
+    expect(dirs).toContain("newest");
+    expect(dirs).toContain("fresh_00");
+    expect(bus.readAll("newest")).toHaveLength(1);
+  });
+
   it("lets emit succeed when tmp-mirror prune cannot delete", () => {
     for (let i = 0; i < bus.MAX_TMP_MIRROR_VERSION_DIRS; i++) {
       bus.emit({
