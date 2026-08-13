@@ -76,11 +76,37 @@ def indexing_complete(results: Mapping[str, Any], steps: list[dict[str, Any]]) -
 
 
 def queue_index_after_create(*, new_scaffold: bool, scaffold_id: str) -> None:
+    """Queue Blob-index after create/edit. Merge with an unfinished gate.
+
+    A later variant-create must not drop a pending scaffold-embeddings step —
+    ``scaffolds:embeddings`` is the Auto-match vector, and variant indexing
+    does not publish it.
+    """
+    pending = st.session_state.get(INDEX_PENDING_KEY)
+    prior_new = isinstance(pending, Mapping) and bool(pending.get("new_scaffold"))
+    prior_id = ""
+    if isinstance(pending, Mapping):
+        prior_id = str(pending.get("scaffold_id") or "").strip()
+    merged_new = prior_new or new_scaffold
+    ids = [part for part in prior_id.split(", ") if part]
+    if scaffold_id and scaffold_id not in ids:
+        ids.append(scaffold_id)
+    display_id = ", ".join(ids) if ids else scaffold_id
+
+    results = st.session_state.get(INDEX_RESULTS_KEY)
+    if not isinstance(results, dict):
+        results = {}
+    else:
+        results = dict(results)
+    if new_scaffold:
+        results.pop("scaffold_embeddings", None)
+    results.pop("embeddings", None)
+
     st.session_state[INDEX_PENDING_KEY] = {
-        "new_scaffold": new_scaffold,
-        "scaffold_id": scaffold_id,
+        "new_scaffold": merged_new,
+        "scaffold_id": display_id,
     }
-    st.session_state.pop(INDEX_RESULTS_KEY, None)
+    st.session_state[INDEX_RESULTS_KEY] = results
 
 
 def render_index_gate(ctx: BackofficeContext) -> None:

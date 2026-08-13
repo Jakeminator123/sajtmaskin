@@ -576,5 +576,44 @@ class PipelineToolsCopyTests(unittest.TestCase):
         self.assertGreater(flash_pos, gate_pos)
 
 
+class IndexGateQueueTests(unittest.TestCase):
+    def setUp(self) -> None:
+        from backoffice.pages.scaffold_lifecycle_lib import index_gate as ig
+
+        self.ig = ig
+        self.state: dict = {}
+        self.patcher = mock.patch.object(ig.st, "session_state", self.state)
+        self.patcher.start()
+
+    def tearDown(self) -> None:
+        self.patcher.stop()
+
+    def test_later_variant_queue_keeps_scaffold_step(self) -> None:
+        self.ig.queue_index_after_create(new_scaffold=True, scaffold_id="alpha")
+        self.state[self.ig.INDEX_RESULTS_KEY] = {
+            "scaffold_embeddings": {"ok": True},
+            "embeddings": {"ok": True},
+        }
+        self.ig.queue_index_after_create(new_scaffold=False, scaffold_id="alpha")
+        pending = self.state[self.ig.INDEX_PENDING_KEY]
+        self.assertTrue(pending["new_scaffold"])
+        self.assertEqual(pending["scaffold_id"], "alpha")
+        results = self.state[self.ig.INDEX_RESULTS_KEY]
+        self.assertEqual(results.get("scaffold_embeddings"), {"ok": True})
+        self.assertNotIn("embeddings", results)
+        keys = [step["key"] for step in self.ig.indexing_steps(new_scaffold=True)]
+        self.assertIn("scaffold_embeddings", keys)
+
+    def test_new_scaffold_after_variant_invalidates_scaffold_result(self) -> None:
+        self.ig.queue_index_after_create(new_scaffold=False, scaffold_id="beta")
+        self.state[self.ig.INDEX_RESULTS_KEY] = {"embeddings": {"ok": True}}
+        self.ig.queue_index_after_create(new_scaffold=True, scaffold_id="gamma")
+        pending = self.state[self.ig.INDEX_PENDING_KEY]
+        self.assertTrue(pending["new_scaffold"])
+        self.assertEqual(pending["scaffold_id"], "beta, gamma")
+        self.assertNotIn("scaffold_embeddings", self.state[self.ig.INDEX_RESULTS_KEY])
+        self.assertNotIn("embeddings", self.state[self.ig.INDEX_RESULTS_KEY])
+
+
 if __name__ == "__main__":
     unittest.main()
