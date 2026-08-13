@@ -377,8 +377,8 @@ export function createCodeGenSSEStream(
         const streamEndedAt = Date.now();
         const durationMs = Math.max(0, streamEndedAt - streamStartedAt);
         const reasoningMs =
-          firstReasoningTokenAt !== null && firstContentTokenAt !== null
-            ? Math.max(0, firstContentTokenAt - firstReasoningTokenAt)
+          firstContentTokenAt !== null
+            ? Math.max(0, firstContentTokenAt - (firstReasoningTokenAt ?? streamStartedAt))
             : 0;
         const outputMs =
           firstContentTokenAt !== null ? Math.max(0, streamEndedAt - firstContentTokenAt) : 0;

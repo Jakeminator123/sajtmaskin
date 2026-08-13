@@ -37,4 +37,12 @@ describe("resolveProgressPartState", () => {
     expect(resolveProgressPartState("generation", "streaming")).toBe("input-streaming");
     expect(resolveProgressPartState("preview", "starting")).toBe("input-streaming");
   });
+
+  it("stämplar fix-failed som fel så verifieringsraden inte spinner", () => {
+    expect(resolveProgressPartState("verifier", "fix-failed")).toBe("output-error");
+  });
+
+  it("stämplar tsc-skipped som slutförd så QG tar över utan spinner", () => {
+    expect(resolveProgressPartState("validate_syntax", "tsc-skipped")).toBe("output-available");
+  });
 });

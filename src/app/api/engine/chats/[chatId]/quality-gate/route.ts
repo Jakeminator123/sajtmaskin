@@ -669,6 +669,17 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           buildOriginated: false,
           results,
         });
+        // Canonical client signal: `checks[]` is what the Agentlogg row
+        // renders (`advisory` → "Varning"). `designAdvisory` on the envelope
+        // is not enough — without this stamp a failed typecheck still reads
+        // "Underkänd" even though the gate promoted with warnings.
+        if (f2TypecheckAdvisory) {
+          for (const result of results) {
+            if (result.check === "typecheck") {
+              result.advisory = true;
+            }
+          }
+        }
         const advisoryCheckNames = f2TypecheckAdvisory
           ? Array.from(new Set(results.filter((r) => !r.passed).map((r) => r.check)))
           : [];

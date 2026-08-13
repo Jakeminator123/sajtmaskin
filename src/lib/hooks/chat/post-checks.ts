@@ -708,7 +708,12 @@ async function runTier2VerifyLane(params: {
     const steps: string[] = [];
     const failedChecks: string[] = [];
     for (const check of data.checks ?? []) {
-      const icon = check.advisory ? "Varning" : check.passed ? "Godkänd" : "Underkänd";
+      // Server stamps `advisory` on F2 typecheck; `designAdvisory` is the
+      // envelope fallback if an older payload omitted the per-check flag.
+      const isAdvisory =
+        check.advisory === true ||
+        (data.designAdvisory === true && check.check === "typecheck");
+      const icon = isAdvisory ? "Varning" : check.passed ? "Godkänd" : "Underkänd";
       const durationLabel = formatDurationMs(check.durationMs);
       steps.push(
         `${check.check}: ${icon} (exit ${check.exitCode}${durationLabel ? `, ${durationLabel}` : ""})`,

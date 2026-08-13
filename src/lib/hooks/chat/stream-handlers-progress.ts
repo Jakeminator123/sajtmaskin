@@ -325,12 +325,14 @@ export function resolveProgressPartState(step: string, phase: string): ProgressP
     phase === "passed" ||
     phase === "done" ||
     phase === "reverted" ||
+    phase === "tsc-skipped" ||
     (step === "preview" &&
       (phase === "boot-queued" || phase === "ready" || phase === "build-verified"));
   if (completed) return "output-available";
   const failed =
     phase === "error" ||
     phase === "gave-up" ||
+    phase === "fix-failed" ||
     (step === "preview" && phase === "build-failed");
   return failed ? "output-error" : "input-streaming";
 }

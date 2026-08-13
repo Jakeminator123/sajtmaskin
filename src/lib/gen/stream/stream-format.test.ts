@@ -330,6 +330,59 @@ describe("createCodeGenSSEStream", () => {
     expect(Number(payload?.outputMs ?? -1)).toBeGreaterThanOrEqual(0);
   });
 
+  it("counts time to first text as reasoningMs when the model emits no reasoning events", async () => {
+    const stream = createCodeGenSSEStream(
+      {
+        fullStream: (async function* () {
+          yield { type: "start" };
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          yield { type: "text-start" };
+          yield { type: "text-delta", textDelta: "<main>Hello</main>" };
+          await new Promise((resolve) => setTimeout(resolve, 30));
+          yield { type: "finish" };
+        })(),
+        usage: Promise.resolve({ inputTokens: 11, outputTokens: 7 }),
+      },
+      { meta: { chatId: "chat_test" } },
+    );
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    const events: Array<{ event: string; data: unknown }> = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parsed = parseSSEBuffer(buffer);
+      events.push(...parsed.events);
+      buffer = parsed.remaining;
+    }
+
+    if (buffer.trim()) {
+      const parsed = parseSSEBuffer(`${buffer}\n`);
+      events.push(...parsed.events);
+    }
+
+    const generationDoneProgress = events.find(
+      (event) =>
+        event.event === "progress" &&
+        typeof event.data === "object" &&
+        event.data !== null &&
+        (event.data as Record<string, unknown>).step === "generation" &&
+        (event.data as Record<string, unknown>).phase === "done",
+    );
+    expect(generationDoneProgress).toBeTruthy();
+    const payload = generationDoneProgress?.data as Record<string, unknown> | undefined;
+    const durationMs = Number(payload?.durationMs ?? -1);
+    const reasoningMs = Number(payload?.reasoningMs ?? -1);
+    const outputMs = Number(payload?.outputMs ?? -1);
+    expect(reasoningMs).toBeGreaterThanOrEqual(30);
+    expect(outputMs).toBeGreaterThanOrEqual(10);
+    expect(durationMs).toBeGreaterThanOrEqual(reasoningMs);
+    expect(Math.abs(reasoningMs + outputMs - durationMs)).toBeLessThan(40);
+  });
+
   it("strips leaked leading thinking blocks when thinking is disabled", async () => {
     const events = await collectEvents(
       [
