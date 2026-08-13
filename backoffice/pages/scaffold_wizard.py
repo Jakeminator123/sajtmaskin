@@ -1172,10 +1172,16 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
             f"scaffold-kod: `src/lib/gen/scaffolds/{scaffold_id}/`"
         )
 
+    if "newScaffold" in created:
+        new_scaffold = bool(created.get("newScaffold"))
+    else:
+        new_scaffold = "Skapade scaffolden" in str(created.get("message", ""))
+    steps = _post_create_steps(variant_id, new_scaffold=new_scaffold)
+    last_step = len(steps)
     st.markdown(
         "### Slutför automatiskt\n"
         "Kör efter-stegen direkt här — **inga terminalkommandon behövs**. "
-        "Grönt = klart, rött = fel med logg. Kör helst i ordning 1 → 2 → 3."
+        f"Grönt = klart, rött = fel med logg. Kör helst i ordning 1 → {last_step}."
     )
 
     has_key = bool(wiz.get_openai_api_key())
@@ -1193,7 +1199,6 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
             "tills token finns. Lokal JSON-cache räknas inte som publicerad."
         )
 
-    steps = _post_create_steps(variant_id, new_scaffold=bool(created.get("newScaffold")))
     def _run(step: dict[str, Any]) -> None:
         _invalidate_validation_after_mutation(results, str(step["key"]))
         st.session_state["swz_cmd_results"] = results

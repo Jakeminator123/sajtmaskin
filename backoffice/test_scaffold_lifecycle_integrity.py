@@ -1277,6 +1277,10 @@ class PostCreateStatusTests(unittest.TestCase):
         self.assertIn("integritetskontroller återstår", source)
         self.assertIn("Integritetsgrinden är grön", source)
         self.assertIn("redo för master", source)
+        self.assertNotIn("1 → 2 → 3", source)
+        self.assertIn("1 → {last_step}", source)
+        self.assertIn('"newScaffold" in created', source)
+        self.assertIn("Skapade scaffolden", source)
 
     def test_validation_status_is_derived_after_button_handlers(self) -> None:
         source = inspect.getsource(sw._render_post_create)
