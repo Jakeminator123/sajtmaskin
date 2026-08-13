@@ -128,6 +128,41 @@ describe("extractHrefsFromFiles", () => {
     expect(hrefs.map((h) => h.raw)).toEqual(["/", "/analytics"]);
   });
 
+  it("extracts nav-array href: when Link only receives item.href (ecommerce-style)", () => {
+    // Scaffold menus store paths in objects and render <Link href={item.href}>.
+    // JSX-attribute extractors miss that; object-literal `href: "/..."` must catch it.
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/site-header.tsx",
+        [
+          `import Link from "next/link";`,
+          `const navItems = [`,
+          `  { label: "Hem", href: "/" },`,
+          `  { label: "Produkter", href: "/products" },`,
+          `  { label: "Kategorier", href : "/categories" },`,
+          `  { label: "Om oss", href: "/om" },`,
+          `  { label: "Åtgärder", href: "/åtgärder" },`,
+          `];`,
+          `export function SiteHeader() {`,
+          `  return (`,
+          `    <nav>`,
+          `      {navItems.map((item) => (`,
+          `        <Link key={item.href} href={item.href}>{item.label}</Link>`,
+          `      ))}`,
+          `    </nav>`,
+          `  );`,
+          `}`,
+        ].join("\n"),
+      ),
+    ]);
+    const raws = hrefs.map((h) => h.raw);
+    expect(raws).toContain("/categories");
+    expect(raws).toContain("/om");
+    expect(raws).toContain("/åtgärder");
+    expect(raws).toContain("/products");
+    expect(raws).toContain("/");
+  });
+
   it("captures line numbers (1-based)", () => {
     const hrefs = extractHrefsFromFiles([
       file(
