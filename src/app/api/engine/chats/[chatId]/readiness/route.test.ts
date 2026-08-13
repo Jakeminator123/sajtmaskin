@@ -99,8 +99,13 @@ type ReadinessBody = {
     canDeploy: boolean;
     status: string;
     blockers: Array<{ id: string }>;
-    warnings: Array<{ id: string }>;
-    info: { lifecycleStage?: string | null; hasRealBuildIntegrations?: boolean };
+    warnings: Array<{ id: string; title?: string; severity?: string }>;
+    info: {
+      lifecycleStage?: string | null;
+      hasRealBuildIntegrations?: boolean;
+      productPostcheckBlocksF3?: boolean;
+      productPostcheckBlockedReason?: string | null;
+    };
   };
 };
 
@@ -517,5 +522,108 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     const result = await capturedOpts?.promoteReconciledVersion?.();
     expect(result).toBe("guard_denied");
     expect(emit).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET readiness — Product Postcheck warnings (SM-049)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1", project_id: "proj_1" });
+    maybeAutoAcceptTimedOutRepair.mockImplementation(async (v: unknown) => ({
+      version: v,
+      wasAutoAccepted: false,
+    }));
+    settleStaleVerificationIfNeeded.mockImplementation(async (v: unknown) => ({ version: v }));
+    promoteVersionIfUnleased.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
+    getVersionFiles.mockResolvedValue([]);
+    resolveProjectEnv.mockResolvedValue({
+      source: "none",
+      projectId: null,
+      configuredKeys: new Set(),
+      configuredMap: {},
+    });
+    resolveEnvRequirementsFromVersionFiles.mockReturnValue(emptyEnvRequirements());
+    readAllowPlaceholdersInF3.mockResolvedValue(false);
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
+    createEngineVersionErrorLogs.mockResolvedValue(undefined);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: "promoted",
+      verification_summary: null,
+    });
+  });
+
+  it("exposes postcheck findings as warnings without flipping canDeploy", async () => {
+    getEngineVersionErrorLogs.mockResolvedValue([
+      {
+        category: "product_postcheck.fake_form",
+        level: "warning",
+        message: "Formulär ser aktivt ut men saknar action/integration.",
+        meta: { code: "fake_form", formId: "kontakt" },
+        created_at: "2026-08-14T10:00:02Z",
+      },
+      {
+        category: "product_postcheck.summary",
+        level: "warning",
+        message: "F2 Product Postcheck found 1 warning(s).",
+        meta: { warningCount: 1, productBlocked: false },
+        created_at: "2026-08-14T10:00:01Z",
+      },
+    ]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(true);
+    expect(json.readiness?.status).toBe("warning");
+    expect(json.readiness?.blockers).toEqual([]);
+    expect(json.readiness?.warnings.map((w) => w.id)).toContain("product-postcheck-fake_form");
+    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(false);
+  });
+
+  it("sets the F3-blocked flag when the newest summary is productBlocked", async () => {
+    getEngineVersionErrorLogs.mockResolvedValue([
+      {
+        category: "product_postcheck.mobile_menu_failed",
+        level: "warning",
+        message: "Mobilmeny kunde inte verifieras: no toggle found.",
+        meta: { code: "mobile_menu_failed" },
+        created_at: "2026-08-14T10:00:02Z",
+      },
+      {
+        category: "product_postcheck.summary",
+        level: "warning",
+        message: "F2 Product Postcheck found 1 warning(s).",
+        meta: { warningCount: 1, productBlocked: true },
+        created_at: "2026-08-14T10:00:01Z",
+      },
+    ]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(true);
+    expect(json.readiness?.blockers.map((b) => b.id)).not.toContain("product-postcheck-blocks-f3");
+    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(true);
+    expect(json.readiness?.info.productPostcheckBlockedReason).toContain("Mobilmeny");
+    expect(json.readiness?.warnings.map((w) => w.id)).toEqual(
+      expect.arrayContaining(["product-postcheck-blocks-f3", "product-postcheck-mobile_menu_failed"]),
+    );
+  });
+
+  it("leaves readiness unchanged when the log has no postcheck findings", async () => {
+    getEngineVersionErrorLogs.mockResolvedValue([]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.status).toBe("ready");
+    expect(json.readiness?.canDeploy).toBe(true);
+    expect(json.readiness?.warnings).toEqual([]);
+    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(false);
   });
 });
