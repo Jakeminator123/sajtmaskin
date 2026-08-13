@@ -302,8 +302,7 @@ def _variant_integrity_errors(
     (``sourceTemplateIds`` existence, runtime eligibility and addenda are
     covered by ``_validate_variant_payload``. Embeddings-index membership is
     intentionally NOT checked here: a new entry needs an embedding vector —
-    the flow tells the operator to run ``npm run scaffolds:variant-embeddings``
-    instead.)
+    the Backoffice index gate runs ``scaffolds:variant-embeddings --require-blob``.)
     """
     errors: list[str] = []
     if require_signature_patterns and not _signature_patterns_ok(payload):
@@ -557,6 +556,42 @@ def _prune_variant_embeddings(
             data["_meta"]["count"] = len(filtered)
         write_json(path, data)
         _push_variant_embeddings_to_blob(ctx)
+    return removed
+
+
+def _prune_scaffold_embeddings(ctx: BackofficeContext, scaffold_id: str) -> int:
+    """Remove the deleted scaffold's vector from the local scaffold-embeddings cache.
+
+    Variant prune already covers ``variant-embeddings.json``. Auto-match reads
+    ``scaffold-embeddings.json`` separately — without this, ``embeddings:push
+    --only=scaffold`` would republish the raderade id. No-op when the cache is
+    missing. Does not upload; the index gate publishes fail-closed.
+
+    Must not call ``embeddings:sync``: the variant prune already synced, and a
+    second sync would restore Blob's still-stale variant index if that push
+    had failed.
+    """
+    path = getattr(ctx, "embeddings_json", None)
+    if not isinstance(path, Path) or not path.is_file():
+        return 0
+    try:
+        data = read_json(path)
+    except Exception:
+        return 0
+    if not isinstance(data, dict) or not isinstance(data.get("embeddings"), list):
+        return 0
+    original = data["embeddings"]
+    filtered = [
+        entry
+        for entry in original
+        if not (isinstance(entry, dict) and str(entry.get("id", "")) == scaffold_id)
+    ]
+    removed = len(original) - len(filtered)
+    if removed:
+        data["embeddings"] = filtered
+        if isinstance(data.get("_meta"), dict):
+            data["_meta"]["count"] = len(filtered)
+        write_json(path, data)
     return removed
 
 

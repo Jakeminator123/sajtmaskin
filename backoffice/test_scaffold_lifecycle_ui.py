@@ -516,6 +516,33 @@ class PlannedWritesTests(unittest.TestCase):
         self.assertIn("--require-blob", embeddings["command"])
         self.assertTrue(embeddings["needs_blob"])
 
+    def test_new_scaffold_chain_indexes_scaffold_and_variant(self) -> None:
+        steps = sw._post_create_steps("warm-clay", new_scaffold=True)
+        keys = [step["key"] for step in steps]
+        self.assertEqual(keys[0], "patterns")
+        self.assertIn("scaffold_embeddings", keys)
+        self.assertIn("embeddings", keys)
+        self.assertEqual(keys[-1], "validate")
+        scaffold_step = next(step for step in steps if step["key"] == "scaffold_embeddings")
+        self.assertIn("--require-blob", scaffold_step["command"])
+        self.assertEqual(scaffold_step["command"][2], "scaffolds:embeddings")
+        listed = {row["script"] for row in sw._autorun_writes(self._draft("new-scaffold"))}
+        self.assertIn("scaffolds:embeddings", listed)
+        for step in steps:
+            for name in _npm_script_names(step["command"]):
+                if name in READ_ONLY_AUTORUN_SCRIPTS:
+                    continue
+                self.assertIn(name, listed)
+        scaffold_row = next(
+            row
+            for row in sw._autorun_writes(self._draft("new-scaffold"))
+            if row["script"] == "scaffolds:embeddings"
+        )
+        self.assertEqual(
+            _write_targets(scaffold_row["source"]),
+            {"saveEmbeddingsArtifact:scaffold"},
+        )
+
     def test_condition_is_stated_whether_or_not_the_key_exists(self) -> None:
         """Utan nyckel skrivs autorun-filerna inte — rutan får inte lova dem."""
         for autorun in (True, False):
@@ -532,6 +559,95 @@ class PlannedWritesTests(unittest.TestCase):
             else:
                 self.assertIn("skrivs inte", rendered)
                 self.assertIn("BLOB_READ_WRITE_TOKEN", rendered)
+
+
+class PipelineToolsCopyTests(unittest.TestCase):
+    def test_maintenance_tab_points_at_blob_index_gate(self) -> None:
+        source = inspect.getsource(sl._render_pipeline_tools)
+        self.assertIn("index-grinden", source)
+        self.assertIn("--require-blob", source)
+        self.assertNotIn("sker nu från terminalen", source)
+
+    def test_index_gate_renders_before_flash_note(self) -> None:
+        source = inspect.getsource(sl.render)
+        gate_pos = source.find("render_index_gate(ctx)")
+        flash_pos = source.find("_render_flashed_note()")
+        self.assertGreater(gate_pos, -1)
+        self.assertGreater(flash_pos, gate_pos)
+
+
+class IndexGateQueueTests(unittest.TestCase):
+    def setUp(self) -> None:
+        from backoffice.pages.scaffold_lifecycle_lib import index_gate as ig
+
+        self.ig = ig
+        self.state: dict = {}
+        self.patcher = mock.patch.object(ig.st, "session_state", self.state)
+        self.patcher.start()
+
+    def tearDown(self) -> None:
+        self.patcher.stop()
+
+    def test_later_variant_queue_keeps_scaffold_step(self) -> None:
+        self.ig.queue_index_after_create(new_scaffold=True, scaffold_id="alpha")
+        self.state[self.ig.INDEX_RESULTS_KEY] = {
+            "scaffold_embeddings": {"ok": True},
+            "embeddings": {"ok": True},
+        }
+        self.ig.queue_index_after_create(new_scaffold=False, scaffold_id="alpha")
+        pending = self.state[self.ig.INDEX_PENDING_KEY]
+        self.assertTrue(pending["new_scaffold"])
+        self.assertEqual(pending["scaffold_id"], "alpha")
+        results = self.state[self.ig.INDEX_RESULTS_KEY]
+        self.assertEqual(results.get("scaffold_embeddings"), {"ok": True})
+        self.assertNotIn("embeddings", results)
+        keys = [step["key"] for step in self.ig.indexing_steps(new_scaffold=True)]
+        self.assertIn("scaffold_embeddings", keys)
+
+    def test_new_scaffold_after_variant_invalidates_scaffold_result(self) -> None:
+        self.ig.queue_index_after_create(new_scaffold=False, scaffold_id="beta")
+        self.state[self.ig.INDEX_RESULTS_KEY] = {"embeddings": {"ok": True}}
+        self.ig.queue_index_after_create(new_scaffold=True, scaffold_id="gamma")
+        pending = self.state[self.ig.INDEX_PENDING_KEY]
+        self.assertTrue(pending["new_scaffold"])
+        self.assertEqual(pending["scaffold_id"], "beta, gamma")
+        self.assertNotIn("scaffold_embeddings", self.state[self.ig.INDEX_RESULTS_KEY])
+        self.assertNotIn("embeddings", self.state[self.ig.INDEX_RESULTS_KEY])
+
+    def test_delete_and_reset_requeue_blob_index(self) -> None:
+        from backoffice.pages.scaffold_lifecycle_lib import ui_danger
+
+        delete_src = inspect.getsource(ui_danger._render_delete_scaffold)
+        reset_src = inspect.getsource(ui_danger._render_baseline_tab)
+        self.assertIn("queue_index_after_create(new_scaffold=True", delete_src)
+        self.assertIn("queue_index_after_create(new_scaffold=True", reset_src)
+        delete_variant_src = inspect.getsource(ui_danger._render_delete_variant)
+        self.assertIn("queue_index_after_create", delete_variant_src)
+        warning = inspect.getsource(self.ig.render_index_gate)
+        self.assertIn("if not complete:", warning)
+        self.assertIn("ur synk", warning)
+        self.assertNotIn("är skriven i worktreet", warning)
+
+    def test_index_commands_get_more_than_the_600s_default(self) -> None:
+        """En timeout mitt i en ombyggnad ser ut som ett misslyckat index."""
+        self.assertGreaterEqual(self.ig.INDEX_COMMAND_TIMEOUT_S, 30 * 60)
+        for source in (
+            inspect.getsource(self.ig.render_index_gate),
+            inspect.getsource(sw._render_post_create),
+        ):
+            self.assertIn("timeout=INDEX_COMMAND_TIMEOUT_S", source)
+
+    def test_every_step_republishes_to_blob_fail_closed(self) -> None:
+        """Delete får inte publiceras genom att ladda upp en lokal cache.
+
+        En misslyckad `embeddings:sync` gör cachen inaktuell, och `embeddings:push`
+        skulle då skriva över Blob för scaffolds som aldrig rörts.
+        """
+        for new_scaffold in (True, False):
+            for step in self.ig.indexing_steps(new_scaffold=new_scaffold):
+                self.assertIn("--require-blob", step["command"])
+                self.assertNotIn("embeddings:push", step["command"])
+                self.assertTrue(step["needs_blob"])
 
 
 if __name__ == "__main__":

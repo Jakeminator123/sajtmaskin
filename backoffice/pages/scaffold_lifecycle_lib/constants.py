@@ -57,9 +57,10 @@ _POST_ACTION_NOTE_KEY = "scaffold_lifecycle_post_action_note"
 
 
 _REBUILD_EMBEDDINGS_HINT = (
-    "Kör sedan `npm run scaffolds:variant-embeddings` så varianten registreras i "
-    "matchnings-indexet (`variant-embeddings.json`) — annars fäller CI-grinden "
-    "(`variant-integrity.test.ts`) den som saknad tills indexet byggts om."
+    "Indexera med knapparna i Backoffice (`scaffolds:embeddings` / "
+    "`scaffolds:variant-embeddings --require-blob`) så matchningen publiceras "
+    "till Vercel Blob — annars pekar Auto-match fel och CI-grinden "
+    "(`variant-integrity.test.ts`) fäller saknad vektor."
 )
 
 

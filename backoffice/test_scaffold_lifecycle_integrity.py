@@ -932,6 +932,52 @@ class PruneVariantEmbeddingsTests(unittest.TestCase):
             self.assertEqual(sl._prune_variant_embeddings(ctx, "landing-page", ["x"]), 0)
 
 
+class PruneScaffoldEmbeddingsTests(unittest.TestCase):
+    def test_prune_removes_matching_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "scaffold-embeddings.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "_meta": {"count": 2},
+                        "embeddings": [
+                            {"id": "keep", "embedding": [0.1]},
+                            {"id": "gone", "embedding": [0.2]},
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            ctx = SimpleNamespace(
+                embeddings_json=path,
+                variants_dir=Path(tmp) / "variants",
+            )
+            removed = variants_lib._prune_scaffold_embeddings(ctx, "gone")
+            self.assertEqual(removed, 1)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual([e["id"] for e in data["embeddings"]], ["keep"])
+            self.assertEqual(data["_meta"]["count"], 1)
+
+    def test_scaffold_prune_does_not_resync_from_blob(self) -> None:
+        source = inspect.getsource(variants_lib._prune_scaffold_embeddings)
+        self.assertNotIn("_sync_variant_embeddings_cache", source)
+
+    def test_delete_prunes_variant_before_scaffold_cache(self) -> None:
+        source = inspect.getsource(scaffold_ops_lib._delete_scaffold)
+        variant_pos = source.find("_prune_variant_embeddings")
+        scaffold_pos = source.find("_prune_scaffold_embeddings")
+        self.assertGreater(variant_pos, -1)
+        self.assertGreater(scaffold_pos, variant_pos)
+
+    def test_prune_noop_when_file_missing(self) -> None:
+        ctx = SimpleNamespace(
+            embeddings_json=Path("/no/such/scaffold-embeddings.json"),
+            variants_dir=Path("/no/such/variants"),
+        )
+        self.assertEqual(variants_lib._prune_scaffold_embeddings(ctx, "gone"), 0)
+
+
 class DeadSourceTemplateTests(unittest.TestCase):
     def setUp(self) -> None:
         self.ctx = build_backoffice_context()
@@ -1095,6 +1141,7 @@ class CreateScaffoldValidationTests(unittest.TestCase):
         self.assertIn("if create_start_variant:", self.source)
         self.assertIn("validerad startvariant", self.source)
         self.assertIn("utan startvariant", self.source)
+        self.assertIn("queue_index_after_create", self.source)
 
     def test_duplicate_and_empty_fields_are_still_rejected(self) -> None:
         self.assertIn("finns redan", self.source)
@@ -1212,12 +1259,28 @@ class PostCreateStatusTests(unittest.TestCase):
             sw._post_create_validation_passed({"validate": {"ok": True}})
         )
 
+    def test_skipped_embeddings_block_integrity_green(self) -> None:
+        steps = sw._post_create_steps("warm-clay")
+        results = {
+            "patterns": {"ok": True, "verifiedOk": True},
+            "embeddings": {"skipped": True},
+            "validate": {"ok": True},
+        }
+        self.assertTrue(sw._post_create_validation_passed(results))
+        self.assertFalse(sw._post_create_integrity_passed(results, steps))
+        results["embeddings"] = {"ok": True}
+        self.assertTrue(sw._post_create_integrity_passed(results, steps))
+
     def test_post_create_copy_does_not_claim_completion_early(self) -> None:
         source = inspect.getsource(sw._render_post_create)
         self.assertNotIn("Klart — varianten är skapad", source)
         self.assertIn("integritetskontroller återstår", source)
         self.assertIn("Integritetsgrinden är grön", source)
         self.assertIn("redo för master", source)
+        self.assertNotIn("1 → 2 → 3", source)
+        self.assertIn("1 → {last_step}", source)
+        self.assertIn('"newScaffold" in created', source)
+        self.assertIn("Skapade scaffolden", source)
 
     def test_validation_status_is_derived_after_button_handlers(self) -> None:
         source = inspect.getsource(sw._render_post_create)
@@ -1227,7 +1290,12 @@ class PostCreateStatusTests(unittest.TestCase):
         )
         self.assertGreater(button_pos, -1)
         self.assertGreater(status_pos, button_pos)
+        self.assertIn("integrity_passed = _post_create_integrity_passed(results, steps)", source)
         self.assertIn("status_slot", source)
+        divider_pos = source.find("st.divider()")
+        self.assertGreater(divider_pos, button_pos)
+        self.assertIn("if integrity_passed:", source[divider_pos:])
+        self.assertNotIn("tills **3. Validera** är grön", source)
 
     def test_mutation_invalidates_an_earlier_green_validation(self) -> None:
         results = {
@@ -1237,6 +1305,20 @@ class PostCreateStatusTests(unittest.TestCase):
         sw._invalidate_validation_after_mutation(results, "embeddings")
         self.assertNotIn("validate", results)
         self.assertFalse(sw._post_create_validation_passed(results))
+
+    def test_rerunning_patterns_invalidates_the_published_embedding(self) -> None:
+        """`patterns` skriver om signaturePatterns, som ingår i embedding-texten."""
+        steps = sw._post_create_steps("warm-clay")
+        results = {
+            "patterns": {"ok": True, "verifiedOk": True},
+            "embeddings": {"ok": True},
+            "validate": {"ok": True},
+        }
+        self.assertTrue(sw._post_create_integrity_passed(results, steps))
+        sw._invalidate_validation_after_mutation(results, "patterns")
+        self.assertNotIn("embeddings", results)
+        self.assertNotIn("validate", results)
+        self.assertFalse(sw._post_create_integrity_passed(results, steps))
 
     def test_validation_step_does_not_invalidate_itself(self) -> None:
         results = {"validate": {"ok": True}}

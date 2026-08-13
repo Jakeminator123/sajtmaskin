@@ -354,6 +354,10 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
                 "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops."
                 "_prune_variant_embeddings"
             ),
+            mock.patch(
+                "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops."
+                "_prune_scaffold_embeddings"
+            ),
         ):
             _delete_scaffold(self.ctx, "base-nextjs", snapshot=False)
 
