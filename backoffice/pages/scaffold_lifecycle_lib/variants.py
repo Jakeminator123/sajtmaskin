@@ -566,8 +566,11 @@ def _prune_scaffold_embeddings(ctx: BackofficeContext, scaffold_id: str) -> int:
     ``scaffold-embeddings.json`` separately — without this, ``embeddings:push
     --only=scaffold`` would republish the raderade id. No-op when the cache is
     missing. Does not upload; the index gate publishes fail-closed.
+
+    Must not call ``embeddings:sync``: the variant prune already synced, and a
+    second sync would restore Blob's still-stale variant index if that push
+    had failed.
     """
-    _sync_variant_embeddings_cache(ctx)
     path = getattr(ctx, "embeddings_json", None)
     if not isinstance(path, Path) or not path.is_file():
         return 0

@@ -959,6 +959,17 @@ class PruneScaffoldEmbeddingsTests(unittest.TestCase):
             self.assertEqual([e["id"] for e in data["embeddings"]], ["keep"])
             self.assertEqual(data["_meta"]["count"], 1)
 
+    def test_scaffold_prune_does_not_resync_from_blob(self) -> None:
+        source = inspect.getsource(variants_lib._prune_scaffold_embeddings)
+        self.assertNotIn("_sync_variant_embeddings_cache", source)
+
+    def test_delete_prunes_variant_before_scaffold_cache(self) -> None:
+        source = inspect.getsource(scaffold_ops_lib._delete_scaffold)
+        variant_pos = source.find("_prune_variant_embeddings")
+        scaffold_pos = source.find("_prune_scaffold_embeddings")
+        self.assertGreater(variant_pos, -1)
+        self.assertGreater(scaffold_pos, variant_pos)
+
     def test_prune_noop_when_file_missing(self) -> None:
         ctx = SimpleNamespace(
             embeddings_json=Path("/no/such/scaffold-embeddings.json"),
