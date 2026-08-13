@@ -221,18 +221,53 @@ Halva modellen finns redan: `structureProfile`, `contentProfile`, `siteKind` och
 `features` ligger i manifestet. Det som saknas är att runtime väljer **paket**
 i stället för att sätta samman struktur + domän + funktioner.
 
+### Kärnan i spår C: ingen modell tolkar prompten
+
+`src/lib/gen/orchestrate/resolve-base.ts` heter orkestrering men är
+deterministisk: den väljer scaffold via embedding-likhet, hämtar UI-recept och
+anropar `buildRoutePlan` — ren regex- och nyckelordslogik. **Ingen LLM läser
+prompten för att avgöra vad som ska byggas.** Modellen kommer in efteråt som
+kodskrivare och får ruttplanen som färdig instruktion. Planläge har en riktig
+planner-modell, men det är ett separat opt-in-flöde.
+
+Det är därför «den enda sida» inte förstods: en regex som bara kan siffror satt
+och gjorde ett omdömesarbete. Regexen gör det som kräver tolkning, modellen gör
+det som är mekaniskt — omvänt mot principen *modell för smakfrågor, kod för
+sanningsfrågor*.
+
+Rätt uppdelning, och den kräver inget nytt lager:
+
+| Steg | Vem | Vad |
+|---|---|---|
+| Tolka | Billig modell | Fyll ett schema: struktur, sidlista med namn, domän, funktioner |
+| Kontrollera | Kod | Validera schemat mot scaffoldens ruttkontrakt, tillämpa tak, vägra omöjliga kombinationer |
+| Bygga | Kodmodell | Som idag, men med en plan som speglar prompten |
+
+Schemat finns till hälften: `buildRoutesFromBrief` gör `brief.pages` till rutter
+med `required: true`, så när en Deep Brief finns kommer sidlistan **redan** från
+en modell. Freeform-vägen får ingen brief och faller därför tillbaka på regexen.
+Uppgiften är alltså att låta freeform producera samma schema som brief-vägen
+redan producerar — inte att bygga en ny planerare.
+
 Rätt ordning enligt både merge-agenten och ägarens coach: gör spår B först
 (manifest → ruttkontrakt → planerare → validator). Bredda inte till en
 sammansättningsmodell förrän ruttsanningen har en ägare.
 
-**Korrigering av en spridd uppgift:** det finns **ingen** `sync-nav-from-route-plan.ts`
-i repot. Endast en kommentar i `src/lib/gen/verify/verifier-pass.ts` (~779)
-refererar till den, tillsammans med `extractArrayBody`. `src/lib/builder/editors/nav-items-editor.ts`
-finns, men det är en redigerare för användaren — inte automatisk synk från
-ruttplanen. Antag alltså inte att det finns ett embryo att bygga vidare på;
-«RoutePlan → navigation» är nytt arbete. (Andra döda referensen i samma område:
-`href-route-cross-check.ts` pekar på `docs/plans/active/repair-loop-hardening.md`
-som inte längre finns.)
+**Embryot finns redan — bygg vidare, uppfinn inte.**
+`src/lib/gen/scaffolds/sync-nav-from-route-plan.ts` (+ dess test) skriver om
+navigeringen utifrån ruttplanen, tillagd i #963 (`4b102e091`). Modulens egen
+kommentar säger: *«Dashboard is the only target today. To reuse for another
+scaffold, add …»*. Alltså finns halva spår C redan implementerad för en scaffold,
+och att bredda den är en förlängning — inte nytt arbete.
+
+> **Varning till nästa agent, och orsaken till att den här filen först påstod
+> motsatsen:** huvudcheckouten `C:\Users\jakem\dev\projects\sajtmaskin` låg
+> 2026-08-13 **64 commits efter** `origin/master`, eftersom ägaren har
+> ocommittade ändringar som blockerar fast-forward. En `Glob`/`Test-Path` där
+> svarar alltså «finns inte» om filen tillkom idag. Kontrollera alltid mot
+> `git ls-tree -r --name-only origin/master -- <path>` eller i en färsk worktree.
+> Repots `workflow.mdc` varnar för kallt sökindex; en gammal checkout ger samma
+> fel utan att indexet är inblandat.
 
 ## Öppna trådar
 

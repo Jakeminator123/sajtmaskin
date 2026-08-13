@@ -44,6 +44,11 @@ export const ABSOLUTE_MAX_ROUTES_PER_GENERATION = 8;
 
 type CeilingTrimClass = "keep" | "named" | "required" | "brief" | "guessed";
 
+/** Absolute brake: required is most protected (trimmed last). */
+const ABSOLUTE_CEILING_TRIM_ORDER = ["guessed", "brief", "named", "required"] as const;
+/** Explicit page count: named is most protected (trimmed last). */
+const EXPLICIT_COUNT_TRIM_ORDER = ["guessed", "brief", "required", "named"] as const;
+
 function classifyCeilingTrim(
   route: PlannedRoute,
   frozenRoutePaths: Set<string>,
@@ -51,15 +56,32 @@ function classifyCeilingTrim(
   namedNames: Set<string>,
   scaffoldRequiredPaths: Set<string>,
   briefRoutePaths: Set<string>,
+  trimOrder: readonly CeilingTrimClass[],
 ): CeilingTrimClass {
   const path = normalizeRoutePath(route.path);
   if (path === "/" || frozenRoutePaths.has(path)) return "keep";
+
+  const matches: CeilingTrimClass[] = [];
   if (namedPaths.has(path) || namedNames.has(route.name.trim().toLowerCase())) {
-    return "named";
+    matches.push("named");
   }
-  if (scaffoldRequiredPaths.has(path)) return "required";
-  if (briefRoutePaths.has(path)) return "brief";
-  return "guessed";
+  if (scaffoldRequiredPaths.has(path)) matches.push("required");
+  if (briefRoutePaths.has(path)) matches.push("brief");
+  if (matches.length === 0) return "guessed";
+
+  // Among matching classes, pick the one trimmed last in the active order
+  // (= most protected). Named+required therefore becomes required at the
+  // absolute brake and named under an explicit page count.
+  let best: CeilingTrimClass = matches[0]!;
+  let bestIdx = -1;
+  for (const cls of matches) {
+    const idx = trimOrder.indexOf(cls);
+    if (idx > bestIdx) {
+      bestIdx = idx;
+      best = cls;
+    }
+  }
+  return best;
 }
 
 function trimRoutesOverCeiling(
@@ -345,8 +367,11 @@ export function buildRoutePlan(params: {
   // so the least user-driven routes go first. Unnamed brief pages are still
   // trimmed at the soft ceiling. Init rounds keep prompt-named pages and required
   // scaffold companions above 3, then cut at ABSOLUTE_MAX_ROUTES_PER_GENERATION
-  // (guessed, then brief, then named, then required). An explicit lower count
-  // still wins, and it cuts required BEFORE named — see both branches below.
+  // (guessed → brief → named → required). An explicit lower count still wins and
+  // cuts required BEFORE named. A route that matches several classes is
+  // classified as the match trimmed last in the active order (= most protected),
+  // so named+required stays required at the absolute brake and named under an
+  // explicit page count — see both branches below.
   const effectiveRouteCeiling =
     !useFollowUpFreeze && earlyExplicitPageCount !== null
       ? Math.min(MAX_ROUTES_PER_GENERATION, earlyExplicitPageCount)
@@ -360,6 +385,13 @@ export function buildRoutePlan(params: {
   const namedNames = new Set(
     explicitNamedPages.map((page) => page.name.trim().toLowerCase()),
   );
+  const allowCeilingExemptions =
+    !useFollowUpFreeze &&
+    (earlyExplicitPageCount === null ||
+      earlyExplicitPageCount >= MAX_ROUTES_PER_GENERATION);
+  const trimOrder = allowCeilingExemptions
+    ? ABSOLUTE_CEILING_TRIM_ORDER
+    : EXPLICIT_COUNT_TRIM_ORDER;
   const classify = (route: PlannedRoute): CeilingTrimClass =>
     classifyCeilingTrim(
       route,
@@ -368,11 +400,8 @@ export function buildRoutePlan(params: {
       namedNames,
       scaffoldRequiredPaths,
       briefRoutePaths,
+      trimOrder,
     );
-  const allowCeilingExemptions =
-    !useFollowUpFreeze &&
-    (earlyExplicitPageCount === null ||
-      earlyExplicitPageCount >= MAX_ROUTES_PER_GENERATION);
   const totalScore = (current: PlannedRoute[]): number =>
     current.filter((route) => !frozenRoutePaths.has(normalizeRoutePath(route.path))).length;
   const softScore = (current: PlannedRoute[]): number =>
@@ -415,7 +444,7 @@ export function buildRoutePlan(params: {
       // to its required routes (ecommerce links /products from header, footer and
       // hero), so cutting one ships dead links, while a cut named page is visible
       // and can be asked for again in a later round.
-      for (const cls of ["guessed", "brief", "named", "required"] as const) {
+      for (const cls of ABSOLUTE_CEILING_TRIM_ORDER) {
         ceilingTrimmedCount += trimRoutesOverCeiling(
           routes,
           ABSOLUTE_MAX_ROUTES_PER_GENERATION,
@@ -426,7 +455,7 @@ export function buildRoutePlan(params: {
       }
     }
   } else {
-    for (const cls of ["guessed", "brief", "required", "named"] as const) {
+    for (const cls of EXPLICIT_COUNT_TRIM_ORDER) {
       ceilingTrimmedCount += trimRoutesOverCeiling(
         routes,
         effectiveRouteCeiling,

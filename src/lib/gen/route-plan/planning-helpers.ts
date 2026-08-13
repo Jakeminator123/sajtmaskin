@@ -543,12 +543,6 @@ function getScaffoldDefaultRoutes(
           intent: "Keep a storefront route for the product catalog.",
           required: true,
         },
-        {
-          path: "/cart",
-          name: "Cart",
-          intent: "Keep a cart route for purchase flow continuity.",
-          required: false,
-        },
       ];
     case "auth-pages":
       return [
