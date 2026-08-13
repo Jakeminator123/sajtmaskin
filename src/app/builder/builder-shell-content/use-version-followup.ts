@@ -7,6 +7,11 @@ import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lif
 import { dispatchVersionStatusRefreshed } from "@/lib/builder/project-env-events";
 import { shouldBlockPreviewWithLoadingOverlay } from "@/lib/builder/preview-lifecycle";
 import { useVersionStatus } from "@/lib/hooks/chat/useVersionStatus";
+import {
+  isPipelineInteractionLocked,
+  usePipelineWorkActive,
+} from "@/lib/builder/pipeline-interaction-lock";
+import { useF3FinalizeActive } from "@/lib/builder/repair-blocked";
 import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import { isOpenClawPreparedSend } from "@/lib/openclaw/prepared-prompt";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
@@ -44,11 +49,18 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
   const { status: activeVersionBusStatus } = useVersionStatus({
     chatId: vm.chatId,
     versionId: vm.activeVersionId,
-    // Område 6-3 punkt 1: deterministic refetch after the post-check flow
-    // completes (bumped in `runPostGenerationChecks`'s `finally`), so a late
-    // `version.degraded` is read even after poll-until-stable has stopped.
     refreshNonce: vm.versionStatusNonce,
   });
+  const { status: preferredVersionBusStatus } = useVersionStatus({
+    chatId: vm.chatId,
+    versionId:
+      vm.latestVersionId && vm.latestVersionId !== vm.activeVersionId
+        ? vm.latestVersionId
+        : null,
+    refreshNonce: vm.versionStatusNonce,
+  });
+  const pipelineWorkActive = usePipelineWorkActive();
+  const f3FinalizeActive = useF3FinalizeActive();
   const activeVersionStatus = useMemo(() => {
     return mapVersionStatusToDisplay(activeVersionBusStatus, {
       isLatest: activeVersionIsLatest,
@@ -71,6 +83,27 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
       ) ?? null
     );
   }, [vm.latestVersionId, vm.effectiveVersionsList]);
+  const preferredVersionStatus = useMemo(() => {
+    if (!vm.latestVersionId || vm.latestVersionId === vm.activeVersionId) {
+      return activeVersionStatus;
+    }
+    return mapVersionStatusToDisplay(preferredVersionBusStatus, {
+      isLatest: true,
+      releaseState: preferredVersionSummary?.releaseState ?? null,
+    }).status;
+  }, [
+    vm.latestVersionId,
+    vm.activeVersionId,
+    activeVersionStatus,
+    preferredVersionBusStatus,
+    preferredVersionSummary,
+  ]);
+  const isInteractionLocked =
+    isBusy ||
+    pipelineWorkActive ||
+    f3FinalizeActive ||
+    isPipelineInteractionLocked(activeVersionStatus) ||
+    isPipelineInteractionLocked(preferredVersionStatus);
   const followUpBaseInfo = useMemo(() => {
     if (activeVersionIsLatest) return null;
     if (!vm.activeVersionId || !vm.latestVersionId) return null;
@@ -199,11 +232,13 @@ export function useShellVersionFollowup(vm: BuilderViewModel) {
   );
   return {
     isBusy,
+    isInteractionLocked,
     isPreviewLoading,
     activeVersionSummary,
     activeVersionIsLatest,
     activeVersionBusStatus,
     activeVersionStatus,
+    preferredVersionStatus,
     followUpBaseInfo,
     sendMessage,
     handleComposerAiFallback,

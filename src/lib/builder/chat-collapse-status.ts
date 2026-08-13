@@ -40,9 +40,20 @@ const GET_STARTED_BLOCKER_IDS = new Set(["no-version"]);
  */
 const F3_BLOCKING_TONES = new Set<F3BuilderStatus["tone"]>(["error", "warning"]);
 
+const VERSION_IN_PROGRESS_TEXTS: Partial<Record<VersionDisplayStatus, string>> = {
+  generating: "Bygger versionen",
+  autofixing: "Reparerar versionen",
+  validating: "Kontrollerar versionen",
+  preflighting: "Kontrollerar versionen",
+  verifying: "Kontrollerar versionen",
+  repairing: "Reparerar versionen",
+};
+
 export interface ChatCollapseStatusInput {
   /** `mapVersionStatusToDisplay(...).status` för den aktiva versionen. */
   activeVersionStatus: VersionDisplayStatus | null;
+  /** Preferred head — a verifying newest version must still show in the bar. */
+  preferredVersionStatus?: VersionDisplayStatus | null;
   /** Första publiceringsspärren, dvs. `deployReadiness.blockers[0]`. */
   deployBlocker: Pick<ChatReadinessItem, "id" | "title" | "detail"> | null;
   /** F3-utfallet som visas i chatten, redan filtrerat på aktiv version. */
@@ -59,10 +70,12 @@ function shorten(raw: string | null | undefined): string | null {
 /**
  * Returnerar den enda status som får plats i raden, eller `null` när inget är
  * en riktig blockerare. Strömningsläget ("Bygger …") ägs av komponenten och
- * vinner över det här.
+ * vinner över det här när en stream är igång. Annars visas kontroll/reparation
+ * här så den nedfällda raden inte tiger medan composer är låst.
  */
 export function resolveChatCollapseStatusText({
   activeVersionStatus,
+  preferredVersionStatus = null,
   deployBlocker,
   f3Status,
 }: ChatCollapseStatusInput): string | null {
@@ -70,6 +83,15 @@ export function resolveChatCollapseStatusText({
     ? VERSION_FAILURE_TEXTS[activeVersionStatus] ?? null
     : null;
   if (versionFailure) return versionFailure;
+
+  const inProgress =
+    (activeVersionStatus
+      ? VERSION_IN_PROGRESS_TEXTS[activeVersionStatus] ?? null
+      : null) ??
+    (preferredVersionStatus
+      ? VERSION_IN_PROGRESS_TEXTS[preferredVersionStatus] ?? null
+      : null);
+  if (inProgress) return inProgress;
 
   if (deployBlocker && !GET_STARTED_BLOCKER_IDS.has(deployBlocker.id)) {
     // Rubriken före detaljen: `title` är den korta meningen, `detail` är den

@@ -4,6 +4,7 @@ import type { UiMessagePart } from "@/lib/builder/types";
 import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
+import { beginPipelineWork } from "@/lib/builder/pipeline-interaction-lock";
 import {
   buildPostCheckBaseline,
   type PostCheckBaseline,
@@ -40,6 +41,16 @@ const ERROR_LOG_RETRY_FALLBACK_MS = 1_000;
  * här anropet, så en orimlig header får inte hålla F3-lyftet i minuter.
  */
 const ERROR_LOG_RETRY_MAX_MS = 5_000;
+
+const postCheckControllers = new Map<string, AbortController>();
+
+/** Abort in-flight post-checks for this chat (new send / new epoch). */
+export function abortPostChecksForChat(chatId: string): void {
+  const existing = postCheckControllers.get(chatId);
+  if (!existing) return;
+  existing.abort();
+  postCheckControllers.delete(chatId);
+}
 
 /**
  * Exported for the resume-verify lane (`useResumePendingVerification`), which
@@ -287,7 +298,11 @@ export async function runPostGenerationChecks(params: {
     onComplete,
   } = params;
   const toolCallId = `post-check:${versionId}`;
+  abortPostChecksForChat(chatId);
   const controller = new AbortController();
+  postCheckControllers.set(chatId, controller);
+  const releasePipelineWork = beginPipelineWork();
+  let spawnedVerifyLane = false;
 
   appendToolPartToMessage(setMessages, assistantMessageId, {
     type: "tool:post-check",
@@ -437,6 +452,7 @@ export async function runPostGenerationChecks(params: {
         },
       } as UiMessagePart);
     } else if (artifacts.autoFixReasons.length === 0 && artifacts.verifyPending) {
+      spawnedVerifyLane = true;
       void runTier2VerifyLane({
         chatId,
         versionId,
@@ -444,6 +460,7 @@ export async function runPostGenerationChecks(params: {
         setMessages,
         mutateVersions,
         onAutoFix,
+        abortController: controller,
       });
     } else {
       appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -481,7 +498,13 @@ export async function runPostGenerationChecks(params: {
       errorText: error instanceof Error ? error.message : "Post-check failed",
     });
   } finally {
-    controller.abort();
+    if (!spawnedVerifyLane) {
+      if (postCheckControllers.get(chatId) === controller) {
+        postCheckControllers.delete(chatId);
+      }
+      controller.abort();
+    }
+    releasePipelineWork();
     // Deterministic completion signal (runs on both the success and catch
     // paths, exactly once). Refetches BOTH status surfaces after the
     // postcheck has emitted any late `version.degraded`: `mutateVersions`
@@ -539,6 +562,7 @@ async function runTier2VerifyLane(params: {
   mutateVersions?: () => void;
   onAutoFix?: (payload: AutoFixPayload) => void;
   previewPolicy?: "fidelity2" | "fidelity3";
+  abortController?: AbortController;
 }) {
   const {
     chatId,
@@ -548,8 +572,10 @@ async function runTier2VerifyLane(params: {
     mutateVersions,
     onAutoFix,
     previewPolicy = "fidelity2",
+    abortController,
   } = params;
   const toolCallId = `quality-gate:${versionId}`;
+  const releasePipelineWork = beginPipelineWork();
   const checks = DESIGN_PREVIEW_QUALITY_GATE_CHECKS;
   // Bounded retry for retryable 503s from /quality-gate — see the loop below.
   const QUALITY_GATE_RETRYABLE_STATUS = 503;
@@ -579,6 +605,7 @@ async function runTier2VerifyLane(params: {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ versionId, checks }),
+        signal: abortController?.signal,
       });
 
     let res = await postQualityGate();
@@ -593,9 +620,11 @@ async function runTier2VerifyLane(params: {
       res.status === QUALITY_GATE_RETRYABLE_STATUS && attempt <= QUALITY_GATE_503_MAX_RETRIES;
       attempt++
     ) {
+      if (abortController?.signal.aborted) return;
       await new Promise((resolve) =>
         setTimeout(resolve, QUALITY_GATE_503_RETRY_BASE_DELAY_MS * attempt),
       );
+      if (abortController?.signal.aborted) return;
       res = await postQualityGate();
     }
 
@@ -837,7 +866,8 @@ async function runTier2VerifyLane(params: {
     } else if (data.passed && visualQa && !visualQa.passed && onAutoFix) {
       handleVisualQaAutofix({ chatId, versionId, visualQa, onAutoFix });
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") return;
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: "tool:quality-gate",
       toolName: "Quality gate",
@@ -845,6 +875,11 @@ async function runTier2VerifyLane(params: {
       state: "output-error",
       errorText: "Quality gate request failed (network error)",
     } as UiMessagePart);
+  } finally {
+    releasePipelineWork();
+    if (abortController && postCheckControllers.get(chatId) === abortController) {
+      postCheckControllers.delete(chatId);
+    }
   }
 }
 

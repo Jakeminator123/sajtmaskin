@@ -30,9 +30,18 @@ export function useShellPreviewLayout(
     // The outcome-reporting wrapper from `useShellVersionFollowup` — the F3
     // auto-kick must go through it so armed autonomy sees the turn settle.
     sendMessage: BuilderViewModel["sendMessage"];
+    /** Composer/version-select lock — select must no-op even if a click slips through. */
+    isInteractionLocked: boolean;
   },
 ) {
-  const { tipPanelOpen, setEnableAutofix, setF3Requirements, setF3Status, sendMessage } = options;
+  const {
+    tipPanelOpen,
+    setEnableAutofix,
+    setF3Requirements,
+    setF3Status,
+    sendMessage,
+    isInteractionLocked,
+  } = options;
   const persistPreviewOverride = useCallback(
     async (url: string | null, versionId: string | null) => {
       vm.setServerProjectPreviewOverrideUrl(url);
@@ -87,6 +96,7 @@ export function useShellPreviewLayout(
 
   const handleVersionSelect = useCallback(
     (versionId: string, demoUrl?: string) => {
+      if (isInteractionLocked) return;
       vm.clearPreviewBuildError();
       vm.setClearedPreviewVersionId(null);
       if (vm.serverProjectPreviewOverrideVersionId === versionId) {
@@ -94,7 +104,7 @@ export function useShellPreviewLayout(
       }
       vm.handleVersionSelect(versionId, demoUrl);
     },
-    [vm, persistPreviewOverride],
+    [vm, persistPreviewOverride, isInteractionLocked],
   );
 
   useEffect(() => {

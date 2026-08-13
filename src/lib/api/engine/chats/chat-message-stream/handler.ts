@@ -39,6 +39,12 @@ import { DEFAULT_MODEL_ID, getBuildProfileId } from "@/lib/models/catalog";
 import { resolveModelSelection } from "@/lib/models/selection";
 import { wrapStreamForPromptToDoneMetric } from "@/lib/observability/prompt-to-done-stream";
 import {
+  acquireChatGenerationLock,
+  bindChatGenerationLockToResponse,
+  releaseChatGenerationLock,
+  type ChatGenerationLock,
+} from "@/lib/gen/stream/generation-lock";
+import {
   FOLLOW_UP_CLARIFICATION_ANSWER_HEADING,
   buildAwaitingClarificationStream,
   classifyFollowUpClarificationAnswerIntent,
@@ -95,12 +101,12 @@ export async function handleMessageStreamRequest(
     }
     return response;
   };
-  const runHandler = async () =>
-    // Samma ägarkontext som init-vägen: allt LLM-arbete i den här turen (brief-
-    // delta, klassificerare, codegen, verifier, RepairGate) knyts till chatten.
-    runWithLlmUsageContext({ sessionId }, async () => {
-      const promptStartedAt = Date.now();
-      try {
+  const runHandler = async () => {
+    let acquiredGenerationLock: ChatGenerationLock | null = null;
+    try {
+      const response = await runWithLlmUsageContext({ sessionId }, async () => {
+        const promptStartedAt = Date.now();
+        try {
         const { chatId } = await ctx.params;
         setLlmUsageContext({ chatId });
         const body = await req.json().catch(() => ({}));
@@ -156,6 +162,22 @@ export async function handleMessageStreamRequest(
             ),
           );
         }
+
+        const generationLock = await acquireChatGenerationLock(engineChat.id);
+        if (!generationLock) {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                error: "generation_in_progress",
+                reason: "generation_in_progress",
+                message:
+                  "En generation pågår redan för den här sajten. Vänta tills den är klar.",
+              },
+              { status: 409 },
+            ),
+          );
+        }
+        acquiredGenerationLock = generationLock;
 
         // P0 stream-abort recovery (2026-04-26). Versionless-chat hard guard.
         // If the most recent generation/repair stream for this chat died
@@ -881,6 +903,14 @@ export async function handleMessageStreamRequest(
         });
       }
     });
+      return bindChatGenerationLockToResponse(response, acquiredGenerationLock);
+    } catch (err) {
+      if (acquiredGenerationLock) {
+        await releaseChatGenerationLock(acquiredGenerationLock).catch(() => {});
+      }
+      throw err;
+    }
+  };
 
   return options.skipRateLimit ? runHandler() : withRateLimit(req, "message:send", runHandler);
 }

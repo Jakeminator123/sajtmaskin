@@ -454,6 +454,9 @@ gjorde ~26 % av prod-versionerna falskt röda). Semantik:
 - `/quality-gate`-routen gör dessutom en **tidig** supersede-check efter
   lease-acquire men före VM-checkarna, så en inaktuell version aldrig bränner
   verify-lanens ~30–45 s (`quality-gate:superseded` med `meta.early: true`).
+  "Nyare" här är **preferred head** (`selectPreferredEngineVersion` via
+  `isPreferredHeadVersion`), inte rå `getLatestVersion` — en failad F3-rad
+  får inte göra en fortfarande användbar F2-design till `superseded`.
 
 Rader som supersedades före 2026-07 behåller sitt historiska `failed`.
 

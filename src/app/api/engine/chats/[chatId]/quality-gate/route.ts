@@ -17,7 +17,7 @@ import { dbConfigured } from "@/lib/db/client";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   failVersionVerification,
-  getLatestVersion,
+  isPreferredHeadVersion,
   getVersionById,
   markVersionVerifying,
   markVersionSupersededByRepair,
@@ -185,8 +185,7 @@ function buildVerificationSummary(checkResults: QualityGateCheckResult[]): strin
 }
 
 async function isLatestVersionForChat(chatId: string, versionId: string): Promise<boolean> {
-  const latest = await getLatestVersion(chatId).catch(() => null);
-  return !latest || latest.id === versionId;
+  return isPreferredHeadVersion(chatId, versionId);
 }
 
 /** M#vlane2 promote-retry tuning: 1 initial attempt + up to 2 retries, short backoff. */

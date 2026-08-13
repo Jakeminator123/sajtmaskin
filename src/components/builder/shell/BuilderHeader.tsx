@@ -122,6 +122,11 @@ export function BuilderHeader(props: {
   isDeploying: boolean;
   isCreatingChat: boolean;
   isAnyStreaming: boolean;
+  /**
+   * Verify/repair lock from the shell. New chat / save / import wait, but
+   * Cancel stays tied to an actual stream (`isBusy`).
+   */
+  pipelineLocked?: boolean;
   isSavingProject: boolean;
   canDeploy: boolean;
   canManageDomain: boolean;
@@ -199,6 +204,7 @@ export function BuilderHeader(props: {
     isDeploying,
     isCreatingChat,
     isAnyStreaming,
+    pipelineLocked = false,
     isSavingProject,
     canDeploy,
     canManageDomain,
@@ -219,6 +225,7 @@ export function BuilderHeader(props: {
   } = props;
 
   const isBusy = isAnyStreaming || isCreatingChat;
+  const actionsLocked = isBusy || pipelineLocked;
   const isConfigLocked = isAnyStreaming;
   const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
   const modelButtonLabel = currentModel?.label || "AI";
@@ -288,7 +295,7 @@ export function BuilderHeader(props: {
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
                   {/* Triggern lämnas aktiv — varje item/submeny har egen spärr
-                      (isBusy för import/export och Spara, isConfigLocked för
+                      (actionsLocked för import/export och Spara, isConfigLocked för
                       inställningar och dess nästlade scaffold-/byggmodellval),
                       så inställningar förblir nåbara under chat-skapande
                       precis som tidigare. */}
@@ -312,7 +319,7 @@ export function BuilderHeader(props: {
           <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuLabel>Projekt</DropdownMenuLabel>
             <DropdownMenuItem
-              disabled={!canSaveProject || isBusy || isSavingProject}
+              disabled={!canSaveProject || actionsLocked || isSavingProject}
               onSelect={(event) => {
                 event.preventDefault();
                 runDeferredAction(() => {
@@ -622,7 +629,7 @@ export function BuilderHeader(props: {
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Importera och exportera</DropdownMenuLabel>
             <DropdownMenuItem
-              disabled={isBusy}
+              disabled={actionsLocked}
               onSelect={(event) => {
                 event.preventDefault();
                 runDeferredAction(onOpenImport);
@@ -632,7 +639,7 @@ export function BuilderHeader(props: {
               Importera (GitHub eller ZIP)
             </DropdownMenuItem>
             <DropdownMenuItem
-              disabled={!chatId || !activeVersionId || isBusy}
+              disabled={!chatId || !activeVersionId || actionsLocked}
               onSelect={(event) => {
                 event.preventDefault();
                 if (chatId && activeVersionId) {
@@ -651,13 +658,13 @@ export function BuilderHeader(props: {
                 Importvalet ovan hanterar både GitHub och ZIP, så det får
                 inte gömmas under en GitHub-rubrik. */}
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger disabled={!chatId || !activeVersionId || isBusy}>
+              <DropdownMenuSubTrigger disabled={!chatId || !activeVersionId || actionsLocked}>
                 <Github className="mr-2 h-4 w-4" />
                 GitHub
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-56">
                 <DropdownMenuItem
-                  disabled={!chatId || !activeVersionId || isBusy}
+                  disabled={!chatId || !activeVersionId || actionsLocked}
                   onSelect={(event) => {
                     event.preventDefault();
                     runDeferredAction(onExportGitHub);
@@ -689,7 +696,7 @@ export function BuilderHeader(props: {
           variant="outline"
           size="sm"
           onClick={() => runDeferredAction(onNewChat)}
-          disabled={isBusy}
+          disabled={actionsLocked}
           title="Starta en ny chat (nuvarande finns kvar i historiken)"
         >
           {isCreatingChat ? (

@@ -95,4 +95,34 @@ describe("VersionHistory — restore → preview-resync (fas 4)", () => {
       onPreviewResync.mock.invocationCallOrder[0],
     );
   });
+
+  it("låter inte radklick byta version när selectDisabled är satt", () => {
+    const onVersionSelect = vi.fn();
+    render(
+      <VersionHistory
+        chatId="chat_1"
+        selectedVersionId="ver_old"
+        onVersionSelect={onVersionSelect}
+        selectDisabled
+        versions={[
+          {
+            id: "ver_old",
+            versionId: "ver_old",
+            canPin: false,
+            versionNumber: 1,
+            createdAt: new Date("2026-07-01T10:00:00Z").toISOString(),
+            releaseState: "draft",
+            verificationState: "pending",
+          } as never,
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("v1"));
+    expect(onVersionSelect).not.toHaveBeenCalled();
+    expect(
+      (screen.getByRole("button", { name: /Återställ som ny draftversion/i }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
 });

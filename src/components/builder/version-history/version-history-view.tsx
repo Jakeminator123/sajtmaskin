@@ -46,6 +46,7 @@ export function VersionHistory({
   versions: externalVersions,
   mutateVersions: externalMutate,
   lifecycleStage = null,
+  selectDisabled = false,
 }: VersionHistoryProps) {
   const {
     user,
@@ -266,7 +267,11 @@ export function VersionHistory({
             <Button
               size="sm"
               onClick={(e) => handleAcceptRepair(e, primaryRepairVersion)}
-              disabled={acceptingRepairVersionId !== null || restoringVersionId !== null}
+              disabled={
+                selectDisabled ||
+                acceptingRepairVersionId !== null ||
+                restoringVersionId !== null
+              }
               className="mt-2 h-7 px-2 text-xs"
             >
               {acceptingRepairVersionId !== null ? (
@@ -478,12 +483,23 @@ export function VersionHistory({
             return (
               <Card
                 key={internalVersionId ?? `version-${version.createdAt ?? "unknown"}-${index}`}
-                onClick={() => selectableVersionId && onVersionSelect(selectableVersionId)}
+                onClick={() => {
+                  if (selectDisabled || !selectableVersionId) return;
+                  onVersionSelect(selectableVersionId);
+                }}
+                title={
+                  selectDisabled
+                    ? "Vänta tills versionen är kontrollerad innan du byter"
+                    : undefined
+                }
                 className={cn(
-                  "cursor-pointer transition-colors",
+                  "transition-colors",
+                  selectDisabled
+                    ? "cursor-not-allowed"
+                    : "cursor-pointer",
                   isSelected
                     ? "border-primary bg-primary/5"
-                    : "hover:border-border hover:bg-accent/50",
+                    : !selectDisabled && "hover:border-border hover:bg-accent/50",
                 )}
               >
                 <CardContent className="p-3">
@@ -656,7 +672,7 @@ export function VersionHistory({
                         variant="ghost"
                         size="sm"
                         onClick={(e) => handleRestoreClick(e, version)}
-                        disabled={isRestoring}
+                        disabled={selectDisabled || isRestoring}
                         title={canRollback ? "Rollback som ny draftversion" : "Återställ som ny draftversion"}
                         aria-label={canRollback ? "Rollback som ny draftversion" : "Återställ som ny draftversion"}
                         className="h-7 px-2 text-xs"
@@ -674,7 +690,7 @@ export function VersionHistory({
                         variant="default"
                         size="sm"
                         onClick={(e) => handleAcceptRepair(e, version)}
-                        disabled={isAcceptingRepair || isRestoring}
+                        disabled={selectDisabled || isAcceptingRepair || isRestoring}
                         title="Acceptera serverreparation"
                         aria-label="Acceptera serverreparation"
                         className="h-7 px-2 text-xs"
