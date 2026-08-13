@@ -23,7 +23,10 @@ from backoffice.ai_workloads import (
     model_supports_vision,
     resolve_model_choices,
 )
-from backoffice.pages.scaffold_lifecycle_lib.index_gate import indexing_steps
+from backoffice.pages.scaffold_lifecycle_lib.index_gate import (
+    INDEX_COMMAND_TIMEOUT_S,
+    indexing_steps,
+)
 from backoffice.pages.scaffold_lifecycle import (
     BUILD_INTENT_OPTIONS,
     COMPLEXITY_OPTIONS,
@@ -1210,7 +1213,9 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
         _invalidate_validation_after_mutation(results, str(step["key"]))
         st.session_state["swz_cmd_results"] = results
         with st.spinner(f"Kör: {step['label']} …"):
-            res = run_repo_command(ctx.repo_root, step["command"])
+            res = run_repo_command(
+                ctx.repo_root, step["command"], timeout=INDEX_COMMAND_TIMEOUT_S
+            )
         # Curation exits 0 even on LLM failure/skip — verify the file really got
         # signaturePatterns so a no-op run can't show a false-green check.
         if step["key"] == "patterns":

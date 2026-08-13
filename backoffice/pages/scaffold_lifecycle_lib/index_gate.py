@@ -18,6 +18,11 @@ from backoffice.wizard_support import get_blob_read_write_token, get_openai_api_
 INDEX_PENDING_KEY = "scaffold_lifecycle_index_pending"
 INDEX_RESULTS_KEY = "scaffold_lifecycle_index_results"
 
+# En full embeddings-ombyggnad tar mer än `run_repo_command`s 600s-default, och
+# en timeout ser ut som ett misslyckat index fast jobbet bara blev avbrutet.
+# Samma tak som Pipeline Health använder för exakt dessa npm-skript.
+INDEX_COMMAND_TIMEOUT_S = 30 * 60
+
 
 def indexing_steps(*, new_scaffold: bool) -> list[dict[str, Any]]:
     """npm commands that publish match indexes to Blob. No design-pattern step.
@@ -150,7 +155,9 @@ def render_index_gate(ctx: BackofficeContext) -> None:
 
     def _run(step: dict[str, Any]) -> None:
         with st.spinner(f"Kör: {step['label']} …"):
-            results[step["key"]] = run_repo_command(ctx.repo_root, step["command"])
+            results[step["key"]] = run_repo_command(
+                ctx.repo_root, step["command"], timeout=INDEX_COMMAND_TIMEOUT_S
+            )
         st.session_state[INDEX_RESULTS_KEY] = results
 
     cols = st.columns(len(steps) + 1)

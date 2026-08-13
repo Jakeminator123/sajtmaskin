@@ -628,6 +628,15 @@ class IndexGateQueueTests(unittest.TestCase):
         self.assertIn("ur synk", warning)
         self.assertNotIn("är skriven i worktreet", warning)
 
+    def test_index_commands_get_more_than_the_600s_default(self) -> None:
+        """En timeout mitt i en ombyggnad ser ut som ett misslyckat index."""
+        self.assertGreaterEqual(self.ig.INDEX_COMMAND_TIMEOUT_S, 30 * 60)
+        for source in (
+            inspect.getsource(self.ig.render_index_gate),
+            inspect.getsource(sw._render_post_create),
+        ):
+            self.assertIn("timeout=INDEX_COMMAND_TIMEOUT_S", source)
+
     def test_every_step_republishes_to_blob_fail_closed(self) -> None:
         """Delete får inte publiceras genom att ladda upp en lokal cache.
 
