@@ -532,20 +532,22 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    const verbatimResult2 = applyDossierVerbatimPolicy({
-      llmFiles: importResult.files,
-      selectedDossiers: selectedDossiers ?? [],
-      chatId,
-    });
+    // Nav-sync before verbatim: a dossier mapped onto the sidebar path
+    // must win. Syncing after restore would rewrite protected bytes.
     const navSyncedInit = applyNavPlanSync(
-      verbatimResult2.files,
+      importResult.files,
       routePlan,
       chatId,
       false,
     );
+    const verbatimResult2 = applyDossierVerbatimPolicy({
+      llmFiles: navSyncedInit.files,
+      selectedDossiers: selectedDossiers ?? [],
+      chatId,
+    });
 
     return {
-      filesJson: JSON.stringify(navSyncedInit.files),
+      filesJson: JSON.stringify(verbatimResult2.files),
       rejectedShrinks: [],
       rejectedStructural: [],
       scaffoldDefaultsBlocked,
@@ -573,19 +575,19 @@ export function mergeGeneratedProjectFiles({
     });
   }
   if (crossFileResult.fixes.length > 0 || typeOnlyModuleResult.fixes.length > 0) {
-    const verbatimResult3 = applyDossierVerbatimPolicy({
-      llmFiles: crossFileFiles,
-      selectedDossiers: selectedDossiers ?? [],
-      chatId,
-    });
     const navSyncedNoScaffold = applyNavPlanSync(
-      verbatimResult3.files,
+      crossFileFiles,
       routePlan,
       chatId,
       false,
     );
+    const verbatimResult3 = applyDossierVerbatimPolicy({
+      llmFiles: navSyncedNoScaffold.files,
+      selectedDossiers: selectedDossiers ?? [],
+      chatId,
+    });
     return {
-      filesJson: JSON.stringify(navSyncedNoScaffold.files),
+      filesJson: JSON.stringify(verbatimResult3.files),
       rejectedShrinks: [],
       rejectedStructural: [],
       scaffoldDefaultsBlocked: [],
@@ -619,23 +621,23 @@ export function mergeGeneratedProjectFiles({
     });
   }
   const safeOriginal = originalPartition.kept;
-  const verbatimResult4 = applyDossierVerbatimPolicy({
-    llmFiles: safeOriginal,
-    selectedDossiers: selectedDossiers ?? [],
-    chatId,
-  });
   const navSyncedFallback = applyNavPlanSync(
-    verbatimResult4.files,
+    safeOriginal,
     routePlan,
     chatId,
     false,
   );
+  const verbatimResult4 = applyDossierVerbatimPolicy({
+    llmFiles: navSyncedFallback.files,
+    selectedDossiers: selectedDossiers ?? [],
+    chatId,
+  });
   const hasVerbatimRestorations = verbatimResult4.restored.length > 0;
   const hasFilteredOriginal = originalPartition.dropped.length > 0;
   return {
     filesJson:
       hasVerbatimRestorations || hasFilteredOriginal || navSyncedFallback.changed
-        ? JSON.stringify(navSyncedFallback.files)
+        ? JSON.stringify(verbatimResult4.files)
         : originalFilesJson,
     rejectedShrinks: [],
     rejectedStructural: [],

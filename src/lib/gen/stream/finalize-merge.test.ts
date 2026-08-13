@@ -58,6 +58,18 @@ vi.mock("@/lib/observability/metrics", () => ({
   incIngressEvent: vi.fn(),
 }));
 
+const getDossierFileContent = vi.hoisted(() =>
+  vi.fn<(klass: string, id: string, relPath: string) => string | null>(() => null),
+);
+vi.mock("@/lib/gen/dossiers/registry", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/dossiers/registry")>();
+  return {
+    ...actual,
+    getDossierFileContent: (...args: [string, string, string]) =>
+      getDossierFileContent(...args),
+  };
+});
+
 function makeScaffold(): ScaffoldManifest {
   return {
     id: "test-scaffold",
@@ -713,6 +725,7 @@ function dashboardScaffold(): ScaffoldManifest {
 describe("dashboard navItems sync from route plan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getDossierFileContent.mockImplementation(() => null);
   });
 
   it("rewrites scaffold sidebar on init to the planned routes", () => {
@@ -774,5 +787,57 @@ describe("dashboard navItems sync from route plan", () => {
     const sidebar = merged.find((f) => f.path === "components/dashboard-sidebar.tsx");
     expect(sidebar!.content).toBe(previousSidebar);
     expect(sidebar!.content).not.toContain("/logga-in");
+  });
+
+  it("keeps a verbatim-restored sidebar byte-identical when nav-sync is active", () => {
+    const canonical = [
+      `"use client";`,
+      `import { LayoutDashboard } from "lucide-react";`,
+      ``,
+      `const navItems = [`,
+      `  { label: "Hem", href: "/", icon: LayoutDashboard },`,
+      `];`,
+      ``,
+      `export function DashboardSidebar() {`,
+      `  return <aside data-canonical="verbatim-nav">Hem</aside>;`,
+      `}`,
+    ].join("\n");
+    getDossierFileContent.mockImplementation((_klass, _id, relPath) =>
+      relPath === "components/dashboard-sidebar.tsx" ? canonical : null,
+    );
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-nav-verbatim",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page() { return <h1>Offertlyftet</h1>; }",
+          language: "tsx",
+        },
+      ],
+      resolvedScaffold: dashboardScaffold(),
+      previousFiles: undefined,
+      routePlan: offertlyftetPlan(),
+      selectedDossiers: [
+        {
+          id: "nav-verbatim-test",
+          class: "soft",
+          capability: "navigation",
+          codeFidelity: "verbatim",
+          files: [
+            {
+              path: "components/dashboard-sidebar.tsx",
+              role: "client",
+              injectionMode: "verbatim",
+            },
+          ],
+        } as unknown as DossierEntry,
+      ],
+    });
+
+    const merged = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    const sidebar = merged.find((f) => f.path === "components/dashboard-sidebar.tsx");
+    expect(sidebar?.content).toBe(canonical);
   });
 });

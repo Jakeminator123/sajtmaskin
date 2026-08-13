@@ -75,10 +75,13 @@ export function runFinalizePreflightAll(params: {
   );
 
   const navHrefs = extractedHrefs.filter((href) => isNavSourceFile(href.file));
+  // Gate on nav *source files*, not extracted href count: a real sidebar
+  // with zero internal hrefs still means every planned route is unlinked.
+  const hasNavSourceFile = params.files.some((file) => isNavSourceFile(file.path));
   const unlinkedPlannedRoutes =
     params.plannedRoutePaths &&
     params.plannedRoutePaths.length > 0 &&
-    navHrefs.length > 0
+    hasNavSourceFile
       ? crossCheckRoutesAgainstHrefs(params.plannedRoutePaths, navHrefs)
       : [];
   const unlinkedIssues = unlinkedPlannedRoutes.slice(0, 20).map((route) =>

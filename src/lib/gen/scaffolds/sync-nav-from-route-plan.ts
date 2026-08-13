@@ -180,6 +180,27 @@ function renderNavItems(routes: Array<{ path: string; name: string }>): string {
   return `[\n${lines.join("\n")}\n]`;
 }
 
+function parseLucideSpecifier(raw: string): { rawSpec: string; localName: string } {
+  const rawSpec = raw.trim();
+  const aliasParts = rawSpec.split(/\s+as\s+/);
+  const localName = (aliasParts[aliasParts.length - 1] ?? rawSpec).trim();
+  return { rawSpec, localName };
+}
+
+function insertLucideImport(content: string, nextImport: string): string {
+  // `"use client"` måste förbli första statement — en prepend före
+  // direktivet gör att Next behandlar sidebaren som Server Component.
+  const directive = /^\s*(?:"use client"|'use client');?\s*\r?\n/.exec(content);
+  if (directive) {
+    return (
+      content.slice(0, directive[0].length) +
+      `${nextImport}\n` +
+      content.slice(directive[0].length)
+    );
+  }
+  return `${nextImport}\n${content}`;
+}
+
 function syncLucideImport(content: string, neededIcons: string[]): string {
   // Ersätt aldrig importen rakt av: filen kan använda lucide-ikoner UTANFÖR
   // navItems (LLM lägger gärna en <LogOut /> i samma sidebar), och en
@@ -187,23 +208,28 @@ function syncLucideImport(content: string, neededIcons: string[]): string {
   // F2 inte typcheckar bort (granskningsfynd). Behåll befintliga namn som
   // fortfarande refereras i filen efter omskrivningen; släpp de som bara
   // levde i gamla navItems (t.ex. scaffoldens Users/BarChart3).
+  // Alias (`LogOut as LogoutIcon`): behåll-testet körs på localName, men
+  // unionen renderar rawSpec oförändrad så identifieraren inte tappas.
   const existingMatch = LUCIDE_IMPORT_RE.exec(content);
   const importStatement = existingMatch?.[0] ?? "";
-  const existingNames = importStatement
+  const existingSpecs = importStatement
     ? (importStatement.match(/\{([^}]*)\}/)?.[1] ?? "")
         .split(",")
         .map((part) => part.trim())
         .filter(Boolean)
+        .map(parseLucideSpecifier)
     : [];
   const contentWithoutImport = importStatement
     ? content.replace(importStatement, "")
     : content;
-  const stillUsed = existingNames.filter((name) =>
-    new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(
-      contentWithoutImport,
-    ),
+  const stillUsed = existingSpecs.filter((spec) =>
+    new RegExp(
+      `\\b${spec.localName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+    ).test(contentWithoutImport),
   );
-  const unique = [...new Set([...neededIcons, ...stillUsed])];
+  const unique = [
+    ...new Set([...neededIcons, ...stillUsed.map((spec) => spec.rawSpec)]),
+  ];
   const preferred = ["LayoutDashboard", "BarChart3", "Users", "Settings"];
   unique.sort((a, b) => {
     const ia = preferred.indexOf(a);
@@ -217,5 +243,5 @@ function syncLucideImport(content: string, neededIcons: string[]): string {
   if (LUCIDE_IMPORT_RE.test(content)) {
     return content.replace(LUCIDE_IMPORT_RE, nextImport);
   }
-  return `${nextImport}\n${content}`;
+  return insertLucideImport(content, nextImport);
 }

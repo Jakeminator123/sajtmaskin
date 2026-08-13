@@ -320,10 +320,19 @@ export interface UnlinkedPlannedRoute {
  * consults hrefs from these so a brochure without a nav file does not
  * warn about every planned route.
  */
+const NAV_SOURCE_NAME_RE = /(header|navbar|navigation|footer|menu|sidebar)|^nav\./i;
+const NAV_INDEX_FILE_RE = /^index\.(tsx|jsx|ts|js)$/i;
+
 export function isNavSourceFile(path: string): boolean {
   const normalized = path.replace(/\\/g, "/");
-  const base = normalized.split("/").pop() ?? normalized;
-  return /(header|navbar|navigation|footer|menu|sidebar)|^nav\./i.test(base);
+  const segments = normalized.split("/");
+  const base = segments.pop() ?? normalized;
+  if (NAV_SOURCE_NAME_RE.test(base)) return true;
+  if (NAV_INDEX_FILE_RE.test(base)) {
+    const parent = segments.pop() ?? "";
+    return NAV_SOURCE_NAME_RE.test(parent);
+  }
+  return false;
 }
 
 /**

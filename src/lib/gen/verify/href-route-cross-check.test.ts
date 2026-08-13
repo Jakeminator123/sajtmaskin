@@ -5,8 +5,10 @@ import {
   extractHrefsFromFiles,
   formatMismatchMessage,
   formatUnlinkedRouteMessage,
+  isNavSourceFile,
   type HrefRouteMismatch,
 } from "./href-route-cross-check";
+import { runFinalizePreflightAll } from "@/lib/gen/stream/finalize-preflight/passes";
 
 const file = (path: string, content: string) => {
   const ext = path.split(".").pop() ?? "tsx";
@@ -305,5 +307,45 @@ describe("crossCheckRoutesAgainstHrefs", () => {
       ),
     ]);
     expect(crossCheckRoutesAgainstHrefs(["/", "/dashboard"], hrefs)).toEqual([]);
+  });
+
+  it("counts hrefs from components/navigation/index.tsx in the reverse check", () => {
+    expect(isNavSourceFile("components/navigation/index.tsx")).toBe(true);
+    expect(isNavSourceFile("components/widgets/index.tsx")).toBe(false);
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/navigation/index.tsx",
+        `export function Nav() { return <a href="/about">Om</a>; }`,
+      ),
+    ]).filter((entry) => isNavSourceFile(entry.file));
+    expect(hrefs.map((entry) => entry.basePath)).toEqual(["/about"]);
+    expect(
+      crossCheckRoutesAgainstHrefs(["/", "/about"], hrefs).map((entry) => entry.path),
+    ).toEqual(["/"]);
+  });
+});
+
+describe("runFinalizePreflightAll reverse nav gate", () => {
+  it("warns per unlinked planned route when a nav file has no hrefs", () => {
+    const result = runFinalizePreflightAll({
+      files: [
+        file(
+          "components/dashboard-sidebar.tsx",
+          `export function DashboardSidebar() { return <aside>Ingen länk</aside>; }`,
+        ),
+      ],
+      actualRoutes: ["/", "/dashboard"],
+      plannedRoutePaths: ["/", "/dashboard"],
+    });
+    expect(result.unlinkedPlannedRoutes.map((entry) => entry.path)).toEqual([
+      "/",
+      "/dashboard",
+    ]);
+    expect(result.issues.map((issue) => issue.message)).toEqual(
+      expect.arrayContaining([
+        formatUnlinkedRouteMessage({ path: "/" }),
+        formatUnlinkedRouteMessage({ path: "/dashboard" }),
+      ]),
+    );
   });
 });

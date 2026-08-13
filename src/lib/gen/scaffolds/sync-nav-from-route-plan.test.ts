@@ -91,6 +91,56 @@ describe("syncNavItemsFromRoutePlan", () => {
     expect(importLine).not.toContain("BarChart3");
   });
 
+  it("keeps \"use client\" as the first statement when lucide import is inserted", () => {
+    const withoutLucide = [
+      `"use client";`,
+      ``,
+      `import Link from "next/link";`,
+      ``,
+      `const navItems = [`,
+      `  { label: "Översikt", href: "/", icon: LayoutDashboard },`,
+      `];`,
+      ``,
+      `export function DashboardSidebar() {`,
+      `  return <Link href="/">Hem</Link>;`,
+      `}`,
+    ].join("\n");
+
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/dashboard-sidebar.tsx", withoutLucide)],
+      routePlan: offertlyftetPlan(),
+    });
+
+    expect(result.changedPaths).toEqual(["components/dashboard-sidebar.tsx"]);
+    const sidebar = result.files[0]!.content;
+    expect(sidebar.trimStart().startsWith('"use client"')).toBe(true);
+    expect(sidebar).toMatch(
+      /^(\s*)"use client";?\s*\r?\nimport \{[^}]*\} from "lucide-react";/,
+    );
+    expect(extractNavHrefs(sidebar)).toEqual(["/", "/logga-in", "/dashboard"]);
+  });
+
+  it("keeps aliased lucide specifiers used outside navItems", () => {
+    const withAlias = DASHBOARD_SIDEBAR.replace(
+      /import \{ LayoutDashboard, BarChart3, Settings, Users \} from "lucide-react";/,
+      'import { LayoutDashboard, BarChart3, Settings, Users, LogOut as LogoutIcon } from "lucide-react";',
+    ).concat('\n\nexport const logoutGlyph = <LogoutIcon className="h-4 w-4" />;\n');
+
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/dashboard-sidebar.tsx", withAlias)],
+      routePlan: offertlyftetPlan(),
+    });
+
+    expect(result.changedPaths).toEqual(["components/dashboard-sidebar.tsx"]);
+    const importLine =
+      result.files[0]!.content.match(/import\s*\{[^}]*\}\s*from\s*["']lucide-react["'];?/)?.[0] ??
+      "";
+    expect(importLine).toContain("LogOut as LogoutIcon");
+    expect(importLine).toContain("LayoutDashboard");
+    expect(importLine).not.toContain("Users");
+    expect(importLine).not.toContain("BarChart3");
+  });
+
   it("leaves a user-rewritten sidebar (other form) untouched", () => {
     const rewritten = [
       `"use client";`,
