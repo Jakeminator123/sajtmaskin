@@ -456,13 +456,14 @@
       "codeReaders": ["backoffice/pages/autofix.py"]
     },
     "Fixer Registry": {
-      "summary": "Katalog över alla fixers (Normalize/RepairGate) ur FIXER_REGISTRY-snapshoten: kategori, fas, risk, status, triggers och telemetri. Snapshoten regenereras vid npm run dev|build|start och kan byggas om från vyn.",
+      "summary": "Katalog över alla fixers (Normalize/RepairGate) ur FIXER_REGISTRY-snapshoten: kategori, fas, risk, status, triggers och telemetri. Snapshoten regenereras vid npm run dev|build|start och kan byggas om från vyn. Användning/utfall läses read-only ur error_log_events via fault-matrix.mjs --by-fixer.",
       "canonicalPaths": [
         "src/lib/gen/autofix/fixer-registry.ts",
         "data/observability/fixer-registry.snapshot.json",
-        "scripts/observability/dump-fixer-registry.mjs"
+        "scripts/observability/dump-fixer-registry.mjs",
+        "scripts/observability/fault-matrix.mjs"
       ],
-      "docsPaths": ["docs/architecture/llm-pipeline.md"],
+      "docsPaths": ["docs/architecture/llm-pipeline.md", "docs/contracts/fixer-registry.md"],
       "codeReaders": ["backoffice/pages/fixer_registry.py"]
     },
     "Error-log RAG": {

@@ -1,7 +1,9 @@
 /**
  * Read-only aggregate view of `error_log_events` — the cross-run fault/fix
- * matrix ("fel / åtgärd / lyckades?"). Groups by `fault` with counts, a
- * `result` breakdown, the dominant fixer, and last-seen time.
+ * matrix ("fel / åtgärd / lyckades?"). Default groups by `fault` with counts, a
+ * `result` breakdown, the dominant fixer, and last-seen time. `--by-fixer`
+ * groups by `fixer` instead (usages, result buckets, unique chats, top-3
+ * faults, first/last seen). Rows without a fixer become «(ingen fixer)».
  *
  * The existing human-facing observability (`npm run faults:report`, the
  * backoffice "Error-log RAG" page) reads only LOCAL NDJSON — so when you test
@@ -11,6 +13,8 @@
  *   node scripts/observability/fault-matrix.mjs                 # dev (.env.local)
  *   node scripts/observability/fault-matrix.mjs --prod          # prod snapshot
  *   node scripts/observability/fault-matrix.mjs --prod --json   # machine-readable (backoffice)
+ *   node scripts/observability/fault-matrix.mjs --by-fixer --json
+ *   node scripts/observability/fault-matrix.mjs --by-fixer --prod --json --limit 200
  *   node scripts/observability/fault-matrix.mjs --limit 30
  *
  * Read-only: SELECT only, never writes. `--prod` reads
@@ -26,6 +30,7 @@ import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "../db/db-target-guard
 const argv = process.argv.slice(2);
 const useProd = argv.includes("--prod");
 const wantJson = argv.includes("--json");
+const byFixer = argv.includes("--by-fixer");
 const allowInsecureSsl = useProd || argv.includes("--allow-insecure-ssl");
 const limitIdx = argv.indexOf("--limit");
 const limit =
@@ -33,6 +38,8 @@ const limit =
 
 const PROD_ENV_FILE = ".env.vercel.production.pulled";
 const envFile = useProd ? PROD_ENV_FILE : ".env.local";
+const MISSING_FIXER = "(ingen fixer)";
+const FAILED_RESULTS = new Set(["failed", "still-failing"]);
 
 function fail(message) {
   if (wantJson) process.stdout.write(JSON.stringify({ ok: false, error: message }));
@@ -81,12 +88,165 @@ async function tableExists(name) {
   return r.rowCount === 1;
 }
 
+/** Verbatim `result` keys stay in `result_breakdown`; buckets are derived. */
+function withResultBuckets(row) {
+  const breakdown =
+    row.result_breakdown && typeof row.result_breakdown === "object" ? row.result_breakdown : {};
+  let fixed = 0;
+  let failed = 0;
+  let other = 0;
+  for (const [key, value] of Object.entries(breakdown)) {
+    const n = Number(value) || 0;
+    if (key === "fixed") fixed += n;
+    else if (FAILED_RESULTS.has(key)) failed += n;
+    else other += n;
+  }
+  return { ...row, fixed, failed, other };
+}
+
+function formatIso(value) {
+  if (!value) return "-";
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toISOString();
+}
+
+function formatTopFaults(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  return list
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const fault = item.fault || "?";
+      return `${fault}:${item.count ?? 0}`;
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+
 try {
   if (!(await tableExists("error_log_events"))) {
     if (wantJson) {
-      process.stdout.write(JSON.stringify({ ok: true, tableMissing: true, faults: [] }));
+      process.stdout.write(
+        JSON.stringify({
+          ok: true,
+          tableMissing: true,
+          env: envFile,
+          mode: byFixer ? "by-fixer" : "by-fault",
+          ...(byFixer ? { fixers: [] } : { faults: [] }),
+        }),
+      );
     } else {
       console.log(`error_log_events saknas i ${envFile}-databasen.`);
+    }
+    await pool.end();
+    process.exit(0);
+  }
+
+  if (byFixer) {
+    const totals = await pool.query(
+      `select count(*)::int as rows,
+              count(distinct case
+                when fixer is null or btrim(fixer) = '' then $1
+                else fixer
+              end)::int as fixers
+       from error_log_events`,
+      [MISSING_FIXER],
+    );
+
+    // Per-fixer aggregate: total, distinct chats, verbatim result breakdown,
+    // top-3 faults, first/last seen. NULL/blank fixer → «(ingen fixer)».
+    // Trim only for the emptiness test — keep the original id otherwise so
+    // whitespace-padded values (e.g. 'known-fixer ') surface as drift.
+    // Result + fault subqueries are pre-grouped so jsonb_object_agg /
+    // jsonb_agg never see duplicate keys (same Bugbot constraint as --by-fault).
+    const perFixer = await pool.query(
+      `with keyed as (
+         select case
+                  when fixer is null or btrim(fixer) = '' then $2
+                  else fixer
+                end as fixer,
+                fault,
+                coalesce(result, 'unknown') as result_key,
+                chat_id,
+                created_at
+         from error_log_events
+       ),
+       agg as (
+         select fixer,
+                count(*)::int as total,
+                count(distinct chat_id)::int as chats,
+                min(created_at) as first_seen,
+                max(created_at) as last_seen
+         from keyed
+         group by fixer
+       ),
+       breakdown as (
+         select fixer, jsonb_object_agg(result_key, cnt) as result_breakdown
+         from (
+           select fixer, result_key, count(*)::int as cnt
+           from keyed
+           group by fixer, result_key
+         ) s
+         group by fixer
+       ),
+       top_faults as (
+         select fixer,
+                jsonb_agg(
+                  jsonb_build_object('fault', fault, 'count', cnt)
+                  order by cnt desc, fault
+                ) as top_faults
+         from (
+           select fixer, fault, cnt,
+                  row_number() over (partition by fixer order by cnt desc, fault) as rn
+           from (
+             select fixer, fault, count(*)::int as cnt
+             from keyed
+             group by fixer, fault
+           ) f
+         ) ranked
+         where rn <= 3
+         group by fixer
+       )
+       select a.fixer, a.total, a.chats, a.first_seen, a.last_seen,
+              coalesce(b.result_breakdown, '{}'::jsonb) as result_breakdown,
+              coalesce(t.top_faults, '[]'::jsonb) as top_faults
+       from agg a
+       left join breakdown b on b.fixer = a.fixer
+       left join top_faults t on t.fixer = a.fixer
+       order by a.total desc
+       limit $1`,
+      [limit, MISSING_FIXER],
+    );
+
+    const rows = perFixer.rows.map(withResultBuckets);
+
+    if (wantJson) {
+      process.stdout.write(
+        JSON.stringify({
+          ok: true,
+          env: envFile,
+          mode: "by-fixer",
+          totalRows: totals.rows[0].rows,
+          distinctFixers: totals.rows[0].fixers,
+          missingFixerLabel: MISSING_FIXER,
+          fixers: rows,
+        }),
+      );
+    } else {
+      console.log(
+        `fault-matrix --by-fixer (${envFile}) — ${totals.rows[0].rows} rader, ${totals.rows[0].fixers} distinkta fixers\n`,
+      );
+      for (const r of rows) {
+        const breakdown = Object.entries(r.result_breakdown || {})
+          .map(([k, v]) => `${k}:${v}`)
+          .join(" ");
+        const faults = formatTopFaults(r.top_faults);
+        console.log(
+          `${String(r.total).padStart(4)}  ${r.fixer}\n` +
+            `        chats=${r.chats}  fixed=${r.fixed} failed=${r.failed} other=${r.other}` +
+            `  result=[${breakdown}]\n` +
+            `        faults=[${faults || "-"}]  first=${formatIso(r.first_seen)}  last=${formatIso(r.last_seen)}`,
+        );
+      }
     }
     await pool.end();
     process.exit(0);
@@ -148,6 +308,7 @@ try {
       JSON.stringify({
         ok: true,
         env: envFile,
+        mode: "by-fault",
         totalRows: totals.rows[0].rows,
         distinctFaults: totals.rows[0].faults,
         faults: perFault.rows,
