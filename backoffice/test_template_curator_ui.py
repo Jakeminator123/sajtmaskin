@@ -185,6 +185,43 @@ class ReportBindingTests(unittest.TestCase):
         self.assertTrue(page.report_is_fresh(dict(current), current))
         self.assertFalse(page.report_is_fresh(None, current))
 
+    def test_successful_write_absorbs_addendum_status_change(self) -> None:
+        snapshot = self._snapshot()
+        stored = page.build_report_binding(
+            snapshot, (_record("one", addendum_status="missing"),)
+        )
+        current = page.build_report_binding(
+            snapshot, (_record("one", addendum_status="valid"),)
+        )
+        absorbed = page.absorb_addenda_binding_update(
+            stored, current, {"ok": True, "kind": "write"}
+        )
+        self.assertTrue(page.report_is_fresh(absorbed, current))
+
+    def test_check_or_archive_change_does_not_absorb_binding(self) -> None:
+        snapshot = self._snapshot()
+        stored = page.build_report_binding(
+            snapshot, (_record("one", addendum_status="missing"),)
+        )
+        status_changed = page.build_report_binding(
+            snapshot, (_record("one", addendum_status="valid"),)
+        )
+        self.assertIs(
+            page.absorb_addenda_binding_update(
+                stored, status_changed, {"ok": True, "kind": "check"}
+            ),
+            stored,
+        )
+        archive_changed = page.build_report_binding(
+            snapshot, (_record("one", archive_sha="b" * 64),)
+        )
+        self.assertIs(
+            page.absorb_addenda_binding_update(
+                stored, archive_changed, {"ok": True, "kind": "write"}
+            ),
+            stored,
+        )
+
     def test_saved_runner_report_contains_the_same_full_binding(self) -> None:
         record = _record("one")
         snapshot = self._snapshot(

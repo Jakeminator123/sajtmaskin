@@ -240,6 +240,38 @@ def report_is_fresh(stored_binding: Any, current_binding: Mapping[str, Any]) -> 
     ) == current_binding.get("sha256")
 
 
+def _archive_identity(binding: Mapping[str, Any]) -> tuple[Any, ...]:
+    templates = binding.get("templates") or ()
+    rows = []
+    for item in templates:
+        if not isinstance(item, Mapping):
+            rows.append(item)
+            continue
+        rows.append((str(item.get("id")), str(item.get("archiveSha256"))))
+    return (binding.get("extractorSha256"), tuple(rows))
+
+
+def absorb_addenda_binding_update(
+    stored_binding: Any,
+    current_binding: Mapping[str, Any],
+    write_result: Any,
+) -> Any:
+    """Keep the report visible after our own addenda write updates catalog status.
+
+    Archive SHA / extractor / selection still invalidate. Only addendum-status
+    and registry-validity changes from a successful write are absorbed.
+    """
+    if not (
+        isinstance(stored_binding, Mapping)
+        and isinstance(write_result, Mapping)
+        and write_result.get("ok")
+        and write_result.get("kind") == "write"
+        and _archive_identity(stored_binding) == _archive_identity(current_binding)
+    ):
+        return stored_binding
+    return dict(current_binding)
+
+
 def _runner_result(
     repo_root: Path,
     snapshot: Any,
@@ -321,6 +353,33 @@ def _npm_command_tuple(command: str) -> tuple[str, ...]:
 
 def _store_addenda_command_result(kind: str, result: Mapping[str, Any]) -> None:
     st.session_state[_ADDENDA_WRITE_RESULT_KEY] = {**dict(result), "kind": kind}
+
+
+def _render_addenda_command_result() -> None:
+    write_result = st.session_state.get(_ADDENDA_WRITE_RESULT_KEY)
+    if not isinstance(write_result, Mapping):
+        return
+    if write_result.get("ok"):
+        if write_result.get("kind") == "check":
+            st.success(
+                "Addenda-registret är giltigt. Inget skrevs — det här var bara en kontroll."
+            )
+        else:
+            st.success(
+                "Kommandot lyckades. `config/variant-template-addenda.json` är uppdaterad "
+                "i worktreet — committa när du granskat diffen."
+            )
+    else:
+        error = write_result.get("error") or write_result.get("stderrTail") or "okänt fel"
+        st.error(f"Addenda-kommandot misslyckades: {error}")
+    stdout_tail = str(write_result.get("stdoutTail") or "").strip()
+    stderr_tail = str(write_result.get("stderrTail") or "").strip()
+    if stdout_tail:
+        with st.expander("stdout", expanded=False):
+            st.code(stdout_tail, language="text")
+    if stderr_tail:
+        with st.expander("stderr", expanded=not write_result.get("ok")):
+            st.code(stderr_tail, language="text")
 
 
 def _render_profile(profile: Any, record: Any | None) -> None:
@@ -512,29 +571,6 @@ def _render_report(ctx: BackofficeContext, report: Any, snapshot: Any) -> None:
         check_command = _value(report, "addendaCheckCommand", default=None)
         if isinstance(check_command, str) and check_command:
             st.code(check_command, language="bash")
-    write_result = st.session_state.get(_ADDENDA_WRITE_RESULT_KEY)
-    if isinstance(write_result, Mapping):
-        if write_result.get("ok"):
-            if write_result.get("kind") == "check":
-                st.success(
-                    "Addenda-registret är giltigt. Inget skrevs — det här var bara en kontroll."
-                )
-            else:
-                st.success(
-                    "Kommandot lyckades. `config/variant-template-addenda.json` är uppdaterad "
-                    "i worktreet — committa när du granskat diffen."
-                )
-        else:
-            error = write_result.get("error") or write_result.get("stderrTail") or "okänt fel"
-            st.error(f"Addenda-kommandot misslyckades: {error}")
-        stdout_tail = str(write_result.get("stdoutTail") or "").strip()
-        stderr_tail = str(write_result.get("stderrTail") or "").strip()
-        if stdout_tail:
-            with st.expander("stdout", expanded=False):
-                st.code(stdout_tail, language="text")
-        if stderr_tail:
-            with st.expander("stderr", expanded=not write_result.get("ok")):
-                st.code(stderr_tail, language="text")
     st.caption(
         "Om en manuellt granskad post har blivit stale krävs det uttryckliga "
         "tillägget `--refresh-reviewed`; det ersätter manuella utdrag. "
@@ -674,10 +710,18 @@ def render(ctx: BackofficeContext) -> None:
         )
 
     report = st.session_state.get(_REPORT_STATE_KEY)
-    stored_binding = st.session_state.get(_REPORT_BINDING_KEY)
+    stored_binding = absorb_addenda_binding_update(
+        st.session_state.get(_REPORT_BINDING_KEY),
+        current_binding,
+        st.session_state.get(_ADDENDA_WRITE_RESULT_KEY),
+    )
+    if stored_binding is not st.session_state.get(_REPORT_BINDING_KEY):
+        st.session_state[_REPORT_BINDING_KEY] = stored_binding
     if report is None:
+        _render_addenda_command_result()
         return
     if not report_is_fresh(stored_binding, current_binding):
+        _render_addenda_command_result()
         st.warning(
             "Rapporten är stale för det aktuella urvalet, arkiv-SHA:n, extractorn "
             "eller addendum-statusen. Kör analysen igen."
@@ -686,3 +730,4 @@ def render(ctx: BackofficeContext) -> None:
 
     st.success(f"Analysen är bunden till {len(selected_ids)} valda mallar.")
     _render_report(ctx, report, snapshot)
+    _render_addenda_command_result()

@@ -68,6 +68,12 @@ class BackofficeEntrypointContractTests(unittest.TestCase):
         self.assertEqual(call.args, [])
         self.assertEqual(call.keywords, [])
 
+    def test_entrypoint_loads_env_then_env_local(self) -> None:
+        source = CANONICAL_ENTRYPOINT.read_text(encoding="utf-8")
+        env_pos = source.index('load_dotenv(".env", override=False)')
+        local_pos = source.index('load_dotenv(".env.local", override=True)')
+        self.assertLess(env_pos, local_pos)
+
 
 if __name__ == "__main__":
     unittest.main()
