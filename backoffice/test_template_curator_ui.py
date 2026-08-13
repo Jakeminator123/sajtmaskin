@@ -197,6 +197,12 @@ class ReportBindingTests(unittest.TestCase):
             stored, current, {"ok": True, "kind": "write"}
         )
         self.assertTrue(page.report_is_fresh(absorbed, current))
+        self.assertIs(
+            page.absorb_addenda_binding_update(
+                stored, current, {"ok": True, "kind": "write", "absorbed": True}
+            ),
+            stored,
+        )
 
     def test_check_or_archive_change_does_not_absorb_binding(self) -> None:
         snapshot = self._snapshot()

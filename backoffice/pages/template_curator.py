@@ -266,6 +266,7 @@ def absorb_addenda_binding_update(
         and isinstance(write_result, Mapping)
         and write_result.get("ok")
         and write_result.get("kind") == "write"
+        and not write_result.get("absorbed")
         and _archive_identity(stored_binding) == _archive_identity(current_binding)
     ):
         return stored_binding
@@ -349,6 +350,43 @@ def _npm_command_tuple(command: str) -> tuple[str, ...]:
     if len(parts) < 3 or parts[0] != "npm" or parts[1] != "run":
         raise ValueError(f"vägrade köra icke-npm-kommando: {command}")
     return parts
+
+
+def _run_addenda_write_commands(
+    repo_root: Path, commands: tuple[str, ...]
+) -> dict[str, Any]:
+    """Run every runner-owned write command. Fail closed on the first error."""
+
+    if not commands:
+        return {"ok": False, "error": "inga addenda-kommandon att köra"}
+    stdout_parts: list[str] = []
+    stderr_parts: list[str] = []
+    last: dict[str, Any] = {"ok": False}
+    for index, raw in enumerate(commands):
+        command = _npm_command_tuple(raw)
+        result = dict(run_repo_command(repo_root, command, timeout=1200))
+        stdout_parts.append(str(result.get("stdoutTail") or "").strip())
+        stderr_parts.append(str(result.get("stderrTail") or "").strip())
+        if not result.get("ok"):
+            error = (
+                result.get("error")
+                or result.get("stderrTail")
+                or f"kommando {index + 1}/{len(commands)} misslyckades"
+            )
+            return {
+                **result,
+                "ok": False,
+                "error": error,
+                "stdoutTail": "\n\n".join(part for part in stdout_parts if part),
+                "stderrTail": "\n\n".join(part for part in stderr_parts if part),
+            }
+        last = result
+    return {
+        **last,
+        "ok": True,
+        "stdoutTail": "\n\n".join(part for part in stdout_parts if part),
+        "stderrTail": "\n\n".join(part for part in stderr_parts if part),
+    }
 
 
 def _store_addenda_command_result(kind: str, result: Mapping[str, Any]) -> None:
@@ -530,19 +568,19 @@ def _render_report(ctx: BackofficeContext, report: Any, snapshot: Any) -> None:
                 "Skriv addenda för kandidaterna",
                 type="primary",
                 key="template_curator_write_addenda",
-                help="Kör runner-kommandot oförändrat. Hämtar SHA-verifierade ZIP:ar och skriver registret.",
+                help="Kör varje runner-kommando oförändrat. Hämtar SHA-verifierade ZIP:ar och skriver registret.",
             ):
-                try:
-                    command = _npm_command_tuple(candidate_commands[0])
-                except ValueError as exc:
-                    _store_addenda_command_result(
-                        "write", {"ok": False, "error": str(exc)}
-                    )
-                else:
-                    with st.spinner("Skriver variant-template-addenda.json …"):
+                with st.spinner("Skriver variant-template-addenda.json …"):
+                    try:
                         _store_addenda_command_result(
                             "write",
-                            run_repo_command(ctx.repo_root, command, timeout=1200),
+                            _run_addenda_write_commands(
+                                ctx.repo_root, candidate_commands
+                            ),
+                        )
+                    except ValueError as exc:
+                        _store_addenda_command_result(
+                            "write", {"ok": False, "error": str(exc)}
                         )
         with check_col:
             check_command = _value(report, "addendaCheckCommand", default=None)
@@ -710,13 +748,19 @@ def render(ctx: BackofficeContext) -> None:
         )
 
     report = st.session_state.get(_REPORT_STATE_KEY)
+    write_result = st.session_state.get(_ADDENDA_WRITE_RESULT_KEY)
     stored_binding = absorb_addenda_binding_update(
         st.session_state.get(_REPORT_BINDING_KEY),
         current_binding,
-        st.session_state.get(_ADDENDA_WRITE_RESULT_KEY),
+        write_result,
     )
     if stored_binding is not st.session_state.get(_REPORT_BINDING_KEY):
         st.session_state[_REPORT_BINDING_KEY] = stored_binding
+        if isinstance(write_result, Mapping):
+            st.session_state[_ADDENDA_WRITE_RESULT_KEY] = {
+                **dict(write_result),
+                "absorbed": True,
+            }
     if report is None:
         _render_addenda_command_result()
         return

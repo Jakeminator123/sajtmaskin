@@ -11,9 +11,11 @@
 import { existsSync } from "node:fs";
 import { config } from "dotenv";
 
-export function dotenvLoadSpec(): { path?: string; override: boolean }[] {
+export function dotenvLoadSpec(
+  fileExists: (path: string) => boolean = existsSync,
+): { path?: string; override: boolean }[] {
   const spec: { path?: string; override: boolean }[] = [{ override: false }];
-  if (existsSync(".env.local")) {
+  if (fileExists(".env.local")) {
     spec.push({ path: ".env.local", override: true });
   }
   return spec;

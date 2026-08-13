@@ -2,12 +2,11 @@ import { describe, expect, it } from "vitest";
 import { dotenvLoadSpec } from "./load-local-env";
 
 describe("loadLocalEnv", () => {
-  it("lets .env.local override .env when the local file exists", () => {
-    const spec = dotenvLoadSpec();
-    expect(spec[0]).toEqual({ override: false });
-    const local = spec.find((entry) => entry.path === ".env.local");
-    if (local) {
-      expect(local.override).toBe(true);
-    }
+  it("loads .env first, then lets .env.local override when that file exists", () => {
+    expect(dotenvLoadSpec(() => false)).toEqual([{ override: false }]);
+    expect(dotenvLoadSpec((path) => path === ".env.local")).toEqual([
+      { override: false },
+      { path: ".env.local", override: true },
+    ]);
   });
 });
