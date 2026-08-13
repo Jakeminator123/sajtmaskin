@@ -94,6 +94,7 @@ module.exports = {
     markPendingPreviewClientReload: shared.markPendingPreviewClientReload,
     clearPendingPreviewClientReload: shared.clearPendingPreviewClientReload,
     requestPreviewClientReload: shared.requestPreviewClientReload,
+    PREVIEW_CLIENT_RELOAD_PENDING_MS: shared.PREVIEW_CLIENT_RELOAD_PENDING_MS,
     chatIdFromReferer: previewProxy.chatIdFromReferer,
     APP_API_ROOT_PATH_RE: previewProxy.APP_API_ROOT_PATH_RE,
     NEXT_INTERNAL_ROOT_PATH_RE: previewProxy.NEXT_INTERNAL_ROOT_PATH_RE,

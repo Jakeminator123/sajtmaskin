@@ -105,8 +105,10 @@ const activePreviewSocketsByChat = new Map();
 // så utan signal hydrerar gammal JS mot den nya processens HTML. Pending-flaggan
 // fångar HMR-reconnects efter att proxade sockets dog med den gamla processen.
 // Fail-safe: ingen socket / misslyckad write = samma beteende som före fixen.
+// Pending måste överleva default install (10 min) + readiness (upp till 10 min
+// på Fly). 20 min är en backstop; lyckad reloadPage rensar tidigare.
 const pendingPreviewClientReloadByChat = new Map();
-const PREVIEW_CLIENT_RELOAD_PENDING_MS = 30_000;
+const PREVIEW_CLIENT_RELOAD_PENDING_MS = 20 * 60 * 1000;
 const PREVIEW_CLIENT_RELOAD_PAYLOAD = JSON.stringify({
   type: "reloadPage",
   action: "reloadPage",
@@ -644,6 +646,7 @@ module.exports = {
   markPendingPreviewClientReload,
   clearPendingPreviewClientReload,
   requestPreviewClientReload,
+  PREVIEW_CLIENT_RELOAD_PENDING_MS,
   nowIso,
   getSessionChatId,
   safeChatKey,

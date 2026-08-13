@@ -1500,6 +1500,11 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     check("reload write failure does not fail the restart boot", bootThrew === false);
     clearRuntimeStateForTesting(boomChat, boomSession.sessionId);
     clearPendingPreviewClientReload(boomChat);
+
+    check(
+      "pending reload outlasts the default 10 min install timeout",
+      runtime.__testing.PREVIEW_CLIENT_RELOAD_PENDING_MS >= 10 * 60 * 1000,
+    );
   } finally {
     setBootRunnerForTesting(null);
   }
