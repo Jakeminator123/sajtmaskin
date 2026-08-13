@@ -123,6 +123,67 @@ function activePreviewSocketCount(chatId) {
   return activePreviewSocketsByChat.get(chatId)?.size ?? 0;
 }
 
+/**
+ * Server→client WebSocket text frame (RFC 6455). Unmasked — servers must not
+ * mask. Used to poke Next's already-connected HMR client on a held stub.
+ */
+function encodeWebSocketTextFrame(payload) {
+  const data = Buffer.from(String(payload), "utf8");
+  const len = data.length;
+  let header;
+  if (len < 126) {
+    header = Buffer.alloc(2);
+    header[0] = 0x81;
+    header[1] = len;
+  } else if (len < 65536) {
+    header = Buffer.alloc(4);
+    header[0] = 0x81;
+    header[1] = 126;
+    header.writeUInt16BE(len, 2);
+  } else {
+    header = Buffer.alloc(10);
+    header[0] = 0x81;
+    header[1] = 127;
+    header.writeBigUInt64BE(BigInt(len), 2);
+  }
+  return Buffer.concat([header, data]);
+}
+
+/**
+ * Tell every open preview socket for `chatId` to full-reload.
+ *
+ * The iframe keeps a stable preview URL; a runtime restart therefore leaves
+ * the already-loaded document in place. Next's app-router HMR client is
+ * connected to the host-held stub (`acceptAndHoldWebSocket`) and reloads the
+ * page when it receives `{ type: "reloadPage" }`. That is the existing
+ * iframe channel — not a new UI surface.
+ *
+ * @returns {number} sockets that accepted the frame
+ */
+function notifyPreviewClientsToReload(chatId) {
+  if (!chatId) return 0;
+  const sockets = activePreviewSocketsByChat.get(chatId);
+  if (!sockets || sockets.size === 0) return 0;
+  const frame = encodeWebSocketTextFrame(
+    JSON.stringify({ type: "reloadPage", action: "reloadPage" }),
+  );
+  let sent = 0;
+  for (const socket of [...sockets]) {
+    if (!socket || socket.destroyed) continue;
+    try {
+      socket.write(frame);
+      sent += 1;
+    } catch {
+      try {
+        socket.destroy();
+      } catch {
+        /* already closed */
+      }
+    }
+  }
+  return sent;
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -566,6 +627,8 @@ module.exports = {
   runInInstallSlot,
   registerPreviewSocket,
   activePreviewSocketCount,
+  encodeWebSocketTextFrame,
+  notifyPreviewClientsToReload,
   nowIso,
   getSessionChatId,
   safeChatKey,

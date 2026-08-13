@@ -17,6 +17,7 @@ const {
   inflightBootByChat,
   isHmrProxyEnabled,
   nowIso,
+  notifyPreviewClientsToReload,
   resolvePortForChat,
   runIdResolverFromSession,
   runtimeChildren,
@@ -491,6 +492,23 @@ async function stopRuntimeForSession(session) {
   await stopTrackedRuntime(session.sessionId, session.previewSessionId);
 }
 
+function exposeRuntimeToClients(session, { restart = false, runtimePort = null } = {}) {
+  const chatId = getSessionChatId(session);
+  const latest = findSessionByChatId(readStoreSync(), chatId);
+  if (!latest || latest.versionId !== session.versionId) return false;
+  const tracked = runtimeChildren.get(session.sessionId);
+  if (!tracked || tracked.child?.exitCode !== null) return false;
+  if (runtimePort != null && tracked.port !== runtimePort) return false;
+  // Reload first while traffic is still gated. Held HMR stubs are the open
+  // iframe; flipping acceptingTraffic first would let a racy JS fetch hit the
+  // new build before the document is discarded.
+  if (restart) {
+    notifyPreviewClientsToReload(chatId);
+  }
+  tracked.acceptingTraffic = true;
+  return true;
+}
+
 async function spawnDevServer(session, workspaceDir, runtimePort) {
   // Defense-in-depth (prod-incident 2026-07-03): never overwrite a live
   // tracked child. `runtimeChildren.set` below would orphan the previous
@@ -539,6 +557,10 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     // Idle-reaper: stämplas om vid varje proxad request/WS-upgrade. Boot räknas
     // som aktivitet så en nystartad runtime inte reapas innan iframen hunnit in.
     lastActivityAt: Date.now(),
+    // SM-044: process may be alive while waitForReady has not passed. The
+    // proxy must not forward app HTML/JS until this flips, or an open iframe
+    // can hydrate old markup against the new build.
+    acceptingTraffic: false,
     // (D) Ringbuffert av senaste Next.js-output. Live-loggning av allt dev-brus
     // (HMR m.m.) skulle flooda store:n; vi behåller bara en tail i minnet och
     // flushar den vid onormal exit så boot-/runtime-fel blir synliga.
@@ -628,6 +650,9 @@ async function bootRuntimeForSession(session, options = {}) {
   }
   if (restart) {
     await stopRuntimeForSession(session);
+    // Discard the already-loaded iframe document before the new process can
+    // serve JS. The held HMR stub is still open after stop (it is host-owned).
+    notifyPreviewClientsToReload(getSessionChatId(session));
   } else {
     const existing = runtimeChildren.get(session.sessionId);
     if (existing && existing.child.exitCode === null) {
@@ -737,12 +762,13 @@ async function bootRuntimeForSession(session, options = {}) {
               stored.updatedAt = nowIso();
             }),
           )
-          .then(() =>
-            appendRuntimeLog(
+          .then(() => {
+            exposeRuntimeToClients(session, { restart, runtimePort });
+            return appendRuntimeLog(
               session.previewSessionId,
               `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
-            ),
-          )
+            );
+          })
           .catch((err) => {
             const message = err instanceof Error ? err.message : "unknown readiness failure";
             return updateSessionById(session.sessionId, (stored) => {
@@ -759,12 +785,13 @@ async function bootRuntimeForSession(session, options = {}) {
           });
       } else {
         void readiness
-          .then(() =>
-            appendRuntimeLog(
+          .then(() => {
+            exposeRuntimeToClients(session, { restart: false, runtimePort });
+            return appendRuntimeLog(
               session.previewSessionId,
               `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
-            ),
-          )
+            );
+          })
           .catch((err) =>
             appendRuntimeLog(
               session.previewSessionId,
@@ -941,6 +968,7 @@ function getRuntimeStateForChat(chatId) {
       running: false,
       booting: false,
       persistedStarting: false,
+      acceptingTraffic: false,
       runtimePort: null,
     };
   }
@@ -954,6 +982,7 @@ function getRuntimeStateForChat(chatId) {
     running,
     booting,
     persistedStarting: session.status === "starting",
+    acceptingTraffic: Boolean(running && tracked && tracked.acceptingTraffic !== false),
     runtimePort: tracked?.port ?? (Number.isFinite(Number(session.runtimePort)) ? Number(session.runtimePort) : null),
   };
 }
@@ -1028,6 +1057,7 @@ function setRuntimeStateForTesting(params) {
       chatId: params.chatId,
       previewSessionId: params.previewSessionId ?? "",
       lastActivityAt: Date.now(),
+      acceptingTraffic: params.acceptingTraffic !== false,
     });
   } else {
     runtimeChildren.delete(sessionId);
@@ -1061,6 +1091,7 @@ module.exports = {
   RUNTIME_BOOT_FAILURE_WINDOW_MS,
   htmlLooksLikeBuildError,
   waitForReady,
+  exposeRuntimeToClients,
   stopTrackedRuntime,
   stopRuntimeForSession,
   bootRuntimeForSession,

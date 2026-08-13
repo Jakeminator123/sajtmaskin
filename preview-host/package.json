@@ -13,7 +13,8 @@
     "smoke": "node scripts/smoke.js",
     "test:patch": "node scripts/test-patch.mjs",
     "test:proxy-contract": "node scripts/test-preview-proxy-contract.mjs",
-    "test:guards": "node scripts/test-runtime-guards.mjs && node scripts/test-prewarm-guards.mjs && node scripts/test-patch-lane-contract.mjs && npm run test:proxy-contract"
+    "test:swap-reload": "node scripts/test-runtime-swap-reload.mjs",
+    "test:guards": "node scripts/test-runtime-guards.mjs && node scripts/test-prewarm-guards.mjs && node scripts/test-patch-lane-contract.mjs && npm run test:proxy-contract && npm run test:swap-reload"
   },
   "dependencies": {
     "acorn": "^8.16.0",
