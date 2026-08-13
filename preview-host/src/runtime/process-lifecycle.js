@@ -11,6 +11,8 @@ const {
   LOOPBACK,
   activePreviewSocketCount,
   activeVerifyChatKeys,
+  markPendingPreviewClientReload,
+  requestPreviewClientReload,
   appendRuntimeLog,
   findSessionByChatId,
   getSessionChatId,
@@ -906,6 +908,37 @@ function ensureRuntimeForChat(chatId, options = {}) {
       const data = readStoreSync();
       const session = findSessionByChatId(data, chatId);
       if (!session) return null;
+      if (restart) {
+        // SM-044: stop the old process first so a document reload cannot mix
+        // HTML from the dying runtime with JS from the next one, then tell any
+        // still-open iframe (HMR stub or reconnect) to reload. Missing filesJson
+        // lets bootRuntimeForSession throw without killing a healthy preview.
+        const canReplaceRuntime =
+          session.filesJson && typeof session.filesJson === "object";
+        if (canReplaceRuntime) {
+          // Open HMR sockets are the common case, but the iframe can still be
+          // showing the old document while the socket is mid-reconnect (HMR
+          // proxy tears it down with the dying Next process). A tracked child
+          // or an assigned runtimePort means this is a swap, not a fresh boot
+          // — mark pending so a late registerPreviewSocket still gets reloadPage.
+          const openClient = activePreviewSocketCount(chatId) > 0;
+          const hadTrackedRuntime = runtimeChildren.has(session.sessionId);
+          const hadAssignedPort =
+            Number.isFinite(Number(session.runtimePort)) && Number(session.runtimePort) > 0;
+          const shouldSignalClient = openClient || hadTrackedRuntime || hadAssignedPort;
+          if (shouldSignalClient) markPendingPreviewClientReload(chatId);
+          await stopRuntimeForSession(session);
+          if (shouldSignalClient) {
+            const signaled = requestPreviewClientReload(chatId);
+            await appendRuntimeLog(
+              session.previewSessionId,
+              signaled.sent > 0
+                ? `Signaled preview client reload after runtime stop (${signaled.sent} open socket(s)).`
+                : "Runtime stopped under an open preview; reload pending until HMR reconnects.",
+            );
+          }
+        }
+      }
       const result = await bootRunnerForChat(session, options);
       return { session, runtimePort: result.runtimePort };
     });

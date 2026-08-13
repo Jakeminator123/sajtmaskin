@@ -12,6 +12,7 @@ const {
   LOOPBACK,
   findSessionByChatId,
   getSessionChatId,
+  hasPendingPreviewClientReload,
   isHmrProxyEnabled,
   registerPreviewSocket,
   routeInfoFromPathname,
@@ -454,7 +455,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
     if (acceptAndHoldWebSocket(req, socket)) {
       // Även en host-hållen stub-socket betyder "en iframe är öppen" — räkna
       // den så idle-reapern inte stoppar en runtime någon tittar på.
-      registerPreviewSocket(info.chatId, socket);
+      registerPreviewSocket(info.chatId, socket, { handshakeComplete: true });
       return true;
     }
     // Malformed upgrade request (no Sec-WebSocket-Key); close the socket.
@@ -465,8 +466,10 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   // ett `proxy.ws` mot en ej-lyssnande port ge ECONNREFUSED → destroy →
   // klientens HMR-reconnect-storm (syns som Fly `[PU02] connection closed`-spam
   // under hela reboot-fönstret). Vänta i stället en boot (om ingen redan pågår)
-  // och håll socketen tyst tills runtimen är uppe; nästa full-reload via
-  // refreshToken plockar upp det nya innehållet.
+  // och håll socketen tyst tills runtimen är uppe. Ett runtime-byte under en
+  // öppen iframe (SM-044) skickar reloadPage på dessa sockets så klienten inte
+  // hydrerar gammal JS mot den nya processens HTML; refreshToken täcker nya
+  // generationer som buildern redan känner till.
   if (isHmrProxyEnabled() && isHmrPath(info.restPath)) {
     // Unknown session: there is no preview session for this chatId, so there is
     // nothing to boot or hold open for. Close the socket instead of holding a
@@ -480,7 +483,19 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
     if (!state.running) {
       if (!state.booting) queueRuntimeBoot(info.chatId);
       if (acceptAndHoldWebSocket(req, socket)) {
-        registerPreviewSocket(info.chatId, socket);
+        registerPreviewSocket(info.chatId, socket, { handshakeComplete: true });
+        return true;
+      }
+      try { socket.destroy(); } catch { /* already closed */ }
+      return true;
+    }
+    // SM-044: the replacement runtime may already be listening, but the iframe
+    // still has the previous document. Proxying this upgrade would complete
+    // Next's handshake without ever sending reloadPage. Stub, signal, and let
+    // the reloaded page connect to live HMR on the next upgrade.
+    if (hasPendingPreviewClientReload(info.chatId)) {
+      if (acceptAndHoldWebSocket(req, socket)) {
+        registerPreviewSocket(info.chatId, socket, { handshakeComplete: true });
         return true;
       }
       try { socket.destroy(); } catch { /* already closed */ }
