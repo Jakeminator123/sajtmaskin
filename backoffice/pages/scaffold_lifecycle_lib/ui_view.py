@@ -154,9 +154,11 @@ def _render_pipeline_tools(ctx: BackofficeContext) -> None:
     )
 
     st.info(
-        "Den gamla `scaffold_cli.py`-pipen avvecklades 2026-04-17. Variant-underhåll "
-        "sker nu från terminalen:\n\n"
-        "- `npm run scaffolds:variant-embeddings` — bygg om embeddings för alla 21 variants\n"
+        "Den gamla `scaffold_cli.py`-pipen avvecklades 2026-04-17. "
+        "Efter skapa/ändra: använd **index-grinden** högst upp (kräver Blob). "
+        "Terminalen är fallback, alltid med `--require-blob`:\n\n"
+        "- `npm run scaffolds:embeddings -- --require-blob` — ny scaffold i Auto-match\n"
+        "- `npm run scaffolds:variant-embeddings -- --require-blob` — ny/ändrad variant\n"
         "- `npm run scaffolds:variant-patterns` — AI-curate `signaturePatterns`\n"
         "- `npm run dossiers:curate -- --reference=<id> --class=<hard|soft> --id=<new>` — "
         "AI-curate ett nytt dossier-utkast från `data/template-references/repos/`. "

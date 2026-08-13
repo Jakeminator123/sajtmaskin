@@ -950,8 +950,10 @@ def render(ctx: BackofficeContext) -> None:
     render_building_blocks_nav(PAGE_NAME)
     st.markdown(
         "Här skapar och klonar du **scaffolds** (startpunkter) och **varianter** "
-        "(det visuella uttrycket inom en scaffold). Radering och "
-        "fabriksåterställning ligger i en egen farlig zon."
+        "(det visuella uttrycket inom en scaffold). Efter skapa/ändra måste "
+        "matchningen indexeras till Vercel Blob (grinden högst upp) — utan det "
+        "pekar Auto-match fel. Radering och fabriksåterställning ligger i en "
+        "egen farlig zon."
     )
     render_save_scope(
         "repo",
@@ -974,11 +976,10 @@ def render(ctx: BackofficeContext) -> None:
         )
         st.markdown("- Validera efter ändring: `npm run scaffolds:validate`")
 
-    # Post-action-noten ligger utanför tabbarna: create/edit/delete bor numera i
-    # var sin tabb, och `st.rerun()` landar alltid på den första. Renderades noten
-    # inne i en tabb skulle "kör om embeddings"-påminnelsen bli osynlig.
-    _render_flashed_note()
+    # Index-grinden först (knapparna), sedan flash-noten som pekar på dem.
+    # Båda ligger utanför tabbarna: `st.rerun()` landar alltid på första tabben.
     render_index_gate(ctx)
+    _render_flashed_note()
 
     # Tabbarna följer verben: var tittar jag / var skapar jag / var ändrar jag /
     # var är det farligt / vad kör jag efteråt.

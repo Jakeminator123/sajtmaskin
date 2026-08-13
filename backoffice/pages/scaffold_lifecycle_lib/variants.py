@@ -302,8 +302,7 @@ def _variant_integrity_errors(
     (``sourceTemplateIds`` existence, runtime eligibility and addenda are
     covered by ``_validate_variant_payload``. Embeddings-index membership is
     intentionally NOT checked here: a new entry needs an embedding vector —
-    the flow tells the operator to run ``npm run scaffolds:variant-embeddings``
-    instead.)
+    the Backoffice index gate runs ``scaffolds:variant-embeddings --require-blob``.)
     """
     errors: list[str] = []
     if require_signature_patterns and not _signature_patterns_ok(payload):

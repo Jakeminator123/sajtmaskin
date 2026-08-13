@@ -1345,7 +1345,7 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
                 st.caption("(ingen output)")
 
     st.divider()
-    if validation_passed:
+    if integrity_passed:
         st.caption(
             "Kvar manuellt: granska diffen och committa när du är nöjd. Ångra allt? "
             "Fliken **Farlig zon** i **Scaffolds & varianter** återställer till "
@@ -1353,8 +1353,8 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
         )
     else:
         st.caption(
-            "Kör efter-stegen tills **3. Validera** är grön. Granska och committa "
-            "inte en halvfärdig variant."
+            "Kör efter-stegen tills matchningen är publicerad till Blob och Validera är grön. "
+            "Granska och committa inte en halvfärdig variant — Auto-match pekar fel utan index."
         )
     if st.button("Skapa en till variant / börja om"):
         for key in (

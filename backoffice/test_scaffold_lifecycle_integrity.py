@@ -1242,6 +1242,10 @@ class PostCreateStatusTests(unittest.TestCase):
         self.assertGreater(status_pos, button_pos)
         self.assertIn("integrity_passed = _post_create_integrity_passed(results, steps)", source)
         self.assertIn("status_slot", source)
+        divider_pos = source.find("st.divider()")
+        self.assertGreater(divider_pos, button_pos)
+        self.assertIn("if integrity_passed:", source[divider_pos:])
+        self.assertNotIn("tills **3. Validera** är grön", source)
 
     def test_mutation_invalidates_an_earlier_green_validation(self) -> None:
         results = {

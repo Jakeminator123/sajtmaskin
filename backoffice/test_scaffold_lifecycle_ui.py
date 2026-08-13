@@ -561,5 +561,20 @@ class PlannedWritesTests(unittest.TestCase):
                 self.assertIn("BLOB_READ_WRITE_TOKEN", rendered)
 
 
+class PipelineToolsCopyTests(unittest.TestCase):
+    def test_maintenance_tab_points_at_blob_index_gate(self) -> None:
+        source = inspect.getsource(sl._render_pipeline_tools)
+        self.assertIn("index-grinden", source)
+        self.assertIn("--require-blob", source)
+        self.assertNotIn("sker nu från terminalen", source)
+
+    def test_index_gate_renders_before_flash_note(self) -> None:
+        source = inspect.getsource(sl.render)
+        gate_pos = source.find("render_index_gate(ctx)")
+        flash_pos = source.find("_render_flashed_note()")
+        self.assertGreater(gate_pos, -1)
+        self.assertGreater(flash_pos, gate_pos)
+
+
 if __name__ == "__main__":
     unittest.main()
