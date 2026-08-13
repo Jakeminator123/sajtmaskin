@@ -776,9 +776,11 @@ type ParamAliasScope = {
 
 /**
  * Quote-aware balanced close for `{` / `(` / `[`. Copied in spirit from
- * `extractArrayBody` (sync-nav-from-route-plan) / `findBalancedRange`
- * (home-route-analysis): depth count, skip quoted spans, return null on
- * mismatch/EOF so callers can fail closed.
+ * `extractArrayBody` (`src/lib/gen/scaffolds/sync-nav-from-route-plan.ts`)
+ * and `findBalancedRange`
+ * (`src/lib/gen/stream/finalize-preflight/home-route-analysis.ts`): depth
+ * count, skip quoted spans, return null on mismatch/EOF so callers can
+ * fail closed.
  */
 function findBalancedClose(source: string, openIndex: number): number | null {
   const open = source[openIndex];
