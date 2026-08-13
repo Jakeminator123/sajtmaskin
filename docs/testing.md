@@ -161,7 +161,9 @@ här lanen får inte vara det — kopiera inte flaggan hit.
 | Läge | Databas |
 |---|---|
 | Lokalt | Dev-Supabase via `.env.local` (testet laddar filen självt) |
-| CI (`quality`-jobbet) | Efemär `postgres:16`-service som föds och dör med jobbet, `POSTGRES_HOST_AUTH_METHOD=trust` (inget lösenord i en committad fil), följd av `npm run db:init` |
+| CI (`quality`-jobbet) | Efemär vanilla `postgres:16` (ingen Supabase-`service_role`) + `POSTGRES_HOST_AUTH_METHOD=trust`, följd av `npm run db:init` |
+
+`db:init` skapar `service_role` som `NOLOGIN` så `CREATE POLICY … TO postgres, service_role` kan köras; testerna ansluter fortfarande som `postgres`. Healthcheck är `pg_isready -U postgres` — utan `-U` loggar containern `FATAL: role "root" does not exist` var 10:e sekund under hela jobbet (inte bara i starten). `trust` är medvetet: efemär localhost-container, och ett inbäddat lösenord i en committad fil är det mönster GitGuardian flaggar.
 
 Dev-Supabase används **inte** i CI: varje PR hade skrivit i en delad databas och
 samtidiga PR:er kunnat kollidera.

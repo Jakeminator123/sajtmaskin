@@ -6,6 +6,7 @@ import { assertSafeWriteTarget, normalizeEnvUrl } from "./db-target-guard.mjs";
 import { resolveMigrationRunOrder, isAlreadyExistsError } from "./migration-order.mjs";
 import { ensureMigrationLedger, recordAppliedMigration } from "./migration-ledger.mjs";
 import { resolveSslConfig } from "./db-ssl.mjs";
+import { isIgnorableRlsError } from "./rls-errors.mjs";
 
 config({ path: ".env.local" });
 
@@ -768,14 +769,29 @@ async function run() {
     await pool.query(updatedAtFunction);
     for (const q of updatedAtTriggers) await pool.query(q);
 
+    // Vanilla postgres:16 (CI) has no Supabase `service_role`. CREATE POLICY
+    // … TO postgres, service_role needs the role to exist. NOLOGIN: emulate
+    // the name for policy grants; do not grant login. Testers keep connecting
+    // as `postgres`. Idempotent — a no-op on Supabase where the role exists.
+    await pool.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+          CREATE ROLE service_role NOLOGIN;
+        END IF;
+      END $$;
+    `);
+
     const rlsQueries = buildRlsQueries();
     for (const q of rlsQueries) {
       try {
         await pool.query(q);
       } catch (rlsErr) {
-        // Non-fatal: table may not exist yet (engine tables only on PG engine)
-        if (!rlsErr.message?.includes("does not exist")) {
-          console.warn(`[RLS] Warning for query: ${rlsErr.message}`);
+        // Missing table (42P01) is the only skip: ALTER TABLE IF EXISTS
+        // already guards ENABLE RLS, but CREATE POLICY inside the DO-block
+        // still errors if the relation is absent. Role-missing (42704) and
+        // everything else must abort — otherwise quality stays green.
+        if (!isIgnorableRlsError(rlsErr)) {
+          throw rlsErr;
         }
       }
     }
