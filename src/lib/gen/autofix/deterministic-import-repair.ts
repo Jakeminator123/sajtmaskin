@@ -1,11 +1,15 @@
 /**
  * Deterministic, diagnostic-driven import repair — runs BEFORE the LLM fixer
- * in BOTH import-repair entrypoints:
+ * in THREE import-repair entrypoints:
  *
  *   - finalize normalize: `validateAndFix()` (`autofix/validate-and-fix.ts`)
  *     when the warm-tsc pass fails, before `runLlmRepairGate`;
  *   - server repair: `runRepairLoop()` (`verify/repair-loop.ts`) on the
- *     quality-gate diagnostics, before the LLM passes.
+ *     quality-gate diagnostics, before the LLM passes;
+ *   - verifier-phase: `runVerifierPhase()` translates F2 verifier findings
+ *     (`undefined-jsx-symbol`, `missing-imports-runtime`, …) into synthetic
+ *     `Cannot find name 'X'` diagnostics so F2-init (which skips warm-tsc)
+ *     still reaches this catalog.
  *
  * Why this exists (prod telemetry, 2026-06/07): 84% of typecheck failures are
  * import handling — TS2304 "Cannot find name" for KNOWN imports (Badge,

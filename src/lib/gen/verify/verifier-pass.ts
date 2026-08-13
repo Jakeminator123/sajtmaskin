@@ -545,6 +545,104 @@ export function parseUndefinedJsxSymbolFinding(finding: {
   return { file: match[1].trim(), symbol: match[2] };
 }
 
+/** LLM finding ids for the missing-import class (`missing-imports-runtime`, `missing-resend-import`, …). */
+const MISSING_IMPORT_CLASS_ID_RE = /^missing-[a-z0-9-]*imports?(?:-[a-z0-9-]+)?$/i;
+/** Deterministic/build-lane ids for the same class (`build-breaking-missing-imports`, …). */
+const BUILD_IMPORT_CLASS_ID_RE = /^build-[a-z-]*imports?$/i;
+
+/**
+ * True for verifier findings that claim a symbol is used without an import.
+ * `import-name-collision` is deliberately excluded — a collision is not an
+ * absence, so it must not be routed to the known-import catalog.
+ */
+export function isMissingImportClassFindingId(id: string): boolean {
+  const normalized = id.trim().toLowerCase();
+  if (normalized === "undefined-jsx-symbol") return true;
+  if (normalized === "import-name-collision") return false;
+  return MISSING_IMPORT_CLASS_ID_RE.test(normalized) || BUILD_IMPORT_CLASS_ID_RE.test(normalized);
+}
+
+const IMPORT_REPAIR_FILE_RE =
+  /(?:^|[\s`"'(\[-])((?:[A-Za-z0-9_.@\[\]-]+\/)*[A-Za-z0-9_.\[\]-]+\.(?:tsx|ts|jsx|js|mjs|cjs))(?=$|[\s`"'):\],])/;
+
+const IMPORT_REPAIR_SYMBOL_STOP_WORDS = new Set([
+  "it",
+  "its",
+  "the",
+  "a",
+  "an",
+  "this",
+  "that",
+  "these",
+  "those",
+  "them",
+  "from",
+  "for",
+  "and",
+  "nor",
+  "or",
+  "of",
+  "in",
+  "is",
+  "are",
+  "was",
+  "any",
+  "anything",
+  "something",
+  "one",
+]);
+
+const IMPORT_REPAIR_SYMBOL_RES: readonly RegExp[] = [
+  /\buses\s+[`<]{0,2}([A-Za-z_$][\w$]*)/gi,
+  /\b(?:import|imports|imported|importing)\s+[`<]{0,2}([A-Za-z_$][\w$]*)/gi,
+  /`<?([A-Za-z_$][\w$]*)\s*\/?>?`\s+is\s+(?:used|referenced|missing|undefined|neither|not|never)/gi,
+];
+
+/**
+ * Translate a verifier finding into `{ file, symbol }` refs the deterministic
+ * import repair can consume as synthetic `Cannot find name 'X'` diagnostics.
+ *
+ * Covers `undefined-jsx-symbol` (canonical wording only — the DOM-interface
+ * variant stays with `dom-builtin-jsx-fixer`) and LLM/build missing-import
+ * ids (`missing-imports-runtime`, `build-breaking-missing-imports`, …).
+ * Returns `[]` when the finding is not an import-absence claim or cannot
+ * be parsed — the residue still reaches the LLM gate.
+ */
+export function parseImportRepairRefsFromFinding(finding: {
+  id: string;
+  detail: string;
+}): Array<{ file: string; symbol: string }> {
+  if (finding.id === "undefined-jsx-symbol") {
+    const parsed = parseUndefinedJsxSymbolFinding(finding);
+    return parsed ? [parsed] : [];
+  }
+  if (!isMissingImportClassFindingId(finding.id)) return [];
+
+  const bulletLines = finding.detail
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "));
+  const segments = bulletLines.length > 0 ? bulletLines : [finding.detail];
+  const refs: Array<{ file: string; symbol: string }> = [];
+  for (const segment of segments) {
+    const fileMatch = segment.match(IMPORT_REPAIR_FILE_RE);
+    if (!fileMatch?.[1]) continue;
+    const file = fileMatch[1];
+    const symbols = new Set<string>();
+    for (const pattern of IMPORT_REPAIR_SYMBOL_RES) {
+      pattern.lastIndex = 0;
+      for (const match of segment.matchAll(pattern)) {
+        const symbol = match[1];
+        if (!symbol) continue;
+        if (IMPORT_REPAIR_SYMBOL_STOP_WORDS.has(symbol.toLowerCase())) continue;
+        symbols.add(symbol);
+      }
+    }
+    for (const symbol of symbols) refs.push({ file, symbol });
+  }
+  return refs;
+}
+
 export function checkUndefinedJsxSymbols(
   files: Array<Pick<CodeFile, "path" | "content">>,
   options: { maxFindings?: number } = {},
@@ -625,6 +723,24 @@ export function checkUndefinedJsxSymbols(
  */
 const ALWAYS_IN_SCOPE = new Set<string>(["React", "Fragment"]);
 
+/**
+ * Bindings introduced by `{ A, B: C, ...rest = Default }`. Nested object/array
+ * patterns are skipped — we'd rather miss a nested alias than invent names.
+ */
+function addObjectDestructureBindings(body: string | undefined, declared: Set<string>): void {
+  if (!body || body.includes("{") || body.includes("[")) return;
+  for (const part of body.split(",")) {
+    let trimmed = part.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith("...")) trimmed = trimmed.slice(3).trim();
+    const eq = trimmed.indexOf("=");
+    if (eq !== -1) trimmed = trimmed.slice(0, eq).trim();
+    const alias = trimmed.split(/\s*:\s*/).pop();
+    const id = alias?.trim();
+    if (id && /^[A-Za-z_$][\w$]*$/.test(id)) declared.add(id);
+  }
+}
+
 function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
   const declared = new Set<string>();
 
@@ -673,15 +789,24 @@ function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
   // Object-destructured consts: `const { A, B: C } = obj;`
   const OBJECT_DESTRUCT_RE = /\b(?:const|let|var)\s*\{([^}]+)\}\s*=/g;
   while ((m = OBJECT_DESTRUCT_RE.exec(scrubbedSource)) !== null) {
-    const body = m[1];
-    if (!body) continue;
-    for (const part of body.split(",")) {
-      const trimmed = part.trim();
-      if (!trimmed) continue;
-      const alias = trimmed.split(/\s*:\s*/).pop();
-      const id = alias?.trim();
-      if (id && /^[A-Za-z_$][\w$]*$/.test(id)) declared.add(id);
-    }
+    addObjectDestructureBindings(m[1], declared);
+  }
+
+  // Parameter object-destructure in function heads (prod 2026-08-13
+  // Offertlyftet chat 759ad7e2): `function StatsCard({ icon: Icon }: Props)`
+  // and `const StatsCard = ({ icon: Icon }: Props) => …`. Alias collection
+  // already covered `const { icon: Icon } = …` but not parameter lists, so
+  // `<Icon />` was flagged as `undefined-jsx-symbol`. Nested destructure is
+  // skipped — same conservative rule as the const form.
+  const FN_PARAM_OBJECT_DESTRUCT_RE =
+    /\b(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s*\*?\s*(?:[A-Za-z_$][\w$]*)?\s*(?:<[^<>]*>)?\s*\(\s*\{([^}]+)\}/g;
+  while ((m = FN_PARAM_OBJECT_DESTRUCT_RE.exec(scrubbedSource)) !== null) {
+    addObjectDestructureBindings(m[1], declared);
+  }
+  const ARROW_PARAM_OBJECT_DESTRUCT_RE =
+    /\(\s*\{([^}]+)\}(?:\s*:\s*[^)=]+)?\s*\)\s*(?::\s*[^=()]+)?\s*=>/g;
+  while ((m = ARROW_PARAM_OBJECT_DESTRUCT_RE.exec(scrubbedSource)) !== null) {
+    addObjectDestructureBindings(m[1], declared);
   }
 
   // Array-destructured consts: `const [A, B = Default, ...rest] = tuple;`

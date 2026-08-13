@@ -90,6 +90,7 @@ vi.mock("@/lib/gen/verify/verifier-pass", () => ({
   // the finalize tests keep exercising the LLM repair loop unchanged; the
   // pre-fix behaviour has its own focused suite in `verifier-phase.test.ts`.
   parseUndefinedJsxSymbolFinding: () => null,
+  parseImportRepairRefsFromFinding: () => [] as Array<{ file: string; symbol: string }>,
   checkUndefinedJsxSymbols: () => [],
   // Tier-3 policy filter — inert here (identity) so these tests keep asserting
   // the unfiltered verifier→repair flow. Its own behaviour is covered in

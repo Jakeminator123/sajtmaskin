@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Focused suite for the deterministic import pre-fix in `runVerifierPhase`
- * (prod incident 2026-07-03, chat e8420220): `undefined-jsx-symbol` findings
- * for KNOWN imports (Link → next/link, Button/Badge → shadcn) must be
- * resolved mechanically via `runDeterministicImportRepair` BEFORE the LLM
- * repair gate, so a slow/timed-out LLM call can never leave trivially
- * fixable missing imports blocking the version.
+ * `undefined-jsx-symbol` AND LLM `missing-imports-runtime` findings
+ * for KNOWN imports (Link → next/link, toast → sonner, FormEvent → react
+ * type, z → zod, Button/Badge → shadcn) must be resolved mechanically via
+ * `runDeterministicImportRepair` BEFORE the LLM repair gate, so a
+ * skipWarmTsc F2-init (and a slow/timed-out LLM call) can never leave
+ * trivially fixable missing imports blocking the version.
  *
  * `runVerifierPass` is mocked (no LLM); the parse/scan/repair helpers are
  * the real implementations.
@@ -341,6 +342,140 @@ export function ContactForm() {
       "in-progress",
       expect.objectContaining({ type: "verifier-pass.deterministic-import-fix" }),
     );
+  });
+
+  // Prod 2026-08-13 Offertlyftet chat 759ad7e2 init v1: F2-verifier emitted
+  // `missing-imports-runtime` for toast/z/FormEvent. The known-import catalog
+  // already maps those names, but the verifier-phase pre-fix only translated
+  // `undefined-jsx-symbol` findings — so F2-init (skipWarmTsc) never reached
+  // the catalog and the version failed.
+  it("resolves missing-imports-runtime toast/z/FormEvent via the known-import catalog without the LLM gate", async () => {
+    const content = [
+      fencedFile(
+        "app/page.tsx",
+        `"use client";
+
+export default function Page() {
+  return <button onClick={() => toast.success("Saved")}>Save</button>;
+}`,
+      ),
+      fencedFile(
+        "app/dashboard/page.tsx",
+        `"use client";
+
+const schema = z.object({ email: z.string().email() });
+
+export default function DashboardPage() {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+  }
+  return <form onSubmit={handleSubmit}>{schema ? "ok" : null}</form>;
+}`,
+      ),
+    ].join("\n\n");
+
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "missing-imports-runtime",
+          detail: "app/page.tsx: uses `toast` but does not import it.",
+        },
+        {
+          id: "missing-imports-runtime",
+          detail: "app/dashboard/page.tsx: uses `z` but does not import it.",
+        },
+        {
+          id: "missing-imports-runtime",
+          detail: "app/dashboard/page.tsx: uses `FormEvent` but does not import it.",
+        },
+      ],
+      quality: [],
+    });
+
+    const result = await runVerifierPhase({
+      ...baseParams(content),
+      buildSpec: { previewPolicy: "fidelity2" } as never,
+    });
+
+    expect(result.contentForVersion).toContain('import { toast } from "sonner"');
+    expect(result.contentForVersion).toContain('import type { FormEvent } from "react"');
+    expect(result.contentForVersion).toContain('import { z } from "zod"');
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+  });
+
+  it("keeps an unknown missing-imports-runtime name as a blocker (FooBarBaz)", async () => {
+    const page = fencedFile(
+      "app/page.tsx",
+      `export default function Page() {
+  return <div>{FooBarBaz}</div>;
+}`,
+    );
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [
+          {
+            id: "missing-imports-runtime",
+            detail: "app/page.tsx: uses `FooBarBaz` but does not import it.",
+          },
+        ],
+        quality: [],
+      })
+      .mockResolvedValue({ blocking: [], quality: [] });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: page,
+        fixedFiles: [],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: false,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.5",
+      deduped: false,
+    });
+
+    const result = await runVerifierPhase(baseParams(page));
+
+    expect(result.contentForVersion).toBe(page);
+    expect(result.verifierBlockingFindings).toEqual([
+      expect.objectContaining({
+        id: "missing-imports-runtime",
+        detail: expect.stringContaining("FooBarBaz"),
+      }),
+    ]);
+    expect(runLlmRepairGate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reintroduce a tier-3 SDK import in F2 from missing-imports-runtime", async () => {
+    const route = fencedFile(
+      "app/api/contact/route.ts",
+      `export async function POST() {
+  const resend = new Resend(process.env.RESEND_API_KEY!);
+  return Response.json({ ok: Boolean(resend) });
+}`,
+    );
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "missing-imports-runtime",
+          detail:
+            'app/api/contact/route.ts: uses `Resend` but does not import Resend from "resend".',
+        },
+      ],
+      quality: [],
+    });
+
+    const result = await runVerifierPhase({
+      ...baseParams(route),
+      buildSpec: { previewPolicy: "fidelity2" } as never,
+    });
+
+    expect(result.contentForVersion).not.toContain('from "resend"');
+    expect(result.contentForVersion).toBe(route);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
   });
 });
 
