@@ -15,6 +15,9 @@
  * Severity is owned by the caller. Today {@link runFinalizePreflight} emits
  * mismatches as `non_blocking_quality_warning` (see plan
  * `docs/plans/active/repair-loop-hardening.md` for the gate-flip path).
+ *
+ * Reverse direction ({@link crossCheckRoutesAgainstHrefs}): a planned route
+ * with no matching navigation href is also a `non_blocking_quality_warning`.
  */
 
 import type { CodeFile } from "@/lib/gen/parser";
@@ -65,6 +68,9 @@ const HREF_PATTERNS = [
   // href="..." and href='...'
   String.raw`\bhref=\s*"(\/[^"\s]*)"`,
   String.raw`\bhref=\s*'(\/[^'\s]*)'`,
+  // Object-literal navItems: { label, href: "/...", icon }
+  String.raw`\bhref:\s*"(\/[^"\s]*)"`,
+  String.raw`\bhref:\s*'(\/[^'\s]*)'`,
   // href={"..."} and href={'...'}
   String.raw`\bhref=\s*\{\s*"(\/[^"\s]*)"\s*\}`,
   String.raw`\bhref=\s*\{\s*'(\/[^'\s]*)'\s*\}`,
@@ -303,4 +309,53 @@ export function formatMismatchMessage(mismatch: HrefRouteMismatch): string {
   return mismatch.suggestion
     ? `${base} Did you mean "${mismatch.suggestion}"?`
     : base;
+}
+
+export interface UnlinkedPlannedRoute {
+  path: string;
+}
+
+/**
+ * Files that typically own site navigation. Reverse cross-check only
+ * consults hrefs from these so a brochure without a nav file does not
+ * warn about every planned route.
+ */
+const NAV_SOURCE_NAME_RE = /(header|navbar|navigation|footer|menu|sidebar)|^nav\./i;
+const NAV_INDEX_FILE_RE = /^index\.(tsx|jsx|ts|js)$/i;
+
+export function isNavSourceFile(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  const segments = normalized.split("/");
+  const base = segments.pop() ?? normalized;
+  if (NAV_SOURCE_NAME_RE.test(base)) return true;
+  if (NAV_INDEX_FILE_RE.test(base)) {
+    const parent = segments.pop() ?? "";
+    return NAV_SOURCE_NAME_RE.test(parent);
+  }
+  return false;
+}
+
+/**
+ * Reverse of {@link crossCheckHrefsAgainstRoutes}: planned routes that no
+ * extracted href reaches. Dynamic planned paths (`[slug]`) are skipped —
+ * they are not useful nav targets.
+ */
+export function crossCheckRoutesAgainstHrefs(
+  plannedPaths: string[],
+  hrefs: ExtractedHref[],
+): UnlinkedPlannedRoute[] {
+  if (plannedPaths.length === 0) return [];
+  const unlinked: UnlinkedPlannedRoute[] = [];
+  for (const raw of plannedPaths) {
+    const path = normalizeRoutePath(raw);
+    if (path.includes("[")) continue;
+    const matcher = routePatternToRegex(path);
+    const reached = hrefs.some((href) => href.basePath === path || matcher.test(href.basePath));
+    if (!reached) unlinked.push({ path });
+  }
+  return unlinked;
+}
+
+export function formatUnlinkedRouteMessage(route: UnlinkedPlannedRoute): string {
+  return `Planned route "${route.path}" is not linked from any navigation href.`;
 }

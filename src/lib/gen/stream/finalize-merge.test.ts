@@ -10,10 +10,13 @@
  * filesJson:t och finalize-version markerar versionen verification-blocked
  * via en ny preflight-issue i category `code_structure_failure`.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { DossierEntry } from "@/lib/gen/dossiers";
+import type { RoutePlan } from "@/lib/gen/route-plan";
 import { mergeGeneratedProjectFiles } from "./finalize-merge";
 
 type CrossFileFix = {
@@ -54,6 +57,18 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 vi.mock("@/lib/observability/metrics", () => ({
   incIngressEvent: vi.fn(),
 }));
+
+const getDossierFileContent = vi.hoisted(() =>
+  vi.fn<(klass: string, id: string, relPath: string) => string | null>(() => null),
+);
+vi.mock("@/lib/gen/dossiers/registry", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/dossiers/registry")>();
+  return {
+    ...actual,
+    getDossierFileContent: (...args: [string, string, string]) =>
+      getDossierFileContent(...args),
+  };
+});
 
 function makeScaffold(): ScaffoldManifest {
   return {
@@ -659,5 +674,170 @@ describe("SCAFFOLD_PROTECTED_PATHS — scaffold-default lock for utility files",
     }>;
     const layout = mergedFiles.find((f) => f.path === "app/layout.tsx");
     expect(layout!.content).toContain("bg-stone-950");
+  });
+});
+
+const DASHBOARD_SIDEBAR = readFileSync(
+  join(__dirname, "../scaffolds/dashboard/files/components/dashboard-sidebar.tsx"),
+  "utf8",
+);
+
+function offertlyftetPlan(): RoutePlan {
+  return {
+    provenance: { primarySource: "prompt", sources: ["prompt", "scaffold"] },
+    siteType: "app-shell",
+    reason: "test",
+    routes: [
+      { path: "/", name: "Hem", intent: "Landing", required: true },
+      { path: "/logga-in", name: "Logga in", intent: "Auth", required: true },
+      { path: "/dashboard", name: "Översikt", intent: "App home", required: true },
+    ],
+  };
+}
+
+function dashboardScaffold(): ScaffoldManifest {
+  return {
+    id: "dashboard",
+    label: "Dashboard",
+    description: "test",
+    version: "1.0.0",
+    siteKind: "app",
+    features: [],
+    promptHints: [],
+    files: [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <div>Home</div>; }",
+      },
+      {
+        path: "app/layout.tsx",
+        content:
+          "export default function Layout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }",
+      },
+      {
+        path: "components/dashboard-sidebar.tsx",
+        content: DASHBOARD_SIDEBAR,
+      },
+    ],
+  } as unknown as ScaffoldManifest;
+}
+
+describe("dashboard navItems sync from route plan", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getDossierFileContent.mockImplementation(() => null);
+  });
+
+  it("rewrites scaffold sidebar on init to the planned routes", () => {
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-nav-init",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page() { return <h1>Offertlyftet</h1>; }",
+          language: "tsx",
+        },
+      ],
+      resolvedScaffold: dashboardScaffold(),
+      previousFiles: undefined,
+      routePlan: offertlyftetPlan(),
+    });
+
+    const merged = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    const sidebar = merged.find((f) => f.path === "components/dashboard-sidebar.tsx");
+    expect(sidebar).toBeDefined();
+    const hrefs = [...sidebar!.content.matchAll(/href:\s*["'](\/[^"']*)["']/g)].map((m) => m[1]);
+    expect(hrefs).toEqual(["/", "/logga-in", "/dashboard"]);
+    expect(sidebar!.content).not.toContain("/users");
+  });
+
+  it("does not rewrite a follow-up sidebar (freeze)", () => {
+    const previousSidebar = DASHBOARD_SIDEBAR.replace(
+      `{ label: "Användare", href: "/users", icon: Users },`,
+      "",
+    );
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-nav-follow-up",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page() { return <h1>Tweak</h1>; }",
+          language: "tsx",
+        },
+      ],
+      resolvedScaffold: dashboardScaffold(),
+      previousFiles: [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page() { return <h1>Prior</h1>; }",
+          language: "tsx",
+        },
+        {
+          path: "components/dashboard-sidebar.tsx",
+          content: previousSidebar,
+          language: "tsx",
+        },
+      ],
+      routePlan: offertlyftetPlan(),
+    });
+
+    const merged = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    const sidebar = merged.find((f) => f.path === "components/dashboard-sidebar.tsx");
+    expect(sidebar!.content).toBe(previousSidebar);
+    expect(sidebar!.content).not.toContain("/logga-in");
+  });
+
+  it("keeps a verbatim-restored sidebar byte-identical when nav-sync is active", () => {
+    const canonical = [
+      `"use client";`,
+      `import { LayoutDashboard } from "lucide-react";`,
+      ``,
+      `const navItems = [`,
+      `  { label: "Hem", href: "/", icon: LayoutDashboard },`,
+      `];`,
+      ``,
+      `export function DashboardSidebar() {`,
+      `  return <aside data-canonical="verbatim-nav">Hem</aside>;`,
+      `}`,
+    ].join("\n");
+    getDossierFileContent.mockImplementation((_klass, _id, relPath) =>
+      relPath === "components/dashboard-sidebar.tsx" ? canonical : null,
+    );
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-nav-verbatim",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page() { return <h1>Offertlyftet</h1>; }",
+          language: "tsx",
+        },
+      ],
+      resolvedScaffold: dashboardScaffold(),
+      previousFiles: undefined,
+      routePlan: offertlyftetPlan(),
+      selectedDossiers: [
+        {
+          id: "nav-verbatim-test",
+          class: "soft",
+          capability: "navigation",
+          codeFidelity: "verbatim",
+          files: [
+            {
+              path: "components/dashboard-sidebar.tsx",
+              role: "client",
+              injectionMode: "verbatim",
+            },
+          ],
+        } as unknown as DossierEntry,
+      ],
+    });
+
+    const merged = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    const sidebar = merged.find((f) => f.path === "components/dashboard-sidebar.tsx");
+    expect(sidebar?.content).toBe(canonical);
   });
 });

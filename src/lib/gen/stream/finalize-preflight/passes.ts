@@ -3,8 +3,11 @@ import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runHydrationPreflightChecks } from "@/lib/gen/validation/hydration-preflight";
 import {
   crossCheckHrefsAgainstRoutes,
+  crossCheckRoutesAgainstHrefs,
   extractHrefsFromFiles,
   formatMismatchMessage,
+  formatUnlinkedRouteMessage,
+  isNavSourceFile,
 } from "@/lib/gen/verify/href-route-cross-check";
 import { createIssue, type FinalizePreflightIssue } from "./issues";
 import { collectTier2HygieneIssues } from "./tier2-hygiene";
@@ -27,12 +30,14 @@ type FinalizePreflightAllResult = {
   sanityValid: boolean;
   sanityIssuesForLog: ReturnType<typeof runProjectSanityChecks>["issues"];
   hrefMismatches: ReturnType<typeof crossCheckHrefsAgainstRoutes>;
+  unlinkedPlannedRoutes: ReturnType<typeof crossCheckRoutesAgainstHrefs>;
 };
 
 export function runFinalizePreflightAll(params: {
   files: CodeFile[];
   actualRoutes: string[];
   importedRepoMode?: boolean;
+  plannedRoutePaths?: string[];
 }): FinalizePreflightAllResult {
   const tier2Issues = collectTier2HygieneIssues(params.files);
 
@@ -69,11 +74,30 @@ export function runFinalizePreflightAll(params: {
     ),
   );
 
+  const navHrefs = extractedHrefs.filter((href) => isNavSourceFile(href.file));
+  // Gate on nav *source files*, not extracted href count: a real sidebar
+  // with zero internal hrefs still means every planned route is unlinked.
+  const hasNavSourceFile = params.files.some((file) => isNavSourceFile(file.path));
+  const unlinkedPlannedRoutes =
+    params.plannedRoutePaths &&
+    params.plannedRoutePaths.length > 0 &&
+    hasNavSourceFile
+      ? crossCheckRoutesAgainstHrefs(params.plannedRoutePaths, navHrefs)
+      : [];
+  const unlinkedIssues = unlinkedPlannedRoutes.slice(0, 20).map((route) =>
+    createIssue(
+      route.path,
+      "warning",
+      formatUnlinkedRouteMessage(route),
+      "non_blocking_quality_warning",
+    ),
+  );
+
   const passes: FinalizePreflightPassResult[] = [
     { pass: "tier2_hygiene", issues: tier2Issues },
     { pass: "project_sanity", issues: sanityIssues },
     { pass: "hydration_preflight", issues: hydrationIssues },
-    { pass: "href_route_cross_check", issues: hrefIssues },
+    { pass: "href_route_cross_check", issues: [...hrefIssues, ...unlinkedIssues] },
   ];
 
   return {
@@ -83,5 +107,6 @@ export function runFinalizePreflightAll(params: {
     sanityValid: sanity.valid,
     sanityIssuesForLog: sanity.issues,
     hrefMismatches,
+    unlinkedPlannedRoutes,
   };
 }

@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   crossCheckHrefsAgainstRoutes,
+  crossCheckRoutesAgainstHrefs,
   extractHrefsFromFiles,
   formatMismatchMessage,
+  formatUnlinkedRouteMessage,
+  isNavSourceFile,
   type HrefRouteMismatch,
 } from "./href-route-cross-check";
+import { runFinalizePreflightAll } from "@/lib/gen/stream/finalize-preflight/passes";
 
 const file = (path: string, content: string) => {
   const ext = path.split(".").pop() ?? "tsx";
@@ -109,6 +113,19 @@ describe("extractHrefsFromFiles", () => {
       file("README.md", `See [the post](/blogg/foo)`),
     ]);
     expect(hrefs).toEqual([]);
+  });
+
+  it("extracts object-literal href: entries used by navItems arrays", () => {
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/dashboard-sidebar.tsx",
+        `const navItems = [
+  { label: "Översikt", href: "/", icon: LayoutDashboard },
+  { label: "Analys", href: "/analytics", icon: BarChart3 },
+];`,
+      ),
+    ]);
+    expect(hrefs.map((h) => h.raw)).toEqual(["/", "/analytics"]);
   });
 
   it("captures line numbers (1-based)", () => {
@@ -261,5 +278,74 @@ describe("formatMismatchMessage", () => {
     const msg = formatMismatchMessage(mismatch);
     expect(msg).toContain("/foo-bar-baz");
     expect(msg).not.toContain("Did you mean");
+  });
+});
+
+describe("crossCheckRoutesAgainstHrefs", () => {
+  it("flags a planned route that no navigation href points to", () => {
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/dashboard-sidebar.tsx",
+        `const navItems = [
+  { label: "Hem", href: "/", icon: LayoutDashboard },
+];`,
+      ),
+    ]);
+    const unlinked = crossCheckRoutesAgainstHrefs(["/", "/dashboard"], hrefs);
+    expect(unlinked.map((entry) => entry.path)).toEqual(["/dashboard"]);
+    expect(formatUnlinkedRouteMessage(unlinked[0]!)).toContain("/dashboard");
+  });
+
+  it("does not flag a planned route that appears as href: in navItems", () => {
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/dashboard-sidebar.tsx",
+        `const navItems = [
+  { label: "Hem", href: "/", icon: LayoutDashboard },
+  { label: "Översikt", href: "/dashboard", icon: LayoutDashboard },
+];`,
+      ),
+    ]);
+    expect(crossCheckRoutesAgainstHrefs(["/", "/dashboard"], hrefs)).toEqual([]);
+  });
+
+  it("counts hrefs from components/navigation/index.tsx in the reverse check", () => {
+    expect(isNavSourceFile("components/navigation/index.tsx")).toBe(true);
+    expect(isNavSourceFile("components/widgets/index.tsx")).toBe(false);
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/navigation/index.tsx",
+        `export function Nav() { return <a href="/about">Om</a>; }`,
+      ),
+    ]).filter((entry) => isNavSourceFile(entry.file));
+    expect(hrefs.map((entry) => entry.basePath)).toEqual(["/about"]);
+    expect(
+      crossCheckRoutesAgainstHrefs(["/", "/about"], hrefs).map((entry) => entry.path),
+    ).toEqual(["/"]);
+  });
+});
+
+describe("runFinalizePreflightAll reverse nav gate", () => {
+  it("warns per unlinked planned route when a nav file has no hrefs", () => {
+    const result = runFinalizePreflightAll({
+      files: [
+        file(
+          "components/dashboard-sidebar.tsx",
+          `export function DashboardSidebar() { return <aside>Ingen länk</aside>; }`,
+        ),
+      ],
+      actualRoutes: ["/", "/dashboard"],
+      plannedRoutePaths: ["/", "/dashboard"],
+    });
+    expect(result.unlinkedPlannedRoutes.map((entry) => entry.path)).toEqual([
+      "/",
+      "/dashboard",
+    ]);
+    expect(result.issues.map((issue) => issue.message)).toEqual(
+      expect.arrayContaining([
+        formatUnlinkedRouteMessage({ path: "/" }),
+        formatUnlinkedRouteMessage({ path: "/dashboard" }),
+      ]),
+    );
   });
 });

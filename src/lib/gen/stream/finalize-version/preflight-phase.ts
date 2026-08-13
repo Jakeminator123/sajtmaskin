@@ -163,6 +163,7 @@ export async function runPreflightPhase(params: {
     previousFiles,
     selectedDossiers,
     removedDossiers,
+    routePlan,
   });
   filesJson = mergeResult.filesJson;
   let rejectedShrinks = mergeResult.rejectedShrinks;
@@ -350,6 +351,7 @@ export async function runPreflightPhase(params: {
         previousFiles,
         selectedDossiers,
         removedDossiers,
+        routePlan,
       });
       filesJson = remergeResult.filesJson;
       // Concat shrink/structural rejections from the remerge so the SSE
