@@ -100,6 +100,22 @@ export const RUNS_INDEX_FILE = ".runs.json";
 export const EVENTS_NDJSON_FILE = "events.ndjson";
 
 /**
+ * LRU-tak för versionsmappar i tmp-spegeln (Vercel /tmp ~512 MB, delad av
+ * Chromium + läckta profiler + den här NDJSON-spegeln). Lokal `data/runs/`
+ * under repo-roten ska förbli inspekterbar och rörs inte — se
+ * `isInsideTmpDir(RUNS_ROOT_DIR)` innan prune.
+ */
+export const MAX_TMP_MIRROR_VERSION_DIRS = 50;
+
+/**
+ * Åldersgolv för LRU-prunen. Finalize + verify + repair ryms i ~16 min via
+ * maxDuration 950 s — en mapp yngre än golvet kan tillhöra en pågående
+ * körning och taket är hygien, inte en hård gräns; hellre tillfälligt >50
+ * mappar än en raderad aktiv spegel.
+ */
+export const TMP_MIRROR_PRUNE_MIN_IDLE_MS = 20 * 60 * 1000;
+
+/**
  * When a caller emits an event without an explicit `runId`, we fall
  * back to a deterministic bootstrap run so the event still lands on
  * disk under a stable path. `"root"` was picked instead of `"default"`
@@ -162,13 +178,91 @@ function appendNdjsonLine(filePath: string, event: EngineEvent): void {
 }
 
 function appendRunIndex(versionId: string, entry: RunIndexEntry): void {
-  ensureDir(versionDir(versionId));
+  const dir = versionDir(versionId);
+  const createdNewVersionDir = !fs.existsSync(dir);
+  ensureDir(dir);
   const file = indexPath(versionId);
   const existing = readJsonSafe<RunIndexEntry[]>(file) ?? [];
   const alreadyIndexed = existing.some((e) => e.runId === entry.runId);
   if (alreadyIndexed) return;
   existing.push(entry);
   fs.writeFileSync(file, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
+  if (createdNewVersionDir) pruneTmpMirrorVersionDirsBestEffort();
+}
+
+/**
+ * Senaste aktivitet för en versionsmapp. Bugbot på denna diff: en append till
+ * en BEFINTLIG run uppdaterar bara `<runId>/events.ndjson` (och run-mappen) —
+ * inte versionsmappens egen mtime. Med enbart katalog-mtime kunde en gammal
+ * men fortfarande aktiv version LRU-klassas och raderas mitt i körningen.
+ * Därför: nyaste av versionsmappen, dess run-barn och varje runs
+ * `events.ndjson`. Bounded — körs bara när taket redan är passerat, en nivå
+ * barn per mapp.
+ */
+function newestActivityMtimeMs(dir: string): number {
+  let newest = 0;
+  try {
+    newest = fs.statSync(dir).mtimeMs;
+  } catch {
+    return 0;
+  }
+  let children: fs.Dirent[] = [];
+  try {
+    children = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return newest;
+  }
+  for (const child of children) {
+    const childPath = path.join(dir, child.name);
+    try {
+      const childStat = fs.statSync(childPath);
+      if (childStat.mtimeMs > newest) newest = childStat.mtimeMs;
+      if (child.isDirectory()) {
+        const eventsStat = fs.statSync(path.join(childPath, EVENTS_NDJSON_FILE));
+        if (eventsStat.mtimeMs > newest) newest = eventsStat.mtimeMs;
+      }
+    } catch {
+      // Run utan events.ndjson än, eller hann försvinna — hoppa över.
+    }
+  }
+  return newest;
+}
+
+/**
+ * Lokal kopia av generation-log-writerns `lruPruneSubdirs`-idé (äldsta
+ * aktivitet ryker först). Importeras inte därifrån — de två writer-vägarna
+ * ska inte kopplas ihop. Bara tmp-spegeln; emit() får aldrig kasta härifrån.
+ */
+function pruneTmpMirrorVersionDirsBestEffort(): void {
+  if (!isInsideTmpDir(RUNS_ROOT_DIR)) return;
+  try {
+    if (!fs.existsSync(RUNS_ROOT_DIR)) return;
+    const scored = fs
+      .readdirSync(RUNS_ROOT_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => ({
+        name: entry.name,
+        mtimeMs: newestActivityMtimeMs(path.join(RUNS_ROOT_DIR, entry.name)),
+      }));
+    if (scored.length <= MAX_TMP_MIRROR_VERSION_DIRS) return;
+    scored.sort((a, b) => a.mtimeMs - b.mtimeMs);
+    const overflow = scored.length - MAX_TMP_MIRROR_VERSION_DIRS;
+    const idleFloor = Date.now() - TMP_MIRROR_PRUNE_MIN_IDLE_MS;
+    // Filtrera bort färsk aktivitet INNAN slice så äldre mappar bortom
+    // golvet fortfarande städas. Taket får överskridas när allt är färskt.
+    const toRemove = scored
+      .filter((entry) => entry.mtimeMs <= idleFloor)
+      .slice(0, overflow);
+    for (const { name } of toRemove) {
+      try {
+        fs.rmSync(path.join(RUNS_ROOT_DIR, name), { recursive: true, force: true });
+      } catch {
+        /* en låst mapp får inte stoppa resten eller emit() */
+      }
+    }
+  } catch {
+    /* best-effort — spegeln är replay-hjälp, inte sanning */
+  }
 }
 
 /**

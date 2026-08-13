@@ -7,6 +7,8 @@
  * vilken kombination som väljs i vilken miljö.
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sparticuzLaunch = vi.hoisted(() => vi.fn());
@@ -16,6 +18,7 @@ const hostResolvesToPrivate = vi.hoisted(() => vi.fn());
 const getPreviewHostBaseUrl = vi.hoisted(() => vi.fn());
 const fetchWithPinnedDns = vi.hoisted(() => vi.fn());
 const statfs = vi.hoisted(() => vi.fn());
+const mockTmpdir = vi.hoisted(() => vi.fn(() => "/tmp"));
 
 vi.mock("@sparticuz/chromium", () => ({
   default: {
@@ -31,14 +34,40 @@ vi.mock("@/lib/ssrf-guard", () => ({ isDisallowedHost, hostResolvesToPrivate }))
 vi.mock("@/lib/gen/preview/tier2-config", () => ({ getPreviewHostBaseUrl }));
 vi.mock("@/lib/capture/pinned-fetch", () => ({ fetchWithPinnedDns }));
 vi.mock("node:fs/promises", () => ({ statfs }));
-vi.mock("node:os", () => ({ default: { tmpdir: () => "/tmp" } }));
+vi.mock("node:os", () => ({ default: { tmpdir: mockTmpdir }, tmpdir: mockTmpdir }));
+
+const realOs = await vi.importActual<typeof import("node:os")>("node:os");
 
 const ORIGINAL_VERCEL = process.env.VERCEL;
 const ALLOWLIST_ENV_KEY = "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES";
 const ORIGINAL_ALLOWLIST = process.env[ALLOWLIST_ENV_KEY];
+const PLAYWRIGHT_PROFILE_PREFIX = "playwright_chromiumdev_profile-";
+const PROFILE_MAX_AGE_MS = 15 * 60 * 1000;
+
+function realOsTmpdir(): string {
+  return realOs.tmpdir();
+}
+
+let sweepTmp: string | undefined;
+
+function createSweepTmp(): string {
+  sweepTmp = fs.mkdtempSync(path.join(realOsTmpdir(), "capture-tmp-"));
+  mockTmpdir.mockReturnValue(sweepTmp);
+  return sweepTmp;
+}
+
+function makeDir(parent: string, name: string, ageMs: number): string {
+  const dir = path.join(parent, name);
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, "marker.txt"), "keep-or-prune");
+  const when = new Date(Date.now() - ageMs);
+  fs.utimesSync(dir, when, when);
+  return dir;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockTmpdir.mockImplementation(() => "/tmp");
   vi.resetModules();
   sparticuzLaunch.mockResolvedValue({ id: "serverless" });
   localLaunch.mockResolvedValue({ id: "local" });
@@ -59,6 +88,10 @@ afterEach(() => {
   else process.env.VERCEL = ORIGINAL_VERCEL;
   if (ORIGINAL_ALLOWLIST === undefined) delete process.env[ALLOWLIST_ENV_KEY];
   else process.env[ALLOWLIST_ENV_KEY] = ORIGINAL_ALLOWLIST;
+  if (sweepTmp) {
+    fs.rmSync(sweepTmp, { recursive: true, force: true });
+    sweepTmp = undefined;
+  }
 });
 
 describe("launchCaptureBrowser", () => {
@@ -138,6 +171,85 @@ describe("launchCaptureBrowser", () => {
     expect(secondLaunchStarted).toBe(true);
     expect(localLaunch).toHaveBeenCalledTimes(2);
     await second.close();
+  });
+
+  it("raderar en läckt Playwright-profil äldre än 15 minuter före serverless-launch", async () => {
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    const tmp = createSweepTmp();
+    const oldDir = makeDir(tmp, `${PLAYWRIGHT_PROFILE_PREFIX}old`, PROFILE_MAX_AGE_MS + 60_000);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(fs.existsSync(oldDir)).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[capture-browser] pruned 1 leaked Playwright profile dir(s)",
+    );
+    const measureCalls = warnSpy.mock.calls.filter((call) =>
+      String(call[0]).includes("free space in temporary directory"),
+    );
+    expect(measureCalls).toHaveLength(2);
+    warnSpy.mockRestore();
+  });
+
+  it("behåller en färsk Playwright-profil under 15 minuter", async () => {
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    const tmp = createSweepTmp();
+    const freshDir = makeDir(tmp, `${PLAYWRIGHT_PROFILE_PREFIX}fresh`, 60_000);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(fs.existsSync(freshDir)).toBe(true);
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringMatching(/pruned \d+ leaked Playwright profile dir/),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("rör inte mappar vars namn inte matchar Playwright-profilprefixet", async () => {
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    const tmp = createSweepTmp();
+    const otherDir = makeDir(tmp, "chromium-cache-unrelated", PROFILE_MAX_AGE_MS + 60_000);
+    const almostDir = makeDir(tmp, "playwright_chromiumdev_profile", PROFILE_MAX_AGE_MS + 60_000);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(fs.existsSync(otherDir)).toBe(true);
+    expect(fs.existsSync(almostDir)).toBe(true);
+  });
+
+  it("låter serverless-launch fortsätta när profilsvepet kastar", async () => {
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    mockTmpdir.mockReturnValue(path.join(realOsTmpdir(), "capture-tmp-missing", "no-such-dir"));
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(sparticuzLaunch).toHaveBeenCalledTimes(1);
   });
 });
 

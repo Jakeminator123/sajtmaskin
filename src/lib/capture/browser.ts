@@ -14,6 +14,9 @@
  * fungera på samma ställen som resten av produkten.
  */
 
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type { Browser, Page } from "playwright-core";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { isTrustedCaptureDnsHost } from "@/lib/capture/preview-allowlist";
@@ -65,8 +68,8 @@ let captureBrowserGate: Promise<void> = Promise.resolve();
  */
 async function logTmpFreeSpaceBestEffort(): Promise<void> {
   try {
-    const [{ statfs }, os] = await Promise.all([import("node:fs/promises"), import("node:os")]);
-    const tmp = os.default.tmpdir();
+    const [{ statfs }, osMod] = await Promise.all([import("node:fs/promises"), import("node:os")]);
+    const tmp = osMod.default.tmpdir();
     const stat = await statfs(tmp);
     const freeMb = Math.round((stat.bavail * stat.bsize) / 1_048_576);
     const totalMb = Math.round((stat.blocks * stat.bsize) / 1_048_576);
@@ -78,9 +81,57 @@ async function logTmpFreeSpaceBestEffort(): Promise<void> {
   }
 }
 
+/**
+ * playwright-core skriver `playwright_chromiumdev_profile-*` under os.tmpdir()
+ * och städar vid ren `close()`. En dödad Fluid-invocation lämnar mapparna kvar
+ * tills /tmp tar slut. Svepet är fail-open, åldersbundet (levande launch i en
+ * annan isolate är färskare än 15 min) och takat så det inte äter launch-budget.
+ */
+const PLAYWRIGHT_PROFILE_PREFIX = "playwright_chromiumdev_profile-";
+const PLAYWRIGHT_PROFILE_MAX_AGE_MS = 15 * 60 * 1000;
+const PLAYWRIGHT_PROFILE_SWEEP_MAX_CANDIDATES = 100;
+const PLAYWRIGHT_PROFILE_SWEEP_BUDGET_MS = 2_000;
+
+function pruneLeakedPlaywrightProfilesBestEffort(): number {
+  try {
+    const tmp = os.tmpdir();
+    const started = Date.now();
+    const entries = fs.readdirSync(tmp, { withFileTypes: true });
+    let pruned = 0;
+    let candidates = 0;
+    for (const entry of entries) {
+      if (Date.now() - started >= PLAYWRIGHT_PROFILE_SWEEP_BUDGET_MS) break;
+      if (!entry.isDirectory()) continue;
+      if (!entry.name.startsWith(PLAYWRIGHT_PROFILE_PREFIX)) continue;
+      const dir = path.join(tmp, entry.name);
+      try {
+        const ageMs = Date.now() - fs.statSync(dir).mtimeMs;
+        if (ageMs < PLAYWRIGHT_PROFILE_MAX_AGE_MS) continue;
+        // Kandidat-taket räknar bara RADERINGSFÖRSÖK (Bugbot high på diffen:
+        // färska profiler fick inte äta budgeten så att gamla läckor aldrig
+        // nåddes). Unga skips är redan tidsbundna via svep-budgeten ovan.
+        candidates += 1;
+        if (candidates > PLAYWRIGHT_PROFILE_SWEEP_MAX_CANDIDATES) break;
+        fs.rmSync(dir, { recursive: true, force: true });
+        pruned += 1;
+      } catch {
+        // En låst/försvunnen kandidat får inte stoppa resten av svepet.
+      }
+    }
+    return pruned;
+  } catch {
+    return 0;
+  }
+}
+
 async function launchCaptureBrowserUnscoped(): Promise<Browser> {
   if (IS_SERVERLESS) {
     await logTmpFreeSpaceBestEffort();
+    const pruned = pruneLeakedPlaywrightProfilesBestEffort();
+    if (pruned > 0) {
+      console.warn(`[capture-browser] pruned ${pruned} leaked Playwright profile dir(s)`);
+      await logTmpFreeSpaceBestEffort();
+    }
     const chromium = (await import("@sparticuz/chromium")).default;
     const { chromium: pw } = await import("playwright-core");
     return pw.launch({

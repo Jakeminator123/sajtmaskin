@@ -162,6 +162,148 @@ describe("event-bus", () => {
     });
     expect(received).toEqual(["version.done"]);
   });
+
+  /** Backdatera HELA versionsmappen (mapp + run-mappar + events.ndjson) —
+   * prunen läser nyaste aktivitet på djupet, inte bara katalog-mtimen. */
+  function backdateVersionDeep(versionId: string, mtime: Date): void {
+    const dir = path.join(bus.RUNS_ROOT_DIR, versionId);
+    for (const child of fs.readdirSync(dir, { withFileTypes: true })) {
+      const childPath = path.join(dir, child.name);
+      if (child.isDirectory()) {
+        const events = path.join(childPath, "events.ndjson");
+        if (fs.existsSync(events)) fs.utimesSync(events, mtime, mtime);
+      }
+      fs.utimesSync(childPath, mtime, mtime);
+    }
+    fs.utimesSync(dir, mtime, mtime);
+  }
+
+  it("prunes oldest tmp-mirror version dirs when the cap is exceeded", () => {
+    const cap = bus.MAX_TMP_MIRROR_VERSION_DIRS;
+    const started = (versionId: string) =>
+      bus.emit({
+        t: "version.started",
+        versionId,
+        generationKind: "create",
+      });
+
+    for (let i = 0; i < cap; i++) {
+      const id = `old_${String(i).padStart(2, "0")}`;
+      started(id);
+      backdateVersionDeep(id, new Date(Date.now() - (cap - i) * 60_000));
+    }
+
+    started("newest");
+
+    const dirs = fs
+      .readdirSync(bus.RUNS_ROOT_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+
+    expect(dirs).toHaveLength(cap);
+    expect(dirs).toContain("newest");
+    expect(dirs).not.toContain("old_00");
+    expect(fs.existsSync(path.join(bus.RUNS_ROOT_DIR, "newest", bus.RUNS_INDEX_FILE))).toBe(true);
+    expect(bus.readAll("newest")).toHaveLength(1);
+  });
+
+  // Bugbot på denna diff: en append till en BEFINTLIG run rör bara
+  // events.ndjson-mtimen — versionsmappen står still. En gammal men aktiv
+  // version får inte LRU-klassas bort medan en idle mellanversion står kvar.
+  it("keeps an old-but-active version and prunes the least recently active one", () => {
+    const cap = bus.MAX_TMP_MIRROR_VERSION_DIRS;
+    const started = (versionId: string) =>
+      bus.emit({
+        t: "version.started",
+        versionId,
+        generationKind: "create",
+      });
+
+    for (let i = 0; i < cap; i++) {
+      const id = `old_${String(i).padStart(2, "0")}`;
+      started(id);
+      backdateVersionDeep(id, new Date(Date.now() - (cap - i) * 60_000));
+    }
+
+    // old_00 är äldst skapad men FÅR en färsk append (aktiv körning) —
+    // bara barnfilen touchas, precis som mirrorToDisk gör på riktigt.
+    const activeEvents = path.join(bus.RUNS_ROOT_DIR, "old_00", "root", "events.ndjson");
+    const now = new Date();
+    fs.utimesSync(activeEvents, now, now);
+
+    started("newest");
+
+    const dirs = fs
+      .readdirSync(bus.RUNS_ROOT_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+
+    expect(dirs).toHaveLength(cap);
+    expect(dirs).toContain("old_00");
+    expect(dirs).toContain("newest");
+    expect(dirs).not.toContain("old_01");
+  });
+
+  // Bugbot medium: tyst finalize/verify kan gå flera minuter utan emit.
+  // LRU får inte radera en mapp med aktivitet inom åldersgolvet bara för
+  // att 50+ nyare versioner registrerats på samma varma instans.
+  it("does not prune tmp-mirror dirs younger than the idle floor even when over cap", () => {
+    const cap = bus.MAX_TMP_MIRROR_VERSION_DIRS;
+    const started = (versionId: string) =>
+      bus.emit({
+        t: "version.started",
+        versionId,
+        generationKind: "create",
+      });
+
+    for (let i = 0; i < cap; i++) {
+      const id = `fresh_${String(i).padStart(2, "0")}`;
+      started(id);
+      // Alla under golvet (20 min) — 1–19 s räcker för att skilja mtime
+      // utan att någon blir prunbar.
+      backdateVersionDeep(id, new Date(Date.now() - (i + 1) * 1000));
+    }
+
+    expect(() => started("newest")).not.toThrow();
+
+    const dirs = fs
+      .readdirSync(bus.RUNS_ROOT_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+
+    expect(dirs).toHaveLength(cap + 1);
+    expect(dirs).toContain("newest");
+    expect(dirs).toContain("fresh_00");
+    expect(bus.readAll("newest")).toHaveLength(1);
+  });
+
+  it("lets emit succeed when tmp-mirror prune cannot delete", () => {
+    for (let i = 0; i < bus.MAX_TMP_MIRROR_VERSION_DIRS; i++) {
+      bus.emit({
+        t: "version.started",
+        versionId: `old_${i}`,
+        generationKind: "create",
+      });
+    }
+    const rmSpy = vi.spyOn(fs, "rmSync").mockImplementation(() => {
+      throw new Error("rm boom");
+    });
+    try {
+      expect(() =>
+        bus.emit({
+          t: "version.started",
+          versionId: "newest",
+          generationKind: "create",
+        }),
+      ).not.toThrow();
+      expect(bus.readAll("newest").map((event) => event.t)).toEqual(["version.started"]);
+      expect(
+        fs.existsSync(path.join(bus.RUNS_ROOT_DIR, "newest", "root", "events.ndjson")),
+      ).toBe(true);
+    } finally {
+      rmSpy.mockRestore();
+    }
+  });
 });
 
 describe("event-bus RUNS_ROOT_DIR resolution", () => {
