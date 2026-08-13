@@ -107,7 +107,7 @@ Under **Additional configuration for logs** i samma dialog:
 
 ## Vad som faktiskt lagras
 
-Mottagaren (`src/lib/vercel-log-drain.ts`) är avsiktligt snål. En rad sparas i
+Mottagaren (`src/lib/vercel/vercel-log-drain.ts`) är avsiktligt snål. En rad sparas i
 `vercel_log_drain_events` bara om något av detta stämmer:
 
 - `level` är `error`, `warning` eller `fatal`

@@ -6,7 +6,7 @@ import {
   pruneDrainLogs,
   selectDrainRowsToStore,
   verifyVercelDrainSignature,
-} from "@/lib/vercel-log-drain";
+} from "@/lib/vercel/vercel-log-drain";
 
 export const runtime = "nodejs";
 
@@ -22,7 +22,7 @@ export function isVercelLogDrainEnabled(
 }
 
 /**
- * Receiver for Vercel Log Drains (see `src/lib/vercel-log-drain.ts`).
+ * Receiver for Vercel Log Drains (see `src/lib/vercel/vercel-log-drain.ts`).
  *
  * Dashboard URL (not an env var):
  *

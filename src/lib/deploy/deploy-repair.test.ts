@@ -20,7 +20,7 @@ vi.mock("@/lib/gen/verify/preview-quality-gate", () => ({
   isQualityGateConfigured,
 }));
 
-vi.mock("@/lib/vercel-deploy", () => ({
+vi.mock("@/lib/vercel/vercel-deploy", () => ({
   getVercelDeploymentBuildLogText,
 }));
 

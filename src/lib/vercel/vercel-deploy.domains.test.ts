@@ -6,7 +6,7 @@ import {
   getBrandedLiveSiteDomain,
   resolveLiveUrl,
   slugCandidate,
-} from "./live-site-url";
+} from "@/lib/live-site-url";
 
 const getVercelToken = vi.hoisted(() => vi.fn(() => "token"));
 vi.mock("@/lib/vercel", () => ({ getVercelToken }));

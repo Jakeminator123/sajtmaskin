@@ -3,12 +3,12 @@ import {
   insertOpenAiWebhookEvent,
   parseOpenAiWebhookEvent,
   verifyOpenAiWebhookSignature,
-} from "@/lib/openai-webhooks";
+} from "@/lib/openai/openai-webhooks";
 
 export const runtime = "nodejs";
 
 /**
- * Receiver for OpenAI platform webhooks (see `src/lib/openai-webhooks.ts`).
+ * Receiver for OpenAI platform webhooks (see `src/lib/openai/openai-webhooks.ts`).
  * This path is the endpoint URL registered in the OpenAI dashboard
  * (Settings → Webhooks). Verified events land in `openai_webhook_events`
  * (surfaced via `dump-logs.mjs --kinds=openai` / backoffice Logg-export).

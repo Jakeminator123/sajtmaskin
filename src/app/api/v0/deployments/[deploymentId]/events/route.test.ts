@@ -45,7 +45,7 @@ vi.mock("@/lib/tenant", () => ({
   getChatByIdForRequest,
 }));
 
-vi.mock("@/lib/vercel-deploy", () => ({
+vi.mock("@/lib/vercel/vercel-deploy", () => ({
   getVercelDeployment,
   mapVercelReadyStateToStatus,
 }));

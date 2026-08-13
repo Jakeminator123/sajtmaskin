@@ -27,7 +27,7 @@ vi.mock("next/server", async (importOriginal) => {
 });
 
 import { POST } from "./route";
-import { resetPruneScheduleForTests } from "@/lib/vercel-log-drain";
+import { resetPruneScheduleForTests } from "@/lib/vercel/vercel-log-drain";
 
 const SECRET = "test-drain-secret";
 

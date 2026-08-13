@@ -71,7 +71,7 @@ vi.mock("@/lib/deployment", () => ({
   setLatestDeploymentLiveUrlForChat,
 }));
 
-vi.mock("@/lib/vercel-deploy", () => ({
+vi.mock("@/lib/vercel/vercel-deploy", () => ({
   createVercelDeployment,
   getVercelDeployment: vi.fn(),
   mapVercelReadyStateToStatus: vi.fn(() => ({ status: "ready" })),
@@ -2252,7 +2252,7 @@ describe("POST /api/v0/deployments", () => {
       inspectorUrl: "https://vercel.com/i/dpl_err",
       readyState: "ERROR",
     });
-    const vercelDeployMocks = await import("@/lib/vercel-deploy");
+    const vercelDeployMocks = await import("@/lib/vercel/vercel-deploy");
     vi.mocked(vercelDeployMocks.mapVercelReadyStateToStatus).mockReturnValueOnce({
       status: "error",
     } as ReturnType<typeof vercelDeployMocks.mapVercelReadyStateToStatus>);
