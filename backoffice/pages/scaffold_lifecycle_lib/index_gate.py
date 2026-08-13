@@ -122,9 +122,9 @@ def render_index_gate(ctx: BackofficeContext) -> None:
     results: dict[str, Any] = st.session_state.setdefault(INDEX_RESULTS_KEY, {})
 
     st.warning(
-        f"Scaffold `{scaffold_id}` är skriven i worktreet men **inte redo för master** "
-        "förrän matchningen är publicerad till Vercel Blob. Hoppa inte över det här — "
-        "Auto-match pekar fel tills indexet innehåller den nya posten."
+        f"Worktreet och Vercel Blob är ur synk efter `{scaffold_id}`. "
+        "Publicera matchningen med knapparna — Auto-match pekar fel tills Blob "
+        "speglar filerna (saknad *eller* raderad post)."
     )
     if not has_key:
         st.error("OPENAI_API_KEY saknas — indexeringen kan inte köras.")

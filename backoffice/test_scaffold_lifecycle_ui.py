@@ -614,6 +614,17 @@ class IndexGateQueueTests(unittest.TestCase):
         self.assertNotIn("scaffold_embeddings", self.state[self.ig.INDEX_RESULTS_KEY])
         self.assertNotIn("embeddings", self.state[self.ig.INDEX_RESULTS_KEY])
 
+    def test_delete_and_reset_requeue_blob_index(self) -> None:
+        from backoffice.pages.scaffold_lifecycle_lib import ui_danger
+
+        delete_src = inspect.getsource(ui_danger._render_delete_scaffold)
+        reset_src = inspect.getsource(ui_danger._render_baseline_tab)
+        self.assertIn("queue_index_after_create(new_scaffold=True", delete_src)
+        self.assertIn("queue_index_after_create(new_scaffold=True", reset_src)
+        warning = inspect.getsource(self.ig.render_index_gate)
+        self.assertIn("ur synk", warning)
+        self.assertNotIn("är skriven i worktreet", warning)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -25,6 +25,7 @@ from .variants import (
 from .scaffold_ops import _scan_scaffold_dependencies, _delete_scaffold
 
 from .flash import _flash_note
+from .index_gate import queue_index_after_create
 
 from .baseline import (
     _run_git,
@@ -339,13 +340,15 @@ def _render_delete_scaffold(
 
     try:
         _delete_scaffold(ctx, selected_scaffold)
-        st.success(
-            f"Raderade scaffolden `{selected_scaffold}`. "
-            "Bygg om research och embeddings innan du litar på generated artifacts igen."
-        )
     except Exception as error:
         st.error(str(error))
         return
+    queue_index_after_create(new_scaffold=True, scaffold_id=selected_scaffold)
+    _flash_note(
+        f"Raderade `{selected_scaffold}`. Indexera om till Blob så Auto-match "
+        "inte pekar på den raderade posten.",
+        level="warning",
+    )
     st.rerun()
 
 
@@ -436,9 +439,13 @@ def _render_baseline_tab(ctx: BackofficeContext) -> None:
             except RuntimeError as error:
                 st.error(str(error))
                 return
-            st.success("Återställt till baselinen.")
-            for line in log[:50]:
-                st.markdown(f"- {line}")
+            queue_index_after_create(new_scaffold=True, scaffold_id=BASELINE_TAG)
+            preview = "; ".join(log[:8])
+            _flash_note(
+                "Återställt till baselinen. Indexera om till Blob så Auto-match "
+                f"speglar fabriksfilerna. {preview}",
+                level="warning",
+            )
             st.rerun()
 
     st.divider()
