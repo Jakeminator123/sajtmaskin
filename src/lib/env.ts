@@ -231,6 +231,7 @@ export const serverSchema = z.object({
 
   // Registry / remote component source (auth token for private registries)
   REGISTRY_AUTH_TOKEN: z.string().optional(),
+  SHADCNBLOCKS_API_KEY: z.string().optional(),
 
   // Public (validated server-side; client sees them via Next.js inlining)
   NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
