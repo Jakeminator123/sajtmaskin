@@ -5,6 +5,7 @@
 // Ren extraktion ur runtime.js — ingen beteendeändring.
 
 const { spawn } = require("node:child_process");
+const { EventEmitter } = require("node:events");
 
 const { readStoreSync } = require("./../store.js");
 const {
@@ -109,6 +110,7 @@ const RUNTIME_CLEAN_EXIT_WINDOW_MS = 2 * 60 * 1000;
 // visible to the app (preview-status → engine_version_error_logs).
 const RUNTIME_BOOT_FAILURE_LIMIT = 3;
 const RUNTIME_BOOT_FAILURE_WINDOW_MS = 2 * 60 * 1000;
+let nextRuntimeBootId = 1;
 
 function classifyRuntimeCleanExitLoop({ timestamps, now = Date.now() }) {
   const recent = (Array.isArray(timestamps) ? timestamps : [])
@@ -493,6 +495,30 @@ async function stopRuntimeForSession(session) {
   await stopTrackedRuntime(session.sessionId, session.previewSessionId);
 }
 
+function isLiveBoot(sessionId, bootId) {
+  if (bootId == null) return false;
+  const tracked = runtimeChildren.get(sessionId);
+  return Boolean(tracked && tracked.bootId === bootId && tracked.child?.exitCode === null);
+}
+
+function exposeRuntimeToClients(session, { restart = false, runtimePort = null, bootId = null } = {}) {
+  const chatId = getSessionChatId(session);
+  const latest = findSessionByChatId(readStoreSync(), chatId);
+  if (!latest || latest.versionId !== session.versionId) return false;
+  const tracked = runtimeChildren.get(session.sessionId);
+  if (!tracked || tracked.child?.exitCode !== null) return false;
+  if (runtimePort != null && tracked.port !== runtimePort) return false;
+  if (bootId != null && tracked.bootId !== bootId) return false;
+  // Reload first while traffic is still gated. Held HMR stubs are the open
+  // iframe; flipping acceptingTraffic first would let a racy JS fetch hit the
+  // new build before the document is discarded.
+  if (restart) {
+    requestPreviewClientReload(chatId);
+  }
+  tracked.acceptingTraffic = true;
+  return true;
+}
+
 async function spawnDevServer(session, workspaceDir, runtimePort) {
   // Defense-in-depth (prod-incident 2026-07-03): never overwrite a live
   // tracked child. `runtimeChildren.set` below would orphan the previous
@@ -541,6 +567,11 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     // Idle-reaper: stämplas om vid varje proxad request/WS-upgrade. Boot räknas
     // som aktivitet så en nystartad runtime inte reapas innan iframen hunnit in.
     lastActivityAt: Date.now(),
+    // SM-044: process may be alive while waitForReady has not passed. The
+    // proxy must not forward app HTML/JS until this flips, or an open iframe
+    // can hydrate old markup against the new build.
+    acceptingTraffic: false,
+    bootId: nextRuntimeBootId++,
     // (D) Ringbuffert av senaste Next.js-output. Live-loggning av allt dev-brus
     // (HMR m.m.) skulle flooda store:n; vi behåller bara en tail i minnet och
     // flushar den vid onormal exit så boot-/runtime-fel blir synliga.
@@ -629,6 +660,8 @@ async function bootRuntimeForSession(session, options = {}) {
     throw new Error("Session is missing filesJson for runtime boot.");
   }
   if (restart) {
+    // ensureRuntimeForChat already stopped the old process and sent
+    // requestPreviewClientReload. A direct restart boot still needs the stop.
     await stopRuntimeForSession(session);
   } else {
     const existing = runtimeChildren.get(session.sessionId);
@@ -678,6 +711,15 @@ async function bootRuntimeForSession(session, options = {}) {
       stored.runtimeCleanExitVersionId = session.versionId;
       stored.runtimeCleanExitTimestamps = [];
     }
+    // Drop a previous boot's readiness verdict before any new child is
+    // spawned. A stale `failed` plus a gated live process opens the
+    // SM-044 traffic bypass (`running && readinessState === "failed"`).
+    // Port-matching cannot close that hole: resolvePortForChat often
+    // reuses the same port. Prewarm skeletons stay stateless.
+    if (session.prewarm !== true) {
+      stored.readinessState = "starting";
+      stored.readinessError = null;
+    }
     stored.updatedAt = nowIso();
   });
 
@@ -697,6 +739,7 @@ async function bootRuntimeForSession(session, options = {}) {
         session.filesJson,
       );
       await spawnDevServer(session, workspaceDir, runtimePort);
+      const spawnedBootId = runtimeChildren.get(session.sessionId)?.bootId ?? null;
 
       await updateSessionById(session.sessionId, (stored) => {
         if (stored.versionId !== session.versionId) return;
@@ -734,39 +777,52 @@ async function bootRuntimeForSession(session, options = {}) {
           .then(() =>
             updateSessionById(session.sessionId, (stored) => {
               if (stored.versionId !== session.versionId) return;
+              if (!isLiveBoot(session.sessionId, spawnedBootId)) return;
               stored.readinessState = "ready";
               stored.readinessError = null;
               stored.updatedAt = nowIso();
             }),
           )
-          .then(() =>
-            appendRuntimeLog(
+          .then(() => {
+            exposeRuntimeToClients(session, { restart, runtimePort, bootId: spawnedBootId });
+            return appendRuntimeLog(
               session.previewSessionId,
               `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
-            ),
-          )
+            );
+          })
           .catch((err) => {
             const message = err instanceof Error ? err.message : "unknown readiness failure";
             return updateSessionById(session.sessionId, (stored) => {
               if (stored.versionId !== session.versionId) return;
+              if (!isLiveBoot(session.sessionId, spawnedBootId)) return;
               stored.readinessState = "failed";
               stored.readinessError = message;
               stored.updatedAt = nowIso();
-            }).then(() =>
-              appendRuntimeLog(
+            }).then(() => {
+              // Keep status as-is (e.g. warm_project). Opening the gate lets
+              // the live Next process show its build-error overlay — the
+              // pre-gate behavior. Do not set status "error" here: that would
+              // trip isFailedRuntimeTraffic and replace the overlay with the
+              // generic held page. Prewarm replacement still awaits this
+              // same promise and rethrows into the outer catch, which sets
+              // status "error" and stops the process; shouldHoldPrewarmTraffic
+              // is checked first, so opening the gate is a no-op there.
+              exposeRuntimeToClients(session, { restart, runtimePort, bootId: spawnedBootId });
+              return appendRuntimeLog(
                 session.previewSessionId,
                 `Readiness failed (runtime process alive but page not ready): ${message}`,
-              ),
-            );
+              );
+            });
           });
       } else {
         void readiness
-          .then(() =>
-            appendRuntimeLog(
+          .then(() => {
+            exposeRuntimeToClients(session, { restart: false, runtimePort, bootId: spawnedBootId });
+            return appendRuntimeLog(
               session.previewSessionId,
               `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
-            ),
-          )
+            );
+          })
           .catch((err) =>
             appendRuntimeLog(
               session.previewSessionId,
@@ -974,7 +1030,9 @@ function getRuntimeStateForChat(chatId) {
       running: false,
       booting: false,
       persistedStarting: false,
+      acceptingTraffic: false,
       runtimePort: null,
+      lastActivityAt: null,
     };
   }
   const tracked = runtimeChildren.get(session.sessionId);
@@ -987,7 +1045,9 @@ function getRuntimeStateForChat(chatId) {
     running,
     booting,
     persistedStarting: session.status === "starting",
+    acceptingTraffic: Boolean(running && tracked && tracked.acceptingTraffic !== false),
     runtimePort: tracked?.port ?? (Number.isFinite(Number(session.runtimePort)) ? Number(session.runtimePort) : null),
+    lastActivityAt: Number.isFinite(tracked?.lastActivityAt) ? tracked.lastActivityAt : null,
   };
 }
 
@@ -1014,6 +1074,14 @@ async function sweepIdleRuntimes(nowMs = Date.now()) {
     if (chatId && inflightBootByChat.has(chatId)) continue;
     if (chatId && activeVerifyChatKeys.has(safeChatKey(chatId))) continue;
     if (chatId && activePreviewSocketCount(chatId) > 0) continue;
+    const session = chatId ? findSessionByChatId(readStoreSync(), chatId) : null;
+    if (
+      session?.readinessState === "starting" &&
+      tracked.child &&
+      tracked.child.exitCode === null
+    ) {
+      continue;
+    }
     const lastActivityAt = Number.isFinite(tracked.lastActivityAt)
       ? tracked.lastActivityAt
       : 0;
@@ -1052,15 +1120,36 @@ async function sweepIdleRuntimes(nowMs = Date.now()) {
   return { stoppedRuntimes };
 }
 
+function createFakeRuntimeChildForTesting() {
+  // Must be stoppable on POSIX. `stopChildProcessTree` signals first, then
+  // waits for `close`. A plain `{ exitCode: null }` throws on Linux
+  // (`child.kill is not a function`) so the idle reaper counts 0 — Windows
+  // hides this because it uses taskkill and only waits for that helper.
+  // Emit `close` asynchronously: the production stop path registers the
+  // listener after kill(), matching a real child_process.
+  const child = new EventEmitter();
+  child.exitCode = null;
+  child.killed = false;
+  child.kill = () => {
+    if (child.exitCode !== null) return;
+    child.killed = true;
+    child.exitCode = 1;
+    queueMicrotask(() => child.emit("close", 1, null));
+  };
+  return child;
+}
+
 function setRuntimeStateForTesting(params) {
   const sessionId = params.sessionId;
   if (params.running) {
     runtimeChildren.set(sessionId, {
-      child: { exitCode: null },
+      child: createFakeRuntimeChildForTesting(),
       port: params.runtimePort,
       chatId: params.chatId,
       previewSessionId: params.previewSessionId ?? "",
-      lastActivityAt: Date.now(),
+      lastActivityAt: Number.isFinite(params.lastActivityAt) ? params.lastActivityAt : Date.now(),
+      acceptingTraffic: params.acceptingTraffic !== false,
+      bootId: Number.isFinite(params.bootId) ? params.bootId : nextRuntimeBootId++,
     });
   } else {
     runtimeChildren.delete(sessionId);
@@ -1094,6 +1183,7 @@ module.exports = {
   RUNTIME_BOOT_FAILURE_WINDOW_MS,
   htmlLooksLikeBuildError,
   waitForReady,
+  exposeRuntimeToClients,
   stopTrackedRuntime,
   stopRuntimeForSession,
   bootRuntimeForSession,
@@ -1103,6 +1193,7 @@ module.exports = {
   hibernateChatRuntime,
   sweepIdleRuntimes,
   setRuntimeStateForTesting,
+  createFakeRuntimeChildForTesting,
   clearRuntimeStateForTesting,
   setBootRunnerForTesting,
 };

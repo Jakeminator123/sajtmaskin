@@ -371,6 +371,8 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
         restart: state.session.prewarmReplacementPending === true,
       });
     }
+    const trackedForPrewarmActivity = runtimeChildren.get(state.session.sessionId);
+    if (trackedForPrewarmActivity) trackedForPrewarmActivity.lastActivityAt = Date.now();
     sendRuntimeStartingPage(res, state.session);
     return true;
   }
@@ -378,7 +380,7 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
     sendHeldPreviewErrorPage(res, state.session);
     return true;
   }
-  if (state.running && state.runtimePort) {
+  if (state.running && state.runtimePort && state.acceptingTraffic) {
     const trackedForActivity = runtimeChildren.get(state.session.sessionId);
     if (trackedForActivity) trackedForActivity.lastActivityAt = Date.now();
     const inspectTag = inspectInjectionTag(search);
@@ -416,6 +418,8 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
     }
     return true;
   }
+  const trackedForStartingActivity = runtimeChildren.get(state.session.sessionId);
+  if (trackedForStartingActivity) trackedForStartingActivity.lastActivityAt = Date.now();
   queueRuntimeBoot(info.chatId);
   sendRuntimeStartingPage(res, state.session);
   return true;
@@ -504,6 +508,15 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   }
   const runtime = await ensureRuntimeForChat(info.chatId);
   if (!runtime) return false;
+  const live = getRuntimeStateForChat(info.chatId);
+  if (!live.acceptingTraffic) {
+    if (acceptAndHoldWebSocket(req, socket)) {
+      registerPreviewSocket(info.chatId, socket, { handshakeComplete: true });
+      return true;
+    }
+    try { socket.destroy(); } catch { /* already closed */ }
+    return true;
+  }
   const trackedForActivity = runtimeChildren.get(runtime.session.sessionId);
   if (trackedForActivity) trackedForActivity.lastActivityAt = Date.now();
   registerPreviewSocket(info.chatId, socket);
