@@ -109,6 +109,7 @@ export function PreviewPanelBrowseGallery({
   const [communityTotal, setCommunityTotal] = useState(0);
   const [communityCursor, setCommunityCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -116,6 +117,17 @@ export function PreviewPanelBrowseGallery({
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<BrowseGalleryItem | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const communityRequestIdRef = useRef(0);
+  const communityFilterRef = useRef({
+    query: "",
+    category: null as string | null,
+    source: "official" as BrowseSource,
+  });
+  communityFilterRef.current = {
+    query: debouncedQuery,
+    category: activeCategory,
+    source,
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
@@ -152,9 +164,11 @@ export function PreviewPanelBrowseGallery({
   useEffect(() => {
     if (source !== "shadcnblocks") return;
     let ignore = false;
+    const requestId = ++communityRequestIdRef.current;
     /* eslint-disable react-hooks/set-state-in-effect -- enter loading state before community index resolves */
     setLoading(true);
     setError(null);
+    setLoadMoreError(null);
     setCommunityCursor(null);
     /* eslint-enable react-hooks/set-state-in-effect */
     fetchCommunityIndexPage({
@@ -163,7 +177,7 @@ export function PreviewPanelBrowseGallery({
       limit: COMMUNITY_PAGE_SIZE,
     })
       .then((page) => {
-        if (ignore) return;
+        if (ignore || requestId !== communityRequestIdRef.current) return;
         setCommunityCategories(page.categories);
         setCommunityTotal(page.total);
         setCommunityCursor(page.nextCursor);
@@ -183,7 +197,7 @@ export function PreviewPanelBrowseGallery({
         setLoading(false);
       })
       .catch((err: unknown) => {
-        if (ignore) return;
+        if (ignore || requestId !== communityRequestIdRef.current) return;
         setCommunityItems([]);
         setCommunityCategories([]);
         setError(err instanceof Error ? err.message : "Kunde inte hämta marknadsblock.");
@@ -202,6 +216,7 @@ export function PreviewPanelBrowseGallery({
     setDebouncedQuery("");
     setCategories([]);
     setCommunityItems([]);
+    setLoadMoreError(null);
     setLoading(true);
   }, []);
 
@@ -236,14 +251,29 @@ export function PreviewPanelBrowseGallery({
 
   const handleLoadMore = useCallback(async () => {
     if (!communityCursor || loadingMore || source !== "shadcnblocks") return;
+    const requestId = communityRequestIdRef.current;
+    const requestQuery = debouncedQuery;
+    const requestCategory = activeCategory;
+    const requestCursor = communityCursor;
     setLoadingMore(true);
+    setLoadMoreError(null);
     try {
       const page = await fetchCommunityIndexPage({
-        q: debouncedQuery || undefined,
-        category: activeCategory || undefined,
+        q: requestQuery || undefined,
+        category: requestCategory || undefined,
         limit: COMMUNITY_PAGE_SIZE,
-        cursor: communityCursor,
+        cursor: requestCursor,
       });
+      // Ignore stale responses after filter/source change or a newer first-page fetch.
+      const current = communityFilterRef.current;
+      if (
+        requestId !== communityRequestIdRef.current ||
+        requestQuery !== current.query ||
+        requestCategory !== current.category ||
+        current.source !== "shadcnblocks"
+      ) {
+        return;
+      }
       setCommunityCursor(page.nextCursor);
       setCommunityItems((prev) => [
         ...prev,
@@ -259,9 +289,13 @@ export function PreviewPanelBrowseGallery({
         })),
       ]);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Kunde inte hämta fler block.");
+      if (requestId !== communityRequestIdRef.current) return;
+      // Keep already-loaded cards; show an inline retry under the grid.
+      setLoadMoreError(err instanceof Error ? err.message : "Kunde inte hämta fler block.");
     } finally {
-      setLoadingMore(false);
+      if (requestId === communityRequestIdRef.current) {
+        setLoadingMore(false);
+      }
     }
   }, [activeCategory, communityCursor, debouncedQuery, loadingMore, source]);
 
@@ -436,6 +470,18 @@ export function PreviewPanelBrowseGallery({
                     />
                   ))}
                 </div>
+                {source === "shadcnblocks" && loadMoreError ? (
+                  <div className="mt-3 rounded-md border border-rose-900/50 bg-rose-950/20 px-3 py-2 text-center text-[11px] text-rose-200/90">
+                    <p>{loadMoreError}</p>
+                    <button
+                      type="button"
+                      onClick={() => void handleLoadMore()}
+                      className="mt-2 rounded-md border border-violet-800/60 px-3 py-1 text-violet-200 transition hover:bg-violet-950/40"
+                    >
+                      Försök hämta fler igen
+                    </button>
+                  </div>
+                ) : null}
                 {source === "shadcnblocks" && communityCursor ? (
                   <button
                     type="button"
