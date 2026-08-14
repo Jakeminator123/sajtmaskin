@@ -56,10 +56,16 @@ export const ecommerceManifest: ScaffoldManifest = {
   // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
   // planning-helpers): only /products was guaranteed by the plan.
   //
+  // SM-048 (owner decision 2026-08-14): the route plan decides which of
+  // these route files are materialized. /categories and /om are declared
+  // (page file exists, never planned by default) so the plan filter in
+  // finalize-merge owns them — this also resolved their SM-042 gate drift.
+  // The dynamic detail templates ride on their listing route via
+  // deliveryGroups since neither has a static parent page
+  // (app/product/[id]/page.tsx exists without app/product/page.tsx).
+  //
   // Known drift (kept visible on purpose — see the route-contract gate in
   // scaffold-manifest-validation.test.ts):
-  //  - SM-042: files/ links unconditionally to /categories and /om, but the
-  //    plan never guaranteed them, so they are deliberately NOT listed here.
   //  - SM-043: /cart below has neither a starter file (CartDrawer replaced
   //    the page) nor a link, and #977 removed it from the plan defaults. The
   //    entry documents the open owner question; remove it (or reintroduce a
@@ -74,8 +80,13 @@ export const ecommerceManifest: ScaffoldManifest = {
       },
     ],
     optionalRoutes: [],
-    declaredRoutePaths: ["/cart"],
+    declaredRoutePaths: ["/cart", "/categories", "/om"],
     dynamicRoutePatterns: ["/category/[slug]", "/product/[id]"],
+    deliveryGroups: [
+      ["/products", "/product/[id]"],
+      ["/categories", "/category/[slug]"],
+    ],
   },
+  navSurface: "components/site-header.tsx",
   files: loadScaffoldFiles("ecommerce"),
 };

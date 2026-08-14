@@ -136,6 +136,22 @@ export interface ScaffoldRouteContract {
    * against them as patterns; they are never planned as list entries.
    */
   dynamicRoutePatterns: string[];
+  /**
+   * SM-048 delivery coupling for the route-plan file filter in
+   * `finalize-merge.ts`. Each group lists contract route paths whose starter
+   * files are materialized together: when ANY member is in the route plan,
+   * every member's files are delivered. Two uses:
+   *
+   *  - interlinked page sets where a surviving page would otherwise carry a
+   *    dead link (auth-pages: /login ↔ /signup ↔ /forgot-password), and
+   *  - dynamic patterns that ride on a planned list route but are NOT path
+   *    descendants of it (ecommerce: /product/[id] rides on /products).
+   *
+   * Path descendants need no group — `app/blog/[slug]/page.tsx` already
+   * follows `/blog` via `isUnderRoutePath`. Every member must be a path that
+   * exists elsewhere in the contract.
+   */
+  deliveryGroups?: string[][];
 }
 
 export interface ScaffoldReferenceTemplate {
@@ -179,6 +195,16 @@ export interface ScaffoldManifest {
    * requires it on every registered scaffold.
    */
   routeContract?: ScaffoldRouteContract;
+  /**
+   * Path (within `files`) of the scaffold's navigation component, e.g.
+   * `components/site-header.tsx`. `syncNavItemsFromRoutePlan` rewrites ONLY
+   * this file to mirror the route plan on init — the manifest points the
+   * surface out, so nav targets are never guessed from filenames (the
+   * SM-051 bug class). Omit for scaffolds without a shared nav component
+   * (auth-pages, portfolio, base-nextjs, projekt-bas-app); nav-sync is then
+   * a no-op.
+   */
+  navSurface?: string;
   files: ScaffoldFile[];
   qualityChecklist?: string[];
   research?: ScaffoldResearchMetadata;

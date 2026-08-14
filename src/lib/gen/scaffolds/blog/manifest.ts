@@ -58,7 +58,10 @@ export const blogManifest: ScaffoldManifest = {
     ],
     optionalRoutes: [],
     declaredRoutePaths: [],
+    // No delivery group needed: app/blog/[slug]/page.tsx is a path
+    // descendant of /blog, so the plan filter already couples them.
     dynamicRoutePatterns: ["/blog/[slug]"],
   },
+  navSurface: "components/site-header.tsx",
   files: loadScaffoldFiles("blog"),
 };

@@ -1,4 +1,4 @@
-import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
+import type { ScaffoldManifest, ScaffoldRouteContract } from "@/lib/gen/scaffolds";
 import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import-checker";
 import { fixTypeOnlyModuleDefaultImports } from "@/lib/gen/autofix/rules/type-only-module-default-import-fixer";
 import type { CodeFile } from "@/lib/gen/parser";
@@ -14,6 +14,7 @@ import { syncNavItemsFromRoutePlan } from "@/lib/gen/scaffolds/sync-nav-from-rou
 import {
   extractAppRoutePathsFromFilePaths,
   findSupersededScaffoldRoutes,
+  normalizeRoutePath,
   type RoutePlan,
 } from "@/lib/gen/route-plan";
 
@@ -239,14 +240,112 @@ function isLlmOnlyPath(path: string): boolean {
   return LLM_ONLY_PATHS.has(path.replace(/\\/g, "/"));
 }
 
+type ScaffoldRouteCategory = "required" | "optional" | "declared" | "dynamic";
+
+export interface ScaffoldRouteDelivery {
+  /** Normalized route paths present in the plan (input to the decision). */
+  plannedRoutePaths: string[];
+  /**
+   * Returns drop info when `filePath` belongs to a contract route the plan
+   * did not deliver, otherwise null (keep the file). Files that belong to no
+   * contract route are SHARED (layout, globals, api, …) and always kept.
+   */
+  classifyDrop(
+    filePath: string,
+  ): { routePath: string; category: ScaffoldRouteCategory } | null;
+}
+
+/**
+ * SM-048 — the route plan decides which of the scaffold's ROUTE files are
+ * materialized on init. A contract route's files are delivered when the
+ * route is in the plan, or when any member of its `deliveryGroups` group is
+ * (auth-pages' interlinked trio, ecommerce's dynamic detail templates).
+ * Required routes are contributed to every plan by contract, so they are
+ * effectively always delivered — except when the plan explicitly excludes
+ * them (an explicit one-page cap, the prod `90624ed9` case), and then the
+ * plan wins by owner decision 2026-08-14.
+ *
+ * Fail-open: no contract, an empty contract, or a missing/empty plan
+ * disables the filter entirely (returns null → keep everything). Only files
+ * under `app/**` can ever be owned by a contract route (`isUnderRoutePath`),
+ * so SHARED files (app/layout.tsx, app/globals.css, app/api/**, components/**,
+ * app/icon.svg) are never dropped by construction.
+ */
+export function resolveScaffoldRouteDelivery(
+  contract: ScaffoldRouteContract | undefined,
+  routePlan: RoutePlan | null | undefined,
+): ScaffoldRouteDelivery | null {
+  if (!contract) return null;
+  const entries: Array<{ path: string; category: ScaffoldRouteCategory }> = [];
+  const pushRoutes = (routes: unknown, category: ScaffoldRouteCategory): void => {
+    if (!Array.isArray(routes)) return;
+    for (const route of routes) {
+      const rawPath =
+        typeof route === "string"
+          ? route
+          : typeof (route as { path?: unknown })?.path === "string"
+            ? (route as { path: string }).path
+            : null;
+      if (rawPath === null) continue;
+      const path = normalizeRoutePath(rawPath);
+      if (path === "/") continue;
+      entries.push({ path, category });
+    }
+  };
+  pushRoutes(contract.requiredRoutes, "required");
+  pushRoutes(contract.optionalRoutes, "optional");
+  pushRoutes(contract.declaredRoutePaths, "declared");
+  pushRoutes(contract.dynamicRoutePatterns, "dynamic");
+  if (entries.length === 0) return null;
+
+  const plannedRoutePaths = Array.isArray(routePlan?.routes)
+    ? routePlan.routes
+        .map((route) => normalizeRoutePath(route.path))
+        .filter((path, index, all) => all.indexOf(path) === index)
+    : [];
+  if (plannedRoutePaths.length === 0) return null;
+  const planned = new Set(plannedRoutePaths);
+
+  const delivered = new Set(
+    entries.map((entry) => entry.path).filter((path) => planned.has(path)),
+  );
+  for (const group of Array.isArray(contract.deliveryGroups)
+    ? contract.deliveryGroups
+    : []) {
+    if (!Array.isArray(group)) continue;
+    const members = group
+      .filter((member): member is string => typeof member === "string")
+      .map(normalizeRoutePath);
+    if (members.some((member) => planned.has(member))) {
+      for (const member of members) delivered.add(member);
+    }
+  }
+
+  // Deepest-first so the reported owner of e.g. app/blog/[slug]/page.tsx is
+  // the dynamic entry "/blog/[slug]", not its "/blog" prefix.
+  const byDepth = [...entries].sort((a, b) => b.path.length - a.path.length);
+  return {
+    plannedRoutePaths,
+    classifyDrop(filePath) {
+      const owners = byDepth.filter((entry) =>
+        isUnderRoutePath(filePath, [entry.path]),
+      );
+      if (owners.length === 0) return null;
+      if (owners.some((owner) => delivered.has(owner.path))) return null;
+      return { routePath: owners[0]!.path, category: owners[0]!.category };
+    },
+  };
+}
+
 function applyNavPlanSync(
   files: CodeFile[],
   routePlan: RoutePlan | null | undefined,
   chatId: string,
   isFollowUp: boolean,
+  scaffold: ScaffoldManifest | null,
 ): { files: CodeFile[]; changed: boolean } {
   if (!routePlan || isFollowUp) return { files, changed: false };
-  const result = syncNavItemsFromRoutePlan({ files, routePlan, isFollowUp });
+  const result = syncNavItemsFromRoutePlan({ files, routePlan, isFollowUp, scaffold });
   if (result.changedPaths.length > 0) {
     devLogAppend("in-progress", {
       type: "scaffold-nav-plan-sync",
@@ -440,6 +539,24 @@ export function mergeGeneratedProjectFiles({
       extractAppRoutePathsFromFilePaths(resolvedScaffold.files.map((file) => file.path)),
     );
     const supersededScaffoldPaths: string[] = [];
+    // SM-048: third scaffoldBase filter — the route plan decides which of
+    // the scaffold's ROUTE files materialize. Composes with (not replaces)
+    // the two filters above. See `resolveScaffoldRouteDelivery` for the
+    // delivery semantics and the fail-open rules.
+    //
+    // KNOWN LIMIT (deliberate, not fixed here): a narrower plan in a
+    // FOLLOW-UP does not remove route files that already live in
+    // `previousFiles` — the follow-up branch returns early on
+    // `hasMergeablePrevious` and never reaches this init-only code.
+    const routeDelivery = resolveScaffoldRouteDelivery(
+      resolvedScaffold.routeContract,
+      routePlan,
+    );
+    const planFilteredScaffoldDrops: Array<{
+      path: string;
+      routePath: string;
+      category: string;
+    }> = [];
     const scaffoldBase = resolvedScaffold.files
       .filter((file) => {
         if (isLlmOnlyPath(file.path)) {
@@ -448,6 +565,11 @@ export function mergeGeneratedProjectFiles({
         }
         if (isUnderRoutePath(file.path, supersededRoutes)) {
           supersededScaffoldPaths.push(file.path);
+          return false;
+        }
+        const drop = routeDelivery?.classifyDrop(file.path);
+        if (drop) {
+          planFilteredScaffoldDrops.push({ path: file.path, ...drop });
           return false;
         }
         return true;
@@ -463,6 +585,15 @@ export function mergeGeneratedProjectFiles({
         chatId,
         supersededRoutes,
         droppedPaths: supersededScaffoldPaths,
+      });
+    }
+    if (planFilteredScaffoldDrops.length > 0) {
+      devLogAppend("in-progress", {
+        type: "scaffold-route-plan-filtered",
+        chatId,
+        scaffold: resolvedScaffold.id,
+        plannedRoutes: routeDelivery?.plannedRoutePaths ?? [],
+        dropped: planFilteredScaffoldDrops,
       });
     }
 
@@ -539,6 +670,7 @@ export function mergeGeneratedProjectFiles({
       routePlan,
       chatId,
       false,
+      resolvedScaffold,
     );
     const verbatimResult2 = applyDossierVerbatimPolicy({
       llmFiles: navSyncedInit.files,
@@ -575,11 +707,14 @@ export function mergeGeneratedProjectFiles({
     });
   }
   if (crossFileResult.fixes.length > 0 || typeOnlyModuleResult.fixes.length > 0) {
+    // No scaffold → no `navSurface` → nav-sync is a deliberate no-op here;
+    // the manifest owns the nav surface (SM-051 bug class).
     const navSyncedNoScaffold = applyNavPlanSync(
       crossFileFiles,
       routePlan,
       chatId,
       false,
+      null,
     );
     const verbatimResult3 = applyDossierVerbatimPolicy({
       llmFiles: navSyncedNoScaffold.files,
@@ -626,6 +761,7 @@ export function mergeGeneratedProjectFiles({
     routePlan,
     chatId,
     false,
+    null,
   );
   const verbatimResult4 = applyDossierVerbatimPolicy({
     llmFiles: navSyncedFallback.files,

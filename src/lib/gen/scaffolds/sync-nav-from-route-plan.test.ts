@@ -9,6 +9,21 @@ const DASHBOARD_SIDEBAR = readFileSync(
   join(__dirname, "dashboard/files/components/dashboard-sidebar.tsx"),
   "utf8",
 );
+const BLOG_SITE_HEADER = readFileSync(
+  join(__dirname, "blog/files/components/site-header.tsx"),
+  "utf8",
+);
+const LANDING_SITE_HEADER = readFileSync(
+  join(__dirname, "landing-page/files/components/site-header.tsx"),
+  "utf8",
+);
+const SAAS_MARKETING_HEADER = readFileSync(
+  join(__dirname, "saas-landing/files/components/marketing-header.tsx"),
+  "utf8",
+);
+
+const SIDEBAR_SURFACE = { navSurface: "components/dashboard-sidebar.tsx" };
+const HEADER_SURFACE = { navSurface: "components/site-header.tsx" };
 
 function file(path: string, content: string): CodeFile {
   return { path, content, language: "tsx" };
@@ -24,6 +39,16 @@ function offertlyftetPlan(): RoutePlan {
       { path: "/logga-in", name: "Logga in", intent: "Auth", required: true },
       { path: "/dashboard", name: "Översikt", intent: "App home", required: true },
     ],
+  };
+}
+
+function onePagePlan(): RoutePlan {
+  return {
+    provenance: { primarySource: "prompt", sources: ["prompt"] },
+    siteType: "one-page",
+    reason: "explicit one-page cap",
+    routes: [{ path: "/", name: "Hem", intent: "Everything on one page", required: true }],
+    explicitPageCount: 1,
   };
 }
 
@@ -52,6 +77,7 @@ describe("syncNavItemsFromRoutePlan", () => {
     const result = syncNavItemsFromRoutePlan({
       files: [file("components/dashboard-sidebar.tsx", DASHBOARD_SIDEBAR)],
       routePlan: offertlyftetPlan(),
+      scaffold: SIDEBAR_SURFACE,
     });
 
     expect(result.changedPaths).toEqual(["components/dashboard-sidebar.tsx"]);
@@ -79,6 +105,7 @@ describe("syncNavItemsFromRoutePlan", () => {
     const result = syncNavItemsFromRoutePlan({
       files: [file("components/dashboard-sidebar.tsx", withLogout)],
       routePlan: offertlyftetPlan(),
+      scaffold: SIDEBAR_SURFACE,
     });
 
     expect(result.changedPaths).toEqual(["components/dashboard-sidebar.tsx"]);
@@ -109,6 +136,7 @@ describe("syncNavItemsFromRoutePlan", () => {
     const result = syncNavItemsFromRoutePlan({
       files: [file("components/dashboard-sidebar.tsx", withoutLucide)],
       routePlan: offertlyftetPlan(),
+      scaffold: SIDEBAR_SURFACE,
     });
 
     expect(result.changedPaths).toEqual(["components/dashboard-sidebar.tsx"]);
@@ -129,6 +157,7 @@ describe("syncNavItemsFromRoutePlan", () => {
     const result = syncNavItemsFromRoutePlan({
       files: [file("components/dashboard-sidebar.tsx", withAlias)],
       routePlan: offertlyftetPlan(),
+      scaffold: SIDEBAR_SURFACE,
     });
 
     expect(result.changedPaths).toEqual(["components/dashboard-sidebar.tsx"]);
@@ -158,6 +187,7 @@ describe("syncNavItemsFromRoutePlan", () => {
     const result = syncNavItemsFromRoutePlan({
       files: [file("components/dashboard-sidebar.tsx", rewritten)],
       routePlan: offertlyftetPlan(),
+      scaffold: SIDEBAR_SURFACE,
     });
 
     expect(result.changedPaths).toEqual([]);
@@ -169,9 +199,127 @@ describe("syncNavItemsFromRoutePlan", () => {
       files: [file("components/dashboard-sidebar.tsx", DASHBOARD_SIDEBAR)],
       routePlan: offertlyftetPlan(),
       isFollowUp: true,
+      scaffold: SIDEBAR_SURFACE,
     });
 
     expect(result.changedPaths).toEqual([]);
     expect(result.files[0]!.content).toBe(DASHBOARD_SIDEBAR);
+  });
+
+  // SM-048/SM-051: the manifest points the surface out. Without a
+  // `navSurface` (auth-pages, portfolio, base-nextjs, projekt-bas-app, or a
+  // scaffold-less run) nothing is guessed from filenames and nothing changes.
+  it("is a no-op when the scaffold has no navSurface", () => {
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/dashboard-sidebar.tsx", DASHBOARD_SIDEBAR)],
+      routePlan: offertlyftetPlan(),
+      scaffold: {},
+    });
+    expect(result.changedPaths).toEqual([]);
+
+    const noScaffold = syncNavItemsFromRoutePlan({
+      files: [file("components/dashboard-sidebar.tsx", DASHBOARD_SIDEBAR)],
+      routePlan: offertlyftetPlan(),
+      scaffold: null,
+    });
+    expect(noScaffold.changedPaths).toEqual([]);
+  });
+
+  it("only touches the file the navSurface points at", () => {
+    const result = syncNavItemsFromRoutePlan({
+      files: [
+        file("components/dashboard-sidebar.tsx", DASHBOARD_SIDEBAR),
+        file("components/site-header.tsx", BLOG_SITE_HEADER),
+      ],
+      routePlan: offertlyftetPlan(),
+      scaffold: SIDEBAR_SURFACE,
+    });
+    expect(result.changedPaths).toEqual(["components/dashboard-sidebar.tsx"]);
+    expect(result.files[1]!.content).toBe(BLOG_SITE_HEADER);
+  });
+});
+
+describe("syncNavItemsFromRoutePlan — header form ({ label, href })", () => {
+  it("removes the blog header link when the plan drops /blog, keeping '/'", () => {
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/site-header.tsx", BLOG_SITE_HEADER)],
+      routePlan: onePagePlan(),
+      scaffold: HEADER_SURFACE,
+    });
+
+    expect(result.changedPaths).toEqual(["components/site-header.tsx"]);
+    const header = result.files[0]!.content;
+    expect(extractNavHrefs(header)).toEqual(["/"]);
+    expect(header).not.toContain('href: "/blog"');
+    expect(header).not.toContain("Blogg\", href");
+    // Rest of the component is untouched — only the navItems array changed.
+    expect(header).toContain('aria-label="Öppna meny"');
+  });
+
+  it("keeps the blog header link when the plan includes /blog", () => {
+    const plan: RoutePlan = {
+      ...onePagePlan(),
+      routes: [
+        { path: "/", name: "Hem", intent: "Landing", required: true },
+        { path: "/blog", name: "Blogg", intent: "Articles", required: true },
+      ],
+    };
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/site-header.tsx", BLOG_SITE_HEADER)],
+      routePlan: plan,
+      scaffold: HEADER_SURFACE,
+    });
+    expect(result.changedPaths).toEqual([]);
+    expect(result.files[0]!.content).toBe(BLOG_SITE_HEADER);
+  });
+
+  it("never touches in-page anchors: landing-page header is a no-op", () => {
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/site-header.tsx", LANDING_SITE_HEADER)],
+      routePlan: onePagePlan(),
+      scaffold: HEADER_SURFACE,
+    });
+    expect(result.changedPaths).toEqual([]);
+    expect(result.files[0]!.content).toBe(LANDING_SITE_HEADER);
+    expect(result.files[0]!.content).toContain("#erbjudande");
+  });
+
+  it("never touches in-page anchors: saas-landing marketing header is a no-op", () => {
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/marketing-header.tsx", SAAS_MARKETING_HEADER)],
+      routePlan: onePagePlan(),
+      scaffold: { navSurface: "components/marketing-header.tsx" },
+    });
+    expect(result.changedPaths).toEqual([]);
+    expect(result.files[0]!.content).toBe(SAAS_MARKETING_HEADER);
+    expect(result.files[0]!.content).toContain("#pricing");
+  });
+
+  it("keeps mailto:, external, template and hash-on-root hrefs while dropping unplanned pages", () => {
+    const header = [
+      `const navItems = [`,
+      `  { label: "Start", href: "/" },`,
+      `  { label: "Om", href: "/om" },`,
+      `  { label: "Kontakt", href: "mailto:hej@example.com" },`,
+      `  { label: "Extern", href: "https://example.com" },`,
+      `  { label: "Sektion", href: "/#kontakt" },`,
+      "  { label: \"Dynamisk\", href: `/product/${1}` },",
+      `];`,
+      `export function SiteHeader() { return null; }`,
+    ].join("\n");
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/site-header.tsx", header)],
+      routePlan: onePagePlan(),
+      scaffold: HEADER_SURFACE,
+    });
+
+    expect(result.changedPaths).toEqual(["components/site-header.tsx"]);
+    const next = result.files[0]!.content;
+    expect(next).not.toContain('href: "/om"');
+    expect(next).toContain('href: "/"');
+    expect(next).toContain("mailto:hej@example.com");
+    expect(next).toContain("https://example.com");
+    expect(next).toContain('href: "/#kontakt"');
+    expect(next).toContain("/product/${1}");
   });
 });

@@ -13,10 +13,12 @@
  *   what exists. Stubs or refuses imports of local modules the merge result
  *   does not contain; reports as `merge:cross-file-stub` error-log rows.
  * - `syncNavItemsFromRoutePlan` (`scaffolds/sync-nav-from-route-plan.ts`) —
- *   runs from `finalize-merge.ts` on init only. Rewrites dashboard `navItems`
- *   from the route plan while the array still has the scaffold
- *   `{ label, href, icon }` form. Follow-up is frozen (user-deleted links
- *   must not come back).
+ *   runs from `finalize-merge.ts` on init only, against the file pointed out
+ *   by `ScaffoldManifest.navSurface`. Sidebar-form `{ label, href, icon }`
+ *   arrays are rewritten from the route plan; header-form `{ label, href }`
+ *   arrays are filtered (unplanned internal links removed, anchors/mailto/
+ *   external untouched). Follow-up is frozen (user-deleted links must not
+ *   come back).
  * - `runSecurityChecks` (`gen/security/run-security-checks.ts`) — last step of
  *   the autofix pipeline, warning-only.
  *

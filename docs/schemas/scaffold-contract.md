@@ -95,6 +95,13 @@ After all sources contribute, `buildRoutePlan()` runs `dedupePlannedRoutesInPlac
 - `promptHints`
 - `routeContract` (optional in the type for test fixtures; validation requires
   it on every registered scaffold — see [Route contract](#route-contract))
+- optional `navSurface` — path of the scaffold's nav component (e.g.
+  `components/site-header.tsx`). `syncNavItemsFromRoutePlan` rewrites ONLY
+  this file to mirror the route plan on init; the manifest points the surface
+  out so nav targets are never guessed from filenames (the SM-051 bug class).
+  Scaffolds without a shared nav component omit it (auth-pages, portfolio,
+  base-nextjs, projekt-bas-app) and nav-sync is a no-op. Validation requires
+  the path to match a scaffold file.
 - `files`
 - optional `qualityChecklist`
 - optional `research`
@@ -150,6 +157,31 @@ scopes that preserve the old switch semantics exactly:
   for these intents and as optional for the rest (blog's `/blog` is required
   for `website`/`template` but optional for `app`).
 
+**Route-plan file filter (SM-048, 2026-08-14).** On init,
+`mergeGeneratedProjectFiles` (`src/lib/gen/stream/finalize-merge.ts`,
+`resolveScaffoldRouteDelivery`) uses the contract to decide which of the
+scaffold's ROUTE files are materialized: a contract route's starter files
+are delivered when the route path is in the route plan, or when any member
+of its `deliveryGroups` group is. Required routes are contributed to every
+plan by contract, so they are effectively always delivered — except when the
+plan explicitly excludes them (an explicit one-page cap), and then the plan
+wins. Files that belong to no contract route (layout, globals, `app/api/**`,
+`components/**`) are SHARED and never dropped. Fail-open: a missing/empty
+contract or a missing/empty plan disables the filter. Drops are logged as
+`scaffold-route-plan-filtered` dev-log events. Known limit: a narrower plan
+in a FOLLOW-UP does not remove route files already present in
+`previousFiles` — the follow-up merge branch never reaches the filter.
+
+The optional `deliveryGroups` field (`string[][]`) couples contract paths
+that must materialize together — if any member is planned, every member's
+files are delivered. Used for interlinked page sets (auth-pages' `/login` ↔
+`/signup` ↔ `/forgot-password`, all-or-nothing so a surviving page never
+carries a dead auth link) and dynamic templates that ride on a planned list
+route without being its path descendant (ecommerce's `/product/[id]` rides
+on `/products`). Path descendants need no group: `app/blog/[slug]/page.tsx`
+already follows `/blog` via `isUnderRoutePath`. Validation requires every
+member to be a path that exists elsewhere in the contract.
+
 **Link ↔ contract gate.** A deterministic, blocking test in
 `src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts` (runs in
 `npm run scaffolds:validate` and therefore in the `quality` CI job) checks
@@ -165,9 +197,12 @@ both directions per scaffold:
    nothing plans those routes and the link would be dead.
 
 Known drift is pinned in the test's explicit exception list
-(`KNOWN_ROUTE_CONTRACT_VIOLATIONS`): the four SM-042 scaffolds
-(`ecommerce`, `app-shell`, `auth-pages`, `dashboard`) link to routes the
-plan never guaranteed, and SM-043's `/cart` is contract junk. The list is
+(`KNOWN_ROUTE_CONTRACT_VIOLATIONS`). SM-042 was resolved 2026-08-14 together
+with SM-048: the formerly drifting routes (`/pipeline`, `/tasks`,
+`/forgot-password`, `/users`, `/categories`, `/om`) are declared in their
+contracts, the route-plan file filter drops their files when the plan omits
+them, and nav-sync rewrites each scaffold's `navSurface` to match. The only
+remaining exception is SM-043's `/cart` (contract junk). The list is
 compared with exact equality, so drift can neither grow nor disappear
 silently — each exception is removed together with the owner's direction
 decision.
@@ -256,6 +291,11 @@ handkuraterad för auto-matchning eller retry-heuristik.
   per path, dynamic segments only in `dynamicRoutePatterns`, non-empty
   `name`/`planIntent` on planned entries, and valid build-intent scopes
   (all errors)
+- `deliveryGroups` (when set): array-shaped, each group couples at least two
+  contract paths, every member exists in the contract, no duplicate members
+  (all errors)
+- `navSurface` (when set): non-empty string that matches a scaffold file
+  path (error)
 - duplicate file paths
 - required `app/globals.css`
 - presence of `@theme inline` tokens in `app/globals.css` as a warning

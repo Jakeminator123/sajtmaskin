@@ -47,10 +47,10 @@ export const dashboardManifest: ScaffoldManifest = {
   // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
   // planning-helpers): /analytics and /settings were planned as optional,
   // and only when buildIntent was "app".
-  // SM-042: files/ links unconditionally to /users, but the plan never
-  // guaranteed it — deliberately NOT listed here until the owner picks a
-  // direction (see the route-contract gate in
-  // scaffold-manifest-validation.test.ts).
+  // SM-048 (owner decision 2026-08-14): /users is declared (page file
+  // exists, never planned) which also resolved its SM-042 gate drift. The
+  // plan filter in finalize-merge drops unplanned route files; nav-sync
+  // rewrites the `navSurface` sidebar to match, so no dead links remain.
   routeContract: {
     requiredRoutes: [],
     optionalRoutes: [
@@ -67,8 +67,9 @@ export const dashboardManifest: ScaffoldManifest = {
         planOnlyForBuildIntents: ["app"],
       },
     ],
-    declaredRoutePaths: [],
+    declaredRoutePaths: ["/users"],
     dynamicRoutePatterns: [],
   },
+  navSurface: "components/dashboard-sidebar.tsx",
   files: loadScaffoldFiles("dashboard"),
 };

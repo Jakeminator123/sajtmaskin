@@ -1,25 +1,34 @@
 /**
- * Deterministic post-merge rewrite of a scaffold sidebar `navItems` array
- * from the route plan. Lives outside the fixer registry (same class as
+ * Deterministic post-merge rewrite of a scaffold nav `navItems` array from
+ * the route plan. Lives outside the fixer registry (same class as
  * `checkCrossFileImports`): it needs the merged file set + the plan, and
  * it does not emit a `FixEntry`.
  *
+ * The target file is `ScaffoldManifest.navSurface` — the manifest points
+ * the scaffold's nav component out, so nav targets are never guessed from
+ * filenames (the SM-051 bug class). Scaffolds without a `navSurface`
+ * (auth-pages, portfolio, base-nextjs, projekt-bas-app) are a no-op.
+ *
+ * Two stable `navItems` shapes are handled:
+ *
+ *  - `{ label, href, icon }` (app-shell/dashboard sidebars): the array is
+ *    REWRITTEN from the plan — planned routes in, unplanned links out.
+ *  - `{ label, href }` (site-/marketing-headers): the array is FILTERED —
+ *    internal page links whose route is not in the plan are removed; in-page
+ *    anchors (`#pricing`), `mailto:`/`tel:`, external URLs and template
+ *    hrefs are never touched, and no links are added. Anchor-only headers
+ *    (landing-page, saas-landing) therefore stay untouched.
+ *
  * Follow-up freeze: never rewrite when `isFollowUp` is true. A user who
  * deleted a nav link in a previous round must not get it written back.
- * Even on init, rewrite only while `navItems` still has the stable
- * `{ label, href, icon }` form (scaffold default or an LLM copy of that
- * form). A rewrite that changes the shape is left untouched.
- *
- * Dashboard is the only target today. To reuse for another scaffold, add
- * its sidebar path to {@link NAV_PLAN_SYNC_TARGET_SUFFIXES}.
+ * Even on init, rewrite only while `navItems` still has a stable form
+ * (scaffold default or an LLM copy of that form). A rewrite that changes
+ * the shape is left untouched.
  */
 
 import type { CodeFile } from "@/lib/gen/parser";
+import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import { normalizeRoutePath, type RoutePlan } from "@/lib/gen/route-plan";
-
-export const NAV_PLAN_SYNC_TARGET_SUFFIXES = [
-  "components/dashboard-sidebar.tsx",
-] as const;
 
 const FALLBACK_ICON = "LayoutDashboard";
 
@@ -32,8 +41,10 @@ const NAV_ICON_BY_PATH: Record<string, string> = {
 };
 
 const NAV_ITEMS_HEAD_RE = /(?:const|let|var)\s+navItems\s*=\s*\[/;
+// One stable nav item. `icon:` is optional: sidebars carry it
+// (`{ label, href, icon }`), site-/marketing-headers do not (`{ label, href }`).
 const NAV_ITEM_RE =
-  /\{\s*label:\s*(["'`])((?:\\[\s\S]|(?!\1)[^\\])*?)\1\s*,\s*href:\s*(["'`])((?:\\[\s\S]|(?!\3)[^\\])*?)\3\s*,\s*icon:\s*([A-Za-z_$][\w$]*)\s*,?\s*\}/g;
+  /\{\s*label:\s*(["'`])((?:\\[\s\S]|(?!\1)[^\\])*?)\1\s*,\s*href:\s*(["'`])((?:\\[\s\S]|(?!\3)[^\\])*?)\3\s*(?:,\s*icon:\s*([A-Za-z_$][\w$]*)\s*)?,?\s*\}/g;
 const LUCIDE_IMPORT_RE = /import\s*\{[^}]*\}\s*from\s*["']lucide-react["']\s*;?/;
 
 export interface SyncNavFromRoutePlanResult {
@@ -46,16 +57,21 @@ export function syncNavItemsFromRoutePlan(params: {
   routePlan: RoutePlan | null | undefined;
   /** When true the file is left untouched (follow-up freeze). */
   isFollowUp?: boolean;
-  targetPathSuffixes?: readonly string[];
+  /**
+   * Scaffold whose manifest `navSurface` points out the nav file to sync.
+   * No scaffold or no `navSurface` → no-op.
+   */
+  scaffold: Pick<ScaffoldManifest, "navSurface"> | null | undefined;
 }): SyncNavFromRoutePlanResult {
-  const { files, routePlan, isFollowUp = false } = params;
+  const { files, routePlan, isFollowUp = false, scaffold } = params;
   if (isFollowUp) return { files, changedPaths: [] };
   if (!routePlan || routePlan.routes.length === 0) return { files, changedPaths: [] };
+  const navSurface = scaffold?.navSurface;
+  if (!navSurface) return { files, changedPaths: [] };
 
-  const suffixes = params.targetPathSuffixes ?? NAV_PLAN_SYNC_TARGET_SUFFIXES;
   const changedPaths: string[] = [];
   const nextFiles = files.map((file) => {
-    if (!isTargetPath(file.path, suffixes)) return file;
+    if (!isNavSurfacePath(file.path, navSurface)) return file;
     const next = rewriteNavItems(file.content, routePlan);
     if (!next || next === file.content) return file;
     changedPaths.push(file.path);
@@ -64,11 +80,10 @@ export function syncNavItemsFromRoutePlan(params: {
   return { files: nextFiles, changedPaths };
 }
 
-function isTargetPath(path: string, suffixes: readonly string[]): boolean {
+function isNavSurfacePath(path: string, navSurface: string): boolean {
   const normalized = path.replace(/\\/g, "/");
-  return suffixes.some(
-    (suffix) => normalized === suffix || normalized.endsWith(`/${suffix}`),
-  );
+  // Suffix match tolerates `src/`-rooted copies of the same component.
+  return normalized === navSurface || normalized.endsWith(`/${navSurface}`);
 }
 
 function rewriteNavItems(content: string, routePlan: RoutePlan): string | null {
@@ -77,18 +92,45 @@ function rewriteNavItems(content: string, routePlan: RoutePlan): string | null {
   const openBracket = head.index + head[0].length - 1;
   const extracted = extractArrayBody(content, openBracket);
   if (!extracted) return null;
-  if (!parseStableNavItems(extracted.body)) return null;
-
-  const routes = routesForNav(routePlan);
-  if (routes.length === 0) return null;
+  const items = parseStableNavItems(extracted.body);
+  if (!items) return null;
 
   const decl = head[0]!.replace(/\[$/, "");
-  const next =
-    content.slice(0, head.index) + decl + renderNavItems(routes) + content.slice(extracted.end + 1);
-  return syncLucideImport(
-    next,
-    routes.map((route) => iconForPath(route.path)),
+
+  if (items.every((item) => item.icon !== null)) {
+    // Sidebar form ({ label, href, icon }): rewrite wholly from the plan.
+    const routes = routesForNav(routePlan);
+    if (routes.length === 0) return null;
+    const next =
+      content.slice(0, head.index) + decl + renderNavItems(routes) + content.slice(extracted.end + 1);
+    return syncLucideImport(
+      next,
+      routes.map((route) => iconForPath(route.path)),
+    );
+  }
+
+  // Header form ({ label, href }): FILTER only. Drop internal page links
+  // whose route the plan does not include; keep anchors, mailto:/tel:,
+  // external URLs, template hrefs and planned routes verbatim. Adding links
+  // stays the LLM's job — the plan only guarantees no dead targets.
+  const planned = new Set(
+    routePlan.routes.map((route) => normalizeRoutePath(route.path)),
   );
+  const kept = items.filter((item) => !isUnplannedInternalHref(item.href, planned));
+  if (kept.length === items.length) return null;
+  const body =
+    kept.length === 0 ? "[]" : `[\n${kept.map((item) => `  ${item.raw},`).join("\n")}\n]`;
+  return content.slice(0, head.index) + decl + body + content.slice(extracted.end + 1);
+}
+
+function isUnplannedInternalHref(href: string, planned: Set<string>): boolean {
+  const trimmed = href.trim();
+  if (!trimmed.startsWith("/")) return false;
+  if (trimmed.includes("${")) return false;
+  const base = trimmed.split(/[?#]/, 1)[0] || "/";
+  const normalized = normalizeRoutePath(base);
+  if (normalized === "/") return false;
+  return !planned.has(normalized);
 }
 
 function extractArrayBody(
@@ -127,9 +169,18 @@ function extractArrayBody(
   return null;
 }
 
-function parseStableNavItems(body: string): boolean {
+interface ParsedNavItem {
+  /** Verbatim matched item text (braces included, no trailing separator). */
+  raw: string;
+  label: string;
+  href: string;
+  icon: string | null;
+}
+
+/** Returns the parsed items, or null when the array is not in a stable form. */
+function parseStableNavItems(body: string): ParsedNavItem[] | null {
   let cursor = 0;
-  let count = 0;
+  const items: ParsedNavItem[] = [];
   const re = new RegExp(NAV_ITEM_RE.source, "g");
   while (cursor < body.length && /\s/.test(body[cursor]!)) cursor += 1;
 
@@ -137,9 +188,14 @@ function parseStableNavItems(body: string): boolean {
     re.lastIndex = cursor;
     const match = re.exec(body);
     if (!match || match.index !== cursor) {
-      return body.slice(cursor).trim() === "" && count > 0;
+      return body.slice(cursor).trim() === "" && items.length > 0 ? items : null;
     }
-    count += 1;
+    items.push({
+      raw: match[0]!,
+      label: match[2]!,
+      href: match[4]!,
+      icon: match[5] ?? null,
+    });
     cursor = match.index + match[0].length;
     while (cursor < body.length && /\s/.test(body[cursor]!)) cursor += 1;
     if (body[cursor] === ",") {
@@ -147,7 +203,7 @@ function parseStableNavItems(body: string): boolean {
       while (cursor < body.length && /\s/.test(body[cursor]!)) cursor += 1;
     }
   }
-  return count > 0;
+  return items.length > 0 ? items : null;
 }
 
 function routesForNav(routePlan: RoutePlan): Array<{ path: string; name: string }> {

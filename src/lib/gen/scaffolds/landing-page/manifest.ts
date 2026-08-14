@@ -58,5 +58,9 @@ export const landingPageManifest: ScaffoldManifest = {
     declaredRoutePaths: [],
     dynamicRoutePatterns: [],
   },
+  // The header nav is in-page anchors only (#erbjudande, #om, #kontakt);
+  // nav-sync never touches anchors, so this stays a no-op until a real
+  // internal page link appears in the header.
+  navSurface: "components/site-header.tsx",
   files: loadScaffoldFiles("landing-page"),
 };
