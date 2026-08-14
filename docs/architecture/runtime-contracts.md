@@ -201,6 +201,7 @@ Event-bus är runtime-livscykel. FaultEvent är historik-/RAG-läsmodell och ska
 
 Ägs av:
 
+- `src/lib/logging/event-bus.ts`
 - `src/lib/logging/event-bus-types.ts`
 - `src/lib/logging/event-bus-projection.ts`
 - `src/lib/gen/verify/stale-verification.ts`
@@ -211,6 +212,7 @@ Invariants:
 - VersionStatus är en projektion av events plus terminal DB-reconciliation där det behövs.
 - Degradations är förstaklassignal (Advisory), inte loggbrus.
 - Dead verify/repair-rundor ska settle:as av lease/stale-watchdog och aldrig fastna permanent i “verifying”.
+- Tmp-spegeln på Vercel (`os.tmpdir()/sajtmaskin/data/runs`) har ett bindande byte-tak; antalstaket är bara en snabbväg. Lokal `data/runs/` under repo-roten prunas inte.
 
 ## Previewkontrakt
 

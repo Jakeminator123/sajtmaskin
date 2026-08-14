@@ -100,18 +100,30 @@ export const RUNS_INDEX_FILE = ".runs.json";
 export const EVENTS_NDJSON_FILE = "events.ndjson";
 
 /**
- * LRU-tak för versionsmappar i tmp-spegeln (Vercel /tmp ~512 MB, delad av
- * Chromium + läckta profiler + den här NDJSON-spegeln). Lokal `data/runs/`
- * under repo-roten ska förbli inspekterbar och rörs inte — se
- * `isInsideTmpDir(RUNS_ROOT_DIR)` innan prune.
+ * LRU-tak för *antal* versionsmappar i tmp-spegeln. Billig snabbväg —
+ * inte det bindande skyddet. 50 mappar kan vara 5 MB eller 400 MB;
+ * se `MAX_TMP_MIRROR_BYTES`. Lokal `data/runs/` under repo-roten ska
+ * förbli inspekterbar och rörs inte — se `isInsideTmpDir(RUNS_ROOT_DIR)`
+ * innan prune.
  */
 export const MAX_TMP_MIRROR_VERSION_DIRS = 50;
 
 /**
- * Åldersgolv för LRU-prunen. Finalize + verify + repair ryms i ~16 min via
+ * Bindande tak för tmp-spegeln i bytes. Vercel /tmp är ~525 MB och
+ * delas av Chromium, läckta Playwright-profiler och den här
+ * NDJSON-spegeln. Antalstaket vet inte vilken storlek 50 mappar har
+ * och kunde därför inte skydda disken: 2026-08-14 21:41:08Z loggade
+ * appen 6 MB ledigt av 525 MB (`[capture-browser] free space in
+ * temporary directory`), och sekunderna efter dog både produktkontroll
+ * och miniatyr. 32 MiB är ett känt tak som lämnar rum för Chromium.
+ */
+export const MAX_TMP_MIRROR_BYTES = 32 * 1024 * 1024;
+
+/**
+ * Åldersgolv för prunen. Finalize + verify + repair ryms i ~16 min via
  * maxDuration 950 s — en mapp yngre än golvet kan tillhöra en pågående
- * körning och taket är hygien, inte en hård gräns; hellre tillfälligt >50
- * mappar än en raderad aktiv spegel.
+ * körning. Taket är hygien, inte en hård gräns mot aktiva mappar;
+ * hellre tillfälligt över byte-/antalstaket än en raderad aktiv spegel.
  */
 export const TMP_MIRROR_PRUNE_MIN_IDLE_MS = 20 * 60 * 1000;
 
@@ -196,7 +208,7 @@ function appendRunIndex(versionId: string, entry: RunIndexEntry): void {
  * inte versionsmappens egen mtime. Med enbart katalog-mtime kunde en gammal
  * men fortfarande aktiv version LRU-klassas och raderas mitt i körningen.
  * Därför: nyaste av versionsmappen, dess run-barn och varje runs
- * `events.ndjson`. Bounded — körs bara när taket redan är passerat, en nivå
+ * `events.ndjson`. Bounded — körs när en ny versionsmapp skapas, en nivå
  * barn per mapp.
  */
 function newestActivityMtimeMs(dir: string): number {
@@ -229,9 +241,33 @@ function newestActivityMtimeMs(dir: string): number {
 }
 
 /**
+ * Katalogstorlek via stat, inte filinnehåll. Per-post fail-open: en
+ * oläsbar fil får inte fälla hela mätningen eller emit().
+ */
+function directorySizeBytes(dir: string): number {
+  let total = 0;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isSymbolicLink()) continue;
+    const childPath = path.join(dir, entry.name);
+    try {
+      if (entry.isDirectory()) {
+        total += directorySizeBytes(childPath);
+      } else if (entry.isFile()) {
+        total += fs.statSync(childPath).size;
+      }
+    } catch {
+      /* hoppa över en post — hellre underskattad storlek än kast */
+    }
+  }
+  return total;
+}
+
+/**
  * Lokal kopia av generation-log-writerns `lruPruneSubdirs`-idé (äldsta
  * aktivitet ryker först). Importeras inte därifrån — de två writer-vägarna
  * ska inte kopplas ihop. Bara tmp-spegeln; emit() får aldrig kasta härifrån.
+ * Byte-taket är bindande; antalstaket är en extra snabbväg.
  */
 function pruneTmpMirrorVersionDirsBestEffort(): void {
   if (!isInsideTmpDir(RUNS_ROOT_DIR)) return;
@@ -240,22 +276,49 @@ function pruneTmpMirrorVersionDirsBestEffort(): void {
     const scored = fs
       .readdirSync(RUNS_ROOT_DIR, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      .map((entry) => ({
-        name: entry.name,
-        mtimeMs: newestActivityMtimeMs(path.join(RUNS_ROOT_DIR, entry.name)),
-      }));
-    if (scored.length <= MAX_TMP_MIRROR_VERSION_DIRS) return;
+      .map((entry) => {
+        const dir = path.join(RUNS_ROOT_DIR, entry.name);
+        return {
+          name: entry.name,
+          dir,
+          mtimeMs: newestActivityMtimeMs(dir),
+          bytes: 0,
+        };
+      });
+    if (scored.length === 0) return;
+
+    let totalBytes: number | null = 0;
+    try {
+      for (const entry of scored) {
+        entry.bytes = directorySizeBytes(entry.dir);
+        totalBytes += entry.bytes;
+      }
+    } catch {
+      // Storleksmätningen fail-open: antalstaket kan fortfarande städa.
+      totalBytes = null;
+    }
+
+    const overCount = scored.length > MAX_TMP_MIRROR_VERSION_DIRS;
+    const overBytes = totalBytes !== null && totalBytes > MAX_TMP_MIRROR_BYTES;
+    if (!overCount && !overBytes) return;
+
     scored.sort((a, b) => a.mtimeMs - b.mtimeMs);
-    const overflow = scored.length - MAX_TMP_MIRROR_VERSION_DIRS;
     const idleFloor = Date.now() - TMP_MIRROR_PRUNE_MIN_IDLE_MS;
-    // Filtrera bort färsk aktivitet INNAN slice så äldre mappar bortom
-    // golvet fortfarande städas. Taket får överskridas när allt är färskt.
-    const toRemove = scored
-      .filter((entry) => entry.mtimeMs <= idleFloor)
-      .slice(0, overflow);
-    for (const { name } of toRemove) {
+    // Bara idle mappar är kandidater — taket får överskridas när allt är
+    // färskt. Äldst först så byte- och antalstaket städar samma ände.
+    const idle = scored.filter((entry) => entry.mtimeMs <= idleFloor);
+
+    let remainingCount = scored.length;
+    let remainingBytes = totalBytes;
+    for (const entry of idle) {
+      const stillOverCount = remainingCount > MAX_TMP_MIRROR_VERSION_DIRS;
+      const stillOverBytes =
+        remainingBytes !== null && remainingBytes > MAX_TMP_MIRROR_BYTES;
+      if (!stillOverCount && !stillOverBytes) break;
       try {
-        fs.rmSync(path.join(RUNS_ROOT_DIR, name), { recursive: true, force: true });
+        fs.rmSync(entry.dir, { recursive: true, force: true });
+        remainingCount -= 1;
+        if (remainingBytes !== null) remainingBytes -= entry.bytes;
       } catch {
         /* en låst mapp får inte stoppa resten eller emit() */
       }
