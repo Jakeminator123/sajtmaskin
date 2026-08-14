@@ -17,6 +17,18 @@ const INDEX_TIMEOUT_MS = 12_000;
 const INDEX_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 h
 const DEFAULT_PAGE_LIMIT = 24;
 const MAX_PAGE_LIMIT = 48;
+/** `names=` skips pagination — keep the list at featured-set scale. */
+export const MAX_COMMUNITY_INDEX_NAMES = 32;
+
+/** Trim, drop empties, and cap `names=` so featured resolve cannot dump the index. */
+export function capCommunityIndexNames(names: string[] | undefined): string[] | undefined {
+  if (!names?.length) return undefined;
+  const capped = names
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .slice(0, MAX_COMMUNITY_INDEX_NAMES);
+  return capped.length > 0 ? capped : undefined;
+}
 
 export type CommunityIndexItem = {
   name: string;
@@ -275,11 +287,13 @@ export async function queryCommunityRegistryIndex(
   query: CommunityIndexQuery = {},
   options?: { force?: boolean },
 ): Promise<CommunityIndexPage> {
+  const names = capCommunityIndexNames(query.names);
+  const boundedQuery = names ? { ...query, names } : { ...query, names: undefined };
   const all = await getCommunityRegistryIndexItems(options);
-  const filtered = filterCommunityIndexItems(all, query);
+  const filtered = filterCommunityIndexItems(all, boundedQuery);
   // When resolving an explicit name list (featured cards), return those rows
-  // without pagination — callers expect the full featured set.
-  if (query.names && query.names.length > 0) {
+  // without pagination — callers expect the full featured set (≤ cap).
+  if (names && names.length > 0) {
     return {
       namespace: SHADCNBLOCKS_NAMESPACE,
       total: filtered.length,

@@ -170,6 +170,38 @@ describe("rateLimit", () => {
     expect(blocked.headers.get("X-RateLimit-Remaining")).toBe("0");
   });
 
+  it("keys withRateLimit on verified userId across different IPs", async () => {
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_REST_API_TOKEN;
+
+    const endpoint = `unit:withRateLimit-user:${Date.now()}`;
+    RATE_LIMITS[endpoint] = { maxRequests: 1, windowMs: 60_000 };
+
+    const req1 = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "1.1.1.1" },
+    });
+    const ok = await withRateLimit(
+      req1,
+      endpoint,
+      async () => new Response("ok", { status: 200 }),
+      { userId: "user_abc" },
+    );
+    expect(ok.status).toBe(200);
+
+    const req2 = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "9.9.9.9" },
+    });
+    const blocked = await withRateLimit(
+      req2,
+      endpoint,
+      async () => new Response("should-not-run", { status: 200 }),
+      { userId: "user_abc" },
+    );
+    expect(blocked.status).toBe(429);
+  });
+
   it("fails closed in production when distributed rate limiting is not configured", async () => {
     vi.stubEnv("NODE_ENV", "production");
     delete process.env.UPSTASH_REDIS_REST_URL;

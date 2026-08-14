@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  capCommunityIndexNames,
   categoryFromCommunityName,
   clearCommunityRegistryIndexCache,
   decodeCursor,
   FEATURED_SHADCNBLOCKS,
   filterCommunityIndexItems,
+  MAX_COMMUNITY_INDEX_NAMES,
   normalizeCommunityIndexItem,
   paginateCommunityIndexItems,
   parseCommunityRegistryIndex,
@@ -134,5 +136,34 @@ describe("queryCommunityRegistryIndex", () => {
 
     await queryCommunityRegistryIndex({ limit: 2 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("caps unbounded names= so featured resolve cannot dump the index", async () => {
+    expect(FEATURED_SHADCNBLOCKS.length).toBeLessThanOrEqual(MAX_COMMUNITY_INDEX_NAMES);
+    expect(capCommunityIndexNames(FEATURED_SHADCNBLOCKS.map((f) => f.name))).toHaveLength(
+      FEATURED_SHADCNBLOCKS.length,
+    );
+
+    const overflow = Array.from({ length: MAX_COMMUNITY_INDEX_NAMES + 20 }, (_, i) => `hero${i + 1}`);
+    expect(capCommunityIndexNames(overflow)).toHaveLength(MAX_COMMUNITY_INDEX_NAMES);
+
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        items: overflow.map((name) => ({
+          name,
+          type: "registry:block",
+          title: name,
+          description: name,
+        })),
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const page = await queryCommunityRegistryIndex({ names: overflow });
+    expect(page.items).toHaveLength(MAX_COMMUNITY_INDEX_NAMES);
+    expect(page.nextCursor).toBeNull();
+    expect(page.items.map((item) => item.name)).toEqual(
+      overflow.slice(0, MAX_COMMUNITY_INDEX_NAMES),
+    );
   });
 });

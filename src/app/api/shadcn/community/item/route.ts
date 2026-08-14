@@ -25,76 +25,83 @@ const NAMESPACE_URL_TEMPLATES: Record<string, string> = {
  * the response can include Pro source files paid for by the server key.
  */
 export async function GET(req: Request) {
-  return withRateLimit(req, "shadcn:community-item", async () => {
-    const botError = requireNotBot(req);
-    if (botError) return botError;
+  const botError = requireNotBot(req);
+  if (botError) return botError;
 
-    // Same posture as /api/shadcn/describe: spends the shared Pro key / may
-    // return paid source, so anonymous/guest sessions must not scrape it.
-    const userId = await getRequestUserId(req);
-    if (!userId || userId.startsWith("guest:")) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  // Same posture as /api/shadcn/describe: spends the shared Pro key / may
+  // return paid source, so anonymous/guest sessions must not scrape it.
+  // Auth first so withRateLimit can key the bucket on the verified user
+  // (thumbnail-route pattern) instead of IP-only.
+  const userId = await getRequestUserId(req);
+  if (!userId || userId.startsWith("guest:")) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
 
-    const { searchParams } = new URL(req.url);
-    const registry = searchParams.get("registry")?.trim() || SHADCNBLOCKS_NAMESPACE;
-    const name = searchParams.get("name")?.trim();
+  return withRateLimit(
+    req,
+    "shadcn:community-item",
+    async () => {
+      const { searchParams } = new URL(req.url);
+      const registry = searchParams.get("registry")?.trim() || SHADCNBLOCKS_NAMESPACE;
+      const name = searchParams.get("name")?.trim();
 
-    if (!name) {
-      return NextResponse.json({ error: "name is required" }, { status: 400 });
-    }
+      if (!name) {
+        return NextResponse.json({ error: "name is required" }, { status: 400 });
+      }
 
-    const urlTemplate = NAMESPACE_URL_TEMPLATES[registry];
-    if (!urlTemplate) {
-      return NextResponse.json(
-        { error: `Unsupported community registry: ${registry}` },
-        { status: 400 },
-      );
-    }
+      const urlTemplate = NAMESPACE_URL_TEMPLATES[registry];
+      if (!urlTemplate) {
+        return NextResponse.json(
+          { error: `Unsupported community registry: ${registry}` },
+          { status: 400 },
+        );
+      }
 
-    const url = urlTemplate.replace("{name}", encodeURIComponent(name));
-    const request = buildCommunityRegistryRequest(url, {
-      signal: AbortSignal.timeout(ITEM_TIMEOUT_MS),
-    });
+      const url = urlTemplate.replace("{name}", encodeURIComponent(name));
+      const request = buildCommunityRegistryRequest(url, {
+        signal: AbortSignal.timeout(ITEM_TIMEOUT_MS),
+      });
 
-    let response: Response;
-    try {
-      response = await fetch(request.url, request.init);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Network error";
-      return NextResponse.json(
-        { error: `Community registry fetch failed: ${msg}` },
-        { status: 502 },
-      );
-    }
+      let response: Response;
+      try {
+        response = await fetch(request.url, request.init);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Network error";
+        return NextResponse.json(
+          { error: `Community registry fetch failed: ${msg}` },
+          { status: 502 },
+        );
+      }
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Community registry request failed", status: response.status },
-        { status: response.status },
-      );
-    }
+      if (!response.ok) {
+        return NextResponse.json(
+          { error: "Community registry request failed", status: response.status },
+          { status: response.status },
+        );
+      }
 
-    let data: unknown;
-    try {
-      data = await response.json();
-    } catch {
-      return NextResponse.json(
-        { error: "Community registry returned non-JSON response" },
-        { status: 502 },
-      );
-    }
+      let data: unknown;
+      try {
+        data = await response.json();
+      } catch {
+        return NextResponse.json(
+          { error: "Community registry returned non-JSON response" },
+          { status: 502 },
+        );
+      }
 
-    const item = data as ShadcnRegistryItem;
-    if (!isUsableRegistryItem(item)) {
-      return NextResponse.json(
-        { error: "Community registry item is empty or unusable" },
-        { status: 502 },
-      );
-    }
+      const item = data as ShadcnRegistryItem;
+      if (!isUsableRegistryItem(item)) {
+        return NextResponse.json(
+          { error: "Community registry item is empty or unusable" },
+          { status: 502 },
+        );
+      }
 
-    return NextResponse.json(item, {
-      headers: { "Cache-Control": "private, no-store" },
-    });
-  });
+      return NextResponse.json(item, {
+        headers: { "Cache-Control": "private, no-store" },
+      });
+    },
+    { userId },
+  );
 }

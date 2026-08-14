@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { requireNotBot } from "@/lib/bot-protection";
 import { withRateLimit } from "@/lib/rate-limit";
 import {
+  capCommunityIndexNames,
   queryCommunityRegistryIndex,
   SHADCNBLOCKS_NAMESPACE,
 } from "@/lib/shadcn/community-registry-index";
@@ -14,13 +16,16 @@ export const revalidate = 300;
  * Publikt shadcnblocks-index (ingen nyckel; `files` strippas). Query:
  * - namespace (default @shadcnblocks; only that namespace is supported yet)
  * - q, category, limit, cursor
- * - names=hero1,feature1… (featured resolve; skips pagination)
+ * - names=hero1,feature1… (featured resolve; skips pagination; capped)
  *
  * `force` is intentionally not exposed — public callers must not bypass the
  * two-hour in-memory cache (upstream bandwidth / parse load).
  */
 export async function GET(req: Request) {
   return withRateLimit(req, "shadcn:community-index", async () => {
+    const botError = requireNotBot(req);
+    if (botError) return botError;
+
     const { searchParams } = new URL(req.url);
     const namespace = (searchParams.get("namespace")?.trim() || SHADCNBLOCKS_NAMESPACE) as string;
     if (namespace !== SHADCNBLOCKS_NAMESPACE) {
@@ -34,9 +39,9 @@ export async function GET(req: Request) {
     const category = searchParams.get("category")?.trim() || undefined;
     const cursor = searchParams.get("cursor")?.trim() || undefined;
     const namesRaw = searchParams.get("names")?.trim();
-    const names = namesRaw
-      ? namesRaw.split(",").map((part) => part.trim()).filter(Boolean)
-      : undefined;
+    const names = capCommunityIndexNames(
+      namesRaw ? namesRaw.split(",") : undefined,
+    );
     const limitRaw = searchParams.get("limit");
     const limit = limitRaw ? Number.parseInt(limitRaw, 10) : undefined;
 

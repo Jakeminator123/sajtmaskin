@@ -69,7 +69,8 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   // plus registry fetches, so keep it tighter than the polling buckets.
   "shadcn:describe": { maxRequests: 15, windowMs: 60 * 1000 },
   // Community item hydrate: returns full registry JSON (incl. Pro sources via
-  // the shared SHADCNBLOCKS_API_KEY). Cap per authenticated user/IP.
+  // the shared SHADCNBLOCKS_API_KEY). Cap per authenticated user — the
+  // item route must pass verified (non-guest) userId into withRateLimit.
   "shadcn:community-item": { maxRequests: 30, windowMs: 60 * 1000 },
   // Community index is metadata-only (files stripped) but still hits upstream
   // on cold cache — keep below the generic read bucket.
