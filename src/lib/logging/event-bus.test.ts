@@ -178,14 +178,50 @@ describe("event-bus", () => {
     fs.utimesSync(dir, mtime, mtime);
   }
 
+  function writeVersionPayload(versionId: string, bytes: number): void {
+    const payload = path.join(bus.RUNS_ROOT_DIR, versionId, "payload.bin");
+    const fd = fs.openSync(payload, "w");
+    try {
+      fs.ftruncateSync(fd, bytes);
+    } finally {
+      fs.closeSync(fd);
+    }
+    if (fs.statSync(payload).size !== bytes) {
+      fs.writeFileSync(payload, Buffer.alloc(bytes));
+    }
+  }
+
+  function directorySizeBytes(dir: string): number {
+    let total = 0;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const childPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) total += directorySizeBytes(childPath);
+      else if (entry.isFile()) total += fs.statSync(childPath).size;
+    }
+    return total;
+  }
+
+  function mirrorSizeBytes(): number {
+    return directorySizeBytes(bus.RUNS_ROOT_DIR);
+  }
+
+  function listVersionDirs(): string[] {
+    return fs
+      .readdirSync(bus.RUNS_ROOT_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+  }
+
+  function started(versionId: string) {
+    return bus.emit({
+      t: "version.started",
+      versionId,
+      generationKind: "create",
+    });
+  }
+
   it("prunes oldest tmp-mirror version dirs when the cap is exceeded", () => {
     const cap = bus.MAX_TMP_MIRROR_VERSION_DIRS;
-    const started = (versionId: string) =>
-      bus.emit({
-        t: "version.started",
-        versionId,
-        generationKind: "create",
-      });
 
     for (let i = 0; i < cap; i++) {
       const id = `old_${String(i).padStart(2, "0")}`;
@@ -195,10 +231,7 @@ describe("event-bus", () => {
 
     started("newest");
 
-    const dirs = fs
-      .readdirSync(bus.RUNS_ROOT_DIR, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
+    const dirs = listVersionDirs();
 
     expect(dirs).toHaveLength(cap);
     expect(dirs).toContain("newest");
@@ -212,12 +245,6 @@ describe("event-bus", () => {
   // version får inte LRU-klassas bort medan en idle mellanversion står kvar.
   it("keeps an old-but-active version and prunes the least recently active one", () => {
     const cap = bus.MAX_TMP_MIRROR_VERSION_DIRS;
-    const started = (versionId: string) =>
-      bus.emit({
-        t: "version.started",
-        versionId,
-        generationKind: "create",
-      });
 
     for (let i = 0; i < cap; i++) {
       const id = `old_${String(i).padStart(2, "0")}`;
@@ -233,10 +260,7 @@ describe("event-bus", () => {
 
     started("newest");
 
-    const dirs = fs
-      .readdirSync(bus.RUNS_ROOT_DIR, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
+    const dirs = listVersionDirs();
 
     expect(dirs).toHaveLength(cap);
     expect(dirs).toContain("old_00");
@@ -249,12 +273,6 @@ describe("event-bus", () => {
   // att 50+ nyare versioner registrerats på samma varma instans.
   it("does not prune tmp-mirror dirs younger than the idle floor even when over cap", () => {
     const cap = bus.MAX_TMP_MIRROR_VERSION_DIRS;
-    const started = (versionId: string) =>
-      bus.emit({
-        t: "version.started",
-        versionId,
-        generationKind: "create",
-      });
 
     for (let i = 0; i < cap; i++) {
       const id = `fresh_${String(i).padStart(2, "0")}`;
@@ -266,15 +284,82 @@ describe("event-bus", () => {
 
     expect(() => started("newest")).not.toThrow();
 
-    const dirs = fs
-      .readdirSync(bus.RUNS_ROOT_DIR, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
+    const dirs = listVersionDirs();
 
     expect(dirs).toHaveLength(cap + 1);
     expect(dirs).toContain("newest");
     expect(dirs).toContain("fresh_00");
     expect(bus.readAll("newest")).toHaveLength(1);
+  });
+
+  // Defekten: antalstaket (50) såg inte bytes. Få stora mappar kunde
+  // fylla Vercel /tmp (6 MB ledigt av 525 MB, 2026-08-14) utan att
+  // prunen rörde dem. Byte-taket är den bindande gränsen.
+  it("prunes idle tmp-mirror dirs when the byte cap is exceeded even under the count cap", () => {
+    const chunk = Math.floor(bus.MAX_TMP_MIRROR_BYTES * 0.6);
+    const idleAt = new Date(Date.now() - bus.TMP_MIRROR_PRUNE_MIN_IDLE_MS - 60_000);
+
+    for (const [i, id] of ["fat_00", "fat_01", "fat_02"].entries()) {
+      started(id);
+      writeVersionPayload(id, chunk);
+      backdateVersionDeep(
+        id,
+        new Date(idleAt.getTime() - (2 - i) * 60_000),
+      );
+    }
+
+    expect(listVersionDirs().length).toBeLessThan(bus.MAX_TMP_MIRROR_VERSION_DIRS);
+    expect(mirrorSizeBytes()).toBeGreaterThan(bus.MAX_TMP_MIRROR_BYTES);
+
+    started("newest");
+
+    const dirs = listVersionDirs();
+    expect(dirs).toContain("newest");
+    expect(dirs).not.toContain("fat_00");
+    expect(mirrorSizeBytes()).toBeLessThanOrEqual(bus.MAX_TMP_MIRROR_BYTES);
+    expect(bus.readAll("newest")).toHaveLength(1);
+  });
+
+  it("does not prune a tmp-mirror dir younger than the idle floor even when over the byte cap", () => {
+    const fatBytes = bus.MAX_TMP_MIRROR_BYTES + 1024;
+    started("fat_fresh");
+    writeVersionPayload("fat_fresh", fatBytes);
+    backdateVersionDeep("fat_fresh", new Date(Date.now() - 5 * 60_000));
+
+    expect(() => started("newest")).not.toThrow();
+
+    const dirs = listVersionDirs();
+    expect(dirs).toContain("fat_fresh");
+    expect(dirs).toContain("newest");
+    expect(mirrorSizeBytes()).toBeGreaterThan(bus.MAX_TMP_MIRROR_BYTES);
+    expect(bus.readAll("newest")).toHaveLength(1);
+  });
+
+  it("lets emit succeed when tmp-mirror size measurement throws", () => {
+    started("existing");
+    writeVersionPayload("existing", 1024);
+    backdateVersionDeep(
+      "existing",
+      new Date(Date.now() - bus.TMP_MIRROR_PRUNE_MIN_IDLE_MS - 60_000),
+    );
+
+    const originalStat = fs.statSync.bind(fs);
+    const statSpy = vi.spyOn(fs, "statSync").mockImplementation((p, ...args) => {
+      if (String(p).includes("payload.bin")) {
+        throw new Error("stat boom");
+      }
+      return originalStat(p, ...args);
+    });
+
+    try {
+      expect(() => started("newest")).not.toThrow();
+      expect(bus.readAll("newest").map((event) => event.t)).toEqual(["version.started"]);
+      expect(
+        fs.existsSync(path.join(bus.RUNS_ROOT_DIR, "newest", "root", "events.ndjson")),
+      ).toBe(true);
+    } finally {
+      statSpy.mockRestore();
+    }
   });
 
   it("lets emit succeed when tmp-mirror prune cannot delete", () => {
