@@ -13,7 +13,7 @@ The name is historical: `818` meant eight agents. Since 2026-08-02 it is **three
 ## Pattern (orchestrator = main agent)
 
 1. **One-sentence problem statement** from the user, or ask one clarifying line. Never guess the scope.
-2. **Three** parallel `Task` calls: `explore`, `readonly: true`, `model: <grok-4.5>` (scan role — roles in [`subagent-models.mdc`](../../rules/subagent-models.mdc); `<grok-4.5>` is a placeholder you resolve against the `cursor-grok-4.5` entry in your own session's `<available_subagent_models>`).
+2. **Three** parallel `Task` calls: `explore`, `readonly: true`, `model: <grok-4.5>` (scan role — roles in [`subagent-models.mdc`](../../rules/subagent-models.mdc); `<grok-4.5>` is a role placeholder you resolve against the Grok entry the rule designates, looked up in your own session's `<available_subagent_models>`).
 3. **Three fixed angles**, one per agent — see the table below. Do not add a fourth.
 4. Require **short** output: max 6 lines, table or bullets, `%` or H/M/L where it fits. No prose.
 5. **Parent verifies** every load-bearing claim with repo tools before deciding. Code is source of truth; subagents may not see `.git`, may miss an existing guard, and sometimes invent `fil:rad`.

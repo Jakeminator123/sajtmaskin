@@ -1,18 +1,24 @@
 ---
-description: Grok 4.5 = default för ALLA subagenter inkl. bugg-/kodgranskning; slug slås upp per session
+description: Grok = default för ALLA subagenter inkl. bugg-/kodgranskning; 4.6 xhigh fast under gratisperioden, annars 4.5; slug slås upp per session
 alwaysApply: true
 ---
 
 # Subagent-modeller
 
-**Grok 4.5 är standardmodell för ALLA subagenter** — scan, omdöme, destillering,
+**En Grok-modell är standard för ALLA subagenter** — scan, omdöme, destillering,
 kedja-runner **och** bugg-/kodgranskning (`bugbot`). Detta är ägarens stående
 begäran, så `Task`-verktygets default (`inherit`) gäller inte här.
+
+**Vilken Grok (ägarbeslut 2026-08-14):** `cursor-grok-4.6-xhigh-fast` så länge den är
+gratis. Finns den inte i din sessions modellista: fall tillbaka till `cursor-grok-4.5`.
+Gratisperioden är tidsbegränsad — hittar du bara 4.5, använd den och rapportera inte
+det som ett fel.
 
 - **Skicka alltid `model`** i `Task`-anropet, inklusive `bugbot`. Utelämnas den
   ärver subagenten din egen, ofta dyra, modell — tyst.
 - **Slå upp slugen, skriv inte av den.** `<grok-4.5>` i repots kommandon och
-  skills betyder: posten som börjar på `cursor-grok-4.5` i din egen sessions
+  skills är en **roll-platshållare**, inte en versionslåsning: den betyder «den
+  Grok-post som gäller enligt stycket ovan», slagen upp i din egen sessions
   `<available_subagent_models>`. Formen varierar mellan sessioner, så en slug ur
   en äldre textrad är fel ungefär varannan gång.
 - Välj **inte** Composer (`composer-2.5` / `composer-2.5-fast`) som default.

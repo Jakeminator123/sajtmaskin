@@ -16,7 +16,7 @@ Vinnaren committas på sin kedja-branch; ingen push/PR utan begäran.
 | `/kedja`                          | fråga användaren vilken bugg — välj aldrig själv |
 | `... kandidater=3`                | 3 fix-kandidater i steg 5 i stället för 2        |
 
-Modellslug: [`subagent-models.mdc`](../rules/subagent-models.mdc) — `<grok-4.5>` upplöst mot sessionens `cursor-grok-4.5*`.
+Modellslug: [`subagent-models.mdc`](../rules/subagent-models.mdc) — `<grok-4.5>` är en rollplatshållare, upplös den mot den Grok-post regeln anger i din egen sessions modellista.
 
 ## Delegerat läge — STANDARD för dyra orkestratorer
 

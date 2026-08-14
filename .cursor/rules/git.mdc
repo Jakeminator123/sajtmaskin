@@ -12,6 +12,7 @@ alwaysApply: true
 - Om du bedömer att PR behövs: förklara varför och invänta OK.
 - Om användaren ber om merge: följ `pr-merge.mdc` först.
 - Före PR-skapande **och** före push till master: kör ett **Cursor Bugbot-pass på egen diff** (bugbot-subagent, `readonly: true`, `model: <grok-4.5>`). Det är hela buggkollen (inga extra review-svärmar). Kör om på varje ny commit.
+- **Efter PR-skapande är du inte klar.** Vänta ~7 min, hämta de externa granskarnas fynd, triagera varje fynd och signera. `gh pr checks` visar **inte** fynden, och «usage limit reached» från Bugbot eller Codex betyder att granskaren är av — inte att det saknas fynd. Kommandon, sign-off-format och `merge:ready`-ordningen ägs av [`pr-merge.mdc`](pr-merge.mdc) § *Bugg-efterkontroll* och § *`merge:ready`*. Merga inte själv — merge-agenten gör det.
 - `gh pr merge --admin` är tillåtet på ägarens uppmaning (beslut 2026-08-11) — men bara när merge-grinden i `pr-merge.mdc` är uppfylld. Den listan är kanonisk och upprepas inte här. `--admin` överstyr `review-window`, så verifiera PR-åldern manuellt.
 
 ## Ignore-filer
