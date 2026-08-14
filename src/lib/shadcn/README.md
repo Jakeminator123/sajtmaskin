@@ -28,4 +28,4 @@
 - `src/lib/gen/data/shadcn-components.ts` — PascalCase → import slug map for prompts/post-processing.
 - `src/lib/builder/shadcn-component-metadata.ts` — UI metadata (categories, preview hints) for the picker.
 
-**API routes:** `src/app/api/shadcn/registry/{index,item,refresh}/` — proxy/cache for browser `fetch` and server refresh. `src/app/api/shadcn/community/{index,item}/` — shadcnblocks index (public) + item hydrate (Bearer). `src/app/api/shadcn/describe/` — flag-gated Fas 1 discovery route (`POST`, default 404).
+**API routes:** `src/app/api/shadcn/registry/{index,item,refresh}/` — proxy/cache for browser `fetch` and server refresh. `src/app/api/shadcn/community/{index,item}/` — shadcnblocks index (public metadata, no cache-bypass query) + item hydrate (Bearer; requires logged-in non-guest + rate limit). `src/app/api/shadcn/describe/` — flag-gated Fas 1 discovery route (`POST`, default 404).

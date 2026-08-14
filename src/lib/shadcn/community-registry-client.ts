@@ -18,7 +18,6 @@ export type CommunityIndexClientQuery = {
   limit?: number;
   cursor?: string | null;
   names?: string[];
-  force?: boolean;
 };
 
 export async function fetchCommunityIndexPage(
@@ -31,7 +30,6 @@ export async function fetchCommunityIndexPage(
   if (query.cursor?.trim()) params.set("cursor", query.cursor.trim());
   if (query.limit != null) params.set("limit", String(query.limit));
   if (query.names?.length) params.set("names", query.names.join(","));
-  if (query.force) params.set("force", "1");
 
   const response = await fetch(`/api/shadcn/community/index?${params.toString()}`);
   if (!response.ok) {
