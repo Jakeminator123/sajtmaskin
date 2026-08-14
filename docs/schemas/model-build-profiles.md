@@ -4,10 +4,6 @@ Det här dokumentet beskriver den stabila mentala modellen för builderns
 modellval. Exakta profiler, modell-ID:n, envnycklar och defaults genereras från
 manifestet och ska inte kopieras hit.
 
-LLM-**roller** (brief, planner, generator, fixer) ägs av
-[`llm-role-matrix.md`](llm-role-matrix.md). Denna fil äger bara **hur en modell
-väljs**.
-
 ## Canonical ownership
 
 | Faktatyp                                                                | Ägare                                                                                                                                                                |
@@ -24,16 +20,14 @@ referensen är en projektion och detta dokument är endast en mental modell.
 
 ## Separata valytor
 
-Buildern har en profil-lane, en modell-hint och en reasoning-flagga:
+Buildern har tre modellrelaterade lanes och en separat flagga:
 
 1. **Build profile** väljer generationens profil och runtime-routing.
-2. **`promptAssistModel`** är en modell-hint till Deep Brief (klient `/api/ai/brief`
-   eller server auto-brief). Det är inte en omskrivnings-agent och inte Polish.
-3. **Thinking** påverkar reasoning för de faser där manifestet tillåter det men
+2. **Prompt assist** förbättrar eller strukturerar användarens prompt före
+   generation.
+3. **Polish** är en separat, textbaserad omskrivning.
+4. **Thinking** påverkar reasoning för de faser där manifestet tillåter det men
    skapar inte en ny profil eller lane.
-
-Polish och `promptAssistMode` (`polish` / `rewrite`) är **inte** live lanes.
-Se [`llm-role-matrix.md`](llm-role-matrix.md) § Inte live.
 
 Profil-ID, providerkodade assist-modeller och konkreta provider-ID:n är olika
 typer. De får inte skickas mellan ytor utan den kanoniska normaliseringen.
@@ -56,8 +50,9 @@ eller återberättas som nuvarande defaults i docs.
 
 Den tidigare kanoniska profilen `fast` är pensionerad. Äldre requests och
 persisterade val normaliseras till `premium`, men nya UI-, manifest- och
-env-värden använder `premium` / `SAJTMASKIN_MODEL_PREMIUM`. Vilken modell
-Premium faktiskt kör ägs av manifestet, inte av den här filen.
+env-värden använder `premium` / `SAJTMASKIN_MODEL_PREMIUM`. Premium kör
+GPT-5.6 Sol i hela phase-routing-kedjan. GPT-5.6 Terra och Luna finns som
+explicita backoffice-val för faser, men är inte Premium-profilens default.
 
 ## Ändringsregel
 

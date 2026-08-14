@@ -5,7 +5,7 @@ Formyta för URL- och state-fält när `/builder` öppnas. Värden för
 Intern klassning ägs av `src/app/builder/builder-entry.ts`.
 
 Pre-codegen (Deep Brief) hör inte hit — se
-[`llm-role-matrix.md`](llm-role-matrix.md).
+[`../architecture/llm-pipeline.md`](../architecture/llm-pipeline.md) § Fas 1.
 
 ## Canonical ownership
 

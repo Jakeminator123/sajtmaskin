@@ -162,8 +162,7 @@ Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRo
 
 `selectCriticalScaffoldFiles()` prioriterar baserat på kritiska patterns + route-relevans + capability-relevans. Rangordningen i `CRITICAL_PATH_PATTERNS` sätter nästlade route-filer (`app/blog/page.tsx`, nästlad `layout.tsx`) **över** generiska `components/**`, och statiska routes över dynamiska (`[slug]`) — route-sidor är `llm-owned`/`mustEmit`, så en struken sida blir en sida modellen aldrig skriver.
 
-**Scaffold Contract V2:** kritiska filer renderas via `(role, serialization)`.
-Policy-tabell och fält: [`docs/schemas/scaffold-contract.md`](../schemas/scaffold-contract.md).
+**Scaffold Contract V2 (2026-04-29):** varje vald kritisk fil renderas via `(role, serialization)`. Defaults härleds från path så befintliga manifest fungerar oförändrade. Manifest kan overrida via valfria fält på `ScaffoldFile` (`role`, `serialization`, `maxPromptChars`). Resultat: `app/page.tsx` renderas som `FileContract` (inte halv TSX), shared `components/*` som `FileContract`-signatur (imports + exports + struktur), medan små `layout.tsx`/`globals.css`/config-filer kan vara kompletta source-fences. Stora `full`-filer faller tillbaka till FileContract så `## Critical Scaffold Files` håller 6k-capen. Se [`docs/schemas/scaffold-contract.md`](../schemas/scaffold-contract.md) för fullständig policy-tabell.
 
 ### STEG 10 — System Prompt (`src/lib/gen/system-prompt/`)
 
@@ -194,12 +193,19 @@ Se [llm-pipeline.md](../architecture/llm-pipeline.md) § FAS 2 för finalize-pip
 
 ---
 
-## 6. Scaffold-katalog
+## 6. Komplett scaffold-matris
 
-Aktuella id:n, siteKind, complexity, intents och features genereras från
-runtime-registret. Läs [`scaffolds.generated.md`](../generated/scaffolds.generated.md).
-Manifestfält: [`../schemas/scaffold-contract.md`](../schemas/scaffold-contract.md).
-Kopiera inte `ScaffoldId`-unionen hit.
+| ID | Site Kind | Complexity | Structure Profile | Content Profile | Allowed Intents | Typiska features |
+|---|---|---|---|---|---|---|
+| `base-nextjs` | marketing | simple | starter-nextjs | generic | website, template | routing-basics, seo-metadata, component-ready |
+| `landing-page` | marketing | medium | one-page-marketing | service-business | website, template | hero, trust-signals, cta |
+| `saas-landing` | marketing | medium | multi-section-marketing | saas-growth | website, template | pricing, feature-grid, comparison, cta |
+| `portfolio` | editorial | medium | showcase-site | creator-portfolio | website, template | gallery, project-cases, contact-cta |
+| `blog` | editorial | medium | editorial-hub | long-form-content | website, template | article-list, taxonomy, author-bio |
+| `dashboard` | app | advanced | dashboard-app | operations-analytics | app | auth, navigation-shell, tables, charts |
+| `auth-pages` | app | simple | auth-surface | authentication | website, app | login, signup, password-reset |
+| `ecommerce` | commerce | advanced | commerce-storefront | product-catalog | website, template | product-grid, cart, checkout, product-detail |
+| `app-shell` | app | medium | application-shell | workspace-tools | app | auth, sidebar-layout, settings, dash-widgets |
 
 ---
 

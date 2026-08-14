@@ -25,13 +25,13 @@ all references move in the same change.
 
 | File                               | Domain                                                                                                                     | Canonical owner (form) |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| `model-build-profiles.md`          | Build profiles, model selection, phase routing. Inte LLM-roller.                                                           | `config/ai_models/manifest.json` |
+| `model-build-profiles.md`          | Build profiles, model selection, legacy aliases, phase routing, thinking config.                                           | `config/ai_models/manifest.json` |
 | `builder-entry-contract.md`        | Builder entry URL/state: `buildMethod`, `buildIntent`, `appProjectId`, prompt handoff, template path.                      | `src/app/builder/builder-entry.ts` |
-| `scaffold-contract.md`             | `ScaffoldManifest`-fält och serialiseringspolicy. Inventarier och pick: `docs/contracts/scaffold-system.md`.               | `src/lib/gen/scaffolds/types.ts` |
+| `scaffold-contract.md`             | Runtime scaffold manifests, `ScaffoldId`, scaffold variants, font pairings, structural references, what reaches the model. | `src/lib/gen/scaffolds/types.ts` |
 | `quality-gate.md`                  | RenderGate/ReleaseGate-fält, check-id:n, repair-outcome, telemetrikolumner. Flöde: `docs/architecture/quality-gate-flow.md`. | `src/lib/gen/verify/quality-gate-checks.ts` |
 | `preview-session-contract.md`      | Preview/session identifiers, preview URLs, verify-lane boundary.                                                           | `src/lib/gen/preview/preview-contract.ts` |
-| `orchestration-signal-contract.md` | Signal layers before/during/after generation.                                                                              | `src/lib/gen/orchestrate.ts` |
-| `llm-role-matrix.md`               | Live LLM-steg (brief, planner, generator, fixer). Modellval: `model-build-profiles.md`.                                    | `src/lib/models/phase-routing.ts` + brief-owners |
+| `orchestration-signal-contract.md` | Signal layers: prompt formatting, scaffold match, route plan, capabilities, contracts, dynamic context, post-checks.       | `src/lib/gen/orchestrate.ts` |
+| `llm-role-matrix.md`               | LLM roles: prompt assist, deep brief, planner, generator, fixer, verifier, deploy-assistant.                               | `src/lib/models/phase-routing.ts` |
 | `integrations-and-data.md`         | DB-tabeller och requestvalidering som schema-ytor. Drift: `docs/contracts/data-layer.md`.                                  | `src/lib/db/schema.ts` |
 | `chat-message-ui-parts.md`         | Structured builder message parts in own-engine chat storage.                                                               | `engine_messages.ui_parts` |
 | `strict/`                          | Machine-oriented schemas. See [`strict/README.md`](strict/README.md).                                                      | per-schema sourceOfTruth |
@@ -55,8 +55,7 @@ The own-engine system prompt lives in Core Rules
 Pipeline behavior is documented in
 [`docs/architecture/llm-pipeline.md`](../architecture/llm-pipeline.md) § FAS 2.
 
-For runtime scaffold **fields**, read `scaffold-contract.md`. For pick/pipeline,
-read [`../contracts/scaffold-system.md`](../contracts/scaffold-system.md).
+For runtime scaffold input specifically, also read `scaffold-contract.md`.
 
 For signal flow in init/follow-up/repair, also read
 `docs/architecture/runtime-contracts.md`.
