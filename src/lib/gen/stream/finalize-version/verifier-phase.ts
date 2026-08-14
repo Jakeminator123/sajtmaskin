@@ -36,6 +36,7 @@ import {
   suppressTier3StrippedImportFindings,
 } from "@/lib/gen/verify/verifier-pass";
 import { dropResolvedVerifierFindings } from "@/lib/gen/verify/stale-verifier-findings";
+import { classifyVerifierFindingSeverity } from "@/lib/gen/preview/should-start-preview";
 import { runDeterministicImportRepair } from "@/lib/gen/autofix/deterministic-import-repair";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import {
@@ -494,10 +495,9 @@ export async function runVerifierPhase(params: {
         }
         // SSE honesty mirrors the RAG rows: `fixed` only on a fully clean
         // rerun. `fix-partial` = strictly fewer blockers but not zero;
-        // `fix-failed` = no improvement (or rerun crashed/unverified). The
-        // UI copy generator (stream-handlers.ts) only renders start/done/
-        // error/skipped for this step, so the phase strings here feed raw
-        // SSE/observatory consumers without inventing UI states.
+        // `fix-failed` = no improvement (or rerun crashed/unverified).
+        // `severity` is the runner's F2/F3 class so Slutsteg can color
+        // without guessing from copy. Status only — not a gate change.
         onProgress?.("verifier", {
           phase:
             rerunBlockingCount === 0
@@ -509,6 +509,10 @@ export async function runVerifierPhase(params: {
           findingsBefore: findings.blocking.length,
           findingsAfter: verifierBlockingFindings.length,
           fixerImproved,
+          severity: classifyVerifierFindingSeverity(
+            verifierBlockingFindings,
+            params.buildSpec?.previewPolicy,
+          ),
         });
       } catch (verifierFixErr) {
         console.warn(

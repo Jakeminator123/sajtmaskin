@@ -162,6 +162,22 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
     }
     if (phase === "error") return ["Verifiering misslyckades; fortsätter med nuvarande kod."];
     if (phase === "skipped") return ["Verifiering hoppades över."];
+    if (phase === "fixing") {
+      return [
+        `Försöker laga ${
+          typeof payload.findingsCount === "number" && Number.isFinite(payload.findingsCount)
+            ? `${payload.findingsCount} verifieringsfynd`
+            : "verifieringsfynd"
+        }.`,
+      ];
+    }
+    if (phase === "fixed") return [`Verifieringsfynd lagades${doneSuffix}.`];
+    if (phase === "fix-partial") {
+      return [`Verifieringen minskade fynden men rensade inte alla${doneSuffix}.`];
+    }
+    if (phase === "fix-failed") {
+      return [`Verifieringen kunde inte laga fyndet${doneSuffix}.`];
+    }
   }
   if (step === "url_expand") {
     if (phase === "start") return ["Expanderar kortade URL:er till fulla adresser."];
@@ -319,13 +335,26 @@ export type ProgressPartState = "output-available" | "output-error" | "input-str
  * (log line + toast), never as a failed step. Note that anything not listed
  * here renders as an in-progress spinner, so a phase that ends a step must be
  * classified as completed or failed — not simply dropped from `failed`.
+ *
+ * `fix-failed` is red only when the server stamped `severity: "blocking"`
+ * (or omitted severity — fail-closed). Advisory `fix-failed` is a finished
+ * step, not a failed one: the finding did not gate the version. Do not infer
+ * this from copy; read the payload field the server classified.
  */
-export function resolveProgressPartState(step: string, phase: string): ProgressPartState {
+export function resolveProgressPartState(
+  step: string,
+  phase: string,
+  payload: Record<string, unknown> = {},
+): ProgressPartState {
+  const advisoryFixFailed = phase === "fix-failed" && payload.severity === "advisory";
   const completed =
     phase === "passed" ||
     phase === "done" ||
     phase === "reverted" ||
     phase === "tsc-skipped" ||
+    phase === "fixed" ||
+    phase === "fix-partial" ||
+    advisoryFixFailed ||
     (step === "preview" &&
       (phase === "boot-queued" || phase === "ready" || phase === "build-verified"));
   if (completed) return "output-available";
@@ -348,7 +377,7 @@ export function appendProgressPart(
       type: `tool:engine-${step}` as const,
       toolName: getProgressToolName(step),
       toolCallId: `progress:${step}`,
-      state: resolveProgressPartState(step, phase),
+      state: resolveProgressPartState(step, phase, payload),
       output: {
         step,
         phase,

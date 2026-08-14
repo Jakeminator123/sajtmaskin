@@ -39,7 +39,34 @@ describe("resolveProgressPartState", () => {
   });
 
   it("stämplar fix-failed som fel så verifieringsraden inte spinner", () => {
+    // Saknad severity = fail-closed Blocker. Annars blir steget en evig spinner.
     expect(resolveProgressPartState("verifier", "fix-failed")).toBe("output-error");
+    expect(resolveProgressPartState("verifier", "fix-failed", {})).toBe("output-error");
+  });
+
+  it("stämplar blockerande fix-failed som fel", () => {
+    expect(
+      resolveProgressPartState("verifier", "fix-failed", { severity: "blocking" }),
+    ).toBe("output-error");
+  });
+
+  it("stämplar rådgivande fix-failed som slutfört, inte fel", () => {
+    expect(
+      resolveProgressPartState("verifier", "fix-failed", { severity: "advisory" }),
+    ).toBe("output-available");
+  });
+
+  it("gissar inte advisory från meddelandetext", () => {
+    expect(
+      resolveProgressPartState("verifier", "fix-failed", {
+        steps: ["Ett rådgivande verifieringsfynd kunde inte lagas."],
+      }),
+    ).toBe("output-error");
+  });
+
+  it("stämplar verifier-fixerns terminala faser som slutförda så de inte spinner", () => {
+    expect(resolveProgressPartState("verifier", "fixed")).toBe("output-available");
+    expect(resolveProgressPartState("verifier", "fix-partial")).toBe("output-available");
   });
 
   it("stämplar tsc-skipped som slutförd så QG tar över utan spinner", () => {
