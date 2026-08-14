@@ -35,7 +35,7 @@ och regelluckan om författarens efterkontroll efter PR.
 | `SM-050` sena `preview:client-error` omvärderar ingen status | Under arbete |
 | `SM-041` fritextsvar på klargöring tappar ursprungsprompten | Under arbete — nuvarande beteende är testlåst som avsiktligt, så låset måste prövas innan det ändras |
 | `SM-044` preview-runtimen byts under öppen session | Under arbete — omergad branch `fix/preview-runtime-restart-race` finns redan |
-| Djupmedvetet sidtak (nivå 1+2 räknas, tak 4) | Beslutat, obyggt. Ny produktförmåga → kräver uttryckligt OK innan bygge |
+| Djupmedvetet sidtak (nivå 1+2 räknas, tak 4) | Byggt — se `route-plan-builder.ts` + beslutet 2026-08-14 |
 | Coachens glossary-omskrivning (63 rader) | Ej applicerad, ej avfärdad |
 | Begreppskarta genererad ur runtime-projektioner | Ej börjad |
 | Router: skilja byggförfrågan från fråga | Ej börjad |

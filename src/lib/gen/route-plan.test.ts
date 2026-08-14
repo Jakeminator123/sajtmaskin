@@ -13,6 +13,11 @@ import {
   MAX_ROUTES_PER_GENERATION,
 } from "./route-plan/route-plan-builder";
 import {
+  countsTowardPageCeiling,
+  extractAppRoutePathsFromFilePaths,
+  getRoutePlanDepth,
+} from "./route-plan/path-utils";
+import {
   buildRoutePlan,
   deduplicateLocaleAlternateRoutes,
   detectExplicitPageCount,
@@ -1041,8 +1046,9 @@ describe("buildRoutePlan — explicit page count", () => {
   });
 });
 
-// Per-round ceiling (ägarbeslut 2026-08-11). Byggval's slider already stopped
-// at three, but a brief, prompt text and scaffold defaults could each exceed it
+// Per-round ceiling (ägarbeslut 2026-08-11, djupmedvetet 2026-08-14).
+// Byggval's slider still stops at three; the route-plan cap is four level-1/2
+// pages. A brief, prompt text and scaffold defaults could each exceed it
 // independently — so the ceiling is enforced after every source has merged.
 describe("buildRoutePlan — per-round page ceiling", () => {
   const websiteBase = {
@@ -1052,7 +1058,7 @@ describe("buildRoutePlan — per-round page ceiling", () => {
   };
 
   it("exposes the ceiling as a constant", () => {
-    expect(MAX_ROUTES_PER_GENERATION).toBe(3);
+    expect(MAX_ROUTES_PER_GENERATION).toBe(4);
     expect(ABSOLUTE_MAX_ROUTES_PER_GENERATION).toBe(8);
   });
 
@@ -1088,7 +1094,7 @@ describe("buildRoutePlan — per-round page ceiling", () => {
         ],
       },
     });
-    expect(plan.routes.map((r) => r.path)).toEqual(["/", "/om", "/tjanster"]);
+    expect(plan.routes.map((r) => r.path)).toEqual(["/", "/om", "/tjanster", "/priser"]);
   });
 
   it("clamps an explicit page count above the ceiling instead of promising more", () => {
@@ -1133,6 +1139,7 @@ describe("buildRoutePlan — per-round page ceiling", () => {
           { path: "/om", name: "Om oss", purpose: "Företaget" },
           { path: "/tjanster", name: "Tjänster", purpose: "Utbud" },
           { path: "/priser", name: "Priser", purpose: "Prislista" },
+          { path: "/kontakt", name: "Kontakt", purpose: "Kontaktuppgifter" },
         ],
       },
     });
@@ -1142,7 +1149,7 @@ describe("buildRoutePlan — per-round page ceiling", () => {
   it("caps scaffold defaults stacked on top of prompt patterns", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
-      prompt: "Webbutik med kontaktsida, blogg och prissida.",
+      prompt: "Webbutik med kontaktsida, blogg, prissida och om oss.",
       resolvedScaffold: getScaffoldById("ecommerce"),
     });
     expect(plan.routes.some((r) => r.path === "/products")).toBe(true);
@@ -1171,7 +1178,7 @@ describe("buildRoutePlan — per-round page ceiling", () => {
     const existing = ["/", "/tjanster"];
     const plan = buildRoutePlan({
       ...websiteBase,
-      prompt: "Lägg till en ny sida för kontakt, en blogg, priser och om oss.",
+      prompt: "Lägg till en ny sida för kontakt, en blogg, priser, om oss och vårt team.",
       generationMode: "followUp",
       existingRoutePaths: existing,
     });
@@ -1195,8 +1202,6 @@ describe("buildRoutePlan — per-round page ceiling", () => {
     expect(paths.some((path) => path === "/projekt" || path === "/work")).toBe(true);
     expect(paths.some((path) => path === "/om" || path === "/om-oss")).toBe(true);
     expect(paths.some((path) => path === "/kontakt" || path === "/contact")).toBe(true);
-    expect(plan.reason).toMatch(/ceiling/i);
-    expect(plan.reason).toMatch(/named|required|explicit/i);
   });
 
   it("keeps a required scaffold companion on top of a three-page brief", () => {
@@ -1214,10 +1219,7 @@ describe("buildRoutePlan — per-round page ceiling", () => {
     });
     expect(plan.routes.some((r) => r.path === "/products")).toBe(true);
     expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
-    expect(plan.routes.length).toBeGreaterThan(MAX_ROUTES_PER_GENERATION);
-    expect(plan.routes.length).toBeLessThanOrEqual(ABSOLUTE_MAX_ROUTES_PER_GENERATION);
-    expect(plan.reason).toMatch(/ceiling/i);
-    expect(plan.reason).toMatch(/named|required|explicit/i);
+    expect(plan.routes).toHaveLength(4);
   });
 
   // pr-ai-review: required-klassningen tittade bara på rutter som
@@ -1240,7 +1242,7 @@ describe("buildRoutePlan — per-round page ceiling", () => {
     const paths = plan.routes.map((r) => r.path);
     expect(paths).toContain("/products");
     expect(paths).not.toContain("/cart");
-    expect(plan.routes.length).toBeGreaterThan(MAX_ROUTES_PER_GENERATION);
+    expect(plan.routes).toHaveLength(4);
   });
 
   it("caps a fourteen-name list at the absolute brake and keeps named pages", () => {
@@ -1371,6 +1373,136 @@ describe("buildRoutePlan — per-round page ceiling", () => {
       prompt: "2 sidor. Sidor: start, projekt, om oss, kontakt",
     });
     expect(plan.routes).toHaveLength(2);
+  });
+
+  it("does not count level-3 routes against the soft ceiling", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/om", name: "Om oss", purpose: "Företaget" },
+          { path: "/tjanster", name: "Tjänster", purpose: "Utbud" },
+          { path: "/priser", name: "Priser", purpose: "Prislista" },
+          { path: "/blog/[slug]", name: "Artikel", purpose: "Mall" },
+          { path: "/product/[id]", name: "Produkt", purpose: "Mall" },
+        ],
+      },
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual([
+      "/",
+      "/om",
+      "/tjanster",
+      "/priser",
+      "/blog/[slug]",
+      "/product/[id]",
+    ]);
+  });
+
+  it("trims a fifth level-1/2 page but keeps the level-3 template", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/om", name: "Om oss", purpose: "Företaget" },
+          { path: "/tjanster", name: "Tjänster", purpose: "Utbud" },
+          { path: "/priser", name: "Priser", purpose: "Prislista" },
+          { path: "/kontakt", name: "Kontakt", purpose: "Kontaktuppgifter" },
+          { path: "/blog/[slug]", name: "Artikel", purpose: "Mall" },
+        ],
+      },
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual([
+      "/",
+      "/om",
+      "/tjanster",
+      "/priser",
+      "/blog/[slug]",
+    ]);
+  });
+
+  it("keeps five named level-1/2 pages above the soft ceiling", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Sidor: start, projekt, om oss, kontakt, priser",
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(paths.length).toBeGreaterThan(MAX_ROUTES_PER_GENERATION);
+    expect(paths).toContain("/");
+    expect(paths.some((path) => path === "/projekt" || path === "/work")).toBe(true);
+    expect(paths.some((path) => path === "/om" || path === "/om-oss")).toBe(true);
+    expect(paths.some((path) => path === "/kontakt" || path === "/contact")).toBe(true);
+    expect(paths.some((path) => path === "/priser" || path === "/pricing")).toBe(true);
+    expect(plan.reason).toMatch(/ceiling/i);
+    expect(plan.reason).toMatch(/named|required|explicit/i);
+  });
+});
+
+describe("route-plan depth — level 1/2 count against the ceiling", () => {
+  it("classifies root, one segment, deeper and dynamic paths", () => {
+    expect(getRoutePlanDepth("/")).toBe(1);
+    expect(getRoutePlanDepth("/om-oss")).toBe(2);
+    expect(getRoutePlanDepth("/kontakt")).toBe(2);
+    expect(getRoutePlanDepth("/projekt")).toBe(2);
+    expect(getRoutePlanDepth("/blog/[slug]")).toBe(3);
+    expect(getRoutePlanDepth("/product/[id]")).toBe(3);
+    expect(getRoutePlanDepth("/category/[slug]")).toBe(3);
+    expect(getRoutePlanDepth("/blog/arkiv")).toBe(3);
+    expect(getRoutePlanDepth("/[slug]")).toBe(3);
+    expect(countsTowardPageCeiling("/")).toBe(true);
+    expect(countsTowardPageCeiling("/om-oss")).toBe(true);
+    expect(countsTowardPageCeiling("/blog/[slug]")).toBe(false);
+  });
+});
+
+describe("scaffold page files fit the depth-aware ceiling", () => {
+  const LEVEL3_TEMPLATES = ["/blog/[slug]", "/product/[id]", "/category/[slug]"] as const;
+
+  it("counts only level-1/2 files against the ceiling of 4 for all ten scaffolds", () => {
+    const ids = getScaffoldIds();
+    expect(ids).toHaveLength(10);
+
+    const level12ById: Record<string, number> = {};
+    const seenLevel3 = new Set<string>();
+
+    for (const id of ids) {
+      const scaffold = getScaffoldById(id);
+      expect(scaffold, id).not.toBeNull();
+      const paths = extractAppRoutePathsFromFilePaths(
+        scaffold!.files.map((file) => file.path),
+      );
+      const level12 = paths.filter((path) => countsTowardPageCeiling(path));
+      const level3 = paths.filter((path) => !countsTowardPageCeiling(path));
+      level12ById[id] = level12.length;
+      expect(level12.length, `${id} level-1/2 count`).toBeLessThanOrEqual(
+        MAX_ROUTES_PER_GENERATION,
+      );
+      for (const path of level3) {
+        expect(LEVEL3_TEMPLATES, `${id} unexpected level-3 ${path}`).toContain(path);
+        expect(
+          scaffold!.routeContract?.dynamicRoutePatterns.includes(path),
+          `${id} ${path} missing from routeContract.dynamicRoutePatterns`,
+        ).toBe(true);
+        seenLevel3.add(path);
+      }
+    }
+
+    expect(level12ById).toEqual({
+      "app-shell": 4,
+      "auth-pages": 4,
+      "base-nextjs": 1,
+      blog: 2,
+      dashboard: 4,
+      ecommerce: 4,
+      "landing-page": 1,
+      portfolio: 1,
+      "projekt-bas-app": 1,
+      "saas-landing": 1,
+    });
+    expect([...seenLevel3].sort()).toEqual([...LEVEL3_TEMPLATES].sort());
   });
 });
 
