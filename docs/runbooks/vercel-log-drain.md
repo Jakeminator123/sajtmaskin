@@ -161,18 +161,39 @@ sökväg. `rate` är 0–1; `requestPath` är ett prefix. Exakt värde på `type
 **inte** verifierat mot ett riktigt API-anrop — skulle det vara fel ignoreras
 regeln tyst, och då är loop-brytaren borta utan att någon märker det.
 
+Dokumentationen säger inte om en ensam regel är en **allowlist** (omatchade
+sökvägar kastas) eller en **modifierare** (omatchade sökvägar går på 100 %).
+Vi väljer inte tolkning — regelsetet ska vara korrekt i båda fallen:
+
 ```json
-"sampling": [{ "type": "log", "rate": 0, "requestPath": "/api/drains/vercel" }]
+"sampling": [
+  { "type": "log", "rate": 0, "requestPath": "/api/drains/vercel" },
+  { "type": "log", "rate": 1 }
+]
 ```
 
-Validera sampling-blocket med `POST /v1/drains/test` **innan** skarp
-`POST /v1/drains`, och läs tillbaka drainen efteråt med `GET /v1/drains`
-(`includeMetadata=true`) så att regeln faktiskt sitter. En tyst ignorerad
-regel är värre än ingen regel — då tror man att man är skyddad.
+Två regler, inte en:
 
-Dashboardens globala **Sampling rate** är en annan ratt (lämna den på 100 % för
-övriga loggar — mottagaren filtrerar redan hårt). Per-sökväg-regeln ovan syns
-inte alltid i dialogen; sätt den via API:t när drainen skapas.
+| Tolkning | Utan catch-all | Med catch-all `rate: 1` |
+|---|---|---|
+| Allowlist | Drainen fångar ingenting utom (eventuellt) ingest-sökvägen — tyst tom | Övriga sökvägar levereras |
+| Modifierare över 100 %-default | Bara ingest-sökvägen sänks | Catch-allen är en no-op. Ingen skada |
+
+Kvarstående osäkerhet: **precedens**. Catch-allen saknar `requestPath` och
+matchar därför även `/api/drains/vercel`. Vilken regel som vinner när båda
+matchar är inte dokumenterat. T11 (skapandet) måste verifiera empiriskt:
+
+1. Validera hela sampling-blocket med `POST /v1/drains/test` före skarp create.
+2. Läs tillbaka drainen med `GET /v1/drains?includeMetadata=true` och kontrollera att båda reglerna sitter.
+3. **Efter** skapandet, inom några minuter: bekräfta i `vercel logs` att rader från `/api/drains/vercel` **inte** kommer in medan rader från andra sökvägar **gör** det. Det är det enda som avgör precedensfrågan.
+4. Kommer inga rader alls från andra sökvägar → catch-allen förlorade, eller allowlist-tolkningen gäller med omvänd precedens. Radera drainen och rapportera innan du experimenterar vidare.
+
+En tyst ignorerad eller tyst tom drain är värre än ingen drain — då tror man
+att man är skyddad.
+
+Dashboardens globala **Sampling rate** är en annan ratt (lämna den på 100 % i
+dialogen). Regelsetet ovan syns inte alltid i dialogen; sätt det via API:t när
+drainen skapas.
 
 ### Skruva ner volymen vid källan
 
@@ -181,9 +202,10 @@ Under **Additional configuration for logs** i samma dialog:
 - **Sources:** `lambda` räcker för appens console-rader. `build` är sällan
   intressant här (byggloggar hämtas ändå per deploy).
 - **Environments:** bara `production`.
-- **Sampling rate:** lämna på 100 % för *övriga* sökvägar. Loop-brytaren ovan
-  (`rate: 0` på `/api/drains/vercel`) är den enda sänkningen som ska med från
-  start. Sänk den globala raten bara om Vercel-sidan börjar kosta.
+- **Sampling rate:** lämna dashboardens globala ratt på 100 %. Loop-brytaren
+  är API-regelsetet ovan (`rate: 0` på ingest-sökvägen + catch-all `rate: 1`),
+  inte en sänkning av den globala raten. Sänk den globala raten bara om
+  Vercel-sidan börjar kosta.
 
 ## Vad som faktiskt lagras
 
@@ -233,9 +255,10 @@ inte anropen förrän Vercel ger upp, så radera fortfarande drainen vid storm.
 
 `isSelfDrainLog` kastar egna ingest-rader så *tabellen* förblir ren, men
 *anropen* fortsätter så länge drainen är aktiv. Det är därför loop-brytaren vid
-källan (`sampling` `rate: 0` på `/api/drains/vercel`) ska med **när drainen
-skapas** — inte som en efterhandslapp. Föredra en extern mottagare (Axiom /
-separat projekt) om du vill undvika same-app-loopen helt.
+källan (sampling-regelsetet med `rate: 0` på `/api/drains/vercel` plus
+catch-all `rate: 1`) ska med **när drainen skapas** — inte som en
+efterhandslapp. Föredra en extern mottagare (Axiom / separat projekt) om du
+vill undvika same-app-loopen helt.
 
 **Endpointen är nere när appen är nere.** Det är precis då du vill läsa
 loggarna. Vercel gör om leveransen ett antal gånger vid tillfälliga 5xx, så en
@@ -251,7 +274,7 @@ som möter `410` är farofönstret — stäng av eller radera drainen, flippa in
 switchen "för att se".
 
 **Spend Management.** En spend alert i Vercel Billing är den yttersta
-nödbromsen om en loop skulle återkomma trots ordningen och sampling-regeln.
+nödbromsen om en loop skulle återkomma trots ordningen och sampling-regelsetet.
 
 ## Related
 
