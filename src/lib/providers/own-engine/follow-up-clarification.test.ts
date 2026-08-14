@@ -605,6 +605,62 @@ describe("collectFollowUpClarificationAnswer", () => {
     ).toBeNull();
   });
 
+  it("consumes a short scope paraphrase and recovers the original prompt (SM-041)", () => {
+    const result = collectFollowUpClarificationAnswer(
+      buildMarkerMessages(),
+      "fokusera på layouten",
+    );
+    expect(result).toEqual({
+      sourceUserMessage: originalPrompt,
+      question,
+      answer: "Layout och design",
+      consumed: true,
+    });
+  });
+
+  it("consumes a text-scope paraphrase", () => {
+    const result = collectFollowUpClarificationAnswer(
+      buildMarkerMessages(),
+      "texten",
+    );
+    expect(result?.answer).toBe("Text och innehåll");
+    expect(result?.sourceUserMessage).toBe(originalPrompt);
+  });
+
+  it("consumes 'ny sida' as the new-section option, not a new prompt", () => {
+    const result = collectFollowUpClarificationAnswer(
+      buildMarkerMessages(),
+      "ny sida",
+    );
+    expect(result?.answer).toBe("Ny sektion eller sida");
+    expect(result?.sourceUserMessage).toBe(originalPrompt);
+  });
+
+  it("does NOT consume a short new edit that is not a scope paraphrase", () => {
+    expect(
+      collectFollowUpClarificationAnswer(buildMarkerMessages(), "gör footern blå"),
+    ).toBeNull();
+  });
+
+  it("does NOT consume a paraphrase that also names a specific target", () => {
+    expect(
+      collectFollowUpClarificationAnswer(
+        buildMarkerMessages(),
+        "förfina hero-sektionen",
+      ),
+    ).toBeNull();
+  });
+
+  it("does NOT consume a lone yes/no or a long new brief", () => {
+    expect(collectFollowUpClarificationAnswer(buildMarkerMessages(), "ja")).toBeNull();
+    expect(
+      collectFollowUpClarificationAnswer(
+        buildMarkerMessages(),
+        "Gör om från grunden med mörk editorial stil, ny layout och en bagerisajt med meny",
+      ),
+    ).toBeNull();
+  });
+
   it("does NOT consume when a DIFFERENT later user message superseded the question", () => {
     const messages = [
       ...buildMarkerMessages(),
@@ -805,6 +861,59 @@ describe("collectFollowUpClarificationAnswer — retry efter persisterad svarsra
     ];
     expect(
       collectFollowUpClarificationAnswer(messages, "Förfina nuvarande design"),
+    ).toBeNull();
+  });
+
+  it("konsumerar en kort förfina-parafras och återställer originalprompten (SM-041)", () => {
+    const messages = [
+      { role: "user" as const, content: original, ui_parts: null },
+      marker("Vill du förfina eller göra en redesign?", options, original),
+    ];
+    const result = collectFollowUpClarificationAnswer(messages, "förfina den");
+    expect(result).toEqual({
+      sourceUserMessage: original,
+      question: "Vill du förfina eller göra en redesign?",
+      answer: "Förfina nuvarande design",
+      consumed: true,
+    });
+  });
+
+  it("konsumerar 'gör en redesign' som redesign-alternativet", () => {
+    const messages = [
+      { role: "user" as const, content: original, ui_parts: null },
+      marker("Vill du förfina eller göra en redesign?", options, original),
+    ];
+    const result = collectFollowUpClarificationAnswer(messages, "gör en redesign");
+    expect(result?.answer).toBe("Gör en tydlig redesign i samma projekt");
+    expect(result?.sourceUserMessage).toBe(original);
+  });
+
+  it("konsumerar 'starta om' som start-om-alternativet", () => {
+    const messages = [
+      { role: "user" as const, content: original, ui_parts: null },
+      marker("Vill du förfina eller göra en redesign?", options, original),
+    ];
+    const result = collectFollowUpClarificationAnswer(messages, "starta om");
+    expect(result?.answer).toBe("Starta om från en ny grund");
+  });
+
+  it("konsumerar inte förfina-parafras som också pekar ut ett konkret mål", () => {
+    const messages = [
+      { role: "user" as const, content: original, ui_parts: null },
+      marker("Vill du förfina eller göra en redesign?", options, original),
+    ];
+    expect(
+      collectFollowUpClarificationAnswer(messages, "förfina hero-sektionen"),
+    ).toBeNull();
+  });
+
+  it("konsumerar inte en negerad parafras", () => {
+    const messages = [
+      { role: "user" as const, content: original, ui_parts: null },
+      marker("Vill du förfina eller göra en redesign?", options, original),
+    ];
+    expect(
+      collectFollowUpClarificationAnswer(messages, "förfina inte"),
     ).toBeNull();
   });
 });
