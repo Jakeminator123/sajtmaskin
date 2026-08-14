@@ -21,6 +21,14 @@ const SAAS_MARKETING_HEADER = readFileSync(
   join(__dirname, "saas-landing/files/components/marketing-header.tsx"),
   "utf8",
 );
+const ECOMMERCE_SITE_HEADER = readFileSync(
+  join(__dirname, "ecommerce/files/components/site-header.tsx"),
+  "utf8",
+);
+const ECOMMERCE_SITE_FOOTER = readFileSync(
+  join(__dirname, "ecommerce/files/components/site-footer.tsx"),
+  "utf8",
+);
 
 const SIDEBAR_SURFACE = { navSurface: "components/dashboard-sidebar.tsx" };
 const HEADER_SURFACE = { navSurface: "components/site-header.tsx" };
@@ -325,5 +333,172 @@ describe("syncNavItemsFromRoutePlan — header form ({ label, href })", () => {
     expect(next).toContain("//cdn.example.com");
     expect(next).toContain('href: "/#kontakt"');
     expect(next).toContain("/product/${1}");
+  });
+});
+
+describe("syncNavItemsFromRoutePlan — footerLinks form + multiple surfaces (SM-055)", () => {
+  const ECOMMERCE_SURFACES = {
+    navSurface: ["components/site-header.tsx", "components/site-footer.tsx"],
+  };
+  const FOOTER_ONLY = { navSurface: "components/site-footer.tsx" };
+
+  function productsPlan(): RoutePlan {
+    return {
+      provenance: { primarySource: "prompt", sources: ["prompt", "scaffold"] },
+      siteType: "brochure",
+      reason: "ecommerce default catalog",
+      routes: [
+        { path: "/", name: "Hem", intent: "Landing", required: true },
+        { path: "/products", name: "Produkter", intent: "Catalog", required: true },
+      ],
+    };
+  }
+
+  function storefrontPlan(): RoutePlan {
+    return {
+      provenance: { primarySource: "prompt", sources: ["prompt", "scaffold"] },
+      siteType: "brochure",
+      reason: "ecommerce with declared extras planned",
+      routes: [
+        { path: "/", name: "Hem", intent: "Landing", required: true },
+        { path: "/products", name: "Produkter", intent: "Catalog", required: true },
+        { path: "/categories", name: "Kategorier", intent: "Browse", required: false },
+        { path: "/om", name: "Om oss", intent: "About", required: false },
+      ],
+    };
+  }
+
+  it("filters unplanned ecommerce footer links on a one-page plan and keeps '/'", () => {
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/site-footer.tsx", ECOMMERCE_SITE_FOOTER)],
+      routePlan: onePagePlan(),
+      scaffold: FOOTER_ONLY,
+    });
+
+    expect(result.changedPaths).toEqual(["components/site-footer.tsx"]);
+    const footer = result.files[0]!.content;
+    expect(footer).toContain('href: "/"');
+    expect(footer).not.toContain('href: "/products"');
+    expect(footer).not.toContain('href: "/categories"');
+    expect(footer).not.toContain('href: "/om"');
+    expect(footer).not.toContain("/category/category-1");
+    expect(footer).not.toContain("/category/category-2");
+    expect(footer).not.toContain("Butik:");
+    expect(footer).toContain("Info:");
+    expect(footer).toContain("[Butiksnamn]");
+  });
+
+  it("keeps /products on the default catalog plan and still drops undeclared category slugs", () => {
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/site-footer.tsx", ECOMMERCE_SITE_FOOTER)],
+      routePlan: productsPlan(),
+      scaffold: FOOTER_ONLY,
+    });
+
+    expect(result.changedPaths).toEqual(["components/site-footer.tsx"]);
+    const footer = result.files[0]!.content;
+    expect(footer).toContain('href: "/products"');
+    expect(footer).toContain('href: "/"');
+    expect(footer).not.toContain('href: "/categories"');
+    expect(footer).not.toContain('href: "/om"');
+    expect(footer).not.toContain("/category/category-1");
+    expect(footer).not.toContain("/category/category-2");
+  });
+
+  it("drops only example category slugs when /products, /categories and /om are planned", () => {
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/site-footer.tsx", ECOMMERCE_SITE_FOOTER)],
+      routePlan: storefrontPlan(),
+      scaffold: FOOTER_ONLY,
+    });
+
+    expect(result.changedPaths).toEqual(["components/site-footer.tsx"]);
+    const footer = result.files[0]!.content;
+    expect(footer).toContain('href: "/products"');
+    expect(footer).toContain('href: "/categories"');
+    expect(footer).toContain('href: "/om"');
+    expect(footer).toContain('href: "/"');
+    expect(footer).not.toContain("/category/category-1");
+    expect(footer).not.toContain("/category/category-2");
+  });
+
+  it("syncs header and footer together when navSurface is a list, leaving other files alone", () => {
+    const extra = file("components/cart-drawer.tsx", "export function CartDrawer(){ return null; }");
+    const result = syncNavItemsFromRoutePlan({
+      files: [
+        file("components/site-header.tsx", ECOMMERCE_SITE_HEADER),
+        file("components/site-footer.tsx", ECOMMERCE_SITE_FOOTER),
+        extra,
+      ],
+      routePlan: onePagePlan(),
+      scaffold: ECOMMERCE_SURFACES,
+    });
+
+    expect(result.changedPaths).toEqual([
+      "components/site-header.tsx",
+      "components/site-footer.tsx",
+    ]);
+    const header = result.files[0]!.content;
+    const footer = result.files[1]!.content;
+    expect(extractNavHrefs(header)).toEqual(["/"]);
+    expect(header).not.toContain('href: "/products"');
+    expect(footer).toContain('href: "/"');
+    expect(footer).not.toContain('href: "/products"');
+    expect(result.files[2]!.content).toBe(extra.content);
+  });
+
+  it("does not touch footerLinks when the footer is not in navSurface", () => {
+    const result = syncNavItemsFromRoutePlan({
+      files: [
+        file("components/site-header.tsx", ECOMMERCE_SITE_HEADER),
+        file("components/site-footer.tsx", ECOMMERCE_SITE_FOOTER),
+      ],
+      routePlan: onePagePlan(),
+      scaffold: HEADER_SURFACE,
+    });
+
+    expect(result.changedPaths).toEqual(["components/site-header.tsx"]);
+    expect(result.files[1]!.content).toBe(ECOMMERCE_SITE_FOOTER);
+  });
+
+  it("does not rewrite footerLinks on follow-up", () => {
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/site-footer.tsx", ECOMMERCE_SITE_FOOTER)],
+      routePlan: onePagePlan(),
+      isFollowUp: true,
+      scaffold: FOOTER_ONLY,
+    });
+
+    expect(result.changedPaths).toEqual([]);
+    expect(result.files[0]!.content).toBe(ECOMMERCE_SITE_FOOTER);
+  });
+
+  it("keeps mailto and external footer hrefs while dropping unplanned pages", () => {
+    const footer = [
+      `const footerLinks = {`,
+      `  Butik: [`,
+      `    { label: "Produkter", href: "/products" },`,
+      `    { label: "Kontakt", href: "mailto:hej@example.com" },`,
+      `  ],`,
+      `  Extra: [`,
+      `    { label: "Extern", href: "https://example.com" },`,
+      `    { label: "CDN", href: "//cdn.example.com" },`,
+      `  ],`,
+      `};`,
+      `export function SiteFooter() { return null; }`,
+    ].join("\n");
+    const result = syncNavItemsFromRoutePlan({
+      files: [file("components/site-footer.tsx", footer)],
+      routePlan: onePagePlan(),
+      scaffold: FOOTER_ONLY,
+    });
+
+    expect(result.changedPaths).toEqual(["components/site-footer.tsx"]);
+    const next = result.files[0]!.content;
+    expect(next).not.toContain('href: "/products"');
+    expect(next).toContain("Butik:");
+    expect(next).toContain("mailto:hej@example.com");
+    expect(next).toContain("https://example.com");
+    expect(next).toContain("//cdn.example.com");
   });
 });

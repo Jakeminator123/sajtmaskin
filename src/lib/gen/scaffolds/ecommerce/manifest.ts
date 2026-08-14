@@ -87,6 +87,10 @@ export const ecommerceManifest: ScaffoldManifest = {
       ["/categories", "/category/[slug]"],
     ],
   },
-  navSurface: "components/site-header.tsx",
+  // Header + footer: both are SHARED files that keep static route links.
+  // After SM-048 the plan can drop /products, /categories, /om; nav-sync
+  // must filter both surfaces (SM-055). Other scaffolds' footers use `#`
+  // placeholders, so they stay off this list.
+  navSurface: ["components/site-header.tsx", "components/site-footer.tsx"],
   files: loadScaffoldFiles("ecommerce"),
 };
