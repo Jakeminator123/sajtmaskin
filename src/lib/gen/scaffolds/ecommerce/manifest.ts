@@ -53,5 +53,29 @@ export const ecommerceManifest: ScaffoldManifest = {
       { id: "ecommerce-your-next-store-commerce-with-next-js-and-stripe", title: "Your Next Store — Commerce with Stripe", categorySlug: "ecommerce", qualityScore: 96, strengths: ["verified Next.js codebase", "storefront architecture", "cart and checkout"] },
     ],
   },
+  // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
+  // planning-helpers): only /products was guaranteed by the plan.
+  //
+  // Known drift (kept visible on purpose — see the route-contract gate in
+  // scaffold-manifest-validation.test.ts):
+  //  - SM-042: files/ links unconditionally to /categories and /om, but the
+  //    plan never guaranteed them, so they are deliberately NOT listed here.
+  //  - SM-043: /cart below has neither a starter file (CartDrawer replaced
+  //    the page) nor a link, and #977 removed it from the plan defaults. The
+  //    entry documents the open owner question; remove it (or reintroduce a
+  //    real page + link) once the owner picks a direction. Do not add a file
+  //    just to silence the gate.
+  routeContract: {
+    requiredRoutes: [
+      {
+        path: "/products",
+        name: "Products",
+        planIntent: "Keep a storefront route for the product catalog.",
+      },
+    ],
+    optionalRoutes: [],
+    declaredRoutePaths: ["/cart"],
+    dynamicRoutePatterns: ["/category/[slug]", "/product/[id]"],
+  },
   files: loadScaffoldFiles("ecommerce"),
 };

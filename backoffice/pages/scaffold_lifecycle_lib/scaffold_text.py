@@ -147,6 +147,15 @@ def _render_manifest_ts(
             f"    upgradeTargets: {_render_ts_string_array(upgrade_targets, indent='    ')},",
             "    referenceTemplates: [],",
             "  },",
+            # Empty route contract by design: validateScaffoldManifest requires the
+            # field, and the link-vs-contract gate then forces curation of any
+            # links cloned in from the source scaffold's files/.
+            "  routeContract: {",
+            "    requiredRoutes: [],",
+            "    optionalRoutes: [],",
+            "    declaredRoutePaths: [],",
+            "    dynamicRoutePatterns: [],",
+            "  },",
             f'  files: loadScaffoldFiles("{_escape_ts_string(scaffold_id)}"),',
             "};",
             "",

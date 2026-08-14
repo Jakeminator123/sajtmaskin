@@ -15,7 +15,6 @@ import { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import { prepareCredits } from "@/lib/credits/server";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { isShellPageContent } from "@/lib/gen/build-spec";
-import { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
 import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
 import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
@@ -263,9 +262,7 @@ export async function handleMessageStreamRequest(
         );
         const metaPromptAssistModel = parsedMeta.promptAssistModel;
         const metaPromptAssistDeep = parsedMeta.promptAssistDeep;
-        const metaPromptAssistMode = parsedMeta.promptAssistMode;
         const designReferences = summarizeDesignReferences(requestAttachments);
-        const contractAnswerContext = collectConfirmedContractAnswers(engineChat.messages, message);
         // Scope-clarification retry (prod chat e8bd3ba6): when the previous
         // turn stopped on a follow-up scope clarification and the current
         // message is one of its quick-reply options, recover the ORIGINAL
@@ -321,7 +318,6 @@ export async function handleMessageStreamRequest(
           chatId,
           promptAssistModel: metaPromptAssistModel,
           promptAssistDeep: metaPromptAssistDeep,
-          promptAssistMode: metaPromptAssistMode,
           promptStrategy: promptOrchestration.strategyMeta.strategy,
           promptType: promptOrchestration.strategyMeta.promptType,
         });
@@ -446,20 +442,16 @@ export async function handleMessageStreamRequest(
 
         const skipIntentClassification =
           metaPromptSourcePreservePayload || metaPromptSourceTechnical;
-        // Contract-gate retries and scope-clarification answers send a short
-        // reply as the current message. Classify intent against the original
-        // gated request so clear-redesign keeps its delta-brief/scaffold-unlock
-        // semantics on turn 2.
+        // Scope-clarification answers send a short reply as the current
+        // message. Classify intent against the original gated request so
+        // clear-redesign keeps its delta-brief/scaffold-unlock semantics on
+        // turn 2.
         const followUpIntentMessage =
-          contractAnswerContext.currentReplyWasConsumed &&
-          contractAnswerContext.consumedReplyContext?.sourceUserMessage
-            ? contractAnswerContext.consumedReplyContext.sourceUserMessage
-            : (followUpClarificationAnswer?.sourceUserMessage ?? message);
+          followUpClarificationAnswer?.sourceUserMessage ?? message;
         // A consumed clarification answer must never stop the turn again with
         // a new scope question — the user just answered one.
         const skipFollowUpClarification =
           skipIntentClassification ||
-          contractAnswerContext.currentReplyWasConsumed ||
           followUpClarificationAnswer !== null;
         // Backoffice 2.0 fas 6: strategy-aware classification. Default
         // manifest config is "keyword", so this resolves to the exact same
@@ -638,33 +630,10 @@ export async function handleMessageStreamRequest(
           }
         }
 
-        if (contractAnswerContext.currentReplyWasConsumed) {
-          const latestAnswer = contractAnswerContext.confirmedAnswers.at(-1);
-          if (latestAnswer) {
-            optimizedMessage = [
-              wrapWithSection({
-                heading: PROMPT_WRAPPER_HEADINGS.contractClarificationAnswer,
-                introLines: [
-                  "The user is answering the previous contract clarification question. Use this answer to continue the existing generation safely.",
-                  `Question: ${latestAnswer.question}`,
-                  `Answer: ${latestAnswer.answer}`,
-                  "",
-                  "Continue the existing implementation using this confirmed decision. Do not ask the same question again unless the answer is still genuinely insufficient.",
-                ],
-              }),
-              "",
-              PROMPT_WRAPPER_HEADINGS.userReply,
-              "",
-              optimizedMessage,
-            ].join("\n");
-          }
-        }
-
         if (followUpClarificationAnswer) {
-          // Mirror of the contract-answer wrapper: the trailing body is the
-          // ORIGINAL request (already orchestrated + follow-up-wrapped above),
-          // so the LLM sees both the detailed instructions and the chosen
-          // scope option.
+          // The trailing body is the ORIGINAL request (already orchestrated +
+          // follow-up-wrapped above), so the LLM sees both the detailed
+          // instructions and the chosen scope option.
           optimizedMessage = wrapWithSection({
             heading: FOLLOW_UP_CLARIFICATION_ANSWER_HEADING,
             introLines: [
@@ -731,7 +700,6 @@ export async function handleMessageStreamRequest(
           metaAppProjectId,
           metaPromptAssistModel,
           metaPromptAssistDeep,
-          metaPromptAssistMode,
           metaBuildIntent,
           metaBuildMethod,
           resolvedModelTier,
@@ -861,7 +829,6 @@ export async function handleMessageStreamRequest(
           requestAttachments,
           designReferences,
           promptOrchestration,
-          contractAnswerContext,
           previousFiles,
           hasFollowUpBase,
           existingRoutePaths,

@@ -1,6 +1,8 @@
 import { normalizeBuildIntent } from "@/lib/builder/build-intent";
+import { normalizeRoutePath } from "../route-plan/path-utils";
 import { getAllScaffolds } from "./registry";
 import type {
+  ScaffoldContractRoute,
   ScaffoldFilePromptRole,
   ScaffoldFileSerialization,
   ScaffoldManifest,
@@ -49,8 +51,185 @@ const VALID_FILE_SERIALIZATIONS: ReadonlySet<ScaffoldFileSerialization> = new Se
  *    files — they exist because users may have v0-imported or pre-existing
  *    `src/app/`-rooted projects, and removing them would break those flows.
  */
+function validateBuildIntentScope(
+  scaffold: ScaffoldManifest,
+  issues: ScaffoldManifestIssue[],
+  routePath: string,
+  fieldName: "planOnlyForBuildIntents" | "requiredOnlyForBuildIntents",
+  value: string[] | undefined,
+): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.length === 0) {
+    issues.push({
+      scaffoldId: scaffold.id,
+      severity: "error",
+      message: `routeContract: ${fieldName} on ${routePath} must be a non-empty array when set`,
+    });
+    return;
+  }
+  const invalid = value.filter(
+    (intent) => typeof intent !== "string" || normalizeBuildIntent(intent) !== intent,
+  );
+  if (invalid.length > 0) {
+    issues.push({
+      scaffoldId: scaffold.id,
+      severity: "error",
+      message: `routeContract: ${fieldName} on ${routePath} contains invalid build intents: ${invalid.join(", ")}`,
+    });
+  }
+}
+
+/**
+ * Route-contract shape validation. The semantic link-vs-contract gate
+ * (does every internal link resolve to a contract route, and does every
+ * contract route have a link or a file?) lives in
+ * `scaffold-manifest-validation.test.ts` — this only keeps the manifest
+ * data itself well-formed so drift fails loud.
+ */
+function validateRouteContract(
+  scaffold: ScaffoldManifest,
+  issues: ScaffoldManifestIssue[],
+): void {
+  const contract = scaffold.routeContract;
+  if (!contract) {
+    issues.push({
+      scaffoldId: scaffold.id,
+      severity: "error",
+      message:
+        "Scaffold is missing routeContract — every registered scaffold must own its route contract (requiredRoutes/optionalRoutes/declaredRoutePaths/dynamicRoutePatterns)",
+    });
+    return;
+  }
+
+  const seenPaths = new Map<string, string>();
+  const checkPath = (rawPath: unknown, category: string, expectDynamic: boolean): void => {
+    if (typeof rawPath !== "string" || !rawPath.startsWith("/")) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: ${category} contains a path that does not start with "/" (got ${JSON.stringify(rawPath)})`,
+      });
+      return;
+    }
+    if (normalizeRoutePath(rawPath) !== rawPath) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: ${category} path "${rawPath}" is not normalized (expected "${normalizeRoutePath(rawPath)}")`,
+      });
+    }
+    const hasDynamicSegment = rawPath.includes("[");
+    if (expectDynamic && !hasDynamicSegment) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: dynamicRoutePatterns entry "${rawPath}" has no dynamic segment — static routes belong in the other categories`,
+      });
+    }
+    if (!expectDynamic && hasDynamicSegment) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: ${category} path "${rawPath}" contains a dynamic segment — patterns belong in dynamicRoutePatterns`,
+      });
+    }
+    const priorCategory = seenPaths.get(rawPath);
+    if (priorCategory) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: "${rawPath}" appears in both ${priorCategory} and ${category} — each route belongs to exactly one category`,
+      });
+      return;
+    }
+    seenPaths.set(rawPath, category);
+  };
+
+  const checkPlannedRoute = (route: ScaffoldContractRoute, category: string): void => {
+    checkPath(route.path, category, false);
+    if (typeof route.name !== "string" || route.name.trim().length === 0) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: ${category} entry ${route.path} is missing a name`,
+      });
+    }
+    if (typeof route.planIntent !== "string" || route.planIntent.trim().length === 0) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: ${category} entry ${route.path} is missing a planIntent`,
+      });
+    }
+    validateBuildIntentScope(
+      scaffold,
+      issues,
+      route.path,
+      "planOnlyForBuildIntents",
+      route.planOnlyForBuildIntents,
+    );
+    validateBuildIntentScope(
+      scaffold,
+      issues,
+      route.path,
+      "requiredOnlyForBuildIntents",
+      route.requiredOnlyForBuildIntents,
+    );
+    if (category === "optionalRoutes" && route.requiredOnlyForBuildIntents !== undefined) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: requiredOnlyForBuildIntents on optional route ${route.path} has no effect — optional routes are never planned as required`,
+      });
+    }
+  };
+
+  // Guard the collection shapes before iterating: a runtime manifest written
+  // as text (backoffice lifecycle) or a legacy payload can carry null or
+  // non-array fields, and the validator must report that as a structural
+  // error instead of throwing (PR #982 AI-review finding F-3750ddc9db97).
+  const readCollection = (name: string): unknown[] | null => {
+    const value = (contract as unknown as Record<string, unknown>)[name];
+    if (!Array.isArray(value)) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: ${name} must be an array (got ${value === null ? "null" : typeof value})`,
+      });
+      return null;
+    }
+    return value;
+  };
+
+  const checkPlannedEntry = (entry: unknown, category: string): void => {
+    if (typeof entry !== "object" || entry === null) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: ${category} contains a non-object entry (got ${entry === null ? "null" : typeof entry})`,
+      });
+      return;
+    }
+    checkPlannedRoute(entry as ScaffoldContractRoute, category);
+  };
+
+  for (const route of readCollection("requiredRoutes") ?? []) {
+    checkPlannedEntry(route, "requiredRoutes");
+  }
+  for (const route of readCollection("optionalRoutes") ?? []) {
+    checkPlannedEntry(route, "optionalRoutes");
+  }
+  for (const path of readCollection("declaredRoutePaths") ?? []) {
+    checkPath(path, "declaredRoutePaths", false);
+  }
+  for (const pattern of readCollection("dynamicRoutePatterns") ?? []) {
+    checkPath(pattern, "dynamicRoutePatterns", true);
+  }
+}
+
 export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldManifestIssue[] {
   const issues: ScaffoldManifestIssue[] = [];
+  validateRouteContract(scaffold, issues);
   const allowedBuildIntents = (scaffold as { allowedBuildIntents?: unknown }).allowedBuildIntents;
   if (!Array.isArray(allowedBuildIntents) || allowedBuildIntents.length === 0) {
     issues.push({

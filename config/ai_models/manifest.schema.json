@@ -78,20 +78,18 @@
       "properties": {
         "defaults": {
           "type": "object",
-          "required": ["assist", "polish"],
+          "required": ["assist"],
           "additionalProperties": false,
           "properties": {
-            "assist": { "type": "string" },
-            "polish": { "type": "string" }
+            "assist": { "type": "string" }
           }
         },
         "envKeys": {
           "type": "object",
-          "required": ["assist", "polish"],
+          "required": ["assist"],
           "additionalProperties": false,
           "properties": {
-            "assist": { "type": "string" },
-            "polish": { "type": "string" }
+            "assist": { "type": "string" }
           }
         },
         "allowed": {
@@ -212,8 +210,7 @@
             "maxChatSystemChars",
             "warnChatSystemChars",
             "maxPromptHandoffChars",
-            "maxAiBriefPromptChars",
-            "maxAiChatMessageChars"
+            "maxAiBriefPromptChars"
           ],
           "additionalProperties": false,
           "properties": {
@@ -222,8 +219,7 @@
             "maxChatSystemChars": { "$ref": "#/$defs/numericEnvSetting" },
             "warnChatSystemChars": { "$ref": "#/$defs/numericEnvSetting" },
             "maxPromptHandoffChars": { "$ref": "#/$defs/numericEnvSetting" },
-            "maxAiBriefPromptChars": { "$ref": "#/$defs/numericEnvSetting" },
-            "maxAiChatMessageChars": { "$ref": "#/$defs/numericEnvSetting" }
+            "maxAiBriefPromptChars": { "$ref": "#/$defs/numericEnvSetting" }
           }
         },
         "softTargets": {

@@ -28,10 +28,6 @@ export const ROUTE_TIMEOUT_TARGETS = [
     manifestField: "engineRouteMaxDurationSeconds",
   },
   {
-    rel: "src/app/api/ai/chat/route.ts",
-    manifestField: "assistRouteMaxDurationSeconds",
-  },
-  {
     rel: "src/app/api/ai/brief/route.ts",
     manifestField: "assistRouteMaxDurationSeconds",
   },

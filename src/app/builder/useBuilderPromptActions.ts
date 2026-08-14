@@ -54,7 +54,6 @@ type Args = {
   setEntryIntentActive: Dispatch<SetStateAction<boolean>>;
   setIsPreparingPrompt: Dispatch<SetStateAction<boolean>>;
   setCustomInstructions: Dispatch<SetStateAction<string>>;
-  setPromptAssistMode: Dispatch<SetStateAction<"polish" | "rewrite" | null>>;
   setDesignTheme: Dispatch<SetStateAction<DesignTheme>>;
   setPaletteState: Dispatch<SetStateAction<PaletteState>>;
   generateDynamicInstructions: (
@@ -97,7 +96,6 @@ export function useBuilderPromptActions({
   setEntryIntentActive,
   setIsPreparingPrompt,
   setCustomInstructions,
-  setPromptAssistMode,
   setDesignTheme: _setDesignTheme,
   setPaletteState,
   generateDynamicInstructions,
@@ -158,10 +156,6 @@ export function useBuilderPromptActions({
   const cancelTemplateSwitchDialog = useCallback(() => {
     setTemplateSwitchDialog(null);
   }, []);
-
-  const clearPromptAssistMode = useCallback(() => {
-    setPromptAssistMode(null);
-  }, [setPromptAssistMode]);
 
   const captureInstructionSnapshot = useCallback(() => {
     pendingInstructionsRef.current = customInstructions.trim() || null;
@@ -328,7 +322,6 @@ export function useBuilderPromptActions({
     templateSwitchDialog,
     confirmTemplateSwitchDialog,
     cancelTemplateSwitchDialog,
-    clearPromptAssistMode,
     captureInstructionSnapshot,
     requestCreateChat,
     handleStartFromTemplate,

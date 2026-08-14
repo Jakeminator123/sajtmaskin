@@ -559,7 +559,6 @@ describe("buildDynamicContext", () => {
           envVars: [{ key: "STRIPE_SECRET_KEY", reason: "Stripe" }],
         },
         unresolvedDecisions: [],
-        confirmedAnswers: [],
       },
       tier3BuildSpec: {
         requirements: [

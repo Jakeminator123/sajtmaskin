@@ -44,5 +44,13 @@ export const portfolioManifest: ScaffoldManifest = {
       { id: "portfolio-nim-minimalist-personal-site", title: "Nim — Minimalist Personal Site", categorySlug: "portfolio", qualityScore: 92, strengths: ["verified Next.js codebase", "minimalist design approach", "personal voice layout"] },
     ],
   },
+  // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
+  // planning-helpers): this scaffold contributed no default routes.
+  routeContract: {
+    requiredRoutes: [],
+    optionalRoutes: [],
+    declaredRoutePaths: [],
+    dynamicRoutePatterns: [],
+  },
   files: loadScaffoldFiles("portfolio"),
 };

@@ -57,12 +57,6 @@ export const MAX_AI_BRIEF_PROMPT_CHARS = readIntEnv(
   caps.maxAiBriefPromptChars.min,
   caps.maxAiBriefPromptChars.max,
 );
-export const MAX_AI_CHAT_MESSAGE_CHARS = readIntEnv(
-  caps.maxAiChatMessageChars.envKey,
-  caps.maxAiChatMessageChars.default,
-  caps.maxAiChatMessageChars.min,
-  caps.maxAiChatMessageChars.max,
-);
 /**
  * Soft orchestration targets by prompt type.
  * Defaults come from `config/ai_models/manifest.json` → `promptOrchestration.softTargets`.

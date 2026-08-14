@@ -16,12 +16,16 @@ Kodnamn: RenderGate = `designPreview`, ReleaseGate = `integrationsBuild`.
 | Lane-checklistor | `config/ai_models/manifest.json#qualityGateTiers` via `getQualityGateTiersFromManifest()` |
 | F2 typecheck-only Advisory | `isTypecheckOnlyAdvisory()` i `quality-gate-checks.ts` |
 | Verify-lane körning | `src/lib/gen/verify/preview-quality-gate.ts`, `preview-host/src/runtime.js` |
+| Post-finalize verify-beslut | `resolvePostFinalizeServerVerifyDecision` i `src/lib/gen/stream/post-finalize-policies.ts` |
 | Server-verify | `src/lib/gen/verify/server-verify.ts` |
+| Verify-lease / promote | `src/lib/db/chat-repository-pg.ts` |
 | Repair-loop | `src/lib/gen/verify/repair-loop.ts` |
 | Repair-port | `runLlmRepairGate` i `src/lib/gen/autofix/llm-repair-gate.ts` |
 | Repair-outcome | `resolveServerRepairOutcome` i `src/lib/gen/verify/server-verify-log-meta.ts` |
+| Stream-signaler | `src/lib/gen/stream/builder-stream-contract.ts` |
 | Promote-guard | `src/lib/db/promote-guard.ts` |
 | Explicit gate-route | `src/app/api/engine/chats/[chatId]/quality-gate/route.ts` |
+| Explicit repair-route | `src/app/api/engine/chats/[chatId]/repair/route.ts` |
 | Accept-repair | `src/app/api/engine/chats/[chatId]/accept-repair/route.ts` |
 
 ## Checks

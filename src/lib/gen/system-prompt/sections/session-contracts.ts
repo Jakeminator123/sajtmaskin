@@ -405,14 +405,6 @@ export function renderPreGenerationContractsBlock(
       "  - Prefer **non-blocking** defaults: Auth.js Credentials, SQLite or mock data, Stripe test placeholders. Do not stall generation on provider choice; ship runnable code first.",
     );
   }
-  if (preGenerationContracts.confirmedAnswers.length > 0) {
-    parts.push("", "- **Confirmed contract answers from the user:**");
-    parts.push(
-      ...preGenerationContracts.confirmedAnswers
-        .slice(0, 6)
-        .map((entry) => `  - ${entry.kind}: ${entry.answer}`),
-    );
-  }
   parts.push("");
   return parts;
 }

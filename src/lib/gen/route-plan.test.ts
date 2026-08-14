@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getScaffoldById } from "./scaffolds/registry";
+import type { BuildIntent } from "@/lib/builder/build-intent";
+import { getScaffoldById, getScaffoldIds } from "./scaffolds/registry";
 import {
+  applyScaffoldDefaults,
+  collectScaffoldRequiredPaths,
   extractExplicitNamedPages,
   hasExplicitAddRouteIntent,
   neutralizeExplicitPageNameLiterals,
@@ -1483,5 +1486,128 @@ describe("extractExplicitNamedPages — obundna namn kapas vid satsgräns", () =
     });
     expect(plan.routes.some((route) => route.path === "/bilder")).toBe(true);
     expect(plan.routes.some((route) => route.path.startsWith("/bilder-och"))).toBe(false);
+  });
+});
+
+describe("scaffold default routes — manifest routeContract parity with the removed switch", () => {
+  type FrozenRoute = { path: string; name: string; intent: string; required: boolean };
+
+  const ALL_BUILD_INTENTS: BuildIntent[] = ["website", "app", "template"];
+
+  /**
+   * FROZEN literal output of the old hardcoded `switch (resolvedScaffold?.id)`
+   * in `planning-helpers.ts → getScaffoldDefaultRoutes` (removed in
+   * feat/scaffold-route-contract), per scaffold × build intent. Moving the
+   * route truth into `ScaffoldManifest.routeContract` must not change the
+   * observable plan contribution for ANY scaffold. Do not regenerate these
+   * literals from runtime — they are the "before" side of the parity proof.
+   */
+  const FROZEN_SWITCH_OUTPUT: Record<string, Record<BuildIntent, FrozenRoute[]>> = (() => {
+    const none: Record<BuildIntent, FrozenRoute[]> = { website: [], app: [], template: [] };
+    const blogRoute = (required: boolean): FrozenRoute => ({
+      path: "/blog",
+      name: "Blog",
+      intent: "Keep an editorial route for articles and archives.",
+      required,
+    });
+    const productsRoute: FrozenRoute = {
+      path: "/products",
+      name: "Products",
+      intent: "Keep a storefront route for the product catalog.",
+      required: true,
+    };
+    const authRoutes: FrozenRoute[] = [
+      {
+        path: "/login",
+        name: "Login",
+        intent: "Keep a dedicated authentication entry route.",
+        required: true,
+      },
+      {
+        path: "/signup",
+        name: "Signup",
+        intent: "Keep a dedicated registration route when auth is in scope.",
+        required: false,
+      },
+    ];
+    const settingsRoute: FrozenRoute = {
+      path: "/settings",
+      name: "Settings",
+      intent: "App shells should usually expose at least one management/settings route.",
+      required: false,
+    };
+    const analyticsRoute: FrozenRoute = {
+      path: "/analytics",
+      name: "Analytics",
+      intent: "Dashboard apps benefit from an analytics or metrics route.",
+      required: false,
+    };
+    return {
+      "base-nextjs": none,
+      "landing-page": none,
+      "saas-landing": none,
+      portfolio: none,
+      "projekt-bas-app": none,
+      blog: {
+        website: [blogRoute(true)],
+        app: [blogRoute(false)],
+        template: [blogRoute(true)],
+      },
+      ecommerce: {
+        website: [productsRoute],
+        app: [productsRoute],
+        template: [productsRoute],
+      },
+      "auth-pages": {
+        website: authRoutes,
+        app: authRoutes,
+        template: authRoutes,
+      },
+      dashboard: {
+        website: [],
+        app: [analyticsRoute, settingsRoute],
+        template: [],
+      },
+      "app-shell": {
+        website: [],
+        app: [settingsRoute],
+        template: [],
+      },
+    };
+  })();
+
+  it("covers every registered scaffold in the frozen table", () => {
+    expect(new Set(getScaffoldIds())).toEqual(new Set(Object.keys(FROZEN_SWITCH_OUTPUT)));
+  });
+
+  for (const [scaffoldId, byIntent] of Object.entries(FROZEN_SWITCH_OUTPUT)) {
+    it(`derives identical default routes for ${scaffoldId} across all build intents`, () => {
+      const scaffold = getScaffoldById(scaffoldId);
+      expect(scaffold).not.toBeNull();
+      for (const buildIntent of ALL_BUILD_INTENTS) {
+        const routes: FrozenRoute[] = [];
+        applyScaffoldDefaults(buildIntent, scaffold, routes);
+        expect(routes, `${scaffoldId} × ${buildIntent}`).toEqual(byIntent[buildIntent]);
+        expect(
+          collectScaffoldRequiredPaths(buildIntent, scaffold),
+          `${scaffoldId} × ${buildIntent} required paths`,
+        ).toEqual(
+          new Set(
+            byIntent[buildIntent]
+              .filter((route) => route.required)
+              .map((route) => route.path),
+          ),
+        );
+      }
+    });
+  }
+
+  it("contributes nothing when no scaffold is resolved", () => {
+    for (const buildIntent of ALL_BUILD_INTENTS) {
+      const routes: FrozenRoute[] = [];
+      applyScaffoldDefaults(buildIntent, null, routes);
+      expect(routes).toEqual([]);
+      expect(collectScaffoldRequiredPaths(buildIntent, null)).toEqual(new Set());
+    }
   });
 });

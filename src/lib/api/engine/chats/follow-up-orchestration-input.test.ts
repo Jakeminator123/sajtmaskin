@@ -12,7 +12,6 @@ import type { ParsedChatRequestMeta } from "./parse-chat-request-meta";
 
 const CODEGEN_ONLY_KEYS = [
   "persistedVariantId",
-  "contractAnswers",
   "customInstructions",
   "chatId",
   "followUpIntent",
@@ -100,7 +99,6 @@ function baseParams(
     orchestrationSnapshot: null,
     engineModelId: "gpt-5.4",
     persistedVariantId: "minimalist-mag",
-    contractAnswers: [],
     customInstructions: "Be brief.",
     chatId: "chat_test_1",
     priorQualityTarget: "standard",
@@ -171,7 +169,6 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     const codegenInput = buildFollowUpOrchestrationInput(baseParams({ mode: "codegen" }));
 
     expect(codegenInput.persistedVariantId).toBe("minimalist-mag");
-    expect(codegenInput.contractAnswers).toEqual([]);
     expect(codegenInput.customInstructions).toBe("Be brief.");
     expect(codegenInput.chatId).toBe("chat_test_1");
     expect(codegenInput.followUpIntent).toBe("neutral");

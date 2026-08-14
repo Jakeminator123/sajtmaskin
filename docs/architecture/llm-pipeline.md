@@ -283,7 +283,10 @@ ReleaseGate på servern via `buildReleaseGateBlocker` → `resolveDeployReleaseG
 (`src/app/api/engine/chats/[chatId]/readiness/readiness-payload.ts`), så builderns
 `canDeploy` följer deploy-routens gate i stället för att gissa. Env-kravet är
 stage-beroende: F3 blockerar på `buildBlockingKeys`, F2 på `missingEnvKeys`
-(`src/app/api/v0/deployments/route.ts`).
+(`src/app/api/v0/deployments/route.ts`). CapabilitySmoke-fynd
+(`product_postcheck.*`) syns som advisory-warnings och kan sätta
+`info.productPostcheckBlocksF3`; de ändrar inte `canDeploy` och stoppar inte
+promotion.
 
 ### Deploy-repair
 

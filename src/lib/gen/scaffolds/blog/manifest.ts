@@ -44,5 +44,21 @@ export const blogManifest: ScaffoldManifest = {
       { id: "blog-blog-with-agility-cms-and-next-js", title: "Blog with Agility CMS and Next.js", categorySlug: "blog", qualityScore: 92, strengths: ["verified Next.js codebase", "headless CMS pattern", "blog archive structure"] },
     ],
   },
+  // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
+  // planning-helpers): /blog was always planned, required unless buildIntent
+  // was "app".
+  routeContract: {
+    requiredRoutes: [
+      {
+        path: "/blog",
+        name: "Blog",
+        planIntent: "Keep an editorial route for articles and archives.",
+        requiredOnlyForBuildIntents: ["website", "template"],
+      },
+    ],
+    optionalRoutes: [],
+    declaredRoutePaths: [],
+    dynamicRoutePatterns: ["/blog/[slug]"],
+  },
   files: loadScaffoldFiles("blog"),
 };

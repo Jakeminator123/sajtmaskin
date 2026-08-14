@@ -16,6 +16,13 @@ iframen.
 
 De är inte Normalize, syntaxvalidering i finalize, verifier-pass, live
 `npm run dev`, eller CapabilitySmoke (`product_postcheck.*`).
+CapabilitySmoke-fynd projiceras som warnings i publiceringskollen
+(`GET .../readiness`). `productBlocked` på senaste
+`product_postcheck.summary` sätter `info.productPostcheckBlocksF3`.
+`info.productPostcheckBlockedReason` listar bara koder som faktiskt sätter
+`productBlocked` (`mobile_menu_failed`, ≥2 `broken_anchor`, `runtime_crash`,
+`preview_boot_page`); rådgivande koder stannar i `warnings`. Promotion
+läser inte fältet. Fynden är aldrig `canDeploy`-blockers.
 
 | Lane | Syfte | Typisk körning |
 | --- | --- | --- |

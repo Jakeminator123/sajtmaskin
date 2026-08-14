@@ -72,12 +72,10 @@
   },
   "promptAssist": {
     "defaults": {
-      "assist": "openai/gpt-5.6-sol",
-      "polish": "openai/gpt-5.3-codex"
+      "assist": "openai/gpt-5.6-sol"
     },
     "envKeys": {
-      "assist": "SAJTMASKIN_ASSIST_MODEL",
-      "polish": "SAJTMASKIN_POLISH_MODEL"
+      "assist": "SAJTMASKIN_ASSIST_MODEL"
     },
     "allowed": {
       "gatewayClassModels": [
@@ -346,12 +344,6 @@
       "maxAiBriefPromptChars": {
         "envKey": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
         "default": 800000,
-        "min": 2000,
-        "max": 2000000
-      },
-      "maxAiChatMessageChars": {
-        "envKey": "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
-        "default": 600000,
         "min": 2000,
         "max": 2000000
       }
@@ -748,26 +740,6 @@
       ],
       "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
       "notes": "Uses the fixer phase from phaseRouting when the originating chat tier can be inferred; otherwise falls back to the configured pro profile."
-    },
-    {
-      "id": "prompt_assist_chat",
-      "title": "Prompt assist (Förbättra) chat stream",
-      "description": "Multi-provider streamText: openai/* and anthropic/* via createDirectModel (direct OpenAI/Anthropic API).",
-      "invocation": "streamText_ai_sdk",
-      "provider": "openai_anthropic_direct",
-      "codeEntry": [
-        "src/app/api/ai/chat/route.ts",
-        "src/lib/builder/direct-model.ts",
-        "src/lib/builder/prompt-assist/runner.ts"
-      ],
-      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
-      "defaultModel": "openai/gpt-5.6-sol",
-      "tokenBudget": {
-        "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
-        "default": 82768,
-        "min": 4096,
-        "max": 128000
-      }
     },
     {
       "id": "brief_structured",

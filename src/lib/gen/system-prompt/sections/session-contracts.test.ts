@@ -70,7 +70,6 @@ describe("renderTier3IntegrationBlock", () => {
           envVars: [],
         },
         unresolvedDecisions: [],
-        confirmedAnswers: [],
       },
       tier3BuildSpec: {
         requirements: [
@@ -113,7 +112,6 @@ describe("renderTier3IntegrationBlock", () => {
           envVars: [{ key: "STRIPE_SECRET_KEY", reason: "Stripe" }],
         },
         unresolvedDecisions: [],
-        confirmedAnswers: [],
       },
       tier3BuildSpec: { requirements: [] },
     });
@@ -132,7 +130,6 @@ describe("renderTier3IntegrationBlock", () => {
           envVars: [],
         },
         unresolvedDecisions: [],
-        confirmedAnswers: [],
       },
       tier3BuildSpec: {
         requirements: [
@@ -163,7 +160,6 @@ describe("renderTier3IntegrationBlock", () => {
       preGenerationContracts: {
         contracts: { dataMode: "none", integrations: [], envVars: [] },
         unresolvedDecisions: [],
-        confirmedAnswers: [],
       },
       tier3BuildSpec: { requirements: [] },
       approvedProviders: ["stripe"],

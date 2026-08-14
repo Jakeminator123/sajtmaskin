@@ -77,7 +77,6 @@ export interface BuildFollowUpOrchestrationInputParams {
   orchestrationSnapshot: Record<string, unknown> | null;
   engineModelId: string;
   persistedVariantId?: string | null;
-  contractAnswers?: OrchestrationInput["contractAnswers"];
   customInstructions?: string;
   chatId?: string;
   priorQualityTarget?: OrchestrationInput["priorQualityTarget"];
@@ -270,7 +269,6 @@ export function buildFollowUpOrchestrationInput(
   return {
     ...commonInput,
     persistedVariantId: params.persistedVariantId,
-    contractAnswers: params.contractAnswers,
     customInstructions: params.customInstructions,
     chatId: params.chatId,
     followUpIntent: params.hasFollowUpBase ? (params.followUpIntent ?? undefined) : undefined,

@@ -1,7 +1,5 @@
-import { createSSEHeaders } from "@/lib/streaming";
 import {
   withPromptToDoneMetricResponse,
-  wrapStreamForPromptToDoneMetric,
 } from "@/lib/observability/prompt-to-done-stream";
 import { createChatSchema } from "@/lib/validations/chat-schemas";
 import { NextResponse } from "next/server";
@@ -39,10 +37,6 @@ import {
 } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import {
-  buildContractClarificationQuestion,
-  buildStoredContractClarificationUiPart,
-} from "@/lib/gen/contract/clarification";
-import {
   buildGenerationInputPackage,
   finalizeOrchestrationPrompts,
   prepareGenerationContext,
@@ -65,7 +59,6 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import { isAppScaffold } from "@/lib/builder/build-intent";
 import {
   buildOwnEngineGenerationStreamMeta,
-  buildPreGenerationContractGateParams,
 } from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 import {
@@ -76,7 +69,6 @@ import {
   resolvePlanModePlannerSettings,
 } from "@/lib/own-engine/session/own-engine-plan-mode";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
-import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import { matchScaffold, scaffoldForExplicitIntent } from "@/lib/gen/scaffolds/matcher";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
 import { SCAFFOLD_OFF_BASELINE_ID } from "@/lib/gen/scaffolds/types";
@@ -449,7 +441,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             systemPrompt: trimmedSystemPrompt || null,
             promptAssistModel: parsedMeta.promptAssistModel,
             promptAssistDeep: parsedMeta.promptAssistDeep,
-            promptAssistMode: parsedMeta.promptAssistMode,
             buildIntent: metaBuildIntent,
             buildMethod: metaBuildMethod,
             modelTier: resolvedModelTier,
@@ -520,7 +511,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {
           promptAssistModel: parsedMeta.promptAssistModel,
           promptAssistDeep: parsedMeta.promptAssistDeep,
-          promptAssistMode: parsedMeta.promptAssistMode,
           promptStrategy: strategyMeta.strategy,
           promptType: strategyMeta.promptType,
         });
@@ -915,12 +905,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             resolvedScaffold,
             routePlan,
             preGenerationContracts,
-            capabilities: engineCapabilities,
           } = orchestrationBase;
-          const contractClarification = buildContractClarificationQuestion({
-            buildIntent: engineIntent,
-            context: preGenerationContracts,
-          });
 
           debugLog("engine", "Own engine model resolved", {
             resolvedModelTier,
@@ -937,105 +922,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                     "Own-engine generation requires a valid app project id. Create or resolve a project before retrying.",
                 },
                 { status: 400 },
-              ),
-            );
-          }
-          if (contractClarification) {
-            const contractGateDbStartedAt = Date.now();
-            // No scaffold id on the gate-only exit: the match was made on an
-            // INCOMPLETE prompt, and a pinned `scaffold_id` would make the
-            // answering turn read it as `persistedScaffoldId` and skip the
-            // rematch — the first, unfinished guess would stick for the whole
-            // chat. The scaffold is persisted first when a round actually
-            // generates (own-engine path below / `codegen-turn.ts`).
-            const engineChat = await chatRepo.createChat(projectIdForChat, engineModel);
-            await chatRepo.addMessage(engineChat.id, "user", message);
-            setLlmUsageContext({ chatId: engineChat.id });
-            attachChatToPendingUsage(sessionId, engineChat.id);
-            const contractGenerationLock = await acquireChatGenerationLock(engineChat.id);
-            if (contractGenerationLock.status !== "acquired") {
-              return attachSessionCookie(
-                chatGenerationLockFailureResponse(contractGenerationLock.status, {
-                  chatId: engineChat.id,
-                }),
-              );
-            }
-            acquiredGenerationLock = contractGenerationLock.lock;
-            debugLog("engine", "Chat DB bootstrap complete", {
-              durationMs: Date.now() - contractGateDbStartedAt,
-              mode: "pre-generation-contract-gate",
-              chatId: engineChat.id,
-            });
-            devLogAppend("in-progress", {
-              type: "site.chatId",
-              chatId: engineChat.id,
-            });
-            devLogAppend("in-progress", {
-              type: "contracts.inferred",
-              chatId: engineChat.id,
-              dataMode: preGenerationContracts.contracts.dataMode,
-              databaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
-              authProvider: preGenerationContracts.contracts.authProvider ?? null,
-              paymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
-              integrations: preGenerationContracts.contracts.integrations.map(
-                (entry) => entry.provider,
-              ),
-              envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
-              unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map(
-                (entry) => entry.kind,
-              ),
-            });
-            const assistantQuestion = await chatRepo
-              .addMessage(engineChat.id, "assistant", contractClarification.question, undefined, [
-                buildStoredContractClarificationUiPart(contractClarification),
-              ])
-              .catch(() => null);
-            devLogAppend("in-progress", {
-              type: "contracts.clarification-requested",
-              chatId: engineChat.id,
-              kind: contractClarification.kind,
-              reason: contractClarification.reason,
-            });
-            const contractGateStream = createPreGenerationContractGateReadableStream(
-              buildPreGenerationContractGateParams({
-                routeVariant: "new-chat",
-                sseChatId: engineChat.id,
-                assistantMessageId: assistantQuestion?.id ?? null,
-                contractClarification,
-                preGenerationContracts,
-                engineModel,
-                resolvedModelTier,
-                buildProfileId,
-                buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-                resolvedThinking,
-                resolvedImageGenerations,
-                resolvedScaffold,
-                strategyMeta,
-                buildSpec: orchestrationBase.buildSpec,
-                metaBriefApplied: Boolean(metaBrief),
-                customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
-                chatPrivacy: resolvedChatPrivacy,
-                scaffoldLabel: resolvedScaffold?.label ?? null,
-                capabilities: engineCapabilities,
-              }),
-            );
-            debugLog("engine", "Create chat pre-stream complete", {
-              durationMs: Date.now() - requestStartedAt,
-              mode: "pre-generation-contract-gate",
-              chatId: engineChat.id,
-            });
-            return attachSessionCookie(
-              bindChatGenerationLockToResponse(
-                new Response(
-                  wrapStreamForPromptToDoneMetric(contractGateStream, {
-                    kind: "init",
-                    promptStartedAt: requestStartedAt,
-                    signal: req.signal,
-                    chatId: engineChat.id,
-                  }),
-                  { headers: createSSEHeaders() },
-                ),
-                contractGenerationLock.lock,
               ),
             );
           }

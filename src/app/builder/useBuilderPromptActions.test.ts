@@ -51,7 +51,6 @@ function makeArgs(
     setEntryIntentActive: vi.fn(),
     setIsPreparingPrompt: vi.fn(),
     setCustomInstructions: vi.fn(),
-    setPromptAssistMode: vi.fn(),
     setDesignTheme: vi.fn(),
     setPaletteState: vi.fn(),
     generateDynamicInstructions: vi.fn(async () => ""),

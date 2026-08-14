@@ -51,31 +51,16 @@ och core-kontraktet säger «Write code, not prose»
 | Planläge: `blockers[]` | `src/lib/gen/plan/prompt.ts` regel 11 | Ja, för byggfasen |
 | F3-fortsättning utan kod | `src/lib/providers/own-engine/generation-stream.ts` | Ja, för nästa F3 |
 
-### Död källa — vilseledande, rör inte utan att läsa detta
+### Borttagen källa — kontraktsklargöring (2026-08-14)
 
-`buildContractClarificationQuestion` (`src/lib/gen/contract/clarification.ts`)
-kan **aldrig** ställa en fråga idag, av två oberoende skäl: `previewFirst`
-defaultar till `true` och returnerar `null` på första raden, och
-`inferPreGenerationContracts` pushar aldrig till `unresolvedDecisions`
-(invariant-kommentar i filen). Anropsstället i
-`src/lib/api/engine/chats/create-chat-stream-post.ts` ser dock levande ut, med
-DB-skrivningar och en egen SSE-ström bakom `if (contractClarification)`. Flera
-läsare har trott att det är här frågorna kommer ifrån. Loggad som skuld.
+Ägaren valde väg 3 (2026-08-13): ta bort hela vägen. `buildContractClarificationQuestion`,
+SSE-grinden `createPreGenerationContractGateReadableStream`,
+`ConfirmedContractAnswer`-hanteringen och anropsställena i
+`create-chat-stream-post.ts` / `codegen-turn.ts` är borta.
 
-**Ägarbeslut krävs (2026-08-13) — tre vägar, välj en:**
-
-1. **Låt OpenClaw svara i stället för användaren.** Kontraktsvalen (databas, auth,
-   betalning) är precis den sorts fråga en modell med repokontext kan avgöra
-   bättre än en otålig användare. Kräver att `previewFirst` kan sättas `false`
-   för en icke-interaktiv väg, och att svaret loggas som antagande.
-2. **Låt den faktiskt fråga användaren igen** i de fall där valet kostar pengar
-   eller låser en leverantör. Då måste `inferPreGenerationContracts` börja
-   fylla `unresolvedDecisions`, vilket är den verkliga arbetsinsatsen.
-3. **Ta bort hela vägen** — funktion, anropsställe, DB-skrivningarna och
-   `ConfirmedContractAnswer`-hanteringen. Minst kod kvar att missförstå.
-
-Bygg inget av detta utan att ägaren valt. Att låta den ligga kvar halvdöd är
-det enda alternativet som garanterat kostar nästa läsare en timme.
+Follow-up-klargöring (`follow-up-clarification.ts`) och F3-fortsättning är
+levande och orörda. Historiska `## Contract Clarification Answer`-wrappers
+i chattar strippas fortfarande i display-lagret.
 
 ### Fällan i klassificeraren
 
@@ -108,6 +93,14 @@ Unicode-klasser (`\p{L}`, `u`-flagga) — ASCII `\w`/`\b` missar `ändra`,
   det är ny produktbeteende, inte en härdning.
 
 ## Spår B — scaffoldernas ruttsanning
+
+**Status 2026-08-14:** flytten och grinden är byggda (PR
+`feat/scaffold-route-contract`): `ScaffoldManifest.routeContract` äger nu
+ruttkontraktet (required/optional/declared/dynamic), switchen i
+`planning-helpers.ts` är borta, och grinden i
+`scaffold-manifest-validation.test.ts` fäller på SM-042-fallen + SM-043:s
+`/cart` via en explicit undantagslista. **Ägarbeslutet nedan är fortfarande
+öppet** — undantagen tas bort först när riktningen är vald.
 
 **Problemet:** scaffoldernas navigering länkar hårdkodat till sidor som
 ruttplaneraren inte garanterar. Kapas eller planeras inte rutten får den

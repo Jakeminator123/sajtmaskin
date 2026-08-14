@@ -34,5 +34,13 @@ export const baseNextjsManifest: ScaffoldManifest = {
       { id: "starter-sanity-next-js-clean-app", title: "Sanity Next.js Clean App", categorySlug: "starter", qualityScore: 90, strengths: ["verified Next.js codebase", "App Router structure", "clean project scaffold"] },
     ],
   },
+  // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
+  // planning-helpers): this scaffold contributed no default routes.
+  routeContract: {
+    requiredRoutes: [],
+    optionalRoutes: [],
+    declaredRoutePaths: [],
+    dynamicRoutePatterns: [],
+  },
   files: loadScaffoldFiles("base-nextjs"),
 };

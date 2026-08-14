@@ -68,7 +68,6 @@ export interface ParsedChatRequestMeta {
   palette: PaletteState | null;
   promptAssistModel: string | null;
   promptAssistDeep: boolean | null;
-  promptAssistMode: "polish" | "rewrite" | null;
   engineBaseVersionId: string | null;
   /**
    * F2/F3 lifecycle stage. `"integrations"` is set by the
@@ -91,12 +90,6 @@ export interface ParsedChatRequestMeta {
  */
 export function parseChatRequestMeta(meta: unknown): ParsedChatRequestMeta {
   const { scaffoldMode, scaffoldId } = extractScaffoldSettingsFromMeta(meta);
-
-  const promptAssistModeRaw = metaString(meta, "promptAssistMode");
-  const promptAssistMode =
-    promptAssistModeRaw === "polish" || promptAssistModeRaw === "rewrite"
-      ? promptAssistModeRaw
-      : null;
 
   return {
     modelTier: metaString(meta, "modelTier"),
@@ -122,7 +115,6 @@ export function parseChatRequestMeta(meta: unknown): ParsedChatRequestMeta {
     palette: extractPaletteStateFromMeta(meta),
     promptAssistModel: metaString(meta, "promptAssistModel")?.trim() || null,
     promptAssistDeep: metaBoolOrNull(meta, "promptAssistDeep"),
-    promptAssistMode,
     engineBaseVersionId: metaString(meta, "engineBaseVersionId")?.trim() || null,
     lifecycleStage:
       metaString(meta, "lifecycleStage") === "integrations" ? "integrations" : "design",

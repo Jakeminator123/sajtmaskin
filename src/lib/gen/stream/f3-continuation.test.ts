@@ -63,8 +63,7 @@ describe("buildF3AwaitingInputUiPart", () => {
     expect(output.lifecycleStage).toBe("integrations");
     expect(output.parentVersionId).toBe("ver_f2");
     expect(output.awaitingInput).toBe(true);
-    // Must NOT be readable as a contract clarification —
-    // collectConfirmedContractAnswers keys on `contractClarification === true`.
+    // Must NOT carry a leftover contract-clarification marker.
     expect(output.contractClarification).toBeUndefined();
   });
 

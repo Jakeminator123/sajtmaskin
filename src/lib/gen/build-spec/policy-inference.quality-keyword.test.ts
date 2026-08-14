@@ -15,7 +15,6 @@ const emptyContracts: PreGenerationContractContext = {
     envVars: [],
   },
   unresolvedDecisions: [],
-  confirmedAnswers: [],
 };
 
 const singleRoutePlan: RoutePlan = {

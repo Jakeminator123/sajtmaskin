@@ -11,7 +11,6 @@ const emptyContracts: PreGenerationContractContext = {
     envVars: [],
   },
   unresolvedDecisions: [],
-  confirmedAnswers: [],
 };
 
 const marketingRoutePlan: RoutePlan = {
@@ -240,7 +239,6 @@ describe("deriveBuildSpec", () => {
           envVars: [],
         },
         unresolvedDecisions: [],
-        confirmedAnswers: [],
       },
       promptStrategyMeta: { strategy: "phase_plan_build_refine" as const, promptType: "freeform" as const },
     };
@@ -400,7 +398,6 @@ Persisted errors for this version:
           envVars: [],
         },
         unresolvedDecisions: [],
-        confirmedAnswers: [],
       },
       promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
     });
@@ -561,7 +558,6 @@ Persisted errors for this version:
           envVars: [],
         },
         unresolvedDecisions: [],
-        confirmedAnswers: [],
       },
       promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
     });
@@ -866,7 +862,6 @@ Persisted errors for this version:
         envVars: [],
       },
       unresolvedDecisions: [],
-      confirmedAnswers: [],
     };
     const baseline = deriveBuildSpec({
       prompt: "Init med Redis och Clerk.",
@@ -980,7 +975,6 @@ Persisted errors for this version:
           envVars: [],
         },
         unresolvedDecisions: [],
-        confirmedAnswers: [],
       },
       promptStrategyMeta: { strategy: "phase_plan_build_refine", promptType: "freeform" },
     });

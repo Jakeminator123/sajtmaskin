@@ -40,7 +40,6 @@ const emptyContracts = {
     envVars: [],
   },
   unresolvedDecisions: [],
-  confirmedAnswers: [],
 } as unknown as PreGenerationContractContext;
 
 function assertBuildSpecFromChain(
@@ -89,7 +88,6 @@ describe("orchestration integration (matchScaffold → deriveBuildSpec)", () => 
     expect(emptyContracts.contracts.integrations).toEqual([]);
     expect(emptyContracts.contracts.envVars).toEqual([]);
     expect(emptyContracts.unresolvedDecisions).toEqual([]);
-    expect(emptyContracts.confirmedAnswers).toEqual([]);
   });
 
   it("keeps hard integration dossiers out of F2 design generations", () => {

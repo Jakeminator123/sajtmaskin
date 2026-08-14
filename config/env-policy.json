@@ -76,7 +76,6 @@
     "GENERATIONSLOGG",
     "SAJTMASKIN_VISUAL_QA",
     "AI_BRIEF_MAX_TOKENS",
-    "AI_CHAT_MAX_TOKENS",
     "SAJTMASKIN_MAX_PROMPT_LENGTH",
     "SAJTMASKIN_WARN_PROMPT_LENGTH",
     "ENABLE_PEXELS",
@@ -206,9 +205,7 @@
     "SAJTMASKIN_MODEL_PREMIUM",
     "SAJTMASKIN_MODEL_MAX",
     "SAJTMASKIN_MODEL_PRO",
-    "SAJTMASKIN_POLISH_MODEL",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
-    "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
     "SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS",
     "SAJTMASKIN_MAX_SYSTEM_LENGTH",
     "SAJTMASKIN_METRICS_TOKEN",
@@ -393,12 +390,6 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Optional override for Prompt Assist model selection."
-    },
-    {
-      "key": "SAJTMASKIN_POLISH_MODEL",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Optional override for prompt polish rewrites."
     },
     {
       "key": "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
@@ -879,12 +870,6 @@
     },
     {
       "key": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
-      "notes": "Production-only prompt budget tuning."
-    },
-    {
-      "key": "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
       "classification": "environment_specific",
       "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."

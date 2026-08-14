@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:14408e95c6dfc526 -->
+<!-- source-fingerprint: config/env-policy.json sha256:e938783c734cc4dc -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:1df82ad99d801a14 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:58bf6977a6cef5d5 -->
 
@@ -114,7 +114,6 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_LLM_FIXER_TIMEOUT_MS`                    | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS`              | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS`               | `environment_specific` | `production`                           | No            | No           |
-| `SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS`               | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS`                | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_MAX_SYSTEM_LENGTH`                       | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_METRICS_TOKEN`                           | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
@@ -127,7 +126,6 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_PHASE_FORCE_CHARS`                       | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_PLAN_MODE_MAX_PLAN_CHARS`                | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_PLAN_MODE_PHASE_THRESHOLD_CHARS`         | `environment_specific` | `production`                           | No            | No           |
-| `SAJTMASKIN_POLISH_MODEL`                            | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_PRE_VM_TYPECHECK`                        | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT`             | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_PREVIEW_HOST_API_KEY`                    | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |

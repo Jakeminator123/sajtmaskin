@@ -6,8 +6,8 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-core/` +
 
 1. **`manifest.json`** — maskinläsbar “single source of truth” för:
    - standard **own-engine**-modell per byggprofil (`premium` … `anthropic`);
-   - standard **prompt assist** / **polish** (`openai/…`, `anthropic/…`);
-   - standard **briefing**-modeller för `/api/ai/brief`, server auto-brief och äldre spec-first-hjälpare;
+   - standard **prompt assist** (`openai/…`, `anthropic/…`) som modell-hint till brief-lanen;
+   - standard **briefing**-modeller för `/api/ai/brief` och server auto-brief;
    - **phase routing** för planner / generator / fixer / verifier / deploy-assistant;
    - **phase-specifik thinking / reasoning** via `phaseRouting.thinkingByTier`;
    - **repairPolicies** (deterministiska autofix-pass, maxpass i syntax-fix, manuell repair-route, server verify repair);

@@ -50,5 +50,13 @@ export const landingPageManifest: ScaffoldManifest = {
       { id: "cms-basehub-marketing-website", title: "BaseHub Marketing Website", categorySlug: "cms", qualityScore: 88, strengths: ["verified Next.js codebase", "marketing page structure", "content hierarchy"] },
     ],
   },
+  // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
+  // planning-helpers): this scaffold contributed no default routes.
+  routeContract: {
+    requiredRoutes: [],
+    optionalRoutes: [],
+    declaredRoutePaths: [],
+    dynamicRoutePatterns: [],
+  },
   files: loadScaffoldFiles("landing-page"),
 };

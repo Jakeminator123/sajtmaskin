@@ -36,5 +36,25 @@ export const appShellManifest: ScaffoldManifest = {
       { id: "admin-dashboard-modernize-next-js-admin-dashboard-template", title: "Modernize Next.js Admin Dashboard", categorySlug: "admin-dashboard", qualityScore: 96, strengths: ["verified Next.js codebase", "sidebar navigation", "settings and admin patterns"] },
     ],
   },
+  // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
+  // planning-helpers): /settings was planned as optional, and only when
+  // buildIntent was "app".
+  // SM-042: files/ links unconditionally to /pipeline and /tasks, but the
+  // plan never guaranteed them — deliberately NOT listed here until the
+  // owner picks a direction (see the route-contract gate in
+  // scaffold-manifest-validation.test.ts).
+  routeContract: {
+    requiredRoutes: [],
+    optionalRoutes: [
+      {
+        path: "/settings",
+        name: "Settings",
+        planIntent: "App shells should usually expose at least one management/settings route.",
+        planOnlyForBuildIntents: ["app"],
+      },
+    ],
+    declaredRoutePaths: [],
+    dynamicRoutePatterns: [],
+  },
   files: loadScaffoldFiles("app-shell"),
 };
