@@ -95,6 +95,11 @@ export function resetClientErrorReportGateForTests(): void {
  * meddelande från föregående preview-dokument tillskrivas den nya versionen.
  * Accepterad begränsning för Advisory-diagnostik (bugbot 2026-08-05) — raderna
  * är fel-speglar, inte grund för automatiska beslut per version.
+ *
+ * Readiness projicerar rader med `created_at` strikt efter versionens
+ * `promoted_at` som advisory-warning (`projectLateClientErrorReadiness`).
+ * Fel före promotion förblir diagnostik. Routen omvärderar inte
+ * `release_state` / `verification_state`.
  */
 export function reportPreviewClientError(
   chatId: string | null | undefined,

@@ -22,6 +22,7 @@ import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   buildChatReadiness,
+  projectLateClientErrorReadiness,
   projectProductPostcheckReadiness,
   type ChatReadiness,
   type ChatReadinessItem,
@@ -542,6 +543,11 @@ async function buildEngineReadiness(
   // never blockers. Promotion and canDeploy stay unchanged.
   const productPostcheck = projectProductPostcheckReadiness(errorLogs);
   warnings.push(...productPostcheck.warnings);
+
+  // SM-050: a post-promotion `preview:client-error` used to stay diagnostic
+  // only — readiness stayed "ready" while the preview was broken. Project
+  // rows with created_at > promoted_at as advisory warnings. Never blockers.
+  warnings.push(...projectLateClientErrorReadiness(errorLogs, version.promoted_at));
   // Ö4a: mirrors the LLM-vs-deterministic branch in `/finalize-design`:
   // a provider-specific dossier still waiting to be installed OR an already-
   // present integration with a real build requirement needs the LLM path.

@@ -179,4 +179,29 @@ describe("LaunchReadinessCard", () => {
     expect(screen.getByText("Mobilmeny kunde inte verifieras: no toggle found.")).toBeTruthy();
     expect(screen.queryByText("Blockerar publicering")).toBeNull();
   });
+
+  it("visar sen preview:client-error i den befintliga rekommendationsytan", () => {
+    const readiness = buildChatReadiness({
+      warnings: [
+        {
+          id: "late-client-error",
+          title: "Förhandsvisningen rapporterade ett fel efter att versionen godkändes.",
+          detail: "[hydration] Text content does not match server-rendered HTML.",
+          severity: "warning",
+          category: "advisory",
+          action: "preview",
+        },
+      ],
+      info: emptyInfo,
+    });
+
+    render(<LaunchReadinessCard readiness={readiness} hasAnyVersion />);
+    fireEvent.click(screen.getByRole("button", { name: "Publiceringsstatus" }));
+
+    expect(screen.getByText("Rekommendationer — blockerar inte")).toBeTruthy();
+    expect(
+      screen.getByText("Förhandsvisningen rapporterade ett fel efter att versionen godkändes."),
+    ).toBeTruthy();
+    expect(screen.queryByText("Blockerar publicering")).toBeNull();
+  });
 });

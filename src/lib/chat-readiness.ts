@@ -285,3 +285,88 @@ export function projectProductPostcheckReadiness(
 
   return { warnings, blocksF3, blockedReason };
 }
+
+/**
+ * Same category as `PREVIEW_CLIENT_ERROR_CATEGORY` in
+ * `preview-client-error-report.ts`. Duplicated on purpose: that module is a
+ * client reporter with `fetch` and must not enter the bundle that imports
+ * this file.
+ */
+const PREVIEW_CLIENT_ERROR_LOG_CATEGORY = "preview:client-error";
+
+/** Error-log shape the late-client-error projector needs. */
+export type LateClientErrorReadinessLog = {
+  category?: string | null;
+  message?: string | null;
+  meta?: unknown;
+  created_at?: Date | string | null;
+};
+
+function parseClockMs(value: Date | string | null | undefined): number | null {
+  if (value == null) return null;
+  const ms = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * Project post-promotion `preview:client-error` rows as advisory warnings.
+ *
+ * The log table does not mark before vs after promotion. "Late" is therefore
+ * `created_at` strictly after `engine_versions.promoted_at` — both clocks are
+ * server-written (insert time vs promote time). Missing/invalid `promoted_at`
+ * or `created_at` means we cannot prove lateness, so the row stays diagnostic.
+ * Pre-promotion rows and equal timestamps are ignored: a warning for every
+ * historical client-error is worse than no warning.
+ *
+ * Findings are always advisory — never blockers — so `canDeploy` / promotion
+ * stay unchanged.
+ */
+export function projectLateClientErrorReadiness(
+  logs: readonly LateClientErrorReadinessLog[],
+  promotedAt: Date | string | null | undefined,
+): ChatReadinessItem[] {
+  const promotedMs = parseClockMs(promotedAt);
+  if (promotedMs == null) return [];
+
+  const late: Array<{ message: string; href: string | null; ms: number }> = [];
+  const seen = new Set<string>();
+
+  for (const log of logs) {
+    if (log.category !== PREVIEW_CLIENT_ERROR_LOG_CATEGORY) continue;
+    const ms = createdAtMs(log);
+    if (ms == null || ms <= promotedMs) continue;
+
+    const message =
+      typeof log.message === "string" && log.message.trim()
+        ? log.message.trim()
+        : "Ett okänt fel rapporterades i förhandsvisningen.";
+    if (seen.has(message)) continue;
+    seen.add(message);
+
+    const meta = readMeta(log.meta);
+    const href =
+      meta && typeof meta.href === "string" && meta.href.trim()
+        ? meta.href.trim()
+        : null;
+    late.push({ message, href, ms });
+  }
+
+  if (late.length === 0) return [];
+
+  late.sort((a, b) => b.ms - a.ms);
+  const newest = late[0]!;
+  const newestText = newest.href ? `${newest.message} · ${newest.href}` : newest.message;
+  const detail =
+    late.length === 1 ? newestText : `${late.length} fel, senast: ${newestText}`;
+
+  return [
+    {
+      id: "late-client-error",
+      title: "Förhandsvisningen rapporterade ett fel efter att versionen godkändes.",
+      detail,
+      severity: "warning",
+      category: "advisory",
+      action: "preview",
+    },
+  ];
+}
