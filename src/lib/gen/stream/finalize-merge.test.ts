@@ -17,6 +17,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { DossierEntry } from "@/lib/gen/dossiers";
 import type { RoutePlan } from "@/lib/gen/route-plan";
+import { devLogAppend } from "@/lib/logging/dev-log";
 import { mergeGeneratedProjectFiles } from "./finalize-merge";
 
 type CrossFileFix = {
@@ -295,7 +296,13 @@ describe("locale-superseded scaffold routes", () => {
     expect(paths.has("app/blog/[slug]/page.tsx")).toBe(false);
   });
 
-  it("keeps the scaffold's /blog when the model emitted no Swedish alternate", () => {
+  // Rewritten for SM-048: this test used to pin that the scaffold's /blog
+  // ALWAYS survived when the model emitted no locale alternate — the exact
+  // behavior that shipped a six-page site for a one-page prompt (prod chat
+  // 90624ed9). Without a route plan the plan filter is fail-open, so the
+  // no-plan variant of the old expectation still holds; the plan-driven
+  // drops are locked in the "SM-048 route-plan file filter" describe below.
+  it("keeps the scaffold's /blog when there is no route plan (fail-open) and no Swedish alternate", () => {
     const result = mergeGeneratedProjectFiles({
       chatId: "c-locale-2",
       originalFilesJson: "[]",
@@ -343,6 +350,339 @@ describe("locale-superseded scaffold routes", () => {
     const paths = new Set((JSON.parse(result.filesJson) as Array<{ path: string }>).map((f) => f.path));
     expect(paths.has("app/contact/page.tsx")).toBe(true);
     expect(paths.has("app/kontakt/page.tsx")).toBe(false);
+  });
+});
+
+/**
+ * SM-048 — the route plan decides which of the scaffold's ROUTE files are
+ * materialized on init. Prod evidence (chat 90624ed9): the prompt said the
+ * site consists of a single page, the plan was ["/"], the model wrote 10
+ * files — and the version still got 32, including app/blog/[slug]/page.tsx.
+ * These tests pin the delivery semantics per contract category, the
+ * all-or-nothing auth group, the fail-open rules, and that SHARED files
+ * (layout, globals, components/**, app/api/**) are never dropped.
+ */
+describe("SM-048 route-plan file filter", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getDossierFileContent.mockImplementation(() => null);
+  });
+
+  const BLOG_SITE_HEADER = readFileSync(
+    join(__dirname, "../scaffolds/blog/files/components/site-header.tsx"),
+    "utf8",
+  );
+
+  function planOf(paths: string[]): RoutePlan {
+    return {
+      provenance: { primarySource: "prompt", sources: ["prompt"] },
+      siteType: paths.length === 1 ? "one-page" : "brochure",
+      reason: "test",
+      routes: paths.map((path) => ({
+        path,
+        name: path === "/" ? "Hem" : path.slice(1),
+        intent: "test",
+        required: true,
+      })),
+    };
+  }
+
+  function page(path: string): { path: string; content: string } {
+    return { path, content: `export default function P(){ return <div>${path}</div>; }` };
+  }
+
+  function blogRouteScaffold(): ScaffoldManifest {
+    const base = makeScaffold();
+    return {
+      ...base,
+      id: "blog",
+      navSurface: "components/site-header.tsx",
+      routeContract: {
+        requiredRoutes: [
+          {
+            path: "/blog",
+            name: "Blog",
+            planIntent: "Keep an editorial route.",
+            requiredOnlyForBuildIntents: ["website", "template"],
+          },
+        ],
+        optionalRoutes: [],
+        declaredRoutePaths: [],
+        dynamicRoutePatterns: ["/blog/[slug]"],
+      },
+      files: [
+        ...base.files,
+        page("app/blog/page.tsx"),
+        page("app/blog/[slug]/page.tsx"),
+        { path: "components/site-header.tsx", content: BLOG_SITE_HEADER },
+        { path: "components/blog-card.tsx", content: "export function BlogCard(){ return null; }" },
+      ],
+    } as unknown as ScaffoldManifest;
+  }
+
+  function ecommerceRouteScaffold(): ScaffoldManifest {
+    const base = makeScaffold();
+    return {
+      ...base,
+      id: "ecommerce",
+      navSurface: "components/site-header.tsx",
+      routeContract: {
+        requiredRoutes: [
+          { path: "/products", name: "Products", planIntent: "Catalog." },
+        ],
+        optionalRoutes: [],
+        declaredRoutePaths: ["/cart", "/categories", "/om"],
+        dynamicRoutePatterns: ["/category/[slug]", "/product/[id]"],
+        deliveryGroups: [
+          ["/products", "/product/[id]"],
+          ["/categories", "/category/[slug]"],
+        ],
+      },
+      files: [
+        ...base.files,
+        page("app/products/page.tsx"),
+        page("app/categories/page.tsx"),
+        page("app/om/page.tsx"),
+        page("app/category/[slug]/page.tsx"),
+        page("app/product/[id]/page.tsx"),
+        { path: "app/api/health/route.ts", content: "export function GET(){ return new Response('ok'); }" },
+        { path: "components/cart-drawer.tsx", content: "export function CartDrawer(){ return null; }" },
+        { path: "components/site-header.tsx", content: "export function SiteHeader(){ return null; }" },
+        { path: "components/site-footer.tsx", content: "export function SiteFooter(){ return null; }" },
+      ],
+    } as unknown as ScaffoldManifest;
+  }
+
+  function authRouteScaffold(): ScaffoldManifest {
+    const base = makeScaffold();
+    return {
+      ...base,
+      id: "auth-pages",
+      routeContract: {
+        requiredRoutes: [
+          { path: "/login", name: "Login", planIntent: "Auth entry." },
+        ],
+        optionalRoutes: [
+          { path: "/signup", name: "Signup", planIntent: "Registration." },
+        ],
+        declaredRoutePaths: ["/forgot-password"],
+        dynamicRoutePatterns: [],
+        deliveryGroups: [["/login", "/signup", "/forgot-password"]],
+      },
+      files: [
+        ...base.files,
+        page("app/login/page.tsx"),
+        page("app/signup/page.tsx"),
+        page("app/forgot-password/page.tsx"),
+      ],
+    } as unknown as ScaffoldManifest;
+  }
+
+  function mergedPaths(result: { filesJson: string }): Set<string> {
+    return new Set(
+      (JSON.parse(result.filesJson) as Array<{ path: string }>).map((f) => f.path),
+    );
+  }
+
+  const HOME_ONLY_GENERATED = [
+    {
+      path: "app/page.tsx",
+      content: "export default function Page() { return <h1>Hem</h1>; }",
+      language: "tsx" as const,
+    },
+  ];
+
+  it("plan ['/'] + blog: drops app/blog/page.tsx AND app/blog/[slug]/page.tsx, keeps layout/globals/components", () => {
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-sm048-blog-one-page",
+      originalFilesJson: "[]",
+      generatedFiles: HOME_ONLY_GENERATED,
+      resolvedScaffold: blogRouteScaffold(),
+      previousFiles: undefined,
+      routePlan: planOf(["/"]),
+    });
+
+    const paths = mergedPaths(result);
+    expect(paths.has("app/blog/page.tsx")).toBe(false);
+    expect(paths.has("app/blog/[slug]/page.tsx")).toBe(false);
+    // SHARED files are never dropped.
+    expect(paths.has("app/layout.tsx")).toBe(true);
+    expect(paths.has("app/globals.css")).toBe(true);
+    expect(paths.has("components/site-header.tsx")).toBe(true);
+    expect(paths.has("components/blog-card.tsx")).toBe(true);
+    expect(paths.has("tailwind.config.ts")).toBe(true);
+
+    // Observability: the drop is logged with its owning route + category.
+    const logCalls = vi.mocked(devLogAppend).mock.calls;
+    const filterLog = logCalls.find(
+      ([, payload]) =>
+        (payload as { type?: string }).type === "scaffold-route-plan-filtered",
+    );
+    expect(filterLog).toBeDefined();
+    const payload = filterLog![1] as {
+      plannedRoutes: string[];
+      dropped: Array<{ path: string; routePath: string; category: string }>;
+    };
+    expect(payload.plannedRoutes).toEqual(["/"]);
+    expect(payload.dropped).toEqual(
+      expect.arrayContaining([
+        { path: "app/blog/page.tsx", routePath: "/blog", category: "required" },
+        {
+          path: "app/blog/[slug]/page.tsx",
+          routePath: "/blog/[slug]",
+          category: "dynamic",
+        },
+      ]),
+    );
+  });
+
+  it("plan ['/'] + blog: nav-sync removes the header's /blog link but keeps '/'", () => {
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-sm048-blog-nav",
+      originalFilesJson: "[]",
+      generatedFiles: HOME_ONLY_GENERATED,
+      resolvedScaffold: blogRouteScaffold(),
+      previousFiles: undefined,
+      routePlan: planOf(["/"]),
+    });
+
+    const merged = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    const header = merged.find((f) => f.path === "components/site-header.tsx");
+    expect(header).toBeDefined();
+    expect(header!.content).not.toContain('href: "/blog"');
+    expect(header!.content).toContain('href: "/"');
+  });
+
+  it("plan ['/', '/blog']: keeps both blog files and the header link", () => {
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-sm048-blog-planned",
+      originalFilesJson: "[]",
+      generatedFiles: HOME_ONLY_GENERATED,
+      resolvedScaffold: blogRouteScaffold(),
+      previousFiles: undefined,
+      routePlan: planOf(["/", "/blog"]),
+    });
+
+    const paths = mergedPaths(result);
+    expect(paths.has("app/blog/page.tsx")).toBe(true);
+    expect(paths.has("app/blog/[slug]/page.tsx")).toBe(true);
+    const merged = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    const header = merged.find((f) => f.path === "components/site-header.tsx");
+    expect(header!.content).toContain('href: "/blog"');
+  });
+
+  it("plan ['/'] + ecommerce: drops /products, /categories, /om and both dynamic templates, keeps cart-drawer/header/footer/api", () => {
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-sm048-ecom-one-page",
+      originalFilesJson: "[]",
+      generatedFiles: HOME_ONLY_GENERATED,
+      resolvedScaffold: ecommerceRouteScaffold(),
+      previousFiles: undefined,
+      routePlan: planOf(["/"]),
+    });
+
+    const paths = mergedPaths(result);
+    expect(paths.has("app/products/page.tsx")).toBe(false);
+    expect(paths.has("app/categories/page.tsx")).toBe(false);
+    expect(paths.has("app/om/page.tsx")).toBe(false);
+    expect(paths.has("app/category/[slug]/page.tsx")).toBe(false);
+    expect(paths.has("app/product/[id]/page.tsx")).toBe(false);
+    // SHARED files are never dropped — components/**, app/api/**, layout, globals.
+    expect(paths.has("components/cart-drawer.tsx")).toBe(true);
+    expect(paths.has("components/site-header.tsx")).toBe(true);
+    expect(paths.has("components/site-footer.tsx")).toBe(true);
+    expect(paths.has("app/api/health/route.ts")).toBe(true);
+    expect(paths.has("app/layout.tsx")).toBe(true);
+    expect(paths.has("app/globals.css")).toBe(true);
+  });
+
+  it("delivery group: a planned /products carries /product/[id] but not the /categories group", () => {
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-sm048-ecom-group",
+      originalFilesJson: "[]",
+      generatedFiles: HOME_ONLY_GENERATED,
+      resolvedScaffold: ecommerceRouteScaffold(),
+      previousFiles: undefined,
+      routePlan: planOf(["/", "/products"]),
+    });
+
+    const paths = mergedPaths(result);
+    expect(paths.has("app/products/page.tsx")).toBe(true);
+    expect(paths.has("app/product/[id]/page.tsx")).toBe(true);
+    expect(paths.has("app/categories/page.tsx")).toBe(false);
+    expect(paths.has("app/category/[slug]/page.tsx")).toBe(false);
+    expect(paths.has("app/om/page.tsx")).toBe(false);
+  });
+
+  it("auth group is all-or-nothing: one planned auth route delivers all three pages", () => {
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-sm048-auth-planned",
+      originalFilesJson: "[]",
+      generatedFiles: HOME_ONLY_GENERATED,
+      resolvedScaffold: authRouteScaffold(),
+      previousFiles: undefined,
+      routePlan: planOf(["/", "/login"]),
+    });
+
+    const paths = mergedPaths(result);
+    expect(paths.has("app/login/page.tsx")).toBe(true);
+    expect(paths.has("app/signup/page.tsx")).toBe(true);
+    expect(paths.has("app/forgot-password/page.tsx")).toBe(true);
+  });
+
+  it("auth group is all-or-nothing: no planned auth route drops all three pages", () => {
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-sm048-auth-dropped",
+      originalFilesJson: "[]",
+      generatedFiles: HOME_ONLY_GENERATED,
+      resolvedScaffold: authRouteScaffold(),
+      previousFiles: undefined,
+      routePlan: planOf(["/"]),
+    });
+
+    const paths = mergedPaths(result);
+    expect(paths.has("app/login/page.tsx")).toBe(false);
+    expect(paths.has("app/signup/page.tsx")).toBe(false);
+    expect(paths.has("app/forgot-password/page.tsx")).toBe(false);
+    expect(paths.has("app/layout.tsx")).toBe(true);
+  });
+
+  it("fail-open: a scaffold without a routeContract keeps every file even under a one-page plan", () => {
+    const scaffold = blogRouteScaffold();
+    delete (scaffold as { routeContract?: unknown }).routeContract;
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-sm048-fail-open",
+      originalFilesJson: "[]",
+      generatedFiles: HOME_ONLY_GENERATED,
+      resolvedScaffold: scaffold,
+      previousFiles: undefined,
+      routePlan: planOf(["/"]),
+    });
+
+    const paths = mergedPaths(result);
+    expect(paths.has("app/blog/page.tsx")).toBe(true);
+    expect(paths.has("app/blog/[slug]/page.tsx")).toBe(true);
+  });
+
+  it("composes with the locale-superseded filter: /blogg plan + emitted /blogg drops the scaffold /blog subtree", () => {
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-sm048-locale-compose",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        ...HOME_ONLY_GENERATED,
+        { path: "app/blogg/page.tsx", content: "export default function Blogg(){ return <h1>Blogg</h1>; }", language: "tsx" },
+        { path: "app/blogg/[slug]/page.tsx", content: "export default function Inlagg(){ return <article>Inlägg</article>; }", language: "tsx" },
+      ],
+      resolvedScaffold: blogRouteScaffold(),
+      previousFiles: undefined,
+      routePlan: planOf(["/", "/blogg"]),
+    });
+
+    const paths = mergedPaths(result);
+    expect(paths.has("app/blogg/page.tsx")).toBe(true);
+    expect(paths.has("app/blogg/[slug]/page.tsx")).toBe(true);
+    expect(paths.has("app/blog/page.tsx")).toBe(false);
+    expect(paths.has("app/blog/[slug]/page.tsx")).toBe(false);
   });
 });
 
@@ -704,6 +1044,7 @@ function dashboardScaffold(): ScaffoldManifest {
     siteKind: "app",
     features: [],
     promptHints: [],
+    navSurface: "components/dashboard-sidebar.tsx",
     files: [
       {
         path: "app/page.tsx",

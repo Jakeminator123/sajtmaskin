@@ -57,5 +57,9 @@ export const saasLandingManifest: ScaffoldManifest = {
     declaredRoutePaths: [],
     dynamicRoutePatterns: [],
   },
+  // The header nav is in-page anchors only (#features, #pricing, #faq);
+  // nav-sync never touches anchors, so this stays a no-op until a real
+  // internal page link appears in the header.
+  navSurface: "components/marketing-header.tsx",
   files: loadScaffoldFiles("saas-landing"),
 };

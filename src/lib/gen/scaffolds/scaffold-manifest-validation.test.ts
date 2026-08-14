@@ -300,6 +300,75 @@ describe("validateScaffoldManifest — routeContract shape", () => {
     expect(messages).toContain("invalid build intents: desktop");
     expect(messages).toContain("requiredOnlyForBuildIntents on optional route /extra");
   });
+
+  it("accepts deliveryGroups whose members are contract paths", () => {
+    const errors = errorsOf(
+      contractScaffold({
+        requiredRoutes: [{ path: "/products", name: "Products", planIntent: "Keep it." }],
+        optionalRoutes: [],
+        declaredRoutePaths: ["/categories"],
+        dynamicRoutePatterns: ["/product/[id]", "/category/[slug]"],
+        deliveryGroups: [
+          ["/products", "/product/[id]"],
+          ["/categories", "/category/[slug]"],
+        ],
+      }),
+    );
+    expect(errors).toEqual([]);
+  });
+
+  it("flags deliveryGroups with unknown members, singleton groups, duplicates and non-array shapes", () => {
+    const messages = errorsOf(
+      contractScaffold({
+        requiredRoutes: [{ path: "/products", name: "Products", planIntent: "Keep it." }],
+        optionalRoutes: [],
+        declaredRoutePaths: [],
+        dynamicRoutePatterns: [],
+        deliveryGroups: [
+          ["/products", "/ghost"],
+          ["/products"],
+          ["/products", "/products"],
+          "oops" as unknown as string[],
+        ],
+      }),
+    ).map((issue) => issue.message);
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('deliveryGroups[0] member "/ghost" is not a path in this route contract'),
+        expect.stringContaining("deliveryGroups[1] must couple at least two contract paths"),
+        expect.stringContaining("deliveryGroups[2] lists /products twice"),
+        expect.stringContaining("deliveryGroups[3] must be an array of contract paths (got string)"),
+      ]),
+    );
+  });
+
+  it("flags a navSurface that does not match any scaffold file, accepts one that does", () => {
+    const broken = contractScaffold({
+      requiredRoutes: [],
+      optionalRoutes: [],
+      declaredRoutePaths: [],
+      dynamicRoutePatterns: [],
+    });
+    (broken as { navSurface?: string }).navSurface = "components/nav/index.tsx";
+    expect(errorsOf(broken).map((issue) => issue.message)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('navSurface "components/nav/index.tsx" does not match any scaffold file path'),
+      ]),
+    );
+
+    const valid = contractScaffold({
+      requiredRoutes: [],
+      optionalRoutes: [],
+      declaredRoutePaths: [],
+      dynamicRoutePatterns: [],
+    });
+    valid.files.push({
+      path: "components/site-header.tsx",
+      content: "export function SiteHeader(){ return null; }",
+    });
+    (valid as { navSurface?: string }).navSurface = "components/site-header.tsx";
+    expect(errorsOf(valid)).toEqual([]);
+  });
 });
 
 /**
@@ -428,13 +497,12 @@ function sortViolations(violations: RouteContractViolation[]): RouteContractViol
  * KNOWN, DELIBERATELY VISIBLE violations. Do NOT extend this list to make a
  * new scaffold pass — fix the contract or the files instead.
  *
- * SM-042 (owner decision pending): four scaffolds link unconditionally to
- * routes the route plan never guaranteed. The two mutually exclusive ways
- * out are (1) make the nav mirror the plan (remove/derive the links) or
- * (2) make the plan guarantee the nav (promote the routes to
- * required/optional — which collides with the per-round page ceiling of 3).
- * That choice belongs to the owner; the entries below keep the drift loud
- * until it is made. Remove each entry when its direction is chosen.
+ * SM-042 (resolved 2026-08-14 with SM-048): the owner picked direction (1),
+ * "make the nav mirror the plan". The formerly drifting routes (/pipeline,
+ * /tasks, /forgot-password, /users, /categories, /om) are now declared in
+ * their contracts, the route-plan file filter in `finalize-merge.ts` drops
+ * their files when the plan omits them, and `syncNavItemsFromRoutePlan`
+ * rewrites each scaffold's `navSurface` to match the plan.
  *
  * SM-043 (owner decision pending): ecommerce's /cart is declared in the
  * contract but has neither a starter file (CartDrawer replaced the page)
@@ -444,23 +512,13 @@ function sortViolations(violations: RouteContractViolation[]): RouteContractViol
  * the decision.
  */
 const KNOWN_ROUTE_CONTRACT_VIOLATIONS: RouteContractViolation[] = sortViolations([
-  // SM-042 — app-shell sidebar links /pipeline and /tasks; plan never guaranteed them.
-  { scaffoldId: "app-shell", kind: "link-outside-route-contract", path: "/pipeline" },
-  { scaffoldId: "app-shell", kind: "link-outside-route-contract", path: "/tasks" },
-  // SM-042 — auth-pages login page links /forgot-password; plan never guaranteed it.
-  { scaffoldId: "auth-pages", kind: "link-outside-route-contract", path: "/forgot-password" },
-  // SM-042 — dashboard sidebar links /users; plan never guaranteed it.
-  { scaffoldId: "dashboard", kind: "link-outside-route-contract", path: "/users" },
-  // SM-042 — ecommerce header/footer link /categories and /om; plan never guaranteed them.
-  { scaffoldId: "ecommerce", kind: "link-outside-route-contract", path: "/categories" },
-  { scaffoldId: "ecommerce", kind: "link-outside-route-contract", path: "/om" },
   // SM-043 — /cart is contract junk: declared without its page file (and
   // without links; not planned since #977).
   { scaffoldId: "ecommerce", kind: "declared-route-without-file", path: "/cart" },
 ]);
 
 describe("route contract ↔ scaffold links gate", () => {
-  it("matches the documented SM-042/SM-043 exception list exactly — no new drift, no silently fixed entries", () => {
+  it("matches the documented SM-043 exception list exactly — no new drift, no silently fixed entries", () => {
     const actual = sortViolations(
       getAllScaffolds().flatMap((scaffold) => collectRouteContractViolations(scaffold)),
     );

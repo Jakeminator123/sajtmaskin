@@ -13,6 +13,7 @@ export type {
   ScaffoldId,
   ScaffoldManifest,
   ScaffoldMode,
+  ScaffoldRouteContract,
   ScaffoldSiteKind,
 } from "./types";
 export { SCAFFOLD_OFF_BASELINE_ID } from "./types";

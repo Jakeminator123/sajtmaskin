@@ -39,10 +39,12 @@ export const appShellManifest: ScaffoldManifest = {
   // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
   // planning-helpers): /settings was planned as optional, and only when
   // buildIntent was "app".
-  // SM-042: files/ links unconditionally to /pipeline and /tasks, but the
-  // plan never guaranteed them — deliberately NOT listed here until the
-  // owner picks a direction (see the route-contract gate in
-  // scaffold-manifest-validation.test.ts).
+  // SM-048 (owner decision 2026-08-14): /pipeline and /tasks are declared
+  // (page files exist, never planned) which also resolved their SM-042 gate
+  // drift. The plan filter in finalize-merge drops them when the plan does
+  // not include them; nav-sync rewrites the `navSurface` sidebar to match,
+  // so no dead links remain. No delivery group: the pages only link via the
+  // sidebar, which mirrors the plan.
   routeContract: {
     requiredRoutes: [],
     optionalRoutes: [
@@ -53,8 +55,9 @@ export const appShellManifest: ScaffoldManifest = {
         planOnlyForBuildIntents: ["app"],
       },
     ],
-    declaredRoutePaths: [],
+    declaredRoutePaths: ["/pipeline", "/tasks"],
     dynamicRoutePatterns: [],
   },
+  navSurface: "components/app-sidebar.tsx",
   files: loadScaffoldFiles("app-shell"),
 };

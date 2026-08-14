@@ -225,6 +225,57 @@ function validateRouteContract(
   for (const pattern of readCollection("dynamicRoutePatterns") ?? []) {
     checkPath(pattern, "dynamicRoutePatterns", true);
   }
+
+  // SM-048 deliveryGroups: optional coupling for the route-plan file filter.
+  // Every member must reference a path that exists in the contract above —
+  // a group member outside the contract would silently never deliver.
+  const rawGroups = (contract as unknown as Record<string, unknown>).deliveryGroups;
+  if (rawGroups !== undefined) {
+    if (!Array.isArray(rawGroups)) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: deliveryGroups must be an array when set (got ${rawGroups === null ? "null" : typeof rawGroups})`,
+      });
+    } else {
+      rawGroups.forEach((group, index) => {
+        if (!Array.isArray(group)) {
+          issues.push({
+            scaffoldId: scaffold.id,
+            severity: "error",
+            message: `routeContract: deliveryGroups[${index}] must be an array of contract paths (got ${group === null ? "null" : typeof group})`,
+          });
+          return;
+        }
+        if (group.length < 2) {
+          issues.push({
+            scaffoldId: scaffold.id,
+            severity: "error",
+            message: `routeContract: deliveryGroups[${index}] must couple at least two contract paths`,
+          });
+        }
+        const seenMembers = new Set<string>();
+        for (const member of group) {
+          if (typeof member !== "string" || !seenPaths.has(member)) {
+            issues.push({
+              scaffoldId: scaffold.id,
+              severity: "error",
+              message: `routeContract: deliveryGroups[${index}] member ${JSON.stringify(member)} is not a path in this route contract`,
+            });
+            continue;
+          }
+          if (seenMembers.has(member)) {
+            issues.push({
+              scaffoldId: scaffold.id,
+              severity: "error",
+              message: `routeContract: deliveryGroups[${index}] lists ${member} twice`,
+            });
+          }
+          seenMembers.add(member);
+        }
+      });
+    }
+  }
 }
 
 export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldManifestIssue[] {
@@ -251,6 +302,25 @@ export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldMa
   }
   const filePaths = scaffold.files.map((file) => file.path);
   const uniqueFilePaths = new Set(filePaths);
+
+  // navSurface must point at an existing scaffold file so nav-sync can never
+  // silently target nothing (the SM-051 filename-guessing bug class).
+  const navSurface = (scaffold as { navSurface?: unknown }).navSurface;
+  if (navSurface !== undefined) {
+    if (typeof navSurface !== "string" || navSurface.trim().length === 0) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `navSurface must be a non-empty string when set (got ${JSON.stringify(navSurface)})`,
+      });
+    } else if (!uniqueFilePaths.has(navSurface)) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `navSurface "${navSurface}" does not match any scaffold file path`,
+      });
+    }
+  }
 
   if (uniqueFilePaths.size !== filePaths.length) {
     issues.push({

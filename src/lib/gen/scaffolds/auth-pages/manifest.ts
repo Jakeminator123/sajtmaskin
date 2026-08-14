@@ -49,10 +49,12 @@ export const authPagesManifest: ScaffoldManifest = {
   },
   // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
   // planning-helpers): /login required, /signup planned as optional.
-  // SM-042: files/ links unconditionally to /forgot-password, but the plan
-  // never guaranteed it — deliberately NOT listed here until the owner picks
-  // a direction (see the route-contract gate in
-  // scaffold-manifest-validation.test.ts).
+  // SM-048 (owner decision 2026-08-14): /forgot-password is declared (page
+  // file exists, never planned) which also resolved its SM-042 gate drift.
+  // The three auth pages link to EACH OTHER (login → forgot-password,
+  // forgot-password → login, signup ↔ login), so the delivery group makes
+  // the plan filter all-or-nothing: if any auth route is planned, all three
+  // pages are delivered — a surviving page never carries a dead auth link.
   routeContract: {
     requiredRoutes: [
       {
@@ -68,8 +70,9 @@ export const authPagesManifest: ScaffoldManifest = {
         planIntent: "Keep a dedicated registration route when auth is in scope.",
       },
     ],
-    declaredRoutePaths: [],
+    declaredRoutePaths: ["/forgot-password"],
     dynamicRoutePatterns: [],
+    deliveryGroups: [["/login", "/signup", "/forgot-password"]],
   },
   files: loadScaffoldFiles("auth-pages"),
 };

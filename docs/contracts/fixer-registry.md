@@ -13,7 +13,7 @@ registerpost:
 | Steg | Källa | Varför utanför |
 |---|---|---|
 | `checkCrossFileImports` | `src/lib/gen/autofix/rules/cross-file-import-checker.ts` | Körs från `finalize-merge.ts` — behöver det mergade filsetet för att veta vad som finns. Stubbar/vägrar import av lokala moduler som saknas; rapporteras som `merge:cross-file-stub`-rader. |
-| `syncNavItemsFromRoutePlan` | `src/lib/gen/scaffolds/sync-nav-from-route-plan.ts` | Körs från `finalize-merge.ts` på init — skriver om dashboard-`navItems` från ruttplanen när formen fortfarande är `{ label, href, icon }`. Follow-up lämnas orörd. |
+| `syncNavItemsFromRoutePlan` | `src/lib/gen/scaffolds/sync-nav-from-route-plan.ts` | Körs från `finalize-merge.ts` på init mot filen som `ScaffoldManifest.navSurface` pekar ut. Sidebar-formen `{ label, href, icon }` skrivs om från ruttplanen; header-formen `{ label, href }` filtreras (oplanerade interna länkar bort, ankare/mailto/externa orörda). Follow-up lämnas orörd. |
 | `runSecurityChecks` | `src/lib/gen/security/run-security-checks.ts` | Sista steget i autofix-pipelinen, warning-only. |
 
 **Visualised in:** `backoffice/pages/fixer_registry.py` (Streamlit table grouped by category + phase, plus a usage section joined onto the catalog).
