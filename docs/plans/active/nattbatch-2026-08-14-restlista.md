@@ -40,14 +40,17 @@ och regelluckan om författarens efterkontroll efter PR.
 | Begreppskarta genererad ur runtime-projektioner | Ej börjad |
 | Router: skilja byggförfrågan från fråga | Ej börjad |
 
-## Väntar på ägarbeslut
+## Ägarbeslut fattade 2026-08-14
 
-- Constraint-auditor: billig LLM som jämför färdig spec mot råpromptens
-  explicita krav innan codegen.
-- Delta brief på varje follow-up, med konversations- och sajthistorik.
-- OpenClaw som både diagnostiker och reparatör.
+Alla tre avslogs, och post-MVP-trion omprövades och bekräftades. Motiveringar och
+kanoniska källor: [`docs/decisions/README.md`](../../decisions/README.md).
 
-## Post-MVP
+| Fråga | Beslut |
+|---|---|
+| Constraint-auditor före codegen | **Nej** — deterministiska grindar täcker redan felklassen |
+| Delta brief på varje follow-up | **Nej** — inget känt fel den hade förhindrat |
+| OpenClaw som reparatör | **Nej** — skulle bli en andra sanning mot RepairGate |
+| Post-MVP-trion | **Kvar post-MVP** — ruttkontraktet gjorde dem inte billigare |
 
-Nivå-3-platshållare (`/projekt/<slug>` som «klicka så bygger vi den här sidan»),
-spår C:s sammansättningsmodell, och att samla all frågelogik på ett ställe.
+Residualen ur beslutsunderlaget ligger som `SM-056` i backloggens skuldsektion:
+ruttplanens filfilter gäller scaffolden men inte modellens egna filer.
