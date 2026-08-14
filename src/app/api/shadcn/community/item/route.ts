@@ -30,17 +30,20 @@ export async function GET(req: Request) {
 
   // Same posture as /api/shadcn/describe: spends the shared Pro key / may
   // return paid source, so anonymous/guest sessions must not scrape it.
-  // Auth first so withRateLimit can key the bucket on the verified user
-  // (thumbnail-route pattern) instead of IP-only.
+  // Resolve identity first so withRateLimit can key verified users (thumbnail
+  // pattern). Guests/anonymous still enter the IP bucket, then 401.
   const userId = await getRequestUserId(req);
-  if (!userId || userId.startsWith("guest:")) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const verifiedUserId =
+    userId && !userId.startsWith("guest:") ? userId : undefined;
 
   return withRateLimit(
     req,
     "shadcn:community-item",
     async () => {
+      if (!verifiedUserId) {
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      }
+
       const { searchParams } = new URL(req.url);
       const registry = searchParams.get("registry")?.trim() || SHADCNBLOCKS_NAMESPACE;
       const name = searchParams.get("name")?.trim();
@@ -102,6 +105,6 @@ export async function GET(req: Request) {
         headers: { "Cache-Control": "private, no-store" },
       });
     },
-    { userId },
+    verifiedUserId ? { userId: verifiedUserId } : undefined,
   );
 }
