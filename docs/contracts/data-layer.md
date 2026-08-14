@@ -469,7 +469,7 @@ flowchart TD
 - `src/lib/db/schema.ts` — Drizzle-schemat
 - Migrationer: `src/lib/db/migrations/add-cascade-to-engine-fks.sql`, `add-cascade-engine-chats-project.sql`
 - Cleanup-script: `scripts/db/cleanup-test-projects.mjs`
-- Schema-doc: [`docs/schemas/integrations-and-data.md`](../schemas/integrations-and-data.md)
+- Schema-form: [`docs/schemas/integrations-and-data.md`](../schemas/integrations-and-data.md) (tabeller och validatorer). Den här filen äger drift och översikt.
 - `scripts/db/db-init.mjs` — CREATE TABLE-satser
 - `scripts/db/add-performance-indexes.mjs` — perf-index-migration (denna runda)
 - `scripts/db/db-health-check.mjs` — DB-diagnos-script

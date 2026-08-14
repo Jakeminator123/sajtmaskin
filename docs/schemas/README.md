@@ -1,8 +1,11 @@
 # Schemas
 
-`docs/schemas/` is the contract layer for Sajtmaskin. Canonical owners remain
-in the relevant runtime or declarative source; these files explain or mirror
-those surfaces.
+`docs/schemas/` äger **form** (fält, ägare, gränser). `docs/contracts/` äger
+**flöde**. `docs/generated/` är projektion och redigeras aldrig för hand.
+Canonical owners ligger i runtime eller deklarativ källa; dessa filer förklarar
+eller speglar ytorna.
+
+Handskriven prosa här har ingen driftcheck i CI. Påståenden ska spegla koden.
 
 ## Two Layers
 
@@ -20,18 +23,18 @@ all references move in the same change.
 
 ## Human Contract Docs
 
-| File                               | Domain                                                                                                                     |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `model-build-profiles.md`          | Build profiles, model selection, legacy aliases, phase routing, thinking config.                                           |
-| `builder-entry-contract.md`        | Builder entry state: `buildMethod`, `buildIntent`, `appProjectId`, prompt handoff, template path.                          |
-| `scaffold-contract.md`             | Runtime scaffold manifests, `ScaffoldId`, scaffold variants, font pairings, structural references, what reaches the model. |
-| `quality-gate.md`                  | Quality gate checks, verify-lane vs preview-lane, repair flow, standard profiles.                                          |
-| `preview-session-contract.md`      | Preview/session identifiers, preview URLs, verify-lane boundary, sandbox wording policy.                                   |
-| `orchestration-signal-contract.md` | Signal layers: prompt formatting, scaffold match, route plan, capabilities, contracts, dynamic context, post-checks.       |
-| `llm-role-matrix.md`               | LLM roles: prompt assist, deep brief, planner, generator, fixer, verifier, deploy-assistant.                               |
-| `integrations-and-data.md`         | DB tables, request validation, integration/data schema surfaces.                                                           |
-| `chat-message-ui-parts.md`         | Structured builder message parts (plan-review cards) in own-engine chat storage.                                           |
-| `strict/`                          | Machine-oriented schemas. See [`strict/README.md`](strict/README.md) for the complete list.                                |
+| File                               | Domain                                                                                                                     | Canonical owner (form) |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `model-build-profiles.md`          | Build profiles, model selection, legacy aliases, phase routing, thinking config.                                           | `config/ai_models/manifest.json` |
+| `builder-entry-contract.md`        | Builder entry URL/state: `buildMethod`, `buildIntent`, `appProjectId`, prompt handoff, template path.                      | `src/app/builder/builder-entry.ts` |
+| `scaffold-contract.md`             | Runtime scaffold manifests, `ScaffoldId`, scaffold variants, font pairings, structural references, what reaches the model. | `src/lib/gen/scaffolds/types.ts` |
+| `quality-gate.md`                  | RenderGate/ReleaseGate-fält, check-id:n, repair-outcome, telemetrikolumner. Flöde: `docs/architecture/quality-gate-flow.md`. | `src/lib/gen/verify/quality-gate-checks.ts` |
+| `preview-session-contract.md`      | Preview/session identifiers, preview URLs, verify-lane boundary.                                                           | `src/lib/gen/preview/preview-contract.ts` |
+| `orchestration-signal-contract.md` | Signal layers: prompt formatting, scaffold match, route plan, capabilities, contracts, dynamic context, post-checks.       | `src/lib/gen/orchestrate.ts` |
+| `llm-role-matrix.md`               | LLM roles: prompt assist, deep brief, planner, generator, fixer, verifier, deploy-assistant.                               | `src/lib/models/phase-routing.ts` |
+| `integrations-and-data.md`         | DB-tabeller och requestvalidering som schema-ytor. Drift: `docs/contracts/data-layer.md`.                                  | `src/lib/db/schema.ts` |
+| `chat-message-ui-parts.md`         | Structured builder message parts in own-engine chat storage.                                                               | `engine_messages.ui_parts` |
+| `strict/`                          | Machine-oriented schemas. See [`strict/README.md`](strict/README.md).                                                      | per-schema sourceOfTruth |
 
 > **Pensionerat:** `plan-file.schema.json` är **borttaget** (grandmaster-område 8) —
 > planering är en regel, inte ett schema. Se
@@ -54,8 +57,8 @@ Pipeline behavior is documented in
 
 For runtime scaffold input specifically, also read `scaffold-contract.md`.
 
-For signal flow and how these layers interact in init/follow-up/repair, also
-read `docs/architecture/runtime-contracts.md`.
+For signal flow in init/follow-up/repair, also read
+`docs/architecture/runtime-contracts.md`.
 
 ## Code Sources Of Truth
 

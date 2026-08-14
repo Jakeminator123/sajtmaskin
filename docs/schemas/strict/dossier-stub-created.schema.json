@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "dossier-stub-created.schema.json",
   "title": "dossier_stub_created",
-  "description": "Dokumenterar strukturen för cross-file-stub-eventen (internt kallad 'crossFileStubs'). OBS: i nuvarande implementation persisteras detta som engine_version_error_logs-warnings i databasen (category: 'merge:cross-file-stub'), INTE som standalone devLog-event. Schemaet är en forward-deklaration. Source-of-truth: src/lib/gen/stream/finalize-version/types.ts (FinalizeResult.crossFileStubs) + src/lib/providers/own-engine/generation-stream-post-finalize.ts.",
+  "description": "declared-only. Dokumenterar strukturen för cross-file-stub-eventen (internt 'crossFileStubs'). Persisteras som engine_version_error_logs (category: 'merge:cross-file-stub') — INTE som standalone devLog/NDJSON-event. Control-plane runtimeStatus är declared-only. Source-of-truth: src/lib/gen/stream/finalize-version/types.ts (FinalizeResult.crossFileStubs) + src/lib/providers/own-engine/generation-stream-post-finalize.ts.",
   "type": "object",
   "additionalProperties": false,
   "required": ["type", "sourceFile", "missingImport", "stubFile"],

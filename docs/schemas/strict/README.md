@@ -43,13 +43,15 @@ läser och aggregerar de NDJSON-signaler den kan se.
 | `site-done-telemetry.schema.json` | `site.done` (subset-kontrakt för telemetri) | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` | `devLogAppend` → NDJSON | No — observability-only |
 | `site-aborted.schema.json` | `site.aborted` (transport-/connection-/provider-abort innan version skapats) | `src/lib/gen/stream/stream-format.ts`, `src/lib/observability/prompt-to-done-stream.ts`, `src/lib/logging/generation-log-writer/status.ts` (staleness) | `devLogAppend` → NDJSON | No — observability-only; konsumeras av `resolveStatusDetails` → `status=aborted` |
 | `product-postcheck.schema.json` | `product_postcheck.*` | `src/lib/gen/verify/product-postcheck.ts` + `src/lib/hooks/chat/post-checks.ts` | `engine_version_error_logs` via befintlig `persistVersionErrorLogs()` | Delvis — diagnostik, men `productBlocked` kan stoppa integrationsreadiness |
-| `image-replaced-with-placeholder.schema.json` | `image_replaced_with_placeholder` | `src/lib/utils/image-validator.ts` | **`debugLog` (console)** — ej NDJSON | No — forward-deklaration |
-| `dossier-stub-created.schema.json` | `dossier_stub_created` / `crossFileStubs` | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` | **DB** (`engine_version_error_logs`, category `merge:cross-file-stub`) | No — forward-deklaration |
+| `image-replaced-with-placeholder.schema.json` | `image_replaced_with_placeholder` | `src/lib/utils/image-validator.ts` | **`debugLog` (console)** — ej NDJSON | No — **declared-only** |
+| `dossier-stub-created.schema.json` | `dossier_stub_created` / `crossFileStubs` | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` | **DB** (`engine_version_error_logs`, category `merge:cross-file-stub`) | No — **declared-only** |
 | `llm-repair-gate-deduped.schema.json` | `llm_repair_gate.deduped` | `src/lib/gen/autofix/llm-repair-gate.ts` (repair-gate ledger-dedup) | `devLogAppend` → NDJSON | No — observability-only |
 
-**Obs för `image-replaced-with-placeholder` och `dossier-stub-created`:** dessa schemas
-är forward-deklarationer — de dokumenterar den planerade event-strukturen men de
-emitteras ännu inte via `devLogAppend` till NDJSON. Se respektive schema-fil för detaljer.
+**Obs för `image-replaced-with-placeholder` och `dossier-stub-created`:** **declared-only**.
+De dokumenterar payload-formen men använder inte NDJSON-kanalen
+(`devLogAppend` → `timeline.ndjson`). Control-plane `runtimeStatus` är
+`declared-only`. Radera dem inte — registret pekar på dem. Se respektive
+schema-fils `description`.
 
 ### `scaffold-variant.schema.json`
 

@@ -74,7 +74,7 @@ def render(ctx: BackofficeContext) -> None:
     )
 
     st.subheader("F2 / F3 livscykel: RenderGate och ReleaseGate")
-    render_static_reference(source="docs/schemas/quality-gate.md")
+    render_static_reference(source="docs/architecture/quality-gate-flow.md")
     st.markdown(
         """
 - **F2 (`previewPolicy: fidelity2`)** — design-loopen. RenderGate (kod: `designPreview` quality gate) kör endast `["typecheck"]` med render-first Advisory-semantik. Tier-3 SDK-imports

@@ -123,7 +123,9 @@ Invariants:
 
 ## RepairGate
 
-All LLM-repair går genom EN port. Detalj: `docs/schemas/quality-gate.md` § "En repair-port".
+All LLM-repair går genom EN port. Flöde:
+[`quality-gate-flow.md`](quality-gate-flow.md). Fält:
+[`../schemas/quality-gate.md`](../schemas/quality-gate.md) § "En repair-port".
 
 Ägs av: `src/lib/gen/autofix/llm-repair-gate.ts` (porten + `RepairLedger`),
 `src/lib/gen/verify/repair-loop.ts` (loopen), `resolveSameSignalGateChecks` i
