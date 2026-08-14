@@ -1,7 +1,7 @@
 [
   {
     "namespace": "@shadcnblocks",
-    "url": "https://shadcnblocks.com/r/{name}.json",
+    "url": "https://www.shadcnblocks.com/r/{name}.json",
     "description": "Marketing blocks: hero, features, pricing, CTA, testimonials, FAQ, footer, navbar, contact, about",
     "maxPerGeneration": 2,
     "sectionMappings": {

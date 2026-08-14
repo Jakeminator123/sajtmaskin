@@ -94,7 +94,7 @@ describe("components.json canonical registries", () => {
   ) as { registries?: Record<string, string | { url?: string }> };
 
   const EXPECTED_REGISTRIES: Record<string, string> = {
-    "@shadcnblocks": "https://shadcnblocks.com/r/{name}.json",
+    "@shadcnblocks": "https://www.shadcnblocks.com/r/{name}.json",
     "@tailark-oss": "https://oss.tailark.com/r/radix/{name}.json",
     "@magicui": "https://magicui.design/r/{name}",
     // Fas 6: internal registry served by the app itself (src/app/r/[name]/route.ts).
@@ -130,6 +130,27 @@ describe("components.json canonical registries", () => {
       const url = typeof value === "string" ? value : (value.url ?? "");
       expect(url.startsWith("https://")).toBe(true);
     }
+  });
+
+  it("does not embed shadcnblocks auth in committed registry config", () => {
+    const componentsRaw = readFileSync(path.join(process.cwd(), "components.json"), "utf8");
+    const seedRaw = readFileSync(
+      path.join(process.cwd(), "config", "community-registries.json"),
+      "utf8",
+    );
+    expect(componentsRaw).not.toMatch(/Authorization/i);
+    expect(componentsRaw).not.toMatch(/SHADCNBLOCKS_API_KEY/);
+    expect(seedRaw).not.toMatch(/Authorization/i);
+    expect(seedRaw).not.toMatch(/SHADCNBLOCKS_API_KEY/);
+  });
+
+  it("keeps @shadcnblocks seed URL aligned with components.json (www host)", () => {
+    const seed = JSON.parse(
+      readFileSync(path.join(process.cwd(), "config", "community-registries.json"), "utf8"),
+    ) as Array<{ namespace: string; url: string }>;
+    const blocks = seed.find((entry) => entry.namespace === "@shadcnblocks");
+    expect(blocks?.url).toBe(EXPECTED_REGISTRIES["@shadcnblocks"]);
+    expect(blocks?.url).toContain("www.shadcnblocks.com");
   });
 
   it("keeps @tailark-oss seed URLs + Mist item names aligned with components.json", () => {
