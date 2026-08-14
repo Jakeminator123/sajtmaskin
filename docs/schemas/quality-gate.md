@@ -128,4 +128,6 @@ Cutoff för legacy-semantik (preflight-`true` som ljög grönt):
 `generation_telemetry.quality_gate_result` är promote-guardens signal
 (`verifier_failed` / `preflight_failed` / `preflight_passed`).
 Innehållsrevision bakom `SAJTMASKIN_CONTENT_REVISION_GATE` jämför
-`files_revision` på verdikt vs version — se runtime-contracts.
+`files_revision` på verdikt vs version — se
+[`orchestration-signal-contract.md`](orchestration-signal-contract.md)
+(lager Innehållsrevision).
