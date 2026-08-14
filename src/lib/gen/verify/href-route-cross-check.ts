@@ -323,8 +323,12 @@ export interface UnlinkedPlannedRoute {
  * Files that typically own site navigation. Reverse cross-check only
  * consults hrefs from these so a brochure without a nav file does not
  * warn about every planned route.
+ *
+ * `^nav(?:\.|$)` matches `nav.tsx` and a parent folder named exactly `nav`
+ * (`components/nav/index.tsx`). The segment is already split on `/`, so
+ * anchors are enough — `\b` is unused (paths are ASCII identifiers).
  */
-const NAV_SOURCE_NAME_RE = /(header|navbar|navigation|footer|menu|sidebar)|^nav\./i;
+const NAV_SOURCE_NAME_RE = /(header|navbar|navigation|footer|menu|sidebar)|^nav(?:\.|$)/i;
 const NAV_INDEX_FILE_RE = /^index\.(tsx|jsx|ts|js)$/i;
 
 export function isNavSourceFile(path: string): boolean {
