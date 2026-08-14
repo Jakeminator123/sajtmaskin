@@ -286,7 +286,10 @@ stage-beroende: F3 blockerar på `buildBlockingKeys`, F2 på `missingEnvKeys`
 (`src/app/api/v0/deployments/route.ts`). CapabilitySmoke-fynd
 (`product_postcheck.*`) syns som advisory-warnings och kan sätta
 `info.productPostcheckBlocksF3`; de ändrar inte `canDeploy` och stoppar inte
-promotion.
+promotion. Sena `preview:client-error` (error-log `created_at` strikt efter
+versionens `promoted_at`) syns som samma sorts advisory-warning. Fel före
+promotion eller utan `promoted_at` förblir diagnostik och sänker inte
+`canDeploy`.
 
 ### Deploy-repair
 

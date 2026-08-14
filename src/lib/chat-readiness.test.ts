@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   buildChatReadiness,
+  projectLateClientErrorReadiness,
   projectProductPostcheckReadiness,
   type ChatReadinessInfo,
+  type LateClientErrorReadinessLog,
   type ProductPostcheckReadinessLog,
 } from "./chat-readiness";
+import { PREVIEW_CLIENT_ERROR_CATEGORY } from "./builder/preview-client-error-report";
 
 const emptyInfo: ChatReadinessInfo = {
   versionId: "ver_1",
@@ -260,5 +263,150 @@ describe("buildChatReadiness + postcheck projection", () => {
     expect(readiness.canDeploy).toBe(true);
     expect(readiness.warnings).toEqual([]);
     expect(readiness.info.productPostcheckBlocksF3).toBe(false);
+  });
+});
+
+function clientErrorLog(
+  message: string,
+  createdAt: string,
+  meta: Record<string, unknown> = { kind: "hydration", href: "/" },
+): LateClientErrorReadinessLog {
+  return {
+    category: PREVIEW_CLIENT_ERROR_CATEGORY,
+    message,
+    meta,
+    created_at: createdAt,
+  };
+}
+
+const PROMOTED_AT = "2026-08-13T22:08:09.498Z";
+
+describe("projectLateClientErrorReadiness", () => {
+  it("exposes a post-promotion client-error as one advisory warning", () => {
+    const warnings = projectLateClientErrorReadiness(
+      [
+        clientErrorLog(
+          "[hydration] Text content does not match server-rendered HTML.",
+          "2026-08-13T22:10:08.707Z",
+          { kind: "hydration", href: "/" },
+        ),
+      ],
+      PROMOTED_AT,
+    );
+
+    expect(warnings).toEqual([
+      expect.objectContaining({
+        id: "late-client-error",
+        title: "Förhandsvisningen rapporterade ett fel efter att versionen godkändes.",
+        detail: "[hydration] Text content does not match server-rendered HTML. · /",
+        severity: "warning",
+        category: "advisory",
+        action: "preview",
+      }),
+    ]);
+  });
+
+  it("ignores client-errors at or before promoted_at", () => {
+    expect(
+      projectLateClientErrorReadiness(
+        [
+          clientErrorLog("[hydration] before", "2026-08-13T22:08:00.000Z"),
+          clientErrorLog("[hydration] same instant", PROMOTED_AT),
+        ],
+        PROMOTED_AT,
+      ),
+    ).toEqual([]);
+  });
+
+  it("stays silent without promoted_at — cannot prove the error is late", () => {
+    expect(
+      projectLateClientErrorReadiness(
+        [clientErrorLog("[hydration] anytime", "2026-08-13T22:10:08.707Z")],
+        null,
+      ),
+    ).toEqual([]);
+    expect(
+      projectLateClientErrorReadiness(
+        [clientErrorLog("[hydration] anytime", "2026-08-13T22:10:08.707Z")],
+        "not-a-date",
+      ),
+    ).toEqual([]);
+  });
+
+  it("skips rows without a parseable created_at", () => {
+    expect(
+      projectLateClientErrorReadiness(
+        [
+          {
+            category: PREVIEW_CLIENT_ERROR_CATEGORY,
+            message: "[hydration] no clock",
+            created_at: "not-a-date",
+          },
+        ],
+        PROMOTED_AT,
+      ),
+    ).toEqual([]);
+  });
+
+  it("ignores other error-log categories", () => {
+    expect(
+      projectLateClientErrorReadiness(
+        [
+          log("preview", "Förhandsvisningen kraschade.", {}, "2026-08-13T22:10:08.707Z"),
+          log("render-telemetry", "render failed", {}, "2026-08-13T22:10:08.707Z"),
+          log("product_postcheck.runtime_crash", "crash", { code: "runtime_crash" }, "2026-08-13T22:10:08.707Z"),
+        ],
+        PROMOTED_AT,
+      ),
+    ).toEqual([]);
+  });
+
+  it("dedupes the same message and summarizes several distinct late errors", () => {
+    const warnings = projectLateClientErrorReadiness(
+      [
+        clientErrorLog("[uncaught] boom", "2026-08-13T22:12:00.000Z", {
+          kind: "uncaught",
+          href: "/kontakt",
+        }),
+        clientErrorLog("[hydration] mismatch", "2026-08-13T22:11:00.000Z"),
+        clientErrorLog("[hydration] mismatch", "2026-08-13T22:11:30.000Z"),
+      ],
+      PROMOTED_AT,
+    );
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.detail).toBe("2 fel, senast: [uncaught] boom · /kontakt");
+  });
+});
+
+describe("buildChatReadiness + late client-error projection", () => {
+  it("keeps canDeploy true when a late client-error is a warning", () => {
+    const warnings = projectLateClientErrorReadiness(
+      [clientErrorLog("[hydration] mismatch", "2026-08-13T22:10:08.707Z")],
+      PROMOTED_AT,
+    );
+    const readiness = buildChatReadiness({
+      warnings,
+      info: emptyInfo,
+    });
+
+    expect(readiness.canDeploy).toBe(true);
+    expect(readiness.blockers).toEqual([]);
+    expect(readiness.status).toBe("warning");
+    expect(readiness.warnings.map((item) => item.id)).toEqual(["late-client-error"]);
+  });
+
+  it("stays ready when the only client-error is pre-promotion", () => {
+    const readiness = buildChatReadiness({
+      warnings: projectLateClientErrorReadiness(
+        [clientErrorLog("[hydration] mismatch", "2026-08-13T22:07:00.000Z")],
+        PROMOTED_AT,
+      ),
+      info: emptyInfo,
+    });
+
+    expect(readiness.status).toBe("ready");
+    expect(readiness.canDeploy).toBe(true);
+    expect(readiness.warnings).toEqual([]);
   });
 });

@@ -627,3 +627,76 @@ describe("GET readiness — Product Postcheck warnings (SM-049)", () => {
     expect(json.readiness?.info.productPostcheckBlocksF3).toBe(false);
   });
 });
+
+describe("GET readiness — late preview:client-error warnings (SM-050)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1", project_id: "proj_1" });
+    maybeAutoAcceptTimedOutRepair.mockImplementation(async (v: unknown) => ({
+      version: v,
+      wasAutoAccepted: false,
+    }));
+    settleStaleVerificationIfNeeded.mockImplementation(async (v: unknown) => ({ version: v }));
+    promoteVersionIfUnleased.mockResolvedValue({ id: "ver_1", verification_state: "passed" });
+    getVersionFiles.mockResolvedValue([]);
+    resolveProjectEnv.mockResolvedValue({
+      source: "none",
+      projectId: null,
+      configuredKeys: new Set(),
+      configuredMap: {},
+    });
+    resolveEnvRequirementsFromVersionFiles.mockReturnValue(emptyEnvRequirements());
+    readAllowPlaceholdersInF3.mockResolvedValue(false);
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
+    createEngineVersionErrorLogs.mockResolvedValue(undefined);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: "promoted",
+      promoted_at: "2026-08-13T22:08:09.498Z",
+      verification_summary: null,
+    });
+  });
+
+  it("exposes a post-promotion client-error as a warning without flipping canDeploy", async () => {
+    getEngineVersionErrorLogs.mockResolvedValue([
+      {
+        category: "preview:client-error",
+        level: "warning",
+        message: "[hydration] Text content does not match server-rendered HTML.",
+        meta: { kind: "hydration", href: "/" },
+        created_at: "2026-08-13T22:10:08.707Z",
+      },
+    ]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(true);
+    expect(json.readiness?.status).toBe("warning");
+    expect(json.readiness?.blockers).toEqual([]);
+    expect(json.readiness?.warnings.map((w) => w.id)).toContain("late-client-error");
+  });
+
+  it("leaves readiness unchanged for a pre-promotion client-error", async () => {
+    getEngineVersionErrorLogs.mockResolvedValue([
+      {
+        category: "preview:client-error",
+        level: "warning",
+        message: "[hydration] Text content does not match server-rendered HTML.",
+        meta: { kind: "hydration", href: "/" },
+        created_at: "2026-08-13T22:07:00.000Z",
+      },
+    ]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.status).toBe("ready");
+    expect(json.readiness?.canDeploy).toBe(true);
+    expect(json.readiness?.warnings.map((w) => w.id)).not.toContain("late-client-error");
+  });
+});

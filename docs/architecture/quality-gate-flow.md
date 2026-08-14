@@ -23,7 +23,9 @@ CapabilitySmoke-fynd projiceras som warnings i publiceringskollen
 F3-spärrande koderna (`mobile_menu_failed`, ≥2 `broken_anchor`,
 `runtime_crash`, `preview_boot_page`) — inte själva enum-koderna.
 Rådgivande koder stannar i `warnings`. Promotion läser inte fältet.
-Fynden är aldrig `canDeploy`-blockers.
+Fynden är aldrig `canDeploy`-blockers. Sena browser-fel
+(`preview:client-error` med `created_at` > `promoted_at`) projiceras samma
+väg och är aldrig `canDeploy`-blockers.
 
 | Lane | Syfte | Typisk körning |
 | --- | --- | --- |
