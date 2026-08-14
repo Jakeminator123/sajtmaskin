@@ -21,7 +21,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import type { createPreviewPrewarmLeaseKey } from "@/lib/gen/preview/preview-prewarm";
 import { prewarmPreviewSession } from "@/lib/gen/preview/preview-prewarm";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
-import { classifyRequestKind } from "@/lib/gen/request-kind";
+import { logRequestKindClassification } from "../request-kind-log";
 import type {
   normalizeRequestAttachments,
   summarizeDesignReferences,
@@ -201,7 +201,13 @@ export async function runCodegenTurn(params: {
     (PRIOR_QUALITY_TARGETS as readonly string[]).includes(rawPriorQualityTarget)
       ? (rawPriorQualityTarget as (typeof PRIOR_QUALITY_TARGETS)[number])
       : null;
-  const requestKindResult = hasFollowUpBase ? classifyRequestKind(followUpIntentMessage) : null;
+  const requestKindResult = hasFollowUpBase
+    ? logRequestKindClassification({
+        message: followUpIntentMessage,
+        generationKind: "followup",
+        chatId,
+      })
+    : null;
   if (requestKindResult?.kind === "qa-or-score") {
     devLogAppend("in-progress", {
       type: "request.kind.shortcircuit",
@@ -296,14 +302,6 @@ export async function runCodegenTurn(params: {
   });
   const orchestrationStartedAt = Date.now();
   const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
-  if (requestKindResult) {
-    devLogAppend("in-progress", {
-      type: "request.kind.classified",
-      chatId,
-      kind: requestKindResult.kind,
-      source: requestKindResult.source,
-    });
-  }
   debugLog("orchestration", "Follow-up orchestration base resolved", {
     chatId,
     durationMs: Date.now() - orchestrationStartedAt,
