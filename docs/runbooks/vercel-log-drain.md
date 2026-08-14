@@ -32,7 +32,8 @@ fortfarande svarar `410`) är exakt tillståndet som orsakade kostnadsincidenten
 1. Sätt `VERCEL_LOG_DRAIN_SECRET` + `VERCEL_LOG_DRAIN_ENABLED=true` i production.
 2. Deploya. Nu är mottagaren redo och svarar aldrig `410` på signerade leveranser.
 3. Verifiera med det signerade självtestet nedan.
-4. Skapa **därefter** drainen — med loop-brytaren vid källan.
+4. Skapa **därefter** drainen. Default: mottagare i ett **annat** projekt.
+   Same-app bara som undantag, med fingret på delete-knappen.
 
 Skapa inte drainen mellan steg 1 och 3. En live drain mot en mottagare som
 svarar `410` retrysar och loggar, och varje logg blir en ny leverans.
@@ -93,13 +94,15 @@ Verifiera i stället själv.
 
 `projectId` i bodyn måste vara appens riktiga `VERCEL_PROJECT_ID`. Det är en
 **systemvariabel** Vercel injicerar i runtime — sätt den inte själv.
-`vercel env ls production` visar bara namn, inte värdet. Läs det från
-`.vercel/project.json` (fältet `projectId`) eller `vercel project inspect`
-(från länkad repo-rot):
+`vercel env ls production` visar bara namn, inte värdet. Repot är länkat med
+`vercel link --repo`, så det finns ingen `.vercel/project.json`. Läs id:t från
+`.vercel/repo.json` → `projects[].id` (posten med `"name": "sajtmaskin"`),
+eller `vercel project inspect sajtmaskin` (från länkad repo-rot):
 
 ```powershell
 # från C:\Users\jakem\dev\projects\sajtmaskin (huvudcheckouten):
-$projectId = (Get-Content -Raw .vercel/project.json | ConvertFrom-Json).projectId
+$repo = Get-Content -Raw .vercel/repo.json | ConvertFrom-Json
+$projectId = ($repo.projects | Where-Object name -eq 'sajtmaskin').id
 $logId = "selftest-$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
 $secret = "<samma värde som VERCEL_LOG_DRAIN_SECRET>"
 $body = '[{"id":"' + $logId + '","deploymentId":"dpl_x","projectId":"' + $projectId + '","source":"lambda","host":"sajtmaskin.vercel.app","timestamp":1,"level":"error","message":"drain selftest"}]'
@@ -122,15 +125,29 @@ Samma grindkriterium som i Nuläge (PowerShell visar `True` med stort T):
 | `ok: true` och `stored: 0`, rätt `projectId` men `log_id` redan finns | `ON CONFLICT (log_id) DO NOTHING`. Inte ett fel — kedjan lever, raden fanns redan. Kör om med nytt id. |
 
 Vercel testar endpointen automatiskt när drainen *väl* skapas, och
-**Test**-knappen gör samma sak. `POST /v1/drains/test` validerar
-leveranskonfigurationen (URL, encoding, secret, sampling) med sample-events
-**utan** att skapa något skarpt — kör den före `POST /v1/drains`.
+**Test**-knappen gör samma sak. `POST /v1/drains/test` validerar **bara**
+leveranskonfigurationen (URL, encoding, secret) med sample-events **utan**
+att skapa något skarpt. Den tar **inte** emot `sampling` — det fältet ger
+`400` (`should NOT have additional property sampling`). Kör den före
+`POST /v1/drains` för att kolla URL/secret/encoding.
+
+`delivery.type` är en okänd konstant. Värdet `custom` avvisas (`should be
+equal to constant`). Läs rätt värde ur felmeddelandet eller ur dialogen vid
+skapandet — gissa inte i den här runbooken.
 
 Skulle **Create Drain** vägra gå igenom för att dess eget test får `403`: säg
 till, då behöver mottagaren en särskild gren för Vercels overifierade probe.
 Den är medvetet inte byggd på spekulation.
 
 ### Skapa drainen (steg 4)
+
+**Säker default: mottagare i ett annat projekt.** Peka drainen mot Axiom,
+Better Stack eller en ingest-rutt i ett **separat** Vercel-projekt. Drainen
+scopas till Sajtmaskin; mottagarens egna anrop loggas i ett annat projekt
+som drainen inte samlar. Då är loopen strukturellt omöjlig.
+
+Same-app-varianten (URL:en nedan) är undantaget — bara med fingret på
+delete-knappen och den empiriska kollen i loop-brytar-avsnittet.
 
 Dialogen når du via Vercel-dashboarden → **Team Settings → Drains → Add Drain**.
 Klistra in **samma** secret som redan ligger i `VERCEL_LOG_DRAIN_SECRET`.
@@ -154,22 +171,28 @@ projekt — men felkonfigurerad bred drain är fortfarande onödig trafik.
 
 ### Loop-brytaren vid källan
 
-Tre skyddslager, inifrån och ut:
+En same-app-drain är **loop-benägen av konstruktion**, inte av
+felkonfiguration. Tre lager, inifrån och ut:
 
 | Lager | Vad det gör | Vad det *inte* gör |
 |---|---|---|
 | `isSelfDrainLog` | Håller *tabellen* ren — egna ingest-rader sparas inte | Stoppar **inte** anropen. Loopen lever så länge Vercel levererar. |
 | `410` när ENABLED/secret saknas | Får Vercel att sluta retrysa och markera drainen som errored | Begränsar skadan *i efterhand*. Invocations hinner gå innan Vercel ger upp. |
-| `sampling` `rate: 0` på ingest-sökvägen | **Vercel** kastar ingest-routens egna loggrader *innan* de levereras | — det är loop-brytaren vid källan |
+| Sampling per sökväg | **Avsedd** brytare: Vercel kastar ingest-routens egna loggrader innan leverans | Exakt form är **overifierad**. Kan inte provköras i förväg. |
 
-Vercels drain-API (`POST /v1/drains`, fältet `sampling`) stödjer sampling per
-sökväg. `rate` är 0–1; `requestPath` är ett prefix. Exakt värde på `type` är
-**inte** verifierat mot ett riktigt API-anrop — skulle det vara fel ignoreras
-regeln tyst, och då är loop-brytaren borta utan att någon märker det.
+Sampling-blocket kan **inte** förvalideras: `POST /v1/drains/test` avvisar
+fältet `sampling` (`400`, additional property). Enda sättet att veta om
+brytaren sitter är att skapa drainen — vilket är den riskabla handlingen.
 
-Dokumentationen säger inte om en ensam regel är en **allowlist** (omatchade
-sökvägar kastas) eller en **modifierare** (omatchade sökvägar går på 100 %).
-Vi väljer inte tolkning — regelsetet ska vara korrekt i båda fallen:
+**Därför är den säkra defaulten en mottagare i ett annat projekt**
+(separat Vercel-projekt, eller Axiom / Better Stack). Loopen blir
+strukturellt omöjlig.
+
+Väljer man ändå same-app: skapa **bara** med fingret på delete-knappen.
+Förslag att prova vid skapandet — **overifierat**, bestrids av två
+granskare, inte ett recept. Catch-allen (`rate: 1` utan `requestPath`)
+finns med så regelsetet inte blir tyst tomt *om* sampling är en allowlist;
+precedens när båda reglerna matchar ingest-sökvägen är okänd.
 
 ```json
 "sampling": [
@@ -178,28 +201,15 @@ Vi väljer inte tolkning — regelsetet ska vara korrekt i båda fallen:
 ]
 ```
 
-Två regler, inte en:
+Verifiera empiriskt, inom minuter. Steg 1 täcker **inte** sampling:
 
-| Tolkning | Utan catch-all | Med catch-all `rate: 1` |
-|---|---|---|
-| Allowlist | Drainen fångar ingenting utom (eventuellt) ingest-sökvägen — tyst tom | Övriga sökvägar levereras |
-| Modifierare över 100 %-default | Bara ingest-sökvägen sänks | Catch-allen är en no-op. Ingen skada |
-
-Kvarstående osäkerhet: **precedens**. Catch-allen saknar `requestPath` och
-matchar därför även `/api/drains/vercel`. Vilken regel som vinner när båda
-matchar är inte dokumenterat. T11 (skapandet) måste verifiera empiriskt:
-
-1. Validera hela sampling-blocket med `POST /v1/drains/test` före skarp create.
-2. Läs tillbaka drainen med `GET /v1/drains?includeMetadata=true` och kontrollera att båda reglerna sitter.
-3. **Efter** skapandet, inom några minuter: bekräfta i `vercel logs` att rader från `/api/drains/vercel` **inte** kommer in medan rader från andra sökvägar **gör** det. Det är det enda som avgör precedensfrågan.
-4. Kommer inga rader alls från andra sökvägar → catch-allen förlorade, eller allowlist-tolkningen gäller med omvänd precedens. Radera drainen och rapportera innan du experimenterar vidare.
-
-En tyst ignorerad eller tyst tom drain är värre än ingen drain — då tror man
-att man är skyddad.
+1. `POST /v1/drains/test` före skarp create — **bara** leverans (URL, encoding, secret). Skicka inte `sampling`.
+2. Läs tillbaka drainen med `GET /v1/drains?includeMetadata=true` och kontrollera om sampling-reglerna faktiskt sitter.
+3. **Efter** skapandet, inom några minuter: bekräfta i `vercel logs` att rader från `/api/drains/vercel` **inte** kommer in medan rader från andra sökvägar **gör** det.
+4. Något oklart, eller inga rader alls från andra sökvägar → radera drainen omedelbart och rapportera innan du experimenterar vidare.
 
 Dashboardens globala **Sampling rate** är en annan ratt (lämna den på 100 % i
-dialogen). Regelsetet ovan syns inte alltid i dialogen; sätt det via API:t när
-drainen skapas.
+dialogen).
 
 ### Skruva ner volymen vid källan
 
@@ -208,10 +218,9 @@ Under **Additional configuration for logs** i samma dialog:
 - **Sources:** `lambda` räcker för appens console-rader. `build` är sällan
   intressant här (byggloggar hämtas ändå per deploy).
 - **Environments:** bara `production`.
-- **Sampling rate:** lämna dashboardens globala ratt på 100 %. Loop-brytaren
-  är API-regelsetet ovan (`rate: 0` på ingest-sökvägen + catch-all `rate: 1`),
-  inte en sänkning av den globala raten. Sänk den globala raten bara om
-  Vercel-sidan börjar kosta.
+- **Sampling rate:** lämna dashboardens globala ratt på 100 %. En
+  per-sökväg-sänkning är overifierad (se loop-brytaren). Sänk den globala
+  raten bara om Vercel-sidan börjar kosta.
 
 ## Vad som faktiskt lagras
 
@@ -260,11 +269,9 @@ snabbt går till errored i stället för att retrysa i evighet — men den stopp
 inte anropen förrän Vercel ger upp, så radera fortfarande drainen vid storm.
 
 `isSelfDrainLog` kastar egna ingest-rader så *tabellen* förblir ren, men
-*anropen* fortsätter så länge drainen är aktiv. Det är därför loop-brytaren vid
-källan (sampling-regelsetet med `rate: 0` på `/api/drains/vercel` plus
-catch-all `rate: 1`) ska med **när drainen skapas** — inte som en
-efterhandslapp. Föredra en extern mottagare (Axiom / separat projekt) om du
-vill undvika same-app-loopen helt.
+*anropen* fortsätter så länge drainen är aktiv. Same-app är därför
+undantaget. Default: extern mottagare (annat Vercel-projekt / Axiom /
+Better Stack) så loopen inte kan uppstå.
 
 **Endpointen är nere när appen är nere.** Det är precis då du vill läsa
 loggarna. Vercel gör om leveransen ett antal gånger vid tillfälliga 5xx, så en
@@ -280,7 +287,7 @@ som möter `410` är farofönstret — stäng av eller radera drainen, flippa in
 switchen "för att se".
 
 **Spend Management.** En spend alert i Vercel Billing är den yttersta
-nödbromsen om en loop skulle återkomma trots ordningen och sampling-regelsetet.
+nödbromsen om en loop skulle återkomma — särskilt vid same-app.
 
 ## Related
 
