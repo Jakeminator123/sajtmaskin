@@ -30,5 +30,13 @@ export const projektBasAppManifest: ScaffoldManifest = {
     ],
     referenceTemplates: [],
   },
+  // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
+  // planning-helpers): this scaffold contributed no default routes.
+  routeContract: {
+    requiredRoutes: [],
+    optionalRoutes: [],
+    declaredRoutePaths: [],
+    dynamicRoutePatterns: [],
+  },
   files: loadScaffoldFiles("projekt-bas-app"),
 };

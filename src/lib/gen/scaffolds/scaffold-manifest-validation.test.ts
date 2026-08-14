@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { extractAppRoutePathsFromFilePaths, normalizeRoutePath } from "../route-plan";
+import {
+  crossCheckHrefsAgainstRoutes,
+  extractHrefsFromFiles,
+} from "../verify/href-route-cross-check";
 import {
   runScaffoldManifestChecks,
   validateScaffoldManifest,
 } from "./scaffold-manifest-validation";
 import { landingPageManifest } from "./landing-page/manifest";
-import type { ScaffoldManifest } from "./types";
+import { getAllScaffolds } from "./registry";
+import type { ScaffoldManifest, ScaffoldRouteContract } from "./types";
 
 describe("runScaffoldManifestChecks", () => {
   it("keeps all registered scaffolds free from structural errors", () => {
@@ -23,6 +29,12 @@ describe("validateScaffoldManifest — V2 file-policy fields", () => {
       tags: [],
       promptHints: ["one", "two"],
       qualityChecklist: ["a", "b", "c"],
+      routeContract: {
+        requiredRoutes: [],
+        optionalRoutes: [],
+        declaredRoutePaths: [],
+        dynamicRoutePatterns: [],
+      },
       files: [
         {
           path: "app/layout.tsx",
@@ -135,6 +147,437 @@ describe("validateScaffoldManifest — V2 file-policy fields", () => {
         }),
       ]),
     );
+  });
+});
+
+describe("validateScaffoldManifest — routeContract shape", () => {
+  function contractScaffold(routeContract: ScaffoldRouteContract): ScaffoldManifest {
+    return {
+      id: "landing-page",
+      label: "route-contract-fixture",
+      description: "Fixture for route contract validation.",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: ["one", "two"],
+      qualityChecklist: ["a", "b", "c"],
+      routeContract,
+      files: [
+        {
+          path: "app/layout.tsx",
+          content: "export default function Layout(){ return null; }",
+        },
+        { path: "app/globals.css", content: "@theme inline { --x: 1; }" },
+        { path: "app/icon.svg", content: "<svg/>" },
+        {
+          path: "app/page.tsx",
+          content: "export default function Page(){ return null; }",
+        },
+      ],
+    };
+  }
+
+  function errorsOf(scaffold: ScaffoldManifest) {
+    return validateScaffoldManifest(scaffold).filter((issue) => issue.severity === "error");
+  }
+
+  it("flags a missing routeContract", () => {
+    const scaffold = contractScaffold({
+      requiredRoutes: [],
+      optionalRoutes: [],
+      declaredRoutePaths: [],
+      dynamicRoutePatterns: [],
+    });
+    delete (scaffold as { routeContract?: ScaffoldRouteContract }).routeContract;
+    expect(errorsOf(scaffold)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining("missing routeContract") }),
+      ]),
+    );
+  });
+
+  it("flags the same path in two categories", () => {
+    const errors = errorsOf(
+      contractScaffold({
+        requiredRoutes: [{ path: "/blog", name: "Blog", planIntent: "Keep it." }],
+        optionalRoutes: [{ path: "/blog", name: "Blog", planIntent: "Keep it." }],
+        declaredRoutePaths: [],
+        dynamicRoutePatterns: [],
+      }),
+    );
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining("appears in both requiredRoutes and optionalRoutes"),
+        }),
+      ]),
+    );
+  });
+
+  it("flags a dynamic segment in a static category and a pattern without one", () => {
+    const errors = errorsOf(
+      contractScaffold({
+        requiredRoutes: [{ path: "/product/[id]", name: "Product", planIntent: "Keep it." }],
+        optionalRoutes: [],
+        declaredRoutePaths: [],
+        dynamicRoutePatterns: ["/products"],
+      }),
+    );
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining("patterns belong in dynamicRoutePatterns"),
+        }),
+        expect.objectContaining({
+          message: expect.stringContaining("has no dynamic segment"),
+        }),
+      ]),
+    );
+  });
+
+  it("reports malformed collections as errors instead of throwing", () => {
+    // PR #982 AI-review finding F-3750ddc9db97: a manifest written as text
+    // (backoffice lifecycle) or a legacy payload can carry null/non-array
+    // collections — the validator must fail loud with issues, not crash.
+    const scaffold = contractScaffold({
+      requiredRoutes: null as unknown as ScaffoldRouteContract["requiredRoutes"],
+      optionalRoutes: "oops" as unknown as ScaffoldRouteContract["optionalRoutes"],
+      declaredRoutePaths: [],
+      dynamicRoutePatterns: undefined as unknown as ScaffoldRouteContract["dynamicRoutePatterns"],
+    });
+    const messages = errorsOf(scaffold).map((issue) => issue.message);
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("requiredRoutes must be an array (got null)"),
+        expect.stringContaining("optionalRoutes must be an array (got string)"),
+        expect.stringContaining("dynamicRoutePatterns must be an array (got undefined)"),
+      ]),
+    );
+  });
+
+  it("reports non-object planned entries as errors instead of throwing", () => {
+    const scaffold = contractScaffold({
+      requiredRoutes: [null] as unknown as ScaffoldRouteContract["requiredRoutes"],
+      optionalRoutes: ["/blog"] as unknown as ScaffoldRouteContract["optionalRoutes"],
+      declaredRoutePaths: [],
+      dynamicRoutePatterns: [],
+    });
+    const messages = errorsOf(scaffold).map((issue) => issue.message);
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("requiredRoutes contains a non-object entry (got null)"),
+        expect.stringContaining("optionalRoutes contains a non-object entry (got string)"),
+      ]),
+    );
+  });
+
+  it("flags non-normalized paths, missing name/planIntent, and bad intent scopes", () => {
+    const errors = errorsOf(
+      contractScaffold({
+        requiredRoutes: [
+          {
+            path: "/blog/",
+            name: " ",
+            planIntent: "",
+            planOnlyForBuildIntents: ["desktop" as unknown as "app"],
+          },
+        ],
+        optionalRoutes: [
+          {
+            path: "/extra",
+            name: "Extra",
+            planIntent: "Keep it.",
+            requiredOnlyForBuildIntents: ["app"],
+          },
+        ],
+        declaredRoutePaths: [],
+        dynamicRoutePatterns: [],
+      }),
+    );
+    const messages = errors.map((issue) => issue.message).join("\n");
+    expect(messages).toContain("is not normalized");
+    expect(messages).toContain("missing a name");
+    expect(messages).toContain("missing a planIntent");
+    expect(messages).toContain("invalid build intents: desktop");
+    expect(messages).toContain("requiredOnlyForBuildIntents on optional route /extra");
+  });
+});
+
+/**
+ * Deterministic link ↔ route-contract gate (runs in `npm run
+ * scaffolds:validate`, blocking in the `quality` CI job).
+ *
+ * Two directions per scaffold:
+ *  1. Every internal href/Link path in `files/**` must resolve against the
+ *     manifest's route contract ("/" plus required/optional/declared routes,
+ *     dynamic links matched against `dynamicRoutePatterns`).
+ *  2. Every contract route must be backed by reality. Planned routes
+ *     (required/optional) need at least one link OR one starter page file —
+ *     the plan makes the LLM generate the page. Non-planned routes
+ *     (declared/dynamic) need their page FILE; a link alone is not enough,
+ *     because nothing plans the route and the link would be dead.
+ */
+type RouteContractViolation = {
+  scaffoldId: string;
+  kind:
+    | "link-outside-route-contract"
+    | "planned-route-without-link-or-file"
+    | "declared-route-without-file"
+    | "dynamic-pattern-without-file";
+  path: string;
+};
+
+const EMPTY_ROUTE_CONTRACT: ScaffoldRouteContract = {
+  requiredRoutes: [],
+  optionalRoutes: [],
+  declaredRoutePaths: [],
+  dynamicRoutePatterns: [],
+};
+
+function collectRouteContractViolations(
+  scaffold: ScaffoldManifest,
+): RouteContractViolation[] {
+  const contract = scaffold.routeContract ?? EMPTY_ROUTE_CONTRACT;
+  const hrefs = extractHrefsFromFiles(
+    scaffold.files.map((file) => ({ path: file.path, content: file.content, language: "tsx" })),
+  );
+  const violations: RouteContractViolation[] = [];
+
+  // Direction 1: links must resolve against the contract. Root is owned by
+  // the plan builder (always planned), so "/" is implicitly in the contract.
+  const contractPaths = [
+    "/",
+    ...contract.requiredRoutes.map((route) => route.path),
+    ...contract.optionalRoutes.map((route) => route.path),
+    ...contract.declaredRoutePaths,
+    ...contract.dynamicRoutePatterns,
+  ];
+  const seenLinkPaths = new Set<string>();
+  for (const mismatch of crossCheckHrefsAgainstRoutes(hrefs, contractPaths)) {
+    if (seenLinkPaths.has(mismatch.basePath)) continue;
+    seenLinkPaths.add(mismatch.basePath);
+    violations.push({
+      scaffoldId: scaffold.id,
+      kind: "link-outside-route-contract",
+      path: mismatch.basePath,
+    });
+  }
+
+  // Direction 2a: PLANNED routes (required/optional) must be reachable —
+  // at least one link or one starter page file. The plan makes the LLM
+  // generate the page, so a link without a starter file is fine here.
+  const fileRoutePaths = new Set(
+    extractAppRoutePathsFromFilePaths(scaffold.files.map((file) => file.path)).map((path) =>
+      normalizeRoutePath(path),
+    ),
+  );
+  const plannedContractPaths = [
+    ...contract.requiredRoutes.map((route) => route.path),
+    ...contract.optionalRoutes.map((route) => route.path),
+  ];
+  for (const rawPath of plannedContractPaths) {
+    const path = normalizeRoutePath(rawPath);
+    const hasFile = fileRoutePaths.has(path);
+    const hasLink = hrefs.some((href) => href.basePath === path);
+    if (!hasFile && !hasLink) {
+      violations.push({
+        scaffoldId: scaffold.id,
+        kind: "planned-route-without-link-or-file",
+        path,
+      });
+    }
+  }
+  // Direction 2b: NON-PLANNED routes are backed by files by definition —
+  // `declaredRoutePaths` means "the page file exists in the scaffold", and
+  // a dynamic pattern is the shape of an actual dynamic page file. A link
+  // alone must NOT satisfy them: nothing plans these routes, so a
+  // linked-but-fileless declared route would ship a dead link that both
+  // gate directions accept (PR #982 AI-review finding F-03e6b944b736).
+  for (const rawPath of contract.declaredRoutePaths) {
+    const path = normalizeRoutePath(rawPath);
+    if (!fileRoutePaths.has(path)) {
+      violations.push({
+        scaffoldId: scaffold.id,
+        kind: "declared-route-without-file",
+        path,
+      });
+    }
+  }
+  for (const rawPattern of contract.dynamicRoutePatterns) {
+    const pattern = normalizeRoutePath(rawPattern);
+    if (!fileRoutePaths.has(pattern)) {
+      violations.push({
+        scaffoldId: scaffold.id,
+        kind: "dynamic-pattern-without-file",
+        path: pattern,
+      });
+    }
+  }
+  return violations;
+}
+
+function sortViolations(violations: RouteContractViolation[]): RouteContractViolation[] {
+  return [...violations].sort(
+    (a, b) =>
+      a.scaffoldId.localeCompare(b.scaffoldId) ||
+      a.kind.localeCompare(b.kind) ||
+      a.path.localeCompare(b.path),
+  );
+}
+
+/**
+ * KNOWN, DELIBERATELY VISIBLE violations. Do NOT extend this list to make a
+ * new scaffold pass — fix the contract or the files instead.
+ *
+ * SM-042 (owner decision pending): four scaffolds link unconditionally to
+ * routes the route plan never guaranteed. The two mutually exclusive ways
+ * out are (1) make the nav mirror the plan (remove/derive the links) or
+ * (2) make the plan guarantee the nav (promote the routes to
+ * required/optional — which collides with the per-round page ceiling of 3).
+ * That choice belongs to the owner; the entries below keep the drift loud
+ * until it is made. Remove each entry when its direction is chosen.
+ *
+ * SM-043 (owner decision pending): ecommerce's /cart is declared in the
+ * contract but has neither a starter file (CartDrawer replaced the page)
+ * nor a link, and #977 already removed it from the plan defaults. Either
+ * reintroduce a real cart page + link or delete the contract entry. Do not
+ * add a file just to silence the gate. Remove the exception together with
+ * the decision.
+ */
+const KNOWN_ROUTE_CONTRACT_VIOLATIONS: RouteContractViolation[] = sortViolations([
+  // SM-042 — app-shell sidebar links /pipeline and /tasks; plan never guaranteed them.
+  { scaffoldId: "app-shell", kind: "link-outside-route-contract", path: "/pipeline" },
+  { scaffoldId: "app-shell", kind: "link-outside-route-contract", path: "/tasks" },
+  // SM-042 — auth-pages login page links /forgot-password; plan never guaranteed it.
+  { scaffoldId: "auth-pages", kind: "link-outside-route-contract", path: "/forgot-password" },
+  // SM-042 — dashboard sidebar links /users; plan never guaranteed it.
+  { scaffoldId: "dashboard", kind: "link-outside-route-contract", path: "/users" },
+  // SM-042 — ecommerce header/footer link /categories and /om; plan never guaranteed them.
+  { scaffoldId: "ecommerce", kind: "link-outside-route-contract", path: "/categories" },
+  { scaffoldId: "ecommerce", kind: "link-outside-route-contract", path: "/om" },
+  // SM-043 — /cart is contract junk: declared without its page file (and
+  // without links; not planned since #977).
+  { scaffoldId: "ecommerce", kind: "declared-route-without-file", path: "/cart" },
+]);
+
+describe("route contract ↔ scaffold links gate", () => {
+  it("matches the documented SM-042/SM-043 exception list exactly — no new drift, no silently fixed entries", () => {
+    const actual = sortViolations(
+      getAllScaffolds().flatMap((scaffold) => collectRouteContractViolations(scaffold)),
+    );
+    // Equality in BOTH directions: a new violation fails here, and a fixed
+    // one fails too until its exception row above is removed — so the
+    // SM-042/SM-043 debt can only disappear together with an explicit
+    // decision, never silently.
+    expect(actual).toEqual(KNOWN_ROUTE_CONTRACT_VIOLATIONS);
+  });
+
+  it("fails on a required route that has neither a link nor a file", () => {
+    const scaffold: ScaffoldManifest = {
+      id: "landing-page",
+      label: "gate-fixture",
+      description: "Fixture for the reverse gate direction.",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: ["one", "two"],
+      routeContract: {
+        requiredRoutes: [{ path: "/ghost", name: "Ghost", planIntent: "Keep it." }],
+        optionalRoutes: [],
+        declaredRoutePaths: [],
+        dynamicRoutePatterns: [],
+      },
+      files: [{ path: "app/page.tsx", content: "export default function Page(){ return null; }" }],
+    };
+    expect(collectRouteContractViolations(scaffold)).toEqual([
+      {
+        scaffoldId: "landing-page",
+        kind: "planned-route-without-link-or-file",
+        path: "/ghost",
+      },
+    ]);
+  });
+
+  it("rejects a declared route whose page file is missing even when a link exists (dead-link hole)", () => {
+    // PR #982 AI-review finding F-03e6b944b736: declared routes are never
+    // planned, so a link alone must not count as reachability proof — the
+    // link would be dead in the generated site.
+    const scaffold: ScaffoldManifest = {
+      id: "ecommerce",
+      label: "gate-fixture",
+      description: "Fixture for the declared-route file requirement.",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: ["one", "two"],
+      routeContract: {
+        requiredRoutes: [],
+        optionalRoutes: [],
+        declaredRoutePaths: ["/cart"],
+        dynamicRoutePatterns: [],
+      },
+      files: [
+        {
+          path: "components/nav.tsx",
+          content: 'export function Nav(){ return <a href="/cart">Cart</a>; }',
+        },
+      ],
+    };
+    expect(collectRouteContractViolations(scaffold)).toEqual([
+      { scaffoldId: "ecommerce", kind: "declared-route-without-file", path: "/cart" },
+    ]);
+  });
+
+  it("rejects a dynamic pattern without a matching dynamic page file even when links match", () => {
+    const scaffold: ScaffoldManifest = {
+      id: "ecommerce",
+      label: "gate-fixture",
+      description: "Fixture for the dynamic-pattern file requirement.",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: ["one", "two"],
+      routeContract: {
+        requiredRoutes: [],
+        optionalRoutes: [],
+        declaredRoutePaths: [],
+        dynamicRoutePatterns: ["/product/[id]"],
+      },
+      files: [
+        {
+          path: "components/nav.tsx",
+          content: 'export function Nav(){ return <a href="/product/product-1">P</a>; }',
+        },
+      ],
+    };
+    expect(collectRouteContractViolations(scaffold)).toEqual([
+      { scaffoldId: "ecommerce", kind: "dynamic-pattern-without-file", path: "/product/[id]" },
+    ]);
+  });
+
+  it("accepts dynamic example links and template-literal links via dynamicRoutePatterns", () => {
+    const scaffold: ScaffoldManifest = {
+      id: "ecommerce",
+      label: "gate-fixture",
+      description: "Fixture for dynamic pattern matching.",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: ["one", "two"],
+      routeContract: {
+        requiredRoutes: [],
+        optionalRoutes: [],
+        declaredRoutePaths: [],
+        dynamicRoutePatterns: ["/category/[slug]"],
+      },
+      files: [
+        {
+          path: "app/category/[slug]/page.tsx",
+          content: "export default function Page(){ return null; }",
+        },
+        {
+          path: "components/nav.tsx",
+          content:
+            'export function Nav(){ return (<div><a href="/category/category-1">A</a><a href={`/category/${"x"}`}>B</a></div>); }',
+        },
+      ],
+    };
+    expect(collectRouteContractViolations(scaffold)).toEqual([]);
   });
 });
 

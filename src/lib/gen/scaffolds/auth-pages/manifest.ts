@@ -47,5 +47,29 @@ export const authPagesManifest: ScaffoldManifest = {
       { id: "authentication-kinde-next-js-starter", title: "Kinde Next.js Starter", categorySlug: "authentication", qualityScore: 94, strengths: ["verified Next.js codebase", "auth flow reference", "middleware patterns"] },
     ],
   },
+  // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
+  // planning-helpers): /login required, /signup planned as optional.
+  // SM-042: files/ links unconditionally to /forgot-password, but the plan
+  // never guaranteed it — deliberately NOT listed here until the owner picks
+  // a direction (see the route-contract gate in
+  // scaffold-manifest-validation.test.ts).
+  routeContract: {
+    requiredRoutes: [
+      {
+        path: "/login",
+        name: "Login",
+        planIntent: "Keep a dedicated authentication entry route.",
+      },
+    ],
+    optionalRoutes: [
+      {
+        path: "/signup",
+        name: "Signup",
+        planIntent: "Keep a dedicated registration route when auth is in scope.",
+      },
+    ],
+    declaredRoutePaths: [],
+    dynamicRoutePatterns: [],
+  },
   files: loadScaffoldFiles("auth-pages"),
 };

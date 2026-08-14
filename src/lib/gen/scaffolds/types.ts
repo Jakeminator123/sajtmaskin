@@ -74,6 +74,70 @@ export interface ScaffoldFile {
   maxPromptChars?: number;
 }
 
+/**
+ * Build intents a scaffold route rule can be scoped to. Mirrors
+ * `BuildIntent` in `@/lib/builder/build-intent` (kept inline like
+ * `allowedBuildIntents` to avoid a scaffold→builder type dependency).
+ */
+export type ScaffoldRouteBuildIntent = "website" | "app" | "template";
+
+/**
+ * One concrete route the scaffold contributes to the route plan.
+ */
+export interface ScaffoldContractRoute {
+  /** Normalized route path, e.g. "/products". */
+  path: string;
+  /** Route name forwarded to the planned route (e.g. "Products"). */
+  name: string;
+  /** Intent text forwarded verbatim to the planned route. */
+  planIntent: string;
+  /**
+   * When set, the route is contributed to the plan ONLY for these build
+   * intents (dashboard/app-shell defaults apply to "app" only). Omitted =
+   * contributed for every build intent.
+   */
+  planOnlyForBuildIntents?: ScaffoldRouteBuildIntent[];
+  /**
+   * Only meaningful on `requiredRoutes`: when set, the route is planned as
+   * required for these build intents and as optional (trimmable) for all
+   * others. Example: blog's `/blog` is required for website/template but
+   * optional for app. Omitted = required for every intent that plans it.
+   */
+  requiredOnlyForBuildIntents?: ScaffoldRouteBuildIntent[];
+}
+
+/**
+ * The scaffold's route contract — the single owner of which routes the
+ * scaffold's starter files assume. Route planning derives scaffold default
+ * routes from it (`getScaffoldDefaultRoutes()` in
+ * `src/lib/gen/route-plan/planning-helpers.ts`), and the deterministic
+ * link-vs-contract gate in `scaffold-manifest-validation.test.ts` compares
+ * every internal link in `files` against it.
+ */
+export interface ScaffoldRouteContract {
+  /**
+   * The route plan MUST include these. The scaffold's files may link to
+   * them unconditionally.
+   */
+  requiredRoutes: ScaffoldContractRoute[];
+  /**
+   * May be planned (contributed as non-required) and may be trimmed by the
+   * per-round page ceiling.
+   */
+  optionalRoutes: ScaffoldContractRoute[];
+  /**
+   * Static routes whose page file exists in the scaffold but which the
+   * plan does not need to include every round. Never contributed to the
+   * plan.
+   */
+  declaredRoutePaths: string[];
+  /**
+   * Dynamic route patterns (e.g. "/product/[id]"). Links are matched
+   * against them as patterns; they are never planned as list entries.
+   */
+  dynamicRoutePatterns: string[];
+}
+
 export interface ScaffoldReferenceTemplate {
   id: string;
   title: string;
@@ -108,6 +172,13 @@ export interface ScaffoldManifest {
   allowedBuildIntents: Array<"website" | "app" | "template">;
   tags: string[];
   promptHints: string[];
+  /**
+   * Route contract owned by the scaffold itself (four categories:
+   * required / optional / declared / dynamic). Optional in the type so
+   * lightweight test fixtures compile, but `validateScaffoldManifest()`
+   * requires it on every registered scaffold.
+   */
+  routeContract?: ScaffoldRouteContract;
   files: ScaffoldFile[];
   qualityChecklist?: string[];
   research?: ScaffoldResearchMetadata;
