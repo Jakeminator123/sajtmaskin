@@ -358,6 +358,22 @@ describe("crossCheckRoutesAgainstHrefs", () => {
       crossCheckRoutesAgainstHrefs(["/", "/about"], hrefs).map((entry) => entry.path),
     ).toEqual(["/"]);
   });
+
+  it("counts hrefs from components/nav/index.tsx in the reverse check", () => {
+    expect(isNavSourceFile("components/nav/index.tsx")).toBe(true);
+    expect(isNavSourceFile("components/naval/index.tsx")).toBe(false);
+    expect(isNavSourceFile("components/nav-items/index.tsx")).toBe(false);
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/nav/index.tsx",
+        `export function Nav() { return <a href="/about">Om</a>; }`,
+      ),
+    ]).filter((entry) => isNavSourceFile(entry.file));
+    expect(hrefs.map((entry) => entry.basePath)).toEqual(["/about"]);
+    expect(
+      crossCheckRoutesAgainstHrefs(["/", "/about"], hrefs).map((entry) => entry.path),
+    ).toEqual(["/"]);
+  });
 });
 
 describe("runFinalizePreflightAll reverse nav gate", () => {
