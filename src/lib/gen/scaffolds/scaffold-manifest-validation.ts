@@ -303,22 +303,52 @@ export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldMa
   const filePaths = scaffold.files.map((file) => file.path);
   const uniqueFilePaths = new Set(filePaths);
 
-  // navSurface must point at an existing scaffold file so nav-sync can never
+  // navSurface must point at existing scaffold file(s) so nav-sync can never
   // silently target nothing (the SM-051 filename-guessing bug class).
   const navSurface = (scaffold as { navSurface?: unknown }).navSurface;
   if (navSurface !== undefined) {
-    if (typeof navSurface !== "string" || navSurface.trim().length === 0) {
+    const surfaces = Array.isArray(navSurface)
+      ? navSurface
+      : typeof navSurface === "string"
+        ? [navSurface]
+        : null;
+    if (surfaces === null) {
       issues.push({
         scaffoldId: scaffold.id,
         severity: "error",
-        message: `navSurface must be a non-empty string when set (got ${JSON.stringify(navSurface)})`,
+        message: `navSurface must be a non-empty string or array of strings when set (got ${JSON.stringify(navSurface)})`,
       });
-    } else if (!uniqueFilePaths.has(navSurface)) {
+    } else if (surfaces.length === 0) {
       issues.push({
         scaffoldId: scaffold.id,
         severity: "error",
-        message: `navSurface "${navSurface}" does not match any scaffold file path`,
+        message: "navSurface must list at least one path when set as an array",
       });
+    } else {
+      const seen = new Set<string>();
+      for (const surface of surfaces) {
+        if (typeof surface !== "string" || surface.trim().length === 0) {
+          issues.push({
+            scaffoldId: scaffold.id,
+            severity: "error",
+            message: `navSurface must be a non-empty string when set (got ${JSON.stringify(surface)})`,
+          });
+        } else if (!uniqueFilePaths.has(surface)) {
+          issues.push({
+            scaffoldId: scaffold.id,
+            severity: "error",
+            message: `navSurface "${surface}" does not match any scaffold file path`,
+          });
+        } else if (seen.has(surface)) {
+          issues.push({
+            scaffoldId: scaffold.id,
+            severity: "error",
+            message: `navSurface lists "${surface}" more than once`,
+          });
+        } else {
+          seen.add(surface);
+        }
+      }
     }
   }
 

@@ -369,6 +369,54 @@ describe("validateScaffoldManifest — routeContract shape", () => {
     (valid as { navSurface?: string }).navSurface = "components/site-header.tsx";
     expect(errorsOf(valid)).toEqual([]);
   });
+
+  it("accepts an array of existing navSurface paths and flags missing, empty, or duplicate entries", () => {
+    const valid = contractScaffold({
+      requiredRoutes: [],
+      optionalRoutes: [],
+      declaredRoutePaths: [],
+      dynamicRoutePatterns: [],
+    });
+    valid.files.push(
+      { path: "components/site-header.tsx", content: "export function SiteHeader(){ return null; }" },
+      { path: "components/site-footer.tsx", content: "export function SiteFooter(){ return null; }" },
+    );
+    (valid as { navSurface?: string | string[] }).navSurface = [
+      "components/site-header.tsx",
+      "components/site-footer.tsx",
+    ];
+    expect(errorsOf(valid)).toEqual([]);
+
+    const missing = { ...valid };
+    (missing as { navSurface?: string | string[] }).navSurface = [
+      "components/site-header.tsx",
+      "components/missing-footer.tsx",
+    ];
+    expect(errorsOf(missing).map((issue) => issue.message)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('navSurface "components/missing-footer.tsx" does not match any scaffold file path'),
+      ]),
+    );
+
+    const empty = { ...valid };
+    (empty as { navSurface?: string | string[] }).navSurface = [];
+    expect(errorsOf(empty).map((issue) => issue.message)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("navSurface must list at least one path when set as an array"),
+      ]),
+    );
+
+    const duplicate = { ...valid };
+    (duplicate as { navSurface?: string | string[] }).navSurface = [
+      "components/site-header.tsx",
+      "components/site-header.tsx",
+    ];
+    expect(errorsOf(duplicate).map((issue) => issue.message)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('navSurface lists "components/site-header.tsx" more than once'),
+      ]),
+    );
+  });
 });
 
 /**

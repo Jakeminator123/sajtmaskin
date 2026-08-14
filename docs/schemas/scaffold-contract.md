@@ -95,13 +95,16 @@ After all sources contribute, `buildRoutePlan()` runs `dedupePlannedRoutesInPlac
 - `promptHints`
 - `routeContract` (optional in the type for test fixtures; validation requires
   it on every registered scaffold — see [Route contract](#route-contract))
-- optional `navSurface` — path of the scaffold's nav component (e.g.
-  `components/site-header.tsx`). `syncNavItemsFromRoutePlan` rewrites ONLY
-  this file to mirror the route plan on init; the manifest points the surface
-  out so nav targets are never guessed from filenames (the SM-051 bug class).
+- optional `navSurface` — path or paths of the scaffold's nav surfaces (e.g.
+  `components/site-header.tsx`, or
+  `["components/site-header.tsx", "components/site-footer.tsx"]`).
+  `syncNavItemsFromRoutePlan` rewrites ONLY these files to mirror the route
+  plan on init; the manifest points the surfaces out so nav targets are never
+  guessed from filenames (the SM-051 bug class). A string is the
+  single-surface form; an array lists every surface (header + footer).
   Scaffolds without a shared nav component omit it (auth-pages, portfolio,
   base-nextjs, projekt-bas-app) and nav-sync is a no-op. Validation requires
-  the path to match a scaffold file.
+  each path to match a scaffold file.
 - `files`
 - optional `qualityChecklist`
 - optional `research`
@@ -201,7 +204,8 @@ Known drift is pinned in the test's explicit exception list
 with SM-048: the formerly drifting routes (`/pipeline`, `/tasks`,
 `/forgot-password`, `/users`, `/categories`, `/om`) are declared in their
 contracts, the route-plan file filter drops their files when the plan omits
-them, and nav-sync rewrites each scaffold's `navSurface` to match. The only
+them, and nav-sync rewrites each scaffold's `navSurface` (header, and for
+ecommerce also the footer) to match. The only
 remaining exception is SM-043's `/cart` (contract junk). The list is
 compared with exact equality, so drift can neither grow nor disappear
 silently — each exception is removed together with the owner's direction
@@ -294,8 +298,8 @@ handkuraterad för auto-matchning eller retry-heuristik.
 - `deliveryGroups` (when set): array-shaped, each group couples at least two
   contract paths, every member exists in the contract, no duplicate members
   (all errors)
-- `navSurface` (when set): non-empty string that matches a scaffold file
-  path (error)
+- `navSurface` (when set): non-empty string, or non-empty array of unique
+  non-empty strings, each matching a scaffold file path (error)
 - duplicate file paths
 - required `app/globals.css`
 - presence of `@theme inline` tokens in `app/globals.css` as a warning

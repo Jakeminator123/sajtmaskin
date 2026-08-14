@@ -4,20 +4,25 @@
  * `checkCrossFileImports`): it needs the merged file set + the plan, and
  * it does not emit a `FixEntry`.
  *
- * The target file is `ScaffoldManifest.navSurface` — the manifest points
- * the scaffold's nav component out, so nav targets are never guessed from
- * filenames (the SM-051 bug class). Scaffolds without a `navSurface`
- * (auth-pages, portfolio, base-nextjs, projekt-bas-app) are a no-op.
+ * The target files are `ScaffoldManifest.navSurface` (string or list) —
+ * the manifest points the scaffold's nav surfaces out, so targets are
+ * never guessed from filenames (the SM-051 bug class). Scaffolds without
+ * a `navSurface` (auth-pages, portfolio, base-nextjs, projekt-bas-app)
+ * are a no-op.
  *
- * Two stable `navItems` shapes are handled:
+ * Three stable shapes are handled:
  *
- *  - `{ label, href, icon }` (app-shell/dashboard sidebars): the array is
- *    REWRITTEN from the plan — planned routes in, unplanned links out.
- *  - `{ label, href }` (site-/marketing-headers): the array is FILTERED —
- *    internal page links whose route is not in the plan are removed; in-page
- *    anchors (`#pricing`), `mailto:`/`tel:`, external URLs and template
- *    hrefs are never touched, and no links are added. Anchor-only headers
- *    (landing-page, saas-landing) therefore stay untouched.
+ *  - `{ label, href, icon }` (app-shell/dashboard sidebars): the `navItems`
+ *    array is REWRITTEN from the plan — planned routes in, unplanned links
+ *    out.
+ *  - `{ label, href }` (site-/marketing-headers): the `navItems` array is
+ *    FILTERED — internal page links whose route is not in the plan are
+ *    removed; in-page anchors (`#pricing`), `mailto:`/`tel:`, external URLs
+ *    and template hrefs are never touched, and no links are added.
+ *    Anchor-only headers (landing-page, saas-landing) therefore stay
+ *    untouched.
+ *  - grouped `footerLinks = { Col: [{ label, href }] }` (ecommerce footer):
+ *    same FILTER as the header form, per column. Empty columns are dropped.
  *
  * Follow-up freeze: never rewrite when `isFollowUp` is true. A user who
  * deleted a nav link in a previous round must not get it written back.
@@ -27,7 +32,7 @@
  */
 
 import type { CodeFile } from "@/lib/gen/parser";
-import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
+import { listNavSurfaces, type ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import { normalizeRoutePath, type RoutePlan } from "@/lib/gen/route-plan";
 
 const FALLBACK_ICON = "LayoutDashboard";
@@ -41,6 +46,7 @@ const NAV_ICON_BY_PATH: Record<string, string> = {
 };
 
 const NAV_ITEMS_HEAD_RE = /(?:const|let|var)\s+navItems\s*=\s*\[/;
+const FOOTER_LINKS_HEAD_RE = /(?:const|let|var)\s+footerLinks\s*=\s*\{/;
 // One stable nav item. `icon:` is optional: sidebars carry it
 // (`{ label, href, icon }`), site-/marketing-headers do not (`{ label, href }`).
 const NAV_ITEM_RE =
@@ -58,7 +64,7 @@ export function syncNavItemsFromRoutePlan(params: {
   /** When true the file is left untouched (follow-up freeze). */
   isFollowUp?: boolean;
   /**
-   * Scaffold whose manifest `navSurface` points out the nav file to sync.
+   * Scaffold whose manifest `navSurface` points out the nav file(s) to sync.
    * No scaffold or no `navSurface` → no-op.
    */
   scaffold: Pick<ScaffoldManifest, "navSurface"> | null | undefined;
@@ -66,13 +72,13 @@ export function syncNavItemsFromRoutePlan(params: {
   const { files, routePlan, isFollowUp = false, scaffold } = params;
   if (isFollowUp) return { files, changedPaths: [] };
   if (!routePlan || routePlan.routes.length === 0) return { files, changedPaths: [] };
-  const navSurface = scaffold?.navSurface;
-  if (!navSurface) return { files, changedPaths: [] };
+  const surfaces = listNavSurfaces(scaffold?.navSurface);
+  if (surfaces.length === 0) return { files, changedPaths: [] };
 
   const changedPaths: string[] = [];
   const nextFiles = files.map((file) => {
-    if (!isNavSurfacePath(file.path, navSurface)) return file;
-    const next = rewriteNavItems(file.content, routePlan);
+    if (!isNavSurfacePath(file.path, surfaces)) return file;
+    const next = rewriteNavFile(file.content, routePlan);
     if (!next || next === file.content) return file;
     changedPaths.push(file.path);
     return { ...file, content: next };
@@ -80,10 +86,19 @@ export function syncNavItemsFromRoutePlan(params: {
   return { files: nextFiles, changedPaths };
 }
 
-function isNavSurfacePath(path: string, navSurface: string): boolean {
+function isNavSurfacePath(path: string, surfaces: readonly string[]): boolean {
   const normalized = path.replace(/\\/g, "/");
   // Suffix match tolerates `src/`-rooted copies of the same component.
-  return normalized === navSurface || normalized.endsWith(`/${navSurface}`);
+  return surfaces.some(
+    (surface) => normalized === surface || normalized.endsWith(`/${surface}`),
+  );
+}
+
+function rewriteNavFile(content: string, routePlan: RoutePlan): string | null {
+  if (NAV_ITEMS_HEAD_RE.test(content)) {
+    return rewriteNavItems(content, routePlan);
+  }
+  return rewriteFooterLinks(content, routePlan);
 }
 
 function rewriteNavItems(content: string, routePlan: RoutePlan): string | null {
@@ -123,6 +138,33 @@ function rewriteNavItems(content: string, routePlan: RoutePlan): string | null {
   return content.slice(0, head.index) + decl + body + content.slice(extracted.end + 1);
 }
 
+function rewriteFooterLinks(content: string, routePlan: RoutePlan): string | null {
+  const head = FOOTER_LINKS_HEAD_RE.exec(content);
+  if (!head) return null;
+  const openBrace = head.index + head[0].length - 1;
+  const extracted = extractBalanced(content, openBrace, "{", "}");
+  if (!extracted) return null;
+  const groups = parseFooterLinkGroups(extracted.body);
+  if (!groups) return null;
+
+  const planned = new Set(routePlan.routes.map((route) => normalizeRoutePath(route.path)));
+  let changed = false;
+  const nextGroups: FooterLinkGroup[] = [];
+  for (const group of groups) {
+    const kept = group.items.filter((item) => !isUnplannedInternalHref(item.href, planned));
+    if (kept.length !== group.items.length) changed = true;
+    if (kept.length === 0) {
+      changed = true;
+      continue;
+    }
+    nextGroups.push({ keyRaw: group.keyRaw, items: kept });
+  }
+  if (!changed) return null;
+
+  const decl = head[0]!.replace(/\{$/, "");
+  return content.slice(0, head.index) + decl + renderFooterLinks(nextGroups) + content.slice(extracted.end + 1);
+}
+
 function isUnplannedInternalHref(href: string, planned: Set<string>): boolean {
   const trimmed = href.trim();
   if (!trimmed.startsWith("/")) return false;
@@ -140,10 +182,19 @@ function extractArrayBody(
   source: string,
   openBracketIndex: number,
 ): { body: string; end: number } | null {
+  return extractBalanced(source, openBracketIndex, "[", "]");
+}
+
+function extractBalanced(
+  source: string,
+  openIndex: number,
+  openCh: string,
+  closeCh: string,
+): { body: string; end: number } | null {
   let depth = 0;
   let quote: string | null = null;
   let escaped = false;
-  for (let i = openBracketIndex; i < source.length; i += 1) {
+  for (let i = openIndex; i < source.length; i += 1) {
     const ch = source[i]!;
     if (quote) {
       if (escaped) {
@@ -161,11 +212,11 @@ function extractArrayBody(
       quote = ch;
       continue;
     }
-    if (ch === "[") depth += 1;
-    else if (ch === "]") {
+    if (ch === openCh) depth += 1;
+    else if (ch === closeCh) {
       depth -= 1;
       if (depth === 0) {
-        return { body: source.slice(openBracketIndex + 1, i), end: i };
+        return { body: source.slice(openIndex + 1, i), end: i };
       }
     }
   }
@@ -207,6 +258,85 @@ function parseStableNavItems(body: string): ParsedNavItem[] | null {
     }
   }
   return items.length > 0 ? items : null;
+}
+
+interface FooterLinkGroup {
+  /** Verbatim group key, quoted or identifier (`Butik` / `"Info"`). */
+  keyRaw: string;
+  items: ParsedNavItem[];
+}
+
+function parseFooterLinkGroups(body: string): FooterLinkGroup[] | null {
+  let cursor = 0;
+  const groups: FooterLinkGroup[] = [];
+
+  const skipWs = (): void => {
+    while (cursor < body.length && /\s/.test(body[cursor]!)) cursor += 1;
+  };
+
+  skipWs();
+  while (cursor < body.length) {
+    const ch = body[cursor]!;
+    let keyRaw: string;
+    if (ch === '"' || ch === "'" || ch === "`") {
+      let i = cursor + 1;
+      let escaped = false;
+      while (i < body.length) {
+        const next = body[i]!;
+        if (escaped) {
+          escaped = false;
+          i += 1;
+          continue;
+        }
+        if (next === "\\") {
+          escaped = true;
+          i += 1;
+          continue;
+        }
+        if (next === ch) {
+          i += 1;
+          break;
+        }
+        i += 1;
+      }
+      keyRaw = body.slice(cursor, i);
+      cursor = i;
+    } else if (/[A-Za-z_$]/.test(ch)) {
+      let i = cursor + 1;
+      while (i < body.length && /[\w$]/.test(body[i]!)) i += 1;
+      keyRaw = body.slice(cursor, i);
+      cursor = i;
+    } else {
+      return body.slice(cursor).trim() === "" && groups.length > 0 ? groups : null;
+    }
+
+    skipWs();
+    if (body[cursor] !== ":") return null;
+    cursor += 1;
+    skipWs();
+    if (body[cursor] !== "[") return null;
+    const extracted = extractBalanced(body, cursor, "[", "]");
+    if (!extracted) return null;
+    const items = parseStableNavItems(extracted.body);
+    if (!items) return null;
+    groups.push({ keyRaw, items });
+    cursor = extracted.end + 1;
+    skipWs();
+    if (body[cursor] === ",") {
+      cursor += 1;
+      skipWs();
+    }
+  }
+  return groups.length > 0 ? groups : null;
+}
+
+function renderFooterLinks(groups: FooterLinkGroup[]): string {
+  if (groups.length === 0) return "{}";
+  const rendered = groups.map((group) => {
+    const items = group.items.map((item) => `    ${item.raw},`).join("\n");
+    return `  ${group.keyRaw}: [\n${items}\n  ],`;
+  });
+  return `{\n${rendered.join("\n")}\n}`;
 }
 
 function routesForNav(routePlan: RoutePlan): Array<{ path: string; name: string }> {

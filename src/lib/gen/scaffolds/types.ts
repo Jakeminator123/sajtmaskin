@@ -196,16 +196,30 @@ export interface ScaffoldManifest {
    */
   routeContract?: ScaffoldRouteContract;
   /**
-   * Path (within `files`) of the scaffold's navigation component, e.g.
-   * `components/site-header.tsx`. `syncNavItemsFromRoutePlan` rewrites ONLY
-   * this file to mirror the route plan on init — the manifest points the
-   * surface out, so nav targets are never guessed from filenames (the
-   * SM-051 bug class). Omit for scaffolds without a shared nav component
-   * (auth-pages, portfolio, base-nextjs, projekt-bas-app); nav-sync is then
-   * a no-op.
+   * Path or paths (within `files`) of the scaffold's navigation surfaces,
+   * e.g. `components/site-header.tsx` or
+   * `["components/site-header.tsx", "components/site-footer.tsx"]`.
+   * `syncNavItemsFromRoutePlan` rewrites ONLY these files to mirror the
+   * route plan on init — the manifest points the surfaces out, so nav
+   * targets are never guessed from filenames (the SM-051 bug class).
+   * A string is the single-surface form; an array lists every surface
+   * (header + footer). Omit for scaffolds without a shared nav component
+   * (auth-pages, portfolio, base-nextjs, projekt-bas-app); nav-sync is
+   * then a no-op.
    */
-  navSurface?: string;
+  navSurface?: string | readonly string[];
   files: ScaffoldFile[];
   qualityChecklist?: string[];
   research?: ScaffoldResearchMetadata;
+}
+
+/** Normalize `navSurface` to a list of non-empty paths, order preserved. */
+export function listNavSurfaces(
+  navSurface: ScaffoldManifest["navSurface"] | null | undefined,
+): string[] {
+  if (typeof navSurface === "string") {
+    return navSurface.length > 0 ? [navSurface] : [];
+  }
+  if (!Array.isArray(navSurface)) return [];
+  return navSurface.filter((item): item is string => typeof item === "string" && item.length > 0);
 }
