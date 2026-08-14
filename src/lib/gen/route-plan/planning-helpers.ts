@@ -146,10 +146,11 @@ const ANAPHORIC_ONE_PAGE_RE = new RegExp(
 
 /**
  * "and the one page" / "and also the one page" is a second conjunct.
- * Allow a couple of filler words so "and also/then/även" still vetoes the cap.
+ * Only discourse fillers count — locative "and on/på the one page" restates
+ * the same page and must keep the cap (F-9e37c784ddd6).
  */
 const COORDINATED_ANAPHORA_PREFIX_RE = new RegExp(
-  `${uWord(String.raw`(?:and|och|plus|or|eller)`)}(?:\\s+\\p{L}+){0,2}\\s+$`,
+  `${uWord(String.raw`(?:and|och|plus|or|eller)`)}(?:\\s+(?:also|then|even|too|även|också|sen|sedan)){0,2}\\s+$`,
   "iu",
 );
 

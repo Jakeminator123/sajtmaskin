@@ -867,6 +867,8 @@ describe("detectExplicitPageCount", () => {
     ["Only one page; the one page should have a footer", 1],
     ["Bara en sida; den enda sidan ska ha en footer", 1],
     ["Only one page, a landing page for the product", 1],
+    ["Only one page, and on the one page include pricing", 1],
+    ["Bara en sida, och på den enda sidan ska priser finnas", 1],
   ] as const)("keeps the one-page cap across anaphora/apposition: %s", (prompt, expected) => {
     expect(detectExplicitPageCount(prompt)).toBe(expected);
   });
@@ -913,6 +915,7 @@ describe("detectExplicitPageCount", () => {
     "only one page for prices and one page for contact",
     "only one page for prices and the one page for contact",
     "only one page for prices and also the one page for contact",
+    "only one page for prices and then the one page for contact",
     "contact only on one page and pricing on another",
     "endast en sida till",
     "bara en sida till",
