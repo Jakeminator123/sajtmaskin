@@ -864,6 +864,40 @@ describe("detectExplicitPageCount", () => {
   });
 
   it.each([
+    ["Only one page; the one page should have a footer", 1],
+    ["Bara en sida; den enda sidan ska ha en footer", 1],
+    ["Only one page, a landing page for the product", 1],
+    ["Only one page, and on the one page include pricing", 1],
+    ["Bara en sida, och på den enda sidan ska priser finnas", 1],
+  ] as const)("keeps the one-page cap across anaphora/apposition: %s", (prompt, expected) => {
+    expect(detectExplicitPageCount(prompt)).toBe(expected);
+  });
+
+  it("plans only the root route when the same page is restated anaphorically", () => {
+    const blogScaffold = getScaffoldById("blog");
+    expect(blogScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      prompt: "Only one page; the one page should have a footer",
+      buildIntent: "website",
+      resolvedScaffold: blogScaffold,
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+    expect(plan.routes).toHaveLength(1);
+  });
+
+  it("plans only the root route when a comma names the same page in apposition", () => {
+    const blogScaffold = getScaffoldById("blog");
+    expect(blogScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      prompt: "Only one page, a landing page for the product",
+      buildIntent: "website",
+      resolvedScaffold: blogScaffold,
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+    expect(plan.routes).toHaveLength(1);
+  });
+
+  it.each([
     "En hemsida om tvspel",
     "Jag vill ha en sida med priser och en sida med kontakt",
     "en sida i taget",
@@ -876,6 +910,12 @@ describe("detectExplicitPageCount", () => {
     "lägg till bara en sida",
     "add just one page",
     "single-page landing plus an about page",
+    "only one page and an about page",
+    "Only one page, a landing page and a contact page",
+    "only one page for prices and one page for contact",
+    "only one page for prices and the one page for contact",
+    "only one page for prices and also the one page for contact",
+    "only one page for prices and then the one page for contact",
     "contact only on one page and pricing on another",
     "endast en sida till",
     "bara en sida till",

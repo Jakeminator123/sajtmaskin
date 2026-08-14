@@ -108,7 +108,7 @@ const FOLLOW_UP_ADD_PAGE_RE = new RegExp(
   "iu",
 );
 
-/** Extra named pages besides a one-page marker ("an about page", "another page"). */
+/** Extra named pages besides a one-page marker ("another page", "fler sidor"). */
 const ADDITIONAL_NAMED_PAGE_RE = new RegExp(
   uWord(
     String.raw`(?:` +
@@ -118,9 +118,39 @@ const ADDITIONAL_NAMED_PAGE_RE = new RegExp(
       String.raw`|en\s+annan\s+${PAGE_NOUN_SINGULAR}` +
       String.raw`|på\s+en\s+annan` +
       String.raw`|fler(?:a)?\s+${PAGE_NOUN_PLURAL}` +
-      String.raw`|(?:a|an)\s+(?!single|only|just)[\p{L}]+(?:\s+[\p{L}]+){0,2}\s+${PAGE_NOUN_SINGULAR}` +
       String.raw`)`,
   ),
+  "iu",
+);
+
+/**
+ * "a landing page" / "an about page". A single match right after a comma is
+ * apposition (same page: "Only one page, a landing page for the product").
+ * Two matches, or one after and/plus, name extra routes.
+ */
+const INDEFINITE_NAMED_PAGE_RE = new RegExp(
+  uWord(
+    String.raw`(?:a|an)\s+(?!single|only|just)[\p{L}]+(?:\s+[\p{L}]+){0,2}\s+${PAGE_NOUN_SINGULAR}`,
+  ),
+  "giu",
+);
+
+/** "the one page" / "den enda sidan" restates a page already counted. */
+const ANAPHORIC_ONE_PAGE_RE = new RegExp(
+  uWord(
+    String.raw`(?:the|this|that)\s+one\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|(?:den|det|denna|dette)\s+(?:enda|ena)\s+${PAGE_NOUN_SINGULAR}`,
+  ),
+  "giu",
+);
+
+/**
+ * "and the one page" / "and also the one page" is a second conjunct.
+ * Only discourse fillers count — locative "and on/på the one page" restates
+ * the same page and must keep the cap (F-9e37c784ddd6).
+ */
+const COORDINATED_ANAPHORA_PREFIX_RE = new RegExp(
+  `${uWord(String.raw`(?:and|och|plus|or|eller)`)}(?:\\s+(?:also|then|even|too|även|också|sen|sedan)){0,2}\\s+$`,
   "iu",
 );
 
@@ -429,8 +459,34 @@ export function neutralizeExplicitPageNameLiterals(
 }
 
 function countIndefinitePageMentions(prompt: string): number {
+  ANAPHORIC_ONE_PAGE_RE.lastIndex = 0;
+  const withoutAnaphora = prompt.replace(ANAPHORIC_ONE_PAGE_RE, (match, offset: number) => {
+    const before = prompt.slice(0, offset);
+    if (COORDINATED_ANAPHORA_PREFIX_RE.test(before)) return match;
+    return " ";
+  });
   INDEFINITE_PAGE_MENTION_RE.lastIndex = 0;
-  return prompt.match(INDEFINITE_PAGE_MENTION_RE)?.length ?? 0;
+  return withoutAnaphora.match(INDEFINITE_PAGE_MENTION_RE)?.length ?? 0;
+}
+
+function isCommaAppositionNamedPage(prompt: string, matchIndex: number): boolean {
+  return /,\s*$/u.test(prompt.slice(0, matchIndex));
+}
+
+/**
+ * True when the prompt names an extra route besides a one-page cap.
+ * A lone comma-apposition (", a landing page for …") is the same page.
+ * Two "a/an … page" mentions, or one after and/plus, still veto the cap.
+ */
+function hasAdditionalNamedPage(prompt: string): boolean {
+  if (ADDITIONAL_NAMED_PAGE_RE.test(prompt)) return true;
+  INDEFINITE_NAMED_PAGE_RE.lastIndex = 0;
+  const named = [...prompt.matchAll(INDEFINITE_NAMED_PAGE_RE)];
+  if (named.length >= 2) return true;
+  if (named.length === 0) return false;
+  const index = named[0]!.index ?? 0;
+  if (isCommaAppositionNamedPage(prompt, index)) return false;
+  return true;
 }
 
 /**
@@ -460,13 +516,18 @@ export function detectExplicitPageCount(prompt: string): number | null {
   }
 
   // Two "en sida" / "one page" mentions are a list of pages, not a cap of 1.
+  // Anaphoric restatements ("the one page", "den enda sidan") are the same
+  // page, not a second mention — unless coordinated ("and the one page"),
+  // which is a parallel list and must not become a false cap of 1.
+  // A comma-apposition right after the cap (", a landing page for …")
+  // restates the same page; a later named page still vetoes the cap.
   // Follow-up "lägg till bara en sida" is an add, not a site-wide cap.
   // "single-page plus an about page" names extra routes, so it is not a cap either.
   if (
     RESTRICTIVE_ONE_PAGE_RE.test(prompt) &&
     countIndefinitePageMentions(prompt) < 2 &&
     !FOLLOW_UP_ADD_PAGE_RE.test(prompt) &&
-    !ADDITIONAL_NAMED_PAGE_RE.test(prompt)
+    !hasAdditionalNamedPage(prompt)
   ) {
     return 1;
   }
