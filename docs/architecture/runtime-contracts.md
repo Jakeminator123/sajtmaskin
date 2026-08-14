@@ -119,6 +119,10 @@ Invariants:
 - F2 har två Blocker-källor: RenderGates render-risk-TS-koder och
   finalize-verifierns build-breaking-fynd (`isBuildBreakingFinding` —
   import-/namnupplösningsklassen). Övriga verifier-fynd är Advisory i F2.
+  Samma klass går ut på verifier-progress som `severity` (`advisory` /
+  `blocking`). Slutsteg blir rött bara på Blocker-`fix-failed`
+  (`resolveProgressPartState`); saknad signal behandlas som Blocker.
+  Promotion och verifiering ändras inte — det är status, inte en grind.
 - Build-originated repair ska inte återgå till en för lätt gate.
 
 ## RepairGate

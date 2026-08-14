@@ -663,6 +663,7 @@ describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)
         phase: "fix-partial",
         findingsBefore: 2,
         findingsAfter: 1,
+        severity: "blocking",
       }),
     });
     expect(progressEvents).not.toContainEqual({
@@ -710,7 +711,49 @@ describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)
     );
     expect(progressEvents).toContainEqual({
       step: "verifier",
-      data: expect.objectContaining({ phase: "fix-failed" }),
+      data: expect.objectContaining({ phase: "fix-failed", severity: "blocking" }),
+    });
+  });
+
+  it("F2 advisory finding + fix-failed → severity advisory (status, not a gate)", async () => {
+    const advisoryFinding = {
+      id: "navigation-placeholder-actions",
+      detail: "footer links go nowhere",
+    };
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [advisoryFinding],
+        quality: [],
+      })
+      .mockResolvedValueOnce({
+        blocking: [advisoryFinding],
+        quality: [],
+      });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: PAGE,
+        fixedFiles: ["app/api/assistant/route.ts"],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: true,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.5",
+      deduped: false,
+    });
+    const progressEvents: Array<{ step: string; data: Record<string, unknown> }> = [];
+
+    await runVerifierPhase({
+      ...baseParams(PAGE),
+      buildSpec: { previewPolicy: "fidelity2" } as never,
+      onProgress: (step, data) => progressEvents.push({ step, data }),
+    });
+
+    expect(progressEvents).toContainEqual({
+      step: "verifier",
+      data: expect.objectContaining({ phase: "fix-failed", severity: "advisory" }),
     });
   });
 

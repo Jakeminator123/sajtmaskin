@@ -193,6 +193,59 @@ describe("StructuredToolParts", () => {
     expect(screen.getByText("Fel upptäcktes — visa detaljer")).toBeTruthy();
   });
 
+  it("does not stamp Slutsteg as fel for an advisory verifier fix-failed", () => {
+    const items = buildAgentLogItems([
+      {
+        type: "tool",
+        tool: {
+          type: "tool:engine-verifier",
+          toolName: "Verifiering",
+          state: "output-available",
+          output: {
+            step: "verifier",
+            phase: "fix-failed",
+            severity: "advisory",
+            steps: ["Verifieringen kunde inte laga fyndet."],
+          },
+        },
+      } as never,
+    ]);
+
+    expect(items.some((item) => item.failed)).toBe(false);
+
+    render(<AgentLogCard items={items} isActive={false} />);
+
+    expect(screen.getByText("Slutsteg (1)")).toBeTruthy();
+    expect(screen.queryByText("Slutsteg (1) · fel")).toBeNull();
+    expect(screen.queryByLabelText("Ett byggsteg misslyckades")).toBeNull();
+  });
+
+  it("keeps Slutsteg · fel for a blocking verifier fix-failed", () => {
+    const items = buildAgentLogItems([
+      {
+        type: "tool",
+        tool: {
+          type: "tool:engine-verifier",
+          toolName: "Verifiering",
+          state: "output-error",
+          output: {
+            step: "verifier",
+            phase: "fix-failed",
+            severity: "blocking",
+            steps: ["Verifieringen kunde inte laga fyndet."],
+          },
+        },
+      } as never,
+    ]);
+
+    expect(items.some((item) => item.failed)).toBe(true);
+
+    render(<AgentLogCard items={items} isActive={false} />);
+
+    expect(screen.getByText("Slutsteg (1) · fel")).toBeTruthy();
+    expect(screen.getByLabelText("Ett byggsteg misslyckades")).toBeTruthy();
+  });
+
   it("keeps an earlier failure visible while a later post-check is active", () => {
     render(
       <AgentLogCard
