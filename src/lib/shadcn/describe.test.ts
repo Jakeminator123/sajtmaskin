@@ -265,6 +265,7 @@ describe("makeDefaultFetchItem community payload validation", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("drops a 200 response with an empty/non-usable body", async () => {
@@ -302,6 +303,46 @@ describe("makeDefaultFetchItem community payload validation", () => {
     await expect(
       fetchItem({ registry: "@tailark", name: "hero-1" }),
     ).resolves.toBeNull();
+  });
+
+  it("sends Bearer to www.shadcnblocks.com and not to other community hosts", async () => {
+    vi.stubEnv("SHADCNBLOCKS_API_KEY", "sk_test_fake_shadcnblocks_token");
+    const fetchMock = vi.fn(async (_input: unknown, _init?: RequestInit) => {
+      const usable = {
+        name: "hero1",
+        files: [{ path: "hero1.tsx", content: "export default function () {}" }],
+      };
+      return new Response(JSON.stringify(usable), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const fetchItem = makeDefaultFetchItem([
+      {
+        namespace: "@shadcnblocks",
+        urlTemplate: "https://shadcnblocks.com/r/{name}.json",
+        description: "hero",
+        itemNames: ["hero1"],
+      },
+      {
+        namespace: "@magicui",
+        urlTemplate: "https://magicui.design/r/{name}",
+        description: "animation",
+        itemNames: ["marquee"],
+      },
+    ]);
+
+    await fetchItem({ registry: "@shadcnblocks", name: "hero1" });
+    await fetchItem({ registry: "@magicui", name: "marquee" });
+
+    const blocksCall = fetchMock.mock.calls[0];
+    expect(String(blocksCall?.[0])).toBe("https://www.shadcnblocks.com/r/hero1.json");
+    expect(blocksCall?.[1]?.headers).toMatchObject({
+      Authorization: "Bearer sk_test_fake_shadcnblocks_token",
+    });
+
+    const magicCall = fetchMock.mock.calls[1];
+    expect(String(magicCall?.[0])).toBe("https://magicui.design/r/marquee");
+    expect(magicCall?.[1]?.headers).toBeUndefined();
   });
 });
 

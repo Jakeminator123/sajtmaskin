@@ -1,4 +1,5 @@
 import type { InferredCapabilities } from "../capability-inference";
+import { buildCommunityRegistryRequest } from "@/lib/shadcn/community-registry-fetch";
 import { rewriteRegistryImports } from "@/lib/shadcn/registry-utils";
 import {
   getRegistryBaseUrl,
@@ -217,7 +218,10 @@ async function fetchCommunityRecipe(
 
   const url = registry.url.replace("{name}", encodeURIComponent(itemName));
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    const request = buildCommunityRegistryRequest(url, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    const response = await fetch(request.url, request.init);
     if (!response.ok) {
       setCached(cacheKey, null);
       return null;

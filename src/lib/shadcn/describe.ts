@@ -40,6 +40,7 @@ import {
   isUsableRegistryItem,
   type RegistryIndexItem,
 } from "@/lib/shadcn/registry-service";
+import { buildCommunityRegistryRequest } from "@/lib/shadcn/community-registry-fetch";
 import {
   contentTokens,
   loadDescribeCommunityRegistries,
@@ -503,9 +504,10 @@ export function makeDefaultFetchItem(
     if (!descriptor) return null;
     const url = buildCommunityItemUrl(descriptor.urlTemplate, name);
     try {
-      const response = await fetch(url, {
+      const request = buildCommunityRegistryRequest(url, {
         signal: AbortSignal.timeout(COMMUNITY_FETCH_TIMEOUT_MS),
       });
+      const response = await fetch(request.url, request.init);
       if (!response.ok) return null;
       const item = (await response.json()) as ShadcnRegistryItem;
       // Parity with the official path: a 200 with an empty/garbage body (e.g.
