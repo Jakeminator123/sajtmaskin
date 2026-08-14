@@ -19,10 +19,11 @@ De är inte Normalize, syntaxvalidering i finalize, verifier-pass, live
 CapabilitySmoke-fynd projiceras som warnings i publiceringskollen
 (`GET .../readiness`). `productBlocked` på senaste
 `product_postcheck.summary` sätter `info.productPostcheckBlocksF3`.
-`info.productPostcheckBlockedReason` listar bara koder som faktiskt sätter
-`productBlocked` (`mobile_menu_failed`, ≥2 `broken_anchor`, `runtime_crash`,
-`preview_boot_page`); rådgivande koder stannar i `warnings`. Promotion
-läser inte fältet. Fynden är aldrig `canDeploy`-blockers.
+`info.productPostcheckBlockedReason` är sammanslagna fyndtitlar från de
+F3-spärrande koderna (`mobile_menu_failed`, ≥2 `broken_anchor`,
+`runtime_crash`, `preview_boot_page`) — inte själva enum-koderna.
+Rådgivande koder stannar i `warnings`. Promotion läser inte fältet.
+Fynden är aldrig `canDeploy`-blockers.
 
 | Lane | Syfte | Typisk körning |
 | --- | --- | --- |
@@ -43,7 +44,10 @@ Aktuella checklistor per lane ägs av
    (`design_preview_skip_verify`).
 2. **Explicit route** `POST /api/engine/chats/[chatId]/quality-gate`.
    `lifecycle_stage` väljer lanen; klient-body kan varken upp- eller
-   nedgradera checks.
+   nedgradera checks. För `integrationsBuild` kör routen först
+   `checkTier3ReadinessForVersion` (saknad env → 412
+   `tier3_env_not_ready`; `product_postcheck_blocked` från F2-föräldern
+   via `productPostcheckVersionId` → 409) innan VM-ReleaseGate.
 3. **Efter repair** — både `server-verify` och `/repair` re-kör samma gate.
 
 F3 (`previewPolicy: "fidelity3"`) ägs av serverns post-finalize
@@ -126,6 +130,16 @@ fingerprint (`install-cache-share` / `install-peer-fallback` i `results[]`).
 
 ## Historisk baslinje
 
-Fryst 14-dagars KPI från 2026-07-02 ligger i
-`scripts/observability/control-stats-baseline-2026-07-02.json`. Jämför med
-`npm run stats:compare`. Prod-mätning ägs inte av den här filen.
+Fryst 14-dagars KPI t.o.m. 2026-07-02 (41 chattar, 115 genereringar).
+Siffrorna ägs av
+`scripts/observability/control-stats-baseline-2026-07-02.json`.
+Jämför med `npm run stats:compare`. Prod-mätning ägs inte av den här filen.
+
+| Mätvärde | Baslinje |
+| --- | --- |
+| RenderGate/ReleaseGate pass | 84 % |
+| Typecheck som first failure | 99 % av gate-fails |
+| Importrelaterade TS-fel | 84 % av felträffar |
+| Verifier skippad | 69 % (volymstyrd) |
+| Gate-failade räddade av repair | 1/28 (3,6 %) |
+| Versioner som slutar failed | 38 % |

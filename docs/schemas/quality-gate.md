@@ -131,7 +131,13 @@ Cutoff för legacy-semantik (preflight-`true` som ljög grönt):
 
 `generation_telemetry.quality_gate_result` är promote-guardens signal
 (`verifier_failed` / `preflight_failed` / `preflight_passed`).
-Innehållsrevision bakom `SAJTMASKIN_CONTENT_REVISION_GATE` jämför
-`files_revision` på verdikt vs version — se
+Bakom `SAJTMASKIN_CONTENT_REVISION_GATE` läser guarden senaste signal
+för aktuell `files_revision`. Känd mismatch →
+`{ allowed: false, indeterminate: true, staleRevision: true,
+staleSignalBlocking }`. `/quality-gate` stämplar ett färskt
+`preflight_passed` och gör ett guard-omtag bara när det överspelade
+verdiktet inte var blockerande. `acceptRepair` skickar
+`promotedFilesJson` så repair-passets verdikt inte räknas som stale.
+Lageröversikt:
 [`orchestration-signal-contract.md`](orchestration-signal-contract.md)
 (lager Innehållsrevision).
