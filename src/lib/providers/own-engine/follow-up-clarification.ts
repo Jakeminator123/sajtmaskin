@@ -619,6 +619,12 @@ const CLARIFICATION_NEGATION = uWordRegex(
   "iu",
 );
 
+/** "jag vill ha en ny sida" is a new order, not a scope click. */
+const CLARIFICATION_NEW_BRIEF_INTENT = uWordRegex(
+  "vill\\s+ha|behöver|önskar|ska\\s+vara|ska\\s+innehålla|i\\s+want|we\\s+want|i\\s+need|we\\s+need|needs\\s+to\\s+have|should\\s+include",
+  "iu",
+);
+
 const CLARIFICATION_FILLER_TOKENS = new Set([
   "jag",
   "vill",
@@ -657,8 +663,6 @@ const CLARIFICATION_FILLER_TOKENS = new Set([
   "var",
   "ha",
   "har",
-  "behöver",
-  "önskar",
   "please",
   "thanks",
   "the",
@@ -723,6 +727,7 @@ function matchFollowUpClarificationOption(
   const words = reply.split(/\s+/).filter(Boolean);
   if (words.length > CLARIFICATION_PARAPHRASE_MAX_WORDS) return null;
   if (CLARIFICATION_NEGATION.test(reply)) return null;
+  if (CLARIFICATION_NEW_BRIEF_INTENT.test(reply)) return null;
   if (CLARIFICATION_OFF_TOPIC_TARGET.test(reply)) return null;
 
   const hits = FOLLOW_UP_CLARIFICATION_PARAPHRASES.filter(
@@ -751,10 +756,11 @@ function matchFollowUpClarificationOption(
  * 2. a conservative paraphrase of exactly one persisted option (SM-041).
  *
  * A free-typed reply that looks like a NEW instruction — specific page
- * target, negation, leftover content after the option stems, or a longer
- * brief — is a new prompt and must not be consumed. #734 locked that
- * direction so a new order is never glued onto the previous request;
- * gluing a new brief onto the old prompt is worse than dropping context.
+ * target, negation, brief-intent ("vill ha"/"behöver"), leftover content
+ * after the option stems, or a longer brief — is a new prompt and must
+ * not be consumed. #734 locked that direction so a new order is never
+ * glued onto the previous request; gluing a new brief onto the old
+ * prompt is worse than dropping context.
  */
 export function collectFollowUpClarificationAnswer(
   messages: Array<Pick<Message, "role" | "content" | "ui_parts">>,

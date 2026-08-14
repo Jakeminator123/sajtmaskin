@@ -17,7 +17,7 @@ Målet i Fas 1 är att bygga ett rent underlag till orkestreringen.
 - Init kan även bära **Byggval** (init-reglagen i preview-panelens välkomstläge) som strukturerade request-meta-signaler: `scaffoldMode/scaffoldId` (sajttyp), `pageCountHint` (vinner över sidantal-regexen i route-planen), `styleKeywordsHint` (variantmatchning) och `complexityHint` (BuildSpec). Komplexitet/färgläge/ton skickar dessutom svenska direktiv via custom-instructions-kanalen — aldrig via chattens input. Medvetet beslut: ingen global hård sidgräns på servern — reglaget cappar på 3, men explicit prompt-text ("5 sidor") respekteras fortfarande.
 - Follow-up får Snapshot-Brief och tidigare orchestration snapshot. Byggval-hintarna är init-only — follow-up-frysen äger scaffold/variant/routes.
 - Build intent, generation mode, follow-up intent och requested capabilities ska bestämmas innan prompten byggs.
-- Follow-up scope-klargörande (`collectFollowUpClarificationAnswer`): exakt quick-reply **eller** en kort parafras av ett sparat alternativ återställer originalprompten. En ny beställning (specifikt sidmål, negation, restinnehåll, längre brief) körs som ny prompt — den får inte limmas ihop med den gamla.
+- Follow-up scope-klargörande (`collectFollowUpClarificationAnswer`): exakt quick-reply **eller** en kort parafras av ett sparat alternativ återställer originalprompten. En ny beställning (specifikt sidmål, negation, «vill ha»/«behöver», restinnehåll, längre brief) körs som ny prompt — den får inte limmas ihop med den gamla.
 
 Kodankare:
 

@@ -661,6 +661,27 @@ describe("collectFollowUpClarificationAnswer", () => {
     ).toBeNull();
   });
 
+  it("does NOT consume a new page order phrased as 'jag vill ha en ny sida'", () => {
+    expect(
+      collectFollowUpClarificationAnswer(
+        buildMarkerMessages(),
+        "jag vill ha en ny sida",
+      ),
+    ).toBeNull();
+    expect(
+      collectFollowUpClarificationAnswer(
+        buildMarkerMessages(),
+        "jag behöver en ny sida",
+      ),
+    ).toBeNull();
+  });
+
+  it("does NOT consume 'ny design' as the layout option (new visual direction)", () => {
+    expect(
+      collectFollowUpClarificationAnswer(buildMarkerMessages(), "ny design"),
+    ).toBeNull();
+  });
+
   it("does NOT consume when a DIFFERENT later user message superseded the question", () => {
     const messages = [
       ...buildMarkerMessages(),
