@@ -100,20 +100,26 @@ Verifiera i stället själv.
 ```powershell
 # från C:\Users\jakem\dev\projects\sajtmaskin (huvudcheckouten):
 $projectId = (Get-Content -Raw .vercel/project.json | ConvertFrom-Json).projectId
+$logId = "selftest-$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
 $secret = "<samma värde som VERCEL_LOG_DRAIN_SECRET>"
-$body = '[{"id":"selftest-1","deploymentId":"dpl_x","projectId":"' + $projectId + '","source":"lambda","host":"sajtmaskin.vercel.app","timestamp":1,"level":"error","message":"drain selftest"}]'
+$body = '[{"id":"' + $logId + '","deploymentId":"dpl_x","projectId":"' + $projectId + '","source":"lambda","host":"sajtmaskin.vercel.app","timestamp":1,"level":"error","message":"drain selftest"}]'
 $hmac = [System.Security.Cryptography.HMACSHA1]::new([Text.Encoding]::UTF8.GetBytes($secret))
 $sig = ($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($body)) | ForEach-Object { $_.ToString("x2") }) -join ""
 Invoke-RestMethod -Method Post -Uri "https://sajtmaskin.vercel.app/api/drains/vercel" `
   -Headers @{ "x-vercel-signature" = $sig } -ContentType "application/json" -Body $body
 ```
 
+`id` måste vara unikt per körning — `log_id` är unik i tabellen och
+`ON CONFLICT (log_id) DO NOTHING` räknar inte en dubblett som `stored`.
+Prefixet `selftest-` gör raderna lätta att känna igen i `--kinds=drain`.
+
 Samma grindkriterium som i Nuläge (PowerShell visar `True` med stort T):
 
 | Svar | Betyder |
 |---|---|
 | `ok: true` **och** `stored: 1` | Hela kedjan lever, inklusive DB-skrivningen. Raden dyker sedan upp i `--kinds=drain`. **Detta är grinden.** |
-| `ok: true` och `stored: 0` | Signaturen gick igenom, men raden kastades. Vanligast: `projectId` matchade inte — `isAllowedDrainProjectId` är fail-closed och släpper bara appens eget `VERCEL_PROJECT_ID`. Det är **inte** ett fel i mottagaren. Ett främmande id som `prj_x` ger alltid `stored: 0`. |
+| `ok: true` och `stored: 0`, främmande `projectId` | Signaturen gick igenom, men raden kastades av `isAllowedDrainProjectId` (fail-closed — släpper bara appens eget `VERCEL_PROJECT_ID`). Det är **inte** ett fel i mottagaren. Ett främmande id som `prj_x` ger alltid `stored: 0`. |
+| `ok: true` och `stored: 0`, rätt `projectId` men `log_id` redan finns | `ON CONFLICT (log_id) DO NOTHING`. Inte ett fel — kedjan lever, raden fanns redan. Kör om med nytt id. |
 
 Vercel testar endpointen automatiskt när drainen *väl* skapas, och
 **Test**-knappen gör samma sak. `POST /v1/drains/test` validerar
