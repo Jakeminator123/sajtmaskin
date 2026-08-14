@@ -33,6 +33,12 @@
       "match": "LLM-fix",
       "canonicalTerms": ["RepairGate"],
       "severity": "advisory"
+    },
+    {
+      "match": "Directive Cascade",
+      "canonicalTerms": ["Core Rules"],
+      "caseSensitive": true,
+      "severity": "advisory"
     }
   ],
   "pascalCaseAllowlist": [

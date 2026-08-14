@@ -176,6 +176,11 @@ matchas och med vilken styrka; de får inte definiera en egen betydelse.
 | Spec-first-kedjan                          | Deep Brief + orchestration                                                                                                                               |
 | Directive Cascade                          | Core Rules + Dynamic Context + signalägare                                                                                                               |
 | `serverVerify` som quality-gate-lane       | `RenderGate` (`designPreview`) eller `ReleaseGate` (`integrationsBuild`)                                                                                 |
+| `hasRealBuildIntegrations` som "har externa integrationer" | Kostnadssignal: `true` = «Bygg integrationer» tar LLM-vägen (planerad dossier saknas i versionen, eller integrationen har ett verkligt buildkrav). `false` = den deterministiska exact-file-forken räcker |
+| `previewPending` som previewstatus | `/preview-status` äger previewstatusen. Fältet är hårdkodat `false` för alla own-engine-versioner — kompatibilitet, inte signal |
+| `canPin` som versionsegenskap | Legacy v0-fält. Own-engine-versioner har `canPin: false` och pin-försök svarar 409 |
+| `self-contained` som "fungerar utan externa tjänster" | «Inget separat integrationsbygge krävs». Kan gälla både `Kopplad` (hard) och `Fristående` (soft) — `vercel-analytics` är hard **och** self-contained |
+| `filesRevision` som versionsidentitet | `versionId` = radens identitet, `filesRevision` = innehållets. Samma versionsrad skrivs om av user-edit, autofix och repair-accept, så ett verdikt gäller en revision — inte en version |
 
 ## Agent- och modellplan
 
