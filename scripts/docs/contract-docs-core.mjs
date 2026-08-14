@@ -110,6 +110,7 @@ export const GENERATED_DOC_FAMILIES = Object.freeze({
     sources: [
       "config/ai_models/manifest.json",
       "src/lib/ai-models/load-manifest.ts#getAiModelsManifest",
+      "src/**/*.{ts,tsx}#resolvePhaseModel-literals",
     ],
     output: "docs/generated/models.generated.md",
   },
@@ -169,6 +170,77 @@ function list(values) {
 
 function yesNo(value) {
   return value ? "Yes" : "No";
+}
+
+function toPosixRepoPath(absolutePath) {
+  return absolutePath
+    .slice(REPO_ROOT.length)
+    .replaceAll("\\", "/")
+    .replace(/^\//, "");
+}
+
+const PHASE_RESOLVER_REPO_PATH = "src/lib/models/phase-routing.ts";
+const PHASE_CALL_RE = /resolvePhase(?:Model|Thinking)\(\s*[^,]+,\s*["']([^"']+)["']/g;
+
+async function listProductionSourceFiles(srcRoot) {
+  const files = [];
+
+  async function walk(dir) {
+    const entries = (await readdir(dir, { withFileTypes: true })).toSorted((left, right) =>
+      compareText(left.name, right.name),
+    );
+    for (const entry of entries) {
+      const fullPath = resolve(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+        continue;
+      }
+      if (!/\.(ts|tsx)$/.test(entry.name)) continue;
+      if (/\.(test|spec)\.(ts|tsx)$/.test(entry.name)) continue;
+      files.push(fullPath);
+    }
+  }
+
+  await walk(srcRoot);
+  return files.sort(compareText);
+}
+
+export async function collectPhaseCallersFromSource(srcRoot = resolve(REPO_ROOT, "src")) {
+  const callers = {};
+  for (const file of await listProductionSourceFiles(srcRoot)) {
+    const repoPath = toPosixRepoPath(file);
+    if (repoPath === PHASE_RESOLVER_REPO_PATH) continue;
+    const text = await readFile(file, "utf8");
+    PHASE_CALL_RE.lastIndex = 0;
+    let match;
+    while ((match = PHASE_CALL_RE.exec(text))) {
+      const phase = match[1];
+      const files = callers[phase] ?? [];
+      if (!files.includes(repoPath)) files.push(repoPath);
+      callers[phase] = files;
+    }
+  }
+  return Object.fromEntries(
+    Object.entries(callers)
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([phase, files]) => [phase, [...files].sort(compareText)]),
+  );
+}
+
+function listManifestPhases(manifest) {
+  const phases = new Set();
+  for (const tierRouting of Object.values(manifest.phaseRouting?.defaultByTier ?? {})) {
+    for (const phase of Object.keys(tierRouting)) phases.add(phase);
+  }
+  return [...phases].sort(compareText);
+}
+
+function listManifestTiers(manifest) {
+  return Object.keys(manifest.phaseRouting?.defaultByTier ?? {}).sort(compareText);
+}
+
+function renderCallerCell(files) {
+  return files.length > 0 ? `Yes (${list(files)})` : "No";
 }
 
 function generatedHeader(sources) {
@@ -438,7 +510,7 @@ function renderVariants(variants, scaffoldCount) {
   ].join("\n");
 }
 
-function renderModels(manifest) {
+function renderModels(manifest, phaseCallers = {}) {
   const profileRows = Object.keys(manifest.buildProfiles.defaults)
     .sort(compareText)
     .map(
@@ -458,11 +530,28 @@ function renderModels(manifest) {
           manifest.promptAssist.envKeys[workload],
         )} |`,
     );
+  const briefingRows = Object.keys(manifest.briefing?.defaults ?? {})
+    .sort(compareText)
+    .map(
+      (workload) =>
+        `| ${code(workload)} | ${code(manifest.briefing.defaults[workload])} | ${code(
+          manifest.briefing.envKeys[workload],
+        )} |`,
+    );
+  const tiers = listManifestTiers(manifest);
+  const phases = listManifestPhases(manifest);
+  const phaseHeader = `| Phase | ${tiers.map(code).join(" | ")} | Runtime caller |`;
+  const phaseDivider = `|${["", ...tiers, ""].map(() => "---").join("|")}|`;
+  const phaseRows = phases.map((phase) => {
+    const models = tiers.map((tier) => code(manifest.phaseRouting.defaultByTier[tier][phase]));
+    return `| ${code(phase)} | ${models.join(" | ")} | ${renderCallerCell(phaseCallers[phase] ?? [])} |`;
+  });
 
   return [
     generatedHeader([
       "config/ai_models/manifest.json",
       "src/lib/ai-models/load-manifest.ts#getAiModelsManifest",
+      "src/**/*.{ts,tsx}#resolvePhaseModel-literals",
     ]),
     fingerprintComment("config/ai_models/manifest.json#full-manifest", manifest),
     fingerprintComment("config/ai_models/manifest.json#model-summary", {
@@ -472,7 +561,13 @@ function renderModels(manifest) {
         defaults: manifest.promptAssist.defaults,
         envKeys: manifest.promptAssist.envKeys,
       },
+      briefing: {
+        defaults: manifest.briefing?.defaults ?? {},
+        envKeys: manifest.briefing?.envKeys ?? {},
+      },
+      phaseRouting: manifest.phaseRouting?.defaultByTier ?? {},
     }),
+    fingerprintComment("src/**/*.{ts,tsx}#resolvePhaseModel-literals", phaseCallers),
     "",
     "# Models",
     "",
@@ -496,6 +591,23 @@ function renderModels(manifest) {
     "| Workload | Default model | Override env key |",
     "|---|---|---|",
     ...assistRows,
+    "",
+    "## Briefing",
+    "",
+    "Defaults for the structured brief workloads in the AI-model manifest. Environment overrides still win at runtime.",
+    "",
+    "| Workload | Default model | Override env key |",
+    "|---|---|---|",
+    ...briefingRows,
+    "",
+    "## Phase routing",
+    "",
+    "A runtime caller is a non-test `src/` call to `resolvePhaseModel` or `resolvePhaseThinking` with this phase as a string literal.",
+    "`src/lib/models/phase-routing.ts` is excluded because it resolves and summarizes routing; it does not invoke a phase.",
+    "",
+    phaseHeader,
+    phaseDivider,
+    ...phaseRows,
     "",
   ].join("\n");
 }
@@ -731,6 +843,7 @@ export async function loadContractDocInputs() {
     controlPlaneEntries: await loadControlPlaneEntries(),
     envPolicy: await loadEnvPolicy(),
     strictSchemas: await loadStrictSchemas(),
+    phaseCallers: await collectPhaseCallersFromSource(),
   };
 }
 
@@ -748,6 +861,7 @@ export async function buildGeneratedDocs(overrides = {}) {
     controlPlaneEntries,
     envPolicy,
     strictSchemas,
+    phaseCallers,
   } = inputs;
   if (dossiers.length === 0) {
     throw new Error("The runtime dossier registry returned no validated dossiers.");
@@ -764,7 +878,7 @@ export async function buildGeneratedDocs(overrides = {}) {
     ],
     [GENERATED_DOC_FAMILIES.scaffolds.output, renderScaffolds(scaffolds)],
     [GENERATED_DOC_FAMILIES.variants.output, renderVariants(variants, scaffoldIds.length)],
-    [GENERATED_DOC_FAMILIES.models.output, renderModels(modelManifest)],
+    [GENERATED_DOC_FAMILIES.models.output, renderModels(modelManifest, phaseCallers)],
     [
       GENERATED_DOC_FAMILIES.policies.output,
       renderPolicies(controlPlaneEntries, envPolicy, dossiers, modelManifest, strictSchemas),
