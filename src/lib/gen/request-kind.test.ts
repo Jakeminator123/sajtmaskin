@@ -1,11 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { classifyRequestKind } from "./request-kind";
+import {
+  classifyFollowUpIntent,
+  resolveFollowUpClarification,
+} from "@/lib/providers/own-engine/follow-up-clarification";
+import {
+  classifyRequestKind,
+  requestKindClassificationFields,
+} from "./request-kind";
 
 describe("classifyRequestKind", () => {
   it("returns unclassified for empty input", () => {
     expect(classifyRequestKind("")).toEqual({
       kind: "unclassified",
       source: "regex",
+      signals: {
+        hasQaHint: false,
+        hasQuestionMark: false,
+        hasChangeVerb: false,
+        hasScoreHint: false,
+      },
+      questionShape: "none",
     });
   });
 
@@ -85,5 +99,121 @@ describe("classifyRequestKind", () => {
     expect(
       classifyRequestKind("Gör tre ändringar: byt hero-bild, lägg till CTA, flytta testimonials").kind,
     ).toBe("multi-change");
+  });
+});
+
+describe("requestKind questionShape (telemetry only — never changes kind)", () => {
+  it("marks a QA word without '?' as qa-hint-no-mark and keeps kind unclassified", () => {
+    const result = classifyRequestKind("vad är klockan i Paris");
+    expect(result.kind).toBe("unclassified");
+    expect(result.questionShape).toBe("qa-hint-no-mark");
+    expect(result.signals).toEqual({
+      hasQaHint: true,
+      hasQuestionMark: false,
+      hasChangeVerb: false,
+      hasScoreHint: false,
+    });
+  });
+
+  it("keeps the existing qa-or-score gate for the same prompt with '?'", () => {
+    const result = classifyRequestKind("vad är klockan i Paris?");
+    expect(result.kind).toBe("qa-or-score");
+    expect(result.questionShape).toBe("qa-or-score");
+  });
+
+  it("does not classify build-in-question-form as qa-or-score", () => {
+    expect(classifyRequestKind("kan du lägga till en footer?").kind).not.toBe("qa-or-score");
+    expect(classifyRequestKind("går det att byta färg?").kind).not.toBe("qa-or-score");
+    expect(classifyRequestKind("hur lägger jag till en kontaktform?").kind).not.toBe(
+      "qa-or-score",
+    );
+    expect(classifyRequestKind("hur lägger jag till en kontaktform?").questionShape).toBe(
+      "qa-hint-blocked-by-verb",
+    );
+  });
+
+  it("exposes the same flat fields the classified log writes", () => {
+    const result = classifyRequestKind("vad är klockan i Paris");
+    expect(requestKindClassificationFields(result)).toEqual({
+      kind: "unclassified",
+      source: "regex",
+      questionShape: "qa-hint-no-mark",
+      hasQaHint: true,
+      hasQuestionMark: false,
+      hasChangeVerb: false,
+      hasScoreHint: false,
+    });
+  });
+});
+
+describe("build-vs-question path (today's follow-up classifiers)", () => {
+  it("locks the owner examples so measurement cannot silently change kind", () => {
+    const rows = [
+      "vad är klockan i Paris",
+      "vad är klockan i Paris?",
+      "varför blev sidan blå?",
+      "hur lägger jag till en kontaktform?",
+      "vad kostar det här?",
+      "kan du lägga till en footer?",
+      "går det att byta färg?",
+    ].map((message) => ({
+      message,
+      followUpIntent: classifyFollowUpIntent(message),
+      clarification: resolveFollowUpClarification(message)?.reason ?? null,
+      requestKind: classifyRequestKind(message).kind,
+      questionShape: classifyRequestKind(message).questionShape,
+    }));
+
+    expect(rows).toEqual([
+      {
+        message: "vad är klockan i Paris",
+        followUpIntent: "neutral",
+        clarification: null,
+        requestKind: "unclassified",
+        questionShape: "qa-hint-no-mark",
+      },
+      {
+        message: "vad är klockan i Paris?",
+        followUpIntent: "neutral",
+        clarification: null,
+        requestKind: "qa-or-score",
+        questionShape: "qa-or-score",
+      },
+      {
+        message: "varför blev sidan blå?",
+        followUpIntent: "neutral",
+        clarification: null,
+        requestKind: "qa-or-score",
+        questionShape: "qa-or-score",
+      },
+      {
+        message: "hur lägger jag till en kontaktform?",
+        followUpIntent: "neutral",
+        clarification: null,
+        requestKind: "unclassified",
+        questionShape: "qa-hint-blocked-by-verb",
+      },
+      {
+        message: "vad kostar det här?",
+        followUpIntent: "neutral",
+        clarification: null,
+        requestKind: "qa-or-score",
+        questionShape: "qa-or-score",
+      },
+      {
+        message: "kan du lägga till en footer?",
+        followUpIntent: "neutral",
+        clarification: null,
+        requestKind: "unclassified",
+        questionShape: "none",
+      },
+      {
+        message: "går det att byta färg?",
+        followUpIntent: "neutral",
+        clarification: null,
+        requestKind: "micro-edit",
+        questionShape: "none",
+      },
+    ]);
   });
 });

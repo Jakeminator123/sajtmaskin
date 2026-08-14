@@ -51,6 +51,7 @@ import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { normalizeRequestAttachments, summarizeDesignReferences } from "@/lib/gen/request-metadata";
 import { parseChatRequestMeta } from "./parse-chat-request-meta";
+import { logRequestKindClassification } from "./request-kind-log";
 import { createCommitCreditsOnce } from "./credits-handler";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
@@ -507,6 +508,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           attachmentsCount: requestAttachments.length,
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
+        });
+        logRequestKindClassification({
+          message,
+          generationKind: "init",
         });
         debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {
           promptAssistModel: parsedMeta.promptAssistModel,

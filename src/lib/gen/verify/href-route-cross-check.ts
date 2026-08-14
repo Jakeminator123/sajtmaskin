@@ -15,8 +15,7 @@
  *
  * Severity is owned by the caller. Today {@link runFinalizePreflight} emits
  * mismatches as `non_blocking_quality_warning`. The check stays non-blocking
- * because false positives would stall the repair gate; see
- * `docs/plans/active/handoff-question-flow-and-scaffold-routes.md`.
+ * because false positives would stall the repair gate.
  *
  * Reverse direction ({@link crossCheckRoutesAgainstHrefs}): a planned route
  * with no matching navigation href is also a `non_blocking_quality_warning`.

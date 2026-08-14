@@ -119,6 +119,10 @@ Invariants:
 - F2 har två Blocker-källor: RenderGates render-risk-TS-koder och
   finalize-verifierns build-breaking-fynd (`isBuildBreakingFinding` —
   import-/namnupplösningsklassen). Övriga verifier-fynd är Advisory i F2.
+  Samma klass går ut på verifier-progress som `severity` (`advisory` /
+  `blocking`). Slutsteg blir rött bara på Blocker-`fix-failed`
+  (`resolveProgressPartState`); saknad signal behandlas som Blocker.
+  Promotion och verifiering ändras inte — det är status, inte en grind.
 - Build-originated repair ska inte återgå till en för lätt gate.
 
 ## RepairGate
@@ -201,6 +205,7 @@ Event-bus är runtime-livscykel. FaultEvent är historik-/RAG-läsmodell och ska
 
 Ägs av:
 
+- `src/lib/logging/event-bus.ts`
 - `src/lib/logging/event-bus-types.ts`
 - `src/lib/logging/event-bus-projection.ts`
 - `src/lib/gen/verify/stale-verification.ts`
@@ -211,6 +216,7 @@ Invariants:
 - VersionStatus är en projektion av events plus terminal DB-reconciliation där det behövs.
 - Degradations är förstaklassignal (Advisory), inte loggbrus.
 - Dead verify/repair-rundor ska settle:as av lease/stale-watchdog och aldrig fastna permanent i “verifying”.
+- Tmp-spegeln på Vercel (`os.tmpdir()/sajtmaskin/data/runs`) har ett bindande byte-tak; antalstaket är bara en snabbväg. Lokal `data/runs/` under repo-roten prunas inte.
 
 ## Previewkontrakt
 

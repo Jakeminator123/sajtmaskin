@@ -1,6 +1,11 @@
 /**
  * P32 Fas A — regex-first request taxonomy for follow-ups.
  * Does not alter BuildSpec yet; callers log for baseline telemetry.
+ *
+ * `questionShape` is measurement-only. It must never drive a short-circuit
+ * or refuse a build: a missed footer request is worse than an extra
+ * generation. Only `kind === "qa-or-score"` may skip codegen, and that
+ * gate stays the existing conservative regex (QA hint + `?`, no change verb).
  */
 
 export type RequestKindClass =
@@ -16,9 +21,31 @@ export type RequestKindClass =
 
 export type RequestKindSource = "regex";
 
+export type RequestKindQuestionShape =
+  | "qa-or-score"
+  | "qa-hint-no-mark"
+  | "qa-hint-blocked-by-verb"
+  | "none";
+
+export type RequestKindSignals = {
+  hasQaHint: boolean;
+  hasQuestionMark: boolean;
+  hasChangeVerb: boolean;
+  hasScoreHint: boolean;
+};
+
 export type ClassifyRequestKindResult = {
   kind: RequestKindClass;
   source: RequestKindSource;
+  signals: RequestKindSignals;
+  questionShape: RequestKindQuestionShape;
+};
+
+const EMPTY_SIGNALS: RequestKindSignals = {
+  hasQaHint: false,
+  hasQuestionMark: false,
+  hasChangeVerb: false,
+  hasScoreHint: false,
 };
 
 const URL_IN_TEXT = /https?:\/\/[^\s<>"')]+/i;
@@ -96,11 +123,68 @@ function looksLikeMultiChange(message: string): boolean {
   return false;
 }
 
+function inspectRequestKindSignals(message: string): RequestKindSignals {
+  if (!message) return EMPTY_SIGNALS;
+  return {
+    hasQaHint: QA_HINT.test(message),
+    hasQuestionMark: QUESTION_MARK.test(message),
+    hasChangeVerb: CHANGE_VERB.test(message),
+    hasScoreHint: SCORE_HINT.test(message),
+  };
+}
+
+function resolveQuestionShape(
+  kind: RequestKindClass,
+  signals: RequestKindSignals,
+): RequestKindQuestionShape {
+  if (kind === "qa-or-score") return "qa-or-score";
+  if (signals.hasQaHint && signals.hasChangeVerb) return "qa-hint-blocked-by-verb";
+  if (signals.hasQaHint && !signals.hasQuestionMark && !signals.hasChangeVerb) {
+    return "qa-hint-no-mark";
+  }
+  return "none";
+}
+
+function withSignals(
+  kind: RequestKindClass,
+  signals: RequestKindSignals,
+): ClassifyRequestKindResult {
+  return {
+    kind,
+    source: "regex",
+    signals,
+    questionShape: resolveQuestionShape(kind, signals),
+  };
+}
+
 function looksLikeQaOrScore(message: string): boolean {
   const hasQa = (QA_HINT.test(message) && QUESTION_MARK.test(message)) || SCORE_HINT.test(message);
   if (!hasQa) return false;
   if (CHANGE_VERB.test(message)) return false;
   return true;
+}
+
+/** Flat fields for `request.kind.classified` — keep init and follow-up identical. */
+export function requestKindClassificationFields(
+  result: ClassifyRequestKindResult,
+): {
+  kind: RequestKindClass;
+  source: RequestKindSource;
+  questionShape: RequestKindQuestionShape;
+  hasQaHint: boolean;
+  hasQuestionMark: boolean;
+  hasChangeVerb: boolean;
+  hasScoreHint: boolean;
+} {
+  return {
+    kind: result.kind,
+    source: result.source,
+    questionShape: result.questionShape,
+    hasQaHint: result.signals.hasQaHint,
+    hasQuestionMark: result.signals.hasQuestionMark,
+    hasChangeVerb: result.signals.hasChangeVerb,
+    hasScoreHint: result.signals.hasScoreHint,
+  };
 }
 
 function looksLikeMicroEdit(message: string): boolean {
@@ -116,44 +200,45 @@ function looksLikeMicroEdit(message: string): boolean {
  */
 export function classifyRequestKind(message: string): ClassifyRequestKindResult {
   const trimmed = message.trim();
+  const signals = inspectRequestKindSignals(trimmed);
   if (!trimmed) {
-    return { kind: "unclassified", source: "regex" };
+    return withSignals("unclassified", signals);
   }
 
   if (INTEGRATION_VERB.test(trimmed) && INTEGRATION_PROVIDER.test(trimmed)) {
-    return { kind: "integration", source: "regex" };
+    return withSignals("integration", signals);
   }
   if (INTEGRATION_PROVIDER.test(trimmed) && /\b(betalning|checkout|auth|login|databas|cms|analytics)\b/i.test(trimmed)) {
-    return { kind: "integration", source: "regex" };
+    return withSignals("integration", signals);
   }
 
   if (hasRedesignSignal(trimmed)) {
-    return { kind: "redesign", source: "regex" };
+    return withSignals("redesign", signals);
   }
 
   if (URL_IN_TEXT.test(trimmed) || EXTERNAL_FETCH_PHRASE.test(trimmed)) {
-    return { kind: "external-fetch", source: "regex" };
+    return withSignals("external-fetch", signals);
   }
 
   if (looksLikeMultiChange(trimmed)) {
-    return { kind: "multi-change", source: "regex" };
+    return withSignals("multi-change", signals);
   }
 
   if (looksLikeQaOrScore(trimmed)) {
-    return { kind: "qa-or-score", source: "regex" };
+    return withSignals("qa-or-score", signals);
   }
 
   if (PAGE_ADDITION.test(trimmed)) {
-    return { kind: "page-addition", source: "regex" };
+    return withSignals("page-addition", signals);
   }
 
   if (LOCAL_LAYOUT.test(trimmed)) {
-    return { kind: "local-layout", source: "regex" };
+    return withSignals("local-layout", signals);
   }
 
   if (looksLikeMicroEdit(trimmed)) {
-    return { kind: "micro-edit", source: "regex" };
+    return withSignals("micro-edit", signals);
   }
 
-  return { kind: "unclassified", source: "regex" };
+  return withSignals("unclassified", signals);
 }
