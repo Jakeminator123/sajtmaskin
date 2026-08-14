@@ -1,12 +1,7 @@
 /**
- * SM-044: a runtime restart must not leave an open iframe with HTML from
- * one build and JS from another.
- *
- *   1. After a restart the host must tell connected preview clients to reload
- *      (Next HMR stub / held preview socket — the existing iframe channel).
- *   2. A spawned-but-not-ready runtime must not accept proxy traffic, so the
- *      client cannot fetch app HTML from the old document and app JS from the
- *      new process in the same paint.
+ * SM-044: #980's reloadPage signal does not hold HTTP. A spawned-but-not-ready
+ * runtime must stay gated (`acceptingTraffic`) so an open iframe cannot fetch
+ * new-build HTML/JS while the old document is still on screen.
  *
  *   node scripts/test-runtime-swap-reload.mjs
  */
@@ -36,10 +31,10 @@ function check(label, condition) {
   }
 }
 
-const notify = runtime.__testing.notifyPreviewClientsToReload;
+const requestReload = runtime.__testing.requestPreviewClientReload;
 check(
-  "notifyPreviewClientsToReload is exported for the restart handoff",
-  typeof notify === "function",
+  "requestPreviewClientReload stays the #980 reload helper (no second encoder)",
+  typeof requestReload === "function",
 );
 
 {
@@ -47,18 +42,16 @@ check(
   const writes = [];
   const socket = new EventEmitter();
   socket.destroyed = false;
+  socket.writable = true;
   socket.write = (buf) => {
     writes.push(Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf)));
     return true;
   };
   runtime.__testing.registerPreviewSocket(chatId, socket);
 
-  let sent = 0;
-  if (typeof notify === "function") {
-    sent = notify(chatId);
-  }
+  const result = requestReload(chatId);
   const payload = Buffer.concat(writes).toString("utf8");
-  check("restart notify reaches the open preview socket", sent === 1);
+  check("restart notify reaches the open preview socket", result.sent === 1);
   check(
     "reload frame asks Next's HMR client to reload the page",
     payload.includes("reloadPage"),
@@ -71,15 +64,21 @@ check(
     new URL("../src/runtime/process-lifecycle.js", import.meta.url),
     "utf8",
   );
+  const proxySrc = readFileSync(
+    new URL("../src/runtime/preview-proxy.js", import.meta.url),
+    "utf8",
+  );
   check(
-    "restart stop notifies open preview clients before the new process is spawned",
-    /await stopRuntimeForSession\(session\);[\s\S]{0,400}notifyPreviewClientsToReload\(getSessionChatId\(session\)\)/.test(
-      lifecycleSrc,
-    ),
+    "ensureRuntimeForChat still signals reload via the landed #980 helper",
+    /requestPreviewClientReload\(chatId\)/.test(lifecycleSrc),
   );
   check(
     "ready after restart exposes traffic only after the reload signal",
     /exposeRuntimeToClients\(session, \{ restart, runtimePort \}\)/.test(lifecycleSrc),
+  );
+  check(
+    "HTTP proxy requires acceptingTraffic (or failed readiness for the overlay)",
+    /state\.acceptingTraffic \|\| state\.session\.readinessState === "failed"/.test(proxySrc),
   );
 }
 
@@ -205,7 +204,12 @@ check(
   const previousQueue = runtime.queueRuntimeBoot;
   runtime.queueRuntimeBoot = (id, options = {}) => queuedBoots.push({ id, options });
 
-  const upstream = http.createServer((_req, res) => {
+  const upstream = http.createServer((req, res) => {
+    if ((req.url ?? "").includes("_next/static")) {
+      res.writeHead(200, { "content-type": "application/javascript; charset=utf-8" });
+      res.end("export default function NewRuntimeChunk(){return 'NEW_RUNTIME_JS'}");
+      return;
+    }
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end("<!doctype html><html><body>NEW_RUNTIME_HTML</body></html>");
   });
@@ -247,6 +251,7 @@ check(
     previewSessionToSession: { [previewSessionId]: sessionId },
     prewarmLeases: {},
   });
+  runtime.__testing.markPendingPreviewClientReload(chatId);
   runtime.__testing.setRuntimeStateForTesting({
     chatId,
     sessionId,
@@ -260,9 +265,15 @@ check(
   try {
     const gated = await fetch(`${hostBase}/${chatId}/`);
     const gatedBody = await gated.text();
+    const gatedJs = await fetch(`${hostBase}/${chatId}/_next/static/chunks/app/page.js`);
+    const gatedJsBody = await gatedJs.text();
     check(
       "proxy does not serve the new runtime before it is ready",
       gated.status === 200 && /Startar/.test(gatedBody) && !/NEW_RUNTIME_HTML/.test(gatedBody),
+    );
+    check(
+      "pending #980 reload does not open HTTP /_next/static from the new runtime",
+      !/NEW_RUNTIME_JS/.test(gatedJsBody),
     );
 
     runtime.__testing.setRuntimeStateForTesting({
@@ -282,6 +293,7 @@ check(
     );
   } finally {
     runtime.queueRuntimeBoot = previousQueue;
+    runtime.__testing.clearPendingPreviewClientReload(chatId);
     runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
     host.close();
     host.closeAllConnections?.();
