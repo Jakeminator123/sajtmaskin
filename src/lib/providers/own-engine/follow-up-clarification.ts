@@ -621,7 +621,7 @@ const CLARIFICATION_NEGATION = uWordRegex(
 
 /** "jag vill ha en ny sida" is a new order, not a scope click. */
 const CLARIFICATION_NEW_BRIEF_INTENT = uWordRegex(
-  "vill\\s+ha|behöver|önskar|ska\\s+vara|ska\\s+innehålla|i\\s+want|we\\s+want|i\\s+need|we\\s+need|needs\\s+to\\s+have|should\\s+include",
+  "vill\\s+ha|ska\\s+ha|behöver|behövs|önskar|ska\\s+vara|ska\\s+innehålla|i\\s+want|we\\s+want|i\\s+need|we\\s+need|needs\\s+to\\s+have|should\\s+include",
   "iu",
 );
 
@@ -631,7 +631,6 @@ const CLARIFICATION_FILLER_TOKENS = new Set([
   "att",
   "du",
   "ni",
-  "ska",
   "kan",
   "tack",
   "ja",
@@ -661,7 +660,6 @@ const CLARIFICATION_FILLER_TOKENS = new Set([
   "av",
   "är",
   "var",
-  "ha",
   "har",
   "please",
   "thanks",
@@ -684,9 +682,6 @@ const CLARIFICATION_FILLER_TOKENS = new Set([
   "fokusera",
   "prioritera",
   "välj",
-  "kör",
-  "gör",
-  "behövs",
   "nu",
   "här",
   "där",

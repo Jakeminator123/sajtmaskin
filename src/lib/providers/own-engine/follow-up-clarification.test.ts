@@ -674,6 +674,15 @@ describe("collectFollowUpClarificationAnswer", () => {
         "jag behöver en ny sida",
       ),
     ).toBeNull();
+    expect(
+      collectFollowUpClarificationAnswer(buildMarkerMessages(), "gör en ny sida"),
+    ).toBeNull();
+    expect(
+      collectFollowUpClarificationAnswer(buildMarkerMessages(), "ska ha en ny sida"),
+    ).toBeNull();
+    expect(
+      collectFollowUpClarificationAnswer(buildMarkerMessages(), "behövs en ny sida"),
+    ).toBeNull();
   });
 
   it("does NOT consume 'ny design' as the layout option (new visual direction)", () => {
@@ -883,6 +892,16 @@ describe("collectFollowUpClarificationAnswer — retry efter persisterad svarsra
     expect(
       collectFollowUpClarificationAnswer(messages, "Förfina nuvarande design"),
     ).toBeNull();
+  });
+
+  it("konsumerar 'kan du förfina den' (hövlig parafras, inte ny beställning)", () => {
+    const messages = [
+      { role: "user" as const, content: original, ui_parts: null },
+      marker("Vill du förfina eller göra en redesign?", options, original),
+    ];
+    const result = collectFollowUpClarificationAnswer(messages, "kan du förfina den");
+    expect(result?.answer).toBe("Förfina nuvarande design");
+    expect(result?.sourceUserMessage).toBe(original);
   });
 
   it("konsumerar en kort förfina-parafras och återställer originalprompten (SM-041)", () => {
