@@ -22,6 +22,7 @@ import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   buildChatReadiness,
+  projectProductPostcheckReadiness,
   type ChatReadiness,
   type ChatReadinessItem,
 } from "@/lib/chat-readiness";
@@ -534,6 +535,13 @@ async function buildEngineReadiness(
     // the card (it often contains internal vocabulary). Logs retain the detail.
     warnings.push(buildPreviewWarning(null, previewMeta.previewCode));
   }
+
+  // SM-049: Product Postcheck findings are already in the error log and already
+  // gate F3, but readiness previously ignored them — status could be "ready"
+  // with an empty warnings list. Project them as advisory warnings only;
+  // never blockers. Promotion and canDeploy stay unchanged.
+  const productPostcheck = projectProductPostcheckReadiness(errorLogs);
+  warnings.push(...productPostcheck.warnings);
   // Ö4a: mirrors the LLM-vs-deterministic branch in `/finalize-design`:
   // a provider-specific dossier still waiting to be installed OR an already-
   // present integration with a real build requirement needs the LLM path.
@@ -579,6 +587,8 @@ async function buildEngineReadiness(
       featureRuntimeKeys,
       warnOnlyKeys,
       hasRealBuildIntegrations,
+      productPostcheckBlocksF3: productPostcheck.blocksF3,
+      productPostcheckBlockedReason: productPostcheck.blockedReason,
     },
   });
 }
