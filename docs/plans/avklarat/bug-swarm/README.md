@@ -5,7 +5,7 @@ Full text för arkiv och omstrukturering ligger i **git-historik**. Rör inte
 
 ## Högsta förbrukade `SM`-ID
 
-**`SM-054`** (2026-08-14). Nästa nya rad = `SM-055`. Återanvänd aldrig ett nummer —
+**`SM-055`** (2026-08-14). Nästa nya rad = `SM-056`. Återanvänd aldrig ett nummer —
 räkna även mot git-historiken för raderade arkivfiler om du är osäker.
 
 ```powershell
