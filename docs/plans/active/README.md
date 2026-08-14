@@ -9,6 +9,9 @@ kopiera inte kön hit.
 
 ## Pågående spår
 
+- [`nattbatch-2026-08-14-restlista.md`](nattbatch-2026-08-14-restlista.md)
+  (2026-08-14) — vad nattens åtta PR:er levererade, vad som byggs just nu, vad
+  som väntar på ägarbeslut och vad som är post-MVP. Översikt, inte defektkö.
 - [`handoff-question-flow-and-scaffold-routes.md`](handoff-question-flow-and-scaffold-routes.md)
   (2026-08-13) — kontext för tre spår: var buildern ställer frågor, varför
   scaffoldernas navigering länkar till rutter planeraren inte garanterar, och att
