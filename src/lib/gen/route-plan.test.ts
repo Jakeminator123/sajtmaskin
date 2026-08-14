@@ -1649,6 +1649,35 @@ describe("extractExplicitNamedPages — obundna namn kapas vid satsgräns", () =
     expect(extractExplicitNamedPages("Sidor: kontakt")).toEqual([]);
   });
 
+  // SM-040: known titles that contain and/och stay one page. Unknown
+  // conjunctions still split — dropping a requested page is worse than a
+  // nonsense route. "Om och Kontakt" must remain two pages.
+  it("håller kända konjunktionstitlar som en sida i kolonlistan", () => {
+    expect(
+      extractExplicitNamedPages("Sidor: Hem, Terms and Conditions").map((page) => page.path),
+    ).toEqual(["/terms-and-conditions"]);
+    expect(
+      extractExplicitNamedPages("Sidor: Hem, frågor och svar").map((page) => page.path),
+    ).toEqual(["/fragor-och-svar"]);
+    expect(
+      extractExplicitNamedPages("Sidor: Home, Privacy and Cookies").map((page) => page.path),
+    ).toEqual(["/privacy-and-cookies"]);
+    expect(
+      extractExplicitNamedPages("Sidor: Hem, Terms and Conditions och Kontakt").map(
+        (page) => page.path,
+      ),
+    ).toEqual(["/terms-and-conditions", "/kontakt"]);
+  });
+
+  it("splittrar okända och/and i kolonlistan — slår inte ihop Om och Kontakt", () => {
+    expect(
+      extractExplicitNamedPages("Sidor: Hem, Om och Kontakt").map((page) => page.path),
+    ).toEqual(["/om", "/kontakt"]);
+    expect(
+      extractExplicitNamedPages("Sidor: Home, About and Contact").map((page) => page.path),
+    ).toEqual(["/about", "/contact"]);
+  });
+
   it("planerar /bilder — inte den slukade varianten — för hela instruktionen", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
