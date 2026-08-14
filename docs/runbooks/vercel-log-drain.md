@@ -18,7 +18,8 @@ returnerar tom lista.
 | `VERCEL_LOG_DRAIN_ENABLED` | Satt till `true` i production 2026-08-15 — slår igenom vid nästa prod-deploy |
 
 Ingen drain ska skapas förrän den deployen har landat och det signerade
-självtestet nedan svarar `{ ok = True }`. Det är en separat uppgift.
+självtestet nedan svarar `ok: true` **och** `stored: 1`. Det är en separat
+uppgift.
 
 ## Sätt upp den
 
@@ -88,24 +89,36 @@ Sätt dem **bara i production**. Preview-deployer behöver dem inte. Lägg **int
 
 Gör det här **innan** drainen skapas. Routen kräver giltig signatur, så ett test
 utan signatur svarar `403` — vilket är meningen, men ser ut som ett fel.
-Verifiera i stället själv:
+Verifiera i stället själv.
+
+`projectId` i bodyn måste vara appens riktiga `VERCEL_PROJECT_ID`. Det är en
+**systemvariabel** Vercel injicerar i runtime — sätt den inte själv.
+`vercel env ls production` visar bara namn, inte värdet. Läs det från
+`.vercel/project.json` (fältet `projectId`) eller `vercel project inspect`
+(från länkad repo-rot):
 
 ```powershell
+# från C:\Users\jakem\dev\projects\sajtmaskin (huvudcheckouten):
+$projectId = (Get-Content -Raw .vercel/project.json | ConvertFrom-Json).projectId
 $secret = "<samma värde som VERCEL_LOG_DRAIN_SECRET>"
-$body = '[{"id":"selftest-1","deploymentId":"dpl_x","projectId":"prj_x","source":"lambda","host":"sajtmaskin.vercel.app","timestamp":1,"level":"error","message":"drain selftest"}]'
+$body = '[{"id":"selftest-1","deploymentId":"dpl_x","projectId":"' + $projectId + '","source":"lambda","host":"sajtmaskin.vercel.app","timestamp":1,"level":"error","message":"drain selftest"}]'
 $hmac = [System.Security.Cryptography.HMACSHA1]::new([Text.Encoding]::UTF8.GetBytes($secret))
 $sig = ($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($body)) | ForEach-Object { $_.ToString("x2") }) -join ""
 Invoke-RestMethod -Method Post -Uri "https://sajtmaskin.vercel.app/api/drains/vercel" `
   -Headers @{ "x-vercel-signature" = $sig } -ContentType "application/json" -Body $body
 ```
 
-Svar `{ ok = True; received = 1; stored = 1 }` betyder att hela kedjan lever.
-Raden dyker sedan upp i `--kinds=drain`.
+Samma grindkriterium som i Nuläge (PowerShell visar `True` med stort T):
+
+| Svar | Betyder |
+|---|---|
+| `ok: true` **och** `stored: 1` | Hela kedjan lever, inklusive DB-skrivningen. Raden dyker sedan upp i `--kinds=drain`. **Detta är grinden.** |
+| `ok: true` och `stored: 0` | Signaturen gick igenom, men raden kastades. Vanligast: `projectId` matchade inte — `isAllowedDrainProjectId` är fail-closed och släpper bara appens eget `VERCEL_PROJECT_ID`. Det är **inte** ett fel i mottagaren. Ett främmande id som `prj_x` ger alltid `stored: 0`. |
 
 Vercel testar endpointen automatiskt när drainen *väl* skapas, och
 **Test**-knappen gör samma sak. `POST /v1/drains/test` validerar
-leveranskonfigurationen (URL, encoding, secret) med sample-events **utan** att
-skapa något skarpt — kör den före `POST /v1/drains`.
+leveranskonfigurationen (URL, encoding, secret, sampling) med sample-events
+**utan** att skapa något skarpt — kör den före `POST /v1/drains`.
 
 Skulle **Create Drain** vägra gå igenom för att dess eget test får `403`: säg
 till, då behöver mottagaren en särskild gren för Vercels overifierade probe.
@@ -144,11 +157,18 @@ Tre skyddslager, inifrån och ut:
 | `sampling` `rate: 0` på ingest-sökvägen | **Vercel** kastar ingest-routens egna loggrader *innan* de levereras | — det är loop-brytaren vid källan |
 
 Vercels drain-API (`POST /v1/drains`, fältet `sampling`) stödjer sampling per
-sökväg. `rate` är 0–1; `requestPath` är ett prefix:
+sökväg. `rate` är 0–1; `requestPath` är ett prefix. Exakt värde på `type` är
+**inte** verifierat mot ett riktigt API-anrop — skulle det vara fel ignoreras
+regeln tyst, och då är loop-brytaren borta utan att någon märker det.
 
 ```json
 "sampling": [{ "type": "log", "rate": 0, "requestPath": "/api/drains/vercel" }]
 ```
+
+Validera sampling-blocket med `POST /v1/drains/test` **innan** skarp
+`POST /v1/drains`, och läs tillbaka drainen efteråt med `GET /v1/drains`
+(`includeMetadata=true`) så att regeln faktiskt sitter. En tyst ignorerad
+regel är värre än ingen regel — då tror man att man är skyddad.
 
 Dashboardens globala **Sampling rate** är en annan ratt (lämna den på 100 % för
 övriga loggar — mottagaren filtrerar redan hårt). Per-sökväg-regeln ovan syns
