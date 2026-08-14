@@ -302,6 +302,9 @@ describe("syncNavItemsFromRoutePlan — header form ({ label, href })", () => {
       `  { label: "Om", href: "/om" },`,
       `  { label: "Kontakt", href: "mailto:hej@example.com" },`,
       `  { label: "Extern", href: "https://example.com" },`,
+      // Protocol-relative URL is external — must survive the filter
+      // (PR #986 AI-review finding F-5d7cbff1a261).
+      `  { label: "CDN", href: "//cdn.example.com" },`,
       `  { label: "Sektion", href: "/#kontakt" },`,
       "  { label: \"Dynamisk\", href: `/product/${1}` },",
       `];`,
@@ -319,6 +322,7 @@ describe("syncNavItemsFromRoutePlan — header form ({ label, href })", () => {
     expect(next).toContain('href: "/"');
     expect(next).toContain("mailto:hej@example.com");
     expect(next).toContain("https://example.com");
+    expect(next).toContain("//cdn.example.com");
     expect(next).toContain('href: "/#kontakt"');
     expect(next).toContain("/product/${1}");
   });

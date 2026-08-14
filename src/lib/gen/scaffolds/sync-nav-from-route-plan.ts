@@ -126,6 +126,9 @@ function rewriteNavItems(content: string, routePlan: RoutePlan): string | null {
 function isUnplannedInternalHref(href: string, planned: Set<string>): boolean {
   const trimmed = href.trim();
   if (!trimmed.startsWith("/")) return false;
+  // Protocol-relative URLs ("//example.com") are external, not internal
+  // routes (PR #986 AI-review finding F-5d7cbff1a261).
+  if (trimmed.startsWith("//")) return false;
   if (trimmed.includes("${")) return false;
   const base = trimmed.split(/[?#]/, 1)[0] || "/";
   const normalized = normalizeRoutePath(base);
