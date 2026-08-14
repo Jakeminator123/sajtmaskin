@@ -71,7 +71,8 @@ Kommandofilens instruktion är ägare; README:t återger inte dess steg, antal
 agenter eller historiska defaults. Se [`commands/`](commands/) och börja med
 den namngivna filen, till exempel [`automat.md`](commands/automat.md),
 [`kedja.md`](commands/kedja.md), [`avslutning.md`](commands/avslutning.md),
-[`buggrapport.md`](commands/buggrapport.md), [`logg.md`](commands/logg.md) eller
+[`buggrapport.md`](commands/buggrapport.md), [`pr-herde.md`](commands/pr-herde.md),
+[`logg.md`](commands/logg.md) eller
 [`logg-internet.md`](commands/logg-internet.md). När ett kommando delegerar till
 en skill äger dess länkade `SKILL.md` detaljflödet.
 
