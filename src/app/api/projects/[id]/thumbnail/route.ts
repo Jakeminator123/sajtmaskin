@@ -30,6 +30,7 @@ import { deleteBlob, uploadBlob } from "@/lib/vercel/blob-service";
 import {
   captureThumbnailScreenshot,
   isPreviewHostBootPageError,
+  isPreviewProbeUnreadableError,
   isTransientCaptureAbort,
 } from "@/lib/projects/thumbnail-capture";
 
@@ -234,6 +235,16 @@ async function handlePOST(
       );
       return NextResponse.json(
         { success: false, skipped: true, reason: "preview_boot_page" },
+        { status: 200 },
+      );
+    }
+    if (isPreviewProbeUnreadableError(error)) {
+      console.info(
+        "[API] Thumbnail capture skipped — page probe returned no readable content:",
+        error instanceof Error ? error.message : error,
+      );
+      return NextResponse.json(
+        { success: false, skipped: true, reason: "preview_probe_unreadable" },
         { status: 200 },
       );
     }

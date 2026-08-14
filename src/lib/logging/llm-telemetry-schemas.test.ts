@@ -264,6 +264,21 @@ describe("LLM telemetri strict schemas", () => {
       expect(validate(payload)).toBe(true);
     });
 
+    it("matchar product_postcheck.preview_probe_unreadable", () => {
+      const payload = {
+        level: "warning",
+        category: "product_postcheck.preview_probe_unreadable",
+        message:
+          "Produktkontrollen fick inget läsbart sidinnehåll och kan inte avgöra om sajten är klar.",
+        meta: {
+          code: "preview_probe_unreadable",
+          durationMs: 42,
+          checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        },
+      };
+      expect(validate(payload)).toBe(true);
+    });
+
     it("matchar product_postcheck.broken_image", () => {
       const payload = {
         level: "warning",

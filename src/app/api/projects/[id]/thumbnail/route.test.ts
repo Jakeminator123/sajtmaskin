@@ -298,6 +298,25 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     expect(uploadBlob).not.toHaveBeenCalled();
   });
 
+  it("svarar 200 skipped när sidproben är tom, utan att skylla på preview-hosten", async () => {
+    const { PreviewProbeUnreadableError } = await import("@/lib/projects/thumbnail-capture");
+    captureThumbnailScreenshot.mockRejectedValue(
+      new PreviewProbeUnreadableError(
+        "Page probe returned no readable content; thumbnail skipped.",
+      ),
+    );
+    const res = await POST(thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }), routeParams);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      success: false,
+      skipped: true,
+      reason: "preview_probe_unreadable",
+    });
+    expect(setProjectThumbnail).not.toHaveBeenCalled();
+    expect(uploadBlob).not.toHaveBeenCalled();
+  });
+
   it("returns 500 and deletes uploaded blob when DB persist returns null", async () => {
     setProjectThumbnail.mockResolvedValue(null);
     const res = await POST(

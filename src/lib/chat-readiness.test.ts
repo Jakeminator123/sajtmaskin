@@ -175,6 +175,28 @@ describe("projectProductPostcheckReadiness", () => {
     expect(projection.blockedReason).not.toContain("Formulär");
   });
 
+  it("håller preview_probe_unreadable som advisory och tar inte med den i F3-orsaken", () => {
+    const projection = projectProductPostcheckReadiness([
+      log(
+        "product_postcheck.preview_probe_unreadable",
+        "Produktkontrollen fick inget läsbart sidinnehåll och kan inte avgöra om sajten är klar.",
+        { code: "preview_probe_unreadable" },
+        "2026-08-14T10:00:02Z",
+      ),
+      log("product_postcheck.summary", "F2 Product Postcheck found 1 warning(s).", {
+        warningCount: 1,
+        productBlocked: false,
+      }, "2026-08-14T10:00:01Z"),
+    ]);
+
+    expect(projection.blocksF3).toBe(false);
+    expect(projection.blockedReason).toBeNull();
+    expect(projection.warnings.map((item) => item.id)).toEqual([
+      "product-postcheck-preview_probe_unreadable",
+    ]);
+    expect(projection.warnings[0]?.title).not.toMatch(/preview-host|startsidan|Startar preview/i);
+  });
+
   it("returns empty warnings when there is no postcheck summary (unchanged)", () => {
     expect(
       projectProductPostcheckReadiness([
