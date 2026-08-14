@@ -169,6 +169,7 @@ export function PreviewPanelBrowseGallery({
     setLoading(true);
     setError(null);
     setLoadMoreError(null);
+    setLoadingMore(false);
     setCommunityCursor(null);
     /* eslint-enable react-hooks/set-state-in-effect */
     fetchCommunityIndexPage({
@@ -293,9 +294,7 @@ export function PreviewPanelBrowseGallery({
       // Keep already-loaded cards; show an inline retry under the grid.
       setLoadMoreError(err instanceof Error ? err.message : "Kunde inte hämta fler block.");
     } finally {
-      if (requestId === communityRequestIdRef.current) {
-        setLoadingMore(false);
-      }
+      setLoadingMore(false);
     }
   }, [activeCategory, communityCursor, debouncedQuery, loadingMore, source]);
 
