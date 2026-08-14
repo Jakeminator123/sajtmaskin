@@ -62,7 +62,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(DEFAULT_MODEL_TIER);
   const [promptAssistModel, setPromptAssistModel] = useState(() => getDefaultPromptAssistModel());
   const [promptAssistDeep, setPromptAssistDeep] = useState(DEFAULT_PROMPT_ASSIST.deep);
-  const [promptAssistMode, setPromptAssistMode] = useState<"polish" | "rewrite" | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [enableImageGenerations, setEnableImageGenerations] = useState(DEFAULT_IMAGE_GENERATIONS);
@@ -187,8 +186,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setPromptAssistModel,
     promptAssistDeep,
     setPromptAssistDeep,
-    promptAssistMode,
-    setPromptAssistMode,
     isDeploying,
     setIsDeploying,
     isSavingProject,

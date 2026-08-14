@@ -4,15 +4,10 @@
  */
 import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import type { BuildSpec } from "@/lib/gen/build-spec";
-import type { ContractClarificationQuestion } from "@/lib/gen/contract/clarification";
-import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import { filterRemovedCapabilitiesFromBriefSummary } from "@/lib/gen/capability-removal";
 import { describeCapabilityLabels } from "@/lib/gen/dossiers/registry";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
-import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-generation-contracts";
-import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import type { GenerationStreamMeta } from "@/lib/providers/own-engine/generation-stream";
-import type { PreGenerationContractGateReadableParams } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 
 function extractBriefSummary(brief: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
@@ -80,90 +75,6 @@ function extractBriefSummary(brief: Record<string, unknown> | null | undefined):
   };
 }
 
-type OwnEngineContractGateCommon = {
-  sseChatId: string;
-  assistantMessageId: string | null;
-  contractClarification: ContractClarificationQuestion;
-  preGenerationContracts: PreGenerationContractContext;
-  engineModel: string;
-  resolvedModelTier: CanonicalModelId;
-  buildProfileId: string;
-  buildProfileLabel: string;
-  resolvedThinking: boolean;
-  resolvedImageGenerations: boolean;
-  resolvedScaffold: ScaffoldManifest | null;
-  strategyMeta: PromptStrategyMeta;
-  buildSpec: BuildSpec;
-  metaBriefApplied: boolean;
-  customInstructionsLength: number;
-};
-
-export type OwnEngineContractGateParamsInput = OwnEngineContractGateCommon &
-  (
-    | {
-        routeVariant: "new-chat";
-        chatPrivacy: string;
-        scaffoldLabel: string | null;
-        capabilities: InferredCapabilities;
-      }
-    | { routeVariant: "follow-up" }
-  );
-
-/**
- * Params for `createPreGenerationContractGateReadableStream`.
- * New-chat adds `chatPrivacy` / `scaffoldLabel` / `capabilities`; follow-up omits them (SSE parity).
- */
-export function buildPreGenerationContractGateParams(
-  input: OwnEngineContractGateParamsInput,
-): PreGenerationContractGateReadableParams {
-  const {
-    sseChatId,
-    assistantMessageId,
-    contractClarification,
-    preGenerationContracts,
-    engineModel,
-    resolvedModelTier,
-    buildProfileId,
-    buildProfileLabel,
-    resolvedThinking,
-    resolvedImageGenerations,
-    resolvedScaffold,
-    strategyMeta,
-    buildSpec,
-    metaBriefApplied,
-    customInstructionsLength,
-  } = input;
-
-  const base: PreGenerationContractGateReadableParams = {
-    sseChatId,
-    assistantMessageId,
-    contractClarification,
-    preGenerationContracts,
-    engineModel,
-    resolvedModelTier,
-    buildProfileId,
-    buildProfileLabel,
-    resolvedThinking,
-    resolvedImageGenerations,
-    resolvedScaffold,
-    strategyMeta,
-    buildSpec,
-    metaBriefApplied,
-    customInstructionsLength,
-  };
-
-  if (input.routeVariant === "new-chat") {
-    return {
-      ...base,
-      chatPrivacy: input.chatPrivacy,
-      scaffoldLabel: input.scaffoldLabel,
-      capabilities: input.capabilities,
-    };
-  }
-
-  return base;
-}
-
 export type OwnEngineGenerationStreamMetaInput = {
   engineModel: string;
   resolvedModelTier: CanonicalModelId;
@@ -188,7 +99,7 @@ export type OwnEngineGenerationStreamMetaInput = {
 
 /**
  * Builds the `meta` object passed to `createOwnEngineGenerationStream`.
- * Follow-up responses intentionally omit `chatPrivacy` / `scaffoldLabel` (see pre-generation-contract-gate parity).
+ * Follow-up responses intentionally omit `chatPrivacy` / `scaffoldLabel`.
  */
 export function buildOwnEngineGenerationStreamMeta(
   input: OwnEngineGenerationStreamMetaInput,

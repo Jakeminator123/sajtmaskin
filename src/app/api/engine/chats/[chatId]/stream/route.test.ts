@@ -35,10 +35,6 @@ const createPromptLog = vi.hoisted(() => vi.fn());
 const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
 const prewarmPreviewSession = vi.hoisted(() => vi.fn());
 const createPreviewPrewarmLeaseKey = vi.hoisted(() => vi.fn(() => "a".repeat(64)));
-const buildContractClarificationQuestion = vi.hoisted(() =>
-  vi.fn<() => Record<string, unknown> | null>(() => null),
-);
-const buildStoredContractClarificationUiPart = vi.hoisted(() => vi.fn(() => ({})));
 const computePlanModePlannerPrompts = vi.hoisted(() => vi.fn());
 const createPlanModePipelineStream = vi.hoisted(() => vi.fn());
 const dumpPlanModePlannerPrompts = vi.hoisted(() => vi.fn());
@@ -46,8 +42,6 @@ const logPlanModeGenerationStart = vi.hoisted(() => vi.fn());
 const resolvePlanModePlannerSettings = vi.hoisted(() => vi.fn());
 const createOwnEnginePlanModeResponse = vi.hoisted(() => vi.fn());
 const createCommitCreditsOnce = vi.hoisted(() => vi.fn(() => vi.fn(async () => undefined)));
-const buildPreGenerationContractGateParams = vi.hoisted(() => vi.fn(() => null));
-const createPreGenerationContractGateReadableStream = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() =>
   vi.fn(async (): Promise<Array<{ id: string }>> => []),
 );
@@ -259,11 +253,6 @@ vi.mock("@/lib/gen/dossiers/snapshot-selection", () => ({
   resolveSelectedDossiersFromSnapshot: vi.fn(() => []),
 }));
 
-vi.mock("@/lib/gen/contract/clarification", () => ({
-  buildContractClarificationQuestion,
-  buildStoredContractClarificationUiPart,
-}));
-
 vi.mock("@/lib/gen/plan/prompt", () => ({
   buildPlannerSystemPrompt: vi.fn(),
   parsePlanResponse: vi.fn(),
@@ -357,7 +346,6 @@ vi.mock("@/lib/gen/attachment-text-hydrate", () => ({
 
 vi.mock("@/lib/own-engine/session/own-engine-build-session", () => ({
   buildOwnEngineGenerationStreamMeta: vi.fn(() => ({})),
-  buildPreGenerationContractGateParams,
 }));
 
 vi.mock("@/lib/own-engine/session/own-engine-pipeline-generation", () => ({
@@ -440,10 +428,6 @@ vi.mock("@/lib/own-engine/session/own-engine-plan-mode", () => ({
 
 vi.mock("@/lib/providers/own-engine/plan-mode-response", () => ({
   createOwnEnginePlanModeResponse,
-}));
-
-vi.mock("@/lib/providers/own-engine/pre-generation-contract-gate", () => ({
-  createPreGenerationContractGateReadableStream,
 }));
 
 vi.mock("@/lib/own-engine/resolve-max-steps", () => ({
@@ -578,7 +562,6 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
             envVars: [],
           },
           unresolvedDecisions: [],
-          confirmedAnswers: [],
         },
         buildSpec: {
           buildIntent: "website",
@@ -681,7 +664,6 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
           envVars: [],
         },
         unresolvedDecisions: [],
-        confirmedAnswers: [],
       },
       buildSpec: {
         buildIntent: "website",
@@ -728,7 +710,6 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
           envVars: [],
         },
         unresolvedDecisions: [],
-        confirmedAnswers: [],
       },
       capabilities: {
         needsMotion: false,
@@ -896,68 +877,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     });
   });
 
-  it("does NOT prewarm when a follow-up returns a contract clarification", async () => {
-    buildContractClarificationQuestion.mockReturnValueOnce({
-      kind: "auth",
-      question: "Vilken autentisering ska vi bygga mot innan vi går vidare?",
-      options: ["Ingen auth ännu", "Clerk"],
-      blocking: true,
-      reason: "Auth krävs men provider är inte vald ännu.",
-    });
-    createPreGenerationContractGateReadableStream.mockReturnValueOnce(
-      buildPipelineStream([{ event: "done", data: {} }]),
-    );
-
-    const response = await POST(
-      new Request("https://example.com/api/engine/chats/chat_1/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
-        }),
-      }),
-      { params: Promise.resolve({ chatId: "chat_1" }) },
-    );
-
-    expect(response.status).toBe(200);
-    expect(resolveOrchestrationBase).toHaveBeenCalled();
-    expect(createGenerationPipeline).not.toHaveBeenCalled();
-    expect(prewarmPreviewSession).not.toHaveBeenCalled();
-  });
-
-  // M#gs2: a gate-only exit rematched on an INCOMPLETE prompt. Persisting that
-  // match would make the answering turn read it as `persistedScaffoldId` and
-  // skip the rematch, so the unfinished guess would stick for the whole chat.
-  it("does NOT persist the rematched scaffold when the contract gate aborts the round", async () => {
-    buildContractClarificationQuestion.mockReturnValueOnce({
-      kind: "auth",
-      question: "Vilken autentisering ska vi bygga mot innan vi går vidare?",
-      options: ["Ingen auth ännu", "Clerk"],
-      blocking: true,
-      reason: "Auth krävs men provider är inte vald ännu.",
-    });
-    createPreGenerationContractGateReadableStream.mockReturnValueOnce(
-      buildPipelineStream([{ event: "done", data: {} }]),
-    );
-
-    const response = await POST(
-      new Request("https://example.com/api/engine/chats/chat_1/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
-        }),
-      }),
-      { params: Promise.resolve({ chatId: "chat_1" }) },
-    );
-
-    expect(response.status).toBe(200);
-    expect(resolveOrchestrationBase).toHaveBeenCalled();
-    expect(createGenerationPipeline).not.toHaveBeenCalled();
-    expect(updateChatScaffoldId).not.toHaveBeenCalled();
-  });
-
-  it("persists the rematched scaffold once the contract gate lets the round through", async () => {
+  it("persists the rematched scaffold when a follow-up round generates", async () => {
     createGenerationPipeline.mockReturnValue(
       buildPipelineStream([
         { event: "content", data: { text: "<main>Updated follow-up</main>" } },
@@ -1846,96 +1766,6 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     // The fresh delta-brief must be the brief orchestrate sees…
     expect(orchestrationInput.brief).toEqual(deltaBrief);
     // …not the snapshot fallback (the F1 bug: delta computed, then discarded).
-    expect(orchestrationInput.brief).not.toEqual(buildFollowUpBriefFromSnapshot(snapshot));
-  });
-
-  // B13: the F1 delta-brief write-back must survive a *contract-gate retry*.
-  // On turn 2 the current message is a short answer to the gate ("Ja, kör på
-  // det.") which on its own classifies as a neutral follow-up. Intent + the
-  // delta-brief must be derived from the ORIGINAL gated clear-redesign request
-  // (consumedReplyContext.sourceUserMessage), not the short reply — otherwise
-  // clear-redesign silently degrades to a neutral follow-up (snapshot brief)
-  // on turn 2 and the delta-brief is never generated.
-  it("routes the gated clear-redesign delta-brief into orchestration on a contract-gate retry (B13)", async () => {
-    const originalRedesignRequest =
-      "Gör om från grunden med mörk editorial stil och ny layout.";
-    const shortGateReply = "Ja, kör på det.";
-    const snapshot = {
-      briefSummary: {
-        projectTitle: "SNAPSHOT_BASE_BRIEF",
-        requestedCapabilities: ["contact-form"],
-      },
-    };
-    getEngineChatByIdForRequest.mockResolvedValueOnce({
-      id: "chat_1",
-      project_id: "app_proj_1",
-      scaffold_id: "scaffold_locked",
-      orchestration_snapshot: snapshot,
-      // History: the clear-redesign request, then the contract-gate question.
-      // The current send (shortGateReply) answers that pending question, so
-      // `collectConfirmedContractAnswers` marks the reply consumed and exposes
-      // the original request as `consumedReplyContext.sourceUserMessage`.
-      messages: [
-        { role: "user", content: originalRedesignRequest },
-        {
-          role: "assistant",
-          content: "Vill du behålla nuvarande sidstruktur eller börja om helt?",
-          ui_parts: [
-            {
-              type: "tool:awaiting-input",
-              output: {
-                contractClarification: true,
-                kind: "scope",
-                question: "Vill du behålla nuvarande sidstruktur eller börja om helt?",
-                options: ["Behåll", "Börja om"],
-                blocking: true,
-                reason: "scope",
-              },
-            },
-          ],
-        },
-      ],
-    });
-    const deltaBrief = {
-      projectTitle: "DELTA_REDESIGN_SENTINEL",
-      visualDirection: { styleKeywords: ["dark", "editorial"] },
-    };
-    vi.mocked(tryGenerateServerAutoBrief).mockResolvedValueOnce(
-      { brief: deltaBrief, modelUsed: "test-delta-model" } as unknown as Awaited<
-        ReturnType<typeof tryGenerateServerAutoBrief>
-      >,
-    );
-    createGenerationPipeline.mockReturnValue(
-      buildPipelineStream([
-        { event: "content", data: { text: "<main>Redesigned</main>" } },
-        { event: "done", data: { promptTokens: 9, completionTokens: 15 } },
-      ]),
-    );
-
-    const response = await POST(
-      new Request("https://example.com/api/engine/chats/chat_1/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: shortGateReply }),
-      }),
-      { params: Promise.resolve({ chatId: "chat_1" }) },
-    );
-
-    expect(response.status).toBe(200);
-    // The delta-brief is generated from the ORIGINAL gated request…
-    expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
-    expect(tryGenerateServerAutoBrief).toHaveBeenCalledWith(
-      expect.objectContaining({ prompt: originalRedesignRequest }),
-    );
-    // …never from the short contract-gate answer (that would classify neutral).
-    expect(tryGenerateServerAutoBrief).not.toHaveBeenCalledWith(
-      expect.objectContaining({ prompt: shortGateReply }),
-    );
-    // …and the fresh delta reaches orchestration, not the snapshot fallback.
-    const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
-      brief: unknown;
-    };
-    expect(orchestrationInput.brief).toEqual(deltaBrief);
     expect(orchestrationInput.brief).not.toEqual(buildFollowUpBriefFromSnapshot(snapshot));
   });
 

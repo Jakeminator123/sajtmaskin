@@ -8,8 +8,8 @@
  *   - The first group represents build profiles, not prompt-assist models.
  *   - Profiles map to the own engine's provider model IDs (codegen is own-engine only).
  *   - own-engine is the canonical codegen path.
- *   - Prompt Assist models are listed separately below and are only used to
- *     rewrite/brief the prompt before generation.
+ *   - Prompt Assist models are listed separately below and are only a
+ *     model hint to Deep Brief / auto-brief before the first build.
  *
  * Prompt Assist (preprocessing user prompts before generation):
  *   - off:            No preprocessing, send prompt directly to the build engine.
@@ -24,7 +24,7 @@
  */
 
 import { ANTHROPIC_ASSIST_MODELS, ASSIST_MODELS } from "./prompt-assist";
-import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
+import { ASSIST_MODEL } from "@/lib/gen/defaults";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import { DEFAULT_MODEL_ID, aliasRetiredModelId } from "@/lib/models/catalog";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
@@ -154,10 +154,8 @@ export interface PromptAssistDefaults {
 
 /**
  * Resolved from src/lib/gen/defaults.ts (defaults originate in config/ai_models/manifest.json).
- * Override via SAJTMASKIN_POLISH_MODEL and SAJTMASKIN_ASSIST_MODEL in .env.local.
+ * Override via SAJTMASKIN_ASSIST_MODEL in .env.local.
  */
-export const DEFAULT_PROMPT_POLISH_MODEL = POLISH_MODEL;
-
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
   model: ASSIST_MODEL,
   deep: true,

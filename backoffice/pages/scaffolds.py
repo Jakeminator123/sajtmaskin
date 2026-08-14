@@ -14,7 +14,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterator
+from typing import Any, Iterator, Sequence
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -37,6 +37,26 @@ from .scaffold_lifecycle_lib import client_projection
 from .scaffold_lifecycle_lib.scaffold_ops import _normalize_allowed_build_intents
 
 PAGE_NAME = "Scaffolds: titta & justera"
+
+TREE_VIEW_PAGE_SIZE = 20
+
+
+def _tree_page_count(total: int, page_size: int = TREE_VIEW_PAGE_SIZE) -> int:
+    if total <= 0:
+        return 1
+    return (total + page_size - 1) // page_size
+
+
+def _tree_page_slice(
+    scaffold_ids: Sequence[str],
+    page: int,
+    page_size: int = TREE_VIEW_PAGE_SIZE,
+) -> list[str]:
+    """Ids for `page` (1-indexerad). Out-of-range klampar till giltigt spann (1 eller sista)."""
+    page_count = _tree_page_count(len(scaffold_ids), page_size)
+    safe_page = min(max(page, 1), page_count)
+    start = (safe_page - 1) * page_size
+    return list(scaffold_ids[start : start + page_size])
 
 
 @dataclass(frozen=True)
@@ -331,19 +351,15 @@ def _render_scaffold_tree_view(ctx: BackofficeContext) -> None:
     )
     by_id = {snapshot.scaffold_id: snapshot for snapshot in snapshots}
     default_ids = [scaffold_id for scaffold_id in preferred_defaults if scaffold_id in by_id]
-    if len(default_ids) < min(5, len(snapshots)):
-        default_ids.extend(
-            snapshot.scaffold_id
-            for snapshot in snapshots
-            if snapshot.scaffold_id not in default_ids
-        )
-    default_ids = default_ids[:5]
+    default_ids.extend(
+        snapshot.scaffold_id for snapshot in snapshots if snapshot.scaffold_id not in default_ids
+    )
+    default_ids = default_ids[:TREE_VIEW_PAGE_SIZE]
 
     selected_ids = st.multiselect(
-        "Visa upp till fem scaffolds",
+        f"Visa scaffolds ({TREE_VIEW_PAGE_SIZE} filträd per sida)",
         options=list(by_id),
         default=default_ids,
-        max_selections=5,
         format_func=lambda scaffold_id: f"{by_id[scaffold_id].label} ({scaffold_id})",
         help="Urvalet påverkar bara vyn. Filerna läses alltid från respektive scaffold-rot.",
     )
@@ -351,8 +367,22 @@ def _render_scaffold_tree_view(ctx: BackofficeContext) -> None:
         st.info("Välj minst en scaffold för att visa dess filträd.")
         return
 
+    page = 1
+    page_count = _tree_page_count(len(selected_ids))
+    if page_count > 1:
+        page = st.radio(
+            "Sida",
+            options=list(range(1, page_count + 1)),
+            horizontal=True,
+            format_func=lambda number: (
+                f"{(number - 1) * TREE_VIEW_PAGE_SIZE + 1}–"
+                f"{min(number * TREE_VIEW_PAGE_SIZE, len(selected_ids))}"
+            ),
+            help=f"{len(selected_ids)} valda scaffolds fördelade på {page_count} sidor.",
+        )
+
     columns = st.columns(2)
-    for index, scaffold_id in enumerate(selected_ids):
+    for index, scaffold_id in enumerate(_tree_page_slice(selected_ids, page)):
         snapshot = by_id[scaffold_id]
         with columns[index % 2]:
             with st.container(border=True):

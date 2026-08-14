@@ -24,7 +24,6 @@ export type CreateChatKeyJobFields = {
    */
   buildIntentExplicit?: boolean;
   planMode?: boolean;
-  promptAssistMode?: string | null;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean;
   /** Serialized palette / theme snapshot (caller passes stable JSON-able value). */
@@ -84,7 +83,6 @@ export function buildCreateChatKey(
     `buildIntent:${job?.buildIntent ?? ""}`,
     `buildIntentExplicit:${job?.buildIntentExplicit ? "1" : "0"}`,
     `planMode:${planMode ? "1" : "0"}`,
-    `promptAssistMode:${job?.promptAssistMode ?? ""}`,
     `promptAssistModel:${job?.promptAssistModel ?? ""}`,
     `promptAssistDeep:${job?.promptAssistDeep ? "1" : "0"}`,
     `palette:${stablePaletteFingerprint(job?.paletteState)}`,

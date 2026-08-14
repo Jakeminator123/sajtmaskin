@@ -8,7 +8,6 @@ import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import type { normalizeRequestAttachments } from "@/lib/gen/request-metadata";
 import type { CanonicalModelId } from "@/lib/models/catalog";
-import type { ParsedChatRequestMeta } from "../parse-chat-request-meta";
 
 type CreditCheck = Awaited<ReturnType<typeof prepareCredits>> & { ok: true };
 
@@ -24,7 +23,6 @@ export async function recordFollowUpPromptLog(params: {
   metaAppProjectId: string | null;
   metaPromptAssistModel: string | null;
   metaPromptAssistDeep: boolean | null;
-  metaPromptAssistMode: ParsedChatRequestMeta["promptAssistMode"];
   metaBuildIntent: string | null;
   metaBuildMethod: string | null;
   resolvedModelTier: CanonicalModelId;
@@ -45,7 +43,6 @@ export async function recordFollowUpPromptLog(params: {
     metaAppProjectId,
     metaPromptAssistModel,
     metaPromptAssistDeep,
-    metaPromptAssistMode,
     metaBuildIntent,
     metaBuildMethod,
     resolvedModelTier,
@@ -93,7 +90,6 @@ export async function recordFollowUpPromptLog(params: {
       systemPrompt: typeof system === "string" ? system.trim() || null : null,
       promptAssistModel: metaPromptAssistModel,
       promptAssistDeep: metaPromptAssistDeep,
-      promptAssistMode: metaPromptAssistMode,
       buildIntent: metaBuildIntent,
       buildMethod: metaBuildMethod,
       modelTier: resolvedModelTier,

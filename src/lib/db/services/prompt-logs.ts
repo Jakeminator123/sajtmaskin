@@ -17,7 +17,6 @@ export async function createPromptLog(payload: {
   systemPrompt?: string | null;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean | null;
-  promptAssistMode?: string | null;
   buildIntent?: string | null;
   buildMethod?: string | null;
   modelTier?: string | null;
@@ -44,7 +43,7 @@ export async function createPromptLog(payload: {
     prompt_assist_model: payload.promptAssistModel || null,
     prompt_assist_deep:
       typeof payload.promptAssistDeep === "boolean" ? payload.promptAssistDeep : null,
-    prompt_assist_mode: payload.promptAssistMode || null,
+    prompt_assist_mode: null,
     build_intent: payload.buildIntent || null,
     build_method: payload.buildMethod || null,
     model_tier: payload.modelTier || null,

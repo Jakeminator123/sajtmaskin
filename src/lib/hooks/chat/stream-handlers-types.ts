@@ -49,7 +49,6 @@ export type StreamContext = {
   autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean;
-  promptAssistMode?: "polish" | "rewrite" | null;
 };
 
 export type StreamHandlerResult = {

@@ -384,7 +384,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               initialPrompt={vm.initialPrompt}
               onCreateChat={vm.requestCreateChat}
               onSendMessage={sendMessage}
-              onPromptAssistModeReset={vm.handlePromptAssistModeReset}
               isFigmaInputOpen={isFigmaInputOpen}
               onFigmaInputOpenChange={setIsFigmaInputOpen}
               isBusy={isInteractionLocked}

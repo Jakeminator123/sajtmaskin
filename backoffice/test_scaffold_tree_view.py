@@ -7,10 +7,13 @@ import unittest
 from pathlib import Path
 
 from backoffice.pages.scaffolds import (
+    TREE_VIEW_PAGE_SIZE,
     _copy_tree_button_html,
     _discover_scaffold_trees,
     _format_scaffold_tree,
     _iter_tree_nodes,
+    _tree_page_count,
+    _tree_page_slice,
 )
 
 
@@ -119,6 +122,28 @@ class ScaffoldTreeFormattingTests(unittest.TestCase):
         self.assertIn('document.execCommand("copy")', component_html)
         self.assertIn("Kopiera filträd", component_html)
         self.assertIn("page.tsx", component_html)
+
+
+class ScaffoldTreePaginationTests(unittest.TestCase):
+    def test_selection_up_to_page_size_stays_on_one_page(self) -> None:
+        ids = [f"scaffold-{index}" for index in range(TREE_VIEW_PAGE_SIZE)]
+
+        self.assertEqual(_tree_page_count(len(ids)), 1)
+        self.assertEqual(_tree_page_slice(ids, 1), ids)
+
+    def test_selection_over_page_size_splits_into_pages(self) -> None:
+        ids = [f"scaffold-{index}" for index in range(TREE_VIEW_PAGE_SIZE + 3)]
+
+        self.assertEqual(_tree_page_count(len(ids)), 2)
+        self.assertEqual(_tree_page_slice(ids, 1), ids[:TREE_VIEW_PAGE_SIZE])
+        self.assertEqual(_tree_page_slice(ids, 2), ids[TREE_VIEW_PAGE_SIZE:])
+
+    def test_out_of_range_page_clamps_to_valid_range(self) -> None:
+        ids = [f"scaffold-{index}" for index in range(TREE_VIEW_PAGE_SIZE + 3)]
+
+        self.assertEqual(_tree_page_slice(ids, 0), ids[:TREE_VIEW_PAGE_SIZE])
+        self.assertEqual(_tree_page_slice(ids, 99), ids[TREE_VIEW_PAGE_SIZE:])
+        self.assertEqual(_tree_page_count(0), 1)
 
 
 if __name__ == "__main__":

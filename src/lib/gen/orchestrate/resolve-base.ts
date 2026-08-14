@@ -99,7 +99,6 @@ export async function resolveOrchestrationBase(
     scaffoldId = null,
     brief: inputBrief = null,
     persistedScaffoldId = null,
-    contractAnswers = [],
     embeddingScaffoldMatch = true,
     generationMode,
     promptStrategyMeta = null,
@@ -608,7 +607,6 @@ export async function resolveOrchestrationBase(
       buildIntent: effectiveBuildIntent,
       brief,
       capabilities,
-      contractAnswers,
     }),
     removedCapabilities,
   );

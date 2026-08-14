@@ -64,7 +64,6 @@ export function useSendMessage(
     systemPrompt,
     promptAssistModel,
     promptAssistDeep,
-    promptAssistMode,
     buildIntent,
     setBuildIntent,
     buildMethod,
@@ -408,7 +407,6 @@ export function useSendMessage(
           promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;
         }
         if (promptAssistModel) promptMeta.promptAssistModel = promptAssistModel;
-        if (promptAssistMode) promptMeta.promptAssistMode = promptAssistMode;
         // Defense-in-depth: never re-send the init brief on follow-ups.
         // The server uses persisted scaffold, orchestration snapshot, and
         // previous files for follow-up context instead.
@@ -745,7 +743,6 @@ export function useSendMessage(
             autoFixHandlerRef,
             promptAssistModel,
             promptAssistDeep,
-            promptAssistMode,
           },
           streamController.signal,
         );
@@ -877,7 +874,6 @@ export function useSendMessage(
       paletteState,
       promptAssistModel,
       promptAssistDeep,
-      promptAssistMode,
       mutateVersions,
       startStreamSafetyTimer,
       touchStreamSafetyTimer,

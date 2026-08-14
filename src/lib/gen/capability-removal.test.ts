@@ -79,7 +79,6 @@ describe("filterRemovedCapabilitiesFromContracts", () => {
         ],
       },
       unresolvedDecisions: [{ kind: "payment", reason: "pick provider" }],
-      confirmedAnswers: [],
     };
 
     const result = filterRemovedCapabilitiesFromContracts(context, ["payments"]);
@@ -123,7 +122,6 @@ describe("filterRemovedCapabilitiesFromContracts", () => {
         ],
       },
       unresolvedDecisions: [],
-      confirmedAnswers: [],
     };
 
     const result = filterRemovedCapabilitiesFromContracts(context, ["database"]);

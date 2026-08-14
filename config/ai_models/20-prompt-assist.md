@@ -14,14 +14,14 @@ Tillåtna värden kommer från **`manifest.json` → `promptAssist.allowed`** vi
 
 ## Provider-typ: `"openai" | "anthropic"`
 
-`PromptAssistProvider` i `src/lib/builder/prompt-assist/` är `"openai" | "anthropic"`. Tidigare hette OpenAI-grenen `"gateway"` — den etiketten är borttagen ur typen och all runtime-kod sedan Fas 1 världsklass. HTTP-scheman i `/api/ai/brief` och `/api/ai/chat` accepterar fortfarande `"gateway"` i request-body under en övergångsperiod och normaliserar det till `"openai"` server-side.
+`PromptAssistProvider` i `src/lib/builder/prompt-assist/` är `"openai" | "anthropic"`. Tidigare hette OpenAI-grenen `"gateway"` — den etiketten är borttagen ur typen och all runtime-kod sedan Fas 1 världsklass. HTTP-schemat i `/api/ai/brief` accepterar fortfarande `"gateway"` i request-body under en övergångsperiod och normaliserar det till `"openai"` server-side.
 
 Anropet går till [`createDirectModel`](../../src/lib/builder/direct-model.ts), som använder **`OPENAI_API_KEY`** för `openai/*` och **`ANTHROPIC_API_KEY`** för `anthropic/*`. GPT-5.6 väljer AI SDK:s Responses-provider uttryckligen.
 
-## Standard assist / polish
+## Standard assist
 
 Defaults och env-nycklar: `promptAssist.defaults` och `promptAssist.envKeys` i manifestet.  
-Konsument: [`src/lib/gen/defaults.ts`](../../src/lib/gen/defaults.ts) (`ASSIST_MODEL`, `POLISH_MODEL`) och builder-defaults.
+Konsument: [`src/lib/gen/defaults.ts`](../../src/lib/gen/defaults.ts) (`ASSIST_MODEL`) och builder-defaults. Assist-modellen är en hint till brief-lanen, inte en egen rewrite-agent.
 
 ## Deep Brief och auto-brief
 

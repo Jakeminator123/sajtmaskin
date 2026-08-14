@@ -42,7 +42,6 @@ const repairPolicies = getRepairPoliciesFromManifest();
 //
 //   # ── Prompt Assist / Brief (provider/model, se config/ai_models) ─
 //   SAJTMASKIN_ASSIST_MODEL=openai/gpt-5.6-sol
-//   SAJTMASKIN_POLISH_MODEL=openai/gpt-5.3-codex
 //
 //   # ── Token-gränser ────────────────────────────────────────────
 //   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=131072
@@ -53,9 +52,6 @@ const repairPolicies = getRepairPoliciesFromManifest();
 
 /** Prompt assist default model string (provider/model) */
 export const ASSIST_MODEL = readStringEnv(pa.envKeys.assist, pa.defaults.assist);
-
-/** Prompt polish model for "Skriv om" */
-export const POLISH_MODEL = readStringEnv(pa.envKeys.polish, pa.defaults.polish);
 
 /** Deep Brief model for `/api/ai/brief` when the caller does not override it. */
 export const BRIEF_MODEL = readStringEnv(briefingEnvKeys.requestModel, briefing.requestModel);

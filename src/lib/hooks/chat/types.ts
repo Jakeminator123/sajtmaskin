@@ -182,7 +182,6 @@ export type ModelInfoData = {
   promptAssistProvider?: string | null;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean | null;
-  promptAssistMode?: "polish" | "rewrite" | null;
   scaffoldId?: string | null;
   scaffoldLabel?: string | null;
   capabilities?: Record<string, boolean> | null;
@@ -273,7 +272,6 @@ export type ChatMessagingParams = {
   systemPrompt?: string;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean;
-  promptAssistMode?: "polish" | "rewrite" | null;
   buildIntent?: BuildIntent;
   /**
    * Persist Byggval's Hemsida/App into builder state so follow-ups keep the
