@@ -495,6 +495,12 @@ async function stopRuntimeForSession(session) {
   await stopTrackedRuntime(session.sessionId, session.previewSessionId);
 }
 
+function isLiveBoot(sessionId, bootId) {
+  if (bootId == null) return false;
+  const tracked = runtimeChildren.get(sessionId);
+  return Boolean(tracked && tracked.bootId === bootId && tracked.child?.exitCode === null);
+}
+
 function exposeRuntimeToClients(session, { restart = false, runtimePort = null, bootId = null } = {}) {
   const chatId = getSessionChatId(session);
   const latest = findSessionByChatId(readStoreSync(), chatId);
@@ -771,6 +777,7 @@ async function bootRuntimeForSession(session, options = {}) {
           .then(() =>
             updateSessionById(session.sessionId, (stored) => {
               if (stored.versionId !== session.versionId) return;
+              if (!isLiveBoot(session.sessionId, spawnedBootId)) return;
               stored.readinessState = "ready";
               stored.readinessError = null;
               stored.updatedAt = nowIso();
@@ -787,6 +794,7 @@ async function bootRuntimeForSession(session, options = {}) {
             const message = err instanceof Error ? err.message : "unknown readiness failure";
             return updateSessionById(session.sessionId, (stored) => {
               if (stored.versionId !== session.versionId) return;
+              if (!isLiveBoot(session.sessionId, spawnedBootId)) return;
               stored.readinessState = "failed";
               stored.readinessError = message;
               stored.updatedAt = nowIso();

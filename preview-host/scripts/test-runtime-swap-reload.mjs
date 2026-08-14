@@ -79,6 +79,10 @@ check(
     ),
   );
   check(
+    "readiness state writes ignore a stale waitForReady from a previous boot",
+    /isLiveBoot\(session\.sessionId, spawnedBootId\)/.test(lifecycleSrc),
+  );
+  check(
     "HTTP proxy requires acceptingTraffic — persisted failed readiness is not a bypass",
     /state\.running && state\.runtimePort && state\.acceptingTraffic/.test(proxySrc) &&
       !/state\.acceptingTraffic \|\| state\.session\.readinessState === "failed"/.test(proxySrc),
