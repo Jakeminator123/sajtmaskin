@@ -9,36 +9,47 @@ greppa `vercel logs --json`"-steg: sex körningar i rad rapporterade artigt
 Drainen är **valfri**. Är den av fungerar allt som förut, och `--kinds=drain`
 returnerar tom lista.
 
+## Nuläge 2026-08-15
+
+| Sak | Nuläge |
+|---|---|
+| Befintliga drains | Noll (`GET /v1/drains` → `{"drains": []}`) |
+| `VERCEL_LOG_DRAIN_SECRET` | Finns i production sedan 2026-08-11 |
+| `VERCEL_LOG_DRAIN_ENABLED` | Satt till `true` i production 2026-08-15 — slår igenom vid nästa prod-deploy |
+
+Ingen drain ska skapas förrän den deployen har landat och det signerade
+självtestet nedan svarar `{ ok = True }`. Det är en separat uppgift.
+
 ## Sätt upp den
 
-| Fält i Vercels dialog | Värde |
-|---|---|
-| Data to drain | **Logs** |
-| Destination | **Custom Endpoint** |
-| Method | `POST` (fast) |
-| **URL** | **`https://sajtmaskin.vercel.app/api/drains/vercel`** |
-| Encoding | `JSON` eller `NDJSON` — mottagaren parsar båda |
-| Signature Verification Secret | generera i dialogen, kopiera värdet |
-| Custom Headers | behövs inte |
+**Ordning — env och deploy före drainen.** Ownership-proben (`x-vercel-verify`,
+osignerad) fungerar **oberoende** av kill-switchen, så mottagaren kan vara redo
+innan något pekar mot den. Den omvända ordningen (skapa drainen medan mottagaren
+fortfarande svarar `410`) är exakt tillståndet som orsakade kostnadsincidenten
+2026-08-11: ~2,8 miljoner invocations på en timme.
 
-Dialogen når du via Vercel-dashboarden → **Team Settings → Drains → Add Drain**.
+1. Sätt `VERCEL_LOG_DRAIN_SECRET` + `VERCEL_LOG_DRAIN_ENABLED=true` i production.
+2. Deploya. Nu är mottagaren redo och svarar aldrig `410` på signerade leveranser.
+3. Verifiera med det signerade självtestet nedan.
+4. Skapa **därefter** drainen — med loop-brytaren vid källan.
 
-**Projektscope:** skapa drainen avgränsad till **Sajtmaskin-appen** (inte hela teamet).
-Mottagaren fail-closed-filtrerar på `VERCEL_PROJECT_ID` och kastar rader från andra
-projekt — men felkonfigurerad bred drain är fortfarande onödig trafik.
+Skapa inte drainen mellan steg 1 och 3. En live drain mot en mottagare som
+svarar `410` retrysar och loggar, och varje logg blir en ny leverans.
 
-**Verify/Create-probe:** osignerad POST med `x-vercel-verify` får `200` + samma header
-ekoas tillbaka (Vercels ownership-handshake) **även när kill-switchen är av**. Signerade
-leveranser kräver **både** `VERCEL_LOG_DRAIN_ENABLED=true` och `VERCEL_LOG_DRAIN_SECRET`.
+**Verify/Create-probe:** osignerad POST med `x-vercel-verify` får `200` + samma
+header ekoas tillbaka (Vercels ownership-handshake) **även när kill-switchen är
+av**. Signerade leveranser kräver **både** `VERCEL_LOG_DRAIN_ENABLED=true` och
+`VERCEL_LOG_DRAIN_SECRET`. Därför kan (och ska) switchen vara på *innan*
+drainen skapas — proben behöver inte ett farofönster.
 
 ### Vad som är env och vad som inte är det
 
 | Namn | Rätt? | Var |
 |---|---|---|
 | `VERCEL_LOG_DRAIN_ENABLED=true` | **Ja** — kill-switch, måste vara exakt `true` | Vercel **production**-env |
-| `VERCEL_LOG_DRAIN_SECRET=<secret från dialogen>` | **Ja** | Vercel **production**-env (valfritt i `.env.local` bara om du testar mottagaren lokalt) |
+| `VERCEL_LOG_DRAIN_SECRET=<samma värde som drainen ska signera med>` | **Ja** | Vercel **production**-env (valfritt i `.env.local` bara om du testar mottagaren lokalt) |
 | `DRAIN=…` | **Nej** — koden läser inte det | — |
-| `POST_DRAIN=https://…` | **Nej** — URL:en är **inte** en env-variabel | Vercel-dialogen → fältet **URL** |
+| `POST_DRAIN=https://…` | **Nej** — URL:en är **inte** en env-variabel | Drain-dialogen / `POST /v1/drains` → fältet **URL** / `delivery.endpoint` |
 
 URL:en pekar drainen mot mottagaren. Secreten verifierar `x-vercel-signature`.
 `ENABLED` är den manuella brytaren. Blanda inte ihop dem, och döp inte om secreten
@@ -48,8 +59,8 @@ till `DRAIN`.
 
 Det genererade värdet är den **enda** grinden mot att vem som helst som gissar
 URL:en kan skriva rader i vår databas — men **utan** `ENABLED=true` tar vi ändå
-inte emot något (410). Lägg båda (från länkad repo-rot, inte en worktree utan
-`.vercel/`):
+inte emot något (410). Det är nödläget, inte uppsättningsvägen: sätt båda **före**
+drainen skapas (från länkad repo-rot, inte en worktree utan `.vercel/`):
 
 ```powershell
 # från C:\Users\jakem\dev\projects\sajtmaskin (huvudcheckouten):
@@ -58,26 +69,26 @@ $secret | vercel env add VERCEL_LOG_DRAIN_SECRET production --yes
 "true" | vercel env add VERCEL_LOG_DRAIN_ENABLED production --yes
 ```
 
-Sedan **en ny production-deploy**, annars ser den körande funktionen inte
-variablerna. Rekommenderad ordning:
+Per 2026-08-15 finns secreten redan; `ENABLED=true` är satt och väntar på nästa
+prod-deploy. Rotera inte secreten i samma veva som drainen skapas — då måste
+env + deploy hinna före, annars uppstår farofönstret igen.
 
-1. Deploya koden (ENABLED unset → default av).
-2. Skapa drainen i dashboarden (ownership-proben fungerar utan ENABLED).
-3. Sätt `VERCEL_LOG_DRAIN_SECRET` + `VERCEL_LOG_DRAIN_ENABLED=true`.
-4. Deploya igen — först då accepteras signerade leveranser.
+Sedan **en ny production-deploy**, annars ser den körande funktionen inte
+variablerna. Först därefter självtest, först därefter drain.
 
 Saknas ENABLED eller secret svarar routen `410 Gone` (inte `503`). Det är medvetet:
 efter incidenten 2026-08-11 vill vi att Vercel **slutar retrysa** och markerar
-drainen som errored, inte att den fortsätter hamra oss.
+drainen som errored, inte att den fortsätter hamra oss. `410` är alltså
+skadebegränsning *i efterhand* — inte ett tillstånd att stå i med en live drain.
 
 Sätt dem **bara i production**. Preview-deployer behöver dem inte. Lägg **inte**
 `POST_DRAIN` eller `DRAIN` i Vercel-env — det gör ingenting.
 
 ### Testa själv med en signerad request
 
-Vercel testar endpointen automatiskt när drainen skapas, och **Test**-knappen
-gör samma sak. Routen kräver giltig signatur, så ett test utan signatur svarar
-`403` — vilket är meningen, men ser ut som ett fel. Verifiera i stället själv:
+Gör det här **innan** drainen skapas. Routen kräver giltig signatur, så ett test
+utan signatur svarar `403` — vilket är meningen, men ser ut som ett fel.
+Verifiera i stället själv:
 
 ```powershell
 $secret = "<samma värde som VERCEL_LOG_DRAIN_SECRET>"
@@ -91,9 +102,57 @@ Invoke-RestMethod -Method Post -Uri "https://sajtmaskin.vercel.app/api/drains/ve
 Svar `{ ok = True; received = 1; stored = 1 }` betyder att hela kedjan lever.
 Raden dyker sedan upp i `--kinds=drain`.
 
+Vercel testar endpointen automatiskt när drainen *väl* skapas, och
+**Test**-knappen gör samma sak. `POST /v1/drains/test` validerar
+leveranskonfigurationen (URL, encoding, secret) med sample-events **utan** att
+skapa något skarpt — kör den före `POST /v1/drains`.
+
 Skulle **Create Drain** vägra gå igenom för att dess eget test får `403`: säg
 till, då behöver mottagaren en särskild gren för Vercels overifierade probe.
 Den är medvetet inte byggd på spekulation.
+
+### Skapa drainen (steg 4)
+
+Dialogen når du via Vercel-dashboarden → **Team Settings → Drains → Add Drain**.
+Klistra in **samma** secret som redan ligger i `VERCEL_LOG_DRAIN_SECRET`.
+Generera inte ett nytt värde i dialogen efter att drainen är live — då matchar
+inte signaturerna, eller så måste env + deploy hinna före och farofönstret är
+tillbaka.
+
+| Fält i Vercels dialog | Värde |
+|---|---|
+| Data to drain | **Logs** |
+| Destination | **Custom Endpoint** |
+| Method | `POST` (fast) |
+| **URL** | **`https://sajtmaskin.vercel.app/api/drains/vercel`** |
+| Encoding | `JSON` eller `NDJSON` — mottagaren parsar båda |
+| Signature Verification Secret | **samma värde som `VERCEL_LOG_DRAIN_SECRET`** |
+| Custom Headers | behövs inte |
+
+**Projektscope:** skapa drainen avgränsad till **Sajtmaskin-appen** (inte hela teamet).
+Mottagaren fail-closed-filtrerar på `VERCEL_PROJECT_ID` och kastar rader från andra
+projekt — men felkonfigurerad bred drain är fortfarande onödig trafik.
+
+### Loop-brytaren vid källan
+
+Tre skyddslager, inifrån och ut:
+
+| Lager | Vad det gör | Vad det *inte* gör |
+|---|---|---|
+| `isSelfDrainLog` | Håller *tabellen* ren — egna ingest-rader sparas inte | Stoppar **inte** anropen. Loopen lever så länge Vercel levererar. |
+| `410` när ENABLED/secret saknas | Får Vercel att sluta retrysa och markera drainen som errored | Begränsar skadan *i efterhand*. Invocations hinner gå innan Vercel ger upp. |
+| `sampling` `rate: 0` på ingest-sökvägen | **Vercel** kastar ingest-routens egna loggrader *innan* de levereras | — det är loop-brytaren vid källan |
+
+Vercels drain-API (`POST /v1/drains`, fältet `sampling`) stödjer sampling per
+sökväg. `rate` är 0–1; `requestPath` är ett prefix:
+
+```json
+"sampling": [{ "type": "log", "rate": 0, "requestPath": "/api/drains/vercel" }]
+```
+
+Dashboardens globala **Sampling rate** är en annan ratt (lämna den på 100 % för
+övriga loggar — mottagaren filtrerar redan hårt). Per-sökväg-regeln ovan syns
+inte alltid i dialogen; sätt den via API:t när drainen skapas.
 
 ### Skruva ner volymen vid källan
 
@@ -102,8 +161,9 @@ Under **Additional configuration for logs** i samma dialog:
 - **Sources:** `lambda` räcker för appens console-rader. `build` är sällan
   intressant här (byggloggar hämtas ändå per deploy).
 - **Environments:** bara `production`.
-- **Sampling rate:** lämna på 100 % — mottagaren filtrerar redan hårt. Sänk bara
-  om Vercel-sidan börjar kosta.
+- **Sampling rate:** lämna på 100 % för *övriga* sökvägar. Loop-brytaren ovan
+  (`rate: 0` på `/api/drains/vercel`) är den enda sänkningen som ska med från
+  start. Sänk den globala raten bara om Vercel-sidan börjar kosta.
 
 ## Vad som faktiskt lagras
 
@@ -151,9 +211,11 @@ dashboarden**, inte bara hoppas på kodfilter. Kill-switchen
 snabbt går till errored i stället för att retrysa i evighet — men den stoppar
 inte anropen förrän Vercel ger upp, så radera fortfarande drainen vid storm.
 
-Mottagaren kastar alltid egna ingest-rader (`isSelfDrainLog`) så *tabellen*
-förblir ren, men *anropen* fortsätter så länge drainen är aktiv. Föredra en
-extern mottagare (Axiom / separat projekt) om du vill undvika loopen helt.
+`isSelfDrainLog` kastar egna ingest-rader så *tabellen* förblir ren, men
+*anropen* fortsätter så länge drainen är aktiv. Det är därför loop-brytaren vid
+källan (`sampling` `rate: 0` på `/api/drains/vercel`) ska med **när drainen
+skapas** — inte som en efterhandslapp. Föredra en extern mottagare (Axiom /
+separat projekt) om du vill undvika same-app-loopen helt.
 
 **Endpointen är nere när appen är nere.** Det är precis då du vill läsa
 loggarna. Vercel gör om leveransen ett antal gånger vid tillfälliga 5xx, så en
@@ -164,14 +226,16 @@ sanningen när det brinner.
 **`410` i loggen betyder "avstängd eller ingen secret".** Routen vägrar ta emot
 data den inte ska / inte kan verifiera, utan att bjuda in retries. Kolla att
 `VERCEL_LOG_DRAIN_ENABLED=true` **och** `VERCEL_LOG_DRAIN_SECRET` finns i
-production **och** att en deploy skett efter att de lades till.
+production **och** att en deploy skett efter att de lades till. En live drain
+som möter `410` är farofönstret — stäng av eller radera drainen, flippa inte
+switchen "för att se".
 
-**Spend Management.** Sätt en spend alert i Vercel Billing — det är
-nödbromsen om en loop skulle återkomma.
+**Spend Management.** En spend alert i Vercel Billing är den yttersta
+nödbromsen om en loop skulle återkomma trots ordningen och sampling-regeln.
 
 ## Related
 
 - Env-sanning: [`docs/ENV.md`](../ENV.md) → `VERCEL_LOG_DRAIN_ENABLED` + `VERCEL_LOG_DRAIN_SECRET`
 - Loggöversikt: [`.cursor/skills/logg/SKILL.md`](../../.cursor/skills/logg/SKILL.md) steg 2c
 - Migration: `src/lib/db/migrations/add-vercel-log-drain-events.sql`
-- Vercels dokumentation: [Drains](https://vercel.com/docs/drains) · [Logs-schema](https://vercel.com/docs/drains/reference/logs) · [Säkerhet](https://vercel.com/docs/drains/security)
+- Vercels dokumentation: [Drains](https://vercel.com/docs/drains) · [Logs-schema](https://vercel.com/docs/drains/reference/logs) · [Säkerhet](https://vercel.com/docs/drains/security) · [Skapa drain](https://vercel.com/docs/rest-api/reference/endpoints/drains/create-a-new-drain) · [Testa leverans](https://vercel.com/docs/rest-api/reference/endpoints/drains/validate-drain-delivery-configuration)
