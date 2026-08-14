@@ -84,6 +84,14 @@ public/images/
 # Parkerade/skrotade planer. Avklarat-indexet hålls sökbart; detaljarkiv = git.
 docs/plans/archived/**
 
+# --- Ägarens experiment- och inputyta ---
+# `övrigt/` är ägarens arbetsyta för LLM-experiment och felsökningsunderlag
+# (DOM-dumpar, mhtml-snapshots, coach-resonemang, zippar). Den är gitignorerad
+# och därmed redan utanför indexet — raden här dokumenterar avsikten: läsbar
+# med Read när ägaren pekar ut en fil, aldrig sökbar, aldrig sanningskälla.
+# Lägg den ALDRIG i .cursorignore — den blockerar läsning helt. Se övrigt/README.md.
+övrigt/
+
 # --- Lokal scratch ---
 scratch-*.mjs
 manual_log/

@@ -1,5 +1,5 @@
 ---
-description: "Kanonisk merge-grind. Läs före PR-granskning, approval eller merge. Mergeable betyder inte granskad — och gh pr checks visar inte bot-fynden."
+description: "Kanonisk merge-grind OCH PR-författarens efterkontroll. Läs när du just skapat en PR, före PR-granskning, före approval och före merge. Mergeable betyder inte granskad — och gh pr checks visar inte bot-fynden."
 alwaysApply: false
 ---
 
