@@ -74,11 +74,14 @@ check(
   );
   check(
     "ready after restart exposes traffic only after the reload signal",
-    /exposeRuntimeToClients\(session, \{ restart, runtimePort \}\)/.test(lifecycleSrc),
+    /exposeRuntimeToClients\(session, \{ restart, runtimePort, bootId: spawnedBootId \}\)/.test(
+      lifecycleSrc,
+    ),
   );
   check(
-    "HTTP proxy requires acceptingTraffic (or failed readiness for the overlay)",
-    /state\.acceptingTraffic \|\| state\.session\.readinessState === "failed"/.test(proxySrc),
+    "HTTP proxy requires acceptingTraffic — persisted failed readiness is not a bypass",
+    /state\.running && state\.runtimePort && state\.acceptingTraffic/.test(proxySrc) &&
+      !/state\.acceptingTraffic \|\| state\.session\.readinessState === "failed"/.test(proxySrc),
   );
 }
 
@@ -162,6 +165,7 @@ check(
     running: true,
     booting: true,
     acceptingTraffic: false,
+    bootId: 7,
   });
   const stale = runtime.__testing.exposeRuntimeToClients(session, {
     restart: true,
@@ -172,10 +176,17 @@ check(
     "stale readiness leaves the live runtime gated",
     runtime.getRuntimeStateForChat(chatId).acceptingTraffic === false,
   );
+  const staleBoot = runtime.__testing.exposeRuntimeToClients(session, {
+    restart: true,
+    runtimePort: 4301,
+    bootId: 6,
+  });
+  check("stale waitForReady from a previous boot does not expose traffic", staleBoot === false);
 
   const writes = [];
   const socket = new EventEmitter();
   socket.destroyed = false;
+  socket.writable = true;
   socket.write = (buf) => {
     writes.push(Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf)));
     return true;
@@ -184,6 +195,7 @@ check(
   const exposed = runtime.__testing.exposeRuntimeToClients(session, {
     restart: true,
     runtimePort: 4301,
+    bootId: 7,
   });
   check("matching readiness exposes traffic", exposed === true);
   check(
@@ -379,6 +391,24 @@ check(
   });
 
   try {
+    const staleFailed = await fetch(`${hostBase}/${chatId}/`);
+    const staleFailedBody = await staleFailed.text();
+    check(
+      "persisted failed readiness does not open HTTP for a gated child",
+      staleFailed.status === 200 &&
+        /Startar/.test(staleFailedBody) &&
+        !/BUILD_ERROR_OVERLAY/.test(staleFailedBody),
+    );
+
+    runtime.__testing.setRuntimeStateForTesting({
+      chatId,
+      sessionId,
+      previewSessionId,
+      runtimePort: overlayAddress.port,
+      running: true,
+      booting: false,
+      acceptingTraffic: true,
+    });
     const response = await fetch(`${hostBase}/${chatId}/`);
     const body = await response.text();
     check(

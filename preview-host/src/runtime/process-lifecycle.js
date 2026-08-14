@@ -110,6 +110,7 @@ const RUNTIME_CLEAN_EXIT_WINDOW_MS = 2 * 60 * 1000;
 // visible to the app (preview-status → engine_version_error_logs).
 const RUNTIME_BOOT_FAILURE_LIMIT = 3;
 const RUNTIME_BOOT_FAILURE_WINDOW_MS = 2 * 60 * 1000;
+let nextRuntimeBootId = 1;
 
 function classifyRuntimeCleanExitLoop({ timestamps, now = Date.now() }) {
   const recent = (Array.isArray(timestamps) ? timestamps : [])
@@ -494,13 +495,14 @@ async function stopRuntimeForSession(session) {
   await stopTrackedRuntime(session.sessionId, session.previewSessionId);
 }
 
-function exposeRuntimeToClients(session, { restart = false, runtimePort = null } = {}) {
+function exposeRuntimeToClients(session, { restart = false, runtimePort = null, bootId = null } = {}) {
   const chatId = getSessionChatId(session);
   const latest = findSessionByChatId(readStoreSync(), chatId);
   if (!latest || latest.versionId !== session.versionId) return false;
   const tracked = runtimeChildren.get(session.sessionId);
   if (!tracked || tracked.child?.exitCode !== null) return false;
   if (runtimePort != null && tracked.port !== runtimePort) return false;
+  if (bootId != null && tracked.bootId !== bootId) return false;
   // Reload first while traffic is still gated. Held HMR stubs are the open
   // iframe; flipping acceptingTraffic first would let a racy JS fetch hit the
   // new build before the document is discarded.
@@ -563,6 +565,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     // proxy must not forward app HTML/JS until this flips, or an open iframe
     // can hydrate old markup against the new build.
     acceptingTraffic: false,
+    bootId: nextRuntimeBootId++,
     // (D) Ringbuffert av senaste Next.js-output. Live-loggning av allt dev-brus
     // (HMR m.m.) skulle flooda store:n; vi behåller bara en tail i minnet och
     // flushar den vid onormal exit så boot-/runtime-fel blir synliga.
@@ -730,6 +733,7 @@ async function bootRuntimeForSession(session, options = {}) {
         session.filesJson,
       );
       await spawnDevServer(session, workspaceDir, runtimePort);
+      const spawnedBootId = runtimeChildren.get(session.sessionId)?.bootId ?? null;
 
       await updateSessionById(session.sessionId, (stored) => {
         if (stored.versionId !== session.versionId) return;
@@ -773,7 +777,7 @@ async function bootRuntimeForSession(session, options = {}) {
             }),
           )
           .then(() => {
-            exposeRuntimeToClients(session, { restart, runtimePort });
+            exposeRuntimeToClients(session, { restart, runtimePort, bootId: spawnedBootId });
             return appendRuntimeLog(
               session.previewSessionId,
               `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
@@ -795,7 +799,7 @@ async function bootRuntimeForSession(session, options = {}) {
               // same promise and rethrows into the outer catch, which sets
               // status "error" and stops the process; shouldHoldPrewarmTraffic
               // is checked first, so opening the gate is a no-op there.
-              exposeRuntimeToClients(session, { restart, runtimePort });
+              exposeRuntimeToClients(session, { restart, runtimePort, bootId: spawnedBootId });
               return appendRuntimeLog(
                 session.previewSessionId,
                 `Readiness failed (runtime process alive but page not ready): ${message}`,
@@ -805,7 +809,7 @@ async function bootRuntimeForSession(session, options = {}) {
       } else {
         void readiness
           .then(() => {
-            exposeRuntimeToClients(session, { restart: false, runtimePort });
+            exposeRuntimeToClients(session, { restart: false, runtimePort, bootId: spawnedBootId });
             return appendRuntimeLog(
               session.previewSessionId,
               `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
@@ -1137,6 +1141,7 @@ function setRuntimeStateForTesting(params) {
       previewSessionId: params.previewSessionId ?? "",
       lastActivityAt: Number.isFinite(params.lastActivityAt) ? params.lastActivityAt : Date.now(),
       acceptingTraffic: params.acceptingTraffic !== false,
+      bootId: Number.isFinite(params.bootId) ? params.bootId : nextRuntimeBootId++,
     });
   } else {
     runtimeChildren.delete(sessionId);

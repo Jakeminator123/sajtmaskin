@@ -380,11 +380,7 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
     sendHeldPreviewErrorPage(res, state.session);
     return true;
   }
-  if (
-    state.running &&
-    state.runtimePort &&
-    (state.acceptingTraffic || state.session.readinessState === "failed")
-  ) {
+  if (state.running && state.runtimePort && state.acceptingTraffic) {
     const trackedForActivity = runtimeChildren.get(state.session.sessionId);
     if (trackedForActivity) trackedForActivity.lastActivityAt = Date.now();
     const inspectTag = inspectInjectionTag(search);
@@ -513,7 +509,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   const runtime = await ensureRuntimeForChat(info.chatId);
   if (!runtime) return false;
   const live = getRuntimeStateForChat(info.chatId);
-  if (!live.acceptingTraffic && live.session?.readinessState !== "failed") {
+  if (!live.acceptingTraffic) {
     if (acceptAndHoldWebSocket(req, socket)) {
       registerPreviewSocket(info.chatId, socket, { handshakeComplete: true });
       return true;
