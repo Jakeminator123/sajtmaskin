@@ -119,6 +119,60 @@ describe("contract docs source coverage", () => {
     );
   });
 
+  it("changes model output when phase routing changes", async () => {
+    const modelManifest = structuredClone(inputs.modelManifest);
+    modelManifest.phaseRouting.defaultByTier.premium.fixer = "changed-fixer-model";
+
+    const changed = await buildGeneratedDocs({ modelManifest });
+
+    expect(changed.get(GENERATED_DOC_FAMILIES.models.output)).not.toBe(
+      baselineDocs.get(GENERATED_DOC_FAMILIES.models.output),
+    );
+    expect(changed.get(GENERATED_DOC_FAMILIES.models.output)).toContain("changed-fixer-model");
+  });
+
+  it("changes model output when briefing defaults change", async () => {
+    const modelManifest = structuredClone(inputs.modelManifest);
+    modelManifest.briefing.defaults.requestModel = "changed-brief-model";
+
+    const changed = await buildGeneratedDocs({ modelManifest });
+
+    expect(changed.get(GENERATED_DOC_FAMILIES.models.output)).not.toBe(
+      baselineDocs.get(GENERATED_DOC_FAMILIES.models.output),
+    );
+    expect(changed.get(GENERATED_DOC_FAMILIES.models.output)).toContain("changed-brief-model");
+  });
+
+  it("changes model output when a phase caller appears", async () => {
+    const phaseCallers = structuredClone(inputs.phaseCallers);
+    phaseCallers["deploy-assistant"] = ["src/lib/fake-deploy-assistant.ts"];
+
+    const changed = await buildGeneratedDocs({ phaseCallers });
+    const models = changed.get(GENERATED_DOC_FAMILIES.models.output);
+
+    expect(models).not.toBe(baselineDocs.get(GENERATED_DOC_FAMILIES.models.output));
+    expect(models).toContain("src/lib/fake-deploy-assistant.ts");
+  });
+
+  it("projects production phase callers from resolvePhaseModel literals", () => {
+    const models = baselineDocs.get(GENERATED_DOC_FAMILIES.models.output);
+    const deployRow = models
+      ?.split("\n")
+      .find((line: string) => line.startsWith("| `deploy-assistant`"));
+    const generatorRow = models
+      ?.split("\n")
+      .find((line: string) => line.startsWith("| `generator`"));
+
+    expect(models).toContain("## Phase routing");
+    expect(models).toContain("## Briefing");
+    expect(deployRow).toMatch(/\| No\s*\|$/);
+    expect(generatorRow).toContain("Yes (");
+    expect(generatorRow).toContain("src/lib/own-engine/generate-site-from-prompt.ts");
+    expect(generatorRow).not.toContain("phase-routing.ts");
+    expect(deployRow).not.toContain("phase-routing.ts");
+    expect(models).not.toContain("phase-routing.test.ts");
+  });
+
   it("changes policy output when qualityGateTiers changes", async () => {
     const modelManifest = structuredClone(inputs.modelManifest);
     modelManifest.qualityGateTiers.integrationsBuild = [
