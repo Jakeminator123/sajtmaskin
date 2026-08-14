@@ -5,6 +5,7 @@ import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-d
 import { hasNegatedRedesignIntent } from "@/lib/builder/prompt-negation";
 import { type FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 import type { Message } from "@/lib/db/chat-repository-pg";
+import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
 
 export type { FollowUpIntentMode };
 
@@ -452,14 +453,309 @@ function readFollowUpClarificationMarker(
 }
 
 /**
+ * Known quick-reply strings from {@link resolveFollowUpClarification}.
+ * Unknown persisted options stay exact-match-only — do not invent stems.
+ * Lower rank = more specific; used when two stems both fire
+ * ("gör om från grunden" → start-over, not redesign).
+ */
+const FOLLOW_UP_CLARIFICATION_PARAPHRASES: ReadonlyArray<{
+  option: string;
+  rank: number;
+  match: RegExp;
+  allowTokens: readonly string[];
+}> = [
+  {
+    option: "Starta om från en ny grund",
+    rank: 0,
+    match: uWordRegex(
+      "starta\\s+om|from\\s+scratch|start\\s+over|från\\s+(?:en\\s+)?(?:ny\\s+)?grund(?:en)?",
+      "iu",
+    ),
+    allowTokens: [
+      "starta",
+      "om",
+      "från",
+      "en",
+      "ny",
+      "grund",
+      "grunden",
+      "from",
+      "scratch",
+      "start",
+      "over",
+    ],
+  },
+  {
+    option: "Gör en tydlig redesign i samma projekt",
+    rank: 1,
+    match: uWordRegex(
+      "(?:tydlig\\s+)?redesign|gör\\s+om|restyle|rebrand|samma\\s+projekt",
+      "iu",
+    ),
+    allowTokens: [
+      "gör",
+      "en",
+      "tydlig",
+      "redesign",
+      "om",
+      "restyle",
+      "rebrand",
+      "samma",
+      "projekt",
+      "i",
+    ],
+  },
+  {
+    option: "Tydlig redesign",
+    rank: 1,
+    match: uWordRegex("(?:tydlig\\s+)?redesign|gör\\s+om|restyle|rebrand", "iu"),
+    allowTokens: ["tydlig", "redesign", "gör", "om", "restyle", "rebrand", "en"],
+  },
+  {
+    option: "Förfina nuvarande design",
+    rank: 2,
+    match: uWordRegex(
+      "förfina(?:r|de|t)?|refine|behåll(?:er|t)?|keep(?:\\s+the)?\\s+current|nuvarande\\s+design(?:en)?",
+      "iu",
+    ),
+    allowTokens: [
+      "förfina",
+      "förfinar",
+      "refine",
+      "behåll",
+      "behåller",
+      "nuvarande",
+      "design",
+      "designen",
+      "current",
+      "keep",
+      "the",
+    ],
+  },
+  {
+    option: "Ny sektion eller sida",
+    rank: 3,
+    match: uWordRegex("ny\\s+sektion|ny\\s+sida|new\\s+section|new\\s+page", "iu"),
+    allowTokens: [
+      "ny",
+      "sektion",
+      "sektionen",
+      "sida",
+      "sidan",
+      "new",
+      "section",
+      "page",
+      "eller",
+    ],
+  },
+  {
+    option: "Text och innehåll",
+    rank: 4,
+    match: uWordRegex("text(?:en|er|erna)?|innehåll(?:et)?|copy(?:n)?", "iu"),
+    allowTokens: ["text", "texten", "innehåll", "innehållet", "copy", "och"],
+  },
+  {
+    option: "Layout och design",
+    rank: 5,
+    match: uWordRegex("layout(?:en|ens)?|(?<!re)design(?:en)?", "iu"),
+    allowTokens: ["layout", "layouten", "design", "designen", "och"],
+  },
+];
+
+const CLARIFICATION_PARAPHRASE_MAX_CHARS = 80;
+const CLARIFICATION_PARAPHRASE_MAX_WORDS = 12;
+
+/** Page/element targets that mean "new edit", not "I am answering the scope question". */
+const CLARIFICATION_OFF_TOPIC_TARGET = uWordRegex(
+  [
+    "hero(?:n|ns)?",
+    "footer(?:n|ns|s)?",
+    "header(?:n|ns|s)?",
+    "nav(?:en|ens)?",
+    "navigation(?:en|ens)?",
+    "spacing(?:en|ens)?",
+    "färg(?:en|er|erna|ens)?",
+    "colors?",
+    "bild(?:en|er|erna|ens)?",
+    "images?",
+    "photos?",
+    "foton?",
+    "bakgrund(?:en|sbild(?:en)?)?",
+    "animation(?:en|er|erna|ens)?",
+    "knapp(?:en|ar|arna|ens|arnas)?",
+    "buttons?",
+    "cards?",
+    "kort(?:et|en|ens)?",
+    "fonts?",
+    "typografi(?:n|ns)?",
+    "logo(?:t|n|ns)?",
+    "logotyp(?:en|ens|er|erna)?",
+    "cta(?:t|n)?",
+    "pricing",
+    "pris(?:et|ens)?",
+    "kontakt(?:en|formulär(?:et)?)?",
+    "about",
+    "seo",
+    "padding(?:en|ens)?",
+    "marginal(?:en|er|erna|ens)?",
+    "margins?",
+    "meny(?:n|ns)?",
+    "menus?",
+    "stavfel(?:et|en|ens)?",
+    "rubrik(?:en|er|erna)?",
+    "title(?:n)?",
+    "headline",
+    "underrubrik",
+    "tagline",
+    "slogan",
+    "formulär(?:et)?",
+    "forms?",
+  ].join("|"),
+  "iu",
+);
+
+const CLARIFICATION_NEGATION = uWordRegex(
+  "inte|ej|aldrig|not|don'?t|do\\s+not",
+  "iu",
+);
+
+/** "jag vill ha en ny sida" is a new order, not a scope click. */
+const CLARIFICATION_NEW_BRIEF_INTENT = uWordRegex(
+  "vill\\s+ha|ska\\s+ha|behöver|behövs|önskar|ska\\s+vara|ska\\s+innehålla|i\\s+want|we\\s+want|i\\s+need|we\\s+need|needs\\s+to\\s+have|should\\s+include",
+  "iu",
+);
+
+const CLARIFICATION_FILLER_TOKENS = new Set([
+  "jag",
+  "vill",
+  "att",
+  "du",
+  "ni",
+  "kan",
+  "tack",
+  "ja",
+  "nej",
+  "den",
+  "det",
+  "de",
+  "en",
+  "ett",
+  "och",
+  "eller",
+  "på",
+  "i",
+  "för",
+  "med",
+  "som",
+  "lite",
+  "bara",
+  "nog",
+  "väl",
+  "gärna",
+  "alltså",
+  "då",
+  "så",
+  "om",
+  "till",
+  "av",
+  "är",
+  "var",
+  "har",
+  "please",
+  "thanks",
+  "the",
+  "a",
+  "an",
+  "to",
+  "for",
+  "on",
+  "of",
+  "just",
+  "so",
+  "my",
+  "me",
+  "we",
+  "you",
+  "this",
+  "that",
+  "focus",
+  "fokusera",
+  "prioritera",
+  "välj",
+  "nu",
+  "här",
+  "där",
+]);
+
+function findPersistedOption(options: string[], canonical: string): string | undefined {
+  const needle = canonical.toLowerCase();
+  return options.find((option) => option.toLowerCase() === needle);
+}
+
+function hasResidualContent(
+  reply: string,
+  allowTokens: readonly string[],
+): boolean {
+  const allow = new Set([
+    ...CLARIFICATION_FILLER_TOKENS,
+    ...allowTokens.map((token) => token.toLowerCase()),
+  ]);
+  const tokens = reply
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+  return tokens.some((token) => !allow.has(token));
+}
+
+/**
+ * Maps a free-typed reply to one persisted quick-reply option, or null.
+ * Fail-safe: when in doubt, treat the reply as a new prompt.
+ */
+function matchFollowUpClarificationOption(
+  reply: string,
+  options: string[],
+): string | null {
+  const exact = options.find((option) => option.toLowerCase() === reply.toLowerCase());
+  if (exact) return exact;
+
+  if (reply.length > CLARIFICATION_PARAPHRASE_MAX_CHARS) return null;
+  const words = reply.split(/\s+/).filter(Boolean);
+  if (words.length > CLARIFICATION_PARAPHRASE_MAX_WORDS) return null;
+  if (CLARIFICATION_NEGATION.test(reply)) return null;
+  if (CLARIFICATION_NEW_BRIEF_INTENT.test(reply)) return null;
+  if (CLARIFICATION_OFF_TOPIC_TARGET.test(reply)) return null;
+
+  const hits = FOLLOW_UP_CLARIFICATION_PARAPHRASES.filter(
+    (row) => findPersistedOption(options, row.option) && row.match.test(reply),
+  );
+  if (hits.length === 0) return null;
+
+  const bestRank = Math.min(...hits.map((row) => row.rank));
+  const best = hits.filter((row) => row.rank === bestRank);
+  if (best.length !== 1) return null;
+  if (hasResidualContent(reply, best[0].allowTokens)) return null;
+
+  return findPersistedOption(options, best[0].option) ?? null;
+}
+
+/**
  * Collects a follow-up SCOPE clarification answer from chat history
  * ({@link persistFollowUpClarification}). Finds the latest
  * assistant message carrying the `followUpClarification` marker with no user
  * message after it (same pending semantics as `getLatestPendingReply` /
- * `hasUserMessageAfter` in BuilderMessageTooling), and treats `currentReply`
- * as the clarification answer ONLY when it matches one of the persisted
- * options (trimmed, case-insensitive — the client sends the option verbatim).
- * A free-typed different reply is a NEW prompt and must not be consumed.
+ * `hasUserMessageAfter` in BuilderMessageTooling).
+ *
+ * `currentReply` is consumed when it is either:
+ * 1. an exact persisted option (trim + case-insensitive — the client sends
+ *    the option verbatim), or
+ * 2. a conservative paraphrase of exactly one persisted option (SM-041).
+ *
+ * A free-typed reply that looks like a NEW instruction — specific page
+ * target, negation, brief-intent ("vill ha"/"behöver"), leftover content
+ * after the option stems, or a longer brief — is a new prompt and must
+ * not be consumed. #734 locked that direction so a new order is never
+ * glued onto the previous request; gluing a new brief onto the old
+ * prompt is worse than dropping context.
  */
 export function collectFollowUpClarificationAnswer(
   messages: Array<Pick<Message, "role" | "content" | "ui_parts">>,
@@ -490,9 +786,7 @@ export function collectFollowUpClarificationAnswer(
     if (message.role !== "assistant") continue;
     const marker = readFollowUpClarificationMarker(message);
     if (!marker) continue;
-    const matchedOption = marker.options.find(
-      (option) => option.toLowerCase() === reply.toLowerCase(),
-    );
+    const matchedOption = matchFollowUpClarificationOption(reply, marker.options);
     if (!matchedOption) return null;
     return {
       sourceUserMessage: marker.sourceUserMessage,

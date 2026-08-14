@@ -1963,6 +1963,66 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       expect(pipelinePrompt).toContain(freeTypedPrompt);
       expect(pipelinePrompt).not.toContain(originalDetailedPrompt);
     });
+
+    it("turn 2 paraphrase: a short refine reply recovers the ORIGINAL request (SM-041)", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: null,
+        orchestration_snapshot: null,
+        messages: [
+          { role: "user", content: originalDetailedPrompt },
+          {
+            role: "assistant",
+            content: clarificationQuestion,
+            ui_parts: [
+              {
+                type: "tool:awaiting-input",
+                output: {
+                  question: clarificationQuestion,
+                  options: [
+                    chosenOption,
+                    "Gör en tydlig redesign i samma projekt",
+                    "Starta om från en ny grund",
+                  ],
+                  kind: "scope",
+                  blocking: true,
+                  reason: "followup_redesign_ambiguous",
+                  awaitingInput: true,
+                  followUpClarification: true,
+                  sourceUserMessage: originalDetailedPrompt,
+                },
+              },
+            ],
+          },
+        ],
+      });
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Hydration fixed</main>" } },
+          { event: "done", data: { promptTokens: 9, completionTokens: 15 } },
+        ]),
+      );
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "förfina den" }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(createGenerationPipeline).toHaveBeenCalledTimes(1);
+      const pipelinePrompt = (
+        createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string }
+      ).prompt;
+      expect(pipelinePrompt).toContain("## Follow-up Scope Clarification Answer");
+      expect(pipelinePrompt).toContain(`Question: ${clarificationQuestion}`);
+      expect(pipelinePrompt).toContain(`Answer: ${chosenOption}`);
+      expect(pipelinePrompt).toContain(originalDetailedPrompt);
+    });
   });
 
   // ── OpenClaw prepared-prompt fast lane (delta-brief skip) ────────────────
