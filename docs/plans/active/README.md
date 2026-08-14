@@ -9,6 +9,9 @@ kopiera inte kön hit.
 
 ## Pågående spår
 
+- [`2026-08-14-block-browse-shadcnblocks.md`](2026-08-14-block-browse-shadcnblocks.md)
+  (2026-08-14) — Block-flik + Bläddra Marknadsblock via shadcnblocks-index
+  (efter #992 Bearer).
 - [`nattbatch-2026-08-14-restlista.md`](nattbatch-2026-08-14-restlista.md)
   (2026-08-14) — vad nattens åtta PR:er levererade, vad som byggs just nu, vad
   som väntar på ägarbeslut och vad som är post-MVP. Översikt, inte defektkö.

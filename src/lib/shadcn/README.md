@@ -16,7 +16,9 @@
 | `registry-cache.ts` | Optional DB-backed cache for registry index (server). Uses same `source` + style + base URL as routes. |
 | `registry-utils.ts` | Import rewrites, markdown previews, **prompt text** for adding blocks/components (`buildShadcnBlockPrompt`, …). |
 | `registry-types.ts` | Types for registry JSON. |
-| `community-registry-fetch.ts` | Shared community HTTP: `www.shadcnblocks.com` rewrite + `Authorization: Bearer` from `SHADCNBLOCKS_API_KEY` (only that host). Used by `describe.ts` and `shadcn-ui-recipes.ts`. |
+| `community-registry-fetch.ts` | Shared community HTTP: `www.shadcnblocks.com` rewrite + `Authorization: Bearer` from `SHADCNBLOCKS_API_KEY` (only that host). Used by `describe.ts`, `shadcn-ui-recipes.ts`, and community item proxy. |
+| `community-registry-index.ts` | Publikt shadcnblocks `registry.json` (cache, strip `files`, sök/kategori/cursor). Driver `/api/shadcn/community/index` + Block-snabbval. |
+| `community-registry-client.ts` | Browser helpers mot community-proxyroutes (featured + index + item). |
 | `registry-search.ts` | Pure, deterministic search/match engine over registry data (tokenize, fuzzy index/community matching, community-registry loading from `components.json` + seed). Shared by `describe.ts` (Fas 1) and the generation-path resolver `src/lib/gen/data/shadcn-ui-recipes.ts` (Fas 4). No LLM, no network. |
 | `describe.ts` | Fas 1 "Beskriv"-discovery: free-text → LLM search queries → search official + community registries (HTTP) → rank REAL hits. Reads registries only; writes nothing. Deterministic heuristic fallback when no provider key. Re-exports the `registry-search.ts` engine. |
 | `describe-feature.ts` | Flag helper `isShadcnDescribeEnabled()` for `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE` (default off → route 404). |
@@ -26,4 +28,4 @@
 - `src/lib/gen/data/shadcn-components.ts` — PascalCase → import slug map for prompts/post-processing.
 - `src/lib/builder/shadcn-component-metadata.ts` — UI metadata (categories, preview hints) for the picker.
 
-**API routes:** `src/app/api/shadcn/registry/{index,item,refresh}/` — proxy/cache for browser `fetch` and server refresh. `src/app/api/shadcn/describe/` — flag-gated Fas 1 discovery route (`POST`, default 404).
+**API routes:** `src/app/api/shadcn/registry/{index,item,refresh}/` — proxy/cache for browser `fetch` and server refresh. `src/app/api/shadcn/community/{index,item}/` — shadcnblocks index (public) + item hydrate (Bearer). `src/app/api/shadcn/describe/` — flag-gated Fas 1 discovery route (`POST`, default 404).

@@ -1,5 +1,7 @@
 import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import { fetchRegistryItem, isUsableRegistryItem } from "@/lib/shadcn/registry-service";
+import { fetchCommunityRegistryItem } from "@/lib/shadcn/community-registry-client";
+import { SHADCNBLOCKS_NAMESPACE } from "@/lib/shadcn/community-registry-index";
 import {
   buildPromptSourceMessage,
   type PromptBuildResult,
@@ -10,7 +12,7 @@ import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
  * Insättnings-lane v1 ("Lägg till"-ytan → own-engine)
  * ====================================================
  *
- * Gör ett valt registry-kort (Bläddra-galleriet eller Beskriv-fliken)
+ * Gör ett valt registry-kort (Bläddra-galleriet, Block-snabbval eller Beskriv)
  * FUNKTIONELLT i användarsajten: kandidatens metadata + (när möjligt) hämtad
  * registry-källkod byggs till ett välformat prompt-meddelande som skickas
  * genom den BEFINTLIGA sendMessage/AI-fallback-vägen. Own-engine genererar +
@@ -29,7 +31,7 @@ import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 /** Officiellt registry-namespace (klienten kan hämta item-kod via proxy-routen). */
 export const OFFICIAL_SHADCN_REGISTRY = "@shadcn";
 
-/** Tak för best-effort-hydreringen av officiell registry-källkod (Codex P2). */
+/** Tak för best-effort-hydreringen av registry-källkod (Codex P2). */
 const HYDRATION_TIMEOUT_MS = 8_000;
 
 /** Valt registry-kort — gemensam payload för Bläddra- och Beskriv-valen. */
@@ -138,15 +140,40 @@ export function parseShadcnDragPayload(raw: string): ShadcnInsertSelection | nul
 export type ShadcnInsertDeps = {
   /** Injicerbar för test — default är den befintliga registry-item-fetchen. */
   fetchItem?: (name: string) => Promise<ShadcnRegistryItem>;
+  /** Injicerbar community-fetch (default: `/api/shadcn/community/item`). */
+  fetchCommunityItem?: (
+    registry: string,
+    name: string,
+  ) => Promise<ShadcnRegistryItem | null>;
 };
+
+async function hydrateWithTimeout(
+  promise: Promise<ShadcnRegistryItem | null>,
+): Promise<ShadcnRegistryItem | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const item = await Promise.race([
+      promise,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), HYDRATION_TIMEOUT_MS);
+      }),
+    ]);
+    return item !== null && isUsableRegistryItem(item) ? item : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /**
  * Bygg prompt-meddelande + promptSourceMeta för ett valt registry-kort.
  *
  * Officiella items hydreras best-effort med full källkod via den befintliga
- * `fetchRegistryItem` (proxy-routen i klienten). Misslyckad/oanvändbar hämtning
- * eller community-items degraderar till en metadata-prompt — aldrig ett kast
- * som stoppar insättningen.
+ * `fetchRegistryItem` (proxy-routen i klienten). `@shadcnblocks` hydreras via
+ * community-item-proxyn (Bearer server-side). Misslyckad/oanvändbar hämtning
+ * eller övriga community-items degraderar till en metadata-prompt — aldrig ett
+ * kast som stoppar insättningen.
  */
 export async function buildShadcnInsertMessage(
   selection: ShadcnInsertSelection,
@@ -158,20 +185,12 @@ export async function buildShadcnInsertMessage(
     // Hydreringen är best-effort: en proxy/upstream som HÄNGER (i stället för
     // att avvisa) får inte hålla kvar kortet i "Skickar…" och det globala
     // in-flight-låset — degradera till metadata-prompt efter timeouten.
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      const item = await Promise.race([
-        fetchItem(selection.name),
-        new Promise<null>((resolve) => {
-          timer = setTimeout(() => resolve(null), HYDRATION_TIMEOUT_MS);
-        }),
-      ]);
-      registryItem = item !== null && isUsableRegistryItem(item) ? item : null;
-    } catch {
-      registryItem = null;
-    } finally {
-      clearTimeout(timer);
-    }
+    registryItem = await hydrateWithTimeout(fetchItem(selection.name));
+  } else if (selection.registry === SHADCNBLOCKS_NAMESPACE) {
+    const fetchCommunity = deps.fetchCommunityItem ?? fetchCommunityRegistryItem;
+    registryItem = await hydrateWithTimeout(
+      fetchCommunity(selection.registry, selection.name),
+    );
   }
   return buildPromptSourceMessage(
     {
