@@ -70,8 +70,13 @@ const FOLLOW_UP_SPECIFIC_TARGET_PATTERNS = [
   // Svenska bestämda/pluralformer måste räknas: `knapp` matchade inte
   // `knappen`/`knapparna` (negativ look-ahead stoppade på böjningen), så
   // "ändra knappen till Skicka" föll i ambiguous-followup trots tydligt mål.
-  /(?<![\p{L}\p{N}_])(?:hero(?:n|ns)?|footer(?:n|ns)?|header(?:n|ns)?|nav(?:en|ens)?|navigation(?:en|ens)?|layout(?:en|ens)?|spacing(?:en|ens)?|copy(?:n|ns)?|text(?:en|er|erna|ens)?|färg(?:en|er|erna|ens)?|colors?|bild(?:en|er|erna|ens)?|images?|animation(?:en|er|erna|ens)?|knapp(?:en|ar|arna|ens|arnas)?|buttons?)(?![\p{L}\p{N}_])/iu,
-  /(?<![\p{L}\p{N}_])(?:sections?|sektion(?:en|er|erna|ens)?|cards?|kort(?:et|en|ens)?|fonts?|typografi(?:n|ns)?|logo(?:t|n|ns)?|logotyp(?:en|ens)?|cta(?:t|n)?|pricing|pris(?:et|ens)?|kontakt(?:en|uppgifter(?:na)?)?|about|seo)(?![\p{L}\p{N}_])/iu,
+  // `SM-053`: engelsk plural (`headers`, `footers`) och svensk pluralbestämd
+  // form (`layouterna`, `logotyperna`) saknades, så "ändra layouterna" föll i
+  // ambiguous-followup trots ett utpekat mål. Additiva mönster här kan bara
+  // MINSKA antalet klargörande frågor — det är den säkra riktningen i den här
+  // filen. Utöka aldrig i motsatt riktning.
+  /(?<![\p{L}\p{N}_])(?:hero(?:n|ns)?|footer(?:n|ns|s)?|header(?:n|ns|s)?|nav(?:en|ens)?|navigation(?:en|ens)?|layout(?:en|ens|er|erna|ernas)?|spacing(?:en|ens)?|copy(?:n|ns)?|text(?:en|er|erna|ens)?|färg(?:en|er|erna|ens)?|colors?|bild(?:en|er|erna|ens)?|images?|animation(?:en|er|erna|ens)?|knapp(?:en|ar|arna|ens|arnas)?|buttons?)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:sections?|sektion(?:en|er|erna|ens)?|cards?|kort(?:et|en|ens)?|fonts?|typografi(?:n|ns)?|logo(?:t|n|ns)?|logotyp(?:en|ens|er|erna|ernas)?|cta(?:t|n)?|pricing|pris(?:et|ens)?|kontakt(?:en|uppgifter(?:na)?)?|about|seo)(?![\p{L}\p{N}_])/iu,
   // "rubrik"/"title"/"headline" var tidigare okända targets — "Ändra rubriken
   // till Hej" föll därför i ambiguous-followup fast det är en specifik edit.
   /(?<![\p{L}\p{N}_])(?:rubrik|rubriken|title|titeln|headline|underrubrik|tagline|slogan)(?![\p{L}\p{N}_])/iu,

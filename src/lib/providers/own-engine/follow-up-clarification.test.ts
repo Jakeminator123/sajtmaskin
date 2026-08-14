@@ -100,6 +100,13 @@ describe("follow-up clarification intent classification", () => {
     "fixa stavfelet i rubriken",
     "make the header sticky",
     "add a pricing page",
+    // SM-053: svensk pluralbestämd form och engelsk plural saknades helt.
+    "ändra layouterna",
+    "fixa layouterna",
+    "ändra logotyperna",
+    "byt logotyperna",
+    "fix the headers",
+    "update the footers",
   ])("does NOT block a clear follow-up with a specific target: %s", (prompt) => {
     expect(classifyFollowUpIntent(prompt)).not.toBe("ambiguous-followup");
     expect(resolveFollowUpClarification(prompt)).toBeNull();
