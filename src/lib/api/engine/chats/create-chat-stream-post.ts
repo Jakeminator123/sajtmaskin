@@ -51,6 +51,7 @@ import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { normalizeRequestAttachments, summarizeDesignReferences } from "@/lib/gen/request-metadata";
 import { parseChatRequestMeta } from "./parse-chat-request-meta";
+import { logRequestKindClassification } from "./request-kind-log";
 import { createCommitCreditsOnce } from "./credits-handler";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
@@ -91,6 +92,45 @@ import {
   releaseChatGenerationLock,
   type ChatGenerationLock,
 } from "@/lib/gen/stream/generation-lock";
+
+/**
+ * Init-only: mint the chat id, take the generation lock, then insert the row.
+ * A fresh id cannot already be held, so the realistic failure is Redis
+ * `unavailable` (503). Taking the lock first means that failure leaves no
+ * `engine_chats` row. Follow-up locking is unchanged — it locks an existing id.
+ */
+async function createChatAfterAcquiringInitLock(input: {
+  projectId: string;
+  model: string;
+  systemPrompt?: string;
+  scaffoldId?: string;
+}): Promise<
+  | {
+      status: "acquired";
+      chat: Awaited<ReturnType<typeof chatRepo.createChat>>;
+      lock: ChatGenerationLock;
+    }
+  | { status: "held" | "unavailable" }
+> {
+  const id = crypto.randomUUID();
+  const lockResult = await acquireChatGenerationLock(id);
+  if (lockResult.status !== "acquired") {
+    return { status: lockResult.status };
+  }
+  try {
+    const chat = await chatRepo.createChat(
+      input.projectId,
+      input.model,
+      input.systemPrompt,
+      input.scaffoldId,
+      { id },
+    );
+    return { status: "acquired", chat, lock: lockResult.lock };
+  } catch (error) {
+    await releaseChatGenerationLock(lockResult.lock).catch(() => {});
+    throw error;
+  }
+}
 
 /** Shared create handler (SSE). Used by `POST` and by sync `POST /chats` JSON adapter. */
 export async function handleCreateChatStreamPost(req: Request): Promise<Response> {
@@ -508,6 +548,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
         });
+        logRequestKindClassification({
+          message,
+          generationKind: "init",
+        });
         debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {
           promptAssistModel: parsedMeta.promptAssistModel,
           promptAssistDeep: parsedMeta.promptAssistDeep,
@@ -651,27 +695,25 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             );
           }
           const plannerChatDbStartedAt = Date.now();
-          const plannerChat = await chatRepo.createChat(
-            projectIdForChat,
-            planModel,
-            planSystemPrompt,
-            planOrchestration.resolvedScaffold?.id,
-          );
+          const plannerBoot = await createChatAfterAcquiringInitLock({
+            projectId: projectIdForChat,
+            model: planModel,
+            systemPrompt: planSystemPrompt,
+            scaffoldId: planOrchestration.resolvedScaffold?.id,
+          });
+          if (plannerBoot.status !== "acquired") {
+            return attachSessionCookie(
+              chatGenerationLockFailureResponse(plannerBoot.status),
+            );
+          }
+          acquiredGenerationLock = plannerBoot.lock;
+          const plannerChat = plannerBoot.chat;
           await chatRepo.addMessage(plannerChat.id, "user", message);
           // Tredje chat-skapande vägen (utöver own-engine och kontraktsgrinden):
           // brief och scaffold-embeddings har redan kört, och planner-strömmen
           // loggar mer förbrukning efter detta.
           setLlmUsageContext({ chatId: plannerChat.id });
           attachChatToPendingUsage(sessionId, plannerChat.id);
-          const plannerGenerationLock = await acquireChatGenerationLock(plannerChat.id);
-          if (plannerGenerationLock.status !== "acquired") {
-            return attachSessionCookie(
-              chatGenerationLockFailureResponse(plannerGenerationLock.status, {
-                chatId: plannerChat.id,
-              }),
-            );
-          }
-          acquiredGenerationLock = plannerGenerationLock.lock;
           debugLog("engine", "Chat DB bootstrap complete", {
             durationMs: Date.now() - plannerChatDbStartedAt,
             mode: "plan",
@@ -759,7 +801,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 signal: req.signal,
                 chatId: plannerChat.id,
               }),
-              plannerGenerationLock.lock,
+              plannerBoot.lock,
             ),
           );
         }
@@ -959,25 +1001,23 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
           const engineChatDbStartedAt = Date.now();
-          const engineChat = await chatRepo.createChat(
-            projectIdForChat,
-            engineModel,
-            engineSystemPrompt,
-            resolvedScaffold?.id,
-          );
+          const initBoot = await createChatAfterAcquiringInitLock({
+            projectId: projectIdForChat,
+            model: engineModel,
+            systemPrompt: engineSystemPrompt,
+            scaffoldId: resolvedScaffold?.id,
+          });
+          if (initBoot.status !== "acquired") {
+            return attachSessionCookie(
+              chatGenerationLockFailureResponse(initBoot.status),
+            );
+          }
+          acquiredGenerationLock = initBoot.lock;
+          const engineChat = initBoot.chat;
           await chatRepo.addMessage(engineChat.id, "user", message);
           setLlmUsageContext({ chatId: engineChat.id });
           // Brief och scaffold-embeddings kördes innan chatten fanns — claima dem.
           attachChatToPendingUsage(sessionId, engineChat.id);
-          const initGenerationLock = await acquireChatGenerationLock(engineChat.id);
-          if (initGenerationLock.status !== "acquired") {
-            return attachSessionCookie(
-              chatGenerationLockFailureResponse(initGenerationLock.status, {
-                chatId: engineChat.id,
-              }),
-            );
-          }
-          acquiredGenerationLock = initGenerationLock.lock;
           debugLog("engine", "Chat DB bootstrap complete", {
             durationMs: Date.now() - engineChatDbStartedAt,
             mode: "own-engine",
@@ -1100,7 +1140,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               attachSessionCookie,
               chatId: engineChat.id,
             }),
-            initGenerationLock.lock,
+            initBoot.lock,
           );
         }
       } catch (err) {

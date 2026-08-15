@@ -2,14 +2,16 @@
  * SM-023 — mechanical stale-check of verifier blocking findings against the
  * FINAL merged project files.
  *
- * WHY: the verifier pass (finalize fast-path phase 3) judges the PRE-merge
- * model output, while phase 4 (merge with previous files, `package.json`
- * deep-merge, post-merge import-validator, dep-completion) deterministically
- * resolves whole classes of findings in the files that actually get
- * persisted. The verdict was never re-checked, so a stale finding could
- * terminally fail a version whose persisted content was already fixed —
- * prod chat `3a6c5472` v3 `e0d6cc0e` (2026-08-05) lost a paid F3 pass to
- * four findings that were all resolved in `files_json`.
+ * WHY: missing-import findings are still judged against PRE-merge model
+ * output in finalize phase 3, while phase 4 (merge with previous files,
+ * import-validator, dep-completion) can resolve them in the persisted
+ * files. Package.json dependency claims are judged against the
+ * baseline-merged manifest already in the verifier phase (T5 / 2026-08-15);
+ * this module remains the owner of the presence check (`dependencies` AND
+ * `devDependencies` — baseline `tailwindcss` lives in the latter) and the
+ * post-preflight safety net. Prod chat `3a6c5472` v3 `e0d6cc0e` (2026-08-05)
+ * lost a paid F3 pass to four findings that were all resolved in
+ * `files_json`.
  *
  * CONTRACT (fail-closed): a finding is dropped ONLY when a class-specific
  * re-check mechanically confirms it no longer applies to the final files.
@@ -343,6 +345,20 @@ const MANIFEST_RUNTIME_IMPORT_JUSTIFICATION_RE = new RegExp(
 );
 
 /**
+ * Prod chat `6e865848` (2026-08-14): "…lacks next, react, react-dom, and
+ * tailwindcss / required by app/layout.tsx, app/page.tsx, and app/globals.css".
+ * The file list motivates the manifest claim; `.css` is included because the
+ * observed wording cites `globals.css`. Independent extra clauses after the
+ * list are not consumed — the pattern ends at the file list.
+ */
+const REQUIRED_BY_FILE_TOKEN_SOURCE =
+  String.raw`(?:[A-Za-z0-9_.@\[\]-]+\/)*[A-Za-z0-9_.\[\]-]+\.(?:tsx|ts|jsx|js|mjs|cjs|css|scss|json)`;
+const MANIFEST_REQUIRED_BY_CLAUSE_RE = new RegExp(
+  String.raw`(?:^|\s)required\s+by\s+\`?${REQUIRED_BY_FILE_TOKEN_SOURCE}\`?(?:\s*(?:,\s*(?:and\s+)?|\s+and\s+)\`?${REQUIRED_BY_FILE_TOKEN_SOURCE}\`?)*\s*[.;]?`,
+  "gi",
+);
+
+/**
  * Markers of an INDEPENDENT defect claim inside a justification clause
  * (bugbot medium, round 3): "…, although app/page.tsx also calls an
  * `undefined` helper" is not mere motivation — the clause carries its own
@@ -362,10 +378,9 @@ function stripManifestJustificationClauses(detail: string): string {
     (clause) =>
       INDEPENDENT_CLAIM_MARKER_RE.test(clause) ? clause : "",
   );
-  return withoutKnownSubordinateClauses.replace(
-    MANIFEST_RUNTIME_IMPORT_JUSTIFICATION_RE,
-    "",
-  );
+  return withoutKnownSubordinateClauses
+    .replace(MANIFEST_RUNTIME_IMPORT_JUSTIFICATION_RE, "")
+    .replace(MANIFEST_REQUIRED_BY_CLAUSE_RE, "");
 }
 
 function isPackageJsonClassFinding(finding: VerifierBlockingFinding): boolean {
@@ -415,17 +430,19 @@ const BARE_PACKAGE_RE = /`((?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*)`/g;
 
 /**
  * Framework packages the verifier sometimes emits without backticks. Kept to
- * the canonical Next runtime trio so prose is never interpreted as an
- * arbitrary npm package name. Read only from the manifest-claim portion after
- * subordinate justification clauses have been stripped.
+ * the canonical Next runtime + Tailwind so prose is never interpreted as an
+ * arbitrary npm package name. `tailwindcss` is included because it lives in
+ * baseline `devDependencies` and the 2026-08-14 prod finding named it
+ * unquoted. Read only from the manifest-claim portion after subordinate
+ * justification clauses have been stripped.
  */
-const UNQUOTED_FRAMEWORK_PACKAGE_RE = /\b(react-dom|next|react)\b/gi;
+const UNQUOTED_FRAMEWORK_PACKAGE_RE = /\b(react-dom|tailwindcss|next|react)\b/gi;
 
 const BACKTICK_PACKAGE_TOKEN_SOURCE =
   String.raw`\`(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*(?:@[~^]?[0-9][0-9A-Za-z.^~<>=*+-]*)?\``;
 const UNQUOTED_VERSIONED_PACKAGE_TOKEN_SOURCE =
   String.raw`(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*@[~^]?[0-9][0-9A-Za-z.^~<>=*+-]*`;
-const PACKAGE_LIST_TOKEN_SOURCE = String.raw`(?:${BACKTICK_PACKAGE_TOKEN_SOURCE}|${UNQUOTED_VERSIONED_PACKAGE_TOKEN_SOURCE}|(?:react-dom|next|react)\b)`;
+const PACKAGE_LIST_TOKEN_SOURCE = String.raw`(?:${BACKTICK_PACKAGE_TOKEN_SOURCE}|${UNQUOTED_VERSIONED_PACKAGE_TOKEN_SOURCE}|(?:react-dom|tailwindcss|next|react)\b)`;
 const PACKAGE_LIST_SOURCE = String.raw`${PACKAGE_LIST_TOKEN_SOURCE}(?:\s*(?:,\s*(?:and\s+)?|\s+and\s+)${PACKAGE_LIST_TOKEN_SOURCE})*`;
 const PACKAGE_ABSENCE_VERB_SOURCE =
   String.raw`(?:lacks?|omits?|omitted|missing|does\s+not\s+(?:list|declare|include|contain))`;
@@ -498,6 +515,31 @@ function majorOf(spec: string | undefined): number | null {
   return Number.parseInt(match[1], 10);
 }
 
+const PACKAGE_JSON_DEP_SECTIONS = ["dependencies", "devDependencies"] as const;
+
+/**
+ * A package is present when it is listed in `dependencies` OR
+ * `devDependencies`. Baseline `tailwindcss` lives only in the latter — a
+ * check that reads `dependencies` alone keeps false-alarming after merge.
+ */
+export function packageJsonDeclaresDependency(
+  pkg: Record<string, unknown>,
+  name: string,
+): boolean {
+  for (const key of PACKAGE_JSON_DEP_SECTIONS) {
+    const section = pkg[key];
+    if (
+      section &&
+      typeof section === "object" &&
+      !Array.isArray(section) &&
+      Object.prototype.hasOwnProperty.call(section, name)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function checkPackageJsonFinding(
   finding: VerifierBlockingFinding,
   filesByPath: ReadonlyMap<string, FinalProjectFile>,
@@ -520,7 +562,7 @@ function checkPackageJsonFinding(
       ? (pkg.scripts as Record<string, unknown>)
       : {};
   const deps: Record<string, string> = {};
-  for (const key of ["dependencies", "devDependencies"] as const) {
+  for (const key of PACKAGE_JSON_DEP_SECTIONS) {
     const section = pkg[key];
     if (section && typeof section === "object") {
       for (const [depName, depSpec] of Object.entries(section as Record<string, unknown>)) {
@@ -602,7 +644,10 @@ function checkPackageJsonFinding(
     ...(absentPackageList ?? "").matchAll(UNQUOTED_FRAMEWORK_PACKAGE_RE),
   ].map((match) => match[1].toLowerCase());
   for (const name of [...new Set([...bareNames, ...unquotedFrameworkNames])]) {
-    claims.push({ ok: name in deps, label: `dependency ${name} present` });
+    claims.push({
+      ok: packageJsonDeclaresDependency(pkg, name),
+      label: `dependency ${name} present`,
+    });
   }
 
   if (claims.length === 0) return null;
@@ -619,16 +664,26 @@ function checkPackageJsonFinding(
   };
 }
 
+export type StaleFindingClass = "missing-import" | "package-json";
+
 /**
  * Re-check verifier blocking findings against the final (merged, persisted)
  * project files. Returns the findings that still apply (`kept`) and the ones
  * mechanically confirmed resolved (`dropped`). Fail-closed: anything that
  * cannot be confirmed resolved is kept.
+ *
+ * `classes` defaults to both. The verifier phase passes `"package-json"` only:
+ * missing-import claims must wait for phase-4 merge with previous files
+ * (a referenced route often does not exist in the model draft).
  */
 export function dropResolvedVerifierFindings(
   findings: readonly VerifierBlockingFinding[],
   finalFiles: readonly FinalProjectFile[],
+  opts?: { classes?: readonly StaleFindingClass[] },
 ): StaleFindingCheckResult {
+  const classes = new Set<StaleFindingClass>(
+    opts?.classes ?? ["missing-import", "package-json"],
+  );
   const filesByPath = new Map<string, FinalProjectFile>();
   for (const file of finalFiles) {
     if (typeof file?.path !== "string" || typeof file?.content !== "string") continue;
@@ -640,9 +695,9 @@ export function dropResolvedVerifierFindings(
   for (const finding of findings) {
     let verdict: ClassCheckVerdict | null = null;
     try {
-      if (isMissingImportClassId(finding.id)) {
+      if (classes.has("missing-import") && isMissingImportClassId(finding.id)) {
         verdict = checkMissingImportFinding(finding, filesByPath);
-      } else if (isPackageJsonClassFinding(finding)) {
+      } else if (classes.has("package-json") && isPackageJsonClassFinding(finding)) {
         verdict = checkPackageJsonFinding(finding, filesByPath);
       }
     } catch {

@@ -15,7 +15,7 @@ turning Markdown into a second implementation.
 | Dossiers     | [`dossiers.generated.md`](dossiers.generated.md)         | Dossier manifests validated/consumed by the runtime registry          |
 | Scaffolds    | [`scaffolds.generated.md`](scaffolds.generated.md)       | Registered scaffold manifests                                         |
 | Variants     | [`variants.generated.md`](variants.generated.md)         | Variant JSON consumed by runtime registry; strict shape checked by `backoffice:test` |
-| Models       | [`models.generated.md`](models.generated.md)             | AI-model manifest validated by the runtime Zod loader                 |
+| Models       | [`models.generated.md`](models.generated.md)             | AI-model manifest plus production `resolvePhaseModel` callers         |
 | Policies     | [`policies.generated.md`](policies.generated.md)         | Manifest, env-policy, dossier env and control-plane owner projections |
 | Schemas      | [`schemas.generated.md`](schemas.generated.md)           | Strict schema mirrors, validators and declared runtime/type owners    |
 

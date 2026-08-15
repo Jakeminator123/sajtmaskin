@@ -167,8 +167,11 @@ export type PreviewHostStatusResult = {
    * legacy "running = ready" contract for backwards compatibility).
    */
   readinessState: PreviewHostReadinessState | null;
-  /** HTTP-ready + no Next build-error overlay. `false` while `starting`/`failed`. */
-  httpReady: boolean;
+  /**
+   * HTTP-ready + no Next build-error overlay. `false` while `starting`/`failed`.
+   * `null` when an older host omitted the field — not the same as `false`.
+   */
+  httpReady: boolean | null;
   /** Human-readable failure reason when `readinessState === "failed"`. */
   readinessError: string | null;
   regeneratedLockfile: PreviewHostRegeneratedLockfile | null;
@@ -313,7 +316,7 @@ export async function fetchPreviewHostReadinessVerdict(
       running: body.running === true,
       versionId: hostVersionId,
       readinessState: readReadinessStateFromHostBody(body),
-      httpReady: body.httpReady === true,
+      httpReady: typeof body.httpReady === "boolean" ? body.httpReady : null,
       readinessError: nonEmptyString(body.readinessError),
       regeneratedLockfile: readRegeneratedLockfileFromHostBody(body),
     };

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyBaselinePackageJsonMerge,
   buildCompleteProject,
   mergePackageJsonWithBaseline,
   mergeTsconfigWithBaseline,
@@ -120,6 +121,35 @@ describe("mergeTsconfigWithBaseline", () => {
     expect(merged.include).toEqual(
       expect.arrayContaining(["next-env.d.ts", ".next/types/**/*.ts", "custom/**/*.ts"]),
     );
+  });
+});
+
+describe("applyBaselinePackageJsonMerge", () => {
+  it("fills a thin model package.json (name + version only) with next, react, and tailwindcss", () => {
+    const files: CodeFile[] = [
+      {
+        path: "package.json",
+        content: JSON.stringify({ name: "model-draft", version: "0.0.1" }),
+        language: "json",
+      },
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <main>Hi</main>; }",
+        language: "tsx",
+      },
+    ];
+    const merged = applyBaselinePackageJsonMerge(files);
+    const pkg = JSON.parse(merged.find((file) => file.path === "package.json")!.content) as {
+      dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
+      scripts: Record<string, string>;
+    };
+    expect(pkg.dependencies.next).toBeDefined();
+    expect(pkg.dependencies.react).toBeDefined();
+    expect(pkg.dependencies["react-dom"]).toBeDefined();
+    expect(pkg.devDependencies.tailwindcss).toBeDefined();
+    expect(pkg.dependencies.tailwindcss).toBeUndefined();
+    expect(pkg.scripts.build).toBe("next build");
   });
 });
 

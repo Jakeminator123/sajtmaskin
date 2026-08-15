@@ -35,6 +35,7 @@ const buildGenerationInputPackage = vi.hoisted(() => vi.fn());
 const writeOrchestrationDynamicDump = vi.hoisted(() => vi.fn());
 const createChat = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
+const getRedis = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const createPromptLog = vi.hoisted(() => vi.fn());
 const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
@@ -311,6 +312,14 @@ vi.mock("@/lib/gen/stream/sse-parser", () => {
   return { SuspenseLineProcessor, parseSSEBuffer };
 });
 
+vi.mock("@/lib/data/redis", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/data/redis")>();
+  return {
+    ...actual,
+    getRedis,
+  };
+});
+
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat,
   addMessage,
@@ -413,6 +422,7 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     // generation lock otherwise leaks into the next case (same engine_chat_1).
     resetChatGenerationLocksForTests();
     vi.clearAllMocks();
+    getRedis.mockReturnValue(null);
     failVersionVerification.mockResolvedValue(null);
     buildGenerationInputPackage.mockImplementation(
       (
@@ -917,7 +927,87 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     );
 
     expect(response.status).toBe(200);
-    expect(createChat).toHaveBeenCalledWith("app_proj_1", "gpt-5.4", "SYSTEM", "scaffold_1");
+    expect(createChat).toHaveBeenCalledWith(
+      "app_proj_1",
+      "gpt-5.4",
+      "SYSTEM",
+      "scaffold_1",
+      expect.objectContaining({ id: expect.stringMatching(/^[0-9a-f-]{36}$/i) }),
+    );
+  });
+
+  it("returns 503 and does not insert a chat row when the init lock is unavailable", async () => {
+    getRedis.mockReturnValue({
+      set: vi.fn().mockRejectedValue(new Error("redis down")),
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Build a simple site" }),
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "generation_lock_unavailable",
+      reason: "generation_lock_unavailable",
+      message: expect.any(String),
+    });
+    expect(createChat).not.toHaveBeenCalled();
+    expect(addMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not insert a plan-mode chat row when the init lock is unavailable", async () => {
+    getRedis.mockReturnValue({
+      set: vi.fn().mockRejectedValue(new Error("redis down")),
+    });
+    computePlanModePlannerPrompts.mockReturnValueOnce({
+      planPreamble: "PLAN",
+      planSystemPrompt: "PLAN SYSTEM",
+    });
+    resolvePlanModePlannerSettings.mockReturnValueOnce({
+      modelId: "test-planner-model",
+      thinking: true,
+      reasoningEffort: "medium",
+    });
+    createPlanModePipelineStream.mockReturnValueOnce(
+      new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
+      }),
+    );
+    createChatSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        projectId: null,
+        system: "",
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        chatPrivacy: "private",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          planMode: true,
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Planera en ny marknadssajt." }),
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(createChat).not.toHaveBeenCalled();
   });
 
   it("returns awaiting-input done output for tool-only empty generations", async () => {

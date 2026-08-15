@@ -663,6 +663,7 @@ describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)
         phase: "fix-partial",
         findingsBefore: 2,
         findingsAfter: 1,
+        severity: "blocking",
       }),
     });
     expect(progressEvents).not.toContainEqual({
@@ -710,7 +711,49 @@ describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)
     );
     expect(progressEvents).toContainEqual({
       step: "verifier",
-      data: expect.objectContaining({ phase: "fix-failed" }),
+      data: expect.objectContaining({ phase: "fix-failed", severity: "blocking" }),
+    });
+  });
+
+  it("F2 advisory finding + fix-failed → severity advisory (status, not a gate)", async () => {
+    const advisoryFinding = {
+      id: "navigation-placeholder-actions",
+      detail: "footer links go nowhere",
+    };
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [advisoryFinding],
+        quality: [],
+      })
+      .mockResolvedValueOnce({
+        blocking: [advisoryFinding],
+        quality: [],
+      });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: PAGE,
+        fixedFiles: ["app/api/assistant/route.ts"],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: true,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.5",
+      deduped: false,
+    });
+    const progressEvents: Array<{ step: string; data: Record<string, unknown> }> = [];
+
+    await runVerifierPhase({
+      ...baseParams(PAGE),
+      buildSpec: { previewPolicy: "fidelity2" } as never,
+      onProgress: (step, data) => progressEvents.push({ step, data }),
+    });
+
+    expect(progressEvents).toContainEqual({
+      step: "verifier",
+      data: expect.objectContaining({ phase: "fix-failed", severity: "advisory" }),
     });
   });
 
@@ -890,5 +933,106 @@ describe("runVerifierPhase confirmation-rerun budget (prod AbortError on premium
     expect(resolveVerifierRerunTimeoutMs()).toBeGreaterThanOrEqual(
       resolvePostGenerationVerifierConfig().timeoutMs,
     );
+  });
+});
+
+describe("runVerifierPhase merged package.json", () => {
+  const THIN_PKG = `\`\`\`json file="package.json"\n${JSON.stringify({ name: "model-draft", version: "0.0.1" })}\n\`\`\``;
+  const PAGE = fencedFile(
+    "app/page.tsx",
+    "export default function Page() { return <main>Hi</main>; }",
+  );
+  const LAYOUT = fencedFile(
+    "app/layout.tsx",
+    'export default function Layout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }',
+  );
+  const GLOBALS = "```css file=\"app/globals.css\"\n@import \"tailwindcss\";\n```";
+  const THIN_PROJECT = `${THIN_PKG}\n\n${LAYOUT}\n\n${PAGE}\n\n${GLOBALS}`;
+
+  const PROD_MISSING_DEPS = {
+    id: "missing-project-dependencies",
+    detail:
+      "package.json lacks next, react, react-dom, and tailwindcss\nrequired by app/layout.tsx, app/page.tsx, and app/globals.css",
+  };
+
+  beforeEach(() => {
+    runVerifierPass.mockReset();
+    runLlmRepairGate.mockReset();
+    appendErrorLogEvent.mockReset();
+    devLogAppend.mockReset();
+  });
+
+  it("hands the verifier the baseline-merged package.json, not the thin draft", async () => {
+    runVerifierPass.mockResolvedValueOnce({ blocking: [], quality: [] });
+    await runVerifierPhase(baseParams(THIN_PROJECT));
+    const verifierContent = String(runVerifierPass.mock.calls[0]?.[0] ?? "");
+    expect(verifierContent).toContain('"next"');
+    expect(verifierContent).toContain("tailwindcss");
+    expect(THIN_PKG).not.toContain('"next"');
+  });
+
+  it("does not send a thin-draft missing-dep finding to the LLM fixer after merge", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [PROD_MISSING_DEPS],
+      quality: [],
+    });
+    const result = await runVerifierPhase(baseParams(THIN_PROJECT));
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+    expect(appendErrorLogEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: "still-failing",
+        fault: "missing-project-dependencies",
+      }),
+    );
+  });
+
+  it("still blocks a dependency missing from both dependencies and devDependencies", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "missing-project-dependencies",
+          detail: "package.json lacks `left-pad`.",
+        },
+      ],
+      quality: [],
+    });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: THIN_PROJECT,
+        fixedFiles: [],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: false,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.5",
+      deduped: false,
+    });
+    const result = await runVerifierPhase(baseParams(THIN_PROJECT));
+    expect(result.verifierBlockingFindings).toEqual([
+      expect.objectContaining({
+        id: "missing-project-dependencies",
+        detail: "package.json lacks `left-pad`.",
+      }),
+    ]);
+    expect(runLlmRepairGate).toHaveBeenCalled();
+  });
+
+  it("treats tailwindcss in devDependencies as present", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "missing-project-dependencies",
+          detail: "package.json lacks `tailwindcss` required by app/globals.css",
+        },
+      ],
+      quality: [],
+    });
+    const result = await runVerifierPhase(baseParams(THIN_PROJECT));
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
   });
 });

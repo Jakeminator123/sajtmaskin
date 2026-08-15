@@ -107,6 +107,24 @@ export function hasBuildBreakingVerifierFindings(
 }
 
 /**
+ * Status-class for verifier progress SSE. Same rule as
+ * `verifierGatesVerification` in `finalize-version/runner.ts`: F3 treats any
+ * remaining verifier-blocking finding as blocking; F2 only the render-dead /
+ * build-breaking class. Used so the chat can color Slutsteg without guessing
+ * from copy. Does not change promotion or verification.
+ */
+export type VerifierFindingSeverity = "advisory" | "blocking";
+
+export function classifyVerifierFindingSeverity(
+  findings: readonly VerifierFinding[] | undefined | null,
+  previewPolicy: string | undefined | null,
+): VerifierFindingSeverity {
+  if (!findings || findings.length === 0) return "advisory";
+  if (previewPolicy === "fidelity3") return "blocking";
+  return hasBuildBreakingVerifierFindings(findings) ? "blocking" : "advisory";
+}
+
+/**
  * Own-engine: whether tier-2 live preview should start after finalize.
  * Compatibility preview is no longer a primary runtime path.
  *

@@ -28,6 +28,8 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
     typeof payload.outputMs === "number" && Number.isFinite(payload.outputMs)
       ? payload.outputMs
       : null;
+  const waitMs =
+    typeof payload.waitMs === "number" && Number.isFinite(payload.waitMs) ? payload.waitMs : null;
   const errorCount =
     typeof payload.errorCount === "number" && Number.isFinite(payload.errorCount)
       ? payload.errorCount
@@ -115,10 +117,18 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
     }
     if (phase === "done") {
       const lines = [`Generering klar${doneSuffix}. Startar efterkontroller och slutsteg.`];
-      if (reasoningMs !== null || outputMs !== null) {
-        lines.push(
-          `Faser: reasoning ${formatSeconds(reasoningMs ?? 0)}, output ${formatSeconds(outputMs ?? 0)}.`,
-        );
+      const phaseParts: string[] = [];
+      if (waitMs !== null && waitMs > 0) {
+        phaseParts.push(`wait ${formatSeconds(waitMs)}`);
+      }
+      if (reasoningMs !== null && reasoningMs > 0) {
+        phaseParts.push(`reasoning ${formatSeconds(reasoningMs)}`);
+      }
+      if (outputMs !== null && outputMs > 0) {
+        phaseParts.push(`output ${formatSeconds(outputMs)}`);
+      }
+      if (phaseParts.length > 0) {
+        lines.push(`Faser: ${phaseParts.join(", ")}.`);
       }
       return lines;
     }
@@ -162,6 +172,22 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
     }
     if (phase === "error") return ["Verifiering misslyckades; fortsätter med nuvarande kod."];
     if (phase === "skipped") return ["Verifiering hoppades över."];
+    if (phase === "fixing") {
+      return [
+        `Försöker laga ${
+          typeof payload.findingsCount === "number" && Number.isFinite(payload.findingsCount)
+            ? `${payload.findingsCount} verifieringsfynd`
+            : "verifieringsfynd"
+        }.`,
+      ];
+    }
+    if (phase === "fixed") return [`Verifieringsfynd lagades${doneSuffix}.`];
+    if (phase === "fix-partial") {
+      return [`Verifieringen minskade fynden men rensade inte alla${doneSuffix}.`];
+    }
+    if (phase === "fix-failed") {
+      return [`Verifieringen kunde inte laga fyndet${doneSuffix}.`];
+    }
   }
   if (step === "url_expand") {
     if (phase === "start") return ["Expanderar kortade URL:er till fulla adresser."];
@@ -319,13 +345,26 @@ export type ProgressPartState = "output-available" | "output-error" | "input-str
  * (log line + toast), never as a failed step. Note that anything not listed
  * here renders as an in-progress spinner, so a phase that ends a step must be
  * classified as completed or failed — not simply dropped from `failed`.
+ *
+ * `fix-failed` is red only when the server stamped `severity: "blocking"`
+ * (or omitted severity — fail-closed). Advisory `fix-failed` is a finished
+ * step, not a failed one: the finding did not gate the version. Do not infer
+ * this from copy; read the payload field the server classified.
  */
-export function resolveProgressPartState(step: string, phase: string): ProgressPartState {
+export function resolveProgressPartState(
+  step: string,
+  phase: string,
+  payload: Record<string, unknown> = {},
+): ProgressPartState {
+  const advisoryFixFailed = phase === "fix-failed" && payload.severity === "advisory";
   const completed =
     phase === "passed" ||
     phase === "done" ||
     phase === "reverted" ||
     phase === "tsc-skipped" ||
+    phase === "fixed" ||
+    phase === "fix-partial" ||
+    advisoryFixFailed ||
     (step === "preview" &&
       (phase === "boot-queued" || phase === "ready" || phase === "build-verified"));
   if (completed) return "output-available";
@@ -348,7 +387,7 @@ export function appendProgressPart(
       type: `tool:engine-${step}` as const,
       toolName: getProgressToolName(step),
       toolCallId: `progress:${step}`,
-      state: resolveProgressPartState(step, phase),
+      state: resolveProgressPartState(step, phase, payload),
       output: {
         step,
         phase,

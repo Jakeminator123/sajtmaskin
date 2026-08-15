@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
 import {
+  classifyVerifierFindingSeverity,
   hasBuildBreakingVerifierFindings,
   isBuildBreakingFinding,
   shouldStartOwnEnginePreview,
@@ -356,5 +357,33 @@ describe("hasBuildBreakingVerifierFindings", () => {
         { id: "unused-import-shadowing-risk", detail: "shadowing" },
       ]),
     ).toBe(false);
+  });
+});
+
+describe("classifyVerifierFindingSeverity", () => {
+  const advisory = { id: "navigation-placeholder-actions", detail: "footer links go nowhere" };
+  const buildBreaking = {
+    id: "build-breaking-missing-imports",
+    detail: "package.json missing next",
+  };
+
+  it("treats empty findings as advisory", () => {
+    expect(classifyVerifierFindingSeverity([], "fidelity2")).toBe("advisory");
+    expect(classifyVerifierFindingSeverity([], "fidelity3")).toBe("advisory");
+  });
+
+  it("keeps F2 non-build-breaking findings advisory", () => {
+    expect(classifyVerifierFindingSeverity([advisory], "fidelity2")).toBe("advisory");
+    expect(classifyVerifierFindingSeverity([advisory], undefined)).toBe("advisory");
+  });
+
+  it("marks F2 build-breaking findings blocking", () => {
+    expect(classifyVerifierFindingSeverity([advisory, buildBreaking], "fidelity2")).toBe(
+      "blocking",
+    );
+  });
+
+  it("marks any remaining F3 finding blocking", () => {
+    expect(classifyVerifierFindingSeverity([advisory], "fidelity3")).toBe("blocking");
   });
 });

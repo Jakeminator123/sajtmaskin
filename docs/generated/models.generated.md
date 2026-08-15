@@ -2,10 +2,12 @@
 >
 > Source: `config/ai_models/manifest.json`
 > Source: `src/lib/ai-models/load-manifest.ts#getAiModelsManifest`
+> Source: `src/**/*.{ts,tsx}#resolvePhaseModel-literals`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:4de04ffad9ee0e10 -->
-<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:64f92a61c55b6985 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:18d98dfea4135c43 -->
+<!-- source-fingerprint: src/**/*.{ts,tsx}#resolvePhaseModel-literals sha256:df1d0e127dc60443 -->
 
 # Models
 
@@ -37,3 +39,26 @@ Canonical owner: committed AI-model manifest. Validator/runtime consumer: `getAi
 | Workload | Default model        | Override env key          |
 | -------- | -------------------- | ------------------------- |
 | `assist` | `openai/gpt-5.6-sol` | `SAJTMASKIN_ASSIST_MODEL` |
+
+## Briefing
+
+Defaults for the structured brief workloads in the AI-model manifest. Environment overrides still win at runtime.
+
+| Workload              | Default model               | Override env key                        |
+| --------------------- | --------------------------- | --------------------------------------- |
+| `requestModel`        | `openai/gpt-5.6-sol`        | `SAJTMASKIN_BRIEF_MODEL`                |
+| `serverAutoAnthropic` | `anthropic/claude-opus-4.8` | `SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC` |
+| `serverAutoOpenAI`    | `openai/gpt-5.6-sol`        | `SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI`    |
+
+## Phase routing
+
+A runtime caller is a non-test `src/` call to `resolvePhaseModel` or `resolvePhaseThinking` with this phase as a string literal.
+`src/lib/models/phase-routing.ts` is excluded because it resolves and summarizes routing; it does not invoke a phase.
+
+| Phase              | `anthropic`            | `codex`                | `max`                  | `premium`              | `pro`                  | Runtime caller                                                                                                                                                                                                                                 |
+| ------------------ | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy-assistant` | `claude-opus-4.8`      | `gpt-5.3-codex`        | `gpt-5.3-codex`        | `selected_build_model` | `gpt-5.3-codex`        | No                                                                                                                                                                                                                                             |
+| `fixer`            | `selected_build_model` | `selected_build_model` | `gpt-5.3-codex`        | `gpt-5.6-sol`          | `selected_build_model` | Yes (`src/app/api/engine/chats/[chatId]/repair/route.ts`, `src/lib/gen/autofix/llm-repair-gate.ts`, `src/lib/gen/verify/server-verify/repair-execution.ts`)                                                                                    |
+| `generator`        | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `gpt-5.3-codex`        | Yes (`src/lib/api/engine/chats/chat-message-stream/codegen-turn.ts`, `src/lib/api/engine/chats/create-chat-stream-post.ts`, `src/lib/own-engine/generate-site-from-prompt.ts`, `src/lib/own-engine/session/own-engine-pipeline-generation.ts`) |
+| `planner`          | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `gpt-5.3-codex`        | Yes (`src/lib/own-engine/session/own-engine-plan-mode.ts`, `src/lib/providers/own-engine/plan-mode-response.ts`)                                                                                                                               |
+| `verifier`         | `selected_build_model` | `gpt-5.3-codex`        | `gpt-5.3-codex`        | `selected_build_model` | `gpt-5.3-codex`        | Yes (`src/lib/gen/verify/verifier-pass.ts`)                                                                                                                                                                                                    |

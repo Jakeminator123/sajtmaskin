@@ -798,6 +798,22 @@ describe("fetchPreviewHostReadinessVerdict — läser verdikt även utan levande
     });
   });
 
+  it("behåller utelämnad httpReady som null, inte false", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      readinessState: "ready",
+      versionId: "v3",
+      previewSessionId: "ps_1",
+    });
+
+    expect(await fetchPreviewHostReadinessVerdict("ps_1")).toMatchObject({
+      httpReady: null,
+      readinessState: "ready",
+    });
+  });
+
   it("returnerar null när hosten inte svarar ok", async () => {
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
     stubStatus({ ok: false });
