@@ -229,10 +229,13 @@ i buildern). Escape: `ready` / `promoted` / `failed` / `degraded` / `blocked` /
 fortfarande anropa `sendMessage` — låset sitter på composer/version-select, inte
 på själva send. Servern svarar `409 generation_in_progress` om två codegen-strömmar
 tävlade om samma `chatId` (Redis SET NX, annars in-process). Låset tas både på
-init (`POST /api/engine/chats/stream`) och follow-up (`[chatId]/stream`). Om Redis är
-konfigurerad men `SET` kastar svarar servern `503 generation_lock_unavailable`
-i stället för att ljuga om en pågående generation eller släppa igenom en
-andra ström. Quality-gate avgör
+init (`POST /api/engine/chats/stream`) och follow-up (`[chatId]/stream`). På init
+mintas `chatId` först och låset tas **innan** `engine_chats`-raden infogas, så ett
+nekat lås inte lämnar en tom chatt. Follow-up låser den redan existerande chatten;
+TTL och `held` är oförändrade där. Om Redis är konfigurerad men `SET` kastar
+svarar servern `503 generation_lock_unavailable` i stället för att ljuga om en
+pågående generation eller släppa igenom en andra ström. 503:an på init bär inget
+`chatId` — raden skapades aldrig. Quality-gate avgör
 "senaste version" via `selectPreferredEngineVersion`, inte rå `getLatestVersion`,
 så en failad F3-head inte gör en grön F2-design till `superseded`.
 

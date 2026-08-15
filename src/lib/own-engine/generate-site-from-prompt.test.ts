@@ -256,6 +256,13 @@ describe("generateOwnEngineSiteFromPrompt — full pipeline e2e", () => {
     expect(typeof result.model).toBe("string");
     expect(result.scaffoldId).not.toBeNull();
     expect(result.filesCount).toBeGreaterThan(0);
+    expect(createChatMock).toHaveBeenCalledWith(
+      "proj_1",
+      expect.any(String),
+      expect.any(String),
+      expect.anything(),
+    );
+    expect(createChatMock.mock.calls[0]?.[4]).toBeUndefined();
 
     expect(createGenerationTelemetryRecordMock).toHaveBeenCalledOnce();
     const telemetryArg = createGenerationTelemetryRecordMock.mock.calls[0][0];
