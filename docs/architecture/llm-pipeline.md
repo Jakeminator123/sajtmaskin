@@ -18,6 +18,7 @@ Målet i Fas 1 är att bygga ett rent underlag till orkestreringen.
 - Follow-up får Snapshot-Brief och tidigare orchestration snapshot. Byggval-hintarna är init-only — follow-up-frysen äger scaffold/variant/routes.
 - Build intent, generation mode, follow-up intent och requested capabilities ska bestämmas innan prompten byggs.
 - Follow-up scope-klargörande (`collectFollowUpClarificationAnswer`): exakt quick-reply **eller** en kort parafras av ett sparat alternativ återställer originalprompten. En ny beställning (specifikt sidmål, negation, «vill ha»/«behöver», restinnehåll, längre brief) körs som ny prompt — den får inte limmas ihop med den gamla.
+- Init-codegen går bara via `POST /api/engine/chats/stream` (`maxDuration = 950`). `GET /api/engine/chats` listar chattar. `POST /api/engine/chats` utan `/stream` är inte en codegen-väg (`405 use_streaming_create`). En bruten ström ger ett ärligt fel i buildern och startar inte om generationen.
 
 Kodankare:
 
@@ -97,7 +98,15 @@ Kodankare:
 - `src/lib/gen/scaffold-variants/`
 - `src/lib/gen/dossiers/`
 - `src/lib/gen/preview/preview-prewarm.ts`
+- `src/lib/gen/stream/stream-format.ts` (codegen-SSE; fasmätning `waitMs`/`reasoningMs`/`outputMs`)
 - `config/prompt-core/`
+
+Codegen-SSE delar strömtiden i tre väggklocksfaser som tillsammans är
+`durationMs` i `stream.summary`: **wait** (start → första token), **reasoning**
+(första reasoning-token → första content-token; `0` när strömmen inte
+emitterade reasoning) och **output** (första content-token → slut). Ägaren är
+`computeStreamPhaseTiming` i `stream-format.ts`. Det är inte samma klocka som
+`generation_telemetry.durationMs`.
 
 ## Fas 3 — Finalize, verifiering och preview
 
@@ -126,9 +135,14 @@ Typisk ordning i runtime:
    registrerar fasen som 0 ms. Steget ligger **efter** hela
    `validateAndFix`-blocket (steg 3–5) — i `fast-path.ts` är syntax, warm-tsc,
    import-repair och RepairGate Phase 1, och bildmaterialiseringen Phase 2.
-7. verifiern körs riskstyrt: `safe_fixes_only` kan hoppa över verifiern när
-   grundpolicyn redan säger `run`, men aldrig vid 3D-signal; `risky_fixes`
-   behåller verifier-täckning.
+7. `package.json` mergas mot Sajtmaskins baslinje
+   (`mergePackageJsonWithBaseline` via `applyBaselinePackageJsonMerge`)
+   **innan** verifiern läser filerna, så beroendekontrollen bedömer den
+   manifest som persist skriver — inte modellens tunna utkast.
+   `tailwindcss` räknas som närvarande även i `devDependencies`. Importerat
+   repo-läge hoppar över baslinjemergen. Därefter körs verifiern riskstyrt:
+   `safe_fixes_only` kan hoppa över verifiern när grundpolicyn redan säger
+   `run`, men aldrig vid 3D-signal; `risky_fixes` behåller verifier-täckning.
 8. parse/merge applicerar scaffold-skydd, dossier verbatim policy och
    follow-up-bevarande mot tidigare version.
 9. preflight kontrollerar preview-/verification-blockers före persist.
@@ -221,10 +235,13 @@ i buildern). Escape: `ready` / `promoted` / `failed` / `degraded` / `blocked` /
 fortfarande anropa `sendMessage` — låset sitter på composer/version-select, inte
 på själva send. Servern svarar `409 generation_in_progress` om två codegen-strömmar
 tävlade om samma `chatId` (Redis SET NX, annars in-process). Låset tas både på
-init (`POST /api/engine/chats/stream`) och follow-up (`[chatId]/stream`). Om Redis är
-konfigurerad men `SET` kastar svarar servern `503 generation_lock_unavailable`
-i stället för att ljuga om en pågående generation eller släppa igenom en
-andra ström. Quality-gate avgör
+init (`POST /api/engine/chats/stream`) och follow-up (`[chatId]/stream`). På init
+mintas `chatId` först och låset tas **innan** `engine_chats`-raden infogas, så ett
+nekat lås inte lämnar en tom chatt. Follow-up låser den redan existerande chatten;
+TTL och `held` är oförändrade där. Om Redis är konfigurerad men `SET` kastar
+svarar servern `503 generation_lock_unavailable` i stället för att ljuga om en
+pågående generation eller släppa igenom en andra ström. 503:an på init bär inget
+`chatId` — raden skapades aldrig. Quality-gate avgör
 "senaste version" via `selectPreferredEngineVersion`, inte rå `getLatestVersion`,
 så en failad F3-head inte gör en grön F2-design till `superseded`.
 
@@ -285,10 +302,11 @@ ReleaseGate på servern via `buildReleaseGateBlocker` → `resolveDeployReleaseG
 `canDeploy` följer deploy-routens gate i stället för att gissa. Env-kravet är
 stage-beroende: F3 blockerar på `buildBlockingKeys`, F2 på `missingEnvKeys`
 (`src/app/api/v0/deployments/route.ts`). CapabilitySmoke-fynd
-(`product_postcheck.*`) syns som advisory-warnings och kan sätta
-`info.productPostcheckBlocksF3`; de ändrar inte `canDeploy` och stoppar inte
-promotion. Sena `preview:client-error` (error-log `created_at` strikt efter
-versionens `promoted_at`) syns som samma sorts advisory-warning. Fel före
+(`product_postcheck.*`) som sätter `productBlocked` gör readiness röd
+(`status: "blocked"`, B1) och sätter `info.productPostcheckBlocksF3`; de
+ändrar inte `canDeploy` och stoppar inte promotion.
+`preview_probe_unreadable` förblir advisory. Sena `preview:client-error` (error-log `created_at` strikt efter
+versionens `promoted_at`) syns som advisory-warning. Fel före
 promotion eller utan `promoted_at` förblir diagnostik och sänker inte
 `canDeploy`.
 

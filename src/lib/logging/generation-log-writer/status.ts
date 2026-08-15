@@ -156,6 +156,7 @@ export function buildMeta(entries: StoredGenerationEntry[]): Record<string, unkn
     previewUrl: readString(done?.data.previewUrl),
     streamTiming: streamSummary
       ? {
+          waitMs: readNumber(streamSummary.data.waitMs),
           reasoningMs: readNumber(streamSummary.data.reasoningMs),
           outputMs: readNumber(streamSummary.data.outputMs),
           durationMs: readNumber(streamSummary.data.durationMs),

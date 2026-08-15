@@ -29,7 +29,7 @@ import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
-import { getKnownBrokenImageReplacements } from "@/lib/db/chat-repository-pg";
+import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { dropResolvedVerifierFindings } from "@/lib/gen/verify/stale-verifier-findings";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import { FIX_LESSON_POST_MERGE_STALE_FINDING } from "@/lib/logging/error-log-fix-lessons";
@@ -288,7 +288,7 @@ export async function runFinalizeFastPath(params: {
   });
 
   try {
-    const knownImageReplacements = await getKnownBrokenImageReplacements(chatId);
+    const knownImageReplacements = await chatRepo.getKnownBrokenImageReplacements(chatId);
     const knownImageHeal = applyKnownImageReplacementsToContent(
       contentForVersion,
       knownImageReplacements,
@@ -387,6 +387,12 @@ export async function runFinalizeFastPath(params: {
       ...autoFixRisk,
     });
   }
+  let skipBaselinePackageJsonMerge = false;
+  try {
+    skipBaselinePackageJsonMerge = await chatRepo.chatHasImportedRepoVersion(chatId);
+  } catch {
+    skipBaselinePackageJsonMerge = false;
+  }
   const verifierOutcome = await runVerifierPhase({
     enabled: verifierPolicy.run && !verifierSkippedBySafeFixesOnly,
     reason: verifierReason,
@@ -403,6 +409,7 @@ export async function runFinalizeFastPath(params: {
       runAutoFix(content, { chatId, model, previewPolicy: buildSpec?.previewPolicy }),
     repairLedger,
     repairScopeId,
+    skipBaselinePackageJsonMerge,
   });
   contentForVersion = verifierOutcome.contentForVersion;
   stepTelemetry.verifier = verifierOutcome.stepTelemetry;
@@ -429,12 +436,15 @@ export async function runFinalizeFastPath(params: {
   });
 
   // ── SM-023: post-merge stale-check of the verifier verdict ──────────────
-  // The verifier (phase 3) judged PRE-merge content, but phase 4 (merge with
-  // previous files, `package.json` deep-merge, post-merge import-validator,
-  // dep-completion) deterministically resolves whole finding classes in the
-  // files that actually get persisted. Prod chat 3a6c5472 v3 (2026-08-05):
-  // all four blocking findings were already fixed in `files_json`, yet the
-  // stale verdict terminally failed the paid F3 pass. Re-check each blocking
+  // Missing-import findings are still judged against PRE-merge model output
+  // in phase 3; phase 4 (merge with previous files, import-validator,
+  // dep-completion) can resolve them in the persisted files. Package.json
+  // dependency claims are already re-checked in the verifier phase against
+  // the baseline-merged manifest — this pass remains the safety net for
+  // import-class findings and any residual manifest claim dep-completion
+  // added after the verifier. Prod chat 3a6c5472 v3 (2026-08-05): all four
+  // blocking findings were already fixed in `files_json`, yet the stale
+  // verdict terminally failed the paid F3 pass. Re-check each blocking
   // finding against the FINAL files and drop only the ones mechanically
   // confirmed resolved — unknown classes and unparseable details stay
   // blocking (fail-closed; see `stale-verifier-findings.ts`).

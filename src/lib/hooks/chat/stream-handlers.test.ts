@@ -1010,6 +1010,7 @@ describe("handleSseStream", () => {
             step: "generation",
             phase: "done",
             durationMs: 2100,
+            waitMs: 0,
             reasoningMs: 1200,
             outputMs: 900,
           },
@@ -1054,6 +1055,64 @@ describe("handleSseStream", () => {
         expect.stringContaining("reasoning 1.2s, output 0.9s."),
       ]),
     );
+    expect(Array.isArray(doneSteps) ? doneSteps.join(" ") : "").not.toMatch(/\bwait\b/);
+  });
+
+  it("omits a zero reasoning phase and names the wait instead of inventing reasoning", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "progress",
+          {
+            step: "generation",
+            phase: "done",
+            durationMs: 337_000,
+            waitMs: 336_300,
+            reasoningMs: 0,
+            outputMs: 700,
+          },
+          "",
+        );
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: null,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    const assistant = store.getMessages().find((m) => m.id === "assistant_1");
+    const generationDoneParts = (assistant?.uiParts ?? []).filter((part) => {
+      const maybePart = part as { type?: string; output?: { phase?: string } };
+      return maybePart.type === "tool:engine-generation" && maybePart.output?.phase === "done";
+    });
+    const doneSteps = (
+      generationDoneParts[0] as {
+        output?: { steps?: unknown };
+      }
+    ).output?.steps;
+    const joined = Array.isArray(doneSteps) ? doneSteps.join(" ") : "";
+    expect(joined).toContain("wait 336s");
+    expect(joined).toContain("output 0.7s");
+    expect(joined).not.toMatch(/reasoning/);
   });
 
   it("renders a friendly live status when model reasoning takes longer than usual", async () => {

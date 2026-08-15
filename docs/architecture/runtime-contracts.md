@@ -119,6 +119,10 @@ Invariants:
 - F2 har två Blocker-källor: RenderGates render-risk-TS-koder och
   finalize-verifierns build-breaking-fynd (`isBuildBreakingFinding` —
   import-/namnupplösningsklassen). Övriga verifier-fynd är Advisory i F2.
+  Samma klass går ut på verifier-progress som `severity` (`advisory` /
+  `blocking`). Slutsteg blir rött bara på Blocker-`fix-failed`
+  (`resolveProgressPartState`); saknad signal behandlas som Blocker.
+  Promotion och verifiering ändras inte — det är status, inte en grind.
 - Build-originated repair ska inte återgå till en för lätt gate.
 
 ## RepairGate
@@ -201,6 +205,7 @@ Event-bus är runtime-livscykel. FaultEvent är historik-/RAG-läsmodell och ska
 
 Ägs av:
 
+- `src/lib/logging/event-bus.ts`
 - `src/lib/logging/event-bus-types.ts`
 - `src/lib/logging/event-bus-projection.ts`
 - `src/lib/gen/verify/stale-verification.ts`
@@ -211,6 +216,7 @@ Invariants:
 - VersionStatus är en projektion av events plus terminal DB-reconciliation där det behövs.
 - Degradations är förstaklassignal (Advisory), inte loggbrus.
 - Dead verify/repair-rundor ska settle:as av lease/stale-watchdog och aldrig fastna permanent i “verifying”.
+- Tmp-spegeln på Vercel (`os.tmpdir()/sajtmaskin/data/runs`) har ett bindande byte-tak; antalstaket är bara en snabbväg. Lokal `data/runs/` under repo-roten prunas inte.
 
 ## Previewkontrakt
 
@@ -285,3 +291,11 @@ Invariants:
 - F2 får rendera mock/placeholder-safe UI.
 - F3 ska kräva riktiga värden där dossierns env enforcement säger `build`.
 - Env-listor ska inte kopieras in i architecture-docs; läs schema/policy/kod.
+
+## Generation HTTP
+
+Ägs av: `src/app/api/engine/chats/stream/route.ts`, `src/lib/hooks/chat/useCreateChat.ts`.
+
+- Ny chat codegen: `POST /api/engine/chats/stream` (`maxDuration = 950`).
+- `GET /api/engine/chats` listar chattar för ett projekt.
+- `POST /api/engine/chats` (utan `/stream`) är inte en codegen-väg (`405 use_streaming_create`). En bruten SSE-anslutning får inte starta en andra full generation mot den rutten.

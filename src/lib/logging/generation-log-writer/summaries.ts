@@ -104,6 +104,7 @@ export function buildSummary(dir: string, entries: StoredGenerationEntry[]): str
     "",
     "## Stream",
     "",
+    `- Wait ms: ${String((meta.streamTiming as { waitMs?: number } | null)?.waitMs ?? "-")}`,
     `- Reasoning ms: ${String((meta.streamTiming as { reasoningMs?: number } | null)?.reasoningMs ?? "-")}`,
     `- Output ms: ${String((meta.streamTiming as { outputMs?: number } | null)?.outputMs ?? "-")}`,
     `- Stream duration ms: ${String((meta.streamTiming as { durationMs?: number } | null)?.durationMs ?? "-")}`,

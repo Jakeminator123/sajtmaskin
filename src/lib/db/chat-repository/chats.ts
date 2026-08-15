@@ -4,13 +4,16 @@ import { eq, desc } from "drizzle-orm";
 import type { Chat, ChatWithMessages, Message } from "./types";
 import { uuid, toRow } from "./internal";
 
+/** `options.id` is the caller-minted primary key (init lock-before-row). Omitted → mint here. */
 export async function createChat(
   projectId: string,
   model = "gpt-5.4",
   systemPrompt?: string,
   scaffoldId?: string,
+  options?: { id?: string },
 ): Promise<Chat> {
-  const id = uuid();
+  const suppliedId = options?.id?.trim();
+  const id = suppliedId || uuid();
   await db.insert(engineChats).values({
     id,
     projectId,

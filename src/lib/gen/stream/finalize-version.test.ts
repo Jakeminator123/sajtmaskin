@@ -106,15 +106,19 @@ vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
   repairGeneratedFiles,
 }));
 
-vi.mock("@/lib/gen/export/project-scaffold", () => ({
-  buildCompleteProject,
-  SCAFFOLD_BASELINE_FILE_PATHS: [],
-}));
+vi.mock("@/lib/gen/export/project-scaffold", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/export/project-scaffold")>();
+  return {
+    ...actual,
+    buildCompleteProject,
+  };
+});
 
 vi.mock("@/lib/gen/export/project-scaffold-ui-reader", () => ({
   collectRequiredUiComponents: vi.fn().mockReturnValue([]),
 }));
 
+const chatHasImportedRepoVersion = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndCreateDraftVersion,
   addAssistantMessageAndUpdateExistingVersion,
@@ -125,6 +129,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   deleteEngineMessage,
   logGeneration,
   failVersionVerification,
+  chatHasImportedRepoVersion,
 }));
 
 const pruneStaleVersionErrorLogs = vi.hoisted(() => vi.fn());
@@ -238,6 +243,8 @@ describe("finalizeAndSaveVersion", () => {
     updateChatOrchestrationSnapshot.mockReset();
     getChatOrchestrationSnapshot.mockReset();
     getKnownBrokenImageReplacements.mockReset();
+    chatHasImportedRepoVersion.mockReset();
+    chatHasImportedRepoVersion.mockResolvedValue(false);
     addMessage.mockReset();
     deleteEngineMessage.mockReset();
     logGeneration.mockReset();

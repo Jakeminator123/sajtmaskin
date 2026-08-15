@@ -88,6 +88,10 @@ export function buildApiErrorMessage(params: {
   return message;
 }
 
+/** User-facing copy when the create-chat SSE connection drops. Do not retry via POST /api/engine/chats. */
+export const CREATE_CHAT_CONNECTION_BROKEN_MESSAGE =
+  "Anslutningen bröts innan sajten hann byggas. Försök igen.";
+
 export function isNetworkError(error: unknown): boolean {
   if (error instanceof TypeError) return true;
   if (error instanceof Error) {

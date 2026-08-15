@@ -20,7 +20,9 @@ const {
   captureThumbnailScreenshot,
   isTransientCaptureAbort,
   PreviewHostBootPageError,
+  PreviewProbeUnreadableError,
   isPreviewHostBootPageError,
+  isPreviewProbeUnreadableError,
 } = await import("./thumbnail-capture");
 
 // Bugbot high (PR #426): the page-level request gate must block redirect/JS
@@ -135,7 +137,11 @@ function makeFakePage(overrides: Record<string, unknown> = {}) {
     }),
     goto: vi.fn().mockResolvedValue(undefined),
     waitForLoadState: vi.fn().mockResolvedValue(undefined),
-    evaluate: vi.fn().mockResolvedValue(undefined),
+    evaluate: vi.fn().mockResolvedValue({
+      title: "Site",
+      h1: "Hello",
+      bodyText: "Welcome to the site.",
+    }),
     waitForTimeout: vi.fn().mockResolvedValue(undefined),
     url: vi.fn().mockReturnValue("https://site.fly.dev/x"),
     screenshot: vi.fn().mockResolvedValue(Buffer.from("jpeg-bytes")),
@@ -269,6 +275,33 @@ describe("captureThumbnailScreenshot", () => {
 
     expect(err).toBeInstanceOf(PreviewHostBootPageError);
     expect(isPreviewHostBootPageError(err)).toBe(true);
+    expect(page.screenshot).not.toHaveBeenCalled();
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips the screenshot when the page probe is empty, without blaming preview-host", async () => {
+    let evaluateCalls = 0;
+    const page = makeFakePage({
+      evaluate: vi.fn(async () => {
+        evaluateCalls += 1;
+        if (evaluateCalls === 1) return undefined;
+        return { title: "", h1: null, bodyText: "" };
+      }),
+    });
+    const { browser, closeSpy } = makeFakeBrowser(page);
+    launchMock.mockResolvedValue(browser);
+
+    const err = await captureThumbnailScreenshot("https://site.fly.dev/x", {
+      isFinalUrlAllowed: () => true,
+    }).then(
+      () => undefined,
+      (e: unknown) => e as Error,
+    );
+
+    expect(err).toBeInstanceOf(PreviewProbeUnreadableError);
+    expect(isPreviewProbeUnreadableError(err)).toBe(true);
+    expect(isPreviewHostBootPageError(err)).toBe(false);
+    expect(err?.message).not.toMatch(/preview-host|Startar preview|boot placeholder/i);
     expect(page.screenshot).not.toHaveBeenCalled();
     expect(closeSpy).toHaveBeenCalledTimes(1);
   });

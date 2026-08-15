@@ -1273,6 +1273,7 @@ Return structured findings only. Do not output code fixes.
 NOT blocking (do not flag these as blocking even if they look like placeholder navigation):
 - Hash anchor links (href="#some-id") when there is a matching id="some-id" element in the same page route. These are valid in-page navigation, especially on game/interactive routes.
 - "Skip to content"-style accessibility anchors.
+- A package listed in package.json \`dependencies\` OR \`devDependencies\` is present. Do not report missing \`next\`, \`react\`, \`react-dom\`, or \`tailwindcss\` when they appear in either object. \`tailwindcss\` lives in \`devDependencies\` in this project's baseline.
 
 The following production-quality issues MUST be reported as blocking (not quality), because they break the user-facing contract of a marketing/SaaS site even when the build succeeds:
 - CTA / primary buttons or links that have no real destination (no \`href\`, \`href="#"\`, empty \`href\`, or no \`onClick\`). Use the id "navigation-placeholder-actions" and list the file + element labels in detail.
