@@ -82,7 +82,8 @@ Gate-output är felkälla till RepairGate, inte en andra LLM-port.
 flowchart TD
     codegen[CodegenStream] --> normalize[Normalize]
     normalize --> syntax[SyntaxValidation]
-    syntax --> verifier[VerifierPass]
+    syntax --> mergedPkg[BaselinePackageJsonMerge]
+    mergedPkg --> verifier[VerifierPass]
     verifier --> preflight[MergeAndPreflight]
     preflight --> persist[VersionPersist]
     persist --> preview[PreviewStart]
@@ -119,6 +120,8 @@ säger `verifier_failed` / `preflight_failed`. Fältsemantik:
 [`../schemas/quality-gate.md`](../schemas/quality-gate.md).
 
 ## Verifier-pass efter Normalize
+
+Verifiern bedömer den **mergade** `package.json` (samma `mergePackageJsonWithBaseline` som persist), inte modellens utkast. En paketpost i `dependencies` eller `devDependencies` räknas som närvarande (`tailwindcss` ligger i baslinjens `devDependencies`). Importerat repo-läge hoppar över baslinjemergen.
 
 `resolveVerifierPassPolicy()` kan hoppa över verifiern (light/fast follow-up,
 flagga av). När grundpolicyn säger `run` styrs skip av Normalize-risk:

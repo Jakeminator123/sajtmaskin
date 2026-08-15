@@ -134,9 +134,14 @@ Typisk ordning i runtime:
    registrerar fasen som 0 ms. Steget ligger **efter** hela
    `validateAndFix`-blocket (steg 3–5) — i `fast-path.ts` är syntax, warm-tsc,
    import-repair och RepairGate Phase 1, och bildmaterialiseringen Phase 2.
-7. verifiern körs riskstyrt: `safe_fixes_only` kan hoppa över verifiern när
-   grundpolicyn redan säger `run`, men aldrig vid 3D-signal; `risky_fixes`
-   behåller verifier-täckning.
+7. `package.json` mergas mot Sajtmaskins baslinje
+   (`mergePackageJsonWithBaseline` via `applyBaselinePackageJsonMerge`)
+   **innan** verifiern läser filerna, så beroendekontrollen bedömer den
+   manifest som persist skriver — inte modellens tunna utkast.
+   `tailwindcss` räknas som närvarande även i `devDependencies`. Importerat
+   repo-läge hoppar över baslinjemergen. Därefter körs verifiern riskstyrt:
+   `safe_fixes_only` kan hoppa över verifiern när grundpolicyn redan säger
+   `run`, men aldrig vid 3D-signal; `risky_fixes` behåller verifier-täckning.
 8. parse/merge applicerar scaffold-skydd, dossier verbatim policy och
    follow-up-bevarande mot tidigare version.
 9. preflight kontrollerar preview-/verification-blockers före persist.
