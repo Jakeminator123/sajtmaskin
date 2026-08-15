@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { parseSSEBuffer } from "./sse-parser";
-import { createCodeGenSSEStream } from "./stream-format";
+import { computeStreamPhaseTiming, createCodeGenSSEStream } from "./stream-format";
 
 type StreamPart = {
   type: string;
@@ -30,11 +30,7 @@ function createResult(parts: StreamPart[]) {
   };
 }
 
-async function collectEvents(parts: StreamPart[], options?: { thinking?: boolean }) {
-  const stream = createCodeGenSSEStream(createResult(parts), {
-    meta: { chatId: "chat_test" },
-    thinking: options?.thinking,
-  });
+async function collectFromReadableStream(stream: ReadableStream<Uint8Array>) {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -55,6 +51,26 @@ async function collectEvents(parts: StreamPart[], options?: { thinking?: boolean
   }
 
   return events;
+}
+
+async function collectEvents(parts: StreamPart[], options?: { thinking?: boolean }) {
+  const stream = createCodeGenSSEStream(createResult(parts), {
+    meta: { chatId: "chat_test" },
+    thinking: options?.thinking,
+  });
+  return collectFromReadableStream(stream);
+}
+
+function generationDonePayload(events: Array<{ event: string; data: unknown }>) {
+  const generationDoneProgress = events.find(
+    (event) =>
+      event.event === "progress" &&
+      typeof event.data === "object" &&
+      event.data !== null &&
+      (event.data as Record<string, unknown>).step === "generation" &&
+      (event.data as Record<string, unknown>).phase === "done",
+  );
+  return generationDoneProgress?.data as Record<string, unknown> | undefined;
 }
 
 describe("createCodeGenSSEStream", () => {
@@ -312,25 +328,49 @@ describe("createCodeGenSSEStream", () => {
       { type: "finish" },
     ]);
 
-    const generationDoneProgress = events.find(
-      (event) =>
-        event.event === "progress" &&
-        typeof event.data === "object" &&
-        event.data !== null &&
-        (event.data as Record<string, unknown>).step === "generation" &&
-        (event.data as Record<string, unknown>).phase === "done",
-    );
-    expect(generationDoneProgress).toBeTruthy();
-    const payload = generationDoneProgress?.data as Record<string, unknown> | undefined;
+    const payload = generationDonePayload(events);
+    expect(payload).toBeTruthy();
     expect(typeof payload?.durationMs).toBe("number");
+    expect(typeof payload?.waitMs).toBe("number");
     expect(typeof payload?.reasoningMs).toBe("number");
     expect(typeof payload?.outputMs).toBe("number");
     expect(Number(payload?.durationMs ?? -1)).toBeGreaterThanOrEqual(0);
+    expect(Number(payload?.waitMs ?? -1)).toBeGreaterThanOrEqual(0);
     expect(Number(payload?.reasoningMs ?? -1)).toBeGreaterThanOrEqual(0);
     expect(Number(payload?.outputMs ?? -1)).toBeGreaterThanOrEqual(0);
   });
 
-  it("counts time to first text as reasoningMs when the model emits no reasoning events", async () => {
+  it("keeps wait + reasoning + output within a small tolerance of durationMs", async () => {
+    const stream = createCodeGenSSEStream(
+      {
+        fullStream: (async function* () {
+          yield { type: "start" };
+          await new Promise((resolve) => setTimeout(resolve, 40));
+          yield { type: "reasoning-start" };
+          yield { type: "reasoning-delta", reasoningDelta: "plan" };
+          await new Promise((resolve) => setTimeout(resolve, 40));
+          yield { type: "text-start" };
+          yield { type: "text-delta", textDelta: "<main>Hello</main>" };
+          await new Promise((resolve) => setTimeout(resolve, 30));
+          yield { type: "finish" };
+        })(),
+        usage: Promise.resolve({ inputTokens: 11, outputTokens: 7 }),
+      },
+      { meta: { chatId: "chat_test" }, thinking: true },
+    );
+    const events = await collectFromReadableStream(stream);
+    const payload = generationDonePayload(events);
+    const durationMs = Number(payload?.durationMs ?? -1);
+    const waitMs = Number(payload?.waitMs ?? -1);
+    const reasoningMs = Number(payload?.reasoningMs ?? -1);
+    const outputMs = Number(payload?.outputMs ?? -1);
+    expect(waitMs).toBeGreaterThanOrEqual(20);
+    expect(reasoningMs).toBeGreaterThanOrEqual(20);
+    expect(outputMs).toBeGreaterThanOrEqual(10);
+    expect(Math.abs(waitMs + reasoningMs + outputMs - durationMs)).toBeLessThan(40);
+  });
+
+  it("reports reasoningMs as 0 when the stream has no reasoning tokens", async () => {
     const stream = createCodeGenSSEStream(
       {
         fullStream: (async function* () {
@@ -345,42 +385,16 @@ describe("createCodeGenSSEStream", () => {
       },
       { meta: { chatId: "chat_test" } },
     );
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    const events: Array<{ event: string; data: unknown }> = [];
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const parsed = parseSSEBuffer(buffer);
-      events.push(...parsed.events);
-      buffer = parsed.remaining;
-    }
-
-    if (buffer.trim()) {
-      const parsed = parseSSEBuffer(`${buffer}\n`);
-      events.push(...parsed.events);
-    }
-
-    const generationDoneProgress = events.find(
-      (event) =>
-        event.event === "progress" &&
-        typeof event.data === "object" &&
-        event.data !== null &&
-        (event.data as Record<string, unknown>).step === "generation" &&
-        (event.data as Record<string, unknown>).phase === "done",
-    );
-    expect(generationDoneProgress).toBeTruthy();
-    const payload = generationDoneProgress?.data as Record<string, unknown> | undefined;
+    const events = await collectFromReadableStream(stream);
+    const payload = generationDonePayload(events);
     const durationMs = Number(payload?.durationMs ?? -1);
+    const waitMs = Number(payload?.waitMs ?? -1);
     const reasoningMs = Number(payload?.reasoningMs ?? -1);
     const outputMs = Number(payload?.outputMs ?? -1);
-    expect(reasoningMs).toBeGreaterThanOrEqual(30);
+    expect(reasoningMs).toBe(0);
+    expect(waitMs).toBeGreaterThanOrEqual(30);
     expect(outputMs).toBeGreaterThanOrEqual(10);
-    expect(durationMs).toBeGreaterThanOrEqual(reasoningMs);
-    expect(Math.abs(reasoningMs + outputMs - durationMs)).toBeLessThan(40);
+    expect(Math.abs(waitMs + reasoningMs + outputMs - durationMs)).toBeLessThan(40);
   });
 
   it("strips leaked leading thinking blocks when thinking is disabled", async () => {
@@ -609,5 +623,70 @@ describe("createCodeGenSSEStream", () => {
     expect(truncationError).toBeTruthy();
     expect((truncationError?.data as Record<string, unknown>).finishReason).toBe("length");
     expect(events.some((event) => event.event === "done")).toBe(false);
+  });
+});
+
+describe("computeStreamPhaseTiming", () => {
+  it("assigns the long gap before first token to waitMs so phases sum to duration", () => {
+    // Prod 2026-08-14: 337 s stream reported as reasoning 0.3s + output 0.4s.
+    const timing = computeStreamPhaseTiming({
+      streamStartedAt: 0,
+      firstReasoningTokenAt: 336_300,
+      firstContentTokenAt: 336_600,
+      streamEndedAt: 337_000,
+    });
+    expect(timing).toEqual({
+      waitMs: 336_300,
+      reasoningMs: 300,
+      outputMs: 400,
+      durationMs: 337_000,
+    });
+    expect(timing.waitMs + timing.reasoningMs + timing.outputMs).toBe(timing.durationMs);
+    // The old two-phase calculator would have reported 700 ms of 337 s.
+    expect(timing.reasoningMs + timing.outputMs).toBe(700);
+    expect(timing.waitMs).toBeGreaterThan(timing.reasoningMs + timing.outputMs);
+  });
+
+  it("keeps reasoningMs at 0 when thinking produced no reasoning tokens", () => {
+    const timing = computeStreamPhaseTiming({
+      streamStartedAt: 0,
+      firstReasoningTokenAt: null,
+      firstContentTokenAt: 50_000,
+      streamEndedAt: 80_000,
+    });
+    expect(timing.reasoningMs).toBe(0);
+    expect(timing.waitMs).toBe(50_000);
+    expect(timing.outputMs).toBe(30_000);
+    expect(timing.waitMs + timing.reasoningMs + timing.outputMs).toBe(timing.durationMs);
+  });
+
+  it("gives the whole stream to waitMs when no tokens arrived", () => {
+    const timing = computeStreamPhaseTiming({
+      streamStartedAt: 1_000,
+      firstReasoningTokenAt: null,
+      firstContentTokenAt: null,
+      streamEndedAt: 6_000,
+    });
+    expect(timing).toEqual({
+      waitMs: 5_000,
+      reasoningMs: 0,
+      outputMs: 0,
+      durationMs: 5_000,
+    });
+  });
+
+  it("counts leftover stream as reasoning when content never started", () => {
+    const timing = computeStreamPhaseTiming({
+      streamStartedAt: 0,
+      firstReasoningTokenAt: 1_000,
+      firstContentTokenAt: null,
+      streamEndedAt: 10_000,
+    });
+    expect(timing).toEqual({
+      waitMs: 1_000,
+      reasoningMs: 9_000,
+      outputMs: 0,
+      durationMs: 10_000,
+    });
   });
 });
