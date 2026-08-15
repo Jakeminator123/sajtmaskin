@@ -291,3 +291,11 @@ Invariants:
 - F2 får rendera mock/placeholder-safe UI.
 - F3 ska kräva riktiga värden där dossierns env enforcement säger `build`.
 - Env-listor ska inte kopieras in i architecture-docs; läs schema/policy/kod.
+
+## Generation HTTP
+
+Ägs av: `src/app/api/engine/chats/stream/route.ts`, `src/lib/hooks/chat/useCreateChat.ts`.
+
+- Ny chat codegen: `POST /api/engine/chats/stream` (`maxDuration = 950`).
+- `GET /api/engine/chats` listar chattar för ett projekt.
+- `POST /api/engine/chats` (utan `/stream`) är inte en codegen-väg (`405 use_streaming_create`). En bruten SSE-anslutning får inte starta en andra full generation mot den rutten.
