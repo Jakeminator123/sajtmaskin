@@ -4,8 +4,9 @@
  * **Client:** Builder hooks and components must use `ENGINE_CHATS_API_PREFIX`
  * and `engineChatBaseUrl` — never hardcode `/api/...` chat paths.
  * New-chat codegen is `POST /api/engine/chats/stream` only. `POST` on the
- * prefix itself is not a codegen path (`405 use_streaming_create`). `GET`
- * lists chats.
+ * prefix itself is not a codegen path (`405 use_streaming_create`). Follow-up
+ * codegen is `POST /api/engine/chats/[chatId]/stream` only; `POST .../messages`
+ * is not a codegen path (`405 use_streaming_send`). `GET` lists chats.
  *
  * **Server (since P29 Fas 1B, 2026-04-20):** All chat routes live exclusively
  * under `src/app/api/engine/chats/**`. The `/api/v0/chats/**` tree was fully

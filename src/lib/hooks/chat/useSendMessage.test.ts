@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MutableRefObject } from "react";
 import type { ChatMessage } from "@/lib/builder/types";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { CREATE_CHAT_CONNECTION_BROKEN_MESSAGE } from "./helpers-errors";
 import type {
   AutoFixPayload,
   ChatMessagingParams,
@@ -51,6 +53,17 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function sseResponse() {
+  return new Response("event: meta\ndata: {}\n\n", {
+    status: 200,
+    headers: { "Content-Type": "text/event-stream" },
+  });
+}
+
+function isMessagesUrl(url: unknown): boolean {
+  return String(url).includes("/messages");
 }
 
 function createHarness(
@@ -206,39 +219,6 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     expect(assistant?.isStreaming).toBe(false);
     expect(assistant?.content).toMatch(/nyare version/i);
     expect(messages.every((m) => !m.isStreaming)).toBe(true);
-  });
-
-  // PR #355-triage #20 (backlog): the /messages network fallback must reuse
-  // the SAME stale-base reload UX as the stream path — a 409
-  // stale_base_version through the fallback previously fell into the generic
-  // "Failed to send message" error path.
-  it("surfaces the stale-base reload UX when the 409 arrives via the /messages fallback", async () => {
-    fetchMock
-      // Stream POST: network error → triggers the /messages fallback.
-      .mockRejectedValueOnce(new TypeError("fetch failed"))
-      // Fallback POST /messages: stale-base 409.
-      .mockResolvedValueOnce(
-        jsonResponse(409, {
-          error: "stale_base_version",
-          reason: "stale_base_version",
-          latestVersionId: "ver_new",
-        }),
-      );
-
-    const { result, messagesBox, mutateVersions } = createHarness({
-      activeVersionId: "ver_old",
-      latestKnownVersionId: "ver_old",
-    });
-
-    await send(result, "Uppdatera hero copy");
-
-    expect(toast.error).toHaveBeenCalledTimes(1);
-    expect(String(toast.error.mock.calls[0]?.[0])).toMatch(/ladda om/i);
-    expect(mutateVersions).toHaveBeenCalledTimes(1);
-
-    const assistant = messagesBox.current.find((m) => m.role === "assistant");
-    expect(assistant?.isStreaming).toBe(false);
-    expect(assistant?.content).toMatch(/nyare version/i);
   });
 
   // S4: with no known-latest version the client must NOT send the stale-base
@@ -895,16 +875,45 @@ describe("useSendMessage outcome contract", () => {
     });
   });
 
-  it("reports started/messages_fallback when the network fallback succeeds", async () => {
-    fetchMock
-      .mockRejectedValueOnce(new TypeError("fetch failed"))
-      .mockResolvedValueOnce(jsonResponse(200, { text: "Klart", versionId: "ver_new" }));
-    const { result } = createHarness();
+  it("does not start a second codegen when fetch fails with a network error", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    const { result, messagesBox } = createHarness();
 
-    expect(await send(result, "Uppdatera hero copy")).toEqual({
-      status: "started",
-      via: "messages_fallback",
+    const outcome = await send(result, "Uppdatera hero copy");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(`${engineChatBaseUrl("chat_1")}/stream`);
+    expect(fetchMock.mock.calls.some(([url]) => isMessagesUrl(url))).toBe(false);
+    expect(outcome).toEqual({
+      status: "failed",
+      message: CREATE_CHAT_CONNECTION_BROKEN_MESSAGE,
     });
+    expect(toast.error).toHaveBeenCalledWith(CREATE_CHAT_CONNECTION_BROKEN_MESSAGE);
+    expect(String(toast.error.mock.calls[0]?.[0])).not.toMatch(/Failed to send message/i);
+    const assistant = messagesBox.current.find((m) => m.role === "assistant");
+    expect(assistant?.content).toContain(CREATE_CHAT_CONNECTION_BROKEN_MESSAGE);
+    expect(assistant?.content).not.toMatch(/Failed to send message/i);
+  });
+
+  it("does not start a second codegen when an opened SSE stream disconnects", async () => {
+    fetchMock.mockResolvedValue(sseResponse());
+    handleSseStream.mockRejectedValue(new TypeError("network error"));
+    const { result, messagesBox } = createHarness();
+
+    const outcome = await send(result, "Uppdatera hero copy");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(`${engineChatBaseUrl("chat_1")}/stream`);
+    expect(fetchMock.mock.calls.some(([url]) => isMessagesUrl(url))).toBe(false);
+    expect(handleSseStream).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({
+      status: "failed",
+      message: CREATE_CHAT_CONNECTION_BROKEN_MESSAGE,
+    });
+    expect(toast.error).toHaveBeenCalledWith(CREATE_CHAT_CONNECTION_BROKEN_MESSAGE);
+    expect(String(toast.error.mock.calls[0]?.[0])).not.toMatch(/Failed to send message/i);
+    const assistant = messagesBox.current.find((m) => m.role === "assistant");
+    expect(assistant?.content).toContain(CREATE_CHAT_CONNECTION_BROKEN_MESSAGE);
   });
 
   it("reports aborted/client when this client cancelled the stream", async () => {

@@ -88,7 +88,7 @@ export function buildApiErrorMessage(params: {
   return message;
 }
 
-/** User-facing copy when the create-chat SSE connection drops. Do not retry via POST /api/engine/chats. */
+/** User-facing copy when a codegen SSE connection drops (new chat or follow-up). Do not retry via a non-streaming POST. */
 export const CREATE_CHAT_CONNECTION_BROKEN_MESSAGE =
   "Anslutningen bröts innan sajten hann byggas. Försök igen.";
 
