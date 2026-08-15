@@ -414,4 +414,102 @@ describe("PreviewPanelBrowseGallery", () => {
       ),
     );
   });
+
+  it("en föråldrad Visa fler nollar inte spinnern för en nyare hämtning", async () => {
+    let resolveStaleLoadMore: (value: unknown) => void = () => {};
+    const heroItem = {
+      name: "hero1",
+      type: "registry:block",
+      title: "Hero 1 - Split hero",
+      description: "A two-column hero",
+      category: "hero",
+    };
+    const pricingItem = {
+      name: "pricing1",
+      type: "registry:block",
+      title: "Pricing 1",
+      description: "Pricing table",
+      category: "pricing",
+    };
+    const categories = [
+      { id: "hero", label: "Hero", count: 2 },
+      { id: "pricing", label: "Prissättning", count: 2 },
+    ];
+
+    fetchCommunityIndexPage.mockImplementation(
+      (query: { cursor?: string | null; category?: string }) => {
+        if (query.cursor && !query.category) {
+          return new Promise((resolve) => {
+            resolveStaleLoadMore = resolve;
+          });
+        }
+        if (!query.cursor && !query.category) {
+          return Promise.resolve({
+            namespace: "@shadcnblocks",
+            total: 4,
+            categories,
+            items: [heroItem],
+            nextCursor: "page-2",
+          });
+        }
+        if (!query.cursor && query.category === "pricing") {
+          return Promise.resolve({
+            namespace: "@shadcnblocks",
+            total: 2,
+            categories,
+            items: [pricingItem],
+            nextCursor: "pricing-2",
+          });
+        }
+        if (query.cursor === "pricing-2") {
+          return new Promise(() => {});
+        }
+        return Promise.resolve({
+          namespace: "@shadcnblocks",
+          total: 0,
+          categories: [],
+          items: [],
+          nextCursor: null,
+        });
+      },
+    );
+
+    render(<PreviewPanelBrowseGallery />);
+    fireEvent.click(screen.getByRole("button", { name: /^Marknadsblock$/ }));
+    await waitFor(() => screen.getByText("Hero 1 - Split hero"));
+
+    fireEvent.click(screen.getByRole("button", { name: /Visa fler/i }));
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: /Visa fler/i }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Prissättning/ }));
+    await waitFor(() => screen.getByText("Pricing 1"));
+    expect(screen.queryByText("Hero 1 - Split hero")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Visa fler/i }));
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: /Visa fler/i }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+    });
+
+    resolveStaleLoadMore({
+      namespace: "@shadcnblocks",
+      total: 4,
+      categories,
+      items: [{ ...heroItem, name: "hero2", title: "Hero 2" }],
+      nextCursor: "page-3",
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Hero 2")).toBeNull();
+    });
+    expect((screen.getByRole("button", { name: /Visa fler/i }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(screen.getByText("Pricing 1")).toBeTruthy();
+  });
 });

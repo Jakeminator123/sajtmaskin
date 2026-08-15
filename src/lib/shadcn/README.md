@@ -17,7 +17,8 @@
 | `registry-utils.ts` | Import rewrites, markdown previews, **prompt text** for adding blocks/components (`buildShadcnBlockPrompt`, …). |
 | `registry-types.ts` | Types for registry JSON. |
 | `community-registry-fetch.ts` | Shared community HTTP: `www.shadcnblocks.com` rewrite + `Authorization: Bearer` from `SHADCNBLOCKS_API_KEY` (only that host). Used by `describe.ts`, `shadcn-ui-recipes.ts`, and community item proxy. |
-| `community-registry-index.ts` | Publikt shadcnblocks `registry.json` (cache, strip `files`, sök/kategori/cursor, `names=` capped at 32). Driver `/api/shadcn/community/index` + Block-snabbval. |
+| `community-registry-catalog.ts` | Client-safe namespace, featured set, category labels. No fetch/key. |
+| `community-registry-index.ts` | Publikt shadcnblocks `registry.json` (cache, strip `files`, sök/kategori/cursor, `names=` capped at 32). Driver `/api/shadcn/community/index`. |
 | `community-registry-client.ts` | Browser helpers mot community-proxyroutes (featured + index + item). |
 | `registry-search.ts` | Pure, deterministic search/match engine over registry data (tokenize, fuzzy index/community matching, community-registry loading from `components.json` + seed). Shared by `describe.ts` (Fas 1) and the generation-path resolver `src/lib/gen/data/shadcn-ui-recipes.ts` (Fas 4). No LLM, no network. |
 | `describe.ts` | Fas 1 "Beskriv"-discovery: free-text → LLM search queries → search official + community registries (HTTP) → rank REAL hits. Reads registries only; writes nothing. Deterministic heuristic fallback when no provider key. Re-exports the `registry-search.ts` engine. |

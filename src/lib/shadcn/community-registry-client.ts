@@ -4,12 +4,12 @@
  */
 
 import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
-import type { CommunityIndexPage } from "@/lib/shadcn/community-registry-index";
 import {
   FEATURED_SHADCNBLOCKS,
   SHADCNBLOCKS_NAMESPACE,
   featuredShadcnblockNames,
-} from "@/lib/shadcn/community-registry-index";
+  type CommunityIndexPage,
+} from "@/lib/shadcn/community-registry-catalog";
 import { isUsableRegistryItem } from "@/lib/shadcn/registry-service";
 
 export type CommunityIndexClientQuery = {

@@ -1,7 +1,7 @@
 import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import { fetchRegistryItem, isUsableRegistryItem } from "@/lib/shadcn/registry-service";
 import { fetchCommunityRegistryItem } from "@/lib/shadcn/community-registry-client";
-import { SHADCNBLOCKS_NAMESPACE } from "@/lib/shadcn/community-registry-index";
+import { SHADCNBLOCKS_NAMESPACE } from "@/lib/shadcn/community-registry-catalog";
 import {
   buildPromptSourceMessage,
   type PromptBuildResult,

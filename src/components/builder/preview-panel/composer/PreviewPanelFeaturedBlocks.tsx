@@ -8,7 +8,7 @@ import {
   fetchFeaturedShadcnblocks,
   SHADCNBLOCKS_NAMESPACE,
 } from "@/lib/shadcn/community-registry-client";
-import type { CommunityIndexItem } from "@/lib/shadcn/community-registry-index";
+import type { CommunityIndexItem } from "@/lib/shadcn/community-registry-catalog";
 import {
   serializeShadcnDragPayload,
   SHADCN_ITEM_DND_TYPE,

@@ -17,7 +17,7 @@ import {
   fetchCommunityIndexPage,
   SHADCNBLOCKS_NAMESPACE,
 } from "@/lib/shadcn/community-registry-client";
-import type { CommunityIndexCategory } from "@/lib/shadcn/community-registry-index";
+import type { CommunityIndexCategory } from "@/lib/shadcn/community-registry-catalog";
 import {
   OFFICIAL_SHADCN_REGISTRY,
   serializeShadcnDragPayload,
@@ -294,7 +294,10 @@ export function PreviewPanelBrowseGallery({
       // Keep already-loaded cards; show an inline retry under the grid.
       setLoadMoreError(err instanceof Error ? err.message : "Kunde inte hämta fler block.");
     } finally {
-      setLoadingMore(false);
+      // A superseded request must not clear a newer Visa fler spinner.
+      if (requestId === communityRequestIdRef.current) {
+        setLoadingMore(false);
+      }
     }
   }, [activeCategory, communityCursor, debouncedQuery, loadingMore, source]);
 

@@ -5,7 +5,7 @@ import { getRequestUserId } from "@/lib/tenant";
 import { buildCommunityRegistryRequest } from "@/lib/shadcn/community-registry-fetch";
 import { isUsableRegistryItem } from "@/lib/shadcn/registry-service";
 import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
-import { SHADCNBLOCKS_NAMESPACE } from "@/lib/shadcn/community-registry-index";
+import { SHADCNBLOCKS_NAMESPACE } from "@/lib/shadcn/community-registry-catalog";
 
 export const runtime = "nodejs";
 export const revalidate = 300;
