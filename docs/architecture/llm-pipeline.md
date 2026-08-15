@@ -18,7 +18,7 @@ Målet i Fas 1 är att bygga ett rent underlag till orkestreringen.
 - Follow-up får Snapshot-Brief och tidigare orchestration snapshot. Byggval-hintarna är init-only — follow-up-frysen äger scaffold/variant/routes.
 - Build intent, generation mode, follow-up intent och requested capabilities ska bestämmas innan prompten byggs.
 - Follow-up scope-klargörande (`collectFollowUpClarificationAnswer`): exakt quick-reply **eller** en kort parafras av ett sparat alternativ återställer originalprompten. En ny beställning (specifikt sidmål, negation, «vill ha»/«behöver», restinnehåll, längre brief) körs som ny prompt — den får inte limmas ihop med den gamla.
-- Init-codegen går bara via `POST /api/engine/chats/stream` (`maxDuration = 950`). `GET /api/engine/chats` listar chattar. `POST /api/engine/chats` utan `/stream` är inte en codegen-väg (`405 use_streaming_create`). En bruten ström ger ett ärligt fel i buildern och startar inte om generationen.
+- Init-codegen går bara via `POST /api/engine/chats/stream` (`maxDuration = 950`). Uppföljning går bara via `POST /api/engine/chats/[chatId]/stream` (`maxDuration = 950`). `GET /api/engine/chats` listar chattar. `POST /api/engine/chats` utan `/stream` är inte en codegen-väg (`405 use_streaming_create`). `POST .../messages` är inte en codegen-väg (`405 use_streaming_send`). En bruten ström ger ett ärligt fel i buildern och startar inte om generationen.
 
 Kodankare:
 

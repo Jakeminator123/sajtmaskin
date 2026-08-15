@@ -294,8 +294,10 @@ Invariants:
 
 ## Generation HTTP
 
-Ägs av: `src/app/api/engine/chats/stream/route.ts`, `src/lib/hooks/chat/useCreateChat.ts`.
+Ägs av: `src/app/api/engine/chats/stream/route.ts`, `src/app/api/engine/chats/[chatId]/stream/route.ts`, `src/lib/hooks/chat/useCreateChat.ts`, `src/lib/hooks/chat/useSendMessage.ts`.
 
 - Ny chat codegen: `POST /api/engine/chats/stream` (`maxDuration = 950`).
+- Uppföljning codegen: `POST /api/engine/chats/[chatId]/stream` (`maxDuration = 950`).
 - `GET /api/engine/chats` listar chattar för ett projekt.
 - `POST /api/engine/chats` (utan `/stream`) är inte en codegen-väg (`405 use_streaming_create`). En bruten SSE-anslutning får inte starta en andra full generation mot den rutten.
+- `POST /api/engine/chats/[chatId]/messages` är inte en codegen-väg (`405 use_streaming_send`). Samma regel för uppföljningar: en bruten ström ger ett ärligt fel, inte en andra generation mot en rutt utan `maxDuration`.
