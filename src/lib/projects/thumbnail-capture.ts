@@ -26,15 +26,22 @@ import {
 } from "@/lib/capture/browser";
 import {
   PreviewHostBootPageError,
-  isPreviewHostBootPage,
+  PreviewProbeUnreadableError,
+  classifyPreviewPageProbe,
   isPreviewHostBootPageError,
+  isPreviewProbeUnreadableError,
 } from "@/lib/capture/preview-boot-page";
 
 // Startpunkten och SSRF-grinden bor numera i `@/lib/capture/browser` så
 // inspector-capture kan använda exakt samma. Re-exporten håller den här
 // modulens befintliga API intakt.
 export { buildCaptureRequestGate };
-export { isPreviewHostBootPageError, PreviewHostBootPageError };
+export {
+  isPreviewHostBootPageError,
+  isPreviewProbeUnreadableError,
+  PreviewHostBootPageError,
+  PreviewProbeUnreadableError,
+};
 
 const NAVIGATION_TIMEOUT_MS = 25_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
@@ -143,9 +150,9 @@ export async function captureThumbnailScreenshot(
       .catch(() => undefined);
     await page.waitForTimeout(400).catch(() => undefined);
 
-    // Refuse a thumbnail of the preview-host "Startar preview" / warm_project
-    // placeholder (same detector as F2 product postcheck). Cosmetics must not
-    // freeze a dark boot screen into "Mina projekt".
+    // Same detector as F2 product postcheck. A real start page must not be
+    // frozen into "Mina projekt". An empty/failed probe is a different skip —
+    // it must not be phrased as the host still showing its placeholder.
     stage = "boot-page-check";
     const bootProbe = await page
       .evaluate(() => ({
@@ -154,9 +161,15 @@ export async function captureThumbnailScreenshot(
         bodyText: (document.body?.innerText || "").slice(0, 800),
       }))
       .catch(() => null);
-    if (bootProbe && isPreviewHostBootPage(bootProbe)) {
+    const probeKind = classifyPreviewPageProbe(bootProbe);
+    if (probeKind === "boot_page") {
       throw new PreviewHostBootPageError(
         "Preview-host boot placeholder is still showing; thumbnail skipped.",
+      );
+    }
+    if (probeKind === "unreadable") {
+      throw new PreviewProbeUnreadableError(
+        "Page probe returned no readable content; thumbnail skipped.",
       );
     }
 
@@ -179,6 +192,13 @@ export async function captureThumbnailScreenshot(
         ? error
         : new PreviewHostBootPageError(
             error instanceof Error ? error.message : "Preview-host boot placeholder is still showing.",
+          );
+    }
+    if (isPreviewProbeUnreadableError(error)) {
+      throw error instanceof PreviewProbeUnreadableError
+        ? error
+        : new PreviewProbeUnreadableError(
+            error instanceof Error ? error.message : "Page probe returned no readable content.",
           );
     }
     const message = error instanceof Error ? error.message : String(error);

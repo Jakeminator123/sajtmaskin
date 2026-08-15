@@ -22,6 +22,8 @@ CapabilitySmoke-fynd projiceras som warnings i publiceringskollen
 `info.productPostcheckBlockedReason` är sammanslagna fyndtitlar från de
 F3-spärrande koderna (`mobile_menu_failed`, ≥2 `broken_anchor`,
 `runtime_crash`, `preview_boot_page`) — inte själva enum-koderna.
+`preview_probe_unreadable` (tomt/misslyckat Chromium-svar) är advisory och
+får inte formuleras som att preview-hosten visar startsidan.
 Rådgivande koder stannar i `warnings`. Promotion läser inte fältet.
 Fynden är aldrig `canDeploy`-blockers. Sena browser-fel
 (`preview:client-error` med `created_at` > `promoted_at`) projiceras samma

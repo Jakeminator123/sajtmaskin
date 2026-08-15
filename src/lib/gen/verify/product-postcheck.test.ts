@@ -4,10 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const launchCaptureBrowserMock = vi.hoisted(() => vi.fn());
 const applyCaptureRequestGateMock = vi.hoisted(() => vi.fn(async () => {}));
+const getActivePreviewSessionAsyncMock = vi.hoisted(() => vi.fn());
+const fetchPreviewHostReadinessVerdictMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/capture/browser", () => ({
   launchCaptureBrowser: launchCaptureBrowserMock,
   applyCaptureRequestGate: applyCaptureRequestGateMock,
+}));
+vi.mock("@/lib/gen/preview/session-store", () => ({
+  getActivePreviewSessionAsync: getActivePreviewSessionAsyncMock,
+}));
+vi.mock("@/lib/gen/preview/preview-host-client", () => ({
+  fetchPreviewHostReadinessVerdict: fetchPreviewHostReadinessVerdictMock,
 }));
 
 import {
@@ -296,7 +304,7 @@ describe("isPreviewHostBootPage", () => {
         bodyText: "Handplockade premiumboenden i Palma.",
       }),
     ).toBe(false);
-    expect(isPreviewHostBootPage({ title: "", h1: null, bodyText: "" })).toBe(true);
+    expect(isPreviewHostBootPage({ title: "", h1: null, bodyText: "" })).toBe(false);
     expect(
       isPreviewHostBootPage({
         title: "Home",
@@ -372,10 +380,41 @@ describe("runProductPostcheck browser-startpunkt", () => {
     return {
       on: vi.fn(),
       goto: vi.fn(async () => {}),
+      reload: vi.fn(async () => {}),
       waitForLoadState: vi.fn(async () => {}),
       waitForTimeout: vi.fn(async (_delayMs?: number) => {}),
       evaluate: vi.fn(async () => results[call++]),
       close: vi.fn(async () => {}),
+    };
+  }
+
+  const previewSession = {
+    previewSessionId: "ps_1",
+    previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+    versionId: "v1",
+    filesRevision: null,
+    createdAt: 1,
+    lastUsedAt: 1,
+  };
+
+  function readinessVerdict(
+    state: "starting" | "ready" | "failed",
+    overrides: { httpReady?: boolean | null; running?: boolean } = {},
+  ): {
+    running: boolean;
+    versionId: string;
+    readinessState: "starting" | "ready" | "failed";
+    httpReady: boolean | null;
+    readinessError: string | null;
+    regeneratedLockfile: null;
+  } {
+    return {
+      running: overrides.running ?? state !== "failed",
+      versionId: "v1",
+      readinessState: state,
+      httpReady: overrides.httpReady === undefined ? state === "ready" : overrides.httpReady,
+      readinessError: null,
+      regeneratedLockfile: null,
     };
   }
 
@@ -393,6 +432,8 @@ describe("runProductPostcheck browser-startpunkt", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    getActivePreviewSessionAsyncMock.mockResolvedValue(null);
+    fetchPreviewHostReadinessVerdictMock.mockResolvedValue(null);
     applyCaptureRequestGateMock.mockResolvedValue(undefined);
     const desktop = fakePage([
       liveBootProbe,
@@ -430,7 +471,247 @@ describe("runProductPostcheck browser-startpunkt", () => {
     expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(2);
   });
 
-  it("blockerar när preview-host fortfarande visar Startar preview", async () => {
+  it("blockerar med preview_boot_page när markörerna matchar och readiness säger att runtimen inte är klar", async () => {
+    let nowMs = 1_000;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock.mockResolvedValue(readinessVerdict("starting"));
+    const desktop = fakePage(Array.from({ length: 20 }, () => bootPageProbe));
+    desktop.waitForTimeout.mockImplementation(async () => {
+      nowMs = 40_000;
+    });
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => desktop),
+      close: vi.fn(async () => {}),
+    });
+
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(result.productBlocked).toBe(true);
+      expect(result.skipped).toBe(false);
+      expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
+      expect(result.warnings[0]?.message).toContain("Preview-host");
+      expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(1);
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
+  it("klassar tomt/misslyckat svar som preview_probe_unreadable utan att skylla på preview-hosten", async () => {
+    let nowMs = 1_000;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock.mockResolvedValue(readinessVerdict("starting"));
+    const emptyProbe = { title: "", h1: null, bodyText: "" };
+    const desktop = fakePage(Array.from({ length: 20 }, () => emptyProbe));
+    desktop.waitForTimeout.mockImplementation(async () => {
+      nowMs = 40_000;
+    });
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => desktop),
+      close: vi.fn(async () => {}),
+    });
+
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(result.productBlocked).toBe(false);
+      expect(result.skipped).toBe(false);
+      expect(result.warnings.map((w) => w.code)).toEqual(["preview_probe_unreadable"]);
+      expect(result.warnings[0]?.message).not.toMatch(
+        /preview-host|Preview-host|startsidan|Startar preview|Fly/i,
+      );
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
+  it("blockerar inte när runtimen blir klar efter den gamla 20s-budgeten om readiness säger ready", async () => {
+    let nowMs = 1_000;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock
+      .mockResolvedValueOnce(readinessVerdict("starting"))
+      .mockResolvedValue(readinessVerdict("ready"));
+    const desktop = fakePage([
+      bootPageProbe,
+      bootPageProbe,
+      { anchors: [], images: [], ctas: [], forms: [] },
+      false,
+    ]);
+    desktop.waitForTimeout.mockImplementation(async (delayMs?: number) => {
+      nowMs += delayMs ?? 0;
+      if (nowMs < 22_000) nowMs = 22_000;
+    });
+    const mobile = fakePage([{ status: "not_applicable" }, false]);
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(nowMs).toBeGreaterThanOrEqual(22_000);
+      expect(result.productBlocked).toBe(false);
+      expect(result.skipped).toBe(false);
+      expect(result.warnings.map((w) => w.code)).not.toContain("preview_boot_page");
+      expect(desktop.reload).toHaveBeenCalled();
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
+  it("klassar inte httpReady:false som redo bara för att readinessState är ready", async () => {
+    let nowMs = 1_000;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock.mockResolvedValue(
+      readinessVerdict("ready", { httpReady: false, running: false }),
+    );
+    const desktop = fakePage([bootPageProbe, bootPageProbe]);
+    desktop.waitForTimeout.mockImplementation(async () => {
+      nowMs = 40_000;
+    });
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => desktop),
+      close: vi.fn(async () => {}),
+    });
+
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(result.productBlocked).toBe(true);
+      expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
+      expect(desktop.reload).not.toHaveBeenCalled();
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
+  it("läser om sidan efter readiness-poll så en boot-placeholder under väntan påverkar beslutet", async () => {
+    let nowMs = 1_000;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock.mockResolvedValue(readinessVerdict("starting"));
+    const emptyProbe = { title: "", h1: null, bodyText: "" };
+    const desktop = fakePage([emptyProbe, bootPageProbe]);
+    desktop.waitForTimeout.mockImplementation(async () => {
+      nowMs = 40_000;
+    });
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => desktop),
+      close: vi.fn(async () => {}),
+    });
+
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(result.productBlocked).toBe(true);
+      expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
+      expect(desktop.evaluate).toHaveBeenCalledTimes(2);
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
+  it("försöker igen när första /status-hämtningen misslyckas och tar det lyckade ready-verdiktet", async () => {
+    let nowMs = 1_000;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(readinessVerdict("ready"));
+    const desktop = fakePage([
+      bootPageProbe,
+      bootPageProbe,
+      { anchors: [], images: [], ctas: [], forms: [] },
+      false,
+    ]);
+    desktop.waitForTimeout.mockImplementation(async (delayMs?: number) => {
+      nowMs += delayMs ?? 0;
+    });
+    const mobile = fakePage([{ status: "not_applicable" }, false]);
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(fetchPreviewHostReadinessVerdictMock).toHaveBeenCalledTimes(2);
+      expect(result.productBlocked).toBe(false);
+      expect(result.skipped).toBe(false);
+      expect(result.warnings.map((w) => w.code)).not.toContain("preview_probe_unreadable");
+      expect(desktop.reload).toHaveBeenCalled();
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
+  it("faller tillbaka på HTML-poll som preview_probe_unreadable när /status misslyckas hela vägen till deadline", async () => {
+    let nowMs = 1_000;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock.mockResolvedValue(null);
+    const desktop = fakePage([bootPageProbe, bootPageProbe]);
+    desktop.waitForTimeout.mockImplementation(async () => {
+      nowMs = 40_000;
+    });
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => desktop),
+      close: vi.fn(async () => {}),
+    });
+
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(fetchPreviewHostReadinessVerdictMock).toHaveBeenCalled();
+      expect(result.productBlocked).toBe(false);
+      expect(result.warnings.map((w) => w.code)).toEqual(["preview_probe_unreadable"]);
+      expect(result.warnings[0]?.message).not.toMatch(
+        /preview-host|Preview-host|startsidan|Startar preview|Fly/i,
+      );
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
+  it("skyller inte på preview-hosten när readiness saknas och HTML-poll lämnar en startsida", async () => {
     const desktop = fakePage(Array.from({ length: 20 }, () => bootPageProbe));
     launchCaptureBrowserMock.mockResolvedValue({
       newPage: vi.fn(async () => desktop),
@@ -443,10 +724,12 @@ describe("runProductPostcheck browser-startpunkt", () => {
       versionId: "v1",
     });
 
-    expect(result.productBlocked).toBe(true);
+    expect(result.productBlocked).toBe(false);
     expect(result.skipped).toBe(false);
-    expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
-    // Only desktop was opened — no mobile pass after early return.
+    expect(result.warnings.map((w) => w.code)).toEqual(["preview_probe_unreadable"]);
+    expect(result.warnings[0]?.message).not.toMatch(
+      /preview-host|Preview-host|startsidan|Startar preview|Fly/i,
+    );
     expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(1);
   });
 
@@ -473,7 +756,6 @@ describe("runProductPostcheck browser-startpunkt", () => {
 
     expect(result.productBlocked).toBe(false);
     expect(result.skipped).toBe(false);
-    expect(desktop.waitForTimeout).toHaveBeenCalled();
     expect(result.warnings.map((w) => w.code)).not.toContain("preview_boot_page");
     expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(2);
   });
@@ -509,7 +791,6 @@ describe("runProductPostcheck browser-startpunkt", () => {
       });
 
       expect(result.productBlocked).toBe(false);
-      expect(desktop.waitForTimeout).toHaveBeenCalledWith(2_000);
       expect(result.warnings.map((w) => w.code)).not.toContain("preview_boot_page");
     } finally {
       dateNow.mockRestore();
@@ -543,7 +824,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
     expect(result.warnings.map((w) => w.code)).not.toContain("preview_boot_page");
   });
 
-  it("blockerar fail-closed när evaluate aldrig lyckas inom boot-budget", async () => {
+  it("klassar evaluate-miss som preview_probe_unreadable, inte preview_boot_page", async () => {
     let nowMs = 1_000;
     const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
     const desktop = fakePage(Array.from({ length: 20 }, () => null));
@@ -562,8 +843,11 @@ describe("runProductPostcheck browser-startpunkt", () => {
         versionId: "v1",
       });
 
-      expect(result.productBlocked).toBe(true);
-      expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
+      expect(result.productBlocked).toBe(false);
+      expect(result.warnings.map((w) => w.code)).toEqual(["preview_probe_unreadable"]);
+      expect(result.warnings[0]?.message).not.toMatch(
+        /preview-host|Preview-host|startsidan|Startar preview|Fly/i,
+      );
       expect(desktop.waitForTimeout).toHaveBeenCalled();
     } finally {
       dateNow.mockRestore();
@@ -592,12 +876,11 @@ describe("runProductPostcheck browser-startpunkt", () => {
       versionId: "v1",
     });
 
-    expect(desktop.waitForTimeout).toHaveBeenCalled();
     expect(result.productBlocked).toBe(false);
     expect(result.warnings.map((w) => w.code)).not.toContain("preview_boot_page");
   });
 
-  it("blockerar fail-closed när titled-but-empty kvarstår till deadline", async () => {
+  it("klassar titled-but-empty vid deadline som oläsbart, inte startsida", async () => {
     let nowMs = 1_000;
     const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
     const titledEmpty = { title: "Home", h1: null, bodyText: "" };
@@ -617,9 +900,8 @@ describe("runProductPostcheck browser-startpunkt", () => {
         versionId: "v1",
       });
 
-      expect(result.productBlocked).toBe(true);
-      expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
-      // Detector alone would not treat title+empty as boot — wait-loop must.
+      expect(result.productBlocked).toBe(false);
+      expect(result.warnings.map((w) => w.code)).toEqual(["preview_probe_unreadable"]);
       expect(
         isPreviewHostBootPage({ title: "Home", h1: null, bodyText: "" }),
       ).toBe(false);

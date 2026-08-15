@@ -73,9 +73,12 @@ Byggblock / env-API
 | Byggblock `Live` | Dossierfilbevis + konfigurerade runtimevärden | Att en publicering har skett |
 | Publicering | Den valda versionen har deployats | Att alla andra Byggblock är live |
 
-Product Postcheck väntar igenom en kort kallstart i stället för att permanent
-blockera på sidan “Startar preview”. Den ska förbli en sammanhållen,
-browsernära kontroll — inte växa till en ny parallell verifieringskedja.
+Product Postcheck frågar preview-hostens readiness (`readinessState` /
+`httpReady` på `GET /preview/session/:id/status`) innan den slår fast att
+sajten inte är klar. En äkta startsida (`preview_boot_page`) blockerar; ett
+tomt eller oläsbart Chromium-svar (`preview_probe_unreadable`) gör det inte
+och skyller inte på hosten. Den ska förbli en sammanhållen, browsernära
+kontroll — inte växa till en ny parallell verifieringskedja.
 
 ## Snabb felsökning
 
@@ -104,8 +107,8 @@ koppling till env, kryptering eller chatten.
 - Env: godtyckliga projektvärden når både inline-deploy och
   Vercel-projektsynk, medan värdena saknas ur `env.example`.
 - Dossier: kanonisk materialisering passerar TypeScript och Next-build.
-- Product Postcheck: övergående boot-sida pollas; kvarvarande boot-sida
-  blockeras.
+- Product Postcheck: readiness frågas; äkta startsida blockeras; tomt svar
+  skyller inte på preview-hosten.
 
 Kanoniska owners:
 

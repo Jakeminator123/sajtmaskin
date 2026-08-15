@@ -195,6 +195,8 @@ type ProjectedFinding = {
  * runtime eval, or leftover preview-host boot page). Duplicated here on
  * purpose: that module pulls Playwright and must not enter the client bundle
  * that imports this file. One broken_anchor is advisory; two or more gate F3.
+ * `preview_probe_unreadable` is intentionally absent — an empty/failed probe
+ * does not prove the host is still on its start page and must not gate F3.
  */
 const F3_ALWAYS_BLOCKING_CODES = new Set([
   "mobile_menu_failed",
