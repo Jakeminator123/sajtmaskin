@@ -97,7 +97,15 @@ Kodankare:
 - `src/lib/gen/scaffold-variants/`
 - `src/lib/gen/dossiers/`
 - `src/lib/gen/preview/preview-prewarm.ts`
+- `src/lib/gen/stream/stream-format.ts` (codegen-SSE; fasmätning `waitMs`/`reasoningMs`/`outputMs`)
 - `config/prompt-core/`
+
+Codegen-SSE delar strömtiden i tre väggklocksfaser som tillsammans är
+`durationMs` i `stream.summary`: **wait** (start → första token), **reasoning**
+(första reasoning-token → första content-token; `0` när strömmen inte
+emitterade reasoning) och **output** (första content-token → slut). Ägaren är
+`computeStreamPhaseTiming` i `stream-format.ts`. Det är inte samma klocka som
+`generation_telemetry.durationMs`.
 
 ## Fas 3 — Finalize, verifiering och preview
 
@@ -126,9 +134,14 @@ Typisk ordning i runtime:
    registrerar fasen som 0 ms. Steget ligger **efter** hela
    `validateAndFix`-blocket (steg 3–5) — i `fast-path.ts` är syntax, warm-tsc,
    import-repair och RepairGate Phase 1, och bildmaterialiseringen Phase 2.
-7. verifiern körs riskstyrt: `safe_fixes_only` kan hoppa över verifiern när
-   grundpolicyn redan säger `run`, men aldrig vid 3D-signal; `risky_fixes`
-   behåller verifier-täckning.
+7. `package.json` mergas mot Sajtmaskins baslinje
+   (`mergePackageJsonWithBaseline` via `applyBaselinePackageJsonMerge`)
+   **innan** verifiern läser filerna, så beroendekontrollen bedömer den
+   manifest som persist skriver — inte modellens tunna utkast.
+   `tailwindcss` räknas som närvarande även i `devDependencies`. Importerat
+   repo-läge hoppar över baslinjemergen. Därefter körs verifiern riskstyrt:
+   `safe_fixes_only` kan hoppa över verifiern när grundpolicyn redan säger
+   `run`, men aldrig vid 3D-signal; `risky_fixes` behåller verifier-täckning.
 8. parse/merge applicerar scaffold-skydd, dossier verbatim policy och
    follow-up-bevarande mot tidigare version.
 9. preflight kontrollerar preview-/verification-blockers före persist.
@@ -285,10 +298,11 @@ ReleaseGate på servern via `buildReleaseGateBlocker` → `resolveDeployReleaseG
 `canDeploy` följer deploy-routens gate i stället för att gissa. Env-kravet är
 stage-beroende: F3 blockerar på `buildBlockingKeys`, F2 på `missingEnvKeys`
 (`src/app/api/v0/deployments/route.ts`). CapabilitySmoke-fynd
-(`product_postcheck.*`) syns som advisory-warnings och kan sätta
-`info.productPostcheckBlocksF3`; de ändrar inte `canDeploy` och stoppar inte
-promotion. Sena `preview:client-error` (error-log `created_at` strikt efter
-versionens `promoted_at`) syns som samma sorts advisory-warning. Fel före
+(`product_postcheck.*`) som sätter `productBlocked` gör readiness röd
+(`status: "blocked"`, B1) och sätter `info.productPostcheckBlocksF3`; de
+ändrar inte `canDeploy` och stoppar inte promotion.
+`preview_probe_unreadable` förblir advisory. Sena `preview:client-error` (error-log `created_at` strikt efter
+versionens `promoted_at`) syns som advisory-warning. Fel före
 promotion eller utan `promoted_at` förblir diagnostik och sänker inte
 `canDeploy`.
 

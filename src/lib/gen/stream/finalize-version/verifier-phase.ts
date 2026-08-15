@@ -49,6 +49,7 @@ import { parseCodeProject } from "@/lib/gen/parser";
 import { fixDomBuiltinJsxTags } from "@/lib/gen/autofix/rules/dom-builtin-jsx-fixer";
 import { rebuildContent, type AutoFixResult } from "@/lib/gen/autofix/pipeline";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
+import { prepareVerifierPackageJson } from "./merge-package-json-for-verifier";
 import {
   VERIFIER_REPAIR_TIMEOUT_MS,
   resolveVerifierRerunTimeoutMs,
@@ -111,6 +112,13 @@ export async function runVerifierPhase(params: {
   runAutoFix: (content: string) => Promise<AutoFixResult>;
   repairLedger?: RepairLedger;
   repairScopeId?: string;
+  /**
+   * Skip the Sajtmaskin baseline `package.json` merge before the verifier.
+   * Imported-repo chats persist the template's own manifest — overlaying the
+   * baseline would hide real missing deps and rewrite versions the verifier
+   * should not see.
+   */
+  skipBaselinePackageJsonMerge?: boolean;
 }): Promise<VerifierPhaseResult> {
   const {
     enabled,
@@ -125,6 +133,7 @@ export async function runVerifierPhase(params: {
     runAutoFix,
     repairLedger: providedRepairLedger,
     repairScopeId,
+    skipBaselinePackageJsonMerge = false,
   } = params;
   const repairLedger = providedRepairLedger ?? new RepairLedger();
   let contentForVersion = params.contentForVersion;
@@ -149,6 +158,15 @@ export async function runVerifierPhase(params: {
   // Guarded on an actual change so the no-op path leaves content untouched.
   contentForVersion = applyDeterministicDomJsxFix(contentForVersion, chatId);
 
+  // Judge the package.json persist will write — baseline merge — not the
+  // model's thin draft. Display-only: contentForVersion stays the model
+  // output so imported-repo skip cannot leak Sajtmaskin pins into persist.
+  // Prod chat 6e865848 (2026-08-14): verifier blocked on missing next/react
+  // that the saved version already had.
+  const packageJsonForVerifier = prepareVerifierPackageJson(contentForVersion, {
+    skipBaselineMerge: skipBaselinePackageJsonMerge,
+  });
+
   const verifierStartedAt = Date.now();
   onProgress?.("verifier", { phase: "start" });
   let stepTelemetry: FinalizeStepTelemetry = createFinalizeStepTelemetry(
@@ -156,7 +174,9 @@ export async function runVerifierPhase(params: {
     "error",
   );
   try {
-    const rawFindings = await runVerifierPass(contentForVersion, { resolvedTier: verifierTier });
+    const rawFindings = await runVerifierPass(packageJsonForVerifier.verifierContent, {
+      resolvedTier: verifierTier,
+    });
     devLogAppend("in-progress", {
       type: "verifier-pass",
       chatId,
@@ -288,6 +308,28 @@ export async function runVerifierPhase(params: {
       }
     }
 
+    // Drop package.json claims the merged manifest already satisfies BEFORE
+    // still-failing RAG + the LLM fixer. Otherwise a thin draft produces a
+    // wasted repair round (prod 6e865848 → fix-failed) even when persist
+    // would have had next/react/tailwindcss. `tailwindcss` is in baseline
+    // devDependencies — the re-check reads both sections.
+    const manifestStale = dropResolvedVerifierFindings(
+      findings.blocking,
+      packageJsonForVerifier.filesForDependencyCheck,
+      { classes: ["package-json"] },
+    );
+    if (manifestStale.dropped.length > 0) {
+      findings = { ...findings, blocking: manifestStale.kept };
+      devLogAppend("in-progress", {
+        type: "verifier-pass.merged-package-json-findings-dropped",
+        chatId,
+        droppedCount: manifestStale.dropped.length,
+        keptCount: manifestStale.kept.length,
+        dropped: manifestStale.dropped.map(({ id, reason }) => ({ id, reason })),
+        scaffoldId: resolvedScaffold?.id ?? null,
+      });
+    }
+
     verifierBlockingFindings = findings.blocking.slice(0, 5);
     for (const finding of findings.blocking.slice(0, 5)) {
       appendErrorLogEvent({
@@ -385,13 +427,22 @@ export async function runVerifierPhase(params: {
             // Same policy filter as the first pass — without it a tier-3
             // finding that F2 suppressed up front would reappear here and
             // block the version after an otherwise successful fix.
-            const rerunFindings = suppressTier3StrippedImportFindings(
-              await runVerifierPass(contentForVersion, {
+            const rerunPrepared = prepareVerifierPackageJson(contentForVersion, {
+              skipBaselineMerge: skipBaselinePackageJsonMerge,
+            });
+            const rerunRaw = suppressTier3StrippedImportFindings(
+              await runVerifierPass(rerunPrepared.verifierContent, {
                 resolvedTier: verifierTier,
                 abortSignal: rerunAbort.signal,
               }),
               { previewPolicy: params.buildSpec?.previewPolicy },
             );
+            const rerunStale = dropResolvedVerifierFindings(
+              rerunRaw.blocking,
+              rerunPrepared.filesForDependencyCheck,
+              { classes: ["package-json"] },
+            );
+            const rerunFindings = { ...rerunRaw, blocking: rerunStale.kept };
             rerunDurationMs = Date.now() - rerunStartedAt;
             rerunBlockingCount = rerunFindings.blocking.length;
             verifierBlockingFindings = rerunFindings.blocking.slice(0, 5);

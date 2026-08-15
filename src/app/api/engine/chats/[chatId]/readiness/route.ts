@@ -537,11 +537,12 @@ async function buildEngineReadiness(
     warnings.push(buildPreviewWarning(null, previewMeta.previewCode));
   }
 
-  // SM-049: Product Postcheck findings are already in the error log and already
-  // gate F3, but readiness previously ignored them — status could be "ready"
-  // with an empty warnings list. Project them as advisory warnings only;
-  // never blockers. Promotion and canDeploy stay unchanged.
+  // B1: gating Product Postcheck findings paint readiness red. Advisory codes
+  // (including `preview_probe_unreadable`) stay warnings. `canDeploy` and
+  // promotion still ignore `productBlocked` — `buildChatReadiness` excludes
+  // these items from the deploy gate.
   const productPostcheck = projectProductPostcheckReadiness(errorLogs);
+  blockers.push(...productPostcheck.blockers);
   warnings.push(...productPostcheck.warnings);
 
   // SM-050: a post-promotion `preview:client-error` used to stay diagnostic

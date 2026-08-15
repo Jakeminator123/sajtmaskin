@@ -2,9 +2,14 @@ import type { Browser, Page } from "playwright-core";
 import { applyCaptureRequestGate, launchCaptureBrowser } from "@/lib/capture/browser";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import {
-  isPreviewHostBootPage,
+  classifyPreviewPageProbe,
   type PreviewHostBootPageProbe,
 } from "@/lib/capture/preview-boot-page";
+import {
+  fetchPreviewHostReadinessVerdict,
+  type PreviewHostReadinessVerdict,
+} from "@/lib/gen/preview/preview-host-client";
+import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 
 export type ProductPostcheckWarningCode =
   | "broken_anchor"
@@ -14,13 +19,18 @@ export type ProductPostcheckWarningCode =
   | "fake_form"
   | "runtime_crash"
   | "preview_boot_page"
+  | "preview_probe_unreadable"
   | "hydration_mismatch"
   | "console_error"
   | "request_failed"
   | "http_error";
 
 // Re-export so existing verify/postcheck callers keep a stable import path.
-export { isPreviewHostBootPage, type PreviewHostBootPageProbe };
+export {
+  classifyPreviewPageProbe,
+  isPreviewHostBootPage,
+  type PreviewHostBootPageProbe,
+} from "@/lib/capture/preview-boot-page";
 
 export type ProductPostcheckSkipReason =
   | "feature_disabled"
@@ -106,12 +116,9 @@ export type ProductDomEvaluation = {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 /**
- * Fly returns a real boot placeholder while `npm install` / `next dev` starts.
- * Product Postcheck begins as soon as the preview URL exists, so a single
- * probe can race that placeholder and persist a permanent F3 blocker even
- * though the same URL becomes healthy seconds later. Poll inside the existing
- * check before classifying it; a placeholder that outlives this bounded budget
- * remains blocking.
+ * Fallback only: used when preview-host `/status` cannot be reached.
+ * Do not raise this — a slow install has taken 44s; a longer guess just
+ * moves the coin flip. The primary path asks `readinessState` / `httpReady`.
  */
 const PREVIEW_BOOT_MAX_WAIT_MS = 20_000;
 const PREVIEW_BOOT_RETRY_INTERVAL_MS = 2_000;
@@ -128,23 +135,75 @@ const DEFAULT_ALLOWED_HOSTS = new Set([
   "vm-fly-jakem.fly.dev",
 ]);
 
-/** Empty probe that `isPreviewHostBootPage` treats as still-warming / not ready. */
-const SYNTHETIC_BOOT_PROBE: PreviewHostBootPageProbe = {
-  title: "",
-  h1: null,
-  bodyText: "",
-};
+const PREVIEW_BOOT_PAGE_MESSAGE =
+  "Preview-host visar fortfarande start-/omstartssidan — sajten är inte ready än.";
+const PREVIEW_PROBE_UNREADABLE_MESSAGE =
+  "Produktkontrollen fick inget läsbart sidinnehåll och kan inte avgöra om sajten är klar.";
 
-/**
- * True while preview may still be compiling: explicit boot placeholder, or a
- * titled-but-empty body (partial Next compile clears title before content).
- */
-function isPreviewHostStillWarming(probe: PreviewHostBootPageProbe): boolean {
-  if (isPreviewHostBootPage(probe)) return true;
-  return (probe.bodyText ?? "").trim().length === 0;
+async function readPageProbe(page: Page): Promise<PreviewHostBootPageProbe | null> {
+  return page
+    .evaluate(() => ({
+      title: document.title || "",
+      h1: document.querySelector("h1")?.textContent?.trim() || null,
+      bodyText: (document.body?.innerText || "").slice(0, 800),
+    }))
+    .catch(() => null);
 }
 
-async function waitForPreviewHostBootToClear(params: {
+function isHostRuntimeReady(verdict: PreviewHostReadinessVerdict): boolean {
+  // `httpReady` is the host traffic gate (`publicRunning && ready`). An
+  // explicit `false` means the runtime is not accepting traffic — never
+  // override that with `readinessState === "ready"` (false-green).
+  if (verdict.httpReady === false) return false;
+  if (verdict.httpReady === true) return true;
+  // Host omitted `httpReady` (older deploy). Fall back to the fields it did send.
+  if (verdict.readinessState === "ready") return true;
+  return verdict.readinessState === null && verdict.running;
+}
+
+/**
+ * Ask the already-deployed `GET /preview/session/:id/status` until the host
+ * knows (`ready` / `failed`) or the overall check deadline hits. This replaces
+ * the HTML 20s guess — the host is the one that logs `Runtime ready`.
+ */
+async function askPreviewHostReadiness(params: {
+  chatId: string;
+  versionId: string;
+  page: Page;
+  deadlineAt: number;
+}): Promise<PreviewHostReadinessVerdict | null> {
+  const session = await getActivePreviewSessionAsync(params.chatId);
+  const previewSessionId = session?.previewSessionId?.trim() || "";
+  // No session id: nothing to ask. Distinct from a transient fetch miss.
+  if (!previewSessionId) return null;
+
+  let last: PreviewHostReadinessVerdict | null = null;
+  while (true) {
+    const verdict = await fetchPreviewHostReadinessVerdict(previewSessionId, {
+      expectedVersionId: params.versionId,
+    });
+    if (verdict) {
+      last = verdict;
+      if (isHostRuntimeReady(verdict) || verdict.readinessState === "failed") {
+        return verdict;
+      }
+    }
+    // Transient miss (network / 5xx / host mid-restart) or still starting:
+    // retry until the overall deadline. Do not abort the poll on the first miss.
+    const remainingMs = params.deadlineAt - Date.now();
+    if (remainingMs <= 0) return last;
+    await params.page.waitForTimeout(
+      Math.min(PREVIEW_BOOT_RETRY_INTERVAL_MS, remainingMs),
+    );
+  }
+}
+
+/**
+ * HTML poll kept only for when `/status` cannot be fetched. Outcome is
+ * classified by the caller as `preview_probe_unreadable` (not blocking) —
+ * we must not pretend the host showed its start page.
+ */
+async function waitForPreviewPageToBecomeLive(params: {
   page: Page;
   startedAt: number;
   timeoutMs: number;
@@ -165,22 +224,11 @@ async function waitForPreviewHostBootToClear(params: {
   let latestProbe: PreviewHostBootPageProbe | null = null;
 
   for (let probeIndex = 0; probeIndex < maxProbes; probeIndex += 1) {
-    const probe = await params.page
-      .evaluate(() => ({
-        title: document.title || "",
-        h1: document.querySelector("h1")?.textContent?.trim() || null,
-        bodyText: (document.body?.innerText || "").slice(0, 800),
-      }))
-      .catch(() => null);
-
+    const probe = await readPageProbe(params.page);
     if (probe) {
       latestProbe = probe;
-      // Ready only when we have real body content and it is not the boot page.
-      // Evaluate null / titled-empty must keep polling (fail-closed), not clear.
-      if (!isPreviewHostStillWarming(probe)) return probe;
+      if (classifyPreviewPageProbe(probe) === "live") return probe;
     }
-    // Evaluate failed (null): keep polling until deadline. Returning null here
-    // used to fail-open during meta-refresh / transient DOM attach races.
 
     const remainingMs = deadlineAt - Date.now();
     if (probeIndex === maxProbes - 1 || remainingMs <= 0) break;
@@ -189,17 +237,44 @@ async function waitForPreviewHostBootToClear(params: {
     );
   }
 
-  if (!latestProbe) {
-    // Never got a successful probe within budget → block (caller treats boot).
-    return SYNTHETIC_BOOT_PROBE;
-  }
-  if (isPreviewHostBootPage(latestProbe)) return latestProbe;
-  // Titled-but-empty still at deadline: synthesize empty boot so caller blocks
-  // (detector alone does not treat title+"Home"/empty body as boot).
-  if ((latestProbe.bodyText ?? "").trim().length === 0) {
-    return SYNTHETIC_BOOT_PROBE;
-  }
   return latestProbe;
+}
+
+type PreviewReadinessDecision =
+  | { action: "continue" }
+  | {
+      action: "warn";
+      code: "preview_boot_page" | "preview_probe_unreadable";
+      productBlocked: boolean;
+    };
+
+function decidePreviewReadiness(params: {
+  probe: PreviewHostBootPageProbe | null;
+  readiness: PreviewHostReadinessVerdict | null;
+}): PreviewReadinessDecision {
+  const kind = classifyPreviewPageProbe(params.probe);
+  if (params.readiness && isHostRuntimeReady(params.readiness)) {
+    return { action: "continue" };
+  }
+  if (params.readiness) {
+    if (kind === "boot_page") {
+      return { action: "warn", code: "preview_boot_page", productBlocked: true };
+    }
+    if (kind === "unreadable") {
+      return {
+        action: "warn",
+        code: "preview_probe_unreadable",
+        productBlocked: false,
+      };
+    }
+    return { action: "continue" };
+  }
+  if (kind === "live") return { action: "continue" };
+  return {
+    action: "warn",
+    code: "preview_probe_unreadable",
+    productBlocked: false,
+  };
 }
 
 function normalizeHost(value: string | null | undefined): string | null {
@@ -769,26 +844,64 @@ export async function runProductPostcheck(params: {
     await page.waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) }).catch(() => {});
     routesChecked = 1;
 
-    // Refuse false-green on the preview-host boot placeholder (prod 2026-08-11:
-    // postcheck "passed" while Fly still reported empty body / HTTP 500).
-    const bootProbe = await waitForPreviewHostBootToClear({
-      page,
-      startedAt,
-      timeoutMs,
-    });
-    if (bootProbe && isPreviewHostBootPage(bootProbe)) {
+    // Ask the host before concluding the site is not ready. HTML alone lied
+    // in prod 2026-08-14: empty Chromium (`/tmp` 6 MB free) was logged as
+    // preview_boot_page, and the 20s HTML guess missed Runtime ready by 0.9s.
+    const firstProbe = await readPageProbe(page);
+    let readinessDecision: PreviewReadinessDecision;
+    if (classifyPreviewPageProbe(firstProbe) === "live") {
+      readinessDecision = { action: "continue" };
+    } else {
+      const readiness = await askPreviewHostReadiness({
+        chatId: params.chatId,
+        versionId: params.versionId,
+        page,
+        deadlineAt: startedAt + timeoutMs,
+      });
+      if (readiness) {
+        // Re-read after the status wait: `firstProbe` is stale once Chromium
+        // has sat through a multi-second poll (empty → boot page is the
+        // 2026-08-14 case). Keep `firstProbe` only for the live fast-path above.
+        const freshProbe = await readPageProbe(page);
+        readinessDecision = decidePreviewReadiness({
+          probe: freshProbe,
+          readiness,
+        });
+        if (readinessDecision.action === "continue" && isHostRuntimeReady(readiness)) {
+          await page
+            .reload({
+              waitUntil: "domcontentloaded",
+              timeout: Math.min(8_000, timeoutMs),
+            })
+            .catch(() => {});
+          await page
+            .waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) })
+            .catch(() => {});
+        }
+      } else {
+        const afterPoll = await waitForPreviewPageToBecomeLive({
+          page,
+          startedAt,
+          timeoutMs,
+        });
+        readinessDecision = decidePreviewReadiness({
+          probe: afterPoll,
+          readiness: null,
+        });
+      }
+    }
+    if (readinessDecision.action === "warn") {
+      const message =
+        readinessDecision.code === "preview_boot_page"
+          ? PREVIEW_BOOT_PAGE_MESSAGE
+          : PREVIEW_PROBE_UNREADABLE_MESSAGE;
       return {
         ok: true,
         skipped: false,
         skippedReason: null,
-        warnings: [
-          warning(
-            "preview_boot_page",
-            "Preview-host visar fortfarande start-/omstartssidan — sajten är inte ready än.",
-          ),
-        ],
+        warnings: [warning(readinessDecision.code, message)],
         warningCount: 1,
-        productBlocked: true,
+        productBlocked: readinessDecision.productBlocked,
         durationMs: Date.now() - startedAt,
         checkedUrl: previewUrl,
         routesChecked,

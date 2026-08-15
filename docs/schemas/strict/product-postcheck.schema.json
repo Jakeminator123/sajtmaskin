@@ -38,6 +38,7 @@
             "fake_form",
             "runtime_crash",
             "preview_boot_page",
+            "preview_probe_unreadable",
             "hydration_mismatch",
             "console_error",
             "request_failed",

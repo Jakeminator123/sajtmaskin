@@ -168,6 +168,88 @@ function resolveDirectProviderFromMeta(meta?: StreamMeta): "openai" | "anthropic
 }
 
 /**
+ * Wall-clock split of one codegen stream. The three phases are contiguous
+ * and sum to `durationMs`:
+ *
+ * - `waitMs`: stream start → first observed token (reasoning if any, else
+ *   content). This is the gap the old calculator dropped, which is why
+ *   Slutsteg could show `reasoning 0.3s, output 0.4s` of a 337 s stream.
+ * - `reasoningMs`: first reasoning token → first content token. `0` when
+ *   the stream emitted no reasoning events (thinking off / no tokens).
+ * - `outputMs`: first content token → stream end. `0` when no content
+ *   arrived.
+ *
+ * Timestamps are `Date.now()` when this wrapper *observes* the first event
+ * of each kind. If the provider buffers and yields in a burst, `waitMs`
+ * absorbs the buffer; reasoning/output then only cover the burst. That is
+ * still honest — we do not invent a duration we did not observe.
+ *
+ * Not the same clock as `generation_telemetry.durationMs`.
+ */
+export type StreamPhaseTiming = {
+  waitMs: number;
+  reasoningMs: number;
+  outputMs: number;
+  durationMs: number;
+};
+
+export function computeStreamPhaseTiming(input: {
+  streamStartedAt: number;
+  firstReasoningTokenAt: number | null;
+  firstContentTokenAt: number | null;
+  streamEndedAt: number;
+}): StreamPhaseTiming {
+  const durationMs = Math.max(0, input.streamEndedAt - input.streamStartedAt);
+  const reasoningAt = input.firstReasoningTokenAt;
+  const contentAt = input.firstContentTokenAt;
+
+  if (reasoningAt === null && contentAt === null) {
+    return { waitMs: durationMs, reasoningMs: 0, outputMs: 0, durationMs };
+  }
+
+  const firstTokenAt = Math.min(
+    reasoningAt ?? Number.POSITIVE_INFINITY,
+    contentAt ?? Number.POSITIVE_INFINITY,
+  );
+  const waitMs = Math.max(0, firstTokenAt - input.streamStartedAt);
+
+  if (reasoningAt !== null && contentAt !== null) {
+    if (reasoningAt <= contentAt) {
+      return {
+        waitMs,
+        reasoningMs: Math.max(0, contentAt - reasoningAt),
+        outputMs: Math.max(0, input.streamEndedAt - contentAt),
+        durationMs,
+      };
+    }
+    // Content arrived first. Later reasoning is not a separate observed
+    // phase; it sits inside output so the three numbers stay contiguous.
+    return {
+      waitMs,
+      reasoningMs: 0,
+      outputMs: Math.max(0, input.streamEndedAt - contentAt),
+      durationMs,
+    };
+  }
+
+  if (reasoningAt !== null) {
+    return {
+      waitMs,
+      reasoningMs: Math.max(0, input.streamEndedAt - reasoningAt),
+      outputMs: 0,
+      durationMs,
+    };
+  }
+
+  return {
+    waitMs,
+    reasoningMs: 0,
+    outputMs: Math.max(0, input.streamEndedAt - (contentAt ?? input.streamEndedAt)),
+    durationMs,
+  };
+}
+
+/**
  * Converts an AI SDK `streamText()` result into an SSE-formatted ReadableStream.
  *
  * Events emitted:
@@ -375,13 +457,12 @@ export function createCodeGenSSEStream(
         },
       ) => {
         const streamEndedAt = Date.now();
-        const durationMs = Math.max(0, streamEndedAt - streamStartedAt);
-        const reasoningMs =
-          firstContentTokenAt !== null
-            ? Math.max(0, firstContentTokenAt - (firstReasoningTokenAt ?? streamStartedAt))
-            : 0;
-        const outputMs =
-          firstContentTokenAt !== null ? Math.max(0, streamEndedAt - firstContentTokenAt) : 0;
+        const streamTiming = computeStreamPhaseTiming({
+          streamStartedAt,
+          firstReasoningTokenAt,
+          firstContentTokenAt,
+          streamEndedAt,
+        });
         const usageAvailable =
           typeof usage?.inputTokens === "number" || typeof usage?.outputTokens === "number";
         debugLog("engine", "Own-engine stream summary (AI SDK wrapper, direct provider)", {
@@ -410,17 +491,14 @@ export function createCodeGenSSEStream(
           firstReasoningTokenAt,
           firstContentTokenAt,
           streamEndedAt,
-          durationMs,
-          reasoningMs,
-          outputMs,
+          durationMs: streamTiming.durationMs,
+          waitMs: streamTiming.waitMs,
+          reasoningMs: streamTiming.reasoningMs,
+          outputMs: streamTiming.outputMs,
           chatId: meta?.chatId ?? null,
           versionId: meta?.versionId ?? null,
         });
-        return {
-          durationMs,
-          reasoningMs,
-          outputMs,
-        };
+        return streamTiming;
       };
 
       try {
@@ -715,6 +793,7 @@ export function createCodeGenSSEStream(
           type: "stream.summary",
           chatId: meta?.chatId ?? null,
           model: typeof meta?.modelId === "string" ? meta.modelId : null,
+          waitMs: streamTiming.waitMs,
           reasoningMs: streamTiming.reasoningMs,
           outputMs: streamTiming.outputMs,
           durationMs: streamTiming.durationMs,
@@ -726,6 +805,7 @@ export function createCodeGenSSEStream(
             step: "generation",
             phase: "done",
             durationMs: streamTiming.durationMs,
+            waitMs: streamTiming.waitMs,
             reasoningMs: streamTiming.reasoningMs,
             outputMs: streamTiming.outputMs,
           }),

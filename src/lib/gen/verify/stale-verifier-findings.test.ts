@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   dropResolvedVerifierFindings,
+  packageJsonDeclaresDependency,
   type FinalProjectFile,
 } from "./stale-verifier-findings";
 
@@ -663,6 +664,73 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
         [{ path: "package.json", content: "not json" }, PAGE_FILE],
       ).kept,
     ).toHaveLength(1);
+  });
+
+  it("prod 6e865848: thin merged manifest does not keep an unquoted next/react/tailwindcss finding", () => {
+    // Exact blocker text from 2026-08-14 21:41Z. The saved version had 28
+    // deps including next/react; tailwindcss was in devDependencies.
+    const finding = {
+      id: "missing-project-dependencies",
+      detail:
+        "package.json lacks next, react, react-dom, and tailwindcss\nrequired by app/layout.tsx, app/page.tsx, and app/globals.css",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
+  it("still blocks when a named package is in neither dependencies nor devDependencies", () => {
+    const finding = {
+      id: "missing-project-dependencies",
+      detail: "package.json lacks `left-pad`.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("counts tailwindcss in devDependencies as present", () => {
+    const finding = {
+      id: "missing-project-dependencies",
+      detail: "package.json lacks `tailwindcss` required by app/globals.css",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [
+        packageJsonFile({
+          dependencies: { next: "15.0.0", react: "19.0.0", "react-dom": "19.0.0" },
+          devDependencies: { tailwindcss: "4.1.18" },
+        }),
+      ],
+    );
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+});
+
+describe("packageJsonDeclaresDependency", () => {
+  it("reads both dependencies and devDependencies", () => {
+    const pkg = {
+      dependencies: { next: "16.2.9", react: "19.2.4" },
+      devDependencies: { tailwindcss: "4.1.18" },
+    };
+    expect(packageJsonDeclaresDependency(pkg, "next")).toBe(true);
+    expect(packageJsonDeclaresDependency(pkg, "tailwindcss")).toBe(true);
+    expect(packageJsonDeclaresDependency(pkg, "left-pad")).toBe(false);
+  });
+});
+
+describe("dropResolvedVerifierFindings — class filter", () => {
+  it("package-json-only does not drop a missing-import finding whose file is absent", () => {
+    const finding = {
+      id: "missing-resend-import",
+      detail: "app/api/contact/route.ts: uses `Resend` but does not import it.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile()], {
+      classes: ["package-json"],
+    });
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
   });
 });
 

@@ -525,7 +525,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
   });
 });
 
-describe("GET readiness — Product Postcheck warnings (SM-049)", () => {
+describe("GET readiness — Product Postcheck (B1 / SM-049)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1", project_id: "proj_1" });
@@ -585,6 +585,71 @@ describe("GET readiness — Product Postcheck warnings (SM-049)", () => {
     expect(json.readiness?.info.productPostcheckBlocksF3).toBe(false);
   });
 
+  it("sets status blocked with the preview_boot_page cause and leaves canDeploy true (B1)", async () => {
+    getEngineVersionErrorLogs.mockResolvedValue([
+      {
+        category: "product_postcheck.preview_boot_page",
+        level: "warning",
+        message: "Preview-host visar fortfarande start-/omstartssidan — sajten är inte ready än.",
+        meta: { code: "preview_boot_page" },
+        created_at: "2026-08-14T21:41:33Z",
+      },
+      {
+        category: "product_postcheck.summary",
+        level: "warning",
+        message: "F2 Product Postcheck found 1 warning(s).",
+        meta: { warningCount: 1, productBlocked: true },
+        created_at: "2026-08-14T21:41:33Z",
+      },
+    ]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(true);
+    expect(json.readiness?.status).toBe("blocked");
+    expect(json.readiness?.blockers).toEqual([
+      expect.objectContaining({
+        id: "product-postcheck-preview_boot_page",
+        detail: "product_postcheck.preview_boot_page",
+        severity: "blocker",
+      }),
+    ]);
+    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(true);
+    expect(json.readiness?.info.productPostcheckBlockedReason).toContain("start-/omstartssidan");
+  });
+
+  it("keeps preview_probe_unreadable advisory so readiness is not red", async () => {
+    getEngineVersionErrorLogs.mockResolvedValue([
+      {
+        category: "product_postcheck.preview_probe_unreadable",
+        level: "warning",
+        message:
+          "Produktkontrollen fick inget läsbart sidinnehåll och kan inte avgöra om sajten är klar.",
+        meta: { code: "preview_probe_unreadable" },
+        created_at: "2026-08-14T21:41:33Z",
+      },
+      {
+        category: "product_postcheck.summary",
+        level: "warning",
+        message: "F2 Product Postcheck found 1 warning(s).",
+        meta: { warningCount: 1, productBlocked: false },
+        created_at: "2026-08-14T21:41:33Z",
+      },
+    ]);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(true);
+    expect(json.readiness?.status).toBe("warning");
+    expect(json.readiness?.blockers).toEqual([]);
+    expect(json.readiness?.warnings.map((w) => w.id)).toEqual([
+      "product-postcheck-preview_probe_unreadable",
+    ]);
+    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(false);
+  });
+
   it("sets the F3-blocked flag when the newest summary is productBlocked", async () => {
     getEngineVersionErrorLogs.mockResolvedValue([
       {
@@ -607,12 +672,13 @@ describe("GET readiness — Product Postcheck warnings (SM-049)", () => {
     const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
 
     expect(json.readiness?.canDeploy).toBe(true);
-    expect(json.readiness?.blockers.map((b) => b.id)).not.toContain("product-postcheck-blocks-f3");
+    expect(json.readiness?.status).toBe("blocked");
+    expect(json.readiness?.blockers.map((b) => b.id)).toEqual([
+      "product-postcheck-mobile_menu_failed",
+    ]);
     expect(json.readiness?.info.productPostcheckBlocksF3).toBe(true);
     expect(json.readiness?.info.productPostcheckBlockedReason).toContain("Mobilmeny");
-    expect(json.readiness?.warnings.map((w) => w.id)).toEqual(
-      expect.arrayContaining(["product-postcheck-blocks-f3", "product-postcheck-mobile_menu_failed"]),
-    );
+    expect(json.readiness?.warnings.map((w) => w.id)).not.toContain("product-postcheck-blocks-f3");
   });
 
   it("leaves readiness unchanged when the log has no postcheck findings", async () => {

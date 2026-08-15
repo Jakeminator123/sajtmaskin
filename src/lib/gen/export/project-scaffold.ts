@@ -573,7 +573,9 @@ function applyThreeStackPolicy(
 
 /**
  * Model `package.json` is merged **onto** the Sajtmaskin baseline so scripts, devDependencies,
- * and core tooling survive thin LLM output (zip export / preview runtime use the same merge).
+ * and core tooling survive thin LLM output. Zip export, preview runtime, persist
+ * (`buildCompleteProject`) and the verifier (`applyBaselinePackageJsonMerge`)
+ * share this merge so a thin model draft cannot be judged as the shipped manifest.
  *
  * `overrides` are merged with the baseline winning on conflicts. The postcss
  * override (`^8.5.10`) closes the GHSA-qx2v-qp2m-jg93 audit warning that
@@ -614,6 +616,55 @@ export function mergePackageJsonWithBaseline(
     devDependencies: { ...bDevDep, ...mDevDep },
     overrides: { ...mOverrides, ...bOverrides },
   };
+}
+
+function parseModelPackageJson(content: string): Record<string, unknown> {
+  try {
+    const model = JSON.parse(content) as unknown;
+    if (model !== null && typeof model === "object" && !Array.isArray(model)) {
+      return model as Record<string, unknown>;
+    }
+  } catch {
+    // Thin or invalid model output — fall back to baseline.
+  }
+  return {};
+}
+
+/**
+ * Apply {@link mergePackageJsonWithBaseline} to a project file list. This is
+ * the package.json the verifier must judge: the same merge persist uses via
+ * {@link buildCompleteProject}. A missing `package.json` is filled from the
+ * baseline. Does not mutate `mergePackageJsonWithBaseline` itself.
+ */
+export function applyBaselinePackageJsonMerge(
+  files: readonly CodeFile[],
+  detected?: { dependencies: Record<string, string> },
+): CodeFile[] {
+  const resolvedDetected =
+    detected ?? runDepCompleter(files.map((file) => file.content).join("\n"));
+  let found = false;
+  const next = files.map((file) => {
+    if (file.path !== "package.json") return file;
+    found = true;
+    return {
+      ...file,
+      content: JSON.stringify(
+        mergePackageJsonWithBaseline(parseModelPackageJson(file.content), resolvedDetected),
+        null,
+        2,
+      ),
+      language: file.language || "json",
+    };
+  });
+  if (found) return next;
+  return [
+    ...next,
+    {
+      path: "package.json",
+      content: JSON.stringify(mergePackageJsonWithBaseline({}, resolvedDetected), null, 2),
+      language: "json",
+    },
+  ];
 }
 
 const UNSAFE_TSCONFIG_COMPILER_KEYS = new Set([
@@ -913,14 +964,7 @@ export function buildCompleteProject(
 
   const mergeModelPackageJson = (file: CodeFile): CodeFile => {
     if (file.path !== "package.json") return file;
-    try {
-      const model = JSON.parse(file.content) as Record<string, unknown>;
-      const merged = mergePackageJsonWithBaseline(model, detected);
-      return { ...file, content: JSON.stringify(merged, null, 2) };
-    } catch {
-      const merged = mergePackageJsonWithBaseline({}, detected);
-      return { ...file, content: JSON.stringify(merged, null, 2) };
-    }
+    return applyBaselinePackageJsonMerge([file], detected)[0]!;
   };
 
   const mergeModelTsconfig = (file: CodeFile): CodeFile => {
@@ -937,8 +981,7 @@ export function buildCompleteProject(
 
   for (const [filePath, content] of Object.entries(SCAFFOLD_FILES)) {
     if (filePath === "package.json" && !generatedPaths.has(filePath)) {
-      const merged = mergePackageJsonWithBaseline({}, detected);
-      result.push({ path: filePath, content: JSON.stringify(merged, null, 2), language: "json" });
+      result.push(applyBaselinePackageJsonMerge([], detected)[0]!);
       continue;
     }
     if (!generatedPaths.has(filePath)) {
