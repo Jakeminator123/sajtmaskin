@@ -16,18 +16,18 @@ iframen.
 
 De är inte Normalize, syntaxvalidering i finalize, verifier-pass, live
 `npm run dev`, eller CapabilitySmoke (`product_postcheck.*`).
-CapabilitySmoke-fynd projiceras som warnings i publiceringskollen
-(`GET .../readiness`). `productBlocked` på senaste
-`product_postcheck.summary` sätter `info.productPostcheckBlocksF3`.
-`info.productPostcheckBlockedReason` är sammanslagna fyndtitlar från de
-F3-spärrande koderna (`mobile_menu_failed`, ≥2 `broken_anchor`,
-`runtime_crash`, `preview_boot_page`) — inte själva enum-koderna.
+CapabilitySmoke-fynd projiceras i publiceringskollen (`GET .../readiness`).
+När senaste `product_postcheck.summary` har `productBlocked: true` från ett
+spärrande fynd (`preview_boot_page`, `runtime_crash`, `mobile_menu_failed`,
+≥2 `broken_anchor`) blir ytan röd (`status: "blocked"`) och fyndet syns som
+orsak (B1, 2026-08-15). `info.productPostcheckBlocksF3` och
+`info.productPostcheckBlockedReason` bär samma signal.
 `preview_probe_unreadable` (tomt/misslyckat Chromium-svar) är advisory och
-får inte formuleras som att preview-hosten visar startsidan.
+får inte färga rött eller formuleras som att preview-hosten visar startsidan.
 Rådgivande koder stannar i `warnings`. Promotion läser inte fältet.
 Fynden är aldrig `canDeploy`-blockers. Sena browser-fel
-(`preview:client-error` med `created_at` > `promoted_at`) projiceras samma
-väg och är aldrig `canDeploy`-blockers.
+(`preview:client-error` med `created_at` > `promoted_at`) projiceras som
+advisory warnings och är aldrig `canDeploy`-blockers.
 
 | Lane | Syfte | Typisk körning |
 | --- | --- | --- |

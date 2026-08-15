@@ -40,6 +40,7 @@ describe("projectProductPostcheckReadiness", () => {
 
     expect(projection.blocksF3).toBe(false);
     expect(projection.blockedReason).toBeNull();
+    expect(projection.blockers).toEqual([]);
     expect(projection.warnings).toEqual([
       expect.objectContaining({
         id: "product-postcheck-fake_form",
@@ -52,7 +53,7 @@ describe("projectProductPostcheckReadiness", () => {
     ]);
   });
 
-  it("sets the F3-blocked flag and warning when productBlocked is true", () => {
+  it("paints gating findings as blockers when productBlocked is true (B1)", () => {
     const projection = projectProductPostcheckReadiness([
       log(
         "product_postcheck.mobile_menu_failed",
@@ -68,16 +69,18 @@ describe("projectProductPostcheckReadiness", () => {
 
     expect(projection.blocksF3).toBe(true);
     expect(projection.blockedReason).toBe("Mobilmeny kunde inte verifieras: no toggle found.");
-    expect(projection.warnings.map((item) => item.id)).toEqual([
-      "product-postcheck-blocks-f3",
+    expect(projection.warnings).toEqual([]);
+    expect(projection.blockers.map((item) => item.id)).toEqual([
       "product-postcheck-mobile_menu_failed",
     ]);
-    expect(projection.warnings[0]).toEqual(
+    expect(projection.blockers[0]).toEqual(
       expect.objectContaining({
-        id: "product-postcheck-blocks-f3",
-        title: "Bygg integrationer är spärrat.",
-        severity: "warning",
-        category: "advisory",
+        id: "product-postcheck-mobile_menu_failed",
+        title: "Mobilmeny kunde inte verifieras: no toggle found.",
+        detail: "product_postcheck.mobile_menu_failed",
+        severity: "blocker",
+        category: "blocker",
+        action: "preview",
       }),
     );
   });
@@ -105,11 +108,12 @@ describe("projectProductPostcheckReadiness", () => {
     expect(projection.blocksF3).toBe(true);
     expect(projection.blockedReason).toBe("Mobilmeny kunde inte verifieras: no toggle found.");
     expect(projection.blockedReason).not.toContain("Formulär");
-    expect(projection.warnings[0]?.detail).toBe(projection.blockedReason);
-    expect(projection.warnings.map((item) => item.id)).toEqual([
-      "product-postcheck-blocks-f3",
-      "product-postcheck-fake_form",
+    expect(projection.blockers.map((item) => item.id)).toEqual([
       "product-postcheck-mobile_menu_failed",
+    ]);
+    expect(projection.blockers[0]?.detail).toBe("product_postcheck.mobile_menu_failed");
+    expect(projection.warnings.map((item) => item.id)).toEqual([
+      "product-postcheck-fake_form",
     ]);
   });
 
@@ -130,6 +134,11 @@ describe("projectProductPostcheckReadiness", () => {
     expect(twoAnchors.blockedReason).toContain("Trasig länk: #a.");
     expect(twoAnchors.blockedReason).toContain("Trasig länk: #b.");
     expect(twoAnchors.blockedReason).not.toContain("Formulär");
+    expect(twoAnchors.blockers.map((item) => item.id)).toEqual([
+      "product-postcheck-broken_anchor",
+      "product-postcheck-broken_anchor-1",
+    ]);
+    expect(twoAnchors.warnings.map((item) => item.id)).toEqual(["product-postcheck-fake_form"]);
 
     const oneAnchor = projectProductPostcheckReadiness([
       log("product_postcheck.fake_form", "Formulär ser aktivt ut men saknar action/integration.", {
@@ -150,7 +159,7 @@ describe("projectProductPostcheckReadiness", () => {
     ]);
   });
 
-  it("uses the preview-boot finding in the F3 reason and omits advisory codes", () => {
+  it("uses the preview-boot finding as the red cause and omits advisory codes", () => {
     const projection = projectProductPostcheckReadiness([
       log(
         "product_postcheck.fake_form",
@@ -173,6 +182,15 @@ describe("projectProductPostcheckReadiness", () => {
     expect(projection.blocksF3).toBe(true);
     expect(projection.blockedReason).toContain("start-/omstartssidan");
     expect(projection.blockedReason).not.toContain("Formulär");
+    expect(projection.blockers).toEqual([
+      expect.objectContaining({
+        id: "product-postcheck-preview_boot_page",
+        detail: "product_postcheck.preview_boot_page",
+        severity: "blocker",
+        category: "blocker",
+      }),
+    ]);
+    expect(projection.warnings.map((item) => item.id)).toEqual(["product-postcheck-fake_form"]);
   });
 
   it("håller preview_probe_unreadable som advisory och tar inte med den i F3-orsaken", () => {
@@ -191,10 +209,32 @@ describe("projectProductPostcheckReadiness", () => {
 
     expect(projection.blocksF3).toBe(false);
     expect(projection.blockedReason).toBeNull();
+    expect(projection.blockers).toEqual([]);
     expect(projection.warnings.map((item) => item.id)).toEqual([
       "product-postcheck-preview_probe_unreadable",
     ]);
     expect(projection.warnings[0]?.title).not.toMatch(/preview-host|startsidan|Startar preview/i);
+  });
+
+  it("does not paint readiness red when a buggy summary marks unreadable as productBlocked", () => {
+    const projection = projectProductPostcheckReadiness([
+      log(
+        "product_postcheck.preview_probe_unreadable",
+        "Produktkontrollen fick inget läsbart sidinnehåll och kan inte avgöra om sajten är klar.",
+        { code: "preview_probe_unreadable" },
+        "2026-08-14T10:00:02Z",
+      ),
+      log("product_postcheck.summary", "F2 Product Postcheck found 1 warning(s).", {
+        warningCount: 1,
+        productBlocked: true,
+      }, "2026-08-14T10:00:01Z"),
+    ]);
+
+    expect(projection.blocksF3).toBe(false);
+    expect(projection.blockers).toEqual([]);
+    expect(projection.warnings.map((item) => item.id)).toEqual([
+      "product-postcheck-preview_probe_unreadable",
+    ]);
   });
 
   it("returns empty warnings when there is no postcheck summary (unchanged)", () => {
@@ -202,7 +242,7 @@ describe("projectProductPostcheckReadiness", () => {
       projectProductPostcheckReadiness([
         log("preview", "Förhandsvisningen kraschade.", {}, "2026-08-14T10:00:00Z"),
       ]),
-    ).toEqual({ warnings: [], blocksF3: false, blockedReason: null });
+    ).toEqual({ warnings: [], blockers: [], blocksF3: false, blockedReason: null });
   });
 
   it("returns empty warnings for a clean passing summary", () => {
@@ -213,7 +253,7 @@ describe("projectProductPostcheckReadiness", () => {
           productBlocked: false,
         }, "2026-08-14T10:00:00Z"),
       ]),
-    ).toEqual({ warnings: [], blocksF3: false, blockedReason: null });
+    ).toEqual({ warnings: [], blockers: [], blocksF3: false, blockedReason: null });
   });
 
   it("ignores skipped rows and older-run findings after a later passing summary", () => {
@@ -237,12 +277,75 @@ describe("projectProductPostcheckReadiness", () => {
       }, "2026-08-14T09:00:00Z"),
     ]);
 
-    expect(projection).toEqual({ warnings: [], blocksF3: false, blockedReason: null });
+    expect(projection).toEqual({ warnings: [], blockers: [], blocksF3: false, blockedReason: null });
   });
 });
 
 describe("buildChatReadiness + postcheck projection", () => {
-  it("keeps canDeploy true when postcheck findings are warnings", () => {
+  it("turns status blocked on preview_boot_page without flipping canDeploy (B1)", () => {
+    const projection = projectProductPostcheckReadiness([
+      log(
+        "product_postcheck.preview_boot_page",
+        "Preview-host visar fortfarande start-/omstartssidan — sajten är inte ready än.",
+        { code: "preview_boot_page" },
+        "2026-08-14T10:00:02Z",
+      ),
+      log("product_postcheck.summary", "F2 Product Postcheck found 1 warning(s).", {
+        warningCount: 1,
+        productBlocked: true,
+      }, "2026-08-14T10:00:01Z"),
+    ]);
+    const readiness = buildChatReadiness({
+      blockers: projection.blockers,
+      warnings: projection.warnings,
+      info: {
+        ...emptyInfo,
+        productPostcheckBlocksF3: projection.blocksF3,
+        productPostcheckBlockedReason: projection.blockedReason,
+      },
+    });
+
+    expect(readiness.canDeploy).toBe(true);
+    expect(readiness.status).toBe("blocked");
+    expect(readiness.blockers.map((item) => item.id)).toEqual([
+      "product-postcheck-preview_boot_page",
+    ]);
+    expect(readiness.blockers[0]?.detail).toContain("product_postcheck.preview_boot_page");
+    expect(readiness.info.productPostcheckBlocksF3).toBe(true);
+  });
+
+  it("keeps status warning (not blocked) for preview_probe_unreadable", () => {
+    const projection = projectProductPostcheckReadiness([
+      log(
+        "product_postcheck.preview_probe_unreadable",
+        "Produktkontrollen fick inget läsbart sidinnehåll och kan inte avgöra om sajten är klar.",
+        { code: "preview_probe_unreadable" },
+        "2026-08-14T10:00:02Z",
+      ),
+      log("product_postcheck.summary", "F2 Product Postcheck found 1 warning(s).", {
+        warningCount: 1,
+        productBlocked: false,
+      }, "2026-08-14T10:00:01Z"),
+    ]);
+    const readiness = buildChatReadiness({
+      blockers: projection.blockers,
+      warnings: projection.warnings,
+      info: {
+        ...emptyInfo,
+        productPostcheckBlocksF3: projection.blocksF3,
+        productPostcheckBlockedReason: projection.blockedReason,
+      },
+    });
+
+    expect(readiness.status).toBe("warning");
+    expect(readiness.canDeploy).toBe(true);
+    expect(readiness.blockers).toEqual([]);
+    expect(readiness.warnings.map((item) => item.id)).toEqual([
+      "product-postcheck-preview_probe_unreadable",
+    ]);
+  });
+
+  it("keeps canDeploy true when a gating postcheck finding is a status blocker", () => {
     const projection = projectProductPostcheckReadiness([
       log(
         "product_postcheck.mobile_menu_failed",
@@ -256,6 +359,7 @@ describe("buildChatReadiness + postcheck projection", () => {
       }, "2026-08-14T10:00:01Z"),
     ]);
     const readiness = buildChatReadiness({
+      blockers: projection.blockers,
       warnings: projection.warnings,
       info: {
         ...emptyInfo,
@@ -265,14 +369,15 @@ describe("buildChatReadiness + postcheck projection", () => {
     });
 
     expect(readiness.canDeploy).toBe(true);
-    expect(readiness.blockers).toEqual([]);
-    expect(readiness.status).toBe("warning");
+    expect(readiness.status).toBe("blocked");
+    expect(readiness.blockers).not.toEqual([]);
     expect(readiness.info.productPostcheckBlocksF3).toBe(true);
   });
 
   it("stays ready with canDeploy true when there are no postcheck findings", () => {
     const projection = projectProductPostcheckReadiness([]);
     const readiness = buildChatReadiness({
+      blockers: projection.blockers,
       warnings: projection.warnings,
       info: {
         ...emptyInfo,
@@ -284,7 +389,42 @@ describe("buildChatReadiness + postcheck projection", () => {
     expect(readiness.status).toBe("ready");
     expect(readiness.canDeploy).toBe(true);
     expect(readiness.warnings).toEqual([]);
+    expect(readiness.blockers).toEqual([]);
     expect(readiness.info.productPostcheckBlocksF3).toBe(false);
+  });
+
+  it("still flips canDeploy on a real deploy blocker next to a postcheck status-blocker", () => {
+    const projection = projectProductPostcheckReadiness([
+      log(
+        "product_postcheck.preview_boot_page",
+        "Preview-host visar fortfarande start-/omstartssidan — sajten är inte ready än.",
+        { code: "preview_boot_page" },
+        "2026-08-14T10:00:02Z",
+      ),
+      log("product_postcheck.summary", "F2 Product Postcheck found 1 warning(s).", {
+        warningCount: 1,
+        productBlocked: true,
+      }, "2026-08-14T10:00:01Z"),
+    ]);
+    const readiness = buildChatReadiness({
+      blockers: [
+        {
+          id: "missing-env",
+          title: "Miljövariabler saknas.",
+          severity: "blocker",
+        },
+        ...projection.blockers,
+      ],
+      warnings: projection.warnings,
+      info: {
+        ...emptyInfo,
+        productPostcheckBlocksF3: projection.blocksF3,
+        productPostcheckBlockedReason: projection.blockedReason,
+      },
+    });
+
+    expect(readiness.status).toBe("blocked");
+    expect(readiness.canDeploy).toBe(false);
   });
 });
 

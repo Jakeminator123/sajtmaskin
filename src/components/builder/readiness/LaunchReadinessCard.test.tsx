@@ -145,39 +145,34 @@ describe("LaunchReadinessCard", () => {
     expect(screen.queryByText("Koden går inte att bygga än — vi försöker reparera.")).toBeNull();
   });
 
-  it("visar Product Postcheck-fynd i den befintliga rekommendationsytan", () => {
+  it("visar spärrande Product Postcheck-fynd i den befintliga spärr-ytan (B1)", () => {
+    const projectionBlocker = {
+      id: "product-postcheck-preview_boot_page",
+      title: "Preview-host visar fortfarande start-/omstartssidan — sajten är inte ready än.",
+      detail: "product_postcheck.preview_boot_page",
+      severity: "blocker" as const,
+      category: "blocker" as const,
+      action: "preview" as const,
+    };
     const readiness = buildChatReadiness({
-      warnings: [
-        {
-          id: "product-postcheck-blocks-f3",
-          title: "Bygg integrationer är spärrat.",
-          detail: "Mobilmeny kunde inte verifieras.",
-          severity: "warning",
-          category: "advisory",
-          action: "preview",
-        },
-        {
-          id: "product-postcheck-mobile_menu_failed",
-          title: "Mobilmeny kunde inte verifieras: no toggle found.",
-          severity: "warning",
-          category: "advisory",
-          action: "preview",
-        },
-      ],
+      blockers: [projectionBlocker],
       info: {
         ...emptyInfo,
         productPostcheckBlocksF3: true,
-        productPostcheckBlockedReason: "Mobilmeny kunde inte verifieras.",
+        productPostcheckBlockedReason:
+          "Preview-host visar fortfarande start-/omstartssidan — sajten är inte ready än.",
       },
     });
 
     render(<LaunchReadinessCard readiness={readiness} hasAnyVersion />);
     fireEvent.click(screen.getByRole("button", { name: "Publiceringsstatus" }));
 
-    expect(screen.getByText("Rekommendationer — blockerar inte")).toBeTruthy();
-    expect(screen.getByText("Bygg integrationer är spärrat.")).toBeTruthy();
-    expect(screen.getByText("Mobilmeny kunde inte verifieras: no toggle found.")).toBeTruthy();
-    expect(screen.queryByText("Blockerar publicering")).toBeNull();
+    expect(screen.getByText("Blockerar publicering")).toBeTruthy();
+    expect(
+      screen.getByText("Preview-host visar fortfarande start-/omstartssidan — sajten är inte ready än."),
+    ).toBeTruthy();
+    expect(screen.getByText("product_postcheck.preview_boot_page")).toBeTruthy();
+    expect(screen.queryByText("Bygg integrationer är spärrat.")).toBeNull();
   });
 
   it("visar sen preview:client-error i den befintliga rekommendationsytan", () => {
