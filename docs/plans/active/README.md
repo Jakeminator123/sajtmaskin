@@ -9,8 +9,12 @@ kopiera inte kön hit.
 
 ## Pågående spår
 
-Inga. Frågeflöde- och ruttsanningsspåret levererades 2026-08-14 och ligger som en
-rad i [`../avklarat/README.md`](../avklarat/README.md).
+| Spår | Vad | Styrdokument |
+|---|---|---|
+| Ärlig status | Ta bort tidsgissningar och statusflaggor som påstår mer än de mätt. Bevis: två prod-utredningar 2026-08-14 (mobilgeneration som dog tyst; preview som visade gammal kod) plus `/tmp`-svält som fällde produktkontrollen 0,9 s före runtime-ready. | [`2026-08-15-arlig-status/00-master-plan.md`](2026-08-15-arlig-status/00-master-plan.md) |
+
+Frågeflöde- och ruttsanningsspåret levererades 2026-08-14 och ligger som en rad i
+[`../avklarat/README.md`](../avklarat/README.md).
 
 Välj nästa konkreta defekt, repro, ägarbeslut eller skuld ur
 [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) och skapa först då en

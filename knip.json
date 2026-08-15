@@ -13,7 +13,7 @@
     "logs/**",
     "src/lib/gen/scaffolds/*/files/**",
     "src/lib/sajtmaskin-registry/blocks/**",
-    ".cursor/hooks/**",
+    ".cursor/**",
     "preview-host/**",
     "**/*.config.{ts,js,mjs,cjs}"
   ],
