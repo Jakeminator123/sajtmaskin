@@ -174,6 +174,7 @@ async function askPreviewHostReadiness(params: {
 }): Promise<PreviewHostReadinessVerdict | null> {
   const session = await getActivePreviewSessionAsync(params.chatId);
   const previewSessionId = session?.previewSessionId?.trim() || "";
+  // No session id: nothing to ask. Distinct from a transient fetch miss.
   if (!previewSessionId) return null;
 
   let last: PreviewHostReadinessVerdict | null = null;
@@ -181,13 +182,16 @@ async function askPreviewHostReadiness(params: {
     const verdict = await fetchPreviewHostReadinessVerdict(previewSessionId, {
       expectedVersionId: params.versionId,
     });
-    if (!verdict) return last;
-    last = verdict;
-    if (isHostRuntimeReady(verdict) || verdict.readinessState === "failed") {
-      return verdict;
+    if (verdict) {
+      last = verdict;
+      if (isHostRuntimeReady(verdict) || verdict.readinessState === "failed") {
+        return verdict;
+      }
     }
+    // Transient miss (network / 5xx / host mid-restart) or still starting:
+    // retry until the overall deadline. Do not abort the poll on the first miss.
     const remainingMs = params.deadlineAt - Date.now();
-    if (remainingMs <= 0) return verdict;
+    if (remainingMs <= 0) return last;
     await params.page.waitForTimeout(
       Math.min(PREVIEW_BOOT_RETRY_INTERVAL_MS, remainingMs),
     );

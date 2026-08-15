@@ -638,6 +638,79 @@ describe("runProductPostcheck browser-startpunkt", () => {
     }
   });
 
+  it("försöker igen när första /status-hämtningen misslyckas och tar det lyckade ready-verdiktet", async () => {
+    let nowMs = 1_000;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue(readinessVerdict("ready"));
+    const desktop = fakePage([
+      bootPageProbe,
+      bootPageProbe,
+      { anchors: [], images: [], ctas: [], forms: [] },
+      false,
+    ]);
+    desktop.waitForTimeout.mockImplementation(async (delayMs?: number) => {
+      nowMs += delayMs ?? 0;
+    });
+    const mobile = fakePage([{ status: "not_applicable" }, false]);
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(fetchPreviewHostReadinessVerdictMock).toHaveBeenCalledTimes(2);
+      expect(result.productBlocked).toBe(false);
+      expect(result.skipped).toBe(false);
+      expect(result.warnings.map((w) => w.code)).not.toContain("preview_probe_unreadable");
+      expect(desktop.reload).toHaveBeenCalled();
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
+  it("faller tillbaka på HTML-poll som preview_probe_unreadable när /status misslyckas hela vägen till deadline", async () => {
+    let nowMs = 1_000;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock.mockResolvedValue(null);
+    const desktop = fakePage([bootPageProbe, bootPageProbe]);
+    desktop.waitForTimeout.mockImplementation(async () => {
+      nowMs = 40_000;
+    });
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => desktop),
+      close: vi.fn(async () => {}),
+    });
+
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(fetchPreviewHostReadinessVerdictMock).toHaveBeenCalled();
+      expect(result.productBlocked).toBe(false);
+      expect(result.warnings.map((w) => w.code)).toEqual(["preview_probe_unreadable"]);
+      expect(result.warnings[0]?.message).not.toMatch(
+        /preview-host|Preview-host|startsidan|Startar preview|Fly/i,
+      );
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
   it("skyller inte på preview-hosten när readiness saknas och HTML-poll lämnar en startsida", async () => {
     const desktop = fakePage(Array.from({ length: 20 }, () => bootPageProbe));
     launchCaptureBrowserMock.mockResolvedValue({
