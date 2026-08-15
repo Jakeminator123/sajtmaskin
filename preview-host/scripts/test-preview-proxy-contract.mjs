@@ -18,46 +18,66 @@ const require = createRequire(import.meta.url);
 // injected as self.__next_r, and the HMR client sends that value as `?id=`.
 // `x-nextjs-html-request-id` is a separate debug/document association and is
 // deliberately not sufficient on its own.
-const nextAppRouterHeaders = require("next/dist/client/components/app-router-headers.js");
-assert.equal(nextAppRouterHeaders.NEXT_REQUEST_ID_HEADER, "x-nextjs-request-id");
-assert.equal(nextAppRouterHeaders.NEXT_HTML_REQUEST_ID_HEADER, "x-nextjs-html-request-id");
-const nextAppRenderSource = readFileSync(
-  require.resolve("next/dist/server/app-render/app-render.js"),
-  "utf8",
-);
-assert.match(
-  nextAppRenderSource,
-  /requestId\s*=\s*parsedRequestHeaders\.requestId/,
-  "Next app-render must source requestId from x-nextjs-request-id",
-);
-assert.match(
-  nextAppRenderSource,
-  /self\.__next_r=\$\{JSON\.stringify\(requestId\s*\?\?\s*crypto\.randomUUID\(\)\)\}/,
-  "Next app-render must inject requestId as self.__next_r",
-);
-const nextHmrClientSource = readFileSync(
-  require.resolve("next/dist/client/dev/hot-reloader/app/web-socket.js"),
-  "utf8",
-);
-assert.match(
-  nextHmrClientSource,
-  /_next\/webpack-hmr\?id=\$\{self\.__next_r\}/,
-  "Next HMR must reconnect with self.__next_r as its id query",
-);
-assert.match(
-  nextHmrClientSource,
-  /const requestId = textDecoder\.decode\(/,
-  "Next's debug channel must decode the exact request id carried in each HMR chunk",
-);
-const nextHotReloaderSource = readFileSync(
-  require.resolve("next/dist/client/dev/hot-reloader/app/hot-reloader-app.js"),
-  "utf8",
-);
-assert.match(
-  nextHotReloaderSource,
-  /getOrCreateDebugChannelReadableWriterPair\)\(requestId\)/,
-  "Next's React debug channel must key hydration data by the exact decoded request id",
-);
+function assertInstalledNextViewerContract() {
+  try {
+    require.resolve("next/package.json");
+  } catch (error) {
+    if (error?.code === "MODULE_NOT_FOUND") {
+      // `preview-host-guards` intentionally installs only this standalone
+      // package. Keep the real proxy contract mandatory there, while the
+      // source-level Next compatibility lock runs whenever the root app's
+      // installed Next package is available.
+      console.log("  SKIP  installed Next source contract (standalone preview-host)");
+      return;
+    }
+    throw error;
+  }
+
+  const nextAppRouterHeaders = require(
+    "next/dist/client/components/app-router-headers.js",
+  );
+  assert.equal(nextAppRouterHeaders.NEXT_REQUEST_ID_HEADER, "x-nextjs-request-id");
+  assert.equal(nextAppRouterHeaders.NEXT_HTML_REQUEST_ID_HEADER, "x-nextjs-html-request-id");
+  const nextAppRenderSource = readFileSync(
+    require.resolve("next/dist/server/app-render/app-render.js"),
+    "utf8",
+  );
+  assert.match(
+    nextAppRenderSource,
+    /requestId\s*=\s*parsedRequestHeaders\.requestId/,
+    "Next app-render must source requestId from x-nextjs-request-id",
+  );
+  assert.match(
+    nextAppRenderSource,
+    /self\.__next_r=\$\{JSON\.stringify\(requestId\s*\?\?\s*crypto\.randomUUID\(\)\)\}/,
+    "Next app-render must inject requestId as self.__next_r",
+  );
+  const nextHmrClientSource = readFileSync(
+    require.resolve("next/dist/client/dev/hot-reloader/app/web-socket.js"),
+    "utf8",
+  );
+  assert.match(
+    nextHmrClientSource,
+    /_next\/webpack-hmr\?id=\$\{self\.__next_r\}/,
+    "Next HMR must reconnect with self.__next_r as its id query",
+  );
+  assert.match(
+    nextHmrClientSource,
+    /const requestId = textDecoder\.decode\(/,
+    "Next's debug channel must decode the exact request id carried in each HMR chunk",
+  );
+  const nextHotReloaderSource = readFileSync(
+    require.resolve("next/dist/client/dev/hot-reloader/app/hot-reloader-app.js"),
+    "utf8",
+  );
+  assert.match(
+    nextHotReloaderSource,
+    /getOrCreateDebugChannelReadableWriterPair\)\(requestId\)/,
+    "Next's React debug channel must key hydration data by the exact decoded request id",
+  );
+}
+
+assertInstalledNextViewerContract();
 
 const dataDir = mkdtempSync(join(tmpdir(), "preview-host-proxy-contract-"));
 process.env.PREVIEW_HOST_DATA_DIR = dataDir;
