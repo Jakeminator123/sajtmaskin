@@ -8,7 +8,7 @@ Fyra små men användarnära lögner/kvarlevor, alla kodverifierade 2026-08-15:
 
 | # | Vad | Var |
 |---|---|---|
-| 1 | Död copy: «Konfigurera via miljövariabler eller **Integrationspanelen**» — panelen är borttagen (2026-07-22) | `src/components/builder/chat/tool-parts.tsx` ~302–305 |
+| 1 | Död copy: «Konfigurera via miljövariabler eller **Integrationspanelen**» — panelen är borttagen (2026-07-22) | `src/components/builder/chat/tooling/tool-parts.tsx` ~302–305 |
 | 2 | «**Deep brief: på**» visas i Model info även på follow-ups där ingen Deep Brief körs (`promptAssistDeep` ekas oavsett) | `useSendMessage.ts` ~413–415, `helpers-model-info.ts` |
 | 3 | Knappen «**Spara och aktivera**» aktiverar inget i F2 — den sparar nyckeln och startar om previewn | `DossiersPopoverView.tsx` ~315 + kvittotexten ~334–337 |
 | 4 | Docs-drift: `vercel-analytics` beskrivs som «klar redan i designläget» medan F2-policyn mutar analytics (`F2_MUTE_POLICY_ONLY_CAPABILITIES`) | `docs/contracts/dossier-system.md` ~rad 175 |
