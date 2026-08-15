@@ -28,6 +28,8 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
     typeof payload.outputMs === "number" && Number.isFinite(payload.outputMs)
       ? payload.outputMs
       : null;
+  const waitMs =
+    typeof payload.waitMs === "number" && Number.isFinite(payload.waitMs) ? payload.waitMs : null;
   const errorCount =
     typeof payload.errorCount === "number" && Number.isFinite(payload.errorCount)
       ? payload.errorCount
@@ -115,10 +117,18 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
     }
     if (phase === "done") {
       const lines = [`Generering klar${doneSuffix}. Startar efterkontroller och slutsteg.`];
-      if (reasoningMs !== null || outputMs !== null) {
-        lines.push(
-          `Faser: reasoning ${formatSeconds(reasoningMs ?? 0)}, output ${formatSeconds(outputMs ?? 0)}.`,
-        );
+      const phaseParts: string[] = [];
+      if (waitMs !== null && waitMs > 0) {
+        phaseParts.push(`wait ${formatSeconds(waitMs)}`);
+      }
+      if (reasoningMs !== null && reasoningMs > 0) {
+        phaseParts.push(`reasoning ${formatSeconds(reasoningMs)}`);
+      }
+      if (outputMs !== null && outputMs > 0) {
+        phaseParts.push(`output ${formatSeconds(outputMs)}`);
+      }
+      if (phaseParts.length > 0) {
+        lines.push(`Faser: ${phaseParts.join(", ")}.`);
       }
       return lines;
     }

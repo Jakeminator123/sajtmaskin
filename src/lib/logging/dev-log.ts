@@ -231,6 +231,9 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
     case "stream.summary":
       if (readString(entry, "model")) details.push(`model=${readString(entry, "model")}`);
       if (readNumber(entry, "durationMs") !== null) details.push(`durationMs=${readNumber(entry, "durationMs")}`);
+      if (readNumber(entry, "waitMs") !== null) details.push(`waitMs=${readNumber(entry, "waitMs")}`);
+      if (readNumber(entry, "reasoningMs") !== null) details.push(`reasoningMs=${readNumber(entry, "reasoningMs")}`);
+      if (readNumber(entry, "outputMs") !== null) details.push(`outputMs=${readNumber(entry, "outputMs")}`);
       if (readNumber(entry, "inputTokens") !== null) details.push(`in=${readNumber(entry, "inputTokens")}`);
       if (readNumber(entry, "outputTokens") !== null) details.push(`out=${readNumber(entry, "outputTokens")}`);
       break;

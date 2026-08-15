@@ -97,7 +97,15 @@ Kodankare:
 - `src/lib/gen/scaffold-variants/`
 - `src/lib/gen/dossiers/`
 - `src/lib/gen/preview/preview-prewarm.ts`
+- `src/lib/gen/stream/stream-format.ts` (codegen-SSE; fasmätning `waitMs`/`reasoningMs`/`outputMs`)
 - `config/prompt-core/`
+
+Codegen-SSE delar strömtiden i tre väggklocksfaser som tillsammans är
+`durationMs` i `stream.summary`: **wait** (start → första token), **reasoning**
+(första reasoning-token → första content-token; `0` när strömmen inte
+emitterade reasoning) och **output** (första content-token → slut). Ägaren är
+`computeStreamPhaseTiming` i `stream-format.ts`. Det är inte samma klocka som
+`generation_telemetry.durationMs`.
 
 ## Fas 3 — Finalize, verifiering och preview
 
