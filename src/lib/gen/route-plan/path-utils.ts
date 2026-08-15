@@ -39,3 +39,27 @@ export function extractAppRoutePathsFromFilePaths(filePaths: string[]): string[]
   }
   return Array.from(routes);
 }
+
+/**
+ * Route-plan depth (ägarbeslut 2026-08-14). Only level 1 and 2 count
+ * against the per-round page ceiling; level 3 is owned by the scaffold
+ * `routeContract` (dynamic templates), not by the cap.
+ *
+ * - Level 1: `/`
+ * - Level 2: one static segment (`/om-oss`, `/kontakt`, `/projekt`)
+ * - Level 3: deeper or dynamic (`/blog/[slug]`, `/product/[id]`)
+ */
+export function getRoutePlanDepth(path: string): 1 | 2 | 3 {
+  const normalized = normalizeRoutePath(path);
+  if (normalized === "/") return 1;
+  const segments = normalized.split("/").filter(Boolean);
+  const dynamic = segments.some(
+    (segment) => segment.startsWith("[") && segment.endsWith("]"),
+  );
+  if (segments.length >= 2 || dynamic) return 3;
+  return 2;
+}
+
+export function countsTowardPageCeiling(path: string): boolean {
+  return getRoutePlanDepth(path) <= 2;
+}
