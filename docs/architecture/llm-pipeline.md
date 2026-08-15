@@ -285,10 +285,11 @@ ReleaseGate på servern via `buildReleaseGateBlocker` → `resolveDeployReleaseG
 `canDeploy` följer deploy-routens gate i stället för att gissa. Env-kravet är
 stage-beroende: F3 blockerar på `buildBlockingKeys`, F2 på `missingEnvKeys`
 (`src/app/api/v0/deployments/route.ts`). CapabilitySmoke-fynd
-(`product_postcheck.*`) syns som advisory-warnings och kan sätta
-`info.productPostcheckBlocksF3`; de ändrar inte `canDeploy` och stoppar inte
-promotion. Sena `preview:client-error` (error-log `created_at` strikt efter
-versionens `promoted_at`) syns som samma sorts advisory-warning. Fel före
+(`product_postcheck.*`) som sätter `productBlocked` gör readiness röd
+(`status: "blocked"`, B1) och sätter `info.productPostcheckBlocksF3`; de
+ändrar inte `canDeploy` och stoppar inte promotion.
+`preview_probe_unreadable` förblir advisory. Sena `preview:client-error` (error-log `created_at` strikt efter
+versionens `promoted_at`) syns som advisory-warning. Fel före
 promotion eller utan `promoted_at` förblir diagnostik och sänker inte
 `canDeploy`.
 

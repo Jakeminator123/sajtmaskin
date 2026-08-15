@@ -76,15 +76,16 @@ export type ChatReadinessInfo = {
    */
   hasRealBuildIntegrations?: boolean;
   /**
-   * Newest `product_postcheck.summary` has `productBlocked: true`.
-   * Does **not** affect `canDeploy` or promotion — only the F3 gate reads the
-   * same summary row. Surfaced so readiness never says "ready" while that
-   * gate is closed.
+   * Newest `product_postcheck.summary` has `productBlocked: true` from a
+   * finding that actually gates (B1). Paints readiness `status: "blocked"`.
+   * Does **not** affect `canDeploy` or promotion — those gates still ignore
+   * `productBlocked` by a separate owner decision.
    */
   productPostcheckBlocksF3?: boolean;
   /**
-   * Plain-language why Bygg integrationer is gated, when `productPostcheckBlocksF3`.
-   * Titles of findings that actually set `productBlocked` only — not advisory codes.
+   * Plain-language why readiness is red / Bygg integrationer is gated, when
+   * `productPostcheckBlocksF3`. Titles of findings that actually set
+   * `productBlocked` only — not advisory codes such as `preview_probe_unreadable`.
    */
   productPostcheckBlockedReason?: string | null;
 };
@@ -97,6 +98,14 @@ export type ChatReadiness = {
   info: ChatReadinessInfo;
 };
 
+/**
+ * Product-postcheck items paint readiness red (B1) but must not flip
+ * `canDeploy`. Deploy/promote still ignore `productBlocked`.
+ */
+function isProductPostcheckReadinessItem(item: ChatReadinessItem): boolean {
+  return item.id.startsWith("product-postcheck-");
+}
+
 export function buildChatReadiness(params: {
   blockers?: ChatReadinessItem[];
   warnings?: ChatReadinessItem[];
@@ -104,10 +113,11 @@ export function buildChatReadiness(params: {
 }): ChatReadiness {
   const blockers = params.blockers ?? [];
   const warnings = params.warnings ?? [];
+  const deployBlockers = blockers.filter((item) => !isProductPostcheckReadinessItem(item));
 
   return {
     status: blockers.length > 0 ? "blocked" : warnings.length > 0 ? "warning" : "ready",
-    canDeploy: blockers.length === 0,
+    canDeploy: deployBlockers.length === 0,
     blockers,
     warnings,
     info: params.info,
@@ -128,6 +138,8 @@ export type ProductPostcheckReadinessLog = {
 
 export type ProductPostcheckReadinessProjection = {
   warnings: ChatReadinessItem[];
+  /** Gating findings when the newest summary is `productBlocked` (B1). */
+  blockers: ChatReadinessItem[];
   blocksF3: boolean;
   blockedReason: string | null;
 };
@@ -196,13 +208,22 @@ type ProjectedFinding = {
  * purpose: that module pulls Playwright and must not enter the client bundle
  * that imports this file. One broken_anchor is advisory; two or more gate F3.
  * `preview_probe_unreadable` is intentionally absent — an empty/failed probe
- * does not prove the host is still on its start page and must not gate F3.
+ * does not prove the host is still on its start page and must not paint
+ * readiness red (B1) or gate F3.
  */
 const F3_ALWAYS_BLOCKING_CODES = new Set([
   "mobile_menu_failed",
   "runtime_crash",
   "preview_boot_page",
 ]);
+const PREVIEW_PROBE_UNREADABLE_CODE = "preview_probe_unreadable";
+
+const EMPTY_PRODUCT_POSTCHECK_PROJECTION: ProductPostcheckReadinessProjection = {
+  warnings: [],
+  blockers: [],
+  blocksF3: false,
+  blockedReason: null,
+};
 
 function findingsThatGateF3(findings: readonly ProjectedFinding[]): ProjectedFinding[] {
   const brokenAnchorCount = findings.filter((row) => row.code === "broken_anchor").length;
@@ -223,11 +244,26 @@ function blockedReasonFromFindings(findings: readonly ProjectedFinding[]): strin
   return titles.join(" ");
 }
 
+function toBlockerItem(row: ProjectedFinding): ChatReadinessItem {
+  const codeDetail = `${PRODUCT_POSTCHECK_PREFIX}${row.code}`;
+  return {
+    ...row.item,
+    severity: "blocker",
+    category: "blocker",
+    detail: row.item.detail ? `${row.item.detail} · ${codeDetail}` : codeDetail,
+  };
+}
+
 /**
- * Project the newest Product Postcheck run into readiness warnings.
+ * Project the newest Product Postcheck run into the readiness surface (B1).
  *
- * Same "newest summary wins" rule as the F3 gate. Findings are always
- * advisory — never blockers — so `canDeploy` / promotion stay unchanged.
+ * Same "newest summary wins" rule as the F3 gate. Gating findings
+ * (`preview_boot_page`, `runtime_crash`, `mobile_menu_failed`, ≥2
+ * `broken_anchor`) become blockers so status is red and the causing
+ * `product_postcheck.*` code is in the item. Advisory codes stay warnings.
+ * `preview_probe_unreadable` never becomes a blocker — an empty probe is
+ * "we could not see", not "the host is still on its start page".
+ * `canDeploy` / promotion still ignore these items (`buildChatReadiness`).
  * `product_postcheck.skipped` is not a finding.
  */
 export function projectProductPostcheckReadiness(
@@ -235,7 +271,7 @@ export function projectProductPostcheckReadiness(
 ): ProductPostcheckReadinessProjection {
   const newestSummary = pickNewestSummary(logs);
   if (!newestSummary) {
-    return { warnings: [], blocksF3: false, blockedReason: null };
+    return EMPTY_PRODUCT_POSTCHECK_PROJECTION;
   }
 
   const newestMs = createdAtMs(newestSummary);
@@ -270,22 +306,43 @@ export function projectProductPostcheckReadiness(
   }
 
   const newestMeta = readMeta(newestSummary.meta);
-  const blocksF3 = newestMeta?.productBlocked === true;
-  const warnings = findings.map((row) => row.item);
-  let blockedReason: string | null = null;
-  if (blocksF3) {
-    blockedReason = blockedReasonFromFindings(findingsThatGateF3(findings));
-    warnings.unshift({
-      id: "product-postcheck-blocks-f3",
-      title: "Bygg integrationer är spärrat.",
-      detail: blockedReason,
-      severity: "warning",
-      category: "advisory",
-      action: "preview",
-    });
+  const productBlocked = newestMeta?.productBlocked === true;
+  const gating = findingsThatGateF3(findings);
+  const unreadableOnly =
+    findings.length > 0 &&
+    findings.every((row) => row.code === PREVIEW_PROBE_UNREADABLE_CODE);
+  // Defense for a buggy summary that marks unreadable as productBlocked:
+  // that code must not paint readiness red (#1002 / B1).
+  const blocksF3 = productBlocked && !unreadableOnly;
+  if (!blocksF3) {
+    return {
+      warnings: findings.map((row) => row.item),
+      blockers: [],
+      blocksF3: false,
+      blockedReason: null,
+    };
   }
 
-  return { warnings, blocksF3, blockedReason };
+  const blockedReason = blockedReasonFromFindings(gating);
+  const gatingIds = new Set(gating.map((row) => row.item.id));
+  const blockers =
+    gating.length > 0
+      ? gating.map(toBlockerItem)
+      : [
+          {
+            id: "product-postcheck-blocks-f3",
+            title: blockedReason,
+            detail: PRODUCT_POSTCHECK_SUMMARY,
+            severity: "blocker" as const,
+            category: "blocker" as const,
+            action: "preview" as const,
+          },
+        ];
+  const warnings = findings
+    .filter((row) => !gatingIds.has(row.item.id))
+    .map((row) => row.item);
+
+  return { warnings, blockers, blocksF3, blockedReason };
 }
 
 /**
