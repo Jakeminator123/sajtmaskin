@@ -9,7 +9,12 @@ kopiera inte kön hit.
 
 ## Pågående spår
 
-Inga. Frågeflöde- och ruttsanningsspåret levererades 2026-08-14 och ligger som en
+- [Dossier-/Byggblock-sanering och UX](2026-08-15-dossier-ux-sanering/00-master-plan.md)
+  — buggar (providerval, F3-auktoritet, env-fallback, markers), en-yta-
+  konsolidering, panel-lyft, strukturerad materialisering, F2/F3-utfasning
+  (startad 2026-08-15).
+
+Frågeflöde- och ruttsanningsspåret levererades 2026-08-14 och ligger som en
 rad i [`../avklarat/README.md`](../avklarat/README.md).
 
 Välj nästa konkreta defekt, repro, ägarbeslut eller skuld ur
