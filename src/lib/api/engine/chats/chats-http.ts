@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAppProjectByIdForRequest } from "@/lib/tenant";
 import { listChatsByProject } from "@/lib/db/chat-repository-pg";
-import {
-  buildSyncCreateChatPayload,
-  parseSseEvents,
-} from "@/lib/api/engine/chats/sync-create-from-sse";
-import { handleCreateChatStreamPost } from "@/lib/api/engine/chats/create-chat-stream-post";
 
 export async function handleEngineChatsGet(req: Request): Promise<Response> {
   try {
@@ -29,22 +24,21 @@ export async function handleEngineChatsGet(req: Request): Promise<Response> {
 }
 
 /**
- * Sync JSON create — same own-engine pipeline as `POST .../stream`, consuming the SSE transcript server-side.
+ * `POST /api/engine/chats` is not a codegen path.
+ *
+ * New-chat codegen is `POST /api/engine/chats/stream` (`maxDuration = 950`).
+ * The previous sync handler ran that same pipeline without a duration budget,
+ * so Vercel killed it with 504 after the platform default (~30s) while a
+ * real generation takes 47–405s. This handler exists so a leftover caller
+ * gets a fast, honest 405 instead of a second billed job that cannot finish.
  */
-export async function handleEngineChatsPostSync(req: Request): Promise<Response> {
-  const streamResponse = await handleCreateChatStreamPost(req);
-  const contentType = streamResponse.headers.get("content-type") || "";
-
-  if (!contentType.includes("text/event-stream")) {
-    return streamResponse;
-  }
-
-  const transcript = await streamResponse.text();
-  const result = buildSyncCreateChatPayload(parseSseEvents(transcript));
-  const response = NextResponse.json(result.body, { status: result.status });
-  const setCookie = streamResponse.headers.get("Set-Cookie");
-  if (setCookie) {
-    response.headers.set("Set-Cookie", setCookie);
-  }
-  return response;
+export async function handleEngineChatsPostNotCodegen(_req: Request): Promise<Response> {
+  return NextResponse.json(
+    {
+      error:
+        "POST /api/engine/chats is not a codegen path. Use POST /api/engine/chats/stream.",
+      code: "use_streaming_create",
+    },
+    { status: 405, headers: { Allow: "GET" } },
+  );
 }

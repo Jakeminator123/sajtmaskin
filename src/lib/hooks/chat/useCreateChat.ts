@@ -20,6 +20,7 @@ import {
   buildApiErrorMessage,
   buildCreateChatKey,
   clearCreateChatLock,
+  CREATE_CHAT_CONNECTION_BROKEN_MESSAGE,
   getActiveCreateChatLock,
   isAbortLikeError,
   isClientInitiatedAbort,
@@ -662,51 +663,16 @@ export function useCreateChat(
           return true;
         }
 
-        let finalError = error;
-        if (isNetworkError(error) && requestBody) {
-          const fallbackController = new AbortController();
-          try {
-            const fallbackRes = await fetch(ENGINE_CHATS_API_PREFIX, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(requestBody),
-              signal: fallbackController.signal,
-            });
-            if (!fallbackRes.ok) {
-              let errorData: Record<string, unknown> | null = null;
-              try {
-                errorData = (await fallbackRes.json()) as Record<string, unknown>;
-              } catch {
-                // ignore
-              }
-              throw new Error(
-                buildApiErrorMessage({
-                  response: fallbackRes,
-                  errorData,
-                  fallbackMessage: "Failed to create chat",
-                }),
-              );
-            }
-            const data = await fallbackRes.json();
-            const fallbackResult = await handleNonStreamingCreate(data);
-            // Lyckad skapning via fallback — samma konsumtion som happy path.
-            if (pendingBriefRef?.current) {
-              pendingBriefRef.current = null;
-            }
-            if (fallbackResult.versionId) {
-              resetInitBuildChoices();
-            }
-            return true;
-          } catch (fallbackErr) {
-            if (isClientInitiatedAbort(fallbackErr, fallbackController)) {
-              debugLog("AI", "Create chat fallback aborted by client");
-              return true;
-            }
-            finalError = fallbackErr;
-          }
+        const message = isNetworkError(error)
+          ? CREATE_CHAT_CONNECTION_BROKEN_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "Failed to create chat";
+        if (isNetworkError(error)) {
+          debugLog("AI", "Create chat stream disconnected; not retrying via non-streaming POST");
+        } else {
+          console.error("Error creating chat:", error);
         }
-        console.error("Error creating chat:", finalError);
-        const message = finalError instanceof Error ? finalError.message : "Failed to create chat";
         toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>

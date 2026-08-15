@@ -39,6 +39,7 @@ export {
 
 export {
   buildApiErrorMessage,
+  CREATE_CHAT_CONNECTION_BROKEN_MESSAGE,
   isNetworkError,
   isAbortLikeError,
   isClientInitiatedAbort,

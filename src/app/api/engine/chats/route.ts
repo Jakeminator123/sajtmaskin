@@ -1,4 +1,8 @@
-import { handleEngineChatsGet, handleEngineChatsPostSync } from "@/lib/api/engine/chats/chats-http";
+import {
+  handleEngineChatsGet,
+  handleEngineChatsPostNotCodegen,
+} from "@/lib/api/engine/chats/chats-http";
 
 export const GET = handleEngineChatsGet;
-export const POST = handleEngineChatsPostSync;
+/** Listing only. Codegen is POST /api/engine/chats/stream (`maxDuration = 950`). */
+export const POST = handleEngineChatsPostNotCodegen;
