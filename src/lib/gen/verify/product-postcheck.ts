@@ -151,9 +151,13 @@ async function readPageProbe(page: Page): Promise<PreviewHostBootPageProbe | nul
 }
 
 function isHostRuntimeReady(verdict: PreviewHostReadinessVerdict): boolean {
-  if (verdict.httpReady) return true;
+  // `httpReady` is the host traffic gate (`publicRunning && ready`). An
+  // explicit `false` means the runtime is not accepting traffic — never
+  // override that with `readinessState === "ready"` (false-green).
+  if (verdict.httpReady === false) return false;
+  if (verdict.httpReady === true) return true;
+  // Host omitted `httpReady` (older deploy). Fall back to the fields it did send.
   if (verdict.readinessState === "ready") return true;
-  // Older host omitted readinessState — `running` was the contract.
   return verdict.readinessState === null && verdict.running;
 }
 
@@ -851,8 +855,12 @@ export async function runProductPostcheck(params: {
         deadlineAt: startedAt + timeoutMs,
       });
       if (readiness) {
+        // Re-read after the status wait: `firstProbe` is stale once Chromium
+        // has sat through a multi-second poll (empty → boot page is the
+        // 2026-08-14 case). Keep `firstProbe` only for the live fast-path above.
+        const freshProbe = await readPageProbe(page);
         readinessDecision = decidePreviewReadiness({
-          probe: firstProbe,
+          probe: freshProbe,
           readiness,
         });
         if (readinessDecision.action === "continue" && isHostRuntimeReady(readiness)) {
