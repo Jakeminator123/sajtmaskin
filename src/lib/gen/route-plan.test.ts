@@ -826,6 +826,8 @@ describe("detectExplicitPageCount", () => {
     ["just on one page", 1],
     ["all on one page", 1],
     ["only on one page", 1],
+    ["Put everything only on one page", 1],
+    ["Lägg allt bara på en sida", 1],
   ] as const)("detects restrictive one-page phrasing: %s", (prompt, expected) => {
     expect(detectExplicitPageCount(prompt)).toBe(expected);
   });
@@ -872,6 +874,13 @@ describe("detectExplicitPageCount", () => {
     ["Only one page; the one page should have a footer", 1],
     ["Bara en sida; den enda sidan ska ha en footer", 1],
     ["Only one page, a landing page for the product", 1],
+    ["Only one page; it should be a landing page", 1],
+    ["Only one page; it should serve as a landing page", 1],
+    ["Only one page; it must serve as a landing page", 1],
+    ["Only one page; it needs to be a landing page", 1],
+    ["Only one page; make it a landing page", 1],
+    ["Only one page; turn it into a landing page", 1],
+    ["Only one page; it is meant to be a landing page", 1],
     ["Only one page, and on the one page include pricing", 1],
     ["Bara en sida, och på den enda sidan ska priser finnas", 1],
   ] as const)("keeps the one-page cap across anaphora/apposition: %s", (prompt, expected) => {
@@ -902,6 +911,199 @@ describe("detectExplicitPageCount", () => {
     expect(plan.routes).toHaveLength(1);
   });
 
+  it("plans only the root route when a semicolon restates the page copularly", () => {
+    const blogScaffold = getScaffoldById("blog");
+    expect(blogScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      prompt: "Only one page; it should be a landing page",
+      buildIntent: "website",
+      resolvedScaffold: blogScaffold,
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+    expect(plan.routes).toHaveLength(1);
+  });
+
+  it.each([
+    "Put the contact form only on one page.",
+    "Have the contact form only on one page.",
+    "The contact form appears only on one page.",
+    "Contact form appears only on one page.",
+    "Ha kontaktformuläret bara på en sida.",
+    "Kontaktformuläret finns endast på en sida.",
+    "Formuläret ska visas bara på en sida.",
+    "Also, put the contact form only on one page.",
+    "Add pricing and put the contact form only on one page.",
+    "Add pricing and put the contact form on 1 page.",
+    "Lägg till priser och placera kontaktformuläret på 1 sida.",
+  ])("does not turn locative content placement into a site-wide cap: %s", (instruction) => {
+    const prompt = `Pages: Home, Pricing, About. ${instruction}`;
+    expect(detectExplicitPageCount(prompt)).toBeNull();
+    const plan = buildRoutePlan({
+      prompt,
+      buildIntent: "website",
+      resolvedScaffold: null,
+      locale: "en",
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(
+      expect.arrayContaining(["/", "/pricing", "/about"]),
+    );
+    expect(plan.routes.length).toBeGreaterThan(1);
+  });
+
+  it.each([
+    "Put all content on one page",
+    "Put all the content on one page",
+    "Put the whole site on one page",
+    "Put all content on 1 page",
+    "Lägg allt innehåll på 1 sida",
+    "Put all content only on one page",
+    "Put all the content only on one page",
+    "Put the whole site only on one page",
+  ])("keeps global content/site scope as a one-page cap: %s", (prompt) => {
+    expect(detectExplicitPageCount(prompt)).toBe(1);
+    const plan = buildRoutePlan({
+      prompt,
+      buildIntent: "website",
+      resolvedScaffold: getScaffoldById("blog"),
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
+  });
+
+  it.each([
+    "Don't put all content on one page",
+    "Don't put all content on 1 page",
+    "Not everything should be on one page",
+    "All content should not be on one page",
+    "I don't want a 1 page website",
+    "The site should not be 1 page",
+    "Jag vill inte ha 1 sida",
+  ])("never treats negated one-page scope as a cap: %s", (instruction) => {
+    const prompt = `Pages: Home, Pricing, About. ${instruction}`;
+    expect(detectExplicitPageCount(prompt)).toBeNull();
+    const plan = buildRoutePlan({
+      prompt,
+      buildIntent: "website",
+      resolvedScaffold: null,
+      locale: "en",
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(
+      expect.arrayContaining(["/", "/pricing", "/about"]),
+    );
+  });
+
+  it.each([
+    "Do not hide the header, and put all content on one page",
+    "Dölj inte headern, och lägg allt innehåll på en sida",
+    "Do not hide the header but put all content on one page",
+    "Dölj inte headern men lägg allt innehåll på en sida",
+  ])("does not bind unrelated negation across a later global action: %s", (prompt) => {
+    expect(detectExplicitPageCount(prompt)).toBe(1);
+    const plan = buildRoutePlan({
+      prompt,
+      buildIntent: "website",
+      resolvedScaffold: getScaffoldById("blog"),
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
+  });
+
+  it.each([
+    "Have the contact form only on one page. Only one page total.",
+    "Contact form appears only on one page. Everything should be on one page.",
+    "Ha kontaktformuläret bara på en sida. Allt ska vara på en sida.",
+    "Kontaktformuläret finns endast på en sida. Bara en sida totalt.",
+  ])("lets a later explicit global cap win over an earlier locative clause: %s", (prompt) => {
+    expect(detectExplicitPageCount(prompt)).toBe(1);
+    const plan = buildRoutePlan({
+      prompt,
+      buildIntent: "website",
+      resolvedScaffold: getScaffoldById("blog"),
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
+  });
+
+  it.each([
+    "Skapa 1 sida och lägg till kontaktformulär",
+    "Skapa 1 sida och lägg till en hero på sida 1",
+    "Create 1 page and add a footer on page 1",
+    "Create 1 page and add a page title to the header",
+    "Create 1 page and add page transitions",
+    "Create 1 page and do not add another page",
+  ])("keeps a one-page count when add intent targets content: %s", (prompt) => {
+    expect(detectExplicitPageCount(prompt)).toBe(1);
+    const plan = buildRoutePlan({
+      prompt,
+      buildIntent: "website",
+      resolvedScaffold: getScaffoldById("ecommerce"),
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
+  });
+
+  it.each([
+    "Create 1 page and add another page",
+    "Create 1 page and add a page for pricing",
+    "Skapa 1 sida och lägg till en ny sida",
+    "Create 1 page and add one more page",
+    "Skapa 1 sida och lägg till ytterligare en sida",
+    "Skapa 1 sida och lägg till en sida till",
+  ])("lets positive add-page intent veto an earlier one-page count: %s", (prompt) => {
+    expect(detectExplicitPageCount(prompt)).toBeNull();
+  });
+
+  it.each([
+    ["1 page. Actually 3 pages.", 3],
+    ["3 pages. Actually only one page.", 1],
+    ["1 sida. Egentligen 3 sidor.", 3],
+    ["3 sidor. Egentligen bara en sida.", 1],
+  ] as const)("uses the final explicit page-count correction: %s", (prompt, expected) => {
+    expect(detectExplicitPageCount(prompt)).toBe(expected);
+  });
+
+  it.each([
+    ["Create 1 page, actually create 3 pages", 3],
+    ["Create 3 pages, actually create 2 pages", 2],
+    ["Skapa 1 sida, skapa egentligen 3 sidor", 3],
+    ["Skapa 3 sidor, skapa egentligen 2 sidor", 2],
+  ] as const)("processes every page-count event within one clause: %s", (prompt, expected) => {
+    expect(detectExplicitPageCount(prompt)).toBe(expected);
+  });
+
+  it.each([
+    ["Create 3 pages. Do not create 2 pages", 3],
+    ["Skapa 3 sidor. Skapa inte 2 sidor", 3],
+    ["Create 3 pages. Actually create 2 pages", 2],
+    ["Skapa 3 sidor. Skapa istället 2 sidor", 2],
+  ] as const)("only applies non-negated later page-count events: %s", (prompt, expected) => {
+    expect(detectExplicitPageCount(prompt)).toBe(expected);
+  });
+
+  it.each([
+    "Only one page. Don't add a landing page.",
+    "Only one page. Do not create an about page.",
+  ])("ignores negated named-page additions: %s", (prompt) => {
+    expect(detectExplicitPageCount(prompt)).toBe(1);
+    const plan = buildRoutePlan({
+      prompt,
+      buildIntent: "website",
+      resolvedScaffold: getScaffoldById("blog"),
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(["/"]);
+  });
+
+  it("lets a later negated correction clear an earlier one-page cap", () => {
+    const prompt =
+      "Pages: Home, Pricing, About. Only one page. Actually, do not put everything on one page.";
+    expect(detectExplicitPageCount(prompt)).toBeNull();
+    const plan = buildRoutePlan({
+      prompt,
+      buildIntent: "website",
+      resolvedScaffold: null,
+      locale: "en",
+    });
+    expect(plan.routes.map((route) => route.path)).toEqual(
+      expect.arrayContaining(["/", "/pricing", "/about"]),
+    );
+  });
+
   it.each([
     "En hemsida om tvspel",
     "Jag vill ha en sida med priser och en sida med kontakt",
@@ -922,6 +1124,13 @@ describe("detectExplicitPageCount", () => {
     "only one page for prices and also the one page for contact",
     "only one page for prices and then the one page for contact",
     "contact only on one page and pricing on another",
+    "Only one page; add a landing page",
+    "Only one page; create a landing page",
+    "Only one page; it should include a landing page",
+    "Only one page; it must add a landing page",
+    "Only one page; it needs a landing page",
+    "lägg till en ny sida",
+    "add another page",
     "endast en sida till",
     "bara en sida till",
     "lägg till 1 sida",

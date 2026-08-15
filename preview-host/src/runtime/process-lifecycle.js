@@ -943,8 +943,8 @@ const bootChainByChat = new Map();
 const queuedRestartBootByChat = new Map();
 
 function ensureRuntimeForChat(chatId, options = {}) {
-  const restart = options.restart === true;
-  if (restart) {
+  const requestedRestart = options.restart === true;
+  if (requestedRestart) {
     const queued = queuedRestartBootByChat.get(chatId);
     if (queued) return queued;
   } else {
@@ -955,7 +955,7 @@ function ensureRuntimeForChat(chatId, options = {}) {
   const run = prevTail
     .catch(() => undefined)
     .then(async () => {
-      if (restart && queuedRestartBootByChat.get(chatId) === run) {
+      if (requestedRestart && queuedRestartBootByChat.get(chatId) === run) {
         // The boot is now RUNNING, not queued — a restart request arriving
         // from here on must queue a fresh boot (this one may already have
         // snapshotted pre-update files).
@@ -964,7 +964,18 @@ function ensureRuntimeForChat(chatId, options = {}) {
       const data = readStoreSync();
       const session = findSessionByChatId(data, chatId);
       if (!session) return null;
-      if (restart) {
+      const hadTrackedRuntime = runtimeChildren.has(session.sessionId);
+      const hadAssignedPort =
+        Number.isFinite(Number(session.runtimePort)) && Number(session.runtimePort) > 0;
+      // A host-process restart loses runtimeChildren/inflight state but keeps
+      // the session and assigned port in the store. That is a runtime swap for
+      // any browser document which survived/reconnected, even though callers
+      // correctly ask only to "ensure" the runtime. A genuinely fresh session
+      // has no assigned port and remains a quiet first boot.
+      const recoveringPersistedRuntime =
+        !requestedRestart && !hadTrackedRuntime && hadAssignedPort;
+      const runtimeSwap = requestedRestart || recoveringPersistedRuntime;
+      if (runtimeSwap) {
         // SM-044: stop the old process first so a document reload cannot mix
         // HTML from the dying runtime with JS from the next one, then tell any
         // still-open iframe (HMR stub or reconnect) to reload. Missing filesJson
@@ -977,12 +988,16 @@ function ensureRuntimeForChat(chatId, options = {}) {
           // proxy tears it down with the dying Next process). A tracked child
           // or an assigned runtimePort means this is a swap, not a fresh boot
           // — mark pending so a late registerPreviewSocket still gets reloadPage.
-          const openClient = activePreviewSocketCount(chatId) > 0;
-          const hadTrackedRuntime = runtimeChildren.has(session.sessionId);
-          const hadAssignedPort =
-            Number.isFinite(Number(session.runtimePort)) && Number(session.runtimePort) > 0;
+          const openViewerCount = activePreviewSocketCount(chatId);
+          const openClient = openViewerCount > 0;
           const shouldSignalClient = openClient || hadTrackedRuntime || hadAssignedPort;
-          if (shouldSignalClient) markPendingPreviewClientReload(chatId);
+          if (shouldSignalClient) {
+            // Open a viewer-keyed generation before stopRuntimeForSession can
+            // make proxied sockets disappear. A persisted port is enough for
+            // cold recovery: any surviving viewer that reconnects later is
+            // identified through the iframe URL / WS Referer contract.
+            markPendingPreviewClientReload(chatId);
+          }
           await stopRuntimeForSession(session);
           if (shouldSignalClient) {
             const signaled = requestPreviewClientReload(chatId);
@@ -995,13 +1010,16 @@ function ensureRuntimeForChat(chatId, options = {}) {
           }
         }
       }
-      const result = await bootRunnerForChat(session, options);
+      const result = await bootRunnerForChat(session, {
+        ...options,
+        restart: runtimeSwap,
+      });
       return { session, runtimePort: result.runtimePort };
     });
   const tail = run.catch(() => undefined);
   bootChainByChat.set(chatId, tail);
   inflightBootByChat.set(chatId, run);
-  if (restart) queuedRestartBootByChat.set(chatId, run);
+  if (requestedRestart) queuedRestartBootByChat.set(chatId, run);
   tail.then(() => {
     if (inflightBootByChat.get(chatId) === run) {
       inflightBootByChat.delete(chatId);

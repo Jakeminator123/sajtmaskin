@@ -477,6 +477,46 @@ describe("PreviewPanel", () => {
     expect(onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
 
+  it("adds one stable viewer id only to the embedded tier-2 URL", async () => {
+    const canonicalUrl = "https://vm-test.fly.dev/chat_1";
+    const view = renderPreviewPanel({
+      previewUrl: canonicalUrl,
+      activePreviewSessionId: "ps_1",
+      previewLifecycle: "live",
+      refreshToken: 1,
+    });
+
+    const iframe = (await screen.findByTitle("Preview")) as HTMLIFrameElement;
+    let firstViewerId = "";
+    await waitFor(() => {
+      const embedded = new URL(iframe.getAttribute("src") || "", window.location.origin);
+      firstViewerId = embedded.searchParams.get("__sm_viewer") || "";
+      expect(firstViewerId).toMatch(
+        /^smv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+      expect(embedded.searchParams.get("__sm_refresh")).toBe("1");
+      expect(embedded.searchParams.has("t")).toBe(false);
+    });
+
+    view.rerender(
+      <PreviewPanel
+        {...buildPreviewPanelProps({
+          previewUrl: canonicalUrl,
+          activePreviewSessionId: "ps_1",
+          previewLifecycle: "live",
+          refreshToken: 2,
+        })}
+      />,
+    );
+    await waitFor(() => {
+      const reloaded = new URL(iframe.getAttribute("src") || "", window.location.origin);
+      expect(reloaded.searchParams.get("__sm_refresh")).toBe("2");
+      expect(reloaded.searchParams.get("__sm_viewer")).toBe(firstViewerId);
+    });
+
+    expect(canonicalUrl).not.toContain("__sm_viewer");
+  });
+
   it("suppresses version mismatch overlay when iframe error is visible", () => {
     render(
       <PreviewPanelFrame

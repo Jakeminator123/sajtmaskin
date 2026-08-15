@@ -48,9 +48,13 @@ vi.mock("@/lib/config", async () => {
   };
 });
 
-vi.mock("@/lib/gen/autofix/pipeline", () => ({
-  runAutoFix,
-}));
+vi.mock("@/lib/gen/autofix/pipeline", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/autofix/pipeline")>();
+  return {
+    ...actual,
+    runAutoFix,
+  };
+});
 
 vi.mock("@/lib/gen/autofix/llm-fixer", () => ({
   runLlmFixer,
@@ -192,6 +196,7 @@ vi.mock("@/lib/observability/metrics", () => ({
 import { finalizeAndSaveVersion } from "./finalize-version";
 import { persistOrchestrationSnapshot } from "./finalize-version/persist-side-effects";
 import type { BuildSpec } from "@/lib/gen/build-spec";
+import { parseCodeProject } from "@/lib/gen/parser";
 
 const BASIC_GENERATED_CONTENT =
   '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```';
@@ -375,6 +380,170 @@ describe("finalizeAndSaveVersion", () => {
     failVersionVerification.mockResolvedValue({});
     createEngineVersionErrorLogs.mockResolvedValue([]);
     createGenerationTelemetryRecord.mockResolvedValue({ id: "telemetry_1" });
+  });
+
+  describe("verifier package.json imported-repo detection", () => {
+    const importedPackage = {
+      name: "imported-vite-app",
+      version: "1.0.0",
+      scripts: { dev: "vite", build: "vite build" },
+      dependencies: { vite: "^7.0.0" },
+    };
+    const importedFiles = [
+      {
+        path: "package.json",
+        content: JSON.stringify(importedPackage, null, 2),
+        language: "json",
+      },
+      {
+        path: "src/app/page.tsx",
+        content:
+          "export default function Page() { return <main><h1>Imported project</h1></main>; }",
+        language: "tsx",
+      },
+    ];
+    const importedContent = importedFiles
+      .map((file) => `\`\`\`${file.language} file="${file.path}"\n${file.content}\n\`\`\``)
+      .join("\n\n");
+
+    function mockImportedContentThroughFinalize(): void {
+      runAutoFix.mockResolvedValueOnce({
+        fixedContent: importedContent,
+        fixes: [],
+        warnings: [],
+        dependencies: [],
+      });
+      validateAndFix.mockResolvedValueOnce({
+        content: importedContent,
+        hadErrors: false,
+        fixerUsed: false,
+        fixerImproved: false,
+        errorsBefore: 0,
+        errorsAfter: 0,
+        passes: 1,
+        status: "passed",
+        pipelineError: null,
+        earlyStopReason: null,
+      });
+      parseFilesFromContent.mockReturnValueOnce(JSON.stringify(importedFiles));
+    }
+
+    function verifierPackage(): Record<string, unknown> {
+      const verifierContent = runVerifierPass.mock.calls[0]?.[0] as string;
+      const packageFile = parseCodeProject(verifierContent).files.find(
+        (file) => file.path === "package.json",
+      );
+      expect(packageFile).toBeDefined();
+      return JSON.parse(packageFile!.content) as Record<string, unknown>;
+    }
+
+    it("fails closed on an initial lookup error when later preflight confirms an imported repo", async () => {
+      mockImportedContentThroughFinalize();
+      chatHasImportedRepoVersion
+        .mockRejectedValueOnce(new Error("temporary imported-repo lookup failure"))
+        .mockResolvedValueOnce(true);
+
+      await finalizeAndSaveVersion({
+        accumulatedContent: importedContent,
+        chatId: "chat_imported_lookup_retry",
+        model: "gpt-5.4",
+        buildSpec: baseBuildSpec(),
+        previousFiles: importedFiles,
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(chatHasImportedRepoVersion).toHaveBeenCalledTimes(2);
+      expect(verifierPackage()).toEqual(importedPackage);
+      expect(buildCompleteProject).not.toHaveBeenCalled();
+      expect(devLogAppend).toHaveBeenCalledWith(
+        "in-progress",
+        expect.objectContaining({
+          type: "verifier.package-json.imported-repo-lookup-failed",
+          chatId: "chat_imported_lookup_retry",
+          fallback: "skip-baseline-merge",
+        }),
+      );
+    });
+
+    it("latches an imported decision so a later lookup failure cannot enable baseline mutation", async () => {
+      mockImportedContentThroughFinalize();
+      chatHasImportedRepoVersion
+        .mockResolvedValueOnce(true)
+        .mockRejectedValueOnce(new Error("must not perform a second lookup"));
+
+      await finalizeAndSaveVersion({
+        accumulatedContent: importedContent,
+        chatId: "chat_imported_latched",
+        model: "gpt-5.4",
+        buildSpec: baseBuildSpec(),
+        previousFiles: importedFiles,
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(chatHasImportedRepoVersion).toHaveBeenCalledTimes(1);
+      expect(verifierPackage()).toEqual(importedPackage);
+      expect(buildCompleteProject).not.toHaveBeenCalled();
+    });
+
+    it("keeps an imported manifest verbatim when both detection attempts fail", async () => {
+      mockImportedContentThroughFinalize();
+      chatHasImportedRepoVersion
+        .mockRejectedValueOnce(new Error("verifier lookup failed"))
+        .mockRejectedValueOnce(new Error("preflight retry failed"));
+
+      await finalizeAndSaveVersion({
+        accumulatedContent: importedContent,
+        chatId: "chat_imported_unknown",
+        model: "gpt-5.4",
+        buildSpec: baseBuildSpec(),
+        previousFiles: importedFiles,
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(chatHasImportedRepoVersion).toHaveBeenCalledTimes(2);
+      expect(verifierPackage()).toEqual(importedPackage);
+      expect(buildCompleteProject).not.toHaveBeenCalled();
+      expect(devLogAppend).toHaveBeenCalledWith(
+        "in-progress",
+        expect.objectContaining({
+          type: "preflight.imported-repo-lookup-failed",
+          chatId: "chat_imported_unknown",
+          fallback: "imported-repo-mode",
+        }),
+      );
+    });
+
+    it("keeps the baseline verifier merge when the lookup confirms an own-engine project", async () => {
+      mockImportedContentThroughFinalize();
+      chatHasImportedRepoVersion.mockResolvedValue(false);
+
+      await finalizeAndSaveVersion({
+        accumulatedContent: importedContent,
+        chatId: "chat_own_engine_lookup",
+        model: "gpt-5.4",
+        buildSpec: baseBuildSpec(),
+        previousFiles: importedFiles,
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      const pkg = verifierPackage() as {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+      expect(pkg.dependencies?.next).toBeDefined();
+      expect(pkg.dependencies?.react).toBeDefined();
+      expect(pkg.devDependencies?.tailwindcss).toBeDefined();
+      expect(chatHasImportedRepoVersion).toHaveBeenCalledTimes(1);
+      expect(buildCompleteProject).toHaveBeenCalled();
+    });
   });
 
   it("replaces known dead image URLs before persisting the next version", async () => {

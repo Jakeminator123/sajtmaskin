@@ -7,9 +7,11 @@ import type { F3BuilderStatus } from "@/lib/builder/f3-status";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
   F3_REBUILD_REQUEST_EVENT,
+  VERSION_STATUS_REFRESHED_EVENT,
   describeF3SuccessTitle,
 } from "@/lib/builder/project-env-events";
 import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
+import { projectProductPostcheckReadiness } from "@/lib/chat-readiness";
 
 export interface PreviewPanelF3TriggerProps {
   chatId: string;
@@ -75,19 +77,15 @@ export interface PreviewPanelF3TriggerProps {
 type DiagnosticsResponse = {
   logs?: Array<{
     category?: string | null;
+    message?: string | null;
     meta?: unknown;
+    created_at?: Date | string | null;
   }>;
 };
 
 function hasBlockingProductPostcheck(data: DiagnosticsResponse | null): boolean {
   const logs = Array.isArray(data?.logs) ? data.logs : [];
-  return logs.some((log) => {
-    if (log.category !== "product_postcheck.summary") return false;
-    const meta = log.meta && typeof log.meta === "object"
-      ? (log.meta as Record<string, unknown>)
-      : null;
-    return meta?.productBlocked === true;
-  });
+  return projectProductPostcheckReadiness(logs).blocksF3;
 }
 
 /**
@@ -117,26 +115,37 @@ export function PreviewPanelF3Trigger({
       return;
     }
     let active = true;
-    const controller = new AbortController();
+    let controller: AbortController | null = null;
     const loadProductStatus = async () => {
+      // A completed postcheck may refresh while the mount request is still in
+      // flight. Cancel that older read so it cannot overwrite the newer
+      // summary after the refresh response resolves.
+      controller?.abort();
+      const requestController = new AbortController();
+      controller = requestController;
       try {
         const response = await fetch(
           `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
-          { signal: controller.signal },
+          { signal: requestController.signal },
         );
         const data = (await response.json().catch(() => null)) as DiagnosticsResponse | null;
-        if (active && response.ok) {
+        if (active && controller === requestController && response.ok) {
           setProductBlocked(hasBlockingProductPostcheck(data));
         }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
-        if (active) setProductBlocked(false);
+        if (active && controller === requestController) setProductBlocked(false);
+      } finally {
+        if (controller === requestController) controller = null;
       }
     };
+    const handleVersionStatusRefreshed = () => void loadProductStatus();
     void loadProductStatus();
+    window.addEventListener(VERSION_STATUS_REFRESHED_EVENT, handleVersionStatusRefreshed);
     return () => {
       active = false;
-      controller.abort();
+      controller?.abort();
+      window.removeEventListener(VERSION_STATUS_REFRESHED_EVENT, handleVersionStatusRefreshed);
     };
   }, [chatId, versionId]);
 

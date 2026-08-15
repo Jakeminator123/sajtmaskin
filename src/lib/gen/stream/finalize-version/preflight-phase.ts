@@ -123,6 +123,12 @@ export async function runPreflightPhase(params: {
   removedDossiers?: DossierEntry[];
   repairLedger?: RepairLedger;
   repairScopeId?: string;
+  /**
+   * Imported-repo decision already made for the verifier in this finalize
+   * run. `null` means that lookup failed and preflight may retry once;
+   * booleans are latched so verifier and persistence cannot disagree.
+   */
+  importedRepoModeHint?: boolean | null;
 }): Promise<PreflightPhaseResult> {
   const {
     chatId,
@@ -140,6 +146,7 @@ export async function runPreflightPhase(params: {
     removedDossiers,
     repairLedger,
     repairScopeId,
+    importedRepoModeHint,
   } = params;
   let contentForVersion = params.contentForVersion;
 
@@ -202,10 +209,24 @@ export async function runPreflightPhase(params: {
   // own-engine scaffold contract and would otherwise be false-blocked.
   let importedRepoMode = false;
   if (previousFiles && previousFiles.length > 0) {
-    try {
-      importedRepoMode = await chatRepo.chatHasImportedRepoVersion(chatId);
-    } catch {
-      /* best-effort; default to strict scaffold gates on lookup failure */
+    if (typeof importedRepoModeHint === "boolean") {
+      importedRepoMode = importedRepoModeHint;
+    } else {
+      try {
+        importedRepoMode = await chatRepo.chatHasImportedRepoVersion(chatId);
+      } catch (error) {
+        // Unknown must never authorize own-engine scaffold/baseline mutation.
+        // The verifier already kept the candidate manifest unchanged on the
+        // first lookup failure; preserve that same fail-closed contract when
+        // this single preflight retry also fails.
+        importedRepoMode = true;
+        devLogAppend("in-progress", {
+          type: "preflight.imported-repo-lookup-failed",
+          chatId,
+          fallback: "imported-repo-mode",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   }
 

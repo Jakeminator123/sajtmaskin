@@ -441,6 +441,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               activeVersionSummary={localizeVerificationSummary(
                 activeVersionSummary?.verificationSummary ?? null,
               )}
+              activeVersionPromotedAt={activeVersionSummary?.promotedAt ?? null}
               activeVersionIsLatest={activeVersionIsLatest}
               activeVersionRepairPassIndex={activeVersionBusStatus?.repairPassIndex ?? 0}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}

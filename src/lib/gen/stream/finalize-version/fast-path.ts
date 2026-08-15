@@ -387,12 +387,25 @@ export async function runFinalizeFastPath(params: {
       ...autoFixRisk,
     });
   }
-  let skipBaselinePackageJsonMerge = false;
+  let importedRepoModeHint: boolean | null = null;
   try {
-    skipBaselinePackageJsonMerge = await chatRepo.chatHasImportedRepoVersion(chatId);
-  } catch {
-    skipBaselinePackageJsonMerge = false;
+    importedRepoModeHint = await chatRepo.chatHasImportedRepoVersion(chatId);
+  } catch (error) {
+    // The verifier overlay is display-only, but it must agree with what
+    // preflight will persist. A transient lookup failure can be followed by
+    // a successful imported-repo lookup in phase 4; treating the unknown as
+    // own-engine mode here would then show the verifier baseline Next/React
+    // pins that the imported project will never receive. Fail closed for the
+    // overlay: keeping the candidate manifest unchanged cannot contaminate a
+    // verbatim repo, while later preflight still owns the canonical lookup.
+    devLogAppend("in-progress", {
+      type: "verifier.package-json.imported-repo-lookup-failed",
+      chatId,
+      fallback: "skip-baseline-merge",
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
+  const skipBaselinePackageJsonMerge = importedRepoModeHint !== false;
   const verifierOutcome = await runVerifierPhase({
     enabled: verifierPolicy.run && !verifierSkippedBySafeFixesOnly,
     reason: verifierReason,
@@ -433,6 +446,7 @@ export async function runFinalizeFastPath(params: {
     removedDossiers,
     repairLedger,
     repairScopeId,
+    importedRepoModeHint,
   });
 
   // ── SM-023: post-merge stale-check of the verifier verdict ──────────────
