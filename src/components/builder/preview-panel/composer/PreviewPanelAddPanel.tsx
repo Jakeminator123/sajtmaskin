@@ -5,7 +5,7 @@ import { LayoutGrid, MessageSquareText, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isShadcnDescribeEnabled } from "@/lib/shadcn/describe-feature";
 import type { ShadcnInsertHandler, ShadcnPlacementPicker } from "@/lib/builder/shadcn-insert";
-import { PreviewPanelComposerPalette } from "./PreviewPanelComposer";
+import { PreviewPanelFeaturedBlocks } from "./PreviewPanelFeaturedBlocks";
 import { PreviewPanelBrowseGallery } from "./PreviewPanelBrowseGallery";
 import { PreviewPanelDescribeTab } from "./PreviewPanelDescribeTab";
 
@@ -14,18 +14,20 @@ import { PreviewPanelDescribeTab } from "./PreviewPanelDescribeTab";
  * Composer-paletten NÄR flaggan `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL` är på.
  *
  * Flikar:
- * - **Block**   — dagens 8 Composer-block (drag-and-drop oförändrad).
- * - **Bläddra** — shadcn-registry-galleri; kortval → insättning via
+ * - **Block**   — kuraterade @shadcnblocks-snabbval (own-engine-insättning).
+ * - **Bläddra** — shadcn/ui + Marknadsblock-galleri; kortval → insättning via
  *   `onInsertShadcnItem` (own-engine-lane v1, se `shadcn-insert.ts`).
  * - **Beskriv** — fritext → `/api/shadcn/describe` → rankade kandidatkort →
  *   välj → samma insättnings-lane. Kräver även
  *   `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE` (annars "kommer snart"-platshållare).
  *
  * Flagga av (default) renderar aldrig denna komponent → dagens beteende är
- * byte-för-byte oförändrat (se `PreviewPanel.tsx`-wiringen).
+ * byte-för-byte oförändrat (se `PreviewPanel.tsx`-wiringen). De 8 lokala
+ * JSX-snippetsen i `page-blocks-catalog.ts` lever kvar för den fristående
+ * paletten när flaggan är av.
  *
  * Del av plan: `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md`
- * (Fas 2 v1 + Fas 3).
+ * (Fas 2 v1 + Fas 3) + `docs/plans/active/2026-08-14-block-browse-shadcnblocks.md`.
  */
 
 type AddPanelTab = "block" | "browse" | "describe";
@@ -119,9 +121,10 @@ export function PreviewPanelAddPanel({
       </div>
 
       {activeTab === "block" ? (
-        <PreviewPanelComposerPalette
-          embedded
+        <PreviewPanelFeaturedBlocks
           disabled={disabled}
+          onInsertItem={onInsertShadcnItem}
+          onPickPlacement={onPickPlacement}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />

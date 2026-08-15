@@ -323,6 +323,73 @@ const MAX_NAMED_PAGES_FROM_LIST = 20;
 const MAX_WORDS_AFTER_LIST_CONJUNCTION = 2;
 
 /**
+ * Real page titles that contain `and`/`och` as part of the name, not as a
+ * list separator (SM-040, ägarbeslut 2026-08-14). Keep this small: unknown
+ * conjunctions still split, because dropping a page the user asked for is
+ * worse than creating a nonsense route. Do not add pairs that are two
+ * real pages (`om och kontakt`, `about and contact`).
+ */
+const KNOWN_CONJUNCTION_PAGE_TITLES = [
+  "terms and conditions",
+  "frågor och svar",
+  "privacy and cookies",
+  "cookies and privacy",
+  "privacy and terms",
+  "terms and privacy",
+  "shipping and returns",
+  "returns and refunds",
+  "integritet och cookies",
+  "cookies och integritet",
+] as const;
+
+const KNOWN_CONJUNCTION_TITLE_SET = new Set<string>(KNOWN_CONJUNCTION_PAGE_TITLES);
+
+const KNOWN_CONJUNCTION_TITLE_RE = new RegExp(
+  uWord(
+    [...KNOWN_CONJUNCTION_PAGE_TITLES]
+      .sort((a, b) => b.length - a.length)
+      .map((title) =>
+        title
+          .split(/\s+/)
+          .map((word) => escapeRegexLiteral(word))
+          .join(String.raw`\s+`),
+      )
+      .join("|"),
+  ),
+  "giu",
+);
+
+function isKnownConjunctionTitle(raw: string): boolean {
+  return KNOWN_CONJUNCTION_TITLE_SET.has(raw.trim().replace(/\s+/g, " ").toLowerCase());
+}
+
+function splitPageListOnConjunctions(text: string): string[] {
+  KNOWN_CONJUNCTION_TITLE_RE.lastIndex = 0;
+  const protectedRanges: Array<{ start: number; end: number }> = [];
+  for (const match of text.matchAll(KNOWN_CONJUNCTION_TITLE_RE)) {
+    const start = match.index ?? 0;
+    protectedRanges.push({ start, end: start + match[0].length });
+  }
+  if (protectedRanges.length === 0) {
+    return text.split(PAGE_LIST_CONJ_SPLIT_RE);
+  }
+  const splitRe = new RegExp(PAGE_LIST_CONJ_SPLIT_RE.source, "giu");
+  const parts: string[] = [];
+  let last = 0;
+  for (const match of text.matchAll(splitRe)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    if (protectedRanges.some((range) => start >= range.start && end <= range.end)) {
+      continue;
+    }
+    parts.push(text.slice(last, start));
+    last = end;
+  }
+  parts.push(text.slice(last));
+  return parts;
+}
+
+/**
  * Conjunction tails must be real page titles. Instruction clauses after
  * `och`/`and` (`…och länka den i footern`, `…och gör knapparna gröna`) either
  * hit stop-word truncation or exceed the short-title budget — reject both.
@@ -330,12 +397,24 @@ const MAX_WORDS_AFTER_LIST_CONJUNCTION = 2;
 function acceptConjunctionListItem(raw: string): string | null {
   const stripped = raw.replace(PAGE_LIST_OXFORD_PREFIX_RE, "").trim();
   if (!stripped) return null;
+  if (isKnownConjunctionTitle(stripped)) return stripped.replace(/\s+/g, " ");
   const normalized = stripped.replace(/\s+/g, " ");
   const trimmed = trimBarePageName(normalized);
   if (!trimmed) return null;
   if (trimmed !== normalized) return null;
   if (trimmed.split(/\s+/).length > MAX_WORDS_AFTER_LIST_CONJUNCTION) return null;
   return trimmed;
+}
+
+function acceptLabeledListItem(raw: string, afterConjunction: boolean): string | null {
+  const stripped = raw.replace(PAGE_LIST_OXFORD_PREFIX_RE, "").trim();
+  if (!stripped) return null;
+  if (isKnownConjunctionTitle(stripped)) return stripped.replace(/\s+/g, " ");
+  if (!afterConjunction) {
+    const name = trimBarePageName(stripped);
+    return name || null;
+  }
+  return acceptConjunctionListItem(stripped);
 }
 
 /**
@@ -348,31 +427,25 @@ function acceptConjunctionListItem(raw: string): string | null {
 function consumeLabeledPageList(rawList: string): string[] {
   const items: string[] = [];
   for (const commaPart of rawList.split(/\s*,\s*/)) {
-    const conjParts = commaPart.split(PAGE_LIST_CONJ_SPLIT_RE);
+    const conjParts = splitPageListOnConjunctions(commaPart);
     for (let i = 0; i < conjParts.length; i++) {
-      const stripped = conjParts[i].replace(PAGE_LIST_OXFORD_PREFIX_RE, "").trim();
+      const afterConjunction = i > 0;
+      const stripped = conjParts[i]!.replace(PAGE_LIST_OXFORD_PREFIX_RE, "").trim();
       if (!stripped) continue;
       const punct = stripped.search(/[.;!?]/);
       if (punct >= 0 && stripped.slice(punct + 1).trim().length > 0) {
         const before = stripped.slice(0, punct).trim();
         if (before) {
-          if (i === 0) {
-            const name = trimBarePageName(before);
-            if (name) items.push(name);
-          } else {
-            const name = acceptConjunctionListItem(before);
-            if (name) items.push(name);
-          }
+          const name = acceptLabeledListItem(before, afterConjunction);
+          if (name) items.push(name);
         }
         return items;
       }
-      if (i === 0) {
-        const name = trimBarePageName(stripped);
-        if (name) items.push(name);
+      const name = acceptLabeledListItem(stripped, afterConjunction);
+      if (!name) {
+        if (afterConjunction) return items;
         continue;
       }
-      const name = acceptConjunctionListItem(stripped);
-      if (!name) return items;
       items.push(name);
     }
   }

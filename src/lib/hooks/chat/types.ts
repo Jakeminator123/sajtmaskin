@@ -380,7 +380,7 @@ export type SendMessageRejectionReason =
  * reported by the chat/version status UI, not here.
  */
 export type SendMessageOutcome =
-  | { status: "started"; via: "stream" | "messages_fallback" | "new_chat" }
+  | { status: "started"; via: "stream" | "new_chat" }
   | { status: "settled"; as: "f3_deterministic_release" }
   | {
       status: "rejected";

@@ -93,9 +93,9 @@ export const DEFAULT_INIT_BUILD_CHOICES: InitBuildChoices = {
 /**
  * Max page count the control offers. Deliberately 3 (ägarbeslut 2026-07-31):
  * larger initial builds spread the token budget thin and lower per-page
- * quality. The route plan still uses a per-round ceiling of 3, but keeps
- * pages the user named in the prompt and required scaffold companions;
- * an absolute brake of 8 still caps a long name-list.
+ * quality. The route plan uses a per-round ceiling of 4 level-1/2 pages
+ * (2026-08-14) and keeps pages the user named in the prompt and required
+ * scaffold companions; an absolute brake of 8 still caps a long name-list.
  */
 export const MAX_PAGE_COUNT_CHOICE = 3;
 

@@ -12,20 +12,15 @@ import type {
 } from "./types";
 import {
   appendAttachmentPrompt,
-  appendToolPartToMessage,
   buildApiErrorMessage,
+  CREATE_CHAT_CONNECTION_BROKEN_MESSAGE,
   isAbortLikeError,
   isClientInitiatedAbort,
   isNetworkError,
 } from "./helpers";
-import { runPostGenerationChecks, abortPostChecksForChat } from "./post-checks";
-import { triggerImageMaterialization } from "./post-checks-fetch";
-import { readPreviewPreflight } from "./post-checks-preview";
+import { abortPostChecksForChat } from "./post-checks";
 import { handleSseStream } from "./stream-handlers";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
-import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
-import { normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
 import { dispatchF3Requirements, dispatchF3Status } from "@/lib/builder/project-env-events";
 import {
@@ -142,10 +137,9 @@ export function useSendMessage(
         );
       };
 
-      // 5-2 stale-base gate (client half), delad mellan stream-vägen och
-      // /messages-nätverksfallbacken (backlog PR #355-triage #20): servern har
-      // redan en nyare version än den requesten byggdes mot — visa
-      // reload-UX:en + refresha versionslistan i stället för generiskt fel.
+      // 5-2 stale-base gate (client half): servern har redan en nyare version
+      // än den requesten byggdes mot — visa reload-UX:en + refresha
+      // versionslistan i stället för generiskt fel.
       const handleStaleBaseVersion = (
         status: number,
         errorData: Record<string, unknown> | null,
@@ -219,108 +213,11 @@ export function useSendMessage(
         },
       ]);
 
-      const handleNonStreamingSend = async (data: Record<string, unknown>): Promise<string | null> => {
-        const latestVersion = data?.latestVersion as Record<string, unknown> | undefined;
-        const previewResolved =
-          resolveInboundPreviewUrl(data as { previewUrl?: unknown; demoUrl?: unknown }) ||
-          resolveInboundPreviewUrl(
-            latestVersion as
-              | { previewUrl?: unknown; demoUrl?: unknown }
-              | undefined,
-          );
-        const preflight = readPreviewPreflight(data);
-        const resolvedVersionId =
-          data?.versionId || latestVersion?.id || latestVersion?.versionId || null;
-        if (previewResolved) {
-          const n = normalizePreviewUrl(previewResolved);
-          if (n && !isCompatibilityShimPreviewUrl(n)) {
-            if (applyPreviewHandoff) {
-              applyPreviewHandoff({
-                url: n,
-                versionId: resolvedVersionId ? String(resolvedVersionId) : null,
-              });
-            } else {
-              setCurrentPreviewUrl(n);
-            }
-          }
-        }
-        const responseText =
-          (typeof data?.text === "string" && data.text) ||
-          (typeof data?.message === "string" && data.message) ||
-          null;
-        const awaitingInputPrompt =
-          data?.awaitingInputPrompt && typeof data.awaitingInputPrompt === "object"
-            ? (data.awaitingInputPrompt as Record<string, unknown>)
-            : null;
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessageId
-              ? { ...m, content: (responseText as string) ?? m.content, isStreaming: false }
-              : m,
-          ),
-        );
-        if (data?.awaitingInput === true) {
-          const promptQuestion =
-            (typeof awaitingInputPrompt?.question === "string" &&
-              awaitingInputPrompt.question.trim()) ||
-            (typeof responseText === "string" && responseText.trim()) ||
-            "AI väntar på ditt svar innan nästa steg kan fortsätta.";
-          const promptOptions = Array.isArray(awaitingInputPrompt?.options)
-            ? (awaitingInputPrompt.options as unknown[])
-                .map((option) => (typeof option === "string" ? option.trim() : ""))
-                .filter(Boolean)
-            : [];
-          appendToolPartToMessage(setMessages, assistantMessageId, {
-            type: "tool:awaiting-input",
-            toolName: "Klargörande fråga",
-            toolCallId: `awaiting-input:${assistantMessageId}`,
-            state: "input-available",
-            output: {
-              question: promptQuestion,
-              options: promptOptions.length > 0 ? promptOptions : undefined,
-              kind:
-                typeof awaitingInputPrompt?.kind === "string"
-                  ? awaitingInputPrompt.kind
-                  : "unclear",
-              awaitingInput: true,
-            },
-          });
-        }
-        mutateVersions();
-        onGenerationComplete?.({
-          chatId: chatId || "",
-          versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-          previewUrl: previewResolved ?? undefined,
-        });
-        if (chatId && resolvedVersionId) {
-          void triggerImageMaterialization({
-            chatId: String(chatId),
-            versionId: String(resolvedVersionId),
-            enabled: enableImageMaterialization,
-          });
-        }
-        if (chatId && resolvedVersionId) {
-          void runPostGenerationChecks({
-            chatId: String(chatId),
-            versionId: String(resolvedVersionId),
-            demoUrl: previewResolved ?? null,
-            preflight,
-            assistantMessageId,
-            setMessages,
-            mutateVersions,
-            onAutoFix: (payload) => autoFixHandlerRef.current(payload),
-            onComplete: onVersionStatusRefresh,
-          });
-        }
-        return resolvedVersionId ? String(resolvedVersionId) : null;
-      };
-
       let requestBody: Record<string, unknown> | null = null;
       // Hoisted so the catch block can distinguish between client-initiated
       // aborts (we cancelled this controller) vs server/provider-initiated
       // aborts (controller still un-aborted but `fetch` rejected).
       let streamController: AbortController | null = null;
-      // Hoisted for the /messages fallback path (same Byggval reset rule).
       const isFirstBuildAfterGate = !activeVersionId;
 
       try {
@@ -769,59 +666,16 @@ export function useSendMessage(
           return { status: "aborted", by: "server" };
         }
 
-        let finalError = error;
-        if (isNetworkError(error) && requestBody) {
-          const fallbackController = new AbortController();
-          try {
-            const fallbackRes = await fetch(`${engineChatBaseUrl(chatId)}/messages`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(requestBody),
-              signal: fallbackController.signal,
-            });
-            if (!fallbackRes.ok) {
-              let errorData: Record<string, unknown> | null = null;
-              try {
-                errorData = (await fallbackRes.json()) as Record<string, unknown>;
-              } catch {
-                // ignore
-              }
-              // PR #355-triage #20: fallbacken ska ge samma stale-base-reload-UX
-              // som stream-vägen — inte ett generiskt "Failed to send message".
-              if (handleGenerationLockUnavailable(fallbackRes.status, errorData)) {
-                return { status: "rejected", reason: "generation_lock_unavailable", turnRecorded: false };
-              }
-              if (handleGenerationInProgress(fallbackRes.status, errorData)) {
-                return { status: "rejected", reason: "generation_in_progress", turnRecorded: false };
-              }
-              if (handleStaleBaseVersion(fallbackRes.status, errorData)) {
-                return { status: "rejected", reason: "stale_base_version", turnRecorded: false };
-              }
-              throw new Error(
-                buildApiErrorMessage({
-                  response: fallbackRes,
-                  errorData,
-                  fallbackMessage: "Failed to send message",
-                }),
-              );
-            }
-            const data = await fallbackRes.json();
-            const fallbackVersionId = await handleNonStreamingSend(data);
-            if (isFirstBuildAfterGate && fallbackVersionId) {
-              resetInitBuildChoices();
-            }
-            return { status: "started", via: "messages_fallback" };
-          } catch (fallbackErr) {
-            if (isClientInitiatedAbort(fallbackErr, fallbackController)) {
-              debugLog("AI", "Streaming send fallback aborted by client");
-              return { status: "aborted", by: "client" };
-            }
-            finalError = fallbackErr;
-          }
+        const message = isNetworkError(error)
+          ? CREATE_CHAT_CONNECTION_BROKEN_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "Failed to send message";
+        if (isNetworkError(error)) {
+          debugLog("AI", "Send message stream disconnected; not retrying via non-streaming POST");
+        } else {
+          errorLog("AI", "Error sending streaming message", error);
         }
-        errorLog("AI", "Error sending streaming message", finalError);
-        const message =
-          finalError instanceof Error ? finalError.message : "Failed to send message";
         toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>

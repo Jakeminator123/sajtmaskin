@@ -2,7 +2,7 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import { stripFocusPointAppendix } from "@/lib/builder/focus-point-prompt";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import { dedupePlannedRoutesInPlaceByLocale } from "./locale-dedupe";
-import { normalizeRoutePath } from "./path-utils";
+import { countsTowardPageCeiling, normalizeRoutePath } from "./path-utils";
 import {
   applyPromptPatterns,
   applyScaffoldDefaults,
@@ -19,21 +19,22 @@ import { APP_ROUTE_PATTERNS, WEBSITE_ROUTE_PATTERNS } from "./route-patterns";
 import type { PlannedRoute, RoutePlan, RoutePlanSiteType, RoutePlanSource } from "./route-plan-types";
 
 /**
- * Soft ceiling on how many routes a single generation round may plan.
+ * Soft ceiling on how many level-1/2 routes a single generation round may plan
+ * (ägarbeslut 2026-08-14). Level 3 (deeper or dynamic) does not count.
  *
- * Byggval's slider tops out at the same number, but three other sources could
- * each push past it on their own: prompt text ("5 sidor"), a Deep Brief with up
- * to ten pages, and scaffold defaults. The ceiling therefore lives here, after
- * every source has been merged, rather than in any one of them.
+ * Byggval's slider still tops out at 3 (token-budget/quality, 2026-07-31), but
+ * three other sources could each push past this ceiling on their own: prompt
+ * text ("5 sidor"), a Deep Brief with up to ten pages, and scaffold defaults.
+ * The ceiling therefore lives here, after every source has been merged.
  *
- * Follow-ups measure only NEW routes against it. A site is allowed to grow past
- * three pages across several rounds — it just cannot get there in one.
+ * Follow-ups measure only NEW level-1/2 routes against it. A site may grow
+ * past four such pages across several rounds — it just cannot get there in one.
  *
  * Init rounds may keep pages above this number when the user named them in the
  * prompt or a scaffold requires them; {@link ABSOLUTE_MAX_ROUTES_PER_GENERATION}
  * is the hard stop for that exemption.
  */
-export const MAX_ROUTES_PER_GENERATION = 3;
+export const MAX_ROUTES_PER_GENERATION = 4;
 
 /**
  * Absolute brake on routes per init round, even with named/required exemptions.
@@ -99,6 +100,16 @@ function trimRoutesOverCeiling(
     trimmed += 1;
   }
   return trimmed;
+}
+
+function countCeilingRoutes(
+  routes: PlannedRoute[],
+  predicate: (route: PlannedRoute) => boolean = () => true,
+): number {
+  return routes.reduce((count, route) => {
+    if (!countsTowardPageCeiling(route.path) || !predicate(route)) return count;
+    return count + 1;
+  }, 0);
 }
 
 function inferSiteType(buildIntent: BuildIntent, routeCount: number): RoutePlanSiteType {
@@ -306,7 +317,8 @@ export function buildRoutePlan(params: {
     routes.map((route) => normalizeRoutePath(route.path)),
   );
   const skipScaffoldDefaults =
-    earlyExplicitPageCount !== null && routes.length >= earlyExplicitPageCount;
+    earlyExplicitPageCount !== null &&
+    countCeilingRoutes(routes) >= earlyExplicitPageCount;
   if (!useFollowUpFreeze && !skipScaffoldDefaults) {
     applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
   }
@@ -331,17 +343,31 @@ export function buildRoutePlan(params: {
   // per-round ceiling below trims whatever is still over the stricter of the cap
   // and the ceiling, brief or not.
   let trimmedRouteCount = 0;
-  if (!useFollowUpFreeze && earlyExplicitPageCount !== null && routes.length > earlyExplicitPageCount) {
-    for (let i = routes.length - 1; i >= 0 && routes.length > earlyExplicitPageCount; i -= 1) {
+  if (
+    !useFollowUpFreeze &&
+    earlyExplicitPageCount !== null &&
+    countCeilingRoutes(routes) > earlyExplicitPageCount
+  ) {
+    for (
+      let i = routes.length - 1;
+      i >= 0 && countCeilingRoutes(routes) > earlyExplicitPageCount;
+      i -= 1
+    ) {
       const candidate = routes[i]!;
+      if (!countsTowardPageCeiling(candidate.path)) continue;
       if (candidate.required) continue;
       if (normalizeRoutePath(candidate.path) === "/") continue;
       routes.splice(i, 1);
       trimmedRouteCount += 1;
     }
-    for (let i = routes.length - 1; i >= 0 && routes.length > earlyExplicitPageCount; i -= 1) {
+    for (
+      let i = routes.length - 1;
+      i >= 0 && countCeilingRoutes(routes) > earlyExplicitPageCount;
+      i -= 1
+    ) {
       const candidate = routes[i]!;
       const normalizedPath = normalizeRoutePath(candidate.path);
+      if (!countsTowardPageCeiling(normalizedPath)) continue;
       if (normalizedPath === "/") continue;
       if (briefRoutePaths.has(normalizedPath)) continue;
       routes.splice(i, 1);
@@ -362,11 +388,15 @@ export function buildRoutePlan(params: {
   // five-page brief against "2 sidor" reaches this point with five routes; taking
   // only the ceiling would settle on three and quietly ignore the stricter choice.
   //
+  // Only level-1 and level-2 routes score against the ceiling. Level 3
+  // (deeper or dynamic) is kept and ignored by the score — the scaffold
+  // routeContract owns those templates, not the cap.
+  //
   // Trimming from the end respects the insertion order used above — brief pages,
   // then explicitly named pages, then keyword patterns, then scaffold defaults —
   // so the least user-driven routes go first. Unnamed brief pages are still
   // trimmed at the soft ceiling. Init rounds keep prompt-named pages and required
-  // scaffold companions above 3, then cut at ABSOLUTE_MAX_ROUTES_PER_GENERATION
+  // scaffold companions above 4, then cut at ABSOLUTE_MAX_ROUTES_PER_GENERATION
   // (guessed → brief → named → required). An explicit lower count still wins and
   // cuts required BEFORE named. A route that matches several classes is
   // classified as the match trimmed last in the active order (= most protected),
@@ -392,8 +422,11 @@ export function buildRoutePlan(params: {
   const trimOrder = allowCeilingExemptions
     ? ABSOLUTE_CEILING_TRIM_ORDER
     : EXPLICIT_COUNT_TRIM_ORDER;
-  const classify = (route: PlannedRoute): CeilingTrimClass =>
-    classifyCeilingTrim(
+  const classify = (route: PlannedRoute): CeilingTrimClass => {
+    // Level 3 is not a ceiling class — leave classifyCeilingTrim's
+    // named/required/brief/guessed semantics untouched.
+    if (!countsTowardPageCeiling(route.path)) return "keep";
+    return classifyCeilingTrim(
       route,
       frozenRoutePaths,
       namedPaths,
@@ -402,13 +435,17 @@ export function buildRoutePlan(params: {
       briefRoutePaths,
       trimOrder,
     );
+  };
   const totalScore = (current: PlannedRoute[]): number =>
-    current.filter((route) => !frozenRoutePaths.has(normalizeRoutePath(route.path))).length;
+    countCeilingRoutes(
+      current,
+      (route) => !frozenRoutePaths.has(normalizeRoutePath(route.path)),
+    );
   const softScore = (current: PlannedRoute[]): number =>
-    current.filter((route) => {
+    countCeilingRoutes(current, (route) => {
       const cls = classify(route);
       return cls === "keep" || cls === "brief" || cls === "guessed";
-    }).length;
+    });
   let ceilingTrimmedCount = 0;
   let absoluteCeilingApplied = false;
   if (useFollowUpFreeze) {
@@ -417,13 +454,15 @@ export function buildRoutePlan(params: {
       const normalizedPath = normalizeRoutePath(routes[i]!.path);
       if (normalizedPath === "/") continue;
       if (frozenRoutePaths.has(normalizedPath)) continue;
+      if (!countsTowardPageCeiling(normalizedPath)) continue;
       routes.splice(i, 1);
       newRouteCount -= 1;
       ceilingTrimmedCount += 1;
     }
   } else if (allowCeilingExemptions) {
-    // Soft cap counts home + unnamed brief + keyword guesses. Named pages and
-    // required scaffold companions may sit above 3 until the absolute brake.
+    // Soft cap counts home + unnamed brief + keyword guesses (level 1/2 only).
+    // Named pages and required scaffold companions may sit above 4 until the
+    // absolute brake.
     ceilingTrimmedCount += trimRoutesOverCeiling(
       routes,
       effectiveRouteCeiling,
@@ -438,7 +477,7 @@ export function buildRoutePlan(params: {
       classify,
       softScore,
     );
-    if (routes.length > ABSOLUTE_MAX_ROUTES_PER_GENERATION) {
+    if (totalScore(routes) > ABSOLUTE_MAX_ROUTES_PER_GENERATION) {
       absoluteCeilingApplied = true;
       // Named yields before required here. A scaffold's own files hardcode links
       // to its required routes (ecommerce links /products from header, footer and
@@ -465,9 +504,10 @@ export function buildRoutePlan(params: {
       );
     }
   }
+  const ceilingRouteCount = countCeilingRoutes(routes);
   const retainedAboveSoftCeiling =
-    allowCeilingExemptions && routes.length > MAX_ROUTES_PER_GENERATION
-      ? routes.length - MAX_ROUTES_PER_GENERATION
+    allowCeilingExemptions && ceilingRouteCount > MAX_ROUTES_PER_GENERATION
+      ? ceilingRouteCount - MAX_ROUTES_PER_GENERATION
       : 0;
 
   const sources: RoutePlanSource[] = [];
@@ -481,7 +521,10 @@ export function buildRoutePlan(params: {
       : "prompt";
 
   const explicitPageCount = earlyExplicitPageCount;
-  const explicitPageCountActive = explicitPageCount !== null && explicitPageCount > routes.length && !useFollowUpFreeze;
+  const explicitPageCountActive =
+    explicitPageCount !== null &&
+    explicitPageCount > ceilingRouteCount &&
+    !useFollowUpFreeze;
   const explicitPageCountTrimmed = trimmedRouteCount > 0;
 
   const baseReason = useFollowUpFreeze
@@ -521,8 +564,8 @@ export function buildRoutePlan(params: {
   })();
 
   const effectiveRouteCount = explicitPageCountActive
-    ? Math.max(routes.length, explicitPageCount)
-    : routes.length;
+    ? Math.max(ceilingRouteCount, explicitPageCount)
+    : ceilingRouteCount;
 
   return {
     provenance: { primarySource, sources },

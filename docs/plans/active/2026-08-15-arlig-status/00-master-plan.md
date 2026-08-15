@@ -122,8 +122,22 @@ Orkestratorn rapporterar ungefärlig färdiggrad efter varje batch.
 |---|---|---|---|
 | Förarbete | Fly v55 utrullad, drain-brytare satt, plan skriven | Klar | 15 % |
 | Våg 1 | T12 (#999 → `82349593d`), T1 (#1000 → `82310ba80`), T6 (#1001 → `362e87e12`), T2+T4 (#1002 → `6e27c61c2`) | **Klar** | 45 % |
-| Våg 2a | T5, T7, T8 | Pågår | — |
-| Våg 2b | T9a, T10 | Väntar på 2a (båda rör create-chat-vägen) | — |
+| Våg 2a | T7 (#1003 → `9b7478112`), T8 (#1004 → `0e00df219`), T5 (#1005 → `39c7cec68`) | **Klar** | 75 % |
+| Våg 2b | T9a (#1006 → `3754c0d51`), T10 (#1007 → `0f7a1dc6e`) | **Klar** | 90 % |
+| Våg 2c | T9c (#1008 → `951722ebd`) — samma dömda reservväg för **uppföljningar**. Upptäckt av T9a-agenten, verifierad av orkestratorn: `[chatId]/messages` saknade `maxDuration` medan syskonrutterna har 950. Utan den vore spår 1 bara halvfixat — skapa hade fungerat, redigera inte. | **Klar** | 100 % av planen |
+
+Allt i vågorna 1-2 är mergat. Kvar är bara de tre punkterna i våg 3, som alla
+kräver ägaren.
+
+## Sidospår som orkestratorn tog över (ägarbegäran 2026-08-15)
+
+Två PR:er från andra agenter låg och blockerade. Ägaren bad merge-agenten ta över
+dem så att författaragenterna kunde vila.
+
+| PR | Vad orkestratorn gjorde |
+|---|---|
+| #994 Block/Marknadsblock | Buggpasset hittade att felytan i Block-fliken renderades **i stället för** listan. Eftersom `items` initialiseras med de åtta fröna och aldrig är tom dolde ett hämtningsfel åtta fungerande kort. Fixat genom att lägga felet i den befintliga rubrikytan; testfil som saknades tillagd. Mergad som `72abd4b53`. |
+| #997 sidtak | Konflikten var en modify/delete: `nattbatch-2026-08-14-restlista.md` raderades i master (planarkivering) men ändrades i branchen. Masters avsikt vann — filen var en projektion av data som ägs av `BUG-SWARM-BACKLOG.md`. |
 | Våg 3 | T3, T9b, T11 | Väntar på ägaren | — |
 
 Våg 2 delades i två efter våg 1:s erfarenhet: T9a och T10 rör båda
