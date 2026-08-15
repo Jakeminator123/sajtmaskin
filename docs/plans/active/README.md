@@ -12,7 +12,7 @@ kopiera inte kön hit.
 | Spår | Vad | Styrdokument |
 |---|---|---|
 | Ärlig status | Ta bort tidsgissningar och statusflaggor som påstår mer än de mätt. Bevis: två prod-utredningar 2026-08-14 (mobilgeneration som dog tyst; preview som visade gammal kod) plus `/tmp`-svält som fällde produktkontrollen 0,9 s före runtime-ready. | [`2026-08-15-arlig-status/00-master-plan.md`](2026-08-15-arlig-status/00-master-plan.md) |
-| Block + Bläddra | Block-flik + Marknadsblock via shadcnblocks-index (efter #992 Bearer). Öppen PR #994. | [`2026-08-14-block-browse-shadcnblocks.md`](2026-08-14-block-browse-shadcnblocks.md) |
+| Block + Bläddra | **Levererad** via #994 (`72abd4b53`) — Block-flik + Marknadsblock via shadcnblocks-index. Ligger kvar här tills detaljfilen flyttas till `avklarat/`, vilket kräver att två kodkommentarer som citerar sökvägen uppdateras (`PreviewPanelAddPanel.tsx`, `PreviewPanelBrowseGallery.tsx`). | [`2026-08-14-block-browse-shadcnblocks.md`](2026-08-14-block-browse-shadcnblocks.md) |
 | Dossier-/Byggblock-sanering och UX | Kodverifierade buggar (providerval, F3-promptauktoritet, env-fallback, markers), en nyckel-/statusyta, katalogklick som stage:as med placeringsval, Byggblock-panelens lyft, strukturerad materialisering och F2/F3-begreppsutfasning. | [`2026-08-15-dossier-ux-sanering/00-master-plan.md`](2026-08-15-dossier-ux-sanering/00-master-plan.md) |
 
 Frågeflöde- och ruttsanningsspåret levererades 2026-08-14 och ligger som en rad i

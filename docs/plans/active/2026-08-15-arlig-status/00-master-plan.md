@@ -137,8 +137,8 @@ dem så att författaragenterna kunde vila.
 | PR | Vad orkestratorn gjorde |
 |---|---|
 | #994 Block/Marknadsblock | Buggpasset hittade att felytan i Block-fliken renderades **i stället för** listan. Eftersom `items` initialiseras med de åtta fröna och aldrig är tom dolde ett hämtningsfel åtta fungerande kort. Fixat genom att lägga felet i den befintliga rubrikytan; testfil som saknades tillagd. Mergad som `72abd4b53`. |
-| #997 sidtak | Konflikten var en modify/delete: `nattbatch-2026-08-14-restlista.md` raderades i master (planarkivering) men ändrades i branchen. Masters avsikt vann — filen var en projektion av data som ägs av `BUG-SWARM-BACKLOG.md`. |
-| Våg 3 | T3, T9b, T11 | Väntar på ägaren | — |
+| #997 sidtak | Konflikten var en modify/delete: `nattbatch-2026-08-14-restlista.md` raderades i master (planarkivering) men ändrades i branchen. Masters avsikt vann — filen var en projektion av data som ägs av `BUG-SWARM-BACKLOG.md`. PR:en hade legat 24 h medan elva andra landade, så innehållet omverifierades (208 tester, typecheck, bugbot) innan merge. Ägaren tog bort `agent:needs-human`-spärren uttryckligen. Mergad som `80135a6a4`. |
+| #1009 dossier-plan | Docs-only plan från en tredje agent. Konflikt två gånger i **samma** fil — `docs/plans/active/README.md`, planregistret som båda spåren skriver i. Före merge verifierades att konfliktlösningen bara la till en rad och inte tappade masters egna: diffen var exakt `+1`. Mergad som `7d499fc68`. |
 
 Våg 2 delades i två efter våg 1:s erfarenhet: T9a och T10 rör båda
 `src/lib/api/engine/chats/`, och två PR:er i samma fil tvingar en ombasering av
