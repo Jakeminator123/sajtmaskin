@@ -41,7 +41,21 @@ function officialSelection(overrides: Partial<ShadcnInsertSelection> = {}): Shad
 }
 
 describe("buildShadcnInsertMessage", () => {
-  it("bygger metadata-prompt för community-items utan att hämta registry-kod", async () => {
+  it("hydrerar @shadcnblocks best-effort och bäddar in källkod när item finns", async () => {
+    const communityItem: ShadcnRegistryItem = {
+      name: "hero1",
+      type: "registry:block",
+      description: "En hero-sektion med CTA",
+      registryDependencies: ["button"],
+      files: [
+        {
+          path: "block/hero1/hero1.tsx",
+          content:
+            'import { Button } from "@/components/ui/button"\nexport function Hero1() { return <Button>Go</Button> }\n',
+        },
+      ],
+    };
+    const fetchCommunityItem = vi.fn().mockResolvedValue(communityItem);
     const fetchItem = vi.fn();
     const built = await buildShadcnInsertMessage(
       {
@@ -54,11 +68,32 @@ describe("buildShadcnInsertMessage", () => {
         addCommand: "npx shadcn@latest add @shadcnblocks/hero1",
         origin: "describe",
       },
-      { fetchItem },
+      { fetchItem, fetchCommunityItem },
     );
 
-    // Community-registret har ingen klient-fetchväg — koden hämtas inte.
     expect(fetchItem).not.toHaveBeenCalled();
+    expect(fetchCommunityItem).toHaveBeenCalledWith("@shadcnblocks", "hero1");
+    expect(built.message).toContain("Hero 1");
+    expect(built.message).toContain('from "@/components/ui/button"');
+  });
+
+  it("degraderar @shadcnblocks till metadata-prompt när community-fetch failar", async () => {
+    const fetchCommunityItem = vi.fn().mockResolvedValue(null);
+    const built = await buildShadcnInsertMessage(
+      {
+        name: "hero1",
+        registry: "@shadcnblocks",
+        title: "Hero 1",
+        description: "En hero-sektion med CTA",
+        dependencies: ["framer-motion"],
+        registryDependencies: ["button"],
+        addCommand: "npx shadcn@latest add @shadcnblocks/hero1",
+        origin: "describe",
+      },
+      { fetchCommunityItem },
+    );
+
+    expect(fetchCommunityItem).toHaveBeenCalledWith("@shadcnblocks", "hero1");
     expect(built.meta).toEqual({
       sourceKind: "shadcn-item",
       isTechnical: true,
@@ -68,10 +103,27 @@ describe("buildShadcnInsertMessage", () => {
     expect(built.message).toContain("En hero-sektion med CTA");
     expect(built.message).toContain("framer-motion");
     expect(built.message).toContain("NOT included");
-    // add-kommandot är referens — prompten säger uttryckligen att det aldrig körs.
     expect(built.message).toContain("NEVER run it");
-    // Placement-kuvertet (samma envelope som övriga prompt-sources).
     expect(built.message).toContain("📍 Placering: Längst ner");
+  });
+
+  it("hämtar inte kod för övriga community-namespaces", async () => {
+    const fetchItem = vi.fn();
+    const fetchCommunityItem = vi.fn();
+    const built = await buildShadcnInsertMessage(
+      {
+        name: "marquee",
+        registry: "@magicui",
+        title: "Marquee",
+        description: "Animation",
+        origin: "browse",
+      },
+      { fetchItem, fetchCommunityItem },
+    );
+    expect(fetchItem).not.toHaveBeenCalled();
+    expect(fetchCommunityItem).not.toHaveBeenCalled();
+    expect(built.message).toContain("@magicui/marquee");
+    expect(built.message).toContain("NOT included");
   });
 
   it("hämtar officiell registry-kod och återanvänder block-prompten (imports omskrivna)", async () => {

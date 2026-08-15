@@ -12,6 +12,7 @@ kopiera inte kön hit.
 | Spår | Vad | Styrdokument |
 |---|---|---|
 | Ärlig status | Ta bort tidsgissningar och statusflaggor som påstår mer än de mätt. Bevis: två prod-utredningar 2026-08-14 (mobilgeneration som dog tyst; preview som visade gammal kod) plus `/tmp`-svält som fällde produktkontrollen 0,9 s före runtime-ready. | [`2026-08-15-arlig-status/00-master-plan.md`](2026-08-15-arlig-status/00-master-plan.md) |
+| Block + Bläddra | Block-flik + Marknadsblock via shadcnblocks-index (efter #992 Bearer). Öppen PR #994. | [`2026-08-14-block-browse-shadcnblocks.md`](2026-08-14-block-browse-shadcnblocks.md) |
 
 Frågeflöde- och ruttsanningsspåret levererades 2026-08-14 och ligger som en rad i
 [`../avklarat/README.md`](../avklarat/README.md).

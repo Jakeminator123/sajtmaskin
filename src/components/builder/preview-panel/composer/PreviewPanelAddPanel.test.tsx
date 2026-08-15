@@ -60,13 +60,34 @@ describe("PreviewPanelAddPanel", () => {
     global.fetch = originalFetch;
   });
 
-  it("defaults to the Block tab with the composer blocks (no registry fetch)", () => {
+  it("defaults to the Block tab with curated shadcnblocks (no official registry fetch)", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        namespace: "@shadcnblocks",
+        total: 1,
+        categories: [],
+        items: [
+          {
+            name: "hero1",
+            type: "registry:block",
+            title: "Hero 1 - Split hero",
+            description: "A two-column hero",
+            category: "hero",
+          },
+        ],
+        nextCursor: null,
+      }),
+    }) as unknown as typeof fetch;
+
     render(<PreviewPanelAddPanel />);
 
     expect(screen.getByText("Lägg till i sajten")).toBeTruthy();
-    // Ett av de 8 Composer-blocken syns
-    expect(screen.getByText("Enkel hero")).toBeTruthy();
-    // Bläddra har inte hämtat något förrän fliken öppnas
+    await waitFor(() => screen.getByText(/Hero 1/i));
+    // Lokala JSX-snippets syns inte längre i Add-panelens Block-flik
+    expect(screen.queryByText("Enkel hero")).toBeNull();
+    // Bläddra har inte hämtat officiellt index förrän fliken öppnas
     expect(getBlocksByCategory).not.toHaveBeenCalled();
   });
 

@@ -11,14 +11,22 @@ const STARTED_OUTCOME: SendMessageOutcome = { status: "started", via: "stream" }
 // Mocka bara de async registry-fetcharna; behåll rena funktioner/konstanter
 // (searchBlocks, buildPreviewImageUrl, FEATURED_BLOCKS) äkta så testet täcker
 // den verkliga filtreringslogiken.
-const { getBlocksByCategory, getComponentsByCategory } = vi.hoisted(() => ({
-  getBlocksByCategory: vi.fn(),
-  getComponentsByCategory: vi.fn(),
-}));
+const { getBlocksByCategory, getComponentsByCategory, fetchCommunityIndexPage } = vi.hoisted(
+  () => ({
+    getBlocksByCategory: vi.fn(),
+    getComponentsByCategory: vi.fn(),
+    fetchCommunityIndexPage: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib/shadcn/registry-service", async (importActual) => {
   const actual = await importActual<typeof import("@/lib/shadcn/registry-service")>();
   return { ...actual, getBlocksByCategory, getComponentsByCategory };
+});
+
+vi.mock("@/lib/shadcn/community-registry-client", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/shadcn/community-registry-client")>();
+  return { ...actual, fetchCommunityIndexPage };
 });
 
 const BLOCK_CATEGORIES: ComponentCategory[] = [
@@ -70,6 +78,13 @@ describe("PreviewPanelBrowseGallery", () => {
     vi.clearAllMocks();
     getBlocksByCategory.mockResolvedValue(BLOCK_CATEGORIES);
     getComponentsByCategory.mockResolvedValue([]);
+    fetchCommunityIndexPage.mockResolvedValue({
+      namespace: "@shadcnblocks",
+      total: 0,
+      categories: [],
+      items: [],
+      nextCursor: null,
+    });
   });
 
   it("renders block cards from the registry after loading", async () => {
@@ -114,15 +129,15 @@ describe("PreviewPanelBrowseGallery", () => {
 
     fireEvent.click(screen.getByText("Login 01"));
 
-    // Detaljvyn visar block-namnet + not om att insättning inte är tillgänglig
-    expect(screen.getByText("login-01")).toBeTruthy();
+    // Detaljvyn visar registry/namn + not om att insättning inte är tillgänglig
+    expect(screen.getByText("@shadcn/login-01")).toBeTruthy();
     expect(screen.getByText(/Insättning är inte tillgänglig/i)).toBeTruthy();
 
     // Insättnings-knappen är disabled utan callback och kastar inte
     const insertButton = screen.getByRole("button", { name: /Lägg till i sajten/i });
     expect((insertButton as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(insertButton);
-    expect(screen.getByText("login-01")).toBeTruthy();
+    expect(screen.getByText("@shadcn/login-01")).toBeTruthy();
 
     // Tillbaka återgår till galleriet
     fireEvent.click(screen.getByRole("button", { name: /Tillbaka/i }));
@@ -357,5 +372,144 @@ describe("PreviewPanelBrowseGallery", () => {
 
     await waitFor(() => screen.getByText("Button"));
     expect(getComponentsByCategory).toHaveBeenCalled();
+  });
+
+  it("Marknadsblock-källa stampelar @shadcnblocks och hydrerar via community-index", async () => {
+    fetchCommunityIndexPage.mockResolvedValue({
+      namespace: "@shadcnblocks",
+      total: 1,
+      categories: [{ id: "hero", label: "Hero", count: 1 }],
+      items: [
+        {
+          name: "hero1",
+          type: "registry:block",
+          title: "Hero 1 - Split hero",
+          description: "A two-column hero",
+          category: "hero",
+        },
+      ],
+      nextCursor: null,
+    });
+
+    const onInsertItem = vi.fn().mockResolvedValue(STARTED_OUTCOME);
+    render(<PreviewPanelBrowseGallery onInsertItem={onInsertItem} />);
+    await waitFor(() => screen.getByText("Login 01"));
+
+    fireEvent.click(screen.getByRole("button", { name: /^Marknadsblock$/ }));
+    await waitFor(() => screen.getByText("Hero 1 - Split hero"));
+    expect(fetchCommunityIndexPage).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("Hero 1 - Split hero"));
+    fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));
+
+    await waitFor(() =>
+      expect(onInsertItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "hero1",
+          registry: "@shadcnblocks",
+          title: "Hero 1 - Split hero",
+          origin: "browse",
+          addCommand: "npx shadcn@latest add @shadcnblocks/hero1",
+        }),
+      ),
+    );
+  });
+
+  it("en föråldrad Visa fler nollar inte spinnern för en nyare hämtning", async () => {
+    let resolveStaleLoadMore: (value: unknown) => void = () => {};
+    const heroItem = {
+      name: "hero1",
+      type: "registry:block",
+      title: "Hero 1 - Split hero",
+      description: "A two-column hero",
+      category: "hero",
+    };
+    const pricingItem = {
+      name: "pricing1",
+      type: "registry:block",
+      title: "Pricing 1",
+      description: "Pricing table",
+      category: "pricing",
+    };
+    const categories = [
+      { id: "hero", label: "Hero", count: 2 },
+      { id: "pricing", label: "Prissättning", count: 2 },
+    ];
+
+    fetchCommunityIndexPage.mockImplementation(
+      (query: { cursor?: string | null; category?: string }) => {
+        if (query.cursor && !query.category) {
+          return new Promise((resolve) => {
+            resolveStaleLoadMore = resolve;
+          });
+        }
+        if (!query.cursor && !query.category) {
+          return Promise.resolve({
+            namespace: "@shadcnblocks",
+            total: 4,
+            categories,
+            items: [heroItem],
+            nextCursor: "page-2",
+          });
+        }
+        if (!query.cursor && query.category === "pricing") {
+          return Promise.resolve({
+            namespace: "@shadcnblocks",
+            total: 2,
+            categories,
+            items: [pricingItem],
+            nextCursor: "pricing-2",
+          });
+        }
+        if (query.cursor === "pricing-2") {
+          return new Promise(() => {});
+        }
+        return Promise.resolve({
+          namespace: "@shadcnblocks",
+          total: 0,
+          categories: [],
+          items: [],
+          nextCursor: null,
+        });
+      },
+    );
+
+    render(<PreviewPanelBrowseGallery />);
+    fireEvent.click(screen.getByRole("button", { name: /^Marknadsblock$/ }));
+    await waitFor(() => screen.getByText("Hero 1 - Split hero"));
+
+    fireEvent.click(screen.getByRole("button", { name: /Visa fler/i }));
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: /Visa fler/i }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Prissättning/ }));
+    await waitFor(() => screen.getByText("Pricing 1"));
+    expect(screen.queryByText("Hero 1 - Split hero")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Visa fler/i }));
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: /Visa fler/i }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+    });
+
+    resolveStaleLoadMore({
+      namespace: "@shadcnblocks",
+      total: 4,
+      categories,
+      items: [{ ...heroItem, name: "hero2", title: "Hero 2" }],
+      nextCursor: "page-3",
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Hero 2")).toBeNull();
+    });
+    expect((screen.getByRole("button", { name: /Visa fler/i }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(screen.getByText("Pricing 1")).toBeTruthy();
   });
 });

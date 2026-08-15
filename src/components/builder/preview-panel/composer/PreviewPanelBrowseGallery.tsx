@@ -14,6 +14,11 @@ import {
   type RegistryItemKind,
 } from "@/lib/shadcn/registry-service";
 import {
+  fetchCommunityIndexPage,
+  SHADCNBLOCKS_NAMESPACE,
+} from "@/lib/shadcn/community-registry-client";
+import type { CommunityIndexCategory } from "@/lib/shadcn/community-registry-catalog";
+import {
   OFFICIAL_SHADCN_REGISTRY,
   serializeShadcnDragPayload,
   SHADCN_ITEM_DND_TYPE,
@@ -24,23 +29,17 @@ import {
 import { RegistryItemThumb } from "./RegistryItemThumb";
 
 /**
- * "Bläddra"-galleriet — väcker den vilande shadcn-registry-datan
- * (`CURATED_UI_COLLECTIONS`/`FEATURED_BLOCKS`/`getBlocksByCategory`/
- * `getComponentsByCategory`/`searchBlocks` + thumbnails via `buildPreviewImageUrl`)
- * som en visuell kort-galleriyta i buildern.
+ * "Bläddra"-galleriet — shadcn/ui (PNG-thumbs) + Marknadsblock (@shadcnblocks
+ * via community-index). Insättning går alltid via own-engine-lanen.
  *
  * Del av plan: `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md`
- * (Fas 3 — Bläddra + Fas 2 v1 — insättning).
- *
- * Insättning (Fas 2 v1): kortvalets metadata skickas via `onInsertItem` genom
- * den BEFINTLIGA sendMessage/own-engine-vägen (se `shadcn-insert.ts`) —
- * generering + verify producerar en ny version. Aldrig rå filpatch. Utan
- * callback är detaljvyn read-only (samma som Fas 3). Fetch sker via de
- * befintliga `/api/shadcn/registry`-proxyroutesen (fungerar i prod) och först
- * när denna komponent monteras (dvs. när fliken öppnas). Flagga av = ingen fetch alls.
+ * + `docs/plans/active/2026-08-14-block-browse-shadcnblocks.md`.
  */
 
 type BrowseItemType = RegistryItemKind;
+type BrowseSource = "official" | "shadcnblocks";
+
+type BrowseGalleryItem = ComponentItem & { registry: string };
 
 interface PreviewPanelBrowseGalleryProps {
   disabled?: boolean;
@@ -59,20 +58,41 @@ interface PreviewPanelBrowseGalleryProps {
 }
 
 /** Bygg drag-payloaden för ett galleri-kort (placering räknas ut vid drop). */
-function toBrowseSelection(item: ComponentItem): ShadcnInsertSelection {
+export function toBrowseSelection(item: BrowseGalleryItem): ShadcnInsertSelection {
   return {
     name: item.name,
-    registry: OFFICIAL_SHADCN_REGISTRY,
+    registry: item.registry,
     title: item.title,
     description: item.description || undefined,
     origin: "browse",
+    ...(item.registry !== OFFICIAL_SHADCN_REGISTRY
+      ? { addCommand: `npx shadcn@latest add ${item.registry}/${item.name}` }
+      : {}),
   };
 }
+
+const SOURCE_TABS: { id: BrowseSource; label: string }[] = [
+  { id: "official", label: "shadcn/ui" },
+  { id: "shadcnblocks", label: "Marknadsblock" },
+];
 
 const ITEM_TYPE_TABS: { id: BrowseItemType; label: string }[] = [
   { id: "block", label: "Block" },
   { id: "component", label: "Komponenter" },
 ];
+
+const COMMUNITY_PAGE_SIZE = 24;
+
+function withOfficialRegistry(categories: ComponentCategory[]): ComponentCategory[] {
+  // ComponentItem has no registry field in the official path — stamp at map time.
+  return categories;
+}
+
+function stampOfficialItems(categories: ComponentCategory[]): BrowseGalleryItem[] {
+  return categories.flatMap((category) =>
+    category.items.map((item) => ({ ...item, registry: OFFICIAL_SHADCN_REGISTRY })),
+  );
+}
 
 export function PreviewPanelBrowseGallery({
   disabled = false,
@@ -81,16 +101,41 @@ export function PreviewPanelBrowseGallery({
   onDragStart,
   onDragEnd,
 }: PreviewPanelBrowseGalleryProps) {
+  const [source, setSource] = useState<BrowseSource>("official");
   const [itemType, setItemType] = useState<BrowseItemType>("block");
   const [categories, setCategories] = useState<ComponentCategory[]>([]);
+  const [communityCategories, setCommunityCategories] = useState<CommunityIndexCategory[]>([]);
+  const [communityItems, setCommunityItems] = useState<BrowseGalleryItem[]>([]);
+  const [communityTotal, setCommunityTotal] = useState(0);
+  const [communityCursor, setCommunityCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [selectedItem, setSelectedItem] = useState<ComponentItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<BrowseGalleryItem | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const communityRequestIdRef = useRef(0);
+  const communityFilterRef = useRef({
+    query: "",
+    category: null as string | null,
+    source: "official" as BrowseSource,
+  });
+  communityFilterRef.current = {
+    query: debouncedQuery,
+    category: activeCategory,
+    source,
+  };
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 200);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    if (source !== "official") return;
     let ignore = false;
     /* eslint-disable react-hooks/set-state-in-effect -- enter loading state when itemType/reload changes before the async fetch resolves */
     setLoading(true);
@@ -100,7 +145,9 @@ export function PreviewPanelBrowseGallery({
     fetcher()
       .then((result) => {
         if (ignore) return;
-        setCategories(result);
+        setCategories(withOfficialRegistry(result));
+        setCommunityItems([]);
+        setCommunityCategories([]);
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -112,40 +159,158 @@ export function PreviewPanelBrowseGallery({
     return () => {
       ignore = true;
     };
-  }, [itemType, reloadToken]);
+  }, [source, itemType, reloadToken]);
+
+  useEffect(() => {
+    if (source !== "shadcnblocks") return;
+    let ignore = false;
+    const requestId = ++communityRequestIdRef.current;
+    /* eslint-disable react-hooks/set-state-in-effect -- enter loading state before community index resolves */
+    setLoading(true);
+    setError(null);
+    setLoadMoreError(null);
+    setLoadingMore(false);
+    setCommunityCursor(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    fetchCommunityIndexPage({
+      q: debouncedQuery || undefined,
+      category: activeCategory || undefined,
+      limit: COMMUNITY_PAGE_SIZE,
+    })
+      .then((page) => {
+        if (ignore || requestId !== communityRequestIdRef.current) return;
+        setCommunityCategories(page.categories);
+        setCommunityTotal(page.total);
+        setCommunityCursor(page.nextCursor);
+        setCommunityItems(
+          page.items.map((item) => ({
+            name: item.name,
+            title: item.title,
+            description: item.description,
+            category: item.category,
+            type: "block" as const,
+            registry: SHADCNBLOCKS_NAMESPACE,
+            previewKind: "layout" as const,
+            iconKey: "layout" as const,
+          })),
+        );
+        setCategories([]);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (ignore || requestId !== communityRequestIdRef.current) return;
+        setCommunityItems([]);
+        setCommunityCategories([]);
+        setError(err instanceof Error ? err.message : "Kunde inte hämta marknadsblock.");
+        setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [source, reloadToken, debouncedQuery, activeCategory]);
+
+  const handleSelectSource = useCallback((next: BrowseSource) => {
+    setSource(next);
+    setActiveCategory(null);
+    setSelectedItem(null);
+    setQuery("");
+    setDebouncedQuery("");
+    setCategories([]);
+    setCommunityItems([]);
+    setLoadMoreError(null);
+    setLoading(true);
+  }, []);
 
   const handleSelectItemType = useCallback((next: BrowseItemType) => {
-    // Reset transient view-state in the same tick as the itemType switch
-    // (avoids a separate reset effect / cascading render). Categories, loading
-    // and query are also cleared here so the grid never shows the previous
-    // tab's cards (or filters the new list with a stale search string) during
-    // the frame(s) before the fetch effect runs.
     setItemType(next);
     setActiveCategory(null);
     setSelectedItem(null);
     setCategories([]);
     setLoading(true);
     setQuery("");
+    setDebouncedQuery("");
   }, []);
 
-  const filteredCategories = useMemo(() => {
+  const officialFilteredCategories = useMemo(() => {
     const searched = searchBlocks(categories, query);
     if (!activeCategory) return searched;
     return searched.filter((category) => category.id === activeCategory);
   }, [categories, query, activeCategory]);
 
-  const visibleItems = useMemo(
-    () => filteredCategories.flatMap((category) => category.items),
-    [filteredCategories],
-  );
+  const visibleItems: BrowseGalleryItem[] = useMemo(() => {
+    if (source === "shadcnblocks") return communityItems;
+    return stampOfficialItems(officialFilteredCategories);
+  }, [source, communityItems, officialFilteredCategories]);
 
-  const handleSelectItem = useCallback((item: ComponentItem) => {
+  const handleSelectItem = useCallback((item: BrowseGalleryItem) => {
     setSelectedItem(item);
   }, []);
 
   const handleRetry = useCallback(() => {
     setReloadToken((token) => token + 1);
   }, []);
+
+  const handleLoadMore = useCallback(async () => {
+    if (!communityCursor || loadingMore || source !== "shadcnblocks") return;
+    const requestId = communityRequestIdRef.current;
+    const requestQuery = debouncedQuery;
+    const requestCategory = activeCategory;
+    const requestCursor = communityCursor;
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    try {
+      const page = await fetchCommunityIndexPage({
+        q: requestQuery || undefined,
+        category: requestCategory || undefined,
+        limit: COMMUNITY_PAGE_SIZE,
+        cursor: requestCursor,
+      });
+      // Ignore stale responses after filter/source change or a newer first-page fetch.
+      const current = communityFilterRef.current;
+      if (
+        requestId !== communityRequestIdRef.current ||
+        requestQuery !== current.query ||
+        requestCategory !== current.category ||
+        current.source !== "shadcnblocks"
+      ) {
+        return;
+      }
+      setCommunityCursor(page.nextCursor);
+      setCommunityItems((prev) => [
+        ...prev,
+        ...page.items.map((item) => ({
+          name: item.name,
+          title: item.title,
+          description: item.description,
+          category: item.category,
+          type: "block" as const,
+          registry: SHADCNBLOCKS_NAMESPACE,
+          previewKind: "layout" as const,
+          iconKey: "layout" as const,
+        })),
+      ]);
+    } catch (err: unknown) {
+      if (requestId !== communityRequestIdRef.current) return;
+      // Keep already-loaded cards; show an inline retry under the grid.
+      setLoadMoreError(err instanceof Error ? err.message : "Kunde inte hämta fler block.");
+    } finally {
+      // A superseded request must not clear a newer Visa fler spinner.
+      if (requestId === communityRequestIdRef.current) {
+        setLoadingMore(false);
+      }
+    }
+  }, [activeCategory, communityCursor, debouncedQuery, loadingMore, source]);
+
+  const categoryChips =
+    source === "official"
+      ? categories.map((category) => ({
+          id: category.id,
+          label: `${category.icon} ${category.labelSv}`,
+        }))
+      : communityCategories.map((category) => ({
+          id: category.id,
+          label: `${category.label} (${category.count})`,
+        }));
 
   return (
     <div
@@ -165,27 +330,46 @@ export function PreviewPanelBrowseGallery({
         />
       ) : (
         <>
-          {/* itemType-flikar: driver getBlocksByCategory vs getComponentsByCategory */}
           <div className="flex items-center gap-1 border-b border-violet-900/40 px-2 py-2">
-            {ITEM_TYPE_TABS.map((tab) => (
+            {SOURCE_TABS.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => handleSelectItemType(tab.id)}
+                onClick={() => handleSelectSource(tab.id)}
                 className={cn(
                   "rounded-md px-2 py-1 text-[11px] font-medium transition",
-                  itemType === tab.id
+                  source === tab.id
                     ? "bg-violet-900/45 text-violet-100"
                     : "text-zinc-400 hover:bg-violet-950/40 hover:text-violet-200",
                 )}
-                aria-pressed={itemType === tab.id}
+                aria-pressed={source === tab.id}
               >
                 {tab.label}
               </button>
             ))}
           </div>
 
-          {/* Sökfält → searchBlocks */}
+          {source === "official" ? (
+            <div className="flex items-center gap-1 border-b border-violet-900/40 px-2 py-2">
+              {ITEM_TYPE_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => handleSelectItemType(tab.id)}
+                  className={cn(
+                    "rounded-md px-2 py-1 text-[11px] font-medium transition",
+                    itemType === tab.id
+                      ? "bg-violet-900/45 text-violet-100"
+                      : "text-zinc-400 hover:bg-violet-950/40 hover:text-violet-200",
+                  )}
+                  aria-pressed={itemType === tab.id}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           <div className="border-b border-violet-900/40 px-2 py-2">
             <div className="relative">
               <Search
@@ -196,14 +380,17 @@ export function PreviewPanelBrowseGallery({
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Sök block, t.ex. login, chart, sidebar"
+                placeholder={
+                  source === "official"
+                    ? "Sök block, t.ex. login, chart, sidebar"
+                    : "Sök marknadsblock, t.ex. hero, pricing"
+                }
                 aria-label="Sök i galleriet"
                 className="h-8 w-full rounded-md border border-violet-900/50 bg-black/40 pr-2 pl-7 text-[11px] text-zinc-200 placeholder:text-zinc-600 focus:border-violet-600/60 focus:outline-none"
               />
             </div>
 
-            {/* Featured quick-filter-chips från FEATURED_BLOCKS */}
-            {itemType === "block" ? (
+            {source === "official" && itemType === "block" ? (
               <div className="mt-2 flex flex-wrap gap-1">
                 {FEATURED_BLOCKS.slice(0, 8).map((group) => (
                   <button
@@ -226,18 +413,17 @@ export function PreviewPanelBrowseGallery({
             ) : null}
           </div>
 
-          {/* Kategori-chips */}
-          {!loading && !error && categories.length > 0 ? (
+          {!loading && !error && categoryChips.length > 0 ? (
             <div className="flex flex-wrap gap-1 border-b border-violet-900/30 px-2 py-2">
               <CategoryChip
                 label="Alla"
                 active={activeCategory === null}
                 onClick={() => setActiveCategory(null)}
               />
-              {categories.map((category) => (
+              {categoryChips.map((category) => (
                 <CategoryChip
                   key={category.id}
-                  label={`${category.icon} ${category.labelSv}`}
+                  label={category.label}
                   active={activeCategory === category.id}
                   onClick={() => setActiveCategory(category.id)}
                 />
@@ -268,18 +454,50 @@ export function PreviewPanelBrowseGallery({
                 Inga träffar{query ? ` för “${query}”` : ""}.
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {visibleItems.map((item) => (
-                  <BrowseCard
-                    key={`${item.type}:${item.name}`}
-                    item={item}
-                    onSelect={() => handleSelectItem(item)}
-                    draggable={Boolean(onInsertItem) && !disabled}
-                    onDragStart={onDragStart}
-                    onDragEnd={onDragEnd}
-                  />
-                ))}
-              </div>
+              <>
+                {source === "shadcnblocks" ? (
+                  <p className="mb-2 px-0.5 text-[10px] text-zinc-500">
+                    Visar {visibleItems.length} av {communityTotal}
+                  </p>
+                ) : null}
+                <div className="grid grid-cols-2 gap-2">
+                  {visibleItems.map((item) => (
+                    <BrowseCard
+                      key={`${item.registry}:${item.type}:${item.name}`}
+                      item={item}
+                      onSelect={() => handleSelectItem(item)}
+                      draggable={Boolean(onInsertItem) && !disabled}
+                      onDragStart={onDragStart}
+                      onDragEnd={onDragEnd}
+                    />
+                  ))}
+                </div>
+                {source === "shadcnblocks" && loadMoreError ? (
+                  <div className="mt-3 rounded-md border border-rose-900/50 bg-rose-950/20 px-3 py-2 text-center text-[11px] text-rose-200/90">
+                    <p>{loadMoreError}</p>
+                    <button
+                      type="button"
+                      onClick={() => void handleLoadMore()}
+                      className="mt-2 rounded-md border border-violet-800/60 px-3 py-1 text-violet-200 transition hover:bg-violet-950/40"
+                    >
+                      Försök hämta fler igen
+                    </button>
+                  </div>
+                ) : null}
+                {source === "shadcnblocks" && communityCursor ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleLoadMore()}
+                    disabled={loadingMore}
+                    className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-violet-800/60 px-3 py-2 text-[11px] text-violet-200 transition hover:bg-violet-950/40 disabled:opacity-50"
+                  >
+                    {loadingMore ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                    ) : null}
+                    Visa fler
+                  </button>
+                ) : null}
+              </>
             )}
           </div>
         </>
@@ -314,8 +532,9 @@ function CategoryChip({
   );
 }
 
-/** Thumbnail-URL: block har PNG via `buildPreviewImageUrl`; komponenter saknar bild. */
-function thumbnailUrl(item: ComponentItem): string | null {
+/** Thumbnail-URL: officiella block har PNG; marknadsblock använder ikon-fallback. */
+function thumbnailUrl(item: BrowseGalleryItem): string | null {
+  if (item.registry !== OFFICIAL_SHADCN_REGISTRY) return null;
   if (item.type !== "block") return null;
   return item.lightImageUrl ?? buildPreviewImageUrl(item.name, "light");
 }
@@ -327,7 +546,7 @@ function BrowseCard({
   onDragStart,
   onDragEnd,
 }: {
-  item: ComponentItem;
+  item: BrowseGalleryItem;
   onSelect: () => void;
   draggable?: boolean;
   onDragStart?: () => void;
@@ -381,7 +600,7 @@ function BrowseDetailView({
   onPickPlacement,
   panelDisabled = false,
 }: {
-  item: ComponentItem;
+  item: BrowseGalleryItem;
   onBack: () => void;
   onInsertItem?: ShadcnInsertHandler;
   onPickPlacement?: ShadcnPlacementPicker;
@@ -400,11 +619,6 @@ function BrowseDetailView({
   // stoppar det andra klicket från att trigga en duplicerad generation.
   const insertingRef = useRef(false);
 
-  // Insättnings-lane v1 (Fas 2): kortvalets metadata → (valfritt placeringsläge)
-  // → `shadcn-insert.ts` → BEFINTLIGA sendMessage/own-engine-vägen → generering
-  // + verify → ny version. Aldrig rå filpatch. SEAM (Fas 2 v2, utanför
-  // v1-scope): en deterministisk recipe-lane kan senare ersätta prompt-vägen —
-  // samma `ShadcnInsertSelection` som ingång.
   const handleInsert = useCallback(async () => {
     if (!onInsertItem || insertingRef.current) return;
     insertingRef.current = true;
@@ -412,11 +626,7 @@ function BrowseDetailView({
     setInserted(false);
     try {
       const selection = toBrowseSelection(item);
-      // Klick-väg: samma placeringsfält som drag-and-drop sätter, via befintligt
-      // placeringsläge. null (läget kunde inte visas) → default "Längst ner".
       const picked = onPickPlacement ? await onPickPlacement(selection) : null;
-      // "aborted" = Esc/klick utanför/kontextbyte → ingen insättning alls
-      // (finally återställer knappen).
       if (picked === "aborted") return;
       const outcome = await onInsertItem({
         ...selection,
@@ -428,10 +638,6 @@ function BrowseDetailView({
             }
           : {}),
       });
-      // Markera bara "Skickat" när en generation faktiskt startade. Hanterade
-      // avslag (409 stale base, 412 tier-3-env) resolvar utan kast och visade
-      // förut ändå "Skickat" — utfallskontraktet gör kortet ärligt. Låset
-      // släpps efter 8 s så kortet kan användas igen.
       if (outcome.status !== "started") return;
       setInserted(true);
       window.setTimeout(() => setInserted(false), 8000);
@@ -466,7 +672,9 @@ function BrowseDetailView({
           />
         </div>
         <h3 className="text-sm font-semibold text-violet-100">{item.title}</h3>
-        <p className="mt-0.5 font-mono text-[10px] text-zinc-500">{item.name}</p>
+        <p className="mt-0.5 font-mono text-[10px] text-zinc-500">
+          {`${item.registry}/${item.name}`}
+        </p>
         {item.description ? (
           <p className="mt-2 text-[11px] leading-snug text-zinc-400">{item.description}</p>
         ) : null}
