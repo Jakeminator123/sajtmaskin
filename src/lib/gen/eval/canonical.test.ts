@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   SCAFFOLD_LANE_MIN_KEYWORD_TOP1_PERCENT,
   canonicalExitCode,
@@ -6,13 +6,17 @@ import {
   followupLaneFromResults,
   parseCanonicalEvalArgs,
   resolveCanonicalOutcome,
+  resolveCodegenPlan,
+  runCanonicalEval,
   scaffoldLaneFromReport,
   shouldSaveBaseline,
   toCanonicalJson,
+  type CanonicalEvalDeps,
   type CanonicalEvalResult,
 } from "./canonical";
 import type { FollowUpEvalResult } from "./follow-up-context";
 import type { ScaffoldEvalReport } from "@/lib/gen/scaffolds/scaffold-eval";
+import type { EvalReport } from "./runner";
 
 describe("parseCanonicalEvalArgs", () => {
   it("defaults to the free lanes — no codegen, no env gate", () => {
@@ -21,8 +25,17 @@ describe("parseCanonicalEvalArgs", () => {
       json: false,
       gate: false,
       saveBaseline: false,
+      force: false,
       promptIds: null,
     });
+  });
+
+  it("parses --force without implying a paid run", () => {
+    expect(parseCanonicalEvalArgs(["--force"])).toMatchObject({
+      mode: "free",
+      force: true,
+    });
+    expect(parseCanonicalEvalArgs(["--codegen", "--force"]).force).toBe(true);
   });
 
   it("maps --codegen and legacy --smoke to the paid smoke subset", () => {
@@ -159,7 +172,7 @@ describe("lane + json projection", () => {
     expect(followup.outcome).toBe("fail");
     expect(followup.passed).toBe(1);
 
-    const codegen = codegenLaneFromRun("skipped", null, 0);
+    const codegen = codegenLaneFromRun("skipped", null, 0, { skipReason: "free_mode" });
     const result: CanonicalEvalResult = {
       timestamp: "2026-08-17T00:00:00.000Z",
       mode: "free",
@@ -182,6 +195,123 @@ describe("lane + json projection", () => {
     expect(json.outcome).toBe("FAIL");
     expect(json.exitCode).toBe(1);
     expect(json).not.toHaveProperty("avgScore");
-    expect((json.lanes as { codegen: { outcome: string } }).codegen.outcome).toBe("SKIPPED");
+    expect((json.lanes as { codegen: { outcome: string; skipReason: string } }).codegen.outcome).toBe(
+      "SKIPPED",
+    );
+    expect(
+      (json.lanes as { codegen: { skipReason: string } }).codegen.skipReason,
+    ).toBe("free_mode");
+  });
+});
+
+function fakePassingCodegenReport(): EvalReport {
+  return {
+    timestamp: "2026-08-17T00:00:00.000Z",
+    model: "test",
+    results: [],
+    summary: {
+      total: 1,
+      passed: 1,
+      evaluated: 1,
+      skipped: 0,
+      providerErrors: 0,
+      infraErrors: 0,
+      suiteAborted: false,
+      notRun: 0,
+      abortedAfterPromptId: null,
+      avgScore: 1,
+      avgTimeMs: 1,
+      blockingFailures: 0,
+      blockingCheckCounts: {},
+    },
+  };
+}
+
+function fakeEvalDeps(options: {
+  followupPass: boolean;
+  scaffoldPass: boolean;
+  runCodegen: () => Promise<EvalReport>;
+}): CanonicalEvalDeps {
+  return {
+    runFollowUp: async () =>
+      [{ id: "copy-hero-title", passed: options.followupPass } as FollowUpEvalResult],
+    runScaffold: async () => ({
+      report: scaffoldReport({
+        keywordTop1Accuracy: options.scaffoldPass
+          ? SCAFFOLD_LANE_MIN_KEYWORD_TOP1_PERCENT
+          : 12,
+      }),
+      reportPath: "data/scaffold-eval/reports/scaffold-selection-latest.json",
+    }),
+    runCodegen: options.runCodegen,
+  };
+}
+
+describe("resolveCodegenPlan / paid lane block", () => {
+  it("blocks paid codegen when a free lane failed, unless --force", () => {
+    expect(
+      resolveCodegenPlan({ mode: "codegen-smoke", freeLaneFailed: true, force: false }),
+    ).toEqual({ run: false, skipReason: "blocked_by_failed_free_lane" });
+    expect(
+      resolveCodegenPlan({ mode: "codegen-smoke", freeLaneFailed: true, force: true }),
+    ).toEqual({ run: true, forced: true });
+    expect(
+      resolveCodegenPlan({ mode: "codegen-smoke", freeLaneFailed: false, force: false }),
+    ).toEqual({ run: true, forced: false });
+    expect(
+      resolveCodegenPlan({ mode: "free", freeLaneFailed: false, force: false }),
+    ).toEqual({ run: false, skipReason: "free_mode" });
+  });
+
+  it("does not call codegen when a free lane failed in a paid mode", async () => {
+    const runCodegen = vi.fn(async () => fakePassingCodegenReport());
+    const { result } = await runCanonicalEval({
+      mode: "codegen-smoke",
+      print: () => undefined,
+      deps: fakeEvalDeps({ followupPass: true, scaffoldPass: false, runCodegen }),
+    });
+
+    expect(runCodegen).not.toHaveBeenCalled();
+    expect(result.lanes.codegen.outcome).toBe("skipped");
+    expect(result.lanes.codegen.skipReason).toBe("blocked_by_failed_free_lane");
+    expect(result.lanes.codegen.forced).toBe(false);
+    expect(result.outcome).toBe("fail");
+    expect(canonicalExitCode(result.outcome)).toBe(1);
+    expect(toCanonicalJson(result).lanes).toMatchObject({
+      codegen: { outcome: "SKIPPED", skipReason: "blocked_by_failed_free_lane", forced: false },
+    });
+  });
+
+  it("runs codegen when --force is set after a failed free lane", async () => {
+    const runCodegen = vi.fn(async () => fakePassingCodegenReport());
+    const { result } = await runCanonicalEval({
+      mode: "codegen-smoke",
+      force: true,
+      print: () => undefined,
+      deps: fakeEvalDeps({ followupPass: true, scaffoldPass: false, runCodegen }),
+    });
+
+    expect(runCodegen).toHaveBeenCalledOnce();
+    expect(result.lanes.codegen.outcome).toBe("pass");
+    expect(result.lanes.codegen.skipReason).toBeNull();
+    expect(result.lanes.codegen.forced).toBe(true);
+    expect(result.outcome).toBe("fail");
+    expect(canonicalExitCode(result.outcome)).toBe(1);
+  });
+
+  it("runs codegen as before when free lanes pass", async () => {
+    const runCodegen = vi.fn(async () => fakePassingCodegenReport());
+    const { result } = await runCanonicalEval({
+      mode: "codegen-smoke",
+      print: () => undefined,
+      deps: fakeEvalDeps({ followupPass: true, scaffoldPass: true, runCodegen }),
+    });
+
+    expect(runCodegen).toHaveBeenCalledOnce();
+    expect(result.lanes.codegen.outcome).toBe("pass");
+    expect(result.lanes.codegen.skipReason).toBeNull();
+    expect(result.lanes.codegen.forced).toBe(false);
+    expect(result.outcome).toBe("pass");
+    expect(canonicalExitCode(result.outcome)).toBe(0);
   });
 });

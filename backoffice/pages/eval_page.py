@@ -362,10 +362,16 @@ def render(ctx: BackofficeContext) -> None:
         if isinstance(canonical, dict):
             outcome = str(canonical.get("outcome", "?"))
             lanes = canonical.get("lanes") if isinstance(canonical.get("lanes"), dict) else {}
+            codegen = lanes.get("codegen") if isinstance(lanes.get("codegen"), dict) else {}
+            codegen_label = str(codegen.get("outcome", "?"))
+            if codegen.get("skipReason"):
+                codegen_label += f" {codegen.get('skipReason')}"
+            if codegen.get("forced"):
+                codegen_label += " forced"
             st.markdown(
                 f"**Utfall:** `{outcome}` · followup `{lanes.get('followup', {}).get('outcome', '?') if isinstance(lanes.get('followup'), dict) else '?'}` · "
                 f"scaffold `{lanes.get('scaffold', {}).get('outcome', '?') if isinstance(lanes.get('scaffold'), dict) else '?'}` · "
-                f"codegen `{lanes.get('codegen', {}).get('outcome', '?') if isinstance(lanes.get('codegen'), dict) else '?'}`"
+                f"codegen `{codegen_label}`"
             )
         if code == 0:
             st.success(f"Senaste körning (`{command_name}`) passerade.")
