@@ -71,16 +71,32 @@ importeras av något. Två giltiga fixar:
 
 Skriptet: [`scripts/dev/tidy.mjs`](../../scripts/dev/tidy.mjs). Torrkörning är default. `hygiene` är en **grind** (läsande, faller med exitkod, CI blockerar på delar); `tidy` är **vaktmästaren** som städar lokalt tillstånd som ruttnar av sig självt. Därför är de skilda knappar.
 
-| Yta             | Policy                                                                                                                                                                                                                  |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lokala brancher | Raderas bara när remoten är borta **och** innehållet finns i `origin/master`. Omergat = pågående arbete, rörs inte.                                                                                                     |
-| Skyddade namn   | `master`, `main`, `ema`, allt med `BRA`, `rescue/*`, `dependabot/*`, `archive/*` — aldrig.                                                                                                                              |
-| Worktrees       | `git worktree prune` på avregistrerade poster. Radera kataloger med `npm run worktree:remove` (junction-fällan).                                                                                                        |
-| `.next`         | Raderas om cachen är äldre än HEAD. En förlegad `.next/dev/types` pekar på borttagna rutter och ger fantomfel i `typecheck` — det hände efter en 548-commit-pull 2026-08-17.                                            |
-| `.gitignore`    | Tar bort dubbletter av `.env*` och `.vercel` som `vercel link` / `vercel env pull` appendar, och normaliserar till LF (CLI:n skriver CRLF på Windows). Bara exakta träffar rörs, så en riktig regel kan inte försvinna. |
-| Remote-brancher | **Bara rapport** (äldre än 30 dagar utan öppen PR). Radering är ditt beslut; arkivera gärna som `archive/*`-tagg först.                                                                                                 |
+| Yta             | Policy                                                                                                                                                                                                                                       |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lokala brancher | Raderas bara när remoten är borta **och** innehållet finns i `origin/master`. Omergat = pågående arbete, rörs inte.                                                                                                                          |
+| Skyddade namn   | `master`, `main`, `ema`, allt med `BRA`, `rescue/*`, `dependabot/*`, `archive/*` — aldrig.                                                                                                                                                   |
+| Worktrees       | `git worktree prune` på avregistrerade poster, plus en **klassning av levande worktrees**: varje sekundär yta rapporteras som `FRI` eller `behåll` med skäl. `tidy` raderar aldrig en katalog — det gör `npm run worktree:remove`. Se nedan. |
+| `.next`         | Raderas om cachen är äldre än HEAD. En förlegad `.next/dev/types` pekar på borttagna rutter och ger fantomfel i `typecheck` — det hände efter en 548-commit-pull 2026-08-17.                                                                 |
+| `.gitignore`    | Tar bort dubbletter av `.env*` och `.vercel` som `vercel link` / `vercel env pull` appendar, och normaliserar till LF (CLI:n skriver CRLF på Windows). Bara exakta träffar rörs, så en riktig regel kan inte försvinna.                      |
+| Remote-brancher | **Bara rapport** (äldre än 30 dagar utan öppen PR). Radering är ditt beslut; arkivera gärna som `archive/*`-tagg först.                                                                                                                      |
 
 GitHub-städet är redan självgående: repo-inställningen `deleteBranchOnMerge` raderar varje PR-mergad branch. Det som blir kvar är per definition omergat, och därför inget en robot ska ta.
+
+#### Worktree-klassningen — skyddet mot att dra undan mattan för en annan agent
+
+En worktree är en **pågående session**: agenten som äger den har sin `working_directory` där, och en katalog som försvinner under den ser ut som ett trasigt repo. `npm run worktree:remove` vägrar redan på smutsigt eller ospårat innehåll, men den vet ingenting om PR-status — en ren worktree vars PR fortfarande granskas ser ledig ut fast den inte är det.
+
+`tidy` täpper det hålet. Tre villkor måste **alla** hålla för att en yta klassas `FRI`:
+
+| Villkor                            | Varför                                                   |
+| ---------------------------------- | -------------------------------------------------------- |
+| Ingen öppen PR på branchen         | Öppen PR = någon arbetar, oavsett hur rent trädet ser ut |
+| Rent arbetsträd                    | Ocommitterat och ospårat innehåll är arbete              |
+| Innehållet finns i `origin/master` | Omergat = inget att kasta                                |
+
+Faller ett enda villkor blir svaret `behåll`, med skälet utskrivet. Svarar inte `gh` behandlas **alla** som upptagna — «vet inte» är inte «ledig». Huvudcheckouten och skyddade branchnamn (`BRA`, `rescue/*`, …) klassas aldrig som fria.
+
+`tidy` raderar aldrig kataloger, ens med `--apply`. Den pekar bara ut vad som är fritt, och du kör `npm run worktree:remove -- <sökväg>` som kopplar loss junctions innan raderingen. Bakgrunden: en rå `git worktree remove --force` följer junctionen och **tömmer huvudcheckoutens `node_modules`** — det hände 2026-07-27.
 
 #### Varför `.gitignore`-raden inte kan fixas i filen
 
