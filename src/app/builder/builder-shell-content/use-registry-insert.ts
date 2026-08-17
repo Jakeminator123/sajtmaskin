@@ -1,5 +1,8 @@
 import { getLatestPendingReply as getLatestPendingReplyFromTooling } from "@/components/builder/BuilderMessageTooling";
-import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
+import {
+  buildAddDossierMessage,
+  type DossierRequestPayload,
+} from "@/lib/builder/dossier-id-request";
 import { toAIElementsFormat } from "@/lib/builder/message-adapter";
 import {
   buildShadcnInsertMessage,
@@ -100,7 +103,7 @@ export function useShellRegistryInsert(
   );
 
   const handleRequestDossier = useCallback(
-    (payload: { id: string; label: string }) => {
+    (payload: DossierRequestPayload) => {
       const id = payload.id.trim();
       const label = payload.label.trim();
       if (!id || !label) return;
@@ -113,7 +116,13 @@ export function useShellRegistryInsert(
       // kravytan + chattmeddelande vid 412, ReleaseGate-toast vid 409. En extra
       // toast härifrån skulle staplas på och i värsta fall säga "försök igen" om
       // ett avslag som kräver en omladdning.
-      void sendMessage(buildAddDossierMessage({ id, label }));
+      void sendMessage(
+        buildAddDossierMessage({
+          id,
+          label,
+          stagingLines: payload.stagingLines,
+        }),
+      );
     },
     [sendMessage, isBusy],
   );

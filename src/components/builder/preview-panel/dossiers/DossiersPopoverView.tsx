@@ -23,6 +23,7 @@ import {
 import { resolveDossierGroup } from "@/lib/builder/dossier-groups";
 import { cn } from "@/lib/utils";
 import type { usePreviewPanelDossiersController } from "./usePreviewPanelDossiersController";
+import { DossierCatalogStagingView } from "./DossierCatalogStagingView";
 import {
   describeActiveVersionLabel,
   GROUP_HEADING_TITLE,
@@ -82,8 +83,12 @@ export function DossiersPopoverView({
     catalogError,
     loadCatalog,
     pickedEntry,
+    stagingConfirmed,
     handleOpenChange,
     handleSelectCatalogDossier,
+    handleCancelStagedDossier,
+    handleConfirmStagedDossier,
+    handleSaveStagedKeys,
     needsAttention,
     groupedDossiers,
     catalogClassFilter,
@@ -570,23 +575,36 @@ export function DossiersPopoverView({
           </TabsContent>
 
           <TabsContent value="catalog" className="mt-0">
-            {catalogPickDisabled ? (
+            {catalogPickDisabled && !pickedEntry ? (
               <p className="border-b border-gray-800 bg-sky-500/6 px-3 py-2 text-[10px] text-sky-200">
                 Vänta tills pågående generering är klar innan du lägger till ett
                 byggblock.
               </p>
             ) : null}
             {pickedEntry ? (
-              <p
-                className="border-b border-gray-800 bg-sky-500/6 px-3 py-2 text-[10px] text-sky-200"
-                aria-live="polite"
-              >
-                Byggblocket &quot;{pickedEntry.label}&quot; läggs till via chatten.
-                {pickedEntry.class === "hard"
-                  ? " I designen visas en demo. Kör \u201dBygg integrationer\u201d för riktig funktion."
-                  : null}
-              </p>
-            ) : null}
+              <div className="max-h-[min(26.25rem,calc(100dvh-8rem))] overflow-y-auto">
+                <DossierCatalogStagingView
+                  key={pickedEntry.id}
+                  entry={pickedEntry}
+                  stage={stage}
+                  confirmed={stagingConfirmed}
+                  catalogPickDisabled={catalogPickDisabled}
+                  projectId={projectId}
+                  keyValues={keyValues}
+                  setKeyValues={setKeyValues}
+                  saving={savingDossierId === pickedEntry.id}
+                  saveError={
+                    saveError && saveError.dossierId === pickedEntry.id
+                      ? saveError.message
+                      : null
+                  }
+                  saveConfirmation={saveConfirmation?.dossierId === pickedEntry.id}
+                  onSaveKeys={() => void handleSaveStagedKeys()}
+                  onConfirm={handleConfirmStagedDossier}
+                  onCancel={handleCancelStagedDossier}
+                />
+              </div>
+            ) : (
             <div className="max-h-[min(26.25rem,calc(100dvh-8rem))] overflow-y-auto p-2">
               {catalogData && catalogData.groups.length > 0 ? (
                 <div
@@ -676,8 +694,8 @@ export function DossiersPopoverView({
                                     : catalogPickDisabled
                                       ? "Vänta tills pågående generering är klar"
                                       : pickedEntry !== null
-                                        ? "Ett byggblock har redan valts — stäng panelen för att välja igen"
-                                        : `Lägg till byggblocket ${entry.label}`
+                                        ? "Ett byggblock är redan valt — avbryt för att välja ett annat"
+                                        : `Välj byggblocket ${entry.label}`
                                 }
                                 className="flex w-full items-start gap-2 rounded-md border border-gray-800 bg-black/20 px-2.5 py-2 text-left hover:bg-gray-800/40 disabled:cursor-not-allowed disabled:opacity-60"
                               >
@@ -717,6 +735,7 @@ export function DossiersPopoverView({
                 </div>
               )}
             </div>
+            )}
           </TabsContent>
         </Tabs>
 

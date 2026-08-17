@@ -11,11 +11,12 @@
  * This module owns both sides of the deterministic contract:
  *
  *  - {@link buildAddDossierMessage} — the CLIENT format:
- *    `Lägg till byggblocket "<label>" (id: <dossier-id>)`. The label stays in
- *    the prompt on purpose: sibling-keyword disambiguation
- *    (`relevanceKeywords` in `pickForCapability`, select.ts) reads the prompt
- *    text, so "MongoDB Atlas" still picks the mongodb sibling instead of the
- *    capability default.
+ *    `Lägg till byggblocket "<label>" (id: <dossier-id>)` plus optional
+ *    staging lines (`Placering: …` / `Innehåll: …`) from the catalog
+ *    confirm step. The label stays in the prompt on purpose: sibling-keyword
+ *    disambiguation (`relevanceKeywords` in `pickForCapability`, select.ts)
+ *    reads the prompt text, so "MongoDB Atlas" still picks the mongodb
+ *    sibling instead of the capability default.
  *  - {@link detectRequestedDossierIds} — the SERVER pre-detector: extracts
  *    `(id: …)` markers adjacent to the word "byggblock"/"byggblocket".
  *  - {@link mergeDossierIdCapabilities} — merges the id-resolved capabilities
@@ -33,9 +34,20 @@ import type {
   FollowUpCapabilityDetection,
 } from "./follow-up-capability-detection";
 
+/** Payload from a confirmed catalog pick (staging answers are optional). */
+export type DossierRequestPayload = {
+  id: string;
+  label: string;
+  stagingLines?: string[];
+};
+
 /** Katalogvalets meddelandeformat — servern matchar `(id: …)`-markören. */
-export function buildAddDossierMessage(entry: { id: string; label: string }): string {
-  return `Lägg till byggblocket "${entry.label}" (id: ${entry.id})`;
+export function buildAddDossierMessage(entry: DossierRequestPayload): string {
+  const header = `Lägg till byggblocket "${entry.label}" (id: ${entry.id})`;
+  const extra = (entry.stagingLines ?? [])
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  return extra.length > 0 ? `${header}\n${extra.join("\n")}` : header;
 }
 
 /**

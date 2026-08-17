@@ -2,10 +2,13 @@
 
 import { Badge } from "@/components/ui/badge";
 import { describeF3Requirement } from "@/lib/builder/dossier-axes";
+import type { DossierRequestPayload } from "@/lib/builder/dossier-id-request";
 import type {
   DossierOverviewResponse,
   DossierStatusDescriptor,
 } from "@/lib/builder/dossier-overview";
+
+export type { DossierRequestPayload };
 
 export interface PreviewPanelDossiersProps {
   chatId: string;
@@ -13,15 +16,14 @@ export interface PreviewPanelDossiersProps {
   lifecycleStage?: "design" | "integrations" | null;
   className?: string;
   /**
-   * Called when the user picks a dossier from the "Bläddra katalog"-tab.
-   * Threaded from `BuilderShellContent` down to `vm.sendMessage` so picking
-   * a catalog row sends the deterministic `buildAddDossierMessage`-format
-   * (`Lägg till byggblocket "<label>" (id: <id>)`) through the existing
-   * chat flow instead of a separate mutation path. When absent (e.g. this
-   * component rendered without the callback wired up), catalog rows are
-   * shown but not selectable.
+   * Called when the user CONFIRMS a staged catalog pick («Lägg till i
+   * sajten»). A catalog-row click only stages — this fires once, with
+   * optional `stagingLines` (`Placering: …` / `Innehåll: …`). Threaded
+   * from `BuilderShellContent` down to `vm.sendMessage` via
+   * `buildAddDossierMessage`. When absent, catalog rows are shown but
+   * not selectable.
    */
-  onRequestDossier?: (payload: { id: string; label: string }) => void;
+  onRequestDossier?: (payload: DossierRequestPayload) => void;
   /**
    * True while a catalog pick must wait: a generation is streaming (sending
    * would abort it) or an unanswered pending question exists. Rows are

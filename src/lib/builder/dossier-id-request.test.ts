@@ -22,6 +22,28 @@ describe("buildAddDossierMessage", () => {
       buildAddDossierMessage({ id: "stripe-checkout", label: "Stripe Checkout" }),
     ).toBe('Lägg till byggblocket "Stripe Checkout" (id: stripe-checkout)');
   });
+
+  it("appends structured staging lines after the id marker", () => {
+    expect(
+      buildAddDossierMessage({
+        id: "stripe-checkout",
+        label: "Stripe Checkout",
+        stagingLines: ["Placering: Egen sida"],
+      }),
+    ).toBe(
+      'Lägg till byggblocket "Stripe Checkout" (id: stripe-checkout)\nPlacering: Egen sida',
+    );
+  });
+
+  it("omits empty staging lines so a default confirm stays one line", () => {
+    expect(
+      buildAddDossierMessage({
+        id: "stripe-checkout",
+        label: "Stripe Checkout",
+        stagingLines: ["", "  "],
+      }),
+    ).toBe('Lägg till byggblocket "Stripe Checkout" (id: stripe-checkout)');
+  });
 });
 
 describe("detectRequestedDossierIds", () => {
@@ -50,6 +72,12 @@ describe("detectRequestedDossierIds", () => {
 
   it("does not match inside a larger word (unicode boundary)", () => {
     expect(detectRequestedDossierIds("husbyggblocket (id: stripe-checkout)")).toEqual([]);
+  });
+
+  it("still extracts the id when a placement line follows on the next row", () => {
+    const message =
+      'Lägg till byggblocket "Stripe Checkout" (id: stripe-checkout)\nPlacering: Egen sida';
+    expect(detectRequestedDossierIds(message)).toEqual(["stripe-checkout"]);
   });
 
   it("dedupes and lowercases multiple ids", () => {

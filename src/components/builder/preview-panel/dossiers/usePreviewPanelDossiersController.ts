@@ -172,17 +172,26 @@ export function usePreviewPanelDossiersController({
     return () => window.removeEventListener(DOSSIERS_PANEL_OPEN_EVENT, handler);
   }, [load]);
 
-  // One-shot pick lock: the ref blocks a double-click in the same tick (state
-  // updates are async), the state drives the disabled UI + notice. Reset when
-  // the popover closes so nästa öppning kan välja igen.
+  // One-at-a-time staging lock: the ref blocks a double-click in the same
+  // tick (state updates are async), the state drives the staging view +
+  // disabled catalog rows. Reset on close or Avbryt so nästa val kan ske.
+  // Confirm is a second lock — `onRequestDossier` fires once, never on stage.
   const pickInFlightRef = useRef(false);
+  const confirmInFlightRef = useRef(false);
   const [pickedEntry, setPickedEntry] = useState<DossierCatalogEntry | null>(null);
+  const [stagingConfirmed, setStagingConfirmed] = useState(false);
+
+  const resetCatalogStaging = useCallback(() => {
+    pickInFlightRef.current = false;
+    confirmInFlightRef.current = false;
+    setPickedEntry(null);
+    setStagingConfirmed(false);
+  }, []);
 
   const handleOpenChange = useCallback((next: boolean) => {
     setOpen(next);
     if (!next) {
-      pickInFlightRef.current = false;
-      setPickedEntry(null);
+      resetCatalogStaging();
       // A focus request that never matched must not linger into a later,
       // unrelated open (it would surprise-expand a row).
       setPendingFocusKeys(null);
@@ -190,14 +199,15 @@ export function usePreviewPanelDossiersController({
       // the next, unrelated open.
       setCatalogClassFilter("all");
     }
-  }, []);
+  }, [resetCatalogStaging]);
 
   useEffect(() => {
     setExpandedId(null);
     // A focus request targeting the previous chat/version must not
     // auto-expand a row in the new context (Bugbot on this diff).
     setPendingFocusKeys(null);
-  }, [chatId, versionId]);
+    resetCatalogStaging();
+  }, [chatId, versionId, resetCatalogStaging]);
 
   // Full dossier CATALOG ("Bläddra katalog"-tab) — static registry data, so
   // it is fetched once (per mount) and cached in state across popover opens
@@ -533,6 +543,73 @@ export function usePreviewPanelDossiersController({
     [chatId, editingKeys, keyValues, overviewKey, projectId, savingDossierId, versionId],
   );
 
+  // Optional write-only keys on a STAGED catalog pick (same POST as wired
+  // rows). Never required — confirm without a key runs demo.
+  const handleSaveStagedKeys = useCallback(async () => {
+    if (!pickedEntry || !projectId || savingDossierId) return;
+    const filled = (pickedEntry.envVars ?? [])
+      .map((env) => env.key)
+      .filter((key) => (keyValues[key] ?? "").trim().length > 0);
+    if (filled.length === 0) return;
+    setSavingDossierId(pickedEntry.id);
+    setSaveError(null);
+    setSaveConfirmation(null);
+    try {
+      const vars = filled.map((key) => ({
+        key,
+        value: keyValues[key].trim(),
+        sensitive: true,
+      }));
+      const response = await fetch(
+        `/api/v0/projects/${encodeURIComponent(projectId)}/env-vars`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vars, upsert: true }),
+        },
+      );
+      const data = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        error?: string;
+      } | null;
+      if (!response.ok || !data?.success) {
+        if (latestOverviewKeyRef.current === overviewKey) {
+          setSaveError({
+            dossierId: pickedEntry.id,
+            message: data?.error || "Kunde inte spara nycklarna.",
+          });
+        }
+        return;
+      }
+      setKeyValues((current) => {
+        const next = { ...current };
+        for (const key of filled) delete next[key];
+        return next;
+      });
+      dispatchProjectEnvVarsUpdated({
+        projectId,
+        chatId,
+        versionId,
+        envKeys: filled,
+      });
+      if (latestOverviewKeyRef.current === overviewKey) {
+        setSaveConfirmation({ dossierId: pickedEntry.id });
+      }
+    } catch (error) {
+      if (latestOverviewKeyRef.current === overviewKey) {
+        setSaveError({
+          dossierId: pickedEntry.id,
+          message:
+            error instanceof Error
+              ? `Kunde inte spara nycklarna: ${error.message}`
+              : "Kunde inte spara nycklarna.",
+        });
+      }
+    } finally {
+      setSavingDossierId(null);
+    }
+  }, [chatId, keyValues, overviewKey, pickedEntry, projectId, savingDossierId, versionId]);
+
   // Delete a stored key via the canonical DELETE API (same route the removed
   // ProjectEnvVarsPanel used). The `action: "deleted"` event clears local
   // drafts for the key and refetches, so `hasRealValue` flips back honestly.
@@ -718,20 +795,62 @@ export function usePreviewPanelDossiersController({
     (entry: DossierCatalogEntry) => {
       if (!onRequestDossier || catalogPickDisabled) return;
       // Synchronous double-click lock — `pickedEntry`-state hinner inte
-      // re-rendera mellan två klick i samma tick.
+      // re-rendera mellan två klick i samma tick. Staging only: the
+      // generation request waits for «Lägg till i sajten».
       if (pickInFlightRef.current) return;
       pickInFlightRef.current = true;
+      setStagingConfirmed(false);
       setPickedEntry(entry);
-      onRequestDossier({ id: entry.id, label: entry.label });
-      // F2 + hårt byggblock: håll popovern öppen med en kort inline-notis om
-      // att blocket bara ritas som yta i designläget (samma `planned`-ord
-      // som `describeDossierStatus`).
-      // Övriga val stänger popovern — meddelandet syns direkt i chatten.
-      if (!(stage !== "integrations" && entry.class === "hard")) {
+    },
+    [onRequestDossier, catalogPickDisabled],
+  );
+
+  const handleCancelStagedDossier = useCallback(() => {
+    if (confirmInFlightRef.current || stagingConfirmed) return;
+    const stagedKeys = (pickedEntry?.envVars ?? []).map((env) => env.key);
+    resetCatalogStaging();
+    if (stagedKeys.length > 0) {
+      setKeyValues((current) => {
+        const next = { ...current };
+        let changed = false;
+        for (const key of stagedKeys) {
+          if (key in next) {
+            delete next[key];
+            changed = true;
+          }
+        }
+        return changed ? next : current;
+      });
+    }
+  }, [pickedEntry, resetCatalogStaging, stagingConfirmed]);
+
+  const handleConfirmStagedDossier = useCallback(
+    (stagingLines?: string[]) => {
+      if (!pickedEntry || !onRequestDossier || catalogPickDisabled) return;
+      if (confirmInFlightRef.current || stagingConfirmed) return;
+      confirmInFlightRef.current = true;
+      const lines = (stagingLines ?? []).map((line) => line.trim()).filter(Boolean);
+      onRequestDossier({
+        id: pickedEntry.id,
+        label: pickedEntry.label,
+        ...(lines.length > 0 ? { stagingLines: lines } : {}),
+      });
+      // F2 + hårt byggblock: håll popovern öppen med yta-notisen (nu i
+      // staging-vyn). Övriga val stänger — meddelandet syns i chatten.
+      if (!(stage !== "integrations" && pickedEntry.class === "hard")) {
         handleOpenChange(false);
+      } else {
+        setStagingConfirmed(true);
       }
     },
-    [onRequestDossier, catalogPickDisabled, stage, handleOpenChange],
+    [
+      catalogPickDisabled,
+      handleOpenChange,
+      onRequestDossier,
+      pickedEntry,
+      stage,
+      stagingConfirmed,
+    ],
   );
 
   // Attention badge (dossiers-hub-primary): a build-blocked dossier OR a
@@ -796,8 +915,12 @@ export function usePreviewPanelDossiersController({
     catalogError,
     loadCatalog,
     pickedEntry,
+    stagingConfirmed,
     handleOpenChange,
     handleSelectCatalogDossier,
+    handleCancelStagedDossier,
+    handleConfirmStagedDossier,
+    handleSaveStagedKeys,
     needsAttention,
     groupedDossiers,
     catalogClassFilter,
