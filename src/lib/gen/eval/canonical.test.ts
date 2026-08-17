@@ -9,7 +9,6 @@ import {
   resolveCodegenPlan,
   runCanonicalEval,
   scaffoldLaneFromReport,
-  shouldSaveBaseline,
   toCanonicalJson,
   type CanonicalEvalDeps,
   type CanonicalEvalResult,
@@ -23,8 +22,6 @@ describe("parseCanonicalEvalArgs", () => {
     expect(parseCanonicalEvalArgs([])).toMatchObject({
       mode: "free",
       json: false,
-      gate: false,
-      saveBaseline: false,
       force: false,
       promptIds: null,
     });
@@ -47,9 +44,9 @@ describe("parseCanonicalEvalArgs", () => {
     expect(parseCanonicalEvalArgs(["--full", "--codegen"]).mode).toBe("codegen-full");
   });
 
-  it("treats leftover --gate / --save-baseline as the full paid suite", () => {
-    expect(parseCanonicalEvalArgs(["--gate"]).mode).toBe("codegen-full");
-    expect(parseCanonicalEvalArgs(["--save-baseline"]).mode).toBe("codegen-full");
+  it("rejects the removed gate flags instead of implying a paid run", () => {
+    expect(() => parseCanonicalEvalArgs(["--gate"])).toThrow(/removed/);
+    expect(() => parseCanonicalEvalArgs(["--save-baseline"])).toThrow(/removed/);
   });
 
   it("treats --prompts as a paid codegen request", () => {
@@ -97,29 +94,6 @@ describe("resolveCanonicalOutcome / canonicalExitCode", () => {
       }),
     ).toBe("pass");
     expect(canonicalExitCode("pass")).toBe(0);
-  });
-});
-
-describe("shouldSaveBaseline", () => {
-  it("does not save a baseline when a free lane already failed", () => {
-    expect(
-      shouldSaveBaseline({
-        saveBaseline: true,
-        gateFailed: false,
-        codegenBlocked: false,
-        followup: "fail",
-        scaffold: "pass",
-      }),
-    ).toBe(false);
-    expect(
-      shouldSaveBaseline({
-        saveBaseline: true,
-        gateFailed: false,
-        codegenBlocked: false,
-        followup: "pass",
-        scaffold: "pass",
-      }),
-    ).toBe(true);
   });
 });
 

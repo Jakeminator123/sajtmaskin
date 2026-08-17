@@ -39,8 +39,6 @@ async function main(): Promise<void> {
   const { result } = await runCanonicalEval({
     mode: args.mode,
     dumpMode: args.dumpMode,
-    gate: args.gate,
-    saveBaseline: args.saveBaseline,
     force: args.force,
     promptIds: args.promptIds,
     print,

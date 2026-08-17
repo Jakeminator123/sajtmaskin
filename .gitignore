@@ -132,7 +132,7 @@ data/eval-runs/*
 
 # Scaffold-selection / variant-eval JSON reports (per-machine).
 # Prompts stay tracked: data/scaffold-eval/prompts.json + landing-variant-prompts.json.
-# Regenerate with `npm run scaffolds:eval` / eval-landing-variants.
+# Regenerate with `npm run eval` (scaffold lane) / eval-landing-variants.
 data/scaffold-eval/reports/*
 !data/scaffold-eval/reports/README.md
 
