@@ -52,6 +52,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # quality är required: jobbet måste alltid starta. Bara det tunga
+      # baseline-deps:tree-steget kortsluts (se steget nedan).
+      - name: Detect baseline-tree relevant changes
+        id: baseline-tree
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            tree:
+              - 'src/lib/gen/export/project-scaffold.ts'
+              - 'scripts/deps/validate-baseline-npm-tree.ts'
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -60,6 +71,18 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # ESLint anropas med --cache --cache-location .eslintcache, men cachen
+      # överlevde tidigare inte mellan körningar. .eslintcache är gitignorerad.
+      # Repot hade ingen actions/cache sedan tidigare; v4 är den etablerade
+      # majoren (v5/v6 kräver nyare runner-runtime).
+      - name: Cache ESLint
+        uses: actions/cache@v4
+        with:
+          path: .eslintcache
+          key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs', 'package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-eslint-
 
       # Auto-sync embedding JSON from public Blob manifest before any step
       # that may read scaffold/variant embeddings (tests, validate, build).
@@ -117,7 +140,12 @@ jobs:
       - name: Verify baseline dependency versions
         run: npm run baseline-deps:verify
 
+      # Skyddsobjekt verifierat: validate-baseline-npm-tree.ts läser BARA
+      # PACKAGE_JSON ur project-scaffold.ts (plus sig själv). Inget annat
+      # jobb needs: detta steg — quality slutar grönt även när det hoppas över.
+      # workflow_dispatch kör alltid (ingen PR-diff att filtrera på).
       - name: Verify baseline dependency tree
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.baseline-tree.outputs.tree == 'true' }}
         run: npm run baseline-deps:tree
 
       - name: Validate scaffold manifests
@@ -231,33 +259,85 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Required check: jobbet MÅSTE alltid starta och sluta grönt. Ett
+      # trigger-nivå-paths-filter skulle lämna checken pending och blockera
+      # merge. Filtrera därför här och kortslut de tunga stegen.
+      # Listan är verifierad mot backoffice/test_*.py: backoffice-kod,
+      # observability, requirements, config-/schema-ytor testerna läser,
+      # plus de enstaka TS/docs-filer som är unika skyddsobjekt
+      # (catalog-paritet, curator-auditor, capability-map, hub-docs).
+      # package.json utelämnas medvetet — annars körs jobbet på nästan
+      # varje PR. src/lib/db|auth|tenant ingår inte.
+      - name: Detect backoffice-relevant changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backoffice:
+              - 'backoffice/**'
+              - 'sajtmaskin_backoffice.py'
+              - 'scripts/observability/**'
+              - 'requirements.backoffice*.txt'
+              - 'config/backoffice/**'
+              - 'config/domain-rules.json'
+              - 'config/prompt-heuristic-tokens.json'
+              - 'config/scaffold-variants/**'
+              - 'config/env-policy.json'
+              - 'config/variant-template-addenda.json'
+              - 'config/ai_models/**'
+              - 'config/embeddings-blob-manifest.json'
+              - 'docs/schemas/strict/**'
+              - 'src/lib/models/catalog.ts'
+              - 'src/lib/gen/scaffold-variants/extractor-fingerprint.ts'
+              - 'scripts/v0-templates/audit-template-repos.mjs'
+              - 'scripts/dossiers/curate-from-reference.ts'
+              - 'scripts/scaffolds/auto-curate-variant-patterns.ts'
+              - 'scripts/scaffolds/generate-variant-embeddings.ts'
+              - 'data/dossiers/_index/capability-map.json'
+              - 'docs/architecture/glossary.md'
+              - 'docs/contracts/dossier-system.md'
+              - 'docs/contracts/scaffold-system.md'
+              - 'scripts/db/db-health-check.mjs'
+              - 'scripts/db/add-performance-indexes.mjs'
+              - 'scripts/db/redis-health-check.mjs'
+
       - name: Setup Node.js
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
           cache: npm
 
       - name: Setup Python
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
       - name: Install backoffice dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         run: python -m pip install --disable-pip-version-check -r requirements.backoffice.txt
 
       # Curator-testerna kör den statiska Node-auditorn mot lokala ZIP-fixtures.
       # Installera exakt lockfilens beroenden; inga package scripts behövs här.
       - name: Install template auditor dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Backoffice tests (blocking)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         run: npm run backoffice:test
 
       # Genlogg-insamlingen (scripts/observability/last-generated-usersite.py).
       # Också nyckelfri och offline: env-parsning, secret-maskering,
       # mapprotation, prissättning, bedömning och rapportrendering.
       - name: Observability script tests (blocking)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         run: npm run observability:test
+
+      - name: Skip backoffice tests (no relevant changes)
+        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.backoffice != 'true' }}
+        run: echo "No backoffice-related files changed; skipping install and tests."
 
   # Blockerande schema-drift-gate (grandmaster S4). Deterministisk, nyckelfri och billig:
   # låser att avsett schema (src/lib/db/schema.ts) == applicerat (db-init.mjs /
@@ -288,6 +368,10 @@ jobs:
   # merge medan lanen stabiliseras. S4:s db:schema-drift-gate körs blockerande i det
   # separata schema-drift-jobbet ovan; här ligger den bredare (flaky) vitest-lanen
   # warn-only. Detta är platsen där C2 (ordlista-check) lägger sitt CI-steg.
+  # Icke-required: trigger-nivå-paths skulle skippa hela jobbet (OK här).
+  # Jobben delar dock `on:` med required quality/build/schema-drift, så ett
+  # workflow-nivå-paths skulle tysta även dem. Samma in-job-filter som
+  # backoffice-tests, men skip här är bara tidsvinst — inte en grind.
   stability:
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -296,16 +380,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Detect stability-relevant changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            stability:
+              - '**/*.stability.test.ts'
+              - '**/*.stability.test.tsx'
+              - 'vitest.stability.config.ts'
+              - 'vitest.config.ts'
+              - 'src/lib/logging/**'
+              - 'src/lib/gen/**'
+              - 'src/lib/builder/**'
+              - 'src/lib/db/**'
+              - 'scripts/db/**'
+              - 'scripts/dev/check-term-coverage.mjs'
+              - 'scripts/docs/**'
+              - 'docs/architecture/glossary.md'
+              - 'config/naming-dictionary.json'
+              - 'docs/**/*.md'
+              - 'docs/**/*.mdx'
+
       - name: Setup Node.js
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
           cache: npm
 
       - name: Install dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' }}
         run: npm ci
 
       - name: Stability lane (warn-only)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true' }}
         run: npm run test:stability
 
       # Grandmaster C2: light ordlista-check. Warn-first by design - the script always
@@ -314,8 +423,12 @@ jobs:
       # lane) failed - step-level gating defaults to success(), which job-level
       # continue-on-error does NOT override. Skips only on an actual run cancellation.
       - name: Ordlista-check (warn-only, grandmaster C2)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || steps.filter.outputs.stability == 'true') }}
         run: npm run check:terms
+
+      - name: Skip stability (no relevant changes)
+        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.stability != 'true' }}
+        run: echo "No stability-related files changed; skipping install and tests."
 
   # Preview-host runtime-guards (A#13/A#28). `preview-host/` är ett fristående
   # Node-paket (egen `package.json`, ingen lockfile → `npm install`, inte
@@ -332,18 +445,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Detect preview-host-relevant changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            preview_host:
+              - 'preview-host/**'
+
       - name: Setup Node.js
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
 
       - name: Install preview-host dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
         working-directory: preview-host
         run: npm install --no-audit --no-fund
 
       - name: Preview-host runtime guards (blocking)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
         working-directory: preview-host
         run: npm run check && npm run test:guards && npm run test:patch
+
+      - name: Skip preview-host guards (no relevant changes)
+        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.preview_host != 'true' }}
+        run: echo "No preview-host files changed; skipping install and tests."
 
   # Dead-code / orphan-file-hygien (självgående städ-enforcement). knip är tunat i
   # knip.json så FILES-kategorin har noll falska positiver: dynamiskt körda kataloger
@@ -367,21 +495,42 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Detect dead-code-relevant changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            dead_code:
+              - 'knip.json'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+              - 'tsconfig*.json'
+              - 'src/**'
+              - 'scripts/**'
+
       - name: Setup Node.js
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.dead_code == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
           cache: npm
 
       - name: Install dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.dead_code == 'true' }}
         run: npm ci
 
       - name: Dead-code report (full, advisory — never blocks)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || steps.filter.outputs.dead_code == 'true') }}
         run: npm run knip || true
 
       - name: Orphan-file gate (blocking)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.dead_code == 'true' }}
         run: npm run knip:files
+
+      - name: Skip dead-code (no relevant changes)
+        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.dead_code != 'true' }}
+        run: echo "No knip-related files changed; skipping install and knip."
 
   # Auto-applicerar migrationer mot PRODUKTIONS-databasen vid merge till master —
   # så en migration ALDRIG kan bli deployad utan att köras (grundorsaken till att
