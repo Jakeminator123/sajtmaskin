@@ -65,6 +65,11 @@ import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatib
 import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib/gen/preview/diagnostics";
 
+// Host-only query mirrored by preview-host/src/runtime/preview-proxy.js. It is
+// added only to the embedded tier-2 URL and stripped before generated app code.
+const PREVIEW_VIEWER_QUERY_PARAM = "__sm_viewer";
+const PREVIEW_REFRESH_QUERY_PARAM = "__sm_refresh";
+
 /**
  * Preview panel facade. Own-engine/tier-2 preview surface that composes
  * composer-, page- and inspector-actions plus the surface/overlays module.
@@ -98,6 +103,7 @@ export function PreviewPanel({
   previewLifecycle,
   activeVersionStatus = null,
   activeVersionSummary = null,
+  activeVersionPromotedAt = null,
   activeVersionIsLatest = true,
   activeVersionRepairPassIndex = 0,
   versionMismatchPayload = null,
@@ -217,7 +223,13 @@ export function PreviewPanel({
     let src = url;
     if (token) {
       const separator = src.includes("?") ? "&" : "?";
-      src = `${src}${separator}t=${token}`;
+      // Tier-2 cache busting is host metadata, not generated-app input. Keep
+      // the legacy `t` contract only for the compatibility renderer; the
+      // preview host strips its reserved name before SSR and browser bootstrap.
+      const refreshParam = isTier2LivePreviewUrl(url)
+        ? PREVIEW_REFRESH_QUERY_PARAM
+        : "t";
+      src = `${src}${separator}${refreshParam}=${token}`;
     }
     return src;
   }, []);
@@ -553,9 +565,9 @@ export function PreviewPanel({
 
   const handleBridgeClientError = useCallback(
     (payload: unknown) => {
-      reportPreviewClientError(chatId, versionId, payload);
+      reportPreviewClientError(chatId, versionId, payload, activeVersionPromotedAt);
     },
-    [chatId, versionId],
+    [activeVersionPromotedAt, chatId, versionId],
   );
 
   usePreviewInspectBridge({
@@ -768,7 +780,7 @@ export function PreviewPanel({
     return isTier2LivePreviewUrl(previewUrl);
   }, [previewUrl]);
 
-  usePreviewHeartbeat({
+  const previewViewerId = usePreviewHeartbeat({
     chatId,
     versionId,
     previewUrl,
@@ -817,8 +829,22 @@ export function PreviewPanel({
   const isLoading = externalLoading || iframeLoading;
   const previewSrc = useMemo(() => {
     if (!previewUrl) return "";
-    return withInspectParam(buildPreviewSrc(previewUrl, refreshToken), previewUrl);
-  }, [previewUrl, refreshToken, buildPreviewSrc, withInspectParam]);
+    // The viewer id is created after hydration. PreviewPanelFrame does not
+    // mount an iframe for an empty src, so no synthetic about:blank load can
+    // complete the real preview's loading/timer lifecycle prematurely.
+    if (isTier2LivePreview && !previewViewerId) return "";
+    const src = withInspectParam(buildPreviewSrc(previewUrl, refreshToken), previewUrl);
+    if (!isTier2LivePreview || !previewViewerId) return src;
+    const separator = src.includes("?") ? "&" : "?";
+    return `${src}${separator}${PREVIEW_VIEWER_QUERY_PARAM}=${encodeURIComponent(previewViewerId)}`;
+  }, [
+    previewUrl,
+    refreshToken,
+    buildPreviewSrc,
+    withInspectParam,
+    isTier2LivePreview,
+    previewViewerId,
+  ]);
   const showBlobWarning = Boolean(
     previewUrl && !isOwnEnginePreview && blobStatus && !blobStatus.enabled,
   );

@@ -508,14 +508,366 @@ function extractAbsentPackageList(detail: string): string | null {
   );
 }
 
-function majorOf(spec: string | undefined): number | null {
-  if (typeof spec !== "string") return null;
-  const match = spec.match(/(\d+)/);
-  if (!match) return null;
-  return Number.parseInt(match[1], 10);
+const PACKAGE_JSON_DEP_SECTIONS = ["dependencies", "devDependencies"] as const;
+
+const CONTROL_CHARACTER_RE = /[\u0000-\u001f\u007f]/;
+const SEMVER_COMPONENT_SOURCE = String.raw`(?:0|[1-9]\d*|[xX*])`;
+const SEMVER_SUFFIX_SOURCE =
+  String.raw`(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?`;
+const PARTIAL_SEMVER_SOURCE =
+  String.raw`v?${SEMVER_COMPONENT_SOURCE}(?:\.${SEMVER_COMPONENT_SOURCE})?(?:\.${SEMVER_COMPONENT_SOURCE})?${SEMVER_SUFFIX_SOURCE}`;
+const SEMVER_COMPARATOR_RE = new RegExp(
+  String.raw`(?:[<>]=?|[=~^])?\s*${PARTIAL_SEMVER_SOURCE}`,
+  "y",
+);
+const SEMVER_COMPARATOR_CAPTURE_RE = new RegExp(
+  String.raw`([<>]=?|[=~^])?\s*(${PARTIAL_SEMVER_SOURCE})`,
+  "y",
+);
+const SEMVER_HYPHEN_RANGE_RE = new RegExp(
+  String.raw`^${PARTIAL_SEMVER_SOURCE}\s+-\s+${PARTIAL_SEMVER_SOURCE}$`,
+);
+// npm dist-tags may begin with a digit as long as the complete token is not a
+// semver range. Registry checking calls the semver recognizer separately.
+const DIST_TAG_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const NPM_ALIAS_RE =
+  /^npm:((?:@[A-Za-z0-9][A-Za-z0-9._-]*\/)?[A-Za-z0-9][A-Za-z0-9._-]*)(?:@(.+))?$/;
+const HOSTED_GIT_SHORTHAND_RE =
+  /^(?:(?:github|bitbucket):)?[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:#[^\s]+)?$/;
+const GITLAB_SHORTHAND_RE =
+  /^gitlab:[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)+(?:#[^\s]+)?$/;
+const GIST_SHORTHAND_RE = /^gist:[A-Za-z0-9]+(?:#[^\s]+)?$/;
+// Require either an explicit user (`git@host:path`) or a dotted hostname.
+// A fully generic `word:anything` pattern would misclassify broken URL specs
+// such as `http://` as scp-style git declarations.
+const SCP_GIT_RE =
+  /^(?:[A-Za-z0-9._-]+@[A-Za-z0-9.-]+|[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+):[^\s]+$/;
+// npm documents the scp-like colon path after a git+ssh authority as well as
+// the URL-standard slash form. WHATWG URL intentionally rejects this shape.
+const GIT_SSH_COLON_PATH_RE =
+  /^git\+ssh:\/\/(?:[A-Za-z0-9._-]+@)?[A-Za-z0-9.-]+:[^\s]+$/;
+
+/**
+ * A bounded semver/range recognizer for package.json structure checks. This
+ * intentionally accepts npm's common partials, comparators, AND/OR and
+ * hyphen ranges without claiming to resolve or satisfy the range.
+ */
+function isSemverRangeSpec(spec: string): boolean {
+  if (spec === "*" || /^[xX]$/.test(spec)) return true;
+  const alternatives = spec.split("||");
+  if (alternatives.some((alternative) => alternative.trim().length === 0)) return false;
+
+  return alternatives.every((alternative) => {
+    const arm = alternative.trim();
+    if (SEMVER_HYPHEN_RANGE_RE.test(arm)) return true;
+
+    let offset = 0;
+    let sawComparator = false;
+    while (offset < arm.length) {
+      SEMVER_COMPARATOR_RE.lastIndex = offset;
+      const match = SEMVER_COMPARATOR_RE.exec(arm);
+      if (!match || match.index !== offset) return false;
+      sawComparator = true;
+      offset = SEMVER_COMPARATOR_RE.lastIndex;
+      if (offset === arm.length) break;
+      const separator = /^\s+/.exec(arm.slice(offset));
+      if (!separator) return false;
+      offset += separator[0].length;
+    }
+    return sawComparator;
+  });
 }
 
-const PACKAGE_JSON_DEP_SECTIONS = ["dependencies", "devDependencies"] as const;
+function isRegistrySpec(spec: string): boolean {
+  return isSemverRangeSpec(spec) || DIST_TAG_RE.test(spec);
+}
+
+function isValidRemoteUrlSpec(spec: string): boolean {
+  if (/\s/.test(spec)) return false;
+  try {
+    const url = new URL(spec);
+    if (["http:", "https:"].includes(url.protocol)) return url.hostname.length > 0;
+    if (["ssh:", "git:", "git+http:", "git+https:", "git+ssh:"].includes(url.protocol)) {
+      return url.hostname.length > 0 && url.pathname.length > 1;
+    }
+    return url.protocol === "git+file:" && url.pathname.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function npmAliasVersionSpec(spec: string): string | null {
+  const match = NPM_ALIAS_RE.exec(spec);
+  if (!match) return null;
+  const aliasSpec = match[2] ?? "latest";
+  return isRegistrySpec(aliasSpec) ? aliasSpec : null;
+}
+
+/** Extract a comparable registry range while excluding path/URL/git digits. */
+function comparableRegistrySpec(spec: string): string | null {
+  // VERSION_TOKEN_RE can include a sentence-ending period in its captured
+  // token (`widget@^7.`). A registry spec itself cannot end in a bare dot, so
+  // remove that prose delimiter before comparison.
+  const normalized = spec.trim().replace(/\.$/, "");
+  const aliasSpec = npmAliasVersionSpec(normalized);
+  if (aliasSpec !== null) return aliasSpec;
+  if (normalized.startsWith("workspace:")) {
+    const workspaceSpec = normalized.slice("workspace:".length);
+    return isRegistrySpec(workspaceSpec) ? workspaceSpec : null;
+  }
+  return isRegistrySpec(normalized) ? normalized : null;
+}
+
+type VersionTuple = readonly [number, number, number];
+
+interface VersionBound {
+  version: VersionTuple;
+  inclusive: boolean;
+}
+
+interface VersionInterval {
+  min?: VersionBound;
+  max?: VersionBound;
+}
+
+interface ParsedPartialVersion {
+  version: VersionTuple;
+  /** Numeric components before a missing/wildcard component. */
+  specified: number;
+}
+
+function compareVersions(left: VersionTuple, right: VersionTuple): number {
+  for (let index = 0; index < 3; index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  return 0;
+}
+
+function parsePartialVersion(raw: string): ParsedPartialVersion | null {
+  const withoutPrefix = raw.replace(/^v/, "");
+  // Prerelease ordering is intentionally left unknown; build metadata does
+  // not affect precedence and can be discarded safely.
+  const withoutBuild = withoutPrefix.split("+", 1)[0];
+  if (withoutBuild.includes("-")) return null;
+  const components = withoutBuild.split(".");
+  if (components.length > 3) return null;
+
+  const values: [number, number, number] = [0, 0, 0];
+  let specified = 0;
+  let sawWildcard = false;
+  for (let index = 0; index < components.length; index += 1) {
+    const component = components[index];
+    if (/^[xX*]$/.test(component)) {
+      sawWildcard = true;
+      continue;
+    }
+    if (sawWildcard || !/^\d+$/.test(component)) return null;
+    const parsed = Number.parseInt(component, 10);
+    if (!Number.isSafeInteger(parsed)) return null;
+    values[index] = parsed;
+    specified += 1;
+  }
+  return { version: values, specified };
+}
+
+function nextPartialBucket(partial: ParsedPartialVersion): VersionTuple | null {
+  const [major, minor] = partial.version;
+  if (partial.specified <= 1) {
+    if (!Number.isSafeInteger(major + 1)) return null;
+    return [major + 1, 0, 0];
+  }
+  if (!Number.isSafeInteger(minor + 1)) return null;
+  return [major, minor + 1, 0];
+}
+
+function comparatorInterval(
+  operator: string,
+  partial: ParsedPartialVersion,
+): VersionInterval | null {
+  const lower = { version: partial.version, inclusive: true };
+  const partialUpper = nextPartialBucket(partial);
+
+  if (operator === "" || operator === "=") {
+    if (partial.specified === 0) return {};
+    if (partial.specified < 3) {
+      return partialUpper ? { min: lower, max: { version: partialUpper, inclusive: false } } : null;
+    }
+    return { min: lower, max: lower };
+  }
+  if (operator === "^") {
+    if (partial.specified === 0) return {};
+    const [major, minor, patch] = partial.version;
+    let upper: VersionTuple;
+    if (partial.specified === 1 || major > 0) upper = [major + 1, 0, 0];
+    else if (partial.specified === 2 || minor > 0) upper = [major, minor + 1, 0];
+    else upper = [major, minor, patch + 1];
+    if (upper.some((component) => !Number.isSafeInteger(component))) return null;
+    return { min: lower, max: { version: upper, inclusive: false } };
+  }
+  if (operator === "~") {
+    if (partial.specified === 0) return {};
+    const upper = nextPartialBucket(partial);
+    return upper ? { min: lower, max: { version: upper, inclusive: false } } : null;
+  }
+  if (operator === ">=") return partial.specified === 0 ? {} : { min: lower };
+  if (operator === ">") {
+    if (partial.specified === 0) return null;
+    if (partial.specified < 3) {
+      return partialUpper ? { min: { version: partialUpper, inclusive: true } } : null;
+    }
+    return { min: { version: partial.version, inclusive: false } };
+  }
+  if (operator === "<") {
+    return partial.specified === 0
+      ? null
+      : { max: { version: partial.version, inclusive: false } };
+  }
+  if (operator === "<=") {
+    if (partial.specified === 0) return {};
+    if (partial.specified < 3) {
+      return partialUpper ? { max: { version: partialUpper, inclusive: false } } : null;
+    }
+    return { max: { version: partial.version, inclusive: true } };
+  }
+  return null;
+}
+
+function tighterMinimum(
+  left: VersionBound | undefined,
+  right: VersionBound | undefined,
+): VersionBound | undefined {
+  if (!left) return right;
+  if (!right) return left;
+  const comparison = compareVersions(left.version, right.version);
+  if (comparison > 0) return left;
+  if (comparison < 0) return right;
+  return { version: left.version, inclusive: left.inclusive && right.inclusive };
+}
+
+function tighterMaximum(
+  left: VersionBound | undefined,
+  right: VersionBound | undefined,
+): VersionBound | undefined {
+  if (!left) return right;
+  if (!right) return left;
+  const comparison = compareVersions(left.version, right.version);
+  if (comparison < 0) return left;
+  if (comparison > 0) return right;
+  return { version: left.version, inclusive: left.inclusive && right.inclusive };
+}
+
+function intersectIntervals(left: VersionInterval, right: VersionInterval): VersionInterval {
+  return {
+    min: tighterMinimum(left.min, right.min),
+    max: tighterMaximum(left.max, right.max),
+  };
+}
+
+function intervalsOverlap(left: VersionInterval, right: VersionInterval): boolean {
+  const overlap = intersectIntervals(left, right);
+  if (!overlap.min || !overlap.max) return true;
+  const comparison = compareVersions(overlap.min.version, overlap.max.version);
+  return comparison < 0 ||
+    (comparison === 0 && overlap.min.inclusive && overlap.max.inclusive);
+}
+
+function parseSemverRangeIntervals(spec: string): VersionInterval[] | null {
+  if (!isSemverRangeSpec(spec)) return null;
+  const intervals: VersionInterval[] = [];
+  for (const alternative of spec.split("||")) {
+    const arm = alternative.trim();
+    const hyphenParts = arm.split(/\s+-\s+/);
+    if (hyphenParts.length === 2) {
+      const lower = parsePartialVersion(hyphenParts[0]);
+      const upper = parsePartialVersion(hyphenParts[1]);
+      if (!lower || !upper || lower.specified === 0 || upper.specified === 0) return null;
+      const upperBucket = upper.specified < 3 ? nextPartialBucket(upper) : null;
+      if (upper.specified < 3 && !upperBucket) return null;
+      intervals.push({
+        min: { version: lower.version, inclusive: true },
+        max: upperBucket
+          ? { version: upperBucket, inclusive: false }
+          : { version: upper.version, inclusive: true },
+      });
+      continue;
+    }
+
+    let interval: VersionInterval = {};
+    let offset = 0;
+    while (offset < arm.length) {
+      SEMVER_COMPARATOR_CAPTURE_RE.lastIndex = offset;
+      const match = SEMVER_COMPARATOR_CAPTURE_RE.exec(arm);
+      if (!match || match.index !== offset) return null;
+      const partial = parsePartialVersion(match[2]);
+      if (!partial) return null;
+      const constraint = comparatorInterval(match[1] ?? "", partial);
+      if (!constraint) return null;
+      interval = intersectIntervals(interval, constraint);
+      offset = SEMVER_COMPARATOR_CAPTURE_RE.lastIndex;
+      if (offset === arm.length) break;
+      const separator = /^\s+/.exec(arm.slice(offset));
+      if (!separator) return null;
+      offset += separator[0].length;
+    }
+    intervals.push(interval);
+  }
+  return intervals;
+}
+
+function requestedMajor(spec: string): number | null {
+  const comparable = comparableRegistrySpec(spec);
+  if (comparable === null || !isSemverRangeSpec(comparable)) return null;
+  SEMVER_COMPARATOR_CAPTURE_RE.lastIndex = 0;
+  const match = SEMVER_COMPARATOR_CAPTURE_RE.exec(comparable);
+  if (!match || match.index !== 0) return null;
+  return parsePartialVersion(match[2])?.version[0] ?? null;
+}
+
+/** Whether a registry range contains at least one release in `major`. */
+function registryRangeIntersectsMajor(spec: string, major: number): boolean | null {
+  if (!Number.isSafeInteger(major) || major < 0 || !Number.isSafeInteger(major + 1)) return null;
+  const comparable = comparableRegistrySpec(spec);
+  if (comparable === null) return null;
+  const intervals = parseSemverRangeIntervals(comparable);
+  if (!intervals) return null;
+  const majorBand: VersionInterval = {
+    min: { version: [major, 0, 0], inclusive: true },
+    max: { version: [major + 1, 0, 0], inclusive: false },
+  };
+  return intervals.some((interval) => intervalsOverlap(interval, majorBand));
+}
+
+/**
+ * Structural package.json dependency validity. This recognizes registry
+ * versions/ranges/tags plus npm's alias, workspace, local, remote and hosted
+ * git families. It deliberately does not require semver: those other families
+ * are installable declarations too. Unknown prose/punctuation and control
+ * characters stay fail-closed.
+ */
+function isDeclaredDependencySpec(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  if (CONTROL_CHARACTER_RE.test(value)) return false;
+  const spec = value.trim();
+  if (spec.length === 0) return false;
+
+  if (isRegistrySpec(spec) || npmAliasVersionSpec(spec) !== null) return true;
+  if (spec.startsWith("workspace:")) {
+    const workspaceSpec = spec.slice("workspace:".length);
+    return ["*", "^", "~"].includes(workspaceSpec) || isRegistrySpec(workspaceSpec);
+  }
+  if (spec.startsWith("file:") || spec.startsWith("link:")) {
+    return spec.slice(spec.indexOf(":") + 1).trim().length > 0;
+  }
+  if (/^(?:\.\.?[\\/]|~[\\/]|[A-Za-z]:[\\/]|[\\/])/.test(spec)) return true;
+  return (
+    isValidRemoteUrlSpec(spec) ||
+    GIT_SSH_COLON_PATH_RE.test(spec) ||
+    HOSTED_GIT_SHORTHAND_RE.test(spec) ||
+    GITLAB_SHORTHAND_RE.test(spec) ||
+    GIST_SHORTHAND_RE.test(spec) ||
+    SCP_GIT_RE.test(spec)
+  );
+}
 
 /**
  * A package is present when it is listed in `dependencies` OR
@@ -532,7 +884,8 @@ export function packageJsonDeclaresDependency(
       section &&
       typeof section === "object" &&
       !Array.isArray(section) &&
-      Object.prototype.hasOwnProperty.call(section, name)
+      Object.prototype.hasOwnProperty.call(section, name) &&
+      isDeclaredDependencySpec((section as Record<string, unknown>)[name])
     ) {
       return true;
     }
@@ -564,9 +917,9 @@ function checkPackageJsonFinding(
   const deps: Record<string, string> = {};
   for (const key of PACKAGE_JSON_DEP_SECTIONS) {
     const section = pkg[key];
-    if (section && typeof section === "object") {
+    if (section && typeof section === "object" && !Array.isArray(section)) {
       for (const [depName, depSpec] of Object.entries(section as Record<string, unknown>)) {
-        if (typeof depSpec === "string") deps[depName] = depSpec;
+        if (isDeclaredDependencySpec(depSpec)) deps[depName] = depSpec.trim();
       }
     }
   }
@@ -610,9 +963,12 @@ function checkPackageJsonFinding(
       const ok = versionTokens.every((token) => {
         const finalSpec = deps[token.name];
         if (finalSpec === undefined) return false;
-        const wantedMajor = majorOf(token.spec);
-        const finalMajor = majorOf(finalSpec);
-        return wantedMajor === null || finalMajor === null || wantedMajor === finalMajor;
+        const wantedMajor = requestedMajor(token.spec);
+        if (wantedMajor === null) return true;
+        const intersectsWantedMajor = registryRangeIntersectsMajor(finalSpec, wantedMajor);
+        // External specs/tags prove presence but do not expose a comparable
+        // registry range, so they cannot mechanically contradict the ask.
+        return intersectsWantedMajor ?? true;
       });
       claims.push({ ok, label: "required versioned dependencies present" });
     } else {
@@ -622,10 +978,9 @@ function checkPackageJsonFinding(
       const premiseHolds = versionTokens.every((token) => {
         const finalSpec = deps[token.name];
         if (finalSpec === undefined) return false;
-        const criticizedMajor = majorOf(token.spec);
-        const finalMajor = majorOf(finalSpec);
-        if (criticizedMajor === null || finalMajor === null) return true;
-        return criticizedMajor === finalMajor;
+        const criticizedMajor = requestedMajor(token.spec);
+        if (criticizedMajor === null) return true;
+        return registryRangeIntersectsMajor(finalSpec, criticizedMajor) ?? true;
       });
       claims.push({ ok: !premiseHolds, label: "criticized version combination gone" });
     }

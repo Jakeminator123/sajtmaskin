@@ -121,10 +121,11 @@ export type Tier3GateResult =
  * {@link checkTier3ReadinessForVersion}), so a client that skips
  * finalize-design cannot lift a product-blocked F2 version to F3 either.
  * The F3 trigger button reads `product_postcheck.summary` from `/error-log`
- * once on mount and can be stale; this is the authoritative check. The
- * newest summary row wins (a later passing postcheck unblocks). Read
- * failures fail open with a log — defense-in-depth on top of the client
- * button; a telemetry hiccup must not brick the legit F3 flow.
+ * and refetches after version-status refreshes, but this remains the
+ * authoritative check against stale or bypassed clients. The newest summary
+ * row wins (a later passing postcheck unblocks). Read failures fail open with
+ * a log — defense-in-depth on top of the client button; a telemetry hiccup
+ * must not brick the legit F3 flow.
  *
  * Codex P2 on #353 (backlog): reads the summary row via a category-scoped
  * `LIMIT 1` query — the previous 200-row window could be crowded out by

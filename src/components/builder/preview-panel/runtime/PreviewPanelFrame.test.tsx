@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PreviewPanelFrame } from "./PreviewPanelFrame";
 
@@ -21,6 +21,32 @@ function renderFrame(props: Partial<React.ComponentProps<typeof PreviewPanelFram
 }
 
 describe("PreviewPanelFrame — loading-overlayens debounce och hard-cap", () => {
+  it("mountar inte en blank iframe innan den riktiga preview-källan finns", () => {
+    const handleIframeLoad = vi.fn();
+    const view = renderFrame({ previewSrc: "", handleIframeLoad });
+
+    expect(screen.queryByTitle("Preview")).toBeNull();
+    expect(handleIframeLoad).not.toHaveBeenCalled();
+
+    view.rerender(
+      <PreviewPanelFrame
+        isLoading
+        iframeError={false}
+        iframeErrorMessage={null}
+        iframeDiagnosticCode={null}
+        iframeRunbookLines={[]}
+        handleOpenInNewTab={vi.fn()}
+        previewSrc="https://preview.example/real"
+        iframeRef={{ current: null }}
+        handleIframeLoad={handleIframeLoad}
+        handleIframeError={vi.fn()}
+      />,
+    );
+    const iframe = screen.getByTitle("Preview");
+    fireEvent.load(iframe);
+    expect(handleIframeLoad).toHaveBeenCalledTimes(1);
+  });
+
   it("visar overlayen efter debouncen och släcker den tyst efter hard-capen", () => {
     vi.useFakeTimers();
     try {

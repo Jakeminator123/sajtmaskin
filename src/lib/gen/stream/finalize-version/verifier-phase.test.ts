@@ -757,6 +757,93 @@ describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)
     });
   });
 
+  it("repair-gate rejection emits terminal fix-failed and keeps the blocking finding", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [collisionFinding(1)],
+      quality: [],
+    });
+    runLlmRepairGate.mockRejectedValueOnce(new Error("repair gate unavailable"));
+    const progressEvents: Array<{ step: string; data: Record<string, unknown> }> = [];
+
+    const result = await runVerifierPhase({
+      ...baseParams(PAGE),
+      onProgress: (step, data) => progressEvents.push({ step, data }),
+    });
+
+    expect(result.verifierBlockingFindings).toEqual([collisionFinding(1)]);
+    const verifierPhases = progressEvents
+      .filter(({ step }) => step === "verifier")
+      .map(({ data }) => data.phase);
+    expect(verifierPhases).toContain("fixing");
+    expect(progressEvents).toContainEqual({
+      step: "verifier",
+      data: expect.objectContaining({
+        phase: "fix-failed",
+        durationMs: expect.any(Number),
+        findingsBefore: 1,
+        findingsAfter: 1,
+        fixerImproved: false,
+        severity: "blocking",
+      }),
+    });
+    expect(verifierPhases.at(-1)).toBe("fix-failed");
+    expect(verifierPhases).not.toContain("fixed");
+    expect(verifierPhases).not.toContain("fix-partial");
+    expect(verifierPhases).not.toContain("error");
+  });
+
+  it("F2 auto-fix rejection emits advisory fix-failed and keeps the residual finding", async () => {
+    const advisoryFinding = {
+      id: "navigation-placeholder-actions",
+      detail: "footer links go nowhere",
+    };
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [advisoryFinding],
+      quality: [],
+    });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: PAGE,
+        fixedFiles: ["app/api/assistant/route.ts"],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: true,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.5",
+      deduped: false,
+    });
+    const progressEvents: Array<{ step: string; data: Record<string, unknown> }> = [];
+
+    const result = await runVerifierPhase({
+      ...baseParams(PAGE),
+      buildSpec: { previewPolicy: "fidelity2" } as never,
+      runAutoFix: vi.fn().mockRejectedValueOnce(new Error("auto-fix unavailable")),
+      onProgress: (step, data) => progressEvents.push({ step, data }),
+    });
+
+    expect(result.verifierBlockingFindings).toEqual([advisoryFinding]);
+    const verifierPhases = progressEvents
+      .filter(({ step }) => step === "verifier")
+      .map(({ data }) => data.phase);
+    expect(progressEvents).toContainEqual({
+      step: "verifier",
+      data: expect.objectContaining({
+        phase: "fix-failed",
+        findingsBefore: 1,
+        findingsAfter: 1,
+        fixerImproved: false,
+        severity: "advisory",
+      }),
+    });
+    expect(verifierPhases.at(-1)).toBe("fix-failed");
+    expect(verifierPhases).not.toContain("fixed");
+    expect(verifierPhases).not.toContain("fix-partial");
+    expect(verifierPhases).not.toContain("error");
+  });
+
   it("full clear (1→0) → fixed + the rewrite lesson", async () => {
     runVerifierPass
       .mockResolvedValueOnce({

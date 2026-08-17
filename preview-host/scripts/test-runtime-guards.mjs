@@ -1376,6 +1376,10 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     clearRuntimeStateForTesting,
     markPendingPreviewClientReload,
     clearPendingPreviewClientReload,
+    markPreviewSocketHandshakeComplete,
+    requestPreviewClientReload,
+    acknowledgePreviewClientReload,
+    clearPreviewSocketCandidate,
   } = runtime.__testing;
 
   function fakePreviewSocket() {
@@ -1427,7 +1431,10 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     const swapChat = "guard-reload-swap";
     const swapSession = seedReloadSession(swapChat);
     const openSocket = fakePreviewSocket();
-    registerPreviewSocket(swapChat, openSocket);
+    registerPreviewSocket(swapChat, openSocket, {
+      handshakeComplete: true,
+      viewerId: "viewer-swap",
+    });
     await runtime.ensureRuntimeForChat(swapChat, { restart: true });
     check(
       "runtime swap with an open iframe sends reloadPage on preview sockets",
@@ -1438,13 +1445,35 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     const keepChat = "guard-reload-keep";
     const keepSession = seedReloadSession(keepChat);
     const quietSocket = fakePreviewSocket();
-    registerPreviewSocket(keepChat, quietSocket);
+    registerPreviewSocket(keepChat, quietSocket, {
+      handshakeComplete: true,
+      viewerId: "viewer-first-boot",
+    });
     await runtime.ensureRuntimeForChat(keepChat, {});
     check(
-      "session without runtime swap does not send reloadPage",
+      "true first boot without a persisted runtime stays quiet",
       quietSocket.writes.length === 0 && !wroteReloadPage(quietSocket),
     );
     clearRuntimeStateForTesting(keepChat, keepSession.sessionId);
+
+    const coldRecoveryChat = "guard-reload-cold-recovery";
+    const coldRecoverySession = seedReloadSession(coldRecoveryChat);
+    const coldStorePath = join(dataDir, "preview-host-store.json");
+    const coldStore = JSON.parse(readFileSync(coldStorePath, "utf8"));
+    coldStore.sessions[coldRecoverySession.sessionId].runtimePort = 4203;
+    writeFileSync(coldStorePath, JSON.stringify(coldStore), "utf8");
+    const survivingSocket = fakePreviewSocket();
+    registerPreviewSocket(coldRecoveryChat, survivingSocket, {
+      handshakeComplete: true,
+      viewerId: "viewer-cold-recovery",
+    });
+    await runtime.ensureRuntimeForChat(coldRecoveryChat);
+    check(
+      "cold recovery with a persisted runtime port reloads a surviving viewer",
+      wroteReloadPage(survivingSocket),
+    );
+    clearRuntimeStateForTesting(coldRecoveryChat, coldRecoverySession.sessionId);
+    clearPendingPreviewClientReload(coldRecoveryChat);
 
     const freshChat = "guard-reload-fresh";
     const freshSession = seedReloadSession(freshChat);
@@ -1484,15 +1513,194 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     );
     clearPendingPreviewClientReload(reconnectChat);
 
+    const multiViewerChat = "guard-reload-multi-viewer";
+    const multiViewerGeneration = markPendingPreviewClientReload(multiViewerChat);
+    const viewerAFirstSocket = fakePreviewSocket();
+    registerPreviewSocket(multiViewerChat, viewerAFirstSocket, {
+      handshakeComplete: true,
+      viewerId: "viewer-a",
+    });
+    check(
+      "viewer A receives a runtime-swap signal but remains pending until document ACK",
+      wroteReloadPage(viewerAFirstSocket) &&
+        runtime.__testing.hasPendingPreviewClientReload(multiViewerChat, "viewer-a") &&
+        runtime.__testing.hasPendingPreviewClientReload(multiViewerChat, "viewer-b"),
+    );
+    viewerAFirstSocket.emit("close");
+    const viewerAReconnect = fakePreviewSocket();
+    registerPreviewSocket(multiViewerChat, viewerAReconnect, {
+      handshakeComplete: true,
+      viewerId: "viewer-a",
+    });
+    check(
+      "accepted write plus disconnect does not consume viewer A's delivery",
+      wroteReloadPage(viewerAReconnect) &&
+        runtime.__testing.hasPendingPreviewClientReload(multiViewerChat, "viewer-a") &&
+        runtime.__testing.hasPendingPreviewClientReload(multiViewerChat, "viewer-b"),
+    );
+    acknowledgePreviewClientReload(
+      multiViewerChat,
+      "viewer-a",
+      multiViewerGeneration,
+    );
+    const viewerAAfterDocumentAck = fakePreviewSocket();
+    registerPreviewSocket(multiViewerChat, viewerAAfterDocumentAck, {
+      handshakeComplete: true,
+      viewerId: "viewer-a",
+    });
+    check(
+      "viewer A document ACK prevents a reload loop without consuming viewer B",
+      viewerAAfterDocumentAck.writes.length === 0 &&
+        !runtime.__testing.hasPendingPreviewClientReload(multiViewerChat, "viewer-a") &&
+        runtime.__testing.hasPendingPreviewClientReload(multiViewerChat, "viewer-b"),
+    );
+    const viewerBFirstSocket = fakePreviewSocket();
+    registerPreviewSocket(multiViewerChat, viewerBFirstSocket, {
+      handshakeComplete: true,
+      viewerId: "viewer-b",
+    });
+    check(
+      "viewer B receives its own reload after viewer A has reconnected",
+      wroteReloadPage(viewerBFirstSocket) &&
+        runtime.__testing.hasPendingPreviewClientReload(multiViewerChat, "viewer-b"),
+    );
+    acknowledgePreviewClientReload(
+      multiViewerChat,
+      "viewer-b",
+      multiViewerGeneration,
+    );
+    const viewerBReconnect = fakePreviewSocket();
+    registerPreviewSocket(multiViewerChat, viewerBReconnect, {
+      handshakeComplete: true,
+      viewerId: "viewer-b",
+    });
+    check(
+      "viewer B document ACK prevents a third stale delivery",
+      viewerBReconnect.writes.length === 0 &&
+        !runtime.__testing.hasPendingPreviewClientReload(multiViewerChat, "viewer-b"),
+    );
+    clearPendingPreviewClientReload(multiViewerChat);
+
+    const generationBoundChat = "guard-reload-generation-bound";
+    const oldGeneration = markPendingPreviewClientReload(generationBoundChat);
+    const currentGeneration = markPendingPreviewClientReload(generationBoundChat);
+    check(
+      "a late document ACK cannot consume a newer runtime-swap generation",
+      acknowledgePreviewClientReload(
+        generationBoundChat,
+        "viewer-generation",
+        oldGeneration,
+      ) === false &&
+        runtime.__testing.hasPendingPreviewClientReload(
+          generationBoundChat,
+          "viewer-generation",
+        ),
+    );
+    check(
+      "the exact current runtime-swap generation accepts its document ACK",
+      acknowledgePreviewClientReload(
+        generationBoundChat,
+        "viewer-generation",
+        currentGeneration,
+      ) === true &&
+        !runtime.__testing.hasPendingPreviewClientReload(
+          generationBoundChat,
+          "viewer-generation",
+        ),
+    );
+    clearPendingPreviewClientReload(generationBoundChat);
+
+    const anonymousChat = "guard-reload-anonymous";
+    markPendingPreviewClientReload(anonymousChat);
+    const canonicalOpenTabViewer = runtime.__testing.previewViewerIdFromRequest(
+      { headers: {} },
+      "?id=next-random-open-tab-a",
+      { allowHmrRequestId: true },
+    );
+    const canonicalOpenTabReconnect = runtime.__testing.previewViewerIdFromRequest(
+      { headers: {} },
+      "?id=next-random-open-tab-b",
+      { allowHmrRequestId: true },
+    );
+    const anonymousFirst = fakePreviewSocket();
+    registerPreviewSocket(anonymousChat, anonymousFirst, {
+      handshakeComplete: true,
+      viewerId: canonicalOpenTabViewer,
+    });
+    const anonymousReconnect = fakePreviewSocket();
+    registerPreviewSocket(anonymousChat, anonymousReconnect, {
+      handshakeComplete: true,
+      viewerId: canonicalOpenTabReconnect,
+    });
+    check(
+      "canonical open-tab random HMR ids share anonymous one-shot and cannot loop",
+      canonicalOpenTabViewer === null &&
+        canonicalOpenTabReconnect === null &&
+        wroteReloadPage(anonymousFirst) &&
+        anonymousReconnect.writes.length === 0,
+    );
+    clearPendingPreviewClientReload(anonymousChat);
+
     const proxyChat = "guard-reload-proxy-handshake";
     markPendingPreviewClientReload(proxyChat);
     const proxySocket = fakePreviewSocket();
-    registerPreviewSocket(proxyChat, proxySocket);
+    registerPreviewSocket(proxyChat, proxySocket, { viewerId: "viewer-handshake" });
+    const preHandshake = requestPreviewClientReload(proxyChat);
     check(
       "pending reload is not written before the WebSocket handshake completes",
-      proxySocket.writes.length === 0,
+      preHandshake.sent === 0 &&
+        proxySocket.writes.length === 0 &&
+        runtime.__testing.hasPendingPreviewClientReload(proxyChat, "viewer-handshake"),
+    );
+    markPreviewSocketHandshakeComplete(proxyChat, proxySocket);
+    check(
+      "pending reload is delivered only after the proxied handshake completes",
+      wroteReloadPage(proxySocket),
     );
     clearPendingPreviewClientReload(proxyChat);
+
+    const candidateChat = "guard-reload-current-document-candidate";
+    const candidateGeneration = markPendingPreviewClientReload(candidateChat);
+    const candidateSocket = fakePreviewSocket();
+    registerPreviewSocket(candidateChat, candidateSocket, {
+      viewerId: "viewer-candidate",
+      candidateGenerationToken: candidateGeneration,
+      candidateDocumentId: "smd-candidate",
+    });
+    markPreviewSocketHandshakeComplete(candidateChat, candidateSocket);
+    check(
+      "current document candidate reaches 101 without receiving its own stale reload",
+      candidateSocket.writes.length === 0 &&
+        runtime.__testing.hasPendingPreviewClientReload(candidateChat, "viewer-candidate"),
+    );
+    clearPreviewSocketCandidate(candidateChat, "smd-candidate");
+    requestPreviewClientReload(candidateChat);
+    check(
+      "aborted document candidate is released and retried exactly once",
+      wroteReloadPage(candidateSocket) && candidateSocket.writes.length === 1,
+    );
+    clearPendingPreviewClientReload(candidateChat);
+
+    const staleCandidateChat = "guard-reload-stale-document-candidate";
+    const staleCandidateGeneration = markPendingPreviewClientReload(staleCandidateChat);
+    const staleCandidateSocket = fakePreviewSocket();
+    registerPreviewSocket(staleCandidateChat, staleCandidateSocket, {
+      handshakeComplete: true,
+      viewerId: "viewer-stale-candidate",
+      candidateGenerationToken: staleCandidateGeneration,
+      candidateDocumentId: "smd-stale-candidate",
+    });
+    check(
+      "generation N candidate suppresses only generation N",
+      staleCandidateSocket.writes.length === 0,
+    );
+    markPendingPreviewClientReload(staleCandidateChat);
+    requestPreviewClientReload(staleCandidateChat);
+    check(
+      "generation N+1 releases generation N candidate for reload",
+      wroteReloadPage(staleCandidateSocket),
+    );
+    clearPendingPreviewClientReload(staleCandidateChat);
 
     const boomChat = "guard-reload-failsafe";
     const boomSession = seedReloadSession(boomChat);
@@ -1500,7 +1708,10 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     boomSocket.write = () => {
       throw new Error("write failed");
     };
-    registerPreviewSocket(boomChat, boomSocket);
+    registerPreviewSocket(boomChat, boomSocket, {
+      handshakeComplete: true,
+      viewerId: "viewer-write-retry",
+    });
     let bootThrew = false;
     try {
       await runtime.ensureRuntimeForChat(boomChat, { restart: true });
@@ -1508,6 +1719,16 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
       bootThrew = true;
     }
     check("reload write failure does not fail the restart boot", bootThrew === false);
+    check(
+      "failed reload write does not acknowledge the viewer generation",
+      runtime.__testing.hasPendingPreviewClientReload(boomChat, "viewer-write-retry"),
+    );
+    const retrySocket = fakePreviewSocket();
+    registerPreviewSocket(boomChat, retrySocket, {
+      handshakeComplete: true,
+      viewerId: "viewer-write-retry",
+    });
+    check("same viewer can retry after a failed write", wroteReloadPage(retrySocket));
     clearRuntimeStateForTesting(boomChat, boomSession.sessionId);
     clearPendingPreviewClientReload(boomChat);
 

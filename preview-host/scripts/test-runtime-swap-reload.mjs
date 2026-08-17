@@ -47,7 +47,10 @@ check(
     writes.push(Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf)));
     return true;
   };
-  runtime.__testing.registerPreviewSocket(chatId, socket);
+  runtime.__testing.registerPreviewSocket(chatId, socket, {
+    handshakeComplete: true,
+    viewerId: "viewer-direct-reload",
+  });
 
   const result = requestReload(chatId);
   const payload = Buffer.concat(writes).toString("utf8");
@@ -195,7 +198,10 @@ check(
     writes.push(Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf)));
     return true;
   };
-  runtime.__testing.registerPreviewSocket(chatId, socket);
+  runtime.__testing.registerPreviewSocket(chatId, socket, {
+    handshakeComplete: true,
+    viewerId: "viewer-matching-readiness",
+  });
   const exposed = runtime.__testing.exposeRuntimeToClients(session, {
     restart: true,
     runtimePort: 4301,

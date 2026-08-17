@@ -28,7 +28,7 @@ Varje körning returnerar **separata** delresultat. Slå inte ihop tre procentta
 | `scaffold` | alltid | Att `matchScaffoldAuto()` väljer rätt scaffold. Skriver `data/scaffold-eval/reports/scaffold-selection-latest.json` (samma path canvas + Backoffice "Eval exact-hit" redan läser) | inget. Semantisk ranking används bara om nyckel + embeddings redan finns; saknas de degraderar semantiken till keyword, vilket inte failar lanen |
 | `codegen` | av | Hela orkestreringen + LLM-codegen + 12 checks för 3 eller 18 prompts | `OPENAI_API_KEY` + `POSTGRES_URL` |
 
-Topputfall: `PASS` / `FAIL` / `PROVIDER_ERROR` / `INFRA_ERROR`. Exit 0 / 1 / 2 följer `resolveEvalRunOutcome` + `evalExitCode` i `runner.ts` för codegen, och `resolveCanonicalOutcome` i `canonical.ts` för hela körningen. Ett provider-/infra-fel i codegen vinner över en kvalitetsmiss.
+Topputfall: `PASS` / `FAIL` / `PROVIDER_ERROR` / `INFRA_ERROR`. Exit 0 / 1 / 2 följer `resolveEvalRunOutcome` + `evalExitCode` i `outcome.ts` för codegen, och `resolveCanonicalOutcome` i `canonical.ts` för hela körningen. Ett provider-/infra-fel i codegen vinner över en kvalitetsmiss.
 
 Scaffold-lanens utfall härleds ur `keywordTop1Accuracy` mot
 `SCAFFOLD_LANE_MIN_KEYWORD_TOP1_PERCENT` i `canonical.ts` (ägbar policy,
@@ -54,13 +54,13 @@ Gate-regler (från `baseline.ts`, bara när `--gate` är satt):
 - `warning` om: nya blocking-checks, snittpoäng ≤ −5 %, eller någon enskild prompt tappar ≥15 %
 - `pass` annars
 
-Prompts som aldrig nådde checkarna (`generationStatus: "skipped"`) jämförs inte. `overallDelta` räknas över **samma** prompt-id:n som faktiskt utvärderades.
+Prompts som aldrig nådde checkarna (`generationStatus: "skipped"`) jämförs inte. Deras nollor är inte mätvärden. `overallDelta` räknas över **samma** prompt-id:n som faktiskt utvärderades i den här körningen — inte `report.summary.avgScore` mot `baseline.summary.avgScore`, som efter 2026-08-17 är olika mängder.
 
 Provider- och infra-fel rangordnas före kvalitetsdomen. Codegen-kvalitet härleds ur mätningen: `evaluated > 0` och `passed < evaluated` ger `quality_fail` (exit 1). `--gate` är en extra OR, inte enda vägen. Ett **permanent** provider-fault avbryter resten av sviten (`suite_aborted`). Transient 429/5xx/transport stoppar inte. `output_truncated` utan innehåll är kvalitetsutfall, inte infra.
 
 **Kostnad:** En full körning observerades kosta 13,90 USD den 31 juli 2026. Med dagens större promptkontext uppskattas 19–24 USD. Ett permanent provider-fault avbryter sviten, så den extra input-kostnaden för en död kredit gäller bara körningar före 2026-08-17. Kör inte casually; kontrollera `OPENAI_API_KEY`-quota först.
 
-**CI:** `.github/workflows/eval-baseline-update.yml` anropar `cli.ts --gate --save-baseline` direkt (inte `npm run eval`). Den är manuell + ev. schema; den är inte en andra eval-produkt. Skapa inte nya eval-workflows.
+**CI:** `.github/workflows/eval-baseline-update.yml` anropar `cli.ts --gate --save-baseline` direkt (inte `npm run eval`). Den körs **bara manuellt** via `workflow_dispatch` (veckoschemat togs bort 2026-08-17). Vid förbättring → öppnar draft-PR med ny baseline. Vid regression → workflow failar. Den är inte en andra eval-produkt och är **inte** wirad på `pull_request`.
 
 **Backoffice → Overhead → Eval** har ett läge (gratis / smoke / full), en knapp, och kostnadsbekräftelse före betald lane. Den anropar `npm run eval -- --json` och läser senaste codegen-summary från `data/eval-runs/latest/`. Export till `docs/evals/` är explicit knapp. Genererade rapporter är inte source of truth.
 

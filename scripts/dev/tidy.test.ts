@@ -4,9 +4,12 @@ import {
   STALE_AFTER_DAYS,
   classifyLocalBranch,
   classifyRemoteBranch,
+  classifyWorktree,
   dedupeVercelIgnoreLines,
   isNextCacheStale,
   isProtectedBranch,
+  isWorktreeDirty,
+  parsePorcelainWorktrees,
 } from "./tidy.mjs";
 
 /**
@@ -84,6 +87,80 @@ describe("classifyRemoteBranch", () => {
     expect(
       classifyRemoteBranch({ name: "BRA_19191919", ageDays: 400, hasOpenPr: false }).flag,
     ).toBe("keep");
+  });
+});
+
+describe("isWorktreeDirty", () => {
+  it("tolkar ett misslyckat git status som SMUTSIGT, inte rent", () => {
+    // Inversionsfällan: `allowFail` ger null vid fel, och null får aldrig
+    // betyda "inga ändringar". En worktree vi inte kan läsa är upptagen.
+    expect(isWorktreeDirty(null)).toBe(true);
+  });
+
+  it("tom utdata är rent, innehåll är smutsigt", () => {
+    expect(isWorktreeDirty("")).toBe(false);
+    expect(isWorktreeDirty("   \n ")).toBe(false);
+    expect(isWorktreeDirty(" M src/a.ts")).toBe(true);
+    expect(isWorktreeDirty("?? nytt.txt")).toBe(true);
+  });
+});
+
+describe("classifyWorktree", () => {
+  const free = {
+    branch: "fix/klar",
+    hasOpenPr: false,
+    isDirty: false,
+    mergedIntoBase: true,
+    isMain: false,
+  };
+
+  it("frikallar bara en worktree där alla tre villkor är uppfyllda", () => {
+    expect(classifyWorktree(free).verdict).toBe("free");
+  });
+
+  it("skyddar en annan agents pågående arbete", () => {
+    // Öppen PR = någon arbetar. Detta är hålet `worktree:remove` inte täcker,
+    // eftersom den bara ser smutsigt/ospårat innehåll.
+    const openPr = classifyWorktree({ ...free, hasOpenPr: true });
+    expect(openPr.verdict).toBe("keep");
+    expect(openPr.reason).toContain("ÖPPEN PR");
+
+    expect(classifyWorktree({ ...free, isDirty: true }).verdict).toBe("keep");
+    expect(classifyWorktree({ ...free, mergedIntoBase: false }).verdict).toBe("keep");
+  });
+
+  it("rör aldrig huvudcheckouten eller ett skyddat branchnamn", () => {
+    expect(classifyWorktree({ ...free, isMain: true }).verdict).toBe("keep");
+    expect(classifyWorktree({ ...free, branch: "JAKOB_BRA_9999_INNNAN_MVP_BRA" }).verdict).toBe(
+      "keep",
+    );
+  });
+
+  it("behåller en detached worktree som inte är mergad", () => {
+    expect(classifyWorktree({ ...free, branch: null, mergedIntoBase: false }).verdict).toBe("keep");
+  });
+});
+
+describe("parsePorcelainWorktrees", () => {
+  it("läser sökväg och branch, och lämnar detached som null", () => {
+    const lines = [
+      "worktree C:/repo",
+      "HEAD abc",
+      "branch refs/heads/master",
+      "",
+      "worktree C:/repo-review",
+      "HEAD def",
+      "detached",
+    ];
+    expect(parsePorcelainWorktrees(lines)).toEqual([
+      { path: "C:/repo", branch: "master" },
+      { path: "C:/repo-review", branch: null },
+    ]);
+  });
+
+  it("behandlar första posten som huvudträdet", () => {
+    const wts = parsePorcelainWorktrees(["worktree /a", "branch refs/heads/master", "worktree /b"]);
+    expect(wts[0].path).toBe("/a");
   });
 });
 

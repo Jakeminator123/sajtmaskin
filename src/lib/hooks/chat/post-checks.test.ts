@@ -9,6 +9,10 @@ vi.mock("@/lib/gen/validation/project-sanity", () => ({
 
 import { runPostGenerationChecks } from "./post-checks";
 import type { SetMessages } from "./types";
+import {
+  acceptClientErrorReport,
+  resetClientErrorReportGateForTests,
+} from "@/lib/builder/preview-client-error-report";
 
 type FetchCall = {
   url: string;
@@ -122,6 +126,7 @@ describe("runPostGenerationChecks", () => {
 
   beforeEach(() => {
     fetchCalls = [];
+    resetClientErrorReportGateForTests();
     runProjectSanityChecks.mockReset();
     runProjectSanityChecks.mockReturnValue({ valid: true, issues: [] });
   });
@@ -367,6 +372,7 @@ describe("runPostGenerationChecks", () => {
     const mutateVersions = vi.fn();
     const store = createMessageStore();
     const files = buildHealthyFiles();
+    expect(acceptClientErrorReport("ver_1", "Hydration failed", null)).toBe(true);
 
     vi.stubGlobal(
       "fetch",
@@ -398,7 +404,9 @@ describe("runPostGenerationChecks", () => {
           return jsonResponse({
             passed: false,
             superseded: true,
-            promoted: false,
+            // Defense-in-depth: even a contradictory marker must not move a
+            // terminal-neutral superseded response into promoted phase.
+            promoted: true,
             checks: [],
           });
         }
@@ -424,6 +432,7 @@ describe("runPostGenerationChecks", () => {
     expect(output.skipped).toBe(true);
     // `passed: false` from the response must NOT leak into the card output.
     expect(output.passed).toBeUndefined();
+    expect(acceptClientErrorReport("ver_1", "Hydration failed", null)).toBe(false);
     expect(onAutoFix).not.toHaveBeenCalled();
     expect(fetchCalls.some((call) => call.url.endsWith("/repair"))).toBe(false);
   });
@@ -440,6 +449,9 @@ describe("runPostGenerationChecks", () => {
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
         fetchCalls.push({ url, init });
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
         if (url.includes("/versions")) {
           return jsonResponse({
             versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
@@ -450,9 +462,6 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/validate-images")) {
           return jsonResponse({});
-        }
-        if (url.includes("/error-log")) {
-          return jsonResponse({ ok: true });
         }
         throw new Error(`Unexpected fetch: ${url}`);
       }),
@@ -481,8 +490,167 @@ describe("runPostGenerationChecks", () => {
     // (`useVersionStatus` via `refreshNonce`) must refetch exactly once
     // after the postcheck so the two surfaces never disagree. Without the
     // `finally` revalidation, mutateVersions is not called on this path.
-    expect(mutateVersions).toHaveBeenCalledTimes(1);
-    expect(onComplete).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => {
+      expect(mutateVersions).toHaveBeenCalledTimes(1);
+      expect(onComplete).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("waits for the product-postcheck log persistence before refreshing status surfaces", async () => {
+    const order: string[] = [];
+    const mutateVersions = vi.fn(() => order.push("versions-refreshed"));
+    const onComplete = vi.fn(() => order.push("status-refreshed"));
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    let settlePersistence!: () => void;
+    const delayedPersistence = new Promise<Response>((resolve) => {
+      settlePersistence = () => {
+        order.push("persistence-settled");
+        resolve(jsonResponse({ ok: true }));
+      };
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/error-log")) return delayedPersistence;
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({
+            skipped: false,
+            productBlocked: true,
+            warnings: [{ code: "fake_form", message: "Formuläret är inte kopplat." }],
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    const runPromise = runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: null,
+      preflight: {
+        previewBlocked: true,
+        verificationBlocked: true,
+        previewBlockingReason: "Own preview entrypoint could not be prepared.",
+      },
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      mutateVersions,
+      onComplete,
+    });
+
+    await runPromise;
+    expect(mutateVersions).not.toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
+
+    settlePersistence();
+    await vi.waitFor(() => {
+      expect(mutateVersions).toHaveBeenCalledTimes(1);
+      expect(onComplete).toHaveBeenCalledTimes(1);
+    });
+    expect(order).toEqual([
+      "persistence-settled",
+      "versions-refreshed",
+      "status-refreshed",
+    ]);
+  });
+
+  it("revalidates versions after a successful tier-2 promotion settles", async () => {
+    const order: string[] = [];
+    const phaseResults: boolean[] = [];
+    let qualityGateSettled = false;
+    const mutateVersions = vi.fn(() => {
+      order.push("versions-refreshed");
+      if (!qualityGateSettled) return;
+      // This callback runs before the SWR commit, so promotedAt is still null.
+      phaseResults.push(acceptClientErrorReport("ver_1", "Hydration failed", null));
+      phaseResults.push(acceptClientErrorReport("ver_1", "Hydration failed", null));
+      // The eventual server timestamp belongs to the same binary phase.
+      phaseResults.push(
+        acceptClientErrorReport(
+          "ver_1",
+          "Hydration failed",
+          "2026-08-15T10:00:00.000Z",
+        ),
+      );
+    });
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    let settleQualityGate!: () => void;
+    const delayedQualityGate = new Promise<Response>((resolve) => {
+      settleQualityGate = () => {
+        order.push("quality-gate-settled");
+        qualityGateSettled = true;
+        resolve(
+          jsonResponse({
+            passed: true,
+            promoted: true,
+            checks: [{ check: "typecheck", passed: true, exitCode: 0, output: "" }],
+          }),
+        );
+      };
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/error-log")) return jsonResponse({ ok: true });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                lifecycleStage: "design",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({ skipped: true, warnings: [] });
+        }
+        if (url.includes("/quality-gate")) return delayedQualityGate;
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      mutateVersions,
+    });
+
+    expect(acceptClientErrorReport("ver_1", "Hydration failed", null)).toBe(true);
+    expect(acceptClientErrorReport("ver_1", "Hydration failed", null)).toBe(false);
+
+    await vi.waitFor(() => expect(mutateVersions).toHaveBeenCalledTimes(1));
+    expect(order).toEqual(["versions-refreshed"]);
+
+    settleQualityGate();
+    await vi.waitFor(() => expect(mutateVersions).toHaveBeenCalledTimes(2));
+    expect(order).toEqual([
+      "versions-refreshed",
+      "quality-gate-settled",
+      "versions-refreshed",
+    ]);
+    expect(phaseResults).toEqual([true, false, false]);
   });
 
   it("falls back to preview-missing diagnostics when no preflight state exists", async () => {
