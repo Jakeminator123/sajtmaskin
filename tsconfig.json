@@ -1,10 +1,6 @@
 {
   "compilerOptions": {
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -22,15 +18,12 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@clerk/nextjs": [
-        "./tests/stubs/clerk-nextjs.tsx"
-      ],
-      "@clerk/nextjs/server": [
-        "./tests/stubs/clerk-nextjs-server.ts"
-      ]
+      "@/*": ["./src/*"],
+      // Test/typecheck only (se tests/stubs/README.md). Inte Sajtmaskins
+      // produktionsruntime: genererade användarsajter installerar riktiga
+      // @clerk/nextjs från clerk-auth-dossierets manifest, inte detta alias.
+      "@clerk/nextjs": ["./tests/stubs/clerk-nextjs.tsx"],
+      "@clerk/nextjs/server": ["./tests/stubs/clerk-nextjs-server.ts"]
     },
     "target": "ES2022",
     "forceConsistentCasingInFileNames": true

@@ -52,6 +52,8 @@ Jämförelsereglerna i `baseline.ts` (fail/warning/pass) styr bara texten, inte 
 
 Provider- och infra-fel rangordnas före kvalitetsdomen. Codegen-kvalitet härleds ur mätningen: `evaluated > 0` och `passed < evaluated` ger `quality_fail` (exit 1). Ett **permanent** provider-fault avbryter resten av sviten (`suite_aborted`). Transient 429/5xx/transport stoppar inte. `output_truncated` utan innehåll är kvalitetsutfall, inte infra.
 
+**Kostnad:** En full körning observerades kosta 13,90 USD den 31 juli 2026. Med dagens större promptkontext uppskattas 19–24 USD. Ett permanent provider-fault avbryter sviten, så den extra input-kostnaden för en död kredit gäller bara körningar före 2026-08-17. Kör inte casually; kontrollera `OPENAI_API_KEY`-quota först.
+
 **CI:** ingen schemalagd eval. Skapa inte nya eval-workflows utan uttryckligt ägarbeslut.
 
 **Backoffice → Overhead → Eval** har ett läge (gratis / smoke / full), en knapp, och kostnadsbekräftelse före betald lane. Den anropar `npm run eval -- --json` och läser senaste codegen-summary från `data/eval-runs/latest/`. Export till `docs/evals/` är explicit knapp. Genererade rapporter är inte source of truth.

@@ -17,16 +17,16 @@ buntar ihop dem och antingen godkänner eller pekar på problemet.
 
 ## Vad `npm run hygiene` kontrollerar
 
-| Steg | Frågar | Om det rödar |
-|---|---|---|
-| `docs:check` | Stämmer genererade contract-docs med sina källor? | Kör `npm run docs:generate` och committa. |
-| `docs:links` | Pekar alla aktiva Markdown-länkar på filer som finns? | Rätta/ta bort den brutna länken. |
-| `plans:history:check` | Är planhistoriken (statusar/arkivrubriker) konsekvent? | Följ meddelandet — oftast en status/rubrik som glidit. |
-| `check:terms:contract` | Äger ordlistan sina begrepp (inga dubbeldefinitioner)? | Registrera begreppet i glossaryn, inte på två ställen. |
-| `check:bug-backlog` | Är `BUG-SWARM-BACKLOG.md` i rätt format? | Följ felet (sektioner, SM-id, inga `[x]` i Aktiv kö). |
-| `knip:files` | Finns någon **oimporterad källfil** (dött skräp)? | Se nästa avsnitt. |
-| `clean:orphans:dry` | Vilka regenererbara skräpfiler _skulle_ städas? | Bara en rapport — kör `npm run clean:orphans` för att faktiskt ta bort. |
-| `clean:scratch` | Vilka gitignorade scratch-träd (t.ex. `.cursor/swarms/runs`) _skulle_ kapas? | Dry-run — kör `npm run clean:scratch:apply` för att faktiskt ta bort (behåller 3 nyaste runs). |
+| Steg                   | Frågar                                                                       | Om det rödar                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `docs:check`           | Stämmer genererade contract-docs med sina källor?                            | Kör `npm run docs:generate` och committa.                                                      |
+| `docs:links`           | Pekar alla aktiva Markdown-länkar på filer som finns?                        | Rätta/ta bort den brutna länken.                                                               |
+| `plans:history:check`  | Är planhistoriken (statusar/arkivrubriker) konsekvent?                       | Följ meddelandet — oftast en status/rubrik som glidit.                                         |
+| `check:terms:contract` | Äger ordlistan sina begrepp (inga dubbeldefinitioner)?                       | Registrera begreppet i glossaryn, inte på två ställen.                                         |
+| `check:bug-backlog`    | Är `BUG-SWARM-BACKLOG.md` i rätt format?                                     | Följ felet (sektioner, SM-id, inga `[x]` i Aktiv kö).                                          |
+| `knip:files`           | Finns någon **oimporterad källfil** (dött skräp)?                            | Se nästa avsnitt.                                                                              |
+| `clean:orphans:dry`    | Vilka regenererbara skräpfiler _skulle_ städas?                              | Bara en rapport — kör `npm run clean:orphans` för att faktiskt ta bort.                        |
+| `clean:scratch`        | Vilka gitignorade scratch-träd (t.ex. `.cursor/swarms/runs`) _skulle_ kapas? | Dry-run — kör `npm run clean:scratch:apply` för att faktiskt ta bort (behåller 3 nyaste runs). |
 
 ## Full dödkods-rapport (`npm run knip`)
 
@@ -59,26 +59,46 @@ importeras av något. Två giltiga fixar:
 
 ## Städkommandon när något faktiskt ska bort
 
-| Kommando | Gör |
-|---|---|
-| `npm run clean:orphans` | Tar bort regenererbart skräp (Python-cache, tomma mappar). `:dry` för förhandsvisning. |
-| `npm run clean:scratch` | Förhandsvisar städning av gitignorerat scratch (`.tmp`, `.cursor/`-ytor, `logs/`, `.env-backups`, lösa `.tmp-*`/`scratch-*` i roten). `:apply` raderar. |
-| `npm run plans:archive:apply` | Arkiverar färdiga planer enligt livscykeln. `plans:archive` (utan `:apply`) förhandsvisar. |
-| `npm run knip` | Full dödkods-rapport (se ovan om hur den läses). |
+| Kommando                      | Gör                                                                                                                                                               |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run tidy`                | Förhandsvisar **git-nivåns** städ: döda lokala brancher, avregistrerade worktrees, förlegad `.next`. Rapporterar gamla remote-brancher. `:apply` utför. Se nedan. |
+| `npm run clean:orphans`       | Tar bort regenererbart skräp (Python-cache, tomma mappar). `:dry` för förhandsvisning.                                                                            |
+| `npm run clean:scratch`       | Förhandsvisar städning av gitignorerat scratch (`.tmp`, `.cursor/`-ytor, `logs/`, `.env-backups`, lösa `.tmp-*`/`scratch-*` i roten). `:apply` raderar.           |
+| `npm run plans:archive:apply` | Arkiverar färdiga planer enligt livscykeln. `plans:archive` (utan `:apply`) förhandsvisar.                                                                        |
+| `npm run knip`                | Full dödkods-rapport (se ovan om hur den läses).                                                                                                                  |
+
+### `tidy` — git-nivån
+
+Skriptet: [`scripts/dev/tidy.mjs`](../../scripts/dev/tidy.mjs). Torrkörning är default. `hygiene` är en **grind** (läsande, faller med exitkod, CI blockerar på delar); `tidy` är **vaktmästaren** som städar lokalt tillstånd som ruttnar av sig självt. Därför är de skilda knappar.
+
+| Yta             | Policy                                                                                                                                                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lokala brancher | Raderas bara när remoten är borta **och** innehållet finns i `origin/master`. Omergat = pågående arbete, rörs inte.                                                                                                     |
+| Skyddade namn   | `master`, `main`, `ema`, allt med `BRA`, `rescue/*`, `dependabot/*`, `archive/*` — aldrig.                                                                                                                              |
+| Worktrees       | `git worktree prune` på avregistrerade poster. Radera kataloger med `npm run worktree:remove` (junction-fällan).                                                                                                        |
+| `.next`         | Raderas om cachen är äldre än HEAD. En förlegad `.next/dev/types` pekar på borttagna rutter och ger fantomfel i `typecheck` — det hände efter en 548-commit-pull 2026-08-17.                                            |
+| `.gitignore`    | Tar bort dubbletter av `.env*` och `.vercel` som `vercel link` / `vercel env pull` appendar, och normaliserar till LF (CLI:n skriver CRLF på Windows). Bara exakta träffar rörs, så en riktig regel kan inte försvinna. |
+| Remote-brancher | **Bara rapport** (äldre än 30 dagar utan öppen PR). Radering är ditt beslut; arkivera gärna som `archive/*`-tagg först.                                                                                                 |
+
+GitHub-städet är redan självgående: repo-inställningen `deleteBranchOnMerge` raderar varje PR-mergad branch. Det som blir kvar är per definition omergat, och därför inget en robot ska ta.
+
+#### Varför `.gitignore`-raden inte kan fixas i filen
+
+Det naturliga vore att hitta en filform Vercel-CLI:n accepterar. Det går inte: 2026-08-17 testades sex länkningar mot mönstret först i env-blocket, sist i filen, med och utan blankrad före, med och utan negationer efter. CLI:n appendar sin rad på nytt varje gång `.gitignore` ändrats sedan förra körningen — två identiska körningar i rad är tysta, men en redigering armerar den igen. Antalet växer alltså långsamt av sig självt. Eftersom identiska gitignore-mönster är verkningslösa för git är dubbletten ofarlig; det enda den kostar är brus i `git status`. Därför ligger fixen i `tidy` och inte i filen.
 
 ### `clean:scratch` — retention i korthet
 
 Skriptet: [`scripts/dev/clean-scratch.mjs`](../../scripts/dev/clean-scratch.mjs). Torrkörning är default; inget raderas utan `--apply` / `:apply`. Git-spårade filer och symlänkar/junctions rörs aldrig.
 
-| Yta | Policy |
-|---|---|
-| `.tmp`, `.pytest_cache`, `.cursor/tmp`, `.eslintcache` | Wipe (rensas helt) |
-| `.cursor/handoffs`, `kedja`, `bugs`, `logg-internet/runs`, `swarms/runs` | Hårt antalstak: 3 nyaste, ingen åldersflykt |
-| `logs/` **mappar** (t.ex. `hydration-*`) | Hårt antalstak: **2** nyaste, ingen åldersflykt |
-| `logs/` **lösa filer** (`tmp-*`, `dump-*`, `*.log`-artefakter m.m.) | Wipe — inget referensvärde |
-| `logs/generationslogg`, `site-observability`, `llm-segmentts-and-index` | Orörda här — egen retention i `generation-log-writer` |
-| `.env-backups` | Åldersbaserat: 3 nyaste **eller** yngre än 14 dagar |
-| Lösa `.tmp-*` och `scratch-*.mjs`/`.json` i repo-roten | Wipe — mönstret är ankrat och speglar `.gitignore` exakt |
+| Yta                                                                      | Policy                                                   |
+| ------------------------------------------------------------------------ | -------------------------------------------------------- |
+| `.tmp`, `.pytest_cache`, `.cursor/tmp`, `.eslintcache`                   | Wipe (rensas helt)                                       |
+| `.cursor/handoffs`, `kedja`, `bugs`, `logg-internet/runs`, `swarms/runs` | Hårt antalstak: 3 nyaste, ingen åldersflykt              |
+| `logs/` **mappar** (t.ex. `hydration-*`)                                 | Hårt antalstak: **2** nyaste, ingen åldersflykt          |
+| `logs/` **lösa filer** (`tmp-*`, `dump-*`, `*.log`-artefakter m.m.)      | Wipe — inget referensvärde                               |
+| `logs/generationslogg`, `site-observability`, `llm-segmentts-and-index`  | Orörda här — egen retention i `generation-log-writer`    |
+| `.env-backups`                                                           | Åldersbaserat: 3 nyaste **eller** yngre än 14 dagar      |
+| Lösa `.tmp-*` och `scratch-*.mjs`/`.json` i repo-roten                   | Wipe — mönstret är ankrat och speglar `.gitignore` exakt |
 
 Automatisk körning (t.ex. via `predev`) är **inte** inkopplad — kör manuellt när `logs/` eller `.cursor/`-scratch vuxit.
 

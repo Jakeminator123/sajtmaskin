@@ -100,8 +100,9 @@ Verifieringsminimum per ändringstyp: se `workflow.mdc`. Alltid
 
 ## Arbetssätt
 
-- **Eget worktree per aktivitet** (`git worktree add ..\sajtmaskin-<id> -b fix/<id>`),
-  aldrig huvudcheckouten. Städa med `npm run worktree:remove -- <sökväg>`.
+- **Eget worktree per aktivitet** (`git worktree add ..\sajtmaskin-<id> -b fix/<id> origin/master`
+  — basen är inte valfri, se `agent-worktree.mdc`), aldrig huvudcheckouten.
+  Städa med `npm run worktree:remove -- <sökväg>`.
 - Buggarna i våg 1 kan köras via `/kedja` (en bugg per körning).
 - M1 startar med `/818`-svärm på beslutsfrågan.
 - Subagenter (även bugbot): Grok enligt `subagent-models.mdc` — slå upp aktuell

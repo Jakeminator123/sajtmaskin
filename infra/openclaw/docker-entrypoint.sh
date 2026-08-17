@@ -21,6 +21,14 @@ BIND_MODE="${OPENCLAW_GATEWAY_BIND:-lan}"
 # on every step at once, and the app then shows an empty answer.
 MODEL_PRIMARY="${OPENCLAW_MODEL_PRIMARY:-openai/gpt-5.5}"
 MODEL_FALLBACK="${OPENCLAW_MODEL_FALLBACK:-openai/gpt-5.4}"
+# Heartbeat is OFF by default ("0m"). This deployment has no chat channel
+# (Telegram/Discord) configured, so the default 30m heartbeat woke gpt-5.5 with
+# the full agent context, answered HEARTBEAT_OK into the void and burned real
+# OpenAI credits around the clock (observed 2026-08-17). This file rewrites
+# openclaw.json on every boot, so the value must be pinned here — a runtime
+# `openclaw config set` does not survive a redeploy. Re-enable per instance
+# with e.g. OPENCLAW_HEARTBEAT_EVERY=30m once a delivery channel exists.
+HEARTBEAT_EVERY="${OPENCLAW_HEARTBEAT_EVERY:-0m}"
 OPENCLAW_VERSION="$(openclaw --version 2>/dev/null | tr -d '\r')"
 CONTROLUI_DISABLE_DEVICE_AUTH="${OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH:-false}"
 
@@ -179,6 +187,7 @@ cat > "$CONFIG_FILE" <<EOF
   },
   "agents": {
     "defaults": {
+      "heartbeat": { "every": "${HEARTBEAT_EVERY}" },
       "model": {
         "primary": "${MODEL_PRIMARY}",
         "fallbacks": [${MODEL_FALLBACKS_JSON}]
@@ -206,7 +215,7 @@ EOF
 # be applied here.
 chmod 600 "$CONFIG_FILE"
 
-echo "[entrypoint] Config written — model=${MODEL_PRIMARY}, fallbacks=[${MODEL_FALLBACKS_JSON}], port=${LISTEN_PORT}, bind=${BIND_MODE}"
+echo "[entrypoint] Config written — model=${MODEL_PRIMARY}, fallbacks=[${MODEL_FALLBACKS_JSON}], port=${LISTEN_PORT}, bind=${BIND_MODE}, heartbeat=${HEARTBEAT_EVERY}"
 echo "[entrypoint] OpenClaw version: ${OPENCLAW_VERSION:-unknown}"
 echo "[entrypoint] Target site: ${TARGET_SITE_URL}"
 echo "[entrypoint] controlUi.allowedOrigins: [${ALLOWED_ORIGINS_JSON}]"

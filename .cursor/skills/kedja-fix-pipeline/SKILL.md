@@ -26,10 +26,11 @@ The orchestrator is the cheap model in the user's chat. Subagents are cheap too;
 `worktree:link` refuses a path that git does not already know, so the order is fixed:
 
 ```powershell
-git worktree add ..\sajtmaskin-kedja-<slug>-a -b kedja/<slug>-a
+git worktree add ..\sajtmaskin-kedja-<slug>-a -b kedja/<slug>-a origin/master
 npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
 ```
 
+- **Always pass the base `origin/master`.** Omit it and git bases the candidate on the main checkout's HEAD at that moment, so every candidate silently inherits whatever the owner has committed locally but not pushed. All candidates must start from the same published trunk, or the judging round compares diffs against different baselines.
 - `<slug>` = 2–4 words, kebab-case, transliterated (å→a, ä→a, ö→o).
 - One suffix per candidate: `-a`, `-b`, `-c`.
 - Run subagents with `working_directory` set to the worktree's absolute path, and say the path in the prompt too — an agent that guesses will land in the main checkout.
