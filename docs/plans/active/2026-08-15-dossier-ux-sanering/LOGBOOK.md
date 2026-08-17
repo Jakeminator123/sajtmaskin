@@ -10,15 +10,15 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 
 ## Framsteg
 
-**Totalt: 8 % (1/12 aktiviteter klara)**
+**Totalt: 42 % (5/12 aktiviteter klara) — våg 1 komplett**
 
 | Id | Aktivitet | Status | Commit |
 |---|---|---|---|
-| B1 | Providerval: negation/multi-hit/okänd provider | Pågår (subagent) | – |
+| B1 | Providerval: negation/multi-hit/okänd provider | **Klar** | `dbb242358` |
 | B2 | En F3-promptauktoritet (SM-005) | **Klar** | `512e7a9cd` |
-| B3 | Plattforms-`process.env`-fallback bort | Ej startad | – |
-| B4 | Copy-/docs-städ | Ej startad | – |
-| B5 | F3-marker env-nycklar + detaljkort (SM-008/009) | Ej startad | – |
+| B3 | Plattforms-`process.env`-fallback bort | **Klar** | `dbb242358` |
+| B4 | Copy-/docs-städ | **Klar** | `58d195a80` |
+| B5 | F3-marker env-nycklar + detaljkort (SM-008/009) | **Klar** | se git |
 | K1 | En nyckel-/statusyta | Ej startad | – |
 | K2 | Katalogklick stage:as | Ej startad | – |
 | M1 | Strukturerad materialisering | Ej startad | – |
@@ -36,4 +36,11 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 
 ## Anteckningar
 
-(fylls på per aktivitet)
+- B1: orkestratorns granskning rättade en kant — tvetydig multi-hit efter
+  negation föll tillbaka till defaulten ur hela poolen, så ett negerat
+  default-syskon kunde vinna. Fallbacken tar nu icke-negerade poolen.
+- B1: `providers` räknas som prompt-markör (clerk-auth saknar
+  `relevanceKeywords`) — både för negation och positiv träff.
+- B5: orkestratorn strök oanvänd hjälpare (`projectF3DetailCardLifecycle`)
+  och pluggade `f3PriorRequestedEnvKeys` genom mellantypen
+  `OwnEnginePipelineAndGenerationInput` (typecheck-fångst).

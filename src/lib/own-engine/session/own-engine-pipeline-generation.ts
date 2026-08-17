@@ -54,6 +54,8 @@ export type OwnEnginePipelineAndGenerationInput = {
   f3PriorToolOnlyRounds?: number | null;
   /** Providers from the consumed F3 marker (forwarded on silent rounds). */
   f3PriorSuggestedProviders?: string[] | null;
+  /** Env keys from the consumed F3 marker (forwarded on silent rounds). */
+  f3PriorRequestedEnvKeys?: string[] | null;
 };
 
 /**
@@ -122,6 +124,7 @@ export function createOwnEnginePipelineAndGenerationStream(
     lifecycleParentVersionId: input.lifecycleParentVersionId,
     f3PriorToolOnlyRounds: input.f3PriorToolOnlyRounds,
     f3PriorSuggestedProviders: input.f3PriorSuggestedProviders,
+    f3PriorRequestedEnvKeys: input.f3PriorRequestedEnvKeys,
     accumulatedThinkingRef,
   });
 }

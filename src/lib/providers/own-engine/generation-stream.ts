@@ -10,6 +10,10 @@ import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { finalizeOrHandleEmptyGeneration } from "@/lib/gen/stream/shared-own-engine-helpers";
 import {
+  applyPostMergeF3DetailCardEvidence,
+  omitEarlyF3DetailCardEvidence,
+} from "@/lib/gen/stream/f3-detail-card";
+import {
   buildF3AwaitingInputUiPart,
   F3_CONTINUATION_EMPTY_QUESTION,
   F3_CONTINUATION_EXHAUSTED_MESSAGE,
@@ -118,9 +122,10 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
   /** Swedish user-facing names for `mutedCapabilities` (dossier labels). */
   mutedCapabilityLabels?: string[];
   /**
-   * Dossier capabilities with real file evidence in the base version.
-   * Finalize overwrites this with the final persisted version's evidence
-   * before saving the orchestration snapshot.
+   * Dossier capabilities with real file evidence. The early `meta` SSE
+   * omits this (base-version files would make a same-round delivery look
+   * `planned` on the detail card). Finalize re-emits meta with the
+   * post-merge evidence and overwrites the orchestration snapshot.
    */
   fileEvidenceCapabilities?: string[];
   /**
@@ -173,6 +178,12 @@ export interface GenerationStreamParams {
    */
   f3PriorSuggestedProviders?: string[] | null;
   /**
+   * Env keys carried by the consumed F3 marker. Forwarded into a new
+   * marker on a silent/tool-only retry so an env-only proposal keeps
+   * its keys across reload/approve.
+   */
+  f3PriorRequestedEnvKeys?: string[] | null;
+  /**
    * Mutable container holding the concatenated reasoning emitted by the
    * pipeline. The pipeline writes into `current` once the stream completes
    * (success/abort/error); the finalize step reads it just before persisting
@@ -205,6 +216,7 @@ export function createOwnEngineGenerationStream(
     lifecycleParentVersionId,
     f3PriorToolOnlyRounds,
     f3PriorSuggestedProviders,
+    f3PriorRequestedEnvKeys,
     accumulatedThinkingRef,
   } = params;
 
@@ -237,6 +249,8 @@ export function createOwnEngineGenerationStream(
       // Codex P2 (PR #383): full-set inkl. env-lösa välformade förslag —
       // används av F3-markern (provider→dossier), inte av detektorn.
       const allSignaledProviders = new Set<string>();
+      // Same source as tool-SSE `envVars` (generation-stream-tools.ts).
+      const requestedEnvKeys = new Set<string>();
       const toolCallNames = new Set<string>();
       let sawBlockingToolCall = false;
       // C1 (empty-output tool feedback, prod chat e298da50 "Bygg
@@ -523,12 +537,16 @@ export function createOwnEngineGenerationStream(
                 ...toolSignaledProviders,
               ]),
             );
+            const markerRequestedEnvKeys = Array.from(
+              new Set([...(f3PriorRequestedEnvKeys ?? []), ...requestedEnvKeys]),
+            );
             await chatRepo
               .addMessage(chatId, "assistant", awaitingInputPrompt, undefined, [
                 buildF3AwaitingInputUiPart({
                   question: awaitingInputPrompt,
                   parentVersionId: lifecycleParentVersionId ?? null,
                   suggestedProviders: markerSuggestedProviders,
+                  requestedEnvKeys: markerRequestedEnvKeys,
                   toolOnlyRounds: noCodeRounds,
                 }),
               ])
@@ -626,7 +644,10 @@ export function createOwnEngineGenerationStream(
       };
 
       safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
-      safeEnqueue(enc.encode(formatSSEEvent("meta", meta)));
+      // SM-009: post-merge files do not exist yet. Omit base-version
+      // file evidence so the detail card cannot show `planned` for a
+      // dossier this round is about to deliver. Finalize re-emits meta.
+      safeEnqueue(enc.encode(formatSSEEvent("meta", omitEarlyF3DetailCardEvidence(meta))));
       emitProgress("generation", { phase: "start" });
 
       enginePingTimer = setInterval(() => {
@@ -691,6 +712,20 @@ export function createOwnEngineGenerationStream(
       ) => {
         let doneEmitted = false;
         try {
+          if (finalized.filesJson?.trim()) {
+            try {
+              safeEnqueue(
+                enc.encode(
+                  formatSSEEvent(
+                    "meta",
+                    applyPostMergeF3DetailCardEvidence(meta, finalized.filesJson),
+                  ),
+                ),
+              );
+            } catch {
+              /* keep the early meta without file evidence */
+            }
+          }
           await runOwnEngineStreamPostFinalize({
             sse: { enc, safeEnqueue },
             chatId,
@@ -762,6 +797,7 @@ export function createOwnEngineGenerationStream(
                     toolCallNames,
                     toolSignaledProviders,
                     allSignaledProviders,
+                    requestedEnvKeys,
                     setBlockingToolCall: () => {
                       sawBlockingToolCall = true;
                     },

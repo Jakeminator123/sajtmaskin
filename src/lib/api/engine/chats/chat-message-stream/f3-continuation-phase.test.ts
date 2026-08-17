@@ -57,6 +57,7 @@ function makeDecision(
     markerMessageId: "marker-msg-1",
     markerParentVersionId: "ver-parent",
     markerSuggestedProviders: [],
+    markerRequestedEnvKeys: [],
     markerToolOnlyRounds: 1,
   };
 }

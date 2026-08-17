@@ -6,6 +6,7 @@ import {
   F3_CONTINUATION_TOOL_NAME,
   buildF3AwaitingInputUiPart,
   classifyF3ContinuationReply,
+  collectRequestedEnvKeysFromToolArgs,
   resolvePendingF3Continuation,
 } from "./f3-continuation";
 
@@ -24,6 +25,7 @@ function assistantMarker(
     id?: string;
     consumed?: boolean;
     suggestedProviders?: string[];
+    requestedEnvKeys?: string[];
     toolOnlyRounds?: number;
   },
 ): WalkMessage {
@@ -31,6 +33,7 @@ function assistantMarker(
     question: "Integrationer signalerades, men modellen skrev inga kodfiler.",
     parentVersionId,
     suggestedProviders: options?.suggestedProviders,
+    requestedEnvKeys: options?.requestedEnvKeys,
     toolOnlyRounds: options?.toolOnlyRounds,
   });
   if (options?.consumed) {
@@ -89,10 +92,23 @@ describe("buildF3AwaitingInputUiPart", () => {
     expect(output.toolOnlyRounds).toBe(2);
   });
 
+  it("persists requested env keys from an env-only proposal (SM-008)", () => {
+    const part = buildF3AwaitingInputUiPart({
+      question: "Q",
+      parentVersionId: null,
+      suggestedProviders: [],
+      requestedEnvKeys: ["CUSTOM_API_KEY", "  ", "CUSTOM_API_KEY", "WEBHOOK_SECRET"],
+    });
+    const output = part.output as Record<string, unknown>;
+    expect(output.suggestedProviders).toEqual([]);
+    expect(output.requestedEnvKeys).toEqual(["CUSTOM_API_KEY", "WEBHOOK_SECRET"]);
+  });
+
   it("defaults providers to [] and rounds to 1 when omitted", () => {
     const part = buildF3AwaitingInputUiPart({ question: "Q", parentVersionId: null });
     const output = part.output as Record<string, unknown>;
     expect(output.suggestedProviders).toEqual([]);
+    expect(output.requestedEnvKeys).toEqual([]);
     expect(output.toolOnlyRounds).toBe(1);
   });
 
@@ -169,6 +185,7 @@ describe("resolvePendingF3Continuation", () => {
       messageId: "msg_m1",
       parentVersionId: "ver_f2_parent",
       suggestedProviders: [],
+      requestedEnvKeys: [],
       toolOnlyRounds: 1,
     });
   });
@@ -183,6 +200,7 @@ describe("resolvePendingF3Continuation", () => {
       messageId: "msg_m1",
       parentVersionId: "ver_f2_parent",
       suggestedProviders: [],
+      requestedEnvKeys: [],
       toolOnlyRounds: 1,
     });
   });
@@ -216,6 +234,7 @@ describe("resolvePendingF3Continuation", () => {
       messageId: "msg_m2",
       parentVersionId: "ver_b",
       suggestedProviders: [],
+      requestedEnvKeys: [],
       toolOnlyRounds: 1,
     });
   });
@@ -257,6 +276,7 @@ describe("resolvePendingF3Continuation", () => {
       messageId: "msg_m3",
       parentVersionId: null,
       suggestedProviders: [],
+      requestedEnvKeys: [],
       toolOnlyRounds: 1,
     });
   });
@@ -274,7 +294,26 @@ describe("resolvePendingF3Continuation", () => {
       messageId: "msg_m4",
       parentVersionId: "ver_f2",
       suggestedProviders: ["stripe"],
+      requestedEnvKeys: [],
       toolOnlyRounds: 2,
+    });
+  });
+
+  it("keeps env-only keys across reload via resolvePendingF3Continuation (SM-008)", () => {
+    const pending = resolvePendingF3Continuation([
+      user,
+      assistantMarker(null, {
+        id: "msg_env_only",
+        suggestedProviders: [],
+        requestedEnvKeys: ["CUSTOM_API_KEY", "WEBHOOK_SECRET"],
+      }),
+    ]);
+    expect(pending).toEqual({
+      messageId: "msg_env_only",
+      parentVersionId: null,
+      suggestedProviders: [],
+      requestedEnvKeys: ["CUSTOM_API_KEY", "WEBHOOK_SECRET"],
+      toolOnlyRounds: 1,
     });
   });
 
@@ -304,7 +343,33 @@ describe("resolvePendingF3Continuation", () => {
       messageId: "msg_legacy",
       parentVersionId: "ver_old",
       suggestedProviders: [],
+      requestedEnvKeys: [],
       toolOnlyRounds: 1,
     });
+  });
+});
+
+describe("collectRequestedEnvKeysFromToolArgs", () => {
+  it("reads suggestIntegration.envVars (same source as the tool-SSE)", () => {
+    expect(
+      collectRequestedEnvKeysFromToolArgs("suggestIntegration", {
+        provider: "custom-env",
+        name: "Custom",
+        envVars: ["CUSTOM_API_KEY", "  ", "WEBHOOK_SECRET"],
+      }),
+    ).toEqual(["CUSTOM_API_KEY", "WEBHOOK_SECRET"]);
+  });
+
+  it("reads requestEnvVar.key", () => {
+    expect(
+      collectRequestedEnvKeysFromToolArgs("requestEnvVar", { key: "  OPENAI_API_KEY  " }),
+    ).toEqual(["OPENAI_API_KEY"]);
+  });
+
+  it("returns [] for other tools or missing args", () => {
+    expect(collectRequestedEnvKeysFromToolArgs("askClarifyingQuestion", { question: "x" })).toEqual(
+      [],
+    );
+    expect(collectRequestedEnvKeysFromToolArgs("suggestIntegration", null)).toEqual([]);
   });
 });
