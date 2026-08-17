@@ -76,7 +76,7 @@ describe("PreviewPanelDossiers env mutations", () => {
     const dossierFetchCallsBeforeSave = fetchMock.mock.calls.filter(
       (call) => String(call[0]).includes("/chats/") && String(call[0]).includes("/dossiers"),
     ).length;
-    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Spara nyckel/i }));
 
     await waitFor(() => {
       expect(savedCalls.length).toBe(1);

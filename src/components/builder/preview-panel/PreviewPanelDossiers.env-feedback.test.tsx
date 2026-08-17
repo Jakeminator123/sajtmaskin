@@ -75,12 +75,12 @@ describe("PreviewPanelDossiers env feedback", () => {
     fireEvent.change(input, { target: { value: "sk-my-secret-key" } });
     // No confirmation before the save.
     expect(screen.queryByText(/Previewn startas om/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Spara nyckel/i }));
 
     await waitFor(() => {
       expect(
         screen.getByText(
-          'Ifylld — byggblocket är nu "Live". Previewn startas om med det nya värdet.',
+          "Nyckeln sparad. Previewn startas om. Blocket blir live när integrationen är byggd; är den redan byggd räcker en riktig nyckel.",
         ),
       ).toBeTruthy();
     });
@@ -154,7 +154,7 @@ describe("PreviewPanelDossiers env feedback", () => {
 
     const input = await screen.findByLabelText("Värde för OPENAI_API_KEY");
     fireEvent.change(input, { target: { value: "sk-my-secret-key" } });
-    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Spara nyckel/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/Previewn startas om/)).toBeTruthy();
@@ -209,7 +209,7 @@ describe("PreviewPanelDossiers env feedback", () => {
     fireEvent.change(input, { target: { value: "real-secret-value" } });
     // No confirmation before the save.
     expect(screen.queryByText(/Previewn startas om/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Spara nyckel/i }));
 
     await waitFor(() => {
       expect(savedCalls.length).toBe(1);
@@ -247,7 +247,7 @@ describe("PreviewPanelDossiers env feedback", () => {
 
     const input = await screen.findByLabelText("Värde för MY_CUSTOM_SERVICE_KEY");
     fireEvent.change(input, { target: { value: "real-secret-value" } });
-    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Spara nyckel/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/Sparat\. Previewn startas om med de nya värdena\./)).toBeTruthy();

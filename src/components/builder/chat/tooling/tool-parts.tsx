@@ -301,7 +301,7 @@ export function CompactToolParts({
                 ) : (
                   <p className="text-muted-foreground mt-2 text-xs">
                     Den genererade sajten behöver denna integration. Konfigurera via miljövariabler
-                    eller Integrationspanelen.
+                    eller Byggblock i previewen.
                   </p>
                 )}
                 {(summaries.qualityGate || qualityGateErrorText) && (

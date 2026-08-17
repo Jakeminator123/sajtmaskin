@@ -172,7 +172,7 @@ Konkreta kombinationer som visar oberoendet:
 | ------------------ | -------- | -------- | ---------- | -------------------------------------------------------------------------------------------- |
 | `stripe-checkout`  | Ja       | `visual` | Ja         | Serverfil (`/api/checkout-session`) — inte nyckeln; `STRIPE_SECRET_KEY` är `feature-runtime` |
 | `clerk-auth`       | Ja       | `visual` | Ja         | Enda kvarvarande `enforcement: "build"` — trasig inloggning är värre än demo-friktion        |
-| `vercel-analytics` | Ja       | `none`   | **Nej**    | Inga egna env-nycklar (`envVars: []`) + bara klientfil ⇒ klar redan i designläget; self-disable utan hosting-token |
+| `vercel-analytics` | Ja       | `none`   | **Nej**    | Inga egna env-nycklar (`envVars: []`) + bara klientfil; F2-policyn mutar ändå analytics (`F2_MUTE_POLICY_ONLY_CAPABILITIES`) så den inte injiceras i designläget; self-disable utan hosting-token |
 | `embla-carousel`   | Nej      | —        | Nej        | Fristående; npm-paket + lokal komponentfil                                                    |
 
 Följden av detta: **läs aldrig av "Kopplad" som "kräver F3"**, och läs aldrig av

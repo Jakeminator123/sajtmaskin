@@ -65,7 +65,7 @@ export function buildModelInfoSteps(info: ModelInfoData): string[] {
     steps.push(`Assist model: ${getPromptAssistModelLabel(info.promptAssistModel)}`);
   }
   if (typeof info.promptAssistDeep === "boolean") {
-    steps.push(`Deep brief: ${info.promptAssistDeep ? "på" : "av"}`);
+    steps.push(`Deep brief-inställning: ${info.promptAssistDeep ? "på" : "av"}`);
   }
   if (info.scaffoldId) {
     const label = info.scaffoldLabel || info.scaffoldId;

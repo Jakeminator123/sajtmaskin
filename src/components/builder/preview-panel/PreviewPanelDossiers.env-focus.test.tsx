@@ -57,7 +57,7 @@ describe("PreviewPanelDossiers env focus", () => {
       expect(document.querySelector('input[type="password"]')).not.toBeNull();
     });
     expect(screen.getByLabelText("Värde för STRIPE_SECRET_KEY")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Spara och aktivera/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Spara nyckel/i })).toBeTruthy();
     expect(screen.getByText("Server-side Stripe auth.")).toBeTruthy();
     expect(
       screen.getByRole("link", { name: /Hämta värde/i }).getAttribute("href"),
@@ -162,7 +162,7 @@ describe("PreviewPanelDossiers env focus", () => {
     // No dossier owns the key → it lands in the custom-keys section.
     const input = await screen.findByLabelText("Värde för MY_CUSTOM_SERVICE_KEY");
     fireEvent.change(input, { target: { value: "real-secret-value" } });
-    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Spara nyckel/i }));
 
     await waitFor(() => {
       expect(savedCalls.length).toBe(1);

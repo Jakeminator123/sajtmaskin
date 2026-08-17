@@ -113,7 +113,7 @@ export function usePreviewPanelDossiersController({
   // saved anywhere in the builder (the missing-key set may have just cleared).
   // A delete additionally clears any local draft for those keys (Bugbot on
   // #525): the input would otherwise still hold a pre-delete value, and one
-  // "Spara och aktivera"-click could re-persist what the user just removed.
+  // "Spara nyckel"-click could re-persist what the user just removed.
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = readProjectEnvVarsUpdatedDetail(event);

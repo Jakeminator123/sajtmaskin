@@ -250,6 +250,18 @@ describe("buildModelInfoSteps — Swedish labels", () => {
     expect(steps).toContain("Körmodell: okänd");
     expect(steps).not.toContain("Körmodell: okand");
   });
+
+  it("labels promptAssistDeep as the setting, not a completed Deep brief step", () => {
+    expect(
+      buildModelInfoSteps({ modelId: "gpt-5.5", promptAssistDeep: true }),
+    ).toContain("Deep brief-inställning: på");
+    expect(
+      buildModelInfoSteps({ modelId: "gpt-5.5", promptAssistDeep: false }),
+    ).toContain("Deep brief-inställning: av");
+    expect(
+      buildModelInfoSteps({ modelId: "gpt-5.5", promptAssistDeep: true }),
+    ).not.toContain("Deep brief: på");
+  });
 });
 
 describe("buildModelInfoSteps — deferred integrations and contract rows", () => {

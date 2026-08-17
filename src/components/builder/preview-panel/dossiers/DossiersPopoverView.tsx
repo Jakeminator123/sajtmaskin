@@ -312,7 +312,7 @@ export function DossiersPopoverView({
                       {savingDossierId === entry.id ? (
                         <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                       ) : null}
-                      Spara och aktivera
+                      Spara nyckel
                     </Button>
                     {!projectId ? (
                       <p className="text-[10px] text-gray-500">
@@ -333,8 +333,8 @@ export function DossiersPopoverView({
                     men kvittot ska ändå synas. */}
                 {saveConfirmation && saveConfirmation.dossierId === entry.id ? (
                   <p className="mt-2 text-[10px] text-emerald-300">
-                    Ifylld — byggblocket är nu &quot;{descriptor.label}&quot;. Previewn startas
-                    om med det nya värdet.
+                    Nyckeln sparad. Previewn startas om. Blocket blir live när
+                    integrationen är byggd; är den redan byggd räcker en riktig nyckel.
                   </p>
                 ) : null}
               </div>
@@ -513,7 +513,7 @@ export function DossiersPopoverView({
                 onClick={() => void handleSaveCustomKeys()}
               >
                 {customSaving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                Spara och aktivera
+                Spara nyckel
               </Button>
             ) : null}
             {customError ? (
