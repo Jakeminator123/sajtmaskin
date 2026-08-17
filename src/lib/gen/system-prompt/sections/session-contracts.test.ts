@@ -168,4 +168,90 @@ describe("renderTier3IntegrationBlock", () => {
     expect(lines.join("\n")).toContain("Stripe");
     expect(lines.join("\n")).toContain("STRIPE_SECRET_KEY");
   });
+
+  it("does not weave prompt-contract candidates into an approval-only plan", () => {
+    const lines = renderTier3IntegrationBlock({
+      buildSpec: f3BuildSpec,
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          paymentProvider: "stripe",
+          integrations: [
+            {
+              provider: "stripe",
+              name: "Stripe",
+              reason: "speculative prompt contract",
+              status: "chosen",
+              envVars: ["STRIPE_SECRET_KEY"],
+            },
+            {
+              provider: "resend",
+              name: "Resend",
+              reason: "speculative prompt contract",
+              status: "chosen",
+              envVars: ["RESEND_API_KEY"],
+            },
+          ],
+          envVars: [
+            { key: "STRIPE_SECRET_KEY", reason: "Stripe" },
+            { key: "RESEND_API_KEY", reason: "Resend" },
+          ],
+        },
+        unresolvedDecisions: [],
+      },
+      tier3BuildSpec: { requirements: [] },
+      approvedProviders: ["stripe"],
+    });
+
+    const rendered = lines.join("\n");
+    expect(rendered).toContain("Stripe");
+    expect(rendered).toContain("STRIPE_SECRET_KEY");
+    expect(rendered).not.toContain("Resend");
+    expect(rendered).not.toContain("RESEND_API_KEY");
+  });
+
+  it("unions file spec with approval only — not prompt-contract providers", () => {
+    const lines = renderTier3IntegrationBlock({
+      buildSpec: f3BuildSpec,
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          integrations: [
+            {
+              provider: "resend",
+              name: "Resend",
+              reason: "speculative prompt contract",
+              status: "chosen",
+              envVars: ["RESEND_API_KEY"],
+            },
+          ],
+          envVars: [{ key: "RESEND_API_KEY", reason: "Resend" }],
+        },
+        unresolvedDecisions: [],
+      },
+      tier3BuildSpec: {
+        requirements: [
+          {
+            key: "clerk",
+            name: "Clerk",
+            provider: "clerk",
+            requiredRealEnvKeys: ["CLERK_SECRET_KEY"],
+            placeholderOkEnvKeys: [],
+            featureRuntimeEnvKeys: [],
+            warnOnlyEnvKeys: [],
+            buildInstructions: ["Keep Clerk."],
+            setupGuide: "Clerk",
+            hasConfigNoticeComponent: false,
+          },
+        ],
+      },
+      approvedProviders: ["stripe"],
+    });
+
+    const rendered = lines.join("\n");
+    expect(rendered).toContain("CLERK_SECRET_KEY");
+    expect(rendered).toContain("STRIPE_SECRET_KEY");
+    expect(rendered).not.toContain("Resend");
+    expect(rendered).not.toContain("RESEND_API_KEY");
+  });
 });

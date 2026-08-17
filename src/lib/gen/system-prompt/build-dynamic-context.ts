@@ -315,10 +315,13 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
   );
   // F3-gated: pre-generation contracts (integrations/env/placeholder policy)
   // must not render in F2, where `renderF2ContractBlock` forbids that wiring.
-  // When the parent-version gate supplied a file-derived Tier3BuildSpec it is
-  // the sole integration authority; rendering prompt-derived contracts beside
-  // it could reintroduce speculative providers that are absent from the code.
-  if ((tier3BuildSpec?.requirements.length ?? 0) === 0) {
+  // SM-005: one integration authority per F3 round. File-derived spec is the
+  // base; a non-empty current-round approval is also stronger than prompt
+  // contracts. Rendering `## Pre-Generation Contracts` beside either can
+  // reintroduce speculative providers the stronger source did not approve.
+  const hasFileDerivedTier3 = (tier3BuildSpec?.requirements.length ?? 0) > 0;
+  const hasApprovedProviders = (tier3ApprovedProviders?.length ?? 0) > 0;
+  if (!hasFileDerivedTier3 && !hasApprovedProviders) {
     parts.push(...renderPreGenerationContractsBlock(preGenerationContracts, buildSpec));
   }
   parts.push(...renderBriefBlocks(brief));

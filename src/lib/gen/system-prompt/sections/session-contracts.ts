@@ -301,40 +301,34 @@ export function renderTier3IntegrationBlock(params: {
     return [];
   }
   try {
-    const contractSpec = preGenerationContracts
-      ? deriveTier3BuildSpec(preGenerationContracts.contracts)
-      : { requirements: [] };
-    const approved = new Set(
-      (approvedProviders ?? []).map((provider) =>
-        provider.toLowerCase().replace(/[^a-z0-9]+/g, ""),
-      ),
-    );
-    const fileKeys = new Set(
-      fileDerivedSpec?.requirements.map((requirement) => requirement.key) ?? [],
-    );
-    const approvedProviderSpec = deriveTier3BuildSpecForProviderKeys(approvedProviders ?? []);
-    const approvedCandidates = [...approvedProviderSpec.requirements, ...contractSpec.requirements];
-    const approvedRequirements =
-      approved.size > 0
-        ? approvedCandidates.filter((requirement, index, all) => {
-            const providerKey = requirement.provider.toLowerCase().replace(/[^a-z0-9]+/g, "");
-            const requirementKey = requirement.key.toLowerCase().replace(/[^a-z0-9]+/g, "");
-            return (
-              !fileKeys.has(requirement.key) &&
-              all.findIndex((candidate) => candidate.key === requirement.key) === index &&
-              (approved.has(providerKey) || approved.has(requirementKey))
-            );
-          })
-        : [];
-    const spec = fileDerivedSpec
-      ? {
-          requirements: [...fileDerivedSpec.requirements, ...approvedRequirements].sort((a, b) =>
-            a.key.localeCompare(b.key),
-          ),
-        }
-      : approved.size > 0
-        ? { requirements: approvedRequirements }
-        : contractSpec;
+    // One source per F3 round, in priority order: file-derived parent-version
+    // spec > explicit approval > prompt contracts. File spec is the base;
+    // current-round approvals are unioned in. Prompt contracts are used only
+    // when neither stronger source exists — never woven into approval
+    // candidates (SM-005).
+    let spec: Tier3BuildSpec;
+    if (fileDerivedSpec) {
+      const approvedProviderSpec = hasApprovedProviders
+        ? deriveTier3BuildSpecForProviderKeys(approvedProviders ?? [])
+        : { requirements: [] };
+      const fileKeys = new Set(
+        fileDerivedSpec.requirements.map((requirement) => requirement.key),
+      );
+      const extraApproved = approvedProviderSpec.requirements.filter(
+        (requirement) => !fileKeys.has(requirement.key),
+      );
+      spec = {
+        requirements: [...fileDerivedSpec.requirements, ...extraApproved].sort((a, b) =>
+          a.key.localeCompare(b.key),
+        ),
+      };
+    } else if (hasApprovedProviders) {
+      spec = deriveTier3BuildSpecForProviderKeys(approvedProviders ?? []);
+    } else {
+      spec = preGenerationContracts
+        ? deriveTier3BuildSpec(preGenerationContracts.contracts)
+        : { requirements: [] };
+    }
     const block = renderTier3BuildPlanBlock(spec);
     if (block) {
       return [block, ""];

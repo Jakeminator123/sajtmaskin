@@ -582,4 +582,117 @@ describe("buildDynamicContext", () => {
     expect(result.context).not.toContain("## Pre-Generation Contracts");
     expect(result.context).not.toContain("speculative prompt contract");
   });
+
+  it("uses approval as the sole integration authority when parent files have no spec (SM-005)", () => {
+    const result = buildDynamicContext({
+      intent: "app",
+      userPrompt: "Bygg integrationerna",
+      generationMode: "followUp",
+      buildSpec: {
+        buildIntent: "app",
+        generationMode: "followUp",
+        changeScope: "integration",
+        contextPolicy: "heavy",
+        verificationPolicy: "strict",
+        previewPolicy: "fidelity3",
+        qualityTarget: "release-candidate",
+        scaffoldId: "base-nextjs",
+        routePlanSummary: "1 route",
+        stylePack: "minimal",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 3_000,
+          refsChars: 1_500,
+          systemContextChars: 12_000,
+          systemContextTokens: 3_000,
+        },
+      } as BuildSpec,
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          paymentProvider: "stripe",
+          integrations: [
+            {
+              provider: "stripe",
+              name: "Stripe",
+              reason: "speculative prompt contract",
+              status: "chosen",
+              envVars: ["STRIPE_SECRET_KEY"],
+            },
+            {
+              provider: "resend",
+              name: "Resend",
+              reason: "speculative prompt contract",
+              status: "chosen",
+              envVars: ["RESEND_API_KEY"],
+            },
+          ],
+          envVars: [
+            { key: "STRIPE_SECRET_KEY", reason: "Stripe" },
+            { key: "RESEND_API_KEY", reason: "Resend" },
+          ],
+        },
+        unresolvedDecisions: [],
+      },
+      tier3BuildSpec: { requirements: [] },
+      tier3ApprovedProviders: ["stripe"],
+    });
+
+    const integrationPlanMatches = result.context.match(/## Tier-3 Integration Build Plan/g) ?? [];
+    expect(integrationPlanMatches).toHaveLength(1);
+    expect(result.context).toContain("STRIPE_SECRET_KEY");
+    expect(result.context).not.toContain("## Pre-Generation Contracts");
+    expect(result.context).not.toContain("RESEND_API_KEY");
+    expect(result.context).not.toContain("speculative prompt contract");
+  });
+
+  it("still renders Pre-Generation Contracts when F3 has neither file spec nor approval", () => {
+    const result = buildDynamicContext({
+      intent: "app",
+      userPrompt: "Bygg integrationerna",
+      generationMode: "followUp",
+      buildSpec: {
+        buildIntent: "app",
+        generationMode: "followUp",
+        changeScope: "integration",
+        contextPolicy: "heavy",
+        verificationPolicy: "strict",
+        previewPolicy: "fidelity3",
+        qualityTarget: "release-candidate",
+        scaffoldId: "base-nextjs",
+        routePlanSummary: "1 route",
+        stylePack: "minimal",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 3_000,
+          refsChars: 1_500,
+          systemContextChars: 12_000,
+          systemContextTokens: 3_000,
+        },
+      } as BuildSpec,
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          paymentProvider: "stripe",
+          integrations: [
+            {
+              provider: "stripe",
+              name: "Stripe",
+              reason: "speculative prompt contract",
+              status: "chosen",
+              envVars: ["STRIPE_SECRET_KEY"],
+            },
+          ],
+          envVars: [{ key: "STRIPE_SECRET_KEY", reason: "Stripe" }],
+        },
+        unresolvedDecisions: [],
+      },
+      tier3BuildSpec: { requirements: [] },
+    });
+
+    expect(result.context).toContain("## Pre-Generation Contracts");
+    expect(result.context).toContain("speculative prompt contract");
+  });
 });
