@@ -10,6 +10,67 @@ describe("PreviewPanelDossiers env focus", () => {
     vi.unstubAllGlobals();
   });
 
+  it("opens the sheet from the trigger button and via openDossiersPanel with focus on the owning block", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 0, blockedBuild: 1, planned: 0 },
+        dossiers: [
+          {
+            id: "stripe-checkout",
+            label: "Stripe Checkout",
+            class: "hard",
+            capability: "payments",
+            summary: "Stripe-baserad checkout.",
+            complexity: "medium",
+            requiresF3: true,
+            configured: false,
+            dependencies: [],
+            envVars: [
+              {
+                key: "STRIPE_SECRET_KEY",
+                required: true,
+                enforcement: "build",
+                purpose: "Server-side Stripe auth.",
+                setupUrl: "https://docs.stripe.com/keys",
+                hasRealValue: false,
+                placeholderCovered: false,
+              },
+            ],
+            status: "blocked-build",
+            missingKeys: ["STRIPE_SECRET_KEY"],
+            missingLiveKeys: [],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    const trigger = await screen.findByRole("button", { name: /Byggblock/i });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Stripe Checkout")).toBeNull();
+
+    fireEvent.click(trigger);
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(await screen.findByText("Stripe Checkout")).toBeTruthy();
+    // Trigger-open lists the row but does not expand it.
+    expect(screen.queryByLabelText("Värde för STRIPE_SECRET_KEY")).toBeNull();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    await act(async () => {
+      openDossiersPanel(["STRIPE_SECRET_KEY"]);
+    });
+
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(await screen.findByLabelText("Värde för STRIPE_SECRET_KEY")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Spara nyckel/i })).toBeTruthy();
+  });
+
   it("focuses the dossier owning requested env keys and shows masked inputs (412 → Byggblock)", async () => {
     stubFetch({
       wired: wiredResponse({

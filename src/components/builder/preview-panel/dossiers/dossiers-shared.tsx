@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { describeF3Requirement } from "@/lib/builder/dossier-axes";
 import type { DossierRequestPayload } from "@/lib/builder/dossier-id-request";
 import type {
+  DossierOverviewEntry,
   DossierOverviewResponse,
   DossierStatusDescriptor,
 } from "@/lib/builder/dossier-overview";
@@ -38,7 +39,7 @@ export interface PreviewPanelDossiersProps {
    */
   onCountsChange?: (counts: DossierOverviewResponse["counts"] | null) => void;
   /**
-   * Lucka 2 (ägarbeslut 2026-08-11): vilken version popoverns huvudrad
+   * Lucka 2 (ägarbeslut 2026-08-11): vilken version panelens huvudrad
    * beskriver, buren av den befintliga versionslistan (`versionNumber` +
    * `createdAt`) — ingen ny signal.
    */
@@ -46,7 +47,7 @@ export interface PreviewPanelDossiersProps {
 }
 
 /**
- * "Version 4 · byggd 14:32" i popoverns huvudrad — ersätter raden
+ * "Version 4 · byggd 14:32" i panelens huvudrad — ersätter raden
  * `Version: N kopplade · M fristående`, som bara dubblerade fliken
  * `Inkopplade (N)` och katalogfiltren utan att säga VILKEN version statusen
  * gäller (lucka 2, ägarbeslut 2026-08-11).
@@ -106,10 +107,50 @@ export function RequiresF3Badge() {
   return (
     <Badge
       variant="outline"
-      className="shrink-0 border-violet-500/40 bg-violet-500/10 text-[9px] text-violet-200"
+      className="shrink-0 border-violet-500/40 bg-violet-500/10 text-[10px] text-violet-200"
       title={descriptor.hint}
     >
       {descriptor.label}
     </Badge>
   );
+}
+
+/**
+ * The single next action for a wired dossier. Copy is owned by
+ * `describeDossierStatus` (hint) plus the existing built-demo / blocked-build
+ * sentences — no new status model, no new triggers.
+ */
+export function describeDossierNextAction(
+  entry: DossierOverviewEntry,
+  descriptor: DossierStatusDescriptor,
+): string | null {
+  if (entry.status === "blocked-build") {
+    return entry.missingKeys.length > 0
+      ? `Lägg till ${entry.missingKeys.join(", ")} innan du kör "Bygg integrationer".`
+      : descriptor.hint;
+  }
+  if (entry.status === "built-demo") {
+    const builtDemoKeysNeedingRealValue =
+      entry.missingLiveKeys.length === 0
+        ? entry.envVars
+            .filter(
+              (env) =>
+                env.required &&
+                !env.hasRealValue &&
+                (env.enforcement === "build" || env.enforcement === "feature-runtime"),
+            )
+            .map((env) => env.key)
+        : [];
+    if (entry.missingLiveKeys.length > 0) {
+      return `Demo just nu. Lägg till ${entry.missingLiveKeys.join(", ")} för att gå live.`;
+    }
+    if (builtDemoKeysNeedingRealValue.length > 0) {
+      return `Demo just nu. Lägg till ${builtDemoKeysNeedingRealValue.join(", ")} för att gå live.`;
+    }
+    return descriptor.hint;
+  }
+  if (entry.status === "planned") {
+    return descriptor.hint;
+  }
+  return null;
 }

@@ -60,14 +60,14 @@ export function DossierCatalogStagingView({
   );
 
   return (
-    <div className="space-y-3 p-2">
-      <div className="rounded-md border border-gray-800 bg-black/20 px-2.5 py-2">
-        <p className="text-[12px] font-medium text-gray-100">{entry.label}</p>
-        <p className="text-[10px] text-gray-500">
+    <div className="space-y-4 p-4">
+      <div className="rounded-lg border border-gray-800 bg-black/20 px-3 py-3">
+        <p className="text-sm font-medium text-gray-100">{entry.label}</p>
+        <p className="mt-0.5 text-xs text-gray-500">
           {confirmed ? "Tillagt via chatten" : "Valt, ej tillagt"}
         </p>
         {showF2HardNotice ? (
-          <p className="mt-1.5 text-[10px] text-sky-200" aria-live="polite">
+          <p className="mt-2 text-xs text-sky-200" aria-live="polite">
             I designen visas en demo. Kör &quot;Bygg integrationer&quot; för
             riktig funktion.
           </p>
@@ -75,21 +75,21 @@ export function DossierCatalogStagingView({
       </div>
 
       {confirmed ? (
-        <p className="px-1 text-[11px] text-gray-400">
+        <p className="text-xs text-gray-400">
           Byggblocket &quot;{entry.label}&quot; läggs till via chatten.
         </p>
       ) : (
         <>
           {spec.kind === "placement" ? (
-            <fieldset className="space-y-1.5 px-1">
-              <legend className="text-[11px] font-medium text-gray-200">
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-gray-200">
                 {spec.question}
               </legend>
               <div className="space-y-1">
                 {spec.options.map((option) => (
                   <label
                     key={option.id}
-                    className="flex cursor-pointer items-start gap-2 text-[11px] text-gray-300"
+                    className="flex cursor-pointer items-start gap-2 text-xs text-gray-300"
                   >
                     <input
                       type="radio"
@@ -111,8 +111,8 @@ export function DossierCatalogStagingView({
           ) : null}
 
           {spec.kind === "content" ? (
-            <label className="block space-y-1 px-1">
-              <span className="text-[11px] font-medium text-gray-200">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium text-gray-200">
                 {spec.question}
               </span>
               <Input
@@ -122,41 +122,41 @@ export function DossierCatalogStagingView({
                   setAnswer({ kind: "content", text: event.target.value })
                 }
                 placeholder={spec.defaultText}
-                className="h-7 border-gray-700 bg-black/30 text-[11px]"
+                className="h-8 border-gray-700 bg-black/30 text-xs"
               />
             </label>
           ) : null}
 
           {showKeys ? (
-            <div className="space-y-2 border-t border-gray-800 px-1 pt-2">
-              <p className="text-[10px] font-medium tracking-wide text-gray-500 uppercase">
+            <div className="space-y-3 border-t border-gray-800 pt-3">
+              <p className="text-xs font-medium tracking-wide text-gray-500 uppercase">
                 Nycklar (valfritt)
               </p>
-              <p className="text-[10px] text-gray-500">Utan nyckel körs demo.</p>
+              <p className="text-xs text-gray-500">Utan nyckel körs demo.</p>
               <ul className="space-y-2">
                 {envVars.map((env) => (
                   <li key={env.key} className="space-y-1">
                     <span className="flex flex-wrap items-center gap-1.5">
-                      <code className="rounded bg-gray-800/60 px-1 py-0.5 text-[10px] text-gray-200">
+                      <code className="rounded-md bg-gray-800/60 px-1.5 py-0.5 text-[11px] text-gray-200">
                         {env.key}
                       </code>
                       {env.required ? (
-                        <span className="text-[10px] text-gray-500">rekommenderad</span>
+                        <span className="text-[11px] text-gray-500">rekommenderad</span>
                       ) : null}
                       {env.setupUrl ? (
                         <a
                           href={env.setupUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex shrink-0 items-center gap-1 text-[10px] text-sky-300 hover:text-sky-200"
+                          className="inline-flex shrink-0 items-center gap-1 text-xs text-sky-300 hover:text-sky-200"
                         >
                           Hämta värde
                           <ExternalLink className="h-3 w-3" aria-hidden="true" />
                         </a>
                       ) : null}
                     </span>
-                    <span className="flex items-center gap-1.5">
-                      <KeyRound className="h-3 w-3 shrink-0 text-gray-500" />
+                    <span className="flex items-center gap-2">
+                      <KeyRound className="h-3.5 w-3.5 shrink-0 text-gray-500" />
                       <Input
                         type="password"
                         autoComplete="off"
@@ -173,7 +173,7 @@ export function DossierCatalogStagingView({
                         placeholder={
                           projectId ? "Klistra in riktigt värde" : "Projekt saknas"
                         }
-                        className="h-7 border-gray-700 bg-black/30 text-[11px]"
+                        className="h-8 border-gray-700 bg-black/30 text-xs"
                       />
                     </span>
                   </li>
@@ -182,33 +182,33 @@ export function DossierCatalogStagingView({
               <Button
                 size="sm"
                 variant="secondary"
-                className="h-6 px-2 text-[10px]"
+                className="h-8 px-3 text-xs"
                 disabled={!projectId || saving || filledKeyCount === 0}
                 onClick={() => void onSaveKeys()}
               >
-                {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                {saving ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
                 Spara nyckel
               </Button>
               {!projectId ? (
-                <p className="text-[10px] text-gray-500">
+                <p className="text-xs text-gray-500">
                   Nycklar kan sparas när chatten är kopplad till ett projekt.
                 </p>
               ) : null}
               {saveError ? (
-                <p className="text-[10px] text-rose-300">{saveError}</p>
+                <p className="text-xs text-rose-300">{saveError}</p>
               ) : null}
               {saveConfirmation ? (
-                <p className="text-[10px] text-emerald-300">
+                <p className="text-xs text-emerald-300">
                   Nyckeln sparad. Previewn startas om.
                 </p>
               ) : null}
             </div>
           ) : null}
 
-          <div className="flex items-center gap-2 px-1 pt-1">
+          <div className="flex items-center gap-2 pt-1">
             <Button
               size="sm"
-              className="h-7 px-2.5 text-[11px]"
+              className="h-8 px-3 text-xs"
               disabled={confirmDisabled}
               onClick={() => onConfirm(stagingLines)}
             >
@@ -218,7 +218,7 @@ export function DossierCatalogStagingView({
               type="button"
               size="sm"
               variant="ghost"
-              className="h-7 px-2 text-[11px] text-gray-400"
+              className="h-8 px-3 text-xs text-gray-400"
               disabled={confirmed}
               onClick={onCancel}
             >
