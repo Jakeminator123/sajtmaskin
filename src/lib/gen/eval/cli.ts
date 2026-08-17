@@ -39,6 +39,7 @@ async function main(): Promise<void> {
   const { result } = await runCanonicalEval({
     mode: args.mode,
     dumpMode: args.dumpMode,
+    force: args.force,
     promptIds: args.promptIds,
     print,
   });
@@ -47,11 +48,18 @@ async function main(): Promise<void> {
   if (args.json) {
     console.log(JSON.stringify(json, null, 2));
   } else {
+    const codegenLabel = [
+      result.lanes.codegen.outcome.toUpperCase(),
+      result.lanes.codegen.skipReason,
+      result.lanes.codegen.forced ? "forced" : null,
+    ]
+      .filter(Boolean)
+      .join(" ");
     print(
       `Eval outcome: ${result.outcome.toUpperCase()} (exit ${canonicalExitCode(result.outcome)})` +
         ` — followup ${result.lanes.followup.outcome.toUpperCase()},` +
         ` scaffold ${result.lanes.scaffold.outcome.toUpperCase()},` +
-        ` codegen ${result.lanes.codegen.outcome.toUpperCase()}`,
+        ` codegen ${codegenLabel}`,
     );
   }
 

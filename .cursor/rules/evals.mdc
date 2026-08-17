@@ -30,4 +30,5 @@ Publikt kommando: **bara** `npm run eval`.
 
 Default utan flaggor är gratislanerna (follow-up + scaffold) och får inte kräva
 `POSTGRES_URL` eller `OPENAI_API_KEY`. Betald codegen kräver `--codegen` eller
-`--full`.
+`--full`. En failad gratislane stoppar den betalda lanen; `--force` kör ändå
+(se README).

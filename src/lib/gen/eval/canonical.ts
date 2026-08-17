@@ -16,6 +16,9 @@ export type CanonicalLaneOutcome =
 
 export type CanonicalTopOutcome = "pass" | "fail" | "provider_error" | "infra_error";
 
+/** Why codegen did not run. `null` means the paid lane actually executed. */
+export type CodegenSkipReason = "free_mode" | "blocked_by_failed_free_lane";
+
 export interface CanonicalFollowupLane {
   name: "followup";
   outcome: Exclude<CanonicalLaneOutcome, "skipped" | "provider_error" | "infra_error">;
@@ -35,6 +38,8 @@ export interface CanonicalScaffoldLane {
 export interface CanonicalCodegenLane {
   name: "codegen";
   outcome: CanonicalLaneOutcome;
+  skipReason: CodegenSkipReason | null;
+  forced: boolean;
   summary: EvalSummary | null;
   promptCount: number;
 }
@@ -54,7 +59,17 @@ export interface CanonicalEvalArgs {
   mode: CanonicalEvalMode;
   json: boolean;
   dumpMode: EvalDumpMode | undefined;
+  force: boolean;
   promptIds: string[] | null;
+}
+
+export interface CanonicalEvalDeps {
+  runFollowUp?: () => Promise<FollowUpEvalResult[]>;
+  runScaffold?: () => Promise<{ report: ScaffoldEvalReport; reportPath: string }>;
+  runCodegen?: (args: {
+    prompts: { id: string }[];
+    dumpMode?: EvalDumpMode;
+  }) => Promise<EvalReport>;
 }
 
 export function parseCanonicalEvalArgs(args: string[]): CanonicalEvalArgs {
@@ -64,6 +79,7 @@ export function parseCanonicalEvalArgs(args: string[]): CanonicalEvalArgs {
     );
   }
   const json = args.includes("--json");
+  const force = args.includes("--force");
   const wantsFull = args.includes("--full");
   const wantsCodegen = args.includes("--codegen") || args.includes("--smoke");
   const promptIds = parsePromptFilter(args);
@@ -73,7 +89,7 @@ export function parseCanonicalEvalArgs(args: string[]): CanonicalEvalArgs {
   if (wantsFull) mode = "codegen-full";
   else if (wantsCodegen || promptIds) mode = "codegen-smoke";
 
-  return { mode, json, dumpMode, promptIds };
+  return { mode, json, dumpMode, force, promptIds };
 }
 
 function parsePromptFilter(args: string[]): string[] | null {
@@ -124,6 +140,22 @@ export function canonicalExitCode(outcome: CanonicalTopOutcome): 0 | 1 | 2 {
   return outcome === "fail" ? 1 : 0;
 }
 
+/**
+ * Paid codegen does not run after a failed free lane unless `--force`.
+ * A skipped lane here is not a pass — the free-lane fail still owns the top outcome.
+ */
+export function resolveCodegenPlan(options: {
+  mode: CanonicalEvalMode;
+  freeLaneFailed: boolean;
+  force: boolean;
+}): { run: true; forced: boolean } | { run: false; skipReason: CodegenSkipReason } {
+  if (options.mode === "free") return { run: false, skipReason: "free_mode" };
+  if (options.freeLaneFailed && !options.force) {
+    return { run: false, skipReason: "blocked_by_failed_free_lane" };
+  }
+  return { run: true, forced: options.freeLaneFailed && options.force };
+}
+
 export function followupLaneFromResults(results: FollowUpEvalResult[]): CanonicalFollowupLane {
   const passed = results.filter((result) => result.passed).length;
   return {
@@ -162,13 +194,31 @@ export function codegenLaneFromRun(
   outcome: EvalRunOutcome | "skipped",
   summary: EvalSummary | null,
   promptCount: number,
+  extras: { skipReason?: CodegenSkipReason | null; forced?: boolean } = {},
 ): CanonicalCodegenLane {
   if (outcome === "skipped") {
-    return { name: "codegen", outcome: "skipped", summary: null, promptCount: 0 };
+    if (!extras.skipReason) {
+      throw new Error("A skipped codegen lane must say why (skipReason).");
+    }
+    return {
+      name: "codegen",
+      outcome: "skipped",
+      skipReason: extras.skipReason,
+      forced: false,
+      summary: null,
+      promptCount: 0,
+    };
   }
   const laneOutcome: CanonicalLaneOutcome =
     outcome === "quality_fail" ? "fail" : outcome === "pass" ? "pass" : outcome;
-  return { name: "codegen", outcome: laneOutcome, summary, promptCount };
+  return {
+    name: "codegen",
+    outcome: laneOutcome,
+    skipReason: null,
+    forced: extras.forced === true,
+    summary,
+    promptCount,
+  };
 }
 
 export function toCanonicalJson(result: CanonicalEvalResult): Record<string, unknown> {
@@ -192,6 +242,8 @@ export function toCanonicalJson(result: CanonicalEvalResult): Record<string, unk
       },
       codegen: {
         outcome: result.lanes.codegen.outcome.toUpperCase(),
+        skipReason: result.lanes.codegen.skipReason,
+        forced: result.lanes.codegen.forced,
         promptCount: result.lanes.codegen.promptCount,
         summary: result.lanes.codegen.summary,
       },
@@ -202,40 +254,97 @@ export function toCanonicalJson(result: CanonicalEvalResult): Record<string, unk
 export async function runCanonicalEval(options: {
   mode: CanonicalEvalMode;
   dumpMode?: EvalDumpMode;
+  force?: boolean;
   promptIds?: string[] | null;
   print?: (line: string) => void;
+  deps?: CanonicalEvalDeps;
 }): Promise<{ result: CanonicalEvalResult; codegenReport: EvalReport | null }> {
   const print = options.print ?? ((line: string) => console.info(line));
-  const { runFollowUpContextEval, formatFollowUpContextEvalReport } = await import(
-    "./follow-up-context"
-  );
-  const {
-    loadScaffoldEvalCasesFromFile,
-    resolveDefaultScaffoldEvalPath,
-    runScaffoldSelectionEval,
-    writeScaffoldSelectionReport,
-  } = await import("@/lib/gen/scaffolds/scaffold-eval");
-
-  print("Lane followup (free)...");
-  const followupResults = await runFollowUpContextEval();
-  print(formatFollowUpContextEvalReport(followupResults));
+  const followupResults = options.deps?.runFollowUp
+    ? await options.deps.runFollowUp()
+    : await (async () => {
+        const { runFollowUpContextEval, formatFollowUpContextEvalReport } = await import(
+          "./follow-up-context"
+        );
+        print("Lane followup (free)...");
+        const results = await runFollowUpContextEval();
+        print(formatFollowUpContextEvalReport(results));
+        return results;
+      })();
+  if (options.deps?.runFollowUp) {
+    print("Lane followup (free)...");
+  }
   const followup = followupLaneFromResults(followupResults);
 
-  print("Lane scaffold (free)...");
-  const evalCases = await loadScaffoldEvalCasesFromFile(
-    resolveDefaultScaffoldEvalPath(process.cwd()),
-  );
-  const scaffoldReport = await runScaffoldSelectionEval(evalCases);
-  const written = await writeScaffoldSelectionReport(scaffoldReport);
-  print(
-    `[scaffold] cases=${scaffoldReport.summary.total} keyword_top1=${scaffoldReport.summary.keywordTop1Accuracy}% semantic_top1=${scaffoldReport.summary.semanticTop1Accuracy}% wrote ${written.latestPath}`,
-  );
-  const scaffold = scaffoldLaneFromReport(scaffoldReport, written.latestPath);
+  const scaffoldWritten = options.deps?.runScaffold
+    ? await options.deps.runScaffold()
+    : await (async () => {
+        const {
+          loadScaffoldEvalCasesFromFile,
+          resolveDefaultScaffoldEvalPath,
+          runScaffoldSelectionEval,
+          writeScaffoldSelectionReport,
+        } = await import("@/lib/gen/scaffolds/scaffold-eval");
+        print("Lane scaffold (free)...");
+        const evalCases = await loadScaffoldEvalCasesFromFile(
+          resolveDefaultScaffoldEvalPath(process.cwd()),
+        );
+        const report = await runScaffoldSelectionEval(evalCases);
+        const written = await writeScaffoldSelectionReport(report);
+        print(
+          `[scaffold] cases=${report.summary.total} keyword_top1=${report.summary.keywordTop1Accuracy}% semantic_top1=${report.summary.semanticTop1Accuracy}% wrote ${written.latestPath}`,
+        );
+        return { report, reportPath: written.latestPath };
+      })();
+  if (options.deps?.runScaffold) {
+    print("Lane scaffold (free)...");
+  }
+  const scaffold = scaffoldLaneFromReport(scaffoldWritten.report, scaffoldWritten.reportPath);
 
-  let codegen = codegenLaneFromRun("skipped", null, 0);
+  const plan = resolveCodegenPlan({
+    mode: options.mode,
+    freeLaneFailed: followup.outcome === "fail" || scaffold.outcome === "fail",
+    force: Boolean(options.force),
+  });
+
+  let codegen: CanonicalCodegenLane;
   let codegenReport: EvalReport | null = null;
 
-  if (options.mode !== "free") {
+  if (!plan.run) {
+    codegen = codegenLaneFromRun("skipped", null, 0, { skipReason: plan.skipReason });
+    if (plan.skipReason === "blocked_by_failed_free_lane") {
+      print(
+        "Lane codegen skipped — a free lane failed, so the paid run would measure broken machinery. Use --force to spend anyway.",
+      );
+    }
+  } else if (options.deps?.runCodegen) {
+    if (plan.forced) {
+      print("Lane codegen forced (--force) despite a failed free lane.");
+    }
+    const promptIds =
+      options.promptIds ??
+      (options.mode === "codegen-smoke" ? [...SMOKE_PROMPT_IDS] : []);
+    print(
+      `Lane codegen (${options.mode}, ${promptIds.length || "all"} prompt(s)) — requires OPENAI_API_KEY + POSTGRES_URL...`,
+    );
+    codegenReport = await options.deps.runCodegen({
+      prompts: promptIds.map((id) => ({ id })),
+      dumpMode: options.dumpMode,
+    });
+    const summary = codegenReport.summary;
+    // Same precedence as resolveEvalRunOutcome, inlined so tests do not load runner.ts.
+    const codegenOutcome =
+      summary.providerErrors > 0 || summary.suiteAborted
+        ? "provider_error"
+        : summary.infraErrors > 0
+          ? "infra_error"
+          : summary.evaluated > 0 && summary.passed < summary.evaluated
+            ? "quality_fail"
+            : "pass";
+    codegen = codegenLaneFromRun(codegenOutcome, summary, promptIds.length, {
+      forced: plan.forced,
+    });
+  } else {
     const { runEval, resolveEvalRunOutcome } = await import("./runner");
     const { formatEvalReport } = await import("./report");
     const { EVAL_PROMPTS } = await import("./prompts");
@@ -256,6 +365,9 @@ export async function runCanonicalEval(options: {
       }
     }
 
+    if (plan.forced) {
+      print("Lane codegen forced (--force) despite a failed free lane.");
+    }
     print(
       `Lane codegen (${options.mode}, ${prompts.length} prompt(s)) — requires OPENAI_API_KEY + POSTGRES_URL...`,
     );
@@ -281,7 +393,9 @@ export async function runCanonicalEval(options: {
     }
 
     const codegenOutcome = resolveEvalRunOutcome({ summary });
-    codegen = codegenLaneFromRun(codegenOutcome, summary, prompts.length);
+    codegen = codegenLaneFromRun(codegenOutcome, summary, prompts.length, {
+      forced: plan.forced,
+    });
   }
 
   const outcome = resolveCanonicalOutcome({

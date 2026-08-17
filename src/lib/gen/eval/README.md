@@ -36,11 +36,15 @@ inte en naturlag). Semantisk ranking (`semanticTop1Accuracy`) rapporteras
 men styr inte utfallet — saknas embeddings lokalt degraderar semantiken
 till keyword, vilket är förväntat och inte en fail.
 
-`--json` skriver **bara** JSON på stdout (mänsklig text på stderr). Formen är stabil för Backoffice: `timestamp`, `mode`, `outcome`, `exitCode`, `lanes.{followup,scaffold,codegen}`.
+`--json` skriver **bara** JSON på stdout (mänsklig text på stderr). Formen är stabil för Backoffice: `timestamp`, `mode`, `outcome`, `exitCode`, `lanes.{followup,scaffold,codegen}`. Codegen-lanen bär `skipReason` (`free_mode` | `blocked_by_failed_free_lane` | `null`) och `forced` så «läget var free», «gratislane failade så jag spenderade inte» och «kördes» inte kan förväxlas.
 
 ## Codegen-lanen
 
 18 fasta prompts i `prompts.ts`: `coffee-shop`, `dashboard`, `portfolio`, `blog`, `pricing`, `auth`, `ecommerce`, `restaurant`, `agency`, `settings`, `booking-service`, `multi-page-brochure`, `saas-dashboard`, `content-heavy-blog`, `consultant-landing`, `realtor-multipage`, `dog-daycare`, `arcade-with-klarna`. `--codegen` kör smoke-delmängden `coffee-shop`, `restaurant`, `portfolio`. `--full` kör alla 18.
+
+En failad gratislane **stoppar** den betalda codegen-lanen. Follow-up och scaffold är maskineriet codegen bygger på — är de trasiga mäter en körning för 20–25 USD skräp. Topputfallet är då `FAIL` (exit 1); codegen blir `SKIPPED` med `skipReason: "blocked_by_failed_free_lane"`, inte ett tyst vanligt skip. `--force` kör den betalda lanen ändå och sätter `forced: true` i JSON/utskrift.
+
+`SCAFFOLD_LANE_MIN_KEYWORD_TOP1_PERCENT` (90) kan alltså blockera en betald körning när keyword-top1 dippar under policyn. Det är avsiktligt, inte en bugg. `--force` är utvägen.
 
 Baseline-jämförelsen (`compareWithBaseline` + `eval-baseline.json`) är **informativ utskrift**. Det finns ingen `--gate` och ingen `--save-baseline`. Vill du uppdatera den committade baselinen: kör `--full`, läs deltat, redigera/commita `eval-baseline.json` medvetet.
 
