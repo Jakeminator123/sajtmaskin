@@ -5,6 +5,7 @@ import {
   followupLaneFromResults,
   parseCanonicalEvalArgs,
   resolveCanonicalOutcome,
+  shouldSaveBaseline,
   toCanonicalJson,
   type CanonicalEvalResult,
 } from "./canonical";
@@ -74,6 +75,29 @@ describe("resolveCanonicalOutcome / canonicalExitCode", () => {
       }),
     ).toBe("pass");
     expect(canonicalExitCode("pass")).toBe(0);
+  });
+});
+
+describe("shouldSaveBaseline", () => {
+  it("does not save a baseline when a free lane already failed", () => {
+    expect(
+      shouldSaveBaseline({
+        saveBaseline: true,
+        gateFailed: false,
+        codegenBlocked: false,
+        followup: "fail",
+        scaffold: "pass",
+      }),
+    ).toBe(false);
+    expect(
+      shouldSaveBaseline({
+        saveBaseline: true,
+        gateFailed: false,
+        codegenBlocked: false,
+        followup: "pass",
+        scaffold: "pass",
+      }),
+    ).toBe(true);
   });
 });
 

@@ -125,6 +125,18 @@ export function canonicalExitCode(outcome: CanonicalTopOutcome): 0 | 1 | 2 {
   return outcome === "fail" ? 1 : 0;
 }
 
+/** Do not persist a codegen baseline from a run that already failed elsewhere. */
+export function shouldSaveBaseline(options: {
+  saveBaseline: boolean;
+  gateFailed: boolean;
+  codegenBlocked: boolean;
+  followup: CanonicalLaneOutcome;
+  scaffold: CanonicalLaneOutcome;
+}): boolean {
+  if (!options.saveBaseline || options.codegenBlocked || options.gateFailed) return false;
+  return options.followup !== "fail" && options.scaffold !== "fail";
+}
+
 export function followupLaneFromResults(results: FollowUpEvalResult[]): CanonicalFollowupLane {
   const passed = results.filter((result) => result.passed).length;
   return {
@@ -278,7 +290,15 @@ export async function runCanonicalEval(options: {
       } else if (options.gate) {
         print("No baseline found. Run with --save-baseline to create one.");
       }
-      if (options.saveBaseline && !(options.gate && gateFailed)) {
+      if (
+        shouldSaveBaseline({
+          saveBaseline: Boolean(options.saveBaseline),
+          gateFailed: Boolean(options.gate && gateFailed),
+          codegenBlocked: runBlocked,
+          followup: followup.outcome,
+          scaffold: scaffold.outcome,
+        })
+      ) {
         await saveBaseline(codegenReport);
         print("Baseline saved to src/lib/gen/eval/eval-baseline.json");
       }
