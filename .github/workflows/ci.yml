@@ -264,8 +264,8 @@ jobs:
       # merge. Filtrera därför här och kortslut de tunga stegen.
       # Listan är verifierad mot backoffice/test_*.py: backoffice-kod,
       # observability, requirements, config-/schema-ytor testerna läser,
-      # plus de enstaka TS/docs-filer som är unika skyddsobjekt
-      # (catalog-paritet, curator-auditor, capability-map, hub-docs).
+      # plus de enstaka TS/docs/Python-filer som är unika skyddsobjekt
+      # (catalog-paritet, curator, capability-map, hub-docs, run-python).
       # package.json utelämnas medvetet — annars körs jobbet på nästan
       # varje PR. src/lib/db|auth|tenant ingår inte.
       - name: Detect backoffice-relevant changes
@@ -291,8 +291,11 @@ jobs:
               - 'src/lib/gen/scaffold-variants/extractor-fingerprint.ts'
               - 'scripts/v0-templates/audit-template-repos.mjs'
               - 'scripts/dossiers/curate-from-reference.ts'
+              - 'scripts/dossiers/transaction_adapter.py'
               - 'scripts/scaffolds/auto-curate-variant-patterns.ts'
               - 'scripts/scaffolds/generate-variant-embeddings.ts'
+              - 'scripts/template_curator/**'
+              - 'scripts/dev/run-python.mjs'
               - 'data/dossiers/_index/capability-map.json'
               - 'docs/architecture/glossary.md'
               - 'docs/contracts/dossier-system.md'
