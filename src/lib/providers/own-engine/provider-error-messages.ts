@@ -35,6 +35,9 @@ type Mapping = { sv: string; permanent: boolean; providerFault?: boolean };
 
 const CODE_TO_USER_MESSAGE: Record<string, Mapping> = {
   insufficient_quota: { sv: "OpenAI-kvoten slut. Fyll på i ditt OpenAI-konto.", permanent: true, providerFault: true },
+  // OpenAI's Responses API reports an empty prepaid balance with this code and
+  // `type: insufficient_quota`; only `code` is read here, so it needs its own row.
+  credit_balance_exhausted: { sv: "OpenAI-krediten är slut. Fyll på i ditt OpenAI-konto.", permanent: true, providerFault: true },
   rate_limit_exceeded: { sv: "OpenAI rate limit — för många anrop just nu, prova igen om en stund.", permanent: false, providerFault: true },
   context_length_exceeded: { sv: "För lång prompt — kontexten överskrider modellens gräns.", permanent: true },
   invalid_api_key: { sv: "Ogiltig OpenAI API-nyckel.", permanent: true, providerFault: true },

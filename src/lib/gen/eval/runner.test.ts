@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyEvalStreamOutcome,
+  classifyEvalThrownError,
+  collectEvalStream,
   deriveEvalCheckSources,
+  evalExitCode,
   resolveEvalEnvironment,
   resolveEvalPassOutcome,
+  resolveEvalRunOutcome,
+  summarizeEvalResults,
+  type EvalResult,
 } from "./runner";
 import { checkProjectSanity, type CheckResult } from "./checks";
 import type { CodeFile } from "../parser";
@@ -97,6 +104,237 @@ describe("resolveEvalPassOutcome", () => {
 
     expect(result.passed).toBe(true);
     expect(result.blockingChecks).toEqual([]);
+  });
+});
+
+/**
+ * Regression lock for the 2026-08-17 weekly eval run. OpenAI answered every
+ * codegen call with `credit_balance_exhausted`, the SSE reader only looked at
+ * `event: content`, and the empty result was scored through all 12 checks — so
+ * an unpaid invoice was reported as an 18-prompt quality collapse (−23.6 % vs
+ * baseline, 14 fake `PASS → FAIL`). A provider failure is not a bad website.
+ */
+describe("classifyEvalStreamOutcome", () => {
+  it("reports a provider error event instead of scoring the empty content", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "",
+      errorPayloads: [
+        {
+          message: "OpenAI-krediten är slut. Fyll på i ditt OpenAI-konto.",
+          code: "credit_balance_exhausted",
+          permanent: true,
+          providerFault: true,
+        },
+      ],
+    });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("provider_error");
+    expect(outcome.failure.code).toBe("credit_balance_exhausted");
+    expect(outcome.failure.providerFault).toBe(true);
+  });
+
+  it("prefers the error event even when partial content arrived before the failure", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "```tsx\nexport default function Page(){",
+      errorPayloads: [{ message: "Provider rate limit", code: "rate_limit_exceeded" }],
+    });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("provider_error");
+  });
+
+  it("treats a silent empty stream as unmeasured, not as zero quality", () => {
+    const outcome = classifyEvalStreamOutcome({ content: "   \n", errorPayloads: [] });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("empty_stream");
+  });
+
+  it("passes real content through to the checks", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "export default function Page(){return null;}",
+      errorPayloads: [],
+    });
+
+    expect(outcome).toEqual({
+      ok: true,
+      content: "export default function Page(){return null;}",
+    });
+  });
+});
+
+describe("collectEvalStream", () => {
+  function sse(event: string, data: unknown): string {
+    return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  }
+
+  function streamOf(chunks: string[]): ReadableStream<Uint8Array> {
+    const encoder = new TextEncoder();
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+        controller.close();
+      },
+    });
+  }
+
+  it("surfaces the provider error event the old reader silently dropped", async () => {
+    const collection = await collectEvalStream(
+      streamOf([
+        sse("meta", { chatId: "eval_coffee-shop" }),
+        sse("error", {
+          message: "OpenAI-krediten är slut. Fyll på i ditt OpenAI-konto.",
+          code: "credit_balance_exhausted",
+          permanent: true,
+          providerFault: true,
+        }),
+      ]),
+    );
+
+    expect(collection.content).toBe("");
+    expect(collection.errorPayloads).toHaveLength(1);
+    expect(collection.errorPayloads[0].code).toBe("credit_balance_exhausted");
+  });
+
+  it("keeps content that arrives split across chunk boundaries", async () => {
+    // The previous reader paired `event:`/`data:` lines inside a single decoded
+    // chunk, so any event cut in half by the network was lost outright.
+    const wire = sse("content", { text: "export default" }) + sse("content", { text: " function Page(){}" });
+    const cut = Math.floor(wire.length / 2);
+
+    const collection = await collectEvalStream(
+      streamOf([wire.slice(0, cut), wire.slice(cut)]),
+    );
+
+    expect(collection.content).toBe("export default function Page(){}");
+    expect(collection.errorPayloads).toEqual([]);
+  });
+});
+
+describe("classifyEvalThrownError", () => {
+  it("classifies a provider fault thrown out of generateCode", () => {
+    const inner = Object.assign(new Error("You have no credits remaining."), {
+      code: "credit_balance_exhausted",
+    });
+    const wrapper = Object.assign(new Error("Failed after 3 attempts."), { cause: inner });
+
+    expect(classifyEvalThrownError(wrapper)?.kind).toBe("provider_error");
+  });
+
+  it("classifies a transport failure as a provider error", () => {
+    expect(classifyEvalThrownError(Object.assign(new Error("socket hang up"), {
+      code: "UND_ERR_SOCKET",
+    }))?.kind).toBe("provider_error");
+  });
+
+  it("leaves a real harness bug reported as a generation failure", () => {
+    expect(classifyEvalThrownError(new TypeError("cannot read property of undefined"))).toBeNull();
+  });
+});
+
+function evalResult(overrides: Partial<EvalResult>): EvalResult {
+  return {
+    promptId: "coffee-shop",
+    generationStatus: "passed",
+    failureStage: null,
+    generationTimeMs: 1_000,
+    fileCount: 4,
+    finalProjectFiles: 10,
+    generatedSurfaceFiles: 4,
+    scaffoldId: "landing-page",
+    variantId: "corporate-grid",
+    promptSize: {
+      totalChars: 0,
+      totalEstimatedTokens: 0,
+      staticCoreChars: 0,
+      staticCoreEstimatedTokens: 0,
+      dynamicContextChars: 0,
+      dynamicContextEstimatedTokens: 0,
+      dynamicBudgetUsedTokens: 0,
+      dynamicBudgetBudgetTokens: 0,
+      droppedBlocks: 0,
+      largestBlocks: [],
+    },
+    preflight: {
+      errors: 0,
+      warnings: 0,
+      previewBlocked: false,
+      previewBlockingReason: null,
+    },
+    droppedProtectedPaths: [],
+    checks: [],
+    totalScore: 0.9,
+    passed: true,
+    blockingChecks: [],
+    ...overrides,
+  };
+}
+
+describe("summarizeEvalResults", () => {
+  it("keeps provider failures out of the quality average", () => {
+    const summary = summarizeEvalResults([
+      evalResult({ promptId: "coffee-shop", totalScore: 0.9, passed: true }),
+      evalResult({
+        promptId: "restaurant",
+        generationStatus: "skipped",
+        failureStage: "provider_error",
+        totalScore: 0,
+        passed: false,
+        generationTimeMs: 0,
+      }),
+    ]);
+
+    // Averaging over both would report 45 % and read as a regression.
+    expect(summary.avgScore).toBeCloseTo(0.9);
+    expect(summary.avgTimeMs).toBe(1_000);
+    expect(summary.evaluated).toBe(1);
+    expect(summary.skipped).toBe(1);
+    expect(summary.providerErrors).toBe(1);
+    expect(summary.infraErrors).toBe(0);
+  });
+
+  it("counts missing env and empty streams as infra, not provider", () => {
+    const summary = summarizeEvalResults([
+      evalResult({ generationStatus: "skipped", failureStage: "preflight_env", passed: false }),
+      evalResult({ generationStatus: "skipped", failureStage: "empty_stream", passed: false }),
+    ]);
+
+    expect(summary.infraErrors).toBe(2);
+    expect(summary.providerErrors).toBe(0);
+    expect(summary.evaluated).toBe(0);
+    expect(summary.avgScore).toBe(0);
+  });
+});
+
+describe("resolveEvalRunOutcome / evalExitCode", () => {
+  function summaryWith(overrides: Partial<ReturnType<typeof summarizeEvalResults>>) {
+    return { ...summarizeEvalResults([evalResult({})]), ...overrides };
+  }
+
+  it("reports a provider error ahead of any quality verdict", () => {
+    const outcome = resolveEvalRunOutcome({
+      summary: summaryWith({ providerErrors: 1 }),
+      gateFailed: true,
+    });
+
+    expect(outcome).toBe("provider_error");
+    expect(evalExitCode(outcome)).toBe(2);
+  });
+
+  it("reports infra errors ahead of any quality verdict", () => {
+    const outcome = resolveEvalRunOutcome({ summary: summaryWith({ infraErrors: 1 }) });
+
+    expect(outcome).toBe("infra_error");
+    expect(evalExitCode(outcome)).toBe(2);
+  });
+
+  it("fails on quality only when the gate actually failed on measured prompts", () => {
+    expect(evalExitCode(resolveEvalRunOutcome({ summary: summaryWith({}), gateFailed: true }))).toBe(1);
+    expect(evalExitCode(resolveEvalRunOutcome({ summary: summaryWith({}) }))).toBe(0);
   });
 });
 

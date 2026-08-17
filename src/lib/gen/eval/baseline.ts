@@ -155,6 +155,11 @@ export function compareWithBaseline(
   for (const [promptId, baselineResult] of baselineByPrompt) {
     const current = currentByPrompt.get(promptId);
     if (!current) continue;
+    // A prompt that never reached the checks (missing DB env, exhausted
+    // provider credits, empty stream) has no score to compare. Counting its
+    // zero as a regression is how the 2026-08-17 billing failure reported 14
+    // fake `PASS → FAIL` rows.
+    if (current.generationStatus === "skipped") continue;
 
     const delta = current.totalScore - baselineResult.totalScore;
     if (delta < 0) {

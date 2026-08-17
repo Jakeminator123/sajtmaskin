@@ -55,10 +55,23 @@ npx tsx src/lib/gen/eval/cli.ts --prompts=arcade-with-klarna --dump-files
 - `eval:weird-smoke` — bara `realtor-multipage`, `dog-daycare`, `arcade-with-klarna`; baseline uppdateras aldrig.
 - `eval:weird-smoke:dump` — samma subset + `--dump-files`, vilket skriver filinnehåll bara för failande prompts.
 
-**Gate-regler** (från `baseline.ts:179-190`):
+**Gate-regler** (från `baseline.ts`):
 - `fail` om: någon `passed → failed`, snittpoäng ≤ −10 %, eller fler än 2 prompts tappar ≥20 %
 - `warning` om: nya blocking-checks, snittpoäng ≤ −5 %, eller någon enskild prompt tappar ≥15 %
 - `pass` annars
+
+Prompts som aldrig nådde checkarna (`generationStatus: "skipped"`) jämförs inte. Deras nollor är inte mätvärden.
+
+**Exit-koder** (`resolveEvalRunOutcome` + `evalExitCode` i `runner.ts`):
+
+| Kod | Utfall | Betyder |
+|---|---|---|
+| 0 | `PASS` | Körningen mätte kvalitet och gaten föll inte |
+| 1 | `QUALITY_FAIL` | `--gate` + faktisk regression mot baseline |
+| 2 | `PROVIDER_ERROR` | Provider svarade inte med kod: slut kredit, ogiltig nyckel, 429, 5xx, transportfel |
+| 2 | `INFRA_ERROR` | Saknad DB-env eller tom ström — inget att mäta |
+
+Provider- och infra-fel **rangordnas före** kvalitetsdomen: de får inte poängen 0, de räknas inte som regression, baseline jämförs inte och skrivs inte. Fram till 2026-08-17 gjorde de motsatta beteendet en slut OpenAI-kredit till en «18-prompt-kollaps» (−23,6 % mot baseline, 14 falska `PASS → FAIL`).
 
 **Kostnad:** ~18 prompts × LLM-codegen-anrop för full suite. På `gpt-5.3-codex` med stora outputs blir det fort några dollar per körning. Kör inte casually.
 
@@ -147,6 +160,7 @@ Baserat på baseline från 2026-03-18 (`gpt-5.3-codex`, 15 prompts; full suite �
 
 - `preflight=failed_env` → eval stoppade före LLM-kostnad eftersom DB-env saknas. Sätt `POSTGRES_URL` / `STORAGE_POSTGRES_URL` eller kör `npm run env:pull` först. DB:n behövs för att codegen-vägens scaffold-scoring läser `generation_telemetry`. I CI får `Eval Baseline Update` prod-databasen via `POSTGRES_URL_PROD` (läsande — se workflow-kommentaren); saknas secreten failar jobbet med den orsaken i st.f. att rapportera alla scenarier som `PASS → FAIL`.
 - `OPENAI_API_KEY missing` → exporta i shell eller lägg i `.env.local`.
+- Rapporten visar `PROVIDER`/`EMPTY`/`ENV` i statuskolumnen och en `## Not Measured`-sektion → körningen nådde inte modellen. Åtgärda kontot/nyckeln/env och kör om; läs inte siffrorna som kvalitet.
 - Eval failar på en specifik prompt utan tydlig orsak → kör med en eller två prompts: importera `runEval` direkt och passa `{ prompts: [EVAL_PROMPTS[0]] }`.
 - Baseline-jämförelsen saknar prompts → en ny prompt har lagts till i `prompts.ts` men baseline är gammal. Det är OK — `compareWithBaseline` skippar prompts som saknas i baseline. Kör `eval:baseline` när du är klar att flytta över.
 

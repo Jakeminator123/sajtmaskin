@@ -101,6 +101,10 @@ function makeReport(): EvalReport {
     summary: {
       total: 2,
       passed: 1,
+      evaluated: 2,
+      skipped: 0,
+      providerErrors: 0,
+      infraErrors: 0,
       avgScore: 0.65,
       avgTimeMs: 1000,
       blockingFailures: 1,
@@ -181,6 +185,38 @@ describe("compareWithBaseline", () => {
   it("reports blocking checks as available for a baseline that tracks them", () => {
     const comparison = compareWithBaseline(makeReport(), makeBaseline());
     expect(comparison.blockingCheckComparison).toBe("available");
+  });
+
+  /**
+   * Regression lock for the 2026-08-17 weekly run: exhausted OpenAI credits made
+   * every prompt end as `skipped`, and the comparison read those zeroes as a
+   * 14-prompt `PASS -> FAIL` collapse plus a −23.6 % score drop. A prompt that
+   * never reached the checks has nothing to compare.
+   */
+  it("ignores prompts that never reached the checks instead of scoring them as regressions", () => {
+    const report = makeReport();
+    report.results[0] = evalResult({
+      promptId: "coffee-shop",
+      generationStatus: "skipped",
+      failureStage: "provider_error",
+      totalScore: 0,
+      passed: false,
+      blockingChecks: [],
+      checks: [
+        {
+          name: "provider_error",
+          passed: false,
+          message: "OpenAI-kvoten slut. [insufficient_quota]",
+          score: 0,
+        },
+      ],
+    });
+
+    const comparison = compareWithBaseline(report, makeBaseline());
+
+    expect(comparison.passRegressions).toEqual([]);
+    expect(comparison.regressions.map((r) => r.promptId)).toEqual([]);
+    expect(comparison.gateResult).toBe("pass");
   });
 
   describe("legacy baseline saved before blocking-check tracking (2026-04-03)", () => {

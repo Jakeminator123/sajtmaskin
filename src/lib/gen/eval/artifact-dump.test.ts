@@ -220,6 +220,10 @@ describe("writeEvalArtifacts", () => {
         summary: {
           total: 1,
           passed: 0,
+          evaluated: 1,
+          skipped: 0,
+          providerErrors: 0,
+          infraErrors: 0,
           avgScore: result.totalScore,
           avgTimeMs: result.generationTimeMs,
           blockingFailures: 1,

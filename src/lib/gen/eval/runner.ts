@@ -9,6 +9,8 @@ import { DB_ENV_VARS, resolveConfiguredDbEnv } from "@/lib/db/env";
 import { buildCompleteProject } from "../export/project-scaffold";
 import { collectRequiredUiComponents } from "../export/project-scaffold-ui-reader";
 import { runFinalizePreflight } from "../stream/finalize-preflight";
+import { parseSSEBuffer } from "../stream/sse-parser";
+import { classifyProviderError } from "@/lib/providers/own-engine/provider-error-messages";
 import { runSeoPreflightChecks } from "../validation/seo-preflight";
 import { partitionGeneratedFilesForProtectedPaths } from "../scaffolds/protected-paths";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
@@ -41,7 +43,23 @@ import {
 } from "./checks";
 
 export type EvalGenerationStatus = "skipped" | "passed" | "failed";
-export type EvalFailureStage = "preflight_env" | "generation" | null;
+
+/**
+ * Why a prompt produced no quality verdict.
+ *
+ * `provider_error` and `empty_stream` exist because a failed provider call is
+ * not a bad website. Until 2026-08-17 a stream that carried only an `error`
+ * event — exhausted OpenAI credits, a revoked key, a 429 — was scored as if
+ * the model had emitted zero files, so an unpaid invoice surfaced as an
+ * 18-prompt "quality collapse" against baseline. These stages keep such runs
+ * out of the quality numbers.
+ */
+export type EvalFailureStage =
+  | "preflight_env"
+  | "provider_error"
+  | "empty_stream"
+  | "generation"
+  | null;
 
 export interface EvalResult {
   promptId: string;
@@ -87,6 +105,13 @@ export interface EvalResult {
 export interface EvalSummary {
   total: number;
   passed: number;
+  /** Prompts that actually reached the checks — the denominator for `avgScore`. */
+  evaluated: number;
+  /** Prompts that never reached the checks (env, provider or empty stream). */
+  skipped: number;
+  providerErrors: number;
+  infraErrors: number;
+  /** Averages over `evaluated` only, so a billing failure cannot dilute them. */
   avgScore: number;
   avgTimeMs: number;
   blockingFailures: number;
@@ -127,48 +152,183 @@ export function resolveEvalEnvironment(
   return { ok: true, dbEnvName: configuredDb.name };
 }
 
-function makePreflightEnvFailureResult(evalPrompt: EvalPrompt, message: string): EvalResult {
+function emptyPromptSize(): EvalResult["promptSize"] {
   return {
-    promptId: evalPrompt.id,
+    totalChars: 0,
+    totalEstimatedTokens: 0,
+    staticCoreChars: 0,
+    staticCoreEstimatedTokens: 0,
+    dynamicContextChars: 0,
+    dynamicContextEstimatedTokens: 0,
+    dynamicBudgetUsedTokens: 0,
+    dynamicBudgetBudgetTokens: 0,
+    droppedBlocks: 0,
+    largestBlocks: [],
+  };
+}
+
+/**
+ * A prompt that never reached the checks.
+ *
+ * `blockingChecks` defaults to empty: a blocker means "the generated site is
+ * broken", and here nothing was generated. Env failures keep their historical
+ * `preflight_env` blocker so existing report/backoffice readers still see it.
+ */
+function makeSkippedResult(params: {
+  evalPrompt: EvalPrompt;
+  failureStage: Exclude<EvalFailureStage, null | "generation">;
+  message: string;
+  previewBlockingReason: string;
+  generationTimeMs?: number;
+  blockingChecks?: string[];
+}): EvalResult {
+  return {
+    promptId: params.evalPrompt.id,
     generationStatus: "skipped",
-    failureStage: "preflight_env",
-    generationTimeMs: 0,
+    failureStage: params.failureStage,
+    generationTimeMs: params.generationTimeMs ?? 0,
     fileCount: 0,
     finalProjectFiles: 0,
     generatedSurfaceFiles: 0,
     scaffoldId: null,
     variantId: null,
-    promptSize: {
-      totalChars: 0,
-      totalEstimatedTokens: 0,
-      staticCoreChars: 0,
-      staticCoreEstimatedTokens: 0,
-      dynamicContextChars: 0,
-      dynamicContextEstimatedTokens: 0,
-      dynamicBudgetUsedTokens: 0,
-      dynamicBudgetBudgetTokens: 0,
-      droppedBlocks: 0,
-      largestBlocks: [],
-    },
+    promptSize: emptyPromptSize(),
     preflight: {
       errors: 1,
       warnings: 0,
       previewBlocked: true,
-      previewBlockingReason: "failed_env",
+      previewBlockingReason: params.previewBlockingReason,
     },
     droppedProtectedPaths: [],
     checks: [
       {
-        name: "preflight_env",
+        name: params.failureStage,
         passed: false,
-        message,
+        message: params.message,
         score: 0,
       },
     ],
     totalScore: 0,
     passed: false,
-    blockingChecks: ["preflight_env"],
+    blockingChecks: params.blockingChecks ?? [],
   };
+}
+
+function makePreflightEnvFailureResult(evalPrompt: EvalPrompt, message: string): EvalResult {
+  return makeSkippedResult({
+    evalPrompt,
+    failureStage: "preflight_env",
+    message,
+    previewBlockingReason: "failed_env",
+    blockingChecks: ["preflight_env"],
+  });
+}
+
+/** Transport-level failures the provider never got to answer. Same bucket as a
+ * provider fault for eval purposes: nothing was generated, so nothing scores. */
+const TRANSPORT_ERROR_CODES = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EAI_AGAIN",
+  "EPIPE",
+  "UND_ERR_SOCKET",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+]);
+
+export interface EvalStreamCollection {
+  content: string;
+  errorPayloads: Array<Record<string, unknown>>;
+}
+
+export type EvalStreamFailureKind = "provider_error" | "empty_stream";
+
+export interface EvalStreamFailure {
+  kind: EvalStreamFailureKind;
+  message: string;
+  code: string | null;
+  permanent: boolean;
+  providerFault: boolean;
+}
+
+/**
+ * Decide whether a finished codegen stream carries a scorable result.
+ *
+ * The `error` event is the signal the old reader threw away: `stream-format.ts`
+ * already classifies provider failures (code, `permanent`, `providerFault`) and
+ * emits them, so eval only has to stop pretending the empty content was a
+ * website.
+ */
+export function classifyEvalStreamOutcome(
+  collection: EvalStreamCollection,
+): { ok: true; content: string } | { ok: false; failure: EvalStreamFailure } {
+  const [payload] = collection.errorPayloads;
+  if (payload) {
+    const message =
+      typeof payload.message === "string" && payload.message.trim()
+        ? payload.message.trim()
+        : "Provider stream error without message";
+    return {
+      ok: false,
+      failure: {
+        kind: "provider_error",
+        message,
+        code: typeof payload.code === "string" ? payload.code : null,
+        permanent: payload.permanent === true,
+        providerFault: payload.providerFault === true,
+      },
+    };
+  }
+
+  if (!collection.content.trim()) {
+    return {
+      ok: false,
+      failure: {
+        kind: "empty_stream",
+        message:
+          "Stream ended without content and without an error event — no quality verdict is possible.",
+        code: null,
+        permanent: false,
+        providerFault: false,
+      },
+    };
+  }
+
+  return { ok: true, content: collection.content };
+}
+
+/**
+ * Classify an exception thrown out of the generation call. Returns `null` when
+ * the error is ours to fix (a real harness/generation bug), so the caller keeps
+ * reporting it as a `generation` failure rather than hiding it as infra noise.
+ */
+export function classifyEvalThrownError(err: unknown): EvalStreamFailure | null {
+  const classified = classifyProviderError(err, "Generation failed");
+  const transport = classified.code !== null && TRANSPORT_ERROR_CODES.has(classified.code);
+  if (!classified.providerFault && !transport) return null;
+
+  return {
+    kind: "provider_error",
+    message: classified.userMessage,
+    code: classified.code,
+    permanent: classified.permanent,
+    providerFault: classified.providerFault,
+  };
+}
+
+function makeStreamFailureResult(
+  evalPrompt: EvalPrompt,
+  failure: EvalStreamFailure,
+  generationTimeMs: number,
+): EvalResult {
+  return makeSkippedResult({
+    evalPrompt,
+    failureStage: failure.kind,
+    message: failure.code ? `${failure.message} [${failure.code}]` : failure.message,
+    previewBlockingReason: failure.kind,
+    generationTimeMs,
+  });
 }
 
 /**
@@ -297,41 +457,51 @@ export function resolveEvalPassOutcome(params: {
   };
 }
 
-async function collectSSEContent(stream: ReadableStream<Uint8Array>): Promise<string> {
+/**
+ * Read the codegen stream through the canonical SSE parser instead of matching
+ * `event:`/`data:` line pairs inside one decoded chunk. The old pairing dropped
+ * events split across a chunk boundary, and it could not see `error` events at
+ * all — which is how a billing failure reached the checks as "zero files".
+ */
+export async function collectEvalStream(
+  stream: ReadableStream<Uint8Array>,
+): Promise<EvalStreamCollection> {
   const decoder = new TextDecoder();
   const reader = stream.getReader();
-  let accumulated = "";
+  const collection: EvalStreamCollection = { content: "", errorPayloads: [] };
+  let buffer = "";
+
+  const drain = (): void => {
+    const { events, remaining } = parseSSEBuffer(buffer);
+    buffer = remaining;
+    for (const event of events) {
+      if (event.event === "content") {
+        const text = (event.data as { text?: unknown }).text;
+        if (typeof text === "string") collection.content += text;
+      } else if (event.event === "error") {
+        collection.errorPayloads.push(event.data as Record<string, unknown>);
+      }
+    }
+  };
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split("\n");
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.startsWith("data: ")) continue;
-
-        const prevLine = i > 0 ? lines[i - 1] : "";
-        if (prevLine !== "event: content") continue;
-
-        try {
-          const payload = JSON.parse(line.slice(6)) as { text?: string };
-          if (payload.text) {
-            accumulated += payload.text;
-          }
-        } catch {
-          // malformed JSON — skip
-        }
-      }
+      buffer += decoder.decode(value, { stream: true });
+      drain();
+    }
+    // A stream ending without a trailing newline leaves its last event in
+    // `remaining`, where `parseSSEBuffer` never looks.
+    if (buffer.trim()) {
+      buffer += "\n";
+      drain();
     }
   } finally {
     reader.releaseLock();
   }
 
-  return accumulated;
+  return collection;
 }
 
 async function recordPromptArtifacts(params: {
@@ -393,8 +563,23 @@ async function evaluatePrompt(
       generationInput.variantTemplateReferenceAttachments,
   });
 
-  const content = await collectSSEContent(stream);
+  const collection = await collectEvalStream(stream);
   const generationTimeMs = Math.round(performance.now() - start);
+
+  const outcome = classifyEvalStreamOutcome(collection);
+  if (!outcome.ok) {
+    // Stop before autofix/merge/preflight. There is nothing to repair, and the
+    // repair path downstream would spend another provider call on a run that
+    // already failed at the provider.
+    const result = makeStreamFailureResult(evalPrompt, outcome.failure, generationTimeMs);
+    const artifact = await recordPromptArtifacts({
+      ...artifactContext,
+      prompt: evalPrompt,
+      result,
+    });
+    return { result, artifact };
+  }
+  const content = outcome.content;
 
   // Eval path: standalone mechanical pass on raw stream content. Mirrors the
   // outer autofix in finalize-version.ts but without the surrounding pipeline.
@@ -570,6 +755,57 @@ async function evaluatePrompt(
   return { result, artifact };
 }
 
+const INFRA_FAILURE_STAGES = new Set<EvalFailureStage>(["preflight_env", "empty_stream"]);
+
+function mean(values: number[]): number {
+  return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+export function summarizeEvalResults(results: EvalResult[]): EvalSummary {
+  const evaluated = results.filter((result) => result.generationStatus !== "skipped");
+  const blockingCheckCounts: Record<string, number> = {};
+  for (const result of results) {
+    for (const check of result.blockingChecks) {
+      blockingCheckCounts[check] = (blockingCheckCounts[check] ?? 0) + 1;
+    }
+  }
+
+  return {
+    total: results.length,
+    passed: results.filter((result) => result.passed).length,
+    evaluated: evaluated.length,
+    skipped: results.length - evaluated.length,
+    providerErrors: results.filter((result) => result.failureStage === "provider_error").length,
+    infraErrors: results.filter((result) => INFRA_FAILURE_STAGES.has(result.failureStage)).length,
+    avgScore: mean(evaluated.map((result) => result.totalScore)),
+    avgTimeMs: Math.round(mean(evaluated.map((result) => result.generationTimeMs))),
+    blockingFailures: results.filter((result) => result.blockingChecks.length > 0).length,
+    blockingCheckCounts,
+  };
+}
+
+export type EvalRunOutcome = "pass" | "quality_fail" | "provider_error" | "infra_error";
+
+/**
+ * Provider and infra failures outrank the quality verdict. A run that never
+ * reached the model says nothing about generation quality, and scoring it as a
+ * regression is what made every red weekly run unreadable.
+ */
+export function resolveEvalRunOutcome(params: {
+  summary: EvalSummary;
+  gateFailed?: boolean;
+}): EvalRunOutcome {
+  if (params.summary.providerErrors > 0) return "provider_error";
+  if (params.summary.infraErrors > 0) return "infra_error";
+  if (params.gateFailed === true) return "quality_fail";
+  return "pass";
+}
+
+export function evalExitCode(outcome: EvalRunOutcome): 0 | 1 | 2 {
+  if (outcome === "provider_error" || outcome === "infra_error") return 2;
+  return outcome === "quality_fail" ? 1 : 0;
+}
+
 export async function runEval(
   options?: {
     model?: string;
@@ -590,19 +826,11 @@ export async function runEval(
     const results = prompts.map((prompt) =>
       makePreflightEnvFailureResult(prompt, environment.message),
     );
-    const blockingCheckCounts = { preflight_env: results.length };
     const report = {
       timestamp: new Date().toISOString(),
       model,
       results,
-      summary: {
-        total: results.length,
-        passed: 0,
-        avgScore: 0,
-        avgTimeMs: 0,
-        blockingFailures: results.length,
-        blockingCheckCounts,
-      },
+      summary: summarizeEvalResults(results),
     };
     await writeEvalSuiteSummary({ runId, report, promptArtifacts });
     return report;
@@ -625,51 +853,46 @@ export async function runEval(
           `${result.passed ? "PASS" : "FAIL"}`,
       );
     } catch (err) {
+      // A provider fault thrown out of `generateCode` (billing, revoked key,
+      // 429, socket reset) is not a generation defect — classify before
+      // recording, or the run reports a quality failure it never measured.
+      const providerFailure = classifyEvalThrownError(err);
       console.error(
-        `[eval] ${evalPrompt.id} failed:`,
+        `[eval] ${evalPrompt.id} ${providerFailure ? "aborted by provider" : "failed"}:`,
         err instanceof Error ? err.message : err,
       );
-      const result: EvalResult = {
-        promptId: evalPrompt.id,
-        generationStatus: "failed",
-        failureStage: "generation",
-        generationTimeMs: 0,
-        fileCount: 0,
-        finalProjectFiles: 0,
-        generatedSurfaceFiles: 0,
-        scaffoldId: null,
-        variantId: null,
-        promptSize: {
-          totalChars: 0,
-          totalEstimatedTokens: 0,
-          staticCoreChars: 0,
-          staticCoreEstimatedTokens: 0,
-          dynamicContextChars: 0,
-          dynamicContextEstimatedTokens: 0,
-          dynamicBudgetUsedTokens: 0,
-          dynamicBudgetBudgetTokens: 0,
-          droppedBlocks: 0,
-          largestBlocks: [],
-        },
-        preflight: {
-          errors: 1,
-          warnings: 0,
-          previewBlocked: true,
-          previewBlockingReason: err instanceof Error ? err.message : "generation_failed",
-        },
-        droppedProtectedPaths: [],
-        checks: [
-          {
-            name: "generation",
+      const result: EvalResult = providerFailure
+        ? makeStreamFailureResult(evalPrompt, providerFailure, 0)
+        : {
+            promptId: evalPrompt.id,
+            generationStatus: "failed",
+            failureStage: "generation",
+            generationTimeMs: 0,
+            fileCount: 0,
+            finalProjectFiles: 0,
+            generatedSurfaceFiles: 0,
+            scaffoldId: null,
+            variantId: null,
+            promptSize: emptyPromptSize(),
+            preflight: {
+              errors: 1,
+              warnings: 0,
+              previewBlocked: true,
+              previewBlockingReason: err instanceof Error ? err.message : "generation_failed",
+            },
+            droppedProtectedPaths: [],
+            checks: [
+              {
+                name: "generation",
+                passed: false,
+                message: err instanceof Error ? err.message : "Unknown error",
+                score: 0,
+              },
+            ],
+            totalScore: 0,
             passed: false,
-            message: err instanceof Error ? err.message : "Unknown error",
-            score: 0,
-          },
-        ],
-        totalScore: 0,
-        passed: false,
-        blockingChecks: ["generation"],
-      };
+            blockingChecks: ["generation"],
+          };
       const artifact = await recordPromptArtifacts({
         runId,
         dumpMode,
@@ -681,35 +904,11 @@ export async function runEval(
     }
   }
 
-  const passed = results.filter((r) => r.passed).length;
-  const avgScore =
-    results.length > 0
-      ? results.reduce((s, r) => s + r.totalScore, 0) / results.length
-      : 0;
-  const avgTimeMs =
-    results.length > 0
-      ? results.reduce((s, r) => s + r.generationTimeMs, 0) / results.length
-      : 0;
-  const blockingFailures = results.filter((r) => r.blockingChecks.length > 0).length;
-  const blockingCheckCounts: Record<string, number> = {};
-  for (const result of results) {
-    for (const check of result.blockingChecks) {
-      blockingCheckCounts[check] = (blockingCheckCounts[check] ?? 0) + 1;
-    }
-  }
-
   const report = {
     timestamp: new Date().toISOString(),
     model,
     results,
-    summary: {
-      total: results.length,
-      passed,
-      avgScore,
-      avgTimeMs: Math.round(avgTimeMs),
-      blockingFailures,
-      blockingCheckCounts,
-    },
+    summary: summarizeEvalResults(results),
   };
   await writeEvalSuiteSummary({ runId, report, promptArtifacts });
   return report;

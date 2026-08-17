@@ -51,6 +51,10 @@ describe("formatEvalReport", () => {
       summary: {
         total: 1,
         passed: 0,
+        evaluated: 1,
+        skipped: 0,
+        providerErrors: 0,
+        infraErrors: 0,
         avgScore: 0.6,
         avgTimeMs: 900,
         blockingFailures: 1,
@@ -94,6 +98,10 @@ describe("formatEvalReport", () => {
       summary: {
         total: 1,
         passed: 0,
+        evaluated: 0,
+        skipped: 1,
+        providerErrors: 0,
+        infraErrors: 1,
         avgScore: 0,
         avgTimeMs: 0,
         blockingFailures: 1,
@@ -140,6 +148,10 @@ describe("formatEvalReport", () => {
       summary: {
         total: 1,
         passed: 0,
+        evaluated: 1,
+        skipped: 0,
+        providerErrors: 0,
+        infraErrors: 0,
         avgScore: 0.6,
         avgTimeMs: 900,
         blockingFailures: 1,
