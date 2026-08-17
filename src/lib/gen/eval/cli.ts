@@ -65,11 +65,10 @@ async function main(): Promise<void> {
     );
   }
 
-  const exitCode = canonicalExitCode(result.outcome);
-  if (exitCode !== 0) process.exit(exitCode);
+  process.exitCode = canonicalExitCode(result.outcome);
 }
 
 main().catch((err) => {
   console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
+  process.exitCode = 1;
 });

@@ -99,12 +99,16 @@ function parsePromptFilter(args: string[]): string[] | null {
   if (idx === -1) return null;
   const flag = args[idx];
   const rawValue = flag.includes("=") ? flag.slice(flag.indexOf("=") + 1) : args[idx + 1];
-  if (!rawValue) return null;
-  const ids = rawValue
+  const ids = (rawValue ?? "")
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);
-  return ids.length > 0 ? ids : null;
+  if (ids.length === 0) {
+    throw new Error(
+      "--prompts requires at least one prompt id. Example: --prompts=arcade-with-klarna",
+    );
+  }
+  return ids;
 }
 
 function parseDumpModeFlag(args: string[]): EvalDumpMode | undefined {
@@ -379,7 +383,7 @@ export async function runCanonicalEval(options: {
     print(
       `Lane codegen (${options.mode}, ${prompts.length} prompt(s)) — requires OPENAI_API_KEY + POSTGRES_URL...`,
     );
-    codegenReport = await runEval({ prompts, dumpMode: options.dumpMode });
+    codegenReport = await runEval({ prompts, dumpMode: options.dumpMode, print });
     print(formatEvalReport(codegenReport));
 
       const { summary } = codegenReport;
