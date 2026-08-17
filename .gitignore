@@ -328,7 +328,5 @@ docs/plans/**/run.log.jsonl
 !.agents/skills/godnatt-bugg/
 !.agents/skills/godnatt-bugg/**
 
-.vercel
-
 # Scratch dumps from /logg (never commit)
 tmp-logg/

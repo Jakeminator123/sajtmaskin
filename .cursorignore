@@ -60,6 +60,10 @@ google-services.json
 # Lokal IDE-MCP-config (kan hålla tokens; mall: .cursor/mcp.json.example)
 .cursor/mcp.json
 
+# Vercel-länkmap (OIDC-token + .env.development.local). Gitignorerad, men
+# Read kan annars dra in tokens.
+.vercel/
+
 # Undantag från "upprepa inte .gitignore" ovan: .eslintcache ÄR gitignorerad och
 # därmed redan oindexerad, men den raden gäller indexering. Den här filen
 # blockerar LÄSNING, och det är poängen här — cachen är en flera megabyte stor
