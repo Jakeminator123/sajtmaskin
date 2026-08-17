@@ -63,18 +63,18 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "f3f6f0bda",
-    "commitDate": "2026-08-12",
+    "commit": "af8941eea",
+    "commitDate": "2026-08-17",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 1,
-    "openP2": 15,
-    "openP3": 9,
-    "blocked": 1,
-    "shaky": 4,
+    "openP1": 3,
+    "openP2": 17,
+    "openP3": 11,
+    "blocked": 2,
+    "shaky": 3,
     "evalExactHitPct": null
   },
   "processes": [
@@ -108,7 +108,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 8,
+      "churn": 7,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
     },
@@ -125,43 +125,43 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 2,
+      "churn": 1,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
-      "note": "2 commits / 14d"
+      "note": "1 commits / 14d"
     },
     {
       "name": "ai_models",
-      "status": "shaky",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "openBugs": 3,
+      "status": "blocked",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "openBugs": 4,
       "openByPrio": {
         "P0": 0,
-        "P1": 0,
+        "P1": 1,
         "P2": 1,
         "P3": 2,
         "other": 0
       },
-      "churn": 32,
+      "churn": 34,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
-      "note": "3 oppna backlog-rader (P0:0 P1:0 P2:1 P3:2)"
+      "note": "BLOCKER: `SM-036` **Verifier-kalibrering: kantfall och falska dep-fynd spärrar promotion:** null-p…"
     },
     {
       "name": "Scaffolds: titta & justera",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 7,
+      "openBugs": 9,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 4,
-        "P3": 3,
+        "P2": 5,
+        "P3": 4,
         "other": 0
       },
-      "churn": 22,
+      "churn": 34,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
-      "note": "7 oppna backlog-rader (P0:0 P1:0 P2:4 P3:3)"
+      "note": "9 oppna backlog-rader (P0:0 P1:0 P2:5 P3:4)"
     },
     {
       "name": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
@@ -176,24 +176,24 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 60,
+      "churn": 63,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 60 commits / 14d"
+      "note": "Aktiv: 63 commits / 14d"
     },
     {
       "name": "Preview och versioner",
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 12,
+      "openBugs": 17,
       "openByPrio": {
         "P0": 0,
-        "P1": 1,
-        "P2": 6,
-        "P3": 5,
+        "P1": 3,
+        "P2": 7,
+        "P3": 7,
         "other": 0
       },
-      "churn": 33,
+      "churn": 26,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-007` **Domänköpets restlista är en releasegrind, inte en aktiv incident:** tolv fynd …"
     },
@@ -210,9 +210,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 11,
-      "summary": "Backoffice-yta för scaffold-selection-eval och codegen-eval. Scaffold-eval läser senaste lokala JSON-rapport. Codegen-delen visar baseline-status, kan köra `npm run eval:gate` manu",
-      "note": "Aktiv: 11 commits / 14d"
+      "churn": 13,
+      "summary": "Backoffice-yta för den canonicala evalen (`npm run eval`). Ett läge (gratis / smoke / full), en knapp. Scaffold-lanen läser senaste lokala JSON-rapport. Codegen-lanen läser data/ev",
+      "note": "Aktiv: 13 commits / 14d"
     }
   ],
   "shaky": [
@@ -223,16 +223,16 @@ const DATA: CanvasData = {
       "reason": "BLOCKER: `SM-007` **Domänköpets restlista är en releasegrind, inte en aktiv incident:** tolv fynd …"
     },
     {
+      "name": "ai_models",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "reason": "BLOCKER: `SM-036` **Verifier-kalibrering: kantfall och falska dep-fynd spärrar promotion:** null-p…"
+    },
+    {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "7 oppna backlog-rader (P0:0 P1:0 P2:4 P3:3)"
-    },
-    {
-      "name": "ai_models",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:1 P3:2)"
+      "reason": "9 oppna backlog-rader (P0:0 P1:0 P2:5 P3:4)"
     },
     {
       "name": "Codegen core",
@@ -252,6 +252,16 @@ const DATA: CanvasData = {
       "prio": "P1",
       "blocker": true,
       "fynd": "`SM-007` **Domänköpets restlista är en releasegrind, inte en aktiv incident:** tolv fynd (a)–(l) blir verklig…"
+    },
+    {
+      "prio": "P1",
+      "blocker": true,
+      "fynd": "`SM-036` **Verifier-kalibrering: kantfall och falska dep-fynd spärrar promotion:** null-payload och redan-avr…"
+    },
+    {
+      "prio": "P1",
+      "blocker": false,
+      "fynd": "`SM-035` **Fly preview-host: `npm install --no-audit --include=dev` exit 254:** fem träffar i tre chattar sed…"
     },
     {
       "prio": "P2",
@@ -297,19 +307,9 @@ const DATA: CanvasData = {
       "prio": "P2",
       "blocker": false,
       "fynd": "`SM-014` **Tier-2-iframens `onLoad` avtäcker previewn före runtime är redo:** rå `onLoad` sätter `iframeLoadi…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "`SM-015` **Dämpad normaltext klarar inte AA:** `muted-foreground/70` och `text-gray-500` ligger under 4,5:1 m…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "`SM-017` **Kvalitetsgrinden stämplas grön innan grinden körts:** finalize skriver `preflight_passed` i det fä…"
     }
   ],
-  "topOpenRisksOmitted": 4,
+  "topOpenRisksOmitted": 8,
   "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",

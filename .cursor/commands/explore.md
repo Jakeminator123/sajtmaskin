@@ -19,6 +19,7 @@ Read-only kodbasutforskning. Använd när du vill få en tabell, karta, scorecar
 4. Om frågan gäller builder/generation/repair: börja i `src/lib/gen/`, `src/lib/providers/own-engine/`, `src/app/api/engine/`, `src/components/builder/`.
 5. Om frågan gäller deploy: börja i `src/app/api/v0/deployments/route.ts`, `src/lib/deploy/`, `docs/ENV.md`.
 6. Om frågan gäller backoffice: börja i `sajtmaskin_backoffice.py` och `backoffice/pages/`.
+7. Om frågan gäller eval: `src/lib/gen/eval/README.md`. Enda publika kommandot är `npm run eval`.
 
 ## Output-format
 

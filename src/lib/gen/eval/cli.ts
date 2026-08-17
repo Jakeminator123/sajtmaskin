@@ -1,109 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { compareWithBaseline as compareWithBaselineFn } from "./baseline";
-import type { EvalDumpMode } from "./artifact-dump";
-import type { EVAL_PROMPTS as EVAL_PROMPTS_TYPE } from "./prompts";
-
-const SMOKE_PROMPT_IDS = ["coffee-shop", "restaurant", "portfolio"] as const;
-type BaselineComparison = ReturnType<typeof compareWithBaselineFn>;
-type EvalPrompts = typeof EVAL_PROMPTS_TYPE;
-
-function pct(n: number): string {
-  return `${(n * 100).toFixed(1)}%`;
-}
-
-function describeBaselineAge(timestamp: string): string {
-  const saved = Date.parse(timestamp);
-  if (Number.isNaN(saved)) return timestamp;
-  const days = Math.floor((Date.now() - saved) / (24 * 60 * 60 * 1000));
-  return `${timestamp} (${days} days old)`;
-}
-
-function formatComparison(
-  comparison: BaselineComparison,
-  baseline: { timestamp: string; model: string },
-  currentModel: string,
-): string {
-  const lines: string[] = [
-    "",
-    "## Baseline comparison",
-    "",
-    // Print WHAT is being compared against, not just the delta. A baseline from
-    // a different model or months back explains a uniform drop far better than
-    // the numbers do, and nothing surfaced it before.
-    `Baseline: ${describeBaselineAge(baseline.timestamp)}, model \`${baseline.model}\``,
-    `Current run model: \`${currentModel}\``,
-    `Overall avg score delta: ${pct(comparison.overallDelta)}`,
-    `Gate result: ${comparison.gateResult.toUpperCase()}`,
-    "",
-  ];
-
-  if (comparison.blockingCheckComparison === "unavailable-legacy-baseline") {
-    lines.push(
-      "> **Blocking-check comparison skipped.** This baseline predates blocking-check",
-      "> tracking (added 2026-04-03), so which blockers are *new* cannot be derived —",
-      "> diffing against the missing field would report every current blocker as added.",
-      "> Score and PASS/FAIL deltas above are still comparable. Save a fresh baseline",
-      "> to re-enable it.",
-      "",
-    );
-  }
-
-  if (comparison.regressions.length > 0) {
-    lines.push("### Regressions", "");
-    for (const r of comparison.regressions) {
-      lines.push(
-        `- **${r.promptId}**: ${pct(r.baselineScore)} → ${pct(r.currentScore)} (${pct(r.delta)})`,
-      );
-    }
-    lines.push("");
-  }
-
-  if (comparison.passRegressions.length > 0) {
-    lines.push("### PASS → FAIL", "");
-    for (const r of comparison.passRegressions) {
-      lines.push(`- **${r.promptId}**: PASS → FAIL`);
-    }
-    lines.push("");
-  }
-
-  if (comparison.blockingCheckRegressions.length > 0) {
-    lines.push("### New Blocking Checks", "");
-    for (const r of comparison.blockingCheckRegressions) {
-      lines.push(`- **${r.promptId}**: +${r.added.join(", ")}`);
-    }
-    lines.push("");
-  }
-
-  if (comparison.improvements.length > 0) {
-    lines.push("### Improvements", "");
-    for (const r of comparison.improvements) {
-      lines.push(
-        `- **${r.promptId}**: ${pct(r.baselineScore)} → ${pct(r.currentScore)} (+${pct(r.delta)})`,
-      );
-    }
-    lines.push("");
-  }
-
-  if (comparison.passImprovements.length > 0) {
-    lines.push("### FAIL → PASS", "");
-    for (const r of comparison.passImprovements) {
-      lines.push(`- **${r.promptId}**: FAIL → PASS`);
-    }
-    lines.push("");
-  }
-
-  if (comparison.blockingCheckImprovements.length > 0) {
-    lines.push("### Removed Blocking Checks", "");
-    for (const r of comparison.blockingCheckImprovements) {
-      lines.push(`- **${r.promptId}**: -${r.removed.join(", ")}`);
-    }
-    lines.push("");
-  }
-
-  return lines.join("\n");
-}
+import {
+  canonicalExitCode,
+  parseCanonicalEvalArgs,
+  runCanonicalEval,
+  toCanonicalJson,
+} from "./canonical";
 
 function loadDotEnvLocal(): void {
   const envPath = join(process.cwd(), ".env.local");
@@ -118,121 +21,47 @@ function loadDotEnvLocal(): void {
   }
 }
 
-function parsePromptFilter(args: string[]): string[] | null {
-  const idx = args.findIndex((a) => a === "--prompts" || a.startsWith("--prompts="));
-  if (idx === -1) return null;
-  const flag = args[idx];
-  const rawValue = flag.includes("=") ? flag.slice(flag.indexOf("=") + 1) : args[idx + 1];
-  if (!rawValue) return null;
-  return rawValue
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
-}
-
-function parseDumpModeFlag(args: string[]): EvalDumpMode | null {
-  const flag = args.find((arg) => arg === "--dump-files" || arg.startsWith("--dump-files="));
-  if (!flag) return null;
-  if (flag === "--dump-files") return "failed";
-
-  const value = flag.slice(flag.indexOf("=") + 1).trim().toLowerCase();
-  if (value === "all") return "all";
-  if (value === "failed" || value === "1" || value === "true") return "failed";
-  if (value === "off" || value === "0" || value === "false") return "off";
-  console.error("Invalid --dump-files value. Use --dump-files, --dump-files=failed, or --dump-files=all.");
-  process.exit(2);
-}
-
 async function main(): Promise<void> {
   loadDotEnvLocal();
-  const [
-    { runEval, resolveEvalRunOutcome, evalExitCode },
-    { formatEvalReport },
-    { loadBaseline, saveBaseline, compareWithBaseline },
-    { EVAL_PROMPTS },
-  ] = await Promise.all([
-    import("./runner"),
-    import("./report"),
-    import("./baseline"),
-    import("./prompts"),
-  ]);
+  const args = parseCanonicalEvalArgs(process.argv.slice(2));
+  const print = args.json
+    ? (line: string) => console.error(line)
+    : (line: string) => console.log(line);
 
-  const args = process.argv.slice(2);
-  const shouldSaveBaseline = args.includes("--save-baseline");
-  const gateMode = args.includes("--gate");
-  const smokeMode = args.includes("--smoke");
-  const dumpMode = parseDumpModeFlag(args);
-  const promptFilter = smokeMode ? [...SMOKE_PROMPT_IDS] : parsePromptFilter(args);
-
-  let prompts: EvalPrompts[number][] = EVAL_PROMPTS;
-  if (promptFilter && promptFilter.length > 0) {
-    const wanted = new Set(promptFilter);
-    prompts = EVAL_PROMPTS.filter((p) => wanted.has(p.id));
-    const missing = [...wanted].filter(
-      (id) => !EVAL_PROMPTS.some((p) => p.id === id),
-    );
-    if (missing.length > 0) {
-      console.error(
-        `Unknown prompt id(s): ${missing.join(", ")}. Available: ${EVAL_PROMPTS.map((p) => p.id).join(", ")}`,
-      );
-      process.exit(2);
-    }
-    console.log(
-      `${smokeMode ? "Running realistic smoke subset" : "Running subset"}: ${prompts.map((p) => p.id).join(", ")}`,
-    );
+  if (args.mode === "free") {
+    print("Canonical eval (free lanes only — no OPENAI_API_KEY, no POSTGRES_URL).");
   } else {
-    console.log("Running eval suite...");
+    print(
+      `Canonical eval (${args.mode}). Free lanes first, then paid codegen.`,
+    );
   }
 
-  const report = await runEval({ prompts, dumpMode: dumpMode ?? undefined });
-  console.log(formatEvalReport(report));
-  console.log("Structured eval summary written to data/eval-runs/latest/summary.json");
+  const { result } = await runCanonicalEval({
+    mode: args.mode,
+    dumpMode: args.dumpMode,
+    gate: args.gate,
+    saveBaseline: args.saveBaseline,
+    promptIds: args.promptIds,
+    print,
+  });
 
-  const { summary } = report;
-  const runBlocked = summary.providerErrors > 0 || summary.infraErrors > 0;
-  let gateFailed = false;
-
-  if (runBlocked) {
-    // Neither the comparison nor a baseline write may run: both would encode a
-    // provider outage as a measurement of generation quality.
-    console.error(
-      `Eval could not measure quality — ${summary.providerErrors} provider error(s), ` +
-        `${summary.infraErrors} infra error(s), ${summary.evaluated}/${summary.total} prompts evaluated` +
-        (summary.suiteAborted
-          ? `, suite aborted after ${summary.abortedAfterPromptId ?? "a prompt"} with ${summary.notRun} never submitted.`
-          : "."),
-    );
-    for (const result of report.results.filter((r) => r.generationStatus === "skipped").slice(0, 3)) {
-      const [check] = result.checks;
-      console.error(`  - ${result.promptId}: ${check?.name ?? "unknown"} — ${check?.message ?? ""}`);
-    }
-    console.error("Baseline comparison and baseline write skipped: an outage is not a regression.");
+  const json = toCanonicalJson(result);
+  if (args.json) {
+    console.log(JSON.stringify(json, null, 2));
   } else {
-    const baseline = await loadBaseline();
-    if (baseline) {
-      const comparison = compareWithBaseline(report, baseline);
-      console.log(formatComparison(comparison, baseline, report.model));
-      gateFailed = comparison.gateResult === "fail";
-      if (gateMode && gateFailed) {
-        console.error("Gate failed: regression detected.");
-      }
-    } else if (gateMode) {
-      console.warn("No baseline found. Run with --save-baseline to create one.");
-    }
-
-    if (shouldSaveBaseline && !(gateMode && gateFailed)) {
-      await saveBaseline(report);
-      console.log("Baseline saved to src/lib/gen/eval/eval-baseline.json");
-    }
+    print(
+      `Eval outcome: ${result.outcome.toUpperCase()} (exit ${canonicalExitCode(result.outcome)})` +
+        ` — followup ${result.lanes.followup.outcome.toUpperCase()},` +
+        ` scaffold ${result.lanes.scaffold.outcome.toUpperCase()},` +
+        ` codegen ${result.lanes.codegen.outcome.toUpperCase()}`,
+    );
   }
 
-  const outcome = resolveEvalRunOutcome({ summary, gateFailed: gateMode && gateFailed });
-  const exitCode = evalExitCode(outcome);
-  console.log(`Eval outcome: ${outcome.toUpperCase()} (exit ${exitCode})`);
+  const exitCode = canonicalExitCode(result.outcome);
   if (exitCode !== 0) process.exit(exitCode);
 }
 
 main().catch((err) => {
-  console.error(err);
+  console.error(err instanceof Error ? err.message : err);
   process.exit(1);
 });

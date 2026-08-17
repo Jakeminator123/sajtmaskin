@@ -189,3 +189,21 @@ export async function loadScaffoldEvalCasesFromFile(
 export function resolveDefaultScaffoldEvalPath(repoRoot: string): string {
   return path.join(repoRoot, "data", "scaffold-eval", "prompts.json");
 }
+
+/** Same paths the canvas and Backoffice "Eval exact-hit" panel already read. */
+export async function writeScaffoldSelectionReport(
+  report: ScaffoldEvalReport,
+  repoRoot = process.cwd(),
+): Promise<{ latestPath: string; timestampPath: string }> {
+  const reportDir = path.join(repoRoot, "data", "scaffold-eval", "reports");
+  const latestPath = path.join(reportDir, "scaffold-selection-latest.json");
+  const timestampPath = path.join(
+    reportDir,
+    `scaffold-selection-${report.timestamp.replace(/[:.]/g, "-")}.json`,
+  );
+  await fs.mkdir(reportDir, { recursive: true });
+  const body = `${JSON.stringify(report, null, 2)}\n`;
+  await fs.writeFile(latestPath, body, "utf-8");
+  await fs.writeFile(timestampPath, body, "utf-8");
+  return { latestPath, timestampPath };
+}

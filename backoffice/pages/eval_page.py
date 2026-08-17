@@ -1,7 +1,6 @@
-"""Eval-sidan — visar scaffold-selection-eval + codegen-eval-baseline-status.
+"""Eval-sidan — ett läge, en knapp, canonical `npm run eval -- --json`.
 
-Två separata eval-system speglas här (se `src/lib/gen/eval/README.md` för
-fullständig förklaring av kostnad/användning).
+Se `src/lib/gen/eval/README.md`. Inget eget Python-evalsystem.
 """
 
 from __future__ import annotations
@@ -22,6 +21,10 @@ from backoffice.shared import BackofficeContext, read_json, resolve_command
 
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+_MODE_FREE = "Gratis (follow-up + scaffold, noll kostnad)"
+_MODE_SMOKE = "Smoke (gratis + 3 codegen-prompts, kostar OPENAI-quota)"
+_MODE_FULL = "Full (gratis + 18 codegen-prompts, kostar OPENAI-quota)"
 
 
 def _load_env_file(path: Path, env: dict[str, str]) -> None:
@@ -175,12 +178,37 @@ def _export_latest_eval_summary(ctx: BackofficeContext) -> Path | None:
     return target
 
 
-def _run_eval_command(
+def _parse_canonical_json(stdout: str) -> dict[str, Any] | None:
+    text = _strip_ansi(stdout).strip()
+    if not text:
+        return None
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        data = json.loads(text[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _canonical_command(mode: str) -> tuple[str, ...]:
+    command = ("npm", "run", "--silent", "eval", "--", "--json")
+    if mode == _MODE_SMOKE:
+        return (*command, "--codegen")
+    if mode == _MODE_FULL:
+        return (*command, "--full")
+    return command
+
+
+def _run_canonical_eval(
     ctx: BackofficeContext,
     *,
-    command: tuple[str, ...],
+    mode: str,
     timeout_s: int,
 ) -> dict[str, Any]:
+    command = _canonical_command(mode)
     started_at = datetime.now(timezone.utc)
     started = time.time()
     env = os.environ.copy()
@@ -227,60 +255,20 @@ def _run_eval_command(
         "summaryPath": summary_path if summary_path.is_file() else None,
         "outputTail": _strip_ansi(output)[-6000:],
         "startedAt": started_at.isoformat(),
+        "canonical": _parse_canonical_json(stdout),
     }
 
 
-def _run_eval_gate(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
-    return _run_eval_command(
-        ctx,
-        command=("npm", "run", "eval:gate"),
-        timeout_s=timeout_s,
-    )
-
-
-def _run_eval_smoke(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
-    return _run_eval_command(
-        ctx,
-        command=("npm", "run", "eval:smoke"),
-        timeout_s=timeout_s,
-    )
-
-
-def _run_eval_weird_smoke(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
-    return _run_eval_command(
-        ctx,
-        command=("npm", "run", "eval:weird-smoke"),
-        timeout_s=timeout_s,
-    )
-
-
-def _run_eval_weird_smoke_dump(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
-    return _run_eval_command(
-        ctx,
-        command=("npm", "run", "eval:weird-smoke:dump"),
-        timeout_s=timeout_s,
-    )
-
-
-def _run_eval_followup(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
-    return _run_eval_command(
-        ctx,
-        command=("npm", "run", "eval:followup"),
-        timeout_s=timeout_s,
-    )
-
-
 def render(ctx: BackofficeContext) -> None:
-    st.header("Scaffold Selection Eval")
+    st.header("Eval")
     st.caption(
-        "Mäter att `matchScaffoldAuto()` väljer rätt scaffold för en given prompt. "
-        "Kör `npm run scaffolds:eval` för att uppdatera datan (~10 sek, billigt). "
-        "Detta är **inte** codegen-eval — för det, se `npm run eval:gate` och "
-        "`src/lib/gen/eval/README.md`."
+        "En canonical körväg: `npm run eval`. Follow-up och scaffold är interna "
+        "delar, inte egna knappar. Docs: `src/lib/gen/eval/README.md`."
     )
 
     eval_data = read_json(ctx.eval_latest) if ctx.eval_latest.is_file() else None
 
+    st.subheader("Senaste scaffold-lane")
     if eval_data and isinstance(eval_data, dict):
         results = eval_data.get("results", [])
         summary = eval_data.get("summary", {})
@@ -322,142 +310,73 @@ def render(ctx: BackofficeContext) -> None:
             st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
     else:
         st.info(
-            "Ingen scaffold-eval-rapport hittades. Kör `npm run scaffolds:eval` lokalt "
-            "för att generera `data/scaffold-eval/reports/scaffold-selection-latest.json`."
+            "Ingen scaffold-rapport ännu. Gratis-läget skriver "
+            "`data/scaffold-eval/reports/scaffold-selection-latest.json`."
         )
 
     st.divider()
-    st.subheader("Codegen-eval (separat system)")
-    st.caption(
-        "Codegen-evalen mäter hela LLM-pipelinen för 15 fasta prompts (~15 min, "
-        "kostar OPENAI-quota). `eval:smoke` kör 3 prompts och visar prompt/preflight-telemetri. "
-        "`eval:followup` mäter follow-up-context och promptstorlek utan LLM-codegen. "
-        "Båda lever i `src/lib/gen/eval/`; gate-läget jämför mot `eval-baseline.json`. "
-        "Backoffice-knapparna läser senaste strukturerade summary från `data/eval-runs/latest/`. "
-        "`Surface/Final` betyder LLM-genererad app-yta / komplett körbart Next-projekt."
+    st.subheader("Kör eval")
+    mode = st.radio(
+        "Läge",
+        (_MODE_FREE, _MODE_SMOKE, _MODE_FULL),
+        index=0,
+        key="canonical_eval_mode",
     )
-    baseline_path = ctx.repo_root / "src" / "lib" / "gen" / "eval" / "eval-baseline.json"
-    if baseline_path.is_file():
-        try:
-            baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
-            summary = baseline.get("summary", {})
-            bc1, bc2, bc3, bc4 = st.columns(4)
-            bc1.metric("Baseline-modell", baseline.get("model", "?"))
-            bc2.metric("Total prompts", summary.get("total", "?"))
-            bc3.metric("Passed", summary.get("passed", "?"))
-            bc4.metric(
-                "Avg score",
-                f"{summary.get('avgScore', 0) * 100:.1f}%"
-                if isinstance(summary.get("avgScore"), (int, float))
-                else "?",
-            )
-            ts = baseline.get("timestamp", "")
-            st.caption(
-                f"Baseline-tidsstämpel: `{ts[:19].replace('T', ' ') if ts else 'okänd'}` · "
-                "Uppdateras via `npm run eval:baseline` lokalt eller veckovis CI "
-                "(`.github/workflows/eval-baseline-update.yml`)."
-            )
-        except Exception as exc:
-            st.warning(f"Kunde inte läsa codegen-eval-baseline: {exc}")
-    else:
-        st.info(
-            "Ingen `eval-baseline.json` hittad. Kör `npm run eval:baseline` lokalt en gång "
-            "för att skapa den (kostar OPENAI-quota för 15 prompts)."
-        )
-
-    st.markdown("### Kör codegen-eval")
-    st.warning(
-        "`eval:smoke` och `eval:weird-smoke` använder LLM-quota. `eval:gate` är dyr/långsam "
-        "och kan ta 45+ minuter på stora outputs. Knapparna uppdaterar aldrig "
-        "`eval-baseline.json`; de skriver strukturerad metadata till `data/eval-runs/latest/`."
-    )
+    paid = mode != _MODE_FREE
+    default_timeout = 5 if not paid else (25 if mode == _MODE_SMOKE else 90)
     timeout_min = st.number_input(
         "Timeout (minuter)",
-        min_value=20,
+        min_value=2,
         max_value=180,
-        value=90,
-        step=10,
+        value=default_timeout,
+        step=1 if not paid else 5,
         help="Backoffice väntar synkront medan npm-kommandot kör.",
     )
-    confirmed = st.checkbox(
-        "Jag vill köra codegen-eval och förstår att det använder LLM-quota.",
-        key="codegen_eval_gate_confirm",
-    )
-    run_col1, run_col2, run_col3, run_col4, run_col5 = st.columns(5)
-    with run_col1:
-        if st.button(
-            "Smoke (3 standard)",
-            disabled=not confirmed,
-            key="codegen_eval_smoke_run",
-        ):
-            with st.spinner("Kör npm run eval:smoke ... lämna fliken öppen."):
-                result = _run_eval_smoke(ctx, timeout_s=int(timeout_min * 60))
-            st.session_state["codegen_eval_gate_last_result"] = result
-            st.rerun()
-    with run_col2:
-        if st.button(
-            "Weird smoke (3 nya)",
-            disabled=not confirmed,
-            key="codegen_eval_weird_smoke_run",
-        ):
-            with st.spinner("Kör npm run eval:weird-smoke ... lämna fliken öppen."):
-                result = _run_eval_weird_smoke(ctx, timeout_s=int(timeout_min * 60))
-            st.session_state["codegen_eval_gate_last_result"] = result
-            st.rerun()
-    with run_col3:
-        if st.button(
-            "Weird smoke + dump failed files",
-            disabled=not confirmed,
-            key="codegen_eval_weird_smoke_dump_run",
-        ):
-            with st.spinner("Kör npm run eval:weird-smoke:dump ... lämna fliken öppen."):
-                result = _run_eval_weird_smoke_dump(ctx, timeout_s=int(timeout_min * 60))
-            st.session_state["codegen_eval_gate_last_result"] = result
-            st.rerun()
-    with run_col4:
-        if st.button(
-            "Kör eval:followup (ingen LLM-kostnad)",
-            disabled=not confirmed,
-            key="codegen_eval_followup_run",
-        ):
-            with st.spinner("Kör npm run eval:followup ..."):
-                result = _run_eval_followup(ctx, timeout_s=int(timeout_min * 60))
-            st.session_state["codegen_eval_gate_last_result"] = result
-            st.rerun()
-    with run_col5:
-        if st.button(
-            "Kör eval:gate (15 prompts)",
-            type="primary",
-            disabled=not confirmed,
-            key="codegen_eval_gate_run",
-        ):
-            with st.spinner("Kör npm run eval:gate ... lämna fliken öppen."):
-                result = _run_eval_gate(ctx, timeout_s=int(timeout_min * 60))
-            st.session_state["codegen_eval_gate_last_result"] = result
-            st.rerun()
+    confirmed = True
+    if paid:
+        st.warning(
+            "Smoke och full anropar LLM. Gratis-läget gör det inte. "
+            "Baseline-grinden styrs inte härifrån."
+        )
+        confirmed = st.checkbox(
+            "Jag vill köra den betalda codegen-lanen och förstår att det använder LLM-quota.",
+            key="canonical_eval_paid_confirm",
+        )
 
-    last_result = st.session_state.get("codegen_eval_gate_last_result")
+    if st.button("Kör eval", type="primary", disabled=paid and not confirmed, key="canonical_eval_run"):
+        spinner = (
+            "Kör npm run eval -- --json ..."
+            if not paid
+            else f"Kör npm run eval ({mode}) ... lämna fliken öppen."
+        )
+        with st.spinner(spinner):
+            result = _run_canonical_eval(ctx, mode=mode, timeout_s=int(timeout_min * 60))
+        st.session_state["canonical_eval_last_result"] = result
+        st.rerun()
+
+    last_result = st.session_state.get("canonical_eval_last_result")
     if isinstance(last_result, dict):
         code = last_result.get("exitCode")
-        command_name = str(last_result.get("commandName") or "npm run eval:gate")
-        summary_path = last_result.get("summaryPath")
-        rel_summary = (
-            summary_path.relative_to(ctx.repo_root).as_posix()
-            if isinstance(summary_path, Path)
-            else "data/eval-runs/latest/summary.json"
-        )
-        if code == 0:
-            st.success(f"Senaste körning (`{command_name}`) passerade. Summary: `{rel_summary}`")
-        else:
-            st.error(
-                f"Senaste körning (`{command_name}`) failade med exit code `{code}`. Summary: `{rel_summary}`"
+        command_name = str(last_result.get("commandName") or "npm run eval -- --json")
+        canonical = last_result.get("canonical")
+        if isinstance(canonical, dict):
+            outcome = str(canonical.get("outcome", "?"))
+            lanes = canonical.get("lanes") if isinstance(canonical.get("lanes"), dict) else {}
+            st.markdown(
+                f"**Utfall:** `{outcome}` · followup `{lanes.get('followup', {}).get('outcome', '?') if isinstance(lanes.get('followup'), dict) else '?'}` · "
+                f"scaffold `{lanes.get('scaffold', {}).get('outcome', '?') if isinstance(lanes.get('scaffold'), dict) else '?'}` · "
+                f"codegen `{lanes.get('codegen', {}).get('outcome', '?') if isinstance(lanes.get('codegen'), dict) else '?'}`"
             )
+        if code == 0:
+            st.success(f"Senaste körning (`{command_name}`) passerade.")
+        else:
+            st.error(f"Senaste körning (`{command_name}`) avslutades med exit `{code}`.")
         st.caption(f"Körtid: {last_result.get('elapsedSec', '?')}s")
         with st.expander("Output-tail", expanded=False):
             st.code(str(last_result.get("outputTail", "")), language="text")
 
     latest_summary = _load_latest_codegen_summary(ctx)
-    st.markdown("### Senaste codegen-eval-resultat")
+    st.markdown("### Senaste codegen-lane")
     if latest_summary:
         summary = latest_summary.get("summary", {})
         prompts = latest_summary.get("prompts", [])
@@ -534,12 +453,11 @@ def render(ctx: BackofficeContext) -> None:
                 st.warning("Ingen `data/eval-runs/latest/summary.md` finns att exportera.")
     else:
         st.info(
-            "Ingen strukturerad codegen-eval-summary hittades. Kör en knapp ovan eller "
-            "`npm run eval:weird-smoke` lokalt."
+            "Ingen codegen-summary ännu. Den skrivs bara när smoke eller full körs."
         )
 
     reports = _latest_eval_reports(ctx)
-    st.markdown("### Exporterade codegen-eval-rapporter")
+    st.markdown("### Exporterade codegen-rapporter")
     if reports:
         options = {p.relative_to(ctx.repo_root).as_posix(): p for p in reports[:20]}
         selected = st.selectbox("Rapport", list(options.keys()), key="codegen_eval_report_pick")

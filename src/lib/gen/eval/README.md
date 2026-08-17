@@ -1,182 +1,93 @@
-# Eval — vad det är, vilka det finns, hur man kör
+# Eval — en canonical körväg
 
-Sajtmaskin har **tre olika "eval"-system** som det är lätt att blanda ihop. Den här filen säger vilken som är vilken, när man ska köra dem, och vad de kostar.
+Sajtmaskin har **en** publik eval: `npm run eval`. Follow-up-context och
+scaffold-selection är **interna delkontroller** (lanes) i samma körning, inte
+egna produkter med egna CLI:n eller egna dokument.
+
+Kanonisk kod: den här mappen. Kanonisk regel: `.cursor/rules/evals.mdc`.
 
 ## TL;DR
 
 | Vill du … | Kör | Tid | Pengar |
 |---|---|---|---|
-| Verifiera att codegen-pipelinen inte regressat | `npm run eval:gate` | ~15+ min | OPENAI-quota för 18 prompts |
-| Snabbare produktlik smoke med 3 prompts + prompt/preflight telemetry | `npm run eval:smoke` | ~3–8 min | OPENAI-quota för 3 prompts |
-| Köra nya breddfall (mäklare, hunddagis, arcade/Klarna) | `npm run eval:weird-smoke` | ~3–10 min | OPENAI-quota för 3 prompts |
-| Få filartefakter för failande breddfall | `npm run eval:weird-smoke:dump` | ~3–10 min | Samma som ovan |
-| Mäta follow-up-context utan LLM-codegen | `npm run eval:followup` | ~10 sek | Ingen LLM-kostnad |
-| Uppdatera baseline efter en avsiktlig förbättring | `npm run eval:baseline` | ~15+ min | Samma som ovan |
-| Få en human-läsbar rapport + scorecard | `npm run eval` | ~15+ min | Samma som ovan |
-| Bara mäta att scaffold-pickern väljer rätt | `npm run scaffolds:eval` | ~10 sek | Bara embeddings (snabbt + billigt) |
-| Köra gate manuellt från driftpanelen | `Backoffice → Overhead → Eval → Kör eval:gate` | ~15-45+ min | OPENAI-quota för 18 prompts |
+| Köra de avgiftsfria lanerna | `npm run eval` | ~10–20 sek | Noll. Kräver inte `OPENAI_API_KEY` eller `POSTGRES_URL`. |
+| Samma + 3 codegen-prompts (smoke) | `npm run eval -- --codegen` | ~3–8 min | OPENAI-quota för 3 prompts + DB |
+| Samma + alla 18 codegen-prompts | `npm run eval -- --full` | ~15+ min | OPENAI-quota för 18 prompts + DB |
+| En namngiven prompt + dump failande filer | `npm run eval -- --prompts=arcade-with-klarna --dump-files` | ~1–4 min | OPENAI-quota för den prompten + DB |
+| Maskinläsbar utskrift (Backoffice) | lägg till `--json` | samma | samma som läget ovan |
 
-## Snabba arbetsflöden
+Default **utan flaggor kostar noll**. Codegen-lanen startar bara efter `--codegen`, `--full`, `--prompts=…`, eller de tillfälliga flaggorna `--gate` / `--save-baseline` (full svit; tas bort i nästa PR).
 
-- Efter en lokal generation (billig kontroll): `npm run eval:post-generation`
-- Innan större promptändringar: `npm run eval:before-prompt-change`
+## Lanes
 
-## De tre eval-systemen
+Varje körning returnerar **separata** delresultat. Slå inte ihop tre procenttal till ett totalbetyg.
 
-### 1. Codegen-eval — `npm run eval:suite` / `eval:gate` / `eval:baseline`
+| Lane | Default | Vad den mäter | Kräver |
+|---|---|---|---|
+| `followup` | alltid | Follow-up-context och promptstorlek via `prepareGenerationContext`, utan LLM-codegen | inget |
+| `scaffold` | alltid | Att `matchScaffoldAuto()` väljer rätt scaffold. Skriver `data/scaffold-eval/reports/scaffold-selection-latest.json` (samma path canvas + Backoffice "Eval exact-hit" redan läser) | inget. Semantisk ranking används bara om nyckel + embeddings redan finns; saknas de degraderar lanen, den failar inte |
+| `codegen` | av | Hela orkestreringen + LLM-codegen + 12 checks för 3 eller 18 prompts | `OPENAI_API_KEY` + `POSTGRES_URL` |
 
-**Vad:** kör hela orkestreringen + LLM-codegen för 18 fasta prompts (`coffee-shop`, `dashboard`, `portfolio`, `blog`, `pricing`, `auth`, `ecommerce`, `restaurant`, `agency`, `settings`, `booking-service`, `multi-page-brochure`, `saas-dashboard`, `content-heavy-blog`, `consultant-landing`, `realtor-multipage`, `dog-daycare`, `arcade-with-klarna`). `eval:smoke` kör en snabbare delmängd (`coffee-shop`, `restaurant`, `portfolio`) och rapporterar samma prompt/preflight-telemetri. De tre senaste (realtor/hunddagis/arcade) saknar baseline-rader tills `npm run eval:baseline` körs och fungerar som bredd-test för nya domäner + game/payments-kapabilitetskedjor.
+Topputfall: `PASS` / `FAIL` / `PROVIDER_ERROR` / `INFRA_ERROR`. Exit 0 / 1 / 2 följer `resolveEvalRunOutcome` + `evalExitCode` i `runner.ts` för codegen, och `resolveCanonicalOutcome` i `canonical.ts` för hela körningen. Ett provider-/infra-fel i codegen vinner över en kvalitetsmiss.
 
-För varje prompt körs 12 deterministiska checks (sanity, syntax, exports, imports, accessibility, semantic-tokens, …) plus ev. en `syntax`-check när `shouldCompile: true`.
+`--json` skriver **bara** JSON på stdout (mänsklig text på stderr). Formen är stabil för Backoffice: `timestamp`, `mode`, `outcome`, `exitCode`, `lanes.{followup,scaffold,codegen}`.
 
-**Filer:**
-- `src/lib/gen/eval/cli.ts` — CLI-entry
-- `src/lib/gen/eval/runner.ts` — kör eval mot `prepareGenerationContext` + `generateCode` (samma path som production)
-- `src/lib/gen/eval/prompts.ts` — de 18 prompts:arna + förväntningar (min/max files, required imports)
-- `src/lib/gen/eval/checks.ts` — de 12+ checks
-- `src/lib/gen/eval/baseline.ts` — load/save/compare baseline
-- `src/lib/gen/eval/eval-baseline.json` — committad baseline (uppdateras via PR från CI)
-- `src/lib/gen/eval/artifact-dump.ts` — strukturerad summary + opt-in file dumps under `data/eval-runs/`
+## Codegen-lanen
 
-**Kommandon:**
-```bash
-npm run eval:suite      # köra + skriv jämförelse till konsol om baseline finns (men exit 0 även vid regression)
-npm run eval:weird-smoke
-npm run eval:weird-smoke:dump
-npm run eval:gate       # köra + exit 1 vid regression mot baseline
-npm run eval:baseline   # köra + exit 1 vid regression OCH spara ny baseline (--gate + --save-baseline)
-npx tsx src/lib/gen/eval/cli.ts --prompts=arcade-with-klarna --dump-files
-```
+18 fasta prompts i `prompts.ts`: `coffee-shop`, `dashboard`, `portfolio`, `blog`, `pricing`, `auth`, `ecommerce`, `restaurant`, `agency`, `settings`, `booking-service`, `multi-page-brochure`, `saas-dashboard`, `content-heavy-blog`, `consultant-landing`, `realtor-multipage`, `dog-daycare`, `arcade-with-klarna`. `--codegen` kör smoke-delmängden `coffee-shop`, `restaurant`, `portfolio`. `--full` kör alla 18.
 
-**Skillnaden i klartext:** suite/gate/baseline kör SAMMA eval-svit (18 prompts, en LLM-körning per prompt). Bara flaggorna skiljer:
-- `eval:suite` — utan flaggor. Visar resultat + jämförelse, men låter dig se regressioner utan att ditt CI failar.
-- `eval:gate` — `--gate`. Bra för CI/PR.
-- `eval:baseline` — `--gate --save-baseline`. Försöker spara ny baseline MEN gate:n förhindrar att en sämre baseline skrivs (du ska inte kunna råka commita en regression).
-- `eval:weird-smoke` — bara `realtor-multipage`, `dog-daycare`, `arcade-with-klarna`; baseline uppdateras aldrig.
-- `eval:weird-smoke:dump` — samma subset + `--dump-files`, vilket skriver filinnehåll bara för failande prompts.
+`--gate` och `--save-baseline` finns kvar i den här PR:en så den manuella baseline-workflowen fortfarande fungerar. De innebär full svit. Baseline-jämförelsen (`compareWithBaseline` + `eval-baseline.json`) skrivs som **informativ** utskrift även utan `--gate`. Nästa PR tar bort grinden (`--gate`, `--save-baseline`) och hela workflowen.
 
-**Gate-regler** (från `baseline.ts`):
+Gate-regler (från `baseline.ts`, bara när `--gate` är satt):
+
 - `fail` om: någon `passed → failed`, snittpoäng ≤ −10 %, eller fler än 2 prompts tappar ≥20 %
 - `warning` om: nya blocking-checks, snittpoäng ≤ −5 %, eller någon enskild prompt tappar ≥15 %
 - `pass` annars
 
-Prompts som aldrig nådde checkarna (`generationStatus: "skipped"`) jämförs inte. Deras nollor är inte mätvärden. `overallDelta` räknas över **samma** prompt-id:n som faktiskt utvärderades i den här körningen — inte `report.summary.avgScore` mot `baseline.summary.avgScore`, som efter 2026-08-17 är olika mängder.
+Prompts som aldrig nådde checkarna (`generationStatus: "skipped"`) jämförs inte. `overallDelta` räknas över **samma** prompt-id:n som faktiskt utvärderades.
 
-**Exit-koder** (`resolveEvalRunOutcome` + `evalExitCode` i `runner.ts`):
+Provider- och infra-fel rangordnas före kvalitetsdomen. Ett **permanent** provider-fault avbryter resten av sviten (`suite_aborted`). Transient 429/5xx/transport stoppar inte. `output_truncated` utan innehåll är kvalitetsutfall, inte infra.
 
-| Kod | Utfall | Betyder |
-|---|---|---|
-| 0 | `PASS` | Körningen mätte kvalitet och gaten föll inte |
-| 1 | `QUALITY_FAIL` | `--gate` + faktisk regression mot baseline |
-| 2 | `PROVIDER_ERROR` | Provider svarade inte med kod: slut kredit, ogiltig nyckel, 429, 5xx, transportfel |
-| 2 | `INFRA_ERROR` | Saknad DB-env eller tom ström — inget att mäta |
+**CI:** `.github/workflows/eval-baseline-update.yml` anropar `cli.ts --gate --save-baseline` direkt (inte `npm run eval`). Den är manuell + ev. schema; den är inte en andra eval-produkt. Skapa inte nya eval-workflows.
 
-Provider- och infra-fel **rangordnas före** kvalitetsdomen: de får inte poängen 0, de räknas inte som regression, baseline jämförs inte och skrivs inte. Fram till 2026-08-17 gjorde det motsatta beteendet en slut OpenAI-kredit till en «18-prompt-kollaps» (−23,6 % mot baseline, 14 falska `PASS → FAIL`).
+**Backoffice → Overhead → Eval** har ett läge (gratis / smoke / full), en knapp, och kostnadsbekräftelse före betald lane. Den anropar `npm run eval -- --json` och läser senaste codegen-summary från `data/eval-runs/latest/`. Export till `docs/evals/` är explicit knapp. Genererade rapporter är inte source of truth.
 
-Ett **permanent** provider-fault (`providerFault` + `permanent`, t.ex. slut kredit eller ogiltig nyckel) **avbryter resten av sviten**. Kvarvarande prompts redovisas som `suite_aborted` / `ABORTED`, räknas i `summary.notRun` och skickas aldrig till modellen. Ett transient fel (429, 5xx, transport) stoppar inte sviten — det kan återhämta sig. Exit-koden är fortfarande 2.
+## Artefakter
 
-Avgörandet följer `providerFault` i error-eventet, inte bara att eventet finns. Ett `output_truncated` **är ett kvalitetsutfall** även utan innehåll: modellen brände output-budgeten och levererade inget, så det redovisas som `generation` (poäng 0, exit 1 vid `--gate`) — inte som `empty_stream`/exit 2. Ett oattribuerbart tomt avslut (provider-avbrott utan kod, tyst ström) är fortfarande `empty_stream`. Trunkering *med* innehåll poängsätts som vanligt; körningen loggar då `scored despite stream error event(s)`.
-
-**Kostnad:** ~18 prompts × LLM-codegen-anrop för full suite. På `gpt-5.3-codex` med stora outputs blir det fort några dollar per körning. Kör inte casually.
-
-**CI:** `.github/workflows/eval-baseline-update.yml` kör `eval:gate --save-baseline` veckovis (måndagar 04:11 UTC) + manuellt via workflow_dispatch. Vid förbättring → öppnar draft-PR med ny baseline. Vid regression → workflow failar.
-
-> **OBS:** detta är **inte** wirat in på `pull_request`-trigger — varje PR skulle dra OPENAI-quota. Designval. Om du vill ha det i framtiden: kostnadsuppskatta först.
-
-**Backoffice:** `Backoffice → Overhead → Eval` har bekräftade knappar för `eval:smoke`, `eval:weird-smoke`, `eval:weird-smoke:dump`, `eval:followup` och `eval:gate`. Den laddar `.env.local` in i subprocess-env, kör från repo-roten och läser senaste resultat från `data/eval-runs/latest/`. Export till `docs/evals/` är explicit knapp, inte default. Den kör aldrig `eval:baseline` och uppdaterar därför inte `eval-baseline.json`.
-
-### Artefakter och retention
-
-Alla CLI-körningar skriver strukturerad summary:
+Codegen-körningar skriver:
 
 - `data/eval-runs/latest/summary.json`
 - `data/eval-runs/latest/summary.md`
-- `data/eval-runs/runs/<timestamp>-<prompt-id>/summary.json`
-- `data/eval-runs/runs/<timestamp>-<prompt-id>/checks.json`
-- `data/eval-runs/runs/<timestamp>-<prompt-id>/preflight.json`
-- `data/eval-runs/runs/<timestamp>-<prompt-id>/prompt-size.json`
+- `data/eval-runs/runs/<timestamp>-<prompt-id>/…`
 
-Filinnehåll skrivs bara med `--dump-files`, `--dump-files=all` eller `SAJTMASKIN_EVAL_DUMP_FILES`. Default-retention är 60 per-prompt-mappar och kan ändras med `SAJTMASKIN_EVAL_RETENTION_PROMPT_DIRS`.
+Filinnehåll skrivs bara med `--dump-files`, `--dump-files=all` eller `SAJTMASKIN_EVAL_DUMP_FILES`.
 
-### 2. Follow-up context eval — `npm run eval:followup`
+Scaffold-lanen skriver `data/scaffold-eval/reports/scaffold-selection-latest.json` (gitignorerad). Radera inte den pathen utan att uppdatera canvas + `llm_flow_status.py` i samma ändring.
 
-**Vad:** bygger representativa follow-up-prompts med samma filkontextpolicy som chat-routen och kör `prepareGenerationContext()` utan LLM-codegen. Den mäter `optimizedMessage`, systemprompt, Dynamic Context och om `light`/`normal` policy triggas.
+`src/lib/gen/autofix/eval/*.eval.test.ts` är vanliga Vitest-tester i CI — inte en konkurrerande eval-produkt.
 
-**När köra:** efter ändringar i follow-up-context, Snapshot-Brief, file-context-budget eller prompt wrappers. Den validerar storlek och policy, inte visuell output.
+## Realism-gap
 
-### 3. Klassisk eval — `npm run eval`
-
-**Vad:** wrapper kring samma `runEval()` MEN lägger till:
-- Markdown-rapport till `eval-output/eval-report-YYYY-MM-DD.md` (gitignored)
-- "Scorecard" som mappar checks till 5 kategorier (`code-quality`, `integrations`, `orchestration`, `autofix`, `streaming-ux`) med target ≥70 % per kategori
-- Repo-needle checks som verifierar att specifika exports finns i `src/lib/gen/`-filer
-
-**Filer:**
-- `scripts/eval/run-eval.ts` — entry
-- `src/lib/gen/eval/scorecard.ts` — kategori-mapping + target-scoring
-- `src/lib/gen/eval/report.ts` — markdown-formattering
-
-**När köra:** när du vill ha en mänskligt läsbar översikt utan att uppdatera baseline. Bra för manuell granskning av en lokal förbättring innan du flyttar den till baseline-CI:n.
-
-### Realism-gap mot vanlig builder-generering
-
-Codegen-evalen är mer produktlik än scaffold-eval, men den är fortfarande inte en riktig builder-session:
-
-- Den kör `prepareGenerationContext()` + `generateCode()` och preflight-liknande checks.
-- Den persistar ingen chat/version, drar inga credits och startar ingen preview-VM.
-- Den kör inte exakt client-brief/server-auto-brief-vägen från create-chat-routen.
-- Den mäter nu `promptSize`, största dynamic blocks, preflight errors/warnings, preview-block och skyddade paths så skillnaden mot manuella generationer blir lättare att se.
-- Rapportens `Surface/Final` visar två olika file-counts: `surface` är eval-ytan (`rawFiles` filtrerade via `isGeneratedSurfacePath`: config, API-routes, metadata/image-routes, loading/error/not-found/template och andra runtime/support paths räknas bort); `final` är komplett körbart Next-projekt efter scaffold/finalize-materialisering. `7/27` är därför ofta bra: 7 app-ytefiler plus runtime/support-filer.
-- Den kör en lokal env-Preflight innan första LLM-anropet. Saknas DB-env rapporteras `preflight=failed_env` och generationen markeras `skipped`, så rapporten inte blandar ihop miljöfel med 0% LLM-kvalitet.
-
-För slutlig produktverifiering: kör samma prompt manuellt i lokal builder och jämför mot evalrapportens `Prompt / Preflight Telemetry`.
-
-### 4. Scaffold-selection-eval — `npm run scaffolds:eval`
-
-**Vad:** mäter bara att `matchScaffoldAuto()` väljer rätt scaffold för en given prompt. Inte codegen.
-
-**Filer:**
-- `scripts/scaffolds/eval-scaffold-selection.ts` — entry
-- `src/lib/gen/scaffolds/scaffold-eval.ts` — kärnan
-- Output (lokal, gitignorerad): `data/scaffold-eval/reports/scaffold-selection-latest.json`
-
-**Var datan visas:** `Backoffice → Overhead → Eval`-sidan läser `scaffold-selection-latest.json` om den finns lokalt (saknas på ren checkout tills du kört eval). Samma sida visar också codegen-baseline-status, kan köra codegen-eval och läser senaste codegen-summary från `data/eval-runs/latest/`, men de två systemen är separata.
-
-**När köra:** efter att du justerat scaffold-keywords, embeddings, eller variant-konfiguration. Kostar i princip inget (lokala embeddings + keyword-matching).
-
-## Vanliga förvirringar
-
-- **"Vad visar backoffice-Eval-sidan?"** — både *scaffold-selection-eval* (#3 ovan) och codegen-evalens baseline/senaste summary. Scaffold-tabellen är inte codegen-eval; codegen-knapparna skriver `data/eval-runs/latest/` och export till `docs/evals/` kräver explicit knapp.
-- **"Varför saknas eval-baseline.json sometimes?"** — den är committad så den ska alltid finnas. Om den inte finns: kör `npm run eval:baseline` en gång för att skapa den, och commita resultatet.
-- **"Failar `eval:gate` om baseline saknas?"** — nej, den varnar bara ("No baseline found"). Bara faktiska regressions failar.
-- **"Är `npm run eval` (utan suffix) samma sak som `eval:suite`?"** — nej. Båda kör samma `runEval()`-motor, men `eval` skriver till `eval-output/` med scorecard, `eval:suite` skriver inget men jämför mot baseline. Använd `eval:gate` för CI-typ-flöden, `eval` för human-debug.
-- **"`scripts/eval/` — vad är det?"** — `scripts/eval/run-eval.ts` är **klassisk eval** (#3 ovan, `npm run eval`, skriver `eval-output/`). *(Den gamla namnskuggan `scripts/evals/` + `evals/` — ett separat, manuellt OMTAG-02 scaffold-selection-baseline-spår **utan** npm/CI-koppling — **togs bort 2026-06-21** då baselinen var inaktuell. Ny eval-historik byggs vid behov som ett nytt, avsiktligt spår.)*
-
-## Förväntade tid + cost-uppskattning per körning
-
-Baserat på baseline från 2026-03-18 (`gpt-5.3-codex`, 15 prompts; full suite är nu 18):
-- Per prompt: 38–73 sekunder (varierar med komplexitet — `multi-page-brochure` och `saas-dashboard` är dyrast)
-- Total wall-clock: ~10–15 minuter
-- Total tokens: hundratusentals input + hundratusentals output, beror på prompt
-- Pris: snarare i $1–$5-range än cent-range. Kontrollera `OPENAI_API_KEY`-quota innan du startar.
+Codegen-lanen kör `prepareGenerationContext()` + `generateCode()` och preflight-liknande checks. Den persistar ingen chat/version, drar inga credits och startar ingen preview-VM. `Surface/Final` är eval-yta vs komplett Next-projekt efter finalize.
 
 ## Felsökning
 
-- `preflight=failed_env` → eval stoppade före LLM-kostnad eftersom DB-env saknas. Sätt `POSTGRES_URL` / `STORAGE_POSTGRES_URL` eller kör `npm run env:pull` först. DB:n behövs för att codegen-vägens scaffold-scoring läser `generation_telemetry`. I CI får `Eval Baseline Update` prod-databasen via `POSTGRES_URL_PROD` (läsande — se workflow-kommentaren); saknas secreten failar jobbet med den orsaken i st.f. att rapportera alla scenarier som `PASS → FAIL`.
-- `OPENAI_API_KEY missing` → exporta i shell eller lägg i `.env.local`.
-- Rapporten visar `PROVIDER`/`EMPTY`/`ENV` i statuskolumnen och en `## Not Measured`-sektion → körningen nådde inte modellen. Åtgärda kontot/nyckeln/env och kör om; läs inte siffrorna som kvalitet.
-- Eval failar på en specifik prompt utan tydlig orsak → kör med en eller två prompts: importera `runEval` direkt och passa `{ prompts: [EVAL_PROMPTS[0]] }`.
-- Baseline-jämförelsen saknar prompts → en ny prompt har lagts till i `prompts.ts` men baseline är gammal. Det är OK — `compareWithBaseline` skippar prompts som saknas i baseline. Kör `eval:baseline` när du är klar att flytta över.
+- Gratis-läget klagar på saknad DB → en regression. `resolveEvalEnvironment` får bara köras i codegen-lanen.
+- `preflight=failed_env` (codegen) → sätt `POSTGRES_URL` eller kör `npm run env:pull`.
+- `OPENAI_API_KEY missing` (codegen) → exporta i shell eller lägg i `.env.local`.
+- Rapporten visar `PROVIDER`/`EMPTY`/`ENV` → körningen nådde inte modellen. Läs inte siffrorna som kvalitet.
+- En prompt: `npm run eval -- --prompts=<id>`.
 
-## Lägga till en ny eval-prompt
+## Lägga till en ny codegen-prompt
 
-1. Lägg ny entry i `EVAL_PROMPTS` i `src/lib/gen/eval/prompts.ts`.
-2. Kör `npm run eval:suite` lokalt och kontrollera att den passerar.
-3. Kör `npm run eval:baseline` för att lägga in den i baseline.
-4. Commita både `prompts.ts`-ändringen och `eval-baseline.json`.
+1. Ny entry i `EVAL_PROMPTS` i `prompts.ts`.
+2. Kör `npm run eval -- --prompts=<id>` lokalt.
+3. När du vill ha den i baseline: full svit + `--save-baseline` (tills den flaggan försvinner).
+4. Commita `prompts.ts` och ev. `eval-baseline.json`.
 
 ## Hänvisningar
 
-- CI-workflow: `.github/workflows/eval-baseline-update.yml`
-- PR-triggad eval-gate saknas medvetet (kostnadsbeslut 2026-04-27) — veckoschemat i `eval-baseline-update.yml` äger baseline-uppdateringen
-- Backoffice-sidan: `backoffice/pages/eval_page.py` (registrerad som `PageSpec("Eval", "Overhead", …)` i `backoffice/pages/__init__.py`)
+- Regel: `.cursor/rules/evals.mdc`
+- Backoffice: `backoffice/pages/eval_page.py`
+- Scaffold-library (inte ett CLI): `src/lib/gen/scaffolds/scaffold-eval.ts`
+- Follow-up-library (inte ett CLI): `src/lib/gen/eval/follow-up-context.ts`

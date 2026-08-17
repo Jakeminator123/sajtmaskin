@@ -26,6 +26,7 @@ mental modell. Anta inte att du ser ocommittade filer.
 | Runtime dossiers | `data/dossiers/{hard,soft}/<id>/` |
 | Dossier tooling/index | `data/dossiers/_index/capability-map.json`, `scripts/dossiers/`, `backoffice/pages/dossiers.py` |
 | Template references | `data/template-references/repos/` (extern pipeline borttagen 2026-07-09 — arkiv i syskonmappen `gamla-skript-till-scaffolds/`) |
+| Eval | `src/lib/gen/eval/`, `src/lib/gen/eval/README.md` — enda publika kommandot är `npm run eval` |
 | Backoffice | `sajtmaskin_backoffice.py`, `backoffice/pages/*.py` |
 | Terminologi | `.cursor/rules/terminology.mdc`, full lista i `docs/architecture/glossary.md` |
 

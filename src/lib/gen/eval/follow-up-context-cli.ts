@@ -1,3 +1,7 @@
+/**
+ * @deprecated Use `npm run eval` (canonical). Kept until the cleanup PR
+ * deletes this wrapper.
+ */
 import {
   formatFollowUpContextEvalReport,
   runFollowUpContextEval,
