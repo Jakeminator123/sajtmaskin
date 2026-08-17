@@ -74,6 +74,10 @@ export async function loadBaseline(): Promise<EvalBaseline | null> {
   }
 }
 
+function mean(values: number[]): number {
+  return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
 export function compareWithBaseline(
   report: EvalReport,
   baseline: EvalBaseline,
@@ -151,6 +155,8 @@ export function compareWithBaseline(
     promptId: string;
     removed: string[];
   }> = [];
+  const measuredCurrentScores: number[] = [];
+  const measuredBaselineScores: number[] = [];
 
   for (const [promptId, baselineResult] of baselineByPrompt) {
     const current = currentByPrompt.get(promptId);
@@ -160,6 +166,9 @@ export function compareWithBaseline(
     // zero as a regression is how the 2026-08-17 billing failure reported 14
     // fake `PASS → FAIL` rows.
     if (current.generationStatus === "skipped") continue;
+
+    measuredCurrentScores.push(current.totalScore);
+    measuredBaselineScores.push(baselineResult.totalScore);
 
     const delta = current.totalScore - baselineResult.totalScore;
     if (delta < 0) {
@@ -210,9 +219,16 @@ export function compareWithBaseline(
     }
   }
 
-  const overallDelta = baseline.summary.avgScore > 0
-    ? (report.summary.avgScore - baseline.summary.avgScore) / baseline.summary.avgScore
-    : 0;
+  // Both sides of the ratio must be the same prompt set. `report.summary.avgScore`
+  // is now over evaluated prompts only; `baseline.summary.avgScore` is still
+  // over every baseline row. Mixing them turns a skipped high-scorer into a
+  // fake aggregate drop (or hides a real one).
+  const currentMeasuredAvg = mean(measuredCurrentScores);
+  const baselineMeasuredAvg = mean(measuredBaselineScores);
+  const overallDelta =
+    baselineMeasuredAvg > 0
+      ? (currentMeasuredAvg - baselineMeasuredAvg) / baselineMeasuredAvg
+      : 0;
 
   const avgScoreDrop10 = overallDelta <= -0.1;
   const avgScoreDrop5 = overallDelta <= -0.05;

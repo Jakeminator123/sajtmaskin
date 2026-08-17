@@ -15,6 +15,7 @@ import {
   type EvalResult,
   type EvalStreamFailure,
 } from "./runner";
+import { parseSSEBuffer } from "../stream/sse-parser";
 import { checkProjectSanity, type CheckResult } from "./checks";
 import type { CodeFile } from "../parser";
 import type { EvalPrompt } from "./prompts";
@@ -163,6 +164,40 @@ describe("classifyEvalStreamOutcome", () => {
    * a provider failure would mark those runs unmeasured, so a genuine truncation
    * regression could walk past the gate as infra noise.
    */
+  it("treats zero-content truncation as a quality miss, not as infra", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "",
+      errorPayloads: [
+        {
+          code: "output_truncated",
+          finishReason: "length",
+          message: "Modellen nådde maxlängden och svaret kan vara trunkerat.",
+        },
+      ],
+    });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("generation");
+    expect(outcome.failure.code).toBe("output_truncated");
+    expect(outcome.failure.providerFault).toBe(false);
+
+    const summary = summarizeEvalResults([
+      evalResult({
+        promptId: "coffee-shop",
+        generationStatus: "failed",
+        failureStage: "generation",
+        totalScore: 0,
+        passed: false,
+        blockingChecks: ["generation"],
+      }),
+    ]);
+    expect(summary.evaluated).toBe(1);
+    expect(summary.infraErrors).toBe(0);
+    expect(summary.avgScore).toBe(0);
+    expect(evalExitCode(resolveEvalRunOutcome({ summary, gateFailed: true }))).toBe(1);
+  });
+
   it("still scores a truncated response, because truncation is a quality outcome", () => {
     const outcome = classifyEvalStreamOutcome({
       content: "export default function Page(){return <main/>;}",
@@ -245,6 +280,64 @@ describe("collectEvalStream", () => {
     expect(collection.content).toBe("");
     expect(collection.errorPayloads).toHaveLength(1);
     expect(collection.errorPayloads[0].code).toBe("credit_balance_exhausted");
+  });
+
+  /**
+   * The in-repo parser splits on `\n` and pops the last incomplete line as
+   * `remaining`. It does not wait for an SSE blank-line record (`\n\n`).
+   * One trailing newline is enough to complete the last `data:` line — which
+   * is exactly what `collectEvalStream` appends on flush.
+   */
+  it("parses a complete last data line after a single newline, without an SSE blank record", () => {
+    const payload = {
+      message: "OpenAI-krediten är slut.",
+      code: "credit_balance_exhausted",
+      permanent: true,
+      providerFault: true,
+    };
+    const { events, remaining } = parseSSEBuffer(
+      `event: error\ndata: ${JSON.stringify(payload)}\n`,
+    );
+
+    expect(remaining).toBe("");
+    expect(events).toHaveLength(1);
+    expect(events[0]?.event).toBe("error");
+    expect((events[0]?.data as { code?: string }).code).toBe("credit_balance_exhausted");
+  });
+
+  it("leaves a mid-JSON data line in remaining instead of emitting a half event", () => {
+    const { events, remaining, pendingEvent } = parseSSEBuffer(
+      `event: error\ndata: {"code":"credit_balan`,
+    );
+
+    expect(events).toEqual([]);
+    expect(remaining).toBe('data: {"code":"credit_balan');
+    expect(pendingEvent).toBe("error");
+  });
+
+  it("does not flush a mid-JSON tail into a half event", async () => {
+    const collection = await collectEvalStream(
+      streamOf([`event: error\ndata: {"code":"credit_balan`]),
+    );
+
+    expect(collection.errorPayloads).toEqual([]);
+    expect(collection.content).toBe("");
+  });
+
+  it("collects a final error event when the stream ends without a blank SSE delimiter", async () => {
+    const wire =
+      `event: error\ndata: ${JSON.stringify({
+        message: "OpenAI-krediten är slut.",
+        code: "credit_balance_exhausted",
+        permanent: true,
+        providerFault: true,
+      })}`;
+
+    const collection = await collectEvalStream(streamOf([wire]));
+
+    expect(collection.content).toBe("");
+    expect(collection.errorPayloads).toHaveLength(1);
+    expect(collection.errorPayloads[0]?.code).toBe("credit_balance_exhausted");
   });
 
   it("keeps content that arrives split across chunk boundaries", async () => {

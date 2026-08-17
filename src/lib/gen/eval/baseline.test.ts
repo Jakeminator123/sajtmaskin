@@ -222,6 +222,38 @@ describe("compareWithBaseline", () => {
     expect(comparison.gateResult).toBe("pass");
   });
 
+  it("does not invent an aggregate regression when a high-scoring prompt is skipped", () => {
+    const baseline = makeBaseline();
+    baseline.results[0] = { ...baseline.results[0], totalScore: 0.95, passed: true };
+    baseline.results[1] = { ...baseline.results[1], totalScore: 0.5, passed: false };
+    baseline.summary = { ...baseline.summary, avgScore: 0.725 };
+
+    const report = makeReport();
+    report.results[0] = evalResult({
+      promptId: "coffee-shop",
+      generationStatus: "skipped",
+      failureStage: "provider_error",
+      totalScore: 0,
+      passed: false,
+      blockingChecks: [],
+    });
+    report.results[1] = evalResult({
+      promptId: "dashboard",
+      totalScore: 0.5,
+      passed: false,
+      blockingChecks: ["syntax"],
+    });
+    // Evaluated-only average is 0.5. Compared with baseline.summary.avgScore
+    // (0.725) that would be a −31 % drop and a false gate fail.
+    report.summary = { ...report.summary, evaluated: 1, skipped: 1, avgScore: 0.5 };
+
+    const comparison = compareWithBaseline(report, baseline);
+
+    expect(comparison.overallDelta).toBeCloseTo(0);
+    expect(comparison.regressions).toEqual([]);
+    expect(comparison.gateResult).toBe("pass");
+  });
+
   describe("legacy baseline saved before blocking-check tracking (2026-04-03)", () => {
     /**
      * The shape of `eval-baseline.json` as saved 2026-03-18: no

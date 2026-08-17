@@ -252,7 +252,7 @@ export interface EvalStreamCollection {
   errorPayloads: Array<Record<string, unknown>>;
 }
 
-export type EvalStreamFailureKind = "provider_error" | "empty_stream";
+export type EvalStreamFailureKind = "provider_error" | "empty_stream" | "generation";
 
 export interface EvalStreamFailure {
   kind: EvalStreamFailureKind;
@@ -280,6 +280,13 @@ function toStreamFailure(
 }
 
 /**
+ * Codes `stream-format.ts` emits on the model itself, not the transport.
+ * Today that is only `output_truncated` (`finishReason=length`). Provider
+ * abort and silent-empty carry no code and stay unattributable.
+ */
+const MODEL_QUALITY_ERROR_CODES = new Set(["output_truncated"]);
+
+/**
  * Decide whether a finished codegen stream carries a scorable result.
  *
  * The `error` event is the signal the old reader threw away — `stream-format.ts`
@@ -292,7 +299,9 @@ function toStreamFailure(
  *    scorable, even if some code arrived before it.
  * 2. Otherwise, any content at all gets scored. Excusing a truncated response as
  *    infra would let real truncation regressions walk straight past the gate.
- * 3. No content and no fault leaves nothing to judge.
+ * 3. No content plus a model-attributable code (`output_truncated`) is still a
+ *    quality miss: the model spent the budget and delivered nothing.
+ * 4. No content and no attributable code leaves nothing to judge.
  */
 export function classifyEvalStreamOutcome(
   collection: EvalStreamCollection,
@@ -308,6 +317,15 @@ export function classifyEvalStreamOutcome(
 
   const [payload] = collection.errorPayloads;
   if (payload) {
+    const code = typeof payload.code === "string" ? payload.code : null;
+    // The model burned the output budget and emitted no code. That is the
+    // regression eval exists to catch after a prompt-size change — not an
+    // outage. Calling it empty_stream would skip the quality gate. Zero is
+    // the honest score; running the twelve checks would only restate "no
+    // files" twelve times.
+    if (code && MODEL_QUALITY_ERROR_CODES.has(code)) {
+      return { ok: false, failure: toStreamFailure("generation", payload) };
+    }
     return { ok: false, failure: toStreamFailure("empty_stream", payload) };
   }
 
@@ -343,15 +361,56 @@ export function classifyEvalThrownError(err: unknown): EvalStreamFailure | null 
   };
 }
 
+function makeGenerationFailureResult(
+  evalPrompt: EvalPrompt,
+  message: string,
+  generationTimeMs = 0,
+): EvalResult {
+  return {
+    promptId: evalPrompt.id,
+    generationStatus: "failed",
+    failureStage: "generation",
+    generationTimeMs,
+    fileCount: 0,
+    finalProjectFiles: 0,
+    generatedSurfaceFiles: 0,
+    scaffoldId: null,
+    variantId: null,
+    promptSize: emptyPromptSize(),
+    preflight: {
+      errors: 1,
+      warnings: 0,
+      previewBlocked: true,
+      previewBlockingReason: "generation_failed",
+    },
+    droppedProtectedPaths: [],
+    checks: [
+      {
+        name: "generation",
+        passed: false,
+        message,
+        score: 0,
+      },
+    ],
+    totalScore: 0,
+    passed: false,
+    blockingChecks: ["generation"],
+  };
+}
+
 function makeStreamFailureResult(
   evalPrompt: EvalPrompt,
   failure: EvalStreamFailure,
   generationTimeMs: number,
 ): EvalResult {
+  const message = failure.code ? `${failure.message} [${failure.code}]` : failure.message;
+  if (failure.kind === "generation") {
+    return makeGenerationFailureResult(evalPrompt, message, generationTimeMs);
+  }
   return makeSkippedResult({
     evalPrompt,
     failureStage: failure.kind,
-    message: failure.code ? `${failure.message} [${failure.code}]` : failure.message,
+    message,
     previewBlockingReason: failure.kind,
     generationTimeMs,
   });
@@ -556,6 +615,19 @@ export function resolveEvalPassOutcome(params: {
   };
 }
 
+function isCompleteSseDataPayload(remaining: string): boolean {
+  if (!remaining.startsWith("data:")) return false;
+  let raw = remaining.slice(5);
+  if (raw.startsWith(" ")) raw = raw.slice(1);
+  if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+  try {
+    JSON.parse(raw);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Read the codegen stream through the canonical SSE parser instead of matching
  * `event:`/`data:` line pairs inside one decoded chunk. The old pairing dropped
@@ -569,10 +641,13 @@ export async function collectEvalStream(
   const reader = stream.getReader();
   const collection: EvalStreamCollection = { content: "", errorPayloads: [] };
   let buffer = "";
+  let pendingEvent = "";
 
   const drain = (): void => {
-    const { events, remaining } = parseSSEBuffer(buffer);
+    const input = pendingEvent ? `event: ${pendingEvent}\n${buffer}` : buffer;
+    const { events, remaining, pendingEvent: nextPending } = parseSSEBuffer(input);
     buffer = remaining;
+    pendingEvent = nextPending;
     for (const event of events) {
       if (event.event === "content") {
         const text = (event.data as { text?: unknown }).text;
@@ -590,9 +665,13 @@ export async function collectEvalStream(
       buffer += decoder.decode(value, { stream: true });
       drain();
     }
-    // A stream ending without a trailing newline leaves its last event in
-    // `remaining`, where `parseSSEBuffer` never looks.
-    if (buffer.trim()) {
+    // The parser does not need an SSE blank record (`\n\n`). It needs the
+    // last `data:` line to end with `\n`, and it needs the matching `event:`
+    // name in the same call — incremental drain otherwise leaves `event:`
+    // consumed and `data:` in `remaining`, so a lone flush newline would
+    // parse a data line with no event. Only complete JSON is flushed; a
+    // mid-payload tail stays unparsed instead of becoming a half event.
+    if (buffer.trim() && isCompleteSseDataPayload(buffer)) {
       buffer += "\n";
       drain();
     }
@@ -979,36 +1058,10 @@ export async function runEval(
       );
       const result: EvalResult = providerFailure
         ? makeStreamFailureResult(evalPrompt, providerFailure, 0)
-        : {
-            promptId: evalPrompt.id,
-            generationStatus: "failed",
-            failureStage: "generation",
-            generationTimeMs: 0,
-            fileCount: 0,
-            finalProjectFiles: 0,
-            generatedSurfaceFiles: 0,
-            scaffoldId: null,
-            variantId: null,
-            promptSize: emptyPromptSize(),
-            preflight: {
-              errors: 1,
-              warnings: 0,
-              previewBlocked: true,
-              previewBlockingReason: err instanceof Error ? err.message : "generation_failed",
-            },
-            droppedProtectedPaths: [],
-            checks: [
-              {
-                name: "generation",
-                passed: false,
-                message: err instanceof Error ? err.message : "Unknown error",
-                score: 0,
-              },
-            ],
-            totalScore: 0,
-            passed: false,
-            blockingChecks: ["generation"],
-          };
+        : makeGenerationFailureResult(
+            evalPrompt,
+            err instanceof Error ? err.message : "Unknown error",
+          );
       const artifact = await recordPromptArtifacts({
         runId,
         dumpMode,
