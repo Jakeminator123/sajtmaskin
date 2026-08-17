@@ -23,6 +23,27 @@ function promptBudgetStatus(totalChars: number): string {
   return "ok";
 }
 
+/**
+ * A row that never reached the checks must not read as `FAIL`. `FAIL` means the
+ * model produced a bad site; `PROVIDER` / `EMPTY` / `ENV` mean it produced
+ * nothing to judge.
+ */
+function rowStatus(result: EvalReport["results"][number]): string {
+  if (result.passed) return "PASS";
+  switch (result.failureStage) {
+    case "provider_error":
+      return "PROVIDER";
+    case "empty_stream":
+      return "EMPTY";
+    case "preflight_env":
+      return "ENV";
+    case "suite_aborted":
+      return "ABORTED";
+    default:
+      return "FAIL";
+  }
+}
+
 export function formatEvalReport(report: EvalReport): string {
   const date = report.timestamp.slice(0, 10);
   const { summary } = report;
@@ -30,9 +51,30 @@ export function formatEvalReport(report: EvalReport): string {
   const lines: string[] = [
     `# Eval Report — ${date}`,
     "",
-    `Model: ${report.model} | Total: ${summary.total} | Passed: ${summary.passed} | Avg Score: ${pct(summary.avgScore)} | Avg Time: ${fmtTime(summary.avgTimeMs)}`,
+    `Model: ${report.model} | Total: ${summary.total} | Evaluated: ${summary.evaluated} | Passed: ${summary.passed} | Avg Score: ${pct(summary.avgScore)} | Avg Time: ${fmtTime(summary.avgTimeMs)}`,
     "",
   ];
+
+  if (summary.skipped > 0) {
+    lines.push(
+      `Not measured: ${summary.skipped}/${summary.total} ` +
+        `(provider ${summary.providerErrors}, infra ${summary.infraErrors}` +
+        (summary.notRun > 0 ? `, not run ${summary.notRun}` : "") +
+        ") — excluded from Avg Score, not a quality regression.",
+      "",
+    );
+  }
+
+  if (summary.suiteAborted) {
+    const after = summary.abortedAfterPromptId
+      ? ` after ${summary.abortedAfterPromptId}`
+      : "";
+    lines.push(
+      `Suite aborted${after}: ${summary.notRun} prompt(s) were never submitted ` +
+        "(permanent provider fault). They are not quality failures and were not billed.",
+      "",
+    );
+  }
 
   if (summary.blockingFailures > 0) {
     const blockerList = Object.entries(summary.blockingCheckCounts)
@@ -51,7 +93,7 @@ export function formatEvalReport(report: EvalReport): string {
 
   for (let i = 0; i < report.results.length; i++) {
     const r = report.results[i];
-    const status = r.passed ? "PASS" : "FAIL";
+    const status = rowStatus(r);
     const failedChecks = r.checks
       .filter((c) => !c.passed)
       .map((c) => `${c.name}: ${c.message}`)
@@ -61,11 +103,13 @@ export function formatEvalReport(report: EvalReport): string {
     const budgetStatus = promptBudgetStatus(r.promptSize.totalChars);
     const promptSize = `${Math.round(r.promptSize.totalEstimatedTokens / 100) / 10}k tok/${budgetStatus}`;
     const preflight =
-      r.preflight.errors > 0 || r.preflight.warnings > 0 || r.preflight.previewBlocked
+      r.generationStatus === "skipped"
         ? r.failureStage === "preflight_env"
           ? "failed_env"
-          : `${r.preflight.errors}E/${r.preflight.warnings}W${r.preflight.previewBlocked ? " blocked" : ""}`
-        : "ok";
+          : (r.failureStage ?? "skipped")
+        : r.preflight.errors > 0 || r.preflight.warnings > 0 || r.preflight.previewBlocked
+          ? `${r.preflight.errors}E/${r.preflight.warnings}W${r.preflight.previewBlocked ? " blocked" : ""}`
+          : "ok";
     const time = r.generationStatus === "skipped" ? "skipped" : fmtTime(r.generationTimeMs);
 
     lines.push(
@@ -83,7 +127,19 @@ export function formatEvalReport(report: EvalReport): string {
 
   lines.push("");
 
-  const failedResults = report.results.filter((r) => !r.passed);
+  const notMeasured = report.results.filter((r) => r.generationStatus === "skipped");
+  if (notMeasured.length > 0) {
+    lines.push("## Not Measured (no quality verdict)", "");
+    for (const r of notMeasured) {
+      const [check] = r.checks;
+      lines.push(`- **${r.promptId}** (${r.failureStage}): ${check?.message ?? "no detail"}`);
+    }
+    lines.push("");
+  }
+
+  const failedResults = report.results.filter(
+    (r) => !r.passed && r.generationStatus !== "skipped",
+  );
   if (failedResults.length > 0) {
     lines.push("## Failed Prompts", "");
     for (const r of failedResults) {

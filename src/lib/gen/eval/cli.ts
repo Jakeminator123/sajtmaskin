@@ -146,7 +146,7 @@ function parseDumpModeFlag(args: string[]): EvalDumpMode | null {
 async function main(): Promise<void> {
   loadDotEnvLocal();
   const [
-    { runEval },
+    { runEval, resolveEvalRunOutcome, evalExitCode },
     { formatEvalReport },
     { loadBaseline, saveBaseline, compareWithBaseline },
     { EVAL_PROMPTS },
@@ -188,23 +188,48 @@ async function main(): Promise<void> {
   console.log(formatEvalReport(report));
   console.log("Structured eval summary written to data/eval-runs/latest/summary.json");
 
-  const baseline = await loadBaseline();
-  if (baseline) {
-    const comparison = compareWithBaseline(report, baseline);
-    console.log(formatComparison(comparison, baseline, report.model));
+  const { summary } = report;
+  const runBlocked = summary.providerErrors > 0 || summary.infraErrors > 0;
+  let gateFailed = false;
 
-    if (gateMode && comparison.gateResult === "fail") {
-      console.error("Gate failed: regression detected.");
-      process.exit(1);
+  if (runBlocked) {
+    // Neither the comparison nor a baseline write may run: both would encode a
+    // provider outage as a measurement of generation quality.
+    console.error(
+      `Eval could not measure quality — ${summary.providerErrors} provider error(s), ` +
+        `${summary.infraErrors} infra error(s), ${summary.evaluated}/${summary.total} prompts evaluated` +
+        (summary.suiteAborted
+          ? `, suite aborted after ${summary.abortedAfterPromptId ?? "a prompt"} with ${summary.notRun} never submitted.`
+          : "."),
+    );
+    for (const result of report.results.filter((r) => r.generationStatus === "skipped").slice(0, 3)) {
+      const [check] = result.checks;
+      console.error(`  - ${result.promptId}: ${check?.name ?? "unknown"} — ${check?.message ?? ""}`);
     }
-  } else if (gateMode) {
-    console.warn("No baseline found. Run with --save-baseline to create one.");
+    console.error("Baseline comparison and baseline write skipped: an outage is not a regression.");
+  } else {
+    const baseline = await loadBaseline();
+    if (baseline) {
+      const comparison = compareWithBaseline(report, baseline);
+      console.log(formatComparison(comparison, baseline, report.model));
+      gateFailed = comparison.gateResult === "fail";
+      if (gateMode && gateFailed) {
+        console.error("Gate failed: regression detected.");
+      }
+    } else if (gateMode) {
+      console.warn("No baseline found. Run with --save-baseline to create one.");
+    }
+
+    if (shouldSaveBaseline && !(gateMode && gateFailed)) {
+      await saveBaseline(report);
+      console.log("Baseline saved to src/lib/gen/eval/eval-baseline.json");
+    }
   }
 
-  if (shouldSaveBaseline) {
-    await saveBaseline(report);
-    console.log("Baseline saved to src/lib/gen/eval/eval-baseline.json");
-  }
+  const outcome = resolveEvalRunOutcome({ summary, gateFailed: gateMode && gateFailed });
+  const exitCode = evalExitCode(outcome);
+  console.log(`Eval outcome: ${outcome.toUpperCase()} (exit ${exitCode})`);
+  if (exitCode !== 0) process.exit(exitCode);
 }
 
 main().catch((err) => {

@@ -72,6 +72,8 @@ export type EngineSSEEvent = BuilderStreamEvent;
 export function parseSSEBuffer(buffer: string): {
   events: EngineSSEEvent[];
   remaining: string;
+  /** `event:` name waiting for its `data:` line, empty when none. */
+  pendingEvent: string;
 } {
   const events: EngineSSEEvent[] = [];
   const lines = buffer.split("\n");
@@ -102,5 +104,5 @@ export function parseSSEBuffer(buffer: string): {
     currentEvent = "";
   }
 
-  return { events, remaining };
+  return { events, remaining, pendingEvent: currentEvent };
 }

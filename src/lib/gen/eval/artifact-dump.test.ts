@@ -220,6 +220,13 @@ describe("writeEvalArtifacts", () => {
         summary: {
           total: 1,
           passed: 0,
+          evaluated: 1,
+          skipped: 0,
+          providerErrors: 0,
+          infraErrors: 0,
+          suiteAborted: false,
+          notRun: 0,
+          abortedAfterPromptId: null,
           avgScore: result.totalScore,
           avgTimeMs: result.generationTimeMs,
           blockingFailures: 1,
