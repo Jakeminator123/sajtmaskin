@@ -96,7 +96,8 @@ Ingen PR är klar utan alla fem:
    kvar bakom en flagga.
 5. **Verifiering:** `npm run typecheck` + riktad vitest på det som rörts.
 
-Arbeta i **egen git-worktree** (`git worktree add ..\sajtmaskin-<id> -b fix/<id>`).
+Arbeta i **egen git-worktree** (`git worktree add ..\sajtmaskin-<id> -b fix/<id> origin/master`
+— basen är inte valfri, se `agent-worktree.mdc`).
 Huvudcheckouten tillhör ägaren — byt aldrig branch där. Städa med
 `npm run worktree:remove -- <sökväg>`, aldrig rå `git worktree remove`. Se
 [`agent-worktree.mdc`](../../../../.cursor/rules/agent-worktree.mdc).

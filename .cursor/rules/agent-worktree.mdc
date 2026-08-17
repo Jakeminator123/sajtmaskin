@@ -24,9 +24,11 @@ Små docs-/regeländringar som landas direkt på `master` enligt [`git.mdc`](git
 Egen worktree bredvid repo-roten, aldrig under `.cursor/`:
 
 ```powershell
-git worktree add ..\sajtmaskin-feat-X -b feat/X
+git worktree add ..\sajtmaskin-feat-X -b feat/X origin/master
 npm run worktree:remove -- ..\sajtmaskin-feat-X   # städa så här, inte med git worktree remove
 ```
+
+**Ange alltid basen `origin/master`.** Utan den tar git huvudcheckoutens HEAD *just då*, så branchen ärver vad ägaren eller en annan agent råkar ha committat lokalt men inte pushat. Det hände 2026-08-17: en parallell agents branch fick merge-base `efc2eb89d`, en commit som låg osynligt på lokal master. (Ocommitterat läcker aldrig — `worktree add` checkar ut från en commit, inte från arbetskopian.)
 
 **Junction-fällan:** kör aldrig rå `git worktree remove` på en worktree med junction-länkad `node_modules` — den följer länken och tömmer **huvudcheckoutens** `node_modules`. Att utelämna `--force` skyddar inte: git vägrar bara vid smutsig tree eller **ospårade** filer, och en junctionad `node_modules` är *ignorerad*, alltså osynlig för den kontrollen. Använd `npm run worktree:remove`, som kopplar loss länken först. Hooken `.cursor/hooks/worktree-force-guard.mjs` blockerar båda varianterna.
 

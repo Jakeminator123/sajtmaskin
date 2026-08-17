@@ -55,8 +55,8 @@ function makeBaseline(overrides: Partial<Baseline> = {}): Baseline {
 }
 
 describe("baseline-meaningful-change", () => {
-  // The whole point: without this, `git diff` is dirty on every run and the
-  // weekly job opens a draft PR containing nothing but wall-clock noise.
+  // The whole point: without this, `git diff` is dirty on every run and a
+  // repeated eval run would open a draft PR of nothing but wall-clock noise.
   it("treats a rerun with identical outcome but new timings as unchanged", () => {
     const previous = makeBaseline();
     const next = makeBaseline({
