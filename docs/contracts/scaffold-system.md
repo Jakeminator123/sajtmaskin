@@ -353,7 +353,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 | `npm run embeddings:sync` | Laddar ner embedding-JSON från Blob/manifest → lokal cache |
 | `npm run embeddings:promote` | Laddar upp lokal cache → Blob (+ `--untrack` tar bort från git) |
 | `npm run embeddings:check-untracked` | Failar om embedding-JSON är git-tracked |
-| `npm run scaffolds:eval` | Eval-harness för scaffold-matchern |
+| `npm run eval` | Canonical eval; scaffold-selection är en intern lane (se `src/lib/gen/eval/README.md`) |
 | `npm run scaffolds:embeddings` | Regenererar runtime scaffold-embeddings (Blob + cache) |
 | `npm run scaffolds:variant-embeddings` | Regenererar variant-embeddings (Blob + cache) |
 | `npm run scaffolds:variant-patterns` | Kuraterar variant signature patterns |

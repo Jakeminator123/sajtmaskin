@@ -120,8 +120,11 @@ npm run scaffolds:embeddings
 npm run scaffolds:variant-embeddings
 npm run scaffolds:variant-patterns
 npm run scaffolds:validate
-npm run scaffolds:eval
+npm run eval
 ```
+
+Eval (follow-up + scaffold-selection, ev. codegen) ägs av `src/lib/gen/eval/README.md`.
+`npm run eval` är enda publika kommandot.
 
 ## Practical Smoke Test
 

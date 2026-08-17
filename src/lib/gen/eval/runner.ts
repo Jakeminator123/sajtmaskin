@@ -704,7 +704,11 @@ async function recordPromptArtifacts(params: {
 async function evaluatePrompt(
   evalPrompt: EvalPrompt,
   model: string,
-  artifactContext: { runId: string; dumpMode: EvalDumpMode },
+  artifactContext: {
+    runId: string;
+    dumpMode: EvalDumpMode;
+    print: (line: string) => void;
+  },
 ): Promise<{
   result: EvalResult;
   artifact: EvalPromptArtifactRecord | null;
@@ -845,7 +849,7 @@ async function evaluatePrompt(
     // distinguish "model emitted a broken protected path but the
     // pipeline corrected it" (acceptable) from "model emitted an
     // unrelated bug" (real regression).
-    console.info(
+    artifactContext.print(
       `[eval] ${evalPrompt.id}: dropped scaffold-protected paths from canonical eval input: ${sources.droppedProtectedPaths.join(", ")}`,
     );
   }
@@ -981,27 +985,10 @@ export function summarizeEvalResults(results: EvalResult[]): EvalSummary {
   };
 }
 
-export type EvalRunOutcome = "pass" | "quality_fail" | "provider_error" | "infra_error";
-
-/**
- * Provider and infra failures outrank the quality verdict. A run that never
- * reached the model says nothing about generation quality, and scoring it as a
- * regression is what made every red weekly run unreadable.
- */
-export function resolveEvalRunOutcome(params: {
-  summary: EvalSummary;
-  gateFailed?: boolean;
-}): EvalRunOutcome {
-  if (params.summary.providerErrors > 0 || params.summary.suiteAborted) return "provider_error";
-  if (params.summary.infraErrors > 0) return "infra_error";
-  if (params.gateFailed === true) return "quality_fail";
-  return "pass";
-}
-
-export function evalExitCode(outcome: EvalRunOutcome): 0 | 1 | 2 {
-  if (outcome === "provider_error" || outcome === "infra_error") return 2;
-  return outcome === "quality_fail" ? 1 : 0;
-}
+// Re-exported so existing importers keep working. The implementation lives in
+// `outcome.ts` so `canonical.ts` can reach the same decision without loading
+// this module's generation stack — see the comment there.
+export { evalExitCode, resolveEvalRunOutcome, type EvalRunOutcome } from "./outcome";
 
 export async function runEval(
   options?: {
@@ -1009,12 +996,15 @@ export async function runEval(
     prompts?: EvalPrompt[];
     dumpMode?: EvalDumpMode;
     runId?: string;
+    /** Progress lines. Default is stderr so `--json` stdout stays parseable. */
+    print?: (line: string) => void;
   },
 ): Promise<EvalReport> {
   const model = options?.model ?? DEFAULT_MODEL;
   const prompts = options?.prompts ?? EVAL_PROMPTS;
   const runId = options?.runId ?? createEvalRunId();
   const dumpMode = options?.dumpMode ?? resolveEvalDumpMode();
+  const print = options?.print ?? ((line: string) => console.error(line));
   const environment = resolveEvalEnvironment();
   const promptArtifacts: EvalPromptArtifactRecord[] = [];
 
@@ -1035,13 +1025,14 @@ export async function runEval(
 
   const { results, aborted } = await collectEvalSuiteResults(prompts, async (evalPrompt) => {
     try {
-      console.info(`[eval] Running: ${evalPrompt.id}...`);
+      print(`[eval] Running: ${evalPrompt.id}...`);
       const { result, artifact, streamFailure } = await evaluatePrompt(evalPrompt, model, {
         runId,
         dumpMode,
+        print,
       });
       if (artifact) promptArtifacts.push(artifact);
-      console.info(
+      print(
         `[eval] ${evalPrompt.id}: score=${(result.totalScore * 100).toFixed(0)}% ` +
           `files=${result.fileCount} time=${result.generationTimeMs}ms ` +
           `${result.passed ? "PASS" : "FAIL"}`,

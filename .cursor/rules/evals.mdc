@@ -1,0 +1,35 @@
+---
+description: "En canonical eval. Inga nya eval-CLI:n eller baseline-system."
+globs:
+  - src/lib/gen/eval/**
+  - scripts/eval/**
+  - scripts/scaffolds/eval-scaffold-selection.ts
+  - backoffice/pages/eval_page.py
+alwaysApply: false
+---
+
+# Eval
+
+Canonical yta: `src/lib/gen/eval/`. Canonical docs: `src/lib/gen/eval/README.md`.
+Publikt kommando: **bara** `npm run eval`.
+
+## Lås
+
+1. Skapa inte nya `scripts/eval/*`-ingångar eller `eval:*`-npm-script.
+2. Skapa inte separata scaffold-/follow-up-eval-CLI:n. De är lanes inuti
+   `runCanonicalEval`, inte egna produkter.
+3. Inför inte nya baseline-, gate- eller eval-workflows utan uttryckligt
+   ägarbeslut. `compareWithBaseline` + `eval-baseline.json` är informativ
+   utskrift, inte en andra produkt.
+4. Backoffice anropar canonical eval med `--json`. Bygg inget Python-evalsystem
+   och inget nytt API-lager.
+5. Genererade rapporter (`data/eval-runs/`, `data/scaffold-eval/reports/`,
+   `docs/evals/`) är inte source of truth. Scaffold-rapporten måste fortsätta
+   skrivas till `scaffold-selection-latest.json` så länge canvas/Backoffice
+   läser den pathen.
+6. `*.eval.test.ts` under autofix är vanliga Vitest-tester, inte en eval-produkt.
+
+Default utan flaggor är gratislanerna (follow-up + scaffold) och får inte kräva
+`POSTGRES_URL` eller `OPENAI_API_KEY`. Betald codegen kräver `--codegen` eller
+`--full`. En failad gratislane stoppar den betalda lanen; `--force` kör ändå
+(se README).

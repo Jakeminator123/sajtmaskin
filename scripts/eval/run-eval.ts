@@ -1,9 +1,9 @@
 /**
- * Own-engine eval harness (`npm run eval`).
+ * @deprecated Use `npm run eval` → `src/lib/gen/eval/cli.ts`. This scorecard
+ * wrapper is not the public eval. Cleanup PR deletes the file.
  *
  * Skriver markdown **lokalt** under `./eval-output/` (gitignored):
  * `eval-report-YYYY-MM-DD.md`, `scorecard-YYYY-MM-DD.md` — datum = körningsdag.
- * Inget här committas; bortsett från att du själv kopierar ut filer.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";

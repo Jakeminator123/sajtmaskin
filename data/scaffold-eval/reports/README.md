@@ -7,7 +7,7 @@ den här mappen; kandidatpoolen kommer alltid från det committade variantregist
 
 | Körning | Output |
 |---|---|
-| `npm run scaffolds:eval` | `scaffold-selection-latest.json` (+ timestampad kopia) |
+| `npm run eval` (scaffold-lane) | `scaffold-selection-latest.json` (+ timestampad kopia) |
 | `npx tsx scripts/scaffolds/eval-landing-variants.ts` | `landing-page-variant-latest.json` (+ timestampad kopia) |
 
 Prompt-fixtures som **är** spårade ligger en nivå upp: `../prompts.json`, `../landing-variant-prompts.json`.
