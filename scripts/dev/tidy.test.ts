@@ -4,6 +4,7 @@ import {
   STALE_AFTER_DAYS,
   classifyLocalBranch,
   classifyRemoteBranch,
+  dedupeVercelIgnoreLines,
   isNextCacheStale,
   isProtectedBranch,
 } from "./tidy.mjs";
@@ -83,6 +84,37 @@ describe("classifyRemoteBranch", () => {
     expect(
       classifyRemoteBranch({ name: "BRA_19191919", ageDays: 400, hasOpenPr: false }).flag,
     ).toBe("keep");
+  });
+});
+
+describe("dedupeVercelIgnoreLines", () => {
+  it("behåller första förekomsten och tar bort CLI:ns kopior", () => {
+    const input = ["# env", ".env*", "", "src/", "", ".env*", "", ".env*", ""].join("\n");
+    const { content, removed } = dedupeVercelIgnoreLines(input);
+    expect(removed).toEqual([".env*", ".env*"]);
+    expect(content.split("\n").filter((l) => l === ".env*")).toHaveLength(1);
+    expect(content).toContain("# env");
+    expect(content).toContain("src/");
+  });
+
+  it("rör inte en fil utan dubbletter", () => {
+    const input = ["# env", ".env*", ".vercel", "src/", ""].join("\n");
+    const { content, removed } = dedupeVercelIgnoreLines(input);
+    expect(removed).toEqual([]);
+    expect(content).toBe(input);
+  });
+
+  it("rör aldrig rader som bara liknar mönstren", () => {
+    const input = ["  .env*", ".env*.local", ".env.*", ".vercel/", "!.env*", ""].join("\n");
+    const { content, removed } = dedupeVercelIgnoreLines(input);
+    expect(removed).toEqual([]);
+    expect(content).toBe(input);
+  });
+
+  it("normaliserar CRLF till LF och avslutar alltid med radbrytning", () => {
+    // Vercel-CLI:n skriver CRLF på Windows, men `.gitattributes` kräver LF.
+    const { content } = dedupeVercelIgnoreLines(".env*\r\n\r\n.env*\r\n");
+    expect(content).toBe(".env*\n");
   });
 });
 

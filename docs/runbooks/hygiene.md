@@ -71,15 +71,20 @@ importeras av något. Två giltiga fixar:
 
 Skriptet: [`scripts/dev/tidy.mjs`](../../scripts/dev/tidy.mjs). Torrkörning är default. `hygiene` är en **grind** (läsande, faller med exitkod, CI blockerar på delar); `tidy` är **vaktmästaren** som städar lokalt tillstånd som ruttnar av sig självt. Därför är de skilda knappar.
 
-| Yta             | Policy                                                                                                                                                                       |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lokala brancher | Raderas bara när remoten är borta **och** innehållet finns i `origin/master`. Omergat = pågående arbete, rörs inte.                                                          |
-| Skyddade namn   | `master`, `main`, `ema`, allt med `BRA`, `rescue/*`, `dependabot/*`, `archive/*` — aldrig.                                                                                   |
-| Worktrees       | `git worktree prune` på avregistrerade poster. Radera kataloger med `npm run worktree:remove` (junction-fällan).                                                             |
-| `.next`         | Raderas om cachen är äldre än HEAD. En förlegad `.next/dev/types` pekar på borttagna rutter och ger fantomfel i `typecheck` — det hände efter en 548-commit-pull 2026-08-17. |
-| Remote-brancher | **Bara rapport** (äldre än 30 dagar utan öppen PR). Radering är ditt beslut; arkivera gärna som `archive/*`-tagg först.                                                      |
+| Yta             | Policy                                                                                                                                                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lokala brancher | Raderas bara när remoten är borta **och** innehållet finns i `origin/master`. Omergat = pågående arbete, rörs inte.                                                                                                     |
+| Skyddade namn   | `master`, `main`, `ema`, allt med `BRA`, `rescue/*`, `dependabot/*`, `archive/*` — aldrig.                                                                                                                              |
+| Worktrees       | `git worktree prune` på avregistrerade poster. Radera kataloger med `npm run worktree:remove` (junction-fällan).                                                                                                        |
+| `.next`         | Raderas om cachen är äldre än HEAD. En förlegad `.next/dev/types` pekar på borttagna rutter och ger fantomfel i `typecheck` — det hände efter en 548-commit-pull 2026-08-17.                                            |
+| `.gitignore`    | Tar bort dubbletter av `.env*` och `.vercel` som `vercel link` / `vercel env pull` appendar, och normaliserar till LF (CLI:n skriver CRLF på Windows). Bara exakta träffar rörs, så en riktig regel kan inte försvinna. |
+| Remote-brancher | **Bara rapport** (äldre än 30 dagar utan öppen PR). Radering är ditt beslut; arkivera gärna som `archive/*`-tagg först.                                                                                                 |
 
 GitHub-städet är redan självgående: repo-inställningen `deleteBranchOnMerge` raderar varje PR-mergad branch. Det som blir kvar är per definition omergat, och därför inget en robot ska ta.
+
+#### Varför `.gitignore`-raden inte kan fixas i filen
+
+Det naturliga vore att hitta en filform Vercel-CLI:n accepterar. Det går inte: 2026-08-17 testades sex länkningar mot mönstret först i env-blocket, sist i filen, med och utan blankrad före, med och utan negationer efter. CLI:n appendar sin rad på nytt varje gång `.gitignore` ändrats sedan förra körningen — två identiska körningar i rad är tysta, men en redigering armerar den igen. Antalet växer alltså långsamt av sig självt. Eftersom identiska gitignore-mönster är verkningslösa för git är dubbletten ofarlig; det enda den kostar är brus i `git status`. Därför ligger fixen i `tidy` och inte i filen.
 
 ### `clean:scratch` — retention i korthet
 

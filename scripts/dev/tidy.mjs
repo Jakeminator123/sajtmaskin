@@ -113,6 +113,51 @@ export function isNextCacheStale({ cacheMtimeMs, headCommitMs }) {
   return cacheMtimeMs < headCommitMs;
 }
 
+/**
+ * Rader som Vercel-CLI:n appendar i `.gitignore`. `vercel link` / `vercel env
+ * pull` lägger till sin egen kopia varje gång filen ändrats sedan förra
+ * körningen, så antalet växer över tid. Duplicerade gitignore-mönster är
+ * verkningslösa för git — enda kostnaden är brus i `git status`.
+ */
+export const VERCEL_IGNORE_LINES = new Set([".env*", ".vercel"]);
+
+/**
+ * Ta bort dubbletter av CLI-appendade rader och behåll den FÖRSTA förekomsten.
+ * Rör bara exakta träffar i {@link VERCEL_IGNORE_LINES}: en rad med annan text,
+ * annat mönster eller inledande blanksteg lämnas orörd, så en riktig regel kan
+ * aldrig försvinna här. Kommentarer och ordning i övrigt bevaras.
+ *
+ * @param {string} content rå `.gitignore`-text
+ * @returns {{ content: string, removed: string[] }}
+ */
+export function dedupeVercelIgnoreLines(content) {
+  // Alltid LF: `.gitattributes` sätter `* text=auto eol=lf`, och Vercel-CLI:n
+  // skriver CRLF på Windows. Bevarade vi filens befintliga radslut skulle varje
+  // städning lämna en CRLF-fil som git i sin tur varnar för och konverterar.
+  const eol = "\n";
+  const lines = content.split(/\r?\n/);
+  const seen = new Set();
+  const kept = [];
+  const removed = [];
+
+  for (const line of lines) {
+    if (VERCEL_IGNORE_LINES.has(line)) {
+      if (seen.has(line)) {
+        removed.push(line);
+        continue;
+      }
+      seen.add(line);
+    }
+    kept.push(line);
+  }
+
+  // Borttagningen lämnar ofta två blankrader efter sig i filens slut.
+  while (kept.length > 1 && kept.at(-1) === "" && kept.at(-2) === "") kept.pop();
+  let out = kept.join(eol);
+  if (!out.endsWith(eol)) out += eol;
+  return { content: out, removed };
+}
+
 /** @param {string[]} args @param {string} root */
 function git(args, root, { allowFail = false } = {}) {
   try {
@@ -218,7 +263,26 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
     log("[tidy] Next-cache: aktuell.");
   }
 
-  // --- 4. Remote-rapport (raderar aldrig) ---
+  // --- 4. Vercel-appendade gitignore-dubbletter ---
+  const ignorePath = path.join(root, ".gitignore");
+  try {
+    const before = fs.readFileSync(ignorePath, "utf8");
+    const { content: after, removed } = dedupeVercelIgnoreLines(before);
+    if (removed.length > 0) {
+      log(
+        `[tidy] ${apply ? "tar bort" : "skulle ta bort"} ${removed.length} dubblett(er) i .gitignore ` +
+          `(${[...new Set(removed)].join(", ")}) — appendade av vercel link/env pull`,
+      );
+      if (apply) fs.writeFileSync(ignorePath, after);
+      planned.push(`${removed.length} .gitignore-dubblett(er)`);
+    } else {
+      log("[tidy] .gitignore: inga CLI-dubbletter.");
+    }
+  } catch {
+    log("[tidy] .gitignore: kunde inte läsas — hoppar över.");
+  }
+
+  // --- 5. Remote-rapport (raderar aldrig) ---
   const openHeads = openPrHeads(root);
   if (openHeads === null) {
     log("[tidy] remote: hoppar över rapporten (gh svarade inte).");
