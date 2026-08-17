@@ -52,17 +52,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # quality är required: jobbet måste alltid starta. Bara det tunga
-      # baseline-deps:tree-steget kortsluts (se steget nedan).
-      - name: Detect baseline-tree relevant changes
-        id: baseline_tree
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            tree:
-              - 'src/lib/gen/export/project-scaffold.ts'
-              - 'scripts/deps/validate-baseline-npm-tree.ts'
-
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -143,12 +132,13 @@ jobs:
       - name: Verify baseline dependency versions
         run: npm run baseline-deps:verify
 
-      # Skyddsobjekt verifierat: validate-baseline-npm-tree.ts läser BARA
-      # PACKAGE_JSON ur project-scaffold.ts (plus sig själv). Inget annat
-      # jobb needs: detta steg — quality slutar grönt även när det hoppas över.
-      # workflow_dispatch kör alltid (ingen PR-diff att filtrera på).
+      # Ofiltrerat med flit. Steget tar ~16 s, och dess utfall beror inte bara
+      # på PACKAGE_JSON i project-scaffold.ts utan också på vilken npm-version
+      # runnern kör (`.node-version`) — peer-upplösning kan alltså ändras av en
+      # Node-bump ensam. Ett filter på en gate måste lista varje sådan indirekt
+      # indata, och missar man en blir jobbet grönt utan att ha kontrollerat
+      # något. 16 sekunder är inte värt den risken.
       - name: Verify baseline dependency tree
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.baseline_tree.outputs.tree == 'true' }}
         run: npm run baseline-deps:tree
 
       - name: Validate scaffold manifests
@@ -472,6 +462,10 @@ jobs:
               - 'tsconfig*.json'
               - 'src/**'
               - 'scripts/**'
+              # knip:files scannar allt som tsconfig-globbarna inkluderar, och
+              # `tests/` är en av dem — en orphan där ska inte kunna smyga
+              # igenom bara för att diffen inte rörde src/ eller scripts/.
+              - 'tests/**'
 
       - name: Setup Node.js
         if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.dead_code == 'true' }}
