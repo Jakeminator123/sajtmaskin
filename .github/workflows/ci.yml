@@ -266,8 +266,14 @@ jobs:
       # observability, requirements, config-/schema-ytor testerna läser,
       # plus de enstaka TS/docs/Python-filer som är unika skyddsobjekt
       # (catalog-paritet, curator, capability-map, hub-docs, run-python).
-      # package.json utelämnas medvetet — annars körs jobbet på nästan
-      # varje PR. src/lib/db|auth|tenant ingår inte.
+      # package.json MÅSTE ingå: test_pipeline_health_script_parity.py och
+      # test_database_health_smoke.py läser repots faktiska package.json och
+      # asserterar att npm-scripten bakom Backoffice-knapparna finns. Utan den
+      # raden kan ett script döpas om eller tas bort utan att paritetstestet
+      # körs — exakt den döda knappen testet skrevs för att fånga (commit
+      # 9adb3c4). Kostnaden är att jobbet körs på dependabot-PR:er, vilket inte
+      # ligger på kritisk linje så länge quality tar ~9 min.
+      # src/lib/db|auth|tenant ingår inte.
       - name: Detect backoffice-relevant changes
         id: filter
         uses: dorny/paths-filter@v3
@@ -278,6 +284,7 @@ jobs:
               - 'sajtmaskin_backoffice.py'
               - 'scripts/observability/**'
               - 'requirements.backoffice*.txt'
+              - 'package.json'
               - 'config/backoffice/**'
               - 'config/domain-rules.json'
               - 'config/prompt-heuristic-tokens.json'
