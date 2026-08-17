@@ -1068,6 +1068,13 @@ describe("detectExplicitPageCount", () => {
   });
 
   it.each([
+    "Only one page. One page for prices and one page for contact.",
+    "Bara en sida. En sida med priser och en sida med kontakt.",
+  ])("lets a later two-page list veto an earlier one-page cap: %s", (prompt) => {
+    expect(detectExplicitPageCount(prompt)).toBeNull();
+  });
+
+  it.each([
     ["Create 1 page, actually create 3 pages", 3],
     ["Create 3 pages, actually create 2 pages", 2],
     ["Skapa 1 sida, skapa egentligen 3 sidor", 3],

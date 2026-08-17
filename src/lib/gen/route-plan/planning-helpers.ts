@@ -785,7 +785,7 @@ export function detectExplicitPageCount(prompt: string): number | null {
   if (explicitCount.count >= 2) return explicitCount.count;
   const fromWinningClause = prompt.slice(explicitCount.fromIndex);
   if (
-    countIndefinitePageMentions(explicitCount.clause) < 2 &&
+    countIndefinitePageMentions(fromWinningClause) < 2 &&
     !hasFollowUpAddPageIntent(fromWinningClause) &&
     !hasAdditionalNamedPage(fromWinningClause)
   ) {
