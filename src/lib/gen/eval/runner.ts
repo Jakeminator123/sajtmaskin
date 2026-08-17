@@ -987,6 +987,10 @@ export type EvalRunOutcome = "pass" | "quality_fail" | "provider_error" | "infra
  * Provider and infra failures outrank the quality verdict. A run that never
  * reached the model says nothing about generation quality, and scoring it as a
  * regression is what made every red weekly run unreadable.
+ *
+ * Quality is derived from the measurement: any evaluated prompt that did not
+ * pass is a quality_fail. `gateFailed` is an extra OR while `--gate` still
+ * exists; it is not the only path to a quality miss.
  */
 export function resolveEvalRunOutcome(params: {
   summary: EvalSummary;
@@ -994,7 +998,9 @@ export function resolveEvalRunOutcome(params: {
 }): EvalRunOutcome {
   if (params.summary.providerErrors > 0 || params.summary.suiteAborted) return "provider_error";
   if (params.summary.infraErrors > 0) return "infra_error";
-  if (params.gateFailed === true) return "quality_fail";
+  const measuredQualityFail =
+    params.summary.evaluated > 0 && params.summary.passed < params.summary.evaluated;
+  if (params.gateFailed === true || measuredQualityFail) return "quality_fail";
   return "pass";
 }
 

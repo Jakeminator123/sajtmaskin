@@ -1,15 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  SCAFFOLD_LANE_MIN_KEYWORD_TOP1_PERCENT,
   canonicalExitCode,
   codegenLaneFromRun,
   followupLaneFromResults,
   parseCanonicalEvalArgs,
   resolveCanonicalOutcome,
+  scaffoldLaneFromReport,
   shouldSaveBaseline,
   toCanonicalJson,
   type CanonicalEvalResult,
 } from "./canonical";
 import type { FollowUpEvalResult } from "./follow-up-context";
+import type { ScaffoldEvalReport } from "@/lib/gen/scaffolds/scaffold-eval";
 
 describe("parseCanonicalEvalArgs", () => {
   it("defaults to the free lanes — no codegen, no env gate", () => {
@@ -98,6 +101,52 @@ describe("shouldSaveBaseline", () => {
         scaffold: "pass",
       }),
     ).toBe(true);
+  });
+});
+
+function scaffoldReport(
+  summary: Partial<ScaffoldEvalReport["summary"]> = {},
+): ScaffoldEvalReport {
+  return {
+    timestamp: "2026-08-17T00:00:00.000Z",
+    results: [],
+    summary: {
+      total: 65,
+      keywordTop1Accuracy: 96.92,
+      semanticTop1Accuracy: 96.92,
+      semanticTop3Accuracy: 96.92,
+      genericFallbackRate: 0,
+      semanticUnavailableRate: 0,
+      appAuthMisclassificationRate: 0,
+      previewWhiteRate: null,
+      ...summary,
+    },
+  };
+}
+
+describe("scaffoldLaneFromReport", () => {
+  const reportPath = "data/scaffold-eval/reports/scaffold-selection-latest.json";
+
+  it("passes when keyword top-1 meets the owner policy, even if semantic ranking degraded", () => {
+    const lane = scaffoldLaneFromReport(
+      scaffoldReport({
+        keywordTop1Accuracy: SCAFFOLD_LANE_MIN_KEYWORD_TOP1_PERCENT,
+        semanticTop1Accuracy: 12,
+        semanticUnavailableRate: 100,
+      }),
+      reportPath,
+    );
+
+    expect(lane.outcome).toBe("pass");
+  });
+
+  it("fails when keyword top-1 is below the owner policy", () => {
+    const lane = scaffoldLaneFromReport(
+      scaffoldReport({ keywordTop1Accuracy: 12 }),
+      reportPath,
+    );
+
+    expect(lane.outcome).toBe("fail");
   });
 });
 
