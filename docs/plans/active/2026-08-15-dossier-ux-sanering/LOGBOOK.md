@@ -10,7 +10,7 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 
 ## Framsteg
 
-**Totalt: 92 % (11/12 aktiviteter klara) — bugbot-pass återstår**
+**Totalt: 100 % — allt levererat i PR #1023 (2026-08-17)**
 
 | Id | Aktivitet | Status | Commit |
 |---|---|---|---|
@@ -25,7 +25,7 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 | U1 | Byggblock-ytans lyft (popover → Sheet) | **Klar** | se git |
 | F1 | F2/F3-begreppsutfasning | **Klar** | se git |
 | HK | Housekeeping-svep (docs/schema/backlog/beslut/städ) | **Klar** | se git |
-| V | Slutverifiering + bugbot | Pågår (bugbot) | – |
+| V | Slutverifiering + bugbot | **Klar** — 1 medium-fynd (prefix-match) fixat + rent återpass | se git |
 
 ## Beslut under körningen
 
