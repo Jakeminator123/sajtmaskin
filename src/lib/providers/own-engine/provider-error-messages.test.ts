@@ -10,6 +10,19 @@ describe("classifyProviderError (B3)", () => {
     expect(result.code).toBe("insufficient_quota");
   });
 
+  // Weekly eval run 2026-08-17: the Responses API answered every codegen call
+  // with `code: credit_balance_exhausted`, which had no row here, so the run was
+  // billed and reported as an ordinary failure instead of a provider fault.
+  it("maps credit_balance_exhausted to a permanent provider fault", () => {
+    const result = classifyProviderError({
+      data: { error: { type: "insufficient_quota", code: "credit_balance_exhausted" } },
+      message: "You have no credits remaining.",
+    });
+    expect(result.userMessage).toMatch(/OpenAI-krediten är slut/);
+    expect(result.permanent).toBe(true);
+    expect(result.providerFault).toBe(true);
+  });
+
   it("maps rate_limit_exceeded to Swedish + permanent=false (retry)", () => {
     const result = classifyProviderError({ code: "rate_limit_exceeded" });
     expect(result.userMessage).toMatch(/Rate limit|rate limit/);

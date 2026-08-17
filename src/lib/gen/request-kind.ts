@@ -83,12 +83,54 @@ const MULTI_CHANGE = [
 const CHANGE_VERB =
   /(?<![\p{L}\p{N}_])(?:ändra|ändrar|ändring|byt|byter|byta|lägg(?:a|er)?|lägg\s+till|skapa(?:r|de|t)?|ta\s+bort|flytta(?:r|de|t)?|uppdatera(?:r|de|t)?|fixa(?:r|de|t)?|implementera(?:r|de|t)?)(?![\p{L}\p{N}_])/iu;
 
+// `visa` alone is ambiguous ("Visa mig sajtens poäng" asks for an
+// evaluation), but an explicit UI placement is an edit instruction. Keep the
+// exception narrow so genuine score questions still take the QA path.
+const SCORE_DISPLAY_EDIT =
+  /(?<![\p{L}\p{N}_])visa(?![\p{L}\p{N}_])[^.!?;:\n\r…—]{0,80}?(?<score>(?<![\p{L}\p{N}_])(?:poäng(?:en)?|betyg(?:et)?|score|rating)(?![\p{L}\p{N}_]))[^.!?;:\n\r…—]{0,80}?(?<![\p{L}\p{N}_])(?:i|på|under|över|bredvid)(?![\p{L}\p{N}_])[^.!?;:\n\r…—]{0,40}?(?<![\p{L}\p{N}_])(?:header(?:n|ns)?|footer(?:n|ns)?|nav(?:en|ens)?|navbar(?:en|ens)?|hero(?:n|ns)?|sidhuvud(?:et|ets)?|sidfot(?:en|ens)?|sida(?:n|ns)?|startsida(?:n|ns)?|dashboard(?:en|ens)?|kort(?:et|ets)?|komponent(?:en|ens)?|badge(?:n|ns)?)(?![\p{L}\p{N}_])/iu;
+
 // Tighter QA hints: drop bare `var` (very common in unrelated edit prompts
 // like "Var ska jag lägga knappen?") — keep the multi-word forms.
 const QA_HINT =
   /(?<![\p{L}\p{N}_])(?:vad|varför|hur|när|vilken|vilket|vilka|förklara|menar\s+du|can\s+you\s+explain|what\s+is|how\s+do|why\s+does|where\s+is)(?![\p{L}\p{N}_])/iu;
 const SCORE_HINT = /\b(betyg|poäng|score|rate|rating|bedöm|utvärder|grade)\b/i;
 const QUESTION_MARK = /\?/;
+
+function looksLikeScoreDisplayEdit(message: string): boolean {
+  // Use a fresh global regex per call: sharing a global RegExp would leak
+  // lastIndex between classifications. Each candidate is judged independently
+  // so an earlier QA clause cannot poison a later explicit edit.
+  const candidates = message.matchAll(
+    new RegExp(SCORE_DISPLAY_EDIT.source, `${SCORE_DISPLAY_EDIT.flags}g`),
+  );
+
+  for (const candidate of candidates) {
+    const score = candidate.groups?.score;
+    if (!score || candidate.index === undefined) continue;
+    const scoreOffset = candidate[0].indexOf(score);
+    if (scoreOffset < 0) continue;
+    const scoreEnd = candidate.index + scoreOffset + score.length;
+
+    // Only QA hints in the current clause through the score token change the
+    // intent. Hints after the score are edit modifiers ("när ...", "vilken
+    // färg ..."), not questions about how to perform the display edit.
+    const prefix = message.slice(0, scoreEnd);
+    const clauseBoundary = Math.max(
+      prefix.lastIndexOf("."),
+      prefix.lastIndexOf("!"),
+      prefix.lastIndexOf("?"),
+      prefix.lastIndexOf(";"),
+      prefix.lastIndexOf(":"),
+      prefix.lastIndexOf("\n"),
+      prefix.lastIndexOf("\r"),
+      prefix.lastIndexOf("…"),
+      prefix.lastIndexOf("—"),
+    );
+    if (!QA_HINT.test(prefix.slice(clauseBoundary + 1))) return true;
+  }
+
+  return false;
+}
 
 // Page-addition: explicit phrases only. Earlier the alternation included a
 // loose `\/[a-z0-9-]+\s*(?:sida|page)?` branch which fired on any path mention
@@ -128,7 +170,7 @@ function inspectRequestKindSignals(message: string): RequestKindSignals {
   return {
     hasQaHint: QA_HINT.test(message),
     hasQuestionMark: QUESTION_MARK.test(message),
-    hasChangeVerb: CHANGE_VERB.test(message),
+    hasChangeVerb: CHANGE_VERB.test(message) || looksLikeScoreDisplayEdit(message),
     hasScoreHint: SCORE_HINT.test(message),
   };
 }
@@ -157,10 +199,11 @@ function withSignals(
   };
 }
 
-function looksLikeQaOrScore(message: string): boolean {
-  const hasQa = (QA_HINT.test(message) && QUESTION_MARK.test(message)) || SCORE_HINT.test(message);
+function looksLikeQaOrScore(signals: RequestKindSignals): boolean {
+  const hasQa =
+    (signals.hasQaHint && signals.hasQuestionMark) || signals.hasScoreHint;
   if (!hasQa) return false;
-  if (CHANGE_VERB.test(message)) return false;
+  if (signals.hasChangeVerb) return false;
   return true;
 }
 
@@ -224,7 +267,7 @@ export function classifyRequestKind(message: string): ClassifyRequestKindResult 
     return withSignals("multi-change", signals);
   }
 
-  if (looksLikeQaOrScore(trimmed)) {
+  if (looksLikeQaOrScore(signals)) {
     return withSignals("qa-or-score", signals);
   }
 

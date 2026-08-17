@@ -627,6 +627,30 @@ describe("collectFollowUpClarificationAnswer", () => {
     expect(result?.sourceUserMessage).toBe(originalPrompt);
   });
 
+  it("consumes the plural text-scope paraphrase 'texterna'", () => {
+    const result = collectFollowUpClarificationAnswer(
+      buildMarkerMessages(),
+      "texterna",
+    );
+    expect(result?.answer).toBe("Text och innehåll");
+    expect(result?.sourceUserMessage).toBe(originalPrompt);
+  });
+
+  it("does NOT consume 'texterna' when it also carries a new instruction", () => {
+    expect(
+      collectFollowUpClarificationAnswer(
+        buildMarkerMessages(),
+        "texterna med en varmare ton",
+      ),
+    ).toBeNull();
+    expect(
+      collectFollowUpClarificationAnswer(
+        buildMarkerMessages(),
+        "texterna i footern",
+      ),
+    ).toBeNull();
+  });
+
   it("consumes 'ny sida' as the new-section option, not a new prompt", () => {
     const result = collectFollowUpClarificationAnswer(
       buildMarkerMessages(),

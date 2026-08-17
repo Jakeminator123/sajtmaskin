@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyEvalSuiteAbort,
+  classifyEvalStreamOutcome,
+  classifyEvalThrownError,
+  collectEvalStream,
+  collectEvalSuiteResults,
   deriveEvalCheckSources,
+  evalExitCode,
+  isPermanentProviderFault,
   resolveEvalEnvironment,
   resolveEvalPassOutcome,
+  resolveEvalRunOutcome,
+  summarizeEvalResults,
+  type EvalResult,
+  type EvalStreamFailure,
 } from "./runner";
+import { parseSSEBuffer } from "../stream/sse-parser";
 import { checkProjectSanity, type CheckResult } from "./checks";
 import type { CodeFile } from "../parser";
+import type { EvalPrompt } from "./prompts";
 
 function makeCheck(
   name: string,
@@ -97,6 +110,568 @@ describe("resolveEvalPassOutcome", () => {
 
     expect(result.passed).toBe(true);
     expect(result.blockingChecks).toEqual([]);
+  });
+});
+
+/**
+ * Regression lock for the 2026-08-17 weekly eval run. OpenAI answered every
+ * codegen call with `credit_balance_exhausted`, the SSE reader only looked at
+ * `event: content`, and the empty result was scored through all 12 checks — so
+ * an unpaid invoice was reported as an 18-prompt quality collapse (−23.6 % vs
+ * baseline, 14 fake `PASS → FAIL`). A provider failure is not a bad website.
+ */
+describe("classifyEvalStreamOutcome", () => {
+  it("reports a provider error event instead of scoring the empty content", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "",
+      errorPayloads: [
+        {
+          message: "OpenAI-krediten är slut. Fyll på i ditt OpenAI-konto.",
+          code: "credit_balance_exhausted",
+          permanent: true,
+          providerFault: true,
+        },
+      ],
+    });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("provider_error");
+    expect(outcome.failure.code).toBe("credit_balance_exhausted");
+    expect(outcome.failure.providerFault).toBe(true);
+  });
+
+  it("prefers the provider fault even when partial content arrived before it", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "```tsx\nexport default function Page(){",
+      errorPayloads: [
+        {
+          message: "Provider rate limit",
+          code: "rate_limit_exceeded",
+          providerFault: true,
+        },
+      ],
+    });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("provider_error");
+  });
+
+  /**
+   * `stream-format.ts` emits `error` with `code: output_truncated` (and no
+   * `providerFault`) *after* streaming real code. Treating every error event as
+   * a provider failure would mark those runs unmeasured, so a genuine truncation
+   * regression could walk past the gate as infra noise.
+   */
+  it("treats zero-content truncation as a quality miss, not as infra", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "",
+      errorPayloads: [
+        {
+          code: "output_truncated",
+          finishReason: "length",
+          message: "Modellen nådde maxlängden och svaret kan vara trunkerat.",
+        },
+      ],
+    });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("generation");
+    expect(outcome.failure.code).toBe("output_truncated");
+    expect(outcome.failure.providerFault).toBe(false);
+
+    const summary = summarizeEvalResults([
+      evalResult({
+        promptId: "coffee-shop",
+        generationStatus: "failed",
+        failureStage: "generation",
+        totalScore: 0,
+        passed: false,
+        blockingChecks: ["generation"],
+      }),
+    ]);
+    expect(summary.evaluated).toBe(1);
+    expect(summary.infraErrors).toBe(0);
+    expect(summary.avgScore).toBe(0);
+    expect(evalExitCode(resolveEvalRunOutcome({ summary }))).toBe(1);
+  });
+
+  it("still scores a truncated response, because truncation is a quality outcome", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "export default function Page(){return <main/>;}",
+      errorPayloads: [
+        {
+          code: "output_truncated",
+          finishReason: "length",
+          message: "Modellen nådde maxlängden och svaret kan vara trunkerat.",
+        },
+      ],
+    });
+
+    expect(outcome).toEqual({
+      ok: true,
+      content: "export default function Page(){return <main/>;}",
+    });
+  });
+
+  it("reports an unattributable error with no content as unmeasured, keeping its code", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "",
+      errorPayloads: [{ message: "Provider avbröt strömmen — försök igen eller byt modell." }],
+    });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("empty_stream");
+    expect(outcome.failure.message).toMatch(/avbröt strömmen/);
+  });
+
+  it("treats a silent empty stream as unmeasured, not as zero quality", () => {
+    const outcome = classifyEvalStreamOutcome({ content: "   \n", errorPayloads: [] });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("empty_stream");
+  });
+
+  it("passes real content through to the checks", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "export default function Page(){return null;}",
+      errorPayloads: [],
+    });
+
+    expect(outcome).toEqual({
+      ok: true,
+      content: "export default function Page(){return null;}",
+    });
+  });
+});
+
+describe("collectEvalStream", () => {
+  function sse(event: string, data: unknown): string {
+    return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  }
+
+  function streamOf(chunks: string[]): ReadableStream<Uint8Array> {
+    const encoder = new TextEncoder();
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+        controller.close();
+      },
+    });
+  }
+
+  it("surfaces the provider error event the old reader silently dropped", async () => {
+    const collection = await collectEvalStream(
+      streamOf([
+        sse("meta", { chatId: "eval_coffee-shop" }),
+        sse("error", {
+          message: "OpenAI-krediten är slut. Fyll på i ditt OpenAI-konto.",
+          code: "credit_balance_exhausted",
+          permanent: true,
+          providerFault: true,
+        }),
+      ]),
+    );
+
+    expect(collection.content).toBe("");
+    expect(collection.errorPayloads).toHaveLength(1);
+    expect(collection.errorPayloads[0].code).toBe("credit_balance_exhausted");
+  });
+
+  /**
+   * The in-repo parser splits on `\n` and pops the last incomplete line as
+   * `remaining`. It does not wait for an SSE blank-line record (`\n\n`).
+   * One trailing newline is enough to complete the last `data:` line — which
+   * is exactly what `collectEvalStream` appends on flush.
+   */
+  it("parses a complete last data line after a single newline, without an SSE blank record", () => {
+    const payload = {
+      message: "OpenAI-krediten är slut.",
+      code: "credit_balance_exhausted",
+      permanent: true,
+      providerFault: true,
+    };
+    const { events, remaining } = parseSSEBuffer(
+      `event: error\ndata: ${JSON.stringify(payload)}\n`,
+    );
+
+    expect(remaining).toBe("");
+    expect(events).toHaveLength(1);
+    expect(events[0]?.event).toBe("error");
+    expect((events[0]?.data as { code?: string }).code).toBe("credit_balance_exhausted");
+  });
+
+  it("leaves a mid-JSON data line in remaining instead of emitting a half event", () => {
+    const { events, remaining, pendingEvent } = parseSSEBuffer(
+      `event: error\ndata: {"code":"credit_balan`,
+    );
+
+    expect(events).toEqual([]);
+    expect(remaining).toBe('data: {"code":"credit_balan');
+    expect(pendingEvent).toBe("error");
+  });
+
+  it("does not flush a mid-JSON tail into a half event", async () => {
+    const collection = await collectEvalStream(
+      streamOf([`event: error\ndata: {"code":"credit_balan`]),
+    );
+
+    expect(collection.errorPayloads).toEqual([]);
+    expect(collection.content).toBe("");
+  });
+
+  it("collects a final error event when the stream ends without a blank SSE delimiter", async () => {
+    const wire =
+      `event: error\ndata: ${JSON.stringify({
+        message: "OpenAI-krediten är slut.",
+        code: "credit_balance_exhausted",
+        permanent: true,
+        providerFault: true,
+      })}`;
+
+    const collection = await collectEvalStream(streamOf([wire]));
+
+    expect(collection.content).toBe("");
+    expect(collection.errorPayloads).toHaveLength(1);
+    expect(collection.errorPayloads[0]?.code).toBe("credit_balance_exhausted");
+  });
+
+  it("keeps content that arrives split across chunk boundaries", async () => {
+    // The previous reader paired `event:`/`data:` lines inside a single decoded
+    // chunk, so any event cut in half by the network was lost outright.
+    const wire = sse("content", { text: "export default" }) + sse("content", { text: " function Page(){}" });
+    const cut = Math.floor(wire.length / 2);
+
+    const collection = await collectEvalStream(
+      streamOf([wire.slice(0, cut), wire.slice(cut)]),
+    );
+
+    expect(collection.content).toBe("export default function Page(){}");
+    expect(collection.errorPayloads).toEqual([]);
+  });
+});
+
+describe("classifyEvalThrownError", () => {
+  it("classifies a provider fault thrown out of generateCode", () => {
+    const inner = Object.assign(new Error("You have no credits remaining."), {
+      code: "credit_balance_exhausted",
+    });
+    const wrapper = Object.assign(new Error("Failed after 3 attempts."), { cause: inner });
+
+    expect(classifyEvalThrownError(wrapper)?.kind).toBe("provider_error");
+  });
+
+  it("classifies a transport failure as a provider error", () => {
+    expect(classifyEvalThrownError(Object.assign(new Error("socket hang up"), {
+      code: "UND_ERR_SOCKET",
+    }))?.kind).toBe("provider_error");
+  });
+
+  it("leaves a real harness bug reported as a generation failure", () => {
+    expect(classifyEvalThrownError(new TypeError("cannot read property of undefined"))).toBeNull();
+  });
+});
+
+function evalResult(overrides: Partial<EvalResult>): EvalResult {
+  return {
+    promptId: "coffee-shop",
+    generationStatus: "passed",
+    failureStage: null,
+    generationTimeMs: 1_000,
+    fileCount: 4,
+    finalProjectFiles: 10,
+    generatedSurfaceFiles: 4,
+    scaffoldId: "landing-page",
+    variantId: "corporate-grid",
+    promptSize: {
+      totalChars: 0,
+      totalEstimatedTokens: 0,
+      staticCoreChars: 0,
+      staticCoreEstimatedTokens: 0,
+      dynamicContextChars: 0,
+      dynamicContextEstimatedTokens: 0,
+      dynamicBudgetUsedTokens: 0,
+      dynamicBudgetBudgetTokens: 0,
+      droppedBlocks: 0,
+      largestBlocks: [],
+    },
+    preflight: {
+      errors: 0,
+      warnings: 0,
+      previewBlocked: false,
+      previewBlockingReason: null,
+    },
+    droppedProtectedPaths: [],
+    checks: [],
+    totalScore: 0.9,
+    passed: true,
+    blockingChecks: [],
+    ...overrides,
+  };
+}
+
+describe("summarizeEvalResults", () => {
+  it("keeps provider failures out of the quality average", () => {
+    const summary = summarizeEvalResults([
+      evalResult({ promptId: "coffee-shop", totalScore: 0.9, passed: true }),
+      evalResult({
+        promptId: "restaurant",
+        generationStatus: "skipped",
+        failureStage: "provider_error",
+        totalScore: 0,
+        passed: false,
+        generationTimeMs: 0,
+      }),
+    ]);
+
+    // Averaging over both would report 45 % and read as a regression.
+    expect(summary.avgScore).toBeCloseTo(0.9);
+    expect(summary.avgTimeMs).toBe(1_000);
+    expect(summary.evaluated).toBe(1);
+    expect(summary.skipped).toBe(1);
+    expect(summary.providerErrors).toBe(1);
+    expect(summary.infraErrors).toBe(0);
+  });
+
+  it("counts missing env and empty streams as infra, not provider", () => {
+    const summary = summarizeEvalResults([
+      evalResult({ generationStatus: "skipped", failureStage: "preflight_env", passed: false }),
+      evalResult({ generationStatus: "skipped", failureStage: "empty_stream", passed: false }),
+    ]);
+
+    expect(summary.infraErrors).toBe(2);
+    expect(summary.providerErrors).toBe(0);
+    expect(summary.evaluated).toBe(0);
+    expect(summary.avgScore).toBe(0);
+  });
+});
+
+function miniPrompt(id: string): EvalPrompt {
+  return {
+    id,
+    prompt: id,
+    intent: "website",
+    expected: {
+      minFiles: 1,
+      maxFiles: 8,
+      requiredFiles: ["app/page.tsx"],
+      requiredImports: [],
+      shouldCompile: false,
+    },
+  };
+}
+
+function providerFailure(overrides: Partial<EvalStreamFailure> = {}): EvalStreamFailure {
+  return {
+    kind: "provider_error",
+    message: "OpenAI-krediten är slut. Fyll på i ditt OpenAI-konto.",
+    code: "credit_balance_exhausted",
+    permanent: true,
+    providerFault: true,
+    ...overrides,
+  };
+}
+
+describe("applyEvalSuiteAbort / collectEvalSuiteResults", () => {
+  /**
+   * 2026-08-17: the weekly run kept submitting all 18 prompts after the first
+   * `credit_balance_exhausted`. Each later call still paid for input tokens.
+   * A permanent provider fault must stop the suite; a 429/5xx must not.
+   */
+  it("stops the suite after the first permanent provider fault and skips the rest", async () => {
+    const prompts = [miniPrompt("coffee-shop"), miniPrompt("dashboard"), miniPrompt("portfolio")];
+    let calls = 0;
+
+    const { results, aborted } = await collectEvalSuiteResults(prompts, async (prompt) => {
+      calls += 1;
+      const failure = providerFailure();
+      return {
+        result: evalResult({
+          promptId: prompt.id,
+          generationStatus: "skipped",
+          failureStage: "provider_error",
+          totalScore: 0,
+          passed: false,
+        }),
+        failure,
+      };
+    });
+
+    expect(calls).toBe(1);
+    expect(aborted).toBe(true);
+    expect(results.map((result) => result.promptId)).toEqual([
+      "coffee-shop",
+      "dashboard",
+      "portfolio",
+    ]);
+    expect(results[0].failureStage).toBe("provider_error");
+    expect(results[1]?.failureStage).toBe("suite_aborted");
+    expect(results[2]?.failureStage).toBe("suite_aborted");
+    expect(results[1]?.checks[0]?.message).toMatch(/coffee-shop/);
+    expect(results[1]?.blockingChecks).toEqual([]);
+
+    const summary = summarizeEvalResults(results);
+    expect(summary.evaluated).toBe(0);
+    expect(summary.skipped).toBe(3);
+    expect(summary.providerErrors).toBe(1);
+    expect(summary.notRun).toBe(2);
+    expect(summary.suiteAborted).toBe(true);
+    expect(summary.abortedAfterPromptId).toBe("coffee-shop");
+    expect(summary.avgScore).toBe(0);
+    expect(evalExitCode(resolveEvalRunOutcome({ summary }))).toBe(2);
+  });
+
+  it("does not let aborted prompts dilute a measured avgScore or count as provider errors", async () => {
+    const prompts = [miniPrompt("coffee-shop"), miniPrompt("dashboard"), miniPrompt("portfolio")];
+    let calls = 0;
+
+    const { results } = await collectEvalSuiteResults(prompts, async (prompt) => {
+      calls += 1;
+      if (prompt.id === "coffee-shop") {
+        return {
+          result: evalResult({ promptId: prompt.id, totalScore: 0.9, passed: true }),
+          failure: null,
+        };
+      }
+      return {
+        result: evalResult({
+          promptId: prompt.id,
+          generationStatus: "skipped",
+          failureStage: "provider_error",
+          totalScore: 0,
+          passed: false,
+        }),
+        failure: providerFailure({ code: "invalid_api_key", message: "Ogiltig OpenAI API-nyckel." }),
+      };
+    });
+
+    expect(calls).toBe(2);
+    const summary = summarizeEvalResults(results);
+    expect(summary.avgScore).toBeCloseTo(0.9);
+    expect(summary.evaluated).toBe(1);
+    expect(summary.providerErrors).toBe(1);
+    expect(summary.notRun).toBe(1);
+    expect(summary.abortedAfterPromptId).toBe("dashboard");
+  });
+
+  it("does not abort the suite on a transient provider fault", async () => {
+    const prompts = [miniPrompt("coffee-shop"), miniPrompt("dashboard"), miniPrompt("portfolio")];
+    let calls = 0;
+    const transient = providerFailure({
+      message: "OpenAI rate limit — för många anrop just nu, prova igen om en stund.",
+      code: "rate_limit_exceeded",
+      permanent: false,
+      providerFault: true,
+    });
+
+    const { results, aborted } = await collectEvalSuiteResults(prompts, async (prompt) => {
+      calls += 1;
+      if (prompt.id === "coffee-shop") {
+        return {
+          result: evalResult({
+            promptId: prompt.id,
+            generationStatus: "skipped",
+            failureStage: "provider_error",
+            totalScore: 0,
+            passed: false,
+          }),
+          failure: transient,
+        };
+      }
+      return {
+        result: evalResult({ promptId: prompt.id, totalScore: 0.8, passed: true }),
+        failure: null,
+      };
+    });
+
+    expect(calls).toBe(3);
+    expect(aborted).toBe(false);
+    expect(results.every((result) => result.failureStage !== "suite_aborted")).toBe(true);
+    expect(applyEvalSuiteAbort({
+      remainingPrompts: prompts.slice(1),
+      triggerPromptId: "coffee-shop",
+      failure: transient,
+    }).abort).toBe(false);
+
+    const summary = summarizeEvalResults(results);
+    expect(summary.suiteAborted).toBe(false);
+    expect(summary.notRun).toBe(0);
+    expect(summary.evaluated).toBe(2);
+    expect(summary.providerErrors).toBe(1);
+    expect(summary.avgScore).toBeCloseTo(0.8);
+  });
+
+  it("treats 5xx and transport faults as transient, not suite-stopping", () => {
+    expect(
+      isPermanentProviderFault(
+        providerFailure({
+          code: "server_error",
+          permanent: false,
+          providerFault: true,
+          message: "Tillfälligt fel hos provider — försök igen.",
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isPermanentProviderFault(
+        providerFailure({
+          code: "UND_ERR_SOCKET",
+          permanent: false,
+          providerFault: false,
+          message: "socket hang up",
+        }),
+      ),
+    ).toBe(false);
+    expect(isPermanentProviderFault(providerFailure())).toBe(true);
+  });
+});
+
+describe("resolveEvalRunOutcome / evalExitCode", () => {
+  function summaryWith(overrides: Partial<ReturnType<typeof summarizeEvalResults>>) {
+    return { ...summarizeEvalResults([evalResult({})]), ...overrides };
+  }
+
+  it("reports a provider error ahead of any quality verdict", () => {
+    const outcome = resolveEvalRunOutcome({
+      summary: summaryWith({ providerErrors: 1 }),
+      gateFailed: true,
+    });
+
+    expect(outcome).toBe("provider_error");
+    expect(evalExitCode(outcome)).toBe(2);
+  });
+
+  it("reports infra errors ahead of any quality verdict", () => {
+    const outcome = resolveEvalRunOutcome({ summary: summaryWith({ infraErrors: 1 }) });
+
+    expect(outcome).toBe("infra_error");
+    expect(evalExitCode(outcome)).toBe(2);
+  });
+
+  it("fails quality when a measured prompt failed, without any gate flag", () => {
+    const outcome = resolveEvalRunOutcome({
+      summary: summaryWith({ passed: 0, evaluated: 1 }),
+    });
+
+    expect(outcome).toBe("quality_fail");
+    expect(evalExitCode(outcome)).toBe(1);
+  });
+
+  it("passes when every evaluated prompt passed", () => {
+    const outcome = resolveEvalRunOutcome({ summary: summaryWith({}) });
+
+    expect(outcome).toBe("pass");
+    expect(evalExitCode(outcome)).toBe(0);
+  });
+
+  it("still fails quality when the optional gate flag is set on an otherwise green run", () => {
+    expect(resolveEvalRunOutcome({ summary: summaryWith({}), gateFailed: true })).toBe(
+      "quality_fail",
+    );
   });
 });
 

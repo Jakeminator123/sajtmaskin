@@ -320,6 +320,40 @@ describe("event-bus", () => {
     expect(bus.readAll("newest")).toHaveLength(1);
   });
 
+  it("rechecks the byte cap while appending to an existing version directory", () => {
+    const idleBytes = 2 * 1024 * 1024;
+    const appendBytes = bus.TMP_MIRROR_PRUNE_WRITE_CADENCE_BYTES;
+    const growingBytes = bus.MAX_TMP_MIRROR_BYTES - idleBytes - Math.floor(appendBytes / 2);
+    const idleAt = new Date(
+      Date.now() - bus.TMP_MIRROR_PRUNE_MIN_IDLE_MS - 60_000,
+    );
+
+    started("idle_victim");
+    writeVersionPayload("idle_victim", idleBytes);
+    backdateVersionDeep("idle_victim", idleAt);
+
+    // Skapandet kör den befintliga count-snabbvägen medan spegeln är under
+    // byte-taket. Därefter växer SAMMA versionsmapp över taket utan att en ny
+    // version skapas — write-cadencen måste då städa den idle kandidaten.
+    started("growing");
+    writeVersionPayload("growing", growingBytes);
+    expect(mirrorSizeBytes()).toBeLessThan(bus.MAX_TMP_MIRROR_BYTES);
+
+    bus.emit({
+      t: "version.build.error",
+      versionId: "growing",
+      error: {
+        stage: "build",
+        message: "x".repeat(appendBytes),
+      },
+    });
+
+    const dirs = listVersionDirs();
+    expect(dirs).toContain("growing");
+    expect(dirs).not.toContain("idle_victim");
+    expect(mirrorSizeBytes()).toBeLessThanOrEqual(bus.MAX_TMP_MIRROR_BYTES);
+  });
+
   it("does not prune a tmp-mirror dir younger than the idle floor even when over the byte cap", () => {
     const fatBytes = bus.MAX_TMP_MIRROR_BYTES + 1024;
     started("fat_fresh");

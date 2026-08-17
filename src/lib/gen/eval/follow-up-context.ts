@@ -25,7 +25,7 @@ type FollowUpEvalCase = {
   };
 };
 
-type FollowUpEvalResult = {
+export type FollowUpEvalResult = {
   id: string;
   passed: boolean;
   optimizedMessageChars: number;

@@ -112,6 +112,8 @@ export interface PreviewPanelProps {
   previewLifecycle?: PreviewLifecycleState;
   activeVersionStatus?: VersionDisplayStatus | null;
   activeVersionSummary?: string | null;
+  /** Server-written promotion boundary used to scope preview client-error dedupe. */
+  activeVersionPromotedAt?: string | Date | null;
   activeVersionIsLatest?: boolean;
   /** Latest repair pass index (0 when none), for bounded "Reparerar (X/2)" copy. */
   activeVersionRepairPassIndex?: number;
