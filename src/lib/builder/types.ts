@@ -34,18 +34,13 @@ const LEGACY_AUTO_REPAIR_PROMPT_PREFIX = "AUTO-FIX REQUEST";
  * The synthetic prompt the F3 auto-kick sends (`handleF3Ready`,
  * use-preview-layout.ts). Lives here so the send and the reload-classifier
  * below can never drift apart: the marker is client-optimistic only, so a
- * reloaded chat is classified by this content prefix.
+ * reloaded chat is classified by EXACT content match against this sentence.
+ * The kick has always sent this one fixed string, so exact match covers
+ * every legacy row — a prefix match would swallow a user's own follow-up
+ * that happens to start the same way (Bugbot på #1023).
  */
 export const F3_KICK_PROMPT =
   "Bygg integrationer nu utifrån den finaliserade designversionen.";
-
-/**
- * Legacy prefix for the F3 auto-kick prompt persisted before the
- * `sourceKind: "f3-kick"` marker existed. Old chats still carry the raw
- * sentence as a `"user"` row; the renderer must treat them as a system
- * event too. MUST remain a prefix of {@link F3_KICK_PROMPT}.
- */
-const LEGACY_F3_KICK_PROMPT_PREFIX = "Bygg integrationer nu utifrån";
 
 function hasPromptSourceMarker(
   message: Pick<ChatMessage, "uiParts">,
@@ -71,7 +66,7 @@ export function isF3KickPromptMessage(
 ): boolean {
   if (message.role !== "user") return false;
   if (hasPromptSourceMarker(message, "f3-kick")) return true;
-  return message.content.trimStart().startsWith(LEGACY_F3_KICK_PROMPT_PREFIX);
+  return message.content.trim() === F3_KICK_PROMPT;
 }
 
 export interface FileNode {

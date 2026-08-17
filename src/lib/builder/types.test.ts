@@ -16,7 +16,7 @@ describe("isF3KickPromptMessage", () => {
     ).toBe(true);
   });
 
-  it("matches a legacy user row whose content starts with the kick prefix", () => {
+  it("matches a legacy user row whose content is exactly the kick sentence", () => {
     expect(
       isF3KickPromptMessage({
         role: "user",
@@ -25,7 +25,16 @@ describe("isF3KickPromptMessage", () => {
     ).toBe(true);
   });
 
-  it("ignores leading whitespace on the legacy prefix", () => {
+  it("does NOT match a user's own text that merely starts like the kick (Bugbot #1023)", () => {
+    expect(
+      isF3KickPromptMessage({
+        role: "user",
+        content: "Bygg integrationer nu utifrån min skiss",
+      }),
+    ).toBe(false);
+  });
+
+  it("ignores leading whitespace on the legacy sentence", () => {
     expect(
       isF3KickPromptMessage({
         role: "user",
