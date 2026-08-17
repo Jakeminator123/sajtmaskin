@@ -1,23 +1,50 @@
 ---
-description: "Ägarens pre-MVP backup-branch får inte raderas eller skrivas över av agenter."
+description: "Brancher med BRA i versaler är ägarens frysta backuper och får aldrig raderas, force-pushas eller återanvändas av agenter."
 alwaysApply: true
 ---
 
-# Pre-MVP backup-branch
+# Skyddade backup-brancher
 
-Ägaren har reserverat branchen **`JAKOB_BRA_9999_INNNAN_MVP_BRA`** som en
-fryst kopia av `master` precis före vidare MVP-arbete (skapad 2026-08-13,
-SHA `991bb82` = Godnatt-bugg #953).
+**Kärnregel:** en branch vars namn innehåller **`BRA`** i versaler är ägarens
+frysta backup. Radera, force-pusha eller återanvänd den aldrig.
+
+Mönstret är avsiktligt brett i stället för en namnlista: ägaren skapar nya
+backuper löpande, och en lista hinner alltid bli inaktuell. Matchar namnet, är
+branchen skyddad — även om du aldrig sett den förut och inte vet vad den
+innehåller.
+
+Kända i dag, **äldst först** (exempel, inte uttömmande):
+
+| Branch | Snapshot | SHA |
+|---|---|---|
+| `rescue/stash-2026-07-10-bra-backup-radera-ej` | 10 jul 2026 | `2e2639a5c` |
+| `JAKOB_BRA_9999_INNNAN_MVP_BRA` | 12 aug 2026, `master` före MVP | `991bb82` |
+| `BRA_19191919` | 14 aug 2026, senare `master`-snapshot | `1695a8eb` |
+
+De är återställningspunkter, inte arbetsbrancher. De två `BRA`-namnen är rena snapshots av dåvarande `master` (inga egna commits). Rescue-stashen från 10 juli har tre commits som **inte** finns i `master` — raderas den är de borta.
 
 ## Förbjudet utan uttrycklig ägarorder i den aktuella chatten
 
-- `git branch -D` / `git push origin --delete` / `gh api` delete mot branchen
-- force-push, rebase, reset, merge in i den, eller återanvända namnet
-- "städa remote-branches", worktree-svep, Godnatt-cleanup eller liknande
-  som råkar matcha namnet
+- `git branch -D`, `git push origin --delete`, `gh api`-delete
+- force-push, rebase, reset, eller merge **in i** branchen
+- återanvända namnet för nytt arbete
+- "städa remote-branches", worktree-svep, Godnatt-cleanup eller annat svep som
+  råkar matcha
 
-GitHub-ruleset **Protect JAKOB_BRA_9999_INNNAN_MVP_BRA** blockerar radering
-och non-fast-forward. Det är inte ett tillstånd att försöka ändå.
+Att branchen ligger långt bakom `master`, saknar öppen PR eller inte har rörts
+på månader är **inget** argument för radering. Det är hela poängen med en
+backup.
 
-Endast ägaren (`Jakeminator123`) får radera eller flytta branchen, och då
-måste det sägas uttryckligen i chatten — inte som del av ett allmänt städ-svep.
+## Maskinläsbart syskon
+
+`scripts/dev/tidy.mjs` bär samma skydd i `SKYDDADE` (`/BRA/`, skiftlägeskänsligt).
+Ändrar du villkoret på ett ställe: ändra båda, annars börjar verktyget och regeln
+säga olika saker.
+
+GitHub-rulesetet **Protect BRA backups** blockerar radering och non-fast-forward
+på `BRA_*`, `*BRA*` och `rescue/*` (ingen admin-bypass). Syskonet **Protect
+JAKOB_BRA_9999_INNNAN_MVP_BRA** täcker den namngivna branchen extra. Ändra inte
+ruleseten för att «städa».
+
+Endast ägaren (`Jakeminator123`) får radera eller flytta en skyddad branch, och
+det måste sägas uttryckligen i chatten.
