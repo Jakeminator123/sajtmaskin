@@ -16,7 +16,7 @@ Kanonisk kod: den här mappen. Kanonisk regel: `.cursor/rules/evals.mdc`.
 | En namngiven prompt + dump failande filer | `npm run eval -- --prompts=arcade-with-klarna --dump-files` | ~1–4 min | OPENAI-quota för den prompten + DB |
 | Maskinläsbar utskrift (Backoffice) | lägg till `--json` | samma | samma som läget ovan |
 
-Default **utan flaggor kostar noll**. Codegen-lanen startar bara efter `--codegen`, `--full`, `--prompts=…`, eller de tillfälliga flaggorna `--gate` / `--save-baseline` (full svit; tas bort i nästa PR).
+Default **utan flaggor kostar noll**. Codegen-lanen startar bara efter `--codegen`, `--full` eller `--prompts=…`.
 
 ## Lanes
 
@@ -36,19 +36,13 @@ Topputfall: `PASS` / `FAIL` / `PROVIDER_ERROR` / `INFRA_ERROR`. Exit 0 / 1 / 2 f
 
 18 fasta prompts i `prompts.ts`: `coffee-shop`, `dashboard`, `portfolio`, `blog`, `pricing`, `auth`, `ecommerce`, `restaurant`, `agency`, `settings`, `booking-service`, `multi-page-brochure`, `saas-dashboard`, `content-heavy-blog`, `consultant-landing`, `realtor-multipage`, `dog-daycare`, `arcade-with-klarna`. `--codegen` kör smoke-delmängden `coffee-shop`, `restaurant`, `portfolio`. `--full` kör alla 18.
 
-`--gate` och `--save-baseline` finns kvar i den här PR:en så den manuella baseline-workflowen fortfarande fungerar. De innebär full svit. Baseline-jämförelsen (`compareWithBaseline` + `eval-baseline.json`) skrivs som **informativ** utskrift även utan `--gate`. Nästa PR tar bort grinden (`--gate`, `--save-baseline`) och hela workflowen.
+Baseline-jämförelsen (`compareWithBaseline` + `eval-baseline.json`) är **informativ utskrift**. Det finns ingen `--gate` och ingen `--save-baseline`. Vill du uppdatera den committade baselinen: kör `--full`, läs deltat, redigera/commita `eval-baseline.json` medvetet.
 
-Gate-regler (från `baseline.ts`, bara när `--gate` är satt):
-
-- `fail` om: någon `passed → failed`, snittpoäng ≤ −10 %, eller fler än 2 prompts tappar ≥20 %
-- `warning` om: nya blocking-checks, snittpoäng ≤ −5 %, eller någon enskild prompt tappar ≥15 %
-- `pass` annars
-
-Prompts som aldrig nådde checkarna (`generationStatus: "skipped"`) jämförs inte. `overallDelta` räknas över **samma** prompt-id:n som faktiskt utvärderades.
+Jämförelsereglerna i `baseline.ts` (fail/warning/pass) styr bara texten, inte exit-koden. Prompts som aldrig nådde checkarna jämförs inte. `overallDelta` räknas över **samma** prompt-id:n som faktiskt utvärderades.
 
 Provider- och infra-fel rangordnas före kvalitetsdomen. Ett **permanent** provider-fault avbryter resten av sviten (`suite_aborted`). Transient 429/5xx/transport stoppar inte. `output_truncated` utan innehåll är kvalitetsutfall, inte infra.
 
-**CI:** `.github/workflows/eval-baseline-update.yml` anropar `cli.ts --gate --save-baseline` direkt (inte `npm run eval`). Den är manuell + ev. schema; den är inte en andra eval-produkt. Skapa inte nya eval-workflows.
+**CI:** ingen schemalagd eval. Skapa inte nya eval-workflows utan uttryckligt ägarbeslut.
 
 **Backoffice → Overhead → Eval** har ett läge (gratis / smoke / full), en knapp, och kostnadsbekräftelse före betald lane. Den anropar `npm run eval -- --json` och läser senaste codegen-summary från `data/eval-runs/latest/`. Export till `docs/evals/` är explicit knapp. Genererade rapporter är inte source of truth.
 
@@ -82,7 +76,7 @@ Codegen-lanen kör `prepareGenerationContext()` + `generateCode()` och preflight
 
 1. Ny entry i `EVAL_PROMPTS` i `prompts.ts`.
 2. Kör `npm run eval -- --prompts=<id>` lokalt.
-3. När du vill ha den i baseline: full svit + `--save-baseline` (tills den flaggan försvinner).
+3. Vill du ha den i den committade baselinen: kör `--full`, jämför utskriften och uppdatera `eval-baseline.json` medvetet.
 4. Commita `prompts.ts` och ev. `eval-baseline.json`.
 
 ## Hänvisningar

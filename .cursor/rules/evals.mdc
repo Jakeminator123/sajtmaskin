@@ -3,7 +3,6 @@ description: "En canonical eval. Inga nya eval-CLI:n eller baseline-system."
 globs:
   - src/lib/gen/eval/**
   - scripts/eval/**
-  - scripts/scaffolds/eval-scaffold-selection.ts
   - backoffice/pages/eval_page.py
 alwaysApply: false
 ---

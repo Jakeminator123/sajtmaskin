@@ -54,27 +54,26 @@ export interface CanonicalEvalArgs {
   mode: CanonicalEvalMode;
   json: boolean;
   dumpMode: EvalDumpMode | undefined;
-  gate: boolean;
-  saveBaseline: boolean;
   promptIds: string[] | null;
 }
 
 export function parseCanonicalEvalArgs(args: string[]): CanonicalEvalArgs {
+  if (args.includes("--gate") || args.includes("--save-baseline")) {
+    throw new Error(
+      "--gate and --save-baseline were removed. Baseline compare is informational only. See src/lib/gen/eval/README.md",
+    );
+  }
   const json = args.includes("--json");
-  const gate = args.includes("--gate");
-  const saveBaseline = args.includes("--save-baseline");
   const wantsFull = args.includes("--full");
   const wantsCodegen = args.includes("--codegen") || args.includes("--smoke");
   const promptIds = parsePromptFilter(args);
   const dumpMode = parseDumpModeFlag(args);
 
   let mode: CanonicalEvalMode = "free";
-  // --gate / --save-baseline are the old full-suite flags the baseline
-  // workflow still calls without --full. They must not silently become free.
-  if (wantsFull || gate || saveBaseline) mode = "codegen-full";
+  if (wantsFull) mode = "codegen-full";
   else if (wantsCodegen || promptIds) mode = "codegen-smoke";
 
-  return { mode, json, dumpMode, gate, saveBaseline, promptIds };
+  return { mode, json, dumpMode, promptIds };
 }
 
 function parsePromptFilter(args: string[]): string[] | null {
@@ -123,18 +122,6 @@ export function resolveCanonicalOutcome(lanes: {
 export function canonicalExitCode(outcome: CanonicalTopOutcome): 0 | 1 | 2 {
   if (outcome === "provider_error" || outcome === "infra_error") return 2;
   return outcome === "fail" ? 1 : 0;
-}
-
-/** Do not persist a codegen baseline from a run that already failed elsewhere. */
-export function shouldSaveBaseline(options: {
-  saveBaseline: boolean;
-  gateFailed: boolean;
-  codegenBlocked: boolean;
-  followup: CanonicalLaneOutcome;
-  scaffold: CanonicalLaneOutcome;
-}): boolean {
-  if (!options.saveBaseline || options.codegenBlocked || options.gateFailed) return false;
-  return options.followup !== "fail" && options.scaffold !== "fail";
 }
 
 export function followupLaneFromResults(results: FollowUpEvalResult[]): CanonicalFollowupLane {
@@ -205,8 +192,6 @@ export function toCanonicalJson(result: CanonicalEvalResult): Record<string, unk
 export async function runCanonicalEval(options: {
   mode: CanonicalEvalMode;
   dumpMode?: EvalDumpMode;
-  gate?: boolean;
-  saveBaseline?: boolean;
   promptIds?: string[] | null;
   print?: (line: string) => void;
 }): Promise<{ result: CanonicalEvalResult; codegenReport: EvalReport | null }> {
@@ -244,7 +229,7 @@ export async function runCanonicalEval(options: {
     const { runEval, resolveEvalRunOutcome } = await import("./runner");
     const { formatEvalReport } = await import("./report");
     const { EVAL_PROMPTS } = await import("./prompts");
-    const { loadBaseline, saveBaseline, compareWithBaseline } = await import("./baseline");
+    const { loadBaseline, compareWithBaseline } = await import("./baseline");
 
     const promptIds =
       options.promptIds ??
@@ -269,7 +254,6 @@ export async function runCanonicalEval(options: {
 
     const { summary } = codegenReport;
     const runBlocked = summary.providerErrors > 0 || summary.infraErrors > 0;
-    let gateFailed = false;
 
     if (runBlocked) {
       print(
@@ -281,33 +265,12 @@ export async function runCanonicalEval(options: {
       if (baseline) {
         const comparison = compareWithBaseline(codegenReport, baseline);
         print(
-          `Baseline comparison (informational): overall delta ${(comparison.overallDelta * 100).toFixed(1)}%, gate ${comparison.gateResult}`,
+          `Baseline comparison (informational): overall delta ${(comparison.overallDelta * 100).toFixed(1)}%, compared ${comparison.gateResult}`,
         );
-        gateFailed = comparison.gateResult === "fail";
-        if (options.gate && gateFailed) {
-          print("Gate failed: regression detected.");
-        }
-      } else if (options.gate) {
-        print("No baseline found. Run with --save-baseline to create one.");
-      }
-      if (
-        shouldSaveBaseline({
-          saveBaseline: Boolean(options.saveBaseline),
-          gateFailed: Boolean(options.gate && gateFailed),
-          codegenBlocked: runBlocked,
-          followup: followup.outcome,
-          scaffold: scaffold.outcome,
-        })
-      ) {
-        await saveBaseline(codegenReport);
-        print("Baseline saved to src/lib/gen/eval/eval-baseline.json");
       }
     }
 
-    const codegenOutcome = resolveEvalRunOutcome({
-      summary,
-      gateFailed: Boolean(options.gate && gateFailed),
-    });
+    const codegenOutcome = resolveEvalRunOutcome({ summary });
     codegen = codegenLaneFromRun(codegenOutcome, summary, prompts.length);
   }
 

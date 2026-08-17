@@ -21,7 +21,7 @@ Maskineriet runtomkring — git-hooks, CI-jobb, självläkande testlane, prod-sk
 
 DB-skripten prefixar sin målrad med miljön: `db:latest -> [DEV] aws-1-eu-north-1…` respektive `[PROD] aws-1-us-east-1…` (okänt projekt, t.ex. lokal Postgres, lämnas omärkt). **Ser du ingen `[PROD]` läser du inte prod** — oavsett vilken flagga du trodde att du skickade.
 
-Flaggnamnen är **inte** enhetliga: `db:latest` tar `--prod`, medan `check-migrations-applied.mjs` tar `--env=<fil>`. En okänd flagga ignoreras tyst, så etiketten är det som avgör. Verifiera med `npm run db:check-target -- --expect=dev|prod` (sanitiserad utskrift, aldrig credentials) — CI kör samma guard mot `POSTGRES_URL_PROD` före prod-migrationer **och** före eval-baslinjen.
+Flaggnamnen är **inte** enhetliga: `db:latest` tar `--prod`, medan `check-migrations-applied.mjs` tar `--env=<fil>`. En okänd flagga ignoreras tyst, så etiketten är det som avgör. Verifiera med `npm run db:check-target -- --expect=dev|prod` (sanitiserad utskrift, aldrig credentials) — CI kör samma guard mot `POSTGRES_URL_PROD` före prod-migrationer.
 
 ## Migrationer körs INTE automatiskt vid Vercel-deploy
 
