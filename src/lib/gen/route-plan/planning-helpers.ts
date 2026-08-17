@@ -703,16 +703,20 @@ function collectPageCountClauseEvents(clause: string): PageCountClauseEvent[] {
 
 function findFinalExplicitPageCount(
   prompt: string,
-): { count: number; clause: string } | null {
-  let active: { count: number; clause: string } | null = null;
+): { count: number; clause: string; fromIndex: number } | null {
+  let active: { count: number; clause: string; fromIndex: number } | null = null;
+  let searchFrom = 0;
   for (const rawClause of prompt.split(/[.!?;\n]+/u)) {
+    const clauseStart = prompt.indexOf(rawClause, searchFrom);
+    searchFrom = clauseStart >= 0 ? clauseStart + rawClause.length : searchFrom;
     const clause = rawClause.trim();
-    if (!clause) continue;
+    if (!clause || clauseStart < 0) continue;
+    const fromIndex = clauseStart + rawClause.indexOf(clause);
     for (const event of collectPageCountClauseEvents(clause)) {
       if (event.kind === "negated") {
         if (active?.count === event.count) active = null;
       } else if (event.kind === "count") {
-        active = { count: event.count, clause };
+        active = { count: event.count, clause, fromIndex };
       }
     }
   }
@@ -774,13 +778,16 @@ export function detectExplicitPageCount(prompt: string): number | null {
   // restates the same page; a later named page still vetoes the cap.
   // Follow-up "lägg till bara en sida" is an add, not a site-wide cap.
   // "single-page plus an about page" names extra routes, so it is not a cap either.
+  // Add-page / extra-route vetoes only look from the winning clause onward, so
+  // an earlier "add another page" cannot veto a later "only one page".
   const explicitCount = findFinalExplicitPageCount(prompt);
   if (explicitCount === null) return null;
   if (explicitCount.count >= 2) return explicitCount.count;
+  const fromWinningClause = prompt.slice(explicitCount.fromIndex);
   if (
     countIndefinitePageMentions(explicitCount.clause) < 2 &&
-    !hasFollowUpAddPageIntent(prompt) &&
-    !hasAdditionalNamedPage(prompt)
+    !hasFollowUpAddPageIntent(fromWinningClause) &&
+    !hasAdditionalNamedPage(fromWinningClause)
   ) {
     return 1;
   }

@@ -1112,7 +1112,10 @@ function effectiveResponseScriptSources(headers) {
   const directives = new Map();
   for (const rawDirective of csp.split(";")) {
     const tokens = rawDirective.trim().split(/\s+/).filter(Boolean);
-    if (tokens.length > 0) directives.set(tokens[0].toLowerCase(), tokens.slice(1));
+    if (tokens.length === 0) continue;
+    const name = tokens[0].toLowerCase();
+    // CSP uses the first occurrence of a directive and ignores later duplicates.
+    if (!directives.has(name)) directives.set(name, tokens.slice(1));
   }
   return (
     directives.get("script-src-elem") ??

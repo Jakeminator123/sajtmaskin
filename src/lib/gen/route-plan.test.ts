@@ -1054,8 +1054,17 @@ describe("detectExplicitPageCount", () => {
     ["3 pages. Actually only one page.", 1],
     ["1 sida. Egentligen 3 sidor.", 3],
     ["3 sidor. Egentligen bara en sida.", 1],
+    ["Add another page. Actually, only one page.", 1],
+    ["Lägg till en sida. Egentligen bara en sida.", 1],
   ] as const)("uses the final explicit page-count correction: %s", (prompt, expected) => {
     expect(detectExplicitPageCount(prompt)).toBe(expected);
+  });
+
+  it.each([
+    "Only one page. Add another page.",
+    "Bara en sida. Lägg till en sida.",
+  ])("lets a later add-page follow-up veto an earlier one-page cap: %s", (prompt) => {
+    expect(detectExplicitPageCount(prompt)).toBeNull();
   });
 
   it.each([

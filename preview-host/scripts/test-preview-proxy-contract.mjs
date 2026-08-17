@@ -146,6 +146,16 @@ const upstream = http.createServer((req, res) => {
       );
       return;
     }
+    if (requestPath.endsWith("/csp-duplicate-script-src")) {
+      res.writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        "content-security-policy": "script-src 'nonce-real'; script-src 'nonce-other'",
+      });
+      res.end(
+        '<!doctype html><html><head><script nonce="real">self.__mock_next_boot=window.location.search</script></head><body>CSP</body></html>',
+      );
+      return;
+    }
     if (requestPath.endsWith("/csp-report-only")) {
       res.writeHead(200, {
         "content-type": "text/html; charset=utf-8",
@@ -1439,6 +1449,15 @@ try {
   assert.match(
     cspPrecedencePage.body,
     /api\/inspect-bridge[^>]+defer nonce="right"/,
+  );
+  const cspDuplicatePage = await rawGet(
+    `/${originSession.chatId}/csp-duplicate-script-src?inspect=1&__sm_viewer=${viewerA}`,
+    { "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "iframe" },
+  );
+  assert.equal(
+    extractBootstrapTag(cspDuplicatePage.body).nonce,
+    "real",
+    "duplicate script-src keeps the first nonce, matching CSP first-wins",
   );
   const cspReportOnlyPage = await rawGet(
     `/${originSession.chatId}/csp-report-only?__sm_viewer=${viewerA}`,
