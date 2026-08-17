@@ -58,6 +58,7 @@ export type EvalFailureStage =
   | "preflight_env"
   | "provider_error"
   | "empty_stream"
+  | "suite_aborted"
   | "generation"
   | null;
 
@@ -111,6 +112,15 @@ export interface EvalSummary {
   skipped: number;
   providerErrors: number;
   infraErrors: number;
+  /**
+   * Remaining prompts were never submitted because a permanent provider fault
+   * (exhausted credits, revoked key) made every further call a paid no-op.
+   */
+  suiteAborted: boolean;
+  /** Prompts never sent to the model after `suiteAborted`. */
+  notRun: number;
+  /** The prompt that triggered the abort, or null when the suite ran to the end. */
+  abortedAfterPromptId: string | null;
   /** Averages over `evaluated` only, so a billing failure cannot dilute them. */
   avgScore: number;
   avgTimeMs: number;
@@ -348,6 +358,79 @@ function makeStreamFailureResult(
 }
 
 /**
+ * A dead account, revoked key or similar will fail every remaining prompt the
+ * same way — and each submission still burns input tokens. Transient faults
+ * (429, 5xx, transport) can recover mid-suite, so they must not stop it.
+ */
+export function isPermanentProviderFault(failure: EvalStreamFailure): boolean {
+  return failure.providerFault === true && failure.permanent === true;
+}
+
+function formatStreamFailureReason(failure: EvalStreamFailure): string {
+  return failure.code ? `${failure.message} [${failure.code}]` : failure.message;
+}
+
+/**
+ * After one prompt's stream/throw outcome: either continue, or skip the rest
+ * as `suite_aborted` so they never become quality zeroes or extra paid calls.
+ */
+export function applyEvalSuiteAbort(params: {
+  remainingPrompts: EvalPrompt[];
+  triggerPromptId: string;
+  failure: EvalStreamFailure | null;
+}): { abort: boolean; skipped: EvalResult[] } {
+  if (!params.failure || !isPermanentProviderFault(params.failure)) {
+    return { abort: false, skipped: [] };
+  }
+
+  const reason = formatStreamFailureReason(params.failure);
+  return {
+    abort: true,
+    skipped: params.remainingPrompts.map((evalPrompt) =>
+      makeSkippedResult({
+        evalPrompt,
+        failureStage: "suite_aborted",
+        message:
+          `Suite aborted after ${params.triggerPromptId}: remaining prompts were not submitted. ` +
+          `Permanent provider fault: ${reason}`,
+        previewBlockingReason: "suite_aborted",
+      }),
+    ),
+  };
+}
+
+/**
+ * Walk prompts through `evaluate` and stop after a permanent provider fault.
+ * Tests lock this instead of calling `runEval` (which would hit the LLM).
+ */
+export async function collectEvalSuiteResults(
+  prompts: EvalPrompt[],
+  evaluate: (
+    prompt: EvalPrompt,
+  ) => Promise<{ result: EvalResult; failure: EvalStreamFailure | null }>,
+): Promise<{ results: EvalResult[]; aborted: boolean }> {
+  const results: EvalResult[] = [];
+
+  for (let i = 0; i < prompts.length; i++) {
+    const prompt = prompts[i];
+    const { result, failure } = await evaluate(prompt);
+    results.push(result);
+
+    const decision = applyEvalSuiteAbort({
+      remainingPrompts: prompts.slice(i + 1),
+      triggerPromptId: prompt.id,
+      failure,
+    });
+    if (decision.abort) {
+      results.push(...decision.skipped);
+      return { results, aborted: true };
+    }
+  }
+
+  return { results, aborted: false };
+}
+
+/**
  * Sources used by the per-prompt gate checks in `evaluatePrompt`.
  *
  * Pre-2026-04-27 the harness ran every check against the raw LLM
@@ -543,7 +626,11 @@ async function evaluatePrompt(
   evalPrompt: EvalPrompt,
   model: string,
   artifactContext: { runId: string; dumpMode: EvalDumpMode },
-): Promise<{ result: EvalResult; artifact: EvalPromptArtifactRecord | null }> {
+): Promise<{
+  result: EvalResult;
+  artifact: EvalPromptArtifactRecord | null;
+  streamFailure: EvalStreamFailure | null;
+}> {
   const start = performance.now();
 
   // Run the full orchestration pipeline so eval tests the SAME system prompt
@@ -593,7 +680,7 @@ async function evaluatePrompt(
       prompt: evalPrompt,
       result,
     });
-    return { result, artifact };
+    return { result, artifact, streamFailure: outcome.failure };
   }
   const content = outcome.content;
 
@@ -778,7 +865,7 @@ async function evaluatePrompt(
     },
   });
 
-  return { result, artifact };
+  return { result, artifact, streamFailure: null };
 }
 
 const INFRA_FAILURE_STAGES = new Set<EvalFailureStage>(["preflight_env", "empty_stream"]);
@@ -789,6 +876,8 @@ function mean(values: number[]): number {
 
 export function summarizeEvalResults(results: EvalResult[]): EvalSummary {
   const evaluated = results.filter((result) => result.generationStatus !== "skipped");
+  const notRun = results.filter((result) => result.failureStage === "suite_aborted").length;
+  const abortedIndex = results.findIndex((result) => result.failureStage === "suite_aborted");
   const blockingCheckCounts: Record<string, number> = {};
   for (const result of results) {
     for (const check of result.blockingChecks) {
@@ -803,6 +892,9 @@ export function summarizeEvalResults(results: EvalResult[]): EvalSummary {
     skipped: results.length - evaluated.length,
     providerErrors: results.filter((result) => result.failureStage === "provider_error").length,
     infraErrors: results.filter((result) => INFRA_FAILURE_STAGES.has(result.failureStage)).length,
+    suiteAborted: notRun > 0,
+    notRun,
+    abortedAfterPromptId: abortedIndex > 0 ? (results[abortedIndex - 1]?.promptId ?? null) : null,
     avgScore: mean(evaluated.map((result) => result.totalScore)),
     avgTimeMs: Math.round(mean(evaluated.map((result) => result.generationTimeMs))),
     blockingFailures: results.filter((result) => result.blockingChecks.length > 0).length,
@@ -821,7 +913,7 @@ export function resolveEvalRunOutcome(params: {
   summary: EvalSummary;
   gateFailed?: boolean;
 }): EvalRunOutcome {
-  if (params.summary.providerErrors > 0) return "provider_error";
+  if (params.summary.providerErrors > 0 || params.summary.suiteAborted) return "provider_error";
   if (params.summary.infraErrors > 0) return "infra_error";
   if (params.gateFailed === true) return "quality_fail";
   return "pass";
@@ -862,22 +954,20 @@ export async function runEval(
     return report;
   }
 
-  const results: EvalResult[] = [];
-
-  for (const evalPrompt of prompts) {
+  const { results, aborted } = await collectEvalSuiteResults(prompts, async (evalPrompt) => {
     try {
       console.info(`[eval] Running: ${evalPrompt.id}...`);
-      const { result, artifact } = await evaluatePrompt(evalPrompt, model, {
+      const { result, artifact, streamFailure } = await evaluatePrompt(evalPrompt, model, {
         runId,
         dumpMode,
       });
       if (artifact) promptArtifacts.push(artifact);
-      results.push(result);
       console.info(
         `[eval] ${evalPrompt.id}: score=${(result.totalScore * 100).toFixed(0)}% ` +
           `files=${result.fileCount} time=${result.generationTimeMs}ms ` +
           `${result.passed ? "PASS" : "FAIL"}`,
       );
+      return { result, failure: streamFailure };
     } catch (err) {
       // A provider fault thrown out of `generateCode` (billing, revoked key,
       // 429, socket reset) is not a generation defect — classify before
@@ -926,8 +1016,15 @@ export async function runEval(
         result,
       });
       if (artifact) promptArtifacts.push(artifact);
-      results.push(result);
+      return { result, failure: providerFailure };
     }
+  });
+
+  if (aborted) {
+    const notRun = results.filter((result) => result.failureStage === "suite_aborted").length;
+    console.error(
+      `[eval] Suite aborted after permanent provider fault — ${notRun} prompt(s) not submitted.`,
+    );
   }
 
   const report = {

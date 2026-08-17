@@ -197,7 +197,10 @@ async function main(): Promise<void> {
     // provider outage as a measurement of generation quality.
     console.error(
       `Eval could not measure quality — ${summary.providerErrors} provider error(s), ` +
-        `${summary.infraErrors} infra error(s), ${summary.evaluated}/${summary.total} prompts evaluated.`,
+        `${summary.infraErrors} infra error(s), ${summary.evaluated}/${summary.total} prompts evaluated` +
+        (summary.suiteAborted
+          ? `, suite aborted after ${summary.abortedAfterPromptId ?? "a prompt"} with ${summary.notRun} never submitted.`
+          : "."),
     );
     for (const result of report.results.filter((r) => r.generationStatus === "skipped").slice(0, 3)) {
       const [check] = result.checks;

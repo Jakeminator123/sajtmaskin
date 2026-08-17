@@ -73,6 +73,8 @@ Prompts som aldrig nådde checkarna (`generationStatus: "skipped"`) jämförs in
 
 Provider- och infra-fel **rangordnas före** kvalitetsdomen: de får inte poängen 0, de räknas inte som regression, baseline jämförs inte och skrivs inte. Fram till 2026-08-17 gjorde det motsatta beteendet en slut OpenAI-kredit till en «18-prompt-kollaps» (−23,6 % mot baseline, 14 falska `PASS → FAIL`).
 
+Ett **permanent** provider-fault (`providerFault` + `permanent`, t.ex. slut kredit eller ogiltig nyckel) **avbryter resten av sviten**. Kvarvarande prompts redovisas som `suite_aborted` / `ABORTED`, räknas i `summary.notRun` och skickas aldrig till modellen. Ett transient fel (429, 5xx, transport) stoppar inte sviten — det kan återhämta sig. Exit-koden är fortfarande 2.
+
 Avgörandet följer `providerFault` i error-eventet, inte bara att eventet finns. Ett `output_truncated` (eller ett provider-avbrott efter att kod hunnit strömma) **poängsätts** som vanligt — annars skulle en verklig trunkeringsregression slinka igenom gaten som «infra-brus». Körningen loggar då `scored despite stream error event(s)`.
 
 **Kostnad:** ~18 prompts × LLM-codegen-anrop för full suite. På `gpt-5.3-codex` med stora outputs blir det fort några dollar per körning. Kör inte casually.

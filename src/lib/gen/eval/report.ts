@@ -37,6 +37,8 @@ function rowStatus(result: EvalReport["results"][number]): string {
       return "EMPTY";
     case "preflight_env":
       return "ENV";
+    case "suite_aborted":
+      return "ABORTED";
     default:
       return "FAIL";
   }
@@ -56,8 +58,20 @@ export function formatEvalReport(report: EvalReport): string {
   if (summary.skipped > 0) {
     lines.push(
       `Not measured: ${summary.skipped}/${summary.total} ` +
-        `(provider ${summary.providerErrors}, infra ${summary.infraErrors}) — ` +
-        "excluded from Avg Score, not a quality regression.",
+        `(provider ${summary.providerErrors}, infra ${summary.infraErrors}` +
+        (summary.notRun > 0 ? `, not run ${summary.notRun}` : "") +
+        ") — excluded from Avg Score, not a quality regression.",
+      "",
+    );
+  }
+
+  if (summary.suiteAborted) {
+    const after = summary.abortedAfterPromptId
+      ? ` after ${summary.abortedAfterPromptId}`
+      : "";
+    lines.push(
+      `Suite aborted${after}: ${summary.notRun} prompt(s) were never submitted ` +
+        "(permanent provider fault). They are not quality failures and were not billed.",
       "",
     );
   }

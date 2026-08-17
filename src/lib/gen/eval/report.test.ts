@@ -55,6 +55,9 @@ describe("formatEvalReport", () => {
         skipped: 0,
         providerErrors: 0,
         infraErrors: 0,
+        suiteAborted: false,
+        notRun: 0,
+        abortedAfterPromptId: null,
         avgScore: 0.6,
         avgTimeMs: 900,
         blockingFailures: 1,
@@ -102,6 +105,9 @@ describe("formatEvalReport", () => {
         skipped: 1,
         providerErrors: 0,
         infraErrors: 1,
+        suiteAborted: false,
+        notRun: 0,
+        abortedAfterPromptId: null,
         avgScore: 0,
         avgTimeMs: 0,
         blockingFailures: 1,
@@ -152,6 +158,9 @@ describe("formatEvalReport", () => {
         skipped: 0,
         providerErrors: 0,
         infraErrors: 0,
+        suiteAborted: false,
+        notRun: 0,
+        abortedAfterPromptId: null,
         avgScore: 0.6,
         avgTimeMs: 900,
         blockingFailures: 1,
@@ -168,5 +177,68 @@ describe("formatEvalReport", () => {
     expect(output).toContain("Surface/Final");
     expect(output).toContain("files=surface:4 final:10");
     expect(output).toContain("Selected Dossier Instructions 8900c/~2782t");
+  });
+
+  it("prints suite abort and not-run count instead of treating remaining prompts as FAIL", () => {
+    const report: EvalReport = {
+      timestamp: "2026-08-17T12:00:00.000Z",
+      model: "gpt-5.5",
+      results: [
+        evalResult({
+          promptId: "coffee-shop",
+          generationStatus: "skipped",
+          failureStage: "provider_error",
+          totalScore: 0,
+          passed: false,
+          blockingChecks: [],
+          checks: [
+            {
+              name: "provider_error",
+              passed: false,
+              message: "OpenAI-krediten är slut. [credit_balance_exhausted]",
+              score: 0,
+            },
+          ],
+        }),
+        evalResult({
+          promptId: "dashboard",
+          generationStatus: "skipped",
+          failureStage: "suite_aborted",
+          totalScore: 0,
+          passed: false,
+          blockingChecks: [],
+          checks: [
+            {
+              name: "suite_aborted",
+              passed: false,
+              message: "Suite aborted after coffee-shop: remaining prompts were not submitted.",
+              score: 0,
+            },
+          ],
+        }),
+      ],
+      summary: {
+        total: 2,
+        passed: 0,
+        evaluated: 0,
+        skipped: 2,
+        providerErrors: 1,
+        infraErrors: 0,
+        suiteAborted: true,
+        notRun: 1,
+        abortedAfterPromptId: "coffee-shop",
+        avgScore: 0,
+        avgTimeMs: 0,
+        blockingFailures: 0,
+        blockingCheckCounts: {},
+      },
+    };
+
+    const output = formatEvalReport(report);
+    expect(output).toContain("Suite aborted after coffee-shop");
+    expect(output).toContain("1 prompt(s) were never submitted");
+    expect(output).toContain("not run 1");
+    expect(output).toContain("ABORTED");
+    expect(output).not.toMatch(/\| FAIL\s+\|/);
   });
 });

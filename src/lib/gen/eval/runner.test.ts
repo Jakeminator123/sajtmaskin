@@ -1,18 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyEvalSuiteAbort,
   classifyEvalStreamOutcome,
   classifyEvalThrownError,
   collectEvalStream,
+  collectEvalSuiteResults,
   deriveEvalCheckSources,
   evalExitCode,
+  isPermanentProviderFault,
   resolveEvalEnvironment,
   resolveEvalPassOutcome,
   resolveEvalRunOutcome,
   summarizeEvalResults,
   type EvalResult,
+  type EvalStreamFailure,
 } from "./runner";
 import { checkProjectSanity, type CheckResult } from "./checks";
 import type { CodeFile } from "../parser";
+import type { EvalPrompt } from "./prompts";
 
 function makeCheck(
   name: string,
@@ -349,6 +354,186 @@ describe("summarizeEvalResults", () => {
     expect(summary.providerErrors).toBe(0);
     expect(summary.evaluated).toBe(0);
     expect(summary.avgScore).toBe(0);
+  });
+});
+
+function miniPrompt(id: string): EvalPrompt {
+  return {
+    id,
+    prompt: id,
+    intent: "website",
+    expected: {
+      minFiles: 1,
+      maxFiles: 8,
+      requiredFiles: ["app/page.tsx"],
+      requiredImports: [],
+      shouldCompile: false,
+    },
+  };
+}
+
+function providerFailure(overrides: Partial<EvalStreamFailure> = {}): EvalStreamFailure {
+  return {
+    kind: "provider_error",
+    message: "OpenAI-krediten är slut. Fyll på i ditt OpenAI-konto.",
+    code: "credit_balance_exhausted",
+    permanent: true,
+    providerFault: true,
+    ...overrides,
+  };
+}
+
+describe("applyEvalSuiteAbort / collectEvalSuiteResults", () => {
+  /**
+   * 2026-08-17: the weekly run kept submitting all 18 prompts after the first
+   * `credit_balance_exhausted`. Each later call still paid for input tokens.
+   * A permanent provider fault must stop the suite; a 429/5xx must not.
+   */
+  it("stops the suite after the first permanent provider fault and skips the rest", async () => {
+    const prompts = [miniPrompt("coffee-shop"), miniPrompt("dashboard"), miniPrompt("portfolio")];
+    let calls = 0;
+
+    const { results, aborted } = await collectEvalSuiteResults(prompts, async (prompt) => {
+      calls += 1;
+      const failure = providerFailure();
+      return {
+        result: evalResult({
+          promptId: prompt.id,
+          generationStatus: "skipped",
+          failureStage: "provider_error",
+          totalScore: 0,
+          passed: false,
+        }),
+        failure,
+      };
+    });
+
+    expect(calls).toBe(1);
+    expect(aborted).toBe(true);
+    expect(results.map((result) => result.promptId)).toEqual([
+      "coffee-shop",
+      "dashboard",
+      "portfolio",
+    ]);
+    expect(results[0].failureStage).toBe("provider_error");
+    expect(results[1]?.failureStage).toBe("suite_aborted");
+    expect(results[2]?.failureStage).toBe("suite_aborted");
+    expect(results[1]?.checks[0]?.message).toMatch(/coffee-shop/);
+    expect(results[1]?.blockingChecks).toEqual([]);
+
+    const summary = summarizeEvalResults(results);
+    expect(summary.evaluated).toBe(0);
+    expect(summary.skipped).toBe(3);
+    expect(summary.providerErrors).toBe(1);
+    expect(summary.notRun).toBe(2);
+    expect(summary.suiteAborted).toBe(true);
+    expect(summary.abortedAfterPromptId).toBe("coffee-shop");
+    expect(summary.avgScore).toBe(0);
+    expect(evalExitCode(resolveEvalRunOutcome({ summary }))).toBe(2);
+  });
+
+  it("does not let aborted prompts dilute a measured avgScore or count as provider errors", async () => {
+    const prompts = [miniPrompt("coffee-shop"), miniPrompt("dashboard"), miniPrompt("portfolio")];
+    let calls = 0;
+
+    const { results } = await collectEvalSuiteResults(prompts, async (prompt) => {
+      calls += 1;
+      if (prompt.id === "coffee-shop") {
+        return {
+          result: evalResult({ promptId: prompt.id, totalScore: 0.9, passed: true }),
+          failure: null,
+        };
+      }
+      return {
+        result: evalResult({
+          promptId: prompt.id,
+          generationStatus: "skipped",
+          failureStage: "provider_error",
+          totalScore: 0,
+          passed: false,
+        }),
+        failure: providerFailure({ code: "invalid_api_key", message: "Ogiltig OpenAI API-nyckel." }),
+      };
+    });
+
+    expect(calls).toBe(2);
+    const summary = summarizeEvalResults(results);
+    expect(summary.avgScore).toBeCloseTo(0.9);
+    expect(summary.evaluated).toBe(1);
+    expect(summary.providerErrors).toBe(1);
+    expect(summary.notRun).toBe(1);
+    expect(summary.abortedAfterPromptId).toBe("dashboard");
+  });
+
+  it("does not abort the suite on a transient provider fault", async () => {
+    const prompts = [miniPrompt("coffee-shop"), miniPrompt("dashboard"), miniPrompt("portfolio")];
+    let calls = 0;
+    const transient = providerFailure({
+      message: "OpenAI rate limit — för många anrop just nu, prova igen om en stund.",
+      code: "rate_limit_exceeded",
+      permanent: false,
+      providerFault: true,
+    });
+
+    const { results, aborted } = await collectEvalSuiteResults(prompts, async (prompt) => {
+      calls += 1;
+      if (prompt.id === "coffee-shop") {
+        return {
+          result: evalResult({
+            promptId: prompt.id,
+            generationStatus: "skipped",
+            failureStage: "provider_error",
+            totalScore: 0,
+            passed: false,
+          }),
+          failure: transient,
+        };
+      }
+      return {
+        result: evalResult({ promptId: prompt.id, totalScore: 0.8, passed: true }),
+        failure: null,
+      };
+    });
+
+    expect(calls).toBe(3);
+    expect(aborted).toBe(false);
+    expect(results.every((result) => result.failureStage !== "suite_aborted")).toBe(true);
+    expect(applyEvalSuiteAbort({
+      remainingPrompts: prompts.slice(1),
+      triggerPromptId: "coffee-shop",
+      failure: transient,
+    }).abort).toBe(false);
+
+    const summary = summarizeEvalResults(results);
+    expect(summary.suiteAborted).toBe(false);
+    expect(summary.notRun).toBe(0);
+    expect(summary.evaluated).toBe(2);
+    expect(summary.providerErrors).toBe(1);
+    expect(summary.avgScore).toBeCloseTo(0.8);
+  });
+
+  it("treats 5xx and transport faults as transient, not suite-stopping", () => {
+    expect(
+      isPermanentProviderFault(
+        providerFailure({
+          code: "server_error",
+          permanent: false,
+          providerFault: true,
+          message: "Tillfälligt fel hos provider — försök igen.",
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isPermanentProviderFault(
+        providerFailure({
+          code: "UND_ERR_SOCKET",
+          permanent: false,
+          providerFault: false,
+          message: "socket hang up",
+        }),
+      ),
+    ).toBe(false);
+    expect(isPermanentProviderFault(providerFailure())).toBe(true);
   });
 });
 
