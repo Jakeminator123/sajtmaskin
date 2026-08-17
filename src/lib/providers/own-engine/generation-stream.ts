@@ -113,8 +113,8 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
   /**
    * Integration capabilities the F2 mute deferred this round. Persisted onto
    * the orchestration snapshot so the Byggblock panel and the chat's final
-   * steps can show them as "Planerad — kopplas in i nästa steg" instead of
-   * the mute being invisible to the user.
+   * steps can show them with the shared `planned` wording
+   * (`describeDossierStatus`) instead of the mute being invisible to the user.
    */
   mutedCapabilities?: string[];
   /** Provider-specific dossier ids deferred by the F2 mute. */
