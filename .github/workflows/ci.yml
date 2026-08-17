@@ -61,21 +61,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # ESLint anropas med --cache --cache-location .eslintcache, men cachen
-      # överlevde tidigare inte mellan körningar. .eslintcache är gitignorerad.
-      # Repot hade ingen actions/cache sedan tidigare; v4 är den etablerade
-      # majoren (v5/v6 kräver nyare runner-runtime).
-      # `tsconfig*.json` ingår i nyckeln: ändrade compiler-options kan ändra vad
-      # lintern rapporterar, och en återställd cache skulle annars låta de
-      # filerna passera oomvärderade i det blockerande quality-jobbet.
-      - name: Cache ESLint
-        uses: actions/cache@v4
-        with:
-          path: .eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs', 'tsconfig*.json', 'package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-eslint-
-
+      # Ingen actions/cache på `.eslintcache` här, medvetet. `npm run lint` kör
+      # `eslint --cache` utan `--cache-strategy`, alltså ESLints default
+      # `metadata` (filstorlek + mtime). En färsk `actions/checkout` ger varje
+      # fil ny mtime, så en återställd cache ogiltigförklaras ändå post för post
+      # och Lint-steget blir inte snabbare. Att göra cachen verksam kräver
+      # `--cache-strategy content`, och då blir den i stället riskabel: ESLints
+      # cache spårar inte korsfilsberoenden, så en oförändrad fil kan hoppas över
+      # trots att en typ den läser ändrats — på en blockerande lint-gate.
       # Auto-sync embedding JSON from public Blob manifest before any step
       # that may read scaffold/variant embeddings (tests, validate, build).
       - name: Ensure embeddings (sync + verify)
