@@ -388,7 +388,7 @@ describe("PreviewPanelF3Trigger", () => {
     expect(onStatus).toHaveBeenCalledWith({
       tone: "info",
       title: "ReleaseGate startar",
-      description: "Kontrollerar den deterministiska F3-versionen innan promotion.",
+      description: "Kontrollerar den deterministiska integrationsversionen innan promotion.",
       versionId: "ver_f2",
     });
     // The promoted F3 fork is the version the gate judged — not the F2 base
@@ -554,7 +554,7 @@ describe("PreviewPanelF3Trigger", () => {
     expect(onStatus).toHaveBeenCalledWith({
       tone: "success",
       title: "Integrationsbygget startar",
-      description: "F3 byggs nu utifrån den finaliserade designversionen.",
+      description: "Integrationsbygget startar nu utifrån den finaliserade designversionen.",
       versionId: "ver_f2",
     });
     vi.unstubAllGlobals();
@@ -565,7 +565,7 @@ describe("PreviewPanelF3Trigger", () => {
       label: "superseded",
       gate: { passed: true, promoted: false, superseded: true },
       status: 200,
-      expected: "F3-versionen ersattes av en nyare version",
+      expected: "Integrationsversionen ersattes av en nyare version",
     },
     {
       label: "promote error",

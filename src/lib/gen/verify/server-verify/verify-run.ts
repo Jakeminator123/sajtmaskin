@@ -210,7 +210,7 @@ export async function triggerServerVerification(params: {
       ? Boolean(
           await promoteVersion(
             versionId,
-            "F2 render-first: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
+            "Designläge: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande).",
             runId,
           ).catch(() => null),
         )
@@ -233,7 +233,7 @@ export async function triggerServerVerification(params: {
           level: "info",
           category: "quality-gate:typecheck-advisory",
           message:
-            "F2 render-first: advisory-promotering utfördes inte (lease/guard/DB) — lämnar terminalstatus till DB/route/watchdog.",
+            "Designläge: advisory-promotering utfördes inte (lease/guard/DB) — lämnar terminalstatus till DB/route/watchdog.",
           meta: { serverOwned: true, advisory: true, advisoryPromoted: false },
         },
       ]).catch(() => null);
@@ -284,7 +284,7 @@ export async function triggerServerVerification(params: {
         versionId,
         chatId,
         kind: "typecheck_advisory",
-        message: "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+        message: "Designläge: versionen promotades med typecheck-varningar (advisory).",
         meta: { advisoryChecks: ["typecheck"] },
       });
     }
@@ -305,7 +305,7 @@ export async function triggerServerVerification(params: {
             ? "Server verify passed with lint warnings (advisory)."
             : "Server verify passed."
           : advisoryPromoted
-            ? "F2 render-first: typecheck-varning (advisory) — previewen renderar; server-verify promotade utan repair."
+            ? "Designläge: typecheck-varning (advisory) — previewen renderar; server-verify promotade utan repair."
             : "Server verify failed.",
         meta: advisoryPromoted
           ? { ...qualityGateMeta, advisory: true, failedChecks: ["typecheck"] }

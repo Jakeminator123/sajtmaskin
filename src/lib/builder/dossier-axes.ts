@@ -102,7 +102,7 @@ export function describeDossierMockMode(
 export function describeF3Requirement(requiresF3: boolean): DossierAxisDescriptor {
   if (requiresF3) {
     return {
-      label: "Bygg integrationer",
+      label: "Kräver integrationsbygge",
       hint: 'Den riktiga funktionen skapas när du kör "Bygg integrationer". Innan dess kan ytan visas som demo.',
     };
   }

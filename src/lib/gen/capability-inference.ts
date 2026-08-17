@@ -453,7 +453,7 @@ export function buildCapabilityHints(
       // `STRIPE_SECRET_KEY` / `process.env.STRIPE_*` are deferred to F3 so the
       // prompt never both forbids (F2 contract) and requires payment keys.
       lines.push(
-        "- **Payments requested (F2 / design — mock-first)**: Build a polished checkout/pricing UI only. Render the order summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i F3 — klicka 'Bygg integrationer' i previewpanelen.\" Do NOT import Stripe SDKs, add payment API routes/webhooks (`/api/checkout-session`, `/api/stripe/*`), or reference `STRIPE_SECRET_KEY` / `process.env.STRIPE_*`. Keep all price/order data as inline mock constants. Real keys and the hosted Checkout wiring are an F3 step.",
+        "- **Payments requested (F2 / design — mock-first)**: Build a polished checkout/pricing UI only. Render the order summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i integrationsbygget — klicka 'Bygg integrationer' i previewpanelen.\" Do NOT import Stripe SDKs, add payment API routes/webhooks (`/api/checkout-session`, `/api/stripe/*`), or reference `STRIPE_SECRET_KEY` / `process.env.STRIPE_*`. Keep all price/order data as inline mock constants. Real keys and the hosted Checkout wiring are an F3 step.",
       );
     } else {
       lines.push(

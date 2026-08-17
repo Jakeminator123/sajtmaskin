@@ -477,7 +477,7 @@ export function useSendMessage(
               ),
             });
             settleRejectedTurn(
-              "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och fortsätt integrationsbygget.",
+              "Integrationsbygget kräver riktiga build-nycklar. Fyll i dem i kravytan och fortsätt.",
             );
             return {
               status: "rejected",
@@ -520,13 +520,13 @@ export function useSendMessage(
               });
               if (release.ok) {
                 content = release.alreadyPromoted
-                  ? "F3-versionen var redan godkänd av ReleaseGate."
-                  : "F3-versionen skapades från exakt samma filer och godkändes av ReleaseGate.";
+                  ? "Integrationsversionen var redan godkänd av ReleaseGate."
+                  : "Integrationsversionen skapades från exakt samma filer och godkändes av ReleaseGate.";
                 toast.success("ReleaseGate godkänd.");
               } else if (release.superseded) {
                 content =
-                  "F3-versionen ersattes av en nyare version innan ReleaseGate kunde promotera den.";
-                toast.warning("F3-versionen ersattes av en nyare version.");
+                  "Integrationsversionen ersattes av en nyare version innan ReleaseGate kunde promotera den.";
+                toast.warning("Integrationsversionen ersattes av en nyare version.");
               } else {
                 const failed = release.failedChecks.join(", ");
                 content = release.promoteError || release.retryable
@@ -565,8 +565,8 @@ export function useSendMessage(
                 missingByIntegration: release.missingByIntegration,
               });
               content =
-                "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och försök igen.";
-              toast.warning("F3 saknar obligatoriska env-värden.");
+                "Integrationsbygget kräver riktiga build-nycklar. Fyll i dem i kravytan och försök igen.";
+              toast.warning("Integrationsbygget saknar obligatoriska env-värden.");
               outcome = {
                 status: "rejected",
                 reason: "tier3_env_not_ready",
@@ -574,8 +574,8 @@ export function useSendMessage(
               };
             } else if (release.kind === "llm_ready") {
               content =
-                "F3-specen kräver nu ett vanligt integrationsbygge. Starta det igen från previewpanelen.";
-              toast.warning("F3-kontrollen kunde inte slutföras.");
+                "Specen kräver nu ett vanligt integrationsbygge. Starta det igen från previewpanelen.";
+              toast.warning("Integrationskontrollen kunde inte slutföras.");
               outcome = {
                 status: "rejected",
                 reason: "f3_build_required",
@@ -583,7 +583,7 @@ export function useSendMessage(
               };
             } else {
               content = release.message;
-              toast.warning("F3-kontrollen kunde inte slutföras.");
+              toast.warning("Integrationskontrollen kunde inte slutföras.");
               outcome = { status: "failed", message: release.message };
             }
             // Same single rule as everywhere else: a rejection the server did

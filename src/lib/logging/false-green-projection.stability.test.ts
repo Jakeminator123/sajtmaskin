@@ -125,7 +125,7 @@ describe("A7-1 false-green: terminal done raderar inte degraderingar", () => {
       ev("version.degraded", {
         kind: "product_postcheck_blocked",
         message:
-          "F2 Product Postcheck hittade blockerande produktfel (mobile_menu_failed, broken_anchor).",
+          "Product Postcheck hittade blockerande produktfel (mobile_menu_failed, broken_anchor).",
         meta: { blockingCodes: ["mobile_menu_failed", "broken_anchor"], warningCount: 3 },
       }),
       ev("version.done", { durationMs: 12_000, previewUrl: "https://example.test" }),

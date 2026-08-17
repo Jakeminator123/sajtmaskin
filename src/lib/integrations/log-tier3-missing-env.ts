@@ -52,7 +52,7 @@ function summarizeMissingKeys(
 export function formatTier3MissingEnvMessage(
   missingByIntegration: Tier3MissingByIntegration,
 ): string {
-  return `F3 blockerad: saknar ${summarizeMissingKeys(missingByIntegration)}`;
+  return `Integrationsbygget spärrat: saknar ${summarizeMissingKeys(missingByIntegration)}`;
 }
 
 /**

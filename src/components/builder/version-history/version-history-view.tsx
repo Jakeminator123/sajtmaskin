@@ -398,7 +398,7 @@ export function VersionHistory({
                   ? {
                       label: "Ej verifierad",
                       title:
-                        "F2-designversion: preview kan vara startad, men server-verify körs först vid Bygg integrationer.",
+                        "Designversion: preview kan vara startad, men server-verify körs först vid Bygg integrationer.",
                       className:
                         "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
                     }

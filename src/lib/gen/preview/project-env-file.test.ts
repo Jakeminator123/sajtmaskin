@@ -23,7 +23,7 @@ describe("buildProjectEnvFileContents", () => {
       appProjectId: "proj_test",
       generatedEnvLocal: null,
     });
-    expect(body).toContain("F2 / fidelity 2");
+    expect(body).toContain("designläge");
     expect(body).toContain("Bygg integrationer");
     expect(body).toContain("# ── Tier-3 placeholders");
     expect(body).toContain("# ── Säkra placeholders");
@@ -37,7 +37,7 @@ describe("buildProjectEnvFileContents", () => {
       generatedEnvLocal: null,
       lifecycleStage: "integrations",
     });
-    expect(body).toContain("F3 / fidelity 3");
+    expect(body).toContain("integrationsbygge");
     expect(body).not.toContain("# ── Tier-3 placeholders");
     expect(body).not.toContain("STRIPE_SECRET_KEY=");
     expect(body).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=");

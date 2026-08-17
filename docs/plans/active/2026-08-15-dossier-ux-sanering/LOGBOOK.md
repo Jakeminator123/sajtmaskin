@@ -10,7 +10,7 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 
 ## Framsteg
 
-**Totalt: 75 % (9/12 aktiviteter klara)**
+**Totalt: 83 % (10/12 aktiviteter klara) — alla vågor kompletta**
 
 | Id | Aktivitet | Status | Commit |
 |---|---|---|---|
@@ -23,7 +23,7 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 | K2 | Katalogklick stage:as | **Klar** | se git |
 | M1 | F3-kick som systemhändelse (avgjord minimal form) | **Klar** | se git |
 | U1 | Byggblock-ytans lyft (popover → Sheet) | **Klar** | se git |
-| F1 | F2/F3-begreppsutfasning | Ej startad | – |
+| F1 | F2/F3-begreppsutfasning | **Klar** | se git |
 | HK | Housekeeping-svep (docs/schema/backlog/beslut/städ) | Ej startad | – |
 | V | Slutverifiering + bugbot | Ej startad | – |
 

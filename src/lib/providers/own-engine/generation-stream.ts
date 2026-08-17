@@ -57,7 +57,7 @@ const MALFORMED_INTEGRATION_TOOL_CALL_REASON = "malformed_integration_tool_call_
  * this only fires when F2's own tool-only branch doesn't apply).
  */
 const MALFORMED_INTEGRATION_TOOL_CALL_MESSAGE =
-  "Integrationsförslaget kunde inte tolkas — försök igen eller starta F3-bygget via knappen.";
+  "Integrationsförslaget kunde inte tolkas — försök igen eller starta integrationsbygget via knappen.";
 
 /**
  * Pulls a non-negative reasoning-token count out of whatever shape the

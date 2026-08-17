@@ -166,7 +166,7 @@ export const F3_REJECT_ACK_REASON = "f3_reject_acknowledged";
  * transition out of F3 is explicit in the chat history.
  */
 export const F3_CONTINUATION_DESIGN_ROUND_NOTICE =
-  "Den här rundan kördes som designrunda (F2) — svaret tolkades inte som ett godkännande, så integrationsläget avslutades. Kör 'Bygg integrationer' igen när du vill bygga integrationerna (F3).";
+  "Den här rundan kördes som designrunda — svaret tolkades inte som ett godkännande, så integrationsläget avslutades. Kör 'Bygg integrationer' igen när du vill bygga integrationerna.";
 
 /**
  * Honest close-out for an APPROVED round with nothing approvable (review

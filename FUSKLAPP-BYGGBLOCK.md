@@ -45,11 +45,11 @@ Ingen av dessa kan härledas ur någon annan:
 | Axel | Fråga | Värden | Ägare |
 |---|---|---|---|
 | Klass | Har implementationen en deklarerad provider-/integrationskoppling? | Kopplad (`hard`) / Fristående (`soft`) | mappen `data/dossiers/{hard,soft}/` |
-| Demoläge | Hur beter sig ytan i F2/designläget utan livekonfiguration? | `canned` / `seed` / `success` / `visual` / `none` | `manifest.mock` |
-| Kräver F3 | Måste riktiga integrationen byggas i eget steg? | ja / nej | `dossierRequiresF3()` — build-nyckel ELLER serverfil |
+| Demoläge | Hur beter sig ytan i designläget utan livekonfiguration? | `canned` / `seed` / `success` / `visual` / `none` | `manifest.mock` |
+| Kräver integrationsbygge | Måste riktiga integrationen byggas i eget steg? | ja / nej | `dossierRequiresF3()` — build-nyckel ELLER serverfil |
 
-Exempel på oberoendet: `vercel-analytics` är Kopplad men kräver **inte** F3.
-`stripe-checkout` kräver F3 pga sin **serverfil** — inte pga nyckeln (den är `feature-runtime`).
+Exempel på oberoendet: `vercel-analytics` är Kopplad men kräver **inte** integrationsbygge.
+`stripe-checkout` kräver integrationsbygge pga sin **serverfil** — inte pga nyckeln (den är `feature-runtime`).
 
 ## Vad ett manifest innehåller
 
@@ -70,7 +70,7 @@ Valfritt: `envVars[]` (med `enforcement` och `setupUrl`), `dependencies` (npm), 
 | `feature-runtime` | vid användning | Bygget går igenom; funktionen kör demo tills värdet sparas |
 | `warn-only` | valfri | Funktionen stänger av sig själv tyst utan värde |
 
-## Demolägen (vad besökaren ser i F2 utan livekonfiguration)
+## Demolägen (vad besökaren ser i designläget utan livekonfiguration)
 
 | `mock` | Besökaren får |
 |---|---|
@@ -83,7 +83,7 @@ Valfritt: `envVars[]` (med `enforcement` och `setupUrl`), `dependencies` (npm), 
 ## Status i Byggblock-panelen (per version, rapportering — inte deploybevis)
 
 `Planerad` → `Blockerad — nyckel krävs` → `Byggd — demo aktiv` → `Byggd — live`, samt
-`Inkopplad` för det som är klart utan F3-runda. Ägare: `resolveDossierLifecycle()`.
+`Inkopplad` för det som är klart utan integrationsrunda. Ägare: `resolveDossierLifecycle()`.
 
 ## Beroenden mellan capabilities
 
@@ -99,7 +99,7 @@ databas är en egen capability med eget byggblock.
 |---|---|
 | Allt om ett byggblock | `data/dossiers/<klass>/<id>/manifest.json` |
 | Vilka som väljs och varför | `src/lib/gen/dossiers/select.ts` |
-| Kräver F3-regeln | `dossierRequiresF3()` i `src/lib/gen/dossiers/types.ts` |
+| Kräver integrationsbygge-regeln | `dossierRequiresF3()` i `src/lib/gen/dossiers/types.ts` |
 | Svenska UI-orden | `src/lib/builder/dossier-axes.ts` (+ spegel i backoffice) |
 | Statusregeln | `src/lib/gen/dossiers/lifecycle.ts` |
 | Grupperna | `src/lib/builder/dossier-groups.ts` |

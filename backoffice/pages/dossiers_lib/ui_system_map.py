@@ -346,7 +346,7 @@ def _section_system_map(dossiers: list[dict[str, Any]]) -> None:
 
         hard = _sv_label(class_vocab.get("hard"), "Kopplad")
         soft = _sv_label(class_vocab.get("soft"), "Fristående")
-        requires_f3 = _sv_label(f3_vocab.get("true"), "Kräver F3")
+        requires_f3 = _sv_label(f3_vocab.get("true"), "Kräver integrationsbygge")
         clear_in_f2 = _sv_label(f3_vocab.get("false"), "Klar i designläget")
         st.markdown(
             f"- **Klass** (`{hard}` / `{soft}`) kommer från mappen `hard/` eller `soft/`; "

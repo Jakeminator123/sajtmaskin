@@ -55,7 +55,7 @@ export type EnvVarProvenance =
 export type PreviewLifecycleStage = "design" | "integrations";
 
 const FILE_HEADER = `# Sajtmaskin preview env — merged (harmless + tier3-stub → project → user → generated)
-# Placeholders keep the preview running; replace tier-3 values with real ones before F3 / publishing.
+# Placeholders keep the preview running; replace tier-3 values with real ones before integrationsbygge / publishing.
 `;
 
 /**
@@ -86,11 +86,11 @@ export function isPipelineAuthoredEnvLocal(content: string | null | undefined): 
 
 const SECTION_HEADERS: Record<EnvVarProvenance, string> = {
   harmless:
-    "# ── Harmless placeholders (auto, safe in F3) ──────────────────────\n" +
+    "# ── Harmless placeholders (auto, safe in integrations build) ──────\n" +
     "# Test/publishable keys + generic secrets. Safe to ship as-is.",
   "tier3-stub":
-    "# ── Tier-3 stub placeholders (auto, F2 only) ──────────────────────\n" +
-    "# Boot the project in F2 only. Replace with real values before F3.",
+    "# ── Tier-3 stub placeholders (auto, designläge only) ──────────────\n" +
+    "# Boot the project in designläge only. Replace with real values before integrationsbygge.",
   "project-preview":
     "# ── Project preview tokens (auto) ──────────────────────────────────\n" +
     "# Stable per-project identifiers for preview sessions.",

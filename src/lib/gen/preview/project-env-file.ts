@@ -49,7 +49,7 @@ export const PROJECT_ENV_FILE_PATH = "env.example";
 const LEGACY_PROJECT_ENV_FILE_PATHS = ["env.env", "./env.env"] as const;
 
 const F2_HEADER = `# ─────────────────────────────────────────────────────────────────────
-# env.example — DOCUMENTATION ONLY (F2 / fidelity 2)
+# env.example — DOCUMENTATION ONLY (designläge)
 # ─────────────────────────────────────────────────────────────────────
 #
 # Next.js läser INTE den här filen. Det är en hjälpkommentar som listar
@@ -57,7 +57,7 @@ const F2_HEADER = `# ───────────────────�
 # placeholder-värden så du kan se exakt vilka nycklar som finns.
 #
 # För att köra projektet LOKALT: kopiera den här filen till .env.local
-# och fyll i riktiga värden. För preview/F2 i Sajtmaskin behöver du
+# och fyll i riktiga värden. För preview/designläge i Sajtmaskin behöver du
 # inte göra något — preview-VM:en bootar med interna placeholders.
 #
 # När du är redo att koppla på riktiga integrationer klickar du på
@@ -71,7 +71,7 @@ const F2_HEADER = `# ───────────────────�
 `;
 
 const F3_HEADER = `# ─────────────────────────────────────────────────────────────────────
-# env.example — DOCUMENTATION ONLY (F3 / fidelity 3)
+# env.example — DOCUMENTATION ONLY (integrationsbygge)
 # ─────────────────────────────────────────────────────────────────────
 #
 # Next.js läser INTE den här filen. Det är en hjälpkommentar som listar
@@ -96,11 +96,11 @@ const SECTION_HEADERS: Record<EnvVarProvenance, string> = {
     "# ── Stabila projekt-tokens (auto) ───────────────────────────────\n" +
     "# Härleds från projekt-id, oförändrade mellan körningar.",
   "tier3-stub":
-    "# ── Tier-3 placeholders (auto, bara F2) ─────────────────────────\n" +
+    "# ── Tier-3 placeholders (auto, bara designläge) ─────────────────\n" +
     "# Bootar projektet med fake-värden så det går att klicka runt.\n" +
-    "# Skalas bort i F3 — då måste riktiga värden fyllas i via Byggblock.",
+    "# Skalas bort i integrationsbygget — då måste riktiga värden fyllas i via Byggblock.",
   harmless:
-    "# ── Säkra placeholders (auto, OK i F3 också) ────────────────────\n" +
+    "# ── Säkra placeholders (auto, OK i integrationsbygget också) ────\n" +
     "# Test/publishable-nycklar och generiska secrets — inte hemliga.",
 };
 
@@ -119,11 +119,11 @@ const SECTION_ORDER: EnvVarProvenance[] = [
  * sees exactly what to fill in — without the old full-catalog dump.
  */
 const DOSSIER_SCOPE_HEADER_F2 =
-  "# ── Nycklar för valda byggblock (demo-värden i F2) ─────────────\n" +
+  "# ── Nycklar för valda byggblock (demo-värden i designläget) ────\n" +
   "# De här dossier:erna deklarerar nycklar utan auto-placeholder.\n" +
-  "# I F2 fylls de med demo-värden (…_placeholder_preview_not_real) så\n" +
+  "# I designläget fylls de med demo-värden (…_placeholder_preview_not_real) så\n" +
   "# preview funkar utan riktiga nycklar. Byt till riktiga värden under\n" +
-  "# Byggblock när du klickar \"Bygg integrationer\" (F3).";
+  "# Byggblock när du klickar \"Bygg integrationer\".";
 
 const DOSSIER_SCOPE_HEADER_F3 =
   "# ── Nycklar för valda byggblock (fyll i via Byggblock) ─────────\n" +
@@ -231,7 +231,7 @@ function buildDetectedIntegrationsCommentBlock(
   return [
     "# ── Upptäckta integrationer i koden (kommenterade, inaktiva) ────",
     "# Modellen har refererat till dessa env-variabler i den genererade",
-    "# koden. De är AVSIKTLIGT kommenterade i F2 — sajten ska bootas",
+    "# koden. De är AVSIKTLIGT kommenterade i designläget — sajten ska bootas",
     "# utan dem. När du klickar \"Bygg integrationer\" kommer du få fylla i de",
     "# som faktiskt behövs.",
     "",

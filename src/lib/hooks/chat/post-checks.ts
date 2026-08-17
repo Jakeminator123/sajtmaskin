@@ -474,7 +474,7 @@ export async function runPostGenerationChecks(params: {
         output: {
           skipped: true,
           reason:
-            "ReleaseGate (typecheck + build) körs av servern för F3-versioner — status uppdateras i versionspanelen.",
+            "ReleaseGate (typecheck + build) körs av servern för integrationsversioner — status uppdateras i versionspanelen.",
           serverOwned: true,
         },
       } as UiMessagePart);
@@ -850,7 +850,7 @@ async function runTier2VerifyLane(params: {
           ? data.advisoryChecks.join(", ")
           : "typecheck";
       steps.push(
-        `F2 render-first: ${advisoryLabel}-varning (advisory) — previewen renderar, versionen är användbar. Åtgärda i lugn och ro; ingen automatisk reparation kördes.`,
+        `Designläge: ${advisoryLabel}-varning (advisory) — previewen renderar, versionen är användbar. Åtgärda i lugn och ro; ingen automatisk reparation kördes.`,
       );
     } else if (data.qualityGateAdvisory) {
       const advisoryLabel =

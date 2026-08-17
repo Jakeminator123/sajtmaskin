@@ -359,7 +359,7 @@ async function buildEngineReadiness(
             kind: lintAdvisory ? "lint_advisory" : "typecheck_advisory",
             message: lintAdvisory
               ? "ReleaseGate godkändes med ESLint-varningar (advisory)."
-              : "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+              : "Designläge: versionen promotades med typecheck-varningar (advisory).",
             meta: { advisoryChecks },
           });
         } catch {

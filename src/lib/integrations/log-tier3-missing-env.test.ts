@@ -22,7 +22,7 @@ describe("formatTier3MissingEnvMessage", () => {
       formatTier3MissingEnvMessage([
         { key: "resend", name: "Resend", missing: ["RESEND_API_KEY", "EMAIL_FROM"] },
       ]),
-    ).toBe("F3 blockerad: saknar RESEND_API_KEY, EMAIL_FROM");
+    ).toBe("Integrationsbygget spärrat: saknar RESEND_API_KEY, EMAIL_FROM");
   });
 
   it("truncates long lists", () => {

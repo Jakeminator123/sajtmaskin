@@ -1,5 +1,5 @@
 ---
-description: "Chatten får inte fråga användaren om env-nycklar. Byggblock-panelen är den frivilliga nyckelytan (F2+F3)."
+description: "Chatten får inte fråga användaren om env-nycklar. Byggblock-panelen är den frivilliga nyckelytan (designläge + integrationsbygge)."
 globs:
   - src/lib/api/engine/chats/**
   - src/lib/providers/own-engine/**
@@ -14,13 +14,13 @@ alwaysApply: false
 
 # Env-flöde: chatten är tyst, Byggblock är nyckelytan
 
-F2 (`lifecycleStage === "design"`) får inte producera env-frågor **i chatten**. Tystnaden gäller env-*trafik i chatten* — inte frivillig konfiguration. **Ägarbeslut 2026-07-13 (ersätter det tidigare katalog/status-only-kontraktet):** Byggblock-popovern är den primära ytan för att välja, se status på och **konfigurera** dossiers — expanderade hard-dossier-rader har maskerade, write-only env-inputs i **både F2 och F3**, som sparar till kanoniska `POST /api/v0/projects/[projectId]/env-vars`. En sparad feature-runtime-nyckel flippar `built-demo` → `built-live` utan ny LLM-runda. Katalogklick stage:ar först: hard-block med env-nycklar får samma write-only-fält *före* bekräftelse, valfritt — utan nyckel körs demo, och ingen generering startar förrän «Lägg till i sajten».
+Designläge (`lifecycleStage === "design"`, kodalias F2) får inte producera env-frågor **i chatten**. Tystnaden gäller env-*trafik i chatten* — inte frivillig konfiguration. **Ägarbeslut 2026-07-13 (ersätter det tidigare katalog/status-only-kontraktet):** Byggblock-popovern är den primära ytan för att välja, se status på och **konfigurera** dossiers — expanderade hard-dossier-rader har maskerade, write-only env-inputs i **både designläge och integrationsbygge**, som sparar till kanoniska `POST /api/v0/projects/[projectId]/env-vars`. En sparad feature-runtime-nyckel flippar `built-demo` → `built-live` utan ny LLM-runda. Katalogklick stage:ar först: hard-block med env-nycklar får samma write-only-fält *före* bekräftelse, valfritt — utan nyckel körs demo, och ingen generering startar förrän «Lägg till i sajten».
 
-**Ägarbeslut 2026-07-22:** Byggblock är numera den **enda** env-ytan — `ProjectEnvVarsPanel` (stora editorn) och `F3PlaceholderToggle` är borttagna. Placeholders är **alltid** tillåtna för build-nycklar i F3 (`allowPlaceholdersInF3`-flaggan finns inte längre): integrationsbygget går igenom i demoläge och riktiga nycklar fylls i via Byggblock efteråt. 412 kan bara uppstå för en build-nyckel som saknar placeholder i katalogen.
+**Ägarbeslut 2026-07-22:** Byggblock är numera den **enda** env-ytan — `ProjectEnvVarsPanel` (stora editorn) och `F3PlaceholderToggle` är borttagna. Placeholders är **alltid** tillåtna för build-nycklar i integrationsbygget (`allowPlaceholdersInF3`-flaggan finns inte längre): integrationsbygget går igenom i demoläge och riktiga nycklar fylls i via Byggblock efteråt. 412 kan bara uppstå för en build-nyckel som saknar placeholder i katalogen.
 
 Vid `finalize-design` `412` är serverns `missingByIntegration` fortsatt source of truth för *vilka* nycklar som saknas, men kravytan (`F3RequirementsSurface`) listar dem inte igen — den visar ett kort besked och **öppnar/fokuserar rätt dossier i Byggblock** (ren UI-åtgärd, ingen klient-omdetektion). Byggblock är enda skrivytan.
 
-F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`env-local.ts`) renderar demo-ytan utan riktiga nycklar. Statusmodellen ljuger aldrig om det: `planned` / `blocked-build` / `built-demo` / `built-live` (`DossierStatus` i `dossier-overview.ts`) — orden ägs av `describeDossierStatus`; "Byggd" utan livenycklar heter alltid "Demo". `built-demo` blockerar aldrig publicering.
+Designläget ska ändå se ut som en riktig sajt: dossierns `mock`-läge + designläge-mock-seed (`env-local.ts`) renderar demo-ytan utan riktiga nycklar. Statusmodellen ljuger aldrig om det: `planned` / `blocked-build` / `built-demo` / `built-live` (`DossierStatus` i `dossier-overview.ts`) — orden ägs av `describeDossierStatus`; "Byggd" utan livenycklar heter alltid "Demo". `built-demo` blockerar aldrig publicering.
 
 **Ägarbeslut 2026-07-26 (B1): muten tar bort dossiern ur prompten — den får inte tyst bjuda in ett frihandsbygge.** Tidigare sa muten bara "den här dossiern finns inte", varpå modellen byggde integrationen själv. Utfallet var antingen ett kontaktformulär som låtsades skicka (F1) eller en 198-radig `app/api/mailchimp/route.ts` vars importer deny-listan strippade så att previewen blockerades helt (F6). Kontraktet är nu tvådelat och båda delarna krävs:
 
@@ -29,18 +29,18 @@ F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`
 
 ## Skyddslager
 
-1. Tool-gate: env-tools exponeras inte i F2.
-2. SSE-filter: tool-events droppas i F2.
-3. En env-yta: `ProjectEnvVarsPanel` är borttagen (2026-07-22) — Byggblock-inputs är enda inmatningsytan i både F2 och F3.
-4. Post-finalize-gate: detected integrations droppas i F2.
+1. Tool-gate: env-tools exponeras inte i designläge.
+2. SSE-filter: tool-events droppas i designläge.
+3. En env-yta: `ProjectEnvVarsPanel` är borttagen (2026-07-22) — Byggblock-inputs är enda inmatningsytan i både designläge och integrationsbygge.
+4. Post-finalize-gate: detected integrations droppas i designläge.
 
 ## Förbjudet
 
 - Fråga efter env-nycklar i chatten (tool-events, popups, "klistra in nyckel"-meddelanden).
-- Låta F2 producera integrationskod för en mutad capability (egen `app/api/**`-route, SDK-import, `process.env`-läsning) — eller skjuta upp den utan att säga det till användaren.
-- Läsa `missingEnvKeys` som blocker i F2 (demo måste förbli publicerbart).
-- Auto-promotera till F3 baserat på prompt-keywords.
-- Emittera env-tool-events i F2.
+- Låta designläget producera integrationskod för en mutad capability (egen `app/api/**`-route, SDK-import, `process.env`-läsning) — eller skjuta upp den utan att säga det till användaren.
+- Läsa `missingEnvKeys` som blocker i designläge (demo måste förbli publicerbart).
+- Auto-promotera till integrationsbygge baserat på prompt-keywords.
+- Emittera env-tool-events i designläge.
 - Returnera sparade env-VÄRDEN till klienten — UI:t får bara booleska flaggor (`hasRealValue`, `configured`).
-- Låta feature-runtime-nycklar (OpenAI/Stripe m.fl.) blockera F3 — bara `build`-nycklar ger 412 (före credits, #517).
-- Öppna "Svar krävs"-dialogen för `f3-continuation`-markern — F3 auto-fortsätter (live-marker) eller visar inline quick-replies (reload). Se `llm-pipeline.md` § F3-förslagsrunda.
+- Låta feature-runtime-nycklar (OpenAI/Stripe m.fl.) blockera integrationsbygget — bara `build`-nycklar ger 412 (före credits, #517).
+- Öppna "Svar krävs"-dialogen för `f3-continuation`-markern — integrationsbygget auto-fortsätter (live-marker) eller visar inline quick-replies (reload). Se `llm-pipeline.md` § F3-förslagsrunda.
