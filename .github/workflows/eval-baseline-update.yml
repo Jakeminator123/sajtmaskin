@@ -1,17 +1,17 @@
 name: Eval Baseline Update
 
-# Runs the eval suite and refreshes `src/lib/gen/eval/eval-baseline.json` when
-# the suite passes its own gate. Two trigger modes:
+# Manual-only. The Monday 04:11 UTC schedule was removed 2026-08-17 after
+# 20 consecutive red runs (most recently OpenAI `credit_balance_exhausted`).
+# A scheduled paid job that nobody reads is pure cost.
 #
-#   - workflow_dispatch  → operator triggers manually after a deliberate
-#     pipeline improvement, picks dry-run vs. real save in the input.
-#   - schedule (weekly)  → keeps the baseline drifting with reality so the
-#     `--gate` check in CI doesn't silently rot. Skipped if no improvements
-#     vs. current baseline (commit step is no-op).
+# Trigger: workflow_dispatch. The operator picks dry-run vs. real save.
+# Do not re-add `schedule:` without an explicit owner decision.
 #
-# Cost note: each run consumes OPENAI quota for the full eval prompt set
-# (~15 prompts at the time of writing). Schedule is intentionally weekly,
-# not daily.
+# Cost (observed, not a guess):
+#   - 2026-07-31 full run: 13.90 USD
+#   - Today's larger prompt context: estimated 19–24 USD
+#   - A failed run can still cost ~8.50 USD in input tokens if the suite
+#     keeps submitting after the account is already dead
 #
 # Required secrets:
 #   - OPENAI_API_KEY    → consumed by the eval LLM calls.
@@ -45,9 +45,6 @@ on:
         required: false
         default: false
         type: boolean
-  schedule:
-    # Every Monday at 04:11 UTC.
-    - cron: "11 4 * * 1"
 
 permissions:
   contents: write
@@ -157,7 +154,7 @@ jobs:
           title: "chore(eval): refresh eval-baseline.json"
           body: |
             Automated refresh of `src/lib/gen/eval/eval-baseline.json` after
-            this week's eval run passed the gate.
+            this eval run passed the gate.
 
             **Review checklist** before merging:
             - Does the new average score look right (no suspicious jumps)?
