@@ -76,11 +76,14 @@ jobs:
       # överlevde tidigare inte mellan körningar. .eslintcache är gitignorerad.
       # Repot hade ingen actions/cache sedan tidigare; v4 är den etablerade
       # majoren (v5/v6 kräver nyare runner-runtime).
+      # `tsconfig*.json` ingår i nyckeln: ändrade compiler-options kan ändra vad
+      # lintern rapporterar, och en återställd cache skulle annars låta de
+      # filerna passera oomvärderade i det blockerande quality-jobbet.
       - name: Cache ESLint
         uses: actions/cache@v4
         with:
           path: .eslintcache
-          key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs', 'package-lock.json') }}
+          key: ${{ runner.os }}-eslint-${{ hashFiles('eslint.config.mjs', 'tsconfig*.json', 'package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-eslint-
 
@@ -259,97 +262,46 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Required check: jobbet MÅSTE alltid starta och sluta grönt. Ett
-      # trigger-nivå-paths-filter skulle lämna checken pending och blockera
-      # merge. Filtrera därför här och kortslut de tunga stegen.
-      # Listan är verifierad mot backoffice/test_*.py: backoffice-kod,
-      # observability, requirements, config-/schema-ytor testerna läser,
-      # plus de enstaka TS/docs/Python-filer som är unika skyddsobjekt
-      # (catalog-paritet, curator, capability-map, hub-docs, run-python).
-      # package.json MÅSTE ingå: test_pipeline_health_script_parity.py och
-      # test_database_health_smoke.py läser repots faktiska package.json och
-      # asserterar att npm-scripten bakom Backoffice-knapparna finns. Utan den
-      # raden kan ett script döpas om eller tas bort utan att paritetstestet
-      # körs — exakt den döda knappen testet skrevs för att fånga (commit
-      # 9adb3c4). Kostnaden är att jobbet körs på dependabot-PR:er, vilket inte
-      # ligger på kritisk linje så länge quality tar ~9 min.
-      # src/lib/db|auth|tenant ingår inte.
-      - name: Detect backoffice-relevant changes
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            backoffice:
-              - 'backoffice/**'
-              - 'sajtmaskin_backoffice.py'
-              - 'scripts/observability/**'
-              - 'requirements.backoffice*.txt'
-              - 'package.json'
-              - 'config/backoffice/**'
-              - 'config/domain-rules.json'
-              - 'config/prompt-heuristic-tokens.json'
-              - 'config/scaffold-variants/**'
-              - 'config/env-policy.json'
-              - 'config/variant-template-addenda.json'
-              - 'config/ai_models/**'
-              - 'config/embeddings-blob-manifest.json'
-              - 'docs/schemas/strict/**'
-              - 'src/lib/models/catalog.ts'
-              - 'src/lib/gen/scaffold-variants/extractor-fingerprint.ts'
-              - 'src/lib/gen/scaffold-variants/template-inspiration.ts'
-              - 'src/lib/templates/local-v0-template-source.ts'
-              - 'scripts/v0-templates/audit-template-repos.mjs'
-              - 'scripts/dossiers/curate-from-reference.ts'
-              - 'scripts/dossiers/transaction_adapter.py'
-              - 'scripts/scaffolds/auto-curate-variant-patterns.ts'
-              - 'scripts/scaffolds/generate-variant-embeddings.ts'
-              - 'scripts/template_curator/**'
-              - 'scripts/dev/run-python.mjs'
-              - 'data/dossiers/_index/capability-map.json'
-              - 'docs/architecture/glossary.md'
-              - 'docs/contracts/dossier-system.md'
-              - 'docs/contracts/scaffold-system.md'
-              - 'scripts/db/db-health-check.mjs'
-              - 'scripts/db/add-performance-indexes.mjs'
-              - 'scripts/db/redis-health-check.mjs'
-
+      # Medvetet UTAN paths-filter. `backoffice-tests` är en required check som
+      # skyddar control-plane-paritet, och flera av testerna läser repots
+      # FAKTISKA filer — package.json, blob-manifestet, scaffolds, config — för
+      # att fånga döda knappar och trasiga referenser. Ett filter måste därför
+      # lista varje sådan koppling, och tre granskningsvarv hittade tre olika
+      # utelämnanden (package.json, template-blob-manifest.json,
+      # src/lib/gen/scaffolds/**). Ett missat mönster ger inte ett rött jobb —
+      # det ger ett GRÖNT jobb som inte testade något, på en required check.
+      #
+      # Jobbet ligger dessutom inte på kritisk linje: ~1,5 min mot quality
+      # ~9 min, så ett filter sparar noll väggklocka. Filtren finns kvar på de
+      # icke-obligatoriska jobben nedan, där ett missat mönster bara kostar
+      # information i stället för att tysta en grind.
       - name: Setup Node.js
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
           cache: npm
 
       - name: Setup Python
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
       - name: Install backoffice dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         run: python -m pip install --disable-pip-version-check -r requirements.backoffice.txt
 
       # Curator-testerna kör den statiska Node-auditorn mot lokala ZIP-fixtures.
       # Installera exakt lockfilens beroenden; inga package scripts behövs här.
       - name: Install template auditor dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Backoffice tests (blocking)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         run: npm run backoffice:test
 
       # Genlogg-insamlingen (scripts/observability/last-generated-usersite.py).
       # Också nyckelfri och offline: env-parsning, secret-maskering,
       # mapprotation, prissättning, bedömning och rapportrendering.
       - name: Observability script tests (blocking)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backoffice == 'true' }}
         run: npm run observability:test
-
-      - name: Skip backoffice tests (no relevant changes)
-        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.backoffice != 'true' }}
-        run: echo "No backoffice-related files changed; skipping install and tests."
 
   # Blockerande schema-drift-gate (grandmaster S4). Deterministisk, nyckelfri och billig:
   # låser att avsett schema (src/lib/db/schema.ts) == applicerat (db-init.mjs /
