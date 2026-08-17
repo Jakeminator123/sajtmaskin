@@ -289,6 +289,8 @@ jobs:
               - 'docs/schemas/strict/**'
               - 'src/lib/models/catalog.ts'
               - 'src/lib/gen/scaffold-variants/extractor-fingerprint.ts'
+              - 'src/lib/gen/scaffold-variants/template-inspiration.ts'
+              - 'src/lib/templates/local-v0-template-source.ts'
               - 'scripts/v0-templates/audit-template-repos.mjs'
               - 'scripts/dossiers/curate-from-reference.ts'
               - 'scripts/dossiers/transaction_adapter.py'
