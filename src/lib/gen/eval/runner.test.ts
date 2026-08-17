@@ -135,15 +135,57 @@ describe("classifyEvalStreamOutcome", () => {
     expect(outcome.failure.providerFault).toBe(true);
   });
 
-  it("prefers the error event even when partial content arrived before the failure", () => {
+  it("prefers the provider fault even when partial content arrived before it", () => {
     const outcome = classifyEvalStreamOutcome({
       content: "```tsx\nexport default function Page(){",
-      errorPayloads: [{ message: "Provider rate limit", code: "rate_limit_exceeded" }],
+      errorPayloads: [
+        {
+          message: "Provider rate limit",
+          code: "rate_limit_exceeded",
+          providerFault: true,
+        },
+      ],
     });
 
     expect(outcome.ok).toBe(false);
     if (outcome.ok) return;
     expect(outcome.failure.kind).toBe("provider_error");
+  });
+
+  /**
+   * `stream-format.ts` emits `error` with `code: output_truncated` (and no
+   * `providerFault`) *after* streaming real code. Treating every error event as
+   * a provider failure would mark those runs unmeasured, so a genuine truncation
+   * regression could walk past the gate as infra noise.
+   */
+  it("still scores a truncated response, because truncation is a quality outcome", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "export default function Page(){return <main/>;}",
+      errorPayloads: [
+        {
+          code: "output_truncated",
+          finishReason: "length",
+          message: "Modellen nådde maxlängden och svaret kan vara trunkerat.",
+        },
+      ],
+    });
+
+    expect(outcome).toEqual({
+      ok: true,
+      content: "export default function Page(){return <main/>;}",
+    });
+  });
+
+  it("reports an unattributable error with no content as unmeasured, keeping its code", () => {
+    const outcome = classifyEvalStreamOutcome({
+      content: "",
+      errorPayloads: [{ message: "Provider avbröt strömmen — försök igen eller byt modell." }],
+    });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("empty_stream");
+    expect(outcome.failure.message).toMatch(/avbröt strömmen/);
   });
 
   it("treats a silent empty stream as unmeasured, not as zero quality", () => {

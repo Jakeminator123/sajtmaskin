@@ -252,50 +252,66 @@ export interface EvalStreamFailure {
   providerFault: boolean;
 }
 
+function toStreamFailure(
+  kind: EvalStreamFailureKind,
+  payload: Record<string, unknown>,
+): EvalStreamFailure {
+  const message =
+    typeof payload.message === "string" && payload.message.trim()
+      ? payload.message.trim()
+      : "Stream error without message";
+  return {
+    kind,
+    message,
+    code: typeof payload.code === "string" ? payload.code : null,
+    permanent: payload.permanent === true,
+    providerFault: payload.providerFault === true,
+  };
+}
+
 /**
  * Decide whether a finished codegen stream carries a scorable result.
  *
- * The `error` event is the signal the old reader threw away: `stream-format.ts`
- * already classifies provider failures (code, `permanent`, `providerFault`) and
- * emits them, so eval only has to stop pretending the empty content was a
- * website.
+ * The `error` event is the signal the old reader threw away — `stream-format.ts`
+ * already classifies provider failures (code, `permanent`, `providerFault`) — but
+ * not every `error` event means the provider failed. `output_truncated` and a
+ * mid-stream abort arrive as errors *after* real code was streamed, so the
+ * verdict follows `providerFault` first and content second:
+ *
+ * 1. A provider fault (billing, revoked key, 429, 5xx, transport) is never
+ *    scorable, even if some code arrived before it.
+ * 2. Otherwise, any content at all gets scored. Excusing a truncated response as
+ *    infra would let real truncation regressions walk straight past the gate.
+ * 3. No content and no fault leaves nothing to judge.
  */
 export function classifyEvalStreamOutcome(
   collection: EvalStreamCollection,
 ): { ok: true; content: string } | { ok: false; failure: EvalStreamFailure } {
+  const faultPayload = collection.errorPayloads.find((payload) => payload.providerFault === true);
+  if (faultPayload) {
+    return { ok: false, failure: toStreamFailure("provider_error", faultPayload) };
+  }
+
+  if (collection.content.trim()) {
+    return { ok: true, content: collection.content };
+  }
+
   const [payload] = collection.errorPayloads;
   if (payload) {
-    const message =
-      typeof payload.message === "string" && payload.message.trim()
-        ? payload.message.trim()
-        : "Provider stream error without message";
-    return {
-      ok: false,
-      failure: {
-        kind: "provider_error",
-        message,
-        code: typeof payload.code === "string" ? payload.code : null,
-        permanent: payload.permanent === true,
-        providerFault: payload.providerFault === true,
-      },
-    };
+    return { ok: false, failure: toStreamFailure("empty_stream", payload) };
   }
 
-  if (!collection.content.trim()) {
-    return {
-      ok: false,
-      failure: {
-        kind: "empty_stream",
-        message:
-          "Stream ended without content and without an error event — no quality verdict is possible.",
-        code: null,
-        permanent: false,
-        providerFault: false,
-      },
-    };
-  }
-
-  return { ok: true, content: collection.content };
+  return {
+    ok: false,
+    failure: {
+      kind: "empty_stream",
+      message:
+        "Stream ended without content and without an error event — no quality verdict is possible.",
+      code: null,
+      permanent: false,
+      providerFault: false,
+    },
+  };
 }
 
 /**
@@ -580,6 +596,16 @@ async function evaluatePrompt(
     return { result, artifact };
   }
   const content = outcome.content;
+
+  if (collection.errorPayloads.length > 0) {
+    // Scored anyway (see `classifyEvalStreamOutcome`), but the operator still
+    // needs to know the stream reported a problem — a truncated run explains a
+    // low score that would otherwise look like a prompt regression.
+    const codes = collection.errorPayloads
+      .map((payload) => (typeof payload.code === "string" ? payload.code : "unspecified"))
+      .join(", ");
+    console.warn(`[eval] ${evalPrompt.id}: scored despite stream error event(s): ${codes}`);
+  }
 
   // Eval path: standalone mechanical pass on raw stream content. Mirrors the
   // outer autofix in finalize-version.ts but without the surrounding pipeline.
