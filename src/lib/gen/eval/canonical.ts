@@ -134,13 +134,23 @@ export function followupLaneFromResults(results: FollowUpEvalResult[]): Canonica
   };
 }
 
+/**
+ * Owner-adjustable policy, not a law of nature. Keyword top-1 is the matcher
+ * that always runs locally. Semantic ranking is reported but never decides
+ * the lane — missing embeddings degrade to keyword, which is expected.
+ */
+export const SCAFFOLD_LANE_MIN_KEYWORD_TOP1_PERCENT = 90;
+
 export function scaffoldLaneFromReport(
   report: ScaffoldEvalReport,
   reportPath: string,
 ): CanonicalScaffoldLane {
   return {
     name: "scaffold",
-    outcome: "pass",
+    outcome:
+      report.summary.keywordTop1Accuracy >= SCAFFOLD_LANE_MIN_KEYWORD_TOP1_PERCENT
+        ? "pass"
+        : "fail",
     keywordTop1Accuracy: report.summary.keywordTop1Accuracy,
     semanticTop1Accuracy: report.summary.semanticTop1Accuracy,
     semanticTop3Accuracy: report.summary.semanticTop3Accuracy,

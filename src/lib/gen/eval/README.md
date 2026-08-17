@@ -25,10 +25,16 @@ Varje körning returnerar **separata** delresultat. Slå inte ihop tre procentta
 | Lane | Default | Vad den mäter | Kräver |
 |---|---|---|---|
 | `followup` | alltid | Follow-up-context och promptstorlek via `prepareGenerationContext`, utan LLM-codegen | inget |
-| `scaffold` | alltid | Att `matchScaffoldAuto()` väljer rätt scaffold. Skriver `data/scaffold-eval/reports/scaffold-selection-latest.json` (samma path canvas + Backoffice "Eval exact-hit" redan läser) | inget. Semantisk ranking används bara om nyckel + embeddings redan finns; saknas de degraderar lanen, den failar inte |
+| `scaffold` | alltid | Att `matchScaffoldAuto()` väljer rätt scaffold. Skriver `data/scaffold-eval/reports/scaffold-selection-latest.json` (samma path canvas + Backoffice "Eval exact-hit" redan läser) | inget. Semantisk ranking används bara om nyckel + embeddings redan finns; saknas de degraderar semantiken till keyword, vilket inte failar lanen |
 | `codegen` | av | Hela orkestreringen + LLM-codegen + 12 checks för 3 eller 18 prompts | `OPENAI_API_KEY` + `POSTGRES_URL` |
 
 Topputfall: `PASS` / `FAIL` / `PROVIDER_ERROR` / `INFRA_ERROR`. Exit 0 / 1 / 2 följer `resolveEvalRunOutcome` + `evalExitCode` i `runner.ts` för codegen, och `resolveCanonicalOutcome` i `canonical.ts` för hela körningen. Ett provider-/infra-fel i codegen vinner över en kvalitetsmiss.
+
+Scaffold-lanens utfall härleds ur `keywordTop1Accuracy` mot
+`SCAFFOLD_LANE_MIN_KEYWORD_TOP1_PERCENT` i `canonical.ts` (ägbar policy,
+inte en naturlag). Semantisk ranking (`semanticTop1Accuracy`) rapporteras
+men styr inte utfallet — saknas embeddings lokalt degraderar semantiken
+till keyword, vilket är förväntat och inte en fail.
 
 `--json` skriver **bara** JSON på stdout (mänsklig text på stderr). Formen är stabil för Backoffice: `timestamp`, `mode`, `outcome`, `exitCode`, `lanes.{followup,scaffold,codegen}`.
 
@@ -40,7 +46,7 @@ Baseline-jämförelsen (`compareWithBaseline` + `eval-baseline.json`) är **info
 
 Jämförelsereglerna i `baseline.ts` (fail/warning/pass) styr bara texten, inte exit-koden. Prompts som aldrig nådde checkarna jämförs inte. `overallDelta` räknas över **samma** prompt-id:n som faktiskt utvärderades.
 
-Provider- och infra-fel rangordnas före kvalitetsdomen. Ett **permanent** provider-fault avbryter resten av sviten (`suite_aborted`). Transient 429/5xx/transport stoppar inte. `output_truncated` utan innehåll är kvalitetsutfall, inte infra.
+Provider- och infra-fel rangordnas före kvalitetsdomen. Codegen-kvalitet härleds ur mätningen: `evaluated > 0` och `passed < evaluated` ger `quality_fail` (exit 1). Ett **permanent** provider-fault avbryter resten av sviten (`suite_aborted`). Transient 429/5xx/transport stoppar inte. `output_truncated` utan innehåll är kvalitetsutfall, inte infra.
 
 **CI:** ingen schemalagd eval. Skapa inte nya eval-workflows utan uttryckligt ägarbeslut.
 
