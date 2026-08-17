@@ -57,6 +57,47 @@ describe("classifyRequestKind", () => {
     expect(classifyRequestKind("Ge ett betyg på designen?").kind).toBe("qa-or-score");
   });
 
+  it("does not mistake an imperative score display edit for a score question", () => {
+    expect(classifyRequestKind("Visa poäng i headern").kind).not.toBe("qa-or-score");
+    expect(classifyRequestKind("Kan du visa poängen i headern?").kind).not.toBe(
+      "qa-or-score",
+    );
+    expect(
+      classifyRequestKind("Visa poäng i headern när användaren är inloggad").kind,
+    ).not.toBe("qa-or-score");
+    expect(
+      classifyRequestKind("Visa poäng i headern när sajten är publicerad").kind,
+    ).not.toBe("qa-or-score");
+    expect(
+      classifyRequestKind("Visa poäng i headern och förklara varför den är låg").kind,
+    ).not.toBe("qa-or-score");
+    expect(
+      classifyRequestKind("Visa poäng i vilken färg som helst i headern").kind,
+    ).not.toBe("qa-or-score");
+    expect(
+      classifyRequestKind(
+        "Visa poäng när användaren är inloggad, högst upp i headern",
+      ).kind,
+    ).not.toBe("qa-or-score");
+    expect(
+      classifyRequestKind(
+        "Hur kan jag visa poäng i headern? Visa poäng i footern.",
+      ).kind,
+    ).not.toBe("qa-or-score");
+  });
+
+  it("keeps genuine score questions in the qa path", () => {
+    expect(classifyRequestKind("Vad är sajtens poäng?").kind).toBe("qa-or-score");
+    expect(classifyRequestKind("Vad visar poängen?").kind).toBe("qa-or-score");
+    expect(classifyRequestKind("Visa mig sajtens poäng").kind).toBe("qa-or-score");
+    expect(classifyRequestKind("Hur kan jag visa poäng i headern?").kind).toBe(
+      "qa-or-score",
+    );
+    expect(
+      classifyRequestKind("Kan du visa varför poängen i headern är låg?").kind,
+    ).toBe("qa-or-score");
+  });
+
   it("does not label imperative edits as qa", () => {
     expect(classifyRequestKind("Hur ändrar jag färgen till blå?").kind).not.toBe("qa-or-score");
   });

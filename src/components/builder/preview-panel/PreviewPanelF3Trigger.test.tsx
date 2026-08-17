@@ -1,7 +1,10 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanelF3Trigger } from "./PreviewPanelF3Trigger";
-import { F3_REBUILD_REQUEST_EVENT } from "@/lib/builder/project-env-events";
+import {
+  F3_REBUILD_REQUEST_EVENT,
+  dispatchVersionStatusRefreshed,
+} from "@/lib/builder/project-env-events";
 
 vi.mock("sonner", () => {
   throw new Error("F3 trigger must not use Sonner.");
@@ -10,6 +13,147 @@ vi.mock("sonner", () => {
 describe("PreviewPanelF3Trigger", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("lets a newer passing Product Postcheck summary override an older blocker", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        logs: [
+          {
+            category: "product_postcheck.summary",
+            meta: { productBlocked: false },
+            created_at: "2026-08-15T10:01:00.000Z",
+          },
+          {
+            category: "product_postcheck.summary",
+            meta: { productBlocked: true },
+            created_at: "2026-08-15T10:00:00.000Z",
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal(
+      "fetch",
+      fetchMock,
+    );
+
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+
+    const button = screen.getByRole("button", { name: /bygg integrationer/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(button).toHaveProperty("disabled", false);
+  });
+
+  it("lets a newer blocking Product Postcheck summary override an older pass", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          logs: [
+            {
+              category: "product_postcheck.summary",
+              meta: { productBlocked: false },
+              created_at: "2026-08-15T10:00:00.000Z",
+            },
+            {
+              category: "product_postcheck.summary",
+              meta: { productBlocked: true },
+              created_at: "2026-08-15T10:01:00.000Z",
+            },
+          ],
+        }),
+      ),
+    );
+
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /bygg integrationer/i })).toHaveProperty(
+        "disabled",
+        true,
+      );
+    });
+  });
+
+  it("refetches on the existing version-status signal and unblocks after a later pass", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          logs: [
+            {
+              category: "product_postcheck.summary",
+              meta: { productBlocked: true },
+              created_at: "2026-08-15T10:00:00.000Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          logs: [
+            {
+              category: "product_postcheck.summary",
+              meta: { productBlocked: false },
+              created_at: "2026-08-15T10:01:00.000Z",
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+    const button = screen.getByRole("button", { name: /bygg integrationer/i });
+    await waitFor(() => expect(button).toHaveProperty("disabled", true));
+
+    act(() => dispatchVersionStatusRefreshed());
+
+    await waitFor(() => {
+      expect(button).toHaveProperty("disabled", false);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("refetches on the version-status signal and applies a later blocker", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          logs: [
+            {
+              category: "product_postcheck.summary",
+              meta: { productBlocked: false },
+              created_at: "2026-08-15T10:00:00.000Z",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          logs: [
+            {
+              category: "product_postcheck.summary",
+              meta: { productBlocked: true },
+              created_at: "2026-08-15T10:01:00.000Z",
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+    const button = screen.getByRole("button", { name: /bygg integrationer/i });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    act(() => dispatchVersionStatusRefreshed());
+
+    await waitFor(() => {
+      expect(button).toHaveProperty("disabled", true);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("shows a specific stale-version warning when finalize-design rejects an old F2 base", async () => {

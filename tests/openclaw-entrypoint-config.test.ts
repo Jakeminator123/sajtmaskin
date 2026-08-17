@@ -75,7 +75,10 @@ afterAll(() => {
 
 interface GeneratedConfig {
   agents: {
-    defaults: { model: { primary: string; fallbacks: string[] } };
+    defaults: {
+      heartbeat: { every: string };
+      model: { primary: string; fallbacks: string[] };
+    };
     list: Array<{ id: string; model: { primary: string; fallbacks: string[] } }>;
   };
   gateway: {
@@ -131,7 +134,9 @@ function bootAndReadConfig(env: Record<string, string>): GeneratedConfig {
   return JSON.parse(readFileSync(path.join(home, "openclaw.json"), "utf8")) as GeneratedConfig;
 }
 
-describe.skipIf(!shell)("docker-entrypoint.sh config generation", () => {
+// Each case boots the real entrypoint in `sh`; on Windows a single boot can
+// take 3–6 s, so the default 5 s per-test timeout is too tight.
+describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_000 }, () => {
   it("emits the documented defaults when no model env is set", () => {
     const config = bootAndReadConfig({});
 
@@ -140,6 +145,17 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", () => {
     // The proxy targets this agent id by name; renaming it breaks every chat.
     expect(config.agents.list[0].id).toBe("sajtagenten");
     expect(config.gateway.http.endpoints.chatCompletions.enabled).toBe(true);
+  });
+
+  it("disables the heartbeat by default and honours an override", () => {
+    // Default 30m heartbeats woke gpt-5.5 with full agent context every half
+    // hour on an instance with no delivery channel — pure credit burn
+    // (2026-08-17). "0m" must survive every redeploy since this config is
+    // regenerated on boot.
+    expect(bootAndReadConfig({}).agents.defaults.heartbeat).toEqual({ every: "0m" });
+    expect(
+      bootAndReadConfig({ OPENCLAW_HEARTBEAT_EVERY: "45m" }).agents.defaults.heartbeat,
+    ).toEqual({ every: "45m" });
   });
 
   it("splits a comma-separated fallback chain across providers", () => {

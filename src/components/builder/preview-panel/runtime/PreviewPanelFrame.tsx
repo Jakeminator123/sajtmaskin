@@ -225,19 +225,21 @@ export function PreviewPanelFrame({
         </div>
       ) : null}
 
-      <iframe
-        id="preview-iframe"
-        ref={iframeRef}
-        src={previewSrc}
-        className="h-full w-full border-0"
-        onLoad={handleIframeLoad}
-        onError={handleIframeError}
-        onMouseDown={focusPreviewIframe}
-        // allow-pointer-lock: required by R3F's OrbitControls + drei pointer-locking helpers.
-        // allow-modals: lets generated apps use window.alert/confirm without silent failures.
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-modals"
-        title="Preview"
-      />
+      {previewSrc ? (
+        <iframe
+          id="preview-iframe"
+          ref={iframeRef}
+          src={previewSrc}
+          className="h-full w-full border-0"
+          onLoad={handleIframeLoad}
+          onError={handleIframeError}
+          onMouseDown={focusPreviewIframe}
+          // allow-pointer-lock: required by R3F's OrbitControls + drei pointer-locking helpers.
+          // allow-modals: lets generated apps use window.alert/confirm without silent failures.
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-modals"
+          title="Preview"
+        />
+      ) : null}
 
       {showFocusHint ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center">

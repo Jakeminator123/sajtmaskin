@@ -32,6 +32,7 @@ Börja med [`repo-router.mdc`](rules/repo-router.mdc) och välj därefter ägare
   [`agent-worktree.mdc`](rules/agent-worktree.mdc),
 - pipeline/runtime: [`pipeline-rules.mdc`](rules/pipeline-rules.mdc),
   [`scaffold-rules.mdc`](rules/scaffold-rules.mdc),
+  [`evals.mdc`](rules/evals.mdc),
   [`dossier-rules.mdc`](rules/dossier-rules.mdc),
   [`db-env-parity.mdc`](rules/db-env-parity.mdc),
   [`env-flow-f2-mute.mdc`](rules/env-flow-f2-mute.mdc),

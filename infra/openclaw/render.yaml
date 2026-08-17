@@ -45,6 +45,12 @@ services:
         value: "10000"
       - key: OPENCLAW_GATEWAY_BIND
         value: lan
+      # Heartbeat cadence for the agent. "0m" (the entrypoint default) keeps it
+      # OFF: with no chat channel configured a heartbeat only burns OpenAI
+      # credits every 30 minutes. Set e.g. "30m" only after wiring a delivery
+      # channel (Telegram/Discord) for the alerts.
+      - key: OPENCLAW_HEARTBEAT_EVERY
+        value: "0m"
       # Device auth only guards the browser Control UI. The app never touches it
       # — src/app/api/openclaw/chat/route.ts calls /v1/chat/completions with a
       # Bearer token — so leaving it on costs the product nothing, while turning

@@ -8,6 +8,7 @@ const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const net = require("node:net");
 const path = require("node:path");
+const { randomUUID } = require("node:crypto");
 const { spawn } = require("node:child_process");
 
 const { getDataDir, readStoreSync, withStoreLock } = require("./../store.js");
@@ -102,11 +103,19 @@ function runInInstallSlot(task) {
 const activePreviewSocketsByChat = new Map();
 // SM-044: när en live-runtime byts under en öppen iframe måste klienten göra
 // en full document-reload. Preview-URL:en är stabil (hosten proxar /{chatId}/),
-// så utan signal hydrerar gammal JS mot den nya processens HTML. Pending-flaggan
-// fångar HMR-reconnects efter att proxade sockets dog med den gamla processen.
+// så utan signal hydrerar gammal JS mot den nya processens HTML. Pending-
+// generationen fångar HMR-reconnects efter att proxade sockets dog med den
+// gamla processen. En chat-global boolean eller socket-budget räcker inte:
+// samma fliks nya socket kan annars konsumera nästa fliks signal. Buildern
+// trådar därför ett stabilt viewer-id genom iframe-URL/HMR-URL. En socket-
+// write är bara ett försök: viewern kvitteras först när bootstrapens separata
+// viewer-id har observerats på dokumentets exakta HMR-socket OCH det nya
+// top-level-svaret har avslutats downstream. En ny socket före kvittensen får
+// därför signalen igen, medan samma socket aldrig spammas. Äldre anonyma klienter
+// delar en enda konservativ leverans så de aldrig kan fastna i reload-loop.
 // Fail-safe: ingen socket / misslyckad write = samma beteende som före fixen.
-// Pending måste överleva default install (10 min) + readiness (upp till 10 min
-// på Fly). 20 min är en backstop; lyckad reloadPage rensar tidigare.
+// Generationen måste överleva default install (10 min) + readiness (upp till
+// 10 min på Fly); 20 min är en hård backstop även om budgeten inte förbrukas.
 const pendingPreviewClientReloadByChat = new Map();
 const PREVIEW_CLIENT_RELOAD_PENDING_MS = 20 * 60 * 1000;
 const PREVIEW_CLIENT_RELOAD_PAYLOAD = JSON.stringify({
@@ -130,23 +139,56 @@ function encodeUnmaskedWsTextFrame(payload) {
 
 function clearPendingPreviewClientReload(chatId) {
   if (!chatId) return;
-  const timeoutId = pendingPreviewClientReloadByChat.get(chatId);
-  if (timeoutId) clearTimeout(timeoutId);
+  const state = pendingPreviewClientReloadByChat.get(chatId);
+  if (state?.timeoutId) clearTimeout(state.timeoutId);
   pendingPreviewClientReloadByChat.delete(chatId);
 }
 
 function markPendingPreviewClientReload(chatId) {
-  if (!chatId) return;
+  if (!chatId) return null;
   clearPendingPreviewClientReload(chatId);
+  const state = {
+    generationToken: `smg_${randomUUID()}`,
+    acknowledgedViewerIds: new Set(),
+    signaledSockets: new WeakSet(),
+    anonymousDelivered: false,
+    timeoutId: null,
+  };
   const timeoutId = setTimeout(() => {
-    pendingPreviewClientReloadByChat.delete(chatId);
+    if (pendingPreviewClientReloadByChat.get(chatId) === state) {
+      pendingPreviewClientReloadByChat.delete(chatId);
+    }
   }, PREVIEW_CLIENT_RELOAD_PENDING_MS);
   if (typeof timeoutId.unref === "function") timeoutId.unref();
-  pendingPreviewClientReloadByChat.set(chatId, timeoutId);
+  state.timeoutId = timeoutId;
+  pendingPreviewClientReloadByChat.set(chatId, state);
+  return state.generationToken;
 }
 
-function hasPendingPreviewClientReload(chatId) {
-  return Boolean(chatId) && pendingPreviewClientReloadByChat.has(chatId);
+function getPendingPreviewClientReloadToken(chatId) {
+  if (!chatId) return null;
+  return pendingPreviewClientReloadByChat.get(chatId)?.generationToken ?? null;
+}
+
+function hasPendingPreviewClientReload(chatId, viewerId = null) {
+  if (!chatId) return false;
+  const state = pendingPreviewClientReloadByChat.get(chatId);
+  if (!state) return false;
+  if (typeof viewerId === "string" && viewerId) {
+    return !state.acknowledgedViewerIds.has(viewerId);
+  }
+  return state.anonymousDelivered !== true;
+}
+
+function acknowledgePreviewClientReload(chatId, viewerId, generationToken) {
+  if (!chatId || typeof viewerId !== "string" || !viewerId) return false;
+  const state = pendingPreviewClientReloadByChat.get(chatId);
+  // A document can finish long after another runtime replacement started.
+  // Bind every durable ACK to the exact generation observed when that
+  // document began; an old document must never acknowledge a newer swap.
+  if (!state || state.generationToken !== generationToken) return false;
+  state.acknowledgedViewerIds.add(viewerId);
+  return true;
 }
 
 function requestPreviewClientReload(chatId) {
@@ -159,30 +201,73 @@ function requestPreviewClientReload(chatId) {
   } catch {
     return { sent: 0 };
   }
+  const pendingState = pendingPreviewClientReloadByChat.get(chatId) ?? null;
   let sent = 0;
-  for (const socket of [...sockets]) {
+  for (const [socket, registration] of [...sockets]) {
     try {
       if (socket.destroyed === true) continue;
       if (socket.writable === false) continue;
       if (typeof socket.write !== "function") continue;
+      // Proxied sockets are registered before proxy.ws performs the upstream
+      // handshake. A WS data frame before downstream HTTP 101 corrupts the
+      // upgrade, so broadcasts must skip them until proxyReq's upgrade event.
+      if (registration.handshakeComplete !== true) continue;
+      const viewerId = registration.viewerId;
+      if (pendingState) {
+        if (viewerId && pendingState.acknowledgedViewerIds.has(viewerId)) continue;
+        if (!viewerId && pendingState.anonymousDelivered === true) continue;
+        // A new document can open HMR before its streamed HTML has finished
+        // downstream. That socket proves the viewer, but must not receive the
+        // same generation's stale reload while the document is still a valid
+        // candidate. A later generation has a different token and is never
+        // suppressed by this field.
+        if (registration.candidateGenerationToken === pendingState.generationToken) {
+          continue;
+        }
+        if (pendingState.signaledSockets.has(socket)) continue;
+      }
       socket.write(frame);
+      if (pendingState) {
+        // `socket.write()` returning only means that bytes were accepted into
+        // the local buffer. The peer may disappear before seeing them, so a
+        // viewer remains pending until its next complete document explicitly
+        // proves this exact generation through HMR + downstream finish. Track
+        // the socket itself only to avoid
+        // repeated frames on one still-open connection; a replacement socket
+        // can retry. Anonymous legacy clients cannot ACK and therefore retain
+        // the bounded one-shot fallback.
+        pendingState.signaledSockets.add(socket);
+        if (!viewerId) pendingState.anonymousDelivered = true;
+      }
       sent += 1;
     } catch {
       // Fail-safe: missing the signal is the previous behavior.
     }
   }
-  if (sent > 0) clearPendingPreviewClientReload(chatId);
   return { sent };
 }
 
 function registerPreviewSocket(chatId, socket, options = {}) {
   if (!chatId || !socket) return;
-  let set = activePreviewSocketsByChat.get(chatId);
-  if (!set) {
-    set = new Set();
-    activePreviewSocketsByChat.set(chatId, set);
+  let sockets = activePreviewSocketsByChat.get(chatId);
+  if (!sockets) {
+    sockets = new Map();
+    activePreviewSocketsByChat.set(chatId, sockets);
   }
-  set.add(socket);
+  const viewerId =
+    typeof options.viewerId === "string" && options.viewerId ? options.viewerId : null;
+  sockets.set(socket, {
+    handshakeComplete: options.handshakeComplete === true,
+    viewerId,
+    candidateGenerationToken:
+      typeof options.candidateGenerationToken === "string"
+        ? options.candidateGenerationToken
+        : null,
+    candidateDocumentId:
+      typeof options.candidateDocumentId === "string"
+        ? options.candidateDocumentId
+        : null,
+  });
   socket.once("close", () => {
     const current = activePreviewSocketsByChat.get(chatId);
     if (!current) return;
@@ -194,9 +279,38 @@ function registerPreviewSocket(chatId, socket, options = {}) {
   // Only emit reloadPage once this socket has completed a WebSocket
   // handshake we own (the HMR stub). The proxied path calls this BEFORE
   // `proxy.ws` — writing a frame there would corrupt the upgrade.
-  if (options.handshakeComplete === true && hasPendingPreviewClientReload(chatId)) {
+  if (
+    options.handshakeComplete === true &&
+    hasPendingPreviewClientReload(chatId, viewerId)
+  ) {
     requestPreviewClientReload(chatId);
   }
+}
+
+function markPreviewSocketHandshakeComplete(chatId, socket) {
+  if (!chatId || !socket) return false;
+  const sockets = activePreviewSocketsByChat.get(chatId);
+  const registration = sockets?.get(socket);
+  if (!registration) return false;
+  registration.handshakeComplete = true;
+  if (hasPendingPreviewClientReload(chatId, registration.viewerId)) {
+    requestPreviewClientReload(chatId);
+  }
+  return true;
+}
+
+function clearPreviewSocketCandidate(chatId, documentId) {
+  if (!chatId || !documentId) return 0;
+  const sockets = activePreviewSocketsByChat.get(chatId);
+  if (!sockets) return 0;
+  let cleared = 0;
+  for (const registration of sockets.values()) {
+    if (registration.candidateDocumentId !== documentId) continue;
+    registration.candidateDocumentId = null;
+    registration.candidateGenerationToken = null;
+    cleared += 1;
+  }
+  return cleared;
 }
 
 function activePreviewSocketCount(chatId) {
@@ -645,11 +759,15 @@ module.exports = {
   activeVerifyChatKeys,
   runInInstallSlot,
   registerPreviewSocket,
+  markPreviewSocketHandshakeComplete,
+  clearPreviewSocketCandidate,
   activePreviewSocketCount,
   markPendingPreviewClientReload,
+  getPendingPreviewClientReloadToken,
   clearPendingPreviewClientReload,
   requestPreviewClientReload,
   hasPendingPreviewClientReload,
+  acknowledgePreviewClientReload,
   PREVIEW_CLIENT_RELOAD_PENDING_MS,
   nowIso,
   getSessionChatId,

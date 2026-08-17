@@ -21,7 +21,7 @@ Huvudcheckouten delas av användaren och alla agenter. `git checkout`/`git switc
 Bredvid repo-roten, aldrig under `.cursor/`:
 
 ```powershell
-git worktree add ..\sajtmaskin-feat-X -b feat/X
+git worktree add ..\sajtmaskin-feat-X -b feat/X origin/master
 Set-Location ..\sajtmaskin-feat-X
 # jobba, testa, commit/push vid OK
 Set-Location ..\sajtmaskin
@@ -29,6 +29,19 @@ npm run worktree:remove -- ..\sajtmaskin-feat-X
 ```
 
 Saknar worktreen MCP-config: `pwsh -File scripts/cursor/sync-mcp-json.ps1` (se [`local-tooling-mcp.mdc`](../../.cursor/rules/local-tooling-mcp.mdc)).
+
+### Basen `origin/master` är inte valfri
+
+Utelämnar du den sista referensen baserar git branchen på **huvudcheckoutens HEAD i det ögonblicket**. Står ägaren på en lokal commit som ännu inte är pushad — eller som inte är verifierad — ärver agentens branch den, tyst.
+
+Det inträffade 2026-08-17: en parallell agents `fix/eval-provider-error` fick merge-base `efc2eb89d`, en commit som fanns bara lokalt när worktreen skapades. Utfallet var ofarligt (commiten var grön och pushades direkt), men mekaniken var tur, inte design. Alla recept i repot saknade basen tills de rättades samma dag.
+
+Två saker som **inte** är risken, så du inte vaktar fel:
+
+- **Ocommitterade ändringar läcker aldrig.** `git worktree add` checkar ut från en commit; ägarens smutsiga arbetskopia är osynlig för nya worktrees.
+- **`origin/master` behöver inte vara färskt hämtat** för att skydda mot lokalt spill, men kör `git fetch origin` först om du vill starta på trunkens senaste läge.
+
+Motsvarande skydd i andra ledet: låt aldrig overifierade commits ligga kvar på lokal `master`. Antingen är de gröna och pushade, eller så hör de på en egen branch.
 
 ## Städa alltid med `npm run worktree:remove`
 

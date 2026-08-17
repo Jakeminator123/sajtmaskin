@@ -97,14 +97,62 @@ const RESTRICTIVE_ONE_PAGE_RE = new RegExp(
   "iu",
 );
 
+/**
+ * A restrictive phrase can describe content placement instead of site scope:
+ * "Put the form only on one page". Keep those clauses from becoming a cap,
+ * while still accepting standalone/site-wide phrasing such as "only on one
+ * page". Site-wide objects are recognized separately below.
+ */
+const LOCATIVE_CONTENT_ONE_PAGE_RE = new RegExp(
+  String.raw`(?:` +
+    String.raw`(?:please\s+)?(?:put|place|show|display|include|render|keep|have)\s+[\s\S]{1,80}(?:(?:only|just)\s+on\s+(?:one|1)|on\s+1)\s+${PAGE_NOUN_SINGULAR}` +
+    String.raw`|(?:^|[,;]\s*|(?:and|but|och|men)\s+)(?:[\p{L}\p{N}_-]+\s+){1,8}(?:appears?|is\s+(?:shown|displayed|kept|included|rendered)|exists?|lives?|stays?)\s+(?:(?:only|just)\s+on\s+(?:one|1)|on\s+1)\s+${PAGE_NOUN_SINGULAR}` +
+    String.raw`|(?:visa|placera|lägg|håll|ha)\s+[\s\S]{1,80}(?:(?:bara|endast|enbart)\s+på\s+(?:en|1)|på\s+1)\s+${PAGE_NOUN_SINGULAR}` +
+    String.raw`|(?:^|[,;]\s*|(?:and|but|och|men)\s+)(?:[\p{L}\p{N}_-]+\s+){1,8}(?:ska\s+)?(?:visas|synas|finnas|ligga|förekomma|syns|finns|ligger|förekommer)\s+(?:(?:bara|endast|enbart)\s+på\s+(?:en|1)|på\s+1)\s+${PAGE_NOUN_SINGULAR}` +
+    String.raw`)`,
+  "iu",
+);
+
+/** Whole-site/content objects make a locative phrase a real page-count cap. */
+const GLOBAL_ONE_PAGE_SCOPE_RE = new RegExp(
+  uWord(
+    String.raw`(?:` +
+      String.raw`(?:everything|all(?:\s+the)?\s+content|(?:the\s+)?(?:whole|entire)\s+(?:site|website))(?:[\s\S]{0,32})?(?:only\s+|just\s+)?on\s+(?:one|1)\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`|(?:allt|allt\s+innehåll|hela\s+(?:sajten|webbplatsen))(?:[\s\S]{0,32})?(?:bara\s+|endast\s+|enbart\s+)?på\s+(?:en|1)\s+${PAGE_NOUN_SINGULAR}` +
+      String.raw`)`,
+  ),
+  "iu",
+);
+
+/** Negation attached to the one-page placement always vetoes a cap. */
+const NEGATED_ONE_PAGE_SCOPE_RE = new RegExp(
+  `${uWord(String.raw`(?:don['’]?t|do\s+not|not|never|inte|aldrig|ska\s+inte|bör\s+inte|får\s+inte)`)}(?:(?!(?:and|but|och|men)\\s)[^,;.!?\\n]){0,80}${uWord(String.raw`(?:` +
+    String.raw`(?:on|be)\s+(?:a\s+)?(?:one|1)\s+${PAGE_NOUN_SINGULAR}` +
+    String.raw`|(?:a\s+)?1\s+${PAGE_NOUN_SINGULAR}` +
+    String.raw`|(?:på|ha|vara)\s+(?:en|1)\s+${PAGE_NOUN_SINGULAR}` +
+    String.raw`)`)}`,
+  "iu",
+);
+
 const INDEFINITE_PAGE_MENTION_RE = new RegExp(
   uWord(String.raw`(?:en|ett|one|a)\s+${PAGE_NOUN_SINGULAR}`),
   "giu",
 );
 
-/** Follow-up add verbs. "skapa/create" stay out so init "skapa en enda sida" still caps. */
-const FOLLOW_UP_ADD_PAGE_RE = new RegExp(
-  `${uWord(String.raw`lägg\s+till`)}|${uWord(String.raw`add`)}[\\s\\S]{0,32}${uWord(String.raw`(?:new\s+)?(?:page|route)`)}`,
+/** Add-page candidates require page/route to be the object, not a later locator. */
+const FOLLOW_UP_ADD_PAGE_PATTERNS = [
+  new RegExp(
+    `${uWord(String.raw`lägg\s+till`)}\\s+(?:(?:bara|endast|enbart)\\s+)?(?:(?:ytterligare\\s+en|en|ett|1)\\s+)?(?:ny\\s+)?${uWord(String.raw`(?:sida|route)`)}(?=$|[,.;!?]|\\s+till(?=$|[,.;!?])|\\s+(?:för|om|som|med)(?![\\p{L}\\p{N}_]))`,
+    "giu",
+  ),
+  new RegExp(
+    `${uWord(String.raw`add`)}\\s+(?:(?:just|only)\\s+)?(?:(?:one\\s+more|a|an|one|1|another)\\s+)?(?:new\\s+)?${uWord(String.raw`(?:page|route)`)}(?=$|[,.;!?]|\\s+(?:for|about|called|named|with)(?![\\p{L}\\p{N}_]))`,
+    "giu",
+  ),
+] as const;
+
+const NEGATED_ADD_PREFIX_RE = new RegExp(
+  `(?:${uWord(String.raw`(?:don['’]?t|do\s+not|never|inte|aldrig)`)}(?:\\s+${uWord(String.raw`(?:add|create)`)})?|${uWord(String.raw`lägg\s+inte\s+till`)})\\s*$`,
   "iu",
 );
 
@@ -120,8 +168,11 @@ const ADDITIONAL_NAMED_PAGE_RE = new RegExp(
       String.raw`|fler(?:a)?\s+${PAGE_NOUN_PLURAL}` +
       String.raw`)`,
   ),
-  "iu",
+  "giu",
 );
+
+const LOCATIVE_INDEFINITE_NAMED_PAGE_RE =
+  /\s+(?:on|på)\s+(?:pages?|routes?|views?|sidan?|vyer?)$/iu;
 
 /**
  * "a landing page" / "an about page". A single match right after a comma is
@@ -542,23 +593,169 @@ function countIndefinitePageMentions(prompt: string): number {
   return withoutAnaphora.match(INDEFINITE_PAGE_MENTION_RE)?.length ?? 0;
 }
 
-function isCommaAppositionNamedPage(prompt: string, matchIndex: number): boolean {
-  return /,\s*$/u.test(prompt.slice(0, matchIndex));
+const APPOSITIONAL_NAMED_PAGE_PREFIX_RE = new RegExp(
+  String.raw`(?:,\s*|;\s*(?:` +
+    String.raw`(?:it|this|that|the(?:\s+one)?\s+page)\s+(?:is|'s|is\s+meant\s+to\s+be|becomes?|(?:(?:should|must|will|can)|needs?\s+to)\s+be|(?:(?:(?:should|must|will|can)|needs?\s+to)\s+)?serves?\s+as)` +
+    String.raw`|make\s+it(?:\s+into)?` +
+    String.raw`|turn\s+it\s+into` +
+    String.raw`)\s*)$`,
+  "iu",
+);
+
+function isAppositionalNamedPage(prompt: string, matchIndex: number): boolean {
+  return APPOSITIONAL_NAMED_PAGE_PREFIX_RE.test(prompt.slice(0, matchIndex));
+}
+
+type PageCountClauseEvent = {
+  kind: "count" | "negated" | "locative";
+  count: number;
+  index: number;
+};
+
+type PageCountCandidate = {
+  count: number;
+  index: number;
+  end: number;
+};
+
+type MatchRange = { index: number; end: number };
+
+const PAGE_COUNT_EVENT_BOUNDARY_RE = new RegExp(
+  String.raw`[,;.!?\n]|${uWord(String.raw`(?:and|but|och|men)`)}`,
+  "iu",
+);
+
+const LOCAL_PAGE_COUNT_NEGATION_RE = new RegExp(
+  uWord(String.raw`(?:don['’]?t|do\s+not|not|never|inte|aldrig|ska\s+inte|bör\s+inte|får\s+inte)`),
+  "iu",
+);
+
+function allMatches(value: string, pattern: RegExp): RegExpMatchArray[] {
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  return [...value.matchAll(new RegExp(pattern.source, flags))];
+}
+
+function toMatchRanges(matches: RegExpMatchArray[]): MatchRange[] {
+  return matches.map((match) => {
+    const index = match.index ?? 0;
+    return { index, end: index + match[0].length };
+  });
+}
+
+function rangesOverlap(candidate: PageCountCandidate, range: MatchRange): boolean {
+  return candidate.index < range.end && range.index < candidate.end;
+}
+
+function hasLocalPageCountNegation(clause: string, eventIndex: number): boolean {
+  const prefix = clause.slice(0, eventIndex);
+  const localSegment = prefix.split(PAGE_COUNT_EVENT_BOUNDARY_RE).at(-1) ?? "";
+  return LOCAL_PAGE_COUNT_NEGATION_RE.test(localSegment);
+}
+
+function collectPageCountClauseEvents(clause: string): PageCountClauseEvent[] {
+  const candidates: PageCountCandidate[] = [];
+  for (const match of allMatches(clause, EXPLICIT_PAGE_COUNT_RE)) {
+    const count = parseInt(match[1]!, 10);
+    if (count >= 1 && count <= 20) {
+      const index = match.index ?? 0;
+      candidates.push({ count, index, end: index + match[0].length });
+    }
+  }
+  for (const match of allMatches(clause, WORD_PAGE_COUNT_RE)) {
+    const count = WORD_NUMBER_COUNTS[match[1]!.toLowerCase()];
+    if (count !== undefined) {
+      const index = match.index ?? 0;
+      candidates.push({ count, index, end: index + match[0].length });
+    }
+  }
+
+  const restrictiveMatches = allMatches(clause, RESTRICTIVE_ONE_PAGE_RE);
+  const globalMatches = allMatches(clause, GLOBAL_ONE_PAGE_SCOPE_RE);
+  for (const match of [...restrictiveMatches, ...globalMatches]) {
+    const index = match.index ?? 0;
+    candidates.push({ count: 1, index, end: index + match[0].length });
+  }
+
+  const globalRanges = toMatchRanges(globalMatches);
+  const locativeRanges = toMatchRanges(allMatches(clause, LOCATIVE_CONTENT_ONE_PAGE_RE));
+  const negatedOnePageRanges = toMatchRanges(allMatches(clause, NEGATED_ONE_PAGE_SCOPE_RE));
+
+  return candidates
+    .sort((a, b) => a.index - b.index || a.end - b.end)
+    .map((candidate) => {
+      const isGlobal = globalRanges.some((range) => rangesOverlap(candidate, range));
+      const isLocative =
+        candidate.count === 1 &&
+        !isGlobal &&
+        locativeRanges.some((range) => rangesOverlap(candidate, range));
+      if (isLocative) return { kind: "locative", count: candidate.count, index: candidate.index };
+
+      const isNegated =
+        hasLocalPageCountNegation(clause, candidate.index) ||
+        negatedOnePageRanges.some((range) => rangesOverlap(candidate, range));
+      return {
+        kind: isNegated ? "negated" : "count",
+        count: candidate.count,
+        index: candidate.index,
+      };
+    });
+}
+
+function findFinalExplicitPageCount(
+  prompt: string,
+): { count: number; clause: string; fromIndex: number } | null {
+  let active: { count: number; clause: string; fromIndex: number } | null = null;
+  let searchFrom = 0;
+  for (const rawClause of prompt.split(/[.!?;\n]+/u)) {
+    const clauseStart = prompt.indexOf(rawClause, searchFrom);
+    searchFrom = clauseStart >= 0 ? clauseStart + rawClause.length : searchFrom;
+    const clause = rawClause.trim();
+    if (!clause || clauseStart < 0) continue;
+    const fromIndex = clauseStart + rawClause.indexOf(clause);
+    for (const event of collectPageCountClauseEvents(clause)) {
+      if (event.kind === "negated") {
+        if (active?.count === event.count) active = null;
+      } else if (event.kind === "count") {
+        active = { count: event.count, clause, fromIndex };
+      }
+    }
+  }
+  return active;
+}
+
+function hasFollowUpAddPageIntent(prompt: string): boolean {
+  for (const pattern of FOLLOW_UP_ADD_PAGE_PATTERNS) {
+    pattern.lastIndex = 0;
+    for (const match of prompt.matchAll(pattern)) {
+      const prefix = prompt.slice(0, match.index ?? 0);
+      if (!NEGATED_ADD_PREFIX_RE.test(prefix)) return true;
+    }
+  }
+  return false;
 }
 
 /**
  * True when the prompt names an extra route besides a one-page cap.
- * A lone comma-apposition (", a landing page for …") is the same page.
+ * A lone apposition (", a landing page" / "; it should be a landing page")
+ * is the same page.
  * Two "a/an … page" mentions, or one after and/plus, still veto the cap.
  */
 function hasAdditionalNamedPage(prompt: string): boolean {
-  if (ADDITIONAL_NAMED_PAGE_RE.test(prompt)) return true;
+  ADDITIONAL_NAMED_PAGE_RE.lastIndex = 0;
+  for (const match of prompt.matchAll(ADDITIONAL_NAMED_PAGE_RE)) {
+    const prefix = prompt.slice(0, match.index ?? 0);
+    if (!NEGATED_ADD_PREFIX_RE.test(prefix)) return true;
+  }
   INDEFINITE_NAMED_PAGE_RE.lastIndex = 0;
-  const named = [...prompt.matchAll(INDEFINITE_NAMED_PAGE_RE)];
+  const named = [...prompt.matchAll(INDEFINITE_NAMED_PAGE_RE)].filter((match) => {
+    if (LOCATIVE_INDEFINITE_NAMED_PAGE_RE.test(match[0])) return false;
+    const prefix = prompt.slice(0, match.index ?? 0);
+    return !NEGATED_ADD_PREFIX_RE.test(prefix);
+  });
   if (named.length >= 2) return true;
   if (named.length === 0) return false;
   const index = named[0]!.index ?? 0;
-  if (isCommaAppositionNamedPage(prompt, index)) return false;
+  if (isAppositionalNamedPage(prompt, index)) return false;
   return true;
 }
 
@@ -573,21 +770,6 @@ function hasAdditionalNamedPage(prompt: string): boolean {
 export function detectExplicitPageCount(prompt: string): number | null {
   if (!prompt) return null;
 
-  const digitMatch = prompt.match(EXPLICIT_PAGE_COUNT_RE);
-  if (digitMatch) {
-    const count = parseInt(digitMatch[1]!, 10);
-    if (count >= 1 && count <= 20) {
-      // "lägg till 1 sida" is an add, not a site cap. Counts ≥ 2 stay as-is.
-      if (count !== 1 || !FOLLOW_UP_ADD_PAGE_RE.test(prompt)) return count;
-    }
-  }
-
-  const wordMatch = prompt.match(WORD_PAGE_COUNT_RE);
-  if (wordMatch) {
-    const count = WORD_NUMBER_COUNTS[wordMatch[1]!.toLowerCase()];
-    if (count !== undefined && count >= 2 && count <= 20) return count;
-  }
-
   // Two "en sida" / "one page" mentions are a list of pages, not a cap of 1.
   // Anaphoric restatements ("the one page", "den enda sidan") are the same
   // page, not a second mention — unless coordinated ("and the one page"),
@@ -596,11 +778,16 @@ export function detectExplicitPageCount(prompt: string): number | null {
   // restates the same page; a later named page still vetoes the cap.
   // Follow-up "lägg till bara en sida" is an add, not a site-wide cap.
   // "single-page plus an about page" names extra routes, so it is not a cap either.
+  // Add-page / extra-route vetoes only look from the winning clause onward, so
+  // an earlier "add another page" cannot veto a later "only one page".
+  const explicitCount = findFinalExplicitPageCount(prompt);
+  if (explicitCount === null) return null;
+  if (explicitCount.count >= 2) return explicitCount.count;
+  const fromWinningClause = prompt.slice(explicitCount.fromIndex);
   if (
-    RESTRICTIVE_ONE_PAGE_RE.test(prompt) &&
-    countIndefinitePageMentions(prompt) < 2 &&
-    !FOLLOW_UP_ADD_PAGE_RE.test(prompt) &&
-    !hasAdditionalNamedPage(prompt)
+    countIndefinitePageMentions(fromWinningClause) < 2 &&
+    !hasFollowUpAddPageIntent(fromWinningClause) &&
+    !hasAdditionalNamedPage(fromWinningClause)
   ) {
     return 1;
   }
