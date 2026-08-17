@@ -18,14 +18,14 @@ F2 (`lifecycleStage === "design"`) får inte producera env-frågor **i chatten**
 
 **Ägarbeslut 2026-07-22:** Byggblock är numera den **enda** env-ytan — `ProjectEnvVarsPanel` (stora editorn) och `F3PlaceholderToggle` är borttagna. Placeholders är **alltid** tillåtna för build-nycklar i F3 (`allowPlaceholdersInF3`-flaggan finns inte längre): integrationsbygget går igenom i demoläge och riktiga nycklar fylls i via Byggblock efteråt. 412 kan bara uppstå för en build-nyckel som saknar placeholder i katalogen.
 
-Vid `finalize-design` `412` är serverns `missingByIntegration` fortsatt source of truth: kravytan (`F3RequirementsSurface`) visar exakt de nycklarna, och 412-utfallet **öppnar/fokuserar dessutom rätt dossier i Byggblock** (ren UI-åtgärd, ingen klient-omdetektion).
+Vid `finalize-design` `412` är serverns `missingByIntegration` fortsatt source of truth för *vilka* nycklar som saknas, men kravytan (`F3RequirementsSurface`) listar dem inte igen — den visar ett kort besked och **öppnar/fokuserar rätt dossier i Byggblock** (ren UI-åtgärd, ingen klient-omdetektion). Byggblock är enda skrivytan.
 
-F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`env-local.ts`) renderar demo-ytan utan riktiga nycklar. Statusmodellen ljuger aldrig om det: `planned` / `blocked-build` / `built-demo` / `built-live` (`DossierStatus` i `dossier-overview.ts`) — "Byggd" utan livenycklar heter alltid "Byggd — demo aktiv".
+F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`env-local.ts`) renderar demo-ytan utan riktiga nycklar. Statusmodellen ljuger aldrig om det: `planned` / `blocked-build` / `built-demo` / `built-live` (`DossierStatus` i `dossier-overview.ts`) — orden ägs av `describeDossierStatus`; "Byggd" utan livenycklar heter alltid "Demo". `built-demo` blockerar aldrig publicering.
 
 **Ägarbeslut 2026-07-26 (B1): muten tar bort dossiern ur prompten — den får inte tyst bjuda in ett frihandsbygge.** Tidigare sa muten bara "den här dossiern finns inte", varpå modellen byggde integrationen själv. Utfallet var antingen ett kontaktformulär som låtsades skicka (F1) eller en 198-radig `app/api/mailchimp/route.ts` vars importer deny-listan strippade så att previewen blockerades helt (F6). Kontraktet är nu tvådelat och båda delarna krävs:
 
 1. **Noll integrationskod.** `renderF2ContractBlock` namnger de mutade integrationerna och förbjuder uttryckligen egen route under `app/api/**`, SDK-import och `process.env`-läsning för dem. Ytan ska ritas — formuläret, knappen, listan — men med lokalt `useState` och en demo-toast, aldrig ett låtsat nätverksanrop.
-2. **Synlig uppskjutning.** Uppskjutna capabilities ackumuleras durabelt i orchestration-snapshoten och visas som "Planerad — kopplas in i nästa steg" i både Byggblock-panelen och chattens slutsteg. En capability lämnar listan först när filbevis visar att den levererats, eller när användaren tar bort den. Tyst uppskjutning är samma fel som frihandsbygget: användaren tror att något är kopplat som inte är det.
+2. **Synlig uppskjutning.** Uppskjutna capabilities ackumuleras durabelt i orchestration-snapshoten och visas med samma `planned`-ord som Byggblock-badgen (`describeDossierStatus`) i både panelen och chattens slutsteg. En capability lämnar listan först när filbevis visar att den levererats, eller när användaren tar bort den. Tyst uppskjutning är samma fel som frihandsbygget: användaren tror att något är kopplat som inte är det.
 
 ## Skyddslager
 

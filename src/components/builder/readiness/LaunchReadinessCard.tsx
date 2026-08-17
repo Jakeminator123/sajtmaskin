@@ -14,18 +14,12 @@ import {
   envKeysForReadinessItem,
   formatDeployReadinessStatusLabel,
 } from "@/lib/builder/deploy-readiness-ui";
-import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { cn } from "@/lib/utils";
 
 type Props = {
   readiness: ChatReadiness | null;
   isLoading?: boolean;
-  /**
-   * F2 vs F3 lifecycle gate. The "Öppna miljövariabler" action targets a
-   * panel that only mounts in F3 — hide it during F2.
-   */
-  lifecycleStage?: EngineVersionLifecycleStage | null;
   /**
    * Del F1: har chatten NÅGON version alls? Härleds ur `effectiveVersionsList`
    * (inte `vm.versions`, som är tom medan versions-SWR:en laddar en chat som
@@ -39,11 +33,7 @@ function resolveItemCategory(item: ChatReadinessItem): "blocker" | "advisory" {
   return item.category ?? resolveReadinessCategoryFromSeverity(item.severity);
 }
 
-function renderItem(
-  item: ChatReadinessItem,
-  envKeys: string[],
-  isIntegrations: boolean,
-) {
+function renderItem(item: ChatReadinessItem, envKeys: string[]) {
   const isAdvisory = resolveItemCategory(item) === "advisory";
   return (
     <div
@@ -64,7 +54,7 @@ function renderItem(
         {item.title}
       </div>
       {item.detail ? <div className="mt-0.5 text-[11px] text-muted-foreground">{item.detail}</div> : null}
-      {item.action === "env" && isIntegrations ? (
+      {item.action === "env" ? (
         <Button
           type="button"
           variant="ghost"
@@ -72,7 +62,7 @@ function renderItem(
           className="mt-1 h-7 px-2 text-[11px]"
           onClick={() => openDossiersPanel(envKeys)}
         >
-          Öppna miljövariabler
+          Öppna Byggblock
         </Button>
       ) : null}
     </div>
@@ -99,7 +89,6 @@ function isEmptyProjectNoVersion(
 export function LaunchReadinessCard({
   readiness,
   isLoading = false,
-  lifecycleStage = null,
   hasAnyVersion = true,
 }: Props) {
   // Del F2: kollapsad rad är default — badgen bär signalen, detaljerna fälls ut.
@@ -118,7 +107,6 @@ export function LaunchReadinessCard({
     return null;
   }
 
-  const isIntegrations = lifecycleStage === "integrations";
   const readinessItems =
     readiness != null ? [...readiness.blockers, ...readiness.warnings] : [];
   const blockingItems = readinessItems.filter(
@@ -187,11 +175,7 @@ export function LaunchReadinessCard({
               <div className="space-y-1.5">
                 <div className="text-[11px] font-medium text-red-200">Blockerar publicering</div>
                 {blockingItems.map((item) =>
-                  renderItem(
-                    item,
-                    envKeysForReadinessItem(item, readiness.info),
-                    isIntegrations,
-                  ),
+                  renderItem(item, envKeysForReadinessItem(item, readiness.info)),
                 )}
               </div>
             ) : null}
@@ -202,11 +186,7 @@ export function LaunchReadinessCard({
                   Rekommendationer — blockerar inte
                 </div>
                 {advisoryItems.map((item) =>
-                  renderItem(
-                    item,
-                    envKeysForReadinessItem(item, readiness.info),
-                    isIntegrations,
-                  ),
+                  renderItem(item, envKeysForReadinessItem(item, readiness.info)),
                 )}
               </div>
             ) : null}

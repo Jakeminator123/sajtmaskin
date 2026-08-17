@@ -1,3 +1,5 @@
+import { describeDossierStatus } from "@/lib/builder/dossier-overview";
+
 /**
  * Centralized window-event helpers for the builder's env/dossier surfaces.
  *
@@ -82,9 +84,9 @@ export type F3StatusDetail = {
  * users wanted to know what they GET, not the gate's name. Also merges
  * "ReleaseGate godkänd" and "ReleaseGate var redan godkänd" into one
  * phrasing: that difference was an implementation detail, not something the
- * user needs to distinguish. "live"/"demo aktiv" come from
- * `describeDossierStatus` (`built-live`/`built-demo`) — no new status
- * variant.
+ * user needs to distinguish. Count words come from `describeDossierStatus`
+ * (`built-live` / `built-demo` / `blocked-build` / `planned`) — no new
+ * status variant.
  *
  * Shared between `PreviewPanelF3Trigger` (which reports the initial status)
  * and `use-f3-tips-chrome.ts` (which re-derives the title reactively once
@@ -105,12 +107,20 @@ export function describeF3SuccessTitle(
     | undefined,
 ): string {
   const parts: string[] = [];
-  if (counts && counts.builtLive > 0) parts.push(`${counts.builtLive} live`);
-  if (counts && counts.builtDemo > 0) parts.push(`${counts.builtDemo} demo`);
-  if (counts && (counts.blockedBuild ?? 0) > 0) {
-    parts.push(`${counts.blockedBuild} väntar på nyckel`);
+  if (counts && counts.builtLive > 0) {
+    parts.push(`${counts.builtLive} ${describeDossierStatus("built-live", "design").label}`);
   }
-  if (counts && (counts.planned ?? 0) > 0) parts.push(`${counts.planned} inte byggd`);
+  if (counts && counts.builtDemo > 0) {
+    parts.push(`${counts.builtDemo} ${describeDossierStatus("built-demo", "design").label}`);
+  }
+  if (counts && (counts.blockedBuild ?? 0) > 0) {
+    parts.push(
+      `${counts.blockedBuild} ${describeDossierStatus("blocked-build", "design").label}`,
+    );
+  }
+  if (counts && (counts.planned ?? 0) > 0) {
+    parts.push(`${counts.planned} ${describeDossierStatus("planned", "design").label}`);
+  }
   return parts.length > 0
     ? `Byggblock — ${parts.join(", ")}`
     : "Integrationsbygget är klart";

@@ -190,9 +190,7 @@ export function DossiersPopoverView({
               <p className="text-amber-300">{builtDemoDetailCopy}</p>
             ) : null}
             {entry.status === "planned" ? (
-              <p className="text-gray-300">
-                Inte byggd ännu. Kör &quot;Bygg integrationer&quot; för riktig funktion.
-              </p>
+              <p className="text-gray-300">{descriptor.hint}</p>
             ) : null}
             {entry.envVars.length > 0 ? (
               <div>

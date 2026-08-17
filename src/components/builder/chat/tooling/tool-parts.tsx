@@ -10,6 +10,7 @@ import {
   ToolOutput,
 } from "@/components/ai-elements/tool";
 import { hasToolData } from "@/lib/builder/message-adapter";
+import { labelForDossierOverviewStatus } from "@/lib/builder/dossier-overview";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
@@ -284,7 +285,7 @@ export function CompactToolParts({
                 )}
                 {integrationSummary?.status && (
                   <p className="text-muted-foreground mt-1 text-xs">
-                    Status: {integrationSummary.status}
+                    Status: {labelForDossierOverviewStatus(integrationSummary.status)}
                   </p>
                 )}
                 {integrationCard ? (

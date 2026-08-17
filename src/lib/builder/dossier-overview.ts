@@ -216,6 +216,28 @@ export function describeDossierStatus(
   }
 }
 
+const OVERVIEW_STATUS_VALUES: ReadonlySet<string> = new Set<DossierStatus>([
+  "self-contained",
+  "planned",
+  "blocked-build",
+  "built-demo",
+  "built-live",
+]);
+
+/**
+ * Same words as {@link describeDossierStatus} when `status` is one of the
+ * five overview values; otherwise the raw string is left alone (tool-event
+ * copy such as "Kräver konfiguration" is not a lifecycle status).
+ */
+export function labelForDossierOverviewStatus(
+  status: string,
+  lifecycleStage: "design" | "integrations" = "design",
+  dossierClass?: "hard" | "soft",
+): string {
+  if (!OVERVIEW_STATUS_VALUES.has(status)) return status;
+  return describeDossierStatus(status as DossierStatus, lifecycleStage, dossierClass).label;
+}
+
 /**
  * Per-key value-state label + tone, shared so every surface that shows an env
  * key uses the same vocabulary. Precedence: a stored real value wins; then a

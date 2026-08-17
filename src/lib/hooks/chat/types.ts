@@ -26,7 +26,13 @@ export type MessageOptions = {
   attachments?: ChatAttachment[];
   attachmentPrompt?: string;
   planMode?: boolean;
-  promptSourceMeta?: PromptSourceMeta;
+  /**
+   * Prompt-builder envelope (`PromptSourceKind`) **or** a UI-only marker.
+   * `"f3-kick"` is not a `PromptSourceKind` — it must not be forwarded as
+   * `meta.promptSourceKind`. useSendMessage attaches the `prompt-source`
+   * uiPart so the row renders as a system event, then skips promptMeta.
+   */
+  promptSourceMeta?: PromptSourceMeta | { sourceKind: "f3-kick" };
   /**
    * OpenClaw prepared-prompt fast lane: set by the builder composer when the
    * outgoing message is EXACTLY an OpenClaw `fill_text_field` payload and the
@@ -186,9 +192,10 @@ export type ModelInfoData = {
   scaffoldLabel?: string | null;
   capabilities?: Record<string, boolean> | null;
   /**
-   * Swedish labels for integrations the design round deferred, shown to the
-   * user as "Planerad — kopplas in i nästa steg" so a named service the round
-   * did not wire in is visible instead of silently dropped.
+   * Swedish labels for integrations the design round deferred, shown with
+   * the same `planned` wording as the Byggblock badge (`describeDossierStatus`)
+   * so a named service the round did not wire in is visible instead of
+   * silently dropped.
    */
   mutedCapabilityLabels?: string[] | null;
   /**

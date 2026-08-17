@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   describeDossierStatus,
   describeEnvKeyValueState,
+  labelForDossierOverviewStatus,
   selectedDossiersFromOverview,
   type DossierOverviewEntry,
 } from "./dossier-overview";
@@ -99,6 +100,29 @@ describe("describeDossierStatus", () => {
   it("labels planned per stage", () => {
     expect(describeDossierStatus("planned", "design").label).toBe("Inte byggd än");
     expect(describeDossierStatus("planned", "integrations").label).toBe("Inte byggd än");
+  });
+});
+
+describe("labelForDossierOverviewStatus", () => {
+  it("reuses describeDossierStatus words for the five overview values", () => {
+    const statuses = [
+      "self-contained",
+      "planned",
+      "blocked-build",
+      "built-demo",
+      "built-live",
+    ] as const;
+    for (const status of statuses) {
+      expect(labelForDossierOverviewStatus(status, "design")).toBe(
+        describeDossierStatus(status, "design").label,
+      );
+    }
+  });
+
+  it("leaves non-overview tool-event copy unchanged", () => {
+    expect(labelForDossierOverviewStatus("Kräver konfiguration")).toBe(
+      "Kräver konfiguration",
+    );
   });
 });
 

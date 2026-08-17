@@ -724,8 +724,8 @@ export function usePreviewPanelDossiersController({
       setPickedEntry(entry);
       onRequestDossier({ id: entry.id, label: entry.label });
       // F2 + hårt byggblock: håll popovern öppen med en kort inline-notis om
-      // att blocket bara ritas som yta i designläget (speglar "Planerad —
-      // kopplas in i nästa steg").
+      // att blocket bara ritas som yta i designläget (samma `planned`-ord
+      // som `describeDossierStatus`).
       // Övriga val stänger popovern — meddelandet syns direkt i chatten.
       if (!(stage !== "integrations" && entry.class === "hard")) {
         handleOpenChange(false);

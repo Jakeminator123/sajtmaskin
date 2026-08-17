@@ -14,6 +14,7 @@ import {
   integrationSignalToToolPart,
   mergeStreamingText,
 } from "./helpers";
+import { describeDossierStatus } from "@/lib/builder/dossier-overview";
 import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 
 describe("mergeStreamingText", () => {
@@ -265,18 +266,20 @@ describe("buildModelInfoSteps — Swedish labels", () => {
 });
 
 describe("buildModelInfoSteps — deferred integrations and contract rows", () => {
-  it("lists deferred integrations as planned for the next step", () => {
+  it("lists deferred integrations with the same planned wording as the Byggblock badge", () => {
+    const plannedLabel = describeDossierStatus("planned", "design").label;
     const steps = buildModelInfoSteps({
       modelId: "gpt-5.5",
       mutedCapabilityLabels: ["Nyhetsbrev — Mailchimp"],
     });
 
-    expect(steps).toContain(
-      "Planerad — kopplas in i nästa steg: Nyhetsbrev — Mailchimp",
-    );
+    expect(steps).toContain(`${plannedLabel}: Nyhetsbrev — Mailchimp`);
+    expect(steps.some((step) => step.includes("Planerad — kopplas in"))).toBe(false);
   });
 
   it("marks contract rows without file evidence as planned", () => {
+    const plannedLabel = describeDossierStatus("planned", "design").label;
+    const plannedSuffix = ` (${plannedLabel})`;
     const steps = buildModelInfoSteps({
       modelId: "gpt-5.5",
       contractAuthProvider: "clerk",
@@ -286,16 +289,15 @@ describe("buildModelInfoSteps — deferred integrations and contract rows", () =
       fileEvidenceCapabilities: [],
     });
 
-    expect(steps).toContain("Auth: clerk (planerad — kopplas in i nästa steg)");
-    expect(steps).toContain("Databas: supabase (planerad — kopplas in i nästa steg)");
-    expect(steps).toContain("Data mode: persisted (planerad — kopplas in i nästa steg)");
-    expect(steps).toContain(
-      "Kontrakt env vars: CLERK_SECRET_KEY (planerad — kopplas in i nästa steg)",
-    );
+    expect(steps).toContain(`Auth: clerk${plannedSuffix}`);
+    expect(steps).toContain(`Databas: supabase${plannedSuffix}`);
+    expect(steps).toContain(`Data mode: persisted${plannedSuffix}`);
+    expect(steps).toContain(`Kontrakt env vars: CLERK_SECRET_KEY${plannedSuffix}`);
     expect(steps).not.toContain("Auth: clerk");
   });
 
   it("keeps a contract row plain when the version actually contains its files", () => {
+    const plannedLabel = describeDossierStatus("planned", "design").label;
     const steps = buildModelInfoSteps({
       modelId: "gpt-5.5",
       contractAuthProvider: "clerk",
@@ -304,7 +306,7 @@ describe("buildModelInfoSteps — deferred integrations and contract rows", () =
     });
 
     expect(steps).toContain("Auth: clerk");
-    expect(steps).toContain("Databas: supabase (planerad — kopplas in i nästa steg)");
+    expect(steps).toContain(`Databas: supabase (${plannedLabel})`);
   });
 
   it("leaves a mocked data mode plain — it is what the round delivers", () => {
@@ -326,7 +328,7 @@ describe("buildModelInfoSteps — deferred integrations and contract rows", () =
     });
 
     expect(steps).toContain(
-      "Kontrakt env vars: CLERK_SECRET_KEY (planerad — kopplas in i nästa steg)",
+      `Kontrakt env vars: CLERK_SECRET_KEY (${describeDossierStatus("planned", "design").label})`,
     );
   });
 });
@@ -365,5 +367,22 @@ describe("integrationSignalToToolPart", () => {
     expect(output?.steps).toContain("Åtgärd: Konfigurera");
     expect(output?.steps).toContain("Status: Kräver konfiguration");
     expect(output?.steps).not.toContain("Integration: Integration");
+  });
+
+  it("maps overviewStatus values through describeDossierStatus (K1 one language)", () => {
+    const part = integrationSignalToToolPart(
+      {
+        key: "mailchimp",
+        name: "Mailchimp",
+        status: "planned",
+      },
+      "fallback",
+    );
+
+    const output = (part as { output?: { steps?: string[] } }).output;
+    expect(output?.steps).toContain(
+      `Status: ${describeDossierStatus("planned", "design").label}`,
+    );
+    expect(output?.steps).not.toContain("Status: planned");
   });
 });

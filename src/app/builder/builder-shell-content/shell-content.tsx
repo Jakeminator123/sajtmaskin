@@ -307,7 +307,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <LaunchReadinessCard
               readiness={vm.deployReadiness}
               isLoading={vm.isDeployReadinessLoading}
-              lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               hasAnyVersion={vm.effectiveVersionsList.length > 0}
             />
             {/* Lucka 3 (ägarbeslut 2026-08-11): render while an F3-blocked
@@ -318,7 +317,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 after the user fills the LAST key too (Bugbot, 4th pass on this
                 diff — gating on the empty list here removed the button, not
                 just the surface's own now-removed "allt klart"-text). The
-                surface itself hides its intro text + key list when nothing is
+                surface itself hides its short notice when nothing is
                 missing; the retry button is always rendered. */}
             {visibleF3Requirements ? (
               <F3RequirementsSurface

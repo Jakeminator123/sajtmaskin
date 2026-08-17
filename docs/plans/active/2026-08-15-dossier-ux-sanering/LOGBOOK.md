@@ -10,7 +10,7 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 
 ## Framsteg
 
-**Totalt: 42 % (5/12 aktiviteter klara) — våg 1 komplett**
+**Totalt: 50 % (6/12 aktiviteter klara)**
 
 | Id | Aktivitet | Status | Commit |
 |---|---|---|---|
@@ -19,7 +19,7 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 | B3 | Plattforms-`process.env`-fallback bort | **Klar** | `dbb242358` |
 | B4 | Copy-/docs-städ | **Klar** | `58d195a80` |
 | B5 | F3-marker env-nycklar + detaljkort (SM-008/009) | **Klar** | se git |
-| K1 | En nyckel-/statusyta | Ej startad | – |
+| K1 | En nyckel-/statusyta | **Klar** | se git |
 | K2 | Katalogklick stage:as | Ej startad | – |
 | M1 | Strukturerad materialisering | Ej startad | – |
 | U1 | Byggblock-ytans lyft | Ej startad | – |
@@ -33,6 +33,7 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 |---|---|---|
 | 2026-08-17 | En PR i stället för tre | Ägaren: «det kvittar»; aktiviteterna bygger på varandra |
 | 2026-08-17 | Subagentmodell `cursor-grok-4.6-high-fast` | Ägarens rabatt; `xhigh-fast` fanns inte i sessionens modellista |
+| 2026-08-17 | **M1 avgjort via /818** (3 vinklar, verifierade): INGEN ny serveroperation — förstärk befintlig ägare (`finalize-design` + `lifecycleStage`-meta + server-re-gate). Syntetiska användarbubblan renderas som systemhändelse via befintlig `prompt-source`-uiPart (samma mönster som autofix-prompter). Lila knappen behålls som ENDA explicita trigger (D4 = «bärande»; enda `F3_REBUILD`-lyssnaren, äger kostnad + gating). Ingen auto-start. | pipeline-rules (inga nya orkestreringssteg om ägaren kan stärkas); konsekvensvinkeln visade att knappbort river 412-retryn; MVP-bias |
 
 ## Anteckningar
 

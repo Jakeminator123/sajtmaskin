@@ -1,3 +1,4 @@
+import { labelForDossierOverviewStatus } from "@/lib/builder/dossier-overview";
 import type { UiMessagePart } from "@/lib/builder/types";
 import {
   isGenericIntegrationName,
@@ -192,7 +193,7 @@ function buildIntegrationSteps(signal: IntegrationSseSignal): string[] {
     }
   }
   if (signal.status) {
-    steps.push(`Status: ${signal.status}`);
+    steps.push(`Status: ${labelForDossierOverviewStatus(signal.status)}`);
   }
   return steps;
 }
