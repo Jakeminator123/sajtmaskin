@@ -3,6 +3,7 @@ import { usePreviewSurfaceMode } from "@/components/builder/preview-panel/usePre
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
+import { F3_KICK_PROMPT } from "@/lib/builder/types";
 import { saveProjectData } from "@/lib/projects/project-client";
 import {
   readAutofixLocalStorageOnly,
@@ -139,10 +140,11 @@ export function useShellPreviewLayout(
       // a new engine_versions row with `lifecycle_stage = "integrations"` and
       // `parent_version_id` set to the F2 version we just finalized.
       setF3Requirements(null);
-      void sendMessage("Bygg integrationer nu utifrån den finaliserade designversionen.", {
+      void sendMessage(F3_KICK_PROMPT, {
         lifecycleStageOverride: "integrations",
         parentVersionIdOverride: payload.parentVersionId,
         engineBaseVersionIdOverride: payload.parentVersionId,
+        promptSourceMeta: { sourceKind: "f3-kick" },
       });
     },
     [sendMessage, setF3Requirements],

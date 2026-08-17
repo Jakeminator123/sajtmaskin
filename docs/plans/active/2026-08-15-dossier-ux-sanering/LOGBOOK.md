@@ -10,7 +10,7 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 
 ## Framsteg
 
-**Totalt: 50 % (6/12 aktiviteter klara)**
+**Totalt: 58 % (7/12 aktiviteter klara)**
 
 | Id | Aktivitet | Status | Commit |
 |---|---|---|---|
@@ -21,7 +21,7 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 | B5 | F3-marker env-nycklar + detaljkort (SM-008/009) | **Klar** | se git |
 | K1 | En nyckel-/statusyta | **Klar** | se git |
 | K2 | Katalogklick stage:as | Ej startad | – |
-| M1 | Strukturerad materialisering | Ej startad | – |
+| M1 | F3-kick som systemhändelse (avgjord minimal form) | **Klar** | se git |
 | U1 | Byggblock-ytans lyft | Ej startad | – |
 | F1 | F2/F3-begreppsutfasning | Ej startad | – |
 | HK | Housekeeping-svep (docs/schema/backlog/beslut/städ) | Ej startad | – |

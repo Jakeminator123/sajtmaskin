@@ -185,12 +185,17 @@ export function useSendMessage(
         engineModel,
       });
 
-      // Auto-repair sends (client post-check) carry a `sourceKind: "autofix"`
+      // Synthetic sends (auto-repair, F3 kick) carry a `prompt-source`
       // discriminator. Mirror it onto the optimistic row's uiParts so the
-      // message renders as a collapsed system row (Spår 03 Steg 4) instead of
-      // a user bubble even before the server round-trip confirms it — the
-      // server persists the same marker (see chat-message-stream/handler.ts).
-      const isAutoRepairSend = options.promptSourceMeta?.sourceKind === "autofix";
+      // message renders as a collapsed system row instead of a user bubble
+      // even before the server round-trip. Autofix is also persisted by the
+      // server (chat-message-stream/handler.ts); F3 kick is UI-only and
+      // falls back to the content-prefix classifier after reload.
+      const promptSourceKind = options.promptSourceMeta?.sourceKind;
+      const promptSourceUiPart =
+        promptSourceKind === "autofix" || promptSourceKind === "f3-kick"
+          ? { type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: promptSourceKind }
+          : undefined;
       setPreviewBuildError?.(null);
       setPreviewProdBuild?.(null);
       setMessages((prev) => [
@@ -199,9 +204,7 @@ export function useSendMessage(
           id: userMessageId,
           role: "user",
           content: messageText,
-          uiParts: isAutoRepairSend
-            ? [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }]
-            : undefined,
+          uiParts: promptSourceUiPart ? [promptSourceUiPart] : undefined,
         },
         {
           id: assistantMessageId,
@@ -298,7 +301,7 @@ export function useSendMessage(
           promptMeta.complexityHint = initChoicesMeta.complexityHint;
         }
         if (options.planMode) promptMeta.planMode = true;
-        if (options.promptSourceMeta) {
+        if (options.promptSourceMeta && options.promptSourceMeta.sourceKind !== "f3-kick") {
           promptMeta.promptSourceKind = options.promptSourceMeta.sourceKind;
           promptMeta.promptSourceTechnical = options.promptSourceMeta.isTechnical;
           promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;

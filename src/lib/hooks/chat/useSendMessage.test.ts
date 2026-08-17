@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MutableRefObject } from "react";
-import type { ChatMessage } from "@/lib/builder/types";
+import { PROMPT_SOURCE_UI_PART_TYPE, type ChatMessage } from "@/lib/builder/types";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { CREATE_CHAT_CONNECTION_BROKEN_MESSAGE } from "./helpers-errors";
@@ -353,6 +353,68 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     expect(meta.lifecycleStage).toBe("integrations");
     expect(meta.parentVersionId).toBe("ver_f2_parent");
     expect(meta.engineBaseVersionId).toBe("ver_f2_parent");
+  });
+
+  it("attaches an f3-kick uiPart on the optimistic user row and skips promptMeta.promptSourceKind", async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+
+    const { result, messagesBox } = createHarness({
+      activeVersionId: "ver_f2_parent",
+      latestKnownVersionId: "ver_f2_parent",
+    });
+
+    await send(result, "Bygg integrationer nu utifrån den finaliserade designversionen.", {
+      lifecycleStageOverride: "integrations",
+      parentVersionIdOverride: "ver_f2_parent",
+      engineBaseVersionIdOverride: "ver_f2_parent",
+      promptSourceMeta: { sourceKind: "f3-kick" },
+    });
+
+    const userRow = messagesBox.current.find((m) => m.role === "user");
+    expect(userRow?.uiParts).toEqual([
+      { type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "f3-kick" },
+    ]);
+
+    const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
+    expect(meta.lifecycleStage).toBe("integrations");
+    expect(meta.promptSourceKind).toBeUndefined();
+    expect(meta.promptSourceTechnical).toBeUndefined();
+    expect(meta.promptSourcePreservePayload).toBeUndefined();
+  });
+
+  it("still forwards promptMeta.promptSourceKind for an autofix send", async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+
+    const { result, messagesBox } = createHarness({
+      activeVersionId: "ver_current",
+      latestKnownVersionId: "ver_current",
+    });
+
+    await send(result, "AUTO-FIX REQUEST — TARGETED REPAIR", {
+      promptSourceMeta: {
+        sourceKind: "autofix",
+        isTechnical: true,
+        preservePayload: true,
+      },
+    });
+
+    const userRow = messagesBox.current.find((m) => m.role === "user");
+    expect(userRow?.uiParts).toEqual([
+      { type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" },
+    ]);
+
+    const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
+    expect(meta.promptSourceKind).toBe("autofix");
+    expect(meta.promptSourceTechnical).toBe(true);
+    expect(meta.promptSourcePreservePayload).toBe(true);
   });
 
   it("handles the deterministic F3 stream backstop via finalize-design and ReleaseGate", async () => {
