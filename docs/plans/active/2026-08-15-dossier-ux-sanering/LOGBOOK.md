@@ -10,7 +10,7 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 
 ## Framsteg
 
-**Totalt: 83 % (10/12 aktiviteter klara) — alla vågor kompletta**
+**Totalt: 92 % (11/12 aktiviteter klara) — bugbot-pass återstår**
 
 | Id | Aktivitet | Status | Commit |
 |---|---|---|---|
@@ -24,8 +24,8 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 | M1 | F3-kick som systemhändelse (avgjord minimal form) | **Klar** | se git |
 | U1 | Byggblock-ytans lyft (popover → Sheet) | **Klar** | se git |
 | F1 | F2/F3-begreppsutfasning | **Klar** | se git |
-| HK | Housekeeping-svep (docs/schema/backlog/beslut/städ) | Ej startad | – |
-| V | Slutverifiering + bugbot | Ej startad | – |
+| HK | Housekeeping-svep (docs/schema/backlog/beslut/städ) | **Klar** | se git |
+| V | Slutverifiering + bugbot | Pågår (bugbot) | – |
 
 ## Beslut under körningen
 
@@ -45,3 +45,14 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 - B5: orkestratorn strök oanvänd hjälpare (`projectF3DetailCardLifecycle`)
   och pluggade `f3PriorRequestedEnvKeys` genom mellantypen
   `OwnEnginePipelineAndGenerationInput` (typecheck-fångst).
+- Verifiering: typecheck, ESLint (0 fel), vitest 671 filer/7918 tester,
+  backoffice 652 tester, ruff, docs:generate/check/links,
+  dossiers:validate-all + capability-map — alla gröna. OBS: i Cloud-podden
+  failar `stream/route.test.ts` m.fl. pga injicerad `REDIS_URL` (riktig
+  Redis håller generation-locket mellan tester, TTL 12 min) — samma klass
+  som runbookens kända secret-injektionsfel; grönt med env avslagen.
+- E2E i browser: registrering → generation (Anthropic) → Byggblock-Sheet →
+  K2-staging (AI-chatt «Egen sida», Clerk «Endast kontoindikator i
+  headern») → placeringsvalet påverkade genererad kod (Konto-indikator i
+  sajtheadern). Avbryt skickar inget. Video kunde inte sparas (pod saknar
+  libavutil.so.58 i inspelningsdaemonens namespace) — skärmdumpar i PR:en.
