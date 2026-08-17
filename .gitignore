@@ -30,11 +30,9 @@ next-env.d.ts
 .eslintcache
 
 # Environment files (NEVER commit secrets!)
-# .env.* covers .env.local, .env.production.local, etc.
-.env
-.env.*
-!.env.example
-!.env.*.example
+# Mönstret `.env*` ligger SIST i filen — se kommentaren där innan du flyttar det.
+# `.vercel` fungerar var som helst; Vercel-CLI:n hittar den raden.
+.vercel
 # Renamed snapshots used for diffing against Vercel — often contain real secrets
 OLD.env*
 # Same policy: manual exports / zip restores sometimes omit the leading dot (`env.*` not `.env.*`)
@@ -243,8 +241,7 @@ docs/old/**/*.env.production
 docs/old/**/*.env
 docs/old/**/*env*.txt
 
-# Vercel
-.vercel
+# Vercel: `.vercel` ligger i env-blocket längst upp.
 
 # Automation kit + cursor-gpt local artifacts (local-only)
 .cursor/agents/
@@ -330,3 +327,26 @@ docs/plans/**/run.log.jsonl
 
 # Scratch dumps from /logg (never commit)
 tmp-logg/
+
+# ===========================================================================
+# `.env*` ligger sist för att Vercel-CLI:n vill se den där.
+#
+# `vercel link` / `vercel env pull` appendar en egen `.env*`-rad i filens slut
+# och gör det på nytt varje gång `.gitignore` har ändrats sedan förra körningen.
+# Empiriskt 2026-08-17 (CLI 56.4.1): sex länkningar gav sex dubbletter, och
+# ingen filplacering, blankradsvariant eller kommentarform stoppade den. Två
+# identiska körningar i rad är tysta, men en redigering av filen "armerar" den
+# igen — antalet växer alltså långsamt över tid.
+#
+# Dubbletterna är verkningslösa för git (identiska mönster) och alltså ofarliga.
+# Bry dig inte om att handrensa dem: `npm run tidy` rapporterar dem och
+# `npm run tidy:apply` tar bort dem. Det är därför raden inte fått något
+# "rör-mig-inte"-skydd — den får dupliceras och sopas.
+#
+# Följd att känna till: allt som börjar med `.env` är ovillkorligt ignorerat, så
+# en spårad exempelfil kan inte heta `.env.example`. Döp den `env.example` (utan
+# punkt) eller lägg till med `git add -f`. De gamla `!.env.example`-negationerna
+# är borta — de låg före mönstret och kunde ändå inte göra något.
+# ===========================================================================
+
+.env*

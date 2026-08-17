@@ -354,8 +354,8 @@ def render(ctx: BackofficeContext) -> None:
             ts = baseline.get("timestamp", "")
             st.caption(
                 f"Baseline-tidsstämpel: `{ts[:19].replace('T', ' ') if ts else 'okänd'}` · "
-                "Uppdateras via `npm run eval:baseline` lokalt eller veckovis CI "
-                "(`.github/workflows/eval-baseline-update.yml`)."
+                "Uppdateras via `npm run eval:baseline` lokalt eller manuell "
+                "GitHub Action (`.github/workflows/eval-baseline-update.yml`, ingen veckocron)."
             )
         except Exception as exc:
             st.warning(f"Kunde inte läsa codegen-eval-baseline: {exc}")

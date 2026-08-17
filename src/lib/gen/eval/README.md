@@ -77,9 +77,9 @@ Ett **permanent** provider-fault (`providerFault` + `permanent`, t.ex. slut kred
 
 Avgörandet följer `providerFault` i error-eventet, inte bara att eventet finns. Ett `output_truncated` **är ett kvalitetsutfall** även utan innehåll: modellen brände output-budgeten och levererade inget, så det redovisas som `generation` (poäng 0, exit 1 vid `--gate`) — inte som `empty_stream`/exit 2. Ett oattribuerbart tomt avslut (provider-avbrott utan kod, tyst ström) är fortfarande `empty_stream`. Trunkering *med* innehåll poängsätts som vanligt; körningen loggar då `scored despite stream error event(s)`.
 
-**Kostnad:** ~18 prompts × LLM-codegen-anrop för full suite. På `gpt-5.3-codex` med stora outputs blir det fort några dollar per körning. Kör inte casually.
+**Kostnad:** En full körning observerades kosta 13,90 USD den 31 juli 2026. Med dagens större promptkontext uppskattas 19–24 USD. En misslyckad körning kan ändå kosta ca 8,50 USD i input-tokens om sviten fortsätter efter att kontot är dött — men sedan 2026-08-17 avbryter ett permanent provider-fault sviten, så den kostnaden gäller bara körningar före det. Kör inte casually; kontrollera `OPENAI_API_KEY`-quota först.
 
-**CI:** `.github/workflows/eval-baseline-update.yml` kör `eval:gate --save-baseline` veckovis (måndagar 04:11 UTC) + manuellt via workflow_dispatch. Vid förbättring → öppnar draft-PR med ny baseline. Vid regression → workflow failar.
+**CI:** `.github/workflows/eval-baseline-update.yml` körs **bara manuellt** via `workflow_dispatch` (veckoschemat togs bort 2026-08-17 efter 20 röda körningar i rad). Vid förbättring → öppnar draft-PR med ny baseline. Vid regression → workflow failar.
 
 > **OBS:** detta är **inte** wirat in på `pull_request`-trigger — varje PR skulle dra OPENAI-quota. Designval. Om du vill ha det i framtiden: kostnadsuppskatta först.
 
@@ -158,7 +158,7 @@ Baserat på baseline från 2026-03-18 (`gpt-5.3-codex`, 15 prompts; full suite �
 - Per prompt: 38–73 sekunder (varierar med komplexitet — `multi-page-brochure` och `saas-dashboard` är dyrast)
 - Total wall-clock: ~10–15 minuter
 - Total tokens: hundratusentals input + hundratusentals output, beror på prompt
-- Pris: snarare i $1–$5-range än cent-range. Kontrollera `OPENAI_API_KEY`-quota innan du startar.
+- Pris: 13,90 USD observerat 2026-07-31; uppskattat 19–24 USD med dagens promptkontext. En röd körning kan ändå kosta ca 8,50 USD. Inte $1–$5. Kontrollera `OPENAI_API_KEY`-quota innan du startar.
 
 ## Felsökning
 
@@ -178,5 +178,5 @@ Baserat på baseline från 2026-03-18 (`gpt-5.3-codex`, 15 prompts; full suite �
 ## Hänvisningar
 
 - CI-workflow: `.github/workflows/eval-baseline-update.yml`
-- PR-triggad eval-gate saknas medvetet (kostnadsbeslut 2026-04-27) — veckoschemat i `eval-baseline-update.yml` äger baseline-uppdateringen
+- PR-triggad eval-gate saknas medvetet (kostnadsbeslut 2026-04-27). Baseline uppdateras manuellt via `workflow_dispatch` på `eval-baseline-update.yml` eller `npm run eval:baseline` lokalt.
 - Backoffice-sidan: `backoffice/pages/eval_page.py` (registrerad som `PageSpec("Eval", "Overhead", …)` i `backoffice/pages/__init__.py`)
