@@ -10,12 +10,12 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 
 ## Framsteg
 
-**Totalt: 0 % (0/12 aktiviteter klara)**
+**Totalt: 8 % (1/12 aktiviteter klara)**
 
 | Id | Aktivitet | Status | Commit |
 |---|---|---|---|
-| B1 | Providerval: negation/multi-hit/okänd provider | Ej startad | – |
-| B2 | En F3-promptauktoritet (SM-005) | Ej startad | – |
+| B1 | Providerval: negation/multi-hit/okänd provider | Pågår (subagent) | – |
+| B2 | En F3-promptauktoritet (SM-005) | **Klar** | `512e7a9cd` |
 | B3 | Plattforms-`process.env`-fallback bort | Ej startad | – |
 | B4 | Copy-/docs-städ | Ej startad | – |
 | B5 | F3-marker env-nycklar + detaljkort (SM-008/009) | Ej startad | – |
