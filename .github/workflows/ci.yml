@@ -55,7 +55,7 @@ jobs:
       # quality är required: jobbet måste alltid starta. Bara det tunga
       # baseline-deps:tree-steget kortsluts (se steget nedan).
       - name: Detect baseline-tree relevant changes
-        id: baseline-tree
+        id: baseline_tree
         uses: dorny/paths-filter@v3
         with:
           filters: |
@@ -145,7 +145,7 @@ jobs:
       # jobb needs: detta steg — quality slutar grönt även när det hoppas över.
       # workflow_dispatch kör alltid (ingen PR-diff att filtrera på).
       - name: Verify baseline dependency tree
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.baseline-tree.outputs.tree == 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.baseline_tree.outputs.tree == 'true' }}
         run: npm run baseline-deps:tree
 
       - name: Validate scaffold manifests
