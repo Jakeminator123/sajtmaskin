@@ -333,6 +333,8 @@ jobs:
         with:
           filters: |
             stability:
+              - '.github/workflows/ci.yml'
+              - '.node-version'
               - '**/*.stability.test.ts'
               - '**/*.stability.test.tsx'
               - 'vitest.stability.config.ts'
@@ -398,6 +400,8 @@ jobs:
         with:
           filters: |
             preview_host:
+              - '.github/workflows/ci.yml'
+              - '.node-version'
               - 'preview-host/**'
 
       - name: Setup Node.js
@@ -448,6 +452,8 @@ jobs:
         with:
           filters: |
             dead_code:
+              - '.github/workflows/ci.yml'
+              - '.node-version'
               - 'knip.json'
               - 'package.json'
               - 'package-lock.json'
