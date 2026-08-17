@@ -54,6 +54,12 @@ describe("parseCanonicalEvalArgs", () => {
     expect(parsed.mode).toBe("codegen-smoke");
     expect(parsed.promptIds).toEqual(["arcade-with-klarna"]);
   });
+
+  it("rejects an empty --prompts value instead of falling back to free mode", () => {
+    expect(() => parseCanonicalEvalArgs(["--prompts"])).toThrow(/requires at least one prompt id/);
+    expect(() => parseCanonicalEvalArgs(["--prompts="])).toThrow(/requires at least one prompt id/);
+    expect(() => parseCanonicalEvalArgs(["--prompts=,"])).toThrow(/requires at least one prompt id/);
+  });
 });
 
 describe("resolveCanonicalOutcome / canonicalExitCode", () => {

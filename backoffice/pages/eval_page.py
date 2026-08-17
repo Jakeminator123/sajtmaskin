@@ -330,6 +330,7 @@ def render(ctx: BackofficeContext) -> None:
         max_value=180,
         value=default_timeout,
         step=1 if not paid else 5,
+        key=f"canonical_eval_timeout_{mode}",
         help="Backoffice väntar synkront medan npm-kommandot kör.",
     )
     confirmed = True
