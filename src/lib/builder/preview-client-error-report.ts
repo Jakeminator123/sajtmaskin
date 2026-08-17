@@ -23,9 +23,67 @@ const MESSAGE_MAX = 500;
 const STACK_MAX = 1000;
 const MAX_PER_VERSION = 5;
 
-type GateEntry = { count: number; messages: Set<string> };
+export type ClientErrorPromotionPhase = string | Date | null | undefined;
+
+type ResolvedPromotionPhase = "pre" | "promoted";
+type GateEntry = { phase: ResolvedPromotionPhase; count: number; messages: Set<string> };
 
 const gateByVersion = new Map<string, GateEntry>();
+const promotedVersionIds = new Set<string>();
+
+function hasPromotionBoundary(promotedAt: ClientErrorPromotionPhase): boolean {
+  if (promotedAt instanceof Date) {
+    return !Number.isNaN(promotedAt.getTime());
+  }
+  return typeof promotedAt === "string" && promotedAt.trim().length > 0;
+}
+
+function resolvePromotionPhase(
+  versionId: string,
+  promotedAt: ClientErrorPromotionPhase,
+): ResolvedPromotionPhase {
+  if (hasPromotionBoundary(promotedAt)) {
+    promotedVersionIds.add(versionId);
+  }
+  return promotedVersionIds.has(versionId) ? "promoted" : "pre";
+}
+
+function acceptClientErrorReportForPhase(
+  versionId: string,
+  message: string,
+  phase: ResolvedPromotionPhase,
+): boolean {
+  let entry = gateByVersion.get(versionId);
+  if (!entry || entry.phase !== phase) {
+    entry = { phase, count: 0, messages: new Set() };
+    gateByVersion.set(versionId, entry);
+  }
+  if (entry.messages.has(message)) return false;
+  if (entry.count >= MAX_PER_VERSION) return false;
+  entry.messages.add(message);
+  entry.count += 1;
+  return true;
+}
+
+function releaseClientErrorReportForPhase(
+  versionId: string,
+  message: string,
+  phase: ResolvedPromotionPhase,
+): void {
+  const entry = gateByVersion.get(versionId);
+  if (entry?.phase !== phase || !entry.messages.has(message)) return;
+  entry.messages.delete(message);
+  entry.count = Math.max(0, entry.count - 1);
+}
+
+/**
+ * Flytta klientfel-gaten omedelbart till post-promotion när quality-gate-
+ * routen uttryckligen bekräftar promotion. Monoton per version: en senare
+ * stale SWR-render med `promotedAt=null` får aldrig flytta tillbaka gaten.
+ */
+export function markClientErrorVersionPromoted(versionId: string): void {
+  if (versionId) promotedVersionIds.add(versionId);
+}
 
 function isClientErrorKind(value: unknown): value is ClientErrorKind {
   return typeof value === "string" && (CLIENT_ERROR_KINDS as readonly string[]).includes(value);
@@ -53,19 +111,18 @@ export function sanitizeClientErrorPayload(raw: unknown): SanitizedClientErrorPa
   return out;
 }
 
-/** Session-tak: max 5 unika meddelanden per versionId. */
-export function acceptClientErrorReport(versionId: string, message: string): boolean {
+/** Session-tak: max 5 unika meddelanden per versionId och promotionsfas. */
+export function acceptClientErrorReport(
+  versionId: string,
+  message: string,
+  promotedAt?: ClientErrorPromotionPhase,
+): boolean {
   if (!versionId || !message) return false;
-  let entry = gateByVersion.get(versionId);
-  if (!entry) {
-    entry = { count: 0, messages: new Set() };
-    gateByVersion.set(versionId, entry);
-  }
-  if (entry.messages.has(message)) return false;
-  if (entry.count >= MAX_PER_VERSION) return false;
-  entry.messages.add(message);
-  entry.count += 1;
-  return true;
+  return acceptClientErrorReportForPhase(
+    versionId,
+    message,
+    resolvePromotionPhase(versionId, promotedAt),
+  );
 }
 
 /**
@@ -74,16 +131,22 @@ export function acceptClientErrorReport(versionId: string, message: string): boo
  * blockeras ett äkta fel för resten av flik-sessionen efter en transient miss
  * (bugbot 2026-08-05).
  */
-export function releaseClientErrorReport(versionId: string, message: string): void {
-  const entry = gateByVersion.get(versionId);
-  if (!entry || !entry.messages.has(message)) return;
-  entry.messages.delete(message);
-  entry.count = Math.max(0, entry.count - 1);
+export function releaseClientErrorReport(
+  versionId: string,
+  message: string,
+  promotedAt?: ClientErrorPromotionPhase,
+): void {
+  releaseClientErrorReportForPhase(
+    versionId,
+    message,
+    resolvePromotionPhase(versionId, promotedAt),
+  );
 }
 
 /** Test-only: nollställ session-taket. */
 export function resetClientErrorReportGateForTests(): void {
   gateByVersion.clear();
+  promotedVersionIds.clear();
 }
 
 /**
@@ -105,11 +168,13 @@ export function reportPreviewClientError(
   chatId: string | null | undefined,
   versionId: string | null | undefined,
   raw: unknown,
+  promotedAt?: ClientErrorPromotionPhase,
 ): void {
   if (!chatId || !versionId) return;
   const payload = sanitizeClientErrorPayload(raw);
   if (!payload) return;
-  if (!acceptClientErrorReport(versionId, payload.message)) return;
+  const phase = resolvePromotionPhase(versionId, promotedAt);
+  if (!acceptClientErrorReportForPhase(versionId, payload.message, phase)) return;
 
   const url = `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`;
   try {
@@ -128,12 +193,12 @@ export function reportPreviewClientError(
       }),
     })
       .then((res) => {
-        if (!res.ok) releaseClientErrorReport(versionId, payload.message);
+        if (!res.ok) releaseClientErrorReportForPhase(versionId, payload.message, phase);
       })
       .catch(() => {
-        releaseClientErrorReport(versionId, payload.message);
+        releaseClientErrorReportForPhase(versionId, payload.message, phase);
       });
   } catch {
-    releaseClientErrorReport(versionId, payload.message);
+    releaseClientErrorReportForPhase(versionId, payload.message, phase);
   }
 }

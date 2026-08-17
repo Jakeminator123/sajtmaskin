@@ -28,7 +28,7 @@ Varje körning returnerar **separata** delresultat. Slå inte ihop tre procentta
 | `scaffold` | alltid | Att `matchScaffoldAuto()` väljer rätt scaffold. Skriver `data/scaffold-eval/reports/scaffold-selection-latest.json` (samma path canvas + Backoffice "Eval exact-hit" redan läser) | inget. Semantisk ranking används bara om nyckel + embeddings redan finns; saknas de degraderar semantiken till keyword, vilket inte failar lanen |
 | `codegen` | av | Hela orkestreringen + LLM-codegen + 12 checks för 3 eller 18 prompts | `OPENAI_API_KEY` + `POSTGRES_URL` |
 
-Topputfall: `PASS` / `FAIL` / `PROVIDER_ERROR` / `INFRA_ERROR`. Exit 0 / 1 / 2 följer `resolveEvalRunOutcome` + `evalExitCode` i `runner.ts` för codegen, och `resolveCanonicalOutcome` i `canonical.ts` för hela körningen. Ett provider-/infra-fel i codegen vinner över en kvalitetsmiss.
+Topputfall: `PASS` / `FAIL` / `PROVIDER_ERROR` / `INFRA_ERROR`. Exit 0 / 1 / 2 följer `resolveEvalRunOutcome` + `evalExitCode` i `outcome.ts` för codegen, och `resolveCanonicalOutcome` i `canonical.ts` för hela körningen. Ett provider-/infra-fel i codegen vinner över en kvalitetsmiss.
 
 Scaffold-lanens utfall härleds ur `keywordTop1Accuracy` mot
 `SCAFFOLD_LANE_MIN_KEYWORD_TOP1_PERCENT` i `canonical.ts` (ägbar policy,
@@ -48,7 +48,7 @@ En failad gratislane **stoppar** den betalda codegen-lanen. Follow-up och scaffo
 
 Baseline-jämförelsen (`compareWithBaseline` + `eval-baseline.json`) är **informativ utskrift**. Det finns ingen `--gate` och ingen `--save-baseline`. Vill du uppdatera den committade baselinen: kör `--full`, läs deltat, redigera/commita `eval-baseline.json` medvetet.
 
-Jämförelsereglerna i `baseline.ts` (fail/warning/pass) styr bara texten, inte exit-koden. Prompts som aldrig nådde checkarna jämförs inte. `overallDelta` räknas över **samma** prompt-id:n som faktiskt utvärderades.
+Jämförelsereglerna i `baseline.ts` (fail/warning/pass) styr bara texten, inte exit-koden. Prompts som aldrig nådde checkarna (`generationStatus: "skipped"`) jämförs inte. Deras nollor är inte mätvärden. `overallDelta` räknas över **samma** prompt-id:n som faktiskt utvärderades i den här körningen — inte `report.summary.avgScore` mot `baseline.summary.avgScore`, som efter 2026-08-17 är olika mängder.
 
 Provider- och infra-fel rangordnas före kvalitetsdomen. Codegen-kvalitet härleds ur mätningen: `evaluated > 0` och `passed < evaluated` ger `quality_fail` (exit 1). Ett **permanent** provider-fault avbryter resten av sviten (`suite_aborted`). Transient 429/5xx/transport stoppar inte. `output_truncated` utan innehåll är kvalitetsutfall, inte infra.
 

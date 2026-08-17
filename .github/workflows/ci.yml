@@ -329,7 +329,7 @@ jobs:
 
       - name: Detect stability-relevant changes
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             stability:
@@ -396,7 +396,7 @@ jobs:
 
       - name: Detect preview-host-relevant changes
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             preview_host:
@@ -448,7 +448,7 @@ jobs:
 
       - name: Detect dead-code-relevant changes
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             dead_code:

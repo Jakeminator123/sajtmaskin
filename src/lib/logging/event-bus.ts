@@ -128,6 +128,16 @@ export const MAX_TMP_MIRROR_BYTES = 32 * 1024 * 1024;
 export const TMP_MIRROR_PRUNE_MIN_IDLE_MS = 20 * 60 * 1000;
 
 /**
+ * Befintliga versionsmappar växer efter den count-baserade snabbvägen ovan.
+ * Mät därför tmp-spegeln igen med en begränsad write-cadence: högst en full
+ * katalogscan per MiB ny NDJSON (eller per minut vid låg trafik). På så sätt
+ * kan byte-taket inte drifta obegränsat utan att varje hot event behöver
+ * traversera hela spegeln.
+ */
+export const TMP_MIRROR_PRUNE_WRITE_CADENCE_BYTES = 1024 * 1024;
+export const TMP_MIRROR_PRUNE_WRITE_CADENCE_MS = 60 * 1000;
+
+/**
  * When a caller emits an event without an explicit `runId`, we fall
  * back to a deterministic bootstrap run so the event still lands on
  * disk under a stable path. `"root"` was picked instead of `"default"`
@@ -143,6 +153,8 @@ export const DEFAULT_RUN_ID = "root";
 const inMemoryEvents = new Map<string, EngineEvent[]>();
 const subscribers = new Set<EventBusSubscriber>();
 const seenRunIds = new Map<string, Set<string>>();
+let tmpMirrorBytesWrittenSincePrune = 0;
+let lastTmpMirrorPruneAtMs = 0;
 
 // ── Disk IO helpers ────────────────────────────────────────────────────
 
@@ -184,9 +196,11 @@ function readJsonSafe<T>(filePath: string): T | null {
   }
 }
 
-function appendNdjsonLine(filePath: string, event: EngineEvent): void {
+function appendNdjsonLine(filePath: string, event: EngineEvent): number {
   ensureDir(path.dirname(filePath));
-  fs.appendFileSync(filePath, `${JSON.stringify(event)}\n`, "utf8");
+  const line = `${JSON.stringify(event)}\n`;
+  fs.appendFileSync(filePath, line, "utf8");
+  return Buffer.byteLength(line, "utf8");
 }
 
 function appendRunIndex(versionId: string, entry: RunIndexEntry): void {
@@ -199,7 +213,9 @@ function appendRunIndex(versionId: string, entry: RunIndexEntry): void {
   if (alreadyIndexed) return;
   existing.push(entry);
   fs.writeFileSync(file, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
-  if (createdNewVersionDir) pruneTmpMirrorVersionDirsBestEffort();
+  // Antalet mappar kan bara öka här, så behåll den omedelbara count-
+  // snabbvägen. Byte-tillväxt i befintliga mappar fångas av write-cadencen.
+  if (createdNewVersionDir) runTmpMirrorPruneCycleBestEffort();
 }
 
 /**
@@ -208,8 +224,7 @@ function appendRunIndex(versionId: string, entry: RunIndexEntry): void {
  * inte versionsmappens egen mtime. Med enbart katalog-mtime kunde en gammal
  * men fortfarande aktiv version LRU-klassas och raderas mitt i körningen.
  * Därför: nyaste av versionsmappen, dess run-barn och varje runs
- * `events.ndjson`. Bounded — körs när en ny versionsmapp skapas, en nivå
- * barn per mapp.
+ * `events.ndjson`. Bounded — körs på prune-cadence, en nivå barn per mapp.
  */
 function newestActivityMtimeMs(dir: string): number {
   let newest = 0;
@@ -329,6 +344,32 @@ function pruneTmpMirrorVersionDirsBestEffort(): void {
 }
 
 /**
+ * Nollställ cadencen även om prunen fail-open: ett tillfälligt FS-fel får
+ * inte förvandla varje efterföljande emit till en full scan. Nästa byte- eller
+ * tidsintervall försöker igen.
+ */
+function runTmpMirrorPruneCycleBestEffort(nowMs = Date.now()): void {
+  tmpMirrorBytesWrittenSincePrune = 0;
+  lastTmpMirrorPruneAtMs = nowMs;
+  pruneTmpMirrorVersionDirsBestEffort();
+}
+
+function maybePruneTmpMirrorAfterWrite(bytesWritten: number): void {
+  if (!isInsideTmpDir(RUNS_ROOT_DIR)) return;
+
+  tmpMirrorBytesWrittenSincePrune += Math.max(0, bytesWritten);
+  const nowMs = Date.now();
+  const bytesDue =
+    tmpMirrorBytesWrittenSincePrune >= TMP_MIRROR_PRUNE_WRITE_CADENCE_BYTES;
+  const timeDue =
+    lastTmpMirrorPruneAtMs === 0 ||
+    nowMs - lastTmpMirrorPruneAtMs >= TMP_MIRROR_PRUNE_WRITE_CADENCE_MS;
+  if (!bytesDue && !timeDue) return;
+
+  runTmpMirrorPruneCycleBestEffort(nowMs);
+}
+
+/**
  * Ett enda testpredikat för hela filen. Förut fanns två: sökvägsvalet såg
  * bara `VITEST`, loggdämpningen även `NODE_ENV=test`. En körning som satte
  * `NODE_ENV=test` utan `VITEST` (node-skript, framtida runner) skrev därför
@@ -441,6 +482,8 @@ export function __resetForTests(versionId?: string): void {
   inMemoryEvents.clear();
   seenRunIds.clear();
   subscribers.clear();
+  tmpMirrorBytesWrittenSincePrune = 0;
+  lastTmpMirrorPruneAtMs = 0;
 }
 
 // ── Internals ──────────────────────────────────────────────────────────
@@ -490,7 +533,8 @@ function maybeRegisterRun(event: EngineEvent): void {
 
 function mirrorToDisk(event: EngineEvent): void {
   try {
-    appendNdjsonLine(ndjsonPath(event.versionId, event.runId), event);
+    const bytesWritten = appendNdjsonLine(ndjsonPath(event.versionId, event.runId), event);
+    maybePruneTmpMirrorAfterWrite(bytesWritten);
   } catch (err) {
     if (!isTestRuntime()) {
       console.warn(
