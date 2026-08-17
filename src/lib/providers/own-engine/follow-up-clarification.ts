@@ -552,7 +552,17 @@ const FOLLOW_UP_CLARIFICATION_PARAPHRASES: ReadonlyArray<{
     option: "Text och innehåll",
     rank: 4,
     match: uWordRegex("text(?:en|er|erna)?|innehåll(?:et)?|copy(?:n)?", "iu"),
-    allowTokens: ["text", "texten", "innehåll", "innehållet", "copy", "och"],
+    allowTokens: [
+      "text",
+      "texten",
+      "texter",
+      "texterna",
+      "innehåll",
+      "innehållet",
+      "copy",
+      "copyn",
+      "och",
+    ],
   },
   {
     option: "Layout och design",

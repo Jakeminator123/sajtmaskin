@@ -566,6 +566,7 @@ export async function runVerifierPhase(params: {
           ),
         });
       } catch (verifierFixErr) {
+        fixerImproved = false;
         console.warn(
           "[verifier-pass] Fixer pass failed, keeping advisory blockers:",
           verifierFixErr,
@@ -577,6 +578,21 @@ export async function runVerifierPhase(params: {
             verifierFixErr instanceof Error
               ? verifierFixErr.message
               : "Unknown verifier fixer error",
+        });
+        // The verifier itself completed and its findings remain authoritative;
+        // only the repair attempt failed. Emit the same terminal status shape
+        // as an unsuccessful confirmation rerun so progress consumers never
+        // remain stuck on the preceding `fixing` event.
+        onProgress?.("verifier", {
+          phase: "fix-failed",
+          durationMs: Date.now() - verifierFixStartedAt,
+          findingsBefore: findings.blocking.length,
+          findingsAfter: verifierBlockingFindings.length,
+          fixerImproved: false,
+          severity: classifyVerifierFindingSeverity(
+            verifierBlockingFindings,
+            params.buildSpec?.previewPolicy,
+          ),
         });
       }
       stepTelemetry = createFinalizeStepTelemetry(verifierStartedAt, "done", {

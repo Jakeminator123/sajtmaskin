@@ -5,6 +5,7 @@ import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gat
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
 import { beginPipelineWork } from "@/lib/builder/pipeline-interaction-lock";
+import { markClientErrorVersionPromoted } from "@/lib/builder/preview-client-error-report";
 import {
   buildPostCheckBaseline,
   type PostCheckBaseline,
@@ -328,6 +329,7 @@ export async function runPostGenerationChecks(params: {
   postCheckControllers.set(chatId, controller);
   const releasePipelineWork = beginPipelineWork();
   let spawnedVerifyLane = false;
+  let completionPersistence: Promise<boolean> | null = null;
 
   appendToolPartToMessage(setMessages, assistantMessageId, {
     type: "tool:post-check",
@@ -404,7 +406,7 @@ export async function runPostGenerationChecks(params: {
       resolvedDemoUrl: baseline.resolvedDemoUrl,
     });
 
-    void persistVersionErrorLogs({
+    completionPersistence = persistVersionErrorLogs({
       chatId,
       versionId,
       logs: [...artifacts.logItems, ...buildProductPostcheckLogItems(productPostcheck)],
@@ -517,7 +519,7 @@ export async function runPostGenerationChecks(params: {
         },
       });
     } else {
-      void persistVersionErrorLogs({
+      completionPersistence = persistVersionErrorLogs({
         chatId,
         versionId,
         logs: [
@@ -546,15 +548,22 @@ export async function runPostGenerationChecks(params: {
     }
     releasePipelineWork();
     // Deterministic completion signal (runs on both the success and catch
-    // paths, exactly once). Refetches BOTH status surfaces after the
-    // postcheck has emitted any late `version.degraded`: `mutateVersions`
-    // revalidates `/versions` (VersionHistory `busStatus`, whose SWR
-    // otherwise idles ~60s) and `onComplete` bumps `refreshNonce` for the
-    // preview badge (`useVersionStatus`). Without the former the two
-    // surfaces disagree — history keeps the pre-postcheck green while the
-    // preview already shows degraded (Codex P2, område 6-3).
-    mutateVersions?.();
-    onComplete?.();
+    // paths, exactly once). Refetch BOTH status surfaces only after the
+    // post-check's own error-log write has settled. In particular, the
+    // product_postcheck.summary row is an input to the F3 trigger; refreshing
+    // before that row exists can cache the previous summary for another SWR
+    // interval. The write remains fire-and-forget for the generation tail —
+    // its retry policy owns settlement and either outcome releases the
+    // refresh callback.
+    const refreshStatusSurfaces = () => {
+      mutateVersions?.();
+      onComplete?.();
+    };
+    if (completionPersistence) {
+      void completionPersistence.then(refreshStatusSurfaces, refreshStatusSurfaces);
+    } else {
+      refreshStatusSurfaces();
+    }
   }
 }
 
@@ -712,6 +721,8 @@ async function runTier2VerifyLane(params: {
       promotionBlocked?: boolean;
       promotionBlockedReason?: string | null;
       promoteError?: boolean;
+      /** Server-confirmed transition; unlike `passed`, this proves promotion. */
+      promoted?: boolean;
       // F2 render-first advisory: `passed:true` with `vmGatePassed:false` means a
       // typecheck-only failure was treated as non-blocking on a design preview
       // (the version was promoted). No auto-repair should run for this.
@@ -744,7 +755,6 @@ async function runTier2VerifyLane(params: {
             "En nyare version tog över innan verifieringen hann bli klar — den här versionen markerades som ersatt (inte fel). Den nya versionen verifieras separat.",
         },
       } as UiMessagePart);
-      mutateVersions?.();
       return;
     }
 
@@ -776,8 +786,18 @@ async function runTier2VerifyLane(params: {
               output: { skipped: true, reason: reasonText },
             }) as UiMessagePart,
       );
-      mutateVersions?.();
       return;
+    }
+
+    if (
+      data.promoted === true &&
+      data.promotionBlocked !== true &&
+      data.promoteError !== true
+    ) {
+      // Close the promotion→SWR race immediately. The marker is monotonic,
+      // so the stale `promotedAt=null` render remains in the promoted phase
+      // until mutateVersions commits the server timestamp.
+      markClientErrorVersionPromoted(versionId);
     }
 
     const steps: string[] = [];
@@ -906,7 +926,6 @@ async function runTier2VerifyLane(params: {
         failedChecks,
         setMessages,
         assistantMessageId,
-        mutateVersions,
         onAutoFix,
       });
     } else if (data.passed && visualQa && !visualQa.passed && onAutoFix) {
@@ -929,6 +948,12 @@ async function runTier2VerifyLane(params: {
     if (abortController && postCheckControllers.get(chatId) === abortController) {
       postCheckControllers.delete(chatId);
     }
+    // The quality-gate route owns the promotion transition. Revalidate only
+    // after this terminal lane outcome so callers observe activeVersionPromotedAt
+    // (and failures/supersedes) instead of retaining the pre-gate versions
+    // snapshot for the normal SWR interval. One terminal refresh replaces the
+    // old branch-specific calls and avoids polling churn.
+    mutateVersions?.();
   }
 }
 
@@ -972,7 +997,6 @@ async function handleRepairOrAutofix(params: {
   failedChecks: string[];
   setMessages: SetMessages;
   assistantMessageId: string;
-  mutateVersions?: () => void;
   onAutoFix?: (payload: AutoFixPayload) => void;
 }) {
   const {
@@ -982,7 +1006,6 @@ async function handleRepairOrAutofix(params: {
     failedChecks,
     setMessages,
     assistantMessageId,
-    mutateVersions,
     onAutoFix,
   } = params;
 
@@ -1038,7 +1061,6 @@ async function handleRepairOrAutofix(params: {
   } as UiMessagePart);
 
   if (serverRepaired.repaired && serverRepaired.status === "repair_available") {
-    mutateVersions?.();
     toast.message("Serverreparation tillgänglig", {
       description: "Acceptera reparationen i versionspanelen för att applicera fixen.",
     });

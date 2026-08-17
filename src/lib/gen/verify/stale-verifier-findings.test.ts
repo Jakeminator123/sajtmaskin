@@ -24,8 +24,8 @@ const PAGE_FILE: FinalProjectFile = {
 
 function packageJsonFile(overrides?: {
   scripts?: Record<string, string> | null;
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
+  dependencies?: Record<string, unknown>;
+  devDependencies?: Record<string, unknown>;
 }): FinalProjectFile {
   return {
     path: "package.json",
@@ -689,6 +689,200 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
     expect(result.dropped).toHaveLength(0);
   });
 
+  it.each(
+    (["dependencies", "devDependencies"] as const).flatMap((section) =>
+      [
+        ["null", null],
+        ["object", { version: "1.0.0" }],
+        ["array", ["1.0.0"]],
+        ["boolean", false],
+        ["number", 1],
+        ["empty string", ""],
+        ["whitespace string", " \t\n "],
+      ].map(([label, spec]) => [section, label, spec] as const),
+    ),
+  )("keeps a missing-package finding for a malformed %s %s spec", (section, _label, spec) => {
+    const finding = {
+      id: "missing-project-dependencies",
+      detail: "package.json lacks `left-pad`.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [
+        packageJsonFile({
+          dependencies: section === "dependencies" ? { "left-pad": spec } : {},
+          devDependencies: section === "devDependencies" ? { "left-pad": spec } : {},
+        }),
+      ],
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("keeps a versioned dependency finding when the declared spec is empty", () => {
+    const finding = {
+      id: "missing-project-dependencies",
+      detail: "package.json lacks left-pad@^1.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [packageJsonFile({ dependencies: { "left-pad": "" }, devDependencies: {} })],
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it.each([
+    "???",
+    "not a valid spec",
+    "latest\0shadow",
+    "^1.0.0\ninvalid",
+    "http://",
+    "git+https://",
+    "workspace:",
+    "npm:",
+    "github:",
+    "ssh://",
+    "ssh://git@/repo.git",
+    "ssh://git@github.com",
+    "gitlab:group",
+    "gitlab:group//repo",
+  ])(
+    "keeps a missing-package finding for a non-installable string spec: %j",
+    (spec) => {
+      const finding = {
+        id: "missing-project-dependencies",
+        detail: "package.json lacks `next`.",
+      };
+      const result = dropResolvedVerifierFindings(
+        [finding],
+        [packageJsonFile({ dependencies: { next: spec }, devDependencies: {} })],
+      );
+      expect(result.kept).toHaveLength(1);
+      expect(result.dropped).toHaveLength(0);
+    },
+  );
+
+  it.each([
+    "file:../widget-v2",
+    "https://cdn.example.com/widget-2.tgz?release=2",
+    "git+https://github.com/example/widget.git#v2",
+  ])("does not interpret path/URL/git digits as a dependency major: %s", (spec) => {
+    const finding = {
+      id: "missing-project-dependencies",
+      detail: "package.json lacks widget@^7.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [packageJsonFile({ dependencies: { widget: spec }, devDependencies: {} })],
+    );
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
+  it.each([
+    ["semver", "^2.0.0"],
+    ["range", ">=2 <3"],
+    ["npm alias", "npm:other-widget@^2"],
+  ])("still compares a %s dependency major", (_label, spec) => {
+    const finding = {
+      id: "missing-project-dependencies",
+      detail: "package.json lacks widget@^7.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [packageJsonFile({ dependencies: { widget: spec }, devDependencies: {} })],
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it.each([
+    ["exact", "2.4.1"],
+    ["caret", "^2.1.0"],
+    ["tilde", "~2.4.0"],
+    ["major partial", "2"],
+    ["wildcard partial", "2.x"],
+    ["minor partial", "2.4"],
+    ["bounded AND range", ">=2 <3"],
+    ["inclusive lower boundary", ">=2.0.0"],
+    ["inclusive upper comparator", "<=2.0.0"],
+    ["exclusive next-major boundary", "<3.0.0"],
+    ["OR range", "^1 || ^2"],
+  ])("drops when a %s range intersects wanted major 2", (_label, spec) => {
+    const finding = {
+      id: "missing-project-dependencies",
+      detail: "package.json lacks widget@^2.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [packageJsonFile({ dependencies: { widget: spec }, devDependencies: {} })],
+    );
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
+  it.each([
+    ["exact", "1.9.9"],
+    ["caret", "^1.5.0"],
+    ["tilde", "~1.9.0"],
+    ["major partial", "1"],
+    ["wildcard partial", "1.x"],
+    ["bounded AND range", ">=1 <2"],
+    ["exclusive wanted-major boundary", "<2"],
+    ["previous partial inclusive boundary", "<=1"],
+    ["exclusive partial lower boundary", ">2"],
+    ["next-major lower boundary", ">=3.0.0"],
+    ["disjoint OR range", "^1 || ^3"],
+  ])("keeps when a %s range excludes wanted major 2", (_label, spec) => {
+    const finding = {
+      id: "missing-project-dependencies",
+      detail: "package.json lacks widget@^2.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [packageJsonFile({ dependencies: { widget: spec }, devDependencies: {} })],
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("checks every OR arm instead of only the first numeric major", () => {
+    const finding = {
+      id: "missing-project-dependencies",
+      detail: "package.json lacks widget@^3.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [
+        packageJsonFile({
+          dependencies: { widget: "^1 || ^3" },
+          devDependencies: {},
+        }),
+      ],
+    );
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
+  it("accepts an npm alias whose comparable major matches the finding", () => {
+    const finding = {
+      id: "missing-project-dependencies",
+      detail: "package.json lacks widget@^7.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [
+        packageJsonFile({
+          dependencies: { widget: "npm:other-widget@^7.1.0" },
+          devDependencies: {},
+        }),
+      ],
+    );
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
   it("counts tailwindcss in devDependencies as present", () => {
     const finding = {
       id: "missing-project-dependencies",
@@ -718,6 +912,72 @@ describe("packageJsonDeclaresDependency", () => {
     expect(packageJsonDeclaresDependency(pkg, "tailwindcss")).toBe(true);
     expect(packageJsonDeclaresDependency(pkg, "left-pad")).toBe(false);
   });
+
+  it.each([
+    ["null", null],
+    ["object", { version: "1.0.0" }],
+    ["array", ["1.0.0"]],
+    ["boolean", false],
+    ["number", 1],
+    ["empty string", ""],
+    ["whitespace string", " \t\n "],
+  ])("rejects a malformed %s spec in either dependency section", (_label, spec) => {
+    expect(
+      packageJsonDeclaresDependency({ dependencies: { widget: spec } }, "widget"),
+    ).toBe(false);
+    expect(
+      packageJsonDeclaresDependency({ devDependencies: { widget: spec } }, "widget"),
+    ).toBe(false);
+  });
+
+  it.each([
+    ["semver", "^1.2.3"],
+    ["semver range", ">=1 <2 || ^3.0.0"],
+    ["dist tag", "latest"],
+    ["digit-leading dist tag", "1beta"],
+    ["workspace", "workspace:*"],
+    ["file", "file:../widget"],
+    ["link", "link:../widget"],
+    ["URL", "https://example.com/widget.tgz"],
+    ["git", "git+https://github.com/example/widget.git#v1.0.0"],
+    ["git ssh URL", "git+ssh://git@github.com/example/widget.git#v1.0.0"],
+    ["plain ssh URL", "ssh://git@github.com/example/widget.git"],
+    ["git ssh colon path", "git+ssh://git@github.com:example/widget.git#v1.0.0"],
+    ["git scp shorthand", "git@github.com:example/widget.git#v1.0.0"],
+    ["GitHub shorthand", "example/widget#v1.0.0"],
+    ["hosted GitHub shorthand", "github:example/widget#v1.0.0"],
+    ["nested GitLab shorthand", "gitlab:group/subgroup/widget#v1.0.0"],
+    ["npm alias", "npm:other-widget@^1.0.0"],
+    ["scoped npm alias", "npm:@example/other-widget@latest"],
+  ])("accepts a non-empty %s dependency spec", (_label, spec) => {
+    expect(
+      packageJsonDeclaresDependency({ dependencies: { widget: spec } }, "widget"),
+    ).toBe(true);
+  });
+
+  it.each([
+    "???",
+    "not a valid spec",
+    "latest\0shadow",
+    "^1.0.0\tgarbage",
+    "http://",
+    "git+https://",
+    "workspace:",
+    "npm:",
+    "github:",
+    "ssh://",
+    "ssh://git@/repo.git",
+    "ssh://git@github.com",
+    "gitlab:group",
+    "gitlab:group//repo",
+  ])(
+    "rejects a non-installable string spec: %j",
+    (spec) => {
+      expect(
+        packageJsonDeclaresDependency({ dependencies: { widget: spec } }, "widget"),
+      ).toBe(false);
+    },
+  );
 });
 
 describe("dropResolvedVerifierFindings — class filter", () => {
