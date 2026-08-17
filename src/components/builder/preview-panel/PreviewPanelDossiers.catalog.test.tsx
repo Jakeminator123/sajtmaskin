@@ -110,7 +110,7 @@ describe("PreviewPanelDossiers catalog", () => {
     expect(screen.getByText("Klarna Checkout")).toBeTruthy();
     expect(screen.queryByText("Bildgalleri med lightbox")).toBeNull();
     expect(screen.getAllByText("Kopplad")).toHaveLength(2);
-    expect(screen.getAllByText("Bygg integrationer")).toHaveLength(1);
+    expect(screen.getAllByText("Kräver integrationsbygge")).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Alla (3)" }));
     expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();

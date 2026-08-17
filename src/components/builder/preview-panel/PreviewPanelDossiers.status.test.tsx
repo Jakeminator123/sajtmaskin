@@ -252,7 +252,7 @@ describe("PreviewPanelDossiers status", () => {
     // Båda katalograderna använder en extern tjänst; bara Stripe behöver
     // det separata integrationsbygget.
     expect(screen.getAllByText("Kopplad")).toHaveLength(2);
-    expect(screen.getAllByText("Bygg integrationer")).toHaveLength(1);
+    expect(screen.getAllByText("Kräver integrationsbygge")).toHaveLength(1);
   });
 
   it("does not tell users to re-run F3 when built-demo needs a real env value", async () => {
