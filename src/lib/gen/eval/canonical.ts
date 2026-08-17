@@ -1,5 +1,6 @@
 import type { EvalDumpMode } from "./artifact-dump";
-import type { EvalReport, EvalRunOutcome, EvalSummary } from "./runner";
+import type { EvalReport, EvalSummary } from "./runner";
+import { resolveEvalRunOutcome, type EvalRunOutcome } from "./outcome";
 import type { FollowUpEvalResult } from "./follow-up-context";
 import type { ScaffoldEvalReport } from "@/lib/gen/scaffolds/scaffold-eval";
 
@@ -347,20 +348,12 @@ export async function runCanonicalEval(options: {
       dumpMode: options.dumpMode,
     });
     const summary = codegenReport.summary;
-    // Same precedence as resolveEvalRunOutcome, inlined so tests do not load runner.ts.
-    const codegenOutcome =
-      summary.providerErrors > 0 || summary.suiteAborted
-        ? "provider_error"
-        : summary.infraErrors > 0
-          ? "infra_error"
-          : summary.evaluated > 0 && summary.passed < summary.evaluated
-            ? "quality_fail"
-            : "pass";
+    const codegenOutcome = resolveEvalRunOutcome({ summary });
     codegen = codegenLaneFromRun(codegenOutcome, summary, promptIds.length, {
       forced: plan.forced,
     });
   } else {
-    const { runEval, resolveEvalRunOutcome } = await import("./runner");
+    const { runEval } = await import("./runner");
     const { formatEvalReport } = await import("./report");
     const { EVAL_PROMPTS } = await import("./prompts");
     const { loadBaseline, saveBaseline, compareWithBaseline } = await import("./baseline");
