@@ -474,6 +474,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     expect((layout.match(/<Analytics \/>/g) ?? []).length).toBe(1);
   });
 
+  it("hoists a conditional even when a JSX comment contains a closing brace", () => {
+    const commentedBrace: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics } from "@vercel/analytics/next";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const enabled = true;
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          {enabled && /* ignore } */ <Analytics />}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([commentedBrace, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+    expect(result.fixes).toHaveLength(1);
+    expect(layout).toContain("{enabled && /* ignore } */ <Analytics />}");
+    expect(layout).not.toMatch(/\{enabled && \s*\}/);
+    expect(layout.indexOf("{enabled && /* ignore } */ <Analytics />}"))
+      .toBeGreaterThan(layout.indexOf("</ThemeProvider>"));
+  });
+
   it("hoists a conditional Analytics expression whole, not just the tag", () => {
     const conditional: CodeFile = {
       path: "app/layout.tsx",

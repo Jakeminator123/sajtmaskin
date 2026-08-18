@@ -222,14 +222,43 @@ function findLiveTag(source: string, needle: string, from = 0): number {
 function findMatchingBraceClose(source: string, openIdx: number): number | null {
   let depth = 0;
   let quote: string | null = null;
+  let lineComment = false;
+  let blockComment = false;
   for (let i = openIdx; i < source.length; i++) {
     const ch = source[i]!;
+    const next = source[i + 1];
+    if (lineComment) {
+      if (ch === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (ch === "*" && next === "/") {
+        blockComment = false;
+        i += 1;
+      }
+      continue;
+    }
     if (quote) {
       if (ch === "\\" && i + 1 < source.length) {
         i += 1;
         continue;
       }
       if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === "/" && next === "/") {
+      lineComment = true;
+      i += 1;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      blockComment = true;
+      i += 1;
+      continue;
+    }
+    if (ch === "{" && next === "/" && source[i + 2] === "*") {
+      blockComment = true;
+      i += 2;
       continue;
     }
     if (ch === '"' || ch === "'" || ch === "`") {

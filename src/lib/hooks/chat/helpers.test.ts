@@ -188,6 +188,23 @@ describe("buildAutoFixPrompt", () => {
     expect(prompt).toMatch(/Issues detected:.*preview-script/);
   });
 
+  it("does not put preview-vm infra lines in the Issues detected headline", () => {
+    const prompt = buildAutoFixPrompt({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      reasons: ["preview failed"],
+      repair: {
+        currentVersionErrors: [
+          "[preview-vm:boot] Fly machine failed to start.",
+          "[preview] preview compilation failed",
+        ],
+      },
+    });
+
+    expect(prompt).toMatch(/Issues detected:.*preview compilation failed/);
+    expect(prompt).not.toMatch(/Issues detected:.*Fly machine failed/);
+  });
+
   it("requires full-file repair output instead of snippets", () => {
     const prompt = buildAutoFixPrompt({
       chatId: "chat_1",

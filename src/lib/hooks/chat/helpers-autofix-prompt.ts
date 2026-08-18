@@ -50,7 +50,8 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
       entry.startsWith("[react") ||
       entry.startsWith("[syntax") ||
       entry.startsWith("[routes") ||
-      entry.startsWith("[preview") ||
+      entry.startsWith("[preview]") ||
+      entry.startsWith("[preview:") ||
       entry.startsWith("[render-telemetry]") ||
       entry.startsWith("[product_postcheck.console_error]") ||
       entry.startsWith("[product_postcheck.runtime_crash]") ||
