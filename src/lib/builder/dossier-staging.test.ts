@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import {
   buildDossierStagingLines,
   defaultDossierStagingAnswer,
   DOSSIER_STAGING_CONTENT_DEFAULT,
   getDossierStagingSpec,
+  listExplicitStagingIds,
 } from "./dossier-staging";
 
 describe("getDossierStagingSpec", () => {
@@ -61,6 +63,14 @@ describe("getDossierStagingSpec", () => {
     expect(getDossierStagingSpec("vercel-analytics")).toEqual({ kind: "none" });
     expect(getDossierStagingSpec("cmdk-command-palette")).toEqual({ kind: "none" });
     expect(getDossierStagingSpec("brand-new-block")).toEqual({ kind: "none" });
+  });
+
+  it("covers every runtime dossier id with an explicit row", () => {
+    const runtimeIds = getAllDossiers()
+      .map((dossier) => dossier.id)
+      .sort();
+    const stagedIds = [...listExplicitStagingIds()].sort();
+    expect(stagedIds).toEqual(runtimeIds);
   });
 });
 

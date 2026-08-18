@@ -52,7 +52,7 @@ export function DossierCatalogStagingView({
     (env) => (keyValues[env.key] ?? "").trim().length > 0,
   ).length;
 
-  const confirmDisabled = catalogPickDisabled || confirmed;
+  const confirmDisabled = catalogPickDisabled || confirmed || saving;
 
   const stagingLines = useMemo(
     () => buildDossierStagingLines(spec, answer),
@@ -141,7 +141,7 @@ export function DossierCatalogStagingView({
                         {env.key}
                       </code>
                       {env.required ? (
-                        <span className="text-[11px] text-gray-500">rekommenderad</span>
+                        <span className="text-[11px] text-gray-500">krävs för live</span>
                       ) : null}
                       {env.setupUrl ? (
                         <a
@@ -225,6 +225,12 @@ export function DossierCatalogStagingView({
               Avbryt
             </Button>
           </div>
+          {showKeys ? (
+            <p className="text-xs text-gray-500">
+              Avbryt lägger inte till byggblocket. Redan sparade nycklar
+              ligger kvar i projektet.
+            </p>
+          ) : null}
         </>
       )}
     </div>

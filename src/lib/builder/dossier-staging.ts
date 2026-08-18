@@ -130,6 +130,11 @@ const STAGING_BY_ID: Record<string, DossierStagingSpec> = {
   "cmdk-command-palette": NONE,
 };
 
+/** Runtime ids that have an explicit staging row (not the unknown-id fallback). */
+export function listExplicitStagingIds(): readonly string[] {
+  return Object.keys(STAGING_BY_ID);
+}
+
 export function getDossierStagingSpec(id: string): DossierStagingSpec {
   return STAGING_BY_ID[id] ?? NONE;
 }

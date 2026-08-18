@@ -10,7 +10,12 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
 
 ## Framsteg
 
-**Totalt: 100 % — allt levererat i PR #1023 (2026-08-17)**
+**Totalt: 100 % av körplanen. Merge-uppföljning pågår (2026-08-18).**
+
+Körplan (B1–F1 + housekeeping): **100 %**.
+Produktavsikt (UX/konsolidering): **~85 %**.
+Full dossier-ombyggnad (feature surface + provideradapter): **ej i scope**.
+Mergeberedskap: **väntar på push av master-synk + reviewer-fixar + ny CI**.
 
 | Id | Aktivitet | Status | Commit |
 |---|---|---|---|
@@ -56,3 +61,14 @@ integration, ingen provider → demo/mock som aldrig blockerar övriga steg.
   headern») → placeringsvalet påverkade genererad kod (Konto-indikator i
   sajtheadern). Avbryt skickar inget. Video kunde inte sparas (pod saknar
   libavutil.so.58 i inspelningsdaemonens namespace) — skärmdumpar i PR:en.
+- 2026-08-18: master inmergerad (`747be3c9c`, 0 bakom / 19 före). Reviewer-
+  småfixar: «Lägg till» disabled under `saving`; «rekommenderad» → «krävs
+  för live»; Avbryt-copy förklarar att sparade nycklar ligger kvar.
+  `STAGING_BY_ID` har completeness-test mot runtime-registret.
+- Backoffice (Streamlit) hanterades i F1: kolumnen «Kräver F3» → «Kräver
+  integrationsbygge» i `ui_overview.py` / `ui_system_map.py`. Ingen ny
+  Streamlit-yta — bara copy-synk mot runtime.
+- OpenAI-acceptans (nyckel in → ett integrationsbygge → riktigt chatt-
+  svar) är **inte** E2E-kört i Cloud-podden: injicerad `OPENAI_API_KEY`
+  har ingen quota (429). Codegen gick via Anthropic. Det är ett
+  miljöblock, inte ett kodblock.

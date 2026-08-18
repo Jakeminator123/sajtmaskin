@@ -265,6 +265,11 @@ describe("PreviewPanelDossiers catalog", () => {
 
     expect(screen.getByLabelText("Värde för STRIPE_SECRET_KEY")).toBeTruthy();
     expect(screen.getByText("Utan nyckel körs demo.")).toBeTruthy();
+    expect(screen.getAllByText("krävs för live").length).toBeGreaterThan(0);
+    expect(screen.queryByText("rekommenderad")).toBeNull();
+    expect(
+      screen.getByText(/Avbryt lägger inte till byggblocket/i),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Spara nyckel" }).hasAttribute("disabled")).toBe(
       true,
     );
