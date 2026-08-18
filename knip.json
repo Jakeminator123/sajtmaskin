@@ -1,6 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
+    "infra/openclaw/generate-config.mjs",
     "src/lib/mcp/generate-site.ts",
     "src/lib/observability/fault-promotion-report-cli.ts",
     "src/lib/gen/scaffolds/scaffold-scoring.ts",
