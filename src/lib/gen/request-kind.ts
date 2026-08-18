@@ -96,6 +96,33 @@ const QA_HINT =
 const SCORE_HINT = /\b(betyg|poäng|score|rate|rating|bedöm|utvärder|grade)\b/i;
 const QUESTION_MARK = /\?/;
 
+function scoreDisplayClauseBoundary(prefix: string): number {
+  const hardBoundary = Math.max(
+    prefix.lastIndexOf("."),
+    prefix.lastIndexOf("!"),
+    prefix.lastIndexOf("?"),
+    prefix.lastIndexOf(";"),
+    prefix.lastIndexOf(":"),
+    prefix.lastIndexOf("\n"),
+    prefix.lastIndexOf("\r"),
+    prefix.lastIndexOf("…"),
+    prefix.lastIndexOf("—"),
+  );
+  const comma = prefix.lastIndexOf(",");
+  if (comma <= hardBoundary) return hardBoundary;
+  const before = prefix.slice(hardBoundary + 1, comma);
+  const after = prefix.slice(comma + 1);
+  // Only a temporal/conditional fronting before an imperative `visa`
+  // counts as a clause cut. Parenthetical commas in how-to questions
+  // ("Hur kan jag, enligt X, visa poäng i headern?") must not hide the
+  // leading QA hint. Do not add `visa` as a general CHANGE_VERB
+  // ("Visa mig sajtens poäng" is QA).
+  const fronted =
+    /^(?:\s*)(?:när|om|efter|innan|så\s+fort)(?![\p{L}\p{N}_])/iu.test(before) &&
+    /^(?:\s*)visa(?![\p{L}\p{N}_])/iu.test(after);
+  return fronted ? comma : hardBoundary;
+}
+
 function looksLikeScoreDisplayEdit(message: string): boolean {
   // Use a fresh global regex per call: sharing a global RegExp would leak
   // lastIndex between classifications. Each candidate is judged independently
@@ -115,21 +142,7 @@ function looksLikeScoreDisplayEdit(message: string): boolean {
     // intent. Hints after the score are edit modifiers ("när ...", "vilken
     // färg ..."), not questions about how to perform the display edit.
     const prefix = message.slice(0, scoreEnd);
-    const clauseBoundary = Math.max(
-      prefix.lastIndexOf("."),
-      prefix.lastIndexOf("!"),
-      prefix.lastIndexOf("?"),
-      prefix.lastIndexOf(";"),
-      prefix.lastIndexOf(":"),
-      // Temporal Swedish fronting bisatsgräns: "När …, visa poängen i headern"
-      // is an edit, not a score question. Comma is the clause cut; do not add
-      // `visa` as a general CHANGE_VERB ("Visa mig sajtens poäng" is QA).
-      prefix.lastIndexOf(","),
-      prefix.lastIndexOf("\n"),
-      prefix.lastIndexOf("\r"),
-      prefix.lastIndexOf("…"),
-      prefix.lastIndexOf("—"),
-    );
+    const clauseBoundary = scoreDisplayClauseBoundary(prefix);
     if (!QA_HINT.test(prefix.slice(clauseBoundary + 1))) return true;
   }
 

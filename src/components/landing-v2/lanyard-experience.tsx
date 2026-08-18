@@ -23,7 +23,7 @@ import { usePrefersReducedMotion, useSaveData } from "@/components/landing-v2/la
 
 const LanyardCard = dynamic(
   () => import("@/components/landing-v2/lanyard-card").then((m) => m.LanyardCard),
-  { ssr: false },
+  { ssr: false, loading: () => <StaticLanyardFallback /> },
 )
 
 const CONSENT_KEY = "cookie-consent"
