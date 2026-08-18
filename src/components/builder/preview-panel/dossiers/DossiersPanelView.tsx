@@ -88,6 +88,7 @@ export function DossiersPanelView({
     loadCatalog,
     pickedEntry,
     stagingConfirmed,
+    stagingConfirming,
     handleOpenChange,
     handleSelectCatalogDossier,
     handleCancelStagedDossier,
@@ -541,6 +542,7 @@ export function DossiersPanelView({
                 entry={pickedEntry}
                 stage={stage}
                 confirmed={stagingConfirmed}
+                confirming={stagingConfirming}
                 catalogPickDisabled={catalogPickDisabled}
                 projectId={projectId}
                 keyValues={keyValues}

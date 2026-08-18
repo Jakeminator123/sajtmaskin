@@ -283,6 +283,54 @@ describe("PreviewPanelDossiers catalog", () => {
     });
   });
 
+  it("ignores a late catalog accept after the chat context has changed", async () => {
+    stubFetch({ wired: wiredResponse({ lifecycleStage: "design" }) });
+    let resolveRequest: ((value: boolean) => void) | undefined;
+    const onRequestDossier = vi.fn().mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+
+    const { rerender } = render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        lifecycleStage="design"
+        onRequestDossier={onRequestDossier}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    fireEvent.click(await screen.findByTitle("Välj byggblocket Stripe Checkout"));
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till i sajten" }));
+
+    await waitFor(() => {
+      expect(onRequestDossier).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByRole("button", { name: "Avbryt" }).hasAttribute("disabled")).toBe(true);
+
+    rerender(
+      <PreviewPanelDossiers
+        chatId="chat_2"
+        versionId="ver_2"
+        lifecycleStage="design"
+        onRequestDossier={onRequestDossier}
+      />,
+    );
+
+    await act(async () => {
+      resolveRequest?.(true);
+    });
+
+    expect(screen.queryByText("Tillagt via chatten")).toBeNull();
+    expect(screen.queryByText("Valt, ej tillagt")).toBeNull();
+  });
+
   it("does not mark a hard block as added when the catalog request is rejected", async () => {
     stubFetch({ wired: wiredResponse({ lifecycleStage: "design" }) });
     const onRequestDossier = vi.fn().mockResolvedValue(false);

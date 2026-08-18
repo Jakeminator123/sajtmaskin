@@ -50,6 +50,14 @@ describe("DossierCatalogStagingView", () => {
     );
   });
 
+  it("disables Avbryt and confirm while the catalog request is in flight", () => {
+    renderView({ confirming: true });
+    expect(
+      screen.getByRole("button", { name: "Lägg till i sajten" }).hasAttribute("disabled"),
+    ).toBe(true);
+    expect(screen.getByRole("button", { name: "Avbryt" }).hasAttribute("disabled")).toBe(true);
+  });
+
   it("keeps confirm enabled when keys are filled and nothing is saving", () => {
     renderView();
     expect(

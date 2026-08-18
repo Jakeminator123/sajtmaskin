@@ -16,6 +16,7 @@ export function DossierCatalogStagingView({
   entry,
   stage,
   confirmed,
+  confirming = false,
   catalogPickDisabled,
   projectId,
   keyValues,
@@ -30,6 +31,7 @@ export function DossierCatalogStagingView({
   entry: DossierCatalogEntry;
   stage: "design" | "integrations";
   confirmed: boolean;
+  confirming?: boolean;
   catalogPickDisabled: boolean;
   projectId: string | null;
   keyValues: Record<string, string>;
@@ -52,7 +54,7 @@ export function DossierCatalogStagingView({
     (env) => (keyValues[env.key] ?? "").trim().length > 0,
   ).length;
 
-  const confirmDisabled = catalogPickDisabled || confirmed || saving;
+  const confirmDisabled = catalogPickDisabled || confirmed || saving || confirming;
 
   const stagingLines = useMemo(
     () => buildDossierStagingLines(spec, answer),
@@ -219,7 +221,7 @@ export function DossierCatalogStagingView({
               size="sm"
               variant="ghost"
               className="h-8 px-3 text-xs text-gray-400"
-              disabled={confirmed}
+              disabled={confirmed || confirming}
               onClick={onCancel}
             >
               Avbryt

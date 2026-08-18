@@ -179,13 +179,19 @@ export function usePreviewPanelDossiersController({
   const pickInFlightRef = useRef(false);
   const confirmInFlightRef = useRef(false);
   const [pickedEntry, setPickedEntry] = useState<DossierCatalogEntry | null>(null);
+  const pickedEntryRef = useRef<DossierCatalogEntry | null>(null);
   const [stagingConfirmed, setStagingConfirmed] = useState(false);
+  const [stagingConfirming, setStagingConfirming] = useState(false);
+  useEffect(() => {
+    pickedEntryRef.current = pickedEntry;
+  }, [pickedEntry]);
 
   const resetCatalogStaging = useCallback(() => {
     pickInFlightRef.current = false;
     confirmInFlightRef.current = false;
     setPickedEntry(null);
     setStagingConfirmed(false);
+    setStagingConfirming(false);
   }, []);
 
   const handleOpenChange = useCallback((next: boolean) => {
@@ -829,22 +835,34 @@ export function usePreviewPanelDossiersController({
       if (!pickedEntry || !onRequestDossier || catalogPickDisabled) return;
       if (confirmInFlightRef.current || stagingConfirmed) return;
       confirmInFlightRef.current = true;
+      setStagingConfirming(true);
+      const startedOnKey = overviewKey;
+      const startedId = pickedEntry.id;
       const lines = (stagingLines ?? []).map((line) => line.trim()).filter(Boolean);
+      const finishAbandoned = () => {
+        confirmInFlightRef.current = false;
+        setStagingConfirming(false);
+      };
+      const stillThisStaging = () =>
+        latestOverviewKeyRef.current === startedOnKey &&
+        pickedEntryRef.current?.id === startedId;
       try {
         const accepted = await onRequestDossier({
           id: pickedEntry.id,
           label: pickedEntry.label,
           ...(lines.length > 0 ? { stagingLines: lines } : {}),
         });
+        if (!stillThisStaging()) return;
         // `void` (tester / äldre anrop) räknas som accepterat. Bara explicit
         // `false` betyder att sändningen avvisades — då stannar vi på
         // «Valt, ej tillagt» så Avbryt/bekräfta går att göra om.
         if (accepted === false) {
-          confirmInFlightRef.current = false;
+          finishAbandoned();
           return;
         }
       } catch {
-        confirmInFlightRef.current = false;
+        if (!stillThisStaging()) return;
+        finishAbandoned();
         return;
       }
       // F2 + hårt byggblock: håll popovern öppen med yta-notisen (nu i
@@ -852,6 +870,7 @@ export function usePreviewPanelDossiersController({
       if (!(stage !== "integrations" && pickedEntry.class === "hard")) {
         handleOpenChange(false);
       } else {
+        setStagingConfirming(false);
         setStagingConfirmed(true);
       }
     },
@@ -859,6 +878,7 @@ export function usePreviewPanelDossiersController({
       catalogPickDisabled,
       handleOpenChange,
       onRequestDossier,
+      overviewKey,
       pickedEntry,
       stage,
       stagingConfirmed,
@@ -928,6 +948,7 @@ export function usePreviewPanelDossiersController({
     loadCatalog,
     pickedEntry,
     stagingConfirmed,
+    stagingConfirming,
     handleOpenChange,
     handleSelectCatalogDossier,
     handleCancelStagedDossier,
