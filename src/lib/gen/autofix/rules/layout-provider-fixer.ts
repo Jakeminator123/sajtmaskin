@@ -145,44 +145,135 @@ function insertSiblingBeforeClosingBody(
 const THEME_PROVIDER_CLOSE = "</ThemeProvider>";
 const HOISTABLE_OPEN_RE = /<(script|Script|Analytics)\b/g;
 
-/**
- * Line-anchored open search (same class as the <body> matcher above /
- * Bugbot on #709 + #1031): a bare `/<ThemeProvider\b/` also matches prose in
- * comments (`// <ThemeProvider>…`) and would hoist out of a comment into live
- * module-level JSX. Real root-layout providers start their own lines.
- */
-function findLiveThemeProviderOpen(source: string): number {
-  const match = /^[ \t]*<ThemeProvider\b/m.exec(source);
-  return match ? match.index + match[0].indexOf("<ThemeProvider") : -1;
+function isInsideCommentOrString(source: string, index: number): boolean {
+  let i = 0;
+  let quote: string | null = null;
+  let lineComment = false;
+  let blockComment = false;
+  while (i < index) {
+    const ch = source[i]!;
+    const next = source[i + 1];
+    if (lineComment) {
+      if (ch === "\n") lineComment = false;
+      i += 1;
+      continue;
+    }
+    if (blockComment) {
+      if (ch === "*" && next === "/") {
+        blockComment = false;
+        i += 2;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+    if (quote) {
+      if (ch === "\\" && i + 1 < source.length) {
+        i += 2;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      i += 1;
+      continue;
+    }
+    if (ch === "/" && next === "/") {
+      lineComment = true;
+      i += 2;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      blockComment = true;
+      i += 2;
+      continue;
+    }
+    if (ch === "{" && next === "/" && source[i + 2] === "*") {
+      blockComment = true;
+      i += 3;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      i += 1;
+      continue;
+    }
+    i += 1;
+  }
+  return lineComment || blockComment || quote !== null;
 }
 
 function isLikelyJsxTagAt(source: string, index: number): boolean {
+  if (isInsideCommentOrString(source, index)) return false;
   if (index === 0) return true;
-  const lineStart = source.lastIndexOf("\n", index - 1) + 1;
-  const prefix = source.slice(lineStart, index);
-  if (prefix.includes("//")) return false;
-  if (prefix.includes("{/*")) return false;
   const prev = source[index - 1];
   return prev !== undefined && /[\s>({\[]/.test(prev);
 }
 
-/**
- * True when `index` sits inside a JSX/block comment or after `//` on its line.
- * Used so a ThemeProvider close tag inside a JSX comment cannot truncate the
- * real provider region (Bugbot high on #1031).
- */
-function isInsideComment(source: string, index: number): boolean {
-  const lineStart = source.lastIndexOf("\n", index - 1) + 1;
-  const linePrefix = source.slice(lineStart, index);
-  if (linePrefix.includes("//")) return true;
+function findLiveTag(source: string, needle: string, from = 0): number {
+  let start = from;
+  while (start < source.length) {
+    const idx = source.indexOf(needle, start);
+    if (idx < 0) return -1;
+    if (!isInsideCommentOrString(source, idx) && isLikelyJsxTagAt(source, idx)) return idx;
+    start = idx + needle.length;
+  }
+  return -1;
+}
 
-  // Walk backwards for the nearest `/*` / `{/*` that is not already closed
-  // before `index`. Cheap and good enough for layout files.
-  const before = source.slice(0, index);
-  const lastBlockOpen = Math.max(before.lastIndexOf("{/*"), before.lastIndexOf("/*"));
-  if (lastBlockOpen < 0) return false;
-  const closer = before.indexOf("*/", lastBlockOpen + 2);
-  return closer < 0 || closer >= index;
+function findMatchingBraceClose(source: string, openIdx: number): number | null {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = openIdx; i < source.length; i++) {
+    const ch = source[i]!;
+    if (quote) {
+      if (ch === "\\" && i + 1 < source.length) {
+        i += 1;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return null;
+}
+
+/**
+ * If the hoistable tag sits inside a JSX child expression (`{enabled &&
+ * <Analytics />}`), expand to the whole `{…}` so we do not leave
+ * `{enabled && }` behind.
+ */
+function expandToEnclosingJsxExpression(
+  source: string,
+  start: number,
+  end: number,
+): { start: number; end: number } | null {
+  let depth = 0;
+  for (let j = start - 1; j >= 0; j--) {
+    if (isInsideCommentOrString(source, j)) continue;
+    const ch = source[j]!;
+    if (ch === "}") depth += 1;
+    else if (ch === "{") {
+      if (depth === 0) {
+        const before = source.slice(0, j).replace(/\s+$/, "");
+        // Attribute value (`prop={<Analytics />}`) cannot be hoisted
+        // without leaving `prop={}`. Leave it in place.
+        if (before.endsWith("=")) return null;
+        const close = findMatchingBraceClose(source, j);
+        if (close !== null && close >= end - 1) return { start: j, end: close + 1 };
+        return { start, end };
+      }
+      depth -= 1;
+    }
+  }
+  return { start, end };
 }
 
 function findOpeningTagEnd(source: string, tagStart: number): number | null {
@@ -227,15 +318,12 @@ function findMatchingClose(source: string, innerStart: number, tagName: string):
   let depth = 1;
   let i = innerStart;
   while (i < source.length) {
-    const nextOpen = source.indexOf(openNeedle, i);
-    const nextClose = source.indexOf(close, i);
+    const nextOpen = findLiveTag(source, openNeedle, i);
+    const nextClose = findLiveTag(source, close, i);
     if (nextClose < 0) return null;
-    // Skip comment/string lookalikes for both open and close (Bugbot #1031).
     const openIsTag =
       nextOpen >= 0 &&
       nextOpen < nextClose &&
-      isLikelyJsxTagAt(source, nextOpen) &&
-      !isInsideComment(source, nextOpen) &&
       (source[nextOpen + openNeedle.length] === undefined ||
         /[\s/>]/.test(source[nextOpen + openNeedle.length]!));
     if (openIsTag) {
@@ -245,45 +333,11 @@ function findMatchingClose(source: string, innerStart: number, tagName: string):
       i = openEnd;
       continue;
     }
-    if (!isLikelyJsxTagAt(source, nextClose) || isInsideComment(source, nextClose)) {
-      i = nextClose + close.length;
-      continue;
-    }
     depth -= 1;
     if (depth === 0) return nextClose;
     i = nextClose + close.length;
   }
   return null;
-}
-
-/**
- * True when the hoistable node sits inside a `{ … }` JSX expression (e.g.
- * `{enabled && <Analytics />}`). Hoisting only the tag would leave invalid
- * JSX (`{enabled && }`) and change conditional behavior (pr-ai-review
- * F-8c754d26e650 on #1031). Direct children — the prod shape — have brace
- * depth 0 and are still hoisted.
- */
-function isInsideJsxExpression(inner: string, nodeStart: number): boolean {
-  let depth = 0;
-  let quote: string | null = null;
-  for (let i = 0; i < nodeStart; i++) {
-    const ch = inner[i]!;
-    if (quote) {
-      if (ch === "\\" && i + 1 < nodeStart) {
-        i += 1;
-        continue;
-      }
-      if (ch === quote) quote = null;
-      continue;
-    }
-    if (ch === '"' || ch === "'" || ch === "`") {
-      quote = ch;
-      continue;
-    }
-    if (ch === "{") depth += 1;
-    else if (ch === "}" && depth > 0) depth -= 1;
-  }
-  return depth > 0;
 }
 
 type HoistableNode = { start: number; end: number; name: string; text: string };
@@ -294,8 +348,6 @@ function findHoistableJsx(inner: string): HoistableNode[] {
   let match: RegExpExecArray | null;
   while ((match = scan.exec(inner)) !== null) {
     if (!isLikelyJsxTagAt(inner, match.index)) continue;
-    if (isInsideComment(inner, match.index)) continue;
-    if (isInsideJsxExpression(inner, match.index)) continue;
     const name = match[1]!;
     const openEnd = findOpeningTagEnd(inner, match.index);
     if (openEnd === null) continue;
@@ -305,13 +357,15 @@ function findHoistableJsx(inner: string): HoistableNode[] {
       if (closeStart === null) continue;
       end = closeStart + `</${name}>`.length;
     }
+    const expanded = expandToEnclosingJsxExpression(inner, match.index, end);
+    if (expanded === null) continue;
     nodes.push({
-      start: match.index,
-      end,
+      start: expanded.start,
+      end: expanded.end,
       name,
-      text: inner.slice(match.index, end).trim(),
+      text: inner.slice(expanded.start, expanded.end).trim(),
     });
-    scan.lastIndex = end;
+    scan.lastIndex = expanded.end;
   }
   return nodes;
 }
@@ -324,7 +378,7 @@ function findHoistableJsx(inner: string): HoistableNode[] {
 function hoistScriptishOutOfThemeProvider(
   content: string,
 ): { content: string; description: string } | null {
-  const openIdx = findLiveThemeProviderOpen(content);
+  const openIdx = findLiveTag(content, "<ThemeProvider");
   if (openIdx < 0) return null;
   const openEnd = findOpeningTagEnd(content, openIdx);
   if (openEnd === null || isSelfClosingOpen(content, openIdx, openEnd)) return null;
@@ -345,7 +399,7 @@ function hoistScriptishOutOfThemeProvider(
   nextInner = nextInner.replace(/\n[ \t]*\n[ \t]*$/, "\n");
 
   const lineStart = content.lastIndexOf("\n", closeStart - 1) + 1;
-  const indent = content.slice(lineStart, closeStart);
+  const indent = /^[ \t]*/.exec(content.slice(lineStart, closeStart))?.[0] ?? "";
   const closeEnd = closeStart + THEME_PROVIDER_CLOSE.length;
   const hoisted = nodes.map((node) => `${indent}${node.text}`).join("\n");
   const kinds = [...new Set(nodes.map((node) => node.name))];

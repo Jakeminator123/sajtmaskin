@@ -421,6 +421,144 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     expect(layout.slice(layout.indexOf("<ThemeProvider"), providerClose)).not.toContain("<script");
   });
 
+  it("does not hoist Analytics used as a JSX attribute value", () => {
+    const asProp: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics } from "@vercel/analytics/next";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Widget analytics={<Analytics />} />
+          {children}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([asProp, PKG_WITH_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).toBe(asProp.content);
+  });
+
+  it("hoists from a one-line ThemeProvider without copying the opening tag into indent", () => {
+    const oneLine: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics } from "@vercel/analytics/next";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem><main>{children}</main><Analytics /></ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([oneLine, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+    expect(result.fixes).toHaveLength(1);
+    expect(layout).toMatch(/<\/ThemeProvider>\s*<Analytics \/>/);
+    expect(layout).not.toContain("<ThemeProvider attribute=\"class\" defaultTheme=\"system\" enableSystem><Analytics />");
+    expect((layout.match(/<ThemeProvider\b/g) ?? []).length).toBe(1);
+    expect((layout.match(/<Analytics \/>/g) ?? []).length).toBe(1);
+  });
+
+  it("hoists a conditional Analytics expression whole, not just the tag", () => {
+    const conditional: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics } from "@vercel/analytics/next";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const enabled = true;
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          {enabled && <Analytics />}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([conditional, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+    expect(result.fixes).toHaveLength(1);
+    expect(layout).toContain("{enabled && <Analytics />}");
+    expect(layout).not.toMatch(/\{enabled && \s*\}/);
+    const providerClose = layout.indexOf("</ThemeProvider>");
+    expect(layout.indexOf("{enabled && <Analytics />}"))
+      .toBeGreaterThan(providerClose);
+  });
+
+  it("ignores a ThemeProvider that exists only in a line comment", () => {
+    const commentedProvider: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics } from "@vercel/analytics/next";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // <ThemeProvider><Analytics /></ThemeProvider>
+  return (
+    <html lang="sv">
+      <body>
+        <main>{children}</main>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([commentedProvider, PKG_WITHOUT_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).toBe(commentedProvider.content);
+  });
+
+  it("does not treat </ThemeProvider> inside a JSX comment as the real close", () => {
+    const fakeClose: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics } from "@vercel/analytics/next";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          {/* closed? </ThemeProvider> no */}
+          <main>{children}</main>
+          <Analytics />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([fakeClose, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+    expect(result.fixes).toHaveLength(1);
+    expect(layout).toContain("{/* closed? </ThemeProvider> no */}");
+    const lastClose = layout.lastIndexOf("</ThemeProvider>");
+    expect(layout.indexOf("<Analytics")).toBeGreaterThan(lastClose);
+  });
+
   it("does not hoist a script that is only mentioned in a comment", () => {
     const commented: CodeFile = {
       path: "app/layout.tsx",
@@ -444,33 +582,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     const result = fixLayoutProviders([commented, PKG_WITH_NEXT_THEMES]);
     expect(result.fixes).toHaveLength(0);
     expect(layoutOf(result.files)).toBe(commented.content);
-  });
-
-  it("skips conditional JSX expressions instead of leaving broken braces (F-8c754d26e650)", () => {
-    const conditional: CodeFile = {
-      path: "app/layout.tsx",
-      language: "tsx",
-      content: `import { Analytics } from "@vercel/analytics/next";
-import { ThemeProvider } from "next-themes";
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const enabled = true;
-  return (
-    <html lang="sv" suppressHydrationWarning>
-      <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <main>{children}</main>
-          {enabled && <Analytics />}
-        </ThemeProvider>
-      </body>
-    </html>
-  );
-}
-`,
-    };
-    const result = fixLayoutProviders([conditional, PKG_WITH_NEXT_THEMES]);
-    expect(result.fixes).toHaveLength(0);
-    expect(layoutOf(result.files)).toBe(conditional.content);
   });
 
   it("ignores ThemeProvider mentioned only in a line comment (F-fbd7fe21edb5)", () => {

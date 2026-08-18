@@ -169,6 +169,25 @@ describe("buildAutoFixPrompt", () => {
     expect(prompt).toMatch(/Issues detected:.*Hydration failed/);
   });
 
+  it("puts all preview:* compile lines in the Issues detected headline", () => {
+    const prompt = buildAutoFixPrompt({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      reasons: ["preview failed"],
+      repair: {
+        currentVersionErrors: [
+          "[preview] preview compilation failed",
+          "[preview:preview_compile_error] Previewn kunde inte kompilera genererad kod.",
+          "[preview:stage] preview-script",
+        ],
+      },
+    });
+
+    expect(prompt).toMatch(/Issues detected:.*preview compilation failed/);
+    expect(prompt).toMatch(/Issues detected:.*Previewn kunde inte kompilera/);
+    expect(prompt).toMatch(/Issues detected:.*preview-script/);
+  });
+
   it("requires full-file repair output instead of snippets", () => {
     const prompt = buildAutoFixPrompt({
       chatId: "chat_1",
