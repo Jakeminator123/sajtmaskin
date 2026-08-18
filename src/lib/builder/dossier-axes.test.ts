@@ -99,7 +99,7 @@ describe("dossier-axes", () => {
   });
 
   it("names the F3 step for a dossier that requires it, and says so plainly when it does not", () => {
-    expect(describeF3Requirement(true).label).toBe("Bygg integrationer");
+    expect(describeF3Requirement(true).label).toBe("Kräver integrationsbygge");
     expect(describeF3Requirement(true).hint).toContain("Bygg integrationer");
     expect(describeF3Requirement(false).label).not.toBe(describeF3Requirement(true).label);
     expect(describeF3Requirement(true).label).not.toMatch(/F[23]/);

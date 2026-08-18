@@ -37,6 +37,8 @@ export interface F3ContinuationDecision {
   markerParentVersionId: string | null;
   /** Providers signaled in the tool-only round (marker payload). */
   markerSuggestedProviders: string[];
+  /** Env keys signaled in the tool-only round (marker payload). */
+  markerRequestedEnvKeys: string[];
   /** Loop-breaker counter carried by the consumed marker. */
   markerToolOnlyRounds: number;
 }
@@ -117,6 +119,7 @@ export async function resolveF3ContinuationPhaseA(params: {
         markerMessageId: pendingF3Continuation.messageId,
         markerParentVersionId: pendingF3Continuation.parentVersionId,
         markerSuggestedProviders: pendingF3Continuation.suggestedProviders,
+        markerRequestedEnvKeys: pendingF3Continuation.requestedEnvKeys,
         markerToolOnlyRounds: pendingF3Continuation.toolOnlyRounds,
       };
       if (f3ReplyIntent === "approve") {
@@ -515,6 +518,9 @@ export async function prepareF3ApprovalBuildRound(params: {
           f3EffectiveApprovedProviders.length > 0
             ? `Approved integration providers: ${f3EffectiveApprovedProviders.join(", ")}.`
             : "The approved proposal is described in the chat history above.",
+          f3ContinuationDecision.markerRequestedEnvKeys.length > 0
+            ? `Requested env keys from the approved proposal: ${f3ContinuationDecision.markerRequestedEnvKeys.join(", ")}.`
+            : "",
           "Build the approved integration(s) end-to-end NOW, in this response: the user-facing UI entry points (e.g. purchase/checkout CTA on the site), the complete server API route(s), and the wiring between them. Output code files.",
           "Do NOT suggest integrations again. Do NOT ask for another confirmation. A response without code files is a failure.",
           fallbackInstruction,

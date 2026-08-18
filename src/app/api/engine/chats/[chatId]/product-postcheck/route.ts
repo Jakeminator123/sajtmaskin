@@ -74,7 +74,7 @@ function emitPostcheckBlocked(params: {
       versionId: params.versionId,
       chatId: params.chatId,
       kind: "product_postcheck_blocked",
-      message: `F2 Product Postcheck hittade blockerande produktfel (${detail}).`,
+      message: `Product Postcheck hittade blockerande produktfel (${detail}).`,
       meta: {
         warningCount: params.warningCount,
         blockingCodes: params.blockingCodes,

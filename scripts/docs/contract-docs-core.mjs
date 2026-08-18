@@ -254,8 +254,8 @@ function generatedHeader(sources) {
 }
 
 const QUALITY_GATE_PHASE_BY_LANE = Object.freeze({
-  designPreview: "F2",
-  integrationsBuild: "F3",
+  designPreview: "designläge",
+  integrationsBuild: "integrationsbygge",
 });
 
 function collectEnums(value, path = "$", output = []) {
@@ -366,10 +366,10 @@ function renderCapabilities(dossiers, dossierRequiresF3, resolveDossierGroup, f2
     "# Capabilities",
     "",
     `This index contains ${byCapability.size} capabilities derived from ${dossiers.length} validated dossier manifests.`,
-    "Capability is the selection key. Dossier groups are presentation only. F2 disposition and the F3 build/server contract are independent: Analytics is currently planned in F2 while having no build/server requirement.",
-    "Canonical owners: dossier manifest `capability`; `resolveDossierGroup()` for presentation groups; `getF2MutedIntegrationCapabilities()` for F2 disposition; `dossierRequiresF3()` for the build/server contract.",
+    "Capability is the selection key. Dossier groups are presentation only. Designläge disposition and the integrationsbygge/build-server contract are independent: Analytics is currently planned in designläge while having no build/server requirement.",
+    "Canonical owners: dossier manifest `capability`; `resolveDossierGroup()` for presentation groups; `getF2MutedIntegrationCapabilities()` for designläge disposition; `dossierRequiresF3()` for the build/server contract.",
     "",
-    "| Group | Capability | F2 disposition | Dossiers | Default dossier | Classes | Manifest mock modes | Build/server-required dossiers |",
+    "| Group | Capability | Designläge | Dossiers | Default dossier | Classes | Manifest mock modes | Build/server-required dossiers |",
     "|---|---|---|---|---|---|---|---|",
     ...rows,
     "",
@@ -436,10 +436,10 @@ function renderDossiers(dossiers, dossierRequiresF3, resolveDossierGroup, f2Mute
     "# Dossiers",
     "",
     `This catalog contains ${dossiers.length} manifests accepted by the runtime dossier registry.`,
-    "Env values and instruction text are intentionally excluded. Manifest mock mode describes behavior after dossier materialization without live configuration; it does not mean the dossier is injected during normal F2.",
-    "Canonical owners: dossier manifests; F2 disposition in `getF2MutedIntegrationCapabilities()`; build/server requirement in `dossierRequiresF3()`; presentation group in `resolveDossierGroup()`. Validator/schema mirror: runtime manifest validation and the strict dossier schema.",
+    "Env values and instruction text are intentionally excluded. Manifest mock mode describes behavior after dossier materialization without live configuration; it does not mean the dossier is injected during normal designläge.",
+    "Canonical owners: dossier manifests; designläge disposition in `getF2MutedIntegrationCapabilities()`; build/server requirement in `dossierRequiresF3()`; presentation group in `resolveDossierGroup()`. Validator/schema mirror: runtime manifest validation and the strict dossier schema.",
     "",
-    "| Group | Capability | ID | Label | Class | Providers | F2 disposition | Manifest mock | Build/server requirement | Default | Env contract | Dependencies | File roles | Last verified |",
+    "| Group | Capability | ID | Label | Class | Providers | Designläge | Manifest mock | Build/server requirement | Default | Env contract | Dependencies | File roles | Last verified |",
     "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ...rows,
     "",
@@ -750,7 +750,7 @@ function renderPolicies(entries, envPolicy, dossiers, manifest, strictSchemas) {
     "",
     "## Dossier environment enforcement",
     "",
-    "| Dossier | Capability | Key | Required | Enforcement | F2 mock |",
+    "| Dossier | Capability | Key | Required | Enforcement | Demoläge |",
     "|---|---|---|---|---|---|",
     ...dossierRows,
     "",

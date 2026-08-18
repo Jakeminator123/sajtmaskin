@@ -51,7 +51,7 @@ av [`pr-merge.mdc`](.cursor/rules/pr-merge.mdc); följ dess ordning utan att
 
 Utöver den generella P0/P1-listan, flagga som **P1**:
 
-- F2/F3-status som blir grön **utan** verklig verifiering.
+- Design- eller integrationsstatus som blir grön **utan** verklig verifiering.
 - **Saknade tester** när ändringen rör pipeline, preview, DB, autofix, dependency-hantering eller något runtime-kontrakt.
 
 Bakgrund och incidenter: [`docs/runbooks/pr-merge-gate.md`](docs/runbooks/pr-merge-gate.md).

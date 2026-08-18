@@ -184,8 +184,8 @@ export interface SelectedDossier {
    * are still injected, but the codegen LLM is told to render an
    * "unconfigured" placeholder UI. Prompt-only signal — not wired to any gate.
    *
-   * Legacy fallback: when no `configuredEnvKeys` is supplied it reads the
-   * platform `process.env`, which is wrong for user projects (deprecated).
+   * When `configuredEnvKeys` is omitted, hard dossiers with required env are
+   * `configured: false` (false negative over a platform `process.env` leak).
    */
   configured: boolean;
 }

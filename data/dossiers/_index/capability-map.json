@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-08-13T01:53:39.745Z",
+  "generatedAt": "2026-08-17T22:43:20.538Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -183,7 +183,7 @@
           "hint": "Ytan renderas fullt ut, men handlingen öppnar en ärlig demo-notis i stället för en riktig betalning eller inloggning."
         },
         "requiresF3": {
-          "label": "Bygg integrationer",
+          "label": "Kräver integrationsbygge",
           "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
@@ -239,7 +239,7 @@
           "hint": "Formuläret går igenom och svarar med en ärlig demo-notis — inget mejl och ingen prenumeration skickas på riktigt."
         },
         "requiresF3": {
-          "label": "Bygg integrationer",
+          "label": "Kräver integrationsbygge",
           "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
@@ -289,7 +289,7 @@
           "hint": "Servern svarar med ett trovärdigt påhittat svar (chatten streamar ett förberett svar) tills en riktig nyckel sparas."
         },
         "requiresF3": {
-          "label": "Bygg integrationer",
+          "label": "Kräver integrationsbygge",
           "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
@@ -341,7 +341,7 @@
           "hint": "Data-lagret använder medskickad exempeldata och en diskret notis tills en riktig databas kopplas in."
         },
         "requiresF3": {
-          "label": "Bygg integrationer",
+          "label": "Kräver integrationsbygge",
           "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
@@ -400,7 +400,7 @@
           "hint": "Formuläret går igenom och svarar med en ärlig demo-notis — inget mejl och ingen prenumeration skickas på riktigt."
         },
         "requiresF3": {
-          "label": "Bygg integrationer",
+          "label": "Kräver integrationsbygge",
           "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
@@ -469,7 +469,7 @@
           "hint": "Data-lagret använder medskickad exempeldata och en diskret notis tills en riktig databas kopplas in."
         },
         "requiresF3": {
-          "label": "Bygg integrationer",
+          "label": "Kräver integrationsbygge",
           "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
@@ -524,7 +524,7 @@
           "hint": "Ytan renderas fullt ut, men handlingen öppnar en ärlig demo-notis i stället för en riktig betalning eller inloggning."
         },
         "requiresF3": {
-          "label": "Bygg integrationer",
+          "label": "Kräver integrationsbygge",
           "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
@@ -579,7 +579,7 @@
           "hint": "Ytan renderas fullt ut, men handlingen öppnar en ärlig demo-notis i stället för en riktig betalning eller inloggning."
         },
         "requiresF3": {
-          "label": "Bygg integrationer",
+          "label": "Kräver integrationsbygge",
           "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
@@ -991,7 +991,7 @@
     },
     "requiresF3": {
       "true": {
-        "label": "Bygg integrationer",
+        "label": "Kräver integrationsbygge",
         "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
       },
       "false": {
@@ -1038,11 +1038,11 @@
     "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
     "docs/schemas/strict/dossier.schema.json": "b4b7495489428fe74222370cbb143c7883101c17cb9e6d3018db9bb3a314e332",
     "scripts/dossiers/regenerate-capability-map.ts": "ce15a798da3ac8056091104ae83854a2a92ade98b8468b077e1ebc4977035163",
-    "src/lib/builder/dossier-axes.ts": "161ff805c6c5d39028b1322589b951c55d37c32de7fa4398238ac3be671b73a6",
+    "src/lib/builder/dossier-axes.ts": "e216ee94304cf5f02a308c7be4c653d1d3d1d6fb128597bf555bf6938ffa825a",
     "src/lib/builder/dossier-groups.ts": "67adc554dafd00c54766c732af6600737f6194138c7773ee09a977c03d97fd59",
     "src/lib/gen/dossiers/f2-mute.ts": "f9fe5879bdd327277423c2a82374c11d303b6c1484fb17b88edb6d8bbd6882ed",
     "src/lib/gen/dossiers/registry.ts": "2766260fb71f0bef126a9f30274869b507bc466b84edb50501568a8b9cee7c11",
-    "src/lib/gen/dossiers/types.ts": "6e03fc552401f362352746f96b9fe5a1f394b72d033287b86d2dd404c4f763c9",
+    "src/lib/gen/dossiers/types.ts": "07e75ba9f0ecd48a1eae6f5fe9f57bd1bf5e57cb31cbb1b02d820bedef6fe26d",
     "src/lib/gen/dossiers/validate-manifest.ts": "2dd162db2796daec5a18a5d5c3ed308a1de4944abea2c837015a4d7019c72ecc"
   }
 }

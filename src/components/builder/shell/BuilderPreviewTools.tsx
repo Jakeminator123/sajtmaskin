@@ -28,7 +28,7 @@ interface BuilderPreviewToolsProps {
   onClear?: (() => void) | null;
   /** Rensa är blockerad medan previewn laddar om. */
   clearDisabled?: boolean;
-  onRequestDossier?: (payload: { id: string; label: string }) => void;
+  onRequestDossier?: PreviewPanelDossiersProps["onRequestDossier"];
   catalogPickDisabled?: boolean;
   onF3Ready?: PreviewPanelF3TriggerProps["onReady"];
   onF3MissingEnv?: PreviewPanelF3TriggerProps["onMissingEnv"];

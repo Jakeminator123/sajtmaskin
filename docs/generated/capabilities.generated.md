@@ -13,10 +13,10 @@
 # Capabilities
 
 This index contains 17 capabilities derived from 18 validated dossier manifests.
-Capability is the selection key. Dossier groups are presentation only. F2 disposition and the F3 build/server contract are independent: Analytics is currently planned in F2 while having no build/server requirement.
-Canonical owners: dossier manifest `capability`; `resolveDossierGroup()` for presentation groups; `getF2MutedIntegrationCapabilities()` for F2 disposition; `dossierRequiresF3()` for the build/server contract.
+Capability is the selection key. Dossier groups are presentation only. Designläge disposition and the integrationsbygge/build-server contract are independent: Analytics is currently planned in designläge while having no build/server requirement.
+Canonical owners: dossier manifest `capability`; `resolveDossierGroup()` for presentation groups; `getF2MutedIntegrationCapabilities()` for designläge disposition; `dossierRequiresF3()` for the build/server contract.
 
-| Group                            | Capability             | F2 disposition     | Dossiers                      | Default dossier         | Classes | Manifest mock modes | Build/server-required dossiers |
+| Group                            | Capability             | Designläge         | Dossiers                      | Default dossier         | Classes | Manifest mock modes | Build/server-required dossiers |
 | -------------------------------- | ---------------------- | ------------------ | ----------------------------- | ----------------------- | ------- | ------------------- | ------------------------------ |
 | `ai` (AI)                        | `ai-chat`              | Planned (deferred) | `openai-chat`                 | `openai-chat`           | `hard`  | `canned`            | `openai-chat`                  |
 | `ops` (Drift & mätning)          | `analytics`            | Planned (deferred) | `vercel-analytics`            | `vercel-analytics`      | `hard`  | `none`              | —                              |

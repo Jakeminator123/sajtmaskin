@@ -825,4 +825,86 @@ describe("MessageList", () => {
     );
     expect(screen.getByText(/Issues detected: typecheck failed/)).toBeTruthy();
   });
+
+  it("renders a marked F3-kick prompt as a collapsed system row, never as a user bubble (M1)", async () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "user_normal",
+        role: "user",
+        content: "Gör headern större.",
+      },
+      {
+        id: "user_f3_kick_marked",
+        role: "user",
+        content: "Bygg integrationer nu utifrån den finaliserade designversionen.",
+        uiParts: [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "f3-kick" }],
+      },
+      {
+        id: "assistant_f3_kick_1",
+        role: "assistant",
+        content: "Integrationsbygget är igång.",
+      },
+    ];
+
+    render(<MessageList chatId="chat_f3_kick" messages={messages} />);
+
+    const normalRow = screen.getByText("Gör headern större.").closest("[data-role]");
+    expect(normalRow?.getAttribute("data-role")).toBe("user");
+
+    const kickLabel = await screen.findByText(
+      "Integrationsbygge startat utifrån den finaliserade designversionen.",
+    );
+    expect(
+      screen.queryByText("Bygg integrationer nu utifrån den finaliserade designversionen."),
+    ).toBeNull();
+
+    const kickRow = kickLabel.closest("[data-role]");
+    expect(kickRow?.getAttribute("data-role")).toBe("system");
+    expect(kickRow?.getAttribute("data-role")).not.toBe("user");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Visa den tekniska instruktionen/ }),
+    );
+    expect(
+      screen.getByText("Bygg integrationer nu utifrån den finaliserade designversionen."),
+    ).toBeTruthy();
+  });
+
+  it("renders a legacy F3-kick prompt (content prefix, no marker) as a system row", async () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "user_f3_kick_legacy",
+        role: "user",
+        content: "Bygg integrationer nu utifrån den finaliserade designversionen.",
+      },
+    ];
+
+    render(<MessageList chatId="chat_f3_kick_legacy" messages={messages} />);
+
+    const kickLabel = await screen.findByText(
+      "Integrationsbygge startat utifrån den finaliserade designversionen.",
+    );
+    expect(kickLabel.closest("[data-role]")?.getAttribute("data-role")).toBe("system");
+    expect(
+      screen.queryByText("Bygg integrationer nu utifrån den finaliserade designversionen."),
+    ).toBeNull();
+  });
+
+  it("leaves an ordinary user follow-up about integrationer as a user bubble", () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "user_freeform",
+        role: "user",
+        content: "Bygg integrationer nu.",
+      },
+    ];
+
+    render(<MessageList chatId="chat_f3_freeform" messages={messages} />);
+
+    const row = screen.getByText("Bygg integrationer nu.").closest("[data-role]");
+    expect(row?.getAttribute("data-role")).toBe("user");
+    expect(
+      screen.queryByText("Integrationsbygge startat utifrån den finaliserade designversionen."),
+    ).toBeNull();
+  });
 });

@@ -150,7 +150,7 @@ function buildQualityGateSummaryLog(params: {
       ? "Automatic quality gate passed with advisory findings."
       : "Automatic quality gate passed."
     : advisory
-      ? "F2 render-first: typecheck-varning (advisory) — previewen renderar, versionen promotas."
+      ? "Designläge: typecheck-varning (advisory) — previewen renderar, versionen promotas."
       : "Automatic quality gate failed.";
 
   return {
@@ -336,7 +336,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       if (!parentVersionId) {
         return NextResponse.json(
           {
-            error: "F3 version is missing its F2 parent.",
+            error: "Integrationsversionen saknar sin designversion.",
             code: "f3_parent_version_missing",
           },
           { status: 409 },
@@ -778,7 +778,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         // advisory (render-first). Both still pay the finalize promote-guard
         // below, so a verifier-blocked version is never advisory-promoted.
         const promoteSummary = f2TypecheckAdvisory
-          ? "F2 render-first: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande)."
+          ? "Designläge: previewen renderar. Typecheck-varningar kvarstår (advisory, ej blockerande)."
           : gateAdvisoryChecks.length > 0
             ? `ReleaseGate passed with advisory findings: ${gateAdvisoryChecks.join(", ")}.`
           : verificationSummary;
@@ -1005,7 +1005,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
               chatId,
               kind: "typecheck_advisory",
               message:
-                "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+                "Designläge: versionen promotades med typecheck-varningar (advisory).",
               meta: { advisoryChecks: advisoryCheckNames },
             });
           } catch {

@@ -218,7 +218,7 @@ export function renderF2ContractBlock(
     '- Forms: use `useState` + `toast.success("Bokningen mottagen!")` on submit. No POST endpoint, no DB.',
     "- Contact/booking forms that would SEND EMAIL: still render the full, beautiful form UI (name/email/message fields, validation, loading state) — but the submit handler is a pure client-side mock (`toast.success(\"Meddelandet mottaget! (demo — mejl aktiveras i 'Bygg integrationer')\")`). Do NOT emit an email API route, do NOT import an email SDK, and do NOT reference `process.env` for email addresses — never invent env keys like `BOOKING_TO_EMAIL`, `CONTACT_EMAIL_TO` or other `*_EMAIL` variables. Real email delivery is wired in F3 via the contact-form dossier's canonical keys (`RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL_TO`).",
     '- Auth UIs: render a beautiful `<LoginForm>` with email/password fields that calls `toast.success("Inloggad (demo)")` on submit. No real session.',
-    "- Payments UIs: render a beautiful checkout summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i F3 — klicka 'Bygg integrationer' i previewpanelen.\" No Stripe, no API call.",
+    "- Payments UIs: render a beautiful checkout summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i integrationsbygget — klicka 'Bygg integrationer' i previewpanelen.\" No Stripe, no API call.",
     "- Search: client-side `Array.filter()` over the inline mock data.",
     "",
     ...renderF2MutedCapabilitiesLines(mutedCapabilities),
@@ -301,40 +301,70 @@ export function renderTier3IntegrationBlock(params: {
     return [];
   }
   try {
-    const contractSpec = preGenerationContracts
-      ? deriveTier3BuildSpec(preGenerationContracts.contracts)
-      : { requirements: [] };
-    const approved = new Set(
-      (approvedProviders ?? []).map((provider) =>
-        provider.toLowerCase().replace(/[^a-z0-9]+/g, ""),
-      ),
+    // One source per F3 round, in priority order: file-derived parent-version
+    // spec > explicit approval > prompt contracts. File spec is the base;
+    // current-round approvals are unioned in. Prompt contracts never
+    // contribute UNAPPROVED candidates (SM-005) — but an APPROVED provider
+    // that is missing from the static registry (custom/unmapped) keeps its
+    // contract-derived requirements, otherwise the approval would erase its
+    // env/setup needs entirely (pr-ai-review F-b978adccc911 on #1023).
+    const normalizeProviderKey = (value: string) =>
+      value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const approvedKeySet = new Set(
+      (approvedProviders ?? []).map((provider) => normalizeProviderKey(provider)),
     );
-    const fileKeys = new Set(
-      fileDerivedSpec?.requirements.map((requirement) => requirement.key) ?? [],
-    );
-    const approvedProviderSpec = deriveTier3BuildSpecForProviderKeys(approvedProviders ?? []);
-    const approvedCandidates = [...approvedProviderSpec.requirements, ...contractSpec.requirements];
-    const approvedRequirements =
-      approved.size > 0
-        ? approvedCandidates.filter((requirement, index, all) => {
-            const providerKey = requirement.provider.toLowerCase().replace(/[^a-z0-9]+/g, "");
-            const requirementKey = requirement.key.toLowerCase().replace(/[^a-z0-9]+/g, "");
-            return (
-              !fileKeys.has(requirement.key) &&
-              all.findIndex((candidate) => candidate.key === requirement.key) === index &&
-              (approved.has(providerKey) || approved.has(requirementKey))
-            );
-          })
-        : [];
-    const spec = fileDerivedSpec
-      ? {
-          requirements: [...fileDerivedSpec.requirements, ...approvedRequirements].sort((a, b) =>
-            a.key.localeCompare(b.key),
-          ),
-        }
-      : approved.size > 0
-        ? { requirements: approvedRequirements }
-        : contractSpec;
+    const contractRequirementsForApproved = (): Tier3BuildSpec["requirements"] => {
+      if (!hasApprovedProviders || !preGenerationContracts) return [];
+      return deriveTier3BuildSpec(preGenerationContracts.contracts).requirements.filter(
+        (requirement) =>
+          approvedKeySet.has(normalizeProviderKey(requirement.provider)) ||
+          approvedKeySet.has(normalizeProviderKey(requirement.key)),
+      );
+    };
+    let spec: Tier3BuildSpec;
+    if (fileDerivedSpec) {
+      const approvedProviderSpec = hasApprovedProviders
+        ? deriveTier3BuildSpecForProviderKeys(approvedProviders ?? [])
+        : { requirements: [] };
+      const seenKeys = new Set(
+        fileDerivedSpec.requirements.map((requirement) => requirement.key),
+      );
+      // Contract-derived first: for a def-known provider it carries the
+      // contract's specific envVars/enforcement hints, which the
+      // registry-only derivation lacks.
+      const extraApproved = [
+        ...contractRequirementsForApproved(),
+        ...approvedProviderSpec.requirements,
+      ].filter((requirement) => {
+        if (seenKeys.has(requirement.key)) return false;
+        seenKeys.add(requirement.key);
+        return true;
+      });
+      spec = {
+        requirements: [...fileDerivedSpec.requirements, ...extraApproved].sort((a, b) =>
+          a.key.localeCompare(b.key),
+        ),
+      };
+    } else if (hasApprovedProviders) {
+      const registrySpec = deriveTier3BuildSpecForProviderKeys(approvedProviders ?? []);
+      const seenKeys = new Set<string>();
+      // Same precedence as the file branch: the contract's requirement for
+      // an APPROVED provider wins over the registry-only generic (richer
+      // envVars); the registry fills in approvals the contract never named.
+      const merged = [
+        ...contractRequirementsForApproved(),
+        ...registrySpec.requirements,
+      ].filter((requirement) => {
+        if (seenKeys.has(requirement.key)) return false;
+        seenKeys.add(requirement.key);
+        return true;
+      });
+      spec = { requirements: merged.sort((a, b) => a.key.localeCompare(b.key)) };
+    } else {
+      spec = preGenerationContracts
+        ? deriveTier3BuildSpec(preGenerationContracts.contracts)
+        : { requirements: [] };
+    }
     const block = renderTier3BuildPlanBlock(spec);
     if (block) {
       return [block, ""];

@@ -25,8 +25,8 @@ export interface DossierCapabilityPromptFilterResult {
    *
    * Spår 01 steg 2-3: the F2 contract renders a counter-instruction from this
    * list (build the surface, never the route), and the builder surfaces the
-   * same list to the user as "Planerad — kopplas in i nästa steg" instead of
-   * letting the mute be silent.
+   * same list to the user with the shared `planned` wording
+   * (`describeDossierStatus`) instead of letting the mute be silent.
    */
   mutedCapabilities: string[];
 }

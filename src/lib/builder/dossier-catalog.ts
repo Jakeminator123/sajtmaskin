@@ -12,6 +12,13 @@
 
 import type { DossierMockMode } from "@/lib/gen/dossiers/types";
 
+/** Manifest env-key metadata only — never values or secrets. */
+export interface DossierCatalogEnvVar {
+  key: string;
+  required: boolean;
+  setupUrl?: string;
+}
+
 export interface DossierCatalogEntry {
   id: string;
   label: string;
@@ -21,6 +28,13 @@ export interface DossierCatalogEntry {
   /** Swedish catalog description (manifest `summarySv`); fallback: `summary`. */
   summarySv?: string;
   envVarCount: number;
+  /**
+   * Declared env keys from the dossier manifest (key / required / setupUrl).
+   * Used by the catalog staging view so a hard block can offer write-only
+   * inputs before confirm. Empty for keyless dossiers. `envVarCount` stays
+   * for existing consumers.
+   */
+  envVars: DossierCatalogEnvVar[];
   /**
    * Canonical F2/F3 signal from `dossierRequiresF3()` (build-enforced env key
    * OR a `role: "server"` file). Carried into the catalog so the user can see

@@ -64,7 +64,7 @@ describe("PreviewPanelDossiers env races", () => {
 
     const input = await screen.findByLabelText("Värde för OPENAI_API_KEY");
     fireEvent.change(input, { target: { value: "sk-my-secret-key" } });
-    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Spara nyckel/i }));
 
     // Switch version WHILE the save's own POST is still unresolved.
     await act(async () => {
@@ -113,7 +113,7 @@ describe("PreviewPanelDossiers env races", () => {
 
     const input = await screen.findByLabelText("Värde för MY_CUSTOM_SERVICE_KEY");
     fireEvent.change(input, { target: { value: "real-secret-value" } });
-    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Spara nyckel/i }));
 
     // Switch version WHILE the save's own POST is still unresolved.
     await act(async () => {
@@ -189,7 +189,7 @@ describe("PreviewPanelDossiers env races", () => {
 
     const input = await screen.findByLabelText("Värde för OPENAI_API_KEY");
     fireEvent.change(input, { target: { value: "sk-my-secret-key" } });
-    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Spara nyckel/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Ogiltig nyckel.")).toBeTruthy();
@@ -230,7 +230,7 @@ describe("PreviewPanelDossiers env races", () => {
 
     const input = await screen.findByLabelText("Värde för MY_CUSTOM_SERVICE_KEY");
     fireEvent.change(input, { target: { value: "real-secret-value" } });
-    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Spara nyckel/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Ogiltig nyckel.")).toBeTruthy();

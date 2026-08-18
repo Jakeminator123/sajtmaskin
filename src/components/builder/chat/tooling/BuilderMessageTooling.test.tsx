@@ -409,6 +409,34 @@ describe("StructuredToolParts", () => {
     expect(screen.queryByRole("button", { name: "Avvisa förslag" })).toBeNull();
   });
 
+  it("points integration setup copy at Byggblock, not the removed Integrationspanel", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_integration_byggblock_copy"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:integration-suggestion",
+              state: "output-available",
+              output: {},
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /Den genererade sajten behöver denna integration\. Konfigurera via miljövariabler eller Byggblock i previewen\./,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Integrationspanelen/)).toBeNull();
+  });
+
   it("never renders 'Integration: Integration' when provider metadata exists", () => {
     render(
       <CompactToolParts

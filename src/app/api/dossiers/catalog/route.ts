@@ -37,6 +37,11 @@ export async function GET() {
       summary: entry.summary,
       summarySv: entry.summarySv,
       envVarCount: (entry.envVars ?? []).length,
+      envVars: (entry.envVars ?? []).map((env) => ({
+        key: env.key,
+        required: env.required,
+        ...(env.setupUrl ? { setupUrl: env.setupUrl } : {}),
+      })),
       // Same helper the wired-overview route uses — the F2/F3 boundary is
       // derived once, never re-implemented per surface.
       requiresF3: dossierRequiresF3(entry),

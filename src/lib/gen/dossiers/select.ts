@@ -4,15 +4,19 @@
  * Algorithm:
  *   1. Read `requestedCapabilities` (from explicit option or `brief.requestedCapabilities`).
  *   2. For each capability, find matching dossiers via `getDossiersByCapability`.
- *   3. If multiple match: an explicit `relevanceKeywords` hit in `promptText`
- *      (when provided) overrides the default — e.g. "logga in med supabase"
- *      picks supabase-auth even though clerk-auth is the `auth` default.
- *      Otherwise pick the one with `defaultForCapability=true`, else the
- *      first by id-sort.
- *   4. For hard dossiers, check `process.env` for required envVars
- *      → mark `configured: true|false`. Hard+unconfigured still injects code,
- *      the system prompt instructs the codegen LLM to render an
- *      "unconfigured" placeholder UI.
+ *   3. If multiple match: drop siblings negated in `promptText` («inte X»,
+ *      «utan X», «byt från X», «not X», «without X», «switch from X») first.
+ *      A single remaining keyword/provider hit overrides the default — e.g.
+ *      "logga in med supabase" picks supabase-auth even though clerk-auth
+ *      is the `auth` default (`relevance-keyword`). Ambiguous multi-hit,
+ *      unknown provider, or every sibling negated falls to the capability
+ *      default with `capability-match` so the pick never looks explicit.
+ *      Otherwise pick `defaultForCapability=true`, else the first by id-sort.
+ *   4. For hard dossiers, `configured` is true only when every required
+ *      env key is in the caller-supplied `configuredEnvKeys` set. Omitted
+ *      set → `configured: false` (never the host process environment).
+ *      Hard+unconfigured still injects code; the system prompt tells the
+ *      codegen LLM to render an "unconfigured" placeholder UI.
  *   5. Eagerly load `instructions.md` for selected dossiers (small files).
  *
  * No embeddings. No fuzzy match. No domain-veto. No caps. No boost.
@@ -47,11 +51,10 @@ export interface SelectDossiersOptions {
    * set. Callers with a projectId must resolve this in the caller (the map is
    * async; `select.ts` stays sync) and pass it in.
    *
-   * When omitted, `configured` falls back to reading the PLATFORM'S
-   * `process.env` — a deprecated fallback kept only for callers that cannot
-   * supply a project env map (e.g. dep-completer backstop). That fallback is
-   * wrong for user projects (Sajtmaskin's own keys leak in), which is exactly
-   * the bug `configuredEnvKeys` fixes; prefer always passing it.
+   * When omitted, hard dossiers with required env are `configured: false`
+   * (a false negative). We never read the host process environment —
+   * Sajtmaskin's own keys must not leak into a user project's signal.
+   * Callers that consume `configured` must pass the project set.
    */
   configuredEnvKeys?: ReadonlySet<string>;
   /**
@@ -192,16 +195,12 @@ function isConfigured(
   configuredEnvKeys?: ReadonlySet<string>,
 ): boolean {
   if (!entry.envVars || entry.envVars.length === 0) return true;
-  for (const ev of entry.envVars) {
-    if (!ev.required) continue;
-    if (configuredEnvKeys) {
-      // Project-scoped source of truth: the key has a real stored value.
-      if (!configuredEnvKeys.has(ev.key)) return false;
-      continue;
-    }
-    // Deprecated fallback: platform process.env (wrong for user projects).
-    const value = process.env[ev.key];
-    if (!value || value.trim().length === 0) return false;
+  const required = entry.envVars.filter((ev) => ev.required);
+  if (required.length === 0) return true;
+  // No project set → false negative. Never read the host process environment.
+  if (!configuredEnvKeys) return false;
+  for (const ev of required) {
+    if (!configuredEnvKeys.has(ev.key)) return false;
   }
   return true;
 }
@@ -231,14 +230,45 @@ function escapeRegExp(value: string): string {
 }
 
 /**
- * True when the prompt contains one of the dossier's `relevanceKeywords` as a
- * standalone word/phrase. Unicode-aware boundaries; the hyphen is treated as
- * part of the word on purpose so a compound like "neon-skylt" (neon sign)
- * does NOT hit a bare "neon" keyword. Spaces inside a multi-word keyword
- * match space-or-hyphen so hyphenated provider forms ("supabase-auth",
- * "clerk-auth") hit the same keyword as the spaced form (Codex P2 on
- * PR #445). Precision over recall — a miss falls back to the capability
- * default, which is always a working implementation.
+ * Markers that identify a sibling in prompt text: dossier id, manifest
+ * `relevanceKeywords`, and `providers` (clerk-auth has no keywords, so
+ * «inte Clerk» / «jämför clerk och …» resolve via `providers: ["clerk"]`).
+ */
+function collectDossierMarkers(entry: DossierEntry): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of [entry.id, ...(entry.relevanceKeywords ?? []), ...(entry.providers ?? [])]) {
+    const marker = raw.trim();
+    if (!marker) continue;
+    const key = marker.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(marker);
+  }
+  return out;
+}
+
+function markerSource(marker: string): string {
+  return escapeRegExp(marker.trim()).replace(/ +/g, "[\\s-]+");
+}
+
+/**
+ * Unicode-aware standalone-word match. Hyphen is part of the word so a
+ * compound like "neon-skylt" does NOT hit a bare "neon" marker. Spaces
+ * inside a multi-word marker match space-or-hyphen so "supabase-auth"
+ * hits the same keyword as "supabase auth".
+ */
+function matchesMarker(promptText: string, marker: string): boolean {
+  const source = markerSource(marker);
+  if (!source) return false;
+  const re = new RegExp(`(?<![\\p{L}\\p{N}_-])${source}(?![\\p{L}\\p{N}_-])`, "iu");
+  return re.test(promptText);
+}
+
+/**
+ * True when the prompt contains one of the dossier's markers as a
+ * standalone word/phrase. Precision over recall — a miss falls back to
+ * the capability default, which is always a working implementation.
  *
  * The dossier's own `id` counts as an implicit keyword (Bugbot on #482): the
  * Byggblock catalog sends `Lägg till byggblocket "<label>" (id: <id>)`, and
@@ -248,13 +278,45 @@ function escapeRegExp(value: string): string {
  * slugs, so a verbatim id in the prompt is always explicit intent.
  */
 function matchesRelevanceKeyword(entry: DossierEntry, promptText: string): boolean {
-  for (const keyword of [entry.id, ...(entry.relevanceKeywords ?? [])]) {
-    const source = escapeRegExp(keyword.trim()).replace(/ +/g, "[\\s-]+");
-    if (!source) continue;
-    const re = new RegExp(`(?<![\\p{L}\\p{N}_-])${source}(?![\\p{L}\\p{N}_-])`, "iu");
-    if (re.test(promptText)) return true;
+  return collectDossierMarkers(entry).some((marker) => matchesMarker(promptText, marker));
+}
+
+/**
+ * Immediate negation prefixes (sv/en). X is a sibling marker; only the
+ * following whitespace-separated token/phrase is excluded — «inte använda
+ * Clerk» does not count (X must follow the prefix directly).
+ */
+const NEGATION_PREFIX = String.raw`(?:inte|utan|not|without|byt\s+från|switch\s+from)`;
+
+function isMarkerNegated(promptText: string, marker: string): boolean {
+  const source = markerSource(marker);
+  if (!source) return false;
+  const re = new RegExp(
+    `(?<![\\p{L}\\p{N}_-])${NEGATION_PREFIX}\\s+${source}(?![\\p{L}\\p{N}_-])`,
+    "iu",
+  );
+  return re.test(promptText);
+}
+
+function isDossierNegated(entry: DossierEntry, promptText: string): boolean {
+  return collectDossierMarkers(entry).some((marker) => isMarkerNegated(promptText, marker));
+}
+
+function pickCapabilityDefault(
+  cap: string,
+  pool: DossierEntry[],
+  reason: "capability-match" | "default-fallback" = "capability-match",
+): { entry: DossierEntry; reason: SelectedDossier["reason"] } {
+  const defaults = pool.filter((c) => c.defaultForCapability);
+  if (defaults.length > 1) {
+    console.warn(
+      `[dossiers] capability '${cap}' has ${defaults.length} dossiers with defaultForCapability=true: ${defaults
+        .map((d) => d.id)
+        .join(", ")}. Picking '${defaults[0].id}' deterministically.`,
+    );
   }
-  return false;
+  if (defaults[0]) return { entry: defaults[0], reason: "capability-match" };
+  return { entry: pool[0], reason };
 }
 
 function pickForCapability(
@@ -279,27 +341,33 @@ function pickForCapability(
     const pinned = sorted.find((c) => c.id === pinnedDossierId);
     if (pinned) return { entry: pinned, reason: "dependency-pin" };
   }
-  // Explicit provider intent beats the capability default: when the prompt
-  // hits a sibling's relevanceKeywords ("supabase", "clerk"), that sibling is
-  // what the user asked for. Deterministic on multi-hit: prefer the default
-  // if it also matched, else the first match by id-sort.
+  // Explicit provider intent beats the capability default — but only when
+  // the hit is unambiguous. Negated siblings leave the pool first; a single
+  // remaining keyword hit keeps `relevance-keyword`. Two or more hits are
+  // ambiguous and must NOT look explicit (`isExplicitDossierChoice`).
   if (promptText && sorted.length > 1) {
-    const keywordMatches = sorted.filter((c) => matchesRelevanceKeyword(c, promptText));
-    if (keywordMatches.length > 0) {
-      const matchedDefault = keywordMatches.find((c) => c.defaultForCapability);
-      return { entry: matchedDefault ?? keywordMatches[0], reason: "relevance-keyword" };
+    const remaining = sorted.filter((c) => !isDossierNegated(c, promptText));
+    if (remaining.length === 0) {
+      // Every sibling negated: a working default over nothing. Selection
+      // is a prompt signal, not a gate.
+      return pickCapabilityDefault(cap, sorted);
+    }
+    const keywordMatches = remaining.filter((c) => matchesRelevanceKeyword(c, promptText));
+    if (keywordMatches.length === 1) {
+      return { entry: keywordMatches[0], reason: "relevance-keyword" };
+    }
+    if (keywordMatches.length > 1) {
+      // Ambiguous — but never let a NEGATED default win the fallback: pick
+      // from the non-negated pool («inte clerk; supabase eller authjs»).
+      return pickCapabilityDefault(cap, remaining);
+    }
+    // Zero keyword hits. If negation removed someone («auth utan clerk»),
+    // pick from the leftover pool so the excluded sibling cannot win.
+    if (remaining.length < sorted.length) {
+      return pickCapabilityDefault(cap, remaining);
     }
   }
-  const defaults = sorted.filter((c) => c.defaultForCapability);
-  if (defaults.length > 1) {
-    console.warn(
-      `[dossiers] capability '${cap}' has ${defaults.length} dossiers with defaultForCapability=true: ${defaults
-        .map((d) => d.id)
-        .join(", ")}. Picking '${defaults[0].id}' deterministically.`,
-    );
-  }
-  if (defaults[0]) return { entry: defaults[0], reason: "capability-match" };
-  return { entry: sorted[0], reason: "default-fallback" };
+  return pickCapabilityDefault(cap, sorted, "default-fallback");
 }
 
 /**

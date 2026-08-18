@@ -43,7 +43,11 @@ import { Streamdown, type Components, type ExtraProps } from "streamdown";
 import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat } from "@/lib/builder/message-adapter";
 import type { MessagePart } from "@/lib/builder/message-adapter";
-import { isAutoRepairPromptMessage, type ChatMessage } from "@/lib/builder/types";
+import {
+  isAutoRepairPromptMessage,
+  isF3KickPromptMessage,
+  type ChatMessage,
+} from "@/lib/builder/types";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
 import {
@@ -54,6 +58,7 @@ import {
   useRef,
   useState,
   type AnchorHTMLAttributes,
+  type ReactNode,
 } from "react";
 
 /**
@@ -484,6 +489,8 @@ const MessageListComponent = ({
           // user typed (Spår 03 Steg 4) — render them as a collapsed system
           // row instead of a user bubble.
           const isAutoRepairPrompt = Boolean(rawMessage && isAutoRepairPromptMessage(rawMessage));
+          const isF3KickPrompt = Boolean(rawMessage && isF3KickPromptMessage(rawMessage));
+          const isSyntheticSystemPrompt = isAutoRepairPrompt || isF3KickPrompt;
           const isRepairInProgress = Boolean(messages[messageIndex + 1]?.isStreaming);
 
           return (
@@ -495,7 +502,7 @@ const MessageListComponent = ({
                 message.role === "user" && isStreaming && !hasUserAfterCurrentMessage
               }
             >
-              <Message from={isAutoRepairPrompt ? "system" : message.role}>
+              <Message from={isSyntheticSystemPrompt ? "system" : message.role}>
               <MessageContent>
                 {message.role === "assistant" && reasoningPart && (
                   <Reasoning isStreaming={Boolean(message.isStreaming && !textContent)}>
@@ -617,6 +624,8 @@ const MessageListComponent = ({
                   ) : null
                 ) : isAutoRepairPrompt ? (
                   <AutoRepairMessageRow content={textContent} isInProgress={isRepairInProgress} />
+                ) : isF3KickPrompt ? (
+                  <F3KickMessageRow content={textContent} />
                 ) : (
                   <CollapsibleUserMessage content={textContent} />
                 )}
@@ -833,19 +842,49 @@ function AutoRepairMessageRow({
   content: string;
   isInProgress: boolean;
 }) {
+  return (
+    <SyntheticSystemPromptRow
+      content={content}
+      idleLabel="Automatisk reparation kördes"
+      progress={isInProgress ? <RepairProgressIndicator /> : null}
+    />
+  );
+}
+
+/**
+ * F3 auto-kick (M1): same collapsed system-row pattern as auto-repair.
+ * The persisted content stays the synthetic prompt for F3-continuation
+ * readers; only the visible copy is honest.
+ */
+function F3KickMessageRow({ content }: { content: string }) {
+  return (
+    <SyntheticSystemPromptRow
+      content={content}
+      idleLabel="Integrationsbygge startat utifrån den finaliserade designversionen."
+    />
+  );
+}
+
+function SyntheticSystemPromptRow({
+  content,
+  idleLabel,
+  progress,
+}: {
+  content: string;
+  idleLabel: string;
+  progress?: ReactNode;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
   const lineCount = content.split("\n").length;
 
   return (
     <div className="space-y-2">
-      {isInProgress ? (
-        <RepairProgressIndicator />
-      ) : (
+      {progress ?? (
         <div
           className="text-muted-foreground bg-muted/40 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
           aria-live="polite"
         >
-          <span>Automatisk reparation kördes</span>
+          <span>{idleLabel}</span>
         </div>
       )}
       {isExpanded ? (

@@ -152,7 +152,7 @@ export function buildPostCheckSummary(params: {
   }
 
   if (productBlocked) {
-    lines.push("Produktkontroll: blockerande problem hittades — F3 disablas tills F2-previewn fungerar.");
+    lines.push("Produktkontroll: blockerande problem hittades — integrationsbygget spärras tills designpreviewn fungerar.");
   }
 
   const tierLabel = QUALITY_TIER_LABELS[qualityTier];

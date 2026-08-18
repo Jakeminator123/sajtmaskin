@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describeDossierStatus } from "@/lib/builder/dossier-overview";
 import { PreviewPanelDossiers } from "./PreviewPanelDossiers";
 import { dispatchVersionStatusRefreshed, openDossiersPanel } from "@/lib/builder/project-env-events";
 import { stubFetch, wiredResponse } from "./PreviewPanelDossiers.test-support";
@@ -59,6 +60,44 @@ describe("PreviewPanelDossiers status", () => {
     // The catalog tab's content is not shown by default when something is
     // already wired.
     expect(screen.queryByText("Stripe Checkout")).toBeNull();
+  });
+
+  it("uses describeDossierStatus words on the wired-row badge (K1 one language)", async () => {
+    const plannedLabel = describeDossierStatus("planned", "design").label;
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 1 },
+        dossiers: [
+          {
+            id: "mailchimp-newsletter",
+            label: "Nyhetsbrev — Mailchimp",
+            class: "hard",
+            capability: "newsletter",
+            summary: "Mailchimp newsletter signup.",
+            complexity: "simple",
+            requiresF3: true,
+            configured: false,
+            dependencies: [],
+            envVars: [],
+            status: "planned",
+            missingKeys: [],
+            missingLiveKeys: [],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Nyhetsbrev — Mailchimp")).toBeTruthy();
+    });
+    expect(screen.getByText(plannedLabel)).toBeTruthy();
+    expect(screen.queryByText("Planerad — kopplas in i nästa steg")).toBeNull();
   });
 
   // Lucka 2 (ägarbeslut 2026-08-11): the popover header now says WHICH
@@ -213,7 +252,7 @@ describe("PreviewPanelDossiers status", () => {
     // Båda katalograderna använder en extern tjänst; bara Stripe behöver
     // det separata integrationsbygget.
     expect(screen.getAllByText("Kopplad")).toHaveLength(2);
-    expect(screen.getAllByText("Bygg integrationer")).toHaveLength(1);
+    expect(screen.getAllByText("Kräver integrationsbygge")).toHaveLength(1);
   });
 
   it("does not tell users to re-run F3 when built-demo needs a real env value", async () => {

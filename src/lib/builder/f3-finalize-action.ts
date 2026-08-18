@@ -192,7 +192,7 @@ async function runF3FinalizeRequest(params: {
         status: 500,
         code: "deterministic_f3_version_missing",
         reason: null,
-        message: "F3-forken saknar versionId.",
+        message: "Integrationsversionen saknar versionId.",
         retryable: true,
       };
     }
@@ -325,7 +325,7 @@ async function runF3FinalizeRequest(params: {
       message:
         error instanceof Error
           ? error.message
-          : "F3-kontrollen misslyckades på grund av ett nätverksfel.",
+          : "Integrationskontrollen misslyckades på grund av ett nätverksfel.",
       retryable: true,
     };
   }

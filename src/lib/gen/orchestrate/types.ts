@@ -359,7 +359,8 @@ export interface OrchestrationBase {
    * from this round (`filterDossierCapabilitiesForPromptWithMutes`). Empty in
    * F3. Consumed by the F2 contract block (counter-instruction: render the
    * surface, never the route) and surfaced to the user as
-   * "Planerad — kopplas in i nästa steg" instead of disappearing silently.
+   * the shared `planned` wording (`describeDossierStatus`) instead of
+   * disappearing silently.
    */
   mutedCapabilities?: string[];
   /**

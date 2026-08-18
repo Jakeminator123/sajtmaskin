@@ -116,9 +116,11 @@ Verifieringsminimum per ändringstyp: se `workflow.mdc`. Alltid
 | Batch | Punkter | Status |
 |---|---|---|
 | Förarbete | Granskning + plan skriven | Klar |
-| Våg 1 | B1–B5 | Ej startad |
-| Våg 2 | K1–K2 | Ej startad |
-| Våg 3 | U1, M1, F1 | Väntar på ägaren per aktivitet |
+| Våg 1 | B1–B5 | **Klar** (PR #1023, 2026-08-17) |
+| Våg 2 | K1–K2 | **Klar** (PR #1023) |
+| Våg 3 | U1, M1, F1 | **Klar** (PR #1023; M1 i /818-avgjord minimal form — beslut D4/D6 i `docs/decisions/README.md`; U1-design godkänns via PR-skärmdumpar) |
+
+Körlogg: [`LOGBOOK.md`](LOGBOOK.md).
 
 ## Related
 

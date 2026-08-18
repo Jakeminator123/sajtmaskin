@@ -513,7 +513,7 @@ describe("handleSseStream", () => {
   // explanation via a `content` event before `done`.
   it("surfaces the malformed-integration awaiting-input message instead of the generic empty-generation failure", async () => {
     const helpfulMessage =
-      "Integrationsförslaget kunde inte tolkas — försök igen eller starta F3-bygget via knappen.";
+      "Integrationsförslaget kunde inte tolkas — försök igen eller starta integrationsbygget via knappen.";
     consumeSseResponse.mockImplementation(
       async (
         _response: Response,

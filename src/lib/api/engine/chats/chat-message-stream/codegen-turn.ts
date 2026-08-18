@@ -563,6 +563,10 @@ export async function runCodegenTurn(params: {
       f3ApprovalBuildRound && f3ContinuationDecision
         ? f3ContinuationDecision.markerSuggestedProviders
         : null,
+    f3PriorRequestedEnvKeys:
+      f3ApprovalBuildRound && f3ContinuationDecision
+        ? f3ContinuationDecision.markerRequestedEnvKeys
+        : null,
   });
 
   return buildEngineStreamResponse({

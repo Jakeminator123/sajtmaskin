@@ -166,7 +166,7 @@ export const F3_REJECT_ACK_REASON = "f3_reject_acknowledged";
  * transition out of F3 is explicit in the chat history.
  */
 export const F3_CONTINUATION_DESIGN_ROUND_NOTICE =
-  "Den här rundan kördes som designrunda (F2) — svaret tolkades inte som ett godkännande, så integrationsläget avslutades. Kör 'Bygg integrationer' igen när du vill bygga integrationerna (F3).";
+  "Den här rundan kördes som designrunda — svaret tolkades inte som ett godkännande, så integrationsläget avslutades. Kör 'Bygg integrationer' igen när du vill bygga integrationerna.";
 
 /**
  * Honest close-out for an APPROVED round with nothing approvable (review
@@ -206,6 +206,13 @@ export interface PendingF3Continuation {
    * `[]` for markers persisted before this field existed.
    */
   suggestedProviders: string[];
+  /**
+   * Env keys the tool-only round asked for (`suggestIntegration.envVars`
+   * and `requestEnvVar.key` — the same source as the tool-SSE payload).
+   * Needed so an env-only proposal still knows which keys to restore
+   * after reload/approve. `[]` for markers persisted before this field.
+   */
+  requestedEnvKeys: string[];
   /**
    * How many consecutive tool-only rounds this F3 kick has produced
    * (loop-breaker counter). `1` on the first marker; legacy markers
@@ -268,17 +275,62 @@ export function classifyF3ContinuationReply(message: string): F3ContinuationRepl
  * refresh. `output.f3Continuation: true` is the machine-readable marker the
  * follow-up route derives the lifecycle stage from.
  */
+/**
+ * Trim/dedupe env-key lists for the F3 marker. Same filter the tool-SSE
+ * applies before putting keys on `envVars` (`generation-stream-tools.ts`).
+ */
+export function normalizeRequestedEnvKeys(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set<string>();
+  const keys: string[] = [];
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const key = value.trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    keys.push(key);
+  }
+  return keys;
+}
+
+/**
+ * Env keys a well-formed `suggestIntegration` / `requestEnvVar` call asked
+ * for. Same source as the tool-SSE `envVars` payload in
+ * `generation-stream-tools.ts` (`toolArgs.envVars` / `toolArgs.key`).
+ */
+export function collectRequestedEnvKeysFromToolArgs(
+  toolName: string,
+  toolArgs: Record<string, unknown> | null | undefined,
+): string[] {
+  if (!toolArgs || typeof toolArgs !== "object") return [];
+  if (toolName === "requestEnvVar") {
+    return normalizeRequestedEnvKeys(
+      typeof toolArgs.key === "string" ? [toolArgs.key] : [],
+    );
+  }
+  if (toolName === "suggestIntegration") {
+    return normalizeRequestedEnvKeys(toolArgs.envVars);
+  }
+  return [];
+}
+
 export function buildF3AwaitingInputUiPart(params: {
   question: string;
   parentVersionId: string | null;
   /** Providers signaled in the round that produced the marker. */
   suggestedProviders?: string[];
+  /**
+   * Env keys signaled in the round that produced the marker
+   * (`suggestIntegration.envVars` / `requestEnvVar.key`).
+   */
+  requestedEnvKeys?: string[];
   /** Loop-breaker counter: which tool-only round this marker represents. */
   toolOnlyRounds?: number;
 }): Record<string, unknown> {
   const suggestedProviders = (params.suggestedProviders ?? [])
     .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
     .map((p) => p.trim());
+  const requestedEnvKeys = normalizeRequestedEnvKeys(params.requestedEnvKeys);
   return {
     type: "tool:awaiting-input",
     toolName: F3_CONTINUATION_TOOL_NAME,
@@ -291,6 +343,7 @@ export function buildF3AwaitingInputUiPart(params: {
       lifecycleStage: "integrations",
       parentVersionId: params.parentVersionId,
       suggestedProviders,
+      requestedEnvKeys,
       toolOnlyRounds:
         typeof params.toolOnlyRounds === "number" && params.toolOnlyRounds > 0
           ? Math.floor(params.toolOnlyRounds)
@@ -325,13 +378,14 @@ function readF3ContinuationMarker(
           .filter((p): p is string => typeof p === "string" && p.trim().length > 0)
           .map((p) => p.trim())
       : [];
+    const requestedEnvKeys = normalizeRequestedEnvKeys(outputRecord.requestedEnvKeys);
     const toolOnlyRounds =
       typeof outputRecord.toolOnlyRounds === "number" &&
       Number.isFinite(outputRecord.toolOnlyRounds) &&
       outputRecord.toolOnlyRounds > 0
         ? Math.floor(outputRecord.toolOnlyRounds)
         : 1;
-    return { parentVersionId, suggestedProviders, toolOnlyRounds };
+    return { parentVersionId, suggestedProviders, requestedEnvKeys, toolOnlyRounds };
   }
   return null;
 }
@@ -365,6 +419,7 @@ export function resolvePendingF3Continuation(
         messageId: typeof message.id === "string" && message.id ? message.id : null,
         parentVersionId: marker.parentVersionId,
         suggestedProviders: marker.suggestedProviders,
+        requestedEnvKeys: marker.requestedEnvKeys,
         toolOnlyRounds: marker.toolOnlyRounds,
       };
     }

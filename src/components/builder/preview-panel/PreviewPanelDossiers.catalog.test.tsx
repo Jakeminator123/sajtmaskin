@@ -2,7 +2,41 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanelDossiers } from "./PreviewPanelDossiers";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
-import { stubFetch, wiredResponse } from "./PreviewPanelDossiers.test-support";
+import {
+  catalogResponse,
+  stubFetch,
+  wiredResponse,
+} from "./PreviewPanelDossiers.test-support";
+import type { DossierCatalogResponse } from "@/lib/builder/dossier-catalog";
+
+function catalogWithAnalytics(): DossierCatalogResponse {
+  const base = catalogResponse();
+  return {
+    ...base,
+    total: base.total + 1,
+    groups: [
+      ...base.groups,
+      {
+        id: "analytics",
+        label: "Analys",
+        dossiers: [
+          {
+            id: "vercel-analytics",
+            label: "Besöksstatistik",
+            capability: "analytics",
+            class: "hard",
+            summary: "Vercel Analytics.",
+            envVarCount: 0,
+            envVars: [],
+            requiresF3: false,
+            groupId: "analytics",
+            groupLabel: "Analys",
+          },
+        ],
+      },
+    ],
+  };
+}
 
 describe("PreviewPanelDossiers catalog", () => {
   beforeEach(() => {
@@ -76,7 +110,7 @@ describe("PreviewPanelDossiers catalog", () => {
     expect(screen.getByText("Klarna Checkout")).toBeTruthy();
     expect(screen.queryByText("Bildgalleri med lightbox")).toBeNull();
     expect(screen.getAllByText("Kopplad")).toHaveLength(2);
-    expect(screen.getAllByText("Bygg integrationer")).toHaveLength(1);
+    expect(screen.getAllByText("Kräver integrationsbygge")).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Alla (3)" }));
     expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
@@ -110,7 +144,7 @@ describe("PreviewPanelDossiers catalog", () => {
     expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
   });
 
-  it("sends id+label via onRequestDossier when a catalog row is picked and keeps the popover open with a design-stage surface-only notice for a HARD dossier", async () => {
+  it("stages a catalog click without sending, then confirms one request with placement lines", async () => {
     stubFetch({ wired: wiredResponse({ lifecycleStage: "design" }) });
     const onRequestDossier = vi.fn();
 
@@ -127,23 +161,204 @@ describe("PreviewPanelDossiers catalog", () => {
       openDossiersPanel();
     });
 
-    const stripeRow = await screen.findByTitle("Lägg till byggblocket Stripe Checkout");
+    const stripeRow = await screen.findByTitle("Välj byggblocket Stripe Checkout");
     fireEvent.click(stripeRow);
 
+    expect(onRequestDossier).not.toHaveBeenCalled();
+    expect(screen.getByText("Valt, ej tillagt")).toBeTruthy();
+    expect(screen.getByText("Var ska blocket placeras?")).toBeTruthy();
+    expect(screen.getByText(/I designen visas en demo/i)).toBeTruthy();
+    expect(screen.queryByText("Klarna Checkout")).toBeNull();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Egen sida" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till i sajten" }));
+
+    expect(onRequestDossier).toHaveBeenCalledTimes(1);
+    expect(onRequestDossier).toHaveBeenCalledWith({
+      id: "stripe-checkout",
+      label: "Stripe Checkout",
+      stagingLines: ["Placering: Egen sida"],
+    });
+    expect(screen.getByText(/I designen visas en demo/i)).toBeTruthy();
+  });
+
+  it("cancels a staged pick without calling onRequestDossier", async () => {
+    stubFetch({ wired: wiredResponse() });
+    const onRequestDossier = vi.fn();
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        onRequestDossier={onRequestDossier}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    fireEvent.click(await screen.findByTitle("Välj byggblocket Stripe Checkout"));
+    expect(screen.getByText("Valt, ej tillagt")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Avbryt" }));
+
+    expect(onRequestDossier).not.toHaveBeenCalled();
+    expect(screen.queryByText("Valt, ej tillagt")).toBeNull();
+    expect(screen.getByTitle("Välj byggblocket Stripe Checkout")).toBeTruthy();
+  });
+
+  it("confirms an invisible block without a staging question", async () => {
+    stubFetch({
+      wired: wiredResponse({ lifecycleStage: "integrations" }),
+      catalog: catalogWithAnalytics(),
+    });
+    const onRequestDossier = vi.fn();
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        lifecycleStage="integrations"
+        onRequestDossier={onRequestDossier}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    fireEvent.click(await screen.findByTitle("Välj byggblocket Besöksstatistik"));
+
+    expect(onRequestDossier).not.toHaveBeenCalled();
+    expect(screen.getByText("Valt, ej tillagt")).toBeTruthy();
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByText("Var ska blocket placeras?")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till i sajten" }));
+
+    expect(onRequestDossier).toHaveBeenCalledTimes(1);
+    expect(onRequestDossier).toHaveBeenCalledWith({
+      id: "vercel-analytics",
+      label: "Besöksstatistik",
+    });
+  });
+
+  it("shows optional key fields on a hard block but confirms without a key", async () => {
+    stubFetch({ wired: wiredResponse({ lifecycleStage: "design" }) });
+    const onRequestDossier = vi.fn();
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        lifecycleStage="design"
+        onRequestDossier={onRequestDossier}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    fireEvent.click(await screen.findByTitle("Välj byggblocket Stripe Checkout"));
+
+    expect(screen.getByLabelText("Värde för STRIPE_SECRET_KEY")).toBeTruthy();
+    expect(screen.getByText("Utan nyckel körs demo.")).toBeTruthy();
+    expect(screen.getAllByText("krävs för live").length).toBeGreaterThan(0);
+    expect(screen.queryByText("rekommenderad")).toBeNull();
+    expect(
+      screen.getByText(/Avbryt lägger inte till byggblocket/i),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Spara nyckel" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till i sajten" }));
+
+    expect(onRequestDossier).toHaveBeenCalledTimes(1);
     expect(onRequestDossier).toHaveBeenCalledWith({
       id: "stripe-checkout",
       label: "Stripe Checkout",
     });
-    // Hard pick in F2: the popover STAYS OPEN and shows the surface-only notice.
-    expect(
-      screen.getByText(/I designen visas en demo/i),
-    ).toBeTruthy();
+  });
 
-    // One-shot lock: a second click on another row does nothing.
-    const klarnaRow = screen.getByText("Klarna Checkout").closest("button");
-    expect(klarnaRow).toBeTruthy();
-    fireEvent.click(klarnaRow!);
-    expect(onRequestDossier).toHaveBeenCalledTimes(1);
+  it("ignores a late catalog accept after the chat context has changed", async () => {
+    stubFetch({ wired: wiredResponse({ lifecycleStage: "design" }) });
+    let resolveRequest: ((value: boolean) => void) | undefined;
+    const onRequestDossier = vi.fn().mockImplementation(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+
+    const { rerender } = render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        lifecycleStage="design"
+        onRequestDossier={onRequestDossier}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    fireEvent.click(await screen.findByTitle("Välj byggblocket Stripe Checkout"));
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till i sajten" }));
+
+    await waitFor(() => {
+      expect(onRequestDossier).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByRole("button", { name: "Avbryt" }).hasAttribute("disabled")).toBe(true);
+
+    rerender(
+      <PreviewPanelDossiers
+        chatId="chat_2"
+        versionId="ver_2"
+        lifecycleStage="design"
+        onRequestDossier={onRequestDossier}
+      />,
+    );
+
+    await act(async () => {
+      resolveRequest?.(true);
+    });
+
+    expect(screen.queryByText("Tillagt via chatten")).toBeNull();
+    expect(screen.queryByText("Valt, ej tillagt")).toBeNull();
+  });
+
+  it("does not mark a hard block as added when the catalog request is rejected", async () => {
+    stubFetch({ wired: wiredResponse({ lifecycleStage: "design" }) });
+    const onRequestDossier = vi.fn().mockResolvedValue(false);
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        lifecycleStage="design"
+        onRequestDossier={onRequestDossier}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    fireEvent.click(await screen.findByTitle("Välj byggblocket Stripe Checkout"));
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till i sajten" }));
+
+    await waitFor(() => {
+      expect(onRequestDossier).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByText("Valt, ej tillagt")).toBeTruthy();
+    expect(screen.queryByText("Tillagt via chatten")).toBeNull();
+    expect(screen.getByRole("button", { name: "Avbryt" }).hasAttribute("disabled")).toBe(
+      false,
+    );
   });
 
   it("blocks catalog picks while a generation streams or a question is pending (catalogPickDisabled)", async () => {
@@ -172,6 +387,7 @@ describe("PreviewPanelDossiers catalog", () => {
     expect(stripeRow?.hasAttribute("disabled")).toBe(true);
     fireEvent.click(stripeRow!);
     expect(onRequestDossier).not.toHaveBeenCalled();
+    expect(screen.queryByText("Valt, ej tillagt")).toBeNull();
   });
 
 });

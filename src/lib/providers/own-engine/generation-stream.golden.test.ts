@@ -546,7 +546,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(doneData.awaitingInput).toBe(true);
     expect(doneData.reason).toBe("malformed_integration_tool_call_empty_generation");
     expect(String(doneData.awaitingInputPrompt)).toContain("kunde inte tolkas");
-    expect(String(doneData.awaitingInputPrompt)).toContain("F3");
+    expect(String(doneData.awaitingInputPrompt)).toContain("integrationsbygget");
     expect(String(doneData.awaitingInputPrompt)).not.toContain(
       "Försök igen med samma prompt",
     );

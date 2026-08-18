@@ -185,12 +185,17 @@ export function useSendMessage(
         engineModel,
       });
 
-      // Auto-repair sends (client post-check) carry a `sourceKind: "autofix"`
+      // Synthetic sends (auto-repair, F3 kick) carry a `prompt-source`
       // discriminator. Mirror it onto the optimistic row's uiParts so the
-      // message renders as a collapsed system row (Spår 03 Steg 4) instead of
-      // a user bubble even before the server round-trip confirms it — the
-      // server persists the same marker (see chat-message-stream/handler.ts).
-      const isAutoRepairSend = options.promptSourceMeta?.sourceKind === "autofix";
+      // message renders as a collapsed system row instead of a user bubble
+      // even before the server round-trip. Autofix is also persisted by the
+      // server (chat-message-stream/handler.ts); F3 kick is UI-only and
+      // falls back to the content-prefix classifier after reload.
+      const promptSourceKind = options.promptSourceMeta?.sourceKind;
+      const promptSourceUiPart =
+        promptSourceKind === "autofix" || promptSourceKind === "f3-kick"
+          ? { type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: promptSourceKind }
+          : undefined;
       setPreviewBuildError?.(null);
       setPreviewProdBuild?.(null);
       setMessages((prev) => [
@@ -199,9 +204,7 @@ export function useSendMessage(
           id: userMessageId,
           role: "user",
           content: messageText,
-          uiParts: isAutoRepairSend
-            ? [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }]
-            : undefined,
+          uiParts: promptSourceUiPart ? [promptSourceUiPart] : undefined,
         },
         {
           id: assistantMessageId,
@@ -298,7 +301,7 @@ export function useSendMessage(
           promptMeta.complexityHint = initChoicesMeta.complexityHint;
         }
         if (options.planMode) promptMeta.planMode = true;
-        if (options.promptSourceMeta) {
+        if (options.promptSourceMeta && options.promptSourceMeta.sourceKind !== "f3-kick") {
           promptMeta.promptSourceKind = options.promptSourceMeta.sourceKind;
           promptMeta.promptSourceTechnical = options.promptSourceMeta.isTechnical;
           promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;
@@ -474,7 +477,7 @@ export function useSendMessage(
               ),
             });
             settleRejectedTurn(
-              "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och fortsätt integrationsbygget.",
+              "Integrationsbygget kräver riktiga build-nycklar. Fyll i dem i kravytan och fortsätt.",
             );
             return {
               status: "rejected",
@@ -517,13 +520,13 @@ export function useSendMessage(
               });
               if (release.ok) {
                 content = release.alreadyPromoted
-                  ? "F3-versionen var redan godkänd av ReleaseGate."
-                  : "F3-versionen skapades från exakt samma filer och godkändes av ReleaseGate.";
+                  ? "Integrationsversionen var redan godkänd av ReleaseGate."
+                  : "Integrationsversionen skapades från exakt samma filer och godkändes av ReleaseGate.";
                 toast.success("ReleaseGate godkänd.");
               } else if (release.superseded) {
                 content =
-                  "F3-versionen ersattes av en nyare version innan ReleaseGate kunde promotera den.";
-                toast.warning("F3-versionen ersattes av en nyare version.");
+                  "Integrationsversionen ersattes av en nyare version innan ReleaseGate kunde promotera den.";
+                toast.warning("Integrationsversionen ersattes av en nyare version.");
               } else {
                 const failed = release.failedChecks.join(", ");
                 content = release.promoteError || release.retryable
@@ -562,8 +565,8 @@ export function useSendMessage(
                 missingByIntegration: release.missingByIntegration,
               });
               content =
-                "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och försök igen.";
-              toast.warning("F3 saknar obligatoriska env-värden.");
+                "Integrationsbygget kräver riktiga build-nycklar. Fyll i dem i kravytan och försök igen.";
+              toast.warning("Integrationsbygget saknar obligatoriska env-värden.");
               outcome = {
                 status: "rejected",
                 reason: "tier3_env_not_ready",
@@ -571,8 +574,8 @@ export function useSendMessage(
               };
             } else if (release.kind === "llm_ready") {
               content =
-                "F3-specen kräver nu ett vanligt integrationsbygge. Starta det igen från previewpanelen.";
-              toast.warning("F3-kontrollen kunde inte slutföras.");
+                "Specen kräver nu ett vanligt integrationsbygge. Starta det igen från previewpanelen.";
+              toast.warning("Integrationskontrollen kunde inte slutföras.");
               outcome = {
                 status: "rejected",
                 reason: "f3_build_required",
@@ -580,7 +583,7 @@ export function useSendMessage(
               };
             } else {
               content = release.message;
-              toast.warning("F3-kontrollen kunde inte slutföras.");
+              toast.warning("Integrationskontrollen kunde inte slutföras.");
               outcome = { status: "failed", message: release.message };
             }
             // Same single rule as everywhere else: a rejection the server did

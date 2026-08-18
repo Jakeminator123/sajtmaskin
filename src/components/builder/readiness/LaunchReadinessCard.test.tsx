@@ -175,6 +175,35 @@ describe("LaunchReadinessCard", () => {
     expect(screen.queryByText("Bygg integrationer är spärrat.")).toBeNull();
   });
 
+  it("länkar env-åtgärden till Byggblock även i F2 (K1)", async () => {
+    const { openDossiersPanel } = await import("@/lib/builder/project-env-events");
+    const readiness = buildChatReadiness({
+      blockers: [
+        {
+          id: "missing-env",
+          title: "Obligatoriska nycklar saknas.",
+          detail: "Saknas: STRIPE_SECRET_KEY. Lägg till dem under Byggblock.",
+          severity: "blocker",
+          category: "blocker",
+          action: "env",
+          envKeys: ["STRIPE_SECRET_KEY"],
+        },
+      ],
+      info: {
+        ...emptyInfo,
+        missingEnvKeys: ["STRIPE_SECRET_KEY"],
+        buildBlockingKeys: ["STRIPE_SECRET_KEY"],
+      },
+    });
+
+    render(<LaunchReadinessCard readiness={readiness} hasAnyVersion />);
+    fireEvent.click(screen.getByRole("button", { name: "Publiceringsstatus" }));
+
+    expect(screen.queryByRole("button", { name: /öppna miljövariabler/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /öppna byggblock/i }));
+    expect(openDossiersPanel).toHaveBeenCalledWith(["STRIPE_SECRET_KEY"]);
+  });
+
   it("visar sen preview:client-error i den befintliga rekommendationsytan", () => {
     const readiness = buildChatReadiness({
       warnings: [

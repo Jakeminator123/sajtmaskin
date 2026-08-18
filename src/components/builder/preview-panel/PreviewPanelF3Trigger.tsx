@@ -183,7 +183,7 @@ export function PreviewPanelF3Trigger({
       reportStatus({
         tone: "warning",
         title: "Integrationsbygget är spärrat av Product Postcheck",
-        description: "Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
+        description: "Åtgärda blockerande previewproblem i designläget innan du bygger integrationer.",
       });
       return;
     }
@@ -197,7 +197,7 @@ export function PreviewPanelF3Trigger({
           reportStatus({
             tone: "info",
             title: "ReleaseGate startar",
-            description: "Kontrollerar den deterministiska F3-versionen innan promotion.",
+            description: "Kontrollerar den deterministiska integrationsversionen innan promotion.",
           });
         },
       });
@@ -217,7 +217,7 @@ export function PreviewPanelF3Trigger({
         reportStatus({
           tone: "success",
           title: "Integrationsbygget startar",
-          description: "F3 byggs nu utifrån den finaliserade designversionen.",
+          description: "Integrationsbygget startar nu utifrån den finaliserade designversionen.",
         }, result.parentVersionId);
         onReady?.({
           parentVersionId: result.parentVersionId,
@@ -233,8 +233,8 @@ export function PreviewPanelF3Trigger({
           title: stale
             ? "Nyare designversion finns"
             : result.retryable
-              ? "F3-kontrollen kan försöka igen"
-              : "F3-kontrollen misslyckades",
+              ? "Integrationskontrollen kan försöka igen"
+              : "Integrationskontrollen misslyckades",
           description: result.message,
         });
         return;
@@ -256,14 +256,14 @@ export function PreviewPanelF3Trigger({
           title: describeF3SuccessTitle(null),
           usesLiveDossierCounts: true,
           description:
-            "F3-versionen använder exakt samma filer och visuella fallback som F2.",
+            "Integrationsversionen använder exakt samma filer och visuella fallback som designversionen.",
         }, result.versionId);
         return;
       }
       if (result.superseded) {
         reportStatus({
           tone: "warning",
-          title: "F3-versionen ersattes av en nyare version",
+          title: "Integrationsversionen ersattes av en nyare version",
           description: "ReleaseGate ändrade ingen äldre version.",
         }, result.versionId);
         return;
@@ -285,13 +285,13 @@ export function PreviewPanelF3Trigger({
           : result.vmGatePassed === false || !result.passed
             ? failedChecks
               ? `Underkända kontroller: ${failedChecks}.`
-              : "F3-versionen blev inte godkänd. Se versionsdiagnostiken."
-            : "F3-versionen blev inte promotad.",
+              : "Integrationsversionen blev inte godkänd. Se versionsdiagnostiken."
+            : "Integrationsversionen blev inte promotad.",
       }, result.versionId);
     } catch (err) {
       reportStatus({
         tone: "error",
-        title: "F3-kontrollen misslyckades",
+        title: "Integrationskontrollen misslyckades",
         description:
           err instanceof Error
             ? `Integrationsbygget kunde inte starta: ${err.message}`
@@ -357,7 +357,7 @@ export function PreviewPanelF3Trigger({
         : "0 diamonds";
   const enabledTitle =
     requiresRealBuildKeys === false
-      ? "Bygg integrationer — stämplar om designversionens filer till en publicerbar F3-version och kör ReleaseGate. Ingen LLM, ingen ny chatt (0 diamonds)."
+      ? "Bygg integrationer — stämplar om designversionens filer till en publicerbar integrationsversion och kör ReleaseGate. Ingen LLM, ingen ny chatt (0 diamonds)."
       : requiresRealBuildKeys === true
         ? "Bygg integrationer — startar en LLM-runda som bygger riktig integrationskod (~4–6 diamonds). Byggnödvändiga nycklar efterfrågas före bygget; övriga kör i demo-läge tills du sparar dem under Byggblock."
         : "Bygg integrationer — 0 diamonds om inga riktiga nycklar krävs (filerna stämplas bara om), annars ~4–6 diamonds för en LLM-runda som bygger riktig integrationskod.";
@@ -374,7 +374,7 @@ export function PreviewPanelF3Trigger({
           : noVersion
             ? "Vänta tills första versionen är skapad innan du startar integrationsbygget."
             : disabledByProduct
-              ? "Product Postcheck hittade blockerande F2-previewproblem. Åtgärda dem innan du startar integrationsbygget."
+              ? "Product Postcheck hittade blockerande previewproblem i designläget. Åtgärda dem innan du startar integrationsbygget."
             : enabledTitle
       }
       aria-label={iconOnly ? `Bygg integrationer (${costTag})` : undefined}

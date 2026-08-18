@@ -112,7 +112,7 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
             "Funktion": d.get("capability"),
             "Standardval": "✓" if is_default_for_capability(d) else "",
             "Demoläge": mock_label(d.get("mock")) if d["_class"] == "hard" else "—",
-            "Kräver F3": "✓" if requires_f3(d) else "",
+            "Kräver integrationsbygge": "✓" if requires_f3(d) else "",
             "Kodtrohet": d.get("codeFidelity"),
             "Komplexitet": d.get("complexity"),
             "Nycklar": len(d.get("envVars") or []),
@@ -126,9 +126,9 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
 
     st.caption(
         "**Standardval** = vinner när flera byggblock delar samma funktion. "
-        "**Demoläge** = hur ett Kopplat byggblock beter sig i F2 utan "
+        "**Demoläge** = hur ett Kopplat byggblock beter sig i designläget utan "
         "livekonfiguration. "
-        "**Kräver F3** = den riktiga integrationen byggs i ett eget "
+        "**Kräver integrationsbygge** = den riktiga integrationen byggs i ett eget "
         "steg (byggnödvändig nyckel eller serverfil) — det följer *inte* av "
         "Kopplad/Fristående, och ett Kopplat byggblock kan mycket väl vara "
         "klart redan i designläget. Leverantörssyskon = flera byggblock under "

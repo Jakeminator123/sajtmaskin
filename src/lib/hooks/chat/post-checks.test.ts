@@ -1205,7 +1205,7 @@ describe("runPostGenerationChecks", () => {
     expect(steps).toEqual(
       expect.arrayContaining([
         expect.stringContaining("typecheck: Varning"),
-        expect.stringContaining("F2 render-first"),
+        expect.stringContaining("Designläge:"),
       ]),
     );
     expect(steps.some((step) => step.includes("typecheck: Underkänd"))).toBe(false);

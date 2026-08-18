@@ -96,7 +96,7 @@ export async function runF3ReadinessGate(params: {
           {
             error: "f3_base_mismatch",
             message:
-              "F3-start kräver att engineBaseVersionId och parentVersionId pekar på samma F2-version.",
+              "Integrationsbygget kräver att engineBaseVersionId och parentVersionId pekar på samma designversion.",
             engineBaseVersionId: metaEngineBaseVersionId,
             parentVersionId: parsedMeta.parentVersionId,
           },
@@ -129,7 +129,7 @@ export async function runF3ReadinessGate(params: {
                 ready: false,
                 parentVersionId: requestedGateVersionId,
                 message:
-                  "Den explicit valda F2-basversionen finns inte i den här chatten.",
+                  "Den explicit valda designversionen finns inte i den här chatten.",
               },
               { status: 404 },
             ),
@@ -147,7 +147,7 @@ export async function runF3ReadinessGate(params: {
               error: "f3_base_version_unavailable",
               ready: false,
               message:
-                "Ingen tenant-säkrad F2-basversion kunde hittas för F3-kontrollen.",
+                "Ingen tenant-säkrad designversion kunde hittas för integrationskontrollen.",
             },
             { status: 409 },
           ),
@@ -208,7 +208,7 @@ export async function runF3ReadinessGate(params: {
                 projectId: engineChat.project_id ?? null,
                 missingByIntegration: gate.readiness.missingByIntegration,
                 message:
-                  "Tunga integrationer kräver riktiga env-variabler innan F3 kan köras. Kör 'Bygg integrationer' via finalize-design.",
+                  "Tunga integrationer kräver riktiga env-variabler innan integrationsbygget kan köras. Kör 'Bygg integrationer' via finalize-design.",
               },
               { status: 412 },
             ),
@@ -225,7 +225,7 @@ export async function runF3ReadinessGate(params: {
                 ready: false,
                 parentVersionId: gateVersionId,
                 message:
-                  "Integrationsbygget är spärrat av Product Postcheck. Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
+                  "Integrationsbygget är spärrat av Product Postcheck. Åtgärda blockerande previewproblem i designläget innan du bygger integrationer.",
               },
               { status: 409 },
             ),
@@ -239,7 +239,7 @@ export async function runF3ReadinessGate(params: {
                 ready: false,
                 parentVersionId: gateVersionId,
                 message:
-                  "Kunde inte läsa versionens filer — kan inte avgöra F3-readiness. Ladda om och försök igen.",
+                  "Kunde inte läsa versionens filer — kan inte avgöra om integrationsbygget är redo. Ladda om och försök igen.",
               },
               { status: 409 },
             ),
@@ -327,7 +327,7 @@ export async function runF3ReadinessGate(params: {
                         error: "f3_continuation_race_lost",
                         ready: false,
                         message:
-                          "F3-förslaget hanterades redan av en annan förfrågan. Ladda om versionerna.",
+                          "Integrationsförslaget hanterades redan av en annan förfrågan. Ladda om versionerna.",
                       },
                       { status: 409 },
                     ),
@@ -368,7 +368,7 @@ export async function runF3ReadinessGate(params: {
                   parentVersionId: gateVersionId,
                   userTurnPersisted,
                   message:
-                    "Inga riktiga build-nycklar krävs. Skapa en exakt F3-fork via finalize-design och kör ReleaseGate utan LLM-generering.",
+                    "Inga riktiga build-nycklar krävs. Skapa en exakt integrationsversion via finalize-design och kör ReleaseGate utan LLM-generering.",
                 },
                 { status: 409 },
               ),
@@ -387,7 +387,7 @@ export async function runF3ReadinessGate(params: {
             error: "tier3_readiness_unavailable",
             ready: false,
             message:
-              "F3-readiness kunde inte verifieras. Ladda om och försök igen.",
+              "Integrationskontrollen kunde inte verifieras. Ladda om och försök igen.",
           },
           { status: 409 },
         ),

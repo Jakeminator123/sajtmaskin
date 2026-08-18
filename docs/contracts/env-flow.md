@@ -172,9 +172,9 @@ blockera på det som verkligen kräver en riktig integration.
   enda editorn för projekt-env i F2/F3** (ägarbeslut 2026-07-22), och vid 412
   öppnar/fokuserar buildern rätt dossier där automatiskt. Bredvid popovern
   ligger [`F3RequirementsSurface`](../../src/components/builder/readiness/F3RequirementsSurface.tsx)
-  — en beständig, icke-modal builderyta som listar serverns
-  `missingByIntegration` som den är, deep-linkar till Byggblock och erbjuder
-  explicit retry. Den har medvetet **ingen egen editor** mot env-API:t.
+  — en beständig, icke-modal builderyta som visar ett kort besked, deep-linkar
+  till Byggblock (enda skrivytan) och erbjuder explicit retry. Den listar inte
+  nycklarna igen och har medvetet **ingen egen editor** mot env-API:t.
   ReleaseGate-resultat (startad, promoted, superseded, retryable eller Blocker)
   visas på motsvarande `F3StatusSurface` i stället för toastar. Env-frågor hör
   aldrig hemma i F2/F3-chatten (se

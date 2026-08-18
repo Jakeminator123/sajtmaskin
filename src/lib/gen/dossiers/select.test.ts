@@ -82,20 +82,21 @@ describe("selectDossiersForRequest (deterministic capability-driven)", () => {
     expect(unknownCap.selected).toEqual([]);
   });
 
-  it("marks hard dossier as unconfigured when env var is missing", () => {
-    delete process.env.STRIPE_SECRET_KEY;
-    delete process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  it("marks hard dossier as unconfigured when the project env set is empty", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["payments"],
+      configuredEnvKeys: new Set<string>(),
     });
     expect(result.selected[0]?.configured).toBe(false);
   });
 
-  it("marks hard dossier as configured when all required env vars are set", () => {
-    process.env.STRIPE_SECRET_KEY = "sk_test_xxx";
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_xxx";
+  it("marks hard dossier as configured when all required env keys are in the project set", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["payments"],
+      configuredEnvKeys: new Set([
+        "STRIPE_SECRET_KEY",
+        "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      ]),
     });
     expect(result.selected[0]?.configured).toBe(true);
   });
@@ -497,15 +498,85 @@ describe("isExplicitDossierChoice — persisterbar syskonidentitet", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// fix-isconfigured (wave 1): the `configured` flag must reflect the PROJECT'S
-// stored env keys, not the platform `process.env`. Callers pass
-// `configuredEnvKeys`; when omitted, the legacy process.env fallback stays.
+// B1: negation + multi-hit. An ambiguous provider pick must never persist
+// as `mutedDossierIds` (`isExplicitDossierChoice` stays false unless the
+// hit is a single remaining keyword/provider marker).
+// ─────────────────────────────────────────────────────────────────────────
+describe("selectDossiersForRequest — provider negation and multi-hit (B1)", () => {
+  it("negation sv: «inte Clerk» + explicit Supabase picks supabase-auth", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "Använd inte Clerk. Bygg auth med Supabase.",
+    });
+    expect(result.selected[0]?.entry.id).toBe("supabase-auth");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+    expect(isExplicitDossierChoice(result.selected[0]!.reason)).toBe(true);
+  });
+
+  it("negation en: «not clerk, use supabase auth» picks supabase-auth", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "not clerk, use supabase auth",
+    });
+    expect(result.selected[0]?.entry.id).toBe("supabase-auth");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("«utan X» drops the negated sibling and keeps the other", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "auth utan clerk",
+    });
+    expect(result.selected[0]?.entry.id).toBe("supabase-auth");
+    expect(isExplicitDossierChoice(result.selected[0]!.reason)).toBe(false);
+  });
+
+  it("«byt från X» excludes the source sibling before keyword match", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "byt från clerk till supabase auth",
+    });
+    expect(result.selected[0]?.entry.id).toBe("supabase-auth");
+    expect(result.selected[0]?.reason).toBe("relevance-keyword");
+  });
+
+  it("multi-hit without negation picks the default but is not explicit", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "jämför clerk och supabase auth",
+    });
+    expect(result.selected[0]?.entry.id).toBe("clerk-auth");
+    expect(result.selected[0]?.reason).toBe("capability-match");
+    expect(isExplicitDossierChoice(result.selected[0]!.reason)).toBe(false);
+  });
+
+  it("unknown/misspelled provider falls to the default without looking explicit", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "logga in med clrk",
+    });
+    expect(result.selected[0]?.entry.id).toBe("clerk-auth");
+    expect(result.selected[0]?.reason).toBe("capability-match");
+    expect(isExplicitDossierChoice(result.selected[0]!.reason)).toBe(false);
+  });
+
+  it("all siblings negated falls to the capability default", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["auth"],
+      promptText: "Använd inte Clerk och inte Supabase.",
+    });
+    expect(result.selected[0]?.entry.id).toBe("clerk-auth");
+    expect(result.selected[0]?.reason).toBe("capability-match");
+    expect(isExplicitDossierChoice(result.selected[0]!.reason)).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// B3: `configured` reflects the PROJECT'S stored env keys only. Omitted
+// `configuredEnvKeys` is a false negative — never the platform process.env.
 // ─────────────────────────────────────────────────────────────────────────
 describe("selectDossiersForRequest — configuredEnvKeys (project-scoped)", () => {
   it("marks a hard dossier configured from the project env key set", () => {
-    // Platform env is empty; the PROJECT set carries the keys → configured.
-    delete process.env.STRIPE_SECRET_KEY;
-    delete process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
     const result = selectDossiersForRequest({
       requestedCapabilities: ["payments"],
       configuredEnvKeys: new Set([
@@ -517,8 +588,6 @@ describe("selectDossiersForRequest — configuredEnvKeys (project-scoped)", () =
   });
 
   it("ignores platform process.env when configuredEnvKeys is supplied", () => {
-    // The platform has the keys, but the PROJECT set does not → unconfigured.
-    // This is the exact leak `configuredEnvKeys` fixes.
     process.env.STRIPE_SECRET_KEY = "sk_platform_leak";
     process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_platform_leak";
     const result = selectDossiersForRequest({
@@ -536,11 +605,11 @@ describe("selectDossiersForRequest — configuredEnvKeys (project-scoped)", () =
     expect(result.selected[0]?.configured).toBe(true);
   });
 
-  it("falls back to process.env when configuredEnvKeys is omitted (legacy)", () => {
-    process.env.STRIPE_SECRET_KEY = "sk_test_xxx";
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_xxx";
+  it("omitted configuredEnvKeys is false even when process.env has the key", () => {
+    process.env.STRIPE_SECRET_KEY = "sk_platform_leak";
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_platform_leak";
     const result = selectDossiersForRequest({ requestedCapabilities: ["payments"] });
-    expect(result.selected[0]?.configured).toBe(true);
+    expect(result.selected[0]?.configured).toBe(false);
   });
 });
 

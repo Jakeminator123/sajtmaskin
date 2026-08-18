@@ -311,8 +311,9 @@ export const MUTED_DOSSIER_IDS_SNAPSHOT_KEY = "mutedDossierIds";
 /**
  * Deferred integration capabilities persisted on the snapshot — capabilities
  * the user asked for that the design stage did not wire in. Read by the
- * Byggblock overview so they show up as "Planerad — kopplas in i nästa steg"
- * instead of vanishing with the mute. Always tombstone-filtered.
+ * Byggblock overview so they show up with the shared `planned` wording
+ * (`describeDossierStatus`) instead of vanishing with the mute. Always
+ * tombstone-filtered.
  */
 export function readMutedCapabilitiesFromSnapshot(
   snapshot: Record<string, unknown> | null | undefined,

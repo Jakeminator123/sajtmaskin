@@ -1,8 +1,11 @@
 import { getPromptAssistModelLabel } from "@/lib/builder/defaults";
+import { describeDossierStatus } from "@/lib/builder/dossier-overview";
 import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId } from "@/lib/models/catalog";
 import type { ModelInfoData, SetMessages } from "./types";
 import { appendToolPartToMessage } from "./helpers-ui-parts";
+
+const PLANNED_STATUS_LABEL = describeDossierStatus("planned", "design").label;
 
 function formatEnginePathLabel(enginePath: string | null | undefined): string | null {
   if (!enginePath) return null;
@@ -65,7 +68,7 @@ export function buildModelInfoSteps(info: ModelInfoData): string[] {
     steps.push(`Assist model: ${getPromptAssistModelLabel(info.promptAssistModel)}`);
   }
   if (typeof info.promptAssistDeep === "boolean") {
-    steps.push(`Deep brief: ${info.promptAssistDeep ? "på" : "av"}`);
+    steps.push(`Deep brief-inställning: ${info.promptAssistDeep ? "på" : "av"}`);
   }
   if (info.scaffoldId) {
     const label = info.scaffoldLabel || info.scaffoldId;
@@ -85,7 +88,7 @@ export function buildModelInfoSteps(info: ModelInfoData): string[] {
       .map((label) => label.trim())
       .filter((label) => label.length > 0);
     if (planned.length > 0) {
-      steps.push(`Planerad — kopplas in i nästa steg: ${planned.join(", ")}`);
+      steps.push(`${PLANNED_STATUS_LABEL}: ${planned.join(", ")}`);
     }
   }
   // Contract rows describe what the pre-generation contract PROPOSED, which is
@@ -99,7 +102,7 @@ export function buildModelInfoSteps(info: ModelInfoData): string[] {
       .map((capability) => capability.trim().toLowerCase())
       .filter((capability) => capability.length > 0),
   );
-  const PLANNED_SUFFIX = " (planerad — kopplas in i nästa steg)";
+  const PLANNED_SUFFIX = ` (${PLANNED_STATUS_LABEL})`;
   const contractCapabilities = new Set<string>();
   const contractRow = (label: string, value: string, capability: string): string => {
     contractCapabilities.add(capability);

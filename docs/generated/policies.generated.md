@@ -16,10 +16,10 @@
 
 ## Quality-gate tiers
 
-| Lane                | Phase | Ordered checks        |
-| ------------------- | ----- | --------------------- |
-| `designPreview`     | `F2`  | `typecheck`           |
-| `integrationsBuild` | `F3`  | `typecheck` → `build` |
+| Lane                | Phase               | Ordered checks        |
+| ------------------- | ------------------- | --------------------- |
+| `designPreview`     | `designläge`        | `typecheck`           |
+| `integrationsBuild` | `integrationsbygge` | `typecheck` → `build` |
 
 Structured result enums from the preview contract: `$.contracts.PreviewHostVerifyResponse.properties.results.items.properties.failureKind.enum`: `code`, `tooling`, `null`.
 
@@ -176,7 +176,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 ## Dossier environment enforcement
 
-| Dossier                | Capability             | Key                                  | Required | Enforcement       | F2 mock   |
+| Dossier                | Capability             | Key                                  | Required | Enforcement       | Demoläge  |
 | ---------------------- | ---------------------- | ------------------------------------ | -------- | ----------------- | --------- |
 | `clerk-auth`           | `auth`                 | `CLERK_SECRET_KEY`                   | Yes      | `build`           | `visual`  |
 | `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`  | Yes      | `build`           | `visual`  |

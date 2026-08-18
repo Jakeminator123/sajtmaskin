@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Toolbar "Byggblock" popover: the primary user surface for selecting,
+ * Toolbar "Byggblock" sheet: the primary user surface for selecting,
  * inspecting AND configuring dossiers. Data is lazily fetched from
- * `GET /api/engine/chats/[chatId]/dossiers` when the popover opens (and
+ * `GET /api/engine/chats/[chatId]/dossiers` when the panel opens (and
  * re-fetched when the active version changes or after a save).
  *
  * Owner decision 2026-07-13 (supersedes the earlier catalog/status-only
@@ -17,10 +17,10 @@
  * the server's missingByIntegration stays the source of truth).
  *
  * Facade: hooks live in `usePreviewPanelDossiersController`; presentation in
- * `dossiers/DossiersPopoverView`. Public export surface is unchanged.
+ * `dossiers/DossiersPanelView`. Public export surface is unchanged.
  */
 import { usePreviewPanelDossiersController } from "./dossiers/usePreviewPanelDossiersController";
-import { DossiersPopoverView } from "./dossiers/DossiersPopoverView";
+import { DossiersPanelView } from "./dossiers/DossiersPanelView";
 import type { PreviewPanelDossiersProps } from "./dossiers/dossiers-shared";
 
 export function PreviewPanelDossiers({
@@ -42,7 +42,7 @@ export function PreviewPanelDossiers({
     onCountsChange,
   });
   return (
-    <DossiersPopoverView
+    <DossiersPanelView
       {...vm}
       className={className}
       activeVersionMeta={activeVersionMeta}

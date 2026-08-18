@@ -506,7 +506,7 @@ export function useCreateChat(
           promptMeta.complexityHint = initChoicesMeta.complexityHint;
         }
         if (options.planMode) promptMeta.planMode = true;
-        if (options.promptSourceMeta) {
+        if (options.promptSourceMeta && options.promptSourceMeta.sourceKind !== "f3-kick") {
           promptMeta.promptSourceKind = options.promptSourceMeta.sourceKind;
           promptMeta.promptSourceTechnical = options.promptSourceMeta.isTechnical;
           promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;

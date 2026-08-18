@@ -1,7 +1,8 @@
-# F2 och F3
+# Designläge och integrationsbygge
 
-F2 och F3 är två olika kontrakt. F2 prioriterar trovärdig design och snabb
-iteration. F3 prioriterar riktiga integrationer, build och deploybarhet.
+Designläge och integrationsbygge är två olika kontrakt. Designläget
+prioriterar trovärdig design och snabb iteration. Integrationsbygget
+prioriterar riktiga integrationer, build och deploybarhet.
 
 De är **versions- och gate-lanes**, inte ett svartvitt mognadsbetyg på hela
 sajten. Demo/live/planerad avgörs per Byggblock. En OpenAI-chatt kan därför
@@ -9,31 +10,32 @@ vara live i en integrationsversion samtidigt som tre andra Kopplade Byggblock
 fortfarande är planerade eller kör demo. Ett lyckat integrationsbygge ska inte
 förändra chattens visuella design; det byter wiring och verifieringskrav.
 
-|                  | F2 / `fidelity2`                            | F3 / `fidelity3`                  |
-| ---------------- | ------------------------------------------- | --------------------------------- |
-| Syfte            | Design och preview                          | Integration, build och deploy     |
-| Start            | Normalt läge för generation                 | Explicit användarhandling         |
+|                  | Designläge / designversion (`fidelity2`)    | Integrationsbygge / integrationsversion (`fidelity3`) |
+| ---------------- | ------------------------------------------- | ----------------------------------------------------- |
+| Syfte            | Design och preview                          | Integration, build och deploy                         |
+| Start            | Normalt läge för generation                 | Explicit användarhandling                             |
 | Data/integration | Demo eller ofarlig placeholder får användas | Riktig provider-kod; riktiga värden när de finns, annars ärlig degradering enligt enforcement |
-| Gate             | RenderGate (`designPreview`)                | ReleaseGate (`integrationsBuild`) |
-| Resultat         | Itererbar designversion                     | Separat integrationsversion       |
+| Gate             | RenderGate (`designPreview`)                | ReleaseGate (`integrationsBuild`)                     |
+| Resultat         | Itererbar designversion                     | Separat integrationsversion                           |
 
-## F3 är explicit
+## Integrationsbygget är explicit
 
 Ord som Stripe, auth eller databas i en prompt får nominera capabilities och
-förbereda en F2-yta. De får inte automatiskt flytta projektet till F3.
-Övergången sker genom det explicita finalize-design-/integrationsflödet.
+förbereda en yta i designläget. De får inte automatiskt flytta projektet till
+ett integrationsbygge. Övergången sker genom det explicita
+finalize-design-/integrationsflödet.
 
 Det skyddar både användarens avsikt och projektets scope. En designfråga om en
 checkout ska inte oavsiktligt kräva secrets, server-wiring och en full release.
 
-## Mocks och placeholders i F2
+## Mocks och placeholders i designläget
 
 Ett valt Kopplat Byggblocks effektiva demoläge beskriver hur dess visuella yta
-fungerar i F2. Det läses ur manifestets `mock`-policy; utelämnat fält betyder
-`none`. Preview kan också få pipeline-skapade, ofarliga placeholdervärden för
-valda dossiers.
+fungerar i designläget. Det läses ur manifestets `mock`-policy; utelämnat fält
+betyder `none`. Preview kan också få pipeline-skapade, ofarliga
+placeholdervärden för valda dossiers.
 
-F2-fallbacken ska:
+Designlägets fallback ska:
 
 - visa den avsedda upplevelsen utan livekonfiguration,
 - vara tydligt skild från konfigurerad integration,
@@ -42,9 +44,10 @@ F2-fallbacken ska:
 
 ## Vad "Bygg integrationer" gör
 
-Klicket utgår från den valda F2-versionen och läser vilka Byggblock som kräver
-F3, planerades i F2 och ännu saknar filbevis. F2 har sparat både capability och
-exakt dossier-id, så `auth` + Supabase fortsätter som `supabase-auth` i F3.
+Klicket utgår från den valda designversionen och läser vilka Byggblock som
+kräver integrationsbygge, planerades i designläget och ännu saknar filbevis.
+Designläget har sparat både capability och exakt dossier-id, så `auth` +
+Supabase fortsätter som `supabase-auth` i integrationsbygget.
 
 1. Product Postcheck och versionens filer kontrolleras.
 2. Parent-versionens redan byggda integrationer och de planerade dossier-id:na
@@ -53,33 +56,34 @@ exakt dossier-id, så `auth` + Supabase fortsätter som `supabase-auth` i F3.
    katalogens tillåtna placeholders kan bära demoläge. En build-nyckel utan
    vare sig riktigt värde eller tillåten placeholder stoppar före codegen.
 4. Finns minst ett planerat, obyggt Byggblock låses dess capability + exakta
-   dossier-id i snapshoten och en F3-LLM-runda bygger provider-koden, server-
-   routes och UI-wiring mot den oförändrade F2-basen.
+   dossier-id i snapshoten och en LLM-runda i integrationsläget bygger
+   provider-koden, server-routes och UI-wiring mot den oförändrade
+   designversionen.
 5. Den nya `integrations`-versionen måste passera ReleaseGate.
 
 Om inga planerade integrationer återstår och ingen annan integration kräver en
-LLM-runda skapas i stället en byte-för-byte F3-fork och bara ReleaseGate körs.
-Den deterministiska vägen betyder alltså "inget återstår att bygga", inte
-"nycklarna råkar vara feature-runtime".
+LLM-runda skapas i stället en byte-för-byte integrationsfork och bara
+ReleaseGate körs. Den deterministiska vägen betyder alltså "inget återstår att
+bygga", inte "nycklarna råkar vara feature-runtime".
 
-## Riktiga integrationer i F3
+## Riktiga integrationer i integrationsbygget
 
-F3 installerar integrationernas riktiga provider-/serverkod. Projektets riktiga
-env-värden används när de finns; `feature-runtime` och `warn-only` får fortfarande
-degradera ärligt till demo/self-disable tills värdet sparas i Byggblock-panelen.
-Dossiermanifestens enforcement avgör vilka saknade nycklar som blockerar build.
-ReleaseGate kör den ordnade lane som ägs av
-`config/ai_models/manifest.json#qualityGateTiers` och
+Integrationsbygget installerar integrationernas riktiga provider-/serverkod.
+Projektets riktiga env-värden används när de finns; `feature-runtime` och
+`warn-only` får fortfarande degradera ärligt till demo/self-disable tills
+värdet sparas i Byggblock-panelen. Dossiermanifestens enforcement avgör vilka
+saknade nycklar som blockerar build. ReleaseGate kör den ordnade lane som ägs
+av `config/ai_models/manifest.json#qualityGateTiers` och
 `src/lib/gen/verify/quality-gate-checks.ts`, plus relevanta
 env-/capabilitykrav.
 
-Det skapas alltid en separat `integrations`-version. F2-versionen muteras eller
-märks aldrig om till F3 i efterhand.
+Det skapas alltid en separat `integrations`-version. Designversionen muteras
+eller märks aldrig om till integrationsversion i efterhand.
 
 ## RenderGate och ReleaseGate
 
 RenderGate svarar på: kan designversionen starta och rendera ärligt? Vissa
-typecheck-fynd kan vara Advisory i F2 om de inte innebär render-risk.
+typecheck-fynd kan vara Advisory i designläget om de inte innebär render-risk.
 
 ReleaseGate svarar på: kan integrationsversionen byggas och publiceras med sina
 verkliga krav? Varje checkutfall klassas av runtime som Advisory, Blocker eller
@@ -88,6 +92,19 @@ icke-reparerbart tooling-/konfigurationsfel.
 Den här filen förklarar semantik, inte en andra checklista. Exakta checks och
 ordning ska läsas från owner-källorna ovan och den genererade policyreferensen
 när den finns på master.
+
+## Legacy-alias: F2 och F3
+
+**F2** och **F3** är utfasade användarbegrepp. De lever kvar som kodalias:
+
+| Legacy-ord | Använd i stället | Kodidentifierare som behålls |
+| ---------- | ---------------- | ---------------------------- |
+| F2 | designläge / designversion | `fidelity2`, `lifecycleStage: "design"`, `designPreview` |
+| F3 | integrationsbygge / integrationsversion | `fidelity3`, `lifecycleStage: "integrations"`, `integrationsBuild` |
+| Kräver F3 | Kräver integrationsbygge | `requiresF3`, `dossierRequiresF3()` |
+
+Filnamnet `f2-and-f3.md` behålls så att befintliga länkar fortsätter att peka
+hit. Se [glossaryn](../architecture/glossary.md) för mappningen.
 
 Fördjupning:
 

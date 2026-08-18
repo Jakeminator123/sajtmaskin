@@ -25,7 +25,7 @@ describe("F3RequirementsSurface", () => {
     },
   ];
 
-  it("renders exactly the server-provided integration names and missing keys", () => {
+  it("points at Byggblock instead of listing the missing keys again (K1)", () => {
     render(
       <F3RequirementsSurface
         projectId="project_1"
@@ -35,11 +35,30 @@ describe("F3RequirementsSurface", () => {
     );
 
     expect(screen.getByRole("region", { name: /krav för integrationsbygge/i })).toBeTruthy();
-    expect(screen.getByText("Stripe")).toBeTruthy();
-    expect(screen.getByText("Resend")).toBeTruthy();
-    expect(screen.getByText("STRIPE_SECRET_KEY")).toBeTruthy();
-    expect(screen.getByText("RESEND_API_KEY")).toBeTruthy();
-    expect(screen.queryByText("EXTRA_KEY")).toBeNull();
+    expect(
+      screen.getByText("Integrationsbygget behöver nycklar — fyll i dem under Byggblock"),
+    ).toBeTruthy();
+    expect(screen.queryByText("Stripe")).toBeNull();
+    expect(screen.queryByText("Resend")).toBeNull();
+    expect(screen.queryByText("STRIPE_SECRET_KEY")).toBeNull();
+    expect(screen.queryByText("RESEND_API_KEY")).toBeNull();
+    expect(screen.getByRole("button", { name: /öppna byggblock/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /fortsätt integrationsbygget/i })).toBeTruthy();
+  });
+
+  it("keeps the no-project notice when the chat is not linked yet", () => {
+    render(
+      <F3RequirementsSurface
+        projectId={null}
+        missingByIntegration={missingByIntegration}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("Miljövariabler kan sparas när chatten är kopplad till ett projekt."),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: /fortsätt integrationsbygget/i })).toBeTruthy();
   });
 
   it("deep-links to Byggblock instead of running a second env editor (R4)", async () => {

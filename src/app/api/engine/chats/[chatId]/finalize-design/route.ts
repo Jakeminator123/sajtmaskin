@@ -118,7 +118,7 @@ export async function POST(
           ready: false,
           reason: "already_integrations",
           message:
-            "Den här versionen är redan en F3-integrationsversion. Välj F2-designversionen att forka från.",
+            "Den här versionen är redan en integrationsversion. Välj designversionen att forka från.",
         },
         { status: 409 },
       );
@@ -152,7 +152,7 @@ export async function POST(
           reason: "version_files_unavailable",
           parentVersionId: baseVersion.id,
           message:
-            "Kunde inte läsa versionens filer — kan inte avgöra F3-readiness. Ladda om och försök igen.",
+            "Kunde inte läsa versionens filer — kan inte avgöra om integrationsbygget är redo. Ladda om och försök igen.",
         },
         { status: 409 },
       );
@@ -165,7 +165,7 @@ export async function POST(
           reason: "product_postcheck_blocked",
           parentVersionId: baseVersion.id,
           message:
-            "Integrationsbygget är spärrat av Product Postcheck. Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
+            "Integrationsbygget är spärrat av Product Postcheck. Åtgärda blockerande previewproblem i designläget innan du bygger integrationer.",
         },
         { status: 409 },
       );
@@ -178,7 +178,7 @@ export async function POST(
           reason: "version_files_unavailable",
           parentVersionId: baseVersion.id,
           message:
-            "Kunde inte läsa versionens filer — kan inte avgöra F3-readiness. Ladda om och försök igen.",
+            "Kunde inte läsa versionens filer — kan inte avgöra om integrationsbygget är redo. Ladda om och försök igen.",
         },
         { status: 409 },
       );
@@ -201,7 +201,7 @@ export async function POST(
           missingByIntegration: gate.readiness.missingByIntegration,
           requirements: gate.spec.requirements,
           message:
-            "Tunga integrationer kräver riktiga env-variabler innan F3 kan köras.",
+            "Tunga integrationer kräver riktiga env-variabler innan integrationsbygget kan köras.",
         },
         { status: 412 },
       );
@@ -212,7 +212,7 @@ export async function POST(
         {
           ready: false,
           parentVersionId: baseVersion.id,
-          message: "Kunde inte avgöra F3-readiness. Ladda om och försök igen.",
+          message: "Kunde inte avgöra om integrationsbygget är redo. Ladda om och försök igen.",
         },
         { status: 409 },
       );
@@ -281,7 +281,7 @@ export async function POST(
             reason: "version_files_unavailable",
             parentVersionId: baseVersion.id,
             message:
-              "Kunde inte läsa versionens exakta filer — kan inte skapa F3-versionen.",
+              "Kunde inte läsa versionens exakta filer — kan inte skapa integrationsversionen.",
           },
           { status: 409 },
         );
@@ -335,7 +335,7 @@ export async function POST(
             reason: "f3_fork_unavailable",
             parentVersionId: baseVersion.id,
             message:
-              "Kunde inte skapa F3-versionen just nu. Försök igen.",
+              "Kunde inte skapa integrationsversionen just nu. Försök igen.",
           },
           { status: 409 },
         );
@@ -357,8 +357,8 @@ export async function POST(
         requirements,
         message:
           alreadyPromoted
-            ? "Den exakta F3-versionen är redan godkänd av ReleaseGate."
-            : "Byggblocket behåller F2-filernas visuella fallback. ReleaseGate körs på en exakt F3-fork utan LLM-generering.",
+            ? "Den exakta integrationsversionen är redan godkänd av ReleaseGate."
+            : "Byggblocket behåller designversionens visuella fallback. ReleaseGate körs på en exakt integrationsversion utan LLM-generering.",
       });
     }
 

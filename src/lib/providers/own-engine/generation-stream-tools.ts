@@ -1,4 +1,5 @@
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
+import { collectRequestedEnvKeysFromToolArgs } from "@/lib/gen/stream/f3-continuation";
 import {
   isGenericIntegrationName,
   normalizeIntegrationProviderKey,
@@ -23,6 +24,12 @@ export type OwnEngineToolSseBridge = {
    * the stripe dossier. Optional: callers that don't persist markers omit it.
    */
   allSignaledProviders?: Set<string>;
+  /**
+   * Env keys from well-formed `suggestIntegration.envVars` / `requestEnvVar.key`
+   * — the same values the integration SSE puts on `envVars`. The F3 marker
+   * persists this set so an env-only proposal survives reload/approve.
+   */
+  requestedEnvKeys?: Set<string>;
   /** Set true when a tool implies we should not treat "no code" as hard failure */
   setBlockingToolCall: () => void;
   /**
@@ -195,6 +202,9 @@ export function emitOwnEngineToolCallSse(
     if (providerKey) {
       bridge.allSignaledProviders?.add(providerKey);
     }
+    for (const key of collectRequestedEnvKeysFromToolArgs(toolName, toolArgs)) {
+      bridge.requestedEnvKeys?.add(key);
+    }
     debugLog("engine", "Tool: suggestIntegration", { provider: providerKey ?? "custom-env" });
     return;
   }
@@ -222,6 +232,9 @@ export function emitOwnEngineToolCallSse(
     };
     safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
     bridge.toolCallNames.add(toolName);
+    for (const key of collectRequestedEnvKeysFromToolArgs(toolName, toolArgs)) {
+      bridge.requestedEnvKeys?.add(key);
+    }
     return;
   }
 

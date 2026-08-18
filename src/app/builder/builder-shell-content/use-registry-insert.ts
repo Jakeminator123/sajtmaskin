@@ -1,5 +1,8 @@
 import { getLatestPendingReply as getLatestPendingReplyFromTooling } from "@/components/builder/BuilderMessageTooling";
-import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
+import {
+  buildAddDossierMessage,
+  type DossierRequestPayload,
+} from "@/lib/builder/dossier-id-request";
 import { toAIElementsFormat } from "@/lib/builder/message-adapter";
 import {
   buildShadcnInsertMessage,
@@ -100,20 +103,24 @@ export function useShellRegistryInsert(
   );
 
   const handleRequestDossier = useCallback(
-    (payload: { id: string; label: string }) => {
+    async (payload: DossierRequestPayload): Promise<boolean> => {
       const id = payload.id.trim();
       const label = payload.label.trim();
-      if (!id || !label) return;
+      if (!id || !label) return false;
       // Sista försvarslinje utöver panelens disabled-rader: skicka aldrig om
       // buildern är upptagen (aborterar aktiv stream) — droppa hellre klicket.
-      if (isBusy) return;
-      // Utfallet läses medvetet INTE här: katalograderna har ingen egen
-      // "skickat"-status att ljuga med (till skillnad från insättningskorten),
-      // och sändvägen äger redan avslagsytan — reload-toast vid stale base,
-      // kravytan + chattmeddelande vid 412, ReleaseGate-toast vid 409. En extra
-      // toast härifrån skulle staplas på och i värsta fall säga "försök igen" om
-      // ett avslag som kräver en omladdning.
-      void sendMessage(buildAddDossierMessage({ id, label }));
+      if (isBusy) return false;
+      // Staging-vyn visar "Tillagt" bara när sändningen accepterades. Avslag
+      // (stale base, 412, 409) ägs fortfarande av sändvägen — ingen extra toast
+      // härifrån. `false` låter panelen stanna på "Valt, ej tillagt".
+      const outcome = await sendMessage(
+        buildAddDossierMessage({
+          id,
+          label,
+          stagingLines: payload.stagingLines,
+        }),
+      );
+      return outcome.status === "started" || outcome.status === "settled";
     },
     [sendMessage, isBusy],
   );

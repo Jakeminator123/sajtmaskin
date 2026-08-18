@@ -70,6 +70,7 @@ describe("GET /api/dossiers/catalog", () => {
     const stripe = commerce?.dossiers.find((d) => d.id === "stripe-checkout");
     expect(stripe?.class).toBe("hard");
     expect(stripe?.envVarCount).toBe(1);
+    expect(stripe?.envVars).toEqual([{ key: "STRIPE_SECRET_KEY", required: true }]);
     expect(stripe?.groupLabel).toBe("Betalning & handel");
 
     const searchMaps = body.groups.find((group) => group.id === "search-maps");
@@ -125,6 +126,38 @@ describe("GET /api/dossiers/catalog", () => {
     // Utelämnat manifestfält lämnas utelämnat — konsumenten tolkar det som
     // `none`, precis som runtime gör.
     expect(byId.get("vercel-analytics")?.mock).toBeUndefined();
+    expect(byId.get("clerk-auth")?.envVars).toEqual([
+      { key: "CLERK_SECRET_KEY", required: true },
+    ]);
+    expect(byId.get("resend-contact-form")?.envVars).toEqual([
+      { key: "RESEND_API_KEY", required: true },
+    ]);
+  });
+
+  it("forwards setupUrl on catalog envVars and never includes values or purpose", async () => {
+    getAllDossiers.mockReturnValue([
+      dossier({
+        envVars: [
+          {
+            key: "STRIPE_SECRET_KEY",
+            required: true,
+            purpose: "secret — must not leak",
+            setupUrl: "https://dashboard.stripe.com/apikeys",
+          },
+        ],
+      }),
+    ]);
+
+    const body = (await (await GET()).json()) as DossierCatalogResponse;
+    const stripe = body.groups.flatMap((group) => group.dossiers)[0];
+    expect(stripe?.envVars).toEqual([
+      {
+        key: "STRIPE_SECRET_KEY",
+        required: true,
+        setupUrl: "https://dashboard.stripe.com/apikeys",
+      },
+    ]);
+    expect(JSON.stringify(stripe)).not.toContain("secret — must not leak");
   });
 
   it("omits empty groups and returns an empty catalog when the registry is empty", async () => {
