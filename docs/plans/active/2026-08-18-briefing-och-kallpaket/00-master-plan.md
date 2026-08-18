@@ -143,9 +143,11 @@ Kurationsverktyget finns redan: Backoffice **Template Curator**
   `src/lib/gen/orchestrate/resolve-base.ts:225-231`. Bara `simpleWebsitePath`
   tömmer listan. Renderas som `## UI Recipes` i
   `src/lib/gen/system-prompt/sections/brief-visual-media.ts:472-481`.
-- Add-panelen (Block/Bläddra/Beskriv) är **default av**
-  (`src/lib/builder/add-panel-feature.ts`, `src/lib/shadcn/describe-feature.ts`).
-  Den betalda nyckeln arbetar alltså i det tysta även när ytan är osynlig.
+- Add-panelen (Block/Bläddra/Beskriv) har **kod-default av**
+  (`src/lib/builder/add-panel-feature.ts`, `src/lib/shadcn/describe-feature.ts`),
+  men Vercel-env sätter `1` i production, preview och development
+  (CLI-verifierat 2026-08-18, [`docs/ENV.md`](../../../ENV.md)). Den betalda
+  nyckeln arbetar alltså i det tysta oavsett om ytan är synlig.
 - **Varje misslyckande är tyst:** `.catch(() => [])` (`resolve-base.ts:231`) och
   `catch {}` (`src/lib/gen/data/shadcn-ui-recipes.ts:171, 248`). Ingen telemetri
   skiljer «Pro-källkod laddad» från «metadata-gissning».
