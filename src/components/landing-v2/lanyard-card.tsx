@@ -97,12 +97,19 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
     ]),
   ).current
 
-  // Ge meshline-geometrin giltiga punkter direkt vid montering.
+  // Ge meshline-geometrin giltiga punkter direkt vid montering, och sätt en
+  // manuell boundingSphere så att Three aldrig försöker beräkna den från
+  // position-attributet (som kan innehålla NaN under de allra första framen).
   useEffect(() => {
     const geometry = band.current?.geometry as unknown as
-      | { setPoints: (pts: THREE.Vector3[]) => void }
+      | (THREE.BufferGeometry & { setPoints: (pts: THREE.Vector3[]) => void })
       | undefined
-    geometry?.setPoints(curve.getPoints(32))
+    if (!geometry) return
+    geometry.setPoints(curve.getPoints(32))
+    geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 1, 0), 12)
+    geometry.computeBoundingSphere = () => {
+      /* Bandet rör sig inom en känd radie — behåll den manuella sfären. */
+    }
   }, [curve])
 
   const lerped = useRef({ j1: new THREE.Vector3(), j2: new THREE.Vector3() }).current
@@ -223,7 +230,11 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
             onPointerOver={() => setHovered(true)}
             onPointerOut={() => setHovered(false)}
             onPointerUp={(e) => {
-              ;(e.target as Element)?.releasePointerCapture?.(e.pointerId)
+              try {
+                ;(e.target as Element)?.releasePointerCapture?.(e.pointerId)
+              } catch {
+                /* Ogiltigt pointerId — ignorera. */
+              }
               setDragged(false)
               // Snabbt klick utan rörelse = "stöt till" kortet: det snurrar
               // runt sin egen axel och fjädrar tillbaka som en spänd snodd.
@@ -245,11 +256,17 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
               }
             }}
             onPointerDown={(e) => {
-              ;(e.target as Element)?.setPointerCapture?.(e.pointerId)
+              // Registrera trycket FÖRST — setPointerCapture kan kasta för
+              // inaktiva pekare och får inte stoppa klick-snurren.
               pressInfo.current = {
                 x: e.nativeEvent.clientX,
                 y: e.nativeEvent.clientY,
                 t: performance.now(),
+              }
+              try {
+                ;(e.target as Element)?.setPointerCapture?.(e.pointerId)
+              } catch {
+                /* Ogiltigt pointerId (t.ex. syntetiska event) — ignorera. */
               }
               const t = card.current!.translation()
               setDragged(new THREE.Vector3(e.point.x - t.x, e.point.y - t.y, e.point.z - t.z))
