@@ -15,7 +15,7 @@ Målet i Fas 1 är att bygga ett rent underlag till orkestreringen.
 - Raw prompt är användarens text.
 - Init kan få Deep Brief och variant pre-match.
 - Init kan även bära **Byggval** (init-reglagen i preview-panelens välkomstläge) som strukturerade request-meta-signaler: `scaffoldMode/scaffoldId` (sajttyp), `pageCountHint` (vinner över sidantal-regexen i route-planen), `styleKeywordsHint` (variantmatchning) och `complexityHint` (BuildSpec). Komplexitet/färgläge/ton skickar dessutom svenska direktiv via custom-instructions-kanalen — aldrig via chattens input. Byggval-reglaget cappar på 3 (tokenbudget). Ruttplanens per-runda-tak är 4 nivå-1/2-sidor; nivå 3 räknas inte. Explicit prompt-text över taket kläms till taket.
-- Follow-up får Snapshot-Brief och tidigare orchestration snapshot. Byggval-hintarna är init-only — follow-up-frysen äger scaffold/variant/routes.
+- Follow-up får Snapshot-Brief och tidigare orchestration snapshot. Undantag: `clear-redesign` kör Deep Brief som delta-brief (samma `siteBriefSchema`, redesign-prior-context). Byggval-hintarna är init-only — follow-up-frysen äger scaffold/variant/routes.
 - Build intent, generation mode, follow-up intent och requested capabilities ska bestämmas innan prompten byggs.
 - Follow-up scope-klargörande (`collectFollowUpClarificationAnswer`): exakt quick-reply **eller** en kort parafras av ett sparat alternativ återställer originalprompten. En ny beställning (specifikt sidmål, negation, «vill ha»/«behöver», restinnehåll, längre brief) körs som ny prompt — den får inte limmas ihop med den gamla.
 - Init-codegen går bara via `POST /api/engine/chats/stream` (`maxDuration = 950`). Uppföljning går bara via `POST /api/engine/chats/[chatId]/stream` (`maxDuration = 950`). `GET /api/engine/chats` listar chattar. `POST /api/engine/chats` utan `/stream` är inte en codegen-väg (`405 use_streaming_create`). `POST .../messages` är inte en codegen-väg (`405 use_streaming_send`). En bruten ström ger ett ärligt fel i buildern och startar inte om generationen.
@@ -226,7 +226,9 @@ Follow-up är en deltaoperation. Standardläget är bevarande:
 - capabilities får växa men ska inte tyst tappas (can-only-grow). Golvet körs i ALLA follow-up-rundor; i F3-bygget (`integrations`) FILTRERAR därefter ett scope-steg det restaurerade setet — se F3-capability-scope nedan.
 - high-value UI-element ska inte tappas utan tydlig anledning
 
-Undantag: clear-redesign och explicita borttagningar.
+Undantag: clear-redesign och explicita borttagningar. Briefvägen följer samma
+skillnad: vanliga uppföljningar återanvänder Snapshot-Brief; bara
+`clear-redesign` kör en ny Deep Brief, med tillåtelse att byta stil.
 
 **En generation i taget tills versionen är kontrollerad.** Follow-up-send och
 versionsbyte väntar medan stream, verify eller repair pågår (`isInteractionLocked`

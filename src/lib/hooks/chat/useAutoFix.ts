@@ -318,6 +318,9 @@ function isNoiseForAutoFix(log: PersistedVersionLog): boolean {
   // sedan 2026-08-11 så de syns i defect-aggregatet — men de får inte mata
   // repair-prompten (bugbot-fynd på samma diff).
   if (category === "product_postcheck.skipped") return true;
+  // Summary is just a count bag ("found N warnings") — the concrete codes
+  // (console_error / runtime_crash / …) are what a repair can act on.
+  if (category === "product_postcheck.summary") return true;
   if (message.includes("Preview rendered successfully")) return true;
   return false;
 }
@@ -333,7 +336,11 @@ function isBlockingAutoFixLog(log: PersistedVersionLog): boolean {
     category === "routes" ||
     category === "quality-gate" ||
     category === "preflight:issues" ||
-    category.startsWith("quality-gate:")
+    category.startsWith("quality-gate:") ||
+    category === "preview:client-error" ||
+    category === "product_postcheck.console_error" ||
+    category === "product_postcheck.runtime_crash" ||
+    category === "product_postcheck.hydration_mismatch"
   );
 }
 

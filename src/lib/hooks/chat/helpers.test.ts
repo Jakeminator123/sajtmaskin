@@ -148,6 +148,63 @@ describe("buildAutoFixPrompt", () => {
     expect(prompt).toContain("## build output (exit 1, 1800ms)");
   });
 
+  it("puts script-in-React postcheck lines in the Issues detected headline", () => {
+    const prompt = buildAutoFixPrompt({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      reasons: ["openclaw_requested_repair"],
+      repair: {
+        currentVersionErrors: [
+          "[product_postcheck.console_error] Encountered a script tag while rendering React component.",
+          "[product_postcheck.runtime_crash] Next.js-felöverlägg visas — previewen kraschade vid körning.",
+          "[preview:client-error] Hydration failed because the server rendered HTML didn't match the client.",
+        ],
+      },
+    });
+
+    expect(prompt).toMatch(
+      /Issues detected:.*Encountered a script tag while rendering React component/,
+    );
+    expect(prompt).toMatch(/Issues detected:.*Next\.js-felöverlägg/);
+    expect(prompt).toMatch(/Issues detected:.*Hydration failed/);
+  });
+
+  it("puts all preview:* compile lines in the Issues detected headline", () => {
+    const prompt = buildAutoFixPrompt({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      reasons: ["preview failed"],
+      repair: {
+        currentVersionErrors: [
+          "[preview] preview compilation failed",
+          "[preview:preview_compile_error] Previewn kunde inte kompilera genererad kod.",
+          "[preview:stage] preview-script",
+        ],
+      },
+    });
+
+    expect(prompt).toMatch(/Issues detected:.*preview compilation failed/);
+    expect(prompt).toMatch(/Issues detected:.*Previewn kunde inte kompilera/);
+    expect(prompt).toMatch(/Issues detected:.*preview-script/);
+  });
+
+  it("does not put preview-vm infra lines in the Issues detected headline", () => {
+    const prompt = buildAutoFixPrompt({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      reasons: ["preview failed"],
+      repair: {
+        currentVersionErrors: [
+          "[preview-vm:boot] Fly machine failed to start.",
+          "[preview] preview compilation failed",
+        ],
+      },
+    });
+
+    expect(prompt).toMatch(/Issues detected:.*preview compilation failed/);
+    expect(prompt).not.toMatch(/Issues detected:.*Fly machine failed/);
+  });
+
   it("requires full-file repair output instead of snippets", () => {
     const prompt = buildAutoFixPrompt({
       chatId: "chat_1",

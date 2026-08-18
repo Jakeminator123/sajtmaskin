@@ -20,10 +20,11 @@ Verifierat:
 - Renderingen i `src/lib/gen/system-prompt/sections/brief-visual-media.ts:472-481`
   skickar max tre recept och skiljer inte på «recept med verklig Pro-källkod» och
   «recept med bara metadata».
-- Add-panelen (Block/Bläddra/Beskriv) är default av
-  (`src/lib/builder/add-panel-feature.ts`, `src/lib/shadcn/describe-feature.ts`).
-  Nyckeln arbetar alltså osynligt: den syns inte i UI:t, och den syns inte i
-  loggarna heller.
+- Add-panelen (Block/Bläddra/Beskriv) har **kod-default av**
+  (`src/lib/builder/add-panel-feature.ts`, `src/lib/shadcn/describe-feature.ts`),
+  men Vercel-env sätter `1` i production, preview och development
+  (CLI-verifierat 2026-08-18, se [`docs/ENV.md`](../../../../ENV.md)). Nyckeln
+  arbetar alltså oavsett om ytan är synlig — och den syns inte i loggarna.
 
 Nettoeffekten är att ingen vet hur mycket den betalda tjänsten bidrar. Det är inte
 ett buggat flöde — det är ett omätbart flöde.
@@ -42,10 +43,11 @@ Krav:
 - Visa aggregatet i den befintliga Backoffice-sidan
   `backoffice/pages/llm_flode_telemetry.py` (samma mönster som övriga
   `st.subheader`-sektioner). Ingen ny sida.
-- Verifiera flaggläget i Vercel-miljöerna och skriv ner svaret i
-  `docs/ENV.md`-raden: är `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL` på i production eller
-  inte? Dokumentationen säger i dag bara att nyckeln är satt, inte att ytan är
-  synlig.
+- Kontrollera att flaggläget i [`docs/ENV.md`](../../../../ENV.md) fortfarande
+  stämmer när mätningen görs — både `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL` och
+  `SHADCNBLOCKS_API_KEY` står där som CLI-verifierade satta i alla
+  Vercel-miljöer (2026-08-18). Har det driftat: uppdatera raden. Någon ny
+  beskrivning av flaggan behövs inte.
 - Kör ett riktigt smoketest mot ett känt block (t.ex. `hero1`) och kryssa av de två
   öppna live-testerna som `docs/plans/active/2026-08-14-block-browse-shadcnblocks.md`
   lämnade ogjorda. Är de gjorda kan planfilen vävas in i `avklarat/README.md`.
