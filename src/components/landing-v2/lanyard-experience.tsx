@@ -16,7 +16,7 @@
  * direkt på plats (med en mjuk gungning till liv).
  */
 
-import { useCallback, useEffect, useState } from "react"
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Cookie } from "lucide-react"
 import { LanyardCard } from "@/components/landing-v2/lanyard-card"
 
@@ -48,6 +48,48 @@ function useExperienceMode() {
 }
 
 type Phase = "checking" | "intro" | "reveal"
+
+/**
+ * Fångar init-/renderfel från 3D-kortet (pr-ai-review F-713ac602fd01 på
+ * #1026): samtyckeskortet är ren DOM och får aldrig dö för att WebGL är
+ * avstängt eller Canvas/Rapier inte kan starta. Fallback = det statiska
+ * varumärkeskortet, så hjälteytan aldrig blir tom.
+ */
+class LanyardErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    if (this.state.failed) return <StaticLanyardFallback />
+    return this.props.children
+  }
+}
+
+/** Statiskt hängande kort — ersätter 3D-kortet när WebGL inte finns. */
+function StaticLanyardFallback() {
+  return (
+    <div aria-hidden="true" className="flex h-full w-full flex-col items-center justify-start pt-[6vh]">
+      <span
+        className="block w-[6px] rounded-full"
+        style={{
+          height: "clamp(70px, 12vh, 130px)",
+          background:
+            "linear-gradient(180deg, rgba(45,212,191,0) 0%, rgba(45,212,191,0.55) 22%, rgba(45,212,191,0.95) 100%)",
+          boxShadow: "0 0 14px rgba(45,212,191,0.45)",
+        }}
+      />
+      <div className="relative mt-1 aspect-[3/4] w-[min(60vw,260px)] overflow-hidden rounded-[26px] shadow-2xl ring-1 ring-primary/30">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={CARD_IMAGE}
+          alt=""
+          className="absolute left-[55%] top-1/2 w-[135%] max-w-none -translate-x-1/2 -translate-y-1/2"
+        />
+      </div>
+    </div>
+  )
+}
 
 export function LanyardExperience({ className = "" }: { className?: string }) {
   const [phase, setPhase] = useState<Phase>("checking")
@@ -82,7 +124,9 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
             phase === "reveal" ? "opacity-100" : "pointer-events-none opacity-0"
           }`}
         >
-          <LanyardCard className="h-full" autoSwing={autoSwing} />
+          <LanyardErrorBoundary>
+            <LanyardCard className="h-full" autoSwing={autoSwing} />
+          </LanyardErrorBoundary>
         </div>
       )}
       {phase === "intro" && <CookieFlipCard onDone={handleDone} />}
@@ -93,6 +137,50 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
 function CookieFlipCard({ onDone }: { onDone: () => void }) {
   const [leaving, setLeaving] = useState(false)
   const { mobile, reducedMotion } = useExperienceMode()
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  // Modal-hygien (Bugbot medium + pr-ai-review F-93ef8ad7636f på #1026):
+  // dialogen deklarerar aria-modal och blockerar pekaren, så den måste också
+  // låsa bakgrundsscrollen, flytta in tangentbordsfokus vid mount, hålla
+  // Tab-cykeln inne i dialogen och lämna tillbaka fokus när den stängs.
+  useEffect(() => {
+    const dialog = dialogRef.current
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    const focusables = () =>
+      Array.from(dialog?.querySelectorAll<HTMLElement>("button, a[href]") ?? []).filter(
+        (el) => !el.hasAttribute("disabled"),
+      )
+    focusables()[0]?.focus()
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return
+      const els = focusables()
+      if (els.length === 0) return
+      const first = els[0]
+      const last = els[els.length - 1]
+      const active = document.activeElement
+      const inside = dialog?.contains(active) ?? false
+      if (event.shiftKey) {
+        if (!inside || active === first) {
+          event.preventDefault()
+          last.focus()
+        }
+      } else if (!inside || active === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener("keydown", onKeyDown, true)
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, true)
+      document.body.style.overflow = prevOverflow
+      previouslyFocused?.focus()
+    }
+  }, [])
 
   // Mobil: kortare, snabbare flygbana. Reduced motion: bara en mjuk uttoning.
   const flipMs = reducedMotion ? 350 : mobile ? FLIP_MS_MOBILE : FLIP_MS_DESKTOP
@@ -116,6 +204,7 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="Cookie-inställningar"

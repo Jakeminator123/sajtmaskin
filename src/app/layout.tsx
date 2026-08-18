@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "@/styles/landing-v2.css";
 import { AnalyticsTracker } from "@/components/layout/analytics-tracker";
+import { CookieBanner } from "@/components/layout/cookie-banner";
 import { OrganizationJsonLd, SoftwareApplicationJsonLd } from "@/components/layout/json-ld";
 import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/next";
@@ -93,6 +94,7 @@ export default async function RootLayout({
           {children}
           <Toaster position="top-right" />
           {openclawSurfaceEnabled && <OpenClawChatLazy />}
+          <CookieBanner />
         </ThemeProvider>
       </body>
     </html>
