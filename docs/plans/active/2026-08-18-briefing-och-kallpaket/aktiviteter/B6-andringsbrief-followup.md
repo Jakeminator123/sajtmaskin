@@ -2,10 +2,10 @@
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
 
-Kräver ägarbeslut **N4**. N4 är inte «får vi bredda Ändringsbriefen till alla
-redigerande uppföljningar?». Frågan är:
+Steg 2 kräver ägarbeslut **N4**; mätningen i steg 1 gör det inte. N4 är inte
+«får vi bredda Ändringsbriefen till alla redigerande uppföljningar?». Frågan är:
 
-> Får vi mäta problemet och därefter prova en **bevarande** Ändringsbrief för
+> Får vi — efter mätningen i steg 1 — prova en **bevarande** Ändringsbrief för
 > `clear-refine` bakom feature flag?
 
 Gällande beslut 2026-08-14 står kvar: **ingen delta-brief på varje follow-up**
