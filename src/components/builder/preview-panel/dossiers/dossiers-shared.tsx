@@ -24,7 +24,9 @@ export interface PreviewPanelDossiersProps {
    * `buildAddDossierMessage`. When absent, catalog rows are shown but
    * not selectable.
    */
-  onRequestDossier?: (payload: DossierRequestPayload) => void;
+  onRequestDossier?: (
+    payload: DossierRequestPayload,
+  ) => void | boolean | Promise<boolean | void>;
   /**
    * True while a catalog pick must wait: a generation is streaming (sending
    * would abort it) or an unanswered pending question exists. Rows are

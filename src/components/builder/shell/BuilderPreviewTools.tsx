@@ -10,10 +10,7 @@ import {
 } from "@/lib/builder/icon-language";
 import { PreviewCodeViewMenu } from "@/components/builder/preview-panel/code/PreviewCodeViewMenu";
 import { PreviewPanelDossiers } from "@/components/builder/preview-panel/PreviewPanelDossiers";
-import type {
-  DossierRequestPayload,
-  PreviewPanelDossiersProps,
-} from "@/components/builder/preview-panel/dossiers/dossiers-shared";
+import type { PreviewPanelDossiersProps } from "@/components/builder/preview-panel/dossiers/dossiers-shared";
 import {
   PreviewPanelF3Trigger,
   type PreviewPanelF3TriggerProps,
@@ -31,7 +28,7 @@ interface BuilderPreviewToolsProps {
   onClear?: (() => void) | null;
   /** Rensa är blockerad medan previewn laddar om. */
   clearDisabled?: boolean;
-  onRequestDossier?: (payload: DossierRequestPayload) => void;
+  onRequestDossier?: PreviewPanelDossiersProps["onRequestDossier"];
   catalogPickDisabled?: boolean;
   onF3Ready?: PreviewPanelF3TriggerProps["onReady"];
   onF3MissingEnv?: PreviewPanelF3TriggerProps["onMissingEnv"];

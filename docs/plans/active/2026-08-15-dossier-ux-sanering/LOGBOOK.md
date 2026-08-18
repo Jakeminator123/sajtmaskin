@@ -64,7 +64,10 @@ Mergeberedskap: **väntar på push av master-synk + reviewer-fixar + ny CI**.
 - 2026-08-18: master inmergerad (`747be3c9c`, 0 bakom / 19 före). Reviewer-
   småfixar: «Lägg till» disabled under `saving`; «rekommenderad» → «krävs
   för live»; Avbryt-copy förklarar att sparade nycklar ligger kvar.
-  `STAGING_BY_ID` har completeness-test mot runtime-registret.
+  `STAGING_BY_ID` har completeness-test mot runtime-registret. Bugbot på
+  branch-diff: «Tillagt via chatten» kunde visas när `sendMessage` avvisades
+  — `onRequestDossier` returnerar nu acceptans och stagingConfirmed sätts
+  bara vid `started`/`settled`.
 - Backoffice (Streamlit) hanterades i F1: kolumnen «Kräver F3» → «Kräver
   integrationsbygge» i `ui_overview.py` / `ui_system_map.py`. Ingen ny
   Streamlit-yta — bara copy-synk mot runtime.

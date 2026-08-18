@@ -825,16 +825,28 @@ export function usePreviewPanelDossiersController({
   }, [pickedEntry, resetCatalogStaging, stagingConfirmed]);
 
   const handleConfirmStagedDossier = useCallback(
-    (stagingLines?: string[]) => {
+    async (stagingLines?: string[]) => {
       if (!pickedEntry || !onRequestDossier || catalogPickDisabled) return;
       if (confirmInFlightRef.current || stagingConfirmed) return;
       confirmInFlightRef.current = true;
       const lines = (stagingLines ?? []).map((line) => line.trim()).filter(Boolean);
-      onRequestDossier({
-        id: pickedEntry.id,
-        label: pickedEntry.label,
-        ...(lines.length > 0 ? { stagingLines: lines } : {}),
-      });
+      try {
+        const accepted = await onRequestDossier({
+          id: pickedEntry.id,
+          label: pickedEntry.label,
+          ...(lines.length > 0 ? { stagingLines: lines } : {}),
+        });
+        // `void` (tester / äldre anrop) räknas som accepterat. Bara explicit
+        // `false` betyder att sändningen avvisades — då stannar vi på
+        // «Valt, ej tillagt» så Avbryt/bekräfta går att göra om.
+        if (accepted === false) {
+          confirmInFlightRef.current = false;
+          return;
+        }
+      } catch {
+        confirmInFlightRef.current = false;
+        return;
+      }
       // F2 + hårt byggblock: håll popovern öppen med yta-notisen (nu i
       // staging-vyn). Övriga val stänger — meddelandet syns i chatten.
       if (!(stage !== "integrations" && pickedEntry.class === "hard")) {

@@ -283,6 +283,36 @@ describe("PreviewPanelDossiers catalog", () => {
     });
   });
 
+  it("does not mark a hard block as added when the catalog request is rejected", async () => {
+    stubFetch({ wired: wiredResponse({ lifecycleStage: "design" }) });
+    const onRequestDossier = vi.fn().mockResolvedValue(false);
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        lifecycleStage="design"
+        onRequestDossier={onRequestDossier}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    fireEvent.click(await screen.findByTitle("Välj byggblocket Stripe Checkout"));
+    fireEvent.click(screen.getByRole("button", { name: "Lägg till i sajten" }));
+
+    await waitFor(() => {
+      expect(onRequestDossier).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByText("Valt, ej tillagt")).toBeTruthy();
+    expect(screen.queryByText("Tillagt via chatten")).toBeNull();
+    expect(screen.getByRole("button", { name: "Avbryt" }).hasAttribute("disabled")).toBe(
+      false,
+    );
+  });
+
   it("blocks catalog picks while a generation streams or a question is pending (catalogPickDisabled)", async () => {
     stubFetch({ wired: wiredResponse() });
     const onRequestDossier = vi.fn();
