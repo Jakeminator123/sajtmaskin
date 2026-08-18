@@ -445,6 +445,88 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     expect(result.fixes).toHaveLength(0);
     expect(layoutOf(result.files)).toBe(commented.content);
   });
+
+  it("skips conditional JSX expressions instead of leaving broken braces (F-8c754d26e650)", () => {
+    const conditional: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics } from "@vercel/analytics/next";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const enabled = true;
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          {enabled && <Analytics />}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([conditional, PKG_WITH_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).toBe(conditional.content);
+  });
+
+  it("ignores ThemeProvider mentioned only in a line comment (F-fbd7fe21edb5)", () => {
+    const commentedProvider: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics } from "@vercel/analytics/next";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        {/* was: <ThemeProvider><Analytics /></ThemeProvider> */}
+        // <ThemeProvider><Analytics /></ThemeProvider>
+        <main>{children}</main>
+        <Analytics />
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([commentedProvider, PKG_WITH_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).toBe(commentedProvider.content);
+  });
+
+  it("does not truncate the provider region on a commented close tag (Bugbot high #1031)", () => {
+    const trickyClose: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics } from "@vercel/analytics/next";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          {/* do not match </ThemeProvider> here */}
+          <main>{children}</main>
+          <Analytics />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([trickyClose, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+    expect(result.fixes).toHaveLength(1);
+    const providerClose = layout.indexOf("</ThemeProvider>");
+    expect(layout.indexOf("<Analytics")).toBeGreaterThan(providerClose);
+    expect(layout).toContain("{/* do not match </ThemeProvider> here */}");
+  });
 });
 
 describe("layout-provider-fixer — Toaster injection (unchanged behavior)", () => {
