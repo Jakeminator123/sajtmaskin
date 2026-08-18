@@ -17,8 +17,14 @@
  */
 
 import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import dynamic from "next/dynamic"
 import { Cookie } from "lucide-react"
-import { LanyardCard } from "@/components/landing-v2/lanyard-card"
+import { usePrefersReducedMotion, useSaveData } from "@/components/landing-v2/landing-hooks"
+
+const LanyardCard = dynamic(
+  () => import("@/components/landing-v2/lanyard-card").then((m) => m.LanyardCard),
+  { ssr: false },
+)
 
 const CONSENT_KEY = "cookie-consent"
 const CONSENT_DATE_KEY = "cookie-consent-date"
@@ -69,7 +75,11 @@ class LanyardErrorBoundary extends Component<{ children: ReactNode }, { failed: 
 /** Statiskt hängande kort — ersätter 3D-kortet när WebGL inte finns. */
 function StaticLanyardFallback() {
   return (
-    <div aria-hidden="true" className="flex h-full w-full flex-col items-center justify-start pt-[6vh]">
+    <div
+      data-testid="lanyard-static"
+      aria-hidden="true"
+      className="flex h-full w-full flex-col items-center justify-start pt-[6vh]"
+    >
       <span
         className="block w-[6px] rounded-full"
         style={{
@@ -92,6 +102,9 @@ function StaticLanyardFallback() {
 }
 
 export function LanyardExperience({ className = "" }: { className?: string }) {
+  const reducedMotion = usePrefersReducedMotion()
+  const saveData = useSaveData()
+  const staticOnly = reducedMotion || saveData
   const [phase, setPhase] = useState<Phase>("checking")
   // Sattes samtycke redan innan sidan laddades? Då får kortet gunga till liv.
   // Kommer vi via cookie-flippen ska det i stället ligga helt stilla.
@@ -117,8 +130,10 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
     <div className={`relative h-full w-full ${className}`}>
       {/* 3D-kortet monteras redan under cookie-steget (osynligt) så att
           fysiken och texturen hunnit ladda — överlämningen blir sömlös
-          utan en tom lucka där inget kort syns. */}
-      {phase !== "checking" && (
+          utan en tom lucka där inget kort syns. Reduced-motion / save-data
+          hoppar över 3D-chunken helt och visar den statiska fallbacken. */}
+      {phase === "reveal" && staticOnly && <StaticLanyardFallback />}
+      {phase !== "checking" && !staticOnly && (
         <div
           className={`h-full w-full transition-opacity duration-300 ${
             phase === "reveal" ? "opacity-100" : "pointer-events-none opacity-0"

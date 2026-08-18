@@ -121,6 +121,10 @@ function looksLikeScoreDisplayEdit(message: string): boolean {
       prefix.lastIndexOf("?"),
       prefix.lastIndexOf(";"),
       prefix.lastIndexOf(":"),
+      // Temporal Swedish fronting bisatsgräns: "När …, visa poängen i headern"
+      // is an edit, not a score question. Comma is the clause cut; do not add
+      // `visa` as a general CHANGE_VERB ("Visa mig sajtens poäng" is QA).
+      prefix.lastIndexOf(","),
       prefix.lastIndexOf("\n"),
       prefix.lastIndexOf("\r"),
       prefix.lastIndexOf("…"),

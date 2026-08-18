@@ -1,9 +1,10 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   RESUME_VERIFY_IMPORT_MIN_AGE_MS,
   RESUME_VERIFY_MAX_AGE_MS,
   RESUME_VERIFY_MIN_AGE_MS,
+  RESUME_VERIFY_RUNTIME_RETRY_MS,
   findResumablePendingVersion,
   findResumeEligibleAtMs,
   useResumePendingVerification,
@@ -262,6 +263,8 @@ describe("useResumePendingVerification", () => {
   });
 
   afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
@@ -571,7 +574,7 @@ describe("useResumePendingVerification", () => {
 
   it("import lane holds on a still-booting runtime (no postcheck against a boot page)", async () => {
     mockRoutes({ previewStatus: { body: { ok: true, status: "starting" } } });
-    renderHook(() =>
+    const { unmount } = renderHook(() =>
       useResumePendingVerification({
         chatId: "chat_1",
         versions: [pendingRow({ editKind: "imported_repo" })],
@@ -583,11 +586,12 @@ describe("useResumePendingVerification", () => {
     // Cold boot must never be DOM-postchecked or gated (Bugbot medium #1027).
     expect(callsTo("/product-postcheck")).toHaveLength(0);
     expect(callsTo("/quality-gate")).toHaveLength(0);
+    unmount();
   });
 
   it("import lane boots a stopped runtime via /preview-session, then holds", async () => {
     mockRoutes({ previewStatus: { body: { ok: true, status: "stopped" } } });
-    renderHook(() =>
+    const { unmount } = renderHook(() =>
       useResumePendingVerification({
         chatId: "chat_1",
         versions: [pendingRow({ editKind: "imported_repo" })],
@@ -598,6 +602,95 @@ describe("useResumePendingVerification", () => {
     await Promise.resolve();
     expect(callsTo("/product-postcheck")).toHaveLength(0);
     expect(callsTo("/quality-gate")).toHaveLength(0);
+    unmount();
+  });
+
+  it("retries import-lane starting holds without burning the attempt budget", async () => {
+    // Same versions array identity: a quiet chat's SWR payload stays
+    // deep-equal, so a missing self-schedule would hide behind a rerender.
+    vi.useFakeTimers();
+    const versions = [pendingRow({ editKind: "imported_repo" })];
+    let previewStatusCalls = 0;
+    fetchMock.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/preview-status")) {
+        previewStatusCalls += 1;
+        const status = previewStatusCalls <= 2 ? "starting" : "running";
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ok: true, status }),
+        };
+      }
+      if (u.includes("/product-postcheck")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ skipped: false, productBlocked: false }),
+        };
+      }
+      if (u.includes("/preview-session")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            previewUrl: "https://preview.example/chat_1",
+          }),
+        };
+      }
+      if (u.includes("/error-log") || u.includes("/validate-images")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ passed: true }) };
+    });
+
+    const { unmount } = renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions,
+        isStreaming: false,
+      }),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(callsTo("/preview-status")).toHaveLength(1);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RESUME_VERIFY_RUNTIME_RETRY_MS);
+    });
+    expect(callsTo("/preview-status")).toHaveLength(2);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RESUME_VERIFY_RUNTIME_RETRY_MS);
+    });
+    expect(callsTo("/preview-status")).toHaveLength(3);
+    expect(callsTo("/quality-gate")).toHaveLength(1);
+    expect(callsTo("/product-postcheck")).toHaveLength(1);
+
+    unmount();
+    vi.useRealTimers();
+  });
+
+  it("import lane rebinds on version_mismatch and does not gate that tick", async () => {
+    mockRoutes({ previewStatus: { body: { ok: true, status: "version_mismatch" } } });
+    const { unmount } = renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo" })],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/preview-session")).toHaveLength(1));
+    await Promise.resolve();
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+    expect(callsTo("/product-postcheck")).toHaveLength(0);
+    unmount();
   });
 
   it("import lane proceeds on a settled build_error verdict (honest red, not a race)", async () => {

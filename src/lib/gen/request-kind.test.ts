@@ -84,6 +84,12 @@ describe("classifyRequestKind", () => {
         "Hur kan jag visa poäng i headern? Visa poäng i footern.",
       ).kind,
     ).not.toBe("qa-or-score");
+    expect(
+      classifyRequestKind("När användaren är inloggad, visa poängen i headern.").kind,
+    ).not.toBe("qa-or-score");
+    expect(
+      classifyRequestKind("När användaren är inloggad, visa poängen i headern").kind,
+    ).not.toBe("qa-or-score");
   });
 
   it("keeps genuine score questions in the qa path", () => {
