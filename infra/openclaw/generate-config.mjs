@@ -127,20 +127,6 @@ function agent({ id, name, model, thinkingDefault, isDefault = false }) {
 }
 
 const config = {
-  ...(env("JUICEFACTORY_API_KEY")
-    ? {
-        models: {
-          providers: {
-            juicefactory: {
-              baseUrl: "https://api.juicefactory.ai/v1",
-              apiKey: env("JUICEFACTORY_API_KEY"),
-              api: "openai-completions",
-              models: [{ id: "qwen3-vl", name: "Qwen 3 VL (JuiceFactory EU)" }],
-            },
-          },
-        },
-      }
-    : {}),
   gateway: {
     mode: "local",
     bind: env("OPENCLAW_GATEWAY_BIND", "lan"),

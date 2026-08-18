@@ -22,14 +22,21 @@ services:
     rootDir: infra/openclaw
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
+    # Keep the gateway on master, but rebuild it only when its own deploy
+    # surface changes. Ordinary app/docs merges must not restart OpenClaw.
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - infra/openclaw/**
+      ignoredPaths:
+        - infra/openclaw/.gitignore
+        - infra/openclaw/DEPLOY_INFO.txt
+        - infra/openclaw/railway.toml
     envVars:
       # --- Secrets: set per instance, never commit values ---
       - key: OPENCLAW_GATEWAY_TOKEN
         sync: false
       - key: OPENAI_API_KEY
-        sync: false
-      # Optional — only needed for the JuiceFactory (Qwen) provider.
-      - key: JUICEFACTORY_API_KEY
         sync: false
       # --- Instance-specific config: set per instance ---
       # Site the agent gets broad read access to.
