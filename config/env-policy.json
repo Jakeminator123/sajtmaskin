@@ -168,7 +168,7 @@
     "OPENAI_WEBHOOK",
     "OPENCLAW_GATEWAY_TOKEN",
     "OPENCLAW_GATEWAY_URL",
-    "OPENCLAW_REVIEW_REASONING_EFFORT",
+    "OPENCLAW_MODEL_ROUTING_ENABLED",
     "PEXELS_API_KEY",
     "POSTGRES_CONNECT_TIMEOUT_MS",
     "POSTGRES_POOL_IDLE_TIMEOUT_MS",
@@ -713,6 +713,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required where OpenClaw-backed flows should work."
+    },
+    {
+      "key": "OPENCLAW_MODEL_ROUTING_ENABLED",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Server-owned OpenClaw routing across fast, balanced, and strong agent targets. Keep false/unset until the Render gateway health endpoint confirms all three agents, then enable on the Vercel targets that use OpenClaw."
     },
     {
       "key": "IMPLEMENT_UNDERSCORE_CLAW",

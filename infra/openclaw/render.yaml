@@ -45,6 +45,20 @@ services:
         value: "10000"
       - key: OPENCLAW_GATEWAY_BIND
         value: lan
+      # Server-owned model lanes. The app selects only an OpenClaw agent id;
+      # provider model refs and fallback chains stay on this Render service.
+      - key: OPENCLAW_MODEL_PRIMARY
+        value: openai/gpt-5.6-sol
+      - key: OPENCLAW_MODEL_FALLBACK
+        value: "openai/gpt-5.6-terra,openai/gpt-5.5"
+      - key: OPENCLAW_MODEL_BALANCED
+        value: openai/gpt-5.6-terra
+      - key: OPENCLAW_MODEL_BALANCED_FALLBACK
+        value: "openai/gpt-5.6-sol,openai/gpt-5.5"
+      - key: OPENCLAW_MODEL_FAST
+        value: openai/gpt-5.6-luna
+      - key: OPENCLAW_MODEL_FAST_FALLBACK
+        value: "openai/gpt-5.6-terra,openai/gpt-5.5"
       # Heartbeat cadence for the agent. "0m" (the entrypoint default) keeps it
       # OFF: with no chat channel configured a heartbeat only burns OpenAI
       # credits every 30 minutes. Set e.g. "30m" only after wiring a delivery

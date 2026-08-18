@@ -27,6 +27,7 @@ COPY config/workspace/ /app/seed/workspace/
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY docker-healthcheck.sh /usr/local/bin/docker-healthcheck.sh
+COPY generate-config.mjs /usr/local/lib/openclaw/generate-config.mjs
 
 RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-healthcheck.sh \
  && chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-healthcheck.sh

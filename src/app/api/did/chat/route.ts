@@ -4,6 +4,7 @@ import { withRateLimit } from "@/lib/rate-limit";
 import {
   decideOpenClawRoutingIntent,
   OPENCLAW_ROUTING_STRATEGY,
+  type OpenClawCodeContextMode,
   type OpenClawChatMessageLike,
 } from "@/lib/openclaw/chat-context-policy";
 import {
@@ -11,6 +12,8 @@ import {
   type OpenClawOwnershipVerifier,
 } from "@/lib/openclaw/server-context";
 import { describeGatewayError } from "@/lib/openclaw/gateway-response";
+import { postOpenClawChatCompletion } from "@/lib/openclaw/gateway-client";
+import { resolveOpenClawModelRoute } from "@/lib/openclaw/model-routing";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import {
   getEngineChatByIdForRequest,
@@ -143,6 +146,7 @@ async function buildMessages(params: {
     { role: "system", content: DID_BRIDGE_SYSTEM_PROMPT },
     { role: "system", content: buildRoutingSystemPrompt(routingIntent) },
   ];
+  let codeContextMode: OpenClawCodeContextMode = "none";
 
   if (params.context && typeof params.context === "object") {
     const contextMessage = await buildOpenClawContextSystemMessage({
@@ -158,10 +162,11 @@ async function buildMessages(params: {
       role: "system",
       content: contextMessage.content,
     });
+    codeContextMode = contextMessage.codeContextMode;
   }
 
   messages.push(...params.history, { role: "user", content: params.userMessage });
-  return messages;
+  return { messages, routingIntent, codeContextMode };
 }
 
 export async function POST(req: NextRequest) {
@@ -217,35 +222,38 @@ export async function POST(req: NextRequest) {
     };
 
     try {
-      const messages = await buildMessages({
+      const { messages, routingIntent, codeContextMode } = await buildMessages({
         userMessage,
         history,
         context: body.context,
         verifyOwnership,
       });
-      const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(gatewayToken ? { Authorization: `Bearer ${gatewayToken}` } : {}),
-        },
-        body: JSON.stringify({
-          model: "openclaw:sajtagenten",
+      const modelRoute = resolveOpenClawModelRoute({
+        enabled: OPENCLAW.modelRoutingEnabled,
+        surface: "did",
+        routingIntent,
+        codeContextMode,
+      });
+      const { response: upstream, route: effectiveRoute } = await postOpenClawChatCompletion({
+        gatewayUrl,
+        gatewayToken,
+        route: modelRoute,
+        body: {
           stream: false,
-          user: sessionId,
           messages,
-        }),
-        signal: AbortSignal.timeout(45_000),
+        },
+        timeoutMs: 45_000,
       });
 
       if (!upstream.ok) {
-        const detail = await upstream.text().catch(() => "");
+        console.warn(
+          `[did/chat] gateway status=${upstream.status} lane=${effectiveRoute.lane}`,
+        );
         return NextResponse.json(
           {
             success: false,
             error: "Gateway error",
             status: upstream.status,
-            detail,
           },
           { status: upstream.status >= 500 ? 502 : upstream.status },
         );

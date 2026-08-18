@@ -109,6 +109,9 @@ export const serverSchema = z.object({
   // OpenClaw (Sajtagenten)
   OPENCLAW_GATEWAY_URL: z.string().optional(),
   OPENCLAW_GATEWAY_TOKEN: z.string().optional(),
+  /** Server-owned fast/balanced/strong agent routing. Defaults off so Vercel
+   * can be deployed before the Render gateway exposes all three agent ids. */
+  OPENCLAW_MODEL_ROUTING_ENABLED: z.string().optional(),
   /** OpenClaw debug-mode gate — the SINGLE flag for the read/diagnostics side
    * (full generated code, persisted findings, read-only Sajtmaskin repo-context).
    * Affirmative (1/true/yes/y/on) enables it in every environment, production

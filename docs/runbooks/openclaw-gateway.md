@@ -11,9 +11,43 @@ Detaljerad konfiguration och felkatalog finns i
    rätt `controlUi.allowedOrigins`.
 3. Vercel ska ha `OPENCLAW_GATEWAY_URL=https://<gateway>.onrender.com`, samma
    `OPENCLAW_GATEWAY_TOKEN` som Render och `IMPLEMENT_UNDERSCORE_CLAW=true`.
+4. `GET https://<appen>/api/openclaw/health` ska visa `readiness: "ready"`.
+   Den kontrollen anropar autentiserat `/v1/models` och fångar både fel token
+   och saknade agentmål; Renders `/health` är bara process-liveness.
 
 `OPENCLAW_GATEWAY_URL` använder `https://` i Vercel. Dashboardens WebSocket-fält
 använder `wss://`.
+
+## Modellrouting och säker utrullning
+
+Sajtagenten är en publik yta men gatewayn har tre interna agentmål:
+
+| Spår | Agent-id | Render-modell | Thinking | Användning |
+| --- | --- | --- | --- | --- |
+| Snabb | `sajtagenten-fast` | `openai/gpt-5.6-luna` | `low` | Tips och enkla frågor |
+| Normal | `sajtagenten-balanced` | `openai/gpt-5.6-terra` | `medium` | Begränsad kod-/filkontext |
+| Stark | `sajtagenten` | `openai/gpt-5.6-sol` | `high` | Review, debug, full kontext och aktiva befogenheter |
+
+Appen väljer bara agent-id. Provider/modell, fallbackkedjor och thinking ägs av
+Render-konfigurationen. Om ett gammalt gatewaybygge saknar snabb-/normalagenten
+gör appen en enda kompatibilitetsretry mot `sajtagenten`; 401, 429 och generella
+fel retryas inte.
+
+Utrullningsordning:
+
+1. Deploya Render med de sex `OPENCLAW_MODEL_*`-värdena från `render.yaml`.
+2. Kontrollera bootlogg och autentiserat `GET /v1/models`; där ska
+   `openclaw/sajtagenten`, `openclaw/sajtagenten-balanced` och
+   `openclaw/sajtagenten-fast` finnas.
+3. Deploya appen med `OPENCLAW_MODEL_ROUTING_ENABLED` osatt/`false`. Health ska
+   fortfarande vara `ready` på det bakåtkompatibla starka agentmålet.
+4. Sätt `OPENCLAW_MODEL_ROUTING_ENABLED=true` på Vercel för development,
+   preview och production och redeploya. Health ska åter vara `ready`, nu med
+   alla tre agent-id:n i `requiredAgentIds`.
+
+`OPENCLAW_REVIEW_REASONING_EFFORT` är borttagen. OpenClaw `2026.7.1-2`
+vidarebefordrar inte det fältet från Chat Completions-routen; per-agent
+`thinkingDefault` ovan är den fungerande signalägaren.
 
 ## Ny browser: engångsgodkänn enheten
 
@@ -64,6 +98,8 @@ inte kunna ändra auth- eller configsemantik.
 - Lägg aldrig token i URL, logg, issue eller skärmbild.
 - Om token har synts: generera en ny, sätt exakt samma värde i Render och
   Vercel, restarta/redeploya båda och klistra in den nya tokenen i dashboarden.
+- Tokenen i incidentens skärmbild ska betraktas som exponerad. Rotation är en
+  obligatorisk driftåtgärd efter merge, inte något PR:n kan utföra säkert.
 - Stäng inte av device auth. Den gamla
   `OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH`-flaggan är utfasad och ignoreras av
   entrypointen.

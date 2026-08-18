@@ -18,6 +18,7 @@ import { afterAll, describe, expect, it } from "vitest";
 const REPO_ROOT = path.resolve(__dirname, "..");
 const ENTRYPOINT = path.join(REPO_ROOT, "infra", "openclaw", "docker-entrypoint.sh");
 const DOCKERFILE = path.join(REPO_ROOT, "infra", "openclaw", "Dockerfile");
+const CONFIG_GENERATOR = path.join(REPO_ROOT, "infra", "openclaw", "generate-config.mjs");
 
 /** Git-for-Windows `sh` needs forward slashes; a no-op on POSIX. */
 function toShellPath(value: string): string {
@@ -83,8 +84,30 @@ interface GeneratedConfig {
     defaults: {
       heartbeat: { every: string };
       model: { primary: string; fallbacks: string[] };
+      utilityModel: string;
+      skipBootstrap: boolean;
+      skills: string[];
+      models: Record<string, Record<string, never>>;
     };
-    list: Array<{ id: string; model: { primary: string; fallbacks: string[] } }>;
+    list: Array<{
+      id: string;
+      default?: boolean;
+      model: { primary: string; fallbacks: string[] };
+      thinkingDefault: string;
+      skills: string[];
+      tools: { profile: string };
+    }>;
+  };
+  tools: { profile: string };
+  session: {
+    maintenance: {
+      mode: string;
+      pruneAfter: string;
+      maxEntries: number;
+      resetArchiveRetention: string;
+      maxDiskBytes: string;
+      highWaterBytes: string;
+    };
   };
   gateway: {
     mode: string;
@@ -136,6 +159,7 @@ function bootAndReadConfig(env: Record<string, string>): GeneratedConfig {
       PATH: `${binDir}${path.delimiter}${buildShellPath(shell!)}`,
       SAJTAGENT_HOME_DIR: toShellPath(home),
       SAJTAGENT_SEED_DIR: toShellPath(seed),
+      SAJTAGENT_CONFIG_GENERATOR: toShellPath(CONFIG_GENERATOR),
       OPENCLAW_GATEWAY_TOKEN: "test-token",
       ...env,
     },
@@ -159,11 +183,46 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
   it("emits the documented defaults when no model env is set", () => {
     const config = bootAndReadConfig({});
 
-    expect(config.agents.defaults.model.primary).toBe("openai/gpt-5.5");
-    expect(config.agents.defaults.model.fallbacks).toEqual(["openai/gpt-5.4"]);
-    // The proxy targets this agent id by name; renaming it breaks every chat.
-    expect(config.agents.list[0].id).toBe("sajtagenten");
+    expect(config.agents.defaults.model.primary).toBe("openai/gpt-5.6-sol");
+    expect(config.agents.defaults.model.fallbacks).toEqual([
+      "openai/gpt-5.6-terra",
+      "openai/gpt-5.5",
+    ]);
+    expect(config.agents.defaults.utilityModel).toBe("openai/gpt-5.6-luna");
+    expect(config.agents.list.map((agent) => agent.id)).toEqual([
+      "sajtagenten",
+      "sajtagenten-balanced",
+      "sajtagenten-fast",
+    ]);
     expect(config.gateway.http.endpoints.chatCompletions.enabled).toBe(true);
+  });
+
+  it("pins per-lane thinking and a minimal no-skill tool surface", () => {
+    const config = bootAndReadConfig({});
+
+    expect(config.agents.list.map((agent) => agent.thinkingDefault)).toEqual([
+      "high",
+      "medium",
+      "low",
+    ]);
+    expect(config.tools.profile).toBe("minimal");
+    expect(config.agents.defaults.skipBootstrap).toBe(true);
+    expect(config.agents.defaults.skills).toEqual([]);
+    for (const agent of config.agents.list) {
+      expect(agent.skills).toEqual([]);
+      expect(agent.tools.profile).toBe("minimal");
+    }
+  });
+
+  it("enforces bounded session retention on the persistent disk", () => {
+    expect(bootAndReadConfig({}).session.maintenance).toEqual({
+      mode: "enforce",
+      pruneAfter: "14d",
+      maxEntries: 500,
+      resetArchiveRetention: "7d",
+      maxDiskBytes: "512mb",
+      highWaterBytes: "400mb",
+    });
   });
 
   it("disables the heartbeat by default and honours an override", () => {
@@ -211,6 +270,24 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
 
     expect(config.agents.defaults.model.primary).toBe("openai/gpt-5.4-mini");
     expect(config.agents.list[0].model.primary).toBe("openai/gpt-5.4-mini");
+  });
+
+  it("configures independent fast and balanced model chains", () => {
+    const config = bootAndReadConfig({
+      OPENCLAW_MODEL_BALANCED: "openai/gpt-5.5",
+      OPENCLAW_MODEL_BALANCED_FALLBACK: "openai/gpt-5.6-sol",
+      OPENCLAW_MODEL_FAST: "openai/gpt-5.6-luna",
+      OPENCLAW_MODEL_FAST_FALLBACK: "openai/gpt-5.6-terra",
+    });
+
+    expect(config.agents.list[1].model).toEqual({
+      primary: "openai/gpt-5.5",
+      fallbacks: ["openai/gpt-5.6-sol"],
+    });
+    expect(config.agents.list[2].model).toEqual({
+      primary: "openai/gpt-5.6-luna",
+      fallbacks: ["openai/gpt-5.6-terra"],
+    });
   });
 
   it("keeps the config parseable when every fallback entry is blank", () => {
@@ -289,6 +366,13 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
 
   it("JSON-escapes a gateway token before writing config", () => {
     const token = 'quote"and\\backslash';
+    const config = bootAndReadConfig({ OPENCLAW_GATEWAY_TOKEN: token });
+
+    expect(config.gateway.auth.token).toBe(token);
+  });
+
+  it("accepts a valid gateway token beginning with a dash", () => {
+    const token = "-rotated-token-value";
     const config = bootAndReadConfig({ OPENCLAW_GATEWAY_TOKEN: token });
 
     expect(config.gateway.auth.token).toBe(token);
