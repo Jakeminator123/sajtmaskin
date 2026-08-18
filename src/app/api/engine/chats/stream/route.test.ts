@@ -802,7 +802,6 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     const orchestrationInput = resolveOrchestrationBase.mock.calls[0]?.[0] as {
       requestedDossierCapabilities?: string[];
       requestedCapabilityTiers?: Record<string, string>;
-      simpleWebsitePath?: boolean;
       embeddingScaffoldMatch?: boolean;
     };
     expect(orchestrationInput.requestedDossierCapabilities).toEqual(
@@ -812,8 +811,10 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
       "site-search": "specific",
       "map-display": "specific",
     });
-    expect(orchestrationInput.simpleWebsitePath).toBe(false);
-    expect(orchestrationInput.embeddingScaffoldMatch).toBe(true);
+    // B8: init never disables embedding scaffold matching any more. Absent
+    // means the orchestration default (true) applies; `false` would mean a
+    // fast lane came back.
+    expect(orchestrationInput.embeddingScaffoldMatch ?? true).toBe(true);
   });
 
   it("does NOT prewarm when create credits are rejected", async () => {

@@ -49,8 +49,11 @@ Krav:
 - Sprid urvalet: kontrollera att en landningssida, en app, en portfolio och en
   redaktionell sajt inte får referenser ur samma kategori. Kandidatpoolen ligger i
   varianternas `sourceTemplateIds`.
-- Ta bort posten med 0 utdrag eller markera den `disabled` — den ger i dag en
-  ZIP-fallback utan att någon vet om det.
+- Markera posten med 0 utdrag `disabled` — **radera den inte**. Rättelse
+  2026-08-18: den ger i dag *ingen* ZIP-fallback (tom lista räknas som `hit`,
+  se [B9](B9-inget-zip-i-hot-path.md)), men en raderad post blir `missing`, och
+  `missing` är ett av de tre lägen som faktiskt hämtar hela arkivet i hot path.
+  `disabled` ger samma tysta utfall utan den risken.
 - Dokumentera i `docs/architecture/templates.md` att `generated` inte är samma
   kvalitetsnivå som `reviewed`, och vad runtime gör med respektive status.
 

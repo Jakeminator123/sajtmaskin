@@ -106,7 +106,6 @@ export async function resolveOrchestrationBase(
     existingRoutePaths = [],
     existingShellRoutePaths = [],
     capabilities: providedCapabilities,
-    simpleWebsitePath = false,
   } = input;
 
   // Imported repos (verbatim v0-template / ZIP imports) never get a scaffold:
@@ -222,13 +221,11 @@ export async function resolveOrchestrationBase(
   const effectivePersistedScaffoldId =
     importedRepoMode || ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
-  const uiRecipesPromise = simpleWebsitePath
-    ? Promise.resolve<ShadcnUiRecipe[]>([])
-    : resolveShadcnUiRecipes({
-        capabilities,
-        prompt: intentSourcePrompt,
-        maxRecipes: 3,
-      }).catch(() => []);
+  const uiRecipesPromise = resolveShadcnUiRecipes({
+    capabilities,
+    prompt: intentSourcePrompt,
+    maxRecipes: 3,
+  }).catch(() => []);
   let uiRecipes: ShadcnUiRecipe[] = [];
   let resolvedUiRecipes = false;
 
@@ -679,7 +676,7 @@ export async function resolveOrchestrationBase(
   const fileEvidenceCapabilities = resolveCapabilitiesPresentInVersion(
     input.previousFilePaths ?? [],
   );
-  if (FEATURES.useDossierPipeline && !simpleWebsitePath) {
+  if (FEATURES.useDossierPipeline) {
     try {
       const inferredCapabilityIds =
         resolveDossierCapabilitiesFromInferredCapabilities(capabilities);
