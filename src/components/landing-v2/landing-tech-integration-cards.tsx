@@ -75,53 +75,20 @@ export function TechStackCard({ tech, index }: { tech: TechStackItem; index: num
 }
 
 export function IntegrationCard({ item, index }: { item: IntegrationItem; index: number }) {
-  const { ref: tiltRef, handleMove, handleLeave } = use3DTilt(6)
   const { ref: viewRef, visible } = useInView(0.15)
   const reducedMotion = usePrefersReducedMotion()
   const Icon = item.icon
 
-  const setRefs = useCallback(
-    (node: HTMLDivElement | null) => {
-      tiltRef.current = node
-      viewRef.current = node
-    },
-    [tiltRef, viewRef],
-  )
-
-  const handleMouseMove = useCallback(
-    (e: ReactMouseEvent<HTMLDivElement>) => {
-      const el = e.currentTarget
-      const rect = el.getBoundingClientRect()
-      el.style.setProperty("--glow-x", `${e.clientX - rect.left}px`)
-      el.style.setProperty("--glow-y", `${e.clientY - rect.top}px`)
-      handleMove(e)
-    },
-    [handleMove],
-  )
-
   return (
     <div
-      ref={setRefs}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleLeave}
-      className={`group relative overflow-hidden rounded-2xl border border-border/20 bg-card/40 p-4 transition-all duration-700 motion-reduce:transition-none ${
-        visible ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"
+      ref={viewRef}
+      className={`group relative overflow-hidden rounded-2xl border border-border/20 bg-card/40 p-4 transition-all duration-500 hover:border-primary/30 motion-reduce:transition-none ${
+        visible ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
       }`}
       style={{
-        transitionDelay: reducedMotion ? "0ms" : `${index * 70}ms`,
-        ...(reducedMotion
-          ? {}
-          : { animation: `float-particle-kf ${6 + index * 0.35}s ease-in-out infinite` }),
-        ["--glow-x" as string]: "120px",
-        ["--glow-y" as string]: "40px",
+        transitionDelay: reducedMotion ? "0ms" : `${index * 60}ms`,
       }}
     >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{
-          background: `radial-gradient(220px circle at var(--glow-x, 120px) var(--glow-y, 40px), ${item.glow} 0%, transparent 72%)`,
-        }}
-      />
       <div className="relative z-10 flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/15 bg-primary/8 text-primary">
           <Icon className="h-5 w-5" />

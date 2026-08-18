@@ -66,7 +66,7 @@ export function BuilderShellDialogs({
                 <AlertDialogDescription>
                   {vm.templateSwitchDialog?.kind === "new-chat"
                     ? "Du har redan en aktiv chat. En ny chat startas från vald template och nuvarande konversation finns kvar i historiken."
-                    : "Generering pågår just nu. Vill du avbryta och starta från mallen istället?"}
+                    : "Generering pågår just nu. Vill du avbryta och starta från templaten istället?"}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

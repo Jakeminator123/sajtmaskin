@@ -218,6 +218,17 @@ export async function handleMessageStreamRequest(
           }
         }
 
+        // Imported-repo detection (verbatim v0-template / ZIP chats): reuses
+        // the version list already loaded above. Fail-open to `false` on a
+        // failed versions query — same default as finalize's independent
+        // `chatHasImportedRepoVersion` lookup (strict scaffold behavior).
+        // Computed HERE (before the delta-brief phase) so clear-redesign
+        // delta-briefs never seed an imported repo with Sajtmaskin
+        // scaffold/variant hints from a keyword pre-match.
+        const importedRepoMode =
+          versionsQuerySucceeded &&
+          existingVersionsForChat.some((v) => v.edit_kind === "imported_repo");
+
         const resolvedModelId = modelSelection.modelId;
         const resolvedModelTier = modelSelection.modelTier;
         const buildProfileId = getBuildProfileId(resolvedModelTier);
@@ -560,6 +571,7 @@ export async function handleMessageStreamRequest(
           hasFollowUpBase,
           followUpIntentMessage,
           message,
+          importedRepoMode,
           requestPromptSource: typeof promptSource === "string" ? promptSource : null,
           metaScaffoldMode,
           metaScaffoldId,
@@ -713,13 +725,6 @@ export async function handleMessageStreamRequest(
         });
 
         const persistedScaffoldId = engineChat.scaffold_id;
-        // Imported-repo detection (verbatim v0-template / ZIP chats): reuses
-        // the version list already loaded above. Fail-open to `false` on a
-        // failed versions query — same default as finalize's independent
-        // `chatHasImportedRepoVersion` lookup (strict scaffold behavior).
-        const importedRepoMode =
-          versionsQuerySucceeded &&
-          existingVersionsForChat.some((v) => v.edit_kind === "imported_repo");
         const ignorePersistedScaffoldForMatch = shouldIgnorePersistedScaffoldForMatch({
           hasPreviousFiles: hasFollowUpBase,
           followUpIntent,

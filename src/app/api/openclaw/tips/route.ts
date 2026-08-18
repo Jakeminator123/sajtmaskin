@@ -3,7 +3,13 @@ import { OPENCLAW } from "@/lib/config";
 import { prepareCredits } from "@/lib/credits/server";
 import { withRateLimit } from "@/lib/rate-limit";
 import { resolveFileContext } from "@/lib/openclaw/resolve-file-context";
+import { postOpenClawChatCompletion } from "@/lib/openclaw/gateway-client";
+import { resolveOpenClawModelRoute } from "@/lib/openclaw/model-routing";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
+import {
+  getEngineVersionForChatByIdForRequest,
+  getLatestEngineVersionForChatForRequest,
+} from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -96,8 +102,9 @@ function buildTipsContextBlock(ctx: Record<string, unknown>): string {
     parts.push(...recent);
   }
 
-  if (typeof ctx._fileManifest === "string" && ctx._fileManifest.length > 0) {
-    parts.push(`\n[FILMANIFEST]\n${ctx._fileManifest}\n[/FILMANIFEST]`);
+  const fileManifest = normalizeText(ctx._fileManifest, 6_000);
+  if (fileManifest) {
+    parts.push(`\n[FILMANIFEST]\n${fileManifest}\n[/FILMANIFEST]`);
   } else {
     const currentCode = normalizeText(ctx.currentCode, 2200);
     if (currentCode) {
@@ -210,25 +217,46 @@ export async function POST(req: NextRequest) {
         ? { ...body.context }
         : {};
 
+    // Never accept generated-file context from the browser. It is both
+    // untrusted prompt input and an ownership bypass; any manifest below is
+    // rebuilt from a request-scoped chat/version lookup.
+    delete context._fileManifest;
+
     const tipChatId = typeof context.chatId === "string" ? context.chatId : "";
     const tipVersionId =
       typeof context.activeVersionId === "string" ? context.activeVersionId : "";
-    if (tipChatId && !context._fileManifest) {
-      const fc = await resolveFileContext(tipChatId, tipVersionId || null);
+    if (tipChatId) {
+      const scopedVersion = tipVersionId
+        ? await getEngineVersionForChatByIdForRequest(req, tipChatId, tipVersionId).catch(
+            () => null,
+          )
+        : await getLatestEngineVersionForChatForRequest(req, tipChatId).catch(() => null);
+      if (!scopedVersion) {
+        return NextResponse.json(
+          { success: false, error: "Chat or version not found" },
+          { status: 404 },
+        );
+      }
+      const fc = await resolveFileContext(tipChatId, scopedVersion.version.id, {
+        includeFullText: false,
+        maxManifestFiles: 14,
+      });
       if (fc) {
         context._fileManifest = fc.manifest;
       }
     }
 
     try {
-      const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(gatewayToken ? { Authorization: `Bearer ${gatewayToken}` } : {}),
-        },
-        body: JSON.stringify({
-          model: "openclaw:sajtagenten",
+      const modelRoute = resolveOpenClawModelRoute({
+        enabled: OPENCLAW.modelRoutingEnabled,
+        surface: "tips",
+        routingIntent: "general",
+      });
+      const { response: upstream, route: effectiveRoute } = await postOpenClawChatCompletion({
+        gatewayUrl,
+        gatewayToken,
+        route: modelRoute,
+        body: {
           stream: false,
           temperature: 0.4,
           messages: [
@@ -236,14 +264,16 @@ export async function POST(req: NextRequest) {
             { role: "system", content: buildTipsContextBlock(context) },
             { role: "user", content: "Ge 1-2 korta builder-tips nu." },
           ],
-        }),
-        signal: AbortSignal.timeout(45_000),
+        },
+        timeoutMs: 45_000,
       });
 
       if (!upstream.ok) {
-        const detail = await upstream.text().catch(() => "");
+        console.warn(
+          `[openclaw/tips] gateway status=${upstream.status} lane=${effectiveRoute.lane}`,
+        );
         return NextResponse.json(
-          { success: false, error: "Gateway error", status: upstream.status, detail },
+          { success: false, error: "Gateway error", status: upstream.status },
           { status: upstream.status >= 500 ? 502 : upstream.status },
         );
       }

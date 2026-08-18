@@ -116,8 +116,8 @@ export function TemplatesBrowser() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Sök bland kategorier och mallar…"
-            aria-label="Sök bland kategorier och mallar"
+            placeholder="Sök bland kategorier och templates…"
+            aria-label="Sök bland kategorier och templates"
             className="text-foreground placeholder:text-muted-foreground/70 w-full bg-transparent py-3 text-sm outline-none"
           />
           {query && (
@@ -162,7 +162,7 @@ export function TemplatesBrowser() {
                   <div>
                     <h2 className="text-foreground font-medium tracking-tight">{category.title}</h2>
                     {count > 0 && (
-                      <span className="text-muted-foreground text-xs">{count} mallar</span>
+                      <span className="text-muted-foreground text-xs">{count} templates</span>
                     )}
                   </div>
                 </div>
@@ -183,7 +183,7 @@ export function TemplatesBrowser() {
           </div>
           <p className="text-foreground mb-1 text-sm font-medium">Inga träffar</p>
           <p className="text-muted-foreground mb-5 text-sm">
-            Vi hittade ingen kategori eller mall som matchar din sökning.
+            Vi hittade ingen kategori eller template som matchar din sökning.
           </p>
           <button
             type="button"

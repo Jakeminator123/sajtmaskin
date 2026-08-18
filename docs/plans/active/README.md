@@ -11,12 +11,12 @@ kopiera inte kön hit.
 
 | Spår | Vad | Styrdokument |
 |---|---|---|
-| Ärlig status | Ta bort tidsgissningar och statusflaggor som påstår mer än de mätt. Bevis: två prod-utredningar 2026-08-14 (mobilgeneration som dog tyst; preview som visade gammal kod) plus `/tmp`-svält som fällde produktkontrollen 0,9 s före runtime-ready. | [`2026-08-15-arlig-status/00-master-plan.md`](2026-08-15-arlig-status/00-master-plan.md) |
-| Block + Bläddra | **Levererad** via #994 (`72abd4b53`) — Block-flik + Marknadsblock via shadcnblocks-index. Ligger kvar här tills detaljfilen flyttas till `avklarat/`, vilket kräver att två kodkommentarer som citerar sökvägen uppdateras (`PreviewPanelAddPanel.tsx`, `PreviewPanelBrowseGallery.tsx`). | [`2026-08-14-block-browse-shadcnblocks.md`](2026-08-14-block-browse-shadcnblocks.md) |
 | Briefing + Källpaket | Ett namn för lagret före kodgeneratorn, bort med det förbikopplade prompt-addendumet, kvitto på vilka källor som faktiskt nådde prompten, kuration av 69 ogranskade variant-addenda och mätning av den betalda shadcnblocks-nyckeln. Väntar på ägarbeslut N1 (namnet) och N4 (mäta, därefter ev. bevarande Ändringsbrief för `clear-refine` bakom flagga — inte grindbredd av redesign-vägen). | [`2026-08-18-briefing-och-kallpaket/00-master-plan.md`](2026-08-18-briefing-och-kallpaket/00-master-plan.md) |
 
-Frågeflöde- och ruttsanningsspåret levererades 2026-08-14 och ligger som en rad i
-[`../avklarat/README.md`](../avklarat/README.md).
+Ärlig-status-vågorna 1–2 och Block/Marknadsblock är levererade — se
+[`../avklarat/README.md`](../avklarat/README.md). Kvarvarande T3, T9b och T11
+samt shadcnblocks-livebevis ligger i
+[`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md).
 
 Välj nästa konkreta defekt, repro, ägarbeslut eller skuld ur
 [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) och skapa först då en

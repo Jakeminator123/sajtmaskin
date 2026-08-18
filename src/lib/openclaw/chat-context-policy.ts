@@ -114,8 +114,8 @@ const EDIT_CODE_CONTEXT_TERMS = [
 /**
  * "review" ligger inuti "preview" — produktens allra vanligaste ord. Utan den
  * här vakten blev "hur lång tid tar previewen?" review-intent, vilket både
- * höjde `reasoning_effort` på gateway-anropet och drog in fynd-/tidslinje-
- * block. Bara vänsterkanten är bunden, så "reviewa koden" träffar fortfarande.
+ * eskalerade till det starka agentmålet och drog in fynd-/tidslinje-block.
+ * Bara vänsterkanten är bunden, så "reviewa koden" träffar fortfarande.
  */
 const REVIEW_WORD = /(?<![\p{L}\p{N}_])review/u;
 

@@ -70,7 +70,7 @@ export default function BloggPage() {
                     href="/templates"
                     className="text-primary underline-offset-4 hover:underline"
                   >
-                    Mallar
+                    Templates
                   </Link>
                 </li>
                 <li>

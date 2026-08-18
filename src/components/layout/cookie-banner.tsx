@@ -1,133 +1,101 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import dynamic from "next/dynamic";
-import { Cookie, Gamepad2 } from "lucide-react";
-
 /**
- * Compact GDPR cookie-consent banner.
+ * Kompakt cookie-banner för alla rutter UTOM landningssidan.
  *
- * Renders as a small non-blocking card in the bottom-left corner — it never
- * covers the page or competes with the hero/first impression. The playful
- * Pac-Man "Cookie Quest" is still available, but strictly opt-in via a small
- * button (and lazy-loaded so the game code stays out of the initial bundle).
+ * På "/" äger LanyardExperience samtycket (fullskärmskortet med flip-
+ * animationen). Direktbesök till t.ex. /privacy, /faq, /teknik eller
+ * /builder passerar aldrig landningssidan, så utan den här bannern skulle
+ * de aldrig få någon samtyckesyta alls (Bugbot high + pr-ai-review
+ * F-c429fecc1255 på #1026). Bannern läser/skriver samma localStorage-
+ * nycklar som lanyard-flödet, så ett val på ett ställe gäller överallt.
+ *
+ * Ritas som ett litet icke-blockerande kort nere till vänster — den täcker
+ * aldrig sidan och kräver inget fokuslås (den är inte modal).
  */
 
-const CookieGameModal = dynamic(
-  () => import("@/components/layout/cookie-game").then((m) => m.CookieGameModal),
-  { ssr: false },
-);
+import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { Cookie } from "lucide-react";
+
+const CONSENT_KEY = "cookie-consent";
+const CONSENT_DATE_KEY = "cookie-consent-date";
 
 export function CookieBanner() {
-  const [isVisible, setIsVisible] = useState(false);
-  const [showGame, setShowGame] = useState(false);
+  const pathname = usePathname();
+  // Landningssidan äger samtycket via LanyardExperience. `key` nollställer
+  // synlighetstillståndet vid varje ruttbyte, så ett kvarhängande "visas"
+  // från en tidigare sida aldrig överlever en navigation där samtycke
+  // hunnit sparas (t.ex. via lanyard-kortet på "/").
+  if (pathname === "/") return null;
+  return <CookieBannerInner key={pathname} />;
+}
 
-  // Check cookie consent on mount
+function CookieBannerInner() {
+  const [isVisible, setIsVisible] = useState(false);
+
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const cookieConsent = localStorage.getItem("cookie-consent");
-    if (!cookieConsent) {
-      const timer = setTimeout(() => setIsVisible(true), 800);
-      return () => clearTimeout(timer);
+    let consent: string | null = null;
+    try {
+      consent = localStorage.getItem(CONSENT_KEY);
+    } catch {
+      consent = null;
     }
+    if (consent) return;
+    const timer = setTimeout(() => setIsVisible(true), 800);
+    return () => clearTimeout(timer);
   }, []);
 
   const persistConsent = useCallback((value: "accepted" | "declined") => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("cookie-consent", value);
+    try {
+      localStorage.setItem(CONSENT_KEY, value);
       if (value === "accepted") {
-        localStorage.setItem("cookie-consent-date", new Date().toISOString());
+        localStorage.setItem(CONSENT_DATE_KEY, new Date().toISOString());
       }
+    } catch {
+      /* localStorage kan vara blockerat — dölj bannern ändå. */
     }
-    setShowGame(false);
     setIsVisible(false);
-  }, []);
-
-  // Tracks a Cookie Quest win in THIS session so closing the game can dismiss the
-  // banner only after a real win here — not because another tab happened to write
-  // consent while the game was open (that must not steal the explicit choice).
-  const wonRef = useRef(false);
-
-  // Cookie Quest win: record consent IMMEDIATELY (the win overlay already tells
-  // the player cookies were accepted). A stable identity via useCallback is what
-  // stops the game's close timer from being reset on every CookieBanner re-render
-  // (it lives in the root layout), and persisting up-front means a fast Esc/close
-  // during the victory pause can no longer drop the just-won consent.
-  const handleGameWin = useCallback(() => {
-    wonRef.current = true;
-    if (typeof window !== "undefined") {
-      localStorage.setItem("cookie-consent", "accepted");
-      localStorage.setItem("cookie-consent-date", new Date().toISOString());
-    }
-  }, []);
-
-  // Closing the game dismisses the banner only after a win in this session;
-  // closing without a win leaves the banner up so an explicit choice is still made.
-  const handleGameClose = useCallback(() => {
-    setShowGame(false);
-    if (wonRef.current) {
-      setIsVisible(false);
-    }
   }, []);
 
   if (!isVisible) return null;
 
   return (
-    <>
-      {/* `div`, inte `aside`: `role="dialog"` är inte tillåtet på ett element
-          med den implicita rollen `complementary` (axe: aria-allowed-role). */}
-      <div
-        role="dialog"
-        aria-label="Cookie-inställningar"
-        className="border-border/60 bg-card/95 fixed bottom-4 left-4 z-40 w-[calc(100vw-2rem)] max-w-sm rounded-xl border p-4 shadow-2xl backdrop-blur-md"
-      >
-        <div className="flex items-start gap-3">
-          <div className="bg-primary/10 text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-            <Cookie className="h-4 w-4" aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-foreground text-sm font-medium">Vi använder cookies</p>
-            <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-              För att förbättra din upplevelse, analysera trafik och visa relevant innehåll. Läs
-              mer i vår{" "}
-              <a href="/privacy" className="text-primary underline underline-offset-2">
-                integritetspolicy
-              </a>
-              .
-            </p>
-          </div>
+    <div
+      role="dialog"
+      aria-label="Cookie-inställningar"
+      className="fixed bottom-4 left-4 z-[80] w-[min(92vw,360px)] rounded-2xl border border-border/60 bg-card/95 p-4 shadow-2xl backdrop-blur"
+    >
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Cookie className="h-4 w-4" aria-hidden="true" />
         </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => persistConsent("accepted")}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors"
-          >
-            Acceptera alla
-          </button>
-          <button
-            onClick={() => persistConsent("declined")}
-            className="border-border text-muted-foreground hover:bg-secondary hover:text-foreground rounded-lg border px-3.5 py-2 text-xs font-medium transition-colors"
-          >
-            Endast nödvändiga
-          </button>
-          <button
-            onClick={() => setShowGame(true)}
-            className="text-muted-foreground hover:text-foreground ml-auto inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-[11px] transition-colors"
-            title="Spela Cookie Quest — vinn för att acceptera cookies"
-          >
-            <Gamepad2 className="h-3.5 w-3.5" aria-hidden="true" />
-            Spela istället
-          </button>
-        </div>
+        <p className="text-sm font-semibold text-foreground">Vi använder cookies</p>
       </div>
-
-      {showGame && (
-        <CookieGameModal
-          onWin={handleGameWin}
-          onClose={handleGameClose}
-        />
-      )}
-    </>
+      <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
+        För att förbättra din upplevelse, analysera trafik och visa relevant innehåll. Läs mer i
+        vår{" "}
+        <a href="/privacy" className="text-primary underline underline-offset-2">
+          integritetspolicy
+        </a>
+        .
+      </p>
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          onClick={() => persistConsent("accepted")}
+          className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          Acceptera alla
+        </button>
+        <button
+          type="button"
+          onClick={() => persistConsent("declined")}
+          className="flex-1 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          Endast nödvändiga
+        </button>
+      </div>
+    </div>
   );
 }

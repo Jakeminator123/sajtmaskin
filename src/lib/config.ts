@@ -333,6 +333,9 @@ export const OPENCLAW = {
   get surfaceEnabled(): boolean {
     return this.enabled && this.tokenConfigured && this.implementationFlagEnabled;
   },
+  get modelRoutingEnabled(): boolean {
+    return isAffirmativeEnvValue(env.OPENCLAW_MODEL_ROUTING_ENABLED);
+  },
   /**
    * Debug-mode gate — READ side only. When affirmative (OC_DEBUG or OC_DEBUGG),
    * OpenClaw gets privileged debug context (full code + findings + repo-context)
