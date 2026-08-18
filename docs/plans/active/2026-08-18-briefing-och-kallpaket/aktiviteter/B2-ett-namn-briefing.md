@@ -23,7 +23,9 @@ läsförståelse varje gång någon nyanställd, granskare eller agent läser ko
 ## Uppgift
 
 Gör **Briefing** till det enda produktnamnet för lagret före kodgeneratorn, med
-fyra lägen: Init Brief, Auto Brief, Ändringsbrief, Snapshot.
+fyra lägen: Init Brief, Auto Brief, Ändringsbrief (LLM-delta vid
+`clear-redesign`), Snapshot (återanvänd brief på vanliga uppföljningar).
+Blanda inte ihop Ändringsbrief med Snapshot-Brief — se B6.
 
 Krav:
 

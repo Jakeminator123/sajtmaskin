@@ -43,9 +43,11 @@ Krav:
   `backoffice/pages/llm_flode_telemetry.py` (samma mönster som övriga
   `st.subheader`-sektioner). Ingen ny sida.
 - Verifiera flaggläget i Vercel-miljöerna och skriv ner svaret i
-  `docs/ENV.md`-raden: är `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL` på i production eller
-  inte? Dokumentationen säger i dag bara att nyckeln är satt, inte att ytan är
-  synlig.
+  `docs/ENV.md`. Dokumentationen säger redan att
+  `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL` är opt-in (default av) och att
+  `SHADCNBLOCKS_API_KEY` är satt i alla Vercel-miljöer. Det som saknas är det
+  **aktuella production-läget** för ytan, inte en första beskrivning av
+  flaggan.
 - Kör ett riktigt smoketest mot ett känt block (t.ex. `hero1`) och kryssa av de två
   öppna live-testerna som `docs/plans/active/2026-08-14-block-browse-shadcnblocks.md`
   lämnade ogjorda. Är de gjorda kan planfilen vävas in i `avklarat/README.md`.
