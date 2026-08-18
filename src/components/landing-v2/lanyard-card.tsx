@@ -47,11 +47,13 @@ type BandProps = { maxSpeed?: number; minSpeed?: number; autoSwing?: boolean }
 
 function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   const band = useRef<THREE.Mesh>(null)
-  const fixed = useRef<RapierRigidBody>(null)
-  const j1 = useRef<RapierRigidBody>(null)
-  const j2 = useRef<RapierRigidBody>(null)
-  const j3 = useRef<RapierRigidBody>(null)
-  const card = useRef<RapierRigidBody>(null)
+  // `null!` — rapiers joint-hooks kräver RefObject<RapierRigidBody> utan null;
+  // refs sätts av <RigidBody ref={...}> före första fysik-steget.
+  const fixed = useRef<RapierRigidBody>(null!)
+  const j1 = useRef<RapierRigidBody>(null!)
+  const j2 = useRef<RapierRigidBody>(null!)
+  const j3 = useRef<RapierRigidBody>(null!)
+  const card = useRef<RapierRigidBody>(null!)
 
   const vec = useRef(new THREE.Vector3()).current
   const ang = useRef(new THREE.Vector3()).current
