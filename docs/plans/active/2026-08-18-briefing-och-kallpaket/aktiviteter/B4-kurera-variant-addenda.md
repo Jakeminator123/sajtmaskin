@@ -49,8 +49,11 @@ Krav:
 - Sprid urvalet: kontrollera att en landningssida, en app, en portfolio och en
   redaktionell sajt inte får referenser ur samma kategori. Kandidatpoolen ligger i
   varianternas `sourceTemplateIds`.
-- Ta bort posten med 0 utdrag eller markera den `disabled` — den ger i dag en
-  ZIP-fallback utan att någon vet om det.
+- Ta bort posten med 0 utdrag eller markera den `disabled`. En `generated`-träff
+  med tom `structuralReferences` är `hit` med `[]` — den går **inte** till
+  ZIP-läsaren (`template-inspiration.ts`). ZIP-fallback är `missing` / `stale` /
+  `invalid`. Tom `generated` är alltså tyst «ingen kodinspiration», inte en
+  dold ZIP.
 - Dokumentera i `docs/architecture/templates.md` att `generated` inte är samma
   kvalitetsnivå som `reviewed`, och vad runtime gör med respektive status.
 

@@ -8,7 +8,8 @@ bevisas användbar innan nästa steg.
 
 1. **Prompt** är användarens instruktion för den aktuella rundan.
 2. En **Deep Brief** strukturerar init. En **Snapshot-Brief** sammanfattar
-   tidigare beslut för follow-up.
+   tidigare beslut för vanliga follow-ups. Undantag: `clear-redesign` kör
+   Deep Brief som delta-brief.
 3. **Orchestration** samlar signalerna och väljer projektets byggunderlag.
 4. **BuildSpec** är runtime-policyn för rundans scope, kvalitet, preview,
    verifiering och budget.
