@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { buildProductPostcheckLogItems, persistVersionErrorLogs } from "./post-checks";
@@ -60,7 +60,10 @@ import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck"
  *    silently rewritten by a verification pass.
  *  - **Shorter min-age gate** ({@link RESUME_VERIFY_IMPORT_MIN_AGE_MS}):
  *    there is no original post-stream lane to race — the gate only gives the
- *    server-side preview boot (~30–90 s cold start) a head start.
+ *    server-side preview boot (~30–90 s cold start) a head start. A candidate
+ *    that is merely too young self-schedules a re-check for the moment the
+ *    gate opens (see `ageGateNonce`), and a cold runtime holds the lane at a
+ *    `/preview-status` probe before any DOM postcheck (see step 2b).
  *
  *    The quality-gate route already handles verbatim repos
  *    (`chatUsesVerbatimRepo` → `buildExportableProject({ verbatimRepo })`),
@@ -169,17 +172,24 @@ function rowVersionId(row: ResumableVersionRow): string | null {
   return null;
 }
 
-/**
- * Pure selector: the stranded F2 draft to resume, or null.
- * Exported separately so the trigger conditions are unit-testable without DOM.
- */
-export function findResumablePendingVersion(
-  versions: unknown,
-  nowMs: number,
-): ResumablePendingVersion | null {
-  if (!Array.isArray(versions) || versions.length === 0) return null;
+type ResumeCandidateResolution = {
+  candidate: ResumablePendingVersion | null;
+  /**
+   * When the latest row fails ONLY its lane's min-age gate: the absolute ms
+   * timestamp at which it becomes eligible. The hook self-schedules a re-check
+   * for this moment — SWR keeps deep-equal `/versions` payloads referentially
+   * stable, so a quiet chat (typical right after a template import) would
+   * otherwise never re-run the effect and the row would stay pending until
+   * the next full builder visit (pr-ai-review F-285e977ed706 on #1027).
+   */
+  eligibleAtMs: number | null;
+};
+
+function resolveResumeCandidate(versions: unknown, nowMs: number): ResumeCandidateResolution {
+  const none: ResumeCandidateResolution = { candidate: null, eligibleAtMs: null };
+  if (!Array.isArray(versions) || versions.length === 0) return none;
   const rows = versions.filter(isRecord) as ResumableVersionRow[];
-  if (rows.length === 0) return null;
+  if (rows.length === 0) return none;
 
   // Only the latest row is a resume candidate — older pending rows are
   // superseded history, and the gate route would just mark them as such.
@@ -188,13 +198,13 @@ export function findResumablePendingVersion(
   );
 
   const versionId = rowVersionId(latest);
-  if (!versionId) return null;
+  if (!versionId) return none;
   // Legacy/mapped rows have no releaseState at all — never touch those.
-  if (latest.releaseState !== "draft") return null;
-  if (latest.verificationState !== "pending") return null;
+  if (latest.releaseState !== "draft") return none;
+  if (latest.verificationState !== "pending") return none;
   // F3 rows are server-verify-owned (watchdog settles them); missing stage
   // defaults to design, matching `resolveEngineVersionLifecycleStage`.
-  if (latest.lifecycleStage === "integrations") return null;
+  if (latest.lifecycleStage === "integrations") return none;
   // Provenance gate (Codex P2 + import lane 2026-08-18): normal generated
   // rows (editKind null) resume the stranded-F2 lane; `imported_repo` rows
   // run the import-verification lane (they NEVER had any lane, so the base
@@ -207,28 +217,54 @@ export function findResumablePendingVersion(
       : latest.editKind === "imported_repo"
         ? "imported"
         : null;
-  if (!lane) return null;
+  if (!lane) return none;
 
-  if (!latest.createdAt) return null;
+  if (!latest.createdAt) return none;
   const createdMs =
     latest.createdAt instanceof Date
       ? latest.createdAt.getTime()
       : Date.parse(String(latest.createdAt));
-  if (!Number.isFinite(createdMs)) return null;
+  if (!Number.isFinite(createdMs)) return none;
   const ageMs = nowMs - createdMs;
+  if (ageMs > RESUME_VERIFY_MAX_AGE_MS) return none;
   const minAgeMs =
     lane === "imported" ? RESUME_VERIFY_IMPORT_MIN_AGE_MS : RESUME_VERIFY_MIN_AGE_MS;
-  if (ageMs < minAgeMs) return null;
-  if (ageMs > RESUME_VERIFY_MAX_AGE_MS) return null;
+  if (ageMs < minAgeMs) {
+    return { candidate: null, eligibleAtMs: createdMs + minAgeMs };
+  }
 
   return {
-    versionId,
-    previewUrl:
-      typeof latest.previewUrl === "string" && latest.previewUrl.trim()
-        ? latest.previewUrl.trim()
-        : null,
-    lane,
+    candidate: {
+      versionId,
+      previewUrl:
+        typeof latest.previewUrl === "string" && latest.previewUrl.trim()
+          ? latest.previewUrl.trim()
+          : null,
+      lane,
+    },
+    eligibleAtMs: null,
   };
+}
+
+/**
+ * Pure selector: the stranded F2 draft (or imported base version) to resume,
+ * or null. Exported separately so the trigger conditions are unit-testable
+ * without DOM.
+ */
+export function findResumablePendingVersion(
+  versions: unknown,
+  nowMs: number,
+): ResumablePendingVersion | null {
+  return resolveResumeCandidate(versions, nowMs).candidate;
+}
+
+/**
+ * Pure companion to {@link findResumablePendingVersion}: when the latest row
+ * is a valid candidate that only fails its lane's min-age gate, returns the
+ * absolute ms timestamp at which it becomes eligible; otherwise null.
+ */
+export function findResumeEligibleAtMs(versions: unknown, nowMs: number): number | null {
+  return resolveResumeCandidate(versions, nowMs).eligibleAtMs;
 }
 
 /**
@@ -277,6 +313,32 @@ async function rehydratePreviewUrl(params: {
     return typeof data?.previewUrl === "string" && data.previewUrl.trim()
       ? data.previewUrl.trim()
       : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Live preview-runtime status for the import lane's cold-boot gate (Bugbot
+ * medium on #1027): the import route persists a `previewUrl` while the VM may
+ * still be installing, so a DOM product-postcheck at the age gate could hit
+ * the boot page, persist a `productBlocked` summary (sticky F3 block) and
+ * still promote — a transient cold start misread as a product failure. The
+ * lane therefore probes `GET /preview-status` first and only postchecks a
+ * runtime that answered `running` (or settled as `build_error`, a stable
+ * verdict). Returns the status string, or null on transport/parse failure.
+ */
+async function fetchPreviewRuntimeStatus(params: {
+  chatId: string;
+  versionId: string;
+}): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${engineChatBaseUrl(params.chatId)}/preview-status?versionId=${encodeURIComponent(params.versionId)}`,
+    );
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as { status?: unknown } | null;
+    return typeof data?.status === "string" ? data.status : null;
   } catch {
     return null;
   }
@@ -347,11 +409,27 @@ export function useResumePendingVerification(params: {
   // outcomes consume all slots (Codex P2 round 4).
   const attemptsRef = useRef<Map<string, number>>(new Map());
   const inFlightRef = useRef<Set<string>>(new Set());
+  // Bumped by the age-gate timer below so the effect re-evaluates the moment a
+  // too-young candidate becomes eligible. Without it, a quiet chat's /versions
+  // payload stays deep-equal across SWR polls → same array identity → the
+  // effect never re-runs and a fresh import stays pending for the whole
+  // session (pr-ai-review F-285e977ed706 on #1027).
+  const [ageGateNonce, setAgeGateNonce] = useState(0);
 
   useEffect(() => {
     if (!chatId || isStreaming) return;
-    const candidate = findResumablePendingVersion(versions, Date.now());
-    if (!candidate) return;
+    const { candidate, eligibleAtMs } = resolveResumeCandidate(versions, Date.now());
+    if (!candidate) {
+      if (eligibleAtMs === null) return;
+      // Self-schedule the re-check for when the min-age gate opens (+1 s
+      // margin). The cleanup only clears THIS timer — it never cancels an
+      // in-flight verify chain (the no-cancellation contract above).
+      const timer = setTimeout(
+        () => setAgeGateNonce((nonce) => nonce + 1),
+        Math.max(eligibleAtMs - Date.now(), 0) + 1_000,
+      );
+      return () => clearTimeout(timer);
+    }
     const { versionId, lane } = candidate;
     if (inFlightRef.current.has(versionId)) return;
     const attemptsUsed = attemptsRef.current.get(versionId) ?? 0;
@@ -403,6 +481,29 @@ export function useResumePendingVerification(params: {
         if (!previewUrl) {
           previewUrl = await rehydratePreviewUrl({ chatId, versionId });
           if (!previewUrl) return; // retryable hold — slot stays open
+        }
+
+        // Step 2b (import lane only) — cold-boot gate (Bugbot medium on
+        // #1027): the import route persists the previewUrl while the VM can
+        // still be installing, so a postcheck now could misread the boot page
+        // as a product failure (sticky productBlocked → F3 block). Probe the
+        // live runtime and only proceed on a STABLE verdict:
+        //  - "running" / "build_error" → proceed (real answer either way),
+        //  - "stopped" / "missing"     → boot via /preview-session, then hold,
+        //  - "starting" / "version_mismatch" → retryable hold (next poll tick
+        //    or age-timer retries; slot bookkeeping above already charged one),
+        //  - transport failure (null)  → proceed fail-open — the postcheck's
+        //    own unreadable-probe advisory covers a dead probe without
+        //    blocking, matching the normal lane's best-effort philosophy.
+        if (lane === "imported") {
+          const runtimeStatus = await fetchPreviewRuntimeStatus({ chatId, versionId });
+          if (runtimeStatus === "stopped" || runtimeStatus === "missing") {
+            await rehydratePreviewUrl({ chatId, versionId }); // boots/resumes the VM
+            return; // retryable hold — slot stays open
+          }
+          if (runtimeStatus === "starting" || runtimeStatus === "version_mismatch") {
+            return; // retryable hold — slot stays open
+          }
         }
 
         // Step 3 — product-postcheck, mirroring the normal lane order. The
@@ -497,5 +598,6 @@ export function useResumePendingVerification(params: {
     })();
     // Callback deps are safe: the attempt bookkeeping dedupes per versionId,
     // so an identity change can never start a duplicate in-flight run.
-  }, [chatId, versions, isStreaming, mutateVersions, onVersionStatusRefresh]);
+    // `ageGateNonce` re-arms the evaluation when the min-age timer fires.
+  }, [chatId, versions, isStreaming, mutateVersions, onVersionStatusRefresh, ageGateNonce]);
 }

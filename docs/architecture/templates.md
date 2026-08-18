@@ -83,8 +83,14 @@ Nu äger **importlanen** i `useResumePendingVerification` basversionens verifier
 
 - Kandidat: senaste raden med `editKind="imported_repo"`, `draft`/`pending`,
   ålder ≥ 90 s (bara preview-bootens försprång — ingen ursprunglig lane finns
-  att racea) och ≤ 24 h.
-- Kedja: ev. preview-rehydrering → `product-postcheck` → `POST /quality-gate`.
+  att racea) och ≤ 24 h. En för ung kandidat självschemaläggs: hooken sätter en
+  timer till exakt gränsöppningen, eftersom SWR håller deep-equal
+  `/versions`-payloads referensstabila och effekten annars aldrig re-körs i en
+  tyst importchatt.
+- Kedja: ev. preview-rehydrering → **runtime-grind** (`GET /preview-status`:
+  bara `running`/`build_error` går vidare; `starting` håller, `stopped`/`missing`
+  bootas om och håller — en kall boot-sida får aldrig DOM-postcheckas till en
+  falsk `productBlocked`) → `product-postcheck` → `POST /quality-gate`.
   **Ingen** bildvalidering — `autoFix` muterar filer och importen är ett
   verbatim-kontrakt.
 - Gaten kör verbatim-exporten (§4) och F2:s typecheck-lane. Utfall:
