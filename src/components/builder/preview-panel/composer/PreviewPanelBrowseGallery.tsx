@@ -32,8 +32,8 @@ import { RegistryItemThumb } from "./RegistryItemThumb";
  * "Bläddra"-galleriet — shadcn/ui (PNG-thumbs) + Marknadsblock (@shadcnblocks
  * via community-index). Insättning går alltid via own-engine-lanen.
  *
- * Del av plan: `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md`
- * + `docs/plans/active/2026-08-14-block-browse-shadcnblocks.md`.
+ * Del av plan: `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md`.
+ * Block/Marknadsblock levererat i #994 (`72abd4b53`).
  */
 
 type BrowseItemType = RegistryItemKind;
