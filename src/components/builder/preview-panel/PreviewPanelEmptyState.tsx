@@ -142,7 +142,7 @@ export function PreviewPanelEmptyState({
           (previewPending
             ? "Startar VM-preview"
             : pendingTemplateInit
-              ? "Läser in mallen"
+              ? "Läser in templaten"
             : awaitingInput
               ? "AI väntar på ditt svar"
               : isInitialEmpty
@@ -162,7 +162,7 @@ export function PreviewPanelEmptyState({
           (previewPending
             ? "Sajten startar och visas så snart den är klar."
             : pendingTemplateInit
-              ? "Mallen importeras och förhandsvisningen öppnas strax."
+              ? "Templaten importeras och förhandsvisningen öppnas strax."
             : awaitingInput
               ? "AI behöver ditt svar innan nästa preview kan genereras."
               : externalLoading

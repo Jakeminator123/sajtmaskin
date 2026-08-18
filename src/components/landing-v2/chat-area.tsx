@@ -102,11 +102,8 @@ export function ChatArea(props: ChatAreaProps = {}) {
 
         {/* ━━━ TRUST MARQUEE ━━━ */}
         <section className="py-10 border-t border-border/15">
-          <p className="text-xs text-muted-foreground/60 text-center mb-1.5 tracking-widest uppercase">
-            Byggd med samma teknik som
-          </p>
-          <p className="text-[10px] text-muted-foreground/40 text-center mb-6">
-            Dessa f&ouml;retag anv&auml;nder React &amp; Next.js &mdash; samma ramverk vi bygger din sajt med
+          <p className="text-xs text-muted-foreground/60 text-center mb-6 tracking-widest uppercase">
+            Samma tekniska grund som v&auml;rldens ledande varum&auml;rken litar p&aring;
           </p>
           <div className="relative overflow-hidden" aria-hidden="true">
             <div className="absolute inset-y-0 left-0 w-32 bg-linear-to-r from-background to-transparent z-10 pointer-events-none" />
@@ -167,15 +164,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
               <div key={idx} className="flex flex-col items-center">
                 {idx > 0 && <div className="hidden md:block absolute w-px h-12 bg-border/30" style={{ marginLeft: "-5rem" }} />}
                 <div className="text-center" ref={counter.ref}>
-                  <p
-                    className={`text-3xl md:text-4xl font-(--font-heading) transition-all duration-300 ${
-                      counter.phase === "glitch"
-                        ? "text-destructive animate-pulse scale-110"
-                        : counter.phase === "honest"
-                          ? "text-primary"
-                          : "text-primary"
-                    }`}
-                  >
+                  <p className="text-3xl md:text-4xl font-(--font-heading) text-primary transition-all duration-300">
                     {/* Inget "+"-suffix: räknaren går direkt till det ärliga värdet. */}
                     <span>{counter.count.toLocaleString("sv-SE")}</span>
                   </p>

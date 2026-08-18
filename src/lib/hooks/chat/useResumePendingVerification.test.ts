@@ -1,9 +1,11 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  RESUME_VERIFY_IMPORT_MIN_AGE_MS,
   RESUME_VERIFY_MAX_AGE_MS,
   RESUME_VERIFY_MIN_AGE_MS,
   findResumablePendingVersion,
+  findResumeEligibleAtMs,
   useResumePendingVerification,
 } from "./useResumePendingVerification";
 
@@ -21,6 +23,11 @@ const NOW = Date.now();
 const OLD_ENOUGH = new Date(NOW - RESUME_VERIFY_MIN_AGE_MS - 60_000).toISOString();
 const TOO_FRESH = new Date(NOW - 30_000).toISOString();
 const TOO_OLD = new Date(NOW - RESUME_VERIFY_MAX_AGE_MS - 60_000).toISOString();
+// Import lane: old enough for the 90 s import gate but too young for the
+// normal 3 min gate — proves the lanes read different thresholds.
+const IMPORT_OLD_ENOUGH = new Date(
+  NOW - RESUME_VERIFY_IMPORT_MIN_AGE_MS - 30_000,
+).toISOString();
 
 function pendingRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -55,13 +62,14 @@ describe("findResumablePendingVersion", () => {
     expect(findResumablePendingVersion([pendingRow(), promotedRow()], NOW)).toEqual({
       versionId: "ver_pending",
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      lane: "generated",
     });
   });
 
   it("returns null previewUrl when the row has none persisted", () => {
     expect(
       findResumablePendingVersion([pendingRow({ previewUrl: null })], NOW),
-    ).toEqual({ versionId: "ver_pending", previewUrl: null });
+    ).toEqual({ versionId: "ver_pending", previewUrl: null, lane: "generated" });
   });
 
   it("returns null when the latest row is promoted (older pending rows are history)", () => {
@@ -88,12 +96,56 @@ describe("findResumablePendingVersion", () => {
     ).toBeNull();
   });
 
-  it("returns null for every non-null editKind provenance (quick_edit/import/restore)", () => {
-    for (const editKind of ["quick_edit", "imported_repo", "restore", "anything_future"]) {
+  it("returns null for intentional-draft provenances (quick_edit/restore/unknown)", () => {
+    for (const editKind of ["quick_edit", "restore", "anything_future"]) {
       expect(
         findResumablePendingVersion([pendingRow({ editKind })], NOW),
       ).toBeNull();
     }
+  });
+
+  it("resumes imported_repo rows on the import lane (no lane ever ran for them)", () => {
+    expect(
+      findResumablePendingVersion(
+        [pendingRow({ editKind: "imported_repo", previewUrl: "https://preview.example/chat_1" })],
+        NOW,
+      ),
+    ).toEqual({
+      versionId: "ver_pending",
+      previewUrl: "https://preview.example/chat_1",
+      lane: "imported",
+    });
+  });
+
+  it("uses the shorter import age gate: old enough for import, too young for generated", () => {
+    // 90 s < age < 3 min → import lane resumes, generated lane does not.
+    expect(
+      findResumablePendingVersion(
+        [pendingRow({ editKind: "imported_repo", createdAt: IMPORT_OLD_ENOUGH })],
+        NOW,
+      ),
+    ).toMatchObject({ versionId: "ver_pending", lane: "imported" });
+    expect(
+      findResumablePendingVersion([pendingRow({ createdAt: IMPORT_OLD_ENOUGH })], NOW),
+    ).toBeNull();
+  });
+
+  it("holds an imported_repo row younger than the import age gate", () => {
+    expect(
+      findResumablePendingVersion(
+        [pendingRow({ editKind: "imported_repo", createdAt: TOO_FRESH })],
+        NOW,
+      ),
+    ).toBeNull();
+  });
+
+  it("never resumes imported_repo rows older than the max resume age", () => {
+    expect(
+      findResumablePendingVersion(
+        [pendingRow({ editKind: "imported_repo", createdAt: TOO_OLD })],
+        NOW,
+      ),
+    ).toBeNull();
   });
 
   it("returns null for legacy rows without releaseState", () => {
@@ -120,6 +172,30 @@ describe("findResumablePendingVersion", () => {
   });
 });
 
+describe("findResumeEligibleAtMs", () => {
+  it("returns the min-age deadline for a too-young candidate, per lane", () => {
+    const createdMs = NOW - 30_000;
+    const createdAt = new Date(createdMs).toISOString();
+    expect(
+      findResumeEligibleAtMs([pendingRow({ createdAt })], NOW),
+    ).toBe(createdMs + RESUME_VERIFY_MIN_AGE_MS);
+    expect(
+      findResumeEligibleAtMs([pendingRow({ editKind: "imported_repo", createdAt })], NOW),
+    ).toBe(createdMs + RESUME_VERIFY_IMPORT_MIN_AGE_MS);
+  });
+
+  it("returns null when the row is already eligible or can never be", () => {
+    // Already eligible → candidate instead, no deadline.
+    expect(findResumeEligibleAtMs([pendingRow()], NOW)).toBeNull();
+    // Too old / wrong provenance / promoted → never eligible.
+    expect(findResumeEligibleAtMs([pendingRow({ createdAt: TOO_OLD })], NOW)).toBeNull();
+    expect(
+      findResumeEligibleAtMs([pendingRow({ editKind: "quick_edit", createdAt: TOO_FRESH })], NOW),
+    ).toBeNull();
+    expect(findResumeEligibleAtMs([promotedRow()], NOW)).toBeNull();
+  });
+});
+
 describe("useResumePendingVerification", () => {
   const fetchMock = vi.fn();
 
@@ -128,9 +204,18 @@ describe("useResumePendingVerification", () => {
     qualityGate?: { ok?: boolean; status?: number; body?: unknown };
     errorLog?: { ok?: boolean };
     previewSession?: { ok?: boolean; body?: unknown };
+    previewStatus?: { ok?: boolean; body?: unknown };
   }) {
     fetchMock.mockImplementation(async (url: string) => {
       const u = String(url);
+      if (u.includes("/preview-status")) {
+        return {
+          ok: params.previewStatus?.ok ?? true,
+          status: (params.previewStatus?.ok ?? true) ? 200 : 500,
+          json: async () =>
+            params.previewStatus?.body ?? { ok: true, status: "running" },
+        };
+      }
       if (u.includes("/product-postcheck")) {
         return {
           ok: params.postcheck?.ok ?? true,
@@ -447,6 +532,119 @@ describe("useResumePendingVerification", () => {
     await Promise.resolve();
     expect(callsTo("/product-postcheck")).toHaveLength(0);
     expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("runs the import lane WITHOUT image validation (verbatim contract)", async () => {
+    const mutateVersions = vi.fn();
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo" })],
+        isStreaming: false,
+        mutateVersions,
+      }),
+    );
+
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    // Verbatim contract: the import lane must never auto-rewrite files.
+    expect(callsTo("/validate-images")).toHaveLength(0);
+    // The rest of the chain mirrors the normal lane: postcheck → gate.
+    expect(callsTo("/product-postcheck")).toHaveLength(1);
+    expect(JSON.parse(String(callsTo("/quality-gate")[0][1].body))).toEqual({
+      versionId: "ver_pending",
+    });
+  });
+
+  it("import lane rehydrates a missing preview before the gate", async () => {
+    mockRoutes({});
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo", previewUrl: null })],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    expect(callsTo("/preview-session")).toHaveLength(1);
+    expect(callsTo("/validate-images")).toHaveLength(0);
+  });
+
+  it("import lane holds on a still-booting runtime (no postcheck against a boot page)", async () => {
+    mockRoutes({ previewStatus: { body: { ok: true, status: "starting" } } });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo" })],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/preview-status")).toHaveLength(1));
+    await Promise.resolve();
+    // Cold boot must never be DOM-postchecked or gated (Bugbot medium #1027).
+    expect(callsTo("/product-postcheck")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("import lane boots a stopped runtime via /preview-session, then holds", async () => {
+    mockRoutes({ previewStatus: { body: { ok: true, status: "stopped" } } });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo" })],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/preview-session")).toHaveLength(1));
+    await Promise.resolve();
+    expect(callsTo("/product-postcheck")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("import lane proceeds on a settled build_error verdict (honest red, not a race)", async () => {
+    mockRoutes({ previewStatus: { body: { ok: true, status: "build_error" } } });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo" })],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+  });
+
+  it("import lane fails open when the preview-status probe is down", async () => {
+    mockRoutes({ previewStatus: { ok: false } });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo" })],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+  });
+
+  it("self-schedules the age gate: a too-young import verifies once the gate opens", async () => {
+    // Eligible in ~200 ms (+1 s timer margin). Without the age-gate timer the
+    // effect would never re-run for a quiet chat whose /versions payload stays
+    // deep-equal across SWR polls (pr-ai-review F-285e977ed706 on #1027).
+    const almostEligible = new Date(
+      Date.now() - RESUME_VERIFY_IMPORT_MIN_AGE_MS + 200,
+    ).toISOString();
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo", createdAt: almostEligible })],
+        isStreaming: false,
+      }),
+    );
+    // Nothing runs while the gate is closed…
+    await Promise.resolve();
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+    // …but the timer re-arms the evaluation when it opens.
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1), {
+      timeout: 5_000,
+    });
   });
 
   it("fails closed when a productBlocked summary cannot be persisted (Codex P1 r4)", async () => {

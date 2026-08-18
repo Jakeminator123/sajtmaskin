@@ -170,7 +170,7 @@ describe("POST /api/template", () => {
       templateId: "tmpl_1",
       recoverable: true,
       error:
-        "Den här v0-mallen finns varken lokalt eller i Blob-manifestet och kan därför inte startas som repo i VM-previewn.",
+        "Den här v0-templaten finns varken lokalt eller i Blob-manifestet och kan därför inte startas som repo i VM-previewn.",
     });
     expect(loadLocalV0TemplateFiles).not.toHaveBeenCalled();
     expect(commitCredits).not.toHaveBeenCalled();

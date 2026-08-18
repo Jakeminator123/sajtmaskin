@@ -1,11 +1,18 @@
 "use client"
 
-import { ArrowUp, ChevronDown, Mic, Play, Video, X } from "lucide-react"
+import dynamic from "next/dynamic"
+import { ArrowUp, Mic, ShieldCheck, Video, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
-import { ParticleOrb } from "@/components/landing-v2/particle-orb"
 import { categories, longestSiteType, stats } from "@/components/landing-v2/landing-chat-data"
+
+// Cookie-samtycke som flippar till det fysikdrivna 3D-nyckelbandet.
+// Laddas endast i webbläsaren (ingen SSR).
+const LanyardExperience = dynamic(
+  () => import("@/components/landing-v2/lanyard-experience").then((m) => m.LanyardExperience),
+  { ssr: false },
+)
 import type { ChatAreaProps, LandingController } from "@/components/landing-v2/use-landing-controller"
 
 export type LandingHeroProps = Pick<
@@ -30,7 +37,6 @@ export type LandingHeroProps = Pick<
 export function LandingHero({
   heroPrefix,
   expandedContent,
-  onPlayIntro,
   selectedCategory,
   pickCategory,
   showVoiceRecorder,
@@ -38,7 +44,6 @@ export function LandingHero({
   inputValue,
   setInputValue,
   isSubmitting,
-  headlineTilt,
   rotatingType,
   activeCategory,
   isAuditMode,
@@ -46,33 +51,26 @@ export function LandingHero({
   handleAuditUrlChange,
   submitPrimaryInput,
 }: LandingHeroProps) {
-  const { ref: headlineRef, handleMove: onHeadlineMove, handleLeave: onHeadlineLeave } = headlineTilt
-
   return (
     <section className="flex min-h-[calc(100vh-57px)] flex-col items-center justify-center px-6 pt-10 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-16 md:pb-12">
       {heroPrefix}
-      <div className="relative mb-5 animate-fade-up" style={{ animationDelay: "0.1s" }}>
-        <ParticleOrb />
+
+      <div
+        className="pointer-events-auto -mt-6 mb-1 w-full max-w-[420px] shrink-0 md:-mt-10"
+        style={{ height: "clamp(300px, 40vh, 400px)" }}
+      >
+        <LanyardExperience className="h-full" />
       </div>
 
       <div
-        className="inline-flex items-center gap-2 text-xs font-medium text-primary bg-primary/8 border border-primary/15 px-4 py-1.5 rounded-full mb-5 animate-fade-up"
-        style={{ animationDelay: "0.2s" }}
+        className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground bg-secondary/50 border border-border/40 px-4 py-1.5 rounded-full mb-6 animate-fade-up"
+        style={{ animationDelay: "0.1s" }}
       >
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-        </span>
-        F&ouml;r svenska f&ouml;retag som vill komma ig&aring;ng snabbt
+        <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+        Byggt f&ouml;r svenska f&ouml;retag &mdash; seri&ouml;st fr&aring;n f&ouml;rsta dagen
       </div>
 
-      <div
-        ref={headlineRef}
-        onMouseMove={onHeadlineMove}
-        onMouseLeave={onHeadlineLeave}
-        style={{ transition: "transform 0.15s ease-out", willChange: "transform" }}
-        className="cursor-default"
-      >
+      <div className="cursor-default">
         <h1
           className="text-3xl md:text-5xl lg:text-6xl text-foreground mb-4 text-center font-(--font-heading) tracking-tight text-balance animate-rise leading-[1.1]"
           style={{ animationDelay: "0.3s" }}
@@ -128,23 +126,9 @@ export function LandingHero({
         className="flex flex-wrap items-center justify-center gap-2.5 mb-8 animate-fade-up"
         style={{ animationDelay: "0.5s" }}
       >
-        {categories.map((cat, i) => {
+        {categories.map((cat) => {
           const Icon = cat.icon
           const isActive = selectedCategory === cat.id
-          const hoverColors = [
-            "hover:border-sky-500/40 hover:shadow-sky-500/10",
-            "hover:border-violet-500/40 hover:shadow-violet-500/10",
-            "hover:border-amber-500/40 hover:shadow-amber-500/10",
-            "hover:border-rose-500/40 hover:shadow-rose-500/10",
-            "hover:border-emerald-500/40 hover:shadow-emerald-500/10",
-          ]
-          const iconHoverColors = [
-            "group-hover:text-sky-400",
-            "group-hover:text-violet-400",
-            "group-hover:text-amber-400",
-            "group-hover:text-rose-400",
-            "group-hover:text-emerald-400",
-          ]
           return (
             <button
               key={cat.id}
@@ -153,22 +137,21 @@ export function LandingHero({
                 const newVal = isActive ? null : cat.id
                 pickCategory(newVal)
               }}
-              className={`group relative flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-all duration-300 cursor-pointer hover:-translate-y-0.5 hover:shadow-lg ${
+              className={`group relative flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-colors duration-200 cursor-pointer ${
                 isActive
-                  ? "bg-primary/12 border-primary/40 text-foreground shadow-lg shadow-primary/5 -translate-y-0.5"
-                  : `bg-secondary/50 border-border/30 text-muted-foreground hover:text-foreground hover:bg-secondary/70 ${hoverColors[i]}`
+                  ? "bg-primary/10 border-primary/40 text-foreground"
+                  : "bg-secondary/50 border-border/30 text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-secondary/70"
               }`}
             >
               <Icon
-                className={`w-4 h-4 shrink-0 transition-all duration-300 ${
-                  isActive ? "text-primary" : `text-muted-foreground ${iconHoverColors[i]}`
-                } group-hover:scale-110`}
+                className={`w-4 h-4 shrink-0 transition-colors duration-200 ${
+                  isActive ? "text-primary" : "text-muted-foreground group-hover:text-primary"
+                }`}
               />
               <div className="flex flex-col items-start">
                 <span className="text-sm font-medium leading-tight">{cat.label}</span>
                 <span className="text-[10px] text-muted-foreground leading-tight">{cat.description}</span>
               </div>
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-current scale-0 group-hover:scale-100" />
             </button>
           )
         })}
@@ -288,18 +271,6 @@ export function LandingHero({
         </div>
       </div>
 
-      {onPlayIntro && (
-        <button
-          type="button"
-          onClick={onPlayIntro}
-          className="mt-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline transition-colors animate-fade-up"
-          style={{ animationDelay: "0.65s" }}
-        >
-          <Play className="w-3 h-3" aria-hidden="true" />
-          Ny h&auml;r? Se intron (ca 2 min)
-        </button>
-      )}
-
       {expandedContent && (
         <div className="w-full flex justify-center mt-8 animate-fade-up">
           {expandedContent}
@@ -324,13 +295,6 @@ export function LandingHero({
             </span>
           </div>
         ))}
-      </div>
-
-      <div className="mt-12 animate-fade-up opacity-40" style={{ animationDelay: "1s" }}>
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Scrolla ner</span>
-          <ChevronDown className="w-4 h-4 text-muted-foreground animate-bounce" />
-        </div>
       </div>
     </section>
   )
