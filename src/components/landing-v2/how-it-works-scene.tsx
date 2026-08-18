@@ -1,7 +1,17 @@
 "use client"
 
 import { Canvas, useFrame } from "@react-three/fiber"
-import { Float, PerspectiveCamera, RoundedBox } from "@react-three/drei"
+import {
+  ContactShadows,
+  Environment,
+  Float,
+  Lightformer,
+  PerspectiveCamera,
+  RoundedBox,
+  Sparkles,
+} from "@react-three/drei"
+import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing"
+import { BlendFunction, KernelSize } from "postprocessing"
 import {
   useEffect,
   useMemo,
@@ -37,6 +47,13 @@ const TOTAL_STEPS = 5
 
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3)
+}
+
+/** Mjuk overshoot — dioramat "landar" med en liten studs när det växer in. */
+function easeOutBack(t: number): number {
+  const c1 = 1.70158
+  const c3 = c1 + 1
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
 }
 
 /* ─────────────────────────── byggblock ─────────────────────────── */
@@ -493,16 +510,20 @@ function FocusStage({ activeStep }: { activeStep: number }) {
       if (group) group.visible = i === shownRef.current
     })
 
-    const s = easeOutCubic(THREE.MathUtils.clamp(swapRef.current, 0, 1))
+    const raw = THREE.MathUtils.clamp(swapRef.current, 0, 1)
+    const s = easeOutCubic(raw)
+    const pop = easeOutBack(raw)
     if (outerRef.current) {
-      outerRef.current.scale.setScalar(0.2 + 0.8 * s)
-      outerRef.current.rotation.y = (1 - s) * 1.15
-      outerRef.current.position.y = (1 - s) * -0.3
+      outerRef.current.scale.setScalar(0.35 + 0.65 * pop)
+      outerRef.current.rotation.y = (1 - s) * 1.4
+      outerRef.current.position.y = (1 - s) * -0.45
     }
     if (innerRef.current) {
       const t = state.clock.getElapsedTime()
-      innerRef.current.rotation.y = Math.sin(t * 0.5) * 0.32
-      innerRef.current.rotation.x = Math.sin(t * 0.4) * 0.05
+      innerRef.current.rotation.y = Math.sin(t * 0.5) * 0.34
+      innerRef.current.rotation.x = Math.sin(t * 0.4) * 0.06
+      // Mjuk "andning" så scenen aldrig känns helt stilla.
+      innerRef.current.position.y = Math.sin(t * 0.8) * 0.04
     }
   })
 
@@ -559,8 +580,42 @@ function PipelineScene({ activeStep }: { activeStep: number }) {
       <pointLight position={[0, -2.6, 4]} intensity={6} color={GREEN} distance={18} />
       <directionalLight position={[2, 5, 4]} intensity={0.5} color="#ffffff" />
 
+      {/* Studio-reflektioner (utan externa assets) — ger liv åt metall-ytorna. */}
+      <Environment resolution={256}>
+        <Lightformer intensity={2.2} color={ACCENT} position={[2.5, 3, 4]} scale={[6, 6, 1]} form="rect" />
+        <Lightformer intensity={1.4} color="#38bdf8" position={[-4, 1, 3]} scale={[5, 5, 1]} form="rect" />
+        <Lightformer intensity={1.2} color={GREEN_SOFT} position={[0, -3, 3]} scale={[8, 3, 1]} form="rect" />
+        <Lightformer intensity={0.9} color="#ffffff" position={[0, 4, -3]} scale={[10, 3, 1]} form="rect" />
+      </Environment>
+
+      {/* Atmosfär: mjukt svävande partiklar som ger djup. */}
+      <Sparkles count={46} scale={[7, 5, 5]} size={2.4} speed={0.32} opacity={0.55} color={ACCENT} noise={1.2} />
+      <Sparkles count={18} scale={[6, 4, 4]} size={4} speed={0.18} opacity={0.35} color={GREEN_SOFT} />
+
+      {/* Skugga så dioramat vilar mot piedestalen istället för att sväva platt. */}
+      <ContactShadows
+        position={[0, -1.72, 0]}
+        opacity={0.5}
+        scale={9}
+        blur={2.6}
+        far={4.5}
+        resolution={512}
+        color="#02040a"
+      />
+
       <Pedestal activeStep={activeStep} />
       <FocusStage activeStep={activeStep} />
+
+      <EffectComposer enableNormalPass={false}>
+        <Bloom
+          intensity={1.15}
+          luminanceThreshold={0.22}
+          luminanceSmoothing={0.9}
+          mipmapBlur
+          kernelSize={KernelSize.LARGE}
+        />
+        <Vignette offset={0.32} darkness={0.7} blendFunction={BlendFunction.NORMAL} />
+      </EffectComposer>
     </>
   )
 }
