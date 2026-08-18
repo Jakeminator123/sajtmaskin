@@ -144,17 +144,40 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
   // låsa bakgrundsscrollen, flytta in tangentbordsfokus vid mount, hålla
   // Tab-cykeln inne i dialogen och lämna tillbaka fokus när den stängs.
   useEffect(() => {
-    const dialog = dialogRef.current
+    // Läs alltid dialognoden via ref:en i stället för en mount-closure:
+    // 3D-kortets suspense/init kan få React att byta ut dialog-DOM:en efter
+    // mount, och då pekar en fångad nod på ett urkopplat element.
+    const getDialog = () => dialogRef.current
+    // body räknas inte som "tidigare fokus": att återställa till body vid
+    // cleanup skulle ångra dialogens egen fokusering (StrictMode kör
+    // mount→cleanup→mount i dev, och då blev kortets knapp av-fokuserad).
     const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null
+      document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+        ? document.activeElement
+        : null
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = "hidden"
 
     const focusables = () =>
-      Array.from(dialog?.querySelectorAll<HTMLElement>("button, a[href]") ?? []).filter(
+      Array.from(getDialog()?.querySelectorAll<HTMLElement>("button, a[href]") ?? []).filter(
         (el) => !el.hasAttribute("disabled"),
       )
-    focusables()[0]?.focus()
+    // Fokusera med omtag: 3D-kortets texturladdning suspenderar trädet
+    // (dynamic-boundaryn ligger ovanför), och React kopplar då tillfälligt ur
+    // dialog-DOM:en — fokus faller till body, focus() är ett tyst no-op och
+    // effekterna körs INTE om när noden sätts tillbaka. Försök därför tills
+    // noden är tillbaka och fokuset faktiskt fastnat i dialogen (max ~5 s).
+    let focusTimer: number | undefined
+    let focusTries = 0
+    const focusIntoDialog = () => {
+      const dialog = getDialog()
+      if (dialog?.isConnected) {
+        if (!dialog.contains(document.activeElement)) focusables()[0]?.focus()
+        if (dialog.contains(document.activeElement)) return
+      }
+      if (focusTries++ < 50) focusTimer = window.setTimeout(focusIntoDialog, 100)
+    }
+    focusIntoDialog()
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Tab") return
@@ -163,7 +186,7 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
       const first = els[0]
       const last = els[els.length - 1]
       const active = document.activeElement
-      const inside = dialog?.contains(active) ?? false
+      const inside = getDialog()?.contains(active) ?? false
       if (event.shiftKey) {
         if (!inside || active === first) {
           event.preventDefault()
@@ -174,9 +197,25 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
         first.focus()
       }
     }
+    // Fokusvakt: om fokus lämnar dialogen utan nytt mål i den (blur till
+    // body eller DOM-byte från 3D-kortets init) dras det tillbaka. Refokus
+    // skjuts upp en tick — mitt i fokusbytet ignorerar Chrome focus()-anrop
+    // från focusout-handlers. Lyssnaren ligger på document (capture) så den
+    // överlever att dialognoden byts ut.
+    const onFocusOut = () => {
+      // En tick senare — mitt i fokusbytet ignorerar Chrome focus()-anrop
+      // från focusout-handlers.
+      setTimeout(() => {
+        focusTries = 0
+        focusIntoDialog()
+      }, 0)
+    }
     document.addEventListener("keydown", onKeyDown, true)
+    document.addEventListener("focusout", onFocusOut, true)
     return () => {
+      window.clearTimeout(focusTimer)
       document.removeEventListener("keydown", onKeyDown, true)
+      document.removeEventListener("focusout", onFocusOut, true)
       document.body.style.overflow = prevOverflow
       previouslyFocused?.focus()
     }
