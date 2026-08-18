@@ -591,8 +591,14 @@
     {
       "key": "NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview"],
-      "notes": "Opt-in, DEFAULT OFF. Enables the Fas 1 \"Beskriv\" discovery route POST /api/shadcn/describe (plan 2026-07-22-shadcn-registry-beskriv-komposition.md). The route translates a free-text description into registry search queries, searches the official + community registries over HTTP and ranks real matches; it writes NOTHING to the user site. Flag off = the route returns 404 and no new code path runs (zero behavior change). Reuses existing OPENAI_API_KEY / ANTHROPIC_API_KEY via src/lib/models/*; no new secret. NEXT_PUBLIC_ prefix is required so the builder client can gate the UI, and it inlines at build so a new deploy is needed to flip it in prod. Read via isShadcnDescribeEnabled (src/lib/shadcn/describe-feature.ts)."
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Opt-in, code default OFF. Vercel is set to 1 in development, preview and production (CLI-verified 2026-08-18). Enables the Fas 1 \"Beskriv\" discovery route POST /api/shadcn/describe (plan 2026-07-22-shadcn-registry-beskriv-komposition.md). The route translates a free-text description into registry search queries, searches the official + community registries over HTTP and ranks real matches; it writes NOTHING to the user site. Flag off = the route returns 404 and no new code path runs (zero behavior change). Reuses existing OPENAI_API_KEY / ANTHROPIC_API_KEY via src/lib/models/*; no new secret. NEXT_PUBLIC_ prefix is required so the builder client can gate the UI, and it inlines at build so a new deploy is needed to flip it. Read via isShadcnDescribeEnabled (src/lib/shadcn/describe-feature.ts)."
+    },
+    {
+      "key": "NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Opt-in, code default OFF. Vercel is set to 1 in development, preview and production (CLI-verified 2026-08-18, readable/non-sensitive). Enables the tabbed Add panel (Block / Bläddra / Beskriv). Block = eight curated @shadcnblocks shortcuts; Bläddra = official shadcn/ui + Marknadsblock index; Beskriv also needs NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE. Insert goes through own-engine (shadcn-insert.ts), never raw file patch. Flag off = standalone Composer palette with local snippets. Read via isAddPanelEnabled (src/lib/builder/add-panel-feature.ts)."
     },
     {
       "key": "NEXT_PUBLIC_AVATAR_AGENT_ID",

@@ -27,7 +27,7 @@ import { PreviewPanelDescribeTab } from "./PreviewPanelDescribeTab";
  * paletten när flaggan är av.
  *
  * Del av plan: `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md`
- * (Fas 2 v1 + Fas 3) + `docs/plans/active/2026-08-14-block-browse-shadcnblocks.md`.
+ * (Fas 2 v1 + Fas 3). Block/Marknadsblock levererat i #994 (`72abd4b53`).
  */
 
 type AddPanelTab = "block" | "browse" | "describe";
