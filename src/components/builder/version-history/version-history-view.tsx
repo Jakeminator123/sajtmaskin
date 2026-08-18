@@ -535,6 +535,15 @@ export function VersionHistory({
                             </Badge>
                           );
                         })()}
+                        {version.editKind === "imported_repo" && (
+                          <Badge
+                            variant="outline"
+                            className="border-teal-500/40 bg-teal-500/10 px-1.5 py-0 text-[10px] text-teal-700 dark:text-teal-300"
+                            title="Importerad basversion — templaten/repot importerades ordagrant (verbatim), ingen AI-generering. Nästa prompt bygger vidare på den."
+                          >
+                            Importerad
+                          </Badge>
+                        )}
                         <Badge
                           variant={lifecycleBadge.variant}
                           className={cn("gap-1 px-1.5 py-0 text-[10px]", lifecycleBadge.className)}

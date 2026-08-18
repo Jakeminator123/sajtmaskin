@@ -162,7 +162,7 @@ async function persistTemplateProjectData(params: {
 // Advisory user-facing copy when the import succeeded but the preview VM
 // never booted. Vendor-neutral by design (no host/provider names).
 const PREVIEW_START_FAILED_MESSAGE =
-  "Mallen importerades, men förhandsvisningen kunde inte startas just nu. Försök igen om en stund.";
+  "Templaten importerades, men förhandsvisningen kunde inte startas just nu. Försök igen om en stund.";
 
 async function initializeLocalTemplateProject(params: {
   projectId: string;
@@ -221,7 +221,11 @@ async function initializeLocalTemplateProject(params: {
     getTemplateCatalogItemById(template.id)?.buildIntent === "app" ? "app" : "template";
 
   const chat = await chatRepo.createChat(projectId, String(engineModel));
-  const assistantSummary = "Välkommen. Här är en template som vi utgår från.";
+  // The imported base version is NOT an AI-generated "version 1": say so.
+  // The copy sets the user's mental model for the whole chat — the template's
+  // own stack/file tree is authoritative and the first real prompt is a
+  // follow-up edit on it (imported repo mode), never a fresh scaffold init.
+  const assistantSummary = `Välkommen! Templaten "${template.title}" importerades som basversion — dess egen kodstruktur och paketversioner behålls som de är. Skriv vad du vill ändra så bygger vi vidare på den.`;
   const assistantMessage = await chatRepo.addMessage(chat.id, "assistant", assistantSummary);
   const files = toLegacyTemplateFiles(preparedFiles);
   const version = await chatRepo.createDraftVersion(
@@ -329,7 +333,7 @@ async function initializeLocalTemplateProject(params: {
             versionId: version.id,
             level: "warning",
             category: "preview",
-            message: `Importerad mall använder icke-deterministisk render (${hydrationIssues
+            message: `Importerad template använder icke-deterministisk render (${hydrationIssues
               .map((i) => i.pattern)
               .join(", ")}) och kan ge hydration-fel i previewn.`,
             meta: {
@@ -467,7 +471,7 @@ export async function POST(request: NextRequest) {
               templateId,
               recoverable: true,
               error:
-                "Den här v0-mallen finns varken lokalt eller i Blob-manifestet och kan därför inte startas som repo i VM-previewn.",
+                "Den här v0-templaten finns varken lokalt eller i Blob-manifestet och kan därför inte startas som repo i VM-previewn.",
             },
             { status: 409 },
           ),
@@ -488,7 +492,7 @@ export async function POST(request: NextRequest) {
         resolvedRequestedProjectId ??
         (
           await createAppProject(
-            `Mall: ${templateMeta.title}`,
+            `Template: ${templateMeta.title}`,
             "template",
             `Own-engine startmall for ${templateMeta.title}`,
             user ? undefined : sessionId || undefined,
