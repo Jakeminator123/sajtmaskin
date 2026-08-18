@@ -67,8 +67,8 @@ function Band({ maxSpeed = 50, minSpeed = 10 }: BandProps) {
   useEffect(() => {
     texture.colorSpace = THREE.SRGBColorSpace
     texture.center.set(0.5, 0.5)
-    texture.repeat.set(0.56, 1)
-    texture.offset.set(0.22, 0)
+    texture.repeat.set(0.74, 1)
+    texture.offset.set(0.13, 0)
     texture.needsUpdate = true
   }, [texture])
 
