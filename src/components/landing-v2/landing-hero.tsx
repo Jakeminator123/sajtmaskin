@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
 import { categories, longestSiteType, stats } from "@/components/landing-v2/landing-chat-data"
 
-// Fysikdriven 3D-lanyard — laddas endast i webbläsaren (ingen SSR).
-const LanyardCard = dynamic(
-  () => import("@/components/landing-v2/lanyard-card").then((m) => m.LanyardCard),
+// Cookie-samtycke som flippar till det fysikdrivna 3D-nyckelbandet.
+// Laddas endast i webbläsaren (ingen SSR).
+const LanyardExperience = dynamic(
+  () => import("@/components/landing-v2/lanyard-experience").then((m) => m.LanyardExperience),
   { ssr: false },
 )
 import type { ChatAreaProps, LandingController } from "@/components/landing-v2/use-landing-controller"
@@ -58,7 +59,7 @@ export function LandingHero({
         className="pointer-events-auto -mt-6 mb-1 w-full max-w-[420px] shrink-0 md:-mt-10"
         style={{ height: "clamp(300px, 40vh, 400px)" }}
       >
-        <LanyardCard className="h-full" />
+        <LanyardExperience className="h-full" />
       </div>
 
       <div
