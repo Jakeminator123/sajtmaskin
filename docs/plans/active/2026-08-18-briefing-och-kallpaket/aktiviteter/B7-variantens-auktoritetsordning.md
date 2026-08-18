@@ -158,7 +158,7 @@ Regressionsskydd:
 |---|---|
 | Byggval Stil | Uttryckligt val vinner över brief och embeddings |
 | Byggval sajttyp | Explicit scaffold oförändrad |
-| Enkla hemsidevägen | Ingen brief → deterministiskt variantval, ingen ny LLM-runda |
+| Brief saknas ändå (klientbrief-fel, teknisk prompt, `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF=1`) | Deterministiskt variantval utan att B7 framtvingar en ny LLM-runda. **Inte** «enkla hemsidevägen» — den finns inte längre efter B8 |
 | Uppföljning neutral | Fryst variant behålls |
 | `clear-redesign` | Låset släpper som i dag |
 
