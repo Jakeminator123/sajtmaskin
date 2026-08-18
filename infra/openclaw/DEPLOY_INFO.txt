@@ -76,7 +76,6 @@ Recommended / instance-specific:
 Optional environment variables (have safe defaults):
 - OPENCLAW_GATEWAY_PORT=10000
 - OPENCLAW_GATEWAY_BIND=lan
-- OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH=false
 - OPENCLAW_HEARTBEAT_EVERY=0m  (heartbeat OFF by default; with no chat channel
   configured the 30m default only burned OpenAI credits — 2026-08-17. Set e.g.
   30m only after wiring a delivery channel for the alerts.)
@@ -103,6 +102,10 @@ Optional environment variables (have safe defaults):
 Notes:
 - Do not manually set PORT unless you have a specific reason.
 - Port resolution order: PORT -> OPENCLAW_GATEWAY_PORT -> 18789
+- The Dockerfile pins the verified OpenClaw package version. Upgrade that pin
+  in a dedicated PR; do not replace it with `latest`.
+- Browser device auth uses OpenClaw's secure default. The retired
+  OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH env is ignored by the entrypoint.
 
 
 4) App (Vercel) Environment Variables
@@ -232,6 +235,16 @@ Fix:     Paste OPENCLAW_GATEWAY_TOKEN into the dashboard and press Connect.
          request with an Authorization: Bearer header — a disconnected
          dashboard never explains a silent agent.
 
+Symptom: The token is accepted but the Control UI says "Device pairing
+         required", or approval says "No pending device request matches".
+Cause:   A new browser profile needs one explicit approval. Pending request IDs
+         expire and a retry can supersede the previous ID.
+Fix:     Keep the browser's pairing error open, then immediately run in Render
+         Shell:
+           openclaw devices list --json
+           openclaw devices approve <current-requestId>
+         Press Connect again. Never approve an ID copied from an old screenshot.
+
 Symptom: "Proxy headers detected from untrusted address ... Configure
          gateway.trustedProxies to restore local client detection"
 Cause:   Render terminates TLS in front of the gateway, so the gateway will not
@@ -251,10 +264,12 @@ Fix:     Benign for the app path (token auth). Only matters if you want
 - gateway.auth.rateLimit is written explicitly even though recent OpenClaw
   versions enable it implicitly, because `security audit` only checks for the
   key and otherwise flags a non-loopback gateway on every run.
-- OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH should be "false". It guards only the
-  browser Control UI -- the app calls /v1/chat/completions with a Bearer token
-  and never touches it -- so disabling it buys the product nothing while
-  removing the second factor behind a publicly reachable dashboard.
+- Browser device auth stays at OpenClaw's secure default. The app calls
+  /v1/chat/completions with a Bearer token and never touches the Control UI, so
+  bypassing pairing buys the product nothing while removing the second factor
+  behind a publicly reachable admin surface.
+- Never paste a visible gateway token into screenshots or issues. If exposed,
+  rotate it in both Render and Vercel and redeploy/restart both sides.
 
 
 8) Customization

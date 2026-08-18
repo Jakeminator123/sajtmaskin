@@ -30,23 +30,21 @@ MODEL_FALLBACK="${OPENCLAW_MODEL_FALLBACK:-openai/gpt-5.4}"
 # with e.g. OPENCLAW_HEARTBEAT_EVERY=30m once a delivery channel exists.
 HEARTBEAT_EVERY="${OPENCLAW_HEARTBEAT_EVERY:-0m}"
 OPENCLAW_VERSION="$(openclaw --version 2>/dev/null | tr -d '\r')"
-CONTROLUI_DISABLE_DEVICE_AUTH="${OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH:-false}"
 
 # Target site URL that the agent should have broad read access to
 TARGET_SITE_URL="${SAJTAGENT_TARGET_SITE_URL:-http://localhost:3000}"
 
-case "$(echo "$CONTROLUI_DISABLE_DEVICE_AUTH" | tr '[:upper:]' '[:lower:]')" in
-  1|true|y|yes)
-    CONTROLUI_DISABLE_DEVICE_AUTH=true
-    ;;
-  *)
-    CONTROLUI_DISABLE_DEVICE_AUTH=false
-    ;;
-esac
-
 if [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ] && [ "$BIND_MODE" != "loopback" ]; then
+  if [ -n "${RENDER:-}" ]; then
+    echo "[entrypoint] ERROR: OPENCLAW_GATEWAY_TOKEN is required for a public Render gateway" >&2
+    exit 1
+  fi
   echo "[entrypoint] OPENCLAW_GATEWAY_TOKEN missing; forcing loopback bind"
   BIND_MODE="loopback"
+fi
+
+if [ -n "${OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH:-}" ]; then
+  echo "[entrypoint] WARNING: OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH is retired and ignored; remove it from service env"
 fi
 
 mkdir -p "$AGENT_DIR"
@@ -86,16 +84,48 @@ PROVIDERS_END
   echo "[entrypoint] JuiceFactory provider configured (qwen3-vl)"
 fi
 
+# Print a normalized HTTP(S) origin or fail. Using Node's URL parser avoids
+# hand-rolled JSON escaping and catches the common Render mistake where the
+# value field contains a whole `KEY=https://...` assignment.
+normalize_origin() {
+  node -e '
+    const raw = process.argv[1];
+    const originOnly = process.argv[2] === "origin-only";
+    try {
+      const url = new URL(raw);
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) {
+        process.exit(1);
+      }
+      if (originOnly && (url.pathname !== "/" || url.search || url.hash)) {
+        process.exit(1);
+      }
+      process.stdout.write(url.origin);
+    } catch {
+      process.exit(1);
+    }
+  ' "$1" "${2:-}"
+}
+
+json_string() {
+  node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$1"
+}
+
+TARGET_SITE_ORIGIN="$(normalize_origin "$TARGET_SITE_URL")" || {
+  echo "[entrypoint] ERROR: SAJTAGENT_TARGET_SITE_URL must be an absolute HTTP(S) URL" >&2
+  exit 1
+}
+GATEWAY_TOKEN_JSON="$(json_string "${OPENCLAW_GATEWAY_TOKEN:-}")"
+
 # Build the controlUi.allowedOrigins list entirely from env so a NEW
 # deployment hostname works without any code change:
 #   - http://localhost:3000 is always kept for local development
-#   - SAJTAGENT_TARGET_SITE_URL is added when set
+#   - the origin derived from SAJTAGENT_TARGET_SITE_URL is added when set
 #   - SAJTAGENT_ALLOWED_ORIGINS is a comma-separated list of extra origins
 # Blank entries and duplicates are dropped; the result is emitted as the
 # JSON array body (comma-separated, quoted) for openclaw.json.
 ALLOWED_ORIGINS_RAW="http://localhost:3000"
-if [ -n "${TARGET_SITE_URL:-}" ]; then
-  ALLOWED_ORIGINS_RAW="${ALLOWED_ORIGINS_RAW},${TARGET_SITE_URL}"
+if [ -n "${TARGET_SITE_ORIGIN:-}" ]; then
+  ALLOWED_ORIGINS_RAW="${ALLOWED_ORIGINS_RAW},${TARGET_SITE_ORIGIN}"
 fi
 if [ -n "${SAJTAGENT_ALLOWED_ORIGINS:-}" ]; then
   ALLOWED_ORIGINS_RAW="${ALLOWED_ORIGINS_RAW},${SAJTAGENT_ALLOWED_ORIGINS}"
@@ -110,6 +140,11 @@ for origin in $ALLOWED_ORIGINS_RAW; do
   if [ -z "$origin" ]; then
     continue
   fi
+  normalized_origin="$(normalize_origin "$origin" origin-only)" || {
+    echo "[entrypoint] ERROR: control UI origins must not contain paths, queries, or fragments: ${origin}" >&2
+    exit 1
+  }
+  origin="$normalized_origin"
   case "$ORIGIN_SEEN" in
     *"|${origin}|"*)
       continue
@@ -164,7 +199,7 @@ cat > "$CONFIG_FILE" <<EOF
     "bind": "${BIND_MODE}",
     "auth": {
       "mode": "token",
-      "token": "${OPENCLAW_GATEWAY_TOKEN}",
+      "token": ${GATEWAY_TOKEN_JSON},
       "rateLimit": {
         "maxAttempts": 10,
         "windowMs": 60000,
@@ -174,7 +209,6 @@ cat > "$CONFIG_FILE" <<EOF
     },
     "controlUi": {
       "enabled": true,
-      "dangerouslyDisableDeviceAuth": ${CONTROLUI_DISABLE_DEVICE_AUTH},
       "allowedOrigins": [
         ${ALLOWED_ORIGINS_JSON}
       ]
@@ -219,7 +253,10 @@ echo "[entrypoint] Config written — model=${MODEL_PRIMARY}, fallbacks=[${MODEL
 echo "[entrypoint] OpenClaw version: ${OPENCLAW_VERSION:-unknown}"
 echo "[entrypoint] Target site: ${TARGET_SITE_URL}"
 echo "[entrypoint] controlUi.allowedOrigins: [${ALLOWED_ORIGINS_JSON}]"
-echo "[entrypoint] controlUi.dangerouslyDisableDeviceAuth=${CONTROLUI_DISABLE_DEVICE_AUTH}"
+echo "[entrypoint] Control UI device auth: enabled (OpenClaw secure default)"
+echo "[entrypoint] First browser connect: paste the gateway token, then run 'openclaw devices list --json' in Render Shell"
+echo "[entrypoint] Approve only the current request with 'openclaw devices approve <requestId>'; pending IDs expire or can be superseded"
+echo "[entrypoint] Render's untrusted proxy-header warning is expected with token auth and is not a device-pairing failure"
 
 if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
   exec openclaw gateway --port "${LISTEN_PORT}" --bind "${BIND_MODE}" --token "${OPENCLAW_GATEWAY_TOKEN}" --allow-unconfigured

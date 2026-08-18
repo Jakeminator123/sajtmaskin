@@ -51,13 +51,10 @@ services:
       # channel (Telegram/Discord) for the alerts.
       - key: OPENCLAW_HEARTBEAT_EVERY
         value: "0m"
-      # Device auth only guards the browser Control UI. The app never touches it
-      # — src/app/api/openclaw/chat/route.ts calls /v1/chat/completions with a
-      # Bearer token — so leaving it on costs the product nothing, while turning
-      # it off removes the second factor behind a publicly reachable dashboard.
-      # `openclaw security audit` reports the disabled state as critical.
-      - key: OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH
-        value: "false"
+      # Browser device auth is intentionally left at OpenClaw's secure default.
+      # A new browser profile must be approved once from Render Shell; see
+      # docs/runbooks/openclaw-gateway.md. Do not restore the retired
+      # OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH break-glass flag.
     disk:
       name: openclaw-sajtagenten-data
       mountPath: /root/.openclaw

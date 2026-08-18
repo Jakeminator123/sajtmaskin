@@ -17,6 +17,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const ENTRYPOINT = path.join(REPO_ROOT, "infra", "openclaw", "docker-entrypoint.sh");
+const DOCKERFILE = path.join(REPO_ROOT, "infra", "openclaw", "Dockerfile");
 
 /** Git-for-Windows `sh` needs forward slashes; a no-op on POSIX. */
 function toShellPath(value: string): string {
@@ -48,10 +49,14 @@ function resolveShell(): PosixShell | null {
       : [{ path: "/bin/sh", toolDirs: [] }];
   for (const candidate of candidates) {
     try {
-      execFileSync(candidate.path, ["-c", "command -v tr >/dev/null && command -v sed >/dev/null"], {
-        env: { NODE_ENV: process.env.NODE_ENV ?? "test", PATH: buildShellPath(candidate) },
-        stdio: "ignore",
-      });
+      execFileSync(
+        candidate.path,
+        ["-c", "command -v tr >/dev/null && command -v sed >/dev/null"],
+        {
+          env: { NODE_ENV: process.env.NODE_ENV ?? "test", PATH: buildShellPath(candidate) },
+          stdio: "ignore",
+        },
+      );
       return candidate;
     } catch {
       // try the next candidate
@@ -85,12 +90,18 @@ interface GeneratedConfig {
     mode: string;
     auth: {
       mode: string;
+      token: string;
       rateLimit: {
         maxAttempts: number;
         windowMs: number;
         lockoutMs: number;
         exemptLoopback: boolean;
       };
+    };
+    controlUi: {
+      enabled: boolean;
+      allowedOrigins: string[];
+      dangerouslyDisableDeviceAuth?: boolean;
     };
     http: { endpoints: { chatCompletions: { enabled: boolean } } };
   };
@@ -137,6 +148,14 @@ function bootAndReadConfig(env: Record<string, string>): GeneratedConfig {
 // Each case boots the real entrypoint in `sh`; on Windows a single boot can
 // take 3–6 s, so the default 5 s per-test timeout is too tight.
 describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_000 }, () => {
+  it("pins the OpenClaw package used by production rebuilds", () => {
+    const dockerfile = readFileSync(DOCKERFILE, "utf8");
+    const versionPin = dockerfile.match(/^ARG OPENCLAW_VERSION=(.+)$/m)?.[1];
+
+    expect(versionPin).toMatch(/^2026\.\d+\.\d+(?:-\d+)?$/);
+    expect(dockerfile).not.toMatch(/ARG OPENCLAW_VERSION=(?:latest|next|beta)\b/);
+  });
+
   it("emits the documented defaults when no model env is set", () => {
     const config = bootAndReadConfig({});
 
@@ -226,5 +245,61 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
       "https://example.test",
       "https://staging.example.test",
     ]);
+  });
+
+  it("derives an origin from a target URL path", () => {
+    const config = bootAndReadConfig({
+      SAJTAGENT_TARGET_SITE_URL: "https://example.test/a/path?preview=1",
+    });
+
+    expect(config.gateway.controlUi.allowedOrigins).toEqual([
+      "http://localhost:3000",
+      "https://example.test",
+    ]);
+  });
+
+  it("rejects malformed extra origins instead of writing broken JSON", () => {
+    expect(() =>
+      bootAndReadConfig({
+        SAJTAGENT_ALLOWED_ORIGINS: "SAJTAGENT_ALLOWED_ORIGINS=https://example.test",
+      }),
+    ).toThrow();
+  });
+
+  it("normalizes valid origin casing and default ports", () => {
+    const config = bootAndReadConfig({
+      SAJTAGENT_ALLOWED_ORIGINS: "HTTPS://EXAMPLE.test:443,http://LOCALHOST:80/",
+    });
+
+    expect(config.gateway.controlUi.allowedOrigins).toEqual([
+      "http://localhost:3000",
+      "https://example.test",
+      "http://localhost",
+    ]);
+  });
+
+  it("keeps browser device auth on without writing the retired bypass key", () => {
+    const config = bootAndReadConfig({
+      OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH: "true",
+    });
+
+    expect(config.gateway.controlUi.enabled).toBe(true);
+    expect(config.gateway.controlUi).not.toHaveProperty("dangerouslyDisableDeviceAuth");
+  });
+
+  it("JSON-escapes a gateway token before writing config", () => {
+    const token = 'quote"and\\backslash';
+    const config = bootAndReadConfig({ OPENCLAW_GATEWAY_TOKEN: token });
+
+    expect(config.gateway.auth.token).toBe(token);
+  });
+
+  it("fails fast on Render when the shared gateway token is missing", () => {
+    expect(() =>
+      bootAndReadConfig({
+        RENDER: "true",
+        OPENCLAW_GATEWAY_TOKEN: "",
+      }),
+    ).toThrow();
   });
 });

@@ -11,9 +11,12 @@ RUN git config --global --add url."https://github.com/".insteadOf "ssh://git@git
  && git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com" \
  && git config --global --add url."https://github.com/".insteadOf "git@github.com:"
 
-# Install OpenClaw — skip node-llama-cpp build (gateway uses hosted model APIs)
+# Install the last version verified by this repo. Do not use `latest` here:
+# rebuilding an unchanged commit must not silently change gateway auth/config
+# semantics. Upgrade this pin in a dedicated PR after the entrypoint contract
+# test and the Render smoke checklist pass.
 ENV NODE_LLAMA_CPP_SKIP_DOWNLOAD=true
-ARG OPENCLAW_VERSION=latest
+ARG OPENCLAW_VERSION=2026.7.1-2
 RUN npm install -g "openclaw@${OPENCLAW_VERSION}" --ignore-scripts \
  && openclaw --version
 
