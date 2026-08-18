@@ -51,9 +51,7 @@ export function usePreviewPanelDossiersController({
   // the `detail.versionId !== activeVersionId` guard useBuilderVmPreview.ts
   // already applies to the same dispatchProjectEnvVarsUpdated event.
   const latestOverviewKeyRef = useRef(overviewKey);
-  useEffect(() => {
-    latestOverviewKeyRef.current = overviewKey;
-  }, [overviewKey]);
+  latestOverviewKeyRef.current = overviewKey;
 
   // Tracks the single in-flight request so a newer load (e.g. a post-save
   // refetch) aborts an earlier one. Without this, a slow initial load could
@@ -180,15 +178,14 @@ export function usePreviewPanelDossiersController({
   const confirmInFlightRef = useRef(false);
   const [pickedEntry, setPickedEntry] = useState<DossierCatalogEntry | null>(null);
   const pickedEntryRef = useRef<DossierCatalogEntry | null>(null);
+  pickedEntryRef.current = pickedEntry;
   const [stagingConfirmed, setStagingConfirmed] = useState(false);
   const [stagingConfirming, setStagingConfirming] = useState(false);
-  useEffect(() => {
-    pickedEntryRef.current = pickedEntry;
-  }, [pickedEntry]);
 
   const resetCatalogStaging = useCallback(() => {
     pickInFlightRef.current = false;
     confirmInFlightRef.current = false;
+    pickedEntryRef.current = null;
     setPickedEntry(null);
     setStagingConfirmed(false);
     setStagingConfirming(false);
