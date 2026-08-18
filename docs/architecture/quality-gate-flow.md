@@ -53,6 +53,15 @@ Aktuella checklistor per lane ägs av
    `tier3_env_not_ready`; `product_postcheck_blocked` från F2-föräldern
    via `productPostcheckVersionId` → 409) innan VM-ReleaseGate.
 3. **Efter repair** — både `server-verify` och `/repair` re-kör samma gate.
+4. **Browser-resume** (`useResumePendingVerification`): strandade F2-drafts
+   och **importerade basversioner** (`edit_kind="imported_repo"` —
+   template/ZIP/GitHub) körs genom den explicita routen vid nästa
+   builder-besök. Importlanen (2026-08-18) är importens enda
+   verifieringslivscykel: kortare åldersgrind (90 s), ingen
+   bildvalidering (verbatim-kontraktet) och gaten kör på verbatim-exporten
+   (`chatUsesVerbatimRepo`). Utfall: pass → promotad ("Verifierad"),
+   advisory-säkra typfel → promotad med varningar, render-risk/installfel →
+   `failed`.
 
 F3 (`previewPolicy: "fidelity3"`) ägs av serverns post-finalize
 `triggerServerVerification`, utom den deterministiska F3-forken där klientens

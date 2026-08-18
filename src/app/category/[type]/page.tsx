@@ -371,11 +371,11 @@ export default function CategoryPage() {
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <Layout className="text-brand-teal h-5 w-5" />
-                <h2 className="text-lg font-semibold text-white">Mallar</h2>
-                <HelpTooltip text="Färdiga mallar. Klicka för att starta just den mallen i buildern." />
+                <h2 className="text-lg font-semibold text-white">Templates</h2>
+                <HelpTooltip text="Färdiga templates. Klicka för att starta just den templaten i buildern." />
               </div>
               <p className="mb-4 text-xs leading-relaxed text-gray-400">
-                Alla mallar här är kompletta och går att starta direkt i förhandsgranskningen.
+                Alla templates här är kompletta projekt och går att starta direkt i förhandsgranskningen.
               </p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -468,7 +468,7 @@ function V0TemplateCard({
                 {template.title || template.id}
               </h3>
               <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-300">
-                Mall
+                Template
               </span>
             </div>
             <p className="text-[11px] leading-relaxed text-gray-400">

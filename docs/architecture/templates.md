@@ -1,8 +1,10 @@
 # Templates (v0-mallar) — canonical flow
 
-Hur "Templates" (builderns Mallar-tab / förstasidan → **Templates** → kategori) faktiskt existerar och används. Detta är en **helt annan väg** än fritext-generering: en importerad mall är ett färdigt v0-repo som körs **ordagrant (verbatim)**, medan fritext-sajter genereras av `own-engine` mot en fast scaffold-baseline.
+Hur "Templates" (förstasidan → **Templates** → kategori) faktiskt existerar och används. Detta är en **helt annan väg** än fritext-generering: en importerad template är ett färdigt v0-repo som körs **ordagrant (verbatim)**, medan fritext-sajter genereras av `own-engine` mot en fast scaffold-baseline.
 
-> Kod är source of truth. Denna doc speglar runtime per 2026-07-08; verifiera mot koden vid tvekan.
+User-synlig copy säger **Template/Templates** sedan 2026-08-18 (tidigare "Mall/Mallar" — kodidentifierare, kataloggenererade kategorititlar och scripts behåller legacy-namnen per terminologiregeln).
+
+> Kod är source of truth. Denna doc speglar runtime per 2026-08-18; verifiera mot koden vid tvekan.
 
 ## 1. Två dataset, länkade via `id`
 
@@ -24,6 +26,8 @@ Båda länkas via mall-`id`. Alla tre filerna **genereras** — se §5. Klientko
   → createDraftVersion(..., editKind: "imported_repo")
   → startPreviewSession(files, { skipRepair: true, skipProjectScaffold: true })
   → preview-host (Fly VM): skriv filer → npm/pnpm/yarn install → npm run dev
+  → browser-resume (useResumePendingVerification, import lane): RenderGate verbatim
+    → basversionen settlar Verifierad / Verifierad-med-varningar / failed (se §4c)
 ```
 
 Ägare: `src/app/api/template/route.ts`, `src/app/builder/useBuilderEffects.ts`, `src/lib/templates/local-v0-template-source.ts`, `src/lib/gen/preview/preview-session.ts`.
@@ -46,10 +50,12 @@ Båda länkas via mall-`id`. Alla tre filerna **genereras** — se §5. Klientko
 | LLM vid init          | Nej                                               | Ja                                    |
 | Repair/scaffold-merge | Hoppas över (`skipRepair`, `skipProjectScaffold`) | Körs (`buildCompleteProject`)         |
 | Provenance            | `editKind: "imported_repo"`                       | normal                                |
+| Init-verifiering      | Browser-resume **import lane** (§4c)              | Klientens post-checks → RenderGate    |
 
 **Vid follow-up-redigering** av en importerad mall gäller **imported repo mode** (detekteras via `edit_kind="imported_repo"` i chattens versionshistorik, `chatHasImportedRepoVersion`):
 
 - **Orchestration:** ingen scaffold matchas eller pinnas (`scaffoldMode: "off"`, persisted/contract-scaffoldId neutraliseras), och systemprompten renderar blocket `## Imported Template Project (verbatim repo)` som instruerar LLM:en att respektera repots struktur, versioner och `package.json`.
+- **Delta-brief (`clear-redesign`):** briefen genereras fortfarande (uttrycklig ombyggnadssignal), men scaffold-/variant-pre-matchen hoppas över (2026-08-18) — utan fixen seedade keyword-`matchScaffold` briefen med en Sajtmaskin-scaffolds varianthintar, fel stack för det importerade repot (`delta-brief-phase.ts`).
 - **Importerad projektkontext:** före första preview sparas ett versionsbundet importunderlag. Vid follow-up härleds aktuell struktur från den valda föregående versionens filer och är alltid auktoritativ; underlaget får aldrig återställa senare ändringar. Se [Importerat repo-läge](glossary.md#importerat-repo-läge).
 - **Finalize:** `buildCompleteProject` + den mekaniska fixer-passen **hoppas över** — inga scaffold-filer injiceras, inga baseline-force-pins (`next`/`react`/`react-dom`/`lucide-react`), mallens lockfil förblir konsistent med dess `package.json`. Merged-syntax, degeneracy och home-route-gaten (render-safety) körs fortfarande; project-sanity-fel nedgraderas till varningar — **även i klientens post-checks** (`buildPostCheckBaseline` speglar samma downgrade via versionshistorikens `editKind`, annars fastnar versionen i draft/pending på mallens stock-filer).
 - **Dependency completion (undantag från verbatim, 2026-07-31):** `completeProjectDependencies` (`dep-completer.ts`) skannar hela projektets imports och pinnar saknade **kända** paket in i mallens egna `package.json` (aldrig ändrade versioner, aldrig okända paket). Bakgrund: en follow-up som introducerar en ny import (t.ex. `@clerk/nextjs`) utan att emittera `package.json` lämnade manifestet orört → preview-hostens dependency-fingerprint (package.json + lockfiler) oförändrat → install skippades → runtime-500 (prod chat `0d52e5c9`). Lockfilen blir då out-of-sync med manifestet, vilket preview-hostens `--no-frozen-lockfile`-fallback hanterar.
@@ -65,6 +71,36 @@ Båda länkas via mall-`id`. Alla tre filerna **genereras** — se §5. Klientko
 - **Motion lockstep-skew:** om `framer-motion` är exakt-pinnad `< 12.41.0` **utan** lockfil och utan egen `motion-dom`-deklaration injiceras `"overrides": { "motion-dom": "12.40.0" }`. Bakgrund: motion-paketen publiceras i lockstep; `motion-dom@12.41.0` tog bort interna `activeAnimations` som äldre `framer-motion` fortfarande importerar, så en färsk `npm install` ger `Export activeAnimations doesn't exist in target module` och previewn dör på boot (upstream: motiondivision/motion#3744, resend/react-email#3599). Mallar **med** lockfil lämnas orörda av denna repair (transitiva deps frysta; `npm ci` skulle avvisa en override som lockfilen inte speglar).
 
 Allt annat innehåll är fortfarande verbatim.
+
+### 4c. Import-verifiering (basversionens livscykel)
+
+Före 2026-08-18 hade den importerade basversionen **ingen** verifieringslivscykel:
+`POST /api/template` (och ZIP/GitHub-`/init`) skapade draft/pending-raden, bootade
+previewn och stannade där — och browser-resume-lanen exkluderade `imported_repo`
+uttryckligen, så raden visade "Ej verifierad" för alltid.
+
+Nu äger **importlanen** i `useResumePendingVerification` basversionens verifiering:
+
+- Kandidat: senaste raden med `editKind="imported_repo"`, `draft`/`pending`,
+  ålder ≥ 90 s (bara preview-bootens försprång — ingen ursprunglig lane finns
+  att racea) och ≤ 24 h. En för ung kandidat självschemaläggs: hooken sätter en
+  timer till exakt gränsöppningen, eftersom SWR håller deep-equal
+  `/versions`-payloads referensstabila och effekten annars aldrig re-körs i en
+  tyst importchatt.
+- Kedja: ev. preview-rehydrering → **runtime-grind** (`GET /preview-status`:
+  bara `running`/`build_error` går vidare; `starting` håller, `stopped`/`missing`
+  bootas om och håller — en kall boot-sida får aldrig DOM-postcheckas till en
+  falsk `productBlocked`) → `product-postcheck` → `POST /quality-gate`.
+  **Ingen** bildvalidering — `autoFix` muterar filer och importen är ett
+  verbatim-kontrakt.
+- Gaten kör verbatim-exporten (§4) och F2:s typecheck-lane. Utfall:
+  ren typecheck → promotad ("Verifierad"); advisory-säkra typfel → promotad
+  med varningar; render-risk-koder/installfel → `failed` med diagnostik.
+- `quick_edit`/`restore`-rader är fortsatt exkluderade (avsiktliga utkast).
+
+Versionshistoriken markerar raden med badgen **"Importerad"**
+(`version-history-view.tsx`), och välkomstmeddelandet i chatten säger att
+templaten importerades som basversion med sin egen stack.
 
 ## 5. Hur katalogen genereras (kanonisk väg)
 

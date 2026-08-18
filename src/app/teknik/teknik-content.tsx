@@ -76,7 +76,7 @@ export function TeknikContent() {
                     variant="ghost"
                     className="text-muted-foreground hover:text-foreground text-base"
                   >
-                    <Link href="/templates">Se mallar</Link>
+                    <Link href="/templates">Se templates</Link>
                   </Button>
                 </div>
               </div>

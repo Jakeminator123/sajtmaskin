@@ -50,7 +50,7 @@ export function PreviewModal({ isOpen, onClose, imageUrl, title }: PreviewModalP
             />
           ) : (
             <p className="text-center text-sm text-gray-400">
-              Ingen förhandsbild finns ännu för den här mallen.
+              Ingen förhandsbild finns ännu för den här templaten.
             </p>
           )}
         </div>

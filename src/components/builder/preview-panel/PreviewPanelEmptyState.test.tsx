@@ -73,7 +73,7 @@ describe("PreviewPanelEmptyState — template-entry", () => {
     searchParamsMock.current = new URLSearchParams("project=proj_1&templateId=tmpl_1");
     renderEmptyState({ chatId: null, versionId: null });
     expect(screen.queryByText(WELCOME_TITLE)).toBeNull();
-    expect(screen.getByText("Läser in mallen")).toBeTruthy();
+    expect(screen.getByText("Läser in templaten")).toBeTruthy();
     // No chat exists yet — the repair action must not be offered.
     expect(screen.queryByRole("button", { name: FIX_LABEL })).toBeNull();
   });
@@ -81,6 +81,6 @@ describe("PreviewPanelEmptyState — template-entry", () => {
   it("ignorerar templateId när chatten redan hydrerats", () => {
     searchParamsMock.current = new URLSearchParams("project=proj_1&templateId=tmpl_1");
     renderEmptyState({ chatId: "chat_1", versionId: "ver_1" });
-    expect(screen.queryByText("Läser in mallen")).toBeNull();
+    expect(screen.queryByText("Läser in templaten")).toBeNull();
   });
 });

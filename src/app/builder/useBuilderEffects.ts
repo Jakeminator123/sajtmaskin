@@ -101,7 +101,7 @@ export function useBuilderEffects({
         // empty-state äger det slutgiltiga felläget om även retryn failar.
         if (data?.previewStartFailed) {
           toast.warning(
-            "Mallen importerades, men förhandsvisningen startade inte på första försöket. Ett nytt försök görs automatiskt — ladda om sidan om panelen förblir tom.",
+            "Templaten importerades, men förhandsvisningen startade inte på första försöket. Ett nytt försök görs automatiskt — ladda om sidan om panelen förblir tom.",
           );
         }
         if (data?.chatId && appProjectId) {
