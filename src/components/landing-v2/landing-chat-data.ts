@@ -19,9 +19,7 @@ import {
   Server,
   ShieldCheck,
   Smartphone,
-  Sparkles,
   Wind,
-  Zap,
 } from "lucide-react"
 
 export const categories = [
@@ -310,13 +308,14 @@ export type IntegrationItem = {
 }
 
 export const integrations: IntegrationItem[] = [
-  { name: "Upstash", detail: "Redis på edge", icon: Zap, glow: "rgba(251, 146, 60, 0.16)" },
-  { name: "Redis", detail: "Caching & köer", icon: Database, glow: "rgba(239, 68, 68, 0.14)" },
-  { name: "Supabase", detail: "Auth & data", icon: Layers, glow: "rgba(34, 197, 94, 0.16)" },
-  { name: "Hosting", detail: "Preview & publicering", icon: Rocket, glow: "rgba(148, 163, 184, 0.14)" },
-  { name: "Stripe", detail: "Checkout & billing", icon: CreditCard, glow: "rgba(139, 92, 246, 0.16)" },
-  { name: "Resend", detail: "E-postflöden", icon: Send, glow: "rgba(251, 146, 60, 0.16)" },
-  { name: "OpenAI", detail: "Modeller i generering", icon: Sparkles, glow: "rgba(56, 189, 248, 0.14)" },
+  { name: "Betalningar", detail: "Ta betalt och sälj direkt på sajten", icon: CreditCard, glow: "rgba(45, 212, 191, 0.10)" },
+  { name: "Bokningar & formulär", detail: "Fånga leads och förfrågningar", icon: MessageSquare, glow: "rgba(45, 212, 191, 0.10)" },
+  { name: "Nyhetsbrev & e-post", detail: "Automatiska utskick och bekräftelser", icon: Send, glow: "rgba(45, 212, 191, 0.10)" },
+  { name: "Konton & data", detail: "Säkra inloggningar och skyddad kunddata", icon: ShieldCheck, glow: "rgba(45, 212, 191, 0.10)" },
+  { name: "Synlighet på Google", detail: "Byggd för att hittas av rätt kunder", icon: FileSearch, glow: "rgba(45, 212, 191, 0.10)" },
+  { name: "Analys & insikter", detail: "Se vad som faktiskt driver affärer", icon: Activity, glow: "rgba(45, 212, 191, 0.10)" },
+  { name: "Innehåll & produkter", detail: "Priser, produkter och texter på plats", icon: Database, glow: "rgba(45, 212, 191, 0.10)" },
+  { name: "Publicering & drift", detail: "Snabb, säker och alltid tillgänglig", icon: Rocket, glow: "rgba(45, 212, 191, 0.10)" },
 ]
 
 export type ComparisonParamKey =
