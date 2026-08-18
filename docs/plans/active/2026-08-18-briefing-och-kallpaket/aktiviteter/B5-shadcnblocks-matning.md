@@ -12,8 +12,8 @@ Verifierat:
 
 - `src/lib/gen/orchestrate/resolve-base.ts:225-231` kör
   `resolveShadcnUiRecipes({ capabilities, prompt, maxRecipes: 3 })` med
-  `.catch(() => [])`. Kedjan körs på **både** init och uppföljning; bara
-  `simpleWebsitePath` tömmer listan.
+  `.catch(() => [])`. Kedjan körs på **varje** request, init som uppföljning —
+  sedan B8 finns ingen gren som tömmer listan i förväg.
 - `src/lib/gen/data/shadcn-ui-recipes.ts:171` och `:248` har `} catch {` utan
   loggning — ett misslyckat registry-anrop blir noll recept eller ett recept utan
   källkod.

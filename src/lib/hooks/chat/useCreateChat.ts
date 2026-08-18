@@ -122,9 +122,6 @@ export function useCreateChat(
       // som sektionsdirektiv; färgläge/ton saknar pipeline-fält och åker som
       // svenska direktiv i custom-instructions-kanalen (body.system →
       // customInstructions → dynamic context) — aldrig i chattens input.
-      // Medveten bieffekt: ett aktivt val räknas som custom system prompt
-      // och stänger av simple-website-fastlanen (klassificeraren läser
-      // hasCustomSystem) — rimligt, valet ÄR en medveten konfiguration.
       const initChoicesInstructions = buildInitBuildChoicesInstructions(activeInitChoices);
       const effectiveSystemPrompt = [baseSystemPrompt?.trim(), initChoicesInstructions]
         .filter(Boolean)

@@ -276,13 +276,6 @@ export interface OrchestrationInput {
    */
   requestKind?: RequestKindClass | null;
   /**
-   * Conservative init fast lane for simple F2 website/template prompts.
-   * When true, orchestration skips optional external/component-reference
-   * enrichment and dossier selection, but keeps scaffold selection, route
-   * plan, BuildSpec, system prompt, autofix/finalize/preflight unchanged.
-   */
-  simpleWebsitePath?: boolean;
-  /**
    * OMTAG Fas 2·A / E2: number of previously-persisted files resolved for
    * this chat's follow-up base version. Optional so legacy callers compile
    * unchanged. When present, feeds {@link deriveFollowUpStateFromInputs}

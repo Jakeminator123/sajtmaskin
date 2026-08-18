@@ -84,7 +84,6 @@ import {
   buildVariantHintsForBrief,
   formatVariantHintsForPrompt,
 } from "@/lib/gen/scaffold-variants/variant-hints";
-import { classifySimpleWebsitePath } from "./simple-website-path";
 import {
   acquireChatGenerationLock,
   bindChatGenerationLockToResponse,
@@ -320,38 +319,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           message,
           (id) => getDossierById(id)?.capability ?? null,
         );
-        const simpleWebsitePath = classifySimpleWebsitePath({
-          generationMode: "init",
-          planMode: Boolean(metaPlanMode),
-          hasClientBrief: Boolean(clientBriefFromMeta),
-          attachmentsCount: requestAttachments.length,
-          hasCustomSystem: hasSystemPrompt,
-          promptSourceTechnical: metaPromptSourceTechnical,
-          promptSourcePreservePayload: metaPromptSourcePreservePayload,
-          buildIntent:
-            metaBuildIntent === "template" ||
-            metaBuildIntent === "website" ||
-            metaBuildIntent === "app"
-              ? (metaBuildIntent as BuildIntent)
-              : "website",
-          promptStrategyMeta: strategyMeta,
-          prompt: message,
-          preMatchScaffold,
-          capabilities: initCapabilities,
-          requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
-        });
-        devLogAppend("in-progress", {
-          type: "orchestration.simple_website_path",
-          enabled: simpleWebsitePath.enabled,
-          reason: simpleWebsitePath.reason,
-          scaffoldId: simpleWebsitePath.scaffoldId,
-        });
-
         let serverAutoBrief: Record<string, unknown> | null = null;
         let serverAutoBriefModel: string | null = null;
         let serverAutoBriefTrace: BriefTrace | null = null;
         if (
-          !simpleWebsitePath.enabled &&
           shouldRunServerAutoBrief({
             hasClientBrief: Boolean(clientBriefFromMeta),
             promptSourceTechnical: metaPromptSourceTechnical,
@@ -917,8 +888,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             // brief→codegen drift. If preMatchVariant is null, async picker runs.
             // getVariantById fallback in orchestrate.ts re-picks if id is stale.
             persistedVariantId: preMatchVariant?.id ?? null,
-            embeddingScaffoldMatch: !simpleWebsitePath.enabled,
-            simpleWebsitePath: simpleWebsitePath.enabled,
             // Q5a + MB-3: pass the generator-phase model id so deriveBuildSpec
             // scales tokenBudgets to the context window of the model that
             // actually generates (e.g. Opus 4.8's larger window on the anthropic

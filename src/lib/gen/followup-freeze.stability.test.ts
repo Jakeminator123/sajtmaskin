@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Keeps this suite hermetic: `resolveOrchestrationBase` resolves shadcn UI
+// recipes over HTTP for every request since B8 removed the simple-website fast
+// lane. The freeze invariants below do not depend on recipes.
+vi.mock("./data/shadcn-ui-recipes", () => ({
+  resolveShadcnUiRecipes: vi.fn(async () => []),
+}));
 
 import {
   detectFollowUpRouteDrift,
@@ -22,7 +29,7 @@ import type { FollowUpContract } from "./orchestration-snapshot";
  *
  * Detta block kör mot den riktiga `resolveOrchestrationBase` (rena enheter:
  * inga embeddings — `embeddingScaffoldMatch:false`/manuellt scaffold — ingen
- * shadcn-IO — `simpleWebsitePath:true` — ingen builder, /api/engine eller
+ * shadcn-IO — modulen är mockad ovan — ingen builder, /api/engine eller
  * preview). Det bevisar att den kända manual-kringgången (`scaffoldMode:
  * "manual"` + annat `scaffoldId`) faktiskt stängs end-to-end.
  *
@@ -63,7 +70,6 @@ function makeFollowUpInput(overrides: Partial<OrchestrationInput> = {}): Orchest
     persistedScaffoldId: FROZEN_SCAFFOLD_ID,
     ignorePersistedScaffoldForMatch: false,
     embeddingScaffoldMatch: false,
-    simpleWebsitePath: true,
     previousFilesCount: 4,
     existingRoutePaths: contract.routePlan.existingRoutePaths,
     existingShellRoutePaths: contract.routePlan.existingShellRoutePaths,

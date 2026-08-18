@@ -4,6 +4,13 @@ vi.mock("./scaffolds/scaffold-search", () => ({
   searchScaffoldsWithDiagnostics: vi.fn(),
 }));
 
+// Keeps this suite hermetic: since B8 removed the simple-website fast lane,
+// `resolveOrchestrationBase` resolves shadcn UI recipes over HTTP on every
+// request. Scaffold/intent clamping does not depend on recipes.
+vi.mock("./data/shadcn-ui-recipes", () => ({
+  resolveShadcnUiRecipes: vi.fn(async () => []),
+}));
+
 import { resolveOrchestrationBase } from "./orchestrate";
 import { inferCapabilities, type InferredCapabilities } from "./capability-inference";
 import { getScaffoldById } from "./scaffolds/registry";
@@ -31,34 +38,17 @@ const noCapabilities: InferredCapabilities = {
   needsThemeToggle: false,
 };
 
-describe("resolveOrchestrationBase simpleWebsitePath", () => {
+/**
+ * Scaffold- och build-intent-klamp i `resolveOrchestrationBase`.
+ *
+ * Filen hette tidigare `orchestrate-simple-website-path.test.ts` och satte
+ * `simpleWebsitePath: true` enbart för att slippa shadcn-/dossier-IO. Det
+ * snabbspåret finns inte längre (B8), så namnet pekade på ett borttaget
+ * begrepp medan testerna hela tiden handlat om klampningen nedan.
+ */
+describe("resolveOrchestrationBase scaffold/intent clamping", () => {
   beforeEach(() => {
     mockedSearchScaffoldsWithDiagnostics.mockReset();
-  });
-
-  it("keeps scaffold/route/BuildSpec but skips optional refs and dossiers", async () => {
-    const base = await resolveOrchestrationBase({
-      prompt: "Bygg en enkel hemsida för en lokal frisörsalong i Malmö.",
-      rawPrompt: "Bygg en enkel hemsida för en lokal frisörsalong i Malmö.",
-      routePlanPrompt: "Bygg en enkel hemsida för en lokal frisörsalong i Malmö.",
-      buildSpecPrompt: "Bygg en enkel hemsida för en lokal frisörsalong i Malmö.",
-      contractsPrompt: "Bygg en enkel hemsida för en lokal frisörsalong i Malmö.",
-      scaffoldMatchPrompt: "Bygg en enkel hemsida för en lokal frisörsalong i Malmö.",
-      capabilitiesPrompt: "Bygg en enkel hemsida för en lokal frisörsalong i Malmö.",
-      buildIntent: "website",
-      generationMode: "init",
-      scaffoldMode: "auto",
-      embeddingScaffoldMatch: false,
-      capabilities: noCapabilities,
-      simpleWebsitePath: true,
-      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
-    });
-
-    expect(base.resolvedScaffold?.id).toBeTruthy();
-    expect(base.routePlan.routes.length).toBeGreaterThan(0);
-    expect(base.buildSpec.previewPolicy).toBe("fidelity2");
-    expect(base.uiRecipes).toEqual([]);
-    expect(base.dossierSelection).toBeNull();
   });
 
   it("clamps a manipulated manual scaffold after effective app intent resolves", async () => {
@@ -77,7 +67,6 @@ describe("resolveOrchestrationBase simpleWebsitePath", () => {
       scaffoldId: "ecommerce",
       embeddingScaffoldMatch: false,
       capabilities: noCapabilities,
-      simpleWebsitePath: true,
       promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
     });
 
@@ -109,7 +98,6 @@ describe("resolveOrchestrationBase simpleWebsitePath", () => {
       persistedScaffoldId: "ecommerce",
       embeddingScaffoldMatch: false,
       capabilities: noCapabilities,
-      simpleWebsitePath: true,
       promptStrategyMeta: { strategy: "direct", promptType: "followup_general" },
     });
 
@@ -140,7 +128,6 @@ describe("resolveOrchestrationBase simpleWebsitePath", () => {
       scaffoldId: "dashboard",
       embeddingScaffoldMatch: false,
       capabilities: noCapabilities,
-      simpleWebsitePath: true,
       promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
     });
 
@@ -165,7 +152,6 @@ describe("resolveOrchestrationBase simpleWebsitePath", () => {
       scaffoldMode: "auto",
       embeddingScaffoldMatch: false,
       capabilities: noCapabilities,
-      simpleWebsitePath: true,
       promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
     });
 
@@ -208,7 +194,6 @@ describe("resolveOrchestrationBase simpleWebsitePath", () => {
       scaffoldMode: "auto",
       embeddingScaffoldMatch: true,
       capabilities: noCapabilities,
-      simpleWebsitePath: true,
       promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
     });
 
@@ -254,7 +239,6 @@ describe("resolveOrchestrationBase simpleWebsitePath", () => {
       scaffoldMode: "auto",
       embeddingScaffoldMatch: true,
       capabilities: noCapabilities,
-      simpleWebsitePath: true,
       promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
     });
 
@@ -292,7 +276,6 @@ describe("resolveOrchestrationBase simpleWebsitePath", () => {
       scaffoldMode: "auto",
       embeddingScaffoldMatch: true,
       capabilities: noCapabilities,
-      simpleWebsitePath: true,
       promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
     });
 
@@ -320,7 +303,6 @@ describe("resolveOrchestrationBase simpleWebsitePath", () => {
       scaffoldMode: "auto",
       embeddingScaffoldMatch: false,
       capabilities: inferCapabilities(prompt),
-      simpleWebsitePath: true,
       promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
     });
 
