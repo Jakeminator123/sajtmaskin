@@ -23,8 +23,8 @@ import { LanyardCard } from "@/components/landing-v2/lanyard-card"
 const CONSENT_KEY = "cookie-consent"
 const CONSENT_DATE_KEY = "cookie-consent-date"
 const CARD_IMAGE = "/branding/lanyard-card.png"
-const FLIP_MS_DESKTOP = 1250
-const FLIP_MS_MOBILE = 950
+const FLIP_MS_DESKTOP = 1550
+const FLIP_MS_MOBILE = 1150
 
 /** Mobil eller reduced motion avgör hur påträngande upplevelsen får vara. */
 function useExperienceMode() {
@@ -127,18 +127,21 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
             : "bg-background/70 backdrop-blur-md"
       }`}
     >
-      {/* "Spänd båge": kortet dras först en aning MOT dig, sedan släpper
-          spänningen och hela prylen (snodd + clips + kort) skjuts bakåt i
-          djupled och krymper. */}
+      {/* "Spänd båge": kortet dras först tydligt MOT dig (bågen spänns),
+          sedan släpper spänningen och hela prylen (snodd + clips + kort)
+          SKJUTS iväg långt bak i djupled — förbi sitt viloläge — och
+          fjädrar sedan tillbaka fram till överlämningsstorleken. */}
       <style>{`
         @keyframes lanyard-fly-back {
           0% { transform: translateY(0) translateZ(0) scale(1); }
-          16% { transform: translateY(1.6vh) translateZ(110px) scale(1.05); }
+          18% { transform: translateY(2.4vh) translateZ(190px) scale(1.09); }
+          72% { transform: translateY(-30vh) translateZ(-1050px) scale(0.5); }
           100% { transform: translateY(-24vh) translateZ(-560px) scale(0.66); }
         }
         @keyframes lanyard-fly-back-mobile {
           0% { transform: translateY(0) translateZ(0) scale(1); }
-          16% { transform: translateY(1vh) translateZ(70px) scale(1.03); }
+          18% { transform: translateY(1.6vh) translateZ(120px) scale(1.06); }
+          72% { transform: translateY(-21vh) translateZ(-720px) scale(0.56); }
           100% { transform: translateY(-16vh) translateZ(-380px) scale(0.7); }
         }
         @keyframes lanyard-fade-out {

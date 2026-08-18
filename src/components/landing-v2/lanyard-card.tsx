@@ -40,6 +40,7 @@ declare module "@react-three/fiber" {
 }
 
 const CARD_TEXTURE = "/branding/lanyard-card.png"
+const CARD_BACK_TEXTURE = "/branding/lanyard-card-back.png"
 const ACCENT = "#2dd4bf"
 
 type BandProps = { maxSpeed?: number; minSpeed?: number; autoSwing?: boolean }
@@ -65,6 +66,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   const pressInfo = useRef<{ x: number; y: number; t: number } | null>(null)
 
   const texture = useTexture(CARD_TEXTURE)
+  const backTexture = useTexture(CARD_BACK_TEXTURE)
   // Beskär texturen till kortets stående format (sidorna är bara mörk gradient).
   // Fönstret är flyttat något åt vänster i bilden så att loggan/ordmärket
   // hamnar exakt centrerat på kortet.
@@ -75,16 +77,33 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
     texture.offset.set(0.09, 0)
     texture.needsUpdate = true
   }, [texture])
+  // Baksidans cookie-textur har en vit marginal runt den mörka ytan —
+  // beskär till ett centrerat fönster som bara visar den mörka kortytan.
+  useEffect(() => {
+    backTexture.colorSpace = THREE.SRGBColorSpace
+    backTexture.center.set(0.5, 0.5)
+    backTexture.repeat.set(0.56, 0.82)
+    backTexture.needsUpdate = true
+  }, [backTexture])
 
-  // Utjämnade punkter för ett mjukt band.
+  // Utjämnade punkter för ett mjukt band. Startpunkterna motsvarar en rak
+  // lodrät lina så att geometrin är giltig redan innan fysiken kickat igång.
   const curve = useRef(
     new THREE.CatmullRomCurve3([
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-      new THREE.Vector3(),
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(0, 1.6, 0),
+      new THREE.Vector3(0, 2.2, 0),
+      new THREE.Vector3(0, 2.8, 0),
     ]),
   ).current
+
+  // Ge meshline-geometrin giltiga punkter direkt vid montering.
+  useEffect(() => {
+    const geometry = band.current?.geometry as unknown as
+      | { setPoints: (pts: THREE.Vector3[]) => void }
+      | undefined
+    geometry?.setPoints(curve.getPoints(32))
+  }, [curve])
 
   const lerped = useRef({ j1: new THREE.Vector3(), j2: new THREE.Vector3() }).current
 
@@ -254,10 +273,10 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
               <meshBasicMaterial map={texture} toneMapped={false} />
             </mesh>
 
-            {/* Baksida (samma textur, nedtonad) */}
+            {/* Baksida — cookie-designen (som ursprungliga cookie-bannern) */}
             <mesh position={[0, 0, -0.025]} rotation={[0, Math.PI, 0]}>
               <planeGeometry args={[1.5, 2.18]} />
-              <meshBasicMaterial map={texture} toneMapped={false} color="#7fb8b0" />
+              <meshBasicMaterial map={backTexture} toneMapped={false} />
             </mesh>
 
             {/* Hål/urtag högst upp */}
@@ -279,8 +298,9 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
         </RigidBody>
       </group>
 
-      {/* Bandet */}
-      <mesh ref={band}>
+      {/* Bandet — exkluderas från raycasting (tom geometri första framen
+          ger annars NaN i bounding-sphere när pekar-event raycastas). */}
+      <mesh ref={band} raycast={() => null} frustumCulled={false}>
         <meshLineGeometry />
         <meshLineMaterial
           color={ACCENT}
