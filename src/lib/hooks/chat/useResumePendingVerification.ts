@@ -87,9 +87,17 @@ import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck"
  *  - Bounded retries ({@link RESUME_VERIFY_MAX_ATTEMPTS}): transient holds
  *    (stale lease 409, verify lane 5xx, unbootable preview, blocker-persist
  *    failure) leave the remaining slots open for later poll ticks; a
- *    completed gate or 404 consumes all slots. A hard gate fail settles the
- *    row terminally server-side — the resume lane deliberately does NOT open
- *    a new server-repair entry point (repair-gate rule); repair stays in the
+ *    completed gate or 404 consumes all slots. Import-lane runtime holds
+ *    (`starting` / `version_mismatch` / `stopped` / `missing`) refund the
+ *    slot and self-schedule via {@link RESUME_VERIFY_RUNTIME_RETRY_MS}
+ *    instead of charging the budget — a quiet chat's `/versions` payload
+ *    stays deep-equal across SWR polls, so the effect would otherwise never
+ *    re-run after the age gate has opened. Runtime-only waits are capped
+ *    separately ({@link RESUME_VERIFY_MAX_RUNTIME_WAITS}); past that cap
+ *    the lane consumes the verification budget and stops (no DOM postcheck
+ *    of a boot page). A hard gate fail settles the row terminally
+ *    server-side — the resume lane deliberately does NOT open a new
+ *    server-repair entry point (repair-gate rule); repair stays in the
  *    normal diagnostics/repair UI.
  */
 
@@ -126,6 +134,20 @@ export const RESUME_VERIFY_MAX_AGE_MS = 24 * 60 * 60_000;
  * consume all slots. Retries are naturally ~60 s apart (the /versions poll).
  */
 export const RESUME_VERIFY_MAX_ATTEMPTS = 3;
+
+/**
+ * Backoff between import-lane runtime holds (`starting`, `version_mismatch`,
+ * `stopped`, `missing`). Reuses the age-gate nonce so a quiet chat whose
+ * `/versions` payload stays deep-equal still re-evaluates after the probe.
+ */
+export const RESUME_VERIFY_RUNTIME_RETRY_MS = 8_000;
+
+/**
+ * Cap on import-lane runtime-only waits. After this many holds the lane
+ * consumes the verification budget and stops probing — a dead VM must not
+ * be DOM-postchecked as a boot page forever.
+ */
+export const RESUME_VERIFY_MAX_RUNTIME_WAITS = 20;
 
 type ResumableVersionRow = {
   id?: string | null;
@@ -406,15 +428,33 @@ export function useResumePendingVerification(params: {
   const { chatId, versions, isStreaming, mutateVersions, onVersionStatusRefresh } = params;
   // versionId → attempts used. A run in flight always holds a slot; retryable
   // holds leave remaining slots open for a later /versions poll tick, terminal
-  // outcomes consume all slots (Codex P2 round 4).
+  // outcomes consume all slots (Codex P2 round 4). Import-lane runtime holds
+  // refund the slot — they are counted in `runtimeWaitsRef` instead.
   const attemptsRef = useRef<Map<string, number>>(new Map());
   const inFlightRef = useRef<Set<string>>(new Set());
-  // Bumped by the age-gate timer below so the effect re-evaluates the moment a
-  // too-young candidate becomes eligible. Without it, a quiet chat's /versions
-  // payload stays deep-equal across SWR polls → same array identity → the
-  // effect never re-runs and a fresh import stays pending for the whole
-  // session (pr-ai-review F-285e977ed706 on #1027).
+  // First-attempt toast is keyed here, not on `attemptsUsed === 0`: refunding
+  // a runtime hold would otherwise re-fire the announcement on every retry.
+  const announcedRef = useRef<Set<string>>(new Set());
+  const runtimeWaitsRef = useRef<Map<string, number>>(new Map());
+  const runtimeRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped by the age-gate timer below (and by import-lane runtime backoff)
+  // so the effect re-evaluates when a too-young candidate becomes eligible or
+  // a cold VM is still starting. Without it, a quiet chat's /versions payload
+  // stays deep-equal across SWR polls → same array identity → the effect
+  // never re-runs (pr-ai-review F-285e977ed706 on #1027).
   const [ageGateNonce, setAgeGateNonce] = useState(0);
+
+  // Runtime-retry timer is cleared on unmount only. Do not cancel it from the
+  // main effect — that would drop a scheduled probe on a versions-identity
+  // change, and must never cancel an in-flight verify chain.
+  useEffect(() => {
+    return () => {
+      if (runtimeRetryTimerRef.current !== null) {
+        clearTimeout(runtimeRetryTimerRef.current);
+        runtimeRetryTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!chatId || isStreaming) return;
@@ -439,7 +479,8 @@ export function useResumePendingVerification(params: {
     const consumeAllAttempts = () =>
       attemptsRef.current.set(versionId, RESUME_VERIFY_MAX_ATTEMPTS);
 
-    if (attemptsUsed === 0) {
+    if (!announcedRef.current.has(versionId)) {
+      announcedRef.current.add(versionId);
       if (lane === "imported") {
         toast.message("Verifierar importerad basversion", {
           description:
@@ -489,20 +530,45 @@ export function useResumePendingVerification(params: {
         // as a product failure (sticky productBlocked → F3 block). Probe the
         // live runtime and only proceed on a STABLE verdict:
         //  - "running" / "build_error" → proceed (real answer either way),
-        //  - "stopped" / "missing"     → boot via /preview-session, then hold,
-        //  - "starting" / "version_mismatch" → retryable hold (next poll tick
-        //    or age-timer retries; slot bookkeeping above already charged one),
+        //  - "stopped" / "missing" / "version_mismatch" → bind via
+        //    /preview-session, refund the attempt, self-schedule an 8 s retry,
+        //  - "starting" → same refund + retry, no rebind (VM is already booting),
         //  - transport failure (null)  → proceed fail-open — the postcheck's
         //    own unreadable-probe advisory covers a dead probe without
         //    blocking, matching the normal lane's best-effort philosophy.
+        // Runtime holds do NOT charge {@link RESUME_VERIFY_MAX_ATTEMPTS}.
         if (lane === "imported") {
           const runtimeStatus = await fetchPreviewRuntimeStatus({ chatId, versionId });
-          if (runtimeStatus === "stopped" || runtimeStatus === "missing") {
-            await rehydratePreviewUrl({ chatId, versionId }); // boots/resumes the VM
-            return; // retryable hold — slot stays open
-          }
-          if (runtimeStatus === "starting" || runtimeStatus === "version_mismatch") {
-            return; // retryable hold — slot stays open
+          const isRuntimeHold =
+            runtimeStatus === "starting" ||
+            runtimeStatus === "version_mismatch" ||
+            runtimeStatus === "stopped" ||
+            runtimeStatus === "missing";
+          if (isRuntimeHold) {
+            // Refund the slot reserved above — a cold start is not a
+            // verification attempt.
+            attemptsRef.current.set(versionId, attemptsUsed);
+            const shouldRebind =
+              runtimeStatus === "version_mismatch" ||
+              runtimeStatus === "stopped" ||
+              runtimeStatus === "missing";
+            if (shouldRebind) {
+              await rehydratePreviewUrl({ chatId, versionId });
+            }
+            const waits = (runtimeWaitsRef.current.get(versionId) ?? 0) + 1;
+            runtimeWaitsRef.current.set(versionId, waits);
+            if (waits >= RESUME_VERIFY_MAX_RUNTIME_WAITS) {
+              consumeAllAttempts();
+              return;
+            }
+            if (runtimeRetryTimerRef.current !== null) {
+              clearTimeout(runtimeRetryTimerRef.current);
+            }
+            runtimeRetryTimerRef.current = setTimeout(() => {
+              runtimeRetryTimerRef.current = null;
+              setAgeGateNonce((nonce) => nonce + 1);
+            }, RESUME_VERIFY_RUNTIME_RETRY_MS);
+            return;
           }
         }
 
