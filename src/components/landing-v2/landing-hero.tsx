@@ -1,10 +1,17 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { ArrowUp, Mic, ShieldCheck, Video, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
 import { categories, longestSiteType, stats } from "@/components/landing-v2/landing-chat-data"
+
+// Fysikdriven 3D-lanyard — laddas endast i webbläsaren (ingen SSR).
+const LanyardCard = dynamic(
+  () => import("@/components/landing-v2/lanyard-card").then((m) => m.LanyardCard),
+  { ssr: false },
+)
 import type { ChatAreaProps, LandingController } from "@/components/landing-v2/use-landing-controller"
 
 export type LandingHeroProps = Pick<
@@ -46,6 +53,13 @@ export function LandingHero({
   return (
     <section className="flex min-h-[calc(100vh-57px)] flex-col items-center justify-center px-6 pt-10 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-16 md:pb-12">
       {heroPrefix}
+
+      <div
+        className="pointer-events-auto -mt-6 mb-1 w-full max-w-[420px] shrink-0 md:-mt-10"
+        style={{ height: "clamp(300px, 40vh, 400px)" }}
+      >
+        <LanyardCard className="h-full" />
+      </div>
 
       <div
         className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground bg-secondary/50 border border-border/40 px-4 py-1.5 rounded-full mb-6 animate-fade-up"
