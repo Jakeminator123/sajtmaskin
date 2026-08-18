@@ -1,265 +1,166 @@
 OpenClaw Setup Guide — Sajtagenten (infra/openclaw)
 ============================================================
 
-Purpose
--------
-This folder contains the Docker setup for "Sajtagenten", an OpenClaw-based
-AI agent with broad read access to a target website. The agent can read pages,
-sitemaps, metadata, and public APIs on the configured site.
-
-This is a generic template. Adapt IDENTITY.md and environment variables
-to your specific project before deploying.
-
-
-1) Architecture
----------------
-- The OpenClaw Gateway runs as its OWN standalone Docker Web Service
-  (Render, Railway, etc.) — separate from the app deployment.
-- The consuming app (Sajtmaskin on Vercel) runs separately and only ships a
-  React widget + thin API proxy under src/app/api/openclaw/* and
-  src/app/api/did/chat. It calls the gateway over HTTPS.
-- App -> gateway link is just env: OPENCLAW_GATEWAY_URL +
-  OPENCLAW_GATEWAY_TOKEN. The widget is gated by IMPLEMENT_UNDERSCORE_CLAW.
-- The proxy always targets the single hardcoded agent "openclaw:sajtagenten"
-  (see src/app/api/openclaw/chat/route.ts) — there is no per-agent env var.
-- Sajtagenten reads the target site via configured URL (SAJTAGENT_TARGET_SITE_URL).
-- To run a second/new gateway: clone this service to a new Render instance
-  and repoint the app's OPENCLAW_GATEWAY_URL. No code change required.
+Purpose and architecture
+------------------------
+- OpenClaw runs as a standalone Render Docker Web Service. It is not part of
+  the Vercel/Next.js deployment.
+- The app proxies server-side requests from /api/openclaw/* and /api/did/chat
+  to the gateway over HTTPS with a shared Bearer token.
+- The public product remains Sajtagenten. Fast/balanced/strong are internal
+  OpenClaw agent targets selected by server-owned routing.
+- Dockerfile pins OpenClaw 2026.7.1-2. Upgrade the pin only in a dedicated PR
+  with config tests and a Render smoke test; never use latest in production.
 
 
-2) Repo Paths
--------------
+Repo paths
+----------
 - Docker root:       infra/openclaw/
 - Entrypoint:        infra/openclaw/docker-entrypoint.sh
+- Config generator:  infra/openclaw/generate-config.mjs
 - Dockerfile:        infra/openclaw/Dockerfile
-- Health check:      infra/openclaw/docker-healthcheck.sh
-- Agent identity:    infra/openclaw/config/agents/sajtagenten/agent/IDENTITY.md
+- Liveness check:    infra/openclaw/docker-healthcheck.sh
+- Identity seed:     infra/openclaw/config/agents/sajtagenten/agent/IDENTITY.md
 - Workspace seed:    infra/openclaw/config/workspace/
+- Operator runbook:  docs/runbooks/openclaw-gateway.md
 
 
-3) Render Service Configuration
--------------------------------
+Render service
+--------------
 Service type:  Web Service
 Runtime:       Docker
 Root dir:      infra/openclaw
-Instance type: Standard (2 GB RAM / 1 CPU)
+Plan:          Standard (2 GB / 1 CPU)
+Disk:          3 GB mounted at /root/.openclaw
 
-  Do NOT use starter (512 MB). The live instance OOM-killed three times on
-  2026-08-05 at "used over 2GB", so the gateway does not fit below Standard.
-  Renders "Root Directory" also means changes OUTSIDE infra/openclaw do not
-  trigger an auto-deploy for this service.
+Do not use Starter. The live service exceeded 2 GB and OOM-restarted on
+2026-08-05. The persistent disk holds agent/session state and cannot be shrunk.
 
-Disk:
-- Mount path: /root/.openclaw
-- Size: 3 GB (render.yaml). About 0.7 GB is in use on the live instance, so the
-  earlier 1 GB disk was already ~70 % full and agent state only grows. A Render
-  disk can be grown but never shrunk -- growing it needs a manual dashboard
-  edit, since render.yaml does not always re-apply plan/disk to an existing
-  service. The headroom is therefore bought up front, not under pressure.
+Secrets / instance values:
+- OPENCLAW_GATEWAY_TOKEN=<secret shared with Vercel>
+- OPENAI_API_KEY=<existing OpenAI platform key>
+- SAJTAGENT_TARGET_SITE_URL=https://<site>
+- SAJTAGENT_ALLOWED_ORIGINS=https://<app>,https://<optional-preview>
+- JUICEFACTORY_API_KEY=<optional; only when that provider is used>
 
-Required environment variables (see render.yaml for the canonical stubs):
-- OPENCLAW_GATEWAY_TOKEN=<secret>                  (shared with the app)
-- OPENAI_API_KEY=<secret>
-- SAJTAGENT_TARGET_SITE_URL=https://example.com    (site the agent reads)
-
-Recommended / instance-specific:
-- SAJTAGENT_ALLOWED_ORIGINS=https://my-app.vercel.app,https://staging.example.com
-    Comma-separated browser origins allowed to reach the controlUi. The list
-    is built entirely from this var + SAJTAGENT_TARGET_SITE_URL at boot;
-    http://localhost:3000 is always included. No hostname is hardcoded, so a
-    new deployment URL works without a code change.
-    Paste the VALUE only. Pasting a whole "KEY=value" line into the hosting
-    dashboard's value field is silent: the boot log then shows a junk origin
-    such as "SAJTAGENT_ALLOWED_ORIGINS=https://..." in
-    controlUi.allowedOrigins. Check that line after changing env.
-
-Optional environment variables (have safe defaults):
+Committed safe defaults in render.yaml:
 - OPENCLAW_GATEWAY_PORT=10000
 - OPENCLAW_GATEWAY_BIND=lan
-- OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH=false
-- OPENCLAW_HEARTBEAT_EVERY=0m  (heartbeat OFF by default; with no chat channel
-  configured the 30m default only burned OpenAI credits — 2026-08-17. Set e.g.
-  30m only after wiring a delivery channel for the alerts.)
-- OPENCLAW_MODEL_PRIMARY=openai/gpt-5.5    (current frontier; best for debug-mode bug-hunt)
-- OPENCLAW_MODEL_FALLBACK=openai/gpt-5.4   (or openai/gpt-5.4-mini for cheaper quick chat)
+- OPENCLAW_HEARTBEAT_EVERY=0m
+- OPENCLAW_MODEL_PRIMARY=openai/gpt-5.6-sol
+- OPENCLAW_MODEL_FALLBACK=openai/gpt-5.6-terra,openai/gpt-5.5
+- OPENCLAW_MODEL_BALANCED=openai/gpt-5.6-terra
+- OPENCLAW_MODEL_BALANCED_FALLBACK=openai/gpt-5.6-sol,openai/gpt-5.5
+- OPENCLAW_MODEL_FAST=openai/gpt-5.6-luna
+- OPENCLAW_MODEL_FAST_FALLBACK=openai/gpt-5.6-terra,openai/gpt-5.5
 
-  A COMMA-SEPARATED chain is allowed, e.g.
-  OPENCLAW_MODEL_FALLBACK=openai/gpt-5.4,juicefactory/qwen3-vl
-  Blanks and duplicates are dropped. Prefer spreading the chain across
-  DIFFERENT providers: every openai/* step draws on the same Codex
-  subscription, so a quota wall takes out primary and fallback together
-  (see section 6). The JuiceFactory step uses a plain API key and therefore
-  survives a Codex outage.
-- JUICEFACTORY_API_KEY=<secret, only for the Qwen provider>
-
-  NOTE: gpt-5.3-codex / gpt-5.1-codex are DEPRECATED. The entrypoint now
-  defaults to gpt-5.5 (fallback gpt-5.4). Set OPENCLAW_MODEL_PRIMARY=openai/gpt-5.5
-  on the Render service to upgrade an existing instance. gpt-5.5 supports
-  reasoning effort up to `xhigh`, but debug-mode bug-hunt defaults to `high`
-  (xhigh is opt-in via OPENCLAW_REVIEW_REASONING_EFFORT=xhigh because it costs
-  markedly more). Never use gpt-5.5-pro here (Responses-only, minutes-long, far
-  pricier). See src/lib/openclaw/review-tuning.ts.
-
-Notes:
-- Do not manually set PORT unless you have a specific reason.
-- Port resolution order: PORT -> OPENCLAW_GATEWAY_PORT -> 18789
+The config generator validates URL/model envs, JSON-serializes all values and
+writes /root/.openclaw/openclaw.json with mode 0600. Never build JSON via shell
+interpolation. Heartbeat stays off until a real delivery channel exists.
 
 
-4) App (Vercel) Environment Variables
--------------------------------------
-All three are required for the widget + Sajtagenten surfaces to activate
-(src/lib/config.ts -> OPENCLAW.surfaceEnabled). Missing any one hides the
-widget entirely.
-- OPENCLAW_GATEWAY_URL=https://<your-gateway>.onrender.com  (this Render URL)
-- OPENCLAW_GATEWAY_TOKEN=<same secret as the Render service>
+Internal agents
+---------------
+- openclaw:sajtagenten          strong/default, Sol + high thinking
+- openclaw:sajtagenten-balanced balanced, Terra + medium thinking
+- openclaw:sajtagenten-fast     fast, Luna + low thinking
+
+Each target has its own agent directory, explicit model/fallback chain, empty
+skills list and tools.profile=minimal. OpenClaw bootstrap generation is off.
+Session maintenance is enforced: pruneAfter 14d, maxEntries 500,
+resetArchiveRetention 7d, maxDiskBytes 512mb and highWaterBytes 400mb.
+
+OPENCLAW_REVIEW_REASONING_EFFORT is retired. The pinned gateway's OpenAI Chat
+Completions endpoint does not pass reasoning_effort to the agent runtime;
+per-agent thinkingDefault is the effective configuration.
+
+
+Vercel app env
+--------------
+Required for the Sajtagenten surface:
+- OPENCLAW_GATEWAY_URL=https://<gateway>.onrender.com
+- OPENCLAW_GATEWAY_TOKEN=<same token as Render>
 - IMPLEMENT_UNDERSCORE_CLAW=true
 
-WARNING: OPENCLAW_GATEWAY_URL must point at the separate gateway service —
-never at the app's own host (http://localhost:3000 or the prod app URL),
-or /api/openclaw/chat loops back onto itself and returns 404.
+Routing rollout flag:
+- OPENCLAW_MODEL_ROUTING_ENABLED=false/unset during the Render-first deploy
+- OPENCLAW_MODEL_ROUTING_ENABLED=true after all three agents appear in the
+  authenticated gateway /v1/models response
 
-Note: there is NO per-agent env var. OPENCLAW_AGENT_ID / OPENCLAW_AGENT_TOKEN
-were removed (2026-06) — they are not read anywhere in src/. The proxy always
-targets the hardcoded agent "openclaw:sajtagenten".
-
-
-5) Smoke Test Checklist
------------------------
-Render / hosting checks:
-1) GET <gateway-url>/health -> HTTP 200
-2) Logs contain:
-   - "Config written"
-   - "[gateway] listening on ws://0.0.0.0:<port>"
-
-Frontend checks:
-1) GET <app-url>/api/openclaw/health  -> healthy response
-2) POST <app-url>/api/openclaw/chat   -> HTTP 200 with SSE chunks
+Set the flag for development, preview and production when those targets use
+OpenClaw. OPENCLAW_GATEWAY_URL must never point to the app itself; that creates
+a self-proxy loop. No D-ID Studio env changes are needed.
 
 
-6) Common Failures and Fixes
------------------------------
-Symptom: Build fails at npm install with SSH/git errors
-Fix:     git + ca-certificates installed; GitHub SSH -> HTTPS rewrite in Dockerfile.
-
-Symptom: "No open ports detected" on Render
-Fix:     Ensure OPENCLAW_GATEWAY_BIND=lan and service listens on correct port.
-
-Symptom: "Gateway start blocked: set gateway.mode=local"
-Fix:     gateway.mode must be "local", or run with --allow-unconfigured.
-
-Symptom: /v1/chat/completions returns 405
-Fix:     gateway.http.endpoints.chatCompletions.enabled must be true.
-
-Symptom: "No API key found for provider openai-codex"
-Fix:     Set OPENAI_API_KEY on the hosting platform.
-
-Symptom: Chat returns HTTP 401 "All models failed (N): openai/gpt-5.5:
-         unexpected status 401 Unauthorized: Incorrect API key provided:
-         sk-proj-...<suffix>", where <suffix> does NOT match the current
-         OPENAI_API_KEY -- while `openclaw models status` on the host reports
-         the correct env key as `usable` and `openclaw models auth list
-         --provider openai` returns `profiles: []`.
-Cause:   openai/* runs through the bundled Codex app-server harness
-         (models status prints `source=codex-app-server`). That harness reads
-         the agent-scoped Codex home FIRST --
-         /root/.openclaw/agents/sajtagenten/agent/codex-home/auth.json -- and
-         only falls back to CODEX_API_KEY / OPENAI_API_KEY when that home has
-         no account. Since /root/.openclaw is a mounted persistent disk (see
-         render.yaml), a stale key in that auth.json survives env edits,
-         redeploys AND "Clear cache & rebuild". The credential is not an
-         OpenClaw auth profile, which is why the auth store looks empty.
-Fix:     On the gateway host (Render -> "Shell"):
-           rm -f /root/.openclaw/agents/sajtagenten/agent/codex-home/auth.json
-         then RESTART the service -- the running gateway holds the old key in
-         memory, so deleting the file alone changes nothing. Verify with
-         POST <gateway-url>/v1/chat/completions -> HTTP 200.
-Note:    python3 and the `codex` CLI are NOT in this image; plain `rm` plus a
-         restart is the whole fix. `openclaw models auth logout` does not help
-         (nothing is stored there) and `--yes` is not a valid flag in 2026.7.x.
-         Old failed runs keep the provider-masked key string in
-         /root/.openclaw/agents/<agent>/sessions/*.trajectory.jsonl -- delete
-         those before pasting logs anywhere public. Diagnosed 2026-07-31.
-
-Symptom: Chat returns HTTP 200 but the app shows an empty answer, and the
-         gateway logs "FallbackSummaryError: All models failed (N): ...
-         (rate_limit)" plus model_fallback_decision with
-         fallbackStepFinalOutcome=chain_exhausted.
-Cause:   Every model in the chain hit the SAME provider quota. The default
-         chain (openai/gpt-5.5 -> openai/gpt-5.4) runs on one Codex
-         subscription, so primary and fallback run out together. The gateway
-         still answers 200 with a valid SSE stream whose only payload is an
-         `error` chunk.
-Fix:     Refill or wait out the Codex quota, and spread the chain across
-         providers via the comma-separated OPENCLAW_MODEL_FALLBACK (section 3).
-Note:    BOTH GET <gateway-url>/health and GET <app-url>/api/openclaw/health
-         stay 200/"ok" in this state — they prove the gateway process is up,
-         NOT that any model has capacity. A green health check does not mean
-         the agent can answer. The app surfaces the error chunk as text (see
-         src/lib/openclaw/gateway-response.ts).
-
-Symptom: A chat turn dies mid-answer and the next one opens with "[System] Your
-         previous turn was interrupted by a gateway restart while OpenClaw was
-         waiting on tool/model work."
-Cause:   Render OOM-killed the instance and restarted it. Observed three times
-         within four minutes on 2026-08-05 during a live prod session.
-         Memory-heavy agent work is the usual trigger -- `openclaw security
-         audit --deep` reproduced it.
-Fix:     Check Render -> Events for "Instance failed: Ran out of memory". Avoid
-         --deep audits on Standard, or move up an instance type.
-Note:    The agent CANNOT diagnose this from inside the container. It reads the
-         HOST's /proc, so `free` and `df /` report the Render node's numbers --
-         a health check will happily say "28 GB of 64 GB free" and "root fs 84%
-         full" while the real ceiling is the plan's 2 GB and the only disk we
-         own is the 3 GB mount at /root/.openclaw. Neither number is
-         actionable; the plan's RAM is. Likewise `systemctl`, `ss`, `ufw`,
-         `iptables`, `ps` and `free` are absent from node:22-slim, so the audit
-         reports them as gaps rather than as a finding about our setup.
-
-Symptom: `openclaw security audit` reports the workspace BOOTSTRAP.md as "should
-         have been removed after first startup".
-Cause:   Not actionable. The entrypoint re-copies every seeded workspace file on
-         each boot (`cp -rf`) so a deploy actually refreshes the agent's
-         instructions. Deleting it inside the container lasts until next boot.
-
-Symptom: Control UI at <gateway-url>/overview says "Click Connect", and the
-         log shows "unauthorized ... client=openclaw-control-ui ...
-         reason=token_missing".
-Cause:   The dashboard is an ordinary browser client and needs the gateway
-         token pasted into its own Gateway Token field; it is not persisted
-         across sessions or redeploys.
-Fix:     Paste OPENCLAW_GATEWAY_TOKEN into the dashboard and press Connect.
-         This is unrelated to the app's chat path, which authenticates per
-         request with an Authorization: Bearer header — a disconnected
-         dashboard never explains a silent agent.
-
-Symptom: "Proxy headers detected from untrusted address ... Configure
-         gateway.trustedProxies to restore local client detection"
-Cause:   Render terminates TLS in front of the gateway, so the gateway will not
-         treat the connection as local.
-Fix:     Benign for the app path (token auth). Only matters if you want
-         local-client privileges through the proxy.
+Rollout order
+-------------
+1. Merge/deploy Render with the model envs above.
+2. Confirm GET <gateway>/health = 200 and authenticated GET <gateway>/v1/models
+   lists openclaw/sajtagenten, openclaw/sajtagenten-balanced and
+   openclaw/sajtagenten-fast.
+3. Deploy Vercel while OPENCLAW_MODEL_ROUTING_ENABLED is false/unset.
+4. Confirm GET <app>/api/openclaw/health has status=ok and readiness=ready.
+5. Set OPENCLAW_MODEL_ROUTING_ENABLED=true on Vercel, redeploy, and confirm
+   readiness=ready with all three requiredAgentIds.
+6. Run one tips question, one normal Sajtagenten question, one review/debug
+   question and one D-ID/avatar question. Logs show lane + agent, never model
+   provider secrets.
 
 
-7) Security Notes
------------------
-- Never commit secrets to git.
-- Rotate OPENCLAW_GATEWAY_TOKEN after stabilization.
-- The agent has READ-ONLY access to the target site - it cannot modify content.
-- The generated openclaw.json holds the gateway token in clear text, so the
-  entrypoint chmods it to 600. Do not chmod it by hand in the container: the
-  file is rewritten on every boot and the permission would be lost.
-- gateway.auth.rateLimit is written explicitly even though recent OpenClaw
-  versions enable it implicitly, because `security audit` only checks for the
-  key and otherwise flags a non-loopback gateway on every run.
-- OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH should be "false". It guards only the
-  browser Control UI -- the app calls /v1/chat/completions with a Bearer token
-  and never touches it -- so disabling it buys the product nothing while
-  removing the second factor behind a publicly reachable dashboard.
-
-
-8) Customization
+Health semantics
 ----------------
-- Edit config/agents/sajtagenten/agent/IDENTITY.md to change agent personality.
-- Add workspace skill files to config/workspace/ for domain-specific capabilities.
-- Set SAJTAGENT_ALLOWED_ORIGINS to whitelist additional frontend origins.
-- Set SAJTAGENT_TARGET_SITE_URL to the site the agent should be able to read.
+- Render /health is liveness only.
+- App /api/openclaw/health first checks liveness, then makes authenticated
+  GET /v1/models and verifies every agent required by the routing flag.
+- readiness=auth_failed means token mismatch/missing auth.
+- readiness=missing_agents means Render has not deployed all required agents.
+- Model quota/capacity is not probed: health must not spend paid model calls.
+
+
+Device pairing and proxy warning
+--------------------------------
+The Control UI requires both the gateway token and one-time device approval:
+
+  openclaw devices list --json
+  openclaw devices approve <current-requestId>
+
+Pending ids expire or are replaced by new connection attempts. Generate a
+fresh request, list immediately and approve only the current id. The Render log
+warning "Proxy headers detected from untrusted address" is expected because
+Render terminates TLS. It is not a token or pairing failure. Do not trust
+0.0.0.0/0 or broad proxy CIDRs to silence it.
+
+
+Common failures
+---------------
+- reason=token_missing: paste the current token into Control UI and reconnect.
+- auth_validated + pairing/1008: approve the current device request.
+- readiness=auth_failed: Render and Vercel tokens differ, or one is missing.
+- readiness=missing_agents: deploy Render first; leave routing flag off until
+  all three agent ids exist.
+- 405 from /v1/chat/completions: chatCompletions endpoint was not enabled.
+- malformed origin/model at boot: paste only the env VALUE, never KEY=value.
+- OOM/restart: inspect Render Events; do not trust host /proc memory numbers
+  shown inside the container.
+- stale OpenAI auth after key change: inspect each agent's persistent
+  agent/codex-home/auth.json. Remove only a confirmed stale file, then restart;
+  the running process keeps credentials in memory.
+
+The app retries exactly one failure class during rolling deploys: HTTP 400
+"Unknown agent" for fast/balanced is retried once against sajtagenten. Auth,
+quota, network and generic upstream failures are not retried.
+
+
+Security and incident handoff
+-----------------------------
+- Never commit or log keys/tokens.
+- Device auth remains enabled.
+- tools.profile=minimal and skills=[] prevent the public chat surface from
+  receiving filesystem, shell, browser, messaging or subagent tools.
+- Client-supplied system roles are rejected. Tips file context is rebuilt only
+  after tenant ownership is verified. D-ID sends bounded explicit history and
+  does not also create a client-controlled persistent OpenClaw session.
+- The token visible in the incident screenshot must be treated as exposed.
+  After merge: generate a new OPENCLAW_GATEWAY_TOKEN, set the identical new
+  value in Render and Vercel, restart/redeploy both, then paste the new token in
+  Control UI and reconnect. The repository cannot rotate live secrets safely.

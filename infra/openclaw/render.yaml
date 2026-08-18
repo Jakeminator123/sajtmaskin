@@ -45,19 +45,30 @@ services:
         value: "10000"
       - key: OPENCLAW_GATEWAY_BIND
         value: lan
+      # Server-owned model lanes. The app selects only an OpenClaw agent id;
+      # provider model refs and fallback chains stay on this Render service.
+      - key: OPENCLAW_MODEL_PRIMARY
+        value: openai/gpt-5.6-sol
+      - key: OPENCLAW_MODEL_FALLBACK
+        value: "openai/gpt-5.6-terra,openai/gpt-5.5"
+      - key: OPENCLAW_MODEL_BALANCED
+        value: openai/gpt-5.6-terra
+      - key: OPENCLAW_MODEL_BALANCED_FALLBACK
+        value: "openai/gpt-5.6-sol,openai/gpt-5.5"
+      - key: OPENCLAW_MODEL_FAST
+        value: openai/gpt-5.6-luna
+      - key: OPENCLAW_MODEL_FAST_FALLBACK
+        value: "openai/gpt-5.6-terra,openai/gpt-5.5"
       # Heartbeat cadence for the agent. "0m" (the entrypoint default) keeps it
       # OFF: with no chat channel configured a heartbeat only burns OpenAI
       # credits every 30 minutes. Set e.g. "30m" only after wiring a delivery
       # channel (Telegram/Discord) for the alerts.
       - key: OPENCLAW_HEARTBEAT_EVERY
         value: "0m"
-      # Device auth only guards the browser Control UI. The app never touches it
-      # — src/app/api/openclaw/chat/route.ts calls /v1/chat/completions with a
-      # Bearer token — so leaving it on costs the product nothing, while turning
-      # it off removes the second factor behind a publicly reachable dashboard.
-      # `openclaw security audit` reports the disabled state as critical.
-      - key: OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH
-        value: "false"
+      # Browser device auth is intentionally left at OpenClaw's secure default.
+      # A new browser profile must be approved once from Render Shell; see
+      # docs/runbooks/openclaw-gateway.md. Do not restore the retired
+      # OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH break-glass flag.
     disk:
       name: openclaw-sajtagenten-data
       mountPath: /root/.openclaw

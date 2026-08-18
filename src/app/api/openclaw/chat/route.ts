@@ -7,6 +7,7 @@ import {
   decideOpenClawRoutingIntent,
   getLatestOpenClawUserText,
   OPENCLAW_ROUTING_STRATEGY,
+  type OpenClawCodeContextMode,
 } from "@/lib/openclaw/chat-context-policy";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import { resolveOpenClawPowersFromRequest } from "@/lib/openclaw/powers";
@@ -14,7 +15,9 @@ import { buildOpenClawEditSystemPrompt } from "@/lib/openclaw/edit-system-prompt
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
 import { buildOpenClawPreviewLogBlock } from "@/lib/openclaw/preview-log-context";
-import { resolveReviewReasoningEffort, DEFAULT_DEBUG_EFFORT } from "@/lib/openclaw/review-tuning";
+import { postOpenClawChatCompletion } from "@/lib/openclaw/gateway-client";
+import { resolveOpenClawModelRoute } from "@/lib/openclaw/model-routing";
+import { validateOpenClawChatMessages } from "@/lib/openclaw/message-validation";
 import {
   buildOpenClawRepoContextBlock,
   isRepoContextConfigured,
@@ -36,7 +39,7 @@ interface ChatMessage {
 }
 
 interface ChatRequestBody {
-  messages: ChatMessage[];
+  messages?: unknown;
   context?: Record<string, unknown> | null;
   /** Extra powers the user granted in the chat UI. Narrowing only — see
    * `resolveOpenClawPowersFromRequest`. */
@@ -186,11 +189,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
-    if (!Array.isArray(body.messages) || body.messages.length === 0) {
-      return NextResponse.json({ error: "messages required" }, { status: 400 });
+    const validatedMessages = validateOpenClawChatMessages(body.messages);
+    if (!validatedMessages.ok) {
+      return NextResponse.json({ error: validatedMessages.error }, { status: 400 });
     }
+    const clientMessages = validatedMessages.messages;
 
-    const routingIntent = decideOpenClawRoutingIntent({ messages: body.messages });
+    const routingIntent = decideOpenClawRoutingIntent({ messages: clientMessages });
     const debug = OPENCLAW.debugEnabled;
     // Act side: OC_EDIT AND the powers the user granted in the chat UI. With no
     // grant this is all-false, and the turn is built exactly like one on a
@@ -219,6 +224,8 @@ export async function POST(req: NextRequest) {
     if (BUILDER_PROMPT_TIPS) {
       messages.push({ role: "system", content: BUILDER_PROMPT_TIPS });
     }
+
+    let codeContextMode: OpenClawCodeContextMode = "none";
 
     if (body.context && typeof body.context === "object") {
       const reviewChatId =
@@ -275,7 +282,7 @@ export async function POST(req: NextRequest) {
       };
 
       const contextMessage = await buildOpenClawContextSystemMessage({
-        messages: body.messages,
+        messages: clientMessages,
         context: body.context,
         currentCodeMaxChars: OPENCLAW_CURRENT_CODE_MAX_CHARS,
         fullCodeContextMaxChars: OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS,
@@ -287,6 +294,7 @@ export async function POST(req: NextRequest) {
         role: "system",
         content: contextMessage.content,
       });
+      codeContextMode = contextMessage.codeContextMode;
 
       // Fas 1: on review/bug intent, surface the REAL persisted verify/repair
       // findings for the active version (errorManifest, failed checks) so the
@@ -348,7 +356,7 @@ export async function POST(req: NextRequest) {
         // before injecting platform source. Fails closed when the token is
         // absent/unset (interactive chat simply omits the block).
         if (debug && matchesOpenClawDebugToken(req) && isRepoContextConfigured()) {
-          const latestUserText = getLatestOpenClawUserText(body.messages);
+          const latestUserText = getLatestOpenClawUserText(clientMessages);
           if (
             routingIntent === "review" ||
             /sajtmaskin|plattform|platform|rotorsak|root\s?cause|pipeline|\.tsx?\b/i.test(
@@ -364,47 +372,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    for (const m of body.messages) {
-      if (!m.role || !m.content) continue;
-      messages.push({
-        role: m.role,
-        content: typeof m.content === "string" ? m.content.slice(0, 8_000) : String(m.content),
-      });
-    }
+    messages.push(...clientMessages);
 
-    // Fas 3: make the assistant reason harder on review/bug intent via the
-    // OpenAI-compatible `reasoning_effort` field (codex-class models honor it).
-    // Sent on review intent and in debug-mode (debug defaults to `high`; bump to
-    // `xhigh` only via OPENCLAW_REVIEW_REASONING_EFFORT when a hard case warrants
-    // the extra cost). Env-reversible (set OPENCLAW_REVIEW_REASONING_EFFORT=off).
-    const reviewReasoningEffort =
-      routingIntent === "review" || debug
-        ? resolveReviewReasoningEffort(
-            process.env.OPENCLAW_REVIEW_REASONING_EFFORT,
-            debug ? { defaultEffort: DEFAULT_DEBUG_EFFORT } : undefined,
-          )
-        : null;
+    const modelRoute = resolveOpenClawModelRoute({
+      enabled: OPENCLAW.modelRoutingEnabled,
+      surface: "chat",
+      routingIntent,
+      codeContextMode,
+      debug,
+      hasActivePowers: powers.any,
+    });
 
     try {
-      const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(gatewayToken ? { Authorization: `Bearer ${gatewayToken}` } : {}),
-        },
-        body: JSON.stringify({
-          model: "openclaw:sajtagenten",
+      const { response: upstream, route: effectiveRoute } = await postOpenClawChatCompletion({
+        gatewayUrl,
+        gatewayToken,
+        route: modelRoute,
+        body: {
           messages,
           stream: true,
-          ...(reviewReasoningEffort ? { reasoning_effort: reviewReasoningEffort } : {}),
-        }),
-        signal: AbortSignal.timeout(90_000),
+        },
+        timeoutMs: 90_000,
       });
 
       if (!upstream.ok) {
-        const text = await upstream.text().catch(() => "");
+        console.warn(
+          `[openclaw/chat] gateway status=${upstream.status} lane=${effectiveRoute.lane}`,
+        );
         return NextResponse.json(
-          { error: "Gateway error", status: upstream.status, detail: text },
+          { error: "Gateway error", status: upstream.status },
           { status: upstream.status >= 500 ? 502 : upstream.status },
         );
       }

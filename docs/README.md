@@ -24,6 +24,7 @@ policies kan äga olika beslut.
 | Vilka kontraktsindex genereras?           | [`generated/README.md`](generated/README.md)                                         |
 | Hur felsöker jag preview?                 | [`runbooks/preview-white-screen.md`](runbooks/preview-white-screen.md)               |
 | Hur felsöker jag integrationer?           | [`runbooks/generated-site-integrations.md`](runbooks/generated-site-integrations.md) |
+| Hur driver/felsöker jag OpenClaw-gatewayn? | [`runbooks/openclaw-gateway.md`](runbooks/openclaw-gateway.md)                       |
 | Varför strejkar lokal generation?         | [`runbooks/local-dev-generation.md`](runbooks/local-dev-generation.md)               |
 | Kör jag i en Cursor Cloud-pod?            | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)                   |
 | Hur jobbar flera agenter samtidigt?       | [`runbooks/git-worktree.md`](runbooks/git-worktree.md)                               |
