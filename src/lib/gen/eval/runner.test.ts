@@ -195,7 +195,7 @@ describe("classifyEvalStreamOutcome", () => {
     expect(summary.evaluated).toBe(1);
     expect(summary.infraErrors).toBe(0);
     expect(summary.avgScore).toBe(0);
-    expect(evalExitCode(resolveEvalRunOutcome({ summary, gateFailed: true }))).toBe(1);
+    expect(evalExitCode(resolveEvalRunOutcome({ summary }))).toBe(1);
   });
 
   it("still scores a truncated response, because truncation is a quality outcome", () => {
@@ -652,9 +652,26 @@ describe("resolveEvalRunOutcome / evalExitCode", () => {
     expect(evalExitCode(outcome)).toBe(2);
   });
 
-  it("fails on quality only when the gate actually failed on measured prompts", () => {
-    expect(evalExitCode(resolveEvalRunOutcome({ summary: summaryWith({}), gateFailed: true }))).toBe(1);
-    expect(evalExitCode(resolveEvalRunOutcome({ summary: summaryWith({}) }))).toBe(0);
+  it("fails quality when a measured prompt failed, without any gate flag", () => {
+    const outcome = resolveEvalRunOutcome({
+      summary: summaryWith({ passed: 0, evaluated: 1 }),
+    });
+
+    expect(outcome).toBe("quality_fail");
+    expect(evalExitCode(outcome)).toBe(1);
+  });
+
+  it("passes when every evaluated prompt passed", () => {
+    const outcome = resolveEvalRunOutcome({ summary: summaryWith({}) });
+
+    expect(outcome).toBe("pass");
+    expect(evalExitCode(outcome)).toBe(0);
+  });
+
+  it("still fails quality when the optional gate flag is set on an otherwise green run", () => {
+    expect(resolveEvalRunOutcome({ summary: summaryWith({}), gateFailed: true })).toBe(
+      "quality_fail",
+    );
   });
 });
 

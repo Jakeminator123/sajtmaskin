@@ -35,4 +35,4 @@ Agenten får redigera `.gitignore`, `.cursorignore` och `.cursorindexingignore` 
 - GitHub-ruleset **Protect master** kräver annars PR + required checks. Direkt-push går via ägarens admin-bypass — därför den smala listan ovan, aldrig `--force`. Ändra inte rulesetet.
 - Commit/push i övrigt bara på explicit begäran (eller när ägaren bett att ändringen ska landas).
 - Ocommittade ändringar i huvudcheckouten är pågående arbete, inte ett fel.
-- **`JAKOB_BRA_9999_INNNAN_MVP_BRA` är ägarens frysta pre-MVP-backup.** Radera, force-pusha eller återanvänd den aldrig i städ-/worktree-svep. Se [`jakob-pre-mvp-backup.mdc`](jakob-pre-mvp-backup.mdc).
+- **Brancher med `BRA` i versaler är ägarens frysta backuper** (t.ex. `JAKOB_BRA_9999_INNNAN_MVP_BRA`, `BRA_19191919`). Radera, force-pusha eller återanvänd dem aldrig i städ-/worktree-svep. Se [`jakob-pre-mvp-backup.mdc`](jakob-pre-mvp-backup.mdc).

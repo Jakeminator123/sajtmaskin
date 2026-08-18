@@ -114,6 +114,50 @@ export function isNextCacheStale({ cacheMtimeMs, headCommitMs }) {
 }
 
 /**
+ * Är arbetsträdet smutsigt? `null` betyder att `git status` **misslyckades**, inte
+ * att trädet är rent — och då måste svaret vara smutsigt.
+ *
+ * Samma inversionsfälla som för `gh` nedan, och lätt att gå på: ett `allowFail`-
+ * anrop som returnerar tom lista ser ut som «inga ändringar» fast det betyder
+ * «vi vet inte». Bugbot fångade exakt det här i första utkastet, där en worktree
+ * vars status aldrig kunde läsas hade klassats som FRI.
+ *
+ * @param {string | null} statusOutput rå utdata från `git status --porcelain`
+ */
+export function isWorktreeDirty(statusOutput) {
+  if (statusOutput === null) return true;
+  return statusOutput.trim().length > 0;
+}
+
+/**
+ * Får en worktree-katalog tas bort, och varför inte?
+ *
+ * Det här är den enda kontrollen som skyddar en annan agents arbetsyta. `tidy`
+ * tar aldrig bort kataloger själv — den klassar och rapporterar, och du kör
+ * `npm run worktree:remove` på det som är fritt. Skälet är att en worktree är en
+ * *pågående session*: agenten som äger den har sin `working_directory` där, och
+ * en katalog som försvinner under den ser ut som ett trasigt repo.
+ *
+ * Tre villkor måste alla vara sanna för att en worktree ska räknas som klar:
+ * branchen får inte ha en öppen PR, arbetsträdet måste vara rent, och innehållet
+ * måste redan finnas i basen. Faller ett enda villkor är svaret behåll.
+ *
+ * `npm run worktree:remove` vägrar redan på smutsigt eller ospårat innehåll.
+ * Den vet däremot ingenting om PR-status — det hålet täcks här.
+ *
+ * @param {{ branch: string | null, hasOpenPr: boolean, isDirty: boolean, mergedIntoBase: boolean, isMain: boolean }} wt
+ * @returns {{ verdict: "keep" | "free", reason: string }}
+ */
+export function classifyWorktree({ branch, hasOpenPr, isDirty, mergedIntoBase, isMain }) {
+  if (isMain) return { verdict: "keep", reason: "huvudcheckouten — delas med ägaren" };
+  if (branch && isProtectedBranch(branch)) return { verdict: "keep", reason: "skyddat branchnamn" };
+  if (hasOpenPr) return { verdict: "keep", reason: "branchen har en ÖPPEN PR — någon arbetar" };
+  if (isDirty) return { verdict: "keep", reason: "ocommitterat eller ospårat innehåll" };
+  if (!mergedIntoBase) return { verdict: "keep", reason: "innehållet finns inte i basen ännu" };
+  return { verdict: "free", reason: "ingen öppen PR, rent träd, innehållet i basen" };
+}
+
+/**
  * Rader som Vercel-CLI:n appendar i `.gitignore`. `vercel link` / `vercel env
  * pull` lägger till sin egen kopia varje gång filen ändrats sedan förra
  * körningen, så antalet växer över tid. Duplicerade gitignore-mönster är
@@ -177,7 +221,31 @@ function gitLines(args, root, opts) {
   return out ? out.split(/\r?\n/).filter((l) => l.trim()) : [];
 }
 
-/** Öppna PR-huvuden via gh. Saknas gh eller nätet: null = hoppa över rapporten. */
+/**
+ * Parsa `git worktree list --porcelain`. Första posten är alltid huvudträdet.
+ *
+ * @param {string[]} lines
+ * @returns {{ path: string, branch: string | null }[]}
+ */
+export function parsePorcelainWorktrees(lines) {
+  const out = [];
+  for (const line of lines) {
+    const wt = /^worktree (.+)$/.exec(line.trim());
+    if (wt?.[1]) {
+      out.push({ path: wt[1], branch: null });
+      continue;
+    }
+    const br = /^branch refs\/heads\/(.+)$/.exec(line.trim());
+    if (br?.[1] && out.length > 0) out[out.length - 1].branch = br[1];
+  }
+  return out;
+}
+
+/**
+ * Öppna PR-huvuden via gh. `null` betyder «vet inte» (gh saknas eller nätet är
+ * nere), inte «inga öppna PR:er» — skillnaden är viktig, för worktree-klassningen
+ * behandlar «vet inte» som upptaget.
+ */
 function openPrHeads(root) {
   try {
     const out = execFileSync(
@@ -244,6 +312,36 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
     log("[tidy] worktrees: inget att pruna.");
   }
 
+  // --- 2b. Levande worktrees: vilka är orörbara? ---
+  // Rapport, aldrig radering. Katalogen tas bort med `npm run worktree:remove`,
+  // som kopplar loss junctions först. Poängen här är att säga VILKA som är fria.
+  const worktrees = parsePorcelainWorktrees(wtLines);
+  // Ett enda gh-anrop återanvänds av både worktree-klassningen och remote-rapporten.
+  const openPrBranches = openPrHeads(root);
+  if (worktrees.length > 1) {
+    for (const wt of worktrees.slice(1)) {
+      const dirty = isWorktreeDirty(git(["status", "--porcelain"], wt.path, { allowFail: true }));
+      const merged =
+        wt.branch !== null &&
+        git(["merge-base", "--is-ancestor", wt.branch, BASE_REF], root, { allowFail: true }) !==
+          null;
+      const { verdict, reason } = classifyWorktree({
+        branch: wt.branch,
+        // Kan vi inte fråga GitHub vet vi inte om någon arbetar → antag att de gör det.
+        hasOpenPr: openPrBranches === null ? true : openPrBranches.has(wt.branch ?? ""),
+        isDirty: dirty,
+        mergedIntoBase: merged,
+        isMain: false,
+      });
+      const label = verdict === "free" ? "FRI" : "behåll";
+      log(`[tidy] worktree ${label}: ${wt.path} [${wt.branch ?? "detached"}] — ${reason}`);
+    }
+    if (openPrBranches === null) {
+      log("[tidy]   (gh svarade inte — alla behandlas som upptagna, med flit)");
+    }
+    log("[tidy]   Ta bort en FRI med: npm run worktree:remove -- <sökväg>");
+  }
+
   // --- 3. Förlegad Next-cache ---
   const nextDir = path.join(root, ".next");
   let cacheMtimeMs = null;
@@ -283,7 +381,7 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
   }
 
   // --- 5. Remote-rapport (raderar aldrig) ---
-  const openHeads = openPrHeads(root);
+  const openHeads = openPrBranches;
   if (openHeads === null) {
     log("[tidy] remote: hoppar över rapporten (gh svarade inte).");
   } else {
