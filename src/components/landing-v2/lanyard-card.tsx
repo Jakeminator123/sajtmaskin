@@ -73,6 +73,9 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   // Fönstret är flyttat något åt vänster i bilden så att loggan/ordmärket
   // hamnar exakt centrerat på kortet.
   useEffect(() => {
+    // drei's useTexture returns a shared THREE.Texture that must be cropped
+    // in place — cloning would break GPU cache and the card UV mapping.
+    // eslint-disable-next-line react-hooks/immutability -- GPU texture object
     texture.colorSpace = THREE.SRGBColorSpace
     texture.center.set(0.5, 0.5)
     texture.repeat.set(0.74, 1)
@@ -82,6 +85,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   // Baksidans cookie-textur har en vit marginal runt den mörka ytan —
   // beskär till ett centrerat fönster som bara visar den mörka kortytan.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability -- GPU texture object
     backTexture.colorSpace = THREE.SRGBColorSpace
     backTexture.center.set(0.5, 0.5)
     backTexture.repeat.set(0.56, 0.82)

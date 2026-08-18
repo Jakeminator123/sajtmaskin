@@ -137,10 +137,8 @@ export function PreviewPanelBrowseGallery({
   useEffect(() => {
     if (source !== "official") return;
     let ignore = false;
-    /* eslint-disable react-hooks/set-state-in-effect -- enter loading state when itemType/reload changes before the async fetch resolves */
     setLoading(true);
     setError(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
     const fetcher = itemType === "block" ? getBlocksByCategory : getComponentsByCategory;
     fetcher()
       .then((result) => {
@@ -165,13 +163,11 @@ export function PreviewPanelBrowseGallery({
     if (source !== "shadcnblocks") return;
     let ignore = false;
     const requestId = ++communityRequestIdRef.current;
-    /* eslint-disable react-hooks/set-state-in-effect -- enter loading state before community index resolves */
     setLoading(true);
     setError(null);
     setLoadMoreError(null);
     setLoadingMore(false);
     setCommunityCursor(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
     fetchCommunityIndexPage({
       q: debouncedQuery || undefined,
       category: activeCategory || undefined,

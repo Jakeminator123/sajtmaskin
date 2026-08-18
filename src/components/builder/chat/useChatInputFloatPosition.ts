@@ -34,8 +34,10 @@ export function useChatInputFloatPosition(chatId: string | null): ChatInputFloat
   const [position, setPositionState] = useState<ChatInputFloatPosition | null>(null);
 
   // Layout (not paint) so float placement never writes the previous chat's
-  // coords into the new chatId key on a same-tick chat switch.
+  // coords into the new chatId key on a same-tick chat switch. Must stay an
+  // effect: the first paint is SSR and must not read localStorage.
   useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate per-chat coords after commit
     setPositionState(readChatInputFloatPosition(chatId));
   }, [chatId]);
 

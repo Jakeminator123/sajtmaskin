@@ -57,24 +57,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   testimonial: "Omdömen",
 };
 
-const FEATURED_NAMES = [
-  "hero1",
-  "feature1",
-  "pricing1",
-  "testimonial1",
-  "cta1",
-  "faq1",
-  "footer1",
-  "navbar1",
-] as const;
-
-export type FeaturedShadcnblockId = (typeof FEATURED_NAMES)[number];
-
-export const FEATURED_SHADCNBLOCKS: ReadonlyArray<{
-  name: FeaturedShadcnblockId;
-  labelSv: string;
-  category: string;
-}> = [
+export const FEATURED_SHADCNBLOCKS = [
   { name: "hero1", labelSv: "Hero", category: "hero" },
   { name: "feature1", labelSv: "Funktioner", category: "feature" },
   { name: "pricing1", labelSv: "Prissättning", category: "pricing" },
@@ -83,7 +66,9 @@ export const FEATURED_SHADCNBLOCKS: ReadonlyArray<{
   { name: "faq1", labelSv: "FAQ", category: "faq" },
   { name: "footer1", labelSv: "Sidfot", category: "footer" },
   { name: "navbar1", labelSv: "Navbar", category: "navbar" },
-];
+] as const satisfies ReadonlyArray<{ name: string; labelSv: string; category: string }>;
+
+export type FeaturedShadcnblockId = (typeof FEATURED_SHADCNBLOCKS)[number]["name"];
 
 export function featuredShadcnblockNames(): string[] {
   return FEATURED_SHADCNBLOCKS.map((entry) => entry.name);

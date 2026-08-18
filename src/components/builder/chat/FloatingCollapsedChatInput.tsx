@@ -68,7 +68,9 @@ export function FloatingCollapsedChatInput({
   const rootRef = useRef<HTMLDivElement>(null);
   const { position, setPosition } = useChatInputFloatPosition(chatId);
   const positionRef = useRef(position);
-  positionRef.current = position;
+  useLayoutEffect(() => {
+    positionRef.current = position;
+  }, [position]);
 
   const dragRef = useRef<{
     pointerId: number;

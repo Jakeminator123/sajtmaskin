@@ -39,7 +39,7 @@
     "prebuild": "npm run preflight:common && npm run embeddings:ensure",
     "build": "node scripts/dev/next-runner.mjs build",
     "start": "node scripts/dev/next-runner.mjs start",
-    "lint": "eslint . --cache --cache-location .eslintcache",
+    "lint": "eslint . --max-warnings=0 --cache --cache-location .eslintcache",
     "lint:fix": "eslint . --cache --cache-location .eslintcache --fix",
     "lint:watch": "npx nodemon --ext ts,tsx,js,jsx --exec \"eslint . --cache --cache-location .eslintcache --fix\"",
     "lint:py": "node scripts/dev/run-python.mjs -m ruff check backoffice scripts/template_curator sajtmaskin_backoffice.py",
