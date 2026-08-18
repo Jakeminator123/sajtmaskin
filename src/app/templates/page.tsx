@@ -6,9 +6,9 @@ import { TemplatesBrowser } from "@/components/templates/templates-browser";
 import { Wand2 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Webbplatsmallar",
+  title: "Templates",
   description:
-    "Bläddra bland professionella webbplatsmallar. AI-genererade mallar för alla branscher och behov.",
+    "Bläddra bland professionella templates. Färdiga webbplatser för alla branscher och behov.",
 };
 
 export default function TemplatesPage() {
@@ -22,11 +22,11 @@ export default function TemplatesPage() {
           {/* Hero */}
           <div className="mb-12 text-center">
             <h1 className="text-foreground mb-4 text-4xl font-semibold tracking-tight">
-              Webbplatsmallar
+              Templates
             </h1>
             <p className="text-muted-foreground mx-auto max-w-xl text-lg leading-relaxed">
-              Välj en mall och skapa din professionella webbplats på minuter med AI.
-              Alla mallar är anpassningsbara. Lokala repo-baserade v0-mallar markeras inne i respektive kategori.
+              Välj en template och skapa din professionella webbplats på minuter med AI.
+              Alla templates är anpassningsbara — de importeras som kompletta projekt med sin egen kodstruktur.
             </p>
           </div>
 

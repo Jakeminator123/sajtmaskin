@@ -22,9 +22,9 @@ const AUTH_REQUIRED_MESSAGES: Partial<Record<CreditAction, string>> = {
     "Skapa ett konto eller logga in för att generera. Ditt konto får en kostnadsfri första generering.",
   "prompt.refine":
     "Logga in för att fortsätta bygga. Ditt konto får en kostnadsfri första generering.",
-  "prompt.template": "Skapa ett konto eller logga in för att använda mallen.",
+  "prompt.template": "Skapa ett konto eller logga in för att använda templaten.",
   "prompt.registry": "Skapa ett konto eller logga in för att generera från komponenten.",
-  "prompt.vercelTemplate": "Skapa ett konto eller logga in för att använda mallen.",
+  "prompt.vercelTemplate": "Skapa ett konto eller logga in för att använda templaten.",
   "wizard.enrich": "Du måste vara inloggad för att använda wizard-läget.",
   "audit.basic": "Du måste vara inloggad för att använda audit-funktionen.",
   "audit.advanced": "Du måste vara inloggad för att använda audit-funktionen.",
