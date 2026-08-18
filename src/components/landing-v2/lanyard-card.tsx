@@ -139,14 +139,24 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
 
       const t3 = j3.current.translation()
       const t0 = fixed.current.translation()
-      curve.points[0].set(t3.x, t3.y, t3.z)
-      curve.points[1].copy(lerped.j2)
-      curve.points[2].copy(lerped.j1)
-      curve.points[3].set(t0.x, t0.y, t0.z)
-      const geometry = band.current.geometry as unknown as {
-        setPoints: (pts: THREE.Vector3[]) => void
+      // Skydd: de första fysik-framen kan ge NaN innan kropparna initierats.
+      const allFinite =
+        Number.isFinite(t3.x) &&
+        Number.isFinite(t3.y) &&
+        Number.isFinite(t0.x) &&
+        Number.isFinite(t0.y) &&
+        Number.isFinite(lerped.j1.x) &&
+        Number.isFinite(lerped.j2.x)
+      if (allFinite) {
+        curve.points[0].set(t3.x, t3.y, t3.z)
+        curve.points[1].copy(lerped.j2)
+        curve.points[2].copy(lerped.j1)
+        curve.points[3].set(t0.x, t0.y, t0.z)
+        const geometry = band.current.geometry as unknown as {
+          setPoints: (pts: THREE.Vector3[]) => void
+        }
+        geometry.setPoints(curve.getPoints(32))
       }
-      geometry.setPoints(curve.getPoints(32))
 
       // Dämpa rotationen så kortet återgår mot framsidan (quaternion -> euler).
       const a = card.current.angvel()

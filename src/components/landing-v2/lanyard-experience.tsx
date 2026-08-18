@@ -51,8 +51,9 @@ type Phase = "checking" | "intro" | "reveal"
 
 export function LanyardExperience({ className = "" }: { className?: string }) {
   const [phase, setPhase] = useState<Phase>("checking")
-  // Kom vi hit via cookie-flippen? Då ska 3D-kortet ligga stilla direkt.
-  const [fromFlip, setFromFlip] = useState(false)
+  // Sattes samtycke redan innan sidan laddades? Då får kortet gunga till liv.
+  // Kommer vi via cookie-flippen ska det i stället ligga helt stilla.
+  const [autoSwing, setAutoSwing] = useState(false)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -62,17 +63,28 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
     } catch {
       consent = null
     }
+    setAutoSwing(Boolean(consent))
     setPhase(consent ? "reveal" : "intro")
   }, [])
 
   const handleDone = useCallback(() => {
-    setFromFlip(true)
     setPhase("reveal")
   }, [])
 
   return (
     <div className={`relative h-full w-full ${className}`}>
-      {phase === "reveal" && <LanyardCard className="h-full" autoSwing={!fromFlip} />}
+      {/* 3D-kortet monteras redan under cookie-steget (osynligt) så att
+          fysiken och texturen hunnit ladda — överlämningen blir sömlös
+          utan en tom lucka där inget kort syns. */}
+      {phase !== "checking" && (
+        <div
+          className={`h-full w-full transition-opacity duration-300 ${
+            phase === "reveal" ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+        >
+          <LanyardCard className="h-full" autoSwing={autoSwing} />
+        </div>
+      )}
       {phase === "intro" && <CookieFlipCard onDone={handleDone} />}
     </div>
   )
