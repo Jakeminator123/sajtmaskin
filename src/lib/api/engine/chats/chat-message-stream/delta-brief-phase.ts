@@ -78,6 +78,16 @@ export async function runClearRedesignDeltaBriefPhase(params: {
   /** The raw message of the CURRENT turn (may differ from
    * `followUpIntentMessage` on contract-gate retries). */
   message: string;
+  /**
+   * True when the chat started from a verbatim repo import (v0-template /
+   * ZIP / GitHub — `edit_kind="imported_repo"` in the version history). The
+   * delta-brief itself still runs on clear-redesign (an explicit rebuild
+   * signal), but the scaffold/variant pre-match is SKIPPED: an imported repo
+   * has no scaffold (`scaffold_id` null), so the keyword `matchScaffold`
+   * fallback would seed the brief with a Sajtmaskin scaffold's variant hints
+   * — the wrong stack for a repo that owns its own structure and versions.
+   */
+  importedRepoMode: boolean;
   /** Top-level `promptSource` from the request body, or null. */
   requestPromptSource: string | null;
   metaScaffoldMode: ScaffoldMode;
@@ -97,6 +107,7 @@ export async function runClearRedesignDeltaBriefPhase(params: {
     hasFollowUpBase,
     followUpIntentMessage,
     message,
+    importedRepoMode,
     requestPromptSource,
     metaScaffoldMode,
     metaScaffoldId,
@@ -132,7 +143,12 @@ export async function runClearRedesignDeltaBriefPhase(params: {
       // Edit gate off, indirect message or unstructured prompt → fail open
       // to the normal delta-brief LLM pass below.
     }
-    const persistedScaffoldIdForDelta = engineChat.scaffold_id;
+    // Imported repos never get scaffold/variant hints in the delta-brief:
+    // the repo IS the project (scaffoldMode is forced "off" downstream), and
+    // the keyword `matchScaffold` fallback below would otherwise inject a
+    // Sajtmaskin scaffold's stack hints into a brief for a repo with its own
+    // structure and package versions.
+    const persistedScaffoldIdForDelta = importedRepoMode ? null : engineChat.scaffold_id;
     const deltaIgnoreScaffold = shouldIgnorePersistedScaffoldForMatch({
       hasPreviousFiles: true,
       followUpIntent,
@@ -140,9 +156,11 @@ export async function runClearRedesignDeltaBriefPhase(params: {
       scaffoldMode: metaScaffoldMode,
       scaffoldId: metaScaffoldId,
     });
-    const deltaPreMatchScaffold = persistedScaffoldIdForDelta && !deltaIgnoreScaffold
-      ? getScaffoldById(persistedScaffoldIdForDelta)
-      : matchScaffold(followUpIntentMessage, (metaBuildIntent as BuildIntent | null));
+    const deltaPreMatchScaffold = importedRepoMode
+      ? null
+      : persistedScaffoldIdForDelta && !deltaIgnoreScaffold
+        ? getScaffoldById(persistedScaffoldIdForDelta)
+        : matchScaffold(followUpIntentMessage, (metaBuildIntent as BuildIntent | null));
     // Keyword-only pre-match for delta hint (~1ms). Final embedding-driven
     // pick happens in resolveOrchestrationBase later. See create-chat-stream-post.ts.
     const deltaPreMatchVariant = deltaPreMatchScaffold
