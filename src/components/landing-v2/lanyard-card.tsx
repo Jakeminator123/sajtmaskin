@@ -42,9 +42,9 @@ declare module "@react-three/fiber" {
 const CARD_TEXTURE = "/branding/lanyard-card.png"
 const ACCENT = "#2dd4bf"
 
-type BandProps = { maxSpeed?: number; minSpeed?: number }
+type BandProps = { maxSpeed?: number; minSpeed?: number; autoSwing?: boolean }
 
-function Band({ maxSpeed = 50, minSpeed = 10 }: BandProps) {
+function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   const band = useRef<THREE.Mesh>(null)
   const fixed = useRef<RapierRigidBody>(null)
   const j1 = useRef<RapierRigidBody>(null)
@@ -98,12 +98,14 @@ function Band({ maxSpeed = 50, minSpeed = 10 }: BandProps) {
   }, [hovered, dragged])
 
   // Ge kortet en liten knuff i starten så det gungar mjukt till liv.
+  // Hoppas över när kortet just landat via cookie-flippen (lugn övergång).
   useEffect(() => {
+    if (!autoSwing) return
     const t = setTimeout(() => {
       card.current?.applyImpulse({ x: -7, y: 0, z: 1.5 }, true)
     }, 800)
     return () => clearTimeout(t)
-  }, [])
+  }, [autoSwing])
 
   useFrame((state, delta) => {
     if (dragged && card.current) {
@@ -254,7 +256,13 @@ function Band({ maxSpeed = 50, minSpeed = 10 }: BandProps) {
   )
 }
 
-export function LanyardCard({ className = "" }: { className?: string }) {
+export function LanyardCard({
+  className = "",
+  autoSwing = true,
+}: {
+  className?: string
+  autoSwing?: boolean
+}) {
   return (
     <div className={`relative w-full select-none ${className}`} aria-hidden="true">
       <Canvas
@@ -266,7 +274,7 @@ export function LanyardCard({ className = "" }: { className?: string }) {
         <ambientLight intensity={0.6} />
         <directionalLight position={[3, 5, 4]} intensity={1.1} castShadow />
         <Physics gravity={[0, -40, 0]} timeStep={1 / 60}>
-          <Band />
+          <Band autoSwing={autoSwing} />
         </Physics>
         <Environment resolution={256}>
           <Lightformer intensity={2.4} color={ACCENT} position={[3, 2, 3]} scale={[6, 6, 1]} form="rect" />
