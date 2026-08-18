@@ -42,10 +42,32 @@ import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck"
  *    race it. {@link RESUME_VERIFY_MAX_AGE_MS} bounds the other end so old
  *    historical drafts (from before provenance markers existed) are never
  *    retroactively promoted on a random builder visit (Codex P2 on #353).
- *  - Provenance gate: only rows with `editKind == null` (normal generated
- *    versions) are resumable. `quick_edit`, `imported_repo` (template/ZIP/
- *    GitHub imports) and `restore` rows never had a browser post-check lane
- *    and must not be gate-promoted or false-red:ed by one.
+ *  - Provenance gate: rows with `editKind == null` (normal generated
+ *    versions) resume the normal lane, and `imported_repo` rows (template/
+ *    ZIP/GitHub imports) run a dedicated IMPORT lane (see below).
+ *    `quick_edit` and `restore` rows are intentional user drafts with no
+ *    verification lane and must not be gate-promoted or false-red:ed by one.
+ *
+ * Import-verification lane (`lane: "imported"`, 2026-08-18): an imported repo
+ * version historically had NO verification lifecycle at all — `POST
+ * /api/template` (and ZIP/GitHub `/init`) creates the draft/pending row,
+ * boots the preview and stops, so the base version stayed "Ej verifierad"
+ * forever. This lane closes that gap by reusing the exact machinery above,
+ * with two differences:
+ *
+ *  - **No `/validate-images` step.** Its `autoFix: true` mutates files, and
+ *    an imported repo is a verbatim contract — the import must never be
+ *    silently rewritten by a verification pass.
+ *  - **Shorter min-age gate** ({@link RESUME_VERIFY_IMPORT_MIN_AGE_MS}):
+ *    there is no original post-stream lane to race — the gate only gives the
+ *    server-side preview boot (~30–90 s cold start) a head start.
+ *
+ *    The quality-gate route already handles verbatim repos
+ *    (`chatUsesVerbatimRepo` → `buildExportableProject({ verbatimRepo })`),
+ *    the promote-guard is deliberately fail-open for no-telemetry imports,
+ *    and the F2 lane's `isTypecheckOnlyAdvisory` maps the outcomes honestly:
+ *    clean typecheck → promoted ("Verifierad"), advisory-safe TS errors →
+ *    promoted with warnings, render-risk/install failures → failed.
  *  - The route's per-version lease makes a duplicate POST harmless (409
  *    `version_busy`), so two tabs can't double-verify.
  *  - Only the LATEST engine row is considered; the route itself marks
@@ -74,6 +96,15 @@ import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck"
  * image validation + product-postcheck), so anything older has no live owner.
  */
 export const RESUME_VERIFY_MIN_AGE_MS = 3 * 60_000;
+
+/**
+ * Minimum age for an `imported_repo` row before the import-verification lane
+ * runs. Imports never had an original post-stream lane, so there is nothing
+ * to race — this gate only lets the server-side preview boot (~30–90 s cold
+ * start) finish first so product-postcheck usually gets a live URL without a
+ * rehydration round-trip.
+ */
+export const RESUME_VERIFY_IMPORT_MIN_AGE_MS = 90_000;
 
 /**
  * Upper bound for resumability. Rows older than this are stale history —
@@ -109,6 +140,12 @@ export type ResumablePendingVersion = {
   versionId: string;
   /** Persisted live-preview URL for the row (feeds product-postcheck), if any. */
   previewUrl: string | null;
+  /**
+   * Which verification lane owns the resume: `"generated"` = the normal
+   * stranded-F2 lane (editKind null), `"imported"` = the import-verification
+   * lane for `imported_repo` rows (no image validation, shorter age gate).
+   */
+  lane: "generated" | "imported";
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -158,10 +195,19 @@ export function findResumablePendingVersion(
   // F3 rows are server-verify-owned (watchdog settles them); missing stage
   // defaults to design, matching `resolveEngineVersionLifecycleStage`.
   if (latest.lifecycleStage === "integrations") return null;
-  // Provenance gate (Codex P2): only normal generated rows (editKind null)
-  // ever had a browser post-check lane. quick_edit / imported_repo / restore
-  // rows must not be gate-promoted or false-red:ed by a resume.
-  if (latest.editKind != null) return null;
+  // Provenance gate (Codex P2 + import lane 2026-08-18): normal generated
+  // rows (editKind null) resume the stranded-F2 lane; `imported_repo` rows
+  // run the import-verification lane (they NEVER had any lane, so the base
+  // version stayed pending forever). quick_edit / restore / unknown future
+  // provenances are intentional drafts and must not be gate-promoted or
+  // false-red:ed by a resume.
+  const lane: ResumablePendingVersion["lane"] | null =
+    latest.editKind == null
+      ? "generated"
+      : latest.editKind === "imported_repo"
+        ? "imported"
+        : null;
+  if (!lane) return null;
 
   if (!latest.createdAt) return null;
   const createdMs =
@@ -170,7 +216,9 @@ export function findResumablePendingVersion(
       : Date.parse(String(latest.createdAt));
   if (!Number.isFinite(createdMs)) return null;
   const ageMs = nowMs - createdMs;
-  if (ageMs < RESUME_VERIFY_MIN_AGE_MS) return null;
+  const minAgeMs =
+    lane === "imported" ? RESUME_VERIFY_IMPORT_MIN_AGE_MS : RESUME_VERIFY_MIN_AGE_MS;
+  if (ageMs < minAgeMs) return null;
   if (ageMs > RESUME_VERIFY_MAX_AGE_MS) return null;
 
   return {
@@ -179,6 +227,7 @@ export function findResumablePendingVersion(
       typeof latest.previewUrl === "string" && latest.previewUrl.trim()
         ? latest.previewUrl.trim()
         : null,
+    lane,
   };
 }
 
@@ -303,7 +352,7 @@ export function useResumePendingVerification(params: {
     if (!chatId || isStreaming) return;
     const candidate = findResumablePendingVersion(versions, Date.now());
     if (!candidate) return;
-    const { versionId } = candidate;
+    const { versionId, lane } = candidate;
     if (inFlightRef.current.has(versionId)) return;
     const attemptsUsed = attemptsRef.current.get(versionId) ?? 0;
     if (attemptsUsed >= RESUME_VERIFY_MAX_ATTEMPTS) return;
@@ -313,10 +362,17 @@ export function useResumePendingVerification(params: {
       attemptsRef.current.set(versionId, RESUME_VERIFY_MAX_ATTEMPTS);
 
     if (attemptsUsed === 0) {
-      toast.message("Återupptar verifiering", {
-        description:
-          "Senaste versionen blev aldrig färdigverifierad — kör verifieringen igen i bakgrunden.",
-      });
+      if (lane === "imported") {
+        toast.message("Verifierar importerad basversion", {
+          description:
+            "Den importerade templaten/repot kontrolleras (installation + typecheck) i bakgrunden.",
+        });
+      } else {
+        toast.message("Återupptar verifiering", {
+          description:
+            "Senaste versionen blev aldrig färdigverifierad — kör verifieringen igen i bakgrunden.",
+        });
+      }
     }
 
     // Deliberately NO cancellation (Bugbot HIGH on #353): this effect re-runs
@@ -331,8 +387,12 @@ export function useResumePendingVerification(params: {
       try {
         // Step 1 — image validation (broken external image URLs get
         // auto-replaced + persisted before promote), normal-lane parity
-        // (Codex P2 round 2).
-        await runResumeImageValidation({ chatId, versionId });
+        // (Codex P2 round 2). SKIPPED for the import lane: `autoFix: true`
+        // mutates files, and an imported repo is a verbatim contract — the
+        // verification pass must never silently rewrite the import.
+        if (lane !== "imported") {
+          await runResumeImageValidation({ chatId, versionId });
+        }
 
         // Step 2 — a gate target needs a live preview. The normal lane never
         // verifies a version without one (missing preview = readiness
@@ -405,9 +465,13 @@ export function useResumePendingVerification(params: {
 
         if (data.passed) {
           toast.success(
-            data.designAdvisory
-              ? "Versionen verifierades och publicerades (med typecheck-varningar)."
-              : "Versionen verifierades och publicerades.",
+            lane === "imported"
+              ? data.designAdvisory
+                ? "Importen verifierades (med typecheck-varningar)."
+                : "Importen verifierades."
+              : data.designAdvisory
+                ? "Versionen verifierades och publicerades (med typecheck-varningar)."
+                : "Versionen verifierades och publicerades.",
           );
         } else if (data.promoteError || data.promotionBlocked) {
           toast.message("Verifieringen gick inte att slutföra", {
