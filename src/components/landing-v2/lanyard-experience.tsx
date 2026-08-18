@@ -23,7 +23,29 @@ import { LanyardCard } from "@/components/landing-v2/lanyard-card"
 const CONSENT_KEY = "cookie-consent"
 const CONSENT_DATE_KEY = "cookie-consent-date"
 const CARD_IMAGE = "/branding/lanyard-card.png"
-const FLIP_MS = 1250
+const FLIP_MS_DESKTOP = 1250
+const FLIP_MS_MOBILE = 950
+
+/** Mobil eller reduced motion avgör hur påträngande upplevelsen får vara. */
+function useExperienceMode() {
+  const [mode, setMode] = useState<{ mobile: boolean; reducedMotion: boolean }>({
+    mobile: false,
+    reducedMotion: false,
+  })
+  useEffect(() => {
+    const mqMobile = window.matchMedia("(max-width: 767px)")
+    const mqMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
+    const update = () => setMode({ mobile: mqMobile.matches, reducedMotion: mqMotion.matches })
+    update()
+    mqMobile.addEventListener("change", update)
+    mqMotion.addEventListener("change", update)
+    return () => {
+      mqMobile.removeEventListener("change", update)
+      mqMotion.removeEventListener("change", update)
+    }
+  }, [])
+  return mode
+}
 
 type Phase = "checking" | "intro" | "reveal"
 
@@ -58,6 +80,10 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
 
 function CookieFlipCard({ onDone }: { onDone: () => void }) {
   const [leaving, setLeaving] = useState(false)
+  const { mobile, reducedMotion } = useExperienceMode()
+
+  // Mobil: kortare, snabbare flygbana. Reduced motion: bara en mjuk uttoning.
+  const flipMs = reducedMotion ? 350 : mobile ? FLIP_MS_MOBILE : FLIP_MS_DESKTOP
 
   const choose = useCallback(
     (value: "accepted" | "declined") => {
@@ -71,9 +97,9 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
         /* localStorage kan vara blockerat — fortsätt ändå med animationen. */
       }
       setLeaving(true)
-      window.setTimeout(onDone, FLIP_MS - 60)
+      window.setTimeout(onDone, flipMs - 60)
     },
-    [leaving, onDone],
+    [leaving, onDone, flipMs],
   )
 
   return (
@@ -82,19 +108,42 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
       aria-modal="true"
       aria-label="Cookie-inställningar"
       className={`fixed inset-0 z-[80] flex items-center justify-center p-4 transition-all duration-700 ease-out ${
-        leaving ? "pointer-events-none bg-transparent backdrop-blur-0" : "bg-background/70 backdrop-blur-md"
+        leaving
+          ? "pointer-events-none bg-transparent backdrop-blur-0"
+          : mobile
+            ? "bg-background/55 backdrop-blur-[3px]"
+            : "bg-background/70 backdrop-blur-md"
       }`}
     >
-      {/* Hela prylen (snodd + clips + kort) svävar bakåt i djupled och krymper. */}
+      {/* "Spänd båge": kortet dras först en aning MOT dig, sedan släpper
+          spänningen och hela prylen (snodd + clips + kort) skjuts bakåt i
+          djupled och krymper. */}
+      <style>{`
+        @keyframes lanyard-fly-back {
+          0% { transform: translateY(0) translateZ(0) scale(1); }
+          16% { transform: translateY(1.6vh) translateZ(110px) scale(1.05); }
+          100% { transform: translateY(-24vh) translateZ(-560px) scale(0.66); }
+        }
+        @keyframes lanyard-fly-back-mobile {
+          0% { transform: translateY(0) translateZ(0) scale(1); }
+          16% { transform: translateY(1vh) translateZ(70px) scale(1.03); }
+          100% { transform: translateY(-16vh) translateZ(-380px) scale(0.7); }
+        }
+        @keyframes lanyard-fade-out {
+          0% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+      `}</style>
       <div
         className="flex flex-col items-center"
         style={{
           perspective: "1600px",
-          transition: `transform ${FLIP_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-          transform: leaving
-            ? "translateY(-24vh) translateZ(-560px) scale(0.66)"
-            : "translateY(0) translateZ(0) scale(1)",
           transformStyle: "preserve-3d",
+          animation: leaving
+            ? reducedMotion
+              ? `lanyard-fade-out ${flipMs}ms ease-out forwards`
+              : `${mobile ? "lanyard-fly-back-mobile" : "lanyard-fly-back"} ${flipMs}ms cubic-bezier(0.34, 0.02, 0.26, 1) forwards`
+            : "none",
         }}
       >
         {/* Snodd/band som kortet hänger i — samma teal som 3D-bandet. */}
@@ -102,7 +151,7 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
           <span
             className="block w-[6px] rounded-full"
             style={{
-              height: "clamp(90px, 16vh, 150px)",
+              height: mobile ? "clamp(56px, 9vh, 96px)" : "clamp(90px, 16vh, 150px)",
               background:
                 "linear-gradient(180deg, rgba(45,212,191,0) 0%, rgba(45,212,191,0.55) 22%, rgba(45,212,191,0.95) 100%)",
               boxShadow: "0 0 14px rgba(45,212,191,0.45)",
@@ -116,10 +165,12 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
         {/* Kortet — roterar 180° runt sin egen axel för att visa baksidan. */}
         <div className="mt-1" style={{ perspective: "1400px" }}>
           <div
-            className="relative aspect-[3/4] w-[min(84vw,340px)] [transform-style:preserve-3d]"
+            className={`relative aspect-[3/4] [transform-style:preserve-3d] ${
+              mobile ? "w-[min(78vw,300px)]" : "w-[min(84vw,340px)]"
+            }`}
             style={{
-              transition: `transform ${FLIP_MS}ms cubic-bezier(0.34, 1.2, 0.4, 1)`,
-              transform: leaving ? "rotateY(180deg)" : "rotateY(0deg)",
+              transition: `transform ${flipMs}ms cubic-bezier(0.34, 1.2, 0.4, 1)`,
+              transform: leaving && !reducedMotion ? "rotateY(180deg)" : "rotateY(0deg)",
             }}
           >
             {/* FRAMSIDA — cookie-samtycke */}
@@ -173,7 +224,7 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
                 src={CARD_IMAGE || "/placeholder.svg"}
                 alt=""
                 aria-hidden="true"
-                className="absolute left-1/2 top-1/2 w-[135%] max-w-none -translate-x-1/2 -translate-y-1/2"
+                className="absolute left-[55%] top-1/2 w-[135%] max-w-none -translate-x-1/2 -translate-y-1/2"
               />
               <span className="pointer-events-none absolute inset-0 rounded-[26px] ring-1 ring-inset ring-white/5" />
             </div>

@@ -61,14 +61,18 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   const { width, height } = useThree((s) => s.size)
   const [dragged, setDragged] = useState<false | THREE.Vector3>(false)
   const [hovered, setHovered] = useState(false)
+  // Skiljer ett snabbt "stöt till"-klick från ett drag.
+  const pressInfo = useRef<{ x: number; y: number; t: number } | null>(null)
 
   const texture = useTexture(CARD_TEXTURE)
   // Beskär texturen till kortets stående format (sidorna är bara mörk gradient).
+  // Fönstret är flyttat något åt vänster i bilden så att loggan/ordmärket
+  // hamnar exakt centrerat på kortet.
   useEffect(() => {
     texture.colorSpace = THREE.SRGBColorSpace
     texture.center.set(0.5, 0.5)
     texture.repeat.set(0.74, 1)
-    texture.offset.set(0.13, 0)
+    texture.offset.set(0.09, 0)
     texture.needsUpdate = true
   }, [texture])
 
@@ -98,11 +102,12 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   }, [hovered, dragged])
 
   // Ge kortet en liten knuff i starten så det gungar mjukt till liv.
-  // Hoppas över när kortet just landat via cookie-flippen (lugn övergång).
+  // Knuffen är lagom stor så att snodden känns spänd och kortet snabbt
+  // hittar tillbaka till mitten. Hoppas över efter cookie-flippen.
   useEffect(() => {
     if (!autoSwing) return
     const t = setTimeout(() => {
-      card.current?.applyImpulse({ x: -7, y: 0, z: 1.5 }, true)
+      card.current?.applyImpulse({ x: -3.5, y: 0, z: 0.8 }, true)
     }, 800)
     return () => clearTimeout(t)
   }, [autoSwing])
@@ -191,9 +196,32 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
             onPointerUp={(e) => {
               ;(e.target as Element)?.releasePointerCapture?.(e.pointerId)
               setDragged(false)
+              // Snabbt klick utan rörelse = "stöt till" kortet: det snurrar
+              // runt sin egen axel och fjädrar tillbaka som en spänd snodd.
+              const press = pressInfo.current
+              pressInfo.current = null
+              if (press) {
+                const dx = e.nativeEvent.clientX - press.x
+                const dy = e.nativeEvent.clientY - press.y
+                const quick = performance.now() - press.t < 320 && Math.hypot(dx, dy) < 8
+                if (quick) {
+                  // Snurra åt det håll man "petar" på kortet (vänster/höger halva).
+                  const side = e.point.x >= (card.current?.translation().x ?? 0) ? 1 : -1
+                  window.setTimeout(() => {
+                    card.current?.wakeUp()
+                    card.current?.applyTorqueImpulse({ x: 0, y: 5.5 * side, z: 0.15 * side }, true)
+                    card.current?.applyImpulse({ x: 0, y: 0, z: -0.8 }, true)
+                  }, 30)
+                }
+              }
             }}
             onPointerDown={(e) => {
               ;(e.target as Element)?.setPointerCapture?.(e.pointerId)
+              pressInfo.current = {
+                x: e.nativeEvent.clientX,
+                y: e.nativeEvent.clientY,
+                t: performance.now(),
+              }
               const t = card.current!.translation()
               setDragged(new THREE.Vector3(e.point.x - t.x, e.point.y - t.y, e.point.z - t.z))
             }}
