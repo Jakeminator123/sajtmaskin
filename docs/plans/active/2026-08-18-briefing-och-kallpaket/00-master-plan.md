@@ -54,11 +54,10 @@ Vid **uppföljningar** finns redan två olika briefvägar. Skillnaden är inte
 
 1. `parsedMeta.brief` om den finns (LLM-delta har skrivit tillbaka hit),
 2. annars den **avskalade** snapshot-reserven bara vid `clear-redesign`,
-3. annars den **rikare** Snapshot-Briefen — inte `null`.
-
-`null` uppstår bara när snapshoten saknar användbar `briefSummary`. Handlerns
-lokala `metaBrief` kan däremot vara `null` för vanliga uppföljningar; det är
-request-fältet, inte den aktiva briefen.
+3. annars den **rikare** Snapshot-Briefen. `null` bara när snapshoten saknar
+   användbar `briefSummary`. Handlerns lokala `metaBrief` kan däremot vara
+   `null` för vanliga uppföljningar; det är request-fältet, inte den aktiva
+   briefen.
 
 LLM-deltafasen (`runClearRedesignDeltaBriefPhase`) är **redesign-specifik**,
 inte en generell grind: loggar och typer säger `clear-redesign`, och

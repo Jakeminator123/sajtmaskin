@@ -57,8 +57,9 @@ Källor:
   En `clear-redesign` på importerat repo får redan LLM-brief.
 
 Tester som låser Snapshot-Brief för vanlig follow-up:
-`src/lib/api/engine/chats/follow-up-contract.test.ts` (parity: snapshot-brief,
-inte `null`) och `src/app/api/engine/chats/[chatId]/stream/route.test.ts`
+`src/lib/api/engine/chats/follow-up-contract.test.ts` (parity: snapshot-brief
+när snapshoten har `briefSummary`, inte default-`null`) och
+`src/app/api/engine/chats/[chatId]/stream/route.test.ts`
 («keeps using the snapshot brief for a neutral follow-up»).
 
 ## Policy per läge
