@@ -118,6 +118,9 @@ export function LanyardExperience({ className = "" }: { className?: string }) {
     } catch {
       consent = null
     }
+    // First paint is SSR and must stay at "checking" — reading localStorage
+    // during render would hydrate-mismatch returning visitors.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- cookie consent after mount
     setAutoSwing(Boolean(consent))
     setPhase(consent ? "reveal" : "intro")
   }, [])

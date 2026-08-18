@@ -144,6 +144,10 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
       typeof window !== "undefined"
         ? `${window.location.pathname}${window.location.search}${window.location.hash}`
         : "/";
+    // The path is a route handler that 302s to accounts.google.com, not a Next
+    // page: the client router cannot follow a cross-origin redirect, so this has
+    // to be a document navigation.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = `/api/auth/google?redirect=${encodeURIComponent(redirectTarget)}`;
   };
 

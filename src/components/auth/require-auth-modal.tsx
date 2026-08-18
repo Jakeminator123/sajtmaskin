@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AuthModal } from "./auth-modal";
 import { Button } from "@/components/ui/button";
 import { Coins, Wand2, Lock, X } from "lucide-react";
@@ -49,6 +50,7 @@ const REASONS = {
 export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
+  const router = useRouter();
 
   if (!isOpen) return null;
 
@@ -110,7 +112,10 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
                 // Show buy credits button for out of credits
                 <>
                   <Button
-                    onClick={() => (window.location.href = "/buy-credits")}
+                    onClick={() => {
+                      onClose();
+                      router.push("/buy-credits");
+                    }}
                     className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-full font-medium"
                   >
                     <Coins className="mr-2 h-4 w-4" />

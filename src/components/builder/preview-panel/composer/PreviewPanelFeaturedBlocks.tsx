@@ -70,10 +70,8 @@ export function PreviewPanelFeaturedBlocks({
 
   useEffect(() => {
     let ignore = false;
-    /* eslint-disable react-hooks/set-state-in-effect -- loading gate before async featured resolve */
     setLoading(true);
     setError(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
     fetchFeaturedShadcnblocks()
       .then((page) => {
         if (ignore) return;
