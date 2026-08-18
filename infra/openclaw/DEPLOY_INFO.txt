@@ -33,6 +33,12 @@ Root dir:      infra/openclaw
 Plan:          Standard (2 GB / 1 CPU)
 Disk:          3 GB mounted at /root/.openclaw
 
+Create the service from the Blueprint at infra/openclaw/render.yaml on master.
+The service keeps auto-deploy enabled, but its build filter only includes
+infra/openclaw/** and ignores this guide, .gitignore and railway.toml. Normal
+app/docs merges therefore do not rebuild or restart the gateway. Manual
+deploys and Blueprint configuration syncs are intentionally unaffected.
+
 Do not use Starter. The live service exceeded 2 GB and OOM-restarted on
 2026-08-05. The persistent disk holds agent/session state and cannot be shrunk.
 
@@ -41,7 +47,6 @@ Secrets / instance values:
 - OPENAI_API_KEY=<existing OpenAI platform key>
 - SAJTAGENT_TARGET_SITE_URL=https://<site>
 - SAJTAGENT_ALLOWED_ORIGINS=https://<app>,https://<optional-preview>
-- JUICEFACTORY_API_KEY=<optional; only when that provider is used>
 
 Committed safe defaults in render.yaml:
 - OPENCLAW_GATEWAY_PORT=10000

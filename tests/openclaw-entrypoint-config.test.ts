@@ -236,36 +236,36 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", { timeout: 30_
     ).toEqual({ every: "45m" });
   });
 
-  it("splits a comma-separated fallback chain across providers", () => {
+  it("splits a comma-separated fallback chain", () => {
     const config = bootAndReadConfig({
-      OPENCLAW_MODEL_FALLBACK: "openai/gpt-5.4,juicefactory/qwen3-vl",
+      OPENCLAW_MODEL_FALLBACK: "openai/gpt-5.4,openai/gpt-5.5",
     });
 
     expect(config.agents.defaults.model.fallbacks).toEqual([
       "openai/gpt-5.4",
-      "juicefactory/qwen3-vl",
+      "openai/gpt-5.5",
     ]);
     expect(config.agents.list[0].model.fallbacks).toEqual([
       "openai/gpt-5.4",
-      "juicefactory/qwen3-vl",
+      "openai/gpt-5.5",
     ]);
   });
 
   it("trims whitespace and drops blanks and duplicates", () => {
     const config = bootAndReadConfig({
-      OPENCLAW_MODEL_FALLBACK: " openai/gpt-5.4 ,, openai/gpt-5.4 ,  juicefactory/qwen3-vl  ",
+      OPENCLAW_MODEL_FALLBACK: " openai/gpt-5.4 ,, openai/gpt-5.4 , openai/gpt-5.5 ",
     });
 
     expect(config.agents.defaults.model.fallbacks).toEqual([
       "openai/gpt-5.4",
-      "juicefactory/qwen3-vl",
+      "openai/gpt-5.5",
     ]);
   });
 
   it("honours a primary override", () => {
     const config = bootAndReadConfig({
       OPENCLAW_MODEL_PRIMARY: "openai/gpt-5.4-mini",
-      OPENCLAW_MODEL_FALLBACK: "juicefactory/qwen3-vl",
+      OPENCLAW_MODEL_FALLBACK: "openai/gpt-5.5",
     });
 
     expect(config.agents.defaults.model.primary).toBe("openai/gpt-5.4-mini");
