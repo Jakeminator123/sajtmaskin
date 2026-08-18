@@ -9,10 +9,7 @@ import {
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { finalizeOrHandleEmptyGeneration } from "@/lib/gen/stream/shared-own-engine-helpers";
-import {
-  applyPostMergeF3DetailCardEvidence,
-  omitEarlyF3DetailCardEvidence,
-} from "@/lib/gen/stream/f3-detail-card";
+import { applyPostMergeF3DetailCardEvidence } from "@/lib/gen/stream/f3-detail-card";
 import {
   buildF3AwaitingInputUiPart,
   F3_CONTINUATION_EMPTY_QUESTION,
@@ -123,9 +120,9 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
   mutedCapabilityLabels?: string[];
   /**
    * Dossier capabilities with real file evidence. The early `meta` SSE
-   * omits this (base-version files would make a same-round delivery look
-   * `planned` on the detail card). Finalize re-emits meta with the
-   * post-merge evidence and overwrites the orchestration snapshot.
+   * carries the BASE version's evidence (true about the parent); finalize
+   * re-emits meta with the post-merge evidence (SM-009) and overwrites the
+   * orchestration snapshot.
    */
   fileEvidenceCapabilities?: string[];
   /**
@@ -644,10 +641,13 @@ export function createOwnEngineGenerationStream(
       };
 
       safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
-      // SM-009: post-merge files do not exist yet. Omit base-version
-      // file evidence so the detail card cannot show `planned` for a
-      // dossier this round is about to deliver. Finalize re-emits meta.
-      safeEnqueue(enc.encode(formatSSEEvent("meta", omitEarlyF3DetailCardEvidence(meta))));
+      // SM-009: the early meta carries BASE-version file evidence — true
+      // about the parent, and the only truth available before finalize
+      // (stripping it made the card wrong for already-delivered
+      // integrations on every stream, and permanently on error/abort —
+      // Bugbot on #1023). Finalize re-emits meta with post-merge evidence
+      // so a same-round delivery never reads as `planned` after landing.
+      safeEnqueue(enc.encode(formatSSEEvent("meta", meta)));
       emitProgress("generation", { phase: "start" });
 
       enginePingTimer = setInterval(() => {

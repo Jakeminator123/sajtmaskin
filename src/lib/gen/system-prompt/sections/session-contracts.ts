@@ -303,27 +303,63 @@ export function renderTier3IntegrationBlock(params: {
   try {
     // One source per F3 round, in priority order: file-derived parent-version
     // spec > explicit approval > prompt contracts. File spec is the base;
-    // current-round approvals are unioned in. Prompt contracts are used only
-    // when neither stronger source exists — never woven into approval
-    // candidates (SM-005).
+    // current-round approvals are unioned in. Prompt contracts never
+    // contribute UNAPPROVED candidates (SM-005) — but an APPROVED provider
+    // that is missing from the static registry (custom/unmapped) keeps its
+    // contract-derived requirements, otherwise the approval would erase its
+    // env/setup needs entirely (pr-ai-review F-b978adccc911 on #1023).
+    const normalizeProviderKey = (value: string) =>
+      value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const approvedKeySet = new Set(
+      (approvedProviders ?? []).map((provider) => normalizeProviderKey(provider)),
+    );
+    const contractRequirementsForApproved = (): Tier3BuildSpec["requirements"] => {
+      if (!hasApprovedProviders || !preGenerationContracts) return [];
+      return deriveTier3BuildSpec(preGenerationContracts.contracts).requirements.filter(
+        (requirement) =>
+          approvedKeySet.has(normalizeProviderKey(requirement.provider)) ||
+          approvedKeySet.has(normalizeProviderKey(requirement.key)),
+      );
+    };
     let spec: Tier3BuildSpec;
     if (fileDerivedSpec) {
       const approvedProviderSpec = hasApprovedProviders
         ? deriveTier3BuildSpecForProviderKeys(approvedProviders ?? [])
         : { requirements: [] };
-      const fileKeys = new Set(
+      const seenKeys = new Set(
         fileDerivedSpec.requirements.map((requirement) => requirement.key),
       );
-      const extraApproved = approvedProviderSpec.requirements.filter(
-        (requirement) => !fileKeys.has(requirement.key),
-      );
+      // Contract-derived first: for a def-known provider it carries the
+      // contract's specific envVars/enforcement hints, which the
+      // registry-only derivation lacks.
+      const extraApproved = [
+        ...contractRequirementsForApproved(),
+        ...approvedProviderSpec.requirements,
+      ].filter((requirement) => {
+        if (seenKeys.has(requirement.key)) return false;
+        seenKeys.add(requirement.key);
+        return true;
+      });
       spec = {
         requirements: [...fileDerivedSpec.requirements, ...extraApproved].sort((a, b) =>
           a.key.localeCompare(b.key),
         ),
       };
     } else if (hasApprovedProviders) {
-      spec = deriveTier3BuildSpecForProviderKeys(approvedProviders ?? []);
+      const registrySpec = deriveTier3BuildSpecForProviderKeys(approvedProviders ?? []);
+      const seenKeys = new Set<string>();
+      // Same precedence as the file branch: the contract's requirement for
+      // an APPROVED provider wins over the registry-only generic (richer
+      // envVars); the registry fills in approvals the contract never named.
+      const merged = [
+        ...contractRequirementsForApproved(),
+        ...registrySpec.requirements,
+      ].filter((requirement) => {
+        if (seenKeys.has(requirement.key)) return false;
+        seenKeys.add(requirement.key);
+        return true;
+      });
+      spec = { requirements: merged.sort((a, b) => a.key.localeCompare(b.key)) };
     } else {
       spec = preGenerationContracts
         ? deriveTier3BuildSpec(preGenerationContracts.contracts)

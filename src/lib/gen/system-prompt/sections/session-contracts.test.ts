@@ -210,6 +210,48 @@ describe("renderTier3IntegrationBlock", () => {
     expect(rendered).not.toContain("RESEND_API_KEY");
   });
 
+  it("keeps the contract's envVars for an APPROVED dossier-less provider (F-b978adccc911)", () => {
+    const lines = renderTier3IntegrationBlock({
+      buildSpec: f3BuildSpec,
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "none",
+          integrations: [
+            {
+              provider: "posthog",
+              name: "PostHog",
+              reason: "user-requested analytics",
+              status: "chosen",
+              envVars: ["NEXT_PUBLIC_POSTHOG_KEY", "POSTHOG_PROJECT_HOST"],
+            },
+            {
+              provider: "resend",
+              name: "Resend",
+              reason: "speculative prompt contract",
+              status: "chosen",
+              envVars: ["RESEND_API_KEY"],
+            },
+          ],
+          envVars: [
+            { key: "NEXT_PUBLIC_POSTHOG_KEY", reason: "PostHog" },
+            { key: "RESEND_API_KEY", reason: "Resend" },
+          ],
+        },
+        unresolvedDecisions: [],
+      },
+      tier3BuildSpec: { requirements: [] },
+      approvedProviders: ["posthog"],
+    });
+
+    const rendered = lines.join("\n");
+    // posthog has no dossier — the registry-only derivation drops the
+    // contract's specific envVars. The APPROVED provider's contract
+    // requirement must win the merge, while the unapproved Resend
+    // candidate stays excluded (SM-005).
+    expect(rendered).toContain("POSTHOG_PROJECT_HOST");
+    expect(rendered).not.toContain("RESEND_API_KEY");
+  });
+
   it("unions file spec with approval only — not prompt-contract providers", () => {
     const lines = renderTier3IntegrationBlock({
       buildSpec: f3BuildSpec,
