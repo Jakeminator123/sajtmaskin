@@ -148,6 +148,27 @@ describe("buildAutoFixPrompt", () => {
     expect(prompt).toContain("## build output (exit 1, 1800ms)");
   });
 
+  it("puts script-in-React postcheck lines in the Issues detected headline", () => {
+    const prompt = buildAutoFixPrompt({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      reasons: ["openclaw_requested_repair"],
+      repair: {
+        currentVersionErrors: [
+          "[product_postcheck.console_error] Encountered a script tag while rendering React component.",
+          "[product_postcheck.runtime_crash] Next.js-felöverlägg visas — previewen kraschade vid körning.",
+          "[preview:client-error] Hydration failed because the server rendered HTML didn't match the client.",
+        ],
+      },
+    });
+
+    expect(prompt).toMatch(
+      /Issues detected:.*Encountered a script tag while rendering React component/,
+    );
+    expect(prompt).toMatch(/Issues detected:.*Next\.js-felöverlägg/);
+    expect(prompt).toMatch(/Issues detected:.*Hydration failed/);
+  });
+
   it("requires full-file repair output instead of snippets", () => {
     const prompt = buildAutoFixPrompt({
       chatId: "chat_1",

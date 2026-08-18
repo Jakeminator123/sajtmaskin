@@ -7,6 +7,11 @@ import type { FixEntry } from "../types";
 // Currently handles:
 //  1. ThemeProvider (next-themes) — when theme signals are present
 //  2. Toaster (sonner) — when toast usage is detected elsewhere
+//  3. Hoist raw <script> / next/script <Script> / <Analytics /> out of
+//     ThemeProvider. ThemeProvider is a Client Component; a <script> child
+//     makes React 19 warn "Encountered a script tag while rendering React
+//     component" and trip the Next overlay (prod chats 2026-08-18:
+//     a53cf1ee / 3b8fbc58 — JSON-LD + Analytics inside ThemeProvider).
 //
 // Does NOT touch custom providers (CartProvider, AuthProvider, …) because
 // those require app-specific props. The cross-file-import-checker already
@@ -137,6 +142,157 @@ function insertSiblingBeforeClosingBody(
   return content.replace(re, `${indent}${jsx}\n$2`);
 }
 
+const THEME_PROVIDER_CLOSE = "</ThemeProvider>";
+const HOISTABLE_OPEN_RE = /<(script|Script|Analytics)\b/g;
+
+function isLikelyJsxTagAt(source: string, index: number): boolean {
+  if (index === 0) return true;
+  const lineStart = source.lastIndexOf("\n", index - 1) + 1;
+  const prefix = source.slice(lineStart, index);
+  if (prefix.includes("//")) return false;
+  if (prefix.includes("{/*")) return false;
+  const prev = source[index - 1];
+  return prev !== undefined && /[\s>({\[]/.test(prev);
+}
+
+function findOpeningTagEnd(source: string, tagStart: number): number | null {
+  let quote: string | null = null;
+  let brace = 0;
+  for (let i = tagStart + 1; i < source.length; i++) {
+    const ch = source[i]!;
+    if (quote) {
+      if (ch === "\\" && i + 1 < source.length) {
+        i += 1;
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "{") {
+      brace += 1;
+      continue;
+    }
+    if (ch === "}") {
+      if (brace > 0) brace -= 1;
+      continue;
+    }
+    if (brace > 0) continue;
+    if (ch === "/" && source[i + 1] === ">") return i + 2;
+    if (ch === ">") return i + 1;
+  }
+  return null;
+}
+
+function isSelfClosingOpen(source: string, tagStart: number, openEnd: number): boolean {
+  return /\/\s*>$/.test(source.slice(tagStart, openEnd));
+}
+
+function findMatchingClose(source: string, innerStart: number, tagName: string): number | null {
+  const close = `</${tagName}>`;
+  const openNeedle = `<${tagName}`;
+  let depth = 1;
+  let i = innerStart;
+  while (i < source.length) {
+    const nextOpen = source.indexOf(openNeedle, i);
+    const nextClose = source.indexOf(close, i);
+    if (nextClose < 0) return null;
+    const openIsTag =
+      nextOpen >= 0 &&
+      nextOpen < nextClose &&
+      (source[nextOpen + openNeedle.length] === undefined ||
+        /[\s/>]/.test(source[nextOpen + openNeedle.length]!));
+    if (openIsTag) {
+      const openEnd = findOpeningTagEnd(source, nextOpen);
+      if (openEnd === null) return null;
+      if (!isSelfClosingOpen(source, nextOpen, openEnd)) depth += 1;
+      i = openEnd;
+      continue;
+    }
+    depth -= 1;
+    if (depth === 0) return nextClose;
+    i = nextClose + close.length;
+  }
+  return null;
+}
+
+type HoistableNode = { start: number; end: number; name: string; text: string };
+
+function findHoistableJsx(inner: string): HoistableNode[] {
+  const nodes: HoistableNode[] = [];
+  const scan = new RegExp(HOISTABLE_OPEN_RE.source, "g");
+  let match: RegExpExecArray | null;
+  while ((match = scan.exec(inner)) !== null) {
+    if (!isLikelyJsxTagAt(inner, match.index)) continue;
+    const name = match[1]!;
+    const openEnd = findOpeningTagEnd(inner, match.index);
+    if (openEnd === null) continue;
+    let end = openEnd;
+    if (!isSelfClosingOpen(inner, match.index, openEnd)) {
+      const closeStart = findMatchingClose(inner, openEnd, name);
+      if (closeStart === null) continue;
+      end = closeStart + `</${name}>`.length;
+    }
+    nodes.push({
+      start: match.index,
+      end,
+      name,
+      text: inner.slice(match.index, end).trim(),
+    });
+    scan.lastIndex = end;
+  }
+  return nodes;
+}
+
+/**
+ * Move <script>, next/script <Script>, and <Analytics /> from inside
+ * ThemeProvider to siblings after </ThemeProvider>. Safe no-op when those
+ * nodes already sit outside the provider (or there is no provider).
+ */
+function hoistScriptishOutOfThemeProvider(
+  content: string,
+): { content: string; description: string } | null {
+  const openIdx = content.search(/<ThemeProvider\b/);
+  if (openIdx < 0) return null;
+  const openEnd = findOpeningTagEnd(content, openIdx);
+  if (openEnd === null || isSelfClosingOpen(content, openIdx, openEnd)) return null;
+  const closeStart = findMatchingClose(content, openEnd, "ThemeProvider");
+  if (closeStart === null) return null;
+
+  const inner = content.slice(openEnd, closeStart);
+  const nodes = findHoistableJsx(inner);
+  if (nodes.length === 0) return null;
+
+  let nextInner = inner;
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const node = nodes[i]!;
+    const before = nextInner.slice(0, node.start);
+    const after = nextInner.slice(node.end);
+    nextInner = before.replace(/[ \t]+$/, "") + after.replace(/^\r?\n/, "\n");
+  }
+  nextInner = nextInner.replace(/\n[ \t]*\n[ \t]*$/, "\n");
+
+  const lineStart = content.lastIndexOf("\n", closeStart - 1) + 1;
+  const indent = content.slice(lineStart, closeStart);
+  const closeEnd = closeStart + THEME_PROVIDER_CLOSE.length;
+  const hoisted = nodes.map((node) => `${indent}${node.text}`).join("\n");
+  const kinds = [...new Set(nodes.map((node) => node.name))];
+
+  return {
+    content:
+      content.slice(0, openEnd) +
+      nextInner +
+      content.slice(closeStart, closeEnd) +
+      "\n" +
+      hoisted +
+      content.slice(closeEnd),
+    description: `Moved ${kinds.join(" + ")} out of ThemeProvider in root layout so React does not render a <script> inside a client component`,
+  };
+}
+
 /**
  * The exact wrap shape the pre-2026-08-01 fixer injected around a nested
  * `{children}` (attrs are the fixer's own — a hand-written provider with
@@ -246,6 +402,18 @@ export function fixLayoutProviders(files: CodeFile[]): {
       fixer: "layout-provider-fixer",
       category: "mechanical",
       description: "Injected <Toaster /> from sonner before closing body in root layout",
+      file: layout.path,
+    });
+  }
+
+  // --- Script/Analytics inside ThemeProvider (client boundary) ---
+  const hoisted = hoistScriptishOutOfThemeProvider(content);
+  if (hoisted !== null) {
+    content = hoisted.content;
+    fixes.push({
+      fixer: "layout-provider-fixer",
+      category: "mechanical",
+      description: hoisted.description,
       file: layout.path,
     });
   }

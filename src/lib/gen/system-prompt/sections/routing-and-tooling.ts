@@ -533,6 +533,7 @@ export function renderHydrationDeterminismBlock(): string[] {
     "## Render determinism (hydration)",
     "",
     "- Do NOT call `Math.random()`, `Date.now()`, `new Date()` with no arguments, `performance.now()`, or `crypto.randomUUID()` in render scope (component body, JSX, `useState`/`useMemo` initializers). These are non-deterministic across server and client and cause React hydration mismatches. Use deterministic values, or move the call into `useEffect` after mount.",
+    "- Do NOT put a raw `<script>` (including JSON-LD) or `<Analytics />` inside `ThemeProvider` or any other Client Component. React 19 then warns \"Encountered a script tag while rendering React component\" and the preview shows a hydration overlay. Place JSON-LD and Analytics as siblings of `ThemeProvider` under `<body>`, or in `<head>`.",
     "",
   ];
 }

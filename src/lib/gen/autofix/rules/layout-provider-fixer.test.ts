@@ -311,6 +311,142 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   });
 });
 
+describe("layout-provider-fixer — hoist script/Analytics out of ThemeProvider", () => {
+  /** Verbatim shape from prod chat a53cf1ee (J Sickla) 2026-08-18. */
+  const SICKLA_LAYOUT: CodeFile = {
+    path: "app/layout.tsx",
+    language: "tsx",
+    content: `import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import { Analytics } from "@vercel/analytics/next";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+import { Toaster } from "@/components/ui/sonner";
+import "./globals.css";
+import { ThemeProvider } from "next-themes";
+
+const hotelSchema = { "@type": "Hotel", name: "J Sickla" };
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <SiteHeader />
+        <main id="main-content">{children}</main>
+        <SiteFooter />
+        <Toaster richColors position="top-right" />
+        <Analytics />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(hotelSchema) }}
+        />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+  };
+
+  it("moves JSON-LD script and Analytics to siblings after ThemeProvider", () => {
+    const result = fixLayoutProviders([SICKLA_LAYOUT, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+
+    expect(result.fixes).toHaveLength(1);
+    expect(result.fixes[0]!.description).toMatch(/script.*Analytics|Analytics.*script/);
+    expect(layout).toContain("<Analytics />");
+    expect(layout).toContain('type="application/ld+json"');
+
+    const providerClose = layout.indexOf("</ThemeProvider>");
+    const analyticsIdx = layout.indexOf("<Analytics");
+    const scriptIdx = layout.indexOf("<script");
+    const bodyClose = layout.indexOf("</body>");
+    expect(providerClose).toBeGreaterThan(-1);
+    expect(analyticsIdx).toBeGreaterThan(providerClose);
+    expect(scriptIdx).toBeGreaterThan(providerClose);
+    expect(analyticsIdx).toBeLessThan(bodyClose);
+    expect(scriptIdx).toBeLessThan(bodyClose);
+
+    const inner = layout.slice(
+      layout.indexOf("<ThemeProvider"),
+      providerClose,
+    );
+    expect(inner).not.toContain("<Analytics");
+    expect(inner).not.toContain("<script");
+    expect(inner).toContain("<Toaster");
+  });
+
+  it("motprov: leaves script already outside ThemeProvider untouched", () => {
+    const healthy: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics } from "@vercel/analytics/next";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+        </ThemeProvider>
+        <Analytics />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: "{}" }} />
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([healthy, PKG_WITH_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).toBe(healthy.content);
+  });
+
+  it("after injecting ThemeProvider, hoists a pre-existing body-level script back out", () => {
+    const withJsonLd: CodeFile = {
+      ...SCAFFOLD_LIKE_LAYOUT,
+      content: SCAFFOLD_LIKE_LAYOUT.content.replace(
+        "<SiteFooter />",
+        `<SiteFooter />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: "{}" }} />`,
+      ),
+    };
+    const result = fixLayoutProviders([withJsonLd, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+    expect(result.fixes.some((fix) => /script/.test(fix.description))).toBe(true);
+    const providerClose = layout.indexOf("</ThemeProvider>");
+    expect(layout.indexOf("<script")).toBeGreaterThan(providerClose);
+    expect(layout.slice(layout.indexOf("<ThemeProvider"), providerClose)).not.toContain("<script");
+  });
+
+  it("does not hoist a script that is only mentioned in a comment", () => {
+    const commented: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          {/* JSON-LD lives in <script type="application/ld+json"> outside */}
+          <main>{children}</main>
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([commented, PKG_WITH_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).toBe(commented.content);
+  });
+});
+
 describe("layout-provider-fixer — Toaster injection (unchanged behavior)", () => {
   it("still inserts <Toaster /> before </body> when toasts are used", () => {
     const pageWithToast: CodeFile = {

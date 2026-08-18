@@ -688,8 +688,13 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     category: "mechanical-jsx",
     risk: "risky",
     sourcePath: "src/lib/gen/autofix/rules/layout-provider-fixer.ts",
-    targetFailureMode: "Missing required provider in layout (Theme/Auth/etc.)",
-    triggers: ["provider hook usage in tree without layout-level provider"],
+    targetFailureMode:
+      "Missing required provider in layout (Theme/Auth/etc.), or <script>/<Analytics> inside ThemeProvider",
+    triggers: [
+      "provider hook usage in tree without layout-level provider",
+      "Encountered a script tag while rendering React component",
+      "script or Analytics inside ThemeProvider",
+    ],
     status: "active",
     ownerPhase: "post-merge",
   },
