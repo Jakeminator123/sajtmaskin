@@ -82,6 +82,49 @@ describe("summarizeVersionLogsForAutoFix", () => {
     expect(diagnostics).toContain("[syntax] Syntax validation left blocking errors before preflight/preview.");
     expect(diagnostics.some((entry) => entry.startsWith("[seo]"))).toBe(false);
   });
+
+  it("keeps script-in-React postcheck lines and drops the summary bag", () => {
+    const diagnostics = summarizeVersionLogsForAutoFix([
+      {
+        level: "warning",
+        category: "product_postcheck.summary",
+        message: "F2 Product Postcheck found 2 warning(s).",
+      },
+      {
+        level: "warning",
+        category: "product_postcheck.console_error",
+        message: "Encountered a script tag while rendering React component.",
+      },
+      {
+        level: "warning",
+        category: "product_postcheck.runtime_crash",
+        message: "Next.js-felöverlägg visas — previewen kraschade vid körning.",
+      },
+      {
+        level: "warning",
+        category: "preview:client-error",
+        message: "Hydration failed because the server rendered HTML didn't match the client.",
+        meta: { kind: "uncaught" },
+      },
+      {
+        level: "warning",
+        category: "seo",
+        message: "SEO review hittade 1 launch-varning(ar).",
+      },
+    ]);
+
+    expect(diagnostics).toContain(
+      "[product_postcheck.console_error] Encountered a script tag while rendering React component.",
+    );
+    expect(diagnostics).toContain(
+      "[product_postcheck.runtime_crash] Next.js-felöverlägg visas — previewen kraschade vid körning.",
+    );
+    expect(diagnostics).toContain(
+      "[preview:client-error] Hydration failed because the server rendered HTML didn't match the client.",
+    );
+    expect(diagnostics.some((entry) => entry.includes("Postcheck found"))).toBe(false);
+    expect(diagnostics.some((entry) => entry.startsWith("[seo]"))).toBe(false);
+  });
 });
 
 // The per-chat cap is read from NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT at module

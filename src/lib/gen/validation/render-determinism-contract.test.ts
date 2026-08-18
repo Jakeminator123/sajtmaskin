@@ -37,6 +37,8 @@ describe("render determinism contract", () => {
     });
     expect(context).toMatch(/Math\.random/);
     expect(context).toMatch(/hydration|non-?deterministic/i);
+    expect(context).toMatch(/Encountered a script tag while rendering React component/);
+    expect(context).toMatch(/ThemeProvider/);
 
     // Bugbot 2026-08-05: the rule must be its own `##` budget block marked
     // required, or a tight systemContextTokens budget silently truncates it

@@ -51,7 +51,11 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
       entry.startsWith("[syntax") ||
       entry.startsWith("[routes") ||
       entry.startsWith("[preview]") ||
-      entry.startsWith("[render-telemetry]");
+      entry.startsWith("[preview:") ||
+      entry.startsWith("[render-telemetry]") ||
+      entry.startsWith("[product_postcheck.console_error]") ||
+      entry.startsWith("[product_postcheck.runtime_crash]") ||
+      entry.startsWith("[product_postcheck.hydration_mismatch]");
     if (!isBlocker) continue;
     // Trim to a single line + cap length so the headline stays readable.
     const oneLine = entry.replace(/\s+/g, " ").trim();
