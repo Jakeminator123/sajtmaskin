@@ -213,7 +213,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
       // Ägarbeslut 2026-08-11 (lucka 1): den generiska toasten ("Miljövariabler
       // sparade") sa inte vad som faktiskt hände med byggblocket. Kvittot bor
       // nu inline i Byggblock-raden (samma `saveError`-slot i
-      // `DossiersPopoverView`), med samma "previewn startar om"-info.
+      // `DossiersPanelView`), med samma "previewn startar om"-info.
     };
 
     window.addEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handler as EventListener);
