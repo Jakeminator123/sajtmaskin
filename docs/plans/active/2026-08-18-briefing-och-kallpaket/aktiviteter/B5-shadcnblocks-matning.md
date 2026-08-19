@@ -43,6 +43,18 @@ Krav:
 - Visa aggregatet i den befintliga Backoffice-sidan
   `backoffice/pages/llm_flode_telemetry.py` (samma mönster som övriga
   `st.subheader`-sektioner). Ingen ny sida.
+- **Ägarbeslut 2026-08-19 — samma utfall ska också synas här**, inte bara i
+  Backoffice:
+  1. `scripts/db/dump-logs.mjs` — läsbar i `--kinds=telemetry` (`meta`) och/eller
+     `--kinds=errors` (kategori för `fetch_failed`). Ingen ny kind om en
+     befintlig räcker. `/logg` kör redan de kindsen.
+  2. [`.cursor/commands/logg.md`](../../../../../.cursor/commands/logg.md) +
+     [`.cursor/skills/logg/SKILL.md`](../../../../../.cursor/skills/logg/SKILL.md)
+     — rapporten ska kunna svara «Pro-källkod / metadata-gissning / hämtning
+     misslyckades» för körningen.
+  3. Befintlig `/admin`-yta: [`/admin/loggar`](../../../../../src/app/admin/loggar/page.tsx)
+     (körningsloggar) — inte en ny adminsektion. `/admin/genereringar` är
+     billing och ska inte bära det här.
 - Kontrollera att flaggläget i [`docs/ENV.md`](../../../../ENV.md) fortfarande
   stämmer när mätningen görs — både `NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL` och
   `SHADCNBLOCKS_API_KEY` står där som CLI-verifierade satta i alla
