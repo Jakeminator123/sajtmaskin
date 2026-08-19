@@ -534,7 +534,8 @@ export function ChatInterface({
         toast.error("Kunde inte rätta utkastet. Försök igen.");
         return;
       }
-      setInput((prev) => (prev.trim() === current ? payload.text : prev));
+      const rewritten = payload.text.trim();
+      setInput((prev) => (prev.trim() === current ? rewritten : prev));
     } catch {
       toast.error("Kunde inte rätta utkastet. Försök igen.");
     } finally {

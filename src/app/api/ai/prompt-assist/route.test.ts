@@ -5,7 +5,10 @@ const getRequestUserId = vi.hoisted(() => vi.fn());
 const createDirectModel = vi.hoisted(() => vi.fn(() => "direct-model"));
 
 vi.mock("ai", () => ({ generateText }));
-vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
+vi.mock("@/lib/builder/direct-model", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/builder/direct-model")>();
+  return { ...actual, createDirectModel };
+});
 vi.mock("@/lib/tenant", () => ({ getRequestUserId }));
 vi.mock("@/lib/bot-protection", () => ({ requireNotBot: () => null }));
 vi.mock("@/lib/rate-limit", () => ({

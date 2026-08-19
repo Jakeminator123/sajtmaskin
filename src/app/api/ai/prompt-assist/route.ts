@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import {
   buildPromptAssistMessages,
+  buildPromptAssistModelOptions,
   parsePromptAssistResponse,
   PROMPT_ASSIST_DRAFT_MAX_CHARS,
   resolvePromptRewriteModel,
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
           { role: "system", content: messages.system },
           { role: "user", content: messages.user },
         ],
-        temperature: 0.3,
+        ...buildPromptAssistModelOptions(modelId),
       });
       const text = parsePromptAssistResponse(result.text ?? "");
       if (!text) {

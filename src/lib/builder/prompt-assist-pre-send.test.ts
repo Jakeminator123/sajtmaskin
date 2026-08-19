@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildPromptAssistMessages,
+  buildPromptAssistModelOptions,
   parsePromptAssistResponse,
   resolvePromptRewriteModel,
 } from "./prompt-assist-pre-send";
@@ -29,5 +30,18 @@ describe("prompt-assist-pre-send", () => {
     expect(parsePromptAssistResponse("En café-sajt i Malmö")).toBe("En café-sajt i Malmö");
     expect(parsePromptAssistResponse('{"text":"   "}')).toBeNull();
     expect(parsePromptAssistResponse("")).toBeNull();
+  });
+
+  it("unwraps fenced JSON and rejects broken JSON wrappers", () => {
+    expect(
+      parsePromptAssistResponse('```json\n{"text":"En café-sajt i Malmö"}\n```'),
+    ).toBe("En café-sajt i Malmö");
+    expect(parsePromptAssistResponse('{"text":')).toBeNull();
+  });
+
+  it("forces GPT-5.6 off thinking and omits temperature on reasoning models", () => {
+    expect(buildPromptAssistModelOptions("openai/gpt-5.6-terra")).toEqual({
+      providerOptions: { openai: { reasoningEffort: "none" } },
+    });
   });
 });

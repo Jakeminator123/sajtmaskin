@@ -3,13 +3,14 @@
  * Natural language in, natural language out. Not Deep Brief / siteBriefSchema.
  */
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import { getTemperatureConfig } from "@/lib/builder/direct-model";
 
 export const PROMPT_REWRITE_WORKLOAD_ID = "prompt_rewrite";
 export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-5.6-terra";
 export const PROMPT_ASSIST_DRAFT_MAX_CHARS = 8_000;
 
 export function resolvePromptRewriteModel(
-  env: Pick<NodeJS.ProcessEnv, "SAJTMASKIN_PROMPT_REWRITE_MODEL"> = process.env,
+  env: Record<string, string | undefined> = process.env,
 ): string {
   return (
     env.SAJTMASKIN_PROMPT_REWRITE_MODEL?.trim() ||
@@ -36,17 +37,32 @@ export function buildPromptAssistMessages(draft: string): {
   };
 }
 
+export function buildPromptAssistModelOptions(modelId: string): {
+  temperature?: number;
+  providerOptions?: { openai: { reasoningEffort: "none" } };
+} {
+  return {
+    ...getTemperatureConfig(modelId, 0.3),
+    ...(/gpt-5\.6/i.test(modelId)
+      ? { providerOptions: { openai: { reasoningEffort: "none" as const } } }
+      : {}),
+  };
+}
+
 export function parsePromptAssistResponse(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced?.[1]?.trim() ?? trimmed;
   try {
-    const parsed = JSON.parse(trimmed) as { text?: unknown };
+    const parsed = JSON.parse(candidate) as { text?: unknown };
     if (typeof parsed.text === "string") {
       const text = parsed.text.trim();
       return text || null;
     }
+    return null;
   } catch {
+    if (candidate.startsWith("{") || candidate.startsWith("```")) return null;
     return trimmed;
   }
-  return null;
 }
