@@ -4,6 +4,8 @@ import {
   buildPromptAssistMessages,
   buildPromptAssistModelOptions,
   parsePromptAssistResponse,
+  PROMPT_REWRITE_MAX_CHARS,
+  PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
   resolvePromptRewriteModel,
 } from "./prompt-assist-pre-send";
 
@@ -21,6 +23,7 @@ describe("prompt-assist-pre-send", () => {
     const { system } = buildPromptAssistMessages("hej");
     expect(system).toMatch(/natural|voice|language/i);
     expect(system).toMatch(/Do not turn the draft into a spec/);
+    expect(system).toContain(`${PROMPT_REWRITE_MAX_CHARS} characters`);
   });
 
   it("reads JSON text and accepts raw prose", () => {
@@ -57,8 +60,24 @@ describe("prompt-assist-pre-send", () => {
     expect(parsePromptAssistResponse('Här är JSON:\n{"text":')).toBeNull();
   });
 
-  it("forces GPT-5.6 off thinking and omits temperature on reasoning models", () => {
+  it("clamps oversized rewrites without splitting a Unicode surrogate pair", () => {
+    const prefix = "a".repeat(PROMPT_REWRITE_MAX_CHARS - 1);
+    const parsed = parsePromptAssistResponse(JSON.stringify({ text: `${prefix}😀tail` }));
+
+    expect(parsed).toBe(prefix);
+    expect(parsed).toHaveLength(PROMPT_REWRITE_MAX_CHARS - 1);
+    expect(parsed).not.toContain("�");
+  });
+
+  it("keeps normal rewrites unchanged at and below the writeback boundary", () => {
+    const atBoundary = "ö".repeat(PROMPT_REWRITE_MAX_CHARS);
+    expect(parsePromptAssistResponse(JSON.stringify({ text: atBoundary }))).toBe(atBoundary);
+    expect(parsePromptAssistResponse('{"text":"En vanlig rättning"}')).toBe("En vanlig rättning");
+  });
+
+  it("caps provider output and forces GPT-5.6 off thinking", () => {
     expect(buildPromptAssistModelOptions("openai/gpt-5.6-terra")).toEqual({
+      maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
       providerOptions: { openai: { reasoningEffort: "none" } },
     });
   });

@@ -9,6 +9,14 @@ import { aliasRetiredModelId } from "@/lib/models/catalog";
 export const PROMPT_REWRITE_WORKLOAD_ID = "prompt_rewrite";
 export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-5.6-terra";
 export const PROMPT_ASSIST_DRAFT_MAX_CHARS = 8_000;
+/**
+ * A rewrite of the largest allowed draft is about 2k tokens in Swedish/English.
+ * 3,072 leaves room for JSON escaping without giving this cheap pre-send step an
+ * open-ended provider bill.
+ */
+export const PROMPT_REWRITE_MAX_OUTPUT_TOKENS = 3_072;
+/** Keep writeback within the same character contract as the input draft. */
+export const PROMPT_REWRITE_MAX_CHARS = PROMPT_ASSIST_DRAFT_MAX_CHARS;
 
 export function resolvePromptRewriteModel(
   env: Record<string, string | undefined> = process.env,
@@ -32,6 +40,7 @@ export function buildPromptAssistMessages(draft: string): {
       "Keep the user's language and voice. Do not translate unless they mixed languages accidentally.",
       "Do not turn the draft into a spec, site brief, JSON schema, or system prompt.",
       "Do not invent pages, features, or brand facts that are not implied.",
+      `Keep the rewritten draft at or below ${PROMPT_REWRITE_MAX_CHARS} characters.`,
       'Return JSON only: {"text":"<rewritten draft>"}.',
     ].join(" "),
     user: draft,
@@ -39,11 +48,13 @@ export function buildPromptAssistMessages(draft: string): {
 }
 
 export function buildPromptAssistModelOptions(modelId: string): {
+  maxOutputTokens: number;
   temperature?: number;
   providerOptions?: { openai: { reasoningEffort: "none" } };
 } {
   const resolved = aliasRetiredModelId(modelId);
   return {
+    maxOutputTokens: PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
     ...getTemperatureConfig(resolved, 0.3),
     ...(/gpt-5\.6/i.test(resolved)
       ? { providerOptions: { openai: { reasoningEffort: "none" as const } } }
@@ -51,11 +62,23 @@ export function buildPromptAssistModelOptions(modelId: string): {
   };
 }
 
+function clampRewriteText(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= PROMPT_REWRITE_MAX_CHARS) return trimmed;
+
+  let end = PROMPT_REWRITE_MAX_CHARS;
+  const lastCodeUnit = trimmed.charCodeAt(end - 1);
+  if (lastCodeUnit >= 0xd800 && lastCodeUnit <= 0xdbff) {
+    end -= 1;
+  }
+  return trimmed.slice(0, end).trimEnd();
+}
+
 function readRewriteText(value: string): string | null | undefined {
   try {
     const parsed = JSON.parse(value) as { text?: unknown };
     if (typeof parsed.text === "string") {
-      return parsed.text.trim() || null;
+      return clampRewriteText(parsed.text) || null;
     }
     return null;
   } catch {
@@ -82,5 +105,5 @@ export function parsePromptAssistResponse(raw: string): string | null {
     if (candidate.startsWith("{") || /"text"\s*:/.test(candidate)) return null;
   }
 
-  return candidate;
+  return clampRewriteText(candidate);
 }

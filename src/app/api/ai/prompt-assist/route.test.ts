@@ -15,6 +15,7 @@ vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _key: string, handler: () => Promise<Response>) => handler(),
 }));
 
+import { PROMPT_REWRITE_MAX_OUTPUT_TOKENS } from "@/lib/builder/prompt-assist-pre-send";
 import { POST } from "./route";
 
 function request(body: unknown): Request {
@@ -48,7 +49,23 @@ describe("POST /api/ai/prompt-assist", () => {
       model: expect.any(String),
     });
     expect(generateText).toHaveBeenCalledTimes(1);
-    const arg = generateText.mock.calls[0]?.[0] as { messages: Array<{ content: string }> };
+    const arg = generateText.mock.calls[0]?.[0] as {
+      messages: Array<{ content: string }>;
+      maxOutputTokens?: number;
+    };
     expect(arg.messages[0]?.content).toMatch(/Do not turn the draft into a spec/);
+    expect(arg.maxOutputTokens).toBe(PROMPT_REWRITE_MAX_OUTPUT_TOKENS);
+  });
+
+  it("fails closed when a long or token-dense rewrite reaches the output cap", async () => {
+    generateText.mockResolvedValue({
+      text: '{"text":"Looks valid but may be incomplete"}',
+      finishReason: "length",
+    });
+
+    const response = await POST(request({ draft: "x".repeat(8_000) }));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({ error: "rewrite_output_limit" });
   });
 });
