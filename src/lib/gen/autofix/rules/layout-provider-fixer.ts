@@ -275,9 +275,72 @@ function findMatchingBraceClose(source: string, openIdx: number): number | null 
 }
 
 /**
+ * `{` after `=>` / `function` / `if (` is a statement block, not a JSX
+ * child expression. Walking back to that brace and hoisting it leaves
+ * `{schemas.map(s => )}` / `{(() => )()}`. Fail closed — leave the tag.
+ */
+function looksLikeStatementBlockOpen(source: string, openIdx: number): boolean {
+  const before = source.slice(0, openIdx).replace(/\s+$/, "");
+  if (before.endsWith("=>")) return true;
+  if (
+    /(?:^|[^\p{L}\p{N}_])(?:function|catch|finally|else|do|try)(?:\s+\w+)?\s*(?:\([^)]*\))?\s*$/u.test(
+      before,
+    )
+  ) {
+    return true;
+  }
+  if (/(?:^|[^\p{L}\p{N}_])(?:if|for|while|switch|catch)\s*\([^)]*\)\s*$/u.test(before)) {
+    return true;
+  }
+  const after = source.slice(openIdx + 1).replace(/^\s+/, "");
+  return /^(?:return|const|let|var|if|for|while|switch|try|throw|function|class|debugger|break|continue)\b/.test(
+    after,
+  );
+}
+
+/**
+ * True only when `name` is the local binding of an import from `moduleRe`
+ * in the same declaration. Independent `from "next/script"` + `import Script`
+ * checks would hoist a local `<Script>` when next/script is aliased
+ * (F-336d29e84d4a).
+ */
+function importBindsNameFromModule(
+  source: string,
+  name: string,
+  moduleRe: string,
+): boolean {
+  const n = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Named local binding is `Name` or `Foo as Name`, not `Name as Other`.
+  return new RegExp(
+    String.raw`import\s+(?!type\s)(?:${n}\b(?:\s*,\s*\{[^}]*\})?|\*\s+as\s+${n}\b|\{(?:[^}]*,)*\s*(?:type\s+)?(?:[\w$]+\s+as\s+)?${n}\s*(?:,[^}]*)?\})\s+from\s+["'](?:${moduleRe})["']`,
+  ).test(source);
+}
+
+/**
+ * next/script `<Script>` and Vercel `<Analytics />` only. A local component
+ * with the same name must stay put — the hoist regex matches the tag name,
+ * not the import.
+ */
+function isHoistableTagName(name: string, source: string): boolean {
+  if (name === "script") return true;
+  if (name === "Script") {
+    return importBindsNameFromModule(source, "Script", String.raw`next\/script`);
+  }
+  if (name === "Analytics") {
+    return importBindsNameFromModule(
+      source,
+      "Analytics",
+      String.raw`@vercel\/analytics(?:\/(?:next|react))?`,
+    );
+  }
+  return false;
+}
+
+/**
  * If the hoistable tag sits inside a JSX child expression (`{enabled &&
  * <Analytics />}`), expand to the whole `{…}` so we do not leave
- * `{enabled && }` behind.
+ * `{enabled && }` behind. Statement blocks and attribute values return
+ * null so the caller skips the node instead of corrupting TSX.
  */
 function expandToEnclosingJsxExpression(
   source: string,
@@ -295,6 +358,7 @@ function expandToEnclosingJsxExpression(
         // Attribute value (`prop={<Analytics />}`) cannot be hoisted
         // without leaving `prop={}`. Leave it in place.
         if (before.endsWith("=")) return null;
+        if (looksLikeStatementBlockOpen(source, j)) return null;
         const close = findMatchingBraceClose(source, j);
         if (close !== null && close >= end - 1) return { start: j, end: close + 1 };
         return { start, end };
@@ -371,13 +435,14 @@ function findMatchingClose(source: string, innerStart: number, tagName: string):
 
 type HoistableNode = { start: number; end: number; name: string; text: string };
 
-function findHoistableJsx(inner: string): HoistableNode[] {
+function findHoistableJsx(inner: string, source: string): HoistableNode[] {
   const nodes: HoistableNode[] = [];
   const scan = new RegExp(HOISTABLE_OPEN_RE.source, "g");
   let match: RegExpExecArray | null;
   while ((match = scan.exec(inner)) !== null) {
     if (!isLikelyJsxTagAt(inner, match.index)) continue;
     const name = match[1]!;
+    if (!isHoistableTagName(name, source)) continue;
     const openEnd = findOpeningTagEnd(inner, match.index);
     if (openEnd === null) continue;
     let end = openEnd;
@@ -415,7 +480,7 @@ function hoistScriptishOutOfThemeProvider(
   if (closeStart === null) return null;
 
   const inner = content.slice(openEnd, closeStart);
-  const nodes = findHoistableJsx(inner);
+  const nodes = findHoistableJsx(inner, content);
   if (nodes.length === 0) return null;
 
   let nextInner = inner;

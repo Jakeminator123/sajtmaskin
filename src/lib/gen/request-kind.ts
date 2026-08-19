@@ -119,7 +119,9 @@ function scoreDisplayClauseBoundary(prefix: string): number {
   // ("Visa mig sajtens poäng" is QA).
   const fronted =
     /^(?:\s*)(?:när|om|efter|innan|så\s+fort)(?![\p{L}\p{N}_])/iu.test(before) &&
-    /^(?:\s*)visa(?![\p{L}\p{N}_])/iu.test(after);
+    /^(?:\s*)(?:(?:kan|skulle)\s+(?:du|ni)(?:\s+kunna)?\s+)?visa(?![\p{L}\p{N}_])/iu.test(
+      after,
+    );
   return fronted ? comma : hardBoundary;
 }
 

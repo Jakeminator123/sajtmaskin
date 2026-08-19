@@ -350,19 +350,39 @@ async function rehydratePreviewUrl(params: {
  * runtime that answered `running` (or settled as `build_error`, a stable
  * verdict). Returns the status string, or null on transport/parse failure.
  */
+type PreviewMismatchDirection = "session_newer" | "session_older" | "unknown";
+
+type PreviewRuntimeProbe = {
+  status: string | null;
+  mismatchDirection?: PreviewMismatchDirection;
+};
+
+function asMismatchDirection(value: unknown): PreviewMismatchDirection | undefined {
+  if (value === "session_newer" || value === "session_older" || value === "unknown") {
+    return value;
+  }
+  return undefined;
+}
+
 async function fetchPreviewRuntimeStatus(params: {
   chatId: string;
   versionId: string;
-}): Promise<string | null> {
+}): Promise<PreviewRuntimeProbe> {
   try {
     const res = await fetch(
       `${engineChatBaseUrl(params.chatId)}/preview-status?versionId=${encodeURIComponent(params.versionId)}`,
     );
-    if (!res.ok) return null;
-    const data = (await res.json().catch(() => null)) as { status?: unknown } | null;
-    return typeof data?.status === "string" ? data.status : null;
+    if (!res.ok) return { status: null };
+    const data = (await res.json().catch(() => null)) as {
+      status?: unknown;
+      mismatchDirection?: unknown;
+    } | null;
+    return {
+      status: typeof data?.status === "string" ? data.status : null,
+      mismatchDirection: asMismatchDirection(data?.mismatchDirection),
+    };
   } catch {
-    return null;
+    return { status: null };
   }
 }
 
@@ -444,6 +464,16 @@ export function useResumePendingVerification(params: {
   // never re-runs (pr-ai-review F-285e977ed706 on #1027).
   const [ageGateNonce, setAgeGateNonce] = useState(0);
 
+  const scheduleRetry = (delayMs = RESUME_VERIFY_RUNTIME_RETRY_MS) => {
+    if (runtimeRetryTimerRef.current !== null) {
+      clearTimeout(runtimeRetryTimerRef.current);
+    }
+    runtimeRetryTimerRef.current = setTimeout(() => {
+      runtimeRetryTimerRef.current = null;
+      setAgeGateNonce((nonce) => nonce + 1);
+    }, delayMs);
+  };
+
   // Runtime-retry timer is cleared on unmount only. Do not cancel it from the
   // main effect — that would drop a scheduled probe on a versions-identity
   // change, and must never cancel an in-flight verify chain.
@@ -521,7 +551,20 @@ export function useResumePendingVerification(params: {
         let previewUrl = candidate.previewUrl;
         if (!previewUrl) {
           previewUrl = await rehydratePreviewUrl({ chatId, versionId });
-          if (!previewUrl) return; // retryable hold — slot stays open
+          if (!previewUrl) {
+            // Cold/unbootable preview is a runtime wait, not a verification
+            // attempt — refund like import-lane starting holds so three 8 s
+            // 503s cannot exhaust RESUME_VERIFY_MAX_ATTEMPTS.
+            attemptsRef.current.set(versionId, attemptsUsed);
+            const waits = (runtimeWaitsRef.current.get(versionId) ?? 0) + 1;
+            runtimeWaitsRef.current.set(versionId, waits);
+            if (waits >= RESUME_VERIFY_MAX_RUNTIME_WAITS) {
+              consumeAllAttempts();
+              return;
+            }
+            scheduleRetry();
+            return;
+          }
         }
 
         // Step 2b (import lane only) — cold-boot gate (Bugbot medium on
@@ -538,7 +581,8 @@ export function useResumePendingVerification(params: {
         //    blocking, matching the normal lane's best-effort philosophy.
         // Runtime holds do NOT charge {@link RESUME_VERIFY_MAX_ATTEMPTS}.
         if (lane === "imported") {
-          const runtimeStatus = await fetchPreviewRuntimeStatus({ chatId, versionId });
+          const runtime = await fetchPreviewRuntimeStatus({ chatId, versionId });
+          const runtimeStatus = runtime.status;
           const isRuntimeHold =
             runtimeStatus === "starting" ||
             runtimeStatus === "version_mismatch" ||
@@ -549,9 +593,10 @@ export function useResumePendingVerification(params: {
             // verification attempt.
             attemptsRef.current.set(versionId, attemptsUsed);
             const shouldRebind =
-              runtimeStatus === "version_mismatch" ||
               runtimeStatus === "stopped" ||
-              runtimeStatus === "missing";
+              runtimeStatus === "missing" ||
+              (runtimeStatus === "version_mismatch" &&
+                runtime.mismatchDirection !== "session_newer");
             if (shouldRebind) {
               await rehydratePreviewUrl({ chatId, versionId });
             }
@@ -561,13 +606,7 @@ export function useResumePendingVerification(params: {
               consumeAllAttempts();
               return;
             }
-            if (runtimeRetryTimerRef.current !== null) {
-              clearTimeout(runtimeRetryTimerRef.current);
-            }
-            runtimeRetryTimerRef.current = setTimeout(() => {
-              runtimeRetryTimerRef.current = null;
-              setAgeGateNonce((nonce) => nonce + 1);
-            }, RESUME_VERIFY_RUNTIME_RETRY_MS);
+            scheduleRetry();
             return;
           }
         }
@@ -583,7 +622,8 @@ export function useResumePendingVerification(params: {
           // Fail closed (Codex P1 round 4): the blocker row never reached the
           // /error-log enforcement surface — promoting now could let the
           // version be lifted to F3 without its product block. Hold the
-          // resume; a later poll tick retries the whole (idempotent) chain.
+          // resume and self-schedule; a later tick retries the chain.
+          scheduleRetry();
           return;
         }
         if (postcheck.productBlocked) {
@@ -621,9 +661,10 @@ export function useResumePendingVerification(params: {
 
         if (!res.ok) {
           // 409 (stale lease from the killed tab) and 5xx (verify lane
-          // briefly down/unconfigured) are retryable holds — a later poll
-          // tick gets another slot. 404 (scope mismatch) is terminal.
+          // briefly down/unconfigured) are retryable holds — self-schedule
+          // so a stable SWR versions identity still retries. 404 is terminal.
           if (res.status === 404) consumeAllAttempts();
+          else scheduleRetry();
           return;
         }
         // Gate completed — terminal for this session regardless of verdict.
@@ -657,7 +698,9 @@ export function useResumePendingVerification(params: {
         }
       } catch {
         // Best-effort resume: network failures are a retryable hold — the
-        // slot bookkeeping above already charged one attempt.
+        // slot bookkeeping above already charged one attempt. Self-schedule
+        // so a reused versions array cannot strand the remaining budget.
+        scheduleRetry();
       } finally {
         inFlightRef.current.delete(versionId);
       }

@@ -993,8 +993,8 @@
     {
       "key": "SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF",
       "classification": "environment_specific",
-      "recommendedVercelTargets": [],
-      "notes": "Kill switch for server-side Auto Brief on init. Unset (default) = brief runs. Set to exactly '1' to disable; any other value is ignored. Since B8 removed the simple-website fast lane, every freetext init runs Auto Brief, so this is the rollback lever if brief latency or cost regresses. Leave unset in normal operation — disabling it strips pages, capabilities and visual direction from the generation. Source: src/lib/builder/server-auto-brief-policy.ts."
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Kill switch for server-side Auto Brief on init. Unset (default) = brief runs. Set to exactly '1' to disable; any other value is ignored. recommendedVercelTargets lists where incident rollback via manage_env must reach — do not leave empty or a set-key lands on no Vercel target. Leave unset in normal operation — disabling it strips pages, capabilities and visual direction from the generation. Source: src/lib/builder/server-auto-brief-policy.ts."
     },
     {
       "key": "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",

@@ -376,11 +376,11 @@ async function buildSearchCandidates(
   candidates: ShadcnUiRecipeCandidate[];
   communityPlans: CommunitySearchPlan[] | null;
 } | null> {
-  const indexItems = await fetchOfficialIndexForResolver();
-  if (!indexItems) return null;
-
   const intents = buildRecipeSearchIntents(capabilities, prompt);
   if (intents.length === 0) return null;
+
+  const indexItems = await fetchOfficialIndexForResolver();
+  if (!indexItems) return null;
 
   const candidates = buildOfficialSearchCandidates(indexItems, intents);
   if (candidates.length === 0) return null;

@@ -93,6 +93,12 @@ describe("classifyRequestKind", () => {
     expect(
       classifyRequestKind("Om kunden är inloggad, visa poängen i headern").kind,
     ).not.toBe("qa-or-score");
+    expect(
+      classifyRequestKind("När användaren är inloggad, kan du visa poängen i headern?").kind,
+    ).not.toBe("qa-or-score");
+    expect(
+      classifyRequestKind("När användaren är inloggad, kan du visa poängen i headern").kind,
+    ).not.toBe("qa-or-score");
   });
 
   it("keeps genuine score questions in the qa path", () => {

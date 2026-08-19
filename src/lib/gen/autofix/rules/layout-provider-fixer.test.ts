@@ -640,6 +640,211 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     expect(layoutOf(result.files)).toBe(commentedProvider.content);
   });
 
+  it("fail-closed: does not hoist a script out of a block-bodied map", () => {
+    const blockMap: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { ThemeProvider } from "next-themes";
+
+const schemas = [{ "@type": "Hotel" }];
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          {schemas.map(s => { return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(s) }} />; })}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([blockMap, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+    expect(result.fixes).toHaveLength(0);
+    expect(layout).toBe(blockMap.content);
+    expect(layout).toContain("schemas.map(s => { return <script");
+    expect(layout).not.toMatch(/schemas\.map\(s => \s*\)/);
+  });
+
+  it("fail-closed: does not hoist a script out of a block-bodied IIFE", () => {
+    const iife: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          {(() => { return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: "{}" }} />; })()}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([iife, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+    expect(result.fixes).toHaveLength(0);
+    expect(layout).toBe(iife.content);
+    expect(layout).not.toMatch(/\{\(\(\) => \s*\)\(\)\}/);
+  });
+
+  it("motprov: still hoists an expression-bodied map whole", () => {
+    const exprMap: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { ThemeProvider } from "next-themes";
+
+const schemas = [{ "@type": "Hotel" }];
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          {schemas.map(s => <script key={s["@type"]} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(s) }} />)}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([exprMap, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+    expect(result.fixes).toHaveLength(1);
+    expect(layout).toContain("{schemas.map(s => <script");
+    expect(layout).not.toMatch(/schemas\.map\(s => \s*\)/);
+    expect(layout.indexOf("{schemas.map(s => <script")).toBeGreaterThan(
+      layout.indexOf("</ThemeProvider>"),
+    );
+  });
+
+  it("does not hoist a local Script/Analytics without the real import", () => {
+    const local: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { ThemeProvider } from "next-themes";
+
+function Script({ children }: { children?: React.ReactNode }) {
+  return <div data-local-script>{children}</div>;
+}
+function Analytics() {
+  return <div data-local-analytics />;
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          <Script />
+          <Analytics />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([local, PKG_WITH_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).toBe(local.content);
+  });
+
+  it("does not hoist a local Script when next/script is imported under another name (F-336d29e84d4a)", () => {
+    const aliased: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import NextScript from "next/script";
+import Script from "./local";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          <Script />
+          <NextScript src="https://example.com/x.js" />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([aliased, PKG_WITH_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).toBe(aliased.content);
+  });
+
+  it("does not hoist a local Analytics when @vercel/analytics is imported under another name", () => {
+    const aliased: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
+import Analytics from "./local";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          <Analytics />
+          <VercelAnalytics />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([aliased, PKG_WITH_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).toBe(aliased.content);
+  });
+
+  it("motprov: still hoists next/script Script when the import is present", () => {
+    const nextScript: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import Script from "next/script";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          <Script src="https://example.com/x.js" />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([nextScript, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+    expect(result.fixes).toHaveLength(1);
+    expect(layout.indexOf("<Script")).toBeGreaterThan(layout.indexOf("</ThemeProvider>"));
+  });
+
   it("does not truncate the provider region on a commented close tag (Bugbot high #1031)", () => {
     const trickyClose: CodeFile = {
       path: "app/layout.tsx",

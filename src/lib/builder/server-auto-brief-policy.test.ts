@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { shouldRunServerAutoBrief } from "./server-auto-brief-policy";
+import {
+  createServerAutoBriefSignal,
+  SERVER_AUTO_BRIEF_TIMEOUT_MS,
+  shouldRunServerAutoBrief,
+} from "./server-auto-brief-policy";
 
 describe("shouldRunServerAutoBrief", () => {
   it("returns false when client already sent a brief", () => {
@@ -190,6 +194,19 @@ describe("shouldRunServerAutoBrief", () => {
         buildIntent: "website",
       }),
     ).toBe(true);
+  });
+
+  it("keeps Auto Brief's own budget well above the 8-15s suggestion", () => {
+    expect(SERVER_AUTO_BRIEF_TIMEOUT_MS).toBe(70_000);
+    expect(SERVER_AUTO_BRIEF_TIMEOUT_MS).toBeGreaterThan(15_000);
+  });
+
+  it("aborts the combined signal when the parent request aborts", () => {
+    const parent = new AbortController();
+    const combined = createServerAutoBriefSignal(parent.signal);
+    expect(combined.aborted).toBe(false);
+    parent.abort();
+    expect(combined.aborted).toBe(true);
   });
 
   it("runs auto-brief for very short vague website prompts", () => {

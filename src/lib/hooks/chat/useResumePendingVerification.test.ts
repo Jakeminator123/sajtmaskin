@@ -537,6 +537,92 @@ describe("useResumePendingVerification", () => {
     expect(callsTo("/quality-gate")).toHaveLength(0);
   });
 
+  it("retries a failed preview rehydrate when versions identity stays the same", async () => {
+    vi.useFakeTimers();
+    const versions = [pendingRow({ previewUrl: null })];
+    let previewSessionCalls = 0;
+    fetchMock.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/preview-session")) {
+        previewSessionCalls += 1;
+        if (previewSessionCalls === 1) {
+          return { ok: false, status: 503, json: async () => ({}) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }),
+        };
+      }
+      if (u.includes("/product-postcheck")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ skipped: false, productBlocked: false }),
+        };
+      }
+      if (u.includes("/error-log") || u.includes("/validate-images")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ passed: true }) };
+    });
+
+    const { unmount } = renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions,
+        isStreaming: false,
+      }),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(callsTo("/preview-session")).toHaveLength(1);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RESUME_VERIFY_RUNTIME_RETRY_MS);
+    });
+    expect(callsTo("/preview-session")).toHaveLength(2);
+    expect(callsTo("/quality-gate")).toHaveLength(1);
+    unmount();
+    vi.useRealTimers();
+  });
+
+  it("does not burn the 3-attempt budget on repeated preview-session 503s", async () => {
+    vi.useFakeTimers();
+    const versions = [pendingRow({ previewUrl: null })];
+    mockRoutes({ previewSession: { ok: false } });
+
+    const { unmount } = renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions,
+        isStreaming: false,
+      }),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(callsTo("/preview-session")).toHaveLength(1);
+
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(RESUME_VERIFY_RUNTIME_RETRY_MS);
+      });
+    }
+    expect(callsTo("/preview-session")).toHaveLength(4);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+    unmount();
+    vi.useRealTimers();
+  });
+
   it("runs the import lane WITHOUT image validation (verbatim contract)", async () => {
     const mutateVersions = vi.fn();
     renderHook(() =>
@@ -693,6 +779,44 @@ describe("useResumePendingVerification", () => {
     unmount();
   });
 
+  it("import lane does not rebind a session_newer mismatch onto an older version", async () => {
+    mockRoutes({
+      previewStatus: {
+        body: { ok: true, status: "version_mismatch", mismatchDirection: "session_newer" },
+      },
+    });
+    const { unmount } = renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo" })],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/preview-status")).toHaveLength(1));
+    await Promise.resolve();
+    expect(callsTo("/preview-session")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+    unmount();
+  });
+
+  it("motprov: import lane still rebinds session_older mismatch", async () => {
+    mockRoutes({
+      previewStatus: {
+        body: { ok: true, status: "version_mismatch", mismatchDirection: "session_older" },
+      },
+    });
+    const { unmount } = renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo" })],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/preview-session")).toHaveLength(1));
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+    unmount();
+  });
+
   it("import lane proceeds on a settled build_error verdict (honest red, not a race)", async () => {
     mockRoutes({ previewStatus: { body: { ok: true, status: "build_error" } } });
     renderHook(() =>
@@ -738,6 +862,55 @@ describe("useResumePendingVerification", () => {
     await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1), {
       timeout: 5_000,
     });
+  });
+
+  it("retries a 409 quality-gate when versions identity stays the same", async () => {
+    vi.useFakeTimers();
+    const versions = [pendingRow()];
+    let gateCalls = 0;
+    fetchMock.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/quality-gate")) {
+        gateCalls += 1;
+        if (gateCalls === 1) {
+          return { ok: false, status: 409, json: async () => ({ code: "version_busy" }) };
+        }
+        return { ok: true, status: 200, json: async () => ({ passed: true }) };
+      }
+      if (u.includes("/product-postcheck")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ skipped: false, productBlocked: false }),
+        };
+      }
+      if (u.includes("/error-log") || u.includes("/validate-images")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ ok: true }) };
+    });
+
+    const { unmount } = renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions,
+        isStreaming: false,
+      }),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(callsTo("/quality-gate")).toHaveLength(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RESUME_VERIFY_RUNTIME_RETRY_MS);
+    });
+    expect(callsTo("/quality-gate")).toHaveLength(2);
+    unmount();
+    vi.useRealTimers();
   });
 
   it("fails closed when a productBlocked summary cannot be persisted (Codex P1 r4)", async () => {
