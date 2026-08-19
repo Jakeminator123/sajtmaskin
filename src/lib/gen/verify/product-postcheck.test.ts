@@ -471,7 +471,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
     expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(2);
   });
 
-  it("blockerar med preview_boot_page när markörerna matchar och readiness säger att runtimen inte är klar", async () => {
+  it("sätter inte productBlocked när hosten inte är redo och sidan är boot-placeholder", async () => {
     let nowMs = 1_000;
     const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
     getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
@@ -480,6 +480,33 @@ describe("runProductPostcheck browser-startpunkt", () => {
     desktop.waitForTimeout.mockImplementation(async () => {
       nowMs = 40_000;
     });
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => desktop),
+      close: vi.fn(async () => {}),
+    });
+
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "http://127.0.0.1:3000/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(result.productBlocked).toBe(false);
+      expect(result.skipped).toBe(false);
+      expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
+      expect(desktop.reload).not.toHaveBeenCalled();
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
+  it("blockerar med preview_boot_page när hosten är redo men sidan är fortfarande boot-placeholder", async () => {
+    let nowMs = 1_000;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock.mockResolvedValue(readinessVerdict("ready"));
+    const desktop = fakePage([bootPageProbe, bootPageProbe]);
     launchCaptureBrowserMock.mockResolvedValue({
       newPage: vi.fn(async () => desktop),
       close: vi.fn(async () => {}),
@@ -496,6 +523,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
       expect(result.skipped).toBe(false);
       expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
       expect(result.warnings[0]?.message).toContain("Preview-host");
+      expect(desktop.reload).toHaveBeenCalled();
       expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(1);
     } finally {
       dateNow.mockRestore();
@@ -544,7 +572,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
       .mockResolvedValue(readinessVerdict("ready"));
     const desktop = fakePage([
       bootPageProbe,
-      bootPageProbe,
+      liveBootProbe,
       { anchors: [], images: [], ctas: [], forms: [] },
       false,
     ]);
@@ -600,7 +628,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
         versionId: "v1",
       });
 
-      expect(result.productBlocked).toBe(true);
+      expect(result.productBlocked).toBe(false);
       expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
       expect(desktop.reload).not.toHaveBeenCalled();
     } finally {
@@ -630,9 +658,10 @@ describe("runProductPostcheck browser-startpunkt", () => {
         versionId: "v1",
       });
 
-      expect(result.productBlocked).toBe(true);
+      expect(result.productBlocked).toBe(false);
       expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
       expect(desktop.evaluate).toHaveBeenCalledTimes(2);
+      expect(desktop.reload).not.toHaveBeenCalled();
     } finally {
       dateNow.mockRestore();
     }
@@ -647,7 +676,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
       .mockResolvedValue(readinessVerdict("ready"));
     const desktop = fakePage([
       bootPageProbe,
-      bootPageProbe,
+      liveBootProbe,
       { anchors: [], images: [], ctas: [], forms: [] },
       false,
     ]);
