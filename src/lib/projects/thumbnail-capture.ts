@@ -69,6 +69,13 @@ export const THUMBNAIL_POST_SCROLL_SETTLE_MS = 500;
  */
 export const THUMBNAIL_EVALUATE_DEADLINE_MS = 2_000;
 /**
+ * Hard cap for the whole visual-settle phase (measure + scroll steps + reserved
+ * top-scroll + post-settle). Enforced with host `Date.now()` checks — not an
+ * outer Promise.race, which would leave evaluates running and able to scroll
+ * during the screenshot.
+ */
+export const THUMBNAIL_SETTLE_PHASE_BUDGET_MS = 6_000;
+/**
  * Best-effort GET that overlaps browser launch. Warms a cold preview so the
  * later navigation is less likely to photograph a shell. Not a second capture.
  */
@@ -87,11 +94,56 @@ export function thumbnailCaptureControlledBudgetMs(): number {
     NAVIGATION_TIMEOUT_MS +
     NETWORK_IDLE_TIMEOUT_MS +
     PRE_PROBE_SETTLE_MS +
-    THUMBNAIL_SCROLL_MAX_STEPS * THUMBNAIL_SCROLL_STEP_DELAY_MS +
-    THUMBNAIL_POST_SCROLL_SETTLE_MS +
-    SCREENSHOT_TIMEOUT_MS +
-    THUMBNAIL_WARMUP_TIMEOUT_MS
+    // Includes measure, scroll steps, reserved top-scroll and post-settle.
+    THUMBNAIL_SETTLE_PHASE_BUDGET_MS +
+    SCREENSHOT_TIMEOUT_MS
+    // Warmup is omitted: it runs in parallel with `launchCaptureBrowser`,
+    // and launch has never been part of this sum.
   );
+}
+
+/** Time that must remain before starting measure or another scroll step. */
+export function settlePhaseStepReserveMs(): number {
+  return (
+    THUMBNAIL_EVALUATE_DEADLINE_MS +
+    THUMBNAIL_EVALUATE_DEADLINE_MS +
+    THUMBNAIL_POST_SCROLL_SETTLE_MS
+  );
+}
+
+export function remainingSettlePhaseMs(startedAt: number, now: number): number {
+  return Math.max(0, THUMBNAIL_SETTLE_PHASE_BUDGET_MS - (now - startedAt));
+}
+
+/** True when a measure/scroll evaluate can finish and still leave top+post. */
+export function canAffordSettleEvaluate(remainingMs: number): boolean {
+  return remainingMs >= settlePhaseStepReserveMs();
+}
+
+export function settleEvaluateDeadlineMs(remainingMs: number): number {
+  return Math.min(THUMBNAIL_EVALUATE_DEADLINE_MS, Math.max(0, remainingMs));
+}
+
+/**
+ * Which scroll offsets the phase budget still allows, assuming each completed
+ * step costs `stepCostMs` (worst case: full evaluate deadline + step delay).
+ * @internal exported for tests.
+ */
+export function selectSettleScrollOffsets(args: {
+  offsets: number[];
+  remainingMs: number;
+  stepCostMs?: number;
+}): number[] {
+  const stepCostMs =
+    args.stepCostMs ?? THUMBNAIL_EVALUATE_DEADLINE_MS + THUMBNAIL_SCROLL_STEP_DELAY_MS;
+  let remainingMs = args.remainingMs;
+  const chosen: number[] = [];
+  for (const y of args.offsets) {
+    if (!canAffordSettleEvaluate(remainingMs)) break;
+    chosen.push(y);
+    remainingMs -= stepCostMs;
+  }
+  return chosen;
 }
 
 /**
@@ -167,46 +219,65 @@ async function warmupPreviewUrlBestEffort(url: string): Promise<void> {
  * Trip lazy / `whileInView` content, return to top, then a short host-side
  * settle. All waits are host timers — a page that patches `setTimeout` / rAF
  * cannot hang this step. Entirely best-effort: a broken page still gets shot.
+ *
+ * A timed-out `page.evaluate` may still run later (orphan `scrollTo`). That is
+ * an accepted best-effort risk; the top-scroll runs last to minimize it.
  */
 async function settleThumbnailAnimationsBestEffort(page: Page): Promise<void> {
-  const measured = await withHostDeadline(
-    page.evaluate(() => {
-      const doc = document.documentElement;
-      return {
-        viewportHeight: window.innerHeight || 0,
-        pageHeight: Math.max(doc?.scrollHeight ?? 0, document.body?.scrollHeight ?? 0),
-      };
-    }),
-    THUMBNAIL_EVALUATE_DEADLINE_MS,
-  );
+  const startedAt = Date.now();
+  const remaining = () => remainingSettlePhaseMs(startedAt, Date.now());
 
-  const offsets =
-    measured && typeof measured.viewportHeight === "number"
-      ? planThumbnailScrollOffsets({
-          viewportHeight: measured.viewportHeight || THUMBNAIL_VIEWPORT.height,
-          pageHeight: measured.pageHeight,
-        })
-      : [];
+  let offsets: number[] = [];
+  if (canAffordSettleEvaluate(remaining())) {
+    const measured = await withHostDeadline(
+      page.evaluate(() => {
+        const doc = document.documentElement;
+        return {
+          viewportHeight: window.innerHeight || 0,
+          pageHeight: Math.max(doc?.scrollHeight ?? 0, document.body?.scrollHeight ?? 0),
+        };
+      }),
+      settleEvaluateDeadlineMs(remaining()),
+    );
+    if (measured && typeof measured.viewportHeight === "number") {
+      offsets = planThumbnailScrollOffsets({
+        viewportHeight: measured.viewportHeight || THUMBNAIL_VIEWPORT.height,
+        pageHeight: measured.pageHeight,
+      });
+    }
+  }
 
+  let didScroll = false;
   for (const y of offsets) {
+    if (!canAffordSettleEvaluate(remaining())) break;
     const scrolled = await withHostDeadline(
       page.evaluate((offset) => {
         window.scrollTo(0, offset);
         return true;
       }, y),
-      THUMBNAIL_EVALUATE_DEADLINE_MS,
+      settleEvaluateDeadlineMs(remaining()),
     );
     // Page never yielded: further offsets would each burn another deadline.
     if (scrolled !== true) break;
-    await page.waitForTimeout(THUMBNAIL_SCROLL_STEP_DELAY_MS).catch(() => undefined);
+    didScroll = true;
+    const reservedAfterStep = THUMBNAIL_EVALUATE_DEADLINE_MS + THUMBNAIL_POST_SCROLL_SETTLE_MS;
+    const delayMs = Math.min(
+      THUMBNAIL_SCROLL_STEP_DELAY_MS,
+      Math.max(0, remaining() - reservedAfterStep),
+    );
+    if (delayMs > 0) {
+      await page.waitForTimeout(delayMs).catch(() => undefined);
+    }
   }
 
-  await withHostDeadline(
-    page.evaluate(() => {
-      window.scrollTo(0, 0);
-    }),
-    THUMBNAIL_EVALUATE_DEADLINE_MS,
-  );
+  if (didScroll) {
+    await withHostDeadline(
+      page.evaluate(() => {
+        window.scrollTo(0, 0);
+      }),
+      settleEvaluateDeadlineMs(remaining()),
+    );
+  }
   await page.waitForTimeout(THUMBNAIL_POST_SCROLL_SETTLE_MS).catch(() => undefined);
 }
 

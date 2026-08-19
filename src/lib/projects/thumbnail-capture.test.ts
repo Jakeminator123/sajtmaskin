@@ -28,10 +28,16 @@ const {
   planThumbnailScrollOffsets,
   thumbnailCaptureControlledBudgetMs,
   withHostDeadline,
-  THUMBNAIL_SCROLL_MAX_STEPS,
+  canAffordSettleEvaluate,
+  selectSettleScrollOffsets,
+  remainingSettlePhaseMs,
+  settleEvaluateDeadlineMs,
+  settlePhaseStepReserveMs,
   THUMBNAIL_SCROLL_STEP_DELAY_MS,
   THUMBNAIL_POST_SCROLL_SETTLE_MS,
   THUMBNAIL_WARMUP_TIMEOUT_MS,
+  THUMBNAIL_EVALUATE_DEADLINE_MS,
+  THUMBNAIL_SETTLE_PHASE_BUDGET_MS,
   THUMBNAIL_VIEWPORT,
 } = await import("./thumbnail-capture");
 
@@ -245,19 +251,57 @@ describe("withHostDeadline", () => {
   });
 });
 
+describe("settle phase budget helpers", () => {
+  it("reserves one evaluate + top-scroll cap + post-settle before a new step", () => {
+    const reserve = settlePhaseStepReserveMs();
+    expect(reserve).toBe(
+      THUMBNAIL_EVALUATE_DEADLINE_MS +
+        THUMBNAIL_EVALUATE_DEADLINE_MS +
+        THUMBNAIL_POST_SCROLL_SETTLE_MS,
+    );
+    expect(canAffordSettleEvaluate(reserve)).toBe(true);
+    expect(canAffordSettleEvaluate(reserve - 1)).toBe(false);
+  });
+
+  it("clamps the per-evaluate deadline to remaining phase time", () => {
+    expect(settleEvaluateDeadlineMs(5_000)).toBe(THUMBNAIL_EVALUATE_DEADLINE_MS);
+    expect(settleEvaluateDeadlineMs(750)).toBe(750);
+    expect(settleEvaluateDeadlineMs(0)).toBe(0);
+  });
+
+  it("counts remaining time from a phase start stamp", () => {
+    expect(remainingSettlePhaseMs(1_000, 1_000)).toBe(THUMBNAIL_SETTLE_PHASE_BUDGET_MS);
+    expect(remainingSettlePhaseMs(1_000, 1_000 + THUMBNAIL_SETTLE_PHASE_BUDGET_MS)).toBe(0);
+    expect(remainingSettlePhaseMs(1_000, 1_000 + THUMBNAIL_SETTLE_PHASE_BUDGET_MS + 50)).toBe(0);
+  });
+
+  it("selects no scroll offsets when the phase is already spent", () => {
+    expect(
+      selectSettleScrollOffsets({
+        offsets: [750, 1500, 2250],
+        remainingMs: 1_000,
+      }),
+    ).toEqual([]);
+  });
+
+  it("stops selecting offsets once another step would break the reserve", () => {
+    const remainingMs = settlePhaseStepReserveMs();
+    expect(
+      selectSettleScrollOffsets({
+        offsets: [750, 1500, 2250],
+        remainingMs,
+      }),
+    ).toEqual([750]);
+  });
+});
+
 describe("thumbnailCaptureControlledBudgetMs", () => {
   it("stays safely under the thumbnail route maxDuration of 60s", () => {
     const budget = thumbnailCaptureControlledBudgetMs();
     expect(budget).toBe(
-      25_000 +
-        8_000 +
-        400 +
-        THUMBNAIL_SCROLL_MAX_STEPS * THUMBNAIL_SCROLL_STEP_DELAY_MS +
-        THUMBNAIL_POST_SCROLL_SETTLE_MS +
-        15_000 +
-        THUMBNAIL_WARMUP_TIMEOUT_MS,
+      25_000 + 8_000 + 400 + THUMBNAIL_SETTLE_PHASE_BUDGET_MS + 15_000,
     );
-    expect(budget).toBe(52_400);
+    expect(budget).toBe(54_400);
     expect(budget).toBeLessThan(55_000);
   });
 });
