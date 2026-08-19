@@ -591,6 +591,20 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     ownerPhase: "pre-syntax",
   },
   {
+    id: "footer-copyright-year-fixer",
+    category: "mechanical-jsx",
+    risk: "safe",
+    sourcePath: "src/lib/gen/autofix/rules/footer-copyright-year-fixer.ts",
+    targetFailureMode:
+      "Generated site-footer copyright uses new Date().getFullYear() (hydration mismatch at year boundary)",
+    triggers: ["new Date().getFullYear() in site-footer.tsx / site-footer.jsx"],
+    status: "active",
+    ownerPhase: "pre-syntax",
+    notes:
+      "SM-061. Bakes the year at fix time. Does not touch global-shadow-import-fixer " +
+      "and does not rewrite other new Date() calls.",
+  },
+  {
     id: "as-const-boolean-keys",
     category: "mechanical-syntax",
     risk: "safe",
