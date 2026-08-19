@@ -388,7 +388,11 @@ function classifyInstallFailure(output, exitCode) {
     return "out_of_memory";
   }
 
-  if (/ETIMEDOUT|ENOTFOUND|ECONNRESET|EAI_AGAIN|ERR_SOCKET|npm error network/i.test(text)) {
+  if (
+    /ETIMEDOUT|ENOTFOUND|ECONNRESET|ECONNREFUSED|EHOSTUNREACH|ENETUNREACH|EPIPE|ERR_SOCKET|EAI_AGAIN|socket hang up|npm error network/i.test(
+      text,
+    )
+  ) {
     return "network";
   }
 
@@ -507,12 +511,20 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
         peerConflictDetected: false,
       };
     }
+    // Purgen kan ha löst diskproblemet och omkörningen fallit på något helt
+    // annat. Behåll flaggan bara om omkörningen FORTFARANDE är disk-full —
+    // annars skulle rotorsaken säga `no_space` om ett peer-konfliktfel.
+    diskFullDetected = isNoSpaceInstallFailure(retried.output);
     primary = {
       ...retried,
       durationMs: primary.durationMs + retried.durationMs,
       clippedOutput: [
-        `[disk-full] Reclaimed ${formatByteCount(purge.cacheBytesBefore)} of package cache and retried; still out of space.`,
-        `The preview VM's filesystem is full. Free space on the host (see GET /admin/storage) — this is not a fault in the generated project.`,
+        diskFullDetected
+          ? `[disk-full] Reclaimed ${formatByteCount(purge.cacheBytesBefore)} of package cache and retried; still out of space.`
+          : `[disk-full] Reclaimed ${formatByteCount(purge.cacheBytesBefore)} of package cache; the retry got past the disk but failed for another reason.`,
+        diskFullDetected
+          ? `The preview VM's filesystem is full. Free space on the host (see GET /admin/storage) — this is not a fault in the generated project.`
+          : `Disk space is no longer the blocker; read the attempt output below.`,
         "",
         retried.clippedOutput || "",
       ].join("\n"),

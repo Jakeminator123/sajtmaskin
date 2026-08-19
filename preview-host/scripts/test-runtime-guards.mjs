@@ -1105,6 +1105,15 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
       classifyInstallFailure("", 124) === "timeout",
     );
     check(
+      "a refused connection is a network fault, not an unknown crash",
+      classifyInstallFailure("npm error code ECONNREFUSED\nnpm error errno ECONNREFUSED", 1) ===
+        "network",
+    );
+    check(
+      "a dropped socket is a network fault",
+      classifyInstallFailure("npm error network socket hang up", 1) === "network",
+    );
+    check(
       "registry timeouts are classified as network",
       classifyInstallFailure("npm error network request to https://registry.npmjs.org failed, reason: ETIMEDOUT", 1) ===
         "network",
