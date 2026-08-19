@@ -5,6 +5,8 @@ import { POST } from "./route";
 const getVersion = vi.hoisted(() => vi.fn());
 const runProductPostcheck = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
+const isLiveReviewEnabled = vi.hoisted(() => vi.fn(() => false));
+const maybeAttachLiveReview = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest: getVersion,
@@ -12,6 +14,13 @@ vi.mock("@/lib/tenant", () => ({
 
 vi.mock("@/lib/gen/verify/product-postcheck", () => ({
   runProductPostcheck,
+}));
+
+vi.mock("@/lib/gen/verify/live-review", () => ({
+  isLiveReviewEnabled,
+  maybeAttachLiveReview,
+  pickUserRequest: () => "",
+  summarizeBrief: () => "",
 }));
 
 vi.mock("@/lib/logging/event-bus", () => ({
@@ -213,5 +222,46 @@ describe("POST product-postcheck", () => {
     });
     expect(res.status).toBe(404);
     expect(runProductPostcheck).not.toHaveBeenCalled();
+  });
+
+  it("live review flag on + postcheck ok => attaches critic result without blocking", async () => {
+    setF2ProductPostcheck(true);
+    isLiveReviewEnabled.mockReturnValue(true);
+    getVersion.mockResolvedValue({
+      version: { id: "v1", parent_version_id: null, files_json: "[]" },
+      chat: { messages: [], orchestration_snapshot: null },
+    });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 8,
+      checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+      domSummary: null,
+    });
+    maybeAttachLiveReview.mockResolvedValue({
+      status: "completed",
+      decision: {
+        verdict: "pass",
+        confidence: 0.8,
+        rationale: "Sajten följer briefen.",
+        reasoning: "",
+        issues: [],
+      },
+      durationMs: 12,
+      modelId: "gpt-4o",
+    });
+    const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+    expect(body.productBlocked).toBe(false);
+    expect(body.liveReview.status).toBe("completed");
+    expect(maybeAttachLiveReview).toHaveBeenCalled();
+    expect(emitBusEvent).not.toHaveBeenCalled();
   });
 });

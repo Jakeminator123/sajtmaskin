@@ -10,6 +10,13 @@ import {
   type PreviewHostReadinessVerdict,
 } from "@/lib/gen/preview/preview-host-client";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
+import {
+  isLiveReviewEnabled,
+  persistLiveReviewJpeg,
+  type LiveReviewResult,
+  type LiveReviewScreenshotSet,
+  type ProductDomSummary,
+} from "@/lib/gen/verify/live-review";
 
 export type ProductPostcheckWarningCode =
   | "broken_anchor"
@@ -74,6 +81,12 @@ export type ProductPostcheckResult = {
   checkedUrl: string | null;
   /** How many routes were actually visited (start URL + successful crawl hops). */
   routesChecked: number;
+  /** Best-effort JPEG URLs. Missing/failed shots never become findings. */
+  screenshots?: LiveReviewScreenshotSet | null;
+  /** Compact start-page DOM facts for the live-review bundle. */
+  domSummary?: ProductDomSummary | null;
+  /** Critic verdict. Absent when the flag is off or the review was not eligible. */
+  liveReview?: LiveReviewResult | null;
 };
 
 type DomSnapshot = {
@@ -738,6 +751,66 @@ function skippedResult(
   };
 }
 
+const SCREENSHOT_TIMEOUT_MS = 15_000;
+
+/** Best-effort viewport JPEG. A throw here must never become a postcheck finding. */
+export async function capturePostcheckJpeg(page: Page): Promise<Buffer | null> {
+  try {
+    return await page.screenshot({
+      type: "jpeg",
+      quality: 70,
+      fullPage: false,
+      timeout: SCREENSHOT_TIMEOUT_MS,
+    });
+  } catch {
+    return null;
+  }
+}
+
+function buildDomSummary(
+  snapshot: DomSnapshot,
+  probe: PreviewHostBootPageProbe | null,
+): ProductDomSummary {
+  return {
+    title: probe?.title?.trim() || null,
+    headings: probe?.h1 ? [probe.h1] : [],
+    ctaLabels: snapshot.ctas
+      .map((cta) => cta.text)
+      .filter((text): text is string => Boolean(text))
+      .slice(0, 12),
+    imageCount: snapshot.images.length,
+    formCount: snapshot.forms.length,
+  };
+}
+
+async function persistCapturedScreenshots(params: {
+  chatId: string;
+  versionId: string;
+  desktop: Buffer | null;
+  mobile: Buffer | null;
+}): Promise<LiveReviewScreenshotSet | null> {
+  if (!params.desktop && !params.mobile) return null;
+  const [desktopUrl, mobileUrl] = await Promise.all([
+    params.desktop
+      ? persistLiveReviewJpeg({
+          buffer: params.desktop,
+          chatId: params.chatId,
+          versionId: params.versionId,
+          viewport: "desktop",
+        })
+      : Promise.resolve(null),
+    params.mobile
+      ? persistLiveReviewJpeg({
+          buffer: params.mobile,
+          chatId: params.chatId,
+          versionId: params.versionId,
+          viewport: "mobile",
+        })
+      : Promise.resolve(null),
+  ]);
+  return { desktopUrl, mobileUrl };
+}
+
 export async function runProductPostcheck(params: {
   previewUrl: string;
   chatId: string;
@@ -982,6 +1055,17 @@ export async function runProductPostcheck(params: {
       .catch(() => false);
     startPageOverlaySeen = desktopErrorOverlay;
 
+    let desktopJpeg: Buffer | null = null;
+    let mobileJpeg: Buffer | null = null;
+    let domSummary: ProductDomSummary | null = null;
+    const captureEnabled = isLiveReviewEnabled();
+    if (captureEnabled) {
+      // Start page, before the crawl walks desktop off the homepage.
+      desktopJpeg = await capturePostcheckJpeg(page);
+      const liveProbe = await readPageProbe(page);
+      domSummary = buildDomSummary(snapshot, liveProbe ?? firstProbe);
+    }
+
     // Bounded same-origin crawl on DESKTOP only (mobile stays start-page-only
     // for cost control). Next-dev compiles each route on demand, so we stop
     // when the soft deadline is exceeded.
@@ -1050,6 +1134,9 @@ export async function runProductPostcheck(params: {
     await mobilePage
       .waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) })
       .catch(() => {});
+    if (captureEnabled) {
+      mobileJpeg = await capturePostcheckJpeg(mobilePage);
+    }
     const mobileMenu = await mobilePage.evaluate<MobileMenuCheck>(async () => {
       const candidates = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
         const label = [
@@ -1091,6 +1178,14 @@ export async function runProductPostcheck(params: {
     ];
     // productBlocked comes ONLY from DOM + render-fatal evaluators — browser
     // runtime issues are advisory-only by design.
+    const screenshots = captureEnabled
+      ? await persistCapturedScreenshots({
+          chatId: params.chatId,
+          versionId: params.versionId,
+          desktop: desktopJpeg,
+          mobile: mobileJpeg,
+        }).catch(() => null)
+      : null;
     return {
       ok: true,
       skipped: false,
@@ -1101,6 +1196,8 @@ export async function runProductPostcheck(params: {
       durationMs: Date.now() - startedAt,
       checkedUrl: previewUrl,
       routesChecked,
+      screenshots,
+      domSummary,
     };
   } catch (err) {
     // A render-fatal crash may already be visible even though a later phase

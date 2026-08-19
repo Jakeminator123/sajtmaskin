@@ -238,6 +238,20 @@ export function buildProductPostcheckLogItems(
       routesChecked: result.routesChecked ?? null,
     },
   });
+  if (result.liveReview || result.screenshots) {
+    logs.push({
+      level: "info",
+      category: "product_postcheck.live_review",
+      message:
+        result.liveReview?.status === "completed"
+          ? `Live review: ${result.liveReview.decision.verdict}.`
+          : "Live review screenshots captured.",
+      meta: {
+        screenshots: result.screenshots ?? null,
+        liveReview: result.liveReview ?? null,
+      },
+    });
+  }
   return logs;
 }
 
@@ -429,6 +443,16 @@ export async function runPostGenerationChecks(params: {
       input: { chatId, versionId, previousVersionId: baseline.previousVersionId },
       output: artifacts.output,
     });
+
+    if (productPostcheck?.liveReview?.status === "completed") {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:live-review",
+        toolName: "Live-granskning",
+        toolCallId: `live-review:${versionId}`,
+        state: "output-available",
+        output: productPostcheck.liveReview,
+      });
+    }
 
     appendPostCheckSummaryToMessage(
       setMessages,

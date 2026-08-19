@@ -51,6 +51,10 @@ import {
   type InspectCaptureEventDetail,
 } from "@/lib/builder/inspect-events";
 import { INIT_BRIEF_STATUS_EVENT, type InitBriefStatusDetail } from "@/lib/hooks/useInitBrief";
+import {
+  FILL_CHAT_INPUT_EVENT,
+  type FillChatInputDetail,
+} from "@/lib/builder/fill-chat-input";
 import { toast } from "sonner";
 
 type MessageOptions = {
@@ -266,6 +270,14 @@ export function ChatInterface({
     };
     window.addEventListener(INIT_BRIEF_STATUS_EVENT, handler as EventListener);
     return () => window.removeEventListener(INIT_BRIEF_STATUS_EVENT, handler as EventListener);
+  }, []);
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const text = (event as CustomEvent<FillChatInputDetail>).detail?.text;
+      if (typeof text === "string" && text.trim()) setInput(text);
+    };
+    window.addEventListener(FILL_CHAT_INPUT_EVENT, handler as EventListener);
+    return () => window.removeEventListener(FILL_CHAT_INPUT_EVENT, handler as EventListener);
   }, []);
   useEffect(() => {
     if (!isPreparingPrompt) setInitBriefStatus(null);

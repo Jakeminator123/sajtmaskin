@@ -19,6 +19,7 @@ describe("classifyVersionDefectKind", () => {
     expect(kind("product_postcheck.http_error")).toBe("network");
     expect(kind("product_postcheck.broken_anchor")).toBe("product");
     expect(kind("product_postcheck.mobile_menu_failed")).toBe("product");
+    expect(kind("product_postcheck.live_review")).toBe("other");
   });
 
   it("läser preview:client-error ur metan, inte kategorin", () => {

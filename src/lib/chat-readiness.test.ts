@@ -245,6 +245,20 @@ describe("projectProductPostcheckReadiness", () => {
     ).toEqual({ warnings: [], blockers: [], blocksF3: false, blockedReason: null });
   });
 
+  it("does not treat live_review rows as findings", () => {
+    expect(
+      projectProductPostcheckReadiness([
+        log("product_postcheck.live_review", "Live review: pass.", {
+          screenshots: { desktopUrl: "https://blob.example/d.jpg" },
+        }, "2026-08-14T10:00:02Z"),
+        log("product_postcheck.summary", "F2 Product Postcheck passed.", {
+          warningCount: 0,
+          productBlocked: false,
+        }, "2026-08-14T10:00:01Z"),
+      ]),
+    ).toEqual({ warnings: [], blockers: [], blocksF3: false, blockedReason: null });
+  });
+
   it("returns empty warnings for a clean passing summary", () => {
     expect(
       projectProductPostcheckReadiness([

@@ -4,10 +4,16 @@ import { FEATURES } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { runProductPostcheck } from "@/lib/gen/verify/product-postcheck";
+import {
+  isLiveReviewEnabled,
+  maybeAttachLiveReview,
+  pickUserRequest,
+  summarizeBrief,
+} from "@/lib/gen/verify/live-review";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 const requestSchema = z.object({
   versionId: z.string().min(1),
@@ -195,6 +201,38 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         checkedUrl: result.checkedUrl ?? null,
         durationMs: result.durationMs ?? null,
       });
+    }
+
+    if (isLiveReviewEnabled() && !result.skipped) {
+      try {
+        const parentVersionId = scopedVersion.version.parent_version_id ?? null;
+        let parentFilesJson: string | null = null;
+        if (parentVersionId) {
+          const { getVersionById } = await import("@/lib/db/chat-repository-pg");
+          const parent = await getVersionById(parentVersionId).catch(() => null);
+          parentFilesJson = parent?.files_json ?? null;
+        }
+        result.liveReview = await maybeAttachLiveReview({
+          skipped: result.skipped,
+          findings: result.warnings.map((warning) => ({
+            code: warning.code,
+            message: warning.message,
+          })),
+          screenshots: result.screenshots,
+          domSummary: result.domSummary,
+          versionId: resolvedVersionId,
+          parentVersionId,
+          filesJson: scopedVersion.version.files_json,
+          parentFilesJson,
+          userRequest: pickUserRequest(scopedVersion.chat.messages ?? []),
+          briefSummary: summarizeBrief(scopedVersion.chat.orchestration_snapshot),
+        });
+      } catch (reviewError) {
+        console.warn(
+          "[product-postcheck] live review skipped:",
+          reviewError instanceof Error ? reviewError.message : reviewError,
+        );
+      }
     }
 
     return NextResponse.json(result);

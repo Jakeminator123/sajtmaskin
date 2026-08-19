@@ -56,7 +56,8 @@ export function OpenClawPowersControl() {
 
   if (!editEnabled) return null;
 
-  const activeCount = Number(powers.armedAutonomy) + Number(powers.quickEdit);
+  const activeCount =
+    Number(powers.armedAutonomy) + Number(powers.quickEdit) + Number(powers.liveReview);
 
   const handleToggle = () => {
     const next = !powersOn;

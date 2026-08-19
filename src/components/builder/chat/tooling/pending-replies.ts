@@ -178,6 +178,13 @@ export function isActionableToolPart(tool: Partial<ToolUIPart> & { type?: string
   const state = typeof tool.state === "string" ? tool.state : "input-available";
   const type = typeof tool.type === "string" ? tool.type.toLowerCase() : "";
   if (state === "approval-requested") return true;
-  if (type === "tool-post-check" || type === "tool-quality-gate") return true;
+  if (
+    type === "tool-post-check" ||
+    type === "tool-quality-gate" ||
+    type === "tool-live-review" ||
+    type === "tool:live-review"
+  ) {
+    return true;
+  }
   return isIntegrationOrEnvToolPart(tool);
 }

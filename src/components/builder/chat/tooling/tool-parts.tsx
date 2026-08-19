@@ -20,6 +20,8 @@ import {
   QualityGatePanel,
   ServerRepairPanel,
 } from "../review-panels";
+import { LiveReviewRow } from "../LiveReviewRow";
+import type { LiveReviewResult } from "@/lib/gen/verify/live-review-types";
 import type { CompactToolPartsProps, StructuredToolPartsProps } from "./types";
 import {
   dedupeStrings,
@@ -126,6 +128,7 @@ export function StructuredToolParts({
                 errorText={typeof tool.errorText === "string" ? tool.errorText : undefined}
               />
               {summaries.postCheck && <PostCheckPanel {...summaries.postCheck} />}
+              {summaries.liveReview && <LiveReviewRow result={summaries.liveReview} />}
               {summaries.qualityGate && (
                 <QualityGatePanel variant="full" {...summaries.qualityGate} />
               )}
@@ -195,9 +198,17 @@ export function CompactToolParts({
           typeof tool.state === "string" ? tool.state : "input-available"
         ) as ToolUIPart["state"];
         const { toolType, toolTitle } = resolveToolLabels(tool);
+        const summaries = extractToolSummaries(toolType, tool.output);
+        if (toolType === "tool-live-review") {
+          return summaries.liveReview ? (
+            <LiveReviewRow
+              key={`${messageId}-live-review-${index}`}
+              result={summaries.liveReview}
+            />
+          ) : null;
+        }
         const integrationSummary = getToolIntegrationSummary(tool);
         const integrationCard = getIntegrationCardData(tool);
-        const summaries = extractToolSummaries(toolType, tool.output);
         const qualityGateErrorText =
           toolType === "tool-quality-gate" &&
           typeof tool.errorText === "string" &&
@@ -324,6 +335,7 @@ export function CompactToolParts({
                 {summaries.serverRepair && (
                   <ServerRepairPanel variant="compact" {...summaries.serverRepair} />
                 )}
+                {summaries.liveReview && <LiveReviewRow result={summaries.liveReview} />}
               </>
             )}
             {isIntegrations ? (

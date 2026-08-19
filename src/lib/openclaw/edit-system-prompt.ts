@@ -53,7 +53,9 @@ const QUICK_EDIT_SECTION = `Exakta småändringar (apply_quick_edit):
 
 /** Null when nothing is granted — the route then pushes no edit prompt at all. */
 export function buildOpenClawEditSystemPrompt(powers: OpenClawPowers): string | null {
-  if (!powers.any) return null;
+  // liveReview is registered in etapp 1 but gates no execution — do not
+  // inject the edit header for that power alone.
+  if (!powers.armedAutonomy && !powers.quickEdit) return null;
   const sections = [EDIT_MODE_HEADER];
   if (powers.armedAutonomy) sections.push(ARMED_AUTONOMY_SECTION);
   if (powers.quickEdit) sections.push(QUICK_EDIT_SECTION);

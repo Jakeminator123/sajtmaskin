@@ -6,6 +6,10 @@ const launchCaptureBrowserMock = vi.hoisted(() => vi.fn());
 const applyCaptureRequestGateMock = vi.hoisted(() => vi.fn(async () => {}));
 const getActivePreviewSessionAsyncMock = vi.hoisted(() => vi.fn());
 const fetchPreviewHostReadinessVerdictMock = vi.hoisted(() => vi.fn());
+const isLiveReviewEnabledMock = vi.hoisted(() => vi.fn(() => false));
+const persistLiveReviewJpegMock = vi.hoisted(() =>
+  vi.fn(async () => "https://blob.example/live-review.jpg"),
+);
 
 vi.mock("@/lib/capture/browser", () => ({
   launchCaptureBrowser: launchCaptureBrowserMock,
@@ -16,6 +20,10 @@ vi.mock("@/lib/gen/preview/session-store", () => ({
 }));
 vi.mock("@/lib/gen/preview/preview-host-client", () => ({
   fetchPreviewHostReadinessVerdict: fetchPreviewHostReadinessVerdictMock,
+}));
+vi.mock("@/lib/gen/verify/live-review", () => ({
+  isLiveReviewEnabled: isLiveReviewEnabledMock,
+  persistLiveReviewJpeg: persistLiveReviewJpegMock,
 }));
 
 import {
@@ -432,6 +440,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    isLiveReviewEnabledMock.mockReturnValue(false);
     getActivePreviewSessionAsyncMock.mockResolvedValue(null);
     fetchPreviewHostReadinessVerdictMock.mockResolvedValue(null);
     applyCaptureRequestGateMock.mockResolvedValue(undefined);
@@ -997,6 +1006,111 @@ describe("runProductPostcheck browser-startpunkt", () => {
       });
 
       expect(result.productBlocked).toBe(false);
+    });
+  });
+});
+
+describe("runProductPostcheck screenshot best-effort", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    isLiveReviewEnabledMock.mockReturnValue(true);
+    persistLiveReviewJpegMock.mockResolvedValue("https://blob.example/live-review.jpg");
+    getActivePreviewSessionAsyncMock.mockResolvedValue(null);
+    fetchPreviewHostReadinessVerdictMock.mockResolvedValue(null);
+    applyCaptureRequestGateMock.mockResolvedValue(undefined);
+  });
+
+  function pageWithScreenshot(
+    results: unknown[],
+    screenshotImpl: () => Promise<Buffer>,
+  ) {
+    let call = 0;
+    return {
+      on: vi.fn(),
+      goto: vi.fn(async () => {}),
+      reload: vi.fn(async () => {}),
+      waitForLoadState: vi.fn(async () => {}),
+      waitForTimeout: vi.fn(async () => {}),
+      evaluate: vi.fn(async () => results[call++]),
+      screenshot: vi.fn(screenshotImpl),
+      close: vi.fn(async () => {}),
+    };
+  }
+
+  it("en misslyckad bild fäller inte postchecken och blir inte ett fynd", async () => {
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+      ],
+      async () => {
+        throw new Error("page.screenshot: Target page, context or browser has been closed");
+      },
+    );
+    const mobile = pageWithScreenshot([{ status: "not_applicable" }, false], async () => {
+      throw new Error("screenshot failed");
+    });
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    expect(result.skipped).toBe(false);
+    expect(result.ok).toBe(true);
+    expect(result.warnings.map((warning) => warning.code)).not.toContain("console_error");
+    expect(result.warnings.some((warning) => /screenshot|skärmbild/i.test(warning.message))).toBe(
+      false,
+    );
+    expect(persistLiveReviewJpegMock).not.toHaveBeenCalled();
+    expect(result.screenshots).toBeNull();
+  });
+
+  it("persisterar desktop- och mobil-JPEG när skotten lyckas", async () => {
+    persistLiveReviewJpegMock
+      .mockResolvedValueOnce("https://blob.example/desktop.jpg")
+      .mockResolvedValueOnce("https://blob.example/mobile.jpg");
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+      ],
+      async () => Buffer.from("desk"),
+    );
+    const mobile = pageWithScreenshot([{ status: "not_applicable" }, false], async () =>
+      Buffer.from("mob"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    expect(result.skipped).toBe(false);
+    expect(persistLiveReviewJpegMock).toHaveBeenCalledTimes(2);
+    expect(result.screenshots).toEqual({
+      desktopUrl: "https://blob.example/desktop.jpg",
+      mobileUrl: "https://blob.example/mobile.jpg",
     });
   });
 });

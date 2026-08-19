@@ -1,0 +1,494 @@
+/**
+ * Live review (etapp 1) — critic only.
+ *
+ * After Product Postcheck has a live preview (no blocking runtime crash),
+ * assemble a ReviewBundle and ask a multimodal model for a structured verdict.
+ * Nothing here writes the user's site, sets productBlocked, or starts a generation.
+ */
+import { generateObject } from "ai";
+import { createDirectModel } from "@/lib/builder/direct-model";
+import { getServerEnv } from "@/lib/env";
+import {
+  getWorkloadDefaultModelFromManifest,
+  getWorkloadFallbackModelsFromManifest,
+} from "@/lib/ai-models/load-manifest";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
+import { uploadBlob } from "@/lib/vercel/blob-service";
+import { extractBriefSummaryFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import { isAutoRepairPromptMessage, isF3KickPromptMessage } from "@/lib/builder/types";
+import {
+  ReviewDecisionSchema,
+  parseReviewDecision,
+  type LiveReviewResult,
+  type LiveReviewScreenshotSet,
+  type ProductDomSummary,
+  type ReviewBundle,
+  type ReviewFinding,
+  type LiveReviewSkipReason,
+} from "./live-review-types";
+
+export const LIVE_REVIEW_WORKLOAD_ID = "live_review";
+
+export {
+  ReviewVerdictSchema,
+  ReviewIssueSchema,
+  ReviewDecisionSchema,
+  parseReviewDecision,
+  SAFE_FALLBACK_DECISION,
+} from "./live-review-types";
+export type {
+  ReviewVerdict,
+  ReviewIssue,
+  ReviewDecision,
+  LiveReviewScreenshotSet,
+  ProductDomSummary,
+  ReviewFinding,
+  ReviewBundle,
+  LiveReviewSkipReason,
+  LiveReviewResult,
+} from "./live-review-types";
+
+const BLOCKING_RUNTIME_CODES = new Set(["runtime_crash", "preview_boot_page"]);
+const SENSOR_CODES = new Set([
+  "console_error",
+  "request_failed",
+  "http_error",
+  "hydration_mismatch",
+  "broken_anchor",
+  "broken_image",
+  "cta_no_handler",
+  "mobile_menu_failed",
+  "fake_form",
+  "runtime_crash",
+]);
+
+const REVIEW_TIMEOUT_MS = 20_000;
+const MAX_OUTPUT_TOKENS = 1200;
+const MAX_USER_REQUEST_CHARS = 4000;
+const MAX_BRIEF_CHARS = 1200;
+
+const SYSTEM_PROMPT = [
+  "You are a critic of a generated website. You do not write or change code.",
+  "Judge ONLY against: (1) the user's prompt/brief, (2) the variant's stated design direction,",
+  "(3) the previous version when screenshots of it are provided, (4) concrete defects in the evidence.",
+  "Never judge against what you personally think looks stylish. That is an art-director opinion and is forbidden.",
+  "On a follow-up (parentVersionId is set) answer: was the request carried out, did something disappear, is there visual regression?",
+  "On an init, answer: does the live page keep the user's explicit promises (light/dark, colors, requested sections) and is the page broken (stacked sections, invisible text, empty hero)?",
+  "Do not treat Next.js overlay raw text as a user prompt.",
+  "verdict: pass = keeps the promise and is not broken; micro_fix = tiny local fix; targeted_repair = specific known defect; advisory = suggestion only.",
+  "In this stage every non-pass verdict is a clickable suggestion — nothing is applied automatically.",
+  "Write rationale and reasoning in Swedish. Keep rationale to 1-2 sentences.",
+].join(" ");
+
+export function isLiveReviewEnabled(): boolean {
+  const v = getServerEnv().SAJTMASKIN_LIVE_REVIEW?.trim().toLowerCase();
+  return v === "1" || v === "true";
+}
+
+export function hasBlockingRuntimeCrash(findings: readonly ReviewFinding[]): boolean {
+  return findings.some((finding) => BLOCKING_RUNTIME_CODES.has(finding.code));
+}
+
+export function sensorsAlarmed(findings: readonly ReviewFinding[]): boolean {
+  return findings.some((finding) => SENSOR_CODES.has(finding.code));
+}
+
+export function shouldRunLiveReview(params: {
+  enabled?: boolean;
+  skipped: boolean;
+  findings: readonly ReviewFinding[];
+  parentVersionId: string | null;
+}): { run: boolean; reason?: LiveReviewSkipReason } {
+  if (!(params.enabled ?? isLiveReviewEnabled())) {
+    return { run: false, reason: "flag_off" };
+  }
+  if (params.skipped) return { run: false, reason: "postcheck_skipped" };
+  if (hasBlockingRuntimeCrash(params.findings)) {
+    const boot = params.findings.some((finding) => finding.code === "preview_boot_page");
+    return { run: false, reason: boot ? "preview_not_ready" : "runtime_crash" };
+  }
+  if (params.parentVersionId && !sensorsAlarmed(params.findings)) {
+    return { run: false, reason: "followup_no_sensor" };
+  }
+  return { run: true };
+}
+
+function sanitizePathSegment(value: string, fallback: string): string {
+  const sanitized = value
+    .trim()
+    .replace(/[\\/]+/g, "-")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^[.-]+|[.-]+$/g, "");
+  return sanitized || fallback;
+}
+
+export async function persistLiveReviewJpeg(params: {
+  buffer: Buffer;
+  chatId: string;
+  versionId: string;
+  viewport: "desktop" | "mobile";
+}): Promise<string | null> {
+  try {
+    const uploaded = await uploadBlob({
+      userId: `chat-${sanitizePathSegment(params.chatId, "chat")}`,
+      filename: `live-review-${params.viewport}-${sanitizePathSegment(params.versionId, "version")}.jpg`,
+      buffer: params.buffer,
+      contentType: "image/jpeg",
+      projectId: sanitizePathSegment(params.chatId, "chat"),
+      category: "media",
+    });
+    return uploaded?.url ?? null;
+  } catch (error) {
+    console.warn(
+      "[live-review] screenshot persist failed:",
+      error instanceof Error ? error.message : error,
+    );
+    return null;
+  }
+}
+
+export function summarizeBrief(snapshot: Record<string, unknown> | null | undefined): string {
+  const brief = extractBriefSummaryFromSnapshot(snapshot);
+  if (!brief) return "";
+  const parts: string[] = [];
+  if (brief.projectTitle) parts.push(brief.projectTitle);
+  if (brief.brandName && brief.brandName !== brief.projectTitle) {
+    parts.push(`varumärke: ${brief.brandName}`);
+  }
+  if (brief.styleKeywords?.length) {
+    parts.push(`stil: ${brief.styleKeywords.slice(0, 6).join(", ")}`);
+  }
+  if (brief.toneKeywords?.length) {
+    parts.push(`ton: ${brief.toneKeywords.slice(0, 4).join(", ")}`);
+  }
+  if (brief.colorPalette?.background || brief.colorPalette?.primary) {
+    const palette = [
+      brief.colorPalette.background ? `bakgrund ${brief.colorPalette.background}` : null,
+      brief.colorPalette.primary ? `primär ${brief.colorPalette.primary}` : null,
+      brief.colorPalette.text ? `text ${brief.colorPalette.text}` : null,
+    ].filter(Boolean);
+    if (palette.length) parts.push(palette.join(", "));
+  }
+  if (brief.requestedCapabilities?.length) {
+    parts.push(`capabilities: ${brief.requestedCapabilities.slice(0, 8).join(", ")}`);
+  }
+  if (typeof snapshot?.variantId === "string" && snapshot.variantId.trim()) {
+    parts.push(`variant: ${snapshot.variantId.trim()}`);
+  }
+  return parts.join(" — ").slice(0, MAX_BRIEF_CHARS);
+}
+
+export function pickUserRequest(
+  messages: ReadonlyArray<{
+    role: string;
+    content: string;
+    ui_parts?: unknown;
+    uiParts?: unknown;
+  }>,
+): string {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || message.role !== "user") continue;
+    const uiParts = (Array.isArray(message.uiParts)
+      ? message.uiParts
+      : Array.isArray(message.ui_parts)
+        ? message.ui_parts
+        : []) as Array<Record<string, unknown>>;
+    const shaped = { role: "user" as const, content: message.content, uiParts };
+    if (isAutoRepairPromptMessage(shaped) || isF3KickPromptMessage(shaped)) continue;
+    const text = message.content.trim();
+    if (!text) continue;
+    return text.slice(0, MAX_USER_REQUEST_CHARS);
+  }
+  return "";
+}
+
+function parseStoredCodeFiles(
+  filesJson: string | null | undefined,
+): Array<{ path?: string; content?: string }> {
+  if (!filesJson) return [];
+  try {
+    const parsed = JSON.parse(filesJson) as unknown;
+    return Array.isArray(parsed) ? (parsed as Array<{ path?: string; content?: string }>) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function listChangedFiles(
+  filesJson: string | null | undefined,
+  parentFilesJson?: string | null,
+): string[] {
+  const current = parseStoredCodeFiles(filesJson ?? "[]");
+  const currentPaths = current
+    .map((file) => file.path)
+    .filter((path): path is string => typeof path === "string" && path.length > 0);
+  if (!parentFilesJson) return currentPaths.slice(0, 80);
+  const parent = parseStoredCodeFiles(parentFilesJson);
+  const parentMap = new Map(
+    parent
+      .filter((file) => typeof file.path === "string")
+      .map((file) => [file.path, file.content]),
+  );
+  const changed: string[] = [];
+  for (const file of current) {
+    if (typeof file.path !== "string") continue;
+    const previous = parentMap.get(file.path);
+    if (previous === undefined) changed.push(`+ ${file.path}`);
+    else if (previous !== file.content) changed.push(`~ ${file.path}`);
+    parentMap.delete(file.path);
+  }
+  for (const path of parentMap.keys()) changed.push(`- ${path}`);
+  return changed.slice(0, 80);
+}
+
+function splitFindings(findings: readonly ReviewFinding[]): {
+  consoleErrors: string[];
+  nextOverlayErrors: string[];
+  failedRequests: string[];
+} {
+  const consoleErrors: string[] = [];
+  const nextOverlayErrors: string[] = [];
+  const failedRequests: string[] = [];
+  for (const finding of findings) {
+    if (finding.code === "console_error" || finding.code === "hydration_mismatch") {
+      consoleErrors.push(finding.message);
+    } else if (finding.code === "request_failed" || finding.code === "http_error") {
+      failedRequests.push(finding.message);
+    }
+    if (/överlägg|overlay|script tag while rendering/i.test(finding.message)) {
+      nextOverlayErrors.push(finding.message);
+    }
+  }
+  return { consoleErrors, nextOverlayErrors, failedRequests };
+}
+
+export function assembleReviewBundle(params: {
+  versionId: string;
+  parentVersionId: string | null;
+  userRequest: string;
+  briefSummary: string;
+  changedFiles: string[];
+  screenshots: LiveReviewScreenshotSet;
+  findings: readonly ReviewFinding[];
+  domSummary: ProductDomSummary | null;
+}): ReviewBundle {
+  const split = splitFindings(params.findings);
+  return {
+    versionId: params.versionId,
+    parentVersionId: params.parentVersionId,
+    userRequest: params.userRequest,
+    briefSummary: params.briefSummary,
+    changedFiles: params.changedFiles,
+    screenshots: params.screenshots,
+    consoleErrors: split.consoleErrors,
+    nextOverlayErrors: split.nextOverlayErrors,
+    failedRequests: split.failedRequests,
+    findings: [...params.findings],
+    domSummary: params.domSummary,
+  };
+}
+
+function resolveLiveReviewModelId(): string | null {
+  return (
+    getWorkloadDefaultModelFromManifest(LIVE_REVIEW_WORKLOAD_ID) ??
+    getWorkloadFallbackModelsFromManifest(LIVE_REVIEW_WORKLOAD_ID)[0] ??
+    null
+  );
+}
+
+function bundleAsPrompt(bundle: ReviewBundle): string {
+  return [
+    `versionId: ${bundle.versionId}`,
+    `parentVersionId: ${bundle.parentVersionId ?? "(init)"}`,
+    `userRequest:\n${bundle.userRequest || "(saknas)"}`,
+    `briefSummary:\n${bundle.briefSummary || "(saknas)"}`,
+    `changedFiles: ${bundle.changedFiles.join(", ") || "(inga)"}`,
+    `consoleErrors: ${bundle.consoleErrors.join(" | ") || "(inga)"}`,
+    `nextOverlayErrors: ${bundle.nextOverlayErrors.join(" | ") || "(inga)"}`,
+    `failedRequests: ${bundle.failedRequests.join(" | ") || "(inga)"}`,
+    `postcheckFindings: ${
+      bundle.findings.map((finding) => `${finding.code}: ${finding.message}`).join(" | ") ||
+      "(inga)"
+    }`,
+    `domSummary: ${bundle.domSummary ? JSON.stringify(bundle.domSummary) : "(saknas)"}`,
+    "Screenshots are attached as images when present (desktop, mobile, then previous version if any).",
+  ].join("\n\n");
+}
+
+type ImagePart = { type: "image"; image: URL };
+
+function screenshotParts(screenshots: LiveReviewScreenshotSet): ImagePart[] {
+  const urls = [
+    screenshots.desktopUrl,
+    screenshots.mobileUrl,
+    screenshots.previousDesktopUrl,
+    screenshots.previousMobileUrl,
+  ].filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url));
+  const parts: ImagePart[] = [];
+  for (const url of urls) {
+    try {
+      parts.push({ type: "image", image: new URL(url) });
+    } catch {
+      // Skip a malformed URL rather than fail the review.
+    }
+  }
+  return parts;
+}
+
+export async function runLiveReview(
+  bundle: ReviewBundle,
+  opts: { timeoutMs?: number; modelId?: string } = {},
+): Promise<LiveReviewResult> {
+  const modelId = opts.modelId ?? resolveLiveReviewModelId();
+  if (!modelId) {
+    return { status: "skipped", reason: "model_unavailable", detail: "manifest saknar live_review-modell" };
+  }
+
+  let model;
+  try {
+    model = createDirectModel(modelId);
+  } catch (error) {
+    return {
+      status: "skipped",
+      reason: "model_unavailable",
+      detail: error instanceof Error ? error.message : "kunde inte skapa modell",
+    };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), opts.timeoutMs ?? REVIEW_TIMEOUT_MS);
+  const startedAt = Date.now();
+  let usageRecorded = false;
+  try {
+    const images = screenshotParts(bundle.screenshots);
+    const result = await generateObject({
+      model,
+      schema: ReviewDecisionSchema,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: bundleAsPrompt(bundle) }, ...images],
+        },
+      ],
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
+      maxRetries: 1,
+      abortSignal: controller.signal,
+    });
+    recordLlmUsage({
+      phase: "qa",
+      workload: LIVE_REVIEW_WORKLOAD_ID,
+      model: modelId,
+      usage: result.usage,
+      durationMs: Date.now() - startedAt,
+    });
+    usageRecorded = true;
+    const decision = parseReviewDecision(result.object);
+    if (decision.confidence === 0 && decision.verdict === "advisory" && decision.issues.length === 0) {
+      return { status: "skipped", reason: "invalid_model_output" };
+    }
+    return {
+      status: "completed",
+      decision,
+      durationMs: Date.now() - startedAt,
+      modelId,
+    };
+  } catch (error) {
+    if (!usageRecorded) {
+      const usage =
+        error && typeof error === "object" && "usage" in error
+          ? (error as { usage?: unknown }).usage
+          : null;
+      recordLlmUsage({
+        phase: "qa",
+        workload: LIVE_REVIEW_WORKLOAD_ID,
+        model: modelId,
+        usage: usage && typeof usage === "object" ? (usage as never) : null,
+        durationMs: Date.now() - startedAt,
+      });
+    }
+    return {
+      status: "skipped",
+      reason: "review_error",
+      detail: error instanceof Error ? error.message : "live review failed",
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+export async function loadPreviousLiveReviewScreenshots(
+  parentVersionId: string | null,
+): Promise<Pick<LiveReviewScreenshotSet, "previousDesktopUrl" | "previousMobileUrl">> {
+  if (!parentVersionId) return {};
+  try {
+    const { getLatestEngineVersionErrorLogForCategory } = await import(
+      "@/lib/db/services/version-errors"
+    );
+    const row = await getLatestEngineVersionErrorLogForCategory(
+      parentVersionId,
+      "product_postcheck.live_review",
+    );
+    const meta = row?.meta && typeof row.meta === "object" ? (row.meta as Record<string, unknown>) : null;
+    const screenshots =
+      meta?.screenshots && typeof meta.screenshots === "object"
+        ? (meta.screenshots as Record<string, unknown>)
+        : meta;
+    const previousDesktopUrl =
+      typeof screenshots?.desktopUrl === "string" ? screenshots.desktopUrl : null;
+    const previousMobileUrl =
+      typeof screenshots?.mobileUrl === "string" ? screenshots.mobileUrl : null;
+    return { previousDesktopUrl, previousMobileUrl };
+  } catch {
+    return {};
+  }
+}
+
+export async function maybeAttachLiveReview(params: {
+  skipped: boolean;
+  findings: readonly ReviewFinding[];
+  screenshots: LiveReviewScreenshotSet | null | undefined;
+  domSummary: ProductDomSummary | null | undefined;
+  versionId: string;
+  parentVersionId: string | null;
+  filesJson: string | null | undefined;
+  parentFilesJson?: string | null;
+  userRequest: string;
+  briefSummary: string;
+}): Promise<LiveReviewResult> {
+  const gate = shouldRunLiveReview({
+    skipped: params.skipped,
+    findings: params.findings,
+    parentVersionId: params.parentVersionId,
+  });
+  if (!gate.run) {
+    return { status: "skipped", reason: gate.reason ?? "flag_off" };
+  }
+
+  const previous = await loadPreviousLiveReviewScreenshots(params.parentVersionId);
+  const bundle = assembleReviewBundle({
+    versionId: params.versionId,
+    parentVersionId: params.parentVersionId,
+    userRequest: params.userRequest,
+    briefSummary: params.briefSummary,
+    changedFiles: listChangedFiles(params.filesJson, params.parentFilesJson),
+    screenshots: {
+      desktopUrl: params.screenshots?.desktopUrl ?? null,
+      mobileUrl: params.screenshots?.mobileUrl ?? null,
+      ...previous,
+    },
+    findings: params.findings,
+    domSummary: params.domSummary ?? null,
+  });
+
+  try {
+    return await runLiveReview(bundle);
+  } catch (error) {
+    return {
+      status: "skipped",
+      reason: "review_error",
+      detail: error instanceof Error ? error.message : "live review failed",
+    };
+  }
+}

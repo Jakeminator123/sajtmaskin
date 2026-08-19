@@ -32,7 +32,7 @@
  */
 
 /** Canonical power ids. The menu is derived from this list, never hardcoded. */
-export const OPENCLAW_POWER_IDS = ["armed_autonomy", "quick_edit"] as const;
+export const OPENCLAW_POWER_IDS = ["armed_autonomy", "quick_edit", "live_review"] as const;
 
 export type OpenClawPowerId = (typeof OPENCLAW_POWER_IDS)[number];
 
@@ -48,6 +48,11 @@ export const OPENCLAW_POWER_META: Record<
   quick_edit: {
     label: "Snabbändringar",
     description: "Får föreslå exakta småändringar i sajtens filer. Du godkänner varje förslag.",
+  },
+  live_review: {
+    label: "Granskar sajten live",
+    description:
+      "Får titta på din färdiga sajt, säga vad som är fel och föreslå ändringar. Du godkänner varje ändring.",
   },
 };
 
@@ -66,6 +71,11 @@ export interface OpenClawPowers {
   /** `apply_quick_edit` approval cards (still one manual click per change). */
   quickEdit: boolean;
   /**
+   * Live-site critic. Etapp 1 registers the power only — it gates no execution.
+   * Stage 2 will use it for clickable suggestions.
+   */
+  liveReview: boolean;
+  /**
    * True when at least one power is live. Gates everything that is merely a
    * consequence of edit mode rather than a power of its own: the bounded edit
    * code context and the prepared-prompt fast lane.
@@ -74,7 +84,12 @@ export interface OpenClawPowers {
 }
 
 /** All powers off — the `OC_EDIT=false` shape, reused so it cannot drift. */
-const NO_POWERS: OpenClawPowers = { armedAutonomy: false, quickEdit: false, any: false };
+const NO_POWERS: OpenClawPowers = {
+  armedAutonomy: false,
+  quickEdit: false,
+  liveReview: false,
+  any: false,
+};
 
 /**
  * Resolve the effective powers for a turn. The single place the AND lives;
@@ -85,7 +100,13 @@ export function resolveOpenClawPowers(input: OpenClawPowersInput): OpenClawPower
   const granted = Array.isArray(input.granted) ? input.granted : [];
   const armedAutonomy = granted.includes("armed_autonomy");
   const quickEdit = granted.includes("quick_edit");
-  return { armedAutonomy, quickEdit, any: armedAutonomy || quickEdit };
+  const liveReview = granted.includes("live_review");
+  return {
+    armedAutonomy,
+    quickEdit,
+    liveReview,
+    any: armedAutonomy || quickEdit || liveReview,
+  };
 }
 
 /**

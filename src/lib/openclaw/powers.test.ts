@@ -10,9 +10,9 @@ import {
 } from "./powers";
 
 /** The behaviour an OC_EDIT=false deployment has — nothing beyond guiding. */
-const NOTHING = { armedAutonomy: false, quickEdit: false, any: false };
+const NOTHING = { armedAutonomy: false, quickEdit: false, liveReview: false, any: false };
 
-const ALL: OpenClawPowerId[] = ["armed_autonomy", "quick_edit"];
+const ALL: OpenClawPowerId[] = ["armed_autonomy", "quick_edit", "live_review"];
 
 describe("OpenClaw powers gate matrix", () => {
   it("grants nothing when OC_EDIT is off, whatever the client claims", () => {
@@ -40,17 +40,22 @@ describe("OpenClaw powers gate matrix", () => {
         powersOn: true,
         granted: ["armed_autonomy"],
       }),
-    ).toEqual({ armedAutonomy: true, quickEdit: false, any: true });
+    ).toEqual({ armedAutonomy: true, quickEdit: false, liveReview: false, any: true });
 
     expect(
       resolveOpenClawPowers({ editEnabled: true, powersOn: true, granted: ["quick_edit"] }),
-    ).toEqual({ armedAutonomy: false, quickEdit: true, any: true });
+    ).toEqual({ armedAutonomy: false, quickEdit: true, liveReview: false, any: true });
+
+    expect(
+      resolveOpenClawPowers({ editEnabled: true, powersOn: true, granted: ["live_review"] }),
+    ).toEqual({ armedAutonomy: false, quickEdit: false, liveReview: true, any: true });
   });
 
-  it("grants both when both are ticked", () => {
+  it("grants all when all are ticked", () => {
     expect(resolveOpenClawPowers({ editEnabled: true, powersOn: true, granted: ALL })).toEqual({
       armedAutonomy: true,
       quickEdit: true,
+      liveReview: true,
       any: true,
     });
   });
@@ -82,6 +87,9 @@ describe("sanitizeOpenClawPowerIds", () => {
       "armed_autonomy",
       "quick_edit",
     ]);
+    expect(
+      sanitizeOpenClawPowerIds(["live_review", "quick_edit", "armed_autonomy", "live_review"]),
+    ).toEqual(["armed_autonomy", "quick_edit", "live_review"]);
   });
 
   it("drops unknown entries instead of failing the turn", () => {
@@ -113,7 +121,7 @@ describe("toggleOpenClawPower", () => {
       "armed_autonomy",
       "quick_edit",
     ]);
-    expect(toggleOpenClawPower(ALL, "armed_autonomy")).toEqual(["quick_edit"]);
+    expect(toggleOpenClawPower(ALL, "armed_autonomy")).toEqual(["quick_edit", "live_review"]);
   });
 });
 
@@ -123,5 +131,13 @@ describe("power metadata", () => {
       expect(OPENCLAW_POWER_META[id]?.label).toBeTruthy();
       expect(OPENCLAW_POWER_META[id]?.description).toBeTruthy();
     }
+  });
+
+  it("uses the approved Swedish copy for live_review", () => {
+    expect(OPENCLAW_POWER_META.live_review).toEqual({
+      label: "Granskar sajten live",
+      description:
+        "Får titta på din färdiga sajt, säga vad som är fel och föreslå ändringar. Du godkänner varje ändring.",
+    });
   });
 });
