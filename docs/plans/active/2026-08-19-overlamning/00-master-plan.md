@@ -2,7 +2,7 @@
 
 Status: Active
 Startad: 2026-08-19 (kväll)
-Bas: master `7f9dd1786`
+Bas: master `9a5905933`
 
 Tre parallella sessioner arbetade på samma repo under 19 augusti och lämnade
 arbete i tre olika lägen: committat och mergat, committat men inte landat, och
@@ -21,7 +21,7 @@ bara körordningen och vem som får röra vilka filer samtidigt.
 | Builder-UI: Lanseringskortet → Versionsdiagnostik | Branch `origin/wip/chat-readiness-to-diagnostics` (`fac7d720a`) | **Ofullbordat.** Låg ocommitterat i sex timmar. Basen är `d96acd5c7`, 44 commits bakom master |
 | Dossier-förenkling steg 2–5 | [`../2026-08-19-dossier-forenkling/`](../2026-08-19-dossier-forenkling/00-master-plan.md) | Komplett styrdokument, nu på master |
 | Otriagerade svärmfynd (39 rader) | [`underlag/2026-08-19-svarmfynd.md`](underlag/2026-08-19-svarmfynd.md) | Rådata. Var gitignorerad och hade försvunnit med maskinen |
-| Live-review steg 1 | PR [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052) | Öppen, alla checks gröna, saknar `merge:ready` |
+| Live-review steg 1 | PR [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052) | **Blockerad trots gröna checks.** Se [`live-review-blockers.md`](aktiviteter/live-review-blockers.md). Flaggan ska vara av och `merge:ready` ska saknas |
 
 ## Vad som inte blev gjort
 
@@ -30,8 +30,8 @@ sessionerna.
 
 | Ogjort | Konsekvens om det förblir ogjort |
 |---|---|
-| **Skrivpasset i backloggen.** 39 svärmfynd triagerades aldrig in i `Aktiv kö`. | Kön säger 28 öppna rader medan minst fyra bekräftade defekter saknas helt. Nästa agent väljer arbete ur en ofullständig lista |
-| **PR #1052 signerades men fick aldrig `merge:ready`.** | Grön PR står stilla. `review-window` är redan passerad |
+| **Skrivpasset i backloggen.** Bara fyra av 39 svärmfynd triagerades in i `Aktiv kö`. | `SM-058`–`SM-061` finns nu, men P2/P3-rader och flyttade ankare ligger kvar i underlaget. Nästa agent väljer annars arbete ur en ofullständig lista |
+| **PR #1052 fick gröna checks men saknar en aktuell riskgranskning.** | Kostnad kan inte knytas till generationen, en lokal screenshot-fallback kan ge falskt pass och publika Blob-bilder saknar ägarskap/retention. Den ska inte få `merge:ready` ännu |
 | **`docs/plans/active/README.md` sa «ingen aktiv plan»** samtidigt som planmappen skrevs bredvid. | Routern motsade sig själv. Åtgärdat i samma ändring som den här filen |
 | **WIP-branchen rebasades aldrig.** | 44 commits drift mot master, i filer (`ChatInterface.tsx`, `BuilderHeader.tsx`) som ändrades kraftigt samma dag |
 | **Tre worktrees och elva lokala brancher städades aldrig.** | Nio brancher har `gone` upstream. Risk att någon tror att arbete förlorats |
@@ -55,12 +55,33 @@ Två saker är **beslutade och får inte «förbättras»**: knappen «Bygg
 integrationer» stannar (2026-08-17) och `SELECTED_SECTION_CHAR_CAP = 480` är ett
 skydd mot att «Avoid» svälts, inte en defekt (2026-08-19).
 
+## Stabiliseringsvåg 0 — öppna draft-PR:er
+
+Tre avgränsade restfynd är redan byggda mot master `9a5905933`. Samma
+master-commit lämnade dessutom capability-map-projektionen stale, vilket gör
+`backoffice-tests` röd på alla efterföljande PR:er. Starta inte dubbelarbete
+medan PR:erna är öppna. Läs dem i den här ordningen:
+
+| Ordning | PR | Stänger | Kvar före merge |
+|---|---|---|---|
+| 1 | [#1057](https://github.com/Jakeminator123/sajtmaskin/pull/1057) | Regenererar capability-map-fingeravtrycket efter schemaändringen i `9a5905933`; avblockerar gemensam Backoffice-CI | CI + kanonisk review; mergeas först |
+| 2 | [#1055](https://github.com/Jakeminator123/sajtmaskin/pull/1055) | AI SDK-majoren skiljer warm-cache från installerad användarsajt; synkar även dossier-/repairkontraktet | CI:s färska dossier-install/build + kanonisk review |
+| 3 | [#1054](https://github.com/Jakeminator123/sajtmaskin/pull/1054) | `toneAndVoice` kan göra portfolio/blog valbar och embedding-vägen saknade verkligt test | CI + kanonisk review; live embedding-smoke är icke-blockerande |
+| 4 | [#1053](https://github.com/Jakeminator123/sajtmaskin/pull/1053) | Prompt-assist saknar outputtak; avklippt providerresultat kunde annars skrivas tillbaka | CI + kanonisk review; token-tät input failar medvetet closed |
+| Blockerad | [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052) | Live-review steg 1 | Åtgärda hela [`live-review-blockers.md`](aktiviteter/live-review-blockers.md), besluta retention/kontroll och kör ny review |
+
+#1057 går först. Därefter är mergeordningen mellan #1055, #1054 och #1053 fri
+så länge varje head är uppdaterad mot aktuell master. #1052 ligger sist och får
+inte aktiveras i prod bara för att dess Actions är gröna.
+
 ## Hur arbetet körs
 
-Tre spår. Spår D och B kan gå samtidigt; spår H går mellan vågorna.
+Fyra spår. Stabiliseringsvåg 0 granskas först. Spår D och B kan gå samtidigt;
+spår H går mellan vågorna.
 
 | Spår | Vad | Var | Samtidighet |
 |---|---|---|---|
+| **S — Stabilisering** | #1057 först; #1055, #1054, #1053; därefter #1052-hardening | GitHub + lokalt | Kod-PR:erna kan granskas parallellt; #1052 separat och sist |
 | **D — Dossier** | D2 → D3 → D4 | Cloud | **Strikt sekventiellt.** En agent i taget |
 | **B — Buggar** | Bekräftade defekter i vågor | Cloud + lokalt | Parallellt **inom** en våg, sekventiellt **mellan** vågor |
 | **H — Housekeeping** | Backlog, docs, scheman, städ | **Lokalt** | Mellan vågorna, aldrig samtidigt som en våg |
@@ -95,7 +116,7 @@ våg-medlemmarna får gå parallellt.
 | 1 | [Källkvittot ljuger nedåt](aktiviteter/kallkvitto-reachedprompt.md) | `src/lib/gen/orchestrate/source-receipt.ts` | Cloud |
 | 1 | [Kostnadsrapporten ljuger](aktiviteter/kostnadsrapport-huvudtotal.md) | `scripts/db/generation-cost.mjs`, `backoffice/pages/generation_cost.py` | **Lokalt** |
 | 2 | [Postcheck blockerar före runtime är redo](aktiviteter/postcheck-boot-page.md) | `src/lib/gen/verify/product-postcheck.ts`, `src/lib/capture/` | Cloud |
-| 2 | [Scaffold-matchningen väljer fel sajttyp](aktiviteter/scaffold-tone-vs-typ.md) | `src/lib/gen/scaffolds/`, `src/lib/gen/orchestrate/scaffold-query-context.test.ts` | Cloud |
+| 2 | [Scaffold-matchningen väljer fel sajttyp](aktiviteter/scaffold-tone-vs-typ.md) | **Täcks av draft #1054. Starta ingen ny agent medan PR:n är öppen.** | Cloud |
 | 2 | [Fly: `npm install` exit 254](aktiviteter/preview-host-npm-254.md) | `preview-host/` | **Lokalt** |
 | 3 | SM-017: grinden stämplas grön före postcheck | `src/lib/gen/stream/finalize-version/persist-telemetry.ts` | Cloud |
 | 3 | `fake_form` är systematiskt i designläge | `product-postcheck.ts` + F2-kontraktet | Cloud |
@@ -165,10 +186,16 @@ försvinner med maskinen. Bestäm om den ska in i repot när #1052 är avgjord.
 4. **Cloud-agenter startar från `origin/master`**, aldrig från en lokal branch.
 5. **En våg i taget.** Nästa våg startar när föregående är mergad, inte när den
    är öppnad.
+6. **Driftkvittens efter tokenrotation:** gammal OpenClaw-token ska ge 401, ny
+   token 200 och samma nya secret ska ligga i Render och Vercel. Skriv aldrig
+   själva tokenvärdet i plan, logg eller PR.
 
 ## Checklista
 
-- [ ] PR #1052 triagerad och `merge:ready` satt (eller uttryckligt nej)
+- [ ] #1057 har reparerat masterprojektionen och gemensam Backoffice-CI
+- [ ] #1055, #1054 och #1053 har aktuell CI + kanonisk review; mergeas av människa
+- [ ] PR #1052:s blockers åtgärdade och omgranskade; först därefter beslut om `merge:ready`
+- [ ] OpenClaw-rotation kvitterad: gammal 401, ny 200, Render/Vercel synkade
 - [ ] Våg 1 mergad
 - [ ] Spår H omgång 1 (se [`housekeeping.md`](aktiviteter/housekeeping.md))
 - [ ] Våg 2 mergad
