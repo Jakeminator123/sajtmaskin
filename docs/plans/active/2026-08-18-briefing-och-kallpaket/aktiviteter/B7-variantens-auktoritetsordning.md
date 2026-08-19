@@ -60,6 +60,11 @@ inte "åtgärdas" i B7:
 | «Varianten blir slumpmässig» | Nästan. Deterministisk hash-rotation, inte slump. |
 | «Alla starter får Deep Brief» | Numera sant. Fram till B8 hoppade korta hemsideprompter över Brief-LLM:en via snabbspåret; det är borttaget. Kvarvarande undantag är klientbrief, teknisk/preserve-prompt, audit och follow-up (`server-auto-brief-policy.ts`). |
 
+Avgränsning efter #1042:s follow-up-fix: `toneAndVoice` hör till copy och
+variantval, inte scaffoldtyp. Det får därför inte ingå i scaffold-matcherns
+keywordtext eller embedding-query; `pages`, `styleKeywords` och
+`domainProfile` förblir riktiga scaffold-signaler.
+
 ## Spänningen fixen måste lösa
 
 Pinnen finns av ett skäl. Brief-steget **får veta** vilken variant som
@@ -116,8 +121,10 @@ råka flytta dem.
 
 Uttryckligen utanför scope. En LLM som får skriva fria interna id:n hallucinerar
 dem. Skulle det någon gång göras måste schemat begränsas till en kandidatlista
-— men briefens `styleKeywords`/`toneAndVoice` räcker för att styra valet, och de
-finns redan.
+— men briefens `pages`/`styleKeywords`/`domainProfile` räcker för att styra
+scaffoldtypen, medan `styleKeywords`/`toneAndVoice` styr variant och copy inom
+den valda scaffolden. Ton ska aldrig återanvändas som scaffold-keyword eller i
+scaffold-embeddingen.
 
 ### 5. Observability — annars går effekten inte att mäta
 
@@ -198,9 +205,10 @@ listan mot `styleKeywords` / `toneAndVoice` / mallens titel+kategori. Högst
 **en** post. Fallback = dagens listordning. Inga fria mall-id i
 `siteBriefSchema`. Inte hela 313-mallarsökningen.
 
-Scaffold-typens keyword-lucka (`domainProfile` / `toneAndVoice` når inte
-matchern) är [B11](B11-brief-i-scaffoldvalet.md) — B7 byter inte
-scaffold-trösklar.
+Scaffold-typens domänlucka är landad i #1042 via
+[B11](B11-brief-i-scaffoldvalet.md). Det smala follow-up-fixspåret håller
+`toneAndVoice` utanför scaffold-keywords och scaffold-embedding; B7 använder
+fortsatt ton för variant/addendum men byter inte scaffold-trösklar.
 
 ## Vad som INTE ingår
 

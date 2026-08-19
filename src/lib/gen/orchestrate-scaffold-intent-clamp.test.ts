@@ -288,6 +288,52 @@ describe("resolveOrchestrationBase scaffold/intent clamping", () => {
     });
   });
 
+  it("keeps tone-only brief data out of production-like embedding selection", async () => {
+    const portfolio = getScaffoldById("portfolio");
+    expect(portfolio).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockImplementation(async (query) => ({
+      results: query.includes("Tone: personal, creative")
+        ? [{ scaffold: portfolio!, score: 0.9 }]
+        : [],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 8,
+      },
+    }));
+    const prompt = "Jag vill ha en hemsida för min verksamhet.";
+    const base = await resolveOrchestrationBase({
+      prompt,
+      rawPrompt: prompt,
+      routePlanPrompt: prompt,
+      buildSpecPrompt: prompt,
+      contractsPrompt: prompt,
+      scaffoldMatchPrompt: prompt,
+      capabilitiesPrompt: prompt,
+      buildIntent: "website",
+      generationMode: "init",
+      scaffoldMode: "auto",
+      // Production defaults this to true. The query-sensitive stub makes
+      // the old tone leak select portfolio while the corrected path stays
+      // on the generic website baseline.
+      embeddingScaffoldMatch: true,
+      brief: { toneAndVoice: ["personal", "creative"] },
+      capabilities: noCapabilities,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(mockedSearchScaffoldsWithDiagnostics).toHaveBeenCalledWith(
+      expect.not.stringContaining("Tone:"),
+      expect.any(Number),
+    );
+    expect(base.resolvedScaffold?.id).toBe("landing-page");
+    expect(base.scaffoldSelection?.keywordScores.portfolio).toBe(0);
+    expect(base.scaffoldSelection?.briefContextApplied).toBe(false);
+  });
+
   it("keeps a gaming-news portal on website intent despite needsAppShell boost", async () => {
     const prompt = "Bygg en gaming news portal med recensioner";
     const base = await resolveOrchestrationBase({
