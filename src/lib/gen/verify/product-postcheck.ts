@@ -256,9 +256,10 @@ function decidePreviewReadiness(params: {
   const hostReady = Boolean(params.readiness && isHostRuntimeReady(params.readiness));
 
   // A boot placeholder is a product defect only after the host says it is
-  // ready. Before that it is timing (cold VM / npm install) — warn, do not block.
+  // ready — or that startup failed. `starting` / not-ready is timing
+  // (cold VM / npm install) and must not block.
   if (kind === "boot_page") {
-    if (hostReady) {
+    if (hostReady || params.readiness?.readinessState === "failed") {
       return { action: "warn", code: "preview_boot_page", productBlocked: true };
     }
     if (params.readiness) {
