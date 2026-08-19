@@ -18,6 +18,39 @@ import { MIGRATION_ORDER } from "./migration-order.mjs";
 
 export const LEDGER_TABLE = "schema_migrations";
 
+/**
+ * Deny-by-default on the ledger (SM-057). The `public` schema's default
+ * privileges grant ALL to `anon` and `authenticated` on every new table, and
+ * this table is born from a bare `CREATE TABLE` outside MIGRATION_ORDER — so
+ * without this it is readable, writable and TRUNCATE-able with the public anon
+ * key over PostgREST. The table owner (`postgres`, the same role the runners
+ * connect as) bypasses RLS, so enabling it costs the runners nothing.
+ *
+ * Kept in lockstep with `src/lib/db/migrations/harden-schema-migrations-ledger.sql`,
+ * which repairs databases that were created before this existed. Both are
+ * needed: the migration cannot protect a ledger that is dropped and recreated
+ * after the migration was already recorded.
+ */
+const HARDEN_LEDGER_SQL = `
+DO $$
+BEGIN
+  IF to_regclass('public.${LEDGER_TABLE}') IS NULL THEN
+    RETURN;
+  END IF;
+
+  EXECUTE 'ALTER TABLE public.${LEDGER_TABLE} ENABLE ROW LEVEL SECURITY';
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    EXECUTE 'REVOKE ALL ON TABLE public.${LEDGER_TABLE} FROM anon';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    EXECUTE 'REVOKE ALL ON TABLE public.${LEDGER_TABLE} FROM authenticated';
+  END IF;
+END
+$$;
+`;
+
 /** Create the ledger table if it does not exist yet. Idempotent. */
 export async function ensureMigrationLedger(pool) {
   await pool.query(
@@ -26,6 +59,7 @@ export async function ensureMigrationLedger(pool) {
        applied_at timestamptz NOT NULL DEFAULT now()
      )`,
   );
+  await pool.query(HARDEN_LEDGER_SQL);
 }
 
 /** Record one migration filename as applied. Idempotent (ON CONFLICT DO NOTHING). */

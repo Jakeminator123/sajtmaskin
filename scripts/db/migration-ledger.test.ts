@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MIGRATION_ORDER } from "./migration-order.mjs";
@@ -33,6 +33,51 @@ describe("diffPendingMigrations", () => {
   it("ignores unknown/extra ledger entries (only MIGRATION_ORDER matters)", () => {
     const applied = new Set([...MIGRATION_ORDER, "some-old-removed-migration.sql"]);
     expect(diffPendingMigrations(applied)).toEqual([]);
+  });
+});
+
+// SM-057: the ledger's deny-by-default lives in TWO places that must stay in
+// lockstep — `ensureMigrationLedger` (so a freshly created ledger is never
+// born open) and the migration (so existing databases get repaired). Losing
+// either half silently reopens a table that `anon` can TRUNCATE, and the
+// `public` schema's default privileges hand out those grants again on every
+// CREATE, so this cannot be left to review attention alone.
+describe("schema_migrations ledger hardening", () => {
+  const LEDGER_MODULE = join(process.cwd(), "scripts", "db", "migration-ledger.mjs");
+  const MIGRATION_FILE = "harden-schema-migrations-ledger.sql";
+  const MIGRATION_PATH = join(
+    process.cwd(),
+    "src",
+    "lib",
+    "db",
+    "migrations",
+    MIGRATION_FILE,
+  );
+
+  it("registers the repair migration in MIGRATION_ORDER", () => {
+    expect(MIGRATION_ORDER).toContain(MIGRATION_FILE);
+  });
+
+  it("enables RLS and revokes anon/authenticated in BOTH the runtime ensure and the migration", () => {
+    for (const path of [LEDGER_MODULE, MIGRATION_PATH]) {
+      const sql = readFileSync(path, "utf8");
+      expect(sql, `${path} must enable RLS`).toMatch(/ENABLE ROW LEVEL SECURITY/);
+      expect(sql, `${path} must revoke anon`).toMatch(/REVOKE ALL ON TABLE[\s\S]*?FROM anon/);
+      expect(sql, `${path} must revoke authenticated`).toMatch(
+        /REVOKE ALL ON TABLE[\s\S]*?FROM authenticated/,
+      );
+      // Role guards keep the statements runnable against a plain Postgres that
+      // has no Supabase roles (42704 undefined_object would abort the run).
+      expect(sql, `${path} must guard on role existence`).toMatch(
+        /pg_roles WHERE rolname = 'anon'/,
+      );
+    }
+  });
+
+  it("keeps service_role's access (the server's own admin role)", () => {
+    for (const path of [LEDGER_MODULE, MIGRATION_PATH]) {
+      expect(readFileSync(path, "utf8")).not.toMatch(/FROM service_role/);
+    }
   });
 });
 
