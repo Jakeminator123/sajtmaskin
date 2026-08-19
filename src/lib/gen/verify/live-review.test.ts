@@ -254,6 +254,38 @@ describe("runLiveReview", () => {
     }
   });
 
+  it("en riktig advisory-dom med confidence 0 och inga issues completar", async () => {
+    // Samma form som SAFE_FALLBACK_DECISION men schema-giltig äkta output —
+    // får inte formmatchas till invalid_model_output.
+    generateObject.mockResolvedValue({
+      object: {
+        verdict: "advisory",
+        confidence: 0,
+        rationale: "Sidan ser rimlig ut men jag är osäker.",
+        reasoning: "",
+        issues: [],
+      },
+      usage: {},
+    });
+    const result = await runLiveReview(
+      assembleReviewBundle({
+        versionId: "v1",
+        parentVersionId: null,
+        userRequest: "x",
+        briefSummary: "",
+        changedFiles: [],
+        screenshots: { desktopUrl: null, mobileUrl: null },
+        findings: [],
+        domSummary: null,
+      }),
+    );
+    expect(result.status).toBe("completed");
+    if (result.status === "completed") {
+      expect(result.decision.verdict).toBe("advisory");
+      expect(result.decision.confidence).toBe(0);
+    }
+  });
+
   it("degraderar trasig modelloutput till skipped/invalid", async () => {
     generateObject.mockResolvedValue({
       object: { nope: true },

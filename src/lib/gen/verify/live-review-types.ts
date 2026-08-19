@@ -86,3 +86,14 @@ export function parseReviewDecision(raw: unknown): ReviewDecision {
   const parsed = ReviewDecisionSchema.safeParse(raw);
   return parsed.success ? parsed.data : SAFE_FALLBACK_DECISION;
 }
+
+/**
+ * Null on schema failure instead of the sentinel. `runLiveReview` needs the
+ * explicit signal: a REAL advisory decision with confidence 0 and no issues is
+ * schema-valid and must complete, not be shape-matched into
+ * `invalid_model_output` (bugbot medium, 2026-08-19).
+ */
+export function tryParseReviewDecision(raw: unknown): ReviewDecision | null {
+  const parsed = ReviewDecisionSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}

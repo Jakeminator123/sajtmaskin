@@ -19,6 +19,7 @@ import { isAutoRepairPromptMessage, isF3KickPromptMessage } from "@/lib/builder/
 import {
   ReviewDecisionSchema,
   parseReviewDecision,
+  tryParseReviewDecision,
   type LiveReviewResult,
   type LiveReviewScreenshotSet,
   type ProductDomSummary,
@@ -384,8 +385,10 @@ export async function runLiveReview(
       durationMs: Date.now() - startedAt,
     });
     usageRecorded = true;
-    const decision = parseReviewDecision(result.object);
-    if (decision.confidence === 0 && decision.verdict === "advisory" && decision.issues.length === 0) {
+    // Explicit parse failure — never shape-match against the fallback
+    // sentinel: advisory/0/no-issues is a schema-valid real outcome.
+    const decision = tryParseReviewDecision(result.object);
+    if (!decision) {
       return { status: "skipped", reason: "invalid_model_output" };
     }
     return {
