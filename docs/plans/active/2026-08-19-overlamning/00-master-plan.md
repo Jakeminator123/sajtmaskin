@@ -109,24 +109,25 @@ två ändringar kan sitta snällt intill varandra och ändå motverka varandra. 
 Ingen fil förekommer hos två agenter i samma våg. Det är hela villkoret för att
 våg-medlemmarna får gå parallellt.
 
-| Våg | Paket | Ägda filer | Var |
-|---|---|---|---|
-| 1 | [Init-promptens logg saknar `chat_id`](aktiviteter/initprompt-utan-chatid.md) | `src/lib/api/engine/chats/create-chat-stream-post.ts` | Cloud |
-| 1 | [Lanseringskortet → Versionsdiagnostik](aktiviteter/lanseringskort-till-diagnostik.md) | `src/app/builder/`, `src/components/builder/`, `src/lib/builder/` | Cloud |
-| 1 | [Källkvittot ljuger nedåt](aktiviteter/kallkvitto-reachedprompt.md) | `src/lib/gen/orchestrate/source-receipt.ts` | Cloud |
-| 1 | [Kostnadsrapporten ljuger](aktiviteter/kostnadsrapport-huvudtotal.md) | `scripts/db/generation-cost.mjs`, `backoffice/pages/generation_cost.py` | **Lokalt** |
-| 2 | [Postcheck blockerar före runtime är redo](aktiviteter/postcheck-boot-page.md) | `src/lib/gen/verify/product-postcheck.ts`, `src/lib/capture/` | Cloud |
-| 2 | [Scaffold-matchningen väljer fel sajttyp](aktiviteter/scaffold-tone-vs-typ.md) | **Täcks av draft #1054. Starta ingen ny agent medan PR:n är öppen.** | Cloud |
-| 2 | [Fly: `npm install` exit 254](aktiviteter/preview-host-npm-254.md) | `preview-host/` | **Lokalt** |
-| 3 | SM-017: grinden stämplas grön före postcheck | `src/lib/gen/stream/finalize-version/persist-telemetry.ts` | Cloud |
-| 3 | `fake_form` är systematiskt i designläge | `product-postcheck.ts` + F2-kontraktet | Cloud |
-| 3 | `new Date()` i genererad footer | `src/lib/gen/autofix/rules/` | Cloud |
-| 3 | SM-034: `stillMissing` stoppar inte save | `src/lib/gen/scaffolds/protected-paths.ts`, repair-vägen | Cloud |
+| Våg | Paket | Ägda filer | Var | Läge |
+|---|---|---|---|---|
+| 1 | [Init-promptens logg saknar `chat_id`](aktiviteter/initprompt-utan-chatid.md) | `src/lib/api/engine/chats/create-chat-stream-post.ts` | Cloud | **Klar** — #1059 |
+| 1 | [Lanseringskortet → Versionsdiagnostik](aktiviteter/lanseringskort-till-diagnostik.md) | `src/app/builder/`, `src/components/builder/`, `src/lib/builder/` | Cloud | **Klar** — #1058 |
+| 1 | [Källkvittot ljuger nedåt](aktiviteter/kallkvitto-reachedprompt.md) | `src/lib/gen/orchestrate/source-receipt.ts` | Cloud | **Klar** — #1060 |
+| 1 | [Kostnadsrapporten ljuger](aktiviteter/kostnadsrapport-huvudtotal.md) | `scripts/db/generation-cost.mjs`, `backoffice/pages/generation_cost.py` | **Lokalt** | PR #1062 |
+| 2 | [Postcheck blockerar före runtime är redo](aktiviteter/postcheck-boot-page.md) | `src/lib/gen/verify/product-postcheck.ts`, `src/lib/capture/` | Cloud | **Klar** — #1061 |
+| 2 | [Scaffold-matchningen väljer fel sajttyp](aktiviteter/scaffold-tone-vs-typ.md) | `src/lib/gen/scaffolds/`, `orchestrate/` | Cloud | **Klar** — #1054 |
+| 2 | [Fly: `npm install` exit 254](aktiviteter/preview-host-npm-254.md) | `preview-host/` | **Lokalt** | Kvar |
+| 3 | [SM-017: grinden stämplas grön för tidigt](aktiviteter/SM-017-grind-stamplad-for-tidigt.md) | `finalize-version/persist-telemetry.ts`, `services/generation-telemetry.ts` | Cloud | Klar för start |
+| 3 | [`fake_form` i designläge](aktiviteter/fake-form-i-designlage.md) | `product-postcheck.ts`, `chat-readiness.ts` | Cloud | Klar för start |
+| 3 | [`new Date()` i genererad footer](aktiviteter/footer-new-date-hydration.md) | `src/lib/gen/autofix/rules/` | Cloud | Klar för start |
+| 3 | [SM-034: `stillMissing` stoppar inte save](aktiviteter/SM-034-stillmissing-stoppar-inte.md) | `scaffolds/protected-paths.ts`, repair-vägen | Cloud | Klar för start |
 
-**Våg 3 väntar på våg 2** av två skäl som inte syns i filistan: SM-017 läser
-postcheckens utfall, och `fake_form` skriver i samma fil som boot-page-paketet.
-Aktivitetsfiler för våg 3 skrivs när våg 2 är mergad — inte nu, eftersom
-radankare driftar.
+**Våg 3 är upplåst.** De två skäl som band den till våg 2 är borta: #1061
+landade boot-page-ändringen, och SM-017 respektive `fake_form` visade sig äga
+**olika** filer (`persist-telemetry.ts` mot `product-postcheck.ts`). Alla fyra
+paketen kan därför köras parallellt. Villkoret är som alltid att ingen av dem
+rör `docs/plans/**` eller `BUG-SWARM-BACKLOG.md` — de ägs av spår H.
 
 ### Vad som inte hör hemma i cloud
 
@@ -192,15 +193,16 @@ försvinner med maskinen. Bestäm om den ska in i repot när #1052 är avgjord.
 
 ## Checklista
 
-- [ ] #1057 har reparerat masterprojektionen och gemensam Backoffice-CI
-- [ ] #1055, #1054 och #1053 har aktuell CI + kanonisk review; mergeas av människa
+- [x] Stabiliseringsvåg 0 mergad: #1057, #1055, #1054, #1053, #1056
+- [x] Våg 1 mergad: #1058, #1059, #1060 (kostnadsrapporten i #1062)
+- [x] Våg 2 kodpaket mergade: #1061 och #1054
+- [x] Våg 3 aktivitetsfiler skrivna mot master `f668512a1`
+- [ ] Våg 3 mergad — fyra paket, kan gå parallellt
+- [ ] Fly `SM-035`: härdningen kvar. Disken utesluten som orsak (29 % använt 2026-08-20)
+- [ ] Spår H: skrivpasset klart och underlaget raderat
+- [ ] Spår D klart enligt sin egen plan
 - [ ] PR #1052:s blockers åtgärdade och omgranskade; först därefter beslut om `merge:ready`
 - [ ] OpenClaw-rotation kvitterad: gammal 401, ny 200, Render/Vercel synkade
-- [ ] Våg 1 mergad
-- [ ] Spår H omgång 1 (se [`housekeeping.md`](aktiviteter/housekeeping.md))
-- [ ] Våg 2 mergad
-- [ ] Spår H omgång 2, inklusive att underlaget raderas när skrivpasset är gjort
-- [ ] Våg 3 aktivitetsfiler skrivna mot då-aktuell master, sedan mergade
-- [ ] Spår D klart enligt sin egen plan
-- [ ] `wip/chat-readiness-to-diagnostics` antingen landad eller medvetet skrotad
+- [ ] Ägarbeslut: D5 fri add/remove, 480-siffran, `Co-authored-by` på agentcommits
+- [x] `wip/chat-readiness-to-diagnostics` ersatt av #1058 — branchen kan raderas
 - [ ] Den här planen vävs in i [`../../avklarat/README.md`](../../avklarat/README.md) och mappen raderas
