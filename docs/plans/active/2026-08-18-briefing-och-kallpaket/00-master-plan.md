@@ -125,9 +125,10 @@ En preliminär hint har blivit ett persisterat beslut. Det är inte ett saknat
 steg — det är fel auktoritetsordning i ett steg som redan finns, och därför en
 egen punkt: [B7](aktiviteter/B7-variantens-auktoritetsordning.md).
 
-Att briefen skulle sakna makt över **scaffold** är däremot fel: dess `pages`,
-`styleKeywords` och domänhintar väger in i både keyword- och embedding-vägen via
-`buildScaffoldQueryContext` (`resolve-base.ts:224`, `scaffolds/matcher.ts:187-237`).
+Att briefen skulle sakna makt över **scaffold** är däremot fel efter [B11](aktiviteter/B11-brief-i-scaffoldvalet.md)
+(öppen PR #1042): `pages`, `styleKeywords`, `domainProfile` och `toneAndVoice`
+väger in via `buildScaffoldQueryContext`. Äldre kod läste `businessType`/`industry`,
+som inte finns i `siteBriefSchema`.
 
 ### Prompt-assist-addendumet är förbikopplat — och en ren dubblett
 
