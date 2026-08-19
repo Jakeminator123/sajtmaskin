@@ -9,7 +9,7 @@
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Hosted Stripe Checkout for ONE-TIME payments (mode: payment; a recurring Price fails loudly, never a silent subscription). Adds a server route that creates checkout sessions plus a client button that redirects to Stripe's hosted page — no browser Stripe SDK. CheckoutButton needs a real `price_…` id from the owner's Stripe dashboard: never invent one, and keep it in a single named constant that is easy to find and edit. Demo mode (mock: visual): without STRIPE_SECRET_KEY the route returns 503 'payments-not-configured' and the button opens an honest demo modal. Webhooks are out of scope.",
-  "summarySv": "Ta betalt med kort via Stripe Checkout. Du behöver två saker från Stripe: en hemlig nyckel och ett pris-id (`price_…`) för varje sak du säljer. Utan dem körs betalknappen i demoläge: besökaren ser hela betalflödet men inga pengar dras, och en tydlig demoruta förklarar hur Stripe kopplas in.",
+  "summarySv": "Ta betalt med kort via Stripe Checkout. Du behöver två saker från Stripe: en hemlig nyckel och ett pris-id (`price_…`) för varje sak du säljer. Utan den hemliga nyckeln körs betalknappen i demoläge: besökaren ser hela betalflödet men inga pengar dras, och en tydlig demoruta förklarar hur Stripe kopplas in. Saknas i stället ett riktigt pris-id går betalningen fram till Stripe och misslyckas där — fyll i pris-id:t innan du säljer på riktigt.",
   "envVars": [
     {
       "key": "STRIPE_SECRET_KEY",

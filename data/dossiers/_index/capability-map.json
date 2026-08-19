@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-08-19T11:45:01.927Z",
+  "generatedAt": "2026-08-19T12:22:55.507Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -504,7 +504,7 @@
       "dependencies": [
         "stripe"
       ],
-      "summarySv": "Ta betalt med kort via Stripe Checkout. Du behöver två saker från Stripe: en hemlig nyckel och ett pris-id (`price_…`) för varje sak du säljer. Utan dem körs betalknappen i demoläge: besökaren ser hela betalflödet men inga pengar dras, och en tydlig demoruta förklarar hur Stripe kopplas in.",
+      "summarySv": "Ta betalt med kort via Stripe Checkout. Du behöver två saker från Stripe: en hemlig nyckel och ett pris-id (`price_…`) för varje sak du säljer. Utan den hemliga nyckeln körs betalknappen i demoläge: besökaren ser hela betalflödet men inga pengar dras, och en tydlig demoruta förklarar hur Stripe kopplas in. Saknas i stället ett riktigt pris-id går betalningen fram till Stripe och misslyckas där — fyll i pris-id:t innan du säljer på riktigt.",
       "verificationStatus": "accepted",
       "lastVerified": "2026-04-20",
       "f2Disposition": "deferred",
@@ -1023,7 +1023,7 @@
     "data/dossiers/hard/postgres-drizzle/manifest.json": "1a2892030be6e1dd503c7b28788795de23fb32be36c47746a717f35f589a9a15",
     "data/dossiers/hard/resend-contact-form/manifest.json": "da4af8a189ec7b304eee50bf8bc0157b6a1bd365b16344f6e6f8ded4ff035a9a",
     "data/dossiers/hard/sanity-cms/manifest.json": "86898a6a327458ac9d17d9f90965e4845461a52f1b0f59a08ae1beda89716af0",
-    "data/dossiers/hard/stripe-checkout/manifest.json": "9c35334b36ac254a764bfa97d04600cfb8b16a8f7e446a5c556c237d22141448",
+    "data/dossiers/hard/stripe-checkout/manifest.json": "09c25e6b5449cc37a177add0dddd02d51cc109441df5b99d5ada748c98d6ab3e",
     "data/dossiers/hard/supabase-auth/manifest.json": "3077977e752b0c11c8c0c466cf661b9c7868cb2577c85151066b7fe2a8efc40d",
     "data/dossiers/hard/vercel-analytics/manifest.json": "85913f69e9ca853141f4bf115b55afabd6637bcb7853b6fa16552c92e7ce6de4",
     "data/dossiers/soft/cmdk-command-palette/manifest.json": "f199ee6dfacebc40193ee48324c77c488048b78a197d848394176e1cfbbd5f99",
