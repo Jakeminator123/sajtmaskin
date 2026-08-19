@@ -17,10 +17,10 @@ Tre roller. Högst två säten (`A` / `B`) samtidigt. Sätet är en **etikett p�
 
 **Okänd roll:** skrivning → Builder A. Merge/städ → Steward A. Annars Scout A.
 
-**Säg inte** «gå till eget worktree» varje gång. Rollen Builder betyder redan: `git worktree add ..\sajtmaskin-<säte>-<kort> -b <typ>/<kort> origin/master` och sedan `npm run worktree:link -- <sökväg>`.
+**Säg inte** «gå till eget worktree» varje gång. Rollen Builder betyder redan: `git worktree add ..\sajtmaskin-<säte>-<kort> -b <typ>/<kort> origin/master` och sedan `npm run worktree:link -- <sökväg>` — utom docs/regel-genvägen i `git.mdc`.
 
 **node_modules:** en riktig kopia, i huvudcheckouten. Worktrees länkar dit. Kör inte `npm ci` per worktree.
 
-**Sign-off:** sista raden i varje svar till användaren: `— Scout A`
+**Sign-off:** sista raden är `— <Roll> <Säte>`, till exempel `— Builder A` eller `— Steward B`.
 
 Kommandon: `/scout` `/builder` `/steward`. Semantik: glossary (`Scout` / `Builder` / `Steward`). Merge-loop: `/pr-herde`.

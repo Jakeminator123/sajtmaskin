@@ -23,7 +23,7 @@ Rollen äger frågan. Säg inte «gå till eget worktree» till varje agent.
 | Roll | Worktree? |
 |---|---|
 | Scout | Nej |
-| Builder | Ja, från `origin/master`. Därefter `npm run worktree:link` så `node_modules` pekar på huvudcheckoutens kopia. |
+| Builder | Ja, från `origin/master`, därefter `npm run worktree:link`. Undantag: docs/regel-genvägen i `git.mdc` (huvudcheckouten). |
 | Steward | Nej för merge (`gh` räcker). Ja bara vid konflikt. |
 
 `node_modules` används hela tiden (typecheck, test, dev). Det finns **en** riktig installation — i huvudcheckouten. En worktree utan länk måste annars köra `npm ci` (~flera minuter). Ändra inte `package.json` i två Builder-säten samtidigt: de delar samma installation.
