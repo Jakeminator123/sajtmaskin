@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { promptLogs } from "@/lib/db/schema";
@@ -24,13 +24,14 @@ export async function createPromptLog(payload: {
   thinking?: boolean | null;
   attachmentsCount?: number | null;
   meta?: Record<string, unknown> | null;
-}): Promise<void> {
+}): Promise<string> {
   assertDbConfigured();
   const retentionLimit = 200;
   const now = new Date();
   const ownerId = payload.userId || payload.sessionId || null;
+  const id = nanoid();
   await db.insert(promptLogs).values({
-    id: nanoid(),
+    id,
     event: payload.event,
     user_id: payload.userId || null,
     session_id: payload.sessionId || null,
@@ -72,6 +73,30 @@ export async function createPromptLog(payload: {
       )`,
     );
   }
+
+  return id;
+}
+
+/**
+ * Stämpla `chat_id` på en redan skriven prompt-logg som saknar det.
+ *
+ * Init skriver `create_chat` innan `engine_chats`-raden finns, så `chat_id`
+ * kan inte sättas vid INSERT. Utan den här claim:en blir init-raden
+ * föräldralös: `/logg` och `dump-logs --kinds=prompts` filtrerar på chat och
+ * hittar bara uppföljningarna.
+ *
+ * Uppdaterar bara när `chat_id` fortfarande är null, så en senare anropare
+ * inte kan skriva över en redan claimad rad.
+ */
+export async function attachPromptLogChatId(logId: string, chatId: string): Promise<void> {
+  assertDbConfigured();
+  const id = logId.trim();
+  const chat = chatId.trim();
+  if (!id || !chat) return;
+  await db
+    .update(promptLogs)
+    .set({ chat_id: chat })
+    .where(and(eq(promptLogs.id, id), isNull(promptLogs.chat_id)));
 }
 
 /**
