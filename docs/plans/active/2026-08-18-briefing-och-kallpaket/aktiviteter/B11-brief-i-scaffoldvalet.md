@@ -15,8 +15,8 @@ domänåsikt når knappt matchern:
 |---|---|
 | `pages` namn/path | Ja — mot **typ**-ordlistor (`landing`, `shop`, `blogg`) |
 | `visualDirection.styleKeywords` | Ja, samma typ-ordlistor |
-| `toneAndVoice` | Nej — bara variant-scorern |
-| `domainProfile` | Nej. `scaffold-query-context.ts` läser döda fält `businessType` / `industry` som inte finns i `siteBriefSchema` |
+| `toneAndVoice` | Ja i denna PR — keyword-boost + embedding-prompt |
+| `domainProfile` | Ja i denna PR. Mappas till bank-token; `businessType` / `industry` läses inte |
 
 Därför vinner «hemsida»/«sajt» ofta landing även när Briefen redan sagt
 `spa-salon` eller `portfolio`.

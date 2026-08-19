@@ -15,6 +15,8 @@ Kodidentifierare, filnamn, telemetri-nycklar, event-typer, enum-värden och DB-s
 
 **Viktig förväxling:** **Prompt-assist** är knappen bredvid Plan i chattinputen (rättar/strukturerar utkastet, naturligt språk). Det är inte Deep Brief, inte Orkestrering och inte Sajtagenten/OpenClaw. Kodnyckeln `promptAssist` är legacy för Deep Brief-modellen.
 
+**Viktig förväxling:** **Briefing** är lagret före kodgeneratorn. **Deep Brief** är ett LLM-läge i det lagret, inte hela lagret. Ändringsbrief och Snapshot-Brief är andra lägen. Scaffold-valet är Orkestrering (kod), inte en modell.
+
 **Viktig förväxling:** **rollen Builder** är en Cursor-agent som skriver kod. Den är inte produktens Builder-UI. **Steward** är förvaltaren (merge/städ); **Stewart** är samma roll. Se [agentroller](../../docs/architecture/glossary.md#kärntermer) och [`agent-roles.mdc`](agent-roles.mdc).
 
 **Signal-gate:** ny signal? Hitta canonical source först. Ändra ägaren, inte fem konsumenter.
