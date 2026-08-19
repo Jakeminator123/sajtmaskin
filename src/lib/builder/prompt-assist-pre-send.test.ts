@@ -37,6 +37,9 @@ describe("prompt-assist-pre-send", () => {
       parsePromptAssistResponse('```json\n{"text":"En café-sajt i Malmö"}\n```'),
     ).toBe("En café-sajt i Malmö");
     expect(parsePromptAssistResponse('{"text":')).toBeNull();
+    expect(parsePromptAssistResponse("```\nEn café-sajt i Malmö\n```")).toBe(
+      "En café-sajt i Malmö",
+    );
   });
 
   it("forces GPT-5.6 off thinking and omits temperature on reasoning models", () => {

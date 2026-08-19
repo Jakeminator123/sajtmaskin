@@ -4,6 +4,7 @@
  */
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 import { getTemperatureConfig } from "@/lib/builder/direct-model";
+import { aliasRetiredModelId } from "@/lib/models/catalog";
 
 export const PROMPT_REWRITE_WORKLOAD_ID = "prompt_rewrite";
 export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-5.6-terra";
@@ -41,9 +42,10 @@ export function buildPromptAssistModelOptions(modelId: string): {
   temperature?: number;
   providerOptions?: { openai: { reasoningEffort: "none" } };
 } {
+  const resolved = aliasRetiredModelId(modelId);
   return {
-    ...getTemperatureConfig(modelId, 0.3),
-    ...(/gpt-5\.6/i.test(modelId)
+    ...getTemperatureConfig(resolved, 0.3),
+    ...(/gpt-5\.6/i.test(resolved)
       ? { providerOptions: { openai: { reasoningEffort: "none" as const } } }
       : {}),
   };
@@ -62,7 +64,7 @@ export function parsePromptAssistResponse(raw: string): string | null {
     }
     return null;
   } catch {
-    if (candidate.startsWith("{") || candidate.startsWith("```")) return null;
-    return trimmed;
+    if (candidate.startsWith("{")) return null;
+    return candidate;
   }
 }
