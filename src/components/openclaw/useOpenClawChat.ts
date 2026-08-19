@@ -18,6 +18,7 @@ import {
   parseStopDirective,
 } from "@/lib/openclaw/debug/armed-mandate";
 import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
+import { normalizeOpenClawClientMessages } from "@/lib/openclaw/message-validation";
 
 function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -110,8 +111,9 @@ export function useOpenClawChat() {
       setStreaming(true);
       abortRef.current = new AbortController();
 
-      const apiMessages = nextConversation
-        .map((m) => ({ role: m.role, content: m.content }));
+      const apiMessages = normalizeOpenClawClientMessages(
+        nextConversation.map((m) => ({ role: m.role, content: m.content })),
+      );
 
       try {
         const res = await fetch("/api/openclaw/chat", {

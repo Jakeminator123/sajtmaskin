@@ -20,7 +20,10 @@ import {
 import { orchestratePromptMessage } from "@/lib/builder/prompt-orchestration";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
-import { shouldRunServerAutoBrief } from "@/lib/builder/server-auto-brief-policy";
+import {
+  createServerAutoBriefSignal,
+  shouldRunServerAutoBrief,
+} from "@/lib/builder/server-auto-brief-policy";
 import { tryGenerateServerAutoBrief, type BriefTrace } from "@/lib/builder/site-brief-generation";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { resolveConfiguredEnvKeys } from "./configured-env-keys";
@@ -339,7 +342,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             modelTier: resolvedModelTier,
             assistModelHint,
             imageGenerations: resolvedImageGenerations,
-            signal: req.signal,
+            signal: createServerAutoBriefSignal(req.signal),
             variantHints: variantHintsText,
           });
           if (generated) {

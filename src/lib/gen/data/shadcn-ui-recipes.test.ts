@@ -218,6 +218,21 @@ describe("resolveShadcnUiRecipes", () => {
     expect(result[0]?.files[0]?.content).not.toContain("@/registry/");
   });
 
+  it("flag ON with no search intents never fetches the registry index", async () => {
+    vi.stubEnv("SAJTMASKIN_SHADCN_RESOLVER_SEARCH", "1");
+    mockFetch.mockResolvedValue(registryResponse("card", "new-york-v4"));
+
+    const result = await resolveShadcnUiRecipes({
+      capabilities: caps(),
+      prompt: "gör något fint",
+      maxRecipes: 1,
+    });
+
+    const fetchedUrls = mockFetch.mock.calls.map((call) => String(call[0]));
+    expect(fetchedUrls.some((url) => isIndexUrl(url))).toBe(false);
+    expect(result).toEqual([]);
+  });
+
   it("flag ON with zero search hits falls back to legacy candidates", async () => {
     vi.stubEnv("SAJTMASKIN_SHADCN_RESOLVER_SEARCH", "1");
     mockFetch.mockImplementation(async (input: unknown) => {
