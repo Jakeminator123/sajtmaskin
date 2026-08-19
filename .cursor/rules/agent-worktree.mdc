@@ -7,7 +7,7 @@ alwaysApply: true
 
 **Kärnregel:** huvudcheckouten delas av användaren och andra agenter. `git checkout`/`git switch` flyttar HEAD globalt och kan sabotera någon annans arbete.
 
-**Rollstyrning:** Scout och Steward skapar ingen worktree. Bara **rollen Builder** gör det, alltid med bas `origin/master`. Se [`agent-roles.mdc`](agent-roles.mdc).
+**Rollstyrning:** Scout skapar ingen worktree. Steward skapar ingen för merge (`gh` räcker); worktree bara vid konflikt, då från `origin/master`. Builder skapar worktree med bas `origin/master`, utom docs/regel-genvägen i [`git.mdc`](git.mdc). Se [`agent-roles.mdc`](agent-roles.mdc).
 
 ## Förbjudet i huvudcheckouten
 
