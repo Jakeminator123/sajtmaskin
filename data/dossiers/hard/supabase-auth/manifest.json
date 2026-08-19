@@ -21,8 +21,8 @@
     "auth with supabase",
     "inloggning med supabase"
   ],
-  "summary": "Supabase Auth provider under the shared 'auth' capability (clerk-auth is the default; this dossier wins on an EXPLICIT Supabase ask via relevanceKeywords). Ships cookie-based SSR sessions, middleware session refresh, a server client, a browser client, and an OAuth code-exchange callback route. In demo mode (mock: visual) the login UI renders fully and submitting shows the honest 'Auth ej konfigurerat' notice — never a fake session.",
-  "summarySv": "Inloggning via Supabase. Väljs när sajten uttryckligen ska använda Supabase för konton/inloggning. Utan riktiga nycklar visas inloggningsytan i demoläge med en tydlig notis — ingen låtsas-inloggning sker.",
+  "summary": "Supabase Auth provider under the shared 'auth' capability (clerk-auth is the default; this dossier wins on an EXPLICIT Supabase ask via relevanceKeywords). Ships the wiring only: cookie-based SSR sessions, middleware session refresh, server + browser client factories, a config guard and an OAuth code-exchange callback route. It ships NO login form — author the sign-in/sign-up UI yourself on top of createSupabaseBrowserClient(). Demo mode (mock: visual): gate submit on isSupabaseAuthConfigured() and render the shipped SupabaseAuthNotice — never a fake session.",
+  "summarySv": "Inloggning via Supabase. Väljs när sajten uttryckligen ska använda Supabase för konton. Inloggningsformuläret ritas som en del av sajten; e-post, lösenord eller OAuth-leverantörer slår du på i ditt Supabase-projekt. Utan riktiga nycklar visas inloggningsytan i demoläge med en tydlig notis — ingen låtsas-inloggning sker.",
   "envVars": [
     {
       "key": "NEXT_PUBLIC_SUPABASE_URL",

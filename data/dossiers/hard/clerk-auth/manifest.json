@@ -29,13 +29,13 @@
       "key": "NEXT_PUBLIC_CLERK_SIGN_IN_URL",
       "required": false,
       "enforcement": "warn-only",
-      "purpose": "Optional override for the sign-in route path. Defaults to '/sign-in' when unset. Only set this if the project mounts the Clerk sign-in component on a non-default path (e.g. '/login')."
+      "purpose": "Read by @clerk/nextjs itself, never by this dossier's files: the shipped AuthButtons opens sign-in as a modal, so nothing here depends on a route path. Leave it unset unless the generated site also adds its own /sign-in page on a non-default path (e.g. '/login')."
     },
     {
       "key": "NEXT_PUBLIC_CLERK_SIGN_UP_URL",
       "required": false,
       "enforcement": "warn-only",
-      "purpose": "Optional override for the sign-up route path. Defaults to '/sign-up' when unset. Only set this if the project uses a different signup path (e.g. '/register')."
+      "purpose": "Read by @clerk/nextjs itself, never by this dossier's files: the shipped AuthButtons opens sign-up as a modal. Leave it unset unless the generated site also adds its own /sign-up page on a non-default path (e.g. '/register')."
     }
   ],
   "dependencies": ["@clerk/nextjs"],

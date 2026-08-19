@@ -13,7 +13,8 @@
 - Emit the Supabase helpers under `lib/supabase/` and import them as `@/lib/supabase/server`, `@/lib/supabase/client`, `@/lib/supabase/middleware`, `@/lib/supabase/config`.
 - In Server Components, Route Handlers and Server Actions, call `createSupabaseServerClient()` then `supabase.auth.getUser()` for protected data.
 - In client components, call `createSupabaseBrowserClient()` for sign-in, sign-up, OAuth start and sign-out actions.
-- Register the emitted callback URL (`/api/auth/callback`) in Supabase OAuth settings and use the same path in `redirectTo`.
+- Author the login/signup UI yourself — this dossier ships no form. Use `createSupabaseBrowserClient()` for the submit handlers and keep the copy in the site's language.
+- The provider side is the owner's job, not code: enable email/password, magic link or the OAuth providers in the Supabase dashboard, and add the site origin plus the emitted callback URL (`/api/auth/callback`) to the redirect allowlist. Use that same path in `redirectTo`.
 - Graceful degradation: before rendering auth UI or calling a factory, check `isSupabaseAuthConfigured()`. When it is `false`, render the shipped `<SupabaseAuthNotice />` (or an equivalent calm notice naming the two `NEXT_PUBLIC_SUPABASE_*` env vars) instead of calling the client — the factories throw `supabase-auth-not-configured` if called unconfigured, and the middleware already passes through so the site never crashes.
 
 # Mock/demo mode

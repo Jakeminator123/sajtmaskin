@@ -280,7 +280,7 @@ Incident this closes: chat `747636c8` (2026-07-13) built its own `components/cha
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
-  "summary": "Hosted Stripe Checkout for one-time and subscription payments. …",
+  "summary": "Hosted Stripe Checkout for ONE-TIME payments. …",
   "envVars": [
     {
       "key": "STRIPE_SECRET_KEY",
@@ -290,7 +290,7 @@ Incident this closes: chat `747636c8` (2026-07-13) built its own `components/cha
       "setupUrl": "https://docs.stripe.com/keys"
     }
   ],
-  "dependencies": ["stripe", "@stripe/stripe-js"],
+  "dependencies": ["stripe"],
   "files": [
     { "path": "components/checkout-button.tsx", "role": "client", "injectionMode": "verbatim" },
     {

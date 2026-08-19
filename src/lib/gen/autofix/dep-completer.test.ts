@@ -194,9 +194,17 @@ describe("dep-completer", () => {
     const deps = resolveCapabilityDependencies(["payments", "auth", "contact-form"]);
 
     expect(deps.stripe).toBe(KNOWN_PACKAGES.stripe);
-    expect(deps["@stripe/stripe-js"]).toBe(KNOWN_PACKAGES["@stripe/stripe-js"]);
     expect(deps["@clerk/nextjs"]).toBe(KNOWN_PACKAGES["@clerk/nextjs"]);
     expect(deps.resend).toBe(KNOWN_PACKAGES.resend);
+  });
+
+  // stripe-checkout is hosted-Checkout only: the redirect is created by the
+  // server route, so the browser SDK is deliberately NOT a manifest dependency
+  // (it is also on the F2 tier-3 deny-list). The pin stays in KNOWN_PACKAGES as
+  // an import-scan fallback for generated code that reaches for `loadStripe`.
+  it("does not inject @stripe/stripe-js for the payments capability", () => {
+    expect(resolveCapabilityDependencies(["payments"])["@stripe/stripe-js"]).toBeUndefined();
+    expect(KNOWN_PACKAGES["@stripe/stripe-js"]).not.toBe("latest");
   });
 
   // Codex P1 (PR #422): dependency-handling change without regression coverage.

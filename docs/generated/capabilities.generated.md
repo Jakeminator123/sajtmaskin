@@ -6,7 +6,7 @@
 > Source: `src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: validated dossier registry sha256:d0eb6f854fb2b54a -->
+<!-- source-fingerprint: validated dossier registry sha256:7da09ee9f0cfb105 -->
 <!-- source-fingerprint: src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities sha256:598c26d6f0c08460 -->
 <!-- source-fingerprint: src/lib/builder/dossier-groups.ts#resolveDossierGroup sha256:fbc05aa751a1572a -->
 
