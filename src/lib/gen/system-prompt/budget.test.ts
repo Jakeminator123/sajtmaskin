@@ -12,7 +12,7 @@ import { splitContextIntoBudgetBlocks } from "./budget";
 describe("splitContextIntoBudgetBlocks — AI SDK version contract", () => {
   it("marks the guardrail block required with elevated priority", () => {
     const context = [
-      "## AI SDK version contract (ai@^7 / v5+)",
+      "## AI SDK version contract (ai@^6 / AI SDK 6)",
       "",
       "- Do NOT import or use `CoreMessage`.",
       "",

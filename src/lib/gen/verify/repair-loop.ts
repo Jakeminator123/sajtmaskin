@@ -23,7 +23,7 @@ import {
   FINAL_GATE_RELEASE_MARGIN_MS,
 } from "@/lib/gen/defaults";
 import { buildLintRepairContextLines } from "./lint-output";
-import { buildAiSdkV5RepairHint } from "./ai-sdk-v5-repair-hint";
+import { buildAiSdkV6RepairHint } from "./ai-sdk-v6-repair-hint";
 import {
   isRepairBudgetExhausted,
   resolveFinalGateVerifyBudget,
@@ -705,11 +705,11 @@ export async function runRepairLoop<TPayload = unknown>(
     projectContent: content,
   });
   errorManifest = groupedContext.errorManifest;
-  // Task 5b: deterministic AI-SDK v4→v5 rewrite hint. Derived from the failure
+  // Task 5b: deterministic AI SDK 6 rewrite hint. Derived from the failure
   // text so a repair that hit `CoreMessage`/`maxSteps`/`textDelta` gets the
   // exact fix up front (prepended so it survives the per-pass context cap),
   // making AI-SDK drift self-healing in one pass.
-  const aiSdkV5Hint = buildAiSdkV5RepairHint(
+  const aiSdkV6Hint = buildAiSdkV6RepairHint(
     [
       ...params.failedOutputs.map((failure) => failure.output ?? ""),
       ...groupedContext.contextLines,
@@ -717,7 +717,7 @@ export async function runRepairLoop<TPayload = unknown>(
     ].join("\n"),
   );
   const repairContextLines = uniqueContextLines(
-    [...aiSdkV5Hint, ...groupedContext.contextLines, ...params.contextLines],
+    [...aiSdkV6Hint, ...groupedContext.contextLines, ...params.contextLines],
     120,
   );
   const hasErrorContext =

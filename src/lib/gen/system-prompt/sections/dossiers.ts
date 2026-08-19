@@ -20,7 +20,7 @@ import { mapDossierPathToOutput } from "../../dossiers/output-path";
 // skip these even if a dossier asks for verbatim — log so we can spot
 // dossier-data that needs fixing.
 /**
- * Capabilities whose dossiers ship Vercel AI SDK v5+ (ai@^7) code. When one is
+ * Capabilities whose dossiers ship Vercel AI SDK 6 (ai@^6) code. When one is
  * selected we inject an explicit banned-symbols block (see
  * {@link renderAiSdkVersionGuardrail}) — the dossier templates are correct, but
  * the codegen LLM's freeform output drifts to stale v4 APIs (`CoreMessage`,
@@ -29,18 +29,18 @@ import { mapDossierPathToOutput } from "../../dossiers/output-path";
 const AI_SDK_CAPABILITIES = new Set(["ai-chat"]);
 
 /**
- * Deterministic v4→v5 guardrail for rounds that select an AI-SDK dossier. Kept
+ * Deterministic AI SDK 6 guardrail for rounds that select an AI-SDK dossier. Kept
  * OFF for every other round so the prompt doesn't bloat (the whole point of the
  * capability scope). The mappings mirror the deterministic server-repair hint
- * (`ai-sdk-v5-repair-hint.ts`) so prompt guidance and repair stay in lockstep.
+ * (`ai-sdk-v6-repair-hint.ts`) so prompt guidance and repair stay in lockstep.
  */
 function renderAiSdkVersionGuardrail(): string[] {
   return [
-    "## AI SDK version contract (ai@^7 / v5+)",
+    "## AI SDK version contract (ai@^6 / AI SDK 6)",
     "",
-    "The selected AI dossier(s) use the Vercel AI SDK v5+ (`ai@^7`). NEVER emit stale v4 APIs — they fail typecheck and break the build:",
+    "The selected AI dossier(s) use Vercel AI SDK 6 (`ai@^6`, `@ai-sdk/openai@^3`, `@ai-sdk/react@3`). Keep those majors; do NOT upgrade generated package.json to `ai@^7` / `@ai-sdk/*@^4`. NEVER emit stale v4 APIs — they fail typecheck and break the build:",
     "",
-    "- Do NOT import or use `CoreMessage`. Use `UIMessage` (client/route boundary) and `ModelMessage` + `convertToModelMessages(messages)` (model call).",
+    "- Do NOT import or use `CoreMessage`. Use `UIMessage` at the client/route boundary, then call `const modelMessages = await convertToModelMessages(messages)` before the model call (`ModelMessage[]`). The conversion is async in AI SDK 6; omitting `await` is a build/runtime defect.",
     "- Do NOT pass `maxSteps` to `streamText`/`generateText`. Use `stopWhen: stepCountIs(n)` (import `stepCountIs` from `ai`).",
     "- Do NOT read `chunk.textDelta` from the stream. Text is delivered as `text-delta` parts whose payload is `part.delta` (use `part.type === \"text-delta\"` and `part.delta`).",
     "- Return the stream with `result.toUIMessageStreamResponse()`; on the client consume it with `useChat` from `@ai-sdk/react`.",
