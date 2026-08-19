@@ -142,5 +142,8 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
     dynamicContextLargestBlocks: pkg.promptSize.blocks.largest,
     variantId: pkg.variantId ?? null,
     variantTemplateId: pkg.variantTemplateId ?? null,
+    sourceCount: pkg.sources.length,
+    sourceKinds: [...new Set(pkg.sources.map((source) => source.kind))],
+    sourcesReachedPrompt: pkg.sources.filter((source) => source.reachedPrompt).length,
   });
 }

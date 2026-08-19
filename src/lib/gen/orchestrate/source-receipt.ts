@@ -10,7 +10,11 @@ import type {
 } from "../generation-input-package";
 import type { VariantTemplateInspiration } from "../scaffold-variants";
 import type { VariantTemplateAddendumResolution } from "../scaffold-variants/variant-template-addendum";
-import type { DynamicContextPruning, MediaCatalogItem } from "../system-prompt";
+import type {
+  DesignReferenceAsset,
+  DynamicContextPruning,
+  MediaCatalogItem,
+} from "../system-prompt";
 
 const VARIANT_BLOCK_KEYS = ["variant_template_inspiration"] as const;
 const UI_RECIPE_BLOCK_KEYS = ["ui_recipes"] as const;
@@ -20,6 +24,7 @@ const DOSSIER_BLOCK_KEYS = [
   "dossier_files_to_emit_verbatim",
 ] as const;
 const MEDIA_BLOCK_KEYS = ["media_catalog"] as const;
+const DESIGN_REFERENCE_BLOCK_KEYS = ["design_references"] as const;
 
 export type SourceReceiptInput = {
   variantTemplateInspiration?: VariantTemplateInspiration | null;
@@ -27,6 +32,7 @@ export type SourceReceiptInput = {
   uiRecipes?: ShadcnUiRecipe[];
   dossierSelection?: DossierSelectionResult | null;
   mediaCatalog?: MediaCatalogItem[];
+  designReferences?: DesignReferenceAsset[];
   pruning: Pick<DynamicContextPruning, "keptBlockKeys">;
 };
 
@@ -109,6 +115,19 @@ export function buildSourceReceipt(input: SourceReceiptInput): GenerationSource[
       reason: item.alt ? `catalog alias (${item.alt})` : "catalog alias",
       authority: "inspiration",
       reachedPrompt: reachedPrompt(input.pruning, MEDIA_BLOCK_KEYS),
+    });
+  }
+
+  for (const reference of input.designReferences ?? []) {
+    const label = reference.label.trim();
+    if (!label) continue;
+    sources.push({
+      kind: "media",
+      id: label,
+      origin: `design-reference:${reference.kind}`,
+      reason: reference.note?.trim() || "design reference",
+      authority: "inspiration",
+      reachedPrompt: reachedPrompt(input.pruning, DESIGN_REFERENCE_BLOCK_KEYS),
     });
   }
 

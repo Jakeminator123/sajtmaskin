@@ -14,6 +14,7 @@ import type {
   DesignReferenceAsset,
   DynamicContextBlockTrace,
   DynamicContextPruning,
+  MediaCatalogItem,
 } from "../system-prompt";
 import type { InferredCapabilities } from "../capability-inference";
 import type { RoutePlan } from "../route-plan";
@@ -127,6 +128,12 @@ export interface OrchestrationInput {
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
+  /**
+   * Optional alias catalog for `## Media Catalog`. Callers that already
+   * compressed uploads/URLs into aliases pass them here so the receipt
+   * matches the prompt. Empty/omitted is the normal path today.
+   */
+  mediaCatalog?: MediaCatalogItem[];
   /** Optional persisted scaffold id from a previous turn in the same chat */
   persistedScaffoldId?: string | null;
   /** User-supplied custom instructions from the builder UI */

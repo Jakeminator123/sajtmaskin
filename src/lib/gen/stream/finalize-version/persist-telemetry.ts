@@ -188,6 +188,11 @@ export async function persistTelemetryRecord(params: {
       telemetryMeta.selectedDossierIds = selectedDossierIds;
     }
 
+    const sources = orchestrationStreamMeta?.sources;
+    if (Array.isArray(sources) && sources.length > 0) {
+      telemetryMeta.sources = sources;
+    }
+
     const scaffoldSelectionMethod =
       scaffoldSelection && typeof scaffoldSelection.selectionMethod === "string"
         ? scaffoldSelection.selectionMethod

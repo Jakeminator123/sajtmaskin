@@ -133,4 +133,62 @@ describe("source receipt — pruned källpaket stays listed", () => {
       }),
     ]);
   });
+
+  it("keeps a budget-pruned media catalog alias in sources with reachedPrompt false", () => {
+    const context = [
+      "## Generation mode: init",
+      "",
+      "Init generation.",
+      "",
+      "## Media Catalog",
+      "",
+      "Use the following media assets by their alias.",
+      "- `{{hero}}` (Hero photo)",
+    ].join("\n");
+    const blocks = splitContextIntoBudgetBlocks(context);
+    const generationMode = blocks.find((block) => block.key.startsWith("generation_mode"));
+    const tightBudget = Math.max(1, generationMode?.estimatedTokens ?? 8);
+    const budgeted = buildBudgetedSystemPrompt({
+      staticCore: "",
+      separator: "",
+      dynamicBlocks: blocks,
+      dynamicBudgetTokens: tightBudget,
+    });
+
+    expect(budgeted.droppedKeys).toContain("media_catalog");
+
+    const sources = buildSourceReceipt({
+      mediaCatalog: [{ alias: "hero", url: "https://cdn.example.com/hero.jpg", alt: "Hero photo" }],
+      pruning: { keptBlockKeys: budgeted.keptKeys },
+    });
+
+    expect(sources).toEqual([
+      {
+        kind: "media",
+        id: "hero",
+        origin: "media-catalog",
+        reason: "catalog alias (Hero photo)",
+        authority: "inspiration",
+        reachedPrompt: false,
+      },
+    ]);
+  });
+
+  it("lists a design reference as media and follows the design_references budget key", () => {
+    const sources = buildSourceReceipt({
+      designReferences: [{ kind: "image", label: "moodboard.png", note: "warm wood" }],
+      pruning: { keptBlockKeys: ["design_references"] },
+    });
+
+    expect(sources).toEqual([
+      {
+        kind: "media",
+        id: "moodboard.png",
+        origin: "design-reference:image",
+        reason: "warm wood",
+        authority: "inspiration",
+        reachedPrompt: true,
+      },
+    ]);
+  });
 });

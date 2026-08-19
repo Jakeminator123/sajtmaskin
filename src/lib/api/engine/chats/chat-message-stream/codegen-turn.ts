@@ -522,6 +522,7 @@ export async function runCodegenTurn(params: {
       scaffoldId: resolvedScaffold?.id ?? null,
       variantId: finalized.variantId,
       variantTemplateId: finalized.variantTemplateId,
+      sources: finalized.sources,
     }),
     engineModel: generatorModel,
     optimizedMessage,

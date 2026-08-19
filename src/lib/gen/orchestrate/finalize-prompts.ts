@@ -47,6 +47,7 @@ export async function finalizeOrchestrationPrompts(
     componentPalette = null,
     designThemePreset = null,
     designReferences = [],
+    mediaCatalog,
     customInstructions,
   } = input;
   const brief =
@@ -234,6 +235,7 @@ export async function finalizeOrchestrationPrompts(
     lockedColorPalette,
     lockedColorPaletteLabel,
     designReferences,
+    mediaCatalog,
     buildSpec: base.buildSpec,
     customInstructions,
     userPrompt: input.prompt,
@@ -267,6 +269,8 @@ export async function finalizeOrchestrationPrompts(
     variantTemplateAddendumState,
     uiRecipes: base.uiRecipes,
     dossierSelection: base.dossierSelection,
+    mediaCatalog,
+    designReferences,
     pruning: dynamic.pruning,
   });
 

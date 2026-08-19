@@ -250,4 +250,29 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
       },
     });
   });
+
+  it("carries a non-empty source receipt and omits an empty one", () => {
+    const sources = [
+      {
+        kind: "dossier" as const,
+        id: "stripe-checkout",
+        origin: "hard",
+        reason: "capability-match (payments)",
+        authority: "krav" as const,
+        reachedPrompt: true,
+      },
+    ];
+    const withSources = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "follow-up",
+      sources,
+    });
+    expect(withSources.sources).toEqual(sources);
+
+    const withoutSources = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "follow-up",
+    });
+    expect(withoutSources).not.toHaveProperty("sources");
+  });
 });

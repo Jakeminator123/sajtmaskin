@@ -344,7 +344,8 @@ def _render_sources_table(payload: dict[str, Any]) -> None:
     st.caption(
         "En rad per vald källa (variantreferens, UI Recipe, dossier, media). "
         "`reachedPrompt` sätts efter tokenbudgeteringen: vald men prunad källa "
-        "finns kvar med `false`. Inga kodutdrag eller prompttext."
+        "finns kvar med `false`. Inga kodutdrag eller prompttext. "
+        "Samma lista persisteras i `generation_telemetry.meta.sources` när dumpen är av."
     )
     raw = payload.get("sources")
     rows: list[dict[str, str]] = []

@@ -49,7 +49,22 @@ function makePkg(): GenerationInputPackage {
       blocks: { largest: [] },
     },
     dynamicContextPruning: { budgetTokens: 100, usedTokens: 50, droppedBlockKeys: [] },
+    sources: [
+      {
+        kind: "ui-recipe",
+        id: "hero-01",
+        origin: "shadcn-official",
+        reason: "hero match; source-code",
+        authority: "mönster",
+        reachedPrompt: true,
+      },
+    ],
   } as unknown as GenerationInputPackage;
+}
+
+function lastMetaArg(): Record<string, unknown> {
+  const call = writeLatestPromptDumpMock.mock.calls.at(-1);
+  return call?.[2] as Record<string, unknown>;
 }
 
 function lastFilesArg(): Record<string, string> {
@@ -83,6 +98,11 @@ describe("writeOrchestrationDynamicDump — prompt-dump gating", () => {
     expect(files).toHaveProperty("generation-input-package.json");
     expect(typeof files["generation-input-package.json"]).toBe("string");
     expect(serializePackageForDumpMock).toHaveBeenCalledTimes(1);
+    expect(lastMetaArg()).toMatchObject({
+      sourceCount: 1,
+      sourceKinds: ["ui-recipe"],
+      sourcesReachedPrompt: 1,
+    });
   });
 });
 
