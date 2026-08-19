@@ -15,6 +15,31 @@ import type { RequestAttachment } from "./request-metadata";
 import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-prompt";
 import { buildPromptSizeMetrics, type PromptSizeMetrics } from "./prompt-size-metrics";
 
+export const GENERATION_SOURCE_KINDS = [
+  "variant-reference",
+  "ui-recipe",
+  "dossier",
+  "media",
+] as const;
+export type GenerationSourceKind = (typeof GENERATION_SOURCE_KINDS)[number];
+
+export const GENERATION_SOURCE_AUTHORITIES = ["krav", "mönster", "inspiration"] as const;
+export type GenerationSourceAuthority = (typeof GENERATION_SOURCE_AUTHORITIES)[number];
+
+/**
+ * One selected source ingredient. Built after token budgeting so a
+ * chosen-but-pruned source stays visible with `reachedPrompt: false`.
+ * IDs, origin, reason and status only — never prompt text or code excerpts.
+ */
+export interface GenerationSource {
+  kind: GenerationSourceKind;
+  id: string;
+  origin: string;
+  reason: string;
+  authority: GenerationSourceAuthority;
+  reachedPrompt: boolean;
+}
+
 export interface GenerationInputPackage extends OrchestrationBase {
   /** User-turn text that shaped orchestration/system assembly for this run. */
   userPrompt: string;
@@ -40,6 +65,11 @@ export interface GenerationInputPackage extends OrchestrationBase {
   variantTemplateId: string | null;
   /** Style-only vision attachment corresponding to `variantTemplateId`. */
   variantTemplateReferenceAttachments: RequestAttachment[];
+  /**
+   * Source receipt. Canonical builder is `finalizeOrchestrationPrompts` —
+   * consumers must not reconstruct this.
+   */
+  sources: GenerationSource[];
   /** Imported repos remain scaffold-less; these hashes bind the prompt to its structural map. */
   importedRepoMode: boolean;
   importedRepoContractHashes: { baseline: string | null; current: string } | null;
@@ -124,6 +154,7 @@ export function serializePackageForDump(pkg: GenerationInputPackage): Record<str
     promptSize: pkg.promptSize,
     variantId: pkg.variantId,
     variantTemplateId: pkg.variantTemplateId,
+    sources: pkg.sources,
     importedRepoMode: pkg.importedRepoMode,
     importedRepoContractHashes: pkg.importedRepoContractHashes,
   };

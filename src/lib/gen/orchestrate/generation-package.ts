@@ -48,6 +48,7 @@ interface FinalizedOrchestrationContextLike {
   variantId: string | null;
   variantTemplateId: string | null;
   variantTemplateReferenceAttachments: GenerationInputPackage["variantTemplateReferenceAttachments"];
+  sources?: GenerationInputPackage["sources"];
 }
 
 export function buildGenerationInputPackage(
@@ -98,6 +99,7 @@ export function buildGenerationInputPackage(
     variantId: finalized.variantId,
     variantTemplateId: finalized.variantTemplateId,
     variantTemplateReferenceAttachments: finalized.variantTemplateReferenceAttachments,
+    sources: finalized.sources ?? [],
     importedRepoMode: input.importedRepoMode === true,
     importedRepoContractHashes: input.importedRepoContractContext
       ? {

@@ -239,7 +239,8 @@ def _render_scaffold_dump_panel(dump: dict[str, Any] | None) -> None:
             "**Förväntade fält:** `scaffoldId` · `selectionMethod` "
             "(keyword/embedding/manual/persisted/default/off) · `selectionConfidence` · "
             "`embeddingOverrideReason` · `briefContextApplied` · `topCandidates` · "
-            "`keywordScores` · `variantId` · `buildSpec` (buildIntent/qualityTarget/…)."
+            "`keywordScores` · `variantId` · `buildSpec` (buildIntent/qualityTarget/…) · "
+            "`sources` (kind/id/origin/reason/authority/reachedPrompt)."
         )
         return
 
@@ -333,6 +334,41 @@ def _render_scaffold_dump_panel(dump: dict[str, Any] | None) -> None:
         ]
         if bs_rows:
             st.dataframe(pd.DataFrame(bs_rows), hide_index=True, use_container_width=True)
+
+    _render_sources_table(payload)
+
+
+def _render_sources_table(payload: dict[str, Any]) -> None:
+    """Visa `sources` i samma Scaffold-/variantval-sektion."""
+    st.markdown("**Valda källor** (om de nådde prompten efter tokenbudgeten)")
+    st.caption(
+        "En rad per vald källa (variantreferens, UI Recipe, dossier, media). "
+        "`reachedPrompt` sätts efter tokenbudgeteringen: vald men prunad källa "
+        "finns kvar med `false`. Inga kodutdrag eller prompttext."
+    )
+    raw = payload.get("sources")
+    rows: list[dict[str, str]] = []
+    if isinstance(raw, list):
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            reached = item.get("reachedPrompt")
+            rows.append(
+                {
+                    "kind": _txt(item.get("kind")),
+                    "id": _txt(item.get("id")),
+                    "origin": _txt(item.get("origin")),
+                    "reason": _txt(item.get("reason")),
+                    "authority": _txt(item.get("authority")),
+                    "reachedPrompt": (
+                        "ja" if reached is True else "nej" if reached is False else "—"
+                    ),
+                }
+            )
+    if rows:
+        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+        return
+    st.info("Inga valda källor i dumpen (tom lista eller äldre dump utan `sources`).")
 
 
 def _render_run_picker(ctx: BackofficeContext, run_dirs: list[Path]) -> None:

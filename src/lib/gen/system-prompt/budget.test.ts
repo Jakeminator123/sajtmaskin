@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { buildSourceReceipt } from "../orchestrate/source-receipt";
+import { buildBudgetedSystemPrompt } from "../tokens";
 import { splitContextIntoBudgetBlocks } from "./budget";
 
 // Fix 8 (review round 2): the AI-SDK guardrail section is only rendered when
@@ -64,5 +66,71 @@ describe("splitContextIntoBudgetBlocks — F3 build plan", () => {
       priority: 93,
       required: true,
     });
+  });
+});
+
+describe("source receipt — pruned källpaket stays listed", () => {
+  it("keeps a budget-pruned UI recipe in sources with reachedPrompt false", () => {
+    const context = [
+      "## Generation mode: init",
+      "",
+      "Init generation.",
+      "",
+      "## UI Recipes",
+      "",
+      "Curated shadcn registry patterns for this request.",
+      "### Hero (`hero-01`)",
+      "- Source: official; type: block; reason: hero match.",
+      "",
+      "```tsx",
+      "export function Hero() {",
+      "  return <section>Very long recipe excerpt that should exceed a tight token budget.</section>",
+      "}",
+      "```",
+      "",
+    ].join("\n");
+
+    const blocks = splitContextIntoBudgetBlocks(context);
+    const uiRecipes = blocks.find((block) => block.key === "ui_recipes");
+    expect(uiRecipes?.required).toBe(false);
+
+    const generationMode = blocks.find((block) => block.key.startsWith("generation_mode"));
+    const tightBudget = Math.max(1, generationMode?.estimatedTokens ?? 8);
+
+    const budgeted = buildBudgetedSystemPrompt({
+      staticCore: "",
+      separator: "",
+      dynamicBlocks: blocks,
+      dynamicBudgetTokens: tightBudget,
+    });
+
+    expect(budgeted.droppedKeys).toContain("ui_recipes");
+    expect(budgeted.keptKeys).not.toContain("ui_recipes");
+
+    const sources = buildSourceReceipt({
+      uiRecipes: [
+        {
+          name: "hero-01",
+          source: "official",
+          itemType: "block",
+          files: [{ path: "hero.tsx", content: "export function Hero() { return null; }" }],
+          reason: "hero match",
+        },
+      ],
+      pruning: {
+        keptBlockKeys: budgeted.keptKeys,
+      },
+    });
+
+    expect(sources).toEqual([
+      expect.objectContaining({
+        kind: "ui-recipe",
+        id: "hero-01",
+        origin: "shadcn-official",
+        reason: "hero match; source-code",
+        authority: "mönster",
+        reachedPrompt: false,
+      }),
+    ]);
   });
 });

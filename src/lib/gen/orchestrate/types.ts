@@ -26,6 +26,7 @@ import type { FollowUpContract } from "../orchestration-snapshot";
 import type { RequestKindClass } from "../request-kind";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import type { RequestAttachment } from "../request-metadata";
+import type { GenerationSource } from "../generation-input-package";
 import type { ImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
 
 export interface OrchestrationInput {
@@ -437,4 +438,6 @@ export interface FinalizedOrchestrationContext {
   variantId: string | null;
   variantTemplateId: string | null;
   variantTemplateReferenceAttachments: RequestAttachment[];
+  /** Source receipt. Built here after pruning; see `GenerationInputPackage.sources`. */
+  sources: GenerationSource[];
 }
