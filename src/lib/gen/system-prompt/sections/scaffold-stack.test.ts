@@ -40,6 +40,20 @@ describe("renderScaffoldVariantBlock — compact follow-up form", () => {
   });
 });
 
+describe("renderScaffoldVariantBlock — theme token CSS contract", () => {
+  it("tells the model to write --color-* tokens into @theme inline", () => {
+    const variant = getVariantById("landing-page", "futuristic-investment-landing");
+    if (!variant) throw new Error("futuristic-investment-landing not registered");
+
+    const full = renderScaffoldVariantBlock(variant).join("\n");
+    expect(full).toContain("@theme inline");
+    expect(full).toContain(`--color-background: ${variant.themeTokens!.background}`);
+    expect(full).toContain(`--color-primary: ${variant.themeTokens!.primary}`);
+    expect(full).toMatch(/Keep the `--color-` prefix exactly as written/);
+    expect(full).not.toMatch(/^ *- --(?!color-|radius)[a-z]/m);
+  });
+});
+
 describe("renderVariantTemplateInspirationBlock", () => {
   it("renders exactly one style-only reference and its bounded structure", () => {
     const rendered = renderVariantTemplateInspirationBlock({

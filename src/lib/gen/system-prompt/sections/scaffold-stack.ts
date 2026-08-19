@@ -121,9 +121,12 @@ export function renderScaffoldVariantBlock(
   const themeTokenLines = formatThemeTokenLines(effectiveVariant);
   if (themeTokenLines.length > 0) {
     parts.push(
-      "- **Theme tokens (variant defaults — override only when the brief or locked theme says otherwise):**",
+      "- **Theme tokens (variant defaults — override only when the brief or locked theme says otherwise). Emit exactly these values in `app/globals.css` inside `@theme inline`:**",
     );
     parts.push(...themeTokenLines);
+    parts.push(
+      "- Keep the `--color-` prefix exactly as written: that is the Tailwind v4 form the scaffold uses, and it is what makes `bg-background`, `text-foreground` and `border-border` resolve.",
+    );
   }
   parts.push("");
   return parts;

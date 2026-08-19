@@ -1,7 +1,8 @@
 /**
  * Theme-token rendering helpers for the scaffold-variant block.
  *
- * Split out of `system-prompt.ts` (OMTAG-03 wave-rest) — no behavior change.
+ * Color names must match Tailwind v4 `@theme inline` (`--color-*`). The
+ * historical `--background` spelling does not map to `bg-background`.
  */
 
 import type { ScaffoldVariant } from "../scaffold-variants";
@@ -36,21 +37,26 @@ function buildFallbackBodyBackgroundImage(
 export function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): string[] {
   const tokens = variant?.themeTokens;
   if (!tokens) return [];
+  // Tailwind v4 `@theme inline` names color tokens `--color-*`, which is what
+  // every scaffold's `app/globals.css` actually ships as literals (not
+  // `--color-background: var(--background)`). Emitting the bare `--background`
+  // form would leave `bg-background` / `text-foreground` on the scaffold
+  // defaults even if the model copied these lines into `:root`.
   const entries = [
-    ["--background", tokens.background],
-    ["--foreground", tokens.foreground],
-    ["--card", tokens.card],
-    ["--card-foreground", tokens.cardForeground],
-    ["--primary", tokens.primary],
-    ["--primary-foreground", tokens.primaryForeground],
-    ["--secondary", tokens.secondary],
-    ["--secondary-foreground", tokens.secondaryForeground],
-    ["--muted", tokens.muted],
-    ["--muted-foreground", tokens.mutedForeground],
-    ["--accent", tokens.accent],
-    ["--accent-foreground", tokens.accentForeground],
-    ["--border", tokens.border],
-    ["--ring", tokens.ring],
+    ["--color-background", tokens.background],
+    ["--color-foreground", tokens.foreground],
+    ["--color-card", tokens.card],
+    ["--color-card-foreground", tokens.cardForeground],
+    ["--color-primary", tokens.primary],
+    ["--color-primary-foreground", tokens.primaryForeground],
+    ["--color-secondary", tokens.secondary],
+    ["--color-secondary-foreground", tokens.secondaryForeground],
+    ["--color-muted", tokens.muted],
+    ["--color-muted-foreground", tokens.mutedForeground],
+    ["--color-accent", tokens.accent],
+    ["--color-accent-foreground", tokens.accentForeground],
+    ["--color-border", tokens.border],
+    ["--color-ring", tokens.ring],
     ["--radius", tokens.radius],
   ] as const;
 
