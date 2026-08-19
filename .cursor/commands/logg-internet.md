@@ -46,3 +46,5 @@ Innan något annat: fråga om användaren har **öppnat en Cursor-browser** och 
 ## Projekt-skill
 
 Fullständigt browser-MCP-flöde, target-map och notis-mall: [`.cursor/skills/logg-internet/SKILL.md`](../skills/logg-internet/SKILL.md).
+
+Vilka backlog-rader en session kan träffa: [`docs/runbooks/live-verifiering.md`](../../docs/runbooks/live-verifiering.md).
