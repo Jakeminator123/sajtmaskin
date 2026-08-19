@@ -917,11 +917,11 @@ export const versionApprovals = pgTable(
  *
  * Kompletterar — ersätter inte — `engine_generation_logs` och
  * `generation_telemetry`, som bär codegen-strömmens siffror per chat respektive
- * per version och har egna konsumenter (backoffice, `generation-cost.mjs`,
- * `control-stats.mjs`). De svarar på "vad kostade genereringen"; den här tabellen
- * svarar på "vad kostade varje fas, och vem förbrukade det" — alltså också
- * Deep Brief, verifier, RepairGate, embeddings och klassificerarna, vars usage
- * tidigare kastades.
+ * per version. `generation-cost.mjs` / Backoffice Generation Cost läser den
+ * här tabellen som default (alla faser); de äldre tabellerna finns kvar som
+ * `--source=logs|telemetry`. `control-stats.mjs` läser fortfarande
+ * codegen-tabellerna. Deep Brief, verifier, RepairGate, embeddings och
+ * klassificerarna syns här — deras usage kastades tidigare.
  *
  * `chat_id`/`version_id` är text utan FK: förbrukningen är en ekonomisk
  * händelse som ska överleva att chatten städas bort, och LLM-anrop sker även

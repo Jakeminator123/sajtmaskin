@@ -63,6 +63,8 @@ TOKEN_KEYS = {
     "prompt": ("input_tokens", "prompt_tokens"),
     "completion": ("output_tokens", "completion_tokens"),
     "cached": ("cached_input_tokens",),
+    "cache_write": ("cache_write_tokens",),
+    "reasoning": ("reasoning_tokens",),
 }
 
 
@@ -455,8 +457,8 @@ def build_coverage(
         "measuredPhases": measured,
         "unmeasuredPhases": missing,
         "note": (
-            "Summan är en UNDRE gräns när faser saknas ovan. Input prissätts som "
-            "ocachad om cached_input_tokens inte loggas, vilket gör kostnaden till "
-            "en ÖVRE gräns per rad. Se config/ai_models/pricing.json."
+            "Summan är en UNDRE gräns när faser saknas ovan. Cache-träffar "
+            "prissätts med cachedInput när cached_input_tokens loggas. "
+            "Se config/ai_models/pricing.json."
         ),
     }

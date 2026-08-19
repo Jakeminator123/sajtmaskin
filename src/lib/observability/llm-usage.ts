@@ -16,8 +16,8 @@
  *    `AsyncLocalStorage`. Callsites som redan har id:n kan skicka dem explicit —
  *    explicit vinner över kontexten.
  *
- * Tabellen ligger vid sidan av de befintliga: ingen konsument av
- * `engine_generation_logs`/`generation_telemetry` ändras.
+ * Tabellen ligger vid sidan av de befintliga codegen-tabellerna.
+ * Backoffice Generation Cost läser den här som default.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";

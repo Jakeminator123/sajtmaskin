@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """Tokenvolym → pengar med `config/ai_models/pricing.json` som enda prisägare.
 
-Matchningsreglerna speglar `scripts/db/generation-cost.mjs`: provider-prefix
-strippas och längsta `match`-strängen vinner, så `gpt-5` aldrig skuggar `gpt-5.5`.
+Matchningsreglerna speglar `scripts/db/generation-cost-price.mjs` /
+`src/lib/billing/model-cost.ts`: provider-prefix strippas och längsta
+`match`-strängen vinner, så `gpt-5` aldrig skuggar `gpt-5.5`.
 """
 
 from __future__ import annotations
