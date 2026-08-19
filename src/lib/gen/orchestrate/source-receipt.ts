@@ -19,7 +19,6 @@ import type {
 const VARIANT_BLOCK_KEYS = ["variant_template_inspiration"] as const;
 const UI_RECIPE_BLOCK_KEYS = ["ui_recipes"] as const;
 const DOSSIER_BLOCK_KEYS = [
-  "available_dossiers",
   "selected_dossier_instructions",
   "dossier_files_to_emit_verbatim",
 ] as const;
@@ -47,10 +46,7 @@ function reachedPrompt(
 function variantReason(
   state: VariantTemplateAddendumResolution["state"] | null | undefined,
 ): string {
-  if (state === "hit" || state === "disabled") return `addendum:${state}`;
-  if (state === "missing" || state === "stale" || state === "invalid") {
-    return `zip-fallback:${state}`;
-  }
+  if (state) return `addendum:${state}`;
   return "complete-project reference";
 }
 
