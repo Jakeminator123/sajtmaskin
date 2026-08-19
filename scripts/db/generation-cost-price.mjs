@@ -132,50 +132,61 @@ export function priceUsageRow(pricing, row, tier = "standard", options = {}) {
  * `cost_microusd` skrivs per anrop och bär long-context-påslaget. Token-priset
  * räknas om från SUMMERADE tokens och kan därför aldrig veta om ett enskilt
  * anrop gick över tröskeln — det underskattar systematiskt så snart någon
- * körning gjorde det. Ledgern är sanningen; token-priset finns kvar som
- * uppskattning så FX och `pricing.json` går att justera i efterhand.
+ * körning gjorde det. Ledgern är alltså sanningen när den täcker perioden;
+ * token-priset finns kvar som uppskattning så FX och `pricing.json` går att
+ * justera i efterhand.
  *
- * Rader utan ledgervärde (äldre källor, eller anrop skrivna innan kolumnen
- * fylldes) prissätts pro rata ur sin egen grupps uppskattning, så perioden inte
- * tappar dem tyst.
+ * **Ingen blandning.** Antingen täcker ledgern varje anrop — då är den totalen —
+ * eller så är hela perioden en token-uppskattning med ledgersumman redovisad
+ * bredvid. En proportionerlig utfyllnad av de otäckta anropen vore lockande men
+ * är inte invariant under gruppering: samma data ger olika svar beroende på om
+ * man räknar per modell, per fas eller per dag. Två ärliga lägen slår en
+ * blandning som inte går att summera.
+ *
+ * Basen bestäms EN gång för hela rapporten och skickas till varje tabell via
+ * {@link groupCostUsd}, så modell-, fas- och dagsvyerna alltid summerar till
+ * rubriken.
  *
  * @param {Array<{rows?: number, ledgerRows?: number, ledgerUsd?: number, pricedUsd?: number, totalUsd?: number}>} groups
  */
 export function resolveCostBasis(groups) {
   let ledgerUsd = 0;
   let estimateUsd = 0;
-  let coveredEstimateUsd = 0;
   let rows = 0;
   let ledgerRows = 0;
 
   for (const group of groups ?? []) {
     const groupRows = tokens(group.rows);
-    const groupLedgerRows = Math.min(groupRows, tokens(group.ledgerRows));
-    const groupEstimate = Number(group.pricedUsd ?? group.totalUsd) || 0;
-
     rows += groupRows;
-    ledgerRows += groupLedgerRows;
+    ledgerRows += Math.min(groupRows, tokens(group.ledgerRows));
     ledgerUsd = usd(ledgerUsd + (Number(group.ledgerUsd) || 0));
-    estimateUsd = usd(estimateUsd + groupEstimate);
-    coveredEstimateUsd = usd(
-      coveredEstimateUsd + (groupRows > 0 ? groupEstimate * (groupLedgerRows / groupRows) : 0),
-    );
+    estimateUsd = usd(estimateUsd + (Number(group.pricedUsd ?? group.totalUsd) || 0));
   }
 
-  const uncoveredEstimateUsd = usd(estimateUsd - coveredEstimateUsd);
   const rowsWithoutLedger = Math.max(0, rows - ledgerRows);
-  const basis = ledgerRows === 0 ? "estimate" : rowsWithoutLedger === 0 ? "ledger" : "mixed";
+  const basis = rows > 0 && rowsWithoutLedger === 0 ? "ledger" : ledgerRows > 0 ? "partial" : "estimate";
 
   return {
     basis,
-    totalUsd: basis === "estimate" ? estimateUsd : usd(ledgerUsd + uncoveredEstimateUsd),
+    totalUsd: basis === "ledger" ? ledgerUsd : estimateUsd,
     ledgerUsd,
     estimateUsd,
-    uncoveredEstimateUsd,
     rows,
     ledgerRows,
     rowsWithoutLedger,
   };
+}
+
+/**
+ * En grupps bidrag till totalen under en redan bestämd bas. Ren summering, så
+ * vilken partition som helst (modell, fas, dag) summerar till samma tal.
+ */
+export function groupCostUsd(group, basis) {
+  return usd(
+    basis === "ledger"
+      ? Number(group?.ledgerUsd) || 0
+      : Number(group?.pricedUsd ?? group?.totalUsd) || 0,
+  );
 }
 
 export function resolveCostSource(raw) {

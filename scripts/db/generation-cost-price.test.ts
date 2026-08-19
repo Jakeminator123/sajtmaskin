@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  groupCostUsd,
   priceUsageRow,
   resolveCostBasis,
   resolveCostSource,
@@ -76,21 +77,23 @@ describe("generation-cost pricing matches billing model-cost", () => {
     ]);
 
     expect(basis.basis).toBe("ledger");
-    // Detta är hela poängen: rubriksiffran ÄR ledgersumman, inte
-    // token-uppskattningen som strukturellt missar long-context.
+    // Hela poängen: rubriken ÄR ledgersumman, inte token-uppskattningen som
+    // strukturellt missar long-context.
     expect(basis.totalUsd).toBeCloseTo(4.75, 6);
-    expect(basis.ledgerUsd).toBeCloseTo(4.75, 6);
     expect(basis.estimateUsd).toBeCloseTo(3.1, 6);
     expect(basis.rowsWithoutLedger).toBe(0);
   });
 
-  it("falls back to the token estimate only for calls without a ledger value", () => {
+  it("stays an honest estimate when the ledger only covers some calls", () => {
+    // Ingen blandning: en delvis täckt period är en uppskattning rakt igenom,
+    // med ledgersumman redovisad bredvid. Att fylla ut de otäckta anropen pro
+    // rata vore inte invariant under gruppering.
     const basis = resolveCostBasis([{ rows: 4, ledgerRows: 2, ledgerUsd: 2.0, pricedUsd: 1.6 }]);
 
-    expect(basis.basis).toBe("mixed");
+    expect(basis.basis).toBe("partial");
+    expect(basis.totalUsd).toBeCloseTo(1.6, 6);
+    expect(basis.ledgerUsd).toBeCloseTo(2.0, 6);
     expect(basis.rowsWithoutLedger).toBe(2);
-    // Halva gruppen saknar ledger → halva uppskattningen läggs på.
-    expect(basis.totalUsd).toBeCloseTo(2.8, 6);
   });
 
   it("keeps the estimate as the total when no call has a ledger value", () => {
@@ -108,30 +111,27 @@ describe("generation-cost pricing matches billing model-cost", () => {
     expect(basis.basis).toBe("ledger");
   });
 
-  it("is not additive over a pre-merged bucket — pass the member rows", () => {
-    // Fällan bakom fas-tabellen: två modeller i samma fas med olika
-    // ledger-täckning. Slår man ihop dem först blir pro-rata-andelen fel.
-    const members = [
+  it("gives the same total no matter how the calls are partitioned", () => {
+    // Regressionslåset. Rubriken grupperar per modell+fas över hela fönstret,
+    // dagstabellen per dag+modell+fas. Med en enda bas och ren summering ger
+    // båda partitionerna samma tal — det gjorde den tidigare pro-ratan inte.
+    const fine = [
       { rows: 2, ledgerRows: 2, ledgerUsd: 5, pricedUsd: 10 },
-      { rows: 2, ledgerRows: 0, ledgerUsd: 0, pricedUsd: 2 },
+      { rows: 2, ledgerRows: 2, ledgerUsd: 1, pricedUsd: 2 },
     ];
-    const merged = { rows: 4, ledgerRows: 2, ledgerUsd: 5, pricedUsd: 12 };
+    const coarse = [{ rows: 4, ledgerRows: 4, ledgerUsd: 6, pricedUsd: 12 }];
+    const basis = resolveCostBasis(coarse).basis;
 
-    expect(resolveCostBasis(members).totalUsd).toBeCloseTo(7, 6);
-    expect(resolveCostBasis([merged]).totalUsd).toBeCloseTo(11, 6);
+    expect(resolveCostBasis(fine).totalUsd).toBeCloseTo(resolveCostBasis(coarse).totalUsd, 6);
+    expect(fine.reduce((sum, g) => sum + groupCostUsd(g, basis), 0)).toBeCloseTo(6, 6);
   });
 
-  it("keeps per-group totals summing to the aggregate", () => {
-    // Modell-, fas- och dagstabellerna kör resolveCostBasis per grupp medan
-    // rubriken kör den över alla. Går de isär visar vyn fyra siffror igen.
-    const groups = [
-      { rows: 4, ledgerRows: 4, ledgerUsd: 3.5, pricedUsd: 2.0 },
-      { rows: 4, ledgerRows: 2, ledgerUsd: 2.0, pricedUsd: 1.6 },
-      { rows: 3, ledgerRows: 0, ledgerUsd: 0, pricedUsd: 0.9 },
-    ];
-    const perGroup = groups.reduce((sum, g) => sum + resolveCostBasis([g]).totalUsd, 0);
+  it("groupCostUsd follows the report-wide basis, not the group's own coverage", () => {
+    const covered = { rows: 2, ledgerRows: 2, ledgerUsd: 5, pricedUsd: 10 };
 
-    expect(resolveCostBasis(groups).totalUsd).toBeCloseTo(perGroup, 6);
+    expect(groupCostUsd(covered, "ledger")).toBeCloseTo(5, 6);
+    expect(groupCostUsd(covered, "partial")).toBeCloseTo(10, 6);
+    expect(groupCostUsd(covered, "estimate")).toBeCloseTo(10, 6);
   });
 
   it("handles an empty period without producing NaN", () => {

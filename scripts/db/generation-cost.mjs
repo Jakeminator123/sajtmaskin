@@ -17,6 +17,7 @@ import pg from "pg";
 import { normalizeEnvUrl, inspectDbTarget, summarizeTarget } from "./db-target-guard.mjs";
 import { mergeEnvFileOverProcess } from "./env-merge.mjs";
 import {
+  groupCostUsd,
   resolveCostBasis,
   priceUsageRow,
   resolveCostSource,
@@ -132,19 +133,14 @@ function toUsageRow(row) {
 
 function attachLedger(priced, raw) {
   const ledgerUsd = usd((Number(raw.ledgerMicroUsd) || 0) / 1e6);
-  const group = {
+  return {
     ...priced,
-    // Token-priced estimate. The input/cache/output parts add up to this, not
-    // to `totalUsd` — the ledger carries per-call long-context which summed
-    // tokens structurally cannot reproduce.
+    // Token-priced estimate. The input/cache/output parts add up to this.
+    // `totalUsd` sätts senare, när periodens kostnadsgrund är känd.
     pricedUsd: priced.totalUsd,
     ledgerUsd,
     ledgerRows: Math.min(Number(raw.rows) || 0, Number(raw.ledgerRows) || 0),
   };
-  // Varje rad bär samma kostnadsgrund som huvudtotalen. Summan av grupperna är
-  // per konstruktion lika med aggregatet, så modell-, fas- och dagstabellerna
-  // stämmer mot rubriken i stället för att visa en fjärde siffra.
-  return { ...group, totalUsd: resolveCostBasis([group]).totalUsd };
 }
 
 try {
@@ -202,17 +198,26 @@ try {
 
   if (byModelRaw._error) fail(byModelRaw._error);
 
-  const byModel = byModelRaw.map((row) => {
+  const byModelPriced = byModelRaw.map((row) => {
     const usage = toUsageRow(row);
     return attachLedger(priceUsageRow(pricing, usage, tier, { applyLongContext: false }), usage);
   });
-  // En modell utan matchning i pricing.json är bara "oräknad" om inget av dess
-  // anrop har cost_microusd. Villkoret är täckning (`ledgerRows`), inte belopp:
-  // en ledgerrad som råkar summera till noll är ändå räknad, och då vore
-  // varningen «kostnad ej räknad» fel.
-  const unpriced = byModel.filter(
-    (m) => !m.priced && !m.ledgerRows && (m.promptTokens || m.completionTokens),
-  );
+
+  // Basen bestäms en gång för hela perioden. Därefter är varje tabell en ren
+  // summa av samma sorts tal, så modell-, fas- och dagsvyerna kan inte gå isär
+  // från rubriken.
+  const costBasis = resolveCostBasis(byModelPriced);
+  const byModel = byModelPriced.map((row) => ({
+    ...row,
+    totalUsd: groupCostUsd(row, costBasis.basis),
+  }));
+
+  // I ledger-läget är varje anrop täckt, så ingen modell kan vara oräknad.
+  // I uppskattningsläget är en modell utan träff i pricing.json det.
+  const unpriced =
+    costBasis.basis === "ledger"
+      ? []
+      : byModel.filter((m) => !m.priced && (m.promptTokens || m.completionTokens));
   const anyEstimated = byModel.some((m) => m.estimated && m.totalUsd > 0);
 
   const byPhaseMap = new Map();
@@ -229,7 +234,6 @@ try {
       totalUsd: 0,
       ledgerUsd: 0,
       ledgerRows: 0,
-      members: [],
     };
     acc.rows += row.rows;
     acc.promptTokens += row.promptTokens;
@@ -239,16 +243,10 @@ try {
     acc.pricedUsd = usd(acc.pricedUsd + row.pricedUsd);
     acc.ledgerUsd = usd(acc.ledgerUsd + (row.ledgerUsd || 0));
     acc.ledgerRows += row.ledgerRows || 0;
-    acc.members.push(row);
+    acc.totalUsd = usd(acc.totalUsd + row.totalUsd);
     byPhaseMap.set(key, acc);
   }
-  // Pro-rata-uppskattningen är additiv över grupper men INTE över en
-  // hopslagen grupp: två modeller med olika ledger-täckning i samma fas ger
-  // fel andel om man slår ihop dem först. Skicka därför in medlemsraderna,
-  // aldrig fas-bucketen. Då gäller Σ faser = Σ modeller = rubriken.
-  const byPhase = [...byPhaseMap.values()]
-    .map(({ members, ...phase }) => ({ ...phase, totalUsd: resolveCostBasis(members).totalUsd }))
-    .sort((a, b) => b.totalUsd - a.totalUsd);
+  const byPhase = [...byPhaseMap.values()].sort((a, b) => b.totalUsd - a.totalUsd);
 
   const byDay = Array.isArray(byDayRaw)
     ? byDayRaw.map((row) => {
@@ -264,7 +262,9 @@ try {
           promptTokens: priced.promptTokens,
           cachedInputTokens: priced.cachedInputTokens,
           completionTokens: priced.completionTokens,
-          totalUsd: priced.totalUsd,
+          // Samma bas som rubriken. Dagsraderna är en finare partition av
+          // exakt samma anrop, så summan blir densamma.
+          totalUsd: groupCostUsd(priced, costBasis.basis),
         };
       })
     : [];
@@ -301,9 +301,9 @@ try {
     },
   );
 
-  // Ledgern äger totalen. Delposterna (input/cache/output) är kvar som
-  // token-uppskattning och summerar till `estimateUsd`, inte till `totalUsd`.
-  const costBasis = resolveCostBasis(byModel);
+  // Basen är redan bestämd ovan. Delposterna (input/cache/output) är alltid
+  // token-uppskattning och summerar till `estimateUsd` — i ledger-läget är det
+  // avsiktligt en annan siffra än `totalUsd`, och skillnaden är long-context.
   totals.totalUsd = costBasis.totalUsd;
   totals.estimateUsd = costBasis.estimateUsd;
   totals.costBasis = costBasis.basis;
@@ -317,15 +317,15 @@ try {
     );
     if (totals.costBasis === "ledger") {
       caveats.push(
-        `Totalen kommer ur ledgern (cost_microusd, alla ${totals.rows} anrop). Token-uppskattningen $${totals.estimateUsd} visas som delposter och saknar long-context-påslag.`,
+        `Totalen kommer ur ledgern (cost_microusd, alla ${totals.rows} anrop). Delposterna är token-uppskattning och summerar till $${totals.estimateUsd}; skillnaden är long-context-påslaget.`,
       );
-    } else if (totals.costBasis === "mixed") {
+    } else if (totals.costBasis === "partial") {
       caveats.push(
-        `Totalen är ledgern ($${totals.ledgerUsd}) för ${totals.ledgerRows} anrop plus token-uppskattning för ${totals.rowsWithoutLedger} anrop utan cost_microusd.`,
+        `UPPSKATTNING: bara ${totals.ledgerRows} av ${totals.rows} anrop har cost_microusd, så totalen räknas från tokens och saknar long-context-påslag. Ledgern för de täckta anropen är $${totals.ledgerUsd}. Totalen blir exakt först när alla anrop har ledgervärde.`,
       );
     } else {
       caveats.push(
-        "Inget anrop i perioden har cost_microusd. Totalen är en token-uppskattning och saknar därför long-context-påslag.",
+        "UPPSKATTNING: inget anrop i perioden har cost_microusd, så totalen räknas från tokens och saknar long-context-påslag.",
       );
     }
   } else if (source === "telemetry") {
@@ -371,8 +371,8 @@ try {
     const basisLabel =
       totals.costBasis === "ledger"
         ? "ledger"
-        : totals.costBasis === "mixed"
-          ? `ledger + uppskattning för ${totals.rowsWithoutLedger} anrop`
+        : totals.costBasis === "partial"
+          ? `uppskattning — ledger saknas på ${totals.rowsWithoutLedger} av ${totals.rows} anrop`
           : "uppskattning";
     console.log(
       `Kostnad (${source}, ${days}d, ${basisLabel}): $${totals.totalUsd} USD` +

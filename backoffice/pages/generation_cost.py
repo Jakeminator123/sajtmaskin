@@ -277,21 +277,20 @@ def render(ctx: BackofficeContext) -> None:
     # inte till totalen — totalen kommer ur ledgern där long-context faktiskt
     # ingår. Säg det rakt ut i stället för att låta två siffror konkurrera.
     basis = str(totals.get("costBasis") or "")
-    if basis in ("ledger", "mixed"):
-        estimate = _fmt_usd(totals.get("estimateUsd"))
-        if basis == "ledger":
-            st.caption(
-                f"Totalen kommer ur ledgern (`cost_microusd` per anrop). "
-                f"Delposterna är token-uppskattning och summerar till {estimate} "
-                "— skillnaden är long-context-påslaget, som bara finns per anrop."
-            )
-        else:
-            missing = totals.get("rowsWithoutLedger", 0)
-            st.caption(
-                f"Totalen är ledgern ({_fmt_usd(totals.get('ledgerUsd'))}) plus "
-                f"token-uppskattning för {missing} anrop utan `cost_microusd`. "
-                f"Ren token-uppskattning för hela perioden vore {estimate}."
-            )
+    if basis == "ledger":
+        st.caption(
+            "Totalen kommer ur ledgern (`cost_microusd` per anrop). Delposterna "
+            f"är token-uppskattning och summerar till {_fmt_usd(totals.get('estimateUsd'))} "
+            "— skillnaden är long-context-påslaget, som bara finns per anrop."
+        )
+    elif basis == "partial":
+        st.caption(
+            f"Totalen är en **token-uppskattning** och saknar long-context-påslag: bara "
+            f"{totals.get('ledgerRows', 0)} av {totals.get('rows', 0)} anrop har "
+            f"`cost_microusd`. Ledgern för de täckta anropen är "
+            f"{_fmt_usd(totals.get('ledgerUsd'))}. Siffran blir exakt först när alla "
+            "anrop har ett ledgervärde."
+        )
 
     for caveat in payload.caveats:
         st.warning(caveat)
