@@ -206,11 +206,12 @@ try {
     const usage = toUsageRow(row);
     return attachLedger(priceUsageRow(pricing, usage, tier, { applyLongContext: false }), usage);
   });
-  // En modell utan matchning i pricing.json är bara "oräknad" om den saknar
-  // ledgervärde också. Har den cost_microusd är kostnaden med i totalen, och
-  // då vore varningen «kostnad ej räknad» fel.
+  // En modell utan matchning i pricing.json är bara "oräknad" om inget av dess
+  // anrop har cost_microusd. Villkoret är täckning (`ledgerRows`), inte belopp:
+  // en ledgerrad som råkar summera till noll är ändå räknad, och då vore
+  // varningen «kostnad ej räknad» fel.
   const unpriced = byModel.filter(
-    (m) => !m.priced && !m.ledgerUsd && (m.promptTokens || m.completionTokens),
+    (m) => !m.priced && !m.ledgerRows && (m.promptTokens || m.completionTokens),
   );
   const anyEstimated = byModel.some((m) => m.estimated && m.totalUsd > 0);
 
