@@ -1036,6 +1036,27 @@ describe("shouldIgnoreConsoleError", () => {
     expect(shouldIgnoreConsoleError("TypeError: x is not a function")).toBe(false);
     expect(shouldIgnoreConsoleError("Failed to load resource")).toBe(false);
   });
+
+  it("ignorerar den härledda script-tag-varningen men släpper igenom hydreringskrocken", () => {
+    expect(
+      shouldIgnoreConsoleError(
+        "Encountered a script tag while rendering React component. Scripts cannot be rendered as React children.",
+      ),
+    ).toBe(true);
+    expect(
+      shouldIgnoreConsoleError("ENCOUNTERED A SCRIPT TAG WHILE RENDERING REACT COMPONENT"),
+    ).toBe(true);
+    expect(
+      shouldIgnoreConsoleError(
+        "Hydration failed because the server rendered HTML didn't match the client.",
+      ),
+    ).toBe(false);
+    expect(
+      shouldIgnoreConsoleError(
+        "A tree hydrated but some attributes of the server rendered HTML didn't match the client properties.",
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("shouldIgnoreFailedRequest", () => {

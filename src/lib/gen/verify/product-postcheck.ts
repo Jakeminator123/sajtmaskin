@@ -516,7 +516,8 @@ export function shouldIgnoreConsoleError(text: string): boolean {
     lower.includes("download the react devtools") ||
     lower.includes("fast refresh") ||
     lower.includes("[hmr]") ||
-    lower.includes("webpack-hmr")
+    lower.includes("webpack-hmr") ||
+    lower.includes("encountered a script tag while rendering react component")
   );
 }
 

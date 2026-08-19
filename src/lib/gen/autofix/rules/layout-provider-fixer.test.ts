@@ -47,13 +47,31 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 `,
 };
 
+/** Real theme usage — `suppressHydrationWarning` alone is no longer a signal. */
+const THEME_TOGGLE: CodeFile = {
+  path: "components/theme-toggle.tsx",
+  language: "tsx",
+  content: `"use client";
+import { useTheme } from "next-themes";
+
+export function ThemeToggle() {
+  const { setTheme } = useTheme();
+  return <button type="button" onClick={() => setTheme("dark")}>Tema</button>;
+}
+`,
+};
+
 function layoutOf(files: CodeFile[]): string {
   return files.find((f) => f.path === "app/layout.tsx")!.content;
 }
 
 describe("layout-provider-fixer — ThemeProvider injection point", () => {
   it("wraps the <body> content, never a nested {children}", () => {
-    const result = fixLayoutProviders([SCAFFOLD_LIKE_LAYOUT, PKG_WITH_NEXT_THEMES]);
+    const result = fixLayoutProviders([
+      SCAFFOLD_LIKE_LAYOUT,
+      PKG_WITH_NEXT_THEMES,
+      THEME_TOGGLE,
+    ]);
     const layout = layoutOf(result.files);
 
     expect(result.fixes).toHaveLength(1);
@@ -102,7 +120,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 `,
     };
-    const result = fixLayoutProviders([layoutFile, PKG_WITH_NEXT_THEMES]);
+    const result = fixLayoutProviders([layoutFile, PKG_WITH_NEXT_THEMES, THEME_TOGGLE]);
     const layout = layoutOf(result.files);
 
     expect(result.fixes).toHaveLength(1);
@@ -137,6 +155,33 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     expect(result.fixes).toHaveLength(0);
   });
 
+  it("does nothing when the only theme-like attribute is suppressHydrationWarning", () => {
+    const result = fixLayoutProviders([SCAFFOLD_LIKE_LAYOUT, PKG_WITH_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).not.toContain("ThemeProvider");
+  });
+
+  it("does not treat useTheme only in components/ui/sonner.tsx as real theme usage", () => {
+    const sonner: CodeFile = {
+      path: "components/ui/sonner.tsx",
+      language: "tsx",
+      content: `"use client";
+import { useTheme } from "next-themes";
+export function NotificationHost() {
+  const { theme } = useTheme();
+  return <div data-theme={theme} />;
+}
+`,
+    };
+    const result = fixLayoutProviders([
+      SCAFFOLD_LIKE_LAYOUT,
+      PKG_WITH_NEXT_THEMES,
+      sonner,
+    ]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).not.toContain("ThemeProvider");
+  });
+
   it("ignores <body> mentions in comments and wraps the real JSX tag", () => {
     const layoutFile: CodeFile = {
       path: "app/layout.tsx",
@@ -156,7 +201,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 `,
     };
-    const result = fixLayoutProviders([layoutFile, PKG_WITH_NEXT_THEMES]);
+    const result = fixLayoutProviders([layoutFile, PKG_WITH_NEXT_THEMES, THEME_TOGGLE]);
     const layout = layoutOf(result.files);
 
     expect(result.fixes).toHaveLength(1);
@@ -188,7 +233,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 `,
     };
-    const result = fixLayoutProviders([layoutFile, PKG_WITH_NEXT_THEMES]);
+    const result = fixLayoutProviders([layoutFile, PKG_WITH_NEXT_THEMES, THEME_TOGGLE]);
     const layout = layoutOf(result.files);
 
     expect(result.fixes).toHaveLength(1);
@@ -413,7 +458,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: "{}" }} />`,
       ),
     };
-    const result = fixLayoutProviders([withJsonLd, PKG_WITH_NEXT_THEMES]);
+    const result = fixLayoutProviders([withJsonLd, PKG_WITH_NEXT_THEMES, THEME_TOGGLE]);
     const layout = layoutOf(result.files);
     expect(result.fixes.some((fix) => /script/.test(fix.description))).toBe(true);
     const providerClose = layout.indexOf("</ThemeProvider>");
