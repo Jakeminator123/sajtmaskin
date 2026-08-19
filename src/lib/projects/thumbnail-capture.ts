@@ -61,8 +61,13 @@ const PRE_PROBE_SETTLE_MS = 400;
  */
 export const THUMBNAIL_SCROLL_MAX_STEPS = 10;
 export const THUMBNAIL_SCROLL_STEP_DELAY_MS = 150;
-/** Pause after returning to top + two rAF frames, before the shot. */
-export const THUMBNAIL_POST_SCROLL_SETTLE_MS = 400;
+/** Pause after returning to top, before the shot. Host-side only — no page rAF. */
+export const THUMBNAIL_POST_SCROLL_SETTLE_MS = 500;
+/**
+ * Host-side cap for a single `page.evaluate` during visual settle. A generated
+ * page that never yields (or patches timers) must not hang the route.
+ */
+export const THUMBNAIL_EVALUATE_DEADLINE_MS = 2_000;
 /**
  * Best-effort GET that overlaps browser launch. Warms a cold preview so the
  * later navigation is less likely to photograph a shell. Not a second capture.
@@ -87,6 +92,25 @@ export function thumbnailCaptureControlledBudgetMs(): number {
     SCREENSHOT_TIMEOUT_MS +
     THUMBNAIL_WARMUP_TIMEOUT_MS
   );
+}
+
+/**
+ * Race a promise against a host timer. Resolves `null` on timeout or rejection
+ * — never throws. The losing promise is left running; the caller moves on.
+ * @internal exported for tests.
+ */
+export async function withHostDeadline<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise.then((value) => value, () => null),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), ms);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 /**
@@ -140,54 +164,49 @@ async function warmupPreviewUrlBestEffort(url: string): Promise<void> {
 }
 
 /**
- * Trip lazy / `whileInView` content, return to top, wait two animation frames
- * plus a short settle. Entirely best-effort: a broken page still gets shot.
+ * Trip lazy / `whileInView` content, return to top, then a short host-side
+ * settle. All waits are host timers — a page that patches `setTimeout` / rAF
+ * cannot hang this step. Entirely best-effort: a broken page still gets shot.
  */
 async function settleThumbnailAnimationsBestEffort(page: Page): Promise<void> {
-  const measured = await page
-    .evaluate(() => {
+  const measured = await withHostDeadline(
+    page.evaluate(() => {
       const doc = document.documentElement;
       return {
         viewportHeight: window.innerHeight || 0,
         pageHeight: Math.max(doc?.scrollHeight ?? 0, document.body?.scrollHeight ?? 0),
       };
-    })
-    .catch(() => null);
+    }),
+    THUMBNAIL_EVALUATE_DEADLINE_MS,
+  );
 
-  const offsets = measured
-    ? planThumbnailScrollOffsets({
-        viewportHeight: measured.viewportHeight || THUMBNAIL_VIEWPORT.height,
-        pageHeight: measured.pageHeight,
-      })
-    : [];
+  const offsets =
+    measured && typeof measured.viewportHeight === "number"
+      ? planThumbnailScrollOffsets({
+          viewportHeight: measured.viewportHeight || THUMBNAIL_VIEWPORT.height,
+          pageHeight: measured.pageHeight,
+        })
+      : [];
 
-  if (offsets.length > 0) {
-    await page
-      .evaluate(
-        async ({ nextOffsets, stepDelayMs }) => {
-          const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-          for (const y of nextOffsets) {
-            window.scrollTo(0, y);
-            await delay(stepDelayMs);
-          }
-          window.scrollTo(0, 0);
-        },
-        { nextOffsets: offsets, stepDelayMs: THUMBNAIL_SCROLL_STEP_DELAY_MS },
-      )
-      .catch(() => undefined);
+  for (const y of offsets) {
+    const scrolled = await withHostDeadline(
+      page.evaluate((offset) => {
+        window.scrollTo(0, offset);
+        return true;
+      }, y),
+      THUMBNAIL_EVALUATE_DEADLINE_MS,
+    );
+    // Page never yielded: further offsets would each burn another deadline.
+    if (scrolled !== true) break;
+    await page.waitForTimeout(THUMBNAIL_SCROLL_STEP_DELAY_MS).catch(() => undefined);
   }
 
-  await page
-    .evaluate(
-      () =>
-        new Promise<void>((resolve) => {
-          const raf = window.requestAnimationFrame.bind(window);
-          raf(() => {
-            raf(() => resolve());
-          });
-        }),
-    )
-    .catch(() => undefined);
+  await withHostDeadline(
+    page.evaluate(() => {
+      window.scrollTo(0, 0);
+    }),
+    THUMBNAIL_EVALUATE_DEADLINE_MS,
+  );
   await page.waitForTimeout(THUMBNAIL_POST_SCROLL_SETTLE_MS).catch(() => undefined);
 }
 
@@ -318,7 +337,7 @@ export async function captureThumbnailScreenshot(
     }
 
     // After a live page is confirmed: scroll to trip whileInView / lazy
-    // sections, return to top, then two rAFs + a short settle. Best-effort so
+    // sections, return to top, then a short host-side settle. Best-effort so
     // a broken page still uses today's error semantics.
     stage = "visual-settle";
     await settleThumbnailAnimationsBestEffort(page);

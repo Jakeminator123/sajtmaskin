@@ -27,6 +27,7 @@ const {
   isPreviewProbeUnreadableError,
   planThumbnailScrollOffsets,
   thumbnailCaptureControlledBudgetMs,
+  withHostDeadline,
   THUMBNAIL_SCROLL_MAX_STEPS,
   THUMBNAIL_SCROLL_STEP_DELAY_MS,
   THUMBNAIL_POST_SCROLL_SETTLE_MS,
@@ -132,12 +133,11 @@ describe("isTransientCaptureAbort", () => {
   });
 });
 
-function classifyEvaluateScript(fn: unknown): "fonts" | "measure" | "scroll" | "raf" | "probe" | "other" {
+function classifyEvaluateScript(fn: unknown): "fonts" | "measure" | "scroll" | "probe" | "other" {
   const src = String(fn);
   if (src.includes("fonts")) return "fonts";
   if (src.includes("scrollHeight") || src.includes("pageHeight")) return "measure";
   if (src.includes("scrollTo")) return "scroll";
-  if (src.includes("requestAnimationFrame")) return "raf";
   if (src.includes("bodyText") || src.includes("document.title")) return "probe";
   return "other";
 }
@@ -231,6 +231,20 @@ describe("planThumbnailScrollOffsets", () => {
   });
 });
 
+describe("withHostDeadline", () => {
+  it("returns the value when the promise settles first", async () => {
+    await expect(withHostDeadline(Promise.resolve("ok"), 200)).resolves.toBe("ok");
+  });
+
+  it("resolves null when the promise never settles", async () => {
+    await expect(withHostDeadline(new Promise<string>(() => undefined), 25)).resolves.toBeNull();
+  });
+
+  it("resolves null when the promise rejects — never throws", async () => {
+    await expect(withHostDeadline(Promise.reject(new Error("nope")), 200)).resolves.toBeNull();
+  });
+});
+
 describe("thumbnailCaptureControlledBudgetMs", () => {
   it("stays safely under the thumbnail route maxDuration of 60s", () => {
     const budget = thumbnailCaptureControlledBudgetMs();
@@ -243,7 +257,7 @@ describe("thumbnailCaptureControlledBudgetMs", () => {
         15_000 +
         THUMBNAIL_WARMUP_TIMEOUT_MS,
     );
-    expect(budget).toBe(52_300);
+    expect(budget).toBe(52_400);
     expect(budget).toBeLessThan(55_000);
   });
 });
@@ -291,11 +305,16 @@ describe("captureThumbnailScreenshot", () => {
 
   it("scrolls a tall page with the planned offsets, then returns to top", async () => {
     const pageHeight = 2_000;
-    let scrollArg: { nextOffsets: number[]; stepDelayMs: number } | undefined;
+    const scrolled: number[] = [];
+    let returnedToTop = false;
     const page = makeFakePage({
-      evaluate: vi.fn(async (fn: unknown, arg?: { nextOffsets: number[]; stepDelayMs: number }) => {
+      evaluate: vi.fn(async (fn: unknown, arg?: unknown) => {
         const kind = classifyEvaluateScript(fn);
-        if (kind === "scroll") scrollArg = arg;
+        if (kind === "scroll") {
+          if (typeof arg === "number") scrolled.push(arg);
+          else returnedToTop = true;
+          return true;
+        }
         return defaultEvaluate(fn, pageHeight);
       }),
     });
@@ -306,13 +325,16 @@ describe("captureThumbnailScreenshot", () => {
       isFinalUrlAllowed: () => true,
     });
 
-    expect(scrollArg).toEqual({
-      nextOffsets: planThumbnailScrollOffsets({
-        viewportHeight: THUMBNAIL_VIEWPORT.height,
-        pageHeight,
-      }),
-      stepDelayMs: THUMBNAIL_SCROLL_STEP_DELAY_MS,
+    const planned = planThumbnailScrollOffsets({
+      viewportHeight: THUMBNAIL_VIEWPORT.height,
+      pageHeight,
     });
+    expect(scrolled).toEqual(planned);
+    expect(returnedToTop).toBe(true);
+    expect(
+      page.waitForTimeout.mock.calls.filter((call) => call[0] === THUMBNAIL_SCROLL_STEP_DELAY_MS),
+    ).toHaveLength(planned.length);
+    expect(page.waitForTimeout).toHaveBeenCalledWith(THUMBNAIL_POST_SCROLL_SETTLE_MS);
     expect(page.screenshot).toHaveBeenCalledTimes(1);
   });
 
@@ -320,7 +342,7 @@ describe("captureThumbnailScreenshot", () => {
     const page = makeFakePage({
       evaluate: vi.fn(async (fn: unknown) => {
         const kind = classifyEvaluateScript(fn);
-        if (kind === "measure" || kind === "scroll" || kind === "raf") {
+        if (kind === "measure" || kind === "scroll") {
           throw new Error("scroll exploded");
         }
         return defaultEvaluate(fn);
