@@ -26,7 +26,8 @@ vi.mock("../generation-input-package", () => ({
 }));
 
 // Imported after the mocks so the module under test picks up the mocked deps.
-import { writeOrchestrationDynamicDump } from "./generation-package";
+import { buildGenerationInputPackage, writeOrchestrationDynamicDump } from "./generation-package";
+import type { GenerationSource } from "../generation-input-package";
 
 function makePkg(): GenerationInputPackage {
   return {
@@ -48,7 +49,22 @@ function makePkg(): GenerationInputPackage {
       blocks: { largest: [] },
     },
     dynamicContextPruning: { budgetTokens: 100, usedTokens: 50, droppedBlockKeys: [] },
+    sources: [
+      {
+        kind: "ui-recipe",
+        id: "hero-01",
+        origin: "shadcn-official",
+        reason: "hero match; source-code",
+        authority: "mönster",
+        reachedPrompt: true,
+      },
+    ],
   } as unknown as GenerationInputPackage;
+}
+
+function lastMetaArg(): Record<string, unknown> {
+  const call = writeLatestPromptDumpMock.mock.calls.at(-1);
+  return call?.[2] as Record<string, unknown>;
 }
 
 function lastFilesArg(): Record<string, string> {
@@ -82,5 +98,62 @@ describe("writeOrchestrationDynamicDump — prompt-dump gating", () => {
     expect(files).toHaveProperty("generation-input-package.json");
     expect(typeof files["generation-input-package.json"]).toBe("string");
     expect(serializePackageForDumpMock).toHaveBeenCalledTimes(1);
+    expect(lastMetaArg()).toMatchObject({
+      sourceCount: 1,
+      sourceKinds: ["ui-recipe"],
+      sourcesReachedPrompt: 1,
+    });
+  });
+});
+
+describe("buildGenerationInputPackage — source receipt", () => {
+  it("copies finalized sources onto the package without rebuilding them", () => {
+    const sources: GenerationSource[] = [
+      {
+        kind: "ui-recipe",
+        id: "hero-01",
+        origin: "shadcn-official",
+        reason: "hero match; source-code",
+        authority: "mönster",
+        reachedPrompt: false,
+      },
+    ];
+
+    const pkg = buildGenerationInputPackage(
+      {
+        resolvedScaffold: null,
+        orchestrationContract: {},
+        scaffoldContext: undefined,
+        capabilityHints: undefined,
+        routePlan: { routes: [] },
+        preGenerationContracts: {},
+        capabilities: {},
+        buildSpec: { buildIntent: "website" },
+        serializeMode: null,
+        uiRecipes: [],
+        dossierRequestedCapabilities: [],
+        scaffoldVariantId: null,
+        capabilityModifyHint: null,
+      } as never,
+      { prompt: "Bygg en hero" },
+      {
+        engineSystemPrompt: "system",
+        dynamicContext: "dynamic",
+        dynamicContextPruning: {
+          budgetTokens: 100,
+          usedTokens: 10,
+          droppedBlockKeys: ["ui_recipes"],
+          keptBlockKeys: [],
+        },
+        dynamicContextBlocks: [],
+        variantId: null,
+        variantTemplateId: null,
+        variantTemplateReferenceAttachments: [],
+        sources,
+      },
+    );
+
+    expect(pkg.sources).toEqual(sources);
+    expect(pkg.sources[0]?.reachedPrompt).toBe(false);
   });
 });

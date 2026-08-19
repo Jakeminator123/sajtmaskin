@@ -14,6 +14,7 @@ import type {
   DesignReferenceAsset,
   DynamicContextBlockTrace,
   DynamicContextPruning,
+  MediaCatalogItem,
 } from "../system-prompt";
 import type { InferredCapabilities } from "../capability-inference";
 import type { RoutePlan } from "../route-plan";
@@ -26,6 +27,7 @@ import type { FollowUpContract } from "../orchestration-snapshot";
 import type { RequestKindClass } from "../request-kind";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import type { RequestAttachment } from "../request-metadata";
+import type { GenerationSource } from "../generation-input-package";
 import type { ImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
 
 export interface OrchestrationInput {
@@ -126,6 +128,12 @@ export interface OrchestrationInput {
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
+  /**
+   * Optional alias catalog for `## Media Catalog`. Callers that already
+   * compressed uploads/URLs into aliases pass them here so the receipt
+   * matches the prompt. Empty/omitted is the normal path today.
+   */
+  mediaCatalog?: MediaCatalogItem[];
   /** Optional persisted scaffold id from a previous turn in the same chat */
   persistedScaffoldId?: string | null;
   /** User-supplied custom instructions from the builder UI */
@@ -437,4 +445,6 @@ export interface FinalizedOrchestrationContext {
   variantId: string | null;
   variantTemplateId: string | null;
   variantTemplateReferenceAttachments: RequestAttachment[];
+  /** Source receipt. Built here after pruning; see `GenerationInputPackage.sources`. */
+  sources: GenerationSource[];
 }

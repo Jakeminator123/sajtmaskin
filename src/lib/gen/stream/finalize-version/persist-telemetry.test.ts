@@ -196,3 +196,42 @@ describe("persistTelemetryRecord — streamMs", () => {
     expect(arg.meta.autofix.fixCount).toBe(0);
   });
 });
+
+describe("persistTelemetryRecord — källkvitto", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createGenerationTelemetryRecord.mockResolvedValue({ id: "tel_1" });
+  });
+
+  it("skriver meta.sources när kvittot har rader", async () => {
+    const sources = [
+      {
+        kind: "ui-recipe",
+        id: "hero-01",
+        origin: "shadcn-official",
+        reason: "hero match; source-code",
+        authority: "mönster",
+        reachedPrompt: true,
+      },
+    ];
+    await persistTelemetryRecord(
+      makeParams({ orchestrationStreamMeta: { sources } }),
+    );
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.sources).toEqual(sources);
+  });
+
+  it("utelämnar nyckeln när sources är tom eller saknas", async () => {
+    await persistTelemetryRecord(
+      makeParams({ orchestrationStreamMeta: { sources: [] } }),
+    );
+    expect(createGenerationTelemetryRecord.mock.calls[0][0].meta).not.toHaveProperty(
+      "sources",
+    );
+
+    await persistTelemetryRecord(makeParams());
+    expect(createGenerationTelemetryRecord.mock.calls[1][0].meta).not.toHaveProperty(
+      "sources",
+    );
+  });
+});

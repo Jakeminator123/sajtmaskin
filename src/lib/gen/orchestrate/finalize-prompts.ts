@@ -25,8 +25,10 @@ import {
   type DynamicContextOptions,
 } from "../system-prompt";
 import { filterRemovedCapabilitiesFromBriefSummary } from "../capability-removal";
+import { resolveVariantTemplateAddendum } from "../scaffold-variants/variant-template-addendum";
 import { emitFollowUpFreezeDrift, enforceFollowUpVariantFreeze } from "./follow-up-freeze";
 import { resolveGenerationMode } from "./generation-mode";
+import { buildSourceReceipt } from "./source-receipt";
 import type { FinalizedOrchestrationContext, OrchestrationBase, OrchestrationInput } from "./types";
 
 /**
@@ -45,6 +47,7 @@ export async function finalizeOrchestrationPrompts(
     componentPalette = null,
     designThemePreset = null,
     designReferences = [],
+    mediaCatalog,
     customInstructions,
   } = input;
   const brief =
@@ -232,6 +235,7 @@ export async function finalizeOrchestrationPrompts(
     lockedColorPalette,
     lockedColorPaletteLabel,
     designReferences,
+    mediaCatalog,
     buildSpec: base.buildSpec,
     customInstructions,
     userPrompt: input.prompt,
@@ -257,6 +261,18 @@ export async function finalizeOrchestrationPrompts(
 
   const dynamic = buildDynamicContext(dynamicOpts);
   const engineSystemPrompt = composeEngineSystemPrompt(dynamic.context);
+  const variantTemplateAddendumState = variantTemplateInspiration
+    ? resolveVariantTemplateAddendum(variantTemplateInspiration.templateId).state
+    : null;
+  const sources = buildSourceReceipt({
+    variantTemplateInspiration,
+    variantTemplateAddendumState,
+    uiRecipes: base.uiRecipes,
+    dossierSelection: base.dossierSelection,
+    mediaCatalog,
+    designReferences,
+    pruning: dynamic.pruning,
+  });
 
   return {
     engineSystemPrompt,
@@ -266,5 +282,6 @@ export async function finalizeOrchestrationPrompts(
     variantId: dynamic.variantId,
     variantTemplateId: variantTemplateInspiration?.templateId ?? null,
     variantTemplateReferenceAttachments,
+    sources,
   };
 }

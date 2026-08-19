@@ -6,6 +6,7 @@ import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import { filterRemovedCapabilitiesFromBriefSummary } from "@/lib/gen/capability-removal";
 import { describeCapabilityLabels } from "@/lib/gen/dossiers/registry";
+import type { GenerationSource } from "@/lib/gen/generation-input-package";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
 import type { GenerationStreamMeta } from "@/lib/providers/own-engine/generation-stream";
 import type { CanonicalModelId } from "@/lib/models/catalog";
@@ -92,6 +93,7 @@ export type OwnEngineGenerationStreamMetaInput = {
   scaffoldId: string | null;
   variantId?: string | null;
   variantTemplateId?: string | null;
+  sources?: GenerationSource[];
 } & (
   | { routeVariant: "new-chat"; chatPrivacy: string; scaffoldLabel: string | null }
   | { routeVariant: "follow-up" }
@@ -165,6 +167,9 @@ export function buildOwnEngineGenerationStreamMeta(
     variantId: input.variantId ?? null,
     variantTemplateId: input.variantTemplateId ?? null,
   };
+  if (input.sources && input.sources.length > 0) {
+    meta.sources = input.sources;
+  }
   if (input.routeVariant === "new-chat") {
     (meta as Record<string, unknown>).chatPrivacy = input.chatPrivacy;
     (meta as Record<string, unknown>).scaffoldLabel = input.scaffoldLabel;

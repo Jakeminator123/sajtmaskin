@@ -1081,6 +1081,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               scaffoldId: resolvedScaffold?.id ?? null,
               variantId: finalized.variantId,
               variantTemplateId: finalized.variantTemplateId,
+              sources: finalized.sources,
             }),
             engineModel: generatorModel,
             optimizedMessage,
