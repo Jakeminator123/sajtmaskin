@@ -186,6 +186,21 @@ embeddar olika text — scaffold-sökningen kör `expandQuery` plus briefkontext
 variantvalet kör prompt + style/tone. Att dela vektor byter alltså semantik i
 variantvalet. Mät före beslut.
 
+## Ägarutökning 2026-08-19 — addendum efter variant
+
+När varianten är låst ska Briefen också välja **vilket** addendum ur den
+variantens `sourceTemplateIds` (2–4 id:n). Inte en ny LLM.
+
+Nu: första id med `previewFits !== false`, annars `[0]`
+(`template-inspiration.ts`). Efter B7:s variantval: ranka den **stängda**
+listan mot `styleKeywords` / `toneAndVoice` / mallens titel+kategori. Högst
+**en** post. Fallback = dagens listordning. Inga fria mall-id i
+`siteBriefSchema`. Inte hela 313-mallarsökningen.
+
+Scaffold-typens keyword-lucka (`domainProfile` / `toneAndVoice` når inte
+matchern) är [B11](B11-brief-i-scaffoldvalet.md) — B7 byter inte
+scaffold-trösklar.
+
 ## Vad som INTE ingår
 
 - Ingen ny orkestrerande LLM och inget nytt steg i `config/ai_models/manifest.json`.
@@ -194,6 +209,7 @@ variantvalet. Mät före beslut.
 - Ingen regenerering av variant-embeddings och inget rört i artefakten.
 - Inga omdöpta kodidentifierare, DB-kolumner eller telemetri-nycklar.
 - Ingen ny UI-yta; kvittot går via Selection Rationale (B3).
+- Inte flera addendum i samma init. Inte ZIP i hot path (B9).
 
 ## Verifiering
 
@@ -210,6 +226,7 @@ variantvalet. Mät före beslut.
 ## Klart när
 
 En preliminär förmatchning kan inte längre bli ett slutligt variantbeslut,
-briefens stilriktning når variantvalet på init, uttryckliga Byggval vinner
-fortfarande över allt, och kvittot säger i efterhand vilken källa som valde
-varianten och med vilken marginal.
+briefens stilriktning når variantvalet på init, addendumet bland
+`sourceTemplateIds` är rankat mot briefen (inte bara listordning),
+uttryckliga Byggval vinner fortfarande över allt, och kvittot säger i
+efterhand vilken källa som valde varianten och med vilken marginal.
