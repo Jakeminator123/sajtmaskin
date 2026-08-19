@@ -535,6 +535,13 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
     return {
       passed: false,
       exitCode: fallback.exitCode,
+      // Klassa VARJE försök för sig, medan utskrifterna fortfarande är
+      // separata. Den sammanslagna klumpen nedan innehåller båda, så en
+      // klassificerare som läser den kan inte veta vilket försök som faktiskt
+      // avgjorde utfallet — den skulle rapportera primärens ERESOLVE fast
+      // fallbacken dog tyst.
+      failureReason: classifyInstallFailure(fallback.clippedOutput, fallback.exitCode),
+      primaryFailureReason: classifyInstallFailure(primary.clippedOutput, primary.exitCode),
       durationMs: primary.durationMs + fallback.durationMs,
       output: [
         `[primary] ${install.logLabel} failed:`,
@@ -551,6 +558,7 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
   return {
     passed: false,
     exitCode: primary.exitCode,
+    failureReason: classifyInstallFailure(primary.clippedOutput, primary.exitCode),
     durationMs: primary.durationMs,
     output:
       primary.clippedOutput ||
@@ -740,15 +748,24 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
     return { installed: true, packageManager: install.packageManager };
   }
 
-  const failureReason = classifyInstallFailure(installResult.output, installResult.exitCode);
+  // Föredra runnerns klassning: den gjordes per försök, medan `output` här är
+  // den sammanslagna klumpen. Fallbacken finns för injicerade testrunners som
+  // inte sätter fältet.
+  const failureReason =
+    installResult.failureReason ??
+    classifyInstallFailure(installResult.output, installResult.exitCode);
+  const priorReason =
+    installResult.primaryFailureReason && installResult.primaryFailureReason !== failureReason
+      ? ` after ${installResult.primaryFailureReason}`
+      : "";
   await appendRuntimeLog(
     previewSessionId,
-    `${install.logLabel} failed (${failureReason}).\n${trimSnippet(installResult.output || "")}`,
+    `${install.logLabel} failed (${failureReason}${priorReason}).\n${trimSnippet(installResult.output || "")}`,
   );
   // Rotorsaken måste sitta i det KASTADE felet, inte bara i runtime-loggen —
   // det är felmeddelandet som når appens error-log. Se `classifyInstallFailure`.
   throw new Error(
-    `${install.logLabel} failed with exit code ${installResult.exitCode ?? "unknown"} (${failureReason})`,
+    `${install.logLabel} failed with exit code ${installResult.exitCode ?? "unknown"} (${failureReason}${priorReason})`,
   );
 }
 
