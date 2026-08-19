@@ -42,6 +42,10 @@ npm run worktree:remove -- ..\sajtmaskin-feat-X
 
 Saknar worktreen MCP-config: `pwsh -File scripts/cursor/sync-mcp-json.ps1` (se [`local-tooling-mcp.mdc`](../../.cursor/rules/local-tooling-mcp.mdc)).
 
+### Vitest behöver `--pool=threads` här
+
+Vitests default `forks`-pool kan inte starta sina arbetare i en worktree vars `node_modules` är en junction till huvudcheckouten — körningen dör innan något test hunnit starta, vilket ser ut som ett trasigt testbibliotek snarare än ett miljöproblem. Kör `npx vitest run --pool=threads <sökväg>` i worktrees. CI har en riktig `node_modules` och berörs inte.
+
 ### Basen `origin/master` är inte valfri
 
 Utelämnar du den sista referensen baserar git branchen på **huvudcheckoutens HEAD i det ögonblicket**. Står ägaren på en lokal commit som ännu inte är pushad — eller som inte är verifierad — ärver agentens branch den, tyst.
