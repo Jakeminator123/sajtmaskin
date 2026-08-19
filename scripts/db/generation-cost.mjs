@@ -115,6 +115,7 @@ function toUsageRow(row) {
       reasoningTokens: row.reasoning_tokens,
       ledgerMicroUsd: row.cost_microusd,
       ledgerRows: row.ledger_rows,
+      unledgeredBillableRows: row.unledgered_billable_rows,
     };
   }
   return {
@@ -128,6 +129,7 @@ function toUsageRow(row) {
     reasoningTokens: 0,
     ledgerMicroUsd: 0,
     ledgerRows: 0,
+    unledgeredBillableRows: 0,
   };
 }
 
@@ -140,6 +142,10 @@ function attachLedger(priced, raw) {
     pricedUsd: priced.totalUsd,
     ledgerUsd,
     ledgerRows: Math.min(Number(raw.rows) || 0, Number(raw.ledgerRows) || 0),
+    unledgeredBillableRows: Math.min(
+      Number(raw.rows) || 0,
+      Number(raw.unledgeredBillableRows) || 0,
+    ),
   };
 }
 
@@ -156,7 +162,11 @@ try {
             COALESCE(SUM(output_tokens), 0)::bigint AS output_tokens,
             COALESCE(SUM(reasoning_tokens), 0)::bigint AS reasoning_tokens,
             COALESCE(SUM(cost_microusd) FILTER (WHERE cost_microusd IS NOT NULL), 0)::bigint AS cost_microusd,
-            COUNT(*) FILTER (WHERE cost_microusd IS NOT NULL)::int AS ledger_rows`;
+            COUNT(*) FILTER (WHERE cost_microusd IS NOT NULL)::int AS ledger_rows,
+            COUNT(*) FILTER (
+              WHERE cost_microusd IS NULL
+                AND COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0) > 0
+            )::int AS unledgered_billable_rows`;
   const legacySelect = `model,
             COUNT(*)::int AS rows,
             COALESCE(SUM(prompt_tokens), 0)::bigint AS prompt_tokens,
@@ -212,12 +222,12 @@ try {
     totalUsd: groupCostUsd(row, costBasis.basis),
   }));
 
-  // I ledger-läget är varje anrop täckt, så ingen modell kan vara oräknad.
-  // I uppskattningsläget är en modell utan träff i pricing.json det.
-  const unpriced =
-    costBasis.basis === "ledger"
-      ? []
-      : byModel.filter((m) => !m.priced && (m.promptTokens || m.completionTokens));
+  // Full ledgertäckning gör totalen exakt, men den gör inte modellen prissatt.
+  // En modell som saknas i pricing.json är fortfarande ett hål i prisfilen —
+  // delposterna och uppskattningen blir fel för den. Listan är därför
+  // oberoende av basen; det är formuleringen i vyn som skiljer på "kostnaden
+  // saknas" och "priset saknas".
+  const unpriced = byModel.filter((m) => !m.priced && (m.promptTokens || m.completionTokens));
   const anyEstimated = byModel.some((m) => m.estimated && m.totalUsd > 0);
 
   const byPhaseMap = new Map();
@@ -317,11 +327,11 @@ try {
     );
     if (totals.costBasis === "ledger") {
       caveats.push(
-        `Totalen kommer ur ledgern (cost_microusd, alla ${totals.rows} anrop). Delposterna är token-uppskattning och summerar till $${totals.estimateUsd}; skillnaden är long-context-påslaget.`,
+        `Totalen kommer ur ledgern (cost_microusd) — varje anrop med tokens är täckt. Delposterna är token-uppskattning mot dagens pricing.json och summerar till $${totals.estimateUsd}; skillnaden är long-context-påslaget plus eventuell prisdrift sedan anropen gjordes.`,
       );
     } else if (totals.costBasis === "partial") {
       caveats.push(
-        `UPPSKATTNING: bara ${totals.ledgerRows} av ${totals.rows} anrop har cost_microusd, så totalen räknas från tokens och saknar long-context-påslag. Ledgern för de täckta anropen är $${totals.ledgerUsd}. Totalen blir exakt först när alla anrop har ledgervärde.`,
+        `UPPSKATTNING: ${totals.unledgeredBillableRows} av ${totals.rows} anrop med tokens saknar cost_microusd, så totalen räknas från tokens och saknar long-context-påslag. Ledgern för de täckta anropen är $${totals.ledgerUsd}. Totalen blir exakt när varje anrop med tokens bär ledgervärde.`,
       );
     } else {
       caveats.push(

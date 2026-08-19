@@ -147,24 +147,33 @@ export function priceUsageRow(pricing, row, tier = "standard", options = {}) {
  * {@link groupCostUsd}, så modell-, fas- och dagsvyerna alltid summerar till
  * rubriken.
  *
- * @param {Array<{rows?: number, ledgerRows?: number, ledgerUsd?: number, pricedUsd?: number, totalUsd?: number}>} groups
+ * @param {Array<{rows?: number, ledgerRows?: number, unledgeredBillableRows?: number, ledgerUsd?: number, pricedUsd?: number, totalUsd?: number}>} groups
  */
 export function resolveCostBasis(groups) {
   let ledgerUsd = 0;
   let estimateUsd = 0;
   let rows = 0;
   let ledgerRows = 0;
+  let unledgeredBillableRows = 0;
 
   for (const group of groups ?? []) {
     const groupRows = tokens(group.rows);
     rows += groupRows;
     ledgerRows += Math.min(groupRows, tokens(group.ledgerRows));
+    unledgeredBillableRows += Math.min(groupRows, tokens(group.unledgeredBillableRows));
     ledgerUsd = usd(ledgerUsd + (Number(group.ledgerUsd) || 0));
     estimateUsd = usd(estimateUsd + (Number(group.pricedUsd ?? group.totalUsd) || 0));
   }
 
-  const rowsWithoutLedger = Math.max(0, rows - ledgerRows);
-  const basis = rows > 0 && rowsWithoutLedger === 0 ? "ledger" : ledgerRows > 0 ? "partial" : "estimate";
+  // Täckningen mäts på anrop som KAN kosta något. Ett tokenlöst anrop (avbrutet
+  // eller misslyckat) lagras med null-ledger by design och kostar noll oavsett
+  // grund — räknades det som otäckt skulle ledger-läget aldrig kunna nås.
+  const basis =
+    ledgerRows > 0 && unledgeredBillableRows === 0
+      ? "ledger"
+      : ledgerRows > 0
+        ? "partial"
+        : "estimate";
 
   return {
     basis,
@@ -173,7 +182,8 @@ export function resolveCostBasis(groups) {
     estimateUsd,
     rows,
     ledgerRows,
-    rowsWithoutLedger,
+    rowsWithoutLedger: Math.max(0, rows - ledgerRows),
+    unledgeredBillableRows,
   };
 }
 

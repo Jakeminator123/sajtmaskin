@@ -279,27 +279,37 @@ def render(ctx: BackofficeContext) -> None:
     basis = str(totals.get("costBasis") or "")
     if basis == "ledger":
         st.caption(
-            "Totalen kommer ur ledgern (`cost_microusd` per anrop). Delposterna "
-            f"är token-uppskattning och summerar till {_fmt_usd(totals.get('estimateUsd'))} "
-            "— skillnaden är long-context-påslaget, som bara finns per anrop."
+            "Totalen kommer ur ledgern (`cost_microusd` per anrop) — varje anrop med "
+            "tokens är täckt. Delposterna är token-uppskattning mot **dagens** "
+            f"`pricing.json` och summerar till {_fmt_usd(totals.get('estimateUsd'))}. "
+            "Skillnaden är long-context-påslaget plus eventuell prisdrift sedan "
+            "anropen gjordes — ledgern är historisk, uppskattningen är omräknad."
         )
     elif basis == "partial":
         st.caption(
-            f"Totalen är en **token-uppskattning** och saknar long-context-påslag: bara "
-            f"{totals.get('ledgerRows', 0)} av {totals.get('rows', 0)} anrop har "
-            f"`cost_microusd`. Ledgern för de täckta anropen är "
-            f"{_fmt_usd(totals.get('ledgerUsd'))}. Siffran blir exakt först när alla "
-            "anrop har ett ledgervärde."
+            f"Totalen är en **token-uppskattning** och saknar long-context-påslag: "
+            f"{totals.get('unledgeredBillableRows', 0)} av {totals.get('rows', 0)} anrop "
+            f"med tokens saknar `cost_microusd`. Ledgern för de täckta anropen är "
+            f"{_fmt_usd(totals.get('ledgerUsd'))}. Siffran blir exakt när varje anrop "
+            "med tokens bär ett ledgervärde."
         )
 
     for caveat in payload.caveats:
         st.warning(caveat)
 
     if payload.unpriced:
-        st.error(
-            "Oprissatta modeller (ingen matchning i pricing.json — kostnad ej räknad): "
-            + ", ".join(payload.unpriced)
-        )
+        models = ", ".join(payload.unpriced)
+        if basis == "ledger":
+            # Ledgern täcker kostnaden, men prisfilen har ett hål: delposterna
+            # och uppskattningen blir fel för de här modellerna.
+            st.warning(
+                "Modeller utan matchning i `pricing.json` (kostnaden är räknad ur "
+                f"ledgern, men delposter och uppskattning saknar dem): {models}"
+            )
+        else:
+            st.error(
+                f"Oprissatta modeller (ingen matchning i pricing.json — kostnad ej räknad): {models}"
+            )
 
     if payload.by_phase:
         st.subheader("Per fas")
