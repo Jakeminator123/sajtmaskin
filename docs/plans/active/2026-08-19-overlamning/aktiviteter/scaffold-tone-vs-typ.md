@@ -1,6 +1,10 @@
 # Scaffold-matchningen kan välja fel sajttyp
 
-Våg 2 · Cloud · Ur svärmläsning, ej omverifierad · Två delar
+Våg 0 / tidigare våg 2 · Draft [#1054](https://github.com/Jakeminator123/sajtmaskin/pull/1054) · Två delar
+
+**Starta ingen ny Builder medan #1054 är öppen.** Den PR:n täcker båda delarna
+nedan och har oberoende Scout-review. Om den stängs utan merge ska uppgiften
+återöppnas mot då aktuell master.
 
 ## Del 1 — tonfall räknas som typnyckelord
 
@@ -21,8 +25,11 @@ Ankare (omverifiera — filen ändrades 19 augusti):
 - tie-break i `pickBestScaffold` kring `matcher.ts:374-380`
 - ordbanken i `keyword-banks.ts:82-84`
 
-**Fix:** håll `toneAndVoice` utanför typ-nyckelordspoängen. Tonen ska fortsätta
-påverka embedding-prompten och designuttrycket — bara inte sajttyp-poängen.
+**Fix:** håll `toneAndVoice` utanför både typ-nyckelordspoängen och scaffoldens
+embedding-fråga. Ton är inte en sajttyp och ska inte semantiskt göra
+portfolio/blog valbar heller. Tonen ska fortsätta påverka copy och
+scaffold-variantens designuttryck. `pages`, `styleKeywords` och `domainProfile`
+ska fortsatt påverka scaffoldvalet.
 
 **Bevis:** ett test där brief med typsignal «landing» plus tonorden
 personal/creative fortfarande väljer `landing-page`. Testet ska **falla före**
@@ -39,7 +46,8 @@ här säger ingenting om verkligt beteende. `AGENTS.md` klassar just det som P1:
 status som blir grön utan verklig verifiering.
 
 **Fix:** lägg till täckning för embeddings-vägen med ett deterministiskt mockat
-embedding-anrop. **Ta inte bort** keyword-testerna — komplettera dem.
+embedding-anrop som faller om `Tone: personal, creative` läcker in i queryn.
+**Ta inte bort** keyword-testerna — komplettera dem.
 
 ## Verifiering
 
