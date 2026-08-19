@@ -1064,6 +1064,14 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     !isNoSpaceInstallFailure("npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve"),
   );
   check("empty output is NOT disk-full", !isNoSpaceInstallFailure(""));
+  // Hostens egen efterspelstext, nar purge-och-retry anda tog slut pa disk.
+  // npm:s ursprungliga ENOSPC-rad finns da inte kvar i utskriften.
+  check(
+    "the host's own post-purge wording is still recognised as disk-full",
+    isNoSpaceInstallFailure(
+      "[disk-full] Reclaimed 512 MB of package cache and retried; still out of space.",
+    ),
+  );
 
   // SM-035: exit 254 är npm:s generiska krasch. Rotorsaken måste sitta i det
   // KASTADE felet, annars når den aldrig appens error-log och signaturen

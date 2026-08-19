@@ -338,7 +338,10 @@ function resolveInstallCommand(filesJson) {
 function isNoSpaceInstallFailure(output) {
   const text = String(output || "");
   if (!text.trim()) return false;
-  return /ENOSPC|no space left on device|insufficient space/i.test(text);
+  // Sista alternativet är hostens EGEN formulering när en purge-och-retry
+  // ändå tog slut på disk. Utan den känner den här funktionen inte igen sitt
+  // eget efterspel — och npm:s ursprungliga ENOSPC-rad finns då inte kvar.
+  return /ENOSPC|no space left on device|insufficient space|still out of space/i.test(text);
 }
 
 /**
@@ -464,6 +467,7 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
     };
   };
 
+  let diskFullDetected = false;
   let primary = await runAttempt(install.command);
   if (primary.exitCode === 0) {
     return {
@@ -481,6 +485,10 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
   // this host that grows without bound — and try once more. Without this the
   // VM stays wedged for every chat until someone redeploys it by hand.
   if (isNoSpaceInstallFailure(primary.output)) {
+    // Vi VET vid det här laget att det var disk. Bär med det i stället för att
+    // låta en senare klassificering försöka läsa ut det ur en omskriven text
+    // där npm:s ursprungliga ENOSPC-rad kan ha fallit bort.
+    diskFullDetected = true;
     // Unqueued: we are inside the install slot already (see the doc comment on
     // `cleanupPackageCachesUnqueued`).
     const purge = await cleanupPackageCachesUnqueued({ force: true });
@@ -540,8 +548,12 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
       // klassificerare som läser den kan inte veta vilket försök som faktiskt
       // avgjorde utfallet — den skulle rapportera primärens ERESOLVE fast
       // fallbacken dog tyst.
-      failureReason: classifyInstallFailure(fallback.clippedOutput, fallback.exitCode),
-      primaryFailureReason: classifyInstallFailure(primary.clippedOutput, primary.exitCode),
+      failureReason: diskFullDetected
+        ? "no_space"
+        : classifyInstallFailure(fallback.clippedOutput, fallback.exitCode),
+      primaryFailureReason: diskFullDetected
+        ? "no_space"
+        : classifyInstallFailure(primary.clippedOutput, primary.exitCode),
       durationMs: primary.durationMs + fallback.durationMs,
       output: [
         `[primary] ${install.logLabel} failed:`,
@@ -558,7 +570,9 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
   return {
     passed: false,
     exitCode: primary.exitCode,
-    failureReason: classifyInstallFailure(primary.clippedOutput, primary.exitCode),
+    failureReason: diskFullDetected
+      ? "no_space"
+      : classifyInstallFailure(primary.clippedOutput, primary.exitCode),
     durationMs: primary.durationMs,
     output:
       primary.clippedOutput ||
