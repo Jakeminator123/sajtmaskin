@@ -319,6 +319,7 @@ try {
   totals.costBasis = costBasis.basis;
   totals.ledgerRows = costBasis.ledgerRows;
   totals.rowsWithoutLedger = costBasis.rowsWithoutLedger;
+  totals.unledgeredBillableRows = costBasis.unledgeredBillableRows;
 
   const caveats = [];
   if (source === "usage") {
