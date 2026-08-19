@@ -17,13 +17,14 @@
  * final main-frame URL must additionally pass the caller's allowlist before
  * the screenshot is taken (audit A#6).
  */
-import type { Browser } from "playwright-core";
+import type { Browser, Page } from "playwright-core";
 import {
   applyCaptureRequestGate,
   assertFinalUrlAllowed as assertCaptureFinalUrlAllowed,
   buildCaptureRequestGate,
   launchCaptureBrowser,
 } from "@/lib/capture/browser";
+import { fetchWithPinnedDns } from "@/lib/capture/pinned-fetch";
 import {
   PreviewHostBootPageError,
   PreviewProbeUnreadableError,
@@ -52,8 +53,143 @@ const NETWORK_IDLE_TIMEOUT_MS = 8_000;
  * "page.screenshot: Target page, context or browser has been closed".
  */
 const SCREENSHOT_TIMEOUT_MS = 15_000;
+/** Existing pause after fonts so the boot-page probe sees real content. */
+const PRE_PROBE_SETTLE_MS = 400;
+/**
+ * Viewport-height steps through the page to trip `whileInView` / lazy sections.
+ * Capped so the extra wait stays inside the route's 60s `maxDuration`.
+ */
+export const THUMBNAIL_SCROLL_MAX_STEPS = 10;
+export const THUMBNAIL_SCROLL_STEP_DELAY_MS = 150;
+/** Pause after returning to top + two rAF frames, before the shot. */
+export const THUMBNAIL_POST_SCROLL_SETTLE_MS = 400;
+/**
+ * Best-effort GET that overlaps browser launch. Warms a cold preview so the
+ * later navigation is less likely to photograph a shell. Not a second capture.
+ */
+export const THUMBNAIL_WARMUP_TIMEOUT_MS = 2_000;
+const THUMBNAIL_WARMUP_MAX_BODY_BYTES = 64 * 1024;
 
 export const THUMBNAIL_VIEWPORT = { width: 1200, height: 750 } as const;
+
+/**
+ * Controlled worst-case waits inside `captureThumbnailScreenshot` (no launch,
+ * fonts, or blob upload). Must stay safely under the thumbnail route's 60s
+ * `maxDuration` — see `thumbnailCaptureControlledBudgetMs`.
+ */
+export function thumbnailCaptureControlledBudgetMs(): number {
+  return (
+    NAVIGATION_TIMEOUT_MS +
+    NETWORK_IDLE_TIMEOUT_MS +
+    PRE_PROBE_SETTLE_MS +
+    THUMBNAIL_SCROLL_MAX_STEPS * THUMBNAIL_SCROLL_STEP_DELAY_MS +
+    THUMBNAIL_POST_SCROLL_SETTLE_MS +
+    SCREENSHOT_TIMEOUT_MS +
+    THUMBNAIL_WARMUP_TIMEOUT_MS
+  );
+}
+
+/**
+ * Scroll Y offsets from just below the fold down to the bottom, in viewport
+ * steps. Empty when the page already fits in the viewport. If the page is
+ * taller than `maxSteps` viewports the last step is snapped to the bottom so
+ * footer `whileInView` sections still fire.
+ * @internal exported for tests.
+ */
+export function planThumbnailScrollOffsets(args: {
+  viewportHeight: number;
+  pageHeight: number;
+  maxSteps?: number;
+}): number[] {
+  const viewportHeight = Math.max(0, Math.floor(args.viewportHeight));
+  const pageHeight = Math.max(0, Math.floor(args.pageHeight));
+  const maxSteps = args.maxSteps ?? THUMBNAIL_SCROLL_MAX_STEPS;
+  if (viewportHeight <= 0 || pageHeight <= 0 || maxSteps <= 0) return [];
+
+  const maxScroll = Math.max(0, pageHeight - viewportHeight);
+  if (maxScroll === 0) return [];
+
+  const offsets: number[] = [];
+  let y = viewportHeight;
+  while (y < maxScroll && offsets.length < maxSteps) {
+    offsets.push(y);
+    y += viewportHeight;
+  }
+  if (offsets.length < maxSteps) {
+    offsets.push(maxScroll);
+  } else if (offsets[offsets.length - 1] !== maxScroll) {
+    offsets[offsets.length - 1] = maxScroll;
+  }
+  return offsets;
+}
+
+async function warmupPreviewUrlBestEffort(url: string): Promise<void> {
+  try {
+    await fetchWithPinnedDns(url, {
+      method: "GET",
+      timeoutMs: THUMBNAIL_WARMUP_TIMEOUT_MS,
+      maxBodyBytes: THUMBNAIL_WARMUP_MAX_BODY_BYTES,
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+      },
+    });
+  } catch {
+    // Warmup must never change capture error semantics.
+  }
+}
+
+/**
+ * Trip lazy / `whileInView` content, return to top, wait two animation frames
+ * plus a short settle. Entirely best-effort: a broken page still gets shot.
+ */
+async function settleThumbnailAnimationsBestEffort(page: Page): Promise<void> {
+  const measured = await page
+    .evaluate(() => {
+      const doc = document.documentElement;
+      return {
+        viewportHeight: window.innerHeight || 0,
+        pageHeight: Math.max(doc?.scrollHeight ?? 0, document.body?.scrollHeight ?? 0),
+      };
+    })
+    .catch(() => null);
+
+  const offsets = measured
+    ? planThumbnailScrollOffsets({
+        viewportHeight: measured.viewportHeight || THUMBNAIL_VIEWPORT.height,
+        pageHeight: measured.pageHeight,
+      })
+    : [];
+
+  if (offsets.length > 0) {
+    await page
+      .evaluate(
+        async ({ nextOffsets, stepDelayMs }) => {
+          const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+          for (const y of nextOffsets) {
+            window.scrollTo(0, y);
+            await delay(stepDelayMs);
+          }
+          window.scrollTo(0, 0);
+        },
+        { nextOffsets: offsets, stepDelayMs: THUMBNAIL_SCROLL_STEP_DELAY_MS },
+      )
+      .catch(() => undefined);
+  }
+
+  await page
+    .evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const raf = window.requestAnimationFrame.bind(window);
+          raf(() => {
+            raf(() => resolve());
+          });
+        }),
+    )
+    .catch(() => undefined);
+  await page.waitForTimeout(THUMBNAIL_POST_SCROLL_SETTLE_MS).catch(() => undefined);
+}
 
 /**
  * Playwright-meddelanden som betyder att sidan, kontexten eller browsern
@@ -106,7 +242,11 @@ export async function captureThumbnailScreenshot(
   // failure is rethrown with the stage so the route log pinpoints it.
   let stage = "launch";
   try {
-    browser = await launchCaptureBrowser();
+    const [, launchedBrowser] = await Promise.all([
+      warmupPreviewUrlBestEffort(url),
+      launchCaptureBrowser(),
+    ]);
+    browser = launchedBrowser;
     stage = "new-page";
     const page = await browser.newPage({
       viewport: { ...THUMBNAIL_VIEWPORT },
@@ -116,6 +256,10 @@ export async function captureThumbnailScreenshot(
       // VADE (PR #426): service-worker requests bypass route interception —
       // block SWs outright (a thumbnail never needs them).
       serviceWorkers: "block",
+      // Skip intros on sites that honor prefers-reduced-motion (framer-motion,
+      // CSS fade-ins). Sites that ignore the media query still get the scroll
+      // settle below.
+      reducedMotion: "reduce",
     });
 
     // Abort every request whose host fails the public-host guard — Chromium
@@ -148,7 +292,7 @@ export async function captureThumbnailScreenshot(
         }
       })
       .catch(() => undefined);
-    await page.waitForTimeout(400).catch(() => undefined);
+    await page.waitForTimeout(PRE_PROBE_SETTLE_MS).catch(() => undefined);
 
     // Same detector as F2 product postcheck. A real start page must not be
     // frozen into "Mina projekt". An empty/failed probe is a different skip —
@@ -172,6 +316,12 @@ export async function captureThumbnailScreenshot(
         "Page probe returned no readable content; thumbnail skipped.",
       );
     }
+
+    // After a live page is confirmed: scroll to trip whileInView / lazy
+    // sections, return to top, then two rAFs + a short settle. Best-effort so
+    // a broken page still uses today's error semantics.
+    stage = "visual-settle";
+    await settleThumbnailAnimationsBestEffort(page);
 
     // Re-check right before the shot: redirects/JS/meta-refresh may have moved
     // the main frame anywhere public during navigation or the settle waits.

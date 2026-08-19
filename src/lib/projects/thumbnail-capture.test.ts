@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const isDisallowedHost = vi.hoisted(() => vi.fn());
 const hostResolvesToPrivate = vi.hoisted(() => vi.fn());
 const launchMock = vi.hoisted(() => vi.fn());
+const fetchWithPinnedDns = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/ssrf-guard", () => ({ isDisallowedHost, hostResolvesToPrivate }));
 // Both launch paths (local `playwright`, serverless `playwright-core` +
@@ -13,6 +14,7 @@ vi.mock("playwright-core", () => ({ chromium: { launch: launchMock } }));
 vi.mock("@sparticuz/chromium", () => ({
   default: { args: [], executablePath: async () => "/tmp/chromium", headless: true },
 }));
+vi.mock("@/lib/capture/pinned-fetch", () => ({ fetchWithPinnedDns }));
 
 const {
   buildCaptureRequestGate,
@@ -23,6 +25,13 @@ const {
   PreviewProbeUnreadableError,
   isPreviewHostBootPageError,
   isPreviewProbeUnreadableError,
+  planThumbnailScrollOffsets,
+  thumbnailCaptureControlledBudgetMs,
+  THUMBNAIL_SCROLL_MAX_STEPS,
+  THUMBNAIL_SCROLL_STEP_DELAY_MS,
+  THUMBNAIL_POST_SCROLL_SETTLE_MS,
+  THUMBNAIL_WARMUP_TIMEOUT_MS,
+  THUMBNAIL_VIEWPORT,
 } = await import("./thumbnail-capture");
 
 // Bugbot high (PR #426): the page-level request gate must block redirect/JS
@@ -123,6 +132,31 @@ describe("isTransientCaptureAbort", () => {
   });
 });
 
+function classifyEvaluateScript(fn: unknown): "fonts" | "measure" | "scroll" | "raf" | "probe" | "other" {
+  const src = String(fn);
+  if (src.includes("fonts")) return "fonts";
+  if (src.includes("scrollHeight") || src.includes("pageHeight")) return "measure";
+  if (src.includes("scrollTo")) return "scroll";
+  if (src.includes("requestAnimationFrame")) return "raf";
+  if (src.includes("bodyText") || src.includes("document.title")) return "probe";
+  return "other";
+}
+
+const LIVE_PROBE = {
+  title: "Site",
+  h1: "Hello",
+  bodyText: "Welcome to the site.",
+} as const;
+
+function defaultEvaluate(fn: unknown, pageHeight: number = THUMBNAIL_VIEWPORT.height) {
+  const kind = classifyEvaluateScript(fn);
+  if (kind === "measure") {
+    return { viewportHeight: THUMBNAIL_VIEWPORT.height, pageHeight };
+  }
+  if (kind === "probe") return { ...LIVE_PROBE };
+  return undefined;
+}
+
 // Codex P1 (PR #593): the new screenshot deadline and the stage-tagged error
 // wrapper are prod failure-mode mitigations, so they need coverage — the tests
 // above only exercise the pure helpers, not captureThumbnailScreenshot itself.
@@ -137,11 +171,7 @@ function makeFakePage(overrides: Record<string, unknown> = {}) {
     }),
     goto: vi.fn().mockResolvedValue(undefined),
     waitForLoadState: vi.fn().mockResolvedValue(undefined),
-    evaluate: vi.fn().mockResolvedValue({
-      title: "Site",
-      h1: "Hello",
-      bodyText: "Welcome to the site.",
-    }),
+    evaluate: vi.fn(async (fn: unknown) => defaultEvaluate(fn)),
     waitForTimeout: vi.fn().mockResolvedValue(undefined),
     url: vi.fn().mockReturnValue("https://site.fly.dev/x"),
     screenshot: vi.fn().mockResolvedValue(Buffer.from("jpeg-bytes")),
@@ -161,11 +191,74 @@ function makeFakeBrowser(page: ReturnType<typeof makeFakePage>) {
   return { browser, closeSpy };
 }
 
+describe("planThumbnailScrollOffsets", () => {
+  it("returns no offsets when the page fits in the viewport", () => {
+    expect(
+      planThumbnailScrollOffsets({ viewportHeight: 750, pageHeight: 750 }),
+    ).toEqual([]);
+    expect(
+      planThumbnailScrollOffsets({ viewportHeight: 750, pageHeight: 600 }),
+    ).toEqual([]);
+  });
+
+  it("steps by viewport height and always includes the bottom", () => {
+    expect(
+      planThumbnailScrollOffsets({ viewportHeight: 750, pageHeight: 800 }),
+    ).toEqual([50]);
+    expect(
+      planThumbnailScrollOffsets({ viewportHeight: 750, pageHeight: 2000 }),
+    ).toEqual([750, 1250]);
+  });
+
+  it("caps at maxSteps and snaps the last step to the bottom", () => {
+    const offsets = planThumbnailScrollOffsets({
+      viewportHeight: 750,
+      pageHeight: 10_000,
+      maxSteps: 10,
+    });
+    expect(offsets).toHaveLength(10);
+    expect(offsets[0]).toBe(750);
+    expect(offsets[offsets.length - 1]).toBe(10_000 - 750);
+    expect(offsets.slice(0, -1)).toEqual([750, 1500, 2250, 3000, 3750, 4500, 5250, 6000, 6750]);
+  });
+
+  it("rejects non-positive geometry", () => {
+    expect(planThumbnailScrollOffsets({ viewportHeight: 0, pageHeight: 2000 })).toEqual([]);
+    expect(planThumbnailScrollOffsets({ viewportHeight: 750, pageHeight: 0 })).toEqual([]);
+    expect(
+      planThumbnailScrollOffsets({ viewportHeight: 750, pageHeight: 2000, maxSteps: 0 }),
+    ).toEqual([]);
+  });
+});
+
+describe("thumbnailCaptureControlledBudgetMs", () => {
+  it("stays safely under the thumbnail route maxDuration of 60s", () => {
+    const budget = thumbnailCaptureControlledBudgetMs();
+    expect(budget).toBe(
+      25_000 +
+        8_000 +
+        400 +
+        THUMBNAIL_SCROLL_MAX_STEPS * THUMBNAIL_SCROLL_STEP_DELAY_MS +
+        THUMBNAIL_POST_SCROLL_SETTLE_MS +
+        15_000 +
+        THUMBNAIL_WARMUP_TIMEOUT_MS,
+    );
+    expect(budget).toBe(52_300);
+    expect(budget).toBeLessThan(55_000);
+  });
+});
+
 describe("captureThumbnailScreenshot", () => {
   beforeEach(() => {
     launchMock.mockReset();
     isDisallowedHost.mockReturnValue(false);
     hostResolvesToPrivate.mockResolvedValue(false);
+    fetchWithPinnedDns.mockReset();
+    fetchWithPinnedDns.mockResolvedValue({
+      status: 200,
+      headers: {},
+      body: Buffer.from(""),
+    });
   });
 
   it("passes the explicit screenshot timeout and closes the browser", async () => {
@@ -178,10 +271,85 @@ describe("captureThumbnailScreenshot", () => {
     });
 
     expect(buf).toBeInstanceOf(Buffer);
+    expect(browser.newPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reducedMotion: "reduce",
+        viewport: THUMBNAIL_VIEWPORT,
+        serviceWorkers: "block",
+      }),
+    );
+    expect(fetchWithPinnedDns).toHaveBeenCalledWith(
+      "https://site.fly.dev/x",
+      expect.objectContaining({ method: "GET", timeoutMs: THUMBNAIL_WARMUP_TIMEOUT_MS }),
+    );
     expect(page.screenshot).toHaveBeenCalledWith(
       expect.objectContaining({ type: "jpeg", fullPage: false, timeout: 15_000 }),
     );
+    expect(page.waitForTimeout).toHaveBeenCalledWith(THUMBNAIL_POST_SCROLL_SETTLE_MS);
     expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("scrolls a tall page with the planned offsets, then returns to top", async () => {
+    const pageHeight = 2_000;
+    let scrollArg: { nextOffsets: number[]; stepDelayMs: number } | undefined;
+    const page = makeFakePage({
+      evaluate: vi.fn(async (fn: unknown, arg?: { nextOffsets: number[]; stepDelayMs: number }) => {
+        const kind = classifyEvaluateScript(fn);
+        if (kind === "scroll") scrollArg = arg;
+        return defaultEvaluate(fn, pageHeight);
+      }),
+    });
+    const { browser } = makeFakeBrowser(page);
+    launchMock.mockResolvedValue(browser);
+
+    await captureThumbnailScreenshot("https://site.fly.dev/x", {
+      isFinalUrlAllowed: () => true,
+    });
+
+    expect(scrollArg).toEqual({
+      nextOffsets: planThumbnailScrollOffsets({
+        viewportHeight: THUMBNAIL_VIEWPORT.height,
+        pageHeight,
+      }),
+      stepDelayMs: THUMBNAIL_SCROLL_STEP_DELAY_MS,
+    });
+    expect(page.screenshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("still screenshots when visual settle throws", async () => {
+    const page = makeFakePage({
+      evaluate: vi.fn(async (fn: unknown) => {
+        const kind = classifyEvaluateScript(fn);
+        if (kind === "measure" || kind === "scroll" || kind === "raf") {
+          throw new Error("scroll exploded");
+        }
+        return defaultEvaluate(fn);
+      }),
+    });
+    const { browser, closeSpy } = makeFakeBrowser(page);
+    launchMock.mockResolvedValue(browser);
+
+    const buf = await captureThumbnailScreenshot("https://site.fly.dev/x", {
+      isFinalUrlAllowed: () => true,
+    });
+
+    expect(buf).toBeInstanceOf(Buffer);
+    expect(page.screenshot).toHaveBeenCalledTimes(1);
+    expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fail capture when the warmup GET throws", async () => {
+    fetchWithPinnedDns.mockRejectedValue(new Error("warmup timeout"));
+    const page = makeFakePage();
+    const { browser } = makeFakeBrowser(page);
+    launchMock.mockResolvedValue(browser);
+
+    await expect(
+      captureThumbnailScreenshot("https://site.fly.dev/x", {
+        isFinalUrlAllowed: () => true,
+      }),
+    ).resolves.toBeInstanceOf(Buffer);
+    expect(page.screenshot).toHaveBeenCalledTimes(1);
   });
 
   it("wraps a launch failure with the failing stage and preserves the cause", async () => {
@@ -247,20 +415,19 @@ describe("captureThumbnailScreenshot", () => {
   });
 
   it("skips the screenshot when the preview-host boot placeholder is showing", async () => {
-    let evaluateCalls = 0;
     const page = makeFakePage({
-      evaluate: vi.fn(async () => {
-        evaluateCalls += 1;
-        // 1st = fonts settle, 2nd = boot-page probe
-        if (evaluateCalls === 1) return undefined;
-        return {
-          title: "Startar preview",
-          h1: "Startar preview",
-          bodyText:
-            "Preview-host bygger projektet och startar Next.js i bakgrunden.\n" +
-            "Chat: 8aeac552-f309-4610-b9c0-6be7309d5c38\n" +
-            "Status: warm_project",
-        };
+      evaluate: vi.fn(async (fn: unknown) => {
+        if (classifyEvaluateScript(fn) === "probe") {
+          return {
+            title: "Startar preview",
+            h1: "Startar preview",
+            bodyText:
+              "Preview-host bygger projektet och startar Next.js i bakgrunden.\n" +
+              "Chat: 8aeac552-f309-4610-b9c0-6be7309d5c38\n" +
+              "Status: warm_project",
+          };
+        }
+        return defaultEvaluate(fn);
       }),
     });
     const { browser, closeSpy } = makeFakeBrowser(page);
@@ -276,16 +443,22 @@ describe("captureThumbnailScreenshot", () => {
     expect(err).toBeInstanceOf(PreviewHostBootPageError);
     expect(isPreviewHostBootPageError(err)).toBe(true);
     expect(page.screenshot).not.toHaveBeenCalled();
+    // Boot-page skip happens before visual settle — no scroll on a placeholder.
+    expect(
+      (page.evaluate as ReturnType<typeof vi.fn>).mock.calls.some(
+        (call) => classifyEvaluateScript(call[0]) === "scroll",
+      ),
+    ).toBe(false);
     expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 
   it("skips the screenshot when the page probe is empty, without blaming preview-host", async () => {
-    let evaluateCalls = 0;
     const page = makeFakePage({
-      evaluate: vi.fn(async () => {
-        evaluateCalls += 1;
-        if (evaluateCalls === 1) return undefined;
-        return { title: "", h1: null, bodyText: "" };
+      evaluate: vi.fn(async (fn: unknown) => {
+        if (classifyEvaluateScript(fn) === "probe") {
+          return { title: "", h1: null, bodyText: "" };
+        }
+        return defaultEvaluate(fn);
       }),
     });
     const { browser, closeSpy } = makeFakeBrowser(page);
