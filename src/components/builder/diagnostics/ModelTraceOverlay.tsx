@@ -333,16 +333,16 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                     <span className="text-slate-400">Thinking</span>
                     <span>{boolLabel(selected.thinkingRequested)}</span>
 
-                    <span className="text-slate-400">Forbattra</span>
+                    <span className="text-slate-400">Deep Brief-namn</span>
                     <span>{selected.promptAssistLabel}</span>
 
                     <span className="text-slate-400">Deep Brief-modell</span>
                     <span className="break-all">{selected.promptAssistModel}</span>
 
-                    <span className="text-slate-400">Assist provider</span>
+                    <span className="text-slate-400">Deep Brief-provider</span>
                     <span>{providerLabel(selected.promptAssistProvider)}</span>
 
-                    <span className="text-slate-400">Deep brief</span>
+                    <span className="text-slate-400">Deep Brief på/av</span>
                     <span>
                       {selected.promptAssistDeepActive
                         ? "Active"
@@ -367,7 +367,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                         statusChipClass(selected.promptAssistAllowed),
                       )}
                     >
-                      Assist allowlist: {selected.promptAssistAllowed ? "ok" : "blocked"}
+                      Deep Brief-allowlist: {selected.promptAssistAllowed ? "ok" : "blocked"}
                     </span>
                   </div>
                 </section>
@@ -473,7 +473,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
 
                 <details className="rounded-lg border border-white/10 bg-white/3 p-2">
                   <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
-                    Prompt Assist Options
+                    Deep Brief-modeller
                   </summary>
                   <div className="mt-2 space-y-2">
                     {snapshot.promptAssistOptions.map((option) => (

@@ -284,14 +284,14 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
     );
   }
   if (!selectedAssistAllowed) {
-    warnings.push(`Prompt assist model "${selectedAssistModel}" is not on the current allowlist.`);
+    warnings.push(`Deep Brief-modell "${selectedAssistModel}" is not on the current allowlist.`);
   }
   if (selectedAssistProvider === "openai" && !auth.openai) {
-    warnings.push("OpenAI prompt assist is selected, but OPENAI_API_KEY is missing.");
+    warnings.push("OpenAI Deep Brief is selected, but OPENAI_API_KEY is missing.");
   }
   if (selectedAssistProviderFamily !== "off" && !hasProviderKey(selectedAssistProviderFamily)) {
     warnings.push(
-      `Prompt assist model "${selectedAssistModel}" needs ${selectedAssistProviderFamily.toUpperCase()} credentials, but that key is missing.`,
+      `Deep Brief-modell "${selectedAssistModel}" needs ${selectedAssistProviderFamily.toUpperCase()} credentials, but that key is missing.`,
     );
   }
   if (promptAssistDeepRequested && !canUseDeepBrief) {
@@ -303,7 +303,7 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
     !isOpenAIAssistModel(selectedAssistModel)
   ) {
     warnings.push(
-      "Deep Brief was requested, but the selected prompt assist model is not deep-brief eligible.",
+      "Deep Brief was requested, but the selected brief model is not deep-brief eligible.",
     );
   }
 
@@ -335,8 +335,8 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
     notes: [
       '"/api/v0/*" builder generation routes currently resolve to the own engine, not the legacy v0 builder.',
       "Thinking is a boolean generation flag. It is not a separate model profile.",
-      "Prompt-assist model strings are provider-coded. Build profiles are internal tiers that resolve later.",
-      "OpenAI prompt assist uses createDirectModel() with OPENAI_API_KEY.",
+      "Deep Brief model strings (legacy key promptAssist) are provider-coded. Build profiles are internal tiers that resolve later. Prompt-assist is the pre-send button beside Plan, not this lane.",
+      "OpenAI Deep Brief uses createDirectModel() with OPENAI_API_KEY.",
     ],
   };
 }

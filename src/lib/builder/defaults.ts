@@ -1,21 +1,22 @@
 /**
- * Shared defaults and options for model tiers and prompt assist.
- * Used by Builder UI for model tier and prompt assist defaults.
+ * Shared defaults and options for model tiers and the Deep Brief model route.
+ * Used by Builder UI for model tier and Deep Brief defaults.
  *
  * CONCEPTS:
  *
  * Build Models:
- *   - The first group represents build profiles, not prompt-assist models.
+ *   - The first group represents build profiles, not Deep Brief models.
  *   - Profiles map to the own engine's provider model IDs (codegen is own-engine only).
  *   - own-engine is the canonical codegen path.
- *   - Prompt Assist models are listed separately below and are only a
- *     model hint to Deep Brief / auto-brief before the first build.
+ *   - Deep Brief models (legacy key `promptAssist`) are listed separately below
+ *     and are only a model hint to Deep Brief / auto-brief before the first build.
  *
- * Prompt Assist (preprocessing user prompts before generation):
- *   - off:            No preprocessing, send prompt directly to the build engine.
- *   - openai/*:       OpenAI prompt-assist path.
- *   - anthropic/*:    Anthropic prompt-assist path.
- *   - (v0 Model API is not used for prompt assist — only OpenAI/Anthropic direct.)
+ * Deep Brief model route (legacy identifiers: promptAssist / SAJTMASKIN_ASSIST_MODEL):
+ *   - off:            Skip the brief lane, send the prompt to the build engine.
+ *   - openai/*:       OpenAI Deep Brief path.
+ *   - anthropic/*:    Anthropic Deep Brief path.
+ *   - (v0 Model API is not used here — only OpenAI/Anthropic direct.)
+ *   - Not the Prompt-assist button beside Plan (that is a separate pre-send rewrite).
  *
  * Deep Brief Mode:
  *   When enabled, AI first generates a structured "brief" (specification)
