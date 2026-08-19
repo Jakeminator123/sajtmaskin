@@ -22,9 +22,29 @@ describe("buildScaffoldQueryContext", () => {
       toneAndVoice: ["lugn", "professionell"],
     });
     expect(ctx?.domainHints).toEqual(domainProfileToScaffoldHints("spa-salon"));
-    expect(ctx?.toneAndVoice).toEqual(["lugn", "professionell"]);
     expect(ctx?.domainHints).toContain("spa");
     expect(ctx?.domainHints).toContain("salong");
+  });
+
+  it("keeps tone-only brief data out of scaffold selection", () => {
+    expect(
+      buildScaffoldQueryContext({
+        toneAndVoice: ["personal", "creative"],
+      }),
+    ).toBeUndefined();
+  });
+
+  it("preserves explicit visual style as a scaffold-selection signal", () => {
+    expect(
+      buildScaffoldQueryContext({
+        visualDirection: { styleKeywords: ["personal", "creative"] },
+        toneAndVoice: ["lugn"],
+      }),
+    ).toEqual({
+      briefPages: [],
+      styleKeywords: ["personal", "creative"],
+      domainHints: [],
+    });
   });
 
   it("reads snapshot-shaped domainProfile objects", () => {
@@ -60,6 +80,33 @@ describe("brief domainProfile in scaffold match", () => {
       useEmbeddings: false,
       queryContext,
     });
+    expect(result.scaffold?.id).toBe("portfolio");
+  });
+
+  it("does not let personal+creative tone alone make portfolio eligible", async () => {
+    const queryContext = buildScaffoldQueryContext({
+      toneAndVoice: ["personal", "creative"],
+    });
+    const result = await matchScaffoldAuto("Jag vill ha en hemsida", "website", {
+      useEmbeddings: false,
+      queryContext,
+    });
+
+    expect(queryContext).toBeUndefined();
+    expect(result.meta.keywordScores.portfolio).toBe(0);
+    expect(result.scaffold?.id).toBe("landing-page");
+  });
+
+  it("still lets personal+creative style select portfolio", async () => {
+    const queryContext = buildScaffoldQueryContext({
+      visualDirection: { styleKeywords: ["personal", "creative"] },
+    });
+    const result = await matchScaffoldAuto("Jag vill ha en hemsida", "website", {
+      useEmbeddings: false,
+      queryContext,
+    });
+
+    expect(result.meta.keywordScores.portfolio).toBeGreaterThanOrEqual(2);
     expect(result.scaffold?.id).toBe("portfolio");
   });
 

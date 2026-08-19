@@ -121,7 +121,6 @@ export interface ScaffoldQueryContext {
   briefPages?: Array<{ name?: string; path?: string; purpose?: string }>;
   styleKeywords?: string[];
   domainHints?: string[];
-  toneAndVoice?: string[];
 }
 
 function sortScoresDesc<T extends { score: number }>(scores: T[]): T[] {
@@ -193,12 +192,10 @@ function applyBriefKeywordBoost(
   const briefPages = context.briefPages ?? [];
   const styleKeywords = context.styleKeywords ?? [];
   const domainHints = context.domainHints ?? [];
-  const toneAndVoice = context.toneAndVoice ?? [];
   const combinedText = [
     ...briefPages.map((page) => `${page.name ?? ""} ${page.path ?? ""} ${page.purpose ?? ""}`),
     ...styleKeywords,
     ...domainHints,
-    ...toneAndVoice,
   ]
     .join(" ")
     .toLowerCase();
@@ -234,9 +231,6 @@ function buildScaffoldPrompt(prompt: string, context: ScaffoldQueryContext | und
   }
   if (context.domainHints && context.domainHints.length > 0) {
     fragments.push(`Domain hints: ${context.domainHints.join(", ")}`);
-  }
-  if (context.toneAndVoice && context.toneAndVoice.length > 0) {
-    fragments.push(`Tone: ${context.toneAndVoice.join(", ")}`);
   }
   if (fragments.length === 0) return prompt;
   return `${prompt}\n\n${fragments.join("\n")}`;
@@ -687,8 +681,7 @@ export async function matchScaffoldAuto(
     options.queryContext &&
       ((options.queryContext.briefPages && options.queryContext.briefPages.length > 0) ||
         (options.queryContext.styleKeywords && options.queryContext.styleKeywords.length > 0) ||
-        (options.queryContext.domainHints && options.queryContext.domainHints.length > 0) ||
-        (options.queryContext.toneAndVoice && options.queryContext.toneAndVoice.length > 0)),
+        (options.queryContext.domainHints && options.queryContext.domainHints.length > 0)),
   );
   // Embedding query uses prompt+brief (`scaffoldPrompt`). Keyword selection
   // scores the original prompt, then `applyBriefKeywordBoost` adds real

@@ -23,7 +23,7 @@ Spåret är **inte** klart. Tabellen är live-status mot `master` / öppna PR:er
 | Docs + Deep Brief-etiketter | **Klar.** #1036, #1041 |
 | B1 | Öppen PR #1040 |
 | B10 | Öppen PR #1038 |
-| B11 | Öppen PR #1042 |
+| B11 | **Landad.** #1042. Follow-up-fixspår: ton separeras från scaffoldtyp. |
 | B2 | Inte startad. Väntar N1-resten. |
 | B4 | Inte startad. |
 | B5 | Inte startad. |
@@ -125,10 +125,13 @@ En preliminär hint har blivit ett persisterat beslut. Det är inte ett saknat
 steg — det är fel auktoritetsordning i ett steg som redan finns, och därför en
 egen punkt: [B7](aktiviteter/B7-variantens-auktoritetsordning.md).
 
-Att briefen skulle sakna makt över **scaffold** är däremot fel efter [B11](aktiviteter/B11-brief-i-scaffoldvalet.md)
-(öppen PR #1042): `pages`, `styleKeywords`, `domainProfile` och `toneAndVoice`
-väger in via `buildScaffoldQueryContext`. Äldre kod läste `businessType`/`industry`,
-som inte finns i `siteBriefSchema`.
+Att briefen skulle sakna makt över **scaffold** är däremot fel efter
+[B11](aktiviteter/B11-brief-i-scaffoldvalet.md), landad i #1042: `pages`,
+`styleKeywords` och `domainProfile` väger in via `buildScaffoldQueryContext`.
+Äldre kod läste `businessType`/`industry`, som inte finns i `siteBriefSchema`.
+#1042:s första landning tog även in `toneAndVoice`; det smala follow-up-fixspåret
+tar bort det från scaffold-keywords och scaffold-embedding. Ton styr copy och
+variant, men får inte ensam göra en domänscaffold valbar.
 
 ### Prompt-assist-addendumet är borttaget (B1)
 
@@ -240,7 +243,7 @@ löser den största kvalitetsskillnaden utan att kräva något nytt steg.
 | [B8](aktiviteter/B8-brief-paritet-website-app.md) | **Klar.** Brief-paritet: ta bort snabbspåret och 420-teckengränsen så hemsidor får samma väg som appar | `simple-website-path.ts` (raderad), `create-chat-stream-post.ts`, `orchestrate/resolve-base.ts` | nej |
 | [B9](aktiviteter/B9-inget-zip-i-hot-path.md) | **Klar.** #1037. Inget template-ZIP i hot path: `missing`/`stale`/`invalid` tysta och mätbara | `scaffold-variants/template-inspiration.ts` | nej |
 | [B10](aktiviteter/B10-prompt-assist-knapp.md) | Prompt-assist-knapp bredvid Plan: rätta/strukturera utkastet i rutan, eget modellsteg i Backoffice. **PR #1038 öppen.** | `ChatInterface.tsx`, `config/ai_models/manifest.json`, `backoffice/pages/ai_models.py` | **beslutat 2026-08-19** |
-| [B11](aktiviteter/B11-brief-i-scaffoldvalet.md) | Briefens `domainProfile` + `toneAndVoice` ska väga i scaffold-valet (keyword är för svagt). **PR #1042 öppen.** | `scaffold-query-context.ts`, `scaffolds/matcher.ts` | nej |
+| [B11](aktiviteter/B11-brief-i-scaffoldvalet.md) | **Landad #1042.** Briefens `pages` + `styleKeywords` + `domainProfile` väger i scaffold-valet. Follow-up-fixspåret håller `toneAndVoice` till copy/variant och utanför scaffold-keywords/embedding. | `scaffold-query-context.ts`, `scaffolds/matcher.ts` | nej |
 
 ## Auktoritetsordning (den enda)
 
