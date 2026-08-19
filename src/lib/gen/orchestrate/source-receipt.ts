@@ -28,6 +28,12 @@ const DESIGN_REFERENCE_BLOCK_KEYS = ["design_references"] as const;
 export type SourceReceiptInput = {
   variantTemplateInspiration?: VariantTemplateInspiration | null;
   variantTemplateAddendumState?: VariantTemplateAddendumResolution["state"] | null;
+  /**
+   * True when `buildVariantTemplateReferenceAttachments` produced a still
+   * image that is forwarded on the vision channel. Independent of whether
+   * the `variant_template_inspiration` text block survived token budget.
+   */
+  variantTemplateImageAttached?: boolean;
   uiRecipes?: ShadcnUiRecipe[];
   dossierSelection?: DossierSelectionResult | null;
   mediaCatalog?: MediaCatalogItem[];
@@ -77,7 +83,9 @@ export function buildSourceReceipt(input: SourceReceiptInput): GenerationSource[
       origin: "blob-template",
       reason: variantReason(input.variantTemplateAddendumState),
       authority: "inspiration",
-      reachedPrompt: reachedPrompt(input.pruning, VARIANT_BLOCK_KEYS),
+      reachedPrompt:
+        reachedPrompt(input.pruning, VARIANT_BLOCK_KEYS) ||
+        input.variantTemplateImageAttached === true,
     });
   }
 
