@@ -1,6 +1,8 @@
 # Explore
 
-Read-only kodbasutforskning. Använd när du vill få en tabell, karta, scorecard, risklista eller snabb audit utan att agenten ändrar filer.
+Sätter rollen **Scout**. Sign-off `— Scout A` (eller `B`). Ingen worktree.
+
+Read-only kodbasutforskning. Använd när du vill få en tabell, karta, scorecard, risklista eller snabb audit utan att agenten ändrar filer. Rollkommandot är [`scout.md`](scout.md).
 
 ## Grundregel
 

@@ -13,4 +13,8 @@ Kodidentifierare, filnamn, telemetri-nycklar, event-typer, enum-värden och DB-s
 
 **Viktig förväxling:** en importerad Template/ZIP/GitHub körs i **Importerat repo-läge**. Den importerade projektkontexten är Dynamic Context, inte builderns `Scaffold: Av`-basprojekt och inte en syntetisk Scaffold.
 
+**Viktig förväxling:** **Prompt-assist** är knappen bredvid Plan i chattinputen (rättar/strukturerar utkastet, naturligt språk). Det är inte Deep Brief, inte Orkestrering och inte Sajtagenten/OpenClaw. Kodnyckeln `promptAssist` är legacy för Deep Brief-modellen.
+
+**Viktig förväxling:** **rollen Builder** är en Cursor-agent som skriver kod. Den är inte produktens Builder-UI. **Steward** är förvaltaren (merge/städ); **Stewart** är samma roll. Se [agentroller](../../docs/architecture/glossary.md#kärntermer) och [`agent-roles.mdc`](agent-roles.mdc).
+
 **Signal-gate:** ny signal? Hitta canonical source först. Ändra ägaren, inte fem konsumenter.

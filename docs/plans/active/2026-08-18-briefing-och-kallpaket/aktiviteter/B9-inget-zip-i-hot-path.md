@@ -81,6 +81,17 @@ Gör hot path oförmögen att hämta ett arkiv.
    den bara efter att `templates:addenda:check` bevisat att registret är
    komplett, annars byter man en långsam väg mot en tom.
 
+## Ägarbeslut 2026-08-19
+
+**ZIP hämtas aldrig för inspiration** när en användarsajt byggs. B9 stänger
+fallbacken. Det är inte «välj en hel mall som projekt från prompten».
+
+Init väljer **variant**; varianten har en fast `sourceTemplateIds`-lista; därifrån
+tas högst ett addendum-utdrag + stillbild. Promptstyrd mall-inspiration går via
+varianten ([B7](B7-variantens-auktoritetsordning.md)). Direkt val bland
+`sourceTemplateIds` är en ny förmåga, inte B9. `POST /api/template` får fortfarande
+läsa ZIP — det är import, inte inspiration.
+
 ## Vad som INTE ingår
 
 - Flytta inte addendumet till Blob. Det är redan snabbare där det ligger.
@@ -88,6 +99,7 @@ Gör hot path oförmögen att hämta ett arkiv.
 - Rör inte verbatim-import (`POST /api/template`) — den **ska** läsa hela
   arkivet, det är hela dess uppgift.
 - Rör inte stillbilds-kanalen eller vision-budgeten.
+- Bygg inte prompt→mall-id-val här. Det är B7 (via variant) eller en senare punkt.
 
 ## Verifiering
 

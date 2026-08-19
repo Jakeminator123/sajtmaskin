@@ -20,6 +20,8 @@ en router till rules frontmatter; själva regeln äger sitt bindande innehåll.
 Git-/ändringsflödet ägs av [`git.mdc`](.cursor/rules/git.mdc),
 [`workflow.mdc`](.cursor/rules/workflow.mdc) och, för merge,
 [`pr-merge.mdc`](.cursor/rules/pr-merge.mdc).
+Cursor-roller (Scout / Builder / Steward) ägs av
+[`.cursor/rules/agent-roles.mdc`](.cursor/rules/agent-roles.mdc).
 
 ## Codex Desktop
 

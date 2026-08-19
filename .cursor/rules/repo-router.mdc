@@ -29,6 +29,7 @@ mental modell. Anta inte att du ser ocommittade filer.
 | Eval | `src/lib/gen/eval/`, `src/lib/gen/eval/README.md` — enda publika kommandot är `npm run eval` |
 | Backoffice | `sajtmaskin_backoffice.py`, `backoffice/pages/*.py` |
 | Terminologi | `.cursor/rules/terminology.mdc`, full lista i `docs/architecture/glossary.md` |
+| Agentroller | `.cursor/rules/agent-roles.mdc` — Scout / Builder / Steward, säte A/B |
 
 ## Legacy-noter
 

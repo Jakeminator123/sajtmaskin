@@ -14,11 +14,12 @@ Samma sak har fyra namn, och ett av dem beskriver en funktion som togs bort
 | `src/lib/hooks/useInitBrief.ts:72` | toast «Ogiltig förbättra-modell» | modellen som kör Deep Brief |
 | `src/components/builder/shell/BuilderHeader.tsx:244` | «Assist aktiv» | brief-lanen är påslagen |
 | `config/ai_models/20-prompt-assist.md` | filnamn + rubrik «Prompt assist» | dokumentation för brief-modellrutten |
-| `docs/architecture/glossary.md:33, 212` | «Prompt-assist … Inte en agent» | en förklaring som bara behövs så länge namnet finns |
+| `docs/architecture/glossary.md` | `Prompt-assist` = knappen bredvid Plan (ägarbeslut 2026-08-19) | Deep Brief-rutten får inte heta Prompt-assist i produkttext |
 
-Ordet «assist» antyder en agent som förbättrar användarens prompt. Det finns
-ingen sådan. Ordet «förbättra» pekar på en knapp som är borta. Båda kostar
-läsförståelse varje gång någon nyanställd, granskare eller agent läser koden.
+«Prompt-assist» **pensioneras inte** — se [B10](B10-prompt-assist-knapp.md).
+Ordet «förbättra» pekar på en knapp som är borta (2026-04-21) och får inte
+återanvändas för Deep Brief. Kodnyckeln `promptAssist` mappas i text till
+Deep Brief, inte till knappen.
 
 ## Uppgift
 
@@ -34,14 +35,16 @@ Krav:
   `promptAssist` kvar som alias bara om `manifest.schema.json` eller
   `manifest-parity.test.ts` kräver det — i så fall med en `notes`-rad som säger
   att det är legacy.
-- Byt användarsynlig text: «Ogiltig förbättra-modell» → «Ogiltig brief-modell»,
-  «Assist aktiv» → «Brief aktiv». Ingen ny yta, ingen ny badge.
+- Byt användarsynlig text som syftar på Deep Brief: «Ogiltig förbättra-modell» →
+  «Ogiltig brief-modell», «Assist aktiv» → «Brief aktiv». Rör inte knappen
+  Prompt-assist (B10). Ingen ny badge för brief-lanen.
 - Döp om `config/ai_models/20-prompt-assist.md` → `20-briefing.md` och uppdatera
   länkarna (`_READ_ME_FIRST.md`, `00-overview.md`, `docs/schemas/*`).
-- Uppdatera glossaryn: `Prompt-assist` flyttas från kärntermer till
-  namnskuggor/legacy med pekare till `Briefing`. Lägg in **Källpaket** som
-  produktord för samlingen av valbara ingredienser (beslut N2), med noten att
-  filnamnet `variant-template-addenda.json` behålls.
+- Flytta **inte** `Prompt-assist` till namnskuggor. Glossaryn äger redan
+  knappen (2026-08-19). Lägg in **Källpaket** som produktord för samlingen av
+  valbara ingredienser (beslut N2), med noten att filnamnet
+  `variant-template-addenda.json` behålls. Deep Brief-rutten mappas i
+  namnskuggor, inte som Prompt-assist.
 - Skriv in auktoritetsordningen (masterplanens tabell) i glossaryn eller
   `docs/schemas/llm-role-matrix.md` — en gång, en ägare.
 
@@ -69,6 +72,6 @@ Krav:
 
 ## Klart när
 
-Ingen text som en användare, ägare eller agent läser innehåller «Prompt-assist»,
-«Assist Model» eller «förbättra-modell» som en levande sak, samtidigt som varje
-env-nyckel, wire-fält och DB-kolumn är oförändrad.
+Ingen text som syftar på Deep Brief kallar den «Prompt-assist», «Assist Model»
+eller «förbättra-modell». Knappen Prompt-assist (B10) får heta just det.
+Env-nycklar, wire-fält och DB-kolumner med `promptAssist*` är oförändrade.
