@@ -393,7 +393,12 @@ function classifyInstallFailure(output, exitCode) {
 
   // Ingen restpost: kraschade barnprocessen innan den hann skriva något är
   // just det diagnosen, och det är det observerade 254-fallet.
-  if (!text.trim()) return "no_output";
+  //
+  // Tom sträng räcker inte som villkor. `runInstallCommandWithFallback` byter
+  // redan ut en tom utskrift mot sentineln «(No install output captured; …)»,
+  // så en klassificerare som bara testar `!text.trim()` skulle aldrig träffa
+  // det här fallet i produktion — bara i ett test som anropar den direkt.
+  if (!text.trim() || /No install output captured/i.test(text)) return "no_output";
 
   return exitCode === 254 ? "unknown_npm_crash" : "unknown";
 }

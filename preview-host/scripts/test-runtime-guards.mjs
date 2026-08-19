@@ -1120,6 +1120,20 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
       "a silent exit 254 is reported as no_output, not unknown",
       classifyInstallFailure("", 254) === "no_output",
     );
+    // Det ar SA det faktiskt ser ut i produktion: runInstallCommandWithFallback
+    // byter ut tom utskrift mot den har sentineln. Ett test som bara skickar ""
+    // bevisar ingenting om verkligt beteende.
+    check(
+      "the real captured-nothing sentinel also classifies as no_output",
+      classifyInstallFailure("(No install output captured; exit 254).", 254) === "no_output",
+    );
+    check(
+      "the fallback's two-attempt sentinel is still no_output",
+      classifyInstallFailure(
+        "[primary] npm install failed:\n(No install output captured; exit 254).\n\n[fallback] npm install --legacy-peer-deps failed:\n(No install output captured; exit 254).",
+        254,
+      ) === "no_output",
+    );
     check(
       "output without a known marker on 254 is an npm crash",
       classifyInstallFailure("something unexpected happened", 254) === "unknown_npm_crash",
