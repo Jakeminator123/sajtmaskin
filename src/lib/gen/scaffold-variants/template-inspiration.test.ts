@@ -10,58 +10,11 @@ import {
   VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS,
 } from "./template-inspiration";
 
-const archiveLoaderMock = vi.hoisted(() => {
-  const state = {
-    inFlight: 0,
-    maxInFlight: 0,
-    callCount: 0,
-    delayMs: 0,
-    files: [] as CodeFile[],
-  };
-
-  const loadLocalV0TemplateReferenceFiles = vi.fn(
-    async (templateId: string, options?: { timeoutMs?: number; signal?: AbortSignal }) => {
-      state.callCount += 1;
-      state.inFlight += 1;
-      state.maxInFlight = Math.max(state.maxInFlight, state.inFlight);
-      try {
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(resolve, state.delayMs);
-          const signal = options?.signal;
-          if (!signal) return;
-          const onAbort = () => {
-            clearTimeout(timer);
-            reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
-          };
-          if (signal.aborted) {
-            onAbort();
-            return;
-          }
-          signal.addEventListener("abort", onAbort, { once: true });
-        });
-        return {
-          source: { id: templateId },
-          files: state.files,
-        };
-      } finally {
-        state.inFlight -= 1;
-      }
-    },
-  );
-
-  return {
-    state,
-    loadLocalV0TemplateReferenceFiles,
-    reset() {
-      state.inFlight = 0;
-      state.maxInFlight = 0;
-      state.callCount = 0;
-      state.delayMs = 0;
-      state.files = [];
-      loadLocalV0TemplateReferenceFiles.mockClear();
-    },
-  };
-});
+const archiveLoaderMock = vi.hoisted(() => ({
+  loadLocalV0TemplateReferenceFiles: vi.fn(async () => {
+    throw new Error("hot path must not fetch template archives");
+  }),
+}));
 
 vi.mock("@/lib/templates/local-v0-template-source", () => ({
   loadLocalV0TemplateReferenceFiles: archiveLoaderMock.loadLocalV0TemplateReferenceFiles,
@@ -242,148 +195,97 @@ describe("extractVariantTemplateStructuralReferences", () => {
     expect(paths).toContain("components/hero.tsx");
   });
 
-  it("loads the selected ZIP once and applies the same structural bounds", async () => {
-    const loadFiles = vi.fn(async () => ({ files }));
-    const inspiration = await resolveVariantTemplateInspiration(
-      { sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"] },
-      {
-        includeStructure: true,
-        loadAddendum: () => ({ state: "missing", structuralReferences: null }),
-        loadFiles,
-      },
-    );
+  it("does not fetch the archive when the addendum is missing", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const inspiration = await resolveVariantTemplateInspiration(
+        { sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"] },
+        {
+          includeStructure: true,
+          loadAddendum: () => ({ state: "missing", structuralReferences: null }),
+        },
+      );
 
-    expect(loadFiles).toHaveBeenCalledTimes(1);
-    expect(loadFiles).toHaveBeenCalledWith("8QhCJAwn16K");
-    expect(inspiration?.structuralReferences).toHaveLength(3);
+      expect(archiveLoaderMock.loadLocalV0TemplateReferenceFiles).not.toHaveBeenCalled();
+      expect(inspiration?.templateId).toBe("8QhCJAwn16K");
+      expect(inspiration?.structuralReferences).toEqual([]);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("8QhCJAwn16K is missing; skipping archive fetch"),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("uses a valid addendum without touching the ZIP loader", async () => {
-    const loadFiles = vi.fn(async () => ({ files }));
     const structuralReferences = extractVariantTemplateStructuralReferences(files);
     const inspiration = await resolveVariantTemplateInspiration(
       { sourceTemplateIds: ["8QhCJAwn16K"] },
       {
         includeStructure: true,
         loadAddendum: () => ({ state: "hit", structuralReferences }),
-        loadFiles,
       },
     );
 
-    expect(loadFiles).not.toHaveBeenCalled();
+    expect(archiveLoaderMock.loadLocalV0TemplateReferenceFiles).not.toHaveBeenCalled();
     expect(inspiration?.structuralReferences).toEqual(structuralReferences);
   });
 
   it("uses the committed SHA-bound addendum by default", async () => {
-    const loadFiles = vi.fn(async () => ({ files }));
     const inspiration = await resolveVariantTemplateInspiration(
       { sourceTemplateIds: ["8QhCJAwn16K"] },
-      { includeStructure: true, loadFiles },
+      { includeStructure: true },
     );
 
-    expect(loadFiles).not.toHaveBeenCalled();
+    expect(archiveLoaderMock.loadLocalV0TemplateReferenceFiles).not.toHaveBeenCalled();
     expect(inspiration?.structuralReferences.length).toBeGreaterThan(0);
   });
 
   it("honors an explicitly disabled addendum without falling back to ZIP", async () => {
-    const loadFiles = vi.fn(async () => ({ files }));
-    const inspiration = await resolveVariantTemplateInspiration(
-      { sourceTemplateIds: ["8QhCJAwn16K"] },
-      {
-        includeStructure: true,
-        loadAddendum: () => ({ state: "disabled", structuralReferences: [] }),
-        loadFiles,
-      },
-    );
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const inspiration = await resolveVariantTemplateInspiration(
+        { sourceTemplateIds: ["8QhCJAwn16K"] },
+        {
+          includeStructure: true,
+          loadAddendum: () => ({ state: "disabled", structuralReferences: [] }),
+        },
+      );
 
-    expect(loadFiles).not.toHaveBeenCalled();
-    expect(inspiration?.structuralReferences).toEqual([]);
+      expect(archiveLoaderMock.loadLocalV0TemplateReferenceFiles).not.toHaveBeenCalled();
+      expect(inspiration?.structuralReferences).toEqual([]);
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
 
-describe("loadDefaultStructuralReferences archive timeout", () => {
-  const archiveFiles: CodeFile[] = [
-    {
-      path: "app/page.tsx",
-      language: "tsx",
-      content: "export default function Page() { return <main>Reference</main>; }",
-    },
-    {
-      path: "app/globals.css",
-      language: "css",
-      content: ":root { --radius: 1rem; }",
-    },
-  ];
-
-  const bypassAddendum = () =>
-    ({ state: "missing", structuralReferences: null }) as const;
-
+describe("resolveVariantTemplateInspiration archive silence", () => {
   beforeEach(() => {
-    archiveLoaderMock.reset();
-    archiveLoaderMock.state.files = archiveFiles;
+    archiveLoaderMock.loadLocalV0TemplateReferenceFiles.mockClear();
   });
 
-  it("caches a successful default archive load so the loader runs once across two calls", async () => {
-    archiveLoaderMock.state.delayMs = 5;
-
-    const options = {
-      includeStructure: true,
-      timeoutMs: 500,
-      loadAddendum: bypassAddendum,
-    };
-
-    const first = await resolveVariantTemplateInspiration(
-      { sourceTemplateIds: ["2fPrB0auQxF"] },
-      options,
-    );
-    const second = await resolveVariantTemplateInspiration(
-      { sourceTemplateIds: ["2fPrB0auQxF"] },
-      options,
-    );
-
-    expect(first?.structuralReferences.length).toBeGreaterThan(0);
-    expect(second?.structuralReferences).toEqual(first?.structuralReferences);
-    expect(archiveLoaderMock.state.callCount).toBe(1);
-    expect(archiveLoaderMock.loadLocalV0TemplateReferenceFiles).toHaveBeenCalledTimes(1);
-  });
-
-  /**
-   * withTimeout avbryter bara väntan; cache-posten raderas i catch medan den
-   * underliggande arkivläsningen lever kvar. Nästa anrop startar därför en
-   * andra samtidiga load för samma templateId.
-   */
-  it("does not start a second concurrent archive load for the same templateId after timeout", async () => {
-    archiveLoaderMock.state.delayMs = 200;
+  it.each([
+    ["stale", "2fPrB0auQxF"],
+    ["invalid", "0brPGNpjNkt"],
+  ] as const)("does not fetch the archive when the addendum is %s", async (state, templateId) => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    const options = {
-      includeStructure: true,
-      timeoutMs: 20,
-      loadAddendum: bypassAddendum,
-    };
-
     try {
-      const first = resolveVariantTemplateInspiration(
-        { sourceTemplateIds: ["0brPGNpjNkt"] },
-        options,
+      const inspiration = await resolveVariantTemplateInspiration(
+        { sourceTemplateIds: [templateId] },
+        {
+          includeStructure: true,
+          loadAddendum: () => ({ state, structuralReferences: null, detail: `${state} fixture` }),
+        },
       );
-      await first;
 
-      expect(archiveLoaderMock.state.callCount).toBeGreaterThanOrEqual(1);
-
-      const second = resolveVariantTemplateInspiration(
-        { sourceTemplateIds: ["0brPGNpjNkt"] },
-        options,
+      expect(archiveLoaderMock.loadLocalV0TemplateReferenceFiles).not.toHaveBeenCalled();
+      expect(inspiration?.structuralReferences).toEqual([]);
+      expect(inspiration?.stillImageUrl).toBeTruthy();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`${templateId} is ${state}; skipping archive fetch: ${state} fixture`),
       );
-      // Enough wall time for a cache-miss retry to call the loader again if it would.
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(archiveLoaderMock.state.maxInFlight).toBeLessThanOrEqual(1);
-
-      await second;
-      await vi.waitFor(() => {
-        expect(archiveLoaderMock.state.inFlight).toBe(0);
-      });
     } finally {
       warnSpy.mockRestore();
     }

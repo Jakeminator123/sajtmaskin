@@ -68,14 +68,11 @@ export type VariantTemplateInspiration = {
   structuralReferences: VariantTemplateStructuralReference[];
 };
 
-type TemplateFileLoader = (templateId: string) => Promise<{ files: CodeFile[] } | null>;
 type TemplateAddendumLoader = (templateId: string) => VariantTemplateAddendumResolution;
 
 type ResolveVariantTemplateInspirationOptions = {
   includeStructure?: boolean;
   loadAddendum?: TemplateAddendumLoader;
-  loadFiles?: TemplateFileLoader;
-  timeoutMs?: number;
 };
 
 const FULL_PROJECT_CATEGORY_SET = new Set<string>(VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES);
@@ -83,7 +80,6 @@ const REVIEWED_FULL_PROJECT_BY_ID: Readonly<
   Record<string, { category: string; archiveSha256: string }>
 > = VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS;
 const MAX_STRUCTURAL_EXCERPT_CHARS = 9_000;
-const DEFAULT_ARCHIVE_TIMEOUT_MS = 15_000;
 const STRUCTURAL_FILE_EXTENSIONS = [".tsx", ".jsx", ".ts", ".js", ".css"];
 
 function readManifestTemplates(): ManifestTemplate[] {
@@ -375,50 +371,11 @@ export function extractVariantTemplateStructuralReferences(
   });
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timeout = setTimeout(
-      () => reject(new Error(`Template archive read timed out after ${timeoutMs}ms`)),
-      timeoutMs,
-    );
-    promise.then(
-      (value) => {
-        clearTimeout(timeout);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timeout);
-        reject(error);
-      },
-    );
-  });
-}
-
-const structuralReferenceCache = new Map<string, Promise<VariantTemplateStructuralReference[]>>();
-
-async function loadDefaultStructuralReferences(
-  templateId: string,
-  timeoutMs: number,
-): Promise<VariantTemplateStructuralReference[]> {
-  const cached = structuralReferenceCache.get(templateId);
-  if (cached) return withTimeout(cached, timeoutMs);
-
-  const pending = (async () => {
-    const { loadLocalV0TemplateReferenceFiles } =
-      await import("@/lib/templates/local-v0-template-source");
-    const loaded = await loadLocalV0TemplateReferenceFiles(templateId, { timeoutMs });
-    return extractVariantTemplateStructuralReferences(loaded?.files ?? []);
-  })();
-  structuralReferenceCache.set(templateId, pending);
-  pending.catch(() => {
-    structuralReferenceCache.delete(templateId);
-  });
-  return withTimeout(pending, timeoutMs);
-}
-
 /**
- * Resolve one selected template. A SHA-bound, reviewable addendum is preferred;
- * the bounded ZIP reader remains a fail-open compatibility fallback.
+ * Resolve one selected template. A SHA-bound addendum is the only
+ * inspiration source in the user-site hot path. `missing` / `stale` /
+ * `invalid` stay silent (empty excerpts + still image) instead of
+ * fetching the archive. Offline `templates:addenda` still reads ZIPs.
  */
 export async function resolveVariantTemplateInspiration(
   variant: Pick<ScaffoldVariant, "sourceTemplateIds"> | null | undefined,
@@ -434,27 +391,16 @@ export async function resolveVariantTemplateInspiration(
   if (addendum.structuralReferences !== null) {
     return { ...selected, structuralReferences: addendum.structuralReferences };
   }
-  if (addendum.state === "stale" || addendum.state === "invalid") {
+
+  if (
+    addendum.state === "missing" ||
+    addendum.state === "stale" ||
+    addendum.state === "invalid"
+  ) {
     warnVariantTemplateAddendumFallback(selected.templateId, addendum);
   }
 
-  try {
-    const structuralReferences = options.loadFiles
-      ? extractVariantTemplateStructuralReferences(
-          (await options.loadFiles(selected.templateId))?.files ?? [],
-        )
-      : await loadDefaultStructuralReferences(
-          selected.templateId,
-          options.timeoutMs ?? DEFAULT_ARCHIVE_TIMEOUT_MS,
-        );
-    return { ...selected, structuralReferences };
-  } catch (error) {
-    console.warn(
-      `[variant-template-inspiration] Could not read ${selected.templateId}; continuing without structural excerpts:`,
-      error,
-    );
-    return { ...selected, structuralReferences: [] };
-  }
+  return { ...selected, structuralReferences: [] };
 }
 
 function stillImageExtension(url: string): string {

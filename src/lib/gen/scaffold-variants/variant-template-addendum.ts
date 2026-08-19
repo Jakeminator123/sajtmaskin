@@ -283,13 +283,13 @@ export function resolveVariantTemplateAddendum(
 
 export function warnVariantTemplateAddendumFallback(
   templateId: string,
-  resolution: { state: "stale" | "invalid"; detail?: string },
+  resolution: { state: "missing" | "stale" | "invalid"; detail?: string },
 ): void {
   const key = `${templateId}:${resolution.state}:${resolution.detail ?? ""}`;
   if (warnedAddendumProblems.has(key)) return;
   warnedAddendumProblems.add(key);
   console.warn(
-    `[variant-template-addendum] ${templateId} is ${resolution.state}; falling back to the bounded ZIP reader${
+    `[variant-template-addendum] ${templateId} is ${resolution.state}; skipping archive fetch${
       resolution.detail ? `: ${resolution.detail}` : ""
     }`,
   );

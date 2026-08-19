@@ -52,10 +52,9 @@ Krav:
 - Markera posten med 0 utdrag `disabled` — **radera den inte**. En
   `generated`-träff med tom `structuralReferences` är `hit` med `[]` och går
   **inte** till ZIP-läsaren (`template-inspiration.ts`); tom `generated` är
-  alltså tyst «ingen kodinspiration», inte en dold ZIP. Men ZIP-fallback är
-  `missing` / `stale` / `invalid` — en **raderad** post blir `missing` och
-  hämtar då hela arkivet i hot path (se [B9](B9-inget-zip-i-hot-path.md)).
-  `disabled` ger samma tysta utfall utan den risken.
+  alltså tyst «ingen kodinspiration», inte en dold ZIP. [B9](B9-inget-zip-i-hot-path.md)
+  stänger ZIP-vägen även för `missing` / `stale` / `invalid` (tomma utdrag +
+  varning). `disabled` är ändå rätt när posten medvetet inte ska ge inspiration.
 - Dokumentera i `docs/architecture/templates.md` att `generated` inte är samma
   kvalitetsnivå som `reviewed`, och vad runtime gör med respektive status.
 

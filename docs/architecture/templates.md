@@ -217,12 +217,11 @@ vad modellen får. Högst tre utdrag och totalt 9 000 tecken accepteras.
 - `generated` — deterministiskt skapat och direkt användbart;
 - `reviewed` — manuellt granskat/redigerat och bevarat av generatorn så länge
   ZIP-SHA:n är oförändrad;
-- `disabled` — skicka inga kodutdrag och hämta inte ZIP:en som fallback.
+- `disabled` — skicka inga kodutdrag och hämta inte arkivet.
 
 Om posten saknas, är ogiltig eller inte matchar manifestets `archiveSha256`
-används dagens begränsade ZIP-läsare som compatibility fallback. Ett litet
-utdrag av huvudsida, direkt använd komponent och global CSS/layout tas då fram
-efter att arkivet har verifierats mot samma SHA-256. Fel är fail-open: stillbild och
-variantens kuraterade regler finns kvar även om ZIP-fallbacken misslyckas.
+skickas inga kodutdrag. Arkivet hämtas inte i användarflödet; stillbilden och
+variantens kuraterade regler finns kvar. En varning loggas så tystnaden går
+att räkna. ZIP-läsningen finns kvar i offline-kommandot `templates:addenda`.
 Se `src/lib/gen/scaffold-variants/template-inspiration.ts` för urval och
-`variant-template-addendum.ts` för validering/fallbackkontrakt.
+`variant-template-addendum.ts` för validering.
