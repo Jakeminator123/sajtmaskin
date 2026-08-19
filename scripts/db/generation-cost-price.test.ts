@@ -108,6 +108,19 @@ describe("generation-cost pricing matches billing model-cost", () => {
     expect(basis.basis).toBe("ledger");
   });
 
+  it("keeps per-group totals summing to the aggregate", () => {
+    // Modell-, fas- och dagstabellerna kör resolveCostBasis per grupp medan
+    // rubriken kör den över alla. Går de isär visar vyn fyra siffror igen.
+    const groups = [
+      { rows: 4, ledgerRows: 4, ledgerUsd: 3.5, pricedUsd: 2.0 },
+      { rows: 4, ledgerRows: 2, ledgerUsd: 2.0, pricedUsd: 1.6 },
+      { rows: 3, ledgerRows: 0, ledgerUsd: 0, pricedUsd: 0.9 },
+    ];
+    const perGroup = groups.reduce((sum, g) => sum + resolveCostBasis([g]).totalUsd, 0);
+
+    expect(resolveCostBasis(groups).totalUsd).toBeCloseTo(perGroup, 6);
+  });
+
   it("handles an empty period without producing NaN", () => {
     const basis = resolveCostBasis([]);
 

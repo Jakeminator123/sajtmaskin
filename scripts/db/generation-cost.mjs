@@ -132,7 +132,7 @@ function toUsageRow(row) {
 
 function attachLedger(priced, raw) {
   const ledgerUsd = usd((Number(raw.ledgerMicroUsd) || 0) / 1e6);
-  return {
+  const group = {
     ...priced,
     // Token-priced estimate. The input/cache/output parts add up to this, not
     // to `totalUsd` — the ledger carries per-call long-context which summed
@@ -140,8 +140,11 @@ function attachLedger(priced, raw) {
     pricedUsd: priced.totalUsd,
     ledgerUsd,
     ledgerRows: Math.min(Number(raw.rows) || 0, Number(raw.ledgerRows) || 0),
-    totalUsd: priced.totalUsd,
   };
+  // Varje rad bär samma kostnadsgrund som huvudtotalen. Summan av grupperna är
+  // per konstruktion lika med aggregatet, så modell-, fas- och dagstabellerna
+  // stämmer mot rubriken i stället för att visa en fjärde siffra.
+  return { ...group, totalUsd: resolveCostBasis([group]).totalUsd };
 }
 
 try {
