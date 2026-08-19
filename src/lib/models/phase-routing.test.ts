@@ -181,6 +181,14 @@ describe("resolvePhaseThinking", () => {
     expect(resolvePhaseThinking("anthropic", "planner").reasoningEffort).toBe("high");
   });
 
+  it("pro generator runs at medium effort, planner keeps high (ägarbeslut 2026-08-19)", () => {
+    // Dolda reasoning-tokens var halva pro-codegens output-nota. Planeringen
+    // behåller high — där ÄR tänkandet jobbet. Vill man ha high-effort-bygge
+    // finns codex/max/premium kvar som medvetet dyra lägen.
+    expect(resolvePhaseThinking("pro", "generator").reasoningEffort).toBe("medium");
+    expect(resolvePhaseThinking("pro", "planner").reasoningEffort).toBe("high");
+  });
+
   it("max tier verifier runs without thinking, medium reasoning effort", () => {
     expect(resolvePhaseThinking("max", "verifier")).toEqual({
       phase: "verifier",

@@ -40,15 +40,19 @@ from typing import Any, Iterable
 from .pricing import PricingTable
 
 #: Alla LLM-/API-ytor som kan kosta pengar i en körning, och var de bor.
-#: `logged_today=False` = usage kastas idag (steg 2 i planen instrumenterar dem).
+#: `logged_today=True` = fasen skriver `llm_usage` via `recordLlmUsage` idag.
+#: Kartan speglar callsites i src/ (grep `recordLlmUsage(`) — uppdaterad
+#: 2026-08-19; den var stale och påstod att brief/verifier/fixer inte loggades.
 KNOWN_LLM_PHASES: tuple[dict[str, Any], ...] = (
-    {"phase": "codegen", "label": "Codegen-ström (own-engine)", "owner": "src/lib/gen/stream/finalize-version/", "logged_today": True},
-    {"phase": "brief", "label": "Deep Brief / Snapshot-Brief", "owner": "src/lib/builder/site-brief-generation.ts", "logged_today": False},
-    {"phase": "verifier", "label": "verifier", "owner": "src/lib/gen/verify/verifier-pass.ts", "logged_today": False},
-    {"phase": "fixer", "label": "RepairGate (LLM-fixer)", "owner": "src/lib/gen/autofix/llm-fixer.ts", "logged_today": False},
-    {"phase": "prompt_assist", "label": "Prompt assist", "owner": "src/lib/builder/prompt-assist/", "logged_today": False},
-    {"phase": "embeddings", "label": "Embeddings (scaffold/template)", "owner": "src/lib/gen/scaffolds/", "logged_today": False},
-    {"phase": "classifier", "label": "Intent-/match-klassificerare", "owner": "src/lib/providers/own-engine/", "logged_today": False},
+    {"phase": "codegen", "label": "Codegen-ström (own-engine)", "owner": "src/lib/gen/stream/stream-format.ts", "logged_today": True},
+    {"phase": "planner", "label": "Plan-läge (planner)", "owner": "src/lib/own-engine/session/own-engine-plan-mode.ts", "logged_today": True},
+    {"phase": "brief", "label": "Deep Brief / Snapshot-Brief", "owner": "src/lib/builder/site-brief-generation.ts", "logged_today": True},
+    {"phase": "verifier", "label": "verifier", "owner": "src/lib/gen/verify/verifier-pass.ts", "logged_today": True},
+    {"phase": "fixer", "label": "RepairGate (LLM-fixer)", "owner": "src/lib/gen/autofix/llm-fixer.ts", "logged_today": True},
+    {"phase": "prompt_assist", "label": "Prompt assist (heuristik, ingen LLM idag)", "owner": "src/lib/builder/prompt-assist/", "logged_today": False},
+    {"phase": "embeddings", "label": "Embeddings (scaffold/template)", "owner": "src/lib/gen/scaffolds/scaffold-search.ts", "logged_today": True},
+    {"phase": "classifier", "label": "Intent-/match-klassificerare", "owner": "src/lib/providers/own-engine/", "logged_today": True},
+    {"phase": "qa", "label": "QA-kortslutning i chatten", "owner": "src/lib/api/engine/chats/chat-message-stream/qa-short-circuit.ts", "logged_today": True},
     {"phase": "wizard", "label": "Wizard (enrich/competitors/lookup)", "owner": "src/app/api/wizard/", "logged_today": False},
     {"phase": "audit", "label": "Audit/analyze", "owner": "src/app/api/audit/", "logged_today": False},
     {"phase": "sajtagenten", "label": "Sajtagenten (OpenClaw-gateway)", "owner": "infra/openclaw/", "logged_today": False},
@@ -442,7 +446,7 @@ def build_coverage(
             item["reason"] = (
                 "inga rader för den här körningen"
                 if entry["logged_today"] or llm_usage_table_present
-                else "usage loggas inte idag (steg 2 i planen)"
+                else "usage loggas inte idag (fasen är inte instrumenterad)"
             )
             missing.append(item)
 

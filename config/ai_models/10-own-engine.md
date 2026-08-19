@@ -9,7 +9,9 @@
   hålls begränsad. `gpt-5.6-terra` och `gpt-5.6-luna` är valbara per fas i backoffice.
 - **Intern nyckel `max`** (i kod och `manifest.json`) är **inte** engelska «Max» i UI. I buildern heter den **`Tänker`** och mappar standard till **`gpt-5.5`** (`buildProfiles.defaults.max`).
 - **`codex`** är en **egen** byggprofil (standardmodell `gpt-5.3-codex` enligt manifest — samma modell-id som `pro`, men med codex-tirets högre reasoning-effort i fasrouting). Inte samma som `max` (GPT-5.5). Vardagsläge för stark resonemangsmodell är `max` / GPT-5.5.
-- **`thinking` i SSE:** [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts) skickar fasens `reasoningEffort` och valfria `reasoningMode` när thinking är på. GPT-5.6 väljer uttryckligen AI SDK:s Responses-provider, eftersom `reasoningMode` inte är en Chat Completions-kontroll.
+- **Effort-balans (ägarbeslut 2026-08-19):** `pro`-tirets **generator** kör `reasoningEffort: "medium"` — dolda reasoning-tokens var halva output-notan för default-tirets codegen, och medium är OpenAI:s rekommenderade balans för agentic coding. `pro`-plannern behåller `high` (planering ÄR tänkandet). `codex`/`max`/`premium` behåller high-effort-generatorer som medvetet dyra lägen.
+- **`thinking` i SSE:** [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts) skickar fasens `reasoningEffort`, `reasoningSummary: "auto"` och valfria `reasoningMode` när thinking är på. **Alla** OpenAI-modeller går via Responses API — i `@ai-sdk/openai` v3 är default-anropet `openai(id)` samma sak som `openai.responses(id)`; den explicita `.responses()`-grenen för GPT-5.6 är hängslen för `reasoningMode`.
+- **Synligt resonemang:** OpenAI exponerar aldrig rå chain-of-thought. `reasoningSummary: "auto"` beställer i stället modellens egen sammanfattning, som streamas som `reasoning-delta` → SSE-eventet `thinking` → chattens Reasoning-ruta (`MessageList.tsx`), samma väg som Anthropics riktiga thinking-deltas alltid tagit. Summary-tokens ingår i output-prissättningen som allt annat reasoning.
 
 ## Flöde
 

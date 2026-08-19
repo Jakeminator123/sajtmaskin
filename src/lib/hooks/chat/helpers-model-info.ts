@@ -65,7 +65,10 @@ export function buildModelInfoSteps(info: ModelInfoData): string[] {
     steps.push(`Provider: ${providerLabel}`);
   }
   if (typeof info.promptAssistModel === "string") {
-    steps.push(`Assist model: ${getPromptAssistModelLabel(info.promptAssistModel)}`);
+    // Kodnyckeln promptAssistModel är legacy för Deep Brief-modellen
+    // (terminology.mdc). Etiketten "Assist model" fick det att se ut som att
+    // en annan modell "tänkte" åt byggaren — det här är steget FÖRE bygget.
+    steps.push(`Deep Brief-modell: ${getPromptAssistModelLabel(info.promptAssistModel)}`);
   }
   if (typeof info.promptAssistDeep === "boolean") {
     steps.push(`Deep brief-inställning: ${info.promptAssistDeep ? "på" : "av"}`);

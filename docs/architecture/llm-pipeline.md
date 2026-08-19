@@ -108,6 +108,12 @@ emitterade reasoning) och **output** (första content-token → slut). Ägaren �
 `computeStreamPhaseTiming` i `stream-format.ts`. Det är inte samma klocka som
 `generation_telemetry.durationMs`.
 
+Reasoning-texten i strömmen: Anthropic skickar riktiga thinking-deltas;
+OpenAI exponerar aldrig rå chain-of-thought utan skickar bara en sammanfattning,
+och bara när `reasoningSummary: "auto"` beställs (görs i `engine.ts` när
+thinking är på). Båda vägarna blir `thinking`-SSE-event och renderas i chattens
+Reasoning-ruta. Se `config/ai_models/10-own-engine.md`.
+
 ## Fas 3 — Finalize, verifiering och preview
 
 Efter codegen ska output bli en körbar version.
