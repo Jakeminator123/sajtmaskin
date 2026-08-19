@@ -108,6 +108,23 @@ describe("codegen-strömmens tokenloggning", () => {
     expect(recordLlmUsage.mock.calls[0][0]).toMatchObject({ ok: false });
   });
 
+  it("bokför plan-läget som planner med modell trots att meta saknas", async () => {
+    const stream = createCodeGenSSEStream(
+      createResult([{ type: "text-delta", text: "plan" }, { type: "finish" }]),
+      { usagePhase: "planner", usageModelId: "gpt-5.3-codex" },
+    );
+    const reader = stream.getReader();
+    for (;;) {
+      const { done } = await reader.read();
+      if (done) break;
+    }
+    expect(recordLlmUsage).toHaveBeenCalledTimes(1);
+    expect(recordLlmUsage.mock.calls[0][0]).toMatchObject({
+      phase: "planner",
+      model: "gpt-5.3-codex",
+    });
+  });
+
   it("tål att usage inte går att läsa", async () => {
     const result: StreamResultLike = {
       fullStream: (async function* () {

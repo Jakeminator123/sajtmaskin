@@ -53,6 +53,11 @@ export interface GenerateOptions {
    * chain-of-thought is persisted alongside the assistant message.
    */
   onAccumulatedThinking?: (thinkingText: string | null) => void;
+  /**
+   * Fas för llm_usage-ledgern. Default `codegen`; plan-läget skickar
+   * `planner` så planeringskörningar inte bokförs som byggen.
+   */
+  usagePhase?: "codegen" | "planner";
 }
 
 /**
@@ -90,6 +95,7 @@ export function generateCode(
     maxSteps,
     referenceAttachments,
     onAccumulatedThinking,
+    usagePhase,
   } = options;
   const resolvedThinking = thinking ?? defaultThinkingEnabled;
 
@@ -122,6 +128,12 @@ export function generateCode(
     providerOptions = {
       openai: {
         reasoningEffort,
+        // OpenAI exposes no raw chain-of-thought; without this opt-in the
+        // Responses API sends zero reasoning text and the chat's Reasoning
+        // box stays empty for every OpenAI model. `auto` = the most detailed
+        // summarizer the model supports. Verified live 2026-08-19 against
+        // gpt-5.3-codex and gpt-5.6-sol (no org-verification block).
+        reasoningSummary: "auto",
         ...(reasoningMode ? { reasoningMode } : {}),
       },
     };
@@ -151,6 +163,8 @@ export function generateCode(
     meta,
     abortController: internalAbortController ?? undefined,
     onAccumulatedThinking,
+    usagePhase,
+    usageModelId: resolvedId,
   });
 }
 
@@ -169,6 +183,7 @@ export interface PipelineOptions {
   referenceAttachments?: GenerateOptions["referenceAttachments"];
   meta?: StreamMeta;
   onAccumulatedThinking?: GenerateOptions["onAccumulatedThinking"];
+  usagePhase?: GenerateOptions["usagePhase"];
 }
 
 export function createGenerationPipeline(options: PipelineOptions): ReadableStream<Uint8Array> {
@@ -187,6 +202,7 @@ export function createGenerationPipeline(options: PipelineOptions): ReadableStre
       maxSteps: options.maxSteps,
       referenceAttachments: options.referenceAttachments,
       onAccumulatedThinking: options.onAccumulatedThinking,
+      usagePhase: options.usagePhase,
     },
     options.meta,
   );

@@ -38,10 +38,12 @@ export function getOpenAIModel(modelId?: string) {
   }
 
   const openai = createOpenAI({ apiKey });
-  // GPT-5.6 reasoningMode (standard/pro), reasoningContext, and the full
-  // reasoning-effort range are Responses API features in @ai-sdk/openai.
-  // Select that provider explicitly so Premium cannot silently fall back to
-  // Chat Completions semantics.
+  // In @ai-sdk/openai v3 the default provider call `openai(id)` IS the
+  // Responses API model (createLanguageModel === createResponsesModel), so
+  // every OpenAI model here — including gpt-5.3-codex — talks to
+  // /v1/responses. The explicit `.responses()` branch for GPT-5.6 is kept as
+  // belt-and-braces: reasoningMode (standard/pro) is Responses-only, and this
+  // pins that guarantee even if a future SDK major changes the default again.
   if (id.startsWith("gpt-5.6-")) {
     return openai.responses(id);
   }

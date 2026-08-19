@@ -336,7 +336,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                     <span className="text-slate-400">Forbattra</span>
                     <span>{selected.promptAssistLabel}</span>
 
-                    <span className="text-slate-400">Assist model</span>
+                    <span className="text-slate-400">Deep Brief-modell</span>
                     <span className="break-all">{selected.promptAssistModel}</span>
 
                     <span className="text-slate-400">Assist provider</span>

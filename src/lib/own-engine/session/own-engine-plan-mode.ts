@@ -110,5 +110,8 @@ export function createPlanModePipelineStream(params: {
     maxSteps: 2,
     chatHistory: params.chatHistory,
     referenceAttachments: params.referenceAttachments,
+    // Plan-läget är planner-fasen i llm_usage — inte codegen. Utan denna
+    // bokfördes varje planering som ett bygge med model=null.
+    usagePhase: "planner",
   });
 }

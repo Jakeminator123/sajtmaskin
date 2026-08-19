@@ -264,6 +264,17 @@ export interface CreateCodeGenSSEStreamOptions {
   meta?: StreamMeta;
   abortController?: AbortController;
   /**
+   * Fas för llm_usage-raden. Plan-läget återanvänder codegen-strömmen men är
+   * `planner` i ledgern — utan denna bokförs planeringskörningar som codegen
+   * och fasrollups ljuger om var tokens faktiskt gick.
+   */
+  usagePhase?: "codegen" | "planner";
+  /**
+   * Modell-id för usage-raden när `meta.modelId` saknas (t.ex. plan-läget,
+   * som inte skickar meta för att inte emitta ett extra `meta`-SSE-event).
+   */
+  usageModelId?: string;
+  /**
    * Invoked when the stream finishes (success, abort, or error) with
    * the concatenated reasoning/`thinking-delta` text observed during the
    * run, or `null` if no reasoning deltas were seen. Callers use this
@@ -278,7 +289,7 @@ export function createCodeGenSSEStream(
   options: CreateCodeGenSSEStreamOptions = {},
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
-  const { thinking = false, meta, onAccumulatedThinking } = options;
+  const { thinking = false, meta, onAccumulatedThinking, usagePhase, usageModelId } = options;
   const stripLeadingThinkingLeak = createLeadingThinkingLeakFilter(!thinking);
 
   return new ReadableStream({
@@ -308,8 +319,8 @@ export function createCodeGenSSEStream(
           usage = await Promise.resolve(result.usage).catch(() => null);
         }
         recordLlmUsage({
-          phase: "codegen",
-          model: typeof meta?.modelId === "string" ? meta.modelId : null,
+          phase: usagePhase ?? "codegen",
+          model: typeof meta?.modelId === "string" ? meta.modelId : (usageModelId ?? null),
           modelTier: typeof meta?.modelTier === "string" ? meta.modelTier : null,
           usage,
           durationMs: durationMs ?? Date.now() - streamStartedAt,

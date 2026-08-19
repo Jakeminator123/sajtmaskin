@@ -82,6 +82,7 @@ describe("generateCode providerOptions", () => {
     expect(streamTextMock.mock.calls[0][0].providerOptions).toEqual({
       openai: {
         reasoningEffort: "medium",
+        reasoningSummary: "auto",
       },
     });
   });
@@ -101,6 +102,7 @@ describe("generateCode providerOptions", () => {
     expect(streamTextMock.mock.calls[0][0].providerOptions).toEqual({
       openai: {
         reasoningEffort: "high",
+        reasoningSummary: "auto",
         reasoningMode: "pro",
       },
     });

@@ -507,7 +507,18 @@ const MessageListComponent = ({
                 {message.role === "assistant" && reasoningPart && (
                   <Reasoning isStreaming={Boolean(message.isStreaming && !textContent)}>
                     <ReasoningTrigger />
-                    <ReasoningContent>{reasoningPart.reasoning}</ReasoningContent>
+                    <ReasoningContent>
+                      {/* OpenAI:s reasoning-summary kommer som markdown
+                          (**rubriker**, stycken) och Anthropics thinking har
+                          styckebrytningar — rå text kollapsade båda till en
+                          klump med synliga asterisker. */}
+                      <Streamdown
+                        components={STREAMDOWN_PLAIN_COMPONENTS}
+                        isAnimating={Boolean(message.isStreaming && !textContent)}
+                      >
+                        {reasoningPart.reasoning}
+                      </Streamdown>
+                    </ReasoningContent>
                   </Reasoning>
                 )}
 
