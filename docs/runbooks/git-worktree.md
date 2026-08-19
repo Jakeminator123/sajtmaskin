@@ -16,9 +16,21 @@ Huvudcheckouten delas av användaren och alla agenter. `git checkout`/`git switc
 - `git stash push -m "namn" -- <filer>` vid räddning
 - små docs-/regel-landningar direkt på `master` enligt [`.cursor/rules/git.mdc`](../../.cursor/rules/git.mdc) — då behövs ingen worktree
 
+## Vem behöver en worktree?
+
+Rollen äger frågan. Säg inte «gå till eget worktree» till varje agent.
+
+| Roll | Worktree? |
+|---|---|
+| Scout | Nej |
+| Builder | Ja, från `origin/master`. Därefter `npm run worktree:link` så `node_modules` pekar på huvudcheckoutens kopia. |
+| Steward | Nej för merge (`gh` räcker). Ja bara vid konflikt. |
+
+`node_modules` används hela tiden (typecheck, test, dev). Det finns **en** riktig installation — i huvudcheckouten. En worktree utan länk måste annars köra `npm ci` (~flera minuter). Ändra inte `package.json` i två Builder-säten samtidigt: de delar samma installation.
+
 ## Skapa en worktree
 
-Bredvid repo-roten, aldrig under `.cursor/`:
+Bredvid repo-roten, aldrig under `.cursor/`. Namn: `sajtmaskin-<säte>-<kort>`, till exempel `..\sajtmaskin-a-hoist`.
 
 ```powershell
 git worktree add ..\sajtmaskin-feat-X -b feat/X origin/master

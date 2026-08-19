@@ -30,6 +30,7 @@ Börja med [`repo-router.mdc`](rules/repo-router.mdc) och välj därefter ägare
 - ändrings-/Git-/mergeflöde: [`workflow.mdc`](rules/workflow.mdc),
   [`git.mdc`](rules/git.mdc), [`pr-merge.mdc`](rules/pr-merge.mdc),
   [`agent-worktree.mdc`](rules/agent-worktree.mdc),
+  [`agent-roles.mdc`](rules/agent-roles.mdc),
 - pipeline/runtime: [`pipeline-rules.mdc`](rules/pipeline-rules.mdc),
   [`scaffold-rules.mdc`](rules/scaffold-rules.mdc),
   [`evals.mdc`](rules/evals.mdc),
@@ -70,7 +71,9 @@ parallell owner.
 
 Kommandofilens instruktion är ägare; README:t återger inte dess steg, antal
 agenter eller historiska defaults. Se [`commands/`](commands/) och börja med
-den namngivna filen, till exempel [`automat.md`](commands/automat.md),
+den namngivna filen, till exempel [`scout.md`](commands/scout.md),
+[`builder.md`](commands/builder.md), [`steward.md`](commands/steward.md),
+[`automat.md`](commands/automat.md),
 [`kedja.md`](commands/kedja.md), [`avslutning.md`](commands/avslutning.md),
 [`buggrapport.md`](commands/buggrapport.md), [`pr-herde.md`](commands/pr-herde.md),
 [`logg.md`](commands/logg.md) eller
@@ -91,7 +94,8 @@ eller skill äger sin rollindelning. Kopiera inte modellsluggar eller mätdata h
 
 ## Flera agenter / parallellt arbete
 
-Branch-/worktree-regler ägs av
+Rollerna Scout / Builder / Steward och säte A/B ägs av
+[`rules/agent-roles.mdc`](rules/agent-roles.mdc). Branch-/worktree-regler ägs av
 [`rules/agent-worktree.mdc`](rules/agent-worktree.mdc). Scope, staging och
 verifiering ägs av [`rules/workflow.mdc`](rules/workflow.mdc) och
 [`rules/git.mdc`](rules/git.mdc).

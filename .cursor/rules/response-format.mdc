@@ -14,8 +14,10 @@ alwaysApply: true
 | Svenska | Svara på svenska om användaren gör det. Kodnamn/filnamn lämnas på engelska. |
 | Plan betyder plan | Om användaren ber om plan: börja inte implementera utan OK. |
 | Osäkerhet | Säg kort vad som är verifierat och vad som är antagande. |
+| Roll | Sista raden är alltid `— Scout A` / `— Builder B` / `— Steward A`. Rollerna ägs av [`agent-roles.mdc`](agent-roles.mdc). |
 
 Exempel på avslut: `Säkerhet: 80 %. Verifierat mot filer, inte livekört.`
+`— Builder A`
 
 ## Parentesregeln i praktik
 

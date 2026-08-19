@@ -1,5 +1,8 @@
 # PR-herde
 
+Det här är **Steward**-loopen för öppna PR:er. Sign-off `— Steward A`.
+Rollkommandot är [`steward.md`](steward.md).
+
 Driver öppna PR:er från «PR:en finns» till «mergad» utan att en människa behöver
 vara mellanhand. `/post-review` täcker granskning **före** commit; den här täcker
 allt **efter** att PR:en är uppe.
@@ -28,8 +31,8 @@ Kör den inte på en enda PR du själv nyss skapat: då räcker författardelen 
 
 | Roll | Gör | Gör aldrig |
 |---|---|---|
-| **Författare** | Hämtar fynden, triagerar, signerar, sätter labeln | Mergar |
-| **Herde/mergare** | Verifierar grinden, mergar, rapporterar krockar | Sätter labels, skriver på annans branch, rebasar åt någon |
+| **Builder** (författare) | Hämtar fynden, triagerar, signerar, sätter labeln | Mergar |
+| **Steward** (herde) | Verifierar grinden, mergar, rapporterar krockar | Sätter labels, skriver på annans branch, rebasar åt någon |
 
 ## Arbetsordning för herden
 
