@@ -299,6 +299,24 @@ function looksLikeStatementBlockOpen(source: string, openIdx: number): boolean {
 }
 
 /**
+ * True only when `name` is the local binding of an import from `moduleRe`
+ * in the same declaration. Independent `from "next/script"` + `import Script`
+ * checks would hoist a local `<Script>` when next/script is aliased
+ * (F-336d29e84d4a).
+ */
+function importBindsNameFromModule(
+  source: string,
+  name: string,
+  moduleRe: string,
+): boolean {
+  const n = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Named local binding is `Name` or `Foo as Name`, not `Name as Other`.
+  return new RegExp(
+    String.raw`import\s+(?!type\s)(?:${n}\b(?:\s*,\s*\{[^}]*\})?|\*\s+as\s+${n}\b|\{(?:[^}]*,)*\s*(?:type\s+)?(?:[\w$]+\s+as\s+)?${n}\s*(?:,[^}]*)?\})\s+from\s+["'](?:${moduleRe})["']`,
+  ).test(source);
+}
+
+/**
  * next/script `<Script>` and Vercel `<Analytics />` only. A local component
  * with the same name must stay put — the hoist regex matches the tag name,
  * not the import.
@@ -306,15 +324,13 @@ function looksLikeStatementBlockOpen(source: string, openIdx: number): boolean {
 function isHoistableTagName(name: string, source: string): boolean {
   if (name === "script") return true;
   if (name === "Script") {
-    return (
-      /from\s+["']next\/script["']/.test(source) &&
-      /import\s+(?!type\s)(?:Script\b|\{[^}]*\bScript\b)/.test(source)
-    );
+    return importBindsNameFromModule(source, "Script", String.raw`next\/script`);
   }
   if (name === "Analytics") {
-    return (
-      /from\s+["']@vercel\/analytics(?:\/(?:next|react))?["']/.test(source) &&
-      /import\s+(?!type\s)(?:Analytics\b|\{[^}]*\bAnalytics\b)/.test(source)
+    return importBindsNameFromModule(
+      source,
+      "Analytics",
+      String.raw`@vercel\/analytics(?:\/(?:next|react))?`,
     );
   }
   return false;

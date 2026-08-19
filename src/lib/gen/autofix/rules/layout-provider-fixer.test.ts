@@ -762,6 +762,62 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     expect(layoutOf(result.files)).toBe(local.content);
   });
 
+  it("does not hoist a local Script when next/script is imported under another name (F-336d29e84d4a)", () => {
+    const aliased: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import NextScript from "next/script";
+import Script from "./local";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          <Script />
+          <NextScript src="https://example.com/x.js" />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([aliased, PKG_WITH_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).toBe(aliased.content);
+  });
+
+  it("does not hoist a local Analytics when @vercel/analytics is imported under another name", () => {
+    const aliased: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
+import Analytics from "./local";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main>{children}</main>
+          <Analytics />
+          <VercelAnalytics />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([aliased, PKG_WITH_NEXT_THEMES]);
+    expect(result.fixes).toHaveLength(0);
+    expect(layoutOf(result.files)).toBe(aliased.content);
+  });
+
   it("motprov: still hoists next/script Script when the import is present", () => {
     const nextScript: CodeFile = {
       path: "app/layout.tsx",
