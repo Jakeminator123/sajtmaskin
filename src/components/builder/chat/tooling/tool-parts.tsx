@@ -21,7 +21,6 @@ import {
   ServerRepairPanel,
 } from "../review-panels";
 import { LiveReviewRow } from "../LiveReviewRow";
-import type { LiveReviewResult } from "@/lib/gen/verify/live-review-types";
 import type { CompactToolPartsProps, StructuredToolPartsProps } from "./types";
 import {
   dedupeStrings,

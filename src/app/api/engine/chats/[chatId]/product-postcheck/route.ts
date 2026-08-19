@@ -209,13 +209,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
 
     if (isLiveReviewEnabled() && !result.skipped) {
       try {
-        const parentVersionId = scopedVersion.version.parent_version_id ?? null;
-        let parentFilesJson: string | null = null;
-        if (parentVersionId) {
-          const { getVersionById } = await import("@/lib/db/chat-repository-pg");
-          const parent = await getVersionById(parentVersionId).catch(() => null);
-          parentFilesJson = parent?.files_json ?? null;
-        }
+        // Follow-up signal is `version_number > 1`, not `parent_version_id`
+        // (that column is F3-fork lineage only). Previous files/screenshots
+        // are resolved inside maybeAttachLiveReview via chat version order.
         result.liveReview = await maybeAttachLiveReview({
           skipped: result.skipped,
           findings: result.warnings.map((warning) => ({
@@ -225,9 +221,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           screenshots: result.screenshots,
           domSummary: result.domSummary,
           versionId: resolvedVersionId,
-          parentVersionId,
+          chatId,
+          versionNumber: scopedVersion.version.version_number,
           filesJson: scopedVersion.version.files_json,
-          parentFilesJson,
           userRequest: pickUserRequest(scopedVersion.chat.messages ?? []),
           briefSummary: summarizeBrief(scopedVersion.chat.orchestration_snapshot),
         });

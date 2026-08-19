@@ -137,7 +137,13 @@ const PREVIEW_BOOT_MAX_WAIT_MS = 20_000;
 const PREVIEW_BOOT_RETRY_INTERVAL_MS = 2_000;
 /** Soft deadline for extra crawl hops — API route maxDuration is 60s and Next
  *  dev compiles each route on demand. Checked before each additional route. */
-const CRAWL_DEADLINE_MS = 25_000;
+export const CRAWL_DEADLINE_MS = 25_000;
+
+/** Extend the crawl window by time spent on the start-page JPEG so capture
+ *  cannot starve same-origin hops when live review is on. */
+export function resolveCrawlDeadlineMs(baseDeadlineMs: number, captureDurationMs: number): number {
+  return baseDeadlineMs + Math.max(0, captureDurationMs);
+}
 const MAX_CRAWL_ROUTES = 5;
 /** Cap per advisory code so one broken loop cannot flood the log. */
 const MAX_WARNINGS_PER_RUNTIME_CODE = 3;
@@ -1058,17 +1064,22 @@ export async function runProductPostcheck(params: {
     let desktopJpeg: Buffer | null = null;
     let mobileJpeg: Buffer | null = null;
     let domSummary: ProductDomSummary | null = null;
+    let desktopCaptureMs = 0;
     const captureEnabled = isLiveReviewEnabled();
     if (captureEnabled) {
       // Start page, before the crawl walks desktop off the homepage.
+      const captureStartedAt = Date.now();
       desktopJpeg = await capturePostcheckJpeg(page);
+      desktopCaptureMs = Date.now() - captureStartedAt;
       const liveProbe = await readPageProbe(page);
       domSummary = buildDomSummary(snapshot, liveProbe ?? firstProbe);
     }
 
     // Bounded same-origin crawl on DESKTOP only (mobile stays start-page-only
     // for cost control). Next-dev compiles each route on demand, so we stop
-    // when the soft deadline is exceeded.
+    // when the soft deadline is exceeded. Capture time is added back so a
+    // slow JPEG cannot shrink the crawl window.
+    const crawlDeadlineMs = resolveCrawlDeadlineMs(CRAWL_DEADLINE_MS, desktopCaptureMs);
     const hrefsRaw = await page
       .evaluate(() =>
         Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).map(
@@ -1082,7 +1093,7 @@ export async function runProductPostcheck(params: {
       MAX_CRAWL_ROUTES,
     );
     for (const routeUrl of crawlRoutes) {
-      if (Date.now() - startedAt >= CRAWL_DEADLINE_MS) break;
+      if (Date.now() - startedAt >= crawlDeadlineMs) break;
       try {
         currentRoute = pathnameOf(routeUrl);
         desktopLeftStartUrl = true;

@@ -18,7 +18,6 @@ import { extractBriefSummaryFromSnapshot } from "@/lib/gen/orchestration-snapsho
 import { isAutoRepairPromptMessage, isF3KickPromptMessage } from "@/lib/builder/types";
 import {
   ReviewDecisionSchema,
-  parseReviewDecision,
   tryParseReviewDecision,
   type LiveReviewResult,
   type LiveReviewScreenshotSet,
@@ -50,6 +49,7 @@ export type {
 } from "./live-review-types";
 
 const BLOCKING_RUNTIME_CODES = new Set(["runtime_crash", "preview_boot_page"]);
+const UNREADABLE_CODES = new Set(["preview_probe_unreadable"]);
 const SENSOR_CODES = new Set([
   "console_error",
   "request_failed",
@@ -63,7 +63,14 @@ const SENSOR_CODES = new Set([
   "runtime_crash",
 ]);
 
-const REVIEW_TIMEOUT_MS = 20_000;
+/**
+ * Per model attempt. `generateObject` uses `maxRetries: 0` so this budget is
+ * not split with an SDK retry. The default+fallback chain shares
+ * `LIVE_REVIEW_TOTAL_TIMEOUT_MS` — remaining wall time caps each attempt.
+ */
+export const LIVE_REVIEW_ATTEMPT_TIMEOUT_MS = 45_000;
+/** Wall-clock cap for the whole default + fallback chain. */
+export const LIVE_REVIEW_TOTAL_TIMEOUT_MS = 90_000;
 const MAX_OUTPUT_TOKENS = 1200;
 const MAX_USER_REQUEST_CHARS = 4000;
 const MAX_BRIEF_CHARS = 1200;
@@ -90,15 +97,34 @@ export function hasBlockingRuntimeCrash(findings: readonly ReviewFinding[]): boo
   return findings.some((finding) => BLOCKING_RUNTIME_CODES.has(finding.code));
 }
 
+export function hasUnreadablePreview(findings: readonly ReviewFinding[]): boolean {
+  return findings.some((finding) => UNREADABLE_CODES.has(finding.code));
+}
+
 export function sensorsAlarmed(findings: readonly ReviewFinding[]): boolean {
   return findings.some((finding) => SENSOR_CODES.has(finding.code));
+}
+
+/**
+ * F2 follow-ups increment `engine_versions.version_number`.
+ * `parent_version_id` is only set on F3 forks — do not use it as the
+ * init-vs-follow-up signal.
+ */
+export function isChatFollowUpVersion(versionNumber: number | null | undefined): boolean {
+  return typeof versionNumber === "number" && Number.isFinite(versionNumber) && versionNumber > 1;
+}
+
+export function hasCurrentScreenshots(
+  screenshots: LiveReviewScreenshotSet | null | undefined,
+): boolean {
+  return Boolean(screenshots?.desktopUrl || screenshots?.mobileUrl);
 }
 
 export function shouldRunLiveReview(params: {
   enabled?: boolean;
   skipped: boolean;
   findings: readonly ReviewFinding[];
-  parentVersionId: string | null;
+  isFollowUp: boolean;
 }): { run: boolean; reason?: LiveReviewSkipReason } {
   if (!(params.enabled ?? isLiveReviewEnabled())) {
     return { run: false, reason: "flag_off" };
@@ -108,7 +134,10 @@ export function shouldRunLiveReview(params: {
     const boot = params.findings.some((finding) => finding.code === "preview_boot_page");
     return { run: false, reason: boot ? "preview_not_ready" : "runtime_crash" };
   }
-  if (params.parentVersionId && !sensorsAlarmed(params.findings)) {
+  if (hasUnreadablePreview(params.findings)) {
+    return { run: false, reason: "preview_unreadable" };
+  }
+  if (params.isFollowUp && !sensorsAlarmed(params.findings)) {
     return { run: false, reason: "followup_no_sensor" };
   }
   return { run: true };
@@ -290,12 +319,66 @@ export function assembleReviewBundle(params: {
   };
 }
 
-function resolveLiveReviewModelId(): string | null {
-  return (
-    getWorkloadDefaultModelFromManifest(LIVE_REVIEW_WORKLOAD_ID) ??
-    getWorkloadFallbackModelsFromManifest(LIVE_REVIEW_WORKLOAD_ID)[0] ??
-    null
-  );
+function uniqueModelIds(ids: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    const trimmed = id?.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+export function resolveLiveReviewModelIds(override?: string): string[] {
+  if (override?.trim()) return [override.trim()];
+  return uniqueModelIds([
+    getWorkloadDefaultModelFromManifest(LIVE_REVIEW_WORKLOAD_ID),
+    ...getWorkloadFallbackModelsFromManifest(LIVE_REVIEW_WORKLOAD_ID),
+  ]);
+}
+
+export function versionOrdinal(version: {
+  version_number?: number | null;
+  versionNumber?: number | null;
+}): number | null {
+  const value = version.version_number ?? version.versionNumber;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/** Latest earlier version in the same chat — not `parent_version_id` (F3-only). */
+export function pickPreviousVersionInChat<
+  T extends { id: string; version_number?: number | null; versionNumber?: number | null },
+>(versions: readonly T[], current: { id: string; version_number?: number | null; versionNumber?: number | null }): T | null {
+  const currentNum = versionOrdinal(current) ?? versionOrdinal(versions.find((row) => row.id === current.id) ?? { id: "" });
+  if (currentNum == null) return null;
+  let best: T | null = null;
+  let bestNum = Number.NEGATIVE_INFINITY;
+  for (const row of versions) {
+    if (row.id === current.id) continue;
+    const num = versionOrdinal(row);
+    if (num == null || num >= currentNum) continue;
+    if (num > bestNum) {
+      best = row;
+      bestNum = num;
+    }
+  }
+  return best;
+}
+
+export async function loadPreviousChatVersion(
+  chatId: string,
+  current: { id: string; version_number?: number | null; versionNumber?: number | null },
+): Promise<{ id: string; files_json: string | null } | null> {
+  try {
+    const { getVersionsByChat } = await import("@/lib/db/chat-repository-pg");
+    const previous = pickPreviousVersionInChat(await getVersionsByChat(chatId), current);
+    if (!previous) return null;
+    return { id: previous.id, files_json: previous.files_json ?? null };
+  } catch {
+    return null;
+  }
 }
 
 function bundleAsPrompt(bundle: ReviewBundle): string {
@@ -337,15 +420,11 @@ function screenshotParts(screenshots: LiveReviewScreenshotSet): ImagePart[] {
   return parts;
 }
 
-export async function runLiveReview(
+async function reviewWithModel(
   bundle: ReviewBundle,
-  opts: { timeoutMs?: number; modelId?: string } = {},
+  modelId: string,
+  timeoutMs: number,
 ): Promise<LiveReviewResult> {
-  const modelId = opts.modelId ?? resolveLiveReviewModelId();
-  if (!modelId) {
-    return { status: "skipped", reason: "model_unavailable", detail: "manifest saknar live_review-modell" };
-  }
-
   let model;
   try {
     model = createDirectModel(modelId);
@@ -358,7 +437,7 @@ export async function runLiveReview(
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), opts.timeoutMs ?? REVIEW_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
   let usageRecorded = false;
   try {
@@ -374,7 +453,7 @@ export async function runLiveReview(
         },
       ],
       maxOutputTokens: MAX_OUTPUT_TOKENS,
-      maxRetries: 1,
+      maxRetries: 0,
       abortSignal: controller.signal,
     });
     recordLlmUsage({
@@ -385,8 +464,6 @@ export async function runLiveReview(
       durationMs: Date.now() - startedAt,
     });
     usageRecorded = true;
-    // Explicit parse failure — never shape-match against the fallback
-    // sentinel: advisory/0/no-issues is a schema-valid real outcome.
     const decision = tryParseReviewDecision(result.object);
     if (!decision) {
       return { status: "skipped", reason: "invalid_model_output" };
@@ -419,6 +496,36 @@ export async function runLiveReview(
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+export async function runLiveReview(
+  bundle: ReviewBundle,
+  opts: { timeoutMs?: number; totalTimeoutMs?: number; modelId?: string } = {},
+): Promise<LiveReviewResult> {
+  const modelIds = resolveLiveReviewModelIds(opts.modelId);
+  if (modelIds.length === 0) {
+    return { status: "skipped", reason: "model_unavailable", detail: "manifest saknar live_review-modell" };
+  }
+
+  const chainStartedAt = Date.now();
+  const totalTimeoutMs = opts.totalTimeoutMs ?? LIVE_REVIEW_TOTAL_TIMEOUT_MS;
+  const perAttemptMs = opts.timeoutMs ?? LIVE_REVIEW_ATTEMPT_TIMEOUT_MS;
+  let last: LiveReviewResult = {
+    status: "skipped",
+    reason: "model_unavailable",
+    detail: "manifest saknar live_review-modell",
+  };
+
+  for (const modelId of modelIds) {
+    const remaining = totalTimeoutMs - (Date.now() - chainStartedAt);
+    if (remaining <= 0) {
+      return { status: "skipped", reason: "review_error", detail: "total review timeout" };
+    }
+    last = await reviewWithModel(bundle, modelId, Math.min(perAttemptMs, remaining));
+    if (last.status === "completed") return last;
+    if (last.status === "skipped" && last.reason === "invalid_model_output") return last;
+  }
+  return last;
 }
 
 export async function loadPreviousLiveReviewScreenshots(
@@ -454,28 +561,48 @@ export async function maybeAttachLiveReview(params: {
   screenshots: LiveReviewScreenshotSet | null | undefined;
   domSummary: ProductDomSummary | null | undefined;
   versionId: string;
-  parentVersionId: string | null;
+  chatId?: string;
+  versionNumber?: number | null;
+  previousVersionId?: string | null;
   filesJson: string | null | undefined;
   parentFilesJson?: string | null;
   userRequest: string;
   briefSummary: string;
+  enabled?: boolean;
 }): Promise<LiveReviewResult> {
+  const isFollowUp =
+    isChatFollowUpVersion(params.versionNumber) || Boolean(params.previousVersionId);
   const gate = shouldRunLiveReview({
+    enabled: params.enabled,
     skipped: params.skipped,
     findings: params.findings,
-    parentVersionId: params.parentVersionId,
+    isFollowUp,
   });
   if (!gate.run) {
     return { status: "skipped", reason: gate.reason ?? "flag_off" };
   }
+  if (!hasCurrentScreenshots(params.screenshots)) {
+    return { status: "skipped", reason: "no_screenshots" };
+  }
 
-  const previous = await loadPreviousLiveReviewScreenshots(params.parentVersionId);
+  let previousVersionId = params.previousVersionId ?? null;
+  let parentFilesJson = params.parentFilesJson ?? null;
+  if (isFollowUp && params.chatId && (!previousVersionId || parentFilesJson == null)) {
+    const loaded = await loadPreviousChatVersion(params.chatId, {
+      id: params.versionId,
+      version_number: params.versionNumber ?? null,
+    });
+    previousVersionId = previousVersionId ?? loaded?.id ?? null;
+    parentFilesJson = parentFilesJson ?? loaded?.files_json ?? null;
+  }
+
+  const previous = await loadPreviousLiveReviewScreenshots(previousVersionId);
   const bundle = assembleReviewBundle({
     versionId: params.versionId,
-    parentVersionId: params.parentVersionId,
+    parentVersionId: previousVersionId,
     userRequest: params.userRequest,
     briefSummary: params.briefSummary,
-    changedFiles: listChangedFiles(params.filesJson, params.parentFilesJson),
+    changedFiles: listChangedFiles(params.filesJson, parentFilesJson),
     screenshots: {
       desktopUrl: params.screenshots?.desktopUrl ?? null,
       mobileUrl: params.screenshots?.mobileUrl ?? null,

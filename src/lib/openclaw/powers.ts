@@ -118,8 +118,12 @@ export function resolveOpenClawPowers(input: OpenClawPowersInput): OpenClawPower
  * server can narrow the edit system prompt to exactly what the user granted.
  */
 export function activeOpenClawPowerIds(input: OpenClawPowersInput): OpenClawPowerId[] {
-  if (!resolveOpenClawPowers(input).any) return [];
-  return sanitizeOpenClawPowerIds(input.granted);
+  // Do not gate on `.any`: a live_review-only grant leaves `any` false
+  // (edit surfaces stay closed) but the client must still send the id so
+  // the server can see the critic tick. Authority is re-resolved server-side.
+  if (!input.editEnabled || !input.powersOn) return [];
+  const granted = sanitizeOpenClawPowerIds(input.granted);
+  return granted.length > 0 ? granted : [];
 }
 
 /**

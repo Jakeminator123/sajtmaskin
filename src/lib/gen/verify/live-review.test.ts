@@ -16,11 +16,16 @@ vi.mock("@/lib/vercel/blob-service", () => ({ uploadBlob }));
 vi.mock("@/lib/observability/llm-usage", () => ({ recordLlmUsage: vi.fn() }));
 
 import {
+  LIVE_REVIEW_ATTEMPT_TIMEOUT_MS,
+  LIVE_REVIEW_TOTAL_TIMEOUT_MS,
   assembleReviewBundle,
+  isChatFollowUpVersion,
   isLiveReviewEnabled,
   listChangedFiles,
+  maybeAttachLiveReview,
   parseReviewDecision,
   persistLiveReviewJpeg,
+  pickPreviousVersionInChat,
   pickUserRequest,
   runLiveReview,
   shouldRunLiveReview,
@@ -84,7 +89,7 @@ describe("shouldRunLiveReview", () => {
         enabled: false,
         skipped: false,
         findings: [],
-        parentVersionId: null,
+        isFollowUp: false,
       }).run,
     ).toBe(false);
     expect(
@@ -92,7 +97,7 @@ describe("shouldRunLiveReview", () => {
         enabled: true,
         skipped: true,
         findings: [],
-        parentVersionId: null,
+        isFollowUp: false,
       }).reason,
     ).toBe("postcheck_skipped");
     expect(
@@ -100,7 +105,7 @@ describe("shouldRunLiveReview", () => {
         enabled: true,
         skipped: false,
         findings: [{ code: "preview_boot_page", message: "boot" }],
-        parentVersionId: null,
+        isFollowUp: false,
       }).reason,
     ).toBe("preview_not_ready");
     expect(
@@ -108,9 +113,20 @@ describe("shouldRunLiveReview", () => {
         enabled: true,
         skipped: false,
         findings: [{ code: "runtime_crash", message: "boom" }],
-        parentVersionId: null,
+        isFollowUp: false,
       }).reason,
     ).toBe("runtime_crash");
+  });
+
+  it("hoppar över oläsbar preview även när postchecken inte blockerade", () => {
+    expect(
+      shouldRunLiveReview({
+        enabled: true,
+        skipped: false,
+        findings: [{ code: "preview_probe_unreadable", message: "tom sida" }],
+        isFollowUp: false,
+      }).reason,
+    ).toBe("preview_unreadable");
   });
 
   it("hoppar över follow-up utan sensorlarm men kör init och larmat follow-up", () => {
@@ -119,7 +135,7 @@ describe("shouldRunLiveReview", () => {
         enabled: true,
         skipped: false,
         findings: [],
-        parentVersionId: "ver_parent",
+        isFollowUp: true,
       }).reason,
     ).toBe("followup_no_sensor");
     expect(
@@ -127,7 +143,7 @@ describe("shouldRunLiveReview", () => {
         enabled: true,
         skipped: false,
         findings: [],
-        parentVersionId: null,
+        isFollowUp: false,
       }).run,
     ).toBe(true);
     expect(
@@ -135,9 +151,35 @@ describe("shouldRunLiveReview", () => {
         enabled: true,
         skipped: false,
         findings: [{ code: "console_error", message: "x" }],
-        parentVersionId: "ver_parent",
+        isFollowUp: true,
       }).run,
     ).toBe(true);
+  });
+});
+
+describe("follow-up signal", () => {
+  it("treats version_number > 1 as a chat follow-up, not parent_version_id", () => {
+    expect(isChatFollowUpVersion(1)).toBe(false);
+    expect(isChatFollowUpVersion(2)).toBe(true);
+    expect(isChatFollowUpVersion(null)).toBe(false);
+  });
+
+  it("picks the latest earlier version in the chat by version_number", () => {
+    const previous = pickPreviousVersionInChat(
+      [
+        { id: "v3", version_number: 3 },
+        { id: "v2", version_number: 2 },
+        { id: "v1", version_number: 1 },
+      ],
+      { id: "v3", version_number: 3 },
+    );
+    expect(previous?.id).toBe("v2");
+    expect(
+      pickPreviousVersionInChat([{ id: "v1", version_number: 1 }], {
+        id: "v1",
+        version_number: 1,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -218,10 +260,18 @@ describe("persistLiveReviewJpeg", () => {
   });
 });
 
+describe("review timeouts", () => {
+  it("uses a 45s per-attempt budget and a 90s chain cap", () => {
+    expect(LIVE_REVIEW_ATTEMPT_TIMEOUT_MS).toBe(45_000);
+    expect(LIVE_REVIEW_TOTAL_TIMEOUT_MS).toBe(90_000);
+  });
+});
+
 describe("runLiveReview", () => {
   beforeEach(() => {
     generateObject.mockReset();
-    createDirectModel.mockClear();
+    createDirectModel.mockReset();
+    createDirectModel.mockImplementation(() => ({ id: "mock-model" }));
   });
 
   it("returnerar completed vid giltigt generateObject-svar", async () => {
@@ -306,8 +356,68 @@ describe("runLiveReview", () => {
     expect(result).toMatchObject({ status: "skipped", reason: "invalid_model_output" });
   });
 
-  it("degraderar saknad API-nyckel till skipped", async () => {
+  it("provar fallback-modellen när default kastar vid createDirectModel", async () => {
     createDirectModel.mockImplementationOnce(() => {
+      throw new Error("OPENAI_API_KEY is required for OpenAI models.");
+    });
+    generateObject.mockResolvedValue({
+      object: {
+        verdict: "pass",
+        confidence: 0.8,
+        rationale: "Sajten följer briefen.",
+        reasoning: "",
+        issues: [],
+      },
+      usage: {},
+    });
+    const result = await runLiveReview(
+      assembleReviewBundle({
+        versionId: "v1",
+        parentVersionId: null,
+        userRequest: "x",
+        briefSummary: "",
+        changedFiles: [],
+        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+        findings: [],
+        domSummary: null,
+      }),
+    );
+    expect(createDirectModel).toHaveBeenCalledWith("gpt-4o");
+    expect(createDirectModel).toHaveBeenCalledWith("gpt-5.5");
+    expect(result).toMatchObject({ status: "completed", modelId: "gpt-5.5" });
+  });
+
+  it("provar fallback-modellen när generateObject på default misslyckas", async () => {
+    generateObject
+      .mockRejectedValueOnce(new Error("model overloaded"))
+      .mockResolvedValueOnce({
+        object: {
+          verdict: "advisory",
+          confidence: 0.4,
+          rationale: "Fallback såg sidan.",
+          reasoning: "",
+          issues: [],
+        },
+        usage: {},
+      });
+    const result = await runLiveReview(
+      assembleReviewBundle({
+        versionId: "v1",
+        parentVersionId: null,
+        userRequest: "x",
+        briefSummary: "",
+        changedFiles: [],
+        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+        findings: [],
+        domSummary: null,
+      }),
+    );
+    expect(generateObject).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({ status: "completed", modelId: "gpt-5.5" });
+  });
+
+  it("degraderar när alla modeller saknar nyckel", async () => {
+    createDirectModel.mockImplementation(() => {
       throw new Error("OPENAI_API_KEY is required for OpenAI models.");
     });
     const result = await runLiveReview(
@@ -317,11 +427,36 @@ describe("runLiveReview", () => {
         userRequest: "x",
         briefSummary: "",
         changedFiles: [],
-        screenshots: { desktopUrl: null, mobileUrl: null },
+        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
         findings: [],
         domSummary: null,
       }),
     );
     expect(result).toMatchObject({ status: "skipped", reason: "model_unavailable" });
+  });
+});
+
+describe("maybeAttachLiveReview", () => {
+  beforeEach(() => {
+    generateObject.mockReset();
+    createDirectModel.mockReset();
+    createDirectModel.mockImplementation(() => ({ id: "mock-model" }));
+  });
+
+  it("skippar när båda skärmbilderna saknas", async () => {
+    const result = await maybeAttachLiveReview({
+      enabled: true,
+      skipped: false,
+      findings: [],
+      screenshots: { desktopUrl: null, mobileUrl: null },
+      domSummary: null,
+      versionId: "v1",
+      versionNumber: 1,
+      filesJson: "[]",
+      userRequest: "mörk sajt",
+      briefSummary: "mörk",
+    });
+    expect(result).toMatchObject({ status: "skipped", reason: "no_screenshots" });
+    expect(generateObject).not.toHaveBeenCalled();
   });
 });

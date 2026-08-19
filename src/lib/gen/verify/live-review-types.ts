@@ -64,8 +64,10 @@ export type LiveReviewSkipReason =
   | "flag_off"
   | "postcheck_skipped"
   | "preview_not_ready"
+  | "preview_unreadable"
   | "runtime_crash"
   | "followup_no_sensor"
+  | "no_screenshots"
   | "model_unavailable"
   | "invalid_model_output"
   | "review_error";

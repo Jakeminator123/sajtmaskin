@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { buildOpenClawEditSystemPrompt } from "./edit-system-prompt";
 import {
   OPENCLAW_POWER_IDS,
   OPENCLAW_POWER_META,
+  activeOpenClawPowerIds,
   resolveOpenClawPowers,
   sanitizeOpenClawPowerIds,
   toggleOpenClawPower,
@@ -141,5 +143,29 @@ describe("power metadata", () => {
       description:
         "Får titta på din färdiga sajt, säga vad som är fel och föreslå ändringar. Du godkänner varje ändring.",
     });
+  });
+});
+
+describe("activeOpenClawPowerIds", () => {
+  it("sends live_review even when any stays false", () => {
+    const input = { editEnabled: true, powersOn: true, granted: ["live_review"] as const };
+    const resolved = resolveOpenClawPowers(input);
+    expect(resolved).toEqual({
+      armedAutonomy: false,
+      quickEdit: false,
+      liveReview: true,
+      any: false,
+    });
+    expect(activeOpenClawPowerIds(input)).toEqual(["live_review"]);
+    expect(buildOpenClawEditSystemPrompt(resolved)).toBeNull();
+  });
+
+  it("stays empty when the button or OC_EDIT is off", () => {
+    expect(
+      activeOpenClawPowerIds({ editEnabled: false, powersOn: true, granted: ALL }),
+    ).toEqual([]);
+    expect(
+      activeOpenClawPowerIds({ editEnabled: true, powersOn: false, granted: ALL }),
+    ).toEqual([]);
   });
 });

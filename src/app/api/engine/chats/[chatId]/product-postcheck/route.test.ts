@@ -228,7 +228,7 @@ describe("POST product-postcheck", () => {
     setF2ProductPostcheck(true);
     isLiveReviewEnabled.mockReturnValue(true);
     getVersion.mockResolvedValue({
-      version: { id: "v1", parent_version_id: null, files_json: "[]" },
+      version: { id: "v1", version_number: 1, files_json: "[]" },
       chat: { messages: [], orchestration_snapshot: null },
     });
     runProductPostcheck.mockResolvedValue({
@@ -261,7 +261,13 @@ describe("POST product-postcheck", () => {
     const body = await res.json();
     expect(body.productBlocked).toBe(false);
     expect(body.liveReview.status).toBe("completed");
-    expect(maybeAttachLiveReview).toHaveBeenCalled();
+    expect(maybeAttachLiveReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        versionId: "v1",
+        chatId: "chat_1",
+        versionNumber: 1,
+      }),
+    );
     expect(emitBusEvent).not.toHaveBeenCalled();
   });
 });

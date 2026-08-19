@@ -30,11 +30,13 @@ import {
   evaluateBrowserRuntimeIssues,
   evaluateProductDomSnapshot,
   evaluateRuntimeErrors,
+  CRAWL_DEADLINE_MS,
   isAllowedProductPostcheckUrl,
   isHydrationConsoleError,
   isPreviewHostBootPage,
   isRenderFatalError,
   productPostcheckSkipReasonFromError,
+  resolveCrawlDeadlineMs,
   runProductPostcheck,
   selectCrawlRoutes,
   shouldIgnoreConsoleError,
@@ -1112,6 +1114,52 @@ describe("runProductPostcheck screenshot best-effort", () => {
       desktopUrl: "https://blob.example/desktop.jpg",
       mobileUrl: "https://blob.example/mobile.jpg",
     });
+  });
+
+  it("förlänger crawl-deadlinen med exakt capture-tid", () => {
+    expect(resolveCrawlDeadlineMs(CRAWL_DEADLINE_MS, 0)).toBe(CRAWL_DEADLINE_MS);
+    expect(resolveCrawlDeadlineMs(CRAWL_DEADLINE_MS, 15_000)).toBe(CRAWL_DEADLINE_MS + 15_000);
+    expect(resolveCrawlDeadlineMs(CRAWL_DEADLINE_MS, -4)).toBe(CRAWL_DEADLINE_MS);
+  });
+
+  it("låter crawlen fortsätta efter ett långsamt desktop-skott", async () => {
+    let nowMs = 0;
+    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+        ["/chat_1/om-oss"],
+        false,
+      ],
+      async () => {
+        nowMs += CRAWL_DEADLINE_MS + 1_000;
+        return Buffer.from("desk");
+      },
+    );
+    const mobile = pageWithScreenshot([{ status: "not_applicable" }, false], async () =>
+      Buffer.from("mob"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    try {
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+      expect(result.skipped).toBe(false);
+      expect(result.routesChecked).toBe(2);
+    } finally {
+      dateNow.mockRestore();
+    }
   });
 });
 
