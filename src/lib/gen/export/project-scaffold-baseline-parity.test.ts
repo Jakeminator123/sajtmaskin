@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { KNOWN_PACKAGES } from "@/lib/gen/autofix/dep-completer";
+import { SHADCN_FALLBACK_VERSIONS } from "@/lib/deploy/dependency-utils";
 
 /**
  * Version-glue guard: the dependency baseline that GENERATED PROJECTS ship
@@ -10,6 +11,11 @@ import { KNOWN_PACKAGES } from "@/lib/gen/autofix/dep-completer";
  * `src/components/ui/*` files are copied verbatim from the platform into user
  * projects, so a version skew (e.g. lucide-react drifting) can ship a component
  * that imports an icon/API the pinned runtime does not have -> user build break.
+ *
+ * Three tables can decide a user project's version — the baseline here,
+ * `KNOWN_PACKAGES` (dep-completer) and `SHADCN_FALLBACK_VERSIONS` (deploy
+ * preflight). Each gets its own block below; the granularity differs because
+ * only the baseline is an exact pin.
  *
  * Lock granularity per package is defined by the buckets below. The runtime-
  * sensitive packages (lucide-react + the React-Three 3D stack) are locked at
@@ -26,6 +32,14 @@ function parseVersion(range: string): { major: number; minor: number; patch: num
   const match = cleaned.match(/^(\d+)\.(\d+)\.(\d+)/);
   if (!match) throw new Error(`Cannot parse a version out of "${range}"`);
   return { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]) };
+}
+
+/** Tolerates major-only ranges (`^4`), which `parseVersion` rejects. */
+function parseMajor(range: string): number {
+  const cleaned = range.trim().replace(/^[\^~>=<\s]+/, "");
+  const match = cleaned.match(/^(\d+)/);
+  if (!match) throw new Error(`Cannot parse a major out of "${range}"`);
+  return Number(match[1]);
 }
 
 function readPlatformDeps(): Record<string, string> {
@@ -156,6 +170,78 @@ describe("3D stack gated pins parity with platform package.json", () => {
         generated[pkg],
         `${pkg} must be capability-gated, not in the baseline`,
       ).toBeUndefined();
+    });
+  }
+});
+
+/**
+ * KNOWN_PACKAGES is a second table that can decide a user project's version:
+ * it fills missing deps for IMPORTED repos and dossier injection, where the
+ * baseline force-pins in `BASELINE_PINNED_DEPS` never run. `dep-completer.test.ts`
+ * compares it to the baseline at the MAJOR level only, so a 0.x package can sit
+ * several minors behind forever without tripping anything.
+ *
+ * For lucide that gap is the same build break the header describes: the icon
+ * allowlist is generated from the platform's lucide, so an imported repo
+ * resolving an older lucide can be handed an icon its runtime lacks. Bumping
+ * lucide therefore means editing the baseline pin, KNOWN_PACKAGES, and running
+ * `node scripts/dev/generate-lucide-icons.mjs`.
+ */
+const KNOWN_PACKAGES_MAJOR_MINOR_PATCH_LOCKED = ["lucide-react"] as const;
+
+describe("KNOWN_PACKAGES parity with platform package.json", () => {
+  const platform = readPlatformDeps();
+
+  for (const pkg of KNOWN_PACKAGES_MAJOR_MINOR_PATCH_LOCKED) {
+    it(`${pkg}: KNOWN_PACKAGES pin matches platform major.minor.patch`, () => {
+      const p = platform[pkg];
+      const k = KNOWN_PACKAGES[pkg];
+      expect(p, `${pkg} missing from platform package.json`).toBeTruthy();
+      expect(k, `${pkg} missing from KNOWN_PACKAGES`).toBeTruthy();
+      expect(parseVersion(k)).toEqual(parseVersion(p));
+    });
+  }
+});
+
+/**
+ * SHADCN_FALLBACK_VERSIONS is the last table that can reach a user project: it
+ * fills packages the generated code imports but the platform does not declare,
+ * during deploy preflight. A range naming a major that was never published
+ * (`lucide-react: "^1"`, live until this guard landed) makes `npm install` fail
+ * on Vercel, and nothing else in CI compared this table to anything.
+ *
+ * Majors only by default: the fallback ranges legitimately trail the platform's
+ * carets at the minor level, so a platform patch bump must not turn this red.
+ */
+describe("deploy fallback versions parity with platform package.json", () => {
+  const platform = readPlatformDeps();
+
+  it("every fallback range the platform also declares names the same major", () => {
+    const overlapping = Object.keys(SHADCN_FALLBACK_VERSIONS).filter((pkg) => pkg in platform);
+    expect(overlapping.length).toBeGreaterThan(0);
+
+    const mismatches = overlapping
+      .filter((pkg) => parseMajor(SHADCN_FALLBACK_VERSIONS[pkg]) !== parseMajor(platform[pkg]))
+      .map(
+        (pkg) =>
+          `${pkg}: fallback=${SHADCN_FALLBACK_VERSIONS[pkg]} vs platform=${platform[pkg]}`,
+      );
+    expect(mismatches).toEqual([]);
+  });
+
+  /**
+   * The major-only rule above is blind for 0.x packages: every lucide release
+   * is major 0, so `^0.469.0` would pass against a platform on 0.577.0 and
+   * reproduce exactly the missing-icon build break this file guards. lucide
+   * therefore gets the same full pin as the baseline and KNOWN_PACKAGES.
+   */
+  for (const pkg of ["lucide-react"] as const) {
+    it(`${pkg}: fallback range matches platform major.minor.patch`, () => {
+      const p = platform[pkg];
+      const f = SHADCN_FALLBACK_VERSIONS[pkg];
+      expect(p, `${pkg} missing from platform package.json`).toBeTruthy();
+      expect(f, `${pkg} missing from SHADCN_FALLBACK_VERSIONS`).toBeTruthy();
+      expect(parseVersion(f)).toEqual(parseVersion(p));
     });
   }
 });
