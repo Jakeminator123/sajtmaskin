@@ -29,14 +29,17 @@ const {
   thumbnailCaptureControlledBudgetMs,
   withHostDeadline,
   canAffordSettleEvaluate,
+  canAffordSettleMeasure,
   selectSettleScrollOffsets,
   remainingSettlePhaseMs,
   settleEvaluateDeadlineMs,
+  settleScrollEvaluateDeadlineMs,
   settlePhaseStepReserveMs,
   THUMBNAIL_SCROLL_STEP_DELAY_MS,
   THUMBNAIL_POST_SCROLL_SETTLE_MS,
   THUMBNAIL_WARMUP_TIMEOUT_MS,
   THUMBNAIL_EVALUATE_DEADLINE_MS,
+  THUMBNAIL_SCROLL_EVALUATE_DEADLINE_MS,
   THUMBNAIL_SETTLE_PHASE_BUDGET_MS,
   THUMBNAIL_VIEWPORT,
 } = await import("./thumbnail-capture");
@@ -252,21 +255,43 @@ describe("withHostDeadline", () => {
 });
 
 describe("settle phase budget helpers", () => {
-  it("reserves one evaluate + top-scroll cap + post-settle before a new step", () => {
+  it("reserves one scroll evaluate + top-scroll cap + post-settle before a new step", () => {
     const reserve = settlePhaseStepReserveMs();
     expect(reserve).toBe(
-      THUMBNAIL_EVALUATE_DEADLINE_MS +
-        THUMBNAIL_EVALUATE_DEADLINE_MS +
+      THUMBNAIL_SCROLL_EVALUATE_DEADLINE_MS +
+        THUMBNAIL_SCROLL_EVALUATE_DEADLINE_MS +
         THUMBNAIL_POST_SCROLL_SETTLE_MS,
     );
     expect(canAffordSettleEvaluate(reserve)).toBe(true);
     expect(canAffordSettleEvaluate(reserve - 1)).toBe(false);
   });
 
-  it("clamps the per-evaluate deadline to remaining phase time", () => {
+  it("clamps the measure deadline to remaining phase time", () => {
     expect(settleEvaluateDeadlineMs(5_000)).toBe(THUMBNAIL_EVALUATE_DEADLINE_MS);
     expect(settleEvaluateDeadlineMs(750)).toBe(750);
     expect(settleEvaluateDeadlineMs(0)).toBe(0);
+  });
+
+  it("clamps the scroll deadline to remaining phase time", () => {
+    expect(settleScrollEvaluateDeadlineMs(5_000)).toBe(THUMBNAIL_SCROLL_EVALUATE_DEADLINE_MS);
+    expect(settleScrollEvaluateDeadlineMs(300)).toBe(300);
+    expect(settleScrollEvaluateDeadlineMs(0)).toBe(0);
+  });
+
+  it("still affords scroll steps after a worst-case 2s measure (bugbot medium)", () => {
+    // Measure gate: 2s measure + reserved top + post must fit at phase start.
+    expect(canAffordSettleMeasure(THUMBNAIL_SETTLE_PHASE_BUDGET_MS)).toBe(true);
+    // After the measure consumed its full 2s deadline, several scroll steps
+    // must still fit — this is the exact regression bugbot flagged: with a 2s
+    // scroll reserve the loop skipped every offset on slow pages.
+    const remainingAfterWorstMeasure =
+      THUMBNAIL_SETTLE_PHASE_BUDGET_MS - THUMBNAIL_EVALUATE_DEADLINE_MS;
+    expect(canAffordSettleEvaluate(remainingAfterWorstMeasure)).toBe(true);
+    const chosen = selectSettleScrollOffsets({
+      offsets: [750, 1500, 2250, 3000, 3750],
+      remainingMs: remainingAfterWorstMeasure,
+    });
+    expect(chosen.length).toBeGreaterThanOrEqual(2);
   });
 
   it("counts remaining time from a phase start stamp", () => {
