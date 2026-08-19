@@ -3,8 +3,9 @@
  * Materialize the bounded frontend excerpts used by scaffold variants.
  *
  * The generated registry is SHA-bound to template-blob-manifest.json. Runtime
- * consumes a valid entry without downloading the ZIP and falls back to the
- * existing bounded ZIP reader when an entry is missing, stale, or invalid.
+ * consumes a valid entry without downloading the ZIP. Missing, stale or
+ * invalid entries stay silent (empty excerpts + a countable warning) instead
+ * of fetching the archive. This script is the remaining ZIP reader.
  *
  * Usage:
  *   npm run templates:addenda -- --write
@@ -180,7 +181,7 @@ function registryForWrite(templates: VariantTemplateAddendum[]): VariantTemplate
   return {
     $schema: "../docs/schemas/strict/variant-template-addenda.schema.json",
     _comment:
-      "SHA-bound structural excerpts used by scaffold variants before falling back to a template ZIP.",
+      "SHA-bound structural excerpts used by scaffold variants. Missing/stale/invalid entries do not fetch a ZIP at runtime.",
     _version: VARIANT_TEMPLATE_ADDENDA_VERSION,
     templates: [...templates].sort((a, b) => a.templateId.localeCompare(b.templateId)),
   };
