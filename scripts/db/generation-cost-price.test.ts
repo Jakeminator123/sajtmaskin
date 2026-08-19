@@ -108,6 +108,19 @@ describe("generation-cost pricing matches billing model-cost", () => {
     expect(basis.basis).toBe("ledger");
   });
 
+  it("is not additive over a pre-merged bucket — pass the member rows", () => {
+    // Fällan bakom fas-tabellen: två modeller i samma fas med olika
+    // ledger-täckning. Slår man ihop dem först blir pro-rata-andelen fel.
+    const members = [
+      { rows: 2, ledgerRows: 2, ledgerUsd: 5, pricedUsd: 10 },
+      { rows: 2, ledgerRows: 0, ledgerUsd: 0, pricedUsd: 2 },
+    ];
+    const merged = { rows: 4, ledgerRows: 2, ledgerUsd: 5, pricedUsd: 12 };
+
+    expect(resolveCostBasis(members).totalUsd).toBeCloseTo(7, 6);
+    expect(resolveCostBasis([merged]).totalUsd).toBeCloseTo(11, 6);
+  });
+
   it("keeps per-group totals summing to the aggregate", () => {
     // Modell-, fas- och dagstabellerna kör resolveCostBasis per grupp medan
     // rubriken kör den över alla. Går de isär visar vyn fyra siffror igen.

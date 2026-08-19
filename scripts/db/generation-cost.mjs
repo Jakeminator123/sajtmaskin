@@ -206,7 +206,12 @@ try {
     const usage = toUsageRow(row);
     return attachLedger(priceUsageRow(pricing, usage, tier, { applyLongContext: false }), usage);
   });
-  const unpriced = byModel.filter((m) => !m.priced && (m.promptTokens || m.completionTokens));
+  // En modell utan matchning i pricing.json är bara "oräknad" om den saknar
+  // ledgervärde också. Har den cost_microusd är kostnaden med i totalen, och
+  // då vore varningen «kostnad ej räknad» fel.
+  const unpriced = byModel.filter(
+    (m) => !m.priced && !m.ledgerUsd && (m.promptTokens || m.completionTokens),
+  );
   const anyEstimated = byModel.some((m) => m.estimated && m.totalUsd > 0);
 
   const byPhaseMap = new Map();
@@ -223,6 +228,7 @@ try {
       totalUsd: 0,
       ledgerUsd: 0,
       ledgerRows: 0,
+      members: [],
     };
     acc.rows += row.rows;
     acc.promptTokens += row.promptTokens;
@@ -232,12 +238,15 @@ try {
     acc.pricedUsd = usd(acc.pricedUsd + row.pricedUsd);
     acc.ledgerUsd = usd(acc.ledgerUsd + (row.ledgerUsd || 0));
     acc.ledgerRows += row.ledgerRows || 0;
+    acc.members.push(row);
     byPhaseMap.set(key, acc);
   }
-  // Samma grund som huvudtotalen, annars summerar fastabellen till en annan
-  // siffra än rubriken — vilket är precis den motsägelsen den här fixen tar bort.
+  // Pro-rata-uppskattningen är additiv över grupper men INTE över en
+  // hopslagen grupp: två modeller med olika ledger-täckning i samma fas ger
+  // fel andel om man slår ihop dem först. Skicka därför in medlemsraderna,
+  // aldrig fas-bucketen. Då gäller Σ faser = Σ modeller = rubriken.
   const byPhase = [...byPhaseMap.values()]
-    .map((phase) => ({ ...phase, totalUsd: resolveCostBasis([phase]).totalUsd }))
+    .map(({ members, ...phase }) => ({ ...phase, totalUsd: resolveCostBasis(members).totalUsd }))
     .sort((a, b) => b.totalUsd - a.totalUsd);
 
   const byDay = Array.isArray(byDayRaw)
