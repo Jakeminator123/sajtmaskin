@@ -6,25 +6,22 @@ Spår H äger ensamt de fyra konfliktmagneterna: `BUG-SWARM-BACKLOG.md`,
 `docs/decisions/README.md`, `docs/plans/active/README.md` och de genererade
 projektionerna. Därför får ingen våg vara igång samtidigt.
 
-## H1 — skrivpasset (högst prioritet, gör det först)
+## H1 — skrivpasset ✅ klart 2026-08-20
 
-39 svärmfynd triagerades aldrig in i backloggen. Rådata ligger i
-[`../underlag/2026-08-19-svarmfynd.md`](../underlag/2026-08-19-svarmfynd.md).
+39 svärmfynd triagerades aldrig in i backloggen. Passet är nu gjort och
+underlagsfilen raderad — den fanns bara för att inget skulle gå förlorat, inte
+som en andra bugglista.
 
-Fyra bekräftade, nya defekter är redan inskrivna som `SM-058`–`SM-061`. Kvar att
-göra:
+| Utfall | Rader |
+|---|---|
+| Nya i `Aktiv kö` | `SM-058`–`SM-061` (första omgången), `SM-063` bild-URL:er, `SM-064` sköld-wrappern |
+| Flyttade till `Behöver repro` | Hero-visitkortet — de 65 pixlarna är en hypotes, inte uppmätta |
+| Flyttade till `Väntar på ägarbeslut` | «Publik preview»-etiketten och domän-chevronen. Copy och UX, inte defekter |
+| Arkiverade efter stickprov | `SM-011` (`pickBestScaffold` sorterar), `SM-020` (testlåst alias), `SM-022` (`removeLink` faller tillbaka på `unlink`) |
+| Redan stängda av dagens PR:er | `P0-V1` #1049, `P0-G2` #1050, `P1-PR1` #1048, `P3-UI5` #1038, `P1-UI1` #1058 |
 
-1. Gå igenom P2- och P3-raderna i underlaget. Flera har redan ett `SM`-nummer —
-   de behöver inte en ny rad, men flera **ankare har flyttat sig** och behöver
-   rättas.
-2. Fynd märkta `[HYPOTES]` hör i `## Behöver repro`, inte i `Aktiv kö`.
-   `Aktiv kö` är bekräftade defekter — den distinktionen är hela dess värde.
-3. Underlagets egen tabell listar fyra `SM`-rader som «sannolikt lagade»
-   (`SM-011`, `SM-020`, `SM-022`, `SM-012`). Stickprova och arkivera dem som är
-   det.
-4. **Radera underlagsfilen när passet är gjort.** Den finns bara för att inget
-   skulle gå förlorat, inte som en andra bugglista. Två köer är värre än en
-   ofullständig.
+`SM-012` lämnades kvar i kön: `scaffoldForIntent` täcker huvudfallet, men
+residualen (website→app vid tillräckligt app-bevis) är inte motbevisad.
 
 ## H2 — docs och projektioner speglar runtime
 

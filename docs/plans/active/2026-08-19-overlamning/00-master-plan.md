@@ -20,7 +20,7 @@ bara körordningen och vem som får röra vilka filer samtidigt.
 |---|---|---|
 | Builder-UI: Lanseringskortet → Versionsdiagnostik | Branch `origin/wip/chat-readiness-to-diagnostics` (`fac7d720a`) | **Ofullbordat.** Låg ocommitterat i sex timmar. Basen är `d96acd5c7`, 44 commits bakom master |
 | Dossier-förenkling steg 2–5 | [`../2026-08-19-dossier-forenkling/`](../2026-08-19-dossier-forenkling/00-master-plan.md) | Komplett styrdokument, nu på master |
-| Otriagerade svärmfynd (39 rader) | [`underlag/2026-08-19-svarmfynd.md`](underlag/2026-08-19-svarmfynd.md) | Rådata. Var gitignorerad och hade försvunnit med maskinen |
+| Otriagerade svärmfynd (39 rader) | Triagerade in i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) 2026-08-20 | **Klart.** Underlaget var gitignorerat och hade försvunnit med maskinen; det låg här tills passet var gjort och är nu raderat |
 | Live-review steg 1 | PR [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052) | **Blockerad trots gröna checks.** Se [`live-review-blockers.md`](aktiviteter/live-review-blockers.md). Flaggan ska vara av och `merge:ready` ska saknas |
 
 ## Vad som inte blev gjort
