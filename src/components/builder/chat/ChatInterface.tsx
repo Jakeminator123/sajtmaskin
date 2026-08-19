@@ -251,7 +251,7 @@ export function ChatInterface({
 
   const hasUploading = files.some((file) => file.status === "uploading");
   const hasSuccessFiles = files.some((file) => file.status === "success");
-  const inputDisabled = isSending || isBusy;
+  const inputDisabled = isSending || isBusy || promptAssistBusy;
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
 
@@ -534,7 +534,7 @@ export function ChatInterface({
         toast.error("Kunde inte rätta utkastet. Försök igen.");
         return;
       }
-      setInput(payload.text);
+      setInput((prev) => (prev.trim() === current ? payload.text : prev));
     } catch {
       toast.error("Kunde inte rätta utkastet. Försök igen.");
     } finally {

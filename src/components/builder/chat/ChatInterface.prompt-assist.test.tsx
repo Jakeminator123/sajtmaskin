@@ -45,6 +45,7 @@ describe("ChatInterface — Prompt-assist", () => {
 
     render(
       <ChatInterface
+        chatId={null}
         initialPrompt="cafe malmo"
         onSendMessage={onSendMessage}
         onCreateChat={onCreateChat}

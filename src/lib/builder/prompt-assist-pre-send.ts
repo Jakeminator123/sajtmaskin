@@ -9,7 +9,7 @@ export const PROMPT_REWRITE_FALLBACK_MODEL = "openai/gpt-5.6-terra";
 export const PROMPT_ASSIST_DRAFT_MAX_CHARS = 8_000;
 
 export function resolvePromptRewriteModel(
-  env: NodeJS.ProcessEnv = process.env,
+  env: Pick<NodeJS.ProcessEnv, "SAJTMASKIN_PROMPT_REWRITE_MODEL"> = process.env,
 ): string {
   return (
     env.SAJTMASKIN_PROMPT_REWRITE_MODEL?.trim() ||
