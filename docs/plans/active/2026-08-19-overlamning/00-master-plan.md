@@ -57,19 +57,22 @@ skydd mot att «Avoid» svälts, inte en defekt (2026-08-19).
 
 ## Stabiliseringsvåg 0 — öppna draft-PR:er
 
-Tre avgränsade restfynd är redan byggda mot master `9a5905933`. Starta inte
-dubbelarbete medan PR:erna är öppna. Läs dem i den här ordningen:
+Tre avgränsade restfynd är redan byggda mot master `9a5905933`. Samma
+master-commit lämnade dessutom capability-map-projektionen stale, vilket gör
+`backoffice-tests` röd på alla efterföljande PR:er. Starta inte dubbelarbete
+medan PR:erna är öppna. Läs dem i den här ordningen:
 
 | Ordning | PR | Stänger | Kvar före merge |
 |---|---|---|---|
-| 1 | [#1055](https://github.com/Jakeminator123/sajtmaskin/pull/1055) | AI SDK-majoren skiljer warm-cache från installerad användarsajt; synkar även dossier-/repairkontraktet | CI:s färska dossier-install/build + kanonisk review |
-| 2 | [#1054](https://github.com/Jakeminator123/sajtmaskin/pull/1054) | `toneAndVoice` kan göra portfolio/blog valbar och embedding-vägen saknade verkligt test | CI + kanonisk review; live embedding-smoke är icke-blockerande |
-| 3 | [#1053](https://github.com/Jakeminator123/sajtmaskin/pull/1053) | Prompt-assist saknar outputtak; avklippt providerresultat kunde annars skrivas tillbaka | CI + kanonisk review; token-tät input failar medvetet closed |
+| 1 | [#1057](https://github.com/Jakeminator123/sajtmaskin/pull/1057) | Regenererar capability-map-fingeravtrycket efter schemaändringen i `9a5905933`; avblockerar gemensam Backoffice-CI | CI + kanonisk review; mergeas först |
+| 2 | [#1055](https://github.com/Jakeminator123/sajtmaskin/pull/1055) | AI SDK-majoren skiljer warm-cache från installerad användarsajt; synkar även dossier-/repairkontraktet | CI:s färska dossier-install/build + kanonisk review |
+| 3 | [#1054](https://github.com/Jakeminator123/sajtmaskin/pull/1054) | `toneAndVoice` kan göra portfolio/blog valbar och embedding-vägen saknade verkligt test | CI + kanonisk review; live embedding-smoke är icke-blockerande |
+| 4 | [#1053](https://github.com/Jakeminator123/sajtmaskin/pull/1053) | Prompt-assist saknar outputtak; avklippt providerresultat kunde annars skrivas tillbaka | CI + kanonisk review; token-tät input failar medvetet closed |
 | Blockerad | [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052) | Live-review steg 1 | Åtgärda hela [`live-review-blockers.md`](aktiviteter/live-review-blockers.md), besluta retention/kontroll och kör ny review |
 
-Mergeordningen mellan #1055, #1054 och #1053 är fri så länge varje head är
-uppdaterad mot aktuell master. #1052 ligger sist och får inte aktiveras i prod
-bara för att dess Actions är gröna.
+#1057 går först. Därefter är mergeordningen mellan #1055, #1054 och #1053 fri
+så länge varje head är uppdaterad mot aktuell master. #1052 ligger sist och får
+inte aktiveras i prod bara för att dess Actions är gröna.
 
 ## Hur arbetet körs
 
@@ -78,7 +81,7 @@ spår H går mellan vågorna.
 
 | Spår | Vad | Var | Samtidighet |
 |---|---|---|---|
-| **S — Stabilisering** | #1055, #1054, #1053; därefter #1052-hardening | GitHub + lokalt | Tre draft-PR:er kan granskas parallellt; #1052 separat och sist |
+| **S — Stabilisering** | #1057 först; #1055, #1054, #1053; därefter #1052-hardening | GitHub + lokalt | Kod-PR:erna kan granskas parallellt; #1052 separat och sist |
 | **D — Dossier** | D2 → D3 → D4 | Cloud | **Strikt sekventiellt.** En agent i taget |
 | **B — Buggar** | Bekräftade defekter i vågor | Cloud + lokalt | Parallellt **inom** en våg, sekventiellt **mellan** vågor |
 | **H — Housekeeping** | Backlog, docs, scheman, städ | **Lokalt** | Mellan vågorna, aldrig samtidigt som en våg |
@@ -189,6 +192,7 @@ försvinner med maskinen. Bestäm om den ska in i repot när #1052 är avgjord.
 
 ## Checklista
 
+- [ ] #1057 har reparerat masterprojektionen och gemensam Backoffice-CI
 - [ ] #1055, #1054 och #1053 har aktuell CI + kanonisk review; mergeas av människa
 - [ ] PR #1052:s blockers åtgärdade och omgranskade; först därefter beslut om `merge:ready`
 - [ ] OpenClaw-rotation kvitterad: gammal 401, ny 200, Render/Vercel synkade
