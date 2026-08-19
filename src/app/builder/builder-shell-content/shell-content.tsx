@@ -7,7 +7,6 @@ import { BuilderPreviewTools } from "@/components/builder/shell/BuilderPreviewTo
 import { FloatingCollapsedChatInput } from "@/components/builder/chat/FloatingCollapsedChatInput";
 import { BuilderHeader } from "@/components/builder/shell/BuilderHeader";
 import { ModelTraceOverlay } from "@/components/builder/diagnostics/ModelTraceOverlay";
-import { LaunchReadinessCard } from "@/components/builder/readiness/LaunchReadinessCard";
 import {
   F3RequirementsSurface,
   F3StatusSurface,
@@ -70,7 +69,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     hasPublication,
     canDeploy,
     deployDisabledReason,
-    deployReadinessBlocker,
     hasGitHub,
     authUser,
   } = useShellDeployDomain(vm);
@@ -130,12 +128,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     isInteractionLocked,
   });
 
-  // Ö9: nedfällt läge döljer chattflödet, så en spärr som bara syns där måste
-  // följa med upp i raden — annars gömmer nedfällningen felet.
+  // Publiceringsspärrar (postcheck-overlay, fake_form, …) visas inte i chatten
+  // — de bor i error-log + Versionsdiagnostik (ägare 2026-08-19).
   const chatCollapseStatusText = resolveChatCollapseStatusText({
     activeVersionStatus,
     preferredVersionStatus,
-    deployBlocker: deployReadinessBlocker,
     f3Status: visibleF3Status,
   });
 
@@ -302,13 +299,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             mobileTab === "chat" ? "flex" : "hidden",
           )}
         >
-          {/* Lansering / F3 stannar utanför float-boxen; göms i collapsed lg+. */}
+          {/* F3 stannar utanför float-boxen; göms i collapsed lg+. */}
           <div className={cn(isChatOutputCollapsed && "lg:hidden")}>
-            <LaunchReadinessCard
-              readiness={vm.deployReadiness}
-              isLoading={vm.isDeployReadinessLoading}
-              hasAnyVersion={vm.effectiveVersionsList.length > 0}
-            />
             {/* Lucka 3 (ägarbeslut 2026-08-11): render while an F3-blocked
                 episode is tracked at all — NOT only while `missingByIntegration`
                 is still non-empty. `visibleF3Requirements` shrinks that list

@@ -115,7 +115,7 @@ export function useShellF3TipsChrome(vm: BuilderViewModel, sendMessage: BuilderV
               demoUrl: vm.currentPreviewUrl,
               uiSurfaces: [
                 "vänster chatpanel",
-                "Lanseringskortet",
+                "Visa diagnostik på en version",
                 "previewpanelen",
                 "sidchipsen under Preview",
                 "Kodvy",
