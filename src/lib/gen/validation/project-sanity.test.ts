@@ -496,4 +496,86 @@ import { Button } from "@/components/ui/button"
       ).toBe(true);
     });
   });
+
+  it("does not warn about missing ThemeProvider when only sonner boilerplate uses useTheme", () => {
+    const result = runProjectSanityChecks([
+      {
+        path: "package.json",
+        language: "json",
+        content: JSON.stringify({
+          name: "test-project",
+          private: true,
+          dependencies: { next: "16.2.3", react: "19.2.4", "react-dom": "19.2.4" },
+        }),
+      },
+      {
+        path: "app/layout.tsx",
+        language: "tsx",
+        content:
+          "export default function RootLayout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }",
+      },
+      {
+        path: "app/globals.css",
+        language: "css",
+        content: "@theme inline { --color-background: black; }",
+      },
+      {
+        path: "components/ui/sonner.tsx",
+        language: "tsx",
+        content: `"use client";
+import { useTheme } from "next-themes";
+export function NotificationHost() {
+  const { theme } = useTheme();
+  return <div data-theme={theme} />;
+}
+`,
+      },
+    ]);
+    expect(
+      result.issues.filter((issue) =>
+        issue.message.includes("useTheme() but root layout does not wrap"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("still warns when a non-sonner child uses useTheme without ThemeProvider", () => {
+    const result = runProjectSanityChecks([
+      {
+        path: "package.json",
+        language: "json",
+        content: JSON.stringify({
+          name: "test-project",
+          private: true,
+          dependencies: { next: "16.2.3", react: "19.2.4", "react-dom": "19.2.4" },
+        }),
+      },
+      {
+        path: "app/layout.tsx",
+        language: "tsx",
+        content:
+          "export default function RootLayout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }",
+      },
+      {
+        path: "app/globals.css",
+        language: "css",
+        content: "@theme inline { --color-background: black; }",
+      },
+      {
+        path: "components/theme-toggle.tsx",
+        language: "tsx",
+        content: `"use client";
+import { useTheme } from "next-themes";
+export function ThemeToggle() {
+  const { setTheme } = useTheme();
+  return <button type="button" onClick={() => setTheme("dark")}>Tema</button>;
+}
+`,
+      },
+    ]);
+    expect(
+      result.issues.some((issue) =>
+        issue.message.includes("useTheme() but root layout does not wrap"),
+      ),
+    ).toBe(true);
+  });
 });
