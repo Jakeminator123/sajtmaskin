@@ -40,6 +40,44 @@ describe("renderScaffoldVariantBlock — compact follow-up form", () => {
   });
 });
 
+describe("renderScaffoldVariantBlock — theme token CSS contract", () => {
+  it("tells the model to write --color-* tokens into @theme inline", () => {
+    const variant = getVariantById("landing-page", "futuristic-investment-landing");
+    if (!variant) throw new Error("futuristic-investment-landing not registered");
+
+    const full = renderScaffoldVariantBlock(variant).join("\n");
+    expect(full).toContain("@theme inline");
+    expect(full).toContain(`--color-background: ${variant.themeTokens!.background}`);
+    expect(full).toContain(`--color-primary: ${variant.themeTokens!.primary}`);
+    expect(full).toMatch(/Keep the `--color-` prefix exactly as written/);
+    expect(full).not.toMatch(/^ *- --(?!color-|radius)[a-z]/m);
+  });
+
+  it("keeps the body recipe outside the @theme inline token list", () => {
+    const variant = getVariantById("landing-page", "futuristic-investment-landing");
+    if (!variant) throw new Error("futuristic-investment-landing not registered");
+
+    const full = renderScaffoldVariantBlock(variant).join("\n");
+    const themeIdx = full.indexOf("Emit exactly these values");
+    const keepIdx = full.indexOf("Keep the `--color-` prefix");
+    const recipeIdx = full.indexOf("Body background recipe");
+    expect(themeIdx).toBeGreaterThanOrEqual(0);
+    expect(keepIdx).toBeGreaterThan(themeIdx);
+    expect(recipeIdx).toBeGreaterThan(keepIdx);
+
+    const tokenSection = full.slice(themeIdx, keepIdx);
+    expect(tokenSection).toContain(`--color-background: ${variant.themeTokens!.background}`);
+    expect(tokenSection).toContain(`--color-primary: ${variant.themeTokens!.primary}`);
+    expect(tokenSection).not.toContain("Body background recipe");
+    expect(tokenSection).not.toContain("radial-gradient");
+
+    const recipeSection = full.slice(recipeIdx);
+    expect(recipeSection).toContain("NOT inside `@theme inline`");
+    expect(recipeSection).toContain("apply this backgroundImage on `body` in `globals.css`");
+    expect(recipeSection).toContain(`color-mix(in oklab, ${variant.themeTokens!.primary} 14%`);
+  });
+});
+
 describe("renderVariantTemplateInspirationBlock", () => {
   it("renders exactly one style-only reference and its bounded structure", () => {
     const rendered = renderVariantTemplateInspirationBlock({
