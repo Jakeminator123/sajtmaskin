@@ -351,7 +351,8 @@ export function versionOrdinal(version: {
 export function pickPreviousVersionInChat<
   T extends { id: string; version_number?: number | null; versionNumber?: number | null },
 >(versions: readonly T[], current: { id: string; version_number?: number | null; versionNumber?: number | null }): T | null {
-  const currentNum = versionOrdinal(current) ?? versionOrdinal(versions.find((row) => row.id === current.id) ?? { id: "" });
+  const fromList = versions.find((row) => row.id === current.id);
+  const currentNum = versionOrdinal(current) ?? (fromList ? versionOrdinal(fromList) : null);
   if (currentNum == null) return null;
   let best: T | null = null;
   let bestNum = Number.NEGATIVE_INFINITY;
