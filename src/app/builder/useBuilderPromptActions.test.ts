@@ -53,7 +53,7 @@ function makeArgs(
     setCustomInstructions: vi.fn(),
     setDesignTheme: vi.fn(),
     setPaletteState: vi.fn(),
-    generateDynamicInstructions: vi.fn(async () => ""),
+    generateDynamicInstructions: vi.fn(async () => null),
     createNewChat: vi.fn(async () => true),
     cancelActiveGeneration: vi.fn(),
     resetBeforeCreateChat: vi.fn(),
@@ -64,7 +64,7 @@ function makeArgs(
 
 describe("useBuilderPromptActions", () => {
   it("does not start two Deep Brief requests for duplicate init submits", async () => {
-    const brief = deferred<string>();
+    const brief = deferred<Record<string, unknown> | null>();
     const generateDynamicInstructions = vi.fn(() => brief.promise);
     const createNewChat = vi.fn(async () => true);
 
@@ -95,7 +95,7 @@ describe("useBuilderPromptActions", () => {
     expect(generateDynamicInstructions).toHaveBeenCalledTimes(1);
     expect(createNewChat).not.toHaveBeenCalled();
 
-    brief.resolve("");
+    brief.resolve(null);
     await act(async () => {
       await first;
     });
@@ -105,7 +105,7 @@ describe("useBuilderPromptActions", () => {
 
   it("blocks a blank init while a template entry has no chat yet (template import owns chat creation)", async () => {
     const createNewChat = vi.fn(async () => true);
-    const generateDynamicInstructions = vi.fn(async () => "");
+    const generateDynamicInstructions = vi.fn(async () => null);
 
     const { result } = renderHook(() =>
       useBuilderPromptActions(

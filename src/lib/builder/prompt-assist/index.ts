@@ -1,10 +1,9 @@
 /**
- * Barrel re-exports — public API of `@/lib/builder/prompt-assist`.
+ * Public API of `@/lib/builder/prompt-assist`.
  *
- * Split out of the pre-OMTAG-03 monolith `promptAssist.ts`. The directory
- * name is now kebab-case (`prompt-assist/`) matching the repo-wide
- * filename convention — see \`.cursor/rules/workflow.mdc\`. All consumer
- * imports were updated in the same commit as this barrel.
+ * Deep Brief model routing lives in `models.ts`. `formatPrompt` is used by
+ * the prompt-wizard only. The old client-side instruction addendum is gone —
+ * server `guidance-resolvers.ts` owns that prompt text.
  */
 
 export type { PromptAssistProvider } from "./models";
@@ -20,8 +19,3 @@ export {
 } from "./models";
 
 export { formatPrompt } from "./formatters";
-
-export {
-  buildDynamicInstructionAddendumFromBrief,
-  buildDynamicInstructionAddendumFromPrompt,
-} from "./runner";

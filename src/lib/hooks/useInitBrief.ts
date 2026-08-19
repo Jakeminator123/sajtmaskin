@@ -1,6 +1,4 @@
 import {
-  buildDynamicInstructionAddendumFromBrief,
-  buildDynamicInstructionAddendumFromPrompt,
   isOpenAIAssistModel,
   isPromptAssistModelAllowed,
   isPromptAssistOff,
@@ -44,10 +42,13 @@ function dispatchInitBriefStatus(status: string | null): void {
 }
 
 export function useInitBrief(params: PromptAssistConfig) {
-  const { model, deep, imageGenerations, buildIntent, themeColors } = params;
+  const { model, deep, imageGenerations, themeColors: _themeColors } = params;
 
   const generateDynamicInstructions = useCallback(
-    async (originalPrompt: string, options: InitBriefOptions = {}): Promise<string> => {
+    async (
+      originalPrompt: string,
+      options: InitBriefOptions = {},
+    ): Promise<Record<string, unknown> | null> => {
       const normalizedModel = normalizeAssistModel(options.modelOverride ?? model);
       // P22: hård guard — Deep Brief är init-only. När en chatId redan finns
       // är det per definition en follow-up; brief-anropet växer prompten med
@@ -61,29 +62,17 @@ export function useInitBrief(params: PromptAssistConfig) {
         debugLog("AI", "Deep Brief off – skipping dynamic instructions", {
           model: normalizedModel,
         });
-        return buildDynamicInstructionAddendumFromPrompt({
-          originalPrompt,
-          imageGenerations,
-          buildIntent,
-          themeOverride: themeColors,
-        });
+        return null;
       }
       if (!isPromptAssistModelAllowed(normalizedModel)) {
         toast.error("Ogiltig Deep Brief-modell. Välj en giltig modell.");
-        return buildDynamicInstructionAddendumFromPrompt({
-          originalPrompt,
-          imageGenerations,
-          buildIntent,
-          themeOverride: themeColors,
-        });
+        return null;
       }
 
       const provider = resolvePromptAssistProvider(normalizedModel);
       const startedAt = Date.now();
       const resolvedOpenAIDeep = isOpenAIAssistModel(normalizedModel) ? deep : false;
-      const useDeepBrief =
-        !options.forceShallow &&
-        (options.forceDeepBrief === true || resolvedOpenAIDeep);
+      const useDeepBrief = options.forceDeepBrief === true || resolvedOpenAIDeep;
       const briefUsesOpenAI =
         options.forceDeepBrief === true && !isOpenAIAssistModel(normalizedModel)
           ? true
@@ -95,9 +84,9 @@ export function useInitBrief(params: PromptAssistConfig) {
           : normalizeAssistModel(ASSIST_MODEL)
         : normalizedModel;
 
-      debugLog("AI", "Dynamic instructions started", {
+      debugLog("AI", "Client Deep Brief started", {
         ...promptAssistDebugFields(provider),
-        flow: useDeepBrief ? BRIEF_SOURCE_DYNAMIC_INSTRUCTIONS : "dynamic_instructions_prompt_only",
+        flow: useDeepBrief ? BRIEF_SOURCE_DYNAMIC_INSTRUCTIONS : "client_brief_skipped",
         briefProvider: useDeepBrief ? briefProvider : null,
         briefModel: useDeepBrief ? briefModel : null,
         model: normalizedModel,
@@ -107,18 +96,13 @@ export function useInitBrief(params: PromptAssistConfig) {
       });
 
       if (!useDeepBrief) {
-        return buildDynamicInstructionAddendumFromPrompt({
-          originalPrompt,
-          imageGenerations,
-          buildIntent,
-          themeOverride: themeColors,
-        });
+        return null;
       }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), PROMPT_ASSIST_TIMEOUT_MS);
       try {
-        dispatchInitBriefStatus("Skapar brief och dynamiska instruktioner innan own-engine startar…");
+        dispatchInitBriefStatus("Skapar brief innan own-engine startar…");
 
         const buildChoices = briefBuildChoicesFromMeta(
           buildInitBuildChoicesMeta(getCurrentInitBuildChoices()),
@@ -151,43 +135,10 @@ export function useInitBrief(params: PromptAssistConfig) {
           throw new Error("Dynamic instructions returned invalid JSON");
         }
 
-        if (options.onBrief) {
-          try {
-            options.onBrief(brief);
-          } catch {
-            // non-critical
-          }
-        }
-
-        if (options.skipAddendum) {
-          debugLog("AI", "Dynamic instructions completed (brief only, addendum skipped)", {
-            durationMs: Date.now() - startedAt,
-          });
-          return "";
-        }
-
-        const addendum = buildDynamicInstructionAddendumFromBrief({
-          brief,
-          originalPrompt,
-          imageGenerations,
-          buildIntent,
-          themeOverride: themeColors,
-        });
-
-        debugLog("AI", "Dynamic instructions completed", {
+        debugLog("AI", "Client Deep Brief completed", {
           durationMs: Date.now() - startedAt,
-          outputLength: addendum.length,
         });
-
-        return (
-          addendum.trim() ||
-          buildDynamicInstructionAddendumFromPrompt({
-            originalPrompt,
-            imageGenerations,
-            buildIntent,
-            themeOverride: themeColors,
-          })
-        );
+        return brief;
       } catch (err) {
         const rawMessage = err instanceof Error ? err.message : "Dynamic instructions failed";
         const isAbort = isAbortError(err);
@@ -196,7 +147,7 @@ export function useInitBrief(params: PromptAssistConfig) {
           normalizedMessage.includes("no object generated") ||
           normalizedMessage.includes("could not parse");
 
-        debugLog("AI", "Dynamic instructions failed", {
+        debugLog("AI", "Client Deep Brief failed", {
           durationMs: Date.now() - startedAt,
           error: rawMessage,
         });
@@ -216,18 +167,13 @@ export function useInitBrief(params: PromptAssistConfig) {
           });
         }
 
-        return buildDynamicInstructionAddendumFromPrompt({
-          originalPrompt,
-          imageGenerations,
-          buildIntent,
-          themeOverride: themeColors,
-        });
+        return null;
       } finally {
         clearTimeout(timeoutId);
         dispatchInitBriefStatus(null);
       }
     },
-    [model, deep, imageGenerations, buildIntent, themeColors],
+    [model, deep, imageGenerations],
   );
 
   return { generateDynamicInstructions };
