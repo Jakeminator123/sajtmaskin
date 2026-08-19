@@ -28,6 +28,7 @@ import {
   Plus,
   Search,
   SearchX,
+  Sparkles,
   X,
 } from "lucide-react";
 import { builderModeToggleClassName } from "@/lib/builder/icon-language";
@@ -222,6 +223,7 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [promptAssistBusy, setPromptAssistBusy] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
@@ -512,6 +514,34 @@ export function ChatInterface({
     await sendMessagePayload(current, { clearDraft: false, planMode: true });
   };
 
+  const handlePromptAssist = async () => {
+    if (inputDisabled || promptAssistBusy) return;
+    const current = input.trim();
+    if (!current) {
+      toast.error("Skriv något att rätta först.");
+      return;
+    }
+
+    setPromptAssistBusy(true);
+    try {
+      const response = await fetch("/api/ai/prompt-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draft: current }),
+      });
+      const payload = (await response.json().catch(() => null)) as { text?: unknown } | null;
+      if (!response.ok || typeof payload?.text !== "string" || !payload.text.trim()) {
+        toast.error("Kunde inte rätta utkastet. Försök igen.");
+        return;
+      }
+      setInput(payload.text);
+    } catch {
+      toast.error("Kunde inte rätta utkastet. Försök igen.");
+    } finally {
+      setPromptAssistBusy(false);
+    }
+  };
+
   const resolveFigmaAttachment = async (
     figmaLink: string,
   ): Promise<V0UserFileAttachment | null> => {
@@ -747,6 +777,16 @@ export function ChatInterface({
             >
               <FileText className="size-3" />
               Plan
+            </button>
+            <button
+              type="button"
+              onClick={() => void handlePromptAssist()}
+              disabled={inputDisabled || promptAssistBusy || !input.trim()}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+              title="Rätta och strukturera utkastet utan att skicka"
+            >
+              {promptAssistBusy ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+              Prompt-assist
             </button>
             {previewModes ? (
               <>

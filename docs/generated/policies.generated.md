@@ -135,6 +135,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_PREVIEW_HOST_BASE_URL`                   | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_PREVIEW_PREWARM`                         | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_PROMPT_DUMP`                             | `local_only`           | —                                      | No            | No           |
+| `SAJTMASKIN_PROMPT_REWRITE_MODEL`                    | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD`         | `optional_runtime`     | —                                      | Yes           | No           |
 | `SAJTMASKIN_REFUSE_DOSSIER_STUBS`                    | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS` | `optional_runtime`     | —                                      | Yes           | No           |
