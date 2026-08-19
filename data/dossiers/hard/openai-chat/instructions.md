@@ -32,8 +32,8 @@ the surface must never overpromise:
 
 # How to integrate
 
-1. Place `<ChatPanel />` somewhere in the page tree — a sidebar, a modal, a dedicated `/chat` route, etc. The component is fully self-contained and uses AI SDK **v5** `useChat` from `@ai-sdk/react` with `DefaultChatTransport({ api: "/api/chat" })` from `ai`.
-2. The transport posts to `/api/chat` and streams UI-message parts back. Do **not** use the v4 `useChat({ api })` / `handleInputChange` / `append` shape — it 500s against this route. Manage input with local `useState` and call `sendMessage({ text })`.
+1. Place `<ChatPanel />` somewhere in the page tree — a sidebar, a modal, a dedicated `/chat` route, etc. The component is fully self-contained and uses AI SDK **6** (`ai@^6`, `@ai-sdk/react@3`) `useChat` with `DefaultChatTransport({ api: "/api/chat" })` from `ai`.
+2. The transport posts to `/api/chat` and streams UI-message parts back. Do **not** use the v4 `useChat({ api })` / `handleInputChange` / `append` shape — it 500s against this route. Manage input with local `useState` and call `sendMessage({ text })`. On the server, always `await convertToModelMessages(messages)` before passing the resulting `ModelMessage[]` to `streamText`; the conversion is async in AI SDK 6.
 3. **Re-style the panel freely.** Avatars, layout, colors, message rendering, autoscroll behavior — all rewritable. Keep the `/api/chat` transport target. Only the `route.ts` file must stay verbatim (the streaming protocol depends on the exact response format).
 4. Configure the **system prompt** in `route.ts` to match the site's persona — this is the single most important integration step. Generic `You are a helpful assistant` is a sign of incomplete adaptation.
 
@@ -46,7 +46,7 @@ your existing UI at `/api/chat` (the dossier's route) or replace it with
 `<ChatPanel />`. Never keep both, and never add a second chat endpoint next to
 `app/api/chat/route.ts`.
 
-The response contract is the AI SDK **UI-message stream**, consumed by v5
+The response contract is the AI SDK **UI-message stream**, consumed by AI SDK 6
 `useChat` + `DefaultChatTransport` — not a JSON envelope. Do not hand-roll an
 endpoint that answers `{ reply: "..." }` and do not read `data.reply` on the
 client: render text from `message.parts` (`type === "text"`).

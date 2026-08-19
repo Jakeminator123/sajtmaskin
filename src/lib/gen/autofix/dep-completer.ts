@@ -258,14 +258,18 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@clerk/nextjs": "^6",
   "resend": "^6",
   // Dossier wave 1 (legacy import 2026-07-08): ably-realtime,
-  // fal-image-generation (+ parked ai-tool-calling-chat). `ai` +
-  // `@ai-sdk/*` stay pinned so openai-chat (sole live AI dossier after
-  // etapp 4) always gets ONE consistent AI SDK major.
+  // fal-image-generation (+ parked ai-tool-calling-chat). `ai` + the live
+  // OpenAI chat packages intentionally mirror the platform package.json
+  // ranges: the warm pre-VM typecheck reuses the platform node_modules while
+  // the authoritative VM installs these generated-project ranges. A major
+  // skew here can therefore make pre-VM look green for code that fails after
+  // install. `acceptance-project.test.ts` guards the materialized openai-chat
+  // project against that drift.
   "ably": "^2",
-  "ai": "^7",
-  "@ai-sdk/openai": "^4",
+  "ai": "^6.0.239",
+  "@ai-sdk/openai": "^3.0.90",
   "@ai-sdk/fal": "^3",
-  "@ai-sdk/react": "^4",
+  "@ai-sdk/react": "3.0.259",
   // Dossier wave 2 (legacy import 2026-07-08, capability `database`):
   // postgres-drizzle is the sole live dossier (neon-postgres / mongodb-atlas
   // parked 2026-08-06). Majors verified against the npm registry 2026-07-08
