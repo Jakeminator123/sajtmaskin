@@ -1083,15 +1083,36 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
       "an OOM-killed child is classified as out_of_memory",
       classifyInstallFailure("JavaScript heap out of memory", 134) === "out_of_memory",
     );
+    // Hostens egen timeout skriver «was killed». Utan en egen klass blir varje
+    // hangd install en falsk OOM — och da leder rotorsaken fel.
+    check(
+      "the host's own fail-fast timeout is not mistaken for an OOM",
+      classifyInstallFailure(
+        "[preview-host] npm install timed out after 600s and was killed (fail-fast so the install queue advances).",
+        124,
+      ) === "timeout",
+    );
+    check(
+      "exit 124 alone is enough to call it a timeout",
+      classifyInstallFailure("", 124) === "timeout",
+    );
     check(
       "registry timeouts are classified as network",
       classifyInstallFailure("npm error network request to https://registry.npmjs.org failed, reason: ETIMEDOUT", 1) ===
         "network",
     );
+    // npm:s 404-utskrift bar registry-URL:en, sa network-monstret matade forst.
     check(
       "a missing version is not mistaken for a network fault",
       classifyInstallFailure("npm error notarget No matching version found for foo@9.9.9 ETARGET", 1) ===
         "missing_package",
+    );
+    check(
+      "a 404 that mentions the registry URL is still a missing package",
+      classifyInstallFailure(
+        "npm error code E404\nnpm error 404 GET https://registry.npmjs.org/inte-ett-paket - Not found",
+        1,
+      ) === "missing_package",
     );
     // Det observerade fallet: barnprocessen dog innan den hann skriva något.
     // Att säga det rakt ut ÄR diagnosen — inte en restpost.

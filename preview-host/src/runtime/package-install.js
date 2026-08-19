@@ -358,19 +358,43 @@ function isNoSpaceInstallFailure(output) {
  */
 function classifyInstallFailure(output, exitCode) {
   const text = String(output || "");
+
+  // Ordningen är inte godtycklig. Ett mönster som fångas för tidigt döljer det
+  // riktiga svaret, och en klassificerare som pekar fel är sämre än ingen alls
+  // — den skickar felsökningen åt fel håll med falskt självförtroende.
+
+  // Först: hostens EGEN timeout. `runShellCommand` avslutar med exit 124 och
+  // skriver «timed out after Ns and was killed». Ordet «killed» där skulle
+  // annars göra varje hängd install till en OOM.
+  if (exitCode === 124 || /\btimed out after \d+s and was killed\b/i.test(text)) {
+    return "timeout";
+  }
+
   if (isNoSpaceInstallFailure(text)) return "no_space";
-  if (isPeerDependencyInstallFailure(text)) return "peer_conflict";
-  if (/JavaScript heap out of memory|out of memory|Killed|SIGKILL/i.test(text)) {
-    return "out_of_memory";
-  }
-  if (/ETIMEDOUT|ENOTFOUND|ECONNRESET|EAI_AGAIN|ERR_SOCKET|network|registry\.npmjs\.org/i.test(text)) {
-    return "network";
-  }
-  if (/EACCES|EPERM|permission denied/i.test(text)) return "permissions";
-  if (/ETARGET|E404|No matching version|is not in this registry/i.test(text)) {
+
+  // Före `network`: npm:s 404-utskrift innehåller registry-URL:en i GET-raden,
+  // så ett saknat paket skulle annars rapporteras som nätverksfel.
+  if (/\bETARGET\b|\bE404\b|No matching version|is not in this registry/i.test(text)) {
     return "missing_package";
   }
+
+  if (isPeerDependencyInstallFailure(text)) return "peer_conflict";
+
+  // Bara otvetydiga OOM-markörer. Bart «Killed» är för brett — se timeouten ovan.
+  if (/heap out of memory|out of memory|oom-kill|Killed process/i.test(text)) {
+    return "out_of_memory";
+  }
+
+  if (/ETIMEDOUT|ENOTFOUND|ECONNRESET|EAI_AGAIN|ERR_SOCKET|npm error network/i.test(text)) {
+    return "network";
+  }
+
+  if (/EACCES|EPERM|permission denied/i.test(text)) return "permissions";
+
+  // Ingen restpost: kraschade barnprocessen innan den hann skriva något är
+  // just det diagnosen, och det är det observerade 254-fallet.
   if (!text.trim()) return "no_output";
+
   return exitCode === 254 ? "unknown_npm_crash" : "unknown";
 }
 
