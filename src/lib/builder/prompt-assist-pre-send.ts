@@ -51,20 +51,36 @@ export function buildPromptAssistModelOptions(modelId: string): {
   };
 }
 
-export function parsePromptAssistResponse(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenced?.[1]?.trim() ?? trimmed;
+function readRewriteText(value: string): string | null | undefined {
   try {
-    const parsed = JSON.parse(candidate) as { text?: unknown };
+    const parsed = JSON.parse(value) as { text?: unknown };
     if (typeof parsed.text === "string") {
-      const text = parsed.text.trim();
-      return text || null;
+      return parsed.text.trim() || null;
     }
     return null;
   } catch {
-    if (candidate.startsWith("{")) return null;
-    return candidate;
+    return undefined;
   }
+}
+
+export function parsePromptAssistResponse(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const wholeFence = trimmed.match(/^```(?:json)?\s*([\s\S]*?)```$/i);
+  const candidate = wholeFence?.[1]?.trim() ?? trimmed;
+
+  const direct = readRewriteText(candidate);
+  if (direct !== undefined) return direct;
+
+  const start = candidate.indexOf("{");
+  if (start >= 0) {
+    const end = candidate.lastIndexOf("}");
+    if (end > start) {
+      const embedded = readRewriteText(candidate.slice(start, end + 1));
+      if (embedded !== undefined) return embedded;
+    }
+    if (candidate.startsWith("{") || /"text"\s*:/.test(candidate)) return null;
+  }
+
+  return candidate;
 }

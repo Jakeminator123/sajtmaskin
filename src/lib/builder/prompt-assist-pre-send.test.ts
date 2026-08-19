@@ -42,6 +42,21 @@ describe("prompt-assist-pre-send", () => {
     );
   });
 
+  it("extracts JSON after a preamble and keeps prose that only has braces", () => {
+    expect(
+      parsePromptAssistResponse(
+        'Här är det rättade utkastet:\n{"text":"En café-sajt i Malmö"}',
+      ),
+    ).toBe("En café-sajt i Malmö");
+    expect(
+      parsePromptAssistResponse("En sajt med {namn} i titeln"),
+    ).toBe("En sajt med {namn} i titeln");
+    expect(
+      parsePromptAssistResponse('Förklaring:\n```js\nconsole.log(1)\n```\noch en kontaktform'),
+    ).toBe("Förklaring:\n```js\nconsole.log(1)\n```\noch en kontaktform");
+    expect(parsePromptAssistResponse('Här är JSON:\n{"text":')).toBeNull();
+  });
+
   it("forces GPT-5.6 off thinking and omits temperature on reasoning models", () => {
     expect(buildPromptAssistModelOptions("openai/gpt-5.6-terra")).toEqual({
       providerOptions: { openai: { reasoningEffort: "none" } },
