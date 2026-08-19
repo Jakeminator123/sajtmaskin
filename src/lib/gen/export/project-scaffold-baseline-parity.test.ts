@@ -210,8 +210,8 @@ describe("KNOWN_PACKAGES parity with platform package.json", () => {
  * (`lucide-react: "^1"`, live until this guard landed) makes `npm install` fail
  * on Vercel, and nothing else in CI compared this table to anything.
  *
- * Majors only. The fallback ranges legitimately trail the platform's carets at
- * the minor level, so a platform patch bump must not turn this red.
+ * Majors only by default: the fallback ranges legitimately trail the platform's
+ * carets at the minor level, so a platform patch bump must not turn this red.
  */
 describe("deploy fallback versions parity with platform package.json", () => {
   const platform = readPlatformDeps();
@@ -228,4 +228,20 @@ describe("deploy fallback versions parity with platform package.json", () => {
       );
     expect(mismatches).toEqual([]);
   });
+
+  /**
+   * The major-only rule above is blind for 0.x packages: every lucide release
+   * is major 0, so `^0.469.0` would pass against a platform on 0.577.0 and
+   * reproduce exactly the missing-icon build break this file guards. lucide
+   * therefore gets the same full pin as the baseline and KNOWN_PACKAGES.
+   */
+  for (const pkg of ["lucide-react"] as const) {
+    it(`${pkg}: fallback range matches platform major.minor.patch`, () => {
+      const p = platform[pkg];
+      const f = SHADCN_FALLBACK_VERSIONS[pkg];
+      expect(p, `${pkg} missing from platform package.json`).toBeTruthy();
+      expect(f, `${pkg} missing from SHADCN_FALLBACK_VERSIONS`).toBeTruthy();
+      expect(parseVersion(f)).toEqual(parseVersion(p));
+    });
+  }
 });
