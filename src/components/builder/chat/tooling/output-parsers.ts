@@ -424,6 +424,10 @@ export function extractToolSummaries(toolType: string, output: unknown) {
     postCheck: isPostCheck ? getPostCheckSummary(output) : null,
     qualityGate: isQualityGate ? getQualityGateSummary(output) : null,
     serverRepair: isQualityGate ? getServerRepairSummary(output) : null,
-    liveReview: isLiveReview || isPostCheck ? getLiveReviewResult(output) : null,
+    // ONLY the dedicated part renders the verdict. The post-check output also
+    // embeds `liveReview`, but a completed review always appends the dedicated
+    // part too, so surfacing it from tool-post-check rendered the row twice
+    // (bugbot medium, 2026-08-19).
+    liveReview: isLiveReview ? getLiveReviewResult(output) : null,
   };
 }
