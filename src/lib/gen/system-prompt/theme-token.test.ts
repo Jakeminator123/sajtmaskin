@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { getVariantById } from "@/lib/gen/scaffold-variants";
-import { formatThemeTokenLines } from "./theme-token";
+import { getVariantById, type ScaffoldVariant } from "@/lib/gen/scaffold-variants";
+import { formatBodyBackgroundRecipeLines, formatThemeTokenLines } from "./theme-token";
 
 const LANDING_PAGE_GLOBALS = path.resolve(
   process.cwd(),
@@ -46,6 +46,45 @@ describe("formatThemeTokenLines", () => {
     // No bare token may slip through: `- --background:` at the start of a bullet
     // is the failure mode, while `--color-background` legitimately contains it.
     expect(text).not.toMatch(/^ *- --(?!color-|radius)[a-z]/m);
+    expect(text).not.toContain("Body background recipe");
+    expect(text).not.toContain("radial-gradient");
+  });
+
+  it("emits the body wash as its own recipe, not as an @theme token", () => {
+    const variant = getVariantById("landing-page", "futuristic-investment-landing");
+    if (!variant) throw new Error("futuristic-investment-landing not registered");
+
+    const recipe = formatBodyBackgroundRecipeLines(variant).join("\n");
+    expect(recipe).toContain("Body background recipe");
+    expect(recipe).toContain("NOT inside `@theme inline`");
+    expect(recipe).toContain("apply this backgroundImage on `body` in `globals.css`");
+    expect(recipe).toContain(`color-mix(in oklab, ${variant.themeTokens!.primary} 14%`);
+    expect(recipe).not.toContain("--color-");
+    expect(recipe).not.toContain("Emit exactly these values");
+  });
+
+  it("keeps an explicit bodyBackgroundImage out of the token list", () => {
+    const variant: ScaffoldVariant = {
+      id: "with-image",
+      scaffoldId: "landing-page",
+      label: "With image",
+      keywords: [],
+      fontPairings: [],
+      signatureMotif: "none",
+      colorMode: "dark",
+      promptHints: [],
+      themeTokens: {
+        background: "oklch(0.145 0 0)",
+        primary: "oklch(0.8 0.13 88)",
+        bodyBackgroundImage: "radial-gradient(circle at top, gold 0%, transparent 40%)",
+      },
+    };
+    const tokens = formatThemeTokenLines(variant).join("\n");
+    const recipe = formatBodyBackgroundRecipeLines(variant).join("\n");
+    expect(tokens).toContain("--color-background:");
+    expect(tokens).not.toContain("radial-gradient");
+    expect(recipe).toContain("radial-gradient(circle at top, gold 0%, transparent 40%)");
+    expect(recipe).toContain("NOT inside `@theme inline`");
   });
 
   it("matches the landing-page scaffold contract Tailwind utilities actually read", () => {

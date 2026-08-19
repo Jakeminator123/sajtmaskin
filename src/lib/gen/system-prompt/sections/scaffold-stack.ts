@@ -12,7 +12,7 @@ import type {
   VariantTemplateInspiration,
 } from "../../scaffold-variants";
 import { resolveGoogleFontImportName } from "../../data/google-font-registry";
-import { formatThemeTokenLines } from "../theme-token";
+import { formatBodyBackgroundRecipeLines, formatThemeTokenLines } from "../theme-token";
 import type { ScaffoldManifest, ScaffoldId } from "../../scaffolds/types";
 import { buildRegistryDrivenShadcnToolkitSummary } from "../../data/shadcn-toolkit-summary";
 
@@ -128,6 +128,7 @@ export function renderScaffoldVariantBlock(
       "- Keep the `--color-` prefix exactly as written: that is the Tailwind v4 form the scaffold uses, and it is what makes `bg-background`, `text-foreground` and `border-border` resolve.",
     );
   }
+  parts.push(...formatBodyBackgroundRecipeLines(effectiveVariant));
   parts.push("");
   return parts;
 }

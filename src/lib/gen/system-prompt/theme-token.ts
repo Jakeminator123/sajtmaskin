@@ -60,26 +60,30 @@ export function formatThemeTokenLines(variant: ScaffoldVariant | null | undefine
     ["--radius", tokens.radius],
   ] as const;
 
-  const lines = entries
+  return entries
     .filter(([, value]) => Boolean(value))
     .map(([token, value]) => `  - ${token}: ${value}`);
+}
+
+/**
+ * Body wash / image recipe for the variant. Not a theme token — must be
+ * applied on `body` in `app/globals.css`, never dumped into `@theme inline`.
+ */
+export function formatBodyBackgroundRecipeLines(
+  variant: ScaffoldVariant | null | undefined,
+): string[] {
+  const tokens = variant?.themeTokens;
+  if (!tokens) return [];
   if (tokens.bodyBackgroundImage) {
-    // bodyBackgroundImage is NOT a CSS variable — it's a body-styling
-    // recipe. Emit it under its own sub-bullet with an explicit application
-    // hint so the model adds it to `body { background-image: … }` in
-    // app/globals.css rather than treating it as a stray --token.
-    lines.push(
-      `  - **Body background recipe** (apply on \`body { background-image: ... }\` in \`app/globals.css\`):`,
-      `    - ${tokens.bodyBackgroundImage}`,
-    );
-  } else {
-    const fallback = buildFallbackBodyBackgroundImage(variant);
-    if (fallback) {
-      lines.push(
-        `  - **Body background recipe** (standardized fallback — apply on \`body { background-image: ... }\` in \`app/globals.css\` so the surface is not dead-flat):`,
-        `    - ${fallback}`,
-      );
-    }
+    return [
+      "- **Body background recipe** (apply this backgroundImage on `body` in `globals.css` — NOT inside `@theme inline`):",
+      `  - ${tokens.bodyBackgroundImage}`,
+    ];
   }
-  return lines;
+  const fallback = buildFallbackBodyBackgroundImage(variant);
+  if (!fallback) return [];
+  return [
+    "- **Body background recipe** (standardized fallback — apply this backgroundImage on `body` in `globals.css` — NOT inside `@theme inline` so the surface is not dead-flat):",
+    `  - ${fallback}`,
+  ];
 }
