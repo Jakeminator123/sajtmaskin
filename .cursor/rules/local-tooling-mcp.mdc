@@ -57,7 +57,7 @@ Kanonisk lista = nycklarna i `.cursor/mcp.json.example`. Tabellen nedan speglar 
 - De tre sista raderna är hostade HTTP-endpoints **utan** auth-headers i mallen, så de kräver ingen OAuth-runda för att listas.
 - `plugin-vercel-vercel` kan ge 403 → använd `vercel` / `user-vercel`.
 - Appens `VERCEL_PROJECT_ID` ≠ användarsajters per-deploy `vercel_project_id`.
-- Supabase-MCP: **ingen destruktiv SQL**. Ignorera RLS-varning på `public.schema_migrations` om inte explicit ombedd (migrationsmetadata, inte appdata).
+- Supabase-MCP: **ingen destruktiv SQL**. `public.schema_migrations` har deny-by-default sedan 2026-08-19 (SM-057, `src/lib/db/migrations/harden-schema-migrations-ledger.sql`) — dyker `rls_disabled_in_public` upp på den igen är det en regression att åtgärda, inte brus att ignorera. Lintern `rls_enabled_no_policy` (INFO) på samma tabell är däremot det **avsedda** sluttillståndet — lägg inte till en policy för att tysta den, det öppnar tabellen igen.
 - **Välj rätt projekt medvetet.** `supabase` är dev, `supabase-prod` är prod — kanonisk identitet i `config/db-targets.json`, entydig tabell i `docs/ENV.md`. Servern var tidigare omärkt, vilket 2026-07-27 fick en agent att läsa dev-projektet och dra slutsatsen att prod saknade telemetri för en körning som faktiskt loggats. Ställer du en prod-fråga: använd `supabase-prod`, eller `.env.vercel.production.pulled` via `npm run env:pull:prod-snapshot`. Svara aldrig om prod utifrån dev-projektet.
 
 ## Vercel / GitHub (denna maskin)
