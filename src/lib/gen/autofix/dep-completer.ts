@@ -196,7 +196,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@hookform/resolvers": "^5",
   "@reduxjs/toolkit": "^2",
   "react-redux": "^9",
-  "lucide-react": "0.469.0",
+  "lucide-react": "0.577.0",
   "canvas-confetti": "^1.9",
   "react-error-boundary": "^6",
   "react-intersection-observer": "^10",

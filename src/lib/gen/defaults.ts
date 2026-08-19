@@ -218,6 +218,9 @@ export const ANALYZE_PRESENTATION_FALLBACK_MODELS =
 export const INSPECTOR_AI_MATCH_DEFAULT_MODEL =
   getWorkloadDefaultModelFromManifest("inspector_ai_match") ?? "gpt-5-mini";
 
+export const PROMPT_REWRITE_DEFAULT_MODEL =
+  getWorkloadDefaultModelFromManifest("prompt_rewrite") ?? "openai/gpt-5.6-terra";
+
 /** Re-export for callers that resolve env keys dynamically (e.g. catalog). */
 export function getBuildProfileEnvKey(profile: BuildProfileId): string {
   return manifest.buildProfiles.envKeys[profile];

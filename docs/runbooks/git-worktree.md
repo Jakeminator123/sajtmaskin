@@ -42,6 +42,18 @@ npm run worktree:remove -- ..\sajtmaskin-feat-X
 
 Saknar worktreen MCP-config: `pwsh -File scripts/cursor/sync-mcp-json.ps1` (se [`local-tooling-mcp.mdc`](../../.cursor/rules/local-tooling-mcp.mdc)).
 
+### Vitest behöver `--no-file-parallelism` här
+
+Vitest kan inte starta sina arbetare i en worktree vars `node_modules` är en junction till huvudcheckouten — körningen dör med `Failed to start … worker` / `Timeout waiting for worker to respond` innan något test hunnit starta, vilket ser ut som ett trasigt testbibliotek snarare än ett miljöproblem.
+
+**Det är parallelismen som är problemet, inte poolen.** Att bara byta till `--pool=threads` räcker inte (verifierat 2026-08-19: samma timeout). Receptet som fungerar:
+
+```powershell
+npx vitest run --pool=threads --no-file-parallelism <sökväg>
+```
+
+Räkna med ~40 s enbart för miljöuppsättningen per fil, så kör riktat och inte hela sviten. `--poolOptions.*` finns inte som CLI-flagga i vår vitest-version. CI har en riktig `node_modules` och berörs inte — den är fortfarande den auktoritativa signalen.
+
 ### Basen `origin/master` är inte valfri
 
 Utelämnar du den sista referensen baserar git branchen på **huvudcheckoutens HEAD i det ögonblicket**. Står ägaren på en lokal commit som ännu inte är pushad — eller som inte är verifierad — ärver agentens branch den, tyst.

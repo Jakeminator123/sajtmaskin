@@ -49,6 +49,12 @@ export type StreamContext = {
   autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean;
+  /**
+   * True when this create-stream actually attached a client brief
+   * (`pendingBriefRef` / `meta.brief`). Server `meta.briefApplied` is the
+   * other init-turn signal (auto-brief). Follow-ups leave this unset.
+   */
+  briefUsedThisTurn?: boolean;
 };
 
 export type StreamHandlerResult = {

@@ -917,6 +917,23 @@
       "defaultModel": "openai/gpt-5.2"
     },
     {
+      "id": "prompt_rewrite",
+      "title": "Prompt-assist (pre-send)",
+      "description": "Cheap generateText rewrite of the chat draft before send. Natural language only — not Deep Brief / siteBriefSchema.",
+      "invocation": "ai_sdk_generateText",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "src/app/api/ai/prompt-assist/route.ts",
+        "src/lib/builder/prompt-assist-pre-send.ts"
+      ],
+      "authEnv": ["OPENAI_API_KEY"],
+      "defaultModel": "openai/gpt-5.6-terra",
+      "envOverrides": {
+        "model": "SAJTMASKIN_PROMPT_REWRITE_MODEL"
+      },
+      "notes": "Not promptAssist / SAJTMASKIN_ASSIST_MODEL (those belong to Deep Brief)."
+    },
+    {
       "id": "analyze_presentation_vision",
       "title": "Presentation analysis (vision)",
       "description": "OpenAI chat.completions with image frames for body-language analysis (vision path of analyze-presentation).",

@@ -774,6 +774,7 @@ def _render_other_route_models(man_path, manifest: dict[str, Any]) -> None:
         ("project_analyze", "Projektanalys", "Gratis kodöversikt för projekt."),
         ("inspector_ai_match", "Inspector AI match", "Pekar ut vilken fil/koddel som matchar ett visuellt område."),
         ("analyze_presentation", "Presentation analysis", "Separat analysrutt för presentationsmaterial."),
+        ("prompt_rewrite", "Prompt-assist (före sändning)", "Rättar utkastet i chattrutan. Inte Deep Brief."),
     ]
     route_values: dict[str, tuple[str, str]] = {}
     for workload_id, title, blurb in route_specs:

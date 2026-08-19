@@ -94,7 +94,7 @@ export const SHADCN_FALLBACK_VERSIONS: DependencyVersionMap = {
   // Core shadcn utilities
   "class-variance-authority": "^0.7.1",
   "clsx": "^2.1.1",
-  "lucide-react": "^1",
+  "lucide-react": "^0.577.0",
   "tailwind-merge": "^3.4.0",
   // Common extras used by shadcn components
   "cmdk": "^1.1.1",

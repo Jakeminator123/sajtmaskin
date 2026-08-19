@@ -6,6 +6,8 @@ Den operativa regeln bor i [`.cursor/rules/db-env-parity.mdc`](../../.cursor/rul
 
 Runners (`db:migrate`, `db:migrate:prod`, `db:init`) bokför varje applicerad migration i tabellen `schema_migrations` (idempotent, best-effort/warn-only). Alla gates nedan läser den.
 
+Ledgern är **deny-by-default** sedan 2026-08-19 (SM-057): RLS på, inga policies, och `anon`/`authenticated` fråntagna sina rättigheter. Innan dess kunde den läsas, skrivas och TRUNCATE:as med den publika anon-nyckeln över PostgREST, vilket räckte för att lura varje gate nedan — och i värsta fall få en runner att köra om migrationer. Runners påverkas inte: tabellägaren `postgres` är samma roll de ansluter med, och en ägare kringgår RLS. Skyddet bor på två ställen som ska hållas i lockstep — `ensureMigrationLedger` (nya databaser) och `harden-schema-migrations-ledger.sql` (befintliga).
+
 | Kommando | Vad |
 |---|---|
 | `npm run db:migrate:check` | Lokalt mot dev. Rött = DB:n ligger efter |
