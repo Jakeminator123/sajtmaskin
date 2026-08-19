@@ -280,9 +280,13 @@ async function settleThumbnailAnimationsBestEffort(page: Page): Promise<void> {
     }
   }
 
-  let didScroll = false;
+  // A scroll evaluate that TIMED OUT may still execute later as an orphan and
+  // leave the page scrolled — so the top-scroll must run whenever a scroll was
+  // ATTEMPTED, not only when one confirmably succeeded (bugbot medium).
+  let attemptedScroll = false;
   for (const y of offsets) {
     if (!canAffordSettleEvaluate(remaining())) break;
+    attemptedScroll = true;
     const scrolled = await withHostDeadline(
       page.evaluate((offset) => {
         window.scrollTo(0, offset);
@@ -292,7 +296,6 @@ async function settleThumbnailAnimationsBestEffort(page: Page): Promise<void> {
     );
     // Page never yielded: further offsets would each burn another deadline.
     if (scrolled !== true) break;
-    didScroll = true;
     const reservedAfterStep =
       THUMBNAIL_SCROLL_EVALUATE_DEADLINE_MS + THUMBNAIL_POST_SCROLL_SETTLE_MS;
     const delayMs = Math.min(
@@ -304,13 +307,21 @@ async function settleThumbnailAnimationsBestEffort(page: Page): Promise<void> {
     }
   }
 
-  if (didScroll) {
-    await withHostDeadline(
-      page.evaluate(() => {
-        window.scrollTo(0, 0);
-      }),
-      settleScrollEvaluateDeadlineMs(remaining()),
-    );
+  if (attemptedScroll) {
+    // Verify the top-scroll landed; one cheap retry on timeout/failure. Still
+    // best-effort — after the retry the shot proceeds regardless.
+    const scrollToTop = () =>
+      withHostDeadline(
+        page.evaluate(() => {
+          window.scrollTo(0, 0);
+          return true;
+        }),
+        settleScrollEvaluateDeadlineMs(remaining()),
+      );
+    const topped = await scrollToTop();
+    if (topped !== true) {
+      await scrollToTop();
+    }
   }
   await page.waitForTimeout(THUMBNAIL_POST_SCROLL_SETTLE_MS).catch(() => undefined);
 }
