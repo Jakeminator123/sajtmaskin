@@ -163,4 +163,5 @@ Persona: Observatör | Prod: https://sajtmaskin.vercel.app/ | chatId: <…>
 - Backend-loggar (DB/Vercel/Fly): [`.cursor/skills/logg/SKILL.md`](../logg/SKILL.md)
 - Notis-yta: [`.cursor/logg-internet/README.md`](../../logg-internet/README.md)
 - Lyft bekräftad defekt: `/buggrapport` → `BUG-SWARM-BACKLOG.md`
+- Vilka backlog-rader en session kan träffa: [`docs/runbooks/live-verifiering.md`](../../../docs/runbooks/live-verifiering.md)
 - Browser-server: `cursor-ide-browser` MCP (lock/unlock, snapshot, type, click, cdp)

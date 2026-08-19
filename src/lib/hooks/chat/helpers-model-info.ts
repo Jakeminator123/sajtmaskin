@@ -1,5 +1,6 @@
 import { getPromptAssistModelLabel } from "@/lib/builder/defaults";
 import { describeDossierStatus } from "@/lib/builder/dossier-overview";
+import { isPromptAssistOff, resolvePromptAssistProvider } from "@/lib/builder/prompt-assist";
 import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId } from "@/lib/models/catalog";
 import type { ModelInfoData, SetMessages } from "./types";
@@ -12,6 +13,48 @@ function formatEnginePathLabel(enginePath: string | null | undefined): string | 
   if (enginePath === "own-engine") return "egen motor";
   if (enginePath === "plan-mode") return "planläge";
   return enginePath;
+}
+
+/**
+ * Deep Brief labels must follow a real init-turn signal, not leftover builder
+ * UI state. Follow-ups never run `/api/ai/brief`; `promptAssist*` on the
+ * builder is the selected setting, not proof that a brief ran this turn.
+ *
+ * Setting (på/av) is still a real init-turn fact. Provider/model rows only
+ * belong on the turn that actually used a brief (`meta.brief`, server
+ * auto-brief, or `briefApplied` on the create-stream meta event).
+ */
+export function resolveDeepBriefModelInfoFields(params: {
+  isInitTurn: boolean;
+  briefUsedThisTurn: boolean;
+  promptAssistModel?: string | null;
+  promptAssistDeep?: boolean | null;
+}): Pick<ModelInfoData, "promptAssistProvider" | "promptAssistModel" | "promptAssistDeep"> {
+  if (!params.isInitTurn) {
+    return {
+      promptAssistProvider: null,
+      promptAssistModel: null,
+      promptAssistDeep: null,
+    };
+  }
+
+  const paModel =
+    typeof params.promptAssistModel === "string" && params.promptAssistModel.trim().length > 0
+      ? params.promptAssistModel
+      : null;
+  // Setting "off" must never render provider/model rows, even when the server
+  // auto-brief ran (`briefApplied`): the selected "off" model is not the model
+  // that produced that brief, so showing it would mislabel the run (Bugbot
+  // medium on PR #1048).
+  const showLane =
+    params.briefUsedThisTurn && paModel !== null && !isPromptAssistOff(paModel);
+
+  return {
+    promptAssistProvider: showLane ? resolvePromptAssistProvider(paModel) : null,
+    promptAssistModel: showLane ? paModel : null,
+    promptAssistDeep:
+      typeof params.promptAssistDeep === "boolean" ? params.promptAssistDeep : null,
+  };
 }
 
 export function buildModelInfoSteps(info: ModelInfoData): string[] {
@@ -53,6 +96,9 @@ export function buildModelInfoSteps(info: ModelInfoData): string[] {
   if (typeof info.chatPrivacy === "string" && info.chatPrivacy.trim()) {
     steps.push(`Chat privacy: ${info.chatPrivacy}`);
   }
+  // Deep Brief rows: callers (create-stream / non-stream init) must only
+  // populate these via resolveDeepBriefModelInfoFields. Follow-up UI state
+  // is not a run signal.
   if (typeof info.promptAssistProvider === "string") {
     const providerLabel =
       info.promptAssistProvider === "openai" || info.promptAssistProvider === "gateway"

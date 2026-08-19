@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-08-17T22:43:20.538Z",
+  "generatedAt": "2026-08-19T12:22:55.507Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -322,7 +322,7 @@
         "pg",
         "server-only"
       ],
-      "summarySv": "Standardvalet när sajten behöver en databas: Postgres med Drizzle som neutral grund, för att spara sådant som listor, bokningar och annat innehåll. En Neon-Postgres-URL fungerar direkt med pg-drivern. Utan riktiga nycklar körs demoläge med exempeldata som går att skapa, lista och ändra, men utan delad lagring.",
+      "summarySv": "Standardvalet när sajten behöver en databas: Postgres med Drizzle som neutral grund, för att spara sådant som listor, bokningar och annat innehåll. En Neon-Postgres-URL fungerar direkt. Utan en riktig databas-URL körs demoläge: exempeldata visas så att sidorna ser färdiga ut, men ingenting kan sparas — det som skickas in försvinner tills du kopplar en riktig databas.",
       "verificationStatus": "unverified",
       "lastVerified": "2026-04-17",
       "f2Disposition": "deferred",
@@ -450,7 +450,7 @@
         "next-sanity",
         "server-only"
       ],
-      "summarySv": "Kopplar sajten till Sanity, ett redigeringsverktyg där du uppdaterar texter och bilder utan att röra koden. Välj det när innehållet ska kunna ändras löpande av dig eller en redaktör; tills riktiga nycklar läggs in körs demoläge med färdigt exempelinnehåll, utan delad lagring.",
+      "summarySv": "Kopplar sajten till Sanity så att texter och bilder kan hämtas från ett innehållssystem i stället för att ligga hårdkodade i koden. Själva redigeringsverktyget (Sanity Studio) ingår inte — det skapar du hos Sanity tillsammans med dina innehållstyper. Tills projekt-id och dataset är ifyllda visas färdigt exempelinnehåll i demoläge, utan delad lagring.",
       "verificationStatus": "unverified",
       "lastVerified": "2026-04-18",
       "f2Disposition": "deferred",
@@ -487,7 +487,7 @@
       "envVars": [
         {
           "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-          "required": true,
+          "required": false,
           "enforcement": "warn-only"
         },
         {
@@ -502,10 +502,9 @@
         "shared": 1
       },
       "dependencies": [
-        "@stripe/stripe-js",
         "stripe"
       ],
-      "summarySv": "Ta betalt med kort via Stripe Checkout. Utan riktiga nycklar körs betalknappen i demoläge: besökaren ser hela betalflödet men inga pengar dras — en tydlig demoruta förklarar hur Stripe kopplas in. När nyckeln finns blir samma knapp en riktig betalning.",
+      "summarySv": "Ta betalt med kort via Stripe Checkout. Du behöver två saker från Stripe: en hemlig nyckel och ett pris-id (`price_…`) för varje sak du säljer. Utan den hemliga nyckeln körs betalknappen i demoläge: besökaren ser hela betalflödet men inga pengar dras, och en tydlig demoruta förklarar hur Stripe kopplas in. Saknas i stället ett riktigt pris-id går betalningen fram till Stripe och misslyckas där — fyll i pris-id:t innan du säljer på riktigt.",
       "verificationStatus": "accepted",
       "lastVerified": "2026-04-20",
       "f2Disposition": "deferred",
@@ -560,7 +559,7 @@
         "@supabase/ssr",
         "@supabase/supabase-js"
       ],
-      "summarySv": "Inloggning via Supabase. Väljs när sajten uttryckligen ska använda Supabase för konton/inloggning. Utan riktiga nycklar visas inloggningsytan i demoläge med en tydlig notis — ingen låtsas-inloggning sker.",
+      "summarySv": "Inloggning via Supabase. Väljs när sajten uttryckligen ska använda Supabase för konton. Inloggningsformuläret ritas som en del av sajten; e-post, lösenord eller OAuth-leverantörer slår du på i ditt Supabase-projekt. Utan riktiga nycklar visas inloggningsytan i demoläge med en tydlig notis — ingen låtsas-inloggning sker.",
       "verificationStatus": "accepted",
       "lastVerified": "2026-07-08",
       "f2Disposition": "deferred",
@@ -1018,14 +1017,14 @@
     ]
   },
   "sourceFiles": {
-    "data/dossiers/hard/clerk-auth/manifest.json": "9889e637a8a6b460711bb28054abd0220de78e0d80d4ff39653c3a33b0cb7c5b",
+    "data/dossiers/hard/clerk-auth/manifest.json": "8d8a761c949e58077f0dc82e04bcb736ccf3e8965d8e5eeba1291e368d586640",
     "data/dossiers/hard/mailchimp-newsletter/manifest.json": "8b3400858050d66a5c383db99675264df32883c2d9d3a3ff954a309f336ea0f4",
     "data/dossiers/hard/openai-chat/manifest.json": "b929ec00bac5d4a7f25478eee88444c8916f08b0b24c931fef23f95bcdcd19a2",
-    "data/dossiers/hard/postgres-drizzle/manifest.json": "11d7a2c25db545916907c6fdb5ae86b883cbf8b11facb1a823d8061057ded4e7",
+    "data/dossiers/hard/postgres-drizzle/manifest.json": "1a2892030be6e1dd503c7b28788795de23fb32be36c47746a717f35f589a9a15",
     "data/dossiers/hard/resend-contact-form/manifest.json": "da4af8a189ec7b304eee50bf8bc0157b6a1bd365b16344f6e6f8ded4ff035a9a",
-    "data/dossiers/hard/sanity-cms/manifest.json": "18ccf5581fbbb85ce800e6c08940f6a8058cd0c9598b7423a8596a34c87307b2",
-    "data/dossiers/hard/stripe-checkout/manifest.json": "e433a1a0236e9cffc9af78983805d0a3f0dadafc1400a00608dee38eef7d834d",
-    "data/dossiers/hard/supabase-auth/manifest.json": "c4edd2ee8a92a2231cfd1b2610bca447495f5744d6b5cc6bec9acde5f9947daf",
+    "data/dossiers/hard/sanity-cms/manifest.json": "86898a6a327458ac9d17d9f90965e4845461a52f1b0f59a08ae1beda89716af0",
+    "data/dossiers/hard/stripe-checkout/manifest.json": "09c25e6b5449cc37a177add0dddd02d51cc109441df5b99d5ada748c98d6ab3e",
+    "data/dossiers/hard/supabase-auth/manifest.json": "3077977e752b0c11c8c0c466cf661b9c7868cb2577c85151066b7fe2a8efc40d",
     "data/dossiers/hard/vercel-analytics/manifest.json": "85913f69e9ca853141f4bf115b55afabd6637bcb7853b6fa16552c92e7ce6de4",
     "data/dossiers/soft/cmdk-command-palette/manifest.json": "f199ee6dfacebc40193ee48324c77c488048b78a197d848394176e1cfbbd5f99",
     "data/dossiers/soft/dashboard-charts/manifest.json": "5a87faf952ea4490a4afdda1d1e48693d30cd6e48e86f4e7537db57c7a5dabf1",

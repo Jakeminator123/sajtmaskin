@@ -105,6 +105,12 @@ export const MIGRATION_ORDER = [
   // kataloguppslag — no-op på färska installationer. Sist i ordningen:
   // den förutsätter att alla baser + tidigare alters redan körts.
   "align-live-schema-parity.sql",
+  // SM-057: migrationsledgern själv låg utan RLS i ett schema där default-
+  // privilegier ger anon/authenticated alla rättigheter, så den kunde skrivas
+  // och TRUNCATE:as med den publika anon-nyckeln. Körs sist eftersom den bara
+  // rör ledgern (som redan finns när migrationer körs) och inte får blockera
+  // någon schemaändring före sig.
+  "harden-schema-migrations-ledger.sql",
 ];
 
 /**

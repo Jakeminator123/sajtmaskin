@@ -17,7 +17,7 @@ Do not use it for:
 # How to integrate
 
 1. Place `CheckoutButton` on the page where the user should pay (pricing card CTA, hero CTA, etc.).
-2. Pass `priceId` (a `price_…` id from the Stripe dashboard) and a `label`.
+2. Pass `priceId` (a `price_…` id from the Stripe dashboard) and a `label`. The id is per-product data the site owner must supply — there is no env var or config input for it, so declare the ids in ONE named constant (e.g. `const STRIPE_PRICE_IDS = { pro: "price_…" }`) that the owner can find and edit, and never scatter invented ids across pages.
 3. The button POSTs to `/api/checkout-session`, which creates a Stripe Checkout Session and returns a redirect URL.
 4. Stripe handles the actual payment UI, then redirects the user back to `success_url` (default: `/payment-success`) or `cancel_url` (default: `/`).
 
@@ -38,6 +38,8 @@ If `STRIPE_SECRET_KEY` is missing in `process.env` — or holds a placeholder va
 - Do not surface a raw error string or the HTTP status code to the visitor — on `payments-not-configured` the button opens the demo modal with the `IntegrationConfigNotice`; never replace it with a raw error or a dead disabled button.
 - Do not fake a successful payment in demo mode — the demo modal must say clearly that no money moves.
 - Do not put the secret key in any `NEXT_PUBLIC_*` variable.
+- Do not import `@stripe/stripe-js`, `loadStripe` or Stripe Elements. This dossier is hosted-Checkout only; the browser SDK is not a dependency and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is unused here.
+- Do not present a fabricated `price_…` id as working configuration. A wrong id fails at the Stripe API, which the visitor sees as a generic payment error.
 
 # Verification
 

@@ -90,7 +90,7 @@ Kompakt lista. Per dossier: id, label, capability, configured-status. Format:
 ## Available Dossiers
 
 - **stripe-checkout** (capability: `payments`) [configured]
-  Hosted Stripe Checkout for one-time and subscription payments.
+  Hosted Stripe Checkout for ONE-TIME payments.
 
 - **clerk-auth** (capability: `auth`) [UNCONFIGURED — render placeholder UI]
   Clerk-based authentication with social providers and MFA.

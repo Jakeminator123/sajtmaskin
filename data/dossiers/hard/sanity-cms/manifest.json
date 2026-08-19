@@ -8,8 +8,8 @@
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
-  "summary": "Use when a Next.js App Router site should read structured content from Sanity, with optional draft preview / Presentation Tool Visual Editing. Ships only frontend integration glue — env config, a lazy public+draft client factory, a query helper, and paired draft-mode enable/disable routes. When Sanity env is missing or a preview placeholder, Sanity-backed pages must render the shipped seedContent plus a discreet SanityConfigNotice instead of crashing.",
-  "summarySv": "Kopplar sajten till Sanity, ett redigeringsverktyg där du uppdaterar texter och bilder utan att röra koden. Välj det när innehållet ska kunna ändras löpande av dig eller en redaktör; tills riktiga nycklar läggs in körs demoläge med färdigt exempelinnehåll, utan delad lagring.",
+  "summary": "Use when a Next.js App Router site should read structured content from Sanity, with optional draft preview / Presentation Tool Visual Editing. Ships only frontend integration glue — env config, a lazy public+draft client factory, a query helper, and paired draft-mode enable/disable routes. No Studio, schemas or content models are generated; the owner creates those in Sanity, so queries must match the real dataset. When Sanity env is missing or a preview placeholder, Sanity-backed pages must render the shipped seedContent plus a discreet SanityConfigNotice instead of crashing.",
+  "summarySv": "Kopplar sajten till Sanity så att texter och bilder kan hämtas från ett innehållssystem i stället för att ligga hårdkodade i koden. Själva redigeringsverktyget (Sanity Studio) ingår inte — det skapar du hos Sanity tillsammans med dina innehållstyper. Tills projekt-id och dataset är ifyllda visas färdigt exempelinnehåll i demoläge, utan delad lagring.",
   "envVars": [
     {
       "key": "NEXT_PUBLIC_SANITY_PROJECT_ID",

@@ -9,7 +9,7 @@
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:bb584dfa6742f93a -->
-<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:1df82ad99d801a14 -->
+<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:5015ae889ed37dda -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:58bf6977a6cef5d5 -->
 
 # Policies
@@ -199,7 +199,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `sanity-cms`           | `cms`                  | `NEXT_PUBLIC_SANITY_PROJECT_ID`      | Yes      | `feature-runtime` | `seed`    |
 | `sanity-cms`           | `cms`                  | `NEXT_PUBLIC_SANITY_STUDIO_URL`      | No       | `warn-only`       | `seed`    |
 | `sanity-cms`           | `cms`                  | `SANITY_API_TOKEN`                   | No       | `feature-runtime` | `seed`    |
-| `stripe-checkout`      | `payments`             | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes      | `warn-only`       | `visual`  |
+| `stripe-checkout`      | `payments`             | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | No       | `warn-only`       | `visual`  |
 | `stripe-checkout`      | `payments`             | `STRIPE_SECRET_KEY`                  | Yes      | `feature-runtime` | `visual`  |
 | `supabase-auth`        | `auth`                 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Yes      | `feature-runtime` | `visual`  |
 | `supabase-auth`        | `auth`                 | `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | `feature-runtime` | `visual`  |

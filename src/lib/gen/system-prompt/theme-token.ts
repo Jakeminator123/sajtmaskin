@@ -1,7 +1,8 @@
 /**
  * Theme-token rendering helpers for the scaffold-variant block.
  *
- * Split out of `system-prompt.ts` (OMTAG-03 wave-rest) — no behavior change.
+ * Color names must match Tailwind v4 `@theme inline` (`--color-*`). The
+ * historical `--background` spelling does not map to `bg-background`.
  */
 
 import type { ScaffoldVariant } from "../scaffold-variants";
@@ -36,44 +37,53 @@ function buildFallbackBodyBackgroundImage(
 export function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): string[] {
   const tokens = variant?.themeTokens;
   if (!tokens) return [];
+  // Tailwind v4 `@theme inline` names color tokens `--color-*`, which is what
+  // every scaffold's `app/globals.css` actually ships as literals (not
+  // `--color-background: var(--background)`). Emitting the bare `--background`
+  // form would leave `bg-background` / `text-foreground` on the scaffold
+  // defaults even if the model copied these lines into `:root`.
   const entries = [
-    ["--background", tokens.background],
-    ["--foreground", tokens.foreground],
-    ["--card", tokens.card],
-    ["--card-foreground", tokens.cardForeground],
-    ["--primary", tokens.primary],
-    ["--primary-foreground", tokens.primaryForeground],
-    ["--secondary", tokens.secondary],
-    ["--secondary-foreground", tokens.secondaryForeground],
-    ["--muted", tokens.muted],
-    ["--muted-foreground", tokens.mutedForeground],
-    ["--accent", tokens.accent],
-    ["--accent-foreground", tokens.accentForeground],
-    ["--border", tokens.border],
-    ["--ring", tokens.ring],
+    ["--color-background", tokens.background],
+    ["--color-foreground", tokens.foreground],
+    ["--color-card", tokens.card],
+    ["--color-card-foreground", tokens.cardForeground],
+    ["--color-primary", tokens.primary],
+    ["--color-primary-foreground", tokens.primaryForeground],
+    ["--color-secondary", tokens.secondary],
+    ["--color-secondary-foreground", tokens.secondaryForeground],
+    ["--color-muted", tokens.muted],
+    ["--color-muted-foreground", tokens.mutedForeground],
+    ["--color-accent", tokens.accent],
+    ["--color-accent-foreground", tokens.accentForeground],
+    ["--color-border", tokens.border],
+    ["--color-ring", tokens.ring],
     ["--radius", tokens.radius],
   ] as const;
 
-  const lines = entries
+  return entries
     .filter(([, value]) => Boolean(value))
     .map(([token, value]) => `  - ${token}: ${value}`);
+}
+
+/**
+ * Body wash / image recipe for the variant. Not a theme token — must be
+ * applied on `body` in `app/globals.css`, never dumped into `@theme inline`.
+ */
+export function formatBodyBackgroundRecipeLines(
+  variant: ScaffoldVariant | null | undefined,
+): string[] {
+  const tokens = variant?.themeTokens;
+  if (!tokens) return [];
   if (tokens.bodyBackgroundImage) {
-    // bodyBackgroundImage is NOT a CSS variable — it's a body-styling
-    // recipe. Emit it under its own sub-bullet with an explicit application
-    // hint so the model adds it to `body { background-image: … }` in
-    // app/globals.css rather than treating it as a stray --token.
-    lines.push(
-      `  - **Body background recipe** (apply on \`body { background-image: ... }\` in \`app/globals.css\`):`,
-      `    - ${tokens.bodyBackgroundImage}`,
-    );
-  } else {
-    const fallback = buildFallbackBodyBackgroundImage(variant);
-    if (fallback) {
-      lines.push(
-        `  - **Body background recipe** (standardized fallback — apply on \`body { background-image: ... }\` in \`app/globals.css\` so the surface is not dead-flat):`,
-        `    - ${fallback}`,
-      );
-    }
+    return [
+      "- **Body background recipe** (apply this backgroundImage on `body` in `globals.css` — NOT inside `@theme inline`):",
+      `  - ${tokens.bodyBackgroundImage}`,
+    ];
   }
-  return lines;
+  const fallback = buildFallbackBodyBackgroundImage(variant);
+  if (!fallback) return [];
+  return [
+    "- **Body background recipe** (standardized fallback — apply this backgroundImage on `body` in `globals.css` — NOT inside `@theme inline` so the surface is not dead-flat):",
+    `  - ${fallback}`,
+  ];
 }

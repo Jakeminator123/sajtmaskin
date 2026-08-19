@@ -20,9 +20,10 @@ import type { FixEntry } from "../types";
 
 const LAYOUT_FILE_RE = /^(?:src\/)?app\/layout\.(tsx|jsx)$/;
 const THEME_SIGNAL_RE =
-  /suppressHydrationWarning|className=.*\bdark\b|class=.*\bdark\b|next-themes/;
+  /className=.*\bdark\b|class=.*\bdark\b|next-themes/;
 const THEME_PROVIDER_USAGE_RE = /ThemeProvider|useTheme/;
 const TOAST_USAGE_RE = /\btoast\s*\(|\bsonner\b|\bToaster\b/;
+const SONNER_BOILERPLATE_RE = /^(?:src\/)?components\/ui\/sonner\.tsx$/;
 
 const THEME_PROVIDER_IMPORT = 'import { ThemeProvider } from "next-themes";';
 const TOASTER_IMPORT = 'import { Toaster } from "@/components/ui/sonner";';
@@ -39,10 +40,15 @@ function hasToaster(content: string): boolean {
   return /\bToaster\b/.test(content) && /from\s+["']@\/components\/ui\/sonner["']/.test(content);
 }
 
+export function isSonnerBoilerplate(path: string): boolean {
+  return SONNER_BOILERPLATE_RE.test(path.replace(/\\/g, "/"));
+}
+
 function projectUsesTheme(files: CodeFile[]): boolean {
   return files.some(
     (f) =>
       !isRootLayout(f.path) &&
+      !isSonnerBoilerplate(f.path) &&
       /\.(tsx?|jsx?)$/.test(f.path) &&
       THEME_PROVIDER_USAGE_RE.test(f.content),
   );

@@ -6,7 +6,7 @@
  *
  * Consumed by:
  * - site-brief-generation.ts  (site-type hint for brief LLM prompt)
- * - promptAssist.ts           (structure/contract hints for addendum fallback)
+ * - scaffold-query-context.ts (maps `domainProfile` into scaffold keyword hints)
  * - capability-inference.ts   (hospitality veto on ecommerce)
  */
 

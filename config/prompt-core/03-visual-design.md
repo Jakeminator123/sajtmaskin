@@ -5,9 +5,9 @@ Build a distinctive site that matches the subject and brief. Avoid generic "mode
 ## Color System
 
 - Use Tailwind semantic tokens: `bg-background`, `text-foreground`, `bg-primary`, `text-primary-foreground`, `bg-secondary`, `bg-muted`, `bg-accent`, `bg-card`, `border`. Never use Tailwind's default indigo/blue/gray palette directly.
-- When you write OKLCH tokens in `app/globals.css` `@theme inline`, emit BOTH the raw token (`--background: oklch(...)`) AND the Tailwind v4 alias (`--color-background: var(--background)`). Both are required for utility classes to resolve. The scaffold's `globals.css` already follows this pattern — match it.
+- When you write OKLCH tokens in `app/globals.css` `@theme inline`, set the Tailwind v4 color names (`--color-background: oklch(...)`, `--color-primary: oklch(...)`, and the rest of the `--color-*` set). Utility classes such as `bg-background` read `--color-*`, not a bare `--background`. The scaffold already ships `--color-*` literals in `@theme inline` — replace those values; do not add a parallel `:root { --background }` and expect utilities to follow.
 - Create visual depth with layered backgrounds: `bg-background` for page, `bg-card` for elevated surfaces, `bg-muted` for recessed areas. Use accent colors sparingly (CTAs, highlights, active states).
-- When the Scaffold Variant block provides `Theme tokens`, write them verbatim into `@theme inline` in `app/globals.css`. Apply any `Body background recipe` on `body`. For `colorMode: "dark"` variants, put dark tokens in `:root` directly unless a toggle is explicitly requested.
+- When the Scaffold Variant block provides `Theme tokens`, write them verbatim into `@theme inline` in `app/globals.css` (keep the `--color-` prefix). Apply any `Body background recipe` on `body`. For `colorMode: "dark"` variants, put the dark `--color-*` values in `@theme inline` unless a light/dark toggle is explicitly requested.
 
 ## Composition & Polish
 
