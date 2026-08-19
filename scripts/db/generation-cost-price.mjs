@@ -52,7 +52,8 @@ export function ratesForModel(pricing, rawModel, tier = "standard") {
  * @param {number} [row.outputTokens]
  * @param {number} [row.rows]
  */
-export function priceUsageRow(pricing, row, tier = "standard") {
+export function priceUsageRow(pricing, row, tier = "standard", options = {}) {
+  const applyLongContext = options.applyLongContext !== false;
   const p = ratesForModel(pricing, row.model, tier);
   const cachedInputTokens = tokens(row.cachedInputTokens);
   const cacheWriteTokens = tokens(row.cacheWriteTokens);
@@ -85,7 +86,9 @@ export function priceUsageRow(pricing, row, tier = "standard") {
   }
 
   const threshold = p.entry.contextThreshold;
-  const longContext = Boolean(threshold && inputTotal > Number(threshold.inputTokens || 0));
+  const longContext = Boolean(
+    applyLongContext && threshold && inputTotal > Number(threshold.inputTokens || 0),
+  );
   const inputMultiplier = longContext ? Number(threshold?.aboveMultiplier?.input ?? 1) : 1;
   const outputMultiplier = longContext ? Number(threshold?.aboveMultiplier?.output ?? 1) : 1;
   const inputRate = (Number(p.rates.input) || 0) * inputMultiplier;

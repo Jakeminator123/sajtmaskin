@@ -42,6 +42,32 @@ describe("generation-cost pricing matches billing model-cost", () => {
     expect(priced.totalUsd).toBeCloseTo(0.7225, 6);
   });
 
+  it("does not apply long-context uplift on aggregated volumes", () => {
+    const perCall = priceUsageRow(pricing, {
+      model: "gpt-5.6-terra",
+      inputTokens: 300_000,
+      cachedInputTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: 100_000,
+    });
+    const aggregated = priceUsageRow(
+      pricing,
+      {
+        model: "gpt-5.6-terra",
+        inputTokens: 300_000,
+        cachedInputTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 100_000,
+      },
+      "standard",
+      { applyLongContext: false },
+    );
+
+    expect(perCall.longContext).toBe(true);
+    expect(aggregated.longContext).toBe(false);
+    expect(aggregated.totalUsd).toBeLessThan(perCall.totalUsd);
+  });
+
   it("does not treat the whole input as uncached", () => {
     const naive = priceUsageRow(pricing, {
       model: "gpt-5.6-sol",

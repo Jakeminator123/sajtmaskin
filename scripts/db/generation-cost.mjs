@@ -128,10 +128,15 @@ function toUsageRow(row, { includePhase }) {
 }
 
 function attachLedger(priced, raw) {
-  const ledgerMicroUsd = Number(raw.ledgerMicroUsd) || 0;
+  const ledgerUsd = usd((Number(raw.ledgerMicroUsd) || 0) / 1e6);
   return {
     ...priced,
-    ledgerUsd: usd(ledgerMicroUsd / 1e6),
+    pricedUsd: priced.totalUsd,
+    ledgerUsd,
+    // Aggregates must not invent long-context uplift. When the ledger has a
+    // frozen per-call cost, that is the money figure; otherwise use the
+    // standard-rate token estimate.
+    totalUsd: ledgerUsd > 0 ? ledgerUsd : priced.totalUsd,
   };
 }
 
@@ -191,7 +196,7 @@ try {
 
   const byModel = byModelRaw.map((row) => {
     const usage = toUsageRow(row, { includePhase: source === "usage" });
-    return attachLedger(priceUsageRow(pricing, usage, tier), usage);
+    return attachLedger(priceUsageRow(pricing, usage, tier, { applyLongContext: false }), usage);
   });
   const unpriced = byModel.filter((m) => !m.priced && (m.promptTokens || m.completionTokens));
   const anyEstimated = byModel.some((m) => m.estimated && m.totalUsd > 0);
@@ -223,7 +228,10 @@ try {
   const byDay = Array.isArray(byDayRaw)
     ? byDayRaw.map((row) => {
         const usage = toUsageRow(row, { includePhase: source === "usage" });
-        const priced = attachLedger(priceUsageRow(pricing, usage, tier), usage);
+        const priced = attachLedger(
+          priceUsageRow(pricing, usage, tier, { applyLongContext: false }),
+          usage,
+        );
         return {
           day: row.day,
           model: row.model,
@@ -273,7 +281,7 @@ try {
   const caveats = [];
   if (source === "usage") {
     caveats.push(
-      "Källa: llm_usage (alla faser). Cache-träffar prissätts med cachedInput; reasoning ingår i output och räknas inte två gånger.",
+      "Källa: llm_usage (alla faser). Cache-träffar prissätts med cachedInput; reasoning ingår i output och räknas inte två gånger. Long-context-påslag sitter i ledgern per anrop — inte på summerade tokens.",
     );
     if (totals.ledgerUsd > 0) {
       caveats.push(
