@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * View över `deployReadiness`. Chatten monterar den inte (ägare 2026-08-19) —
+ * samma fynd ligger i error-log + Versionsdiagnostik. Publicera använder
+ * fortfarande readiness-API:t via `useShellDeployDomain`.
+ */
+
 import { useState } from "react";
 import { AlertCircle, ChevronDown, ChevronUp, Loader2, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
