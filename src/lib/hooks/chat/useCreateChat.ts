@@ -6,7 +6,6 @@ import {
   getCurrentInitBuildChoices,
   resetInitBuildChoices,
 } from "@/lib/builder/init-build-choices";
-import { resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/prompt-assist";
 import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
@@ -17,6 +16,7 @@ import {
   appendAttachmentPrompt,
   appendModelInfoPart,
   appendPromptStrategyPart,
+  resolveDeepBriefModelInfoFields,
   buildApiErrorMessage,
   buildCreateChatKey,
   clearCreateChatLock,
@@ -240,6 +240,13 @@ export function useCreateChat(
           data?.meta && typeof data.meta === "object"
             ? (data.meta as Record<string, unknown>)
             : null;
+        const deepBrief = resolveDeepBriefModelInfoFields({
+          isInitTurn: true,
+          briefUsedThisTurn:
+            Boolean(pendingBriefRef?.current) || meta?.briefApplied === true,
+          promptAssistModel,
+          promptAssistDeep,
+        });
         appendModelInfoPart(setMessages, assistantMessageId, {
           modelId:
             (typeof meta?.modelId === "string" && meta?.modelId) || engineModel || null,
@@ -256,11 +263,9 @@ export function useCreateChat(
               ? (meta.imageGenerations as boolean)
               : null,
           chatPrivacy: typeof meta?.chatPrivacy === "string" ? (meta.chatPrivacy as string) : null,
-          promptAssistProvider: promptAssistModel
-            ? (isPromptAssistOff(promptAssistModel) ? "off" : resolvePromptAssistProvider(promptAssistModel))
-            : null,
-          promptAssistModel: promptAssistModel ?? null,
-          promptAssistDeep: promptAssistDeep ?? null,
+          promptAssistProvider: deepBrief.promptAssistProvider,
+          promptAssistModel: deepBrief.promptAssistModel,
+          promptAssistDeep: deepBrief.promptAssistDeep,
           mutedCapabilityLabels: Array.isArray(meta?.mutedCapabilityLabels)
             ? (meta.mutedCapabilityLabels as string[])
             : null,
@@ -629,6 +634,7 @@ export function useCreateChat(
               autoFixHandlerRef,
               promptAssistModel,
               promptAssistDeep,
+              briefUsedThisTurn: Boolean(pendingBriefRef?.current),
             },
             streamController.signal,
           );

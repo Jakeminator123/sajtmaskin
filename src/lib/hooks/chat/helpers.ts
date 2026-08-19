@@ -31,6 +31,7 @@ export {
 } from "./helpers-integrations";
 
 export {
+  resolveDeepBriefModelInfoFields,
   buildModelInfoSteps,
   appendModelInfoPart,
   buildPromptStrategySteps,

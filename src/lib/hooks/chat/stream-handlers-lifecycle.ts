@@ -1,4 +1,3 @@
-import { isPromptAssistOff, resolvePromptAssistProvider } from "@/lib/builder/prompt-assist";
 import { resolveCanonicalLivePreviewUrlFromPreviewReadyPayload } from "@/lib/api/preview-url-contract";
 import { toast } from "sonner";
 import {
@@ -6,6 +5,7 @@ import {
   appendPromptStrategyPart,
   appendToolPartToMessage,
   buildStreamErrorMessage,
+  resolveDeepBriefModelInfoFields,
   updateCreateChatLockChatId,
 } from "./helpers";
 import type { StreamContext, StreamRunState } from "./stream-handlers-types";
@@ -25,7 +25,15 @@ export function handleMetaEvent(
   ctx: StreamContext,
 ) {
   const meta = typeof data === "object" && data ? (data as Record<string, unknown>) : {};
-  const paModel = ctx.promptAssistModel ?? null;
+  const isInitTurn = ctx.streamType === "create";
+  const briefUsedThisTurn =
+    isInitTurn && (ctx.briefUsedThisTurn === true || meta.briefApplied === true);
+  const deepBrief = resolveDeepBriefModelInfoFields({
+    isInitTurn,
+    briefUsedThisTurn,
+    promptAssistModel: ctx.promptAssistModel,
+    promptAssistDeep: ctx.promptAssistDeep,
+  });
   appendModelInfoPart(ctx.setMessages, ctx.assistantMessageId, {
     modelId: (meta.modelId as string) ?? ctx.selectedModelTier,
     modelTier:
@@ -39,11 +47,9 @@ export function handleMetaEvent(
     imageGenerations:
       typeof meta.imageGenerations === "boolean" ? meta.imageGenerations : null,
     chatPrivacy: typeof meta.chatPrivacy === "string" ? meta.chatPrivacy : null,
-    promptAssistProvider: paModel
-      ? (isPromptAssistOff(paModel) ? "off" : resolvePromptAssistProvider(paModel))
-      : null,
-    promptAssistModel: paModel,
-    promptAssistDeep: ctx.promptAssistDeep ?? null,
+    promptAssistProvider: deepBrief.promptAssistProvider,
+    promptAssistModel: deepBrief.promptAssistModel,
+    promptAssistDeep: deepBrief.promptAssistDeep,
     scaffoldId: typeof meta.scaffoldId === "string" ? meta.scaffoldId : null,
     scaffoldLabel: typeof meta.scaffoldLabel === "string" ? meta.scaffoldLabel : null,
     capabilities: meta.capabilities && typeof meta.capabilities === "object" ? meta.capabilities as Record<string, boolean> : null,
