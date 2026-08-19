@@ -13,11 +13,12 @@ import {
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 
 export const runtime = "nodejs";
-// Postcheck alone can pass ~60s on a slow preview boot/crawl; with
-// SAJTMASKIN_LIVE_REVIEW on, up to two 15s JPEG captures and a bounded
-// multimodal review run in the same invocation. 180s keeps the JSON response
-// (including liveReview) from being killed by the platform mid-flight.
-export const maxDuration = 180;
+// Postcheck alone can approach ~150s worst case (boot wait, crawl with the
+// capture-extended deadline, two 15s JPEG captures, mobile probe); with
+// SAJTMASKIN_LIVE_REVIEW on, the review chain adds up to another 90s
+// (LIVE_REVIEW_TOTAL_TIMEOUT_MS). 300s (repo precedent: api/template,
+// api/audit) keeps the JSON response from being platform-killed mid-flight.
+export const maxDuration = 300;
 
 const requestSchema = z.object({
   versionId: z.string().min(1),
