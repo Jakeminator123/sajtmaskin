@@ -6,7 +6,6 @@ import {
   getCurrentInitBuildChoices,
   resetInitBuildChoices,
 } from "@/lib/builder/init-build-choices";
-import { resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/prompt-assist";
 import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
@@ -17,6 +16,7 @@ import {
   appendAttachmentPrompt,
   appendModelInfoPart,
   appendPromptStrategyPart,
+  resolveDeepBriefModelInfoFields,
   buildApiErrorMessage,
   buildCreateChatKey,
   clearCreateChatLock,
@@ -232,6 +232,12 @@ export function useCreateChat(
       ]);
       setIsCreatingChat(true);
 
+      // Snapshot taken when the request is CONSTRUCTED (promptMeta.brief).
+      // `pendingBriefRef` is mutable and cleared on success, so reading it
+      // again when the response arrives can label the turn from another state
+      // (pr-ai-review F-b8b873f9385a on PR #1048).
+      let requestIncludedBrief = false;
+
       // Returns whether a version was persisted — Byggval resets only then.
       const handleNonStreamingCreate = async (
         data: Record<string, unknown>,
@@ -240,6 +246,12 @@ export function useCreateChat(
           data?.meta && typeof data.meta === "object"
             ? (data.meta as Record<string, unknown>)
             : null;
+        const deepBrief = resolveDeepBriefModelInfoFields({
+          isInitTurn: true,
+          briefUsedThisTurn: requestIncludedBrief || meta?.briefApplied === true,
+          promptAssistModel,
+          promptAssistDeep,
+        });
         appendModelInfoPart(setMessages, assistantMessageId, {
           modelId:
             (typeof meta?.modelId === "string" && meta?.modelId) || engineModel || null,
@@ -256,11 +268,9 @@ export function useCreateChat(
               ? (meta.imageGenerations as boolean)
               : null,
           chatPrivacy: typeof meta?.chatPrivacy === "string" ? (meta.chatPrivacy as string) : null,
-          promptAssistProvider: promptAssistModel
-            ? (isPromptAssistOff(promptAssistModel) ? "off" : resolvePromptAssistProvider(promptAssistModel))
-            : null,
-          promptAssistModel: promptAssistModel ?? null,
-          promptAssistDeep: promptAssistDeep ?? null,
+          promptAssistProvider: deepBrief.promptAssistProvider,
+          promptAssistModel: deepBrief.promptAssistModel,
+          promptAssistDeep: deepBrief.promptAssistDeep,
           mutedCapabilityLabels: Array.isArray(meta?.mutedCapabilityLabels)
             ? (meta.mutedCapabilityLabels as string[])
             : null,
@@ -512,6 +522,7 @@ export function useCreateChat(
           promptMeta.brief = pendingBriefRef.current;
           promptMeta.promptAssistDeep = true;
         }
+        requestIncludedBrief = Boolean(promptMeta.brief);
         promptMeta.modelId = engineModel;
         promptMeta.modelTier = selectedModelTier;
         promptMeta.modelTierId = canonicalTier;
@@ -629,6 +640,7 @@ export function useCreateChat(
               autoFixHandlerRef,
               promptAssistModel,
               promptAssistDeep,
+              briefUsedThisTurn: requestIncludedBrief,
             },
             streamController.signal,
           );

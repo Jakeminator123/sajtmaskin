@@ -13,6 +13,7 @@ import {
   initStreamStats,
   integrationSignalToToolPart,
   mergeStreamingText,
+  resolveDeepBriefModelInfoFields,
 } from "./helpers";
 import { describeDossierStatus } from "@/lib/builder/dossier-overview";
 import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
@@ -331,6 +332,72 @@ describe("buildModelInfoSteps — Swedish labels", () => {
     expect(
       buildModelInfoSteps({ modelId: "gpt-5.5", promptAssistDeep: true }),
     ).not.toContain("Deep brief: på");
+  });
+
+  it("omits Deep Brief rows when the turn did not carry brief fields", () => {
+    const steps = buildModelInfoSteps({ modelId: "gpt-5.5" });
+    expect(steps.some((step) => step.startsWith("Deep Brief-"))).toBe(false);
+    expect(steps.some((step) => step.startsWith("Deep brief-"))).toBe(false);
+  });
+});
+
+describe("resolveDeepBriefModelInfoFields", () => {
+  it("shows provider, model, and setting on an init turn where a brief ran", () => {
+    const fields = resolveDeepBriefModelInfoFields({
+      isInitTurn: true,
+      briefUsedThisTurn: true,
+      promptAssistModel: "openai/gpt-5.6-sol",
+      promptAssistDeep: true,
+    });
+    const steps = buildModelInfoSteps({ modelId: "gpt-5.5", ...fields });
+
+    expect(steps).toContain("Deep Brief-provider: OpenAI");
+    expect(steps.some((step) => step.startsWith("Deep Brief-modell:"))).toBe(true);
+    expect(steps).toContain("Deep brief-inställning: på");
+  });
+
+  it("hides all Deep Brief rows on a follow-up even when UI state still has the setting", () => {
+    const fields = resolveDeepBriefModelInfoFields({
+      isInitTurn: false,
+      briefUsedThisTurn: false,
+      promptAssistModel: "openai/gpt-5.6-sol",
+      promptAssistDeep: true,
+    });
+    const steps = buildModelInfoSteps({ modelId: "gpt-5.5", ...fields });
+
+    expect(steps.some((step) => step.includes("Deep Brief"))).toBe(false);
+    expect(steps.some((step) => step.includes("Deep brief"))).toBe(false);
+  });
+
+  it("shows only the off setting on an init turn when Deep Brief is disabled", () => {
+    const fields = resolveDeepBriefModelInfoFields({
+      isInitTurn: true,
+      briefUsedThisTurn: false,
+      promptAssistModel: "off",
+      promptAssistDeep: false,
+    });
+    const steps = buildModelInfoSteps({ modelId: "gpt-5.5", ...fields });
+
+    expect(steps).toContain("Deep brief-inställning: av");
+    expect(steps.some((step) => step.startsWith("Deep Brief-provider:"))).toBe(false);
+    expect(steps.some((step) => step.startsWith("Deep Brief-modell:"))).toBe(false);
+  });
+
+  it("keeps provider/model hidden when setting is off but the server auto-brief ran", () => {
+    // `briefApplied` from the server means A brief ran — but the selected
+    // "off" model is not the model that produced it, so rendering
+    // provider/model from the off value would mislabel the run.
+    const fields = resolveDeepBriefModelInfoFields({
+      isInitTurn: true,
+      briefUsedThisTurn: true,
+      promptAssistModel: "off",
+      promptAssistDeep: false,
+    });
+    const steps = buildModelInfoSteps({ modelId: "gpt-5.5", ...fields });
+
+    expect(steps).toContain("Deep brief-inställning: av");
+    expect(steps.some((step) => step.startsWith("Deep Brief-provider:"))).toBe(false);
+    expect(steps.some((step) => step.startsWith("Deep Brief-modell:"))).toBe(false);
   });
 });
 
