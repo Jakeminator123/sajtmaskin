@@ -126,6 +126,79 @@ export function priceUsageRow(pricing, row, tier = "standard", options = {}) {
   };
 }
 
+/**
+ * Kostnadsgrund för en period.
+ *
+ * `cost_microusd` skrivs per anrop och bär long-context-påslaget. Token-priset
+ * räknas om från SUMMERADE tokens och kan därför aldrig veta om ett enskilt
+ * anrop gick över tröskeln — det underskattar systematiskt så snart någon
+ * körning gjorde det. Ledgern är alltså sanningen när den täcker perioden;
+ * token-priset finns kvar som uppskattning så FX och `pricing.json` går att
+ * justera i efterhand.
+ *
+ * **Ingen blandning.** Antingen täcker ledgern varje anrop — då är den totalen —
+ * eller så är hela perioden en token-uppskattning med ledgersumman redovisad
+ * bredvid. En proportionerlig utfyllnad av de otäckta anropen vore lockande men
+ * är inte invariant under gruppering: samma data ger olika svar beroende på om
+ * man räknar per modell, per fas eller per dag. Två ärliga lägen slår en
+ * blandning som inte går att summera.
+ *
+ * Basen bestäms EN gång för hela rapporten och skickas till varje tabell via
+ * {@link groupCostUsd}, så modell-, fas- och dagsvyerna alltid summerar till
+ * rubriken.
+ *
+ * @param {Array<{rows?: number, ledgerRows?: number, unledgeredBillableRows?: number, ledgerUsd?: number, pricedUsd?: number, totalUsd?: number}>} groups
+ */
+export function resolveCostBasis(groups) {
+  let ledgerUsd = 0;
+  let estimateUsd = 0;
+  let rows = 0;
+  let ledgerRows = 0;
+  let unledgeredBillableRows = 0;
+
+  for (const group of groups ?? []) {
+    const groupRows = tokens(group.rows);
+    rows += groupRows;
+    ledgerRows += Math.min(groupRows, tokens(group.ledgerRows));
+    unledgeredBillableRows += Math.min(groupRows, tokens(group.unledgeredBillableRows));
+    ledgerUsd = usd(ledgerUsd + (Number(group.ledgerUsd) || 0));
+    estimateUsd = usd(estimateUsd + (Number(group.pricedUsd ?? group.totalUsd) || 0));
+  }
+
+  // Täckningen mäts på anrop som KAN kosta något. Ett tokenlöst anrop (avbrutet
+  // eller misslyckat) lagras med null-ledger by design och kostar noll oavsett
+  // grund — räknades det som otäckt skulle ledger-läget aldrig kunna nås.
+  const basis =
+    ledgerRows > 0 && unledgeredBillableRows === 0
+      ? "ledger"
+      : ledgerRows > 0
+        ? "partial"
+        : "estimate";
+
+  return {
+    basis,
+    totalUsd: basis === "ledger" ? ledgerUsd : estimateUsd,
+    ledgerUsd,
+    estimateUsd,
+    rows,
+    ledgerRows,
+    rowsWithoutLedger: Math.max(0, rows - ledgerRows),
+    unledgeredBillableRows,
+  };
+}
+
+/**
+ * En grupps bidrag till totalen under en redan bestämd bas. Ren summering, så
+ * vilken partition som helst (modell, fas, dag) summerar till samma tal.
+ */
+export function groupCostUsd(group, basis) {
+  return usd(
+    basis === "ledger"
+      ? Number(group?.ledgerUsd) || 0
+      : Number(group?.pricedUsd ?? group?.totalUsd) || 0,
+  );
+}
+
 export function resolveCostSource(raw) {
   const value = String(raw ?? "usage").trim().toLowerCase();
   if (value === "telemetry") return "telemetry";

@@ -17,6 +17,8 @@ import pg from "pg";
 import { normalizeEnvUrl, inspectDbTarget, summarizeTarget } from "./db-target-guard.mjs";
 import { mergeEnvFileOverProcess } from "./env-merge.mjs";
 import {
+  groupCostUsd,
+  resolveCostBasis,
   priceUsageRow,
   resolveCostSource,
   sourceTableName,
@@ -112,6 +114,8 @@ function toUsageRow(row) {
       outputTokens: row.output_tokens,
       reasoningTokens: row.reasoning_tokens,
       ledgerMicroUsd: row.cost_microusd,
+      ledgerRows: row.ledger_rows,
+      unledgeredBillableRows: row.unledgered_billable_rows,
     };
   }
   return {
@@ -124,6 +128,8 @@ function toUsageRow(row) {
     outputTokens: row.completion_tokens,
     reasoningTokens: 0,
     ledgerMicroUsd: 0,
+    ledgerRows: 0,
+    unledgeredBillableRows: 0,
   };
 }
 
@@ -131,11 +137,15 @@ function attachLedger(priced, raw) {
   const ledgerUsd = usd((Number(raw.ledgerMicroUsd) || 0) / 1e6);
   return {
     ...priced,
+    // Token-priced estimate. The input/cache/output parts add up to this.
+    // `totalUsd` sätts senare, när periodens kostnadsgrund är känd.
     pricedUsd: priced.totalUsd,
     ledgerUsd,
-    // Keep token-priced totalUsd so input/cache/output parts still add up.
-    // Ledger snapshot is shown separately (per-call long-context lives there).
-    totalUsd: priced.totalUsd,
+    ledgerRows: Math.min(Number(raw.rows) || 0, Number(raw.ledgerRows) || 0),
+    unledgeredBillableRows: Math.min(
+      Number(raw.rows) || 0,
+      Number(raw.unledgeredBillableRows) || 0,
+    ),
   };
 }
 
@@ -151,7 +161,12 @@ try {
             COALESCE(SUM(cache_write_tokens), 0)::bigint AS cache_write_tokens,
             COALESCE(SUM(output_tokens), 0)::bigint AS output_tokens,
             COALESCE(SUM(reasoning_tokens), 0)::bigint AS reasoning_tokens,
-            COALESCE(SUM(cost_microusd) FILTER (WHERE cost_microusd IS NOT NULL), 0)::bigint AS cost_microusd`;
+            COALESCE(SUM(cost_microusd) FILTER (WHERE cost_microusd IS NOT NULL), 0)::bigint AS cost_microusd,
+            COUNT(*) FILTER (WHERE cost_microusd IS NOT NULL)::int AS ledger_rows,
+            COUNT(*) FILTER (
+              WHERE cost_microusd IS NULL
+                AND COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0) > 0
+            )::int AS unledgered_billable_rows`;
   const legacySelect = `model,
             COUNT(*)::int AS rows,
             COALESCE(SUM(prompt_tokens), 0)::bigint AS prompt_tokens,
@@ -193,10 +208,25 @@ try {
 
   if (byModelRaw._error) fail(byModelRaw._error);
 
-  const byModel = byModelRaw.map((row) => {
+  const byModelPriced = byModelRaw.map((row) => {
     const usage = toUsageRow(row);
     return attachLedger(priceUsageRow(pricing, usage, tier, { applyLongContext: false }), usage);
   });
+
+  // Basen bestäms en gång för hela perioden. Därefter är varje tabell en ren
+  // summa av samma sorts tal, så modell-, fas- och dagsvyerna kan inte gå isär
+  // från rubriken.
+  const costBasis = resolveCostBasis(byModelPriced);
+  const byModel = byModelPriced.map((row) => ({
+    ...row,
+    totalUsd: groupCostUsd(row, costBasis.basis),
+  }));
+
+  // Full ledgertäckning gör totalen exakt, men den gör inte modellen prissatt.
+  // En modell som saknas i pricing.json är fortfarande ett hål i prisfilen —
+  // delposterna och uppskattningen blir fel för den. Listan är därför
+  // oberoende av basen; det är formuleringen i vyn som skiljer på "kostnaden
+  // saknas" och "priset saknas".
   const unpriced = byModel.filter((m) => !m.priced && (m.promptTokens || m.completionTokens));
   const anyEstimated = byModel.some((m) => m.estimated && m.totalUsd > 0);
 
@@ -210,16 +240,20 @@ try {
       cachedInputTokens: 0,
       completionTokens: 0,
       reasoningTokens: 0,
+      pricedUsd: 0,
       totalUsd: 0,
       ledgerUsd: 0,
+      ledgerRows: 0,
     };
     acc.rows += row.rows;
     acc.promptTokens += row.promptTokens;
     acc.cachedInputTokens += row.cachedInputTokens;
     acc.completionTokens += row.completionTokens;
     acc.reasoningTokens += row.reasoningTokens;
-    acc.totalUsd = usd(acc.totalUsd + row.totalUsd);
+    acc.pricedUsd = usd(acc.pricedUsd + row.pricedUsd);
     acc.ledgerUsd = usd(acc.ledgerUsd + (row.ledgerUsd || 0));
+    acc.ledgerRows += row.ledgerRows || 0;
+    acc.totalUsd = usd(acc.totalUsd + row.totalUsd);
     byPhaseMap.set(key, acc);
   }
   const byPhase = [...byPhaseMap.values()].sort((a, b) => b.totalUsd - a.totalUsd);
@@ -238,7 +272,9 @@ try {
           promptTokens: priced.promptTokens,
           cachedInputTokens: priced.cachedInputTokens,
           completionTokens: priced.completionTokens,
-          totalUsd: priced.totalUsd,
+          // Samma bas som rubriken. Dagsraderna är en finare partition av
+          // exakt samma anrop, så summan blir densamma.
+          totalUsd: groupCostUsd(priced, costBasis.basis),
         };
       })
     : [];
@@ -255,7 +291,6 @@ try {
       acc.cachedUsd = usd(acc.cachedUsd + m.cachedUsd);
       acc.cacheWriteUsd = usd(acc.cacheWriteUsd + m.cacheWriteUsd);
       acc.outputUsd = usd(acc.outputUsd + m.outputUsd);
-      acc.totalUsd = usd(acc.totalUsd + m.totalUsd);
       acc.ledgerUsd = usd(acc.ledgerUsd + (m.ledgerUsd || 0));
       acc.rows += m.rows;
       return acc;
@@ -271,20 +306,37 @@ try {
       cachedUsd: 0,
       cacheWriteUsd: 0,
       outputUsd: 0,
-      totalUsd: 0,
       ledgerUsd: 0,
       rows: 0,
     },
   );
+
+  // Basen är redan bestämd ovan. Delposterna (input/cache/output) är alltid
+  // token-uppskattning och summerar till `estimateUsd` — i ledger-läget är det
+  // avsiktligt en annan siffra än `totalUsd`, och skillnaden är long-context.
+  totals.totalUsd = costBasis.totalUsd;
+  totals.estimateUsd = costBasis.estimateUsd;
+  totals.costBasis = costBasis.basis;
+  totals.ledgerRows = costBasis.ledgerRows;
+  totals.rowsWithoutLedger = costBasis.rowsWithoutLedger;
+  totals.unledgeredBillableRows = costBasis.unledgeredBillableRows;
 
   const caveats = [];
   if (source === "usage") {
     caveats.push(
       "Källa: llm_usage (alla faser). Cache-träffar prissätts med cachedInput; reasoning ingår i output och räknas inte två gånger. Long-context-påslag sitter i ledgern per anrop — inte på summerade tokens.",
     );
-    if (totals.ledgerUsd > 0) {
+    if (totals.costBasis === "ledger") {
       caveats.push(
-        `Ledgern i llm_usage (cost_microusd) summerar till $${totals.ledgerUsd}. Siffrorna ovan räknas om från tokens × pricing.json så FX-ratten går att justera.`,
+        `Totalen kommer ur ledgern (cost_microusd) — varje anrop med tokens är täckt. Delposterna är token-uppskattning mot dagens pricing.json och summerar till $${totals.estimateUsd}; skillnaden är long-context-påslaget plus eventuell prisdrift sedan anropen gjordes.`,
+      );
+    } else if (totals.costBasis === "partial") {
+      caveats.push(
+        `UPPSKATTNING: ${totals.unledgeredBillableRows} av ${totals.rows} anrop med tokens saknar cost_microusd, så totalen räknas från tokens och saknar long-context-påslag. Ledgern för de täckta anropen är $${totals.ledgerUsd}. Totalen blir exakt när varje anrop med tokens bär ledgervärde.`,
+      );
+    } else {
+      caveats.push(
+        "UPPSKATTNING: inget anrop i perioden har cost_microusd, så totalen räknas från tokens och saknar long-context-påslag.",
       );
     }
   } else if (source === "telemetry") {
@@ -327,8 +379,14 @@ try {
   if (wantJson) {
     process.stdout.write(JSON.stringify(out, null, 2));
   } else {
+    const basisLabel =
+      totals.costBasis === "ledger"
+        ? "ledger"
+        : totals.costBasis === "partial"
+          ? `uppskattning — ledger saknas på ${totals.rowsWithoutLedger} av ${totals.rows} anrop`
+          : "uppskattning";
     console.log(
-      `Kostnad (${source}, ${days}d): $${totals.totalUsd} USD` +
+      `Kostnad (${source}, ${days}d, ${basisLabel}): $${totals.totalUsd} USD` +
         (usdToSek ? ` (~${usd(totals.totalUsd * usdToSek)} SEK)` : ""),
     );
     for (const m of byModel) {

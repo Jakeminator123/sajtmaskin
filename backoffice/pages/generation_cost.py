@@ -41,6 +41,7 @@ _SOURCE_CHOICES = {
 class CostPayload:
     ok: bool
     generated_at: str = ""
+    pricing_verified_at: str = ""
     env_path: str = ""
     target: str = ""
     is_prod_like: bool = False
@@ -105,6 +106,7 @@ def _run_cost(
     return CostPayload(
         ok=True,
         generated_at=str(data.get("generatedAt", "")),
+        pricing_verified_at=str(data.get("pricingVerifiedAt") or ""),
         env_path=str(data.get("envPath", "")),
         target=str(data.get("target", "")),
         is_prod_like=bool(data.get("isProdLike", False)),
@@ -271,20 +273,43 @@ def render(ctx: BackofficeContext) -> None:
     c6.metric("Varav cache-kostnad", _fmt_usd(cache_usd))
     c7.metric("Varav output-kostnad", _fmt_usd(totals.get("outputUsd")))
     c8.metric("Anrop", totals.get("rows", 0))
-    if float(totals.get("ledgerUsd") or 0) > 0:
+    # Delposterna ovan är token-uppskattningar och summerar till estimateUsd,
+    # inte till totalen — totalen kommer ur ledgern där long-context faktiskt
+    # ingår. Säg det rakt ut i stället för att låta två siffror konkurrera.
+    basis = str(totals.get("costBasis") or "")
+    if basis == "ledger":
         st.caption(
-            f"Ledger-snapshot (`cost_microusd` per anrop): {_fmt_usd(totals.get('ledgerUsd'))}. "
-            "Kan skilja sig från totalsumman ovan om någon körning gick över long-context-tröskeln."
+            "Totalen kommer ur ledgern (`cost_microusd` per anrop) — varje anrop med "
+            "tokens är täckt. Delposterna är token-uppskattning mot **dagens** "
+            f"`pricing.json` och summerar till {_fmt_usd(totals.get('estimateUsd'))}. "
+            "Skillnaden är long-context-påslaget plus eventuell prisdrift sedan "
+            "anropen gjordes — ledgern är historisk, uppskattningen är omräknad."
+        )
+    elif basis == "partial":
+        st.caption(
+            f"Totalen är en **token-uppskattning** och saknar long-context-påslag: "
+            f"{totals.get('unledgeredBillableRows', 0)} av {totals.get('rows', 0)} anrop "
+            f"med tokens saknar `cost_microusd`. Ledgern för de täckta anropen är "
+            f"{_fmt_usd(totals.get('ledgerUsd'))}. Siffran blir exakt när varje anrop "
+            "med tokens bär ett ledgervärde."
         )
 
     for caveat in payload.caveats:
         st.warning(caveat)
 
     if payload.unpriced:
-        st.error(
-            "Oprissatta modeller (ingen matchning i pricing.json — kostnad ej räknad): "
-            + ", ".join(payload.unpriced)
-        )
+        models = ", ".join(payload.unpriced)
+        if basis == "ledger":
+            # Ledgern täcker kostnaden, men prisfilen har ett hål: delposterna
+            # och uppskattningen blir fel för de här modellerna.
+            st.warning(
+                "Modeller utan matchning i `pricing.json` (kostnaden är räknad ur "
+                f"ledgern, men delposter och uppskattning saknar dem): {models}"
+            )
+        else:
+            st.error(
+                f"Oprissatta modeller (ingen matchning i pricing.json — kostnad ej räknad): {models}"
+            )
 
     if payload.by_phase:
         st.subheader("Per fas")
@@ -313,7 +338,11 @@ def render(ctx: BackofficeContext) -> None:
             st.line_chart(daily, y_label="USD / dag")
 
     st.divider()
+    # Prislistans verifieringsdatum kommer ur pricing.json, inte ur när
+    # rapporten kördes. Saknas det skriver vi "okänt" — aldrig dagens datum.
+    verified = payload.pricing_verified_at[:10] or "okänt"
     st.caption(
         f"Källa: `{payload.source_table}` · Prislista verifierad: "
-        f"{payload.generated_at[:10]} · Redigera priser i `config/ai_models/pricing.json`."
+        f"{verified} · Rapport körd: {payload.generated_at[:10]} · "
+        "Redigera priser i `config/ai_models/pricing.json`."
     )
