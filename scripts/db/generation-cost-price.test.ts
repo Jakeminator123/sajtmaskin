@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   priceUsageRow,
+  resolveCostBasis,
   resolveCostSource,
   sourceTableName,
 } from "./generation-cost-price.mjs";
@@ -66,6 +67,53 @@ describe("generation-cost pricing matches billing model-cost", () => {
     expect(perCall.longContext).toBe(true);
     expect(aggregated.longContext).toBe(false);
     expect(aggregated.totalUsd).toBeLessThan(perCall.totalUsd);
+  });
+
+  it("makes the ledger the headline total when every call carries one", () => {
+    const basis = resolveCostBasis([
+      { rows: 4, ledgerRows: 4, ledgerUsd: 3.5, pricedUsd: 2.0 },
+      { rows: 6, ledgerRows: 6, ledgerUsd: 1.25, pricedUsd: 1.1 },
+    ]);
+
+    expect(basis.basis).toBe("ledger");
+    // Detta är hela poängen: rubriksiffran ÄR ledgersumman, inte
+    // token-uppskattningen som strukturellt missar long-context.
+    expect(basis.totalUsd).toBeCloseTo(4.75, 6);
+    expect(basis.ledgerUsd).toBeCloseTo(4.75, 6);
+    expect(basis.estimateUsd).toBeCloseTo(3.1, 6);
+    expect(basis.rowsWithoutLedger).toBe(0);
+  });
+
+  it("falls back to the token estimate only for calls without a ledger value", () => {
+    const basis = resolveCostBasis([{ rows: 4, ledgerRows: 2, ledgerUsd: 2.0, pricedUsd: 1.6 }]);
+
+    expect(basis.basis).toBe("mixed");
+    expect(basis.rowsWithoutLedger).toBe(2);
+    // Halva gruppen saknar ledger → halva uppskattningen läggs på.
+    expect(basis.totalUsd).toBeCloseTo(2.8, 6);
+  });
+
+  it("keeps the estimate as the total when no call has a ledger value", () => {
+    const basis = resolveCostBasis([{ rows: 3, ledgerRows: 0, ledgerUsd: 0, pricedUsd: 0.9 }]);
+
+    expect(basis.basis).toBe("estimate");
+    expect(basis.totalUsd).toBeCloseTo(0.9, 6);
+  });
+
+  it("never counts more ledger rows than calls", () => {
+    const basis = resolveCostBasis([{ rows: 2, ledgerRows: 99, ledgerUsd: 1, pricedUsd: 1 }]);
+
+    expect(basis.ledgerRows).toBe(2);
+    expect(basis.rowsWithoutLedger).toBe(0);
+    expect(basis.basis).toBe("ledger");
+  });
+
+  it("handles an empty period without producing NaN", () => {
+    const basis = resolveCostBasis([]);
+
+    expect(basis.basis).toBe("estimate");
+    expect(basis.totalUsd).toBe(0);
+    expect(basis.rows).toBe(0);
   });
 
   it("does not treat the whole input as uncached", () => {

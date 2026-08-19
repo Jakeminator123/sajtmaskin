@@ -17,6 +17,7 @@ import pg from "pg";
 import { normalizeEnvUrl, inspectDbTarget, summarizeTarget } from "./db-target-guard.mjs";
 import { mergeEnvFileOverProcess } from "./env-merge.mjs";
 import {
+  resolveCostBasis,
   priceUsageRow,
   resolveCostSource,
   sourceTableName,
@@ -112,6 +113,7 @@ function toUsageRow(row) {
       outputTokens: row.output_tokens,
       reasoningTokens: row.reasoning_tokens,
       ledgerMicroUsd: row.cost_microusd,
+      ledgerRows: row.ledger_rows,
     };
   }
   return {
@@ -124,6 +126,7 @@ function toUsageRow(row) {
     outputTokens: row.completion_tokens,
     reasoningTokens: 0,
     ledgerMicroUsd: 0,
+    ledgerRows: 0,
   };
 }
 
@@ -131,10 +134,12 @@ function attachLedger(priced, raw) {
   const ledgerUsd = usd((Number(raw.ledgerMicroUsd) || 0) / 1e6);
   return {
     ...priced,
+    // Token-priced estimate. The input/cache/output parts add up to this, not
+    // to `totalUsd` — the ledger carries per-call long-context which summed
+    // tokens structurally cannot reproduce.
     pricedUsd: priced.totalUsd,
     ledgerUsd,
-    // Keep token-priced totalUsd so input/cache/output parts still add up.
-    // Ledger snapshot is shown separately (per-call long-context lives there).
+    ledgerRows: Math.min(Number(raw.rows) || 0, Number(raw.ledgerRows) || 0),
     totalUsd: priced.totalUsd,
   };
 }
@@ -151,7 +156,8 @@ try {
             COALESCE(SUM(cache_write_tokens), 0)::bigint AS cache_write_tokens,
             COALESCE(SUM(output_tokens), 0)::bigint AS output_tokens,
             COALESCE(SUM(reasoning_tokens), 0)::bigint AS reasoning_tokens,
-            COALESCE(SUM(cost_microusd) FILTER (WHERE cost_microusd IS NOT NULL), 0)::bigint AS cost_microusd`;
+            COALESCE(SUM(cost_microusd) FILTER (WHERE cost_microusd IS NOT NULL), 0)::bigint AS cost_microusd,
+            COUNT(*) FILTER (WHERE cost_microusd IS NOT NULL)::int AS ledger_rows`;
   const legacySelect = `model,
             COUNT(*)::int AS rows,
             COALESCE(SUM(prompt_tokens), 0)::bigint AS prompt_tokens,
@@ -210,19 +216,26 @@ try {
       cachedInputTokens: 0,
       completionTokens: 0,
       reasoningTokens: 0,
+      pricedUsd: 0,
       totalUsd: 0,
       ledgerUsd: 0,
+      ledgerRows: 0,
     };
     acc.rows += row.rows;
     acc.promptTokens += row.promptTokens;
     acc.cachedInputTokens += row.cachedInputTokens;
     acc.completionTokens += row.completionTokens;
     acc.reasoningTokens += row.reasoningTokens;
-    acc.totalUsd = usd(acc.totalUsd + row.totalUsd);
+    acc.pricedUsd = usd(acc.pricedUsd + row.pricedUsd);
     acc.ledgerUsd = usd(acc.ledgerUsd + (row.ledgerUsd || 0));
+    acc.ledgerRows += row.ledgerRows || 0;
     byPhaseMap.set(key, acc);
   }
-  const byPhase = [...byPhaseMap.values()].sort((a, b) => b.totalUsd - a.totalUsd);
+  // Samma grund som huvudtotalen, annars summerar fastabellen till en annan
+  // siffra än rubriken — vilket är precis den motsägelsen den här fixen tar bort.
+  const byPhase = [...byPhaseMap.values()]
+    .map((phase) => ({ ...phase, totalUsd: resolveCostBasis([phase]).totalUsd }))
+    .sort((a, b) => b.totalUsd - a.totalUsd);
 
   const byDay = Array.isArray(byDayRaw)
     ? byDayRaw.map((row) => {
@@ -255,7 +268,6 @@ try {
       acc.cachedUsd = usd(acc.cachedUsd + m.cachedUsd);
       acc.cacheWriteUsd = usd(acc.cacheWriteUsd + m.cacheWriteUsd);
       acc.outputUsd = usd(acc.outputUsd + m.outputUsd);
-      acc.totalUsd = usd(acc.totalUsd + m.totalUsd);
       acc.ledgerUsd = usd(acc.ledgerUsd + (m.ledgerUsd || 0));
       acc.rows += m.rows;
       return acc;
@@ -271,20 +283,36 @@ try {
       cachedUsd: 0,
       cacheWriteUsd: 0,
       outputUsd: 0,
-      totalUsd: 0,
       ledgerUsd: 0,
       rows: 0,
     },
   );
+
+  // Ledgern äger totalen. Delposterna (input/cache/output) är kvar som
+  // token-uppskattning och summerar till `estimateUsd`, inte till `totalUsd`.
+  const costBasis = resolveCostBasis(byModel);
+  totals.totalUsd = costBasis.totalUsd;
+  totals.estimateUsd = costBasis.estimateUsd;
+  totals.costBasis = costBasis.basis;
+  totals.ledgerRows = costBasis.ledgerRows;
+  totals.rowsWithoutLedger = costBasis.rowsWithoutLedger;
 
   const caveats = [];
   if (source === "usage") {
     caveats.push(
       "Källa: llm_usage (alla faser). Cache-träffar prissätts med cachedInput; reasoning ingår i output och räknas inte två gånger. Long-context-påslag sitter i ledgern per anrop — inte på summerade tokens.",
     );
-    if (totals.ledgerUsd > 0) {
+    if (totals.costBasis === "ledger") {
       caveats.push(
-        `Ledgern i llm_usage (cost_microusd) summerar till $${totals.ledgerUsd}. Siffrorna ovan räknas om från tokens × pricing.json så FX-ratten går att justera.`,
+        `Totalen kommer ur ledgern (cost_microusd, alla ${totals.rows} anrop). Token-uppskattningen $${totals.estimateUsd} visas som delposter och saknar long-context-påslag.`,
+      );
+    } else if (totals.costBasis === "mixed") {
+      caveats.push(
+        `Totalen är ledgern ($${totals.ledgerUsd}) för ${totals.ledgerRows} anrop plus token-uppskattning för ${totals.rowsWithoutLedger} anrop utan cost_microusd.`,
+      );
+    } else {
+      caveats.push(
+        "Inget anrop i perioden har cost_microusd. Totalen är en token-uppskattning och saknar därför long-context-påslag.",
       );
     }
   } else if (source === "telemetry") {
@@ -327,8 +355,14 @@ try {
   if (wantJson) {
     process.stdout.write(JSON.stringify(out, null, 2));
   } else {
+    const basisLabel =
+      totals.costBasis === "ledger"
+        ? "ledger"
+        : totals.costBasis === "mixed"
+          ? `ledger + uppskattning för ${totals.rowsWithoutLedger} anrop`
+          : "uppskattning";
     console.log(
-      `Kostnad (${source}, ${days}d): $${totals.totalUsd} USD` +
+      `Kostnad (${source}, ${days}d, ${basisLabel}): $${totals.totalUsd} USD` +
         (usdToSek ? ` (~${usd(totals.totalUsd * usdToSek)} SEK)` : ""),
     );
     for (const m of byModel) {

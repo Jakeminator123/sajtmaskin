@@ -126,6 +126,58 @@ export function priceUsageRow(pricing, row, tier = "standard", options = {}) {
   };
 }
 
+/**
+ * Kostnadsgrund för en period.
+ *
+ * `cost_microusd` skrivs per anrop och bär long-context-påslaget. Token-priset
+ * räknas om från SUMMERADE tokens och kan därför aldrig veta om ett enskilt
+ * anrop gick över tröskeln — det underskattar systematiskt så snart någon
+ * körning gjorde det. Ledgern är sanningen; token-priset finns kvar som
+ * uppskattning så FX och `pricing.json` går att justera i efterhand.
+ *
+ * Rader utan ledgervärde (äldre källor, eller anrop skrivna innan kolumnen
+ * fylldes) prissätts pro rata ur sin egen grupps uppskattning, så perioden inte
+ * tappar dem tyst.
+ *
+ * @param {Array<{rows?: number, ledgerRows?: number, ledgerUsd?: number, pricedUsd?: number, totalUsd?: number}>} groups
+ */
+export function resolveCostBasis(groups) {
+  let ledgerUsd = 0;
+  let estimateUsd = 0;
+  let coveredEstimateUsd = 0;
+  let rows = 0;
+  let ledgerRows = 0;
+
+  for (const group of groups ?? []) {
+    const groupRows = tokens(group.rows);
+    const groupLedgerRows = Math.min(groupRows, tokens(group.ledgerRows));
+    const groupEstimate = Number(group.pricedUsd ?? group.totalUsd) || 0;
+
+    rows += groupRows;
+    ledgerRows += groupLedgerRows;
+    ledgerUsd = usd(ledgerUsd + (Number(group.ledgerUsd) || 0));
+    estimateUsd = usd(estimateUsd + groupEstimate);
+    coveredEstimateUsd = usd(
+      coveredEstimateUsd + (groupRows > 0 ? groupEstimate * (groupLedgerRows / groupRows) : 0),
+    );
+  }
+
+  const uncoveredEstimateUsd = usd(estimateUsd - coveredEstimateUsd);
+  const rowsWithoutLedger = Math.max(0, rows - ledgerRows);
+  const basis = ledgerRows === 0 ? "estimate" : rowsWithoutLedger === 0 ? "ledger" : "mixed";
+
+  return {
+    basis,
+    totalUsd: basis === "estimate" ? estimateUsd : usd(ledgerUsd + uncoveredEstimateUsd),
+    ledgerUsd,
+    estimateUsd,
+    uncoveredEstimateUsd,
+    rows,
+    ledgerRows,
+    rowsWithoutLedger,
+  };
+}
+
 export function resolveCostSource(raw) {
   const value = String(raw ?? "usage").trim().toLowerCase();
   if (value === "telemetry") return "telemetry";

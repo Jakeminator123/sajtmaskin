@@ -41,6 +41,7 @@ _SOURCE_CHOICES = {
 class CostPayload:
     ok: bool
     generated_at: str = ""
+    pricing_verified_at: str = ""
     env_path: str = ""
     target: str = ""
     is_prod_like: bool = False
@@ -105,6 +106,7 @@ def _run_cost(
     return CostPayload(
         ok=True,
         generated_at=str(data.get("generatedAt", "")),
+        pricing_verified_at=str(data.get("pricingVerifiedAt") or ""),
         env_path=str(data.get("envPath", "")),
         target=str(data.get("target", "")),
         is_prod_like=bool(data.get("isProdLike", False)),
@@ -271,11 +273,25 @@ def render(ctx: BackofficeContext) -> None:
     c6.metric("Varav cache-kostnad", _fmt_usd(cache_usd))
     c7.metric("Varav output-kostnad", _fmt_usd(totals.get("outputUsd")))
     c8.metric("Anrop", totals.get("rows", 0))
-    if float(totals.get("ledgerUsd") or 0) > 0:
-        st.caption(
-            f"Ledger-snapshot (`cost_microusd` per anrop): {_fmt_usd(totals.get('ledgerUsd'))}. "
-            "Kan skilja sig från totalsumman ovan om någon körning gick över long-context-tröskeln."
-        )
+    # Delposterna ovan är token-uppskattningar och summerar till estimateUsd,
+    # inte till totalen — totalen kommer ur ledgern där long-context faktiskt
+    # ingår. Säg det rakt ut i stället för att låta två siffror konkurrera.
+    basis = str(totals.get("costBasis") or "")
+    if basis in ("ledger", "mixed"):
+        estimate = _fmt_usd(totals.get("estimateUsd"))
+        if basis == "ledger":
+            st.caption(
+                f"Totalen kommer ur ledgern (`cost_microusd` per anrop). "
+                f"Delposterna är token-uppskattning och summerar till {estimate} "
+                "— skillnaden är long-context-påslaget, som bara finns per anrop."
+            )
+        else:
+            missing = totals.get("rowsWithoutLedger", 0)
+            st.caption(
+                f"Totalen är ledgern ({_fmt_usd(totals.get('ledgerUsd'))}) plus "
+                f"token-uppskattning för {missing} anrop utan `cost_microusd`. "
+                f"Ren token-uppskattning för hela perioden vore {estimate}."
+            )
 
     for caveat in payload.caveats:
         st.warning(caveat)
@@ -313,7 +329,11 @@ def render(ctx: BackofficeContext) -> None:
             st.line_chart(daily, y_label="USD / dag")
 
     st.divider()
+    # Prislistans verifieringsdatum kommer ur pricing.json, inte ur när
+    # rapporten kördes. Saknas det skriver vi "okänt" — aldrig dagens datum.
+    verified = payload.pricing_verified_at[:10] or "okänt"
     st.caption(
         f"Källa: `{payload.source_table}` · Prislista verifierad: "
-        f"{payload.generated_at[:10]} · Redigera priser i `config/ai_models/pricing.json`."
+        f"{verified} · Rapport körd: {payload.generated_at[:10]} · "
+        "Redigera priser i `config/ai_models/pricing.json`."
     )
