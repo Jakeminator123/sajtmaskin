@@ -2,6 +2,11 @@
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
 
+**Inte init.** B6 är inte «vilken typ av prompt som ska skapas utifrån
+användartexten». Det gäller **nästa tur**, när sajten redan finns: ny
+LLM-tolkning (Ändringsbrief) bara vid `clear-redesign`, annars återanvänd
+Snapshot-Brief. Klassningen refine/redesign/capability finns redan.
+
 Steg 2 kräver ägarbeslut **N4**; mätningen i steg 1 gör det inte. N4 är inte
 «får vi bredda Ändringsbriefen till alla redigerande uppföljningar?». Frågan är:
 
