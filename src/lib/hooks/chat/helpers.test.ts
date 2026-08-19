@@ -382,6 +382,23 @@ describe("resolveDeepBriefModelInfoFields", () => {
     expect(steps.some((step) => step.startsWith("Deep Brief-provider:"))).toBe(false);
     expect(steps.some((step) => step.startsWith("Deep Brief-modell:"))).toBe(false);
   });
+
+  it("keeps provider/model hidden when setting is off but the server auto-brief ran", () => {
+    // `briefApplied` from the server means A brief ran — but the selected
+    // "off" model is not the model that produced it, so rendering
+    // provider/model from the off value would mislabel the run.
+    const fields = resolveDeepBriefModelInfoFields({
+      isInitTurn: true,
+      briefUsedThisTurn: true,
+      promptAssistModel: "off",
+      promptAssistDeep: false,
+    });
+    const steps = buildModelInfoSteps({ modelId: "gpt-5.5", ...fields });
+
+    expect(steps).toContain("Deep brief-inställning: av");
+    expect(steps.some((step) => step.startsWith("Deep Brief-provider:"))).toBe(false);
+    expect(steps.some((step) => step.startsWith("Deep Brief-modell:"))).toBe(false);
+  });
 });
 
 describe("buildModelInfoSteps — deferred integrations and contract rows", () => {

@@ -42,12 +42,15 @@ export function resolveDeepBriefModelInfoFields(params: {
     typeof params.promptAssistModel === "string" && params.promptAssistModel.trim().length > 0
       ? params.promptAssistModel
       : null;
-  const showLane = params.briefUsedThisTurn && paModel !== null;
+  // Setting "off" must never render provider/model rows, even when the server
+  // auto-brief ran (`briefApplied`): the selected "off" model is not the model
+  // that produced that brief, so showing it would mislabel the run (Bugbot
+  // medium on PR #1048).
+  const showLane =
+    params.briefUsedThisTurn && paModel !== null && !isPromptAssistOff(paModel);
 
   return {
-    promptAssistProvider: showLane
-      ? isPromptAssistOff(paModel) ? "off" : resolvePromptAssistProvider(paModel)
-      : null,
+    promptAssistProvider: showLane ? resolvePromptAssistProvider(paModel) : null,
     promptAssistModel: showLane ? paModel : null,
     promptAssistDeep:
       typeof params.promptAssistDeep === "boolean" ? params.promptAssistDeep : null,

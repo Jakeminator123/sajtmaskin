@@ -232,6 +232,12 @@ export function useCreateChat(
       ]);
       setIsCreatingChat(true);
 
+      // Snapshot taken when the request is CONSTRUCTED (promptMeta.brief).
+      // `pendingBriefRef` is mutable and cleared on success, so reading it
+      // again when the response arrives can label the turn from another state
+      // (pr-ai-review F-b8b873f9385a on PR #1048).
+      let requestIncludedBrief = false;
+
       // Returns whether a version was persisted — Byggval resets only then.
       const handleNonStreamingCreate = async (
         data: Record<string, unknown>,
@@ -242,8 +248,7 @@ export function useCreateChat(
             : null;
         const deepBrief = resolveDeepBriefModelInfoFields({
           isInitTurn: true,
-          briefUsedThisTurn:
-            Boolean(pendingBriefRef?.current) || meta?.briefApplied === true,
+          briefUsedThisTurn: requestIncludedBrief || meta?.briefApplied === true,
           promptAssistModel,
           promptAssistDeep,
         });
@@ -517,6 +522,7 @@ export function useCreateChat(
           promptMeta.brief = pendingBriefRef.current;
           promptMeta.promptAssistDeep = true;
         }
+        requestIncludedBrief = Boolean(promptMeta.brief);
         promptMeta.modelId = engineModel;
         promptMeta.modelTier = selectedModelTier;
         promptMeta.modelTierId = canonicalTier;
@@ -634,7 +640,7 @@ export function useCreateChat(
               autoFixHandlerRef,
               promptAssistModel,
               promptAssistDeep,
-              briefUsedThisTurn: Boolean(pendingBriefRef?.current),
+              briefUsedThisTurn: requestIncludedBrief,
             },
             streamController.signal,
           );
