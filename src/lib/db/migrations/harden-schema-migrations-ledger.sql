@@ -30,9 +30,10 @@
 -- roller (lokal utveckling), där ett rått `REVOKE ... FROM anon` annars skulle
 -- falla på 42704 undefined_object.
 --
--- Syskon: `ensureMigrationLedger` kör samma härdning direkt efter CREATE, så en
+-- Syskon: `ensureMigrationLedger` skapar och låser ledgern i EN sats, så en
 -- ledger som skapas på nytt efter att den här migrationen redan bokförts inte
--- föds vidöppen igen.
+-- föds vidöppen igen — och inte heller kan fastna committad men öppen om
+-- körningen dör mitt i.
 
 DO $$
 BEGIN

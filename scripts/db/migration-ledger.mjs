@@ -19,33 +19,42 @@ import { MIGRATION_ORDER } from "./migration-order.mjs";
 export const LEDGER_TABLE = "schema_migrations";
 
 /**
- * Deny-by-default on the ledger (SM-057). The `public` schema's default
- * privileges grant ALL to `anon` and `authenticated` on every new table, and
- * this table is born from a bare `CREATE TABLE` outside MIGRATION_ORDER — so
- * without this it is readable, writable and TRUNCATE-able with the public anon
- * key over PostgREST. The table owner (`postgres`, the same role the runners
- * connect as) bypasses RLS, so enabling it costs the runners nothing.
+ * Create the ledger AND lock it down, deny-by-default (SM-057).
+ *
+ * The `public` schema's default privileges grant ALL to `anon` and
+ * `authenticated` on every new table, and this table is born from a bare
+ * `CREATE TABLE` outside MIGRATION_ORDER — so without the lockdown it is
+ * readable, writable and TRUNCATE-able with the public anon key over PostgREST.
+ * The table owner (`postgres`, the same role the runners connect as) bypasses
+ * RLS, so enabling it costs the runners nothing.
+ *
+ * Creation and lockdown MUST NOT be two statements: `pool.query` autocommits
+ * each one (and may even use different pooled connections), so a crash in
+ * between would leave the ledger committed and wide open, and rows written in
+ * that window would silently survive as trusted. A single `DO` block runs in one
+ * implicit transaction, so the table can never exist unprotected.
  *
  * Kept in lockstep with `src/lib/db/migrations/harden-schema-migrations-ledger.sql`,
- * which repairs databases that were created before this existed. Both are
- * needed: the migration cannot protect a ledger that is dropped and recreated
- * after the migration was already recorded.
+ * which repairs databases created before this existed. Both are needed: the
+ * migration cannot protect a ledger that is dropped and recreated after the
+ * migration was already recorded.
  */
-const HARDEN_LEDGER_SQL = `
+const ENSURE_LEDGER_SQL = `
 DO $$
 BEGIN
-  IF to_regclass('public.${LEDGER_TABLE}') IS NULL THEN
-    RETURN;
-  END IF;
+  CREATE TABLE IF NOT EXISTS public.${LEDGER_TABLE} (
+    filename text PRIMARY KEY,
+    applied_at timestamptz NOT NULL DEFAULT now()
+  );
 
-  EXECUTE 'ALTER TABLE public.${LEDGER_TABLE} ENABLE ROW LEVEL SECURITY';
+  ALTER TABLE public.${LEDGER_TABLE} ENABLE ROW LEVEL SECURITY;
 
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
-    EXECUTE 'REVOKE ALL ON TABLE public.${LEDGER_TABLE} FROM anon';
+    REVOKE ALL ON TABLE public.${LEDGER_TABLE} FROM anon;
   END IF;
 
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-    EXECUTE 'REVOKE ALL ON TABLE public.${LEDGER_TABLE} FROM authenticated';
+    REVOKE ALL ON TABLE public.${LEDGER_TABLE} FROM authenticated;
   END IF;
 END
 $$;
@@ -53,13 +62,7 @@ $$;
 
 /** Create the ledger table if it does not exist yet. Idempotent. */
 export async function ensureMigrationLedger(pool) {
-  await pool.query(
-    `CREATE TABLE IF NOT EXISTS ${LEDGER_TABLE} (
-       filename text PRIMARY KEY,
-       applied_at timestamptz NOT NULL DEFAULT now()
-     )`,
-  );
-  await pool.query(HARDEN_LEDGER_SQL);
+  await pool.query(ENSURE_LEDGER_SQL);
 }
 
 /** Record one migration filename as applied. Idempotent (ON CONFLICT DO NOTHING). */
