@@ -217,6 +217,17 @@ describe("config/ai_models/manifest.json parity", () => {
     }
   });
 
+  it("documents prompt_rewrite as its own pre-send step, not Deep Brief", () => {
+    const m = getAiModelsManifest();
+    const rewrite = m.workloads.find((w) => w.id === "prompt_rewrite");
+
+    expect(rewrite?.defaultModel).toBe("openai/gpt-5.6-terra");
+    expect(rewrite?.envOverrides?.model).toBe("SAJTMASKIN_PROMPT_REWRITE_MODEL");
+    expect(rewrite?.codeEntry).toContain("src/app/api/ai/prompt-assist/route.ts");
+    expect(rewrite?.id).not.toBe("prompt_assist");
+    expect(m.promptAssist.envKeys.assist).toBe("SAJTMASKIN_ASSIST_MODEL");
+  });
+
   it("documents post-generation verifier workload", () => {
     const m = getAiModelsManifest();
     const verifier = m.workloads.find((w) => w.id === "post_generation_verifier");

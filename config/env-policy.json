@@ -221,6 +221,7 @@
     "SAJTMASKIN_PRE_VM_TYPECHECK",
     "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
     "SAJTMASKIN_PROMPT_DUMP",
+    "SAJTMASKIN_PROMPT_REWRITE_MODEL",
     "SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
@@ -391,7 +392,13 @@
       "key": "SAJTMASKIN_ASSIST_MODEL",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Optional override for Prompt Assist model selection."
+      "notes": "Optional override for Deep Brief / legacy promptAssist model selection. Not the pre-send Prompt-assist button."
+    },
+    {
+      "key": "SAJTMASKIN_PROMPT_REWRITE_MODEL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Optional override for the pre-send Prompt-assist button (workload prompt_rewrite). Not SAJTMASKIN_ASSIST_MODEL."
     },
     {
       "key": "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",

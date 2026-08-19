@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:906bbfbecfc5dc5a -->
+<!-- source-fingerprint: config/env-policy.json sha256:bb584dfa6742f93a -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:5015ae889ed37dda -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:58bf6977a6cef5d5 -->
 
@@ -135,6 +135,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_PREVIEW_HOST_BASE_URL`                   | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_PREVIEW_PREWARM`                         | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_PROMPT_DUMP`                             | `local_only`           | —                                      | No            | No           |
+| `SAJTMASKIN_PROMPT_REWRITE_MODEL`                    | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD`         | `optional_runtime`     | —                                      | Yes           | No           |
 | `SAJTMASKIN_REFUSE_DOSSIER_STUBS`                    | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS` | `optional_runtime`     | —                                      | Yes           | No           |
