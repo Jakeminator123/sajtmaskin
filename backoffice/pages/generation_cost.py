@@ -268,6 +268,11 @@ def render(ctx: BackofficeContext) -> None:
     c6.metric("Varav cache-kostnad", _fmt_usd(totals.get("cachedUsd")))
     c7.metric("Varav output-kostnad", _fmt_usd(totals.get("outputUsd")))
     c8.metric("Anrop", totals.get("rows", 0))
+    if float(totals.get("ledgerUsd") or 0) > 0:
+        st.caption(
+            f"Ledger-snapshot (`cost_microusd` per anrop): {_fmt_usd(totals.get('ledgerUsd'))}. "
+            "Kan skilja sig från totalsumman ovan om någon körning gick över long-context-tröskeln."
+        )
 
     for caveat in payload.caveats:
         st.warning(caveat)

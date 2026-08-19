@@ -100,11 +100,11 @@ async function safe(label, sql, params = []) {
   }
 }
 
-function toUsageRow(row, { includePhase }) {
+function toUsageRow(row) {
   if (source === "usage") {
     return {
       model: row.model,
-      phase: includePhase ? row.phase : null,
+      phase: row.phase || "unknown",
       rows: row.rows,
       inputTokens: row.input_tokens,
       cachedInputTokens: row.cached_input_tokens,
@@ -116,7 +116,7 @@ function toUsageRow(row, { includePhase }) {
   }
   return {
     model: row.model,
-    phase: includePhase ? "codegen" : null,
+    phase: "codegen",
     rows: row.rows,
     inputTokens: row.prompt_tokens,
     cachedInputTokens: 0,
@@ -133,10 +133,9 @@ function attachLedger(priced, raw) {
     ...priced,
     pricedUsd: priced.totalUsd,
     ledgerUsd,
-    // Aggregates must not invent long-context uplift. When the ledger has a
-    // frozen per-call cost, that is the money figure; otherwise use the
-    // standard-rate token estimate.
-    totalUsd: ledgerUsd > 0 ? ledgerUsd : priced.totalUsd,
+    // Keep token-priced totalUsd so input/cache/output parts still add up.
+    // Ledger snapshot is shown separately (per-call long-context lives there).
+    totalUsd: priced.totalUsd,
   };
 }
 
@@ -195,7 +194,7 @@ try {
   if (byModelRaw._error) fail(byModelRaw._error);
 
   const byModel = byModelRaw.map((row) => {
-    const usage = toUsageRow(row, { includePhase: source === "usage" });
+    const usage = toUsageRow(row);
     return attachLedger(priceUsageRow(pricing, usage, tier, { applyLongContext: false }), usage);
   });
   const unpriced = byModel.filter((m) => !m.priced && (m.promptTokens || m.completionTokens));
@@ -227,7 +226,7 @@ try {
 
   const byDay = Array.isArray(byDayRaw)
     ? byDayRaw.map((row) => {
-        const usage = toUsageRow(row, { includePhase: source === "usage" });
+        const usage = toUsageRow(row);
         const priced = attachLedger(
           priceUsageRow(pricing, usage, tier, { applyLongContext: false }),
           usage,
