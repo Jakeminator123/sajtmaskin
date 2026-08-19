@@ -167,6 +167,7 @@ vi.mock("@/lib/sanitize/sanitize-metadata", () => ({
 
 vi.mock("@/lib/db/services/prompt-logs", () => ({
   createPromptLog,
+  attachPromptLogChatId: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/models/selection", () => ({
