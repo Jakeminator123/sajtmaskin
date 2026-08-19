@@ -161,6 +161,7 @@ def _build_model_df(rows: list[dict[str, Any]], rate: float | None) -> pd.DataFr
                 "Varav cache": _fmt_tok(r.get("cachedInputTokens")),
                 "Output-tokens": _fmt_tok(r.get("completionTokens")),
                 "Input $": _fmt_usd(r.get("inputUsd")),
+                "Cache $": _fmt_usd((r.get("cachedUsd") or 0) + (r.get("cacheWriteUsd") or 0)),
                 "Output $": _fmt_usd(r.get("outputUsd")),
                 "Total $": _fmt_usd(total_usd),
                 "Total kr": _fmt_sek(total_usd, rate),
@@ -217,7 +218,8 @@ def _build_day_df(rows: list[dict[str, Any]], rate: float | None) -> pd.DataFram
 def render(ctx: BackofficeContext) -> None:
     st.title("Generation Cost")
     st.caption(
-        "Prissätter `llm_usage` (alla faser) i USD/SEK via `config/ai_models/pricing.json`. "
+        "Prissätter loggad token-användning i USD/SEK via `config/ai_models/pricing.json`. "
+        "Defaultkälla är `llm_usage` (alla faser); äldre codegen-tabeller finns som jämförelse. "
         "Read-only mot DB:n som vald env-fil pekar på (`scripts/db/generation-cost.mjs`)."
     )
 
@@ -264,8 +266,9 @@ def render(ctx: BackofficeContext) -> None:
     c4.metric("Output-tokens", _fmt_tok(totals.get("completionTokens")))
 
     c5, c6, c7, c8 = st.columns(4)
+    cache_usd = float(totals.get("cachedUsd") or 0) + float(totals.get("cacheWriteUsd") or 0)
     c5.metric("Varav input-kostnad", _fmt_usd(totals.get("inputUsd")))
-    c6.metric("Varav cache-kostnad", _fmt_usd(totals.get("cachedUsd")))
+    c6.metric("Varav cache-kostnad", _fmt_usd(cache_usd))
     c7.metric("Varav output-kostnad", _fmt_usd(totals.get("outputUsd")))
     c8.metric("Anrop", totals.get("rows", 0))
     if float(totals.get("ledgerUsd") or 0) > 0:

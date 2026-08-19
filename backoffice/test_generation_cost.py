@@ -62,8 +62,10 @@ class GenerationCostSourceTests(unittest.TestCase):
                     "cachedInputTokens": 200,
                     "completionTokens": 50,
                     "inputUsd": 0.01,
+                    "cachedUsd": 0.002,
+                    "cacheWriteUsd": 0.001,
                     "outputUsd": 0.02,
-                    "totalUsd": 0.03,
+                    "totalUsd": 0.033,
                 }
             ],
             10.5,
@@ -73,3 +75,4 @@ class GenerationCostSourceTests(unittest.TestCase):
         self.assertNotIn("Genereringar", df.columns)
         self.assertEqual(df.iloc[0]["Fas"], "planner")
         self.assertEqual(df.iloc[0]["Varav cache"], "200")
+        self.assertIn("Cache $", df.columns)
