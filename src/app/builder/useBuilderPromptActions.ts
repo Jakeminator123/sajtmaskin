@@ -59,7 +59,7 @@ type Args = {
   generateDynamicInstructions: (
     message: string,
     options?: InitBriefOptions,
-  ) => Promise<string>;
+  ) => Promise<Record<string, unknown> | null>;
   createNewChat: (message: string, options?: CreateChatOptions, systemOverride?: string) => Promise<boolean>;
   cancelActiveGeneration: () => void;
   resetBeforeCreateChat: () => void;
@@ -169,14 +169,8 @@ export function useBuilderPromptActions({
       if (!trimmed) return null;
       setIsPreparingPrompt(true);
       try {
-        pendingBriefRef.current = null;
-        await generateDynamicInstructions(trimmed, {
-          forceShallow: false,
+        pendingBriefRef.current = await generateDynamicInstructions(trimmed, {
           forceDeepBrief: true,
-          skipAddendum: true,
-          onBrief: (brief) => {
-            pendingBriefRef.current = brief;
-          },
         });
 
         const baseInstructions = customInstructions.trim();

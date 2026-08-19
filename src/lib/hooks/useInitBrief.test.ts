@@ -10,8 +10,6 @@ vi.mock("sonner", () => ({
 }));
 
 vi.mock("@/lib/builder/prompt-assist", () => ({
-  buildDynamicInstructionAddendumFromBrief: () => "",
-  buildDynamicInstructionAddendumFromPrompt: () => "",
   isOpenAIAssistModel: () => true,
   isPromptAssistModelAllowed: () => true,
   isPromptAssistOff: () => false,
@@ -68,7 +66,7 @@ describe("useInitBrief — follow-up guard (P22)", () => {
         chatId: null,
         forceDeepBrief: true,
       }),
-    ).resolves.toBeTypeOf("string");
+    ).resolves.toEqual({});
 
     vi.unstubAllGlobals();
   });
@@ -106,7 +104,7 @@ describe("useInitBrief — A2: flödesstatus går via window-event, inte toast",
       vi.unstubAllGlobals();
     }
 
-    expect(statuses[0]).toBe("Skapar brief och dynamiska instruktioner innan own-engine startar…");
+    expect(statuses[0]).toBe("Skapar brief innan own-engine startar…");
     expect(statuses.at(-1)).toBeNull();
     expect(statuses).toHaveLength(2);
     expect(toast.loading).not.toHaveBeenCalled();
@@ -147,5 +145,67 @@ describe("useInitBrief — A2: flödesstatus går via window-event, inte toast",
 
     expect(statuses.at(-1)).toBeNull();
     expect(toast.error).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useInitBrief — B1: returnerar briefen, ingen addendum-sträng", () => {
+  it("returns the brief object and never a client addendum string", async () => {
+    const { result } = renderHook(() =>
+      useInitBrief({
+        model: "openai/gpt-4.1",
+        deep: true,
+        imageGenerations: false,
+      }),
+    );
+
+    const brief = { projectTitle: "Salong", domainProfile: "spa-salon" };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => brief,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    let returned: unknown;
+    try {
+      returned = await result.current.generateDynamicInstructions("hej", {
+        forceDeepBrief: true,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(returned).toEqual(brief);
+    expect(typeof returned).not.toBe("string");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns null on brief failure instead of building an addendum string", async () => {
+    const { result } = renderHook(() =>
+      useInitBrief({
+        model: "openai/gpt-4.1",
+        deep: true,
+        imageGenerations: false,
+      }),
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        json: async () => ({ error: "down" }),
+      }),
+    );
+
+    let returned: unknown;
+    try {
+      returned = await result.current.generateDynamicInstructions("hej", {
+        forceDeepBrief: true,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(returned).toBeNull();
   });
 });

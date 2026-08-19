@@ -10,11 +10,8 @@ export type PromptAssistConfig = {
 };
 
 export type InitBriefOptions = {
-  forceShallow?: boolean;
   forceDeepBrief?: boolean;
-  skipAddendum?: boolean;
   modelOverride?: string;
-  onBrief?: (brief: Record<string, unknown>) => void;
   /**
    * P22: chat id för follow-up-detektion. När satt + `forceDeepBrief` kastar
    * `useInitBrief` — Deep Brief ska bara köras vid init (innan chatten finns).

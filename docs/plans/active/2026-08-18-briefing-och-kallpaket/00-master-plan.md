@@ -129,39 +129,13 @@ Att briefen skulle sakna makt över **scaffold** är däremot fel: dess `pages`,
 `styleKeywords` och domänhintar väger in i både keyword- och embedding-vägen via
 `buildScaffoldQueryContext` (`resolve-base.ts:224`, `scaffolds/matcher.ts:187-237`).
 
-### Prompt-assist-addendumet är förbikopplat — och en ren dubblett
+### Prompt-assist-addendumet är borttaget (B1)
 
-| Fakta | Källa |
-|---|---|
-| Enda anroparen kör `forceDeepBrief: true, skipAddendum: true` och **tilldelar inte** returvärdet | `src/app/builder/useBuilderPromptActions.ts:173-180` |
-| `skipAddendum` returnerar tom sträng | `src/lib/hooks/useInitBrief.ts:162-167` |
-| Alla övriga returvägar (assist av, ogiltig modell, ej deep, fel) bygger en addendum-sträng som anroparen kastar | `useInitBrief.ts:64, 73, 110, 182-190, 219` |
-| Servern äger redan samma vägledning: «Previously these lived in the prompt-assist package and were wired through a client-side addendum. Now they are server-side only.» | `src/lib/gen/guidance-resolvers.ts:8-9` |
-
-Det är alltså inte bara död kod — det är **två kopior av samma prompttext**, där
-den ena (445 rader, server-side) faktiskt når kodgeneratorn och den andra
-(815 rader, klient-side) inte gör det.
-
-| Fil i `src/lib/builder/prompt-assist/` | Rader | Konsument utanför paketet |
-|---|---|---|
-| `runner.ts` | 202 | bara `useInitBrief` (som kastar resultatet) |
-| `theme-guidance.ts` | 199 | ingen |
-| `motion-guidance.ts` | 165 | ingen |
-| `shared-addendum.ts` | 131 | ingen |
-| `domain-hints.ts` | 118 | ingen |
-| `formatters.ts` | 81 | **ja** — `formatPrompt` i prompt-wizard |
-| `models.ts` | 53 | **ja** — modellrutt/allowlist för brief |
-| `index.ts` | 24 | barrel |
-
-### Docs påstår mer än koden gör
-
-- `src/lib/builder/prompt-assist/runner.ts:42-48` — «that one IS active (used by
-  `useInitBrief.ts` as fallback when the request misses a brief)». Falskt.
-- `docs/schemas/llm-role-matrix.md:77` — påstår att `useCreateChat` kör
-  `buildDynamicInstructionAddendumFromPrompt()` när deep brief saknas.
-  `useCreateChat` anropar den inte alls.
-- `docs/schemas/orchestration-signal-contract.md:18` — listar «formatterad prompt
-  + snabb addendum» som en aktiv signalväg.
+Klientens förbikopplade instruction-addendum är raderat. `useInitBrief`
+returnerar brief-objektet (eller `null`). Serverns `guidance-resolvers.ts` är
+enda ägaren av motion-/tema-/domänvägledningen som når kodgeneratorn. Kvar i
+`src/lib/builder/prompt-assist/`: `models.ts` (Deep Brief-modellrutt) och
+`formatters.ts` (`formatPrompt` i prompt-wizard).
 
 ### Namnskuggor som lever kvar
 

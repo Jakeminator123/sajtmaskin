@@ -8,7 +8,7 @@ Kanonisk kodsanning ligger fortfarande i:
 - `src/lib/models/phase-routing.ts`
 - `config/ai_models/manifest.json`
 - `src/lib/builder/site-brief-generation.ts`
-- `src/lib/builder/prompt-assist/` (post-OMTAG-03 package; `runner.ts` orchestrator, `formatters.ts`, `domain-hints.ts`, `index.ts`)
+- `src/lib/builder/prompt-assist/` (`models.ts` för Deep Brief-modellrutt, `formatters.ts` för prompt-wizard)
 
 Det här dokumentet är den mänskligt läsbara översikten över **vilka modeller/roller som finns**, **när de används**, och **vad de producerar**.
 
@@ -62,7 +62,7 @@ Tre live pre-codegen-modellsteg finns:
 | **Deep brief** (`/api/ai/brief`) | LLM-anrop som producerar en **strukturerad JSON** (sidor, sektioner, visuell riktning, imagery, SEO, m.m.). Kanonisk semantisk expansion för init. | `meta.brief` → systemprompten via `buildDynamicContext()`. Storlek varierar med prompt, scaffold, dossiers och follow-up-policy; mät aktuell verklighet via `promptSize` i `GenerationInputPackage` / prompt-dumps. | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` |
 | **Server auto-brief** | Samma brief-typ som Deep brief, startad på servern när klienten inte skickat `meta.brief`. | Samma `meta.brief` / snapshot-väg. | `tryGenerateServerAutoBrief` |
 | **Delta brief** | Bara vid `followUpIntent === "clear-redesign"`. Samma `siteBriefSchema` som init (`Include every field`), med `formatPriorDesignContext(..., { intent: "clear-redesign" })`. Inte en smal diff. Övriga uppföljningar får Snapshot-Brief (`null` bara om snapshoten saknar `briefSummary`). | Skriver tillbaka brief för den follow-up-rundan. | `runClearRedesignDeltaBriefPhase` |
-| **`formatPrompt()`** _(legacy wrapper)_ | Enkel client-side formatter som wrappar text i `MÅL / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. **Inte längre i `useCreateChat`-init-vägen** (sedan 2026-04-28 — Core Rules bar redan kraven, wrappern var brus). Lever kvar i prompt-wizard och `prompt-assist/runner`. | User-meddelandet i de paths som fortfarande använder den. | `src/lib/builder/prompt-assist/formatters.ts` (post-OMTAG-03 split) |
+| **`formatPrompt()`** _(legacy wrapper)_ | Enkel client-side formatter som wrappar text i `MÅL / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. **Inte i `useCreateChat`-init-vägen** (sedan 2026-04-28 — Core Rules bar redan kraven, wrappern var brus). Lever kvar i prompt-wizard. | User-meddelandet i de paths som fortfarande använder den. | `src/lib/builder/prompt-assist/formatters.ts` |
 
 Flödet vid freeform create-chat:
 
@@ -74,7 +74,7 @@ Flödet vid freeform create-chat:
 6. Användarens **råa prompttext** skickas som user-message (ingen MÅL/CONSTRAINTS-wrappning)
 7. Kodgeneratorn ser: statisk kärna + dynamisk kontext + rå user-message; exakta storlekar mäts i prompt-telemetrin (den arkiverade uppföljningsplanen `prompt-slim-systemprompt.md` lever i git-historiken).
 
-**Utan** deep brief (t.ex. om `promptAssistDeep: false` eller briefen misslyckas) skickar `useCreateChat` user-prompten rå (sedan 2026-04-28) och kör `buildDynamicInstructionAddendumFromPrompt()` för en enklare prompt-baserad expansion. `formatPrompt()` används inte i den vägen längre.
+**Utan** deep brief (t.ex. om `promptAssistDeep: false` eller briefen misslyckas) skickar `useCreateChat` user-prompten rå (sedan 2026-04-28). Servern kan då köra auto-brief. Det finns ingen klient-addendum-sträng. `formatPrompt()` används inte i den vägen.
 
 ## Viktiga noter
 
