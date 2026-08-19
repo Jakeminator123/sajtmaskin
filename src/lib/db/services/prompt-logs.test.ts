@@ -100,6 +100,27 @@ describe("create_chat prompt log chat_id claim", () => {
     expect(rows.byId.get("plog_create_1")?.chat_id).toBe("already_set");
   });
 
+  it("returnerar id även när retention faller, så create_chat-raden kan claimas", async () => {
+    executeSpy.mockRejectedValue(new Error("retention down"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const id = await createPromptLog({
+      event: "create_chat",
+      userId: "user_1",
+      chatId: null,
+      promptOriginal: "Bygg en kaffebar",
+    });
+
+    expect(id).toBe("plog_create_1");
+    await attachPromptLogChatId(id, "engine_chat_1");
+    expect(rows.byId.get("plog_create_1")).toMatchObject({
+      event: "create_chat",
+      chat_id: "engine_chat_1",
+    });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("rör inte retention och no-opar på tomma id", async () => {
     await createPromptLog({
       event: "create_chat",

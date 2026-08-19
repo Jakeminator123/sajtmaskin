@@ -57,21 +57,27 @@ export async function createPromptLog(payload: {
     created_at: now,
   });
 
-  if (ownerId) {
-    const ownerFilter = payload.userId
-      ? sql`user_id = ${payload.userId}`
-      : sql`session_id = ${payload.sessionId}`;
-    await db.execute(
-      sql`DELETE FROM prompt_logs WHERE id IN (
+  try {
+    if (ownerId) {
+      const ownerFilter = payload.userId
+        ? sql`user_id = ${payload.userId}`
+        : sql`session_id = ${payload.sessionId}`;
+      await db.execute(
+        sql`DELETE FROM prompt_logs WHERE id IN (
         SELECT id FROM prompt_logs WHERE ${ownerFilter} ORDER BY created_at DESC OFFSET ${retentionLimit}
       )`,
-    );
-  } else {
-    await db.execute(
-      sql`DELETE FROM prompt_logs WHERE id IN (
+      );
+    } else {
+      await db.execute(
+        sql`DELETE FROM prompt_logs WHERE id IN (
         SELECT id FROM prompt_logs WHERE user_id IS NULL AND session_id IS NULL ORDER BY created_at DESC OFFSET ${retentionLimit}
       )`,
-    );
+      );
+    }
+  } catch (error) {
+    // INSERT är redan gjord. Retention får inte släcka id:t — då kan inte
+    // init claima chat_id på den skrivna raden.
+    console.warn("[prompt-log] Retention cleanup failed after insert:", error);
   }
 
   return id;
