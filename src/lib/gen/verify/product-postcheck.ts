@@ -253,13 +253,29 @@ function decidePreviewReadiness(params: {
   readiness: PreviewHostReadinessVerdict | null;
 }): PreviewReadinessDecision {
   const kind = classifyPreviewPageProbe(params.probe);
-  if (params.readiness && isHostRuntimeReady(params.readiness)) {
+  const hostReady = Boolean(params.readiness && isHostRuntimeReady(params.readiness));
+
+  // A boot placeholder is a product defect only after the host says it is
+  // ready — or that startup failed. `starting` / not-ready is timing
+  // (cold VM / npm install) and must not block.
+  if (kind === "boot_page") {
+    if (hostReady || params.readiness?.readinessState === "failed") {
+      return { action: "warn", code: "preview_boot_page", productBlocked: true };
+    }
+    if (params.readiness) {
+      return { action: "warn", code: "preview_boot_page", productBlocked: false };
+    }
+    return {
+      action: "warn",
+      code: "preview_probe_unreadable",
+      productBlocked: false,
+    };
+  }
+
+  if (hostReady) {
     return { action: "continue" };
   }
   if (params.readiness) {
-    if (kind === "boot_page") {
-      return { action: "warn", code: "preview_boot_page", productBlocked: true };
-    }
     if (kind === "unreadable") {
       return {
         action: "warn",
@@ -887,15 +903,11 @@ export async function runProductPostcheck(params: {
         deadlineAt: startedAt + timeoutMs,
       });
       if (readiness) {
-        // Re-read after the status wait: `firstProbe` is stale once Chromium
-        // has sat through a multi-second poll (empty → boot page is the
-        // 2026-08-14 case). Keep `firstProbe` only for the live fast-path above.
-        const freshProbe = await readPageProbe(page);
-        readinessDecision = decidePreviewReadiness({
-          probe: freshProbe,
-          readiness,
-        });
-        if (readinessDecision.action === "continue" && isHostRuntimeReady(readiness)) {
+        // Reload only after the host is ready so Chromium is not still sitting
+        // on the placeholder HTML from goto. A boot page may block only then.
+        // Keep `firstProbe` for the live fast-path above — it is stale after
+        // the status wait (empty → boot page was the 2026-08-14 case).
+        if (isHostRuntimeReady(readiness)) {
           await page
             .reload({
               waitUntil: "domcontentloaded",
@@ -906,6 +918,11 @@ export async function runProductPostcheck(params: {
             .waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) })
             .catch(() => {});
         }
+        const freshProbe = await readPageProbe(page);
+        readinessDecision = decidePreviewReadiness({
+          probe: freshProbe,
+          readiness,
+        });
       } else {
         const afterPoll = await waitForPreviewPageToBecomeLive({
           page,
