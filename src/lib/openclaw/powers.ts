@@ -76,9 +76,11 @@ export interface OpenClawPowers {
    */
   liveReview: boolean;
   /**
-   * True when at least one power is live. Gates everything that is merely a
-   * consequence of edit mode rather than a power of its own: the bounded edit
-   * code context and the prepared-prompt fast lane.
+   * True when at least one EDIT power is live. Gates everything that is merely
+   * a consequence of edit mode rather than a power of its own: the bounded edit
+   * code context and the prepared-prompt fast lane. `liveReview` is a critic,
+   * not an edit power — granting it alone must NOT open those surfaces, so it
+   * is deliberately excluded here.
    */
   any: boolean;
 }
@@ -105,7 +107,9 @@ export function resolveOpenClawPowers(input: OpenClawPowersInput): OpenClawPower
     armedAutonomy,
     quickEdit,
     liveReview,
-    any: armedAutonomy || quickEdit || liveReview,
+    // liveReview excluded by design: a critic grant must not unlock the edit
+    // code context, `editOwned` in the chat route, or the prepared-fill lane.
+    any: armedAutonomy || quickEdit,
   };
 }
 

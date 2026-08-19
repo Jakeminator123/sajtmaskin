@@ -46,9 +46,11 @@ describe("OpenClaw powers gate matrix", () => {
       resolveOpenClawPowers({ editEnabled: true, powersOn: true, granted: ["quick_edit"] }),
     ).toEqual({ armedAutonomy: false, quickEdit: true, liveReview: false, any: true });
 
+    // Critic-only grant: liveReview resolves but `any` stays false — the edit
+    // code context, editOwned and the prepared-fill lane must not open.
     expect(
       resolveOpenClawPowers({ editEnabled: true, powersOn: true, granted: ["live_review"] }),
-    ).toEqual({ armedAutonomy: false, quickEdit: false, liveReview: true, any: true });
+    ).toEqual({ armedAutonomy: false, quickEdit: false, liveReview: true, any: false });
   });
 
   it("grants all when all are ticked", () => {
