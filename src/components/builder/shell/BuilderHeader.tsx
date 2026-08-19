@@ -241,7 +241,7 @@ export function BuilderHeader(props: {
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
   const assistStatusSummary =
-    promptAssistDeep && canUseDeepBrief ? "Deep Brief aktiv" : "Assist aktiv";
+    promptAssistDeep && canUseDeepBrief ? "Deep Brief aktiv" : "Deep Brief av";
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();
@@ -399,8 +399,8 @@ export function BuilderHeader(props: {
                           <TooltipContent side="left" className="max-w-xs">
                             <p className="text-xs">
                               Byggprofiler: Premium, Lagom, Tänker, Kod Max och Anthropic. Varje
-                              profil väljer en konkret modell i den egna motorn. Assist-modellen
-                              nedan är bara en hint till Deep Brief / auto-brief före första bygget.
+                              profil väljer en konkret modell i den egna motorn. Deep Brief-modellen
+                              är en hint till brief-lanen före första bygget — inte Prompt-assist-knappen.
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -409,7 +409,8 @@ export function BuilderHeader(props: {
                     {/* assistStatusSummary bodde tidigare bara i trigger-tooltipen
                     på den fristående Modell-knappen. Den knappen är borta
                     (Ö1), så det här är nu den enda ytan som visar
-                    prompt-assist-statusen. */}
+                    Deep Brief-statusen. "Assist aktiv" är pensionerat —
+                    Prompt-assist är knappen bredvid Plan, inte brief-lanen. */}
                     <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
                       {assistStatusSummary}
                     </DropdownMenuLabel>

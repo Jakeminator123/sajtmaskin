@@ -81,7 +81,7 @@ export function buildOpenClawContextBlock(
   if (ctx.auditUrl) parts.push(`Audit-URL: ${ctx.auditUrl}`);
   if (ctx.auditedUrl) parts.push(`Senast analyserad URL: ${ctx.auditedUrl}`);
   if (ctx.selectedModelLabel) parts.push(`Byggprofil: ${ctx.selectedModelLabel}`);
-  if (ctx.promptAssistLabel) parts.push(`Förbättra-modell: ${ctx.promptAssistLabel}`);
+  if (ctx.promptAssistLabel) parts.push(`Deep Brief-modell: ${ctx.promptAssistLabel}`);
   if (typeof ctx.promptAssistDeep === "boolean") {
     parts.push(`Deep brief: ${ctx.promptAssistDeep ? "på" : "av"}`);
   }

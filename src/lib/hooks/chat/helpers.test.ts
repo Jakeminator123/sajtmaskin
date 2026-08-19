@@ -309,6 +309,18 @@ describe("buildModelInfoSteps — Swedish labels", () => {
     expect(steps).not.toContain("Körmodell: okand");
   });
 
+  it("labels the brief-lane model as Deep Brief, not Prompt-assist", () => {
+    const steps = buildModelInfoSteps({
+      modelId: "gpt-5.5",
+      promptAssistModel: "openai/gpt-5.6-sol",
+      promptAssistProvider: "openai",
+    });
+
+    expect(steps).toContain("Deep Brief-provider: OpenAI");
+    expect(steps.some((step) => step.startsWith("Deep Brief-modell:"))).toBe(true);
+    expect(steps.some((step) => step.startsWith("Assist model:"))).toBe(false);
+  });
+
   it("labels promptAssistDeep as the setting, not a completed Deep brief step", () => {
     expect(
       buildModelInfoSteps({ modelId: "gpt-5.5", promptAssistDeep: true }),

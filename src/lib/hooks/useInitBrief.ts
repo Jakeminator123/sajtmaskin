@@ -58,7 +58,7 @@ export function useInitBrief(params: PromptAssistConfig) {
         throw new Error("forceDeepBrief is init-only — use shallow brief on follow-ups");
       }
       if (isPromptAssistOff(normalizedModel)) {
-        debugLog("AI", "Prompt assist off – skipping dynamic instructions", {
+        debugLog("AI", "Deep Brief off – skipping dynamic instructions", {
           model: normalizedModel,
         });
         return buildDynamicInstructionAddendumFromPrompt({
@@ -69,7 +69,7 @@ export function useInitBrief(params: PromptAssistConfig) {
         });
       }
       if (!isPromptAssistModelAllowed(normalizedModel)) {
-        toast.error("Ogiltig förbättra‑modell. Välj en giltig modell.");
+        toast.error("Ogiltig Deep Brief-modell. Välj en giltig modell.");
         return buildDynamicInstructionAddendumFromPrompt({
           originalPrompt,
           imageGenerations,
