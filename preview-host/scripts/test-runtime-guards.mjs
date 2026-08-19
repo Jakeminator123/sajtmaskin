@@ -1065,6 +1065,50 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   );
   check("empty output is NOT disk-full", !isNoSpaceInstallFailure(""));
 
+  // SM-035: exit 254 är npm:s generiska krasch. Rotorsaken måste sitta i det
+  // KASTADE felet, annars når den aldrig appens error-log och signaturen
+  // `a0bc26af7689` förblir outredbar.
+  {
+    const { classifyInstallFailure } = runtime.__testing;
+    check(
+      "disk-full install is classified as no_space",
+      classifyInstallFailure("npm error code ENOSPC\nnpm error syscall write", 254) === "no_space",
+    );
+    check(
+      "peer conflict keeps its own class",
+      classifyInstallFailure("npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve", 1) ===
+        "peer_conflict",
+    );
+    check(
+      "an OOM-killed child is classified as out_of_memory",
+      classifyInstallFailure("JavaScript heap out of memory", 134) === "out_of_memory",
+    );
+    check(
+      "registry timeouts are classified as network",
+      classifyInstallFailure("npm error network request to https://registry.npmjs.org failed, reason: ETIMEDOUT", 1) ===
+        "network",
+    );
+    check(
+      "a missing version is not mistaken for a network fault",
+      classifyInstallFailure("npm error notarget No matching version found for foo@9.9.9 ETARGET", 1) ===
+        "missing_package",
+    );
+    // Det observerade fallet: barnprocessen dog innan den hann skriva något.
+    // Att säga det rakt ut ÄR diagnosen — inte en restpost.
+    check(
+      "a silent exit 254 is reported as no_output, not unknown",
+      classifyInstallFailure("", 254) === "no_output",
+    );
+    check(
+      "output without a known marker on 254 is an npm crash",
+      classifyInstallFailure("something unexpected happened", 254) === "unknown_npm_crash",
+    );
+    check(
+      "a non-254 unknown failure stays plain unknown",
+      classifyInstallFailure("something unexpected happened", 1) === "unknown",
+    );
+  }
+
   // Forced purge must empty the cache tree but leave the directories usable.
   mkdirSync(join(NPM_CACHE_DIR, "_cacache"), { recursive: true });
   writeFileSync(join(NPM_CACHE_DIR, "_cacache", "blob.bin"), "x".repeat(2048));

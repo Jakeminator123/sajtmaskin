@@ -341,6 +341,39 @@ function isNoSpaceInstallFailure(output) {
   return /ENOSPC|no space left on device|insufficient space/i.test(text);
 }
 
+/**
+ * Rotorsak för ett misslyckat install, i en form som överlever vägen till
+ * appens `engine_version_error_logs`.
+ *
+ * Bakgrund (`SM-035`, signatur `a0bc26af7689`: 17 träffar / 4 chattar): den
+ * fulla utskriften skrivs till preview-hostens egen runtime-logg, men felet som
+ * KASTAS — och som är det enda appen ser — bar bara «exit code 254». npm
+ * använder 254 som generisk krasch, så error-loggen kunde inte skilja slut på
+ * disk från nätverksfel från en dödad barnprocess. Utan den skillnaden går
+ * incidenten inte att utreda i efterhand, och det är därför den här raden
+ * fanns kvar öppen i backloggen i en vecka.
+ *
+ * `no_output` är ingen restpost utan ett eget svar: kraschade barnprocessen
+ * innan den hann skriva något är just det diagnosen.
+ */
+function classifyInstallFailure(output, exitCode) {
+  const text = String(output || "");
+  if (isNoSpaceInstallFailure(text)) return "no_space";
+  if (isPeerDependencyInstallFailure(text)) return "peer_conflict";
+  if (/JavaScript heap out of memory|out of memory|Killed|SIGKILL/i.test(text)) {
+    return "out_of_memory";
+  }
+  if (/ETIMEDOUT|ENOTFOUND|ECONNRESET|EAI_AGAIN|ERR_SOCKET|network|registry\.npmjs\.org/i.test(text)) {
+    return "network";
+  }
+  if (/EACCES|EPERM|permission denied/i.test(text)) return "permissions";
+  if (/ETARGET|E404|No matching version|is not in this registry/i.test(text)) {
+    return "missing_package";
+  }
+  if (!text.trim()) return "no_output";
+  return exitCode === 254 ? "unknown_npm_crash" : "unknown";
+}
+
 function formatByteCount(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -678,12 +711,15 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
     return { installed: true, packageManager: install.packageManager };
   }
 
+  const failureReason = classifyInstallFailure(installResult.output, installResult.exitCode);
   await appendRuntimeLog(
     previewSessionId,
-    `${install.logLabel} failed.\n${trimSnippet(installResult.output || "")}`,
+    `${install.logLabel} failed (${failureReason}).\n${trimSnippet(installResult.output || "")}`,
   );
+  // Rotorsaken måste sitta i det KASTADE felet, inte bara i runtime-loggen —
+  // det är felmeddelandet som når appens error-log. Se `classifyInstallFailure`.
   throw new Error(
-    `${install.logLabel} failed with exit code ${installResult.exitCode ?? "unknown"}`,
+    `${install.logLabel} failed with exit code ${installResult.exitCode ?? "unknown"} (${failureReason})`,
   );
 }
 
@@ -709,6 +745,7 @@ module.exports = {
   verifyInstalledDependencies,
   resolveInstallCommand,
   isNoSpaceInstallFailure,
+  classifyInstallFailure,
   runInstallCommandWithFallback,
   dependencyFingerprint,
   tryShareNodeModules,
