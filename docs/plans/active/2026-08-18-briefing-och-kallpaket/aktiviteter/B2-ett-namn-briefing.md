@@ -1,7 +1,7 @@
 # B2 — ett namn: Briefing
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
-Kräver ägarbeslut **N1**.
+Status: inte startad. Kräver ägarbeslut **N1**.
 
 ## Problemet
 

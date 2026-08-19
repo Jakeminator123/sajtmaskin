@@ -1,6 +1,7 @@
 # B3 — källkvitto: vad nådde faktiskt prompten
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
+Status: **implementerad** (#1035).
 
 ## Problemet
 

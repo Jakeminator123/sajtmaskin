@@ -1,6 +1,7 @@
 # B4 — kurera variant-addendumen
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
+Status: inte startad.
 
 ## Problemet
 

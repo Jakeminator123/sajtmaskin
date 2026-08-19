@@ -1,9 +1,10 @@
 # B7 — variantens auktoritetsordning
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
+Status: inte startad.
 
 Kräver beslut: **N5** (extra embedding-runda på init).
-Beror på: **B3** (källkvittot är mätytan — kör B3 först).
+Beror på: **B3** (källkvittot är mätytan — **landad** #1035).
 Ordning: körs **efter** [B8](B8-brief-paritet-website-app.md), i en egen PR.
 B8 ger hemsidor samma Brief-väg som appar; B7 ändrar vem som väljer varianten.
 Appar använder redan samma variantpinne som hemsidor och blir ändå ofta bra —

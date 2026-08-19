@@ -2,7 +2,8 @@
 
 Status: Active
 Startad: 2026-08-18
-Ägarbeslut: **väntar** (N1, N4 och N5 i § Beslut som behövs)
+Ägarbeslut: **delvis** — Prompt-assist-knappen beslutad 2026-08-19.
+Kvar: N1 (Briefing som lamenamn), N2, N3, N4, N5.
 
 Underlag från ägarens externa granskare: `övrigt/chadcn-addendum-aiassist/`
 (`summering..md` + `raw.txt`). Mappen är gitignorerad — cloud-agenter läser
@@ -10,15 +11,36 @@ Underlag från ägarens externa granskare: `övrigt/chadcn-addendum-aiassist/`
 `c44cf7c`. Den här texten är den kodverifierade versionen av underlaget;
 nuläget för B6 rättades 2026-08-18 mot runtime.
 
+## Läget 2026-08-19
+
+Spåret är **inte** klart. Tabellen är live-status mot `master` / öppna PR:er.
+
+| Id | Läge |
+|---|---|
+| B8 | **Klar.** #1032 |
+| B3 | **Klar.** #1035 |
+| B9 | **Klar.** #1037 |
+| Docs + Deep Brief-etiketter | **Klar.** #1036, #1041 |
+| B1 | Öppen PR #1040 |
+| B10 | Öppen PR #1038 |
+| B11 | Öppen PR #1042 |
+| B2 | Inte startad. Väntar N1-resten. |
+| B4 | Inte startad. |
+| B5 | Inte startad. |
+| B6 | Inte startad. Steg 1 får köras; steg 2 väntar N4. |
+| B7 | Inte startad. Väntar N5. B3 är landad. |
+| N1 | Delvis. Prompt-assist = knappen (beslutat). Briefing som lamenamn väntar. |
+| N2–N5 | Öppna. N5 ligger i backloggen. |
+
 ## Kärnprincip
 
 **Ett namn per roll, en ägare per signal, och ett kvitto på vad som faktiskt
 nådde kodgeneratorn.**
 
-Det finns ingen saknad orkestreringsagent att bygga. Det som saknas är att
-(a) den förbikopplade resten städas bort, (b) källorna som redan når prompten går
-att se i efterhand, och (c) en ev. Ändringsbrief för refine inte är densamma som
-en redesign. Vanliga uppföljningar har redan Snapshot-Brief.
+Det finns ingen saknad orkestreringsagent att bygga. Kvar: (a) den
+förbikopplade resten städas bort (B1, PR #1040), och (c) en ev. Ändringsbrief
+för refine inte är densamma som en redesign (B6). (b) källkvittot är landat
+(#1035). Vanliga uppföljningar har redan Snapshot-Brief.
 
 Lägg **inte** till ett nytt LLM-steg där ett befintligt kan göra jobbet. Repot
 har redan `brief_structured`, `plan_mode_planner`, `post_generation_verifier`,
@@ -200,18 +222,15 @@ embeddings-index. Att flytta addendumet dit vore en ny lagringsyta, inte en
 saknad förmåga, och skulle byta en synkron minnesläsning mot ett nätverksanrop
 i hot path.
 
-Det som *däremot* saknas är en spärr: tre tillstånd (`missing`, `stale`,
-`invalid`) faller fortfarande tillbaka på att hämta hela arkivet mitt i en
-användargenerering. Latent i dag, eftersom alla 69 poster finns och
-SHA-matchar. Det är [B9](aktiviteter/B9-inget-zip-i-hot-path.md).
+ZIP-fallbacken i hot path är stängd i [B9](aktiviteter/B9-inget-zip-i-hot-path.md)
+(#1037): `missing` / `stale` / `invalid` är tysta och mätbara, inte en
+arkivhämtning mitt i genereringen.
 
-### Källkvittot finns till en femtedel
+### Källkvittot — landat i B3 (#1035)
 
-`src/lib/gen/generation-input-package.ts` sparar `promptSize` och
-`variantTemplateId` — men inte vilka UI Recipes, dossiers eller media som valdes,
-eller varför. Backoffice har redan rätt yta:
-`backoffice/pages/selection_rationale.py` («Selection Rationale — varför valdes
-detta?»), som läser prompt-dumpen plus telemetri. Bygg **i** den, inte en ny sida.
+`GenerationInputPackage.sources` loggar valda källor (variantreferens, UI Recipe,
+dossier, media) plus `reachedPrompt` efter tokenbudget. Selection Rationale visar
+kvittot. B4 och B5 kan nu utvärderas mot riktiga körningar, inte gissningar.
 
 ## Beslut som behövs
 
@@ -236,17 +255,17 @@ löser den största kvalitetsskillnaden utan att kräva något nytt steg.
 
 | Id | Uppgift | Kanonisk ägare | Kräver beslut |
 |---|---|---|---|
-| [B1](aktiviteter/B1-radera-forbikopplat-prompt-addendum.md) | Radera det förbikopplade prompt-addendumet och rätta docs som påstår att det lever | `src/lib/builder/prompt-assist/`, `useInitBrief.ts` | nej |
+| [B1](aktiviteter/B1-radera-forbikopplat-prompt-addendum.md) | Radera det förbikopplade prompt-addendumet och rätta docs som påstår att det lever. **PR #1040.** | `src/lib/builder/prompt-assist/`, `useInitBrief.ts` | nej |
 | [B2](aktiviteter/B2-ett-namn-briefing.md) | Ett namn: Briefing. Konsolidera `promptAssist` → `briefing` i manifestet, städa användartexterna | `config/ai_models/manifest.json`, glossary | N1 |
-| [B3](aktiviteter/B3-kallkvitto.md) | Källkvitto: logga vilka källor som nådde prompten, visa i Selection Rationale | `generation-input-package.ts`, `selection_rationale.py` | nej |
+| [B3](aktiviteter/B3-kallkvitto.md) | **Klar.** #1035. Källkvitto i Selection Rationale | `generation-input-package.ts`, `selection_rationale.py` | nej |
 | [B4](aktiviteter/B4-kurera-variant-addenda.md) | Kurera de tio mest använda variant-addendumen, stäng de generiska | `config/variant-template-addenda.json` via Template Curator | nej |
 | [B5](aktiviteter/B5-shadcnblocks-matning.md) | Sluta svälja shadcnblocks-fel tyst; mät om den betalda nyckeln ger riktig källkod | `shadcn-ui-recipes.ts`, `resolve-base.ts` | nej |
 | [B6](aktiviteter/B6-andringsbrief-followup.md) | Ändringsbrief: mät per uppföljningsläge; därefter ev. bevarande LLM-brief för `clear-refine` bakom flagga — inte en grindbredd av redesign-vägen | `delta-brief-phase.ts`, `follow-up-orchestration-input.ts`, `formatPriorDesignContext` | **N4** (bara steg 2) |
 | [B7](aktiviteter/B7-variantens-auktoritetsordning.md) | Variantens auktoritetsordning + Brief rankar addendum ur `sourceTemplateIds` | `orchestrate/finalize-prompts.ts`, `scaffold-variants/matcher.ts` | **N5** |
 | [B8](aktiviteter/B8-brief-paritet-website-app.md) | **Klar.** Brief-paritet: ta bort snabbspåret och 420-teckengränsen så hemsidor får samma väg som appar | `simple-website-path.ts` (raderad), `create-chat-stream-post.ts`, `orchestrate/resolve-base.ts` | nej |
-| [B9](aktiviteter/B9-inget-zip-i-hot-path.md) | Inget template-ZIP i hot path: gör `missing`/`stale`/`invalid` tysta och mätbara i stället för en 15 s arkivhämtning | `scaffold-variants/template-inspiration.ts` | nej |
-| [B10](aktiviteter/B10-prompt-assist-knapp.md) | Prompt-assist-knapp bredvid Plan: rätta/strukturera utkastet i rutan, eget modellsteg i Backoffice | `ChatInterface.tsx`, `config/ai_models/manifest.json`, `backoffice/pages/ai_models.py` | **beslutat 2026-08-19** |
-| [B11](aktiviteter/B11-brief-i-scaffoldvalet.md) | Briefens `domainProfile` + `toneAndVoice` ska väga i scaffold-valet (keyword är för svagt) | `scaffold-query-context.ts`, `scaffolds/matcher.ts` | nej |
+| [B9](aktiviteter/B9-inget-zip-i-hot-path.md) | **Klar.** #1037. Inget template-ZIP i hot path: `missing`/`stale`/`invalid` tysta och mätbara | `scaffold-variants/template-inspiration.ts` | nej |
+| [B10](aktiviteter/B10-prompt-assist-knapp.md) | Prompt-assist-knapp bredvid Plan: rätta/strukturera utkastet i rutan, eget modellsteg i Backoffice. **PR #1038 öppen.** | `ChatInterface.tsx`, `config/ai_models/manifest.json`, `backoffice/pages/ai_models.py` | **beslutat 2026-08-19** |
+| [B11](aktiviteter/B11-brief-i-scaffoldvalet.md) | Briefens `domainProfile` + `toneAndVoice` ska väga i scaffold-valet (keyword är för svagt). **PR #1042 öppen.** | `scaffold-query-context.ts`, `scaffolds/matcher.ts` | nej |
 
 ## Auktoritetsordning (den enda)
 

@@ -1,6 +1,7 @@
 # B10 — Prompt-assist-knapp bredvid Plan
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
+Status: öppen PR #1038.
 Ägarbeslut: **2026-08-19** (glossaryn äger ordet). Inte N1.
 
 ## Vad det är

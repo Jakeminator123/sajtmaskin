@@ -2,9 +2,8 @@
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
 
-Status: **plan** — inte implementerad.
-Kräver beslut: nej (liten härdning av befintligt kontrakt), men bör inte
-blandas in i [B8](B8-brief-paritet-website-app.md).
+Status: **implementerad** (#1037).
+Kräver beslut: nej (liten härdning av befintligt kontrakt).
 
 ## Bakgrund: frågan som ställdes
 

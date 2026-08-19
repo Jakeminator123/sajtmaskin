@@ -1,6 +1,7 @@
 # B1 — radera det förbikopplade prompt-addendumet
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
+Status: öppen PR #1040.
 
 ## Problemet
 

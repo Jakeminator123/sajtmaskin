@@ -1,6 +1,7 @@
 # B6 — Ändringsbrief: mät först, sedan bevarande clear-refine bakom flagga
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
+Status: inte startad. Steg 1 (mät) kräver inget beslut; steg 2 väntar **N4**.
 
 **Inte init.** B6 är inte «vilken typ av prompt som ska skapas utifrån
 användartexten». Det gäller **nästa tur**, när sajten redan finns: ny

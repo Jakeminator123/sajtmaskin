@@ -1,6 +1,7 @@
 # B11 — Briefens åsikt i scaffold-valet
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
+Status: öppen PR #1042.
 Ägarbeslut: **2026-08-19** (keyword-matchningen är för dum; Briefen ska väga in).
 Efter [B7](B7-variantens-auktoritetsordning.md). Inte N5.
 

@@ -1,6 +1,7 @@
 # B5 — sluta svälja shadcnblocks-fel tyst
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
+Status: inte startad.
 
 ## Problemet
 
