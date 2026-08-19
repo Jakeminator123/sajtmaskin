@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "title": "Sajtmaskin model price table (USD per 1M tokens)",
-  "description": "Canonical per-token price DATA (not just prose like 25-pricing.md). Read by scripts/db/generation-cost.mjs and the backoffice 'Generation Cost' page to turn logged token volumes into money. Prices are per 1,000,000 tokens in USD. Always re-verify against the provider pages before budget decisions — providers change prices.",
+  "description": "Canonical per-token price DATA (not just prose like 25-pricing.md). Read by scripts/db/generation-cost.mjs (default source: llm_usage) and the backoffice 'Generation Cost' page to turn logged token volumes into money. Prices are per 1,000,000 tokens in USD. Always re-verify against the provider pages before budget decisions — providers change prices.",
   "verifiedAt": "2026-08-12",
   "sources": [
     {

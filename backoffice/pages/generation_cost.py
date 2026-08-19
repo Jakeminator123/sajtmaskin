@@ -1,14 +1,12 @@
 """Generation Cost — prissätt loggad token-användning i USD/SEK.
 
 Kör `node scripts/db/generation-cost.mjs --json` via subprocess (read-only) och
-prissätter token-volymerna med `config/ai_models/pricing.json`. Samma mönster som
-`scaffold_performance.py` / `generation_history.py` — backoffice har ingen egen
-Postgres-driver.
+prissätter token-volymerna med `config/ai_models/pricing.json`. Defaultkälla är
+`llm_usage` (alla faser). Äldre codegen-tabeller finns kvar som jämförelse.
 
-Ärlighet (visas som varningar i UI:t):
-  - Input prissätts OCACHAT (cached_tokens loggas inte) => övre gräns på input.
-  - `engine_generation_logs` = codegen/finalize-strömmen; brief/verifier/repair-LLM
-    loggas inte alla där => total är en undre gräns för hela pipelinen.
+Ärlighet (visas som varningar i UI:t, kommer från scriptet):
+  - usage: cache-träffar prissätts med cachedInput; reasoning ingår i output.
+  - logs/telemetry: bara codegen-strömmen; undre gräns för hela pipelinen.
   - Priser i `pricing.json` är en ögonblicksbild — verifiera mot leverantören.
 """
 
@@ -32,6 +30,12 @@ _ENV_CHOICES = {
     "Prod (.env.vercel.production.pulled)": ".env.vercel.production.pulled",
 }
 
+_SOURCE_CHOICES = {
+    "llm_usage (alla faser)": "usage",
+    "engine_generation_logs (bara codegen)": "logs",
+    "generation_telemetry (bara codegen)": "telemetry",
+}
+
 
 @dataclass(frozen=True)
 class CostPayload:
@@ -41,22 +45,33 @@ class CostPayload:
     target: str = ""
     is_prod_like: bool = False
     window_days: int = 0
+    source: str = ""
     source_table: str = ""
     usd_to_sek: float | None = None
     totals: dict[str, Any] = field(default_factory=dict)
     by_model: list[dict[str, Any]] = field(default_factory=list)
+    by_phase: list[dict[str, Any]] = field(default_factory=list)
     by_day: list[dict[str, Any]] = field(default_factory=list)
     unpriced: list[str] = field(default_factory=list)
     caveats: list[str] = field(default_factory=list)
     error: str | None = None
 
 
-def _run_cost(repo_root, env_file: str, days: int, allow_insecure: bool) -> CostPayload:
+def _run_cost(
+    repo_root, env_file: str, days: int, allow_insecure: bool, source: str
+) -> CostPayload:
     script_path = repo_root / _SCRIPT_REL
     if not script_path.exists():
         return CostPayload(ok=False, error=f"Script saknas: {script_path}")
 
-    args = ["node", str(script_path), "--json", f"--env={env_file}", f"--days={int(days)}"]
+    args = [
+        "node",
+        str(script_path),
+        "--json",
+        f"--env={env_file}",
+        f"--days={int(days)}",
+        f"--source={source}",
+    ]
     if allow_insecure:
         args.append("--allow-insecure-ssl")
 
@@ -94,10 +109,12 @@ def _run_cost(repo_root, env_file: str, days: int, allow_insecure: bool) -> Cost
         target=str(data.get("target", "")),
         is_prod_like=bool(data.get("isProdLike", False)),
         window_days=int(data.get("windowDays", 0)),
+        source=str(data.get("source", "")),
         source_table=str(data.get("sourceTable", "")),
         usd_to_sek=(float(fx["usdToSek"]) if fx.get("usdToSek") is not None else None),
         totals=dict(data.get("totals", {})),
         by_model=list(data.get("byModel", [])),
+        by_phase=list(data.get("byPhase", [])),
         by_day=list(data.get("byDay", [])),
         unpriced=list(data.get("unpricedModels", [])),
         caveats=list(data.get("caveats", [])),
@@ -135,21 +152,44 @@ def _build_model_df(rows: list[dict[str, Any]], rate: float | None) -> pd.DataFr
         total_usd = r.get("totalUsd", 0)
         out.append(
             {
+                "Fas": r.get("phase") or "codegen",
                 "Modell (loggad)": r.get("model", ""),
                 "Prisad som": (r.get("label") or r.get("matched") or "—")
                 + (" (est.)" if r.get("estimated") else ""),
-                "Genereringar": r.get("rows", 0),
+                "Anrop": r.get("rows", 0),
                 "Input-tokens": _fmt_tok(r.get("promptTokens")),
+                "Varav cache": _fmt_tok(r.get("cachedInputTokens")),
                 "Output-tokens": _fmt_tok(r.get("completionTokens")),
                 "Input $": _fmt_usd(r.get("inputUsd")),
+                "Cache $": _fmt_usd((r.get("cachedUsd") or 0) + (r.get("cacheWriteUsd") or 0)),
                 "Output $": _fmt_usd(r.get("outputUsd")),
                 "Total $": _fmt_usd(total_usd),
                 "Total kr": _fmt_sek(total_usd, rate),
                 "_sort": float(total_usd or 0),
             }
         )
-    df = pd.DataFrame(out).sort_values("_sort", ascending=False).drop(columns=["_sort"])
-    return df
+    return pd.DataFrame(out).sort_values("_sort", ascending=False).drop(columns=["_sort"])
+
+
+def _build_phase_df(rows: list[dict[str, Any]], rate: float | None) -> pd.DataFrame:
+    if not rows:
+        return pd.DataFrame()
+    out = []
+    for r in rows:
+        total_usd = r.get("totalUsd", 0)
+        out.append(
+            {
+                "Fas": r.get("phase") or "—",
+                "Anrop": r.get("rows", 0),
+                "Input-tokens": _fmt_tok(r.get("promptTokens")),
+                "Varav cache": _fmt_tok(r.get("cachedInputTokens")),
+                "Output-tokens": _fmt_tok(r.get("completionTokens")),
+                "Total $": _fmt_usd(total_usd),
+                "Total kr": _fmt_sek(total_usd, rate),
+                "_sort": float(total_usd or 0),
+            }
+        )
+    return pd.DataFrame(out).sort_values("_sort", ascending=False).drop(columns=["_sort"])
 
 
 def _build_day_df(rows: list[dict[str, Any]], rate: float | None) -> pd.DataFrame:
@@ -179,17 +219,20 @@ def render(ctx: BackofficeContext) -> None:
     st.title("Generation Cost")
     st.caption(
         "Prissätter loggad token-användning i USD/SEK via `config/ai_models/pricing.json`. "
+        "Defaultkälla är `llm_usage` (alla faser); äldre codegen-tabeller finns som jämförelse. "
         "Read-only mot DB:n som vald env-fil pekar på (`scripts/db/generation-cost.mjs`)."
     )
 
-    col_a, col_b, col_c = st.columns([2, 1, 1])
+    col_a, col_b, col_c, col_d = st.columns([2, 2, 1, 1])
     env_label = col_a.selectbox("Databas (env-fil)", list(_ENV_CHOICES.keys()), index=0)
     env_file = _ENV_CHOICES[env_label]
-    days = col_b.slider("Fönster (dagar)", min_value=1, max_value=90, value=30)
-    allow_insecure = col_c.checkbox("Tillåt osäker SSL", value=(env_file != ".env.local"))
+    source_label = col_b.selectbox("Källa", list(_SOURCE_CHOICES.keys()), index=0)
+    source = _SOURCE_CHOICES[source_label]
+    days = col_c.slider("Fönster (dagar)", min_value=1, max_value=90, value=30)
+    allow_insecure = col_d.checkbox("Tillåt osäker SSL", value=(env_file != ".env.local"))
 
     with st.spinner("Hämtar och prissätter token-användning ..."):
-        payload = _run_cost(ctx.repo_root, env_file, days, allow_insecure)
+        payload = _run_cost(ctx.repo_root, env_file, days, allow_insecure, source)
 
     if not payload.ok:
         st.error(f"Kunde inte hämta data: {payload.error}")
@@ -222,10 +265,17 @@ def render(ctx: BackofficeContext) -> None:
     c3.metric("Input-tokens", _fmt_tok(totals.get("promptTokens")))
     c4.metric("Output-tokens", _fmt_tok(totals.get("completionTokens")))
 
-    c5, c6, c7 = st.columns(3)
+    c5, c6, c7, c8 = st.columns(4)
+    cache_usd = float(totals.get("cachedUsd") or 0) + float(totals.get("cacheWriteUsd") or 0)
     c5.metric("Varav input-kostnad", _fmt_usd(totals.get("inputUsd")))
-    c6.metric("Varav output-kostnad", _fmt_usd(totals.get("outputUsd")))
-    c7.metric("Genereringar", totals.get("rows", 0))
+    c6.metric("Varav cache-kostnad", _fmt_usd(cache_usd))
+    c7.metric("Varav output-kostnad", _fmt_usd(totals.get("outputUsd")))
+    c8.metric("Anrop", totals.get("rows", 0))
+    if float(totals.get("ledgerUsd") or 0) > 0:
+        st.caption(
+            f"Ledger-snapshot (`cost_microusd` per anrop): {_fmt_usd(totals.get('ledgerUsd'))}. "
+            "Kan skilja sig från totalsumman ovan om någon körning gick över long-context-tröskeln."
+        )
 
     for caveat in payload.caveats:
         st.warning(caveat)
@@ -235,6 +285,12 @@ def render(ctx: BackofficeContext) -> None:
             "Oprissatta modeller (ingen matchning i pricing.json — kostnad ej räknad): "
             + ", ".join(payload.unpriced)
         )
+
+    if payload.by_phase:
+        st.subheader("Per fas")
+        phase_df = _build_phase_df(payload.by_phase, rate)
+        if not phase_df.empty:
+            st.dataframe(phase_df, hide_index=True, use_container_width=True)
 
     st.subheader("Per modell")
     model_df = _build_model_df(payload.by_model, rate)
