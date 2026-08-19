@@ -1037,23 +1037,18 @@ describe("shouldIgnoreConsoleError", () => {
     expect(shouldIgnoreConsoleError("Failed to load resource")).toBe(false);
   });
 
-  it("ignorerar den härledda script-tag-varningen men släpper igenom hydreringskrocken", () => {
+  it("släpper igenom den härledda script-tag-varningen (den filtreras villkorat i evaluateBrowserRuntimeIssues)", () => {
     expect(
       shouldIgnoreConsoleError(
         "Encountered a script tag while rendering React component. Scripts cannot be rendered as React children.",
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldIgnoreConsoleError("ENCOUNTERED A SCRIPT TAG WHILE RENDERING REACT COMPONENT"),
-    ).toBe(true);
-    expect(
-      shouldIgnoreConsoleError(
-        "Hydration failed because the server rendered HTML didn't match the client.",
-      ),
     ).toBe(false);
     expect(
       shouldIgnoreConsoleError(
-        "A tree hydrated but some attributes of the server rendered HTML didn't match the client properties.",
+        "Hydration failed because the server rendered HTML didn't match the client.",
       ),
     ).toBe(false);
   });
@@ -1175,6 +1170,59 @@ describe("evaluateBrowserRuntimeIssues (advisory-only)", () => {
     ];
     const result = evaluateBrowserRuntimeIssues(issues);
     expect(result.warnings).toHaveLength(2);
+  });
+
+  it("släpper script-tag-varningen när ett hydreringsfel finns i samma körning", () => {
+    const result = evaluateBrowserRuntimeIssues([
+      {
+        kind: "console",
+        route: "/",
+        message:
+          "Encountered a script tag while rendering React component. Scripts cannot be rendered as React children.",
+      },
+      {
+        kind: "console",
+        route: "/",
+        message:
+          "Hydration failed because the server rendered HTML didn't match the client.",
+      },
+      { kind: "console", route: "/", message: "TypeError: boom" },
+    ]);
+    expect(codes(result)).toEqual(["console_error", "hydration_mismatch"]);
+    expect(result.warnings.some((w) => /script tag/i.test(w.message))).toBe(false);
+    expect(result.warnings.some((w) => w.message.includes("TypeError: boom"))).toBe(true);
+  });
+
+  it("behåller script-tag-varningen när den är enda console-defekten", () => {
+    const result = evaluateBrowserRuntimeIssues([
+      {
+        kind: "console",
+        route: "/",
+        message: "Encountered a script tag while rendering React component",
+      },
+    ]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]!.code).toBe("console_error");
+    expect(result.warnings[0]!.message).toMatch(/script tag/i);
+  });
+
+  it("låter övriga ignore-mönster vara opåverkade", () => {
+    const withHydration = evaluateBrowserRuntimeIssues([
+      { kind: "console", route: "/", message: "Hydration failed because UI mismatch" },
+      { kind: "console", route: "/", message: "Download the React DevTools for a better development experience" },
+      { kind: "console", route: "/", message: "[Fast Refresh] rebuilding" },
+      { kind: "console", route: "/", message: "[HMR] connected" },
+      { kind: "console", route: "/", message: "webpack-hmr disconnected" },
+    ]);
+    expect(codes(withHydration)).toEqual(["hydration_mismatch"]);
+
+    const withoutHydration = evaluateBrowserRuntimeIssues([
+      { kind: "console", route: "/", message: "Download the React DevTools" },
+      { kind: "console", route: "/", message: "[HMR] connected" },
+      { kind: "console", route: "/", message: "TypeError: x is not a function" },
+    ]);
+    expect(codes(withoutHydration)).toEqual(["console_error"]);
+    expect(withoutHydration.warnings[0]!.message).toContain("TypeError");
   });
 });
 

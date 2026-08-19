@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CodeFile } from "@/lib/gen/parser";
+import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { fixLayoutProviders } from "./layout-provider-fixer";
 
 /**
@@ -180,6 +181,53 @@ export function NotificationHost() {
     ]);
     expect(result.fixes).toHaveLength(0);
     expect(layoutOf(result.files)).not.toContain("ThemeProvider");
+  });
+
+  it("sanity check agrees: sonner-only useTheme does not warn about a missing ThemeProvider", () => {
+    const sonner: CodeFile = {
+      path: "components/ui/sonner.tsx",
+      language: "tsx",
+      content: `"use client";
+import { useTheme } from "next-themes";
+export function NotificationHost() {
+  const { theme } = useTheme();
+  return <div data-theme={theme} />;
+}
+`,
+    };
+    const sanity = runProjectSanityChecks([
+      SCAFFOLD_LIKE_LAYOUT,
+      PKG_WITH_NEXT_THEMES,
+      sonner,
+      {
+        path: "app/globals.css",
+        language: "css",
+        content: "@theme inline { --color-background: black; }",
+      },
+    ]);
+    expect(
+      sanity.issues.filter((issue) =>
+        issue.message.includes("useTheme() but root layout does not wrap"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("sanity check still warns when a non-sonner child uses useTheme without ThemeProvider", () => {
+    const sanity = runProjectSanityChecks([
+      SCAFFOLD_LIKE_LAYOUT,
+      PKG_WITH_NEXT_THEMES,
+      THEME_TOGGLE,
+      {
+        path: "app/globals.css",
+        language: "css",
+        content: "@theme inline { --color-background: black; }",
+      },
+    ]);
+    expect(
+      sanity.issues.some((issue) =>
+        issue.message.includes("useTheme() but root layout does not wrap"),
+      ),
+    ).toBe(true);
   });
 
   it("ignores <body> mentions in comments and wraps the real JSX tag", () => {

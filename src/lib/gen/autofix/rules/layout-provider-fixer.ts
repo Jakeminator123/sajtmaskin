@@ -40,7 +40,7 @@ function hasToaster(content: string): boolean {
   return /\bToaster\b/.test(content) && /from\s+["']@\/components\/ui\/sonner["']/.test(content);
 }
 
-function isSonnerBoilerplate(path: string): boolean {
+export function isSonnerBoilerplate(path: string): boolean {
   return SONNER_BOILERPLATE_RE.test(path.replace(/\\/g, "/"));
 }
 

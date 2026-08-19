@@ -516,8 +516,7 @@ export function shouldIgnoreConsoleError(text: string): boolean {
     lower.includes("download the react devtools") ||
     lower.includes("fast refresh") ||
     lower.includes("[hmr]") ||
-    lower.includes("webpack-hmr") ||
-    lower.includes("encountered a script tag while rendering react component")
+    lower.includes("webpack-hmr")
   );
 }
 
@@ -633,7 +632,35 @@ export function evaluateBrowserRuntimeIssues(
     );
   }
 
-  return { warnings, productBlocked: false };
+  return {
+    warnings: dropDerivedScriptTagWarnings(warnings),
+    productBlocked: false,
+  };
+}
+
+/**
+ * React's "Encountered a script tag while rendering React component" warning
+ * is a consequence of a hydration remount in our prod data — it never appears
+ * without a hydration mismatch in the same run. Drop it only then, so a
+ * component that itself renders `<script>` (broken analytics/init) still
+ * surfaces as a console_error.
+ */
+function isScriptTagWhileRenderingWarning(text: string): boolean {
+  return text
+    .toLowerCase()
+    .includes("encountered a script tag while rendering react component");
+}
+
+function dropDerivedScriptTagWarnings(
+  warnings: ProductPostcheckWarning[],
+): ProductPostcheckWarning[] {
+  const hasHydrationMismatch = warnings.some(
+    (w) => w.code === "hydration_mismatch",
+  );
+  if (!hasHydrationMismatch) return warnings;
+  return warnings.filter(
+    (w) => w.code !== "console_error" || !isScriptTagWhileRenderingWarning(w.message),
+  );
 }
 
 /**

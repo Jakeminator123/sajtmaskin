@@ -1,5 +1,6 @@
 import type { PreflightIssueCategory } from "@/lib/gen/stream/preflight-contract";
 import type { CodeFile } from "@/lib/gen/parser";
+import { isSonnerBoilerplate } from "@/lib/gen/autofix/rules/layout-provider-fixer";
 import { isRuntimeProvidedImport } from "@/lib/gen/autofix/runtime-imports";
 import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
 
@@ -612,7 +613,9 @@ export function runProjectSanityChecks(
     const nonLayoutFiles = files.filter(
       (f) => /\.(tsx?|jsx?)$/.test(f.path) && !f.path.match(/(^|\/)layout\.(tsx|jsx)$/),
     );
-    const childrenUseTheme = nonLayoutFiles.some((f) => /\buseTheme\b/.test(f.content));
+    const childrenUseTheme = nonLayoutFiles.some(
+      (f) => !isSonnerBoilerplate(f.path) && /\buseTheme\b/.test(f.content),
+    );
     const layoutHasThemeProvider = /\bThemeProvider\b/.test(layoutContent);
     if (childrenUseTheme && !layoutHasThemeProvider) {
       issues.push(
