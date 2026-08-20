@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyVerifierSeverityMapping,
   checkMotionReduceTrap,
   checkNavigationPlaceholderActions,
   checkR3FClientBoundary,
@@ -65,6 +66,81 @@ describe("promoteForcedBlockingFindings", () => {
     expect(result.quality).toEqual([
       expect.objectContaining({ id: "design-quality" }),
     ]);
+  });
+});
+
+describe("applyVerifierSeverityMapping (SM-036)", () => {
+  const nullPayload = {
+    id: "newsletter-invalid-payload-runtime",
+    detail:
+      "app/api/newsletter-subscribe/route.ts POST: `payload.email` dereferences `null` when the valid JSON body is `null`, causing a 500 response.",
+  };
+  const unregisteredMember = {
+    id: "newsletter-false-success",
+    detail:
+      "app/api/newsletter-subscribe/route.ts POST Mailchimp response handling: existing `unsubscribed` or `transactional` members can be reported as successfully subscribed without changing their status.",
+  };
+  const realBlocker = {
+    id: "undefined-jsx-symbol",
+    detail: "app/page.tsx: `<Link />` is used but `Link` is neither imported nor declared.",
+  };
+
+  it("moves the two prod edge-case id classes from blocking to quality", () => {
+    const result = applyVerifierSeverityMapping({
+      blocking: [nullPayload, unregisteredMember],
+      quality: [],
+    });
+    expect(result.blocking).toEqual([]);
+    expect(result.quality).toEqual([
+      expect.objectContaining({ id: "newsletter-invalid-payload-runtime" }),
+      expect.objectContaining({ id: "newsletter-false-success" }),
+    ]);
+  });
+
+  it("keeps a real build-breaking finding blocking", () => {
+    const result = applyVerifierSeverityMapping({
+      blocking: [realBlocker, nullPayload],
+      quality: [],
+    });
+    expect(result.blocking).toEqual([expect.objectContaining({ id: "undefined-jsx-symbol" })]);
+    expect(result.quality).toEqual([
+      expect.objectContaining({ id: "newsletter-invalid-payload-runtime" }),
+    ]);
+  });
+
+  it("does not fail-open a FORCE_BLOCKING id even if it matches an advisory class", () => {
+    const result = applyVerifierSeverityMapping({
+      blocking: [],
+      quality: [
+        { id: "navigation-placeholder-actions", detail: "hero CTA href is empty" },
+        { id: "import-name-collision", detail: "Uint8Array collision" },
+      ],
+    });
+    expect(result.blocking.map((finding) => finding.id)).toEqual([
+      "navigation-placeholder-actions",
+      "import-name-collision",
+    ]);
+    expect(result.quality).toEqual([]);
+  });
+
+  it("does not fail-open unrelated ids that share an advisory substring", () => {
+    const result = applyVerifierSeverityMapping({
+      blocking: [
+        { id: "payment-false-success", detail: "checkout reports paid on a failed charge" },
+        {
+          id: "webhook-invalid-payload-runtime",
+          detail: "webhook handler crashes on a malformed body",
+        },
+        { id: "checkout-null-payload", detail: "checkout route dereferences a null body" },
+      ],
+      quality: [],
+    });
+    expect(result.blocking.map((finding) => finding.id)).toEqual([
+      "payment-false-success",
+      "webhook-invalid-payload-runtime",
+      "checkout-null-payload",
+    ]);
+    expect(result.quality).toEqual([]);
   });
 });
 

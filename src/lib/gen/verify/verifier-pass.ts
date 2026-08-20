@@ -46,6 +46,22 @@ const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
 const FORCE_BLOCKING_IDS = new Set<string>(["navigation-placeholder-actions", "footer-dead-links"]);
 
 /**
+ * Newsletter / member-status id classes the LLM may put in `blocking`
+ * that are product-quality edge cases, not promotion blockers. Mapped by
+ * id class — never by matching the detail text (SM-036).
+ *
+ * Anchored on the whole id so a substring cannot fail-open an unrelated
+ * blocker (`payment-false-success`, `webhook-invalid-payload-runtime`).
+ *
+ * Prod chat `208c3d04` (2026-08-13):
+ *   - `newsletter-invalid-payload-runtime` — null JSON body / `payload.email`
+ *   - `newsletter-false-success` — already-unsubscribed / transactional member
+ *     reported as a successful subscribe
+ */
+const ADVISORY_QUALITY_ID_RE =
+  /^(?:newsletter-(?:null-payload|invalid-payload|false-success)(?:-runtime)?|(?:already-)?un(?:registered|subscribed)(?:-member)?)$/i;
+
+/**
  * True when a quality-bucketed finding must be promoted to `blocking`.
  * Besides the product-quality FORCE_BLOCKING_IDS, the import name-resolution
  * class (`import-name-collision`, `build-*-import` — shared classifier with
@@ -57,6 +73,40 @@ const FORCE_BLOCKING_IDS = new Set<string>(["navigation-placeholder-actions", "f
 function isForcedBlockingFindingId(id: string): boolean {
   if (FORCE_BLOCKING_IDS.has(id)) return true;
   return isBuildBreakingImportFindingId(id);
+}
+
+function isAdvisoryQualityFindingId(id: string): boolean {
+  return ADVISORY_QUALITY_ID_RE.test(id);
+}
+
+/**
+ * Severity owner for verifier findings. Prompt text can drift; this map is
+ * the contract. FORCE_BLOCKING wins over advisory so a navigation/footer/
+ * import-collision finding can never fail-open into quality.
+ *
+ * Unknown ids keep the LLM bucket — we do not lower severity generally.
+ */
+export function applyVerifierSeverityMapping(findings: VerifierFindings): VerifierFindings {
+  const blocking: VerifierFindings["blocking"] = [];
+  const quality: VerifierFindings["quality"] = [];
+  const seen = new Set<string>();
+  const place = (
+    finding: VerifierFindings["blocking"][number],
+    current: "blocking" | "quality",
+  ) => {
+    const key = `${finding.id}\0${finding.detail}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const bucket = isForcedBlockingFindingId(finding.id)
+      ? "blocking"
+      : isAdvisoryQualityFindingId(finding.id)
+        ? "quality"
+        : current;
+    (bucket === "blocking" ? blocking : quality).push(finding);
+  };
+  for (const finding of findings.blocking) place(finding, "blocking");
+  for (const finding of findings.quality) place(finding, "quality");
+  return { blocking, quality };
 }
 
 /**
@@ -1343,7 +1393,7 @@ Use those exact ids so downstream tooling can recognise them.`;
     });
     usageRecorded = true;
     const promoted = suppressValidInPageAnchorNavigationFindings(
-      promoteForcedBlockingFindings(result.object),
+      applyVerifierSeverityMapping(result.object),
       files,
     );
     return recordOnExit({

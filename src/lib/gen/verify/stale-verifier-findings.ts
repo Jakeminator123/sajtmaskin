@@ -317,8 +317,8 @@ const PACKAGE_CLASS_ID_RE = /(?:package|dependenc|version|script|build|manifest)
  * Deliberately narrow: justification conjunctions (although/though/because/
  * since/so). Coordinating/contrastive `and`, `while` and `whereas` stay
  * excluded — those clauses can carry an independent code-file blocker the
- * manifest re-check cannot confirm. The one observed `while` shape has its
- * own exact, end-anchored runtime-import pattern below.
+ * manifest re-check cannot confirm. Observed `while` motivation shapes have
+ * their own exact, end-anchored runtime-import pattern below.
  * The inner `\.(?!\s|$)` keeps dots inside filenames (`app/layout.tsx`,
  * `Next.js`) from ending the clause early, so no `absent.tsx`-style artifact
  * survives the strip. The clause also STOPS at a following coordinating
@@ -335,12 +335,19 @@ const CODE_FILE_TOKEN_SOURCE =
   String.raw`(?:[A-Za-z0-9_.@\[\]-]+\/)*[A-Za-z0-9_.\[\]-]+\.(?:tsx|ts|jsx|js|mjs|cjs)`;
 
 /**
- * Exact prod motivation shape: `while <file>[ and <file>] import those
- * runtimes.` It is anchored to the end so any additional code claim keeps the
- * whole finding fail-closed instead of being erased by a keyword denylist.
+ * Exact prod motivation shapes, end-anchored so any extra code claim stays
+ * fail-closed:
+ *   - `while <file>[ and <file>] import those runtimes.`
+ *   - `while <file>[ and <file>] import them.` — prod signature `777848b18c3b`
+ *     (2026-08-13): "package.json dependencies: `next`, `react`, and
+ *     `react-dom` are absent while app/layout.tsx and
+ *     components/newsletter-form.tsx import them."
+ * The pronoun/runtime object is the declared packages; it is not an
+ * independent defect. "import those/these" without "runtimes" is the same
+ * motivation with the noun elided.
  */
 const MANIFEST_RUNTIME_IMPORT_JUSTIFICATION_RE = new RegExp(
-  String.raw`\s+while\s+\`?${CODE_FILE_TOKEN_SOURCE}\`?(?:\s*(?:,\s*|\s+and\s+)\`?${CODE_FILE_TOKEN_SOURCE}\`?)*\s+imports?\s+(?:those|these|the)\s+runtimes?\s*[.;]?\s*$`,
+  String.raw`\s+while\s+\`?${CODE_FILE_TOKEN_SOURCE}\`?(?:\s*(?:,\s*|\s+and\s+)\`?${CODE_FILE_TOKEN_SOURCE}\`?)*\s+imports?\s+(?:them|(?:those|these|the)(?:\s+runtimes?)?)\s*[.;]?\s*$`,
   "gi",
 );
 

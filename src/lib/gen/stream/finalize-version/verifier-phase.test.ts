@@ -1074,6 +1074,25 @@ describe("runVerifierPhase merged package.json", () => {
     );
   });
 
+  it("prod 777848b18c3b: a declared next/react finding does not remain blocking after merge", async () => {
+    // Server-verify was green on this chat; the stale while-import-them
+    // claim must not reach verifierBlockingFindings (and therefore cannot
+    // flip the lane to diagnosticOnly / suppress promotion).
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "missing-framework-dependencies",
+          detail:
+            "package.json dependencies: `next`, `react`, and `react-dom` are absent while app/layout.tsx and components/newsletter-form.tsx import them.",
+        },
+      ],
+      quality: [],
+    });
+    const result = await runVerifierPhase(baseParams(THIN_PROJECT));
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+  });
+
   it("still blocks a dependency missing from both dependencies and devDependencies", async () => {
     runVerifierPass.mockResolvedValueOnce({
       blocking: [
