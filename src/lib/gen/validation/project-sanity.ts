@@ -221,7 +221,7 @@ const RUNTIME_PROVIDED_ASSET_PATHS = new Set(["/placeholder.svg"]);
  * negative lookahead; interpolated paths are filtered by the caller.
  */
 const LOCAL_IMAGE_ASSET_LITERAL_RE =
-  /["'`](\/(?!\/)[^"'`\s?#]*\.(?:png|jpe?g|webp|avif|gif|svg))(?:[?#][^"'`]*)?["'`]/gi;
+  /["'`](\/(?!\/)[^"'`\s?#]*\.(?:png|jpe?g|webp|avif|gif|svg))((?:[?#][^"'`]*)?)["'`]/gi;
 
 const PUBLIC_ASSET_PATH_RE = /^(?:src\/)?public\/(.+)$/;
 
@@ -326,6 +326,13 @@ function collectPublicAssetUrls(files: CodeFile[]): Set<string> {
   return urls;
 }
 
+export interface DanglingStaticAssetRef {
+  file: string;
+  assetPath: string;
+  /** Path plus the query/hash the quoted literal actually carried. */
+  literal: string;
+}
+
 /**
  * Root-relative image paths that no file in the project serves. Generation
  * emits text, so it can never produce the `public/images/hero.jpg` a model
@@ -334,14 +341,14 @@ function collectPublicAssetUrls(files: CodeFile[]): Set<string> {
  * a preview whose page requested six local `/images/*.jpg` files, none of
  * which existed.
  *
- * Warning severity on purpose, mirroring the dangling-API check above: only
- * literal paths are inspected, and a rewrite or an asset added outside the
- * generated file set could still serve the path, so a false `error` would
- * block an otherwise shippable build.
+ * Shared detector for sanity warnings and the `/validate-images` autofix
+ * (SM-063). Do not invent a second scanner.
  */
-function collectDanglingStaticAssetReferences(files: CodeFile[]): SanityIssue[] {
+export function collectDanglingStaticAssetRefs(
+  files: CodeFile[],
+): DanglingStaticAssetRef[] {
   const publicUrls = collectPublicAssetUrls(files);
-  const issues: SanityIssue[] = [];
+  const refs: DanglingStaticAssetRef[] = [];
   const seen = new Set<string>();
 
   for (const file of files) {
@@ -350,25 +357,38 @@ function collectDanglingStaticAssetReferences(files: CodeFile[]): SanityIssue[] 
       if (isCommentLine(line)) continue;
       for (const match of line.matchAll(LOCAL_IMAGE_ASSET_LITERAL_RE)) {
         const assetPath = match[1];
-        if (assetPath.includes("${")) continue;
+        const literal = `${match[1]}${match[2] ?? ""}`;
+        if (assetPath.includes("${") || literal.includes("${")) continue;
         if (RUNTIME_PROVIDED_ASSET_PATHS.has(assetPath)) continue;
         if (publicUrls.has(assetPath)) continue;
-        const key = `${file.path}|${assetPath}`;
+        const key = `${file.path}|${literal}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        issues.push(
-          createSanityIssue(
-            file.path,
-            "warning",
-            `References the local image "${assetPath}" but nothing in the project serves it (expected public${assetPath}). Generation cannot emit binary assets — use an images.unsplash.com URL or /placeholder.svg?width=…&height=…&text=… instead. The image will 404 at runtime.`,
-            "non_blocking_quality_warning",
-            `dangling-static-asset:${assetPath}`,
-          ),
-        );
+        refs.push({ file: file.path, assetPath, literal });
       }
     }
   }
-  return issues;
+  return refs;
+}
+
+/**
+ * Warning severity on purpose, mirroring the dangling-API check above: only
+ * literal paths are inspected, and a rewrite or an asset added outside the
+ * generated file set could still serve the path, so a false `error` would
+ * block an otherwise shippable build.
+ */
+export function collectDanglingStaticAssetReferences(
+  files: CodeFile[],
+): SanityIssue[] {
+  return collectDanglingStaticAssetRefs(files).map((ref) =>
+    createSanityIssue(
+      ref.file,
+      "warning",
+      `References the local image "${ref.assetPath}" but nothing in the project serves it (expected public${ref.assetPath}). Generation cannot emit binary assets — use an images.unsplash.com URL or /placeholder.svg?width=…&height=…&text=… instead. The image will 404 at runtime.`,
+      "non_blocking_quality_warning",
+      `dangling-static-asset:${ref.assetPath}`,
+    ),
+  );
 }
 
 function collectImportedPackages(files: CodeFile[]): Map<string, Set<string>> {

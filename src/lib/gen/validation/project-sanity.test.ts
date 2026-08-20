@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { runProjectSanityChecks } from "./project-sanity";
+import {
+  collectDanglingStaticAssetRefs,
+  runProjectSanityChecks,
+} from "./project-sanity";
 import type { CodeFile } from "@/lib/gen/parser";
 
 describe("runProjectSanityChecks", () => {
@@ -139,7 +142,7 @@ import { Button } from "@/components/ui/button"
   });
 
   it("flags root-relative image paths that no file in the project serves", () => {
-    const result = runProjectSanityChecks([
+    const files: CodeFile[] = [
       { path: "package.json", language: "json", content: '{"dependencies":{}}' },
       {
         path: "components/hero-section.tsx",
@@ -151,12 +154,47 @@ import { Button } from "@/components/ui/button"
           "}",
         ].join("\n"),
       },
-    ]);
+    ];
+    const result = runProjectSanityChecks(files);
 
     const issue = result.issues.find((entry) => entry.subject?.includes("/images/hero-sky.jpg"));
     expect(issue?.severity).toBe("warning");
     expect(issue?.file).toBe("components/hero-section.tsx");
     expect(result.valid).toBe(true);
+    expect(collectDanglingStaticAssetRefs(files)).toEqual([
+      {
+        file: "components/hero-section.tsx",
+        assetPath: "/images/hero-sky.jpg",
+        literal: "/images/hero-sky.jpg",
+      },
+    ]);
+  });
+
+  it("keeps query and bare literals as separate dangling refs in the same file", () => {
+    const files: CodeFile[] = [
+      { path: "package.json", language: "json", content: '{"dependencies":{}}' },
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        content: [
+          '<img src="/images/hero-sky.jpg" alt="Bar" />',
+          '<img src="/images/hero-sky.jpg?v=2" alt="Versionerad" />',
+        ].join("\n"),
+      },
+    ];
+
+    expect(collectDanglingStaticAssetRefs(files)).toEqual([
+      {
+        file: "app/page.tsx",
+        assetPath: "/images/hero-sky.jpg",
+        literal: "/images/hero-sky.jpg",
+      },
+      {
+        file: "app/page.tsx",
+        assetPath: "/images/hero-sky.jpg",
+        literal: "/images/hero-sky.jpg?v=2",
+      },
+    ]);
   });
 
   it("accepts local images that the project actually ships, the placeholder route and remote hosts", () => {
