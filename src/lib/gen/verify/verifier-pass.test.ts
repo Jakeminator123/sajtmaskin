@@ -122,6 +122,26 @@ describe("applyVerifierSeverityMapping (SM-036)", () => {
     ]);
     expect(result.quality).toEqual([]);
   });
+
+  it("does not fail-open unrelated ids that share an advisory substring", () => {
+    const result = applyVerifierSeverityMapping({
+      blocking: [
+        { id: "payment-false-success", detail: "checkout reports paid on a failed charge" },
+        {
+          id: "webhook-invalid-payload-runtime",
+          detail: "webhook handler crashes on a malformed body",
+        },
+        { id: "checkout-null-payload", detail: "checkout route dereferences a null body" },
+      ],
+      quality: [],
+    });
+    expect(result.blocking.map((finding) => finding.id)).toEqual([
+      "payment-false-success",
+      "webhook-invalid-payload-runtime",
+      "checkout-null-payload",
+    ]);
+    expect(result.quality).toEqual([]);
+  });
 });
 
 const TRAP_CLASS = `motion-reduce` + `:hidden`;

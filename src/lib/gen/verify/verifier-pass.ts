@@ -46,9 +46,12 @@ const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
 const FORCE_BLOCKING_IDS = new Set<string>(["navigation-placeholder-actions", "footer-dead-links"]);
 
 /**
- * Finding-id classes the LLM may put in `blocking` that are product-quality
- * edge cases, not promotion blockers. Mapped by id class — never by matching
- * the detail text (SM-036).
+ * Newsletter / member-status id classes the LLM may put in `blocking`
+ * that are product-quality edge cases, not promotion blockers. Mapped by
+ * id class — never by matching the detail text (SM-036).
+ *
+ * Anchored on the whole id so a substring cannot fail-open an unrelated
+ * blocker (`payment-false-success`, `webhook-invalid-payload-runtime`).
  *
  * Prod chat `208c3d04` (2026-08-13):
  *   - `newsletter-invalid-payload-runtime` — null JSON body / `payload.email`
@@ -56,7 +59,7 @@ const FORCE_BLOCKING_IDS = new Set<string>(["navigation-placeholder-actions", "f
  *     reported as a successful subscribe
  */
 const ADVISORY_QUALITY_ID_RE =
-  /(?:null-payload|invalid-payload|false-success|unregistered-member|already-unsubscribed|already-unregistered)/i;
+  /^(?:newsletter-(?:null-payload|invalid-payload|false-success)(?:-runtime)?|(?:already-)?un(?:registered|subscribed)(?:-member)?)$/i;
 
 /**
  * True when a quality-bucketed finding must be promoted to `blocking`.
