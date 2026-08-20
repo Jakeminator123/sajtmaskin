@@ -7,6 +7,8 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import {
+  fullProjectProtectedDroppedPaths,
+  missingProtectedPathsPersistBlock,
   partitionGeneratedFilesForProtectedPaths,
   reinjectProtectedPathsFromFallback,
 } from "@/lib/gen/scaffolds/protected-paths";
@@ -460,11 +462,17 @@ export async function triggerServerVerification(params: {
               partitionGeneratedFilesForProtectedPaths(rawRepairedFiles);
             const reinjection = reinjectProtectedPathsFromFallback({
               kept: protectedPartition.kept,
-              droppedPaths: protectedPartition.dropped.map((f) => f.path),
+              droppedPaths: fullProjectProtectedDroppedPaths(
+                rawRepairedFiles,
+                protectedPartition.dropped,
+              ),
               fallbackFiles: codeFiles,
             });
             const repairedFilesJson = JSON.stringify(reinjection.files);
-            if (!repairVerbatimRepo && reinjection.stillMissing.length > 0) {
+            const persistBlock = missingProtectedPathsPersistBlock(reinjection.stillMissing, {
+              verbatimRepo: repairVerbatimRepo,
+            });
+            if (persistBlock) {
               deterministicMeta.skippedPersistReason = "protected_paths_still_missing";
             } else if (repairedFilesJson !== baseFilesJson) {
               // Supersede guard (bugbot HIGH on this diff): the gate can run

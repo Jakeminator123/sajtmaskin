@@ -54,6 +54,7 @@ import {
   REPAIR_LOOP_BUDGET_MS,
 } from "@/lib/gen/defaults";
 import {
+  fullProjectProtectedDroppedPaths,
   missingProtectedPathsPersistBlock,
   partitionGeneratedFilesForProtectedPaths,
   reinjectProtectedPathsFromFallback,
@@ -401,14 +402,21 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       const protectedPartition = partitionGeneratedFilesForProtectedPaths(rawRepairedFiles);
       const reinjection = reinjectProtectedPathsFromFallback({
         kept: protectedPartition.kept,
-        droppedPaths: protectedPartition.dropped.map((f) => f.path),
+        droppedPaths: fullProjectProtectedDroppedPaths(
+          rawRepairedFiles,
+          protectedPartition.dropped,
+        ),
         // codeFiles is narrowed by the early-return null check at the top
         // of handlePOST, but TypeScript loses that narrowing across this
         // async closure boundary; cast back to the verified shape.
         fallbackFiles: codeFiles as CodeFile[],
       });
       const repairedFiles = reinjection.files;
-      if (protectedPartition.dropped.length > 0) {
+      if (
+        protectedPartition.dropped.length > 0 ||
+        reinjection.reinjected.length > 0 ||
+        reinjection.stillMissing.length > 0
+      ) {
         const droppedPaths = protectedPartition.dropped.map((f) => f.path);
         console.warn(
           "[repair] Scaffold-protected paths emitted by repair LLM — dropped from saveRepairedFiles input",

@@ -19,6 +19,7 @@ import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { warnLog } from "@/lib/utils/debug";
 import {
+  fullProjectProtectedDroppedPaths,
   missingProtectedPathsPersistBlock,
   partitionGeneratedFilesForProtectedPaths,
   reinjectProtectedPathsFromFallback,
@@ -206,11 +207,10 @@ export async function tryServerRepairLoop(params: {
     // a slow gate could otherwise expire the lease and no-op a valid
     // saveRepairedFiles. Renew here so the gate window is covered too.
     if (runId) await renewVersionLease(versionId, runId).catch(() => {});
-    // Terminal persist block: a prior pass already lacked a protected path.
-    // Returning false alone lets the loop retry; a later pass that omits the
-    // path would skip stillMissing and reach saveRepairedFiles. Refuse every
-    // subsequent persist in this run so the version cannot be both saved and
-    // later failed from the holder.
+    // Terminal persist block: a prior pass already lacked a protected path
+    // (emitted-and-dropped or never mentioned). Returning false alone lets
+    // the loop retry; refuse every subsequent persist in this run so the
+    // version cannot be both saved and later failed from the holder.
     if (missingProtectedGate.block) {
       return false;
     }
@@ -225,11 +225,18 @@ export async function tryServerRepairLoop(params: {
     const protectedPartition = partitionGeneratedFilesForProtectedPaths(rawRepairedFiles);
     const reinjection = reinjectProtectedPathsFromFallback({
       kept: protectedPartition.kept,
-      droppedPaths: protectedPartition.dropped.map((f) => f.path),
+      droppedPaths: fullProjectProtectedDroppedPaths(
+        rawRepairedFiles,
+        protectedPartition.dropped,
+      ),
       fallbackFiles: codeFiles,
     });
     const repairedFiles = reinjection.files;
-    if (protectedPartition.dropped.length > 0) {
+    if (
+      protectedPartition.dropped.length > 0 ||
+      reinjection.reinjected.length > 0 ||
+      reinjection.stillMissing.length > 0
+    ) {
       const droppedPaths = protectedPartition.dropped.map((f) => f.path);
       warnLog(
         "engine",

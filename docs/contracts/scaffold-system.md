@@ -279,10 +279,13 @@ Verifier-pass har en kompletterande check ([`checkUseReducedMotionStub`](../../s
 |---|---|---|
 | Init / follow-up merge | `mergeGeneratedProjectFiles` partition | `finalize-merge.ts` |
 | Post-merge preflight (initial parse + post-mekanisk-autofix + post-LLM-escalation) | tre guards i `runFinalizePreflight` med `branch: "post-merge-…"` | `finalize-preflight.ts` |
-| Server-verify auto-repair (quality-gate eller VM build-error) | `tryPromoteAfterGate` partition + reinject från `codeFiles` | `server-verify.ts` |
+| Server-verify auto-repair (quality-gate eller VM build-error) | `tryPromoteAfterGate` partition + reinject från `codeFiles` | `repair-execution.ts` |
+| Server-verify diagnostisk deterministisk persist | `verify-run` partition + reinject | `verify-run.ts` |
 | Manuell repair-knapp | `promoteIfPostRepairGatePasses` partition + reinject från persisterad `version.files_json` | `app/api/engine/chats/[chatId]/repair/route.ts` |
 
-Ny path läggs ENDAST i `SCAFFOLD_PROTECTED_PATHS`-set:et i `protected-paths.ts`. Alla fyra pipelines plockar då upp den automatiskt — inget mer att synka.
+Full-project persist kräver att varje skyddad path **finns** i den slutliga listan, även när modellen aldrig nämnde den. `fullProjectProtectedDroppedPaths` unionerar emit-and-drop med utelämnade paths innan reinject; tom `droppedPaths` är annars en no-op. Partial-file- och targeted-repair har eget skydd och går inte den vägen.
+
+Ny path läggs ENDAST i `SCAFFOLD_PROTECTED_PATHS`-set:et i `protected-paths.ts`. Alla persist-pipelines plockar då upp den automatiskt — inget mer att synka.
 
 ### Eval-mätning (2026-04-27)
 

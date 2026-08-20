@@ -78,6 +78,33 @@ export function partitionGeneratedFilesForProtectedPaths<
 }
 
 /**
+ * Protected paths the model never mentioned — neither kept nor dropped.
+ * Full-project persist must treat these like emit-and-drop: restore from
+ * fallback or apply the same terminal persist block as a dropped-and-lost
+ * path. `reinjectProtectedPathsFromFallback` is a no-op when `droppedPaths`
+ * is empty, so persist callers MUST union this into `droppedPaths`.
+ */
+export function omittedScaffoldProtectedPaths(
+  files: ReadonlyArray<{ path: string }>,
+): string[] {
+  const mentioned = new Set(files.map((file) => normalize(file.path)));
+  return [...SCAFFOLD_PROTECTED_PATHS].filter((path) => !mentioned.has(path));
+}
+
+/**
+ * Dropped LLM emissions plus never-mentioned protected paths. The three
+ * full-project persist sites pass this to `reinjectProtectedPathsFromFallback`
+ * so presence is a requirement, not a side-effect of the model emitting the
+ * file.
+ */
+export function fullProjectProtectedDroppedPaths(
+  rawFiles: ReadonlyArray<{ path: string }>,
+  dropped: ReadonlyArray<{ path: string }>,
+): string[] {
+  return [...dropped.map((file) => file.path), ...omittedScaffoldProtectedPaths(rawFiles)];
+}
+
+/**
  * Re-inject protected paths from a fallback source (previous persisted
  * version files) into a partitioned `kept` set.
  *
@@ -86,7 +113,9 @@ export function partitionGeneratedFilesForProtectedPaths<
  * even when the LLM repair output omits them after partition.
  *
  * Returns the merged `kept`-set + arrays describing what was reinjected
- * vs what stayed missing (callers log telemetry on these).
+ * vs what stayed missing (callers log telemetry on these). Empty
+ * `droppedPaths` is still a no-op — full-project persist must pass
+ * `fullProjectProtectedDroppedPaths` so omitted paths are required too.
  */
 export function reinjectProtectedPathsFromFallback(params: {
   kept: CodeFile[];

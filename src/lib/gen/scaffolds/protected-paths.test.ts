@@ -3,7 +3,9 @@ import type { CodeFile } from "@/lib/gen/parser";
 import {
   SCAFFOLD_PROTECTED_PATHS,
   isScaffoldProtectedPath,
+  fullProjectProtectedDroppedPaths,
   missingProtectedPathsPersistBlock,
+  omittedScaffoldProtectedPaths,
   partitionGeneratedFilesForProtectedPaths,
   reinjectProtectedPathsFromFallback,
 } from "./protected-paths";
@@ -179,6 +181,80 @@ describe("reinjectProtectedPathsFromFallback", () => {
     });
     expect(reinjection.reinjected).toEqual(["app\\api\\placeholder\\route.ts"]);
     expect(reinjection.stillMissing).toEqual([]);
+  });
+});
+
+describe("omittedScaffoldProtectedPaths / fullProjectProtectedDroppedPaths (SM-066)", () => {
+  it("lists every protected path the model never mentioned", () => {
+    expect(omittedScaffoldProtectedPaths([file("app/page.tsx", "x")])).toEqual([
+      "app/icon.svg",
+      "app/api/placeholder/route.ts",
+    ]);
+  });
+
+  it("normalises mentioned paths before comparing", () => {
+    expect(
+      omittedScaffoldProtectedPaths([
+        file("./app/icon.svg", "<svg/>"),
+        file("app/page.tsx", "x"),
+      ]),
+    ).toEqual(["app/api/placeholder/route.ts"]);
+  });
+
+  it("is empty when every protected path was mentioned", () => {
+    expect(
+      omittedScaffoldProtectedPaths([
+        file("app/icon.svg", "<svg/>"),
+        file("app/api/placeholder/route.ts", SCAFFOLD_ROUTE_TS, "ts"),
+        file("app/page.tsx", "x"),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("unions omitted paths onto emit-and-drop so empty dropped is not a no-op", () => {
+    const raw = [file("app/page.tsx", "x")];
+    const partition = partitionGeneratedFilesForProtectedPaths(raw);
+    expect(partition.dropped).toEqual([]);
+    const droppedPaths = fullProjectProtectedDroppedPaths(raw, partition.dropped);
+    expect(droppedPaths).toEqual(["app/icon.svg", "app/api/placeholder/route.ts"]);
+
+    const reinjection = reinjectProtectedPathsFromFallback({
+      kept: partition.kept,
+      droppedPaths,
+      fallbackFiles: [
+        file("app/icon.svg", "<svg id='fallback'/>"),
+        file("app/api/placeholder/route.ts", SCAFFOLD_ROUTE_TS, "ts"),
+      ],
+    });
+    expect(reinjection.stillMissing).toEqual([]);
+    expect(reinjection.reinjected).toEqual([
+      "app/icon.svg",
+      "app/api/placeholder/route.ts",
+    ]);
+    expect(reinjection.files.map((f) => f.path)).toEqual([
+      "app/page.tsx",
+      "app/icon.svg",
+      "app/api/placeholder/route.ts",
+    ]);
+    expect(reinjection.files.find((f) => f.path === "app/icon.svg")?.content).toBe(
+      "<svg id='fallback'/>",
+    );
+  });
+
+  it("reports stillMissing for an omitted path when fallback also lacks it", () => {
+    const raw = [file("app/page.tsx", "x")];
+    const partition = partitionGeneratedFilesForProtectedPaths(raw);
+    const reinjection = reinjectProtectedPathsFromFallback({
+      kept: partition.kept,
+      droppedPaths: fullProjectProtectedDroppedPaths(raw, partition.dropped),
+      fallbackFiles: [file("app/page.tsx", "x")],
+    });
+    expect(reinjection.reinjected).toEqual([]);
+    expect(reinjection.stillMissing).toEqual([
+      "app/icon.svg",
+      "app/api/placeholder/route.ts",
+    ]);
+    expect(missingProtectedPathsPersistBlock(reinjection.stillMissing)).not.toBeNull();
   });
 });
 
