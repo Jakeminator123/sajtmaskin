@@ -82,18 +82,22 @@ bara **en** riktig ordningsregel: `SM-036` rör samma verifieryta som `#1052` ju
 
 ### Våg 1 — åtta agenter parallellt
 
-Ingen fil förekommer hos två av dem. Alla åtta kan gå samtidigt, och D2 dessutom.
+Ingen fil förekommer hos två av dem. Kördes som cloud-agenter 2026-08-20 kväll.
+Parallellismen höll: noll merge-konflikter mellan de åtta.
 
-| Uppgift | Ägda filer |
-|---|---|
-| [Prompt-assist kapar tyst](aktiviteter/vag1-prompt-assist-tyst-kapning.md) | `src/lib/builder/prompt-assist-pre-send.ts`, `src/app/api/ai/prompt-assist/route.ts` |
-| [Repair sparar bort utelämnad skyddad path](aktiviteter/vag1-repair-utelamnad-skyddad-path.md) | `src/lib/gen/scaffolds/protected-paths.ts`, `src/lib/gen/verify/server-verify/`, repair-routen |
-| [Script-varningen döljs över hela crawlen](aktiviteter/vag1-script-varning-per-route.md) | `src/lib/gen/verify/product-postcheck.ts` |
-| [Grinden visar falskt grönt i tooling](aktiviteter/vag2-quality-gate-overlay-i-tooling.md) | `scripts/db/`, `scripts/observability/` |
-| [Källkvittot byggs av avsikt](aktiviteter/vag2-kallkvitto-fran-skickad-payload.md) | `src/lib/gen/orchestrate/source-receipt.ts`, `finalize-prompts.ts`, `src/lib/gen/request-metadata.ts` |
-| [Next-HMR-kontraktet skippas i CI](aktiviteter/vag2-next-hmr-ci-lane.md) | `preview-host/`, `.github/workflows/ci.yml` |
-| [Thumbnail väntar obundet](aktiviteter/vag2-thumbnail-obundna-vantan.md) | `src/lib/projects/thumbnail-capture.ts` |
-| [`SM-063` trasiga bild-URL:er](aktiviteter/vag3-sm063-trasiga-bild-urler.md) | `src/lib/utils/image-validator.ts`, `src/lib/gen/validation/project-sanity.ts`, `src/lib/hooks/chat/post-checks.ts` |
+| Uppgift | Ägda filer | Läge |
+|---|---|---|
+| [Prompt-assist kapar tyst](aktiviteter/vag1-prompt-assist-tyst-kapning.md) | `src/lib/builder/prompt-assist-pre-send.ts`, `src/app/api/ai/prompt-assist/route.ts` | **Mergad** — #1070 |
+| [Repair sparar bort utelämnad skyddad path](aktiviteter/vag1-repair-utelamnad-skyddad-path.md) | `src/lib/gen/scaffolds/protected-paths.ts`, `src/lib/gen/verify/server-verify/`, repair-routen | **Mergad** — #1072 |
+| [Script-varningen döljs över hela crawlen](aktiviteter/vag1-script-varning-per-route.md) | `src/lib/gen/verify/product-postcheck.ts` | **Mergad** — #1071 |
+| [Next-HMR-kontraktet skippas i CI](aktiviteter/vag2-next-hmr-ci-lane.md) | `preview-host/`, `.github/workflows/ci.yml` | **Mergad** — #1074 |
+| [Grinden visar falskt grönt i tooling](aktiviteter/vag2-quality-gate-overlay-i-tooling.md) | `scripts/db/`, `scripts/observability/` | Öppen PR #1077 |
+| [Källkvittot byggs av avsikt](aktiviteter/vag2-kallkvitto-fran-skickad-payload.md) | `src/lib/gen/orchestrate/source-receipt.ts`, `finalize-prompts.ts`, `src/lib/gen/request-metadata.ts` | Öppen PR #1075 |
+| [Thumbnail väntar obundet](aktiviteter/vag2-thumbnail-obundna-vantan.md) | `src/lib/projects/thumbnail-capture.ts` | Öppen PR #1073 |
+| [`SM-063` trasiga bild-URL:er](aktiviteter/vag3-sm063-trasiga-bild-urler.md) | `src/lib/utils/image-validator.ts`, `src/lib/gen/validation/project-sanity.ts`, `src/lib/hooks/chat/post-checks.ts` | Öppen PR #1076 |
+
+Aktivitetsfilerna för de fyra mergade raderna kan raderas när hela vågen är
+landad — arkivnoterna i backloggen bär då sanningen.
 
 Filnamnens `vag2-`/`vag3-`-prefix är från det ursprungliga schemat, som antog att
 `#1052` låg kvar. Den här tabellen äger vågindelningen — inte filnamnen.
