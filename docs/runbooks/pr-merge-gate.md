@@ -64,10 +64,28 @@ Samma skäl ligger bakom rollspliten mellan billig bevakare och dyr beslutsfatta
 | 2026-07-02 | Codex av (credits slut) |
 | 2026-07-08 | Codex tillbaka |
 | 2026-08-01 | GitHub-Bugbot **och** Codex slog i taket samtidigt — #703/#704 stod utan externa ögon |
+| 2026-08-20 | Samma sak hela kvällen under en åttafiligs våg (#1069–#1077): GitHub-Bugbot, Codex **och** «Find critical bugs» alla usage-limitade. `pr-ai-review` var enda externa granskaren — och räckte: den postade uttömmande review per head-SHA och fann verkliga fynd i #1073, #1076 och #1077. Den lokala `bugbot`-subagenten bar resten |
 
 Den GitHub-integrerade Bugbot:en delar teamets budget och postar `Bugbot couldn't run - usage limit reached` när den tar slut. **Slut budget på GitHub är inget skäl att hoppa till manuell review** — den lokala `bugbot`-subagenten är en egen väg med egen budget. Det är hela poängen med fallback-stegen i regeln.
 
 En Codex-kommentar som **bara** är "usage limit" betyder att den är av → icke-blockerande, inte ett gap.
+
+## Två fällor som kostade tid 2026-08-20
+
+**«Docs-only» skyddar inte mot kontraktstester.** Genvägen till master i
+[`git.mdc`](../../.cursor/rules/git.mdc) gäller docs — men flera tester *läser*
+`docs/`. En rad i `docs/decisions/README.md` vars kanoniska källa pekade på en
+planfil fällde `registry.test.ts`, och master hade rött `quality` i ~40 minuter.
+`docs:links` och `check:bug-backlog` var gröna hela tiden; de kontrollerar inte
+den regeln. **Kör `npx vitest run src/lib/control-plane` före varje docs-push
+till master** som rör `docs/decisions/`, glossaryn eller planroutern. Samma
+kontroll fångade senare 13 brutna länkar i nyspårade skills innan de nådde
+master — den är billig och betalar sig.
+
+**`cancelled` är inte `failure`.** CI:s concurrency-grupp avbryter en pågående
+körning när en ny commit landar på samma ref. En `quality: cancelled` på en
+äldre commit betyder alltså «ersatt», inte «trasig» — läs alltid checken på
+**nuvarande** head innan du drar slutsatsen att master är röd.
 
 ## Meta vs produkt (håll planen isär)
 
