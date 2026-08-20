@@ -15,6 +15,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  isQualityGatePassResult,
+  resolveReportedQualityGateResult,
+} from "../db/lib/reported-quality-gate.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -144,14 +148,12 @@ function deriveQualityGatePassPct(stats) {
   for (const row of rows) {
     const n = rowCount(row);
     total += n;
-    const result = String(row.result ?? row.quality_gate_result ?? "").toLowerCase();
-    if (
-      result === "passed" ||
-      result === "pass" ||
-      result === "success" ||
-      result === "ok" ||
-      result.includes("passed")
-    ) {
+    const raw = row.result ?? row.quality_gate_result ?? "";
+    const reported = resolveReportedQualityGateResult(
+      raw === "(null)" || raw === "" ? null : String(raw),
+      row.product_blocked === true,
+    );
+    if (isQualityGatePassResult(reported)) {
       pass += n;
     }
   }
@@ -466,6 +468,32 @@ function runSelfTest() {
     "expected repair rescue denominator warning",
   );
   assert(md.includes("kräver error-log-aggregat"), "expected import aggregate note");
+
+  const blockedCurrent = {
+    qualityGateResults: [
+      { result: "preflight_passed", n: 80 },
+      { result: "product_blocked", n: 20 },
+    ],
+  };
+  const blockedRows = buildComparisonRows(baseline, blockedCurrent);
+  const qualityRow = blockedRows.find((row) => row.metric === "Quality gate pass");
+  assert(qualityRow, "expected quality gate row for product_blocked snapshot");
+  assert(qualityRow.current.includes("80 %"), "product_blocked must not count as pass");
+  assert(
+    !qualityRow.current.includes("100 %"),
+    "product_blocked overlay must drop pass pct vs raw preflight_passed",
+  );
+
+  const rawBlockedCurrent = {
+    qualityGateResults: [{ result: "preflight_passed", product_blocked: true, n: 10 }],
+  };
+  const rawBlockedRows = buildComparisonRows(baseline, rawBlockedCurrent);
+  const rawQuality = rawBlockedRows.find((row) => row.metric === "Quality gate pass");
+  assert(rawQuality, "expected quality gate row for raw+blocked snapshot");
+  assert(
+    rawQuality.current.startsWith("0 %") || rawQuality.current.includes("0 %"),
+    "preflight_passed + product_blocked must overlay to not-pass",
+  );
   console.log("[compare-control-stats] self-test OK");
 }
 

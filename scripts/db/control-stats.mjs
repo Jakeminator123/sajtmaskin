@@ -17,6 +17,10 @@ import { config } from "dotenv";
 import pg from "pg";
 import { normalizeEnvUrl, inspectDbTarget, summarizeTarget } from "./db-target-guard.mjs";
 import { mergeEnvFileOverProcess } from "./env-merge.mjs";
+import {
+  LATEST_PRODUCT_POSTCHECK_JOIN,
+  rollupReportedQualityGate,
+} from "./lib/reported-quality-gate.mjs";
 
 const argv = process.argv.slice(2);
 const wantJson = argv.includes("--json");
@@ -224,13 +228,26 @@ try {
      FROM generation_telemetry WHERE created_at > ${W}`,
   );
 
-  // 7) Quality gate-utfall (telemetri-vyn).
-  out.qualityGateResults = await safe(
+  // 7) Quality gate-utfall (visad grind = finalize + postcheck-overlay).
+  const qualityGateRaw = await safe(
     "qualityGateResults",
-    `SELECT COALESCE(quality_gate_result,'(null)') AS result, COUNT(*)::int AS n
-     FROM generation_telemetry WHERE created_at > ${W}
-     GROUP BY 1 ORDER BY n DESC`,
+    `SELECT COALESCE(gt.quality_gate_result,'(null)') AS result,
+            COALESCE(pps.product_blocked, false) AS product_blocked,
+            COUNT(*)::int AS n
+     FROM generation_telemetry gt
+     ${LATEST_PRODUCT_POSTCHECK_JOIN.trim()}
+     WHERE gt.created_at > ${W}
+     GROUP BY 1, 2 ORDER BY n DESC`,
   );
+  const qualityGateRolled = rollupReportedQualityGate(qualityGateRaw);
+  out.qualityGateResults = qualityGateRolled.rows;
+  out.qualityGateResultsFinalize = qualityGateRolled.finalizeRows;
+  out.qualityGateOverlay = {
+    productBlockedOverlaid: qualityGateRolled.overlaidN,
+    note:
+      "qualityGateResults uses resolveReportedQualityGateResult; " +
+      "qualityGateResultsFinalize is the raw finalize column.",
+  };
 
   // 8) Per scaffold: volym, preview-utfall, autofix/LLM-fix-frekvens.
   // M#pv1: preview_ready = runtime confirmed ready (preview_success IS TRUE,
@@ -326,23 +343,33 @@ try {
   );
 
   // 14) Quality gate-utfall per generationMode (init vs followUp).
-  out.byGenerationMode = await safe(
+  const byModeRaw = await safe(
     "byGenerationMode",
-    `SELECT COALESCE(meta->'buildSpec'->>'generationMode','(saknas)') AS mode,
-            COALESCE(quality_gate_result,'(null)') AS result, COUNT(*)::int AS n
-     FROM generation_telemetry WHERE created_at > ${W}
-     GROUP BY 1,2 ORDER BY 1, n DESC`,
+    `SELECT COALESCE(gt.meta->'buildSpec'->>'generationMode','(saknas)') AS mode,
+            COALESCE(gt.quality_gate_result,'(null)') AS result,
+            COALESCE(pps.product_blocked, false) AS product_blocked,
+            COUNT(*)::int AS n
+     FROM generation_telemetry gt
+     ${LATEST_PRODUCT_POSTCHECK_JOIN.trim()}
+     WHERE gt.created_at > ${W}
+     GROUP BY 1, 2, 3 ORDER BY 1, n DESC`,
   );
+  out.byGenerationMode = rollupReportedQualityGate(byModeRaw, ["mode"]).rows;
 
   // 15) Quality gate-utfall per generator-modell (phaseRouting).
-  out.byGeneratorModel = await safe(
+  const byGeneratorRaw = await safe(
     "byGeneratorModel",
-    `SELECT COALESCE(meta->'phaseRouting'->>'generator','(saknas)') AS generator,
-            COALESCE(quality_gate_result,'(null)') AS result, COUNT(*)::int AS n,
-            AVG(COALESCE((meta->'autofix'->>'fixCount')::int,0))::numeric(10,1) AS avg_fix_count
-     FROM generation_telemetry WHERE created_at > ${W}
-     GROUP BY 1,2 ORDER BY 1, n DESC`,
+    `SELECT COALESCE(gt.meta->'phaseRouting'->>'generator','(saknas)') AS generator,
+            COALESCE(gt.quality_gate_result,'(null)') AS result,
+            COALESCE(pps.product_blocked, false) AS product_blocked,
+            COUNT(*)::int AS n,
+            AVG(COALESCE((gt.meta->'autofix'->>'fixCount')::int,0))::numeric(10,1) AS avg_fix_count
+     FROM generation_telemetry gt
+     ${LATEST_PRODUCT_POSTCHECK_JOIN.trim()}
+     WHERE gt.created_at > ${W}
+     GROUP BY 1, 2, 3 ORDER BY 1, n DESC`,
   );
+  out.byGeneratorModel = rollupReportedQualityGate(byGeneratorRaw, ["generator"]).rows;
 
   // 16) Meta-nycklar som finns (for att hitta t.ex. dossier-sparning).
   out.telemetryMetaKeys = await safe(

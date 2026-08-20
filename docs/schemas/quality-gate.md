@@ -142,8 +142,12 @@ Lageröversikt:
 [`orchestration-signal-contract.md`](orchestration-signal-contract.md)
 (lager Innehållsrevision).
 
-Visad grind (Backoffice) är inte kolumnen ensam.
+Visad grind är inte kolumnen ensam.
 `resolveReportedQualityGateResult` överskuggar `preflight_passed` till
 `product_blocked` när senaste `product_postcheck.summary` har
-`meta.productBlocked: true`. Promote-guarden läser fortfarande bara
-kolumnen.
+`meta.productBlocked: true`. App-ägaren är
+`src/lib/db/services/reported-quality-gate.ts`. Tooling-mjs-läsarna
+importerar `scripts/db/lib/reported-quality-gate.mjs`. `genlogs/assess.py`
+kan inte importera mjs — den konsumerar `reported_quality_gate` eller
+läser samma `productBlocked`-signal. Promote-guarden läser fortfarande
+bara kolumnen.
