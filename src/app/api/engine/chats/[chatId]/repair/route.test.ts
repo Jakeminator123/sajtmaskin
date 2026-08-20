@@ -28,7 +28,10 @@ const runRepairLoop = vi.hoisted(() => vi.fn());
 const shouldPromoteAfterRepair = vi.hoisted(() => vi.fn());
 const triggerServerVerification = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
-const protectedReinjectStillMissing = vi.hoisted(() => ({ value: [] as string[] }));
+const protectedReinjectStillMissing = vi.hoisted(() => ({
+  value: [] as string[],
+  queue: null as string[][] | null,
+}));
 const afterCallbacks = vi.hoisted(() => ({ value: [] as Array<() => unknown> }));
 const QualityGateUnavailableError = vi.hoisted(
   () =>
@@ -111,7 +114,11 @@ vi.mock("@/lib/gen/scaffolds/protected-paths", async (importOriginal) => {
     reinjectProtectedPathsFromFallback: ({ kept }: { kept: unknown[] }) => ({
       files: kept,
       reinjected: [],
-      stillMissing: protectedReinjectStillMissing.value,
+      stillMissing:
+        protectedReinjectStillMissing.queue &&
+        protectedReinjectStillMissing.queue.length > 0
+          ? (protectedReinjectStillMissing.queue.shift() ?? [])
+          : protectedReinjectStillMissing.value,
     }),
   };
 });
@@ -150,6 +157,7 @@ function req(body: unknown) {
 
 beforeEach(() => {
   protectedReinjectStillMissing.value = [];
+  protectedReinjectStillMissing.queue = null;
   getGenerationBillingMarkerPolicy.mockReset().mockResolvedValue({
     freeGenerationEligible: true,
     freeGenerationApplied: false,
@@ -1228,5 +1236,56 @@ describe("POST repair — stillMissing protected path must not persist (SM-034)"
     expect(body.repaired).toBe(false);
     expect(body.reason).toContain("app/api/placeholder/route.ts");
     expect(body.reason).toContain("sparades inte");
+  });
+
+  it("does not save when a later pass would succeed after an earlier stillMissing block", async () => {
+    protectedReinjectStillMissing.queue = [["app/api/placeholder/route.ts"], []];
+    runRepairLoop.mockImplementation(
+      async (opts: {
+        onAttemptPromotion: (
+          content: string,
+          method: "deterministic" | "llm",
+        ) => Promise<{ promoted: boolean; payload: { newVersionId: string | null } }>;
+      }) => {
+        const first = await opts.onAttemptPromotion(
+          '```tsx file="app/page.tsx"\nx\n```',
+          "deterministic",
+        );
+        const second = await opts.onAttemptPromotion(
+          '```tsx file="app/page.tsx"\nx\n```',
+          "llm",
+        );
+        return {
+          promoted: first.promoted || second.promoted,
+          remainingErrors: 0,
+          llmPasses: 1,
+          method: "llm",
+          payload: second.payload,
+          earlyStopReason: null,
+          improvedSyntax: false,
+          noContext: false,
+          errorManifest: null,
+        };
+      },
+    );
+
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(saveRepairedFiles).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(body.repaired).toBe(false);
+    expect(body.reason).toContain("app/api/placeholder/route.ts");
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      "ver-1",
+      expect.stringContaining("app/api/placeholder/route.ts"),
+      "run-1",
+    );
   });
 });

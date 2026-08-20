@@ -209,4 +209,52 @@ describe("tryServerRepairLoop — stillMissing protected path must not persist (
       false,
     );
   });
+
+  it("does not save when a later pass would succeed after an earlier stillMissing block", async () => {
+    const llmWithoutProtected = [pageFile];
+    runRepairLoop.mockImplementation(
+      async (opts: {
+        onAttemptPromotion: (
+          content: string,
+          method: "deterministic" | "llm",
+        ) => Promise<{ promoted: boolean }>;
+      }) => {
+        const first = await opts.onAttemptPromotion(
+          serializeCodeProject(llmWithProtected),
+          "deterministic",
+        );
+        const second = await opts.onAttemptPromotion(
+          serializeCodeProject(llmWithoutProtected),
+          "llm",
+        );
+        return {
+          promoted: first.promoted || second.promoted,
+          remainingErrors: 0,
+          llmPasses: 1,
+          method: "llm",
+          earlyStopReason: null,
+          improvedSyntax: false,
+          noContext: false,
+          errorManifest: null,
+        };
+      },
+    );
+
+    await tryServerRepairLoop({
+      chatId: "chat-sm034",
+      versionId: "ver-sm034",
+      codeFiles: fallbackWithoutProtected,
+      baseFilesJson,
+      failedOutputs: [{ check: "typecheck", exitCode: 1, output: "boom", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: "typecheck",
+      jobStartedAt: null,
+      jobFinishedAt: null,
+    });
+
+    expect(saveRepairedFiles).not.toHaveBeenCalled();
+    expect(failVersionVerification).toHaveBeenCalled();
+    const failSummary = String(failVersionVerification.mock.calls[0]?.[1] ?? "");
+    expect(failSummary).toContain(PROTECTED_PATH);
+  });
 });

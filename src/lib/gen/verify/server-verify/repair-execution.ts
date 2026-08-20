@@ -206,6 +206,14 @@ export async function tryServerRepairLoop(params: {
     // a slow gate could otherwise expire the lease and no-op a valid
     // saveRepairedFiles. Renew here so the gate window is covered too.
     if (runId) await renewVersionLease(versionId, runId).catch(() => {});
+    // Terminal persist block: a prior pass already lacked a protected path.
+    // Returning false alone lets the loop retry; a later pass that omits the
+    // path would skip stillMissing and reach saveRepairedFiles. Refuse every
+    // subsequent persist in this run so the version cannot be both saved and
+    // later failed from the holder.
+    if (missingProtectedGate.block) {
+      return false;
+    }
     const rawRepairedFiles = parseCodeProject(projectContent).files;
     // Block the server-repair bypass of SCAFFOLD_PROTECTED_PATHS: even if
     // the LLM regenerates `app/api/placeholder/route.ts` (the JSX-in-`.ts`

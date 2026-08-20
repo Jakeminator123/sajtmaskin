@@ -389,6 +389,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         method === "deterministic"
           ? "Server repair passed quality gate (deterministic). Awaiting acceptance."
           : "Server repair passed quality gate (LLM). Awaiting acceptance.";
+      if (missingProtectedGate.block) {
+        return { ok: false, newVersionId: null };
+      }
       const rawRepairedFiles = codeProjectToFiles(projectContent);
       // Block the manual-repair bypass of SCAFFOLD_PROTECTED_PATHS:
       // mirrors the server-verify guard. `codeFiles` here is the
