@@ -25,6 +25,7 @@ import {
   type DynamicContextOptions,
 } from "../system-prompt";
 import { filterRemovedCapabilitiesFromBriefSummary } from "../capability-removal";
+import { variantTemplateImageInSentPayload } from "../request-metadata";
 import { resolveVariantTemplateAddendum } from "../scaffold-variants/variant-template-addendum";
 import { emitFollowUpFreezeDrift, enforceFollowUpVariantFreeze } from "./follow-up-freeze";
 import { resolveGenerationMode } from "./generation-mode";
@@ -267,7 +268,10 @@ export async function finalizeOrchestrationPrompts(
   const sources = buildSourceReceipt({
     variantTemplateInspiration,
     variantTemplateAddendumState,
-    variantTemplateImageAttached: variantTemplateReferenceAttachments.length > 0,
+    variantTemplateImageSent: variantTemplateImageInSentPayload([
+      ...variantTemplateReferenceAttachments,
+      ...(input.requestAttachments ?? []),
+    ]),
     uiRecipes: base.uiRecipes,
     dossierSelection: base.dossierSelection,
     mediaCatalog,

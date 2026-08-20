@@ -29,11 +29,12 @@ export type SourceReceiptInput = {
   variantTemplateInspiration?: VariantTemplateInspiration | null;
   variantTemplateAddendumState?: VariantTemplateAddendumResolution["state"] | null;
   /**
-   * True when `buildVariantTemplateReferenceAttachments` produced a still
-   * image that is forwarded on the vision channel. Independent of whether
-   * the `variant_template_inspiration` text block survived token budget.
+   * True when the variant still image is in the vision payload that will
+   * actually be sent (`variantTemplateImageInSentPayload`). Independent of
+   * whether the `variant_template_inspiration` text block survived token
+   * budget. Do not set this from "a still was produced".
    */
-  variantTemplateImageAttached?: boolean;
+  variantTemplateImageSent?: boolean;
   uiRecipes?: ShadcnUiRecipe[];
   dossierSelection?: DossierSelectionResult | null;
   mediaCatalog?: MediaCatalogItem[];
@@ -85,7 +86,7 @@ export function buildSourceReceipt(input: SourceReceiptInput): GenerationSource[
       authority: "inspiration",
       reachedPrompt:
         reachedPrompt(input.pruning, VARIANT_BLOCK_KEYS) ||
-        input.variantTemplateImageAttached === true,
+        input.variantTemplateImageSent === true,
     });
   }
 

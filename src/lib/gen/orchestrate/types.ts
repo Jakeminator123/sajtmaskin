@@ -129,6 +129,12 @@ export interface OrchestrationInput {
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
   /**
+   * User-turn attachments for this generation. Finalize uses them only to
+   * decide whether the variant still image survives the vision-channel cap
+   * (`getVisualReferenceAttachments`). The send path still owns mounting.
+   */
+  requestAttachments?: RequestAttachment[];
+  /**
    * Optional alias catalog for `## Media Catalog`. Callers that already
    * compressed uploads/URLs into aliases pass them here so the receipt
    * matches the prompt. Empty/omitted is the normal path today.

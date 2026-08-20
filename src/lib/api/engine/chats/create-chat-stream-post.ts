@@ -886,6 +886,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             componentPalette: metaPalette,
             designThemePreset: metaDesignThemePreset,
             designReferences,
+            requestAttachments,
             customInstructions: trimmedSystemPrompt || undefined,
             promptStrategyMeta: strategyMeta,
             // Lock variant to the pre-match pick so brief-LLM hints (variantHints

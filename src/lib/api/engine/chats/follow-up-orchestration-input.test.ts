@@ -384,4 +384,12 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     expect(withBase.styleChoiceHint).toBeUndefined();
     expect(withBase.buildIntentExplicit).toBeUndefined();
   });
+
+  it("forwards requestAttachments so the source receipt can see the vision cap", () => {
+    const requestAttachments = [
+      { url: "https://cdn.example.com/user-1.jpg", mimeType: "image/jpeg" },
+    ];
+    const input = buildFollowUpOrchestrationInput(baseParams({ requestAttachments }));
+    expect(input.requestAttachments).toEqual(requestAttachments);
+  });
 });

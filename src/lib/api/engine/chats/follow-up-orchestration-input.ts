@@ -40,6 +40,11 @@ export interface BuildFollowUpOrchestrationInputParams {
   >;
   resolvedImageGenerations: boolean;
   designReferences: OrchestrationInput["designReferences"];
+  /**
+   * User-turn attachments. Forwarded so the source receipt can see whether
+   * the variant still image survives the vision-channel cap.
+   */
+  requestAttachments?: OrchestrationInput["requestAttachments"];
   persistedScaffoldId: string | null;
   previousFilesCount: number;
   hasFollowUpBase: boolean;
@@ -213,6 +218,7 @@ export function buildFollowUpOrchestrationInput(
     componentPalette: params.parsedMeta.palette,
     designThemePreset: params.parsedMeta.designThemePreset,
     designReferences: params.designReferences,
+    requestAttachments: params.requestAttachments,
     persistedScaffoldId: params.persistedScaffoldId,
     previousFilesCount: params.previousFilesCount,
     generationMode: params.hasFollowUpBase ? "followUp" : undefined,
