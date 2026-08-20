@@ -34,7 +34,9 @@ Canonical owner: committed AI-model manifest. Validator/runtime consumer: `getAi
 | `pro`      | `gpt-5.3-codex`  |
 | `standard` | `gpt-5.3-codex`  |
 
-## Prompt assist
+## Deep Brief
+
+The LLM step inside the Briefing layer. Its manifest key is still the legacy `promptAssist`; the product name is Deep Brief. This is **not** the Prompt-assist button in the chat input — that one is the `prompt_rewrite` workload.
 
 | Workload | Default model        | Override env key          |
 | -------- | -------------------- | ------------------------- |

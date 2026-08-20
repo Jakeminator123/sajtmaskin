@@ -457,7 +457,7 @@ export function validateBriefModelForHttp(
     return {
       status: 400,
       body: {
-        error: "Model not allowed for prompt assist",
+        error: "Model not allowed for Deep Brief",
         setup: "Välj en modell från listan i buildern (OpenAI eller Anthropic).",
       },
     };
@@ -468,7 +468,7 @@ export function validateBriefModelForHttp(
         status: 400,
         body: {
           error: "Invalid model for anthropic provider",
-          setup: "Set model to a supported Anthropic prompt-assist model.",
+          setup: "Set model to a supported Anthropic Deep Brief model.",
         },
       };
     }
@@ -488,7 +488,7 @@ export function validateBriefModelForHttp(
       status: 400,
       body: {
         error: "Invalid model for OpenAI brief",
-        setup: "Set model to a supported OpenAI prompt-assist model (e.g. openai/gpt-5.4).",
+          setup: "Set model to a supported OpenAI Deep Brief model (e.g. openai/gpt-5.4).",
       },
     };
   }
@@ -798,7 +798,7 @@ function resolveRunnableBriefModel(preferred: string): string | null {
     // JSON-schemat och Zod-fallbacken, så en felstavning ser grön ut hela
     // vägen och märks först som "briefen använder fel modell".
     console.warn(
-      `[server-auto-brief] "${m}" är inte en tillåten prompt-assist-modell — ` +
+      `[server-auto-brief] "${m}" är inte en tillåten Deep Brief-modell — ` +
         `använder ${AUTO_BRIEF_MODEL_OPENAI} i stället. Kontrollera briefingModel i config/ai_models/manifest.json.`,
     );
     m = AUTO_BRIEF_MODEL_OPENAI;

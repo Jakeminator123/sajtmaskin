@@ -7,7 +7,8 @@ Alla **standardvärden** som går att styra centralt ligger i [`manifest.json`](
 | Bana | Vad | Typiskt API | Nycklar (se kod) |
 |------|-----|-------------|-------------------|
 | **Own engine** | Kodgenerering i buildern | AI SDK `streamText` + `@ai-sdk/openai` / `@ai-sdk/anthropic` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
-| **Prompt assist** | Förbättra prompt, chat | `streamText` + `createDirectModel` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
+| **Deep Brief** | LLM-steget i Briefing-lagret: expanderar fritext till `siteBriefSchema` före orkestrering (`/api/ai/brief`). Manifestnyckel fortfarande legacy `promptAssist` | `generateObject` + `createDirectModel` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
+| **Prompt-assist (knapp)** | Rättar användarens utkast i chattrutan före sändning. Inte Deep Brief | `generateText`, workload `prompt_rewrite` | `OPENAI_API_KEY` |
 | **Autofix** | Eftergenereringsfixar | `streamText` | `OPENAI_API_KEY` |
 | **Verifier** | Read-only review efter syntax, returnerar blocking/quality-fynd | `generateObject` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
 | **Embeddings** | Semantisk sök i scaffold- och Mallar-index | `openai.embeddings.create` | `OPENAI_API_KEY` |

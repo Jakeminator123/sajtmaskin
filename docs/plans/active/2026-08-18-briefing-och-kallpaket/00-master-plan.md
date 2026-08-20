@@ -143,13 +143,21 @@ enda ägaren av motion-/tema-/domänvägledningen som når kodgeneratorn. Kvar i
 
 ### Namnskuggor som lever kvar
 
-| Yta | Skugga |
-|---|---|
-| `config/ai_models/manifest.json` | **både** `promptAssist` och `briefing` som toppnycklar — halvfärdig omdöpning |
-| `src/lib/hooks/useInitBrief.ts:72` | toast: «Ogiltig förbättra-modell» (Förbättra-knappen togs bort 2026-04-21) |
-| `src/components/builder/shell/BuilderHeader.tsx:244` | «Assist aktiv» |
-| `src/lib/db/schema.ts:224` + `src/lib/db/services/prompt-logs.ts:46` | kolumnen `prompt_assist_mode` skrivs alltid som `null` |
-| `config/ai_models/20-prompt-assist.md` | filnamnet bär det döda begreppet |
+Omverifierat 2026-08-20. **Builderns produkt-UI är redan städat** — `BuilderHeader`
+säger «Deep Brief aktiv», toasten i `useInitBrief` säger «Ogiltig Deep Brief-modell»,
+och ett test låser att `Assist model:` inte längre renderas
+(`helpers.test.ts:322`). De raderna är alltså borta ur tabellen.
+
+Kvar efter städpasset 2026-08-20 (Backoffice-etiketter, API-fel, doc-titlar och
+Sajtagentens systemprompt lagade i samma pass):
+
+| Yta | Skugga | Dom |
+|---|---|---|
+| `config/ai_models/manifest.json` | **både** `promptAssist` och `briefing` som toppnycklar för samma lager | Kvar. `promptAssist` är **required** i `manifest.schema.json`, i Zod (`load-manifest.ts:63`) och i fyra tester — det är ett kontrakt, inte en etikett. Sammanslagningen är B2:s arbete |
+| `SAJTMASKIN_ASSIST_MODEL` + syskonen | env-namn efter en borttagen knapp | Kvar med avsikt. `terminology.mdc` säger att kodidentifierare och env-nycklar behåller legacy-namn och mappas i text |
+| `src/lib/db/schema.ts:224` + `prompt-logs.ts:47` | `prompt_assist_mode` skrivs alltid `null` | Kvar. Död kolumn, egen städfråga — inte ett namnproblem |
+| `LLM_PHASES` `"prompt_assist"` (`llm-usage.ts:37`) | fas utan writer; Deep Brief loggar `phase: "brief"` | Kvar. Samma klass som `deploy-assistant`: konfigurerad utan anropare |
+| `src/lib/builder/prompt-assist/` + `config/ai_models/20-prompt-assist.md` | mapp- och filnamn bär det döda begreppet | Filnamnen kvar per regeln; **innehållet** säger nu Deep Brief och filen har en namnkarta i toppen |
 
 Kodidentifierare på tråd och i DB (`promptAssistModel`, `promptAssistDeep`,
 `prompt_assist_*`) **behålls** enligt `terminology.mdc` — de mappas i text, döps

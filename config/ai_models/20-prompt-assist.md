@@ -1,8 +1,19 @@
-# Prompt assist — provider-namngivning
+# Deep Brief — provider-namngivning
+
+> **Namnkarta.** Den här filen handlar om **Deep Brief**: LLM-steget i
+> Briefing-lagret som expanderar fritext till `siteBriefSchema` före
+> orkestrering (`/api/ai/brief`). Filnamnet och manifestnyckeln säger fortfarande
+> `prompt-assist` / `promptAssist` — det är legacy och behålls enligt
+> [`terminology.mdc`](../../.cursor/rules/terminology.mdc), som säger att
+> kodidentifierare och filnamn inte döps om.
+>
+> Det här är **inte** knappen **Prompt-assist** bredvid Plan i chattinputen. Den
+> rättar bara användarens utkast före sändning och har egen workload
+> (`prompt_rewrite`) och egen env (`SAJTMASKIN_PROMPT_REWRITE_MODEL`).
 
 ## Modellsträngar
 
-Prompt assist använder **`provider/model`**-format, t.ex.:
+Deep Brief använder **`provider/model`**-format, t.ex.:
 
 - `openai/gpt-5.6-sol` (default)
 - `openai/gpt-5.6-terra`

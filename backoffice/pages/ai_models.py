@@ -308,15 +308,34 @@ def _render_markdown_docs(ctx: BackofficeContext) -> None:
 
 
 def _render_assist_brief(man_path, manifest: dict[str, Any]) -> None:
+    """Redigerar **Briefing**-lagret, i första hand dess LLM-steg **Deep Brief**.
+
+    Manifestet bär två toppnycklar för samma lager: `promptAssist` (äldre namn,
+    Deep Brief-modellen) och `briefing` (nyare namn, `/api/ai/brief` + server
+    auto-brief). Nycklarna är kontrakt — schema, Zod och tester kräver
+    `promptAssist` — så de behåller sina namn. Etiketterna här säger däremot
+    Deep Brief, eftersom det är produktnamnet.
+
+    Rör inte knappen **Prompt-assist**: den ligger i chattinputen, rättar bara
+    utkastet och styrs av workload `prompt_rewrite` — en annan flik.
+    """
     prompt_assist = manifest.setdefault("promptAssist", {})
     prompt_defaults = prompt_assist.setdefault("defaults", {})
     prompt_allowed = prompt_assist.setdefault("allowed", {})
     briefing = manifest.setdefault("briefing", {}).setdefault("defaults", {})
 
+    st.caption(
+        "Deep Brief = LLM-steget som expanderar fritext till `siteBriefSchema` "
+        "före orkestrering. Inte knappen **Prompt-assist** i chattinputen "
+        "(den ligger under Workloads → `prompt_rewrite`). Legacy-nyckeln i "
+        "manifestet heter fortfarande `promptAssist`."
+    )
+
     assist_default = st.text_input(
-        "Standard: Prompt assist-modell",
+        "Deep Brief: standardmodell",
         value=str(prompt_defaults.get("assist", "")),
         key="assist_default_model",
+        help="Manifest: `promptAssist.defaults.assist` · env `SAJTMASKIN_ASSIST_MODEL`.",
     )
     request_model = st.text_input(
         "API `/api/ai/brief` (förvald modell)",
@@ -334,19 +353,21 @@ def _render_assist_brief(man_path, manifest: dict[str, Any]) -> None:
         key="brief_auto_anthropic",
     )
     gateway_text = st.text_area(
-        "User-facing assistmodeller (en per rad)",
+        "Deep Brief: tillåtna modeller via gateway (en per rad)",
         value="\n".join(prompt_allowed.get("gatewayClassModels") or []),
         height=140,
         key="assist_gateway_models",
+        help="Manifest: `promptAssist.allowed.gatewayClassModels`.",
     )
     anthropic_direct_text = st.text_area(
-        "Anthropic direct-lista (en per rad)",
+        "Deep Brief: tillåtna Anthropic direct-modeller (en per rad)",
         value="\n".join(prompt_allowed.get("anthropicDirectModels") or []),
         height=120,
         key="assist_anthropic_direct_models",
+        help="Manifest: `promptAssist.allowed.anthropicDirectModels`.",
     )
 
-    if st.button("Spara assist / brief", type="primary"):
+    if st.button("Spara Deep Brief / Briefing", type="primary"):
         prompt_defaults["assist"] = assist_default.strip()
         prompt_defaults.pop("polish", None)
         prompt_assist.setdefault("envKeys", {}).pop("polish", None)
@@ -359,7 +380,7 @@ def _render_assist_brief(man_path, manifest: dict[str, Any]) -> None:
         briefing["serverAutoAnthropic"] = auto_anthropic.strip()
         _guard_manifest_or_stop(manifest)
         write_json(man_path, manifest)
-        st.success("Sparat assist / brief.")
+        st.success("Sparat Deep Brief / Briefing.")
         st.rerun()
 
 
@@ -597,10 +618,11 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         key="tb_autofix",
     )
     assist_tokens = st.number_input(
-        "Assist / brief max output tokens",
+        "Deep Brief: max output tokens",
         value=int((tb.get("assistMaxOutputTokens") or {}).get("default", 82768)),
         step=1024,
         key="tb_assist",
+        help="Manifest: `tokenBudgets.assistMaxOutputTokens` (legacy-namn).",
     )
     engine_timeout = st.number_input(
         "Build-route maxDuration (sekunder)",
@@ -609,10 +631,11 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         key="rt_engine",
     )
     assist_timeout = st.number_input(
-        "Assist/brief-route maxDuration (sekunder)",
+        "Deep Brief-routen `/api/ai/brief`: maxDuration (sekunder)",
         value=int((rt.get("assistRouteMaxDurationSeconds") or {}).get("default", 750)),
         step=10,
         key="rt_assist",
+        help="Manifest: `routeTimeouts.assistRouteMaxDurationSeconds` (legacy-namn).",
     )
     verify_repair_timeout = st.number_input(
         "Verify/repair-route maxDuration (sekunder)",
@@ -738,7 +761,7 @@ def _render_per_tier_briefing(manifest: dict[str, Any]) -> None:
     st.markdown("### Tier-differentierad briefing")
     st.caption(
         "`perTierBriefing` är **wired** och väljer auto-brief-modell efter byggprofil. "
-        "Explicit prompt-assist-modell och vald providers auto-brief-env vinner; "
+        "Explicit Deep Brief-modell och vald providers auto-brief-env vinner; "
         "global briefing-default används om tier-posten saknas. Read-only-vy; "
         "edit görs via manifest.json-tabben."
     )
@@ -873,7 +896,7 @@ def render(ctx: BackofficeContext) -> None:
         "Del",
         [
             "Generator-kedja",
-            "Assist / brief / polish",
+            "Briefing (Deep Brief)",
             "Första prompten / orkestrering",
             "Provider / kontrakt",
             "Repair / budget / timeout",
@@ -891,7 +914,7 @@ def render(ctx: BackofficeContext) -> None:
         _render_generator_chain(ctx, man_path, manifest)
     elif models_part == "Markdown / .txt":
         _render_markdown_docs(ctx)
-    elif models_part == "Assist / brief / polish":
+    elif models_part == "Briefing (Deep Brief)":
         _render_assist_brief(man_path, manifest)
     elif models_part == "Första prompten / orkestrering":
         _render_prompt_orchestration(man_path, manifest)
