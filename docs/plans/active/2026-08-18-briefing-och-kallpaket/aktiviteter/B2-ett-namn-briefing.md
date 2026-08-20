@@ -1,7 +1,12 @@
 # B2 — ett namn: Briefing
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
-Status: inte startad. Kräver ägarbeslut **N1**.
+Status: inte startad. **Namnfrågan är avgjord** (2026-08-20): lagret heter
+Briefing — det står redan bindande i [`terminology.mdc`](../../../../../.cursor/rules/terminology.mdc)
+och som kärnterm i glossaryn, så det som återstod var bara en hedgad namnskuggerad
+som nu är rättad. Uppgiften nedan väntar därför på **prioritering**, inte på ett
+beslut. Den är namngivning och produkttext, inte en defekt — kör den inte som
+smygfix i en annan PR.
 
 ## Problemet
 
@@ -31,10 +36,17 @@ Blanda inte ihop Ändringsbrief med Snapshot-Brief — se B6.
 Krav:
 
 - Slå samman manifestets `promptAssist` in i `briefing`. Behåll `envKeys` exakt
-  som de är (`SAJTMASKIN_ASSIST_MODEL` m.fl. är driftsatta) och lämna
-  `promptAssist` kvar som alias bara om `manifest.schema.json` eller
-  `manifest-parity.test.ts` kräver det — i så fall med en `notes`-rad som säger
-  att det är legacy.
+  som de är och lämna `promptAssist` kvar som alias bara om `manifest.schema.json`
+  eller `manifest-parity.test.ts` kräver det — i så fall med en `notes`-rad som
+  säger att det är legacy. **Not:** `SAJTMASKIN_ASSIST_MODEL` är **inte** satt i
+  någon Vercel-miljö (CLI-verifierat 2026-08-20), så Deep Brief kör på
+  manifest-defaulten. Variabeln är en valfri override (`optional_runtime` i
+  `config/env-policy.json`), inte en driftsatt bindning — men den läses av
+  `manifest-parity.test.ts:51` och `src/lib/builder/defaults.ts:139`, så ta inte
+  bort namnet ur schemat utan att röra dem.
+- Rör **inte** `SAJTMASKIN_PROMPT_REWRITE_MODEL` eller workload `prompt_rewrite`.
+  De hör till knappen Prompt-assist (B10), inte till det här lagret. Att blanda
+  ihop dem är den vanligaste feltolkningen av den här uppgiften.
 - Byt användarsynlig text som syftar på Deep Brief: «Ogiltig förbättra-modell» →
   «Ogiltig brief-modell», «Assist aktiv» → «Brief aktiv». Rör inte knappen
   Prompt-assist (B10). Ingen ny badge för brief-lanen.

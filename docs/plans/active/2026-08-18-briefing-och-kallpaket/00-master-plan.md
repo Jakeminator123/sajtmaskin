@@ -24,12 +24,12 @@ Spåret är **inte** klart. Tabellen är live-status mot `master` / öppna PR:er
 | B1 | **Klar.** #1040 |
 | B10 | **Klar.** #1038 |
 | B11 | **Klar.** #1042. Follow-up (ton ≠ scaffoldtyp) landade i #1054. |
-| B2 | Inte startad. Väntar N1-resten. |
+| B2 | Inte startad. **Namnfrågan avgjord 2026-08-20** — väntar prioritering, inte beslut. |
 | B4 | Inte startad. |
 | B5 | Inte startad. |
 | B6 | Inte startad. Steg 1 får köras; steg 2 väntar N4. |
 | B7 | Inte startad. Väntar N5. B3 är landad. |
-| N1 | Delvis. Prompt-assist = knappen (beslutat). Briefing som lamenamn väntar. |
+| N1 | **Klar.** Prompt-assist = knappen (2026-08-19). Briefing = lagernamnet (2026-08-20). |
 | N2–N5 | Öppna. N5 ligger i backloggen. |
 
 ## Kärnprincip

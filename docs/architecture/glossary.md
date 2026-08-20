@@ -216,7 +216,9 @@ matchas och med vilken styrka; de får inte definiera en egen betydelse.
 | `serverVerify` som quality-gate-lane       | `RenderGate` (`designPreview`) eller `ReleaseGate` (`integrationsBuild`)                                                                                 |
 | orkestrator / orkestreringsagent           | `Orkestrering` — deterministisk kod, inte en modell                                                                                                      |
 | Assist Model / assist-modell / `promptAssistModel` | Deep Brief-modellrutt (`promptAssist.defaults.assist`, `SAJTMASKIN_ASSIST_MODEL`). Inte knappen `Prompt-assist`. |
-| Prompt-assist som Deep Brief / brief-lane / «Assist aktiv» | `Deep Brief` (och ev. produktnamnet Briefing, beslut N1). Kodnyckeln `promptAssist` är legacy. |
+| Prompt-assist som Deep Brief / brief-lane / «Assist aktiv» | `Deep Brief` för LLM-steget, `Briefing` för lagret. Kodnyckeln `promptAssist` är legacy och hör till Deep Brief. |
+| `SAJTMASKIN_ASSIST_MODEL` som knappens modell | **Fel variabel.** Den styr **Deep Brief** (`promptAssist.defaults.assist`). Knappen Prompt-assist styrs av `SAJTMASKIN_PROMPT_REWRITE_MODEL` / workload `prompt_rewrite`. Ingen av dem är satt i Vercel (verifierat 2026-08-20) — båda faller på manifest-default. |
+| Briefing-lagret som «halvfärdigt» | Funktionen är komplett. Det halvfärdiga är **namngivningen**: manifestet bär både `promptAssist` och `briefing` som toppnycklar för samma lager. Det är B2:s arbete, inte en defekt i Deep Brief. |
 | Polish / Skriv om / Förbättra / prompt rewrite | Död väg (borttagen 2026-04-21). Inte samma sak som `Prompt-assist` (2026-08-19): den rättar utkastet i rutan och behåller naturligt språk. SEO-title/description vid publicering är ett tredje steg. |
 | `deploy-assistant` som aktiv fas           | Konfigurerad i `phaseRouting` och ModelTraceOverlay; ingen runtime-anropare                                                                              |
 | `Scaffold: Av` / scaffold off              | `ScaffoldMode: "off"` → `projekt-bas-app` i vanlig own-engine-init; **inte** scaffold-löst Importerat repo-läge |
