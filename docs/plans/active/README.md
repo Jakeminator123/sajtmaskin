@@ -7,13 +7,17 @@ full historik → git. Livscykel:
 Buggar/beslut → [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) —
 kopiera inte kön hit.
 
+**Nästa agent startar här:**
+[`2026-08-20-handoff/00-master-plan.md`](2026-08-20-handoff/00-master-plan.md).
+
 ## Pågående spår
 
 | Spår | Vad | Styrdokument |
 |---|---|---|
-| Briefing + Källpaket | Pågår. Landat: B1 #1040, B3 #1035, B8 #1032, B9 #1037, B10 #1038, B11 #1042, docs/etiketter #1036/#1041. Orörda: B2, B4–B7. Beslut kvar: N1-resten, N2–N5. | [`2026-08-18-briefing-och-kallpaket/00-master-plan.md`](2026-08-18-briefing-och-kallpaket/00-master-plan.md) |
-| Överlämning 19 aug | Kodvågor 0–3 landade (#1053–#1068). Kvar: #1052-blockers, SM-062 CI-lucka, OpenClaw-kvittens. | [`2026-08-19-overlamning/00-master-plan.md`](2026-08-19-overlamning/00-master-plan.md) |
+| Handoff 20 aug | Startfil efter nattens vågor. Välj D2, #1052 P1 eller en backlog-rad. | [`2026-08-20-handoff/00-master-plan.md`](2026-08-20-handoff/00-master-plan.md) |
 | Dossier-förenkling | Steg 1 landat (#1045). D2→D3→D4 sekventiellt, D5 väntar ägarbeslut. | [`2026-08-19-dossier-forenkling/00-master-plan.md`](2026-08-19-dossier-forenkling/00-master-plan.md) |
+| Briefing + Källpaket | Pågår. Landat: B1 #1040, B3 #1035, B8 #1032, B9 #1037, B10 #1038, B11 #1042, docs/etiketter #1036/#1041. Orörda: B2, B4–B7. Beslut kvar: N1-resten, N2–N5. | [`2026-08-18-briefing-och-kallpaket/00-master-plan.md`](2026-08-18-briefing-och-kallpaket/00-master-plan.md) |
+| Överlämning 19 aug | Kodvågor 0–3 landade (#1053–#1068). Historik + #1052-blockers. Starta inte här. | [`2026-08-19-overlamning/00-master-plan.md`](2026-08-19-overlamning/00-master-plan.md) |
 
 Ärlig-status-vågorna 1–2 och Block/Marknadsblock är levererade — se
 [`../avklarat/README.md`](../avklarat/README.md). Kvarvarande T3, T9b och T11

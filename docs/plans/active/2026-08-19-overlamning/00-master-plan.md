@@ -1,8 +1,13 @@
 # Överlämning 2026-08-19 — styrdokument
 
-Status: Active
+Status: Active (historik). **Nästa agent startar i
+[`../2026-08-20-handoff/00-master-plan.md`](../2026-08-20-handoff/00-master-plan.md).**
+Vågor 0–3 (#1053–#1068) är **mergade**. Följ inte Startprompten eller
+tabellen «öppna draft-PR:er» nedan — de är nattens körorder, inte läget
+nu. Enda levande aktiviteten här är
+[`aktiviteter/live-review-blockers.md`](aktiviteter/live-review-blockers.md).
 Startad: 2026-08-19 (kväll)
-Bas: master `9a5905933`
+Bas: master `9a5905933` (nattens slut: `dbfcfe7e3`)
 
 Tre parallella sessioner arbetade på samma repo under 19 augusti och lämnade
 arbete i tre olika lägen: committat och mergat, committat men inte landat, och
@@ -55,36 +60,32 @@ Två saker är **beslutade och får inte «förbättras»**: knappen «Bygg
 integrationer» stannar (2026-08-17) och `SELECTED_SECTION_CHAR_CAP = 480` är ett
 skydd mot att «Avoid» svälts, inte en defekt (2026-08-19).
 
-## Stabiliseringsvåg 0 — öppna draft-PR:er
+## Stabiliseringsvåg 0 — mergad (#1053–#1057)
 
-Tre avgränsade restfynd är redan byggda mot master `9a5905933`. Samma
-master-commit lämnade dessutom capability-map-projektionen stale, vilket gör
-`backoffice-tests` röd på alla efterföljande PR:er. Starta inte dubbelarbete
-medan PR:erna är öppna. Läs dem i den här ordningen:
+Historik. Öppna inte, granska inte och merga inte de här PR:erna igen.
+#1052 är fortfarande blockerad — se
+[`aktiviteter/live-review-blockers.md`](aktiviteter/live-review-blockers.md).
 
-| Ordning | PR | Stänger | Kvar före merge |
-|---|---|---|---|
-| 1 | [#1057](https://github.com/Jakeminator123/sajtmaskin/pull/1057) | Regenererar capability-map-fingeravtrycket efter schemaändringen i `9a5905933`; avblockerar gemensam Backoffice-CI | CI + kanonisk review; mergeas först |
-| 2 | [#1055](https://github.com/Jakeminator123/sajtmaskin/pull/1055) | AI SDK-majoren skiljer warm-cache från installerad användarsajt; synkar även dossier-/repairkontraktet | CI:s färska dossier-install/build + kanonisk review |
-| 3 | [#1054](https://github.com/Jakeminator123/sajtmaskin/pull/1054) | `toneAndVoice` kan göra portfolio/blog valbar och embedding-vägen saknade verkligt test | CI + kanonisk review; live embedding-smoke är icke-blockerande |
-| 4 | [#1053](https://github.com/Jakeminator123/sajtmaskin/pull/1053) | Prompt-assist saknar outputtak; avklippt providerresultat kunde annars skrivas tillbaka | CI + kanonisk review; token-tät input failar medvetet closed |
-| Blockerad | [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052) | Live-review steg 1 | Åtgärda hela [`live-review-blockers.md`](aktiviteter/live-review-blockers.md), besluta retention/kontroll och kör ny review |
-
-#1057 går först. Därefter är mergeordningen mellan #1055, #1054 och #1053 fri
-så länge varje head är uppdaterad mot aktuell master. #1052 ligger sist och får
-inte aktiveras i prod bara för att dess Actions är gröna.
+| PR | Vad som landade |
+|---|---|
+| [#1057](https://github.com/Jakeminator123/sajtmaskin/pull/1057) | Capability-map-fingeravtryck efter schemaändringen i `9a5905933` |
+| [#1055](https://github.com/Jakeminator123/sajtmaskin/pull/1055) | AI SDK: warm-cache skild från installerad användarsajt |
+| [#1054](https://github.com/Jakeminator123/sajtmaskin/pull/1054) | `toneAndVoice` + embedding-väg test |
+| [#1053](https://github.com/Jakeminator123/sajtmaskin/pull/1053) | Prompt-assist outputtak |
+| [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052) | Live-review steg 1 — **fortfarande blockerad** |
 
 ## Hur arbetet körs
 
-Fyra spår. Stabiliseringsvåg 0 granskas först. Spår D och B kan gå samtidigt;
-spår H går mellan vågorna.
+Körordningen för våg 0–3 är **avklarad**. Ny körordning ägs av
+[`../2026-08-20-handoff/00-master-plan.md`](../2026-08-20-handoff/00-master-plan.md).
+Tabellen nedan är nattens arbetsmodell, inte en startorder.
 
 | Spår | Vad | Var | Samtidighet |
 |---|---|---|---|
-| **S — Stabilisering** | #1057 först; #1055, #1054, #1053; därefter #1052-hardening | GitHub + lokalt | Kod-PR:erna kan granskas parallellt; #1052 separat och sist |
+| **S — Stabilisering** | Våg 0 landad. Kvar: #1052-hardening | GitHub + lokalt | Bara #1052 |
 | **D — Dossier** | D2 → D3 → D4 | Cloud | **Strikt sekventiellt.** En agent i taget |
-| **B — Buggar** | Bekräftade defekter i vågor | Cloud + lokalt | Parallellt **inom** en våg, sekventiellt **mellan** vågor |
-| **H — Housekeeping** | Backlog, docs, scheman, städ | **Lokalt** | Mellan vågorna, aldrig samtidigt som en våg |
+| **B — Buggar** | Våg 1–3 landade. Nästa rad ur backlog | Cloud + lokalt | En rad per PR |
+| **H — Housekeeping** | Backlog, docs, scheman, städ | **Lokalt** | Inte samtidigt som en kodvåg |
 
 Spår D äger sin egen ordning i
 [`../2026-08-19-dossier-forenkling/00-master-plan.md`](../2026-08-19-dossier-forenkling/00-master-plan.md).
@@ -144,10 +145,11 @@ Cloud-podar har konkreta begränsningar
 Fyra testfall failar i pod på grund av injicerade secrets. De är inte
 regressioner — listan står i runbooken.
 
-### Startprompt
+### Startprompt (historik — använd inte)
 
-Aktivitetsfilerna ligger i repot, så prompten behöver inte upprepa dem. Byt bara
-sökvägen och det korta branchnamnet:
+Nattens mall. Ny startprompt ligger i
+[`../2026-08-20-handoff/00-master-plan.md`](../2026-08-20-handoff/00-master-plan.md).
+Behållen bara så man ser vad cloud-agenterna fick:
 
 ```text
 Du är Builder i Sajtmaskin. Utgå från origin/master.
