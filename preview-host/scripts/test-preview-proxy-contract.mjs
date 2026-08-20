@@ -18,15 +18,30 @@ const require = createRequire(import.meta.url);
 // injected as self.__next_r, and the HMR client sends that value as `?id=`.
 // `x-nextjs-html-request-id` is a separate debug/document association and is
 // deliberately not sufficient on its own.
+//
+// Standalone `preview-host-guards` has no `next` and may SKIP. The root
+// `quality` job always has `next` via `npm ci` and must run this lock: set
+// `REQUIRE_NEXT_CONTRACT=1` or pass `--require-next` / `--next-source-only`.
+const REQUIRE_NEXT_CONTRACT =
+  process.argv.includes("--require-next") ||
+  process.argv.includes("--next-source-only") ||
+  process.env.REQUIRE_NEXT_CONTRACT?.trim() === "1";
+const NEXT_SOURCE_ONLY = process.argv.includes("--next-source-only");
+
 function assertInstalledNextViewerContract() {
   try {
     require.resolve("next/package.json");
   } catch (error) {
     if (error?.code === "MODULE_NOT_FOUND") {
+      if (REQUIRE_NEXT_CONTRACT) {
+        throw new Error(
+          "Installed Next source contract is required (REQUIRE_NEXT_CONTRACT=1 / --require-next), but next/package.json could not be resolved. Run from the repo root after npm ci.",
+        );
+      }
       // `preview-host-guards` intentionally installs only this standalone
       // package. Keep the real proxy contract mandatory there, while the
       // source-level Next compatibility lock runs whenever the root app's
-      // installed Next package is available.
+      // installed Next package is available — and cannot skip in `quality`.
       console.log("  SKIP  installed Next source contract (standalone preview-host)");
       return;
     }
@@ -80,9 +95,17 @@ function assertInstalledNextViewerContract() {
     /getOrCreateDebugChannelReadableWriterPair\)\(requestId\)/,
     "Next's React debug channel must key hydration data by the exact decoded request id",
   );
+  const nextPkg = require("next/package.json");
+  console.log(
+    `  OK    installed Next source contract (next@${nextPkg.version})`,
+  );
 }
 
 assertInstalledNextViewerContract();
+if (NEXT_SOURCE_ONLY) {
+  console.log("[test-preview-proxy-contract] Next source contract green.");
+  process.exit(0);
+}
 
 const dataDir = mkdtempSync(join(tmpdir(), "preview-host-proxy-contract-"));
 process.env.PREVIEW_HOST_DATA_DIR = dataDir;
