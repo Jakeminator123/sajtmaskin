@@ -117,11 +117,12 @@ våg-medlemmarna får gå parallellt.
 | 1 | [Kostnadsrapporten ljuger](aktiviteter/kostnadsrapport-huvudtotal.md) | `scripts/db/generation-cost.mjs`, `backoffice/pages/generation_cost.py` | **Lokalt** | PR #1062 |
 | 2 | [Postcheck blockerar före runtime är redo](aktiviteter/postcheck-boot-page.md) | `src/lib/gen/verify/product-postcheck.ts`, `src/lib/capture/` | Cloud | **Klar** — #1061 |
 | 2 | [Scaffold-matchningen väljer fel sajttyp](aktiviteter/scaffold-tone-vs-typ.md) | `src/lib/gen/scaffolds/`, `orchestrate/` | Cloud | **Klar** — #1054 |
-| 2 | [Fly: `npm install` exit 254](aktiviteter/preview-host-npm-254.md) | `preview-host/` | **Lokalt** | Kvar |
+| 2 | [Fly: `npm install` exit 254](aktiviteter/preview-host-npm-254.md) | `preview-host/` | **Lokalt** | **Klar** — #1063 |
 | 3 | [SM-017: grinden stämplas grön för tidigt](aktiviteter/SM-017-grind-stamplad-for-tidigt.md) | `finalize-version/persist-telemetry.ts`, `services/generation-telemetry.ts` | Cloud | Klar för start |
 | 3 | [`fake_form` i designläge](aktiviteter/fake-form-i-designlage.md) | `product-postcheck.ts`, `chat-readiness.ts` | Cloud | Klar för start |
-| 3 | [`new Date()` i genererad footer](aktiviteter/footer-new-date-hydration.md) | `src/lib/gen/autofix/rules/` | Cloud | Klar för start |
-| 3 | [SM-034: `stillMissing` stoppar inte save](aktiviteter/SM-034-stillmissing-stoppar-inte.md) | `scaffolds/protected-paths.ts`, repair-vägen | Cloud | Klar för start |
+| 3 | [`new Date()` i genererad footer](aktiviteter/footer-new-date-hydration.md) | `src/lib/gen/autofix/rules/` | Cloud | **Klar** — #1065 |
+| 3 | [SM-034: `stillMissing` stoppar inte save](aktiviteter/SM-034-stillmissing-stoppar-inte.md) | `scaffolds/protected-paths.ts`, repair-vägen | Cloud | PR #1066 |
+| — | `SM-062`: Next 16.3 döpte om HMR-sökvägen | `preview-proxy.js`, `product-postcheck.ts` | Lokalt | **Klar** — #1064. Bevakningsluckan kvar |
 
 **Våg 3 är upplåst.** De två skäl som band den till våg 2 är borta: #1061
 landade boot-page-ändringen, och SM-017 respektive `fake_form` visade sig äga
@@ -197,9 +198,10 @@ försvinner med maskinen. Bestäm om den ska in i repot när #1052 är avgjord.
 - [x] Våg 1 mergad: #1058, #1059, #1060 (kostnadsrapporten i #1062)
 - [x] Våg 2 kodpaket mergade: #1061 och #1054
 - [x] Våg 3 aktivitetsfiler skrivna mot master `f668512a1`
-- [ ] Våg 3 mergad — fyra paket, kan gå parallellt
-- [ ] Fly `SM-035`: härdningen kvar. Disken utesluten som orsak (29 % använt 2026-08-20)
-- [ ] Spår H: skrivpasset klart och underlaget raderat
+- [ ] Våg 3: `SM-017` och `fake_form` kvar. Footer klar (#1065), `SM-034` i PR #1066
+- [x] Fly `SM-035` klar (#1063). Disken utesluten som orsak — 29 % använt 2026-08-20
+- [x] `SM-062` symptomen fixade (#1064). **Kvar:** kontraktet kan aldrig fånga en Next-drift i CI eftersom `preview-host` saknar Next som beroende — behöver en smal CI-lane
+- [x] Spår H: skrivpasset klart och underlaget raderat
 - [ ] Spår D klart enligt sin egen plan
 - [ ] PR #1052:s blockers åtgärdade och omgranskade; först därefter beslut om `merge:ready`
 - [ ] OpenClaw-rotation kvitterad: gammal 401, ny 200, Render/Vercel synkade
