@@ -51,8 +51,22 @@ const NETWORK_IDLE_TIMEOUT_MS = 8_000;
  * navigation/settle time can push the total past the route's `maxDuration`
  * (60s) — the function is then killed mid-shot and surfaces as the opaque
  * "page.screenshot: Target page, context or browser has been closed".
+ *
+ * 12s (was 15s): a 1200×750 JPEG never needs the extra 3s. Those milliseconds
+ * now sit on `document.fonts.ready` + the boot-page probe so launch + blob
+ * upload keep the same ~5.6s cushion inside the 60s route.
  */
-const SCREENSHOT_TIMEOUT_MS = 15_000;
+export const SCREENSHOT_TIMEOUT_MS = 12_000;
+/**
+ * Host-side cap for `document.fonts.ready`. A dead `@font-face` URL must
+ * degrade the JPEG, not hang the route until the platform kills it.
+ */
+export const THUMBNAIL_FONT_READY_TIMEOUT_MS = 2_000;
+/**
+ * Host-side cap for the boot-page probe evaluate. A page that never yields
+ * is the existing unreadable-skip, not an unbounded wait.
+ */
+export const THUMBNAIL_BOOT_PROBE_TIMEOUT_MS = 1_000;
 /** Existing pause after fonts so the boot-page probe sees real content. */
 const PRE_PROBE_SETTLE_MS = 400;
 /**
@@ -94,20 +108,23 @@ const THUMBNAIL_WARMUP_MAX_BODY_BYTES = 64 * 1024;
 export const THUMBNAIL_VIEWPORT = { width: 1200, height: 750 } as const;
 
 /**
- * Controlled worst-case waits inside `captureThumbnailScreenshot` (no launch,
- * fonts, or blob upload). Must stay safely under the thumbnail route's 60s
- * `maxDuration` — see `thumbnailCaptureControlledBudgetMs`.
+ * Controlled worst-case waits inside `captureThumbnailScreenshot`.
+ * Still outside this sum, and only these: browser launch (overlapped by the
+ * warmup GET) and the route-owned blob upload. Must stay safely under the
+ * thumbnail route's 60s `maxDuration`.
  */
 export function thumbnailCaptureControlledBudgetMs(): number {
   return (
     NAVIGATION_TIMEOUT_MS +
     NETWORK_IDLE_TIMEOUT_MS +
+    THUMBNAIL_FONT_READY_TIMEOUT_MS +
     PRE_PROBE_SETTLE_MS +
+    THUMBNAIL_BOOT_PROBE_TIMEOUT_MS +
     // Includes measure, scroll steps, reserved top-scroll and post-settle.
     THUMBNAIL_SETTLE_PHASE_BUDGET_MS +
     SCREENSHOT_TIMEOUT_MS
     // Warmup is omitted: it runs in parallel with `launchCaptureBrowser`,
-    // and launch has never been part of this sum.
+    // and launch + blob upload stay outside this sum (~5.6s of the 60s route).
   );
 }
 
@@ -416,8 +433,8 @@ export async function captureThumbnailScreenshot(
     await page
       .waitForLoadState("networkidle", { timeout: NETWORK_IDLE_TIMEOUT_MS })
       .catch(() => undefined);
-    await page
-      .evaluate(async () => {
+    await withHostDeadline(
+      page.evaluate(async () => {
         const fontsApi = (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts;
         if (!fontsApi?.ready) return;
         try {
@@ -425,21 +442,23 @@ export async function captureThumbnailScreenshot(
         } catch {
           // Fonts failing to load must not fail the thumbnail.
         }
-      })
-      .catch(() => undefined);
+      }),
+      THUMBNAIL_FONT_READY_TIMEOUT_MS,
+    );
     await page.waitForTimeout(PRE_PROBE_SETTLE_MS).catch(() => undefined);
 
     // Same detector as F2 product postcheck. A real start page must not be
     // frozen into "Mina projekt". An empty/failed probe is a different skip —
     // it must not be phrased as the host still showing its placeholder.
     stage = "boot-page-check";
-    const bootProbe = await page
-      .evaluate(() => ({
+    const bootProbe = await withHostDeadline(
+      page.evaluate(() => ({
         title: document.title || "",
         h1: document.querySelector("h1")?.textContent?.trim() || null,
         bodyText: (document.body?.innerText || "").slice(0, 800),
-      }))
-      .catch(() => null);
+      })),
+      THUMBNAIL_BOOT_PROBE_TIMEOUT_MS,
+    );
     const probeKind = classifyPreviewPageProbe(bootProbe);
     if (probeKind === "boot_page") {
       throw new PreviewHostBootPageError(

@@ -41,6 +41,9 @@ const {
   THUMBNAIL_EVALUATE_DEADLINE_MS,
   THUMBNAIL_SCROLL_EVALUATE_DEADLINE_MS,
   THUMBNAIL_SETTLE_PHASE_BUDGET_MS,
+  THUMBNAIL_FONT_READY_TIMEOUT_MS,
+  THUMBNAIL_BOOT_PROBE_TIMEOUT_MS,
+  SCREENSHOT_TIMEOUT_MS,
   THUMBNAIL_VIEWPORT,
 } = await import("./thumbnail-capture");
 
@@ -323,11 +326,24 @@ describe("settle phase budget helpers", () => {
 describe("thumbnailCaptureControlledBudgetMs", () => {
   it("stays safely under the thumbnail route maxDuration of 60s", () => {
     const budget = thumbnailCaptureControlledBudgetMs();
+    // 25_000 nav + 8_000 idle + 2_000 fonts + 400 settle + 1_000 probe
+    // + 6_000 visual-settle + 12_000 screenshot = 54_400.
+    // 60_000 − 54_400 = 5_600 left for browser launch + blob upload.
     expect(budget).toBe(
-      25_000 + 8_000 + 400 + THUMBNAIL_SETTLE_PHASE_BUDGET_MS + 15_000,
+      25_000 +
+        8_000 +
+        THUMBNAIL_FONT_READY_TIMEOUT_MS +
+        400 +
+        THUMBNAIL_BOOT_PROBE_TIMEOUT_MS +
+        THUMBNAIL_SETTLE_PHASE_BUDGET_MS +
+        SCREENSHOT_TIMEOUT_MS,
     );
+    expect(THUMBNAIL_FONT_READY_TIMEOUT_MS).toBe(2_000);
+    expect(THUMBNAIL_BOOT_PROBE_TIMEOUT_MS).toBe(1_000);
+    expect(SCREENSHOT_TIMEOUT_MS).toBe(12_000);
     expect(budget).toBe(54_400);
     expect(budget).toBeLessThan(55_000);
+    expect(60_000 - budget).toBe(5_600);
   });
 });
 
@@ -366,7 +382,11 @@ describe("captureThumbnailScreenshot", () => {
       expect.objectContaining({ method: "GET", timeoutMs: THUMBNAIL_WARMUP_TIMEOUT_MS }),
     );
     expect(page.screenshot).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "jpeg", fullPage: false, timeout: 15_000 }),
+      expect.objectContaining({
+        type: "jpeg",
+        fullPage: false,
+        timeout: SCREENSHOT_TIMEOUT_MS,
+      }),
     );
     expect(page.waitForTimeout).toHaveBeenCalledWith(THUMBNAIL_POST_SCROLL_SETTLE_MS);
     expect(closeSpy).toHaveBeenCalledTimes(1);
@@ -541,6 +561,64 @@ describe("captureThumbnailScreenshot", () => {
       ),
     ).toBe(false);
     expect(closeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("still screenshots when document.fonts.ready never settles", async () => {
+    vi.useFakeTimers();
+    const page = makeFakePage({
+      evaluate: vi.fn((fn: unknown) => {
+        if (classifyEvaluateScript(fn) === "fonts") {
+          return new Promise(() => undefined);
+        }
+        return Promise.resolve(defaultEvaluate(fn));
+      }),
+    });
+    const { browser, closeSpy } = makeFakeBrowser(page);
+    launchMock.mockResolvedValue(browser);
+
+    try {
+      const pending = captureThumbnailScreenshot("https://site.fly.dev/x", {
+        isFinalUrlAllowed: () => true,
+      });
+      await vi.advanceTimersByTimeAsync(THUMBNAIL_FONT_READY_TIMEOUT_MS);
+      const buf = await pending;
+      expect(buf).toBeInstanceOf(Buffer);
+      expect(page.screenshot).toHaveBeenCalledTimes(1);
+      expect(closeSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("finishes when the boot-page probe never settles", async () => {
+    vi.useFakeTimers();
+    const page = makeFakePage({
+      evaluate: vi.fn((fn: unknown) => {
+        if (classifyEvaluateScript(fn) === "probe") {
+          return new Promise(() => undefined);
+        }
+        return Promise.resolve(defaultEvaluate(fn));
+      }),
+    });
+    const { browser, closeSpy } = makeFakeBrowser(page);
+    launchMock.mockResolvedValue(browser);
+
+    try {
+      const pending = captureThumbnailScreenshot("https://site.fly.dev/x", {
+        isFinalUrlAllowed: () => true,
+      });
+      await vi.advanceTimersByTimeAsync(THUMBNAIL_BOOT_PROBE_TIMEOUT_MS);
+      const err = await pending.then(
+        () => undefined,
+        (e: unknown) => e as Error,
+      );
+      expect(err).toBeInstanceOf(PreviewProbeUnreadableError);
+      expect(isPreviewProbeUnreadableError(err)).toBe(true);
+      expect(page.screenshot).not.toHaveBeenCalled();
+      expect(closeSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("skips the screenshot when the page probe is empty, without blaming preview-host", async () => {
