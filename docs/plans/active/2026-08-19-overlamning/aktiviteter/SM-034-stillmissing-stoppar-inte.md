@@ -1,5 +1,7 @@
 # Skyddad route kan saknas efter repair utan att save stoppas
 
+**Klar 2026-08-20 — [#1066](https://github.com/Jakeminator123/sajtmaskin/pull/1066).**
+
 Våg 3 · Cloud · `SM-034` · Medel risk — rör repair-grinden
 
 ## Målet
