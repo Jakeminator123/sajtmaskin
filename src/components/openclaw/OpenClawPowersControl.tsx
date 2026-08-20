@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { ChevronDown, Shield, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
@@ -23,9 +24,10 @@ import { useOpenClawPowers } from "./useOpenClawPowers";
  *
  * Two hit targets on the same pill: the wrapper (shield + padding) presses
  * the master toggle, the chevron opens the list of powers and stops the click
- * from reaching the wrapper. Both gates are visible at once, and neither
- * alone changes behaviour: pressing the shield with nothing ticked grants
- * nothing.
+ * from reaching the wrapper. Menu clicks are portaled and also stopped, so
+ * picking a power cannot flip the switch. Both gates are visible at once,
+ * and neither alone changes behaviour: pressing the shield with nothing
+ * ticked grants nothing.
  */
 /**
  * Re-validate the env gate at the moment the user presses the shield. The
@@ -60,7 +62,10 @@ export function OpenClawPowersControl() {
   const activeCount =
     Number(powers.armedAutonomy) + Number(powers.quickEdit) + Number(powers.liveReview);
 
-  const handleToggle = () => {
+  const handleToggle = (event: MouseEvent<HTMLElement>) => {
+    // Portaled menu items are React children of this wrapper, not DOM
+    // descendants. A bubbled click from the list must not flip the switch.
+    if (!event.currentTarget.contains(event.target as Node)) return;
     const next = !powersOn;
     setPowersOn(next);
     // Pressing ON grants authority, so that is the moment to re-check the env
@@ -112,6 +117,7 @@ export function OpenClawPowersControl() {
         <DropdownMenuContent
           align="end"
           className="w-72 border-white/10 bg-slate-950/95 text-slate-100"
+          onClick={(event) => event.stopPropagation()}
         >
           <DropdownMenuLabel className="text-[11px] tracking-[0.16em] text-slate-400 uppercase">
             Extra befogenheter
