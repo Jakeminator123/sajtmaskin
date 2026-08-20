@@ -1396,7 +1396,7 @@ describe("evaluateBrowserRuntimeIssues (advisory-only)", () => {
     expect(result.warnings).toHaveLength(2);
   });
 
-  it("släpper script-tag-varningen när ett hydreringsfel finns i samma körning", () => {
+  it("släpper script-tag-varningen när ett hydreringsfel finns på samma route", () => {
     const result = evaluateBrowserRuntimeIssues([
       {
         kind: "console",
@@ -1415,6 +1415,38 @@ describe("evaluateBrowserRuntimeIssues (advisory-only)", () => {
     expect(codes(result)).toEqual(["console_error", "hydration_mismatch"]);
     expect(result.warnings.some((w) => /script tag/i.test(w.message))).toBe(false);
     expect(result.warnings.some((w) => w.message.includes("TypeError: boom"))).toBe(true);
+  });
+
+  it("behåller script-tag-varningen på en route utan hydreringskrock", () => {
+    const result = evaluateBrowserRuntimeIssues([
+      {
+        kind: "console",
+        route: "/",
+        message:
+          "Hydration failed because the server rendered HTML didn't match the client.",
+      },
+      {
+        kind: "console",
+        route: "/",
+        message:
+          "Encountered a script tag while rendering React component. Scripts cannot be rendered as React children.",
+      },
+      {
+        kind: "console",
+        route: "/kontakt",
+        message:
+          "Encountered a script tag while rendering React component. Scripts cannot be rendered as React children.",
+      },
+    ]);
+    expect(result.productBlocked).toBe(false);
+    expect(codes(result)).toEqual(["console_error", "hydration_mismatch"]);
+    const scriptWarnings = result.warnings.filter((w) => /script tag/i.test(w.message));
+    expect(scriptWarnings).toHaveLength(1);
+    expect(scriptWarnings[0]!.code).toBe("console_error");
+    expect(scriptWarnings[0]!.route).toBe("/kontakt");
+    expect(
+      result.warnings.some((w) => w.route === "/" && /script tag/i.test(w.message)),
+    ).toBe(false);
   });
 
   it("behåller script-tag-varningen när den är enda console-defekten", () => {
