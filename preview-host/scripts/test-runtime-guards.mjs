@@ -490,6 +490,29 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("_next asset path matches the Next-internal matcher", NEXT_INTERNAL_ROOT_PATH_RE.test("/_next/static/media/x.woff2"));
   check("App Router API path matches the app-api matcher", APP_API_ROOT_PATH_RE.test("/api/chat"));
   check("App Router API root matches the app-api matcher", APP_API_ROOT_PATH_RE.test("/api"));
+  // SM-062: Next 16.3 dopte om /_next/webpack-hmr till /_next/hmr. Missar
+  // matcharen det aktuella namnet satts __sm_viewer aldrig pa socketen, och
+  // reload-signalen kan inte scopas per flik. Genererade sajter kan ligga kvar
+  // pa en aldre Next, sa alla tre namnen maste fangas.
+  {
+    const { isHmrPath, PREVIEW_HMR_PATH_SUFFIXES } = runtime.__testing;
+    check("Next 16.3 /_next/hmr is recognised", isHmrPath("/chat_1/_next/hmr?id=abc"));
+    check("legacy /_next/webpack-hmr still recognised", isHmrPath("/chat_1/_next/webpack-hmr?id=abc"));
+    check("turbopack /_next/turbopack-hmr still recognised", isHmrPath("/chat_1/_next/turbopack-hmr"));
+    check("a plain _next asset is NOT an HMR path", !isHmrPath("/chat_1/_next/static/chunk.js"));
+    check("a route that merely contains hmr does NOT match", !isHmrPath("/chat_1/hmr-dashboard"));
+    check(
+      "the browser bootstrap list covers the same three names",
+      ["/_next/hmr", "/_next/webpack-hmr", "/_next/turbopack-hmr"].every((suffix) =>
+        PREVIEW_HMR_PATH_SUFFIXES.includes(suffix),
+      ),
+    );
+    check(
+      "every bootstrap suffix is also matched server-side",
+      PREVIEW_HMR_PATH_SUFFIXES.every((suffix) => isHmrPath(`/chat_1${suffix}?id=abc`)),
+    );
+  }
+
   check("API-looking page path does NOT match", !APP_API_ROOT_PATH_RE.test("/apis/chat"));
   check("plain site route does NOT match the matcher", !NEXT_INTERNAL_ROOT_PATH_RE.test("/om/kontakt"));
   check("chatId-prefixed path does NOT match the matcher", !NEXT_INTERNAL_ROOT_PATH_RE.test("/7e8f51e0-abc/__nextjs_font/geist-latin.woff2"));
