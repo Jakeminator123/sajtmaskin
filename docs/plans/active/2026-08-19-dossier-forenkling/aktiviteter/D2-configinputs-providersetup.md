@@ -34,6 +34,29 @@ validera medan de fylls i efterhand. Fyll i dem för de dossiers där #1045 reda
 skrev ner handgreppen i prosa — `supabase-auth`, `sanity-cms`, `stripe-checkout`,
 `clerk-auth`, `postgres-drizzle` — och lämna resten tomma.
 
+## Två sanningar bredvid varandra — undvik det
+
+`envVars[]` är i dag **inte** schema-only. Den läses i runtime av registry
+(`registry.ts:112`), `isConfigured` (`select.ts:197-205`), `dossierRequiresF3`
+(`types.ts:233-234`), lifecycle/readiness (`lifecycle.ts:130-191`), katalog-API:t
+(`catalog/route.ts:39-44`), overview-detektorn (`dossier-overview.ts:117-145`) och
+capability-map-generatorn (`regenerate-capability-map.ts:95-99, 228-249`).
+
+`configInputs` beskriver delvis samma sak: värden användaren fyller i hos oss.
+Införs fältet utan att någon läser det får vi två beskrivningar av samma fråga och
+ingen ägare — precis den klass av problem som `SM-046` (`deploy-assistant`
+konfigurerad utan anropare) redan kostat oss.
+
+Därför krävs ett av två i den här PR:en, uttryckligen skrivet i PR-bodyn:
+
+- **Antingen** minst en runtime- eller UI-konsument som faktiskt läser
+ `configInputs`, så fältet har en anropare från dag ett,
+- **eller** en explicit rad i `docs/contracts/dossier-system.md` att fältet är
+ *schema-only i väntan på D3*, med `envVars` som fortsatt enda sanning för
+ `configured`-frågan.
+
+Att lämna frågan obesvarad är inte ett tredje alternativ.
+
 ## Gränser
 
 - **Ändra inte** `envVars[]`-kontraktet i den här aktiviteten. `isConfigured()`
@@ -50,6 +73,7 @@ skrev ner handgreppen i prosa — `supabase-auth`, `sanity-cms`, `stripe-checkou
 - Schemat accepterar båda fälten, och `npm run dossiers:validate-all` är grön för alla 18.
 - De fem dossiers som har handgrepp i prosa har dem även i `providerSetup`, med samma innebörd — inte utökad.
 - Ett test låser att ett manifest utan fälten fortfarande validerar.
+- `configInputs` har antingen en läsare eller en skriven schema-only-status. Ingen andra sanning bredvid `envVars`.
 - Hela verifieringslistan i [styrdokumentet](../00-master-plan.md#verifiering-per-ändring) är grön.
 
 ## Agentprompt

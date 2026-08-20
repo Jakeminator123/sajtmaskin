@@ -5,8 +5,13 @@ Full text för arkiv och omstrukturering ligger i **git-historik**. Rör inte
 
 ## Högsta förbrukade `SM`-ID
 
-**`SM-056`** (2026-08-14). Nästa nya rad = `SM-057`. Återanvänd aldrig ett nummer —
+**`SM-070`** (2026-08-20). Nästa nya rad = `SM-071`. Återanvänd aldrig ett nummer —
 räkna även mot git-historiken för raderade arkivfiler om du är osäker.
+
+Den här raden stod på `SM-056` / nästa `SM-057` ända till 2026-08-20, medan
+`SM-057`–`SM-064` redan var förbrukade i kön och arkivet. Räkna alltid mot
+**både** `Aktiv kö`, `## Arkiv` och den här raden — och rätta den här raden i
+samma ändring som du delar ut ett nytt nummer.
 
 ```powershell
 git log -S 'SM-' --oneline -- docs/plans/avklarat/bug-swarm/ BUG-SWARM-BACKLOG.md
