@@ -175,6 +175,20 @@ async function runProductPostcheckApi(params: {
   }
 }
 
+/** Readable live-review log line. Skip reasons must not claim screenshots were taken. */
+export function formatLiveReviewLogMessage(result: ProductPostcheckResult): string | null {
+  if (result.liveReview?.status === "completed") {
+    return `Live review: ${result.liveReview.decision.verdict}.`;
+  }
+  if (result.liveReview?.status === "skipped") {
+    return `Live review skipped: ${result.liveReview.reason}.`;
+  }
+  if (result.screenshots) {
+    return "Live review screenshots captured.";
+  }
+  return null;
+}
+
 /** Exported for the resume-verify lane — see `persistVersionErrorLogs`. */
 export function buildProductPostcheckLogItems(
   result: ProductPostcheckResult | null,
@@ -238,6 +252,18 @@ export function buildProductPostcheckLogItems(
       routesChecked: result.routesChecked ?? null,
     },
   });
+  const liveReviewMessage = formatLiveReviewLogMessage(result);
+  if (liveReviewMessage) {
+    logs.push({
+      level: "info",
+      category: "product_postcheck.live_review",
+      message: liveReviewMessage,
+      meta: {
+        screenshots: result.screenshots ?? null,
+        liveReview: result.liveReview ?? null,
+      },
+    });
+  }
   return logs;
 }
 
@@ -429,6 +455,16 @@ export async function runPostGenerationChecks(params: {
       input: { chatId, versionId, previousVersionId: baseline.previousVersionId },
       output: artifacts.output,
     });
+
+    if (productPostcheck?.liveReview?.status === "completed") {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:live-review",
+        toolName: "Live-granskning",
+        toolCallId: `live-review:${versionId}`,
+        state: "output-available",
+        output: productPostcheck.liveReview,
+      });
+    }
 
     appendPostCheckSummaryToMessage(
       setMessages,

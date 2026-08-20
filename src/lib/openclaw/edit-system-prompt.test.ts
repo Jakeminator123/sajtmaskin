@@ -51,6 +51,10 @@ describe("OpenClaw edit system prompt — server gate", () => {
     expect(promptFor(true, ["publish_site", "write_platform_code"])).toBeNull();
   });
 
+  it("does not inject the edit prompt when only live_review is granted", () => {
+    expect(promptFor(true, ["live_review"])).toBeNull();
+  });
+
   it("always states that other powers are off", () => {
     const prompt = promptFor(true, ["armed_autonomy"]);
     expect(prompt).toContain("inga andra");

@@ -56,7 +56,8 @@ export function OpenClawPowersControl() {
 
   if (!editEnabled) return null;
 
-  const activeCount = Number(powers.armedAutonomy) + Number(powers.quickEdit);
+  const activeCount =
+    Number(powers.armedAutonomy) + Number(powers.quickEdit) + Number(powers.liveReview);
 
   const handleToggle = () => {
     const next = !powersOn;
@@ -71,7 +72,7 @@ export function OpenClawPowersControl() {
     <div
       className={cn(
         "flex items-center rounded-full border transition-colors",
-        powers.any
+        activeCount > 0
           ? "border-fuchsia-400/40 bg-fuchsia-400/10"
           : "border-white/10 bg-transparent",
       )}

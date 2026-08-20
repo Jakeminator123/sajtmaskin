@@ -281,4 +281,13 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(matchClassifier?.invocation).toBe("ai_generateObject");
     expect(matchClassifier?.defaultModel).toBeTruthy();
   });
+
+  it("documents live_review as a vision generateObject workload with existing slugs", () => {
+    const m = getAiModelsManifest();
+    const liveReview = m.workloads.find((w) => w.id === "live_review");
+    expect(liveReview?.invocation).toBe("ai_generateObject");
+    expect(liveReview?.defaultModel).toBe("gpt-4o");
+    expect(liveReview?.visionModels).toContain("gpt-4o");
+    expect(liveReview?.codeEntry).toContain("src/lib/gen/verify/live-review.ts");
+  });
 });

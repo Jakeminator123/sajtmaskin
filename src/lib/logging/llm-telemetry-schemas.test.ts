@@ -309,6 +309,19 @@ describe("LLM telemetri strict schemas", () => {
       expect(validate(payload)).toBe(true);
     });
 
+    it("matchar product_postcheck.live_review", () => {
+      const payload = {
+        level: "info",
+        category: "product_postcheck.live_review",
+        message: "Live review: pass.",
+        meta: {
+          screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+          liveReview: { status: "completed", decision: { verdict: "pass" } },
+        },
+      };
+      expect(validate(payload)).toBe(true);
+    });
+
     it("kastar icke-product-kategori", () => {
       const payload = {
         level: "warning",

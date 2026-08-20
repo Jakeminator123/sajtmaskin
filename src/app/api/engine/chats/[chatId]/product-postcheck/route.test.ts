@@ -3,15 +3,33 @@ import { FEATURES } from "@/lib/config";
 import { POST } from "./route";
 
 const getVersion = vi.hoisted(() => vi.fn());
+const getRequestUserId = vi.hoisted(() => vi.fn(async () => "user_1"));
 const runProductPostcheck = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
+const isLiveReviewEnabled = vi.hoisted(() => vi.fn(() => false));
+const maybeAttachLiveReview = vi.hoisted(() => vi.fn());
+const setLlmUsageContext = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest: getVersion,
+  getRequestUserId,
+}));
+
+vi.mock("@/lib/observability/llm-usage", () => ({
+  runWithLlmUsageContext: (_ctx: unknown, fn: () => unknown) => fn(),
+  setLlmUsageContext,
+  safeUsageOwnerId: async (lookup: () => Promise<string | null>) => lookup(),
 }));
 
 vi.mock("@/lib/gen/verify/product-postcheck", () => ({
   runProductPostcheck,
+}));
+
+vi.mock("@/lib/gen/verify/live-review", () => ({
+  isLiveReviewEnabled,
+  maybeAttachLiveReview,
+  pickUserRequest: () => "",
+  summarizeBrief: () => "",
 }));
 
 vi.mock("@/lib/logging/event-bus", () => ({
@@ -213,5 +231,58 @@ describe("POST product-postcheck", () => {
     });
     expect(res.status).toBe(404);
     expect(runProductPostcheck).not.toHaveBeenCalled();
+  });
+
+  it("live review flag on + postcheck ok => attaches critic result without blocking", async () => {
+    setF2ProductPostcheck(true);
+    isLiveReviewEnabled.mockReturnValue(true);
+    getVersion.mockResolvedValue({
+      version: { id: "v1", version_number: 1, files_json: "[]" },
+      chat: { messages: [], orchestration_snapshot: null },
+    });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 8,
+      checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+      domSummary: null,
+    });
+    maybeAttachLiveReview.mockResolvedValue({
+      status: "completed",
+      decision: {
+        verdict: "pass",
+        confidence: 0.8,
+        rationale: "Sajten följer briefen.",
+        reasoning: "",
+        issues: [],
+      },
+      durationMs: 12,
+      modelId: "gpt-4o",
+    });
+    const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+    expect(body.productBlocked).toBe(false);
+    expect(body.liveReview.status).toBe("completed");
+    expect(maybeAttachLiveReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        versionId: "v1",
+        chatId: "chat_1",
+        versionNumber: 1,
+      }),
+    );
+    expect(emitBusEvent).not.toHaveBeenCalled();
+    expect(setLlmUsageContext).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: "chat_1", userId: "user_1" }),
+    );
+    expect(setLlmUsageContext).toHaveBeenCalledWith(
+      expect.objectContaining({ versionId: "v1" }),
+    );
   });
 });

@@ -2,12 +2,29 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { FEATURES } from "@/lib/config";
 import { withRateLimit } from "@/lib/rate-limit";
-import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
+import {
+  runWithLlmUsageContext,
+  safeUsageOwnerId,
+  setLlmUsageContext,
+} from "@/lib/observability/llm-usage";
+import { getEngineVersionForChatByIdForRequest, getRequestUserId } from "@/lib/tenant";
 import { runProductPostcheck } from "@/lib/gen/verify/product-postcheck";
+import {
+  isLiveReviewEnabled,
+  maybeAttachLiveReview,
+  pickUserRequest,
+  summarizeBrief,
+} from "@/lib/gen/verify/live-review";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Postcheck alone can approach ~150s worst case (boot wait, crawl with the
+// capture-extended deadline, two 15s JPEG captures, mobile probe); with
+// SAJTMASKIN_LIVE_REVIEW on, the review chain adds up to another 90s
+// (LIVE_REVIEW_TOTAL_TIMEOUT_MS). 300s (repo precedent: api/template,
+// api/audit) keeps the JSON response from being platform-killed mid-flight.
+export const maxDuration = 300;
 
 const requestSchema = z.object({
   versionId: z.string().min(1),
@@ -15,7 +32,9 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
-  return withRateLimit(req, "engine:product-postcheck", () => handlePOST(req, ctx));
+  return withRateLimit(req, "engine:product-postcheck", () =>
+    runWithLlmUsageContext({}, () => handlePOST(req, ctx)),
+  );
 }
 
 function emitPostcheckDegraded(params: {
@@ -114,6 +133,13 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     });
   }
 
+  const usageOwnerId = await safeUsageOwnerId(() => getRequestUserId(req));
+  setLlmUsageContext({
+    chatId,
+    userId: usageOwnerId,
+    sessionId: getSessionIdFromRequest(req),
+  });
+
   // Resolve+scope the version BEFORE the missing-preview-url skip so that
   // skip can be surfaced on the version-status projection. Stays AFTER the
   // feature-disabled return above, so default-OFF deployments do no DB read
@@ -124,6 +150,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     return NextResponse.json({ ok: false, error: "Version not found for chat" }, { status: 404 });
   }
   const resolvedVersionId = scopedVersion.version.id;
+  setLlmUsageContext({ versionId: resolvedVersionId });
 
   if (!previewUrl?.trim()) {
     // A skipped DOM postcheck must never read as solid green. The common
@@ -195,6 +222,34 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         checkedUrl: result.checkedUrl ?? null,
         durationMs: result.durationMs ?? null,
       });
+    }
+
+    if (isLiveReviewEnabled() && !result.skipped) {
+      try {
+        // Follow-up signal is `version_number > 1`, not `parent_version_id`
+        // (that column is F3-fork lineage only). Previous files/screenshots
+        // are resolved inside maybeAttachLiveReview via chat version order.
+        result.liveReview = await maybeAttachLiveReview({
+          skipped: result.skipped,
+          findings: result.warnings.map((warning) => ({
+            code: warning.code,
+            message: warning.message,
+          })),
+          screenshots: result.screenshots,
+          domSummary: result.domSummary,
+          versionId: resolvedVersionId,
+          chatId,
+          versionNumber: scopedVersion.version.version_number,
+          filesJson: scopedVersion.version.files_json,
+          userRequest: pickUserRequest(scopedVersion.chat.messages ?? []),
+          briefSummary: summarizeBrief(scopedVersion.chat.orchestration_snapshot),
+        });
+      } catch (reviewError) {
+        console.warn(
+          "[product-postcheck] live review skipped:",
+          reviewError instanceof Error ? reviewError.message : reviewError,
+        );
+      }
     }
 
     return NextResponse.json(result);

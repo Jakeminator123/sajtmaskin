@@ -127,6 +127,7 @@ export function buildChatReadiness(params: {
 const PRODUCT_POSTCHECK_PREFIX = "product_postcheck.";
 const PRODUCT_POSTCHECK_SUMMARY = "product_postcheck.summary";
 const PRODUCT_POSTCHECK_SKIPPED = "product_postcheck.skipped";
+const PRODUCT_POSTCHECK_LIVE_REVIEW = "product_postcheck.live_review";
 
 /** Error-log shape the projector needs. Matches `engine_version_error_logs`. */
 export type ProductPostcheckReadinessLog = {
@@ -160,7 +161,8 @@ function isProductPostcheckFindingCategory(category: string): boolean {
   return (
     category.startsWith(PRODUCT_POSTCHECK_PREFIX) &&
     category !== PRODUCT_POSTCHECK_SUMMARY &&
-    category !== PRODUCT_POSTCHECK_SKIPPED
+    category !== PRODUCT_POSTCHECK_SKIPPED &&
+    category !== PRODUCT_POSTCHECK_LIVE_REVIEW
   );
 }
 

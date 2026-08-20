@@ -218,6 +218,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_PREVIEW_PREWARM: z.string().optional(),
   /** Static visual-QA heuristic on exportable files (no screenshot). Optional, default off. Read via `isVisualQAEnabled` in `src/lib/gen/verify/visual-qa.ts`. */
   SAJTMASKIN_VISUAL_QA: z.string().optional(),
+  /** Live review critic after Product Postcheck (screenshots + structured multimodal verdict). Optional, default off. Read via `isLiveReviewEnabled` in `src/lib/gen/verify/live-review.ts`. */
+  SAJTMASKIN_LIVE_REVIEW: z.string().optional(),
   /** Kill-switch for the automatic F2 design-preview quality gate (RenderGate) — the ~5-7s "verifying" post-check after a new version renders. Affirmative ("1"/"true") short-circuits the client-triggered `POST /quality-gate` F2 lane: no preview-host verify run, no `verifying` spinner, no superseded mutation, and NO promotion — the version stays unverified/pending (a skipped gate must never read as `passed`). The explicit F3 integrations ReleaseGate is UNAFFECTED. Read via `isQualityGateDisabledByEnv` in `src/lib/gen/verify/preview-quality-gate.ts`. Default off. */
   SAJTMASKIN_DISABLE_QUALITY_GATE: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),

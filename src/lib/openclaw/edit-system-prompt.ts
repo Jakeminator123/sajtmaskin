@@ -53,6 +53,8 @@ const QUICK_EDIT_SECTION = `Exakta småändringar (apply_quick_edit):
 
 /** Null when nothing is granted — the route then pushes no edit prompt at all. */
 export function buildOpenClawEditSystemPrompt(powers: OpenClawPowers): string | null {
+  // `powers.any` is edit-powers-only (liveReview is deliberately excluded in
+  // resolveOpenClawPowers), so a critic-only grant injects no edit prompt.
   if (!powers.any) return null;
   const sections = [EDIT_MODE_HEADER];
   if (powers.armedAutonomy) sections.push(ARMED_AUTONOMY_SECTION);

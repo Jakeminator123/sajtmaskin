@@ -8,6 +8,8 @@ import type {
   ServerRepairSummary,
   ToolIntegrationSummary,
 } from "./types";
+import type { LiveReviewResult, LiveReviewSkipReason } from "@/lib/gen/verify/live-review-types";
+import { parseReviewDecision } from "@/lib/gen/verify/live-review-types";
 
 export function resolveToolLabels(tool: Partial<ToolUIPart> & { type?: string }) {
   const rawToolType = typeof tool.type === "string" ? `${tool.type}` : "";
@@ -383,12 +385,49 @@ function getServerRepairSummary(output: unknown): ServerRepairSummary | null {
   };
 }
 
+export function getLiveReviewResult(output: unknown): LiveReviewResult | null {
+  if (!output || typeof output !== "object") return null;
+  const obj = output as Record<string, unknown>;
+  const fromPostcheck =
+    obj.productPostcheck && typeof obj.productPostcheck === "object"
+      ? (obj.productPostcheck as Record<string, unknown>).liveReview
+      : null;
+  const nested =
+    obj.liveReview && typeof obj.liveReview === "object"
+      ? (obj.liveReview as Record<string, unknown>)
+      : fromPostcheck && typeof fromPostcheck === "object"
+        ? (fromPostcheck as Record<string, unknown>)
+        : obj;
+  if (nested.status === "skipped" && typeof nested.reason === "string") {
+    return {
+      status: "skipped",
+      reason: nested.reason as LiveReviewSkipReason,
+      detail: typeof nested.detail === "string" ? nested.detail : undefined,
+    };
+  }
+  if (nested.status === "completed" && nested.decision) {
+    return {
+      status: "completed",
+      decision: parseReviewDecision(nested.decision),
+      durationMs: typeof nested.durationMs === "number" ? nested.durationMs : 0,
+      modelId: typeof nested.modelId === "string" ? nested.modelId : "",
+    };
+  }
+  return null;
+}
+
 export function extractToolSummaries(toolType: string, output: unknown) {
   const isPostCheck = toolType === "tool-post-check";
   const isQualityGate = toolType === "tool-quality-gate";
+  const isLiveReview = toolType === "tool-live-review";
   return {
     postCheck: isPostCheck ? getPostCheckSummary(output) : null,
     qualityGate: isQualityGate ? getQualityGateSummary(output) : null,
     serverRepair: isQualityGate ? getServerRepairSummary(output) : null,
+    // ONLY the dedicated part renders the verdict. The post-check output also
+    // embeds `liveReview`, but a completed review always appends the dedicated
+    // part too, so surfacing it from tool-post-check rendered the row twice
+    // (bugbot medium, 2026-08-19).
+    liveReview: isLiveReview ? getLiveReviewResult(output) : null,
   };
 }

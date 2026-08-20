@@ -321,6 +321,7 @@ function isNoiseForAutoFix(log: PersistedVersionLog): boolean {
   // Summary is just a count bag ("found N warnings") — the concrete codes
   // (console_error / runtime_crash / …) are what a repair can act on.
   if (category === "product_postcheck.summary") return true;
+  if (category === "product_postcheck.live_review") return true;
   if (message.includes("Preview rendered successfully")) return true;
   return false;
 }

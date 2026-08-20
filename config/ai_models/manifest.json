@@ -1001,6 +1001,22 @@
       "codeEntry": ["src/lib/seo/llm-copy.ts", "src/lib/seo/index.ts"],
       "authEnv": ["OPENAI_API_KEY"],
       "defaultModel": "openai/gpt-5.2"
+    },
+    {
+      "id": "live_review",
+      "title": "Live site critic (vision)",
+      "description": "generateObject multimodal review of desktop+mobile screenshots against the user prompt/brief after Product Postcheck. Critic only: no code changes. Behind SAJTMASKIN_LIVE_REVIEW.",
+      "invocation": "ai_generateObject",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "src/lib/gen/verify/live-review.ts",
+        "src/lib/gen/verify/product-postcheck.ts"
+      ],
+      "authEnv": ["OPENAI_API_KEY"],
+      "defaultModel": "gpt-4o",
+      "fallbackModels": ["gpt-5.5"],
+      "visionModels": ["gpt-4o", "gpt-5.5"],
+      "notes": "Reuses existing vision slugs already listed on backoffice_scaffold_wizard_persona and analyze_presentation_vision. Do not invent a new model id. Etapp 1 is critic only."
     }
   ]
 }

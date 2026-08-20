@@ -32,7 +32,7 @@
  */
 
 /** Canonical power ids. The menu is derived from this list, never hardcoded. */
-export const OPENCLAW_POWER_IDS = ["armed_autonomy", "quick_edit"] as const;
+export const OPENCLAW_POWER_IDS = ["armed_autonomy", "quick_edit", "live_review"] as const;
 
 export type OpenClawPowerId = (typeof OPENCLAW_POWER_IDS)[number];
 
@@ -48,6 +48,11 @@ export const OPENCLAW_POWER_META: Record<
   quick_edit: {
     label: "Snabbändringar",
     description: "Får föreslå exakta småändringar i sajtens filer. Du godkänner varje förslag.",
+  },
+  live_review: {
+    label: "Granskar sajten live",
+    description:
+      "Får titta på din färdiga sajt, säga vad som är fel och föreslå ändringar. Du godkänner varje ändring.",
   },
 };
 
@@ -66,15 +71,27 @@ export interface OpenClawPowers {
   /** `apply_quick_edit` approval cards (still one manual click per change). */
   quickEdit: boolean;
   /**
-   * True when at least one power is live. Gates everything that is merely a
-   * consequence of edit mode rather than a power of its own: the bounded edit
-   * code context and the prepared-prompt fast lane.
+   * Live-site critic. Etapp 1 registers the power only — it gates no execution.
+   * Stage 2 will use it for clickable suggestions.
+   */
+  liveReview: boolean;
+  /**
+   * True when at least one EDIT power is live. Gates everything that is merely
+   * a consequence of edit mode rather than a power of its own: the bounded edit
+   * code context and the prepared-prompt fast lane. `liveReview` is a critic,
+   * not an edit power — granting it alone must NOT open those surfaces, so it
+   * is deliberately excluded here.
    */
   any: boolean;
 }
 
 /** All powers off — the `OC_EDIT=false` shape, reused so it cannot drift. */
-const NO_POWERS: OpenClawPowers = { armedAutonomy: false, quickEdit: false, any: false };
+const NO_POWERS: OpenClawPowers = {
+  armedAutonomy: false,
+  quickEdit: false,
+  liveReview: false,
+  any: false,
+};
 
 /**
  * Resolve the effective powers for a turn. The single place the AND lives;
@@ -85,7 +102,15 @@ export function resolveOpenClawPowers(input: OpenClawPowersInput): OpenClawPower
   const granted = Array.isArray(input.granted) ? input.granted : [];
   const armedAutonomy = granted.includes("armed_autonomy");
   const quickEdit = granted.includes("quick_edit");
-  return { armedAutonomy, quickEdit, any: armedAutonomy || quickEdit };
+  const liveReview = granted.includes("live_review");
+  return {
+    armedAutonomy,
+    quickEdit,
+    liveReview,
+    // liveReview excluded by design: a critic grant must not unlock the edit
+    // code context, `editOwned` in the chat route, or the prepared-fill lane.
+    any: armedAutonomy || quickEdit,
+  };
 }
 
 /**
@@ -93,8 +118,12 @@ export function resolveOpenClawPowers(input: OpenClawPowersInput): OpenClawPower
  * server can narrow the edit system prompt to exactly what the user granted.
  */
 export function activeOpenClawPowerIds(input: OpenClawPowersInput): OpenClawPowerId[] {
-  if (!resolveOpenClawPowers(input).any) return [];
-  return sanitizeOpenClawPowerIds(input.granted);
+  // Do not gate on `.any`: a live_review-only grant leaves `any` false
+  // (edit surfaces stay closed) but the client must still send the id so
+  // the server can see the critic tick. Authority is re-resolved server-side.
+  if (!input.editEnabled || !input.powersOn) return [];
+  const granted = sanitizeOpenClawPowerIds(input.granted);
+  return granted.length > 0 ? granted : [];
 }
 
 /**

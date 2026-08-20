@@ -76,6 +76,7 @@
     "SAJTMASKIN_DEV_LOG",
     "GENERATIONSLOGG",
     "SAJTMASKIN_VISUAL_QA",
+    "SAJTMASKIN_LIVE_REVIEW",
     "AI_BRIEF_MAX_TOKENS",
     "SAJTMASKIN_MAX_PROMPT_LENGTH",
     "SAJTMASKIN_WARN_PROMPT_LENGTH",
@@ -888,6 +889,12 @@
       "classification": "environment_specific",
       "recommendedVercelTargets": ["preview", "production"],
       "notes": "Optional app-side static visual QA after passing preview-host verify checks."
+    },
+    {
+      "key": "SAJTMASKIN_LIVE_REVIEW",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Optional live-site critic after Product Postcheck. Screenshots + structured multimodal verdict. Default off. Does not change user files or set productBlocked."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
