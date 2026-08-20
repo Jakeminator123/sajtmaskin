@@ -119,3 +119,36 @@ export function reinjectProtectedPathsFromFallback(params: {
   }
   return { files: merged, reinjected, stillMissing };
 }
+
+/**
+ * Last-resort persist gate after fallback reinject. A non-empty `stillMissing`
+ * means a protected path exists in neither the post-partition repair output
+ * nor the fallback — callers MUST not persist and SHOULD surface this reason
+ * on the existing fail / HTTP `reason` channel.
+ *
+ * Imported-repo (verbatim) chats skip the block: protected paths such as
+ * `app/api/placeholder/route.ts` are intentionally absent from persisted
+ * `files_json` and only injected at export/preview/verify time. Repair starts
+ * from that exportable project, so the LLM often re-emits the injected path;
+ * treating that as a persist failure would false-block a legal save and
+ * mis-blame a typecheck/build gate.
+ */
+export function missingProtectedPathsPersistBlock(
+  stillMissing: readonly string[],
+  options?: { verbatimRepo?: boolean },
+): {
+  stillMissing: string[];
+  failSummary: string;
+  userReason: string;
+} | null {
+  if (options?.verbatimRepo) return null;
+  if (stillMissing.length === 0) return null;
+  const listed = stillMissing.join(", ");
+  const fileWord = stillMissing.length === 1 ? "file" : "files";
+  const filWord = stillMissing.length === 1 ? "fil" : "filer";
+  return {
+    stillMissing: [...stillMissing],
+    failSummary: `Server repair did not save: protected ${fileWord} ${listed} ${stillMissing.length === 1 ? "is" : "are"} missing from both the repair output and the previous version.`,
+    userReason: `Skyddad ${filWord} saknas efter reparationen och kunde inte återställas: ${listed}. Versionen sparades inte.`,
+  };
+}

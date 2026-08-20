@@ -28,6 +28,10 @@ const runRepairLoop = vi.hoisted(() => vi.fn());
 const shouldPromoteAfterRepair = vi.hoisted(() => vi.fn());
 const triggerServerVerification = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
+const protectedReinjectStillMissing = vi.hoisted(() => ({
+  value: [] as string[],
+  queue: null as string[][] | null,
+}));
 const afterCallbacks = vi.hoisted(() => ({ value: [] as Array<() => unknown> }));
 const QualityGateUnavailableError = vi.hoisted(
   () =>
@@ -99,17 +103,25 @@ vi.mock("@/lib/gen/parser", () => ({
     files: [{ path: "app/page.tsx", content: "x", language: "tsx" }],
   }),
 }));
-vi.mock("@/lib/gen/scaffolds/protected-paths", () => ({
-  partitionGeneratedFilesForProtectedPaths: (files: unknown[]) => ({
-    kept: files,
-    dropped: [],
-  }),
-  reinjectProtectedPathsFromFallback: ({ kept }: { kept: unknown[] }) => ({
-    files: kept,
-    reinjected: [],
-    stillMissing: [],
-  }),
-}));
+vi.mock("@/lib/gen/scaffolds/protected-paths", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/scaffolds/protected-paths")>();
+  return {
+    ...actual,
+    partitionGeneratedFilesForProtectedPaths: (files: unknown[]) => ({
+      kept: files,
+      dropped: [],
+    }),
+    reinjectProtectedPathsFromFallback: ({ kept }: { kept: unknown[] }) => ({
+      files: kept,
+      reinjected: [],
+      stillMissing:
+        protectedReinjectStillMissing.queue &&
+        protectedReinjectStillMissing.queue.length > 0
+          ? (protectedReinjectStillMissing.queue.shift() ?? [])
+          : protectedReinjectStillMissing.value,
+    }),
+  };
+});
 vi.mock("@/lib/models/catalog", () => ({ ownModelIdToCanonicalModelId: () => null }));
 vi.mock("@/lib/models/phase-routing", () => ({
   resolvePhaseModel: () => ({ modelId: "fixer-model" }),
@@ -144,6 +156,8 @@ function req(body: unknown) {
 }
 
 beforeEach(() => {
+  protectedReinjectStillMissing.value = [];
+  protectedReinjectStillMissing.queue = null;
   getGenerationBillingMarkerPolicy.mockReset().mockResolvedValue({
     freeGenerationEligible: true,
     freeGenerationApplied: false,
@@ -1146,5 +1160,132 @@ describe("POST repair — unreachable verify lane must not fail the version (fal
     );
     // Lease still released in finally.
     expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
+  });
+});
+
+describe("POST repair — stillMissing protected path must not persist (SM-034)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    protectedReinjectStillMissing.value = ["app/api/placeholder/route.ts"];
+    getRequestUserId.mockResolvedValue("user-1");
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    acquireVersionLease.mockResolvedValue({ runId: "run-1" });
+    releaseVersionLease.mockResolvedValue(undefined);
+    renewVersionLease.mockResolvedValue(undefined);
+    markVersionRepairing.mockResolvedValue(undefined);
+    createEngineVersionErrorLogs.mockResolvedValue([]);
+    getChat.mockResolvedValue(undefined);
+    afterCallbacks.value = [];
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    shouldPromoteAfterRepair.mockResolvedValue({ promote: true, results: [] });
+    saveRepairedFiles.mockResolvedValue({
+      status: "saved",
+      version: { id: "ver-1" },
+    });
+    failVersionVerification.mockResolvedValue({ id: "ver-1" });
+    runRepairLoop.mockImplementation(
+      async (opts: {
+        onAttemptPromotion: (
+          content: string,
+          method: "deterministic" | "llm",
+        ) => Promise<{ promoted: boolean; payload: { newVersionId: string | null } }>;
+      }) => {
+        const attempt = await opts.onAttemptPromotion(
+          '```tsx file="app/page.tsx"\nx\n```',
+          "llm",
+        );
+        return {
+          promoted: attempt.promoted,
+          remainingErrors: 0,
+          llmPasses: 1,
+          method: "llm",
+          payload: attempt.payload,
+          earlyStopReason: null,
+          improvedSyntax: false,
+          noContext: false,
+          errorManifest: null,
+        };
+      },
+    );
+  });
+
+  it("does not save and names the missing file in the existing fail channel", async () => {
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(saveRepairedFiles).not.toHaveBeenCalled();
+    expect(shouldPromoteAfterRepair).not.toHaveBeenCalled();
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      "ver-1",
+      expect.stringContaining("app/api/placeholder/route.ts"),
+      "run-1",
+    );
+    expect(res.status).toBe(200);
+    expect(body.repaired).toBe(false);
+    expect(body.reason).toContain("app/api/placeholder/route.ts");
+    expect(body.reason).toContain("sparades inte");
+  });
+
+  it("does not save when a later pass would succeed after an earlier stillMissing block", async () => {
+    protectedReinjectStillMissing.queue = [["app/api/placeholder/route.ts"], []];
+    runRepairLoop.mockImplementation(
+      async (opts: {
+        onAttemptPromotion: (
+          content: string,
+          method: "deterministic" | "llm",
+        ) => Promise<{ promoted: boolean; payload: { newVersionId: string | null } }>;
+      }) => {
+        const first = await opts.onAttemptPromotion(
+          '```tsx file="app/page.tsx"\nx\n```',
+          "deterministic",
+        );
+        const second = await opts.onAttemptPromotion(
+          '```tsx file="app/page.tsx"\nx\n```',
+          "llm",
+        );
+        return {
+          promoted: first.promoted || second.promoted,
+          remainingErrors: 0,
+          llmPasses: 1,
+          method: "llm",
+          payload: second.payload,
+          earlyStopReason: null,
+          improvedSyntax: false,
+          noContext: false,
+          errorManifest: null,
+        };
+      },
+    );
+
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+    const body = await res.json();
+
+    expect(saveRepairedFiles).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(body.repaired).toBe(false);
+    expect(body.reason).toContain("app/api/placeholder/route.ts");
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      "ver-1",
+      expect.stringContaining("app/api/placeholder/route.ts"),
+      "run-1",
+    );
   });
 });
