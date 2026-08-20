@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { countParseErrors } from "./import-binding-ast";
 import { fixFooterCopyrightYear } from "./footer-copyright-year-fixer";
 
 const FOOTER_WITH_LIVE_YEAR = `export function SiteFooter() {
@@ -71,6 +72,67 @@ describe("fixFooterCopyrightYear", () => {
     const result = fixFooterCopyrightYear(src, "components/site-footer.tsx", 2026);
     expect(result.fixed).toBe(false);
     expect(result.code).toBe(src);
+  });
+
+  it("leaves new Date().getFullYear().toLocaleString() untouched", () => {
+    const src = `export function SiteFooter() {
+  return <footer>© {new Date().getFullYear().toLocaleString()}</footer>;
+}
+`;
+    const result = fixFooterCopyrightYear(src, "components/site-footer.tsx", 2026);
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(src);
+    expect(result.code).not.toContain("2026.toLocaleString");
+  });
+
+  it("leaves new Date().getFullYear().toFixed(0) untouched", () => {
+    const src = `export function SiteFooter() {
+  return <footer>© {new Date().getFullYear().toFixed(0)}</footer>;
+}
+`;
+    const result = fixFooterCopyrightYear(src, "components/site-footer.tsx", 2026);
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(src);
+    expect(result.code).not.toContain("2026.toFixed");
+  });
+
+  it("leaves spaced following members like getFullYear() .valueOf() untouched", () => {
+    const src = `export function SiteFooter() {
+  const year = new Date().getFullYear() .valueOf();
+  return <footer>© {year}</footer>;
+}
+`;
+    const result = fixFooterCopyrightYear(src, "components/site-footer.tsx", 2026);
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(src);
+  });
+
+  it("emits parseable TSX for the cases it does rewrite", () => {
+    const footerPath = "components/site-footer.tsx";
+    const rewritten = [
+      fixFooterCopyrightYear(FOOTER_WITH_LIVE_YEAR, footerPath, 2026),
+      fixFooterCopyrightYear(
+        `export function SiteFooter() {
+  const year = new Date().getFullYear();
+  return <footer>© {year}</footer>;
+}
+`,
+        footerPath,
+        2026,
+      ),
+      fixFooterCopyrightYear(
+        `export function SiteFooter() {
+  return <footer>© {new Date().getFullYear().toString()}</footer>;
+}
+`,
+        footerPath,
+        2026,
+      ),
+    ];
+    for (const result of rewritten) {
+      expect(result.fixed).toBe(true);
+      expect(countParseErrors(result.code, footerPath)).toBe(0);
+    }
   });
 
   it("accepts Windows paths and is idempotent after the rewrite", () => {
