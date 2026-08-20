@@ -476,6 +476,40 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
     expect(result.kept).toHaveLength(0);
   });
 
+  it("prod 777848b18c3b: drops a satisfied absence claim whose while-clause says import them", () => {
+    // Exact blocker text from 2026-08-13 (chat 208c3d04). Server-verify passed;
+    // the while-clause only motivates the stale manifest claim. Previous
+    // grammar required "import those runtimes" and therefore kept the finding.
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail:
+        "package.json dependencies: `next`, `react`, and `react-dom` are absent while app/layout.tsx and components/newsletter-form.tsx import them.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
+  it("prod 777848b18c3b: still keeps the while-import-them finding when a named package is absent", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail:
+        "package.json dependencies: `next`, `react`, and `react-dom` are absent while app/layout.tsx and components/newsletter-form.tsx import them.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [
+        packageJsonFile({
+          dependencies: { next: "15.0.0", react: "19.0.0" },
+          devDependencies: {},
+        }),
+        PAGE_FILE,
+      ],
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
   it("keeps the prod while-finding when a named framework dependency is still absent", () => {
     const finding = {
       id: "missing-framework-dependencies",
