@@ -72,6 +72,49 @@ describe("OpenClawPowersControl", () => {
     ).toBe("true");
   });
 
+  // The pill chrome (border / padding around the shield) is wrapper-only, so
+  // the master toggle lives on the wrapper — not just the inner icon button.
+  it("toggles when the wrapper padding is clicked", () => {
+    act(() => {
+      useOpenClawStore.setState({ editEnabled: true });
+    });
+    const { container } = render(<OpenClawPowersControl />);
+    const wrapper = container.firstChild;
+    expect(wrapper).toBeInstanceOf(HTMLElement);
+
+    fireEvent.click(wrapper as HTMLElement);
+
+    expect(useOpenClawStore.getState().powersOn).toBe(true);
+  });
+
+  it("does not toggle when the chevron is clicked", () => {
+    act(() => {
+      useOpenClawStore.setState({ editEnabled: true });
+    });
+    render(<OpenClawPowersControl />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Välj extra befogenheter" }));
+
+    expect(useOpenClawStore.getState().powersOn).toBe(false);
+  });
+
+  // Menu content is portaled in the DOM but still a React child of the wrapper,
+  // so item clicks bubble to handleToggle unless they are ignored or stopped.
+  it("does not toggle when a power is selected in the menu", async () => {
+    act(() => {
+      useOpenClawStore.setState({ editEnabled: true, powersOn: true });
+    });
+    render(<OpenClawPowersControl />);
+
+    const chevron = screen.getByRole("button", { name: "Välj extra befogenheter" });
+    chevron.focus();
+    fireEvent.keyDown(chevron, { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitemcheckbox", { name: /Armerad autonomi/ }));
+
+    expect(useOpenClawStore.getState().powersOn).toBe(true);
+    expect(useOpenClawStore.getState().grantedPowers).toEqual(["armed_autonomy"]);
+  });
+
   // Pressing the button alone must not grant anything — the menu selection is
   // the second half of the gate.
   it("grants nothing on press alone", () => {

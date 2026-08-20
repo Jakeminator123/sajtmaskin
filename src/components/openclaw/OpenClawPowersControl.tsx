@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { ChevronDown, Shield, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
@@ -21,10 +22,12 @@ import { useOpenClawPowers } from "./useOpenClawPowers";
  * it there is nothing to grant, so showing a dead switch would just promise
  * something the env forbids.
  *
- * Two deliberate hit targets: the shield presses the master toggle (the button
- * the user must literally press), the chevron opens the list of powers. Both
- * gates are visible at once, and neither alone changes behaviour: pressing the
- * shield with nothing ticked grants nothing.
+ * Two hit targets on the same pill: the wrapper (shield + padding) presses
+ * the master toggle, the chevron opens the list of powers and stops the click
+ * from reaching the wrapper. Menu clicks are portaled and also stopped, so
+ * picking a power cannot flip the switch. Both gates are visible at once,
+ * and neither alone changes behaviour: pressing the shield with nothing
+ * ticked grants nothing.
  */
 /**
  * Re-validate the env gate at the moment the user presses the shield. The
@@ -59,7 +62,10 @@ export function OpenClawPowersControl() {
   const activeCount =
     Number(powers.armedAutonomy) + Number(powers.quickEdit) + Number(powers.liveReview);
 
-  const handleToggle = () => {
+  const handleToggle = (event: MouseEvent<HTMLElement>) => {
+    // Portaled menu items are React children of this wrapper, not DOM
+    // descendants. A bubbled click from the list must not flip the switch.
+    if (!event.currentTarget.contains(event.target as Node)) return;
     const next = !powersOn;
     setPowersOn(next);
     // Pressing ON grants authority, so that is the moment to re-check the env
@@ -71,16 +77,16 @@ export function OpenClawPowersControl() {
   return (
     <div
       className={cn(
-        "flex items-center rounded-full border transition-colors",
+        "flex cursor-pointer items-center rounded-full border transition-colors",
         activeCount > 0
           ? "border-fuchsia-400/40 bg-fuchsia-400/10"
           : "border-white/10 bg-transparent",
       )}
+      onClick={handleToggle}
     >
       <button
         type="button"
         aria-pressed={powersOn}
-        onClick={handleToggle}
         className={cn(
           "flex items-center gap-1 rounded-l-full py-1 pr-1 pl-2 transition-colors",
           powersOn ? "text-fuchsia-200 hover:text-fuchsia-100" : "text-slate-300 hover:text-white",
@@ -104,12 +110,14 @@ export function OpenClawPowersControl() {
           className="rounded-r-full py-1 pr-2 pl-1 text-slate-300 transition-colors hover:text-white"
           aria-label="Välj extra befogenheter"
           title="Välj extra befogenheter"
+          onClick={(event) => event.stopPropagation()}
         >
           <ChevronDown className="h-3 w-3" />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
           className="w-72 border-white/10 bg-slate-950/95 text-slate-100"
+          onClick={(event) => event.stopPropagation()}
         >
           <DropdownMenuLabel className="text-[11px] tracking-[0.16em] text-slate-400 uppercase">
             Extra befogenheter
