@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPromptAssistMessages,
   buildPromptAssistModelOptions,
+  isPromptAssistRewriteOverCharLimit,
   parsePromptAssistResponse,
   PROMPT_REWRITE_MAX_CHARS,
   PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
@@ -60,18 +61,20 @@ describe("prompt-assist-pre-send", () => {
     expect(parsePromptAssistResponse('Här är JSON:\n{"text":')).toBeNull();
   });
 
-  it("clamps oversized rewrites without splitting a Unicode surrogate pair", () => {
+  it("does not silently clamp an oversized finished rewrite", () => {
     const prefix = "a".repeat(PROMPT_REWRITE_MAX_CHARS - 1);
-    const parsed = parsePromptAssistResponse(JSON.stringify({ text: `${prefix}😀tail` }));
+    const oversized = `${prefix}😀tail`;
+    const parsed = parsePromptAssistResponse(JSON.stringify({ text: oversized }));
 
-    expect(parsed).toBe(prefix);
-    expect(parsed).toHaveLength(PROMPT_REWRITE_MAX_CHARS - 1);
-    expect(parsed).not.toContain("�");
+    expect(parsed).toBe(oversized);
+    expect(parsed).toContain("😀");
+    expect(isPromptAssistRewriteOverCharLimit(parsed!)).toBe(true);
   });
 
   it("keeps normal rewrites unchanged at and below the writeback boundary", () => {
     const atBoundary = "ö".repeat(PROMPT_REWRITE_MAX_CHARS);
     expect(parsePromptAssistResponse(JSON.stringify({ text: atBoundary }))).toBe(atBoundary);
+    expect(isPromptAssistRewriteOverCharLimit(atBoundary)).toBe(false);
     expect(parsePromptAssistResponse('{"text":"En vanlig rättning"}')).toBe("En vanlig rättning");
   });
 

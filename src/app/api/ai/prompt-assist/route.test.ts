@@ -15,7 +15,10 @@ vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _key: string, handler: () => Promise<Response>) => handler(),
 }));
 
-import { PROMPT_REWRITE_MAX_OUTPUT_TOKENS } from "@/lib/builder/prompt-assist-pre-send";
+import {
+  PROMPT_REWRITE_MAX_CHARS,
+  PROMPT_REWRITE_MAX_OUTPUT_TOKENS,
+} from "@/lib/builder/prompt-assist-pre-send";
 import { POST } from "./route";
 
 function request(body: unknown): Request {
@@ -67,5 +70,17 @@ describe("POST /api/ai/prompt-assist", () => {
 
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toEqual({ error: "rewrite_output_limit" });
+  });
+
+  it("fails closed when a normally finished rewrite exceeds the character cap", async () => {
+    generateText.mockResolvedValue({
+      text: JSON.stringify({ text: "a".repeat(PROMPT_REWRITE_MAX_CHARS + 1) }),
+      finishReason: "stop",
+    });
+
+    const response = await POST(request({ draft: "x".repeat(8_000) }));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({ error: "rewrite_char_limit" });
   });
 });
