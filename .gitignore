@@ -316,14 +316,41 @@ scratch-*.json
 docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
 
-# Agent-local state is ignored; explicit repo skills may be tracked below.
-# Godnatt-bugg is a project capability, not a deployed application asset.
+# Agent-local state is ignored; explicit repo skills ARE tracked below.
+#
+# Why the allowlist exists at all: `.agents/` also holds per-machine agent state
+# that must never be committed. Only the skills that describe *this project's*
+# workflows belong in git.
+#
+# Why they must be tracked (2026-08-20): a cloud agent gets the repo, nothing
+# else. While these files were ignored, `/kedja`, `/automat`, `/818`, `/logg`
+# and `sajtmaskin-context` existed on one laptop only — so a cloud agent asked
+# to follow them silently had no such file, and they were invisible to codebase
+# search on every machine. Adding a skill without a line here makes it local
+# folklore, not a repo capability.
 !.agents/
 .agents/*
 !.agents/skills/
 .agents/skills/*
+!.agents/skills/818-swarm-decide/
+!.agents/skills/818-swarm-decide/**
+!.agents/skills/automat-swarm/
+!.agents/skills/automat-swarm/**
+!.agents/skills/developing-with-streamlit/
+!.agents/skills/developing-with-streamlit/**
 !.agents/skills/godnatt-bugg/
 !.agents/skills/godnatt-bugg/**
+!.agents/skills/kedja-fix-pipeline/
+!.agents/skills/kedja-fix-pipeline/**
+!.agents/skills/logg/
+!.agents/skills/logg/**
+!.agents/skills/logg-internet/
+!.agents/skills/logg-internet/**
+!.agents/skills/sajtmaskin-context/
+!.agents/skills/sajtmaskin-context/**
+# `source-command-*` är maskinmigrerade speglingar av `.cursor/commands/*.md`,
+# som redan är spårade. De skulle bli en andra sanning bredvid kommandofilerna,
+# så de förblir ignorerade med avsikt — inte av förbiseende.
 
 # Scratch dumps from /logg (never commit)
 tmp-logg/
