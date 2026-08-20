@@ -186,12 +186,15 @@ def _as_meta(value: Any) -> dict[str, Any] | None:
 
 def product_blocked_from_errors(errors: list[dict[str, Any]]) -> bool:
     """Nyaste `product_postcheck.summary` vinner — samma signal som mjs-overlayen."""
-    for row in errors:
-        if str(row.get("category") or "") != "product_postcheck.summary":
-            continue
-        meta = _as_meta(row.get("meta"))
-        return bool(meta and meta.get("productBlocked") is True)
-    return False
+    summaries = [
+        row for row in errors if str(row.get("category") or "") == "product_postcheck.summary"
+    ]
+    if not summaries:
+        return False
+    timed = [(row, ts) for row in summaries if (ts := _as_datetime(row.get("created_at")))]
+    chosen = max(timed, key=lambda item: item[1])[0] if timed else summaries[0]
+    meta = _as_meta(chosen.get("meta"))
+    return bool(meta and meta.get("productBlocked") is True)
 
 
 def resolve_reported_quality_gate(finalize: str | None, product_blocked: bool) -> str | None:

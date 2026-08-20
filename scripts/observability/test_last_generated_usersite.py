@@ -944,6 +944,69 @@ class AssessTests(unittest.TestCase):
         self.assertEqual(result["signals"]["qualityGateResult"], "product_blocked")
         self.assertTrue(result["signals"]["qualityGateOverlaid"])
 
+    def test_newest_postcheck_summary_wins_even_if_listed_last(self) -> None:
+        result = assess.assess_run(
+            version={"id": "v1", "verification_state": "passed"},
+            db_data={
+                "telemetry": [
+                    {
+                        "preview_success": True,
+                        "quality_gate_result": "preflight_passed",
+                        "retry_count": 0,
+                    }
+                ],
+                "generations": [{"success": True}],
+                "errors": [
+                    {
+                        "level": "warning",
+                        "category": "product_postcheck.summary",
+                        "created_at": "2026-08-20T10:00:00+00:00",
+                        "meta": {"productBlocked": True},
+                    },
+                    {
+                        "level": "warning",
+                        "category": "product_postcheck.summary",
+                        "created_at": "2026-08-20T11:00:00+00:00",
+                        "meta": {"productBlocked": False},
+                    },
+                ],
+            },
+        )
+        self.assertFalse(result["signals"]["productBlocked"])
+        self.assertEqual(result["signals"]["qualityGateResult"], "preflight_passed")
+        self.assertEqual(result["verdict"], assess.VERDICT_OK)
+
+    def test_newest_postcheck_summary_can_block_when_listed_last(self) -> None:
+        result = assess.assess_run(
+            version={"id": "v1", "verification_state": "passed"},
+            db_data={
+                "telemetry": [
+                    {
+                        "preview_success": True,
+                        "quality_gate_result": "preflight_passed",
+                        "retry_count": 0,
+                    }
+                ],
+                "generations": [{"success": True}],
+                "errors": [
+                    {
+                        "level": "warning",
+                        "category": "product_postcheck.summary",
+                        "created_at": "2026-08-20T10:00:00+00:00",
+                        "meta": {"productBlocked": False},
+                    },
+                    {
+                        "level": "warning",
+                        "category": "product_postcheck.summary",
+                        "created_at": "2026-08-20T11:00:00+00:00",
+                        "meta": {"productBlocked": True},
+                    },
+                ],
+            },
+        )
+        self.assertTrue(result["signals"]["productBlocked"])
+        self.assertEqual(result["verdict"], assess.VERDICT_FAILED)
+
     def test_stale_reported_pass_cannot_beat_product_blocked(self) -> None:
         result = assess.assess_run(
             version={"id": "v1", "verification_state": "passed"},
