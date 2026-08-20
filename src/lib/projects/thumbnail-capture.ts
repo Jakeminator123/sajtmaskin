@@ -108,6 +108,16 @@ const THUMBNAIL_WARMUP_MAX_BODY_BYTES = 64 * 1024;
 export const THUMBNAIL_VIEWPORT = { width: 1200, height: 750 } as const;
 
 /**
+ * Playwright's `page.screenshot` awaits `document.fonts.ready` again in
+ * `_preparePageForScreenshot` unless this env flag is set. We already spent
+ * `THUMBNAIL_FONT_READY_TIMEOUT_MS` above; skip the second wait so a dead
+ * `@font-face` degrades the JPEG instead of burning the screenshot timeout.
+ * @internal exported for tests.
+ */
+export const THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV =
+  "PW_TEST_SCREENSHOT_NO_FONTS_READY";
+
+/**
  * Controlled worst-case waits inside `captureThumbnailScreenshot`.
  * Still outside this sum, and only these: browser launch (overlapped by the
  * warmup GET) and the route-owned blob upload. Must stay safely under the
@@ -380,6 +390,25 @@ export function assertFinalUrlAllowed(
   assertCaptureFinalUrlAllowed(finalUrl, isAllowed, "Thumbnail capture");
 }
 
+async function screenshotThumbnailJpeg(page: Page): Promise<Buffer> {
+  const previous = process.env[THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV];
+  process.env[THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV] = "1";
+  try {
+    return await page.screenshot({
+      type: "jpeg",
+      quality: 70,
+      fullPage: false,
+      timeout: SCREENSHOT_TIMEOUT_MS,
+    });
+  } finally {
+    if (previous === undefined) {
+      delete process.env[THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV];
+    } else {
+      process.env[THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV] = previous;
+    }
+  }
+}
+
 /**
  * JPEG screenshot buffer of the page at `url`, or throws on navigation failure
  * or when the page ends up outside `isFinalUrlAllowed`.
@@ -483,12 +512,7 @@ export async function captureThumbnailScreenshot(
     assertFinalUrlAllowed(page.url(), opts.isFinalUrlAllowed);
 
     stage = "screenshot";
-    return await page.screenshot({
-      type: "jpeg",
-      quality: 70,
-      fullPage: false,
-      timeout: SCREENSHOT_TIMEOUT_MS,
-    });
+    return await screenshotThumbnailJpeg(page);
   } catch (error) {
     if (isPreviewHostBootPageError(error)) {
       // Keep the typed boot-page error so the route can skip without a 502.

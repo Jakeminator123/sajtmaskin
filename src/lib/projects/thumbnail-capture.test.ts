@@ -44,6 +44,7 @@ const {
   THUMBNAIL_FONT_READY_TIMEOUT_MS,
   THUMBNAIL_BOOT_PROBE_TIMEOUT_MS,
   SCREENSHOT_TIMEOUT_MS,
+  THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV,
   THUMBNAIL_VIEWPORT,
 } = await import("./thumbnail-capture");
 
@@ -565,12 +566,19 @@ describe("captureThumbnailScreenshot", () => {
 
   it("still screenshots when document.fonts.ready never settles", async () => {
     vi.useFakeTimers();
+    const previousFlag = process.env[THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV];
+    delete process.env[THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV];
+    let flagDuringShot: string | undefined;
     const page = makeFakePage({
       evaluate: vi.fn((fn: unknown) => {
         if (classifyEvaluateScript(fn) === "fonts") {
           return new Promise(() => undefined);
         }
         return Promise.resolve(defaultEvaluate(fn));
+      }),
+      screenshot: vi.fn(async () => {
+        flagDuringShot = process.env[THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV];
+        return Buffer.from("jpeg-bytes");
       }),
     });
     const { browser, closeSpy } = makeFakeBrowser(page);
@@ -584,9 +592,16 @@ describe("captureThumbnailScreenshot", () => {
       const buf = await pending;
       expect(buf).toBeInstanceOf(Buffer);
       expect(page.screenshot).toHaveBeenCalledTimes(1);
+      expect(flagDuringShot).toBe("1");
+      expect(process.env[THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV]).toBeUndefined();
       expect(closeSpy).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
+      if (previousFlag === undefined) {
+        delete process.env[THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV];
+      } else {
+        process.env[THUMBNAIL_SCREENSHOT_SKIP_FONTS_READY_ENV] = previousFlag;
+      }
     }
   });
 
