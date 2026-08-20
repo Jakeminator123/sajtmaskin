@@ -463,6 +463,89 @@ describe("validateImages", () => {
       expect(result.files[0]?.content).not.toMatch(/\/api\/placeholder\?[^"']*\?v=2/);
     });
 
+    it("does not rewrite a remote URL that only contains the dangling path as a suffix", async () => {
+      const files: TextFile[] = [
+        {
+          name: "app/page.tsx",
+          content: [
+            '<img src="/images/hero-sky.jpg" alt="Lokal" />',
+            '<img src="https://cdn.example.com/images/hero-sky.jpg" alt="Remote" />',
+          ].join("\n"),
+        },
+      ];
+
+      const result = await validateImages({
+        files,
+        autoFix: true,
+        unsplashAccessKey: null,
+        skipUrls: new Set(["https://cdn.example.com/images/hero-sky.jpg"]),
+      });
+
+      expect(result.files[0]?.content).toContain(
+        'src="https://cdn.example.com/images/hero-sky.jpg"',
+      );
+      expect(result.files[0]?.content).not.toContain('src="/images/hero-sky.jpg"');
+      expect(result.files[0]?.content).toContain("/api/placeholder?w=1200&h=800&label=Lokal");
+    });
+
+    it("replaces the queried literal before the bare path in the same file", async () => {
+      const files: TextFile[] = [
+        {
+          name: "app/page.tsx",
+          content: [
+            '<img src="/images/hero-sky.jpg" alt="Bar" />',
+            '<img src="/images/hero-sky.jpg?v=2" alt="Versionerad" />',
+          ].join("\n"),
+        },
+      ];
+
+      const result = await validateImages({
+        files,
+        autoFix: true,
+        unsplashAccessKey: null,
+      });
+
+      expect(result.replacedCount).toBe(2);
+      expect(result.files[0]?.content).toContain(
+        "/api/placeholder?w=1200&h=800&label=Bar",
+      );
+      expect(result.files[0]?.content).toContain(
+        "/api/placeholder?w=1200&h=800&label=Versionerad",
+      );
+      expect(result.files[0]?.content).not.toContain("/images/hero-sky.jpg");
+      expect(result.files[0]?.content).not.toMatch(/\/api\/placeholder\?[^"']*\?v=2/);
+    });
+
+    it("keeps each file's own alt when the same missing path appears twice", async () => {
+      const files: TextFile[] = [
+        {
+          name: "components/hero.tsx",
+          content: '<img src="/images/hero-sky.jpg" alt="Solnedgång" />',
+        },
+        {
+          name: "components/footer.tsx",
+          content: '<img src="/images/hero-sky.jpg" alt="Logotyp" />',
+        },
+      ];
+
+      const result = await validateImages({
+        files,
+        autoFix: true,
+        unsplashAccessKey: null,
+      });
+
+      const hero = result.files.find((file) => file.name === "components/hero.tsx");
+      const footer = result.files.find((file) => file.name === "components/footer.tsx");
+      expect(hero?.content).toContain(
+        "/api/placeholder?w=1200&h=800&label=Solnedg%C3%A5ng",
+      );
+      expect(footer?.content).toContain(
+        "/api/placeholder?w=1200&h=800&label=Logotyp",
+      );
+      expect(hero?.content).not.toContain("Logotyp");
+      expect(footer?.content).not.toContain("Solnedg");
+    });
+
     it("reports dangling locals without rewriting when autoFix is false", async () => {
       const files: TextFile[] = [
         {

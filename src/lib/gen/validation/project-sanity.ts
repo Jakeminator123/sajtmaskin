@@ -221,7 +221,7 @@ const RUNTIME_PROVIDED_ASSET_PATHS = new Set(["/placeholder.svg"]);
  * negative lookahead; interpolated paths are filtered by the caller.
  */
 const LOCAL_IMAGE_ASSET_LITERAL_RE =
-  /["'`](\/(?!\/)[^"'`\s?#]*\.(?:png|jpe?g|webp|avif|gif|svg))(?:[?#][^"'`]*)?["'`]/gi;
+  /["'`](\/(?!\/)[^"'`\s?#]*\.(?:png|jpe?g|webp|avif|gif|svg))((?:[?#][^"'`]*)?)["'`]/gi;
 
 const PUBLIC_ASSET_PATH_RE = /^(?:src\/)?public\/(.+)$/;
 
@@ -329,6 +329,8 @@ function collectPublicAssetUrls(files: CodeFile[]): Set<string> {
 export interface DanglingStaticAssetRef {
   file: string;
   assetPath: string;
+  /** Path plus the query/hash the quoted literal actually carried. */
+  literal: string;
 }
 
 /**
@@ -355,13 +357,14 @@ export function collectDanglingStaticAssetRefs(
       if (isCommentLine(line)) continue;
       for (const match of line.matchAll(LOCAL_IMAGE_ASSET_LITERAL_RE)) {
         const assetPath = match[1];
-        if (assetPath.includes("${")) continue;
+        const literal = `${match[1]}${match[2] ?? ""}`;
+        if (assetPath.includes("${") || literal.includes("${")) continue;
         if (RUNTIME_PROVIDED_ASSET_PATHS.has(assetPath)) continue;
         if (publicUrls.has(assetPath)) continue;
-        const key = `${file.path}|${assetPath}`;
+        const key = `${file.path}|${literal}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        refs.push({ file: file.path, assetPath });
+        refs.push({ file: file.path, assetPath, literal });
       }
     }
   }

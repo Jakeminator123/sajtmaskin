@@ -162,7 +162,38 @@ import { Button } from "@/components/ui/button"
     expect(issue?.file).toBe("components/hero-section.tsx");
     expect(result.valid).toBe(true);
     expect(collectDanglingStaticAssetRefs(files)).toEqual([
-      { file: "components/hero-section.tsx", assetPath: "/images/hero-sky.jpg" },
+      {
+        file: "components/hero-section.tsx",
+        assetPath: "/images/hero-sky.jpg",
+        literal: "/images/hero-sky.jpg",
+      },
+    ]);
+  });
+
+  it("keeps query and bare literals as separate dangling refs in the same file", () => {
+    const files: CodeFile[] = [
+      { path: "package.json", language: "json", content: '{"dependencies":{}}' },
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        content: [
+          '<img src="/images/hero-sky.jpg" alt="Bar" />',
+          '<img src="/images/hero-sky.jpg?v=2" alt="Versionerad" />',
+        ].join("\n"),
+      },
+    ];
+
+    expect(collectDanglingStaticAssetRefs(files)).toEqual([
+      {
+        file: "app/page.tsx",
+        assetPath: "/images/hero-sky.jpg",
+        literal: "/images/hero-sky.jpg",
+      },
+      {
+        file: "app/page.tsx",
+        assetPath: "/images/hero-sky.jpg",
+        literal: "/images/hero-sky.jpg?v=2",
+      },
     ]);
   });
 

@@ -211,69 +211,96 @@ function textFilesToCodeFiles(files: TextFile[]): CodeFile[] {
   }));
 }
 
-/**
- * Alt text for a local path, if an `<img>` / `<Image>` tag carries both.
- * Falls back to empty so `buildPlaceholderReplacementUrl` uses "Missing image".
- */
-function findAltForLocalAsset(files: TextFile[], assetPath: string): string {
-  for (const file of files) {
-    for (const re of [IMG_SRC_RE, NEXT_IMAGE_RE]) {
-      re.lastIndex = 0;
-      let match: RegExpExecArray | null;
-      while ((match = re.exec(file.content)) !== null) {
-        const url = match[1] || match[4] || "";
-        const alt = match[2] || match[3] || "";
-        if (url === assetPath || url.startsWith(`${assetPath}?`) || url.startsWith(`${assetPath}#`)) {
-          return alt;
-        }
-      }
-    }
-  }
-  return "";
-}
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
- * The sanity detector reports the path only (`/logo.svg`) even when the
- * literal carried a query/hash (`/logo.svg?v=2`). Replacement must consume
- * that suffix or autofix leaves `…/api/placeholder?w=…?v=2`.
+ * Alt text from the owning file for this exact quoted literal.
+ * Falls back to empty so `buildPlaceholderReplacementUrl` uses "Missing image".
  */
-function collectLocalAssetLiterals(files: TextFile[], assetPath: string): string[] {
-  const re = new RegExp(`${escapeRegExp(assetPath)}(?:[?#][^"'\\s\`]*)?`, "g");
-  const found = new Set<string>();
-  for (const file of files) {
-    for (const match of file.content.matchAll(re)) {
-      found.add(match[0]);
+function findAltForLocalAssetInFile(file: TextFile | undefined, literal: string): string {
+  if (!file) return "";
+  for (const re of [IMG_SRC_RE, NEXT_IMAGE_RE]) {
+    re.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(file.content)) !== null) {
+      const url = match[1] || match[4] || "";
+      const alt = match[2] || match[3] || "";
+      if (url === literal) return alt;
     }
   }
-  return found.size > 0 ? [...found] : [assetPath];
+  return "";
 }
 
 /**
  * SM-063: reuse the sanity detector. Root-relative invented assets never
- * get a HEAD check (`isExternalImageUrl` correctly skips `/…`).
+ * get a HEAD check (`isExternalImageUrl` correctly skips `/…`). Each ref
+ * keeps its own file, literal (path + query/hash) and alt.
  */
 function danglingLocalImagesAsBroken(files: TextFile[]): BrokenImage[] {
-  const refs = collectDanglingStaticAssetRefs(textFilesToCodeFiles(files));
-  const seen = new Set<string>();
-  const broken: BrokenImage[] = [];
-  for (const ref of refs) {
-    for (const literal of collectLocalAssetLiterals(files, ref.assetPath)) {
-      if (seen.has(literal)) continue;
-      seen.add(literal);
-      broken.push({
-        url: literal,
-        alt: findAltForLocalAsset(files, ref.assetPath),
-        file: ref.file,
-        status: 404,
-        replacementUrl: null,
+  const fileByName = new Map(files.map((file) => [file.name, file]));
+  return collectDanglingStaticAssetRefs(textFilesToCodeFiles(files)).map((ref) => ({
+    url: ref.literal,
+    alt: findAltForLocalAssetInFile(fileByName.get(ref.file), ref.literal),
+    file: ref.file,
+    status: 404,
+    replacementUrl: null,
+  }));
+}
+
+function isLocalAssetUrl(url: string): boolean {
+  return url.startsWith("/");
+}
+
+/**
+ * Replace only complete quoted root-relative literals in the owning file.
+ * Raw `split(url)` would also hit `/images/a.jpg` inside
+ * `https://cdn.example.com/images/a.jpg` or eat CSS after an unquoted `url()`.
+ */
+function applyQuotedLocalAssetReplacements(
+  files: TextFile[],
+  broken: BrokenImage[],
+): { files: TextFile[]; replacedCount: number; placeholderCount: number } {
+  const byFile = new Map<string, BrokenImage[]>();
+  for (const entry of broken) {
+    const list = byFile.get(entry.file) ?? [];
+    list.push(entry);
+    byFile.set(entry.file, list);
+  }
+
+  let replacedCount = 0;
+  let placeholderCount = 0;
+  const emittedPlaceholderTelemetry = new Set<string>();
+  const updatedFiles = files.map((file) => {
+    const entries = byFile.get(file.name);
+    if (!entries || entries.length === 0) return file;
+    const sorted = [...entries].sort((a, b) => b.url.length - a.url.length);
+    let content = file.content;
+    for (const entry of sorted) {
+      const replacement = entry.replacementUrl ?? buildPlaceholderReplacementUrl(entry.alt);
+      const isPlaceholder = !entry.replacementUrl;
+      const re = new RegExp(`(["'\`])${escapeRegExp(entry.url)}(["'\`])`, "g");
+      content = content.replace(re, (_full, openQuote: string, closeQuote: string) => {
+        replacedCount += 1;
+        if (isPlaceholder) {
+          placeholderCount += 1;
+          const telemetryKey = `${file.name}|${entry.url}`;
+          if (!emittedPlaceholderTelemetry.has(telemetryKey)) {
+            debugLog("images", "image_replaced_with_placeholder", {
+              originalUrl: entry.url,
+              alt: entry.alt,
+            });
+            emittedPlaceholderTelemetry.add(telemetryKey);
+          }
+        }
+        return `${openQuote}${replacement}${closeQuote}`;
       });
     }
-  }
-  return broken;
+    return content === file.content ? file : { ...file, content };
+  });
+
+  return { files: updatedFiles, replacedCount, placeholderCount };
 }
 
 function isExternalImageUrl(url: string): boolean {
@@ -752,10 +779,13 @@ export async function validateImages(params: {
     return { total, broken, replacedCount: 0, files, warnings };
   }
 
-  const { files: updatedFiles, replacedCount, placeholderCount } = applyReplacements(
-    files,
-    broken,
-  );
+  const remoteBroken = broken.filter((entry) => !isLocalAssetUrl(entry.url));
+  const localBroken = broken.filter((entry) => isLocalAssetUrl(entry.url));
+  const remoteApplied = applyReplacements(files, remoteBroken);
+  const localApplied = applyQuotedLocalAssetReplacements(remoteApplied.files, localBroken);
+  const updatedFiles = localApplied.files;
+  const replacedCount = remoteApplied.replacedCount + localApplied.replacedCount;
+  const placeholderCount = remoteApplied.placeholderCount + localApplied.placeholderCount;
 
   // Placeholders are counted separately because they are NOT a fix. Replacement
   // search only covers Unsplash hosts, so anything else (prod 2026-08-08: a
