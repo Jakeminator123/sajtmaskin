@@ -9,6 +9,7 @@ en okänd signal ger `delvis` snarare än falsk grönt.
 from __future__ import annotations
 
 import datetime as dt
+import json
 import re
 from typing import Any
 
@@ -63,7 +64,7 @@ def _latest(rows: list[dict[str, Any]]) -> dict[str, Any]:
 #: `quality_gate_result` ska alltid komma från den NYASTE raden — en godkänd
 #: server-repair stämplar en ny `preflight_passed` som medvetet ersätter finalizes
 #: gamla signal (`getLatestQualityGateResultForVersion` gör samma val).
-_NEWEST_WINS_FIELDS = ("quality_gate_result",)
+_NEWEST_WINS_FIELDS = ("quality_gate_result", "reported_quality_gate", "product_blocked")
 
 
 def merge_telemetry(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -171,6 +172,35 @@ def generation_for_version(
     return {}
 
 
+def _as_meta(value: Any) -> dict[str, Any] | None:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return None
+
+
+def product_blocked_from_errors(errors: list[dict[str, Any]]) -> bool:
+    """Nyaste `product_postcheck.summary` vinner — samma signal som mjs-overlayen."""
+    for row in errors:
+        if str(row.get("category") or "") != "product_postcheck.summary":
+            continue
+        meta = _as_meta(row.get("meta"))
+        return bool(meta and meta.get("productBlocked") is True)
+    return False
+
+
+def resolve_reported_quality_gate(finalize: str | None, product_blocked: bool) -> str | None:
+    """Python-läsare av overlayen. Regeln ägs av `scripts/db/lib/reported-quality-gate.mjs`."""
+    if finalize == "preflight_passed" and product_blocked:
+        return "product_blocked"
+    return finalize
+
+
 def _nearest_version_id(row: dict[str, Any], versions: list[dict[str, Any]]) -> str | None:
     created = _as_datetime(row.get("created_at"))
     if created is None or not versions:
@@ -218,7 +248,16 @@ def assess_run(
     warning_rows = [row for row in errors if str(row.get("level") or "").lower() == "warning"]
 
     preview_success = telemetry.get("preview_success")
-    quality_gate = str(telemetry.get("quality_gate_result") or "") or None
+    finalize_gate = str(telemetry.get("quality_gate_result") or "") or None
+    if telemetry.get("product_blocked") is True:
+        product_blocked = True
+    elif telemetry.get("product_blocked") is False:
+        product_blocked = False
+    else:
+        product_blocked = product_blocked_from_errors(errors)
+    reported = telemetry.get("reported_quality_gate")
+    candidate = reported if isinstance(reported, str) and reported.strip() else finalize_gate
+    quality_gate = resolve_reported_quality_gate(candidate, product_blocked)
     verification_state = str(version.get("verification_state") or "") or None
     generation_ok = generation.get("success")
     deploy = _latest(deploys)
@@ -226,6 +265,9 @@ def assess_run(
     signals = {
         "previewSuccess": preview_success,
         "qualityGateResult": quality_gate,
+        "qualityGateResultFinalize": finalize_gate,
+        "qualityGateOverlaid": bool(quality_gate and finalize_gate and quality_gate != finalize_gate),
+        "productBlocked": product_blocked,
         "verificationState": verification_state,
         "releaseState": str(version.get("release_state") or "") or None,
         "lifecycleStage": str(version.get("lifecycle_stage") or "") or None,
@@ -258,7 +300,10 @@ def assess_run(
         blocking = str(telemetry.get("preview_blocking_reason") or "").strip()
         reasons.append("Preview kom aldrig upp" + (f" ({blocking})" if blocking else "."))
     gate = gate_outcome(quality_gate)
-    if gate == "fail":
+    if product_blocked:
+        failed = True
+        reasons.append("Product Postcheck blockerade produkten.")
+    elif gate == "fail":
         failed = True
         reasons.append(f"RenderGate föll: {quality_gate}.")
     if verification_state and verification_state.lower() in _VERIFICATION_FAILED:

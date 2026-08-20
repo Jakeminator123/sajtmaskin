@@ -28,6 +28,10 @@ import {
   warnIfProdLikeReadTarget,
 } from "./db-target-guard.mjs";
 import { formatLogTimestamp, LOG_TIMESTAMP_NOTE } from "./log-timestamp.mjs";
+import {
+  LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL,
+  annotateReportedQualityGate,
+} from "./lib/reported-quality-gate.mjs";
 
 const useProd = process.argv.includes("--prod");
 const PROD_ENV_FILE = ".env.vercel.production.pulled";
@@ -158,6 +162,15 @@ try {
         [v.id],
       );
       if (t) {
+        let productBlocked = false;
+        if (hasVersionErrors) {
+          const [pc] = await safeRows(LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL, [v.id]);
+          productBlocked = pc?.product_blocked === true;
+        }
+        const reported = annotateReportedQualityGate({
+          ...t,
+          product_blocked: productBlocked,
+        });
         console.log("  -- telemetri --");
         line("buildIntent", t.build_intent);
         line("buildMethod", t.build_method);
@@ -172,6 +185,13 @@ try {
         line("previewSuccess", t.preview_success);
         line("previewBlockingReason", t.preview_blocking_reason);
         line("qualityGateResult", t.quality_gate_result);
+        line(
+          "reportedQualityGate",
+          reported.quality_gate_overlaid
+            ? `${reported.reported_quality_gate} (postcheck overlay)`
+            : reported.reported_quality_gate,
+        );
+        if (reported.quality_gate_overlaid) line("qualityGateOverlaid", "true");
         line("deployResult", t.deploy_result);
         line("durationMs", t.duration_ms);
         line("promptTokens", t.prompt_tokens);

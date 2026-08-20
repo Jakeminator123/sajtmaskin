@@ -21,6 +21,10 @@
 import { config } from "dotenv";
 import pg from "pg";
 import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
+import {
+  LATEST_PRODUCT_POSTCHECK_JOIN,
+  annotateReportedQualityGate,
+} from "./lib/reported-quality-gate.mjs";
 
 config({ path: ".env.local" });
 warnIfProdLikeReadTarget({ commandName: "generation-history" });
@@ -109,38 +113,9 @@ function projectTelemetryMetaFields(row) {
   };
 }
 
-/**
- * Keep in sync with `resolveReportedQualityGateResult` in
- * `src/lib/db/services/reported-quality-gate.ts`. The Node script cannot
- * import that TS module; the rule is four lines and the vitest lock lives
- * next to the TypeScript owner.
- */
-function resolveReportedQualityGateResult(qualityGateResult, productBlocked) {
-  if (qualityGateResult === "preflight_passed" && productBlocked === true) {
-    return "product_blocked";
-  }
-  return qualityGateResult ?? null;
-}
-
 function projectHistoryRow(row) {
-  const projected = projectTelemetryMetaFields(row);
-  projected.reported_quality_gate = resolveReportedQualityGateResult(
-    projected.quality_gate_result,
-    projected.product_blocked === true,
-  );
-  return projected;
+  return annotateReportedQualityGate(projectTelemetryMetaFields(row));
 }
-
-const LATEST_PRODUCT_POSTCHECK_JOIN = `
-  LEFT JOIN LATERAL (
-    SELECT (e.meta @> '{"productBlocked": true}'::jsonb) AS product_blocked
-    FROM engine_version_error_logs e
-    WHERE e.version_id = gt.version_id
-      AND e.category = 'product_postcheck.summary'
-    ORDER BY e.created_at DESC
-    LIMIT 1
-  ) pps ON true
-`;
 
 const RECENT_QUERY = `
   SELECT

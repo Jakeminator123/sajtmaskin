@@ -895,6 +895,76 @@ class AssessTests(unittest.TestCase):
         self.assertEqual(result["verdict"], assess.VERDICT_OK)
         self.assertTrue(any("RenderGate" in reason for reason in result["reasons"]))
 
+    def test_product_blocked_is_not_verdict_ok(self) -> None:
+        result = assess.assess_run(
+            version={"id": "v1", "verification_state": "passed"},
+            db_data={
+                "telemetry": [
+                    {
+                        "preview_success": True,
+                        "quality_gate_result": "preflight_passed",
+                        "retry_count": 0,
+                    }
+                ],
+                "generations": [{"success": True}],
+                "errors": [
+                    {
+                        "level": "warning",
+                        "category": "product_postcheck.summary",
+                        "meta": {"productBlocked": True},
+                    }
+                ],
+            },
+        )
+        self.assertEqual(result["verdict"], assess.VERDICT_FAILED)
+        self.assertTrue(result["signals"]["productBlocked"])
+        self.assertEqual(result["signals"]["qualityGateResult"], "product_blocked")
+        self.assertEqual(result["signals"]["qualityGateResultFinalize"], "preflight_passed")
+        self.assertTrue(result["signals"]["qualityGateOverlaid"])
+        self.assertNotEqual(assess.gate_outcome("product_blocked"), "pass")
+
+    def test_reported_quality_gate_from_dump_logs_is_consumed(self) -> None:
+        result = assess.assess_run(
+            version={"id": "v1", "verification_state": "passed"},
+            db_data={
+                "telemetry": [
+                    {
+                        "preview_success": True,
+                        "quality_gate_result": "preflight_passed",
+                        "reported_quality_gate": "product_blocked",
+                        "product_blocked": True,
+                        "retry_count": 0,
+                    }
+                ],
+                "generations": [{"success": True}],
+                "errors": [],
+            },
+        )
+        self.assertEqual(result["verdict"], assess.VERDICT_FAILED)
+        self.assertEqual(result["signals"]["qualityGateResult"], "product_blocked")
+        self.assertTrue(result["signals"]["qualityGateOverlaid"])
+
+    def test_stale_reported_pass_cannot_beat_product_blocked(self) -> None:
+        result = assess.assess_run(
+            version={"id": "v1", "verification_state": "passed"},
+            db_data={
+                "telemetry": [
+                    {
+                        "preview_success": True,
+                        "quality_gate_result": "preflight_passed",
+                        "reported_quality_gate": "preflight_passed",
+                        "product_blocked": True,
+                        "retry_count": 0,
+                    }
+                ],
+                "generations": [{"success": True}],
+                "errors": [],
+            },
+        )
+        self.assertEqual(result["verdict"], assess.VERDICT_FAILED)
+        self.assertEqual(result["signals"]["qualityGateResult"], "product_blocked")
+        self.assertTrue(result["signals"]["productBlocked"])
+
     def test_preview_up_without_any_confirming_signal_is_partial(self) -> None:
         # En stale preview från en tidigare version ser ut precis så här.
         result = assess.assess_run(

@@ -41,6 +41,10 @@ import {
 import { mergeEnvFileOverProcess } from "./env-merge.mjs";
 import { truncateMetaStrings } from "./dump-logs-meta.mjs";
 import { formatLogTimestamp, LOG_TIMESTAMP_NOTE } from "./log-timestamp.mjs";
+import {
+  LATEST_PRODUCT_POSTCHECK_JOIN,
+  annotateReportedQualityGate,
+} from "./lib/reported-quality-gate.mjs";
 
 const argv = process.argv.slice(2);
 const wantJson = argv.includes("--json");
@@ -144,7 +148,29 @@ const KIND_SPECS = {
       // det som gör kostnad per KÖRNING möjlig (engine_generation_logs är per chat).
       "prompt_tokens", "completion_tokens", "meta", "created_at",
     ],
-    sanitizeRow: (row) => ({ ...row, meta: truncateMetaStrings(row.meta) }),
+    buildQuery: ({ chatId: chat, limit: max }) => {
+      const colSql = KIND_SPECS.telemetry.columns.map((c) => `gt.${c}`).join(", ");
+      const where = [];
+      const params = [];
+      if (chat) {
+        params.push(chat);
+        where.push(`gt.chat_id = $${params.length}`);
+      }
+      params.push(max);
+      return {
+        sql: `
+          SELECT ${colSql}, pps.product_blocked
+          FROM generation_telemetry gt
+          ${LATEST_PRODUCT_POSTCHECK_JOIN.trim()}
+          ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+          ORDER BY gt.created_at DESC
+          LIMIT $${params.length}
+        `,
+        params,
+      };
+    },
+    sanitizeRow: (row) =>
+      annotateReportedQualityGate({ ...row, meta: truncateMetaStrings(row.meta) }),
   },
   errors: {
     table: "engine_version_error_logs",
