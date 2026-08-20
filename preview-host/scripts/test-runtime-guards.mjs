@@ -1186,9 +1186,16 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
       classifyInstallFailure("(No install output captured; exit 254).", 254, "SIGKILL") ===
         "killed_by_signal:SIGKILL",
     );
+    // `SIGNAL_EXIT_CODE` är en sentinel vi själva sätter, och exitkoder är
+    // lagliga i hela 0–255. Ett livscykelskript som avslutar med 253 på egen
+    // hand får INTE kallas dödat — en falsk kill förstör distinktionen.
     check(
-      "the numeric signal exit code alone is enough",
-      classifyInstallFailure("", 253) === "killed_by_signal",
+      "a bare exit 253 without a signal is not called a kill",
+      classifyInstallFailure("", 253) === "no_output",
+    );
+    check(
+      "253 WITH a signal is a kill, because the signal is the authority",
+      classifyInstallFailure("", 253, "SIGKILL") === "killed_by_signal:SIGKILL",
     );
     // Utan signal ska den gamla domen stå kvar — annars vore fixen en regression
     // som döpte om varje tyst krasch till en OOM.

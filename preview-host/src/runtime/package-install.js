@@ -17,7 +17,6 @@ const {
   runInInstallSlot,
   runShellCommand,
   sanitizedEnv,
-  SIGNAL_EXIT_CODE,
 } = require("./shared.js");
 // Ingen cykel: storage-cleanup kräver bara shared + prewarm-leases vid load
 // (dess enda beroende åt detta håll är en lazy require av process-lifecycle).
@@ -445,8 +444,13 @@ function classifyInstallFailure(output, exitCode, signal) {
   //
   // Väg 2 föll tidigare rakt igenom till `no_output`/`unknown`, vilket är exakt
   // varför en OOM-dödad install inte gick att känna igen i efterhand.
+  //
+  // `signal` är enda auktoriteten för väg 1 — INTE `SIGNAL_EXIT_CODE`. Den
+  // siffran är en sentinel vi själva sätter, och en exitkod är laglig i hela
+  // 0–255: ett npm-livscykelskript som avslutar med 253 på egen hand skulle
+  // annars kallas dödat. En falsk «killed_by_signal» förstör just den
+  // distinktion den här ändringen finns för, så numret får inte klassa.
   if (signalName) return `killed_by_signal:${signalName}`;
-  if (exitCode === SIGNAL_EXIT_CODE) return "killed_by_signal";
   const shellSignal = signalNameFromShellExitCode(exitCode);
   if (shellSignal) return `killed_by_signal:${shellSignal}`;
 

@@ -671,10 +671,15 @@ function killShellCommandTree(child, useProcessGroup) {
  * boot/verify install VM-wide (VADE/Codex P1 on PR #357).
  */
 /**
- * Exit code reported when a child died from a signal rather than exiting.
- * Not a real process exit code — no shell produces it — so a caller that sees
- * it knows the death was signalled and must read `signal` for the reason.
- * Deliberately distinct from 124 (our own timeout) and 254 (npm's own crash).
+ * Non-zero exit code reported when a child died from a signal rather than
+ * exiting on its own. Callers branch on `exitCode === 0` for success, so a
+ * signal death needs *some* number; 253 is chosen to stand out in a log next
+ * to 124 (our own timeout) and 254 (npm's own crash).
+ *
+ * It is a **display value, not evidence.** Exit statuses are legal across the
+ * whole 0–255 range, so a program may exit 253 by itself. Anything deciding
+ * *whether* a death was signalled must read the `signal` field — never this
+ * number (PR #1081 review, F-b4c1399dfb6b).
  */
 const SIGNAL_EXIT_CODE = 253;
 
