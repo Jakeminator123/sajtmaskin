@@ -80,24 +80,26 @@ Eftersom `#1052` mergades 2026-08-20 föll de flesta beroendena bort. Kvar finns
 bara **en** riktig ordningsregel: `SM-036` rör samma verifieryta som `#1052` just
 ändrade, så den vill ha master i ryggen.
 
-### Våg 1 — åtta agenter parallellt
+### Våg 1 — klar
 
-Ingen fil förekommer hos två av dem. Kördes som cloud-agenter 2026-08-20 kväll.
-Parallellismen höll: noll merge-konflikter mellan de åtta.
+Åtta cloud-agenter parallellt, 2026-08-20 kväll. **Alla åtta mergade.**
+Aktivitetsfilerna är raderade; arkivnoterna i
+[`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) § Arkiv bär sanningen.
 
-| Uppgift | Ägda filer | Läge |
-|---|---|---|
-| [Prompt-assist kapar tyst](aktiviteter/vag1-prompt-assist-tyst-kapning.md) | `src/lib/builder/prompt-assist-pre-send.ts`, `src/app/api/ai/prompt-assist/route.ts` | **Mergad** — #1070 |
-| [Repair sparar bort utelämnad skyddad path](aktiviteter/vag1-repair-utelamnad-skyddad-path.md) | `src/lib/gen/scaffolds/protected-paths.ts`, `src/lib/gen/verify/server-verify/`, repair-routen | **Mergad** — #1072 |
-| [Script-varningen döljs över hela crawlen](aktiviteter/vag1-script-varning-per-route.md) | `src/lib/gen/verify/product-postcheck.ts` | **Mergad** — #1071 |
-| [Next-HMR-kontraktet skippas i CI](aktiviteter/vag2-next-hmr-ci-lane.md) | `preview-host/`, `.github/workflows/ci.yml` | **Mergad** — #1074 |
-| [Grinden visar falskt grönt i tooling](aktiviteter/vag2-quality-gate-overlay-i-tooling.md) | `scripts/db/`, `scripts/observability/` | Öppen PR #1077 |
-| [Källkvittot byggs av avsikt](aktiviteter/vag2-kallkvitto-fran-skickad-payload.md) | `src/lib/gen/orchestrate/source-receipt.ts`, `finalize-prompts.ts`, `src/lib/gen/request-metadata.ts` | Öppen PR #1075 |
-| [Thumbnail väntar obundet](aktiviteter/vag2-thumbnail-obundna-vantan.md) | `src/lib/projects/thumbnail-capture.ts` | Öppen PR #1073 |
-| [`SM-063` trasiga bild-URL:er](aktiviteter/vag3-sm063-trasiga-bild-urler.md) | `src/lib/utils/image-validator.ts`, `src/lib/gen/validation/project-sanity.ts`, `src/lib/hooks/chat/post-checks.ts` | Öppen PR #1076 |
+| Uppgift | PR |
+|---|---|
+| Prompt-assist fail-closar i stället för att kapa tyst (`SM-065`) | #1070 |
+| Script-varningen tystas per route (`SM-067`) | #1071 |
+| Skyddad path krävs vid full-project persist (`SM-066`) | #1072 |
+| Thumbnail: fonts.ready och boot-probe budgeterade | #1073 |
+| Next-källkontraktet kör i `quality` mot installerad Next | #1074 |
+| Källkvittot byggs av skickad payload (`SM-069`) | #1075 |
+| Dinglande rot-relativa bild-`src` byts mot placeholder (`SM-063`) | #1076 |
+| Grinden visar inte falskt grönt i tooling (`SM-068`) | #1077 |
 
-Aktivitetsfilerna för de fyra mergade raderna kan raderas när hela vågen är
-landad — arkivnoterna i backloggen bär då sanningen.
+**Lärdomen värd att behålla:** noll merge-konflikter mellan åtta samtidiga
+agenter. Filavgränsningen — ingen fil hos två agenter i samma våg — är det som
+gjorde det möjligt, inte tur. Flaskhalsen var granskningen, inte git.
 
 Filnamnens `vag2-`/`vag3-`-prefix är från det ursprungliga schemat, som antog att
 `#1052` låg kvar. Den här tabellen äger vågindelningen — inte filnamnen.
