@@ -267,6 +267,7 @@ export async function finalizeOrchestrationPrompts(
   const sources = buildSourceReceipt({
     variantTemplateInspiration,
     variantTemplateAddendumState,
+    variantTemplateImageAttached: variantTemplateReferenceAttachments.length > 0,
     uiRecipes: base.uiRecipes,
     dossierSelection: base.dossierSelection,
     mediaCatalog,

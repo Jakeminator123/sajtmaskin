@@ -6,7 +6,6 @@ import {
 
 const NOTHING = {
   activeVersionStatus: null,
-  deployBlocker: null,
   f3Status: null,
 } as const;
 
@@ -49,28 +48,6 @@ describe("resolveChatCollapseStatusText", () => {
     ).toBe("Versionen stoppades av en kontroll");
   });
 
-  it("visar publiceringsspärrens rubrik", () => {
-    expect(
-      resolveChatCollapseStatusText({
-        ...NOTHING,
-        deployBlocker: {
-          id: "missing-env",
-          title: "Obligatoriska nycklar saknas.",
-          detail: "Saknas: STRIPE_SECRET_KEY. Lägg till dem under Byggblock.",
-        },
-      }),
-    ).toBe("Obligatoriska nycklar saknas.");
-  });
-
-  it("faller tillbaka på spärrens detalj när rubriken är tom", () => {
-    expect(
-      resolveChatCollapseStatusText({
-        ...NOTHING,
-        deployBlocker: { id: "version-draft", title: "   ", detail: "Kör klart kontrollerna." },
-      }),
-    ).toBe("Kör klart kontrollerna.");
-  });
-
   it("visar ett underkänt F3-utfall", () => {
     expect(
       resolveChatCollapseStatusText({
@@ -104,54 +81,30 @@ describe("resolveChatCollapseStatusText", () => {
     ).toBeNull();
   });
 
-  it("behandlar inte 'kom igång' som en blockerare", () => {
-    expect(
-      resolveChatCollapseStatusText({
-        ...NOTHING,
-        deployBlocker: {
-          id: "no-version",
-          title: "Ingen version är vald.",
-          detail: "Generera eller välj en version först.",
-        },
-      }),
-    ).toBeNull();
-  });
-
-  it("låter en misslyckad version gå före publiceringsspärr och F3-utfall", () => {
+  it("låter en misslyckad version gå före F3-utfall", () => {
     expect(
       resolveChatCollapseStatusText({
         activeVersionStatus: "failed",
-        deployBlocker: { id: "missing-env", title: "Obligatoriska nycklar saknas.", detail: null },
         f3Status: { tone: "error", title: "Integrationerna är inte klara." },
       }),
     ).toBe("Versionen misslyckades");
   });
 
-  it("låter publiceringsspärren gå före F3-utfallet", () => {
-    expect(
-      resolveChatCollapseStatusText({
-        activeVersionStatus: "ready",
-        deployBlocker: { id: "missing-env", title: "Obligatoriska nycklar saknas.", detail: null },
-        f3Status: { tone: "error", title: "Integrationerna är inte klara." },
-      }),
-    ).toBe("Obligatoriska nycklar saknas.");
-  });
-
-  it("släpper igenom F3-utfallet när spärren bara är 'kom igång'", () => {
+  it("släpper igenom F3-utfallet när versionen är klar", () => {
     expect(
       resolveChatCollapseStatusText({
         ...NOTHING,
-        deployBlocker: { id: "no-version", title: "Ingen version är vald.", detail: null },
+        activeVersionStatus: "ready",
         f3Status: { tone: "error", title: "Integrationerna är inte klara." },
       }),
     ).toBe("Integrationerna är inte klara.");
   });
 
-  it("kapar en text som är för lång för raden", () => {
+  it("kapar en F3-text som är för lång för raden", () => {
     const long = `Projektet måste sparas innan miljövariabler kan kopplas till bygget ${"x".repeat(40)}`;
     const result = resolveChatCollapseStatusText({
       ...NOTHING,
-      deployBlocker: { id: "project-context-missing", title: long, detail: null },
+      f3Status: { tone: "error", title: long },
     });
 
     expect(result).not.toBeNull();

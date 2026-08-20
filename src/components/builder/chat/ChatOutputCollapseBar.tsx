@@ -85,7 +85,7 @@ export function ChatOutputCollapseBar({
         <span className="font-medium tabular-nums">{messageCount}</span>
       </button>
       {/* Statusen får aldrig gömmas i nedfällt läge (komponentens hela poäng):
-          "Bygger …" och en eventuell blockerare ligger kvar i fliken-raden. */}
+          "Bygger …" och versions-/F3-status ligger kvar i fliken-raden. */}
       {isStreaming ? (
         <span className="text-foreground/80 ml-auto inline-flex items-center gap-1.5">
           <Loader2 className="h-3 w-3 animate-spin" />

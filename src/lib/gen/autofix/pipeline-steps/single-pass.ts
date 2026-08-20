@@ -24,6 +24,7 @@ import {
 } from "../rules/lucide-misuse-fixer";
 import { fixTailwindApplyOfComponents } from "../rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "../rules/as-const-boolean-keys";
+import { fixFooterCopyrightYear } from "../rules/footer-copyright-year-fixer";
 import { fixR3FVectorTuples } from "../rules/r3f-vector-tuple-fixer";
 import { fixZodV4Params } from "../rules/zod-v4-params-fixer";
 import { fixTypeOnlyImports } from "../rules/type-only-import-fixer";
@@ -131,6 +132,7 @@ const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
  *  4f.  tailwind-font-arbitrary-fixer
  *  4g.  font-import-fixer  — layout font imports
  *  4h.  metadata-client-conflict-fixer — "use client" vs static metadata
+ *  3i-4. footer-copyright-year-fixer — bake site-footer year literal
  *  4i.  icon-component-value-fixer — icon key/render safety
  *  4j.  as-const-boolean-keys — TS inference for nav arrays
  *  4j-r3f. r3f-vector-tuple-fixer — `as const` on R3F position/scale/rotation/args
@@ -625,6 +627,21 @@ export async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] global-shadow-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3i-4. footer-copyright-year-fixer — bake `new Date().getFullYear()`
+      // in site-footer into a year literal so hydration cannot disagree at
+      // year-end. Runs after the name-guard so `Date` is the real global.
+      try {
+        const footerYearResult = fixFooterCopyrightYear(currentCode, file.path);
+        if (footerYearResult.fixed) {
+          currentCode = footerYearResult.code;
+          allFixes.push(...footerYearResult.fixes);
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] footer-copyright-year-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 

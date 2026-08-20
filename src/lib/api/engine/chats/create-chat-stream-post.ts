@@ -30,7 +30,10 @@ import { resolveConfiguredEnvKeys } from "./configured-env-keys";
 import { requireNotBot } from "@/lib/bot-protection";
 import { devLogAppend, devLogStartNewSite } from "@/lib/logging/dev-log";
 import { debugLog } from "@/lib/utils/debug";
-import { createPromptLog } from "@/lib/db/services/prompt-logs";
+import {
+  attachCreateChatPromptLogChatId,
+  recordCreateChatPromptLog,
+} from "./create-chat-prompt-log";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import {
   canonicalModelIdToOwnModelId,
@@ -390,6 +393,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           rejectIfNegativeFixedCommit: Boolean(metaPlanMode),
         });
 
+        let createChatPromptLogId: string | null = null;
         try {
           const metaPayload =
             meta && typeof meta === "object"
@@ -443,8 +447,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             typeof metaObj?.promptFormatted === "string"
               ? String(metaObj.promptFormatted)
               : (optimizedMessage ?? null);
-          await createPromptLog({
-            event: "create_chat",
+          createChatPromptLogId = await recordCreateChatPromptLog({
             userId: creditUser?.id || null,
             sessionId,
             appProjectId: metaAppProjectId || null,
@@ -682,6 +685,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           }
           acquiredGenerationLock = plannerBoot.lock;
           const plannerChat = plannerBoot.chat;
+          await attachCreateChatPromptLogChatId(createChatPromptLogId, plannerChat.id);
           await chatRepo.addMessage(plannerChat.id, "user", message);
           // Tredje chat-skapande vägen (utöver own-engine och kontraktsgrinden):
           // brief och scaffold-embeddings har redan kört, och planner-strömmen
@@ -986,6 +990,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           }
           acquiredGenerationLock = initBoot.lock;
           const engineChat = initBoot.chat;
+          await attachCreateChatPromptLogChatId(createChatPromptLogId, engineChat.id);
           await chatRepo.addMessage(engineChat.id, "user", message);
           setLlmUsageContext({ chatId: engineChat.id });
           // Brief och scaffold-embeddings kördes innan chatten fanns — claima dem.

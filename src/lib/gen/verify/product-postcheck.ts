@@ -272,13 +272,29 @@ function decidePreviewReadiness(params: {
   readiness: PreviewHostReadinessVerdict | null;
 }): PreviewReadinessDecision {
   const kind = classifyPreviewPageProbe(params.probe);
-  if (params.readiness && isHostRuntimeReady(params.readiness)) {
+  const hostReady = Boolean(params.readiness && isHostRuntimeReady(params.readiness));
+
+  // A boot placeholder is a product defect only after the host says it is
+  // ready — or that startup failed. `starting` / not-ready is timing
+  // (cold VM / npm install) and must not block.
+  if (kind === "boot_page") {
+    if (hostReady || params.readiness?.readinessState === "failed") {
+      return { action: "warn", code: "preview_boot_page", productBlocked: true };
+    }
+    if (params.readiness) {
+      return { action: "warn", code: "preview_boot_page", productBlocked: false };
+    }
+    return {
+      action: "warn",
+      code: "preview_probe_unreadable",
+      productBlocked: false,
+    };
+  }
+
+  if (hostReady) {
     return { action: "continue" };
   }
   if (params.readiness) {
-    if (kind === "boot_page") {
-      return { action: "warn", code: "preview_boot_page", productBlocked: true };
-    }
     if (kind === "unreadable") {
       return {
         action: "warn",
@@ -535,8 +551,24 @@ export function shouldIgnoreConsoleError(text: string): boolean {
     lower.includes("download the react devtools") ||
     lower.includes("fast refresh") ||
     lower.includes("[hmr]") ||
-    lower.includes("webpack-hmr")
+    lower.includes("webpack-hmr") ||
+    lower.includes("turbopack-hmr") ||
+    lower.includes("_next/hmr")
   );
+}
+
+/**
+ * Next-dev HMR-socketen, oavsett vilket namn den bär.
+ *
+ * Next 16.3 döpte om `/_next/webpack-hmr` till `/_next/hmr`; Turbopack har
+ * sitt eget namn, och genererade sajter kan ligga kvar på en äldre Next.
+ * Handskakningen misslyckas ofta på Fly, där edge-proxyn inte alltid klarar
+ * WS genom chatId-prefixet — och en HMR-socket som inte kommer upp är brus,
+ * inte en produktdefekt. Missar den här listan det aktuella namnet räknas
+ * bruset som fel mot användarens sajt (`SM-062`).
+ */
+export function isHmrUrl(url: string): boolean {
+  return /\/_next\/(?:webpack-hmr|turbopack-hmr|hmr)(?:\/|$|\?)/.test((url || "").toLowerCase());
 }
 
 /**
@@ -561,7 +593,7 @@ export function shouldIgnoreFailedRequest(url: string, errorText: string): boole
     return true;
   }
   const u = (url || "").toLowerCase();
-  if (u.includes("/_next/webpack-hmr")) return true;
+  if (isHmrUrl(u)) return true;
   if (u.endsWith(".map")) return true;
   return false;
 }
@@ -574,7 +606,7 @@ export function shouldIgnoreHttpStatus(url: string, status: number): boolean {
   const u = (url || "").toLowerCase();
   if (u.includes("/favicon.ico")) return true;
   if (u.endsWith(".map")) return true;
-  if (u.includes("/_next/webpack-hmr")) return true;
+  if (isHmrUrl(u)) return true;
   if (status >= 400 && status < 500) {
     try {
       const path = new URL(url).pathname;
@@ -966,15 +998,11 @@ export async function runProductPostcheck(params: {
         deadlineAt: startedAt + timeoutMs,
       });
       if (readiness) {
-        // Re-read after the status wait: `firstProbe` is stale once Chromium
-        // has sat through a multi-second poll (empty → boot page is the
-        // 2026-08-14 case). Keep `firstProbe` only for the live fast-path above.
-        const freshProbe = await readPageProbe(page);
-        readinessDecision = decidePreviewReadiness({
-          probe: freshProbe,
-          readiness,
-        });
-        if (readinessDecision.action === "continue" && isHostRuntimeReady(readiness)) {
+        // Reload only after the host is ready so Chromium is not still sitting
+        // on the placeholder HTML from goto. A boot page may block only then.
+        // Keep `firstProbe` for the live fast-path above — it is stale after
+        // the status wait (empty → boot page was the 2026-08-14 case).
+        if (isHostRuntimeReady(readiness)) {
           await page
             .reload({
               waitUntil: "domcontentloaded",
@@ -985,6 +1013,11 @@ export async function runProductPostcheck(params: {
             .waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) })
             .catch(() => {});
         }
+        const freshProbe = await readPageProbe(page);
+        readinessDecision = decidePreviewReadiness({
+          probe: freshProbe,
+          readiness,
+        });
       } else {
         const afterPoll = await waitForPreviewPageToBecomeLive({
           page,

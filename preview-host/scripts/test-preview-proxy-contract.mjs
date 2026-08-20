@@ -56,10 +56,15 @@ function assertInstalledNextViewerContract() {
     require.resolve("next/dist/client/dev/hot-reloader/app/web-socket.js"),
     "utf8",
   );
+  // Next 16.3 döpte om endpointen från `webpack-hmr` till `hmr`. Det som är
+  // bindande för hosten är att klienten skickar `self.__next_r` som `?id=` på
+  // NÅGON `_next/*hmr`-sökväg — namnet i sig får drifta, men då måste
+  // `PREVIEW_HMR_PATH_SUFFIXES` och `HMR_PATH_RE` följa med, annars tappar
+  // viewer-identiteten sin väg fram (`SM-062`).
   assert.match(
     nextHmrClientSource,
-    /_next\/webpack-hmr\?id=\$\{self\.__next_r\}/,
-    "Next HMR must reconnect with self.__next_r as its id query",
+    /_next\/(?:webpack-hmr|turbopack-hmr|hmr)\?id=\$\{self\.__next_r\}/,
+    "Next HMR must reconnect with self.__next_r as its id query on a known _next hmr path",
   );
   assert.match(
     nextHmrClientSource,

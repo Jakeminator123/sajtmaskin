@@ -233,6 +233,57 @@ class RunHistoryTests(unittest.TestCase):
         )
 
 
+class QualityGateLabelTests(unittest.TestCase):
+    """SM-017: visad grind får inte vara grön när postchecken spärrade."""
+
+    def test_product_blocked_is_not_shown_as_preflight_passed(self) -> None:
+        rows = [
+            {
+                "created_at": "2026-08-19T10:00:00Z",
+                "quality_gate_result": "preflight_passed",
+                "product_blocked": True,
+                "chat_id": "c1",
+            }
+        ]
+        df = gh._recent_dataframe(rows)
+        shown = df[gh.COLUMN_QUALITY_GATE].iloc[0]
+        self.assertNotEqual(shown, "preflight_passed")
+        self.assertEqual(shown, "product_blocked")
+
+    def test_prefers_reported_quality_gate_from_script(self) -> None:
+        self.assertEqual(
+            gh._quality_gate_label(
+                {
+                    "quality_gate_result": "preflight_passed",
+                    "product_blocked": False,
+                    "reported_quality_gate": "product_blocked",
+                }
+            ),
+            "product_blocked",
+        )
+
+    def test_keeps_finalize_pass_without_postcheck_block(self) -> None:
+        self.assertEqual(
+            gh._quality_gate_label({"quality_gate_result": "preflight_passed"}),
+            "preflight_passed",
+        )
+
+    def test_keeps_finalize_failure_when_postcheck_also_blocked(self) -> None:
+        self.assertEqual(
+            gh._quality_gate_label(
+                {
+                    "quality_gate_result": "verifier_failed",
+                    "product_blocked": True,
+                }
+            ),
+            "verifier_failed",
+        )
+
+    def test_legend_names_the_postcheck_overlay(self) -> None:
+        self.assertIn("product_postcheck.summary", gh.GATE_COLUMN_LEGEND)
+        self.assertIn("product_blocked", gh.GATE_COLUMN_LEGEND)
+
+
 class GlossaryColumnHeaderTests(unittest.TestCase):
     """P2-4: sidan pratade legacy ("Quality gate", "Autofix", "Syntax-fixer") medan
     resten av repot använder glossaryns kontrollbegrepp."""

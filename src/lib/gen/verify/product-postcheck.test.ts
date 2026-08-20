@@ -482,7 +482,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
     expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(2);
   });
 
-  it("blockerar med preview_boot_page när markörerna matchar och readiness säger att runtimen inte är klar", async () => {
+  it("sätter inte productBlocked när hosten inte är redo och sidan är boot-placeholder", async () => {
     let nowMs = 1_000;
     const dateNow = vi.spyOn(Date, "now").mockImplementation(() => nowMs);
     getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
@@ -498,19 +498,62 @@ describe("runProductPostcheck browser-startpunkt", () => {
 
     try {
       const result = await runProductPostcheck({
-        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        previewUrl: "http://127.0.0.1:3000/chat_1",
         chatId: "chat_1",
         versionId: "v1",
       });
 
-      expect(result.productBlocked).toBe(true);
+      expect(result.productBlocked).toBe(false);
       expect(result.skipped).toBe(false);
       expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
-      expect(result.warnings[0]?.message).toContain("Preview-host");
-      expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(1);
+      expect(desktop.reload).not.toHaveBeenCalled();
     } finally {
       dateNow.mockRestore();
     }
+  });
+
+  it("blockerar med preview_boot_page när hosten är redo men sidan är fortfarande boot-placeholder", async () => {
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock.mockResolvedValue(readinessVerdict("ready"));
+    const desktop = fakePage([bootPageProbe, bootPageProbe]);
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => desktop),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "http://127.0.0.1:3000/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    expect(result.productBlocked).toBe(true);
+    expect(result.skipped).toBe(false);
+    expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
+    expect(result.warnings[0]?.message).toContain("Preview-host");
+    expect(desktop.reload).toHaveBeenCalled();
+    expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("blockerar med preview_boot_page när hosten är failed och sidan är boot-placeholder", async () => {
+    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    fetchPreviewHostReadinessVerdictMock.mockResolvedValue(readinessVerdict("failed"));
+    const desktop = fakePage([bootPageProbe, bootPageProbe]);
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => desktop),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "http://127.0.0.1:3000/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    expect(result.productBlocked).toBe(true);
+    expect(result.skipped).toBe(false);
+    expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
+    expect(desktop.reload).not.toHaveBeenCalled();
   });
 
   it("klassar tomt/misslyckat svar som preview_probe_unreadable utan att skylla på preview-hosten", async () => {
@@ -555,7 +598,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
       .mockResolvedValue(readinessVerdict("ready"));
     const desktop = fakePage([
       bootPageProbe,
-      bootPageProbe,
+      liveBootProbe,
       { anchors: [], images: [], ctas: [], forms: [] },
       false,
     ]);
@@ -611,7 +654,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
         versionId: "v1",
       });
 
-      expect(result.productBlocked).toBe(true);
+      expect(result.productBlocked).toBe(false);
       expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
       expect(desktop.reload).not.toHaveBeenCalled();
     } finally {
@@ -641,9 +684,10 @@ describe("runProductPostcheck browser-startpunkt", () => {
         versionId: "v1",
       });
 
-      expect(result.productBlocked).toBe(true);
+      expect(result.productBlocked).toBe(false);
       expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
       expect(desktop.evaluate).toHaveBeenCalledTimes(2);
+      expect(desktop.reload).not.toHaveBeenCalled();
     } finally {
       dateNow.mockRestore();
     }
@@ -658,7 +702,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
       .mockResolvedValue(readinessVerdict("ready"));
     const desktop = fakePage([
       bootPageProbe,
-      bootPageProbe,
+      liveBootProbe,
       { anchors: [], images: [], ctas: [], forms: [] },
       false,
     ]);
@@ -1192,6 +1236,8 @@ describe("shouldIgnoreConsoleError", () => {
     expect(shouldIgnoreConsoleError("[Fast Refresh] rebuilding")).toBe(true);
     expect(shouldIgnoreConsoleError("[HMR] connected")).toBe(true);
     expect(shouldIgnoreConsoleError("webpack-hmr disconnected")).toBe(true);
+    expect(shouldIgnoreConsoleError("WebSocket to /_next/hmr failed")).toBe(true);
+    expect(shouldIgnoreConsoleError("turbopack-hmr disconnected")).toBe(true);
   });
 
   it("släpper igenom riktiga console-fel", () => {
@@ -1226,6 +1272,22 @@ describe("shouldIgnoreFailedRequest", () => {
   it("ignorerar HMR och source maps", () => {
     expect(shouldIgnoreFailedRequest("https://host/_next/webpack-hmr", "socket hang up")).toBe(true);
     expect(shouldIgnoreFailedRequest("https://host/app.js.map", "net::ERR_FAILED")).toBe(true);
+  });
+
+  // SM-062: Next 16.3 döpte om endpointen. En misslyckad HMR-handskakning är
+  // brus — vanligt på Fly där edge-proxyn inte alltid klarar WS genom
+  // chatId-prefixet — och får inte räknas som defekt i användarens sajt.
+  it("ignorerar Next 16.3:s omdöpta HMR-sökväg och Turbopacks", () => {
+    expect(shouldIgnoreFailedRequest("https://host/chat_1/_next/hmr?id=abc", "socket hang up")).toBe(
+      true,
+    );
+    expect(shouldIgnoreFailedRequest("https://host/_next/turbopack-hmr", "net::ERR_FAILED")).toBe(
+      true,
+    );
+  });
+
+  it("låter en riktig rutt som bara innehåller hmr passera som fel", () => {
+    expect(shouldIgnoreFailedRequest("https://host/hmr-dashboard", "net::ERR_FAILED")).toBe(false);
   });
 
   it("släpper igenom riktiga request-fel", () => {

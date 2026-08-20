@@ -186,6 +186,7 @@ function renderF2MutedCapabilitiesLines(
     "- Do NOT create any file under `app/api/**` for it — no route handler, no webhook, no server action that talks to the service.",
     "- Do NOT import its SDK or client library, and do NOT read its `process.env` keys.",
     '- DO render the full, beautiful surface the user would see (subscribe field, form, list, button) with local `useState` and a Swedish demo toast, e.g. `toast.success("Tack! Anmälan sparas när tjänsten kopplas in.")`.',
+    "- Put `data-demo-only` on that demo `<form>` (or a wrapper). Product postcheck already honors the attribute.",
     "- Do NOT claim in UI copy that the service is connected. The builder tells the user separately that it is planned for the next step.",
     "",
   ];
@@ -216,6 +217,7 @@ export function renderF2ContractBlock(
     "",
     '- Mock all data inline as TypeScript constants: `const ROOMS = [{ id: "1", name: "Skogssvit", price: 1290 }, ...]`.',
     '- Forms: use `useState` + `toast.success("Bokningen mottagen!")` on submit. No POST endpoint, no DB.',
+    "- Mark every F2 demo `<form>` with `data-demo-only` on the form or a wrapper. Product postcheck already honors that attribute. Do not invent an `action` URL or API route.",
     "- Contact/booking forms that would SEND EMAIL: still render the full, beautiful form UI (name/email/message fields, validation, loading state) — but the submit handler is a pure client-side mock (`toast.success(\"Meddelandet mottaget! (demo — mejl aktiveras i 'Bygg integrationer')\")`). Do NOT emit an email API route, do NOT import an email SDK, and do NOT reference `process.env` for email addresses — never invent env keys like `BOOKING_TO_EMAIL`, `CONTACT_EMAIL_TO` or other `*_EMAIL` variables. Real email delivery is wired in F3 via the contact-form dossier's canonical keys (`RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL_TO`).",
     '- Auth UIs: render a beautiful `<LoginForm>` with email/password fields that calls `toast.success("Inloggad (demo)")` on submit. No real session.',
     "- Payments UIs: render a beautiful checkout summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i integrationsbygget — klicka 'Bygg integrationer' i previewpanelen.\" No Stripe, no API call.",

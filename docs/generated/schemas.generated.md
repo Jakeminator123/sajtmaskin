@@ -10,7 +10,7 @@
 <!-- source-fingerprint: docs/schemas/strict/domain-rules.schema.json sha256:fade2032ef57bc1c -->
 <!-- source-fingerprint: docs/schemas/strict/dossier-stub-created.schema.json sha256:679b125ad148dea6 -->
 <!-- source-fingerprint: docs/schemas/strict/dossier-verbatim-restored.schema.json sha256:dbeaefe19ccead17 -->
-<!-- source-fingerprint: docs/schemas/strict/dossier.schema.json sha256:5f70fb39d4e9739b -->
+<!-- source-fingerprint: docs/schemas/strict/dossier.schema.json sha256:9e1d3e88d2a52fa5 -->
 <!-- source-fingerprint: docs/schemas/strict/embeddings-blob-manifest.schema.json sha256:6c21539f9d39980d -->
 <!-- source-fingerprint: docs/schemas/strict/env-policy.schema.json sha256:6fead5ada9616f55 -->
 <!-- source-fingerprint: docs/schemas/strict/image-replaced-with-placeholder.schema.json sha256:08f1d3d1cba188ad -->

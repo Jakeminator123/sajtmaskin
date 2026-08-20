@@ -21,7 +21,7 @@ interface TipsRequestBody {
 const DEFAULT_UI_SURFACES = [
   "vänster chatpanel",
   "Mer-menyn (import, runtime, ZIP)",
-  "Lanseringskortet",
+  "Visa diagnostik på en version",
   "previewpanelen",
   "sidchipsen under Preview",
   "Kodvy",
@@ -141,8 +141,8 @@ function extractAssistantText(payload: unknown): string {
 }
 
 const UI_LOCATION_REWRITES: Array<[RegExp, string]> = [
-  [/\bSEO-panelen\b/giu, "Lanseringskortet"],
-  [/\bSEO-sidan\b/giu, "Lanseringskortet"],
+  [/\bSEO-panelen\b/giu, "Visa diagnostik på en version"],
+  [/\bSEO-sidan\b/giu, "Visa diagnostik på en version"],
 ];
 
 const GENERIC_UNKNOWN_UI_RE =
@@ -153,8 +153,8 @@ function mentionsKnownSurface(text: string): boolean {
     "launch readiness",
     "mer-meny",
     "mer-menyn",
-    "lansering",
-    "lanseringskortet",
+    "diagnostik",
+    "visa diagnostik",
     "preview",
     "kodvy",
     "elementregister",

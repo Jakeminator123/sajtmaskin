@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   isBuiltinPackage,
@@ -59,5 +61,33 @@ describe("keyless dossier acceptance project", () => {
     expect(() => buildDossierAcceptanceProject(fileless!.id)).toThrow(
       /requires a dossier with declared files/,
     );
+  });
+
+  it("materializes openai-chat with the AI SDK ranges used by the warm typecheck", () => {
+    const project = buildDossierAcceptanceProject("openai-chat");
+    const packageFile = project.files.find((file) => file.path === "package.json");
+    expect(packageFile).toBeDefined();
+    const chatRoute = project.files.find((file) => file.path === "app/api/chat/route.ts");
+    expect(chatRoute?.content).toContain("await convertToModelMessages(messages)");
+
+    const generated = JSON.parse(packageFile!.content) as {
+      dependencies?: Record<string, string>;
+    };
+    const platform = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const warmCacheDependencies = {
+      ...(platform.dependencies ?? {}),
+      ...(platform.devDependencies ?? {}),
+    };
+
+    for (const dependency of ["ai", "@ai-sdk/openai", "@ai-sdk/react"] as const) {
+      expect(
+        generated.dependencies?.[dependency],
+        `${dependency}: generated VM range must match the platform declaration behind the warm-cache node_modules`,
+      ).toBe(warmCacheDependencies[dependency]);
+    }
+    expect(generated.dependencies?.ai).not.toMatch(/^\^?7(?:\.|$)/);
   });
 });
