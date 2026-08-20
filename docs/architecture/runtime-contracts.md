@@ -198,6 +198,12 @@ Invariants:
 - `generation_telemetry.quality_gate_result` bär trots namnet **finalize**-utfallet
   (`preflight_passed` / `preflight_failed` / `verifier_failed`) — aldrig
   VM-gatens verdikt. Det ligger i `engine_version_error_logs`.
+- Visad grind (Backoffice Generation History via
+  `scripts/db/generation-history.mjs`) slår ihop kolumnen med senaste
+  `product_postcheck.summary`. Ägare:
+  `resolveReportedQualityGateResult` i
+  `src/lib/db/services/reported-quality-gate.ts`. `product_blocked` är en
+  läsvy — inte ett lagrat enum-värde och inte en promote-signal.
 
 ## Versionstatus och event-bus
 

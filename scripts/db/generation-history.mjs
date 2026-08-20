@@ -4,6 +4,8 @@
  * Slår ihop de tabeller som pipelinen redan skriver per generering:
  *   - `generation_telemetry`        (utfall per version: scaffold, model, retry,
  *                                     autofix, preflight, quality gate, preview)
+ *   - latest `product_postcheck.summary` → `product_blocked` +
+ *     `reported_quality_gate` (SM-017: visad grind, inte stored enum)
  *   - `engine_versions`             (version-rader: F2/F3 lifecycle, release/verify-state)
  *   - `engine_chats` + `app_projects` (chatt/projekt-kontext för läsbara etiketter)
  *   - `engine_version_error_logs`   (per-version fel/warnings, t.ex. merge:cross-file-stub)
@@ -107,6 +109,39 @@ function projectTelemetryMetaFields(row) {
   };
 }
 
+/**
+ * Keep in sync with `resolveReportedQualityGateResult` in
+ * `src/lib/db/services/reported-quality-gate.ts`. The Node script cannot
+ * import that TS module; the rule is four lines and the vitest lock lives
+ * next to the TypeScript owner.
+ */
+function resolveReportedQualityGateResult(qualityGateResult, productBlocked) {
+  if (qualityGateResult === "preflight_passed" && productBlocked === true) {
+    return "product_blocked";
+  }
+  return qualityGateResult ?? null;
+}
+
+function projectHistoryRow(row) {
+  const projected = projectTelemetryMetaFields(row);
+  projected.reported_quality_gate = resolveReportedQualityGateResult(
+    projected.quality_gate_result,
+    projected.product_blocked === true,
+  );
+  return projected;
+}
+
+const LATEST_PRODUCT_POSTCHECK_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT (e.meta @> '{"productBlocked": true}'::jsonb) AS product_blocked
+    FROM engine_version_error_logs e
+    WHERE e.version_id = gt.version_id
+      AND e.category = 'product_postcheck.summary'
+    ORDER BY e.created_at DESC
+    LIMIT 1
+  ) pps ON true
+`;
+
 const RECENT_QUERY = `
   SELECT
     gt.created_at,
@@ -124,6 +159,7 @@ const RECENT_QUERY = `
     gt.preflight_error_count,
     gt.preflight_warning_count,
     gt.quality_gate_result,
+    pps.product_blocked,
     gt.preview_success,
     gt.preview_blocking_reason,
     gt.deploy_result,
@@ -138,6 +174,7 @@ const RECENT_QUERY = `
     c.project_id,
     p.name         AS project_name
   FROM generation_telemetry gt
+  ${LATEST_PRODUCT_POSTCHECK_JOIN.trim()}
   LEFT JOIN engine_versions v ON v.id = gt.version_id
   LEFT JOIN engine_chats   c ON c.id = gt.chat_id
   LEFT JOIN app_projects   p ON p.id = c.project_id
@@ -161,14 +198,16 @@ const CHAT_VERSIONS_QUERY = `
 `;
 
 const CHAT_TELEMETRY_QUERY = `
-  SELECT version_id, scaffold_id, model, model_tier, build_intent, build_method,
-         prompt_classification, retry_count, autofix_applied, syntax_fixer_used,
-         preflight_error_count, preflight_warning_count, quality_gate_result,
-         preview_success, preview_blocking_reason, deploy_result, duration_ms,
-         file_count, meta, created_at
-  FROM generation_telemetry
-  WHERE chat_id = $1
-  ORDER BY created_at ASC
+  SELECT gt.version_id, gt.scaffold_id, gt.model, gt.model_tier, gt.build_intent, gt.build_method,
+         gt.prompt_classification, gt.retry_count, gt.autofix_applied, gt.syntax_fixer_used,
+         gt.preflight_error_count, gt.preflight_warning_count, gt.quality_gate_result,
+         pps.product_blocked,
+         gt.preview_success, gt.preview_blocking_reason, gt.deploy_result, gt.duration_ms,
+         gt.file_count, gt.meta, gt.created_at
+  FROM generation_telemetry gt
+  ${LATEST_PRODUCT_POSTCHECK_JOIN.trim()}
+  WHERE gt.chat_id = $1
+  ORDER BY gt.created_at ASC
 `;
 
 const CHAT_ERROR_LOGS_QUERY = `
@@ -203,7 +242,7 @@ try {
       generatedAt: new Date().toISOString(),
       chat: meta.rows[0] ?? { id: chatId, missing: true },
       versions: versions.rows,
-      telemetry: telemetry.rows.map(projectTelemetryMetaFields),
+      telemetry: telemetry.rows.map(projectHistoryRow),
       errorLogs: errorLogs.rows,
       generationLogs: genLogs.rows,
     };
@@ -216,7 +255,7 @@ try {
   }
 
   const result = await client.query(RECENT_QUERY, [limit]);
-  const rows = result.rows.map(projectTelemetryMetaFields);
+  const rows = result.rows.map(projectHistoryRow);
   let success = 0;
   let failed = 0;
   let pending = 0;

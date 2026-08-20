@@ -43,6 +43,10 @@ _TIMEOUT_S = 60
 # `quality_gate_result` bär F2-gaten (RenderGate) och F3-gaten (ReleaseGate), och
 # vilken det är avgörs av Stage-kolumnen på raden. Rubriken är därför neutral och
 # legenden nedan säger vilket värde som är vilket.
+#
+# SM-017: kolumnen är finalize-only. Visad grind slår ihop den med senaste
+# `product_postcheck.summary` (`product_blocked`) så en spärrad produktkontroll
+# inte renderas som `preflight_passed`.
 COLUMN_QUALITY_GATE = "Kvalitetsgrind"
 COLUMN_NORMALIZE = "Normalize"
 COLUMN_REPAIR_GATE = "RepairGate"
@@ -53,7 +57,9 @@ COLUMN_RISKY_FIXES = "Risky fixar"
 
 GATE_COLUMN_LEGEND = (
     f"**{COLUMN_QUALITY_GATE}** = RenderGate när Stage är `design`/F2, ReleaseGate när "
-    "Stage är `integrations`/F3 (DB: `quality_gate_result`) · "
+    "Stage är `integrations`/F3. Visad grind slår ihop finalize "
+    "(`quality_gate_result`) med senaste `product_postcheck.summary`: "
+    "`product_blocked` när postchecken spärrade trots `preflight_passed`. · "
     f"**{COLUMN_NORMALIZE}** = mekaniska, deterministiska fixar kördes "
     "(DB: `autofix_applied`) · "
     f"**{COLUMN_REPAIR_GATE}** = LLM-repair behövdes efter dem "
@@ -63,6 +69,23 @@ GATE_COLUMN_LEGEND = (
     f"**{COLUMN_RISKY_FIXES}** = antal riskfyllda autofix "
     "(`meta.autofix.riskyFixCount`)."
 )
+
+
+def _quality_gate_label(row: dict[str, Any]) -> str:
+    """Visad grind: finalize-kolumn + senaste product_postcheck.summary.
+
+    Speglar `resolveReportedQualityGateResult` i
+    `src/lib/db/services/reported-quality-gate.ts`. Scriptet skickar
+    `reported_quality_gate` när det kan; den här fallbacken täcker äldre
+    payload och enhetstester som bara sätter `product_blocked`.
+    """
+    reported = row.get("reported_quality_gate")
+    if isinstance(reported, str) and reported.strip():
+        return reported
+    result = row.get("quality_gate_result")
+    if result == "preflight_passed" and row.get("product_blocked") is True:
+        return "product_blocked"
+    return result or "—"
 
 
 def _repair_helped_label(fixer_used: Any, fixer_improved: Any) -> str:
@@ -174,7 +197,7 @@ def _recent_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
                 "Model": r.get("model") or "—",
                 "Intent": r.get("build_intent") or "—",
                 "Preview": _preview_label(r.get("preview_success"), r.get("created_at")),
-                COLUMN_QUALITY_GATE: r.get("quality_gate_result") or "—",
+                COLUMN_QUALITY_GATE: _quality_gate_label(r),
                 "Deploy": r.get("deploy_result") or "—",
                 "Retry": r.get("retry_count"),
                 COLUMN_NORMALIZE: "ja" if r.get("autofix_applied") else "nej",
@@ -241,7 +264,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
                         "Model": t.get("model") or "—",
                         "Intent": t.get("build_intent") or "—",
                         "Preview": _preview_label(t.get("preview_success"), t.get("created_at")),
-                        COLUMN_QUALITY_GATE: t.get("quality_gate_result") or "—",
+                        COLUMN_QUALITY_GATE: _quality_gate_label(t),
                         "Deploy": t.get("deploy_result") or "—",
                         "Retry": t.get("retry_count"),
                         COLUMN_NORMALIZE: "ja" if t.get("autofix_applied") else "nej",

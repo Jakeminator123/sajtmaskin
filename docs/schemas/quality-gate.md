@@ -141,3 +141,9 @@ verdiktet inte var blockerande. `acceptRepair` skickar
 Lageröversikt:
 [`orchestration-signal-contract.md`](orchestration-signal-contract.md)
 (lager Innehållsrevision).
+
+Visad grind (Backoffice) är inte kolumnen ensam.
+`resolveReportedQualityGateResult` överskuggar `preflight_passed` till
+`product_blocked` när senaste `product_postcheck.summary` har
+`meta.productBlocked: true`. Promote-guarden läser fortfarande bara
+kolumnen.
