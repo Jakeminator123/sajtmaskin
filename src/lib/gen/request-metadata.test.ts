@@ -8,6 +8,7 @@ import {
   isVideoRequestAttachment,
   normalizeRequestAttachments,
   VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
+  variantTemplateImageInSentPayload,
   type RequestAttachment,
 } from "./request-metadata";
 
@@ -176,6 +177,21 @@ describe("buildUserPromptContent — attached media", () => {
     expect(images).toContain(`${BLOB}/template.png`);
     expect(images).toContain(`${BLOB}/user-1.jpg`);
     expect(textOf(content)).toContain("Variant template style reference");
+  });
+
+  it("variantTemplateImageInSentPayload follows the same vision cap", () => {
+    const variantStill: RequestAttachment = {
+      url: `${BLOB}/template.png`,
+      mimeType: "image/png",
+      purpose: VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
+    };
+    const fourUsers = [1, 2, 3, 4].map((n) => ({
+      url: `${BLOB}/user-${n}.jpg`,
+      mimeType: "image/jpeg",
+    }));
+
+    expect(variantTemplateImageInSentPayload([variantStill, ...fourUsers])).toBe(false);
+    expect(variantTemplateImageInSentPayload([variantStill, fourUsers[0]])).toBe(true);
   });
 
   it("normalizeRequestAttachments låter inte en klient sätta systemreferens-markören", () => {

@@ -163,7 +163,12 @@ export function normalizeRequestAttachments(input: unknown): RequestAttachment[]
     .filter((attachment): attachment is RequestAttachment => Boolean(attachment));
 }
 
-function getVisualReferenceAttachments(
+/**
+ * Vision-channel budget. Owner of the 4-image cap and "user images first"
+ * priority. Callers that need to know what actually reached the model must
+ * use this — do not copy the slice.
+ */
+export function getVisualReferenceAttachments(
   attachments: RequestAttachment[],
   max = 4,
 ): RequestAttachment[] {
@@ -184,6 +189,15 @@ function getVisualReferenceAttachments(
       ...attachment,
       mimeType: attachment.mimeType || getAttachmentMediaType(attachment),
     }));
+}
+
+/** True when the variant still image survived the vision-channel cap. */
+export function variantTemplateImageInSentPayload(
+  attachments: RequestAttachment[],
+): boolean {
+  return getVisualReferenceAttachments(attachments).some(
+    isVariantTemplateStyleReference,
+  );
 }
 
 /**

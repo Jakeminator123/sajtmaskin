@@ -141,6 +141,7 @@ export async function runPlanModeTurn(params: {
       parsedMeta,
       resolvedImageGenerations,
       designReferences,
+      requestAttachments,
       persistedScaffoldId,
       importedRepoMode,
       previousFilesCount: previousFiles.length,

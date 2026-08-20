@@ -267,6 +267,7 @@ export async function runCodegenTurn(params: {
     parsedMeta,
     resolvedImageGenerations,
     designReferences,
+    requestAttachments,
     persistedScaffoldId,
     importedRepoMode,
     previousFilesCount: previousFiles.length,
