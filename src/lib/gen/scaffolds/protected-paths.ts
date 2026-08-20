@@ -125,12 +125,23 @@ export function reinjectProtectedPathsFromFallback(params: {
  * means a protected path exists in neither the post-partition repair output
  * nor the fallback — callers MUST not persist and SHOULD surface this reason
  * on the existing fail / HTTP `reason` channel.
+ *
+ * Imported-repo (verbatim) chats skip the block: protected paths such as
+ * `app/api/placeholder/route.ts` are intentionally absent from persisted
+ * `files_json` and only injected at export/preview/verify time. Repair starts
+ * from that exportable project, so the LLM often re-emits the injected path;
+ * treating that as a persist failure would false-block a legal save and
+ * mis-blame a typecheck/build gate.
  */
-export function missingProtectedPathsPersistBlock(stillMissing: readonly string[]): {
+export function missingProtectedPathsPersistBlock(
+  stillMissing: readonly string[],
+  options?: { verbatimRepo?: boolean },
+): {
   stillMissing: string[];
   failSummary: string;
   userReason: string;
 } | null {
+  if (options?.verbatimRepo) return null;
   if (stillMissing.length === 0) return null;
   const listed = stillMissing.join(", ");
   const fileWord = stillMissing.length === 1 ? "file" : "files";

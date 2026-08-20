@@ -464,7 +464,7 @@ export async function triggerServerVerification(params: {
               fallbackFiles: codeFiles,
             });
             const repairedFilesJson = JSON.stringify(reinjection.files);
-            if (reinjection.stillMissing.length > 0) {
+            if (!repairVerbatimRepo && reinjection.stillMissing.length > 0) {
               deterministicMeta.skippedPersistReason = "protected_paths_still_missing";
             } else if (repairedFilesJson !== baseFilesJson) {
               // Supersede guard (bugbot HIGH on this diff): the gate can run

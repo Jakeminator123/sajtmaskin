@@ -196,4 +196,12 @@ describe("missingProtectedPathsPersistBlock", () => {
     expect(block?.userReason).toContain("app/api/placeholder/route.ts");
     expect(block?.userReason).toContain("sparades inte");
   });
+
+  it("does not block persist in verbatim imported-repo mode", () => {
+    expect(
+      missingProtectedPathsPersistBlock(["app/api/placeholder/route.ts"], {
+        verbatimRepo: true,
+      }),
+    ).toBeNull();
+  });
 });

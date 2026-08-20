@@ -145,8 +145,7 @@ beforeEach(() => {
 describe("tryServerRepairLoop — stillMissing protected path must not persist (SM-034)", () => {
   it("does not save when LLM output and fallback both lack a usable protected path", async () => {
     // LLM emitted the path (partition drops it) and fallback cannot restore it
-    // — the prod stillMissing case. Imported repos that never had the file are
-    // unaffected: they never populate droppedPaths / stillMissing.
+    // — the prod stillMissing case on a scaffold chat (verbatim is skipped).
     await driveOnePromotion(serializeCodeProject(llmWithProtected));
 
     await tryServerRepairLoop({
@@ -166,5 +165,48 @@ describe("tryServerRepairLoop — stillMissing protected path must not persist (
     const failSummary = String(failVersionVerification.mock.calls[0]?.[1] ?? "");
     expect(failSummary).toContain(PROTECTED_PATH);
     expect(failSummary.toLowerCase()).toMatch(/not saved|was not saved|did not save/);
+  });
+
+  it("does not block save in verbatim mode when export injects a protected path absent from files_json", async () => {
+    // Imported-repo repair starts from buildExportableProject(..., { verbatimRepo }),
+    // which injects app/api/placeholder/route.ts for preview↔verify parity even
+    // though that file is intentionally missing from persisted files_json.
+    // The persist gate must not treat that injection as a missing scaffold file.
+    chatUsesVerbatimRepo.mockResolvedValue(true);
+    buildExportableProject.mockImplementation(
+      async (files: Array<{ path: string }>, options?: { verbatimRepo?: boolean }) => {
+        if (
+          options?.verbatimRepo &&
+          !files.some((file) => file.path === PROTECTED_PATH)
+        ) {
+          return [
+            ...files,
+            { path: PROTECTED_PATH, content: "injected", language: "ts" },
+          ];
+        }
+        return files;
+      },
+    );
+    await driveOnePromotion(serializeCodeProject(llmWithProtected));
+
+    await tryServerRepairLoop({
+      chatId: "chat-sm034",
+      versionId: "ver-sm034",
+      codeFiles: fallbackWithoutProtected,
+      baseFilesJson,
+      failedOutputs: [{ check: "typecheck", exitCode: 1, output: "boom", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: "typecheck",
+      jobStartedAt: null,
+      jobFinishedAt: null,
+    });
+
+    expect(saveRepairedFiles).toHaveBeenCalled();
+    const failSummaries = failVersionVerification.mock.calls.map((call) =>
+      String(call[1] ?? ""),
+    );
+    expect(failSummaries.some((summary) => summary.includes(PROTECTED_PATH))).toBe(
+      false,
+    );
   });
 });

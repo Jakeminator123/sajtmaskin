@@ -430,7 +430,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           stillMissing: reinjection.stillMissing,
         });
       }
-      const persistBlock = missingProtectedPathsPersistBlock(reinjection.stillMissing);
+      const persistBlock = missingProtectedPathsPersistBlock(reinjection.stillMissing, {
+        verbatimRepo,
+      });
       if (persistBlock) {
         missingProtectedGate.block = persistBlock;
         if (dbConfigured) {

@@ -247,7 +247,9 @@ export async function tryServerRepairLoop(params: {
         stillMissing: reinjection.stillMissing,
       });
     }
-    const persistBlock = missingProtectedPathsPersistBlock(reinjection.stillMissing);
+    const persistBlock = missingProtectedPathsPersistBlock(reinjection.stillMissing, {
+      verbatimRepo: repairVerbatimRepo,
+    });
     if (persistBlock) {
       missingProtectedGate.block = persistBlock;
       await createEngineVersionErrorLogs([
