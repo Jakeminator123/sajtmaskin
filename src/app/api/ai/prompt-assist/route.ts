@@ -6,6 +6,7 @@ import { createDirectModel } from "@/lib/builder/direct-model";
 import {
   buildPromptAssistMessages,
   buildPromptAssistModelOptions,
+  isPromptAssistRewriteOverCharLimit,
   parsePromptAssistResponse,
   PROMPT_ASSIST_DRAFT_MAX_CHARS,
   resolvePromptRewriteModel,
@@ -61,6 +62,11 @@ export async function POST(req: Request) {
       const text = parsePromptAssistResponse(result.text ?? "");
       if (!text) {
         return NextResponse.json({ error: "empty_rewrite" }, { status: 502 });
+      }
+      // A model can finish normally (stop) and still emit more than the
+      // writeback cap. Do not slice and pretend the rewrite is complete.
+      if (isPromptAssistRewriteOverCharLimit(text)) {
+        return NextResponse.json({ error: "rewrite_char_limit" }, { status: 502 });
       }
       return NextResponse.json({ text, model: modelId });
     } catch (error) {

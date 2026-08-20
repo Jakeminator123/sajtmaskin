@@ -62,23 +62,16 @@ export function buildPromptAssistModelOptions(modelId: string): {
   };
 }
 
-function clampRewriteText(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.length <= PROMPT_REWRITE_MAX_CHARS) return trimmed;
-
-  let end = PROMPT_REWRITE_MAX_CHARS;
-  const lastCodeUnit = trimmed.charCodeAt(end - 1);
-  if (lastCodeUnit >= 0xd800 && lastCodeUnit <= 0xdbff) {
-    end -= 1;
-  }
-  return trimmed.slice(0, end).trimEnd();
+/** True when a finished rewrite would exceed the writeback character contract. */
+export function isPromptAssistRewriteOverCharLimit(text: string): boolean {
+  return text.length > PROMPT_REWRITE_MAX_CHARS;
 }
 
 function readRewriteText(value: string): string | null | undefined {
   try {
     const parsed = JSON.parse(value) as { text?: unknown };
     if (typeof parsed.text === "string") {
-      return clampRewriteText(parsed.text) || null;
+      return parsed.text.trim() || null;
     }
     return null;
   } catch {
@@ -105,5 +98,5 @@ export function parsePromptAssistResponse(raw: string): string | null {
     if (candidate.startsWith("{") || /"text"\s*:/.test(candidate)) return null;
   }
 
-  return clampRewriteText(candidate);
+  return candidate || null;
 }
