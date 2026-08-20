@@ -232,6 +232,26 @@ function findAltForLocalAsset(files: TextFile[], assetPath: string): string {
   return "";
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * The sanity detector reports the path only (`/logo.svg`) even when the
+ * literal carried a query/hash (`/logo.svg?v=2`). Replacement must consume
+ * that suffix or autofix leaves `…/api/placeholder?w=…?v=2`.
+ */
+function collectLocalAssetLiterals(files: TextFile[], assetPath: string): string[] {
+  const re = new RegExp(`${escapeRegExp(assetPath)}(?:[?#][^"'\\s\`]*)?`, "g");
+  const found = new Set<string>();
+  for (const file of files) {
+    for (const match of file.content.matchAll(re)) {
+      found.add(match[0]);
+    }
+  }
+  return found.size > 0 ? [...found] : [assetPath];
+}
+
 /**
  * SM-063: reuse the sanity detector. Root-relative invented assets never
  * get a HEAD check (`isExternalImageUrl` correctly skips `/…`).
@@ -241,15 +261,17 @@ function danglingLocalImagesAsBroken(files: TextFile[]): BrokenImage[] {
   const seen = new Set<string>();
   const broken: BrokenImage[] = [];
   for (const ref of refs) {
-    if (seen.has(ref.assetPath)) continue;
-    seen.add(ref.assetPath);
-    broken.push({
-      url: ref.assetPath,
-      alt: findAltForLocalAsset(files, ref.assetPath),
-      file: ref.file,
-      status: 404,
-      replacementUrl: null,
-    });
+    for (const literal of collectLocalAssetLiterals(files, ref.assetPath)) {
+      if (seen.has(literal)) continue;
+      seen.add(literal);
+      broken.push({
+        url: literal,
+        alt: findAltForLocalAsset(files, ref.assetPath),
+        file: ref.file,
+        status: 404,
+        replacementUrl: null,
+      });
+    }
   }
   return broken;
 }

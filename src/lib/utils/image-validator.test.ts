@@ -440,6 +440,29 @@ describe("validateImages", () => {
       fetchSpy.mockRestore();
     });
 
+    it("consumes a query suffix so the placeholder URL stays well-formed", async () => {
+      const files: TextFile[] = [
+        {
+          name: "app/page.tsx",
+          content: '<img src="/images/hero-sky.jpg?v=2" alt="Himmel" />',
+        },
+      ];
+
+      const result = await validateImages({
+        files,
+        autoFix: true,
+        unsplashAccessKey: null,
+      });
+
+      expect(result.replacedCount).toBe(1);
+      expect(result.broken[0]?.url).toBe("/images/hero-sky.jpg?v=2");
+      expect(result.files[0]?.content).toContain(
+        "/api/placeholder?w=1200&h=800&label=Himmel",
+      );
+      expect(result.files[0]?.content).not.toContain("/images/hero-sky.jpg");
+      expect(result.files[0]?.content).not.toMatch(/\/api\/placeholder\?[^"']*\?v=2/);
+    });
+
     it("reports dangling locals without rewriting when autoFix is false", async () => {
       const files: TextFile[] = [
         {
