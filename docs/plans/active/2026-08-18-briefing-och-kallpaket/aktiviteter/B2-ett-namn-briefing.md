@@ -26,6 +26,47 @@ Ordet «förbättra» pekar på en knapp som är borta (2026-04-21) och får int
 återanvändas för Deep Brief. Kodnyckeln `promptAssist` mappas i text till
 Deep Brief, inte till knappen.
 
+## Färdig läsarlista (kartlagd 2026-08-20)
+
+Manifest-sammanslagningen är **mekanisk och avgränsad** — åtta filer, inte
+femtioåtta. Skillnaden är avgörande: `promptAssist` förekommer i 58 filer, men i
+nästan alla som **kodidentifieraren** `promptAssistModel` / `promptAssistDeep`,
+som ska stanna. Bara dessa läser manifest-*nyckeln*:
+
+| Fil | Vad som ska ändras |
+|---|---|
+| `config/ai_models/manifest.json` | Flytta `promptAssist.defaults.assist`, `envKeys.assist` och hela `allowed` in i `briefing`. Slå ihop `notes`. Ta bort `promptAssist` |
+| `config/ai_models/manifest.schema.json` | `promptAssist` ur `required` (rad ~9) och ur `properties` (~74). Lägg `assist` i `briefing.defaults`/`envKeys` och `allowed` i `briefing` |
+| `src/lib/ai-models/load-manifest.ts` | `promptAssistSchema` (~63–78) in i `briefingSchema` (~80–92). `getPromptAssistAllowedFromManifest` (~427) läser `briefing.allowed`. **Behåll funktionsnamnet** |
+| `src/lib/gen/defaults.ts` | `const pa = manifest.promptAssist` (~27) bort; `ASSIST_MODEL` (~54) läser briefing-fälten |
+| `scripts/docs/contract-docs-core.mjs` | `assistRows` (~525) läser `manifest.briefing.defaults`. De två genererade tabellerna «Deep Brief» och «Briefing» blir en — **detta är den enda delen med formfrihet, och därför den som ska granskas noggrannast** |
+| `src/lib/ai-models/manifest-parity.test.ts` | Nyckelvägarna på ~51, ~56 och ~228 |
+| `backoffice/pages/ai_models.py` | `manifest.setdefault("promptAssist", …)` (~311–313) och skrivvägen (~350–359) |
+| `backoffice/test_validate_manifest.py` | `del manifest["promptAssist"]["allowed"]…` (~82) → briefing-vägen |
+
+Målform på `briefing`:
+
+```json
+"briefing": {
+  "defaults": { "assist": "…", "requestModel": "…", "serverAutoOpenAI": "…", "serverAutoAnthropic": "…" },
+  "envKeys":  { "assist": "SAJTMASKIN_ASSIST_MODEL", "requestModel": "SAJTMASKIN_BRIEF_MODEL", … },
+  "allowed":  { "gatewayClassModels": […], "anthropicDirectModels": […], "models": […] }
+}
+```
+
+`assist` och `requestModel` är **inte** dubbletter trots att båda är
+`openai/gpt-5.6-sol` i dag: `assist` är klientens valbara Deep Brief-modell
+(default för `promptAssistModel` i builder-state), `requestModel` är serverns
+default för `/api/ai/brief` när anroparen inte skickar någon. Slå inte ihop dem.
+
+Verifiering (allt måste vara grönt): `npm run typecheck` ·
+`npx vitest run src/lib/ai-models src/lib/gen src/lib/builder` ·
+`npm run backoffice:test` (unittest, **inte** pytest) · `npm run lint:py` ·
+`npm run docs:generate` + `npm run docs:check` · `npm run docs:links`.
+
+**Kör som PR, inte direktpush.** Manifestet Zod-parsas vid import, så ett
+schemaglapp bryter varje generation — CI är sista nätet och ska hinna tala.
+
 ## Uppgift
 
 Gör **Briefing** till det enda produktnamnet för lagret före kodgeneratorn, med
