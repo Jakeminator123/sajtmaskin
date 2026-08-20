@@ -54,6 +54,7 @@ import {
   REPAIR_LOOP_BUDGET_MS,
 } from "@/lib/gen/defaults";
 import {
+  missingProtectedPathsPersistBlock,
   partitionGeneratedFilesForProtectedPaths,
   reinjectProtectedPathsFromFallback,
 } from "@/lib/gen/scaffolds/protected-paths";
@@ -165,6 +166,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   // because a concurrent user edit advanced files_json past the repaired-from
   // snapshot. Used to skip failing the (newer) version below.
   let staleBaseNoOp = false;
+  const missingProtectedGate: {
+    block: NonNullable<ReturnType<typeof missingProtectedPathsPersistBlock>> | null;
+  } = { block: null };
   // #260 Codex P2 (route re-verify build-gate): hoisted to the finally scope so
   // the after() re-verify of the user's current files (B) keeps `build` in its
   // gate when the abandoned manual repair was build/preview-start originated.
@@ -425,6 +429,30 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           reinjected: reinjection.reinjected,
           stillMissing: reinjection.stillMissing,
         });
+      }
+      const persistBlock = missingProtectedPathsPersistBlock(reinjection.stillMissing);
+      if (persistBlock) {
+        missingProtectedGate.block = persistBlock;
+        if (dbConfigured) {
+          await createEngineVersionErrorLogs([
+            {
+              chatId,
+              versionId: currentVersionId,
+              level: "warning" as const,
+              category: "server-repair",
+              message: persistBlock.failSummary,
+              meta: {
+                stillMissing: persistBlock.stillMissing,
+                method,
+                promoted: false,
+                serverOwned: false,
+              },
+            },
+          ]).catch((err) => {
+            console.warn("[repair] Failed to log stillMissing protected-path block:", err);
+          });
+        }
+        return { ok: false, newVersionId: null };
       }
       // Codex P2 (renew before the post-repair gate): shouldPromoteAfterRepair
       // runs a preview-host verify that can take up to ~390s (verify timeout,
@@ -746,8 +774,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       // Keep this stored summary consistent with the JSON `reason` below: when
       // the loop stopped on the wall-clock budget the cause is time, not an
       // unresolved gate, so don't blame the gate (Bugbot #318).
-      const failSummary =
-        loopResult.earlyStopReason === "time_budget_exceeded"
+      const failSummary = missingProtectedGate.block
+        ? missingProtectedGate.block.failSummary
+        : loopResult.earlyStopReason === "time_budget_exceeded"
           ? `Server repair stopped after ${llmPasses} attempt(s): time budget exceeded before the errors could be resolved${loopResult.remainingErrors === 0 ? "" : ` (${loopResult.remainingErrors} syntax error(s) remaining)`}.`
           : loopResult.remainingErrors === 0
             ? `Server repair could not resolve the quality gate after ${llmPasses} attempt(s): code is syntactically valid but typecheck/build still fails${stopSuffix}.`
@@ -803,7 +832,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           ? "Versionen ändrades under reparationen — den här reparationen sparades inte."
           : ownershipLost
             ? "En annan körning tog över versionen — den här reparationen sparades inte."
-            : loopResult.noContext
+            : missingProtectedGate.block
+              ? missingProtectedGate.block.userReason
+              : loopResult.noContext
               ? "Ingen åtgärdbar felinformation hittades, så ingen automatisk reparation kördes."
               : loopResult.earlyStopReason === "blocker_regression"
                 ? "Reparationen ångrades: ändringen skapade ett nytt fel som inte fanns innan. Filerna är kvar som de var — beskriv felet i chatten eller redigera filen manuellt."

@@ -119,3 +119,25 @@ export function reinjectProtectedPathsFromFallback(params: {
   }
   return { files: merged, reinjected, stillMissing };
 }
+
+/**
+ * Last-resort persist gate after fallback reinject. A non-empty `stillMissing`
+ * means a protected path exists in neither the post-partition repair output
+ * nor the fallback — callers MUST not persist and SHOULD surface this reason
+ * on the existing fail / HTTP `reason` channel.
+ */
+export function missingProtectedPathsPersistBlock(stillMissing: readonly string[]): {
+  stillMissing: string[];
+  failSummary: string;
+  userReason: string;
+} | null {
+  if (stillMissing.length === 0) return null;
+  const listed = stillMissing.join(", ");
+  const fileWord = stillMissing.length === 1 ? "file" : "files";
+  const filWord = stillMissing.length === 1 ? "fil" : "filer";
+  return {
+    stillMissing: [...stillMissing],
+    failSummary: `Server repair did not save: protected ${fileWord} ${listed} ${stillMissing.length === 1 ? "is" : "are"} missing from both the repair output and the previous version.`,
+    userReason: `Skyddad ${filWord} saknas efter reparationen och kunde inte återställas: ${listed}. Versionen sparades inte.`,
+  };
+}

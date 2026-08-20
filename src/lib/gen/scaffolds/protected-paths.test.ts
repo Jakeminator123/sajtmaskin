@@ -3,6 +3,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import {
   SCAFFOLD_PROTECTED_PATHS,
   isScaffoldProtectedPath,
+  missingProtectedPathsPersistBlock,
   partitionGeneratedFilesForProtectedPaths,
   reinjectProtectedPathsFromFallback,
 } from "./protected-paths";
@@ -178,5 +179,21 @@ describe("reinjectProtectedPathsFromFallback", () => {
     });
     expect(reinjection.reinjected).toEqual(["app\\api\\placeholder\\route.ts"]);
     expect(reinjection.stillMissing).toEqual([]);
+  });
+});
+
+describe("missingProtectedPathsPersistBlock", () => {
+  it("is null when nothing is still missing", () => {
+    expect(missingProtectedPathsPersistBlock([])).toBeNull();
+  });
+
+  it("names the missing file and says the version was not saved", () => {
+    const block = missingProtectedPathsPersistBlock(["app/api/placeholder/route.ts"]);
+    expect(block).not.toBeNull();
+    expect(block?.stillMissing).toEqual(["app/api/placeholder/route.ts"]);
+    expect(block?.failSummary).toContain("app/api/placeholder/route.ts");
+    expect(block?.failSummary.toLowerCase()).toMatch(/did not save|not saved/);
+    expect(block?.userReason).toContain("app/api/placeholder/route.ts");
+    expect(block?.userReason).toContain("sparades inte");
   });
 });

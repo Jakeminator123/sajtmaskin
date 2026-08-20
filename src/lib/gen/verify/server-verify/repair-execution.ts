@@ -19,6 +19,7 @@ import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { warnLog } from "@/lib/utils/debug";
 import {
+  missingProtectedPathsPersistBlock,
   partitionGeneratedFilesForProtectedPaths,
   reinjectProtectedPathsFromFallback,
 } from "@/lib/gen/scaffolds/protected-paths";
@@ -167,6 +168,13 @@ export async function tryServerRepairLoop(params: {
   // snapshot. Used after the loop to skip failVersionVerification so the user's
   // newer edit is never finalized as failed from a stale repair(A).
   let staleBaseNoOp = false;
+  // SM-034: set when fallback reinject could not restore a dropped protected
+  // path. The version must not be saved; the existing fail channel names the file.
+  // Holder object so TS control-flow does not treat the nested-closure write as
+  // unreachable and narrow a `let` initialized to `null` down to `never`.
+  const missingProtectedGate: {
+    block: NonNullable<ReturnType<typeof missingProtectedPathsPersistBlock>> | null;
+  } = { block: null };
 
   await markVersionRepairing(versionId, undefined, runId).catch(() => null);
   // NOTE: intentionally NOT emitting version.repair.started/passIndex here.
@@ -238,6 +246,28 @@ export async function tryServerRepairLoop(params: {
         reinjected: reinjection.reinjected,
         stillMissing: reinjection.stillMissing,
       });
+    }
+    const persistBlock = missingProtectedPathsPersistBlock(reinjection.stillMissing);
+    if (persistBlock) {
+      missingProtectedGate.block = persistBlock;
+      await createEngineVersionErrorLogs([
+        {
+          chatId,
+          versionId,
+          level: "warning",
+          category: "server-repair",
+          message: persistBlock.failSummary,
+          meta: {
+            stillMissing: persistBlock.stillMissing,
+            method,
+            promoted: false,
+            serverOwned: true,
+          },
+        },
+      ]).catch((err) => {
+        console.warn("[server-verify] Failed to persist stillMissing protected-path log:", err);
+      });
+      return false;
     }
     const exportableForGate = await buildExportableProject(repairedFiles, {
       verbatimRepo: repairVerbatimRepo,
@@ -521,6 +551,27 @@ export async function tryServerRepairLoop(params: {
     staleBaseNoOp,
     remainingErrors: loopResult.remainingErrors,
   });
+
+  if (missingProtectedGate.block && finalizeAction !== "skip_stale_base") {
+    await failVersionVerification(
+      versionId,
+      missingProtectedGate.block.failSummary,
+      runId,
+    ).catch(() => null);
+    logRepairOutcome(
+      chatId,
+      versionId,
+      loopResult.method ?? "llm",
+      false,
+      loopResult.llmPasses,
+      loopResult.remainingErrors,
+      loopResult.earlyStopReason,
+      verifyContext,
+      fixerModel,
+      loopResult.errorManifest,
+    );
+    return { supersededByUserEdit: false, buildOriginated };
+  }
 
   if (finalizeAction === "skip_stale_base") {
     // #260 Codex P2: a concurrent user edit advanced files_json past snapshot A
