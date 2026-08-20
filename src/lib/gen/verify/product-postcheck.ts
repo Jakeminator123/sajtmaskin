@@ -532,8 +532,24 @@ export function shouldIgnoreConsoleError(text: string): boolean {
     lower.includes("download the react devtools") ||
     lower.includes("fast refresh") ||
     lower.includes("[hmr]") ||
-    lower.includes("webpack-hmr")
+    lower.includes("webpack-hmr") ||
+    lower.includes("turbopack-hmr") ||
+    lower.includes("_next/hmr")
   );
+}
+
+/**
+ * Next-dev HMR-socketen, oavsett vilket namn den bär.
+ *
+ * Next 16.3 döpte om `/_next/webpack-hmr` till `/_next/hmr`; Turbopack har
+ * sitt eget namn, och genererade sajter kan ligga kvar på en äldre Next.
+ * Handskakningen misslyckas ofta på Fly, där edge-proxyn inte alltid klarar
+ * WS genom chatId-prefixet — och en HMR-socket som inte kommer upp är brus,
+ * inte en produktdefekt. Missar den här listan det aktuella namnet räknas
+ * bruset som fel mot användarens sajt (`SM-062`).
+ */
+export function isHmrUrl(url: string): boolean {
+  return /\/_next\/(?:webpack-hmr|turbopack-hmr|hmr)(?:\/|$|\?)/.test((url || "").toLowerCase());
 }
 
 /**
@@ -558,7 +574,7 @@ export function shouldIgnoreFailedRequest(url: string, errorText: string): boole
     return true;
   }
   const u = (url || "").toLowerCase();
-  if (u.includes("/_next/webpack-hmr")) return true;
+  if (isHmrUrl(u)) return true;
   if (u.endsWith(".map")) return true;
   return false;
 }
@@ -571,7 +587,7 @@ export function shouldIgnoreHttpStatus(url: string, status: number): boolean {
   const u = (url || "").toLowerCase();
   if (u.includes("/favicon.ico")) return true;
   if (u.endsWith(".map")) return true;
-  if (u.includes("/_next/webpack-hmr")) return true;
+  if (isHmrUrl(u)) return true;
   if (status >= 400 && status < 500) {
     try {
       const path = new URL(url).pathname;

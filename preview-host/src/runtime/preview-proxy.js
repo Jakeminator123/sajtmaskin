@@ -58,6 +58,19 @@ const NEXT_HTML_REQUEST_ID_HEADER = "x-nextjs-html-request-id";
 const PREVIEW_BOOTSTRAP_PATH = "/__sm/preview-bootstrap.js";
 const PREVIEW_DOCUMENT_HMR_TTL_MS = 2 * 60 * 1000;
 const PREVIEW_HEAD_SCAN_MAX_BYTES = 64 * 1024;
+/**
+ * HMR-endpointer som browser-bootstrapen ska märka med `__sm_viewer`.
+ *
+ * Next 16.3 bytte `/_next/webpack-hmr` mot `/_next/hmr`. En genererad sajt kan
+ * ligga kvar på en äldre Next, så listan bär alla tre. Missar den den aktuella
+ * sökvägen sätts viewer-id aldrig, och reload-signalen kan inte scopas per
+ * flik — se `SM-062`. Speglar {@link HMR_PATH_RE} på serversidan.
+ */
+const PREVIEW_HMR_PATH_SUFFIXES = [
+  "/_next/hmr",
+  "/_next/webpack-hmr",
+  "/_next/turbopack-hmr",
+];
 const pendingPreviewDocuments = new Map();
 const PREVIEW_BOOTSTRAP_SCRIPT = `(function(){try{
 var script=document.currentScript;if(!script)return;
@@ -72,7 +85,7 @@ try{var stored=window.sessionStorage.getItem(storageKey);if(!viewer&&viewerPatte
 if(!viewer){var uuid=window.crypto&&typeof window.crypto.randomUUID==="function"?window.crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,function(token){var random=Math.floor(Math.random()*16);return(token==="x"?random:(random&3)|8).toString(16)});viewer="smv_"+uuid;}
 try{window.sessionStorage.setItem(storageKey,viewer)}catch(_){}
 var cleanupParams=${JSON.stringify(PREVIEW_BROWSER_CLEANUP_QUERY_PARAMS)};var hadHostParams=cleanupParams.some(function(name){return pageUrl.searchParams.has(name)});cleanupParams.forEach(function(name){pageUrl.searchParams.delete(name)});if(hadHostParams){window.history.replaceState(window.history.state,"",pageUrl.pathname+pageUrl.search+pageUrl.hash)}
-var NativeWebSocket=window.WebSocket;if(typeof NativeWebSocket==="function"&&typeof Proxy==="function"){window.WebSocket=new Proxy(NativeWebSocket,{construct:function(Target,args,NewTarget){try{var socketUrl=new URL(String(args[0]),window.location.href);var expectedProtocol=window.location.protocol==="https:"?"wss:":"ws:";var prefix=chatPath.endsWith("/")?chatPath.slice(0,-1):chatPath;var webpackPath=prefix+"/_next/webpack-hmr";var turboPath=prefix+"/_next/turbopack-hmr";var hmrPath=socketUrl.pathname===webpackPath||socketUrl.pathname.indexOf(webpackPath+"/")===0||socketUrl.pathname===turboPath||socketUrl.pathname.indexOf(turboPath+"/")===0;if(socketUrl.protocol===expectedProtocol&&socketUrl.host===window.location.host&&hmrPath&&socketUrl.searchParams.get("id")===documentId){socketUrl.searchParams.set("${PREVIEW_VIEWER_QUERY_PARAM}",viewer);args=Array.prototype.slice.call(args);args[0]=socketUrl.toString()}}catch(_){}return Reflect.construct(Target,args,NewTarget)},apply:function(Target,thisArg,args){return Reflect.apply(Target,thisArg,args)}})}
+var NativeWebSocket=window.WebSocket;if(typeof NativeWebSocket==="function"&&typeof Proxy==="function"){window.WebSocket=new Proxy(NativeWebSocket,{construct:function(Target,args,NewTarget){try{var socketUrl=new URL(String(args[0]),window.location.href);var expectedProtocol=window.location.protocol==="https:"?"wss:":"ws:";var prefix=chatPath.endsWith("/")?chatPath.slice(0,-1):chatPath;var hmrSuffixes=${JSON.stringify(PREVIEW_HMR_PATH_SUFFIXES)};var hmrPath=hmrSuffixes.some(function(suffix){var full=prefix+suffix;return socketUrl.pathname===full||socketUrl.pathname.indexOf(full+"/")===0});if(socketUrl.protocol===expectedProtocol&&socketUrl.host===window.location.host&&hmrPath&&socketUrl.searchParams.get("id")===documentId){socketUrl.searchParams.set("${PREVIEW_VIEWER_QUERY_PARAM}",viewer);args=Array.prototype.slice.call(args);args[0]=socketUrl.toString()}}catch(_){}return Reflect.construct(Target,args,NewTarget)},apply:function(Target,thisArg,args){return Reflect.apply(Target,thisArg,args)}})}
 script.remove();
 }catch(_){}})();`;
 
@@ -382,7 +395,11 @@ function isRecoverableProxyError(err) {
  * We do the handshake inline rather than pulling in `ws` as a dep so
  * preview-host stays lean on Fly. Handshake = sha1(key + MAGIC) → base64.
  */
-const HMR_PATH_RE = /\/_next\/(?:webpack|turbopack)-hmr(?:\/|$|\?)/;
+// Next 16.3 döpte om endpointen till `/_next/hmr`; 15.x och tidigare 16.x
+// använde `/_next/webpack-hmr` respektive `/_next/turbopack-hmr`. Genererade
+// sajter kan ligga kvar på en äldre Next, så alla tre måste matcha. Längsta
+// alternativet först — alternering är icke-girig.
+const HMR_PATH_RE = /\/_next\/(?:webpack-hmr|turbopack-hmr|hmr)(?:\/|$|\?)/;
 const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 function isHmrPath(pathname) {
@@ -1483,6 +1500,8 @@ module.exports = {
   injectPreviewHeadTag,
   stripPreviewHostParams,
   PREVIEW_VIEWER_QUERY_PARAM,
+  PREVIEW_HMR_PATH_SUFFIXES,
+  isHmrPath,
   APP_API_ROOT_PATH_RE,
   NEXT_INTERNAL_ROOT_PATH_RE,
   shouldHoldPrewarmTraffic,

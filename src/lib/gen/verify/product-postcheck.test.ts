@@ -1074,6 +1074,8 @@ describe("shouldIgnoreConsoleError", () => {
     expect(shouldIgnoreConsoleError("[Fast Refresh] rebuilding")).toBe(true);
     expect(shouldIgnoreConsoleError("[HMR] connected")).toBe(true);
     expect(shouldIgnoreConsoleError("webpack-hmr disconnected")).toBe(true);
+    expect(shouldIgnoreConsoleError("WebSocket to /_next/hmr failed")).toBe(true);
+    expect(shouldIgnoreConsoleError("turbopack-hmr disconnected")).toBe(true);
   });
 
   it("släpper igenom riktiga console-fel", () => {
@@ -1108,6 +1110,22 @@ describe("shouldIgnoreFailedRequest", () => {
   it("ignorerar HMR och source maps", () => {
     expect(shouldIgnoreFailedRequest("https://host/_next/webpack-hmr", "socket hang up")).toBe(true);
     expect(shouldIgnoreFailedRequest("https://host/app.js.map", "net::ERR_FAILED")).toBe(true);
+  });
+
+  // SM-062: Next 16.3 döpte om endpointen. En misslyckad HMR-handskakning är
+  // brus — vanligt på Fly där edge-proxyn inte alltid klarar WS genom
+  // chatId-prefixet — och får inte räknas som defekt i användarens sajt.
+  it("ignorerar Next 16.3:s omdöpta HMR-sökväg och Turbopacks", () => {
+    expect(shouldIgnoreFailedRequest("https://host/chat_1/_next/hmr?id=abc", "socket hang up")).toBe(
+      true,
+    );
+    expect(shouldIgnoreFailedRequest("https://host/_next/turbopack-hmr", "net::ERR_FAILED")).toBe(
+      true,
+    );
+  });
+
+  it("låter en riktig rutt som bara innehåller hmr passera som fel", () => {
+    expect(shouldIgnoreFailedRequest("https://host/hmr-dashboard", "net::ERR_FAILED")).toBe(false);
   });
 
   it("släpper igenom riktiga request-fel", () => {
