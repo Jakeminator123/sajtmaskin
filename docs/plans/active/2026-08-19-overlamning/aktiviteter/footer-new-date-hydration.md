@@ -1,5 +1,7 @@
 # `new Date()` i genererad footer passerar preflight
 
+**Klar 2026-08-20 — [#1065](https://github.com/Jakeminator123/sajtmaskin/pull/1065).**
+
 Våg 3 · Cloud · `SM-061` · Liten, låg risk
 
 ## Målet

@@ -1,5 +1,7 @@
 # Grinden stämplas grön innan den körts
 
+**Klar 2026-08-20 — [#1068](https://github.com/Jakeminator123/sajtmaskin/pull/1068).**
+
 Våg 3 · Cloud · `SM-017` · Rapporteringsfel med prod-träff
 
 ## Målet

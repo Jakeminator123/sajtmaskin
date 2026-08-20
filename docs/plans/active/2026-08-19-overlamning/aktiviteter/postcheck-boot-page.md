@@ -1,5 +1,7 @@
 # Postcheck blockerar innan runtime hunnit bli redo
 
+**Klar 2026-08-20 — [#1061](https://github.com/Jakeminator123/sajtmaskin/pull/1061).**
+
 Våg 2 · Cloud · Fynd `P0-P2` · Verifierat mot proddump
 
 ## Målet

@@ -1,5 +1,7 @@
 # `fake_form` målas som spärr i designläge
 
+**Klar 2026-08-20 — [#1067](https://github.com/Jakeminator123/sajtmaskin/pull/1067).**
+
 Våg 3 · Cloud · `SM-060` · Kontraktskrock, inte kodfel
 
 ## Målet

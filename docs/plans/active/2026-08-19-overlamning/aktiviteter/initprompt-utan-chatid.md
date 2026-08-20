@@ -1,5 +1,7 @@
 # Init-promptens logg saknar `chat_id`
 
+**Klar 2026-08-20 — [#1059](https://github.com/Jakeminator123/sajtmaskin/pull/1059).**
+
 Våg 1 · Cloud · Fynd `P0-L1` · Liten, låg risk
 
 ## Målet

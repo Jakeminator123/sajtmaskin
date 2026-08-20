@@ -21,9 +21,9 @@ Spåret är **inte** klart. Tabellen är live-status mot `master` / öppna PR:er
 | B3 | **Klar.** #1035 |
 | B9 | **Klar.** #1037 |
 | Docs + Deep Brief-etiketter | **Klar.** #1036, #1041 |
-| B1 | Öppen PR #1040 |
-| B10 | Öppen PR #1038 |
-| B11 | **Landad.** #1042. Follow-up-fixspår: ton separeras från scaffoldtyp. |
+| B1 | **Klar.** #1040 |
+| B10 | **Klar.** #1038 |
+| B11 | **Klar.** #1042. Follow-up (ton ≠ scaffoldtyp) landade i #1054. |
 | B2 | Inte startad. Väntar N1-resten. |
 | B4 | Inte startad. |
 | B5 | Inte startad. |
