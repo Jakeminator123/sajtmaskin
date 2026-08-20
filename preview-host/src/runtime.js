@@ -55,6 +55,7 @@ module.exports = {
     RUNTIME_BOOT_FAILURE_LIMIT: processLifecycle.RUNTIME_BOOT_FAILURE_LIMIT,
     RUNTIME_BOOT_FAILURE_WINDOW_MS: processLifecycle.RUNTIME_BOOT_FAILURE_WINDOW_MS,
     isNoSpaceInstallFailure: packageInstall.isNoSpaceInstallFailure,
+    classifyInstallFailure: packageInstall.classifyInstallFailure,
     probeReadinessAfterPatch: processLifecycle.probeReadinessAfterPatch,
     sanitizedEnv: shared.sanitizedEnv,
     runInInstallSlot: shared.runInInstallSlot,

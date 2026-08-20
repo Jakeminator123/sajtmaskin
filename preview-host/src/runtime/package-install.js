@@ -338,7 +338,76 @@ function resolveInstallCommand(filesJson) {
 function isNoSpaceInstallFailure(output) {
   const text = String(output || "");
   if (!text.trim()) return false;
-  return /ENOSPC|no space left on device|insufficient space/i.test(text);
+  // Sista alternativet är hostens EGEN formulering när en purge-och-retry
+  // ändå tog slut på disk. Utan den känner den här funktionen inte igen sitt
+  // eget efterspel — och npm:s ursprungliga ENOSPC-rad finns då inte kvar.
+  return /ENOSPC|no space left on device|insufficient space|still out of space/i.test(text);
+}
+
+/**
+ * Rotorsak för ett misslyckat install, i en form som överlever vägen till
+ * appens `engine_version_error_logs`.
+ *
+ * Bakgrund (`SM-035`, signatur `a0bc26af7689`: 17 träffar / 4 chattar): den
+ * fulla utskriften skrivs till preview-hostens egen runtime-logg, men felet som
+ * KASTAS — och som är det enda appen ser — bar bara «exit code 254». npm
+ * använder 254 som generisk krasch, så error-loggen kunde inte skilja slut på
+ * disk från nätverksfel från en dödad barnprocess. Utan den skillnaden går
+ * incidenten inte att utreda i efterhand, och det är därför den här raden
+ * fanns kvar öppen i backloggen i en vecka.
+ *
+ * `no_output` är ingen restpost utan ett eget svar: kraschade barnprocessen
+ * innan den hann skriva något är just det diagnosen.
+ */
+function classifyInstallFailure(output, exitCode) {
+  const text = String(output || "");
+
+  // Ordningen är inte godtycklig. Ett mönster som fångas för tidigt döljer det
+  // riktiga svaret, och en klassificerare som pekar fel är sämre än ingen alls
+  // — den skickar felsökningen åt fel håll med falskt självförtroende.
+
+  // Först: hostens EGEN timeout. `runShellCommand` avslutar med exit 124 och
+  // skriver «timed out after Ns and was killed». Ordet «killed» där skulle
+  // annars göra varje hängd install till en OOM.
+  if (exitCode === 124 || /\btimed out after \d+s and was killed\b/i.test(text)) {
+    return "timeout";
+  }
+
+  if (isNoSpaceInstallFailure(text)) return "no_space";
+
+  // Före `network`: npm:s 404-utskrift innehåller registry-URL:en i GET-raden,
+  // så ett saknat paket skulle annars rapporteras som nätverksfel.
+  if (/\bETARGET\b|\bE404\b|No matching version|is not in this registry/i.test(text)) {
+    return "missing_package";
+  }
+
+  if (isPeerDependencyInstallFailure(text)) return "peer_conflict";
+
+  // Bara otvetydiga OOM-markörer. Bart «Killed» är för brett — se timeouten ovan.
+  if (/heap out of memory|out of memory|oom-kill|Killed process/i.test(text)) {
+    return "out_of_memory";
+  }
+
+  if (
+    /ETIMEDOUT|ENOTFOUND|ECONNRESET|ECONNREFUSED|EHOSTUNREACH|ENETUNREACH|EPIPE|ERR_SOCKET|EAI_AGAIN|socket hang up|npm error network/i.test(
+      text,
+    )
+  ) {
+    return "network";
+  }
+
+  if (/EACCES|EPERM|permission denied/i.test(text)) return "permissions";
+
+  // Ingen restpost: kraschade barnprocessen innan den hann skriva något är
+  // just det diagnosen, och det är det observerade 254-fallet.
+  //
+  // Tom sträng räcker inte som villkor. `runInstallCommandWithFallback` byter
+  // redan ut en tom utskrift mot sentineln «(No install output captured; …)»,
+  // så en klassificerare som bara testar `!text.trim()` skulle aldrig träffa
+  // det här fallet i produktion — bara i ett test som anropar den direkt.
+  if (!text.trim() || /No install output captured/i.test(text)) return "no_output";
+
+  return exitCode === 254 ? "unknown_npm_crash" : "unknown";
 }
 
 function formatByteCount(bytes) {
@@ -402,6 +471,7 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
     };
   };
 
+  let diskFullDetected = false;
   let primary = await runAttempt(install.command);
   if (primary.exitCode === 0) {
     return {
@@ -419,6 +489,10 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
   // this host that grows without bound — and try once more. Without this the
   // VM stays wedged for every chat until someone redeploys it by hand.
   if (isNoSpaceInstallFailure(primary.output)) {
+    // Vi VET vid det här laget att det var disk. Bär med det i stället för att
+    // låta en senare klassificering försöka läsa ut det ur en omskriven text
+    // där npm:s ursprungliga ENOSPC-rad kan ha fallit bort.
+    diskFullDetected = true;
     // Unqueued: we are inside the install slot already (see the doc comment on
     // `cleanupPackageCachesUnqueued`).
     const purge = await cleanupPackageCachesUnqueued({ force: true });
@@ -437,12 +511,20 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
         peerConflictDetected: false,
       };
     }
+    // Purgen kan ha löst diskproblemet och omkörningen fallit på något helt
+    // annat. Behåll flaggan bara om omkörningen FORTFARANDE är disk-full —
+    // annars skulle rotorsaken säga `no_space` om ett peer-konfliktfel.
+    diskFullDetected = isNoSpaceInstallFailure(retried.output);
     primary = {
       ...retried,
       durationMs: primary.durationMs + retried.durationMs,
       clippedOutput: [
-        `[disk-full] Reclaimed ${formatByteCount(purge.cacheBytesBefore)} of package cache and retried; still out of space.`,
-        `The preview VM's filesystem is full. Free space on the host (see GET /admin/storage) — this is not a fault in the generated project.`,
+        diskFullDetected
+          ? `[disk-full] Reclaimed ${formatByteCount(purge.cacheBytesBefore)} of package cache and retried; still out of space.`
+          : `[disk-full] Reclaimed ${formatByteCount(purge.cacheBytesBefore)} of package cache; the retry got past the disk but failed for another reason.`,
+        diskFullDetected
+          ? `The preview VM's filesystem is full. Free space on the host (see GET /admin/storage) — this is not a fault in the generated project.`
+          : `Disk space is no longer the blocker; read the attempt output below.`,
         "",
         retried.clippedOutput || "",
       ].join("\n"),
@@ -473,6 +555,17 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
     return {
       passed: false,
       exitCode: fallback.exitCode,
+      // Klassa VARJE försök för sig, medan utskrifterna fortfarande är
+      // separata. Den sammanslagna klumpen nedan innehåller båda, så en
+      // klassificerare som läser den kan inte veta vilket försök som faktiskt
+      // avgjorde utfallet — den skulle rapportera primärens ERESOLVE fast
+      // fallbacken dog tyst.
+      failureReason: diskFullDetected
+        ? "no_space"
+        : classifyInstallFailure(fallback.clippedOutput, fallback.exitCode),
+      primaryFailureReason: diskFullDetected
+        ? "no_space"
+        : classifyInstallFailure(primary.clippedOutput, primary.exitCode),
       durationMs: primary.durationMs + fallback.durationMs,
       output: [
         `[primary] ${install.logLabel} failed:`,
@@ -489,6 +582,9 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
   return {
     passed: false,
     exitCode: primary.exitCode,
+    failureReason: diskFullDetected
+      ? "no_space"
+      : classifyInstallFailure(primary.clippedOutput, primary.exitCode),
     durationMs: primary.durationMs,
     output:
       primary.clippedOutput ||
@@ -678,12 +774,24 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
     return { installed: true, packageManager: install.packageManager };
   }
 
+  // Föredra runnerns klassning: den gjordes per försök, medan `output` här är
+  // den sammanslagna klumpen. Fallbacken finns för injicerade testrunners som
+  // inte sätter fältet.
+  const failureReason =
+    installResult.failureReason ??
+    classifyInstallFailure(installResult.output, installResult.exitCode);
+  const priorReason =
+    installResult.primaryFailureReason && installResult.primaryFailureReason !== failureReason
+      ? ` after ${installResult.primaryFailureReason}`
+      : "";
   await appendRuntimeLog(
     previewSessionId,
-    `${install.logLabel} failed.\n${trimSnippet(installResult.output || "")}`,
+    `${install.logLabel} failed (${failureReason}${priorReason}).\n${trimSnippet(installResult.output || "")}`,
   );
+  // Rotorsaken måste sitta i det KASTADE felet, inte bara i runtime-loggen —
+  // det är felmeddelandet som når appens error-log. Se `classifyInstallFailure`.
   throw new Error(
-    `${install.logLabel} failed with exit code ${installResult.exitCode ?? "unknown"}`,
+    `${install.logLabel} failed with exit code ${installResult.exitCode ?? "unknown"} (${failureReason}${priorReason})`,
   );
 }
 
@@ -709,6 +817,7 @@ module.exports = {
   verifyInstalledDependencies,
   resolveInstallCommand,
   isNoSpaceInstallFailure,
+  classifyInstallFailure,
   runInstallCommandWithFallback,
   dependencyFingerprint,
   tryShareNodeModules,

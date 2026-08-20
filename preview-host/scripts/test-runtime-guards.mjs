@@ -1064,6 +1064,102 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     !isNoSpaceInstallFailure("npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve"),
   );
   check("empty output is NOT disk-full", !isNoSpaceInstallFailure(""));
+  // Hostens egen efterspelstext, nar purge-och-retry anda tog slut pa disk.
+  // npm:s ursprungliga ENOSPC-rad finns da inte kvar i utskriften.
+  check(
+    "the host's own post-purge wording is still recognised as disk-full",
+    isNoSpaceInstallFailure(
+      "[disk-full] Reclaimed 512 MB of package cache and retried; still out of space.",
+    ),
+  );
+
+  // SM-035: exit 254 är npm:s generiska krasch. Rotorsaken måste sitta i det
+  // KASTADE felet, annars når den aldrig appens error-log och signaturen
+  // `a0bc26af7689` förblir outredbar.
+  {
+    const { classifyInstallFailure } = runtime.__testing;
+    check(
+      "disk-full install is classified as no_space",
+      classifyInstallFailure("npm error code ENOSPC\nnpm error syscall write", 254) === "no_space",
+    );
+    check(
+      "peer conflict keeps its own class",
+      classifyInstallFailure("npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve", 1) ===
+        "peer_conflict",
+    );
+    check(
+      "an OOM-killed child is classified as out_of_memory",
+      classifyInstallFailure("JavaScript heap out of memory", 134) === "out_of_memory",
+    );
+    // Hostens egen timeout skriver «was killed». Utan en egen klass blir varje
+    // hangd install en falsk OOM — och da leder rotorsaken fel.
+    check(
+      "the host's own fail-fast timeout is not mistaken for an OOM",
+      classifyInstallFailure(
+        "[preview-host] npm install timed out after 600s and was killed (fail-fast so the install queue advances).",
+        124,
+      ) === "timeout",
+    );
+    check(
+      "exit 124 alone is enough to call it a timeout",
+      classifyInstallFailure("", 124) === "timeout",
+    );
+    check(
+      "a refused connection is a network fault, not an unknown crash",
+      classifyInstallFailure("npm error code ECONNREFUSED\nnpm error errno ECONNREFUSED", 1) ===
+        "network",
+    );
+    check(
+      "a dropped socket is a network fault",
+      classifyInstallFailure("npm error network socket hang up", 1) === "network",
+    );
+    check(
+      "registry timeouts are classified as network",
+      classifyInstallFailure("npm error network request to https://registry.npmjs.org failed, reason: ETIMEDOUT", 1) ===
+        "network",
+    );
+    // npm:s 404-utskrift bar registry-URL:en, sa network-monstret matade forst.
+    check(
+      "a missing version is not mistaken for a network fault",
+      classifyInstallFailure("npm error notarget No matching version found for foo@9.9.9 ETARGET", 1) ===
+        "missing_package",
+    );
+    check(
+      "a 404 that mentions the registry URL is still a missing package",
+      classifyInstallFailure(
+        "npm error code E404\nnpm error 404 GET https://registry.npmjs.org/inte-ett-paket - Not found",
+        1,
+      ) === "missing_package",
+    );
+    // Det observerade fallet: barnprocessen dog innan den hann skriva något.
+    // Att säga det rakt ut ÄR diagnosen — inte en restpost.
+    check(
+      "a silent exit 254 is reported as no_output, not unknown",
+      classifyInstallFailure("", 254) === "no_output",
+    );
+    // Det ar SA det faktiskt ser ut i produktion: runInstallCommandWithFallback
+    // byter ut tom utskrift mot den har sentineln. Ett test som bara skickar ""
+    // bevisar ingenting om verkligt beteende.
+    check(
+      "the real captured-nothing sentinel also classifies as no_output",
+      classifyInstallFailure("(No install output captured; exit 254).", 254) === "no_output",
+    );
+    check(
+      "the fallback's two-attempt sentinel is still no_output",
+      classifyInstallFailure(
+        "[primary] npm install failed:\n(No install output captured; exit 254).\n\n[fallback] npm install --legacy-peer-deps failed:\n(No install output captured; exit 254).",
+        254,
+      ) === "no_output",
+    );
+    check(
+      "output without a known marker on 254 is an npm crash",
+      classifyInstallFailure("something unexpected happened", 254) === "unknown_npm_crash",
+    );
+    check(
+      "a non-254 unknown failure stays plain unknown",
+      classifyInstallFailure("something unexpected happened", 1) === "unknown",
+    );
+  }
 
   // Forced purge must empty the cache tree but leave the directories usable.
   mkdirSync(join(NPM_CACHE_DIR, "_cacache"), { recursive: true });
