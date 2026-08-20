@@ -1,25 +1,22 @@
 # Live-review #1052 — blockers före merge och aktivering
 
-Status: **Blockerad**
+Status: **P1 gjorda — P2 blockerar bara flaggan, inte merge**
 
 PR: [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052)
 
-Flaggan `SAJTMASKIN_LIVE_REVIEW` ska vara av tills den här uppgiften är klar.
-Gröna Actions räcker inte: nuvarande risker ligger i kontrakt, dataägarskap och
-observability som testerna inte bevisar.
+Flaggan `SAJTMASKIN_LIVE_REVIEW` ska vara av tills P2 är klar.
+P1-kontrakten nedan är implementerade på branchen (efter master-inmerge 20 aug).
 
 ## P1 — måste rättas före merge
 
-1. **Knyt LLM-usage till generationen.** Product-postcheck kör i en separat
-   request utan `runWithLlmUsageContext`/motsvarande explicita id:n.
-   `live_review`-rader får därför null i chat/version/user/session/run och kan
-   varken kostnadsfördelas eller settlement-kopplas.
-2. **Logga misslyckanden sanningsenligt.** Alla kast, invalid model output och
-   usage-bearing failures ska få `ok: false` + stabil `errorCode`. Ett fel får
-   inte försvinna när usage saknas eller registreras som lyckat när usage finns.
-3. **Kräv en faktiskt bifogad bild.** Relativ fallback-URL kan göra
-   `hasCurrentScreenshots` sann samtidigt som multimodal-payloaden filtrerar bort
-   bilden. Review ska skip/faila closed om inga giltiga http(s)-bilddelar finns.
+1. **Knyt LLM-usage till generationen.** [x] Product-postcheck wrappar
+   `runWithLlmUsageContext` och sätter chat/version/user/session innan review.
+2. **Logga misslyckanden sanningsenligt.** [x] Kast, `invalid_model_output` och
+   `model_unavailable` skriver `ok: false` + stabil `errorCode`. Tom usage
+   försvinner inte längre på felvägen.
+3. **Kräv en faktiskt bifogad bild.** [x] `hasCurrentScreenshots` och
+   `reviewWithModel` kräver http(s). Relativ fallback → `no_screenshots`,
+   aldrig modell-pass utan bilddel.
 
 ## P2 — beslut och kontrakt före aktivering
 
@@ -32,8 +29,8 @@ observability som testerna inte bevisar.
 3. **Ärlig kontroll:** den synliga OpenClaw-befogenheten `live_review` måste
    faktiskt gatera körningen. Toggle av får inte köra review; toggle på får inte
    låtsas fungera när env-flaggan är av. Alternativt dölj kontrollen tills steg 2.
-4. **Dokumentation:** PR-bodyn säger `maxDuration = 180`, medan nuvarande kod
-   använder 300. Synka body/runbook med den kod som faktiskt granskas.
+4. **Dokumentation:** PR-bodyn sa `maxDuration = 180`, koden använder 300.
+   Synka body/runbook med den kod som faktiskt granskas.
 
 ## Ägda ytor
 

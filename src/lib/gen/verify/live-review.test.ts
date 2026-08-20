@@ -15,10 +15,13 @@ vi.mock("@/lib/ai-models/load-manifest", () => ({
 vi.mock("@/lib/vercel/blob-service", () => ({ uploadBlob }));
 vi.mock("@/lib/observability/llm-usage", () => ({ recordLlmUsage: vi.fn() }));
 
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
   LIVE_REVIEW_ATTEMPT_TIMEOUT_MS,
   LIVE_REVIEW_TOTAL_TIMEOUT_MS,
   assembleReviewBundle,
+  hasCurrentScreenshots,
+  isAttachableScreenshotUrl,
   isChatFollowUpVersion,
   isLiveReviewEnabled,
   listChangedFiles,
@@ -272,6 +275,7 @@ describe("runLiveReview", () => {
     generateObject.mockReset();
     createDirectModel.mockReset();
     createDirectModel.mockImplementation(() => ({ id: "mock-model" }));
+    vi.mocked(recordLlmUsage).mockClear();
   });
 
   it("returnerar completed vid giltigt generateObject-svar", async () => {
@@ -292,7 +296,7 @@ describe("runLiveReview", () => {
         userRequest: "mörk sajt",
         briefSummary: "mörk",
         changedFiles: [],
-        screenshots: { desktopUrl: null, mobileUrl: null },
+        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
         findings: [],
         domSummary: null,
       }),
@@ -324,7 +328,7 @@ describe("runLiveReview", () => {
         userRequest: "x",
         briefSummary: "",
         changedFiles: [],
-        screenshots: { desktopUrl: null, mobileUrl: null },
+        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
         findings: [],
         domSummary: null,
       }),
@@ -339,7 +343,7 @@ describe("runLiveReview", () => {
   it("degraderar trasig modelloutput till skipped/invalid", async () => {
     generateObject.mockResolvedValue({
       object: { nope: true },
-      usage: {},
+      usage: { inputTokens: 10, outputTokens: 4 },
     });
     const result = await runLiveReview(
       assembleReviewBundle({
@@ -348,12 +352,63 @@ describe("runLiveReview", () => {
         userRequest: "x",
         briefSummary: "",
         changedFiles: [],
-        screenshots: { desktopUrl: null, mobileUrl: null },
+        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
         findings: [],
         domSummary: null,
       }),
     );
     expect(result).toMatchObject({ status: "skipped", reason: "invalid_model_output" });
+    expect(vi.mocked(recordLlmUsage)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        errorCode: "invalid_model_output",
+        workload: "live_review",
+      }),
+    );
+  });
+
+  it("loggar createDirectModel-fel som ok:false även utan tokens", async () => {
+    createDirectModel.mockImplementation(() => {
+      throw new Error("OPENAI_API_KEY is required for OpenAI models.");
+    });
+    const result = await runLiveReview(
+      assembleReviewBundle({
+        versionId: "v1",
+        parentVersionId: null,
+        userRequest: "x",
+        briefSummary: "",
+        changedFiles: [],
+        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+        findings: [],
+        domSummary: null,
+      }),
+    );
+    expect(result).toMatchObject({ status: "skipped", reason: "model_unavailable" });
+    expect(vi.mocked(recordLlmUsage)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        errorCode: "model_unavailable",
+        usage: null,
+      }),
+    );
+  });
+
+  it("anropar inte modellen när bara relativa fallback-URL:er finns", async () => {
+    const result = await runLiveReview(
+      assembleReviewBundle({
+        versionId: "v1",
+        parentVersionId: null,
+        userRequest: "x",
+        briefSummary: "",
+        changedFiles: [],
+        screenshots: { desktopUrl: "/api/blob/d.jpg", mobileUrl: "blob:local" },
+        findings: [],
+        domSummary: null,
+      }),
+    );
+    expect(result).toMatchObject({ status: "skipped", reason: "no_screenshots" });
+    expect(generateObject).not.toHaveBeenCalled();
+    expect(createDirectModel).not.toHaveBeenCalled();
   });
 
   it("provar fallback-modellen när default kastar vid createDirectModel", async () => {
@@ -436,11 +491,25 @@ describe("runLiveReview", () => {
   });
 });
 
+describe("hasCurrentScreenshots", () => {
+  it("kräver http(s), inte relativ fallback", () => {
+    expect(isAttachableScreenshotUrl("https://blob.example/d.jpg")).toBe(true);
+    expect(isAttachableScreenshotUrl("http://localhost/d.jpg")).toBe(true);
+    expect(isAttachableScreenshotUrl("/api/blob/d.jpg")).toBe(false);
+    expect(isAttachableScreenshotUrl("not a url")).toBe(false);
+    expect(hasCurrentScreenshots({ desktopUrl: "/rel.jpg", mobileUrl: null })).toBe(false);
+    expect(
+      hasCurrentScreenshots({ desktopUrl: "https://blob.example/d.jpg", mobileUrl: null }),
+    ).toBe(true);
+  });
+});
+
 describe("maybeAttachLiveReview", () => {
   beforeEach(() => {
     generateObject.mockReset();
     createDirectModel.mockReset();
     createDirectModel.mockImplementation(() => ({ id: "mock-model" }));
+    vi.mocked(recordLlmUsage).mockClear();
   });
 
   it("skippar när båda skärmbilderna saknas", async () => {
@@ -449,6 +518,23 @@ describe("maybeAttachLiveReview", () => {
       skipped: false,
       findings: [],
       screenshots: { desktopUrl: null, mobileUrl: null },
+      domSummary: null,
+      versionId: "v1",
+      versionNumber: 1,
+      filesJson: "[]",
+      userRequest: "mörk sajt",
+      briefSummary: "mörk",
+    });
+    expect(result).toMatchObject({ status: "skipped", reason: "no_screenshots" });
+    expect(generateObject).not.toHaveBeenCalled();
+  });
+
+  it("skippar relativ fallback-URL som inte kan bli bilddel", async () => {
+    const result = await maybeAttachLiveReview({
+      enabled: true,
+      skipped: false,
+      findings: [],
+      screenshots: { desktopUrl: "/live-review/d.jpg", mobileUrl: null },
       domSummary: null,
       versionId: "v1",
       versionNumber: 1,

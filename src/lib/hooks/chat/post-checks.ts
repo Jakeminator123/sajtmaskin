@@ -175,6 +175,20 @@ async function runProductPostcheckApi(params: {
   }
 }
 
+/** Readable live-review log line. Skip reasons must not claim screenshots were taken. */
+export function formatLiveReviewLogMessage(result: ProductPostcheckResult): string | null {
+  if (result.liveReview?.status === "completed") {
+    return `Live review: ${result.liveReview.decision.verdict}.`;
+  }
+  if (result.liveReview?.status === "skipped") {
+    return `Live review skipped: ${result.liveReview.reason}.`;
+  }
+  if (result.screenshots) {
+    return "Live review screenshots captured.";
+  }
+  return null;
+}
+
 /** Exported for the resume-verify lane — see `persistVersionErrorLogs`. */
 export function buildProductPostcheckLogItems(
   result: ProductPostcheckResult | null,
@@ -238,14 +252,12 @@ export function buildProductPostcheckLogItems(
       routesChecked: result.routesChecked ?? null,
     },
   });
-  if (result.liveReview || result.screenshots) {
+  const liveReviewMessage = formatLiveReviewLogMessage(result);
+  if (liveReviewMessage) {
     logs.push({
       level: "info",
       category: "product_postcheck.live_review",
-      message:
-        result.liveReview?.status === "completed"
-          ? `Live review: ${result.liveReview.decision.verdict}.`
-          : "Live review screenshots captured.",
+      message: liveReviewMessage,
       meta: {
         screenshots: result.screenshots ?? null,
         liveReview: result.liveReview ?? null,

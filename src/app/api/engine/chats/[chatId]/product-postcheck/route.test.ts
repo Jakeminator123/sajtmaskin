@@ -3,13 +3,22 @@ import { FEATURES } from "@/lib/config";
 import { POST } from "./route";
 
 const getVersion = vi.hoisted(() => vi.fn());
+const getRequestUserId = vi.hoisted(() => vi.fn(async () => "user_1"));
 const runProductPostcheck = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
 const isLiveReviewEnabled = vi.hoisted(() => vi.fn(() => false));
 const maybeAttachLiveReview = vi.hoisted(() => vi.fn());
+const setLlmUsageContext = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest: getVersion,
+  getRequestUserId,
+}));
+
+vi.mock("@/lib/observability/llm-usage", () => ({
+  runWithLlmUsageContext: (_ctx: unknown, fn: () => unknown) => fn(),
+  setLlmUsageContext,
+  safeUsageOwnerId: async (lookup: () => Promise<string | null>) => lookup(),
 }));
 
 vi.mock("@/lib/gen/verify/product-postcheck", () => ({
@@ -269,5 +278,11 @@ describe("POST product-postcheck", () => {
       }),
     );
     expect(emitBusEvent).not.toHaveBeenCalled();
+    expect(setLlmUsageContext).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: "chat_1", userId: "user_1" }),
+    );
+    expect(setLlmUsageContext).toHaveBeenCalledWith(
+      expect.objectContaining({ versionId: "v1" }),
+    );
   });
 });

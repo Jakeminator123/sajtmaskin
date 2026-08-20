@@ -7,7 +7,7 @@ vi.mock("@/lib/gen/validation/project-sanity", () => ({
   runProjectSanityChecks,
 }));
 
-import { runPostGenerationChecks } from "./post-checks";
+import { buildProductPostcheckLogItems, runPostGenerationChecks } from "./post-checks";
 import type { SetMessages } from "./types";
 import {
   acceptClientErrorReport,
@@ -2041,5 +2041,56 @@ describe("runPostGenerationChecks", () => {
     );
     // Befintlig readiness-logik kan fortfarande köa autofix för "preview saknas".
     // Product Postcheck ska däremot fail-open och bara lägga en skipped-logg.
+  });
+});
+
+describe("buildProductPostcheckLogItems live review", () => {
+  it("skriver skip-orsaken i stället för 'screenshots captured'", () => {
+    const logs = buildProductPostcheckLogItems({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 12,
+      checkedUrl: "https://preview.example",
+      routesChecked: 1,
+      screenshots: { desktopUrl: null, mobileUrl: null },
+      liveReview: { status: "skipped", reason: "no_screenshots" },
+    });
+    expect(logs.find((log) => log.category === "product_postcheck.live_review")?.message).toBe(
+      "Live review skipped: no_screenshots.",
+    );
+  });
+
+  it("behåller verdikten när review är completed", () => {
+    const logs = buildProductPostcheckLogItems({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 12,
+      checkedUrl: "https://preview.example",
+      routesChecked: 1,
+      screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+      liveReview: {
+        status: "completed",
+        decision: {
+          verdict: "pass",
+          confidence: 0.8,
+          rationale: "Sajten följer briefen.",
+          reasoning: "",
+          issues: [],
+        },
+        durationMs: 9,
+        modelId: "gpt-4o",
+      },
+    });
+    expect(logs.find((log) => log.category === "product_postcheck.live_review")?.message).toBe(
+      "Live review: pass.",
+    );
   });
 });

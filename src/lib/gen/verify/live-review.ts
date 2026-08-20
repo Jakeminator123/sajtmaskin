@@ -114,10 +114,24 @@ export function isChatFollowUpVersion(versionNumber: number | null | undefined):
   return typeof versionNumber === "number" && Number.isFinite(versionNumber) && versionNumber > 1;
 }
 
+/** Only http(s) URLs can become multimodal image parts. Relative fallbacks do not count. */
+export function isAttachableScreenshotUrl(url: string | null | undefined): boolean {
+  if (typeof url !== "string" || !url.trim()) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function hasCurrentScreenshots(
   screenshots: LiveReviewScreenshotSet | null | undefined,
 ): boolean {
-  return Boolean(screenshots?.desktopUrl || screenshots?.mobileUrl);
+  return (
+    isAttachableScreenshotUrl(screenshots?.desktopUrl) ||
+    isAttachableScreenshotUrl(screenshots?.mobileUrl)
+  );
 }
 
 export function shouldRunLiveReview(params: {
@@ -409,11 +423,12 @@ function screenshotParts(screenshots: LiveReviewScreenshotSet): ImagePart[] {
     screenshots.mobileUrl,
     screenshots.previousDesktopUrl,
     screenshots.previousMobileUrl,
-  ].filter((url): url is string => typeof url === "string" && /^https?:\/\//.test(url));
+  ];
   const parts: ImagePart[] = [];
   for (const url of urls) {
+    if (!isAttachableScreenshotUrl(url)) continue;
     try {
-      parts.push({ type: "image", image: new URL(url) });
+      parts.push({ type: "image", image: new URL(url as string) });
     } catch {
       // Skip a malformed URL rather than fail the review.
     }
@@ -421,15 +436,45 @@ function screenshotParts(screenshots: LiveReviewScreenshotSet): ImagePart[] {
   return parts;
 }
 
+function recordReviewUsage(params: {
+  modelId: string;
+  usage: unknown;
+  durationMs: number;
+  ok: boolean;
+  errorCode?: string | null;
+}): void {
+  recordLlmUsage({
+    phase: "qa",
+    workload: LIVE_REVIEW_WORKLOAD_ID,
+    model: params.modelId,
+    usage: params.usage,
+    durationMs: params.durationMs,
+    ok: params.ok,
+    errorCode: params.errorCode ?? null,
+  });
+}
+
 async function reviewWithModel(
   bundle: ReviewBundle,
   modelId: string,
   timeoutMs: number,
 ): Promise<LiveReviewResult> {
+  const images = screenshotParts(bundle.screenshots);
+  if (images.length === 0) {
+    return { status: "skipped", reason: "no_screenshots" };
+  }
+
   let model;
   try {
     model = createDirectModel(modelId);
   } catch (error) {
+    recordReviewUsage({
+      modelId,
+      usage: null,
+      durationMs: 0,
+      ok: false,
+      errorCode: "model_unavailable",
+    });
     return {
       status: "skipped",
       reason: "model_unavailable",
@@ -440,9 +485,7 @@ async function reviewWithModel(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
-  let usageRecorded = false;
   try {
-    const images = screenshotParts(bundle.screenshots);
     const result = await generateObject({
       model,
       schema: ReviewDecisionSchema,
@@ -457,18 +500,23 @@ async function reviewWithModel(
       maxRetries: 0,
       abortSignal: controller.signal,
     });
-    recordLlmUsage({
-      phase: "qa",
-      workload: LIVE_REVIEW_WORKLOAD_ID,
-      model: modelId,
-      usage: result.usage,
-      durationMs: Date.now() - startedAt,
-    });
-    usageRecorded = true;
     const decision = tryParseReviewDecision(result.object);
     if (!decision) {
+      recordReviewUsage({
+        modelId,
+        usage: result.usage,
+        durationMs: Date.now() - startedAt,
+        ok: false,
+        errorCode: "invalid_model_output",
+      });
       return { status: "skipped", reason: "invalid_model_output" };
     }
+    recordReviewUsage({
+      modelId,
+      usage: result.usage,
+      durationMs: Date.now() - startedAt,
+      ok: true,
+    });
     return {
       status: "completed",
       decision,
@@ -476,19 +524,17 @@ async function reviewWithModel(
       modelId,
     };
   } catch (error) {
-    if (!usageRecorded) {
-      const usage =
-        error && typeof error === "object" && "usage" in error
-          ? (error as { usage?: unknown }).usage
-          : null;
-      recordLlmUsage({
-        phase: "qa",
-        workload: LIVE_REVIEW_WORKLOAD_ID,
-        model: modelId,
-        usage: usage && typeof usage === "object" ? (usage as never) : null,
-        durationMs: Date.now() - startedAt,
-      });
-    }
+    const usage =
+      error && typeof error === "object" && "usage" in error
+        ? (error as { usage?: unknown }).usage
+        : null;
+    recordReviewUsage({
+      modelId,
+      usage: usage && typeof usage === "object" ? usage : null,
+      durationMs: Date.now() - startedAt,
+      ok: false,
+      errorCode: "review_error",
+    });
     return {
       status: "skipped",
       reason: "review_error",
@@ -524,7 +570,12 @@ export async function runLiveReview(
     }
     last = await reviewWithModel(bundle, modelId, Math.min(perAttemptMs, remaining));
     if (last.status === "completed") return last;
-    if (last.status === "skipped" && last.reason === "invalid_model_output") return last;
+    if (
+      last.status === "skipped" &&
+      (last.reason === "invalid_model_output" || last.reason === "no_screenshots")
+    ) {
+      return last;
+    }
   }
   return last;
 }
