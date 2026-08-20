@@ -61,6 +61,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Next-HMR-källkontraktet (#1064 residual): `preview-host-guards` installerar
+      # bara standalone-deps, så `assertInstalledNextViewerContract` hoppar över
+      # sig självt där. quality har redan `next` via `npm ci`.
+      # `REQUIRE_NEXT_CONTRACT=1` gör ett hopp till FEL — samma mönster som
+      # `REQUIRE_POSTGRES_TESTS`. `--next-source-only` kör bara källåsen, inte
+      # HTTP/WS-proxyn (den körs fortfarande i `preview-host-guards`).
+      - name: Next HMR source contract (blocking)
+        env:
+          REQUIRE_NEXT_CONTRACT: "1"
+        run: node preview-host/scripts/test-preview-proxy-contract.mjs --next-source-only
+
       # Ingen actions/cache på `.eslintcache` här, medvetet. `npm run lint` kör
       # `eslint --cache` utan `--cache-strategy`, alltså ESLints default
       # `metadata` (filstorlek + mtime). En färsk `actions/checkout` ger varje
@@ -387,6 +398,9 @@ jobs:
   # tidigare bara lokalt, så en regression i preview-host-runtimen syntes först
   # på Fly. Blockerande gate (att göra checken required på master-rulesetet är
   # ett separat repo-inställningsval).
+  #
+  # Next-källåsen (HMR-path mot installerad `next`) körs inte här — jobbet har
+  # ingen `next`. Den lanen sitter i `quality` (`REQUIRE_NEXT_CONTRACT=1`).
   preview-host-guards:
     runs-on: ubuntu-latest
 
