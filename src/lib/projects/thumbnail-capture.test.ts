@@ -604,14 +604,16 @@ describe("captureThumbnailScreenshot", () => {
     launchMock.mockResolvedValue(browser);
 
     try {
+      // Bind the rejection before advancing timers — otherwise the budgeted
+      // throw is an unhandled rejection while the test is still in the race.
       const pending = captureThumbnailScreenshot("https://site.fly.dev/x", {
         isFinalUrlAllowed: () => true,
-      });
-      await vi.advanceTimersByTimeAsync(THUMBNAIL_BOOT_PROBE_TIMEOUT_MS);
-      const err = await pending.then(
+      }).then(
         () => undefined,
         (e: unknown) => e as Error,
       );
+      await vi.advanceTimersByTimeAsync(THUMBNAIL_BOOT_PROBE_TIMEOUT_MS);
+      const err = await pending;
       expect(err).toBeInstanceOf(PreviewProbeUnreadableError);
       expect(isPreviewProbeUnreadableError(err)).toBe(true);
       expect(page.screenshot).not.toHaveBeenCalled();
