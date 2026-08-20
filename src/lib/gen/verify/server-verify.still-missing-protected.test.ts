@@ -258,3 +258,64 @@ describe("tryServerRepairLoop — stillMissing protected path must not persist (
     expect(failSummary).toContain(PROTECTED_PATH);
   });
 });
+
+describe("tryServerRepairLoop — omitted protected path must not vanish (SM-066)", () => {
+  const iconFile = {
+    path: "app/icon.svg",
+    content: "<svg id='fallback-icon'/>",
+    language: "svg",
+  };
+  const fallbackProtectedFile = {
+    path: PROTECTED_PATH,
+    content: "export async function GET(){return 'fallback'}",
+    language: "ts",
+  };
+  const fallbackWithProtected = [pageFile, iconFile, fallbackProtectedFile];
+
+  it("reinjects a never-mentioned protected path from fallback and persists it", async () => {
+    await driveOnePromotion(serializeCodeProject([pageFile]));
+
+    await tryServerRepairLoop({
+      chatId: "chat-sm066",
+      versionId: "ver-sm066",
+      codeFiles: fallbackWithProtected,
+      baseFilesJson: JSON.stringify(fallbackWithProtected),
+      failedOutputs: [{ check: "typecheck", exitCode: 1, output: "boom", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: "typecheck",
+      jobStartedAt: null,
+      jobFinishedAt: null,
+    });
+
+    expect(saveRepairedFiles).toHaveBeenCalled();
+    const savedJson = String(saveRepairedFiles.mock.calls[0]?.[1] ?? "");
+    expect(savedJson).toContain("app/icon.svg");
+    expect(savedJson).toContain(PROTECTED_PATH);
+    expect(savedJson).toContain("fallback-icon");
+    expect(savedJson).toContain("fallback");
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
+
+  it("blocks persist when the model omits a protected path and fallback lacks it", async () => {
+    await driveOnePromotion(serializeCodeProject([pageFile]));
+
+    await tryServerRepairLoop({
+      chatId: "chat-sm066",
+      versionId: "ver-sm066",
+      codeFiles: fallbackWithoutProtected,
+      baseFilesJson,
+      failedOutputs: [{ check: "typecheck", exitCode: 1, output: "boom", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: "typecheck",
+      jobStartedAt: null,
+      jobFinishedAt: null,
+    });
+
+    expect(saveRepairedFiles).not.toHaveBeenCalled();
+    expect(failVersionVerification).toHaveBeenCalled();
+    const failSummary = String(failVersionVerification.mock.calls[0]?.[1] ?? "");
+    expect(failSummary).toContain("app/icon.svg");
+    expect(failSummary).toContain(PROTECTED_PATH);
+    expect(failSummary.toLowerCase()).toMatch(/not saved|was not saved|did not save/);
+  });
+});

@@ -93,9 +93,23 @@ const pageFile = {
   language: "tsx",
 };
 
+const iconFile = {
+  path: "app/icon.svg",
+  content: "<svg id='scaffold-icon'/>",
+  language: "svg",
+};
+
+const placeholderFile = {
+  path: "app/api/placeholder/route.ts",
+  content: "export async function GET(){return null}",
+  language: "ts",
+};
+
+const projectFiles = [pageFile, iconFile, placeholderFile];
+
 const fixedPageContent = `export async function Map() {\n  const maplibregl = await import("maplibre-gl");\n  return maplibregl;\n}\n`;
 
-const filesJson = JSON.stringify([pageFile]);
+const filesJson = JSON.stringify(projectFiles);
 
 function gateFailTypecheck() {
   return {
@@ -133,7 +147,7 @@ beforeEach(() => {
   getChat.mockReset().mockResolvedValue(null);
   markVersionSupersededByRepair.mockReset().mockResolvedValue(null);
   getVersionFilesSnapshot.mockReset().mockResolvedValue({
-    files: [pageFile],
+    files: projectFiles,
     filesJson,
     lifecycleStage: "integrations",
   });
@@ -155,9 +169,11 @@ beforeEach(() => {
   emitBusEvent.mockReset();
   runLlmRepairGate.mockReset();
 
-  const initialSerialized = serializeCodeProject([pageFile]);
+  const initialSerialized = serializeCodeProject(projectFiles);
   const fixedSerialized = serializeCodeProject([
     { ...pageFile, content: fixedPageContent },
+    iconFile,
+    placeholderFile,
   ]);
   runAutoFix.mockReset().mockImplementation(async (content: string) => ({
     fixedContent: content === initialSerialized ? fixedSerialized : content,
@@ -247,5 +263,68 @@ describe("triggerServerVerification diagnosticOnly + repairable gate (SM-024)", 
     // Nothing was persisted, so the fail summary must not claim otherwise.
     const failSummary = failVersionVerification.mock.calls[0]?.[1] as string;
     expect(failSummary).not.toMatch(/pre-repair content/);
+  });
+});
+
+describe("triggerServerVerification diagnostic persist — omitted protected path (SM-066)", () => {
+  it("reinjects never-mentioned protected paths from fallback before persist", async () => {
+    const initialSerialized = serializeCodeProject(projectFiles);
+    const omittedSerialized = serializeCodeProject([
+      { ...pageFile, content: fixedPageContent },
+    ]);
+    runAutoFix.mockImplementation(async (content: string) => ({
+      fixedContent: content === initialSerialized ? omittedSerialized : content,
+      fixes: [{ fixer: "mechanical-test", file: pageFile.path }],
+    }));
+
+    await triggerServerVerification({
+      chatId,
+      versionId,
+      diagnosticOnly: true,
+    });
+
+    expect(updateVersionFiles).toHaveBeenCalled();
+    const persistedJson = String(updateVersionFiles.mock.calls[0]?.[1] ?? "");
+    expect(persistedJson).toContain("app/icon.svg");
+    expect(persistedJson).toContain("app/api/placeholder/route.ts");
+    expect(persistedJson).toContain("scaffold-icon");
+  });
+
+  it("skips persist when an omitted protected path is also missing from fallback", async () => {
+    const pageOnlyJson = JSON.stringify([pageFile]);
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [pageFile],
+      filesJson: pageOnlyJson,
+      lifecycleStage: "integrations",
+    });
+    const initialSerialized = serializeCodeProject([pageFile]);
+    const omittedSerialized = serializeCodeProject([
+      { ...pageFile, content: fixedPageContent },
+    ]);
+    runAutoFix.mockImplementation(async (content: string) => ({
+      fixedContent: content === initialSerialized ? omittedSerialized : content,
+      fixes: [{ fixer: "mechanical-test", file: pageFile.path }],
+    }));
+
+    await triggerServerVerification({
+      chatId,
+      versionId,
+      diagnosticOnly: true,
+    });
+
+    expect(updateVersionFiles).not.toHaveBeenCalled();
+    const diagnosticLogs = createEngineVersionErrorLogs.mock.calls
+      .flatMap(
+        (call) =>
+          call[0] as Array<{ category?: string; meta?: Record<string, unknown> }>,
+      )
+      .filter((row) => row.category === "server-verify:diagnostic");
+    expect(
+      diagnosticLogs.some(
+        (row) =>
+          (row.meta?.deterministicRepair as { skippedPersistReason?: string } | undefined)
+            ?.skippedPersistReason === "protected_paths_still_missing",
+      ),
+    ).toBe(true);
   });
 });
