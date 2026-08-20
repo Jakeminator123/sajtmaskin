@@ -310,32 +310,29 @@ def _render_markdown_docs(ctx: BackofficeContext) -> None:
 def _render_assist_brief(man_path, manifest: dict[str, Any]) -> None:
     """Redigerar **Briefing**-lagret, i första hand dess LLM-steg **Deep Brief**.
 
-    Manifestet bär två toppnycklar för samma lager: `promptAssist` (äldre namn,
-    Deep Brief-modellen) och `briefing` (nyare namn, `/api/ai/brief` + server
-    auto-brief). Nycklarna är kontrakt — schema, Zod och tester kräver
-    `promptAssist` — så de behåller sina namn. Etiketterna här säger däremot
-    Deep Brief, eftersom det är produktnamnet.
+    Manifestet har en toppnyckel `briefing`. `defaults.assist` är klientens
+    valbara Deep Brief-modell; `defaults.requestModel` är serverns default för
+    `/api/ai/brief` när anroparen inte skickar någon. De är inte dubbletter.
 
     Rör inte knappen **Prompt-assist**: den ligger i chattinputen, rättar bara
     utkastet och styrs av workload `prompt_rewrite` — en annan flik.
     """
-    prompt_assist = manifest.setdefault("promptAssist", {})
-    prompt_defaults = prompt_assist.setdefault("defaults", {})
-    prompt_allowed = prompt_assist.setdefault("allowed", {})
-    briefing = manifest.setdefault("briefing", {}).setdefault("defaults", {})
+    briefing_root = manifest.setdefault("briefing", {})
+    briefing = briefing_root.setdefault("defaults", {})
+    briefing_allowed = briefing_root.setdefault("allowed", {})
 
     st.caption(
         "Deep Brief = LLM-steget som expanderar fritext till `siteBriefSchema` "
         "före orkestrering. Inte knappen **Prompt-assist** i chattinputen "
-        "(den ligger under Workloads → `prompt_rewrite`). Legacy-nyckeln i "
-        "manifestet heter fortfarande `promptAssist`."
+        "(den ligger under Workloads → `prompt_rewrite`). "
+        "`assist` och `requestModel` är två fält i `briefing.defaults`."
     )
 
     assist_default = st.text_input(
         "Deep Brief: standardmodell",
-        value=str(prompt_defaults.get("assist", "")),
+        value=str(briefing.get("assist", "")),
         key="assist_default_model",
-        help="Manifest: `promptAssist.defaults.assist` · env `SAJTMASKIN_ASSIST_MODEL`.",
+        help="Manifest: `briefing.defaults.assist` · env `SAJTMASKIN_ASSIST_MODEL`.",
     )
     request_model = st.text_input(
         "API `/api/ai/brief` (förvald modell)",
@@ -354,30 +351,34 @@ def _render_assist_brief(man_path, manifest: dict[str, Any]) -> None:
     )
     gateway_text = st.text_area(
         "Deep Brief: tillåtna modeller via gateway (en per rad)",
-        value="\n".join(prompt_allowed.get("gatewayClassModels") or []),
+        value="\n".join(briefing_allowed.get("gatewayClassModels") or []),
         height=140,
         key="assist_gateway_models",
-        help="Manifest: `promptAssist.allowed.gatewayClassModels`.",
+        help="Manifest: `briefing.allowed.gatewayClassModels`.",
     )
     anthropic_direct_text = st.text_area(
         "Deep Brief: tillåtna Anthropic direct-modeller (en per rad)",
-        value="\n".join(prompt_allowed.get("anthropicDirectModels") or []),
+        value="\n".join(briefing_allowed.get("anthropicDirectModels") or []),
         height=120,
         key="assist_anthropic_direct_models",
-        help="Manifest: `promptAssist.allowed.anthropicDirectModels`.",
+        help="Manifest: `briefing.allowed.anthropicDirectModels`.",
     )
 
     if st.button("Spara Deep Brief / Briefing", type="primary"):
-        prompt_defaults["assist"] = assist_default.strip()
-        prompt_defaults.pop("polish", None)
-        prompt_assist.setdefault("envKeys", {}).pop("polish", None)
-        prompt_allowed["gatewayClassModels"] = normalize_nonempty_lines(gateway_text)
-        prompt_allowed["anthropicDirectModels"] = normalize_nonempty_lines(
+        briefing["assist"] = assist_default.strip()
+        briefing.pop("polish", None)
+        briefing_root.setdefault("envKeys", {}).pop("polish", None)
+        briefing_allowed["gatewayClassModels"] = normalize_nonempty_lines(gateway_text)
+        briefing_allowed["anthropicDirectModels"] = normalize_nonempty_lines(
             anthropic_direct_text
         )
         briefing["requestModel"] = request_model.strip()
         briefing["serverAutoOpenAI"] = auto_openai.strip()
         briefing["serverAutoAnthropic"] = auto_anthropic.strip()
+        briefing_root.setdefault("envKeys", {}).setdefault(
+            "assist", "SAJTMASKIN_ASSIST_MODEL"
+        )
+        manifest.pop("promptAssist", None)
         _guard_manifest_or_stop(manifest)
         write_json(man_path, manifest)
         st.success("Sparat Deep Brief / Briefing.")

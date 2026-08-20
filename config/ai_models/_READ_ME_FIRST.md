@@ -6,8 +6,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-core/` +
 
 1. **`manifest.json`** — maskinläsbar “single source of truth” för:
    - standard **own-engine**-modell per byggprofil (`premium` … `anthropic`);
-   - standard **prompt assist** (`openai/…`, `anthropic/…`) som modell-hint till brief-lanen;
-   - standard **briefing**-modeller för `/api/ai/brief` och server auto-brief;
+   - standard **briefing**-modeller: `assist` (klientens Deep Brief), `requestModel` (`/api/ai/brief`) och `serverAuto*` (create-chat-fallback);
    - **phase routing** för planner / generator / fixer / verifier / deploy-assistant;
    - **phase-specifik thinking / reasoning** via `phaseRouting.thinkingByTier`;
    - **repairPolicies** (deterministiska autofix-pass, maxpass i syntax-fix, manuell repair-route, server verify repair);
@@ -15,13 +14,13 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-core/` +
    - **postGenerationPasses** (verifier-budgetar och tidsgränser efter syntax);
    - **preGenerationContracts** (provider-regler och fallback-val för databas/auth/betalning/integrationer);
    - **tokenbudgetar** och **route-timeout**-värden (med min/max som i koden);
-   - listor över **tillåtna assist-modeller**;
+   - listor över **tillåtna Deep Brief-modeller** (`briefing.allowed`);
    - **`workloads`**: en post per huvudsakligt anropssteg (filvägar, auth-env, API-typ), inklusive planner/brief/repair där det är relevant.
 
 - **`generatedSiteIntegrationPlaceholders`**: pekar på två filer — **`40-harmless-placeholders.env.txt`** (säkra även i F3) och **`41-tier3-stub-placeholders.env.txt`** (F2-stubbar, strippas i F3). Per-key-klassificering: `src/lib/integrations/placeholder-harmless.ts`. Läs med `src/lib/ai-models/load-generated-site-placeholders.ts` (endast Node). När tier-2 preview-session startas via **`startPreviewSession`** mergas innehållet in i `.env.local` av `src/lib/gen/preview/env-local.ts`. Policy: `config/user_degraded_env.txt`.
 - **`qualityGateTiers`**: två lanes (konsoliderade 2026-04 från fyra) — `designPreview: ["typecheck"]` (F2, slimmad 2026-04-23) och `integrationsBuild: ["typecheck", "build"]` (F3; `lint` borttagen ur gate-listan 2026-07-22 — lint failade 100 % av gate-körningarna som advisory-brus och hör hemma i repo-CI, inte i ReleaseGate). Läses av `src/lib/gen/verify/quality-gate-checks.ts`. F2 `build`/`lint` flyttades till pre-VM warm-cache-passen (`warm-typecheck.ts` + `warm-eslint.ts`) i Sajtmaskin-backend så Fly-VMn slipper ~5–20 s per finalize. F3 behåller `typecheck + build` eftersom integrations-bygget måste producera en valid Next build. Sätt `designPreview` tillbaka till `["typecheck", "build"]` om du behöver VM-build-skyddsnätet igen (t.ex. vid debug).
 
-2. **`00-overview.md`**, **`10-own-engine.md`**, **`20-prompt-assist.md`**, **`25-pricing.md`**, **`30-embeddings-and-misc.md`** — förklaringar och tabeller för människor (`25-pricing.md` = USD-prisreferens, ej runtime-källa).
+2. **`00-overview.md`**, **`10-own-engine.md`**, **`20-briefing.md`**, **`25-pricing.md`**, **`30-embeddings-and-misc.md`** — förklaringar och tabeller för människor (`25-pricing.md` = USD-prisreferens, ej runtime-källa).
 3. **`manifest.schema.json`** — JSON Schema för validering (t.ex. i editor eller CI).
 
 ### Handoff till annan agent / refaktor
@@ -35,7 +34,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-core/` +
 
 - **Dokumentation om modeller och prompts:** Länkar under `manifest.docLinks` med `appliesTo: "direct_provider_api"` avser **direktanrop** till OpenAI respektive Anthropic (samma tänk som officiella SDK:er mot standard endpoint). Läs även `documentationDirectApiNote` i `manifest.json` och [00-overview.md](00-overview.md).
 - **Miljövariabler vinner alltid** över värden i `manifest.json`. Se `src/lib/gen/defaults.ts` och `src/lib/models/catalog.ts`.
-- När du ändrar **tillåtna assist-modeller** i manifestet ska runtime och UI läsa samma källa. `src/lib/builder/prompt-assist/` (paketet, post-Omtag 03) och builder-defaults ska inte bära en separat osynkad allowlist.
+- När du ändrar **tillåtna Deep Brief-modeller** i `briefing.allowed` ska runtime och UI läsa samma källa. `src/lib/builder/prompt-assist/` (paketet, post-Omtag 03) och builder-defaults ska inte bära en separat osynkad allowlist.
 - `perTierBriefing` styr serverns auto-brief vid init och `clear-redesign` efter vald byggprofil. Explicit requestmodell och relevant `SAJTMASKIN_AUTO_BRIEF_MODEL_*` vinner; globala briefing-defaults är fallback.
 - `phaseRouting.defaultByTier` använder sentinel-värdet **`selected_build_model`** för att följa vald byggprofil. Det gör att planner/generator/fixer kan fortsätta följa buildprofilen även om du byter `buildProfiles.defaults.*`.
 - `phaseRouting.thinkingByTier` styr om varje fas **får** använda provider-reasoning, vilken `reasoningEffort` (`none` … `max`) och, för GPT-5.6, valfri `reasoningMode` (`standard` / `pro`) som skickas. Planner/generator kräver fortfarande att builderns vanliga thinking-toggle är på; fixer/verifier/server-repair använder fasinställningen direkt.

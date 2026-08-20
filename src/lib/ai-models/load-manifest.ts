@@ -60,12 +60,18 @@ const buildProfilesSchema = z.object({
 
 const _qualityLevelSchema = z.enum(["light", "standard", "pro", "premium", "max"]);
 
-const promptAssistSchema = z.object({
+const briefingSchema = z.object({
   defaults: z.object({
     assist: z.string(),
+    requestModel: z.string(),
+    serverAutoOpenAI: z.string(),
+    serverAutoAnthropic: z.string(),
   }),
   envKeys: z.object({
     assist: z.string(),
+    requestModel: z.string(),
+    serverAutoOpenAI: z.string(),
+    serverAutoAnthropic: z.string(),
   }),
   allowed: z.object({
     gatewayClassModels: z.array(z.string()),
@@ -73,20 +79,6 @@ const promptAssistSchema = z.object({
     // Unified view (union of gatewayClassModels + anthropicDirectModels).
     // Preferred accessor for new callers — see getPromptAssistAllowedFromManifest().
     models: z.array(z.string()).optional(),
-  }),
-  notes: z.string().optional(),
-});
-
-const briefingSchema = z.object({
-  defaults: z.object({
-    requestModel: z.string(),
-    serverAutoOpenAI: z.string(),
-    serverAutoAnthropic: z.string(),
-  }),
-  envKeys: z.object({
-    requestModel: z.string(),
-    serverAutoOpenAI: z.string(),
-    serverAutoAnthropic: z.string(),
   }),
   notes: z.string().optional(),
 });
@@ -302,7 +294,6 @@ export const aiModelsManifestSchema = z.object({
       max: z.string(),
     })
     .optional(),
-  promptAssist: promptAssistSchema,
   briefing: briefingSchema,
   phaseRouting: phaseRoutingSchema,
   repairPolicies: repairPoliciesSchema,
@@ -434,7 +425,7 @@ export function getPromptAssistAllowedFromManifest(): {
    */
   models: readonly string[];
 } {
-  const a = getAiModelsManifest().promptAssist.allowed;
+  const a = getAiModelsManifest().briefing.allowed;
   const models = a.models ?? [...a.gatewayClassModels, ...a.anthropicDirectModels];
   return {
     gatewayClassModels: a.gatewayClassModels,
