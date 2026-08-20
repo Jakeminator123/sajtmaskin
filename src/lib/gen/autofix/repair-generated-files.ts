@@ -13,6 +13,7 @@ import {
 } from "@/lib/gen/autofix/common-import-fixer";
 import { fixCnImportConflict } from "@/lib/gen/autofix/rules/metadata-import-fixer";
 import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
+import { fixFooterCopyrightYear } from "@/lib/gen/autofix/rules/footer-copyright-year-fixer";
 import { fixR3FVectorTuples } from "@/lib/gen/autofix/rules/r3f-vector-tuple-fixer";
 import { fixZodV4Params } from "@/lib/gen/autofix/rules/zod-v4-params-fixer";
 import { fixTypeOnlyImports } from "@/lib/gen/autofix/rules/type-only-import-fixer";
@@ -238,6 +239,12 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     if (metadataConflictResult.fixed) {
       content = metadataConflictResult.code;
       fixes.push(...metadataConflictResult.fixes);
+    }
+
+    const footerYearResult = fixFooterCopyrightYear(content, file.path);
+    if (footerYearResult.fixed) {
+      content = footerYearResult.code;
+      fixes.push(...footerYearResult.fixes);
     }
 
     const asConstKeysResult = fixAsConstBooleanKeys(content, file.path);
