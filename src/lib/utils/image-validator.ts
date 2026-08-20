@@ -1,3 +1,5 @@
+import type { CodeFile } from "@/lib/gen/parser";
+import { collectDanglingStaticAssetRefs } from "@/lib/gen/validation/project-sanity";
 import {
   buildUnsplashSearchCandidates,
   inferUnsplashOrientationFromUrl,
@@ -200,6 +202,57 @@ const NEXT_IMAGE_RE =
 // Intentionally case-sensitive: CSS uses `url(...)`, while generated TS/JS metadata
 // often contains `new URL("https://...")`, which should not be treated as an image ref.
 const BG_IMAGE_RE = /url\(\s*["']?(https?:\/\/[^"')]+)["']?\s*\)/g;
+
+function textFilesToCodeFiles(files: TextFile[]): CodeFile[] {
+  return files.map((file) => ({
+    path: file.name,
+    content: file.content,
+    language: file.name.split(".").pop() || "tsx",
+  }));
+}
+
+/**
+ * Alt text for a local path, if an `<img>` / `<Image>` tag carries both.
+ * Falls back to empty so `buildPlaceholderReplacementUrl` uses "Missing image".
+ */
+function findAltForLocalAsset(files: TextFile[], assetPath: string): string {
+  for (const file of files) {
+    for (const re of [IMG_SRC_RE, NEXT_IMAGE_RE]) {
+      re.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = re.exec(file.content)) !== null) {
+        const url = match[1] || match[4] || "";
+        const alt = match[2] || match[3] || "";
+        if (url === assetPath || url.startsWith(`${assetPath}?`) || url.startsWith(`${assetPath}#`)) {
+          return alt;
+        }
+      }
+    }
+  }
+  return "";
+}
+
+/**
+ * SM-063: reuse the sanity detector. Root-relative invented assets never
+ * get a HEAD check (`isExternalImageUrl` correctly skips `/…`).
+ */
+function danglingLocalImagesAsBroken(files: TextFile[]): BrokenImage[] {
+  const refs = collectDanglingStaticAssetRefs(textFilesToCodeFiles(files));
+  const seen = new Set<string>();
+  const broken: BrokenImage[] = [];
+  for (const ref of refs) {
+    if (seen.has(ref.assetPath)) continue;
+    seen.add(ref.assetPath);
+    broken.push({
+      url: ref.assetPath,
+      alt: findAltForLocalAsset(files, ref.assetPath),
+      file: ref.file,
+      status: 404,
+      replacementUrl: null,
+    });
+  }
+  return broken;
+}
 
 function isExternalImageUrl(url: string): boolean {
   if (!url || url.startsWith("data:") || url.startsWith("/") || url.startsWith(".")) return false;
@@ -638,19 +691,31 @@ export async function validateImages(params: {
   const warnings: string[] = [];
 
   const refs = extractImageRefs(files);
-  if (refs.length === 0) {
+  const danglingBroken = danglingLocalImagesAsBroken(files);
+  if (refs.length === 0 && danglingBroken.length === 0) {
     return { total: 0, broken: [], replacedCount: 0, files, warnings };
   }
 
   warnings.push(...findSemanticImageWarnings(refs));
 
-  let broken = await findBrokenImages(refs, skipUrls);
-  if (broken.length === 0) {
-    return { total: refs.length, broken: [], replacedCount: 0, files, warnings };
+  let broken: BrokenImage[] = [];
+  if (refs.length > 0) {
+    broken = await findBrokenImages(refs, skipUrls);
+    if (broken.length > 0) {
+      // Try to find replacements for broken Unsplash URLs
+      broken = await findReplacements(broken, unsplashAccessKey);
+    }
   }
-
-  // Try to find replacements for broken Unsplash URLs
-  broken = await findReplacements(broken, unsplashAccessKey);
+  broken = [...broken, ...danglingBroken];
+  if (broken.length === 0) {
+    return {
+      total: refs.length + danglingBroken.length,
+      broken: [],
+      replacedCount: 0,
+      files,
+      warnings,
+    };
+  }
 
   const unreplaceable = broken.filter((b) => !b.replacementUrl);
   for (const entry of unreplaceable) {
@@ -659,8 +724,10 @@ export async function validateImages(params: {
     );
   }
 
+  const total = refs.length + danglingBroken.length;
+
   if (!autoFix) {
-    return { total: refs.length, broken, replacedCount: 0, files, warnings };
+    return { total, broken, replacedCount: 0, files, warnings };
   }
 
   const { files: updatedFiles, replacedCount, placeholderCount } = applyReplacements(
@@ -687,7 +754,7 @@ export async function validateImages(params: {
   }
 
   return {
-    total: refs.length,
+    total,
     broken,
     replacedCount,
     files: updatedFiles,

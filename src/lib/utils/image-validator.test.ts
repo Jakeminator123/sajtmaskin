@@ -376,4 +376,87 @@ describe("validateImages", () => {
       "Ersatte 1 trasig(a) bild-URL:er med tillgängliga ersättningar.",
     );
   });
+
+  // SM-063: generatorn skriver rot-relativa src mot assets som aldrig
+  // materialiseras. Detektionen ägs av project-sanity; autofix-punkten är
+  // validateImages (samma /validate-images-steg som döda externa URL:er).
+  describe("dangling root-relative assets (SM-063)", () => {
+    it("rewrites a missing /images/hero-sky.jpg to the scaffold placeholder", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      const files: TextFile[] = [
+        {
+          name: "app/page.tsx",
+          content: '<img src="/images/hero-sky.jpg" alt="Himmel över viken" />',
+        },
+      ];
+
+      const result = await validateImages({
+        files,
+        autoFix: true,
+        unsplashAccessKey: null,
+      });
+
+      expect(result.replacedCount).toBe(1);
+      expect(result.broken).toEqual([
+        expect.objectContaining({
+          url: "/images/hero-sky.jpg",
+          alt: "Himmel över viken",
+          file: "app/page.tsx",
+          status: 404,
+        }),
+      ]);
+      expect(result.files[0]?.content).toContain(
+        "/api/placeholder?w=1200&h=800&label=Himmel%20%C3%B6ver%20viken",
+      );
+      expect(result.files[0]?.content).not.toContain("/images/hero-sky.jpg");
+      expect(fetchSpy).not.toHaveBeenCalled();
+      fetchSpy.mockRestore();
+    });
+
+    it("leaves a local src that exists in public/ untouched", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      const files: TextFile[] = [
+        {
+          name: "app/page.tsx",
+          content: '<img src="/images/hero-sky.jpg" alt="Himmel över viken" />',
+        },
+        {
+          name: "public/images/hero-sky.jpg",
+          content: "fake-bytes",
+        },
+      ];
+
+      const result = await validateImages({
+        files,
+        autoFix: true,
+        unsplashAccessKey: null,
+      });
+
+      expect(result.broken).toEqual([]);
+      expect(result.replacedCount).toBe(0);
+      expect(result.files[0]?.content).toContain('src="/images/hero-sky.jpg"');
+      expect(result.files[0]?.content).not.toContain("/api/placeholder");
+      expect(fetchSpy).not.toHaveBeenCalled();
+      fetchSpy.mockRestore();
+    });
+
+    it("reports dangling locals without rewriting when autoFix is false", async () => {
+      const files: TextFile[] = [
+        {
+          name: "app/page.tsx",
+          content: '<img src="/images/hero-sky.jpg" alt="Himmel" />',
+        },
+      ];
+
+      const result = await validateImages({
+        files,
+        autoFix: false,
+        unsplashAccessKey: null,
+      });
+
+      expect(result.replacedCount).toBe(0);
+      expect(result.broken).toHaveLength(1);
+      expect(result.files[0]?.content).toContain("/images/hero-sky.jpg");
+    });
+  });
 });

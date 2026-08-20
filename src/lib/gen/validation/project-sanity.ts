@@ -326,6 +326,11 @@ function collectPublicAssetUrls(files: CodeFile[]): Set<string> {
   return urls;
 }
 
+export interface DanglingStaticAssetRef {
+  file: string;
+  assetPath: string;
+}
+
 /**
  * Root-relative image paths that no file in the project serves. Generation
  * emits text, so it can never produce the `public/images/hero.jpg` a model
@@ -334,14 +339,14 @@ function collectPublicAssetUrls(files: CodeFile[]): Set<string> {
  * a preview whose page requested six local `/images/*.jpg` files, none of
  * which existed.
  *
- * Warning severity on purpose, mirroring the dangling-API check above: only
- * literal paths are inspected, and a rewrite or an asset added outside the
- * generated file set could still serve the path, so a false `error` would
- * block an otherwise shippable build.
+ * Shared detector for sanity warnings and the `/validate-images` autofix
+ * (SM-063). Do not invent a second scanner.
  */
-function collectDanglingStaticAssetReferences(files: CodeFile[]): SanityIssue[] {
+export function collectDanglingStaticAssetRefs(
+  files: CodeFile[],
+): DanglingStaticAssetRef[] {
   const publicUrls = collectPublicAssetUrls(files);
-  const issues: SanityIssue[] = [];
+  const refs: DanglingStaticAssetRef[] = [];
   const seen = new Set<string>();
 
   for (const file of files) {
@@ -356,19 +361,31 @@ function collectDanglingStaticAssetReferences(files: CodeFile[]): SanityIssue[] 
         const key = `${file.path}|${assetPath}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        issues.push(
-          createSanityIssue(
-            file.path,
-            "warning",
-            `References the local image "${assetPath}" but nothing in the project serves it (expected public${assetPath}). Generation cannot emit binary assets — use an images.unsplash.com URL or /placeholder.svg?width=…&height=…&text=… instead. The image will 404 at runtime.`,
-            "non_blocking_quality_warning",
-            `dangling-static-asset:${assetPath}`,
-          ),
-        );
+        refs.push({ file: file.path, assetPath });
       }
     }
   }
-  return issues;
+  return refs;
+}
+
+/**
+ * Warning severity on purpose, mirroring the dangling-API check above: only
+ * literal paths are inspected, and a rewrite or an asset added outside the
+ * generated file set could still serve the path, so a false `error` would
+ * block an otherwise shippable build.
+ */
+export function collectDanglingStaticAssetReferences(
+  files: CodeFile[],
+): SanityIssue[] {
+  return collectDanglingStaticAssetRefs(files).map((ref) =>
+    createSanityIssue(
+      ref.file,
+      "warning",
+      `References the local image "${ref.assetPath}" but nothing in the project serves it (expected public${ref.assetPath}). Generation cannot emit binary assets — use an images.unsplash.com URL or /placeholder.svg?width=…&height=…&text=… instead. The image will 404 at runtime.`,
+      "non_blocking_quality_warning",
+      `dangling-static-asset:${ref.assetPath}`,
+    ),
+  );
 }
 
 function collectImportedPackages(files: CodeFile[]): Map<string, Set<string>> {
