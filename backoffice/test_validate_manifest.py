@@ -6,7 +6,7 @@ against the two Codex P2 findings on PR #210:
   (A) ``docLinks[].url`` must reject non-URL values (jsonschema skips
       ``format: "uri"`` unless a FormatChecker is supplied).
   (B) Nested sections that used to be loose ``{type: object}`` in
-      ``manifest.schema.json`` (promptAssist / tokenBudgets / routeTimeouts /
+      ``manifest.schema.json`` (briefing / tokenBudgets / routeTimeouts /
       embeddingModels / qualityToOwnEngineModel) must reject runtime-invalid
       edits the way ``src/lib/ai-models/load-manifest.ts`` (Zod) would.
 
@@ -75,14 +75,14 @@ class ValidateManifestTests(unittest.TestCase):
             f"expected the error to mention routeTimeouts, got: {errors}",
         )
 
-    def test_nested_invalid_prompt_assist_is_rejected(self) -> None:
-        """Finding B: promptAssist used to be loose {type: object}; removing a
-        required nested field must now fail."""
+    def test_nested_invalid_briefing_allowed_is_rejected(self) -> None:
+        """Finding B: briefing.allowed used to live under promptAssist and was
+        loose {type: object}; removing a required nested field must now fail."""
         manifest = copy.deepcopy(_committed_manifest())
-        del manifest["promptAssist"]["allowed"]["gatewayClassModels"]
+        del manifest["briefing"]["allowed"]["gatewayClassModels"]
         self.assertTrue(
             validate_manifest_or_error(manifest),
-            "expected an error for promptAssist.allowed missing gatewayClassModels",
+            "expected an error for briefing.allowed missing gatewayClassModels",
         )
 
     def test_nested_invalid_token_budget_type_is_rejected(self) -> None:

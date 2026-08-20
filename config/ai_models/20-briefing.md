@@ -1,11 +1,9 @@
-# Deep Brief — provider-namngivning
+# Briefing — Deep Brief och modellrutt
 
-> **Namnkarta.** Den här filen handlar om **Deep Brief**: LLM-steget i
-> Briefing-lagret som expanderar fritext till `siteBriefSchema` före
-> orkestrering (`/api/ai/brief`). Filnamnet och manifestnyckeln säger fortfarande
-> `prompt-assist` / `promptAssist` — det är legacy och behålls enligt
-> [`terminology.mdc`](../../.cursor/rules/terminology.mdc), som säger att
-> kodidentifierare och filnamn inte döps om.
+> **Namnkarta.** Den här filen handlar om **Briefing**-lagret före
+> kodgeneratorn, i synnerhet **Deep Brief**: LLM-steget som expanderar fritext
+> till `siteBriefSchema` före orkestrering (`/api/ai/brief`). Manifestnyckeln
+> är `briefing`. `assist` och `requestModel` är två fält — inte dubbletter.
 >
 > Det här är **inte** knappen **Prompt-assist** bredvid Plan i chattinputen. Den
 > rättar bara användarens utkast före sändning och har egen workload
@@ -18,10 +16,9 @@ Deep Brief använder **`provider/model`**-format, t.ex.:
 - `openai/gpt-5.6-sol` (default)
 - `openai/gpt-5.6-terra`
 - `openai/gpt-5.6-luna`
-- `anthropic/claude-opus-4.8`
 - `anthropic-direct/claude-opus-4-8` (direktlista med API-format i suffix)
 
-Tillåtna värden kommer från **`manifest.json` → `promptAssist.allowed`** via `getPromptAssistAllowedFromManifest()` i [`src/lib/ai-models/load-manifest.ts`](../../src/lib/ai-models/load-manifest.ts) och konsumeras av [`src/lib/builder/prompt-assist/`](../../src/lib/builder/prompt-assist/). Paritet säkerställs av `manifest-parity.test.ts`.
+Tillåtna värden kommer från **`manifest.json` → `briefing.allowed`** via `getPromptAssistAllowedFromManifest()` i [`src/lib/ai-models/load-manifest.ts`](../../src/lib/ai-models/load-manifest.ts) och konsumeras av [`src/lib/builder/prompt-assist/`](../../src/lib/builder/prompt-assist/). Funktionsnamnet är legacy. Paritet säkerställs av `manifest-parity.test.ts`.
 
 ## Provider-typ: `"openai" | "anthropic"`
 
@@ -29,10 +26,14 @@ Tillåtna värden kommer från **`manifest.json` → `promptAssist.allowed`** vi
 
 Anropet går till [`createDirectModel`](../../src/lib/builder/direct-model.ts), som använder **`OPENAI_API_KEY`** för `openai/*` och **`ANTHROPIC_API_KEY`** för `anthropic/*`. GPT-5.6 väljer AI SDK:s Responses-provider uttryckligen.
 
-## Standard assist
+## Standard assist och requestModel
 
-Defaults och env-nycklar: `promptAssist.defaults` och `promptAssist.envKeys` i manifestet.  
-Konsument: [`src/lib/gen/defaults.ts`](../../src/lib/gen/defaults.ts) (`ASSIST_MODEL`) och builder-defaults. Assist-modellen är en hint till brief-lanen, inte en egen rewrite-agent.
+Defaults och env-nycklar: `briefing.defaults` och `briefing.envKeys` i manifestet.
+
+- `assist` / `SAJTMASKIN_ASSIST_MODEL` — klientens valbara Deep Brief-modell (default för wire-fältet `promptAssistModel`).
+- `requestModel` / `SAJTMASKIN_BRIEF_MODEL` — serverns default för `/api/ai/brief` när anroparen inte skickar någon.
+
+De är inte dubbletter även när båda pekar på samma modell-id. Konsument: [`src/lib/gen/defaults.ts`](../../src/lib/gen/defaults.ts) (`ASSIST_MODEL`, `BRIEF_MODEL`) och builder-defaults.
 
 ## Deep Brief och auto-brief
 

@@ -522,14 +522,6 @@ function renderModels(manifest, phaseCallers = {}) {
   const qualityRows = Object.entries(manifest.qualityToOwnEngineModel)
     .sort(([left], [right]) => compareText(left, right))
     .map(([quality, model]) => `| ${code(quality)} | ${code(model)} |`);
-  const assistRows = Object.keys(manifest.promptAssist.defaults)
-    .sort(compareText)
-    .map(
-      (workload) =>
-        `| ${code(workload)} | ${code(manifest.promptAssist.defaults[workload])} | ${code(
-          manifest.promptAssist.envKeys[workload],
-        )} |`,
-    );
   const briefingRows = Object.keys(manifest.briefing?.defaults ?? {})
     .sort(compareText)
     .map(
@@ -557,10 +549,6 @@ function renderModels(manifest, phaseCallers = {}) {
     fingerprintComment("config/ai_models/manifest.json#model-summary", {
       buildProfiles: manifest.buildProfiles,
       qualityToOwnEngineModel: manifest.qualityToOwnEngineModel,
-      promptAssist: {
-        defaults: manifest.promptAssist.defaults,
-        envKeys: manifest.promptAssist.envKeys,
-      },
       briefing: {
         defaults: manifest.briefing?.defaults ?? {},
         envKeys: manifest.briefing?.envKeys ?? {},
@@ -586,17 +574,11 @@ function renderModels(manifest, phaseCallers = {}) {
     "|---|---|",
     ...qualityRows,
     "",
-    "## Deep Brief",
-    "",
-    "The LLM step inside the Briefing layer. Its manifest key is still the legacy `promptAssist`; the product name is Deep Brief. This is **not** the Prompt-assist button in the chat input — that one is the `prompt_rewrite` workload.",
-    "",
-    "| Workload | Default model | Override env key |",
-    "|---|---|---|",
-    ...assistRows,
-    "",
     "## Briefing",
     "",
-    "Defaults for the structured brief workloads in the AI-model manifest. Environment overrides still win at runtime.",
+    "The layer before the code generator. `assist` is the client's selectable Deep Brief model (default for the legacy wire field `promptAssistModel`). `requestModel` is the server default for `/api/ai/brief` when the caller sends none. They are not duplicates even when both resolve to the same model id. `serverAuto*` is the create-chat fallback when the client did not already send a brief.",
+    "",
+    "This is **not** the Prompt-assist button in the chat input — that one is the `prompt_rewrite` workload.",
     "",
     "| Workload | Default model | Override env key |",
     "|---|---|---|",

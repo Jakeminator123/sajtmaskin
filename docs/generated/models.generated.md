@@ -5,8 +5,8 @@
 > Source: `src/**/*.{ts,tsx}#resolvePhaseModel-literals`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:c43948f9c9cec437 -->
-<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:18d98dfea4135c43 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:eb6e1a974771bd41 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:d86cef922e896311 -->
 <!-- source-fingerprint: src/**/*.{ts,tsx}#resolvePhaseModel-literals sha256:df1d0e127dc60443 -->
 
 # Models
@@ -34,20 +34,15 @@ Canonical owner: committed AI-model manifest. Validator/runtime consumer: `getAi
 | `pro`      | `gpt-5.3-codex`  |
 | `standard` | `gpt-5.3-codex`  |
 
-## Deep Brief
-
-The LLM step inside the Briefing layer. Its manifest key is still the legacy `promptAssist`; the product name is Deep Brief. This is **not** the Prompt-assist button in the chat input — that one is the `prompt_rewrite` workload.
-
-| Workload | Default model        | Override env key          |
-| -------- | -------------------- | ------------------------- |
-| `assist` | `openai/gpt-5.6-sol` | `SAJTMASKIN_ASSIST_MODEL` |
-
 ## Briefing
 
-Defaults for the structured brief workloads in the AI-model manifest. Environment overrides still win at runtime.
+The layer before the code generator. `assist` is the client's selectable Deep Brief model (default for the legacy wire field `promptAssistModel`). `requestModel` is the server default for `/api/ai/brief` when the caller sends none. They are not duplicates even when both resolve to the same model id. `serverAuto*` is the create-chat fallback when the client did not already send a brief.
+
+This is **not** the Prompt-assist button in the chat input — that one is the `prompt_rewrite` workload.
 
 | Workload              | Default model               | Override env key                        |
 | --------------------- | --------------------------- | --------------------------------------- |
+| `assist`              | `openai/gpt-5.6-sol`        | `SAJTMASKIN_ASSIST_MODEL`               |
 | `requestModel`        | `openai/gpt-5.6-sol`        | `SAJTMASKIN_BRIEF_MODEL`                |
 | `serverAutoAnthropic` | `anthropic/claude-opus-4.8` | `SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC` |
 | `serverAutoOpenAI`    | `openai/gpt-5.6-sol`        | `SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI`    |

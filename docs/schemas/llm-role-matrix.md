@@ -52,10 +52,12 @@ Phase routing bär nu tre signaler per fas:
 
 ## Prompt-assist-kedjan i detalj
 
-**Assist Model (`promptAssist` / `SAJTMASKIN_ASSIST_MODEL`) är inte en agent.**
+**Assist Model (`briefing.defaults.assist` / `SAJTMASKIN_ASSIST_MODEL`) är inte en agent.**
 Den är bara en modell-hint till brief-lanen (klient Deep Brief, server
-auto-brief och delta brief). Det finns ingen `/api/ai/chat`-rewrite och ingen
-Prompt-Polish-knapp.
+auto-brief och delta brief). `requestModel` är ett annat fält: serverns default
+för `/api/ai/brief` när anroparen inte skickar någon. Det finns ingen
+`/api/ai/chat`-rewrite och ingen Prompt-Polish-knapp. Auktoritetsordningen för
+vad som får styra kodgeneratorn ägs av glossaryn (`## Auktoritetsordning`).
 
 **Prompt-assist-knappen** (workload `prompt_rewrite`, env
 `SAJTMASKIN_PROMPT_REWRITE_MODEL`) är ett annat steg: den rättar utkastet i

@@ -52,7 +52,7 @@ filen. Verifiera alltid mot leverantörens pris-sida innan budgetbeslut.
 | `buildProfiles.defaults.premium` / `qualityToOwnEngineModel.light` / `.premium` | `gpt-5.6-sol`                          | hög        |
 | `buildProfiles.defaults.max`                                                    | `gpt-5.5`                              | hög        |
 | `pro` / `codex` (build + flera faser)                                           | `gpt-5.3-codex`                        | medel      |
-| `promptAssist.defaults.assist` / OpenAI `briefing.*`                            | `openai/gpt-5.6-sol`                   | hög        |
+| `briefing.defaults.assist` / `briefing.defaults.requestModel`                   | `openai/gpt-5.6-sol`                   | hög        |
 | `phaseRouting.anthropic` planner/generator                                      | `claude-opus-4.8`                      | hög        |
 | `audit_structured` / `domain_suggestions`                                       | `openai/gpt-5.2`                       | medel      |
 | utility (`project_analyze`, `wizard_*`, `inspector_ai_match`, `analyze_*`)      | `gpt-5-mini` / `gpt-5-nano` / `gpt-4o` | låg        |

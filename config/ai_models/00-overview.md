@@ -7,7 +7,7 @@ Alla **standardvärden** som går att styra centralt ligger i [`manifest.json`](
 | Bana | Vad | Typiskt API | Nycklar (se kod) |
 |------|-----|-------------|-------------------|
 | **Own engine** | Kodgenerering i buildern | AI SDK `streamText` + `@ai-sdk/openai` / `@ai-sdk/anthropic` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
-| **Deep Brief** | LLM-steget i Briefing-lagret: expanderar fritext till `siteBriefSchema` före orkestrering (`/api/ai/brief`). Manifestnyckel fortfarande legacy `promptAssist` | `generateObject` + `createDirectModel` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
+| **Deep Brief** | LLM-steget i Briefing-lagret: expanderar fritext till `siteBriefSchema` före orkestrering (`/api/ai/brief`). Manifestnyckel `briefing` (`assist` ≠ `requestModel`) | `generateObject` + `createDirectModel` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
 | **Prompt-assist (knapp)** | Rättar användarens utkast i chattrutan före sändning. Inte Deep Brief | `generateText`, workload `prompt_rewrite` | `OPENAI_API_KEY` |
 | **Autofix** | Eftergenereringsfixar | `streamText` | `OPENAI_API_KEY` |
 | **Verifier** | Read-only review efter syntax, returnerar blocking/quality-fynd | `generateObject` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
@@ -53,6 +53,6 @@ Primära direkt-API-länkar (canonical listan ligger i `manifest.json`):
 ## Mer läsning
 
 - [10-own-engine.md](10-own-engine.md) — byggprofiler och `claude-*`-normalisering.
-- [20-prompt-assist.md](20-prompt-assist.md) — provider-namngivning (`"openai" | "anthropic"`).
+- [20-briefing.md](20-briefing.md) — Briefing-lagret och provider-namngivning (`"openai" | "anthropic"`).
 - [30-embeddings-and-misc.md](30-embeddings-and-misc.md) — embedding-modeller och övriga routes.
 - [40-harmless-placeholders.env.txt](40-harmless-placeholders.env.txt) + [41-tier3-stub-placeholders.env.txt](41-tier3-stub-placeholders.env.txt) — preview-env för genererade sajter (se även [../user_degraded_env.txt](../user_degraded_env.txt)).

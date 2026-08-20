@@ -24,7 +24,6 @@ function readStringEnv(name: string, fallback: string): string {
 const manifest = getAiModelsManifest();
 const tb = manifest.tokenBudgets;
 const rt = manifest.routeTimeouts;
-const pa = manifest.promptAssist;
 const briefing = getBriefingDefaultsFromManifest();
 const briefingEnvKeys = getBriefingEnvKeysFromManifest();
 const repairPolicies = getRepairPoliciesFromManifest();
@@ -40,8 +39,9 @@ const repairPolicies = getRepairPoliciesFromManifest();
 //   SAJTMASKIN_MODEL_MAX=gpt-5.5
 //   SAJTMASKIN_MODEL_CODEX=gpt-5.3-codex
 //
-//   # ── Prompt Assist / Brief (provider/model, se config/ai_models) ─
+//   # ── Briefing / Deep Brief (provider/model, se config/ai_models) ─
 //   SAJTMASKIN_ASSIST_MODEL=openai/gpt-5.6-sol
+//   SAJTMASKIN_BRIEF_MODEL=openai/gpt-5.6-sol
 //
 //   # ── Token-gränser ────────────────────────────────────────────
 //   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=131072
@@ -50,8 +50,8 @@ const repairPolicies = getRepairPoliciesFromManifest();
 //
 // ============================================================================
 
-/** Prompt assist default model string (provider/model) */
-export const ASSIST_MODEL = readStringEnv(pa.envKeys.assist, pa.defaults.assist);
+/** Client Deep Brief default model string (provider/model). Not requestModel. */
+export const ASSIST_MODEL = readStringEnv(briefingEnvKeys.assist, briefing.assist);
 
 /** Deep Brief model for `/api/ai/brief` when the caller does not override it. */
 export const BRIEF_MODEL = readStringEnv(briefingEnvKeys.requestModel, briefing.requestModel);

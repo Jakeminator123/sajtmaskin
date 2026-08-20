@@ -49,7 +49,7 @@ describe("config/ai_models/manifest.json parity", () => {
     ]);
 
     if (!process.env.SAJTMASKIN_ASSIST_MODEL?.trim()) {
-      expect(ASSIST_MODEL).toBe(m.promptAssist.defaults.assist);
+      expect(ASSIST_MODEL).toBe(m.briefing.defaults.assist);
     }
   });
 
@@ -148,9 +148,15 @@ describe("config/ai_models/manifest.json parity", () => {
     const postGenerationPasses = getPostGenerationPassesFromManifest();
     const contractConfig = getPreGenerationContractsConfigFromManifest();
 
+    expect(briefing.assist).toBeTruthy();
     expect(briefing.requestModel).toBeTruthy();
     expect(briefing.serverAutoOpenAI).toBeTruthy();
     expect(briefing.serverAutoAnthropic).toBeTruthy();
+    expect(briefing).toHaveProperty("assist");
+    expect(briefing).toHaveProperty("requestModel");
+    expect(Object.keys(briefing)).toEqual(
+      expect.arrayContaining(["assist", "requestModel", "serverAutoOpenAI", "serverAutoAnthropic"]),
+    );
 
     expect(phaseRouting.premium.planner).toBeTruthy();
     expect(phaseRouting.pro.verifier).toBeTruthy();
@@ -225,7 +231,7 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(rewrite?.envOverrides?.model).toBe("SAJTMASKIN_PROMPT_REWRITE_MODEL");
     expect(rewrite?.codeEntry).toContain("src/app/api/ai/prompt-assist/route.ts");
     expect(rewrite?.id).not.toBe("prompt_assist");
-    expect(m.promptAssist.envKeys.assist).toBe("SAJTMASKIN_ASSIST_MODEL");
+    expect(m.briefing.envKeys.assist).toBe("SAJTMASKIN_ASSIST_MODEL");
   });
 
   it("documents post-generation verifier workload", () => {

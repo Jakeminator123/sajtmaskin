@@ -6,7 +6,6 @@
   "required": [
     "schemaVersion",
     "buildProfiles",
-    "promptAssist",
     "briefing",
     "phaseRouting",
     "repairPolicies",
@@ -71,25 +70,31 @@
         "max": { "type": "string" }
       }
     },
-    "promptAssist": {
+    "briefing": {
       "type": "object",
       "required": ["defaults", "envKeys", "allowed"],
       "additionalProperties": false,
       "properties": {
         "defaults": {
           "type": "object",
-          "required": ["assist"],
+          "required": ["assist", "requestModel", "serverAutoOpenAI", "serverAutoAnthropic"],
           "additionalProperties": false,
           "properties": {
-            "assist": { "type": "string" }
+            "assist": { "type": "string" },
+            "requestModel": { "type": "string" },
+            "serverAutoOpenAI": { "type": "string" },
+            "serverAutoAnthropic": { "type": "string" }
           }
         },
         "envKeys": {
           "type": "object",
-          "required": ["assist"],
+          "required": ["assist", "requestModel", "serverAutoOpenAI", "serverAutoAnthropic"],
           "additionalProperties": false,
           "properties": {
-            "assist": { "type": "string" }
+            "assist": { "type": "string" },
+            "requestModel": { "type": "string" },
+            "serverAutoOpenAI": { "type": "string" },
+            "serverAutoAnthropic": { "type": "string" }
           }
         },
         "allowed": {
@@ -100,31 +105,6 @@
             "gatewayClassModels": { "type": "array", "items": { "type": "string" } },
             "anthropicDirectModels": { "type": "array", "items": { "type": "string" } },
             "models": { "type": "array", "items": { "type": "string" } }
-          }
-        },
-        "notes": { "type": "string" }
-      }
-    },
-    "briefing": {
-      "type": "object",
-      "required": ["defaults", "envKeys"],
-      "properties": {
-        "defaults": {
-          "type": "object",
-          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic"],
-          "properties": {
-            "requestModel": { "type": "string" },
-            "serverAutoOpenAI": { "type": "string" },
-            "serverAutoAnthropic": { "type": "string" }
-          }
-        },
-        "envKeys": {
-          "type": "object",
-          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic"],
-          "properties": {
-            "requestModel": { "type": "string" },
-            "serverAutoOpenAI": { "type": "string" },
-            "serverAutoAnthropic": { "type": "string" }
           }
         },
         "notes": { "type": "string" }
@@ -188,7 +168,7 @@
     },
     "perTierBriefing": {
       "type": "object",
-      "description": "Runtime-wired per-tier auto-brief model defaults. Explicit prompt-assist selection and the selected provider's auto-brief env override take precedence; global briefing defaults are the compatibility fallback.",
+      "description": "Runtime-wired per-tier auto-brief model defaults. Explicit Deep Brief selection (legacy wire field promptAssistModel) and the selected provider's auto-brief env override take precedence; global briefing defaults are the compatibility fallback.",
       "required": ["premium", "pro", "max", "codex", "anthropic"],
       "properties": {
         "premium": { "$ref": "#/$defs/perTierBriefingEntry" },
