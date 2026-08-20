@@ -72,6 +72,32 @@ describe("OpenClawPowersControl", () => {
     ).toBe("true");
   });
 
+  // The pill chrome (border / padding around the shield) is wrapper-only, so
+  // the master toggle lives on the wrapper — not just the inner icon button.
+  it("toggles when the wrapper padding is clicked", () => {
+    act(() => {
+      useOpenClawStore.setState({ editEnabled: true });
+    });
+    const { container } = render(<OpenClawPowersControl />);
+    const wrapper = container.firstChild;
+    expect(wrapper).toBeInstanceOf(HTMLElement);
+
+    fireEvent.click(wrapper as HTMLElement);
+
+    expect(useOpenClawStore.getState().powersOn).toBe(true);
+  });
+
+  it("does not toggle when the chevron is clicked", () => {
+    act(() => {
+      useOpenClawStore.setState({ editEnabled: true });
+    });
+    render(<OpenClawPowersControl />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Välj extra befogenheter" }));
+
+    expect(useOpenClawStore.getState().powersOn).toBe(false);
+  });
+
   // Pressing the button alone must not grant anything — the menu selection is
   // the second half of the gate.
   it("grants nothing on press alone", () => {

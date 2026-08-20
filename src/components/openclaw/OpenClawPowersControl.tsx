@@ -21,10 +21,11 @@ import { useOpenClawPowers } from "./useOpenClawPowers";
  * it there is nothing to grant, so showing a dead switch would just promise
  * something the env forbids.
  *
- * Two deliberate hit targets: the shield presses the master toggle (the button
- * the user must literally press), the chevron opens the list of powers. Both
- * gates are visible at once, and neither alone changes behaviour: pressing the
- * shield with nothing ticked grants nothing.
+ * Two hit targets on the same pill: the wrapper (shield + padding) presses
+ * the master toggle, the chevron opens the list of powers and stops the click
+ * from reaching the wrapper. Both gates are visible at once, and neither
+ * alone changes behaviour: pressing the shield with nothing ticked grants
+ * nothing.
  */
 /**
  * Re-validate the env gate at the moment the user presses the shield. The
@@ -71,16 +72,16 @@ export function OpenClawPowersControl() {
   return (
     <div
       className={cn(
-        "flex items-center rounded-full border transition-colors",
+        "flex cursor-pointer items-center rounded-full border transition-colors",
         activeCount > 0
           ? "border-fuchsia-400/40 bg-fuchsia-400/10"
           : "border-white/10 bg-transparent",
       )}
+      onClick={handleToggle}
     >
       <button
         type="button"
         aria-pressed={powersOn}
-        onClick={handleToggle}
         className={cn(
           "flex items-center gap-1 rounded-l-full py-1 pr-1 pl-2 transition-colors",
           powersOn ? "text-fuchsia-200 hover:text-fuchsia-100" : "text-slate-300 hover:text-white",
@@ -104,6 +105,7 @@ export function OpenClawPowersControl() {
           className="rounded-r-full py-1 pr-2 pl-1 text-slate-300 transition-colors hover:text-white"
           aria-label="Välj extra befogenheter"
           title="Välj extra befogenheter"
+          onClick={(event) => event.stopPropagation()}
         >
           <ChevronDown className="h-3 w-3" />
         </DropdownMenuTrigger>
