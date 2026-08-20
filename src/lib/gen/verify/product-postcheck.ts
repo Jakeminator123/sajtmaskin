@@ -692,7 +692,7 @@ export function evaluateBrowserRuntimeIssues(
 /**
  * React's "Encountered a script tag while rendering React component" warning
  * is a consequence of a hydration remount in our prod data — it never appears
- * without a hydration mismatch in the same run. Drop it only then, so a
+ * without a hydration mismatch on the same route. Drop it only then, so a
  * component that itself renders `<script>` (broken analytics/init) still
  * surfaces as a console_error.
  */
@@ -705,12 +705,17 @@ function isScriptTagWhileRenderingWarning(text: string): boolean {
 function dropDerivedScriptTagWarnings(
   warnings: ProductPostcheckWarning[],
 ): ProductPostcheckWarning[] {
-  const hasHydrationMismatch = warnings.some(
-    (w) => w.code === "hydration_mismatch",
+  const hydrationRoutes = new Set(
+    warnings
+      .filter((w) => w.code === "hydration_mismatch")
+      .map((w) => w.route ?? ""),
   );
-  if (!hasHydrationMismatch) return warnings;
+  if (hydrationRoutes.size === 0) return warnings;
   return warnings.filter(
-    (w) => w.code !== "console_error" || !isScriptTagWhileRenderingWarning(w.message),
+    (w) =>
+      w.code !== "console_error" ||
+      !isScriptTagWhileRenderingWarning(w.message) ||
+      !hydrationRoutes.has(w.route ?? ""),
   );
 }
 
