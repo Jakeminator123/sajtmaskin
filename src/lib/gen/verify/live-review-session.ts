@@ -191,14 +191,14 @@ export async function finishLiveReviewSession(
     return result;
   }
 
-  await (deps.completeRun ?? completeLiveReviewRun)({
+  const persisted = await (deps.completeRun ?? completeLiveReviewRun)({
     id: session.claim.row.id,
     result,
     screenshots: input.screenshots,
     modelAttempts: attempts,
   });
 
-  if (result.status === "completed" && session.filesRevision) {
+  if (persisted && result.status === "completed" && session.filesRevision) {
     await (deps.deletePreviousBlobs ?? deletePreviousLiveReviewBlobs)({
       chatId: session.chatId,
       keepVersionId: session.versionId,

@@ -10,8 +10,7 @@ import {
   type OpenClawCodeContextMode,
 } from "@/lib/openclaw/chat-context-policy";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
-import { resolveOpenClawPowersFromRequest, sanitizeOpenClawPowerIds } from "@/lib/openclaw/powers";
-import { writeLiveReviewGrant } from "@/lib/db/services/live-review-grants";
+import { resolveOpenClawPowersFromRequest } from "@/lib/openclaw/powers";
 import { buildOpenClawEditSystemPrompt } from "@/lib/openclaw/edit-system-prompt";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
@@ -256,14 +255,6 @@ export async function POST(req: NextRequest) {
           : await getLatestEngineVersionForChatForRequest(req, reviewChatId).catch(
               () => null,
             );
-      if (reviewChatId && (scopedVersion || (await getEngineChatByIdForRequest(req, reviewChatId).catch(() => null)))) {
-        const granted = OPENCLAW.editEnabled ? sanitizeOpenClawPowerIds(body.powers) : [];
-        await writeLiveReviewGrant({
-          chatId: reviewChatId,
-          powersOn: granted.length > 0,
-          granted,
-        }).catch(() => null);
-      }
       // Debug full-code context is only unlocked for an ownership-verified chat.
       const debugOwned = debug && Boolean(scopedVersion);
       // Edit bounded code context uses the same ownership gate as debug, plus

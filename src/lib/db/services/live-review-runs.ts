@@ -166,12 +166,12 @@ export async function completeLiveReviewRun(input: {
   desktopBlobPath?: string | null;
   mobileBlobPath?: string | null;
   modelAttempts?: number;
-}): Promise<void> {
-  if (!dbConfigured) return;
+}): Promise<boolean> {
+  if (!dbConfigured) return false;
   const now = new Date();
   const skipReason = input.result.status === "skipped" ? input.result.reason : null;
   try {
-    await db
+    const updated = await db
       .update(liveReviewRuns)
       .set({
         status: input.result.status === "completed" ? "completed" : "skipped",
@@ -185,12 +185,15 @@ export async function completeLiveReviewRun(input: {
         completedAt: now,
         expiresAt: liveReviewExpiresAt(now),
       })
-      .where(eq(liveReviewRuns.id, input.id));
+      .where(eq(liveReviewRuns.id, input.id))
+      .returning({ id: liveReviewRuns.id });
+    return updated.length > 0;
   } catch (error) {
     console.warn(
       "[live-review-claim] complete failed:",
       error instanceof Error ? error.message : error,
     );
+    return false;
   }
 }
 

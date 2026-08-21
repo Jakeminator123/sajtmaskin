@@ -14,7 +14,9 @@ import { pickUserRequest, summarizeBrief } from "@/lib/gen/verify/live-review";
 import {
   beginLiveReviewSession,
   finishLiveReviewSession,
+  type LiveReviewSession,
 } from "@/lib/gen/verify/live-review-session";
+import { abandonLiveReviewRun } from "@/lib/db/services/live-review-runs";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 
 export const runtime = "nodejs";
@@ -176,9 +178,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     });
   }
 
+  let liveReviewSession: LiveReviewSession | null = null;
   try {
     const filesRevision = scopedVersion.version.files_revision?.trim() || null;
-    const liveReviewSession = await beginLiveReviewSession({
+    liveReviewSession = await beginLiveReviewSession({
       chatId,
       versionId: resolvedVersionId,
       filesRevision,
@@ -257,6 +260,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
 
     return NextResponse.json(result);
   } catch (err) {
+    if (liveReviewSession?.claim?.kind === "acquired") {
+      await abandonLiveReviewRun(liveReviewSession.claim.row.id).catch(() => undefined);
+    }
     console.error("[product-postcheck] Error:", err);
     // Mirror the skip emission for the runtime-error branch — same
     // observability surface for "ran but threw" as for the planned

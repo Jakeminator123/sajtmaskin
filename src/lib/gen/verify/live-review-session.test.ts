@@ -229,7 +229,7 @@ describe("finishLiveReviewSession", () => {
 
   it("raderar föregående Blob efter lyckad review", async () => {
     const deletePreviousBlobs = vi.fn(async () => 1);
-    const completeRun = vi.fn(async () => {});
+    const completeRun = vi.fn(async () => true);
     const beginPaidAttempt = vi.fn(async () => 1);
     const result = await finishLiveReviewSession(
       {
@@ -264,6 +264,38 @@ describe("finishLiveReviewSession", () => {
       keepFilesRevision: "rev_b",
     });
     expect(completeRun).toHaveBeenCalled();
+  });
+
+  it("raderar inte föregående par om complete misslyckas", async () => {
+    const deletePreviousBlobs = vi.fn(async () => 1);
+    const result = await finishLiveReviewSession(
+      {
+        captureEnabled: true,
+        claim: acquired(),
+        earlyResult: null,
+        chatId: "chat_1",
+        versionId: "v1",
+        filesRevision: "rev_b",
+        userId: "user_1",
+      },
+      {
+        skipped: false,
+        findings: [],
+        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+        domSummary: null,
+        filesJson: "[]",
+        userRequest: "x",
+        briefSummary: "",
+      },
+      {
+        attachReview: async () => completed,
+        beginPaidAttempt: async () => 1,
+        completeRun: async () => false,
+        deletePreviousBlobs,
+      },
+    );
+    expect(result.status).toBe("completed");
+    expect(deletePreviousBlobs).not.toHaveBeenCalled();
   });
 
   it("raderar redan uppladdade JPEG när claim överges", async () => {

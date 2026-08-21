@@ -39,6 +39,10 @@ vi.mock("@/lib/logging/event-bus", () => ({
   emit: emitBusEvent,
 }));
 
+vi.mock("@/lib/db/services/live-review-runs", () => ({
+  abandonLiveReviewRun: vi.fn(),
+}));
+
 function req(body: unknown): Request {
   return new Request("http://localhost/api/engine/chats/chat_1/product-postcheck", {
     method: "POST",
