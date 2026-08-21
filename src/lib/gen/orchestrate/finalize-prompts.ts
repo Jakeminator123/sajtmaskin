@@ -27,10 +27,32 @@ import {
 import { filterRemovedCapabilitiesFromBriefSummary } from "../capability-removal";
 import { variantTemplateImageInSentPayload } from "../request-metadata";
 import { resolveVariantTemplateAddendum } from "../scaffold-variants/variant-template-addendum";
+import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import { emitFollowUpFreezeDrift, enforceFollowUpVariantFreeze } from "./follow-up-freeze";
 import { resolveGenerationMode } from "./generation-mode";
 import { buildSourceReceipt } from "./source-receipt";
 import type { FinalizedOrchestrationContext, OrchestrationBase, OrchestrationInput } from "./types";
+
+/**
+ * Style inspiration (still image + SHA-bound addendum excerpts) is resolved
+ * on init and on `clear-redesign`. Regular follow-ups stay silent so their
+ * prompt, attachments and source receipt stay byte-identical to the
+ * init-only gate. Imported-repo mode and Scaffold: Av never resolve.
+ */
+export function shouldResolveVariantTemplateInspiration(input: {
+  resolvedMode: "init" | "followUp";
+  followUpIntent?: FollowUpIntentMode | null;
+  importedRepoMode?: boolean;
+  scaffoldId?: string | null;
+}): boolean {
+  const allowedMode =
+    input.resolvedMode === "init" || input.followUpIntent === "clear-redesign";
+  return (
+    allowedMode &&
+    input.importedRepoMode !== true &&
+    input.scaffoldId !== SCAFFOLD_OFF_BASELINE_ID
+  );
+}
 
 /**
  * Build full system prompt from a resolved orchestration base.
@@ -144,14 +166,16 @@ export async function finalizeOrchestrationPrompts(
     }
   }
 
-  const variantTemplateInspiration =
-    resolvedMode === "init" &&
-    input.importedRepoMode !== true &&
-    scaffoldIdForVariant !== SCAFFOLD_OFF_BASELINE_ID
-      ? await resolveVariantTemplateInspiration(resolvedVariant, {
-          selectionContext: { prompt, brief },
-        })
-      : null;
+  const variantTemplateInspiration = shouldResolveVariantTemplateInspiration({
+    resolvedMode,
+    followUpIntent: input.followUpIntent,
+    importedRepoMode: input.importedRepoMode,
+    scaffoldId: scaffoldIdForVariant,
+  })
+    ? await resolveVariantTemplateInspiration(resolvedVariant, {
+        selectionContext: { prompt, brief },
+      })
+    : null;
   const variantTemplateReferenceAttachments = buildVariantTemplateReferenceAttachments(
     variantTemplateInspiration,
   );
