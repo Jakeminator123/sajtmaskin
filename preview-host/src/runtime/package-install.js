@@ -15,7 +15,6 @@ const {
   dependencyStatePathForWorkspace,
   ensurePackageCacheDirs,
   inflightBootByChat,
-  NPM_CACHE_DIR,
   readJsonIfExists,
   runInInstallSlot,
   runShellCommand,
@@ -501,17 +500,34 @@ function classifyInstallFailure(output, exitCode, signal) {
  */
 const NPM_DEBUG_LOG_CLIP = 4000;
 
+/** Session-isolated npm logs dir. Never the host-wide cache `_logs`. */
+function npmLogsDirForWorkspace(workspaceDir) {
+  if (typeof workspaceDir !== "string" || !workspaceDir.trim()) return null;
+  return path.join(workspaceDir, ".sajtmaskin", "npm-logs");
+}
+
+function ensureNpmLogsDir(workspaceDir) {
+  const logsDir = npmLogsDirForWorkspace(workspaceDir);
+  if (!logsDir) return null;
+  try {
+    fs.mkdirSync(logsDir, { recursive: true });
+  } catch {
+    /* best-effort — install still runs */
+  }
+  return logsDir;
+}
+
 function listNpmDebugLogCandidates(workspaceDir) {
   const out = [];
-  if (typeof workspaceDir === "string" && workspaceDir.trim()) {
-    const workspaceLog = path.join(workspaceDir, "npm-debug.log");
-    try {
-      if (fs.statSync(workspaceLog).isFile()) out.push(workspaceLog);
-    } catch {
-      /* missing */
-    }
+  if (typeof workspaceDir !== "string" || !workspaceDir.trim()) return out;
+  const workspaceLog = path.join(workspaceDir, "npm-debug.log");
+  try {
+    if (fs.statSync(workspaceLog).isFile()) out.push(workspaceLog);
+  } catch {
+    /* missing */
   }
-  const logsDir = path.join(NPM_CACHE_DIR, "_logs");
+  const logsDir = npmLogsDirForWorkspace(workspaceDir);
+  if (!logsDir) return out;
   try {
     for (const name of fs.readdirSync(logsDir)) {
       if (!/\.log$/i.test(name)) continue;
@@ -521,6 +537,35 @@ function listNpmDebugLogCandidates(workspaceDir) {
     /* missing dir */
   }
   return out;
+}
+
+/** Read only the last `maxChars` UTF-8 characters. Never slurp the whole file. */
+function readFileTailUtf8(filePath, maxChars) {
+  const fd = fs.openSync(filePath, "r");
+  try {
+    const size = fs.fstatSync(fd).size;
+    if (!Number.isFinite(size) || size <= 0) return "";
+    const maxBytes = Math.min(size, Math.max(1, maxChars) * 4);
+    const start = Math.max(0, size - maxBytes);
+    const buf = Buffer.alloc(maxBytes);
+    const bytesRead = fs.readSync(fd, buf, 0, maxBytes, start);
+    const text = buf.subarray(0, bytesRead).toString("utf8");
+    return text.length <= maxChars ? text : text.slice(-maxChars);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function redactNpmLogText(text) {
+  return String(text)
+    .replace(
+      /(authorization|token|password|secret|api[_-]?key|npm[_-]?token)\s*[:=]\s*\S+/gi,
+      "$1=<redacted>",
+    )
+    .replace(
+      /\b(npm_[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9]{20,})\b/g,
+      "<redacted>",
+    );
 }
 
 function readLatestNpmDebugLog(workspaceDir) {
@@ -539,14 +584,12 @@ function readLatestNpmDebugLog(workspaceDir) {
   if (!latest) return null;
   let clippedContent = null;
   try {
-    const content = fs.readFileSync(latest.file, "utf8");
-    clippedContent =
-      content.length <= NPM_DEBUG_LOG_CLIP ? content : content.slice(-NPM_DEBUG_LOG_CLIP);
+    clippedContent = redactNpmLogText(readFileTailUtf8(latest.file, NPM_DEBUG_LOG_CLIP));
   } catch {
     clippedContent = null;
   }
   return {
-    path: latest.file,
+    path: path.basename(latest.file),
     mtime: new Date(latest.mtimeMs).toISOString(),
     bytes: latest.bytes,
     clippedContent,
@@ -621,13 +664,16 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
 
 async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
   ensurePackageCacheDirs();
+  const npmLogsDir = ensureNpmLogsDir(workspaceDir);
   // Generated projects keep TypeScript/ESLint in devDependencies. Force every
   // package manager to include them even when the host itself runs with
   // NODE_ENV=production; ReleaseGate must never depend on ambient host mode.
+  // Logs stay in the workspace so a shared cache `_logs` cannot leak across chats.
   const env = sanitizedEnv({
     NODE_ENV: "development",
     NPM_CONFIG_PRODUCTION: "false",
     NPM_CONFIG_OMIT: "",
+    ...(npmLogsDir ? { NPM_CONFIG_LOGS_DIR: npmLogsDir } : {}),
   });
   const runAttempt = async (command) => {
     const startedAt = Date.now();
@@ -1006,6 +1052,7 @@ module.exports = {
   classifyInstallFailure,
   collectInstallFailureDiagnostics,
   formatInstallDiagnosticsForLog,
+  npmLogsDirForWorkspace,
   readLatestNpmDebugLog,
   runInstallCommandWithFallback,
   dependencyFingerprint,

@@ -196,6 +196,7 @@ export type PreviewHostInstallDiagnostics = {
   concurrentRuntimes: number | null;
   inflightBoots: number | null;
   npmDebugLog: {
+    /** Basename only — never an absolute host path. */
     path: string;
     mtime: string;
     bytes: number;

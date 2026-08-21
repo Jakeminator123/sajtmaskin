@@ -720,6 +720,8 @@ async function bootRuntimeForSession(session, options = {}) {
       stored.readinessState = "starting";
       stored.readinessError = null;
     }
+    // A new boot must not keep the previous install snapshot on `/status`.
+    delete stored.installDiagnostics;
     stored.updatedAt = nowIso();
   });
 
@@ -755,6 +757,7 @@ async function bootRuntimeForSession(session, options = {}) {
           stored.readinessState = "starting";
           stored.readinessError = null;
         }
+        delete stored.installDiagnostics;
         // Surface the regenerated lockfile so the app can persist it and clear
         // the stale marker (`/status` returns these fields).
         if (installOutcome && installOutcome.regeneratedLockfile) {
@@ -897,6 +900,7 @@ async function bootRuntimeForSession(session, options = {}) {
             ].join("\n")
           : message;
         if (installDiagnostics) stored.installDiagnostics = installDiagnostics;
+        else delete stored.installDiagnostics;
       }
       stored.updatedAt = nowIso();
     });

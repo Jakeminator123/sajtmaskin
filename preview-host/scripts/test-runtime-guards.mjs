@@ -34,7 +34,7 @@ process.env.PREVIEW_HOST_DATA_DIR = dataDir;
 
 const require = createRequire(import.meta.url);
 const runtime = require("../src/runtime.js");
-const { runShellCommand, collectInstallFailureDiagnostics, readLatestNpmDebugLog, NPM_CACHE_DIR } =
+const { runShellCommand, collectInstallFailureDiagnostics, readLatestNpmDebugLog, npmLogsDirForWorkspace } =
   runtime.__testing;
 
 let failures = 0;
@@ -1324,16 +1324,52 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   {
     const workspace = join(dataDir, "diag-workspace");
     mkdirSync(workspace, { recursive: true });
-    const logsDir = join(NPM_CACHE_DIR, "_logs");
-    mkdirSync(logsDir, { recursive: true });
-    const debugPath = join(logsDir, "2026-08-21-debug-0.log");
+    const isolatedLogsDir = npmLogsDirForWorkspace(workspace);
+    mkdirSync(isolatedLogsDir, { recursive: true });
+    const debugName = "2026-08-21-debug-0.log";
+    const debugPath = join(isolatedLogsDir, debugName);
     writeFileSync(debugPath, "verbose npm-debug fixture\nexit 254\n");
 
+    const sharedLogsDir = join(NPM_CACHE_DIR, "_logs");
+    mkdirSync(sharedLogsDir, { recursive: true });
+    writeFileSync(
+      join(sharedLogsDir, "2026-08-21-other-chat.log"),
+      "OTHER_CHAT_SECRET npm_abcdefghijklmnopqrstuvwxyz12\n",
+    );
+
     const latest = readLatestNpmDebugLog(workspace);
-    check("latest npm-debug log is the newest file in cache/_logs", latest?.path === debugPath);
+    check("latest npm-debug log is the workspace-isolated file", latest?.path === debugName);
+    check("latest npm-debug log does not store an absolute path", latest?.path === debugName);
     check(
       "latest npm-debug log keeps the clipped tail",
       typeof latest?.clippedContent === "string" && latest.clippedContent.includes("exit 254"),
+    );
+    check(
+      "shared cache/_logs is never attached",
+      typeof latest?.clippedContent === "string" && !latest.clippedContent.includes("OTHER_CHAT"),
+    );
+
+    const emptyWorkspace = join(dataDir, "diag-empty-workspace");
+    mkdirSync(emptyWorkspace, { recursive: true });
+    check(
+      "a shared cache/_logs file is ignored when the workspace has no log",
+      readLatestNpmDebugLog(emptyWorkspace) == null,
+    );
+
+    const huge = `HEAD_MARKER_ONLY_AT_START\n${"x".repeat(8000)}\ntoken=supersecret-value\nexit 254 tail\n`;
+    writeFileSync(debugPath, huge);
+    const tailed = readLatestNpmDebugLog(workspace);
+    check(
+      "npm-debug log is read as a bounded tail",
+      typeof tailed?.clippedContent === "string" &&
+        tailed.clippedContent.includes("exit 254 tail") &&
+        !tailed.clippedContent.includes("HEAD_MARKER_ONLY_AT_START"),
+    );
+    check(
+      "npm-debug log redacts credential-like tokens",
+      typeof tailed?.clippedContent === "string" &&
+        tailed.clippedContent.includes("token=<redacted>") &&
+        !tailed.clippedContent.includes("supersecret-value"),
     );
 
     const diagnostics = collectInstallFailureDiagnostics({
@@ -1356,8 +1392,12 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
       Number.isFinite(diagnostics.concurrentRuntimes) && diagnostics.concurrentRuntimes >= 0,
     );
     check(
-      "diagnostics attach the latest npm-debug log",
-      diagnostics.npmDebugLog?.clippedContent?.includes("exit 254") === true,
+      "diagnostics attach the latest workspace npm-debug log",
+      diagnostics.npmDebugLog?.clippedContent?.includes("exit 254 tail") === true,
+    );
+    check(
+      "diagnostics npm-debug path is a basename",
+      diagnostics.npmDebugLog?.path === debugName,
     );
   }
 

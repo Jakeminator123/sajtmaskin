@@ -57,6 +57,7 @@ module.exports = {
     isNoSpaceInstallFailure: packageInstall.isNoSpaceInstallFailure,
     classifyInstallFailure: packageInstall.classifyInstallFailure,
     collectInstallFailureDiagnostics: packageInstall.collectInstallFailureDiagnostics,
+    npmLogsDirForWorkspace: packageInstall.npmLogsDirForWorkspace,
     readLatestNpmDebugLog: packageInstall.readLatestNpmDebugLog,
     isHmrPath: previewProxy.isHmrPath,
     PREVIEW_HMR_PATH_SUFFIXES: previewProxy.PREVIEW_HMR_PATH_SUFFIXES,
