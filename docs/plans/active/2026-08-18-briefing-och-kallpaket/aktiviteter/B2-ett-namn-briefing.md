@@ -1,12 +1,9 @@
 # B2 — ett namn: Briefing
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
-Status: inte startad. **Namnfrågan är avgjord** (2026-08-20): lagret heter
-Briefing — det står redan bindande i [`terminology.mdc`](../../../../../.cursor/rules/terminology.mdc)
-och som kärnterm i glossaryn, så det som återstod var bara en hedgad namnskuggerad
-som nu är rättad. Uppgiften nedan väntar därför på **prioritering**, inte på ett
-beslut. Den är namngivning och produkttext, inte en defekt — kör den inte som
-smygfix i en annan PR.
+Status: **Klar.** #1079 (`0bc4cfdaf`, 2026-08-20). Manifestets `promptAssist`
+slogs ihop i `briefing`. Human-facing etiketter landade i #1069. Kodnycklar
+(`promptAssistModel`, Streamlit-`key=`) är orörda med avsikt.
 
 ## Problemet
 

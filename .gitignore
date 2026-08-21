@@ -102,7 +102,8 @@ output/generations/
 src/lib/templates/template-embeddings.json
 config/scaffold-variants/_index/variant-embeddings.json
 src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
+# scaffold-research.generated.json är spårad runtime-override (~20 KB) —
+# inte cache. Agent-skydd: .cursorindexingignore (sök), inte gitignore.
 config/variant-template-addenda.json
 src/lib/templates/template-blob-manifest.json
 # templates.json hålls spårad (importeras av template-data.ts) — agent-skydd i .cursorignore
@@ -245,7 +246,6 @@ docs/old/**/*env*.txt
 
 # Automation kit + cursor-gpt local artifacts (local-only)
 .cursor/agents/
-.cursor/rules/automation-safety.mdc
 automation/
 .automation/
 .cursor-gpt-kit/

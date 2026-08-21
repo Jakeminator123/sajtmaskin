@@ -28,7 +28,7 @@ when generating code.
 | File | Size | What it is |
 |------|------|-----------|
 | `scaffold-embeddings.json` | ~0.4 MB (lokal cache) | OpenAI vectors for the 10 scaffolds. **SoT:** Vercel Blob `embeddings/scaffold-embeddings.json`. Used by `searchScaffolds()`. |
-| `scaffold-research.generated.json` | ~1 MB | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, legacy `referenceTemplates`). Historically built from the removed external template-library pipeline. Runtime renders checklist/upgrade targets but no longer renders the legacy template list. |
+| `scaffold-research.generated.json` | ~20 KB (spårad) | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, legacy `referenceTemplates`). Historically built from the removed external template-library pipeline. Runtime renders checklist/upgrade targets but no longer renders the legacy template list. |
 
 ## Indexed files (readable by agents)
 

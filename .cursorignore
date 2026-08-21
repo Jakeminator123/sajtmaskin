@@ -80,7 +80,8 @@ google-services.json
 **/variant-template-addenda.json
 **/template-blob-manifest.json
 src/lib/templates/templates.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
+# scaffold-research.generated.json (~20 KB, spårad runtime-override) är
+# läsbar med flit. Utanför sök: .cursorindexingignore.
 # --- Archived / agent dump secrets (spegel av .gitignore) ---
 # Att de är gitignorerade skyddar inte mot Read — spegla hit.
 docs/old/**/*.env.local

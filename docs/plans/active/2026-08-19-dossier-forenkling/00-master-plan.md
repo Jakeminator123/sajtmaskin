@@ -57,10 +57,9 @@ samma tak, så en ändring av siffran har bredare yta än de nio hard.
 
 ## Hur spåret körs
 
-Körordning mot övriga spår ägs av
-[`../2026-08-20-vagschema/00-master-plan.md`](../2026-08-20-vagschema/00-master-plan.md).
-Spåret kan löpa parallellt med vågorna där, eftersom det äger
-`capability-map.json` och `docs/generated/` ensamt — men internt gäller:
+Vågschemat 20 aug är avklarat. Spåret kan löpa parallellt med andra öppna
+spår eftersom det äger `capability-map.json` och `docs/generated/` ensamt —
+men internt gäller:
 
 **En agent i taget, sekventiellt.** Inte tre parallella.
 

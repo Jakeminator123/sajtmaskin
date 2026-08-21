@@ -3,7 +3,7 @@
 Status: Active
 Startad: 2026-08-18
 Ägarbeslut: **delvis** — Prompt-assist-knappen beslutad 2026-08-19.
-Kvar: N1 (Briefing som lamenamn), N2, N3, N4, N5.
+Kvar: N2, N3, N4, N5. B4–B7 orörda.
 
 Underlag från ägarens externa granskare: `övrigt/chadcn-addendum-aiassist/`
 (`summering..md` + `raw.txt`). Mappen är gitignorerad — cloud-agenter läser
@@ -24,7 +24,7 @@ Spåret är **inte** klart. Tabellen är live-status mot `master` / öppna PR:er
 | B1 | **Klar.** #1040 |
 | B10 | **Klar.** #1038 |
 | B11 | **Klar.** #1042. Follow-up (ton ≠ scaffoldtyp) landade i #1054. |
-| B2 | Inte startad. **Namnfrågan avgjord 2026-08-20** — väntar prioritering, inte beslut. |
+| B2 | **Klar.** #1079 (`0bc4cfdaf`). Manifestets `promptAssist` slogs ihop i `briefing`. Human-facing etiketter landade i #1069. |
 | B4 | Inte startad. |
 | B5 | Inte startad. |
 | B6 | Inte startad. Steg 1 får köras; steg 2 väntar N4. |
@@ -242,7 +242,7 @@ löser den största kvalitetsskillnaden utan att kräva något nytt steg.
 | Id | Uppgift | Kanonisk ägare | Kräver beslut |
 |---|---|---|---|
 | [B1](aktiviteter/B1-radera-forbikopplat-prompt-addendum.md) | Radera det förbikopplade prompt-addendumet och rätta docs som påstår att det lever. **PR #1040.** | `src/lib/builder/prompt-assist/`, `useInitBrief.ts` | nej |
-| [B2](aktiviteter/B2-ett-namn-briefing.md) | Ett namn: Briefing. Konsolidera `promptAssist` → `briefing` i manifestet, städa användartexterna | `config/ai_models/manifest.json`, glossary | N1 |
+| [B2](aktiviteter/B2-ett-namn-briefing.md) | **Klar.** #1079. Manifestets `promptAssist` slogs ihop i `briefing`. Human-facing redan i #1069. | `config/ai_models/manifest.json`, glossary | N1 (avgjord) |
 | [B3](aktiviteter/B3-kallkvitto.md) | **Klar.** #1035. Källkvitto i Selection Rationale | `generation-input-package.ts`, `selection_rationale.py` | nej |
 | [B4](aktiviteter/B4-kurera-variant-addenda.md) | Kurera de tio mest använda variant-addendumen, stäng de generiska | `config/variant-template-addenda.json` via Template Curator | nej |
 | [B5](aktiviteter/B5-shadcnblocks-matning.md) | Sluta svälja shadcnblocks-fel tyst; mät om den betalda nyckeln ger riktig källkod | `shadcn-ui-recipes.ts`, `resolve-base.ts` | nej |
@@ -250,7 +250,7 @@ löser den största kvalitetsskillnaden utan att kräva något nytt steg.
 | [B7](aktiviteter/B7-variantens-auktoritetsordning.md) | Variantens auktoritetsordning + Brief rankar addendum ur `sourceTemplateIds` | `orchestrate/finalize-prompts.ts`, `scaffold-variants/matcher.ts` | **N5** |
 | [B8](aktiviteter/B8-brief-paritet-website-app.md) | **Klar.** Brief-paritet: ta bort snabbspåret och 420-teckengränsen så hemsidor får samma väg som appar | `simple-website-path.ts` (raderad), `create-chat-stream-post.ts`, `orchestrate/resolve-base.ts` | nej |
 | [B9](aktiviteter/B9-inget-zip-i-hot-path.md) | **Klar.** #1037. Inget template-ZIP i hot path: `missing`/`stale`/`invalid` tysta och mätbara | `scaffold-variants/template-inspiration.ts` | nej |
-| [B10](aktiviteter/B10-prompt-assist-knapp.md) | Prompt-assist-knapp bredvid Plan: rätta/strukturera utkastet i rutan, eget modellsteg i Backoffice. **PR #1038 öppen.** | `ChatInterface.tsx`, `config/ai_models/manifest.json`, `backoffice/pages/ai_models.py` | **beslutat 2026-08-19** |
+| [B10](aktiviteter/B10-prompt-assist-knapp.md) | **Klar.** #1038. Prompt-assist-knapp bredvid Plan. | `ChatInterface.tsx`, `config/ai_models/manifest.json`, `backoffice/pages/ai_models.py` | beslutat 2026-08-19 |
 | [B11](aktiviteter/B11-brief-i-scaffoldvalet.md) | **Landad #1042.** Briefens `pages` + `styleKeywords` + `domainProfile` väger i scaffold-valet. Follow-up-fixspåret håller `toneAndVoice` till copy/variant och utanför scaffold-keywords/embedding. | `scaffold-query-context.ts`, `scaffolds/matcher.ts` | nej |
 
 ## Auktoritetsordning (den enda)
