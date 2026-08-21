@@ -19,6 +19,7 @@ import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
   LIVE_REVIEW_ATTEMPT_TIMEOUT_MS,
   LIVE_REVIEW_TOTAL_TIMEOUT_MS,
+  liveReviewJpegFilename,
   assembleReviewBundle,
   hasCurrentScreenshots,
   isAttachableScreenshotUrl,
@@ -250,6 +251,16 @@ describe("bundle helpers", () => {
 });
 
 describe("persistLiveReviewJpeg", () => {
+  it("använder stabil nyckel per viewport + filesRevision", () => {
+    expect(
+      liveReviewJpegFilename({
+        viewport: "desktop",
+        versionId: "v1",
+        filesRevision: "rev_a",
+      }),
+    ).toBe("live-review-desktop-rev_a.jpg");
+  });
+
   it("returnerar null när blob-uppladdning misslyckas", async () => {
     uploadBlob.mockRejectedValueOnce(new Error("nope"));
     await expect(

@@ -11,7 +11,6 @@ import {
 } from "@/lib/gen/preview/preview-host-client";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 import {
-  isLiveReviewEnabled,
   persistLiveReviewJpeg,
   type LiveReviewResult,
   type LiveReviewScreenshotSet,
@@ -857,6 +856,8 @@ function buildDomSummary(
 async function persistCapturedScreenshots(params: {
   chatId: string;
   versionId: string;
+  userId?: string;
+  filesRevision?: string | null;
   desktop: Buffer | null;
   mobile: Buffer | null;
 }): Promise<LiveReviewScreenshotSet | null> {
@@ -868,6 +869,8 @@ async function persistCapturedScreenshots(params: {
           chatId: params.chatId,
           versionId: params.versionId,
           viewport: "desktop",
+          userId: params.userId,
+          filesRevision: params.filesRevision,
         })
       : Promise.resolve(null),
     params.mobile
@@ -876,6 +879,8 @@ async function persistCapturedScreenshots(params: {
           chatId: params.chatId,
           versionId: params.versionId,
           viewport: "mobile",
+          userId: params.userId,
+          filesRevision: params.filesRevision,
         })
       : Promise.resolve(null),
   ]);
@@ -887,6 +892,9 @@ export async function runProductPostcheck(params: {
   chatId: string;
   versionId: string;
   timeoutMs?: number;
+  captureEnabled?: boolean;
+  captureUserId?: string;
+  filesRevision?: string | null;
 }): Promise<ProductPostcheckResult> {
   const startedAt = Date.now();
   const previewUrl = params.previewUrl.trim();
@@ -1131,7 +1139,7 @@ export async function runProductPostcheck(params: {
     let mobileJpeg: Buffer | null = null;
     let domSummary: ProductDomSummary | null = null;
     let desktopCaptureMs = 0;
-    const captureEnabled = isLiveReviewEnabled();
+    const captureEnabled = params.captureEnabled === true;
     if (captureEnabled) {
       // Start page, before the crawl walks desktop off the homepage.
       const captureStartedAt = Date.now();
@@ -1259,6 +1267,8 @@ export async function runProductPostcheck(params: {
       ? await persistCapturedScreenshots({
           chatId: params.chatId,
           versionId: params.versionId,
+          userId: params.captureUserId,
+          filesRevision: params.filesRevision,
           desktop: desktopJpeg,
           mobile: mobileJpeg,
         }).catch(() => null)

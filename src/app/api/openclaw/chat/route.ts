@@ -301,20 +301,27 @@ export async function POST(req: NextRequest) {
       // assistant answers with concrete diagnostics instead of guessing.
       // Compact + DB-guarded; null when nothing actionable, so normal chat
       // stays cheap.
-      if (routingIntent === "review" || debug) {
+      if (routingIntent === "review" || debug || powers.liveReview) {
         if (scopedVersion) {
           // Fas 1 (findings) + Fas 4 (timeline) share a single DB read, keyed
-          // by the OWNERSHIP-VERIFIED version id.
-          const { findings: findingsBlock, timeline: timelineBlock } =
-            await buildOpenClawReviewContext({
-              chatId: reviewChatId,
-              versionId: scopedVersion.version.id,
-            });
+          // by the OWNERSHIP-VERIFIED version id. Live-reviewresultatet är
+          // info-nivå i error-loggen och måste läsas från claim-raden.
+          const {
+            findings: findingsBlock,
+            timeline: timelineBlock,
+            liveReview: liveReviewBlock,
+          } = await buildOpenClawReviewContext({
+            chatId: reviewChatId,
+            versionId: scopedVersion.version.id,
+          });
           if (findingsBlock) {
             messages.push({ role: "system", content: findingsBlock });
           }
           if (timelineBlock) {
             messages.push({ role: "system", content: timelineBlock });
+          }
+          if (liveReviewBlock) {
+            messages.push({ role: "system", content: liveReviewBlock });
           }
 
           // Debug-mode: surface the bug-hunt's own structured findings for this

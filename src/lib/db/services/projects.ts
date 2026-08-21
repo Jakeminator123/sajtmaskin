@@ -535,6 +535,9 @@ export async function deleteProject(id: string, scope?: ProjectOwnerScope): Prom
   // explicit delete körts men app_projects-rensningen faller (deadlock,
   // timeout etc). Motsvarande pattern finns i scripts/db/cleanup-test-
   // projects.mjs (`deleteProjectsCascade`).
+  const { purgeLiveReviewBlobsForProject } = await import("./live-review-runs");
+  await purgeLiveReviewBlobsForProject(id);
+
   await db.transaction(async (tx) => {
     await tx.delete(companyProfiles).where(eq(companyProfiles.project_id, id));
     await tx.delete(domainOrders).where(eq(domainOrders.project_id, id));

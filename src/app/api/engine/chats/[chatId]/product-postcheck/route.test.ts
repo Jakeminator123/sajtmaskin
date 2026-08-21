@@ -6,8 +6,8 @@ const getVersion = vi.hoisted(() => vi.fn());
 const getRequestUserId = vi.hoisted(() => vi.fn(async () => "user_1"));
 const runProductPostcheck = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
-const isLiveReviewEnabled = vi.hoisted(() => vi.fn(() => false));
-const maybeAttachLiveReview = vi.hoisted(() => vi.fn());
+const beginLiveReviewSession = vi.hoisted(() => vi.fn());
+const finishLiveReviewSession = vi.hoisted(() => vi.fn());
 const setLlmUsageContext = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/tenant", () => ({
@@ -26,14 +26,21 @@ vi.mock("@/lib/gen/verify/product-postcheck", () => ({
 }));
 
 vi.mock("@/lib/gen/verify/live-review", () => ({
-  isLiveReviewEnabled,
-  maybeAttachLiveReview,
   pickUserRequest: () => "",
   summarizeBrief: () => "",
 }));
 
+vi.mock("@/lib/gen/verify/live-review-session", () => ({
+  beginLiveReviewSession,
+  finishLiveReviewSession,
+}));
+
 vi.mock("@/lib/logging/event-bus", () => ({
   emit: emitBusEvent,
+}));
+
+vi.mock("@/lib/db/services/live-review-runs", () => ({
+  abandonLiveReviewRun: vi.fn(),
 }));
 
 function req(body: unknown): Request {
@@ -52,6 +59,19 @@ describe("POST product-postcheck", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     setF2ProductPostcheck(false);
+    beginLiveReviewSession.mockResolvedValue({
+      captureEnabled: false,
+      claim: null,
+      earlyResult: { status: "skipped", reason: "flag_off" },
+      chatId: "chat_1",
+      versionId: "v1",
+      filesRevision: null,
+      userId: "user_1",
+    });
+    finishLiveReviewSession.mockImplementation(
+      async (session: { earlyResult?: { status: string; reason: string } | null }) =>
+        session.earlyResult ?? { status: "skipped", reason: "flag_off" },
+    );
   });
 
   it("feature flag off => skipped utan DB/Playwright-körning", async () => {
@@ -165,6 +185,9 @@ describe("POST product-postcheck", () => {
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
       chatId: "chat_1",
       versionId: "v1",
+      captureEnabled: false,
+      captureUserId: "user_1",
+      filesRevision: null,
     });
   });
 
@@ -233,11 +256,19 @@ describe("POST product-postcheck", () => {
     expect(runProductPostcheck).not.toHaveBeenCalled();
   });
 
-  it("live review flag on + postcheck ok => attaches critic result without blocking", async () => {
+  it("live review session + postcheck ok => attaches critic result without blocking", async () => {
     setF2ProductPostcheck(true);
-    isLiveReviewEnabled.mockReturnValue(true);
+    beginLiveReviewSession.mockResolvedValue({
+      captureEnabled: true,
+      claim: { kind: "acquired" },
+      earlyResult: null,
+      chatId: "chat_1",
+      versionId: "v1",
+      filesRevision: "rev_a",
+      userId: "user_1",
+    });
     getVersion.mockResolvedValue({
-      version: { id: "v1", version_number: 1, files_json: "[]" },
+      version: { id: "v1", version_number: 1, files_json: "[]", files_revision: "rev_a" },
       chat: { messages: [], orchestration_snapshot: null },
     });
     runProductPostcheck.mockResolvedValue({
@@ -252,7 +283,7 @@ describe("POST product-postcheck", () => {
       screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
       domSummary: null,
     });
-    maybeAttachLiveReview.mockResolvedValue({
+    finishLiveReviewSession.mockResolvedValue({
       status: "completed",
       decision: {
         verdict: "pass",
@@ -270,13 +301,13 @@ describe("POST product-postcheck", () => {
     const body = await res.json();
     expect(body.productBlocked).toBe(false);
     expect(body.liveReview.status).toBe("completed");
-    expect(maybeAttachLiveReview).toHaveBeenCalledWith(
+    expect(runProductPostcheck).toHaveBeenCalledWith(
       expect.objectContaining({
-        versionId: "v1",
-        chatId: "chat_1",
-        versionNumber: 1,
+        captureEnabled: true,
+        filesRevision: "rev_a",
       }),
     );
+    expect(finishLiveReviewSession).toHaveBeenCalled();
     expect(emitBusEvent).not.toHaveBeenCalled();
     expect(setLlmUsageContext).toHaveBeenCalledWith(
       expect.objectContaining({ chatId: "chat_1", userId: "user_1" }),

@@ -99,6 +99,9 @@ export const MIGRATION_ORDER = [
   // appens console.warn/error läsbara för /logg via SQL i stället för bara
   // `vercel logs`. Fristående CREATE — inga beroenden på andra tabeller.
   "add-vercel-log-drain-events.sql",
+  // SM-070: persistad OpenClaw-grant + idempotent live-review-claim per
+  // (version_id, files_revision). Additiv CREATE; FK mot engine_chats.
+  "add-live-review-gate.sql",
   // Live dev↔prod-paritet (2026-08-05): prod-tabeller födda under äldre
   // CREATE TABLE-definitioner får dagens form (TIMESTAMPTZ, UNIQUE/FK-
   // constraints), dev tappar redundanta dubblett-index. Allt guardat via

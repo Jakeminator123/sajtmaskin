@@ -70,6 +70,8 @@ interface OpenClawState {
   setPowersOn: (v: boolean) => void;
   /** Tick/untick one power. Unticking armed autonomy disarms (see below). */
   toggleGrantedPower: (id: OpenClawPowerId) => void;
+  /** Restore a persisted grant after a chat/scope change. */
+  hydratePowers: (next: { powersOn: boolean; grantedPowers: OpenClawPowerId[] }) => void;
   setArmedMandate: (mandate: ArmedMandate | null) => void;
   setArmedContinuation: (watch: ArmedContinuationWatch | null) => void;
   /** Let the builder send that an armed auto-send started name itself, so its
@@ -184,6 +186,7 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
       const grantedPowers = toggleOpenClawPower(s.grantedPowers, id);
       return revokeStaleAutonomy(s, { powersOn: s.powersOn, grantedPowers });
     }),
+  hydratePowers: (next) => set((s) => revokeStaleAutonomy(s, next)),
   // Any mandate change cancels a pending continuation. Disarming ("stopp", the
   // stop button, a spent counter) must not leave a watch that outlives its
   // mandate — and a freshly armed mandate must not inherit the previous run's

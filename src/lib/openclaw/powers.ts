@@ -71,7 +71,8 @@ export interface OpenClawPowers {
   /** `apply_quick_edit` approval cards (still one manual click per change). */
   quickEdit: boolean;
   /**
-   * Live-site critic. Etapp 1 registers the power only — it gates no execution.
+   * Live-site critic. Persistad per chatt; Product Postcheck AND:ar den med
+   * env-flaggan och OC_EDIT. En critic-grant låser inte upp editytor.
    * Stage 2 will use it for clickable suggestions.
    */
   liveReview: boolean;

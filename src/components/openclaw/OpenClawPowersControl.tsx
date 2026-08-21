@@ -1,6 +1,6 @@
 "use client";
 
-import type { MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { ChevronDown, Shield, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
@@ -13,6 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { readActiveBuilderChatId } from "@/lib/openclaw/builder-target";
+import {
+  hydrateOpenClawPowersForChat,
+  persistOpenClawPowersForActiveChat,
+} from "@/lib/openclaw/persist-openclaw-powers";
 import { useOpenClawPowers } from "./useOpenClawPowers";
 
 /**
@@ -56,6 +61,19 @@ export function OpenClawPowersControl() {
   const setEditEnabled = useOpenClawStore((s) => s.setEditEnabled);
   const toggleGrantedPower = useOpenClawStore((s) => s.toggleGrantedPower);
   const powers = useOpenClawPowers();
+  const [builderChatId, setBuilderChatId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const sync = () => setBuilderChatId(readActiveBuilderChatId());
+    sync();
+    window.addEventListener("sajtmaskin:context-updated", sync);
+    return () => window.removeEventListener("sajtmaskin:context-updated", sync);
+  }, []);
+
+  useEffect(() => {
+    if (!builderChatId || !editEnabled) return;
+    void hydrateOpenClawPowersForChat(builderChatId);
+  }, [builderChatId, editEnabled]);
 
   if (!editEnabled) return null;
 
@@ -68,6 +86,7 @@ export function OpenClawPowersControl() {
     if (!event.currentTarget.contains(event.target as Node)) return;
     const next = !powersOn;
     setPowersOn(next);
+    void persistOpenClawPowersForActiveChat();
     // Pressing ON grants authority, so that is the moment to re-check the env
     // gate. A stale-true answer flips editEnabled off, which withdraws the
     // grant (store) and unmounts this control.
@@ -130,7 +149,10 @@ export function OpenClawPowersControl() {
               disabled={!powersOn}
               // Keep the menu open: picking two powers should not cost two trips.
               onSelect={(event) => event.preventDefault()}
-              onCheckedChange={() => toggleGrantedPower(id)}
+              onCheckedChange={() => {
+                toggleGrantedPower(id);
+                void persistOpenClawPowersForActiveChat();
+              }}
               className="items-start focus:bg-white/10 focus:text-white"
             >
               <span className="flex flex-col gap-0.5">

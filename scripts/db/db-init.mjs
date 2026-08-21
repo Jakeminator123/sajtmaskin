@@ -691,6 +691,8 @@ const ALL_TABLES = [
   "version_approvals",
   "error_log_events",
   "oc_debug_findings",
+  "live_review_grants",
+  "live_review_runs",
   "llm_usage",
   "generation_billing_settings",
   "generation_billings",

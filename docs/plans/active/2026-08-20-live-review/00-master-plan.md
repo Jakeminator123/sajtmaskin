@@ -1,9 +1,9 @@
 # Live-review — mergad som advisory, aktivering är en stängd grind
 
-Status: **Mergad. Flaggan av.**
-PR: [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052) — mergad
-2026-08-20T20:18Z som `2078883723`, head `3027e287b`
-Backlograd: `SM-070` (aktiveringsgrinden)
+Status: **Kodgrind stängd i PR. Flaggan av i koden.**
+PR: [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052) — kritikern
+Backlograd: `SM-070` (kvar: Preview-rökprov, sedan Production)
+Rökprov: [`01-preview-smoke.md`](01-preview-smoke.md)
 
 Steg 1 av kritikern ligger på `master`. Den är **advisory** och hela vägen bakom
 `SAJTMASKIN_LIVE_REVIEW`, som är av i kod (`env.ts:221-222`;
@@ -23,23 +23,20 @@ vara stängd innan flaggan vänds.
 Loggraden säger nu `Live review skipped: <orsak>.` i stället för att påstå att
 skärmbilder togs — det var merge-agentens P2-fynd 19 augusti.
 
-## Kvar: grinden före aktivering
+## Kodgrind (stängd, flaggan fortfarande av)
 
-Tre punkter, och de ska stängas **samtidigt** som flaggan vänds. Slå inte på
-flaggan i samma ändring som en delfix.
+De tre grindpunkterna är implementerade i koden. **Slå inte på flaggan i samma
+PR.** Nästa steg är Preview-rökprovet.
 
-1. **Retention och ägarskap.** JPEG:erna läggs publikt i Blob under ett
-   syntetiskt användar-id, utan media-rad, delete-hook eller retention. Bestäm
-   ägare, lagringstid och raderingsväg — och implementera dem.
-2. **Idempotens och kostnadstak.** Samma version kan köras om. Unik eller
-   overwrite-säker blobnyckel, claim/cache per version + revision, och ett
-   försvarbart tak per generation.
-3. **Ärlig kontroll.** Befogenheten `live_review` måste faktiskt gatera
-   körningen. Etapp 1 gaterar inget på den, så kryssrutan lovar mer än den gör.
-   Toggle av får inte köra review; toggle på får inte låtsas fungera när
-   env-flaggan är av. Alternativt: dölj kontrollen tills punkt 1 och 2 är klara.
-
-Ordning: (1) före (2), eftersom retentionmodellen avgör hur blobnyckeln får se ut.
+1. **Retention och ägarskap.** JPEG under ägarens user-id, stabil nyckel per
+   `filesRevision`, senaste paret behålls, föregående raderas efter jämförelse,
+   TTL 7 dagar, delete-hook vid chat/projekt-radering.
+2. **Idempotens och kostnadstak.** Atomisk claim på
+   `(version_id, files_revision)`. Samtidiga/retried postchecks återanvänder
+   resultatet. Max två betalda modellförsök per revision.
+3. **Ärlig kontroll.** `SAJTMASKIN_LIVE_REVIEW` ∧ `OC_EDIT` ∧ persistad
+   `live_review`-grant. Request-body kan inte förfalska grant. Samma AND
+   stänger av både capture och LLM.
 
 ## Dokumentationsrest
 

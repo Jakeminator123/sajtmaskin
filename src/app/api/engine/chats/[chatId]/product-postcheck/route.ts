@@ -10,12 +10,16 @@ import {
 } from "@/lib/observability/llm-usage";
 import { getEngineVersionForChatByIdForRequest, getRequestUserId } from "@/lib/tenant";
 import { runProductPostcheck } from "@/lib/gen/verify/product-postcheck";
+import { pickUserRequest, summarizeBrief } from "@/lib/gen/verify/live-review";
 import {
-  isLiveReviewEnabled,
-  maybeAttachLiveReview,
-  pickUserRequest,
-  summarizeBrief,
-} from "@/lib/gen/verify/live-review";
+  beginLiveReviewSession,
+  finishLiveReviewSession,
+  type LiveReviewSession,
+} from "@/lib/gen/verify/live-review-session";
+import {
+  abandonLiveReviewRun,
+  deleteLiveReviewScreenshotUrls,
+} from "@/lib/db/services/live-review-runs";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 
 export const runtime = "nodejs";
@@ -177,11 +181,23 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     });
   }
 
+  let liveReviewSession: LiveReviewSession | null = null;
   try {
+    const filesRevision = scopedVersion.version.files_revision?.trim() || null;
+    liveReviewSession = await beginLiveReviewSession({
+      chatId,
+      versionId: resolvedVersionId,
+      filesRevision,
+      userId: usageOwnerId ?? "anonymous",
+    });
+
     const result = await runProductPostcheck({
       previewUrl,
       chatId,
       versionId,
+      captureEnabled: liveReviewSession.captureEnabled,
+      captureUserId: usageOwnerId ?? undefined,
+      filesRevision,
     });
 
     // OMTAG-06 follow-up: emit a `version.degraded` bus event when the
@@ -224,36 +240,36 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       });
     }
 
-    if (isLiveReviewEnabled() && !result.skipped) {
-      try {
-        // Follow-up signal is `version_number > 1`, not `parent_version_id`
-        // (that column is F3-fork lineage only). Previous files/screenshots
-        // are resolved inside maybeAttachLiveReview via chat version order.
-        result.liveReview = await maybeAttachLiveReview({
-          skipped: result.skipped,
-          findings: result.warnings.map((warning) => ({
-            code: warning.code,
-            message: warning.message,
-          })),
-          screenshots: result.screenshots,
-          domSummary: result.domSummary,
-          versionId: resolvedVersionId,
-          chatId,
-          versionNumber: scopedVersion.version.version_number,
-          filesJson: scopedVersion.version.files_json,
-          userRequest: pickUserRequest(scopedVersion.chat.messages ?? []),
-          briefSummary: summarizeBrief(scopedVersion.chat.orchestration_snapshot),
-        });
-      } catch (reviewError) {
-        console.warn(
-          "[product-postcheck] live review skipped:",
-          reviewError instanceof Error ? reviewError.message : reviewError,
-        );
+    try {
+      result.liveReview = await finishLiveReviewSession(liveReviewSession, {
+        skipped: result.skipped,
+        findings: result.warnings.map((warning) => ({
+          code: warning.code,
+          message: warning.message,
+        })),
+        screenshots: result.screenshots,
+        domSummary: result.domSummary,
+        versionNumber: scopedVersion.version.version_number,
+        filesJson: scopedVersion.version.files_json,
+        userRequest: pickUserRequest(scopedVersion.chat?.messages ?? []),
+        briefSummary: summarizeBrief(scopedVersion.chat?.orchestration_snapshot),
+      });
+    } catch (reviewError) {
+      console.warn(
+        "[product-postcheck] live review skipped:",
+        reviewError instanceof Error ? reviewError.message : reviewError,
+      );
+      if (liveReviewSession.claim?.kind === "acquired") {
+        await deleteLiveReviewScreenshotUrls(result.screenshots).catch(() => undefined);
+        await abandonLiveReviewRun(liveReviewSession.claim.row.id).catch(() => undefined);
       }
     }
 
     return NextResponse.json(result);
   } catch (err) {
+    if (liveReviewSession?.claim?.kind === "acquired") {
+      await abandonLiveReviewRun(liveReviewSession.claim.row.id).catch(() => undefined);
+    }
     console.error("[product-postcheck] Error:", err);
     // Mirror the skip emission for the runtime-error branch — same
     // observability surface for "ran but threw" as for the planned
