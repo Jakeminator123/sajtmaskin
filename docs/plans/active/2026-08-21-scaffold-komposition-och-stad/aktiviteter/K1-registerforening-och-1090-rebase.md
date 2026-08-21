@@ -1,8 +1,9 @@
 # K1 — registerförening och #1090-rebase
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
-Status: **blockerad** tills #1087 är mergad och dom-kolumnen i master-planen är
-ifylld. Kör inte denna aktivitet innan båda är klara.
+Status: **utförd 2026-08-21 av Builder A** (arbetsledningschatten, inte
+cloudagent — P1 kördes aldrig om efter #1087-mergen). Domar applicerade,
+#1090:s test-/docs-delar porterade, #1090 stängs när K1-PR:en mergas.
 
 ## Problemet
 
