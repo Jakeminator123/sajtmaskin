@@ -212,12 +212,11 @@ exakt de frontendutdrag som renderas i modellblocket `## Variant Template
 Inspiration`; filen är därför den granskningsbara ytan för att se och redigera
 vad modellen får. Högst tre utdrag och totalt 9 000 tecken accepteras.
 
-`reviewStatus` har tre lägen:
+`reviewStatus` har tre lägen. Runtime behandlar `generated` och `reviewed` likadant som `hit` (utdragen skickas). Skillnaden är kvalitet, inte wiring:
 
-- `generated` — deterministiskt skapat och direkt användbart;
-- `reviewed` — manuellt granskat/redigerat och bevarat av generatorn så länge
-  ZIP-SHA:n är oförändrad;
-- `disabled` — skicka inga kodutdrag och hämta inte arkivet.
+- `generated` — maskinextraherat och direkt användbart. Inte samma kvalitetsnivå som `reviewed`: utdraget kan vara generiskt, fel sorts fil (t.ex. stock `button.tsx`) eller bära mallens varumärke. Default tills någon granskat posten.
+- `reviewed` — manuellt bedömda utdrag, ev. redigerade, bevarade av generatorn så länge ZIP-SHA:n är oförändrad.
+- `disabled` — skicka inga kodutdrag och hämta inte arkivet. Schemat kräver tom `structuralReferences`. Stillbilden kan ändå gå. Används när posten är tom, generisk eller fel sorts inspiration.
 
 Om posten saknas, är ogiltig eller inte matchar manifestets `archiveSha256`
 skickas inga kodutdrag. Arkivet hämtas inte i användarflödet; stillbilden och

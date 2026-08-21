@@ -163,10 +163,11 @@ Kodidentifierare på tråd och i DB (`promptAssistModel`, `promptAssistDeep`,
 `prompt_assist_*`) **behålls** enligt `terminology.mdc` — de mappas i text, döps
 inte om.
 
-### Variant-template-addendum: aktivt, men helt ogranskat
+### Variant-template-addendum: aktivt, första kurationspasset gjort
 
-`config/variant-template-addenda.json`: 69 poster, **69 `generated`, 0
-`reviewed`, 0 `disabled`**. 66 poster har 3 utdrag, 2 har 2, 1 har 0. Alla 31
+`config/variant-template-addenda.json`: 69 poster. Efter B4:s första pass
+2026-08-21: **50 `generated`, 11 `reviewed`, 8 `disabled`** (urval: de
+förstaval som faktiskt träffas i prod, se B4-aktiviteten). Alla 31
 variantfiler i `config/scaffold-variants/` bär `sourceTemplateIds` och pekar
 tillsammans på samma 69 ID. Gränser: max 3 utdrag, 9 000 tecken totalt,
 SHA-bundet mot både arkiv och extraktor

@@ -7,7 +7,7 @@
       "templateId": "0brPGNpjNkt",
       "sourceArchiveSha256": "4371d23e550ca1c2b23c1074ae78ffa87e11e163fa9ad8935db8b9bb3c26dedd",
       "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
+      "reviewStatus": "reviewed",
       "structuralReferences": [
         {
           "path": "app/page.tsx",
@@ -27,7 +27,8 @@
           "reason": "global-styles",
           "excerpt": "@import \"tailwindcss\";\n@import \"tw-animate-css\";\n\n@custom-variant dark (&:is(.dark *));\n\n/* Dark portfolio theme - using dark mode as default */\n:root {\n  --background: oklch(0.145 0 0);\n  --foreground: oklch(0.985 0 0);\n  --card: oklch(0.145 0 0);\n  --card-foreground: oklch(0.985 0 0);\n  --popover: oklch(0.145 0 0);\n  --popover-foreground: oklch(0.985 0 0);\n  --primary: oklch(0.985 0 0);\n  --primary-foreground: oklch(0.205 0 0);\n  --secondary: oklch(0.269 0 0);\n  --secondary-foreground: oklch(0.985 0 0);\n  --muted: oklch(0.269 0 0);\n  --muted-foreground: oklch(0.708 0 0);\n  --accent: oklch(0.546 0.245 262.881);\n  --accent-foreground: oklch(0.985 0 0);\n  --destructive: oklch(0.396 0.141 25.723);\n  --destructive-foreground: oklch(0.637 0.237 25.331);\n  --border: oklch(0.269 0 0);\n  --input: oklch(0.269 0 0);\n  --ring: oklch(0.439 0 0);\n  --chart-1: oklch(0.488 0.243 264.376);\n  --chart-2: oklch(0.696 0.17 162.48);\n  --chart-3: oklch(0.769 0.188 70.08);\n  --chart-4: oklch(0.627 0.265 303.9);\n  --chart-5: oklch(0.645 0.246 16.439);\n  --radius: 0.625rem;\n  --sidebar: oklch(0.205 0 0);\n  --sidebar-foreground: oklch(0.985 0 0);\n  --sidebar-primary: oklch(0.488 0.243 264.376);\n  --sidebar-primary-foreground: oklch(0.985 0 0);\n  --sidebar-accent: oklch(0.269 0\n/* … excerpt truncated … */\nnd);\n}\n\n::-webkit-scrollbar-thumb {\n  background: var(--border);\n  border-radius: 3px;\n}\n\n/* Selection styles */\n::selection {\n  background: var(--accent);\n  color: var(--accent-foreground);\n}\n\n/* Marquee animation */\n@keyframes marquee-left {\n  from {\n    transform: translateX(0);\n  }\n  to {\n    transform: translateX(-50%);\n  }\n}\n\n@keyframes marquee-right {\n  from {\n    transform: translateX(-50%);\n  }\n  to {\n    transform: translateX(0);\n  }\n}\n\n.animate-marquee-left {\n  animation: marquee-left 50s linear infinite;\n}\n\n.animate-marquee-right {\n  animation: marquee-right 50s linear infinite;\n}"
         }
-      ]
+      ],
+      "reviewNotes": "Brutalist inventory (Works/TechMarquee/SectionBlend) plus scroll navbar is useful for showcase-bold. Do not copy the PORTFOLIO wordmark."
     },
     {
       "templateId": "1FuIGdkaNxS",
@@ -59,7 +60,7 @@
       "templateId": "1fwaS3xF7MM",
       "sourceArchiveSha256": "785edb943c8e5e5694ce862b248c4d34b189c5da479e910def28e52cfc4ba45e",
       "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
+      "reviewStatus": "reviewed",
       "structuralReferences": [
         {
           "path": "app/page.tsx",
@@ -79,7 +80,8 @@
           "reason": "global-styles",
           "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n:root {\n  --background: 0 0% 0%;\n  --foreground: 0 0% 100%;\n  --card: 240 10% 3.9%;\n  --card-foreground: 0 0% 98%;\n  --popover: 240 10% 3.9%;\n  --popover-foreground: 0 0% 98%;\n  --primary: 267 100% 61%;\n  --primary-foreground: 0 0% 100%;\n  --secondary: 240 3.7% 15.9%;\n  --secondary-foreground: 0 0% 98%;\n  --muted: 240 3.7% 15.9%;\n  --muted-foreground: 240 5% 64.9%;\n  --accent: 240 3.7% 15.9%;\n  --accent-foreground: 0 0% 98%;\n  --destructive: 0 62.8% 30.6%;\n  --destructive-foreground: 0 0% 98%;\n  --border: 240 3.7% 15.9%;\n  --input: 240 3.7% 15.9%;\n  --ring: 267 100% 61%;\n}\n\nbody {\n  background-color: black;\n  color: white;\n}"
         }
-      ]
+      ],
+      "reviewNotes": "Dark blog with article cards is useful for editorial-serif. button.tsx is a wasted shadcn default. Do not copy NeuralPulse/purple brand or fake subscribe."
     },
     {
       "templateId": "4b4SzAt1CLV",
@@ -136,54 +138,16 @@
     {
       "templateId": "8QhCJAwn16K",
       "sourceArchiveSha256": "ed52757d978911643748059c4f368bfc6ea22d705033c5181a49a870110721f8",
-      "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
-      "structuralReferences": [
-        {
-          "path": "app/page.tsx",
-          "language": "tsx",
-          "reason": "primary-page",
-          "excerpt": "import { LpNavbar1 } from \"@/components/pro-blocks/landing-page/lp-navbars/lp-navbar-1\";\nimport { HeroSection2 } from \"@/components/pro-blocks/landing-page/hero-sections/hero-section-2\";\nimport { LogoSection10 } from \"@/components/pro-blocks/landing-page/logo-sections/logo-section-7\";\nimport TestimonialsSection1 from \"@/components/pro-blocks/landing-page/testimonials-sections/testimonials-section-1\";\nimport { BentoGrid6 } from \"@/components/pro-blocks/landing-page/bento-grids/bento-grid-6\";\nimport { FeatureSection9 } from \"@/components/pro-blocks/landing-page/feature-sections/feature-section-9\";\nimport { StatsSection4 } from \"@/components/pro-blocks/landing-page/stats-sections/stats-section-4\";\nimport { PricingSection3 } from \"@/components/pro-blocks/landing-page/pricing-sections/pricing-section-3\";\nimport { FaqSection2 } from \"@/components/pro-blocks/landing-page/faq-sections/faq-section-2\";\nimport { Footer1 } from \"@/components/pro-blocks/landing-page/footers/footer-1\";\n\nexport default function Page() {\n  return (\n    <main>\n      <LpNavbar1 />\n      <HeroSection2 />\n      <LogoSection10 />\n      <TestimonialsSection1\n        quote=\"MindSpace is like having a photographic memory for every meeting. We reduced the follow-up emails by 80%.\"\n        authorName=\"David Park\"\n        authorRole=\"Engineering Manager at TechCorp\"\n        avatarSrc=\"/DavidPark.png\"\n      />\n      <BentoGrid6 />\n      <FeatureSection9 />\n      <StatsSection4 />\n      <TestimonialsSection1\n        quote=\"At TechStar, 43% of meeting content was forgotten within 24 hours. Now, the AI summaries are better than my own notes!\"\n        authorName=\"Monica Kurt\"\n        authorRole=\"Project Manager at TechStar\"\n        avatarSrc=\"/MonicaKurt.png\"\n      />\n      <PricingSection3 />\n      <FaqSection2 />\n      <Footer1 />\n    </main>\n  );\n}"
-        },
-        {
-          "path": "components/pro-blocks/landing-page/faq-sections/faq-section-2.tsx",
-          "language": "tsx",
-          "reason": "direct-component",
-          "excerpt": "\"use client\";\n\nimport {\n  Accordion,\n  AccordionContent,\n  AccordionItem,\n  AccordionTrigger,\n} from \"@/components/ui/accordion\";\nimport Link from \"next/link\";\nimport { Tagline } from \"@/components/pro-blocks/landing-page/tagline\";\n\nexport function FaqSection2() {\n  return (\n    <section\n      className=\"bg-background section-padding-y border-b\"\n      aria-labelledby=\"faq-heading\"\n      id=\"faq\"\n    >\n      <div className=\"container-padding-x container mx-auto\">\n        <div className=\"flex flex-col gap-10 lg:flex-row lg:gap-16\">\n          {/* Left Column */}\n          <div className=\"section-title-gap-lg flex flex-1 flex-col\">\n            {/* Category Tag */}\n            <Tagline>FAQ</Tagline>\n            {/* Main Title */}\n            <h1 id=\"faq-heading\" className=\"heading-lg text-foreground\">\n              Find answers to our frequently asked questions\n            </h1>\n            {/* Section Description */}\n            <p className=\"text-muted-foreground\">\n              We&apos;ve compiled the most important information to help you get\n              the most out of your experience. Can&apos;t find what you&apos;re\n              looking for?{\" \"}\n              <Link href=\"#\" className=\"text-primary underline\">\n                Contact us.\n              </Link>\n            </p>\n          </div>\n\n          {/* Right Column */}\n          <div className=\"flex flex-1 flex-col gap-8\">\n            {/* General FAQ Section */}\n            <div className=\"flex flex-col gap-2\">\n              {/* Section Title */}\n              <h2 className=\"text-foreground text-lg font-semibold md:text-xl\">\n                General\n              </h2>\n              {/* FAQ Accordion */}\n              <Accordion\n                type=\"single\"\n                collapsible\n                aria-label=\"General FAQ ite\n// … excerpt truncated …\n              </AccordionItem>\n\n                {/* FAQ Item 4 */}\n                <AccordionItem value=\"billing-4\">\n                  <AccordionTrigger className=\"text-left\">\n                    What payment methods do you accept?\n                  </AccordionTrigger>\n                  <AccordionContent>\n                    We accept all major credit cards (Visa, Mastercard, American\n                    Express, Discover), PayPal, and bank transfers for annual\n                    plans. All payments are processed securely through Stripe.\n                    We also support corporate invoicing for enterprise customers\n                    with net 30 payment terms.\n                  </AccordionContent>\n                </AccordionItem>\n              </Accordion>\n            </div>\n          </div>\n        </div>\n      </div>\n    </section>\n  );\n}"
-        },
-        {
-          "path": "app/globals.css",
-          "language": "css",
-          "reason": "global-styles",
-          "excerpt": "@import \"tailwindcss\";\n@import \"tw-animate-css\";\n\n@custom-variant dark (&:is(.dark *));\n\n@theme inline {\n  --color-background: var(--background);\n  --color-foreground: var(--foreground);\n  --font-sans: Onest, sans-serif;\n  --font-mono: Menlo, monospace;\n  --color-sidebar-ring: var(--sidebar-ring);\n  --color-sidebar-border: var(--sidebar-border);\n  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);\n  --color-sidebar-accent: var(--sidebar-accent);\n  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);\n  --color-sidebar-primary: var(--sidebar-primary);\n  --color-sidebar-foreground: var(--sidebar-foreground);\n  --color-sidebar: var(--sidebar);\n  --color-chart-5: var(--chart-5);\n  --color-chart-4: var(--chart-4);\n  --color-chart-3: var(--chart-3);\n  --color-chart-2: var(--chart-2);\n  --color-chart-1: var(--chart-1);\n  --color-ring: var(--ring);\n  --color-input: var(--input);\n  --color-border: var(--border);\n  --color-destructive: var(--destructive);\n  --color-accent-foreground: var(--accent-foreground);\n  --color-accent: var(--accent);\n  --color-muted-foreground: var(--muted-foreground);\n  --color-muted: var(--muted);\n  --color-secondary-foreground: var(--secondary-foreground);\n  --color-secondary: var(--secondary);\n  --c\n/* … excerpt truncated … */\n }\n  .container-padding-x {\n    padding-inline: 1.5rem;\n  }\n  .section-padding-y {\n    padding-block: 4rem;\n  }\n  .section-title-gap-xl {\n    gap: 1rem;\n  }\n  .section-title-gap-lg {\n    gap: 1rem;\n  }\n  .section-title-gap-md {\n    gap: 1rem;\n  }\n  .section-title-gap-sm {\n    gap: 1rem;\n  }\n}\n\n@media screen and (max-width: 80rem) {\n  .heading-xl {\n    font-family: Onest;\n    font-weight: 600;\n  }\n  .heading-lg {\n    font-family: Onest;\n    font-weight: 600;\n  }\n  .heading-md {\n    font-family: Onest;\n    font-weight: 600;\n  }\n  .heading-sm {\n    font-family: Onest;\n    font-weight: 600;\n  }\n}"
-        }
-      ]
+      "reviewStatus": "disabled",
+      "structuralReferences": [],
+      "reviewNotes": "Generic pro-blocks stack (hero/logo/testimonials/pricing/FAQ) with MindSpace/Stripe copy. First pick for landing-page/corporate-grid — closed so default init does not learn a SaaS kit."
     },
     {
       "templateId": "8Y9E0cStKrW",
       "sourceArchiveSha256": "3b9c18312d9e6694efe8529121d8bbfe049cb6973d3131b7d426baad0a8f93cc",
-      "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
-      "structuralReferences": [
-        {
-          "path": "app/page.tsx",
-          "language": "tsx",
-          "reason": "primary-page",
-          "excerpt": "import { LpNavbar1 } from \"@/components/lp-navbar-1\"\nimport { HeroSection7 } from \"@/components/hero-section-7\"\nimport { FeatureSection9 } from \"@/components/feature-section-9\"\nimport { FeatureSection3 } from \"@/components/feature-section-3\"\nimport { TestimonialsSection5 } from \"@/components/testimonials-section-5\"\nimport { PricingSection4 } from \"@/components/pricing-section-4\"\nimport { FaqSection1 } from \"@/components/faq-section-1\"\nimport { Footer2 } from \"@/components/footer-2\"\n\nexport default function Home() {\n  return (\n    <main>\n      <LpNavbar1 />\n      <HeroSection7 />\n      <FeatureSection9 />\n      <FeatureSection3 />\n      <TestimonialsSection5 />\n      <PricingSection4 />\n      <FaqSection1 />\n      <Footer2 />\n    </main>\n  )\n}"
-        },
-        {
-          "path": "components/pricing-section-4.tsx",
-          "language": "tsx",
-          "reason": "direct-component",
-          "excerpt": "\"use client\"\n\nimport * as React from \"react\"\nimport { Card, CardContent } from \"@/components/ui/card\"\nimport { Button } from \"@/components/ui/button\"\nimport { Tabs, TabsList, TabsTrigger } from \"@/components/ui/tabs\"\nimport { Check, Info } from \"lucide-react\"\nimport { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from \"@/components/ui/tooltip\"\n\nconst pricingData = {\n  plans: [\n    {\n      name: \"Starter\",\n      description: \"For individuals or small teams getting started.\",\n      features: [\n        {\n          name: \"Basic task management\",\n          tooltip: \"Essential task management features to get you started\",\n        },\n        {\n          name: \"1 automation per workflow\",\n          tooltip: \"Automate one repetitive task in each workflow\",\n        },\n        {\n          name: \"5GB storage\",\n          tooltip: \"Store your files and documents securely\",\n        },\n      ],\n      pricing: {\n        monthly: 0,\n        annually: 0,\n      },\n      variant: \"secondary\",\n    },\n    {\n      name: \"Pro\",\n      description: \"For growing teams ready to scale their business.\",\n      badge: \"Most popular\",\n      features: [\n        {\n          name: \"Unlimited boards\",\n          tooltip: \"Create as many boards as you need\",\n        },\n        {\n          name: \"Advanced automation\",\n          tooltip: \"Powerful automation capabilities for complex workflows\",\n        },\n        {\n          name: \"50GB storage\",\n          tooltip: \"Expanded storage for growing teams\",\n        },\n        {\n          name: \"Integrations\",\n          tooltip: \"Connect with your favorite tools\",\n        },\n      ],\n      pricing: {\n        monthly: 29,\n        annually: 290,\n      },\n      variant: \"default\",\n    },\n    {\n      name: \"Enterprise\",\n      description: \"For large organizations with custom \n// … excerpt truncated …\nfeature.name}\n                        </span>\n                        <TooltipProvider>\n                          <Tooltip>\n                            <TooltipTrigger>\n                              <Info\n                                className={`h-4 w-4 ${index === 2 ? \"opacity-40\" : \"text-muted-foreground opacity-70\"}`}\n                              />\n                            </TooltipTrigger>\n                            <TooltipContent className=\"max-w-xs\">\n                              <p>{feature.tooltip}</p>\n                            </TooltipContent>\n                          </Tooltip>\n                        </TooltipProvider>\n                      </div>\n                    ))}\n                  </div>\n                </div>\n              </Card>\n            ))}\n          </div>\n        </div>\n      </div>\n    </section>\n  )\n}"
-        },
-        {
-          "path": "app/globals.css",
-          "language": "css",
-          "reason": "global-styles",
-          "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n/* Default */\n@layer base {\n  :root {\n    --background: 230 33% 21%;\n    --foreground: 0 0% 100%;\n    --card: 230 28% 25%;\n    --card-foreground: 0 0% 100%;\n    --popover: 0 0% 100%;\n    --popover-foreground: 230 28% 25%;\n    --primary: 351 60% 83%;\n    --primary-foreground: 230 33% 21%;\n    --secondary: 231 48% 89%;\n    --secondary-foreground: 230 33% 21%;\n    --muted: 230 40% 14%;\n    --muted-foreground: 231 54% 82%;\n    --accent: 230 28% 25%;\n    --accent-foreground: 0 0% 100%;\n    --destructive: 0 72% 51%;\n    --destructive-foreground: 0 86% 97%;\n    --border: 230 27% 27%;\n    --input: 230 33% 21%;\n    --ring: 351 60% 83%;\n    --radius: 0.750rem;\n    --chart-1: 173 58% 39%;\n    --chart-2: 12 76% 61%;\n    --chart-3: 197 37% 24%;\n    --chart-4: 43 74% 66%;\n    --chart-5: 27 87% 67%;\n    --sidebar-background: 0 0% 98%;\n    --sidebar-foreground: 240 5% 26%;\n    --sidebar-primary: 240 6% 10%;\n    --sidebar-primary-foreground: 0 0% 98%;\n    --sidebar-accent: 240 5% 96%;\n    --sidebar-accent-foreground: 240 6% 10%;\n    --sidebar-border: 220 13% 91%;\n    --sidebar-ring: 240 5% 65%;\n    --font-onest: \"Onest\", sans-serif;\n  }\n}\n\nbody {\n  font-family:\n    var(--font-onest), ui-sans-serif, system-ui, \n/* … excerpt truncated … */\n41.5709 -1.484 51.4569 -12 70.0009 -12C88.5449 -12 98.4309 -1.484 107.401 8.678C116.165 18.612 123.295 28 140.041 28.006M140.001 12.008C123.255 12.006 116.165 2.612 107.401 -7.322C98.4309 -17.484 88.5449 -28 70.0009 -28C51.4569 -28 41.5709 -17.484 32.6009 -7.322C23.8369 2.612 16.7069 12 -0.0390625 12.004' stroke-opacity='0.05' stroke='%23ffffff'/%3E%3C/g%3E%3Cdefs%3E%3CclipPath id='clip0_4133_10133'%3E%3Crect width='140' height='16' fill='white'/%3E%3C/clipPath%3E%3C/defs%3E%3C/svg%3E\");\n  background-repeat: repeat;\n  width: 100%;\n  height: 100%;\n  animation: patternMove 3s linear infinite;\n}"
-        }
-      ]
+      "reviewStatus": "disabled",
+      "structuralReferences": [],
+      "reviewNotes": "Same pro-blocks kit plus generic Starter/Pro/Enterprise pricing. First pick for saas-landing/friendly-saas."
     },
     {
       "templateId": "ALfQrxyrJ8b",
@@ -292,28 +256,9 @@
     {
       "templateId": "E3xFlIXCZi4",
       "sourceArchiveSha256": "10e0903944f058534a7e25e8ac1cc58a0c21d3e4e8813160e6869dd37a944fbc",
-      "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
-      "structuralReferences": [
-        {
-          "path": "app/page.tsx",
-          "language": "tsx",
-          "reason": "primary-page",
-          "excerpt": "import { Navigation } from \"@/components/navigation\"\nimport { HeroSection } from \"@/components/hero-section\"\nimport { AboutSection } from \"@/components/about-section\"\nimport { ProjectsSection } from \"@/components/projects-section\"\nimport { TimelineSection } from \"@/components/timeline-section\"\nimport { GallerySection } from \"@/components/gallery-section\"\nimport { ContactSection } from \"@/components/contact-section\"\nimport { BackgroundAnimations } from \"@/components/background-animations\"\nimport { ThreeScene } from \"@/components/three-scene\"\nimport { PixarCharacter } from \"@/components/pixar-character\"\n\nexport default function Home() {\n  return (\n    <main className=\"min-h-screen relative\">\n      <ThreeScene />\n      <BackgroundAnimations />\n      <PixarCharacter />\n      <div className=\"relative z-10\">\n        <Navigation />\n        <HeroSection />\n        <AboutSection />\n        <ProjectsSection />\n        <TimelineSection />\n        <GallerySection />\n        <ContactSection />\n      </div>\n    </main>\n  )\n}"
-        },
-        {
-          "path": "components/background-animations.tsx",
-          "language": "tsx",
-          "reason": "direct-component",
-          "excerpt": "\"use client\"\n\nimport { useEffect, useRef, useState } from \"react\"\n\ninterface Star {\n  x: number\n  y: number\n  size: number\n  opacity: number\n  twinkleSpeed: number\n}\n\ninterface Comet {\n  x: number\n  y: number\n  length: number\n  speed: number\n  angle: number\n  opacity: number\n}\n\ninterface Plant {\n  x: number\n  y: number\n  growth: number\n  maxHeight: number\n  type: number\n}\n\nexport function BackgroundAnimations() {\n  const canvasRef = useRef<HTMLCanvasElement>(null)\n  const [scrollY, setScrollY] = useState(0)\n  const starsRef = useRef<Star[]>([])\n  const cometsRef = useRef<Comet[]>([])\n  const plantsRef = useRef<Plant[]>([])\n  const lastCometTime = useRef(0)\n  const animationFrameRef = useRef<number>()\n\n  useEffect(() => {\n    const canvas = canvasRef.current\n    if (!canvas) return\n\n    const ctx = canvas.getContext(\"2d\")\n    if (!ctx) return\n\n    // Set canvas size\n    const resizeCanvas = () => {\n      canvas.width = window.innerWidth\n      canvas.height = window.innerHeight\n    }\n    resizeCanvas()\n    window.addEventListener(\"resize\", resizeCanvas)\n\n    // Initialize stars\n    const initStars = () => {\n      starsRef.current = Array.from({ length: 100 }, () => ({\n        x: Math.random() * canvas.width,\n        y: Math.random() * canvas.height,\n        size: Math.random() * 2 + 0.5,\n        opacity: Math.random() * 0.5 + 0.3,\n        twinkleSpeed: Math.random() * 0.02 + 0.01,\n      }))\n    }\n    initStars()\n\n    // Initialize plants\n    const initPlants = () => {\n      plantsRef.current = Array.from({ length: 15 }, () => ({\n        x: Math.random() * canvas.width,\n        y: canvas.height + Math.random() * 100,\n        growth: 0,\n        maxHeight: Math.random() * 80 + 40,\n        type: Math.floor(Math.random() * 3),\n      }))\n    }\n    initPlants()\n\n    // Handle scroll\n    const han\n// … excerpt truncated …\ninPath()\n              ctx.arc(plant.x, plant.y - plant.growth, 4, 0, Math.PI * 2)\n              ctx.fill()\n            }\n          }\n        }\n      })\n    }\n\n    // Animation loop\n    const animate = (time: number) => {\n      ctx.clearRect(0, 0, canvas.width, canvas.height)\n\n      drawStars()\n      drawComets(time)\n      drawPlants()\n\n      animationFrameRef.current = requestAnimationFrame(animate)\n    }\n\n    animationFrameRef.current = requestAnimationFrame(animate)\n\n    return () => {\n      window.removeEventListener(\"resize\", resizeCanvas)\n      window.removeEventListener(\"scroll\", handleScroll)\n      if (animationFrameRef.current) {\n        cancelAnimationFrame(animationFrameRef.current)\n      }\n    }\n  }, [scrollY])\n\n  return <canvas ref={canvasRef} className=\"fixed inset-0 pointer-events-none z-0\" style={{ mixBlendMode: \"screen\" }} />\n}"
-        },
-        {
-          "path": "app/globals.css",
-          "language": "css",
-          "reason": "global-styles",
-          "excerpt": "@import \"tailwindcss\";\n@import \"tw-animate-css\";\n\n@custom-variant dark (&:is(.dark *));\n\n:root {\n  /* Custom cinematic portfolio color scheme */\n  --background: oklch(0.11 0.01 264);\n  --foreground: oklch(0.98 0.01 264);\n  --card: oklch(0.15 0.01 264);\n  --card-foreground: oklch(0.98 0.01 264);\n  --popover: oklch(0.11 0.01 264);\n  --popover-foreground: oklch(0.98 0.01 264);\n  --primary: oklch(0.68 0.12 165);\n  --primary-foreground: oklch(0.11 0.01 264);\n  --secondary: oklch(0.22 0.02 264);\n  --secondary-foreground: oklch(0.98 0.01 264);\n  --muted: oklch(0.22 0.02 264);\n  --muted-foreground: oklch(0.62 0.01 264);\n  --accent: oklch(0.68 0.12 165);\n  --accent-foreground: oklch(0.11 0.01 264);\n  --destructive: oklch(0.577 0.245 27.325);\n  --destructive-foreground: oklch(0.98 0.01 264);\n  --border: oklch(0.25 0.02 264);\n  --input: oklch(0.25 0.02 264);\n  --ring: oklch(0.68 0.12 165);\n  --chart-1: oklch(0.68 0.12 165);\n  --chart-2: oklch(0.6 0.118 184.704);\n  --chart-3: oklch(0.398 0.07 227.392);\n  --chart-4: oklch(0.828 0.189 84.429);\n  --chart-5: oklch(0.769 0.188 70.08);\n  --radius: 0.625rem;\n  --sidebar: oklch(0.985 0 0);\n  --sidebar-foreground: oklch(0.145 0 0);\n  --sidebar-primary: oklch(0.205 0 0);\n  --sidebar-primary-foreground: oklch(0.985 0 0);\n  -\n/* … excerpt truncated … */\nanimation: perform 2.5s ease-in-out infinite;\n  }\n  .animate-dance {\n    animation: dance 1.5s ease-in-out infinite;\n  }\n  .animate-laugh {\n    animation: laugh 1s ease-in-out infinite;\n  }\n  .animate-lift {\n    animation: lift 1.5s ease-in-out infinite;\n  }\n  .animate-run {\n    animation: run 1.2s ease-in-out infinite;\n  }\n  .animate-flip {\n    animation: flip 3s ease-in-out infinite;\n  }\n  .animate-cook {\n    animation: cook 2s ease-in-out infinite;\n  }\n  .animate-code {\n    animation: code 2s ease-in-out infinite;\n  }\n  .animate-study {\n    animation: study 2.5s ease-in-out infinite;\n  }\n}"
-        }
-      ]
+      "reviewStatus": "disabled",
+      "structuralReferences": [],
+      "reviewNotes": "PixarCharacter/ThreeScene/star-canvas for portfolio/minimal-studio. Section list is generic portfolio chrome that would leak mascots into every studio site."
     },
     {
       "templateId": "ezmvVsZJxz8",
@@ -396,28 +341,9 @@
     {
       "templateId": "fnLkUW05eg3",
       "sourceArchiveSha256": "67c9d80bcc4b4750af7924742170651b2338c57c00953f224370cd715f5095fb",
-      "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
-      "structuralReferences": [
-        {
-          "path": "app/page.tsx",
-          "language": "tsx",
-          "reason": "primary-page",
-          "excerpt": "\"use client\"\n\nimport { useState, useEffect } from \"react\"\nimport Link from \"next/link\"\nimport Image from \"next/image\"\nimport { motion } from \"framer-motion\"\nimport {\n  Check,\n  ChevronRight,\n  Menu,\n  X,\n  Moon,\n  Sun,\n  ArrowRight,\n  Star,\n  Zap,\n  Shield,\n  Users,\n  BarChart,\n  Layers,\n} from \"lucide-react\"\nimport { Button } from \"@/components/ui/button\"\nimport { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from \"@/components/ui/accordion\"\nimport { Badge } from \"@/components/ui/badge\"\nimport { Card, CardContent } from \"@/components/ui/card\"\nimport { Tabs, TabsContent, TabsList, TabsTrigger } from \"@/components/ui/tabs\"\nimport { useTheme } from \"next-themes\"\n\nexport default function LandingPage() {\n  const [isScrolled, setIsScrolled] = useState(false)\n  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)\n  const { theme, setTheme } = useTheme()\n  const [mounted, setMounted] = useState(false)\n\n  useEffect(() => {\n    setMounted(true)\n    const handleScroll = () => {\n      if (window.scrollY > 10) {\n        setIsScrolled(true)\n      } else {\n        setIsScrolled(false)\n      }\n    }\n\n    window.addEventListener(\"scroll\", handleScroll)\n    return () => window.removeEventListener(\"scroll\", handleScroll)\n  }, [])\n\n  const toggleTheme = () => {\n    setTheme(theme === \"dark\" ? \"light\" : \"dark\")\n  }\n\n  const container = {\n    hidden: { opacity: 0 },\n    show: {\n      opacity: 1,\n      transition: {\n        staggerChildren: 0.1,\n      },\n    },\n  }\n\n  const item = {\n    hidden: { opacity: 0, y: 20 },\n    show: { opacity: 1, y: 0 },\n  }\n\n  const features = [\n    {\n      title: \"Smart Automation\",\n      description: \"Automate repetitive tasks and workflows to save time and reduce errors.\",\n      icon: <Zap className=\"size-5\" />,\n    },\n    {\n      title: \"Advanced Analytics\",\n      description: \"Gain valuable insights with real-time data visualization and reporting.\",\n      icon: <BarChart className=\"size-5\" />,\n    },\n    {\n      title: \"Team Collaboration\",\n      description: \"Work together seamlessly with integrated communication tools.\",\n      icon: <Users className=\"size-5\" />,\n    },\n    {\n      title: \"Enterprise Security\",\n      description: \"Keep your data safe with end-to-end encryption and compliance features.\",\n      icon: <Shield className=\"size-5\" />,\n    },\n    {\n      title: \"Seamless Integration\",\n      description: \"Connect with your favorite tools through our extensive API ecosystem.\",\n      icon: <Layers className=\"size-5\" />,\n    },\n    {\n      title: \"24/7 Support\",\n      description: \"Get help whenever you need it with our dedicated support team.\",\n      icon: <Star className=\"size-5\" />,\n    },\n  ]\n\n  return (\n    <div className=\"flex min-h-[100dvh] flex-col\">\n      <header\n        className={`sticky top-0 z-50 w-full backdrop-blur-lg transition-a\n// … excerpt truncated …\n<Link href=\"#\" className=\"text-muted-foreground hover:text-foreground transition-colors\">\n                    Privacy Policy\n                  </Link>\n                </li>\n                <li>\n                  <Link href=\"#\" className=\"text-muted-foreground hover:text-foreground transition-colors\">\n                    Terms of Service\n                  </Link>\n                </li>\n              </ul>\n            </div>\n          </div>\n          <div className=\"flex flex-col gap-4 sm:flex-row justify-between items-center border-t border-border/40 pt-8\">\n            <p className=\"text-xs text-muted-foreground\">\n              &copy; {new Date().getFullYear()} SaaSify. All rights reserved.\n            </p>\n            <div className=\"flex gap-4\">\n              <Link href=\"#\" className=\"text-xs text-muted-foreground hover:text-foreground transition-colors\">\n                Privacy Policy\n              </Link>\n              <Link href=\"#\" className=\"text-xs text-muted-foreground hover:text-foreground transition-colors\">\n                Terms of Service\n              </Link>\n              <Link href=\"#\" className=\"text-xs text-muted-foreground hover:text-foreground transition-colors\">\n                Cookie Policy\n              </Link>\n            </div>\n          </div>\n        </div>\n      </footer>\n    </div>\n  )\n}"
-        },
-        {
-          "path": "components/ui/accordion.tsx",
-          "language": "tsx",
-          "reason": "direct-component",
-          "excerpt": "'use client'\n\nimport * as React from 'react'\nimport * as AccordionPrimitive from '@radix-ui/react-accordion'\nimport { ChevronDown } from 'lucide-react'\n\nimport { cn } from '@/lib/utils'\n\nconst Accordion = AccordionPrimitive.Root\n\nconst AccordionItem = React.forwardRef<\n  React.ElementRef<typeof AccordionPrimitive.Item>,\n  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>\n>(({ className, ...props }, ref) => (\n  <AccordionPrimitive.Item\n    ref={ref}\n    className={cn('border-b', className)}\n    {...props}\n  />\n))\nAccordionItem.displayName = 'AccordionItem'\n\nconst AccordionTrigger = React.forwardRef<\n  React.ElementRef<typeof AccordionPrimitive.Trigger>,\n  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>\n>(({ className, children, ...props }, ref) => (\n  <AccordionPrimitive.Header className=\"flex\">\n    <AccordionPrimitive.Trigger\n      ref={ref}\n      className={cn(\n        'flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180',\n        className,\n      )}\n      {...props}\n    >\n      {children}\n      <ChevronDown className=\"h-4 w-4 shrink-0 transition-transform duration-200\" />\n    </AccordionPrimitive.Trigger>\n  </AccordionPrimitive.Header>\n))\nAccordionTrigger.displayName = AccordionPrimitive.Trigger.displayName\n\nconst AccordionContent = React.forwardRef<\n  React.ElementRef<typeof AccordionPrimitive.Content>,\n  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content>\n>(({ className, children, ...props }, ref) => (\n  <AccordionPrimitive.Content\n    ref={ref}\n    className=\"overflow-hidden text-sm transition-all data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down\"\n    {...props}\n  >\n    <div className={cn('pb-4 pt-0', className)}>{children}</div>\n  </AccordionPrimitive.Content>\n))\n\nAccordionContent.displayName = AccordionPrimitive.Content.displayName\n\nexport { Accordion, AccordionItem, AccordionTrigger, AccordionContent }"
-        },
-        {
-          "path": "app/globals.css",
-          "language": "css",
-          "reason": "global-styles",
-          "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n@layer utilities {\n  .text-balance {\n    text-wrap: balance;\n  }\n}\n\n@layer base {\n  :root {\n    --font-sans: var(--font-geist-sans);\n    --font-mono: var(--font-geist-mono);\n    --background: 0 0% 100%;\n    --foreground: 0 0% 3.9%;\n    --card: 0 0% 100%;\n    --card-foreground: 0 0% 3.9%;\n    --popover: 0 0% 100%;\n    --popover-foreground: 0 0% 3.9%;\n    --primary: 0 0% 9%;\n    --primary-foreground: 0 0% 98%;\n    --secondary: 0 0% 96.1%;\n    --secondary-foreground: 0 0% 9%;\n    --muted: 0 0% 96.1%;\n    --muted-foreground: 0 0% 45.1%;\n    --accent: 0 0% 96.1%;\n    --accent-foreground: 0 0% 9%;\n    --destructive: 0 84.2% 60.2%;\n    --destructive-foreground: 0 0% 98%;\n    --border: 0 0% 89.8%;\n    --input: 0 0% 89.8%;\n    --ring: 0 0% 3.9%;\n    --chart-1: 12 76% 61%;\n    --chart-2: 173 58% 39%;\n    --chart-3: 197 37% 24%;\n    --chart-4: 43 74% 66%;\n    --chart-5: 27 87% 67%;\n    --radius: 0.5rem;\n    --sidebar-background: 0 0% 98%;\n    --sidebar-foreground: 240 5.3% 26.1%;\n    --sidebar-primary: 240 5.9% 10%;\n    --sidebar-primary-foreground: 0 0% 98%;\n    --sidebar-accent: 240 4.8% 95.9%;\n    --sidebar-accent-foreground: 240 5.9% 10%;\n    --sidebar-border: 220 13% 91%;\n    --sidebar-ring: 217.2 9\n/* … excerpt truncated … */\nng: 0 0% 83.1%;\n    --chart-1: 220 70% 50%;\n    --chart-2: 160 60% 45%;\n    --chart-3: 30 80% 55%;\n    --chart-4: 280 65% 60%;\n    --chart-5: 340 75% 55%;\n    --sidebar-background: 240 5.9% 10%;\n    --sidebar-foreground: 240 4.8% 95.9%;\n    --sidebar-primary: 224.3 76.3% 48%;\n    --sidebar-primary-foreground: 0 0% 100%;\n    --sidebar-accent: 240 3.7% 15.9%;\n    --sidebar-accent-foreground: 240 4.8% 95.9%;\n    --sidebar-border: 240 3.7% 15.9%;\n    --sidebar-ring: 217.2 91.2% 59.8%;\n  }\n}\n\n@layer base {\n  * {\n    @apply border-border;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n}"
-        }
-      ]
+      "reviewStatus": "disabled",
+      "structuralReferences": [],
+      "reviewNotes": "Generic SaaSify mega-landing (stock features array, stock shadcn accordion, stock tokens). Zero terminal character for dev-terminal — exactly the sameness B4 targets."
     },
     {
       "templateId": "fUqrRFEXLnm",
@@ -553,7 +479,7 @@
       "templateId": "h4nibkqysVJ",
       "sourceArchiveSha256": "4bc0cb3cf73ba2e4f98ded19a1240e040d179faecbcf1c41f7037059a040e337",
       "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
+      "reviewStatus": "reviewed",
       "structuralReferences": [
         {
           "path": "app/page.tsx",
@@ -573,13 +499,14 @@
           "reason": "global-styles",
           "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n:root {\n  --background: 222.2 84% 4.9%;\n  --foreground: 210 40% 98%;\n\n  --card: 222.2 84% 4.9%;\n  --card-foreground: 210 40% 98%;\n\n  --popover: 222.2 84% 4.9%;\n  --popover-foreground: 210 40% 98%;\n\n  --primary: 217.2 91.2% 59.8%;\n  --primary-foreground: 222.2 47.4% 11.2%;\n\n  --secondary: 217.2 32.6% 17.5%;\n  --secondary-foreground: 210 40% 98%;\n\n  --muted: 217.2 32.6% 17.5%;\n  --muted-foreground: 215 20.2% 65.1%;\n\n  --accent: 217.2 32.6% 17.5%;\n  --accent-foreground: 210 40% 98%;\n\n  --destructive: 0 62.8% 30.6%;\n  --destructive-foreground: 210 40% 98%;\n\n  --border: 217.2 32.6% 17.5%;\n  --input: 217.2 32.6% 17.5%;\n  --ring: 212.7 26.8% 83.9%;\n\n  --radius: 0.5rem;\n\n  /* AEGIS-Ω Custom Colors */\n  --aegis-cyan: 187 100% 42%;\n  --aegis-purple: 270 91% 65%;\n  --aegis-pink: 330 81% 60%;\n}\n\n.light {\n  --background: 0 0% 100%;\n  --foreground: 222.2 84% 4.9%;\n\n  --card: 0 0% 100%;\n  --card-foreground: 222.2 84% 4.9%;\n\n  --popover: 0 0% 100%;\n  --popover-foreground: 222.2 84% 4.9%;\n\n  --primary: 222.2 47.4% 11.2%;\n  --primary-foreground: 210 40% 98%;\n\n  --secondary: 210 40% 96.1%;\n  --secondary-foreground: 222.2 47.4% 11.2%;\n\n  --muted: 210 40% 96.1%;\n  --muted-foreground: 215.4 16.3% 46.9%;\n\n  --accent\n/* … excerpt truncated … */\nse ul {\n  @apply list-disc pl-6 mb-4;\n}\n\n.prose ol {\n  @apply list-decimal pl-6 mb-4;\n}\n\n.prose li {\n  @apply mb-2;\n}\n\n.prose a {\n  @apply text-cyan-400 hover:text-cyan-300 underline;\n}\n\n.prose blockquote {\n  @apply border-l-4 border-gray-700 pl-4 italic my-4;\n}\n\n.prose code {\n  @apply bg-gray-800 px-1 py-0.5 rounded text-sm;\n}\n\n.prose pre {\n  @apply bg-gray-800 p-4 rounded-md overflow-auto my-4;\n}\n\n.prose img {\n  @apply rounded-md my-4;\n}\n\n.prose table {\n  @apply w-full border-collapse my-4;\n}\n\n.prose th,\n.prose td {\n  @apply border border-gray-700 p-2;\n}\n\n.prose th {\n  @apply bg-gray-800;\n}"
         }
-      ]
+      ],
+      "reviewNotes": "Splash/enter gate fits quantum-aegis only. Never copy the AEGIS-Ω name, logo or /loading route."
     },
     {
       "templateId": "iBPsMqPGRTZ",
       "sourceArchiveSha256": "31bf8a6ed33af5a8d10e6de895650b22916be3e491ed9836aed18b7f0f7d636d",
       "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
+      "reviewStatus": "reviewed",
       "structuralReferences": [
         {
           "path": "app/page.tsx",
@@ -599,7 +526,8 @@
           "reason": "global-styles",
           "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n:root {\n  --cream: #f5f5f0;\n  --sand: #e8e6e1;\n  --wood: #9b8b7d;\n  --earth: #766b62;\n  --charcoal: #2c2c2c;\n}\n\n@layer base {\n  html {\n    scroll-behavior: smooth;\n  }\n  \n  body {\n    background-color: var(--cream);\n    color: var(--charcoal);\n    font-family: 'Inter', sans-serif;\n  }\n}\n\n@layer components {\n  .container {\n    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;\n  }\n\n  .btn {\n    @apply inline-flex items-center justify-center px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2;\n  }\n\n  .btn-primary {\n    background-color: var(--earth);\n    color: white;\n  }\n\n  .btn-primary:hover {\n    background-color: var(--wood);\n  }\n\n  .btn-secondary {\n    background-color: white;\n    color: var(--earth);\n    border: 1px solid var(--earth);\n  }\n\n  .btn-secondary:hover {\n    background-color: var(--sand);\n  }\n\n  .section-title {\n    @apply text-3xl md:text-4xl font-light mb-8 text-center tracking-wide;\n    color: var(--charcoal);\n  }\n\n  .section-padding {\n    @apply py-16 md:py-24;\n  }\n}\n\n@layer utilities {\n  .text-content {\n    color: var(--wood);\n  }\n}"
         }
-      ]
+      ],
+      "reviewNotes": "Top live pick (warm-local, 21 gens by 2026-08-19). Warm cream/sand/wood palette and Hero/About/Gallery/Testimonials/FAQ/Pricing/Contact rhythm fit the variant. Do not copy the Luxor brand or the fake testimonial persons."
     },
     {
       "templateId": "JfGEPnqVAVL",
@@ -683,7 +611,7 @@
       "templateId": "jZpf5doYiNe",
       "sourceArchiveSha256": "17c283be8cb41b10fc89c073f7d00fae53d71ec7d08a74882b7d873bac26a4bb",
       "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
+      "reviewStatus": "reviewed",
       "structuralReferences": [
         {
           "path": "app/page.tsx",
@@ -703,7 +631,8 @@
           "reason": "global-styles",
           "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n@layer utilities {\n  .text-balance {\n    text-wrap: balance;\n  }\n}\n\n@layer base {\n  :root {\n    --background: 30 30% 96%;\n    --foreground: 240 10% 15%;\n    --card: 0 0% 100%;\n    --card-foreground: 240 10% 15%;\n    --popover: 0 0% 100%;\n    --popover-foreground: 240 10% 15%;\n    --primary: 340 70% 55%;\n    --primary-foreground: 0 0% 100%;\n    --secondary: 30 30% 92%;\n    --secondary-foreground: 240 10% 15%;\n    --muted: 30 20% 94%;\n    --muted-foreground: 240 5% 45%;\n    --accent: 270 40% 60%;\n    --accent-foreground: 0 0% 100%;\n    --destructive: 0 84.2% 60.2%;\n    --destructive-foreground: 0 0% 98%;\n    --border: 30 20% 88%;\n    --input: 30 20% 88%;\n    --ring: 340 70% 55%;\n    --radius: 0.75rem;\n    --cream: 35 40% 95%;\n    --hero-top: 260 50% 30%;\n    --hero-bottom: 340 60% 70%;\n  }\n}\n\n@layer base {\n  * {\n    @apply border-border;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n}"
         }
-      ]
+      ],
+      "reviewNotes": "nature-flow (6 gens). Cream base with pink/purple hero gradient vars and soft section rhythm are the useful cues. Do not copy the Aether brand or the generic five-column SaaS footer."
     },
     {
       "templateId": "KFyeD1PKXF4",
@@ -864,9 +793,9 @@
     {
       "templateId": "mEefgKyVifq",
       "sourceArchiveSha256": "d0b3cf062acd3ef72d91a5bcccfedd7b0f2c23c33964ee336ffb8b2472693b44",
-      "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
-      "structuralReferences": []
+      "reviewStatus": "disabled",
+      "structuralReferences": [],
+      "reviewNotes": "Empty generated record (0 excerpts). Disabled on purpose so it stays a conscious no-code-inspiration, not a silent hit."
     },
     {
       "templateId": "mQB1SyhOpe8",
@@ -975,28 +904,9 @@
     {
       "templateId": "ov3ApgfOdx5",
       "sourceArchiveSha256": "6b2e858dffaf79b525f4a4231b4c723ae62b3c1f8467936b8928d78a03868f76",
-      "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
-      "structuralReferences": [
-        {
-          "path": "app/page.tsx",
-          "language": "tsx",
-          "reason": "primary-page",
-          "excerpt": "import type { Metadata } from \"next\"\n\nexport const metadata: Metadata = {\n  title: \"Introduction | Minimal Docs Site\",\n  description: \"Welcome to our minimal documentation site\",\n}\n\nexport default function Home() {\n  return (\n    <main className=\"mx-auto max-w-3xl\">\n      <h1 className=\"mb-6 text-4xl font-bold\">Welcome to Our Docs</h1>\n      <p className=\"mb-4\">\n        This is a gorgeous minimal documentation site built with Next.js, Tailwind CSS, and shadcn/ui components.\n      </p>\n      <h2 className=\"mb-4 mt-8 text-2xl font-semibold\">Features</h2>\n      <ul className=\"mb-4 list-inside list-disc space-y-1\">\n        <li>Clean and minimal design</li>\n        <li>Dark mode support</li>\n        <li>Responsive layout</li>\n        <li>Easy navigation with shadcn sidebar</li>\n        <li>Built with Next.js App Router</li>\n      </ul>\n      <h2 className=\"mb-4 mt-8 text-2xl font-semibold\">Getting Started</h2>\n      <p className=\"mb-4\">\n        To get started with our documentation, please navigate through the sections using the sidebar on the left.\n        Here&apos;s a quick overview of the available sections:\n      </p>\n      <ul className=\"mb-4 list-inside list-disc space-y-1\">\n        <li>\n          <strong>Getting Started</strong>: Learn how to install and set up our library\n        </li>\n        <li>\n          <strong>Components</strong>: Explore the available components and how to use them\n        </li>\n        <li>\n          <strong>API Reference</strong>: Detailed information about our API and its methods\n        </li>\n      </ul>\n      <p className=\"mb-4\">\n        If you have any questions or need further assistance, don&apos;t hesitate to reach out to our support team.\n      </p>\n      <h2 className=\"mb-4 mt-8 text-2xl font-semibold\">Contributing</h2>\n      <p className=\"mb-4\">\n        We welcome contributions to our documentation. If you find any errors or have suggestions for improvement,\n        please open an issue or submit a pull request on our GitHub repository.\n      </p>\n    </main>\n  )\n}"
-        },
-        {
-          "path": "app/globals.css",
-          "language": "css",
-          "reason": "global-styles",
-          "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n@layer utilities {\n  .text-balance {\n    text-wrap: balance;\n  }\n}\n\n@layer base {\n  :root {\n    --font-sans: var(--font-geist-sans);\n    --font-mono: var(--font-geist-mono);\n    --background: 0 0% 100%;\n    --foreground: 0 0% 3.9%;\n    --card: 0 0% 100%;\n    --card-foreground: 0 0% 3.9%;\n    --popover: 0 0% 100%;\n    --popover-foreground: 0 0% 3.9%;\n    --primary: 0 0% 9%;\n    --primary-foreground: 0 0% 98%;\n    --secondary: 0 0% 96.1%;\n    --secondary-foreground: 0 0% 9%;\n    --muted: 0 0% 96.1%;\n    --muted-foreground: 0 0% 45.1%;\n    --accent: 0 0% 96.1%;\n    --accent-foreground: 0 0% 9%;\n    --destructive: 0 84.2% 60.2%;\n    --destructive-foreground: 0 0% 98%;\n    --border: 0 0% 89.8%;\n    --input: 0 0% 89.8%;\n    --ring: 0 0% 3.9%;\n    --chart-1: 12 76% 61%;\n    --chart-2: 173 58% 39%;\n    --chart-3: 197 37% 24%;\n    --chart-4: 43 74% 66%;\n    --chart-5: 27 87% 67%;\n    --radius: 0.5rem;\n    --sidebar-background: 0 0% 98%;\n    --sidebar-foreground: 240 5.3% 26.1%;\n    --sidebar-primary: 240 5.9% 10%;\n    --sidebar-primary-foreground: 0 0% 98%;\n    --sidebar-accent: 240 4.8% 95.9%;\n    --sidebar-accent-foreground: 240 5.9% 10%;\n    --sidebar-border: 220 13% 91%;\n    --sidebar-ring: 217.2 9\n/* … excerpt truncated … */\nng: 0 0% 83.1%;\n    --chart-1: 220 70% 50%;\n    --chart-2: 160 60% 45%;\n    --chart-3: 30 80% 55%;\n    --chart-4: 280 65% 60%;\n    --chart-5: 340 75% 55%;\n    --sidebar-background: 240 5.9% 10%;\n    --sidebar-foreground: 240 4.8% 95.9%;\n    --sidebar-primary: 224.3 76.3% 48%;\n    --sidebar-primary-foreground: 0 0% 100%;\n    --sidebar-accent: 240 3.7% 15.9%;\n    --sidebar-accent-foreground: 240 4.8% 95.9%;\n    --sidebar-border: 240 3.7% 15.9%;\n    --sidebar-ring: 217.2 91.2% 59.8%;\n  }\n}\n\n@layer base {\n  * {\n    @apply border-border;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n}"
-        },
-        {
-          "path": "app/layout.tsx",
-          "language": "tsx",
-          "reason": "root-layout",
-          "excerpt": "import \"./globals.css\"\nimport { Inter } from \"next/font/google\"\nimport { SidebarProvider, SidebarTrigger } from \"@/components/ui/sidebar\"\nimport { AppSidebar } from \"@/components/app-sidebar\"\n\nconst inter = Inter({ subsets: [\"latin\"] })\n\nexport const metadata = {\n  title: \"Minimal Docs Site\",\n  description: \"A gorgeous minimal documentation site using Next.js App Router\",\n    generator: 'v0.app'\n}\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode\n}) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <body className={`${inter.className} antialiased`}>\n        <SidebarProvider>\n          <AppSidebar />\n          <SidebarTrigger className=\"ml-3 mt-3\" />\n          <main className=\"flex-1 overflow-auto p-8 pt-16\">{children}</main>\n        </SidebarProvider>\n      </body>\n    </html>\n  )\n}"
-        }
-      ]
+      "reviewStatus": "disabled",
+      "structuralReferences": [],
+      "reviewNotes": "Docs-starter lorem plus stock tokens. Wrong inspiration for playground-mono and blog/tech-minimal."
     },
     {
       "templateId": "oZxBJ6zcOsz",
@@ -1053,28 +963,15 @@
     {
       "templateId": "Pf7lw1nypu5",
       "sourceArchiveSha256": "8e6a029cfa305090620df287bbdf1081602f04d2a0d47992b2d1aa853f26c521",
-      "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
-      "structuralReferences": [
-        {
-          "path": "app/globals.css",
-          "language": "css",
-          "reason": "global-styles",
-          "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n@layer utilities {\n  .text-balance {\n    text-wrap: balance;\n  }\n}\n\n@layer base {\n  :root {\n    --font-sans: var(--font-geist-sans);\n    --font-mono: var(--font-geist-mono);\n    --background: 0 0% 100%;\n    --foreground: 0 0% 3.9%;\n    --card: 0 0% 100%;\n    --card-foreground: 0 0% 3.9%;\n    --popover: 0 0% 100%;\n    --popover-foreground: 0 0% 3.9%;\n    --primary: 0 0% 9%;\n    --primary-foreground: 0 0% 98%;\n    --secondary: 0 0% 96.1%;\n    --secondary-foreground: 0 0% 9%;\n    --muted: 0 0% 96.1%;\n    --muted-foreground: 0 0% 45.1%;\n    --accent: 0 0% 96.1%;\n    --accent-foreground: 0 0% 9%;\n    --destructive: 0 84.2% 60.2%;\n    --destructive-foreground: 0 0% 98%;\n    --border: 0 0% 89.8%;\n    --input: 0 0% 89.8%;\n    --ring: 0 0% 3.9%;\n    --chart-1: 12 76% 61%;\n    --chart-2: 173 58% 39%;\n    --chart-3: 197 37% 24%;\n    --chart-4: 43 74% 66%;\n    --chart-5: 27 87% 67%;\n    --radius: 0.5rem;\n    --sidebar-background: 0 0% 98%;\n    --sidebar-foreground: 240 5.3% 26.1%;\n    --sidebar-primary: 240 5.9% 10%;\n    --sidebar-primary-foreground: 0 0% 98%;\n    --sidebar-accent: 240 4.8% 95.9%;\n    --sidebar-accent-foreground: 240 5.9% 10%;\n    --sidebar-border: 220 13% 91%;\n    --sidebar-ring: 217.2 9\n/* … excerpt truncated … */\nng: 0 0% 83.1%;\n    --chart-1: 220 70% 50%;\n    --chart-2: 160 60% 45%;\n    --chart-3: 30 80% 55%;\n    --chart-4: 280 65% 60%;\n    --chart-5: 340 75% 55%;\n    --sidebar-background: 240 5.9% 10%;\n    --sidebar-foreground: 240 4.8% 95.9%;\n    --sidebar-primary: 224.3 76.3% 48%;\n    --sidebar-primary-foreground: 0 0% 100%;\n    --sidebar-accent: 240 3.7% 15.9%;\n    --sidebar-accent-foreground: 240 4.8% 95.9%;\n    --sidebar-border: 240 3.7% 15.9%;\n    --sidebar-ring: 217.2 91.2% 59.8%;\n  }\n}\n\n@layer base {\n  * {\n    @apply border-border;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n}"
-        },
-        {
-          "path": "app/layout.tsx",
-          "language": "tsx",
-          "reason": "root-layout",
-          "excerpt": "import type { Metadata } from 'next'\nimport { Geist, Geist_Mono } from 'next/font/google'\nimport { Analytics } from '@vercel/analytics/next'\nimport './globals.css'\n\nconst _geist = Geist({ subsets: [\"latin\"] });\nconst _geistMono = Geist_Mono({ subsets: [\"latin\"] });\n\nexport const metadata: Metadata = {\n  title: 'v0 App',\n  description: 'Created with v0',\n  generator: 'v0.app',\n  icons: {\n    icon: [\n      {\n        url: '/icon-light-32x32.png',\n        media: '(prefers-color-scheme: light)',\n      },\n      {\n        url: '/icon-dark-32x32.png',\n        media: '(prefers-color-scheme: dark)',\n      },\n      {\n        url: '/icon.svg',\n        type: 'image/svg+xml',\n      },\n    ],\n    apple: '/apple-icon.png',\n  },\n}\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode\n}>) {\n  return (\n    <html lang=\"en\">\n      <body className=\"font-sans antialiased\">\n        {children}\n        {process.env.NODE_ENV === 'production' && <Analytics />}\n      </body>\n    </html>\n  )\n}"
-        }
-      ]
+      "reviewStatus": "disabled",
+      "structuralReferences": [],
+      "reviewNotes": "Stock shadcn tokens plus a v0 layout that reads process.env for Analytics. No page composition. First pick for app-shell/clean-utility."
     },
     {
       "templateId": "Pr8Pms0CEBm",
       "sourceArchiveSha256": "e1dae8517c2b69fba14dfeb3168a9628adc6c282deddbd4230d08256676b6192",
       "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
+      "reviewStatus": "reviewed",
       "structuralReferences": [
         {
           "path": "app/page.tsx",
@@ -1094,7 +991,8 @@
           "reason": "global-styles",
           "excerpt": "@import \"tailwindcss\";\n@import \"tw-animate-css\";\n\n@custom-variant dark (&:is(.dark *));\n\n:root {\n  --background: oklch(1 0 0); /* Clean white background */\n  --foreground: oklch(0.15 0 0); /* Dark text */\n  --card: oklch(1 0 0); /* Pure white card background - no shadows */\n  --card-foreground: oklch(0.15 0 0);\n  --popover: oklch(1 0 0);\n  --popover-foreground: oklch(0.15 0 0);\n  /* Updated to blue theme instead of emerald */\n  --primary: oklch(0.5 0.2 240); /* Blue primary color */\n  --primary-foreground: oklch(1 0 0);\n  --secondary: oklch(0.6 0.15 240); /* Lighter blue accent */\n  --secondary-foreground: oklch(1 0 0);\n  --muted: oklch(0.97 0 0);\n  --muted-foreground: oklch(0.45 0 0);\n  --accent: oklch(0.6 0.15 240); /* Blue accent */\n  --accent-foreground: oklch(1 0 0);\n  --destructive: oklch(0.577 0.245 27.325);\n  --destructive-foreground: oklch(1 0 0);\n  --border: oklch(0.9 0 0);\n  --input: oklch(1 0 0);\n  --ring: oklch(0.5 0.2 240); /* Blue focus ring */\n  --chart-1: oklch(0.6 0.15 240);\n  --chart-2: oklch(0.5 0.2 240);\n  --chart-3: oklch(0.35 0 0);\n  --chart-4: oklch(0.97 0 0);\n  --chart-5: oklch(1 0 0);\n  --radius: 0.5rem;\n  --sidebar: oklch(1 0 0);\n  --sidebar-foreground: oklch(0.15 0 0);\n  --sidebar-primary: oklch(0.5 0.2 240);\n  --sidebar-pri\n/* … excerpt truncated … */\nus-xl: calc(var(--radius) + 4px);\n  --color-sidebar: var(--sidebar);\n  --color-sidebar-foreground: var(--sidebar-foreground);\n  --color-sidebar-primary: var(--sidebar-primary);\n  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);\n  --color-sidebar-accent: var(--sidebar-accent);\n  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);\n  --color-sidebar-border: var(--sidebar-border);\n  --color-sidebar-ring: var(--sidebar-ring);\n}\n\n@layer base {\n  * {\n    @apply border-border outline-ring/50;\n  }\n  body {\n    @apply bg-background text-foreground font-sans;\n  }\n}"
         }
-      ]
+      ],
+      "reviewNotes": "Split-pane login/register/forgot is useful auth composition. button.tsx is wasted. Do not copy Frello or #3F3FF3."
     },
     {
       "templateId": "QeFZttwuC80",
@@ -1204,7 +1102,7 @@
       "templateId": "SD8IPhg8bcC",
       "sourceArchiveSha256": "aa129bb65e7b248b7faab696289aa56855a0958c42f8209ccdc30cf3c588a27e",
       "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
+      "reviewStatus": "reviewed",
       "structuralReferences": [
         {
           "path": "app/page.tsx",
@@ -1224,33 +1122,21 @@
           "reason": "global-styles",
           "excerpt": "@import \"tailwindcss\";\n@import \"tw-animate-css\";\n\n@custom-variant dark (&:is(.dark *));\n\n:root {\n  --background: oklch(1 0 0);\n  --foreground: oklch(0.145 0 0);\n  --card: oklch(1 0 0);\n  --card-foreground: oklch(0.145 0 0);\n  --popover: oklch(1 0 0);\n  --popover-foreground: oklch(0.145 0 0);\n  --primary: oklch(0.205 0 0);\n  --primary-foreground: oklch(0.985 0 0);\n  --secondary: oklch(0.97 0 0);\n  --secondary-foreground: oklch(0.205 0 0);\n  --muted: oklch(0.97 0 0);\n  --muted-foreground: oklch(0.556 0 0);\n  --accent: oklch(0.97 0 0);\n  --accent-foreground: oklch(0.205 0 0);\n  --destructive: oklch(0.577 0.245 27.325);\n  --destructive-foreground: oklch(0.577 0.245 27.325);\n  --border: oklch(0.922 0 0);\n  --input: oklch(0.922 0 0);\n  --ring: oklch(0.708 0 0);\n  --chart-1: oklch(0.646 0.222 41.116);\n  --chart-2: oklch(0.6 0.118 184.704);\n  --chart-3: oklch(0.398 0.07 227.392);\n  --chart-4: oklch(0.828 0.189 84.429);\n  --chart-5: oklch(0.769 0.188 70.08);\n  --radius: 0.625rem;\n  --sidebar: oklch(0.985 0 0);\n  --sidebar-foreground: oklch(0.145 0 0);\n  --sidebar-primary: oklch(0.205 0 0);\n  --sidebar-primary-foreground: oklch(0.985 0 0);\n  --sidebar-accent: oklch(0.97 0 0);\n  --sidebar-accent-foreground: oklch(0.205 0 0);\n  --sidebar-border: oklch(0.922 0 0);\n\n/* … excerpt truncated … */\nar-primary-foreground: var(--sidebar-primary-foreground);\n  --color-sidebar-accent: var(--sidebar-accent);\n  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);\n  --color-sidebar-border: var(--sidebar-border);\n  --color-sidebar-ring: var(--sidebar-ring);\n  /* Added Figtree as the default sans font */\n  --font-sans: var(--font-figtree);\n  --font-mono: ui-monospace, SFMono-Regular, \"SF Mono\", Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace;\n}\n\n@layer base {\n  * {\n    @apply border-border outline-ring/50;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n}"
         }
-      ]
+      ],
+      "reviewNotes": "page.tsx is a thin wrapper; crm-dashboard.tsx carries the frosted CRM shell. Use composition, not mock CRM data or brand."
     },
     {
       "templateId": "sV0OtrkXM6x",
       "sourceArchiveSha256": "e3ca07b31b31fb5b522c26d4fe2c8980b8e9aa276e299e45694788308ee1bdc9",
-      "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
-      "structuralReferences": [
-        {
-          "path": "app/globals.css",
-          "language": "css",
-          "reason": "global-styles",
-          "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\nbody {\n  font-family: Arial, Helvetica, sans-serif;\n}\n\n@layer utilities {\n  .text-balance {\n    text-wrap: balance;\n  }\n}\n\n@layer base {\n  :root {\n    --background: 0 0% 100%;\n    --foreground: 0 0% 3.9%;\n    --card: 0 0% 100%;\n    --card-foreground: 0 0% 3.9%;\n    --popover: 0 0% 100%;\n    --popover-foreground: 0 0% 3.9%;\n    --primary: 0 0% 9%;\n    --primary-foreground: 0 0% 98%;\n    --secondary: 0 0% 96.1%;\n    --secondary-foreground: 0 0% 9%;\n    --muted: 0 0% 96.1%;\n    --muted-foreground: 0 0% 45.1%;\n    --accent: 0 0% 96.1%;\n    --accent-foreground: 0 0% 9%;\n    --destructive: 0 84.2% 60.2%;\n    --destructive-foreground: 0 0% 98%;\n    --border: 0 0% 89.8%;\n    --input: 0 0% 89.8%;\n    --ring: 0 0% 3.9%;\n    --chart-1: 12 76% 61%;\n    --chart-2: 173 58% 39%;\n    --chart-3: 197 37% 24%;\n    --chart-4: 43 74% 66%;\n    --chart-5: 27 87% 67%;\n    --radius: 0.5rem;\n    --sidebar-background: 0 0% 98%;\n    --sidebar-foreground: 240 5.3% 26.1%;\n    --sidebar-primary: 240 5.9% 10%;\n    --sidebar-primary-foreground: 0 0% 98%;\n    --sidebar-accent: 240 4.8% 95.9%;\n    --sidebar-accent-foreground: 240 5.9% 10%;\n    --sidebar-border: 220 13% 91%;\n    --sidebar-ring: 217.2 91.2% 59.8%;\n  }\n  .dark {\n \n/* … excerpt truncated … */\nng: 0 0% 83.1%;\n    --chart-1: 220 70% 50%;\n    --chart-2: 160 60% 45%;\n    --chart-3: 30 80% 55%;\n    --chart-4: 280 65% 60%;\n    --chart-5: 340 75% 55%;\n    --sidebar-background: 240 5.9% 10%;\n    --sidebar-foreground: 240 4.8% 95.9%;\n    --sidebar-primary: 224.3 76.3% 48%;\n    --sidebar-primary-foreground: 0 0% 100%;\n    --sidebar-accent: 240 3.7% 15.9%;\n    --sidebar-accent-foreground: 240 4.8% 95.9%;\n    --sidebar-border: 240 3.7% 15.9%;\n    --sidebar-ring: 217.2 91.2% 59.8%;\n  }\n}\n\n@layer base {\n  * {\n    @apply border-border;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n}"
-        },
-        {
-          "path": "app/layout.tsx",
-          "language": "tsx",
-          "reason": "root-layout",
-          "excerpt": "import type React from \"react\"\nimport \"../basehub.config\"\nimport \"../styles/globals.css\"\nimport { Geist, Geist_Mono } from \"next/font/google\"\nimport { basehub } from \"basehub\"\nimport { Toolbar } from \"basehub/next-toolbar\"\nimport { Providers } from \"./providers\"\nimport { footerFragment, headerFragment } from \"../lib/basehub/fragments\"\nimport { Newsletter } from \"./_sections/newsletter\"\nimport { themeFragment } from \"../context/basehub-theme-provider\"\nimport { PlaygroundSetupModal } from \"../components/playground-notification\"\nimport { Header } from \"@/components/header\"\nimport { Footer } from \"@/components/footer\"\n\nconst geist = Geist({\n  subsets: [\"latin\"],\n  display: \"swap\",\n  variable: \"--font-sans\",\n  fallback: [\n    \"Inter\",\n    \"-apple-system\",\n    \"BlinkMacSystemFont\",\n    \"Segoe UI\",\n    \"Roboto\",\n    \"Oxygen\",\n    \"Ubuntu\",\n    \"Cantarell\",\n    \"Fira Sans\",\n    \"Droid Sans\",\n    \"Helvetica Neue\",\n    \"sans-serif\",\n  ],\n})\n\nconst geistMono = Geist_Mono({\n  subsets: [\"latin\"],\n  display: \"swap\",\n  variable: \"--font-mono\",\n  fallback: [\"monaco\", \"monospace\"],\n})\n\nexport const dynamic = \"force-static\"\nexport const revalidate = 30\n\nconst envs: Record<string, { isValid: boolean; name: string; label: string }> = {}\nconst _vercel_url_env_name = \"VERCEL_URL\"\nconst isMainV0 = process.env[_vercel_url_env_name]?.startsWith(\n// … excerpt truncated …\ne-primary] dark:text-[--dark-text-primary] ${geistMono.variable} ${geist.variable} font-sans`}\n      >\n        <Providers theme={settings.theme}>\n          {!isMainV0 && <Toolbar />}\n          {playgroundNotification}\n          {/* Header */}\n          <Header logo={settings.logo} header={header} />\n          <main className=\"min-h-[calc(100svh-var(--header-height))]\">{children}</main>\n          <Newsletter newsletter={footer.newsletter} />\n          {/* Footer */}\n          <Footer footer={footer} logo={settings.logo} />\n        </Providers>\n      </body>\n    </html>\n  )\n}\n\nexport const metadata = {\n  generator: \"v0.dev\",\n}"
-        }
-      ]
+      "reviewStatus": "disabled",
+      "structuralReferences": [],
+      "reviewNotes": "No page.tsx. CSS is stock shadcn/Arial. Layout leaks Basehub, VERCEL_URL and generator: v0.dev. First pick for starter-neutral and fresh-mint."
     },
     {
       "templateId": "tnZGzubtsTc",
       "sourceArchiveSha256": "99cd06b68de5a43d013e3c36057aa34b3c1cf5df93aacf85bb53d06157a8783b",
       "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
+      "reviewStatus": "reviewed",
       "structuralReferences": [
         {
           "path": "app/page.tsx",
@@ -1270,13 +1156,14 @@
           "reason": "global-styles",
           "excerpt": "@import \"tailwindcss\";\n\n@font-face {\n  font-family: 'Sentient';\n  src: url('/Sentient-Extralight.woff') format('woff');\n  font-weight: 200;\n  font-style: normal;\n  font-display: swap;\n}\n\n@font-face {\n  font-family: 'Sentient';\n  src: url('/Sentient-LightItalic.woff') format('woff');\n  font-weight: 300;\n  font-style: italic;\n  font-display: swap;\n}\n\n:root {\n  --background: #000000;\n  --foreground: #ffffff;\n  --primary: #FFC700;\n  --primary-foreground: #ffffff;\n  --border: #424242;\n}\n\n@utility container {\n  margin-inline: auto;\n  padding-inline: 1rem;\n\n  @media (width >= 768px) {\n    padding-inline: 2rem;\n  }\n\n  @media (width >= 1280px) {\n    padding-inline: 3rem;\n  }\n}\n\n@theme inline {\n  --color-background: var(--background);\n  --color-foreground: var(--foreground);\n  --color-primary: var(--primary);\n  --color-primary-foreground: var(--primary-foreground);\n  --color-border: var(--border);\n\n  --font-mono: var(--font-geist-mono);\n  --font-sentient: 'Sentient', sans-serif;\n\n  --shadow-glow: 0 0 8px 2px var(--tw-shadow-color);\n}\n\nbody {\n  background: var(--background);\n  color: var(--foreground);\n  font-family: Arial, Helvetica, sans-serif;\n}\n\n#webgl {\n  top: 0;\n  left: 0;\n  position: fixed;\n  height: 100svh;\n  width: 100%;\n}\n\n#webgl canvas {\n  width: 100%;\n  height: 100%;\n}"
         }
-      ]
+      ],
+      "reviewNotes": "Sole source for futuristic-investment-landing (7 gens). Keep the direction: black bg, #FFC700 primary, oversized serif italic headline, [Contact Us] brackets. Never import leva or the GL/WebGL component, and never reference the local Sentient .woff files — none of that exists in generated projects."
     },
     {
       "templateId": "v9Hg1dBb5o3",
       "sourceArchiveSha256": "fc6e0568f9f1a3a74bf657d482f9d882d6cc0ae82f6a12c84d1dc593963ef841",
       "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
+      "reviewStatus": "reviewed",
       "structuralReferences": [
         {
           "path": "app/page.tsx",
@@ -1296,7 +1183,8 @@
           "reason": "global-styles",
           "excerpt": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n@layer utilities {\n  .text-balance {\n    text-wrap: balance;\n  }\n}\n\n@layer base {\n  :root {\n    --font-sans: var(--font-geist-sans);\n    --font-mono: var(--font-geist-mono);\n    --background: 0 0% 100%;\n    --foreground: 0 0% 3.9%;\n    --card: 0 0% 100%;\n    --card-foreground: 0 0% 3.9%;\n    --popover: 0 0% 100%;\n    --popover-foreground: 0 0% 3.9%;\n    --primary: 0 0% 9%;\n    --primary-foreground: 0 0% 98%;\n    --secondary: 0 0% 96.1%;\n    --secondary-foreground: 0 0% 9%;\n    --muted: 0 0% 96.1%;\n    --muted-foreground: 0 0% 45.1%;\n    --accent: 0 0% 96.1%;\n    --accent-foreground: 0 0% 9%;\n    --destructive: 0 84.2% 60.2%;\n    --destructive-foreground: 0 0% 98%;\n    --border: 0 0% 89.8%;\n    --input: 0 0% 89.8%;\n    --ring: 0 0% 3.9%;\n    --chart-1: 12 76% 61%;\n    --chart-2: 173 58% 39%;\n    --chart-3: 197 37% 24%;\n    --chart-4: 43 74% 66%;\n    --chart-5: 27 87% 67%;\n    --radius: 0.5rem;\n    --sidebar-background: 0 0% 98%;\n    --sidebar-foreground: 240 5.3% 26.1%;\n    --sidebar-primary: 240 5.9% 10%;\n    --sidebar-primary-foreground: 0 0% 98%;\n    --sidebar-accent: 240 4.8% 95.9%;\n    --sidebar-accent-foreground: 240 5.9% 10%;\n    --sidebar-border: 220 13% 91%;\n    --sidebar-ring: 217.2 9\n/* … excerpt truncated … */\nng: 0 0% 83.1%;\n    --chart-1: 220 70% 50%;\n    --chart-2: 160 60% 45%;\n    --chart-3: 30 80% 55%;\n    --chart-4: 280 65% 60%;\n    --chart-5: 340 75% 55%;\n    --sidebar-background: 240 5.9% 10%;\n    --sidebar-foreground: 240 4.8% 95.9%;\n    --sidebar-primary: 224.3 76.3% 48%;\n    --sidebar-primary-foreground: 0 0% 100%;\n    --sidebar-accent: 240 3.7% 15.9%;\n    --sidebar-accent-foreground: 240 4.8% 95.9%;\n    --sidebar-border: 240 3.7% 15.9%;\n    --sidebar-ring: 217.2 91.2% 59.8%;\n  }\n}\n\n@layer base {\n  * {\n    @apply border-border;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n}"
         }
-      ]
+      ],
+      "reviewNotes": "Collapsible command-center shell is distinctive for immersive-dark. The button.tsx slot is wasted. Do not copy TACTICAL OPS copy."
     },
     {
       "templateId": "VEoDcF84vxz",
@@ -1510,7 +1398,7 @@
       "templateId": "XmzC9oi7g4m",
       "sourceArchiveSha256": "6dda09156f92124b23906cfe40b5e48344f3a42719a24fbe59dc4b48858e32ee",
       "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
+      "reviewStatus": "reviewed",
       "structuralReferences": [
         {
           "path": "app/page.tsx",
@@ -1530,13 +1418,14 @@
           "reason": "global-styles",
           "excerpt": "@import \"tailwindcss\";\n\n@theme inline {\n  /* Color */\n  --color-foreground: var(--foreground);\n  --color-background: var(--background);\n  --color-card: var(--card);\n  --color-card-foreground: var(--card-foreground);\n  --color-popover: var(--popover);\n  --color-popover-foreground: var(--popover-foreground);\n  --color-primary: var(--primary);\n  --color-primary-foreground: var(--primary-foreground);\n  --color-secondary: var(--secondary);\n  --color-secondary-foreground: var(--secondary-foreground);\n  --color-muted: var(--muted);\n  --color-muted-foreground: var(--muted-foreground);\n  --color-accent: var(--accent);\n  --color-accent-foreground: var(--accent-foreground);\n  --color-destructive: var(--destructive);\n  --color-border: var(--border);\n  --color-input: var(--input);\n  --color-ring: var(--ring);\n\n  /* Spacing */\n  --spacing-sides: var(--sides);\n  --spacing-modal-sides: var(--modal-sides);\n  --spacing-top-spacing: var(--top-spacing);\n  --spacing-fold: var(--height-fold);\n\n  /* Fonts */\n  --font-family-sans: var(--font-geist-sans), sans-serif;\n  --font-family-mono: var(--font-geist-mono), monospace;\n\n  /* Line Heights */\n  --text-xs--line-height: 1.2;\n  --text-sm--line-height: 1.2;\n  --text-base--line-height: 1.2;\n  --text-lg--line-height: 1.2;\n  --text\n/* … excerpt truncated … */\n {\n    @apply border-blue-400 bg-blue-50/50;\n  }\n  .prose :where(blockquote.warn) {\n    @apply border-amber-400 bg-amber-50/50;\n  }\n  .prose :where(blockquote.success) {\n    @apply border-emerald-400 bg-emerald-50/50;\n  }\n\n  /* First/last child */\n  .prose :where(:first-child) {\n    @apply mt-0;\n  }\n  .prose :where(:last-child) {\n    @apply mb-0;\n  }\n\n  /* Invert mode */\n  .invert .prose {\n    @apply text-neutral-100;\n  }\n  .invert .prose :where(a) {\n    @apply decoration-neutral-400 hover:decoration-neutral-200;\n  }\n}\n\nhtml,\nbody,\n* {\n  overscroll-behavior: none;\n  scroll-behavior: smooth;\n}"
         }
-      ]
+      ],
+      "reviewNotes": "Sidebar + latest-drop product grid is concrete ecommerce composition. Adapt the layout; do not copy Shopify clients or @/lib/shopify."
     },
     {
       "templateId": "XOMN4texeRO",
       "sourceArchiveSha256": "231a12ec77e18a866fde645ce67d56b112f838ea1df2f6a17efdc29337402055",
       "extractorSha256": "c5c3fe13549cd3d90bf54baf39bf57962b20969aabb115fccdd98685becba773",
-      "reviewStatus": "generated",
+      "reviewStatus": "reviewed",
       "structuralReferences": [
         {
           "path": "app/page.tsx",
@@ -1556,7 +1445,8 @@
           "reason": "global-styles",
           "excerpt": "@import \"tailwindcss\";\n@import \"tw-animate-css\";\n\n@custom-variant dark (&:is(.dark *));\n\n/* Japandi color palette - warm naturals with muted accents */\n:root {\n  --background: oklch(0.96 0.01 80);\n  --foreground: oklch(0.25 0.02 60);\n  --card: oklch(0.98 0.005 80);\n  --card-foreground: oklch(0.25 0.02 60);\n  --popover: oklch(0.98 0.005 80);\n  --popover-foreground: oklch(0.25 0.02 60);\n  --primary: oklch(0.35 0.06 150);\n  --primary-foreground: oklch(0.98 0.005 80);\n  --secondary: oklch(0.92 0.02 80);\n  --secondary-foreground: oklch(0.25 0.02 60);\n  --muted: oklch(0.9 0.02 80);\n  --muted-foreground: oklch(0.45 0.02 60);\n  --accent: oklch(0.65 0.12 45);\n  --accent-foreground: oklch(0.98 0.005 80);\n  --destructive: oklch(0.577 0.245 27.325);\n  --destructive-foreground: oklch(0.577 0.245 27.325);\n  --border: oklch(0.88 0.02 80);\n  --input: oklch(0.88 0.02 80);\n  --ring: oklch(0.35 0.06 150);\n  --chart-1: oklch(0.35 0.06 150);\n  --chart-2: oklch(0.65 0.12 45);\n  --chart-3: oklch(0.55 0.08 250);\n  --chart-4: oklch(0.7 0.1 120);\n  --chart-5: oklch(0.6 0.08 30);\n  --radius: 0.25rem;\n  --sidebar: oklch(0.96 0.01 80);\n  --sidebar-foreground: oklch(0.25 0.02 60);\n  --sidebar-primary: oklch(0.35 0.06 150);\n  --sidebar-primary-foreground: oklch(0.98 0.005 80);\n  --s\n/* … excerpt truncated … */\noreground);\n  --color-sidebar-accent: var(--sidebar-accent);\n  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);\n  --color-sidebar-border: var(--sidebar-border);\n  --color-sidebar-ring: var(--sidebar-ring);\n  --color-sand: var(--sand);\n  --color-sage: var(--sage);\n  --color-terracotta: var(--terracotta);\n  --color-indigo: var(--indigo);\n  --color-stone: var(--stone);\n}\n\n@layer base {\n  * {\n    @apply border-border outline-ring/50;\n  }\n  body {\n    @apply bg-background text-foreground;\n  }\n\n  /* Smooth scrolling for Japandi feel */\n  html {\n    scroll-behavior: smooth;\n  }\n}"
         }
-      ]
+      ],
+      "reviewNotes": "Japandi tokens (sage/terracotta) and Philosophy/Process inventory are useful editorial cues. Contact form is generic — do not copy brand or console.log submit."
     },
     {
       "templateId": "XQxxv76lK5w",

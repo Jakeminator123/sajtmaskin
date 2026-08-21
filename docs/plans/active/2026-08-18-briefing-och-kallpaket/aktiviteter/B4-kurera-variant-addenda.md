@@ -1,7 +1,10 @@
 # B4 — kurera variant-addendumen
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
-Status: inte startad.
+Status: första kurationspasset gjort 2026-08-21 (19 av 69 poster: 11 `reviewed`,
+8 `disabled`; urval = runtime-förstaval per variant, korsat mot prod-telemetri
+`generation_telemetry.variant_id` + B3-källkvittots `variant-reference`-rader).
+Resterande 50 `generated` är aldrig-förstaval eller lågtrafik.
 
 ## Problemet
 
