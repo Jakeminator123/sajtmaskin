@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { SHARED_TEST_EXCLUDE, STABILITY_TEST_GLOBS } from "./vitest.config";
+import { linkedWorktreeVitestPool } from "./scripts/dev/linked-worktree-vitest-pool";
 
 /**
  * Lane-config för `npm run test:stability` (grandmaster S1, warn-only).
@@ -23,5 +24,6 @@ export default defineConfig({
     setupFiles: [],
     include: STABILITY_TEST_GLOBS,
     exclude: SHARED_TEST_EXCLUDE,
+    ...linkedWorktreeVitestPool(__dirname),
   },
 });

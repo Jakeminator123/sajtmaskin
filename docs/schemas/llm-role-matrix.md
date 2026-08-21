@@ -64,7 +64,7 @@ vad som får styra kodgeneratorn ägs av glossaryn (`## Auktoritetsordning`).
 chattrutan *innan* sändning och skriver tillbaka naturligt språk. Den går via
 `/api/ai/prompt-assist`, inte `/api/ai/brief`.
 
-Tre live pre-codegen-modellsteg finns:
+Fyra live pre-codegen-LLM-vägar plus en legacy formatter finns:
 
 | Lager | Vad det gör | Var output hamnar | Kodfiler |
 | --- | --- | --- | --- |
