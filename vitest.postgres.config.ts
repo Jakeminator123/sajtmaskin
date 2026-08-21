@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import path from "path";
 import { POSTGRES_TEST_GLOBS, SHARED_TEST_EXCLUDE } from "./vitest.config";
+import { linkedWorktreeVitestPool } from "./scripts/dev/linked-worktree-vitest-pool";
 
 /**
  * Lane-config för `npm run test:postgres` — DB-backade kontraktstester mot en
@@ -37,5 +38,6 @@ export default defineConfig({
     setupFiles: [],
     include: POSTGRES_TEST_GLOBS,
     exclude: SHARED_TEST_EXCLUDE,
+    ...linkedWorktreeVitestPool(__dirname),
   },
 });

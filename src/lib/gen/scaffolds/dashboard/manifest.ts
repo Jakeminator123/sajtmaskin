@@ -39,10 +39,6 @@ export const dashboardManifest: ScaffoldManifest = {
       "Include segmented analytics views (traffic, conversion, retention) with tabs.",
       "Add export actions (CSV/PDF) and report scheduling placeholders.",
     ],
-    referenceTemplates: [
-      { id: "admin-dashboard-modernize-next-js-admin-dashboard-template", title: "Modernize Next.js Admin Dashboard", categorySlug: "admin-dashboard", qualityScore: 96, strengths: ["verified Next.js codebase", "dashboard shell patterns", "sidebar and table patterns"] },
-      { id: "saas-router-so-headless-forms-and-lead-routing", title: "Router.so Headless Forms", categorySlug: "saas", qualityScore: 96, strengths: ["verified Next.js codebase", "data-driven UI patterns", "form routing"] },
-    ],
   },
   // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
   // planning-helpers): /analytics and /settings were planned as optional,

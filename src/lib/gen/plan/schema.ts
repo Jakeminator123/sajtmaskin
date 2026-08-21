@@ -103,12 +103,13 @@ export type PlanScaffoldChoice = {
   source?: "planner" | "runtime" | "manual" | "auto";
 };
 
-export type PlanTemplateRecommendation = {
-  id?: string;
+export type PlanVariantTemplateReference = {
+  templateId: string;
   title: string;
-  categorySlug?: string;
-  reason?: string;
-  qualityScore?: number;
+  category: string;
+  addendumState: "hit" | "disabled" | "missing" | "stale" | "invalid";
+  hasStructuralReferences: boolean;
+  selectionReason: string;
 };
 
 export type PlanArtifact = {
@@ -122,7 +123,7 @@ export type PlanArtifact = {
   assumptions: PlanAssumption[];
   contracts?: PlanContracts;
   scaffold?: PlanScaffoldChoice | null;
-  templateRecommendations?: PlanTemplateRecommendation[];
+  variantTemplateReference?: PlanVariantTemplateReference | null;
   currentPhase: PlanPhase;
   createdAt: number;
   updatedAt: number;
@@ -137,11 +138,7 @@ function asString(value: unknown): string {
 }
 
 function asStringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value
-        .map((item) => asString(item))
-        .filter(Boolean)
-    : [];
+  return Array.isArray(value) ? value.map((item) => asString(item)).filter(Boolean) : [];
 }
 
 function coerceSiteType(value: unknown): PlanSiteType | undefined {
@@ -253,19 +250,27 @@ function normalizeScaffold(value: unknown): PlanScaffoldChoice | null {
   };
 }
 
-function normalizeTemplateRecommendation(value: unknown): PlanTemplateRecommendation | null {
+function normalizeVariantTemplateReference(value: unknown): PlanVariantTemplateReference | null {
   if (!isRecord(value)) return null;
+  const templateId = asString(value.templateId);
   const title = asString(value.title);
-  if (!title) return null;
+  const category = asString(value.category);
+  const addendumState = asString(value.addendumState);
+  if (
+    !templateId ||
+    !title ||
+    !category ||
+    !["hit", "disabled", "missing", "stale", "invalid"].includes(addendumState)
+  ) {
+    return null;
+  }
   return {
-    id: asString(value.id) || undefined,
+    templateId,
     title,
-    categorySlug: asString(value.categorySlug) || undefined,
-    reason: asString(value.reason) || undefined,
-    qualityScore:
-      typeof value.qualityScore === "number" && Number.isFinite(value.qualityScore)
-        ? value.qualityScore
-        : undefined,
+    category,
+    addendumState: addendumState as PlanVariantTemplateReference["addendumState"],
+    hasStructuralReferences: value.hasStructuralReferences === true,
+    selectionReason: asString(value.selectionReason) || "ordered-candidate-fallback",
   };
 }
 
@@ -355,11 +360,7 @@ export function normalizePlanArtifact(value: unknown): PlanArtifact | null {
     assumptions,
     contracts: normalizeContracts(value.contracts),
     scaffold: normalizeScaffold(value.scaffold),
-    templateRecommendations: Array.isArray(value.templateRecommendations)
-      ? value.templateRecommendations
-          .map((item) => normalizeTemplateRecommendation(item))
-          .filter((item): item is PlanTemplateRecommendation => Boolean(item))
-      : [],
+    variantTemplateReference: normalizeVariantTemplateReference(value.variantTemplateReference),
     currentPhase,
     createdAt:
       typeof value.createdAt === "number" && Number.isFinite(value.createdAt)
@@ -385,9 +386,7 @@ export function serializePlanForPrompt(plan: PlanArtifact): string {
     ...normalizedPlan.scope.map((s) => `- ${s}`),
     "",
     "### Steps",
-    ...normalizedPlan.steps.map(
-      (s) => `- [${s.status}] (${s.phase}) ${s.title}: ${s.description}`,
-    ),
+    ...normalizedPlan.steps.map((s) => `- [${s.status}] (${s.phase}) ${s.title}: ${s.description}`),
   ];
 
   if (normalizedPlan.siteType) {
@@ -433,21 +432,18 @@ export function serializePlanForPrompt(plan: PlanArtifact): string {
     lines.push("", "### Scaffold");
     lines.push(
       `- ${normalizedPlan.scaffold.label}` +
-        (normalizedPlan.scaffold.id
-          ? ` [${normalizedPlan.scaffold.id}]`
-          : "") +
+        (normalizedPlan.scaffold.id ? ` [${normalizedPlan.scaffold.id}]` : "") +
         (normalizedPlan.scaffold.reason ? ` — ${normalizedPlan.scaffold.reason}` : ""),
     );
   }
 
-  if (normalizedPlan.templateRecommendations && normalizedPlan.templateRecommendations.length > 0) {
-    lines.push("", "### Template recommendations");
-    for (const recommendation of normalizedPlan.templateRecommendations) {
-      lines.push(
-        `- ${recommendation.title}` +
-          (recommendation.reason ? ` — ${recommendation.reason}` : ""),
-      );
-    }
+  if (normalizedPlan.variantTemplateReference) {
+    const reference = normalizedPlan.variantTemplateReference;
+    lines.push("", "### Selected variant-template reference");
+    lines.push(
+      `- ${reference.title} [${reference.templateId}] — ${reference.category}; ` +
+        `addendum:${reference.addendumState}; structure:${reference.hasStructuralReferences ? "yes" : "no"}`,
+    );
   }
 
   if (normalizedPlan.assumptions.length > 0) {

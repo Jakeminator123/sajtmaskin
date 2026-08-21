@@ -206,6 +206,13 @@ varianten får i stället välja högst en av sina `sourceTemplateIds`, och bara
 manifestkategorin tydligt avser ett helt projekt. Stillbilden skickas till
 modellens visionkanal men markeras som icke-inbäddningsbar.
 
+Kandidatpoolen rangordnas deterministiskt med prompten och Deep Briefens
+domän-, innehålls- och stilsignaler. Preview-kompatibla kandidater hålls före
+de som uttryckligen inte ryms, användbara SHA-addenda premieras och
+variantens källordning är stabil tie-breaker. Ingen extra LLM används för
+urvalet. Det här är helprojektsinspiration; fristående shadcn/community-blocks
+väljs separat av UI Recipe-resolvern utifrån den aktuella beställningen.
+
 Kodunderlaget kommer i första hand från den SHA-bundna och versionsstyrda posten
 i `config/variant-template-addenda.json`. Postens `structuralReferences` är
 exakt de frontendutdrag som renderas i modellblocket `## Variant Template

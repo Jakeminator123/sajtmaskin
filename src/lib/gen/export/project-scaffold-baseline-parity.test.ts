@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { KNOWN_PACKAGES } from "@/lib/gen/autofix/dep-completer";
 import { SHADCN_FALLBACK_VERSIONS } from "@/lib/deploy/dependency-utils";
+import { buildCompleteProject } from "./project-scaffold";
+import type { CodeFile } from "../parser";
 
 /**
  * Version-glue guard: the dependency baseline that GENERATED PROJECTS ship
@@ -17,10 +19,13 @@ import { SHADCN_FALLBACK_VERSIONS } from "@/lib/deploy/dependency-utils";
  * preflight). Each gets its own block below; the granularity differs because
  * only the baseline is an exact pin.
  *
- * Lock granularity per package is defined by the buckets below. The runtime-
- * sensitive packages (lucide-react + the React-Three 3D stack) are locked at
- * the full declared major.minor.patch because their pins currently match
- * exactly and a silent minor/patch skew there is the highest build-break risk.
+ * Lock granularity per package is defined by the buckets below. `next` and
+ * `eslint-config-next` are major.minor-locked so the generated site and the
+ * warm pre-VM typecheck cannot sit on different Next minors (ägarbeslut
+ * 2026-08-21). The runtime-sensitive packages (lucide-react + the React-Three
+ * 3D stack) are locked at the full declared major.minor.patch because their
+ * pins currently match exactly and a silent minor/patch skew there is the
+ * highest build-break risk.
  * If a lucide bump trips this, also bump the `lucide-react` pin in
  * project-scaffold.ts and run `node scripts/dev/generate-lucide-icons.mjs`.
  */
@@ -70,13 +75,12 @@ function readGeneratedBaselineDeps(): Record<string, string> {
 const MAJOR_LOCKED = [
   "react",
   "react-dom",
-  "next",
   "radix-ui",
   "framer-motion",
 ] as const;
 
 /** Packages whose major AND minor must match (exact-runtime-sensitive). */
-const MAJOR_MINOR_LOCKED = ["tailwindcss"] as const;
+const MAJOR_MINOR_LOCKED = ["tailwindcss", "next", "eslint-config-next"] as const;
 
 /**
  * Packages locked at the full major.minor.patch level — the highest build-break
@@ -244,4 +248,122 @@ describe("deploy fallback versions parity with platform package.json", () => {
       expect(parseVersion(f)).toEqual(parseVersion(p));
     });
   }
+});
+
+/**
+ * The template-string parse above can stay green while `buildCompleteProject`
+ * (the path export/download/verify actually run) emits something else. This
+ * block judges the materialized `package.json`, not the root app and not the
+ * source template alone.
+ */
+function parseExportedPackageJson(files: { path: string; content: string }[]): {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+} {
+  const file = files.find((entry) => entry.path === "package.json");
+  if (!file) throw new Error("exported project is missing package.json");
+  return JSON.parse(file.content) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+}
+
+function minimalGeneratedFiles(): CodeFile[] {
+  return [
+    {
+      path: "app/page.tsx",
+      content: "export default function Page() { return null; }",
+      language: "tsx",
+    },
+  ];
+}
+
+describe("exported generated-project baseline (not just the root app)", () => {
+  const platform = readPlatformDeps();
+  const exported = parseExportedPackageJson(buildCompleteProject(minimalGeneratedFiles()));
+
+  it("emits next matching the platform major.minor", () => {
+    expect(exported.dependencies?.next, "exported project missing next").toBeTruthy();
+    const pv = parseVersion(platform.next);
+    const ev = parseVersion(exported.dependencies!.next);
+    expect({ major: ev.major, minor: ev.minor }).toEqual({ major: pv.major, minor: pv.minor });
+    expect(exported.dependencies!.next).toBe("16.3.1");
+  });
+
+  it("emits eslint-config-next matching the platform major.minor", () => {
+    expect(
+      exported.devDependencies?.["eslint-config-next"],
+      "exported project missing eslint-config-next",
+    ).toBeTruthy();
+    const pv = parseVersion(platform["eslint-config-next"]);
+    const ev = parseVersion(exported.devDependencies!["eslint-config-next"]);
+    expect({ major: ev.major, minor: ev.minor }).toEqual({ major: pv.major, minor: pv.minor });
+    expect(exported.devDependencies!["eslint-config-next"]).toBe("16.3.1");
+  });
+
+  it("force-pins next even when the model emits an older range", () => {
+    const files = buildCompleteProject([
+      {
+        path: "package.json",
+        content: JSON.stringify({ dependencies: { next: "^14.0.0" } }),
+        language: "json",
+      },
+      ...minimalGeneratedFiles(),
+    ]);
+    expect(parseExportedPackageJson(files).dependencies?.next).toBe("16.3.1");
+  });
+
+  it("force-pins eslint-config-next even when the model emits an older range", () => {
+    const files = buildCompleteProject([
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { next: "16.3.1" },
+          devDependencies: { "eslint-config-next": "16.2.9" },
+        }),
+        language: "json",
+      },
+      ...minimalGeneratedFiles(),
+    ]);
+    expect(parseExportedPackageJson(files).devDependencies?.["eslint-config-next"]).toBe(
+      "16.3.1",
+    );
+  });
+
+  it("drops a leftover eslint-config-next from dependencies when the model misplaced it", () => {
+    const files = buildCompleteProject([
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { next: "16.2.9", "eslint-config-next": "16.2.9" },
+        }),
+        language: "json",
+      },
+      ...minimalGeneratedFiles(),
+    ]);
+    const pkg = parseExportedPackageJson(files);
+    expect(pkg.dependencies?.next).toBe("16.3.1");
+    expect(pkg.devDependencies?.["eslint-config-next"]).toBe("16.3.1");
+    expect(pkg.dependencies?.["eslint-config-next"]).toBeUndefined();
+    expect(pkg.devDependencies?.next).toBeUndefined();
+  });
+
+  it("drops a leftover next from devDependencies when the model misplaced it", () => {
+    const files = buildCompleteProject([
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { react: "19.2.4" },
+          devDependencies: { next: "16.2.9", "eslint-config-next": "16.2.9" },
+        }),
+        language: "json",
+      },
+      ...minimalGeneratedFiles(),
+    ]);
+    const pkg = parseExportedPackageJson(files);
+    expect(pkg.dependencies?.next).toBe("16.3.1");
+    expect(pkg.devDependencies?.["eslint-config-next"]).toBe("16.3.1");
+    expect(pkg.dependencies?.["eslint-config-next"]).toBeUndefined();
+    expect(pkg.devDependencies?.next).toBeUndefined();
+  });
 });

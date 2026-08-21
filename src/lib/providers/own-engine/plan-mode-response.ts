@@ -33,6 +33,7 @@ export function createOwnEnginePlanModeResponse(params: {
   promptStrategyMeta: PromptStrategyMetaLike;
   buildSpec: BuildSpec;
   resolvedScaffold?: ScaffoldManifest | null;
+  variantTemplateId?: string | null;
   scaffoldMode: "auto" | "manual" | "off";
   persistAssistantSummary: (
     planData: PlanArtifact,
@@ -59,6 +60,7 @@ export function createOwnEnginePlanModeResponse(params: {
     promptStrategyMeta,
     buildSpec,
     resolvedScaffold,
+    variantTemplateId,
     scaffoldMode,
     persistAssistantSummary,
     buildDonePayload,
@@ -94,15 +96,14 @@ export function createOwnEnginePlanModeResponse(params: {
       enrichPlanArtifactForReview(toolArgs, {
         resolvedScaffold: resolvedScaffold ?? null,
         scaffoldMode,
+        variantTemplateId: variantTemplateId ?? null,
       }),
     resolvePlanArtifact: (accumulatedContent, toolPlanArtifact) =>
-      enrichPlanArtifactForReview(
-        toolPlanArtifact ?? parsePlanResponse(accumulatedContent),
-        {
-          resolvedScaffold: resolvedScaffold ?? null,
-          scaffoldMode,
-        },
-      ),
+      enrichPlanArtifactForReview(toolPlanArtifact ?? parsePlanResponse(accumulatedContent), {
+        resolvedScaffold: resolvedScaffold ?? null,
+        scaffoldMode,
+        variantTemplateId: variantTemplateId ?? null,
+      }),
     persistAssistantSummary,
     buildDonePayload,
     commitCredits,

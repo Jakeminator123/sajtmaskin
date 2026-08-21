@@ -178,18 +178,6 @@ export const emitPlanArtifact = tool({
         source: z.enum(["planner", "runtime", "manual", "auto"]).optional(),
       })
       .optional(),
-    templateRecommendations: z
-      .array(
-        z.object({
-          id: z.string().optional(),
-          title: z.string(),
-          categorySlug: z.string().optional(),
-          reason: z.string().optional(),
-          qualityScore: z.number().optional(),
-        }),
-      )
-      .optional()
-      .default([]),
     assumptions: z
       .array(
         z.object({
