@@ -1,9 +1,9 @@
 /**
  * Read-only: per-scaffold telemetri-aggregering för backoffice-panelen
- * `Scaffold Performance`. Speglar samma rad-set som `computeScaffoldScores`
- * i `src/lib/gen/scaffolds/scaffold-scoring.ts` MEN exponerar bara råa
- * counters — ingen `compositeScore`-formula för att undvika drift mellan
- * TS-runtime och Python-panelen.
+ * `Scaffold Performance`. Det här skriptet är den levande ytan — exponerar
+ * bara råa counters, ingen composite-formula. En tidigare runtime-boost
+ * i own-engine raderades (K4); återinför inte en matcher-boost utan nytt
+ * ägarbeslut.
  *
  * Kör:
  *   node scripts/db/scaffold-scores.mjs                # human-readable tabell
@@ -16,9 +16,8 @@
  * på alla rader. Backoffice-panelen visar varning om så är fallet.
  *
  * SAJ-49: rader med `previewSuccess === null` exkluderas från `total` och
- * `success_count` här (matchar TS-versionen efter SAJ-49-fixen). De
- * exponeras separat som `pending_count` så operatören ser hur stor andel
- * runs som aldrig fick en confirmed outcome.
+ * `success_count` här. De exponeras separat som `pending_count` så
+ * operatören ser hur stor andel runs som aldrig fick en confirmed outcome.
  */
 import { config } from "dotenv";
 import pg from "pg";

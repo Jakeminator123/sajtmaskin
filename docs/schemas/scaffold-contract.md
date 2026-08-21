@@ -34,7 +34,7 @@ A runtime scaffold is **not** just a thin label file.
 
 Each scaffold manifest contains:
 
-- metadata (`id`, `label`, `description`, `tags`, `promptHints`)
+- metadata (`id`, `label`, `description`, `tags` (embeddings-only; matcher uses `keyword-banks.ts`), `promptHints`)
 - runtime traits (`structureProfile`, `contentProfile`, `siteKind`, `complexity`, `features`)
 - actual starter files in `files[]`
 - optional `qualityChecklist`
@@ -91,7 +91,7 @@ After all sources contribute, `buildRoutePlan()` runs `dedupePlannedRoutesInPlac
 - optional `complexity`
 - optional `features`
 - `allowedBuildIntents`
-- `tags`
+- `tags` (embeddings-only; not read by `matchScaffoldAuto`)
 - `promptHints`
 - `routeContract` (optional in the type for test fixtures; validation requires
   it on every registered scaffold — see [Route contract](#route-contract))

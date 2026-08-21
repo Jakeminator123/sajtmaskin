@@ -179,8 +179,7 @@ export async function recordDeployResultForVersion(
  * onto the version's latest telemetry row. Mirrors `recordDeployResultForVersion`.
  *
  * `preview_success` is a tri-state the readers already assume (see
- * `scaffold-scoring.ts` SAJ-49, `scripts/db/scaffold-scores.mjs`,
- * backoffice `_preview_label`):
+ * `scripts/db/scaffold-scores.mjs` SAJ-49, backoffice `_preview_label`):
  *   - `true`  = runtime confirmed responding (preview-host `/status running:true`,
  *               i.e. a real runtime-ready receipt).
  *   - `false` = the preview will not / did not produce a working runtime

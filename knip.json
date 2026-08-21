@@ -4,7 +4,6 @@
     "infra/openclaw/generate-config.mjs",
     "src/lib/mcp/generate-site.ts",
     "src/lib/observability/fault-promotion-report-cli.ts",
-    "src/lib/gen/scaffolds/scaffold-scoring.ts",
     "src/components/ui/**",
     "src/lib/hooks/use-mobile.ts",
     "scripts/**/*.{ts,mts,mjs,cjs,js}"

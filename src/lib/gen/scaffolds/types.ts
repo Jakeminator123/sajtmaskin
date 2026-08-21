@@ -177,6 +177,12 @@ export interface ScaffoldManifest {
   complexity?: ScaffoldComplexity;
   features?: string[];
   allowedBuildIntents: Array<"website" | "app" | "template">;
+  /**
+   * Embeddings-only signal. `scaffold-embeddings-core.ts` concatenates these
+   * into the bilingual embedding document. Auto-match (`matchScaffoldAuto`)
+   * does **not** read `tags` — it uses the hardcoded banks in
+   * `keyword-banks.ts`. Do not treat this field as a second matcher.
+   */
   tags: string[];
   promptHints: string[];
   /**

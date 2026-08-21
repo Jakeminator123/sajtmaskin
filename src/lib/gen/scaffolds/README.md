@@ -42,7 +42,6 @@ when generating code.
 | `scaffold-search.ts`                | Embedding-based `searchScaffolds()`; expands SV<->EN query hints before cosine ranking.                                                                                             |
 | `scaffold-embedding-locale.ts`      | Swedish mirrors (label, description, keywords) paired with English manifest text in embedding documents.                                                                            |
 | `scaffold-embeddings-core.ts`       | Builds bilingual text -> OpenAI embeddings. Run `npx tsx scripts/embeddings/generate-scaffold-embeddings.ts` after manifest or scaffold research changes.                           |
-| `scaffold-scoring.ts`               | Telemetry-based boost/penalize for generic scaffolds.                                                                                                                               |
 | `scaffold-aware-retry.ts`           | Suggests an alternative scaffold after finalize/preflight failures. This is reactive retry logic, separate from initial scaffold selection.                                         |
 | `scaffold-research.ts`              | Loads `scaffold-research.generated.json` overrides. During full refresh/bootstrap it falls back to empty overrides so the generated file can be rebuilt from scratch.               |
 
