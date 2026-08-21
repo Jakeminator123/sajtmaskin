@@ -14,7 +14,6 @@ const CODEGEN_ONLY_KEYS = [
   "persistedVariantId",
   "customInstructions",
   "chatId",
-  "followUpIntent",
   "priorQualityTarget",
   "requestKind",
 ] as const;
@@ -130,8 +129,21 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     expect(planInput.persistedScaffoldId).toBe("landing-page");
     expect(planInput.previousFilesCount).toBe(12);
     expect(planInput.generationMode).toBe("followUp");
+    expect(planInput.followUpIntent).toBe("neutral");
     expect(planInput.lifecycleStage).toBe("design");
     expect(planInput.engineModelId).toBe("gpt-5.4");
+  });
+
+  it("forwards clear-redesign on plan mode so inspiration can resolve", () => {
+    const planInput = buildFollowUpOrchestrationInput(
+      baseParams({ mode: "plan", followUpIntent: "clear-redesign" }),
+    );
+    const codegenInput = buildFollowUpOrchestrationInput(
+      baseParams({ mode: "codegen", followUpIntent: "clear-redesign" }),
+    );
+
+    expect(planInput.followUpIntent).toBe("clear-redesign");
+    expect(codegenInput.followUpIntent).toBe("clear-redesign");
   });
 
   it("strips focus-point appendix from routePlanPrompt but keeps it on rawPrompt", () => {
@@ -341,6 +353,7 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     expect(codegenInput.isFirstCodeGeneration).toBe(true);
     expect(planInput.capabilities).toBeUndefined();
     expect(codegenInput.capabilities).toBeUndefined();
+    expect(planInput.followUpIntent).toBeUndefined();
     expect(codegenInput.followUpIntent).toBeUndefined();
   });
 

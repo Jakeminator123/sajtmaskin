@@ -266,6 +266,10 @@ export function buildFollowUpOrchestrationInput(
     // one readable object. Additive — does not change how the fields above
     // are read by orchestrate (parity preserved).
     followUpContract,
+    // Shared by plan and codegen: a follow-up plan for `clear-redesign`
+    // must see the same intent as codegen so compact-mode and variant
+    // inspiration resolve the same way (K3).
+    followUpIntent: params.hasFollowUpBase ? (params.followUpIntent ?? undefined) : undefined,
   };
 
   if (params.mode === "plan") {
@@ -277,7 +281,6 @@ export function buildFollowUpOrchestrationInput(
     persistedVariantId: params.persistedVariantId,
     customInstructions: params.customInstructions,
     chatId: params.chatId,
-    followUpIntent: params.hasFollowUpBase ? (params.followUpIntent ?? undefined) : undefined,
     priorQualityTarget: params.priorQualityTarget,
     requestKind: params.requestKind ?? null,
   };
