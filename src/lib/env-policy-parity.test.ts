@@ -82,11 +82,16 @@ describe("env-policy rules integrity", () => {
     expect(padded, `rule keys with surrounding whitespace: ${padded.join(", ")}`).toEqual([]);
   });
 
-  it("SAJTMASKIN_LIVE_REVIEW stays gated until SM-070", () => {
+  it("SAJTMASKIN_LIVE_REVIEW is code-gated (SM-070 gate landed), targets recommended", () => {
+    // SM-070-grinden är byggd: flaggan räcker inte ensam — OC_EDIT och en
+    // persistad live_review-grant krävs också. Policyn får därför rekommendera
+    // Vercel-targets, men noterna måste fortsatt beskriva grind-kraven så att
+    // flaggan aldrig återgår till att vara en ensam på/av-knapp.
     const rule = policy.rules.find((r) => r.key === "SAJTMASKIN_LIVE_REVIEW");
     expect(rule, "SAJTMASKIN_LIVE_REVIEW must have an explicit env-policy rule").toBeDefined();
-    expect(rule?.recommendedVercelTargets ?? ["unset"]).toEqual([]);
-    expect(rule?.notes ?? "").toMatch(/DO NOT ENABLE — SM-070/);
+    expect(rule?.recommendedVercelTargets ?? ["unset"]).toEqual(["preview", "production"]);
+    expect(rule?.notes ?? "").toMatch(/OC_EDIT/);
+    expect(rule?.notes ?? "").toMatch(/live_review grant/);
   });
 
   it("shared_runtime rules declare the complete Vercel target set", () => {

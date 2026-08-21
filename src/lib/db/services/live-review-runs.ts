@@ -1,4 +1,4 @@
-import { and, eq, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, lt, ne, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db, dbConfigured } from "@/lib/db/client";
 import { engineChats, liveReviewRuns } from "@/lib/db/schema";
@@ -265,10 +265,14 @@ export async function getLiveReviewRunForVersion(
 ): Promise<LiveReviewRunRow | null> {
   if (!versionId.trim() || !dbConfigured) return null;
   try {
+    // ORDER BY i SQL före LIMIT — annars tar vi 8 godtyckliga rader och kan
+    // missa den nyaste färdiga reviewn när en version har fler revisioner
+    // (PR-granskningsfynd F-c264a864d347).
     const rows = await db
       .select()
       .from(liveReviewRuns)
       .where(eq(liveReviewRuns.versionId, versionId.trim()))
+      .orderBy(desc(liveReviewRuns.completedAt))
       .limit(8);
     const completed = rows
       .map(mapRow)
