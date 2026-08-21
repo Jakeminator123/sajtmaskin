@@ -47,11 +47,6 @@ export const ecommerceManifest: ScaffoldManifest = {
       "Show related products and recently viewed items on product pages.",
       "Generate structured data (JSON-LD Product + BreadcrumbList) for category and product pages.",
     ],
-    referenceTemplates: [
-      { id: "ecommerce-blazity-enterprise-ecommerce-starter", title: "Blazity Enterprise Ecommerce Starter", categorySlug: "ecommerce", qualityScore: 96, strengths: ["verified Next.js codebase", "product catalog patterns", "checkout flow"] },
-      { id: "ecommerce-stripe-subscription-starter", title: "Stripe Subscription Starter", categorySlug: "ecommerce", qualityScore: 96, strengths: ["verified Next.js codebase", "payment integration", "subscription billing"] },
-      { id: "ecommerce-your-next-store-commerce-with-next-js-and-stripe", title: "Your Next Store — Commerce with Stripe", categorySlug: "ecommerce", qualityScore: 96, strengths: ["verified Next.js codebase", "storefront architecture", "cart and checkout"] },
-    ],
   },
   // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
   // planning-helpers): only /products was guaranteed by the plan.

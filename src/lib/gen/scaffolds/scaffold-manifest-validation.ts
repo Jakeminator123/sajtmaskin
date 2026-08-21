@@ -86,10 +86,7 @@ function validateBuildIntentScope(
  * `scaffold-manifest-validation.test.ts` — this only keeps the manifest
  * data itself well-formed so drift fails loud.
  */
-function validateRouteContract(
-  scaffold: ScaffoldManifest,
-  issues: ScaffoldManifestIssue[],
-): void {
+function validateRouteContract(scaffold: ScaffoldManifest, issues: ScaffoldManifestIssue[]): void {
   const contract = scaffold.routeContract;
   if (!contract) {
     issues.push({
@@ -383,10 +380,7 @@ export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldMa
         message: `Invalid role "${file.role}" on ${file.path}. Allowed: ${[...VALID_FILE_ROLES].join(", ")}`,
       });
     }
-    if (
-      file.serialization !== undefined &&
-      !VALID_FILE_SERIALIZATIONS.has(file.serialization)
-    ) {
+    if (file.serialization !== undefined && !VALID_FILE_SERIALIZATIONS.has(file.serialization)) {
       issues.push({
         scaffoldId: scaffold.id,
         severity: "error",
@@ -467,18 +461,6 @@ export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldMa
       severity: "warning",
       message: `promptHints should have at least 2 entries (has ${scaffold.promptHints.length})`,
     });
-  }
-
-  if (scaffold.research?.referenceTemplates) {
-    for (const reference of scaffold.research.referenceTemplates) {
-      if (reference.qualityScore < 0 || reference.qualityScore > 100) {
-        issues.push({
-          scaffoldId: scaffold.id,
-          severity: "error",
-          message: `Reference template ${reference.id} has an invalid quality score`,
-        });
-      }
-    }
   }
 
   return issues;

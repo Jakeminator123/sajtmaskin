@@ -145,7 +145,6 @@ def _render_manifest_ts(
         [
             "  research: {",
             f"    upgradeTargets: {_render_ts_string_array(upgrade_targets, indent='    ')},",
-            "    referenceTemplates: [],",
             "  },",
             # Empty route contract by design: validateScaffoldManifest requires the
             # field, and the link-vs-contract gate then forces curation of any

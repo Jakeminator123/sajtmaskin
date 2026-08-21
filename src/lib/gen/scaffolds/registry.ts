@@ -62,10 +62,6 @@ function mergeScaffoldResearch(
   if (!base && !override) return undefined;
   return {
     upgradeTargets: mergeUniqueStrings(base?.upgradeTargets ?? [], override?.upgradeTargets ?? []),
-    referenceTemplates:
-      override?.referenceTemplates && override.referenceTemplates.length > 0
-        ? override.referenceTemplates
-        : (base?.referenceTemplates ?? []),
   };
 }
 

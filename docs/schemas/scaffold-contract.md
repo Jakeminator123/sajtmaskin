@@ -38,7 +38,7 @@ Each scaffold manifest contains:
 - runtime traits (`structureProfile`, `contentProfile`, `siteKind`, `complexity`, `features`)
 - actual starter files in `files[]`
 - optional `qualityChecklist`
-- optional `research` (`upgradeTargets`, `referenceTemplates`)
+- optional `research` (`upgradeTargets`)
 
 Legacy stored plan payloads may still surface `scaffold.family` as a
 backward-compatible alias of `scaffold.id`, but runtime `ScaffoldManifest`
@@ -119,13 +119,6 @@ Supporting subtypes:
   - optional `maxPromptChars` — per-file ceiling for `representativeLines` when the resolved serialization is `excerpt`, or when a large `full` file falls back to FileContract. Lets manifests expose a few safe outline lines from a verbose file without sending partial executable TSX.
 - `ScaffoldResearchMetadata`
   - `upgradeTargets`
-  - `referenceTemplates`
-- `ScaffoldReferenceTemplate`
-  - `id`
-  - `title`
-  - `categorySlug`
-  - `qualityScore`
-  - `strengths`
 
 ### Route contract
 
@@ -139,12 +132,12 @@ copy them into docs.
 
 Four categories:
 
-| Field | Meaning | Planned? |
-|---|---|---|
-| `requiredRoutes` | The plan must include the route; the scaffold's files may link to it unconditionally | Yes, as `required` |
-| `optionalRoutes` | May be planned; may be trimmed by the per-round page ceiling | Yes, as non-required |
-| `declaredRoutePaths` | A page file exists in the scaffold but the plan does not need to include the route every round | Never |
-| `dynamicRoutePatterns` | Patterns like `/product/[id]` — links are matched against them, never planned as list entries | Never |
+| Field                  | Meaning                                                                                        | Planned?             |
+| ---------------------- | ---------------------------------------------------------------------------------------------- | -------------------- |
+| `requiredRoutes`       | The plan must include the route; the scaffold's files may link to it unconditionally           | Yes, as `required`   |
+| `optionalRoutes`       | May be planned; may be trimmed by the per-round page ceiling                                   | Yes, as non-required |
+| `declaredRoutePaths`   | A page file exists in the scaffold but the plan does not need to include the route every round | Never                |
+| `dynamicRoutePatterns` | Patterns like `/product/[id]` — links are matched against them, never planned as list entries  | Never                |
 
 Two categories are not enough: ecommerce ships real files for
 `/category/[slug]` and `/product/[id]` and links to example data such as
@@ -217,11 +210,11 @@ The system prompt does not need every scaffold file in full. `serialize.ts`
 renders each selected critical file based on its resolved
 `(role, serialization)`:
 
-| Resolved policy | What reaches the LLM |
-|-----------------|----------------------|
-| `full` | Verbatim file content when the file is small enough for prompt context. Oversized `full` files are rendered as FileContract instead of truncated source. |
-| `excerpt` | A `FileContract` block, not a source-code fence. It lists path, role, completeness, ownership, mustEmit, source size, imports, exports, detected structure, capped `representativeLines`, and rules. Used for `route-page` and other files where partial code would be misleading. |
-| `signature` | A `FileContract` block with imports/exports/structure only — used for `components/*` and `app/.../route.ts` so the LLM sees the interface without re-reading bodies. |
+| Resolved policy | What reaches the LLM                                                                                                                                                                                                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `full`          | Verbatim file content when the file is small enough for prompt context. Oversized `full` files are rendered as FileContract instead of truncated source.                                                                                                                           |
+| `excerpt`       | A `FileContract` block, not a source-code fence. It lists path, role, completeness, ownership, mustEmit, source size, imports, exports, detected structure, capped `representativeLines`, and rules. Used for `route-page` and other files where partial code would be misleading. |
+| `signature`     | A `FileContract` block with imports/exports/structure only — used for `components/*` and `app/.../route.ts` so the LLM sees the interface without re-reading bodies.                                                                                                               |
 
 `FileContract` blocks are explicitly **not executable source**. They must never
 be copied into output. If the LLM emits a path described by a FileContract, it
@@ -305,7 +298,6 @@ handkuraterad för auto-matchning eller retry-heuristik.
 - presence of `@theme inline` tokens in `app/globals.css` as a warning
 - required `app/layout.tsx`
 - recommended `app/page.tsx`
-- `research.referenceTemplates[*].qualityScore` must stay within `0..100`
 - total `files` content should stay under ~15 000 chars (warning). Larger scaffolds waste prompt budget since serialization truncates anyway.
 - `qualityChecklist` should have at least 3 entries (warning)
 - `promptHints` should have at least 2 entries (warning)
@@ -324,17 +316,16 @@ Scaffolds may be enriched with curated reference data through:
 This metadata may improve search, matching, and upgrade decisions, but it does
 not create a second runtime scaffold registry.
 
-When present, `research.referenceTemplates` is consumed by prompt assembly
-(`src/lib/gen/system-prompt/`) as budgeted "Reference inspirations" alongside
-`qualityChecklist` and `upgradeTargets`.
+The artifact contains only scaffold-owned quality guidance. Complete-project
+inspiration is selected from the active variant's Blob ids; request-specific
+component/block inspiration is selected independently through UI Recipes.
 
 ## Serialization rule
 
 When a scaffold is selected:
 
 - the scaffold is serialized into generation context
-- scaffold research priorities may include a curated reference-template summary
-  (bounded primärt av `BuildSpec.tokenBudgets.refsTokens`, med `refsChars` som kompat-fallback)
+- scaffold research priorities include `qualityChecklist` and `upgradeTargets`
 - the model may replace, extend, or refine scaffold files
 - the finalized version may merge scaffold base files with generated output
 
@@ -357,8 +348,8 @@ The active own-engine prompt path does **not** send:
 - raw discovery catalogs
 - full dossier directories
 
-External reference material influences runtime indirectly through generated
-artifacts such as `scaffold-research.generated.json`.
+External reference material reaches runtime only through its explicit owner:
+variant-template addenda, UI Recipes, dossiers or media references.
 
 ## Quality boundary
 
@@ -378,6 +369,12 @@ External references may inform a scaffold, but runtime scaffolds should remain:
 **Ersättare:** Per-integration- och stilexempel hanteras nu av dossier-pipen v2 i `data/dossiers/{hard,soft}/<id>/`. `data/dossiers/_index/capability-map.json` är en genererad backoffice-view (inte runtime-källa) — runtime walkar `hard/` + `soft/` direkt och matchar via deterministisk capability-regel. Aktivt via `SAJTMASKIN_DOSSIER_PIPELINE` (default på; sätt `false`/`0` för opt-out). Se [`docs/llm/dossier-selection-flow.md`](../llm/dossier-selection-flow.md) för urvalsflödet och [`docs/contracts/dossier-system.md`](../contracts/dossier-system.md) för full spec.
 
 **Nuvarande variantväg (2026-08-19):** `src/lib/gen/scaffold-variants/template-inspiration.ts` väljer högst en komplett sajt/app från variantens Blob-id:n. Stillbilden går till visionkanalen som style-only och dess URL får inte bli ett genererat asset. SHA-bundna `config/variant-template-addenda.json` äger de granskningsbara strukturutdragen. Ett `hit` ger högst tre frontendfiler och högst 9 000 utdragstecken; paketmanifest, lockfiler, backend och binära assets tas inte med. `disabled`, `missing`, `stale` och `invalid` ger inga utdrag och hämtar inte arkivet i användarflödet — en varning loggas så tystnaden går att räkna. ZIP-läsning hör till offline `templates:addenda` och till verbatim-import. `signaturePatterns` fortsätter bära variantens kuraterade layouts/motifs/antiPatterns i `## Scaffold Variant`, medan den valda mallen ligger separat i `## Variant Template Inspiration`.
+
+Kandidaterna rangordnas mot prompt + Deep Brief med källordning som stabil
+tie-breaker. Det finns inget numeriskt kontrakt för hur många komponentfiler en
+scaffold får ha: varje fil måste vara använd, stackkompatibel och värd sin
+serialization-/promptbudget. UI Recipe-gränsen är en separat promptbudget och
+ska inte tolkas som ett tak för scaffoldens körbara komponenter.
 
 ## Font handling
 

@@ -148,7 +148,9 @@ export async function finalizeOrchestrationPrompts(
     resolvedMode === "init" &&
     input.importedRepoMode !== true &&
     scaffoldIdForVariant !== SCAFFOLD_OFF_BASELINE_ID
-      ? await resolveVariantTemplateInspiration(resolvedVariant)
+      ? await resolveVariantTemplateInspiration(resolvedVariant, {
+          selectionContext: { prompt, brief },
+        })
       : null;
   const variantTemplateReferenceAttachments = buildVariantTemplateReferenceAttachments(
     variantTemplateInspiration,

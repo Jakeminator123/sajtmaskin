@@ -46,8 +46,7 @@ type VariantTemplateReviewedFullProjectCategory =
   (typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS)[keyof typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS]["category"];
 
 export type VariantTemplateReferenceCategory =
-  | VariantTemplateFullProjectCategory
-  | VariantTemplateReviewedFullProjectCategory;
+  VariantTemplateFullProjectCategory | VariantTemplateReviewedFullProjectCategory;
 
 type ManifestTemplate = {
   id: string;
@@ -66,6 +65,8 @@ export type VariantTemplateInspiration = {
   archiveUrl: string;
   stillImageUrl: string;
   structuralReferences: VariantTemplateStructuralReference[];
+  /** Deterministic, non-sensitive summary of why this candidate won. */
+  selectionReason?: string;
 };
 
 type TemplateAddendumLoader = (templateId: string) => VariantTemplateAddendumResolution;
@@ -73,6 +74,14 @@ type TemplateAddendumLoader = (templateId: string) => VariantTemplateAddendumRes
 type ResolveVariantTemplateInspirationOptions = {
   includeStructure?: boolean;
   loadAddendum?: TemplateAddendumLoader;
+  selectionContext?: VariantTemplateSelectionContext;
+};
+
+export type VariantTemplateSelectionContext = {
+  /** Raw request text. Used only for deterministic lexical ranking. */
+  prompt?: string | null;
+  /** Deep Brief. Values are flattened for matching; it never becomes authority here. */
+  brief?: unknown;
 };
 
 const FULL_PROJECT_CATEGORY_SET = new Set<string>(VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES);
@@ -81,6 +90,30 @@ const REVIEWED_FULL_PROJECT_BY_ID: Readonly<
 > = VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS;
 const MAX_STRUCTURAL_EXCERPT_CHARS = 9_000;
 const STRUCTURAL_FILE_EXTENSIONS = [".tsx", ".jsx", ".ts", ".js", ".css"];
+const SELECTION_STOP_WORDS = new Set([
+  "and",
+  "app",
+  "att",
+  "build",
+  "bygga",
+  "create",
+  "en",
+  "ett",
+  "for",
+  "för",
+  "hemsida",
+  "i",
+  "med",
+  "och",
+  "page",
+  "sajt",
+  "site",
+  "som",
+  "the",
+  "till",
+  "web",
+  "website",
+]);
 
 function readManifestTemplates(): ManifestTemplate[] {
   const templates = (blobManifestData as { templates?: unknown }).templates;
@@ -133,12 +166,43 @@ function isFullProjectTemplate(
  */
 export function selectVariantTemplateReference(
   variant: Pick<ScaffoldVariant, "sourceTemplateIds"> | null | undefined,
+  options: {
+    selectionContext?: VariantTemplateSelectionContext;
+    loadAddendum?: TemplateAddendumLoader;
+  } = {},
 ): Omit<VariantTemplateInspiration, "structuralReferences"> | null {
   const eligible = (variant?.sourceTemplateIds ?? []).flatMap((templateId) => {
     const template = TEMPLATE_BY_ID.get(templateId);
     return template && isFullProjectTemplate(template) ? [template] : [];
   });
-  const selected = eligible.find((template) => template.previewFits !== false) ?? eligible[0];
+  const previewCompatible = eligible.filter((template) => template.previewFits !== false);
+  const candidates = previewCompatible.length > 0 ? previewCompatible : eligible;
+  const queryTokens = selectionTokens(options.selectionContext);
+  const loadAddendum = options.loadAddendum ?? resolveVariantTemplateAddendum;
+  const ranked = candidates.map((template, index) => {
+    const addendum = loadAddendum(template.id);
+    const titleTokens = tokenizeSelectionText(template.title);
+    const referenceText =
+      addendum.structuralReferences
+        ?.map((reference) => `${reference.path} ${reference.excerpt}`)
+        .join(" ") ?? "";
+    const referenceTokens = tokenizeSelectionText(referenceText);
+    let matches = 0;
+    let score = addendum.state === "hit" && referenceTokens.size > 0 ? 4 : 0;
+    for (const token of queryTokens) {
+      if (titleTokens.has(token)) {
+        score += 8;
+        matches += 1;
+      } else if (referenceTokens.has(token)) {
+        score += 2;
+        matches += 1;
+      }
+    }
+    return { template, addendumState: addendum.state, index, matches, score };
+  });
+  ranked.sort((a, b) => b.score - a.score || b.matches - a.matches || a.index - b.index);
+  const winner = ranked[0];
+  const selected = winner?.template;
   if (!selected || !isFullProjectTemplate(selected)) return null;
 
   return {
@@ -147,7 +211,52 @@ export function selectVariantTemplateReference(
     category: selected.category,
     archiveUrl: selected.archiveUrl,
     stillImageUrl: selected.stillImageUrl,
+    selectionReason: `brief-ranked:candidates=${candidates.length};matches=${winner.matches};addendum=${winner.addendumState}`,
   };
+}
+
+function tokenizeSelectionText(value: string): Set<string> {
+  const normalized = value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return new Set(
+    (normalized.match(/[a-z0-9]+/g) ?? []).filter(
+      (token) => token.length >= 3 && !SELECTION_STOP_WORDS.has(token),
+    ),
+  );
+}
+
+/**
+ * Brief fields whose values are NEGATIVE signals ("do not do this"). Flattening
+ * them into the positive token pool would boost exactly the templates the user
+ * asked to avoid — `avoid: ["minimal"]` must not rank a minimal template up.
+ */
+const NEGATIVE_SELECTION_KEYS = new Set(["avoid", "avoidpatterns", "antipatterns"]);
+
+function selectionTokens(context: VariantTemplateSelectionContext | undefined): Set<string> {
+  const values: string[] = [];
+  if (typeof context?.prompt === "string") values.push(context.prompt.slice(0, 8_000));
+
+  const visit = (value: unknown, depth: number) => {
+    if (values.join(" ").length >= 16_000 || depth > 4 || value == null) return;
+    if (typeof value === "string") {
+      values.push(value.slice(0, 1_000));
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value.slice(0, 24)) visit(item, depth + 1);
+      return;
+    }
+    if (typeof value === "object") {
+      for (const [key, item] of Object.entries(value as Record<string, unknown>).slice(0, 40)) {
+        if (NEGATIVE_SELECTION_KEYS.has(key.toLowerCase())) continue;
+        visit(item, depth + 1);
+      }
+    }
+  };
+  visit(context?.brief, 0);
+  return tokenizeSelectionText(values.join(" "));
 }
 
 function normalizedPath(filePath: string): string {
@@ -381,7 +490,10 @@ export async function resolveVariantTemplateInspiration(
   variant: Pick<ScaffoldVariant, "sourceTemplateIds"> | null | undefined,
   options: ResolveVariantTemplateInspirationOptions = {},
 ): Promise<VariantTemplateInspiration | null> {
-  const selected = selectVariantTemplateReference(variant);
+  const selected = selectVariantTemplateReference(variant, {
+    selectionContext: options.selectionContext,
+    loadAddendum: options.loadAddendum,
+  });
   if (!selected) return null;
 
   const includeStructure = options.includeStructure ?? process.env.NODE_ENV !== "test";
@@ -392,15 +504,31 @@ export async function resolveVariantTemplateInspiration(
     return { ...selected, structuralReferences: addendum.structuralReferences };
   }
 
-  if (
-    addendum.state === "missing" ||
-    addendum.state === "stale" ||
-    addendum.state === "invalid"
-  ) {
+  if (addendum.state === "missing" || addendum.state === "stale" || addendum.state === "invalid") {
     warnVariantTemplateAddendumFallback(selected.templateId, addendum);
   }
 
   return { ...selected, structuralReferences: [] };
+}
+
+/** Build review-safe metadata for the exact id already selected by runtime. */
+export function getVariantTemplateReviewReference(templateId: string): {
+  templateId: string;
+  title: string;
+  category: VariantTemplateReferenceCategory;
+  addendumState: VariantTemplateAddendumResolution["state"];
+  hasStructuralReferences: boolean;
+} | null {
+  const template = TEMPLATE_BY_ID.get(templateId);
+  if (!template || !isFullProjectTemplate(template)) return null;
+  const addendum = resolveVariantTemplateAddendum(templateId);
+  return {
+    templateId,
+    title: template.title,
+    category: template.category,
+    addendumState: addendum.state,
+    hasStructuralReferences: (addendum.structuralReferences?.length ?? 0) > 0,
+  };
 }
 
 function stillImageExtension(url: string): string {

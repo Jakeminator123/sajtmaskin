@@ -28,7 +28,6 @@ export const projektBasAppManifest: ScaffoldManifest = {
       "Add only the routes and components the prompt actually needs.",
       "Introduce shared UI patterns after the first working screen exists.",
     ],
-    referenceTemplates: [],
   },
   // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
   // planning-helpers): this scaffold contributed no default routes.
