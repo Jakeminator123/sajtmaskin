@@ -34,7 +34,8 @@ process.env.PREVIEW_HOST_DATA_DIR = dataDir;
 
 const require = createRequire(import.meta.url);
 const runtime = require("../src/runtime.js");
-const { runShellCommand } = runtime.__testing;
+const { runShellCommand, collectInstallFailureDiagnostics, readLatestNpmDebugLog, NPM_CACHE_DIR } =
+  runtime.__testing;
 
 let failures = 0;
 function check(label, condition) {
@@ -82,6 +83,66 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("plain command exits 0", result.exitCode === 0);
   check("plain command captures output", /42/.test(result.output ?? ""));
   check("plain command is not timedOut", result.timedOut === false);
+}
+
+// SM-035 process E2E: a real child dying of SIGTERM/SIGKILL, not just classify().
+// Production spawns `sh -lc`, so a killed node reports as the shell's 128+n.
+{
+  const termScript = join(dataDir, "self-term.mjs");
+  writeFileSync(
+    termScript,
+    "setTimeout(() => process.kill(process.pid, 'SIGTERM'), 50);\nsetTimeout(() => {}, 60000);\n",
+  );
+  const termResult = await runShellCommand(`node ${termScript}`, {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (process.platform === "win32") {
+    check(
+      "self-SIGTERM child exits non-zero on Windows",
+      termResult.exitCode !== 0 || Boolean(termResult.signal),
+    );
+  } else {
+    check(
+      "self-SIGTERM child is observed as SIGTERM (signal or shell 143)",
+      termResult.signal === "SIGTERM" || termResult.exitCode === 143,
+    );
+    check(
+      "self-SIGTERM classifies as killed_by_signal:SIGTERM",
+      runtime.__testing.classifyInstallFailure(
+        termResult.output,
+        termResult.exitCode,
+        termResult.signal,
+      ) === "killed_by_signal:SIGTERM",
+    );
+  }
+
+  const killScript = join(dataDir, "self-kill.mjs");
+  writeFileSync(
+    killScript,
+    "setTimeout(() => process.kill(process.pid, 'SIGKILL'), 50);\nsetTimeout(() => {}, 60000);\n",
+  );
+  const killResult = await runShellCommand(`node ${killScript}`, {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (process.platform === "win32") {
+    check(
+      "self-SIGKILL child exits non-zero on Windows",
+      killResult.exitCode !== 0 || Boolean(killResult.signal),
+    );
+  } else {
+    check(
+      "self-SIGKILL child is observed as SIGKILL (signal or shell 137)",
+      killResult.signal === "SIGKILL" || killResult.exitCode === 137,
+    );
+    check(
+      "self-SIGKILL classifies as killed_by_signal:SIGKILL",
+      runtime.__testing.classifyInstallFailure(
+        killResult.output,
+        killResult.exitCode,
+        killResult.signal,
+      ) === "killed_by_signal:SIGKILL",
+    );
+  }
 }
 
 // 3. Idle sweep no-op + kill switch.
@@ -1257,6 +1318,46 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     check(
       "a non-254 unknown failure stays plain unknown",
       classifyInstallFailure("something unexpected happened", 1) === "unknown",
+    );
+  }
+
+  {
+    const workspace = join(dataDir, "diag-workspace");
+    mkdirSync(workspace, { recursive: true });
+    const logsDir = join(NPM_CACHE_DIR, "_logs");
+    mkdirSync(logsDir, { recursive: true });
+    const debugPath = join(logsDir, "2026-08-21-debug-0.log");
+    writeFileSync(debugPath, "verbose npm-debug fixture\nexit 254\n");
+
+    const latest = readLatestNpmDebugLog(workspace);
+    check("latest npm-debug log is the newest file in cache/_logs", latest?.path === debugPath);
+    check(
+      "latest npm-debug log keeps the clipped tail",
+      typeof latest?.clippedContent === "string" && latest.clippedContent.includes("exit 254"),
+    );
+
+    const diagnostics = collectInstallFailureDiagnostics({
+      workspaceDir: workspace,
+      exitCode: 254,
+      signal: null,
+      failureReason: "no_output",
+    });
+    check("diagnostics record the exit code", diagnostics.exitCode === 254);
+    check("diagnostics record a null signal", diagnostics.signal === null);
+    check("diagnostics record the failure reason", diagnostics.failureReason === "no_output");
+    check(
+      "diagnostics record free/total memory",
+      Number.isFinite(diagnostics.memory.freeBytes) &&
+        Number.isFinite(diagnostics.memory.totalBytes) &&
+        diagnostics.memory.totalBytes > 0,
+    );
+    check(
+      "diagnostics record concurrent runtime count",
+      Number.isFinite(diagnostics.concurrentRuntimes) && diagnostics.concurrentRuntimes >= 0,
+    );
+    check(
+      "diagnostics attach the latest npm-debug log",
+      diagnostics.npmDebugLog?.clippedContent?.includes("exit 254") === true,
     );
   }
 

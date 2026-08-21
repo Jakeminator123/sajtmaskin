@@ -56,6 +56,8 @@ module.exports = {
     RUNTIME_BOOT_FAILURE_WINDOW_MS: processLifecycle.RUNTIME_BOOT_FAILURE_WINDOW_MS,
     isNoSpaceInstallFailure: packageInstall.isNoSpaceInstallFailure,
     classifyInstallFailure: packageInstall.classifyInstallFailure,
+    collectInstallFailureDiagnostics: packageInstall.collectInstallFailureDiagnostics,
+    readLatestNpmDebugLog: packageInstall.readLatestNpmDebugLog,
     isHmrPath: previewProxy.isHmrPath,
     PREVIEW_HMR_PATH_SUFFIXES: previewProxy.PREVIEW_HMR_PATH_SUFFIXES,
     probeReadinessAfterPatch: processLifecycle.probeReadinessAfterPatch,

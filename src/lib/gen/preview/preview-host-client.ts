@@ -174,7 +174,33 @@ export type PreviewHostStatusResult = {
   httpReady: boolean | null;
   /** Human-readable failure reason when `readinessState === "failed"`. */
   readinessError: string | null;
+  /**
+   * Structured install-failure snapshot from the host (SM-035). Lives here —
+   * not in `readinessError` — so the defect signature stays stable.
+   */
+  installDiagnostics?: PreviewHostInstallDiagnostics | null;
   regeneratedLockfile: PreviewHostRegeneratedLockfile | null;
+};
+
+export type PreviewHostInstallDiagnostics = {
+  exitCode: number | null;
+  signal: string | null;
+  failureReason: string | null;
+  memory: {
+    freeBytes: number;
+    totalBytes: number;
+    rssBytes: number;
+    heapUsedBytes: number;
+    heapTotalBytes: number;
+  } | null;
+  concurrentRuntimes: number | null;
+  inflightBoots: number | null;
+  npmDebugLog: {
+    path: string;
+    mtime: string;
+    bytes: number;
+    clippedContent: string | null;
+  } | null;
 };
 
 function readReadinessStateFromHostBody(
@@ -182,6 +208,48 @@ function readReadinessStateFromHostBody(
 ): PreviewHostReadinessState | null {
   const raw = body.readinessState;
   return raw === "starting" || raw === "ready" || raw === "failed" ? raw : null;
+}
+
+function readInstallDiagnosticsFromHostBody(
+  body: Record<string, unknown>,
+): PreviewHostInstallDiagnostics | null {
+  const raw = body.installDiagnostics;
+  if (!raw || typeof raw !== "object") return null;
+  const d = raw as Record<string, unknown>;
+  const memory =
+    d.memory && typeof d.memory === "object"
+      ? (d.memory as Record<string, unknown>)
+      : null;
+  const npmDebugLog =
+    d.npmDebugLog && typeof d.npmDebugLog === "object"
+      ? (d.npmDebugLog as Record<string, unknown>)
+      : null;
+  return {
+    exitCode: typeof d.exitCode === "number" ? d.exitCode : null,
+    signal: nonEmptyString(d.signal),
+    failureReason: nonEmptyString(d.failureReason),
+    memory: memory
+      ? {
+          freeBytes: typeof memory.freeBytes === "number" ? memory.freeBytes : 0,
+          totalBytes: typeof memory.totalBytes === "number" ? memory.totalBytes : 0,
+          rssBytes: typeof memory.rssBytes === "number" ? memory.rssBytes : 0,
+          heapUsedBytes: typeof memory.heapUsedBytes === "number" ? memory.heapUsedBytes : 0,
+          heapTotalBytes: typeof memory.heapTotalBytes === "number" ? memory.heapTotalBytes : 0,
+        }
+      : null,
+    concurrentRuntimes: typeof d.concurrentRuntimes === "number" ? d.concurrentRuntimes : null,
+    inflightBoots: typeof d.inflightBoots === "number" ? d.inflightBoots : null,
+    npmDebugLog:
+      npmDebugLog && typeof npmDebugLog.path === "string"
+        ? {
+            path: npmDebugLog.path,
+            mtime: typeof npmDebugLog.mtime === "string" ? npmDebugLog.mtime : "",
+            bytes: typeof npmDebugLog.bytes === "number" ? npmDebugLog.bytes : 0,
+            clippedContent:
+              typeof npmDebugLog.clippedContent === "string" ? npmDebugLog.clippedContent : null,
+          }
+        : null,
+  };
 }
 
 function readRegeneratedLockfileFromHostBody(
@@ -249,6 +317,7 @@ export async function fetchPreviewHostStatus(
       readinessState: readReadinessStateFromHostBody(body),
       httpReady: body.httpReady === true,
       readinessError: nonEmptyString(body.readinessError),
+      installDiagnostics: readInstallDiagnosticsFromHostBody(body),
       regeneratedLockfile: readRegeneratedLockfileFromHostBody(body),
     };
   } catch {
@@ -274,7 +343,7 @@ export async function fetchPreviewHostStatus(
  */
 export type PreviewHostReadinessVerdict = Pick<
   PreviewHostStatusResult,
-  "readinessState" | "readinessError" | "regeneratedLockfile" | "httpReady"
+  "readinessState" | "readinessError" | "installDiagnostics" | "regeneratedLockfile" | "httpReady"
 > & {
   running: boolean;
   /** Version the host says this session is pinned to, or `null` if unknown. */
@@ -318,6 +387,7 @@ export async function fetchPreviewHostReadinessVerdict(
       readinessState: readReadinessStateFromHostBody(body),
       httpReady: typeof body.httpReady === "boolean" ? body.httpReady : null,
       readinessError: nonEmptyString(body.readinessError),
+      installDiagnostics: readInstallDiagnosticsFromHostBody(body),
       regeneratedLockfile: readRegeneratedLockfileFromHostBody(body),
     };
   } catch {

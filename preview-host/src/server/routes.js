@@ -179,6 +179,9 @@ async function routeRequest(req, res) {
       readinessState,
       readinessError:
         typeof latest.readinessError === "string" ? latest.readinessError : null,
+      ...(latest.installDiagnostics && typeof latest.installDiagnostics === "object"
+        ? { installDiagnostics: latest.installDiagnostics }
+        : {}),
       previewSessionId: latest.previewSessionId,
       /** @legacy External alias for older Sajtmaskin app deployments. */
       sandboxId: latest.previewSessionId,

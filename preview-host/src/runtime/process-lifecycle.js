@@ -864,6 +864,10 @@ async function bootRuntimeForSession(session, options = {}) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
+    const installDiagnostics =
+      error && typeof error === "object" && error.installDiagnostics && typeof error.installDiagnostics === "object"
+        ? error.installDiagnostics
+        : null;
     // Count this strike from the STORE, inside the mutation. `session` is the
     // snapshot this boot started with, and install runs for minutes: a
     // same-version update resets the budget in that window because rewriting
@@ -892,6 +896,7 @@ async function bootRuntimeForSession(session, options = {}) {
               `Preview boot failed ${RUNTIME_BOOT_FAILURE_LIMIT} times within ${Math.round(RUNTIME_BOOT_FAILURE_WINDOW_MS / 1000)} seconds; further automatic retries are stopped.`,
             ].join("\n")
           : message;
+        if (installDiagnostics) stored.installDiagnostics = installDiagnostics;
       }
       stored.updatedAt = nowIso();
     });
