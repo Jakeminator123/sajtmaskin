@@ -70,10 +70,6 @@
     "radius": "1.15rem",
     "bodyBackgroundImage": "linear-gradient(to bottom, color-mix(in oklab, var(--color-primary) 8%, white) 0%, transparent 28%), radial-gradient(circle at top right, color-mix(in oklab, var(--color-accent) 16%, white) 0%, transparent 22%)"
   },
-  "sourceTemplateIds": [
-    "jZpf5doYiNe",
-    "XOMN4texeRO",
-    "mEefgKyVifq"
-  ],
+  "sourceTemplateIds": ["jZpf5doYiNe", "XOMN4texeRO"],
   "default": false
 }

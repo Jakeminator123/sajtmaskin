@@ -3,11 +3,7 @@
 import { AlertCircle, Blocks, KeyRound, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  type PlanArtifact,
-  type PlanPage,
-  normalizePlanArtifact,
-} from "@/lib/gen/plan/schema";
+import { type PlanArtifact, type PlanPage, normalizePlanArtifact } from "@/lib/gen/plan/schema";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 
@@ -47,7 +43,7 @@ function pageSummary(page: PlanPage) {
 function renderProviderRow(label: string, value?: string) {
   if (!value) return null;
   return (
-    <div className="rounded-md border border-border/60 bg-background/40 px-2.5 py-2 text-xs">
+    <div className="border-border/60 bg-background/40 rounded-md border px-2.5 py-2 text-xs">
       <span className="text-muted-foreground">{label}:</span>{" "}
       <span className="text-foreground">{value}</span>
     </div>
@@ -70,15 +66,13 @@ export function BuildPlanCard({
   const unresolvedBlockers = plan.blockers.filter((blocker) => !blocker.resolved);
 
   return (
-    <div className="mt-3 space-y-3 rounded-lg border border-border/70 bg-muted/20 p-3">
+    <div className="border-border/70 bg-muted/20 mt-3 space-y-3 rounded-lg border p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline">Build plan</Badge>
         {siteTypeLabel(plan.siteType) ? (
           <Badge variant="secondary">{siteTypeLabel(plan.siteType)}</Badge>
         ) : null}
-        {plan.pages.length > 0 ? (
-          <Badge variant="outline">{plan.pages.length} sidor</Badge>
-        ) : null}
+        {plan.pages.length > 0 ? <Badge variant="outline">{plan.pages.length} sidor</Badge> : null}
         {unresolvedBlockers.length > 0 ? (
           <Badge variant="destructive">{unresolvedBlockers.length} blockerare</Badge>
         ) : null}
@@ -87,17 +81,17 @@ export function BuildPlanCard({
 
       {plan.pages.length > 0 ? (
         <section className="space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
             Sidplan
           </div>
           <div className="space-y-2">
             {plan.pages.map((page) => (
               <div
                 key={`${page.id}-${page.path}`}
-                className="rounded-md border border-border/60 bg-background/40 p-2.5"
+                className="border-border/60 bg-background/40 rounded-md border p-2.5"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">{page.name}</span>
+                  <span className="text-foreground text-sm font-medium">{page.name}</span>
                   <Badge variant="outline" className="font-mono text-[10px]">
                     {page.path}
                   </Badge>
@@ -108,12 +102,16 @@ export function BuildPlanCard({
                   ) : null}
                 </div>
                 {pageSummary(page) ? (
-                  <div className="mt-1 text-xs text-muted-foreground">{pageSummary(page)}</div>
+                  <div className="text-muted-foreground mt-1 text-xs">{pageSummary(page)}</div>
                 ) : null}
                 {page.sections.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {page.sections.map((section) => (
-                      <Badge key={`${page.id}-${section}`} variant="outline" className="text-[10px]">
+                      <Badge
+                        key={`${page.id}-${section}`}
+                        variant="outline"
+                        className="text-[10px]"
+                      >
                         {section}
                       </Badge>
                     ))}
@@ -127,11 +125,11 @@ export function BuildPlanCard({
 
       {plan.contracts ? (
         <section className="space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
             Förkontrakt
           </div>
           <div className="grid gap-2 md:grid-cols-2">
-            <div className="rounded-md border border-border/60 bg-background/40 px-2.5 py-2 text-xs">
+            <div className="border-border/60 bg-background/40 rounded-md border px-2.5 py-2 text-xs">
               <span className="text-muted-foreground">Datamode:</span>{" "}
               <span className="text-foreground">{plan.contracts.dataMode}</span>
             </div>
@@ -142,7 +140,7 @@ export function BuildPlanCard({
 
           {plan.contracts.integrations.length > 0 ? (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+              <div className="text-foreground flex items-center gap-2 text-xs font-medium">
                 <Blocks className="h-3.5 w-3.5" />
                 Integrationer
               </div>
@@ -150,21 +148,27 @@ export function BuildPlanCard({
                 {plan.contracts.integrations.map((integration) => (
                   <div
                     key={`${integration.provider}-${integration.name}`}
-                    className="rounded-md border border-border/60 bg-background/40 p-2.5"
+                    className="border-border/60 bg-background/40 rounded-md border p-2.5"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{integration.name}</span>
+                      <span className="text-foreground text-sm font-medium">
+                        {integration.name}
+                      </span>
                       <Badge variant="outline" className="text-[10px]">
                         {integration.status}
                       </Badge>
                     </div>
                     {integration.reason ? (
-                      <div className="mt-1 text-xs text-muted-foreground">{integration.reason}</div>
+                      <div className="text-muted-foreground mt-1 text-xs">{integration.reason}</div>
                     ) : null}
                     {integration.envVars?.length ? (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {integration.envVars.map((envVar) => (
-                          <Badge key={`${integration.provider}-${envVar}`} variant="secondary" className="font-mono text-[10px]">
+                          <Badge
+                            key={`${integration.provider}-${envVar}`}
+                            variant="secondary"
+                            className="font-mono text-[10px]"
+                          >
                             {envVar}
                           </Badge>
                         ))}
@@ -178,13 +182,17 @@ export function BuildPlanCard({
 
           {plan.contracts.envVars.length > 0 ? (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+              <div className="text-foreground flex items-center gap-2 text-xs font-medium">
                 <KeyRound className="h-3.5 w-3.5" />
                 Miljövariabler
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {plan.contracts.envVars.map((envVar) => (
-                  <Badge key={envVar.key} variant={envVar.required === false ? "outline" : "secondary"} className="font-mono text-[10px]">
+                  <Badge
+                    key={envVar.key}
+                    variant={envVar.required === false ? "outline" : "secondary"}
+                    className="font-mono text-[10px]"
+                  >
                     {envVar.key}
                   </Badge>
                 ))}
@@ -224,62 +232,63 @@ export function BuildPlanCard({
 
       {plan.scaffold ? (
         <section className="space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
             Scaffold-val
           </div>
-          <div className="rounded-md border border-border/60 bg-background/40 p-2.5 text-xs">
-            <div className="text-sm font-medium text-foreground">{plan.scaffold.label}</div>
+          <div className="border-border/60 bg-background/40 rounded-md border p-2.5 text-xs">
+            <div className="text-foreground text-sm font-medium">{plan.scaffold.label}</div>
             <div className="mt-1 flex flex-wrap gap-2">
-              {plan.scaffold.id ? (
-                <Badge variant="outline">{plan.scaffold.id}</Badge>
+              {plan.scaffold.id ? <Badge variant="outline">{plan.scaffold.id}</Badge> : null}
+              {plan.scaffold.source ? (
+                <Badge variant="secondary">{plan.scaffold.source}</Badge>
               ) : null}
-              {plan.scaffold.source ? <Badge variant="secondary">{plan.scaffold.source}</Badge> : null}
             </div>
             {plan.scaffold.reason ? (
-              <div className="mt-2 text-muted-foreground">{plan.scaffold.reason}</div>
+              <div className="text-muted-foreground mt-2">{plan.scaffold.reason}</div>
             ) : null}
           </div>
         </section>
       ) : null}
 
-      {plan.templateRecommendations && plan.templateRecommendations.length > 0 ? (
+      {plan.variantTemplateReference ? (
         <section className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="text-muted-foreground flex items-center gap-2 text-xs font-semibold tracking-wide uppercase">
             <Sparkles className="h-3.5 w-3.5" />
-            Mallrekommendationer
+            Vald variantkälla
           </div>
-          <div className="space-y-2">
-            {plan.templateRecommendations.slice(0, 4).map((recommendation, index) => (
-              <div
-                key={`${recommendation.id || recommendation.title}-${index}`}
-                className="rounded-md border border-border/60 bg-background/40 p-2.5"
+          <div className="border-border/60 bg-background/40 rounded-md border p-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-foreground text-sm font-medium">
+                {plan.variantTemplateReference.title}
+              </span>
+              <Badge variant="outline">{plan.variantTemplateReference.category}</Badge>
+              <Badge
+                variant={
+                  plan.variantTemplateReference.addendumState === "hit" ? "secondary" : "outline"
+                }
               >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">{recommendation.title}</span>
-                  {typeof recommendation.qualityScore === "number" ? (
-                    <Badge variant="outline">{Math.round(recommendation.qualityScore * 100)}%</Badge>
-                  ) : null}
-                </div>
-                {recommendation.reason ? (
-                  <div className="mt-1 text-xs text-muted-foreground">{recommendation.reason}</div>
-                ) : null}
-              </div>
-            ))}
+                addendum: {plan.variantTemplateReference.addendumState}
+              </Badge>
+            </div>
+            <div className="text-muted-foreground mt-1 text-xs">
+              Blob-ID: {plan.variantTemplateReference.templateId}. Strukturella utdrag:{" "}
+              {plan.variantTemplateReference.hasStructuralReferences ? "ja" : "nej"}.
+            </div>
           </div>
         </section>
       ) : null}
 
       {plan.steps.length > 0 ? (
         <section className="space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
             Byggfaser
           </div>
-          <ol className="list-decimal space-y-1.5 pl-4 text-sm text-muted-foreground">
+          <ol className="text-muted-foreground list-decimal space-y-1.5 pl-4 text-sm">
             {plan.steps.map((step) => (
               <li key={step.id}>
-                <span className="font-medium text-foreground">{step.title}</span>
+                <span className="text-foreground font-medium">{step.title}</span>
                 <span className="text-muted-foreground/80"> — {step.description}</span>
-                <span className="ml-1 text-xs text-muted-foreground/60">({step.phase})</span>
+                <span className="text-muted-foreground/60 ml-1 text-xs">({step.phase})</span>
               </li>
             ))}
           </ol>
@@ -288,17 +297,17 @@ export function BuildPlanCard({
 
       {plan.assumptions.length > 0 ? (
         <section className="space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
             Antaganden
           </div>
           <div className="space-y-1.5">
             {plan.assumptions.map((assumption) => (
               <div
                 key={assumption.id}
-                className="rounded-md border border-border/60 bg-background/40 px-2.5 py-2 text-xs"
+                className="border-border/60 bg-background/40 rounded-md border px-2.5 py-2 text-xs"
               >
                 <div className="text-foreground">{assumption.description}</div>
-                <div className="mt-0.5 text-muted-foreground">{assumption.defaultValue}</div>
+                <div className="text-muted-foreground mt-0.5">{assumption.defaultValue}</div>
               </div>
             ))}
           </div>
@@ -307,7 +316,7 @@ export function BuildPlanCard({
 
       {unresolvedBlockers.length > 0 ? (
         <section className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-300">
+          <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-amber-300 uppercase">
             <AlertCircle className="h-3.5 w-3.5" />
             Öppna frågor
           </div>
@@ -318,7 +327,10 @@ export function BuildPlanCard({
                 className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-100"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="border-amber-500/40 text-[10px] text-amber-200">
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/40 text-[10px] text-amber-200"
+                  >
                     {blocker.kind}
                   </Badge>
                 </div>
@@ -326,7 +338,11 @@ export function BuildPlanCard({
                 {blocker.options?.length ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {blocker.options.map((option) => (
-                      <Badge key={`${blocker.id}-${option}`} variant="secondary" className="text-[10px]">
+                      <Badge
+                        key={`${blocker.id}-${option}`}
+                        variant="secondary"
+                        className="text-[10px]"
+                      >
                         {option}
                       </Badge>
                     ))}
@@ -343,7 +359,7 @@ export function BuildPlanCard({
           <Button size="sm" onClick={() => void onApproveBuild(rawPlan)} disabled={approveDisabled}>
             Godkänn plan och bygg
           </Button>
-          <div className="self-center text-xs text-muted-foreground">
+          <div className="text-muted-foreground self-center text-xs">
             Du kan också skriva egna ändringar i chatten om planen behöver justeras först.
           </div>
         </div>

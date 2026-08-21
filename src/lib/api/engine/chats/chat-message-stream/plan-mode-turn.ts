@@ -245,6 +245,7 @@ export async function runPlanModeTurn(params: {
         promptStrategyMeta: promptOrchestration.strategyMeta,
         buildSpec: planOrchestration.buildSpec,
         resolvedScaffold: planResolvedScaffold,
+        variantTemplateId: planOrchestration.variantTemplateId,
         scaffoldMode: metaScaffoldMode,
         persistAssistantSummary: async (planData, hasBlockers, context) => {
           // Varje planner-tur ska lämna EN assistentrad efter sig, plan eller inte

@@ -103,19 +103,16 @@ describe("renderVariantTemplateInspirationBlock", () => {
     expect(rendered).not.toContain("https://example.com/still.jpg");
   });
 
-  it("does not render legacy scaffold reference-template lists", () => {
+  it("renders only scaffold-owned research guidance", () => {
     const rendered = renderScaffoldResearchBlock({
       id: "landing-page",
       label: "Landing Page",
       qualityChecklist: ["Strong hierarchy"],
       research: {
         upgradeTargets: ["Sharper composition"],
-        referenceTemplates: [
-          { title: "Old reference", categorySlug: "legacy", qualityScore: 99 },
-        ],
       },
     } as never).join("\n");
     expect(rendered).toContain("Strong hierarchy");
-    expect(rendered).not.toContain("Old reference");
+    expect(rendered).toContain("Sharper composition");
   });
 });

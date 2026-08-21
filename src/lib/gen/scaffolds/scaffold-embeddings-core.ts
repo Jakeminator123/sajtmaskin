@@ -1,8 +1,5 @@
 import OpenAI from "openai";
-import {
-  buildIntentBilingual,
-  SCAFFOLD_EMBEDDING_LOCALE,
-} from "./scaffold-embedding-locale";
+import { buildIntentBilingual, SCAFFOLD_EMBEDDING_LOCALE } from "./scaffold-embedding-locale";
 import { getAllScaffolds } from "./registry";
 import type { ScaffoldManifest } from "./types";
 
@@ -41,11 +38,6 @@ function buildEmbeddingText(scaffold: ScaffoldManifest): string {
     `Prompt hints (en): ${scaffold.promptHints.join("; ")}`,
     `Quality checklist: ${scaffold.qualityChecklist?.join("; ") ?? ""}`,
     `Upgrade targets: ${scaffold.research?.upgradeTargets?.join("; ") ?? ""}`,
-    `Reference templates: ${
-      scaffold.research?.referenceTemplates
-        ?.map((template) => `${template.title} (${template.categorySlug})`)
-        .join("; ") ?? ""
-    }`,
     `Files: ${filePaths}`,
   ].join("\n");
 }

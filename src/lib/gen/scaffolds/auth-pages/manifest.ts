@@ -41,11 +41,6 @@ export const authPagesManifest: ScaffoldManifest = {
       "Add optional social login buttons that can be toggled per provider.",
       "Add clear auth state transitions (success, error, pending) with toast feedback.",
     ],
-    referenceTemplates: [
-      { id: "authentication-clerk-authentication-starter", title: "Clerk Authentication Starter", categorySlug: "authentication", qualityScore: 96, strengths: ["verified Next.js codebase", "auth flow reference", "OAuth provider patterns"] },
-      { id: "authentication-next-js-saas-starter", title: "Next.js SaaS Starter", categorySlug: "authentication", qualityScore: 96, strengths: ["verified Next.js codebase", "auth flow reference", "session management"] },
-      { id: "authentication-kinde-next-js-starter", title: "Kinde Next.js Starter", categorySlug: "authentication", qualityScore: 94, strengths: ["verified Next.js codebase", "auth flow reference", "middleware patterns"] },
-    ],
   },
   // Pure move of the former getScaffoldDefaultRoutes switch (route-plan
   // planning-helpers): /login required, /signup planned as optional.

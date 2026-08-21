@@ -1,6 +1,4 @@
-import {
-  withPromptToDoneMetricResponse,
-} from "@/lib/observability/prompt-to-done-stream";
+import { withPromptToDoneMetricResponse } from "@/lib/observability/prompt-to-done-stream";
 import { createChatSchema } from "@/lib/validations/chat-schemas";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -64,9 +62,7 @@ import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { isAppScaffold } from "@/lib/builder/build-intent";
-import {
-  buildOwnEngineGenerationStreamMeta,
-} from "@/lib/own-engine/session/own-engine-build-session";
+import { buildOwnEngineGenerationStreamMeta } from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 import {
   computePlanModePlannerPrompts,
@@ -679,9 +675,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             scaffoldId: planOrchestration.resolvedScaffold?.id,
           });
           if (plannerBoot.status !== "acquired") {
-            return attachSessionCookie(
-              chatGenerationLockFailureResponse(plannerBoot.status),
-            );
+            return attachSessionCookie(chatGenerationLockFailureResponse(plannerBoot.status));
           }
           acquiredGenerationLock = plannerBoot.lock;
           const plannerChat = plannerBoot.chat;
@@ -712,6 +706,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             promptStrategyMeta: strategyMeta,
             buildSpec: planOrchestration.buildSpec,
             resolvedScaffold: planOrchestration.resolvedScaffold,
+            variantTemplateId: planOrchestration.variantTemplateId,
             scaffoldMode: parsedMeta.scaffoldMode,
             onResolved: (planData, hasBlockers, accumulatedContent) => {
               const blockerCount = Array.isArray(planData?.blockers)
@@ -920,11 +915,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             qualityTarget: orchestrationBase.buildSpec.qualityTarget,
             contextPolicy: orchestrationBase.buildSpec.contextPolicy,
           });
-          const {
-            resolvedScaffold,
-            routePlan,
-            preGenerationContracts,
-          } = orchestrationBase;
+          const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
 
           debugLog("engine", "Own engine model resolved", {
             resolvedModelTier,
@@ -985,9 +976,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             scaffoldId: resolvedScaffold?.id,
           });
           if (initBoot.status !== "acquired") {
-            return attachSessionCookie(
-              chatGenerationLockFailureResponse(initBoot.status),
-            );
+            return attachSessionCookie(chatGenerationLockFailureResponse(initBoot.status));
           }
           acquiredGenerationLock = initBoot.lock;
           const engineChat = initBoot.chat;
