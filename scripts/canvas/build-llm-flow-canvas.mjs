@@ -273,6 +273,81 @@ export function findStaleCanvasBacklogIds(canvasText, backlogMd) {
   return [...extractSmIds(canvasText)].filter((id) => !openIds.has(id)).sort();
 }
 
+const CANVAS_DATA_PREFIX = "const DATA: CanvasData = ";
+
+/** Parse the embedded `DATA` object from a generated canvas `.txt`. */
+export function extractEmbeddedCanvasData(canvasText) {
+  const start = String(canvasText || "").indexOf(CANVAS_DATA_PREFIX);
+  if (start < 0) return null;
+  const jsonStart = start + CANVAS_DATA_PREFIX.length;
+  const raw = String(canvasText).slice(jsonStart);
+  const end = raw.search(/\nconst STATUS_TONE:/);
+  if (end < 0) return null;
+  try {
+    return JSON.parse(raw.slice(0, end).trim().replace(/;$/, ""));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Backlog-derived slice of canvas data. Commit/churn/eval/notes are excluded
+ * on purpose — those change every commit and would make CI flaky. Totals,
+ * top-risks and per-process backlog counts are the fields that otherwise
+ * go false-green when only the ID set is compared.
+ */
+export function normalizeBacklogDerivedCanvas(data) {
+  const totals = data && typeof data === "object" ? data.totals || {} : {};
+  const processes = Array.isArray(data?.processes) ? data.processes : [];
+  const risks = Array.isArray(data?.topOpenRisks) ? data.topOpenRisks : [];
+  return {
+    totals: {
+      openP0: totals.openP0 ?? 0,
+      openP1: totals.openP1 ?? 0,
+      openP2: totals.openP2 ?? 0,
+      openP3: totals.openP3 ?? 0,
+      blocked: totals.blocked ?? 0,
+      shaky: totals.shaky ?? 0,
+    },
+    topOpenRisksOmitted: data?.topOpenRisksOmitted ?? 0,
+    topOpenRisks: risks.map((r) => ({
+      prio: r?.prio ?? "-",
+      blocker: Boolean(r?.blocker),
+      fynd: String(r?.fynd ?? ""),
+    })),
+    processes: processes.map((p) => ({
+      name: String(p?.name ?? ""),
+      openBugs: p?.openBugs ?? 0,
+      openByPrio: {
+        P0: p?.openByPrio?.P0 ?? 0,
+        P1: p?.openByPrio?.P1 ?? 0,
+        P2: p?.openByPrio?.P2 ?? 0,
+        P3: p?.openByPrio?.P3 ?? 0,
+        other: p?.openByPrio?.other ?? 0,
+      },
+    })),
+  };
+}
+
+export function findCanvasBacklogDrift(painted, generated) {
+  const a = normalizeBacklogDerivedCanvas(painted);
+  const b = normalizeBacklogDerivedCanvas(generated);
+  const issues = [];
+  if (JSON.stringify(a.totals) !== JSON.stringify(b.totals)) {
+    issues.push(`totals ${JSON.stringify(a.totals)} !== ${JSON.stringify(b.totals)}`);
+  }
+  if (a.topOpenRisksOmitted !== b.topOpenRisksOmitted) {
+    issues.push(`topOpenRisksOmitted ${a.topOpenRisksOmitted} !== ${b.topOpenRisksOmitted}`);
+  }
+  if (JSON.stringify(a.topOpenRisks) !== JSON.stringify(b.topOpenRisks)) {
+    issues.push("topOpenRisks (prio/blocker/fynd) drift");
+  }
+  if (JSON.stringify(a.processes) !== JSON.stringify(b.processes)) {
+    issues.push("per-process backlog counts drift");
+  }
+  return issues;
+}
+
 /** Valjer "Oppna huvudrisker" ur backlog-rader. P0 ar hogsta allvar och far
  *  ALDRIG falla bort tyst: P0 sorteras overst och garanteras plats aven nar
  *  listan trunkeras till `cap`. Overskjutande LAGRE-prio rader redovisas via

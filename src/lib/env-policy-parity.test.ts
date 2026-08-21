@@ -41,7 +41,12 @@ const policy = envPolicy as {
   knownEmptyOk: string[];
   runtimeOnlyKeys: string[];
   extraKnownKeys: string[];
-  rules: { key: string; classification: string; recommendedVercelTargets: string[] }[];
+  rules: {
+    key: string;
+    classification: string;
+    recommendedVercelTargets: string[];
+    notes?: string;
+  }[];
 };
 
 const ALL_VERCEL_TARGETS = ["development", "preview", "production"] as const;
