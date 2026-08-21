@@ -45,7 +45,7 @@ const PACKAGE_JSON = `{
     "lint": "eslint ."
   },
   "dependencies": {
-    "next": "16.2.9",
+    "next": "16.3.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "radix-ui": "1.4.3",
@@ -75,7 +75,7 @@ const PACKAGE_JSON = `{
   },
   "devDependencies": {
     "eslint": "9.39.2",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.3.1",
     "typescript": "5.9.3",
     "@types/node": "22.19.17",
     "@types/react": "19.2.13",
@@ -536,6 +536,9 @@ const BASELINE_PINNED_DEPS = [
   "lucide-react",
 ] as const;
 
+/** Same idea as {@link BASELINE_PINNED_DEPS}, for load-bearing *dev* pins. */
+const BASELINE_PINNED_DEV_DEPS = ["eslint-config-next"] as const;
+
 /**
  * Heavy, capability-gated React-Three 3D stack. `three` is the shared peer
  * dependency of fiber/drei/rapier, so the stack is treated as one group:
@@ -608,12 +611,34 @@ export function mergePackageJsonWithBaseline(
 
   applyThreeStackPolicy(dependencies, detected.dependencies);
 
+  const devDependencies: Record<string, string> = {
+    ...bDevDep,
+    ...mDevDep,
+  };
+  for (const key of BASELINE_PINNED_DEV_DEPS) {
+    if (bDevDep[key] !== undefined) {
+      devDependencies[key] = bDevDep[key];
+    }
+  }
+
+  // Home-section pins: an older leftover in the other section would still
+  // install and defeat the Next minor lock. `next` belongs in dependencies,
+  // `eslint-config-next` in devDependencies — never both.
+  if (bDep.next !== undefined) {
+    dependencies.next = bDep.next;
+    delete devDependencies.next;
+  }
+  if (bDevDep["eslint-config-next"] !== undefined) {
+    devDependencies["eslint-config-next"] = bDevDep["eslint-config-next"];
+    delete dependencies["eslint-config-next"];
+  }
+
   return {
     ...b,
     ...model,
     scripts: { ...bScripts, ...mScripts },
     dependencies,
-    devDependencies: { ...bDevDep, ...mDevDep },
+    devDependencies,
     overrides: { ...mOverrides, ...bOverrides },
   };
 }
