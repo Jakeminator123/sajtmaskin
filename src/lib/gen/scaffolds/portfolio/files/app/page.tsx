@@ -1,7 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import { ProjectCard } from "@/components/project-card";
 
 const projects = [
@@ -41,44 +42,38 @@ export default function HomePage() {
   return (
     <div className="px-6 py-16 sm:px-8 sm:py-20">
       <div className="mx-auto max-w-6xl space-y-20">
-        <section className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-end">
-          <div className="space-y-6">
-            <Badge className="rounded-full px-3 py-1">Portfoliostart</Badge>
-            <div className="space-y-4">
-              <h1 className="max-w-3xl text-5xl font-semibold tracking-tight sm:text-6xl">
-                En personlig sajt med starkare arbete, text och trovärdighetsstruktur.
-              </h1>
-              <p className="max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
-                Inspirerad av renare portfolioreferenser ger den här starten en skarpare form för kreatörer,
-                konsulter, fotografer eller små studior som behöver en sajt med personlighet.
-              </p>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" className="rounded-full px-7">
-                Visa utvalt arbete <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <Button size="lg" variant="outline" className="rounded-full px-7">
-                Läs texter
-              </Button>
+        <section className="space-y-8">
+          <div className="relative overflow-hidden rounded-4xl">
+            <Image
+              src={projects[0].image}
+              alt={projects[0].title}
+              fill
+              className="object-cover"
+              sizes="(min-width: 1024px) 72rem, 100vw"
+              priority
+            />
+            <div className="absolute inset-0 bg-linear-to-t from-background via-background/55 to-background/10" />
+            <div className="relative z-10 flex min-h-[28rem] flex-col justify-end space-y-6 p-6 sm:min-h-[32rem] sm:p-10">
+              <Badge className="rounded-full px-3 py-1">Portfoliostart</Badge>
+              <div className="max-w-3xl space-y-4">
+                <h1 className="text-5xl font-semibold tracking-tight sm:text-6xl">
+                  En personlig sajt med starkare arbete, text och trovärdighetsstruktur.
+                </h1>
+                <p className="max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
+                  Inspirerad av renare portfolioreferenser ger den här starten en skarpare form för kreatörer,
+                  konsulter, fotografer eller små studior som behöver en sajt med personlighet.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button size="lg" className="rounded-full px-7">
+                  Visa utvalt arbete <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                <Button size="lg" variant="outline" className="rounded-full px-7">
+                  Läs texter
+                </Button>
+              </div>
             </div>
           </div>
-
-          <Card className="rounded-4xl border bg-card/85 p-2 shadow-lg">
-            <CardContent className="grid gap-4 rounded-3xl bg-muted/50 p-6 sm:grid-cols-2">
-              <div className="space-y-2">
-                <p className="text-sm uppercase tracking-[0.16em] text-muted-foreground">Positionering</p>
-                <p className="text-2xl font-semibold tracking-tight">Utvalt arbete, berättelse och bevis i ett sammanhängande flöde.</p>
-              </div>
-              <div className="space-y-3 rounded-[1.4rem] bg-background/85 p-5">
-                {["Personlig intro med ton", "Projektvisning", "Erfarenhet + text", "Kontakt-CTA"].map((item) => (
-                  <div key={item} className="flex items-center gap-3 text-sm">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
         </section>
 
         <section id="work" className="space-y-8">

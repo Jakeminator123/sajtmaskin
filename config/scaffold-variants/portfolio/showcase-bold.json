@@ -27,7 +27,7 @@
   ],
   "signaturePatterns": {
     "layouts": [
-      "Use a cinematic hero with one dominant project image, a compact intro block, and stacked client-year-role metadata pinned beside it.",
+      "Use a cinematic hero with one dominant full-bleed project image, a compact intro overlaid on the photograph, and stacked client-year-role metadata pinned to the image edge — never a text-left + card-right split.",
       "Build the work index as alternating full-width project bands with oversized imagery, short titles, and overlay metadata anchored to image edges.",
       "Compose featured case studies with a 70/30 split: immersive visual gallery first, then a narrow sticky column for project context and credits.",
       "Arrange gallery pages as irregular masonry rows with occasional extra-tall images, letting select projects break the grid for deliberate emphasis.",

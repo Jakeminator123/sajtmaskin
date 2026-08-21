@@ -27,7 +27,7 @@
   ],
   "signaturePatterns": {
     "layouts": [
-      "Use a restrained split hero with a quiet text block on the left and one large featured project image anchored right.",
+      "Use an image-dominant editorial hero: one large featured project photograph as the primary surface, with a quiet intro (eyebrow, headline, standfirst, dual CTAs) overlaid at the bottom — never a text-left + card-right split.",
       "Compose project archives as a disciplined two-column grid with oversized thumbnails and a slim metadata line beneath each entry.",
       "Build project detail pages with a full-width lead image followed by narrow text sections and staggered supporting images in calm vertical rhythm.",
       "Use an index-style about page with a short studio statement, compact capability list, and contact details aligned in a clean sidebar.",

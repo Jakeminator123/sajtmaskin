@@ -47,20 +47,20 @@ export default function HomePage() {
   return (
     <div className="pb-10">
       <section className="px-6 py-20 sm:px-8 lg:py-28">
-        <div className="mx-auto grid max-w-6xl gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-12 text-center">
           <div className="space-y-8">
             <Badge className="rounded-full bg-primary/15 px-3 py-1 text-primary hover:bg-primary/15">
               SaaS-produktstart
             </Badge>
             <div className="space-y-5">
-              <h1 className="max-w-3xl text-5xl font-semibold tracking-tight sm:text-6xl">
+              <h1 className="mx-auto max-w-3xl text-5xl font-semibold tracking-tight sm:text-6xl">
                 Förvandla en produktidé till en skarpare SaaS-lanseringssida.
               </h1>
-              <p className="max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
+              <p className="mx-auto max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
                 Byggd för mjukvaruprodukter som behöver produktberättelse, priser, förtroende och en dashboard-formad hero.
               </p>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button size="lg" className="rounded-full px-7">
                 Starta gratis trial <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -68,13 +68,13 @@ export default function HomePage() {
                 Se produktvisning
               </Button>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="mx-auto grid w-full max-w-3xl gap-4 sm:grid-cols-3">
               {[
                 { label: "Lanseringstempo", value: "Snabbt" },
                 { label: "Klara sektioner", value: "Hero + priser + FAQ" },
                 { label: "Bäst för", value: "B2B-SaaS" },
               ].map((item) => (
-                <div key={item.label} className="rounded-2xl border bg-card/70 p-4">
+                <div key={item.label} className="rounded-2xl border bg-card/70 p-4 text-left">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{item.label}</p>
                   <p className="mt-2 text-lg font-semibold">{item.value}</p>
                 </div>
@@ -82,7 +82,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <Card className="overflow-hidden rounded-4xl border-primary/20 bg-card/90 shadow-2xl shadow-primary/10">
+          <Card className="w-full overflow-hidden rounded-4xl border-primary/20 bg-card/90 text-left shadow-2xl shadow-primary/10">
             <CardHeader className="border-b bg-background/40 p-6">
               <div className="flex items-center justify-between">
                 <div>
