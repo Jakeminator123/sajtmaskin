@@ -45,7 +45,7 @@ const PACKAGE_JSON = `{
     "lint": "eslint ."
   },
   "dependencies": {
-    "next": "16.2.9",
+    "next": "16.3.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "radix-ui": "1.4.3",
@@ -75,7 +75,7 @@ const PACKAGE_JSON = `{
   },
   "devDependencies": {
     "eslint": "9.39.2",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.3.1",
     "typescript": "5.9.3",
     "@types/node": "22.19.17",
     "@types/react": "19.2.13",
