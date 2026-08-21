@@ -894,7 +894,7 @@
       "key": "SAJTMASKIN_LIVE_REVIEW",
       "classification": "environment_specific",
       "recommendedVercelTargets": ["preview", "production"],
-      "notes": "Optional live-site critic after Product Postcheck. Screenshots + structured multimodal verdict. Default off. Does not change user files or set productBlocked."
+      "notes": "Optional live-site critic after Product Postcheck. Code default off. Capture + LLM also require OC_EDIT AND a persisted OpenClaw live_review grant. Does not change user files or set productBlocked. Do not flip this flag in the same change as the grind."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",

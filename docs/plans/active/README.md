@@ -16,7 +16,7 @@ Vågschemat 20 aug är avklarat. Ta en rad ur `## Aktiv kö`, inte en planmapp.
 | Spår | Vad | Styrdokument |
 |---|---|---|
 | Bug-kö | **Start här.** 23 öppna rader efter stängningen 21 aug. | [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) |
-| Live-review `SM-070` | `#1052` **mergad** som advisory bakom avstängd flagga. Kvar: aktiveringsgrinden (retention, idempotens, ärlig befogenhet). | [`2026-08-20-live-review/00-master-plan.md`](2026-08-20-live-review/00-master-plan.md) |
+| Live-review `SM-070` | Kodgrind stängd (grant + claim + Blob-TTL). Flaggan av i koden. Kvar: Preview-rökprov, sedan Production. | [`2026-08-20-live-review/00-master-plan.md`](2026-08-20-live-review/00-master-plan.md) + [`01-preview-smoke.md`](2026-08-20-live-review/01-preview-smoke.md) |
 | Dossier-förenkling | Steg 1 landat (#1045). D2 → D3 → D4 strikt sekventiellt, D5 väntar ägarbeslut. | [`2026-08-19-dossier-forenkling/00-master-plan.md`](2026-08-19-dossier-forenkling/00-master-plan.md) |
 | Briefing + Källpaket | Landat: B1–B3, B8–B11, docs/etiketter, B2 #1079. Orörda: B4–B7. **Blockerat av ägarbeslut** N2–N5. | [`2026-08-18-briefing-och-kallpaket/00-master-plan.md`](2026-08-18-briefing-och-kallpaket/00-master-plan.md) |
 

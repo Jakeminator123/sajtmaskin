@@ -17,6 +17,7 @@ const ROW_READ_LIMIT = 80;
 export interface OpenClawReviewContext {
   findings: string | null;
   timeline: string | null;
+  liveReview: string | null;
 }
 
 export async function buildOpenClawReviewContext(params: {
@@ -24,13 +25,22 @@ export async function buildOpenClawReviewContext(params: {
   chatId?: string | null;
 }): Promise<OpenClawReviewContext> {
   const versionId = (params.versionId ?? "").trim();
-  if (!versionId || !dbConfigured) return { findings: null, timeline: null };
+  if (!versionId || !dbConfigured) {
+    return { findings: null, timeline: null, liveReview: null };
+  }
 
   try {
     const { getLatestEngineVersionErrorLogs } = await import(
       "@/lib/db/services/version-errors"
     );
-    const rows = await getLatestEngineVersionErrorLogs(versionId, ROW_READ_LIMIT);
+    const { getLiveReviewRunForVersion } = await import(
+      "@/lib/db/services/live-review-runs"
+    );
+    const { formatOpenClawLiveReviewBlock } = await import("./live-review-context");
+    const [rows, liveReviewRow] = await Promise.all([
+      getLatestEngineVersionErrorLogs(versionId, ROW_READ_LIMIT),
+      getLiveReviewRunForVersion(versionId),
+    ]);
     return {
       findings: formatOpenClawFindingsBlock(
         rows.map((row) => ({
@@ -49,12 +59,13 @@ export async function buildOpenClawReviewContext(params: {
           meta: row.meta,
         })),
       ),
+      liveReview: formatOpenClawLiveReviewBlock(liveReviewRow),
     };
   } catch (error) {
     console.warn(
       "[openclaw/review-context] read failed:",
       error instanceof Error ? error.message : error,
     );
-    return { findings: null, timeline: null };
+    return { findings: null, timeline: null, liveReview: null };
   }
 }

@@ -10,7 +10,8 @@ import {
   type OpenClawCodeContextMode,
 } from "@/lib/openclaw/chat-context-policy";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
-import { resolveOpenClawPowersFromRequest } from "@/lib/openclaw/powers";
+import { resolveOpenClawPowersFromRequest, sanitizeOpenClawPowerIds } from "@/lib/openclaw/powers";
+import { writeLiveReviewGrant } from "@/lib/db/services/live-review-grants";
 import { buildOpenClawEditSystemPrompt } from "@/lib/openclaw/edit-system-prompt";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
@@ -255,6 +256,14 @@ export async function POST(req: NextRequest) {
           : await getLatestEngineVersionForChatForRequest(req, reviewChatId).catch(
               () => null,
             );
+      if (reviewChatId && (scopedVersion || (await getEngineChatByIdForRequest(req, reviewChatId).catch(() => null)))) {
+        const granted = OPENCLAW.editEnabled ? sanitizeOpenClawPowerIds(body.powers) : [];
+        await writeLiveReviewGrant({
+          chatId: reviewChatId,
+          powersOn: granted.length > 0,
+          granted,
+        }).catch(() => null);
+      }
       // Debug full-code context is only unlocked for an ownership-verified chat.
       const debugOwned = debug && Boolean(scopedVersion);
       // Edit bounded code context uses the same ownership gate as debug, plus
@@ -301,20 +310,27 @@ export async function POST(req: NextRequest) {
       // assistant answers with concrete diagnostics instead of guessing.
       // Compact + DB-guarded; null when nothing actionable, so normal chat
       // stays cheap.
-      if (routingIntent === "review" || debug) {
+      if (routingIntent === "review" || debug || powers.liveReview) {
         if (scopedVersion) {
           // Fas 1 (findings) + Fas 4 (timeline) share a single DB read, keyed
-          // by the OWNERSHIP-VERIFIED version id.
-          const { findings: findingsBlock, timeline: timelineBlock } =
-            await buildOpenClawReviewContext({
-              chatId: reviewChatId,
-              versionId: scopedVersion.version.id,
-            });
+          // by the OWNERSHIP-VERIFIED version id. Live-reviewresultatet är
+          // info-nivå i error-loggen och måste läsas från claim-raden.
+          const {
+            findings: findingsBlock,
+            timeline: timelineBlock,
+            liveReview: liveReviewBlock,
+          } = await buildOpenClawReviewContext({
+            chatId: reviewChatId,
+            versionId: scopedVersion.version.id,
+          });
           if (findingsBlock) {
             messages.push({ role: "system", content: findingsBlock });
           }
           if (timelineBlock) {
             messages.push({ role: "system", content: timelineBlock });
+          }
+          if (liveReviewBlock) {
+            messages.push({ role: "system", content: liveReviewBlock });
           }
 
           // Debug-mode: surface the bug-hunt's own structured findings for this

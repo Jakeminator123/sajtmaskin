@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@/lib/db/client", () => ({ dbConfigured: true }));
+vi.mock("@/lib/db/services/live-review-runs", () => ({
+  getLiveReviewRunForVersion: vi.fn(async () => null),
+}));
 vi.mock("@/lib/db/services/version-errors", () => ({
   getLatestEngineVersionErrorLogs: vi.fn(async () => [
     {
@@ -34,6 +37,6 @@ describe("buildOpenClawReviewContext", () => {
 
   it("returns nulls when no versionId is given", async () => {
     const ctx = await buildOpenClawReviewContext({ versionId: "" });
-    expect(ctx).toEqual({ findings: null, timeline: null });
+    expect(ctx).toEqual({ findings: null, timeline: null, liveReview: null });
   });
 });

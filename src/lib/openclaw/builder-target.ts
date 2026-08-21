@@ -12,6 +12,12 @@ export interface OpenClawBuilderTarget {
   versionId: string;
 }
 
+export function readActiveBuilderChatId(): string | null {
+  if (typeof window === "undefined") return null;
+  const chatId = window.__SITEMASKIN_CONTEXT?.chatId;
+  return typeof chatId === "string" && chatId.trim() ? chatId.trim() : null;
+}
+
 export function readActiveBuilderTarget(): OpenClawBuilderTarget | null {
   if (typeof window === "undefined") return null;
   const ctx = window.__SITEMASKIN_CONTEXT;

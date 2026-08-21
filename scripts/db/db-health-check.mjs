@@ -79,6 +79,8 @@ const EXPECTED_TABLES = [
   "version_approvals",
   // OpenClaw debug-mode bug-hunt findings (OC_DEBUG)
   "oc_debug_findings",
+  "live_review_grants",
+  "live_review_runs",
   // Tokenförbrukning per LLM-anrop
   "llm_usage",
   // Usage-baserad generationskostnad + operatörsinställningar
@@ -154,6 +156,11 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
     { name: "idx_oc_debug_findings_run_id", columns: ["run_id"] },
     { name: "idx_oc_debug_findings_version_id", columns: ["version_id"] },
     { name: "idx_oc_debug_findings_created_at", columns: ["created_at"] },
+  ],
+  live_review_runs: [
+    { name: "live_review_runs_version_revision_unique", columns: ["version_id", "files_revision"] },
+    { name: "idx_live_review_runs_chat_id", columns: ["chat_id"] },
+    { name: "idx_live_review_runs_expires_at", columns: ["expires_at"] },
   ],
   // Codex P3: declare the lease indexes so migrated DBs don't report them as
   // `extra_indexes`. Both are required by the acquire path: the partial unique

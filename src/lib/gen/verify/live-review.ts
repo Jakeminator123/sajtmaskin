@@ -166,16 +166,27 @@ function sanitizePathSegment(value: string, fallback: string): string {
   return sanitized || fallback;
 }
 
+export function liveReviewJpegFilename(params: {
+  viewport: "desktop" | "mobile";
+  versionId: string;
+  filesRevision?: string | null;
+}): string {
+  const revision = sanitizePathSegment(params.filesRevision || params.versionId, "revision");
+  return `live-review-${params.viewport}-${revision}.jpg`;
+}
+
 export async function persistLiveReviewJpeg(params: {
   buffer: Buffer;
   chatId: string;
   versionId: string;
   viewport: "desktop" | "mobile";
+  userId?: string;
+  filesRevision?: string | null;
 }): Promise<string | null> {
   try {
     const uploaded = await uploadBlob({
-      userId: `chat-${sanitizePathSegment(params.chatId, "chat")}`,
-      filename: `live-review-${params.viewport}-${sanitizePathSegment(params.versionId, "version")}.jpg`,
+      userId: sanitizePathSegment(params.userId || `user-${params.chatId}`, "user"),
+      filename: liveReviewJpegFilename(params),
       buffer: params.buffer,
       contentType: "image/jpeg",
       projectId: sanitizePathSegment(params.chatId, "chat"),
@@ -621,6 +632,7 @@ export async function maybeAttachLiveReview(params: {
   userRequest: string;
   briefSummary: string;
   enabled?: boolean;
+  filesRevision?: string | null;
 }): Promise<LiveReviewResult> {
   const isFollowUp =
     isChatFollowUpVersion(params.versionNumber) || Boolean(params.previousVersionId);
@@ -648,7 +660,25 @@ export async function maybeAttachLiveReview(params: {
     parentFilesJson = parentFilesJson ?? loaded?.files_json ?? null;
   }
 
-  const previous = await loadPreviousLiveReviewScreenshots(previousVersionId);
+  const previousFromRuns =
+    params.chatId && params.versionId
+      ? await import("@/lib/db/services/live-review-runs")
+          .then((mod) =>
+            mod.getPreviousLiveReviewScreenshots({
+              chatId: params.chatId as string,
+              versionId: params.versionId,
+              filesRevision: params.filesRevision ?? "",
+            }),
+          )
+          .catch(() => null)
+      : null;
+  const previousFromLogs = await loadPreviousLiveReviewScreenshots(previousVersionId);
+  const previous = {
+    previousDesktopUrl:
+      previousFromRuns?.desktopUrl ?? previousFromLogs.previousDesktopUrl ?? null,
+    previousMobileUrl:
+      previousFromRuns?.mobileUrl ?? previousFromLogs.previousMobileUrl ?? null,
+  };
   const bundle = assembleReviewBundle({
     versionId: params.versionId,
     parentVersionId: previousVersionId,

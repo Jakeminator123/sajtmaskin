@@ -181,6 +181,10 @@ export async function runCleanup(): Promise<CleanupResult> {
  * dom medvetet eftersom där kör vi total nuke).
  */
 async function deleteProjectAndData(projectId: string): Promise<void> {
+  const { purgeLiveReviewBlobsForProject } = await import(
+    "@/lib/db/services/live-review-runs"
+  );
+  await purgeLiveReviewBlobsForProject(projectId);
   await db.delete(appProjects).where(eq(appProjects.id, projectId));
 }
 

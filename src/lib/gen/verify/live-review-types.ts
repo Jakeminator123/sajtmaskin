@@ -62,6 +62,11 @@ export type ReviewBundle = {
 
 export type LiveReviewSkipReason =
   | "flag_off"
+  | "grant_off"
+  | "edit_off"
+  | "missing_revision"
+  | "cost_capped"
+  | "claim_busy"
   | "postcheck_skipped"
   | "preview_not_ready"
   | "preview_unreadable"

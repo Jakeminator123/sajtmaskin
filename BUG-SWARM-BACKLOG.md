@@ -75,6 +75,8 @@ Bekräftade öppna defekter. Detta är den enda listan att jobba ur. Canvasen vi
 >
 > **Synk 2026-08-20 (nattens våg 1–3):** sex rader kodfixade och arkiverade — `SM-058` #1061, `SM-059` #1059, `SM-060` #1067, `SM-061` #1065, `SM-017` #1068, `SM-062` #1064 (HMR-sökvägen; CI-bevakningsluckan är residual i arkivnoten). `SM-035` stannar: #1063 gav orsaksklassning, inte rotorsak. Kön har **25** öppna rader.
 >
+> **Synk 2026-08-21 (SM-070 kodgrind):** grant ∧ flagga ∧ `OC_EDIT`, claim per `filesRevision`, Blob-TTL 7 dagar. Flaggan stannar av i koden. Nästa steg efter merge: Preview-rökprov (`docs/plans/active/2026-08-20-live-review/01-preview-smoke.md`), inte Production i samma andetag. Rad `SM-070` arkiveras först när rökprovet är grönt.
+>
 > **Synk 2026-08-20 (#1052 mergad):** live-review-kritikern landade som advisory bakom avstängd flagga (`2078883723`). Alla sju inline-botfynd var filade mot den gamla headen `c5ed09592` och prövades om mot `3027e287b` före merge — samtliga åtgärdade i sak. Aktiveringsgrinden fick raden `SM-070`. Kön har **31** öppna rader.
 >
 > **Synk 2026-08-21 (vågschema stängt):** `SM-036` #1080 och `SM-064` #1078 arkiverade. `SM-035` stannar: #1081 gav signalfälts-diagnostik, inte rotorsak till exit 254. B2 (#1079) är briefing-plan, inte kön. Vågschemat vävs in i `docs/plans/avklarat/`. Kön har **23** öppna rader.

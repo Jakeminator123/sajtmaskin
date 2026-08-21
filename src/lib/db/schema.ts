@@ -807,6 +807,55 @@ export const ocDebugFindings = pgTable(
   }),
 );
 
+/**
+ * Per-chat OpenClaw power grant used by Live Review. Product Postcheck reads
+ * only this row — a request body cannot invent a grant.
+ */
+export const liveReviewGrants = pgTable("live_review_grants", {
+  chatId: text("chat_id")
+    .primaryKey()
+    .references(() => engineChats.id, { onDelete: "cascade" }),
+  granted: jsonb("granted").$type<string[]>().notNull().default([]),
+  powersOn: boolean("powers_on").notNull().default(false),
+  updatedAt: timestamptz("updated_at").defaultNow().notNull(),
+});
+
+/**
+ * One paid Live Review per (version, files_revision). Concurrent postchecks
+ * share the row; JPEG URLs + TTL live here so Blob cleanup has an owner.
+ */
+export const liveReviewRuns = pgTable(
+  "live_review_runs",
+  {
+    id: text("id").primaryKey(),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => engineChats.id, { onDelete: "cascade" }),
+    versionId: text("version_id").notNull(),
+    filesRevision: text("files_revision").notNull(),
+    userId: text("user_id").notNull(),
+    status: text("status").notNull(),
+    skipReason: text("skip_reason"),
+    result: jsonb("result").$type<Record<string, unknown> | null>(),
+    desktopUrl: text("desktop_url"),
+    mobileUrl: text("mobile_url"),
+    desktopBlobPath: text("desktop_blob_path"),
+    mobileBlobPath: text("mobile_blob_path"),
+    modelAttempts: integer("model_attempts").notNull().default(0),
+    claimedAt: timestamptz("claimed_at").defaultNow().notNull(),
+    completedAt: timestamptz("completed_at"),
+    expiresAt: timestamptz("expires_at").notNull(),
+  },
+  (table) => ({
+    versionRevisionUnique: uniqueIndex("live_review_runs_version_revision_unique").on(
+      table.versionId,
+      table.filesRevision,
+    ),
+    chatIdx: index("idx_live_review_runs_chat_id").on(table.chatId),
+    expiresIdx: index("idx_live_review_runs_expires_at").on(table.expiresAt),
+  }),
+);
+
 export const generationTelemetry = pgTable(
   "generation_telemetry",
   {
