@@ -232,8 +232,11 @@ describe("extractVariantTemplateStructuralReferences", () => {
   });
 
   it("uses the committed SHA-bound addendum by default", async () => {
+    // XOMN4texeRO är `reviewed` i registret (B4). En reviewed-post bevaras av
+    // generatorn så länge ZIP-SHA:n är oförändrad, så den är stabilare som
+    // fixtur än en `generated`- eller numera `disabled`-post (8QhCJAwn16K).
     const inspiration = await resolveVariantTemplateInspiration(
-      { sourceTemplateIds: ["8QhCJAwn16K"] },
+      { sourceTemplateIds: ["XOMN4texeRO"] },
       { includeStructure: true },
     );
 
