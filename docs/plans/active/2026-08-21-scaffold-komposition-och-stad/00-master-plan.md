@@ -60,6 +60,41 @@ Domarna satta 2026-08-21 enligt rekommendationen ovan, på ägarens delegering
 («DU får merga») i arbetsledningschatten. Ägaren kan riva upp enskilda domar i
 K1-PR:ens granskning.
 
+## Läge 2026-08-21 ~15:00 + handoff till nästa agent
+
+Utfört av Builder A (arbetsledningschatten, session 1):
+
+- **Mergat:** #1082–#1089 (hela mergehygien-spåret + SM-070-grinden) samt #1087
+  med tre fixar (avoid-tokens, extractor-fingerprint, 69→68-testsynkar).
+- **Domarna:** alla fem = disabled (tabellen nedan), applicerade i K1.
+- **K1:** utförd av Builder A som [#1094](https://github.com/Jakeminator123/sajtmaskin/pull/1094)
+  (bugbot rent). När mergad: **stäng #1090** (ersatt).
+- **Baslinje för eftermätning:** `SCAFFOLD-MATRIS-2026-08-21.md` i repo-roten.
+
+Kvar för nästa agent (Builder/Steward A):
+
+1. **Merga #1094** om inte redan gjort (grind per `pr-merge.mdc`; sign-off finns
+   eller skrivs ny för aktuell head). Stäng #1090 efteråt med kommentar «ersatt
+   av #1094».
+2. **Rebase + merga K2/K3/K4** ([#1093](https://github.com/Jakeminator123/sajtmaskin/pull/1093),
+   [#1092](https://github.com/Jakeminator123/sajtmaskin/pull/1092),
+   [#1091](https://github.com/Jakeminator123/sajtmaskin/pull/1091)) — alla tre
+   är CONFLICTING: de baserades **före** #1087. OBS semantik, inte bara text:
+   K3 rör `finalize-prompts.ts` som #1087 skrev om (Brief-rankning +
+   `selectionContext`); K4:s research-/registry-analys gjordes mot pre-#1087-
+   läget — verifiera att den inte återinför något #1087 tog bort; K2 rör
+   variant-JSON som både #1087 (mEefgKyVifq bort) och K1 (#1094, noter/status)
+   ändrat. Verifiering per aktivitetsfil. En mutator i taget, egen worktree per
+   branch (`npm run worktree:link`, riv med `npm run worktree:remove`).
+3. **Säg till ägaren att skicka P5** (K5-prompten i
+   [`cloud-prompts.md`](cloud-prompts.md)) först när K1–K4 är mergade.
+4. **Städ:** riv worktrees `sajtmaskin-a-1082`, `-a-1084`, `-a-1086`,
+   `-a-sm070`, `-fix-1085`, `-fix-1087`, `-a-b4-addenda` (efter #1094-merge),
+   `-A-source-packages` — **endast** via `npm run worktree:remove -- <path>`
+   (junction-fällan). Rör aldrig brancher med `BRA` i namnet.
+5. Ägarens separata spår (rör ej): SM-070 preview-rökprov
+   (`../2026-08-20-live-review/01-preview-smoke.md`), buggkön.
+
 ## Aktiviteter och vågordning
 
 | Våg | Aktivitet | Kan köras parallellt med | Blockeras av |
