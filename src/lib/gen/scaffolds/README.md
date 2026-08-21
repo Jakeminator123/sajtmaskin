@@ -25,26 +25,26 @@ when generating code.
 
 ## Cursorignored generated files
 
-| File | Size | What it is |
-|------|------|-----------|
-| `scaffold-embeddings.json` | ~0.4 MB (lokal cache) | OpenAI vectors for the 10 scaffolds. **SoT:** Vercel Blob `embeddings/scaffold-embeddings.json`. Used by `searchScaffolds()`. |
-| `scaffold-research.generated.json` | ~20 KB (spårad) | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, legacy `referenceTemplates`). Historically built from the removed external template-library pipeline. Runtime renders checklist/upgrade targets but no longer renders the legacy template list. |
+| File                               | Size                  | What it is                                                                                                                                                               |
+| ---------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `scaffold-embeddings.json`         | ~0.4 MB (lokal cache) | OpenAI vectors for the 10 scaffolds. **SoT:** Vercel Blob `embeddings/scaffold-embeddings.json`. Used by `searchScaffolds()`.                                            |
+| `scaffold-research.generated.json` | spårad                | Per-scaffold `qualityChecklist` and `research.upgradeTargets`. The removed external template-library references are no longer part of this artifact or the runtime type. |
 
 ## Indexed files (readable by agents)
 
-| File | What it does |
-|------|-------------|
-| `registry.ts` | Imports the 10 manifests (see `BASE_SCAFFOLDS`) and merges in generated research overrides. This is the single source of truth for runtime scaffold objects. |
-| `types.ts` | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. `id` is scaffoldens kanoniska runtime-nyckel; äldre docs kan fortfarande nämna `family` som legacy-alias. |
+| File                                | What it does                                                                                                                                                                        |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `registry.ts`                       | Imports the 10 manifests (see `BASE_SCAFFOLDS`) and merges in generated research overrides. This is the single source of truth for runtime scaffold objects.                        |
+| `types.ts`                          | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. `id` is scaffoldens kanoniska runtime-nyckel; äldre docs kan fortfarande nämna `family` som legacy-alias.     |
 | `scaffold-client-list.generated.ts` | Committed browser-safe projection of client-visible manifest metadata. Regenerate with `npm run scaffolds:client-list:write`; freshness is checked by `npm run scaffolds:validate`. |
-| `matcher.ts` | Primary keyword-based scaffold matching. `matchScaffoldAuto()` uses keyword matching first and only uses embeddings when the keyword result is missing or too generic. |
-| `serialize.ts` | `serializeScaffoldForPrompt()` — turns the resolved scaffold into prompt context. |
-| `scaffold-search.ts` | Embedding-based `searchScaffolds()`; expands SV<->EN query hints before cosine ranking. |
-| `scaffold-embedding-locale.ts` | Swedish mirrors (label, description, keywords) paired with English manifest text in embedding documents. |
-| `scaffold-embeddings-core.ts` | Builds bilingual text -> OpenAI embeddings. Run `npx tsx scripts/embeddings/generate-scaffold-embeddings.ts` after manifest or scaffold research changes. |
-| `scaffold-scoring.ts` | Telemetry-based boost/penalize for generic scaffolds. |
-| `scaffold-aware-retry.ts` | Suggests an alternative scaffold after finalize/preflight failures. This is reactive retry logic, separate from initial scaffold selection. |
-| `scaffold-research.ts` | Loads `scaffold-research.generated.json` overrides. During full refresh/bootstrap it falls back to empty overrides so the generated file can be rebuilt from scratch. |
+| `matcher.ts`                        | Primary keyword-based scaffold matching. `matchScaffoldAuto()` uses keyword matching first and only uses embeddings when the keyword result is missing or too generic.              |
+| `serialize.ts`                      | `serializeScaffoldForPrompt()` — turns the resolved scaffold into prompt context.                                                                                                   |
+| `scaffold-search.ts`                | Embedding-based `searchScaffolds()`; expands SV<->EN query hints before cosine ranking.                                                                                             |
+| `scaffold-embedding-locale.ts`      | Swedish mirrors (label, description, keywords) paired with English manifest text in embedding documents.                                                                            |
+| `scaffold-embeddings-core.ts`       | Builds bilingual text -> OpenAI embeddings. Run `npx tsx scripts/embeddings/generate-scaffold-embeddings.ts` after manifest or scaffold research changes.                           |
+| `scaffold-scoring.ts`               | Telemetry-based boost/penalize for generic scaffolds.                                                                                                                               |
+| `scaffold-aware-retry.ts`           | Suggests an alternative scaffold after finalize/preflight failures. This is reactive retry logic, separate from initial scaffold selection.                                         |
+| `scaffold-research.ts`              | Loads `scaffold-research.generated.json` overrides. During full refresh/bootstrap it falls back to empty overrides so the generated file can be rebuilt from scratch.               |
 
 ## Runtime flow
 
@@ -57,7 +57,7 @@ when generating code.
 
 ## Regeneration Notes
 
-- `scaffold-research.generated.json` was historically rebuilt by `scripts/template-library/build-template-library.ts`. That script + its `template-library:*` npm targets are removed (see `registry.ts` header). Treat `referenceTemplates` as retained legacy data, not runtime prompt input; current variant inspiration comes from one allowlisted Blob template via `scaffold-variants/template-inspiration.ts`.
+- `scaffold-research.generated.json` now contains only scaffold-owned quality metadata. Variant inspiration comes from one Brief-ranked, allowlisted Blob template via `scaffold-variants/template-inspiration.ts`; request-specific component/block inspiration comes separately from UI Recipes.
 - `scaffold-client-list.generated.ts` rebuilds via `npm run scaffolds:client-list:write`. Do not import `registry.ts` from client code; the committed projection keeps Node-only manifest loading out of the browser graph.
 - `scaffold-embeddings.json` rebuilds via `npm run scaffolds:embeddings` (writes Vercel Blob + local cache). Sync cache with `npm run embeddings:sync`.
 - If scaffold research changes, regenerate embeddings too so semantic matching uses the same merged scaffold data as runtime.

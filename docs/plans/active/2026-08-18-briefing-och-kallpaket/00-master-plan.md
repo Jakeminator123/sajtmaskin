@@ -2,8 +2,8 @@
 
 Status: Active
 Startad: 2026-08-18
-Ägarbeslut: **delvis** — Prompt-assist-knappen 2026-08-19, Briefing (N1) 2026-08-20.
-Kvar: N2, N3, N4, N5. B4 och B5 körbara. B6 steg 1 körbart; steg 2 väntar N4. B7 väntar N5.
+Ägarbeslut: **delvis** — Prompt-assist-knappen 2026-08-19, Briefing (N1) 2026-08-20, Källpaket (N2) 2026-08-21.
+Kvar: N3, N4, N5. B4 och B5 körbara. B6 steg 1 körbart; steg 2 väntar N4. B7 väntar N5.
 
 Underlag från ägarens externa granskare: `övrigt/chadcn-addendum-aiassist/`
 (`summering..md` + `raw.txt`). Mappen är gitignorerad — cloud-agenter läser
@@ -30,7 +30,8 @@ Spåret är **inte** klart. Tabellen är live-status mot `master` / öppna PR:er
 | B6 | Inte startad. Steg 1 får köras; steg 2 väntar N4. |
 | B7 | Inte startad. Väntar N5. B3 är landad. |
 | N1 | **Klar.** Prompt-assist = knappen (2026-08-19). Briefing = lagernamnet (2026-08-20). |
-| N2–N5 | Öppna. N5 ligger i backloggen. |
+| N2 | **Klar.** Källpaket ratificerat 2026-08-21. Addendum stannar som intern term. |
+| N3–N5 | Öppna. N5 ligger i backloggen. |
 
 ## Kärnprincip
 
@@ -222,11 +223,14 @@ kvittot. B4 och B5 kan nu utvärderas mot riktiga körningar, inte gissningar.
 
 Samma frågor ligger i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md)
 § Väntar på ägarbeslut. Planen äger formuleringen; backloggen är kön.
+N2 är avgjort — se [`docs/decisions/README.md`](../../../decisions/README.md).
+N1 är redan beslutat (2026-08-20) men backlograden stängs i #1082.
+Kvar i kön efter båda: N3–N5.
 
 | # | Fråga | Förslag |
 |---|---|---|
 | N1 | Vad ska lagret före kodgeneratorn heta? | **Klar 2026-08-20.** Briefing — fyra lägen: Deep Brief (init), Auto Brief (server), Ändringsbrief (`clear-redesign`), Snapshot-Brief. Prompt-assist är knappen bredvid Plan (2026-08-19), inte ett Briefing-läge. Se [`docs/decisions/README.md`](../../../decisions/README.md). |
-| N2 | Vad ska «Addendum» heta i produkttext? | **Källpaket** för samlingen av valbara ingredienser (variantreferens, UI Recipes, dossiers, media). Filnamn och kod (`variant-template-addenda.json`, `resolveVariantTemplateAddendum`) behåller sina namn. |
+| N2 | Vad ska «Addendum» heta i produkttext? | **Klar 2026-08-21.** **Källpaket** för samlingen av valbara ingredienser (variantreferens, UI Recipes, dossiers, media). **Addendum** är intern teknisk term. Filnamn och kod (`variant-template-addenda.json`, `resolveVariantTemplateAddendum`) behåller sina namn. Se [`docs/decisions/README.md`](../../../decisions/README.md). |
 | N3 | Ska «Polish» återinföras? | Ja, men **efter** generering och under namnet **Refine**, drivet av verifierarens advisory-fynd (`post_generation_verifier`) — aldrig som omskrivning av användarens prompt. Ligger sist, efter B3. |
 | N4 | Får vi — efter mätningen i B6 steg 1 — prova en **bevarande** Ändringsbrief för `clear-refine` bakom feature flag? | **Experimentet (B6 steg 2) kräver uttryckligt OK; mätningen i steg 1 gör det inte.** Gällande beslut 2026-08-14 («ingen delta brief på varje follow-up») står kvar. N4 är inte att bredda if-villkoret till alla redigerande lägen. Först om mätningen visar ett verkligt problem: ett flaggat experiment på `clear-refine` med den redan byggda *preserve*-varianten av `formatPriorDesignContext` (utan `intent: "clear-redesign"`). `capability-add` / `capability-modify` övervägs först efter ett bra utfall. Neutral och `ambiguous-*` lämnas. B1–B5 är städning, sanning och mätning och behöver inget nytt beslut. |
 | N5 | Får det slutliga variantvalet (B7) kosta en extra embedding-runda på init? | **Kräver uttryckligt OK.** I dag kortsluter förmatchningspinnen oftast bort variant-embeddingen, så B7 lägger till en `text-embedding-3-small`-runda per ny sajt. Frågan är enbart latens och kostnad — inte om briefen ska få bestämma, vilket auktoritetsordningen redan svarat ja på. Mildringen (dela query-vektor med scaffold-sökningen) är möjlig men byter semantik och ska mätas, inte antas. |

@@ -34,7 +34,9 @@ class LiveCatalogTests(unittest.TestCase):
                 CatalogScope.PREVIEW_FIT: 278,
                 CatalogScope.GALLERY: 278,
                 CatalogScope.SITE_VISIBLE: 262,
-                CatalogScope.VARIANT_CITED: 69,
+                # 68 sedan tomma mEefgKyVifq togs bort ur registret och dess
+                # två variantciteringar (#1087).
+                CatalogScope.VARIANT_CITED: 68,
             },
         )
 
@@ -51,7 +53,7 @@ class LiveCatalogTests(unittest.TestCase):
     def test_live_generated_addenda_match_archive_and_extractor(self) -> None:
         cited = select_catalog(self.snapshot, CatalogScope.VARIANT_CITED)
         self.assertTrue(self.snapshot.addenda_valid, self.snapshot.addenda_error)
-        self.assertEqual(len(cited), 69)
+        self.assertEqual(len(cited), 68)
         self.assertTrue(all(record.addendum_status == "current" for record in cited))
         self.assertTrue(
             all(

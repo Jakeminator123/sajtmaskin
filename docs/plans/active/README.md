@@ -19,7 +19,7 @@ Vågschemat 20 aug är avklarat. Ta en rad ur `## Aktiv kö`, inte en planmapp.
 | Scaffold-komposition + städ | Analys 21 aug klar. K1 blockerad av #1087-merge + 5 ägardomar; K2–K5 vågstyrda, cloud-prompter finns. | [`2026-08-21-scaffold-komposition-och-stad/00-master-plan.md`](2026-08-21-scaffold-komposition-och-stad/00-master-plan.md) |
 | Live-review `SM-070` | Kodgrind stängd (grant + claim + Blob-TTL). Flaggan av i koden. Kvar: Preview-rökprov, sedan Production. | [`2026-08-20-live-review/00-master-plan.md`](2026-08-20-live-review/00-master-plan.md) + [`01-preview-smoke.md`](2026-08-20-live-review/01-preview-smoke.md) |
 | Dossier-förenkling | Steg 1 landat (#1045). D2 → D3 → D4 strikt sekventiellt, D5 väntar ägarbeslut. | [`2026-08-19-dossier-forenkling/00-master-plan.md`](2026-08-19-dossier-forenkling/00-master-plan.md) |
-| Briefing + Källpaket | B4 och B5 är körbara. B6 steg 1 är körbart; steg 2 väntar N4. B7 väntar N5. N1 stängd 2026-08-20. **Öppet ägarbeslut:** N2 (Källpaket), N3, N4, N5. | [`2026-08-18-briefing-och-kallpaket/00-master-plan.md`](2026-08-18-briefing-och-kallpaket/00-master-plan.md) |
+| Briefing + Källpaket | B4 och B5 är körbara. B6 steg 1 är körbart; steg 2 väntar N4. B7 väntar N5. N1 stängd 2026-08-20, N2 (Källpaket) stängd 2026-08-21. **Öppet ägarbeslut:** N3, N4, N5. | [`2026-08-18-briefing-och-kallpaket/00-master-plan.md`](2026-08-18-briefing-och-kallpaket/00-master-plan.md) |
 
 Vågschemat 20 aug (#1070–#1081) är levererat — se
 [`../avklarat/README.md`](../avklarat/README.md). Skicka ingen agent på de
@@ -40,7 +40,7 @@ smal aktiv plan om arbetet behöver mer än backloggraden.
 
 Fattade: [`docs/decisions/README.md`](../../decisions/README.md).
 Öppna: [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) § Väntar på
-ägarbeslut, plus briefing N2–N5.
+ägarbeslut, plus briefing N3–N5.
 
 ## När en plan är klar
 

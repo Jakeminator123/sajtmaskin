@@ -28,7 +28,7 @@ Per scaffold finns en eller flera variants med design-axes (label, description, 
 
 **Variant-kvalitet:** `corporate-grid` (landing-page) och `base-nextjs`-varianterna är handredigerade referenser.
 
-**`sourceTemplateIds`:** alla variants pekar på **riktiga v0-mall-Blob-id:n** i `src/lib/templates/template-blob-manifest.json` (legacy-slugs från den borttagna external-template-pipelinen remappades 2026-07-22). Listan är en ordnad kandidatpool; init-runtime väljer **högst en** mall via `template-inspiration.ts`. Källordningen gäller normalt, men en senare kandidat som inte uttryckligen har `previewFits: false` föredras framför en tidigare kandidat som har det. Tillåtna helprojektskategorier är `landing-pages`, `website-templates`, `apps-and-games`, `dashboards`, `login-and-sign-up`, `e-commerce` och `blog-and-portfolio`. `ai` väljs normalt inte, med ett explicit granskat undantag för `h4nibkqysVJ` (AEGIS-Ω), vars id, kategori och arkiv-SHA måste matcha den låsta runtime-allowlisten. `animations`, `components`, `layouts` och `design-systems` väljs inte. Den valda stillbilden skickas som style-only visionreferens. Frontendutdragen hämtas från det SHA-bundna `config/variant-template-addenda.json`. Ett `hit` ger högst tre, totalt 9 000 tecken långa utdrag (huvudsida, direkt komponent, global CSS/layout). `disabled`, `missing`, `stale` och `invalid` ger inga kodutdrag och hämtar inte Blob-ZIP:en i användarflödet; stillbilden skickas ändå. Scaffold, brief, routes och kontrakt äger fortfarande implementationen; mallens brand, assets, paketversioner, routes och backend antas aldrig. Arkivläsning hör till offline-kommandot `templates:addenda` och till verbatim-import (`POST /api/template`).
+**`sourceTemplateIds`:** alla variants pekar på **riktiga v0-mall-Blob-id:n** i `src/lib/templates/template-blob-manifest.json` (legacy-slugs från den borttagna external-template-pipelinen remappades 2026-07-22). Listan är en ordnad kandidatpool; init-runtime väljer **högst en** mall via `template-inspiration.ts`. Preview-kompatibla kandidater rangordnas deterministiskt mot prompt + Deep Brief; användbara addendumutdrag premieras och källordningen bryter lika resultat. Tillåtna helprojektskategorier är `landing-pages`, `website-templates`, `apps-and-games`, `dashboards`, `login-and-sign-up`, `e-commerce` och `blog-and-portfolio`. `ai` väljs normalt inte, med ett explicit granskat undantag för `h4nibkqysVJ` (AEGIS-Ω), vars id, kategori och arkiv-SHA måste matcha den låsta runtime-allowlisten. `animations`, `components`, `layouts` och `design-systems` väljs inte. Den valda stillbilden skickas som style-only visionreferens. Frontendutdragen hämtas från det SHA-bundna `config/variant-template-addenda.json`. Ett `hit` ger högst tre, totalt 9 000 tecken långa utdrag (huvudsida, direkt komponent, global CSS/layout). `disabled`, `missing`, `stale` och `invalid` ger inga kodutdrag och hämtar inte Blob-ZIP:en i användarflödet; stillbilden skickas ändå. Scaffold, brief, routes och kontrakt äger fortfarande implementationen; mallens brand, assets, paketversioner, routes och backend antas aldrig. Fristående komponent-/blockinspiration väljs separat av UI Recipes. Arkivläsning hör till offline-kommandot `templates:addenda` och till verbatim-import (`POST /api/template`).
 
 **Integritetsgrind:** `src/lib/gen/scaffold-variants/variant-integrity.test.ts` (körs i `npm run scaffolds:validate` + test-sviten) blockerar halvfärdiga variants: saknade/tunna `signaturePatterns`, döda `sourceTemplateIds`, embeddings-index som inte matchar variant-setet, samt allt annat än exakt en default per scaffold.
 
@@ -74,13 +74,13 @@ Prompt / Deep Brief
                 └─ data/dossiers/{hard,soft}/<id>/
 ```
 
-| Lager | Källa | Kvalitet |
-|---|---|---|
-| Scaffold | `src/lib/gen/scaffolds/<id>/manifest.ts` + `files/` | Startstruktur, routes, baseline-filer, checklistor |
-| Variant | `config/scaffold-variants/<scaffoldId>/<variantId>.json` | Visuellt uttryck: motif, fontpar, theme tokens, prompt hints |
-| Variant-template | En allowlistad mall + stillbild vald från variantens `sourceTemplateIds`; SHA-addendum först, Blob-ZIP som fallback | Init-inspiration: stilbild + begränsad frontendstruktur, aldrig projektägare |
-| Dossier | `data/dossiers/{hard,soft}/<id>/` | Capability-bunden referens/instruktion, validerad mot strict schema |
-| Research/embeddings | Genererade artefakter under `src/lib/gen/scaffolds/` och `config/scaffold-variants/_index/` | Stöd för matchning och prioritering, inte ny sanningskälla |
+| Lager               | Källa                                                                                                               | Kvalitet                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Scaffold            | `src/lib/gen/scaffolds/<id>/manifest.ts` + `files/`                                                                 | Startstruktur, routes, baseline-filer, checklistor                           |
+| Variant             | `config/scaffold-variants/<scaffoldId>/<variantId>.json`                                                            | Visuellt uttryck: motif, fontpar, theme tokens, prompt hints                 |
+| Variant-template    | En allowlistad mall + stillbild vald från variantens `sourceTemplateIds`; SHA-addendum först, Blob-ZIP som fallback | Init-inspiration: stilbild + begränsad frontendstruktur, aldrig projektägare |
+| Dossier             | `data/dossiers/{hard,soft}/<id>/`                                                                                   | Capability-bunden referens/instruktion, validerad mot strict schema          |
+| Research/embeddings | Genererade artefakter under `src/lib/gen/scaffolds/` och `config/scaffold-variants/_index/`                         | Stöd för matchning och prioritering, inte ny sanningskälla                   |
 
 Legacy external-template/template-library-flöden är historik. Kontraktsdokumentet
 och skripten togs bort ur repot 2026-07-09 — arkivkopia finns i syskonmappen
@@ -93,23 +93,25 @@ därför inte den gamla repo-cache-/template-library-mappen.
 
 ## 4. Begrepps-hierarki (inte samma dimension — blanda inte)
 
-| Dim | Fråga | Typ | Värden |
-|---|---|---|---|
-| 1 | VAD ska byggas? | `BuildIntent` | `template` / `website` / `app` |
-| 2 | HUR kom requesten in? | `BuildMethod` | `wizard` / `category` / `audit` / `freeform` / `kostnadsfri` |
-| 2 | Prompt-typ | `PromptType` | `wizard` / `freeform` / `template` / `audit` / `followup_*` |
-| 3 | VILKEN startstruktur? | `ScaffoldMode` + `ScaffoldId` | `off` / `auto` / `manual` × 10 scaffold-ids |
-| 4 | HUR MYCKET styr scaffolden? | `ScaffoldSerializeMode` | `structural` / `inspirational` (init/followUp + contextPolicy) |
-| 5 | VAD BERIKAR scaffolden? | Buildtime/runtime stöddata | dossiers, `scaffold-research.generated.json`, scaffold/variant embeddings |
+| Dim | Fråga                       | Typ                           | Värden                                                                    |
+| --- | --------------------------- | ----------------------------- | ------------------------------------------------------------------------- |
+| 1   | VAD ska byggas?             | `BuildIntent`                 | `template` / `website` / `app`                                            |
+| 2   | HUR kom requesten in?       | `BuildMethod`                 | `wizard` / `category` / `audit` / `freeform` / `kostnadsfri`              |
+| 2   | Prompt-typ                  | `PromptType`                  | `wizard` / `freeform` / `template` / `audit` / `followup_*`               |
+| 3   | VILKEN startstruktur?       | `ScaffoldMode` + `ScaffoldId` | `off` / `auto` / `manual` × 10 scaffold-ids                               |
+| 4   | HUR MYCKET styr scaffolden? | `ScaffoldSerializeMode`       | `structural` / `inspirational` (init/followUp + contextPolicy)            |
+| 5   | VAD BERIKAR scaffolden?     | Buildtime/runtime stöddata    | dossiers, `scaffold-research.generated.json`, scaffold/variant embeddings |
 
 ---
 
 ## 5. Runtime-flödet steg för steg
 
 ### STEG 1 — Prompt-bearbetning (`prompt-orchestration.ts`)
+
 Klassificerar `PromptType` och väljer `PromptStrategy` (`direct` / `summarize` / `phase_plan_build_refine` / `preserved`). Output: budgeterad `finalMessage`. Scope: bara prompttext, ingen scaffold-logik.
 
 ### STEG 2 — Deep Brief (`site-brief-generation.ts`)
+
 Strukturerat objekt: projectTitle, brandName, oneSentencePitch, pages[], visualDirection, imagery, uiNotes, seo, mustHave, avoid. Trigger: client-side eller `shouldRunServerAutoBrief()`. Matar scaffold-matchning, route plan och dynamic context.
 
 ### STEG 3 — Scaffold-val (`orchestrate.ts` → `matcher.ts`)
@@ -129,34 +131,39 @@ scaffoldMode?
 utesluten ur Auto-matchning. Den används bara som tunn bas för `off` i
 fritext/init, medan importerade repo-flöden fortfarande kör utan scaffold.
 
-| Meta-fält | Värden |
-|---|---|
-| `selectionMethod` | `off` / `manual` / `persisted` / `keyword` / `embedding` / `agreement` / `default` |
-| `selectionConfidence` | `high` / `medium` / `low` |
-| `embeddingOverrideReason` | `string` / `null` |
-| `briefContextApplied` | `boolean` |
+| Meta-fält                 | Värden                                                                             |
+| ------------------------- | ---------------------------------------------------------------------------------- |
+| `selectionMethod`         | `off` / `manual` / `persisted` / `keyword` / `embedding` / `agreement` / `default` |
+| `selectionConfidence`     | `high` / `medium` / `low`                                                          |
+| `embeddingOverrideReason` | `string` / `null`                                                                  |
+| `briefContextApplied`     | `boolean`                                                                          |
 
 ### STEG 4 — Capability-inferens (`capability-inference.ts`)
+
 Flaggor: `needsAuth`, `needsEcommerce`, `needsAppShell`, `needsForms`, `needsCharts`, `needs3D`, `needsMotion`, m.fl. + `hasHeavyCapabilities()`. Boostar matchning + prioriterar filer + matar BuildSpec.
 
 ### STEG 5 — Route Plan (`src/lib/gen/route-plan/`)
+
 Källprioritet: brief pages > scaffold defaults > prompt patterns. Output: `RoutePlan { routes[], siteType, provenance }`. Scaffold defaults härleds ur manifestets `routeContract` (fyra kategorier: required/optional/declared/dynamic) — manifesten äger listorna, och en deterministisk grind jämför scaffoldens länkar mot kontraktet. Se [`../schemas/scaffold-contract.md`](../schemas/scaffold-contract.md) § Route contract.
 
 ### STEG 6 — Pre-generation Contracts (`pre-generation-contracts.ts`)
+
 Auth, Payment, Database, Env vars, Integrations. Output: `contracts[]`, `unresolvedDecisions[]`, `confirmedAnswers[]`.
 
 ### STEG 7 — Build Spec (`src/lib/gen/build-spec/`)
+
 `contextPolicy` (`light` / `normal` / `heavy`), `qualityTarget`, `previewPolicy`, `verificationPolicy`, `tokenBudgets.{scaffoldChars, scaffoldTokens}`. Se [llm-pipeline.md](../architecture/llm-pipeline.md) § FAS 2 för token-budget-tabellen. Byggvals `complexityHint` (init-only) deltar: `complex` golvar `qualityTarget` på premium och ger +2 i context-score, `simple` ger −1 (demotar aldrig quality — multipage-/signal-promotions vinner).
 
 ### STEG 8 — Orchestration Contract (`orchestration-contract.ts`)
+
 Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRoute, generationToValidate }`.
 
 ### STEG 9 — Scaffold-serialisering (`serialize.ts`)
 
-| Mode | Triggas av | Vad som injiceras |
-|---|---|---|
-| `inspirational` | `init` + INTE heavy contextPolicy | Filträd + layout/theme-filer. "Invent a unique page flow." |
-| `structural` | `followUp` ELLER heavy contextPolicy | Filträd + kritiska filer renderade per **Scaffold Contract V2** (full/excerpt/signature). Modellen följer scaffoldens baseline. |
+| Mode            | Triggas av                           | Vad som injiceras                                                                                                               |
+| --------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `inspirational` | `init` + INTE heavy contextPolicy    | Filträd + layout/theme-filer. "Invent a unique page flow."                                                                      |
+| `structural`    | `followUp` ELLER heavy contextPolicy | Filträd + kritiska filer renderade per **Scaffold Contract V2** (full/excerpt/signature). Modellen följer scaffoldens baseline. |
 
 `detectScaffoldMode()` med kreativa nyckelord finns men **anropas inte i production**. Mode bestäms mekaniskt i `orchestrate.ts`.
 
@@ -186,26 +193,28 @@ Dynamic Context (request-specifik, prioriterad + prunad):
 ```
 
 ### STEG 11 — Kodgenerering (`engine.ts`)
+
 LLM tar emot system prompt + user turn + bilagor. Producerar `CodeFile[]`.
 
 ### STEG 12 — Post-generation
+
 Se [llm-pipeline.md](../architecture/llm-pipeline.md) § FAS 2 för finalize-pipeline. Scaffold-aware retry: `inferScaffoldRetrySuggestion()` föreslår scaffold-pivot vid misslyckad generation.
 
 ---
 
 ## 6. Komplett scaffold-matris
 
-| ID | Site Kind | Complexity | Structure Profile | Content Profile | Allowed Intents | Typiska features |
-|---|---|---|---|---|---|---|
-| `base-nextjs` | marketing | simple | starter-nextjs | generic | website, template | routing-basics, seo-metadata, component-ready |
-| `landing-page` | marketing | medium | one-page-marketing | service-business | website, template | hero, trust-signals, cta |
-| `saas-landing` | marketing | medium | multi-section-marketing | saas-growth | website, template | pricing, feature-grid, comparison, cta |
-| `portfolio` | editorial | medium | showcase-site | creator-portfolio | website, template | gallery, project-cases, contact-cta |
-| `blog` | editorial | medium | editorial-hub | long-form-content | website, template | article-list, taxonomy, author-bio |
-| `dashboard` | app | advanced | dashboard-app | operations-analytics | app | auth, navigation-shell, tables, charts |
-| `auth-pages` | app | simple | auth-surface | authentication | website, app | login, signup, password-reset |
-| `ecommerce` | commerce | advanced | commerce-storefront | product-catalog | website, template | product-grid, cart, checkout, product-detail |
-| `app-shell` | app | medium | application-shell | workspace-tools | app | auth, sidebar-layout, settings, dash-widgets |
+| ID             | Site Kind | Complexity | Structure Profile       | Content Profile      | Allowed Intents   | Typiska features                              |
+| -------------- | --------- | ---------- | ----------------------- | -------------------- | ----------------- | --------------------------------------------- |
+| `base-nextjs`  | marketing | simple     | starter-nextjs          | generic              | website, template | routing-basics, seo-metadata, component-ready |
+| `landing-page` | marketing | medium     | one-page-marketing      | service-business     | website, template | hero, trust-signals, cta                      |
+| `saas-landing` | marketing | medium     | multi-section-marketing | saas-growth          | website, template | pricing, feature-grid, comparison, cta        |
+| `portfolio`    | editorial | medium     | showcase-site           | creator-portfolio    | website, template | gallery, project-cases, contact-cta           |
+| `blog`         | editorial | medium     | editorial-hub           | long-form-content    | website, template | article-list, taxonomy, author-bio            |
+| `dashboard`    | app       | advanced   | dashboard-app           | operations-analytics | app               | auth, navigation-shell, tables, charts        |
+| `auth-pages`   | app       | simple     | auth-surface            | authentication       | website, app      | login, signup, password-reset                 |
+| `ecommerce`    | commerce  | advanced   | commerce-storefront     | product-catalog      | website, template | product-grid, cart, checkout, product-detail  |
+| `app-shell`    | app       | medium     | application-shell       | workspace-tools      | app               | auth, sidebar-layout, settings, dash-widgets  |
 
 ---
 
@@ -219,7 +228,7 @@ base manifest (per scaffold-mapp, t.ex. blog/manifest.ts)
         │
         ▼
 1. scaffold-research merge
-   └─ scaffold-research.generated.json → upgradeTargets, referenceTemplates
+   └─ scaffold-research.generated.json → qualityChecklist, upgradeTargets
         │
         ▼
 2. withDefaultIcon(scaffold)
@@ -248,10 +257,10 @@ ALL_SCAFFOLDS (registry.ts)
 
 `mergeGeneratedProjectFiles()` i [`src/lib/gen/stream/finalize-merge.ts`](../../src/lib/gen/stream/finalize-merge.ts) styr hur scaffold-filer och LLM-emitterade filer kombineras till final `files_json`. Två motsatta path-set styr policyn:
 
-| Set | Beteende | Default-innehåll |
-|-----|----------|------------------|
-| `LLM_ONLY_PATHS` | Scaffold-versionen **filtreras bort**. Om LLM inte emitterar en egen version saknas filen → versionen markeras verification-blocked via `missingEmittedEssentials`. | `app/page.tsx`, `src/app/page.tsx` |
-| `SCAFFOLD_PROTECTED_PATHS` | LLM-emissionen **filtreras bort**. Scaffold-default (init) eller previous-version (follow-up) vinner alltid. Logg: `scaffold-protected-overwrite-blocked`. | `app/icon.svg`, `app/api/placeholder/route.ts` |
+| Set                        | Beteende                                                                                                                                                            | Default-innehåll                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `LLM_ONLY_PATHS`           | Scaffold-versionen **filtreras bort**. Om LLM inte emitterar en egen version saknas filen → versionen markeras verification-blocked via `missingEmittedEssentials`. | `app/page.tsx`, `src/app/page.tsx`             |
+| `SCAFFOLD_PROTECTED_PATHS` | LLM-emissionen **filtreras bort**. Scaffold-default (init) eller previous-version (follow-up) vinner alltid. Logg: `scaffold-protected-overwrite-blocked`.          | `app/icon.svg`, `app/api/placeholder/route.ts` |
 
 `SCAFFOLD_PROTECTED_PATHS` är endast för rena utility-filer utan brand/copy/affärslogik. `app/api/placeholder/route.ts` lades till 2026-04-27 efter att eval-rapporten visade att 6/13 fail-prompts berodde på att LLM:n regenererade filen som JSX i `.ts` (`Expected ">" but found "style"`). `app/icon.svg` är en minimal favicon-default som tar bort preview-404 utan att bära kundspecifik brand. Att låsa scaffold-versionen är deterministiskt och byter inte några brand-relaterade beslut.
 
@@ -275,13 +284,13 @@ Verifier-pass har en kompletterande check ([`checkUseReducedMotionStub`](../../s
 
 `SCAFFOLD_PROTECTED_PATHS` + partition/reinjection-helpers bor i [`src/lib/gen/scaffolds/protected-paths.ts`](../../src/lib/gen/scaffolds/protected-paths.ts) — en gemensam källa för alla pipelines som persisterar `files_json`:
 
-| Pipeline | Callsite | Källa |
-|---|---|---|
-| Init / follow-up merge | `mergeGeneratedProjectFiles` partition | `finalize-merge.ts` |
-| Post-merge preflight (initial parse + post-mekanisk-autofix + post-LLM-escalation) | tre guards i `runFinalizePreflight` med `branch: "post-merge-…"` | `finalize-preflight.ts` |
-| Server-verify auto-repair (quality-gate eller VM build-error) | `tryPromoteAfterGate` partition + reinject från `codeFiles` | `repair-execution.ts` |
-| Server-verify diagnostisk deterministisk persist | `verify-run` partition + reinject | `verify-run.ts` |
-| Manuell repair-knapp | `promoteIfPostRepairGatePasses` partition + reinject från persisterad `version.files_json` | `app/api/engine/chats/[chatId]/repair/route.ts` |
+| Pipeline                                                                           | Callsite                                                                                   | Källa                                           |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| Init / follow-up merge                                                             | `mergeGeneratedProjectFiles` partition                                                     | `finalize-merge.ts`                             |
+| Post-merge preflight (initial parse + post-mekanisk-autofix + post-LLM-escalation) | tre guards i `runFinalizePreflight` med `branch: "post-merge-…"`                           | `finalize-preflight.ts`                         |
+| Server-verify auto-repair (quality-gate eller VM build-error)                      | `tryPromoteAfterGate` partition + reinject från `codeFiles`                                | `repair-execution.ts`                           |
+| Server-verify diagnostisk deterministisk persist                                   | `verify-run` partition + reinject                                                          | `verify-run.ts`                                 |
+| Manuell repair-knapp                                                               | `promoteIfPostRepairGatePasses` partition + reinject från persisterad `version.files_json` | `app/api/engine/chats/[chatId]/repair/route.ts` |
 
 Full-project persist kräver att varje skyddad path **finns** i den slutliga listan, även när modellen aldrig nämnde den. `fullProjectProtectedDroppedPaths` unionerar emit-and-drop med utelämnade paths innan reinject; tom `droppedPaths` är annars en no-op. Partial-file- och targeted-repair har eget skydd och går inte den vägen.
 
@@ -297,10 +306,10 @@ Ny path läggs ENDAST i `SCAFFOLD_PROTECTED_PATHS`-set:et i `protected-paths.ts`
 
 Sedan 2026-04-17 ersätter `signaturePatterns` (konkreta layouts/motifs/antiPatterns) de fyra borttagna guidance-fälten. Fylls i av `scripts/scaffolds/auto-curate-variant-patterns.ts` (GPT-5.4 + Zod). Renderas i `## Scaffold Variant`-blocket.
 
-Sedan 2026-08-01 renderas scaffoldens legacy-lista `research.referenceTemplates`
-inte längre i prompten. Variantens enda valda Blob-referens renderas i stället i
-`## Variant Template Inspiration`; det förhindrar att flera historiska och
-oidentifierade referenser konkurrerar med den aktiva mallen.
+De borttagna externa scaffold-referenserna finns inte längre i manifesttyp,
+genererat research-artefakt, embeddings eller planefterbearbetning. Variantens
+enda faktiskt valda Blob-referens renderas i `## Variant Template Inspiration`;
+request-specifika komponenter och blocks kommer separat i `## UI Recipes`.
 
 ### Embedding-driven variant pick
 
@@ -324,21 +333,21 @@ Promote befintlig lokal JSON: `npm run embeddings:promote`.
 
 Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 
-| Yta | Fil | Vad |
-|---|---|---|
-| Runtime-typ | `src/lib/gen/scaffolds/types.ts` | `ScaffoldId` union och manifesttyper |
-| Klientprojektion | `src/lib/gen/scaffolds/scaffold-client-list.generated.ts` | Genererad, browser-safe `SCAFFOLD_CLIENT_LIST` i registry-ordning |
-| Runtime-registry | `src/lib/gen/scaffolds/registry.ts` | `BASE_SCAFFOLDS` array |
-| Variant-typ | `src/lib/gen/scaffold-variants/types.ts` | Vid fältborttagning |
-| Variant-registry | `src/lib/gen/scaffold-variants/registry.ts` | Parser-kod |
-| Variant-skript | `scripts/scaffolds/auto-curate-variant-patterns.ts`, `generate-variant-embeddings.ts` | Signature patterns + embeddings |
-| Matcher | `src/lib/gen/scaffolds/matcher.ts` | Keyword-listor, `defaultScaffoldForIntent` |
-| Embeddings | Vercel Blob `embeddings/scaffold-embeddings.json` (+ lokal cache) | Regenereras via `npm run scaffolds:embeddings` |
-| Backoffice | `backoffice/pages/scaffolds.py`, `scaffold_lifecycle.py`, `scaffold_performance.py` | Kontroller, sidolist |
-| Dokumentation | denna fil (`docs/contracts/scaffold-system.md`) + `docs/architecture/glossary.md`, `docs/schemas/scaffold-contract.md`, `docs/architecture/code-map.md` | Tabeller, distinktioner |
-| Cursor-regler | `.cursor/rules/scaffold-rules.mdc`, `.cursor/skills/sajtmaskin-context/SKILL.md` | Lista vid sammanslagning |
-| Tester | `src/lib/gen/scaffolds/matcher.test.ts`, `src/lib/gen/orchestration-snapshot.test.ts`, build-spec, eval-prompts | Asserter på scaffold-id |
-| Snapshot-data | `data/scaffold-eval/prompts.json` | Scaffold-id i förväntade resultat |
+| Yta              | Fil                                                                                                                                                     | Vad                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Runtime-typ      | `src/lib/gen/scaffolds/types.ts`                                                                                                                        | `ScaffoldId` union och manifesttyper                              |
+| Klientprojektion | `src/lib/gen/scaffolds/scaffold-client-list.generated.ts`                                                                                               | Genererad, browser-safe `SCAFFOLD_CLIENT_LIST` i registry-ordning |
+| Runtime-registry | `src/lib/gen/scaffolds/registry.ts`                                                                                                                     | `BASE_SCAFFOLDS` array                                            |
+| Variant-typ      | `src/lib/gen/scaffold-variants/types.ts`                                                                                                                | Vid fältborttagning                                               |
+| Variant-registry | `src/lib/gen/scaffold-variants/registry.ts`                                                                                                             | Parser-kod                                                        |
+| Variant-skript   | `scripts/scaffolds/auto-curate-variant-patterns.ts`, `generate-variant-embeddings.ts`                                                                   | Signature patterns + embeddings                                   |
+| Matcher          | `src/lib/gen/scaffolds/matcher.ts`                                                                                                                      | Keyword-listor, `defaultScaffoldForIntent`                        |
+| Embeddings       | Vercel Blob `embeddings/scaffold-embeddings.json` (+ lokal cache)                                                                                       | Regenereras via `npm run scaffolds:embeddings`                    |
+| Backoffice       | `backoffice/pages/scaffolds.py`, `scaffold_lifecycle.py`, `scaffold_performance.py`                                                                     | Kontroller, sidolist                                              |
+| Dokumentation    | denna fil (`docs/contracts/scaffold-system.md`) + `docs/architecture/glossary.md`, `docs/schemas/scaffold-contract.md`, `docs/architecture/code-map.md` | Tabeller, distinktioner                                           |
+| Cursor-regler    | `.cursor/rules/scaffold-rules.mdc`, `.cursor/skills/sajtmaskin-context/SKILL.md`                                                                        | Lista vid sammanslagning                                          |
+| Tester           | `src/lib/gen/scaffolds/matcher.test.ts`, `src/lib/gen/orchestration-snapshot.test.ts`, build-spec, eval-prompts                                         | Asserter på scaffold-id                                           |
+| Snapshot-data    | `data/scaffold-eval/prompts.json`                                                                                                                       | Scaffold-id i förväntade resultat                                 |
 
 ---
 
@@ -346,22 +355,22 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 
 ### Scaffold / dossier / variant
 
-| Kommando | Vad |
-|---|---|
-| `npm run scaffolds:client-list:check` | Blockerar drift mellan runtime-registret och den browser-safe klientprojektionen |
-| `npm run scaffolds:client-list:write` | Regenererar den committade klientprojektionen från runtime-registret |
-| `npm run scaffolds:validate` | Validerar klientprojektion, scaffold-manifest, embeddings-paritet och variants |
-| `npm run scaffolds:embeddings:check` | Kontrollerar scaffold-embeddings inför build |
-| `npm run embeddings:ensure` | Auto-synk + URL-check + registry-paritet (CI/prebuild) |
-| `npm run embeddings:sync` | Laddar ner embedding-JSON från Blob/manifest → lokal cache |
-| `npm run embeddings:promote` | Laddar upp lokal cache → Blob (+ `--untrack` tar bort från git) |
-| `npm run embeddings:check-untracked` | Failar om embedding-JSON är git-tracked |
-| `npm run eval` | Canonical eval; scaffold-selection är en intern lane (se `src/lib/gen/eval/README.md`) |
-| `npm run scaffolds:embeddings` | Regenererar runtime scaffold-embeddings (Blob + cache) |
-| `npm run scaffolds:variant-embeddings` | Regenererar variant-embeddings (Blob + cache) |
-| `npm run scaffolds:variant-patterns` | Kuraterar variant signature patterns |
-| `npm run dossiers:curate` | Kuraterar externa referenser till dossier-pipen |
-| `npm run dossiers:validate-all` | Validerar dossier-manifest + invariants |
+| Kommando                               | Vad                                                                                    |
+| -------------------------------------- | -------------------------------------------------------------------------------------- |
+| `npm run scaffolds:client-list:check`  | Blockerar drift mellan runtime-registret och den browser-safe klientprojektionen       |
+| `npm run scaffolds:client-list:write`  | Regenererar den committade klientprojektionen från runtime-registret                   |
+| `npm run scaffolds:validate`           | Validerar klientprojektion, scaffold-manifest, embeddings-paritet och variants         |
+| `npm run scaffolds:embeddings:check`   | Kontrollerar scaffold-embeddings inför build                                           |
+| `npm run embeddings:ensure`            | Auto-synk + URL-check + registry-paritet (CI/prebuild)                                 |
+| `npm run embeddings:sync`              | Laddar ner embedding-JSON från Blob/manifest → lokal cache                             |
+| `npm run embeddings:promote`           | Laddar upp lokal cache → Blob (+ `--untrack` tar bort från git)                        |
+| `npm run embeddings:check-untracked`   | Failar om embedding-JSON är git-tracked                                                |
+| `npm run eval`                         | Canonical eval; scaffold-selection är en intern lane (se `src/lib/gen/eval/README.md`) |
+| `npm run scaffolds:embeddings`         | Regenererar runtime scaffold-embeddings (Blob + cache)                                 |
+| `npm run scaffolds:variant-embeddings` | Regenererar variant-embeddings (Blob + cache)                                          |
+| `npm run scaffolds:variant-patterns`   | Kuraterar variant signature patterns                                                   |
+| `npm run dossiers:curate`              | Kuraterar externa referenser till dossier-pipen                                        |
+| `npm run dossiers:validate-all`        | Validerar dossier-manifest + invariants                                                |
 
 ### Backoffice
 
@@ -371,15 +380,15 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 
 ## 11. config/ — runtime-kritiskt
 
-| Fil | Vad |
-|---|---|
-| `config/codegen-core-manifest.json` | Fragment-lista för Core Rules |
-| `config/prompt-core/*.md` | Core Rules-fragment (manifestet styr exakt lista) |
-| `config/integrations/tier3-sdk-deny.json` | F2 SDK guard + F2 contract-block |
-| `config/ai_models/manifest.json` | Build profiles, token-budgetar, embedding-index, phase routing, `qualityGateTiers` (`designPreview` / `integrationsBuild`) |
-| `config/ai_models/40-harmless-placeholders.env.txt` | Placeholder env vars OK i F3 |
-| `config/ai_models/41-tier3-stub-placeholders.env.txt` | F2-stubbar — strippas i F3 |
-| `config/env-policy.json` | Env-audit regler |
+| Fil                                                   | Vad                                                                                                                        |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `config/codegen-core-manifest.json`                   | Fragment-lista för Core Rules                                                                                              |
+| `config/prompt-core/*.md`                             | Core Rules-fragment (manifestet styr exakt lista)                                                                          |
+| `config/integrations/tier3-sdk-deny.json`             | F2 SDK guard + F2 contract-block                                                                                           |
+| `config/ai_models/manifest.json`                      | Build profiles, token-budgetar, embedding-index, phase routing, `qualityGateTiers` (`designPreview` / `integrationsBuild`) |
+| `config/ai_models/40-harmless-placeholders.env.txt`   | Placeholder env vars OK i F3                                                                                               |
+| `config/ai_models/41-tier3-stub-placeholders.env.txt` | F2-stubbar — strippas i F3                                                                                                 |
+| `config/env-policy.json`                              | Env-audit regler                                                                                                           |
 
 ---
 

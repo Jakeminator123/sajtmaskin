@@ -1,4 +1,5 @@
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
+import { getVariantTemplateReviewReference } from "@/lib/gen/scaffold-variants/template-inspiration";
 import { normalizePlanArtifact, serializePlanForPrompt } from "./schema";
 
 function inferPlanSiteType(planData: Record<string, unknown>): string | undefined {
@@ -29,6 +30,7 @@ export function enrichPlanArtifactForReview(
   options: {
     resolvedScaffold: ScaffoldManifest | null;
     scaffoldMode: "auto" | "manual" | "off";
+    variantTemplateId?: string | null;
   },
 ): Record<string, unknown> | null {
   if (!planData) return null;
@@ -57,21 +59,19 @@ export function enrichPlanArtifactForReview(
           : "Builderns scaffold-matcher valde denna scaffold före planering."),
       source: scaffoldMode === "manual" ? "manual" : "auto",
     };
-
-    const existingRecommendations = Array.isArray(nextPlan.templateRecommendations)
-      ? nextPlan.templateRecommendations
-      : [];
-    if (existingRecommendations.length === 0) {
-      nextPlan.templateRecommendations =
-        resolvedScaffold.research?.referenceTemplates.slice(0, 4).map((template) => ({
-          id: template.id,
-          title: template.title,
-          categorySlug: template.categorySlug,
-          qualityScore: template.qualityScore,
-          reason: `Referensmall kopplad till scaffolden ${resolvedScaffold.label}.`,
-        })) ?? [];
-    }
   }
+
+  // Planner output must never invent gallery recommendations. Runtime owns the
+  // exact Blob/addendum source after variant selection, so expose that one
+  // reviewable reference. `variantTemplateId` is the id finalized for the
+  // same prompt package the planner sees, so this cannot drift to another
+  // candidate during review enrichment.
+  const runtimeReference = options.variantTemplateId
+    ? getVariantTemplateReviewReference(options.variantTemplateId)
+    : null;
+  nextPlan.variantTemplateReference = runtimeReference
+    ? { ...runtimeReference, selectionReason: "selected-by-runtime-variant-ranking" }
+    : null;
 
   return nextPlan;
 }
@@ -135,9 +135,7 @@ export function buildPlanUiPart(
  * en sida eller en scope-rad; summeringen och plan-kortet bygger på exakt de
  * fälten. Jfr klientens check i `stream-handlers.ts`.
  */
-export function planArtifactHasSubstance(
-  planData: Record<string, unknown> | null,
-): boolean {
+export function planArtifactHasSubstance(planData: Record<string, unknown> | null): boolean {
   const plan = normalizePlanArtifact(planData);
   if (!plan) return false;
   return (
@@ -150,10 +148,7 @@ export function planArtifactHasSubstance(
 
 /** Vilken gren som byggde plan-lägets persisterade assistentrad. */
 export type PlanModeAssistantMessageKind =
-  | "plan"
-  | "planner-text"
-  | "planner-error"
-  | "planner-empty";
+  "plan" | "planner-text" | "planner-error" | "planner-empty";
 
 export type PlanModeAssistantMessage = {
   content: string;
@@ -200,9 +195,7 @@ export function buildPlanModeAssistantMessage(params: {
   if (text) {
     return {
       content:
-        text.length > MAX_PLANNER_TEXT_CHARS
-          ? `${text.slice(0, MAX_PLANNER_TEXT_CHARS)}…`
-          : text,
+        text.length > MAX_PLANNER_TEXT_CHARS ? `${text.slice(0, MAX_PLANNER_TEXT_CHARS)}…` : text,
       uiParts: undefined,
       kind: "planner-text",
     };

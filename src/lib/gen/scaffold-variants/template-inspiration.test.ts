@@ -4,6 +4,7 @@ import type { CodeFile } from "../parser";
 import blobManifest from "../../templates/template-blob-manifest.json";
 import {
   extractVariantTemplateStructuralReferences,
+  getVariantTemplateReviewReference,
   resolveVariantTemplateInspiration,
   selectVariantTemplateReference,
   VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES,
@@ -30,6 +31,50 @@ describe("selectVariantTemplateReference", () => {
     expect(VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES).toContain(selected?.category);
   });
 
+  it("ranks the candidate pool with Deep Brief signals instead of always taking the first id", () => {
+    const selected = selectVariantTemplateReference(
+      { sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"] },
+      {
+        selectionContext: {
+          prompt: "Create a focused SaaS landing page",
+          brief: {
+            projectTitle: "Flowly",
+            visualDirection: { styleKeywords: ["calm", "product-led"] },
+          },
+        },
+      },
+    );
+
+    expect(selected?.templateId).toBe("8Y9E0cStKrW");
+    expect(selected?.selectionReason).toMatch(/^brief-ranked:candidates=2;matches=/);
+  });
+
+  it("does not treat Deep Brief avoid values as positive match signals", () => {
+    // "flowly" matchar Flowly-templatens titel. Som `avoid`-värde får det
+    // ALDRIG bli en positiv token — då vinner källordningen (första id:t).
+    const selected = selectVariantTemplateReference(
+      { sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"] },
+      {
+        selectionContext: {
+          prompt: "Create a landing page",
+          brief: { avoid: ["flowly"] },
+        },
+      },
+    );
+
+    expect(selected?.templateId).toBe("8QhCJAwn16K");
+  });
+
+  it("resolves review metadata from the exact runtime-selected Blob id", () => {
+    expect(getVariantTemplateReviewReference("8Y9E0cStKrW")).toMatchObject({
+      templateId: "8Y9E0cStKrW",
+      title: "Flowly - SaaS Landing Page Template",
+      category: "landing-pages",
+      addendumState: "hit",
+      hasStructuralReferences: true,
+    });
+  });
+
   it("allows AEGIS as an explicitly reviewed complete AI project", () => {
     const selected = selectVariantTemplateReference({
       sourceTemplateIds: ["h4nibkqysVJ"],
@@ -51,8 +96,9 @@ describe("selectVariantTemplateReference", () => {
    * sin "granskad"-status efter att arkivet bakom det bytt innehåll.
    */
   it("binds the reviewed exception to the archive SHA in the manifest", () => {
-    const manifest = (blobManifest as { templates: { id: string; category: string; archiveSha256?: string }[] })
-      .templates;
+    const manifest = (
+      blobManifest as { templates: { id: string; category: string; archiveSha256?: string }[] }
+    ).templates;
     const reviewed = manifest.find((template) => template.id === "h4nibkqysVJ");
 
     expect(reviewed?.archiveSha256).toBe(
@@ -284,7 +330,9 @@ describe("resolveVariantTemplateInspiration archive silence", () => {
       expect(inspiration?.structuralReferences).toEqual([]);
       expect(inspiration?.stillImageUrl).toBeTruthy();
       expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining(`${templateId} is ${state}; skipping archive fetch: ${state} fixture`),
+        expect.stringContaining(
+          `${templateId} is ${state}; skipping archive fetch: ${state} fixture`,
+        ),
       );
     } finally {
       warnSpy.mockRestore();

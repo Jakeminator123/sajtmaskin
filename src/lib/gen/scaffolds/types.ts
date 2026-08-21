@@ -154,17 +154,8 @@ export interface ScaffoldRouteContract {
   deliveryGroups?: string[][];
 }
 
-export interface ScaffoldReferenceTemplate {
-  id: string;
-  title: string;
-  categorySlug: string;
-  qualityScore: number;
-  strengths: string[];
-}
-
 export interface ScaffoldResearchMetadata {
   upgradeTargets: string[];
-  referenceTemplates: ScaffoldReferenceTemplate[];
 }
 
 export interface ScaffoldManifest {

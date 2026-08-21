@@ -72,12 +72,6 @@ Return a single JSON object (no markdown fences) matching this schema:
     "label": "Kort svensk etikett",
     "reason": "Varför detta är rätt startpunkt"
   },
-  "templateRecommendations": [
-    {
-      "title": "Valfri galleri-/template-rekommendation",
-      "reason": "Varför den matchar projektet"
-    }
-  ],
   "assumptions": [
     {
       "id": "assumption-1",
@@ -126,7 +120,7 @@ Return a single JSON object (no markdown fences) matching this schema:
    Use the runtime scaffold id field for the identifier; do not invent a separate family field.
    If you are unsure, explain the uncertainty in "reason" and add a blocker when it is critical.
 
-8. Optional "templateRecommendations" should only be added when a gallery/template suggestion would genuinely help the user review the direction before build.
+8. Do not recommend or invent gallery templates. Runtime selects the exact variant-template Blob/addendum source after the variant is known and attaches it to the review artifact.
 
 9. Never generate code. If the request is clear enough to build directly, still produce the plan — the executor will generate code in the next phase.
 
