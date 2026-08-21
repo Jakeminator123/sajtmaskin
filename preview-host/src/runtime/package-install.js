@@ -358,9 +358,57 @@ function isNoSpaceInstallFailure(output) {
  *
  * `no_output` är ingen restpost utan ett eget svar: kraschade barnprocessen
  * innan den hann skriva något är just det diagnosen.
+ *
+ * **Uppdatering 2026-08-21:** `no_output` var ett *för brett* svar. Två helt
+ * olika dödsorsaker föll ihop där, eftersom `runShellCommand` läste bara
+ * `code` ur Nodes `close`-event och kastade bort `signal`. En install som
+ * kernelns OOM-killer dödar (SIGKILL) rapporterades som `exitCode: 1` med tom
+ * utskrift — alltså exakt som en tyst npm-krasch. Signalen är nu bevarad, och
+ * `signal` är tredje argumentet här: en dödad process säger `killed_by_signal`
+ * i stället för att gömma sig i `no_output`. Det gör nästa förekomst avgörande.
+ * V8:s heap-OOM behåller sin egen klass — den skriver text och dör inte av
+ * signal.
  */
-function classifyInstallFailure(output, exitCode) {
+/**
+ * Signalnamnet bakom ett skalexitvärde. `sh` rapporterar en signaldödad
+ * barnprocess som sin egen exit `128 + signalnummer`, så det är i den formen en
+ * OOM-dödad `npm install` faktiskt når oss — vi spawnar skalet, inte npm.
+ *
+ * Bara signaler som betyder något här. 128+126/127 är `sh`s egna koder för
+ * «kunde inte köra» respektive «hittades inte» och är inte signaler.
+ */
+const SHELL_SIGNAL_EXIT_CODES = new Map([
+  [130, "SIGINT"],
+  [134, "SIGABRT"],
+  [137, "SIGKILL"],
+  [139, "SIGSEGV"],
+  [143, "SIGTERM"],
+]);
+
+function signalNameFromShellExitCode(exitCode) {
+  return SHELL_SIGNAL_EXIT_CODES.get(exitCode) ?? null;
+}
+
+/**
+ * Meddelandet för ett install som dog utan att skriva något. Det här är den
+ * text som faktiskt når appens `engine_version_error_logs`, så den måste bära
+ * signalen — «(No install output captured; exit 254)» var sant men obrukbart.
+ */
+function describeSilentExit(attempt) {
+  const signal = attempt?.signal ?? signalNameFromShellExitCode(attempt?.exitCode);
+  if (signal) {
+    return `(No install output captured; killed by ${signal} — the process was terminated, it did not fail on its own.)`;
+  }
+  return `(No install output captured; exit ${attempt?.exitCode}).`;
+}
+
+function classifyInstallFailure(output, exitCode, signal) {
   const text = String(output || "");
+
+  // Före allt annat: dog processen av en signal? Det är ett hårdare faktum än
+  // vilken text den hann skriva. Hostens egen timeout hanteras nedan och når
+  // aldrig hit, eftersom den sätter exit 124 explicit.
+  const signalName = typeof signal === "string" && signal ? signal : null;
 
   // Ordningen är inte godtycklig. Ett mönster som fångas för tidigt döljer det
   // riktiga svaret, och en klassificerare som pekar fel är sämre än ingen alls
@@ -373,7 +421,38 @@ function classifyInstallFailure(output, exitCode) {
     return "timeout";
   }
 
+  // Slut på disk skriver ENOSPC och är en säkrare slutsats än signalen: en
+  // full disk kan få npm dödat på vägen ut. Därför före signalgrenen.
   if (isNoSpaceInstallFailure(text)) return "no_space";
+
+  // En uttalad OOM-utskrift slår signalen. V8 skriver «JavaScript heap out of
+  // memory» och anropar sedan abort(), så processen dör MED signal och MED
+  // text — och då är texten det specifika svaret. Utan den här ordningen blev
+  // varje heap-OOM en anonym `killed_by_signal:SIGABRT`.
+  if (/heap out of memory|out of memory|oom-kill|Killed process/i.test(text)) {
+    return "out_of_memory";
+  }
+
+  // Signaldöd. Två olika vägar hit, och det är därför den här grenen behövs:
+  //
+  //  1. `sh` SELV dödades (vår egen process group-kill, eller en cgroup-vid
+  //     OOM som tar hela gruppen). Då är code null och `signal` satt.
+  //  2. npm dödades men `sh` levde och rapporterade det som sin EGEN exitkod
+  //     enligt POSIX-konventionen 128+signalnummer. Det är den vanliga vägen,
+  //     eftersom vi spawnar `sh -lc <kommando>` och alltså observerar skalet —
+  //     inte npm. En OOM-dödad npm ger därför exit 137, inte en signal.
+  //
+  // Väg 2 föll tidigare rakt igenom till `no_output`/`unknown`, vilket är exakt
+  // varför en OOM-dödad install inte gick att känna igen i efterhand.
+  //
+  // `signal` är enda auktoriteten för väg 1 — INTE `SIGNAL_EXIT_CODE`. Den
+  // siffran är en sentinel vi själva sätter, och en exitkod är laglig i hela
+  // 0–255: ett npm-livscykelskript som avslutar med 253 på egen hand skulle
+  // annars kallas dödat. En falsk «killed_by_signal» förstör just den
+  // distinktion den här ändringen finns för, så numret får inte klassa.
+  if (signalName) return `killed_by_signal:${signalName}`;
+  const shellSignal = signalNameFromShellExitCode(exitCode);
+  if (shellSignal) return `killed_by_signal:${shellSignal}`;
 
   // Före `network`: npm:s 404-utskrift innehåller registry-URL:en i GET-raden,
   // så ett saknat paket skulle annars rapporteras som nätverksfel.
@@ -562,18 +641,19 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
       // fallbacken dog tyst.
       failureReason: diskFullDetected
         ? "no_space"
-        : classifyInstallFailure(fallback.clippedOutput, fallback.exitCode),
+        : classifyInstallFailure(fallback.clippedOutput, fallback.exitCode, fallback.signal),
       primaryFailureReason: diskFullDetected
         ? "no_space"
-        : classifyInstallFailure(primary.clippedOutput, primary.exitCode),
+        : classifyInstallFailure(primary.clippedOutput, primary.exitCode, primary.signal),
       durationMs: primary.durationMs + fallback.durationMs,
       output: [
         `[primary] ${install.logLabel} failed:`,
-        primary.clippedOutput || `(No install output captured; exit ${primary.exitCode}).`,
+        primary.clippedOutput || describeSilentExit(primary),
         "",
         `[fallback] ${install.fallbackLogLabel} failed:`,
-        fallback.clippedOutput || `(No install output captured; exit ${fallback.exitCode}).`,
+        fallback.clippedOutput || describeSilentExit(fallback),
       ].join("\n"),
+      signal: fallback.signal ?? primary.signal ?? null,
       usedFallback: true,
       peerConflictDetected,
     };
@@ -584,11 +664,10 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
     exitCode: primary.exitCode,
     failureReason: diskFullDetected
       ? "no_space"
-      : classifyInstallFailure(primary.clippedOutput, primary.exitCode),
+      : classifyInstallFailure(primary.clippedOutput, primary.exitCode, primary.signal),
     durationMs: primary.durationMs,
-    output:
-      primary.clippedOutput ||
-      `(No install output captured; exit ${primary.exitCode}).`,
+    output: primary.clippedOutput || describeSilentExit(primary),
+    signal: primary.signal ?? null,
     usedFallback: false,
     peerConflictDetected,
   };
@@ -779,7 +858,7 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
   // inte sätter fältet.
   const failureReason =
     installResult.failureReason ??
-    classifyInstallFailure(installResult.output, installResult.exitCode);
+    classifyInstallFailure(installResult.output, installResult.exitCode, installResult.signal);
   const priorReason =
     installResult.primaryFailureReason && installResult.primaryFailureReason !== failureReason
       ? ` after ${installResult.primaryFailureReason}`

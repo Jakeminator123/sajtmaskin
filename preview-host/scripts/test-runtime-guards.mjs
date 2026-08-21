@@ -1174,6 +1174,82 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
         254,
       ) === "no_output",
     );
+    // SM-035, andra varvet: `no_output` var för brett. En OOM-dödad install och
+    // en tyst npm-krasch hamnade båda där, eftersom signalen kastades bort i
+    // `runShellCommand`. Nu skiljs de åt — det är hela poängen med fixen.
+    check(
+      "a signalled death is named, not hidden in no_output",
+      classifyInstallFailure("", 1, "SIGKILL") === "killed_by_signal:SIGKILL",
+    );
+    check(
+      "the sentinel text does not hide a signal either",
+      classifyInstallFailure("(No install output captured; exit 254).", 254, "SIGKILL") ===
+        "killed_by_signal:SIGKILL",
+    );
+    // `SIGNAL_EXIT_CODE` är en sentinel vi själva sätter, och exitkoder är
+    // lagliga i hela 0–255. Ett livscykelskript som avslutar med 253 på egen
+    // hand får INTE kallas dödat — en falsk kill förstör distinktionen.
+    check(
+      "a bare exit 253 without a signal is not called a kill",
+      classifyInstallFailure("", 253) === "no_output",
+    );
+    check(
+      "253 WITH a signal is a kill, because the signal is the authority",
+      classifyInstallFailure("", 253, "SIGKILL") === "killed_by_signal:SIGKILL",
+    );
+    // Utan signal ska den gamla domen stå kvar — annars vore fixen en regression
+    // som döpte om varje tyst krasch till en OOM.
+    check(
+      "a silent exit without a signal is still no_output",
+      classifyInstallFailure("", 254) === "no_output",
+    );
+    // Hostens egen timeout dödar också med signal, men sätter exit 124 först.
+    // Den får inte bli en «killed_by_signal» — då tappar vi timeout-diagnosen.
+    check(
+      "our own timeout keeps its class even though it kills with a signal",
+      classifyInstallFailure(
+        "[preview-host] npm install timed out after 600s and was killed (fail-fast so the install queue advances).",
+        124,
+        "SIGKILL",
+      ) === "timeout",
+    );
+    // En full disk kan få npm dödat på vägen ut. ENOSPC är en säkrare slutsats
+    // än signalen, så den ska vinna.
+    check(
+      "ENOSPC beats the signal",
+      classifyInstallFailure("npm error code ENOSPC\nnpm error syscall write", 1, "SIGKILL") ===
+        "no_space",
+    );
+    // V8 skriver «heap out of memory» och anropar SEDAN abort(). Processen dör
+    // alltså MED signal och MED text. Ett test som bara skickar exitkod utan
+    // signal bevisar därför ingenting om verkligt beteende — det var precis den
+    // svagheten som lät ordningsbuggen passera första gången.
+    check(
+      "a V8 heap OOM keeps its own class even though it also dies by signal",
+      classifyInstallFailure("JavaScript heap out of memory", 134, "SIGABRT") === "out_of_memory",
+    );
+    check(
+      "the same holds on the shell's 128+n encoding",
+      classifyInstallFailure("JavaScript heap out of memory", 134) === "out_of_memory",
+    );
+    // Den VANLIGA vägen: vi spawnar `sh -lc`, så en OOM-dödad npm når oss som
+    // skalets egen exit 137 — inte som en signal. Den föll tidigare rakt
+    // igenom till no_output, vilket gjorde SM-035 outredbar.
+    check(
+      "a shell-reported SIGKILL (exit 137) is recognised as a kill, not no_output",
+      classifyInstallFailure("", 137) === "killed_by_signal:SIGKILL",
+    );
+    check(
+      "a shell-reported SIGTERM is recognised too",
+      classifyInstallFailure("", 143) === "killed_by_signal:SIGTERM",
+    );
+    // 126/127 är `sh`s egna koder, inte signaler — de får inte bli falska kills.
+    check(
+      "the shell's own could-not-execute codes are not mistaken for signals",
+      classifyInstallFailure("", 127) === "no_output" &&
+        classifyInstallFailure("something", 126) === "unknown",
+    );
+
     check(
       "output without a known marker on 254 is an npm crash",
       classifyInstallFailure("something unexpected happened", 254) === "unknown_npm_crash",

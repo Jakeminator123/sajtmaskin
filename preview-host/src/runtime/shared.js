@@ -670,6 +670,19 @@ function killShellCommandTree(child, useProcessGroup) {
  * caller forever; with the global install queue that would wedge every later
  * boot/verify install VM-wide (VADE/Codex P1 on PR #357).
  */
+/**
+ * Non-zero exit code reported when a child died from a signal rather than
+ * exiting on its own. Callers branch on `exitCode === 0` for success, so a
+ * signal death needs *some* number; 253 is chosen to stand out in a log next
+ * to 124 (our own timeout) and 254 (npm's own crash).
+ *
+ * It is a **display value, not evidence.** Exit statuses are legal across the
+ * whole 0–255 range, so a program may exit 253 by itself. Anything deciding
+ * *whether* a death was signalled must read the `signal` field — never this
+ * number (PR #1081 review, F-b4c1399dfb6b).
+ */
+const SIGNAL_EXIT_CODE = 253;
+
 function runShellCommand(command, options) {
   const { timeoutMs, timeoutLabel, ...spawnOptions } = options ?? {};
   const hasTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0;
@@ -703,7 +716,12 @@ function runShellCommand(command, options) {
       if (timer) clearTimeout(timer);
       reject(err);
     });
-    child.once("close", (code) => {
+    // Node emits `close` with (code, signal). A child killed by a signal has
+    // code === null and signal set. Reading only `code` threw the signal away
+    // and reported exitCode 1, which is why `SM-035` was unfindable: an install
+    // killed by the kernel OOM killer looked exactly like a silent npm crash.
+    // Both landed in `no_output` and the one distinguishing fact was dropped.
+    child.once("close", (code, signal) => {
       if (timer) clearTimeout(timer);
       if (timedOut) {
         resolve({
@@ -712,13 +730,17 @@ function runShellCommand(command, options) {
             `${output}\n[preview-host] ${timeoutLabel ?? "Command"} timed out after ` +
             `${Math.round(timeoutMs / 1000)}s and was killed (fail-fast so the install queue advances).`,
           timedOut: true,
+          signal: signal ?? null,
         });
         return;
       }
       resolve({
-        exitCode: typeof code === "number" ? code : 1,
+        // Keep the numeric contract every caller already branches on, but make
+        // a signal death say so instead of masquerading as a generic failure.
+        exitCode: typeof code === "number" ? code : signal ? SIGNAL_EXIT_CODE : 1,
         output,
         timedOut: false,
+        signal: signal ?? null,
       });
     });
   });
@@ -792,6 +814,7 @@ module.exports = {
   sanitizedEnv,
   spawnNpm,
   runShellCommand,
+  SIGNAL_EXIT_CODE,
   runIdResolverFromSession,
   isHmrProxyEnabled,
 };
