@@ -481,6 +481,7 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       readinessState: null,
       httpReady: false,
       readinessError: null,
+      installDiagnostics: null,
       regeneratedLockfile: null,
     });
   });
@@ -534,6 +535,7 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       readinessState: null,
       httpReady: false,
       readinessError: null,
+      installDiagnostics: null,
       regeneratedLockfile: null,
     });
   });
@@ -748,6 +750,41 @@ describe("fetchPreviewHostReadinessVerdict — läser verdikt även utan levande
       readinessState: "failed",
       readinessError: "npm error code ENOSPC",
       versionId: "v3",
+    });
+  });
+
+  it("surfaces installDiagnostics from a failed install without requiring a live process", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: false,
+      httpReady: false,
+      readinessState: "failed",
+      readinessError: "npm install --no-audit --include=dev failed with exit code 254 (no_output)",
+      versionId: "v3",
+      previewSessionId: "ps_1",
+      installDiagnostics: {
+        exitCode: 254,
+        signal: null,
+        failureReason: "no_output",
+        memory: { freeBytes: 10, totalBytes: 20, rssBytes: 3, heapUsedBytes: 1, heapTotalBytes: 2 },
+        concurrentRuntimes: 2,
+        inflightBoots: 1,
+        npmDebugLog: {
+          path: "/data/package-caches/npm/_logs/last-debug.log",
+          mtime: "2026-08-21T02:00:00.000Z",
+          bytes: 12,
+          clippedContent: "debug tail",
+        },
+      },
+    });
+
+    const verdict = await fetchPreviewHostReadinessVerdict("ps_1", { expectedVersionId: "v3" });
+    expect(verdict?.installDiagnostics).toMatchObject({
+      exitCode: 254,
+      failureReason: "no_output",
+      concurrentRuntimes: 2,
+      npmDebugLog: { clippedContent: "debug tail" },
     });
   });
 
