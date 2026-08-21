@@ -180,7 +180,8 @@ describe("finalizeOrchestrationPrompts variant inspiration", () => {
     });
 
     expect(inspirationMocks.resolveVariantTemplateInspiration).toHaveBeenCalledTimes(1);
-    expect(inspirationMocks.resolveVariantTemplateInspiration.mock.calls[0]?.[1]).toEqual(
+    expect(inspirationMocks.resolveVariantTemplateInspiration).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({
         selectionContext: expect.objectContaining({
           prompt: "Gör om hela sajten i en mörk editorial stil",
