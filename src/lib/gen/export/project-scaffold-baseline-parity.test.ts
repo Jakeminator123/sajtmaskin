@@ -312,4 +312,21 @@ describe("exported generated-project baseline (not just the root app)", () => {
     ]);
     expect(parseExportedPackageJson(files).dependencies?.next).toBe("16.3.1");
   });
+
+  it("force-pins eslint-config-next even when the model emits an older range", () => {
+    const files = buildCompleteProject([
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { next: "16.3.1" },
+          devDependencies: { "eslint-config-next": "16.2.9" },
+        }),
+        language: "json",
+      },
+      ...minimalGeneratedFiles(),
+    ]);
+    expect(parseExportedPackageJson(files).devDependencies?.["eslint-config-next"]).toBe(
+      "16.3.1",
+    );
+  });
 });

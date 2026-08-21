@@ -85,6 +85,14 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(merged.dependencies.three).toBe("0.185.1");
   });
+
+  it("pins eslint-config-next in devDependencies so the model cannot leave it on an older minor", () => {
+    const merged = mergePackageJsonWithBaseline(
+      { devDependencies: { "eslint-config-next": "16.2.9" } } as Record<string, unknown>,
+      { dependencies: {} },
+    ) as { devDependencies: Record<string, string> };
+    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.1");
+  });
 });
 
 describe("mergeTsconfigWithBaseline", () => {

@@ -536,6 +536,9 @@ const BASELINE_PINNED_DEPS = [
   "lucide-react",
 ] as const;
 
+/** Same idea as {@link BASELINE_PINNED_DEPS}, for load-bearing *dev* pins. */
+const BASELINE_PINNED_DEV_DEPS = ["eslint-config-next"] as const;
+
 /**
  * Heavy, capability-gated React-Three 3D stack. `three` is the shared peer
  * dependency of fiber/drei/rapier, so the stack is treated as one group:
@@ -608,12 +611,22 @@ export function mergePackageJsonWithBaseline(
 
   applyThreeStackPolicy(dependencies, detected.dependencies);
 
+  const devDependencies: Record<string, string> = {
+    ...bDevDep,
+    ...mDevDep,
+  };
+  for (const key of BASELINE_PINNED_DEV_DEPS) {
+    if (bDevDep[key] !== undefined) {
+      devDependencies[key] = bDevDep[key];
+    }
+  }
+
   return {
     ...b,
     ...model,
     scripts: { ...bScripts, ...mScripts },
     dependencies,
-    devDependencies: { ...bDevDep, ...mDevDep },
+    devDependencies,
     overrides: { ...mOverrides, ...bOverrides },
   };
 }
