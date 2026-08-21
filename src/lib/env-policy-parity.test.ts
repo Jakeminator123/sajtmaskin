@@ -41,7 +41,12 @@ const policy = envPolicy as {
   knownEmptyOk: string[];
   runtimeOnlyKeys: string[];
   extraKnownKeys: string[];
-  rules: { key: string; classification: string; recommendedVercelTargets: string[] }[];
+  rules: {
+    key: string;
+    classification: string;
+    recommendedVercelTargets: string[];
+    notes?: string;
+  }[];
 };
 
 const ALL_VERCEL_TARGETS = ["development", "preview", "production"] as const;
@@ -75,6 +80,13 @@ describe("env-policy rules integrity", () => {
     // trimmed key at runtime and silently override another rule.
     const padded = policy.rules.map((r) => r.key).filter((k) => k !== k.trim()).sort();
     expect(padded, `rule keys with surrounding whitespace: ${padded.join(", ")}`).toEqual([]);
+  });
+
+  it("SAJTMASKIN_LIVE_REVIEW stays gated until SM-070", () => {
+    const rule = policy.rules.find((r) => r.key === "SAJTMASKIN_LIVE_REVIEW");
+    expect(rule, "SAJTMASKIN_LIVE_REVIEW must have an explicit env-policy rule").toBeDefined();
+    expect(rule?.recommendedVercelTargets ?? ["unset"]).toEqual([]);
+    expect(rule?.notes ?? "").toMatch(/DO NOT ENABLE — SM-070/);
   });
 
   it("shared_runtime rules declare the complete Vercel target set", () => {

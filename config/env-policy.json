@@ -893,8 +893,8 @@
     {
       "key": "SAJTMASKIN_LIVE_REVIEW",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["preview", "production"],
-      "notes": "Optional live-site critic after Product Postcheck. Screenshots + structured multimodal verdict. Default off. Does not change user files or set productBlocked."
+      "recommendedVercelTargets": [],
+      "notes": "DO NOT ENABLE — SM-070. Opt-in live-site critic after Product Postcheck. Screenshots + structured multimodal verdict. Default off. Does not change user files or set productBlocked. Activation is a closed gate (blob retention/ownership, idempotency + cost cap, honest live_review power) — do not set in any Vercel target until SM-070 is closed. Empty recommendedVercelTargets is intentional. Source: src/lib/gen/verify/live-review.ts (isLiveReviewEnabled)."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
