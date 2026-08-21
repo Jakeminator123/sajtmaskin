@@ -153,6 +153,7 @@ export async function finishLiveReviewSession(
     claimedAt: session.claim.row.claimedAt,
   });
   if (attempts == null) {
+    await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
     if (session.filesRevision) {
       return (deps.waitForRun ?? waitForLiveReviewRun)({
         versionId: session.versionId,

@@ -339,6 +339,8 @@ describe("finishLiveReviewSession", () => {
   it("startar inte critic om leasen redan tagits över", async () => {
     const attachReview = vi.fn();
     const waitForRun = vi.fn(async () => completed);
+    const deleteScreenshotUrls = vi.fn(async () => {});
+    const screenshots = { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null };
     const result = await finishLiveReviewSession(
       {
         captureEnabled: true,
@@ -352,7 +354,7 @@ describe("finishLiveReviewSession", () => {
       {
         skipped: false,
         findings: [],
-        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+        screenshots,
         domSummary: null,
         filesJson: "[]",
         userRequest: "x",
@@ -362,10 +364,12 @@ describe("finishLiveReviewSession", () => {
         beginPaidAttempt: async () => null,
         attachReview,
         waitForRun,
+        deleteScreenshotUrls,
       },
     );
     expect(result).toEqual(completed);
     expect(attachReview).not.toHaveBeenCalled();
     expect(waitForRun).toHaveBeenCalled();
+    expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
   });
 });

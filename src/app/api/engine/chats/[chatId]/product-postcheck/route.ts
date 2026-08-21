@@ -16,7 +16,10 @@ import {
   finishLiveReviewSession,
   type LiveReviewSession,
 } from "@/lib/gen/verify/live-review-session";
-import { abandonLiveReviewRun } from "@/lib/db/services/live-review-runs";
+import {
+  abandonLiveReviewRun,
+  deleteLiveReviewScreenshotUrls,
+} from "@/lib/db/services/live-review-runs";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 
 export const runtime = "nodejs";
@@ -256,6 +259,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         "[product-postcheck] live review skipped:",
         reviewError instanceof Error ? reviewError.message : reviewError,
       );
+      if (liveReviewSession.claim?.kind === "acquired") {
+        await deleteLiveReviewScreenshotUrls(result.screenshots).catch(() => undefined);
+        await abandonLiveReviewRun(liveReviewSession.claim.row.id).catch(() => undefined);
+      }
     }
 
     return NextResponse.json(result);
