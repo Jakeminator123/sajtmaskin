@@ -9,6 +9,7 @@ vi.mock("@/lib/db/services/live-review-runs", () => ({
   claimLiveReviewRun: vi.fn(),
   completeLiveReviewRun: vi.fn(),
   abandonLiveReviewRun: vi.fn(),
+  beginPaidLiveReviewAttempt: vi.fn(),
   incrementLiveReviewModelAttempts: vi.fn(),
   deletePreviousLiveReviewBlobs: vi.fn(),
   deleteLiveReviewScreenshotUrls: vi.fn(),
@@ -229,7 +230,7 @@ describe("finishLiveReviewSession", () => {
   it("raderar föregående Blob efter lyckad review", async () => {
     const deletePreviousBlobs = vi.fn(async () => 1);
     const completeRun = vi.fn(async () => {});
-    const incrementAttempts = vi.fn(async () => 1);
+    const beginPaidAttempt = vi.fn(async () => 1);
     const result = await finishLiveReviewSession(
       {
         captureEnabled: true,
@@ -252,7 +253,7 @@ describe("finishLiveReviewSession", () => {
       {
         attachReview: async () => completed,
         completeRun,
-        incrementAttempts,
+        beginPaidAttempt,
         deletePreviousBlobs,
       },
     );
@@ -293,6 +294,7 @@ describe("finishLiveReviewSession", () => {
       },
       {
         attachReview: async () => skippedLiveReviewResult("postcheck_skipped"),
+        beginPaidAttempt: async () => 1,
         deleteScreenshotUrls,
         abandonRun,
       },
@@ -300,5 +302,38 @@ describe("finishLiveReviewSession", () => {
     expect(result).toEqual(skippedLiveReviewResult("postcheck_skipped"));
     expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
     expect(abandonRun).toHaveBeenCalledWith("lr_1");
+  });
+
+  it("startar inte critic om leasen redan tagits över", async () => {
+    const attachReview = vi.fn();
+    const waitForRun = vi.fn(async () => completed);
+    const result = await finishLiveReviewSession(
+      {
+        captureEnabled: true,
+        claim: acquired(),
+        earlyResult: null,
+        chatId: "chat_1",
+        versionId: "v1",
+        filesRevision: "rev_a",
+        userId: "user_1",
+      },
+      {
+        skipped: false,
+        findings: [],
+        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+        domSummary: null,
+        filesJson: "[]",
+        userRequest: "x",
+        briefSummary: "",
+      },
+      {
+        beginPaidAttempt: async () => null,
+        attachReview,
+        waitForRun,
+      },
+    );
+    expect(result).toEqual(completed);
+    expect(attachReview).not.toHaveBeenCalled();
+    expect(waitForRun).toHaveBeenCalled();
   });
 });

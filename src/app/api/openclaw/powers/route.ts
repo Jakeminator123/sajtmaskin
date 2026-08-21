@@ -61,6 +61,9 @@ export async function POST(req: Request) {
       powersOn,
       granted,
     });
-    return NextResponse.json(saved ?? { powersOn: false, granted: [] });
+    if (!saved) {
+      return NextResponse.json({ error: "Grant persist failed" }, { status: 500 });
+    }
+    return NextResponse.json(saved);
   });
 }

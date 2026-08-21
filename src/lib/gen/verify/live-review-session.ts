@@ -2,11 +2,11 @@ import { OPENCLAW } from "@/lib/config";
 import { readLiveReviewGrant } from "@/lib/db/services/live-review-grants";
 import {
   abandonLiveReviewRun,
+  beginPaidLiveReviewAttempt,
   claimLiveReviewRun,
   completeLiveReviewRun,
   deleteLiveReviewScreenshotUrls,
   deletePreviousLiveReviewBlobs,
-  incrementLiveReviewModelAttempts,
   purgeExpiredLiveReviewBlobs,
   waitForLiveReviewRun,
   type ClaimedLiveReview,
@@ -42,7 +42,7 @@ export interface LiveReviewSessionDeps {
   completeRun?: typeof completeLiveReviewRun;
   abandonRun?: typeof abandonLiveReviewRun;
   deleteScreenshotUrls?: typeof deleteLiveReviewScreenshotUrls;
-  incrementAttempts?: typeof incrementLiveReviewModelAttempts;
+  beginPaidAttempt?: typeof beginPaidLiveReviewAttempt;
   deletePreviousBlobs?: typeof deletePreviousLiveReviewBlobs;
   purgeExpired?: typeof purgeExpiredLiveReviewBlobs;
   attachReview?: typeof maybeAttachLiveReview;
@@ -148,6 +148,20 @@ export async function finishLiveReviewSession(
     return capped;
   }
 
+  const attempts = await (deps.beginPaidAttempt ?? beginPaidLiveReviewAttempt)({
+    id: session.claim.row.id,
+    claimedAt: session.claim.row.claimedAt,
+  });
+  if (attempts == null) {
+    if (session.filesRevision) {
+      return (deps.waitForRun ?? waitForLiveReviewRun)({
+        versionId: session.versionId,
+        filesRevision: session.filesRevision,
+      });
+    }
+    return skippedLiveReviewResult("claim_busy");
+  }
+
   const attach = deps.attachReview ?? maybeAttachLiveReview;
   const result = await attach({
     enabled: true,
@@ -176,9 +190,6 @@ export async function finishLiveReviewSession(
     await (deps.abandonRun ?? abandonLiveReviewRun)(session.claim.row.id);
     return result;
   }
-  const attempts = await (deps.incrementAttempts ?? incrementLiveReviewModelAttempts)(
-    session.claim.row.id,
-  );
 
   await (deps.completeRun ?? completeLiveReviewRun)({
     id: session.claim.row.id,

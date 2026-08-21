@@ -2,7 +2,8 @@ import type { LiveReviewResult, LiveReviewSkipReason } from "./live-review-types
 
 export const LIVE_REVIEW_TTL_DAYS = 7;
 export const LIVE_REVIEW_TTL_MS = LIVE_REVIEW_TTL_DAYS * 24 * 60 * 60 * 1000;
-export const LIVE_REVIEW_CLAIM_LEASE_MS = 4 * 60 * 1000;
+/** Longer than product-postcheck `maxDuration` (300s) so a live request cannot be stolen. */
+export const LIVE_REVIEW_CLAIM_LEASE_MS = 6 * 60 * 1000;
 export const LIVE_REVIEW_CLAIM_WAIT_MS = 90_000;
 export const LIVE_REVIEW_MAX_MODEL_ATTEMPTS = 2;
 
@@ -67,9 +68,13 @@ export function decideLiveReviewClaim(
     return { kind: "cached", result: existing.result };
   }
   if (existing.status === "running") {
-    return isLiveReviewClaimLeaseStale(existing.claimedAt, now)
-      ? { kind: "takeover" }
-      : { kind: "in_flight" };
+    if (!isLiveReviewClaimLeaseStale(existing.claimedAt, now)) {
+      return { kind: "in_flight" };
+    }
+    // A stale row that already started a paid attempt still belongs to that
+    // handler. Takeover is only for a crash before the critic was invoked.
+    if (existing.modelAttempts > 0) return { kind: "in_flight" };
+    return { kind: "takeover" };
   }
   return { kind: "in_flight" };
 }

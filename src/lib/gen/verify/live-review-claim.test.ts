@@ -58,7 +58,7 @@ describe("decideLiveReviewClaim", () => {
     ).toBe("cached");
   });
 
-  it("låter simultan körning vänta, stale lease tas över", () => {
+  it("låter simultan körning vänta, stale lease tas över bara före första betalda försöket", () => {
     const now = new Date("2026-08-21T00:02:00.000Z");
     expect(decideLiveReviewClaim(row(), now)).toEqual({ kind: "in_flight" });
     expect(
@@ -69,6 +69,15 @@ describe("decideLiveReviewClaim", () => {
         now,
       ),
     ).toEqual({ kind: "takeover" });
+    expect(
+      decideLiveReviewClaim(
+        row({
+          claimedAt: new Date(now.getTime() - LIVE_REVIEW_CLAIM_LEASE_MS),
+          modelAttempts: 1,
+        }),
+        now,
+      ),
+    ).toEqual({ kind: "in_flight" });
   });
 
   it("stoppar fler betalda försök när taket är nått", () => {

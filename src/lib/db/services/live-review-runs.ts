@@ -1,4 +1,4 @@
-import { and, eq, lt, ne, or } from "drizzle-orm";
+import { and, eq, lt, ne, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db, dbConfigured } from "@/lib/db/client";
 import { engineChats, liveReviewRuns } from "@/lib/db/schema";
@@ -205,6 +205,36 @@ export async function abandonLiveReviewRun(id: string): Promise<void> {
       "[live-review-claim] abandon failed:",
       error instanceof Error ? error.message : error,
     );
+  }
+}
+
+/**
+ * Reserve the paid critic slot only if this handler still owns the lease.
+ * Returns null when another postcheck took over or the attempt cap is hit.
+ */
+export async function beginPaidLiveReviewAttempt(input: {
+  id: string;
+  claimedAt: Date;
+}): Promise<number | null> {
+  if (!dbConfigured) return null;
+  try {
+    const rows = await db
+      .update(liveReviewRuns)
+      .set({
+        modelAttempts: sql`${liveReviewRuns.modelAttempts} + 1`,
+      })
+      .where(
+        and(
+          eq(liveReviewRuns.id, input.id),
+          eq(liveReviewRuns.status, "running"),
+          eq(liveReviewRuns.claimedAt, input.claimedAt),
+          lt(liveReviewRuns.modelAttempts, LIVE_REVIEW_MAX_MODEL_ATTEMPTS),
+        ),
+      )
+      .returning({ modelAttempts: liveReviewRuns.modelAttempts });
+    return rows[0]?.modelAttempts ?? null;
+  } catch {
+    return null;
   }
 }
 

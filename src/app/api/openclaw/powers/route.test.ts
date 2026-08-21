@@ -73,4 +73,19 @@ describe("POST /api/openclaw/powers", () => {
       granted: [],
     });
   });
+
+  it("ljuger inte om en revoke när skrivningen misslyckas", async () => {
+    getChat.mockResolvedValue({ id: "chat_1" });
+    writeGrant.mockResolvedValue(null);
+    const res = await POST(
+      req("http://localhost/api/openclaw/powers", {
+        chatId: "chat_1",
+        powersOn: false,
+        granted: [],
+      }),
+    );
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.granted).toBeUndefined();
+  });
 });
