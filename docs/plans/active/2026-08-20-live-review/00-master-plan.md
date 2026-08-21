@@ -52,7 +52,7 @@ kommentar. Rör inte koden för att matcha bodyn.
 - Slå **inte** på `SAJTMASKIN_LIVE_REVIEW` förrän alla tre punkterna är klara,
   och gör det som ett **separat driftbeslut** — inte som del av en kodmerge.
 - Kritikern förblir **advisory**. Den får inte bli en ny repair-agent och inte
-  ändra verifierarens blocker-severity (det är `SM-036`).
+  ändra verifierarens blocker-severity (`SM-036` stängdes i #1080).
 - Rör inte användarsajtens filer i samma PR.
 
 ## Not om den lokala specen

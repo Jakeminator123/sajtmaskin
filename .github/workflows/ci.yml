@@ -206,6 +206,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run check:bug-backlog
 
+      - name: Canvas backlog drift (blocking)
+        if: ${{ !cancelled() }}
+        run: npm run canvas:check
+
   # Produktionsbygge (2026-07-29). `next build` kördes INGENSTANS före merge:
   # preview-deployer är avstängda i `vercel.json` (`deploymentEnabled` bara för
   # `master`), så första riktiga bygget av en ändring var prod-deployen EFTER

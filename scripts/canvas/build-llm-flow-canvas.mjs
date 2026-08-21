@@ -251,6 +251,28 @@ export function parseBacklogRows(md) {
   return rows;
 }
 
+const SM_ID_RE = /SM-\d{3}/g;
+
+/** Alla `SM-###` som förekommer i texten, unik mängd. */
+export function extractSmIds(text) {
+  return new Set(String(text || "").match(SM_ID_RE) || []);
+}
+
+/**
+ * Canvas-IDs som inte längre finns i `## Aktiv kö`. Det är just den
+ * stale-SM-036-klassen: raden arkiverades men den genererade .txt:en byggdes
+ * inte om. Churn/commit-stämpeln jämförs medvetet inte — den ändras varje
+ * commit och skulle göra checken flackig.
+ */
+export function findStaleCanvasBacklogIds(canvasText, backlogMd) {
+  const openIds = new Set();
+  for (const row of parseBacklogRows(backlogMd)) {
+    const match = String(row.fynd || "").match(/SM-\d{3}/);
+    if (match) openIds.add(match[0]);
+  }
+  return [...extractSmIds(canvasText)].filter((id) => !openIds.has(id)).sort();
+}
+
 /** Valjer "Oppna huvudrisker" ur backlog-rader. P0 ar hogsta allvar och far
  *  ALDRIG falla bort tyst: P0 sorteras overst och garanteras plats aven nar
  *  listan trunkeras till `cap`. Overskjutande LAGRE-prio rader redovisas via

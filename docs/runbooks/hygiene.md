@@ -24,6 +24,7 @@ buntar ihop dem och antingen godkänner eller pekar på problemet.
 | `plans:history:check`  | Är planhistoriken (statusar/arkivrubriker) konsekvent?                       | Följ meddelandet — oftast en status/rubrik som glidit.                                         |
 | `check:terms:contract` | Äger ordlistan sina begrepp (inga dubbeldefinitioner)?                       | Registrera begreppet i glossaryn, inte på två ställen.                                         |
 | `check:bug-backlog`    | Är `BUG-SWARM-BACKLOG.md` i rätt format?                                     | Följ felet (sektioner, SM-id, inga `[x]` i Aktiv kö).                                          |
+| `canvas:check`         | Nämner `llm-flow.canvas.txt` ett `SM-###` som inte längre finns i Aktiv kö?  | Kör `npm run canvas:build` efter backlog-arkivering.                                           |
 | `knip:files`           | Finns någon **oimporterad källfil** (dött skräp)?                            | Se nästa avsnitt.                                                                              |
 | `clean:orphans:dry`    | Vilka regenererbara skräpfiler _skulle_ städas?                              | Bara en rapport — kör `npm run clean:orphans` för att faktiskt ta bort.                        |
 | `clean:scratch`        | Vilka gitignorade scratch-träd (t.ex. `.cursor/swarms/runs`) _skulle_ kapas? | Dry-run — kör `npm run clean:scratch:apply` för att faktiskt ta bort (behåller 3 nyaste runs). |
