@@ -18,7 +18,7 @@ Vågschemat 20 aug är avklarat. Ta en rad ur `## Aktiv kö`, inte en planmapp.
 | Bug-kö | **Start här.** 23 öppna rader efter stängningen 21 aug. | [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) |
 | Live-review `SM-070` | `#1052` **mergad** som advisory bakom avstängd flagga. Kvar: aktiveringsgrinden (retention, idempotens, ärlig befogenhet). | [`2026-08-20-live-review/00-master-plan.md`](2026-08-20-live-review/00-master-plan.md) |
 | Dossier-förenkling | Steg 1 landat (#1045). D2 → D3 → D4 strikt sekventiellt, D5 väntar ägarbeslut. | [`2026-08-19-dossier-forenkling/00-master-plan.md`](2026-08-19-dossier-forenkling/00-master-plan.md) |
-| Briefing + Källpaket | Landat: B1–B3, B8–B11, docs/etiketter, B2 #1079. N1–N2 avgjorda. Orörda: B4–B7. **Blockerat av ägarbeslut** N3–N5. | [`2026-08-18-briefing-och-kallpaket/00-master-plan.md`](2026-08-18-briefing-och-kallpaket/00-master-plan.md) |
+| Briefing + Källpaket | Landat: B1–B3, B8–B11, docs/etiketter, B2 #1079. N2 avgjort. N1-backlograden stängs i #1082. Orörda: B4–B7. **Blockerat av ägarbeslut** N3–N5. | [`2026-08-18-briefing-och-kallpaket/00-master-plan.md`](2026-08-18-briefing-och-kallpaket/00-master-plan.md) |
 
 Vågschemat 20 aug (#1070–#1081) är levererat — se
 [`../avklarat/README.md`](../avklarat/README.md). Skicka ingen agent på de

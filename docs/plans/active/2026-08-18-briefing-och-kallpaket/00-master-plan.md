@@ -223,8 +223,9 @@ kvittot. B4 och B5 kan nu utvärderas mot riktiga körningar, inte gissningar.
 
 Samma frågor ligger i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md)
 § Väntar på ägarbeslut. Planen äger formuleringen; backloggen är kön.
-N1 och N2 är avgjorda — se [`docs/decisions/README.md`](../../../decisions/README.md).
-Kvar i kön: N3–N5.
+N2 är avgjort — se [`docs/decisions/README.md`](../../../decisions/README.md).
+N1 är redan beslutat (2026-08-20) men backlograden stängs i #1082.
+Kvar i kön efter båda: N3–N5.
 
 | # | Fråga | Förslag |
 |---|---|---|
