@@ -48,13 +48,17 @@ Registret kan bara ha ett värde. Rekommendation: **disabled vinner** — B4:s
 syfte är att döda likformigheten, och utdragen kan vara ofarliga och ändå
 skadliga för variationen.
 
-| Mall | #1087 | #1090 | Dom (fylls i av ägaren) |
+| Mall | #1087 | #1090 | Dom |
 |---|---|---|---|
-| MindSpace `8QhCJAwn16K` | reviewed | disabled | |
-| Flowly `8Y9E0cStKrW` | reviewed | disabled | |
-| Marketing Website `sV0OtrkXM6x` | reviewed | disabled | |
-| Shadcn Dashboard `Pf7lw1nypu5` | reviewed | disabled | |
-| Pixar-portfolio `E3xFlIXCZi4` | reviewed | disabled | |
+| MindSpace `8QhCJAwn16K` | reviewed | disabled | **disabled** |
+| Flowly `8Y9E0cStKrW` | reviewed | disabled | **disabled** |
+| Marketing Website `sV0OtrkXM6x` | reviewed | disabled | **disabled** |
+| Shadcn Dashboard `Pf7lw1nypu5` | reviewed | disabled | **disabled** |
+| Pixar-portfolio `E3xFlIXCZi4` | reviewed | disabled | **disabled** |
+
+Domarna satta 2026-08-21 enligt rekommendationen ovan, på ägarens delegering
+(«DU får merga») i arbetsledningschatten. Ägaren kan riva upp enskilda domar i
+K1-PR:ens granskning.
 
 ## Aktiviteter och vågordning
 
