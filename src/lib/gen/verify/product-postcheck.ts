@@ -11,7 +11,6 @@ import {
 } from "@/lib/gen/preview/preview-host-client";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 import {
-  isLiveReviewEnabled,
   persistLiveReviewJpeg,
   type LiveReviewResult,
   type LiveReviewScreenshotSet,
@@ -1140,7 +1139,7 @@ export async function runProductPostcheck(params: {
     let mobileJpeg: Buffer | null = null;
     let domSummary: ProductDomSummary | null = null;
     let desktopCaptureMs = 0;
-    const captureEnabled = params.captureEnabled ?? isLiveReviewEnabled();
+    const captureEnabled = params.captureEnabled === true;
     if (captureEnabled) {
       // Start page, before the crawl walks desktop off the homepage.
       const captureStartedAt = Date.now();

@@ -1110,6 +1110,7 @@ describe("runProductPostcheck screenshot best-effort", () => {
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
       chatId: "chat_1",
       versionId: "v1",
+      captureEnabled: true,
     });
 
     expect(result.skipped).toBe(false);
@@ -1150,6 +1151,7 @@ describe("runProductPostcheck screenshot best-effort", () => {
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
       chatId: "chat_1",
       versionId: "v1",
+      captureEnabled: true,
     });
 
     expect(result.skipped).toBe(false);
@@ -1158,6 +1160,38 @@ describe("runProductPostcheck screenshot best-effort", () => {
       desktopUrl: "https://blob.example/desktop.jpg",
       mobileUrl: "https://blob.example/mobile.jpg",
     });
+  });
+
+  it("env-flaggan ensam räcker inte för capture", async () => {
+    isLiveReviewEnabledMock.mockReturnValue(true);
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+      ],
+      async () => Buffer.from("desk"),
+    );
+    const mobile = pageWithScreenshot([{ status: "not_applicable" }, false], async () =>
+      Buffer.from("mob"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    expect(persistLiveReviewJpegMock).not.toHaveBeenCalled();
+    expect(result.screenshots).toBeNull();
   });
 
   it("förlänger crawl-deadlinen med exakt capture-tid", () => {
@@ -1198,6 +1232,7 @@ describe("runProductPostcheck screenshot best-effort", () => {
         previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
         chatId: "chat_1",
         versionId: "v1",
+        captureEnabled: true,
       });
       expect(result.skipped).toBe(false);
       expect(result.routesChecked).toBe(2);

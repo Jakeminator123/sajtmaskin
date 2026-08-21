@@ -85,8 +85,14 @@ async function applyExistingDecision(
         and(eq(liveReviewRuns.id, existing.id), eq(liveReviewRuns.status, "running")),
       )
       .returning();
-    const taken = updated[0] ? mapRow(updated[0]) : existing;
-    return { kind: "acquired", row: taken };
+    if (updated[0]) return { kind: "acquired", row: mapRow(updated[0]) };
+    const raced = await selectRun(existing.versionId, existing.filesRevision);
+    if (raced?.result && raced.status !== "running") {
+      return raced.modelAttempts >= LIVE_REVIEW_MAX_MODEL_ATTEMPTS
+        ? { kind: "cost_capped", result: raced.result, row: raced }
+        : { kind: "cached", result: raced.result, row: raced };
+    }
+    return { kind: "in_flight", row: raced ?? existing };
   }
   return { kind: "in_flight", row: existing };
 }
