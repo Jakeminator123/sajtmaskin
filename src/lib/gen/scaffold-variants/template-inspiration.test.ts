@@ -66,12 +66,14 @@ describe("selectVariantTemplateReference", () => {
   });
 
   it("resolves review metadata from the exact runtime-selected Blob id", () => {
+    // Flowly är `disabled` sedan K1 (ägardom: generiskt pro-blocks-kit) —
+    // metadatan ska ärligt säga disabled + inga utdrag, inte hit.
     expect(getVariantTemplateReviewReference("8Y9E0cStKrW")).toMatchObject({
       templateId: "8Y9E0cStKrW",
       title: "Flowly - SaaS Landing Page Template",
       category: "landing-pages",
-      addendumState: "hit",
-      hasStructuralReferences: true,
+      addendumState: "disabled",
+      hasStructuralReferences: false,
     });
   });
 
@@ -278,13 +280,31 @@ describe("extractVariantTemplateStructuralReferences", () => {
   });
 
   it("uses the committed SHA-bound addendum by default", async () => {
+    // XOMN4texeRO är `reviewed` i registret (B4/K1). En reviewed-post bevaras
+    // av generatorn så länge ZIP-SHA:n är oförändrad, så den är stabilare som
+    // fixtur än en `generated`- eller numera `disabled`-post (8QhCJAwn16K).
+    const inspiration = await resolveVariantTemplateInspiration(
+      { sourceTemplateIds: ["XOMN4texeRO"] },
+      { includeStructure: true },
+    );
+
+    expect(archiveLoaderMock.loadLocalV0TemplateReferenceFiles).not.toHaveBeenCalled();
+    expect(inspiration?.structuralReferences.length).toBeGreaterThan(0);
+  });
+
+  it("keeps a disabled committed addendum selectable without excerpts", async () => {
+    // K1-kontrakt: `disabled` tar bort kodutdragen (och rankas därmed ner av
+    // Brief-rankningen som premierar utdrag), men kandidaten förblir valbar —
+    // stillbilden får fortfarande gå som style-referens.
     const inspiration = await resolveVariantTemplateInspiration(
       { sourceTemplateIds: ["8QhCJAwn16K"] },
       { includeStructure: true },
     );
 
     expect(archiveLoaderMock.loadLocalV0TemplateReferenceFiles).not.toHaveBeenCalled();
-    expect(inspiration?.structuralReferences.length).toBeGreaterThan(0);
+    expect(inspiration?.templateId).toBe("8QhCJAwn16K");
+    expect(inspiration?.structuralReferences).toEqual([]);
+    expect(inspiration?.stillImageUrl).toBeTruthy();
   });
 
   it("honors an explicitly disabled addendum without falling back to ZIP", async () => {

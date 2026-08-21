@@ -54,7 +54,12 @@ class LiveCatalogTests(unittest.TestCase):
         cited = select_catalog(self.snapshot, CatalogScope.VARIANT_CITED)
         self.assertTrue(self.snapshot.addenda_valid, self.snapshot.addenda_error)
         self.assertEqual(len(cited), 68)
-        self.assertTrue(all(record.addendum_status == "current" for record in cited))
+        # Speglar TS-grinden i variant-integrity.test.ts: varje citerad mall ska ha
+        # en aktuell ELLER explicit disabled addendum-post. `disabled` är ett
+        # medvetet kuratorsbeslut (B4/K1), inte drift — missing/stale/invalid failar.
+        self.assertTrue(
+            all(record.addendum_status in {"current", "disabled"} for record in cited)
+        )
         self.assertTrue(
             all(
                 record.addendum_extractor_sha256 == self.snapshot.extractor_sha256
