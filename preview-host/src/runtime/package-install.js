@@ -517,6 +517,31 @@ function ensureNpmLogsDir(workspaceDir) {
   return logsDir;
 }
 
+/** Drop leftover logs from earlier boots in this same workspace. */
+function clearWorkspaceNpmLogs(workspaceDir) {
+  if (typeof workspaceDir !== "string" || !workspaceDir.trim()) return;
+  const logsDir = npmLogsDirForWorkspace(workspaceDir);
+  if (logsDir) {
+    try {
+      for (const name of fs.readdirSync(logsDir)) {
+        if (!/\.log$/i.test(name)) continue;
+        try {
+          fs.unlinkSync(path.join(logsDir, name));
+        } catch {
+          /* ignore locked files */
+        }
+      }
+    } catch {
+      /* missing dir */
+    }
+  }
+  try {
+    fs.unlinkSync(path.join(workspaceDir, "npm-debug.log"));
+  } catch {
+    /* missing */
+  }
+}
+
 function listNpmDebugLogCandidates(workspaceDir) {
   const out = [];
   if (typeof workspaceDir !== "string" || !workspaceDir.trim()) return out;
@@ -568,12 +593,18 @@ function redactNpmLogText(text) {
     );
 }
 
-function readLatestNpmDebugLog(workspaceDir) {
+function readLatestNpmDebugLog(workspaceDir, options = {}) {
+  const notBeforeMs =
+    typeof options.notBeforeMs === "number" && Number.isFinite(options.notBeforeMs)
+      ? options.notBeforeMs
+      : null;
   let latest = null;
   for (const file of listNpmDebugLogCandidates(workspaceDir)) {
     try {
       const st = fs.statSync(file);
       if (!st.isFile()) continue;
+      // 1s slack for coarse filesystem mtimes; still rejects prior-boot leftovers.
+      if (notBeforeMs != null && st.mtimeMs + 1000 < notBeforeMs) continue;
       if (!latest || st.mtimeMs > latest.mtimeMs) {
         latest = { file, mtimeMs: st.mtimeMs, bytes: st.size };
       }
@@ -611,7 +642,9 @@ function collectInstallFailureDiagnostics(params = {}) {
     },
     concurrentRuntimes: runtimeChildren.size,
     inflightBoots: inflightBootByChat.size,
-    npmDebugLog: readLatestNpmDebugLog(params.workspaceDir),
+    npmDebugLog: readLatestNpmDebugLog(params.workspaceDir, {
+      notBeforeMs: typeof params.sinceMs === "number" ? params.sinceMs : null,
+    }),
   };
 }
 
@@ -664,6 +697,7 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
 
 async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
   ensurePackageCacheDirs();
+  clearWorkspaceNpmLogs(workspaceDir);
   const npmLogsDir = ensureNpmLogsDir(workspaceDir);
   // Generated projects keep TypeScript/ESLint in devDependencies. Force every
   // package manager to include them even when the host itself runs with
@@ -939,6 +973,7 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
     previewSessionId,
     `Dependency fingerprint changed (prior=${priorFingerprint}, next=${fingerprint.slice(0, 12)}); installing with ${install.logLabel}.`,
   );
+  const installStartedAtMs = Date.now();
   const installResult = await bootInstallRunner(workspaceDir, install);
   if (installResult.passed) {
     // Postcondition BEFORE stamping the fingerprint: a package manager can exit
@@ -1008,6 +1043,7 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
       : "";
   const diagnostics = collectInstallFailureDiagnostics({
     workspaceDir,
+    sinceMs: installStartedAtMs,
     exitCode: installResult.exitCode,
     signal: installResult.signal,
     failureReason,
@@ -1053,6 +1089,7 @@ module.exports = {
   collectInstallFailureDiagnostics,
   formatInstallDiagnosticsForLog,
   npmLogsDirForWorkspace,
+  clearWorkspaceNpmLogs,
   readLatestNpmDebugLog,
   runInstallCommandWithFallback,
   dependencyFingerprint,

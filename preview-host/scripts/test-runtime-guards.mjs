@@ -34,8 +34,13 @@ process.env.PREVIEW_HOST_DATA_DIR = dataDir;
 
 const require = createRequire(import.meta.url);
 const runtime = require("../src/runtime.js");
-const { runShellCommand, collectInstallFailureDiagnostics, readLatestNpmDebugLog, npmLogsDirForWorkspace } =
-  runtime.__testing;
+const {
+  runShellCommand,
+  collectInstallFailureDiagnostics,
+  readLatestNpmDebugLog,
+  npmLogsDirForWorkspace,
+  clearWorkspaceNpmLogs,
+} = runtime.__testing;
 
 let failures = 0;
 function check(label, condition) {
@@ -1398,6 +1403,23 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     check(
       "diagnostics npm-debug path is a basename",
       diagnostics.npmDebugLog?.path === debugName,
+    );
+
+    const staleWorkspace = join(dataDir, "diag-stale-workspace");
+    mkdirSync(staleWorkspace, { recursive: true });
+    const staleLogsDir = npmLogsDirForWorkspace(staleWorkspace);
+    mkdirSync(staleLogsDir, { recursive: true });
+    const stalePath = join(staleLogsDir, "old-boot.log");
+    writeFileSync(stalePath, "previous boot leftover\n");
+    const past = Date.now() + 5_000;
+    check(
+      "logs older than this install are ignored",
+      readLatestNpmDebugLog(staleWorkspace, { notBeforeMs: past }) == null,
+    );
+    clearWorkspaceNpmLogs(staleWorkspace);
+    check(
+      "clearing workspace npm logs removes leftover files",
+      !existsSync(stalePath),
     );
   }
 
