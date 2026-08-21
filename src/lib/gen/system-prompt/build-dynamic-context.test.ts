@@ -316,6 +316,131 @@ describe("buildDynamicContext", () => {
     expect(result.context).toContain("### Lucide icons commonly needed");
   });
 
+  it("renders variant template inspiration on clear-redesign when the caller resolved it", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Gör om hela sajten i en mörk editorial stil",
+      generationMode: "followUp",
+      followUpIntent: "clear-redesign",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "redesign",
+        contextPolicy: "normal",
+        verificationPolicy: "standard",
+        previewPolicy: "fidelity2",
+        qualityTarget: "premium",
+        scaffoldId: "landing-page",
+        routePlanSummary: "1 route",
+        stylePack: "editorial",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 3_000,
+          refsChars: 1_500,
+          systemContextChars: 80_000,
+          systemContextTokens: 20_000,
+        },
+      },
+      resolvedVariant: {
+        id: "editorial-lux",
+        scaffoldId: "landing-page",
+        label: "Editorial Lux",
+        keywords: ["editorial"],
+        fontPairings: [{ heading: "Cormorant Garamond", body: "Raleway" }],
+        signatureMotif: "editorial framing",
+        colorMode: "dark",
+        promptHints: ["Use stronger storytelling."],
+        signaturePatterns: {
+          layouts: ["Use a cinematic split hero with one oversized portrait."],
+          motifs: ["Pair near-black surfaces with warm ivory typography."],
+          antiPatterns: ["Avoid loud neon gradients."],
+        },
+      },
+      variantTemplateInspiration: {
+        templateId: "k3-redesign-fixture",
+        title: "K3 Redesign Fixture",
+        category: "landing-pages",
+        archiveUrl: "https://cdn.example.com/k3.zip",
+        stillImageUrl: "https://cdn.example.com/k3-still.png",
+        structuralReferences: [
+          {
+            path: "app/page.tsx",
+            language: "tsx",
+            reason: "primary-page",
+            excerpt: "export default function Page() { return <main />; }",
+          },
+        ],
+      },
+    });
+
+    expect(result.context).toContain("## Variant Template Inspiration");
+    expect(result.context).toContain("K3 Redesign Fixture");
+    expect(result.context).toContain("Use a cinematic split hero with one oversized portrait.");
+    expect(result.context).toContain("These are visual reference points, not a contract.");
+    expect(result.context).not.toContain("Follow-up delta rule");
+    expect(result.pruning.keptBlockKeys).toContain("variant_template_inspiration");
+  });
+
+  it("keeps clear-refine compact and drops inspiration even if a caller passed it", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Byt hero-rubriken till Välkommen",
+      generationMode: "followUp",
+      followUpIntent: "clear-refine",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "copy",
+        contextPolicy: "normal",
+        verificationPolicy: "standard",
+        previewPolicy: "fidelity2",
+        qualityTarget: "standard",
+        scaffoldId: "landing-page",
+        routePlanSummary: "1 route",
+        stylePack: "editorial",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 3_000,
+          refsChars: 1_500,
+          systemContextChars: 80_000,
+          systemContextTokens: 20_000,
+        },
+      },
+      resolvedVariant: {
+        id: "editorial-lux",
+        scaffoldId: "landing-page",
+        label: "Editorial Lux",
+        keywords: ["editorial"],
+        fontPairings: [{ heading: "Cormorant Garamond", body: "Raleway" }],
+        signatureMotif: "editorial framing",
+        colorMode: "dark",
+        promptHints: ["Use stronger storytelling."],
+        signaturePatterns: {
+          layouts: ["Use a cinematic split hero with one oversized portrait."],
+          motifs: ["Pair near-black surfaces with warm ivory typography."],
+          antiPatterns: ["Avoid loud neon gradients.", "Never stack dense feature grids."],
+        },
+      },
+      variantTemplateInspiration: {
+        templateId: "k3-redesign-fixture",
+        title: "K3 Redesign Fixture",
+        category: "landing-pages",
+        archiveUrl: "https://cdn.example.com/k3.zip",
+        stillImageUrl: "https://cdn.example.com/k3-still.png",
+        structuralReferences: [],
+      },
+    });
+
+    expect(result.context).toContain("Follow-up delta rule");
+    expect(result.context).toContain("Still avoid (variant anti-patterns)");
+    expect(result.context).not.toContain("## Variant Template Inspiration");
+    expect(result.context).not.toContain("Use a cinematic split hero with one oversized portrait.");
+    expect(result.context).not.toContain("These are visual reference points, not a contract.");
+    expect(result.pruning.keptBlockKeys).not.toContain("variant_template_inspiration");
+  });
+
   it("keeps full follow-up context when BuildSpec is missing", () => {
     const result = buildDynamicContext({
       intent: "website",
