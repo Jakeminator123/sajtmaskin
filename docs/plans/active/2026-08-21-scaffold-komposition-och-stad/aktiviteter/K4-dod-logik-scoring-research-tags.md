@@ -58,3 +58,16 @@ Kedjan bär ytor som ser aktiva ut men saknar anropare eller ägs dubbelt:
 Ingen modul i scaffold-kedjan saknar anropare, knip-undantaget är borta,
 research-vägen har en dokumenterad ägare eller är borttagen, och `tags` har en
 uttalad roll.
+
+## Beslut 2026-08-21 (K4-pass)
+
+| Yta | Dom |
+|---|---|
+| Runtime-boost-modulen | Raderad. Levande yta: `scripts/db/scaffold-scores.mjs` + Backoffice Scaffold Performance. |
+| Research-merge | Behålls. `qualityChecklist` + `upgradeTargets` läses av prompt (`renderScaffoldResearchBlock`) och embeddings. `referenceTemplates` togs bort av #1087 (mergad efter K4-passet) — `research` bär nu bara `upgradeTargets`. |
+| Manifest-`tags` | Behålls som embeddings-only. Matcher använder `keyword-banks.ts`, inte `tags`. |
+| Dubbel variant-pick | Inte trivialt. Tre ingångar dokumenterade i `scaffold-variants/matcher.ts`. Slås inte ihop. |
+
+Framtida beslut (variant-pick): slå ihop sync pre-match med async codegen-pick
+bara om Brief får vänta på embeddings (~500 ms) eller om pre-match-id slutar
+återanvändas som `persistedVariantId`. Inte K4-scope.

@@ -55,6 +55,18 @@ function mergeUniqueStrings(base: string[] = [], override: string[] = []): strin
   return [...new Set([...base, ...override].map((value) => value.trim()).filter(Boolean))];
 }
 
+/**
+ * Overlay generated research onto each manifest. Kept because runtime still
+ * reads these fields after merge:
+ * - `qualityChecklist` — prompt (`renderScaffoldResearchBlock`) + embeddings
+ * - `research.upgradeTargets` — same two readers
+ *
+ * `referenceTemplates` was removed from the type and this merge by #1087;
+ * `research` now carries `upgradeTargets` only.
+ *
+ * Source: `scaffold-research.generated.json` (legacy template-library snapshot).
+ * Drop a field from this merge only after grep shows it has no readers.
+ */
 function mergeScaffoldResearch(
   base: ScaffoldManifest["research"],
   override: ScaffoldManifest["research"],

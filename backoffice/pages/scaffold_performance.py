@@ -3,14 +3,10 @@
 Kör `node scripts/db/scaffold-scores.mjs --json` via subprocess och visar
 resultatet som tabell. Read-only mot DB:n som `.env.local` pekar på.
 
-Syftet är att ge operatören underlag för att fatta beslut om
-`scaffold-scoring`-modulen (SAJ-55):
-  - Wire upp `getScaffoldBoost` i matchern → självoptimerande scaffold-val.
-  - Behåll som dashboard-data → bara observability.
-  - Ta bort modulen + DB-kolumnerna → den används aldrig.
-
-Panelen visar inte `compositeScore`-formulan från `scaffold-scoring.ts` —
-bara råa counters — för att undvika drift mellan TS-runtime och Python.
+Den här panelen + CLI:n är den levande ytan (K4). En tidigare
+runtime-boost i own-engine raderades; återinför inte en matcher-boost
+utan nytt ägarbeslut. Panelen visar bara råa counters — ingen
+composite-formula — så Python och CLI inte kan driva isär.
 Beslutsunderlaget är "presterar scaffolds tydligt olika?", inte exakta
 score-värden.
 
@@ -165,8 +161,8 @@ def _build_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
 def render(ctx: BackofficeContext) -> None:
     st.title("Scaffold Performance")
     st.caption(
-        "Per-scaffold telemetri från `generation_telemetry`. Underlag för beslut om "
-        "`scaffold-scoring`-modulen (Linear: SAJ-55). Read-only mot DB:n som "
+        "Per-scaffold telemetri från `generation_telemetry`. Levande "
+        "observability-yta (K4) — ingen runtime-boost. Read-only mot DB:n som "
         "`.env.local` pekar på."
     )
 
@@ -216,30 +212,28 @@ def render(ctx: BackofficeContext) -> None:
 
 
 def _render_decision_section(payload: ScoresPayload) -> None:
-    st.subheader("Beslutsunderlag — SAJ-55")
+    st.subheader("Observability — K4")
     st.markdown(
         """
-`scaffold-scoring`-modulen (`src/lib/gen/scaffolds/scaffold-scoring.ts`) har
-**noll call-sites** i koden idag. Tre vägar framåt:
+Runtime-boosten i own-engine är **borttagen**. Den här panelen och
+`scripts/db/scaffold-scores.mjs` är den levande ytan: råa counters, ingen
+composite-formula, ingen matcher-koppling.
 
-1. **Wire upp** `getScaffoldBoost` i matchern (`matchScaffoldAuto`) som tie-breaker
-   vid close calls → självoptimerande scaffold-val. Kräver att retry-data är
-   meningsfull (se SAJ-57).
-2. **Behåll som dashboard-data** — den här panelen är redan en konsument; ingen
-   runtime-koppling behövs.
-3. **Ta bort modulen** + DB-kolumnerna `scaffold_selection_method`,
-   `scaffold_retry_used` om datan inte är meningsfull.
+Återinför inte en matcher-boost utan nytt ägarbeslut. DB-kolumnerna
+`scaffold_selection_method` och `scaffold_retry_used` stannar — de matar
+den här panelen.
 
-Beslutskriterier från denna panel:
+Läsning av den här ytan:
 
 - Skiljer sig **success rate** tydligt mellan scaffolds (>10 procentenheter)?
-  → starkt argument för (1).
+  → underlag för att granska keyword-banks / embeddings, inte för att
+  återinföra en dold boost.
 - Är **embedding share** olika och korrelerar med success rate?
   → embedding-vägen är värd att optimera mot.
 - Är **retry rate** alltid 0?
-  → SAJ-57 måste fixas innan scoring kan vara meningsfull. Inte börja med (1).
+  → SAJ-57 är fortfarande aktivt; `retry_count` är då inte meningsfull.
 - Är allt uniformt eller volymen för låg (< 20 generationer per scaffold)?
-  → vänta med beslut, eller välj (3).
+  → vänta med slutsats.
         """
     )
 
@@ -250,6 +244,5 @@ Beslutskriterier från denna panel:
     elif payload.scaffolds:
         st.warning(
             "Retry-data är 0 överallt → SAJ-57 är fortfarande aktivt. "
-            "Wire INTE upp scoring-modulen i matchern förrän SAJ-57 fixats — "
-            "`retryRate` skulle alltid bli 0 och påverka `compositeScore` felaktigt."
+            "`retry_count` är då inte meningsfull som beslutsunderlag."
         )

@@ -444,7 +444,7 @@ jobs:
 
   # Dead-code / orphan-file-hygien (självgående städ-enforcement). knip är tunat i
   # knip.json så FILES-kategorin har noll falska positiver: dynamiskt körda kataloger
-  # (shadcn `src/components/ui/`, `scripts/`, mcp/cli-entries, scaffold-scoring-spegeln)
+  # (shadcn `src/components/ui/`, `scripts/`, mcp/cli-entries)
   # är deklarerade som knip `entry` → deras importer räknas och deras exporter flaggas
   # inte. Två lanes:
   #   1. Full rådgivande rapport (`|| true`, faller ALDRIG) så deps/exports-svansen syns

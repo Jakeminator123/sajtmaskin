@@ -233,8 +233,8 @@ export async function persistTelemetryRecord(params: {
       // Old semantics `!hasPreviewBlockingPreflightErrors` meant "preflight did
       // not block preview" and was persisted as `true` even for versions whose
       // runtime later died (or was verifier-blocked) — a false-green.
-      // New tri-state (readers already assume it — scaffold-scoring SAJ-49,
-      // scaffold-scores.mjs, backoffice `_preview_label`):
+      // New tri-state (readers already assume it — scaffold-scores.mjs
+      // SAJ-49, backoffice `_preview_label`):
       //   - `false` : preflight blocked the preview → it cannot render (confirmed).
       //   - `null`  : pending — runtime not yet attempted/confirmed.
       // `recordPreviewRuntimeOutcomeForVersion` (post-finalize) upgrades this to
@@ -265,11 +265,12 @@ export async function persistTelemetryRecord(params: {
       // not exist at this layer — `persist-telemetry` only sees the row that
       // SUGGESTS the retry, not the next generation that ACTS on it. As a
       // result both downstream consumers (`getHistoricalRetrySuccess` per
-      // SAJ-38, and `scaffold-scoring.retryCount`) read this column and
-      // currently always get `false`. A correct fix needs upstream context
-      // (chat repair pipeline) to flag "this generation is a retry attempt"
-      // and pass that flag in here. Leaving hardcoded `false` to avoid
-      // false-positive signal until that wiring exists; do NOT change to
+      // SAJ-38, and `scripts/db/scaffold-scores.mjs` `retry_count`) read
+      // this column and currently always get `false`. A correct fix needs
+      // upstream context (chat repair pipeline) to flag "this generation
+      // is a retry attempt" and pass that flag in here. Leaving hardcoded
+      // `false` to avoid false-positive signal until that wiring exists;
+      // do NOT change to
       // `Boolean(scaffoldRetry)` — that would mean "row that suggested",
       // which inverts the column's semantics for consumers.
       scaffoldRetryUsed: false,

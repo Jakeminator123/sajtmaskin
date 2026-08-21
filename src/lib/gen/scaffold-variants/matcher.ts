@@ -227,6 +227,24 @@ function scoreVariant(
   return score;
 }
 
+/**
+ * Keyword variant picker. Three entry points own "the" pick at different times
+ * — not merged (sync vs async have different cost and callers):
+ *
+ * 1. Style pin — `resolveVariantForStyleChoice` (Byggval Stil). Wins on init
+ *    in `finalize-prompts.ts` before any matcher. Sync, no embeddings.
+ * 2. Sync pre-match / fallback — this function. Used by create-chat and
+ *    delta-brief (~1ms hints for Deep Brief) and as `buildDynamicContext`
+ *    fallback when no orchestrate-resolved variant is passed. Intentionally
+ *    not async: embeddings would add ~500ms before Brief.
+ * 3. Async codegen pick — `pickScaffoldVariantAsync` via
+ *    `resolveScaffoldVariant` in finalize-prompts, after style pin and
+ *    persisted/locked variant. Embeddings when available; else this function.
+ *
+ * Init reuses the pre-match id as `persistedVariantId` so finalize does not
+ * re-pick unless style pin or lock says otherwise. See K4 in
+ * `docs/plans/active/2026-08-21-scaffold-komposition-och-stad/aktiviteter/`.
+ */
 export function pickScaffoldVariant(
   input: PickScaffoldVariantInput,
 ): ScaffoldVariant | null {

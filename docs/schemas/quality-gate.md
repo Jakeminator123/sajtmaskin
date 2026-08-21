@@ -113,7 +113,7 @@ Skrivs av `persist-telemetry.ts` och relaterade writers. Kolumner och `meta`-nyc
 | `meta.selectedDossierIds` | `persistTelemetryRecord` när ≥1 dossier valdes | `control-stats` (`dossierUsage`) |
 | `deploy_result` | `recordDeployResultForVersion` från `POST /api/v0/deployments` | `control-stats` (`deployOutcomes`) |
 | `variant_id` | `persistTelemetryRecord`; ärvs av repair-raden | per-generation scaffold-variant |
-| `preview_success` | se nedan | `control-stats`, scaffold-scoring, backoffice |
+| `preview_success` | se nedan | `control-stats`, `scaffold-scores.mjs`, backoffice |
 
 ### `preview_success` (tri-state)
 
