@@ -171,6 +171,56 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     expect(payloads[0].message).toContain("radix-ui");
   });
 
+  it("persists host installDiagnostics in error-log meta without changing the message", async () => {
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      resumed: {
+        readinessState: "failed",
+        readinessError:
+          "npm install --no-audit --include=dev failed with exit code 254 (no_output)",
+        installDiagnostics: {
+          exitCode: 254,
+          signal: null,
+          failureReason: "no_output",
+          memory: {
+            freeBytes: 1_000_000_000,
+            totalBytes: 8_000_000_000,
+            rssBytes: 200_000_000,
+            heapUsedBytes: 80_000_000,
+            heapTotalBytes: 120_000_000,
+          },
+          concurrentRuntimes: 2,
+          inflightBoots: 1,
+          npmDebugLog: {
+            path: "/data/package-caches/npm/_logs/last-debug.log",
+            mtime: "2026-08-21T02:00:00.000Z",
+            bytes: 120,
+            clippedContent: "verbose npm-debug fixture",
+          },
+        },
+        regeneratedLockfile: null,
+        httpReady: false,
+      },
+    });
+
+    const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
+      Array<{ message: string; meta: Record<string, unknown> }>,
+    ];
+    expect(payloads[0].message).toBe(
+      "npm install --no-audit --include=dev failed with exit code 254 (no_output)",
+    );
+    expect(payloads[0].meta).toMatchObject({
+      source: "preview_readiness_probe",
+      installDiagnostics: {
+        exitCode: 254,
+        failureReason: "no_output",
+        concurrentRuntimes: 2,
+        npmDebugLog: { clippedContent: "verbose npm-debug fixture" },
+      },
+    });
+  });
+
   it("stamps preview_success=false + category preview when host fails on persistent empty HTML body", async () => {
     // Host waitForReady now rejects empty <body> at the readiness deadline
     // (readinessState=failed) instead of accepting after ~5 polls. App-side

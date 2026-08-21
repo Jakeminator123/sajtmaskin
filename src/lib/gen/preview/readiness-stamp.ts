@@ -33,7 +33,7 @@ export type PreviewReadinessDecision = {
 export function decidePreviewReadinessOutcome(
   resumed: Pick<
     PreviewHostStatusResult,
-    "readinessState" | "readinessError" | "regeneratedLockfile" | "httpReady"
+    "readinessState" | "readinessError" | "installDiagnostics" | "regeneratedLockfile" | "httpReady"
   >,
 ): PreviewReadinessDecision {
   const regeneratedLockfile = resumed.regeneratedLockfile ?? null;
@@ -79,7 +79,7 @@ export async function applyPreviewReadinessOutcome(params: {
   bootedFilesRevision?: string | null;
   resumed: Pick<
     PreviewHostStatusResult,
-    "readinessState" | "readinessError" | "regeneratedLockfile" | "httpReady"
+    "readinessState" | "readinessError" | "installDiagnostics" | "regeneratedLockfile" | "httpReady"
   >;
 }): Promise<PreviewReadinessDecision> {
   const decision = decidePreviewReadinessOutcome(params.resumed);
@@ -116,7 +116,12 @@ export async function applyPreviewReadinessOutcome(params: {
             level: "error",
             category: "preview",
             message: decision.buildError,
-            meta: { source: "preview_readiness_probe" },
+            meta: {
+              source: "preview_readiness_probe",
+              ...(params.resumed.installDiagnostics
+                ? { installDiagnostics: params.resumed.installDiagnostics }
+                : {}),
+            },
           },
         ],
         { lockTimeoutMs: 2_000 },

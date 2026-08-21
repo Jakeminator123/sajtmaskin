@@ -5,7 +5,7 @@ Status: inte startad.
 
 Kräver beslut: **N5** (extra embedding-runda på init).
 Beror på: **B3** (källkvittot är mätytan — **landad** #1035).
-Ordning: körs **efter** [B8](B8-brief-paritet-website-app.md), i en egen PR.
+Ordning: körs **efter** B8 (#1032, landad), i en egen PR.
 B8 ger hemsidor samma Brief-väg som appar; B7 ändrar vem som väljer varianten.
 Appar använder redan samma variantpinne som hemsidor och blir ändå ofta bra —
 det talar för att den större kvalitetsvinsten ligger i B8. Landar de i samma
@@ -206,7 +206,7 @@ listan mot `styleKeywords` / `toneAndVoice` / mallens titel+kategori. Högst
 `siteBriefSchema`. Inte hela 313-mallarsökningen.
 
 Scaffold-typens domänlucka är landad i #1042 via
-[B11](B11-brief-i-scaffoldvalet.md). Det smala follow-up-fixspåret håller
+B11 (#1042). Det smala follow-up-fixspåret håller
 `toneAndVoice` utanför scaffold-keywords och scaffold-embedding; B7 använder
 fortsatt ton för variant/addendum men byter inte scaffold-trösklar.
 

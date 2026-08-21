@@ -5,6 +5,7 @@
 // Ren extraktion ur runtime.js — ingen beteendeändring.
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { createHash } = require("node:crypto");
 
@@ -13,9 +14,11 @@ const {
   clipVerifyOutput,
   dependencyStatePathForWorkspace,
   ensurePackageCacheDirs,
+  inflightBootByChat,
   readJsonIfExists,
   runInInstallSlot,
   runShellCommand,
+  runtimeChildren,
   sanitizedEnv,
 } = require("./shared.js");
 // Ingen cykel: storage-cleanup kräver bara shared + prewarm-leases vid load
@@ -489,6 +492,176 @@ function classifyInstallFailure(output, exitCode, signal) {
   return exitCode === 254 ? "unknown_npm_crash" : "unknown";
 }
 
+/**
+ * SM-035 diagnostics for the *next* install failure. Lives on the Error object
+ * and session `/status` — never in `Error.message`. The defect signature
+ * (`a0bc26af7689`) hashes the message; stuffing memory numbers or npm-debug
+ * text there would mint a new signature per event and hide the class.
+ */
+const NPM_DEBUG_LOG_CLIP = 4000;
+
+/** Session-isolated npm logs dir. Never the host-wide cache `_logs`. */
+function npmLogsDirForWorkspace(workspaceDir) {
+  if (typeof workspaceDir !== "string" || !workspaceDir.trim()) return null;
+  return path.join(workspaceDir, ".sajtmaskin", "npm-logs");
+}
+
+function ensureNpmLogsDir(workspaceDir) {
+  const logsDir = npmLogsDirForWorkspace(workspaceDir);
+  if (!logsDir) return null;
+  try {
+    fs.mkdirSync(logsDir, { recursive: true });
+  } catch {
+    /* best-effort — install still runs */
+  }
+  return logsDir;
+}
+
+/** Drop leftover logs from earlier boots in this same workspace. */
+function clearWorkspaceNpmLogs(workspaceDir) {
+  if (typeof workspaceDir !== "string" || !workspaceDir.trim()) return;
+  const logsDir = npmLogsDirForWorkspace(workspaceDir);
+  if (logsDir) {
+    try {
+      for (const name of fs.readdirSync(logsDir)) {
+        if (!/\.log$/i.test(name)) continue;
+        try {
+          fs.unlinkSync(path.join(logsDir, name));
+        } catch {
+          /* ignore locked files */
+        }
+      }
+    } catch {
+      /* missing dir */
+    }
+  }
+  try {
+    fs.unlinkSync(path.join(workspaceDir, "npm-debug.log"));
+  } catch {
+    /* missing */
+  }
+}
+
+function listNpmDebugLogCandidates(workspaceDir) {
+  const out = [];
+  if (typeof workspaceDir !== "string" || !workspaceDir.trim()) return out;
+  const workspaceLog = path.join(workspaceDir, "npm-debug.log");
+  try {
+    if (fs.statSync(workspaceLog).isFile()) out.push(workspaceLog);
+  } catch {
+    /* missing */
+  }
+  const logsDir = npmLogsDirForWorkspace(workspaceDir);
+  if (!logsDir) return out;
+  try {
+    for (const name of fs.readdirSync(logsDir)) {
+      if (!/\.log$/i.test(name)) continue;
+      out.push(path.join(logsDir, name));
+    }
+  } catch {
+    /* missing dir */
+  }
+  return out;
+}
+
+/** Read only the last `maxChars` UTF-8 characters. Never slurp the whole file. */
+function readFileTailUtf8(filePath, maxChars) {
+  const fd = fs.openSync(filePath, "r");
+  try {
+    const size = fs.fstatSync(fd).size;
+    if (!Number.isFinite(size) || size <= 0) return "";
+    const maxBytes = Math.min(size, Math.max(1, maxChars) * 4);
+    const start = Math.max(0, size - maxBytes);
+    const buf = Buffer.alloc(maxBytes);
+    const bytesRead = fs.readSync(fd, buf, 0, maxBytes, start);
+    const text = buf.subarray(0, bytesRead).toString("utf8");
+    return text.length <= maxChars ? text : text.slice(-maxChars);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function redactNpmLogText(text) {
+  return String(text)
+    .replace(
+      /(authorization|token|password|secret|api[_-]?key|npm[_-]?token)\s*[:=]\s*\S+/gi,
+      "$1=<redacted>",
+    )
+    .replace(
+      /\b(npm_[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9]{20,})\b/g,
+      "<redacted>",
+    );
+}
+
+function readLatestNpmDebugLog(workspaceDir, options = {}) {
+  const notBeforeMs =
+    typeof options.notBeforeMs === "number" && Number.isFinite(options.notBeforeMs)
+      ? options.notBeforeMs
+      : null;
+  let latest = null;
+  for (const file of listNpmDebugLogCandidates(workspaceDir)) {
+    try {
+      const st = fs.statSync(file);
+      if (!st.isFile()) continue;
+      // 1s slack for coarse filesystem mtimes; still rejects prior-boot leftovers.
+      if (notBeforeMs != null && st.mtimeMs + 1000 < notBeforeMs) continue;
+      if (!latest || st.mtimeMs > latest.mtimeMs) {
+        latest = { file, mtimeMs: st.mtimeMs, bytes: st.size };
+      }
+    } catch {
+      /* ignore unreadable */
+    }
+  }
+  if (!latest) return null;
+  let clippedContent = null;
+  try {
+    clippedContent = redactNpmLogText(readFileTailUtf8(latest.file, NPM_DEBUG_LOG_CLIP));
+  } catch {
+    clippedContent = null;
+  }
+  return {
+    path: path.basename(latest.file),
+    mtime: new Date(latest.mtimeMs).toISOString(),
+    bytes: latest.bytes,
+    clippedContent,
+  };
+}
+
+function collectInstallFailureDiagnostics(params = {}) {
+  const mem = process.memoryUsage();
+  return {
+    exitCode: typeof params.exitCode === "number" ? params.exitCode : null,
+    signal: typeof params.signal === "string" && params.signal ? params.signal : null,
+    failureReason: typeof params.failureReason === "string" ? params.failureReason : null,
+    memory: {
+      freeBytes: os.freemem(),
+      totalBytes: os.totalmem(),
+      rssBytes: mem.rss,
+      heapUsedBytes: mem.heapUsed,
+      heapTotalBytes: mem.heapTotal,
+    },
+    concurrentRuntimes: runtimeChildren.size,
+    inflightBoots: inflightBootByChat.size,
+    npmDebugLog: readLatestNpmDebugLog(params.workspaceDir, {
+      notBeforeMs: typeof params.sinceMs === "number" ? params.sinceMs : null,
+    }),
+  };
+}
+
+function formatInstallDiagnosticsForLog(diagnostics) {
+  const log = diagnostics?.npmDebugLog;
+  const lines = [
+    `[install-diagnostics] exit=${diagnostics?.exitCode ?? "null"} signal=${diagnostics?.signal ?? "null"} reason=${diagnostics?.failureReason ?? "null"} runtimes=${diagnostics?.concurrentRuntimes ?? "null"} inflightBoots=${diagnostics?.inflightBoots ?? "null"} mem.free=${diagnostics?.memory?.freeBytes ?? "null"} mem.rss=${diagnostics?.memory?.rssBytes ?? "null"} mem.total=${diagnostics?.memory?.totalBytes ?? "null"}`,
+  ];
+  if (log) {
+    lines.push(`[npm-debug] path=${log.path} mtime=${log.mtime} bytes=${log.bytes}`);
+    if (log.clippedContent) lines.push(log.clippedContent);
+  } else {
+    lines.push("[npm-debug] none found");
+  }
+  return lines.join("\n");
+}
+
 function formatByteCount(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -524,13 +697,17 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
 
 async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
   ensurePackageCacheDirs();
+  clearWorkspaceNpmLogs(workspaceDir);
+  const npmLogsDir = ensureNpmLogsDir(workspaceDir);
   // Generated projects keep TypeScript/ESLint in devDependencies. Force every
   // package manager to include them even when the host itself runs with
   // NODE_ENV=production; ReleaseGate must never depend on ambient host mode.
+  // Logs stay in the workspace so a shared cache `_logs` cannot leak across chats.
   const env = sanitizedEnv({
     NODE_ENV: "development",
     NPM_CONFIG_PRODUCTION: "false",
     NPM_CONFIG_OMIT: "",
+    ...(npmLogsDir ? { NPM_CONFIG_LOGS_DIR: npmLogsDir } : {}),
   });
   const runAttempt = async (command) => {
     const startedAt = Date.now();
@@ -796,6 +973,7 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
     previewSessionId,
     `Dependency fingerprint changed (prior=${priorFingerprint}, next=${fingerprint.slice(0, 12)}); installing with ${install.logLabel}.`,
   );
+  const installStartedAtMs = Date.now();
   const installResult = await bootInstallRunner(workspaceDir, install);
   if (installResult.passed) {
     // Postcondition BEFORE stamping the fingerprint: a package manager can exit
@@ -863,15 +1041,26 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
     installResult.primaryFailureReason && installResult.primaryFailureReason !== failureReason
       ? ` after ${installResult.primaryFailureReason}`
       : "";
+  const diagnostics = collectInstallFailureDiagnostics({
+    workspaceDir,
+    sinceMs: installStartedAtMs,
+    exitCode: installResult.exitCode,
+    signal: installResult.signal,
+    failureReason,
+  });
   await appendRuntimeLog(
     previewSessionId,
-    `${install.logLabel} failed (${failureReason}${priorReason}).\n${trimSnippet(installResult.output || "")}`,
+    `${install.logLabel} failed (${failureReason}${priorReason}).\n${trimSnippet(installResult.output || "")}\n${formatInstallDiagnosticsForLog(diagnostics)}`,
   );
   // Rotorsaken måste sitta i det KASTADE felet, inte bara i runtime-loggen —
   // det är felmeddelandet som når appens error-log. Se `classifyInstallFailure`.
-  throw new Error(
+  // Diagnostiken (minne, npm-debug, samtidiga runtimes) ligger på Error-objektet
+  // och sessionen — inte i message — så defektsignaturen för SM-035 är oförändrad.
+  const error = new Error(
     `${install.logLabel} failed with exit code ${installResult.exitCode ?? "unknown"} (${failureReason}${priorReason})`,
   );
+  error.installDiagnostics = diagnostics;
+  throw error;
 }
 
 function setBootInstallRunnersForTesting(params = {}) {
@@ -897,6 +1086,11 @@ module.exports = {
   resolveInstallCommand,
   isNoSpaceInstallFailure,
   classifyInstallFailure,
+  collectInstallFailureDiagnostics,
+  formatInstallDiagnosticsForLog,
+  npmLogsDirForWorkspace,
+  clearWorkspaceNpmLogs,
+  readLatestNpmDebugLog,
   runInstallCommandWithFallback,
   dependencyFingerprint,
   tryShareNodeModules,
