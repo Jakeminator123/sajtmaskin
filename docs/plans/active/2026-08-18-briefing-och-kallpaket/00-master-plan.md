@@ -2,8 +2,8 @@
 
 Status: Active
 Startad: 2026-08-18
-Ägarbeslut: **delvis** — Prompt-assist-knappen beslutad 2026-08-19.
-Kvar: N2, N3, N4, N5. B4–B7 orörda.
+Ägarbeslut: **delvis** — Prompt-assist-knappen 2026-08-19, Briefing (N1) 2026-08-20.
+Kvar: N2, N3, N4, N5. B4 och B5 körbara. B6 steg 1 körbart; steg 2 väntar N4. B7 väntar N5.
 
 Underlag från ägarens externa granskare: `övrigt/chadcn-addendum-aiassist/`
 (`summering..md` + `raw.txt`). Mappen är gitignorerad — cloud-agenter läser
@@ -37,10 +37,10 @@ Spåret är **inte** klart. Tabellen är live-status mot `master` / öppna PR:er
 **Ett namn per roll, en ägare per signal, och ett kvitto på vad som faktiskt
 nådde kodgeneratorn.**
 
-Det finns ingen saknad orkestreringsagent att bygga. Kvar: (a) den
-förbikopplade resten städas bort (B1, PR #1040), och (c) en ev. Ändringsbrief
-för refine inte är densamma som en redesign (B6). (b) källkvittot är landat
-(#1035). Vanliga uppföljningar har redan Snapshot-Brief.
+Det finns ingen saknad orkestreringsagent att bygga. B1 (#1040) och B3 (#1035)
+är landade. Kvar bland de öppna punkterna: B4–B7, och att en ev. Ändringsbrief
+för refine inte är densamma som en redesign (B6). Vanliga uppföljningar har
+redan Snapshot-Brief.
 
 Lägg **inte** till ett nytt LLM-steg där ett befintligt kan göra jobbet. Repot
 har redan `brief_structured`, `plan_mode_planner`, `post_generation_verifier`,
@@ -106,7 +106,7 @@ Skillnaden satt inte i byggmodellen utan i vad den fick se — och eftersom
 `briefSummary` aldrig persisterades saknade även följande rundor sitt
 brief-golv.
 
-Snabbspåret är borttaget i [B8](aktiviteter/B8-brief-paritet-website-app.md).
+Snabbspåret är borttaget i B8 (#1032; plantext i git).
 Det var rätt första åtgärd just för att den **inte** kräver ett nytt LLM-steg:
 den fungerande appvägen fanns redan, hemsidor fick bara inte gå den. En mindre
 Snabbrief är en kostnadsoptimering att överväga *efter* mätning, inte före.
@@ -126,7 +126,7 @@ steg — det är fel auktoritetsordning i ett steg som redan finns, och därför
 egen punkt: [B7](aktiviteter/B7-variantens-auktoritetsordning.md).
 
 Att briefen skulle sakna makt över **scaffold** är däremot fel efter
-[B11](aktiviteter/B11-brief-i-scaffoldvalet.md), landad i #1042: `pages`,
+B11 (#1042; plantext i git): `pages`,
 `styleKeywords` och `domainProfile` väger in via `buildScaffoldQueryContext`.
 Äldre kod läste `businessType`/`industry`, som inte finns i `siteBriefSchema`.
 #1042:s första landning tog även in `toneAndVoice`; det smala follow-up-fixspåret
@@ -153,11 +153,11 @@ Sajtagentens systemprompt lagade i samma pass):
 
 | Yta | Skugga | Dom |
 |---|---|---|
-| `config/ai_models/manifest.json` | **både** `promptAssist` och `briefing` som toppnycklar för samma lager | Kvar. `promptAssist` är **required** i `manifest.schema.json`, i Zod (`load-manifest.ts:63`) och i fyra tester — det är ett kontrakt, inte en etikett. Sammanslagningen är B2:s arbete |
+| `config/ai_models/manifest.json` | enda toppnyckeln för lagret är `briefing` | **Klar.** #1079 slog ihop `promptAssist` in i `briefing`. Wire-fält och env med `promptAssist*` / `SAJTMASKIN_ASSIST_MODEL` är legacy för Deep Brief |
 | `SAJTMASKIN_ASSIST_MODEL` + syskonen | env-namn efter en borttagen knapp | Kvar med avsikt. `terminology.mdc` säger att kodidentifierare och env-nycklar behåller legacy-namn och mappas i text |
 | `src/lib/db/schema.ts:224` + `prompt-logs.ts:47` | `prompt_assist_mode` skrivs alltid `null` | Kvar. Död kolumn, egen städfråga — inte ett namnproblem |
 | `LLM_PHASES` `"prompt_assist"` (`llm-usage.ts:37`) | fas utan writer; Deep Brief loggar `phase: "brief"` | Kvar. Samma klass som `deploy-assistant`: konfigurerad utan anropare |
-| `src/lib/builder/prompt-assist/` + `config/ai_models/20-prompt-assist.md` | mapp- och filnamn bär det döda begreppet | Filnamnen kvar per regeln; **innehållet** säger nu Deep Brief och filen har en namnkarta i toppen |
+| `src/lib/builder/prompt-assist/` + `config/ai_models/20-briefing.md` | mappnamnet bär legacy-begreppet; doc-filen är omdöpt | Mappnamnet kvar per regeln; **innehållet** och `20-briefing.md` säger Deep Brief |
 
 Kodidentifierare på tråd och i DB (`promptAssistModel`, `promptAssistDeep`,
 `prompt_assist_*`) **behålls** enligt `terminology.mdc` — de mappas i text, döps
@@ -208,9 +208,9 @@ embeddings-index. Att flytta addendumet dit vore en ny lagringsyta, inte en
 saknad förmåga, och skulle byta en synkron minnesläsning mot ett nätverksanrop
 i hot path.
 
-ZIP-fallbacken i hot path är stängd i [B9](aktiviteter/B9-inget-zip-i-hot-path.md)
-(#1037): `missing` / `stale` / `invalid` är tysta och mätbara, inte en
-arkivhämtning mitt i genereringen.
+ZIP-fallbacken i hot path är stängd i B9 (#1037; plantext i git):
+`missing` / `stale` / `invalid` är tysta och mätbara, inte en arkivhämtning
+mitt i genereringen.
 
 ### Källkvittot — landat i B3 (#1035)
 
@@ -225,7 +225,7 @@ Samma frågor ligger i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md
 
 | # | Fråga | Förslag |
 |---|---|---|
-| N1 | Vad ska lagret före kodgeneratorn heta? | **Briefing** — ett lane med fyra lägen: *Init Brief* (deep), *Auto Brief* (server), *Ändringsbrief* (LLM-delta vid `clear-redesign`), *Snapshot* (återanvänd brief, ingen LLM). Ändringsbrief är inte «uppföljningens brief». **«Prompt-assist» pensioneras inte** (ägarbeslut 2026-08-19): det är knappen bredvid Plan, se glossaryn och [B10](aktiviteter/B10-prompt-assist-knapp.md). Pensionera «Assist Model» och «Förbättra-modell» som namn på Deep Brief-rutten. Inget nytt «AI-assistent»: det namnet är redan taget av Sajtagenten/OpenClaw. |
+| N1 | Vad ska lagret före kodgeneratorn heta? | **Klar 2026-08-20.** Briefing — fyra lägen: Deep Brief (init), Auto Brief (server), Ändringsbrief (`clear-redesign`), Snapshot-Brief. Prompt-assist är knappen bredvid Plan (2026-08-19), inte ett Briefing-läge. Se [`docs/decisions/README.md`](../../../decisions/README.md). |
 | N2 | Vad ska «Addendum» heta i produkttext? | **Källpaket** för samlingen av valbara ingredienser (variantreferens, UI Recipes, dossiers, media). Filnamn och kod (`variant-template-addenda.json`, `resolveVariantTemplateAddendum`) behåller sina namn. |
 | N3 | Ska «Polish» återinföras? | Ja, men **efter** generering och under namnet **Refine**, drivet av verifierarens advisory-fynd (`post_generation_verifier`) — aldrig som omskrivning av användarens prompt. Ligger sist, efter B3. |
 | N4 | Får vi — efter mätningen i B6 steg 1 — prova en **bevarande** Ändringsbrief för `clear-refine` bakom feature flag? | **Experimentet (B6 steg 2) kräver uttryckligt OK; mätningen i steg 1 gör det inte.** Gällande beslut 2026-08-14 («ingen delta brief på varje follow-up») står kvar. N4 är inte att bredda if-villkoret till alla redigerande lägen. Först om mätningen visar ett verkligt problem: ett flaggat experiment på `clear-refine` med den redan byggda *preserve*-varianten av `formatPriorDesignContext` (utan `intent: "clear-redesign"`). `capability-add` / `capability-modify` övervägs först efter ett bra utfall. Neutral och `ambiguous-*` lämnas. B1–B5 är städning, sanning och mätning och behöver inget nytt beslut. |
@@ -241,17 +241,17 @@ löser den största kvalitetsskillnaden utan att kräva något nytt steg.
 
 | Id | Uppgift | Kanonisk ägare | Kräver beslut |
 |---|---|---|---|
-| [B1](aktiviteter/B1-radera-forbikopplat-prompt-addendum.md) | Radera det förbikopplade prompt-addendumet och rätta docs som påstår att det lever. **PR #1040.** | `src/lib/builder/prompt-assist/`, `useInitBrief.ts` | nej |
-| [B2](aktiviteter/B2-ett-namn-briefing.md) | **Klar.** #1079. Manifestets `promptAssist` slogs ihop i `briefing`. Human-facing redan i #1069. | `config/ai_models/manifest.json`, glossary | N1 (avgjord) |
-| [B3](aktiviteter/B3-kallkvitto.md) | **Klar.** #1035. Källkvitto i Selection Rationale | `generation-input-package.ts`, `selection_rationale.py` | nej |
-| [B4](aktiviteter/B4-kurera-variant-addenda.md) | Kurera de tio mest använda variant-addendumen, stäng de generiska | `config/variant-template-addenda.json` via Template Curator | nej |
-| [B5](aktiviteter/B5-shadcnblocks-matning.md) | Sluta svälja shadcnblocks-fel tyst; mät om den betalda nyckeln ger riktig källkod | `shadcn-ui-recipes.ts`, `resolve-base.ts` | nej |
-| [B6](aktiviteter/B6-andringsbrief-followup.md) | Ändringsbrief: mät per uppföljningsläge; därefter ev. bevarande LLM-brief för `clear-refine` bakom flagga — inte en grindbredd av redesign-vägen | `delta-brief-phase.ts`, `follow-up-orchestration-input.ts`, `formatPriorDesignContext` | **N4** (bara steg 2) |
-| [B7](aktiviteter/B7-variantens-auktoritetsordning.md) | Variantens auktoritetsordning + Brief rankar addendum ur `sourceTemplateIds` | `orchestrate/finalize-prompts.ts`, `scaffold-variants/matcher.ts` | **N5** |
-| [B8](aktiviteter/B8-brief-paritet-website-app.md) | **Klar.** Brief-paritet: ta bort snabbspåret och 420-teckengränsen så hemsidor får samma väg som appar | `simple-website-path.ts` (raderad), `create-chat-stream-post.ts`, `orchestrate/resolve-base.ts` | nej |
-| [B9](aktiviteter/B9-inget-zip-i-hot-path.md) | **Klar.** #1037. Inget template-ZIP i hot path: `missing`/`stale`/`invalid` tysta och mätbara | `scaffold-variants/template-inspiration.ts` | nej |
-| [B10](aktiviteter/B10-prompt-assist-knapp.md) | **Klar.** #1038. Prompt-assist-knapp bredvid Plan. | `ChatInterface.tsx`, `config/ai_models/manifest.json`, `backoffice/pages/ai_models.py` | beslutat 2026-08-19 |
-| [B11](aktiviteter/B11-brief-i-scaffoldvalet.md) | **Landad #1042.** Briefens `pages` + `styleKeywords` + `domainProfile` väger i scaffold-valet. Follow-up-fixspåret håller `toneAndVoice` till copy/variant och utanför scaffold-keywords/embedding. | `scaffold-query-context.ts`, `scaffolds/matcher.ts` | nej |
+| B1 | **Klar.** #1040. Förbikopplat prompt-addendum raderat. Plantext i git. | `src/lib/builder/prompt-assist/`, `useInitBrief.ts` | nej |
+| B2 | **Klar.** #1079. Manifestets `promptAssist` slogs ihop i `briefing`. Human-facing i #1069. Plantext i git. | `config/ai_models/manifest.json`, glossary | N1 (avgjord) |
+| B3 | **Klar.** #1035. Källkvitto i Selection Rationale. Plantext i git. | `generation-input-package.ts`, `selection_rationale.py` | nej |
+| [B4](aktiviteter/B4-kurera-variant-addenda.md) | Kurera de tio mest använda variant-addendumen, stäng de generiska. **Körbar.** | `config/variant-template-addenda.json` via Template Curator | nej |
+| [B5](aktiviteter/B5-shadcnblocks-matning.md) | Sluta svälja shadcnblocks-fel tyst; mät om den betalda nyckeln ger riktig källkod. **Körbar.** | `shadcn-ui-recipes.ts`, `resolve-base.ts` | nej |
+| [B6](aktiviteter/B6-andringsbrief-followup.md) | Ändringsbrief: steg 1 (mät) är körbart; steg 2 väntar N4. | `delta-brief-phase.ts`, `follow-up-orchestration-input.ts`, `formatPriorDesignContext` | **N4** (bara steg 2) |
+| [B7](aktiviteter/B7-variantens-auktoritetsordning.md) | Variantens auktoritetsordning + Brief rankar addendum ur `sourceTemplateIds`. **Väntar N5.** | `orchestrate/finalize-prompts.ts`, `scaffold-variants/matcher.ts` | **N5** |
+| B8 | **Klar.** #1032. Brief-paritet website/app. Plantext i git. | `simple-website-path.ts` (raderad), `create-chat-stream-post.ts` | nej |
+| B9 | **Klar.** #1037. Inget template-ZIP i hot path. Plantext i git. | `scaffold-variants/template-inspiration.ts` | nej |
+| B10 | **Klar.** #1038. Prompt-assist-knapp bredvid Plan. Plantext i git. | `ChatInterface.tsx`, `config/ai_models/manifest.json` | beslutat 2026-08-19 |
+| B11 | **Klar.** #1042. Briefens `pages` + `styleKeywords` + `domainProfile` i scaffold-valet. Plantext i git. | `scaffold-query-context.ts`, `scaffolds/matcher.ts` | nej |
 
 ## Auktoritetsordning (den enda)
 

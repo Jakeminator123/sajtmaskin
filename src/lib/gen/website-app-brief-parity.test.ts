@@ -30,8 +30,9 @@ const mockedSearchScaffolds = vi.mocked(searchScaffoldsWithDiagnostics);
 /**
  * B8 — Brief-paritet mellan website och app.
  *
- * Plan: docs/plans/active/2026-08-18-briefing-och-kallpaket/aktiviteter/
- *       B8-brief-paritet-website-app.md
+ * Plan (historik): B8 i git
+ *   (`docs/plans/active/2026-08-18-briefing-och-kallpaket/aktiviteter/B8-brief-paritet-website-app.md`,
+ *   raderad 2026-08-21). Invävd i `docs/plans/avklarat/README.md`.
  *
  * Invarianten: ett vanligt fritextbygge får samma berikning oavsett om det är
  * en hemsida eller en app, och oavsett hur kort prompten är. Före B8 tog korta
