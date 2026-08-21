@@ -16,7 +16,7 @@ export const saasLandingManifest: ScaffoldManifest = {
   promptHints: [
     "Use this scaffold when the prompt is clearly about software, subscriptions, dashboards, or B2B products.",
     "Keep the product narrative: problem, product value, feature panels, pricing, FAQ, and final CTA.",
-    "The right-side hero card is a product preview slot and should stay visually product-led.",
+    "The full-width hero product preview sits under a centered headline and should stay visually product-led.",
   ],
   qualityChecklist: [
     "Replace every {{PRODUCT_NAME}} placeholder with the real product name from the brief (header, footer, metadata, visible strings) — never ship the literal token.",

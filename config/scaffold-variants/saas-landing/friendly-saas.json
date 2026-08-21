@@ -27,7 +27,7 @@
   ],
   "signaturePatterns": {
     "layouts": [
-      "Use a two-column hero with warm headline copy on the left and a rounded product screenshot card with floating stat chips on the right.",
+      "Use a centered product-scene hero: eyebrow, headline, standfirst and dual CTAs stacked in the middle, with a full-width rounded product screenshot card directly beneath — never a left/right split.",
       "Build feature sections as alternating 55/45 splits, pairing short benefit copy with soft-framed UI panels and small proof callouts.",
       "Compose social proof as a row of rounded testimonial or logo cards directly beneath the hero, keeping trust visible before deep product detail.",
       "Use a three-tier pricing grid with the middle plan gently raised, stronger primary action, and concise comparison bullets beneath each tier.",
