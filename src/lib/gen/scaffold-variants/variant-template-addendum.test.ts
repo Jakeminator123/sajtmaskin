@@ -18,6 +18,7 @@ function registry(overrides: Record<string, unknown> = {}): Record<string, unkno
       {
         templateId: "template-a",
         sourceArchiveSha256: SHA_A,
+        extractorSha256: SHA_B,
         reviewStatus: "generated",
         structuralReferences: [
           {
@@ -84,6 +85,7 @@ describe("variant template addenda", () => {
             {
               templateId: "template-a",
               sourceArchiveSha256: SHA_A,
+              extractorSha256: SHA_B,
               reviewStatus: "generated",
               structuralReferences: [
                 {
@@ -97,6 +99,7 @@ describe("variant template addenda", () => {
             {
               templateId: "template-a",
               sourceArchiveSha256: SHA_A,
+              extractorSha256: SHA_B,
               reviewStatus: "generated",
               structuralReferences: [],
             },
@@ -114,6 +117,7 @@ describe("variant template addenda", () => {
             {
               templateId: "template-a",
               sourceArchiveSha256: SHA_A,
+              extractorSha256: SHA_B,
               reviewStatus: "reviewed",
               structuralReferences: [
                 {
@@ -139,6 +143,7 @@ describe("variant template addenda", () => {
               {
                 templateId: "template-a",
                 sourceArchiveSha256: SHA_A,
+                extractorSha256: SHA_B,
                 reviewStatus: "reviewed",
                 structuralReferences: [
                   {
@@ -154,6 +159,50 @@ describe("variant template addenda", () => {
         ),
       ).toThrow();
     }
+  });
+
+  it("requires extractorSha256 on generated and reviewed addenda", () => {
+    for (const reviewStatus of ["generated", "reviewed"] as const) {
+      expect(() =>
+        parseVariantTemplateAddendaRegistry(
+          registry({
+            templates: [
+              {
+                templateId: "template-a",
+                sourceArchiveSha256: SHA_A,
+                reviewStatus,
+                structuralReferences: [
+                  {
+                    path: "app/page.tsx",
+                    language: "tsx",
+                    reason: "primary-page",
+                    excerpt: "export default function Page() { return <main />; }",
+                  },
+                ],
+              },
+            ],
+          }),
+        ),
+      ).toThrow(/extractorSha256/);
+    }
+  });
+
+  it("rejects extractorSha256 on disabled addenda", () => {
+    expect(() =>
+      parseVariantTemplateAddendaRegistry(
+        registry({
+          templates: [
+            {
+              templateId: "template-a",
+              sourceArchiveSha256: SHA_A,
+              extractorSha256: SHA_B,
+              reviewStatus: "disabled",
+              structuralReferences: [],
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/extractorSha256/);
   });
 
   it("requires disabled addenda to be structurally empty", () => {

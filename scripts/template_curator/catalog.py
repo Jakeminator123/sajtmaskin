@@ -471,8 +471,17 @@ def parse_addenda_registry(value: object) -> Mapping[str, AddendumRecord]:
             _validate_reference(reference, f"{label}.structuralReferences[{ref_index}]")
             for ref_index, reference in enumerate(references_raw)
         )
-        if review_status == "disabled" and references:
-            raise CatalogValidationError(f"{label}: disabled addenda must be empty")
+        if review_status == "disabled":
+            if extractor_sha is not None:
+                raise CatalogValidationError(
+                    f"{label}: disabled addenda must not include extractorSha256"
+                )
+            if references:
+                raise CatalogValidationError(f"{label}: disabled addenda must be empty")
+        elif extractor_sha is None:
+            raise CatalogValidationError(
+                f"{label}: generated and reviewed addenda require extractorSha256"
+            )
         paths = [reference.path.lower() for reference in references]
         if len(paths) != len(set(paths)):
             raise CatalogValidationError(f"{label}: duplicate structural reference path")
