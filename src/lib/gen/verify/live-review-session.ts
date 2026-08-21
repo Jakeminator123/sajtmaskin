@@ -4,6 +4,7 @@ import {
   abandonLiveReviewRun,
   claimLiveReviewRun,
   completeLiveReviewRun,
+  deleteLiveReviewScreenshotUrls,
   deletePreviousLiveReviewBlobs,
   incrementLiveReviewModelAttempts,
   purgeExpiredLiveReviewBlobs,
@@ -40,6 +41,7 @@ export interface LiveReviewSessionDeps {
   waitForRun?: typeof waitForLiveReviewRun;
   completeRun?: typeof completeLiveReviewRun;
   abandonRun?: typeof abandonLiveReviewRun;
+  deleteScreenshotUrls?: typeof deleteLiveReviewScreenshotUrls;
   incrementAttempts?: typeof incrementLiveReviewModelAttempts;
   deletePreviousBlobs?: typeof deletePreviousLiveReviewBlobs;
   purgeExpired?: typeof purgeExpiredLiveReviewBlobs;
@@ -170,6 +172,7 @@ export async function finishLiveReviewSession(
         result.reason === "invalid_model_output" ||
         result.reason === "cost_capped"));
   if (!paid) {
+    await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
     await (deps.abandonRun ?? abandonLiveReviewRun)(session.claim.row.id);
     return result;
   }

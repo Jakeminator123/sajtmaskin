@@ -11,6 +11,7 @@ vi.mock("@/lib/db/services/live-review-runs", () => ({
   abandonLiveReviewRun: vi.fn(),
   incrementLiveReviewModelAttempts: vi.fn(),
   deletePreviousLiveReviewBlobs: vi.fn(),
+  deleteLiveReviewScreenshotUrls: vi.fn(),
   purgeExpiredLiveReviewBlobs: vi.fn(),
   waitForLiveReviewRun: vi.fn(),
 }));
@@ -262,5 +263,42 @@ describe("finishLiveReviewSession", () => {
       keepFilesRevision: "rev_b",
     });
     expect(completeRun).toHaveBeenCalled();
+  });
+
+  it("raderar redan uppladdade JPEG när claim överges", async () => {
+    const deleteScreenshotUrls = vi.fn(async () => {});
+    const abandonRun = vi.fn(async () => {});
+    const screenshots = {
+      desktopUrl: "https://blob.example/d.jpg",
+      mobileUrl: "https://blob.example/m.jpg",
+    };
+    const result = await finishLiveReviewSession(
+      {
+        captureEnabled: true,
+        claim: acquired(),
+        earlyResult: null,
+        chatId: "chat_1",
+        versionId: "v1",
+        filesRevision: "rev_b",
+        userId: "user_1",
+      },
+      {
+        skipped: true,
+        findings: [],
+        screenshots,
+        domSummary: null,
+        filesJson: "[]",
+        userRequest: "x",
+        briefSummary: "",
+      },
+      {
+        attachReview: async () => skippedLiveReviewResult("postcheck_skipped"),
+        deleteScreenshotUrls,
+        abandonRun,
+      },
+    );
+    expect(result).toEqual(skippedLiveReviewResult("postcheck_skipped"));
+    expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
+    expect(abandonRun).toHaveBeenCalledWith("lr_1");
   });
 });

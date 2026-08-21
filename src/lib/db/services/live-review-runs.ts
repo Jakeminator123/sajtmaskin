@@ -4,6 +4,7 @@ import { db, dbConfigured } from "@/lib/db/client";
 import { engineChats, liveReviewRuns } from "@/lib/db/schema";
 import { deleteBlob } from "@/lib/vercel/blob-service";
 import {
+  LIVE_REVIEW_CLAIM_LEASE_MS,
   LIVE_REVIEW_CLAIM_WAIT_MS,
   LIVE_REVIEW_MAX_MODEL_ATTEMPTS,
   decideLiveReviewClaim,
@@ -73,6 +74,7 @@ async function applyExistingDecision(
     return { kind: "in_flight", row: existing };
   }
   if (decision.kind === "takeover") {
+    const staleBefore = new Date(now.getTime() - LIVE_REVIEW_CLAIM_LEASE_MS);
     const updated = await db
       .update(liveReviewRuns)
       .set({
@@ -82,7 +84,11 @@ async function applyExistingDecision(
         skipReason: null,
       })
       .where(
-        and(eq(liveReviewRuns.id, existing.id), eq(liveReviewRuns.status, "running")),
+        and(
+          eq(liveReviewRuns.id, existing.id),
+          eq(liveReviewRuns.status, "running"),
+          lt(liveReviewRuns.claimedAt, staleBefore),
+        ),
       )
       .returning();
     if (updated[0]) return { kind: "acquired", row: mapRow(updated[0]) };
@@ -275,6 +281,15 @@ export async function getPreviousLiveReviewScreenshots(input: {
   } catch {
     return { desktopUrl: null, mobileUrl: null };
   }
+}
+
+export async function deleteLiveReviewScreenshotUrls(
+  screenshots: LiveReviewScreenshotSet | null | undefined,
+): Promise<void> {
+  const targets = [screenshots?.desktopUrl, screenshots?.mobileUrl].filter(
+    (value): value is string => Boolean(value),
+  );
+  await Promise.all(targets.map((target) => deleteBlob(target).catch(() => false)));
 }
 
 async function deleteRunBlobs(row: LiveReviewRunRow): Promise<void> {
