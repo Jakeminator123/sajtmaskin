@@ -329,4 +329,41 @@ describe("exported generated-project baseline (not just the root app)", () => {
       "16.3.1",
     );
   });
+
+  it("drops a leftover eslint-config-next from dependencies when the model misplaced it", () => {
+    const files = buildCompleteProject([
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { next: "16.2.9", "eslint-config-next": "16.2.9" },
+        }),
+        language: "json",
+      },
+      ...minimalGeneratedFiles(),
+    ]);
+    const pkg = parseExportedPackageJson(files);
+    expect(pkg.dependencies?.next).toBe("16.3.1");
+    expect(pkg.devDependencies?.["eslint-config-next"]).toBe("16.3.1");
+    expect(pkg.dependencies?.["eslint-config-next"]).toBeUndefined();
+    expect(pkg.devDependencies?.next).toBeUndefined();
+  });
+
+  it("drops a leftover next from devDependencies when the model misplaced it", () => {
+    const files = buildCompleteProject([
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { react: "19.2.4" },
+          devDependencies: { next: "16.2.9", "eslint-config-next": "16.2.9" },
+        }),
+        language: "json",
+      },
+      ...minimalGeneratedFiles(),
+    ]);
+    const pkg = parseExportedPackageJson(files);
+    expect(pkg.dependencies?.next).toBe("16.3.1");
+    expect(pkg.devDependencies?.["eslint-config-next"]).toBe("16.3.1");
+    expect(pkg.dependencies?.["eslint-config-next"]).toBeUndefined();
+    expect(pkg.devDependencies?.next).toBeUndefined();
+  });
 });

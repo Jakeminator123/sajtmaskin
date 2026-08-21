@@ -90,7 +90,28 @@ describe("mergePackageJsonWithBaseline", () => {
     const merged = mergePackageJsonWithBaseline(
       { devDependencies: { "eslint-config-next": "16.2.9" } } as Record<string, unknown>,
       { dependencies: {} },
-    ) as { devDependencies: Record<string, string> };
+    ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
+    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.1");
+    expect(merged.dependencies["eslint-config-next"]).toBeUndefined();
+  });
+
+  it("moves a misplaced eslint-config-next out of dependencies", () => {
+    const merged = mergePackageJsonWithBaseline(
+      { dependencies: { "eslint-config-next": "16.2.9" } } as Record<string, unknown>,
+      { dependencies: {} },
+    ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
+    expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.1");
+    expect(merged.dependencies["eslint-config-next"]).toBeUndefined();
+    expect(merged.dependencies.next).toBe("16.3.1");
+  });
+
+  it("moves a misplaced next out of devDependencies", () => {
+    const merged = mergePackageJsonWithBaseline(
+      { devDependencies: { next: "16.2.9" } } as Record<string, unknown>,
+      { dependencies: {} },
+    ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
+    expect(merged.dependencies.next).toBe("16.3.1");
+    expect(merged.devDependencies.next).toBeUndefined();
     expect(merged.devDependencies["eslint-config-next"]).toBe("16.3.1");
   });
 });

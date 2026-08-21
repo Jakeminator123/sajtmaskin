@@ -621,6 +621,18 @@ export function mergePackageJsonWithBaseline(
     }
   }
 
+  // Home-section pins: an older leftover in the other section would still
+  // install and defeat the Next minor lock. `next` belongs in dependencies,
+  // `eslint-config-next` in devDependencies — never both.
+  if (bDep.next !== undefined) {
+    dependencies.next = bDep.next;
+    delete devDependencies.next;
+  }
+  if (bDevDep["eslint-config-next"] !== undefined) {
+    devDependencies["eslint-config-next"] = bDevDep["eslint-config-next"];
+    delete dependencies["eslint-config-next"];
+  }
+
   return {
     ...b,
     ...model,
