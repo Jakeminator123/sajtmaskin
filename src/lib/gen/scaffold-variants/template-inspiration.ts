@@ -227,6 +227,13 @@ function tokenizeSelectionText(value: string): Set<string> {
   );
 }
 
+/**
+ * Brief fields whose values are NEGATIVE signals ("do not do this"). Flattening
+ * them into the positive token pool would boost exactly the templates the user
+ * asked to avoid — `avoid: ["minimal"]` must not rank a minimal template up.
+ */
+const NEGATIVE_SELECTION_KEYS = new Set(["avoid", "avoidpatterns", "antipatterns"]);
+
 function selectionTokens(context: VariantTemplateSelectionContext | undefined): Set<string> {
   const values: string[] = [];
   if (typeof context?.prompt === "string") values.push(context.prompt.slice(0, 8_000));
@@ -242,7 +249,8 @@ function selectionTokens(context: VariantTemplateSelectionContext | undefined): 
       return;
     }
     if (typeof value === "object") {
-      for (const item of Object.values(value as Record<string, unknown>).slice(0, 40)) {
+      for (const [key, item] of Object.entries(value as Record<string, unknown>).slice(0, 40)) {
+        if (NEGATIVE_SELECTION_KEYS.has(key.toLowerCase())) continue;
         visit(item, depth + 1);
       }
     }

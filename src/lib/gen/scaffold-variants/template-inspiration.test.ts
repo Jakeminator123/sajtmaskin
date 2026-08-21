@@ -49,6 +49,22 @@ describe("selectVariantTemplateReference", () => {
     expect(selected?.selectionReason).toMatch(/^brief-ranked:candidates=2;matches=/);
   });
 
+  it("does not treat Deep Brief avoid values as positive match signals", () => {
+    // "flowly" matchar Flowly-templatens titel. Som `avoid`-värde får det
+    // ALDRIG bli en positiv token — då vinner källordningen (första id:t).
+    const selected = selectVariantTemplateReference(
+      { sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"] },
+      {
+        selectionContext: {
+          prompt: "Create a landing page",
+          brief: { avoid: ["flowly"] },
+        },
+      },
+    );
+
+    expect(selected?.templateId).toBe("8QhCJAwn16K");
+  });
+
   it("resolves review metadata from the exact runtime-selected Blob id", () => {
     expect(getVariantTemplateReviewReference("8Y9E0cStKrW")).toMatchObject({
       templateId: "8Y9E0cStKrW",
