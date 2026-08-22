@@ -791,6 +791,42 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
       delayedReady === true && hits >= 3,
     );
   }
+
+  // Persistent fetch failure (Next never listened) must not inherit the full
+  // readiness deadline — prod sat 10 minutes on "Startar preview" (2026-08-22).
+  const previousConnectMax = process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS;
+  process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = "60000";
+  process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS = "3000";
+  let connectRejected = false;
+  let connectMessage = "";
+  const connectStartedAt = Date.now();
+  try {
+    await waitForReady("http://127.0.0.1:1/");
+  } catch (err) {
+    connectRejected = true;
+    connectMessage = err instanceof Error ? err.message : String(err);
+  } finally {
+    if (previousConnectMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS = previousConnectMax;
+    }
+    if (previousReadyMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = previousReadyMax;
+    }
+  }
+  const connectElapsedMs = Date.now() - connectStartedAt;
+  check("waitForReady rejects a port that never accepts HTTP", connectRejected === true);
+  check(
+    "connect-fail rejection names the never-accepted-HTTP condition",
+    /never accepted HTTP/i.test(connectMessage),
+  );
+  check(
+    "connect-fail rejection uses its OWN window, not the readiness deadline",
+    connectElapsedMs >= 2500 && connectElapsedMs < 20_000,
+  );
 }
 
 // 12. PM-safe dependency postcondition: prefer the package manager's own view,

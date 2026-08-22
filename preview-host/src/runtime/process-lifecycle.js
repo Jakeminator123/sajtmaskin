@@ -6,6 +6,8 @@
 
 const { spawn } = require("node:child_process");
 const { EventEmitter } = require("node:events");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const { readStoreSync } = require("./../store.js");
 const {
@@ -69,6 +71,23 @@ function readinessMaxMs() {
 function readinessEmptyBodyMaxMs() {
   const parsed = parseInt(
     process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS ?? "90000",
+    10,
+  );
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 90_000;
+}
+
+/**
+ * Continuous fetch-failure window after `next dev` is spawned.
+ *
+ * Empty-body already has its own short deadline, but a process that never
+ * binds the port (stale Next lock, hung compile, dead child) keeps throwing
+ * `fetch failed` and inherited the full Fly deadline (10 minutes of
+ * "Startar preview"). 90s covers a cold first listen without hiding a
+ * server that will never accept HTTP.
+ */
+function readinessConnectFailMaxMs() {
+  const parsed = parseInt(
+    process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS ?? "90000",
     10,
   );
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 90_000;
@@ -344,7 +363,7 @@ const READINESS_MAX_BUILD_ERROR_RETRIES = 4;
  * `waitForReady` throws both from inside its own `try`, so the `catch` must
  * re-throw them instead of recording them as "last error" and looping.
  */
-const READINESS_VERDICT_RE = /build error overlay|empty body for \d+ms/i;
+const READINESS_VERDICT_RE = /build error overlay|empty body for \d+ms|never accepted HTTP/i;
 
 async function waitForReady(url) {
   // Empty HTML body is treated like any other "not ready yet" signal: keep
@@ -362,12 +381,14 @@ async function waitForReady(url) {
   // (#799) and preview_success is never stamped true on a blank page.
   const readinessMaxMsValue = readinessMaxMs();
   const emptyBodyMaxMsValue = Math.min(readinessEmptyBodyMaxMs(), readinessMaxMsValue);
+  const connectFailMaxMsValue = Math.min(readinessConnectFailMaxMs(), readinessMaxMsValue);
   const startedAt = Date.now();
   const deadline = startedAt + readinessMaxMsValue;
   let lastError = "";
   let buildErrorStreak = 0;
   let lastBuildErrorMessage = "";
   let firstEmptyBodyAt = null;
+  let firstConnectFailAt = null;
   while (Date.now() < deadline) {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 90_000);
@@ -381,6 +402,7 @@ async function waitForReady(url) {
       if (!responseHeadersLookLikeHtmlDocument(res)) {
         buildErrorStreak = 0;
         firstEmptyBodyAt = null;
+        firstConnectFailAt = null;
         lastError = `HTTP ${res.status}`;
         await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));
         continue;
@@ -393,6 +415,7 @@ async function waitForReady(url) {
       if (htmlLooksLikeBuildError(text)) {
         buildErrorStreak += 1;
         firstEmptyBodyAt = null;
+        firstConnectFailAt = null;
         lastBuildErrorMessage = extractBuildErrorMessage(text);
         lastError = `Next.js build error overlay: ${lastBuildErrorMessage}`;
         if (buildErrorStreak >= READINESS_MAX_BUILD_ERROR_RETRIES) {
@@ -404,6 +427,7 @@ async function waitForReady(url) {
         continue;
       }
       buildErrorStreak = 0;
+      firstConnectFailAt = null;
       if (htmlBodyHasMeaningfulVisibleText(text)) {
         return;
       }
@@ -430,6 +454,13 @@ async function waitForReady(url) {
       // measures a CONTIGUOUS run of empty responses.
       firstEmptyBodyAt = null;
       lastError = err instanceof Error ? err.message : String(err);
+      if (firstConnectFailAt === null) firstConnectFailAt = Date.now();
+      if (Date.now() - firstConnectFailAt >= connectFailMaxMsValue) {
+        throw new Error(
+          `Runtime never accepted HTTP within ${connectFailMaxMsValue}ms ` +
+            `(not ready): ${lastError}`,
+        );
+      }
     } finally {
       clearTimeout(tid);
     }
@@ -479,11 +510,48 @@ function stopChildProcessTree(child) {
   });
 }
 
+function runtimeOutputTail(tracked) {
+  if (!tracked || !Array.isArray(tracked.recentOutput) || tracked.recentOutput.length === 0) {
+    return "";
+  }
+  return tracked.recentOutput.slice(-RUNTIME_OUTPUT_EXIT_TAIL).join("\n");
+}
+
+async function flushRuntimeOutputTail(tracked, previewSessionId, reason) {
+  const tail = runtimeOutputTail(tracked);
+  const sessionId =
+    typeof previewSessionId === "string" && previewSessionId.trim()
+      ? previewSessionId.trim()
+      : typeof tracked?.previewSessionId === "string"
+        ? tracked.previewSessionId.trim()
+        : "";
+  if (!tail || !sessionId) return "";
+  await appendRuntimeLog(sessionId, `Last Next.js output (${reason}):\n${tail}`);
+  return tail;
+}
+
+function clearStaleNextDevLock(workspaceDir) {
+  if (!workspaceDir) return;
+  for (const lockPath of [
+    path.join(workspaceDir, ".next", "dev", "lock"),
+    path.join(workspaceDir, ".next", "lock"),
+  ]) {
+    try {
+      fs.rmSync(lockPath, { force: true });
+    } catch {
+      // Best-effort: a missing or busy lock must not block spawn.
+    }
+  }
+}
+
 async function stopTrackedRuntime(sessionId, previewSessionId = null) {
   const tracked = runtimeChildren.get(sessionId);
   if (!tracked) return false;
   runtimeChildren.delete(sessionId);
   tracked.ignoreExit = true;
+  // Hibernate/idle/restart used to drop the in-memory Next tail. Persist it
+  // before SIGTERM so /preview/logs still explains a boot that never answered.
+  await flushRuntimeOutputTail(tracked, previewSessionId, "before stop");
   await stopChildProcessTree(tracked.child);
   if (previewSessionId) {
     await appendRuntimeLog(previewSessionId, "Runtime stopped.");
@@ -527,6 +595,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
   // serialized per chat, so this is normally a no-op — it only fires if a
   // prior child survived an aborted/raced boot path.
   await stopTrackedRuntime(session.sessionId, null);
+  clearStaleNextDevLock(workspaceDir);
   const chatId = getSessionChatId(session);
   const basePath = `/${chatId}`;
   const runId = runIdResolverFromSession(session);
@@ -795,11 +864,14 @@ async function bootRuntimeForSession(session, options = {}) {
           })
           .catch((err) => {
             const message = err instanceof Error ? err.message : "unknown readiness failure";
+            const tracked = runtimeChildren.get(session.sessionId);
+            const tail = runtimeOutputTail(tracked);
+            const withTail = tail ? `${message}\nLast Next.js output:\n${tail}` : message;
             return updateSessionById(session.sessionId, (stored) => {
               if (stored.versionId !== session.versionId) return;
               if (!isLiveBoot(session.sessionId, spawnedBootId)) return;
               stored.readinessState = "failed";
-              stored.readinessError = message;
+              stored.readinessError = withTail;
               stored.updatedAt = nowIso();
             }).then(() => {
               // Keep status as-is (e.g. warm_project). Opening the gate lets
@@ -813,7 +885,7 @@ async function bootRuntimeForSession(session, options = {}) {
               exposeRuntimeToClients(session, { restart, runtimePort, bootId: spawnedBootId });
               return appendRuntimeLog(
                 session.previewSessionId,
-                `Readiness failed (runtime process alive but page not ready): ${message}`,
+                `Readiness failed (runtime process alive but page not ready): ${withTail}`,
               );
             });
           });

@@ -1,5 +1,21 @@
 import type { LiveReviewResult, LiveReviewSkipReason } from "./live-review-types";
 
+/** Paid critic misses that must not lock the revision until the attempt cap. */
+export const RETRYABLE_LIVE_REVIEW_SKIP_REASONS = [
+  "review_error",
+  "model_unavailable",
+  "invalid_model_output",
+] as const satisfies readonly LiveReviewSkipReason[];
+
+export function isRetryableLiveReviewSkip(
+  result: LiveReviewResult | null | undefined,
+): boolean {
+  return (
+    result?.status === "skipped" &&
+    (RETRYABLE_LIVE_REVIEW_SKIP_REASONS as readonly string[]).includes(result.reason)
+  );
+}
+
 export const LIVE_REVIEW_TTL_DAYS = 7;
 export const LIVE_REVIEW_TTL_MS = LIVE_REVIEW_TTL_DAYS * 24 * 60 * 60 * 1000;
 /** Longer than product-postcheck `maxDuration` (300s) so a live request cannot be stolen. */
@@ -61,22 +77,49 @@ export function decideLiveReviewClaim(
   ) {
     return { kind: "cost_capped", result: existing.result };
   }
-  if (existing.status === "completed" && existing.result) {
+  if (existing.status === "completed" && existing.result?.status === "completed") {
     return { kind: "cached", result: existing.result };
   }
+  if (
+    existing.status === "skipped" &&
+    existing.result &&
+    isRetryableLiveReviewSkip(existing.result) &&
+    existing.modelAttempts < LIVE_REVIEW_MAX_MODEL_ATTEMPTS
+  ) {
+    return { kind: "takeover" };
+  }
   if (existing.status === "skipped" && existing.result) {
+    return { kind: "cached", result: existing.result };
+  }
+  if (existing.status === "completed" && existing.result) {
     return { kind: "cached", result: existing.result };
   }
   if (existing.status === "running") {
     if (!isLiveReviewClaimLeaseStale(existing.claimedAt, now)) {
       return { kind: "in_flight" };
     }
-    // A stale row that already started a paid attempt still belongs to that
-    // handler. Takeover is only for a crash before the critic was invoked.
-    if (existing.modelAttempts > 0) return { kind: "in_flight" };
+    // Lease longer than postcheck maxDuration: a stale row is a dead handler.
+    // Reuse remaining paid slots; do not leave the revision permanently busy.
+    if (existing.modelAttempts >= LIVE_REVIEW_MAX_MODEL_ATTEMPTS) {
+      return existing.result
+        ? { kind: "cost_capped", result: existing.result }
+        : { kind: "in_flight" };
+    }
     return { kind: "takeover" };
   }
   return { kind: "in_flight" };
+}
+
+export function pickPreviousLiveReviewRun<
+  T extends { versionNumber?: number | null; completedAt: Date | null },
+>(rows: readonly T[]): T | undefined {
+  return [...rows].sort((a, b) => {
+    const byVersion =
+      (b.versionNumber ?? Number.NEGATIVE_INFINITY) -
+      (a.versionNumber ?? Number.NEGATIVE_INFINITY);
+    if (byVersion !== 0) return byVersion;
+    return (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0);
+  })[0];
 }
 
 export function liveReviewResultFromRow(row: LiveReviewRunRow): LiveReviewResult | null {

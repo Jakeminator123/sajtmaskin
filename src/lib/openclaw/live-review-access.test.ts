@@ -3,6 +3,7 @@ import {
   parsePersistedLiveReviewGrant,
   requestedGrantHasLiveReview,
   resolveLiveReviewAccess,
+  shouldAttachOpenClawLiveReviewContext,
 } from "./live-review-access";
 
 const GRANT = { powersOn: true, granted: ["live_review"] as const };
@@ -55,6 +56,35 @@ describe("parsePersistedLiveReviewGrant", () => {
         granted: ["live_review", "nope", "quick_edit"],
       }),
     ).toEqual({ powersOn: false, granted: ["quick_edit", "live_review"] });
+  });
+});
+
+describe("shouldAttachOpenClawLiveReviewContext", () => {
+  it("kräver persistad grant för vanlig chatt, inte request-body", () => {
+    expect(
+      shouldAttachOpenClawLiveReviewContext({
+        routingIntent: "guide",
+        debug: false,
+        editEnabled: true,
+        grant: GRANT,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAttachOpenClawLiveReviewContext({
+        routingIntent: "guide",
+        debug: false,
+        editEnabled: true,
+        grant: null,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAttachOpenClawLiveReviewContext({
+        routingIntent: "review",
+        debug: false,
+        editEnabled: true,
+        grant: null,
+      }),
+    ).toBe(true);
   });
 });
 
