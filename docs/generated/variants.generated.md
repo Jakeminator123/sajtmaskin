@@ -4,7 +4,7 @@
 > Source: `config/scaffold-variants/<scaffold>/<variant>.json`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/scaffold-variants/<scaffold>/<variant>.json#runtime-projection sha256:c536de9e53d515eb -->
+<!-- source-fingerprint: config/scaffold-variants/<scaffold>/<variant>.json#runtime-projection sha256:b6409e35e7a112d7 -->
 
 # Scaffold variants
 
@@ -20,7 +20,7 @@ Canonical owner: variant JSON files. Runtime consumer/parser: scaffold-variant r
 | `auth-pages`      | `glass-modern`                  | Glass Modern                          | `either`   | No      | `Geist / Geist`, `Sora / Inter`                                                    | soft glass card hovering on a subtle brand gradient with crisp typography and gentle motion                            |
 | `base-nextjs`     | `fresh-mint`                    | Fresh Mint                            | `light`    | No      | `Geist / Geist`, `Manrope / Inter`                                                 | crisp light surfaces, a fresh teal accent, and product-leaning starter rhythm                                          |
 | `base-nextjs`     | `playground-mono`               | Playground Mono                       | `dark`     | No      | `JetBrains Mono / Inter`, `Geist Mono / Geist`                                     | calm dark playground shell, mono headings, and prototype-friendly chrome                                               |
-| `base-nextjs`     | `starter-neutral`               | Starter Neutral                       | `either`   | Yes     | `Geist / Geist`, `Inter / Inter`                                                   | quiet near-monochrome shell, restrained tokens, and extension-first clarity                                            |
+| `base-nextjs`     | `starter-neutral`               | Starter Neutral                       | `dark`     | Yes     | `Geist / Geist`, `Inter / Inter`                                                   | quiet near-monochrome shell, restrained tokens, and extension-first clarity                                            |
 | `base-nextjs`     | `studio-soft`                   | Studio Soft                           | `light`    | No      | `Inter / Inter`, `Plus Jakarta Sans / Inter`                                       | soft warm light surfaces, generous whitespace, and quiet designer-leaning baseline                                     |
 | `blog`            | `editorial-serif`               | Editorial Serif                       | `light`    | Yes     | `Playfair Display / Source Sans 3`                                                 | editorial type hierarchy, generous reading rhythm, and calm framing                                                    |
 | `blog`            | `tech-minimal`                  | Tech Minimal                          | `either`   | No      | `IBM Plex Sans / IBM Plex Mono`                                                    | clean technical hierarchy, docs-adjacent rhythm, and restrained developer polish                                       |

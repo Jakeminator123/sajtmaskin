@@ -63,8 +63,8 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "0c13d9226",
-    "commitDate": "2026-08-21",
+    "commit": "51400382",
+    "commitDate": "2026-08-22",
     "sinceDays": 14
   },
   "totals": {
@@ -72,7 +72,7 @@ const DATA: CanvasData = {
     "openP0": 0,
     "openP1": 2,
     "openP2": 13,
-    "openP3": 8,
+    "openP3": 7,
     "blocked": 1,
     "shaky": 3,
     "evalExactHitPct": null
@@ -151,17 +151,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 7,
+      "openBugs": 6,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 3,
-        "P3": 4,
+        "P3": 3,
         "other": 0
       },
-      "churn": 40,
+      "churn": 45,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
-      "note": "7 oppna backlog-rader (P0:0 P1:0 P2:3 P3:4)"
+      "note": "6 oppna backlog-rader (P0:0 P1:0 P2:3 P3:3)"
     },
     {
       "name": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
@@ -176,9 +176,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 68,
+      "churn": 73,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 68 commits / 14d"
+      "note": "Aktiv: 73 commits / 14d"
     },
     {
       "name": "Preview och versioner",
@@ -193,7 +193,7 @@ const DATA: CanvasData = {
         "P3": 5,
         "other": 0
       },
-      "churn": 24,
+      "churn": 23,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-007` **Domänköpets restlista är en releasegrind, inte en aktiv incident:** tolv fynd …"
     },
@@ -226,7 +226,7 @@ const DATA: CanvasData = {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "7 oppna backlog-rader (P0:0 P1:0 P2:3 P3:4)"
+      "reason": "6 oppna backlog-rader (P0:0 P1:0 P2:3 P3:3)"
     },
     {
       "name": "ai_models",
