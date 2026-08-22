@@ -19,6 +19,8 @@ interface PreviewPanelFrameProps {
   iframeRef: RefObject<HTMLIFrameElement | null>;
   handleIframeLoad: () => void;
   handleIframeError: () => void;
+  /** Tier-2 readiness owns a longer status timeout; do not reveal it via the generic 6s cap. */
+  bypassLoadingHardCap?: boolean;
   /**
    * P25b-rest: when the app and the preview-VM disagree on which version is
    * live, the dispatch pipeline can populate this prop to render the
@@ -70,6 +72,7 @@ export function PreviewPanelFrame({
   iframeRef,
   handleIframeLoad,
   handleIframeError,
+  bypassLoadingHardCap = false,
   versionMismatchPayload = null,
   onForceRestart,
   children,
@@ -85,9 +88,11 @@ export function PreviewPanelFrame({
     const debounceId = window.setTimeout(() => {
       setDebounceElapsed(true);
     }, LOADING_OVERLAY_DEBOUNCE_MS);
-    const hardCapId = window.setTimeout(() => {
-      setHardCapReached(true);
-    }, LOADING_OVERLAY_HARD_CAP_MS);
+    const hardCapId = bypassLoadingHardCap
+      ? null
+      : window.setTimeout(() => {
+          setHardCapReached(true);
+        }, LOADING_OVERLAY_HARD_CAP_MS);
     // Cleanup handles (a) isLoading → false, (b) ny previewSrc och (c) unmount.
     // Resetting the flags here — rather than in the effect body — prepares for
     // the next rising edge without cascading renders on the current one.
@@ -96,11 +101,11 @@ export function PreviewPanelFrame({
     // förbrukad cap och bli helt tyst (Bugbot-fynd 2026-08-01).
     return () => {
       window.clearTimeout(debounceId);
-      window.clearTimeout(hardCapId);
+      if (hardCapId !== null) window.clearTimeout(hardCapId);
       setDebounceElapsed(false);
       setHardCapReached(false);
     };
-  }, [isLoading, previewSrc]);
+  }, [isLoading, previewSrc, bypassLoadingHardCap]);
 
   const topBarVisible = isLoading && !hardCapReached;
   const overlayVisible = isLoading && debounceElapsed && !hardCapReached;

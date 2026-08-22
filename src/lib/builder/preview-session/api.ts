@@ -11,13 +11,16 @@ export async function fetchPreviewStatus(params: {
   chatId: string;
   versionId: string;
   previewSessionId?: string | null;
+  signal?: AbortSignal;
 }): Promise<PreviewStatusApiJson | null> {
   const q = new URLSearchParams({ versionId: params.versionId });
   if (params.previewSessionId?.trim()) {
     q.set("previewSessionId", params.previewSessionId.trim());
   }
   try {
-    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/preview-status?${q.toString()}`);
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/preview-status?${q.toString()}`, {
+      signal: params.signal,
+    });
     const data = (await res.json()) as PreviewStatusApiJson;
     if (!res.ok || !data || data.ok !== true) return null;
     return data;
