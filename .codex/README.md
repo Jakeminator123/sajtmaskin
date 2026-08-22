@@ -6,11 +6,19 @@ här `.codex/config.toml` när projektet är trusted.
 
 ## Så här ska projektet öppnas
 
-- Primary folder i Codex ska vara `C:\Users\jakem\dev\projects\sajtmaskin`.
-- Starta nya Codex-chattar från projektet, inte från en genererad
-  `Documents\Codex\...`-mapp.
-- För parallellt arbete: använd Codex Worktree eller explicit `git worktree`,
-  samma princip som Cursor-regeln `agent-worktree.mdc`.
+- Cursor behåller huvudcheckouten
+  `C:\Users\jakem\dev\projects\sajtmaskin` och arbetar normalt på `master`.
+- Primary folder i Codex-projektet `sajtmaskin` är den permanenta worktreen
+  `C:\Users\jakem\Documents\codex-sajtmaskin\sajtmaskin-worktrees\codex`
+  på branchen `codex/workspace`.
+- `codex/workspace` är ett återanvändbart projektankare, inte en tillfällig
+  feature-worktree. `tidy` skyddar namnet; ta inte bort den som `FRI`.
+- Starta nya Codex-chattar från projektet `sajtmaskin`. Parallellt eller
+  långvarigt featurearbete: egen Codex-worktree per chatt, bas
+  `origin/master` — inte Cursor-checkouten och inte den permanenta
+  Codex-ytan.
+- Efter mergad PR: samma permanenta checkout får återanvändas, men nästa
+  arbete ligger på en ny branch från färsk `origin/master`.
 
 ## Cursor-paritet
 

@@ -41,8 +41,9 @@ Börja med [`repo-router.mdc`](rules/repo-router.mdc) och välj därefter ägare
   [`local-tooling-mcp.mdc`](rules/local-tooling-mcp.mdc),
   [`useful-commands.mdc`](rules/useful-commands.mdc) (token-hygien, inte kommandolista),
 - kommunikation och scope: [`response-format.mdc`](rules/response-format.mdc),
-  [`mvp-scope-freeze.mdc`](rules/mvp-scope-freeze.mdc),
-  [`project-phase-priorities.mdc`](rules/project-phase-priorities.mdc),
+  [`project-phase-priorities.mdc`](rules/project-phase-priorities.mdc)
+  (MVP-bias; [`mvp-scope-freeze.mdc`](rules/mvp-scope-freeze.mdc) är bara
+  pekare, requestable),
   [`subagent-models.mdc`](rules/subagent-models.mdc).
 
 Övriga regler väljs direkt från `.cursor/rules/` efter filens `description` och

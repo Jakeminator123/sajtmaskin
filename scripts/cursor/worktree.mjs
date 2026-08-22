@@ -458,6 +458,14 @@ function commandRemove(targetPath, { force }) {
     process.exit(1);
   }
 
+  const branch = git(["-C", plan.worktreePath, "rev-parse", "--abbrev-ref", "HEAD"]).trim();
+  if (branch === "codex/workspace") {
+    console.error(
+      `[worktree] ${plan.worktreePath} is the permanent Codex checkout (${branch}). Refusing removal.`,
+    );
+    process.exit(1);
+  }
+
   if (!force) {
     const dirty = parseDirtyEntries(git(["-C", plan.worktreePath, "status", "--porcelain"]));
     if (dirty.length > 0) {

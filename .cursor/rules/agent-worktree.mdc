@@ -36,6 +36,14 @@ npm run worktree:remove -- ..\sajtmaskin-feat-X   # städa så här, inte med gi
 
 Flera agenter samtidigt: max **en** git-mutator i huvudcheckouten, övriga i egen worktree. En branch som "försvinner" är oftast redan mergad — verifiera med `git log`/`gh pr view` innan du tror att arbete gått förlorat.
 
+## Codex
+
+Codex har en **egen permanent checkout** — inte huvudcheckouten. Sökväg och
+branch ägs av [`.codex/README.md`](../../.codex/README.md). `codex/workspace`
+är skyddat i `tidy` precis som `rescue/*`. Skriv inte i Cursor-checkouten
+från Codex, och ta inte bort den permanenta Codex-ytan med
+`worktree:remove`.
+
 Recept, återställning och hela bakgrunden: [`docs/runbooks/git-worktree.md`](../../docs/runbooks/git-worktree.md).
 
 ## Om regeln brutits
