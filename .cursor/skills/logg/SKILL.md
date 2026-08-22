@@ -149,6 +149,7 @@ node scripts/db/dump-logs.mjs --json `
    eller ingest inte konfigurerad): falla tillbaka till
 
 ```powershell
+New-Item -Force -ItemType Directory .cursor/tmp | Out-Null
 vercel logs https://sajtmaskin.vercel.app --json | Set-Content -Encoding utf8 .cursor/tmp/app-runtime.jsonl
 ```
 
