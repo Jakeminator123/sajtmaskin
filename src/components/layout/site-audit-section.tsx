@@ -217,7 +217,7 @@ export function SiteAuditSection({
         <Button
           type="submit"
           disabled={isLoading || !currentUrl.trim()}
-          className="btn-3d btn-glow w-full gap-3 rounded-xl bg-primary px-6 py-4 font-medium text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+          className="btn-3d btn-glow w-full gap-3 rounded-xl bg-primary px-6 py-4 font-medium text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-50"
         >
           {isLoading ? (
             <>

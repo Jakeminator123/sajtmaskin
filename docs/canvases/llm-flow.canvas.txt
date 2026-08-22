@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "373692b53",
+    "commit": "06907bb07",
     "commitDate": "2026-08-22",
     "sinceDays": 14
   },
@@ -72,7 +72,7 @@ const DATA: CanvasData = {
     "openP0": 0,
     "openP1": 2,
     "openP2": 13,
-    "openP3": 8,
+    "openP3": 7,
     "blocked": 1,
     "shaky": 3,
     "evalExactHitPct": null
@@ -176,9 +176,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 75,
+      "churn": 73,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 75 commits / 14d"
+      "note": "Aktiv: 73 commits / 14d"
     },
     {
       "name": "Preview och versioner",
