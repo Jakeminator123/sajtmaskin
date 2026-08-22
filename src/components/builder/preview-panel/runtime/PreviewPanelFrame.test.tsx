@@ -16,6 +16,7 @@ function renderFrame(props: Partial<React.ComponentProps<typeof PreviewPanelFram
       iframeRef={props.iframeRef ?? { current: null }}
       handleIframeLoad={props.handleIframeLoad ?? vi.fn()}
       handleIframeError={props.handleIframeError ?? vi.fn()}
+      bypassLoadingHardCap={props.bypassLoadingHardCap}
     />,
   );
 }
@@ -69,6 +70,33 @@ describe("PreviewPanelFrame — loading-overlayens debounce och hard-cap", () =>
     }
   });
 
+  it("låter Tier-2-readiness behålla overlayen förbi den generiska hard-capen", () => {
+    vi.useFakeTimers();
+    try {
+      renderFrame({ bypassLoadingHardCap: true });
+
+      act(() => vi.advanceTimersByTime(400));
+      expect(screen.getByText("Laddar...")).toBeTruthy();
+
+      act(() => vi.advanceTimersByTime(6_000));
+      expect(screen.getByText("Laddar...")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("behåller hard-capen när Tier-2 fortfarande ägs av extern lifecycle-loading", () => {
+    vi.useFakeTimers();
+    try {
+      renderFrame({ bypassLoadingHardCap: false });
+
+      act(() => vi.advanceTimersByTime(6_100));
+      expect(screen.queryByText("Laddar...")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("re-armar overlayen när previewSrc byts medan laddningen fortfarande pågår", () => {
     vi.useFakeTimers();
     try {
@@ -115,7 +143,11 @@ describe("PreviewPanelFrame — loading-overlayens debounce och hard-cap", () =>
   it("låter fel-overlayen äga ytan när iframen är trasig", () => {
     vi.useFakeTimers();
     try {
-      renderFrame({ isLoading: true, iframeError: true, iframeErrorMessage: "Iframe failed to load." });
+      renderFrame({
+        isLoading: true,
+        iframeError: true,
+        iframeErrorMessage: "Iframe failed to load.",
+      });
       act(() => vi.advanceTimersByTime(6_100));
 
       expect(screen.getByText("Iframe failed to load.")).toBeTruthy();
