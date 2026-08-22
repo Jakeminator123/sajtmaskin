@@ -104,6 +104,13 @@ export interface ScaffoldContractRoute {
    * optional for app. Omitted = required for every intent that plans it.
    */
   requiredOnlyForBuildIntents?: ScaffoldRouteBuildIntent[];
+  /**
+   * Init-only paths that the brief may use for the same page. When exactly
+   * one member of this canonical+equivalent family is present in the brief,
+   * route planning rewrites an equivalent to `path` before scaffold defaults
+   * are merged. If the brief explicitly contains both, both remain planned.
+   */
+  initEquivalentPaths?: string[];
 }
 
 /**

@@ -198,6 +198,7 @@ function validateRouteContract(scaffold: ScaffoldManifest, issues: ScaffoldManif
     return value;
   };
 
+  const plannedEntries: ScaffoldContractRoute[] = [];
   const checkPlannedEntry = (entry: unknown, category: string): void => {
     if (typeof entry !== "object" || entry === null) {
       issues.push({
@@ -207,7 +208,9 @@ function validateRouteContract(scaffold: ScaffoldManifest, issues: ScaffoldManif
       });
       return;
     }
-    checkPlannedRoute(entry as ScaffoldContractRoute, category);
+    const route = entry as ScaffoldContractRoute;
+    checkPlannedRoute(route, category);
+    plannedEntries.push(route);
   };
 
   for (const route of readCollection("requiredRoutes") ?? []) {
@@ -221,6 +224,66 @@ function validateRouteContract(scaffold: ScaffoldManifest, issues: ScaffoldManif
   }
   for (const pattern of readCollection("dynamicRoutePatterns") ?? []) {
     checkPath(pattern, "dynamicRoutePatterns", true);
+  }
+
+  const canonicalPaths = new Set(
+    [...seenPaths.keys()].map((routePath) => normalizeRoutePath(routePath)),
+  );
+  const equivalentOwners = new Map<string, string>();
+  for (const route of plannedEntries) {
+    const rawEquivalents = (route as unknown as Record<string, unknown>).initEquivalentPaths;
+    if (rawEquivalents === undefined) continue;
+    if (!Array.isArray(rawEquivalents)) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `routeContract: initEquivalentPaths on ${route.path} must be an array when set (got ${rawEquivalents === null ? "null" : typeof rawEquivalents})`,
+      });
+      continue;
+    }
+
+    for (const rawEquivalent of rawEquivalents) {
+      if (typeof rawEquivalent !== "string" || !rawEquivalent.startsWith("/")) {
+        issues.push({
+          scaffoldId: scaffold.id,
+          severity: "error",
+          message: `routeContract: initEquivalentPaths on ${route.path} contains an invalid path ${JSON.stringify(rawEquivalent)}`,
+        });
+        continue;
+      }
+      const normalizedEquivalent = normalizeRoutePath(rawEquivalent);
+      if (normalizedEquivalent !== rawEquivalent) {
+        issues.push({
+          scaffoldId: scaffold.id,
+          severity: "error",
+          message: `routeContract: equivalent path "${rawEquivalent}" is not normalized (expected "${normalizedEquivalent}")`,
+        });
+      }
+      if (rawEquivalent.includes("[")) {
+        issues.push({
+          scaffoldId: scaffold.id,
+          severity: "error",
+          message: `routeContract: equivalent path "${rawEquivalent}" must be static`,
+        });
+      }
+      if (canonicalPaths.has(normalizedEquivalent)) {
+        issues.push({
+          scaffoldId: scaffold.id,
+          severity: "error",
+          message: `routeContract: equivalent path "${rawEquivalent}" on ${route.path} collides with canonical contract path "${normalizedEquivalent}"`,
+        });
+      }
+      const priorOwner = equivalentOwners.get(normalizedEquivalent);
+      if (priorOwner) {
+        issues.push({
+          scaffoldId: scaffold.id,
+          severity: "error",
+          message: `routeContract: equivalent path "${rawEquivalent}" is declared more than once (${priorOwner}, ${route.path})`,
+        });
+      } else {
+        equivalentOwners.set(normalizedEquivalent, route.path);
+      }
+    }
   }
 
   // SM-048 deliveryGroups: optional coupling for the route-plan file filter.
