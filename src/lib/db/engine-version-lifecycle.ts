@@ -75,7 +75,7 @@ export function isServerVerifyExpectedForLifecycle(
 export type EngineVersionLifecycleStatus =
   "draft" | "verifying" | "repairing" | "repair_available" | "failed" | "superseded" | "promoted";
 
-export type QualityTier = "none" | "preview" | "tier2" | "production";
+export type QualityTier = "none" | "preview" | "tier2";
 
 export type EngineVersionVerificationSurfaceStatus =
   | "verified"
