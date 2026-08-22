@@ -1,5 +1,6 @@
-# Sync gitignored .cursor/mcp.json from example into this checkout,
-# this machine's user-level Cursor config, and optional sibling worktrees.
+# Sync gitignored .cursor/mcp.json from example into this checkout
+# and optional sibling worktrees. Seeds %USERPROFILE%\.cursor\mcp.json
+# only when that file is missing — never overwrites a live global config.
 param(
   [switch]$AllWorktrees
 )
@@ -17,7 +18,15 @@ function Sync-One([string]$dest) {
 }
 
 Sync-One (Join-Path $root '.cursor\mcp.json')
-Sync-One (Join-Path $env:USERPROFILE '.cursor\mcp.json')
+
+# Seed the user-level fallback only when missing. Force-copying the
+# template here would wipe a working global MCP config.
+$userMcp = Join-Path $env:USERPROFILE '.cursor\mcp.json'
+if (-not (Test-Path $userMcp)) {
+  Sync-One $userMcp
+} else {
+  Write-Host "Skipped $userMcp — already exists"
+}
 
 if ($AllWorktrees) {
   Push-Location $root
