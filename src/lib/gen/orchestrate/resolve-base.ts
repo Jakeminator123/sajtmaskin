@@ -32,7 +32,10 @@ import {
 import { resolveDossierCapabilitiesFromInferredCapabilities } from "../capability-dossier-bridge";
 import { buildRoutePlan, collectExplicitRouteRemovals, normalizeRoutePath } from "../route-plan";
 import type { PlannedRoute } from "../route-plan";
-import { inferPreGenerationContracts } from "../contract/pre-generation-contracts";
+import {
+  filterManifestDatabaseProviderIdentities,
+  inferPreGenerationContracts,
+} from "../contract/pre-generation-contracts";
 import { buildOrchestrationContract } from "../orchestration-contract";
 import { deriveBuildSpec } from "../build-spec";
 import { estimateCharsForTokens } from "../tokens";
@@ -179,7 +182,7 @@ export async function resolveOrchestrationBase(
   const isF3ApprovalRound =
     input.lifecycleStage === "integrations" &&
     (input.dossierProviderHints?.length ?? 0) > 0;
-  const f3ApprovedCapabilities = Array.from(
+  let f3ApprovedCapabilities = Array.from(
     new Set([
       ...(input.followUpContract?.f3ApprovedCapabilities ?? []),
       ...(isF3ApprovalRound ? input.requestedDossierCapabilities ?? [] : []),
@@ -188,7 +191,7 @@ export async function resolveOrchestrationBase(
     (capability) =>
       !removedCapabilities.includes(capability.trim().toLowerCase()),
   );
-  const f3ApprovedProviders = filterProvidersForRemovedCapabilities(
+  let f3ApprovedProviders = filterProvidersForRemovedCapabilities(
     Array.from(
       new Set([
         ...(input.followUpContract?.f3ApprovedProviders ?? []),
@@ -197,6 +200,7 @@ export async function resolveOrchestrationBase(
     ),
     removedCapabilities,
   );
+  let effectiveDossierProviderHints = input.dossierProviderHints ?? [];
   const capabilityRemovalHint = buildCapabilityRemovalHint(
     removedCapabilities,
     removedDossiers,
@@ -611,6 +615,55 @@ export async function resolveOrchestrationBase(
     }),
     removedCapabilities,
   );
+  const databaseSelection = preGenerationContracts.databaseSelection;
+  if (
+    databaseSelection?.replacesPrimary ||
+    databaseSelection?.targetGuardVetoed
+  ) {
+    const hadApprovedDatabaseState =
+      f3ApprovedCapabilities.some(
+        (capability) => normalizeCapabilityId(capability) === "database",
+      ) ||
+      filterManifestDatabaseProviderIdentities(f3ApprovedProviders).length !==
+        f3ApprovedProviders.length;
+    const hadDatabaseProviderHint =
+      filterManifestDatabaseProviderIdentities(effectiveDossierProviderHints)
+        .length !== effectiveDossierProviderHints.length;
+    const retainedCapabilities = f3ApprovedCapabilities.filter(
+      (capability) => normalizeCapabilityId(capability) !== "database",
+    );
+    const retainedProviders =
+      filterManifestDatabaseProviderIdentities(f3ApprovedProviders);
+    const retainedProviderHints = filterManifestDatabaseProviderIdentities(
+      effectiveDossierProviderHints,
+    );
+    f3ApprovedCapabilities =
+      databaseSelection.dossierProviderId && hadApprovedDatabaseState
+      ? Array.from(new Set([...retainedCapabilities, "database"]))
+      : retainedCapabilities;
+    f3ApprovedProviders =
+      databaseSelection.dossierProviderId && hadApprovedDatabaseState
+      ? Array.from(
+          new Set([...retainedProviders, databaseSelection.dossierProviderId]),
+        )
+      : retainedProviders;
+    effectiveDossierProviderHints =
+      databaseSelection.dossierProviderId && hadDatabaseProviderHint
+      ? Array.from(
+          new Set([
+            ...retainedProviderHints,
+            databaseSelection.dossierProviderId,
+          ]),
+        )
+      : retainedProviderHints;
+  }
+  const suppressDatabaseDossierForContract =
+    databaseSelection?.targetGuardVetoed === true ||
+    (databaseSelection?.replacesPrimary === true &&
+      !databaseSelection.dossierProviderId);
+  const isDossierCapabilitySuppressedByContract = (capability: string) =>
+    suppressDatabaseDossierForContract &&
+    normalizeCapabilityId(capability) === "database";
   const rawBuildSpec = deriveBuildSpec({
     prompt: buildSpecPrompt ?? prompt,
     buildIntent: effectiveBuildIntent,
@@ -683,11 +736,15 @@ export async function resolveOrchestrationBase(
   if (FEATURES.useDossierPipeline) {
     try {
       const inferredCapabilityIds =
-        resolveDossierCapabilitiesFromInferredCapabilities(capabilities);
+        resolveDossierCapabilitiesFromInferredCapabilities(capabilities).filter(
+          (capability) => !isDossierCapabilitySuppressedByContract(capability),
+        );
       const briefCapsRaw = (brief as { requestedCapabilities?: unknown } | null | undefined)
         ?.requestedCapabilities;
       const briefCapsArray = Array.isArray(briefCapsRaw)
-        ? briefCapsRaw.filter((c): c is string => typeof c === "string")
+        ? briefCapsRaw
+            .filter((c): c is string => typeof c === "string")
+            .filter((capability) => !isDossierCapabilitySuppressedByContract(capability))
         : [];
       // Plan 06 (2026-04-24): caller-provided ids from
       // `detectFollowUpCapabilities` cover the 13 dossier capabilities the
@@ -696,7 +753,8 @@ export async function resolveOrchestrationBase(
       // dedup so the same capability doesn't double up downstream.
       const callerProvidedCapabilityIds = (input.requestedDossierCapabilities ?? [])
         .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
-        .map((c) => c.trim().toLowerCase());
+        .map((c) => c.trim().toLowerCase())
+        .filter((capability) => !isDossierCapabilitySuppressedByContract(capability));
       const mergedCapsRaw = Array.from(
         new Set([
           ...briefCapsArray.map((c) => c.toLowerCase()),
@@ -754,7 +812,9 @@ export async function resolveOrchestrationBase(
           restoredCapabilities: capabilityFloor.restoredCapabilities,
         });
       }
-      dossierRequestedCapabilities = capabilityFloor.capabilities;
+      dossierRequestedCapabilities = capabilityFloor.capabilities.filter(
+        (capability) => !isDossierCapabilitySuppressedByContract(capability),
+      );
 
       // F3 capability scope (Task 2 — capability-inflation fix). In the
       // integrations stage the F2 mute is lifted, so `filterDossierCapabilities
@@ -791,9 +851,15 @@ export async function resolveOrchestrationBase(
           // snapshot. Without these, approve → build-incomplete (no file
           // evidence yet) → the next round's scope drops the capability again.
           ...f3ApprovedCapabilities,
-        ].filter((capability) => !isRemovedCapability(capability));
+        ].filter(
+          (capability) =>
+            !isRemovedCapability(capability) &&
+            !isDossierCapabilitySuppressedByContract(capability),
+        );
         const activeFileEvidenceCapabilities = fileEvidenceCapabilities.filter(
-          (capability) => !isRemovedCapability(capability),
+          (capability) =>
+            !isRemovedCapability(capability) &&
+            !isDossierCapabilitySuppressedByContract(capability),
         );
         const f3Scope = scopeF3DossierCapabilities({
           capabilities: dossierRequestedCapabilities,
@@ -819,7 +885,7 @@ export async function resolveOrchestrationBase(
       // has no provider keyword, so without the hints an approved supabase
       // auth build would silently receive the clerk-auth default under
       // `auth` (Codex P1 on PR #445 — same sibling-pin pattern).
-      const providerHintText = (input.dossierProviderHints ?? [])
+      const providerHintText = effectiveDossierProviderHints
         .filter((hint): hint is string => typeof hint === "string" && hint.trim().length > 0)
         .join(" ");
       const dossierSelectionPromptText = [

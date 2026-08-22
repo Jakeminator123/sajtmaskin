@@ -274,6 +274,8 @@
               },
               "provider": { "type": "string" },
               "name": { "type": "string" },
+              "dossierProviderId": { "type": "string" },
+              "providerAliases": { "type": "array", "items": { "type": "string" } },
               "envVars": { "type": "array", "items": { "type": "string" } },
               "matchPatterns": { "type": "array", "items": { "type": "string" } },
               "requiresCapabilities": { "type": "array", "items": { "type": "string" } },

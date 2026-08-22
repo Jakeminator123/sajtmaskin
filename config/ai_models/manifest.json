@@ -431,6 +431,8 @@
         "kind": "database",
         "provider": "postgres-drizzle",
         "name": "Postgres / Drizzle",
+        "dossierProviderId": "postgres-drizzle",
+        "providerAliases": ["mongodb", "mongodb-atlas"],
         "envVars": ["DATABASE_URL"],
         "matchPatterns": ["\\bmongo(?:db)?\\b", "\\bmongodb\\s+atlas\\b", "\\bmongoose\\b"],
         "requiresDossierCapabilities": ["database"],
@@ -456,6 +458,7 @@
         "kind": "database",
         "provider": "Drizzle",
         "name": "Drizzle",
+        "dossierProviderId": "postgres-drizzle",
         "envVars": ["DATABASE_URL"],
         "matchPatterns": ["\\bdrizzle\\b"],
         "reason": "Prompten nämner Drizzle uttryckligen."
@@ -472,6 +475,7 @@
         "kind": "database",
         "provider": "Postgres / DATABASE_URL",
         "name": "Postgres",
+        "dossierProviderId": "postgres-drizzle",
         "envVars": ["DATABASE_URL"],
         "matchPatterns": ["\\bpostgres\\b", "\\bpostgresql\\b", "\\bdatabase_url\\b"],
         "reason": "Prompten nämner Postgres eller DATABASE_URL uttryckligen."

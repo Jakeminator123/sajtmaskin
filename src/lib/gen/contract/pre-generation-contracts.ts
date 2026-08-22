@@ -14,6 +14,7 @@ import {
   hasNegatedBackendIntent,
   hasNegatedIntegrationIntent,
   hasNegatedPaymentIntent,
+  isPromptMatchNegated,
   isTermFullyNegated,
   isVisualOnlyFollowUpPrompt,
 } from "@/lib/builder/prompt-negation";
@@ -32,12 +33,20 @@ export interface PreGenerationContractContext {
     kind: ContractDecisionKind;
     reason: string;
   }>;
+  databaseSelection?: {
+    provider: string;
+    dossierProviderId: string | null;
+    replacesPrimary: boolean;
+    targetGuardVetoed: boolean;
+  };
 }
 
 type ProviderRule = {
   kind: "database" | "auth" | "payment" | "integration";
   provider: string;
   name: string;
+  dossierProviderId: string | null;
+  providerAliases: string[];
   envVars: string[];
   patterns: RegExp[];
   requiresCapabilities: string[];
@@ -53,6 +62,8 @@ const PROVIDER_RULES: ProviderRule[] = preGenerationContractsConfig.providerRule
     kind: rule.kind,
     provider: rule.provider,
     name: rule.name,
+    dossierProviderId: rule.dossierProviderId ?? null,
+    providerAliases: rule.providerAliases ?? [],
     envVars: rule.envVars,
     patterns: rule.matchPatterns.map((pattern) => new RegExp(pattern, "i")),
     requiresCapabilities: rule.requiresCapabilities ?? [],
@@ -64,6 +75,28 @@ const PROVIDER_RULES: ProviderRule[] = preGenerationContractsConfig.providerRule
 
 const CONTRACT_DEFAULTS = preGenerationContractsConfig.defaults;
 
+function normalizeProviderIdentity(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+const DATABASE_PROVIDER_IDENTITY_KEYS = new Set(
+  PROVIDER_RULES.filter((rule) => rule.kind === "database").flatMap((rule) =>
+    [rule.provider, rule.name, rule.dossierProviderId, ...rule.providerAliases]
+      .filter((value): value is string => Boolean(value))
+      .map(normalizeProviderIdentity),
+  ),
+);
+
+/** Drop every database-provider identity owned by the manifest. */
+export function filterManifestDatabaseProviderIdentities(
+  providers: readonly string[],
+): string[] {
+  return providers.filter(
+    (provider) =>
+      !DATABASE_PROVIDER_IDENTITY_KEYS.has(normalizeProviderIdentity(provider)),
+  );
+}
+
 function findProviderRule(
   provider: string,
   kind?: ProviderRule["kind"],
@@ -71,6 +104,83 @@ function findProviderRule(
   return PROVIDER_RULES.find(
     (rule) => rule.provider === provider && (!kind || rule.kind === kind),
   );
+}
+
+const DATABASE_SOURCE_BEFORE_RE =
+  /(?:\b(?:from|från)|\b(?:import|migrat(?:e|ed|ing)|copy|transfer|importera|migrera|kopiera|överför)\s+(?:from|från)|\b(?:imported|exported|importerad|exporterad))(?:\s+(?:using|med\s+(?:att\s+)?använd\w*))?\s*$/i;
+const DATABASE_SOURCE_AFTER_RE =
+  /^\s+(?:(?:as|som)\s+(?:the\s+)?(?:source|källa)|data|records?|poster|documents?|dokument|source|källa)\b/i;
+const DATABASE_STRONG_TARGET_BEFORE_RE =
+  /\b(?:to|into|use|using|till|använd|använda|använder)(?:\s+(?:a|an|the|en|ett|den|det))?\s*$/i;
+const DATABASE_WEAK_TARGET_BEFORE_RE =
+  /\b(?:in|on|via|with|i|på|med|mot)(?:\s+(?:a|an|the|en|ett|den|det))?\s*$/i;
+const DATABASE_TARGET_AFTER_RE =
+  /^\s+(?:(?:as|som)\s+(?:the\s+)?(?:target|mål)|(?:as|som)?\s*(?:database|db|databas))\b|^\s+(?:for|för)\s+(?:storage|persistence|lagring|persistens)\b/i;
+const DATABASE_KEEP_PROVIDER_BEFORE_RE =
+  /\b(?:keep|keeping|retain|retaining|preserve|preserving|behåll|behålla|behåller|bevara|fortsätt(?:a)?\s+(?:med\s+)?(?:att\s+)?använda)\s*$/i;
+const DATABASE_KEEP_PROVIDER_SCORE = 240;
+const DATABASE_PRIMARY_REPLACEMENT_RE =
+  /\b(?:primary|main|primär|huvud)\s+(?:database|db|databas)|\b(?:as|som)\s+(?:the\s+)?(?:database|db|databas)|\b(?:for|för)\s+(?:storage|persistence|lagring|persistens)|\b(?:use|using|använd|använda)[\s\S]{0,40}\b(?:database|db|databas)\b|\b(?:migrate|move|switch|replace|migrera|flytta|byt|ersätt)[\s\S]{0,80}\b(?:to|into|with|till|med|mot)\b/i;
+
+function findPatternRanges(corpus: string, pattern: RegExp): Array<{ start: number; end: number }> {
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  return Array.from(corpus.matchAll(new RegExp(pattern.source, flags)), (match) => ({
+    start: match.index ?? 0,
+    end: (match.index ?? 0) + match[0].length,
+  }));
+}
+
+/**
+ * Rank an explicit database provider as a target or source without encoding
+ * provider names in application code. Provider identities stay in the
+ * manifest; these language cues only resolve direction when multiple
+ * manifest database rules match the same prompt.
+ */
+function databaseTargetScore(corpus: string, rule: ProviderRule): number {
+  let bestScore = Number.NEGATIVE_INFINITY;
+  for (const pattern of rule.patterns) {
+    if (isTermFullyNegated(corpus, pattern)) continue;
+    for (const range of findPatternRanges(corpus, pattern)) {
+      if (isPromptMatchNegated(corpus, range.start)) continue;
+      const before = corpus.slice(Math.max(0, range.start - 96), range.start);
+      const after = corpus.slice(range.end, range.end + 96);
+      if (DATABASE_KEEP_PROVIDER_BEFORE_RE.test(before)) {
+        // An explicit keep/behåll provider is the retained primary identity;
+        // another provider mentioned as an export/import target is secondary.
+        bestScore = Math.max(bestScore, DATABASE_KEEP_PROVIDER_SCORE);
+        continue;
+      }
+      const isSource =
+        DATABASE_SOURCE_BEFORE_RE.test(before) || DATABASE_SOURCE_AFTER_RE.test(after);
+      if (isSource) {
+        bestScore = Math.max(bestScore, -100);
+        continue;
+      }
+      let score = 0;
+      if (DATABASE_STRONG_TARGET_BEFORE_RE.test(before)) score += 120;
+      else if (DATABASE_WEAK_TARGET_BEFORE_RE.test(before)) score += 80;
+      if (DATABASE_TARGET_AFTER_RE.test(after)) score += 50;
+      bestScore = Math.max(bestScore, score);
+    }
+  }
+  return bestScore;
+}
+
+function selectDatabaseProviderRule(
+  corpus: string,
+  rules: readonly ProviderRule[],
+): { rule: ProviderRule; score: number } | null {
+  let selected: ProviderRule | null = null;
+  let selectedScore = Number.NEGATIVE_INFINITY;
+  for (const rule of rules) {
+    const score = databaseTargetScore(corpus, rule);
+    // Stable manifest order is the deterministic tie-breaker.
+    if (!selected || score > selectedScore) {
+      selected = rule;
+      selectedScore = score;
+    }
+  }
+  return selected ? { rule: selected, score: selectedScore } : null;
 }
 
 function asString(value: unknown): string {
@@ -289,6 +399,21 @@ export function inferPreGenerationContracts(params: {
     requestedDossierCapabilities = [],
   } = params;
   const corpus = getPromptCorpus(prompt, brief);
+  const promptDatabaseCorpus = String(prompt ?? "");
+  const hasPositivePromptDatabaseProvider = PROVIDER_RULES.some(
+    (rule) =>
+      rule.kind === "database" &&
+      rule.patterns.some(
+        (pattern) =>
+          pattern.test(promptDatabaseCorpus) &&
+          !isTermFullyNegated(promptDatabaseCorpus, pattern),
+      ),
+  );
+  // The current turn owns database direction. A persisted brief is fallback
+  // context only when the user did not mention any positive DB provider now.
+  const databaseSelectionCorpus = hasPositivePromptDatabaseProvider
+    ? promptDatabaseCorpus
+    : corpus;
   const visualOnly = isVisualOnlyFollowUpPrompt(corpus);
   const suppressAuth = visualOnly || hasNegatedAuthIntent(corpus);
   const suppressPayment = visualOnly || hasNegatedPaymentIntent(corpus);
@@ -318,6 +443,8 @@ export function inferPreGenerationContracts(params: {
     envVars,
   };
 
+  const eligibleProviderRules: ProviderRule[] = [];
+  const matchedDatabaseProviderRules: ProviderRule[] = [];
   for (const rule of PROVIDER_RULES) {
     if (rule.kind === "auth" && suppressAuth) continue;
     if (rule.kind === "payment" && suppressPayment) continue;
@@ -328,10 +455,20 @@ export function inferPreGenerationContracts(params: {
     // This matters for parked provider brands: Mongo selects the live database
     // dossier, while Mongoose explicitly vetoes that dossier even if generic
     // capability inference happens to set `needsDatabase`.
+    const providerCorpus =
+      rule.kind === "database" ? databaseSelectionCorpus : corpus;
     const matchesCorpus = rule.patterns.some(
-      (pattern) => pattern.test(corpus) && !isTermFullyNegated(corpus, pattern),
+      (pattern) =>
+        pattern.test(providerCorpus) &&
+        !isTermFullyNegated(providerCorpus, pattern),
     );
     if (!matchesCorpus) continue;
+    if (rule.kind === "database") {
+      // Direction needs every positively mentioned provider, including source
+      // providers whose dossier guard intentionally makes them ineligible as
+      // a target (for example MongoDB when Supabase is the explicit target).
+      matchedDatabaseProviderRules.push(rule);
+    }
     const missesInferredCapabilityGuard =
       rule.requiresCapabilities.some(
         (flag) => effectiveCapabilities[flag as keyof InferredCapabilities] !== true,
@@ -350,6 +487,36 @@ export function inferPreGenerationContracts(params: {
       }
       continue;
     }
+    eligibleProviderRules.push(rule);
+  }
+
+  const intendedDatabaseRule = selectDatabaseProviderRule(
+    databaseSelectionCorpus,
+    matchedDatabaseProviderRules,
+  );
+  const selectedDatabaseRule =
+    intendedDatabaseRule && eligibleProviderRules.includes(intendedDatabaseRule.rule)
+      ? intendedDatabaseRule
+      : null;
+  const hasExplicitDatabaseSource = matchedDatabaseProviderRules.some(
+    (rule) =>
+      rule !== selectedDatabaseRule?.rule &&
+      databaseTargetScore(databaseSelectionCorpus, rule) < 0,
+  );
+  const selectedProviderIsExplicitlyKept =
+    selectedDatabaseRule?.score === DATABASE_KEEP_PROVIDER_SCORE;
+  const hasPrimaryReplacementCue =
+    DATABASE_PRIMARY_REPLACEMENT_RE.test(databaseSelectionCorpus) &&
+    !isTermFullyNegated(
+      databaseSelectionCorpus,
+      DATABASE_PRIMARY_REPLACEMENT_RE,
+    );
+  for (const rule of eligibleProviderRules) {
+    // PlanContracts has one database identity. When source and target
+    // providers are both mentioned, only the directionally selected target
+    // may reach contracts/integrations/env; historical manifest order remains
+    // the stable tie-breaker for prompts without direction cues.
+    if (rule.kind === "database" && rule !== selectedDatabaseRule?.rule) continue;
 
     if (rule.kind === "database" && !contracts.databaseProvider) {
       contracts.databaseProvider = rule.provider;
@@ -408,5 +575,17 @@ export function inferPreGenerationContracts(params: {
   return {
     contracts,
     unresolvedDecisions,
+    databaseSelection: intendedDatabaseRule
+      ? {
+          provider: intendedDatabaseRule.rule.provider,
+          dossierProviderId: selectedDatabaseRule?.rule.dossierProviderId ?? null,
+          replacesPrimary:
+            selectedDatabaseRule !== null &&
+            selectedDatabaseRule.score > 0 &&
+            !selectedProviderIsExplicitlyKept &&
+            (hasExplicitDatabaseSource || hasPrimaryReplacementCue),
+          targetGuardVetoed: !selectedDatabaseRule,
+        }
+      : undefined,
   };
 }

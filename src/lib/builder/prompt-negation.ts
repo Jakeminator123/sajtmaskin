@@ -110,6 +110,14 @@ function negatedWindows(prompt: string): string[] {
     .filter(Boolean);
 }
 
+/** True when a concrete regex match starts inside a canonical negation window. */
+export function isPromptMatchNegated(prompt: string, matchIndex: number): boolean {
+  if (!Number.isFinite(matchIndex) || matchIndex < 0) return false;
+  return negatedWindowRanges(String(prompt ?? "")).some(
+    (window) => matchIndex >= window.start && matchIndex < window.end,
+  );
+}
+
 export function hasNegatedTerms(prompt: string, terms: RegExp[]): boolean {
   const windows = negatedWindows(prompt);
   if (windows.length === 0) return false;

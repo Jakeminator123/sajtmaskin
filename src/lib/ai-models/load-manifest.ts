@@ -175,6 +175,8 @@ const contractProviderRuleSchema = z.object({
   kind: z.enum(["database", "auth", "payment", "integration"]),
   provider: z.string(),
   name: z.string(),
+  dossierProviderId: z.string().optional(),
+  providerAliases: z.array(z.string()).optional(),
   envVars: z.array(z.string()),
   matchPatterns: z.array(z.string()),
   requiresCapabilities: z.array(z.string()).optional(),
