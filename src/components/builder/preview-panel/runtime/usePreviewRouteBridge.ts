@@ -15,6 +15,20 @@ type ObservedRoute = {
   route: string;
 };
 
+function bridgeIdentityKey(
+  previewUrl: string,
+  previewSessionId: string,
+  versionId: string,
+  viewerId: string,
+): string | null {
+  const session = previewSessionId.trim();
+  const version = versionId.trim();
+  const viewer = viewerId.trim();
+  if (!session || !version || !viewer) return null;
+  if (session.length > 256 || version.length > 256 || viewer.length > 256) return null;
+  return `${previewUrl}\n${session}\n${version}\n${viewer}`;
+}
+
 function expectedOrigin(previewUrl: string): string | null {
   try {
     return new URL(previewUrl, window.location.origin).origin;
@@ -53,21 +67,18 @@ export function usePreviewRouteBridge(options: {
   const { previewUrl, versionId, activePreviewSessionId, viewerId, iframeRef } = options;
   const identityKey = useMemo(() => {
     if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return null;
-    const sessionId = activePreviewSessionId?.trim();
-    const activeVersionId = versionId?.trim();
-    const activeViewerId = viewerId?.trim();
-    if (!sessionId || !activeVersionId || !activeViewerId) return null;
-    return `${previewUrl}\n${sessionId}\n${activeVersionId}\n${activeViewerId}`;
+    if (!activePreviewSessionId || !versionId || !viewerId) return null;
+    return bridgeIdentityKey(previewUrl, activePreviewSessionId, versionId, viewerId);
   }, [activePreviewSessionId, previewUrl, versionId, viewerId]);
   const [observed, setObserved] = useState<ObservedRoute | null>(null);
 
   useEffect(() => {
-    if (!identityKey || !previewUrl || !versionId || !activePreviewSessionId || !viewerId) return;
+    if (!previewUrl || !isTier2LivePreviewUrl(previewUrl) || !viewerId?.trim()) return;
     const allowedOrigin = expectedOrigin(previewUrl);
     if (!allowedOrigin) return;
-    const expectedSessionId = activePreviewSessionId.trim();
-    const expectedVersionId = versionId.trim();
     const expectedViewerId = viewerId.trim();
+    const activeSessionId = activePreviewSessionId?.trim() || null;
+    const activeVersionId = versionId?.trim() || null;
 
     const handler = (event: MessageEvent) => {
       const child = iframeRef.current?.contentWindow;
@@ -93,25 +104,36 @@ export function usePreviewRouteBridge(options: {
         return;
       }
       const payload = data.payload;
-      if (
-        payload?.previewSessionId !== expectedSessionId ||
-        payload.versionId !== expectedVersionId ||
-        payload.viewerId !== expectedViewerId
-      ) {
+      if (payload?.viewerId !== expectedViewerId) return;
+      if (typeof payload.previewSessionId !== "string" || typeof payload.versionId !== "string") {
         return;
       }
+      const reportedSessionId = payload.previewSessionId.trim();
+      const reportedVersionId = payload.versionId.trim();
+      // When metadata has hydrated, reject mismatches immediately. Before it
+      // arrives we may retain a candidate, but it remains invisible until the
+      // active identity later matches exactly.
+      if (activeSessionId && reportedSessionId !== activeSessionId) return;
+      if (activeVersionId && reportedVersionId !== activeVersionId) return;
+      const reportedIdentityKey = bridgeIdentityKey(
+        previewUrl,
+        reportedSessionId,
+        reportedVersionId,
+        expectedViewerId,
+      );
+      if (!reportedIdentityKey) return;
       const route = observedRouteFromHref(previewUrl, payload.href);
       if (!route) return;
       setObserved((current) =>
-        current?.identityKey === identityKey && current.route === route
+        current?.identityKey === reportedIdentityKey && current.route === route
           ? current
-          : { identityKey, route },
+          : { identityKey: reportedIdentityKey, route },
       );
     };
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [activePreviewSessionId, identityKey, iframeRef, previewUrl, versionId, viewerId]);
+  }, [activePreviewSessionId, iframeRef, previewUrl, versionId, viewerId]);
 
   return observed?.identityKey === identityKey ? observed.route : null;
 }
