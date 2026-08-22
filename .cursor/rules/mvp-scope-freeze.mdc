@@ -3,42 +3,10 @@ description: "MVP-bias: stabilitet före coolhet — varna innan nya features/yt
 alwaysApply: true
 ---
 
-# MVP-bias: stabilitet före coolhet
+# MVP-bias
 
-Sajtmaskin är i slutfasen mot MVP (ägarbeslut 2026-08-01; mjukad 2026-08-11).
-Det är **inte** en hård stoppskylt för allt nytt arbete — det är en bias:
-föredra stabilitet, och **pausa + varna** innan du bygger ny produktförmåga.
+Pekare. Produkt-scope och varningsritualen ägs av
+[`project-phase-priorities.mdc`](project-phase-priorities.mdc) § Produkt-scope.
 
-## Default (gör utan friktion)
-
-- Bekräftade defekter och rader ur `BUG-SWARM-BACKLOG.md § Aktiv kö`.
-- Grundhygien (secrets, cross-tenant, dataförlust, tyst korruption) enligt
-  `project-phase-priorities.mdc`.
-- Tester som låser en konkret fix eller ett litet kontrakt (`docs/delivery-bias.md`).
-- Docs-synk som speglar runtime.
-- Små härdningar av **befintliga** kontrakt (ersätt inte dem med nya lager).
-- Städ / dead code / ignore-filer / planhygien.
-
-## När du är på väg mot något nytt — varna först
-
-Räkna som "nytt" (inte automatiskt förbjudet): features, produktytor,
-integrationer, dossiers/scaffolds, agentförmågor, "smarta" mekanismer, och
-**nya** visuella element (extra varningar, statusbarer, badges, pills, toasts,
-overlays) i builder/preview/landing.
-
-Innan du implementerar sådant:
-
-1. **Pausa och fråga ägaren** med en mening i stil med:
-   *«Vill du verkligen ha en ny feature/yta nu? Vi har haft en MVP-bias mot
-   stabilitet framför nya grejer — ska jag gå vidare ändå?»*
-2. Vänta på uttryckligt OK (eller avslag).
-3. Bredda inte scope mitt i en fix-PR — nya idéer som förslag/backlog, inte
-   snålskjuts i samma diff.
-
-## UI-status
-
-- Återanvänd en **befintlig** yta (truth bar, versionspanel, chattstatus) hellre
-  än en ny.
-- Ny yta bara efter varningen ovan + OK — t.ex. om ett verkligt fel annars
-  dolts helt.
-- Ta hellre bort redundanta ytor än lägg till nya.
+Buggfix, hygien och små härdningar går utan friktion. Ny feature, yta eller
+integration: pausa och fråga ägaren först.

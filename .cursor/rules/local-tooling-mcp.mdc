@@ -7,17 +7,28 @@ alwaysApply: false
 
 Detta är **IDE-lokal** setup — inte runtime för own-engine. Produktbeteende läses i `docs/`, övriga `.cursor/rules/` och `sajtmaskin-context`-skillen.
 
-## MCP-filer
+## Två MCP-filer — den riktiga är ignorerad med flit
+
+Cursor läser **`.cursor/mcp.json`**. Det är den riktiga runtime-filen på disken.
+
+Den är **gitignorerad och `.cursorignore`:ad** just därför att den är den riktiga:
+repot är publikt, och filen *kan* hålla OAuth-tokens eller auth-headers. En
+`Read` skulle då dra in nyckeln i kontexten. Committa den aldrig.
+`.cursor/tmp/` är däremot bara scratch (t.ex. `/logg`-dumpar) och ligger i
+`.cursorindexingignore` — läsbar, inte sökbar.
+
+[`.cursor/mcp.json.example`](../mcp.json.example) är **mallen** (inte
+`mcp.example.json`). Den är spårad så serverlistan är versionerad och
+granskningsbar, utan secrets. Sync-skriptet kopierar mallen → `mcp.json`.
 
 | Plats | Roll |
 |---|---|
 | `%USERPROFILE%\.cursor\mcp.json` | Global fallback — funkar i worktrees utan lokal fil |
-| `.cursor/mcp.json` | Projekt-override (**gitignorerad + `.cursorignore`:ad**, committa aldrig) |
-| `.cursor/mcp.json.example` | **Kanonisk mall** — spårad i git; sync-skriptet kopierar den rakt av |
+| `.cursor/mcp.json` | Riktig projektfil. Ignorerad. Cursor läser den. |
+| `.cursor/mcp.json.example` | Spårad mall. Ingen secret. Kanonisk serverlista. |
 
-**Varför två filer:** repot är publikt. Mallen är spårad så att servrarna är versionerade och granskningsbara, medan den faktiska filen är ignorerad för att en framtida auth-header aldrig ska kunna committas. Filen är dessutom `.cursorignore`:ad — inte för att den innehåller secrets idag (den gör den inte), utan för att den *kan* göra det och då hade ett `Read` dragit in nyckeln i kontexten. `.cursor/tmp/` är däremot bara scratch och ligger i `.cursorindexingignore` (läsbar, inte sökbar).
-
-**Drift-fällan:** eftersom den faktiska filen är ignorerad kan den tyst hamna efter mallen. Det upptäcktes 2026-08-05 — den lokala filen hade fyra servrar (`shadcn`, `v0`, `openaiDeveloperDocs`, `openclaw-docs`) medan mallen hade åtta. **Både `supabase` och `supabase-prod` saknades**, alltså hela mekaniken bakom dev/prod-regeln i `project-phase-priorities.mdc`; kvar fanns bara en generisk Supabase-plugin utan synlig projektbindning. Jämför nyckelmängderna när något beter sig oväntat:
+**Drift-fällan:** den ignorerade filen kan tyst hamna efter mallen. Jämför
+nycklarna när något beter sig oväntat:
 
 ```powershell
 $l = (Get-Content .cursor\mcp.json -Raw | ConvertFrom-Json).mcpServers.PSObject.Properties.Name
@@ -38,45 +49,52 @@ Plugins (`.cursor/settings.json`): `vercel` + `supabase` enabled.
 
 ## MCP-servrar i detta repo
 
-Kanonisk lista = nycklarna i `.cursor/mcp.json.example`. Tabellen nedan speglar den; lägger du till en server där, lägg till raden här i samma ändring.
+Kanonisk lista = nycklarna i `.cursor/mcp.json.example`. URL:er och
+`project_ref` står där och i `config/db-targets.json` — duplicera dem inte här.
+Lägger du till en server i mallen, lägg till raden här i samma ändring.
 
-| Server | URL / kommando | När |
-|---|---|---|
-| `vercel` | `https://mcp.vercel.com/jakeminator123s-projects/sajtmaskin` | Deploy/loggar för **denna** app |
-| `user-vercel` | `https://mcp.vercel.com` | Fallback vid 403 / andra projekt |
-| `supabase` | `…?project_ref=yubbckduwblyrbnlglwf&read_only=true` | **DEV**-schema/SQL, read-only |
-| `supabase-prod` | `…?project_ref=egcitvwgettkftkyzbvn&read_only=true` | **PROD**-schema/rader vid felsökning, read-only |
-| `shadcn` | `scripts/cursor/shadcn-mcp.cmd` → `shadcn@4.13.1 mcp` | Registry-sök/install |
-| `openclaw-docs` | `https://docs.openclaw.ai/mcp` | Dokumentation för **externa** OpenClaw-produkten (gateway, CLI, nodes, kanaler, plugins, browser-verktyget). Ett verktyg: `search_open_claw` |
-| `openai-docs` | `https://developers.openai.com/mcp` | OpenAI-docs + API-spec: `search_openai_docs`, `list_openai_docs`, `fetch_openai_doc`, `list_api_endpoints`, `get_openapi_spec` |
-| `v0` | `https://mcp.v0.dev` | v0:s chat-API (`createChat`, `sendChatMessage`, …) — **inte** docs, och inte own-engine. Legacy-yta; kräver nyckel för riktiga anrop |
+| Server | När |
+|---|---|
+| `vercel` | Deploy/loggar för **denna** app |
+| `user-vercel` | Fallback vid 403 / andra projekt |
+| `supabase` | **DEV**-schema/SQL, read-only |
+| `supabase-prod` | **PROD**-schema/rader vid felsökning, read-only |
+| `shadcn` | Registry-sök/install (`scripts/cursor/shadcn-mcp.cmd`) |
+| `openclaw-docs` | Extern OpenClaw-produkt (gateway, CLI, nodes). Ett verktyg: `search_open_claw` |
+| `openai-docs` | OpenAI-docs + API-spec |
+| `v0` | v0 chat-API — **inte** docs, inte own-engine. Legacy |
 
-**`openclaw-docs` beskriver inte Sajtmaskins OpenClaw-lager.** Servern svarar bra på hur man integrerar **mot** OpenClaw — gateway, CLI, nodes, kanaler, plugins, browser-verktyget — och det är den frågan den ska användas till. Armerad autonomi, mandaträknaren, `armedContinuation`-watchen och `<openclaw-action>`-envelopen är däremot Sajtmaskin-lokala begrepp och bor i `src/lib/openclaw/` + [`openclaw-bridge.mdc`](openclaw-bridge.mdc) — sök inte efter dem i docs-servern (verifierat 2026-08-05: `autonomy mandate follow-up` ger `No results`).
+**`openclaw-docs` beskriver inte Sajtmaskins OpenClaw-lager.** Armerad autonomi,
+mandaträknaren, `armedContinuation`-watchen och `<openclaw-action>` bor i
+`src/lib/openclaw/` + [`openclaw-bridge.mdc`](openclaw-bridge.mdc).
 
 - OAuth: Settings → Tools & MCP (grön status). Reload fönster efter `mcp.json`-ändring.
-- De tre sista raderna är hostade HTTP-endpoints **utan** auth-headers i mallen, så de kräver ingen OAuth-runda för att listas.
 - `plugin-vercel-vercel` kan ge 403 → använd `vercel` / `user-vercel`.
 - Appens `VERCEL_PROJECT_ID` ≠ användarsajters per-deploy `vercel_project_id`.
-- Supabase-MCP: **ingen destruktiv SQL**. `public.schema_migrations` har deny-by-default sedan 2026-08-19 (SM-057, `src/lib/db/migrations/harden-schema-migrations-ledger.sql`) — dyker `rls_disabled_in_public` upp på den igen är det en regression att åtgärda, inte brus att ignorera. Lintern `rls_enabled_no_policy` (INFO) på samma tabell är däremot det **avsedda** sluttillståndet — lägg inte till en policy för att tysta den, det öppnar tabellen igen.
-- **Välj rätt projekt medvetet.** `supabase` är dev, `supabase-prod` är prod — kanonisk identitet i `config/db-targets.json`, entydig tabell i `docs/ENV.md`. Servern var tidigare omärkt, vilket 2026-07-27 fick en agent att läsa dev-projektet och dra slutsatsen att prod saknade telemetri för en körning som faktiskt loggats. Ställer du en prod-fråga: använd `supabase-prod`, eller `.env.vercel.production.pulled` via `npm run env:pull:prod-snapshot`. Svara aldrig om prod utifrån dev-projektet.
+- Supabase-MCP: **ingen destruktiv SQL**. `public.schema_migrations` har
+  deny-by-default (SM-057). `rls_disabled_in_public` där är regression.
+  `rls_enabled_no_policy` (INFO) på samma tabell är avsett — lägg inte till en policy.
+- **`supabase` = dev, `supabase-prod` = prod.** Identitet i `config/db-targets.json`,
+  tabell i `docs/ENV.md`. Svara aldrig om prod utifrån dev-projektet.
 
 ## Vercel / GitHub (denna maskin)
 
-- Vercel CLI: team `jakeminator123s-projects`, projekt `sajtmaskin` (`prj_AK7FqC8NwKorjoxGpkXi6nKGUsoe`, team `team_j7KE5zKTm5rdg7zfWzOZhJ89`). Se `.vercel/repo.json`.
-- GitHub: `Jakeminator123` via `gh` (HTTPS). SSH-nyckel: `~/.ssh/id_ed25519_github` (Host `github.com` i `~/.ssh/config`).
-- Terminal: PowerShell 7 (`pwsh`) — se även `bash-och-pwsh.mdc`.
-- **RTK** (global Shell-komprimering via `%USERPROFILE%\.cursor\hooks.json`): se `rtk-terminal.mdc`. Config `%APPDATA%\rtk\config.toml` ska ha `exclude_commands = ["git log", "git rebase", "git cherry-pick"]` (telemetri av). Smoke: `rtk hook check --agent cursor "git log -1"` → `No rewrite`.
-- Worktrees: eget fönster per checkout; byt inte branch i delad huvudcheckout — se `agent-worktree.mdc`.
+- Vercel CLI: team/projekt för den här appen står i lokal `.vercel/repo.json`
+  (gitignorerad). Inte samma id som användarsajters `vercel_project_id`.
+- GitHub: `Jakeminator123` via `gh` (HTTPS). SSH-host `github.com` i `~/.ssh/config`.
+- Terminal: PowerShell 7 (`pwsh`) — se `bash-och-pwsh.mdc`.
+- **RTK:** se `rtk-terminal.mdc`.
+- Worktrees: eget fönster per checkout — se `agent-worktree.mdc`.
 
 ## shadcn
 
-- `components.json` styr registries (`@shadcnblocks`, `@tailark-oss`, `@magicui`, …).
-- Föredra shadcn-MCP; annars `npx shadcn@4.13.1 …` (samma pin som wrappern).
+- `components.json` styr registries.
+- Föredra shadcn-MCP; annars samma pin som wrappern i `scripts/cursor/`.
 
 ## Felsök “ibland funkar”
 
-1. Reload Cursor efter MCP-ändring  
-2. Tools & MCP → login / grön status  
-3. Worktree saknar `.cursor/mcp.json`? Kopiera example eller lita på global  
-4. Vercel 403 → `user-vercel`  
+1. Reload Cursor efter MCP-ändring
+2. Tools & MCP → login / grön status
+3. Worktree saknar `.cursor/mcp.json`? Kopiera example eller lita på global
+4. Vercel 403 → `user-vercel`
 5. `ssh`/`gh` saknas i terminal → ny pwsh-session (User PATH)

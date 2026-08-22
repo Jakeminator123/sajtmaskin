@@ -1,11 +1,11 @@
 ---
-description: "Projektprioritet: bygg/stabilisera utan onödiga säkerhetslager, men sänk aldrig grundhygien."
+description: "Projektprioritet + MVP-bias: hygien alltid; varna innan nya features; inga onödiga säkerhetslager."
 alwaysApply: true
 ---
 
 # Projektprioritet
 
-Prioritera fungerande end-to-end och små kontrakt. Lägg inte till stora säkerhets-/governance-lager utan explicit scope.
+Prioritera fungerande end-to-end och små kontrakt. Lägg inte till stora säkerhets-/governance-lager utan explicit scope. Ny produktförmåga: se § Produkt-scope.
 
 ## Alltid grundhygien
 
@@ -17,10 +17,32 @@ Prioritera fungerande end-to-end och små kontrakt. Lägg inte till stora säker
 ## Tooling-säkerhet (alltid)
 
 - **Supabase-MCP: `supabase` = dev, `supabase-prod` = prod.** Svara aldrig om prod utifrån dev-projektet. Ingen destruktiv SQL via MCP.
-- `.cursor/mcp.json` är gitignorerad och kan hålla tokens — committa aldrig.
+- `.cursor/mcp.json` är den riktiga Cursor-filen och därför gitignorerad — committa aldrig. Mallen är `.cursor/mcp.json.example`.
 - Appens `VERCEL_PROJECT_ID` ≠ användarsajters per-deploy `vercel_project_id`.
 
 Full tooling-setup: [`local-tooling-mcp.mdc`](local-tooling-mcp.mdc).
+
+## Produkt-scope (MVP-bias)
+
+Sajtmaskin är i slutfasen mot MVP (ägarbeslut 2026-08-01; mjukad 2026-08-11).
+Det är en bias, inte en stoppskylt: föredra stabilitet, och **pausa + varna**
+innan du bygger ny produktförmåga.
+
+**Default (utan friktion):** bekräftade defekter och rader ur
+`BUG-SWARM-BACKLOG.md` § Aktiv kö; grundhygien ovan; tester som låser en konkret
+fix; docs-synk; små härdningar av **befintliga** kontrakt; städ / ignore-filer.
+
+**Nytt** (features, produkter, integrationer, dossiers/scaffolds, agentförmågor,
+"smarta" mekanismer, nya UI-ytor i builder/preview/landing):
+
+1. Pausa och fråga: *«Vill du verkligen ha en ny feature/yta nu?»*
+2. Vänta på uttryckligt OK.
+3. Bredda inte scope mitt i en fix-PR.
+
+Återanvänd en befintlig yta (truth bar, versionspanel, chattstatus) hellre än
+en ny. Ta hellre bort redundanta ytor än lägg till nya.
+
+[`mvp-scope-freeze.mdc`](mvp-scope-freeze.mdc) är en pekare hit.
 
 ## Undvik utan explicit scope
 

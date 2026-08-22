@@ -5,34 +5,24 @@ alwaysApply: true
 
 # Repo router
 
-Canonical owner avgörs per faktatyp: runtimekod, manifest, registry eller policy
-kan äga olika beslut. Genererad Markdown är projektion; handskrivna docs är
-mental modell. Anta inte att du ser ocommittade filer.
+Canonical owner avgörs per faktatyp. Genererad Markdown är projektion;
+handskrivna docs är mental modell. Anta inte att du ser ocommittade filer.
 
-**Startordning:** `README.md` → `AGENTS.md` → `docs/concepts/mental-model.md`
-→ `docs/architecture/code-map.md` → relevant owner/konsument/doc.
-
-## Huvudytor
+**Startordning vid osäker yta:** `docs/README.md` → `docs/concepts/mental-model.md`
+→ `docs/architecture/code-map.md` → relevant owner. Läs inte hela stacken varje tur.
 
 | Uppgift | Börja här |
 |---|---|
-| LLM/generation | `src/lib/gen/`, `src/lib/providers/own-engine/`, `docs/architecture/llm-pipeline.md` (FAS 2) |
-| Preview/VM | `preview-host/`, `src/lib/gen/preview/`, `src/components/builder/preview-panel/`, `docs/architecture/llm-pipeline.md` (FAS 3) |
-| Builder UI/chat | `src/app/builder/`, `src/components/builder/`, `src/lib/hooks/chat/` |
-| Deploy | `src/app/api/v0/deployments/route.ts`, `src/lib/deploy/` |
-| Env/config | `docs/ENV.md`, `src/lib/env.ts`, `config/env-policy.json`, `config/ai_models/` |
-| Scaffolds | `src/lib/gen/scaffolds/`, `scripts/scaffolds/`, `docs/contracts/scaffold-system.md` |
-| Variants | `config/scaffold-variants/<scaffold>/<variant>.json` |
-| Runtime dossiers | `data/dossiers/{hard,soft}/<id>/` |
-| Dossier tooling/index | `data/dossiers/_index/capability-map.json`, `scripts/dossiers/`, `backoffice/pages/dossiers.py` |
-| Template references | `data/template-references/repos/` (extern pipeline borttagen 2026-07-09 — arkiv i syskonmappen `gamla-skript-till-scaffolds/`) |
-| Eval | `src/lib/gen/eval/`, `src/lib/gen/eval/README.md` — enda publika kommandot är `npm run eval` |
-| Backoffice | `sajtmaskin_backoffice.py`, `backoffice/pages/*.py` |
-| Terminologi | `.cursor/rules/terminology.mdc`, full lista i `docs/architecture/glossary.md` |
-| Agentroller | `.cursor/rules/agent-roles.mdc` — Scout / Builder / Steward, säte A/B |
+| LLM/generation | `src/lib/gen/`, `docs/architecture/llm-pipeline.md` |
+| Preview/VM | `preview-host/`, `src/lib/gen/preview/` |
+| Builder UI/chat | `src/app/builder/`, `src/components/builder/` |
+| Deploy | `src/lib/deploy/` |
+| Env/config | `docs/ENV.md`, `config/env-policy.json` |
+| Scaffolds / variants | `src/lib/gen/scaffolds/`, `config/scaffold-variants/` |
+| Dossiers | `data/dossiers/{hard,soft}/` |
+| Eval | `src/lib/gen/eval/` — bara `npm run eval` |
+| Backoffice | `backoffice/pages/*.py` |
+| Termer / roller | `docs/architecture/glossary.md`, `agent-roles.mdc` |
 
-## Legacy-noter
-
-- `templates_v0/` och `v0`-namn kan vara legacy eller API-version. Verifiera mot kod innan rename/radering.
-- `_parkering/` är **borttagen** (2026-08-10). Historik via git — återintroducera inte som aktiv läsyta.
-- Stora JSON/artefakter: börja med närmaste README/manifest innan du ändrar.
+`templates_v0/` och `v0`-namn kan vara legacy eller API — verifiera mot kod.
+`_parkering/` är borttagen (historik via git).

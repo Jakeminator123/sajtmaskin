@@ -39,14 +39,15 @@ Börja med [`repo-router.mdc`](rules/repo-router.mdc) och välj därefter ägare
   [`env-flow-f2-mute.mdc`](rules/env-flow-f2-mute.mdc),
 - plattform/tooling: [`bash-och-pwsh.mdc`](rules/bash-och-pwsh.mdc),
   [`local-tooling-mcp.mdc`](rules/local-tooling-mcp.mdc),
-  [`useful-commands.mdc`](rules/useful-commands.mdc),
+  [`useful-commands.mdc`](rules/useful-commands.mdc) (token-hygien, inte kommandolista),
 - kommunikation och scope: [`response-format.mdc`](rules/response-format.mdc),
   [`mvp-scope-freeze.mdc`](rules/mvp-scope-freeze.mdc),
   [`project-phase-priorities.mdc`](rules/project-phase-priorities.mdc),
   [`subagent-models.mdc`](rules/subagent-models.mdc).
 
 Övriga regler väljs direkt från `.cursor/rules/` efter filens `description` och
-`globs`. I chat: bifoga med `@` + sökväg.
+`globs`. I chat: bifoga **bara den regel som äger uppgiften** (`@` + sökväg).
+Dumpa inte hela `.cursor/rules/`.
 
 ## Terminologi
 
@@ -102,7 +103,8 @@ verifiering ägs av [`rules/workflow.mdc`](rules/workflow.mdc) och
 
 ## MCP (`mcp.json`)
 
-Den spårade mallen är [`.cursor/mcp.json.example`](mcp.json.example). Installation,
-synk, driftkontroll, auth, dev/prod-säkerhet och shadcn-registry ägs av
+Cursor läser den lokala **`.cursor/mcp.json`** (riktig runtime-fil, gitignorerad
+just därför). Den spårade mallen är [`.cursor/mcp.json.example`](mcp.json.example).
+Installation, synk, varför mallen är spårad och dev/prod-säkerhet ägs av
 [`rules/local-tooling-mcp.mdc`](rules/local-tooling-mcp.mdc) och
 [`rules/project-phase-priorities.mdc`](rules/project-phase-priorities.mdc).

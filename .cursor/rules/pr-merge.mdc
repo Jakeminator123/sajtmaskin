@@ -20,7 +20,7 @@ En välmotiverad förbättring stoppas aldrig av smaknit — logga niten (P2/bac
 
 ## Merge-grinden — merga BARA när allt är sant
 
-ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`, `build`, `review-window`) · Vercel ok/saknas · inga requested changes eller blockerande trådar · **PR ≥ 7 min gammal** · **bugbot-pass kört på aktuell head-SHA** · **minst en extern buggkoll gjord** · **varje bot-fynd triagerat** · **`merge:ready`-label + sign-off satt av PR-agenten** · head-SHA oförändrad sedan sign-off · PR-body beskriver ändringen.
+ej draft · base master (EmaCodeHero: base `ema`, se [`ema-pr-sparr.mdc`](ema-pr-sparr.mdc)) · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`, `build`, `review-window`) · Vercel ok/saknas · inga requested changes eller blockerande trådar · **PR ≥ 7 min gammal** · **bugbot-pass kört på aktuell head-SHA** · **minst en extern buggkoll gjord** · **varje bot-fynd triagerat** · **`merge:ready`-label + sign-off satt av PR-agenten** · head-SHA oförändrad sedan sign-off · PR-body beskriver ändringen.
 
 Faller ett enda villkor → `NEEDS_HUMAN`, ingen merge.
 
@@ -38,7 +38,7 @@ Detta är **mergarens** kontroll, skild från författarens bugg-efterkontroll l
 
 1. **Codex-fönstret är 7 min och bounded.** Ge Codex upp till 7 min från PR-skapandet att lägga en review. Kommer ingen: **vänta inte längre** — författarens bugbot-pass för aktuell head-SHA räcker som oberoende ögon.
 2. **Landar en Codex-review inom fönstret** → läs och triagera den. Ett redan gjort bugbot-pass behöver inte köras om — men kör bugbot ändå på protected paths. Codex ersätter **aldrig** författarens obligatoriska efterkontroll; den är ett tillägg.
-3. **Har inget bugbot-pass körts för aktuell SHA** — eller landade en ny commit efter passet — kör `bugbot`-subagenten **nu** (`readonly: true`, `model: <grok-4.5>`) och dokumentera fynden innan du mergar.
+3. **Har inget bugbot-pass körts för aktuell SHA** — eller landade en ny commit efter passet — kör `bugbot`-subagenten **nu** (`readonly: true`, `model` enligt [`subagent-models.mdc`](subagent-models.mdc)) och dokumentera fynden innan du mergar.
 
 ### `--admin`: tillåtet på ägarens uppmaning, aldrig före grinden
 
@@ -117,7 +117,7 @@ Oberoende av Codex är det **agenten som skapade PR:en** som äger efterkontroll
 
 1. GitHub-integrerad Bugbot på PR:en.
 2. Eventstyrd **PR AI-review** (`pr-ai-review.yml`) — om den publicerat en uttömmande review för aktuell head-SHA räknas den som fullgod (se ovan).
-3. Bugbot/PR AI-review slut budget eller utebliven → **kör Cursor Bugbot-passet lokalt**: `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"`. Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
+3. Bugbot/PR AI-review slut budget eller utebliven → **kör Cursor Bugbot-passet lokalt**: `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model` enligt [`subagent-models.mdc`](subagent-models.mdc). Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
 4. Först om även det misslyckas → strukturerad manuell diff-granskning med fil- och radreferenser.
 
 Dokumentera i PR:en vilket steg som användes: `bugbot`, `bugbot-local`, `pr-ai-review`, `codex` eller `manual local bug review`. Samma värde går i `bugkoll:`-fältet i sign-offen.
@@ -157,7 +157,7 @@ Väggklockan går inte att korta bort, men agenten ska inte bindas upp under tid
 | Diff-typ | Mönster |
 |---|---|
 | **Default (de flesta PR:er)** | Kör bugbot **före** PR → posta PR → starta **EN** bakgrundsshell som sover till 7-min-golvet (räkna med ~10 min) och sedan dumpar `gh pr checks <n>` + nya review-kommentarer till fil → **avsluta turen**. Slutförande-notisen tar dig tillbaka för triage + merge |
-| **Protected paths / risk ≥ 3** | Uppgradera till en bakgrunds-subagent (`run_in_background: true`, `readonly: true`, `model: <grok-4.5>`, tidsbudget ≤ 10 min) som **bevakar och ytar** inkommande fynd och sedan självdör |
+| **Protected paths / risk ≥ 3** | Uppgradera till en bakgrunds-subagent (`run_in_background: true`, `readonly: true`, `model` enligt [`subagent-models.mdc`](subagent-models.mdc), tidsbudget ≤ 10 min) som **bevakar och ytar** inkommande fynd och sedan självdör |
 
 **Rollsplit — billig bevakare, dyr beslutsfattare:** bevakaren *larmar bara*. Den triagerar aldrig och mergar aldrig själv. Pollning kräver ingen intelligens; triage- och merge-beslutet ligger alltid hos orkestratorn.
 
