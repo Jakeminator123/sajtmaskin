@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -58,19 +58,17 @@ describe("dossier strict-schema ownership", () => {
     );
   });
 
-  it("rejects drifted $schema pointers in live manifests", () => {
+  it("requires the canonical $schema pointer on every live manifest", () => {
     const manifests = liveManifestPaths();
-    const declared = manifests.flatMap((path) => {
+    const pointers = manifests.map((path) => {
       const manifest = JSON.parse(readFileSync(path, "utf8")) as { $schema?: unknown };
-      return typeof manifest.$schema === "string" ? [{ path, ref: manifest.$schema }] : [];
+      return {
+        path: relative(REPO_ROOT, path).replaceAll("\\", "/"),
+        ref: typeof manifest.$schema === "string" ? manifest.$schema : null,
+      };
     });
 
     expect(manifests.length).toBeGreaterThan(0);
-    expect(declared.length).toBeGreaterThan(0);
-    expect(
-      declared
-        .filter(({ ref }) => ref !== MANIFEST_SCHEMA_REF)
-        .map(({ path, ref }) => ({ path: path.replace(`${REPO_ROOT}/`, ""), ref })),
-    ).toEqual([]);
+    expect(pointers.filter(({ ref }) => ref !== MANIFEST_SCHEMA_REF)).toEqual([]);
   });
 });
