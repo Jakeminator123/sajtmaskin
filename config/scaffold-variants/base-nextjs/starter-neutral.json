@@ -29,7 +29,7 @@
     }
   ],
   "signatureMotif": "quiet near-monochrome shell, restrained tokens, and extension-first clarity",
-  "colorMode": "either",
+  "colorMode": "dark",
   "promptHints": [
     "Stay intentionally minimal and extension-friendly when the prompt is underspecified — this is a baseline, not a finished product.",
     "Do not pretend to be a polished marketing or product site unless the prompt clearly demands it; one calm primary accent is enough.",
