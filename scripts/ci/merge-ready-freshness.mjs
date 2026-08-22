@@ -22,13 +22,19 @@
 /** Tolererar em-dash, en-dash, bindestreck eller kolon efter `merge:ready`. */
 export const SIGNOFF_PATTERN = /merge:ready\s*[—–:-]?\s*sha:/i;
 
-const SHA_PATTERN = /sha:\s*([0-9a-f]{40})/i;
+const SHA_FIELD_PATTERN = /sha:\s*([^,\s]+)/i;
+const SHA_PATTERN = /^[0-9a-f]{40}$/i;
+const CURSOR_LOGIN = "cursor[bot]";
+const BUGBOT_FINDING_MARKER =
+  /<!--\s*BUGBOT_REVIEW\s*-->|<!--\s*BUGBOT_BUG_ID\s*:\s*[a-z0-9_-]+\s*-->/i;
 
 /** @typedef {{ body: string, createdAt: string | null }} SignoffCandidate */
 
 /**
  * @param {{
  *   eventName: string,
+ *   senderLogin?: string,
+ *   eventBody?: string,
  *   headSha: string,
  *   labels: string[],
  *   eventAt?: string | null,
@@ -56,8 +62,16 @@ export function decideMergeReadyAction(input) {
     return { action: "remove", reason: "merge:ready utan giltig sign-off-rad" };
   }
 
-  const signoffSha = signoff.line.match(SHA_PATTERN)?.[1]?.toLowerCase() ?? null;
-  if (signoffSha && signoffSha !== (input.headSha ?? "").toLowerCase()) {
+  const signoffShaField = signoff.line.match(SHA_FIELD_PATTERN)?.[1] ?? null;
+  if (!signoffShaField || !SHA_PATTERN.test(signoffShaField)) {
+    return {
+      action: "remove",
+      reason: "ogiltig sign-off sha — kräver exakt 40 hextecken",
+    };
+  }
+
+  const signoffSha = signoffShaField.toLowerCase();
+  if (signoffSha !== (input.headSha ?? "").toLowerCase()) {
     return {
       action: "remove",
       reason: `sign-off sha (${signoffSha.slice(0, 7)}) != head (${(input.headSha ?? "").slice(0, 7)})`,
@@ -85,10 +99,32 @@ export function decideMergeReadyAction(input) {
     return { action: "keep", reason: "händelsen är inte nyare än sign-offen" };
   }
 
+  if (isCursorStatusComment(input)) {
+    return {
+      action: "keep",
+      reason: "Cursor-statuskommentar utan Bugbot-fyndmarkör",
+    };
+  }
+
   return {
     action: "remove",
     reason: "bot-fynd efter sign-off — läs fynden, triagera, sätt merge:ready igen",
   };
+}
+
+/**
+ * Cursor postar även status-, dokumentations- och usage-limit-kommentarer som
+ * `issue_comment`. Bara de standardiserade Bugbot-markörerna är fynd på den
+ * vägen. Reviews och inline-kommentarer lämnas fail-closed.
+ *
+ * @param {{ eventName: string, senderLogin?: string, eventBody?: string }} input
+ */
+function isCursorStatusComment(input) {
+  return (
+    input.eventName === "issue_comment" &&
+    input.senderLogin?.toLowerCase() === CURSOR_LOGIN &&
+    !BUGBOT_FINDING_MARKER.test(input.eventBody ?? "")
+  );
 }
 
 /**
