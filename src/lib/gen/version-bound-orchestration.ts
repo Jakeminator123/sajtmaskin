@@ -35,16 +35,37 @@ function nonEmptyString(value: unknown): string | null {
 }
 
 /**
+ * A later finalize/repair can persist `{ lastVersionId, capturedAt }` (or just
+ * `baseVersionId`) as `orchestrationSnapshot`. That object is truthy but must
+ * not shadow the generation row that actually owns Brief/Variant/design.
+ */
+function isAuthoritativeOrchestrationSnapshot(
+  snapshot: Record<string, unknown> | null,
+): boolean {
+  if (!snapshot) return false;
+  return Boolean(
+    record(snapshot.resolvedDesign) ||
+      record(snapshot.briefSummary) ||
+      record(snapshot.brief) ||
+      record(snapshot.variantSelection) ||
+      nonEmptyString(snapshot.variantId),
+  );
+}
+
+/**
  * Quality-gate/repair passes append telemetry rows that intentionally contain
  * only their own verdict metadata. They must not shadow the newest row that
  * actually owns the version's orchestration authority.
  */
 function selectOrchestrationTelemetryRow(rows: unknown[]): TelemetryRow | null {
   const telemetryRows = rows.map(record).filter((row): row is Record<string, unknown> => !!row);
-  const snapshotRow = telemetryRows.find((row) =>
+  const snapshotRows = telemetryRows.filter((row) =>
     Boolean(record(record(row.meta)?.orchestrationSnapshot)),
   );
-  return (snapshotRow ?? telemetryRows[0] ?? null) as TelemetryRow | null;
+  const authoritative = snapshotRows.find((row) =>
+    isAuthoritativeOrchestrationSnapshot(record(record(row.meta)?.orchestrationSnapshot)),
+  );
+  return (authoritative ?? snapshotRows[0] ?? telemetryRows[0] ?? null) as TelemetryRow | null;
 }
 
 /**

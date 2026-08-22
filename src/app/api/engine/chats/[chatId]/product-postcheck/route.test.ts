@@ -16,6 +16,16 @@ const readGenerationOrchestration = vi.hoisted(() => vi.fn());
 const setLlmUsageContext = vi.hoisted(() => vi.fn());
 const upsertAssistantMessageUiPart = vi.hoisted(() => vi.fn(async () => true));
 const pickUserRequestForVersion = vi.hoisted(() => vi.fn(() => "Gör headern blå"));
+const summarizeBrief = vi.hoisted(() =>
+  vi.fn((snapshot?: Record<string, unknown> | null) => {
+    const brief = snapshot?.briefSummary;
+    if (brief && typeof brief === "object" && brief !== null && "projectTitle" in brief) {
+      const title = (brief as { projectTitle?: unknown }).projectTitle;
+      return typeof title === "string" ? title : "";
+    }
+    return "";
+  }),
+);
 
 vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest: getVersion,
@@ -34,7 +44,7 @@ vi.mock("@/lib/gen/verify/product-postcheck", () => ({
 
 vi.mock("@/lib/gen/verify/live-review", () => ({
   pickUserRequestForVersion,
-  summarizeBrief: () => "",
+  summarizeBrief,
 }));
 
 vi.mock("@/lib/gen/verify/live-review-session", () => ({
@@ -88,6 +98,14 @@ describe("POST product-postcheck", () => {
     );
     getLiveReviewRunForVersion.mockResolvedValue(null);
     readGenerationOrchestration.mockResolvedValue(null);
+    summarizeBrief.mockImplementation((snapshot?: Record<string, unknown> | null) => {
+      const brief = snapshot?.briefSummary;
+      if (brief && typeof brief === "object" && brief !== null && "projectTitle" in brief) {
+        const title = (brief as { projectTitle?: unknown }).projectTitle;
+        return typeof title === "string" ? title : "";
+      }
+      return "";
+    });
     beginLiveReviewSession.mockResolvedValue({
       captureEnabled: false,
       claim: null,
@@ -399,6 +417,69 @@ describe("POST product-postcheck", () => {
       expect.objectContaining({ chatId: "chat_1", userId: "user_1" }),
     );
     expect(setLlmUsageContext).toHaveBeenCalledWith(expect.objectContaining({ versionId: "v3" }));
+    expect(finishLiveReviewSession).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ briefSummary: "historical" }),
+    );
+  });
+
+  it("does not feed the critic the chat-global brief when the version brief is empty", async () => {
+    setF2ProductPostcheck(true);
+    beginLiveReviewSession.mockResolvedValue({
+      captureEnabled: true,
+      claim: { kind: "acquired" },
+      earlyResult: null,
+      chatId: "chat_1",
+      versionId: "v1",
+      filesRevision: "rev_a",
+      userId: "user_1",
+    });
+    getVersion.mockResolvedValue({
+      version: {
+        id: "v1",
+        message_id: "msg_v1",
+        version_number: 1,
+        files_json: "[]",
+        files_revision: "rev_a",
+      },
+      chat: {
+        messages: [],
+        orchestration_snapshot: { briefSummary: { projectTitle: "Newest chat brief" } },
+      },
+    });
+    readGenerationOrchestration.mockResolvedValue({
+      snapshot: { lastVersionId: "v1" },
+    });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 8,
+      checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+      domSummary: null,
+    });
+    finishLiveReviewSession.mockResolvedValue({
+      status: "completed",
+      decision: { verdict: "pass", confidence: 0.8, rationale: "ok", reasoning: "", issues: [] },
+      durationMs: 12,
+      modelId: "gpt-4o",
+    });
+
+    await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(finishLiveReviewSession).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ briefSummary: "" }),
+    );
+    expect(summarizeBrief).not.toHaveBeenCalledWith(
+      expect.objectContaining({ briefSummary: { projectTitle: "Newest chat brief" } }),
+    );
   });
 
   it("returns a visible skipped review when the critic throws", async () => {

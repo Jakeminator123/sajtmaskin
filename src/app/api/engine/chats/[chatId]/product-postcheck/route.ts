@@ -315,8 +315,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           scopedVersion.chat?.messages ?? [],
           scopedVersion.version.message_id,
         ),
-        briefSummary:
-          exactBriefSummary || summarizeBrief(scopedVersion.chat?.orchestration_snapshot),
+        briefSummary: exactBriefSummary,
       });
       if (
         liveReviewSession.claim &&

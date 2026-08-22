@@ -357,76 +357,40 @@ export async function getPreviousLiveReviewScreenshots(input: {
   }
   try {
     const exactPreviousVersionId = input.previousVersionId?.trim() || null;
-    if (exactPreviousVersionId) {
-      const exactPreviousFilesRevision = input.previousFilesRevision?.trim() || null;
-      // Without an exact content identity, a same-version in-place repair can
-      // make "latest parent JPEG" refer to different files than the diff.
-      // Fail closed and suppress legacy-log fallback instead of mixing truths.
-      if (!exactPreviousFilesRevision) {
-        return { desktopUrl: null, mobileUrl: null, hasStoredRun: true };
-      }
-      const exactRows = await db
-        .select()
-        .from(liveReviewRuns)
-        .where(
-          and(
-            eq(liveReviewRuns.chatId, input.chatId),
-            eq(liveReviewRuns.versionId, exactPreviousVersionId),
-            eq(liveReviewRuns.filesRevision, exactPreviousFilesRevision),
-            eq(liveReviewRuns.status, "completed"),
-          ),
-        )
-        .orderBy(desc(liveReviewRuns.completedAt));
-      const exact = exactRows.map(mapRow).find((row) => row.desktopUrl || row.mobileUrl);
-      return {
-        desktopUrl: exact?.desktopUrl ?? null,
-        mobileUrl: exact?.mobileUrl ?? null,
-        previousDesktopUrl: exact?.desktopUrl ?? null,
-        previousMobileUrl: exact?.mobileUrl ?? null,
-        // A row with scrubbed URLs is authoritative evidence that its blobs
-        // were deleted. Callers must not resurrect stale URLs from old logs.
-        hasStoredRun: exactRows.length > 0,
-      };
+    // Without an exact parent, "newest other completed run in the chat" can
+    // attach a *newer* version's JPEGs as "previous" (delayed review of v1
+    // after v3 exists). Fail closed instead of inventing a visual regression.
+    if (!exactPreviousVersionId) {
+      return { desktopUrl: null, mobileUrl: null, hasStoredRun: false };
     }
-    const rows = await db
+    const exactPreviousFilesRevision = input.previousFilesRevision?.trim() || null;
+    // Without an exact content identity, a same-version in-place repair can
+    // make "latest parent JPEG" refer to different files than the diff.
+    // Fail closed and suppress legacy-log fallback instead of mixing truths.
+    if (!exactPreviousFilesRevision) {
+      return { desktopUrl: null, mobileUrl: null, hasStoredRun: true };
+    }
+    const exactRows = await db
       .select()
       .from(liveReviewRuns)
       .where(
         and(
           eq(liveReviewRuns.chatId, input.chatId),
+          eq(liveReviewRuns.versionId, exactPreviousVersionId),
+          eq(liveReviewRuns.filesRevision, exactPreviousFilesRevision),
           eq(liveReviewRuns.status, "completed"),
-          or(
-            ne(liveReviewRuns.versionId, input.versionId),
-            ne(liveReviewRuns.filesRevision, input.filesRevision),
-          ),
         ),
-      );
-    const versionIds = [...new Set(rows.map((raw) => raw.versionId))];
-    const versionRows =
-      versionIds.length === 0
-        ? []
-        : await db
-            .select({
-              id: engineVersions.id,
-              versionNumber: engineVersions.versionNumber,
-            })
-            .from(engineVersions)
-            .where(inArray(engineVersions.id, versionIds));
-    const versionNumberById = new Map(
-      versionRows.map((version) => [version.id, version.versionNumber]),
-    );
-    const latest = pickPreviousLiveReviewRun(
-      rows.map((raw) => ({
-        ...mapRow(raw),
-        versionNumber: versionNumberById.get(raw.versionId) ?? null,
-      })),
-    );
+      )
+      .orderBy(desc(liveReviewRuns.completedAt));
+    const exact = exactRows.map(mapRow).find((row) => row.desktopUrl || row.mobileUrl);
     return {
-      desktopUrl: latest?.desktopUrl ?? null,
-      mobileUrl: latest?.mobileUrl ?? null,
-      previousDesktopUrl: latest?.desktopUrl ?? null,
-      previousMobileUrl: latest?.mobileUrl ?? null,
-      hasStoredRun: rows.length > 0,
+      desktopUrl: exact?.desktopUrl ?? null,
+      mobileUrl: exact?.mobileUrl ?? null,
+      previousDesktopUrl: exact?.desktopUrl ?? null,
+      previousMobileUrl: exact?.mobileUrl ?? null,
+      // A row with scrubbed URLs is authoritative evidence that its blobs
+      // were deleted. Callers must not resurrect stale URLs from old logs.
+      hasStoredRun: exactRows.length > 0,
     };
   } catch {
     return { desktopUrl: null, mobileUrl: null, hasStoredRun: false };

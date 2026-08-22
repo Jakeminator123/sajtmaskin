@@ -191,4 +191,51 @@ describe("buildGenerationInputPackage — source receipt", () => {
     expect(pkg.sources).toEqual(sources);
     expect(pkg.sources[0]?.reachedPrompt).toBe(false);
   });
+
+  it("treats omitted variantTemplateReferenceAttachments as an empty list", () => {
+    const pkg = buildGenerationInputPackage(
+      {
+        resolvedScaffold: null,
+        orchestrationContract: {},
+        scaffoldContext: undefined,
+        capabilityHints: undefined,
+        routePlan: { routes: [] },
+        preGenerationContracts: {},
+        capabilities: {},
+        buildSpec: { buildIntent: "website" },
+        serializeMode: null,
+        uiRecipes: [],
+        dossierRequestedCapabilities: [],
+        scaffoldVariantId: null,
+        capabilityModifyHint: null,
+      } as never,
+      { prompt: "Bygg en hero" },
+      {
+        engineSystemPrompt: "system",
+        dynamicContext: "dynamic",
+        dynamicContextPruning: {
+          budgetTokens: 100,
+          usedTokens: 10,
+          droppedBlockKeys: [],
+          keptBlockKeys: [],
+        },
+        dynamicContextBlocks: [],
+        variantId: null,
+        variantSelection: {
+          source: "hash-fallback",
+          score: null,
+          runnerUpScore: null,
+          margin: null,
+          hintId: null,
+          finalId: null,
+          changedFromHint: false,
+        },
+        resolvedDesign: null,
+        variantTemplateId: null,
+        sources: [],
+      } as never,
+    );
+
+    expect(pkg.variantTemplateReferenceAttachments).toEqual([]);
+  });
 });

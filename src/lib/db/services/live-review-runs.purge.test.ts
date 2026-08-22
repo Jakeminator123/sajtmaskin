@@ -402,6 +402,33 @@ describe("getPreviousLiveReviewScreenshots revision binding", () => {
       expect.arrayContaining(["chat_1", "v_parent", "rev_parent_2", "completed"]),
     );
   });
+
+  it("fails closed when no exact parent version is known", async () => {
+    selectWhere.value = [];
+    selectQueue.value = [
+      [
+        runRow({
+          id: "lr_newer",
+          versionId: "v3",
+          filesRevision: "rev_3",
+          desktopUrl: "https://blob.example/v3.jpg",
+        }),
+      ],
+    ];
+
+    await expect(
+      getPreviousLiveReviewScreenshots({
+        chatId: "chat_1",
+        versionId: "v1",
+        filesRevision: "rev_1",
+      }),
+    ).resolves.toEqual({
+      desktopUrl: null,
+      mobileUrl: null,
+      hasStoredRun: false,
+    });
+    expect(selectWhere.value).toEqual([]);
+  });
 });
 
 describe("getLiveReviewRunForVersion revision binding", () => {

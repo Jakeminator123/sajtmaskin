@@ -60,13 +60,18 @@ export function buildGenerationInputPackage(
   finalized: FinalizedOrchestrationContextLike,
 ): GenerationInputPackage {
   const effectiveBrief = base.effectiveBrief ?? input.brief ?? null;
+  const variantTemplateReferenceAttachments = Array.isArray(
+    finalized.variantTemplateReferenceAttachments,
+  )
+    ? finalized.variantTemplateReferenceAttachments
+    : [];
   const lineageHash = computeLineageHash({
     userPrompt: input.prompt,
     // The final prompt is the definitive fan-in: UI recipes, dossier text,
     // Tier-3 requirements, media catalog and pruning decisions all land here.
     engineSystemPrompt: finalized.engineSystemPrompt,
     referenceAttachments: [
-      ...finalized.variantTemplateReferenceAttachments,
+      ...variantTemplateReferenceAttachments,
       ...(input.requestAttachments ?? []),
     ],
     sources: finalized.sources ?? [],
@@ -113,7 +118,7 @@ export function buildGenerationInputPackage(
     variantSelection: finalized.variantSelection,
     resolvedDesign: finalized.resolvedDesign,
     variantTemplateId: finalized.variantTemplateId,
-    variantTemplateReferenceAttachments: finalized.variantTemplateReferenceAttachments,
+    variantTemplateReferenceAttachments,
     sources: finalized.sources ?? [],
     importedRepoMode: input.importedRepoMode === true,
     importedRepoContractHashes: input.importedRepoContractContext

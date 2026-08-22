@@ -203,4 +203,40 @@ describe("version-bound orchestration", () => {
     });
     await expect(readGenerationBaseVersionId("v2", readTelemetry as never)).resolves.toBe("v1");
   });
+
+  it("does not let a sparse later snapshot shadow the complete generation row", async () => {
+    const rows = [
+      {
+        scaffoldId: "landing-page",
+        meta: {
+          orchestrationSnapshot: {
+            lastVersionId: "v2",
+            capturedAt: "2026-08-22T16:00:00.000Z",
+          },
+        },
+      },
+      {
+        scaffoldId: "landing-page",
+        variantId: "editorial-lux",
+        meta: {
+          orchestrationSnapshot: {
+            lastVersionId: "v2",
+            scaffoldId: "landing-page",
+            variantId: "editorial-lux",
+            briefSummary: { projectTitle: "Generation brief" },
+            resolvedDesign: { palette: "blue" },
+          },
+        },
+      },
+    ];
+    const readTelemetry = vi.fn(async () => rows);
+
+    await expect(readGenerationOrchestration("v2", readTelemetry as never)).resolves.toMatchObject({
+      source: "version-telemetry",
+      snapshot: {
+        briefSummary: { projectTitle: "Generation brief" },
+        variantId: "editorial-lux",
+      },
+    });
+  });
 });
