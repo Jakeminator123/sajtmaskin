@@ -41,6 +41,30 @@ describe("renderScaffoldVariantBlock — compact follow-up form", () => {
 });
 
 describe("renderScaffoldVariantBlock — theme token CSS contract", () => {
+  it("renders starter-neutral as dark with its exact curated tokens", () => {
+    const variant = getVariantById("base-nextjs", "starter-neutral");
+    if (!variant) throw new Error("starter-neutral variant not registered");
+
+    const full = renderScaffoldVariantBlock(variant).join("\n");
+
+    expect(full).toContain("- **Color mode:** dark");
+    expect(full).toContain("--color-background: oklch(0.15 0.004 0)");
+    expect(full).toContain("--color-foreground: oklch(0.95 0.004 0)");
+    expect(full).toContain("--color-primary: oklch(0.58 0.16 258)");
+  });
+
+  it.each(["fresh-mint", "studio-soft"])(
+    "keeps the explicit light alternative %s in the codegen prompt",
+    (variantId) => {
+      const variant = getVariantById("base-nextjs", variantId);
+      if (!variant) throw new Error(`${variantId} variant not registered`);
+
+      expect(renderScaffoldVariantBlock(variant).join("\n")).toContain(
+        "- **Color mode:** light",
+      );
+    },
+  );
+
   it("tells the model to write --color-* tokens into @theme inline", () => {
     const variant = getVariantById("landing-page", "futuristic-investment-landing");
     if (!variant) throw new Error("futuristic-investment-landing not registered");
