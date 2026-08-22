@@ -84,6 +84,8 @@ module.exports = {
     readRegeneratedLockfile: packageInstall.readRegeneratedLockfile,
     htmlLooksLikeBuildError: processLifecycle.htmlLooksLikeBuildError,
     waitForReady: processLifecycle.waitForReady,
+    clearStaleNextDevLock: processLifecycle.clearStaleNextDevLock,
+    stopTrackedRuntime: processLifecycle.stopTrackedRuntime,
     runInstallCommand: packageInstall.runInstallCommand,
     tryShareNodeModules: packageInstall.tryShareNodeModules,
     workspaceDirForChat: shared.workspaceDirForChat,

@@ -188,7 +188,10 @@ export async function finishLiveReviewSession(
         result.reason === "cost_capped"));
   if (!paid) {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
-    await (deps.abandonRun ?? abandonLiveReviewRun)(session.claim.row.id);
+    await (deps.abandonRun ?? abandonLiveReviewRun)(
+      session.claim.row.id,
+      session.claim.row.claimedAt,
+    );
     return result;
   }
 
@@ -199,7 +202,16 @@ export async function finishLiveReviewSession(
     modelAttempts: attempts,
   });
 
-  if (persisted && result.status === "completed" && session.filesRevision) {
+  if (!persisted) {
+    await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
+    await (deps.abandonRun ?? abandonLiveReviewRun)(
+      session.claim.row.id,
+      session.claim.row.claimedAt,
+    );
+    return result;
+  }
+
+  if (result.status === "completed" && session.filesRevision) {
     await (deps.deletePreviousBlobs ?? deletePreviousLiveReviewBlobs)({
       chatId: session.chatId,
       keepVersionId: session.versionId,
