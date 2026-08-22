@@ -110,7 +110,7 @@ Skriptet: [`scripts/dev/clean-scratch.mjs`](../../scripts/dev/clean-scratch.mjs)
 | Yta                                                                      | Policy                                                   |
 | ------------------------------------------------------------------------ | -------------------------------------------------------- |
 | `.tmp`, `.pytest_cache`, `.cursor/tmp`, `.eslintcache`                   | Wipe (rensas helt)                                       |
-| `.cursor/handoffs`, `kedja`, `bugs`, `logg-internet/runs`, `swarms/runs` | Hårt antalstak: 3 nyaste, ingen åldersflykt              |
+| `.cursor/handoffs`, `kedja`, `bugs`, `logg-internet/runs`, `swarms/runs` | Hårt antalstak: 3 nyaste, plus radera >14 dagar även under taket |
 | `logs/` **mappar** (t.ex. `hydration-*`)                                 | Hårt antalstak: **2** nyaste, ingen åldersflykt          |
 | `logs/` **lösa filer** (`tmp-*`, `dump-*`, `*.log`-artefakter m.m.)      | Wipe — inget referensvärde                               |
 | `logs/generationslogg`, `site-observability`, `llm-segmentts-and-index`  | Orörda här — egen retention i `generation-log-writer`    |

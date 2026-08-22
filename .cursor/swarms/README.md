@@ -22,7 +22,7 @@ Lokal **rapportfabrik** för `/automat` — sekventiella read-only audit-svärma
 
 - **`FINDINGS.md`** = den enda lista du behöver titta i. En destill-agent kuraterar varje scan-runda hit och behåller bara de mest värdefulla fynden (dedupar mot fil:rad-ankare). Källa-tag: `A#<n>` (automat).
 - **Status ligger i id:t.** `A#12` = overifierat, `A#12✔` = har överlevt en falsifieringsrunda (en agent försökte motbevisa det och misslyckades). Fynd som falsifierades **raderas** ur listan; motiveringen finns kvar i rundans `index.md`.
-- **`runs/`** = rå hög-volym-output. Behåll för spårbarhet; kan rensas när som helst. `npm run clean:scratch:apply` håller de tre nyaste rundorna och tar bort resten. `npm run hygiene` kör dry-run av samma sak (tar inte bort förrän du kör `:apply`).
+- **`runs/`** = rå hög-volym-output. Behåll för spårbarhet; kan rensas när som helst. `npm run clean:scratch:apply` håller de tre nyaste rundorna och raderar både överskott och rundor äldre än 14 dagar. `npm run hygiene` kör dry-run av samma sak (tar inte bort förrän du kör `:apply`). Kör apply efter `/automat` så taket slår till när nya rundor kommer in.
 
 ## Relation till den kanoniska bugglistan
 

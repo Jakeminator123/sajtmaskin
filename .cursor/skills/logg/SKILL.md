@@ -149,8 +149,10 @@ node scripts/db/dump-logs.mjs --json `
    eller ingest inte konfigurerad): falla tillbaka till
 
 ```powershell
-vercel logs https://sajtmaskin.vercel.app --json | Set-Content -Encoding utf8 .cursor/tmp-app-runtime.jsonl
+vercel logs https://sajtmaskin.vercel.app --json | Set-Content -Encoding utf8 .cursor/tmp/app-runtime.jsonl
 ```
+
+   Scratch hör hemma i `.cursor/tmp/`, aldrig som `.cursor/tmp-*` i `.cursor/`-roten.
 
    och skriv i rapporten `App-console: vercel logs (drain tom/ej aktiv)`.
    En tom lyckad query betyder **inte** att drainen är aktiv — tabellen kan

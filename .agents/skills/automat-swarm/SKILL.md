@@ -43,7 +43,7 @@ Status lives in the `A#` id itself, so `FINDINGS.md` needs no new column: `A#12`
 1. **Pick lanes.** Take the next 8 lanes from the rotation cursor (wrap around the table). Round 1 = lanes 1–8, round 3 = lanes 9–13 then 1–3, etc. If agents `K` ≠ 8, map `K` agents to lanes (split a lane into sub-areas when `K` > lane count). Honor any lane override from the message.
 2. **Resolve paths.** For each lane, get exact repo paths from [`repo-router.mdc`](../../../.cursor/rules/repo-router.mdc) so subagents look in the right place.
 3. **Launch the swarm.** In **one** assistant turn, fire 8 parallel `Task` calls (`subagent_type: explore`, `readonly: true`, `model: <grok-4.5>`), one lane each, using the scan prompt below.
-4. **Persist raw reports.** Write each returned report verbatim to `.cursor/swarms/runs/<YYYY-MM-DD_HHMM>/r<r>-<lane-slug>.md`.
+4. **Persist raw reports.** Write each returned report verbatim to `.cursor/swarms/runs/<YYYY-MM-DD_HHMM>/r<r>-<lane-slug>.md`. Then `npm run clean:scratch:apply` so `runs/` stays at the 3 newest / ≤14 days.
 5. **Distill via one subagent, not yourself.** Fire a single `Task` (`explore`, `readonly: true`, `<grok-4.5>`) pointed at `runs/<ts>/r<r>-*.md` **and** `.cursor/swarms/FINDINGS.md`, asking for **at most 5** new high-value findings that are not already in `FINDINGS.md` (value filter below), each returned as one finished table row. Write those rows and assign `A#<n>` ids. Doing the cross-round merge this way keeps the growing `FINDINGS.md` and every earlier round out of your own context — you never re-read them.
 6. **Round note.** Update `runs/<ts>/index.md` with one line per lane (top pick + confidence).
 

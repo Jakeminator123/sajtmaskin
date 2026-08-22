@@ -24,8 +24,6 @@
 # via sökning eller filläsning.
 .env
 .env.*
-!.env.example
-!.env.*.example
 OLD.env*
 env.vercel*.local
 *.env.backup

@@ -17,7 +17,7 @@ Lokal **notis-yta** för `/logg-internet` — live prod-sessioner där agenten k
     YYYY-MM-DD_HHMM.md          # en notis-fil per session (persona, prompts, observationer, ev. logg-korsref)
 ```
 
-`npm run clean:scratch:apply` håller de tre nyaste notis-filerna i `runs/` och tar bort resten oavsett ålder. Vill du behålla en observation längre: lyft den till en plan-, backlog- eller docs-rad — notis-filen är en arbetsyta, inte ett arkiv.
+`npm run clean:scratch:apply` håller de tre nyaste notis-filerna i `runs/` och raderar både överskott och poster äldre än 14 dagar. Vill du behålla en observation längre: lyft den till en plan-, backlog- eller docs-rad — notis-filen är en arbetsyta, inte ett arkiv. Kör apply efter en session så taket slår till när nya filer kommer in.
 
 ## Kör
 
