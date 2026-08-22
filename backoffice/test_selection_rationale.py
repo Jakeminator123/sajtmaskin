@@ -80,6 +80,31 @@ class SelectionRationaleVariantTraceTest(unittest.TestCase):
         self.assertEqual(authority["explicitDesignAxes"], ["style", "typography"])
         self.assertEqual(authority["explicitDesignFields"], ["typography.headings"])
 
+    def test_empty_variant_selection_is_not_a_decision(self) -> None:
+        self.assertIsNone(selection_rationale._variant_authority_from_meta({"variantSelection": {}}))
+        self.assertIsNone(
+            selection_rationale._variant_authority_from_meta(
+                {"variantSelection": {"score": None, "margin": None}}
+            )
+        )
+
+    def test_dump_rows_include_resolved_design_provenance(self) -> None:
+        rows = selection_rationale._resolved_design_dump_rows(
+            {
+                "variantId": "editorial-lux",
+                "explicitAxes": ["style", "palette"],
+                "explicitFields": ["palette.accent"],
+                "colorMode": {"value": "dark", "source": "brief", "locked": True},
+                "qualityBar": {"value": "premium"},
+            }
+        )
+        by_field = {row["fält"]: row["värde"] for row in rows}
+        self.assertEqual(by_field["variantId"], "editorial-lux")
+        self.assertEqual(by_field["explicitAxes"], "style, palette")
+        self.assertEqual(by_field["explicitFields"], "palette.accent")
+        self.assertEqual(by_field["colorMode"], "dark")
+        self.assertEqual(by_field["qualityBar"], "premium")
+
 
 if __name__ == "__main__":
     unittest.main()

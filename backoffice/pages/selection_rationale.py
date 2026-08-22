@@ -232,6 +232,12 @@ def _variant_authority_from_meta(meta: Any) -> dict[str, Any] | None:
     selection = meta.get("variantSelection")
     if not isinstance(selection, dict):
         return None
+    has_decision = any(
+        str(selection.get(key) or "").strip()
+        for key in ("source", "finalId", "hintId")
+    )
+    if not has_decision:
+        return None
     resolved_design = meta.get("resolvedDesign")
     raw_axes = (
         resolved_design.get("explicitAxes")
@@ -258,6 +264,37 @@ def _variant_authority_from_meta(meta: Any) -> dict[str, Any] | None:
         "explicitDesignAxes": axes,
         "explicitDesignFields": fields,
     }
+
+
+def _resolved_value(value: Any) -> Any:
+    if isinstance(value, dict) and "value" in value:
+        return value.get("value")
+    return value
+
+
+def _resolved_design_dump_rows(resolved_design: Any) -> list[dict[str, str]]:
+    """Flatten persisted design provenance for the dump panel."""
+    if not isinstance(resolved_design, dict) or not resolved_design:
+        return []
+    raw_axes = resolved_design.get("explicitAxes")
+    raw_fields = resolved_design.get("explicitFields")
+    axes = (
+        [str(axis).strip() for axis in raw_axes if str(axis).strip()]
+        if isinstance(raw_axes, list)
+        else []
+    )
+    fields = (
+        [str(field).strip() for field in raw_fields if str(field).strip()]
+        if isinstance(raw_fields, list)
+        else []
+    )
+    return [
+        {"fält": "variantId", "värde": _txt(resolved_design.get("variantId"))},
+        {"fält": "explicitAxes", "värde": ", ".join(axes) if axes else "—"},
+        {"fält": "explicitFields", "värde": ", ".join(fields) if fields else "—"},
+        {"fält": "colorMode", "värde": _txt(_resolved_value(resolved_design.get("colorMode")))},
+        {"fält": "qualityBar", "värde": _txt(_resolved_value(resolved_design.get("qualityBar")))},
+    ]
 
 
 def _txt(value: Any) -> str:
@@ -333,6 +370,15 @@ def _render_scaffold_dump_panel(dump: dict[str, Any] | None) -> None:
                     {"fält": "margin", "värde": _txt(variant_selection.get("margin"))},
                 ]
             ),
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    resolved_design_rows = _resolved_design_dump_rows(payload.get("resolvedDesign"))
+    if resolved_design_rows:
+        st.markdown("**Resolved design (proveniens)**")
+        st.dataframe(
+            pd.DataFrame(resolved_design_rows),
             hide_index=True,
             use_container_width=True,
         )
