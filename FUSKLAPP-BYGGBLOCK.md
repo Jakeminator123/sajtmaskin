@@ -60,7 +60,38 @@ Kopplade dossiers måste dessutom ha `providers` och (nästan alltid) `mock`.
 Valfritt: `envVars[]` (med `enforcement` och `setupUrl`), `dependencies` (npm), `files[]`
 (med `role: client/shared/server`), `exposes` (komponenter LLM:en får importera),
 `summarySv` (svensk UI-text), `relevanceKeywords` (uttrycklig leverantörsträff),
-`defaultForCapability`. Fullt schema: [`docs/schemas/strict/dossier.schema.json`](docs/schemas/strict/dossier.schema.json).
+`defaultForCapability` och `promptInstructionMode` (hur mycket av `instructions.md`
+som når byggmodellen). Fullt schema:
+[`docs/schemas/strict/dossier.schema.json`](docs/schemas/strict/dossier.schema.json).
+
+## Används schemat faktiskt?
+
+Ja. `docs/schemas/strict/dossier.schema.json` är inte bara dokumentation:
+
+1. `src/lib/gen/dossiers/validate-manifest.ts` importerar och kompilerar det med AJV.
+2. Runtime-registret utesluter ett manifest som inte klarar valideringen.
+3. Backoffice validerar mot samma fil före skrivning/promotion och läser enumvärden därifrån.
+4. `$schema` i manifesten ger editor-autocomplete och inline-validering.
+5. `npm run dossiers:validate-all` och CI lägger på korsmanifestregler som JSON Schema
+   inte kan uttrycka, till exempel unikt defaultval och fungerande mock-fallback.
+
+Schemat äger **formen**. TypeScript-typer, validatorns extraregler och runtimekod
+äger den fulla semantiken. Vid motsägelse vinner körbar kod; driften ska sedan lagas.
+
+## D2, D3 och D4 — den kvarvarande kvalitetskedjan
+
+Det fungerande produktflödet behöver inte vänta på dessa. De är en strikt
+sekventiell förbättring av manifest- och promptkontraktet:
+
+| Steg | Vad det betyder | Varför |
+|---|---|---|
+| **D2** | Inför valfria `configInputs` (värden användaren fyller i hos Sajtmaskin) och `providerSetup` (handgrepp hos leverantören). `envVars` fortsätter äga configured/readiness tills en uttrycklig migration beslutas. | Skiljer fält från instruktioner utan att skapa en andra konfigurationssanning. |
+| **D3** | Samla det en Kopplad dossier bidrar med till prompten i en intern representation, `HardDossierIntegration`. Ingen ny agent eller pipelinefas. | Gör provider-, env-, setup-, mock- och filinstruktioner läsbara och testbara på ett ställe. |
+| **D4** | Ge alla nio hard-dossiers `selected-sections`, med verifierade rubrikerna `When to use`, `How to integrate` och `Avoid`. | Gör att de kuraterade gör/gör-inte-reglerna faktiskt når byggmodellen. |
+
+Ordningen är **D2 → D3 → D4**. Knappen ”Bygg integrationer” ska inte tas bort,
+och `SELECTED_SECTION_CHAR_CAP = 480` ska lämnas oförändrad: taket gäller per
+rubrik så att `Avoid` inte svälts ut.
 
 ## Nycklarnas tre kravnivåer (`envVars[].enforcement`)
 
@@ -82,8 +113,17 @@ Valfritt: `envVars[]` (med `enforcement` och `setupUrl`), `dependencies` (npm), 
 
 ## Status i Byggblock-panelen (per version, rapportering — inte deploybevis)
 
-`Planerad` → `Blockerad — nyckel krävs` → `Byggd — demo aktiv` → `Byggd — live`, samt
-`Inkopplad` för det som är klart utan integrationsrunda. Ägare: `resolveDossierLifecycle()`.
+Statusen är en härledd projektion, inte en linjär state machine:
+
+| Intern status | UI-label |
+|---|---|
+| `planned` | Inte byggd än |
+| `blocked-build` | Nyckel krävs |
+| `built-demo` | Demo |
+| `built-live` | Live |
+| `self-contained` | Klar |
+
+Ägare: `resolveDossierLifecycle()` för status och `describeDossierStatus()` för orden.
 
 ## Beroenden mellan capabilities
 
@@ -98,9 +138,11 @@ databas är en egen capability med eget byggblock.
 | Fakta | Kanonisk ägare |
 |---|---|
 | Allt om ett byggblock | `data/dossiers/<klass>/<id>/manifest.json` |
+| Manifestets maskinläsbara form | `docs/schemas/strict/dossier.schema.json` + `validate-manifest.ts` |
 | Vilka som väljs och varför | `src/lib/gen/dossiers/select.ts` |
 | Kräver integrationsbygge-regeln | `dossierRequiresF3()` i `src/lib/gen/dossiers/types.ts` |
-| Svenska UI-orden | `src/lib/builder/dossier-axes.ts` (+ spegel i backoffice) |
+| Instruktioner som når modellen | `src/lib/gen/system-prompt/sections/dossiers.ts` + `promptInstructionMode` |
+| Svenska UI-orden | `src/lib/builder/dossier-axes.ts` och `dossier-overview.ts` (+ spegel i backoffice) |
 | Statusregeln | `src/lib/gen/dossiers/lifecycle.ts` |
 | Grupperna | `src/lib/builder/dossier-groups.ts` |
 | Hela kontraktet i prosa | [`docs/contracts/dossier-system.md`](docs/contracts/dossier-system.md) |
