@@ -44,6 +44,7 @@ function makeIframeRef(src = TIER2_URL) {
   const iframe = {
     src,
     getAttribute: vi.fn((name: string) => (name === "src" ? src : null)),
+    setAttribute: vi.fn(),
   } as unknown as HTMLIFrameElement;
   return { current: iframe };
 }
@@ -219,6 +220,28 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(result.current.iframeLoading).toBe(false);
     expect(result.current.iframeError).toBe(true);
     expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
+    expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+  });
+
+  it("explicitly reloads the decorated controlled src and keeps the readiness gate closed", () => {
+    const decoratedSrc = `${TIER2_URL}?__sm_viewer=viewer_1`;
+    const iframeRef = makeIframeRef(decoratedSrc);
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => {
+      expect(result.current.reloadControlledPreview()).toBe(true);
+    });
+
+    expect(iframeRef.current?.setAttribute).toHaveBeenCalledWith("src", decoratedSrc);
+    act(() => vi.advanceTimersByTime(97_999));
+    expect(result.current.iframeLoading).toBe(true);
+    expect(result.current.iframeError).toBe(false);
+    expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
+
+    act(() => vi.advanceTimersByTime(1));
+    expect(result.current.iframeLoading).toBe(false);
+    expect(result.current.iframeError).toBe(true);
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
 

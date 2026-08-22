@@ -102,6 +102,12 @@ function assertInstalledNextViewerContract() {
 }
 
 assertInstalledNextViewerContract();
+const flyConfig = readFileSync(new URL("../fly.toml", import.meta.url), "utf8");
+assert.match(
+  flyConfig,
+  /^\s*SAJTMASKIN_APP_ORIGINS\s*=\s*"https:\/\/sajtmaskin\.vercel\.app,https:\/\/sajtmaskin\.se,https:\/\/www\.sajtmaskin\.se,https:\/\/sajtmaskin\.com,https:\/\/www\.sajtmaskin\.com"\s*$/m,
+  "Fly deploy pins every exact trusted builder parent origin required by the route bridge",
+);
 if (NEXT_SOURCE_ONLY) {
   console.log("[test-preview-proxy-contract] Next source contract green.");
   process.exit(0);
@@ -112,7 +118,7 @@ process.env.PREVIEW_HOST_DATA_DIR = dataDir;
 process.env.HOST = "127.0.0.1";
 process.env.PREVIEW_BASE_URL = "http://127.0.0.1:0000";
 process.env.SAJTMASKIN_PREVIEW_HMR_PROXY = "true";
-process.env.SAJTMASKIN_APP_ORIGIN = "https://app.example";
+process.env.SAJTMASKIN_APP_ORIGINS = "https://app.example,https://secondary.example";
 
 let upstreamUpgradeHits = 0;
 let lastUpstreamHeaders = null;
@@ -549,7 +555,7 @@ function openStreamingGet(pathname, headers = {}) {
 
 function extractBootstrapTag(body) {
   const match = body.match(
-    /<script data-sajtmaskin-preview-bootstrap data-document-id="([^"]+)" data-storage-key="([^"]+)" data-chat-path="([^"]+)" data-preview-session-id="([^"]*)" data-version-id="([^"]*)" data-app-origin="([^"]*)" src="([^"]+)"(?: nonce="([^"]+)")?><\/script>/,
+    /<script data-sajtmaskin-preview-bootstrap data-document-id="([^"]+)" data-storage-key="([^"]+)" data-chat-path="([^"]+)" data-preview-session-id="([^"]*)" data-version-id="([^"]*)" data-app-origins="([^"]*)" src="([^"]+)"(?: nonce="([^"]+)")?><\/script>/,
   );
   assert.ok(match, "successful document HTML contains the host bootstrap tag");
   return {
@@ -559,7 +565,7 @@ function extractBootstrapTag(body) {
     chatPath: match[3],
     previewSessionId: match[4],
     versionId: match[5],
-    appOrigin: match[6],
+    appOrigins: match[6],
     bootstrapSrc: match[7],
     nonce: match[8] ?? "",
     index: match.index,
@@ -571,7 +577,7 @@ async function executePreviewBootstrap({
   browserUrl,
   sessionStorage,
   mintedUuid,
-  appOriginOverride,
+  appOriginsOverride,
 }) {
   const tag = extractBootstrapTag(page.body);
   const bootstrapResponse = await rawGet(tag.bootstrapSrc);
@@ -608,7 +614,7 @@ async function executePreviewBootstrap({
         "data-chat-path": tag.chatPath,
         "data-preview-session-id": tag.previewSessionId,
         "data-version-id": tag.versionId,
-        "data-app-origin": appOriginOverride ?? tag.appOrigin,
+        "data-app-origins": appOriginsOverride ?? tag.appOrigins,
         nonce: tag.nonce,
       }[name] ?? null;
     },
@@ -1077,7 +1083,10 @@ try {
   );
   assert.equal(firstBootstrapTag.previewSessionId, originSession.previewSessionId);
   assert.equal(firstBootstrapTag.versionId, originSession.versionId);
-  assert.equal(firstBootstrapTag.appOrigin, "https://app.example");
+  assert.equal(
+    firstBootstrapTag.appOrigins,
+    "https://app.example,https://secondary.example",
+  );
   assert.equal(
     firstBootstrapTag.nonce,
     "preview-test",
@@ -1108,7 +1117,7 @@ try {
     "?category=boots&inspect=1",
     "inspect remains available across hard reload/MPA while upstream SSR stays clean",
   );
-  assert.deepEqual(firstBrowser.routeMessages, [
+  assert.deepEqual(JSON.parse(JSON.stringify(firstBrowser.routeMessages)), [
     {
       targetOrigin: "https://app.example",
       data: {
@@ -1122,19 +1131,32 @@ try {
         },
       },
     },
+    {
+      targetOrigin: "https://secondary.example",
+      data: {
+        type: "sajtmaskin:preview:route-change",
+        source: "sajtmaskin-preview-host",
+        payload: {
+          href: `${hostBase}/${originSession.chatId}/products?category=boots&inspect=1#details`,
+          previewSessionId: originSession.previewSessionId,
+          versionId: originSession.versionId,
+          viewerId: viewerA,
+        },
+      },
+    },
   ], "bootstrap reports the initial cleaned route even when inspector injection is independent");
-  for (const invalidAppOrigin of ["", "not a URL", "data:text/plain,opaque"]) {
+  for (const invalidAppOrigins of ["", "not a URL", "data:text/plain,opaque"]) {
     const failClosedBrowser = await executePreviewBootstrap({
       page: viewerDecoratedPage,
       browserUrl: `${hostBase}/${originSession.chatId}/products?__sm_viewer=${viewerA}`,
       sessionStorage: new Map(),
       mintedUuid: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-      appOriginOverride: invalidAppOrigin,
+      appOriginsOverride: invalidAppOrigins,
     });
     assert.deepEqual(
       failClosedBrowser.routeMessages,
       [],
-      `bootstrap does not broadcast route identity for invalid app origin ${JSON.stringify(invalidAppOrigin)}`,
+      `bootstrap does not broadcast route identity for invalid app origins ${JSON.stringify(invalidAppOrigins)}`,
     );
   }
   assert.equal(

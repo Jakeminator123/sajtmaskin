@@ -263,6 +263,51 @@ export function usePreviewIframe(params: {
     startTier2StatusPolling,
   ]);
 
+  const reloadControlledPreview = useCallback(() => {
+    const iframe = iframeRef.current;
+    const controlledSrc = iframe?.getAttribute("src");
+    if (!iframe || !controlledSrc) return false;
+
+    clearPreviewReadyTimer();
+    setIframeLoading(true);
+    setIframeError(false);
+    setIframeErrorMessage(null);
+    setIframeDiagnosticCode(null);
+
+    if (!isOwnEnginePreview && previewUrl && isTier2LivePreviewUrl(previewUrl)) {
+      const previewSessionId = activePreviewSessionId?.trim() ?? "";
+      const identity = JSON.stringify([
+        chatId ?? "",
+        versionId ?? "",
+        previewSessionId,
+        previewUrl,
+        refreshToken ?? 0,
+      ]);
+      tier2LoadedFrameIdentityRef.current = null;
+      tier2LoadIdentityRef.current = identity;
+      tier2LoadTimerRef.current = window.setTimeout(
+        () => failTier2Ready(identity),
+        TIER2_LOAD_TIMEOUT_MS,
+      );
+    }
+
+    // A controlled URL is often unchanged after SPA navigation. React will
+    // therefore not write the src again, so explicitly reload the exact
+    // decorated URL (including viewer/refresh parameters).
+    iframe.setAttribute("src", controlledSrc);
+    return true;
+  }, [
+    activePreviewSessionId,
+    chatId,
+    clearPreviewReadyTimer,
+    failTier2Ready,
+    iframeRef,
+    isOwnEnginePreview,
+    previewUrl,
+    refreshToken,
+    versionId,
+  ]);
+
   const handleIframeLoad = useCallback(() => {
     if (!isOwnEnginePreview && previewUrl && isTier2LivePreviewUrl(previewUrl)) {
       const previewSessionId = activePreviewSessionId?.trim() ?? "";
@@ -396,5 +441,6 @@ export function usePreviewIframe(params: {
     setIframeDiagnosticCode,
     clearPreviewReadyTimer,
     handleIframeLoad,
+    reloadControlledPreview,
   };
 }
