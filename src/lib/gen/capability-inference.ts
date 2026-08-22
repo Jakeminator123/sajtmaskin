@@ -158,6 +158,7 @@ const RULES: CapabilityRule[] = [
       /\bkassa\b/i,
       /\b(betalningsfl(o|ö)de|betalningsl(o|ö)sning|payment.?flow|checkout.?flow)\b/i,
       /\b(card.?payment|kortbetalning|kortköp|kreditkort)\b/i,
+      /\b(engångsbetalning|one[- ](?:off|time) payment)\b/i,
       // "betala med kort/swish/klarna/kreditkort/visa/mastercard"
       /\bbetala\s+med\s+(kort|kreditkort|swish|klarna|stripe|paypal|visa|mastercard|apple\s*pay|google\s*pay)\b/i,
       // "köp(a) med kort/online/checkout" — narrow noun-list

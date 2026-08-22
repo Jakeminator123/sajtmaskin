@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { inferPreGenerationContracts } from "./pre-generation-contracts";
-import type { InferredCapabilities } from "../capability-inference";
+import {
+  inferCapabilities,
+  type InferredCapabilities,
+} from "../capability-inference";
 
 const baseCaps = (over: Partial<InferredCapabilities> = {}): InferredCapabilities => ({
   needsMotion: false,
@@ -21,6 +24,50 @@ const baseCaps = (over: Partial<InferredCapabilities> = {}): InferredCapabilitie
 });
 
 describe("inferPreGenerationContracts — preview-first defaults", () => {
+  it.each([
+    "Add recurring billing for the premium plan",
+    "Subscription page for members",
+    "En medlemskapssida med återkommande betalning",
+  ])("keeps recurring-only intent out of payment contracts: %s", (prompt) => {
+    const capabilities = inferCapabilities(prompt);
+    const ctx = inferPreGenerationContracts({
+      prompt,
+      buildIntent: "website",
+      capabilities,
+    });
+
+    expect(capabilities.needsPayments).toBe(false);
+    expect(ctx.contracts.paymentProvider).toBeUndefined();
+    expect(ctx.contracts.integrations).not.toContainEqual(
+      expect.objectContaining({ provider: "Stripe" }),
+    );
+    expect(ctx.contracts.envVars).not.toContainEqual(
+      expect.objectContaining({ key: expect.stringContaining("STRIPE") }),
+    );
+  });
+
+  it.each([
+    "Stripe checkout",
+    "Lägg till en kassa",
+    "Ta emot en engångsbetalning för kursen",
+  ])("keeps explicit one-off payment intent on Stripe contracts: %s", (prompt) => {
+    const capabilities = inferCapabilities(prompt);
+    const ctx = inferPreGenerationContracts({
+      prompt,
+      buildIntent: "website",
+      capabilities,
+    });
+
+    expect(capabilities.needsPayments).toBe(true);
+    expect(ctx.contracts.paymentProvider).toBe("Stripe");
+    expect(ctx.contracts.integrations).toContainEqual(
+      expect.objectContaining({ provider: "Stripe" }),
+    );
+    expect(ctx.contracts.envVars).toContainEqual(
+      expect.objectContaining({ key: "STRIPE_SECRET_KEY" }),
+    );
+  });
+
   it("keeps visual-only 3D follow-ups free from backend/auth/payment contracts despite negated keywords", () => {
     const ctx = inferPreGenerationContracts({
       prompt:
