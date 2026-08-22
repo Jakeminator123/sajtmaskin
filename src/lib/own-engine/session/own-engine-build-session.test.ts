@@ -3,8 +3,10 @@ import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
 import {
-  buildOwnEngineGenerationStreamMeta,
-} from "./own-engine-build-session";
+  buildFollowUpBriefFromSnapshot,
+  buildPersistedOrchestrationSnapshot,
+} from "@/lib/gen/orchestration-snapshot";
+import { buildOwnEngineGenerationStreamMeta } from "./own-engine-build-session";
 
 const strategyMeta: PromptStrategyMeta = {
   strategy: "direct",
@@ -139,6 +141,16 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
     expect("scaffoldLabel" in meta).toBe(false);
   });
 
+  it("carries the exact follow-up base version into finalize telemetry", () => {
+    const meta = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "follow-up",
+      baseVersionId: "ver_selected",
+    });
+
+    expect(meta.baseVersionId).toBe("ver_selected");
+  });
+
   it("uses canonical requested dossier capabilities, not selected dossier capabilities", () => {
     const meta = buildOwnEngineGenerationStreamMeta({
       ...common,
@@ -215,9 +227,14 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
         domainProfile: "hospitality",
         motionLevel: "lively",
         qualityBar: "premium",
+        designIntent: {
+          explicitAxes: ["style", "palette"],
+          explicitFields: ["palette.primary", "palette.background", "palette.text"],
+        },
         toneAndVoice: ["varm", "välkomnande"],
         visualDirection: {
           styleKeywords: ["warm", "editorial"],
+          colorMode: "light",
           colorPalette: {
             primary: "#f59e0b",
             background: "#fff7ed",
@@ -239,6 +256,9 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
       qualityBar: "premium",
       toneKeywords: ["varm", "välkomnande"],
       styleKeywords: ["warm", "editorial"],
+      colorMode: "light",
+      explicitDesignAxes: ["style", "palette"],
+      explicitDesignFields: ["palette.primary", "palette.background", "palette.text"],
       colorPalette: {
         primary: "#f59e0b",
         background: "#fff7ed",
@@ -249,6 +269,110 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
         body: "humanist sans",
       },
     });
+  });
+
+  it("round-trips Deep Brief identity and explicit design fields into the next follow-up", () => {
+    const streamMeta = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "new-chat",
+      chatPrivacy: "private",
+      scaffoldLabel: null,
+      metaBriefApplied: true,
+      metaBrief: {
+        projectTitle: "Hotel Solskenet",
+        brandName: "Solskenet",
+        domainProfile: "hospitality",
+        motionLevel: "lively",
+        qualityBar: "premium",
+        toneAndVoice: ["varm", "välkomnande"],
+        designIntent: {
+          explicitAxes: ["style", "palette", "typography"],
+          explicitFields: [
+            "palette.primary",
+            "palette.background",
+            "palette.text",
+            "typography.headings",
+          ],
+        },
+        visualDirection: {
+          styleKeywords: ["warm", "editorial"],
+          colorMode: "light",
+          colorPalette: {
+            primary: "#f59e0b",
+            background: "#fff7ed",
+            text: "#1f1308",
+          },
+          typography: {
+            headings: "serif editorial",
+            body: "humanist sans",
+          },
+        },
+      },
+    });
+    const persisted = buildPersistedOrchestrationSnapshot({
+      streamMeta,
+      versionId: "ver_init",
+      chatId: "chat_1",
+      buildIntent: "website",
+    });
+
+    expect(persisted).toMatchObject({
+      lastVersionId: "ver_init",
+      lastChatId: "chat_1",
+      briefApplied: true,
+    });
+    expect(buildFollowUpBriefFromSnapshot(persisted)).toEqual({
+      domainProfile: "hospitality",
+      projectTitle: "Hotel Solskenet",
+      brandName: "Solskenet",
+      visualDirection: {
+        styleKeywords: ["warm", "editorial"],
+        colorMode: "light",
+        colorPalette: {
+          primary: "#f59e0b",
+          background: "#fff7ed",
+          text: "#1f1308",
+        },
+        typography: {
+          headings: "serif editorial",
+          body: "humanist sans",
+        },
+      },
+      toneAndVoice: ["varm", "välkomnande"],
+      designIntent: {
+        explicitAxes: ["style", "palette", "typography"],
+        explicitFields: [
+          "palette.primary",
+          "palette.background",
+          "palette.text",
+          "typography.headings",
+        ],
+      },
+      qualityBar: "premium",
+      motionLevel: "lively",
+    });
+  });
+
+  it("preserves the difference between legacy provenance and an explicit empty axis list", () => {
+    const legacy = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "follow-up",
+      metaBriefApplied: true,
+      metaBrief: { projectTitle: "Legacy" },
+    });
+    const provenanceAware = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "follow-up",
+      metaBriefApplied: true,
+      metaBrief: {
+        projectTitle: "Ny",
+        designIntent: { explicitAxes: [], explicitFields: [] },
+      },
+    });
+
+    expect(legacy.briefSummary).not.toHaveProperty("explicitDesignAxes");
+    expect(provenanceAware.briefSummary).toHaveProperty("explicitDesignAxes", []);
+    expect(provenanceAware.briefSummary).toHaveProperty("explicitDesignFields", []);
   });
 
   it("carries a non-empty source receipt and omits an empty one", () => {

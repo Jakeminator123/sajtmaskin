@@ -87,6 +87,19 @@ describe("generation-log writer", () => {
       verificationBlocked: true,
     });
     devLogAppend("in-progress", {
+      type: "orchestration.styleDirection",
+      chatId: "chat_1",
+      styleDirection: "editorial-lux",
+      variantSelection: {
+        source: "brief-keyword",
+        hintId: "corporate-grid",
+        finalId: "editorial-lux",
+        changedFromHint: true,
+      },
+      explicitDesignAxes: ["style", "palette"],
+      explicitDesignFields: ["palette.accent"],
+    });
+    devLogAppend("in-progress", {
       type: "verifier-pass",
       chatId: "chat_1",
       versionId: "ver_1",
@@ -182,7 +195,11 @@ describe("generation-log writer", () => {
     expect(summary).toContain("Background verify: skipped");
     expect(summary).toContain("Background verify reason: fast_policy");
     expect(siteSourceRun.trim()).toBe(latestDirName);
-    expect(timeline).toContain("\"type\":\"comm.request.followup\"");
+    expect(timeline).toContain('"type":"comm.request.followup"');
+    expect(timeline).toContain("source=brief-keyword");
+    expect(timeline).toContain("hint→final=corporate-grid→editorial-lux");
+    expect(timeline).toContain("explicit=style,palette");
+    expect(timeline).toContain("fields=palette.accent");
     expect(observability.chatId).toBe("chat_1");
     expect(Array.isArray(observability.recurringPatterns)).toBe(true);
     expect(Array.isArray(fixPatterns)).toBe(true);
@@ -194,11 +211,9 @@ describe("generation-log writer", () => {
     expect(siteObservability.chatId).toBe("chat_1");
     expect(Array.isArray(siteFixPatterns)).toBe(true);
     expect(
-      siteFixPatterns.some((pattern) =>
-        pattern.pattern.includes("button lacks accessible name"),
-      ),
+      siteFixPatterns.some((pattern) => pattern.pattern.includes("button lacks accessible name")),
     ).toBe(true);
-    expect(siteHistory).toContain("\"runId\"");
+    expect(siteHistory).toContain('"runId"');
     expect(faultFix).toContain("| Tid | Fas | Steg | Severity |");
     expect(faultFix).toContain("chat_1");
     expect(faultFix).toContain("ver_1");
@@ -217,9 +232,7 @@ describe("generation-log writer", () => {
     expect(meta.status).toBe("done");
     expect(meta.repoHead).toBe("abc123repohead");
     expect(meta.repoBranch).toBe("master");
-    expect(meta.repoIdentityCapturedAt).toMatch(
-      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
-    );
+    expect(meta.repoIdentityCapturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
   });
 
   it("retains only the latest MAX_RUN_DIRS (5) generation folders", async () => {

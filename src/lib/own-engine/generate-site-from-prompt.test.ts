@@ -33,6 +33,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateVersionPreviewUrl: updateVersionPreviewUrlMock,
   getChatOrchestrationSnapshot: getChatOrchestrationSnapshotMock,
   updateChatOrchestrationSnapshot: updateChatOrchestrationSnapshotMock,
+  getKnownBrokenImageReplacements: vi.fn(async () => ({})),
   logGeneration: logGenerationMock,
   failVersionVerification: failVersionVerificationMock,
   createDraftVersion: vi.fn(),
@@ -57,6 +58,14 @@ vi.mock("@/lib/gen/prompt-dump", () => ({
 
 vi.mock("@/lib/gen/preview/preview-session", () => ({
   startPreviewSession: startPreviewSessionMock,
+}));
+
+// Autofix validates generated dependency versions against npm in production.
+// This wiring test must stay hermetic; version-validation behavior has its own
+// focused suite.
+vi.mock("@/lib/gen/autofix/npm-registry", () => ({
+  isVersionSpecValid: vi.fn(async () => true),
+  resolveLatestVersion: vi.fn(async () => null),
 }));
 
 vi.mock("@/lib/logging/dev-log", () => ({
@@ -99,7 +108,8 @@ vi.mock("@/lib/gen/system-prompt", () => ({
   SYSTEM_PROMPT_SEPARATOR: "\n\n---\n\n# Request-Specific Context\n\n",
   composeEngineSystemPrompt: (dynamic: string) => `STATIC_CORE_STUB\n\n---\n\n${dynamic}`,
   buildDynamicContext: () => ({
-    text: "DYNAMIC_CONTEXT_STUB",
+    context: "DYNAMIC_CONTEXT_STUB",
+    variantId: "corporate-grid",
     pruning: {
       budgetTokens: 30000,
       usedTokens: 10,
@@ -114,24 +124,24 @@ vi.mock("@/lib/gen/system-prompt", () => ({
 import { generateOwnEngineSiteFromPrompt } from "./generate-site-from-prompt";
 
 const LLM_CONTENT = [
-  "```tsx file=\"app/page.tsx\"",
-  "import { Button } from \"@/components/ui/button\";",
+  '```tsx file="app/page.tsx"',
+  'import { Button } from "@/components/ui/button";',
   "",
   "export default function HomePage() {",
   "  return (",
-  "    <main className=\"min-h-screen bg-background\">",
-  "      <section className=\"mx-auto max-w-4xl px-4 py-24 text-center\">",
-  "        <h1 className=\"text-5xl font-bold tracking-tight\">Lindström & Co</h1>",
-  "        <p className=\"mt-4 text-lg text-muted-foreground\">Juridisk expertis sedan 1985</p>",
-  "        <Button size=\"lg\" className=\"mt-8\">Kontakta oss</Button>",
+  '    <main className="min-h-screen bg-background">',
+  '      <section className="mx-auto max-w-4xl px-4 py-24 text-center">',
+  '        <h1 className="text-5xl font-bold tracking-tight">Lindström & Co</h1>',
+  '        <p className="mt-4 text-lg text-muted-foreground">Juridisk expertis sedan 1985</p>',
+  '        <Button size="lg" className="mt-8">Kontakta oss</Button>',
   "      </section>",
   "    </main>",
   "  );",
   "}",
   "```",
   "",
-  "```css file=\"app/globals.css\"",
-  "@import \"tailwindcss\";",
+  '```css file="app/globals.css"',
+  '@import "tailwindcss";',
   "@theme inline {",
   "  --color-background: oklch(0.98 0 0);",
   "  --color-foreground: oklch(0.15 0 0);",
@@ -225,7 +235,7 @@ function setupMocks() {
   createGenerationTelemetryRecordMock.mockResolvedValue({ id: "tel_1" });
   createEngineVersionErrorLogsMock.mockResolvedValue([]);
 
-    startPreviewSessionMock.mockResolvedValue({
+  startPreviewSessionMock.mockResolvedValue({
     ok: true,
     result: {
       previewUrl: `https://preview.test/${CHAT_ID}/${VERSION_ID}`,
@@ -241,6 +251,12 @@ function setupMocks() {
 describe("generateOwnEngineSiteFromPrompt — full pipeline e2e", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("Unexpected network request in hermetic pipeline test");
+      }),
+    );
     setupMocks();
   });
 
@@ -270,6 +286,15 @@ describe("generateOwnEngineSiteFromPrompt — full pipeline e2e", () => {
     expect(telemetryArg.meta).toBeDefined();
     expect(telemetryArg.meta.buildSpec).toBeDefined();
     expect(telemetryArg.meta.buildSpec.previewPolicy).toBe("fidelity2");
+    expect(telemetryArg.variantId).toEqual(expect.any(String));
+    expect(telemetryArg.meta.variantSelection).toMatchObject({
+      finalId: telemetryArg.variantId,
+    });
+    expect(telemetryArg.meta.resolvedDesign).toMatchObject({
+      schemaVersion: 1,
+      variantId: telemetryArg.variantId,
+    });
+    expect(telemetryArg.meta.orchestrationSnapshot.lineageHash).toMatch(/^[a-f0-9]{64}$/);
 
     const filePaths = result.files.map((f) => f.path);
     expect(filePaths).toContain("app/page.tsx");

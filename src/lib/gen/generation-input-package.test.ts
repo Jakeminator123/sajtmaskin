@@ -40,6 +40,41 @@ describe("computeLineageHash imported repo contract", () => {
   });
 });
 
+describe("computeLineageHash final generator payload", () => {
+  it.each(["ui recipe", "dossier", "Tier-3 requirement", "media catalog"])(
+    "changes when %s changes the final system prompt",
+    (source) => {
+      const before = computeLineageHash(
+        lineageInput({ engineSystemPrompt: "STATIC\n\n# Dynamic\noriginal" }),
+      );
+      const after = computeLineageHash(
+        lineageInput({ engineSystemPrompt: `STATIC\n\n# Dynamic\n${source}` }),
+      );
+      expect(after).not.toBe(before);
+    },
+  );
+
+  it("changes for non-text reference payload and pruning/source receipts", () => {
+    const before = computeLineageHash(
+      lineageInput({
+        engineSystemPrompt: "same",
+        referenceAttachments: [{ name: "desktop.jpg", url: "https://example/a.jpg" }],
+        sources: [{ id: "media-a", reachedPrompt: true }],
+        dynamicContextPruning: { keptBlockKeys: ["media"] },
+      }),
+    );
+    const after = computeLineageHash(
+      lineageInput({
+        engineSystemPrompt: "same",
+        referenceAttachments: [{ name: "desktop.jpg", url: "https://example/b.jpg" }],
+        sources: [{ id: "media-b", reachedPrompt: true }],
+        dynamicContextPruning: { keptBlockKeys: ["media", "dossier"] },
+      }),
+    );
+    expect(after).not.toBe(before);
+  });
+});
+
 describe("serializePackageForDump source receipt", () => {
   it("includes sources without prompt text", () => {
     const sources: GenerationSource[] = [

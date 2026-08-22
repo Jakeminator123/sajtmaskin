@@ -341,6 +341,89 @@ describe("capability-signalnycklar överlever nyckelbudgeten (spår 01 steg 3)",
     expect(out.f3ApprovedProviders).toEqual(["resend"]);
   });
 
+  it("behåller variantbeslut och resolvedDesign utanför den delade nyckelbudgeten", () => {
+    const out = buildPersistedOrchestrationSnapshot({
+      streamMeta: {
+        ...realisticStreamMeta(),
+        variantSelection: {
+          source: "brief-embedding",
+          score: 0.82,
+          runnerUpScore: 0.61,
+          margin: 0.21,
+          hintId: "corporate-grid",
+          finalId: "editorial-lux",
+          changedFromHint: true,
+        },
+        resolvedDesign: {
+          schemaVersion: 1,
+          variantId: "editorial-lux",
+          explicitAxes: ["style", "typography"],
+          explicitFields: ["typography.headings"],
+          styleKeywords: { value: ["editorial"], source: "brief-explicit", locked: true },
+          toneAndVoice: { value: ["confident"], source: "brief-inferred", locked: false },
+          colorMode: { value: "dark", source: "variant", locked: false },
+          themeTokens: {
+            primary: { value: "#b45309", source: "variant", locked: false },
+          },
+          typography: {
+            heading: { value: "Fraunces", source: "brief-explicit", locked: true },
+            body: { value: "Inter", source: "variant", locked: false },
+          },
+        },
+      },
+      versionId: "version-1",
+      chatId: "chat-1",
+    });
+
+    expect(out.variantSelection).toMatchObject({
+      source: "brief-embedding",
+      finalId: "editorial-lux",
+      changedFromHint: true,
+    });
+    expect(out.resolvedDesign).toMatchObject({
+      variantId: "editorial-lux",
+      explicitAxes: ["style", "typography"],
+      explicitFields: ["typography.headings"],
+      themeTokens: { primary: { value: "#b45309" } },
+      typography: { heading: { value: "Fraunces" }, body: { value: "Inter" } },
+    });
+  });
+
+  it("behåller versionsidentitet och Deep Brief utanför den delade nyckelbudgeten", () => {
+    const out = buildPersistedOrchestrationSnapshot({
+      streamMeta: {
+        ...realisticStreamMeta(),
+        briefSummary: {
+          projectTitle: "Solskenet",
+          styleKeywords: ["editorial", "warm"],
+          colorMode: "dark",
+          explicitDesignAxes: ["palette"],
+          explicitDesignFields: ["palette.accent"],
+          colorPalette: { accent: "#ff6600", background: "#111111" },
+          typography: { headings: "Fraunces", body: "Inter" },
+          requestedCapabilities: ["booking"],
+        },
+      },
+      versionId: "version-budget-safe",
+      chatId: "chat-budget-safe",
+      buildIntent: "website",
+    });
+
+    expect(out).toMatchObject({
+      lastVersionId: "version-budget-safe",
+      lastChatId: "chat-budget-safe",
+      buildIntent: "website",
+      briefApplied: true,
+      briefSummary: {
+        projectTitle: "Solskenet",
+        explicitDesignFields: ["palette.accent"],
+        colorPalette: { accent: "#ff6600", background: "#111111" },
+        typography: { headings: "Fraunces", body: "Inter" },
+      },
+    });
+    expect(typeof out.capturedAt).toBe("string");
+  });
+
   it("bär en uppskjuten integration hela vägen skriv → merge → läs", () => {
     // Rutans egen enhetstest mockar `readMutedCapabilitiesFromSnapshot`, så
     // den kunde aldrig se att skriv-sidan tappade nyckeln. Detta test kör hela
@@ -854,6 +937,9 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
         // direction fast snapshot bevarade den.
         styleKeywords: ["minimal", "warm"],
         toneKeywords: ["professionell", "välkomnande"],
+        colorMode: "light",
+        explicitDesignAxes: ["style", "palette"],
+        explicitDesignFields: ["palette.primary", "palette.background", "palette.text"],
         qualityBar: "premium",
         motionLevel: "lively",
         colorPalette: {
@@ -880,6 +966,7 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
     expect(brief?.brandName).toBe("Solskenet AB");
     expect(brief?.visualDirection).toEqual({
       styleKeywords: ["minimal", "warm"],
+      colorMode: "light",
       colorPalette: {
         primary: "#f59e0b",
         secondary: "#7c2d12",
@@ -893,6 +980,10 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
       },
     });
     expect(brief?.toneAndVoice).toEqual(["professionell", "välkomnande"]);
+    expect(brief?.designIntent).toEqual({
+      explicitAxes: ["style", "palette"],
+      explicitFields: ["palette.primary", "palette.background", "palette.text"],
+    });
     expect(brief?.qualityBar).toBe("premium");
     expect(brief?.motionLevel).toBe("lively");
   });
@@ -946,11 +1037,13 @@ describe("extractBriefSummaryFromSnapshot — capability/domain extraction", () 
     expect(out?.domainProfile).toEqual({ domain: "hospitality", industry: "hotel" });
   });
 
-  it("reads design values used by Brief-Locked Design Values from snapshot", () => {
+  it("reads design values and provenance used by the resolved design contract", () => {
     const out = extractBriefSummaryFromSnapshot({
       briefSummary: {
         qualityBar: "bold-dramatic",
         motionLevel: "lively",
+        colorMode: "dark",
+        explicitDesignAxes: ["color-mode", "typography"],
         colorPalette: { primary: "#111111", background: "#fef3c7" },
         typography: { headings: "display serif", body: "sans" },
       },
@@ -958,8 +1051,19 @@ describe("extractBriefSummaryFromSnapshot — capability/domain extraction", () 
     expect(out).not.toBeNull();
     expect(out?.qualityBar).toBe("bold-dramatic");
     expect(out?.motionLevel).toBe("lively");
+    expect(out?.colorMode).toBe("dark");
+    expect(out?.explicitDesignAxes).toEqual(["color-mode", "typography"]);
     expect(out?.colorPalette).toMatchObject({ primary: "#111111", background: "#fef3c7" });
     expect(out?.typography).toEqual({ headings: "display serif", body: "sans" });
+  });
+
+  it("keeps an empty explicit-axis list as meaningful new-brief provenance", () => {
+    const out = extractBriefSummaryFromSnapshot({
+      briefSummary: { explicitDesignAxes: [] },
+    });
+
+    expect(out).not.toBeNull();
+    expect(out?.explicitDesignAxes).toEqual([]);
   });
 
   it("ignores empty domainProfile object", () => {

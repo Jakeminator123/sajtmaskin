@@ -6,23 +6,11 @@ import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
 import { beginPipelineWork } from "@/lib/builder/pipeline-interaction-lock";
 import { markClientErrorVersionPromoted } from "@/lib/builder/preview-client-error-report";
-import {
-  buildPostCheckBaseline,
-  type PostCheckBaseline,
-} from "./post-checks-analysis";
+import { buildPostCheckBaseline, type PostCheckBaseline } from "./post-checks-analysis";
 import { resolvePreviousVersionId } from "./post-checks-diff";
-import {
-  fetchChatFiles,
-  fetchChatVersions,
-} from "./post-checks-fetch";
-import {
-  buildPostCheckArtifacts,
-  type ImageValidationResult,
-} from "./post-checks-results";
-import {
-  appendPostCheckSummaryToMessage,
-  buildPostCheckSummary,
-} from "./post-checks-summary";
+import { fetchChatFiles, fetchChatVersions } from "./post-checks-fetch";
+import { buildPostCheckArtifacts, type ImageValidationResult } from "./post-checks-results";
+import { appendPostCheckSummaryToMessage, buildPostCheckSummary } from "./post-checks-summary";
 import { toast } from "sonner";
 import type {
   AutoFixPayload,
@@ -57,8 +45,7 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
 
-const ABORTED_VERIFY_REASON =
-  "Verifieringen avbröts — en ny generation startade.";
+const ABORTED_VERIFY_REASON = "Verifieringen avbröts — en ny generation startade.";
 
 function appendAbortedQualityGateCard(
   setMessages: SetMessages,
@@ -135,15 +122,12 @@ async function validateImages(params: {
 }): Promise<ImageValidationResult | null> {
   const { chatId, versionId, signal } = params;
   try {
-    const response = await fetch(
-      `${engineChatBaseUrl(chatId)}/validate-images`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, autoFix: true }),
-        signal,
-      },
-    );
+    const response = await fetch(`${engineChatBaseUrl(chatId)}/validate-images`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ versionId, autoFix: true }),
+      signal,
+    });
     if (!response.ok) return null;
     return (await response.json()) as ImageValidationResult;
   } catch {
@@ -159,19 +143,49 @@ async function runProductPostcheckApi(params: {
 }): Promise<ProductPostcheckResult | null> {
   const { chatId, versionId, previewUrl, signal } = params;
   try {
-    const response = await fetch(
-      `${engineChatBaseUrl(chatId)}/product-postcheck`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, previewUrl }),
-        signal,
-      },
-    );
-    if (!response.ok) return null;
+    const response = await fetch(`${engineChatBaseUrl(chatId)}/product-postcheck`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ versionId, previewUrl }),
+      signal,
+    });
+    if (!response.ok) {
+      return {
+        ok: true,
+        skipped: true,
+        skippedReason: "runtime_error",
+        warnings: [],
+        warningCount: 0,
+        productBlocked: false,
+        routesChecked: 0,
+        durationMs: 0,
+        checkedUrl: previewUrl,
+        liveReview: {
+          status: "skipped",
+          reason: "review_error",
+          detail: `Product Postcheck svarade HTTP ${response.status}.`,
+        },
+      };
+    }
     return (await response.json()) as ProductPostcheckResult;
-  } catch {
-    return null;
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    return {
+      ok: true,
+      skipped: true,
+      skippedReason: "runtime_error",
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      routesChecked: 0,
+      durationMs: 0,
+      checkedUrl: previewUrl,
+      liveReview: {
+        status: "skipped",
+        reason: "review_error",
+        detail: error instanceof Error ? error.message : "Product Postcheck request failed",
+      },
+    };
   }
 }
 
@@ -183,7 +197,7 @@ export function formatLiveReviewLogMessage(result: ProductPostcheckResult): stri
   if (result.liveReview?.status === "skipped") {
     return `Live review skipped: ${result.liveReview.reason}.`;
   }
-  if (result.screenshots) {
+  if (result.screenshots?.desktopUrl || result.screenshots?.mobileUrl) {
     return "Live review screenshots captured.";
   }
   return null;
@@ -209,7 +223,7 @@ export function buildProductPostcheckLogItems(
       "runtime_error",
     ]);
     const skippedReason = result.skippedReason ?? "unknown";
-    return [
+    const logs: VersionErrorLogPayload[] = [
       {
         level: crashReasons.has(skippedReason) ? "warning" : "info",
         category: "product_postcheck.skipped",
@@ -221,6 +235,19 @@ export function buildProductPostcheckLogItems(
         },
       },
     ];
+    const liveReviewMessage = formatLiveReviewLogMessage(result);
+    if (liveReviewMessage) {
+      logs.push({
+        level: "info",
+        category: "product_postcheck.live_review",
+        message: liveReviewMessage,
+        meta: {
+          screenshots: result.screenshots ?? null,
+          liveReview: result.liveReview ?? null,
+        },
+      });
+    }
+    return logs;
   }
 
   const warnings = Array.isArray(result.warnings) ? result.warnings : [];
@@ -456,13 +483,16 @@ export async function runPostGenerationChecks(params: {
       output: artifacts.output,
     });
 
-    if (productPostcheck?.liveReview?.status === "completed") {
+    if (productPostcheck?.liveReview) {
       appendToolPartToMessage(setMessages, assistantMessageId, {
         type: "tool:live-review",
         toolName: "Live-granskning",
         toolCallId: `live-review:${versionId}`,
         state: "output-available",
-        output: productPostcheck.liveReview,
+        output: {
+          liveReview: productPostcheck.liveReview,
+          screenshots: productPostcheck.screenshots ?? null,
+        },
       });
     }
 
@@ -825,11 +855,7 @@ async function runTier2VerifyLane(params: {
       return;
     }
 
-    if (
-      data.promoted === true &&
-      data.promotionBlocked !== true &&
-      data.promoteError !== true
-    ) {
+    if (data.promoted === true && data.promotionBlocked !== true && data.promoteError !== true) {
       // Close the promotion→SWR race immediately. The marker is monotonic,
       // so the stale `promotedAt=null` render remains in the promoted phase
       // until mutateVersions commits the server timestamp.
@@ -842,8 +868,7 @@ async function runTier2VerifyLane(params: {
       // Server stamps `advisory` on F2 typecheck; `designAdvisory` is the
       // envelope fallback if an older payload omitted the per-check flag.
       const isAdvisory =
-        check.advisory === true ||
-        (data.designAdvisory === true && check.check === "typecheck");
+        check.advisory === true || (data.designAdvisory === true && check.check === "typecheck");
       const icon = isAdvisory ? "Varning" : check.passed ? "Godkänd" : "Underkänd";
       const durationLabel = formatDurationMs(check.durationMs);
       steps.push(
@@ -907,7 +932,8 @@ async function runTier2VerifyLane(params: {
 
     if (visualQa) {
       const vqaSteps = visualQa.checks.map(
-        (c) => `visuell:${c.check}: ${c.passed ? "Godkänd" : "Underkänd"} (${c.score}/100) — ${c.detail}`,
+        (c) =>
+          `visuell:${c.check}: ${c.passed ? "Godkänd" : "Underkänd"} (${c.score}/100) — ${c.detail}`,
       );
       steps.push(
         `Visuell QA: ${visualQa.overallScore}/100 ${visualQa.passed ? "Godkänd" : "Under tröskel"}`,
@@ -927,10 +953,8 @@ async function runTier2VerifyLane(params: {
         verifyLaneDurationMs: data.verifyLaneDurationMs,
         firstFailureCheck:
           typeof data.firstFailureCheck === "string" ? data.firstFailureCheck : null,
-        jobStartedAt:
-          typeof data.jobStartedAt === "string" ? data.jobStartedAt : null,
-        jobFinishedAt:
-          typeof data.jobFinishedAt === "string" ? data.jobFinishedAt : null,
+        jobStartedAt: typeof data.jobStartedAt === "string" ? data.jobStartedAt : null,
+        jobFinishedAt: typeof data.jobFinishedAt === "string" ? data.jobFinishedAt : null,
         visualQA: visualQa,
         promotionBlocked: data.promotionBlocked === true ? true : undefined,
         promotionBlockedReason:
@@ -938,11 +962,9 @@ async function runTier2VerifyLane(params: {
             ? data.promotionBlockedReason
             : undefined,
         designAdvisory: data.designAdvisory === true ? true : undefined,
-        qualityGateAdvisory:
-          data.qualityGateAdvisory === true ? true : undefined,
+        qualityGateAdvisory: data.qualityGateAdvisory === true ? true : undefined,
         advisoryChecks:
-          (data.designAdvisory || data.qualityGateAdvisory) &&
-          Array.isArray(data.advisoryChecks)
+          (data.designAdvisory || data.qualityGateAdvisory) && Array.isArray(data.advisoryChecks)
             ? data.advisoryChecks
             : undefined,
       },
@@ -952,7 +974,12 @@ async function runTier2VerifyLane(params: {
     // guard is already false — but keep `!data.designAdvisory` explicit so a
     // future response shape change can never route an advisory into auto-repair.
     if (!data.passed && !data.designAdvisory && failedChecks.length > 0) {
-      const handled = handleEnvSignal(data.checks ?? [], versionId, setMessages, assistantMessageId);
+      const handled = handleEnvSignal(
+        data.checks ?? [],
+        versionId,
+        setMessages,
+        assistantMessageId,
+      );
       if (handled) return;
 
       await handleRepairOrAutofix({
@@ -1035,15 +1062,8 @@ async function handleRepairOrAutofix(params: {
   assistantMessageId: string;
   onAutoFix?: (payload: AutoFixPayload) => void;
 }) {
-  const {
-    chatId,
-    versionId,
-    data,
-    failedChecks,
-    setMessages,
-    assistantMessageId,
-    onAutoFix,
-  } = params;
+  const { chatId, versionId, data, failedChecks, setMessages, assistantMessageId, onAutoFix } =
+    params;
 
   // M#rep1: the verify lane may include info-signals (`install-cache-share`,
   // `install-peer-fallback`, …) in `checks[]`. The repair route's zod enum only
@@ -1053,10 +1073,7 @@ async function handleRepairOrAutofix(params: {
   const repair: RepairContext = {
     qualityGate: (data.checks ?? [])
       .filter(
-        (c) =>
-          !c.passed &&
-          c.repairable !== false &&
-          CANONICAL_QUALITY_GATE_CHECKS.has(c.check),
+        (c) => !c.passed && c.repairable !== false && CANONICAL_QUALITY_GATE_CHECKS.has(c.check),
       )
       .map((c) => ({
         check: c.check as "typecheck" | "build" | "lint",
@@ -1066,8 +1083,7 @@ async function handleRepairOrAutofix(params: {
       })),
     qualityGateMeta: {
       verifyLaneDurationMs: data.verifyLaneDurationMs ?? null,
-      firstFailureCheck:
-        typeof data.firstFailureCheck === "string" ? data.firstFailureCheck : null,
+      firstFailureCheck: typeof data.firstFailureCheck === "string" ? data.firstFailureCheck : null,
       jobStartedAt: typeof data.jobStartedAt === "string" ? data.jobStartedAt : null,
       jobFinishedAt: typeof data.jobFinishedAt === "string" ? data.jobFinishedAt : null,
     },
@@ -1083,10 +1099,10 @@ async function handleRepairOrAutofix(params: {
       repaired: serverRepaired.repaired,
       method:
         serverRepaired.status === "completed" || serverRepaired.status === "repair_available"
-        ? serverRepaired.deterministic
-          ? "deterministic"
-          : "llm"
-        : null,
+          ? serverRepaired.deterministic
+            ? "deterministic"
+            : "llm"
+          : null,
       newVersionId: serverRepaired.newVersionId,
       remainingErrors: serverRepaired.remainingErrors ?? null,
       improvedSyntax: serverRepaired.improvedSyntax ?? null,
@@ -1135,8 +1151,10 @@ function handleVisualQaAutofix(params: {
 
 function isServerRepairDisabled(): boolean {
   try {
-    return typeof window !== "undefined" &&
-      (window as unknown as Record<string, unknown>).__SAJTMASKIN_SKIP_SERVER_REPAIR__ === true;
+    return (
+      typeof window !== "undefined" &&
+      (window as unknown as Record<string, unknown>).__SAJTMASKIN_SKIP_SERVER_REPAIR__ === true
+    );
   } catch {
     return false;
   }
@@ -1174,14 +1192,11 @@ async function tryServerRepair(
     };
   }
   try {
-    const res = await fetch(
-      `${engineChatBaseUrl(chatId)}/repair`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, repairContext: repair }),
-      },
-    );
+    const res = await fetch(`${engineChatBaseUrl(chatId)}/repair`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ versionId, repairContext: repair }),
+    });
     if (!res.ok) {
       return {
         repaired: false,

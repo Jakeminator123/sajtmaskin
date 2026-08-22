@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   briefRequestSchema,
+  buildBriefUserPrompt,
   buildBriefTrace,
   resolveServerAutoBriefPreferredModel,
   SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS,
@@ -53,6 +54,10 @@ describe("siteBriefSchema", () => {
       domainProfile: "restaurant",
       motionLevel: "moderate",
       qualityBar: "premium",
+      designIntent: {
+        explicitAxes: ["style", "tone", "palette", "typography"],
+        explicitFields: ["palette.accent", "typography.headings"],
+      },
       seasonalHints: ["vår"],
       requestedCapabilities: ["booking", "map-display"],
       pages: [
@@ -71,6 +76,7 @@ describe("siteBriefSchema", () => {
       ],
       visualDirection: {
         styleKeywords: ["varm", "editorial"],
+        colorMode: "light",
         colorPalette: {
           primary: "#8B4513",
           secondary: "#F4A460",
@@ -104,6 +110,9 @@ describe("siteBriefSchema", () => {
     expect(parsed.domainProfile).toBe("restaurant");
     expect(parsed.motionLevel).toBe("moderate");
     expect(parsed.qualityBar).toBe("premium");
+    expect(parsed.designIntent.explicitAxes).toEqual(["style", "tone", "palette", "typography"]);
+    expect(parsed.designIntent.explicitFields).toEqual(["palette.accent", "typography.headings"]);
+    expect(parsed.visualDirection.colorMode).toBe("light");
     expect(parsed.seasonalHints).toEqual(["vår"]);
     expect(parsed.requestedCapabilities).toEqual(["booking", "map-display"]);
   });
@@ -118,6 +127,9 @@ describe("siteBriefSchema", () => {
     expect(parsed.qualityBar).toBe("clean");
     expect(parsed.seasonalHints).toEqual([]);
     expect(parsed.requestedCapabilities).toEqual([]);
+    expect(parsed.designIntent.explicitAxes).toEqual([]);
+    expect(parsed.designIntent.explicitFields).toEqual([]);
+    expect(parsed.visualDirection.colorMode).toBe("either");
   });
 
   // Prod 2026-07-27: /api/ai/brief svarade 422 "Missing 'bullets'" när
@@ -188,6 +200,50 @@ describe("buildBriefTrace", () => {
     expect(client.source).toBe("dynamic_instructions");
     expect(server.source).toBe("server_auto_brief");
   });
+
+  it("binds the trace to prior design context and variant hints sent to the model", () => {
+    const exactPrompt = buildBriefUserPrompt(
+      "Gör hero tydligare",
+      true,
+      "Variant: editorial-lux",
+      "Prior design: dark, Fraunces",
+    );
+    const same = buildBriefUserPrompt(
+      "Gör hero tydligare",
+      true,
+      "Variant: editorial-lux",
+      "Prior design: dark, Fraunces",
+    );
+    const changedContext = buildBriefUserPrompt(
+      "Gör hero tydligare",
+      true,
+      "Variant: editorial-lux",
+      "Prior design: light, Inter",
+    );
+
+    const trace = buildBriefTrace({
+      source: "server_auto_brief",
+      prompt: exactPrompt,
+      modelId: "openai/gpt-5.4",
+      imageGenerations: true,
+    });
+    expect(
+      buildBriefTrace({
+        source: "server_auto_brief",
+        prompt: same,
+        modelId: "openai/gpt-5.4",
+        imageGenerations: true,
+      }),
+    ).toEqual(trace);
+    expect(
+      buildBriefTrace({
+        source: "server_auto_brief",
+        prompt: changedContext,
+        modelId: "openai/gpt-5.4",
+        imageGenerations: true,
+      }).promptHash,
+    ).not.toBe(trace.promptHash);
+  });
 });
 
 describe("resolveServerAutoBriefPreferredModel", () => {
@@ -200,9 +256,7 @@ describe("resolveServerAutoBriefPreferredModel", () => {
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "premium" })).toBe(
         "openai/gpt-5.6-sol",
       );
-      expect(resolveServerAutoBriefPreferredModel({ modelTier: "max" })).toBe(
-        "openai/gpt-5.5",
-      );
+      expect(resolveServerAutoBriefPreferredModel({ modelTier: "max" })).toBe("openai/gpt-5.5");
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "anthropic" })).toBe(
         "anthropic/claude-opus-4.8",
       );
@@ -212,9 +266,7 @@ describe("resolveServerAutoBriefPreferredModel", () => {
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "pro" })).toBe(
         "openai/gpt-5.3-codex",
       );
-      expect(resolveServerAutoBriefPreferredModel({ modelTier: "codex" })).toBe(
-        "openai/gpt-5.5",
-      );
+      expect(resolveServerAutoBriefPreferredModel({ modelTier: "codex" })).toBe("openai/gpt-5.5");
     } finally {
       if (previousOpenAI === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
       else process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = previousOpenAI;

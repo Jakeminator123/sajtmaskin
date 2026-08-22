@@ -35,6 +35,7 @@ const buildGenerationInputPackage = vi.hoisted(() => vi.fn());
 const writeOrchestrationDynamicDump = vi.hoisted(() => vi.fn());
 const createChat = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
+const setPendingPlanDesignAuthority = vi.hoisted(() => vi.fn());
 const getRedis = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
 const createPromptLog = vi.hoisted(() => vi.fn());
@@ -263,9 +264,10 @@ vi.mock("@/lib/gen/request-metadata", () => ({
   extractAppProjectIdFromMeta: () => "app_proj_1",
   extractBriefFromMeta: () => null,
   extractComplexityHintFromMeta: () => null,
-  extractDesignThemePresetFromMeta: () => null,
+  extractDesignThemePresetFromMeta: (meta: Record<string, unknown> | null) =>
+    (meta?.designTheme as string | undefined) ?? null,
   extractPageCountHintFromMeta: () => null,
-  extractPaletteStateFromMeta: () => null,
+  extractPaletteStateFromMeta: (meta: Record<string, unknown> | null) => meta?.palette ?? null,
   extractScaffoldSettingsFromMeta: () => ({
     scaffoldMode: "auto",
     scaffoldId: null,
@@ -273,10 +275,28 @@ vi.mock("@/lib/gen/request-metadata", () => ({
   extractStyleKeywordsHintFromMeta: () => [],
   extractToneKeywordsHintFromMeta: () => [],
   extractStyleChoiceHintFromMeta: () => null,
-  extractColorModeHintFromMeta: () => null,
+  extractColorModeHintFromMeta: (meta: Record<string, unknown> | null) =>
+    meta?.colorModeHint === "light" || meta?.colorModeHint === "dark" ? meta.colorModeHint : null,
   extractThemeColorsFromMeta: () => null,
   normalizeRequestAttachments: (attachments: unknown[] | undefined) => attachments ?? [],
-  summarizeDesignReferences: () => [],
+  getRequestAttachmentMediaType: (attachment: { mimeType?: string }) => attachment.mimeType,
+  isImageRequestAttachment: (attachment: { mimeType?: string; filename?: string; url: string }) =>
+    attachment.mimeType?.startsWith("image/") === true ||
+    /\.(?:png|jpe?g|webp|gif|svg)(?:[?#]|$)/i.test(attachment.filename ?? attachment.url),
+  summarizeDesignReferences: (
+    attachments: Array<{ filename?: string; mimeType?: string; url: string }>,
+  ) =>
+    attachments
+      .filter(
+        (attachment) =>
+          attachment.mimeType?.startsWith("image/") === true ||
+          /\.(?:png|jpe?g|webp|gif|svg)(?:[?#]|$)/i.test(attachment.filename ?? attachment.url),
+      )
+      .map((attachment) => ({
+        kind: "image",
+        label: attachment.filename ?? "reference",
+        note: "visual reference",
+      })),
 }));
 
 vi.mock("@/lib/gen/stream/sse-parser", () => {
@@ -324,6 +344,7 @@ vi.mock("@/lib/data/redis", async (importOriginal) => {
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat,
   addMessage,
+  setPendingPlanDesignAuthority,
   failVersionVerification,
 }));
 
@@ -425,6 +446,7 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     vi.clearAllMocks();
     getRedis.mockReturnValue(null);
     failVersionVerification.mockResolvedValue(null);
+    setPendingPlanDesignAuthority.mockResolvedValue(true);
     buildGenerationInputPackage.mockImplementation(
       (
         _base: unknown,
@@ -896,6 +918,73 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     await planResponseParams.commitCredits();
     expect(commitCredits).toHaveBeenCalledOnce();
     expect(commitCredits).toHaveBeenCalledWith({ rejectIfNegative: true });
+  });
+
+  it("gives init plan mode the same palette, theme and visual inputs as direct codegen", async () => {
+    computePlanModePlannerPrompts.mockReturnValueOnce({
+      planPreamble: "PLAN",
+      planSystemPrompt: "PLAN SYSTEM",
+    });
+    resolvePlanModePlannerSettings.mockReturnValueOnce({
+      modelId: "test-planner-model",
+      thinking: true,
+      reasoningEffort: "medium",
+    });
+    createOwnEnginePlanModeResponse.mockReturnValueOnce(
+      new Response("event: done\ndata: {}\n\n", {
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    );
+    const palette = {
+      selections: [{ id: "dialog", label: "Dialog", source: "shadcn-component" }],
+    };
+    const attachment = {
+      url: "https://blob.example/reference.jpg",
+      filename: "reference.jpg",
+      mimeType: "image/jpeg",
+    };
+    createChatSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [attachment],
+        projectId: null,
+        system: "Behåll den visuella referensens rytm.",
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: false,
+        chatPrivacy: "private",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          planMode: true,
+          designTheme: "violet",
+          colorModeHint: "dark",
+          palette,
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Planera en mörk violett portfoliosajt." }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const planInput = prepareGenerationContext.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(planInput).toMatchObject({
+      rawPrompt: "Planera en mörk violett portfoliosajt.",
+      imageGenerations: false,
+      componentPalette: palette,
+      designThemePreset: "violet",
+      colorModeHint: "dark",
+      customInstructions: "Behåll den visuella referensens rytm.",
+      requestAttachments: [attachment],
+      designReferences: [expect.objectContaining({ kind: "image", label: "reference.jpg" })],
+    });
   });
 
   it("pins the scaffold on the chat when the create/init round actually generates", async () => {

@@ -195,6 +195,32 @@ describe("beginLiveReviewSession", () => {
     expect(session.captureEnabled).toBe(true);
     expect(claimRun).toHaveBeenCalledTimes(1);
   });
+
+  it("claims/renews the current revision before starting TTL purge", async () => {
+    const order: string[] = [];
+    await beginLiveReviewSession(
+      {
+        chatId: "chat_1",
+        versionId: "v1",
+        filesRevision: "rev_a",
+        userId: "user_1",
+        grant: GRANT,
+      },
+      {
+        flagEnabled: true,
+        editEnabled: true,
+        claimRun: async () => {
+          order.push("claim");
+          return acquired();
+        },
+        purgeExpired: async () => {
+          order.push("purge");
+          return 0;
+        },
+      },
+    );
+    expect(order).toEqual(["claim", "purge"]);
+  });
 });
 
 describe("finishLiveReviewSession", () => {
@@ -262,14 +288,23 @@ describe("finishLiveReviewSession", () => {
       chatId: "chat_1",
       keepVersionId: "v1",
       keepFilesRevision: "rev_b",
+      keepRunId: "lr_1",
+      keepClaimedAt: expect.any(Date),
     });
-    expect(completeRun).toHaveBeenCalled();
+    expect(completeRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "lr_1",
+        claimedAt: expect.any(Date),
+        filesRevision: "rev_a",
+      }),
+    );
   });
 
   it("raderar inte föregående par om complete misslyckas — överger claimen", async () => {
     const deletePreviousBlobs = vi.fn(async () => 1);
     const abandonRun = vi.fn(async () => {});
     const deleteScreenshotUrls = vi.fn(async () => {});
+    const screenshots = { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null };
     const result = await finishLiveReviewSession(
       {
         captureEnabled: true,
@@ -283,7 +318,7 @@ describe("finishLiveReviewSession", () => {
       {
         skipped: false,
         findings: [],
-        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+        screenshots,
         domSummary: null,
         filesJson: "[]",
         userRequest: "x",
@@ -302,6 +337,7 @@ describe("finishLiveReviewSession", () => {
     expect(deletePreviousBlobs).not.toHaveBeenCalled();
     expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
     expect(deleteScreenshotUrls).toHaveBeenCalled();
+    expect(screenshots).toEqual({ desktopUrl: null, mobileUrl: null });
   });
 
   it("raderar redan uppladdade JPEG när claim överges", async () => {
@@ -340,6 +376,7 @@ describe("finishLiveReviewSession", () => {
     expect(result).toEqual(skippedLiveReviewResult("postcheck_skipped"));
     expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
     expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
+    expect(screenshots).toEqual({ desktopUrl: null, mobileUrl: null });
   });
 
   it("startar inte critic om leasen redan tagits över", async () => {
@@ -377,5 +414,42 @@ describe("finishLiveReviewSession", () => {
     expect(attachReview).not.toHaveBeenCalled();
     expect(waitForRun).toHaveBeenCalled();
     expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
+    expect(screenshots).toEqual({ desktopUrl: null, mobileUrl: null });
+  });
+
+  it("forwards the exact selected parent to the visual critic", async () => {
+    const attachReview = vi.fn(async () => completed);
+    await finishLiveReviewSession(
+      {
+        captureEnabled: true,
+        claim: acquired(),
+        earlyResult: null,
+        chatId: "chat_1",
+        versionId: "v3",
+        filesRevision: "rev_c",
+        userId: "user_1",
+      },
+      {
+        skipped: false,
+        findings: [],
+        screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+        domSummary: null,
+        versionNumber: 3,
+        previousVersionId: "v1",
+        filesJson: "[]",
+        userRequest: "Redigera v1",
+        briefSummary: "blå",
+      },
+      {
+        attachReview,
+        beginPaidAttempt: async () => 1,
+        completeRun: async () => true,
+        deletePreviousBlobs: async () => 0,
+      },
+    );
+
+    expect(attachReview).toHaveBeenCalledWith(
+      expect.objectContaining({ versionId: "v3", previousVersionId: "v1" }),
+    );
   });
 });

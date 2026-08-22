@@ -70,8 +70,49 @@ describe("updateChatOrchestrationSnapshot — knownBrokenImageReplacements survi
     // branches referencing the key parameter)…
     expect(sql).toContain("||");
     expect(params).toContain("knownBrokenImageReplacements");
+    expect(params).toContain("pendingPlanAuthority");
     // …and the incoming snapshot rides along as a bound parameter.
     expect(params).toContain(JSON.stringify(staleSnapshot));
+  });
+
+  it("consumes only the matching pending Plan Design Authority lineage atomically", async () => {
+    const snapshot = { scaffoldId: "landing-page", lastVersionId: "ver_3" };
+
+    const ok = await updateChatOrchestrationSnapshot("chat_1", snapshot, {
+      consumePendingPlanDesignLineageHash: "plan-lineage-a",
+    });
+    expect(ok).toBe(true);
+
+    const { sql, params } = renderSetExpression();
+    expect(sql).toContain("lineagehash");
+    expect(sql).toContain("jsonb_set");
+    expect(params).toContain("pendingPlanAuthority");
+    expect(params).toContain("plan-lineage-a");
+  });
+
+  it("orders different versions causally before capturedAt so a late v1 repair cannot replace live v2", async () => {
+    // The live DB column is the hypothetical v2 snapshot. This incoming v1
+    // repair finished later, so a capturedAt-only CASE would pick it. The SQL
+    // must resolve both chat-owned version numbers before considering time.
+    const lateHistoricalSnapshot = {
+      capturedAt: "2026-08-22T10:05:00.000Z",
+      lastVersionId: "ver_v1_repair",
+      variantId: "historical-variant",
+    };
+
+    const ok = await updateChatOrchestrationSnapshot("chat_1", lateHistoricalSnapshot);
+    expect(ok).toBe(true);
+
+    const { sql, params } = renderSetExpression();
+    expect(sql).toContain("engine_versions");
+    expect(sql).toContain("version_number");
+    expect(sql).toContain("lastversionid");
+    expect(sql).toContain("<>");
+    expect(sql).toContain("capturedat");
+    expect(sql).toContain(">=");
+    expect(sql).toContain("orchestration_snapshot");
+    expect(params).toContain("chat_1");
+    expect(params).toContain(JSON.stringify(lateHistoricalSnapshot));
   });
 
   it("still supports clearing the snapshot with null (plain replace, no merge)", async () => {

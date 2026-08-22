@@ -18,6 +18,8 @@ function makeParams(overrides: Partial<PersistParams> = {}): PersistParams {
   return {
     chatId: "chat_1",
     versionId: "ver_1",
+    filesJson: "[]",
+    lineageHash: null,
     resolvedScaffold: null,
     scaffoldSelection: null,
     model: "claude-opus-4-8",
@@ -150,11 +152,115 @@ describe("persistTelemetryRecord — variant_id", () => {
   });
 
   it("normaliserar tom/whitespace-variantId till null", async () => {
-    await persistTelemetryRecord(
-      makeParams({ orchestrationStreamMeta: { variantId: "   " } }),
-    );
+    await persistTelemetryRecord(makeParams({ orchestrationStreamMeta: { variantId: "   " } }));
     const arg = createGenerationTelemetryRecord.mock.calls[0][0];
     expect(arg.variantId).toBeNull();
+  });
+
+  it("persists the finalized variant-template id in telemetry meta", async () => {
+    await persistTelemetryRecord(
+      makeParams({ orchestrationStreamMeta: { variantTemplateId: "template-42" } }),
+    );
+
+    const arg = createGenerationTelemetryRecord.mock.calls[0]?.[0];
+    expect(arg.meta.variantTemplateId).toBe("template-42");
+  });
+
+  it("persisterar variantens beslut och det upplösta designkontraktet i meta", async () => {
+    const variantSelection = {
+      source: "brief-keyword",
+      hintId: "corporate-grid",
+      finalId: "editorial-lux",
+      changedFromHint: true,
+    };
+    const resolvedDesign = { schemaVersion: 1, explicitAxes: ["style"] };
+    await persistTelemetryRecord(
+      makeParams({ orchestrationStreamMeta: { variantSelection, resolvedDesign } }),
+    );
+
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.variantSelection).toEqual(variantSelection);
+    expect(arg.meta.resolvedDesign).toEqual(resolvedDesign);
+  });
+
+  it("binds a full sanitized orchestration snapshot to the exact version", async () => {
+    await persistTelemetryRecord(
+      makeParams({
+        buildIntent: "website",
+        orchestrationStreamMeta: {
+          baseVersionId: "ver_old",
+          scaffoldId: "landing-page",
+          variantId: "editorial-lux",
+          briefSummary: { projectTitle: "Historisk Brief" },
+        },
+      }),
+    );
+
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.orchestrationSnapshot).toMatchObject({
+      lastVersionId: "ver_1",
+      lastChatId: "chat_1",
+      baseVersionId: "ver_old",
+      scaffoldId: "landing-page",
+      variantId: "editorial-lux",
+      buildIntent: "website",
+      briefSummary: { projectTitle: "Historisk Brief" },
+    });
+    expect(arg.meta.orchestrationSnapshot.capturedAt).toEqual(expect.any(String));
+  });
+
+  it("binds final post-merge dossier evidence to the historical version envelope", async () => {
+    await persistTelemetryRecord(
+      makeParams({
+        filesJson: JSON.stringify([
+          {
+            path: "app/api/checkout-session/route.ts",
+            content: "export async function POST() {}",
+          },
+        ]),
+        orchestrationStreamMeta: {
+          fileEvidenceCapabilities: [],
+          fileEvidenceDossierIds: [],
+        },
+      }),
+    );
+
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.orchestrationSnapshot).toMatchObject({
+      fileEvidenceCapabilities: ["payments"],
+      fileEvidenceDossierIds: ["stripe-checkout"],
+    });
+  });
+
+  it("binds finalize lineage to streaming envelopes and lets it override stale meta", async () => {
+    await persistTelemetryRecord(
+      makeParams({
+        lineageHash: "lineage-stream-final",
+        orchestrationStreamMeta: { lineageHash: "lineage-stale-meta" },
+      }),
+    );
+
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.orchestrationSnapshot.lineageHash).toBe("lineage-stream-final");
+  });
+
+  it("preserves non-stream meta lineage when finalize has no separate hash", async () => {
+    await persistTelemetryRecord(
+      makeParams({
+        lineageHash: null,
+        orchestrationStreamMeta: { lineageHash: "lineage-nonstream" },
+      }),
+    );
+
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.orchestrationSnapshot.lineageHash).toBe("lineage-nonstream");
+  });
+
+  it("does not invent lineage for legacy callers", async () => {
+    await persistTelemetryRecord(makeParams({ lineageHash: null, orchestrationStreamMeta: null }));
+
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.orchestrationSnapshot).not.toHaveProperty("lineageHash");
   });
 });
 
@@ -214,24 +320,16 @@ describe("persistTelemetryRecord — källkvitto", () => {
         reachedPrompt: true,
       },
     ];
-    await persistTelemetryRecord(
-      makeParams({ orchestrationStreamMeta: { sources } }),
-    );
+    await persistTelemetryRecord(makeParams({ orchestrationStreamMeta: { sources } }));
     const arg = createGenerationTelemetryRecord.mock.calls[0][0];
     expect(arg.meta.sources).toEqual(sources);
   });
 
   it("utelämnar nyckeln när sources är tom eller saknas", async () => {
-    await persistTelemetryRecord(
-      makeParams({ orchestrationStreamMeta: { sources: [] } }),
-    );
-    expect(createGenerationTelemetryRecord.mock.calls[0][0].meta).not.toHaveProperty(
-      "sources",
-    );
+    await persistTelemetryRecord(makeParams({ orchestrationStreamMeta: { sources: [] } }));
+    expect(createGenerationTelemetryRecord.mock.calls[0][0].meta).not.toHaveProperty("sources");
 
     await persistTelemetryRecord(makeParams());
-    expect(createGenerationTelemetryRecord.mock.calls[1][0].meta).not.toHaveProperty(
-      "sources",
-    );
+    expect(createGenerationTelemetryRecord.mock.calls[1][0].meta).not.toHaveProperty("sources");
   });
 });

@@ -43,6 +43,7 @@ export interface ParsedChatRequestMeta {
   promptSourceKind: string | null;
   promptSourceTechnical: boolean;
   promptSourcePreservePayload: boolean;
+  planDesignLineageHash: string | null;
   planMode: boolean;
   appProjectId: string | null;
   scaffoldMode: ScaffoldMode;
@@ -99,6 +100,7 @@ export function parseChatRequestMeta(meta: unknown): ParsedChatRequestMeta {
     promptSourceKind: metaString(meta, "promptSourceKind"),
     promptSourceTechnical: metaBool(meta, "promptSourceTechnical"),
     promptSourcePreservePayload: metaBool(meta, "promptSourcePreservePayload"),
+    planDesignLineageHash: metaString(meta, "planDesignLineageHash")?.trim() || null,
     planMode: metaBool(meta, "planMode"),
     appProjectId: extractAppProjectIdFromMeta(meta),
     scaffoldMode,

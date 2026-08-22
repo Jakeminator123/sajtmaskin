@@ -8,9 +8,16 @@
  */
 
 import {
-  pickScaffoldVariantAsync,
+  pickScaffoldVariantAsyncWithMeta,
+  pickScaffoldVariantWithMeta,
   type ScaffoldVariant,
+  type VariantMatchResult,
 } from "../scaffold-variants";
+
+export interface ResolvedScaffoldVariantMatch extends VariantMatchResult {
+  /** True when Deep Brief contributed non-empty style/tone signals. */
+  usedBriefSignals: boolean;
+}
 
 export async function resolveScaffoldVariant(
   scaffoldId: string | null | undefined,
@@ -29,7 +36,9 @@ export async function resolveScaffoldVariant(
    * model only as a Swedish copy directive, so they never touched the scorer.
    */
   extraToneKeywords?: string[],
-): Promise<ScaffoldVariant | null> {
+  /** Test/CLI escape hatch; production omits it and uses embeddings when available. */
+  useEmbeddings = true,
+): Promise<ResolvedScaffoldVariantMatch> {
   const briefStyleKeywords = Array.isArray(
     (brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection
       ?.styleKeywords,
@@ -38,8 +47,7 @@ export async function resolveScaffoldVariant(
         (brief as { visualDirection?: { styleKeywords?: unknown[] } } | null)?.visualDirection
           ?.styleKeywords ?? []
       ).filter(
-        (keyword): keyword is string =>
-          typeof keyword === "string" && keyword.trim().length > 0,
+        (keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0,
       )
     : [];
 
@@ -61,8 +69,7 @@ export async function resolveScaffoldVariant(
     (brief as { toneAndVoice?: unknown } | null)?.toneAndVoice,
   )
     ? ((brief as { toneAndVoice?: unknown[] } | null)?.toneAndVoice ?? []).filter(
-        (keyword): keyword is string =>
-          typeof keyword === "string" && keyword.trim().length > 0,
+        (keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0,
       )
     : [];
 
@@ -80,12 +87,19 @@ export async function resolveScaffoldVariant(
     toneKeywords.push(trimmed);
   }
 
-  return pickScaffoldVariantAsync({
+  const pickerInput = {
     prompt,
     scaffoldId: (scaffoldId as ScaffoldVariant["scaffoldId"] | null | undefined) ?? null,
     styleKeywords,
     toneKeywords,
     generationMode,
     sessionSeed,
-  });
+  };
+  const result = useEmbeddings
+    ? await pickScaffoldVariantAsyncWithMeta(pickerInput)
+    : pickScaffoldVariantWithMeta(pickerInput);
+  return {
+    ...result,
+    usedBriefSignals: briefStyleKeywords.length > 0 || briefToneKeywords.length > 0,
+  };
 }

@@ -51,6 +51,7 @@ import { getDossierById } from "@/lib/gen/dossiers";
 import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { buildPlanModeAssistantMessage } from "@/lib/gen/plan/review";
+import { buildPlanDesignAuthority } from "@/lib/gen/plan/design-authority";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { normalizeRequestAttachments, summarizeDesignReferences } from "@/lib/gen/request-metadata";
@@ -180,6 +181,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           meta,
         } = validationResult.data;
         const requestAttachments = normalizeRequestAttachments(attachments);
+        const designReferences = summarizeDesignReferences(requestAttachments);
         const parsedMeta = parseChatRequestMeta(meta);
         const modelSelection = resolveModelSelection({
           requestedModelId: modelId,
@@ -264,9 +266,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         // Fast pre-match: keyword-only scaffold + variant (~1ms) to give Brief-LLM design hints.
         // Intentionally NOT pickScaffoldVariantAsync — that would add a +500ms OpenAI embedding
         // round-trip just for hint generation.
-        // The picked preMatchVariant.id is later passed as orchestrationInput.persistedVariantId
-        // so the same variant is reused by finalizeOrchestrationPrompts (no async re-pick), keeping
-        // brief-LLM hints and codegen aligned.
+        // The picked id is later passed as `variantHintId`. It can guide Deep
+        // Brief and remains a fallback, but the post-Brief matcher is authoritative.
         // Scaffold: Av → thin baseline (`projekt-bas-app`) so Deep Brief / variant
         // hints align with resolveOrchestrationBase. Template imports never send
         // scaffoldMode off via this path (they use importedRepoMode instead).
@@ -599,14 +600,18 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             complexityHint: parsedMeta.complexityHint,
             brief: effectiveBrief,
             themeColors: parsedMeta.themeColors,
+            imageGenerations: resolvedImageGenerations,
+            componentPalette: parsedMeta.palette,
+            designThemePreset: parsedMeta.designThemePreset,
+            designReferences,
+            requestAttachments,
             // Samma paritet för custom instructions (bär även Byggvals
             // komplexitet/färgläge/ton-direktiv) — annars planerar plan-läget
             // utan direktiv som codegen sedan får.
             customInstructions: trimmedSystemPrompt || undefined,
-            // Pinna samma pre-match-variant som huvudflödet (pre-matchen läser
-            // styleKeywordsHint) så plan-orkestreringen inte async-väljer en
-            // annan variant än brief-hints/codegen.
-            persistedVariantId: preMatchVariant?.id ?? null,
+            // Cheap pre-Brief guess only; final plan variant may change after
+            // Deep Brief adds style/tone evidence.
+            variantHintId: preMatchVariant?.id ?? null,
             promptStrategyMeta: strategyMeta,
             // Bug 04#3 (2026-04-22 audit): plan mode skickade tidigare inte
             // engineModelId/lifecycleStage. Det gav divergent BuildSpec mellan
@@ -614,6 +619,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             // codegen (1M-fönster + F2/F3). Spegla samma fält som huvudflödet.
             engineModelId: resolveEngineModelId(resolvedModelTier),
             lifecycleStage: parsedMeta.lifecycleStage,
+          });
+          const planDesignAuthority = buildPlanDesignAuthority(planOrchestration, {
+            baseVersionId: null,
+            baseFilesRevision: null,
+            requestAttachments,
+            customInstructions: trimmedSystemPrompt || null,
+            imageGenerations: resolvedImageGenerations,
           });
           debugLog("orchestration", "Plan mode orchestration prepared", {
             durationMs: Date.now() - planOrchestrationStartedAt,
@@ -695,6 +707,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             type: "site.chatId",
             chatId: plannerChat.id,
           });
+          const planAuthorityPersisted = await chatRepo.setPendingPlanDesignAuthority(
+            plannerChat.id,
+            planDesignAuthority,
+          );
+          if (!planAuthorityPersisted) {
+            throw new Error("Planens designauktoritet kunde inte sparas.");
+          }
 
           const planModeResponse = createOwnEnginePlanModeResponse({
             pipelineStream,
@@ -707,6 +726,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             buildSpec: planOrchestration.buildSpec,
             resolvedScaffold: planOrchestration.resolvedScaffold,
             variantTemplateId: planOrchestration.variantTemplateId,
+            designAuthority: planDesignAuthority,
             scaffoldMode: parsedMeta.scaffoldMode,
             onResolved: (planData, hasBlockers, accumulatedContent) => {
               const blockerCount = Array.isArray(planData?.blockers)
@@ -811,8 +831,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           const metaBrief = effectiveBrief;
           const metaDesignThemePreset = parsedMeta.designThemePreset;
           const metaPalette = parsedMeta.palette;
-          const designReferences = summarizeDesignReferences(requestAttachments);
-
           const engineModel = resolveEngineModelId(resolvedModelTier);
           // MB-3: the actual codegen + telemetry model is the generator-phase
           // model (manifest phaseRouting). In the current default config it equals
@@ -884,13 +902,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             requestAttachments,
             customInstructions: trimmedSystemPrompt || undefined,
             promptStrategyMeta: strategyMeta,
-            // Lock variant to the pre-match pick so brief-LLM hints (variantHints
-            // built above) and the final codegen variant agree. Without this the
-            // async embedding-driven picker in finalizeOrchestrationPrompts can
-            // land on a different variant after brief is ready, causing
-            // brief→codegen drift. If preMatchVariant is null, async picker runs.
-            // getVariantById fallback in orchestrate.ts re-picks if id is stale.
-            persistedVariantId: preMatchVariant?.id ?? null,
+            // Cheap pre-Brief guess. Finalize re-matches with Deep Brief and
+            // falls back to this id only when no meaningful signal wins.
+            variantHintId: preMatchVariant?.id ?? null,
             // Q5a + MB-3: pass the generator-phase model id so deriveBuildSpec
             // scales tokenBudgets to the context window of the model that
             // actually generates (e.g. Opus 4.8's larger window on the anthropic
@@ -952,6 +966,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             devLogAppend("in-progress", {
               type: "orchestration.styleDirection",
               styleDirection: finalized.variantId,
+              variantSelection: finalized.variantSelection,
+              explicitDesignAxes: finalized.resolvedDesign.explicitAxes,
+              explicitDesignFields: finalized.resolvedDesign.explicitFields,
             });
           }
           const generationInputPackage = buildGenerationInputPackage(
@@ -1075,9 +1092,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               buildSpec: orchestrationBase.buildSpec,
               engineSystemPromptLength: engineSystemPrompt.length,
               metaBriefApplied: Boolean(metaBrief),
+              metaBrief,
               customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
               scaffoldId: resolvedScaffold?.id ?? null,
               variantId: finalized.variantId,
+              variantSelection: finalized.variantSelection,
+              resolvedDesign: finalized.resolvedDesign,
               variantTemplateId: finalized.variantTemplateId,
               sources: finalized.sources,
             }),

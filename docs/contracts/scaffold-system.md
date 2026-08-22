@@ -325,7 +325,44 @@ så en saknad token failar stängt i stället för att bara skriva lokal cache.
 Sync cache: `npm run embeddings:sync`.
 Promote befintlig lokal JSON: `npm run embeddings:promote`.
 
-**Sedan 2026-04-18:** `create-chat-stream-post.ts` låser keyword-pre-match-varianten via `OrchestrationInput.persistedVariantId`, så orchestrate hämtar samma variant via `getVariantById` istället för att köra async-pickaren. Async körs då bara som fallback (id stale, plan-mode, eval). Eliminerar drift mellan brief-LLM-hint och codegen-variant.
+**Sedan 2026-08-22:** initens billiga keyword-förmatchning är enbart
+`OrchestrationInput.variantHintId`. Slutvalet sker efter Deep Brief i ordningen
+uttryckligt Stilval → follow-up-lås → Brief/prompt-driven embedding eller
+keyword → hint vid nollsignal → deterministisk hash. `persistedVariantId` är
+reserverat för en verkligt tidigare variant. Beslutet kvitteras som
+`variantSelection` med källa, poäng, runner-up, marginal och hint→slutligt-id.
+
+Brief och Variant ska inte ha identiska fulla scheman: Brief beskriver mål,
+innehåll och uttryck; Variant beskriver en körbar visuell startpunkt. Deras
+överlappande axlar har däremot ett enda kanoniskt wire-kontrakt efter urval:
+`ResolvedDesignContract`. Variantens exakta tokens och typsnitt är baslinje.
+Endast Brief-fält markerade i `designIntent.explicitFields` får ersätta sina
+Variant-motsvarigheter. `explicitAxes` är grov bakåtkompatibilitet för äldre
+Briefar; infererade/simplifierade Brief-defaults får inte göra det. Ett explicit
+accentvärde tar därför inte över primär-/sekundärfärger, och ett explicit
+rubriktypsnitt tar inte över brödtypsnitt. Fulla explicita paletter får
+deterministiskt sammanhängande surface- och läsbarhetsvärden.
+Uttryckliga Byggval, theme override och låst palett ligger överst. Äldre
+Brief-snapshots utan provenance behåller historisk Brief-first-semantik.
+Dynamic Context, deterministisk autofix och live-review-kritikerns
+målbeskrivning konsumerar samma slutvärden och får inte själva slå ihop Brief
+och Variant en gång till. JPEG-capture/grindar är fortsatt ett separat,
+advisory post-preview-steg. Låsta follow-ups återanvänder dessutom föregående
+accepterade `resolvedDesign` så ett rubrikbyte inte kan återställa en låst
+fullpalett eller färgläge till Variantens defaults. En uttrycklig palett- eller
+typografiändring delegerar just den axeln till aktuell request/filer och får inte
+återinföra snapshotvärdet; redesign/unlock släpper allt.
+Live-granskningens chattrad visar även skip-orsak och vilka JPEG-viewports som
+fanns, så en avstängd grind inte längre är osynlig. Varje berättigad läsbar
+preview granskas, även en vanlig follow-up utan separat sensorsignal.
+
+Planläget fryser samma beslut i serverns `PlanDesignAuthority`. Godkänd plan
+bygger med exakt samma Brief, variant, designkontrakt och variant-template även
+på en befintlig sajt. Kvittoytan fryser också basversion + filrevision samt de
+sanerade JPG/PDF/Figma-bilagor, custom instructions och bildval planner-LLM:en
+såg. Godkännandets lineage och bas måste matcha serverns senaste
+pending-kvitto; saknat/stale kvitto eller basdrift kräver en ny plan. Kvittot förbrukas
+atomärt efter lyckad versionspersist och kan inte radera en nyare parallell plan.
 
 ---
 

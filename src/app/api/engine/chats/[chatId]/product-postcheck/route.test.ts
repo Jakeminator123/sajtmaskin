@@ -8,7 +8,14 @@ const runProductPostcheck = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
 const beginLiveReviewSession = vi.hoisted(() => vi.fn());
 const finishLiveReviewSession = vi.hoisted(() => vi.fn());
+const discardLiveReviewScreenshots = vi.hoisted(() => vi.fn());
+const abandonLiveReviewRun = vi.hoisted(() => vi.fn());
+const deleteLiveReviewScreenshotUrls = vi.hoisted(() => vi.fn());
+const getLiveReviewRunForVersion = vi.hoisted(() => vi.fn());
+const readGenerationOrchestration = vi.hoisted(() => vi.fn());
 const setLlmUsageContext = vi.hoisted(() => vi.fn());
+const upsertAssistantMessageUiPart = vi.hoisted(() => vi.fn(async () => true));
+const pickUserRequestForVersion = vi.hoisted(() => vi.fn(() => "Gör headern blå"));
 
 vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest: getVersion,
@@ -26,13 +33,18 @@ vi.mock("@/lib/gen/verify/product-postcheck", () => ({
 }));
 
 vi.mock("@/lib/gen/verify/live-review", () => ({
-  pickUserRequest: () => "",
+  pickUserRequestForVersion,
   summarizeBrief: () => "",
 }));
 
 vi.mock("@/lib/gen/verify/live-review-session", () => ({
   beginLiveReviewSession,
+  discardLiveReviewScreenshots,
   finishLiveReviewSession,
+}));
+
+vi.mock("@/lib/gen/version-bound-orchestration", () => ({
+  readGenerationOrchestration,
 }));
 
 vi.mock("@/lib/logging/event-bus", () => ({
@@ -40,7 +52,13 @@ vi.mock("@/lib/logging/event-bus", () => ({
 }));
 
 vi.mock("@/lib/db/services/live-review-runs", () => ({
-  abandonLiveReviewRun: vi.fn(),
+  abandonLiveReviewRun,
+  deleteLiveReviewScreenshotUrls,
+  getLiveReviewRunForVersion,
+}));
+
+vi.mock("@/lib/db/chat-repository-pg", () => ({
+  upsertAssistantMessageUiPart,
 }));
 
 function req(body: unknown): Request {
@@ -59,6 +77,17 @@ describe("POST product-postcheck", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     setF2ProductPostcheck(false);
+    abandonLiveReviewRun.mockResolvedValue(undefined);
+    deleteLiveReviewScreenshotUrls.mockResolvedValue(undefined);
+    discardLiveReviewScreenshots.mockImplementation(
+      async (screenshots: { desktopUrl: string | null; mobileUrl: string | null } | null) => {
+        if (!screenshots) return;
+        screenshots.desktopUrl = null;
+        screenshots.mobileUrl = null;
+      },
+    );
+    getLiveReviewRunForVersion.mockResolvedValue(null);
+    readGenerationOrchestration.mockResolvedValue(null);
     beginLiveReviewSession.mockResolvedValue({
       captureEnabled: false,
       claim: null,
@@ -75,12 +104,19 @@ describe("POST product-postcheck", () => {
   });
 
   it("feature flag off => skipped utan DB/Playwright-körning", async () => {
-    const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
-      params: Promise.resolve({ chatId: "chat_1" }),
-    });
+    const res = await POST(
+      req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }),
+      {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      },
+    );
     const body = await res.json();
     expect(body.skipped).toBe(true);
     expect(body.skippedReason).toBe("feature_disabled");
+    expect(body.liveReview).toMatchObject({
+      status: "skipped",
+      reason: "postcheck_skipped",
+    });
     expect(getVersion).not.toHaveBeenCalled();
     expect(runProductPostcheck).not.toHaveBeenCalled();
   });
@@ -107,6 +143,7 @@ describe("POST product-postcheck", () => {
     const body = await res.json();
     expect(body.skipped).toBe(true);
     expect(body.skippedReason).toBe("missing_preview_url");
+    expect(body.liveReview).toMatchObject({ status: "skipped", reason: "preview_not_ready" });
     // Scope now runs before the skip so a skipped DOM check is surfaced on the
     // version-status projection (cannot read as solid green).
     expect(getVersion).toHaveBeenCalled();
@@ -145,9 +182,12 @@ describe("POST product-postcheck", () => {
       durationMs: 5,
       checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
     });
-    const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
-      params: Promise.resolve({ chatId: "chat_1" }),
-    });
+    const res = await POST(
+      req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }),
+      {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      },
+    );
     const body = await res.json();
     expect(body.skipped).toBe(true);
     expect(emitBusEvent).toHaveBeenCalledWith(
@@ -173,9 +213,12 @@ describe("POST product-postcheck", () => {
       checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
     });
 
-    const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
-      params: Promise.resolve({ chatId: "chat_1" }),
-    });
+    const res = await POST(
+      req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }),
+      {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      },
+    );
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.skipped).toBe(false);
@@ -208,9 +251,12 @@ describe("POST product-postcheck", () => {
       durationMs: 12,
       checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
     });
-    const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
-      params: Promise.resolve({ chatId: "chat_1" }),
-    });
+    const res = await POST(
+      req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }),
+      {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      },
+    );
     const body = await res.json();
     expect(body.productBlocked).toBe(true);
     expect(emitBusEvent).toHaveBeenCalledWith(
@@ -249,9 +295,12 @@ describe("POST product-postcheck", () => {
   it("scope miss => 404", async () => {
     setF2ProductPostcheck(true);
     getVersion.mockResolvedValue(null);
-    const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
-      params: Promise.resolve({ chatId: "chat_1" }),
-    });
+    const res = await POST(
+      req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }),
+      {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      },
+    );
     expect(res.status).toBe(404);
     expect(runProductPostcheck).not.toHaveBeenCalled();
   });
@@ -263,13 +312,27 @@ describe("POST product-postcheck", () => {
       claim: { kind: "acquired" },
       earlyResult: null,
       chatId: "chat_1",
-      versionId: "v1",
-      filesRevision: "rev_a",
+      versionId: "v3",
+      filesRevision: "rev_c",
       userId: "user_1",
     });
     getVersion.mockResolvedValue({
-      version: { id: "v1", version_number: 1, files_json: "[]", files_revision: "rev_a" },
+      version: {
+        id: "v3",
+        message_id: "msg_v3",
+        parent_version_id: "v1",
+        version_number: 3,
+        files_json: "[]",
+        files_revision: "rev_c",
+      },
       chat: { messages: [], orchestration_snapshot: null },
+    });
+    readGenerationOrchestration.mockResolvedValue({
+      snapshot: {
+        baseVersionId: "v1",
+        baseFilesRevision: "rev_parent",
+        briefSummary: { projectTitle: "historical" },
+      },
     });
     runProductPostcheck.mockResolvedValue({
       ok: true,
@@ -295,25 +358,114 @@ describe("POST product-postcheck", () => {
       durationMs: 12,
       modelId: "gpt-4o",
     });
-    const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
-      params: Promise.resolve({ chatId: "chat_1" }),
-    });
+    const res = await POST(
+      req({ versionId: "v3", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }),
+      {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      },
+    );
     const body = await res.json();
     expect(body.productBlocked).toBe(false);
     expect(body.liveReview.status).toBe("completed");
     expect(runProductPostcheck).toHaveBeenCalledWith(
       expect.objectContaining({
         captureEnabled: true,
-        filesRevision: "rev_a",
+        filesRevision: "rev_c",
       }),
     );
     expect(finishLiveReviewSession).toHaveBeenCalled();
+    expect(finishLiveReviewSession).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        previousVersionId: "v1",
+        previousFilesRevision: "rev_parent",
+        userRequest: "Gör headern blå",
+      }),
+    );
+    expect(pickUserRequestForVersion).toHaveBeenCalledWith([], "msg_v3");
+    expect(upsertAssistantMessageUiPart).toHaveBeenCalledWith(
+      "chat_1",
+      "msg_v3",
+      expect.objectContaining({
+        type: "tool:live-review",
+        toolCallId: "live-review:v3",
+        output: expect.objectContaining({
+          liveReview: expect.objectContaining({ status: "completed" }),
+        }),
+      }),
+    );
     expect(emitBusEvent).not.toHaveBeenCalled();
     expect(setLlmUsageContext).toHaveBeenCalledWith(
       expect.objectContaining({ chatId: "chat_1", userId: "user_1" }),
     );
-    expect(setLlmUsageContext).toHaveBeenCalledWith(
-      expect.objectContaining({ versionId: "v1" }),
+    expect(setLlmUsageContext).toHaveBeenCalledWith(expect.objectContaining({ versionId: "v3" }));
+  });
+
+  it("returns a visible skipped review when the critic throws", async () => {
+    setF2ProductPostcheck(true);
+    beginLiveReviewSession.mockResolvedValue({
+      captureEnabled: true,
+      claim: { kind: "acquired", row: { id: "run_1", claimedAt: new Date() } },
+      earlyResult: null,
+      chatId: "chat_1",
+      versionId: "v1",
+      filesRevision: "rev_a",
+      userId: "user_1",
+    });
+    getVersion.mockResolvedValue({
+      version: { id: "v1", version_number: 1, files_json: "[]", files_revision: "rev_a" },
+      chat: { messages: [], orchestration_snapshot: null },
+    });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      routesChecked: 1,
+      durationMs: 8,
+      checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+      domSummary: null,
+    });
+    finishLiveReviewSession.mockRejectedValue(new Error("critic timeout"));
+
+    const res = await POST(
+      req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
     );
+    const body = await res.json();
+
+    expect(body.liveReview).toEqual({
+      status: "skipped",
+      reason: "review_error",
+      detail: "critic timeout",
+    });
+    expect(abandonLiveReviewRun).toHaveBeenCalled();
+    expect(discardLiveReviewScreenshots).toHaveBeenCalled();
+    expect(body.screenshots).toEqual({ desktopUrl: null, mobileUrl: null });
+  });
+
+  it("returns a visible runtime-crash review when Product Postcheck throws", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({
+      version: { id: "v1", files_revision: "rev_a" },
+      chat: { messages: [], orchestration_snapshot: null },
+    });
+    runProductPostcheck.mockRejectedValue(new Error("chromium crashed"));
+
+    const res = await POST(
+      req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const body = await res.json();
+
+    expect(body.skippedReason).toBe("runtime_error");
+    expect(body.liveReview).toEqual({
+      status: "skipped",
+      reason: "runtime_crash",
+      detail: "chromium crashed",
+    });
   });
 });

@@ -22,24 +22,22 @@ export interface OpenClawReviewContext {
 
 export async function buildOpenClawReviewContext(params: {
   versionId: string | null | undefined;
+  filesRevision?: string | null;
   chatId?: string | null;
 }): Promise<OpenClawReviewContext> {
   const versionId = (params.versionId ?? "").trim();
+  const filesRevision = (params.filesRevision ?? "").trim();
   if (!versionId || !dbConfigured) {
     return { findings: null, timeline: null, liveReview: null };
   }
 
   try {
-    const { getLatestEngineVersionErrorLogs } = await import(
-      "@/lib/db/services/version-errors"
-    );
-    const { getLiveReviewRunForVersion } = await import(
-      "@/lib/db/services/live-review-runs"
-    );
+    const { getLatestEngineVersionErrorLogs } = await import("@/lib/db/services/version-errors");
+    const { getLiveReviewRunForVersion } = await import("@/lib/db/services/live-review-runs");
     const { formatOpenClawLiveReviewBlock } = await import("./live-review-context");
     const [rows, liveReviewRow] = await Promise.all([
       getLatestEngineVersionErrorLogs(versionId, ROW_READ_LIMIT),
-      getLiveReviewRunForVersion(versionId),
+      filesRevision ? getLiveReviewRunForVersion(versionId, filesRevision) : Promise.resolve(null),
     ]);
     return {
       findings: formatOpenClawFindingsBlock(

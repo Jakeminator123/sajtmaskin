@@ -5,6 +5,8 @@ import {
   buildFollowUpBriefFromSnapshot,
   buildFollowUpContract,
 } from "@/lib/gen/orchestration-snapshot";
+import { resolveDesignContract } from "@/lib/gen/orchestrate/design-resolution";
+import { getVariantById } from "@/lib/gen/scaffold-variants";
 
 import {
   buildFollowUpOrchestrationInput,
@@ -168,6 +170,24 @@ describe("buildFollowUpContract — consolidation (5-1)", () => {
     });
     expect(contract.capabilities).toEqual(["payments"]);
   });
+
+  it("rehydrates the accepted resolved design as a defensive follow-up baseline", () => {
+    const resolvedDesign = resolveDesignContract({
+      brief: null,
+      variant: getVariantById("landing-page", "minimalist-mag"),
+      colorModeHint: "dark",
+    });
+    const contract = buildFollowUpContract({
+      snapshot: { ...baseSnapshot(), resolvedDesign },
+    });
+
+    expect(contract.resolvedDesign).toEqual(resolvedDesign);
+    expect(contract.resolvedDesign).not.toBe(resolvedDesign);
+    expect(contract.resolvedDesign?.colorMode).toMatchObject({
+      value: "dark",
+      source: "user-locked",
+    });
+  });
 });
 
 function emptyCapabilityDetection(): FollowUpCapabilityDetection {
@@ -272,9 +292,7 @@ describe("buildFollowUpOrchestrationInput attaches followUpContract (5-1, additi
 
     // The contract still records the persisted base lineage, not the delta.
     expect(input.followUpContract?.baseVersionId).toBe("ver_base_1");
-    expect(input.followUpContract?.snapshotBrief).toEqual(
-      buildFollowUpBriefFromSnapshot(snapshot),
-    );
+    expect(input.followUpContract?.snapshotBrief).toEqual(buildFollowUpBriefFromSnapshot(snapshot));
     expect(input.followUpContract?.snapshotBrief).not.toEqual(deltaBrief);
     expect(input.followUpContract?.capabilities).toEqual(["payments", "booking"]);
   });
@@ -284,5 +302,56 @@ describe("buildFollowUpOrchestrationInput attaches followUpContract (5-1, additi
     const codegenInput = buildFollowUpOrchestrationInput(followUpParams({ mode: "codegen" }));
     expect(planInput.followUpContract).toEqual(codegenInput.followUpContract);
     expect(planInput.followUpContract?.scaffoldId).toBe("landing-page");
+  });
+
+  it("uses the exact approved-plan Brief on an existing-site build", () => {
+    const plannedBrief = {
+      projectTitle: "Plan B",
+      designIntent: { explicitAxes: ["palette"], explicitFields: ["palette.accent"] },
+    };
+    const input = buildFollowUpOrchestrationInput(
+      followUpParams({
+        persistedScaffoldId: "dashboard",
+        parsedMeta: {
+          ...followUpMeta({ projectTitle: "stale browser brief" }),
+          scaffoldMode: "manual",
+          scaffoldId: "dashboard",
+        },
+        followUpIntent: "clear-redesign",
+        ignorePersistedScaffoldForMatch: true,
+        approvedPlanAuthority: {
+          schemaVersion: 2,
+          baseVersionId: "base-version",
+          baseFilesRevision: "base-revision",
+          requestAttachments: [],
+          customInstructions: null,
+          imageGenerations: true,
+          scaffoldId: "landing-page",
+          buildIntent: "website",
+          variantId: null,
+          variantSelection: {
+            source: "hash-fallback",
+            score: null,
+            runnerUpScore: null,
+            margin: null,
+            hintId: null,
+            finalId: null,
+            changedFromHint: false,
+          },
+          resolvedDesign: resolveDesignContract({ brief: null, variant: null }),
+          variantTemplateId: null,
+          brief: plannedBrief,
+          lineageHash: "plan-b",
+        },
+      }),
+    );
+
+    expect(input.brief).toEqual(plannedBrief);
+    expect(input.brief).not.toEqual({ projectTitle: "stale browser brief" });
+    expect(input.buildIntent).toBe("website");
+    expect(input.scaffoldMode).toBe("manual");
+    expect(input.scaffoldId).toBe("landing-page");
+    expect(input.persistedScaffoldId).toBe("landing-page");
+    expect(input.followUpContract?.scaffoldId).toBe("landing-page");
   });
 });

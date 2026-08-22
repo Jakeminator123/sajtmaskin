@@ -92,7 +92,6 @@ function buildSeoIssueFiles() {
     );
 }
 
-
 function createMessageStore() {
   let messages: ChatMessage[] = [
     {
@@ -116,9 +115,8 @@ function createMessageStore() {
 }
 
 function getToolPart(toolName: string, store: ReturnType<typeof createMessageStore>) {
-  return store
-    .getAssistant()
-    ?.uiParts?.find((part) => part.toolName === toolName) as Record<string, unknown> | undefined;
+  return store.getAssistant()?.uiParts?.find((part) => part.toolName === toolName) as
+    Record<string, unknown> | undefined;
 }
 
 describe("runPostGenerationChecks", () => {
@@ -227,11 +225,14 @@ describe("runPostGenerationChecks", () => {
     const qualityGate = getToolPart("Quality gate", store);
     expect(postCheck?.state).toBe("output-available");
     expect((postCheck?.output as Record<string, unknown>).demoUrl).toBeNull();
-    expect(((postCheck?.output as Record<string, unknown>).qualityGate as Record<string, unknown>).failures).toContain(
-      "preflight_preview_blocked",
-    );
+    expect(
+      ((postCheck?.output as Record<string, unknown>).qualityGate as Record<string, unknown>)
+        .failures,
+    ).toContain("preflight_preview_blocked");
     expect(qualityGate?.state).toBe("output-available");
-    expect(((qualityGate?.output as Record<string, unknown>).skipped as boolean) ?? false).toBe(true);
+    expect(((qualityGate?.output as Record<string, unknown>).skipped as boolean) ?? false).toBe(
+      true,
+    );
 
     expect(onAutoFix).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -242,7 +243,9 @@ describe("runPostGenerationChecks", () => {
     );
 
     const errorLogCall = fetchCalls.find((call) => call.url.includes("/error-log"));
-    const body = JSON.parse(String(errorLogCall?.init?.body)) as { logs: Array<{ meta?: Record<string, unknown> }> };
+    const body = JSON.parse(String(errorLogCall?.init?.body)) as {
+      logs: Array<{ meta?: Record<string, unknown> }>;
+    };
     expect(body.logs[0]?.meta?.previewCode).toBe("preflight_preview_blocked");
     expect(fetchCalls.some((call) => call.url.includes("/quality-gate"))).toBe(false);
   });
@@ -557,11 +560,7 @@ describe("runPostGenerationChecks", () => {
       expect(mutateVersions).toHaveBeenCalledTimes(1);
       expect(onComplete).toHaveBeenCalledTimes(1);
     });
-    expect(order).toEqual([
-      "persistence-settled",
-      "versions-refreshed",
-      "status-refreshed",
-    ]);
+    expect(order).toEqual(["persistence-settled", "versions-refreshed", "status-refreshed"]);
   });
 
   it("revalidates versions after a successful tier-2 promotion settles", async () => {
@@ -576,11 +575,7 @@ describe("runPostGenerationChecks", () => {
       phaseResults.push(acceptClientErrorReport("ver_1", "Hydration failed", null));
       // The eventual server timestamp belongs to the same binary phase.
       phaseResults.push(
-        acceptClientErrorReport(
-          "ver_1",
-          "Hydration failed",
-          "2026-08-15T10:00:00.000Z",
-        ),
+        acceptClientErrorReport("ver_1", "Hydration failed", "2026-08-15T10:00:00.000Z"),
       );
     });
     const store = createMessageStore();
@@ -645,11 +640,7 @@ describe("runPostGenerationChecks", () => {
 
     settleQualityGate();
     await vi.waitFor(() => expect(mutateVersions).toHaveBeenCalledTimes(2));
-    expect(order).toEqual([
-      "versions-refreshed",
-      "quality-gate-settled",
-      "versions-refreshed",
-    ]);
+    expect(order).toEqual(["versions-refreshed", "quality-gate-settled", "versions-refreshed"]);
     expect(phaseResults).toEqual([true, false, false]);
   });
 
@@ -692,9 +683,10 @@ describe("runPostGenerationChecks", () => {
 
     const postCheck = getToolPart("Post-check", store);
     expect((postCheck?.output as Record<string, unknown>).demoUrl).toBeNull();
-    expect(((postCheck?.output as Record<string, unknown>).qualityGate as Record<string, unknown>).failures).toContain(
-      "missing_preview_url",
-    );
+    expect(
+      ((postCheck?.output as Record<string, unknown>).qualityGate as Record<string, unknown>)
+        .failures,
+    ).toContain("missing_preview_url");
     expect(onAutoFix).toHaveBeenCalledWith(
       expect.objectContaining({
         reasons: expect.arrayContaining(["preview saknas"]),
@@ -702,7 +694,9 @@ describe("runPostGenerationChecks", () => {
     );
 
     const errorLogCall = fetchCalls.find((call) => call.url.includes("/error-log"));
-    const body = JSON.parse(String(errorLogCall?.init?.body)) as { logs: Array<{ meta?: Record<string, unknown> }> };
+    const body = JSON.parse(String(errorLogCall?.init?.body)) as {
+      logs: Array<{ meta?: Record<string, unknown> }>;
+    };
     expect(body.logs[0]?.meta?.previewCode).toBe("preview_missing_url");
   });
 
@@ -741,7 +735,8 @@ describe("runPostGenerationChecks", () => {
       preflight: {
         previewBlocked: false,
         verificationBlocked: false,
-        previewBlockingReason: "Automatic preflight could not build a renderable own-engine preview entrypoint.",
+        previewBlockingReason:
+          "Automatic preflight could not build a renderable own-engine preview entrypoint.",
         primaryPreviewTarget: "preview",
         previewStart: {
           canStartPreview: true,
@@ -768,12 +763,14 @@ describe("runPostGenerationChecks", () => {
 
     const postCheck = getToolPart("Post-check", store);
     expect((postCheck?.output as Record<string, unknown>).demoUrl).toBeNull();
-    expect(((postCheck?.output as Record<string, unknown>).qualityGate as Record<string, unknown>).failures).not.toContain(
-      "missing_preview_url",
-    );
-    expect(((postCheck?.output as Record<string, unknown>).qualityGate as Record<string, unknown>).failures).not.toContain(
-      "preflight_preview_blocked",
-    );
+    expect(
+      ((postCheck?.output as Record<string, unknown>).qualityGate as Record<string, unknown>)
+        .failures,
+    ).not.toContain("missing_preview_url");
+    expect(
+      ((postCheck?.output as Record<string, unknown>).qualityGate as Record<string, unknown>)
+        .failures,
+    ).not.toContain("preflight_preview_blocked");
     expect(onAutoFix).not.toHaveBeenCalled();
   });
 
@@ -830,12 +827,16 @@ describe("runPostGenerationChecks", () => {
 
     const postCheck = getToolPart("Post-check", store);
     const qualityGate = getToolPart("Quality gate", store);
-    expect((postCheck?.output as Record<string, unknown>).demoUrl).toBe("https://preview.example/ver_1");
+    expect((postCheck?.output as Record<string, unknown>).demoUrl).toBe(
+      "https://preview.example/ver_1",
+    );
     expect((postCheck?.output as Record<string, unknown>).warnings).toContain(
       "Preview är tillgänglig, men versionen har verifieringsblockerande preflightfel.",
     );
     expect(qualityGate?.state).toBe("output-available");
-    expect(((qualityGate?.output as Record<string, unknown>).skipped as boolean) ?? false).toBe(true);
+    expect(((qualityGate?.output as Record<string, unknown>).skipped as boolean) ?? false).toBe(
+      true,
+    );
     expect(onAutoFix).not.toHaveBeenCalled();
   });
 
@@ -904,7 +905,9 @@ describe("runPostGenerationChecks", () => {
 
     const qualityGate = getToolPart("Quality gate", store);
     expect(qualityGate?.state).toBe("output-available");
-    expect(((qualityGate?.output as Record<string, unknown>).passed as boolean) ?? true).toBe(false);
+    expect(((qualityGate?.output as Record<string, unknown>).passed as boolean) ?? true).toBe(
+      false,
+    );
     expect(onAutoFix).toHaveBeenCalledWith(
       expect.objectContaining({
         reasons: ["lint failed"],
@@ -1273,9 +1276,7 @@ describe("runPostGenerationChecks", () => {
     const steps = Array.isArray(output.steps) ? output.steps.map(String) : [];
     expect(output.passed).toBe(true);
     expect(output.designAdvisory).toBe(true);
-    expect(steps).toEqual(
-      expect.arrayContaining([expect.stringContaining("typecheck: Varning")]),
-    );
+    expect(steps).toEqual(expect.arrayContaining([expect.stringContaining("typecheck: Varning")]));
     expect(onAutoFix).not.toHaveBeenCalled();
   });
 
@@ -1894,7 +1895,13 @@ describe("runPostGenerationChecks", () => {
     const errorLogCall = fetchCalls.find(
       (call) => call.url.includes("/error-log") && call.init?.method === "POST",
     );
-    expect(errorLogCall).toBeUndefined();
+    const persistedLogs = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
+      logs?: Array<{ category?: string }>;
+    };
+    expect(persistedLogs.logs?.some((log) => /seo/i.test(log.category ?? ""))).toBe(false);
+    expect(
+      persistedLogs.logs?.some((log) => log.category === "product_postcheck.live_review"),
+    ).toBe(true);
 
     expect(onAutoFix).not.toHaveBeenCalled();
   });
@@ -1927,7 +1934,8 @@ describe("runPostGenerationChecks", () => {
             warnings: [
               {
                 code: "mobile_menu_failed",
-                message: "Mobilmeny kunde inte verifieras: hamburger_button_did_not_change_dom_or_aria",
+                message:
+                  "Mobilmeny kunde inte verifieras: hamburger_button_did_not_change_dom_or_aria",
               },
             ],
             warningCount: 1,
@@ -1966,16 +1974,25 @@ describe("runPostGenerationChecks", () => {
     expect(body.logs?.find((log) => log.category === "product_postcheck.summary")?.meta).toEqual(
       expect.objectContaining({ productBlocked: true }),
     );
-    expect(body.logs?.find((log) => log.category === "product_postcheck.mobile_menu_failed")?.meta).toEqual(
-      expect.objectContaining({ code: "mobile_menu_failed" }),
-    );
+    expect(
+      body.logs?.find((log) => log.category === "product_postcheck.mobile_menu_failed")?.meta,
+    ).toEqual(expect.objectContaining({ code: "mobile_menu_failed" }));
     const postCheck = getToolPart("Post-check", store);
-    expect(((postCheck?.output as { summary?: { productBlocked?: boolean } }).summary)?.productBlocked).toBe(true);
-    expect((postCheck?.output as { productPostcheck?: { productBlocked?: boolean } }).productPostcheck?.productBlocked).toBe(true);
+    expect(
+      (postCheck?.output as { summary?: { productBlocked?: boolean } }).summary?.productBlocked,
+    ).toBe(true);
+    expect(
+      (postCheck?.output as { productPostcheck?: { productBlocked?: boolean } }).productPostcheck
+        ?.productBlocked,
+    ).toBe(true);
     expect((postCheck?.output as { warnings?: string[] }).warnings).toEqual(
-      expect.arrayContaining(["Product: Mobilmeny kunde inte verifieras: hamburger_button_did_not_change_dom_or_aria"]),
+      expect.arrayContaining([
+        "Product: Mobilmeny kunde inte verifieras: hamburger_button_did_not_change_dom_or_aria",
+      ]),
     );
-    expect(store.getAssistant()?.content).toContain("Produktkontroll: blockerande problem hittades");
+    expect(store.getAssistant()?.content).toContain(
+      "Produktkontroll: blockerande problem hittades",
+    );
     expect(onAutoFix).not.toHaveBeenCalled();
   });
 
@@ -2010,6 +2027,8 @@ describe("runPostGenerationChecks", () => {
             productBlocked: false,
             durationMs: 0,
             checkedUrl: null,
+            routesChecked: 0,
+            liveReview: { status: "skipped", reason: "preview_not_ready" },
           });
         }
         if (url.includes("/error-log")) {
@@ -2039,8 +2058,73 @@ describe("runPostGenerationChecks", () => {
     expect(body.logs?.find((log) => log.category === "product_postcheck.skipped")?.meta).toEqual(
       expect.objectContaining({ skippedReason: "missing_preview_url" }),
     );
+    expect(
+      body.logs?.find((log) => log.category === "product_postcheck.live_review"),
+    ).toBeDefined();
+    expect(getToolPart("Live-granskning", store)).toMatchObject({
+      type: "tool:live-review",
+      output: {
+        liveReview: { status: "skipped", reason: "preview_not_ready" },
+      },
+    });
     // Befintlig readiness-logik kan fortfarande köa autofix för "preview saknas".
     // Product Postcheck ska däremot fail-open och bara lägga en skipped-logg.
+  });
+
+  it("adds a visible live-review step even when access policy skips it", async () => {
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({
+            ok: true,
+            skipped: false,
+            skippedReason: null,
+            warnings: [],
+            warningCount: 0,
+            productBlocked: false,
+            durationMs: 10,
+            checkedUrl: "https://preview.example",
+            routesChecked: 1,
+            screenshots: null,
+            liveReview: { status: "skipped", reason: "flag_off" },
+          });
+        }
+        if (url.includes("/error-log")) return jsonResponse({ ok: true });
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({ error: "Sandbox not configured" }, 501);
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+    });
+
+    expect(getToolPart("Live-granskning", store)).toMatchObject({
+      type: "tool:live-review",
+      state: "output-available",
+      output: {
+        liveReview: { status: "skipped", reason: "flag_off" },
+        screenshots: null,
+      },
+    });
   });
 });
 
@@ -2062,6 +2146,27 @@ describe("buildProductPostcheckLogItems live review", () => {
     expect(logs.find((log) => log.category === "product_postcheck.live_review")?.message).toBe(
       "Live review skipped: no_screenshots.",
     );
+  });
+
+  it("persists a dedicated live-review notice even when Product Postcheck was skipped", () => {
+    const logs = buildProductPostcheckLogItems({
+      ok: true,
+      skipped: true,
+      skippedReason: "missing_preview_url",
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 0,
+      checkedUrl: null,
+      routesChecked: 0,
+      liveReview: { status: "skipped", reason: "preview_not_ready" },
+    });
+
+    expect(logs.map((log) => log.category)).toEqual([
+      "product_postcheck.skipped",
+      "product_postcheck.live_review",
+    ]);
+    expect(logs[1]?.message).toBe("Live review skipped: preview_not_ready.");
   });
 
   it("behåller verdikten när review är completed", () => {

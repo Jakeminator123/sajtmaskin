@@ -7,6 +7,8 @@ import {
   lockedVariantForFollowUp,
   pickScaffoldVariant,
   pickScaffoldVariantAsync,
+  pickScaffoldVariantAsyncWithMeta,
+  pickScaffoldVariantWithMeta,
 } from "./matcher";
 import { getVariantsForScaffold } from "./registry";
 import * as embeddingsStorage from "@/lib/gen/embeddings/embeddings-storage";
@@ -14,8 +16,7 @@ import * as embeddingsStorage from "@/lib/gen/embeddings/embeddings-storage";
 describe("pickScaffoldVariant", () => {
   it("picks corporate-grid when the prompt carries strong b2b/consulting keywords", () => {
     const variant = pickScaffoldVariant({
-      prompt:
-        "Build a professional b2b consulting corporate landing page for an enterprise agency",
+      prompt: "Build a professional b2b consulting corporate landing page for an enterprise agency",
       scaffoldId: "landing-page",
       generationMode: "init",
       sessionSeed: "seed-1",
@@ -79,6 +80,31 @@ describe("pickScaffoldVariant", () => {
 
     expect(variant?.scaffoldId).toBe("app-shell");
     expect(variant?.id).toBe("immersive-dark");
+  });
+
+  it("returns keyword evidence for an explainable dominant pick", () => {
+    const result = pickScaffoldVariantWithMeta({
+      prompt: "professional b2b consulting corporate enterprise agency",
+      scaffoldId: "landing-page",
+      sessionSeed: "meta-keyword",
+    });
+
+    expect(result.variant?.id).toBe("corporate-grid");
+    expect(result.source).toBe("keyword");
+    expect(result.score).toBeGreaterThan(0);
+    expect(result.runnerUpScore).toBeNull();
+    expect(result.margin).toBeNull();
+  });
+
+  it("marks deterministic zero-signal rotation as hash-fallback", () => {
+    const result = pickScaffoldVariantWithMeta({
+      prompt: "Xyzzy plugh snarfblatt kwyjibo",
+      scaffoldId: "landing-page",
+      sessionSeed: "meta-hash",
+    });
+
+    expect(result.variant).not.toBeNull();
+    expect(result).toMatchObject({ source: "hash-fallback", score: 0, margin: 0 });
   });
 });
 
@@ -207,6 +233,37 @@ describe("variant candidate authority", () => {
 
       expect(picked?.id).toBe(targetId);
       expect(loadSpy).toHaveBeenCalledWith("variant");
+    } finally {
+      loadSpy.mockRestore();
+    }
+  });
+
+  it("reports embedding source and score when semantic matching wins", async () => {
+    const variants = getVariantsForScaffold("landing-page");
+    const targetId = "asymmetric-stack";
+    const loadSpy = vi.spyOn(embeddingsStorage, "loadEmbeddingsArtifact").mockResolvedValue({
+      _meta: {
+        model: "test-embedding-model",
+        dimensions: 2,
+        generated: "2026-08-11T00:00:00.000Z",
+        count: variants.length,
+      },
+      embeddings: variants.map((variant) => ({
+        id: variant.id,
+        scaffoldId: variant.scaffoldId,
+        embedding: variant.id === targetId ? [1, 0] : [0, 1],
+      })),
+    });
+
+    try {
+      const result = await pickScaffoldVariantAsyncWithMeta({
+        prompt: "semantic target",
+        scaffoldId: "landing-page",
+        sessionSeed: "meta-embedding",
+        queryVector: [1, 0],
+      });
+      expect(result.variant?.id).toBe(targetId);
+      expect(result).toMatchObject({ source: "embedding", score: 1 });
     } finally {
       loadSpy.mockRestore();
     }

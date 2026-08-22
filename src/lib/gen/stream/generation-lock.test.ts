@@ -6,6 +6,7 @@ vi.mock("@/lib/data/redis", () => ({ getRedis }));
 vi.mock("@/lib/config", () => ({ REDIS_KEY_PREFIX: "test:" }));
 
 import {
+  CHAT_GENERATION_LOCK_TTL_SECONDS,
   acquireChatGenerationLock,
   bindChatGenerationLockToResponse,
   chatGenerationLockFailureResponse,
@@ -31,6 +32,10 @@ describe("chat generation lock", () => {
 
   afterEach(() => {
     resetChatGenerationLocksForTests();
+  });
+
+  it("håller Redis-leasen längre än route-fönstret på 950 sekunder", () => {
+    expect(CHAT_GENERATION_LOCK_TTL_SECONDS).toBeGreaterThan(950);
   });
 
   it("låter bara en lock-hållare per chat i samma process", async () => {

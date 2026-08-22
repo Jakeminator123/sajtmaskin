@@ -8,6 +8,7 @@ import {
 } from "@/lib/gen/orchestration-snapshot";
 import type { OrchestrationInput } from "@/lib/gen/orchestrate";
 import type { CodeFile } from "@/lib/gen/parser";
+import type { PlanDesignAuthority } from "@/lib/gen/plan/design-authority";
 import { buildImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
 
 import type { ParsedChatRequestMeta } from "./parse-chat-request-meta";
@@ -82,6 +83,7 @@ export interface BuildFollowUpOrchestrationInputParams {
   orchestrationSnapshot: Record<string, unknown> | null;
   engineModelId: string;
   persistedVariantId?: string | null;
+  approvedPlanAuthority?: PlanDesignAuthority | null;
   customInstructions?: string;
   chatId?: string;
   priorQualityTarget?: OrchestrationInput["priorQualityTarget"];
@@ -132,6 +134,9 @@ function buildClearRedesignBriefFallbackFromSnapshot(
 function resolveFollowUpActiveBrief(
   params: BuildFollowUpOrchestrationInputParams,
 ): Record<string, unknown> | null {
+  if (params.approvedPlanAuthority?.brief) {
+    return params.approvedPlanAuthority.brief;
+  }
   if (params.parsedMeta.brief) {
     return params.parsedMeta.brief;
   }
@@ -144,9 +149,12 @@ function resolveFollowUpActiveBrief(
 export function buildFollowUpOrchestrationInput(
   params: BuildFollowUpOrchestrationInputParams,
 ): OrchestrationInput {
+  const authorityScaffoldId = params.approvedPlanAuthority
+    ? params.approvedPlanAuthority.scaffoldId
+    : params.persistedScaffoldId;
   const followUpContract = buildFollowUpContract({
     snapshot: params.orchestrationSnapshot,
-    persistedScaffoldId: params.persistedScaffoldId,
+    persistedScaffoldId: authorityScaffoldId,
     persistedVariantId: params.persistedVariantId,
     existingRoutePaths: params.existingRoutePaths,
     existingShellRoutePaths: params.existingShellRoutePaths,
@@ -200,12 +208,22 @@ export function buildFollowUpOrchestrationInput(
     contractsPrompt: params.message,
     capabilitiesPrompt: params.message,
     scaffoldMatchPrompt: params.message,
-    buildIntent: params.buildIntent,
+    buildIntent: params.approvedPlanAuthority?.buildIntent ?? params.buildIntent,
     // Imported repos never get a scaffold matched/pinned onto them — the
     // repo is the project. resolve-base additionally neutralizes any
     // persisted scaffold id when `importedRepoMode` is set.
-    scaffoldMode: importedRepoMode ? "off" : params.parsedMeta.scaffoldMode,
-    scaffoldId: importedRepoMode ? null : params.parsedMeta.scaffoldId,
+    scaffoldMode: importedRepoMode
+      ? "off"
+      : params.approvedPlanAuthority
+        ? authorityScaffoldId
+          ? "manual"
+          : "off"
+        : params.parsedMeta.scaffoldMode,
+    scaffoldId: importedRepoMode
+      ? null
+      : params.approvedPlanAuthority
+        ? authorityScaffoldId
+        : params.parsedMeta.scaffoldId,
     importedRepoMode,
     importedRepoContractContext:
       importedRepoMode && params.previousFiles
@@ -219,11 +237,13 @@ export function buildFollowUpOrchestrationInput(
     designThemePreset: params.parsedMeta.designThemePreset,
     designReferences: params.designReferences,
     requestAttachments: params.requestAttachments,
-    persistedScaffoldId: params.persistedScaffoldId,
+    persistedScaffoldId: authorityScaffoldId,
     previousFilesCount: params.previousFilesCount,
     generationMode: params.hasFollowUpBase ? "followUp" : undefined,
-    isFirstCodeGeneration: !params.hasFollowUpBase && Boolean(params.persistedScaffoldId),
-    ignorePersistedScaffoldForMatch: params.ignorePersistedScaffoldForMatch,
+    isFirstCodeGeneration: !params.hasFollowUpBase && Boolean(authorityScaffoldId),
+    ignorePersistedScaffoldForMatch: params.approvedPlanAuthority
+      ? false
+      : params.ignorePersistedScaffoldForMatch,
     promptStrategyMeta: params.promptStrategyMeta,
     existingRoutePaths: params.existingRoutePaths,
     existingShellRoutePaths: params.existingShellRoutePaths,
@@ -266,22 +286,19 @@ export function buildFollowUpOrchestrationInput(
     // one readable object. Additive — does not change how the fields above
     // are read by orchestrate (parity preserved).
     followUpContract,
+    approvedPlanAuthority: params.approvedPlanAuthority ?? null,
     // Shared by plan and codegen: a follow-up plan for `clear-redesign`
     // must see the same intent as codegen so compact-mode and variant
     // inspiration resolve the same way (K3).
     followUpIntent: params.hasFollowUpBase ? (params.followUpIntent ?? undefined) : undefined,
-  };
-
-  if (params.mode === "plan") {
-    return commonInput;
-  }
-
-  return {
-    ...commonInput,
-    persistedVariantId: params.persistedVariantId,
+    // Plan and direct codegen must resolve the same terminal prompt. These
+    // fields used to be omitted from plan mode, so custom instructions and a
+    // persisted variant could change only after approval.
+    persistedVariantId: params.approvedPlanAuthority?.variantId ?? params.persistedVariantId,
     customInstructions: params.customInstructions,
     chatId: params.chatId,
     priorQualityTarget: params.priorQualityTarget,
     requestKind: params.requestKind ?? null,
   };
+  return commonInput;
 }

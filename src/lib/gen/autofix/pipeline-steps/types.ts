@@ -48,4 +48,6 @@ export interface AutoFixContext {
    * resolve the variant's first font pair.
    */
   variantId?: string | null;
+  /** Final heading/body fonts after Brief/Variant authority resolution. */
+  resolvedFontPairing?: { heading?: string | null; body?: string | null } | null;
 }

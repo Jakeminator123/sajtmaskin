@@ -21,10 +21,7 @@ import {
   resolvePromptAssistProvider,
 } from "@/lib/builder/prompt-assist";
 import { createDirectModel, getTemperatureConfig } from "@/lib/builder/direct-model";
-import {
-  DOMAIN_PROFILES,
-  inferSiteTypeHintFromDomain,
-} from "@/lib/builder/domain-inference";
+import { DOMAIN_PROFILES, inferSiteTypeHintFromDomain } from "@/lib/builder/domain-inference";
 import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/prompt-limits";
 import {
   ASSIST_MAX_OUTPUT_TOKENS,
@@ -32,6 +29,7 @@ import {
   AUTO_BRIEF_MODEL_OPENAI,
   BRIEF_MODEL,
 } from "@/lib/gen/defaults";
+import { DESIGN_EXPLICIT_AXES, DESIGN_EXPLICIT_FIELDS } from "@/lib/gen/design-contract";
 
 const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 81_920;
 
@@ -142,6 +140,8 @@ const domainProfileSchema = z.enum(DOMAIN_PROFILES);
 
 const motionLevelSchema = z.enum(["minimal", "moderate", "lively"]);
 const qualityBarSchema = z.enum(["clean", "premium", "bold-dramatic"]);
+const designExplicitAxisSchema = z.enum(DESIGN_EXPLICIT_AXES);
+const designExplicitFieldSchema = z.enum(DESIGN_EXPLICIT_FIELDS);
 
 export const siteBriefSchema = z.object({
   projectTitle: z.string().describe("Short internal project title"),
@@ -153,6 +153,20 @@ export const siteBriefSchema = z.object({
   domainProfile: domainProfileSchema.describe("Canonical domain profile slug, or general"),
   motionLevel: motionLevelSchema.describe("How much motion the generated site should use"),
   qualityBar: qualityBarSchema.describe("Visual quality bar for downstream prompt guidance"),
+  designIntent: z.object({
+    explicitAxes: z
+      .array(designExplicitAxisSchema)
+      .max(DESIGN_EXPLICIT_AXES.length)
+      .describe(
+        "Design axes explicitly constrained by the raw current user request. Do not include axes inferred by the model, prior context, or variant hints.",
+      ),
+    explicitFields: z
+      .array(designExplicitFieldSchema)
+      .max(DESIGN_EXPLICIT_FIELDS.length)
+      .describe(
+        "Exact palette/typography fields constrained by the raw current user request. Never include sibling fields merely because the schema requires values for them.",
+      ),
+  }),
   seasonalHints: z
     .array(z.string())
     .max(8)
@@ -185,6 +199,7 @@ export const siteBriefSchema = z.object({
     .max(10),
   visualDirection: z.object({
     styleKeywords: z.array(z.string()).min(2).max(12),
+    colorMode: z.enum(["light", "dark", "either"]),
     colorPalette: z.object({
       primary: z.string().describe("Hex or CSS color"),
       secondary: z.string().describe("Hex or CSS color"),
@@ -242,6 +257,12 @@ export const simplifiedBriefSchema = z.object({
   domainProfile: domainProfileSchema.default("general"),
   motionLevel: motionLevelSchema.default("minimal"),
   qualityBar: qualityBarSchema.default("clean"),
+  designIntent: z
+    .object({
+      explicitAxes: z.array(designExplicitAxisSchema).default([]),
+      explicitFields: z.array(designExplicitFieldSchema).default([]),
+    })
+    .default({ explicitAxes: [], explicitFields: [] }),
   seasonalHints: z.array(z.string()).default([]),
   requestedCapabilities: z.array(z.string()).default([]),
   pages: z
@@ -265,6 +286,7 @@ export const simplifiedBriefSchema = z.object({
   visualDirection: z
     .object({
       styleKeywords: z.array(z.string()).default([]),
+      colorMode: z.enum(["light", "dark", "either"]).default("either"),
       colorPalette: z
         .object({
           primary: z.string().default("#3b82f6"),
@@ -292,6 +314,7 @@ export const simplifiedBriefSchema = z.object({
     })
     .default({
       styleKeywords: [],
+      colorMode: "either",
       colorPalette: {
         primary: "#3b82f6",
         secondary: "#6366f1",
@@ -367,12 +390,10 @@ function recordFailedBriefAttempt(params: {
     usage: errorObject?.usage,
     durationMs: params.durationMs,
     ok: false,
-    errorCode:
-      typeof errorObject?.name === "string" ? errorObject.name : "brief_schema_failed",
+    errorCode: typeof errorObject?.name === "string" ? errorObject.name : "brief_schema_failed",
     meta: {
       schema: params.schema ?? "full",
-      outcome:
-        (params.schema ?? "full") === "full" ? "retried_with_simplified" : "gave_up",
+      outcome: (params.schema ?? "full") === "full" ? "retried_with_simplified" : "gave_up",
     },
   });
 }
@@ -390,6 +411,9 @@ const BRIEF_SYSTEM_PROMPT =
   "Include every field in the schema. If a value is unknown, use an empty string. " +
   "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.\n\n" +
   "CANONICAL INIT SIGNALS:\n" +
+  "- `designIntent.explicitAxes` is provenance, not a summary. Include an axis only when the RAW CURRENT USER REQUEST explicitly constrains it. Variant hints, prior design context, defaults, and your own inference do not count. Use an empty array when no design axis is explicit.\n" +
+  "- `designIntent.explicitFields` is field-level provenance for compound palette and typography axes. Add ONLY the exact fields constrained by the RAW CURRENT USER REQUEST (`palette.primary`, `palette.secondary`, `palette.accent`, `palette.background`, `palette.text`, `typography.headings`, `typography.body`). Example: 'use a red accent' means `explicitAxes:[\"palette\"]` and `explicitFields:[\"palette.accent\"]`; the required primary/background values remain inferred and MUST NOT be marked explicit. 'Use Fraunces for headings' marks only `typography.headings`. Use an empty array when no exact compound field is constrained.\n" +
+  "- `visualDirection.colorMode` is the proposed mode (`light`, `dark`, or `either`). Downstream only lets it override a selected variant when `color-mode` is explicit; otherwise it is advisory.\n" +
   "- `domainProfile` must be one canonical slug from the schema; use `general` when no specific domain is clear.\n" +
   "- `motionLevel`: use `minimal` for calm/static sites, `moderate` for normal polished interaction, `lively` only when the user asks for strong animation, 3D, immersive, parallax, or highly dynamic visuals.\n" +
   "- `qualityBar`: use `clean` for simple/local pages, `premium` for polished or high-end work, and `bold-dramatic` only for explicitly cinematic, moody, experimental, or dramatic design directions.\n" +
@@ -402,7 +426,7 @@ const BRIEF_SYSTEM_PROMPT =
   "- When in doubt, lean toward fewer pages with more polished sections rather than many thin pages.\n" +
   "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.";
 
-function buildBriefUserPrompt(
+export function buildBriefUserPrompt(
   prompt: string,
   imageGenerations: boolean,
   variantHints?: string,
@@ -488,7 +512,7 @@ export function validateBriefModelForHttp(
       status: 400,
       body: {
         error: "Invalid model for OpenAI brief",
-          setup: "Set model to a supported OpenAI Deep Brief model (e.g. openai/gpt-5.4).",
+        setup: "Set model to a supported OpenAI Deep Brief model (e.g. openai/gpt-5.4).",
       },
     };
   }
@@ -497,8 +521,7 @@ export function validateBriefModelForHttp(
       status: 401,
       body: {
         error: "Missing OpenAI API key",
-        setup:
-          "Set OPENAI_API_KEY. Deep brief calls OpenAI directly via createDirectModel().",
+        setup: "Set OPENAI_API_KEY. Deep brief calls OpenAI directly via createDirectModel().",
       },
     };
   }
@@ -509,21 +532,19 @@ export function validateBriefModelForHttp(
  * Generate Deep Brief (same shape as `meta.brief` / system prompt expects).
  * Caller must validate model/keys first (HTTP) or use `tryGenerateServerAutoBrief`.
  */
-export async function generateSiteBriefObject(
-  input: {
-    prompt: string;
-    normalizedModel: string;
-    imageGenerations: boolean;
-    temperature?: number;
-    maxTokens?: number;
-    abortSignal?: AbortSignal;
-    source?: string;
-    variantHints?: string;
-    priorDesignContext?: string;
-    /** Extra fields hashed into the brief trace (Byggval cache identity). */
-    extraHashFields?: Record<string, unknown>;
-  },
-): Promise<SiteBriefGenerationResult> {
+export async function generateSiteBriefObject(input: {
+  prompt: string;
+  normalizedModel: string;
+  imageGenerations: boolean;
+  temperature?: number;
+  maxTokens?: number;
+  abortSignal?: AbortSignal;
+  source?: string;
+  variantHints?: string;
+  priorDesignContext?: string;
+  /** Extra fields hashed into the brief trace (Byggval cache identity). */
+  extraHashFields?: Record<string, unknown>;
+}): Promise<SiteBriefGenerationResult> {
   const {
     prompt,
     normalizedModel,
@@ -556,7 +577,10 @@ export async function generateSiteBriefObject(
   const briefSource = normalizeBriefLogSource(source);
   const trace = buildBriefTrace({
     source: briefSource,
-    prompt,
+    // Bind the trace to the exact user message sent to the provider. Variant
+    // hints and prior design context materially change the brief and must not
+    // collapse onto the raw prompt's trace id.
+    prompt: userPrompt,
     modelId: normalizedModel,
     imageGenerations,
     temperature,
@@ -596,7 +620,9 @@ export async function generateSiteBriefObject(
 
   const briefStartedAt = Date.now();
   if (resolvedProvider === "anthropic") {
-    const directModel = createDirectModel(`anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`);
+    const directModel = createDirectModel(
+      `anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`,
+    );
     let usedSimplified = false;
     let result;
     try {
@@ -652,7 +678,8 @@ export async function generateSiteBriefObject(
           durationMs: Date.now() - briefStartedAt,
           schema: "simplified",
         });
-        const errMsg = simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
+        const errMsg =
+          simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
         errorLog("AI", "Anthropic brief generation failed - both schemas", {
           model: normalizedModel,
           promptLength: prompt.length,

@@ -22,9 +22,9 @@ import type { createPreviewPrewarmLeaseKey } from "@/lib/gen/preview/preview-pre
 import { prewarmPreviewSession } from "@/lib/gen/preview/preview-prewarm";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { logRequestKindClassification } from "../request-kind-log";
-import type {
-  normalizeRequestAttachments,
+import {
   summarizeDesignReferences,
+  type normalizeRequestAttachments,
 } from "@/lib/gen/request-metadata";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { compressUrls } from "@/lib/gen/url-compress";
@@ -36,11 +36,12 @@ import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-rout
 import { resolveEngineModelId } from "@/lib/models/selection";
 import { wrapStreamForPromptToDoneMetric } from "@/lib/observability/prompt-to-done-stream";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
-import {
-  buildOwnEngineGenerationStreamMeta,
-} from "@/lib/own-engine/session/own-engine-build-session";
+import { buildOwnEngineGenerationStreamMeta } from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 import { createSSEHeaders } from "@/lib/streaming";
+import { resolveApprovedPlanDesignAuthority } from "@/lib/gen/plan/design-authority";
+import { getScaffoldById } from "@/lib/gen/scaffolds";
+import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { debugLog } from "@/lib/utils/debug";
 import { buildEngineStreamResponse } from "../stream-error-response";
 import { resolveConfiguredEnvKeys } from "../configured-env-keys";
@@ -107,6 +108,10 @@ export async function runCodegenTurn(params: {
    * base (Codex P2 on #352). Null outside integrations rounds.
    */
   f3ResolvedBaseVersionId: string | null;
+  /** Exact file/version authority used by this generation and later review. */
+  generationBaseVersionId: string | null;
+  /** Content identity paired with generationBaseVersionId at base resolution. */
+  generationBaseFilesRevision: string | null;
   commitCreditsOnce: ReturnType<typeof createCommitCreditsOnce>;
   prewarmLeaseKey: ReturnType<typeof createPreviewPrewarmLeaseKey>;
   versionsQuerySucceeded: boolean;
@@ -153,13 +158,13 @@ export async function runCodegenTurn(params: {
     f3EffectiveApprovedProviders,
     fileDerivedTier3BuildSpec,
     f3ResolvedBaseVersionId,
+    generationBaseVersionId,
+    generationBaseFilesRevision,
     commitCreditsOnce,
     prewarmLeaseKey,
     versionsQuerySucceeded,
     existingVersionsForChat,
   } = params;
-  const promptForLlm = optimizedMessage;
-
   let engineIntent: BuildIntent =
     metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
       ? (metaBuildIntent as BuildIntent)
@@ -176,6 +181,63 @@ export async function runCodegenTurn(params: {
     engineChat.orchestration_snapshot && typeof engineChat.orchestration_snapshot === "object"
       ? (engineChat.orchestration_snapshot as Record<string, unknown>)
       : null;
+  const approvedPlanResolution = resolveApprovedPlanDesignAuthority({
+    promptSourceKind: metaPromptSourceKind,
+    requestedLineageHash: parsedMeta.planDesignLineageHash,
+    currentBaseVersionId: generationBaseVersionId,
+    currentBaseFilesRevision: generationBaseFilesRevision,
+    snapshot: snapshotRecord,
+  });
+  if (!approvedPlanResolution.ok) {
+    const stale = approvedPlanResolution.error !== "plan_design_authority_missing";
+    const baseStale = approvedPlanResolution.error === "plan_design_authority_base_stale";
+    return attachSessionCookie(
+      new Response(
+        JSON.stringify({
+          error: approvedPlanResolution.error,
+          message: baseStale
+            ? "Planen skapades för en annan version av sajten. Byt tillbaka till den versionen eller skapa en ny plan innan du bygger."
+            : stale
+              ? "En nyare plan finns för chatten. Granska och godkänn den senaste planen innan du bygger."
+              : "Planen saknar ett serververifierat designkontrakt. Skapa planen igen innan du bygger.",
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+  }
+  const approvedPlanAuthority = approvedPlanResolution.authority;
+  if (approvedPlanAuthority?.scaffoldId && !getScaffoldById(approvedPlanAuthority.scaffoldId)) {
+    return attachSessionCookie(
+      new Response(
+        JSON.stringify({
+          error: "plan_design_scaffold_unavailable",
+          message: "Planens scaffold finns inte längre. Skapa planen igen innan du bygger.",
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+  }
+  if (approvedPlanAuthority) {
+    engineIntent = approvedPlanAuthority.buildIntent;
+  }
+  const effectiveRequestAttachments =
+    approvedPlanAuthority?.requestAttachments ?? requestAttachments;
+  const effectiveDesignReferences = approvedPlanAuthority
+    ? summarizeDesignReferences(effectiveRequestAttachments)
+    : designReferences;
+  // Presence of the server-owned authority is the boundary. A frozen `null`
+  // means the planner saw no custom instructions; it must not fall through to
+  // a new `system` value supplied by the later approval request.
+  const effectiveCustomInstructions = approvedPlanAuthority
+    ? (approvedPlanAuthority.customInstructions ?? undefined)
+    : trimmedSystem || undefined;
+  const effectiveImageGenerations =
+    approvedPlanAuthority?.imageGenerations ?? resolvedImageGenerations;
+  const effectiveOptimizedMessage = approvedPlanAuthority
+    ? await appendHydratedTextAttachmentExcerpts(optimizedMessage, effectiveRequestAttachments, {
+        signal: req.signal,
+      })
+    : optimizedMessage;
   const snapshotVariantId =
     snapshotRecord && typeof snapshotRecord.variantId === "string"
       ? (snapshotRecord.variantId as string)
@@ -217,7 +279,7 @@ export async function runCodegenTurn(params: {
     });
     try {
       const assistantText = await generateQaShortCircuitText({
-        optimizedMessage,
+        optimizedMessage: effectiveOptimizedMessage,
         signal: req.signal,
       });
       await chatRepo.addMessage(chatId, "assistant", assistantText).catch(() => null);
@@ -261,13 +323,13 @@ export async function runCodegenTurn(params: {
   // before it can short-circuit safely; keep it on normal codegen for now.
   const orchestrationInput = buildFollowUpOrchestrationInput({
     mode: "codegen",
-    optimizedMessage,
+    optimizedMessage: effectiveOptimizedMessage,
     message: followUpIntentMessage,
     buildIntent: engineIntent,
     parsedMeta,
-    resolvedImageGenerations,
-    designReferences,
-    requestAttachments,
+    resolvedImageGenerations: effectiveImageGenerations,
+    designReferences: effectiveDesignReferences,
+    requestAttachments: effectiveRequestAttachments,
     persistedScaffoldId,
     importedRepoMode,
     previousFilesCount: previousFiles.length,
@@ -294,7 +356,8 @@ export async function runCodegenTurn(params: {
     // window (Opus 4.8 on the anthropic tier), not the tier build-default.
     engineModelId: generatorModel,
     persistedVariantId: snapshotVariantId,
-    customInstructions: trimmedSystem || undefined,
+    approvedPlanAuthority,
+    customInstructions: effectiveCustomInstructions || undefined,
     chatId,
     priorQualityTarget,
     requestKind: requestKindResult?.kind ?? null,
@@ -343,11 +406,11 @@ export async function runCodegenTurn(params: {
     internalModelSelection: resolvedModelTier,
     enginePath: "own-engine",
     engineModel: canonicalModelIdToOwnModelId(resolvedModelTier),
-    promptLength: optimizedMessage.length,
+    promptLength: effectiveOptimizedMessage.length,
     originalPromptLength: message.length,
-    attachments: requestAttachments.length,
+    attachments: effectiveRequestAttachments.length,
     thinking: resolvedThinking,
-    imageGenerations: resolvedImageGenerations,
+    imageGenerations: effectiveImageGenerations,
     promptStrategy: promptOrchestration.strategyMeta.strategy,
     promptType: promptOrchestration.strategyMeta.promptType,
   });
@@ -358,10 +421,10 @@ export async function runCodegenTurn(params: {
     fallback: false,
   });
   devLogStartGeneration({
-    message: optimizedMessage,
+    message: effectiveOptimizedMessage,
     modelId: resolvedModelId,
     thinking: resolvedThinking,
-    imageGenerations: resolvedImageGenerations,
+    imageGenerations: effectiveImageGenerations,
     projectId: engineChat.project_id ?? undefined,
     slug: metaBuildMethod || metaBuildIntent || undefined,
     chatId,
@@ -376,7 +439,7 @@ export async function runCodegenTurn(params: {
     buildProfileLabel: MODEL_LABELS[resolvedModelTier],
     buildIntent: metaBuildIntent,
     buildMethod: metaBuildMethod,
-    message: optimizedMessage,
+    message: effectiveOptimizedMessage,
     // P26: also surface the raw user message (truncated to 500 chars)
     // so devs can see exactly what the user typed without scrolling
     // through the wrapped optimizedMessage. Bekräftar samtidigt att
@@ -396,9 +459,9 @@ export async function runCodegenTurn(params: {
     optimizedLength: promptOrchestration.strategyMeta.optimizedLength,
     reductionRatio: promptOrchestration.strategyMeta.reductionRatio,
     strategyReason: promptOrchestration.strategyMeta.reason,
-    attachmentsCount: requestAttachments.length,
+    attachmentsCount: effectiveRequestAttachments.length,
     thinking: resolvedThinking,
-    imageGenerations: resolvedImageGenerations,
+    imageGenerations: effectiveImageGenerations,
     followUpIntent,
     baseVersionId: metaEngineBaseVersionId,
     // OpenClaw prepared-prompt fast lane: additive skip marker on the
@@ -436,6 +499,9 @@ export async function runCodegenTurn(params: {
       type: "orchestration.styleDirection",
       chatId,
       styleDirection: finalized.variantId,
+      variantSelection: finalized.variantSelection,
+      explicitDesignAxes: finalized.resolvedDesign.explicitAxes,
+      explicitDesignFields: finalized.resolvedDesign.explicitFields,
     });
   }
   const generationInputPackage = buildGenerationInputPackage(
@@ -452,7 +518,7 @@ export async function runCodegenTurn(params: {
   const promptLengths = getSystemPromptLengths(engineSystemPrompt);
   debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
-  const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
+  const { compressed: enginePrompt, urlMap } = compressUrls(effectiveOptimizedMessage);
   const generatorThinking = resolvePhaseThinking(resolvedModelTier, "generator");
   const effectiveGeneratorThinking = resolvedThinking && generatorThinking.thinking;
   // Preview prewarm (FEATURES.previewPrewarm, default OFF): fire ONLY here,
@@ -503,7 +569,7 @@ export async function runCodegenTurn(params: {
       }),
       referenceAttachments: [
         ...finalized.variantTemplateReferenceAttachments,
-        ...requestAttachments,
+        ...effectiveRequestAttachments,
       ],
     },
     meta: buildOwnEngineGenerationStreamMeta({
@@ -513,20 +579,28 @@ export async function runCodegenTurn(params: {
       buildProfileId,
       buildProfileLabel: MODEL_LABELS[resolvedModelTier],
       resolvedThinking: effectiveGeneratorThinking,
-      resolvedImageGenerations,
+      resolvedImageGenerations: effectiveImageGenerations,
       strategyMeta: promptOrchestration.strategyMeta,
       orchestrationBase,
       buildSpec: orchestrationBase.buildSpec,
       engineSystemPromptLength: engineSystemPrompt.length,
       metaBriefApplied: Boolean(metaBrief) || hasPersistedBrief,
-      customInstructionsLength: trimmedSystem?.length ?? 0,
+      // Persist the Brief that orchestration actually consumed: raw/delta,
+      // snapshot-rehydrated, or the server-frozen approved-plan Brief.
+      metaBrief: (orchestrationInput.brief as Record<string, unknown> | null | undefined) ?? null,
+      customInstructionsLength: effectiveCustomInstructions?.length ?? 0,
       scaffoldId: resolvedScaffold?.id ?? null,
       variantId: finalized.variantId,
+      variantSelection: finalized.variantSelection,
+      resolvedDesign: finalized.resolvedDesign,
       variantTemplateId: finalized.variantTemplateId,
       sources: finalized.sources,
+      baseVersionId: generationBaseVersionId,
+      baseFilesRevision: generationBaseFilesRevision,
+      consumedPlanDesignLineageHash: approvedPlanAuthority?.lineageHash ?? null,
     }),
     engineModel: generatorModel,
-    optimizedMessage,
+    optimizedMessage: effectiveOptimizedMessage,
     rawPrompt: followUpIntentMessage,
     engineIntent,
     buildSpec: orchestrationBase.buildSpec,
@@ -541,6 +615,7 @@ export async function runCodegenTurn(params: {
       metaPromptSourceKind === "autofix" && metaEngineBaseVersionId
         ? metaEngineBaseVersionId
         : undefined,
+    generationBaseVersionId,
     // Lineage from the SAME resolution as the gate/build base (Codex P2 on
     // #352): a direct F3 caller sending only `parentVersionId` is gated and
     // built against preferred — persisting the raw client id would record a

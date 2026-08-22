@@ -50,6 +50,26 @@ export interface LiveReviewSessionDeps {
   editEnabled?: boolean;
 }
 
+/** Scrub URLs immediately when their backing blobs have been discarded. */
+export function clearLiveReviewScreenshotUrls(
+  screenshots: LiveReviewScreenshotSet | null | undefined,
+): void {
+  if (!screenshots) return;
+  screenshots.desktopUrl = null;
+  screenshots.mobileUrl = null;
+}
+
+export async function discardLiveReviewScreenshots(
+  screenshots: LiveReviewScreenshotSet | null | undefined,
+  deleteScreenshotUrls: typeof deleteLiveReviewScreenshotUrls = deleteLiveReviewScreenshotUrls,
+): Promise<void> {
+  try {
+    await deleteScreenshotUrls(screenshots);
+  } finally {
+    clearLiveReviewScreenshotUrls(screenshots);
+  }
+}
+
 export async function beginLiveReviewSession(
   input: {
     chatId: string;
@@ -83,14 +103,17 @@ export async function beginLiveReviewSession(
     return { ...base, earlyResult: skippedLiveReviewResult("missing_revision") };
   }
 
-  void (deps.purgeExpired ?? purgeExpiredLiveReviewBlobs)();
-
   const claim = await (deps.claimRun ?? claimLiveReviewRun)({
     chatId: input.chatId,
     versionId: input.versionId,
     filesRevision: base.filesRevision,
     userId: input.userId,
   });
+
+  // Renew/insert the current revision before sweeping TTL rows. The purge
+  // itself is CAS-guarded, but this ordering also prevents our own fresh run
+  // from ever appearing in an expired candidate snapshot.
+  void Promise.resolve((deps.purgeExpired ?? purgeExpiredLiveReviewBlobs)()).catch(() => undefined);
 
   if (!claim) {
     return { ...base, earlyResult: skippedLiveReviewResult("review_error", "claim failed") };
@@ -119,6 +142,8 @@ export async function finishLiveReviewSession(
     screenshots: LiveReviewScreenshotSet | null | undefined;
     domSummary: ProductDomSummary | null | undefined;
     versionNumber?: number | null;
+    previousVersionId?: string | null;
+    previousFilesRevision?: string | null;
     filesJson: string | null | undefined;
     userRequest: string;
     briefSummary: string;
@@ -140,10 +165,16 @@ export async function finishLiveReviewSession(
 
   if (session.claim.row.modelAttempts >= LIVE_REVIEW_MAX_MODEL_ATTEMPTS) {
     const capped = skippedLiveReviewResult("cost_capped");
+    await discardLiveReviewScreenshots(
+      input.screenshots,
+      deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls,
+    );
     await (deps.completeRun ?? completeLiveReviewRun)({
       id: session.claim.row.id,
+      claimedAt: session.claim.row.claimedAt,
+      filesRevision: session.claim.row.filesRevision,
       result: capped,
-      screenshots: input.screenshots,
+      screenshots: null,
     });
     return capped;
   }
@@ -153,7 +184,10 @@ export async function finishLiveReviewSession(
     claimedAt: session.claim.row.claimedAt,
   });
   if (attempts == null) {
-    await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
+    await discardLiveReviewScreenshots(
+      input.screenshots,
+      deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls,
+    );
     if (session.filesRevision) {
       return (deps.waitForRun ?? waitForLiveReviewRun)({
         versionId: session.versionId,
@@ -173,6 +207,8 @@ export async function finishLiveReviewSession(
     versionId: session.versionId,
     chatId: session.chatId,
     versionNumber: input.versionNumber,
+    previousVersionId: input.previousVersionId,
+    previousFilesRevision: input.previousFilesRevision,
     filesJson: input.filesJson,
     userRequest: input.userRequest,
     briefSummary: input.briefSummary,
@@ -187,7 +223,10 @@ export async function finishLiveReviewSession(
         result.reason === "invalid_model_output" ||
         result.reason === "cost_capped"));
   if (!paid) {
-    await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
+    await discardLiveReviewScreenshots(
+      input.screenshots,
+      deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls,
+    );
     await (deps.abandonRun ?? abandonLiveReviewRun)(
       session.claim.row.id,
       session.claim.row.claimedAt,
@@ -197,13 +236,18 @@ export async function finishLiveReviewSession(
 
   const persisted = await (deps.completeRun ?? completeLiveReviewRun)({
     id: session.claim.row.id,
+    claimedAt: session.claim.row.claimedAt,
+    filesRevision: session.claim.row.filesRevision,
     result,
     screenshots: input.screenshots,
     modelAttempts: attempts,
   });
 
   if (!persisted) {
-    await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
+    await discardLiveReviewScreenshots(
+      input.screenshots,
+      deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls,
+    );
     await (deps.abandonRun ?? abandonLiveReviewRun)(
       session.claim.row.id,
       session.claim.row.claimedAt,
@@ -216,6 +260,8 @@ export async function finishLiveReviewSession(
       chatId: session.chatId,
       keepVersionId: session.versionId,
       keepFilesRevision: session.filesRevision,
+      keepRunId: session.claim.row.id,
+      keepClaimedAt: session.claim.row.claimedAt,
     });
   }
 

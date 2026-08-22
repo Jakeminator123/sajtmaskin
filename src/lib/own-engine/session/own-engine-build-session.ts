@@ -10,12 +10,19 @@ import type { GenerationSource } from "@/lib/gen/generation-input-package";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
 import type { GenerationStreamMeta } from "@/lib/providers/own-engine/generation-stream";
 import type { CanonicalModelId } from "@/lib/models/catalog";
+import { DESIGN_EXPLICIT_AXES, type ResolvedDesignContract } from "@/lib/gen/design-contract";
+import type { VariantSelection } from "@/lib/gen/scaffold-variants";
 
-function extractBriefSummary(brief: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+function extractBriefSummary(
+  brief: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | null {
   if (!brief || typeof brief !== "object") return null;
-  const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  const str = (v: unknown): string | undefined =>
+    typeof v === "string" && v.trim() ? v.trim() : undefined;
   const strList = (v: unknown): string[] =>
-    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 6) : [];
+    Array.isArray(v)
+      ? v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 6)
+      : [];
   // Capability list can be longer than 6 (Stripe + auth + analytics + ai-chat …).
   // Cap at 16 to keep snapshot small but not lose coverage.
   const capList = (v: unknown): string[] =>
@@ -25,23 +32,45 @@ function extractBriefSummary(brief: Record<string, unknown> | null | undefined):
           .map((s) => s.trim().toLowerCase())
           .slice(0, 16)
       : [];
-  const compact = <T extends Record<string, string | undefined>>(value: T | undefined): T | undefined =>
-    value && Object.values(value).some(Boolean) ? value : undefined;
+  const compact = <T extends Record<string, string | undefined>>(
+    value: T | undefined,
+  ): T | undefined => (value && Object.values(value).some(Boolean) ? value : undefined);
   const vis = brief.visualDirection as Record<string, unknown> | undefined;
   const palette = vis?.colorPalette as Record<string, unknown> | undefined;
   const typography = vis?.typography as Record<string, unknown> | undefined;
+  const designIntent = brief.designIntent as Record<string, unknown> | undefined;
+  const explicitDesignAxes = Array.isArray(designIntent?.explicitAxes)
+    ? designIntent.explicitAxes
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        .map((value) => value.trim())
+        .slice(0, DESIGN_EXPLICIT_AXES.length)
+    : undefined;
+  const explicitDesignFields = Array.isArray(designIntent?.explicitFields)
+    ? designIntent.explicitFields
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        .map((value) => value.trim())
+        .slice(0, 12)
+    : undefined;
   const domainProfile = brief.domainProfile;
-  const colorPalette = compact(palette ? {
-    primary: str(palette.primary),
-    secondary: str(palette.secondary),
-    accent: str(palette.accent),
-    background: str(palette.background),
-    text: str(palette.text),
-  } : undefined);
-  const typographySummary = compact(typography ? {
-    headings: str(typography.headings),
-    body: str(typography.body),
-  } : undefined);
+  const colorPalette = compact(
+    palette
+      ? {
+          primary: str(palette.primary),
+          secondary: str(palette.secondary),
+          accent: str(palette.accent),
+          background: str(palette.background),
+          text: str(palette.text),
+        }
+      : undefined,
+  );
+  const typographySummary = compact(
+    typography
+      ? {
+          headings: str(typography.headings),
+          body: str(typography.body),
+        }
+      : undefined,
+  );
   const domainProfileSummary =
     typeof domainProfile === "string"
       ? { domain: str(domainProfile), industry: undefined }
@@ -55,6 +84,9 @@ function extractBriefSummary(brief: Record<string, unknown> | null | undefined):
     projectTitle: str(brief.projectTitle) ?? str(brief.siteName),
     brandName: str(brief.brandName),
     styleKeywords: strList(vis?.styleKeywords),
+    colorMode: str(vis?.colorMode),
+    ...(explicitDesignAxes !== undefined ? { explicitDesignAxes } : {}),
+    ...(explicitDesignFields !== undefined ? { explicitDesignFields } : {}),
     toneKeywords: strList(brief.toneAndVoice),
     qualityBar: str(brief.qualityBar),
     motionLevel: str(brief.motionLevel),
@@ -92,8 +124,16 @@ export type OwnEngineGenerationStreamMetaInput = {
   customInstructionsLength: number;
   scaffoldId: string | null;
   variantId?: string | null;
+  variantSelection?: VariantSelection;
+  resolvedDesign?: ResolvedDesignContract;
   variantTemplateId?: string | null;
   sources?: GenerationSource[];
+  /** Exact version whose files formed this generation's merge/review base. */
+  baseVersionId?: string | null;
+  /** DB content identity paired with baseVersionId at resolution time. */
+  baseFilesRevision?: string | null;
+  /** One-shot Plan Design Authority lineage consumed after version persistence. */
+  consumedPlanDesignLineageHash?: string | null;
 } & (
   | { routeVariant: "new-chat"; chatPrivacy: string; scaffoldLabel: string | null }
   | { routeVariant: "follow-up" }
@@ -165,8 +205,19 @@ export function buildOwnEngineGenerationStreamMeta(
     f3ApprovedProviders: orch.f3ApprovedProviders ?? [],
     customInstructionsLength: input.customInstructionsLength,
     variantId: input.variantId ?? null,
+    variantSelection: input.variantSelection ?? null,
+    resolvedDesign: input.resolvedDesign ?? null,
     variantTemplateId: input.variantTemplateId ?? null,
   };
+  if (input.baseVersionId) {
+    (meta as Record<string, unknown>).baseVersionId = input.baseVersionId;
+  }
+  if (input.baseFilesRevision) {
+    (meta as Record<string, unknown>).baseFilesRevision = input.baseFilesRevision;
+  }
+  if (input.consumedPlanDesignLineageHash) {
+    meta.consumedPlanDesignLineageHash = input.consumedPlanDesignLineageHash;
+  }
   if (input.sources && input.sources.length > 0) {
     meta.sources = input.sources;
   }

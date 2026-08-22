@@ -7,6 +7,7 @@ import { devLogAppend } from "@/lib/logging/dev-log";
 import { runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
 import { normalizeAssistModel } from "@/lib/builder/prompt-assist";
 import {
+  buildBriefUserPrompt,
   buildBriefTrace,
   briefRequestSchema,
   generateSiteBriefObject,
@@ -17,11 +18,7 @@ import {
   type BriefBuildChoicesInput,
 } from "@/lib/builder/brief-build-choices";
 import { formatBriefBuildChoicesForPrompt } from "@/lib/builder/brief-build-choices-format";
-import {
-  buildBriefCacheKey,
-  readBriefCache,
-  writeBriefCache,
-} from "@/lib/api/ai/brief-cache";
+import { buildBriefCacheKey, readBriefCache, writeBriefCache } from "@/lib/api/ai/brief-cache";
 import { FEATURES } from "@/lib/config";
 import { incBriefCache } from "@/lib/observability/metrics";
 
@@ -42,8 +39,7 @@ function buildBriefHeaders(
   return {
     "Cache-Control": "no-store",
     "X-Provider": payload.provider === "anthropic" ? "anthropic" : "openai",
-    "X-Key-Source":
-      payload.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY",
+    "X-Key-Source": payload.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY",
     "X-Brief-Quality": payload.briefQuality,
     "X-Brief-Cache": cacheState,
     "X-Brief-Trace-Id": trace.traceId,
@@ -55,195 +51,198 @@ function buildBriefHeaders(
 export async function POST(req: Request) {
   return withRateLimit(req, "ai:brief", async () =>
     runWithLlmUsageContext({}, async () => {
-    try {
-      const botError = requireNotBot(req);
-      if (botError) return botError;
-
-      // Same auth gate as other paid LLM routes: this endpoint runs full LLM
-      // generation against paid provider keys, so anonymous and guest
-      // sessions must not be able to consume it. Discovered in Wave 5
-      // security audit (2026-04-24).
-      const userId = await getRequestUserId(req);
-      if (!userId || userId.startsWith("guest:")) {
-        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-      }
-      // Klient-triggad Deep Brief är en egen request: utan eget scope skulle
-      // brief-anropets tokenrad sakna ägare.
-      setLlmUsageContext({ userId });
-
-      const body = await req.json().catch(() => null);
-      const parsed = briefRequestSchema.safeParse(body);
-      if (!parsed.success) {
-        return NextResponse.json(
-          { error: "Validation failed", details: parsed.error.issues },
-          { status: 400 },
-        );
-      }
-
-      const {
-        prompt,
-        provider,
-        model,
-        temperature,
-        imageGenerations,
-        maxTokens,
-        source,
-        buildIntent,
-        scaffoldId,
-        pageCountHint,
-        styleChoiceHint,
-        styleKeywordsHint,
-        toneKeywordsHint,
-        colorModeHint,
-        complexityHint,
-      } = parsed.data;
-      const normalizedModel = normalizeAssistModel(model);
-      const briefSource = source?.trim() || "unspecified_client";
-      const buildChoices: BriefBuildChoicesInput = {
-        buildIntent,
-        scaffoldId,
-        pageCountHint,
-        styleChoiceHint,
-        styleKeywordsHint,
-        toneKeywordsHint,
-        colorModeHint,
-        complexityHint,
-      };
-      const buildChoicesExtras = briefBuildChoicesCacheExtras(buildChoices);
-      const buildChoicesHints = formatBriefBuildChoicesForPrompt(buildChoices);
-      const trace = buildBriefTrace({
-        source: briefSource,
-        prompt,
-        modelId: normalizedModel,
-        imageGenerations,
-        temperature,
-        maxTokens,
-        extraHashFields: buildChoicesExtras,
-      });
-
-      const validationError = validateBriefModelForHttp(normalizedModel, provider);
-      if (validationError) {
-        return NextResponse.json(validationError.body, { status: validationError.status });
-      }
-
-      debugLog("brief", `start ${normalizedModel} (${prompt.length} chars, images=${imageGenerations})`);
-
-      const cacheKey = buildBriefCacheKey({
-        chatId: null,
-        prompt,
-        modelId: normalizedModel,
-        extraInputsForHash: {
-          imageGenerations,
-          temperature: typeof temperature === "number" ? temperature : null,
-          maxTokens: typeof maxTokens === "number" ? maxTokens : null,
-          ...buildChoicesExtras,
-        },
-      });
-
-      if (FEATURES.useRedisCache) {
-        const cached = await readBriefCache(cacheKey);
-        if (cached && cached.json && typeof cached.json === "object") {
-          const payload = cached.json as CachedBriefPayload;
-          if (
-            payload.brief &&
-            typeof payload.brief === "object" &&
-            (payload.briefQuality === "full" || payload.briefQuality === "server-auto") &&
-            (payload.provider === "openai" || payload.provider === "anthropic")
-          ) {
-            incBriefCache("hit");
-            devLogAppend("latest", {
-              type: "brief-cache.hit",
-              chatId: cacheKey.chatId,
-              modelId: cacheKey.modelId,
-              source: trace.source,
-              traceId: trace.traceId,
-              promptHash: trace.promptHash,
-            });
-            return NextResponse.json(payload.brief, {
-              headers: buildBriefHeaders(payload, "hit", trace),
-            });
-          }
-        }
-      } else {
-        incBriefCache("skip");
-      }
-
       try {
-        const result = await generateSiteBriefObject({
+        const botError = requireNotBot(req);
+        if (botError) return botError;
+
+        // Same auth gate as other paid LLM routes: this endpoint runs full LLM
+        // generation against paid provider keys, so anonymous and guest
+        // sessions must not be able to consume it. Discovered in Wave 5
+        // security audit (2026-04-24).
+        const userId = await getRequestUserId(req);
+        if (!userId || userId.startsWith("guest:")) {
+          return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+        }
+        // Klient-triggad Deep Brief är en egen request: utan eget scope skulle
+        // brief-anropets tokenrad sakna ägare.
+        setLlmUsageContext({ userId });
+
+        const body = await req.json().catch(() => null);
+        const parsed = briefRequestSchema.safeParse(body);
+        if (!parsed.success) {
+          return NextResponse.json(
+            { error: "Validation failed", details: parsed.error.issues },
+            { status: 400 },
+          );
+        }
+
+        const {
           prompt,
-          normalizedModel,
+          provider,
+          model,
+          temperature,
+          imageGenerations,
+          maxTokens,
+          source,
+          buildIntent,
+          scaffoldId,
+          pageCountHint,
+          styleChoiceHint,
+          styleKeywordsHint,
+          toneKeywordsHint,
+          colorModeHint,
+          complexityHint,
+        } = parsed.data;
+        const normalizedModel = normalizeAssistModel(model);
+        const briefSource = source?.trim() || "unspecified_client";
+        const buildChoices: BriefBuildChoicesInput = {
+          buildIntent,
+          scaffoldId,
+          pageCountHint,
+          styleChoiceHint,
+          styleKeywordsHint,
+          toneKeywordsHint,
+          colorModeHint,
+          complexityHint,
+        };
+        const buildChoicesExtras = briefBuildChoicesCacheExtras(buildChoices);
+        const buildChoicesHints = formatBriefBuildChoicesForPrompt(buildChoices);
+        const trace = buildBriefTrace({
+          source: briefSource,
+          prompt: buildBriefUserPrompt(prompt, imageGenerations, buildChoicesHints),
+          modelId: normalizedModel,
           imageGenerations,
           temperature,
           maxTokens,
-          source: briefSource,
-          variantHints: buildChoicesHints,
           extraHashFields: buildChoicesExtras,
         });
-        if (!result) {
+
+        const validationError = validateBriefModelForHttp(normalizedModel, provider);
+        if (validationError) {
+          return NextResponse.json(validationError.body, { status: validationError.status });
+        }
+
+        debugLog(
+          "brief",
+          `start ${normalizedModel} (${prompt.length} chars, images=${imageGenerations})`,
+        );
+
+        const cacheKey = buildBriefCacheKey({
+          chatId: null,
+          prompt,
+          modelId: normalizedModel,
+          extraInputsForHash: {
+            imageGenerations,
+            temperature: typeof temperature === "number" ? temperature : null,
+            maxTokens: typeof maxTokens === "number" ? maxTokens : null,
+            ...buildChoicesExtras,
+          },
+        });
+
+        if (FEATURES.useRedisCache) {
+          const cached = await readBriefCache(cacheKey);
+          if (cached && cached.json && typeof cached.json === "object") {
+            const payload = cached.json as CachedBriefPayload;
+            if (
+              payload.brief &&
+              typeof payload.brief === "object" &&
+              (payload.briefQuality === "full" || payload.briefQuality === "server-auto") &&
+              (payload.provider === "openai" || payload.provider === "anthropic")
+            ) {
+              incBriefCache("hit");
+              devLogAppend("latest", {
+                type: "brief-cache.hit",
+                chatId: cacheKey.chatId,
+                modelId: cacheKey.modelId,
+                source: trace.source,
+                traceId: trace.traceId,
+                promptHash: trace.promptHash,
+              });
+              return NextResponse.json(payload.brief, {
+                headers: buildBriefHeaders(payload, "hit", trace),
+              });
+            }
+          }
+        } else {
+          incBriefCache("skip");
+        }
+
+        try {
+          const result = await generateSiteBriefObject({
+            prompt,
+            normalizedModel,
+            imageGenerations,
+            temperature,
+            maxTokens,
+            source: briefSource,
+            variantHints: buildChoicesHints,
+            extraHashFields: buildChoicesExtras,
+          });
+          if (!result) {
+            return NextResponse.json(
+              {
+                error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",
+                details: "Model output could not be parsed against the brief schema.",
+                suggestion: "Prova att korta ner eller förtydliga din beskrivning.",
+              },
+              { status: 422 },
+            );
+          }
+          const { brief, provider: briefProvider } = result;
+          // `/api/ai/brief` is always triggered explicitly by the client (via
+          // useInitBrief), so the output quality is always "full". The
+          // alternative "server-auto" value is reserved for implicit briefs
+          // generated server-side inside create-chat when the client did not
+          // ship a brief. We do not read usedSimplified here — the cache
+          // consumer treats both schema variants as a "full" brief.
+          const briefQuality: "full" | "server-auto" = "full";
+          const payload: CachedBriefPayload = {
+            brief: brief as Record<string, unknown>,
+            briefQuality,
+            provider: briefProvider,
+          };
+
+          if (FEATURES.useRedisCache) {
+            incBriefCache("miss");
+            devLogAppend("latest", {
+              type: "brief-cache.miss",
+              chatId: cacheKey.chatId,
+              modelId: cacheKey.modelId,
+              source: result.trace.source,
+              traceId: result.trace.traceId,
+              promptHash: result.trace.promptHash,
+            });
+            await writeBriefCache(cacheKey, payload);
+          }
+
+          const cacheState = FEATURES.useRedisCache ? "miss" : "skip";
+          return NextResponse.json(brief, {
+            headers: buildBriefHeaders(payload, cacheState, result.trace),
+          });
+        } catch (briefErr) {
+          const errMsg = briefErr instanceof Error ? briefErr.message : String(briefErr);
           return NextResponse.json(
             {
               error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",
-              details: "Model output could not be parsed against the brief schema.",
+              details: errMsg.includes("could not parse")
+                ? "Modellen returnerade ett ogiltigt svar."
+                : errMsg,
               suggestion: "Prova att korta ner eller förtydliga din beskrivning.",
             },
             { status: 422 },
           );
         }
-        const { brief, provider: briefProvider } = result;
-        // `/api/ai/brief` is always triggered explicitly by the client (via
-        // useInitBrief), so the output quality is always "full". The
-        // alternative "server-auto" value is reserved for implicit briefs
-        // generated server-side inside create-chat when the client did not
-        // ship a brief. We do not read usedSimplified here — the cache
-        // consumer treats both schema variants as a "full" brief.
-        const briefQuality: "full" | "server-auto" = "full";
-        const payload: CachedBriefPayload = {
-          brief: brief as Record<string, unknown>,
-          briefQuality,
-          provider: briefProvider,
-        };
-
-        if (FEATURES.useRedisCache) {
-          incBriefCache("miss");
-          devLogAppend("latest", {
-            type: "brief-cache.miss",
-            chatId: cacheKey.chatId,
-            modelId: cacheKey.modelId,
-            source: result.trace.source,
-            traceId: result.trace.traceId,
-            promptHash: result.trace.promptHash,
-          });
-          await writeBriefCache(cacheKey, payload);
-        }
-
-        const cacheState = FEATURES.useRedisCache ? "miss" : "skip";
-        return NextResponse.json(brief, {
-          headers: buildBriefHeaders(payload, cacheState, result.trace),
+      } catch (err) {
+        errorLog("AI", "AI brief error", err);
+        devLogAppend("latest", {
+          type: "assist.brief.error",
+          message: err instanceof Error ? err.message : "Unknown error",
         });
-      } catch (briefErr) {
-        const errMsg = briefErr instanceof Error ? briefErr.message : String(briefErr);
         return NextResponse.json(
-          {
-            error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",
-            details: errMsg.includes("could not parse")
-              ? "Modellen returnerade ett ogiltigt svar."
-              : errMsg,
-            suggestion: "Prova att korta ner eller förtydliga din beskrivning.",
-          },
-          { status: 422 },
+          { error: err instanceof Error ? err.message : "Unknown error" },
+          { status: 500 },
         );
       }
-    } catch (err) {
-      errorLog("AI", "AI brief error", err);
-      devLogAppend("latest", {
-        type: "assist.brief.error",
-        message: err instanceof Error ? err.message : "Unknown error",
-      });
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Unknown error" },
-        { status: 500 },
-      );
-    }
     }),
   );
 }

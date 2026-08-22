@@ -10,17 +10,20 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const buildFollowUpOrchestrationInput = vi.hoisted(() => vi.fn(() => ({})));
+
 vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addMessage: vi.fn(),
   updateChatScaffoldId: vi.fn(),
+  setPendingPlanDesignAuthority: vi.fn(),
 }));
 vi.mock("@/lib/db/services/prompt-logs", () => ({ createPromptLog: vi.fn() }));
 vi.mock("@/lib/logging/dev-log", () => ({ devLogAppend: vi.fn() }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog: vi.fn() }));
 vi.mock("@/lib/gen/orchestrate", () => ({ prepareGenerationContext: vi.fn() }));
 vi.mock("../follow-up-orchestration-input", () => ({
-  buildFollowUpOrchestrationInput: vi.fn(() => ({})),
+  buildFollowUpOrchestrationInput,
 }));
 vi.mock("@/lib/observability/prompt-to-done-stream", () => ({
   withPromptToDoneMetricResponse: (response: Response) => response,
@@ -45,16 +48,15 @@ import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { createPlanModePipelineStream } from "@/lib/own-engine/session/own-engine-plan-mode";
 import { formatSSEEvent } from "@/lib/streaming";
-import {
-  PLAN_MODE_TURN_ENTRY_EVENT,
-  PLAN_MODE_TURN_EXIT_EVENT,
-} from "./plan-mode-trace";
+import { PLAN_MODE_TURN_ENTRY_EVENT, PLAN_MODE_TURN_EXIT_EVENT } from "./plan-mode-trace";
 import { runPlanModeTurn } from "./plan-mode-turn";
 
 const CHAT_ID = "chat_plan_1";
 
 /** Fejkad planner-pipeline: samma SSE-format som den riktiga strömmen. */
-function pipelineStream(events: Array<{ event: string; data: unknown }>): ReadableStream<Uint8Array> {
+function pipelineStream(
+  events: Array<{ event: string; data: unknown }>,
+): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return new ReadableStream<Uint8Array>({
     start(controller) {
@@ -89,6 +91,8 @@ function turnParams(): Parameters<typeof runPlanModeTurn>[0] {
     persistedScaffoldId: null,
     importedRepoMode: false,
     previousFiles: [],
+    baseVersionId: null,
+    baseFilesRevision: null,
     hasFollowUpBase: false,
     ignorePersistedScaffoldForMatch: false,
     promptOrchestration: { strategyMeta: {} },
@@ -109,9 +113,7 @@ function turnParams(): Parameters<typeof runPlanModeTurn>[0] {
 }
 
 /** Kör turen till slut — strömmen persisterar först när den är helt läst. */
-async function runTurn(
-  events: Array<{ event: string; data: unknown }>,
-): Promise<string> {
+async function runTurn(events: Array<{ event: string; data: unknown }>): Promise<string> {
   vi.mocked(createPlanModePipelineStream).mockReturnValue(
     pipelineStream(events) as unknown as ReturnType<typeof createPlanModePipelineStream>,
   );
@@ -127,19 +129,53 @@ function traceRow(event: string): Record<string, unknown> | undefined {
 }
 
 function assistantMessageCall(): unknown[] | undefined {
-  return vi
-    .mocked(chatRepo.addMessage)
-    .mock.calls.find((call) => call[1] === "assistant");
+  return vi.mocked(chatRepo.addMessage).mock.calls.find((call) => call[1] === "assistant");
 }
 
 /** `clearAllMocks` nollar bara anropslistorna — implementationer läcker annars. */
 function resetTurnMocks(): void {
   vi.clearAllMocks();
   vi.mocked(chatRepo.addMessage).mockReset();
+  vi.mocked(chatRepo.setPendingPlanDesignAuthority).mockResolvedValue(true);
   vi.mocked(createPromptLog).mockReset();
   vi.mocked(prepareGenerationContext).mockResolvedValue({
-    buildSpec: { qualityTarget: "f2", contextPolicy: "follow-up" },
-    resolvedScaffold: null,
+    buildSpec: {
+      buildIntent: "website",
+      scaffoldId: "landing-page",
+      qualityTarget: "f2",
+      contextPolicy: "follow-up",
+    },
+    resolvedScaffold: { id: "landing-page" },
+    variantId: null,
+    variantSelection: {
+      source: "hash-fallback",
+      score: null,
+      runnerUpScore: null,
+      margin: null,
+      hintId: null,
+      finalId: null,
+      changedFromHint: false,
+    },
+    resolvedDesign: {
+      schemaVersion: 1,
+      variantId: null,
+      explicitAxes: [],
+      explicitFields: [],
+      styleKeywords: { value: [], source: "default", locked: false },
+      toneAndVoice: { value: [], source: "default", locked: false },
+      colorMode: { value: null, source: "default", locked: false },
+      themeTokens: {},
+      typography: {
+        heading: { value: "Inter", source: "default", locked: false },
+        body: { value: "Inter", source: "default", locked: false },
+      },
+      motionLevel: { value: null, source: "default", locked: false },
+      qualityBar: { value: null, source: "default", locked: false },
+      domainProfile: { value: null, source: "default", locked: false },
+    },
+    brief: null,
+    lineageHash: "plan-lineage",
+    variantTemplateId: null,
     variantTemplateReferenceAttachments: [],
   } as unknown as Awaited<ReturnType<typeof prepareGenerationContext>>);
 }
@@ -161,6 +197,25 @@ describe("runPlanModeTurn — persistering av planner-svaret", () => {
     // Den gamla lögnen får inte tillbaka: ingen påhittad plansummering.
     expect(call?.[2]).not.toContain("Plan skapad");
     expect(body).toContain("event: done");
+  });
+
+  it("forwards custom system instructions into follow-up plan orchestration", async () => {
+    const params = turnParams();
+    params.system = "  Behåll varumärkets exakta tonalitet.  ";
+    vi.mocked(createPlanModePipelineStream).mockReturnValue(
+      pipelineStream([{ event: "done", data: {} }]) as unknown as ReturnType<
+        typeof createPlanModePipelineStream
+      >,
+    );
+    const response = await runPlanModeTurn(params);
+    await response.text();
+
+    expect(buildFollowUpOrchestrationInput).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "plan",
+        customInstructions: "Behåll varumärkets exakta tonalitet.",
+      }),
+    );
   });
 
   it("persisterar prosan när utdatan parsas som JSON men saknar plansubstans", async () => {
@@ -219,9 +274,7 @@ describe("runPlanModeTurn — persistering av planner-svaret", () => {
   it("persisterar felet i stället för en plansummering när strömmen fallerar", async () => {
     await runTurn([{ event: "error", data: { message: "planner timeout" } }]);
 
-    expect(assistantMessageCall()?.[2]).toBe(
-      "Planeringen kunde inte slutföras: planner timeout",
-    );
+    expect(assistantMessageCall()?.[2]).toBe("Planeringen kunde inte slutföras: planner timeout");
     expect(traceRow(PLAN_MODE_TURN_EXIT_EVENT)?.meta).toMatchObject({
       outcome: "planner_error_persisted",
       upstreamError: "planner timeout",
@@ -249,10 +302,69 @@ describe("runPlanModeTurn — persistering av planner-svaret", () => {
     expect(call?.[2]).toContain("Plan skapad");
     expect(Array.isArray(call?.[4])).toBe(true);
     expect((call?.[4] as Array<{ type: string }>)[0].type).toBe("plan");
+    expect(chatRepo.setPendingPlanDesignAuthority).toHaveBeenCalledWith(
+      CHAT_ID,
+      expect.objectContaining({
+        schemaVersion: 2,
+        baseVersionId: null,
+        baseFilesRevision: null,
+        requestAttachments: [],
+        customInstructions: null,
+        imageGenerations: true,
+        scaffoldId: "landing-page",
+        buildIntent: "website",
+        lineageHash: "plan-lineage",
+      }),
+    );
+    expect(
+      (
+        (
+          call?.[4] as Array<{
+            plan: { raw: Record<string, unknown> };
+          }>
+        )[0].plan.raw.designAuthority as Record<string, unknown>
+      ).lineageHash,
+    ).toBe("plan-lineage");
     expect(traceRow(PLAN_MODE_TURN_EXIT_EVENT)?.meta).toMatchObject({
       outcome: "plan_persisted",
       hasPlanArtifact: true,
     });
+  });
+
+  it("binds a follow-up plan to the exact base version and file revision", async () => {
+    const params = turnParams();
+    params.baseVersionId = "v1";
+    params.baseFilesRevision = "rev-v1";
+    params.requestAttachments = [
+      {
+        url: "https://blob.example/plan-reference.jpg",
+        filename: "plan-reference.jpg",
+        mimeType: "image/jpeg",
+      },
+    ];
+    params.system = "Behåll referensens exakta rytm.";
+    params.resolvedImageGenerations = false;
+    vi.mocked(createPlanModePipelineStream).mockReturnValue(
+      pipelineStream([{ event: "done", data: {} }]) as unknown as ReturnType<
+        typeof createPlanModePipelineStream
+      >,
+    );
+
+    const response = await runPlanModeTurn(params);
+    await response.text();
+
+    expect(chatRepo.setPendingPlanDesignAuthority).toHaveBeenCalledWith(
+      CHAT_ID,
+      expect.objectContaining({
+        baseVersionId: "v1",
+        baseFilesRevision: "rev-v1",
+        requestAttachments: [
+          expect.objectContaining({ url: "https://blob.example/plan-reference.jpg" }),
+        ],
+        customInstructions: "Behåll referensens exakta rytm.",
+        imageGenerations: false,
+      }),
+    );
   });
 });
 

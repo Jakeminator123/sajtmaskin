@@ -75,6 +75,8 @@ type ResolveVariantTemplateInspirationOptions = {
   includeStructure?: boolean;
   loadAddendum?: TemplateAddendumLoader;
   selectionContext?: VariantTemplateSelectionContext;
+  /** Server-frozen Plan → Build winner; honored only if still eligible for the variant. */
+  preferredTemplateId?: string | null;
 };
 
 export type VariantTemplateSelectionContext = {
@@ -169,6 +171,7 @@ export function selectVariantTemplateReference(
   options: {
     selectionContext?: VariantTemplateSelectionContext;
     loadAddendum?: TemplateAddendumLoader;
+    preferredTemplateId?: string | null;
   } = {},
 ): Omit<VariantTemplateInspiration, "structuralReferences"> | null {
   const eligible = (variant?.sourceTemplateIds ?? []).flatMap((templateId) => {
@@ -177,6 +180,20 @@ export function selectVariantTemplateReference(
   });
   const previewCompatible = eligible.filter((template) => template.previewFits !== false);
   const candidates = previewCompatible.length > 0 ? previewCompatible : eligible;
+  const preferred = options.preferredTemplateId
+    ? candidates.find((template) => template.id === options.preferredTemplateId)
+    : null;
+  if (preferred && isFullProjectTemplate(preferred)) {
+    const addendum = (options.loadAddendum ?? resolveVariantTemplateAddendum)(preferred.id);
+    return {
+      templateId: preferred.id,
+      title: preferred.title,
+      category: preferred.category,
+      archiveUrl: preferred.archiveUrl,
+      stillImageUrl: preferred.stillImageUrl,
+      selectionReason: `approved-plan-frozen:addendum=${addendum.state}`,
+    };
+  }
   const queryTokens = selectionTokens(options.selectionContext);
   const loadAddendum = options.loadAddendum ?? resolveVariantTemplateAddendum;
   const ranked = candidates.map((template, index) => {
@@ -493,6 +510,7 @@ export async function resolveVariantTemplateInspiration(
   const selected = selectVariantTemplateReference(variant, {
     selectionContext: options.selectionContext,
     loadAddendum: options.loadAddendum,
+    preferredTemplateId: options.preferredTemplateId,
   });
   if (!selected) return null;
 

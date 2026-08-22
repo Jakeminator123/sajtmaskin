@@ -57,11 +57,8 @@ import {
 import { persistTelemetryRecord } from "./persist-telemetry";
 import { attachVersionToPendingUsage, setLlmUsageContext } from "@/lib/observability/llm-usage";
 import { buildWarmPassTelemetry } from "./warm-pass-telemetry";
-import type {
-  FinalizeParams,
-  FinalizeResult,
-  FinalizeStepTelemetryMap,
-} from "./types";
+import type { FinalizeParams, FinalizeResult, FinalizeStepTelemetryMap } from "./types";
+import { parseResolvedDesignContract } from "@/lib/gen/design-contract";
 
 function normalizeCapabilityIds(input: unknown): string[] {
   if (!Array.isArray(input) || input.length === 0) return [];
@@ -102,9 +99,7 @@ function mapSyntaxResultToBusPhase(params: {
 function resolveRequestedCapabilitiesFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
 ): string[] {
-  const removed = new Set(
-    normalizeCapabilityIds(streamMeta?.removedCapabilities),
-  );
+  const removed = new Set(normalizeCapabilityIds(streamMeta?.removedCapabilities));
   const fromTopLevel = normalizeCapabilityIds(streamMeta?.requestedCapabilities);
   const briefSummary =
     streamMeta?.briefSummary &&
@@ -113,9 +108,9 @@ function resolveRequestedCapabilitiesFromStreamMeta(
       ? (streamMeta.briefSummary as Record<string, unknown>)
       : null;
   const fromBriefSummary = normalizeCapabilityIds(briefSummary?.requestedCapabilities);
-  const explicitCapabilities = Array.from(
-    new Set([...fromBriefSummary, ...fromTopLevel]),
-  ).filter((capability) => !removed.has(capability));
+  const explicitCapabilities = Array.from(new Set([...fromBriefSummary, ...fromTopLevel])).filter(
+    (capability) => !removed.has(capability),
+  );
   if (explicitCapabilities.length > 0) return explicitCapabilities;
 
   const inferredCapabilities =
@@ -141,9 +136,7 @@ function resolveRequestedCapabilitiesFromStreamMeta(
 export function resolveSelectedDossiersFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
 ): DossierEntry[] {
-  const removed = new Set(
-    normalizeCapabilityIds(streamMeta?.removedCapabilities),
-  );
+  const removed = new Set(normalizeCapabilityIds(streamMeta?.removedCapabilities));
   const explicitDossierIds = normalizeDossierIds(streamMeta?.selectedDossierIds);
   if (explicitDossierIds.length > 0) {
     const selected = explicitDossierIds
@@ -177,30 +170,23 @@ export function resolveRemovedDossiersFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
   previousFiles: ReadonlyArray<{ path?: unknown }> | null | undefined,
 ): DossierEntry[] {
-  const removedCapabilities = new Set(
-    normalizeCapabilityIds(streamMeta?.removedCapabilities),
-  );
+  const removedCapabilities = new Set(normalizeCapabilityIds(streamMeta?.removedCapabilities));
   if (removedCapabilities.size === 0) return [];
 
   const explicit = normalizeDossierIds(streamMeta?.removedDossierIds)
     .map((id) => getDossierById(id))
     .filter(
       (entry): entry is DossierEntry =>
-        entry !== null &&
-        removedCapabilities.has(entry.capability.toLowerCase()),
+        entry !== null && removedCapabilities.has(entry.capability.toLowerCase()),
     );
   if (explicit.length > 0) return explicit;
 
   return resolveDossiersPresentInVersion(previousFiles ?? [])
     .map((selected) => selected.entry)
-    .filter((entry) =>
-      removedCapabilities.has(entry.capability.toLowerCase()),
-    );
+    .filter((entry) => removedCapabilities.has(entry.capability.toLowerCase()));
 }
 
-export async function finalizeAndSaveVersion(
-  params: FinalizeParams,
-): Promise<FinalizeResult> {
+export async function finalizeAndSaveVersion(params: FinalizeParams): Promise<FinalizeResult> {
   const finalizePipelineStartedAt = Date.now();
   const {
     accumulatedContent,
@@ -224,6 +210,7 @@ export async function finalizeAndSaveVersion(
     repairPassIndex = 0,
     lineageHash,
     targetVersionId,
+    generationBaseVersionId,
     lifecycleParentVersionId,
     willRunQualityGate = false,
     qualityGatePlanned = false,
@@ -235,8 +222,7 @@ export async function finalizeAndSaveVersion(
   // dep-backfill uses these to resolve the CHOSEN provider sibling's manifest
   // instead of re-selecting the capability default (SM-006).
   const orchestrationSelectedDossierIds = normalizeDossierIds(
-    (orchestrationStreamMeta as Record<string, unknown> | null | undefined)
-      ?.selectedDossierIds,
+    (orchestrationStreamMeta as Record<string, unknown> | null | undefined)?.selectedDossierIds,
   );
   // Read the orchestrate-locked variantId off the stream meta so the
   // autofix pre-phase can materialize the variant's first fontPairing
@@ -247,6 +233,40 @@ export async function finalizeAndSaveVersion(
     orchestrationStreamMeta.variantId.trim().length > 0
       ? (orchestrationStreamMeta.variantId as string)
       : null;
+  const parsedResolvedDesign = parseResolvedDesignContract(orchestrationStreamMeta?.resolvedDesign);
+  const resolvedDesignMeta = parsedResolvedDesign
+    ? (parsedResolvedDesign as unknown as Record<string, unknown>)
+    : null;
+  const resolvedTypographyMeta =
+    resolvedDesignMeta?.typography && typeof resolvedDesignMeta.typography === "object"
+      ? (resolvedDesignMeta.typography as Record<string, unknown>)
+      : null;
+  const typographyDelegatedToCurrentRequest =
+    Array.isArray(resolvedDesignMeta?.unresolvedAxes) &&
+    resolvedDesignMeta.unresolvedAxes.includes("typography");
+  const readResolvedFont = (key: "heading" | "body"): string | null => {
+    if (typographyDelegatedToCurrentRequest) return null;
+    const unresolvedField = key === "heading" ? "typography.headings" : "typography.body";
+    if (
+      Array.isArray(resolvedDesignMeta?.unresolvedFields) &&
+      resolvedDesignMeta.unresolvedFields.includes(unresolvedField)
+    ) {
+      return null;
+    }
+    const entry = resolvedTypographyMeta?.[key];
+    if (!entry || typeof entry !== "object") return null;
+    const value = (entry as Record<string, unknown>).value;
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  };
+  // Legacy stream meta has no canonical contract and must retain the registry
+  // Variant fallback. A present contract is terminal authority even when the
+  // current follow-up owns typography (both values intentionally null).
+  const orchestrationResolvedFontPairing = resolvedDesignMeta
+    ? {
+        heading: readResolvedFont("heading"),
+        body: readResolvedFont("body"),
+      }
+    : null;
 
   const finalizePath = resolveFinalizePathPolicy({
     buildSpec,
@@ -255,9 +275,7 @@ export async function finalizeAndSaveVersion(
     accumulatedContent,
   });
   const latencyBudgetKind: "init" | "followup" =
-    buildSpec?.generationMode === "followUp" || Boolean(targetVersionId)
-      ? "followup"
-      : "init";
+    buildSpec?.generationMode === "followUp" || Boolean(targetVersionId) ? "followup" : "init";
   const repairScopeId = [
     targetVersionId ?? lineageHash ?? chatId,
     repairPassIndex > 0 ? `repair-${repairPassIndex}` : "root",
@@ -280,11 +298,9 @@ export async function finalizeAndSaveVersion(
   // Same wall-clock as meta.streamMs below (engine start → finalize start).
   // Keep both expressions identical — Prometheus `codegen` phase and telemetry
   // `streamMs` are two names for one measurement.
-  recordPhaseDuration(
-    "codegen",
-    Math.max(0, finalizePipelineStartedAt - startedAt),
-    { kind: latencyBudgetKind },
-  );
+  recordPhaseDuration("codegen", Math.max(0, finalizePipelineStartedAt - startedAt), {
+    kind: latencyBudgetKind,
+  });
 
   // 1. URL expansion — runs before autofix so {{MEDIA_N}} aliases inside
   // import paths are rewritten to real URLs before any deterministic
@@ -300,23 +316,22 @@ export async function finalizeAndSaveVersion(
   // idempotent: validateAndFix downstream is told to skip its initial mechanical
   // pass (alreadyMechanicallyFixed: true) since nothing between here and there
   // mutates contentForVersion.
-  const autofixPhase = await observePhase(
-    { phase: "autofix", kind: latencyBudgetKind },
-    () =>
-      runAutofixPrePhase({
-        runAutofix,
-        contentForVersion,
-        chatId,
-        model,
-        requestedCapabilities,
-        selectedDossierIds: orchestrationSelectedDossierIds,
-        buildSpec,
-        resolvedScaffold,
-        resolvedTier,
-        variantId: orchestrationVariantId,
-        onProgress,
-        stepTelemetry: finalizeStepTelemetry,
-      }),
+  const autofixPhase = await observePhase({ phase: "autofix", kind: latencyBudgetKind }, () =>
+    runAutofixPrePhase({
+      runAutofix,
+      contentForVersion,
+      chatId,
+      model,
+      requestedCapabilities,
+      selectedDossierIds: orchestrationSelectedDossierIds,
+      buildSpec,
+      resolvedScaffold,
+      resolvedTier,
+      variantId: orchestrationVariantId,
+      resolvedFontPairing: orchestrationResolvedFontPairing,
+      onProgress,
+      stepTelemetry: finalizeStepTelemetry,
+    }),
   );
   contentForVersion = autofixPhase.contentForVersion;
   const autofixSucceeded = autofixPhase.autofixSucceeded;
@@ -416,11 +431,9 @@ export async function finalizeAndSaveVersion(
   // Skipped steps (light path) resolve to 0 ms — they contributed nothing to
   // wall-clock. Per-run status ("done" | "skipped" | …) lives in JSONB meta
   // (`postStreamSteps`), same pattern as syntax-validate / preflight.
-  recordPhaseDuration(
-    "materialize_images",
-    resolveStepDurationMs("materialize_images"),
-    { kind: latencyBudgetKind },
-  );
+  recordPhaseDuration("materialize_images", resolveStepDurationMs("materialize_images"), {
+    kind: latencyBudgetKind,
+  });
   recordPhaseDuration("preflight", resolveStepDurationMs("parse_merge_preflight"), {
     kind: latencyBudgetKind,
   });
@@ -439,9 +452,7 @@ export async function finalizeAndSaveVersion(
   // preview fallback rebuilds the same F2 mock-seeded `.env.local` surface.
   const selectedDossierEnvKeys = Array.from(
     new Set(
-      selectedDossiers.flatMap((dossier) =>
-        (dossier.envVars ?? []).map((envVar) => envVar.key),
-      ),
+      selectedDossiers.flatMap((dossier) => (dossier.envVars ?? []).map((envVar) => envVar.key)),
     ),
   );
   const { message: assistantMsg, version: initialVersion } = targetVersionId
@@ -459,13 +470,18 @@ export async function finalizeAndSaveVersion(
             selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
         },
       )
-    : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson, {
-        lifecycleStage: buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design",
-        parentVersionId: lifecycleParentVersionId ?? null,
-        thinking: thinkingForPersist,
-        // Null when empty — the column means "no dossier declared env keys".
-        selectedDossierEnvKeys: selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
-      });
+    : await chatRepo.addAssistantMessageAndCreateDraftVersion(
+        chatId,
+        contentForVersion,
+        filesJson,
+        {
+          lifecycleStage: buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design",
+          parentVersionId: generationBaseVersionId ?? lifecycleParentVersionId ?? null,
+          thinking: thinkingForPersist,
+          // Null when empty — the column means "no dossier declared env keys".
+          selectedDossierEnvKeys: selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
+        },
+      );
   let version = initialVersion;
   const finalizeRunId = repairPassIndex > 0 ? `repair-${repairPassIndex}` : undefined;
   // Nu finns versionen — knyt resten av körningens LLM-anrop (verifier,
@@ -660,8 +676,7 @@ export async function finalizeAndSaveVersion(
       chatId,
       runId: finalizeRunId,
       kind: "verifier_skipped_safe_fixes_only",
-      message:
-        "Verifiering hoppades över eftersom mekanisk autofix bara gjorde säkra hygienfixar.",
+      message: "Verifiering hoppades över eftersom mekanisk autofix bara gjorde säkra hygienfixar.",
       meta: {
         safeFixCount: autoFixRisk.safeFixCount,
         riskyFixCount: autoFixRisk.riskyFixCount,
@@ -704,6 +719,8 @@ export async function finalizeAndSaveVersion(
   telemetryRecordId = await persistTelemetryRecord({
     chatId,
     versionId: version.id,
+    filesJson,
+    lineageHash,
     resolvedScaffold,
     scaffoldSelection,
     model,
@@ -845,7 +862,8 @@ export async function finalizeAndSaveVersion(
     // server-verify/build-error repair dedupe against finalize's LLM repairs.
     repairLedger,
     repairScopeId,
-    warmTscSkipped: syntaxResult.tsc?.ran === false && syntaxResult.tsc.skipped === "quality_gate_planned",
+    warmTscSkipped:
+      syntaxResult.tsc?.ran === false && syntaxResult.tsc.skipped === "quality_gate_planned",
     ...buildWarmPassTelemetry({
       tsc: syntaxResult.tsc,
       scaffoldId: resolvedScaffold?.id ?? null,

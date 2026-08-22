@@ -14,7 +14,10 @@ import { randomUUID } from "node:crypto";
 import { REDIS_KEY_PREFIX } from "@/lib/config";
 import { getRedis } from "@/lib/data/redis";
 
-export const CHAT_GENERATION_LOCK_TTL_SECONDS = 12 * 60;
+// Follow-up stream routes may run for 950 seconds. Keep the cross-instance
+// lease beyond that hard runtime ceiling so a second generation cannot enter
+// merely because the first valid response is still streaming.
+export const CHAT_GENERATION_LOCK_TTL_SECONDS = 20 * 60;
 
 export type ChatGenerationLock = {
   chatId: string;
@@ -22,9 +25,7 @@ export type ChatGenerationLock = {
 };
 
 export type AcquireChatGenerationLockResult =
-  | { status: "acquired"; lock: ChatGenerationLock }
-  | { status: "held" }
-  | { status: "unavailable" };
+  { status: "acquired"; lock: ChatGenerationLock } | { status: "held" } | { status: "unavailable" };
 
 export function chatGenerationLockFailureResponse(
   status: "held" | "unavailable",
@@ -106,9 +107,7 @@ export async function acquireChatGenerationLock(
   return { status: "acquired", lock: { chatId: trimmed, token } };
 }
 
-export async function releaseChatGenerationLock(
-  lock: ChatGenerationLock,
-): Promise<void> {
+export async function releaseChatGenerationLock(lock: ChatGenerationLock): Promise<void> {
   const redis = getRedis();
   if (redis) {
     try {

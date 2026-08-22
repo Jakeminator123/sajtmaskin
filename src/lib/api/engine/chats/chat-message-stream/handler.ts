@@ -22,15 +22,14 @@ import {
   extractBriefSummaryFromSnapshot,
   prependOrchestrationContinuityToFollowUp,
 } from "@/lib/gen/orchestration-snapshot";
+import { PENDING_PLAN_AUTHORITY_SNAPSHOT_KEY } from "@/lib/gen/plan/design-authority";
 import { createPreviewPrewarmLeaseKey } from "@/lib/gen/preview/preview-prewarm";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "@/lib/gen/prompt-wrapper-contract";
 import { normalizeRequestAttachments, summarizeDesignReferences } from "@/lib/gen/request-metadata";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { extractAppRoutePathsFromFilePaths } from "@/lib/gen/route-plan";
-import {
-  resolveChatPreferredVersionId,
-  resolveFollowUpPreviousFiles,
-} from "@/lib/gen/version-manager";
+import { resolveChatPreferredVersionId, resolveFollowUpBase } from "@/lib/gen/version-manager";
+import { resolveVersionBoundOrchestration } from "@/lib/gen/version-bound-orchestration";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
@@ -107,767 +106,803 @@ export async function handleMessageStreamRequest(
       const response = await runWithLlmUsageContext({ sessionId }, async () => {
         const promptStartedAt = Date.now();
         try {
-        const { chatId } = await ctx.params;
-        setLlmUsageContext({ chatId });
-        const body = await req.json().catch(() => ({}));
-        const validationResult = sendMessageSchema.safeParse(body);
-        if (!validationResult.success) {
-          return attachSessionCookie(
-            NextResponse.json(
-              { error: "Validation failed", details: validationResult.error.issues },
-              { status: 400 },
-            ),
-          );
-        }
-
-        const {
-          message,
-          attachments,
-          modelId,
-          thinking,
-          imageGenerations,
-          system,
-          meta,
-          promptSource,
-        } = validationResult.data;
-        const requestAttachments = normalizeRequestAttachments(attachments);
-        const parsedMeta = parseChatRequestMeta(meta);
-        const modelSelection = resolveModelSelection({
-          requestedModelId: modelId,
-          requestedModelTier: parsedMeta.modelTier,
-          fallbackTier: DEFAULT_MODEL_ID,
-        });
-        const engineChat = await getEngineChatByIdForRequest(req, chatId, { sessionId });
-        if (!engineChat) {
-          return attachSessionCookie(
-            NextResponse.json({ error: "Chat not found" }, { status: 404 }),
-          );
-        }
-        // Ägaren måste sättas HÄR, inte efter kreditkollen: intent-klassificeraren
-        // och brief-deltat kör innan dess och skulle annars bli oattribuerade.
-        // `getRequestUserId` ger `users.id` eller `guest:<sessionId>`. Uppslaget är
-        // observability och får aldrig fälla turen — därav safeUsageOwnerId.
-        const usageOwnerId = await safeUsageOwnerId(() => getRequestUserId(req, { sessionId }));
-        setLlmUsageContext({ userId: usageOwnerId ?? `guest:${sessionId}` });
-        if (!usageOwnerId || usageOwnerId.startsWith("guest:")) {
-          return attachSessionCookie(
-            NextResponse.json(
-              {
-                success: false,
-                error:
-                  "Skapa ett konto eller logga in för att fortsätta bygga. Kontot får en kostnadsfri första generering.",
-                requiresAuth: true,
-              },
-              { status: 401 },
-            ),
-          );
-        }
-
-        const generationLockResult = await acquireChatGenerationLock(engineChat.id);
-        if (generationLockResult.status !== "acquired") {
-          return attachSessionCookie(
-            chatGenerationLockFailureResponse(generationLockResult.status),
-          );
-        }
-        acquiredGenerationLock = generationLockResult.lock;
-
-        // P0 stream-abort recovery (2026-04-26). Versionless-chat hard guard.
-        // If the most recent generation/repair stream for this chat died
-        // before producing a version (provider abort, transport reset,
-        // server-restart, lazy-staleness), there is nothing to repair: a
-        // followup_general here would route into the variant matcher with
-        // priorVariantId:null and trigger a variant_lock_fallback against
-        // a chat that has no scaffold-lock to lock to. Hard 409 stops the
-        // race at the door — the client is expected to spawn a new chat
-        // instead. Read-only check; the fallback "no log on disk" path is
-        // treated as live (we err on letting through, never on blocking).
-        // The try/catch is defensive against repo-stub mismatches in tests
-        // and against transient DB errors — both should fail open (let the
-        // followup through) rather than 500 the route.
-        let existingVersionsForChat: Awaited<ReturnType<typeof chatRepo.getVersionsByChat>> = [];
-        // Distinguishes a genuine empty result (new/versionless chat) from a
-        // fail-open catch (transient DB/repo error). Only a CONFIRMED-empty chat
-        // may prewarm: a follow-up whose version lookup merely threw must never
-        // be treated as new (that would restart its warm preview workspace).
-        let versionsQuerySucceeded = false;
-        try {
-          existingVersionsForChat = await chatRepo.getVersionsByChat(engineChat.id);
-          versionsQuerySucceeded = true;
-        } catch {
-          existingVersionsForChat = [];
-        }
-        if (existingVersionsForChat.length === 0) {
-          const runStatus = readRunStatusForChat(engineChat.id);
-          if (runStatus && runStatus.status === "aborted" && !runStatus.versionId) {
+          const { chatId } = await ctx.params;
+          setLlmUsageContext({ chatId });
+          const body = await req.json().catch(() => ({}));
+          const validationResult = sendMessageSchema.safeParse(body);
+          if (!validationResult.success) {
             return attachSessionCookie(
               NextResponse.json(
-                {
-                  error: "versionless_chat_aborted",
-                  message:
-                    "Den här chatten har ingen version att reparera — generationen avbröts. Starta om i en ny chat.",
-                  chatStatus: {
-                    status: runStatus.status,
-                    statusReason: runStatus.statusReason,
-                    hasVersion: false,
-                    updatedAt: runStatus.updatedAt,
-                  },
-                },
-                { status: 409 },
+                { error: "Validation failed", details: validationResult.error.issues },
+                { status: 400 },
               ),
             );
           }
-        }
 
-        // Imported-repo detection (verbatim v0-template / ZIP chats): reuses
-        // the version list already loaded above. Fail-open to `false` on a
-        // failed versions query — same default as finalize's independent
-        // `chatHasImportedRepoVersion` lookup (strict scaffold behavior).
-        // Computed HERE (before the delta-brief phase) so clear-redesign
-        // delta-briefs never seed an imported repo with Sajtmaskin
-        // scaffold/variant hints from a keyword pre-match.
-        const importedRepoMode =
-          versionsQuerySucceeded &&
-          existingVersionsForChat.some((v) => v.edit_kind === "imported_repo");
-
-        const resolvedModelId = modelSelection.modelId;
-        const resolvedModelTier = modelSelection.modelTier;
-        const buildProfileId = getBuildProfileId(resolvedModelTier);
-        const resolvedThinking =
-          typeof thinking === "boolean" ? thinking : getDefaultThinkingEnabled();
-        const resolvedImageGenerations =
-          typeof imageGenerations === "boolean" ? imageGenerations : true;
-        const metaBuildMethod = parsedMeta.buildMethod;
-        const metaBuildIntent = parsedMeta.buildIntent;
-        const metaPromptSourceKind = parsedMeta.promptSourceKind;
-        const metaPromptSourceTechnical = parsedMeta.promptSourceTechnical;
-        const metaPromptSourcePreservePayload = parsedMeta.promptSourcePreservePayload;
-        const metaPlanMode = parsedMeta.planMode;
-        const metaEngineBaseVersionId = parsedMeta.engineBaseVersionId;
-        // 5-2: the version the client believes is newest. Read raw (kept out of
-        // parse-chat-request-meta to keep this gate self-contained) and only
-        // sent by the regular follow-up path — explicit override passes
-        // (F3/autofix) omit it and are exempt from the stale-base gate below.
-        const metaEngineLatestKnownVersionId =
-          meta &&
-          typeof meta === "object" &&
-          typeof (meta as Record<string, unknown>).engineLatestKnownVersionId === "string"
-            ? ((meta as Record<string, unknown>).engineLatestKnownVersionId as string).trim() ||
-              null
-            : null;
-        const metaAppProjectId = parsedMeta.appProjectId;
-        const metaScaffoldMode = parsedMeta.scaffoldMode;
-        const metaScaffoldId = parsedMeta.scaffoldId;
-        // Follow-ups do not carry the init brief inline. For clear-redesign
-        // follow-ups, a delta-brief is generated below. Otherwise `metaBrief`
-        // stays null — but the original brief still lives in the chat's
-        // orchestration_snapshot and is applied to the system prompt
-        // downstream. The hasPersistedBrief flag below lets the model-info
-        // panel ("Brief: applicerad / Systempromt: NK tecken" — SAJ-6/B5)
-        // surface that the brief is still in effect for follow-ups, not just
-        // for first prompts and clear-redesign deltas.
-        let metaBrief: Record<string, unknown> | null = null;
-        const hasPersistedBrief = Boolean(
-          extractBriefSummaryFromSnapshot(
-            engineChat.orchestration_snapshot as Record<string, unknown> | null,
-          ),
-        );
-        const metaPromptAssistModel = parsedMeta.promptAssistModel;
-        const metaPromptAssistDeep = parsedMeta.promptAssistDeep;
-        const designReferences = summarizeDesignReferences(requestAttachments);
-        // Scope-clarification retry (prod chat e8bd3ba6): when the previous
-        // turn stopped on a follow-up scope clarification and the current
-        // message is one of its quick-reply options, recover the ORIGINAL
-        // detailed request — the option text alone must never become the
-        // whole generation prompt.
-        const followUpClarificationAnswer = collectFollowUpClarificationAnswer(
-          engineChat.messages,
-          message,
-        );
-
-        if (metaAppProjectId && engineChat.project_id !== metaAppProjectId) {
-          // IDOR guard: the caller can request a re-mapping to any
-          // project id, so we must independently verify they actually
-          // own the target project before re-pointing the chat row.
-          const ownedTarget = await getAppProjectByIdForRequest(req, metaAppProjectId, {
-            sessionId,
+          const {
+            message,
+            attachments,
+            modelId,
+            thinking,
+            imageGenerations,
+            system,
+            meta,
+            promptSource,
+          } = validationResult.data;
+          const requestAttachments = normalizeRequestAttachments(attachments);
+          const parsedMeta = parseChatRequestMeta(meta);
+          const modelSelection = resolveModelSelection({
+            requestedModelId: modelId,
+            requestedModelTier: parsedMeta.modelTier,
+            fallbackTier: DEFAULT_MODEL_ID,
           });
-          if (!ownedTarget) {
-            return attachSessionCookie(NextResponse.json({ error: "forbidden" }, { status: 403 }));
+          const engineChat = await getEngineChatByIdForRequest(req, chatId, { sessionId });
+          if (!engineChat) {
+            return attachSessionCookie(
+              NextResponse.json({ error: "Chat not found" }, { status: 404 }),
+            );
           }
+          // Ägaren måste sättas HÄR, inte efter kreditkollen: intent-klassificeraren
+          // och brief-deltat kör innan dess och skulle annars bli oattribuerade.
+          // `getRequestUserId` ger `users.id` eller `guest:<sessionId>`. Uppslaget är
+          // observability och får aldrig fälla turen — därav safeUsageOwnerId.
+          const usageOwnerId = await safeUsageOwnerId(() => getRequestUserId(req, { sessionId }));
+          setLlmUsageContext({ userId: usageOwnerId ?? `guest:${sessionId}` });
+          if (!usageOwnerId || usageOwnerId.startsWith("guest:")) {
+            return attachSessionCookie(
+              NextResponse.json(
+                {
+                  success: false,
+                  error:
+                    "Skapa ett konto eller logga in för att fortsätta bygga. Kontot får en kostnadsfri första generering.",
+                  requiresAuth: true,
+                },
+                { status: 401 },
+              ),
+            );
+          }
+
+          const generationLockResult = await acquireChatGenerationLock(engineChat.id);
+          if (generationLockResult.status !== "acquired") {
+            return attachSessionCookie(
+              chatGenerationLockFailureResponse(generationLockResult.status),
+            );
+          }
+          acquiredGenerationLock = generationLockResult.lock;
+
+          // P0 stream-abort recovery (2026-04-26). Versionless-chat hard guard.
+          // If the most recent generation/repair stream for this chat died
+          // before producing a version (provider abort, transport reset,
+          // server-restart, lazy-staleness), there is nothing to repair: a
+          // followup_general here would route into the variant matcher with
+          // priorVariantId:null and trigger a variant_lock_fallback against
+          // a chat that has no scaffold-lock to lock to. Hard 409 stops the
+          // race at the door — the client is expected to spawn a new chat
+          // instead. Read-only check; the fallback "no log on disk" path is
+          // treated as live (we err on letting through, never on blocking).
+          // The try/catch is defensive against repo-stub mismatches in tests
+          // and against transient DB errors — both should fail open (let the
+          // followup through) rather than 500 the route.
+          let existingVersionsForChat: Awaited<ReturnType<typeof chatRepo.getVersionsByChat>> = [];
+          // Distinguishes a genuine empty result (new/versionless chat) from a
+          // fail-open catch (transient DB/repo error). Only a CONFIRMED-empty chat
+          // may prewarm: a follow-up whose version lookup merely threw must never
+          // be treated as new (that would restart its warm preview workspace).
+          let versionsQuerySucceeded = false;
           try {
-            await chatRepo.updateChatProjectId(engineChat.id, ownedTarget.id);
-            engineChat.project_id = ownedTarget.id;
-          } catch (error) {
-            console.warn(
-              "[API/engine/chats/:chatId/stream] Failed to repair chat project mapping",
-              {
-                chatId,
-                currentProjectId: engineChat.project_id,
-                targetProjectId: ownedTarget.id,
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
+            existingVersionsForChat = await chatRepo.getVersionsByChat(engineChat.id);
+            versionsQuerySucceeded = true;
+          } catch {
+            existingVersionsForChat = [];
           }
-        }
+          if (existingVersionsForChat.length === 0) {
+            const runStatus = readRunStatusForChat(engineChat.id);
+            if (runStatus && runStatus.status === "aborted" && !runStatus.versionId) {
+              return attachSessionCookie(
+                NextResponse.json(
+                  {
+                    error: "versionless_chat_aborted",
+                    message:
+                      "Den här chatten har ingen version att reparera — generationen avbröts. Starta om i en ny chat.",
+                    chatStatus: {
+                      status: runStatus.status,
+                      statusReason: runStatus.statusReason,
+                      hasVersion: false,
+                      updatedAt: runStatus.updatedAt,
+                    },
+                  },
+                  { status: 409 },
+                ),
+              );
+            }
+          }
 
-        const promptOrchestration = orchestratePromptMessage({
-          // On a consumed scope-clarification answer, orchestrate the ORIGINAL
-          // request so the follow-up wrapping below carries the user's detailed
-          // instructions as the "Requested Changes" body (the chosen option is
-          // re-attached in the clarification-answer wrapper further down).
-          message: followUpClarificationAnswer?.sourceUserMessage ?? message,
-          buildMethod: metaBuildMethod,
-          buildIntent: metaBuildIntent,
-          isFirstPrompt: false,
-          attachmentsCount: requestAttachments.length,
-          hardCap: MAX_PROMPT_HANDOFF_CHARS,
-          promptSourceKind: metaPromptSourceKind,
-          promptSourceTechnical: metaPromptSourceTechnical,
-          promptSourcePreservePayload: metaPromptSourcePreservePayload,
-        });
-        debugLog("orchestration", "Follow-up prompt assist + strategy (request meta)", {
-          chatId,
-          promptAssistModel: metaPromptAssistModel,
-          promptAssistDeep: metaPromptAssistDeep,
-          promptStrategy: promptOrchestration.strategyMeta.strategy,
-          promptType: promptOrchestration.strategyMeta.promptType,
-        });
-        let optimizedMessage = promptOrchestration.finalMessage;
-        optimizedMessage = prependOrchestrationContinuityToFollowUp(
-          optimizedMessage,
-          engineChat.orchestration_snapshot ?? null,
-        );
+          // Imported-repo detection (verbatim v0-template / ZIP chats): reuses
+          // the version list already loaded above. Fail-open to `false` on a
+          // failed versions query — same default as finalize's independent
+          // `chatHasImportedRepoVersion` lookup (strict scaffold behavior).
+          // Computed HERE (before the delta-brief phase) so clear-redesign
+          // delta-briefs never seed an imported repo with Sajtmaskin
+          // scaffold/variant hints from a keyword pre-match.
+          const importedRepoMode =
+            versionsQuerySucceeded &&
+            existingVersionsForChat.some((v) => v.edit_kind === "imported_repo");
 
-        const previousFiles = await resolveFollowUpPreviousFiles(chatId, metaEngineBaseVersionId);
+          const resolvedModelId = modelSelection.modelId;
+          const resolvedModelTier = modelSelection.modelTier;
+          const buildProfileId = getBuildProfileId(resolvedModelTier);
+          const resolvedThinking =
+            typeof thinking === "boolean" ? thinking : getDefaultThinkingEnabled();
+          const resolvedImageGenerations =
+            typeof imageGenerations === "boolean" ? imageGenerations : true;
+          const metaBuildMethod = parsedMeta.buildMethod;
+          const metaBuildIntent = parsedMeta.buildIntent;
+          const metaPromptSourceKind = parsedMeta.promptSourceKind;
+          const metaPromptSourceTechnical = parsedMeta.promptSourceTechnical;
+          const metaPromptSourcePreservePayload = parsedMeta.promptSourcePreservePayload;
+          const metaPlanMode = parsedMeta.planMode;
+          const metaEngineBaseVersionId = parsedMeta.engineBaseVersionId;
+          // 5-2: the version the client believes is newest. Read raw (kept out of
+          // parse-chat-request-meta to keep this gate self-contained) and only
+          // sent by the regular follow-up path — explicit override passes
+          // (F3/autofix) omit it and are exempt from the stale-base gate below.
+          const metaEngineLatestKnownVersionId =
+            meta &&
+            typeof meta === "object" &&
+            typeof (meta as Record<string, unknown>).engineLatestKnownVersionId === "string"
+              ? ((meta as Record<string, unknown>).engineLatestKnownVersionId as string).trim() ||
+                null
+              : null;
+          const metaAppProjectId = parsedMeta.appProjectId;
+          const metaScaffoldMode = parsedMeta.scaffoldMode;
+          const metaScaffoldId = parsedMeta.scaffoldId;
+          const globalOrchestrationSnapshot =
+            engineChat.orchestration_snapshot &&
+            typeof engineChat.orchestration_snapshot === "object" &&
+            !Array.isArray(engineChat.orchestration_snapshot)
+              ? (engineChat.orchestration_snapshot as Record<string, unknown>)
+              : null;
+          // Resolve the chat-scoped base ONCE. Its id, revision and files now
+          // travel together into orchestration, merge lineage and review.
+          // Raw client ids remain available only to the stale/F3 validation
+          // gates below; they are never allowed to select foreign telemetry.
+          const followUpBase = await resolveFollowUpBase(chatId, metaEngineBaseVersionId);
+          const versionBoundOrchestration = await resolveVersionBoundOrchestration({
+            requestedBaseVersionId: followUpBase.versionId,
+            latestKnownVersionId: metaEngineLatestKnownVersionId,
+            explicitBaseRequested: Boolean(metaEngineBaseVersionId?.trim()),
+            chatSnapshot: globalOrchestrationSnapshot,
+            chatScaffoldId: engineChat.scaffold_id,
+          });
+          const pendingPlanAuthority =
+            metaPromptSourceKind === "approved-plan"
+              ? globalOrchestrationSnapshot?.[PENDING_PLAN_AUTHORITY_SNAPSHOT_KEY]
+              : undefined;
+          const versionBoundSnapshot =
+            pendingPlanAuthority === undefined
+              ? versionBoundOrchestration.snapshot
+              : {
+                  ...versionBoundOrchestration.snapshot,
+                  [PENDING_PLAN_AUTHORITY_SNAPSHOT_KEY]: pendingPlanAuthority,
+                };
+          const orchestrationEngineChat = {
+            ...engineChat,
+            scaffold_id: versionBoundOrchestration.scaffoldId,
+            orchestration_snapshot: versionBoundSnapshot,
+          };
+          // Follow-ups do not carry the init brief inline. For clear-redesign
+          // follow-ups, a delta-brief is generated below. Otherwise `metaBrief`
+          // stays null — but the original brief still lives in the chat's
+          // orchestration_snapshot and is applied to the system prompt
+          // downstream. The hasPersistedBrief flag below lets the model-info
+          // panel ("Brief: applicerad / Systempromt: NK tecken" — SAJ-6/B5)
+          // surface that the brief is still in effect for follow-ups, not just
+          // for first prompts and clear-redesign deltas.
+          let metaBrief: Record<string, unknown> | null = null;
+          const hasPersistedBrief = Boolean(extractBriefSummaryFromSnapshot(versionBoundSnapshot));
+          const metaPromptAssistModel = parsedMeta.promptAssistModel;
+          const metaPromptAssistDeep = parsedMeta.promptAssistDeep;
+          const designReferences = summarizeDesignReferences(requestAttachments);
+          // Scope-clarification retry (prod chat e8bd3ba6): when the previous
+          // turn stopped on a follow-up scope clarification and the current
+          // message is one of its quick-reply options, recover the ORIGINAL
+          // detailed request — the option text alone must never become the
+          // whole generation prompt.
+          const followUpClarificationAnswer = collectFollowUpClarificationAnswer(
+            engineChat.messages,
+            message,
+          );
 
-        // 5-2 stale-base gate — mirrors finalize-design's `stale_design_version`
-        // 409 (finalize-design/route.ts). A follow-up must not silently build
-        // on a superseded base when a second writer (other client/agent,
-        // background repair) has advanced the chat. The client reports which
-        // version it believes is newest (`engineLatestKnownVersionId`); if the
-        // server already has a newer preferred/latest version than that, the
-        // client's whole view is stale → 409 so the user reloads. Deliberately
-        // editing an OLDER version (BuilderShellContent.tsx:181-212) stays
-        // allowed: there the client's known-latest still equals the server's,
-        // only `engineBaseVersionId` is older — so neither leg below is true.
-        if (metaEngineBaseVersionId && metaEngineLatestKnownVersionId) {
-          const serverPreferredVersionId = await resolveChatPreferredVersionId(engineChat.id);
-          const clientViewIsStale =
-            serverPreferredVersionId !== null &&
-            metaEngineLatestKnownVersionId !== serverPreferredVersionId &&
-            metaEngineBaseVersionId !== serverPreferredVersionId;
-          if (clientViewIsStale) {
-            debugLog("orchestration", "Follow-up stale base gated (409)", {
-              chatId,
-              requestedBaseVersionId: metaEngineBaseVersionId,
-              clientLatestVersionId: metaEngineLatestKnownVersionId,
-              latestVersionId: serverPreferredVersionId,
+          if (metaAppProjectId && engineChat.project_id !== metaAppProjectId) {
+            // IDOR guard: the caller can request a re-mapping to any
+            // project id, so we must independently verify they actually
+            // own the target project before re-pointing the chat row.
+            const ownedTarget = await getAppProjectByIdForRequest(req, metaAppProjectId, {
+              sessionId,
             });
-            return attachSessionCookie(
-              NextResponse.json(
+            if (!ownedTarget) {
+              return attachSessionCookie(
+                NextResponse.json({ error: "forbidden" }, { status: 403 }),
+              );
+            }
+            try {
+              await chatRepo.updateChatProjectId(engineChat.id, ownedTarget.id);
+              engineChat.project_id = ownedTarget.id;
+            } catch (error) {
+              console.warn(
+                "[API/engine/chats/:chatId/stream] Failed to repair chat project mapping",
                 {
-                  error: "stale_base_version",
-                  reason: "stale_base_version",
-                  requestedBaseVersionId: metaEngineBaseVersionId,
-                  clientLatestVersionId: metaEngineLatestKnownVersionId,
-                  latestVersionId: serverPreferredVersionId,
-                  message:
-                    "En nyare version finns. Ladda om för att bygga vidare på den senaste versionen.",
+                  chatId,
+                  currentProjectId: engineChat.project_id,
+                  targetProjectId: ownedTarget.id,
+                  error: error instanceof Error ? error.message : String(error),
                 },
-                { status: 409 },
-              ),
-            );
+              );
+            }
           }
-        }
-        // PHASE A of the F3-continuation contract (full doc on
-        // `resolveF3ContinuationPhaseA` in f3-continuation-phase.ts):
-        // classify the reply and provisionally inherit the F3 stage for an
-        // approving reply so the env-readiness gate + credit gate run
-        // against the real F3 intent.
-        const f3ContinuationDecision = await resolveF3ContinuationPhaseA({
-          chatId,
-          message,
-          engineChat,
-          parsedMeta,
-          metaPlanMode,
-          metaPromptSourceKind,
-          metaPromptSourcePreservePayload,
-          metaPromptSourceTechnical,
-          metaEngineBaseVersionId,
-        });
-        // P2 F3-loop (åtgärd 4): a REJECT-classified reply ends F3 calmly
-        // WITHOUT any generation (see `handleF3RejectClose`).
-        const f3RejectResponse = await handleF3RejectClose({
-          f3ContinuationDecision,
-          engineChat,
-          chatId,
-          message,
-          promptStartedAt,
-          req,
-          attachSessionCookie,
-        });
-        if (f3RejectResponse) {
-          return f3RejectResponse;
-        }
-        // M#818-2: F3 env-readiness gate (see `runF3ReadinessGate`). Early
-        // Response on every gated path; otherwise the file-derived build
-        // spec is threaded to the generation's dynamic context.
-        const f3GateResult = await runF3ReadinessGate({
-          chatId,
-          message,
-          engineChat,
-          parsedMeta,
-          metaPlanMode,
-          metaEngineBaseVersionId,
-          f3ContinuationDecision,
-          previousFiles,
-          attachSessionCookie,
-        });
-        if (f3GateResult instanceof Response) {
-          return f3GateResult;
-        }
-        const { fileDerivedTier3BuildSpec, f3ResolvedBaseVersionId } = f3GateResult;
-        // OMTAG Fas 2·A / E2: unified follow-up predicate. `isOrchestrationFollowUp`
-        // drives routing + orchestration decisions in this function;
-        // `hasMergeablePrevious` is forwarded (via `previousFilesCount`) to
-        // orchestrate and, downstream, to finalize-merge so all three lanes
-        // agree on the same answer for the same inputs. Every local
-        // `previousFiles.length > 0` check below reads from the predicate
-        // result instead of re-deriving it inline.
-        const followUpPredicate = deriveFollowUpStateFromInputs({
-          persistedScaffoldId: engineChat.scaffold_id ?? null,
-          previousFilesCount: previousFiles.length,
-        });
-        const hasFollowUpBase = followUpPredicate.isOrchestrationFollowUp;
-        const existingRoutePaths = hasFollowUpBase
-          ? extractAppRoutePathsFromFilePaths(previousFiles.map((file) => file.path))
-          : [];
 
-        const existingShellRoutePaths = hasFollowUpBase
-          ? extractAppRoutePathsFromFilePaths(
-              previousFiles
-                .filter((file) => isShellPageContent(file.content ?? ""))
-                .map((file) => file.path),
-            )
-          : [];
+          const promptOrchestration = orchestratePromptMessage({
+            // On a consumed scope-clarification answer, orchestrate the ORIGINAL
+            // request so the follow-up wrapping below carries the user's detailed
+            // instructions as the "Requested Changes" body (the chosen option is
+            // re-attached in the clarification-answer wrapper further down).
+            message: followUpClarificationAnswer?.sourceUserMessage ?? message,
+            buildMethod: metaBuildMethod,
+            buildIntent: metaBuildIntent,
+            isFirstPrompt: false,
+            attachmentsCount: requestAttachments.length,
+            hardCap: MAX_PROMPT_HANDOFF_CHARS,
+            promptSourceKind: metaPromptSourceKind,
+            promptSourceTechnical: metaPromptSourceTechnical,
+            promptSourcePreservePayload: metaPromptSourcePreservePayload,
+          });
+          debugLog("orchestration", "Follow-up prompt assist + strategy (request meta)", {
+            chatId,
+            promptAssistModel: metaPromptAssistModel,
+            promptAssistDeep: metaPromptAssistDeep,
+            promptStrategy: promptOrchestration.strategyMeta.strategy,
+            promptType: promptOrchestration.strategyMeta.promptType,
+          });
+          let optimizedMessage = promptOrchestration.finalMessage;
+          optimizedMessage = prependOrchestrationContinuityToFollowUp(
+            optimizedMessage,
+            versionBoundSnapshot,
+          );
 
-        const skipIntentClassification =
-          metaPromptSourcePreservePayload || metaPromptSourceTechnical;
-        // Scope-clarification answers send a short reply as the current
-        // message. Classify intent against the original gated request so
-        // clear-redesign keeps its delta-brief/scaffold-unlock semantics on
-        // turn 2.
-        const followUpIntentMessage =
-          followUpClarificationAnswer?.sourceUserMessage ?? message;
-        // A consumed clarification answer must never stop the turn again with
-        // a new scope question — the user just answered one.
-        const skipFollowUpClarification =
-          skipIntentClassification ||
-          followUpClarificationAnswer !== null;
-        // Backoffice 2.0 fas 6: strategy-aware classification. Default
-        // manifest config is "keyword", so this resolves to the exact same
-        // deterministic result as before; only an explicit `small-llm` opt-in
-        // takes the LLM path (with fail-safe fallback to the same keyword
-        // classifier). See follow-up-intent-router.ts.
-        const followUpIntent =
-          hasFollowUpBase && !skipIntentClassification
-            ? followUpClarificationAnswer
-              ? // The chosen quick-reply carries the intent the original prompt
-                // lacked ("Gör en tydlig redesign …" → clear-redesign). Classify
-                // answer-first so delta-brief/scaffold-unlock still fire, while
-                // capability detection and the wrapper below keep reading the
-                // original detailed request.
-                classifyFollowUpClarificationAnswerIntent(
-                  followUpClarificationAnswer.answer,
-                  followUpClarificationAnswer.sourceUserMessage,
-                )
-              : await classifyFollowUpIntentWithStrategy(followUpIntentMessage)
-            : "neutral";
-        // Plan 06 (2026-04-24): detect dossier-mappable capabilities in the
-        // follow-up text so `selectDossiersForRequest` actually sees the
-        // signal even when the snapshot-hydrated brief and the keyword-based
-        // `inferCapabilities` pass both miss it (Plan 01 smoke run 2). Skip
-        // when intent classification is suppressed (auto-repair / payload
-        // preservation passes) — those re-enter the same pipeline and would
-        // otherwise re-trigger capability injection on every repair pass.
-        // Katalogval från Byggblock-panelen skickar det deterministiska
-        // formatet `Lägg till byggblocket "<label>" (id: <dossier-id>)`.
-        // De flesta manifest-etiketter matchar ingen vokabulär, så utan
-        // id-pre-detektorn vore ett katalogval en tyst no-op (ingen
-        // capability begärd → ingen dossier injicerad). Id:t slås upp mot
-        // registret; okända id:n ignoreras fail-safe.
-        const followUpCapabilityDetection: FollowUpCapabilityDetection =
-          hasFollowUpBase && !skipIntentClassification
-            ? mergeDossierIdCapabilities(
-                detectFollowUpCapabilities(followUpIntentMessage),
-                followUpIntentMessage,
-                (id) => getDossierById(id)?.capability ?? null,
-              )
-            : {
-                capabilities: [],
-                capabilityIds: [],
-                tierByCapability: {},
-                wordCount: 0,
-                referencesExistingCapability: false,
-                modifyReferenceMatches: [],
-              };
-        if (followUpCapabilityDetection.capabilityIds.length > 0) {
-          devLogAppend("in-progress", {
-            type: "followup.capability.detected",
-            chatId,
-            followUpIntent,
-            capabilityIds: followUpCapabilityDetection.capabilityIds,
-            tierByCapability: followUpCapabilityDetection.tierByCapability,
-            referencesExistingCapability: followUpCapabilityDetection.referencesExistingCapability,
-            modifyReferenceMatches: followUpCapabilityDetection.modifyReferenceMatches,
-          });
-        }
-        const followUpClarification =
-          hasFollowUpBase && !skipFollowUpClarification
-            ? resolveFollowUpClarification(message)
-            : null;
-        if (followUpClarification) {
-          devLogAppend("latest", {
-            type: "site.message.awaiting_input",
-            chatId,
-            reason: followUpClarification.reason,
-            promptPreview: message.slice(0, 160),
-          });
-          await persistFollowUpClarification({
+          const previousFiles = followUpBase.files;
+
+          // 5-2 stale-base gate — mirrors finalize-design's `stale_design_version`
+          // 409 (finalize-design/route.ts). A follow-up must not silently build
+          // on a superseded base when a second writer (other client/agent,
+          // background repair) has advanced the chat. The client reports which
+          // version it believes is newest (`engineLatestKnownVersionId`); if the
+          // server already has a newer preferred/latest version than that, the
+          // client's whole view is stale → 409 so the user reloads. Deliberately
+          // editing an OLDER version (BuilderShellContent.tsx:181-212) stays
+          // allowed: there the client's known-latest still equals the server's,
+          // only `engineBaseVersionId` is older — so neither leg below is true.
+          if (metaEngineBaseVersionId && metaEngineLatestKnownVersionId) {
+            const serverPreferredVersionId = await resolveChatPreferredVersionId(engineChat.id);
+            const clientViewIsStale =
+              serverPreferredVersionId !== null &&
+              metaEngineLatestKnownVersionId !== serverPreferredVersionId &&
+              metaEngineBaseVersionId !== serverPreferredVersionId;
+            if (clientViewIsStale) {
+              debugLog("orchestration", "Follow-up stale base gated (409)", {
+                chatId,
+                requestedBaseVersionId: metaEngineBaseVersionId,
+                clientLatestVersionId: metaEngineLatestKnownVersionId,
+                latestVersionId: serverPreferredVersionId,
+              });
+              return attachSessionCookie(
+                NextResponse.json(
+                  {
+                    error: "stale_base_version",
+                    reason: "stale_base_version",
+                    requestedBaseVersionId: metaEngineBaseVersionId,
+                    clientLatestVersionId: metaEngineLatestKnownVersionId,
+                    latestVersionId: serverPreferredVersionId,
+                    message:
+                      "En nyare version finns. Ladda om för att bygga vidare på den senaste versionen.",
+                  },
+                  { status: 409 },
+                ),
+              );
+            }
+          }
+          // PHASE A of the F3-continuation contract (full doc on
+          // `resolveF3ContinuationPhaseA` in f3-continuation-phase.ts):
+          // classify the reply and provisionally inherit the F3 stage for an
+          // approving reply so the env-readiness gate + credit gate run
+          // against the real F3 intent.
+          const f3ContinuationDecision = await resolveF3ContinuationPhaseA({
             chatId,
             message,
-            clarification: followUpClarification,
-            addMessage: (targetChatId, role, content, _parentMessageId, uiParts) =>
-              chatRepo.addMessage(targetChatId, role, content, undefined, uiParts),
+            engineChat,
+            parsedMeta,
+            metaPlanMode,
+            metaPromptSourceKind,
+            metaPromptSourcePreservePayload,
+            metaPromptSourceTechnical,
+            metaEngineBaseVersionId,
           });
-          return attachSessionCookie(
-            new Response(
-              wrapStreamForPromptToDoneMetric(
-                buildAwaitingClarificationStream({
-                  chatId,
-                  clarification: followUpClarification,
-                }),
-                {
-                  kind: "followup",
-                  promptStartedAt,
-                  signal: req.signal,
-                  chatId,
-                },
-              ),
-              { headers: createSSEHeaders() },
-            ),
-          );
-        }
-
-        // Delta-brief for clear-redesign follow-ups (see
-        // `runClearRedesignDeltaBriefPhase` — also writes back to
-        // `parsedMeta.brief`). The phase may skip its LLM pass for an
-        // OpenClaw-prepared prompt (`promptSource: "openclaw-prepared"`,
-        // OC_EDIT-gated) — `skipReason` is telemetry-only.
-        const deltaBriefPhase = await runClearRedesignDeltaBriefPhase({
-          chatId,
-          engineChat,
-          followUpIntent,
-          hasFollowUpBase,
-          followUpIntentMessage,
-          message,
-          importedRepoMode,
-          requestPromptSource: typeof promptSource === "string" ? promptSource : null,
-          metaScaffoldMode,
-          metaScaffoldId,
-          metaBuildIntent,
-          metaPromptAssistModel,
-          resolvedModelTier,
-          resolvedImageGenerations,
-          req,
-          parsedMeta,
-        });
-        metaBrief = deltaBriefPhase.brief;
-
-        if (hasFollowUpBase) {
-          const followUpFileContext = buildFollowUpFileContextDecision({
-            message: followUpIntentMessage,
+          // P2 F3-loop (åtgärd 4): a REJECT-classified reply ends F3 calmly
+          // WITHOUT any generation (see `handleF3RejectClose`).
+          const f3RejectResponse = await handleF3RejectClose({
+            f3ContinuationDecision,
+            engineChat,
+            chatId,
+            message,
+            promptStartedAt,
+            req,
+            attachSessionCookie,
+          });
+          if (f3RejectResponse) {
+            return f3RejectResponse;
+          }
+          // M#818-2: F3 env-readiness gate (see `runF3ReadinessGate`). Early
+          // Response on every gated path; otherwise the file-derived build
+          // spec is threaded to the generation's dynamic context.
+          const f3GateResult = await runF3ReadinessGate({
+            chatId,
+            message,
+            engineChat,
+            parsedMeta,
+            metaPlanMode,
+            metaEngineBaseVersionId,
+            f3ContinuationDecision,
             previousFiles,
-            followUpIntent,
-            skipIntentClassification,
+            attachSessionCookie,
           });
-          const fileCtx = followUpFileContext.fileContext;
+          if (f3GateResult instanceof Response) {
+            return f3GateResult;
+          }
+          const { fileDerivedTier3BuildSpec, f3ResolvedBaseVersionId } = f3GateResult;
+          // OMTAG Fas 2·A / E2: unified follow-up predicate. `isOrchestrationFollowUp`
+          // drives routing + orchestration decisions in this function;
+          // `hasMergeablePrevious` is forwarded (via `previousFilesCount`) to
+          // orchestrate and, downstream, to finalize-merge so all three lanes
+          // agree on the same answer for the same inputs. Every local
+          // `previousFiles.length > 0` check below reads from the predicate
+          // result instead of re-deriving it inline.
+          const followUpPredicate = deriveFollowUpStateFromInputs({
+            persistedScaffoldId: orchestrationEngineChat.scaffold_id ?? null,
+            previousFilesCount: previousFiles.length,
+          });
+          const hasFollowUpBase = followUpPredicate.isOrchestrationFollowUp;
+          const existingRoutePaths = hasFollowUpBase
+            ? extractAppRoutePathsFromFilePaths(previousFiles.map((file) => file.path))
+            : [];
 
-          // OMTAG Fas 2·A / E1: follow-up rules live in the system prompt's
-          // `## Generation Mode: Follow-Up` block (intro.ts). Previously this
-          // user-turn section restated the same guidance (~4 lines × 2 branches
-          // = ~900 chars) as `elementPreservationReminder` + the intro lines
-          // below. We keep only (a) a single pointer to the system-prompt
-          // section so the LLM can re-anchor, and (b) genuinely unique
-          // guidance — the `clear-redesign` aggressive-rewrite lines, which
-          // are NOT in the system prompt. Measured saving: ~250 tokens per
-          // non-redesign follow-up (see docs/plans/active/llm-flow-quickwins.md
-          // Q11.1 and gpt_review/filer/E-easy-medium-layer.md E1).
-          const FOLLOW_UP_SYSTEM_POINTER =
-            "(Follow-up rules: see system prompt § Generation Mode: Follow-Up.)";
+          const existingShellRoutePaths = hasFollowUpBase
+            ? extractAppRoutePathsFromFilePaths(
+                previousFiles
+                  .filter((file) => isShellPageContent(file.content ?? ""))
+                  .map((file) => file.path),
+              )
+            : [];
 
-          if (skipIntentClassification) {
+          const skipIntentClassification =
+            metaPromptSourcePreservePayload || metaPromptSourceTechnical;
+          // Scope-clarification answers send a short reply as the current
+          // message. Classify intent against the original gated request so
+          // clear-redesign keeps its delta-brief/scaffold-unlock semantics on
+          // turn 2.
+          const followUpIntentMessage = followUpClarificationAnswer?.sourceUserMessage ?? message;
+          // A consumed clarification answer must never stop the turn again with
+          // a new scope question — the user just answered one.
+          const skipFollowUpClarification =
+            skipIntentClassification || followUpClarificationAnswer !== null;
+          // Backoffice 2.0 fas 6: strategy-aware classification. Default
+          // manifest config is "keyword", so this resolves to the exact same
+          // deterministic result as before; only an explicit `small-llm` opt-in
+          // takes the LLM path (with fail-safe fallback to the same keyword
+          // classifier). See follow-up-intent-router.ts.
+          const followUpIntent =
+            hasFollowUpBase && !skipIntentClassification
+              ? followUpClarificationAnswer
+                ? // The chosen quick-reply carries the intent the original prompt
+                  // lacked ("Gör en tydlig redesign …" → clear-redesign). Classify
+                  // answer-first so delta-brief/scaffold-unlock still fire, while
+                  // capability detection and the wrapper below keep reading the
+                  // original detailed request.
+                  classifyFollowUpClarificationAnswerIntent(
+                    followUpClarificationAnswer.answer,
+                    followUpClarificationAnswer.sourceUserMessage,
+                  )
+                : await classifyFollowUpIntentWithStrategy(followUpIntentMessage)
+              : "neutral";
+          // Plan 06 (2026-04-24): detect dossier-mappable capabilities in the
+          // follow-up text so `selectDossiersForRequest` actually sees the
+          // signal even when the snapshot-hydrated brief and the keyword-based
+          // `inferCapabilities` pass both miss it (Plan 01 smoke run 2). Skip
+          // when intent classification is suppressed (auto-repair / payload
+          // preservation passes) — those re-enter the same pipeline and would
+          // otherwise re-trigger capability injection on every repair pass.
+          // Katalogval från Byggblock-panelen skickar det deterministiska
+          // formatet `Lägg till byggblocket "<label>" (id: <dossier-id>)`.
+          // De flesta manifest-etiketter matchar ingen vokabulär, så utan
+          // id-pre-detektorn vore ett katalogval en tyst no-op (ingen
+          // capability begärd → ingen dossier injicerad). Id:t slås upp mot
+          // registret; okända id:n ignoreras fail-safe.
+          const followUpCapabilityDetection: FollowUpCapabilityDetection =
+            hasFollowUpBase && !skipIntentClassification
+              ? mergeDossierIdCapabilities(
+                  detectFollowUpCapabilities(followUpIntentMessage),
+                  followUpIntentMessage,
+                  (id) => getDossierById(id)?.capability ?? null,
+                )
+              : {
+                  capabilities: [],
+                  capabilityIds: [],
+                  tierByCapability: {},
+                  wordCount: 0,
+                  referencesExistingCapability: false,
+                  modifyReferenceMatches: [],
+                };
+          if (followUpCapabilityDetection.capabilityIds.length > 0) {
+            devLogAppend("in-progress", {
+              type: "followup.capability.detected",
+              chatId,
+              followUpIntent,
+              capabilityIds: followUpCapabilityDetection.capabilityIds,
+              tierByCapability: followUpCapabilityDetection.tierByCapability,
+              referencesExistingCapability:
+                followUpCapabilityDetection.referencesExistingCapability,
+              modifyReferenceMatches: followUpCapabilityDetection.modifyReferenceMatches,
+            });
+          }
+          const followUpClarification =
+            hasFollowUpBase && !skipFollowUpClarification
+              ? resolveFollowUpClarification(message)
+              : null;
+          if (followUpClarification) {
+            devLogAppend("latest", {
+              type: "site.message.awaiting_input",
+              chatId,
+              reason: followUpClarification.reason,
+              promptPreview: message.slice(0, 160),
+            });
+            await persistFollowUpClarification({
+              chatId,
+              message,
+              clarification: followUpClarification,
+              addMessage: (targetChatId, role, content, _parentMessageId, uiParts) =>
+                chatRepo.addMessage(targetChatId, role, content, undefined, uiParts),
+            });
+            return attachSessionCookie(
+              new Response(
+                wrapStreamForPromptToDoneMetric(
+                  buildAwaitingClarificationStream({
+                    chatId,
+                    clarification: followUpClarification,
+                  }),
+                  {
+                    kind: "followup",
+                    promptStartedAt,
+                    signal: req.signal,
+                    chatId,
+                  },
+                ),
+                { headers: createSSEHeaders() },
+              ),
+            );
+          }
+
+          // Delta-brief for clear-redesign follow-ups (see
+          // `runClearRedesignDeltaBriefPhase` — also writes back to
+          // `parsedMeta.brief`). The phase may skip its LLM pass for an
+          // OpenClaw-prepared prompt (`promptSource: "openclaw-prepared"`,
+          // OC_EDIT-gated) — `skipReason` is telemetry-only.
+          const deltaBriefPhase = await runClearRedesignDeltaBriefPhase({
+            chatId,
+            engineChat: orchestrationEngineChat,
+            followUpIntent,
+            hasFollowUpBase,
+            followUpIntentMessage,
+            message,
+            importedRepoMode,
+            requestPromptSource: typeof promptSource === "string" ? promptSource : null,
+            metaScaffoldMode,
+            metaScaffoldId,
+            metaBuildIntent,
+            metaPromptAssistModel,
+            resolvedModelTier,
+            resolvedImageGenerations,
+            req,
+            parsedMeta,
+          });
+          metaBrief = deltaBriefPhase.brief;
+
+          if (hasFollowUpBase) {
+            const followUpFileContext = buildFollowUpFileContextDecision({
+              message: followUpIntentMessage,
+              previousFiles,
+              followUpIntent,
+              skipIntentClassification,
+            });
+            const fileCtx = followUpFileContext.fileContext;
+
+            // OMTAG Fas 2·A / E1: follow-up rules live in the system prompt's
+            // `## Generation Mode: Follow-Up` block (intro.ts). Previously this
+            // user-turn section restated the same guidance (~4 lines × 2 branches
+            // = ~900 chars) as `elementPreservationReminder` + the intro lines
+            // below. We keep only (a) a single pointer to the system-prompt
+            // section so the LLM can re-anchor, and (b) genuinely unique
+            // guidance — the `clear-redesign` aggressive-rewrite lines, which
+            // are NOT in the system prompt. Measured saving: ~250 tokens per
+            // non-redesign follow-up (see docs/plans/active/llm-flow-quickwins.md
+            // Q11.1 and gpt_review/filer/E-easy-medium-layer.md E1).
+            const FOLLOW_UP_SYSTEM_POINTER =
+              "(Follow-up rules: see system prompt § Generation Mode: Follow-Up.)";
+
+            if (skipIntentClassification) {
+              optimizedMessage = wrapWithSection({
+                heading: PROMPT_WRAPPER_HEADINGS.existingProjectFilesReference,
+                introLines: [
+                  "Apply the requested change precisely. Do not modify unrelated sections or files.",
+                  FOLLOW_UP_SYSTEM_POINTER,
+                ],
+                body: fileCtx.summary,
+                divider: true,
+                trailingBody: optimizedMessage,
+              });
+            } else {
+              const redesignLines =
+                followUpIntent === "clear-redesign"
+                  ? [
+                      "The user wants a genuine redesign of the existing site, not a small refinement.",
+                      "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed.",
+                      "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files.",
+                      "Do not preserve the previous design language unless the user explicitly asked to keep parts of it.",
+                      "You may still reuse useful content or information architecture from the current project when relevant.",
+                    ]
+                  : [FOLLOW_UP_SYSTEM_POINTER];
+              optimizedMessage = [
+                wrapWithSection({
+                  heading: PROMPT_WRAPPER_HEADINGS.followUpEditingMode,
+                  introLines: redesignLines,
+                  body: fileCtx.summary,
+                }),
+                "",
+                PROMPT_WRAPPER_HEADINGS.requestedChanges,
+                "",
+                optimizedMessage,
+              ].join("\n");
+            }
+          }
+
+          if (followUpClarificationAnswer) {
+            // The trailing body is the ORIGINAL request (already orchestrated +
+            // follow-up-wrapped above), so the LLM sees both the detailed
+            // instructions and the chosen scope option.
             optimizedMessage = wrapWithSection({
-              heading: PROMPT_WRAPPER_HEADINGS.existingProjectFilesReference,
+              heading: FOLLOW_UP_CLARIFICATION_ANSWER_HEADING,
               introLines: [
-                "Apply the requested change precisely. Do not modify unrelated sections or files.",
-                FOLLOW_UP_SYSTEM_POINTER,
+                "The user is answering the previous scope clarification question about their follow-up request.",
+                `Question: ${followUpClarificationAnswer.question}`,
+                `Answer: ${followUpClarificationAnswer.answer}`,
+                "",
+                "Apply the user's original request below with this confirmed scope. Do not ask the same clarification again.",
               ],
-              body: fileCtx.summary,
               divider: true,
               trailingBody: optimizedMessage,
             });
-          } else {
-            const redesignLines =
-              followUpIntent === "clear-redesign"
-                ? [
-                    "The user wants a genuine redesign of the existing site, not a small refinement.",
-                    "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed.",
-                    "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files.",
-                    "Do not preserve the previous design language unless the user explicitly asked to keep parts of it.",
-                    "You may still reuse useful content or information architecture from the current project when relevant.",
-                  ]
-                : [FOLLOW_UP_SYSTEM_POINTER];
-            optimizedMessage = [
-              wrapWithSection({
-                heading: PROMPT_WRAPPER_HEADINGS.followUpEditingMode,
-                introLines: redesignLines,
-                body: fileCtx.summary,
-              }),
-              "",
-              PROMPT_WRAPPER_HEADINGS.requestedChanges,
-              "",
-              optimizedMessage,
-            ].join("\n");
           }
-        }
 
-        if (followUpClarificationAnswer) {
-          // The trailing body is the ORIGINAL request (already orchestrated +
-          // follow-up-wrapped above), so the LLM sees both the detailed
-          // instructions and the chosen scope option.
-          optimizedMessage = wrapWithSection({
-            heading: FOLLOW_UP_CLARIFICATION_ANSWER_HEADING,
-            introLines: [
-              "The user is answering the previous scope clarification question about their follow-up request.",
-              `Question: ${followUpClarificationAnswer.question}`,
-              `Answer: ${followUpClarificationAnswer.answer}`,
-              "",
-              "Apply the user's original request below with this confirmed scope. Do not ask the same clarification again.",
-            ],
-            divider: true,
-            trailingBody: optimizedMessage,
+          optimizedMessage = await appendHydratedTextAttachmentExcerpts(
+            optimizedMessage,
+            requestAttachments,
+            { signal: req.signal },
+          );
+
+          const creditContext = {
+            modelId: resolvedModelId,
+            thinking: resolvedThinking,
+            imageGenerations: resolvedImageGenerations,
+            attachmentsCount: requestAttachments.length,
+          };
+          const creditCheck = await prepareCredits(req, "prompt.refine", creditContext, {
+            sessionId,
+            allowFreeGeneration: !metaPlanMode,
           });
-        }
-
-        optimizedMessage = await appendHydratedTextAttachmentExcerpts(
-          optimizedMessage,
-          requestAttachments,
-          { signal: req.signal },
-        );
-
-        const creditContext = {
-          modelId: resolvedModelId,
-          thinking: resolvedThinking,
-          imageGenerations: resolvedImageGenerations,
-          attachmentsCount: requestAttachments.length,
-        };
-        const creditCheck = await prepareCredits(req, "prompt.refine", creditContext, {
-          sessionId,
-          allowFreeGeneration: !metaPlanMode,
-        });
-        if (!creditCheck.ok) {
-          // Grinden ligger före prompt-loggen och före user-raden, så ett avslag
-          // i plan-läget lämnade tidigare inget durabelt spår alls — en av de
-          // öppna kandidaterna bakom prod-chatten 785c8d7a. Se plan-mode-trace.
-          if (metaPlanMode) {
-            recordPlanModeCreditGateRejectedDetached({
-              chatId,
-              sessionId,
-              userId: usageOwnerId,
-              appProjectId: metaAppProjectId,
-              modelTier: resolvedModelTier,
-              status: creditCheck.response.status,
-              cost: creditCheck.cost,
-              promptChars: message.length,
-            });
+          if (!creditCheck.ok) {
+            // Grinden ligger före prompt-loggen och före user-raden, så ett avslag
+            // i plan-läget lämnade tidigare inget durabelt spår alls — en av de
+            // öppna kandidaterna bakom prod-chatten 785c8d7a. Se plan-mode-trace.
+            if (metaPlanMode) {
+              recordPlanModeCreditGateRejectedDetached({
+                chatId,
+                sessionId,
+                userId: usageOwnerId,
+                appProjectId: metaAppProjectId,
+                modelTier: resolvedModelTier,
+                status: creditCheck.response.status,
+                cost: creditCheck.cost,
+                promptChars: message.length,
+              });
+            }
+            return attachSessionCookie(creditCheck.response);
           }
-          return attachSessionCookie(creditCheck.response);
-        }
-        // The host enforces this opaque subject lease before it creates a
-        // prewarm session. The digest reuses rate-limit.ts identity (verified
-        // user, else trusted IP), never the rotatable guest cookie.
-        const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
-          userId: creditCheck.user.id,
-        });
-        await recordFollowUpPromptLog({
-          chatId,
-          engineChat,
-          message,
-          optimizedMessage,
-          system,
-          meta,
-          sessionId,
-          creditCheck,
-          metaAppProjectId,
-          metaPromptAssistModel,
-          metaPromptAssistDeep,
-          metaBuildIntent,
-          metaBuildMethod,
-          resolvedModelTier,
-          resolvedImageGenerations,
-          resolvedThinking,
-          requestAttachments,
-          promptOrchestration,
-        });
-        const commitCreditsOnce = createCommitCreditsOnce(creditCheck, {
-          rejectIfNegativeFixedCommit: Boolean(metaPlanMode),
-        });
-
-        const persistedScaffoldId = engineChat.scaffold_id;
-        const ignorePersistedScaffoldForMatch = shouldIgnorePersistedScaffoldForMatch({
-          hasPreviousFiles: hasFollowUpBase,
-          followUpIntent,
-          message: followUpIntentMessage,
-          scaffoldMode: metaScaffoldMode,
-          scaffoldId: metaScaffoldId,
-        });
-
-        if (metaPlanMode) {
-          return runPlanModeTurn({
+          // The host enforces this opaque subject lease before it creates a
+          // prewarm session. The digest reuses rate-limit.ts identity (verified
+          // user, else trusted IP), never the rotatable guest cookie.
+          const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
+            userId: creditCheck.user.id,
+          });
+          await recordFollowUpPromptLog({
             chatId,
             engineChat,
             message,
             optimizedMessage,
+            system,
+            meta,
+            sessionId,
+            creditCheck,
+            metaAppProjectId,
+            metaPromptAssistModel,
+            metaPromptAssistDeep,
+            metaBuildIntent,
+            metaBuildMethod,
+            resolvedModelTier,
+            resolvedImageGenerations,
+            resolvedThinking,
+            requestAttachments,
+            promptOrchestration,
+          });
+          const commitCreditsOnce = createCommitCreditsOnce(creditCheck, {
+            rejectIfNegativeFixedCommit: Boolean(metaPlanMode),
+          });
+
+          const persistedScaffoldId = orchestrationEngineChat.scaffold_id;
+          const ignorePersistedScaffoldForMatch = shouldIgnorePersistedScaffoldForMatch({
+            hasPreviousFiles: hasFollowUpBase,
+            followUpIntent,
+            message: followUpIntentMessage,
+            scaffoldMode: metaScaffoldMode,
+            scaffoldId: metaScaffoldId,
+          });
+
+          if (metaPlanMode) {
+            return runPlanModeTurn({
+              chatId,
+              engineChat: orchestrationEngineChat,
+              message,
+              system,
+              optimizedMessage,
+              followUpIntentMessage,
+              metaBuildIntent,
+              metaScaffoldMode,
+              parsedMeta,
+              resolvedImageGenerations,
+              resolvedModelTier,
+              resolvedThinking,
+              buildProfileId,
+              designReferences,
+              persistedScaffoldId,
+              importedRepoMode,
+              previousFiles,
+              baseVersionId: followUpBase.versionId,
+              baseFilesRevision: followUpBase.filesRevision,
+              hasFollowUpBase,
+              ignorePersistedScaffoldForMatch,
+              promptOrchestration,
+              existingRoutePaths,
+              existingShellRoutePaths,
+              followUpCapabilityDetection,
+              followUpIntent,
+              requestAttachments,
+              commitCreditsOnce,
+              promptStartedAt,
+              sessionId,
+              usageOwnerId,
+              req,
+              attachSessionCookie,
+            });
+          }
+
+          // Auto-repair prompts are still a real "user" turn for every other
+          // reader of engine_messages (F3-continuation, contract answers,
+          // OpenClaw context, chat history) — only the additive uiParts marker
+          // changes, so those readers keep working unmodified (Spår 03 Steg 4,
+          // risk table: "additivt metadatafält är säkrare än en ny roll").
+          const userUiParts =
+            metaPromptSourceKind === "autofix"
+              ? [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }]
+              : undefined;
+          await chatRepo.addMessage(engineChat.id, "user", message, undefined, userUiParts);
+
+          // PHASE B — atomic F3-marker consume at the persistence boundary
+          // (see `consumeF3MarkerPhaseB` for the full contract). True when this
+          // generation is a CONFIRMED approval continuation.
+          const f3ApprovalBuildRound = await consumeF3MarkerPhaseB({
+            f3ContinuationDecision,
+            engineChat,
+            chatId,
+            parsedMeta,
+          });
+
+          // P2 F3-loop (åtgärd 1): the approval round must BUILD, not
+          // re-propose (see `prepareF3ApprovalBuildRound`).
+          const f3ApprovalRound = await prepareF3ApprovalBuildRound({
+            f3ApprovalBuildRound,
+            f3ContinuationDecision,
+            engineChat,
+            chatId,
+            previousFiles,
+            optimizedMessage,
+            promptStartedAt,
+            req,
+            attachSessionCookie,
+          });
+          if (f3ApprovalRound instanceof Response) {
+            return f3ApprovalRound;
+          }
+          optimizedMessage = f3ApprovalRound.optimizedMessage;
+          const { f3ApprovedDossierCapabilities, f3EffectiveApprovedProviders } = f3ApprovalRound;
+
+          return await runCodegenTurn({
+            req,
+            chatId,
+            promptStartedAt,
+            attachSessionCookie,
+            engineChat: orchestrationEngineChat,
+            message,
+            system,
+            optimizedMessage,
             followUpIntentMessage,
             metaBuildIntent,
-            metaScaffoldMode,
+            metaBuildMethod,
+            metaPromptSourceKind,
+            metaEngineBaseVersionId,
             parsedMeta,
-            resolvedImageGenerations,
+            metaBrief,
+            deltaBriefSkipReason: deltaBriefPhase.skipReason,
+            hasPersistedBrief,
+            resolvedModelId,
             resolvedModelTier,
             resolvedThinking,
+            resolvedImageGenerations,
             buildProfileId,
+            requestAttachments,
             designReferences,
-            persistedScaffoldId,
-            importedRepoMode,
+            promptOrchestration,
             previousFiles,
             hasFollowUpBase,
-            ignorePersistedScaffoldForMatch,
-            promptOrchestration,
             existingRoutePaths,
             existingShellRoutePaths,
             followUpCapabilityDetection,
             followUpIntent,
-            requestAttachments,
+            persistedScaffoldId,
+            importedRepoMode,
+            ignorePersistedScaffoldForMatch,
+            f3ContinuationDecision,
+            f3ApprovalBuildRound,
+            f3ApprovedDossierCapabilities,
+            f3EffectiveApprovedProviders,
+            fileDerivedTier3BuildSpec,
+            f3ResolvedBaseVersionId,
+            generationBaseVersionId: f3ResolvedBaseVersionId ?? followUpBase.versionId,
+            generationBaseFilesRevision: followUpBase.filesRevision,
             commitCreditsOnce,
-            promptStartedAt,
-            sessionId,
-            usageOwnerId,
+            prewarmLeaseKey,
+            versionsQuerySucceeded,
+            existingVersionsForChat,
+          });
+        } catch (err) {
+          return buildStreamErrorResponse({
+            err,
             req,
+            requestId,
+            promptStartedAt,
+            kind: "followup",
+            logLabel: "Send message error",
+            devLogType: "comm.error.send",
+            devLogExtras: { chatId: null },
             attachSessionCookie,
           });
         }
-
-        // Auto-repair prompts are still a real "user" turn for every other
-        // reader of engine_messages (F3-continuation, contract answers,
-        // OpenClaw context, chat history) — only the additive uiParts marker
-        // changes, so those readers keep working unmodified (Spår 03 Steg 4,
-        // risk table: "additivt metadatafält är säkrare än en ny roll").
-        const userUiParts =
-          metaPromptSourceKind === "autofix"
-            ? [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }]
-            : undefined;
-        await chatRepo.addMessage(engineChat.id, "user", message, undefined, userUiParts);
-
-        // PHASE B — atomic F3-marker consume at the persistence boundary
-        // (see `consumeF3MarkerPhaseB` for the full contract). True when this
-        // generation is a CONFIRMED approval continuation.
-        const f3ApprovalBuildRound = await consumeF3MarkerPhaseB({
-          f3ContinuationDecision,
-          engineChat,
-          chatId,
-          parsedMeta,
-        });
-
-        // P2 F3-loop (åtgärd 1): the approval round must BUILD, not
-        // re-propose (see `prepareF3ApprovalBuildRound`).
-        const f3ApprovalRound = await prepareF3ApprovalBuildRound({
-          f3ApprovalBuildRound,
-          f3ContinuationDecision,
-          engineChat,
-          chatId,
-          previousFiles,
-          optimizedMessage,
-          promptStartedAt,
-          req,
-          attachSessionCookie,
-        });
-        if (f3ApprovalRound instanceof Response) {
-          return f3ApprovalRound;
-        }
-        optimizedMessage = f3ApprovalRound.optimizedMessage;
-        const { f3ApprovedDossierCapabilities, f3EffectiveApprovedProviders } = f3ApprovalRound;
-
-        return await runCodegenTurn({
-          req,
-          chatId,
-          promptStartedAt,
-          attachSessionCookie,
-          engineChat,
-          message,
-          system,
-          optimizedMessage,
-          followUpIntentMessage,
-          metaBuildIntent,
-          metaBuildMethod,
-          metaPromptSourceKind,
-          metaEngineBaseVersionId,
-          parsedMeta,
-          metaBrief,
-          deltaBriefSkipReason: deltaBriefPhase.skipReason,
-          hasPersistedBrief,
-          resolvedModelId,
-          resolvedModelTier,
-          resolvedThinking,
-          resolvedImageGenerations,
-          buildProfileId,
-          requestAttachments,
-          designReferences,
-          promptOrchestration,
-          previousFiles,
-          hasFollowUpBase,
-          existingRoutePaths,
-          existingShellRoutePaths,
-          followUpCapabilityDetection,
-          followUpIntent,
-          persistedScaffoldId,
-          importedRepoMode,
-          ignorePersistedScaffoldForMatch,
-          f3ContinuationDecision,
-          f3ApprovalBuildRound,
-          f3ApprovedDossierCapabilities,
-          f3EffectiveApprovedProviders,
-          fileDerivedTier3BuildSpec,
-          f3ResolvedBaseVersionId,
-          commitCreditsOnce,
-          prewarmLeaseKey,
-          versionsQuerySucceeded,
-          existingVersionsForChat,
-        });
-      } catch (err) {
-        return buildStreamErrorResponse({
-          err,
-          req,
-          requestId,
-          promptStartedAt,
-          kind: "followup",
-          logLabel: "Send message error",
-          devLogType: "comm.error.send",
-          devLogExtras: { chatId: null },
-          attachSessionCookie,
-        });
-      }
-    });
+      });
       return bindChatGenerationLockToResponse(response, acquiredGenerationLock);
     } catch (err) {
       if (acquiredGenerationLock) {

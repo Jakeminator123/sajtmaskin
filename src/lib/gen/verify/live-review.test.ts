@@ -5,6 +5,8 @@ const generateObject = vi.hoisted(() => vi.fn());
 const createDirectModel = vi.hoisted(() => vi.fn(() => ({ id: "mock-model" })));
 const getWorkloadDefaultModelFromManifest = vi.hoisted(() => vi.fn(() => "gpt-4o"));
 const uploadBlob = vi.hoisted(() => vi.fn());
+const getPreviousLiveReviewScreenshots = vi.hoisted(() => vi.fn());
+const getLatestEngineVersionErrorLogForCategory = vi.hoisted(() => vi.fn());
 
 vi.mock("ai", () => ({ generateObject }));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
@@ -14,6 +16,10 @@ vi.mock("@/lib/ai-models/load-manifest", () => ({
 }));
 vi.mock("@/lib/vercel/blob-service", () => ({ uploadBlob }));
 vi.mock("@/lib/observability/llm-usage", () => ({ recordLlmUsage: vi.fn() }));
+vi.mock("@/lib/db/services/live-review-runs", () => ({ getPreviousLiveReviewScreenshots }));
+vi.mock("@/lib/db/services/version-errors", () => ({
+  getLatestEngineVersionErrorLogForCategory,
+}));
 
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
@@ -31,6 +37,7 @@ import {
   persistLiveReviewJpeg,
   pickPreviousVersionInChat,
   pickUserRequest,
+  pickUserRequestForVersion,
   runLiveReview,
   shouldRunLiveReview,
   summarizeBrief,
@@ -133,15 +140,15 @@ describe("shouldRunLiveReview", () => {
     ).toBe("preview_unreadable");
   });
 
-  it("hoppar över follow-up utan sensorlarm men kör init och larmat follow-up", () => {
+  it("kör varje läsbar init och follow-up; sensorlarm är evidens, inte en kostnadsspärr", () => {
     expect(
       shouldRunLiveReview({
         enabled: true,
         skipped: false,
         findings: [],
         isFollowUp: true,
-      }).reason,
-    ).toBe("followup_no_sensor");
+      }).run,
+    ).toBe(true);
     expect(
       shouldRunLiveReview({
         enabled: true,
@@ -198,6 +205,26 @@ describe("bundle helpers", () => {
     ).toBe("Bygg en mörk sajt");
   });
 
+  it("binder reviewkravet till versionens assistantmeddelande, inte senaste user-turn", () => {
+    expect(
+      pickUserRequestForVersion(
+        [
+          { id: "u1", role: "user", content: "Gör headern blå" },
+          { id: "a1", role: "assistant", content: "Version 2 klar" },
+          { id: "u2", role: "user", content: "Ta bort footern" },
+          { id: "a2", role: "assistant", content: "Version 3 klar" },
+        ],
+        "a1",
+      ),
+    ).toBe("Gör headern blå");
+    expect(
+      pickUserRequestForVersion(
+        [{ id: "u2", role: "user", content: "Ta bort footern" }],
+        "missing-assistant",
+      ),
+    ).toBe("");
+  });
+
   it("listar ändrade filer mot föräldern", () => {
     const current = JSON.stringify([
       { path: "app/page.tsx", content: "new" },
@@ -221,6 +248,151 @@ describe("bundle helpers", () => {
         variantId: "dark-luxe",
       }),
     ).toContain("Nova");
+  });
+
+  it("granskar previewn mot det slutliga designkontraktet, inte råa brief-defaults", () => {
+    const summary = summarizeBrief({
+      briefSummary: {
+        projectTitle: "Nova",
+        styleKeywords: ["clean"],
+        colorPalette: { primary: "#3b82f6", background: "#ffffff" },
+      },
+      variantId: "stale-hint",
+      resolvedDesign: {
+        schemaVersion: 1,
+        variantId: "editorial-lux",
+        explicitAxes: ["palette"],
+        explicitFields: ["palette.accent"],
+        styleKeywords: { value: ["editorial", "luxury"], source: "variant", locked: false },
+        toneAndVoice: { value: ["confident"], source: "brief-inferred", locked: false },
+        colorMode: { value: "dark", source: "variant", locked: false },
+        themeTokens: {
+          primary: { value: "#b45309", source: "variant", locked: false },
+          secondary: { value: "#334155", source: "user-locked", locked: true },
+          accent: { value: "#ff006e", source: "brief-explicit", locked: true },
+          background: { value: "#111111", source: "variant", locked: false },
+          foreground: { value: "#f5f5f5", source: "variant", locked: false },
+        },
+        typography: {
+          heading: { value: "Fraunces", source: "brief-explicit", locked: true },
+          body: { value: "Source Sans 3", source: "variant", locked: false },
+        },
+        motionLevel: { value: null, source: "default", locked: false },
+        qualityBar: { value: null, source: "default", locked: false },
+        domainProfile: { value: null, source: "default", locked: false },
+      },
+    });
+
+    expect(summary).toContain("stil: editorial, luxury");
+    expect(summary).toContain("primär #b45309");
+    expect(summary).toContain("sekundär #334155 [user-locked/locked]");
+    expect(summary).toContain("accent #ff006e [brief-explicit/locked]");
+    expect(summary).toContain("explicit fields: palette.accent");
+    expect(summary).toContain(
+      "typografi: rubrik Fraunces [brief-explicit/locked] / brödtext Source Sans 3 [variant]",
+    );
+    expect(summary).toContain("variant: editorial-lux");
+    expect(summary).not.toContain("#3b82f6");
+    expect(summary).not.toContain("stale-hint");
+  });
+
+  it("does not tell the critic to restore a cached axis owned by the current follow-up", () => {
+    const summary = summarizeBrief({
+      resolvedDesign: {
+        schemaVersion: 1,
+        variantId: "editorial-lux",
+        explicitAxes: [],
+        explicitFields: [],
+        unresolvedAxes: ["palette", "typography"],
+        styleKeywords: { value: ["editorial"], source: "variant", locked: false },
+        toneAndVoice: { value: [], source: "default", locked: false },
+        colorMode: { value: "dark", source: "variant", locked: false },
+        themeTokens: {
+          background: { value: "#111111", source: "variant", locked: false },
+          accent: { value: "#ff006e", source: "variant", locked: false },
+        },
+        typography: {
+          heading: { value: "Fraunces", source: "variant", locked: false },
+          body: { value: "Inter", source: "variant", locked: false },
+        },
+        motionLevel: { value: null, source: "default", locked: false },
+        qualityBar: { value: null, source: "default", locked: false },
+        domainProfile: { value: null, source: "default", locked: false },
+      },
+    });
+
+    expect(summary).toContain("current request owns: palette, typography");
+    expect(summary).not.toContain("#111111");
+    expect(summary).not.toContain("Fraunces");
+  });
+
+  it("keeps typography and variant after a complete token-level acceptance target", () => {
+    const tokenKeys = [
+      "background",
+      "foreground",
+      "card",
+      "cardForeground",
+      "primary",
+      "primaryForeground",
+      "secondary",
+      "secondaryForeground",
+      "accent",
+      "accentForeground",
+      "muted",
+      "mutedForeground",
+      "border",
+      "ring",
+    ];
+    const themeTokens = Object.fromEntries(
+      tokenKeys.map((key) => [
+        key,
+        {
+          value: `var(--resolved-${key}-${"x".repeat(36)})`,
+          source: "brief-explicit",
+          locked: true,
+        },
+      ]),
+    );
+    const summary = summarizeBrief({
+      resolvedDesign: {
+        schemaVersion: 1,
+        variantId: "editorial-lux",
+        explicitAxes: ["palette", "typography"],
+        explicitFields: ["palette.accent", "typography.headings"],
+        styleKeywords: { value: ["editorial"], source: "variant", locked: false },
+        toneAndVoice: { value: ["confident"], source: "variant", locked: false },
+        colorMode: { value: "dark", source: "brief-explicit", locked: true },
+        themeTokens,
+        typography: {
+          heading: { value: "Fraunces", source: "brief-explicit", locked: true },
+          body: { value: "Source Sans 3", source: "variant", locked: false },
+        },
+        motionLevel: { value: null, source: "default", locked: false },
+        qualityBar: { value: null, source: "default", locked: false },
+        domainProfile: { value: null, source: "default", locked: false },
+      },
+    });
+
+    expect(summary.length).toBeGreaterThan(1200);
+    expect(summary).toContain("typografi: rubrik Fraunces");
+    expect(summary).toContain("variant: editorial-lux");
+  });
+
+  it("falls back to the Brief when a legacy resolvedDesign object is malformed", () => {
+    const summary = summarizeBrief({
+      briefSummary: {
+        projectTitle: "Nova",
+        styleKeywords: ["warm", "editorial"],
+        colorPalette: { primary: "#ff6600" },
+      },
+      resolvedDesign: {
+        styleKeywords: { value: ["stale-corporate"] },
+      },
+    });
+
+    expect(summary).toContain("stil: warm, editorial");
+    expect(summary).toContain("primär #ff6600");
+    expect(summary).not.toContain("stale-corporate");
   });
 
   it("sätter ihop ReviewBundle med felklasser", () => {
@@ -454,18 +626,16 @@ describe("runLiveReview", () => {
   });
 
   it("provar fallback-modellen när generateObject på default misslyckas", async () => {
-    generateObject
-      .mockRejectedValueOnce(new Error("model overloaded"))
-      .mockResolvedValueOnce({
-        object: {
-          verdict: "advisory",
-          confidence: 0.4,
-          rationale: "Fallback såg sidan.",
-          reasoning: "",
-          issues: [],
-        },
-        usage: {},
-      });
+    generateObject.mockRejectedValueOnce(new Error("model overloaded")).mockResolvedValueOnce({
+      object: {
+        verdict: "advisory",
+        confidence: 0.4,
+        rationale: "Fallback såg sidan.",
+        reasoning: "",
+        issues: [],
+      },
+      usage: {},
+    });
     const result = await runLiveReview(
       assembleReviewBundle({
         versionId: "v1",
@@ -520,6 +690,14 @@ describe("maybeAttachLiveReview", () => {
     generateObject.mockReset();
     createDirectModel.mockReset();
     createDirectModel.mockImplementation(() => ({ id: "mock-model" }));
+    getPreviousLiveReviewScreenshots.mockReset();
+    getPreviousLiveReviewScreenshots.mockResolvedValue({
+      desktopUrl: null,
+      mobileUrl: null,
+      hasStoredRun: false,
+    });
+    getLatestEngineVersionErrorLogForCategory.mockReset();
+    getLatestEngineVersionErrorLogForCategory.mockResolvedValue(null);
     vi.mocked(recordLlmUsage).mockClear();
   });
 
@@ -555,5 +733,56 @@ describe("maybeAttachLiveReview", () => {
     });
     expect(result).toMatchObject({ status: "skipped", reason: "no_screenshots" });
     expect(generateObject).not.toHaveBeenCalled();
+  });
+
+  it("återupplivar inte raderade parent-JPEG:er från äldre loggmetadata", async () => {
+    getPreviousLiveReviewScreenshots.mockResolvedValue({
+      desktopUrl: null,
+      mobileUrl: null,
+      hasStoredRun: true,
+    });
+    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
+      meta: {
+        screenshots: {
+          desktopUrl: "https://blob.example/deleted-parent.jpg",
+          mobileUrl: null,
+        },
+      },
+    });
+    generateObject.mockResolvedValue({
+      object: {
+        verdict: "pass",
+        confidence: 0.9,
+        rationale: "Den aktuella previewen följer briefen.",
+        reasoning: "",
+        issues: [],
+      },
+      usage: {},
+    });
+
+    const result = await maybeAttachLiveReview({
+      enabled: true,
+      skipped: false,
+      findings: [],
+      screenshots: { desktopUrl: "https://blob.example/current.jpg", mobileUrl: null },
+      domSummary: null,
+      versionId: "v2",
+      versionNumber: 2,
+      previousVersionId: "v1",
+      chatId: "chat_1",
+      parentFilesJson: "[]",
+      filesJson: "[]",
+      filesRevision: "rev_2",
+      userRequest: "gör hero tydligare",
+      briefSummary: "varm redaktionell stil",
+    });
+
+    expect(result.status).toBe("completed");
+    expect(getLatestEngineVersionErrorLogForCategory).not.toHaveBeenCalled();
+    const content = generateObject.mock.calls[0]?.[0]?.messages?.[0]?.content ?? [];
+    const imageUrls = content
+      .filter((part: { type?: string }) => part.type === "image")
+      .map((part: { image?: URL }) => part.image?.toString());
+    expect(imageUrls).toEqual(["https://blob.example/current.jpg"]);
   });
 });

@@ -4,7 +4,11 @@ import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { parseSSEBuffer, SuspenseLineProcessor } from "@/lib/gen/stream/sse-parser";
 import { compressUrls } from "@/lib/gen/url-compress";
-import { resolveOrchestrationBase, finalizeOrchestrationPrompts } from "@/lib/gen/orchestrate";
+import {
+  buildGenerationInputPackage,
+  finalizeOrchestrationPrompts,
+  resolveOrchestrationBase,
+} from "@/lib/gen/orchestrate";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import { normalizeBuildIntent, type BuildIntent } from "@/lib/builder/build-intent";
 import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
@@ -69,12 +73,9 @@ function getDoneUsage(data: unknown): {
 } {
   const doneData = data as Record<string, unknown> | null;
   return {
-    prompt:
-      typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
+    prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
     completion:
-      typeof doneData?.completionTokens === "number"
-        ? doneData.completionTokens
-        : undefined,
+      typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
   };
 }
 
@@ -129,6 +130,11 @@ export async function generateOwnEngineSiteFromPrompt(
     orchestrationBase,
     orchestrationInput,
   );
+  const generationInputPackage = buildGenerationInputPackage(
+    orchestrationBase,
+    orchestrationInput,
+    finalizedOrchestration,
+  );
   const { engineSystemPrompt } = finalizedOrchestration;
   dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
     source: "own-engine/non-stream-generate",
@@ -151,8 +157,7 @@ export async function generateOwnEngineSiteFromPrompt(
     thinking,
     tools: getAgentTools(),
     maxSteps: 4,
-    referenceAttachments:
-      finalizedOrchestration.variantTemplateReferenceAttachments,
+    referenceAttachments: finalizedOrchestration.variantTemplateReferenceAttachments,
   });
 
   const reader = pipelineStream.getReader();
@@ -259,6 +264,7 @@ export async function generateOwnEngineSiteFromPrompt(
     urlMap,
     startedAt,
     tokenUsage,
+    lineageHash: generationInputPackage.lineageHash,
     orchestrationStreamMeta: {
       modelId: String(generatorModel),
       modelTier: modelSelection.modelTier,
@@ -271,10 +277,14 @@ export async function generateOwnEngineSiteFromPrompt(
       // can rebuild it in finalize. Without this the MCP/non-stream path passed
       // no selected ids → the refuseDossierStubs gate went silent here (the
       // streaming builder path already sets these via own-engine-build-session).
-      selectedDossierIds:
-        orchestrationBase.dossierSelection?.selected.map((s) => s.entry.id) ?? [],
+      selectedDossierIds: orchestrationBase.dossierSelection?.selected.map((s) => s.entry.id) ?? [],
       requestedCapabilities: orchestrationBase.dossierRequestedCapabilities ?? [],
+      variantId: finalizedOrchestration.variantId,
+      variantSelection: finalizedOrchestration.variantSelection,
+      resolvedDesign: finalizedOrchestration.resolvedDesign,
+      variantTemplateId: finalizedOrchestration.variantTemplateId,
       sources: finalizedOrchestration.sources,
+      lineageHash: generationInputPackage.lineageHash,
     },
   });
 

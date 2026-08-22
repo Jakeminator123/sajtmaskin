@@ -12,7 +12,7 @@ vi.mock("@/lib/api/engine/chats/chat-message-stream-post", () => ({
 const sendMessageSchemaSafeParse = vi.hoisted(() => vi.fn());
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
-const resolveFollowUpPreviousFiles = vi.hoisted(() => vi.fn());
+const resolveFollowUpBase = vi.hoisted(() => vi.fn());
 const resolveChatPreferredVersionId = vi.hoisted(() => vi.fn());
 const updateChatProjectId = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
@@ -42,16 +42,84 @@ const logPlanModeGenerationStart = vi.hoisted(() => vi.fn());
 const resolvePlanModePlannerSettings = vi.hoisted(() => vi.fn());
 const createOwnEnginePlanModeResponse = vi.hoisted(() => vi.fn());
 const createCommitCreditsOnce = vi.hoisted(() => vi.fn(() => vi.fn(async () => undefined)));
-const getVersionsByChat = vi.hoisted(() =>
-  vi.fn(async (): Promise<Array<{ id: string }>> => []),
-);
+const getVersionsByChat = vi.hoisted(() => vi.fn(async (): Promise<Array<{ id: string }>> => []));
 const updateChatScaffoldId = vi.hoisted(() => vi.fn());
+const setPendingPlanDesignAuthority = vi.hoisted(() => vi.fn());
+const appendHydratedTextAttachmentExcerpts = vi.hoisted(() => vi.fn());
 const readyF3GateResult = {
   ok: true,
   spec: {
     requirements: [{ requiredRealEnvKeys: ["REQUIRED_BUILD_KEY"] }],
   },
 };
+
+function resolvedFollowUpBase(
+  files: Array<{ path: string; content: string; language: string }>,
+  versionId: string | null = "ver_current",
+) {
+  return {
+    versionId,
+    filesRevision: versionId ? `rev_${versionId}` : null,
+    files,
+    branch: "preferred",
+  };
+}
+
+function pendingPlanAuthority(input: {
+  baseVersionId: string | null;
+  baseFilesRevision: string | null;
+  requestAttachments?: Array<{
+    url: string;
+    filename?: string;
+    mimeType?: string;
+    purpose?: string;
+  }>;
+  customInstructions?: string | null;
+}) {
+  return {
+    schemaVersion: 2,
+    baseVersionId: input.baseVersionId,
+    baseFilesRevision: input.baseFilesRevision,
+    requestAttachments: input.requestAttachments ?? [],
+    customInstructions:
+      input.customInstructions === undefined
+        ? "Behåll referensens exakta rytm."
+        : input.customInstructions,
+    imageGenerations: false,
+    scaffoldId: "landing-page",
+    buildIntent: "website",
+    variantId: null,
+    variantSelection: {
+      source: "hash-fallback",
+      score: null,
+      runnerUpScore: null,
+      margin: null,
+      hintId: null,
+      finalId: null,
+      changedFromHint: false,
+    },
+    resolvedDesign: {
+      schemaVersion: 1,
+      variantId: null,
+      explicitAxes: [],
+      explicitFields: [],
+      styleKeywords: { value: [], source: "default", locked: false },
+      toneAndVoice: { value: [], source: "default", locked: false },
+      colorMode: { value: null, source: "default", locked: false },
+      themeTokens: {},
+      typography: {
+        heading: { value: null, source: "default", locked: false },
+        body: { value: null, source: "default", locked: false },
+      },
+      motionLevel: { value: null, source: "default", locked: false },
+      qualityBar: { value: null, source: "default", locked: false },
+      domainProfile: { value: null, source: "default", locked: false },
+    },
+    variantTemplateId: null,
+    brief: { projectTitle: "Server-owned plan" },
+    lineageHash: "plan-lineage",
+  };
+}
 
 vi.mock("next/server", async () => {
   const actual = await vi.importActual<typeof import("next/server")>("next/server");
@@ -241,7 +309,7 @@ vi.mock("@/lib/gen/orchestrate", () => ({
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
-  resolveFollowUpPreviousFiles,
+  resolveFollowUpBase,
   resolveChatPreferredVersionId,
 }));
 
@@ -295,7 +363,16 @@ vi.mock("@/lib/gen/request-metadata", () => ({
   extractColorModeHintFromMeta: () => null,
   extractThemeColorsFromMeta: () => null,
   normalizeRequestAttachments: (attachments: unknown[] | undefined) => attachments ?? [],
-  summarizeDesignReferences: () => [],
+  summarizeDesignReferences: (
+    attachments: Array<{ filename?: string; mimeType?: string; url: string }>,
+  ) =>
+    attachments
+      .filter((attachment) => attachment.mimeType?.startsWith("image/") === true)
+      .map((attachment) => ({
+        kind: "image",
+        label: attachment.filename ?? "reference",
+        note: "visual reference",
+      })),
 }));
 
 vi.mock("@/lib/gen/stream/sse-parser", () => {
@@ -325,6 +402,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getVersionsByChat,
   consumeF3ContinuationMarker,
   appendF3ApprovedToSnapshot,
+  setPendingPlanDesignAuthority,
 }));
 
 vi.mock("@/lib/gen/preview/preview-prewarm", () => ({
@@ -341,7 +419,7 @@ vi.mock("@/lib/gen/prompt-dump", () => ({
 }));
 
 vi.mock("@/lib/gen/attachment-text-hydrate", () => ({
-  appendHydratedTextAttachmentExcerpts: vi.fn(async (msg: string) => msg),
+  appendHydratedTextAttachmentExcerpts,
 }));
 
 vi.mock("@/lib/own-engine/session/own-engine-build-session", () => ({
@@ -378,9 +456,9 @@ vi.mock("@/lib/own-engine/session/own-engine-pipeline-generation", () => ({
               for (const evt of parsed.events) {
                 if (evt.event === "content" && evt.data?.text) {
                   accumulatedContent += evt.data.text;
-                  controller.enqueue(encoder.encode(
-                    `event: content\ndata: ${JSON.stringify(evt.data)}\n\n`,
-                  ));
+                  controller.enqueue(
+                    encoder.encode(`event: content\ndata: ${JSON.stringify(evt.data)}\n\n`),
+                  );
                 } else if (evt.event === "done") {
                   const finalized = await finalizeOrHandleEmptyGeneration({
                     emptyGenerationReason: "done_empty_output",
@@ -391,21 +469,23 @@ vi.mock("@/lib/own-engine/session/own-engine-pipeline-generation", () => ({
                       previousFiles: input.previousFiles ?? [],
                     },
                   });
-                  controller.enqueue(encoder.encode(
-                    `event: done\ndata: ${JSON.stringify({
-                      chatId: input.chatId,
-                      versionId: finalized.version?.id ?? null,
-                      messageId: finalized.messageId ?? null,
-                      previewUrl: null,
-                      previewBlocked: finalized.preflight?.previewBlocked ?? false,
-                      verificationBlocked: finalized.preflight?.verificationBlocked ?? false,
-                      previewBlockingReason: finalized.preflight?.previewBlockingReason ?? null,
-                    })}\n\n`,
-                  ));
+                  controller.enqueue(
+                    encoder.encode(
+                      `event: done\ndata: ${JSON.stringify({
+                        chatId: input.chatId,
+                        versionId: finalized.version?.id ?? null,
+                        messageId: finalized.messageId ?? null,
+                        previewUrl: null,
+                        previewBlocked: finalized.preflight?.previewBlocked ?? false,
+                        verificationBlocked: finalized.preflight?.verificationBlocked ?? false,
+                        previewBlockingReason: finalized.preflight?.previewBlockingReason ?? null,
+                      })}\n\n`,
+                    ),
+                  );
                 } else {
-                  controller.enqueue(encoder.encode(
-                    `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`,
-                  ));
+                  controller.enqueue(
+                    encoder.encode(`event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`),
+                  );
                 }
               }
             }
@@ -494,12 +574,8 @@ async function readSseEvents(response: Response) {
   const blocks = body.trim().split("\n\n").filter(Boolean);
 
   return blocks.map((block) => {
-    const eventLine = block
-      .split("\n")
-      .find((line) => line.startsWith("event:"));
-    const dataLine = block
-      .split("\n")
-      .find((line) => line.startsWith("data:"));
+    const eventLine = block.split("\n").find((line) => line.startsWith("event:"));
+    const dataLine = block.split("\n").find((line) => line.startsWith("data:"));
 
     return {
       event: eventLine?.slice("event:".length).trim() ?? "",
@@ -531,6 +607,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     vi.clearAllMocks();
     addMessage.mockResolvedValue(null);
     updateChatScaffoldId.mockResolvedValue(true);
+    setPendingPlanDesignAuthority.mockResolvedValue(true);
+    appendHydratedTextAttachmentExcerpts.mockImplementation(async (msg: string) => msg);
     failVersionVerification.mockResolvedValue(null);
     createPromptLog.mockResolvedValue(undefined);
     buildFileContext.mockReset();
@@ -634,13 +712,19 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       messages: [],
     });
     getChatByV0ChatIdForRequest.mockResolvedValue(null);
-    resolveFollowUpPreviousFiles.mockResolvedValue([
-      {
-        path: "src/app/page.tsx",
-        content: "export default function Page() { return <div>Old</div>; }",
-        language: "tsx",
-      },
-    ]);
+    resolveFollowUpBase.mockImplementation(
+      async (_chatId: string, requestedVersionId?: string | null) =>
+        resolvedFollowUpBase(
+          [
+            {
+              path: "src/app/page.tsx",
+              content: "export default function Page() { return <div>Old</div>; }",
+              language: "tsx",
+            },
+          ],
+          requestedVersionId?.trim() || "ver_current",
+        ),
+    );
     // 5-2: default server-preferred version. Only consulted when a request
     // carries BOTH engineBaseVersionId and engineLatestKnownVersionId (the
     // stale-base gate); the other tests below never send the latter so the
@@ -781,10 +865,12 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         if (!eventLine || !dataLine) return [];
         const event = eventLine.slice("event:".length).trim();
         const rawData = dataLine.slice("data:".length).trim();
-        return [{
-          event,
-          data: JSON.parse(rawData),
-        }];
+        return [
+          {
+            event,
+            data: JSON.parse(rawData),
+          },
+        ];
       });
       return { events, remaining };
     });
@@ -947,10 +1033,9 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(prepareGenerationContext).toHaveBeenCalled();
     expect(createGenerationPipeline).not.toHaveBeenCalled();
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
-    expect(createCommitCreditsOnce).toHaveBeenCalledWith(
-      expect.anything(),
-      { rejectIfNegativeFixedCommit: true },
-    );
+    expect(createCommitCreditsOnce).toHaveBeenCalledWith(expect.anything(), {
+      rejectIfNegativeFixedCommit: true,
+    });
   });
 
   // Kreditgrinden ligger före prompt-loggen och före user-raden, så ett avslag
@@ -1031,7 +1116,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     );
 
     expect(response.status).toBe(200);
-    expect(resolveFollowUpPreviousFiles).toHaveBeenCalledWith("chat_1", "ver_selected");
+    expect(resolveFollowUpBase).toHaveBeenCalledWith("chat_1", "ver_selected");
     // 5-2 (changed assumption): a bare engineBaseVersionId — without the
     // companion engineLatestKnownVersionId signal — is still honoured and is
     // NEVER routed through the stale-base gate. The gate only engages when the
@@ -1127,7 +1212,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     // treated as the first for the chat, so the prewarm hook fires. The call is
     // fire-and-forget with the chatId; it never blocks or awaits the stream.
     getVersionsByChat.mockResolvedValueOnce([]);
-    resolveFollowUpPreviousFiles.mockResolvedValueOnce([]);
+    resolveFollowUpBase.mockResolvedValueOnce(resolvedFollowUpBase([], null));
     resolveChatPreferredVersionId.mockResolvedValue("ver_current");
     createGenerationPipeline.mockReturnValue(
       buildPipelineStream([
@@ -1180,7 +1265,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
   it("rejects versionless follow-up credits before any prewarm attempt", async () => {
     getVersionsByChat.mockResolvedValueOnce([]);
-    resolveFollowUpPreviousFiles.mockResolvedValueOnce([]);
+    resolveFollowUpBase.mockResolvedValueOnce(resolvedFollowUpBase([], null));
     prepareCredits.mockResolvedValueOnce({
       ok: false,
       cost: 10,
@@ -1201,7 +1286,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
     expect(response.status).toBe(402);
     expect(getVersionsByChat).toHaveBeenCalledWith("chat_1");
-    expect(resolveFollowUpPreviousFiles).toHaveBeenCalled();
+    expect(resolveFollowUpBase).toHaveBeenCalled();
     expect(prepareCredits).toHaveBeenCalled();
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
     expect(createGenerationPipeline).not.toHaveBeenCalled();
@@ -1619,13 +1704,244 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(writeOrchestrationDynamicDump).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects an approved historical plan after the active base version changed", async () => {
+    getEngineChatByIdForRequest.mockResolvedValueOnce({
+      id: "chat_1",
+      project_id: "app_proj_1",
+      scaffold_id: "landing-page",
+      messages: [],
+      orchestration_snapshot: {
+        pendingPlanAuthority: pendingPlanAuthority({
+          baseVersionId: "v1",
+          baseFilesRevision: "rev_v1",
+        }),
+      },
+    });
+    resolveFollowUpBase.mockResolvedValueOnce(
+      resolvedFollowUpBase(
+        [
+          {
+            path: "src/app/page.tsx",
+            content: "export default function Page() {}",
+            language: "tsx",
+          },
+        ],
+        "v3",
+      ),
+    );
+    resolveChatPreferredVersionId.mockResolvedValueOnce("v3");
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          promptSourceKind: "approved-plan",
+          promptSourceTechnical: true,
+          promptSourcePreservePayload: true,
+          planDesignLineageHash: "plan-lineage",
+          engineBaseVersionId: "v3",
+          engineLatestKnownVersionId: "v3",
+        },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Godkänn planen och bygg." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "plan_design_authority_base_stale",
+    });
+    expect(resolveOrchestrationBase).not.toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+  });
+
+  it("rehydrates the exact plan attachments and visual references for approved codegen", async () => {
+    const attachment = {
+      url: "https://blob.example/plan-reference.jpg",
+      filename: "plan-reference.jpg",
+      mimeType: "image/jpeg",
+    };
+    getEngineChatByIdForRequest.mockResolvedValueOnce({
+      id: "chat_1",
+      project_id: "app_proj_1",
+      scaffold_id: "landing-page",
+      messages: [],
+      orchestration_snapshot: {
+        pendingPlanAuthority: pendingPlanAuthority({
+          baseVersionId: "v1",
+          baseFilesRevision: "rev_v1",
+          requestAttachments: [attachment],
+        }),
+      },
+    });
+    resolveFollowUpBase.mockResolvedValueOnce(
+      resolvedFollowUpBase(
+        [
+          {
+            path: "src/app/page.tsx",
+            content: "export default function Page() {}",
+            language: "tsx",
+          },
+        ],
+        "v1",
+      ),
+    );
+    resolveChatPreferredVersionId.mockResolvedValueOnce("v1");
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          promptSourceKind: "approved-plan",
+          promptSourceTechnical: true,
+          promptSourcePreservePayload: true,
+          planDesignLineageHash: "plan-lineage",
+          engineBaseVersionId: "v1",
+          engineLatestKnownVersionId: "v1",
+        },
+      },
+    }));
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Approved plan</main>" } },
+        { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Godkänn planen och bygg." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    await response.text();
+
+    expect(response.status).toBe(200);
+    expect(appendHydratedTextAttachmentExcerpts).toHaveBeenLastCalledWith(
+      expect.any(String),
+      [attachment],
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(resolveOrchestrationBase).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestAttachments: [attachment],
+        designReferences: [expect.objectContaining({ label: "plan-reference.jpg" })],
+        customInstructions: "Behåll referensens exakta rytm.",
+        imageGenerations: false,
+      }),
+    );
+    expect(createOwnEnginePipelineAndGenerationStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pipeline: expect.objectContaining({ referenceAttachments: [attachment] }),
+      }),
+    );
+  });
+
+  it("does not let an approval request inject system instructions into a plan frozen with null", async () => {
+    getEngineChatByIdForRequest.mockResolvedValueOnce({
+      id: "chat_1",
+      project_id: "app_proj_1",
+      scaffold_id: "landing-page",
+      messages: [],
+      orchestration_snapshot: {
+        pendingPlanAuthority: pendingPlanAuthority({
+          baseVersionId: "v1",
+          baseFilesRevision: "rev_v1",
+          customInstructions: null,
+        }),
+      },
+    });
+    resolveFollowUpBase.mockResolvedValueOnce(
+      resolvedFollowUpBase(
+        [
+          {
+            path: "src/app/page.tsx",
+            content: "export default function Page() {}",
+            language: "tsx",
+          },
+        ],
+        "v1",
+      ),
+    );
+    resolveChatPreferredVersionId.mockResolvedValueOnce("v1");
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "Byt tonalitet efter att planen godkändes.",
+        designSystemId: null,
+        meta: {
+          appProjectId: "app_proj_1",
+          promptSourceKind: "approved-plan",
+          promptSourceTechnical: true,
+          promptSourcePreservePayload: true,
+          planDesignLineageHash: "plan-lineage",
+          engineBaseVersionId: "v1",
+          engineLatestKnownVersionId: "v1",
+        },
+      },
+    }));
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Approved plan</main>" } },
+        { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Godkänn planen och bygg." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    await response.text();
+
+    expect(response.status).toBe(200);
+    expect(resolveOrchestrationBase).toHaveBeenCalledWith(
+      expect.objectContaining({ customInstructions: undefined }),
+    );
+    expect(resolveOrchestrationBase).not.toHaveBeenCalledWith(
+      expect.objectContaining({ customInstructions: "Byt tonalitet efter att planen godkändes." }),
+    );
+  });
+
   it("uses the richer follow-up file context for capability-heavy visual edits", async () => {
     await POST(
       new Request("https://example.com/api/engine/chats/chat_1/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: "Lägg till en klickbar karusell med klockor och en 3D-figur som skjuter laser över hero-sektionen.",
+          message:
+            "Lägg till en klickbar karusell med klockor och en 3D-figur som skjuter laser över hero-sektionen.",
         }),
       }),
       { params: Promise.resolve({ chatId: "chat_1" }) },
@@ -1684,9 +2000,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
   });
 
   it("still persists the assistant clarification when user message persistence fails", async () => {
-    addMessage
-      .mockRejectedValueOnce(new Error("write user failed"))
-      .mockResolvedValueOnce(null);
+    addMessage.mockRejectedValueOnce(new Error("write user failed")).mockResolvedValueOnce(null);
 
     const response = await POST(
       new Request("https://example.com/api/engine/chats/chat_1/stream", {
@@ -1734,11 +2048,10 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       projectTitle: "DELTA_REDESIGN_SENTINEL",
       visualDirection: { styleKeywords: ["dark", "editorial"] },
     };
-    vi.mocked(tryGenerateServerAutoBrief).mockResolvedValueOnce(
-      { brief: deltaBrief, modelUsed: "test-delta-model" } as unknown as Awaited<
-        ReturnType<typeof tryGenerateServerAutoBrief>
-      >,
-    );
+    vi.mocked(tryGenerateServerAutoBrief).mockResolvedValueOnce({
+      brief: deltaBrief,
+      modelUsed: "test-delta-model",
+    } as unknown as Awaited<ReturnType<typeof tryGenerateServerAutoBrief>>);
     createGenerationPipeline.mockReturnValue(
       buildPipelineStream([
         { event: "content", data: { text: "<main>Redesigned</main>" } },
@@ -1889,9 +2202,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
       // The generation prompt carries BOTH the original detailed request and
       // the chosen scope option (Question + Answer wrapper).
-      const pipelinePrompt = (
-        createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string }
-      ).prompt;
+      const pipelinePrompt = (createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string })
+        .prompt;
       expect(pipelinePrompt).toContain("## Follow-up Scope Clarification Answer");
       expect(pipelinePrompt).toContain(`Question: ${clarificationQuestion}`);
       expect(pipelinePrompt).toContain(`Answer: ${chosenOption}`);
@@ -1954,9 +2266,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
       expect(response.status).toBe(200);
       expect(createGenerationPipeline).toHaveBeenCalledTimes(1);
-      const pipelinePrompt = (
-        createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string }
-      ).prompt;
+      const pipelinePrompt = (createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string })
+        .prompt;
       // The free-typed message runs as its own prompt — no clarification-answer
       // wrapper, no smuggled-in original request.
       expect(pipelinePrompt).not.toContain("## Follow-up Scope Clarification Answer");
@@ -2015,9 +2326,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
       expect(response.status).toBe(200);
       expect(createGenerationPipeline).toHaveBeenCalledTimes(1);
-      const pipelinePrompt = (
-        createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string }
-      ).prompt;
+      const pipelinePrompt = (createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string })
+        .prompt;
       expect(pipelinePrompt).toContain("## Follow-up Scope Clarification Answer");
       expect(pipelinePrompt).toContain(`Question: ${clarificationQuestion}`);
       expect(pipelinePrompt).toContain(`Answer: ${chosenOption}`);
@@ -2064,25 +2374,22 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
     /** safeParse mock that ALSO forwards the top-level promptSource tag. */
     function mockParseWithPromptSource() {
-      sendMessageSchemaSafeParse.mockImplementationOnce(
-        (body: Record<string, unknown>) => ({
-          success: true,
-          data: {
-            message: typeof body.message === "string" ? body.message : "",
-            attachments: [],
-            modelId: "test-model-id",
-            thinking: true,
-            imageGenerations: true,
-            system: "",
-            designSystemId: null,
-            promptSource:
-              typeof body.promptSource === "string" ? body.promptSource : undefined,
-            meta: {
-              appProjectId: "app_proj_1",
-            },
+      sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+        success: true,
+        data: {
+          message: typeof body.message === "string" ? body.message : "",
+          attachments: [],
+          modelId: "test-model-id",
+          thinking: true,
+          imageGenerations: true,
+          system: "",
+          designSystemId: null,
+          promptSource: typeof body.promptSource === "string" ? body.promptSource : undefined,
+          meta: {
+            appProjectId: "app_proj_1",
           },
-        }),
-      );
+        },
+      }));
     }
 
     function postPrepared(message: string, promptSource?: string) {
@@ -2090,9 +2397,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         new Request("https://example.com/api/engine/chats/chat_1/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            promptSource ? { message, promptSource } : { message },
-          ),
+          body: JSON.stringify(promptSource ? { message, promptSource } : { message }),
         }),
         { params: Promise.resolve({ chatId: "chat_1" }) },
       );
@@ -2128,8 +2433,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       const followupEvent = vi
         .mocked(devLogAppend)
         .mock.calls.find(
-          ([, entry]) =>
-            (entry as { type?: string }).type === "comm.request.followup",
+          ([, entry]) => (entry as { type?: string }).type === "comm.request.followup",
         )?.[1] as Record<string, unknown> | undefined;
       expect(followupEvent?.briefSkipReason).toBe("structured_prompt");
     });
@@ -2145,8 +2449,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       const followupEvent = vi
         .mocked(devLogAppend)
         .mock.calls.find(
-          ([, entry]) =>
-            (entry as { type?: string }).type === "comm.request.followup",
+          ([, entry]) => (entry as { type?: string }).type === "comm.request.followup",
         )?.[1] as Record<string, unknown> | undefined;
       expect(followupEvent?.briefSkipReason).toBeUndefined();
     });
@@ -2431,9 +2734,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       expect(orchestrationInput.requestedDossierCapabilities).toContain("payments");
       expect(orchestrationInput.tier3BuildSpec).toEqual(fileDerivedSpec);
       // The build directive names the approved provider.
-      expect(orchestrationInput.prompt).toContain(
-        "Approved integration providers: stripe",
-      );
+      expect(orchestrationInput.prompt).toContain("Approved integration providers: stripe");
       // Durable approval (review round 2, fix 5a): the approved capabilities +
       // providers are persisted on the snapshot so LATER rounds still treat
       // them as approved even when the build ends without file evidence.
@@ -2525,9 +2826,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         prompt: string;
       };
       expect(orchestrationInput.requestedDossierCapabilities).toContain("payments");
-      expect(orchestrationInput.prompt).toContain(
-        "Approved integration providers: stripe",
-      );
+      expect(orchestrationInput.prompt).toContain("Approved integration providers: stripe");
     });
 
     it("closes F3 calmly on a rejecting reply — marker consumed, NO generation runs (P2 F3-loop åtgärd 4)", async () => {
@@ -2854,18 +3153,23 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       // The parent version already carries the stripe-checkout dossier (its
       // distinctive server route is present) → payments capability present →
       // no injection needed → the #493 deterministic policy still applies.
-      resolveFollowUpPreviousFiles.mockResolvedValue([
-        {
-          path: "app/api/checkout-session/route.ts",
-          content: "export async function POST() { return new Response(); }",
-          language: "ts",
-        },
-        {
-          path: "components/checkout-button.tsx",
-          content: "export function CheckoutButton() { return null; }",
-          language: "tsx",
-        },
-      ]);
+      resolveFollowUpBase.mockResolvedValue(
+        resolvedFollowUpBase(
+          [
+            {
+              path: "app/api/checkout-session/route.ts",
+              content: "export async function POST() { return new Response(); }",
+              language: "ts",
+            },
+            {
+              path: "components/checkout-button.tsx",
+              content: "export function CheckoutButton() { return null; }",
+              language: "tsx",
+            },
+          ],
+          "ver_f2_parent",
+        ),
+      );
       checkTier3ReadinessForVersion.mockResolvedValue({
         ok: true,
         spec: {
@@ -2920,23 +3224,28 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
-      resolveFollowUpPreviousFiles.mockResolvedValue([
-        {
-          path: "lib/auth/clerk.ts",
-          content: "export const clerk = {};",
-          language: "ts",
-        },
-        {
-          path: "components/auth-buttons.tsx",
-          content: "export function AuthButtons() { return null; }",
-          language: "tsx",
-        },
-        {
-          path: "middleware.ts",
-          content: "export default function middleware() {}",
-          language: "ts",
-        },
-      ]);
+      resolveFollowUpBase.mockResolvedValue(
+        resolvedFollowUpBase(
+          [
+            {
+              path: "lib/auth/clerk.ts",
+              content: "export const clerk = {};",
+              language: "ts",
+            },
+            {
+              path: "components/auth-buttons.tsx",
+              content: "export function AuthButtons() { return null; }",
+              language: "tsx",
+            },
+            {
+              path: "middleware.ts",
+              content: "export default function middleware() {}",
+              language: "ts",
+            },
+          ],
+          "ver_f2_parent",
+        ),
+      );
       checkTier3ReadinessForVersion.mockResolvedValue({
         ok: true,
         spec: {
@@ -2987,13 +3296,18 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
-      resolveFollowUpPreviousFiles.mockResolvedValue([
-        {
-          path: "app/api/checkout-session/route.ts",
-          content: "export async function POST() { return new Response(); }",
-          language: "ts",
-        },
-      ]);
+      resolveFollowUpBase.mockResolvedValue(
+        resolvedFollowUpBase(
+          [
+            {
+              path: "app/api/checkout-session/route.ts",
+              content: "export async function POST() { return new Response(); }",
+              language: "ts",
+            },
+          ],
+          "ver_f2_parent",
+        ),
+      );
       checkTier3ReadinessForVersion.mockResolvedValue({
         ok: true,
         spec: {
@@ -3229,13 +3543,18 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
       // Provider files present → deterministic branch (not the injection path).
-      resolveFollowUpPreviousFiles.mockResolvedValue([
-        {
-          path: "app/api/checkout-session/route.ts",
-          content: "export async function POST() { return new Response(); }",
-          language: "ts",
-        },
-      ]);
+      resolveFollowUpBase.mockResolvedValue(
+        resolvedFollowUpBase(
+          [
+            {
+              path: "app/api/checkout-session/route.ts",
+              content: "export async function POST() { return new Response(); }",
+              language: "ts",
+            },
+          ],
+          "ver_f2_parent",
+        ),
+      );
       checkTier3ReadinessForVersion.mockResolvedValue({
         ok: true,
         spec: {
@@ -3342,10 +3661,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
                   {
                     key: "clerk",
                     name: "Clerk",
-                    missing: [
-                      "CLERK_SECRET_KEY",
-                      "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
-                    ],
+                    missing: ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
                   },
                 ],
               },

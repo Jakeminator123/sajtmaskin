@@ -5,6 +5,7 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { createSSEHeaders } from "@/lib/streaming";
 import { parsePlanResponse } from "@/lib/gen/plan/prompt";
 import { enrichPlanArtifactForReview } from "@/lib/gen/plan/review";
+import type { PlanDesignAuthority } from "@/lib/gen/plan/design-authority";
 import {
   createPlanModeStream,
   type PlanModeResolvedContext,
@@ -34,6 +35,7 @@ export function createOwnEnginePlanModeResponse(params: {
   buildSpec: BuildSpec;
   resolvedScaffold?: ScaffoldManifest | null;
   variantTemplateId?: string | null;
+  designAuthority?: PlanDesignAuthority | null;
   scaffoldMode: "auto" | "manual" | "off";
   persistAssistantSummary: (
     planData: PlanArtifact,
@@ -61,6 +63,7 @@ export function createOwnEnginePlanModeResponse(params: {
     buildSpec,
     resolvedScaffold,
     variantTemplateId,
+    designAuthority,
     scaffoldMode,
     persistAssistantSummary,
     buildDonePayload,
@@ -97,12 +100,14 @@ export function createOwnEnginePlanModeResponse(params: {
         resolvedScaffold: resolvedScaffold ?? null,
         scaffoldMode,
         variantTemplateId: variantTemplateId ?? null,
+        designAuthority: designAuthority ?? null,
       }),
     resolvePlanArtifact: (accumulatedContent, toolPlanArtifact) =>
       enrichPlanArtifactForReview(toolPlanArtifact ?? parsePlanResponse(accumulatedContent), {
         resolvedScaffold: resolvedScaffold ?? null,
         scaffoldMode,
         variantTemplateId: variantTemplateId ?? null,
+        designAuthority: designAuthority ?? null,
       }),
     persistAssistantSummary,
     buildDonePayload,

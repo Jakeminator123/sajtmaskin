@@ -77,6 +77,9 @@ export function BuildPlanCard({
           <Badge variant="destructive">{unresolvedBlockers.length} blockerare</Badge>
         ) : null}
         {plan.scaffold?.label ? <Badge variant="outline">{plan.scaffold.label}</Badge> : null}
+        {plan.designAuthority?.variantId ? (
+          <Badge variant="outline">Variant: {plan.designAuthority.variantId}</Badge>
+        ) : null}
       </div>
 
       {plan.pages.length > 0 ? (

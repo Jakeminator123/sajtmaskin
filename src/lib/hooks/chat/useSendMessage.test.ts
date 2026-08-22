@@ -72,8 +72,7 @@ function createHarness(
 ) {
   const messagesBox = { current: [] as ChatMessage[] };
   const setMessages = vi.fn((next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
-    messagesBox.current =
-      typeof next === "function" ? next(messagesBox.current) : next;
+    messagesBox.current = typeof next === "function" ? next(messagesBox.current) : next;
   });
   const mutateVersions = vi.fn();
 
@@ -100,9 +99,7 @@ function createHarness(
   const deps = {
     createNewChat: vi.fn(depsOverrides?.createNewChat ?? (async () => true)),
     streamAbortRef: { current: null } as MutableRefObject<AbortController | null>,
-    autoFixHandlerRef: { current: vi.fn() } as MutableRefObject<
-      (payload: AutoFixPayload) => void
-    >,
+    autoFixHandlerRef: { current: vi.fn() } as MutableRefObject<(payload: AutoFixPayload) => void>,
     lastSentSystemPromptRef: { current: null } as MutableRefObject<string | null>,
     startStreamSafetyTimer: vi.fn(),
     touchStreamSafetyTimer: vi.fn(),
@@ -116,10 +113,7 @@ function createHarness(
 async function send(
   result: {
     current: {
-      sendMessage: (
-        text: string,
-        options?: MessageOptions,
-      ) => Promise<SendMessageOutcome>;
+      sendMessage: (text: string, options?: MessageOptions) => Promise<SendMessageOutcome>;
     };
   },
   text: string,
@@ -375,9 +369,7 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     });
 
     const userRow = messagesBox.current.find((m) => m.role === "user");
-    expect(userRow?.uiParts).toEqual([
-      { type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "f3-kick" },
-    ]);
+    expect(userRow?.uiParts).toEqual([{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "f3-kick" }]);
 
     const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
     expect(meta.lifecycleStage).toBe("integrations");
@@ -407,14 +399,34 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     });
 
     const userRow = messagesBox.current.find((m) => m.role === "user");
-    expect(userRow?.uiParts).toEqual([
-      { type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" },
-    ]);
+    expect(userRow?.uiParts).toEqual([{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }]);
 
     const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
     expect(meta.promptSourceKind).toBe("autofix");
     expect(meta.promptSourceTechnical).toBe(true);
     expect(meta.promptSourcePreservePayload).toBe(true);
+  });
+
+  it("binds an approved plan to its server-issued design lineage", async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+
+    const { result } = createHarness({ activeVersionId: "ver_current" });
+    await send(result, "Utför den godkända planen", {
+      promptSourceMeta: {
+        sourceKind: "approved-plan",
+        isTechnical: true,
+        preservePayload: true,
+        planDesignLineageHash: "plan-lineage-123",
+      },
+    });
+
+    const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
+    expect(meta.promptSourceKind).toBe("approved-plan");
+    expect(meta.planDesignLineageHash).toBe("plan-lineage-123");
   });
 
   it("handles the deterministic F3 stream backstop via finalize-design and ReleaseGate", async () => {
@@ -469,9 +481,7 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(toast.success).toHaveBeenCalledWith("ReleaseGate godkänd.");
-    expect(messagesBox.current.at(-1)?.content).toContain(
-      "exakt samma filer",
-    );
+    expect(messagesBox.current.at(-1)?.content).toContain("exakt samma filer");
   });
 
   // Restlistan R1: den underkända ReleaseGate-toasten är borta. Den här lanen
@@ -840,9 +850,7 @@ describe("useSendMessage outcome contract", () => {
             userTurnPersisted,
           });
         }
-        return typeof finalizeResponse === "function"
-          ? finalizeResponse()
-          : finalizeResponse;
+        return typeof finalizeResponse === "function" ? finalizeResponse() : finalizeResponse;
       });
     }
 
@@ -860,9 +868,7 @@ describe("useSendMessage outcome contract", () => {
           ready: false,
           parentVersionId: "ver_f2_parent",
           projectId: "project_1",
-          missingByIntegration: [
-            { key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] },
-          ],
+          missingByIntegration: [{ key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] }],
         }),
       );
       const { result, messagesBox } = createHarness({ activeVersionId: "ver_f2_parent" });
@@ -910,9 +916,7 @@ describe("useSendMessage outcome contract", () => {
             ready: false,
             parentVersionId: "ver_f2_parent",
             projectId: "project_1",
-            missingByIntegration: [
-              { key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] },
-            ],
+            missingByIntegration: [{ key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] }],
           }),
         true,
       );
@@ -997,9 +1001,7 @@ describe("useSendMessage outcome contract", () => {
 
   it("reports aborted/server when the stream dies without a client abort", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
-    handleSseStream.mockRejectedValue(
-      new DOMException("The operation was aborted.", "AbortError"),
-    );
+    handleSseStream.mockRejectedValue(new DOMException("The operation was aborted.", "AbortError"));
     const { result } = createHarness();
 
     expect(await send(result, "Uppdatera hero copy")).toEqual({

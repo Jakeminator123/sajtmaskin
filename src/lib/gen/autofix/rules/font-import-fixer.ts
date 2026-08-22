@@ -22,6 +22,8 @@ const PREVIEW_FONT_REPLACEMENTS: Record<string, string> = {
 export interface VariantFontContext {
   scaffoldId?: string | null;
   variantId?: string | null;
+  /** Canonical Brief/Variant merge; wins over a registry lookup when present. */
+  resolvedFontPairing?: { heading?: string | null; body?: string | null } | null;
 }
 
 interface ResolvedVariantFontPair {
@@ -47,11 +49,24 @@ function applyPreviewFontReplacement(name: string): string {
 function resolveVariantFontPair(
   context: VariantFontContext | undefined,
 ): ResolvedVariantFontPair | null {
+  if (context?.resolvedFontPairing) {
+    const { heading: resolvedHeading, body: resolvedBody } = context.resolvedFontPairing;
+    if (!resolvedHeading || !resolvedBody) return null;
+    const heading = resolveGoogleFontImportName(resolvedHeading);
+    const body = resolveGoogleFontImportName(resolvedBody);
+    if (heading && body) {
+      return {
+        heading: applyPreviewFontReplacement(heading),
+        body: applyPreviewFontReplacement(body),
+      };
+    }
+    // The canonical contract is terminal authority. An explicit Brief font
+    // may be a CSS family/category that next/font cannot materialize; falling
+    // through here would silently replace it with the registry Variant pair.
+    return null;
+  }
   if (!context?.scaffoldId || !context?.variantId) return null;
-  const variant = getVariantById(
-    context.scaffoldId as ScaffoldId,
-    context.variantId,
-  );
+  const variant = getVariantById(context.scaffoldId as ScaffoldId, context.variantId);
   if (!variant) return null;
   const first = variant.fontPairings?.[0];
   if (!first) return null;
@@ -84,8 +99,7 @@ function applyPreviewFontReplacements(
 }
 
 const BASELINE_INTER_IMPORT_RE = /import\s+\{\s*Inter\s*\}\s+from\s+["']next\/font\/google["'];?/;
-const BASELINE_INTER_CONST_RE =
-  /const\s+inter\s*=\s*Inter\s*\(\s*\{[^}]*\}\s*\)\s*;?/;
+const BASELINE_INTER_CONST_RE = /const\s+inter\s*=\s*Inter\s*\(\s*\{[^}]*\}\s*\)\s*;?/;
 const BODY_INTER_VARIABLE_BARE_RE = /className=\{inter\.variable\}/g;
 const BODY_INTER_VARIABLE_TEMPLATE_RE = /\$\{inter\.variable\}/g;
 
@@ -111,10 +125,7 @@ function materializeVariantFontPair(
   if (pair.heading === "Inter" && pair.body === "Inter") {
     return { code, fixed: false, fixes: [] };
   }
-  if (
-    !BASELINE_INTER_IMPORT_RE.test(code) ||
-    !BASELINE_INTER_CONST_RE.test(code)
-  ) {
+  if (!BASELINE_INTER_IMPORT_RE.test(code) || !BASELINE_INTER_CONST_RE.test(code)) {
     return { code, fixed: false, fixes: [] };
   }
 
@@ -180,11 +191,7 @@ export function fixFontImport(
   // never accidentally overwrite an LLM-shaped pair we just materialized.
   const variantPair = resolveVariantFontPair(variantContext);
   if (variantPair) {
-    const materialized = materializeVariantFontPair(
-      workingCode,
-      filePath,
-      variantPair,
-    );
+    const materialized = materializeVariantFontPair(workingCode, filePath, variantPair);
     if (materialized.fixed) {
       workingCode = materialized.code;
       aggregatedFixes.push(...materialized.fixes);
@@ -218,7 +225,10 @@ export function fixFontImport(
     );
     if (importMatch) {
       const imported = new Set(
-        importMatch[1].split(",").map((s) => s.trim()).filter(Boolean),
+        importMatch[1]
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
       );
       const missing = [...usedFonts].filter((f) => !imported.has(f));
       if (missing.length === 0) {

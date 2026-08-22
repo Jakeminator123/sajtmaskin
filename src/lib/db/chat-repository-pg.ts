@@ -33,11 +33,16 @@ export {
   updateChatScaffoldId,
 } from "./chat-repository/chats";
 
-export { addMessage, consumeF3ContinuationMarker } from "./chat-repository/messages";
+export {
+  addMessage,
+  consumeF3ContinuationMarker,
+  upsertAssistantMessageUiPart,
+} from "./chat-repository/messages";
 
 export {
   getChatOrchestrationSnapshot,
   updateChatOrchestrationSnapshot,
+  setPendingPlanDesignAuthority,
   appendF3ApprovedToSnapshot,
   getKnownBrokenImageReplacements,
   recordKnownBrokenImageReplacements,

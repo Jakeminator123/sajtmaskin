@@ -94,3 +94,35 @@ export interface PickScaffoldVariantInput {
   generationMode?: "init" | "followUp";
   sessionSeed?: string;
 }
+
+export type VariantMatchSource = "embedding" | "keyword" | "hash-fallback";
+
+export interface VariantMatchResult {
+  variant: ScaffoldVariant | null;
+  source: VariantMatchSource;
+  score: number | null;
+  runnerUpScore: number | null;
+  margin: number | null;
+}
+
+export type VariantSelectionSource =
+  | "style-choice"
+  | "approved-plan"
+  | "follow-up-lock"
+  | "brief-embedding"
+  | "embedding"
+  | "brief-keyword"
+  | "keyword"
+  | "hash-fallback"
+  | "hint-fallback";
+
+/** Observable final variant authority decision, persisted with the run. */
+export interface VariantSelection {
+  source: VariantSelectionSource;
+  score: number | null;
+  runnerUpScore: number | null;
+  margin: number | null;
+  hintId: string | null;
+  finalId: string | null;
+  changedFromHint: boolean;
+}

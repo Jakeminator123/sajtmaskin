@@ -74,7 +74,7 @@ describe("renderScaffoldVariantBlock — theme token CSS contract", () => {
     const recipeSection = full.slice(recipeIdx);
     expect(recipeSection).toContain("NOT inside `@theme inline`");
     expect(recipeSection).toContain("apply this backgroundImage on `body` in `globals.css`");
-    expect(recipeSection).toContain(`color-mix(in oklab, ${variant.themeTokens!.primary} 14%`);
+    expect(recipeSection).toContain("color-mix(in oklab, var(--color-primary) 14%");
   });
 });
 

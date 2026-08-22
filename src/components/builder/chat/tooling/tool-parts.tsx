@@ -15,11 +15,7 @@ import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import type { ToolUIPart } from "ai";
-import {
-  PostCheckPanel,
-  QualityGatePanel,
-  ServerRepairPanel,
-} from "../review-panels";
+import { PostCheckPanel, QualityGatePanel, ServerRepairPanel } from "../review-panels";
 import { LiveReviewRow } from "../LiveReviewRow";
 import type { CompactToolPartsProps, StructuredToolPartsProps } from "./types";
 import {
@@ -91,7 +87,7 @@ export function StructuredToolParts({
             <ToolContent>
               {!suppressQuickActions && !hasUserAfterCurrentMessage && replyPrompt && (
                 <div className="mb-3 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs">
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
+                  <p className="mb-1 text-xs font-semibold tracking-wide text-amber-200 uppercase">
                     Svar krävs
                   </p>
                   <p className="text-foreground text-sm font-semibold">{replyPrompt.question}</p>
@@ -127,7 +123,12 @@ export function StructuredToolParts({
                 errorText={typeof tool.errorText === "string" ? tool.errorText : undefined}
               />
               {summaries.postCheck && <PostCheckPanel {...summaries.postCheck} />}
-              {summaries.liveReview && <LiveReviewRow result={summaries.liveReview} />}
+              {summaries.liveReview && (
+                <LiveReviewRow
+                  result={summaries.liveReview}
+                  screenshots={summaries.liveReviewScreenshots}
+                />
+              )}
               {summaries.qualityGate && (
                 <QualityGatePanel variant="full" {...summaries.qualityGate} />
               )}
@@ -147,8 +148,8 @@ export function StructuredToolParts({
                 </div>
                 <div className="text-muted-foreground mb-2 space-y-1 text-xs">
                   <p>
-                    <span className="font-medium">hasInput</span> visar om tool-callen innehåller
-                    en input-payload (parametrar).
+                    <span className="font-medium">hasInput</span> visar om tool-callen innehåller en
+                    input-payload (parametrar).
                   </p>
                   <p>
                     <span className="font-medium">hasOutput</span> visar om tool-callen redan har
@@ -159,8 +160,8 @@ export function StructuredToolParts({
                     input-available, output-available, output-error).
                   </p>
                   <p>
-                    <span className="font-medium">toolCallId</span> identifierar verktygsanropet
-                    och kan saknas tills det registrerats.
+                    <span className="font-medium">toolCallId</span> identifierar verktygsanropet och
+                    kan saknas tills det registrerats.
                   </p>
                 </div>
                 <CodeBlock code={JSON.stringify(toolDebug, null, 2)} language="json" />
@@ -203,6 +204,7 @@ export function CompactToolParts({
             <LiveReviewRow
               key={`${messageId}-live-review-${index}`}
               result={summaries.liveReview}
+              screenshots={summaries.liveReviewScreenshots}
             />
           ) : null;
         }
@@ -223,7 +225,9 @@ export function CompactToolParts({
           replyPrompt.options.length > 0;
         const isRealEnvKey = (value: string) => /^[A-Z][A-Z0-9_]+$/.test(value.trim());
         const realEnvKeys = dedupeStrings((integrationSummary?.envKeys ?? []).filter(isRealEnvKey));
-        const realCardEnvKeys = dedupeStrings((integrationCard?.envKeys ?? []).filter(isRealEnvKey));
+        const realCardEnvKeys = dedupeStrings(
+          (integrationCard?.envKeys ?? []).filter(isRealEnvKey),
+        );
         const projectEnvKeys = dedupeStrings([...realEnvKeys, ...realCardEnvKeys]);
 
         return (
@@ -233,7 +237,9 @@ export function CompactToolParts({
           >
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 truncate text-sm font-medium">{toolTitle}</div>
-              <span className="text-muted-foreground shrink-0 text-xs">{getToolStateLabel(toolState)}</span>
+              <span className="text-muted-foreground shrink-0 text-xs">
+                {getToolStateLabel(toolState)}
+              </span>
             </div>
             {replyPrompt ? (
               !suppressQuickActions && !hasUserAfterCurrentMessage ? (
@@ -246,7 +252,7 @@ export function CompactToolParts({
                   )}
                 >
                   {requiresUserReply && (
-                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
+                    <p className="mb-1 text-xs font-semibold tracking-wide text-amber-200 uppercase">
                       Svar krävs
                     </p>
                   )}
@@ -334,7 +340,12 @@ export function CompactToolParts({
                 {summaries.serverRepair && (
                   <ServerRepairPanel variant="compact" {...summaries.serverRepair} />
                 )}
-                {summaries.liveReview && <LiveReviewRow result={summaries.liveReview} />}
+                {summaries.liveReview && (
+                  <LiveReviewRow
+                    result={summaries.liveReview}
+                    screenshots={summaries.liveReviewScreenshots}
+                  />
+                )}
               </>
             )}
             {isIntegrations ? (
