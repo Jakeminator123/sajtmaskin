@@ -99,6 +99,12 @@ export interface MergeGeneratedProjectFilesParams {
    * still has the scaffold `{ label, href, icon }` form. Ignored on follow-up.
    */
   routePlan?: RoutePlan | null;
+  /**
+   * Explicit full-redesign policy. Accepts intentional page shrinkage and
+   * structural replacement while leaving protected paths, package deep-merge,
+   * dossier verbatim policy, import repair and preflight checks intact.
+   */
+  allowStructuralReplacement?: boolean;
 }
 
 export interface MergeGeneratedProjectFilesResult {
@@ -373,6 +379,7 @@ export function mergeGeneratedProjectFiles({
   selectedDossiers,
   removedDossiers,
   routePlan,
+  allowStructuralReplacement = false,
 }: MergeGeneratedProjectFilesParams): MergeGeneratedProjectFilesResult {
   // B05: ids of the dossiers selected for THIS generation. Threaded into
   // checkCrossFileImports so the refuseDossierStubs gate only fires for an
@@ -410,14 +417,17 @@ export function mergeGeneratedProjectFiles({
   });
 
   if (hasMergeablePrevious) {
+    const preservePreviousStructure = !allowStructuralReplacement;
     const mergeResult = mergeVersionFilesWithWarnings(previousFiles!, generatedFiles, {
-      rejectSignificantShrinks: true,
-      rejectDroppedStructuralElements: true,
+      rejectSignificantShrinks: preservePreviousStructure,
+      rejectDroppedStructuralElements: preservePreviousStructure,
     });
     const mergedFiles = mergeResult.files;
-    const rejectedShrinks = mergeResult.warnings
-      .filter((w) => w.type === "significant-shrink")
-      .map((w) => ({ file: w.file, previousSize: w.previousSize, newSize: w.newSize }));
+    const rejectedShrinks = preservePreviousStructure
+      ? mergeResult.warnings
+          .filter((w) => w.type === "significant-shrink")
+          .map((w) => ({ file: w.file, previousSize: w.previousSize, newSize: w.newSize }))
+      : [];
     const rejectedStructural = mergeResult.warnings
       .filter((w) => w.type === "structural-elements-dropped")
       .map((w) => ({
@@ -429,6 +439,13 @@ export function mergeGeneratedProjectFiles({
         type: "merge-warnings",
         chatId,
         warnings: mergeResult.warnings,
+      });
+    }
+    if (allowStructuralReplacement) {
+      devLogAppend("in-progress", {
+        type: "merge-preservation-guards-relaxed",
+        chatId,
+        reason: "explicit-redesign",
       });
     }
     if (rejectedStructural.length > 0) {

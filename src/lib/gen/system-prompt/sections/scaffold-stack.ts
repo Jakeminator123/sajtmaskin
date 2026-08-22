@@ -17,6 +17,7 @@ export function renderScaffoldVariantBlock(
   effectiveVariant: ScaffoldVariant | null | undefined,
   options?: {
     compact?: boolean;
+    allowCompositionReplacement?: boolean;
   },
 ): string[] {
   if (!effectiveVariant) return [];
@@ -49,10 +50,13 @@ export function renderScaffoldVariantBlock(
     );
     return compactLines;
   }
+  const variantAuthority = options?.allowCompositionReplacement
+    ? "> **These are visual reference points, not a contract.** Adapt spacing, ordering, tone, section composition, and UI component choices freely when it improves the result or better fits the user's brief. Keep declared routes, working imports, accessibility, and runtime contracts intact. The starter's section order, layout pattern, and component mix are not load-bearing."
+    : "> **These are visual reference points inside the scaffold's structural baseline.** Refine spacing, tone, and micro-details while keeping declared routes, section responsibilities, component vocabulary, working imports, accessibility, and runtime contracts intact.";
   const parts: string[] = [
     "## Scaffold Variant (this generation)",
     "",
-    "> **These are visual reference points, not a contract.** Adapt spacing, ordering, tone, and micro-details freely when it improves the result or better fits the user's brief. Keep the scaffold's route structure and component vocabulary intact — those remain load-bearing.",
+    variantAuthority,
     "",
     `- **Variant:** ${effectiveVariant.label} (\`${effectiveVariant.id}\`)`,
     `- **Scaffold:** \`${effectiveVariant.scaffoldId}\``,

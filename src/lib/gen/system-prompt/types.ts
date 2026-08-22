@@ -129,6 +129,8 @@ export interface DynamicContextOptions {
   customInstructions?: string;
   /** Raw user prompt text — used for domain/motion/quality inference. */
   userPrompt?: string;
+  /** Scaffold serialization policy resolved by orchestration for this generation. */
+  scaffoldSerializeMode?: "inspirational" | "structural" | null;
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
   /**

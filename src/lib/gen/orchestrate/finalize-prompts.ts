@@ -266,6 +266,7 @@ export async function finalizeOrchestrationPrompts(
     buildSpec: base.buildSpec,
     customInstructions,
     userPrompt: input.prompt,
+    scaffoldSerializeMode: base.serializeMode,
     generationMode: resolvedMode,
     importedRepoMode: input.importedRepoMode === true,
     importedRepoContractContext: input.importedRepoContractContext,

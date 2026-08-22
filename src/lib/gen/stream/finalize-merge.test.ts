@@ -118,6 +118,136 @@ function makeDossier(
   } as unknown as DossierEntry;
 }
 
+describe("follow-up merge preservation policy", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("keeps shrink and structural guards on for ordinary follow-ups", () => {
+    const previousFiles = [
+      {
+        path: "app/page.tsx",
+        content: `export default function Page() { return <main><form>${"old".repeat(300)}</form></main>; }`,
+        language: "tsx" as const,
+      },
+    ];
+    const generatedFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <main>Small edit</main>; }",
+        language: "tsx" as const,
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "ordinary-follow-up",
+      originalFilesJson: JSON.stringify(generatedFiles),
+      generatedFiles,
+      resolvedScaffold: makeScaffold(),
+      previousFiles,
+    });
+
+    const merged = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    expect(result.rejectedShrinks).toHaveLength(1);
+    expect(merged.find((file) => file.path === "app/page.tsx")?.content).toBe(
+      previousFiles[0]!.content,
+    );
+  });
+
+  it("accepts intentional shrink and element replacement on explicit redesign", () => {
+    const previousFiles = [
+      {
+        path: "app/page.tsx",
+        content: `export default function Page() { return <main><form>${"old".repeat(300)}</form></main>; }`,
+        language: "tsx" as const,
+      },
+    ];
+    const redesignedContent =
+      "export default function Page() { return <main data-layout='editorial'>New composition</main>; }";
+    const generatedFiles = [
+      {
+        path: "app/page.tsx",
+        content: redesignedContent,
+        language: "tsx" as const,
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "explicit-redesign",
+      originalFilesJson: JSON.stringify(generatedFiles),
+      generatedFiles,
+      resolvedScaffold: makeScaffold(),
+      previousFiles,
+      allowStructuralReplacement: true,
+    });
+
+    const merged = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    expect(result.rejectedShrinks).toEqual([]);
+    expect(result.rejectedStructural).toEqual([]);
+    expect(merged.find((file) => file.path === "app/page.tsx")?.content).toBe(
+      redesignedContent,
+    );
+    expect(vi.mocked(devLogAppend)).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "merge-preservation-guards-relaxed",
+        reason: "explicit-redesign",
+      }),
+    );
+  });
+
+  it("only relaxes the structural-element guard for explicit redesign", () => {
+    const previousContent = `export default function Page() { return <main><form>Contact</form><section>${"old".repeat(120)}</section></main>; }`;
+    const replacementContent = `export default function Page() { return <main><section>${"new".repeat(150)}</section></main>; }`;
+    const previousFiles = [
+      {
+        path: "app/page.tsx",
+        content: previousContent,
+        language: "tsx" as const,
+      },
+    ];
+    const generatedFiles = [
+      {
+        path: "app/page.tsx",
+        content: replacementContent,
+        language: "tsx" as const,
+      },
+    ];
+
+    const ordinary = mergeGeneratedProjectFiles({
+      chatId: "ordinary-structural-follow-up",
+      originalFilesJson: JSON.stringify(generatedFiles),
+      generatedFiles,
+      resolvedScaffold: makeScaffold(),
+      previousFiles,
+    });
+    const redesign = mergeGeneratedProjectFiles({
+      chatId: "redesign-structural-follow-up",
+      originalFilesJson: JSON.stringify(generatedFiles),
+      generatedFiles,
+      resolvedScaffold: makeScaffold(),
+      previousFiles,
+      allowStructuralReplacement: true,
+    });
+
+    const ordinaryFiles = JSON.parse(ordinary.filesJson) as Array<{ path: string; content: string }>;
+    const redesignFiles = JSON.parse(redesign.filesJson) as Array<{ path: string; content: string }>;
+    expect(ordinary.rejectedStructural).toEqual([
+      expect.objectContaining({
+        file: "app/page.tsx",
+        droppedElements: expect.arrayContaining([expect.objectContaining({ kind: "form" })]),
+      }),
+    ]);
+    expect(ordinaryFiles.find((file) => file.path === "app/page.tsx")?.content).toBe(
+      previousContent,
+    );
+    expect(redesign.rejectedStructural).toEqual([]);
+    expect(redesignFiles.find((file) => file.path === "app/page.tsx")?.content).toBe(
+      replacementContent,
+    );
+  });
+});
+
 describe("OMTAG 1·05 — scaffold-default blocking for app/page.tsx", () => {
   beforeEach(() => {
     vi.clearAllMocks();

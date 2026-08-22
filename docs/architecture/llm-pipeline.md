@@ -150,7 +150,11 @@ Typisk ordning i runtime:
    `safe_fixes_only` kan hoppa över verifiern när grundpolicyn redan säger
    `run`, men aldrig vid 3D-signal; `risky_fixes` behåller verifier-täckning.
 8. parse/merge applicerar scaffold-skydd, dossier verbatim policy och
-   follow-up-bevarande mot tidigare version.
+   follow-up-bevarande mot tidigare version. Vid explicit redesign
+   (`BuildSpec.changeScope = redesign`) får emitterade filer ersätta tidigare
+   struktur och krympa utan att shrink-/elementbevarandet återställer dem;
+   protected paths, package-merge, dossierpolicy, importkontroll och preflight
+   gäller fortfarande.
 9. preflight kontrollerar preview-/verification-blockers före persist.
 10. persist sparar assistant-rad, version, snapshot, preflight-loggar,
     telemetry (`meta.streamMs` = codegen-SSE wall-clock till finalize-start;
@@ -234,7 +238,11 @@ Follow-up är en deltaoperation. Standardläget är bevarande:
 
 Undantag: clear-redesign och explicita borttagningar. Briefvägen följer samma
 skillnad: vanliga uppföljningar återanvänder Snapshot-Brief; bara
-`clear-redesign` kör en ny Deep Brief, med tillåtelse att byta stil.
+`clear-redesign` kör en ny Deep Brief, med tillåtelse att byta stil. När prompten
+gäller hela projektet sätter intent + scope-signalerna också
+`BuildSpec.changeScope = redesign`, väljer inspirationsserialisering av
+scaffolden och släpper merge-vaktens shrink-/strukturlås för den rundan.
+Milda eller riktade stiländringar behåller låsen, liksom vanliga follow-ups.
 
 **En generation i taget tills versionen är kontrollerad.** Follow-up-send och
 versionsbyte väntar medan stream, verify eller repair pågår (`isInteractionLocked`

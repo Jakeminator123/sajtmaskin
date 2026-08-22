@@ -97,6 +97,41 @@ describe("buildDynamicContext", () => {
     expect(result.context).toContain("follow the brief");
   });
 
+  it.each([
+    {
+      mode: "structural" as const,
+      intent: "app" as const,
+      expected: "structural baseline",
+      absent: "component mix are not load-bearing",
+    },
+    {
+      mode: "inspirational" as const,
+      intent: "website" as const,
+      expected: "component mix are not load-bearing",
+      absent: "structural baseline",
+    },
+  ])("uses $mode variant authority for $intent generations", ({ mode, intent, expected, absent }) => {
+    const result = buildDynamicContext({
+      intent,
+      userPrompt: "Build a polished experience",
+      generationMode: "init",
+      scaffoldSerializeMode: mode,
+      resolvedVariant: {
+        id: "authority-test",
+        scaffoldId: "app-shell",
+        label: "Authority Test",
+        keywords: [],
+        fontPairings: [],
+        signatureMotif: "clear hierarchy",
+        colorMode: "light",
+        promptHints: [],
+      },
+    });
+
+    expect(result.context).toContain(expected);
+    expect(result.context).not.toContain(absent);
+  });
+
   it("keeps Brief-Locked Design Values before scaffold variant when token budget is tight", () => {
     const result = buildDynamicContext({
       intent: "website",
@@ -322,6 +357,7 @@ describe("buildDynamicContext", () => {
       userPrompt: "Gör om hela sajten i en mörk editorial stil",
       generationMode: "followUp",
       followUpIntent: "clear-redesign",
+      scaffoldSerializeMode: "inspirational",
       buildSpec: {
         buildIntent: "website",
         generationMode: "followUp",

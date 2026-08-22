@@ -129,13 +129,35 @@ function matchQualityPremiumKeyword(prompt: string): string | null {
   return null;
 }
 
+const FULL_PROJECT_REDESIGN_SCOPE_PATTERNS = [
+  /(?<![\p{L}\p{N}_])hela\s+(?:sajten|hemsidan|webbplatsen|projektet|appen|upplevelsen)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:whole|entire)\s+(?:site|website|project|app|experience)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:alla|varje)\s+(?:sidor|sektioner|skärmar)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:all|every)\s+(?:pages?|sections?|screens?)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:från\s+grunden|from\s+scratch|start\s+over|helt\s+ny\s+riktning)(?![\p{L}\p{N}_])/iu,
+];
+
+const TARGETED_REDESIGN_SCOPE_PATTERNS = [
+  /(?<![\p{L}\p{N}_])(?:hero(?:n|[-\s]?sektionen)?|header(?:n)?|footer(?:n)?|navbar|navigation(?:en)?|meny(?:n)?|logo(?:typen)?|knapp(?:en|ar|arna)?|buttons?)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:tema(?:t)?|themes?|bakgrund(?:en)?|backgrounds?|färgschema(?:t)?|colou?r\s+scheme|palett(?:en)?|palette|font(?:en|er|erna)?|typografi(?:n)?)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:sektion(?:en|er|erna)?|sections?|komponent(?:en|er|erna)?|components?)(?![\p{L}\p{N}_])/iu,
+];
+
+function isTargetedRedesignPrompt(prompt: string): boolean {
+  if (FULL_PROJECT_REDESIGN_SCOPE_PATTERNS.some((pattern) => pattern.test(prompt))) {
+    return false;
+  }
+  return TARGETED_REDESIGN_SCOPE_PATTERNS.some((pattern) => pattern.test(prompt));
+}
+
 export function inferChangeScope(params: {
   prompt: string;
   generationMode: BuildSpecGenerationMode;
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
+  followUpIntent?: FollowUpIntentMode | null;
 }): BuildSpecChangeScope {
-  const { prompt, generationMode, routePlan, preGenerationContracts } = params;
+  const { prompt, generationMode, routePlan, preGenerationContracts, followUpIntent } = params;
   const integrationCount = preGenerationContracts.contracts.integrations.length;
   const promptLower = prompt.toLowerCase();
 
@@ -161,7 +183,17 @@ export function inferChangeScope(params: {
     if (includesAny(COPY_PATTERNS, promptLower)) return "copy";
     return "local-layout";
   }
-  if (includesAny(REDESIGN_PATTERNS, promptLower)) return "redesign";
+  const targetedRedesign = isTargetedRedesignPrompt(prompt);
+  // The server classifier deliberately treats mild style requests such as
+  // "byt till mörkt tema" as clear-redesign so variants may be rematched.
+  // BuildSpec must keep those edits local: only project-wide redesigns may
+  // select inspirational scaffold context and relax merge preservation.
+  if (followUpIntent === "clear-redesign") {
+    return targetedRedesign ? "local-layout" : "redesign";
+  }
+  if (includesAny(REDESIGN_PATTERNS, promptLower)) {
+    return targetedRedesign ? "local-layout" : "redesign";
+  }
   if (
     integrationCount > 0 &&
     includesAny(INTEGRATION_PATTERNS, promptLower)

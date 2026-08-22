@@ -11,6 +11,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { InferredCapabilities } from "../capability-inference";
 import type { PreGenerationContractContext } from "../contract/pre-generation-contracts";
+import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import type { RoutePlan } from "../route-plan";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import {
@@ -76,6 +77,12 @@ type DeriveBuildSpecParams = {
    */
   scaffoldUnlockedForMatch?: boolean;
   /**
+   * Server-classified follow-up intent. This extends BuildSpec's smaller
+   * deterministic redesign vocabulary while scope inference still keeps
+   * targeted style edits (theme, hero, background) local.
+   */
+  followUpIntent?: FollowUpIntentMode | null;
+  /**
    * Optional input-context capacity (in tokens) of the model that will
    * actually consume this generation. When provided, `tokenBudgets` are
    * scaled relative to a 200k baseline so a 1M-window model can use a
@@ -108,6 +115,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     existingShellRoutePaths,
     previewPolicyOverride,
     scaffoldUnlockedForMatch,
+    followUpIntent = null,
     modelContextWindowTokens,
     complexityHint = null,
   } = params;
@@ -128,6 +136,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     generationMode,
     routePlan,
     preGenerationContracts,
+    followUpIntent,
   });
   const previewPolicy = previewPolicyOverride ?? inferPreviewPolicy();
   const qualityTarget = inferQualityTarget({

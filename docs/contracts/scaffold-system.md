@@ -163,10 +163,15 @@ Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRo
 
 | Mode            | Triggas av                           | Vad som injiceras                                                                                                               |
 | --------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `inspirational` | `init` + INTE heavy contextPolicy    | Filträd + layout/theme-filer. "Invent a unique page flow."                                                                      |
-| `structural`    | `followUp` ELLER heavy contextPolicy | Filträd + kritiska filer renderade per **Scaffold Contract V2** (full/excerpt/signature). Modellen följer scaffoldens baseline. |
+| `inspirational` | website-init, lätt app-init eller explicit helprojekts-redesign | Filträd + layout/theme-filer. "Invent a unique page flow."                                                                      |
+| `structural`    | vanlig follow-up eller app-init med heavy contextPolicy       | Filträd + kritiska filer renderade per **Scaffold Contract V2** (full/excerpt/signature). Modellen följer scaffoldens baseline. |
 
-`detectScaffoldMode()` med kreativa nyckelord finns men **anropas inte i production**. Mode bestäms mekaniskt i `orchestrate.ts`.
+`contextPolicy` styr fortfarande hur stor Dynamic Context-budget rundan får.
+För website-init är `heavy` däremot inte längre ett visuellt lås: en 3D-,
+premium- eller integrationssignal kan behöva mer kontext utan att startsidans
+sektioner och komponentmix ska ärvas från scaffolden.
+
+`detectScaffoldMode()` med kreativa nyckelord finns men **anropas inte i production**. Mode bestäms mekaniskt i `resolve-base.ts`.
 
 `selectCriticalScaffoldFiles()` prioriterar baserat på kritiska patterns + route-relevans + capability-relevans. Rangordningen i `CRITICAL_PATH_PATTERNS` sätter nästlade route-filer (`app/blog/page.tsx`, nästlad `layout.tsx`) **över** generiska `components/**`, och statiska routes över dynamiska (`[slug]`) — route-sidor är `llm-owned`/`mustEmit`, så en struken sida blir en sida modellen aldrig skriver.
 

@@ -34,7 +34,7 @@ import { buildRoutePlan, collectExplicitRouteRemovals, normalizeRoutePath } from
 import type { PlannedRoute } from "../route-plan";
 import { inferPreGenerationContracts } from "../contract/pre-generation-contracts";
 import { buildOrchestrationContract } from "../orchestration-contract";
-import { deriveBuildSpec } from "../build-spec";
+import { deriveBuildSpec, type BuildSpec } from "../build-spec";
 import { estimateCharsForTokens } from "../tokens";
 import { FEATURES } from "@/lib/config";
 import {
@@ -81,6 +81,29 @@ function routeNameForRestoredPath(path: string, buildIntent: BuildIntent): strin
     .join(" ")
     .trim();
   return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Route";
+}
+
+/**
+ * Select how much scaffold implementation detail reaches codegen.
+ *
+ * Website init keeps the scaffold as an inspirational file/runtime baseline,
+ * even when a premium/3D capability needs a heavy *context budget*. Heavy
+ * context is a budget decision, not evidence that a marketing site should
+ * inherit the starter's visual composition. Complex app init retains the
+ * structural contracts it needs. Normal follow-ups remain conservative;
+ * explicit redesigns are intentionally allowed to recompose the project.
+ */
+export function resolveScaffoldSerializeMode(
+  buildSpec: Pick<BuildSpec, "generationMode" | "changeScope" | "buildIntent" | "contextPolicy">,
+): "inspirational" | "structural" {
+  if (buildSpec.generationMode === "followUp" && buildSpec.changeScope === "redesign") {
+    return "inspirational";
+  }
+  if (buildSpec.generationMode === "followUp") return "structural";
+  if (buildSpec.buildIntent === "app" && buildSpec.contextPolicy === "heavy") {
+    return "structural";
+  }
+  return "inspirational";
 }
 
 /**
@@ -620,6 +643,7 @@ export async function resolveOrchestrationBase(
     isFirstCodeGeneration: input.isFirstCodeGeneration,
     existingShellRoutePaths,
     scaffoldUnlockedForMatch: ignorePersistedScaffoldForMatch,
+    followUpIntent: input.followUpIntent ?? null,
     previewPolicyOverride:
       input.lifecycleStage === "integrations" ? "fidelity3" : undefined,
     // Q5a (2026-04-21): scale token budgets based on the resolved
@@ -643,10 +667,7 @@ export async function resolveOrchestrationBase(
   let scaffoldContext: string | undefined;
   let resolvedSerializeMode: "inspirational" | "structural" | null = null;
   if (resolvedScaffold) {
-    resolvedSerializeMode =
-      resolvedMode === "followUp" || buildSpec.contextPolicy === "heavy"
-        ? "structural"
-        : "inspirational";
+    resolvedSerializeMode = resolveScaffoldSerializeMode(buildSpec);
     const scaffoldBudgetChars =
       buildSpec.tokenBudgets.scaffoldChars ??
       estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);

@@ -231,6 +231,7 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
   parts.push(
     ...renderScaffoldVariantBlock(effectiveVariant, {
       compact: compactFollowUpContext,
+      allowCompositionReplacement: options.scaffoldSerializeMode === "inspirational",
     }),
   );
   if (!compactFollowUpContext) {

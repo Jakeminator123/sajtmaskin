@@ -41,6 +41,27 @@ describe("renderScaffoldVariantBlock — compact follow-up form", () => {
 });
 
 describe("renderScaffoldVariantBlock — theme token CSS contract", () => {
+  it("keeps component preservation in structural mode", () => {
+    const variant = getVariantById("landing-page", "corporate-grid");
+    if (!variant) throw new Error("corporate-grid variant not registered");
+
+    const full = renderScaffoldVariantBlock(variant).join("\n");
+    expect(full).toContain("structural baseline");
+    expect(full).toContain("component vocabulary");
+    expect(full).not.toContain("component mix are not load-bearing");
+  });
+
+  it("frees composition only when the scaffold is inspirational", () => {
+    const variant = getVariantById("landing-page", "corporate-grid");
+    if (!variant) throw new Error("corporate-grid variant not registered");
+
+    const full = renderScaffoldVariantBlock(variant, {
+      allowCompositionReplacement: true,
+    }).join("\n");
+    expect(full).toContain("declared routes, working imports, accessibility, and runtime contracts");
+    expect(full).toContain("component mix are not load-bearing");
+    expect(full).not.toContain("component vocabulary intact");
+  });
   it("tells the model to write --color-* tokens into @theme inline", () => {
     const variant = getVariantById("landing-page", "futuristic-investment-landing");
     if (!variant) throw new Error("futuristic-investment-landing not registered");

@@ -162,6 +162,9 @@ export async function runPreflightPhase(params: {
     }>
   ).map((f) => ({ ...f, language: f.language || "tsx" }));
 
+  const allowStructuralReplacement =
+    buildSpec?.generationMode === "followUp" && buildSpec.changeScope === "redesign";
+
   const mergeResult = mergeGeneratedProjectFiles({
     chatId,
     originalFilesJson: filesJson,
@@ -171,6 +174,7 @@ export async function runPreflightPhase(params: {
     selectedDossiers,
     removedDossiers,
     routePlan,
+    allowStructuralReplacement,
   });
   filesJson = mergeResult.filesJson;
   let rejectedShrinks = mergeResult.rejectedShrinks;
@@ -373,6 +377,7 @@ export async function runPreflightPhase(params: {
         selectedDossiers,
         removedDossiers,
         routePlan,
+        allowStructuralReplacement,
       });
       filesJson = remergeResult.filesJson;
       // Concat shrink/structural rejections from the remerge so the SSE
