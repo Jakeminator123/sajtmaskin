@@ -88,8 +88,8 @@ try{var stored=window.sessionStorage.getItem(storageKey);if(!viewer&&viewerPatte
 if(!viewer){var uuid=window.crypto&&typeof window.crypto.randomUUID==="function"?window.crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,function(token){var random=Math.floor(Math.random()*16);return(token==="x"?random:(random&3)|8).toString(16)});viewer="smv_"+uuid;}
 try{window.sessionStorage.setItem(storageKey,viewer)}catch(_){}
 var cleanupParams=${JSON.stringify(PREVIEW_BROWSER_CLEANUP_QUERY_PARAMS)};var hadHostParams=cleanupParams.some(function(name){return pageUrl.searchParams.has(name)});cleanupParams.forEach(function(name){pageUrl.searchParams.delete(name)});if(hadHostParams){window.history.replaceState(window.history.state,"",pageUrl.pathname+pageUrl.search+pageUrl.hash)}
-try{appOrigin=new URL(appOrigin).origin}catch(_){appOrigin=""}
-function postRouteChange(){try{if(window.parent===window||!previewSessionId||!versionId||!viewer)return;window.parent.postMessage({type:"sajtmaskin:preview:route-change",source:"sajtmaskin-preview-host",payload:{href:window.location.href,previewSessionId:previewSessionId,versionId:versionId,viewerId:viewer}},appOrigin||"*")}catch(_){} }
+try{var parsedAppOrigin=new URL(appOrigin);appOrigin=/^https?:$/.test(parsedAppOrigin.protocol)&&parsedAppOrigin.origin!=="null"?parsedAppOrigin.origin:""}catch(_){appOrigin=""}
+function postRouteChange(){try{if(window.parent===window||!appOrigin||!previewSessionId||!versionId||!viewer)return;window.parent.postMessage({type:"sajtmaskin:preview:route-change",source:"sajtmaskin-preview-host",payload:{href:window.location.href,previewSessionId:previewSessionId,versionId:versionId,viewerId:viewer}},appOrigin)}catch(_){} }
 function wrapHistory(name){var native=window.history&&window.history[name];if(typeof native!=="function")return;window.history[name]=function(){var result=native.apply(this,arguments);postRouteChange();return result}}
 wrapHistory("pushState");wrapHistory("replaceState");
 if(typeof window.addEventListener==="function"){window.addEventListener("popstate",postRouteChange);window.addEventListener("hashchange",postRouteChange)}

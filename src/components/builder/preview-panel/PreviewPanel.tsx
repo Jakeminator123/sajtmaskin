@@ -691,30 +691,6 @@ export function PreviewPanel({
     if (previewUrl) window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
 
-  const handleNavigateRoute = useCallback(
-    (route: string) => {
-      if (!previewUrl) return;
-      const nextUrl = isOwnEnginePreview
-        ? buildOwnEngineRoutePreviewUrl(previewUrl, route)
-        : buildExternalRoutePreviewUrl(previewUrl, route);
-      if (!nextUrl || nextUrl === previewUrl) return;
-      // Single reload owner: the parent updates `previewUrl`, whose prop
-      // change rewrites the iframe src (one load). The previous imperative
-      // `iframe.src = …` here raced that prop-driven write and double-loaded
-      // the preview on every page-tab click.
-      onNavigatePreviewUrl?.(nextUrl);
-      setIframeError(false);
-      setIframeErrorMessage(null);
-    },
-    [
-      previewUrl,
-      isOwnEnginePreview,
-      onNavigatePreviewUrl,
-      setIframeError,
-      setIframeErrorMessage,
-    ],
-  );
-
   const { pageOpBusy, handleAddPage, handleRemovePage } = usePreviewPanelPageActions({
     chatId,
     versionId,
@@ -798,6 +774,49 @@ export function PreviewPanel({
       return null;
     }
   }, [observedPreviewRoute, previewUrl, isOwnEnginePreview]);
+
+  const handleNavigateRoute = useCallback(
+    (route: string) => {
+      if (!previewUrl) return;
+      const nextUrl = isOwnEnginePreview
+        ? buildOwnEngineRoutePreviewUrl(previewUrl, route)
+        : buildExternalRoutePreviewUrl(previewUrl, route);
+      if (!nextUrl) return;
+      if (nextUrl === previewUrl) {
+        // The controlled URL can still differ from the iframe's live URL after
+        // an in-frame SPA transition. Selecting the controlled route again
+        // must therefore reload its existing, fully decorated src exactly once
+        // (including viewer/inspect metadata) instead of becoming a React
+        // state no-op. When the bridge already reports this route, no reload is
+        // needed.
+        if (!observedPreviewRoute || observedPreviewRoute === route) return;
+        const iframe = iframeRef.current;
+        const controlledSrc = iframe?.getAttribute("src");
+        if (!iframe || !controlledSrc) return;
+        iframe.setAttribute("src", controlledSrc);
+        setIframeLoading(true);
+        setIframeError(false);
+        setIframeErrorMessage(null);
+        return;
+      }
+      // Single reload owner: the parent updates `previewUrl`, whose prop
+      // change rewrites the iframe src (one load). The previous imperative
+      // `iframe.src = …` here raced that prop-driven write and double-loaded
+      // the preview on every page-tab click.
+      onNavigatePreviewUrl?.(nextUrl);
+      setIframeError(false);
+      setIframeErrorMessage(null);
+    },
+    [
+      previewUrl,
+      isOwnEnginePreview,
+      observedPreviewRoute,
+      onNavigatePreviewUrl,
+      setIframeLoading,
+      setIframeError,
+      setIframeErrorMessage,
+    ],
+  );
 
   const handleIframeError = useCallback(() => {
     clearPreviewReadyTimer();

@@ -571,6 +571,7 @@ async function executePreviewBootstrap({
   browserUrl,
   sessionStorage,
   mintedUuid,
+  appOriginOverride,
 }) {
   const tag = extractBootstrapTag(page.body);
   const bootstrapResponse = await rawGet(tag.bootstrapSrc);
@@ -607,7 +608,7 @@ async function executePreviewBootstrap({
         "data-chat-path": tag.chatPath,
         "data-preview-session-id": tag.previewSessionId,
         "data-version-id": tag.versionId,
-        "data-app-origin": tag.appOrigin,
+        "data-app-origin": appOriginOverride ?? tag.appOrigin,
         nonce: tag.nonce,
       }[name] ?? null;
     },
@@ -1122,6 +1123,20 @@ try {
       },
     },
   ], "bootstrap reports the initial cleaned route even when inspector injection is independent");
+  for (const invalidAppOrigin of ["", "not a URL", "data:text/plain,opaque"]) {
+    const failClosedBrowser = await executePreviewBootstrap({
+      page: viewerDecoratedPage,
+      browserUrl: `${hostBase}/${originSession.chatId}/products?__sm_viewer=${viewerA}`,
+      sessionStorage: new Map(),
+      mintedUuid: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      appOriginOverride: invalidAppOrigin,
+    });
+    assert.deepEqual(
+      failClosedBrowser.routeMessages,
+      [],
+      `bootstrap does not broadcast route identity for invalid app origin ${JSON.stringify(invalidAppOrigin)}`,
+    );
+  }
   assert.equal(
     firstBrowser.browserWindow.history.pushState({}, "", `/${originSession.chatId}/about?tab=team#lead`),
     "push-result",
