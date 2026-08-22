@@ -360,7 +360,7 @@ function CookieFlipCard({ onDone }: { onDone: () => void }) {
                 <button
                   type="button"
                   onClick={() => choose("accepted")}
-                  className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
                 >
                   Acceptera alla
                 </button>

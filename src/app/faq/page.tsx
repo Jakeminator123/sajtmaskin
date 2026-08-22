@@ -73,7 +73,7 @@ export default function FAQPage() {
             </Link>
           </Button>
           <Button
-            className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary/90"
+            className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover"
             asChild
           >
             <Link href="/builder?new=1">
@@ -117,7 +117,7 @@ export default function FAQPage() {
               </p>
               <div className="mt-6 space-y-3">
                 <Button
-                  className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary/90 w-full"
+                  className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover w-full"
                   asChild
                 >
                   <Link href="/builder?new=1">

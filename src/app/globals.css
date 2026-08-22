@@ -17,11 +17,13 @@
     --popover: 220 14% 12%;
     --popover-foreground: 0 0% 95%;
     --primary: 219 100% 60%;
+    --primary-hover: 219 100% 59%;
     /* WCAG 2 AA (dark-only tema): vit text på #337AFF gav bara 3.90:1 (< 4.5:1
        för normalstor text). Mörk text (samma ton som --background/--accent-foreground)
        ger 4.85:1. Brand-blå --primary lämnas medvetet oförändrad — text-primary
        på mörk bakgrund (4.85:1) används i ~67 filer och får inte försämras.
-       Låst av src/app/globals-token-contrast.test.ts. */
+       Opaque --primary-hover bevarar samma AA-kontrakt i hoverläge utan att
+       bero på underliggande yta. Låst av globals-token-contrast.test.ts. */
     --primary-foreground: 220 16% 7%;
     --secondary: 220 14% 11%;
     --secondary-foreground: 0 0% 95%;

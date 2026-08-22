@@ -12,6 +12,8 @@
  * Testet läser tokens direkt ur globals.css och räknar WCAG-ration
  * dependency-fritt (hsl -> sRGB -> relativ luminans), så en framtida
  * token-ändring som återinför felet blir röd här.
+ * Opaque --primary-hover låses separat eftersom den tidigare 90 %-alfan
+ * blandades mot mörka ytor och sänkte normaltextens hover-kontrast under AA.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -70,8 +72,23 @@ describe("globals.css token-kontrast (WCAG 2 AA)", () => {
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 
+  it("--primary-foreground på --primary-hover håller >= 4.5:1 (Button hover, text-sm)", () => {
+    const primaryHover = readHslToken(css, "primary-hover");
+    const primaryFg = readHslToken(css, "primary-foreground");
+    const ratio = contrastRatio(
+      relativeLuminance(hslToRgb(primaryHover.h, primaryHover.s, primaryHover.l)),
+      relativeLuminance(hslToRgb(primaryFg.h, primaryFg.s, primaryFg.l))
+    );
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("brand-blå --primary är oförändrad (ägarbeslut: text-primary på mörk bakgrund i ~67 filer)", () => {
     const primary = readHslToken(css, "primary");
     expect(primary).toEqual({ h: 219, s: 1, l: 0.6 });
+  });
+
+  it("--primary-hover är den AA-testade opaka hovernyansen", () => {
+    const primaryHover = readHslToken(css, "primary-hover");
+    expect(primaryHover).toEqual({ h: 219, s: 1, l: 0.59 });
   });
 });
