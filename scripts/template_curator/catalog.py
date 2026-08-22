@@ -453,6 +453,12 @@ def parse_addenda_registry(value: object) -> Mapping[str, AddendumRecord]:
         extractor_sha: str | None = None
         if "extractorSha256" in row:
             raw_extractor_sha = row["extractorSha256"]
+            # JSON null must not pass as "omitted". Schema and Zod require the
+            # key to be absent on disabled rows; treat null as present-and-invalid.
+            if raw_extractor_sha is None:
+                raise CatalogValidationError(
+                    f"{label}.extractorSha256 must be omitted, not null"
+                )
             if not isinstance(raw_extractor_sha, str) or not _SHA256_RE.fullmatch(
                 raw_extractor_sha
             ):
@@ -471,8 +477,17 @@ def parse_addenda_registry(value: object) -> Mapping[str, AddendumRecord]:
             _validate_reference(reference, f"{label}.structuralReferences[{ref_index}]")
             for ref_index, reference in enumerate(references_raw)
         )
-        if review_status == "disabled" and references:
-            raise CatalogValidationError(f"{label}: disabled addenda must be empty")
+        if review_status == "disabled":
+            if extractor_sha is not None:
+                raise CatalogValidationError(
+                    f"{label}: disabled addenda must not include extractorSha256"
+                )
+            if references:
+                raise CatalogValidationError(f"{label}: disabled addenda must be empty")
+        elif extractor_sha is None:
+            raise CatalogValidationError(
+                f"{label}: generated and reviewed addenda require extractorSha256"
+            )
         paths = [reference.path.lower() for reference in references]
         if len(paths) != len(set(paths)):
             raise CatalogValidationError(f"{label}: duplicate structural reference path")
