@@ -256,7 +256,7 @@ export function LandingHero({
                 )}
                 <Button
                   size="icon"
-                  className="h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25"
+                  className="h-9 w-9 rounded-full bg-primary hover:bg-primary-hover text-primary-foreground shadow-lg shadow-primary/25"
                   aria-label="Skicka"
                   disabled={isSubmitting || (isAuditMode && currentAuditUrl.trim().length === 0)}
                   onClick={() => {
