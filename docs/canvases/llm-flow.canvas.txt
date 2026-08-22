@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "d82a977d5",
+    "commit": "c89063db2",
     "commitDate": "2026-08-22",
     "sinceDays": 14
   },
@@ -72,7 +72,7 @@ const DATA: CanvasData = {
     "openP0": 0,
     "openP1": 2,
     "openP2": 11,
-    "openP3": 5,
+    "openP3": 4,
     "blocked": 1,
     "shaky": 3,
     "evalExactHitPct": null
@@ -151,17 +151,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 6,
+      "openBugs": 5,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 2,
-        "P3": 4,
+        "P3": 3,
         "other": 0
       },
       "churn": 45,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
-      "note": "6 oppna backlog-rader (P0:0 P1:0 P2:2 P3:4)"
+      "note": "5 oppna backlog-rader (P0:0 P1:0 P2:2 P3:3)"
     },
     {
       "name": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
@@ -185,15 +185,15 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 12,
+      "openBugs": 11,
       "openByPrio": {
         "P0": 0,
         "P1": 2,
         "P2": 7,
-        "P3": 3,
+        "P3": 2,
         "other": 0
       },
-      "churn": 21,
+      "churn": 22,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-007` **Domänköpets restlista är en releasegrind, inte en aktiv incident:** tolv fynd …"
     },
@@ -226,7 +226,7 @@ const DATA: CanvasData = {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "6 oppna backlog-rader (P0:0 P1:0 P2:2 P3:4)"
+      "reason": "5 oppna backlog-rader (P0:0 P1:0 P2:2 P3:3)"
     },
     {
       "name": "ai_models",

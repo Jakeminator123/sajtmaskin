@@ -371,21 +371,17 @@ export function VersionHistory({
                     }
                 : baseLifecycleBadge;
             const qualityTierLabel =
-              qualityTier === "production"
-                ? "Verify-lane OK"
-                : qualityTier === "tier2"
-                  ? "Live-preview startad"
-                  : qualityTier === "preview"
-                    ? "Preview-URL finns"
-                    : null;
+              qualityTier === "tier2"
+                ? "Live-preview startad"
+                : qualityTier === "preview"
+                  ? "Preview-URL finns"
+                  : null;
             const qualityTierBadgeClass =
-              qualityTier === "production"
-                ? "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300"
-                : qualityTier === "tier2"
-                  ? "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                  : qualityTier === "preview"
-                    ? "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300"
-                    : undefined;
+              qualityTier === "tier2"
+                ? "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                : qualityTier === "preview"
+                  ? "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300"
+                  : undefined;
             const verificationBadge =
               verifiedForRow
                 ? {
