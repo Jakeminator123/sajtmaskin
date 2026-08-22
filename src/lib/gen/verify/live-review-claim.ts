@@ -103,7 +103,7 @@ export function decideLiveReviewClaim(
     if (existing.modelAttempts >= LIVE_REVIEW_MAX_MODEL_ATTEMPTS) {
       return existing.result
         ? { kind: "cost_capped", result: existing.result }
-        : { kind: "in_flight" };
+        : { kind: "takeover" };
     }
     return { kind: "takeover" };
   }

@@ -300,7 +300,7 @@ describe("finishLiveReviewSession", () => {
     );
     expect(result.status).toBe("completed");
     expect(deletePreviousBlobs).not.toHaveBeenCalled();
-    expect(abandonRun).toHaveBeenCalledWith("lr_1");
+    expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
     expect(deleteScreenshotUrls).toHaveBeenCalled();
   });
 
@@ -339,7 +339,7 @@ describe("finishLiveReviewSession", () => {
     );
     expect(result).toEqual(skippedLiveReviewResult("postcheck_skipped"));
     expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
-    expect(abandonRun).toHaveBeenCalledWith("lr_1");
+    expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
   });
 
   it("startar inte critic om leasen redan tagits över", async () => {

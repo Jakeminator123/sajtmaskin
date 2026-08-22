@@ -29,6 +29,12 @@ let hydrateGeneration = 0;
 function enqueuePersistJob(job: PersistJob): void {
   persistQueue = persistQueue.filter((entry) => entry.chatId !== job.chatId);
   persistQueue.push(job);
+  hydrateGeneration += 1;
+}
+
+function chatHasPendingPersist(chatId: string): boolean {
+  if (persistTargetChatId === chatId) return true;
+  return persistQueue.some((job) => job.chatId === chatId);
 }
 
 /**
@@ -94,7 +100,7 @@ export async function hydrateOpenClawPowersForChat(
     if (!res.ok) return;
     if (generation !== hydrateGeneration) return;
     if (readActiveBuilderChatId() !== id) return;
-    if (persistTargetChatId === id && !opts?.allowDuringPersist) return;
+    if (chatHasPendingPersist(id) && !opts?.allowDuringPersist) return;
     const data = (await res.json().catch(() => null)) as {
       powersOn?: unknown;
       granted?: unknown;
@@ -102,7 +108,7 @@ export async function hydrateOpenClawPowersForChat(
     if (!data) return;
     if (generation !== hydrateGeneration) return;
     if (readActiveBuilderChatId() !== id) return;
-    if (persistTargetChatId === id && !opts?.allowDuringPersist) return;
+    if (chatHasPendingPersist(id) && !opts?.allowDuringPersist) return;
     const grantedPowers = sanitizeOpenClawPowerIds(data.granted) as OpenClawPowerId[];
     useOpenClawStore.getState().hydratePowers({
       powersOn: data.powersOn === true,

@@ -183,4 +183,35 @@ describe("persistOpenClawPowersForActiveChat", () => {
     expect(useOpenClawStore.getState().powersOn).toBe(false);
     expect(useOpenClawStore.getState().grantedPowers).toEqual([]);
   });
+
+  it("applicerar inte en GET som startade före en köad persist", async () => {
+    let releaseGet: (() => void) | undefined;
+    const getGate = new Promise<void>((resolve) => {
+      releaseGet = resolve;
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        return { ok: true, json: async () => ({}) };
+      }
+      const url = String(input);
+      if (url.includes("chatId=chat_1")) {
+        await getGate;
+        return {
+          ok: true,
+          json: async () => ({ powersOn: false, granted: [] }),
+        };
+      }
+      return { ok: false, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    useOpenClawStore.setState({ powersOn: true, grantedPowers: ["live_review"] });
+    const hydrate = hydrateOpenClawPowersForChat("chat_1");
+    await persistOpenClawPowersForActiveChat();
+    releaseGet?.();
+    await hydrate;
+
+    expect(useOpenClawStore.getState().powersOn).toBe(true);
+    expect(useOpenClawStore.getState().grantedPowers).toEqual(["live_review"]);
+  });
 });

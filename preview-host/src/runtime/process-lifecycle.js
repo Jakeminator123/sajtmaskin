@@ -43,6 +43,8 @@ const { withNoSpaceCleanupRetry } = require("./storage-cleanup.js");
 
 const READINESS_INTERVAL_MS = 1200;
 const READINESS_EMPTY_BODY_MIN_CHARS = 50;
+/** Per-attempt fetch abort. The connect-fail window is wall-clock; a 90s abort would double it. */
+const READINESS_FETCH_TIMEOUT_MS = 8000;
 
 /** Read at call time so guard tests can shrink the deadline without reloading the module. */
 function readinessMaxMs() {
@@ -390,8 +392,14 @@ async function waitForReady(url) {
   let firstEmptyBodyAt = null;
   let firstConnectFailAt = null;
   while (Date.now() < deadline) {
+    const remainingConnectMs =
+      firstConnectFailAt === null
+        ? connectFailMaxMsValue
+        : Math.max(1, connectFailMaxMsValue - (Date.now() - firstConnectFailAt));
+    const fetchTimeoutMs = Math.min(READINESS_FETCH_TIMEOUT_MS, remainingConnectMs);
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 90_000);
+    const tid = setTimeout(() => ctrl.abort(), fetchTimeoutMs);
+    const attemptStartedAt = Date.now();
     try {
       const res = await fetch(url, {
         method: "GET",
@@ -454,7 +462,7 @@ async function waitForReady(url) {
       // measures a CONTIGUOUS run of empty responses.
       firstEmptyBodyAt = null;
       lastError = err instanceof Error ? err.message : String(err);
-      if (firstConnectFailAt === null) firstConnectFailAt = Date.now();
+      if (firstConnectFailAt === null) firstConnectFailAt = attemptStartedAt;
       if (Date.now() - firstConnectFailAt >= connectFailMaxMsValue) {
         throw new Error(
           `Runtime never accepted HTTP within ${connectFailMaxMsValue}ms ` +
@@ -530,13 +538,45 @@ async function flushRuntimeOutputTail(tracked, previewSessionId, reason) {
   return tail;
 }
 
+function workspaceHasLiveTrackedChild(workspaceDir) {
+  const resolved = path.resolve(workspaceDir);
+  for (const tracked of runtimeChildren.values()) {
+    if (!tracked?.workspaceDir) continue;
+    if (path.resolve(tracked.workspaceDir) !== resolved) continue;
+    if (tracked.child?.exitCode === null) return true;
+  }
+  return false;
+}
+
+function readNextDevLockPid(lockPath) {
+  try {
+    const raw = fs.readFileSync(lockPath, "utf8").trim();
+    const pid = Number.parseInt(raw, 10);
+    return Number.isInteger(pid) && pid > 0 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+function isPidAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function clearStaleNextDevLock(workspaceDir) {
   if (!workspaceDir) return;
+  if (workspaceHasLiveTrackedChild(workspaceDir)) return;
   for (const lockPath of [
     path.join(workspaceDir, ".next", "dev", "lock"),
     path.join(workspaceDir, ".next", "lock"),
   ]) {
     try {
+      const pid = readNextDevLockPid(lockPath);
+      if (pid != null && isPidAlive(pid)) continue;
       fs.rmSync(lockPath, { force: true });
     } catch {
       // Best-effort: a missing or busy lock must not block spawn.
@@ -551,10 +591,20 @@ async function stopTrackedRuntime(sessionId, previewSessionId = null) {
   tracked.ignoreExit = true;
   // Hibernate/idle/restart used to drop the in-memory Next tail. Persist it
   // before SIGTERM so /preview/logs still explains a boot that never answered.
-  await flushRuntimeOutputTail(tracked, previewSessionId, "before stop");
+  // A store/log failure must not skip SIGTERM — the child would stay in
+  // runtimeChildren's former slot as an orphan.
+  try {
+    await flushRuntimeOutputTail(tracked, previewSessionId, "before stop");
+  } catch {
+    // keep stopping
+  }
   await stopChildProcessTree(tracked.child);
   if (previewSessionId) {
-    await appendRuntimeLog(previewSessionId, "Runtime stopped.");
+    try {
+      await appendRuntimeLog(previewSessionId, "Runtime stopped.");
+    } catch {
+      // stop already happened
+    }
   }
   return true;
 }
@@ -1246,6 +1296,8 @@ function setRuntimeStateForTesting(params) {
       port: params.runtimePort,
       chatId: params.chatId,
       previewSessionId: params.previewSessionId ?? "",
+      workspaceDir: params.workspaceDir ?? null,
+      recentOutput: Array.isArray(params.recentOutput) ? params.recentOutput : [],
       lastActivityAt: Number.isFinite(params.lastActivityAt) ? params.lastActivityAt : Date.now(),
       acceptingTraffic: params.acceptingTraffic !== false,
       bootId: Number.isFinite(params.bootId) ? params.bootId : nextRuntimeBootId++,
@@ -1283,6 +1335,7 @@ module.exports = {
   htmlLooksLikeBuildError,
   waitForReady,
   exposeRuntimeToClients,
+  clearStaleNextDevLock,
   stopTrackedRuntime,
   stopRuntimeForSession,
   bootRuntimeForSession,

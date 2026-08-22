@@ -84,6 +84,7 @@ async function applyExistingDecision(
         claimedAt: now,
         expiresAt: liveReviewExpiresAt(now),
         skipReason: null,
+        result: null,
       })
       .where(
         and(
@@ -208,12 +209,19 @@ export async function completeLiveReviewRun(input: {
   }
 }
 
-export async function abandonLiveReviewRun(id: string): Promise<void> {
+export async function abandonLiveReviewRun(
+  id: string,
+  claimedAt?: Date,
+): Promise<void> {
   if (!dbConfigured) return;
   try {
-    await db
-      .delete(liveReviewRuns)
-      .where(and(eq(liveReviewRuns.id, id), eq(liveReviewRuns.status, "running")));
+    await db.delete(liveReviewRuns).where(
+      and(
+        eq(liveReviewRuns.id, id),
+        eq(liveReviewRuns.status, "running"),
+        ...(claimedAt ? [eq(liveReviewRuns.claimedAt, claimedAt)] : []),
+      ),
+    );
   } catch (error) {
     console.warn(
       "[live-review-claim] abandon failed:",
@@ -357,6 +365,10 @@ export async function deleteLiveReviewScreenshotUrls(
   await Promise.all(targets.map((target) => deleteBlob(target).catch(() => false)));
 }
 
+function isRequiredBlobDeleteTarget(target: string): boolean {
+  return target.includes(".blob.vercel-storage.com");
+}
+
 async function deleteRunBlobs(row: LiveReviewRunRow): Promise<boolean> {
   const targets = [
     ...new Set(
@@ -366,10 +378,13 @@ async function deleteRunBlobs(row: LiveReviewRunRow): Promise<boolean> {
     ),
   ];
   if (targets.length === 0) return true;
-  const results = await Promise.all(
-    targets.map((target) => deleteBlob(target).catch(() => false)),
+  const required = targets.filter(isRequiredBlobDeleteTarget);
+  const optional = targets.filter((target) => !isRequiredBlobDeleteTarget(target));
+  const requiredResults = await Promise.all(
+    required.map((target) => deleteBlob(target).catch(() => false)),
   );
-  return results.every(Boolean);
+  await Promise.all(optional.map((target) => deleteBlob(target).catch(() => false)));
+  return requiredResults.every(Boolean);
 }
 
 export async function deletePreviousLiveReviewBlobs(input: {

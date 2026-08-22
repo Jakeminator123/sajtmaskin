@@ -188,7 +188,10 @@ export async function finishLiveReviewSession(
         result.reason === "cost_capped"));
   if (!paid) {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
-    await (deps.abandonRun ?? abandonLiveReviewRun)(session.claim.row.id);
+    await (deps.abandonRun ?? abandonLiveReviewRun)(
+      session.claim.row.id,
+      session.claim.row.claimedAt,
+    );
     return result;
   }
 
@@ -201,7 +204,10 @@ export async function finishLiveReviewSession(
 
   if (!persisted) {
     await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
-    await (deps.abandonRun ?? abandonLiveReviewRun)(session.claim.row.id);
+    await (deps.abandonRun ?? abandonLiveReviewRun)(
+      session.claim.row.id,
+      session.claim.row.claimedAt,
+    );
     return result;
   }
 

@@ -114,6 +114,33 @@ describe("decideLiveReviewClaim", () => {
     expect(pickPreviousLiveReviewRun([newerLower, olderHigher])).toEqual(olderHigher);
   });
 
+  it("tar över stale running vid taket när result saknas", () => {
+    const now = new Date("2026-08-21T00:10:00.000Z");
+    expect(
+      decideLiveReviewClaim(
+        row({
+          claimedAt: new Date(now.getTime() - LIVE_REVIEW_CLAIM_LEASE_MS),
+          modelAttempts: LIVE_REVIEW_MAX_MODEL_ATTEMPTS,
+          result: null,
+        }),
+        now,
+      ),
+    ).toEqual({ kind: "takeover" });
+    expect(
+      decideLiveReviewClaim(
+        row({
+          claimedAt: new Date(now.getTime() - LIVE_REVIEW_CLAIM_LEASE_MS),
+          modelAttempts: LIVE_REVIEW_MAX_MODEL_ATTEMPTS,
+          result: skippedLiveReviewResult("review_error"),
+        }),
+        now,
+      ),
+    ).toEqual({
+      kind: "cost_capped",
+      result: skippedLiveReviewResult("review_error"),
+    });
+  });
+
   it("stoppar fler betalda försök när taket är nått", () => {
     expect(
       decideLiveReviewClaim(

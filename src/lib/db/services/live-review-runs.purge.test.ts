@@ -39,8 +39,8 @@ const oldRow = {
   status: "completed",
   skipReason: null,
   result: null,
-  desktopUrl: "https://blob.example/old-d.jpg",
-  mobileUrl: "https://blob.example/old-m.jpg",
+  desktopUrl: "https://abc.blob.vercel-storage.com/old-d.jpg",
+  mobileUrl: "https://abc.blob.vercel-storage.com/old-m.jpg",
   desktopBlobPath: "user/projects/chat/media/old-d.jpg",
   mobileBlobPath: "user/projects/chat/media/old-m.jpg",
   modelAttempts: 1,
@@ -65,8 +65,8 @@ describe("deletePreviousLiveReviewBlobs", () => {
       keepFilesRevision: "rev_new",
     });
     expect(deleted).toBe(1);
-    expect(deleteBlob).toHaveBeenCalledWith("https://blob.example/old-d.jpg");
-    expect(deleteBlob).toHaveBeenCalledWith("https://blob.example/old-m.jpg");
+    expect(deleteBlob).toHaveBeenCalledWith("https://abc.blob.vercel-storage.com/old-d.jpg");
+    expect(deleteBlob).toHaveBeenCalledWith("https://abc.blob.vercel-storage.com/old-m.jpg");
     expect(updateWhere).toHaveBeenCalled();
   });
 
@@ -79,6 +79,19 @@ describe("deletePreviousLiveReviewBlobs", () => {
     });
     expect(deleted).toBe(0);
     expect(updateWhere).not.toHaveBeenCalled();
+  });
+
+  it("låter lokal path-delete misslyckas utan att fälla blob-URL som lyckades", async () => {
+    deleteBlob.mockImplementation(async (target?: unknown) =>
+      String(target ?? "").includes(".blob.vercel-storage.com"),
+    );
+    const deleted = await deletePreviousLiveReviewBlobs({
+      chatId: "chat_1",
+      keepVersionId: "v1",
+      keepFilesRevision: "rev_new",
+    });
+    expect(deleted).toBe(1);
+    expect(updateWhere).toHaveBeenCalled();
   });
 });
 
