@@ -265,6 +265,7 @@ export function PreviewPanel({
     setIframeDiagnosticCode,
     clearPreviewReadyTimer,
     handleIframeLoad,
+    reloadControlledPreview,
   } = usePreviewIframe({
     previewUrl,
     refreshToken,
@@ -789,13 +790,7 @@ export function PreviewPanel({
         // state no-op. When the bridge already reports this route, no reload is
         // needed.
         if (!observedPreviewRoute || observedPreviewRoute === route) return;
-        const iframe = iframeRef.current;
-        const controlledSrc = iframe?.getAttribute("src");
-        if (!iframe || !controlledSrc) return;
-        iframe.setAttribute("src", controlledSrc);
-        setIframeLoading(true);
-        setIframeError(false);
-        setIframeErrorMessage(null);
+        reloadControlledPreview();
         return;
       }
       // Single reload owner: the parent updates `previewUrl`, whose prop
@@ -811,7 +806,7 @@ export function PreviewPanel({
       isOwnEnginePreview,
       observedPreviewRoute,
       onNavigatePreviewUrl,
-      setIframeLoading,
+      reloadControlledPreview,
       setIframeError,
       setIframeErrorMessage,
     ],

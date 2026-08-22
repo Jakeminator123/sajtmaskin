@@ -29,11 +29,11 @@ const {
   queueRuntimeBoot,
 } = require("./process-lifecycle.js");
 
-// Inspector-bridge (opt-in): injicera bridge-scriptet i HTML-svar BARA när
-// klienten ber om det via `?inspect=1` OCH app-origin är konfigurerad. App-origin
-// tas medvetet från EGEN env (inte query) för att undvika injektionshål. Utan
-// env är injektionen helt inert → ingen beteendeförändring för dagens previews.
-const INSPECT_APP_ORIGIN = (process.env.SAJTMASKIN_APP_ORIGIN || "").trim().replace(/\/+$/, "");
+// Betrodd parent-origin för den alltid aktiva route-bryggan och den valfria
+// inspector-injektionen. Tas medvetet från hostens EGEN env (aldrig query).
+// Route-signalen fail-closar utan en konkret HTTP(S)-origin; Fly-kontraktet
+// sätter production-origin explicit i fly.toml.
+const APP_ORIGIN = (process.env.SAJTMASKIN_APP_ORIGIN || "").trim().replace(/\/+$/, "");
 const PREVIEW_VIEWER_QUERY_PARAM = "__sm_viewer";
 const PREVIEW_REFRESH_QUERY_PARAM = "__sm_refresh";
 const PREVIEW_INSPECT_QUERY_PARAM = "inspect";
@@ -467,13 +467,13 @@ function acceptAndHoldWebSocket(req, socket) {
  * aldrig från query — så ingen kan be oss injicera en godtycklig origin.
  */
 function inspectInjectionScriptSrc(search) {
-  if (!INSPECT_APP_ORIGIN) return null;
+  if (!APP_ORIGIN) return null;
   let qs = String(search || "");
   if (qs.startsWith("?")) qs = qs.slice(1);
   let on = false;
   try { on = new URLSearchParams(qs).get(PREVIEW_INSPECT_QUERY_PARAM) === "1"; } catch { on = false; }
   if (!on) return null;
-  return `${INSPECT_APP_ORIGIN}/api/inspect-bridge?parent=${encodeURIComponent(INSPECT_APP_ORIGIN)}`;
+  return `${APP_ORIGIN}/api/inspect-bridge?parent=${encodeURIComponent(APP_ORIGIN)}`;
 }
 
 /**
@@ -805,7 +805,7 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
         storageKey: `sajtmaskin:preview-viewer:${info.chatId}`,
         previewSessionId: state.session.previewSessionId,
         versionId: state.session.versionId,
-        appOrigin: INSPECT_APP_ORIGIN,
+        appOrigin: APP_ORIGIN,
         inspectEnabled: Boolean(inspectScriptSrc),
         initialViewerId: PREVIEW_VIEWER_ID_RE_MINTED.test(initialViewerId || "")
           ? initialViewerId

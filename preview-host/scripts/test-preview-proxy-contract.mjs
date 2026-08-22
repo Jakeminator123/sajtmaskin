@@ -102,6 +102,12 @@ function assertInstalledNextViewerContract() {
 }
 
 assertInstalledNextViewerContract();
+const flyConfig = readFileSync(new URL("../fly.toml", import.meta.url), "utf8");
+assert.match(
+  flyConfig,
+  /^\s*SAJTMASKIN_APP_ORIGIN\s*=\s*"https:\/\/sajtmaskin\.vercel\.app"\s*$/m,
+  "Fly deploy pins the exact trusted builder parent origin required by the route bridge",
+);
 if (NEXT_SOURCE_ONLY) {
   console.log("[test-preview-proxy-contract] Next source contract green.");
   process.exit(0);
@@ -1108,7 +1114,7 @@ try {
     "?category=boots&inspect=1",
     "inspect remains available across hard reload/MPA while upstream SSR stays clean",
   );
-  assert.deepEqual(firstBrowser.routeMessages, [
+  assert.deepEqual(JSON.parse(JSON.stringify(firstBrowser.routeMessages)), [
     {
       targetOrigin: "https://app.example",
       data: {

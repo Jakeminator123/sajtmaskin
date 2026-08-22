@@ -55,6 +55,15 @@ export function usePreviewIframe(params: {
     }
   }, []);
 
+  const armTier2LoadTimeout = useCallback(() => {
+    if (!previewUrl || isOwnEnginePreview || !isTier2LivePreviewUrl(previewUrl)) return;
+    if (tier2LoadTimerRef.current) window.clearTimeout(tier2LoadTimerRef.current);
+    tier2LoadTimerRef.current = window.setTimeout(() => {
+      tier2LoadTimerRef.current = null;
+      onPreviewSessionSuspect?.();
+    }, TIER2_LOAD_TIMEOUT_MS);
+  }, [isOwnEnginePreview, onPreviewSessionSuspect, previewUrl]);
+
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- clear diagnostic when error clears */
     if (!iframeError) setIframeDiagnosticCode(null);
@@ -82,14 +91,26 @@ export function usePreviewIframe(params: {
     setIframeErrorMessage(null);
     /* eslint-enable react-hooks/set-state-in-effect */
 
-    if (!isOwnEnginePreview && isTier2LivePreviewUrl(previewUrl)) {
-      if (tier2LoadTimerRef.current) window.clearTimeout(tier2LoadTimerRef.current);
-      tier2LoadTimerRef.current = window.setTimeout(() => {
-        tier2LoadTimerRef.current = null;
-        onPreviewSessionSuspect?.();
-      }, TIER2_LOAD_TIMEOUT_MS);
-    }
-  }, [previewUrl, refreshToken, isOwnEnginePreview, onPreviewSessionSuspect]);
+    armTier2LoadTimeout();
+  }, [previewUrl, refreshToken, armTier2LoadTimeout]);
+
+  const reloadControlledPreview = useCallback(() => {
+    const iframe = iframeRef.current;
+    const controlledSrc = iframe?.getAttribute("src");
+    if (!iframe || !controlledSrc) return false;
+
+    clearPreviewReadyTimer();
+    setIframeLoading(true);
+    setIframeError(false);
+    setIframeErrorMessage(null);
+    setIframeDiagnosticCode(null);
+    // Arm before the DOM write so even an immediate load event can cancel the
+    // correct timer. This is the same Tier-2 recovery owner as URL/refresh
+    // changes, but the same-src case needs one explicit browser navigation.
+    armTier2LoadTimeout();
+    iframe.setAttribute("src", controlledSrc);
+    return true;
+  }, [armTier2LoadTimeout, clearPreviewReadyTimer, iframeRef]);
 
   const handleIframeLoad = useCallback(() => {
     clearPreviewReadyTimer();
@@ -197,5 +218,6 @@ export function usePreviewIframe(params: {
     setIframeDiagnosticCode,
     clearPreviewReadyTimer,
     handleIframeLoad,
+    reloadControlledPreview,
   };
 }
