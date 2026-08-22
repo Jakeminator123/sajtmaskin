@@ -423,65 +423,6 @@ describe("POST product-postcheck", () => {
     );
   });
 
-  it("does not feed the critic the chat-global brief when the version brief is empty", async () => {
-    setF2ProductPostcheck(true);
-    beginLiveReviewSession.mockResolvedValue({
-      captureEnabled: true,
-      claim: { kind: "acquired" },
-      earlyResult: null,
-      chatId: "chat_1",
-      versionId: "v1",
-      filesRevision: "rev_a",
-      userId: "user_1",
-    });
-    getVersion.mockResolvedValue({
-      version: {
-        id: "v1",
-        message_id: "msg_v1",
-        version_number: 1,
-        files_json: "[]",
-        files_revision: "rev_a",
-      },
-      chat: {
-        messages: [],
-        orchestration_snapshot: { briefSummary: { projectTitle: "Newest chat brief" } },
-      },
-    });
-    readGenerationOrchestration.mockResolvedValue({
-      snapshot: { lastVersionId: "v1" },
-    });
-    runProductPostcheck.mockResolvedValue({
-      ok: true,
-      skipped: false,
-      skippedReason: null,
-      warnings: [],
-      warningCount: 0,
-      productBlocked: false,
-      durationMs: 8,
-      checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
-      screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
-      domSummary: null,
-    });
-    finishLiveReviewSession.mockResolvedValue({
-      status: "completed",
-      decision: { verdict: "pass", confidence: 0.8, rationale: "ok", reasoning: "", issues: [] },
-      durationMs: 12,
-      modelId: "gpt-4o",
-    });
-
-    await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
-      params: Promise.resolve({ chatId: "chat_1" }),
-    });
-
-    expect(finishLiveReviewSession).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ briefSummary: "" }),
-    );
-    expect(summarizeBrief).not.toHaveBeenCalledWith(
-      expect.objectContaining({ briefSummary: { projectTitle: "Newest chat brief" } }),
-    );
-  });
-
   it("returns a visible skipped review when the critic throws", async () => {
     setF2ProductPostcheck(true);
     beginLiveReviewSession.mockResolvedValue({
@@ -495,7 +436,13 @@ describe("POST product-postcheck", () => {
     });
     getVersion.mockResolvedValue({
       version: { id: "v1", version_number: 1, files_json: "[]", files_revision: "rev_a" },
-      chat: { messages: [], orchestration_snapshot: null },
+      chat: {
+        messages: [],
+        orchestration_snapshot: { briefSummary: { projectTitle: "Newest chat brief" } },
+      },
+    });
+    readGenerationOrchestration.mockResolvedValue({
+      snapshot: { lastVersionId: "v1" },
     });
     runProductPostcheck.mockResolvedValue({
       ok: true,
@@ -526,6 +473,13 @@ describe("POST product-postcheck", () => {
     expect(abandonLiveReviewRun).toHaveBeenCalled();
     expect(discardLiveReviewScreenshots).toHaveBeenCalled();
     expect(body.screenshots).toEqual({ desktopUrl: null, mobileUrl: null });
+    expect(finishLiveReviewSession).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ briefSummary: "" }),
+    );
+    expect(summarizeBrief).not.toHaveBeenCalledWith(
+      expect.objectContaining({ briefSummary: { projectTitle: "Newest chat brief" } }),
+    );
   });
 
   it("returns a visible runtime-crash review when Product Postcheck throws", async () => {
