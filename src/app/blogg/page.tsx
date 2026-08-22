@@ -35,7 +35,7 @@ export default function BloggPage() {
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/builder?new=1"
-                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                className="bg-primary text-primary-foreground hover:bg-primary-hover inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors"
               >
                 Öppna builder
               </Link>

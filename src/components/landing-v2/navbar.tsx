@@ -118,7 +118,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               {isAuthenticated ? "Mina projekt" : "Logga in"}
             </Button>
             <Button
-              className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 text-sm font-medium shadow-lg"
+              className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover shadow-primary/20 text-sm font-medium shadow-lg"
               onClick={handlePrimaryClick}
             >
               {isAuthenticated ? "Öppna builder" : "Kom igång gratis"}
@@ -179,7 +179,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                   {isAuthenticated ? "Mina projekt" : "Logga in"}
                 </Button>
                 <Button
-                  className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium"
+                  className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover text-sm font-medium"
                   onClick={() => {
                     setMobileOpen(false);
                     handlePrimaryClick();
