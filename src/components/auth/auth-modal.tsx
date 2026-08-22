@@ -317,7 +317,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
           {/* Submit button */}
           <Button
             type="submit"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-full font-medium"
+            className="bg-primary text-primary-foreground hover:bg-primary-hover h-11 w-full font-medium"
             disabled={isLoading}
           >
             {isLoading ? (

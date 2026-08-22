@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "76f32a5e2",
+    "commit": "9c0e3244",
     "commitDate": "2026-08-22",
     "sinceDays": 14
   },
@@ -72,7 +72,7 @@ const DATA: CanvasData = {
     "openP0": 0,
     "openP1": 2,
     "openP2": 12,
-    "openP3": 8,
+    "openP3": 7,
     "blocked": 1,
     "shaky": 3,
     "evalExactHitPct": null
@@ -91,9 +91,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 36,
+      "churn": 35,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 36 commits / 14d"
+      "note": "Aktiv: 35 commits / 14d"
     },
     {
       "name": "Codegen core",
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 52,
+      "churn": 50,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
@@ -176,24 +176,24 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 75,
+      "churn": 73,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 75 commits / 14d"
+      "note": "Aktiv: 73 commits / 14d"
     },
     {
       "name": "Preview och versioner",
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 13,
+      "openBugs": 14,
       "openByPrio": {
         "P0": 0,
         "P1": 2,
-        "P2": 6,
-        "P3": 5,
+        "P2": 8,
+        "P3": 4,
         "other": 0
       },
-      "churn": 24,
+      "churn": 21,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-007` **Domänköpets restlista är en releasegrind, inte en aktiv incident:** tolv fynd …"
     },
@@ -250,7 +250,7 @@ const DATA: CanvasData = {
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-035` **Fly preview-host: `npm install --no-audit --include=dev` exit 254:** fem träffar i tre chattar sed…"
+      "fynd": "`SM-035` **Fly preview-host: historisk `npm install` exit 254 saknar klassificerad rotorsak:** defektsignatur…"
     },
     {
       "prio": "P2",
@@ -275,11 +275,6 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-012` **Scaffold-valet kan bryta manifestets `allowedBuildIntents`:** efter avsiktlig promotion görs ingen…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
       "fynd": "`SM-013` **Misslyckad template-init lämnar \"Läser in mallen\"-laddläget kvar tills omladdning:** `pendingTempl…"
     },
     {
@@ -290,7 +285,7 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-015` **Dämpad normaltext klarar inte AA:** `muted-foreground/70` och `text-gray-500` ligger under 4,5:1 m…"
+      "fynd": "`SM-015` **Sekundär normaltext och placeholder-text klarar inte 4,5:1 på kanoniska mörka ytor:** läsbar text …"
     },
     {
       "prio": "P2",
@@ -300,7 +295,12 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-033` **Wizard-rutterna slår i sina egna tidsgränser:** `/api/wizard/competitors` gav 504 vid `maxDuration…"
+      "fynd": "`SM-033` **Wizardns competitor/enrich-flöde har bekräftade prod-timeouts men okänd dominant fas:** `/api/wiza…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "`SM-037` **Historiska hydreringskrockar saknar nuvarande reproducerbar producent:** 39 händelser / 18 chattar…"
     }
   ],
   "topOpenRisksOmitted": 2,

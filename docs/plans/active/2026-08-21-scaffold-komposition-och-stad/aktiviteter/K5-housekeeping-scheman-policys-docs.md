@@ -1,7 +1,7 @@
 # K5 — housekeeping: scheman, policys, docs, embeddings
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
-Status: **sist** — körs när K1–K4 är mergade, så svepet ser slutläget.
+Status: **pågår** — K1–K4 mergade; det här svepet speglar slutläget.
 
 ## Problemet
 
