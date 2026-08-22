@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "ee5dee1fc",
+    "commit": "97b493e013",
     "commitDate": "2026-08-22",
     "sinceDays": 14
   },
