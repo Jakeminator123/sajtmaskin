@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "aee99455d",
+    "commit": "aa80a9d95",
     "commitDate": "2026-08-22",
     "sinceDays": 14
   },
@@ -185,11 +185,11 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 14,
+      "openBugs": 15,
       "openByPrio": {
         "P0": 0,
         "P1": 2,
-        "P2": 8,
+        "P2": 9,
         "P3": 4,
         "other": 0
       },
@@ -285,7 +285,7 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-015` **Dämpad normaltext klarar inte AA:** `muted-foreground/70` och `text-gray-500` ligger under 4,5:1 m…"
+      "fynd": "`SM-015` **Sekundär normaltext och placeholder-text klarar inte 4,5:1 på kanoniska mörka ytor:** läsbar text …"
     },
     {
       "prio": "P2",
