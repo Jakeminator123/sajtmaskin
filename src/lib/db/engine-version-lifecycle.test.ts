@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
+
+import type { QualityTier } from "./engine-version-lifecycle";
 
 import {
   isServerVerifyExpectedForLifecycle,
@@ -210,10 +212,42 @@ describe("resolveDeployReleaseGate", () => {
 });
 
 describe("resolveQualityTier", () => {
+  it("keeps the public tier union exact", () => {
+    expectTypeOf<QualityTier>().toEqualTypeOf<"none" | "preview" | "tier2">();
+    expectTypeOf(resolveQualityTier({})).toEqualTypeOf<QualityTier>();
+  });
+
+  it("returns none without a version or for a failed version", () => {
+    expect(resolveQualityTier(null)).toBe("none");
+    expect(resolveQualityTier(undefined)).toBe("none");
+    expect(resolveQualityTier({ verificationState: "failed" }, { sandboxPassed: true })).toBe(
+      "none",
+    );
+  });
+
+  it("returns tier2 for sandbox-passed and promoted versions", () => {
+    expect(resolveQualityTier({}, { sandboxPassed: true })).toBe("tier2");
+    expect(
+      resolveQualityTier(
+        { releaseState: "promoted" },
+        { hasDemoUrl: false, hasTier2LivePreviewUrl: false },
+      ),
+    ).toBe("tier2");
+  });
+
   it("uses hasTier2LivePreviewUrl when provided instead of implied demoUrl preview", () => {
     const v = { verificationState: "verifying" as const };
     expect(resolveQualityTier(v, { hasTier2LivePreviewUrl: true })).toBe("preview");
     expect(resolveQualityTier(v, { hasTier2LivePreviewUrl: false })).toBe("none");
+  });
+
+  it("falls back to demo-url availability when no live-preview signal is provided", () => {
+    expect(resolveQualityTier({})).toBe("preview");
+    expect(resolveQualityTier({}, { hasDemoUrl: true })).toBe("preview");
+    expect(resolveQualityTier({}, { hasDemoUrl: false })).toBe("none");
+    expect(
+      resolveQualityTier({}, { hasDemoUrl: true, hasTier2LivePreviewUrl: undefined }),
+    ).toBe("preview");
   });
 });
 
