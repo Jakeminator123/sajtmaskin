@@ -1,6 +1,6 @@
 # Scaffold-systemet
 
-**Senast uppdaterad:** 2026-08-11. **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
+**Senast uppdaterad:** 2026-08-21. **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
 
 Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar med dossiers. Rent kontrakt finns i [`../schemas/scaffold-contract.md`](../schemas/scaffold-contract.md).
 
@@ -28,7 +28,7 @@ Per scaffold finns en eller flera variants med design-axes (label, description, 
 
 **Variant-kvalitet:** `corporate-grid` (landing-page) och `base-nextjs`-varianterna är handredigerade referenser.
 
-**`sourceTemplateIds`:** alla variants pekar på **riktiga v0-mall-Blob-id:n** i `src/lib/templates/template-blob-manifest.json` (legacy-slugs från den borttagna external-template-pipelinen remappades 2026-07-22). Listan är en ordnad kandidatpool; init-runtime väljer **högst en** mall via `template-inspiration.ts`. Preview-kompatibla kandidater rangordnas deterministiskt mot prompt + Deep Brief; användbara addendumutdrag premieras och källordningen bryter lika resultat. Tillåtna helprojektskategorier är `landing-pages`, `website-templates`, `apps-and-games`, `dashboards`, `login-and-sign-up`, `e-commerce` och `blog-and-portfolio`. `ai` väljs normalt inte, med ett explicit granskat undantag för `h4nibkqysVJ` (AEGIS-Ω), vars id, kategori och arkiv-SHA måste matcha den låsta runtime-allowlisten. `animations`, `components`, `layouts` och `design-systems` väljs inte. Den valda stillbilden skickas som style-only visionreferens. Frontendutdragen hämtas från det SHA-bundna `config/variant-template-addenda.json`. Ett `hit` ger högst tre, totalt 9 000 tecken långa utdrag (huvudsida, direkt komponent, global CSS/layout). `disabled`, `missing`, `stale` och `invalid` ger inga kodutdrag och hämtar inte Blob-ZIP:en i användarflödet; stillbilden skickas ändå. Scaffold, brief, routes och kontrakt äger fortfarande implementationen; mallens brand, assets, paketversioner, routes och backend antas aldrig. Fristående komponent-/blockinspiration väljs separat av UI Recipes. Arkivläsning hör till offline-kommandot `templates:addenda` och till verbatim-import (`POST /api/template`).
+**`sourceTemplateIds`:** alla variants pekar på **riktiga v0-mall-Blob-id:n** i `src/lib/templates/template-blob-manifest.json` (legacy-slugs från den borttagna external-template-pipelinen remappades 2026-07-22). Listan är en ordnad kandidatpool; init och `clear-redesign` väljer **högst en** mall via `template-inspiration.ts`. Preview-kompatibla kandidater rangordnas deterministiskt mot prompt + Deep Brief; användbara addendumutdrag premieras och källordningen bryter lika resultat. Tillåtna helprojektskategorier är `landing-pages`, `website-templates`, `apps-and-games`, `dashboards`, `login-and-sign-up`, `e-commerce` och `blog-and-portfolio`. `ai` väljs normalt inte, med ett explicit granskat undantag för `h4nibkqysVJ` (AEGIS-Ω), vars id, kategori och arkiv-SHA måste matcha den låsta runtime-allowlisten. `animations`, `components`, `layouts` och `design-systems` väljs inte. Den valda stillbilden skickas som style-only visionreferens. Frontendutdragen hämtas från det SHA-bundna `config/variant-template-addenda.json`. Ett `hit` ger högst tre, totalt 9 000 tecken långa utdrag (huvudsida, direkt komponent, global CSS/layout). `disabled`, `missing`, `stale` och `invalid` ger inga kodutdrag och hämtar inte Blob-ZIP:en i användarflödet; stillbilden skickas ändå. Scaffold, brief, routes och kontrakt äger fortfarande implementationen; mallens brand, assets, paketversioner, routes och backend antas aldrig. Fristående komponent-/blockinspiration väljs separat av UI Recipes. Arkivläsning hör till offline-kommandot `templates:addenda` och till verbatim-import (`POST /api/template`).
 
 **Integritetsgrind:** `src/lib/gen/scaffold-variants/variant-integrity.test.ts` (körs i `npm run scaffolds:validate` + test-sviten) blockerar halvfärdiga variants: saknade/tunna `signaturePatterns`, döda `sourceTemplateIds`, embeddings-index som inte matchar variant-setet, samt allt annat än exakt en default per scaffold.
 
@@ -78,16 +78,17 @@ Prompt / Deep Brief
 | ------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Scaffold            | `src/lib/gen/scaffolds/<id>/manifest.ts` + `files/`                                                                 | Startstruktur, routes, baseline-filer, checklistor                           |
 | Variant             | `config/scaffold-variants/<scaffoldId>/<variantId>.json`                                                            | Visuellt uttryck: motif, fontpar, theme tokens, prompt hints                 |
-| Variant-template    | En allowlistad mall + stillbild vald från variantens `sourceTemplateIds`; SHA-addendum först, Blob-ZIP som fallback | Init-inspiration: stilbild + begränsad frontendstruktur, aldrig projektägare |
+| Variant-template    | En allowlistad mall + stillbild vald från variantens `sourceTemplateIds`; SHA-addendum i användarflödet, ZIP bara offline/`templates:addenda` + verbatim-import | Init- och `clear-redesign`-inspiration: stilbild + begränsad frontendstruktur, aldrig projektägare |
 | Dossier             | `data/dossiers/{hard,soft}/<id>/`                                                                                   | Capability-bunden referens/instruktion, validerad mot strict schema          |
 | Research/embeddings | Genererade artefakter under `src/lib/gen/scaffolds/` och `config/scaffold-variants/_index/`                         | Stöd för matchning och prioritering, inte ny sanningskälla                   |
 
 Legacy external-template/template-library-flöden är historik. Kontraktsdokumentet
 och skripten togs bort ur repot 2026-07-09 — arkivkopia finns i syskonmappen
 `../gamla-skript-till-scaffolds/` utanför repot och i git-historiken (`4ba06d96e`).
-Den nya en-template-vägen använder ett SHA-bundet addendum först och läser den
-redan befintliga Blob-ZIP:en endast som kompatibilitetsfallback. Den återinför
-därför inte den gamla repo-cache-/template-library-mappen.
+Den nya en-template-vägen läser SHA-bundna addendumutdrag i init och
+`clear-redesign`. Blob-ZIP:en hör till offline `templates:addenda` och
+verbatim-import — inte till codegen-hot-path. Den återinför därför inte den
+gamla repo-cache-/template-library-mappen.
 
 ---
 
@@ -216,6 +217,22 @@ Se [llm-pipeline.md](../architecture/llm-pipeline.md) § FAS 2 för finalize-pip
 | `ecommerce`    | commerce  | advanced   | commerce-storefront     | product-catalog      | website, template | product-grid, cart, checkout, product-detail  |
 | `app-shell`    | app       | medium     | application-shell       | workspace-tools      | app               | auth, sidebar-layout, settings, dash-widgets  |
 
+Inventering och defaults ägs av [`scaffolds.generated.md`](../generated/scaffolds.generated.md).
+`projekt-bas-app` är `Scaffold: Av`-basen och syns där, inte i tabellen ovan.
+
+### Webb-hero (K2, 2026-08-21)
+
+De tre webbscaffoldsen har **olika** grundkomposition i `files/app/page.tsx`.
+Varianter muterar inte filer — de bär tokens, prompt hints och
+`signaturePatterns.layouts`. Default-variantens layouts ska beskriva samma
+komposition som filen.
+
+| Scaffold | Hero i filerna | Default-variant |
+| --- | --- | --- |
+| `landing-page` | Split 60/40: text vänster, kort höger | `corporate-grid` |
+| `saas-landing` | Centrerad produkt-scen: rubrik/CTA i mitten, produktyta under, full bredd | `friendly-saas` |
+| `portfolio` | Bilddominant editorial: stor featured-yta, intro överlagd nederst | `minimal-studio` |
+
 ---
 
 ## 7. Scaffold-manifestets merge-pipeline
@@ -326,6 +343,16 @@ Sync cache: `npm run embeddings:sync`.
 Promote befintlig lokal JSON: `npm run embeddings:promote`.
 
 **Sedan 2026-04-18:** `create-chat-stream-post.ts` låser keyword-pre-match-varianten via `OrchestrationInput.persistedVariantId`, så orchestrate hämtar samma variant via `getVariantById` istället för att köra async-pickaren. Async körs då bara som fallback (id stale, plan-mode, eval). Eliminerar drift mellan brief-LLM-hint och codegen-variant.
+
+Tre ingångar till variantvalet (K4, 2026-08-21 — slås inte ihop): sync
+`pickScaffoldVariant` (pre-match/fallback), async embeddings-vägen, och
+style-pin i `style-choice-variants.ts`. Kommentarerna i
+`scaffold-variants/matcher.ts` äger ordningen.
+
+Runtime-modulen `scaffold-scoring.ts` är **borttagen**. Backoffice Scaffold
+Performance läser CLI-spegeln `scripts/db/scaffold-scores.mjs`, inte en
+TS-boost i matchern. Manifest-`tags` är embeddings-only; matchern läser
+`keyword-banks.ts`.
 
 ---
 

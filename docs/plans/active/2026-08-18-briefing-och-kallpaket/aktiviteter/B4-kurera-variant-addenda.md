@@ -2,7 +2,7 @@
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
 Status: första kurationspasset levererat 2026-08-21 via K1-registerföreningen
-(scaffold-städplanens [K1](../../2026-08-21-scaffold-komposition-och-stad/aktiviteter/K1-registerforening-och-1090-rebase.md)):
+(scaffold-städplanens K1, #1094):
 18 av 68 poster har mänskligt beslut — 11 `reviewed` (varav 4 delade med
 #1087:s säkerhetsgranskning, noter sammanslagna), 7 `disabled` (ägardomar).
 Resterande 50 `generated` är aldrig runtime-förstaval eller lågtrafik.
