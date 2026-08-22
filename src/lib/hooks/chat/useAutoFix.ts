@@ -180,17 +180,22 @@ type VersionSummary = {
  * That's how two `generationKind=followup` runs landed on the same
  * versionId 52s apart in the Snickar Anders log.
  *
- * New canonical key prefers the structured `repair.qualityGate[].check`
- * set (typecheck/build/lint), falling back to sorted `reasons[]` only
- * when no quality-gate context exists. Same underlying failure → same
- * key → cap holds.
+ * New canonical key prefers canonical structured checks
+ * (typecheck/build/lint). Extra diagnostics such as `install` stay in the
+ * prompt but cannot split a canonical failure into a fresh dedupe bucket.
+ * If no canonical check exists, stable sorted noncanonical names are used;
+ * sorted `reasons[]` remain the final fallback when there is no gate context.
  */
+const CANONICAL_AUTOFIX_CHECKS = new Set(["typecheck", "build", "lint"]);
+
 function makeReasonKey(payload: AutoFixPayload): string {
   const checks = payload.repair?.qualityGate
     ?.map((g) => g.check)
     .filter(Boolean);
   if (checks && checks.length > 0) {
-    const checkHash = [...new Set(checks)].sort().join("|");
+    const canonicalChecks = checks.filter((check) => CANONICAL_AUTOFIX_CHECKS.has(check));
+    const keyChecks = canonicalChecks.length > 0 ? canonicalChecks : checks;
+    const checkHash = [...new Set(keyChecks)].sort().join("|");
     return `${payload.chatId}:check:${checkHash}`;
   }
   const reasonHash = payload.reasons.slice().sort().join("|");
