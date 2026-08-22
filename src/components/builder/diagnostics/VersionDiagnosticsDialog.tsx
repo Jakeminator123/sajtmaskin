@@ -5,7 +5,10 @@ import { AlertCircle, KeyRound, Loader2, RefreshCw, Wrench } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { selectActiveErrorLogs } from "@/lib/builder/version-diagnostics-summary";
+import {
+  partitionErrorLogsByPass,
+  selectActiveErrorLogs,
+} from "@/lib/builder/version-diagnostics-summary";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
@@ -58,9 +61,12 @@ type DiagnosticsResponse = {
   error?: string;
 };
 
+const EMPTY_DIAGNOSTICS_LOGS: VersionDiagnosticsLog[] = [];
+
 type Props = {
   chatId: string | null;
   versionId: string | null;
+  versionLabel?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /**
@@ -133,9 +139,52 @@ function formatTimestamp(value?: string | null) {
   });
 }
 
+function groupLogsByCategory(logs: VersionDiagnosticsLog[]) {
+  const groups = new Map<string, VersionDiagnosticsLog[]>();
+  for (const log of logs) {
+    const key = getCategory(log) || "other";
+    const entries = groups.get(key) ?? [];
+    entries.push(log);
+    groups.set(key, entries);
+  }
+  return Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length);
+}
+
+function DiagnosticsLogGroups({ logs }: { logs: VersionDiagnosticsLog[] }) {
+  return groupLogsByCategory(logs).map(([category, entries]) => (
+    <div key={category} className="rounded-md border border-border/70 bg-background/40">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+        <div className="font-medium">{category}</div>
+        <Badge variant="outline">{entries.length}</Badge>
+      </div>
+      <div className="space-y-2 p-3">
+        {entries.map((log) => (
+          <div key={log.id} className="rounded-md border border-border/50 bg-background/60 p-2">
+            <div className="flex items-center gap-2">
+              <Badge variant={levelBadgeVariant(log.level)}>{log.level}</Badge>
+              {formatTimestamp(log.created_at) ? (
+                <span className="text-xs text-muted-foreground">
+                  {formatTimestamp(log.created_at)}
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-1 text-sm text-foreground">{log.message}</div>
+            {log.meta ? (
+              <pre className="mt-2 overflow-x-auto rounded bg-black/30 p-2 text-[11px] text-muted-foreground">
+                {JSON.stringify(log.meta, null, 2)}
+              </pre>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  ));
+}
+
 export function VersionDiagnosticsDialog({
   chatId,
   versionId,
+  versionLabel = null,
   open,
   onOpenChange,
   lifecycleStage = null,
@@ -145,7 +194,16 @@ export function VersionDiagnosticsDialog({
   const [summary, setSummary] = useState<DiagnosticsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dataIdentity, setDataIdentity] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const requestIdentity = chatId && versionId
+    ? JSON.stringify([chatId, versionId, reloadToken])
+    : null;
+  const hasCurrentData = requestIdentity !== null && dataIdentity === requestIdentity;
+  const currentLogs = hasCurrentData ? logs : EMPTY_DIAGNOSTICS_LOGS;
+  const currentSummary = hasCurrentData ? summary : null;
+  const currentError = hasCurrentData ? error : null;
+  const isCurrentLoading = Boolean(open && requestIdentity && (!hasCurrentData || isLoading));
 
   useEffect(() => {
     if (!open || !chatId || !versionId) return;
@@ -156,6 +214,7 @@ export function VersionDiagnosticsDialog({
     const load = async () => {
       setIsLoading(true);
       setError(null);
+      setDataIdentity(null);
       try {
         const response = await fetch(
           `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
@@ -168,12 +227,14 @@ export function VersionDiagnosticsDialog({
         if (!isActive) return;
         setLogs(Array.isArray(data?.logs) ? data.logs : []);
         setSummary(data?.summary ?? null);
+        setDataIdentity(requestIdentity);
       } catch (loadError) {
         if (!isActive) return;
         if (loadError instanceof Error && loadError.name === "AbortError") return;
         setLogs([]);
         setSummary(null);
         setError(loadError instanceof Error ? loadError.message : "Kunde inte ladda diagnostik");
+        setDataIdentity(requestIdentity);
       } finally {
         if (isActive) setIsLoading(false);
       }
@@ -184,25 +245,17 @@ export function VersionDiagnosticsDialog({
       isActive = false;
       controller.abort();
     };
-  }, [open, chatId, versionId, reloadToken]);
+  }, [open, chatId, versionId, reloadToken, requestIdentity]);
 
   const activeLogs = useMemo(() => {
-    return selectActiveErrorLogs(logs, summary?.latestPassId ?? null);
-  }, [logs, summary?.latestPassId]);
+    return selectActiveErrorLogs(currentLogs, currentSummary?.latestPassId ?? null);
+  }, [currentLogs, currentSummary?.latestPassId]);
 
-  const groupedLogs = useMemo(() => {
-    const groups = new Map<string, VersionDiagnosticsLog[]>();
-    for (const log of activeLogs) {
-      const key = typeof log.category === "string" && log.category.trim() ? log.category.trim() : "other";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(log);
-    }
-    return Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length);
-  }, [activeLogs]);
+  const logPartition = useMemo(() => partitionErrorLogsByPass(currentLogs), [currentLogs]);
 
   const latestPreviewDescription = useMemo(
-    () => describePreviewDiagnosticCode(summary?.latestPreviewCode ?? null),
-    [summary?.latestPreviewCode],
+    () => describePreviewDiagnosticCode(currentSummary?.latestPreviewCode ?? null),
+    [currentSummary?.latestPreviewCode],
   );
   const seoLogs = useMemo(
     () => activeLogs.filter((log) => log.category === "seo"),
@@ -211,7 +264,9 @@ export function VersionDiagnosticsDialog({
 
   const runtimeStatus = useMemo<LaneStatus>(() => {
     const latestPreviewCode =
-      typeof summary?.latestPreviewCode === "string" ? summary.latestPreviewCode.trim() : "";
+      typeof currentSummary?.latestPreviewCode === "string"
+        ? currentSummary.latestPreviewCode.trim()
+        : "";
     if (latestPreviewCode === "preview_ready") {
       return { label: "OK ✓", tone: "green" };
     }
@@ -221,7 +276,7 @@ export function VersionDiagnosticsDialog({
 
     const runtimeLogs = activeLogs.filter((log) => RUNTIME_LOG_CATEGORIES.has(getCategory(log)));
     const hasRuntimeError = runtimeLogs.some((log) => log.level === "error");
-    const latestPreflightMeta = readMetaObject(summary?.latestPreflight?.meta);
+    const latestPreflightMeta = readMetaObject(currentSummary?.latestPreflight?.meta);
     const preflightPreviewBlocked =
       typeof latestPreflightMeta?.previewBlocked === "boolean"
         ? latestPreflightMeta.previewBlocked
@@ -239,7 +294,7 @@ export function VersionDiagnosticsDialog({
       return { label: "Pending …", tone: "gray" };
     }
     return { label: "Pending …", tone: "gray" };
-  }, [activeLogs, summary?.latestPreviewCode, summary?.latestPreflight?.meta]);
+  }, [activeLogs, currentSummary?.latestPreviewCode, currentSummary?.latestPreflight?.meta]);
 
   const productStatus = useMemo<LaneStatus>(() => {
     const productLogs = activeLogs.filter((log) => isProductCategory(getCategory(log)));
@@ -332,7 +387,6 @@ export function VersionDiagnosticsDialog({
     (log.level === "error" || log.level === "warning") &&
     log.category !== "product_postcheck.skipped";
   const canAutoFix = activeLogs.some(isAutoFixableLog);
-  const hasHistoricalLogs = logs.length > activeLogs.length;
 
   const handleAutoFix = () => {
     if (!chatId || !versionId) return;
@@ -363,7 +417,8 @@ export function VersionDiagnosticsDialog({
         <DialogHeader>
           <DialogTitle>Versionsdiagnostik</DialogTitle>
           <DialogDescription>
-            Samlar verifiering, previewfel och andra loggar för den valda versionen.
+            Samlar verifiering, previewfel och andra loggar. Vald version:{" "}
+            <span className="font-medium text-foreground">{versionLabel ?? versionId ?? "okänd"}</span>.
           </DialogDescription>
         </DialogHeader>
 
@@ -380,15 +435,15 @@ export function VersionDiagnosticsDialog({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">Loggar: {summary?.activeTotal ?? activeLogs.length}</Badge>
-          <Badge variant="outline">Loggfel: {summary?.activeByLevel?.error ?? 0}</Badge>
-          <Badge variant="outline">Varningar: {summary?.activeByLevel?.warning ?? 0}</Badge>
-          <Badge variant="outline">Info: {summary?.activeByLevel?.info ?? 0}</Badge>
-          {summary?.latestPreviewCode ? (
-            <Badge variant="secondary">Preview-kod: {summary.latestPreviewCode}</Badge>
+          <Badge variant="outline">Loggar: {currentSummary?.activeTotal ?? activeLogs.length}</Badge>
+          <Badge variant="outline">Loggfel: {currentSummary?.activeByLevel?.error ?? 0}</Badge>
+          <Badge variant="outline">Varningar: {currentSummary?.activeByLevel?.warning ?? 0}</Badge>
+          <Badge variant="outline">Info: {currentSummary?.activeByLevel?.info ?? 0}</Badge>
+          {currentSummary?.latestPreviewCode ? (
+            <Badge variant="secondary">Preview-kod: {currentSummary.latestPreviewCode}</Badge>
           ) : null}
-          {summary?.latestPreviewStage ? (
-            <Badge variant="outline">Preview-steg: {summary.latestPreviewStage}</Badge>
+          {currentSummary?.latestPreviewStage ? (
+            <Badge variant="outline">Preview-steg: {currentSummary.latestPreviewStage}</Badge>
           ) : null}
         </div>
 
@@ -402,12 +457,6 @@ export function VersionDiagnosticsDialog({
             SEO review: {seoLogs.length} loggpost(er) med SEO-varningar finns för den här versionen.
           </div>
         ) : null}
-        {hasHistoricalLogs ? (
-          <div className="rounded-md border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-sm text-sky-100">
-            Visar senaste körpasset. Historiska loggar för versionen finns kvar i databasen.
-          </div>
-        ) : null}
-
         <div className="flex flex-wrap gap-2">
           {isIntegrations ? (
             <Button variant="outline" size="sm" onClick={() => openDossiersPanel()}>
@@ -432,51 +481,65 @@ export function VersionDiagnosticsDialog({
 
         <ScrollArea className="max-h-[60vh] rounded-md border">
           <div className="space-y-3 p-3">
-            {isLoading ? (
+            {isCurrentLoading ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Laddar diagnostik...
               </div>
-            ) : error ? (
+            ) : currentError ? (
               <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-200">
-                {error}
+                {currentError}
               </div>
-            ) : groupedLogs.length === 0 ? (
+            ) : currentLogs.length === 0 ? (
               <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm text-emerald-100">
                 Inga sparade fel eller varningar för den här versionen ännu.
               </div>
             ) : (
-              groupedLogs.map(([category, entries]) => (
-                <div key={category} className="rounded-md border border-border/70 bg-background/40">
-                  <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
-                    <div className="font-medium">{category}</div>
-                    <Badge variant="outline">{entries.length}</Badge>
-                  </div>
-                  <div className="space-y-2 p-3">
-                    {entries.map((log) => (
-                      <div key={log.id} className="rounded-md border border-border/50 bg-background/60 p-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={levelBadgeVariant(log.level)}>{log.level}</Badge>
-                          {formatTimestamp(log.created_at) ? (
-                            <span className="text-xs text-muted-foreground">
-                              {formatTimestamp(log.created_at)}
-                            </span>
-                          ) : null}
+              <>
+                {logPartition.latestPassId ? (
+                  <section aria-labelledby="current-pass-heading" className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 id="current-pass-heading" className="text-sm font-semibold">Aktuellt körpass</h3>
+                      <Badge variant="outline">{logPartition.latestPassLogs.length}</Badge>
+                    </div>
+                    <DiagnosticsLogGroups logs={logPartition.latestPassLogs} />
+                  </section>
+                ) : null}
+
+                {logPartition.unscopedLogs.length > 0 ? (
+                  <section aria-labelledby="unscoped-heading" className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 id="unscoped-heading" className="text-sm font-semibold">
+                        Observationer utan körpass
+                      </h3>
+                      <Badge variant="outline">{logPartition.unscopedLogs.length}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Dessa loggar saknar pass-id och kopplas därför inte till ett specifikt körpass.
+                    </p>
+                    <DiagnosticsLogGroups logs={logPartition.unscopedLogs} />
+                  </section>
+                ) : null}
+
+                {logPartition.historicalPasses.length > 0 ? (
+                  <section aria-labelledby="historical-heading" className="space-y-2">
+                    <h3 id="historical-heading" className="text-sm font-semibold">Historiska körpass</h3>
+                    {logPartition.historicalPasses.map((pass) => (
+                      <details key={pass.passId} className="rounded-md border border-border/70 bg-background/30">
+                        <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                          Tidigare körpass · {pass.passId} ({pass.logs.length})
+                        </summary>
+                        <div className="space-y-2 border-t border-border/60 p-3">
+                          <DiagnosticsLogGroups logs={pass.logs} />
                         </div>
-                        <div className="mt-1 text-sm text-foreground">{log.message}</div>
-                        {log.meta ? (
-                          <pre className="mt-2 overflow-x-auto rounded bg-black/30 p-2 text-[11px] text-muted-foreground">
-                            {JSON.stringify(log.meta, null, 2)}
-                          </pre>
-                        ) : null}
-                      </div>
+                      </details>
                     ))}
-                  </div>
-                </div>
-              ))
+                  </section>
+                ) : null}
+              </>
             )}
 
-            {!isLoading && !error && activeLogs.some((log) => log.level === "error") ? (
+            {!isCurrentLoading && !currentError && activeLogs.some((log) => log.level === "error") ? (
               <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-100">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />

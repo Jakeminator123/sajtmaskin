@@ -1,5 +1,6 @@
 export {
   buildErrorLogSummary,
+  partitionErrorLogsByPass,
   readLogPassId,
   selectActiveErrorLogs,
   type ErrorLogRow,
