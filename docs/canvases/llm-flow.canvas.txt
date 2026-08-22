@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "51400382",
+    "commit": "7491b86dc",
     "commitDate": "2026-08-22",
     "sinceDays": 14
   },
@@ -72,7 +72,7 @@ const DATA: CanvasData = {
     "openP0": 0,
     "openP1": 2,
     "openP2": 13,
-    "openP3": 8,
+    "openP3": 7,
     "blocked": 1,
     "shaky": 3,
     "evalExactHitPct": null
@@ -185,15 +185,15 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 14,
+      "openBugs": 15,
       "openByPrio": {
         "P0": 0,
         "P1": 2,
-        "P2": 7,
-        "P3": 5,
+        "P2": 9,
+        "P3": 4,
         "other": 0
       },
-      "churn": 22,
+      "churn": 21,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-007` **Domänköpets restlista är en releasegrind, inte en aktiv incident:** tolv fynd …"
     },
@@ -275,11 +275,6 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-012` **Scaffold-valet kan bryta manifestets `allowedBuildIntents`:** efter avsiktlig promotion görs ingen…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
       "fynd": "`SM-013` **Misslyckad template-init lämnar \"Läser in mallen\"-laddläget kvar tills omladdning:** `pendingTempl…"
     },
     {
@@ -290,7 +285,7 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-015` **Dämpad normaltext klarar inte AA:** `muted-foreground/70` och `text-gray-500` ligger under 4,5:1 m…"
+      "fynd": "`SM-015` **Sekundär normaltext och placeholder-text klarar inte 4,5:1 på kanoniska mörka ytor:** läsbar text …"
     },
     {
       "prio": "P2",
@@ -300,7 +295,12 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-033` **Wizard-rutterna slår i sina egna tidsgränser:** `/api/wizard/competitors` gav 504 vid `maxDuration…"
+      "fynd": "`SM-033` **Wizardns competitor/enrich-flöde har bekräftade prod-timeouts men okänd dominant fas:** `/api/wiza…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "`SM-037` **Hydreringskrock i genererade sajter (39 händelser / 18 chattar):** signaturer `ab89e0680a69` (text…"
     }
   ],
   "topOpenRisksOmitted": 3,
