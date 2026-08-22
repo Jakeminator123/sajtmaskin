@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "b349f7270",
+    "commit": "cc51359179",
     "commitDate": "2026-08-22",
     "sinceDays": 14
   },
@@ -176,9 +176,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 75,
+      "churn": 76,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 75 commits / 14d"
+      "note": "Aktiv: 76 commits / 14d"
     },
     {
       "name": "Preview och versioner",
@@ -255,7 +255,7 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-070` **Live-review-aktivering är en grind, inte tre lösa buggar:** [#1052](https://github.com/Jakeminator…"
+      "fynd": "`SM-070` **Live-review-aktiveringen har tre kvarvarande Blob-/retention-/kostnadsblockerare:** kritikern är f…"
     },
     {
       "prio": "P2",
