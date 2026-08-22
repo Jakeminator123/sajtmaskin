@@ -149,6 +149,28 @@ describe("buildAutoFixPrompt", () => {
     expect(prompt).toContain("## build output (exit 1, 1800ms)");
   });
 
+  it("renders concrete install output from client repair context", () => {
+    const prompt = buildAutoFixPrompt({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      reasons: ["install failed"],
+      repair: {
+        qualityGate: [
+          {
+            check: "install",
+            exitCode: 1,
+            output: "npm ERR! Could not resolve dependency @acme/widgets@2",
+            errorCount: 3,
+            durationMs: 725,
+          },
+        ],
+      },
+    });
+
+    expect(prompt).toContain("## install output (exit 1, 725ms)");
+    expect(prompt).toContain("npm ERR! Could not resolve dependency @acme/widgets@2");
+  });
+
   it("puts script-in-React postcheck lines in the Issues detected headline", () => {
     const prompt = buildAutoFixPrompt({
       chatId: "chat_1",

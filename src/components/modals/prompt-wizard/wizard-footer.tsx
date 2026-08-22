@@ -86,7 +86,7 @@ export function WizardFooter({
       {showEditMode ? (
         <Button
           onClick={handleComplete}
-          className="btn-3d btn-glow gap-2 bg-primary px-6 text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90"
+          className="btn-3d btn-glow gap-2 bg-primary px-6 text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary-hover"
         >
           <Rocket className="h-4 w-4" />
           Skapa webbplats
@@ -95,7 +95,7 @@ export function WizardFooter({
         <Button
           onClick={handleNext}
           disabled={!canProceed() || isClarifying}
-          className="btn-3d btn-glow gap-2 bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 disabled:opacity-50"
+          className="btn-3d btn-glow gap-2 bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary-hover disabled:opacity-50"
         >
           Nästa
           <ArrowRight className="h-4 w-4" />
@@ -104,7 +104,7 @@ export function WizardFooter({
         <Button
           onClick={handleGenerate}
           disabled={isExpanding || isClarifying}
-          className="btn-3d btn-glow gap-2 bg-primary px-6 text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90"
+          className="btn-3d btn-glow gap-2 bg-primary px-6 text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary-hover"
         >
           {isClarifying ? (
             <>

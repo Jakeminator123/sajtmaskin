@@ -81,9 +81,8 @@ export const variantTemplateAddendumSchema = z
     /**
      * Fingerprint of the extractor that produced these excerpts. Records are
      * bound to their input archive *and* to the code that transformed it, so a
-     * changed extraction rule cannot leave stale excerpts behind. Optional here
-     * because `disabled` records have nothing extracted; the generator and the
-     * integrity test require it for `generated` ones.
+     * changed extraction rule cannot leave stale excerpts behind. Required for
+     * `generated` and `reviewed`; omitted for `disabled` (nothing extracted).
      */
     extractorSha256: z.string().regex(SHA256_PATTERN).optional(),
     reviewStatus: z.enum(VARIANT_TEMPLATE_ADDENDUM_REVIEW_STATUSES),
@@ -92,11 +91,26 @@ export const variantTemplateAddendumSchema = z
   })
   .strict()
   .superRefine((entry, context) => {
-    if (entry.reviewStatus === "disabled" && entry.structuralReferences.length > 0) {
+    if (entry.reviewStatus === "disabled") {
+      if (entry.extractorSha256) {
+        context.addIssue({
+          code: "custom",
+          path: ["extractorSha256"],
+          message: "disabled addenda must not include extractorSha256",
+        });
+      }
+      if (entry.structuralReferences.length > 0) {
+        context.addIssue({
+          code: "custom",
+          path: ["structuralReferences"],
+          message: "disabled addenda must not contain structural references",
+        });
+      }
+    } else if (!entry.extractorSha256) {
       context.addIssue({
         code: "custom",
-        path: ["structuralReferences"],
-        message: "disabled addenda must not contain structural references",
+        path: ["extractorSha256"],
+        message: "generated and reviewed addenda require extractorSha256",
       });
     }
 
