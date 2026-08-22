@@ -806,6 +806,7 @@ export function VersionHistory({
         chatId={chatId}
         lifecycleStage={lifecycleStage}
         versionList={versionList}
+        versionLabelById={versionLabelById}
         diagnosticsVersionId={diagnosticsVersionId}
         setDiagnosticsVersionId={setDiagnosticsVersionId}
         compareVersionId={compareVersionId}
