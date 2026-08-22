@@ -54,6 +54,7 @@ export async function persistOpenClawPowersForActiveChat(): Promise<boolean> {
         }
         if (persistQueued) continue;
         await hydrateOpenClawPowersForChat(chatId, { allowDuringPersist: true });
+        if (persistQueued) continue;
         return false;
       } while (persistQueued);
       return wrote;
@@ -77,6 +78,7 @@ export async function hydrateOpenClawPowersForChat(
     if (generation !== hydrateGeneration) return;
     if (readActiveBuilderChatId() !== id) return;
     if (persistInFlight && !opts?.allowDuringPersist) return;
+    if (persistQueued) return;
     const data = (await res.json().catch(() => null)) as {
       powersOn?: unknown;
       granted?: unknown;
@@ -85,6 +87,7 @@ export async function hydrateOpenClawPowersForChat(
     if (generation !== hydrateGeneration) return;
     if (readActiveBuilderChatId() !== id) return;
     if (persistInFlight && !opts?.allowDuringPersist) return;
+    if (persistQueued) return;
     const grantedPowers = sanitizeOpenClawPowerIds(data.granted) as OpenClawPowerId[];
     useOpenClawStore.getState().hydratePowers({
       powersOn: data.powersOn === true,
