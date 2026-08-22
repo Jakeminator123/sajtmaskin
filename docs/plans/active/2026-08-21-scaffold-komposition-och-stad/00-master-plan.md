@@ -15,38 +15,43 @@
 Detta är kvalitetsförbättring av **befintliga** kontrakt (MVP-bias: inga nya
 produktytor, inga nya lager).
 
-## Belagt nuläge (verifierat mot kod + prod)
+## Belagt nuläge (verifierat mot kod + prod **före** K1–K4)
 
-| Fynd | Bevis |
-|---|---|
-| Tre webbscaffolds hårdkodar samma split-hero (text vänster + Card höger) | `landing-page/files/app/page.tsx:29`, `saas-landing/.../page.tsx:50`, `portfolio/.../page.tsx:44,99`; saas-manifestet befaller höger produktkort |
-| Varianter muterar aldrig filer — bara tokens/promptrader; 6/10 landing-varianter beskriver själva splitten | `config/scaffold-variants/landing-page/*.json`, `scaffold-stack.ts:95–131` |
-| Variantens `layouts` når init **och** `clear-redesign` (compact stängs av: `build-dynamic-context.ts:157–161`); vanliga follow-ups får 2 anti-patterns by design. **Variantinspirationen (stillbild + utdrag) är däremot init-only** (`finalize-prompts.ts:147–152`) — redesign får mindre visuell grundning än init | `scaffold-stack.ts:36–55`, `build-dynamic-context.ts:157–161`, `finalize-prompts.ts:147–152` |
-| Addendum (prio 84) och UI Recipes (80) prunas före required scaffold/variant/brief (90–94) | `system-prompt/budget.ts:19–104` |
-| `scaffold-scoring.ts` (`getScaffoldBoost`, `computeScaffoldScores`) saknar anropare; skyddas från dead-code-checken via `knip.json` | grep 2026-08-21; CLI-spegeln `scripts/db/scaffold-scores.mjs` är Backoffice-ytans datakälla och ska vara kvar |
-| `registry.ts:82–98` mergar fortfarande research-overrides (legacy `template-library`) | läst 2026-08-21 |
-| Manifest-`tags` når bara embeddings; matchern använder hårdkodade keyword-banks | `scaffold-embeddings-core.ts:37` vs `matcher.ts:130–160` |
-| Prod: webb bootar bäst (landing 98 % preview-OK av 48), `app-shell` **0 %** av 5 | `generation_telemetry` 11–19 aug |
+Analysbas: `master` @ `0c13d9226` + prod-telemetri 11–19 aug. Tabellen är
+bakgrunden till vågorna, inte slutläget.
+
+| Fynd | Bevis | Efter K1–K4 |
+|---|---|---|
+| Tre webbscaffolds hårdkodar samma split-hero | `landing-page`/`saas-landing`/`portfolio` `files/app/page.tsx` | **K2 #1093:** tre olika fil-hero (split / centrerad produkt-scen / bilddominant) |
+| Varianter muterar aldrig filer; default-varianter beskrev splitten | `config/scaffold-variants/landing-page/*.json` | **K2:** default-`layouts` speglar filen |
+| Variantinspiration (stillbild + utdrag) var init-only | `finalize-prompts.ts` | **K3 #1092:** init + `clear-redesign` |
+| `scaffold-scoring.ts` saknade anropare | knip-undantag | **K4 #1091:** raderad; Backoffice läser `scripts/db/scaffold-scores.mjs` |
+| Research-merge av legacy template-library | `registry.ts` | **K4:** merge behålls för `qualityChecklist`/`upgradeTargets`; `referenceTemplates` borta via #1087 |
+| Manifest-`tags` vs keyword-banks | embeddings vs matcher | **K4:** `tags` dokumenterade som embeddings-only |
+| Prod: `app-shell` **0 %** preview-OK av 5 | `generation_telemetry` 11–19 aug | **K5:** spårad som `SM-071` — ingen fix här |
 
 «App-scaffolds blir bättre» handlar alltså om **rumsgrammatik** (sidebar,
 KPI, tabeller = annan komposition), inte teknik eller tokens.
 
-## Beroenden till öppna PR:er — merge-ordning först
+## Levererade PR:er
 
-| PR | Vad | Relation |
+| PR | Vad | Status |
 |---|---|---|
-| [#1088](https://github.com/Jakeminator123/sajtmaskin/pull/1088) | Ecommerce-cart funktionell | Oberoende — landa när som helst |
-| [#1087](https://github.com/Jakeminator123/sajtmaskin/pull/1087) | Brief-rankad mallval, `referenceTemplates`/`templateRecommendations` bort | **Landa före allt i denna plan** — rör alla manifest, plan-flödet och registerfilen |
-| [#1090](https://github.com/Jakeminator123/sajtmaskin/pull/1090) | B4-kuration (19 addendum-beslut) | Rebasas ovanpå #1087 i [K1](aktiviteter/K1-registerforening-och-1090-rebase.md) |
-| [#1084](https://github.com/Jakeminator123/sajtmaskin/pull/1084) | Next-pin 16.3.1 i export-baslinjen | Oberoende; bekräftar central Next-ägare |
+| #1088 | Ecommerce-cart funktionell | Mergad |
+| #1087 | Brief-rankad mallval | Mergad |
+| #1084 | Next-pin 16.3.1 | Mergad |
+| #1094 | K1 registerförening (ersatte #1090) | Mergad |
+| #1093 | K2 hero-variation | Mergad |
+| #1092 | K3 redesign-inspiration | Mergad |
+| #1091 | K4 död logik | Mergad |
 
-## Ägarbeslut som blockerar K1
+## Ägarbeslut som K1 applicerade
 
 #1087 markerade 9 addenda `reviewed` (säkerhetskriterium: ofarliga utdrag).
 #1090 stängde 5 av dem `disabled` (B4:s likformighetskriterium: generiska).
-Registret kan bara ha ett värde. Rekommendation: **disabled vinner** — B4:s
-syfte är att döda likformigheten, och utdragen kan vara ofarliga och ändå
-skadliga för variationen.
+Registret kan bara ha ett värde. **disabled vann** — B4:s syfte är att döda
+likformigheten, och utdragen kan vara ofarliga och ändå skadliga för
+variationen. Applicerat i #1094.
 
 | Mall | #1087 | #1090 | Dom |
 |---|---|---|---|
@@ -57,69 +62,39 @@ skadliga för variationen.
 | Pixar-portfolio `E3xFlIXCZi4` | reviewed | disabled | **disabled** |
 
 Domarna satta 2026-08-21 enligt rekommendationen ovan, på ägarens delegering
-(«DU får merga») i arbetsledningschatten. Ägaren kan riva upp enskilda domar i
-K1-PR:ens granskning.
+(«DU får merga») i arbetsledningschatten.
 
-## Läge 2026-08-21 ~15:00 + handoff till nästa agent
+## Läge 2026-08-21 (K5)
 
-Utfört av Builder A (arbetsledningschatten, session 1):
+K1–K4 är mergade. K5 (`chore/k5-housekeeping-sweep`) är housekeeping-svepet mot
+slutläget: scheman, control-plane, genererade docs, embeddings, handskrivna
+kontrakt, Backoffice-paritet, `SM-071` och den här planhygien.
 
-- **Mergat:** #1082–#1089 (hela mergehygien-spåret + SM-070-grinden) samt #1087
-  med tre fixar (avoid-tokens, extractor-fingerprint, 69→68-testsynkar).
-- **Domarna:** alla fem = disabled (tabellen nedan), applicerade i K1.
-- **K1:** utförd av Builder A som [#1094](https://github.com/Jakeminator123/sajtmaskin/pull/1094)
-  (bugbot rent). När mergad: **stäng #1090** (ersatt).
-- **Baslinje för eftermätning:** `SCAFFOLD-MATRIS-2026-08-21.md` i repo-roten.
-
-Kvar för nästa agent (Builder/Steward A):
-
-1. **Merga #1094** om inte redan gjort (grind per `pr-merge.mdc`; sign-off finns
-   eller skrivs ny för aktuell head). Stäng #1090 efteråt med kommentar «ersatt
-   av #1094».
-2. **Rebase + merga K2/K3/K4** ([#1093](https://github.com/Jakeminator123/sajtmaskin/pull/1093),
-   [#1092](https://github.com/Jakeminator123/sajtmaskin/pull/1092),
-   [#1091](https://github.com/Jakeminator123/sajtmaskin/pull/1091)) — alla tre
-   är CONFLICTING: de baserades **före** #1087. OBS semantik, inte bara text:
-   K3 rör `finalize-prompts.ts` som #1087 skrev om (Brief-rankning +
-   `selectionContext`); K4:s research-/registry-analys gjordes mot pre-#1087-
-   läget — verifiera att den inte återinför något #1087 tog bort; K2 rör
-   variant-JSON som både #1087 (mEefgKyVifq bort) och K1 (#1094, noter/status)
-   ändrat. Verifiering per aktivitetsfil. En mutator i taget, egen worktree per
-   branch (`npm run worktree:link`, riv med `npm run worktree:remove`).
-3. **Säg till ägaren att skicka P5** (K5-prompten i
-   [`cloud-prompts.md`](cloud-prompts.md)) först när K1–K4 är mergade.
-4. **Städ:** riv worktrees `sajtmaskin-a-1082`, `-a-1084`, `-a-1086`,
-   `-a-sm070`, `-fix-1085`, `-fix-1087`, `-a-b4-addenda` (efter #1094-merge),
-   `-A-source-packages` — **endast** via `npm run worktree:remove -- <path>`
-   (junction-fällan). Rör aldrig brancher med `BRA` i namnet.
-5. Ägarens separata spår (rör ej): SM-070 preview-rökprov
-   (`../2026-08-20-live-review/01-preview-smoke.md`), buggkön.
+Aktivitetsfilerna K1–K4 är raderade — git + PR-tabellen ovan är arkivet.
+Kvar efter K5-merge: Selection Rationale-stickprov (en sajt per webbscaffold
+med olika hero), inte mer kod i det här spåret.
 
 ## Aktiviteter och vågordning
 
-| Våg | Aktivitet | Kan köras parallellt med | Blockeras av |
+| Våg | Aktivitet | PR | Status |
 |---|---|---|---|
-| 0 | Ägare: merga #1088 → #1087; fyll i dom-kolumnen ovan | — | — |
-| 1 | [K1 — registerförening + #1090-rebase](aktiviteter/K1-registerforening-och-1090-rebase.md) | inget (äger registerfilen) | Våg 0 |
-| 2 | [K2 — hero-variation i filer](aktiviteter/K2-hero-variation-i-filer.md) | K3, K4 | #1087 mergad |
-| 2 | [K3 — redesign-follow-up får variantinspirationen](aktiviteter/K3-redesign-follow-up-far-layouts.md) | K2, K4 | #1087 mergad |
-| 2 | [K4 — död logik: scoring, research-merge, tags](aktiviteter/K4-dod-logik-scoring-research-tags.md) | K2, K3 | #1087 mergad |
-| 3 | [K5 — housekeeping: scheman, policys, docs, embeddings](aktiviteter/K5-housekeeping-scheman-policys-docs.md) | inget (svepet ska se slutläget) | K1–K4 mergade |
-
-K2/K3/K4 rör disjunkta filytor (scaffold-`files/`+variant-JSON respektive
-prompt-renderaren respektive scoring/registry) och kan köras av parallella
-agenter. Färdiga prompter: [`cloud-prompts.md`](cloud-prompts.md).
+| 0 | Merga #1088 → #1087; fyll i dom-kolumnen | #1088, #1087 | Mergad |
+| 1 | K1 — registerförening + #1090-rebase | #1094 | Mergad (aktivitetsfil raderad) |
+| 2 | K2 — hero-variation i filer | #1093 | Mergad (aktivitetsfil raderad) |
+| 2 | K3 — redesign-follow-up får variantinspirationen | #1092 | Mergad (aktivitetsfil raderad) |
+| 2 | K4 — död logik: scoring, research-merge, tags | #1091 | Mergad (aktivitetsfil raderad) |
+| 3 | [K5 — housekeeping](aktiviteter/K5-housekeeping-scheman-policys-docs.md) | denna PR | Pågår |
 
 ## Utanför scope
 
 - Buggkön, SM-035, SM-070/live-review, domänköp (egna spår).
-- `app-shell` 0 % preview-OK — rapporterad till `BUG-SWARM-BACKLOG.md` av K5,
-  åtgärdas inte här.
+- `app-shell` 0 % preview-OK — `SM-071` i `BUG-SWARM-BACKLOG.md`; åtgärdas inte här.
 - Nya produktytor, nya scaffolds, ny UI (MVP-bias).
 - Byte av interna namn (`addendum`/`addenda`, kodidentifierare) — Källpaket är
   produktordet, koden behåller sina namn (`terminology.mdc`).
 
 ## Klart när
 
-Alla fem aktiviteter mergade, K5:s svep grönt i CI, och en genererad sajt per
-webbscaffold uppvisar olika hero-komposition i Selection Rationale-stickprov.
+K1–K4 mergade (klart). K5:s svep grönt i CI. Residual, inte kod: en genererad
+sajt per webbscaffold uppvisar olika hero-komposition i Selection
+Rationale-stickprov.

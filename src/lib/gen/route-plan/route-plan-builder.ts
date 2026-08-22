@@ -1,6 +1,6 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { stripFocusPointAppendix } from "@/lib/builder/focus-point-prompt";
-import type { ScaffoldManifest } from "../scaffolds/types";
+import type { ScaffoldContractRoute, ScaffoldManifest } from "../scaffolds/types";
 import { dedupePlannedRoutesInPlaceByLocale } from "./locale-dedupe";
 import { countsTowardPageCeiling, normalizeRoutePath } from "./path-utils";
 import {
@@ -13,6 +13,7 @@ import {
   extractExplicitNamedPages,
   hasExplicitAddRouteIntent,
   neutralizeExplicitPageNameLiterals,
+  type ExplicitNamedPage,
   upsertRoute,
 } from "./planning-helpers";
 import { APP_ROUTE_PATTERNS, WEBSITE_ROUTE_PATTERNS } from "./route-patterns";
@@ -44,6 +45,85 @@ export const MAX_ROUTES_PER_GENERATION = 4;
 export const ABSOLUTE_MAX_ROUTES_PER_GENERATION = 8;
 
 type CeilingTrimClass = "keep" | "named" | "required" | "brief" | "guessed";
+
+function canonicalizeSoleInitEquivalentPaths(
+  briefRoutes: PlannedRoute[],
+  explicitNamedPages: ExplicitNamedPage[],
+  resolvedScaffold: ScaffoldManifest | null,
+  generationMode: "init" | "followUp" | undefined,
+): { briefRoutes: PlannedRoute[]; explicitNamedPages: ExplicitNamedPage[] } {
+  if (
+    generationMode === "followUp" ||
+    (briefRoutes.length === 0 && explicitNamedPages.length === 0) ||
+    !resolvedScaffold?.routeContract
+  ) {
+    return { briefRoutes, explicitNamedPages };
+  }
+
+  const contractRoutes: ScaffoldContractRoute[] = [
+    ...resolvedScaffold.routeContract.requiredRoutes,
+    ...resolvedScaffold.routeContract.optionalRoutes,
+  ];
+  const pathSources = [
+    ...briefRoutes.map((route, index) => ({
+      source: "brief" as const,
+      index,
+      path: normalizeRoutePath(route.path),
+    })),
+    ...explicitNamedPages.map((page, index) => ({
+      source: "prompt" as const,
+      index,
+      path: normalizeRoutePath(page.path),
+    })),
+  ];
+  let canonicalizedBriefRoutes: PlannedRoute[] | null = null;
+  let canonicalizedNamedPages: ExplicitNamedPage[] | null = null;
+
+  for (const contractRoute of contractRoutes) {
+    if (!contractRoute.initEquivalentPaths?.length) continue;
+    const canonicalPath = normalizeRoutePath(contractRoute.path);
+    const equivalentFamily = new Set([
+      canonicalPath,
+      ...contractRoute.initEquivalentPaths.map((path) => normalizeRoutePath(path)),
+    ]);
+    const matchesByPath = new Map<string, typeof pathSources>();
+    for (const pathSource of pathSources) {
+      if (!equivalentFamily.has(pathSource.path)) continue;
+      const matches = matchesByPath.get(pathSource.path) ?? [];
+      matches.push(pathSource);
+      matchesByPath.set(pathSource.path, matches);
+    }
+
+    // Decide across both authoritative init sources. Repeated declarations of
+    // one normalized alias are duplicates; canonical + alias (or two distinct
+    // aliases), even when split between prompt and brief, remain separate.
+    if (matchesByPath.size !== 1) continue;
+    const soleMatch = matchesByPath.entries().next().value;
+    if (!soleMatch) continue;
+    const [requestedPath, matches] = soleMatch;
+    if (requestedPath === canonicalPath) continue;
+    for (const match of matches) {
+      if (match.source === "brief") {
+        canonicalizedBriefRoutes ??= briefRoutes.map((route) => ({ ...route }));
+        canonicalizedBriefRoutes[match.index] = {
+          ...canonicalizedBriefRoutes[match.index]!,
+          path: canonicalPath,
+        };
+      } else {
+        canonicalizedNamedPages ??= explicitNamedPages.map((page) => ({ ...page }));
+        canonicalizedNamedPages[match.index] = {
+          ...canonicalizedNamedPages[match.index]!,
+          path: canonicalPath,
+        };
+      }
+    }
+  }
+
+  return {
+    briefRoutes: canonicalizedBriefRoutes ?? briefRoutes,
+    explicitNamedPages: canonicalizedNamedPages ?? explicitNamedPages,
+  };
+}
 
 /** Absolute brake: required is most protected (trimmed last). */
 const ABSOLUTE_CEILING_TRIM_ORDER = ["guessed", "brief", "named", "required"] as const;
@@ -145,7 +225,12 @@ export function buildRoutePlan(params: {
   // PORTFOLIO) — never feed that into keyword route inference.
   const prompt = stripFocusPointAppendix(rawPrompt);
   const routes: PlannedRoute[] = [];
-  const briefRoutes = buildRoutesFromBrief(brief);
+  const { briefRoutes, explicitNamedPages } = canonicalizeSoleInitEquivalentPaths(
+    buildRoutesFromBrief(brief),
+    extractExplicitNamedPages(prompt),
+    resolvedScaffold,
+    generationMode,
+  );
   const hasBriefRoutes = briefRoutes.length > 0;
   const normalizedExistingPaths = Array.from(
     new Set(
@@ -158,7 +243,6 @@ export function buildRoutePlan(params: {
   const explicitRouteRemovals = useFollowUpFreeze
     ? collectExplicitRouteRemovals(prompt, buildIntent, normalizedExistingPaths)
     : new Set<string>();
-  const explicitNamedPages = extractExplicitNamedPages(prompt);
   const explicitAddRouteIntent =
     hasExplicitAddRouteIntent(prompt) || explicitNamedPages.length > 0;
   let promptAddedRoutes = false;

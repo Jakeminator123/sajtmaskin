@@ -40,6 +40,7 @@ export const blogManifest: ScaffoldManifest = {
         name: "Blog",
         planIntent: "Keep an editorial route for articles and archives.",
         requiredOnlyForBuildIntents: ["website", "template"],
+        initEquivalentPaths: ["/artiklar", "/articles"],
       },
     ],
     optionalRoutes: [],
