@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "06907bb07",
+    "commit": "7491b86dc",
     "commitDate": "2026-08-22",
     "sinceDays": 14
   },
@@ -250,7 +250,7 @@ const DATA: CanvasData = {
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-035` **Fly preview-host: `npm install --no-audit --include=dev` exit 254:** fem träffar i tre chattar sed…"
+      "fynd": "`SM-035` **Fly preview-host: historisk `npm install` exit 254 saknar klassificerad rotorsak:** defektsignatur…"
     },
     {
       "prio": "P2",
