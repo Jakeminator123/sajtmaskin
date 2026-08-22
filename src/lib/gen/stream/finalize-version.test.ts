@@ -601,6 +601,26 @@ export default function Page() {
     expect(filesJson).not.toContain(deadUrl);
   });
 
+  it("persists the exact selected generation base as version lineage", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <main><h1>Version three</h1><p>This edit intentionally forks from version one instead of the latest version two.</p></main>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      generationBaseVersionId: "ver_1",
+    });
+
+    expect(addAssistantMessageAndCreateDraftVersion).toHaveBeenCalledWith(
+      "chat_1",
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({ parentVersionId: "ver_1" }),
+    );
+  });
+
   describe("thinking persistence", () => {
     it("forwards accumulatedThinking into the draft persist call (new version path)", async () => {
       await finalizeAndSaveVersion({
@@ -760,6 +780,87 @@ export default function Page() {
     const arg = updateChatOrchestrationSnapshot.mock.calls[0];
     expect(arg?.[0]).toBe("chat_1");
     expect((arg?.[1] as Record<string, unknown>)?.lastVersionId).toBe("ver_1");
+  });
+
+  it("consumes the matching Plan Design Authority only after a successful version persist", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent: BASIC_GENERATED_CONTENT,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      orchestrationStreamMeta: {
+        promptStrategy: "direct",
+        consumedPlanDesignLineageHash: "plan-lineage-a",
+      },
+    });
+
+    const call = updateChatOrchestrationSnapshot.mock.calls[0];
+    expect(call?.[2]).toEqual({
+      consumePendingPlanDesignLineageHash: "plan-lineage-a",
+    });
+    expect(call?.[1]).not.toHaveProperty("consumedPlanDesignLineageHash");
+  });
+
+  it("keeps legacy Variant font fallback when resolvedDesign meta is absent", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent: BASIC_GENERATED_CONTENT,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: { id: "landing-page", files: [] } as never,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      orchestrationStreamMeta: { variantId: "editorial-lux" },
+    });
+
+    expect(runAutoFix).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        scaffoldId: "landing-page",
+        variantId: "editorial-lux",
+        resolvedFontPairing: null,
+      }),
+    );
+  });
+
+  it("keeps a present unresolved typography contract terminal over Variant fallback", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent: BASIC_GENERATED_CONTENT,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: { id: "landing-page", files: [] } as never,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      orchestrationStreamMeta: {
+        variantId: "editorial-lux",
+        resolvedDesign: {
+          schemaVersion: 1,
+          variantId: "editorial-lux",
+          explicitAxes: [],
+          explicitFields: [],
+          unresolvedAxes: ["typography"],
+          styleKeywords: { value: [], source: "default", locked: false },
+          toneAndVoice: { value: [], source: "default", locked: false },
+          colorMode: { value: "dark", source: "variant", locked: false },
+          themeTokens: {},
+          typography: {
+            heading: { value: "Fraunces", source: "variant", locked: false },
+            body: { value: "Inter", source: "variant", locked: false },
+          },
+          motionLevel: { value: null, source: "default", locked: false },
+          qualityBar: { value: null, source: "default", locked: false },
+          domainProfile: { value: null, source: "default", locked: false },
+        },
+      },
+    });
+
+    expect(runAutoFix).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        resolvedFontPairing: { heading: null, body: null },
+      }),
+    );
   });
 
   it("merges orchestration snapshot with previous chat row (K-019)", async () => {

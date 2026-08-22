@@ -19,6 +19,11 @@ import type { DossierSelectionResult } from "../dossiers";
 import type { ShadcnUiRecipe } from "../data/shadcn-ui-recipes";
 import type { Tier3BuildSpec } from "@/lib/integrations/tier3-build-spec";
 import type { ImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
+import type {
+  DesignExplicitAxis,
+  DesignExplicitField,
+  ResolvedDesignContract,
+} from "../design-contract";
 
 export interface Brief {
   projectTitle?: string;
@@ -28,8 +33,14 @@ export interface Brief {
   targetAudience?: string;
   primaryCallToAction?: string;
   toneAndVoice?: string[];
+  /** Provenance emitted by new Deep Brief runs; absent means legacy brief semantics. */
+  designIntent?: {
+    explicitAxes?: DesignExplicitAxis[];
+    explicitFields?: DesignExplicitField[];
+  };
   visualDirection?: {
     styleKeywords?: string[];
+    colorMode?: "light" | "dark" | "either";
     colorPalette?: {
       primary?: string;
       secondary?: string;
@@ -107,6 +118,8 @@ export interface DynamicContextOptions {
   capabilityHints?: string;
   resolvedScaffold?: ScaffoldManifest | null;
   resolvedVariant?: ScaffoldVariant | null;
+  /** Canonical, already-merged Brief + Variant + builder-lock values. */
+  resolvedDesign?: ResolvedDesignContract | null;
   /** One allowlisted complete-project reference selected from the variant. */
   variantTemplateInspiration?: VariantTemplateInspiration | null;
   routePlan?: RoutePlan | null;

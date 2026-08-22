@@ -15,6 +15,7 @@ import {
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { uploadBlob } from "@/lib/vercel/blob-service";
 import { extractBriefSummaryFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import { parseResolvedDesignContract } from "@/lib/gen/design-contract";
 import { isAutoRepairPromptMessage, isF3KickPromptMessage } from "@/lib/builder/types";
 import {
   ReviewDecisionSchema,
@@ -73,7 +74,10 @@ export const LIVE_REVIEW_ATTEMPT_TIMEOUT_MS = 45_000;
 export const LIVE_REVIEW_TOTAL_TIMEOUT_MS = 90_000;
 const MAX_OUTPUT_TOKENS = 1200;
 const MAX_USER_REQUEST_CHARS = 4000;
-const MAX_BRIEF_CHARS = 1200;
+// Fourteen resolved theme tokens plus field provenance, typography and variant
+// routinely exceed the old 1,200-char cap. Keep the complete acceptance target
+// in the multimodal critic bundle while remaining safely bounded.
+const MAX_BRIEF_CHARS = 2400;
 
 const SYSTEM_PROMPT = [
   "You are a critic of a generated website. You do not write or change code.",
@@ -82,6 +86,7 @@ const SYSTEM_PROMPT = [
   "Never judge against what you personally think looks stylish. That is an art-director opinion and is forbidden.",
   "On a follow-up (parentVersionId is set) answer: was the request carried out, did something disappear, is there visual regression?",
   "On an init, answer: does the live page keep the user's explicit promises (light/dark, colors, requested sections) and is the page broken (stacked sections, invisible text, empty hero)?",
+  "Resolved values marked explicit or locked are acceptance targets. A clearly mismatching primary, secondary, accent, surface, mode, or font may not receive pass.",
   "Do not treat Next.js overlay raw text as a user prompt.",
   "verdict: pass = keeps the promise and is not broken; micro_fix = tiny local fix; targeted_repair = specific known defect; advisory = suggestion only.",
   "In this stage every non-pass verdict is a clickable suggestion — nothing is applied automatically.",
@@ -151,9 +156,6 @@ export function shouldRunLiveReview(params: {
   if (hasUnreadablePreview(params.findings)) {
     return { run: false, reason: "preview_unreadable" };
   }
-  if (params.isFollowUp && !sensorsAlarmed(params.findings)) {
-    return { run: false, reason: "followup_no_sensor" };
-  }
   return { run: true };
 }
 
@@ -204,31 +206,171 @@ export async function persistLiveReviewJpeg(params: {
 
 export function summarizeBrief(snapshot: Record<string, unknown> | null | undefined): string {
   const brief = extractBriefSummaryFromSnapshot(snapshot);
-  if (!brief) return "";
+  const parsedResolvedDesign = parseResolvedDesignContract(snapshot?.resolvedDesign);
+  const resolvedDesign = parsedResolvedDesign
+    ? (parsedResolvedDesign as unknown as Record<string, unknown>)
+    : null;
+  if (!brief && !resolvedDesign) return "";
+  const record = (value: unknown): Record<string, unknown> | null =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  const resolvedValue = (value: unknown): unknown => record(value)?.value;
+  const resolvedMeta = (value: unknown): string => {
+    const entry = record(value);
+    const source = typeof entry?.source === "string" ? entry.source : null;
+    const locked = entry?.locked === true;
+    return [source, locked ? "locked" : null].filter(Boolean).join("/");
+  };
+  const stringArray = (value: unknown): string[] =>
+    Array.isArray(value)
+      ? value
+          .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+          .map((entry) => entry.trim())
+      : [];
+  const resolvedTokens = record(resolvedDesign?.themeTokens);
+  const tokenValue = (key: string): string | null => {
+    const value = resolvedValue(resolvedTokens?.[key]);
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  };
+  const unresolvedAxes = new Set(stringArray(resolvedDesign?.unresolvedAxes));
+  const unresolvedFields = new Set(stringArray(resolvedDesign?.unresolvedFields));
   const parts: string[] = [];
-  if (brief.projectTitle) parts.push(brief.projectTitle);
-  if (brief.brandName && brief.brandName !== brief.projectTitle) {
+  if (brief?.projectTitle) parts.push(brief.projectTitle);
+  if (brief?.brandName && brief.brandName !== brief.projectTitle) {
     parts.push(`varumärke: ${brief.brandName}`);
   }
-  if (brief.styleKeywords?.length) {
-    parts.push(`stil: ${brief.styleKeywords.slice(0, 6).join(", ")}`);
+  const resolvedStyleKeywords = stringArray(resolvedValue(resolvedDesign?.styleKeywords));
+  const styleKeywords = resolvedDesign ? resolvedStyleKeywords : (brief?.styleKeywords ?? []);
+  if (!unresolvedAxes.has("style") && styleKeywords.length) {
+    parts.push(`stil: ${styleKeywords.slice(0, 6).join(", ")}`);
   }
-  if (brief.toneKeywords?.length) {
-    parts.push(`ton: ${brief.toneKeywords.slice(0, 4).join(", ")}`);
+  const resolvedToneKeywords = stringArray(resolvedValue(resolvedDesign?.toneAndVoice));
+  const toneKeywords = resolvedDesign ? resolvedToneKeywords : (brief?.toneKeywords ?? []);
+  if (!unresolvedAxes.has("tone") && toneKeywords.length) {
+    parts.push(`ton: ${toneKeywords.slice(0, 4).join(", ")}`);
   }
-  if (brief.colorPalette?.background || brief.colorPalette?.primary) {
-    const palette = [
-      brief.colorPalette.background ? `bakgrund ${brief.colorPalette.background}` : null,
-      brief.colorPalette.primary ? `primär ${brief.colorPalette.primary}` : null,
-      brief.colorPalette.text ? `text ${brief.colorPalette.text}` : null,
+  const explicitAxes = stringArray(resolvedDesign?.explicitAxes);
+  const explicitFields = stringArray(resolvedDesign?.explicitFields);
+  if (explicitAxes.length) parts.push(`explicit axes: ${explicitAxes.join(", ")}`);
+  if (explicitFields.length) parts.push(`explicit fields: ${explicitFields.join(", ")}`);
+  if (unresolvedAxes.size) {
+    parts.push(`current request owns: ${[...unresolvedAxes].join(", ")}; ignore cached values`);
+  }
+  if (unresolvedFields.size) {
+    parts.push(
+      `current request owns fields: ${[...unresolvedFields].join(", ")}; ignore cached values and derived companions`,
+    );
+  }
+  if (!unresolvedAxes.has("palette")) {
+    const tokenLabels: Array<[string, string]> = [
+      ["background", "bakgrund"],
+      ["foreground", "text"],
+      ["card", "kort"],
+      ["cardForeground", "korttext"],
+      ["primary", "primär"],
+      ["primaryForeground", "primärtext"],
+      ["secondary", "sekundär"],
+      ["secondaryForeground", "sekundärtext"],
+      ["accent", "accent"],
+      ["accentForeground", "accenttext"],
+      ["muted", "dämpad"],
+      ["mutedForeground", "dämpad text"],
+      ["border", "kant"],
+      ["ring", "fokusring"],
+    ];
+    const tokenDelegated = (key: string): boolean => {
+      if (
+        unresolvedFields.has("palette.primary") &&
+        ["primary", "primaryForeground", "ring"].includes(key)
+      )
+        return true;
+      if (
+        unresolvedFields.has("palette.secondary") &&
+        ["secondary", "secondaryForeground"].includes(key)
+      )
+        return true;
+      if (unresolvedFields.has("palette.accent") && ["accent", "accentForeground"].includes(key))
+        return true;
+      if (
+        unresolvedFields.has("palette.background") &&
+        ["background", "card", "cardForeground", "muted", "mutedForeground", "border"].includes(key)
+      )
+        return true;
+      if (
+        unresolvedFields.has("palette.text") &&
+        [
+          "foreground",
+          "card",
+          "cardForeground",
+          "muted",
+          "mutedForeground",
+          "border",
+          "primaryForeground",
+          "secondaryForeground",
+          "accentForeground",
+        ].includes(key)
+      )
+        return true;
+      return false;
+    };
+    const palette = resolvedDesign
+      ? tokenLabels
+          .map(([key, label]) => {
+            if (tokenDelegated(key)) return null;
+            const value = tokenValue(key);
+            if (!value) return null;
+            const meta = resolvedMeta(resolvedTokens?.[key]);
+            return `${label} ${value}${meta ? ` [${meta}]` : ""}`;
+          })
+          .filter(Boolean)
+      : [
+          brief?.colorPalette?.background ? `bakgrund ${brief.colorPalette.background}` : null,
+          brief?.colorPalette?.text ? `text ${brief.colorPalette.text}` : null,
+          brief?.colorPalette?.primary ? `primär ${brief.colorPalette.primary}` : null,
+          brief?.colorPalette?.secondary ? `sekundär ${brief.colorPalette.secondary}` : null,
+          brief?.colorPalette?.accent ? `accent ${brief.colorPalette.accent}` : null,
+        ].filter(Boolean);
+    if (palette.length) parts.push(`design tokens: ${palette.join(", ")}`);
+  }
+  const colorMode = resolvedValue(resolvedDesign?.colorMode);
+  if (!unresolvedAxes.has("color-mode") && typeof colorMode === "string" && colorMode.trim()) {
+    const meta = resolvedMeta(resolvedDesign?.colorMode);
+    parts.push(`färgläge: ${colorMode.trim()}${meta ? ` [${meta}]` : ""}`);
+  }
+  const typography = record(resolvedDesign?.typography);
+  const heading = resolvedValue(typography?.heading);
+  const body = resolvedValue(typography?.body);
+  if (
+    !unresolvedAxes.has("typography") &&
+    ((!unresolvedFields.has("typography.headings") && typeof heading === "string") ||
+      (!unresolvedFields.has("typography.body") && typeof body === "string"))
+  ) {
+    const headingMeta = resolvedMeta(typography?.heading);
+    const bodyMeta = resolvedMeta(typography?.body);
+    const fontParts = [
+      !unresolvedFields.has("typography.headings") && typeof heading === "string"
+        ? `rubrik ${heading}${headingMeta ? ` [${headingMeta}]` : ""}`
+        : null,
+      !unresolvedFields.has("typography.body") && typeof body === "string"
+        ? `brödtext ${body}${bodyMeta ? ` [${bodyMeta}]` : ""}`
+        : null,
     ].filter(Boolean);
-    if (palette.length) parts.push(palette.join(", "));
+    parts.push(`typografi: ${fontParts.join(" / ")}`);
   }
-  if (brief.requestedCapabilities?.length) {
+  if (brief?.requestedCapabilities?.length) {
     parts.push(`capabilities: ${brief.requestedCapabilities.slice(0, 8).join(", ")}`);
   }
-  if (typeof snapshot?.variantId === "string" && snapshot.variantId.trim()) {
-    parts.push(`variant: ${snapshot.variantId.trim()}`);
+  const resolvedVariantId = resolvedDesign?.variantId;
+  const variantId = resolvedDesign
+    ? typeof resolvedVariantId === "string" && resolvedVariantId.trim()
+      ? resolvedVariantId.trim()
+      : null
+    : typeof snapshot?.variantId === "string" && snapshot.variantId.trim()
+      ? snapshot.variantId.trim()
+      : null;
+  if (variantId) {
+    parts.push(`variant: ${variantId}`);
   }
   return parts.join(" — ").slice(0, MAX_BRIEF_CHARS);
 }
@@ -244,11 +386,13 @@ export function pickUserRequest(
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (!message || message.role !== "user") continue;
-    const uiParts = (Array.isArray(message.uiParts)
-      ? message.uiParts
-      : Array.isArray(message.ui_parts)
-        ? message.ui_parts
-        : []) as Array<Record<string, unknown>>;
+    const uiParts = (
+      Array.isArray(message.uiParts)
+        ? message.uiParts
+        : Array.isArray(message.ui_parts)
+          ? message.ui_parts
+          : []
+    ) as Array<Record<string, unknown>>;
     const shaped = { role: "user" as const, content: message.content, uiParts };
     if (isAutoRepairPromptMessage(shaped) || isF3KickPromptMessage(shaped)) continue;
     const text = message.content.trim();
@@ -256,6 +400,29 @@ export function pickUserRequest(
     return text.slice(0, MAX_USER_REQUEST_CHARS);
   }
   return "";
+}
+
+/**
+ * Resolve the request that produced one exact version. A delayed/manual review
+ * must never borrow a later tab's user turn merely because it is newest.
+ */
+export function pickUserRequestForVersion(
+  messages: ReadonlyArray<{
+    id?: string;
+    role: string;
+    content: string;
+    ui_parts?: unknown;
+    uiParts?: unknown;
+  }>,
+  assistantMessageId: string | null | undefined,
+): string {
+  const targetId = assistantMessageId?.trim();
+  if (!targetId) return "";
+  const assistantIndex = messages.findIndex(
+    (message) => message.id === targetId && message.role === "assistant",
+  );
+  if (assistantIndex < 0) return "";
+  return pickUserRequest(messages.slice(0, assistantIndex));
 }
 
 function parseStoredCodeFiles(
@@ -281,9 +448,7 @@ export function listChangedFiles(
   if (!parentFilesJson) return currentPaths.slice(0, 80);
   const parent = parseStoredCodeFiles(parentFilesJson);
   const parentMap = new Map(
-    parent
-      .filter((file) => typeof file.path === "string")
-      .map((file) => [file.path, file.content]),
+    parent.filter((file) => typeof file.path === "string").map((file) => [file.path, file.content]),
   );
   const changed: string[] = [];
   for (const file of current) {
@@ -375,7 +540,10 @@ export function versionOrdinal(version: {
 /** Latest earlier version in the same chat — not `parent_version_id` (F3-only). */
 export function pickPreviousVersionInChat<
   T extends { id: string; version_number?: number | null; versionNumber?: number | null },
->(versions: readonly T[], current: { id: string; version_number?: number | null; versionNumber?: number | null }): T | null {
+>(
+  versions: readonly T[],
+  current: { id: string; version_number?: number | null; versionNumber?: number | null },
+): T | null {
   const fromList = versions.find((row) => row.id === current.id);
   const currentNum = versionOrdinal(current) ?? (fromList ? versionOrdinal(fromList) : null);
   if (currentNum == null) return null;
@@ -396,12 +564,34 @@ export function pickPreviousVersionInChat<
 export async function loadPreviousChatVersion(
   chatId: string,
   current: { id: string; version_number?: number | null; versionNumber?: number | null },
-): Promise<{ id: string; files_json: string | null } | null> {
+): Promise<{ id: string; files_json: string | null; files_revision: string | null } | null> {
   try {
     const { getVersionsByChat } = await import("@/lib/db/chat-repository-pg");
     const previous = pickPreviousVersionInChat(await getVersionsByChat(chatId), current);
     if (!previous) return null;
-    return { id: previous.id, files_json: previous.files_json ?? null };
+    return {
+      id: previous.id,
+      files_json: previous.files_json ?? null,
+      files_revision: previous.files_revision ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function loadChatVersionById(
+  chatId: string,
+  versionId: string,
+): Promise<{ id: string; files_json: string | null; files_revision: string | null } | null> {
+  try {
+    const { getVersionById } = await import("@/lib/db/chat-repository-pg");
+    const version = await getVersionById(versionId);
+    if (!version || version.chat_id !== chatId) return null;
+    return {
+      id: version.id,
+      files_json: version.files_json ?? null,
+      files_revision: version.files_revision ?? null,
+    };
   } catch {
     return null;
   }
@@ -562,7 +752,11 @@ export async function runLiveReview(
 ): Promise<LiveReviewResult> {
   const modelIds = resolveLiveReviewModelIds(opts.modelId);
   if (modelIds.length === 0) {
-    return { status: "skipped", reason: "model_unavailable", detail: "manifest saknar live_review-modell" };
+    return {
+      status: "skipped",
+      reason: "model_unavailable",
+      detail: "manifest saknar live_review-modell",
+    };
   }
 
   const chainStartedAt = Date.now();
@@ -596,14 +790,14 @@ export async function loadPreviousLiveReviewScreenshots(
 ): Promise<Pick<LiveReviewScreenshotSet, "previousDesktopUrl" | "previousMobileUrl">> {
   if (!parentVersionId) return {};
   try {
-    const { getLatestEngineVersionErrorLogForCategory } = await import(
-      "@/lib/db/services/version-errors"
-    );
+    const { getLatestEngineVersionErrorLogForCategory } =
+      await import("@/lib/db/services/version-errors");
     const row = await getLatestEngineVersionErrorLogForCategory(
       parentVersionId,
       "product_postcheck.live_review",
     );
-    const meta = row?.meta && typeof row.meta === "object" ? (row.meta as Record<string, unknown>) : null;
+    const meta =
+      row?.meta && typeof row.meta === "object" ? (row.meta as Record<string, unknown>) : null;
     const screenshots =
       meta?.screenshots && typeof meta.screenshots === "object"
         ? (meta.screenshots as Record<string, unknown>)
@@ -629,6 +823,8 @@ export async function maybeAttachLiveReview(params: {
   previousVersionId?: string | null;
   filesJson: string | null | undefined;
   parentFilesJson?: string | null;
+  /** Build-time revision paired with previousVersionId. */
+  previousFilesRevision?: string | null;
   userRequest: string;
   briefSummary: string;
   enabled?: boolean;
@@ -651,33 +847,57 @@ export async function maybeAttachLiveReview(params: {
 
   let previousVersionId = params.previousVersionId ?? null;
   let parentFilesJson = params.parentFilesJson ?? null;
-  if (isFollowUp && params.chatId && (!previousVersionId || parentFilesJson == null)) {
-    const loaded = await loadPreviousChatVersion(params.chatId, {
-      id: params.versionId,
-      version_number: params.versionNumber ?? null,
-    });
-    previousVersionId = previousVersionId ?? loaded?.id ?? null;
-    parentFilesJson = parentFilesJson ?? loaded?.files_json ?? null;
+  let previousFilesRevision = params.previousFilesRevision?.trim() || null;
+  let parentBaselineValid = true;
+  if (isFollowUp && params.chatId) {
+    if (previousVersionId) {
+      const exactParent = await loadChatVersionById(params.chatId, previousVersionId);
+      if (
+        !exactParent ||
+        (previousFilesRevision !== null && exactParent.files_revision !== previousFilesRevision)
+      ) {
+        // The parent was repaired in-place after this generation selected its
+        // base (or is no longer chat-scoped). Neither its current files nor an
+        // older JPEG may be used as this child's comparison baseline.
+        parentFilesJson = null;
+        parentBaselineValid = false;
+      } else {
+        parentFilesJson ??= exactParent.files_json;
+        previousFilesRevision ??= exactParent.files_revision;
+      }
+    } else {
+      const loaded = await loadPreviousChatVersion(params.chatId, {
+        id: params.versionId,
+        version_number: params.versionNumber ?? null,
+      });
+      previousVersionId = loaded?.id ?? null;
+      parentFilesJson = loaded?.files_json ?? null;
+      previousFilesRevision = loaded?.files_revision ?? null;
+    }
   }
 
   const previousFromRuns =
-    params.chatId && params.versionId
+    parentBaselineValid && params.chatId && params.versionId
       ? await import("@/lib/db/services/live-review-runs")
           .then((mod) =>
             mod.getPreviousLiveReviewScreenshots({
               chatId: params.chatId as string,
               versionId: params.versionId,
               filesRevision: params.filesRevision ?? "",
+              previousVersionId,
+              previousFilesRevision,
             }),
           )
           .catch(() => null)
-      : null;
-  const previousFromLogs = await loadPreviousLiveReviewScreenshots(previousVersionId);
+      : parentBaselineValid
+        ? null
+        : { desktopUrl: null, mobileUrl: null, hasStoredRun: true };
+  const previousFromLogs = previousFromRuns?.hasStoredRun
+    ? {}
+    : await loadPreviousLiveReviewScreenshots(previousVersionId);
   const previous = {
-    previousDesktopUrl:
-      previousFromRuns?.desktopUrl ?? previousFromLogs.previousDesktopUrl ?? null,
-    previousMobileUrl:
-      previousFromRuns?.mobileUrl ?? previousFromLogs.previousMobileUrl ?? null,
+    previousDesktopUrl: previousFromRuns?.desktopUrl ?? previousFromLogs.previousDesktopUrl ?? null,
+    previousMobileUrl: previousFromRuns?.mobileUrl ?? previousFromLogs.previousMobileUrl ?? null,
   };
   const bundle = assembleReviewBundle({
     versionId: params.versionId,

@@ -19,8 +19,10 @@ import {
   mergePackageJsonContent,
   mergeVersionFilesWithWarnings,
   resolveChatPreferredVersionId,
+  resolveFollowUpBase,
   resolveFollowUpPreviousFiles,
 } from "./version-manager";
+import type { Version } from "@/lib/db/chat-repository/types";
 import type { CodeFile } from "./parser";
 
 const getPreferredVersionMock = vi.mocked(getPreferredVersion);
@@ -202,10 +204,7 @@ describe("mergeVersionFilesWithWarnings", () => {
   });
 
   it("returns sorted files including untouched prev files", () => {
-    const prev = [
-      file("a.tsx", "old-a"),
-      file("b.tsx", "old-b"),
-    ];
+    const prev = [file("a.tsx", "old-a"), file("b.tsx", "old-b")];
     const next = [file("b.tsx", "new-b"), file("c.tsx", "new-c")];
 
     const result = mergeVersionFilesWithWarnings(prev, next);
@@ -256,8 +255,7 @@ describe("resolveFollowUpPreviousFiles known image heals", () => {
   it("heals the explicit follow-up base in memory WITHOUT touching the base version row", async () => {
     const deadUrl =
       "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop";
-    const replacementUrl =
-      "https://images.unsplash.com/photo-1647164789794?w=1200&h=800&fit=crop";
+    const replacementUrl = "https://images.unsplash.com/photo-1647164789794?w=1200&h=800&fit=crop";
     getVersionByIdMock.mockResolvedValue({
       id: "ver_old",
       chat_id: "chat_1",
@@ -278,5 +276,75 @@ describe("resolveFollowUpPreviousFiles known image heals", () => {
     expect(updateVersionFilesMock).not.toHaveBeenCalled();
     expect(getPreferredVersionMock).not.toHaveBeenCalled();
     expect(getLatestVersionMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveFollowUpBase canonical identity", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getKnownBrokenImageReplacementsMock.mockResolvedValue({});
+  });
+
+  const usable = (id: string, chatId = "chat_1", revision = `rev_${id}`): Version => ({
+    id,
+    chat_id: chatId,
+    message_id: null,
+    version_number: 1,
+    files_json: JSON.stringify([file("app/page.tsx", id)]),
+    files_revision: revision,
+    repaired_files_json: null,
+    preview_url: null,
+    release_state: "draft",
+    verification_state: "pending",
+    verification_summary: null,
+    repair_available_at: null,
+    promoted_at: null,
+    lifecycle_stage: "design",
+    parent_version_id: null,
+    edit_kind: null,
+    created_at: "2026-08-22T00:00:00.000Z",
+  });
+
+  it("returns the exact chat-scoped id + revision that supplied explicit files", async () => {
+    getVersionByIdMock.mockResolvedValue(usable("ver_selected"));
+
+    await expect(resolveFollowUpBase("chat_1", " ver_selected ")).resolves.toMatchObject({
+      versionId: "ver_selected",
+      filesRevision: "rev_ver_selected",
+      branch: "explicit",
+      files: [expect.objectContaining({ content: "ver_selected" })],
+    });
+    expect(getPreferredVersionMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["unknown", null],
+    ["cross-chat", usable("ver_foreign", "chat_other")],
+    ["empty", { ...usable("ver_empty"), files_json: "[]" }],
+  ])("falls back from an %s explicit id without leaking its identity", async (_label, row) => {
+    getVersionByIdMock.mockResolvedValue(row as never);
+    getPreferredVersionMock.mockResolvedValue(usable("ver_preferred"));
+
+    const result = await resolveFollowUpBase("chat_1", "client_value");
+
+    expect(result).toMatchObject({
+      versionId: "ver_preferred",
+      filesRevision: "rev_ver_preferred",
+      branch: "preferred",
+    });
+    expect(result.versionId).not.toBe("client_value");
+  });
+
+  it("falls through an unusable preferred row to the latest usable row", async () => {
+    getPreferredVersionMock.mockResolvedValue({
+      ...usable("ver_preferred"),
+      files_json: "[]",
+    } as never);
+    getLatestVersionMock.mockResolvedValue(usable("ver_latest"));
+
+    await expect(resolveFollowUpBase("chat_1", " ")).resolves.toMatchObject({
+      versionId: "ver_latest",
+      branch: "latest",
+    });
   });
 });

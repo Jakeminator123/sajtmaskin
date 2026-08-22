@@ -10,9 +10,9 @@
  * - Page count → `meta.pageCountHint` — `buildRoutePlan` prefers it over the
  *   prompt-text regex (`detectExplicitPageCount`) and caps it at
  *   `MAX_ROUTES_PER_GENERATION`.
- * - Style → `meta.styleChoiceHint`, resolved server-side to a concrete variant id
- *   and pinned via `persistedVariantId`; plus `meta.styleKeywordsHint` for the
- *   pairs the map leaves unmapped.
+ * - Style → `meta.styleChoiceHint`, resolved server-side to a concrete final
+ *   variant; `variantHintId` is only the cheap pre-Brief fallback. Unmapped
+ *   pairs also use `meta.styleKeywordsHint`.
  * - Tone → `meta.toneKeywordsHint` into variant matching, plus a Swedish copy
  *   directive.
  * - Color mode → `meta.colorModeHint` (picks the color cluster's light/dark
@@ -55,13 +55,7 @@ export type SiteTypeChoice =
 
 export type ComplexityChoice = "auto" | "simple" | "medium" | "complex";
 
-export type StyleChoice =
-  | "auto"
-  | "warm"
-  | "corporate"
-  | "bold"
-  | "editorial"
-  | "minimal";
+export type StyleChoice = "auto" | "warm" | "corporate" | "bold" | "editorial" | "minimal";
 
 export type ColorModeChoice = "auto" | "light" | "dark";
 

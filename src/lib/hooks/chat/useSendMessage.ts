@@ -1,6 +1,11 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
+import {
+  MODEL_LABELS,
+  canonicalizeModelId,
+  canonicalModelIdToOwnModelId,
+  getBuildProfileId,
+} from "@/lib/models/catalog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
@@ -91,10 +96,7 @@ export function useSendMessage(
   } = deps;
 
   const sendMessage = useCallback(
-    async (
-      messageText: string,
-      options: MessageOptions = {},
-    ): Promise<SendMessageOutcome> => {
+    async (messageText: string, options: MessageOptions = {}): Promise<SendMessageOutcome> => {
       if (!messageText?.trim()) {
         return { status: "rejected", reason: "empty_message", turnRecorded: false };
       }
@@ -235,9 +237,7 @@ export function useSendMessage(
         // First codegen after plan/contract: chat exists but no version yet.
         // Re-forward Byggval hints so the answering turn does not ignore the
         // welcome-panel choices kept in the store until the first version.
-        const activeInitChoices = isFirstBuildAfterGate
-          ? getCurrentInitBuildChoices()
-          : null;
+        const activeInitChoices = isFirstBuildAfterGate ? getCurrentInitBuildChoices() : null;
         const initChoicesMeta = activeInitChoices
           ? buildInitBuildChoicesMeta(activeInitChoices)
           : null;
@@ -305,6 +305,9 @@ export function useSendMessage(
           promptMeta.promptSourceKind = options.promptSourceMeta.sourceKind;
           promptMeta.promptSourceTechnical = options.promptSourceMeta.isTechnical;
           promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;
+          if (options.promptSourceMeta.planDesignLineageHash) {
+            promptMeta.planDesignLineageHash = options.promptSourceMeta.planDesignLineageHash;
+          }
         }
         if (promptAssistModel) promptMeta.promptAssistModel = promptAssistModel;
         // Defense-in-depth: never re-send the init brief on follow-ups.
@@ -314,8 +317,7 @@ export function useSendMessage(
           promptMeta.promptAssistDeep = promptAssistDeep;
         }
         const engineBaseVersionIdOverride = options.engineBaseVersionIdOverride;
-        const usedEngineBaseVersionOverride =
-          typeof engineBaseVersionIdOverride === "string";
+        const usedEngineBaseVersionOverride = typeof engineBaseVersionIdOverride === "string";
         const trimmedVersionId = usedEngineBaseVersionOverride
           ? engineBaseVersionIdOverride.trim()
           : activeVersionId?.trim();
@@ -443,7 +445,11 @@ export function useSendMessage(
             // ignore
           }
           if (handleGenerationLockUnavailable(response.status, errorData)) {
-            return { status: "rejected", reason: "generation_lock_unavailable", turnRecorded: false };
+            return {
+              status: "rejected",
+              reason: "generation_lock_unavailable",
+              turnRecorded: false,
+            };
           }
           if (
             response.status === 412 &&
@@ -455,24 +461,21 @@ export function useSendMessage(
               parentVersionId: errorData.parentVersionId,
               chatId,
               requestStartedAt: streamRequestStartedAt,
-              projectId:
-                typeof errorData.projectId === "string"
-                  ? errorData.projectId
-                  : null,
+              projectId: typeof errorData.projectId === "string" ? errorData.projectId : null,
               missingByIntegration: errorData.missingByIntegration.filter(
-                (entry): entry is {
+                (
+                  entry,
+                ): entry is {
                   key: string;
                   name: string;
                   missing: string[];
                 } =>
                   Boolean(
                     entry &&
-                      typeof entry === "object" &&
-                      typeof (entry as Record<string, unknown>).key === "string" &&
-                      typeof (entry as Record<string, unknown>).name === "string" &&
-                      Array.isArray(
-                        (entry as Record<string, unknown>).missing,
-                      ),
+                    typeof entry === "object" &&
+                    typeof (entry as Record<string, unknown>).key === "string" &&
+                    typeof (entry as Record<string, unknown>).name === "string" &&
+                    Array.isArray((entry as Record<string, unknown>).missing),
                   ),
               ),
             });
@@ -529,11 +532,12 @@ export function useSendMessage(
                 toast.warning("Integrationsversionen ersattes av en nyare version.");
               } else {
                 const failed = release.failedChecks.join(", ");
-                content = release.promoteError || release.retryable
-                  ? "ReleaseGate kunde inte slutföra promotion. Försök igen."
-                  : failed
-                    ? `ReleaseGate underkände: ${failed}.`
-                    : "ReleaseGate blev inte godkänd. Se versionsdiagnostiken.";
+                content =
+                  release.promoteError || release.retryable
+                    ? "ReleaseGate kunde inte slutföra promotion. Försök igen."
+                    : failed
+                      ? `ReleaseGate underkände: ${failed}.`
+                      : "ReleaseGate blev inte godkänd. Se versionsdiagnostiken.";
                 // Restlistan R1: inget toast-larm för ett underkänt ReleaseGate.
                 // Verdiktet står i chattmeddelandet ovan, och den diskreta
                 // statusraden bär länken till versionsdiagnostiken — den här
@@ -604,7 +608,11 @@ export function useSendMessage(
           }
           // 5-2 stale-base gate (client half) — delad hanterare, se ovan.
           if (handleGenerationLockUnavailable(response.status, errorData)) {
-            return { status: "rejected", reason: "generation_lock_unavailable", turnRecorded: false };
+            return {
+              status: "rejected",
+              reason: "generation_lock_unavailable",
+              turnRecorded: false,
+            };
           }
           if (handleGenerationInProgress(response.status, errorData)) {
             return { status: "rejected", reason: "generation_in_progress", turnRecorded: false };

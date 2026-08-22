@@ -17,6 +17,8 @@ export function renderScaffoldVariantBlock(
   effectiveVariant: ScaffoldVariant | null | undefined,
   options?: {
     compact?: boolean;
+    /** Exact colors/fonts/mode already live in the canonical design contract. */
+    designResolved?: boolean;
   },
 ): string[] {
   if (!effectiveVariant) return [];
@@ -26,9 +28,11 @@ export function renderScaffoldVariantBlock(
       "",
       `- **Variant:** ${effectiveVariant.label} (\`${effectiveVariant.id}\`)`,
       `- **Scaffold:** \`${effectiveVariant.scaffoldId}\``,
-      `- **Color mode:** ${effectiveVariant.colorMode}`,
       `- **Signature motif:** ${effectiveVariant.signatureMotif}`,
     ];
+    if (!options?.designResolved) {
+      compactLines.splice(4, 0, `- **Color mode:** ${effectiveVariant.colorMode}`);
+    }
     if (effectiveVariant.description) {
       compactLines.push(`- **Variant purpose:** ${effectiveVariant.description}`);
     }
@@ -56,13 +60,15 @@ export function renderScaffoldVariantBlock(
     "",
     `- **Variant:** ${effectiveVariant.label} (\`${effectiveVariant.id}\`)`,
     `- **Scaffold:** \`${effectiveVariant.scaffoldId}\``,
-    `- **Color mode:** ${effectiveVariant.colorMode}`,
     `- **Signature motif:** ${effectiveVariant.signatureMotif}`,
   ];
+  if (!options?.designResolved) {
+    parts.splice(6, 0, `- **Color mode:** ${effectiveVariant.colorMode}`);
+  }
   if (effectiveVariant.description) {
     parts.push(`- **Variant purpose:** ${effectiveVariant.description}`);
   }
-  if (effectiveVariant.fontPairings.length > 0) {
+  if (!options?.designResolved && effectiveVariant.fontPairings.length > 0) {
     const pairStr = effectiveVariant.fontPairings
       .map((p) => `${p.heading} + ${p.body}`)
       .join(", or ");
@@ -114,7 +120,7 @@ export function renderScaffoldVariantBlock(
       }
     }
   }
-  const themeTokenLines = formatThemeTokenLines(effectiveVariant);
+  const themeTokenLines = options?.designResolved ? [] : formatThemeTokenLines(effectiveVariant);
   if (themeTokenLines.length > 0) {
     parts.push(
       "- **Theme tokens (variant defaults — override only when the brief or locked theme says otherwise). Emit exactly these values in `app/globals.css` inside `@theme inline`:**",
@@ -124,7 +130,9 @@ export function renderScaffoldVariantBlock(
       "- Keep the `--color-` prefix exactly as written: that is the Tailwind v4 form the scaffold uses, and it is what makes `bg-background`, `text-foreground` and `border-border` resolve.",
     );
   }
-  parts.push(...formatBodyBackgroundRecipeLines(effectiveVariant));
+  if (!options?.designResolved) {
+    parts.push(...formatBodyBackgroundRecipeLines(effectiveVariant));
+  }
   parts.push("");
   return parts;
 }
@@ -176,7 +184,18 @@ export function renderVariantTemplateInspirationBlock(
   return parts;
 }
 
-export function renderDesignPriorityBlock(): string[] {
+export function renderDesignPriorityBlock(designResolved = false): string[] {
+  if (designResolved) {
+    return [
+      "## Design Priority",
+      "",
+      "The Resolved Design Contract has already applied all color, typography, mode, motion, quality, and provenance rules.",
+      "1. Use its exact values without re-merging sources.",
+      "2. Use Scaffold Variant and template material only for compatible structural inspiration.",
+      "3. Use static core defaults only where the resolved contract has no value.",
+      "",
+    ];
+  }
   return [
     "## Design Priority",
     "",

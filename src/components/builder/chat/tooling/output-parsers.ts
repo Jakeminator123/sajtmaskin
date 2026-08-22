@@ -1,4 +1,7 @@
-import { isGenericIntegrationName, resolveIntegrationDisplayName } from "@/lib/integrations/suggestion-display";
+import {
+  isGenericIntegrationName,
+  resolveIntegrationDisplayName,
+} from "@/lib/integrations/suggestion-display";
 import type { ToolUIPart } from "ai";
 import type {
   IntegrationCardData,
@@ -8,7 +11,11 @@ import type {
   ServerRepairSummary,
   ToolIntegrationSummary,
 } from "./types";
-import type { LiveReviewResult, LiveReviewSkipReason } from "@/lib/gen/verify/live-review-types";
+import type {
+  LiveReviewResult,
+  LiveReviewScreenshotSet,
+  LiveReviewSkipReason,
+} from "@/lib/gen/verify/live-review-types";
 import { parseReviewDecision } from "@/lib/gen/verify/live-review-types";
 
 export function resolveToolLabels(tool: Partial<ToolUIPart> & { type?: string }) {
@@ -30,24 +37,33 @@ export function resolveToolLabels(tool: Partial<ToolUIPart> & { type?: string })
   return { toolType, toolTitle };
 }
 
-export function isIntegrationOrEnvToolPart(
-  tool: Partial<ToolUIPart> & { type?: string },
-): boolean {
+export function isIntegrationOrEnvToolPart(tool: Partial<ToolUIPart> & { type?: string }): boolean {
   const type = typeof tool.type === "string" ? tool.type.toLowerCase() : "";
   const name =
-    `${(tool as { name?: string }).name ?? ""} ${(tool as { toolName?: string }).toolName ?? ""}`
-      .toLowerCase();
-  return type.includes("integration") || name.includes("integration") || looksLikeEnvVarEvent(type) || looksLikeEnvVarEvent(name);
+    `${(tool as { name?: string }).name ?? ""} ${(tool as { toolName?: string }).toolName ?? ""}`.toLowerCase();
+  return (
+    type.includes("integration") ||
+    name.includes("integration") ||
+    looksLikeEnvVarEvent(type) ||
+    looksLikeEnvVarEvent(name)
+  );
 }
 
 export function looksLikeEnvVarEvent(value: string): boolean {
   if (!value) return false;
   const normalized = value.toLowerCase();
   if (normalized.includes("environment")) return true;
-  if (normalized.includes("env-var") || normalized.includes("env_var") || normalized.includes("envvar")) {
+  if (
+    normalized.includes("env-var") ||
+    normalized.includes("env_var") ||
+    normalized.includes("envvar")
+  ) {
     return true;
   }
-  if (normalized.includes("env") && (normalized.includes("var") || normalized.includes("variable"))) {
+  if (
+    normalized.includes("env") &&
+    (normalized.includes("var") || normalized.includes("variable"))
+  ) {
     return true;
   }
   return false;
@@ -65,10 +81,7 @@ export function getToolIntegrationSummary(
     extractIntegrationProvider(tool.output) ||
     extractIntegrationProvider(tool);
   const name = resolveIntegrationDisplayName({ name: rawName, provider });
-  const envKeys = dedupeStrings([
-    ...extractEnvKeys(tool.input),
-    ...extractEnvKeys(tool.output),
-  ]);
+  const envKeys = dedupeStrings([...extractEnvKeys(tool.input), ...extractEnvKeys(tool.output)]);
   let status = extractStatus(tool.output) || extractStatus(tool.input);
   const type = typeof tool.type === "string" ? tool.type.toLowerCase() : "";
   if (!status && type.includes("added-environment-variables")) {
@@ -91,7 +104,9 @@ export function getIntegrationCardData(
 ): IntegrationCardData | null {
   const summary = getToolIntegrationSummary(tool);
   const output =
-    tool.output && typeof tool.output === "object" ? (tool.output as Record<string, unknown>) : null;
+    tool.output && typeof tool.output === "object"
+      ? (tool.output as Record<string, unknown>)
+      : null;
   const intentRaw = typeof output?.intent === "string" ? output.intent : null;
   const intentLabel =
     intentRaw === "install"
@@ -118,7 +133,8 @@ export function getIntegrationCardData(
           : null,
   });
   const envKeys = summary?.envKeys ?? [];
-  const status = summary?.status || (typeof output?.status === "string" ? output.status : undefined);
+  const status =
+    summary?.status || (typeof output?.status === "string" ? output.status : undefined);
 
   if (!name && envKeys.length === 0 && !marketplaceUrl && !intentLabel) return null;
   return {
@@ -180,7 +196,8 @@ function extractEnvKeys(value: unknown): string[] {
   }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    const directKey = typeof obj.key === "string" && looksLikeEnvKey(obj.key) ? obj.key.trim() : null;
+    const directKey =
+      typeof obj.key === "string" && looksLikeEnvKey(obj.key) ? obj.key.trim() : null;
     const containers = [
       obj.envVars,
       obj.environmentVariables,
@@ -200,7 +217,10 @@ function extractEnvKeys(value: unknown): string[] {
         .flatMap((step) => {
           const match = step.match(/Milj.variabler:\s*(.+)/i);
           if (!match) return [];
-          return match[1].split(",").map((key) => key.trim()).filter(looksLikeEnvKey);
+          return match[1]
+            .split(",")
+            .map((key) => key.trim())
+            .filter(looksLikeEnvKey);
         });
       if (fromSteps.length > 0) return fromSteps;
     }
@@ -262,7 +282,9 @@ function getPostCheckSummary(output: unknown): PostCheckSummary | null {
   const toString = (value: unknown): string | null =>
     typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
   const warningsValue = summary?.warnings ?? obj.warnings;
-  const warningsCount = Array.isArray(warningsValue) ? warningsValue.length : toNumber(warningsValue);
+  const warningsCount = Array.isArray(warningsValue)
+    ? warningsValue.length
+    : toNumber(warningsValue);
 
   const summaryData: PostCheckSummary = {
     files: toNumber(summary?.files ?? obj.files),
@@ -309,7 +331,9 @@ function getQualityGateSummary(output: unknown): QualityGateSummary | null {
     };
   }
   const checks = Array.isArray(obj.checks)
-    ? (obj.checks as QualityGateCheckInfo[]).filter((check) => check && typeof check.check === "string")
+    ? (obj.checks as QualityGateCheckInfo[]).filter(
+        (check) => check && typeof check.check === "string",
+      )
     : [];
   if (checks.length === 0) return null;
   return {
@@ -346,7 +370,9 @@ function getQualityGateSummary(output: unknown): QualityGateSummary | null {
         ? {
             overallScore: (obj.visualQA as Record<string, unknown>).overallScore as number,
             passed: (obj.visualQA as Record<string, unknown>).passed as boolean,
-            checks: ((obj.visualQA as Record<string, unknown>).checks as Array<Record<string, unknown>>)
+            checks: (
+              (obj.visualQA as Record<string, unknown>).checks as Array<Record<string, unknown>>
+            )
               .filter((check) => check && typeof check.check === "string")
               .map((check) => ({
                 check: String(check.check),
@@ -416,6 +442,30 @@ export function getLiveReviewResult(output: unknown): LiveReviewResult | null {
   return null;
 }
 
+export function getLiveReviewScreenshots(output: unknown): LiveReviewScreenshotSet | null {
+  if (!output || typeof output !== "object") return null;
+  const obj = output as Record<string, unknown>;
+  const fromPostcheck =
+    obj.productPostcheck && typeof obj.productPostcheck === "object"
+      ? (obj.productPostcheck as Record<string, unknown>).screenshots
+      : null;
+  const raw =
+    obj.screenshots && typeof obj.screenshots === "object"
+      ? (obj.screenshots as Record<string, unknown>)
+      : fromPostcheck && typeof fromPostcheck === "object"
+        ? (fromPostcheck as Record<string, unknown>)
+        : null;
+  if (!raw) return null;
+  const imageUrl = (value: unknown): string | null =>
+    typeof value === "string" && value.trim() ? value.trim() : null;
+  return {
+    desktopUrl: imageUrl(raw.desktopUrl),
+    mobileUrl: imageUrl(raw.mobileUrl),
+    previousDesktopUrl: imageUrl(raw.previousDesktopUrl),
+    previousMobileUrl: imageUrl(raw.previousMobileUrl),
+  };
+}
+
 export function extractToolSummaries(toolType: string, output: unknown) {
   const isPostCheck = toolType === "tool-post-check";
   const isQualityGate = toolType === "tool-quality-gate";
@@ -424,10 +474,10 @@ export function extractToolSummaries(toolType: string, output: unknown) {
     postCheck: isPostCheck ? getPostCheckSummary(output) : null,
     qualityGate: isQualityGate ? getQualityGateSummary(output) : null,
     serverRepair: isQualityGate ? getServerRepairSummary(output) : null,
-    // ONLY the dedicated part renders the verdict. The post-check output also
-    // embeds `liveReview`, but a completed review always appends the dedicated
-    // part too, so surfacing it from tool-post-check rendered the row twice
-    // (bugbot medium, 2026-08-19).
+    // ONLY the dedicated part renders the status. The post-check output also
+    // embeds `liveReview`, but every completed or skipped review now appends a
+    // dedicated part, so surfacing it from tool-post-check would render twice.
     liveReview: isLiveReview ? getLiveReviewResult(output) : null,
+    liveReviewScreenshots: isLiveReview ? getLiveReviewScreenshots(output) : null,
   };
 }

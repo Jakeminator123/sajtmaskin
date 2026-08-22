@@ -1,9 +1,11 @@
 # B7 — variantens auktoritetsordning
 
 Styrdokument: [`../00-master-plan.md`](../00-master-plan.md)
-Status: inte startad.
+Status: genomförd i denna PR; inväntar merge.
 
-Kräver beslut: **N5** (extra embedding-runda på init).
+Beslut **N5**: den befintliga asynkrona variantmatchningen får köras efter
+Deep Brief på init. Den är ingen ny LLM-agent; embeddingkostnad, poäng och
+marginal kvitteras i `variantSelection`.
 Beror på: **B3** (källkvittot är mätytan — **landad** #1035).
 Ordning: körs **efter** B8 (#1032, landad), i en egen PR.
 B8 ger hemsidor samma Brief-väg som appar; B7 ändrar vem som väljer varianten.
@@ -22,15 +24,15 @@ Vid en vanlig ny sajt väljs varianten av en **preliminär gissning som görs in
 Briefen finns**, och den gissningen behandlas sedan som ett persisterat beslut.
 Gissningen står inte med i auktoritetsordningen över huvud taget.
 
-### Verifierad kedja (lokal master-checkout 2026-08-18)
+### Historisk verifierad kedja (lokal master-checkout 2026-08-18, före fixen)
 
-| Steg | Vad som händer | Källa |
-|---|---|---|
-| 1 | Keyword-only förmatchning (~1 ms) av scaffold + variant, medvetet utan embeddings för att Brief-steget inte ska vänta på en round-trip | `src/lib/api/engine/chats/create-chat-stream-post.ts:263-312` |
-| 2 | Gissningen skickas som `persistedVariantId` — kommentaren anger syftet: hindra brief→codegen-drift | `create-chat-stream-post.ts:913-919` |
-| 3 | `persistedVariant` slås upp ur den inskickade id:n | `src/lib/gen/orchestrate/finalize-prompts.ts:85-89` |
-| 4 | Prioritetsordning: `styleChoiceVariant ?? persistedVariant ?? resolveScaffoldVariant(...)` — det Brief-drivna valet ligger **sist** | `finalize-prompts.ts:102-115` |
-| 5 | `resolveScaffoldVariant` är enda stället där `brief.visualDirection.styleKeywords` och `brief.toneAndVoice` når variant-poängsättningen | `src/lib/gen/orchestrate/scaffold-variant-resolver.ts:33-90` |
+| Steg | Vad som händer                                                                                                                          | Källa                                                         |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 1    | Keyword-only förmatchning (~1 ms) av scaffold + variant, medvetet utan embeddings för att Brief-steget inte ska vänta på en round-trip  | `src/lib/api/engine/chats/create-chat-stream-post.ts:263-312` |
+| 2    | Gissningen skickas som `persistedVariantId` — kommentaren anger syftet: hindra brief→codegen-drift                                      | `create-chat-stream-post.ts:913-919`                          |
+| 3    | `persistedVariant` slås upp ur den inskickade id:n                                                                                      | `src/lib/gen/orchestrate/finalize-prompts.ts:85-89`           |
+| 4    | Prioritetsordning: `styleChoiceVariant ?? persistedVariant ?? resolveScaffoldVariant(...)` — det Brief-drivna valet ligger **sist**     | `finalize-prompts.ts:102-115`                                 |
+| 5    | `resolveScaffoldVariant` är enda stället där `brief.visualDirection.styleKeywords` och `brief.toneAndVoice` når variant-poängsättningen | `src/lib/gen/orchestrate/scaffold-variant-resolver.ts:33-90`  |
 
 Följd: på init med sajttyp på Auto och utan uttryckligt stilval körs steg 5
 aldrig. Briefens visuella riktning påverkar då inte vilken variant som renderas.
@@ -53,12 +55,12 @@ bor per variant i `config/scaffold-variants/<scaffold>/<variant>.json`.
 Rättelser mot en tidigare, för snäv problembeskrivning. De här punkterna ska
 inte "åtgärdas" i B7:
 
-| Påstående | Verklighet |
-|---|---|
+| Påstående                           | Verklighet                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | «Briefen saknar makt över scaffold» | Falskt. `buildScaffoldQueryContext` (`resolve-base.ts:224`) skickar briefens `pages`, `styleKeywords` och domänhintar in i **både** keyword-vägen (`applyBriefKeywordBoost`, `matcher.ts:187-217`, `Math.max` — inte summa, så briefen kan inte tillverka en extra träff) och embedding-vägen (`buildScaffoldPrompt`, `matcher.ts:219-237`). |
-| «Briefen styr inte dossiers» | Falskt. `brief.requestedCapabilities` är auktoritativt på capability-nivå (`resolve-base.ts:684-705`); provider-syskonet väljs sedan deterministiskt (`dossiers/select.ts:322-371`). Rör inte den vägen. |
-| «Varianten blir slumpmässig» | Nästan. Deterministisk hash-rotation, inte slump. |
-| «Alla starter får Deep Brief» | Numera sant. Fram till B8 hoppade korta hemsideprompter över Brief-LLM:en via snabbspåret; det är borttaget. Kvarvarande undantag är klientbrief, teknisk/preserve-prompt, audit och follow-up (`server-auto-brief-policy.ts`). |
+| «Briefen styr inte dossiers»        | Falskt. `brief.requestedCapabilities` är auktoritativt på capability-nivå (`resolve-base.ts:684-705`); provider-syskonet väljs sedan deterministiskt (`dossiers/select.ts:322-371`). Rör inte den vägen.                                                                                                                                     |
+| «Varianten blir slumpmässig»        | Nästan. Deterministisk hash-rotation, inte slump.                                                                                                                                                                                                                                                                                            |
+| «Alla starter får Deep Brief»       | Numera sant. Fram till B8 hoppade korta hemsideprompter över Brief-LLM:en via snabbspåret; det är borttaget. Kvarvarande undantag är klientbrief, teknisk/preserve-prompt, audit och follow-up (`server-auto-brief-policy.ts`).                                                                                                              |
 
 Avgränsning efter #1042:s follow-up-fix: `toneAndVoice` hör till copy och
 variantval, inte scaffoldtyp. Det får därför inte ingå i scaffold-matcherns
@@ -74,11 +76,14 @@ Byter vi variant efter briefen utan att bestämma vem som vinner, kan briefens
 `Brief-Locked Design Values` motsäga den slutliga variantens tokens i samma
 systemprompt.
 
-Styrdokumentet har redan svaret: Brief är nivå 3, Variant nivå 4. **Briefen
-vinner**, och varianten ska väljas för att tjäna briefen — inte tvärtom.
-Hint-blocket är redan formulerat som just en hint («use as design starting
-point, adjust when user intent differs», `variant-hints.ts:124`), så texten
-behöver inte skrivas om.
+Styrdokumentet har redan svaret: Brief är nivå 3, Variant nivå 4. Briefen väljer
+varianten. För överlappande designvärden behövs dock mer precision: en förenklad
+Brief innehåller infererade fallbackvärden som inte får överstyra en komplett,
+kurerad variant. Därför är Brief och Variant inte identiska objekt, men deras
+gemensamma axlar normaliseras till ett enda `ResolvedDesignContract`.
+Uttryckliga Brief-axlar vinner; infererade Brief-defaults gör det inte. Byggval
+och andra användarlås vinner alltid. Äldre brief-snapshots utan provenance
+behåller historisk Brief-first-semantik.
 
 ## Uppgift
 
@@ -101,12 +106,12 @@ runda» (uppföljning) och «preliminär gissning» (init). Separera dem.
 
 Ny ordning i `finalize-prompts.ts:102-115`:
 
-| Nivå | Källa | Kod |
-|---|---|---|
-| 1 | Uttryckligt stilval (Byggval Stil) | `styleChoiceVariant` — oförändrat först |
-| 2 | Uppföljningsfrys / persisterad variant | `lockedVariant` ?? `persistedVariant` |
-| 3 | Brief-drivet val: prompt + `visualDirection.styleKeywords` + `toneAndVoice` + embeddings | `resolveScaffoldVariant(...)` |
-| 4 | Hinten, bara när nivå 3 returnerar `null` | `variantHintId` |
+| Nivå | Källa                                                                                    | Kod                                     |
+| ---- | ---------------------------------------------------------------------------------------- | --------------------------------------- |
+| 1    | Uttryckligt stilval (Byggval Stil)                                                       | `styleChoiceVariant` — oförändrat först |
+| 2    | Uppföljningsfrys / persisterad variant                                                   | `lockedVariant` ?? `persistedVariant`   |
+| 3    | Brief-drivet val: prompt + `visualDirection.styleKeywords` + `toneAndVoice` + embeddings | `resolveScaffoldVariant(...)`           |
+| 4    | Hinten, bara när nivå 3 returnerar `null`                                                | `variantHintId`                         |
 
 Init kortsluter alltså inte längre på hinten. Scaffold-valet är oförändrat och
 löses fortsatt via `matchScaffoldAuto(prompt + brief)`.
@@ -140,11 +145,11 @@ Två fällor att räta ut först:
 Lägg sedan till ett `variantSelection`-objekt som speglar det befintliga
 `scaffoldSelection`:
 
-| Fält | Innehåll |
-|---|---|
-| `source` | `style-choice` \| `follow-up-lock` \| `brief-embedding` \| `brief-keyword` \| `keyword` \| `hash-fallback` \| `hint-fallback` |
-| `score` / `runnerUpScore` / `margin` | mot `VARIANT_DOMINANT_MARGIN` (`matcher.ts:157`) och `VARIANT_EMBEDDING_MIN_SCORE` (`matcher.ts:150`) |
-| `hintId` / `finalId` / `changedFromHint` | pre-match kontra slutligt val |
+| Fält                                     | Innehåll                                                                                                                      |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `source`                                 | `style-choice` \| `follow-up-lock` \| `brief-embedding` \| `brief-keyword` \| `keyword` \| `hash-fallback` \| `hint-fallback` |
+| `score` / `runnerUpScore` / `margin`     | mot `VARIANT_DOMINANT_MARGIN` (`matcher.ts:157`) och `VARIANT_EMBEDDING_MIN_SCORE` (`matcher.ts:150`)                         |
+| `hintId` / `finalId` / `changedFromHint` | pre-match kontra slutligt val                                                                                                 |
 
 Det kräver att `pickScaffoldVariant` och `pickScaffoldVariantAsync` returnerar
 ett skäl, inte bara varianten — det är den huvudsakliga kodytan i B7. Kvittot
@@ -162,13 +167,13 @@ innehåller de nyckelord matchningen letar efter:
 
 Regressionsskydd:
 
-| Yta | Måste fortsatt gälla |
-|---|---|
-| Byggval Stil | Uttryckligt val vinner över brief och embeddings |
-| Byggval sajttyp | Explicit scaffold oförändrad |
+| Yta                                                                                           | Måste fortsatt gälla                                                                                                               |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Byggval Stil                                                                                  | Uttryckligt val vinner över brief och embeddings                                                                                   |
+| Byggval sajttyp                                                                               | Explicit scaffold oförändrad                                                                                                       |
 | Brief saknas ändå (klientbrief-fel, teknisk prompt, `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF=1`) | Deterministiskt variantval utan att B7 framtvingar en ny LLM-runda. **Inte** «enkla hemsidevägen» — den finns inte längre efter B8 |
-| Uppföljning neutral | Fryst variant behålls |
-| `clear-redesign` | Låset släpper som i dag |
+| Uppföljning neutral                                                                           | Fryst variant behålls                                                                                                              |
+| `clear-redesign`                                                                              | Låset släpper som i dag                                                                                                            |
 
 Filer att bygga vidare i: `src/lib/gen/scaffold-variants/matcher.test.ts`,
 `style-choice-variants.test.ts`, `src/lib/gen/orchestrate-scaffold-intent-clamp.test.ts`,
@@ -177,12 +182,12 @@ Filer att bygga vidare i: `src/lib/gen/scaffold-variants/matcher.test.ts`,
 
 ## Risker
 
-| Risk | Storlek | Not |
-|---|---|---|
-| **Latens** | Störst posten | I dag kortsluter pinnen oftast bort variant-embeddingen på init. Görs nivå 3 auktoritativ tillkommer en `text-embedding-3-small`-runda per init. |
-| **Kostnad** | Liten men verklig | Anropet loggas som workload `scaffold_variant_match` (`matcher.ts:356-362`) och når `llm_usage` → debitering. |
-| **Brief→codegen-drift** | Medveten | Driften pinnen skyddade mot återinförs. Motmedlet är den dokumenterade auktoritetsordningen (B2/B3), inte en pin. |
-| **Visuell regression** | Låg | Uppföljningsfrysen är orörd; bara nya init-val ändras. Befintliga sajter påverkas inte. |
+| Risk                    | Storlek           | Not                                                                                                                                              |
+| ----------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Latens**              | Störst posten     | I dag kortsluter pinnen oftast bort variant-embeddingen på init. Görs nivå 3 auktoritativ tillkommer en `text-embedding-3-small`-runda per init. |
+| **Kostnad**             | Liten men verklig | Anropet loggas som workload `scaffold_variant_match` (`matcher.ts:356-362`) och når `llm_usage` → debitering.                                    |
+| **Brief→codegen-drift** | Medveten          | Driften pinnen skyddade mot återinförs. Motmedlet är den dokumenterade auktoritetsordningen (B2/B3), inte en pin.                                |
+| **Visuell regression**  | Låg               | Uppföljningsfrysen är orörd; bara nya init-val ändras. Befintliga sajter påverkas inte.                                                          |
 
 **Latensmildring att utreda, inte att anta:** `pickScaffoldVariantAsync` tar
 redan emot en färdig `queryVector` (`matcher.ts:317-322`), och båda indexen
@@ -231,6 +236,35 @@ fortsatt ton för variant/addendum men byter inte scaffold-trösklar.
   variantfördelningen.
 - Manuellt: fyra sajter av olika typ, jämför `variantSelection.source` i
   B3-kvittot mot vad prompten faktiskt bad om.
+
+## Genomförande 2026-08-22
+
+- Init-förmatchningen skickas som `variantHintId`; `persistedVariantId` betyder
+  åter enbart tidigare/fryslåst follow-up-variant.
+- Slutligt variantval sker efter Deep Brief och persisterar källa, poäng,
+  runner-up, marginal och hint→slutligt-byte i `variantSelection`.
+- `designIntent.explicitFields` skiljer enskilda användaruttryckta Brief-värden
+  från infererade schemafallbacks; `explicitAxes` ger bakåtkompatibilitet.
+  Överlappande färg, färgläge, typografi och stil resolveras en gång i
+  `ResolvedDesignContract`, inklusive sammanhängande foreground-/surface-tokens.
+- Dynamic Context, promptdump, telemetri, Selection Rationale och font-autofix
+  läser samma slutliga kontrakt; inget senare lager gör om auktoritetsordningen.
+- Neutral/refine-follow-up rehydrerar föregående accepterade `resolvedDesign`
+  som fryst baslinje; `clear-redesign`/scaffold-unlock släpper den. Autofix får
+  aldrig falla tillbaka till Variant-fonten när kontraktets font inte kan
+  materialiseras via `next/font`.
+- Godkänd plan sparar ett serverägt designkvitto och bygger med exakt samma
+  Brief, variant, designkontrakt och variant-template även på befintliga sajter.
+  Godkännandets lineage måste matcha senaste serverkvitto; saknat/stale kvitto
+  kräver ny plan. Kvittot förbrukas atomärt efter lyckad versionspersist utan
+  att ett äldre bygge kan radera en nyare plan.
+- Live-review-capture och dess tre behörighets-/featuregrindar är oförändrade.
+  Den extra sensorspärren för vanliga follow-ups är borttagen: varje berättigad
+  läsbar preview med JPEG granskas. När reviewn körs
+  bygger kritikerns målbeskrivning däremot på samma `resolvedDesign` som
+  codegen/autofix, så desktop-/mobil-JPEG inte bedöms mot råa Brief-defaults.
+  Den dedikerade vänsterloggraden visas även för skipped med orsak och
+  JPEG-viewports, inte bara när kritikern slutförs.
 
 ## Klart när
 

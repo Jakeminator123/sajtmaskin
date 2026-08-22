@@ -36,6 +36,7 @@ interface OrchestrationInputLike {
   themeColors?: unknown;
   componentPalette?: unknown;
   designReferences?: unknown;
+  requestAttachments?: unknown[];
   importedRepoMode?: boolean;
   importedRepoContractContext?: ImportedRepoContractContext;
 }
@@ -46,6 +47,8 @@ interface FinalizedOrchestrationContextLike {
   dynamicContextPruning: GenerationInputPackage["dynamicContextPruning"];
   dynamicContextBlocks: GenerationInputPackage["dynamicContextBlocks"];
   variantId: string | null;
+  variantSelection: GenerationInputPackage["variantSelection"];
+  resolvedDesign: GenerationInputPackage["resolvedDesign"];
   variantTemplateId: string | null;
   variantTemplateReferenceAttachments: GenerationInputPackage["variantTemplateReferenceAttachments"];
   sources?: GenerationInputPackage["sources"];
@@ -57,8 +60,22 @@ export function buildGenerationInputPackage(
   finalized: FinalizedOrchestrationContextLike,
 ): GenerationInputPackage {
   const effectiveBrief = base.effectiveBrief ?? input.brief ?? null;
+  const variantTemplateReferenceAttachments = Array.isArray(
+    finalized.variantTemplateReferenceAttachments,
+  )
+    ? finalized.variantTemplateReferenceAttachments
+    : [];
   const lineageHash = computeLineageHash({
     userPrompt: input.prompt,
+    // The final prompt is the definitive fan-in: UI recipes, dossier text,
+    // Tier-3 requirements, media catalog and pruning decisions all land here.
+    engineSystemPrompt: finalized.engineSystemPrompt,
+    referenceAttachments: [
+      ...variantTemplateReferenceAttachments,
+      ...(input.requestAttachments ?? []),
+    ],
+    sources: finalized.sources ?? [],
+    dynamicContextPruning: finalized.dynamicContextPruning,
     brief: effectiveBrief,
     scaffoldMode: input.scaffoldMode ?? "auto",
     scaffoldContext: base.scaffoldContext,
@@ -71,6 +88,7 @@ export function buildGenerationInputPackage(
     componentPalette: input.componentPalette ?? null,
     designReferences: input.designReferences ?? null,
     variantId: finalized.variantId,
+    resolvedDesign: finalized.resolvedDesign,
     variantTemplateId: finalized.variantTemplateId,
     importedRepoMode: input.importedRepoMode === true,
     importedRepoBaselineHash:
@@ -97,8 +115,10 @@ export function buildGenerationInputPackage(
     dynamicContextBlocks: finalized.dynamicContextBlocks,
     promptSize,
     variantId: finalized.variantId,
+    variantSelection: finalized.variantSelection,
+    resolvedDesign: finalized.resolvedDesign,
     variantTemplateId: finalized.variantTemplateId,
-    variantTemplateReferenceAttachments: finalized.variantTemplateReferenceAttachments,
+    variantTemplateReferenceAttachments,
     sources: finalized.sources ?? [],
     importedRepoMode: input.importedRepoMode === true,
     importedRepoContractHashes: input.importedRepoContractContext
@@ -141,6 +161,8 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
     dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
     dynamicContextLargestBlocks: pkg.promptSize.blocks.largest,
     variantId: pkg.variantId ?? null,
+    variantSelectionSource: pkg.variantSelection.source,
+    variantChangedFromHint: pkg.variantSelection.changedFromHint,
     variantTemplateId: pkg.variantTemplateId ?? null,
     sourceCount: pkg.sources.length,
     sourceKinds: [...new Set(pkg.sources.map((source) => source.kind))],

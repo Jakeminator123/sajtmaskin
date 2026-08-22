@@ -2,10 +2,7 @@ import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import type { DetectedSection } from "@/lib/builder/section-analyzer";
 import type { PlacementOption } from "@/lib/builder/placement-utils";
 import { getPlacementInstruction, getPlacementLabel } from "@/lib/builder/placement-utils";
-import {
-  buildShadcnBlockPrompt,
-  buildShadcnComponentPrompt,
-} from "@/lib/shadcn/registry-utils";
+import { buildShadcnBlockPrompt, buildShadcnComponentPrompt } from "@/lib/shadcn/registry-utils";
 import { buildApprovedPlanExecutionPrompt } from "@/lib/gen/plan/review";
 
 export type PromptSourceKind =
@@ -21,6 +18,8 @@ export type PromptSourceMeta = {
   sourceKind: PromptSourceKind;
   isTechnical: boolean;
   preservePayload: boolean;
+  /** Server lineage of the frozen Plan Design Authority being approved. */
+  planDesignLineageHash?: string;
 };
 
 export type InlinePromptSource = {
@@ -281,15 +280,27 @@ export function buildPromptSourceMessage(
         },
       };
 
-    case "approved-plan":
+    case "approved-plan": {
+      const rawAuthority =
+        source.rawPlan.designAuthority &&
+        typeof source.rawPlan.designAuthority === "object" &&
+        !Array.isArray(source.rawPlan.designAuthority)
+          ? (source.rawPlan.designAuthority as Record<string, unknown>)
+          : null;
+      const lineageHash =
+        typeof rawAuthority?.lineageHash === "string" && rawAuthority.lineageHash.trim()
+          ? rawAuthority.lineageHash.trim()
+          : undefined;
       return {
         message: buildApprovedPlanExecutionPrompt(source.rawPlan),
         meta: {
           sourceKind: "approved-plan",
           isTechnical: true,
           preservePayload: true,
+          ...(lineageHash ? { planDesignLineageHash: lineageHash } : {}),
         },
       };
+    }
 
     case "shadcn-block": {
       const title = source.displayName || source.registryItem.name || "Block";

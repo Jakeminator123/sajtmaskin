@@ -21,17 +21,50 @@ export async function addMessage(
       uiParts: Array.isArray(uiParts) ? uiParts : null,
       tokenCount: tokenCount ?? null,
     });
-    await tx
-      .update(engineChats)
-      .set({ updatedAt: new Date() })
-      .where(eq(engineChats.id, chatId));
-    const rows = await tx
-      .select()
-      .from(engineMessages)
-      .where(eq(engineMessages.id, id))
-      .limit(1);
+    await tx.update(engineChats).set({ updatedAt: new Date() }).where(eq(engineChats.id, chatId));
+    const rows = await tx.select().from(engineMessages).where(eq(engineMessages.id, id)).limit(1);
     return toRow(rows[0]) as unknown as Message;
   });
+}
+
+/**
+ * Atomically upsert one keyed assistant tool part. Product Postcheck runs
+ * after the generation stream, so client-only React state is not durable;
+ * this write makes Live Review rehydrate from engine_messages.ui_parts.
+ */
+export async function upsertAssistantMessageUiPart(
+  chatId: string,
+  messageId: string,
+  part: Record<string, unknown>,
+): Promise<boolean> {
+  const toolCallId =
+    typeof part.toolCallId === "string" && part.toolCallId.trim() ? part.toolCallId.trim() : null;
+  if (!chatId.trim() || !messageId.trim() || !toolCallId) return false;
+  const serialized = JSON.stringify({ ...part, toolCallId });
+  const result = await db
+    .update(engineMessages)
+    .set({
+      uiParts: sql<Record<string, unknown>[]>`(
+        COALESCE(
+          (
+            SELECT jsonb_agg(existing_part)
+            FROM jsonb_array_elements(
+              COALESCE(${engineMessages.uiParts}, '[]'::jsonb)
+            ) AS existing_part
+            WHERE existing_part ->> 'toolCallId' IS DISTINCT FROM ${toolCallId}
+          ),
+          '[]'::jsonb
+        ) || jsonb_build_array(${serialized}::jsonb)
+      )`,
+    })
+    .where(
+      and(
+        eq(engineMessages.id, messageId.trim()),
+        eq(engineMessages.chatId, chatId.trim()),
+        eq(engineMessages.role, "assistant"),
+      ),
+    );
+  return (result.rowCount ?? 0) > 0;
 }
 
 /**
@@ -57,9 +90,7 @@ export async function consumeF3ContinuationMarker(
   messageId: string,
 ): Promise<boolean> {
   const markerContainment = JSON.stringify([{ output: { f3Continuation: true } }]);
-  const consumedContainment = JSON.stringify([
-    { output: { f3ContinuationConsumed: true } },
-  ]);
+  const consumedContainment = JSON.stringify([{ output: { f3ContinuationConsumed: true } }]);
   const result = await db
     .update(engineMessages)
     .set({

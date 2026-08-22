@@ -9,20 +9,23 @@
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { BuildSpec } from "@/lib/gen/build-spec";
+import { buildPersistedOrchestrationSnapshot } from "@/lib/gen/orchestration-snapshot";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { createGenerationTelemetryRecord } from "@/lib/db/services/generation-telemetry";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import { getPhaseRoutingSummary } from "@/lib/models/phase-routing";
-import type {
-  FinalizeStepTelemetryMap,
-  FinalizeSyntaxResult,
-} from "./types";
+import type { FinalizeStepTelemetryMap, FinalizeSyntaxResult } from "./types";
 import type { AutofixFixerSummary, AutofixRiskSummary } from "./pre-phases";
+import { resolveFinalDossierFileEvidence } from "./dossier-file-evidence";
 
 export async function persistTelemetryRecord(params: {
   chatId: string;
   versionId: string;
+  /** Exact post-merge files persisted on this version. */
+  filesJson: string;
+  /** Canonical generation package lineage for this exact version. */
+  lineageHash: string | null | undefined;
   resolvedScaffold: ScaffoldManifest | null;
   scaffoldSelection: Record<string, unknown> | null;
   model: string;
@@ -98,6 +101,8 @@ export async function persistTelemetryRecord(params: {
   const {
     chatId,
     versionId,
+    filesJson,
+    lineageHash,
     resolvedScaffold,
     scaffoldSelection,
     model,
@@ -147,9 +152,7 @@ export async function persistTelemetryRecord(params: {
         safeFixCount: autoFixRisk.safeFixCount,
         riskyFixCount: autoFixRisk.riskyFixCount,
         riskyFixerIds: autoFixRisk.riskyFixerIds,
-        ...(autoFixFixers && autoFixFixers.length > 0
-          ? { fixers: autoFixFixers }
-          : {}),
+        ...(autoFixFixers && autoFixFixers.length > 0 ? { fixers: autoFixFixers } : {}),
       },
       preflight: {
         previewBlocked: hasPreviewBlockingPreflightErrors,
@@ -161,6 +164,25 @@ export async function persistTelemetryRecord(params: {
         unresolvedImportFallbackUsed,
       },
     };
+    const { fileEvidenceCapabilities, fileEvidenceDossierIds } =
+      resolveFinalDossierFileEvidence(filesJson);
+    telemetryMeta.orchestrationSnapshot = buildPersistedOrchestrationSnapshot({
+      streamMeta: {
+        ...(orchestrationStreamMeta ?? {}),
+        // Bind the historical envelope to the same post-merge file truth as
+        // the chat-global snapshot. Pre-generation evidence can otherwise
+        // misdescribe an integration added or removed by this exact version.
+        fileEvidenceCapabilities,
+        fileEvidenceDossierIds,
+        // Finalize receives lineage outside stream meta on the main streaming
+        // entrypoint; make the per-version envelope identical to the global
+        // snapshot and the non-stream/MCP path.
+        lineageHash: lineageHash ?? orchestrationStreamMeta?.lineageHash,
+      },
+      versionId,
+      chatId,
+      buildIntent: buildIntent ?? null,
+    });
     if (buildSpec) {
       telemetryMeta.buildSpec = {
         generationMode: buildSpec.generationMode,
@@ -192,6 +214,18 @@ export async function persistTelemetryRecord(params: {
     if (Array.isArray(sources) && sources.length > 0) {
       telemetryMeta.sources = sources;
     }
+    const variantSelection = orchestrationStreamMeta?.variantSelection;
+    if (variantSelection && typeof variantSelection === "object") {
+      telemetryMeta.variantSelection = variantSelection;
+    }
+    const resolvedDesign = orchestrationStreamMeta?.resolvedDesign;
+    if (resolvedDesign && typeof resolvedDesign === "object") {
+      telemetryMeta.resolvedDesign = resolvedDesign;
+    }
+    const variantTemplateId = orchestrationStreamMeta?.variantTemplateId;
+    if (typeof variantTemplateId === "string" && variantTemplateId.trim()) {
+      telemetryMeta.variantTemplateId = variantTemplateId.trim();
+    }
 
     const scaffoldSelectionMethod =
       scaffoldSelection && typeof scaffoldSelection.selectionMethod === "string"
@@ -201,8 +235,7 @@ export async function persistTelemetryRecord(params: {
       scaffoldSelection && typeof scaffoldSelection.selectionConfidence === "string"
         ? scaffoldSelection.selectionConfidence
         : null;
-    const briefInfluencedSelection =
-      scaffoldSelection?.briefContextApplied === true;
+    const briefInfluencedSelection = scaffoldSelection?.briefContextApplied === true;
 
     // Orchestrate-låst scaffold-variant för den här körningen. Samma källa
     // som runnerns autofix-läsning (`orchestrationStreamMeta.variantId`);
@@ -277,9 +310,7 @@ export async function persistTelemetryRecord(params: {
       scaffoldRetrySuggested: scaffoldRetry?.suggestedScaffoldId ?? null,
       meta: telemetryMeta,
     });
-    return telemetryRecord && typeof telemetryRecord.id === "string"
-      ? telemetryRecord.id
-      : null;
+    return telemetryRecord && typeof telemetryRecord.id === "string" ? telemetryRecord.id : null;
   } catch (telemetryErr) {
     console.warn("[telemetry] Failed to write generation telemetry:", telemetryErr);
     return null;

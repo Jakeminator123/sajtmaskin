@@ -10,7 +10,7 @@ import {
 } from "./follow-up-orchestration-input";
 import type { ParsedChatRequestMeta } from "./parse-chat-request-meta";
 
-const CODEGEN_ONLY_KEYS = [
+const PLAN_CODEGEN_PARITY_KEYS = [
   "persistedVariantId",
   "customInstructions",
   "chatId",
@@ -107,14 +107,11 @@ function baseParams(
 }
 
 describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
-  it("plan-mode produces all common fields and no codegen-only fields", () => {
+  it("plan-mode carries every system-prompt input used by codegen", () => {
     const planInput = buildFollowUpOrchestrationInput(baseParams({ mode: "plan" }));
 
-    for (const key of CODEGEN_ONLY_KEYS) {
-      expect(
-        Object.prototype.hasOwnProperty.call(planInput, key),
-        `plan-mode should not set ${key}`,
-      ).toBe(false);
+    for (const key of PLAN_CODEGEN_PARITY_KEYS) {
+      expect(Object.prototype.hasOwnProperty.call(planInput, key), key).toBe(true);
     }
 
     expect(planInput.prompt).toBe("wrapped follow-up message");
@@ -132,6 +129,11 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     expect(planInput.followUpIntent).toBe("neutral");
     expect(planInput.lifecycleStage).toBe("design");
     expect(planInput.engineModelId).toBe("gpt-5.4");
+    expect(planInput.persistedVariantId).toBe("minimalist-mag");
+    expect(planInput.customInstructions).toBe("Be brief.");
+    expect(planInput.chatId).toBe("chat_test_1");
+    expect(planInput.priorQualityTarget).toBe("standard");
+    expect(planInput.requestKind).toBeNull();
   });
 
   it("forwards clear-redesign on plan mode so inspiration can resolve", () => {
@@ -177,9 +179,11 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     }
   });
 
-  it("codegen-only fields appear only in codegen-mode output", () => {
+  it("plan and codegen share formerly codegen-only prompt fields", () => {
+    const planInput = buildFollowUpOrchestrationInput(baseParams({ mode: "plan" }));
     const codegenInput = buildFollowUpOrchestrationInput(baseParams({ mode: "codegen" }));
 
+    expect(planInput).toEqual(codegenInput);
     expect(codegenInput.persistedVariantId).toBe("minimalist-mag");
     expect(codegenInput.customInstructions).toBe("Be brief.");
     expect(codegenInput.chatId).toBe("chat_test_1");

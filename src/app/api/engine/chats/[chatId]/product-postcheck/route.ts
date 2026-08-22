@@ -10,17 +10,22 @@ import {
 } from "@/lib/observability/llm-usage";
 import { getEngineVersionForChatByIdForRequest, getRequestUserId } from "@/lib/tenant";
 import { runProductPostcheck } from "@/lib/gen/verify/product-postcheck";
-import { pickUserRequest, summarizeBrief } from "@/lib/gen/verify/live-review";
+import { pickUserRequestForVersion, summarizeBrief } from "@/lib/gen/verify/live-review";
 import {
   beginLiveReviewSession,
+  discardLiveReviewScreenshots,
   finishLiveReviewSession,
   type LiveReviewSession,
 } from "@/lib/gen/verify/live-review-session";
 import {
   abandonLiveReviewRun,
   deleteLiveReviewScreenshotUrls,
+  getLiveReviewRunForVersion,
 } from "@/lib/db/services/live-review-runs";
+import { skippedLiveReviewResult } from "@/lib/gen/verify/live-review-claim";
+import { readGenerationOrchestration } from "@/lib/gen/version-bound-orchestration";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
+import { upsertAssistantMessageUiPart } from "@/lib/db/chat-repository-pg";
 
 export const runtime = "nodejs";
 // Postcheck alone can approach ~150s worst case (boot wait, crawl with the
@@ -34,6 +39,34 @@ const requestSchema = z.object({
   versionId: z.string().min(1),
   previewUrl: z.string().trim().optional().nullable(),
 });
+
+async function persistLiveReviewNotice(input: {
+  chatId: string;
+  messageId: string | null | undefined;
+  versionId: string;
+  liveReview: unknown;
+  screenshots: unknown;
+}): Promise<void> {
+  const messageId = input.messageId?.trim();
+  if (!messageId) return;
+  try {
+    await upsertAssistantMessageUiPart(input.chatId, messageId, {
+      type: "tool:live-review",
+      toolName: "Live-granskning",
+      toolCallId: `live-review:${input.versionId}`,
+      state: "output-available",
+      output: {
+        liveReview: input.liveReview,
+        screenshots: input.screenshots ?? null,
+      },
+    });
+  } catch (error) {
+    console.warn(
+      "[product-postcheck] live review notice persistence failed:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "engine:product-postcheck", () =>
@@ -90,7 +123,8 @@ function emitPostcheckBlocked(params: {
   // `product_postcheck_blocked` so the version-status projection degrades
   // (never solid green) and backoffice/telemetry can tell "broke" apart
   // from "never ran".
-  const detail = params.blockingCodes.length > 0 ? params.blockingCodes.join(", ") : "produktkontroll";
+  const detail =
+    params.blockingCodes.length > 0 ? params.blockingCodes.join(", ") : "produktkontroll";
   try {
     emitBusEvent({
       t: "version.degraded",
@@ -134,6 +168,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       routesChecked: 0,
       durationMs: 0,
       checkedUrl: previewUrl?.trim() || null,
+      liveReview: skippedLiveReviewResult("postcheck_skipped", "F2 Product Postcheck är avstängd."),
     });
   }
 
@@ -168,6 +203,14 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       checkedUrl: null,
       durationMs: 0,
     });
+    const liveReview = skippedLiveReviewResult("preview_not_ready", "Preview-URL saknas.");
+    await persistLiveReviewNotice({
+      chatId,
+      messageId: scopedVersion.version.message_id,
+      versionId: resolvedVersionId,
+      liveReview,
+      screenshots: null,
+    });
     return NextResponse.json({
       ok: true,
       skipped: true,
@@ -178,6 +221,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       routesChecked: 0,
       durationMs: 0,
       checkedUrl: null,
+      liveReview,
     });
   }
 
@@ -241,6 +285,20 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     }
 
     try {
+      const versionOrchestration = await readGenerationOrchestration(resolvedVersionId);
+      const persistedBaseVersionId =
+        typeof versionOrchestration?.snapshot.baseVersionId === "string" &&
+        versionOrchestration.snapshot.baseVersionId.trim()
+          ? versionOrchestration.snapshot.baseVersionId.trim()
+          : null;
+      const persistedBaseFilesRevision =
+        typeof versionOrchestration?.snapshot.baseFilesRevision === "string" &&
+        versionOrchestration.snapshot.baseFilesRevision.trim()
+          ? versionOrchestration.snapshot.baseFilesRevision.trim()
+          : null;
+      const previousVersionId =
+        scopedVersion.version.parent_version_id?.trim() || persistedBaseVersionId;
+      const exactBriefSummary = summarizeBrief(versionOrchestration?.snapshot);
       result.liveReview = await finishLiveReviewSession(liveReviewSession, {
         skipped: result.skipped,
         findings: result.warnings.map((warning) => ({
@@ -250,24 +308,56 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         screenshots: result.screenshots,
         domSummary: result.domSummary,
         versionNumber: scopedVersion.version.version_number,
+        previousVersionId,
+        previousFilesRevision: persistedBaseFilesRevision,
         filesJson: scopedVersion.version.files_json,
-        userRequest: pickUserRequest(scopedVersion.chat?.messages ?? []),
-        briefSummary: summarizeBrief(scopedVersion.chat?.orchestration_snapshot),
+        userRequest: pickUserRequestForVersion(
+          scopedVersion.chat?.messages ?? [],
+          scopedVersion.version.message_id,
+        ),
+        briefSummary: exactBriefSummary,
       });
+      if (
+        liveReviewSession.claim &&
+        !result.screenshots?.desktopUrl &&
+        !result.screenshots?.mobileUrl
+      ) {
+        const durableRun = await getLiveReviewRunForVersion(resolvedVersionId, filesRevision);
+        if (durableRun?.desktopUrl || durableRun?.mobileUrl) {
+          result.screenshots = {
+            desktopUrl: durableRun.desktopUrl,
+            mobileUrl: durableRun.mobileUrl,
+          };
+        }
+      }
     } catch (reviewError) {
       console.warn(
         "[product-postcheck] live review skipped:",
         reviewError instanceof Error ? reviewError.message : reviewError,
       );
       if (liveReviewSession.claim?.kind === "acquired") {
-        await deleteLiveReviewScreenshotUrls(result.screenshots).catch(() => undefined);
+        await discardLiveReviewScreenshots(
+          result.screenshots,
+          deleteLiveReviewScreenshotUrls,
+        ).catch(() => undefined);
         await abandonLiveReviewRun(
           liveReviewSession.claim.row.id,
           liveReviewSession.claim.row.claimedAt,
         ).catch(() => undefined);
       }
+      result.liveReview = skippedLiveReviewResult(
+        "review_error",
+        reviewError instanceof Error ? reviewError.message : "Live review failed",
+      );
     }
 
+    await persistLiveReviewNotice({
+      chatId,
+      messageId: scopedVersion.version.message_id,
+      versionId: resolvedVersionId,
+      liveReview: result.liveReview ?? null,
+      screenshots: result.screenshots ?? null,
+    });
     return NextResponse.json(result);
   } catch (err) {
     if (liveReviewSession?.claim?.kind === "acquired") {
@@ -288,6 +378,17 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       checkedUrl: null,
       durationMs: null,
     });
+    const liveReview = skippedLiveReviewResult(
+      "runtime_crash",
+      err instanceof Error ? err.message : "Product postcheck failed",
+    );
+    await persistLiveReviewNotice({
+      chatId,
+      messageId: scopedVersion.version.message_id,
+      versionId: resolvedVersionId,
+      liveReview,
+      screenshots: null,
+    });
     return NextResponse.json({
       ok: true,
       skipped: true,
@@ -299,6 +400,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       durationMs: 0,
       checkedUrl: null,
       error: err instanceof Error ? err.message : "Product postcheck failed",
+      liveReview,
     });
   }
 }

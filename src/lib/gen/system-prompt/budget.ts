@@ -26,6 +26,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^custom instructions/i, priority: 100, required: true },
   { match: /^build intent:/i, priority: 95, required: true },
   { match: /^brief-locked design values$/i, priority: 94, required: true },
+  { match: /^resolved design contract$/i, priority: 94, required: true },
   // Byggval "Färg". Same tier as brief-locked values and `required` for the same
   // reason the variant block is: dropping it returns the build to the variant's
   // own palette while telemetry still reports the user's chosen cluster. The
@@ -34,8 +35,9 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^locked color palette$/i, priority: 94, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },
   { match: /^file surface budget$/i, priority: 91, required: true },
-  // The variant block carries the locked design direction (tokens, signature
-  // patterns, antiPatterns). At priority 91 without `required` it was still
+  // The variant block carries the structural design direction (signature
+  // patterns, antiPatterns; exact values may live in Resolved Design Contract).
+  // At priority 91 without `required` it was still
   // DROPPED outright under a tight budget — `buildBudgetedSystemPrompt` only
   // truncates required blocks — which silently returned the generation to a
   // style-less default while telemetry still reported the picked variant.

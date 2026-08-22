@@ -10,15 +10,17 @@ import type { ScaffoldVariant } from "../scaffold-variants";
 /**
  * Standardized "sterile but better" body background recipe used when a variant
  * does not ship its own `bodyBackgroundImage`. Keeps a calm visual rhythm
- * derived from the variant's own primary color instead of leaving the surface
- * dead-flat. Light variants get a soft top-left primary wash; dark variants
- * get a slightly heavier wash so depth is still readable on near-black.
+ * derived from the final primary/accent CSS variables instead of leaving the
+ * surface dead-flat. The variant still controls the intensity: light variants
+ * get a soft wash; dark variants get a slightly heavier one so depth remains
+ * readable after Brief/user colors replace the variant defaults.
  */
-function buildFallbackBodyBackgroundImage(
+export function resolveVariantBodyBackgroundImage(
   variant: ScaffoldVariant | null | undefined,
 ): string | null {
   const tokens = variant?.themeTokens;
   if (!tokens) return null;
+  if (tokens.bodyBackgroundImage) return tokens.bodyBackgroundImage;
   const primary = tokens.primary;
   const accent = tokens.accent;
   if (!primary && !accent) return null;
@@ -26,10 +28,10 @@ function buildFallbackBodyBackgroundImage(
   const primaryMix = isDark ? 14 : 6;
   const accentMix = isDark ? 10 : 5;
   const primaryStop = primary
-    ? `radial-gradient(circle at top left, color-mix(in oklab, ${primary} ${primaryMix}%, transparent) 0%, transparent 38%)`
+    ? `radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) ${primaryMix}%, transparent) 0%, transparent 38%)`
     : null;
   const accentStop = accent
-    ? `radial-gradient(circle at bottom right, color-mix(in oklab, ${accent} ${accentMix}%, transparent) 0%, transparent 42%)`
+    ? `radial-gradient(circle at bottom right, color-mix(in oklab, var(--color-accent) ${accentMix}%, transparent) 0%, transparent 42%)`
     : null;
   return [primaryStop, accentStop].filter(Boolean).join(", ") || null;
 }
@@ -80,7 +82,7 @@ export function formatBodyBackgroundRecipeLines(
       `  - ${tokens.bodyBackgroundImage}`,
     ];
   }
-  const fallback = buildFallbackBodyBackgroundImage(variant);
+  const fallback = resolveVariantBodyBackgroundImage(variant);
   if (!fallback) return [];
   return [
     "- **Body background recipe** (standardized fallback — apply this backgroundImage on `body` in `globals.css` — NOT inside `@theme inline` so the surface is not dead-flat):",

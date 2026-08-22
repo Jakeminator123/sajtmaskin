@@ -68,9 +68,7 @@ export async function getVersionFiles(versionId: string): Promise<CodeFile[] | n
  * schema migration) and never publish a repair over a concurrent user edit.
  * Reading both from one row keeps `files` and `filesJson` mutually consistent.
  */
-export async function getVersionFilesSnapshot(
-  versionId: string,
-): Promise<{
+export async function getVersionFilesSnapshot(versionId: string): Promise<{
   files: CodeFile[];
   filesJson: string;
   lifecycleStage: "design" | "integrations";
@@ -111,9 +109,7 @@ export async function getLatestVersionFiles(chatId: string): Promise<CodeFile[] 
  * Mirrors the `preferred ?? latest` resolution finalize-design uses for its
  * own stale check. Returns null when the chat has no versions yet.
  */
-export async function resolveChatPreferredVersionId(
-  chatId: string,
-): Promise<string | null> {
+export async function resolveChatPreferredVersionId(chatId: string): Promise<string | null> {
   const preferred = await getPreferredVersion(chatId);
   const version = preferred ?? (await getLatestVersion(chatId));
   return version?.id ?? null;
@@ -136,51 +132,43 @@ export async function resolveChatPreferredVersionId(
  * gate resolves its version through the same explicit→preferred chain, so
  * gate and generation agree on the base they inspected.
  */
-export async function resolveFollowUpPreviousFiles(
+export type FollowUpBaseBranch = "explicit" | "preferred" | "latest" | "none";
+
+export interface ResolvedFollowUpBase {
+  /** Canonical chat-scoped row whose files were actually selected. */
+  versionId: string | null;
+  /** DB-generated identity for those exact files. */
+  filesRevision: string | null;
+  files: CodeFile[];
+  branch: FollowUpBaseBranch;
+}
+
+function versionFilesRevision(version: Version): string | null {
+  return typeof version.files_revision === "string" && version.files_revision.trim()
+    ? version.files_revision.trim()
+    : null;
+}
+
+async function resolveUsableFollowUpBase(
   chatId: string,
-  engineBaseVersionId?: string | null,
-): Promise<CodeFile[]> {
-  const id = typeof engineBaseVersionId === "string" ? engineBaseVersionId.trim() : "";
-  if (id) {
-    const version = await getVersionById(id);
-    if (version && version.chat_id === chatId) {
-      const parsed = parseStoredVersionFiles(version.files_json, {
-        versionId: version.id,
-        chatId: version.chat_id,
-      });
-      if (parsed && parsed.length > 0) {
-        // P19 ingress 2: explicit `engineBaseVersionId` from client meta was
-        // honoured. Wrapped in try/catch so telemetry can never break codegen.
-        // Double-counter is intentional: `followup_base_resolved` gives a
-        // single-line dashboard view, the typed counter gives per-branch detail.
-        try {
-          incIngressEvent("followup_base_resolved", { reason: "explicit" });
-          incIngressEvent("followup_base_explicit");
-        } catch {}
-        try {
-          devLogAppend("latest", {
-            type: "version-manager.followup-base",
-            chatId,
-            branch: "explicit",
-            versionId: version.id,
-          });
-        } catch {}
-        return applyKnownImageHealsToVersionFiles({
-          chatId,
-          version,
-          files: parsed,
-          branch: "explicit",
-        });
-      }
-    }
-  }
-  const preferred = await getPreferredVersion(chatId);
-  const version = preferred ?? (await getLatestVersion(chatId));
-  const branch: "preferred" | "latest" = preferred ? "preferred" : "latest";
+  version: Version | null,
+  branch: Exclude<FollowUpBaseBranch, "none">,
+): Promise<ResolvedFollowUpBase | null> {
+  if (!version || version.chat_id !== chatId || !version.files_json) return null;
+  const parsed = parseStoredVersionFiles(version.files_json, {
+    versionId: version.id,
+    chatId: version.chat_id,
+  });
+  if (!parsed || parsed.length === 0) return null;
+
   try {
     incIngressEvent("followup_base_resolved", { reason: branch });
     incIngressEvent(
-      branch === "preferred" ? "followup_base_preferred" : "followup_base_latest",
+      branch === "explicit"
+        ? "followup_base_explicit"
+        : branch === "preferred"
+          ? "followup_base_preferred"
+          : "followup_base_latest",
     );
   } catch {}
   try {
@@ -188,21 +176,55 @@ export async function resolveFollowUpPreviousFiles(
       type: "version-manager.followup-base",
       chatId,
       branch,
-      versionId: version?.id ?? null,
+      versionId: version.id,
+      filesRevision: versionFilesRevision(version),
     });
   } catch {}
-  if (!version?.files_json) return [];
-  const parsed = parseStoredVersionFiles(version.files_json, {
+
+  return {
     versionId: version.id,
-    chatId: version.chat_id,
-  });
-  if (!parsed || parsed.length === 0) return [];
-  return applyKnownImageHealsToVersionFiles({
-    chatId,
-    version,
-    files: parsed,
+    filesRevision: versionFilesRevision(version),
+    files: await applyKnownImageHealsToVersionFiles({ chatId, version, files: parsed, branch }),
     branch,
-  });
+  };
+}
+
+/**
+ * Resolve file contents and their version identity in one authority decision.
+ * An unknown, cross-chat or unusable explicit id can never leak into lineage:
+ * resolution falls through explicit -> preferred -> latest and returns the id
+ * that supplied the files.
+ */
+export async function resolveFollowUpBase(
+  chatId: string,
+  engineBaseVersionId?: string | null,
+): Promise<ResolvedFollowUpBase> {
+  const id = typeof engineBaseVersionId === "string" ? engineBaseVersionId.trim() : "";
+  if (id) {
+    const version = await getVersionById(id);
+    const explicit = await resolveUsableFollowUpBase(chatId, version, "explicit");
+    if (explicit) return explicit;
+  }
+
+  const preferred = await getPreferredVersion(chatId);
+  const preferredBase = await resolveUsableFollowUpBase(chatId, preferred, "preferred");
+  if (preferredBase) return preferredBase;
+
+  const latest = await getLatestVersion(chatId);
+  if (latest?.id !== preferred?.id) {
+    const latestBase = await resolveUsableFollowUpBase(chatId, latest, "latest");
+    if (latestBase) return latestBase;
+  }
+
+  return { versionId: null, filesRevision: null, files: [], branch: "none" };
+}
+
+/** Compatibility wrapper for non-authority consumers. */
+export async function resolveFollowUpPreviousFiles(
+  chatId: string,
+  engineBaseVersionId?: string | null,
+): Promise<CodeFile[]> {
+  return (await resolveFollowUpBase(chatId, engineBaseVersionId)).files;
 }
 
 /**

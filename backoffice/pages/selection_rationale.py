@@ -3,8 +3,7 @@
 
 Den här vyn svarar på EN fråga för de senaste genereringarna: **varför** valdes
 just den scaffolden / varianten / dossiern (och modellen/tiern)? Allt byggs av
-EXISTERANDE trace-signaler — ingen ny runtime-kod, inga skrivningar, inga
-hemligheter.
+persistade trace-signaler — inga skrivningar, inga hemligheter.
 
 Två filbaserade källor (komplement, inte duplikat, av `LLM-flöde telemetri`):
 
@@ -14,7 +13,7 @@ Två filbaserade källor (komplement, inte duplikat, av `LLM-flöde telemetri`):
      (``selectionMethod``/``selectionConfidence``/``embeddingOverrideReason``/
      ``topCandidates``/``keywordScores``/``briefContextApplied`` m.fl. — se
      ``ScaffoldSelectionMeta`` i ``src/lib/gen/scaffolds/matcher.ts``), vald
-     ``scaffoldId``/``variantId`` samt ``buildSpec`` (buildIntent/qualityTarget/
+     ``scaffoldId``/``variantId``/``variantSelection`` samt ``buildSpec`` (buildIntent/qualityTarget/
      changeScope/previewPolicy/contextPolicy/stylePack). Endast SENASTE körningen
      (filen skrivs över per generation).
 
@@ -24,9 +23,10 @@ Två filbaserade källor (komplement, inte duplikat, av `LLM-flöde telemetri`):
      samt skannas för ``scaffoldId``/``resolvedTier`` och fil-tillgängliga
      drift-liknande events (``scaffold-retry.suggested``).
 
-  3. **DB-telemetri** ``generation_telemetry.meta.selectedDossierIds`` via
-     ``scripts/db/generation-history.mjs --json``. Dossier-valen persisteras i
-     DB, inte i fil-loggarna.
+  3. **DB-telemetri** ``generation_telemetry.meta.variantSelection`` /
+     ``resolvedDesign`` / ``selectedDossierIds`` via
+     ``scripts/db/generation-history.mjs --json``. Slutligt variantbeslut och
+     dossier-val persisteras där även när fil-loggarna är avstängda.
 
 VIKTIG SIGNAL-NOT (annars luras operatören): console-signalerna
 ``dossiers_selected`` / ``dossier_capability_unresolved`` och dossierns
@@ -82,7 +82,8 @@ def _read_run_meta(run_dir: Path) -> dict[str, Any]:
 def _scan_timeline_signals(run_dir: Path) -> dict[str, Any]:
     """Skanna timeline.ndjson efter selection-relaterade fält som inte finns i
     meta.json: senaste ``scaffoldId``/``resolvedTier``/``serializeMode``/
-    ``styleDirection`` samt fil-tillgängliga ``scaffold-retry.suggested``-events.
+    ``styleDirection``/``variantSelection`` samt fil-tillgängliga
+    ``scaffold-retry.suggested``-events.
 
     Drift-/dossier-events finns INTE här (de är console.info) — vi letar inte
     efter dem och låtsas inte att de saknas av misstag.
@@ -93,6 +94,9 @@ def _scan_timeline_signals(run_dir: Path) -> dict[str, Any]:
     serialize_mode: str | None = None
     style_direction: str | None = None
     model_id: str | None = None
+    variant_selection: dict[str, Any] | None = None
+    explicit_design_axes: list[str] = []
+    explicit_design_fields: list[str] = []
     retries: list[dict[str, Any]] = []
 
     for entry in entries:
@@ -128,6 +132,17 @@ def _scan_timeline_signals(run_dir: Path) -> dict[str, Any]:
                     "confidence": data.get("confidence") or "—",
                 }
             )
+        raw_variant_selection = data.get("variantSelection")
+        if isinstance(raw_variant_selection, dict):
+            variant_selection = raw_variant_selection
+        raw_axes = data.get("explicitDesignAxes")
+        if isinstance(raw_axes, list):
+            explicit_design_axes = [str(axis) for axis in raw_axes if str(axis).strip()]
+        raw_fields = data.get("explicitDesignFields")
+        if isinstance(raw_fields, list):
+            explicit_design_fields = [
+                str(field) for field in raw_fields if str(field).strip()
+            ]
 
     return {
         "scaffoldId": scaffold_id,
@@ -135,6 +150,9 @@ def _scan_timeline_signals(run_dir: Path) -> dict[str, Any]:
         "serializeMode": serialize_mode,
         "styleDirection": style_direction,
         "modelId": model_id,
+        "variantSelection": variant_selection,
+        "explicitDesignAxes": explicit_design_axes,
+        "explicitDesignFields": explicit_design_fields,
         "scaffoldRetries": retries,
     }
 
@@ -207,6 +225,78 @@ def _selected_dossier_ids(meta: Any) -> list[str]:
     return [str(item).strip() for item in raw if str(item).strip()]
 
 
+def _variant_authority_from_meta(meta: Any) -> dict[str, Any] | None:
+    """Read the persisted final variant decision and its design provenance."""
+    if not isinstance(meta, dict):
+        return None
+    selection = meta.get("variantSelection")
+    if not isinstance(selection, dict):
+        return None
+    has_decision = any(
+        str(selection.get(key) or "").strip()
+        for key in ("source", "finalId", "hintId")
+    )
+    if not has_decision:
+        return None
+    resolved_design = meta.get("resolvedDesign")
+    raw_axes = (
+        resolved_design.get("explicitAxes")
+        if isinstance(resolved_design, dict)
+        else []
+    )
+    axes = (
+        [str(axis).strip() for axis in raw_axes if str(axis).strip()]
+        if isinstance(raw_axes, list)
+        else []
+    )
+    raw_fields = (
+        resolved_design.get("explicitFields")
+        if isinstance(resolved_design, dict)
+        else []
+    )
+    fields = (
+        [str(field).strip() for field in raw_fields if str(field).strip()]
+        if isinstance(raw_fields, list)
+        else []
+    )
+    return {
+        **selection,
+        "explicitDesignAxes": axes,
+        "explicitDesignFields": fields,
+    }
+
+
+def _resolved_value(value: Any) -> Any:
+    if isinstance(value, dict) and "value" in value:
+        return value.get("value")
+    return value
+
+
+def _resolved_design_dump_rows(resolved_design: Any) -> list[dict[str, str]]:
+    """Flatten persisted design provenance for the dump panel."""
+    if not isinstance(resolved_design, dict) or not resolved_design:
+        return []
+    raw_axes = resolved_design.get("explicitAxes")
+    raw_fields = resolved_design.get("explicitFields")
+    axes = (
+        [str(axis).strip() for axis in raw_axes if str(axis).strip()]
+        if isinstance(raw_axes, list)
+        else []
+    )
+    fields = (
+        [str(field).strip() for field in raw_fields if str(field).strip()]
+        if isinstance(raw_fields, list)
+        else []
+    )
+    return [
+        {"fält": "variantId", "värde": _txt(resolved_design.get("variantId"))},
+        {"fält": "explicitAxes", "värde": ", ".join(axes) if axes else "—"},
+        {"fält": "explicitFields", "värde": ", ".join(fields) if fields else "—"},
+        {"fält": "colorMode", "värde": _txt(_resolved_value(resolved_design.get("colorMode")))},
+        {"fält": "qualityBar", "värde": _txt(_resolved_value(resolved_design.get("qualityBar")))},
+    ]
+
+
 def _txt(value: Any) -> str:
     if value is None:
         return "—"
@@ -239,7 +329,8 @@ def _render_scaffold_dump_panel(dump: dict[str, Any] | None) -> None:
             "**Förväntade fält:** `scaffoldId` · `selectionMethod` "
             "(keyword/embedding/manual/persisted/default/off) · `selectionConfidence` · "
             "`embeddingOverrideReason` · `briefContextApplied` · `topCandidates` · "
-            "`keywordScores` · `variantId` · `buildSpec` (buildIntent/qualityTarget/…) · "
+            "`keywordScores` · `variantId` · `variantSelection` (source/hint/final/score) · "
+            "`resolvedDesign` · `buildSpec` (buildIntent/qualityTarget/…) · "
             "`sources` (kind/id/origin/reason/authority/reachedPrompt)."
         )
         return
@@ -264,6 +355,33 @@ def _render_scaffold_dump_panel(dump: dict[str, Any] | None) -> None:
     c4.metric("Vald variant", _txt(payload.get("variantId")))
     c5.metric("scaffoldMode", _txt(payload.get("scaffoldMode")))
     c6.metric("briefContextApplied", "ja" if selection.get("briefContextApplied") else "nej")
+
+    variant_selection = payload.get("variantSelection") or {}
+    if isinstance(variant_selection, dict) and variant_selection:
+        st.markdown("**Variantens auktoritetsbeslut**")
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {"fält": "source", "värde": _txt(variant_selection.get("source"))},
+                    {"fält": "hint → final", "värde": f"{_txt(variant_selection.get('hintId'))} → {_txt(variant_selection.get('finalId'))}"},
+                    {"fält": "changedFromHint", "värde": _txt(variant_selection.get("changedFromHint"))},
+                    {"fält": "score", "värde": _txt(variant_selection.get("score"))},
+                    {"fält": "runnerUpScore", "värde": _txt(variant_selection.get("runnerUpScore"))},
+                    {"fält": "margin", "värde": _txt(variant_selection.get("margin"))},
+                ]
+            ),
+            hide_index=True,
+            use_container_width=True,
+        )
+
+    resolved_design_rows = _resolved_design_dump_rows(payload.get("resolvedDesign"))
+    if resolved_design_rows:
+        st.markdown("**Resolved design (proveniens)**")
+        st.dataframe(
+            pd.DataFrame(resolved_design_rows),
+            hide_index=True,
+            use_container_width=True,
+        )
 
     # Override / semantic-fallback skäl (varför embedding/keyword vann eller föll).
     override_reason = selection.get("embeddingOverrideReason")
@@ -422,6 +540,20 @@ def _render_run_picker(ctx: BackofficeContext, run_dirs: list[Path]) -> None:
     with st.expander("Kontext för körningen", expanded=False):
         st.dataframe(pd.DataFrame(detail_rows), hide_index=True, use_container_width=True)
 
+    variant_selection = signals.get("variantSelection")
+    if isinstance(variant_selection, dict):
+        st.markdown(
+            "**Variant:** "
+            f"`{_txt(variant_selection.get('source'))}` · "
+            f"hint `{_txt(variant_selection.get('hintId'))}` → "
+            f"final `{_txt(variant_selection.get('finalId'))}` · "
+            f"ändrad: `{_txt(variant_selection.get('changedFromHint'))}`"
+        )
+        axes = signals.get("explicitDesignAxes") or []
+        st.caption("Explicit designaxlar: " + (", ".join(axes) if axes else "inga"))
+        fields = signals.get("explicitDesignFields") or []
+        st.caption("Explicit designfält: " + (", ".join(fields) if fields else "inga"))
+
     retries = signals.get("scaffoldRetries") or []
     if retries:
         st.markdown("**Scaffold-retry-förslag** (`scaffold-retry.suggested` — drift-liknande, fil-tillgänglig)")
@@ -457,10 +589,11 @@ def _render_recent_runs_table(run_dirs: list[Path]) -> None:
 
 
 def _render_dossier_note(ctx: BackofficeContext) -> None:
-    st.subheader("Dossier-val (DB-telemetri, ej fil-loggar)")
+    st.subheader("Variant- och dossier-val (DB-telemetri)")
     st.caption(
-        "Dossier-ID:n persisteras i `generation_telemetry.meta.selectedDossierIds` "
-        "av finalize-telemetrin. Console-eventen `[orchestrate] dossiers_selected` "
+        "Slutligt variantbeslut persisteras i `meta.variantSelection` tillsammans "
+        "med `meta.resolvedDesign`; dossier-ID:n ligger i `meta.selectedDossierIds`. "
+        "Console-eventen `[orchestrate] dossiers_selected` "
         "och `dossier_capability_unresolved` finns fortfarande bara i serverloggen; "
         "fil-loggarna (`logs/generationslogg`) bär inte dossier-rationalen."
     )
@@ -479,12 +612,43 @@ def _render_dossier_note(ctx: BackofficeContext) -> None:
         return
 
     detail_rows = []
+    variant_rows = []
+    variant_sources: dict[str, int] = {}
     counts: dict[str, int] = {}
     rows_with_dossiers = 0
     for row in rows:
         if not isinstance(row, dict):
             continue
-        dossier_ids = _selected_dossier_ids(row.get("meta"))
+        meta = row.get("meta")
+        authority = _variant_authority_from_meta(meta)
+        if authority:
+            source = _txt(authority.get("source"))
+            variant_sources[source] = variant_sources.get(source, 0) + 1
+            variant_rows.append(
+                {
+                    "Tid": _txt(row.get("created_at"))[:19],
+                    "Projekt": _txt(row.get("project_name")),
+                    "Chatt": _txt(row.get("chat_title") or row.get("chat_id"))[:36],
+                    "Källa": source,
+                    "Hint → slutlig": (
+                        f"{_txt(authority.get('hintId'))} → "
+                        f"{_txt(authority.get('finalId'))}"
+                    ),
+                    "Ändrad": _txt(authority.get("changedFromHint")),
+                    "Score / marginal": (
+                        f"{_txt(authority.get('score'))} / "
+                        f"{_txt(authority.get('margin'))}"
+                    ),
+                    "Explicita axlar": (
+                        ", ".join(authority.get("explicitDesignAxes") or []) or "—"
+                    ),
+                    "Explicita fält": (
+                        ", ".join(authority.get("explicitDesignFields") or []) or "—"
+                    ),
+                }
+            )
+
+        dossier_ids = _selected_dossier_ids(meta)
         if not dossier_ids:
             continue
         rows_with_dossiers += 1
@@ -502,6 +666,20 @@ def _render_dossier_note(ctx: BackofficeContext) -> None:
             }
         )
 
+    st.markdown("**Slutliga variantbeslut**")
+    variant_col1, variant_col2, variant_col3 = st.columns(3)
+    variant_col1.metric("DB-rader lästa", len(rows))
+    variant_col2.metric("Rader med variantbeslut", len(variant_rows))
+    variant_col3.metric("Urvalskällor", len(variant_sources))
+    if variant_rows:
+        st.dataframe(pd.DataFrame(variant_rows[:100]), hide_index=True, use_container_width=True)
+    else:
+        st.info(
+            "Inga `meta.variantSelection` hittades i de senaste DB-raderna. "
+            "Äldre generationer saknar fältet."
+        )
+
+    st.markdown("**Dossier-användning**")
     col1, col2, col3 = st.columns(3)
     col1.metric("DB-rader lästa", len(rows))
     col2.metric("Rader med dossier-val", rows_with_dossiers)
@@ -536,7 +714,7 @@ def render(ctx: BackofficeContext) -> None:
     st.caption(
         "Fokuserad lins som svarar på **varför** en scaffold/variant/dossier "
         "(och modell/tier) valdes för de senaste genereringarna — byggd av "
-        "EXISTERANDE trace-signaler. Vyn är **read-only**: inga värden/secrets "
+        "persistade trace-signaler. Vyn är **read-only**: inga värden/secrets "
         "läses eller visas, inga muterande knappar. För full tidslinje per "
         "körning, se sidan **LLM-flöde telemetri** (denna sida duplicerar inte "
         "den — den kompletterar)."

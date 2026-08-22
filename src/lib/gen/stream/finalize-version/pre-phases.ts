@@ -15,10 +15,7 @@ import { getFixerRiskById } from "@/lib/gen/autofix/fixer-registry";
 import { expandUrls } from "@/lib/gen/url-compress";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
-import type {
-  FinalizeProgressCallback,
-  FinalizeStepTelemetryMap,
-} from "./types";
+import type { FinalizeProgressCallback, FinalizeStepTelemetryMap } from "./types";
 
 export function runUrlExpandPhase(params: {
   accumulatedContent: string;
@@ -176,6 +173,7 @@ export async function runAutofixPrePhase(params: {
    * No-op when null/undefined.
    */
   variantId?: string | null;
+  resolvedFontPairing?: { heading?: string | null; body?: string | null } | null;
   onProgress?: FinalizeProgressCallback;
   stepTelemetry: FinalizeStepTelemetryMap;
 }): Promise<AutofixPhaseResult> {
@@ -189,6 +187,7 @@ export async function runAutofixPrePhase(params: {
     resolvedScaffold,
     resolvedTier,
     variantId,
+    resolvedFontPairing,
     onProgress,
     stepTelemetry,
   } = params;
@@ -230,6 +229,7 @@ export async function runAutofixPrePhase(params: {
       previewPolicy: buildSpec?.previewPolicy,
       scaffoldId: resolvedScaffold?.id ?? null,
       variantId: variantId ?? null,
+      resolvedFontPairing: resolvedFontPairing ?? null,
     });
     contentForVersion = autoFixResult.fixedContent;
     autofixSucceeded = true;

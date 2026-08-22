@@ -149,6 +149,12 @@ export function resolvePreviousVersionId(
   currentVersionId: string,
   versions: VersionEntry[],
 ): string | null {
+  const currentEntry = versions.find(
+    (entry) => entry.versionId === currentVersionId || entry.id === currentVersionId,
+  );
+  if (typeof currentEntry?.parentVersionId === "string" && currentEntry.parentVersionId.trim()) {
+    return currentEntry.parentVersionId.trim();
+  }
   const byDate = [...versions].sort((a, b) => {
     const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
     const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;

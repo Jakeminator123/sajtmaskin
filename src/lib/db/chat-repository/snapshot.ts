@@ -1,5 +1,5 @@
 import { db } from "../client";
-import { engineChats } from "../schema";
+import { engineChats, engineVersions } from "../schema";
 import { eq, sql } from "drizzle-orm";
 import {
   coerceKnownImageReplacementMap,
@@ -7,6 +7,11 @@ import {
   KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY,
   type KnownImageReplacementMap,
 } from "@/lib/utils/image-validator";
+import {
+  parsePlanDesignAuthority,
+  PENDING_PLAN_AUTHORITY_SNAPSHOT_KEY,
+  type PlanDesignAuthority,
+} from "@/lib/gen/plan/design-authority";
 
 export async function getChatOrchestrationSnapshot(
   chatId: string,
@@ -24,13 +29,13 @@ export async function getChatOrchestrationSnapshot(
 export async function updateChatOrchestrationSnapshot(
   chatId: string,
   snapshot: Record<string, unknown> | null,
+  options: { consumePendingPlanDesignLineageHash?: string | null } = {},
 ): Promise<boolean> {
   // Bugbot HIGH (PR #376): the finalize snapshot persist is built from an
-  // EARLIER read and previously replaced the whole jsonb column, so it could
-  // race with `recordKnownBrokenImageReplacements`' atomic append and drop the
-  // healed-image map. Merge that one key SQL-side — the DB column's current
-  // `knownBrokenImageReplacements` is unioned with the incoming snapshot's —
-  // while every other key keeps the replace semantics callers rely on.
+  // EARLIER read and previously replaced the whole jsonb column. Preserve the
+  // two concurrently-written keys SQL-side: union current healed-image data,
+  // and keep the current pending Plan Design Authority unless this exact
+  // lineage is being consumed. Every other key keeps replace semantics.
   if (snapshot === null) {
     const result = await db
       .update(engineChats)
@@ -39,20 +44,117 @@ export async function updateChatOrchestrationSnapshot(
     return (result.rowCount ?? 0) > 0;
   }
   const snapshotJson = JSON.stringify(snapshot);
-  const mergedReplacementsExpr = sql`coalesce(${engineChats.orchestrationSnapshot}->${KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY}, '{}'::jsonb)
-        || coalesce(${snapshotJson}::jsonb->${KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY}, '{}'::jsonb)`;
+  const currentSnapshotExpr = sql`coalesce(${engineChats.orchestrationSnapshot}, '{}'::jsonb)`;
+  const incomingSnapshotExpr = sql`${snapshotJson}::jsonb`;
+  // Finalizers still build their merge from an earlier JS read. Completion
+  // time alone is not causal: a slow repair of historical v1 can finish after
+  // v2 and otherwise roll the chat-wide Brief/Variant authority back. Compare
+  // the two persisted version numbers first whenever both snapshots identify
+  // different, chat-owned versions. `capturedAt` remains the tie-breaker for
+  // the same mutable version (or a legacy snapshot without usable identity).
+  const currentVersionNumberExpr = sql`(
+    SELECT ${engineVersions.versionNumber}
+    FROM ${engineVersions}
+    WHERE ${engineVersions.id} = ${currentSnapshotExpr}->>'lastVersionId'
+      AND ${engineVersions.chatId} = ${chatId}
+    LIMIT 1
+  )`;
+  const incomingVersionNumberExpr = sql`(
+    SELECT ${engineVersions.versionNumber}
+    FROM ${engineVersions}
+    WHERE ${engineVersions.id} = ${incomingSnapshotExpr}->>'lastVersionId'
+      AND ${engineVersions.chatId} = ${chatId}
+    LIMIT 1
+  )`;
+  const causalSnapshotWinnerExpr = sql`CASE
+    WHEN ${currentSnapshotExpr} ? 'lastVersionId'
+      AND ${incomingSnapshotExpr} ? 'lastVersionId'
+      AND ${currentSnapshotExpr}->>'lastVersionId' <> ${incomingSnapshotExpr}->>'lastVersionId'
+      AND ${currentVersionNumberExpr} IS NOT NULL
+      AND ${incomingVersionNumberExpr} IS NOT NULL
+    THEN CASE
+      WHEN ${currentVersionNumberExpr} >= ${incomingVersionNumberExpr}
+      THEN ${currentSnapshotExpr}
+      ELSE ${incomingSnapshotExpr}
+    END
+    WHEN ${currentSnapshotExpr} ? 'capturedAt'
+      AND ${incomingSnapshotExpr} ? 'capturedAt'
+      AND ${currentSnapshotExpr}->>'capturedAt' >= ${incomingSnapshotExpr}->>'capturedAt'
+    THEN ${currentSnapshotExpr}
+    ELSE ${incomingSnapshotExpr}
+  END`;
+  // A plan can be created while an older build is finalizing. Always preserve
+  // the DB column's CURRENT pending authority instead of trusting the stale JS
+  // snapshot. The approved build consumes it atomically only when the expected
+  // lineage still matches, so build A can never erase a newer plan B.
+  const livePendingPlanExpr = sql`nullif(
+    ${engineChats.orchestrationSnapshot}->${PENDING_PLAN_AUTHORITY_SNAPSHOT_KEY},
+    'null'::jsonb
+  )`;
+  const incomingWithoutPendingPlanExpr = sql`${causalSnapshotWinnerExpr} - ${PENDING_PLAN_AUTHORITY_SNAPSHOT_KEY}`;
+  const expectedPlanLineage = options.consumePendingPlanDesignLineageHash?.trim() || null;
+  const pendingPlanSafeSnapshotExpr = expectedPlanLineage
+    ? sql`CASE
+        WHEN ${livePendingPlanExpr} IS NULL
+          OR ${livePendingPlanExpr}->>'lineageHash' = ${expectedPlanLineage}
+        THEN ${incomingWithoutPendingPlanExpr}
+        ELSE jsonb_set(
+          ${incomingWithoutPendingPlanExpr},
+          ARRAY[${PENDING_PLAN_AUTHORITY_SNAPSHOT_KEY}]::text[],
+          ${livePendingPlanExpr},
+          true
+        )
+      END`
+    : sql`CASE
+        WHEN ${livePendingPlanExpr} IS NULL THEN ${incomingWithoutPendingPlanExpr}
+        ELSE jsonb_set(
+          ${incomingWithoutPendingPlanExpr},
+          ARRAY[${PENDING_PLAN_AUTHORITY_SNAPSHOT_KEY}]::text[],
+          ${livePendingPlanExpr},
+          true
+        )
+      END`;
+  const mergedReplacementsExpr = sql`coalesce(${currentSnapshotExpr}->${KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY}, '{}'::jsonb)
+        || coalesce(${causalSnapshotWinnerExpr}->${KNOWN_IMAGE_REPLACEMENTS_SNAPSHOT_KEY}, '{}'::jsonb)`;
   const result = await db
     .update(engineChats)
     .set({
       orchestrationSnapshot: sql<Record<string, unknown>>`CASE
-        WHEN (${mergedReplacementsExpr}) = '{}'::jsonb THEN ${snapshotJson}::jsonb
+        WHEN (${mergedReplacementsExpr}) = '{}'::jsonb THEN ${pendingPlanSafeSnapshotExpr}
         ELSE jsonb_set(
-          ${snapshotJson}::jsonb,
+          ${pendingPlanSafeSnapshotExpr},
           '{knownBrokenImageReplacements}'::text[],
           ${mergedReplacementsExpr},
           true
         )
       END`,
+      updatedAt: new Date(),
+    })
+    .where(eq(engineChats.id, chatId));
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Persist the runtime-finalized Plan → Build design handoff without replacing
+ * the accepted-version snapshot. The approved build reads this DB-owned value,
+ * never the plan JSON echoed back by the browser.
+ */
+export async function setPendingPlanDesignAuthority(
+  chatId: string,
+  authority: PlanDesignAuthority,
+): Promise<boolean> {
+  const parsed = parsePlanDesignAuthority(authority);
+  if (!parsed) return false;
+  const authorityJson = JSON.stringify(parsed);
+  const result = await db
+    .update(engineChats)
+    .set({
+      orchestrationSnapshot: sql<Record<string, unknown>>`jsonb_set(
+        coalesce(${engineChats.orchestrationSnapshot}, '{}'::jsonb),
+        ARRAY[${PENDING_PLAN_AUTHORITY_SNAPSHOT_KEY}]::text[],
+        ${authorityJson}::jsonb,
+        true
+      )`,
       updatedAt: new Date(),
     })
     .where(eq(engineChats.id, chatId));

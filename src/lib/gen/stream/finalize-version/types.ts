@@ -88,9 +88,11 @@ export interface FinalizeParams {
    * Used by autofix so a repair attempt replaces v1 in-place rather than minting v2.
    */
   targetVersionId?: string | null;
+  /** Exact version whose files formed this generation's merge base. */
+  generationBaseVersionId?: string | null;
   /**
-   * F3 only: id of the F2 design version this build is forked from.
-   * Stored on the new `engine_versions` row as `parent_version_id`.
+   * F3-only continuation parent. `generationBaseVersionId` is the canonical
+   * file parent stored on the new row for all generation modes.
    * Set by the `/finalize-design` flow; ignored when `buildSpec.previewPolicy`
    * is not `fidelity3`.
    */
@@ -204,11 +206,7 @@ export interface FinalizeResult {
 
 export interface FinalizePathPolicy {
   runDeepPath: boolean;
-  reason:
-    | "default"
-    | "fast_path_disabled_by_flag"
-    | "repair_pass"
-    | "light_followup_fast_policy";
+  reason: "default" | "fast_path_disabled_by_flag" | "repair_pass" | "light_followup_fast_policy";
 }
 
 export type FinalizeStepStatus = "done" | "skipped" | "error";

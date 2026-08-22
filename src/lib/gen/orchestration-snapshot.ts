@@ -5,6 +5,11 @@
  */
 import type { BuildSpecQualityTarget } from "./build-spec";
 import { filterProvidersForRemovedCapabilities } from "./capability-removal";
+import {
+  parseResolvedDesignContract,
+  RESOLVED_THEME_TOKEN_KEYS,
+  type ResolvedDesignContract,
+} from "./design-contract";
 import { getDossierById } from "./dossiers/registry";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "./prompt-wrapper-contract";
 
@@ -20,8 +25,16 @@ const PROTECTED_TOP_LEVEL_KEYS = [
   "lineageHash",
   "versionId",
   "chatId",
+  "lastVersionId",
+  "lastChatId",
+  "baseVersionId",
+  "baseFilesRevision",
+  "buildIntent",
+  "briefApplied",
+  "capturedAt",
 ] as const;
 const PROTECTED_TOP_LEVEL_KEY_SET = new Set<string>(PROTECTED_TOP_LEVEL_KEYS as readonly string[]);
+const PROTECTED_OBJECT_KEY_SET = new Set(["briefSummary", "variantSelection", "resolvedDesign"]);
 
 /**
  * Capability-signaler som styr Byggblock-status ("Planerad"), den durable
@@ -67,6 +80,130 @@ function sanitizeProtectedStringArray(value: unknown): string[] | null {
     .map(truncateString);
 }
 
+function sanitizeResolvedValue(value: unknown): Record<string, unknown> | null {
+  if (!isPlainObjectRecord(value)) return null;
+  const raw = value.value;
+  let sanitizedValue: unknown;
+  if (typeof raw === "string") sanitizedValue = truncateString(raw);
+  else if (raw === null || typeof raw === "boolean" || typeof raw === "number") {
+    sanitizedValue = raw;
+  } else if (Array.isArray(raw)) {
+    sanitizedValue = raw
+      .filter((entry): entry is string => typeof entry === "string")
+      .slice(0, 20)
+      .map(truncateString);
+  } else return null;
+  return {
+    value: sanitizedValue,
+    ...(typeof value.source === "string" ? { source: truncateString(value.source) } : {}),
+    ...(typeof value.locked === "boolean" ? { locked: value.locked } : {}),
+  };
+}
+
+function sanitizeResolvedDesign(value: unknown): Record<string, unknown> | null {
+  if (!isPlainObjectRecord(value)) return null;
+  const out: Record<string, unknown> = {};
+  if (typeof value.schemaVersion === "number") out.schemaVersion = value.schemaVersion;
+  if (typeof value.variantId === "string" || value.variantId === null) {
+    out.variantId = typeof value.variantId === "string" ? truncateString(value.variantId) : null;
+  }
+  const explicitAxes = sanitizeProtectedStringArray(value.explicitAxes);
+  if (explicitAxes) out.explicitAxes = explicitAxes;
+  const explicitFields = sanitizeProtectedStringArray(value.explicitFields);
+  if (explicitFields) out.explicitFields = explicitFields;
+  const unresolvedAxes = sanitizeProtectedStringArray(value.unresolvedAxes);
+  if (unresolvedAxes) out.unresolvedAxes = unresolvedAxes;
+  const unresolvedFields = sanitizeProtectedStringArray(value.unresolvedFields);
+  if (unresolvedFields) out.unresolvedFields = unresolvedFields;
+  for (const key of [
+    "styleKeywords",
+    "toneAndVoice",
+    "colorMode",
+    "motionLevel",
+    "qualityBar",
+    "domainProfile",
+  ]) {
+    const entry = sanitizeResolvedValue(value[key]);
+    if (entry) out[key] = entry;
+  }
+  if (isPlainObjectRecord(value.themeTokens)) {
+    const tokens: Record<string, unknown> = {};
+    for (const key of RESOLVED_THEME_TOKEN_KEYS) {
+      const entry = sanitizeResolvedValue(value.themeTokens[key]);
+      if (entry) tokens[key] = entry;
+    }
+    out.themeTokens = tokens;
+  }
+  if (isPlainObjectRecord(value.typography)) {
+    const heading = sanitizeResolvedValue(value.typography.heading);
+    const body = sanitizeResolvedValue(value.typography.body);
+    out.typography = {
+      ...(heading ? { heading } : {}),
+      ...(body ? { body } : {}),
+    };
+  }
+  return out;
+}
+
+function sanitizeVariantSelection(value: unknown): Record<string, unknown> | null {
+  if (!isPlainObjectRecord(value)) return null;
+  const out: Record<string, unknown> = {};
+  for (const key of ["source", "hintId", "finalId"]) {
+    const entry = value[key];
+    if (typeof entry === "string" || entry === null) {
+      out[key] = typeof entry === "string" ? truncateString(entry) : null;
+    }
+  }
+  for (const key of ["score", "runnerUpScore", "margin"]) {
+    const entry = value[key];
+    if ((typeof entry === "number" && Number.isFinite(entry)) || entry === null) out[key] = entry;
+  }
+  if (typeof value.changedFromHint === "boolean") {
+    out.changedFromHint = value.changedFromHint;
+  }
+  return out;
+}
+
+function sanitizeBriefSummary(value: unknown): Record<string, unknown> | null {
+  if (!isPlainObjectRecord(value)) return null;
+  const out: Record<string, unknown> = {};
+  for (const key of [
+    "projectTitle",
+    "brandName",
+    "colorMode",
+    "qualityBar",
+    "motionLevel",
+    "primaryCTA",
+  ]) {
+    const entry = value[key];
+    if (typeof entry === "string") out[key] = truncateString(entry);
+  }
+  for (const key of [
+    "styleKeywords",
+    "toneKeywords",
+    "explicitDesignAxes",
+    "explicitDesignFields",
+    "seasonalHints",
+    "requestedCapabilities",
+  ]) {
+    const entries = sanitizeProtectedStringArray(value[key]);
+    if (entries) out[key] = entries;
+  }
+  const copyStringRecord = (key: "colorPalette" | "typography" | "domainProfile") => {
+    const source = value[key];
+    if (!isPlainObjectRecord(source)) return;
+    const nested: Record<string, unknown> = {};
+    for (const [nestedKey, nestedValue] of Object.entries(source)) {
+      if (typeof nestedValue === "string") nested[nestedKey] = truncateString(nestedValue);
+    }
+    if (Object.keys(nested).length > 0) out[key] = nested;
+  };
+  copyStringRecord("colorPalette");
+  copyStringRecord("typography");
+  copyStringRecord("domainProfile");
+  return out;
+}
+
 export function sanitizeOrchestrationSnapshotForStorage(
   input: Record<string, unknown>,
   depth = 0,
@@ -90,6 +227,12 @@ export function sanitizeOrchestrationSnapshotForStorage(
         out[key] = value;
       }
     }
+    const variantSelection = sanitizeVariantSelection(input.variantSelection);
+    if (variantSelection) out.variantSelection = variantSelection;
+    const resolvedDesign = sanitizeResolvedDesign(input.resolvedDesign);
+    if (resolvedDesign) out.resolvedDesign = resolvedDesign;
+    const briefSummary = sanitizeBriefSummary(input.briefSummary);
+    if (briefSummary) out.briefSummary = briefSummary;
     for (const key of PROTECTED_CAPABILITY_SIGNAL_KEYS) {
       if (!(key in input)) continue;
       const list = sanitizeProtectedStringArray(input[key]);
@@ -101,6 +244,7 @@ export function sanitizeOrchestrationSnapshotForStorage(
   if (keyCount.n > MAX_KEYS) return out;
   for (const [k, v] of Object.entries(input)) {
     if (depth === 0 && PROTECTED_TOP_LEVEL_KEY_SET.has(k)) continue;
+    if (depth === 0 && PROTECTED_OBJECT_KEY_SET.has(k)) continue;
     if (depth === 0 && capabilitySignalsWritten.has(k)) continue;
     if (keyCount.n > MAX_KEYS) break;
     if (!SAFE_KEY_ALLOWLIST.has(k) && SENSITIVE_KEY_SUBSTR.test(k)) continue;
@@ -399,6 +543,9 @@ export interface BriefSummarySnapshot {
   brandName?: string;
   styleKeywords?: string[];
   toneKeywords?: string[];
+  colorMode?: string;
+  explicitDesignAxes?: string[];
+  explicitDesignFields?: string[];
   qualityBar?: string;
   motionLevel?: string;
   /** Primary CTA from the init brief (M#818-1 — persisted since day one, but never rehydrated before). */
@@ -468,6 +615,9 @@ export function extractBriefSummaryFromSnapshot(
     typeof s.qualityBar === "string" ||
     typeof s.motionLevel === "string" ||
     typeof s.primaryCTA === "string" ||
+    typeof s.colorMode === "string" ||
+    Array.isArray(s.explicitDesignAxes) ||
+    Array.isArray(s.explicitDesignFields) ||
     (Array.isArray(s.styleKeywords) && s.styleKeywords.length > 0) ||
     (Array.isArray(s.toneKeywords) && s.toneKeywords.length > 0) ||
     (Array.isArray(s.seasonalHints) && s.seasonalHints.length > 0) ||
@@ -481,6 +631,13 @@ export function extractBriefSummaryFromSnapshot(
     brandName: typeof s.brandName === "string" ? s.brandName : undefined,
     styleKeywords: Array.isArray(s.styleKeywords) ? (s.styleKeywords as string[]) : undefined,
     toneKeywords: Array.isArray(s.toneKeywords) ? (s.toneKeywords as string[]) : undefined,
+    colorMode: typeof s.colorMode === "string" ? s.colorMode : undefined,
+    explicitDesignAxes: Array.isArray(s.explicitDesignAxes)
+      ? (s.explicitDesignAxes as string[])
+      : undefined,
+    explicitDesignFields: Array.isArray(s.explicitDesignFields)
+      ? (s.explicitDesignFields as string[])
+      : undefined,
     qualityBar: typeof s.qualityBar === "string" ? s.qualityBar : undefined,
     motionLevel: typeof s.motionLevel === "string" ? s.motionLevel : undefined,
     primaryCTA: typeof s.primaryCTA === "string" ? s.primaryCTA : undefined,
@@ -538,6 +695,17 @@ export function buildFollowUpBriefFromSnapshot(
   if (summary.styleKeywords && summary.styleKeywords.length > 0) {
     out.visualDirection = { styleKeywords: summary.styleKeywords };
   }
+  if (
+    summary.colorMode === "light" ||
+    summary.colorMode === "dark" ||
+    summary.colorMode === "either"
+  ) {
+    const currentVisual =
+      out.visualDirection && typeof out.visualDirection === "object"
+        ? (out.visualDirection as Record<string, unknown>)
+        : {};
+    out.visualDirection = { ...currentVisual, colorMode: summary.colorMode };
+  }
   if (summary.colorPalette || summary.typography) {
     const currentVisual =
       out.visualDirection && typeof out.visualDirection === "object"
@@ -551,6 +719,14 @@ export function buildFollowUpBriefFromSnapshot(
   }
   if (summary.toneKeywords && summary.toneKeywords.length > 0) {
     out.toneAndVoice = summary.toneKeywords;
+  }
+  // Presence (including an empty array) distinguishes a provenance-aware Deep
+  // Brief from a legacy snapshot whose inferred palette was historically locked.
+  if (summary.explicitDesignAxes || summary.explicitDesignFields) {
+    out.designIntent = {
+      ...(summary.explicitDesignAxes ? { explicitAxes: summary.explicitDesignAxes } : {}),
+      ...(summary.explicitDesignFields ? { explicitFields: summary.explicitDesignFields } : {}),
+    };
   }
   if (summary.qualityBar) out.qualityBar = summary.qualityBar;
   if (summary.motionLevel) out.motionLevel = summary.motionLevel;
@@ -611,6 +787,11 @@ export interface FollowUpContract {
   scaffoldId: string | null;
   /** Frozen scaffold variant id carried across the follow-up (persisted id, else snapshot). */
   variantId: string | null;
+  /**
+   * Exact design contract used by the accepted base generation. Present on
+   * provenance-aware snapshots; omitted for legacy snapshots and fixtures.
+   */
+  resolvedDesign?: ResolvedDesignContract;
   /** Frozen routes from the base version (existing route + deferred-shell paths). */
   routePlan: {
     existingRoutePaths: string[];
@@ -687,6 +868,7 @@ function resolveContractQualityTarget(
 export function buildFollowUpContract(input: BuildFollowUpContractInput): FollowUpContract {
   const { snapshot } = input;
   const snapshotBrief = buildFollowUpBriefFromSnapshot(snapshot);
+  const resolvedDesign = parseResolvedDesignContract(snapshot?.resolvedDesign);
   // Capability floor source (BUG-SWARM rank 4): prefer the snapshot's top-level
   // `requestedCapabilities` — the merged floor orchestrate persisted from
   // `dossierRequestedCapabilities` (brief + inferred-bridge + prior floor), i.e.
@@ -736,6 +918,7 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
       nonEmptyString(input.persistedScaffoldId) ?? readSnapshotString(snapshot, "scaffoldId"),
     variantId:
       nonEmptyString(input.persistedVariantId) ?? readSnapshotString(snapshot, "variantId"),
+    ...(resolvedDesign ? { resolvedDesign } : {}),
     // Defensive copies: never hand out a shared array reference, so future
     // enforcement code (5-3..5-6) cannot mutate the same arrays orchestrate
     // reads. Same values/semantics, fresh instances.

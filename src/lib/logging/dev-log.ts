@@ -1,8 +1,5 @@
 import fs from "node:fs";
-import {
-  isGenerationLogEnabled,
-  writeGenerationLogEntry,
-} from "./generation-log-writer";
+import { isGenerationLogEnabled, writeGenerationLogEntry } from "./generation-log-writer";
 import {
   LOGS_ROOT_DIR,
   DEV_LOG_ROLLING_PATH,
@@ -170,6 +167,13 @@ function readBoolean(entry: DevLogEntry, key: string): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
 
+function readRecord(entry: DevLogEntry, key: string): Record<string, unknown> | null {
+  const value = entry[key];
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 function countArray(entry: DevLogEntry, key: string): number | null {
   const value = entry[key];
   return Array.isArray(value) ? value.length : null;
@@ -206,153 +210,244 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
   switch (type) {
     case "site.start":
       if (readString(entry, "modelId")) details.push(`model=${readString(entry, "modelId")}`);
-      if (readBoolean(entry, "thinking") !== null) details.push(`thinking=${readBoolean(entry, "thinking")}`);
-      if (readBoolean(entry, "imageGenerations") !== null) details.push(`images=${readBoolean(entry, "imageGenerations")}`);
+      if (readBoolean(entry, "thinking") !== null)
+        details.push(`thinking=${readBoolean(entry, "thinking")}`);
+      if (readBoolean(entry, "imageGenerations") !== null)
+        details.push(`images=${readBoolean(entry, "imageGenerations")}`);
       break;
     case "comm.request.create":
     case "comm.request.followup":
-      if (readString(entry, "promptStrategy")) details.push(`strategy=${readString(entry, "promptStrategy")}`);
+      if (readString(entry, "promptStrategy"))
+        details.push(`strategy=${readString(entry, "promptStrategy")}`);
       if (readString(entry, "promptType")) details.push(`type=${readString(entry, "promptType")}`);
-      if (readNumber(entry, "attachmentsCount") !== null) details.push(`attachments=${readNumber(entry, "attachmentsCount")}`);
-      if (readNumber(entry, "optimizedLength") !== null) details.push(`chars=${readNumber(entry, "optimizedLength")}`);
+      if (readNumber(entry, "attachmentsCount") !== null)
+        details.push(`attachments=${readNumber(entry, "attachmentsCount")}`);
+      if (readNumber(entry, "optimizedLength") !== null)
+        details.push(`chars=${readNumber(entry, "optimizedLength")}`);
       break;
     case "comm.tool_calls":
       if (countArray(entry, "tools") !== null) details.push(`tools=${countArray(entry, "tools")}`);
       break;
     case "comm.integration_signals":
     case "engine.integration_signals":
-      if (countArray(entry, "integrations") !== null) details.push(`integrations=${countArray(entry, "integrations")}`);
-      if (countArray(entry, "envVars") !== null) details.push(`envVars=${countArray(entry, "envVars")}`);
+      if (countArray(entry, "integrations") !== null)
+        details.push(`integrations=${countArray(entry, "integrations")}`);
+      if (countArray(entry, "envVars") !== null)
+        details.push(`envVars=${countArray(entry, "envVars")}`);
       break;
     case "orchestration.styleDirection":
-      if (readString(entry, "styleDirection")) details.push(`variant=${readString(entry, "styleDirection")}`);
-      if (readString(entry, "scaffoldId")) details.push(`scaffold=${readString(entry, "scaffoldId")}`);
+      if (readString(entry, "styleDirection"))
+        details.push(`variant=${readString(entry, "styleDirection")}`);
+      if (readString(entry, "scaffoldId"))
+        details.push(`scaffold=${readString(entry, "scaffoldId")}`);
+      {
+        const selection = readRecord(entry, "variantSelection");
+        if (selection) {
+          if (readString(selection, "source")) {
+            details.push(`source=${readString(selection, "source")}`);
+          }
+          const hintId = readString(selection, "hintId");
+          const finalId = readString(selection, "finalId");
+          if (hintId || finalId) details.push(`hint→final=${hintId ?? "—"}→${finalId ?? "—"}`);
+          if (readBoolean(selection, "changedFromHint") !== null) {
+            details.push(`changed=${readBoolean(selection, "changedFromHint")}`);
+          }
+        }
+        const explicitAxes = Array.isArray(entry.explicitDesignAxes)
+          ? entry.explicitDesignAxes.filter(
+              (axis): axis is string => typeof axis === "string" && axis.trim().length > 0,
+            )
+          : [];
+        if (explicitAxes.length > 0) details.push(`explicit=${explicitAxes.join(",")}`);
+        const explicitFields = Array.isArray(entry.explicitDesignFields)
+          ? entry.explicitDesignFields.filter(
+              (field): field is string => typeof field === "string" && field.trim().length > 0,
+            )
+          : [];
+        if (explicitFields.length > 0) details.push(`fields=${explicitFields.join(",")}`);
+      }
       break;
     case "stream.summary":
       if (readString(entry, "model")) details.push(`model=${readString(entry, "model")}`);
-      if (readNumber(entry, "durationMs") !== null) details.push(`durationMs=${readNumber(entry, "durationMs")}`);
-      if (readNumber(entry, "waitMs") !== null) details.push(`waitMs=${readNumber(entry, "waitMs")}`);
-      if (readNumber(entry, "reasoningMs") !== null) details.push(`reasoningMs=${readNumber(entry, "reasoningMs")}`);
-      if (readNumber(entry, "outputMs") !== null) details.push(`outputMs=${readNumber(entry, "outputMs")}`);
-      if (readNumber(entry, "inputTokens") !== null) details.push(`in=${readNumber(entry, "inputTokens")}`);
-      if (readNumber(entry, "outputTokens") !== null) details.push(`out=${readNumber(entry, "outputTokens")}`);
+      if (readNumber(entry, "durationMs") !== null)
+        details.push(`durationMs=${readNumber(entry, "durationMs")}`);
+      if (readNumber(entry, "waitMs") !== null)
+        details.push(`waitMs=${readNumber(entry, "waitMs")}`);
+      if (readNumber(entry, "reasoningMs") !== null)
+        details.push(`reasoningMs=${readNumber(entry, "reasoningMs")}`);
+      if (readNumber(entry, "outputMs") !== null)
+        details.push(`outputMs=${readNumber(entry, "outputMs")}`);
+      if (readNumber(entry, "inputTokens") !== null)
+        details.push(`in=${readNumber(entry, "inputTokens")}`);
+      if (readNumber(entry, "outputTokens") !== null)
+        details.push(`out=${readNumber(entry, "outputTokens")}`);
       break;
     case "finalize.pipeline":
-      if (readString(entry, "finalizePath")) details.push(`path=${readString(entry, "finalizePath")}`);
-      if (readString(entry, "finalizePathReason")) details.push(`reason=${readString(entry, "finalizePathReason")}`);
-      if (readNumber(entry, "repairPassIndex") !== null) details.push(`repairPass=${readNumber(entry, "repairPassIndex")}`);
-      if (countArray(entry, "phases") !== null) details.push(`phases=${countArray(entry, "phases")}`);
+      if (readString(entry, "finalizePath"))
+        details.push(`path=${readString(entry, "finalizePath")}`);
+      if (readString(entry, "finalizePathReason"))
+        details.push(`reason=${readString(entry, "finalizePathReason")}`);
+      if (readNumber(entry, "repairPassIndex") !== null)
+        details.push(`repairPass=${readNumber(entry, "repairPassIndex")}`);
+      if (countArray(entry, "phases") !== null)
+        details.push(`phases=${countArray(entry, "phases")}`);
       break;
     case "autofix.result":
       if (countArray(entry, "fixes") !== null) details.push(`fixes=${countArray(entry, "fixes")}`);
-      if (countArray(entry, "warnings") !== null) details.push(`warnings=${countArray(entry, "warnings")}`);
-      if (countArray(entry, "dependencies") !== null) details.push(`deps=${countArray(entry, "dependencies")}`);
+      if (countArray(entry, "warnings") !== null)
+        details.push(`warnings=${countArray(entry, "warnings")}`);
+      if (countArray(entry, "dependencies") !== null)
+        details.push(`deps=${countArray(entry, "dependencies")}`);
       break;
     case "autofix.risk":
-      if (readNumber(entry, "safeFixCount") !== null) details.push(`safe=${readNumber(entry, "safeFixCount")}`);
-      if (readNumber(entry, "riskyFixCount") !== null) details.push(`risky=${readNumber(entry, "riskyFixCount")}`);
+      if (readNumber(entry, "safeFixCount") !== null)
+        details.push(`safe=${readNumber(entry, "safeFixCount")}`);
+      if (readNumber(entry, "riskyFixCount") !== null)
+        details.push(`risky=${readNumber(entry, "riskyFixCount")}`);
       break;
     case "autofix.mechanical-residual":
-      if (readNumber(entry, "mechanicalFixCount") !== null) details.push(`mechanical=${readNumber(entry, "mechanicalFixCount")}`);
-      if (readNumber(entry, "residualErrorCount") !== null) details.push(`residual=${readNumber(entry, "residualErrorCount")}`);
+      if (readNumber(entry, "mechanicalFixCount") !== null)
+        details.push(`mechanical=${readNumber(entry, "mechanicalFixCount")}`);
+      if (readNumber(entry, "residualErrorCount") !== null)
+        details.push(`residual=${readNumber(entry, "residualErrorCount")}`);
       break;
     case "syntax-validation.pass":
       if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
       if (readString(entry, "phase")) details.push(`phase=${readString(entry, "phase")}`);
-      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      if (readNumber(entry, "errorCount") !== null)
+        details.push(`errors=${readNumber(entry, "errorCount")}`);
       break;
     case "syntax-validation.fixer.start":
       if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
-      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      if (readNumber(entry, "errorCount") !== null)
+        details.push(`errors=${readNumber(entry, "errorCount")}`);
       if (readString(entry, "fixerModel")) details.push(`model=${readString(entry, "fixerModel")}`);
       break;
     case "syntax-validation.fixer.result":
       if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
-      if (readNumber(entry, "errorsBefore") !== null) details.push(`before=${readNumber(entry, "errorsBefore")}`);
-      if (readNumber(entry, "errorsAfter") !== null) details.push(`after=${readNumber(entry, "errorsAfter")}`);
-      if (readBoolean(entry, "improved") !== null) details.push(`improved=${readBoolean(entry, "improved")}`);
+      if (readNumber(entry, "errorsBefore") !== null)
+        details.push(`before=${readNumber(entry, "errorsBefore")}`);
+      if (readNumber(entry, "errorsAfter") !== null)
+        details.push(`after=${readNumber(entry, "errorsAfter")}`);
+      if (readBoolean(entry, "improved") !== null)
+        details.push(`improved=${readBoolean(entry, "improved")}`);
       if (readString(entry, "fixerModel")) details.push(`model=${readString(entry, "fixerModel")}`);
       break;
     case "syntax-validation.gave-up":
       if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
-      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      if (readNumber(entry, "errorCount") !== null)
+        details.push(`errors=${readNumber(entry, "errorCount")}`);
       break;
     case "syntax-validation.pipeline-error":
     case "preview-preflight.error":
     case "project-sanity.error":
     case "comm.error.create":
-      if (readString(entry, "message")) details.push(`message=${truncateInline(readString(entry, "message")!)}`);
+      if (readString(entry, "message"))
+        details.push(`message=${truncateInline(readString(entry, "message")!)}`);
       if (readString(entry, "code")) details.push(`code=${readString(entry, "code")}`);
       break;
     case "file-repair":
       if (countArray(entry, "fixes") !== null) details.push(`fixes=${countArray(entry, "fixes")}`);
       break;
     case "merged-syntax.invalid":
-      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      if (readNumber(entry, "errorCount") !== null)
+        details.push(`errors=${readNumber(entry, "errorCount")}`);
       break;
     case "merged-syntax.fixed":
-      if (readNumber(entry, "errorsBefore") !== null) details.push(`before=${readNumber(entry, "errorsBefore")}`);
-      if (readNumber(entry, "errorsAfter") !== null) details.push(`after=${readNumber(entry, "errorsAfter")}`);
-      if (countArray(entry, "repairFixes") !== null) details.push(`repairs=${countArray(entry, "repairFixes")}`);
+      if (readNumber(entry, "errorsBefore") !== null)
+        details.push(`before=${readNumber(entry, "errorsBefore")}`);
+      if (readNumber(entry, "errorsAfter") !== null)
+        details.push(`after=${readNumber(entry, "errorsAfter")}`);
+      if (countArray(entry, "repairFixes") !== null)
+        details.push(`repairs=${countArray(entry, "repairFixes")}`);
       break;
     case "project-sanity":
-      if (readBoolean(entry, "valid") !== null) details.push(`valid=${readBoolean(entry, "valid")}`);
-      if (countArray(entry, "issues") !== null) details.push(`issues=${countArray(entry, "issues")}`);
-      if (readNumber(entry, "completeProjectFiles") !== null) details.push(`files=${readNumber(entry, "completeProjectFiles")}`);
+      if (readBoolean(entry, "valid") !== null)
+        details.push(`valid=${readBoolean(entry, "valid")}`);
+      if (countArray(entry, "issues") !== null)
+        details.push(`issues=${countArray(entry, "issues")}`);
+      if (readNumber(entry, "completeProjectFiles") !== null)
+        details.push(`files=${readNumber(entry, "completeProjectFiles")}`);
       break;
     case "route-plan.preflight":
       if (readString(entry, "source")) details.push(`source=${readString(entry, "source")}`);
       if (readString(entry, "siteType")) details.push(`siteType=${readString(entry, "siteType")}`);
-      if (countArray(entry, "missingRoutes") !== null) details.push(`missingRoutes=${countArray(entry, "missingRoutes")}`);
+      if (countArray(entry, "missingRoutes") !== null)
+        details.push(`missingRoutes=${countArray(entry, "missingRoutes")}`);
       break;
     case "contracts.inferred":
       if (readString(entry, "dataMode")) details.push(`dataMode=${readString(entry, "dataMode")}`);
-      if (readString(entry, "databaseProvider")) details.push(`db=${readString(entry, "databaseProvider")}`);
-      if (readString(entry, "authProvider")) details.push(`auth=${readString(entry, "authProvider")}`);
-      if (readString(entry, "paymentProvider")) details.push(`payment=${readString(entry, "paymentProvider")}`);
-      if (countArray(entry, "integrations") !== null) details.push(`integrations=${countArray(entry, "integrations")}`);
-      if (countArray(entry, "envVars") !== null) details.push(`envVars=${countArray(entry, "envVars")}`);
-      if (countArray(entry, "unresolvedDecisions") !== null) details.push(`unresolved=${countArray(entry, "unresolvedDecisions")}`);
+      if (readString(entry, "databaseProvider"))
+        details.push(`db=${readString(entry, "databaseProvider")}`);
+      if (readString(entry, "authProvider"))
+        details.push(`auth=${readString(entry, "authProvider")}`);
+      if (readString(entry, "paymentProvider"))
+        details.push(`payment=${readString(entry, "paymentProvider")}`);
+      if (countArray(entry, "integrations") !== null)
+        details.push(`integrations=${countArray(entry, "integrations")}`);
+      if (countArray(entry, "envVars") !== null)
+        details.push(`envVars=${countArray(entry, "envVars")}`);
+      if (countArray(entry, "unresolvedDecisions") !== null)
+        details.push(`unresolved=${countArray(entry, "unresolvedDecisions")}`);
       break;
     case "contracts.clarification-requested":
       if (readString(entry, "kind")) details.push(`kind=${readString(entry, "kind")}`);
-      if (readString(entry, "reason")) details.push(`reason=${truncateInline(readString(entry, "reason")!, 90)}`);
+      if (readString(entry, "reason"))
+        details.push(`reason=${truncateInline(readString(entry, "reason")!, 90)}`);
       break;
     case "version.created":
       break;
     case "preflight.summary":
-      if (readNumber(entry, "filesChecked") !== null) details.push(`files=${readNumber(entry, "filesChecked")}`);
-      if (readNumber(entry, "issueCount") !== null) details.push(`issues=${readNumber(entry, "issueCount")}`);
-      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
-      if (readNumber(entry, "warningCount") !== null) details.push(`warnings=${readNumber(entry, "warningCount")}`);
-      if (readBoolean(entry, "previewBlocked") !== null) details.push(`previewBlocked=${readBoolean(entry, "previewBlocked")}`);
-      if (readBoolean(entry, "verificationBlocked") !== null) details.push(`verificationBlocked=${readBoolean(entry, "verificationBlocked")}`);
+      if (readNumber(entry, "filesChecked") !== null)
+        details.push(`files=${readNumber(entry, "filesChecked")}`);
+      if (readNumber(entry, "issueCount") !== null)
+        details.push(`issues=${readNumber(entry, "issueCount")}`);
+      if (readNumber(entry, "errorCount") !== null)
+        details.push(`errors=${readNumber(entry, "errorCount")}`);
+      if (readNumber(entry, "warningCount") !== null)
+        details.push(`warnings=${readNumber(entry, "warningCount")}`);
+      if (readBoolean(entry, "previewBlocked") !== null)
+        details.push(`previewBlocked=${readBoolean(entry, "previewBlocked")}`);
+      if (readBoolean(entry, "verificationBlocked") !== null)
+        details.push(`verificationBlocked=${readBoolean(entry, "verificationBlocked")}`);
       break;
     case "preflight.version.failed":
-      if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      if (readNumber(entry, "errorCount") !== null)
+        details.push(`errors=${readNumber(entry, "errorCount")}`);
       break;
     case "preflight.version.verifier-blocked-pending-server-verify":
-      if (readNumber(entry, "verifierBlockingFindingCount") !== null) details.push(`blockers=${readNumber(entry, "verifierBlockingFindingCount")}`);
+      if (readNumber(entry, "verifierBlockingFindingCount") !== null)
+        details.push(`blockers=${readNumber(entry, "verifierBlockingFindingCount")}`);
       break;
     case "verifier-pass":
-      if (readNumber(entry, "blocking") !== null) details.push(`blocking=${readNumber(entry, "blocking")}`);
-      if (readNumber(entry, "quality") !== null) details.push(`quality=${readNumber(entry, "quality")}`);
+      if (readNumber(entry, "blocking") !== null)
+        details.push(`blocking=${readNumber(entry, "blocking")}`);
+      if (readNumber(entry, "quality") !== null)
+        details.push(`quality=${readNumber(entry, "quality")}`);
       break;
     case "verifier_rerun_after_fix":
-      if (readNumber(entry, "before") !== null) details.push(`before=${readNumber(entry, "before")}`);
+      if (readNumber(entry, "before") !== null)
+        details.push(`before=${readNumber(entry, "before")}`);
       if (readNumber(entry, "after") !== null) details.push(`after=${readNumber(entry, "after")}`);
-      if (readNumber(entry, "durationMs") !== null) details.push(`durationMs=${readNumber(entry, "durationMs")}`);
+      if (readNumber(entry, "durationMs") !== null)
+        details.push(`durationMs=${readNumber(entry, "durationMs")}`);
       break;
     case "verifier-pass.fixer":
-      if (readNumber(entry, "findingsBefore") !== null) details.push(`before=${readNumber(entry, "findingsBefore")}`);
-      if (readNumber(entry, "findingsAfterRerun") !== null) details.push(`after=${readNumber(entry, "findingsAfterRerun")}`);
-      if (readBoolean(entry, "success") !== null) details.push(`success=${readBoolean(entry, "success")}`);
-      if (readBoolean(entry, "partial") !== null) details.push(`partial=${readBoolean(entry, "partial")}`);
+      if (readNumber(entry, "findingsBefore") !== null)
+        details.push(`before=${readNumber(entry, "findingsBefore")}`);
+      if (readNumber(entry, "findingsAfterRerun") !== null)
+        details.push(`after=${readNumber(entry, "findingsAfterRerun")}`);
+      if (readBoolean(entry, "success") !== null)
+        details.push(`success=${readBoolean(entry, "success")}`);
+      if (readBoolean(entry, "partial") !== null)
+        details.push(`partial=${readBoolean(entry, "partial")}`);
       break;
     case "preview_start_outcome":
       if (readString(entry, "outcome")) details.push(`outcome=${readString(entry, "outcome")}`);
-      if (readString(entry, "previewPolicy")) details.push(`policy=${readString(entry, "previewPolicy")}`);
-      if (readString(entry, "tier2Provider")) details.push(`provider=${readString(entry, "tier2Provider")}`);
+      if (readString(entry, "previewPolicy"))
+        details.push(`policy=${readString(entry, "previewPolicy")}`);
+      if (readString(entry, "tier2Provider"))
+        details.push(`provider=${readString(entry, "tier2Provider")}`);
       break;
     case "preview_ready":
     // `preview_url_handoff` = köad boot vars URL lämnats till klienten (M#pv1
@@ -363,37 +458,51 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
       } else if (readString(entry, "sandboxId")) {
         details.push(`previewSession=${shortId(readString(entry, "sandboxId"))}`);
       }
-      if (readString(entry, "startOutcome")) details.push(`outcome=${readString(entry, "startOutcome")}`);
-      if (readNumber(entry, "fidelityTier") !== null) details.push(`fidelity=${readNumber(entry, "fidelityTier")}`);
-      if (readNumber(entry, "msSinceEngineStart") !== null) details.push(`ms=${readNumber(entry, "msSinceEngineStart")}`);
+      if (readString(entry, "startOutcome"))
+        details.push(`outcome=${readString(entry, "startOutcome")}`);
+      if (readNumber(entry, "fidelityTier") !== null)
+        details.push(`fidelity=${readNumber(entry, "fidelityTier")}`);
+      if (readNumber(entry, "msSinceEngineStart") !== null)
+        details.push(`ms=${readNumber(entry, "msSinceEngineStart")}`);
       break;
     case "preview_failed":
       if (readString(entry, "stage")) details.push(`stage=${readString(entry, "stage")}`);
-      if (readString(entry, "failureCode")) details.push(`code=${readString(entry, "failureCode")}`);
-      if (readString(entry, "detail")) details.push(`detail=${truncateInline(readString(entry, "detail")!, 90)}`);
+      if (readString(entry, "failureCode"))
+        details.push(`code=${readString(entry, "failureCode")}`);
+      if (readString(entry, "detail"))
+        details.push(`detail=${truncateInline(readString(entry, "detail")!, 90)}`);
       break;
     case "image-replacement.finalize":
-      if (readNumber(entry, "replacedCount") !== null) details.push(`replaced=${readNumber(entry, "replacedCount")}`);
+      if (readNumber(entry, "replacedCount") !== null)
+        details.push(`replaced=${readNumber(entry, "replacedCount")}`);
       if (readString(entry, "source")) details.push(`source=${readString(entry, "source")}`);
       break;
     case "image-materialization":
-      if (readNumber(entry, "replacedCount") !== null) details.push(`replaced=${readNumber(entry, "replacedCount")}`);
-      if (readNumber(entry, "skippedCount") !== null) details.push(`skipped=${readNumber(entry, "skippedCount")}`);
+      if (readNumber(entry, "replacedCount") !== null)
+        details.push(`replaced=${readNumber(entry, "replacedCount")}`);
+      if (readNumber(entry, "skippedCount") !== null)
+        details.push(`skipped=${readNumber(entry, "skippedCount")}`);
       break;
     case "scaffold-retry.suggested":
-      if (readString(entry, "currentScaffoldId")) details.push(`from=${readString(entry, "currentScaffoldId")}`);
-      if (readString(entry, "suggestedScaffoldId")) details.push(`to=${readString(entry, "suggestedScaffoldId")}`);
-      if (readString(entry, "failureType")) details.push(`failure=${readString(entry, "failureType")}`);
-      if (readString(entry, "confidence")) details.push(`confidence=${readString(entry, "confidence")}`);
+      if (readString(entry, "currentScaffoldId"))
+        details.push(`from=${readString(entry, "currentScaffoldId")}`);
+      if (readString(entry, "suggestedScaffoldId"))
+        details.push(`to=${readString(entry, "suggestedScaffoldId")}`);
+      if (readString(entry, "failureType"))
+        details.push(`failure=${readString(entry, "failureType")}`);
+      if (readString(entry, "confidence"))
+        details.push(`confidence=${readString(entry, "confidence")}`);
       break;
     case "site.done":
     case "site.message.done":
-      if (readNumber(entry, "durationMs") !== null) details.push(`durationMs=${readNumber(entry, "durationMs")}`);
+      if (readNumber(entry, "durationMs") !== null)
+        details.push(`durationMs=${readNumber(entry, "durationMs")}`);
       {
         const p = readString(entry, "previewUrl") ?? readString(entry, "demoUrl");
         if (p) details.push(`preview=${truncateInline(p, 70)}`);
       }
-      if (readBoolean(entry, "awaitingInput") !== null) details.push(`awaitingInput=${readBoolean(entry, "awaitingInput")}`);
+      if (readBoolean(entry, "awaitingInput") !== null)
+        details.push(`awaitingInput=${readBoolean(entry, "awaitingInput")}`);
       break;
     case "site.aborted":
       // P0 stream-abort recovery (2026-04-26). Surface enough to read a stuck
@@ -403,7 +512,8 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
       // follow-up aborts in console scrollback.
       if (readString(entry, "reason")) details.push(`reason=${readString(entry, "reason")}`);
       if (readString(entry, "kind")) details.push(`kind=${readString(entry, "kind")}`);
-      if (readNumber(entry, "elapsedMs") !== null) details.push(`elapsedMs=${readNumber(entry, "elapsedMs")}`);
+      if (readNumber(entry, "elapsedMs") !== null)
+        details.push(`elapsedMs=${readNumber(entry, "elapsedMs")}`);
       break;
     default:
       break;
@@ -514,7 +624,9 @@ function appendRollingLine(target: DevLogTarget, entry: DevLogEntry): void {
       ensureRootLogFiles();
       const shortSanitized = sanitizeValue(enriched, ROLLING_SANITIZE_OPTIONS);
       const line = `${timestamp} [${target}] ${safeStringify(shortSanitized)}\n`;
-      const current = fs.existsSync(DEV_LOG_ROLLING_PATH) ? fs.readFileSync(DEV_LOG_ROLLING_PATH, "utf8") : "";
+      const current = fs.existsSync(DEV_LOG_ROLLING_PATH)
+        ? fs.readFileSync(DEV_LOG_ROLLING_PATH, "utf8")
+        : "";
       const next = `${current}${line}`;
       const clipped = next.length > MAX_LOG_CHARS ? next.slice(-MAX_LOG_CHARS) : next;
       fs.writeFileSync(DEV_LOG_ROLLING_PATH, clipped, "utf8");

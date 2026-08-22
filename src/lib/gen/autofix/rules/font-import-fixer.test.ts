@@ -52,26 +52,19 @@ describe("fixFontImport — variant font materialization", () => {
     expect(result.code).toContain(
       'const fontSans = Raleway({ subsets: ["latin"], variable: "--font-sans", display: "swap" });',
     );
-    expect(result.code).toContain(
-      "${fontDisplay.variable} ${fontSans.variable} antialiased",
-    );
+    expect(result.code).toContain("${fontDisplay.variable} ${fontSans.variable} antialiased");
     expect(result.code).not.toMatch(/\bInter\b/);
     expect(result.code).not.toMatch(/\binter\.variable\b/);
-    expect(
-      result.fixes.some((fix) => fix.fixer === "variant-font-materializer"),
-    ).toBe(true);
+    expect(result.fixes.some((fix) => fix.fixer === "variant-font-materializer")).toBe(true);
   });
 
   it("rewrites bare className={inter.variable} to template-literal pair when materializing", () => {
-    const result = fixFontImport(
-      BASELINE_LAYOUT_BARE_VARIABLE,
-      "app/layout.tsx",
-      { scaffoldId: "landing-page", variantId: "editorial-lux" },
-    );
+    const result = fixFontImport(BASELINE_LAYOUT_BARE_VARIABLE, "app/layout.tsx", {
+      scaffoldId: "landing-page",
+      variantId: "editorial-lux",
+    });
     expect(result.fixed).toBe(true);
-    expect(result.code).toContain(
-      "className={`${fontDisplay.variable} ${fontSans.variable}`}",
-    );
+    expect(result.code).toContain("className={`${fontDisplay.variable} ${fontSans.variable}`}");
     expect(result.code).not.toContain("className={inter.variable}");
   });
 
@@ -81,9 +74,7 @@ describe("fixFontImport — variant font materialization", () => {
       variantId: "corporate-grid",
     });
     expect(result.fixed).toBe(true);
-    expect(result.code).toContain(
-      'import { Manrope, Inter } from "next/font/google";',
-    );
+    expect(result.code).toContain('import { Manrope, Inter } from "next/font/google";');
     expect(result.code).toContain(
       'const fontDisplay = Manrope({ subsets: ["latin"], variable: "--font-display", display: "swap" });',
     );
@@ -91,6 +82,32 @@ describe("fixFontImport — variant font materialization", () => {
       'const fontSans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });',
     );
     expect(result.code).not.toMatch(/\binter\.variable\b/);
+  });
+
+  it("materializes the canonical resolved pair ahead of the registry variant pair", () => {
+    const result = fixFontImport(BASELINE_LAYOUT, "app/layout.tsx", {
+      scaffoldId: "landing-page",
+      variantId: "editorial-lux",
+      resolvedFontPairing: { heading: "Fraunces", body: "Source Sans 3" },
+    });
+
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import { Fraunces, Source_Sans_3 } from "next/font/google";');
+    expect(result.code).not.toContain("Cormorant_Garamond");
+    expect(result.code).not.toContain("Raleway");
+  });
+
+  it("does not fall back to the registry pair when canonical fonts cannot be imported", () => {
+    const result = fixFontImport(BASELINE_LAYOUT, "app/layout.tsx", {
+      scaffoldId: "landing-page",
+      variantId: "editorial-lux",
+      resolvedFontPairing: { heading: "display serif", body: "friendly sans" },
+    });
+
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(BASELINE_LAYOUT);
+    expect(result.code).not.toContain("Cormorant_Garamond");
+    expect(result.code).not.toContain("Raleway");
   });
 
   it("respects preview-host Geist workaround (Geist heading => Inter substitute)", () => {
@@ -112,10 +129,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // a layout that already mentions Geist must be rewritten to Inter even
     // when no variant context is provided. This is the contract the
     // preview-host depends on (see TODO #4 in font-import-fixer.ts).
-    const layoutWithGeist = baselineWithVariantContext.replace(
-      /Inter/g,
-      "Geist",
-    );
+    const layoutWithGeist = baselineWithVariantContext.replace(/Inter/g, "Geist");
     const result = fixFontImport(layoutWithGeist, "app/layout.tsx");
     expect(result.fixed).toBe(true);
     expect(result.code).not.toMatch(/\bGeist\b/);
@@ -158,7 +172,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // No materialization triggered — layout is not the baseline. The
     // existing import-augmentation path may still emit a fix, but the
     // const block must not be rewritten.
-    expect(result.code).not.toContain('const inter = Inter');
+    expect(result.code).not.toContain("const inter = Inter");
     expect(result.code).toContain("const fontDisplay = Cormorant_Garamond");
   });
 

@@ -8,6 +8,8 @@ import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { CapabilitySpecificityTier } from "@/lib/builder/follow-up-capability-detection";
 import type { Tier3BuildSpec } from "@/lib/integrations/tier3-build-spec";
+import type { ResolvedDesignContract } from "../design-contract";
+import type { VariantSelection } from "../scaffold-variants";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import type { ScaffoldSelectionMeta } from "../scaffolds";
 import type {
@@ -29,6 +31,7 @@ import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import type { RequestAttachment } from "../request-metadata";
 import type { GenerationSource } from "../generation-input-package";
 import type { ImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
+import type { PlanDesignAuthority } from "../plan/design-authority";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -179,15 +182,15 @@ export interface OrchestrationInput {
   capabilities?: InferredCapabilities;
   /** Per-session seed (e.g. chatId) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
-  /**
-   * Variant id to lock for this orchestration run. Used in two ways:
-   *  - Initial chat (create-chat-stream-post): pinned to the keyword
-   *    pre-match pick so brief-LLM hints and codegen agree.
-   *  - Follow-ups (chat-message-stream-post): reused from the previous
-   *    orchestration_snapshot.variantId to prevent variant drift across turns.
-   * If the id no longer resolves via getVariantById, async picker runs as fallback.
-   */
+  /** Prior accepted variant. Follow-ups lock it unless redesign releases the lock. */
   persistedVariantId?: string | null;
+  /**
+   * Cheap pre-Brief keyword guess used only as a fallback. Unlike
+   * `persistedVariantId`, this never outranks the post-Brief matcher.
+   */
+  variantHintId?: string | null;
+  /** DB-owned finalized Plan → Build handoff; never accepted from client JSON. */
+  approvedPlanAuthority?: PlanDesignAuthority | null;
   /**
    * True when this is the first real code generation in a chat that already has a
    * persistedScaffoldId (e.g. after a contract gate turn). Allows init-only features
@@ -449,6 +452,10 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
+  /** Explainable final authority decision, including pre-Brief hint drift. */
+  variantSelection: VariantSelection;
+  /** Canonical merged design values used by prompt + deterministic autofix. */
+  resolvedDesign: ResolvedDesignContract;
   variantTemplateId: string | null;
   variantTemplateReferenceAttachments: RequestAttachment[];
   /** Source receipt. Built here after pruning; see `GenerationInputPackage.sources`. */

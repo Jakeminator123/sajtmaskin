@@ -58,8 +58,8 @@ describe("formatThemeTokenLines", () => {
     expect(recipe).toContain("Body background recipe");
     expect(recipe).toContain("NOT inside `@theme inline`");
     expect(recipe).toContain("apply this backgroundImage on `body` in `globals.css`");
-    expect(recipe).toContain(`color-mix(in oklab, ${variant.themeTokens!.primary} 14%`);
-    expect(recipe).not.toContain("--color-");
+    expect(recipe).toContain("color-mix(in oklab, var(--color-primary) 14%");
+    expect(recipe).not.toContain(variant.themeTokens!.primary!);
     expect(recipe).not.toContain("Emit exactly these values");
   });
 

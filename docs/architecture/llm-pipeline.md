@@ -13,7 +13,8 @@ user prompt -> intent/brief -> resolveOrchestrationBase -> BuildSpec -> Dynamic 
 Målet i Fas 1 är att bygga ett rent underlag till orkestreringen.
 
 - Raw prompt är användarens text.
-- Init kan få Deep Brief och variant pre-match.
+- Init kan få Deep Brief och en billig variant-pre-match. Pre-matchen är bara
+  `variantHintId`, aldrig ett persisterat beslut.
 - Init kan även bära **Byggval** (init-reglagen i preview-panelens välkomstläge) som strukturerade request-meta-signaler: `scaffoldMode/scaffoldId` (sajttyp), `pageCountHint` (vinner över sidantal-regexen i route-planen), `styleKeywordsHint` (variantmatchning) och `complexityHint` (BuildSpec). Komplexitet/färgläge/ton skickar dessutom svenska direktiv via custom-instructions-kanalen — aldrig via chattens input. Byggval-reglaget cappar på 3 (tokenbudget). Ruttplanens per-runda-tak är 4 nivå-1/2-sidor; nivå 3 räknas inte. Explicit prompt-text över taket kläms till taket.
 - Follow-up får Snapshot-Brief och tidigare orchestration snapshot. Undantag: `clear-redesign` kör Deep Brief som delta-brief (samma `siteBriefSchema`, redesign-prior-context). Byggval-hintarna är init-only — follow-up-frysen äger scaffold/variant/routes.
 - Build intent, generation mode, follow-up intent och requested capabilities ska bestämmas innan prompten byggs.
@@ -31,6 +32,47 @@ Kodankare:
 ## Fas 2 — Orkestrering och codegen
 
 `resolveOrchestrationBase()` är central fan-in för generationens runtimebeslut.
+
+På init väljs den slutliga varianten först när Deep Brief finns. Ordningen är
+uttryckligt Stilval → follow-up-lås → Brief/prompt-driven variantmatchning →
+pre-match-hint vid nollsignal → hash-fallback. Därefter normaliseras alla
+överlappande designvärden en gång i `ResolvedDesignContract`: användarlås vinner,
+sedan uttryckliga Brief-fält (`designIntent.explicitFields`), sedan uttryckliga
+axlar för äldre Briefar, sedan Variant. Ett enda uttryckligt accent- eller
+rubriktypsnitt tar alltså inte auktoritet över syskonvärden som Brief-schemat
+måste fylla i. Fulla explicita paletter får deterministiskt härledda,
+läsbara foreground-/surface-tokens. Promptbyggaren och font-autofix läser samma
+kontrakt. En vanlig låst follow-up återanvänder den accepterade versionens exakta
+`resolvedDesign` (inklusive fullpalett och färgläge). Om aktuell follow-up
+uttryckligen ändrar en designaxel markeras den som `unresolvedAxes`: gamla
+värden för den axeln utelämnas så aktuell begäran/filer får äga sanningen.
+`clear-redesign` eller uttrycklig scaffold-unlock släpper hela baslinjen.
+
+Planläget sparar dessutom ett serverägt `PlanDesignAuthority` innan planen
+visas. Varje godkänt planbygge — både versionlöst och på en befintlig sajt —
+återanvänder exakt samma Brief, variant, `resolvedDesign` och variant-template.
+Kvittot binder även exakt basversions-id + filrevision och sparar serverrensade
+bilagekvitton, custom instructions och bildgenereringsval. Ett godkänt bygge
+återhydreras därför med samma JPG/PDF/Figma-referenser som planner-LLM:en såg.
+Klienten skickar planens lineage-hash, som måste matcha den senaste serverposten;
+saknat, stale eller bas-mismatchat kvitto svarar 409 i stället för ett tyst omval. Kvittot
+förbrukas atomärt först när den godkända versionen har sparats, utan att ett
+äldre bygge kan radera en nyare plan som skapats parallellt.
+
+Detta ska inte blandas ihop med live-review efter preview. Den separata kedjan
+tar desktop- och mobil-JPEG och ger advisory visuell kritik för varje läsbar,
+berättigad preview-version — init såväl som vanlig follow-up — men kör bara när
+live-review-flaggan, `OC_EDIT` och chat-granten `live_review` alla är aktiva.
+När den körs hämtar kritikerns korta målbeskrivning slutvärden från
+`resolvedDesign` i orchestration-snapshoten, inte från motstridiga råa
+Brief-defaults. Användarkravet binds till versionens eget assistantmeddelande;
+en senare user-turn i en annan flik får inte bedöma en äldre version.
+JPEG-resultat läses alltid mot samma filrevision. Vänsterloggen visar en egen Live-granskning-rad för både
+completed och skipped, även när postchecken är avstängd, preview-URL saknas
+eller review-kedjan faller, med orsaken och om desktop-, mobil- eller båda
+JPEG-underlagen sparades. Både stream- och den separata non-stream/MCP-vägen
+trådar samma `variantSelection`, `resolvedDesign` och variant-template-id till
+snapshot och telemetri.
 
 Den ska samla:
 

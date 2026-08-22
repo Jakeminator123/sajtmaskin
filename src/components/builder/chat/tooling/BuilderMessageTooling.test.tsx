@@ -16,11 +16,7 @@ describe("StructuredToolParts", () => {
       { label: "Validerar genererad kod." },
     ];
     const { rerender } = render(
-      <AgentLogCard
-        items={items}
-        activeLabel="Validerar genererad kod."
-        isActive
-      />,
+      <AgentLogCard items={items} activeLabel="Validerar genererad kod." isActive />,
     );
 
     expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
@@ -52,12 +48,8 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(
-      screen.getAllByText("Fortsätter med nästa byggsteg.").length,
-    ).toBeGreaterThanOrEqual(1);
-    expect(
-      screen.queryByText("Förbereder byggunderlag och startar own-engine."),
-    ).toBeNull();
+    expect(screen.getAllByText("Fortsätter med nästa byggsteg.").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Förbereder byggunderlag och startar own-engine.")).toBeNull();
   });
 
   it("keeps the elapsed timer across the handoff from stream to post-check work", () => {
@@ -78,13 +70,7 @@ describe("StructuredToolParts", () => {
 
       rerender(<AgentLogCard items={items} isActive={false} />);
       act(() => vi.advanceTimersByTime(5_000));
-      rerender(
-        <AgentLogCard
-          items={items}
-          activeLabel="RenderGate • Förbereder"
-          isActive
-        />,
-      );
+      rerender(<AgentLogCard items={items} activeLabel="RenderGate • Förbereder" isActive />);
       act(() => vi.advanceTimersByTime(1_000));
 
       expect(screen.getByText("8s")).toBeTruthy();
@@ -131,9 +117,7 @@ describe("StructuredToolParts", () => {
     ];
 
     expect(getActiveAgentLogLabel(toolParts)).toBe("Quality gate • Förbereder");
-    expect(buildAgentLogItems(toolParts)).toEqual([
-      { label: "Quality gate • Förbereder" },
-    ]);
+    expect(buildAgentLogItems(toolParts)).toEqual([{ label: "Quality gate • Förbereder" }]);
   });
 
   it("marks a failed tool so the log never stamps an error as done", () => {
@@ -162,10 +146,7 @@ describe("StructuredToolParts", () => {
           },
         } as never,
       ]),
-    ).toEqual([
-      { label: "Startar preview." },
-      { label: "Bygget misslyckades.", failed: true },
-    ]);
+    ).toEqual([{ label: "Startar preview." }, { label: "Bygget misslyckades.", failed: true }]);
   });
 
   it("renders a warning icon instead of a checkmark for a failed step", () => {
@@ -402,9 +383,7 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(
-      screen.getByText("Vad vill du att jag fokuserar på i nästa ändring?"),
-    ).toBeTruthy();
+    expect(screen.getByText("Vad vill du att jag fokuserar på i nästa ändring?")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Godkänn förslag" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Avvisa förslag" })).toBeNull();
   });
@@ -541,12 +520,9 @@ describe("StructuredToolParts", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Godkänn förslag" }));
-    expect(onQuickReply).toHaveBeenCalledWith(
-      "msg_guard_regression_2",
-      0,
-      "Godkänn förslag",
-      { planMode: false },
-    );
+    expect(onQuickReply).toHaveBeenCalledWith("msg_guard_regression_2", 0, "Godkänn förslag", {
+      planMode: false,
+    });
   });
 
   it("keeps integration/env tool parts actionable in compact mode", () => {
@@ -777,6 +753,75 @@ describe("StructuredToolParts", () => {
 
     expect(screen.getByText("Verifiering: hoppades över")).toBeTruthy();
     expect(screen.getByText("Quality gate not configured")).toBeTruthy();
+  });
+
+  it("shows why live review was skipped instead of hiding the step", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_live_review_skipped"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:live-review",
+              state: "output-available",
+              output: {
+                liveReview: { status: "skipped", reason: "flag_off" },
+                screenshots: null,
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Ej körd")).toBeTruthy();
+    expect(screen.getByText("Avstängd i konfigurationen.")).toBeTruthy();
+    expect(screen.getByText("JPEG-underlag: inget sparat.")).toBeTruthy();
+  });
+
+  it("shows whether live review used one or multiple JPEG viewports", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_live_review_completed"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:live-review",
+              state: "output-available",
+              output: {
+                liveReview: {
+                  status: "completed",
+                  decision: {
+                    verdict: "pass",
+                    confidence: 0.9,
+                    rationale: "Previewen följer det slutliga designkontraktet.",
+                    reasoning: "",
+                    issues: [],
+                  },
+                  durationMs: 12,
+                  modelId: "gpt-4o",
+                },
+                screenshots: {
+                  desktopUrl: "https://blob.example/desktop.jpg",
+                  mobileUrl: "https://blob.example/mobile.jpg",
+                },
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Godkänd")).toBeTruthy();
+    expect(screen.getByText("JPEG-underlag: desktop + mobil.")).toBeTruthy();
   });
 
   it("shows compact quality gate error text", () => {

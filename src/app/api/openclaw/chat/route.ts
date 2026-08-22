@@ -99,12 +99,7 @@ Regler:
  */
 const BUILDER_PROMPT_TIPS = (() => {
   try {
-    const path = join(
-      process.cwd(),
-      "data",
-      "openclaw",
-      "builder-prompt-tips.md",
-    );
+    const path = join(process.cwd(), "data", "openclaw", "builder-prompt-tips.md");
     return readFileSync(path, "utf8").trim();
   } catch (error) {
     console.warn(
@@ -149,9 +144,7 @@ const OPENCLAW_DEBUG_FINDINGS_MAX = 12;
  * for the active version. Debug-mode only; null when there are none so the
  * prompt stays lean.
  */
-async function buildOpenClawDebugFindingsBlock(
-  versionId: string,
-): Promise<string | null> {
+async function buildOpenClawDebugFindingsBlock(versionId: string): Promise<string | null> {
   const rows = await queryDebugFindings({ versionId, limit: OPENCLAW_DEBUG_FINDINGS_MAX });
   const relevant = rows.filter((row) => row.severity !== "info");
   if (relevant.length === 0) return null;
@@ -230,12 +223,9 @@ export async function POST(req: NextRequest) {
     let codeContextMode: OpenClawCodeContextMode = "none";
 
     if (body.context && typeof body.context === "object") {
-      const reviewChatId =
-        typeof body.context.chatId === "string" ? body.context.chatId : null;
+      const reviewChatId = typeof body.context.chatId === "string" ? body.context.chatId : null;
       const reviewVersionId =
-        typeof body.context.activeVersionId === "string"
-          ? body.context.activeVersionId
-          : null;
+        typeof body.context.activeVersionId === "string" ? body.context.activeVersionId : null;
       // Cross-tenant guard (Codex P1): `chatId`/`activeVersionId` are
       // client-supplied, so verify the REQUESTER owns this chat+version BEFORE
       // exposing any version-scoped context. This gates BOTH the diagnostics
@@ -249,14 +239,10 @@ export async function POST(req: NextRequest) {
       const scopedVersion = !reviewChatId
         ? null
         : reviewVersionId
-          ? await getEngineVersionForChatByIdForRequest(
-              req,
-              reviewChatId,
-              reviewVersionId,
-            ).catch(() => null)
-          : await getLatestEngineVersionForChatForRequest(req, reviewChatId).catch(
+          ? await getEngineVersionForChatByIdForRequest(req, reviewChatId, reviewVersionId).catch(
               () => null,
-            );
+            )
+          : await getLatestEngineVersionForChatForRequest(req, reviewChatId).catch(() => null);
       // Debug full-code context is only unlocked for an ownership-verified chat.
       const debugOwned = debug && Boolean(scopedVersion);
       // Edit bounded code context uses the same ownership gate as debug, plus
@@ -272,11 +258,9 @@ export async function POST(req: NextRequest) {
           if (scopedVersion && cid === reviewChatId && vid === reviewVersionId) {
             return { chatId: cid, versionId: scopedVersion.version.id };
           }
-          const scoped = await getEngineVersionForChatByIdForRequest(
-            req,
-            cid,
-            vid,
-          ).catch(() => null);
+          const scoped = await getEngineVersionForChatByIdForRequest(req, cid, vid).catch(
+            () => null,
+          );
           return scoped ? { chatId: cid, versionId: scoped.version.id } : null;
         }
         const chat = await getEngineChatByIdForRequest(req, cid).catch(() => null);
@@ -326,6 +310,7 @@ export async function POST(req: NextRequest) {
           } = await buildOpenClawReviewContext({
             chatId: reviewChatId,
             versionId: scopedVersion.version.id,
+            filesRevision: scopedVersion.version.files_revision,
           });
           if (findingsBlock) {
             messages.push({ role: "system", content: findingsBlock });
@@ -354,10 +339,9 @@ export async function POST(req: NextRequest) {
             // session is pinned to ANOTHER version than the one under review
             // (Bugbot). Fail-soft + bounded — no session / host error just
             // omits the block.
-            const previewLogBlock = await buildOpenClawPreviewLogBlock(
-              reviewChatId as string,
-              { reviewedVersionId: scopedVersion.version.id },
-            ).catch(() => null);
+            const previewLogBlock = await buildOpenClawPreviewLogBlock(reviewChatId as string, {
+              reviewedVersionId: scopedVersion.version.id,
+            }).catch(() => null);
             if (previewLogBlock) {
               messages.push({ role: "system", content: previewLogBlock });
             }

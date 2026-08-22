@@ -39,6 +39,7 @@
  */
 
 import { debugLog } from "@/lib/utils/debug";
+import { isDesignAxisUnresolved } from "../design-contract";
 import { SCAFFOLD_PROTECTED_PATHS } from "../scaffolds/protected-paths";
 import { pickScaffoldVariant } from "../scaffold-variants";
 import { BUILD_INTENT_GUIDANCE } from "../intent-guidance";
@@ -80,6 +81,7 @@ import {
   renderImageryBlock,
   renderLockedColorPaletteBlock,
   renderMediaCatalogBlock,
+  renderResolvedDesignContractBlock,
   renderSeoBlock,
   renderUiRecipesBlock,
   renderVisualIdentityBlock,
@@ -122,6 +124,7 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
     capabilityHints,
     resolvedScaffold,
     resolvedVariant,
+    resolvedDesign,
     routePlan,
     preGenerationContracts,
     tier3BuildSpec,
@@ -159,8 +162,16 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
     Boolean(buildSpec) &&
     buildSpec?.changeScope !== "redesign" &&
     followUpIntent !== "clear-redesign";
-  const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
-  const toneKeywords = strList(brief?.toneAndVoice);
+  const styleKeywords = resolvedDesign
+    ? isDesignAxisUnresolved(resolvedDesign, "style")
+      ? []
+      : resolvedDesign.styleKeywords.value
+    : strList(brief?.visualDirection?.styleKeywords);
+  const toneKeywords = resolvedDesign
+    ? isDesignAxisUnresolved(resolvedDesign, "tone")
+      ? []
+      : resolvedDesign.toneAndVoice.value
+    : strList(brief?.toneAndVoice);
 
   // Variant resolution: production callers (orchestrate) always pass
   // `resolvedVariant`. The fallback below exists for legacy callers
@@ -215,28 +226,35 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
       scaffoldId: resolvedScaffold?.id ?? null,
     }),
   );
-  parts.push(
-    ...renderBriefLockedDesignValuesBlock({
-      brief,
-      themeOverride,
-    }),
-  );
+  if (resolvedDesign) {
+    parts.push(...renderResolvedDesignContractBlock(resolvedDesign));
+  } else {
+    parts.push(
+      ...renderBriefLockedDesignValuesBlock({
+        brief,
+        themeOverride,
+      }),
+    );
+  }
   // Placed immediately before the variant block it supersedes. Deliberately not
   // gated on `compactFollowUpContext`: the caller already decides that this is
   // init-only (see `finalize-prompts.ts`), so an empty value here means "no
   // palette", not "compact mode dropped it".
-  parts.push(
-    ...renderLockedColorPaletteBlock(options.lockedColorPalette, options.lockedColorPaletteLabel),
-  );
+  if (!resolvedDesign) {
+    parts.push(
+      ...renderLockedColorPaletteBlock(options.lockedColorPalette, options.lockedColorPaletteLabel),
+    );
+  }
   parts.push(
     ...renderScaffoldVariantBlock(effectiveVariant, {
       compact: compactFollowUpContext,
+      designResolved: Boolean(resolvedDesign),
     }),
   );
   if (!compactFollowUpContext) {
     parts.push(...renderVariantTemplateInspirationBlock(options.variantTemplateInspiration));
   }
-  parts.push(...renderDesignPriorityBlock());
+  parts.push(...renderDesignPriorityBlock(Boolean(resolvedDesign)));
 
   // ── Import Rules & Known Pitfalls live in config/prompt-core/01-behavioral-contract.md
   // (static core, cached per process — no longer eats dynamic context token budget)
@@ -324,8 +342,15 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
   if (!hasFileDerivedTier3 && !hasApprovedProviders) {
     parts.push(...renderPreGenerationContractsBlock(preGenerationContracts, buildSpec));
   }
-  parts.push(...renderBriefBlocks(brief));
-  parts.push(...renderVisualIdentityBlock({ themeOverride, brief, designThemePreset }));
+  parts.push(...renderBriefBlocks(brief, resolvedDesign));
+  parts.push(
+    ...renderVisualIdentityBlock({
+      themeOverride,
+      brief,
+      designThemePreset,
+      resolvedDesign,
+    }),
+  );
   parts.push(...renderDesignReferencesBlock(designReferences));
   parts.push(
     ...renderGuidanceBlocks({
@@ -335,6 +360,7 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
       themeOverride,
       toneKeywords,
       styleKeywords,
+      resolvedDesign,
     }),
   );
   parts.push(...renderImageryBlock({ brief, styleKeywords }));

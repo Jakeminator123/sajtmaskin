@@ -13,6 +13,12 @@ import { isDomainProfile } from "@/lib/builder/domain-inference";
 import { resolveGuidanceBlocks, type ColorPalette } from "../../guidance-resolvers";
 import type { Brief, DesignReferenceAsset, MediaCatalogItem } from "../types";
 import type { ShadcnUiRecipe } from "../../data/shadcn-ui-recipes";
+import {
+  isDesignAxisUnresolved,
+  isDesignFieldUnresolved,
+  type DesignExplicitField,
+  type ResolvedDesignContract,
+} from "../../design-contract";
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -22,7 +28,10 @@ function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
 }
 
-export function renderBriefBlocks(brief: Brief | null | undefined): string[] {
+export function renderBriefBlocks(
+  brief: Brief | null | undefined,
+  resolvedDesign?: ResolvedDesignContract | null,
+): string[] {
   if (!brief) return [];
 
   const parts: string[] = [];
@@ -33,13 +42,13 @@ export function renderBriefBlocks(brief: Brief | null | undefined): string[] {
   const pitch = str(brief.oneSentencePitch) || str(brief.tagline);
   const audience = str(brief.targetAudience);
   const cta = str(brief.primaryCallToAction);
-  const tone = strList(brief.toneAndVoice);
+  const tone = resolvedDesign
+    ? isDesignAxisUnresolved(resolvedDesign, "tone")
+      ? []
+      : resolvedDesign.toneAndVoice.value
+    : strList(brief.toneAndVoice);
 
-  const ctxLines: string[] = [
-    `## Project Context`,
-    "",
-    `- **Title:** ${title}`,
-  ];
+  const ctxLines: string[] = [`## Project Context`, "", `- **Title:** ${title}`];
   if (brand) ctxLines.push(`- **Brand:** ${brand}`);
   if (pitch) ctxLines.push(`- **Pitch:** ${pitch}`);
   if (audience) ctxLines.push(`- **Audience:** ${audience}`);
@@ -149,7 +158,9 @@ export function renderBriefLockedDesignValuesBlock(params: {
   ];
 
   if (hasThemeOverride) {
-    parts.push("- **User-locked theme tokens:** present; they override this block for exact color token values.");
+    parts.push(
+      "- **User-locked theme tokens:** present; they override this block for exact color token values.",
+    );
   }
   if (styleKeywords.length > 0) parts.push(`- **Visual direction:** ${styleKeywords.join(", ")}`);
   if (tone.length > 0) parts.push(`- **Tone:** ${tone.join(", ")}`);
@@ -166,7 +177,9 @@ export function renderBriefLockedDesignValuesBlock(params: {
     if (paletteParts.length > 0) parts.push(`- **Palette:** ${paletteParts.join(", ")}`);
   }
   if (typography?.headings || typography?.body) {
-    parts.push(`- **Typography:** headings ${typography.headings || "system"}, body ${typography.body || "system"}`);
+    parts.push(
+      `- **Typography:** headings ${typography.headings || "system"}, body ${typography.body || "system"}`,
+    );
   }
   if (domainProfile) parts.push(`- **Domain profile:** ${domainProfile}`);
   if (mustHave.length > 0) parts.push(`- **Must-have:** ${mustHave.join("; ")}`);
@@ -175,6 +188,159 @@ export function renderBriefLockedDesignValuesBlock(params: {
   parts.push(
     "- **Rule:** Do not let scaffold variant theme tokens, font pairings, prompt hints, motifs, or anti-patterns weaken these values.",
     "- **Rule:** If the variant says dark/corporate/minimal but the brief says warm/editorial/lively/premium, follow the brief.",
+    "",
+  );
+  return parts;
+}
+
+const RESOLVED_TOKEN_NAMES: Record<string, string> = {
+  background: "--color-background",
+  foreground: "--color-foreground",
+  card: "--color-card",
+  cardForeground: "--color-card-foreground",
+  primary: "--color-primary",
+  primaryForeground: "--color-primary-foreground",
+  secondary: "--color-secondary",
+  secondaryForeground: "--color-secondary-foreground",
+  muted: "--color-muted",
+  mutedForeground: "--color-muted-foreground",
+  accent: "--color-accent",
+  accentForeground: "--color-accent-foreground",
+  border: "--color-border",
+  ring: "--color-ring",
+  radius: "--radius",
+};
+
+const UNRESOLVED_FIELD_TOKEN_KEYS: Record<DesignExplicitField, readonly string[]> = {
+  "palette.primary": ["primary", "primaryForeground", "ring"],
+  "palette.secondary": ["secondary", "secondaryForeground"],
+  "palette.accent": ["accent", "accentForeground"],
+  "palette.background": [
+    "background",
+    "card",
+    "cardForeground",
+    "muted",
+    "mutedForeground",
+    "border",
+    "bodyBackgroundImage",
+  ],
+  "palette.text": [
+    "foreground",
+    "card",
+    "cardForeground",
+    "muted",
+    "mutedForeground",
+    "border",
+    "primaryForeground",
+    "secondaryForeground",
+    "accentForeground",
+  ],
+  "typography.headings": [],
+  "typography.body": [],
+};
+
+function unresolvedTokenKeys(design: ResolvedDesignContract): Set<string> {
+  return new Set(
+    (design.unresolvedFields ?? []).flatMap((field) => UNRESOLVED_FIELD_TOKEN_KEYS[field]),
+  );
+}
+
+/** Render the canonical merge once; later blocks must not re-resolve precedence. */
+export function renderResolvedDesignContractBlock(
+  design: ResolvedDesignContract | null | undefined,
+): string[] {
+  if (!design) return [];
+  const unresolved = new Set(design.unresolvedAxes ?? []);
+  const source = (value: { source: string; locked: boolean }): string =>
+    `${value.source}${value.locked ? ", locked" : ""}`;
+  const parts = [
+    "## Resolved Design Contract",
+    "",
+    "This is the final merged design authority for every resolved axis. Do not re-apply Brief/Variant precedence in later blocks.",
+    `- **Variant:** ${design.variantId ? `\`${design.variantId}\`` : "none"}`,
+    `- **Explicit user axes:** ${design.explicitAxes.length ? design.explicitAxes.join(", ") : "none"}`,
+    `- **Explicit compound fields:** ${design.explicitFields.length ? design.explicitFields.join(", ") : "none"}`,
+  ];
+  if (unresolved.size > 0) {
+    parts.push(
+      `- **Current-request authority:** ${[...unresolved].join(", ")}. The current user message explicitly changes these axes; follow that message and the existing project files. Do not restore their cached values from this contract, Brief, or Variant.`,
+    );
+  }
+  if ((design.unresolvedFields?.length ?? 0) > 0) {
+    parts.push(
+      `- **Current-request fields:** ${design.unresolvedFields!.join(", ")}. Their resulting values live in the current user message/project files; do not restore cached values for those fields or their derived companion tokens.`,
+    );
+  }
+  if (!unresolved.has("style") && design.styleKeywords.value.length) {
+    parts.push(
+      `- **Visual direction** (${source(design.styleKeywords)}): ${design.styleKeywords.value.join(", ")}`,
+    );
+  }
+  if (!unresolved.has("tone") && design.toneAndVoice.value.length) {
+    parts.push(
+      `- **Tone** (${source(design.toneAndVoice)}): ${design.toneAndVoice.value.join(", ")}`,
+    );
+  }
+  if (!unresolved.has("color-mode") && design.colorMode.value) {
+    parts.push(`- **Color mode** (${source(design.colorMode)}): ${design.colorMode.value}`);
+  }
+  if (!unresolved.has("typography")) {
+    const typographyParts: string[] = [];
+    if (
+      !isDesignFieldUnresolved(design, "typography.headings") &&
+      design.typography.heading.value
+    ) {
+      typographyParts.push(
+        `heading ${design.typography.heading.value} (${source(design.typography.heading)})`,
+      );
+    }
+    if (!isDesignFieldUnresolved(design, "typography.body") && design.typography.body.value) {
+      typographyParts.push(
+        `body ${design.typography.body.value} (${source(design.typography.body)})`,
+      );
+    }
+    if (typographyParts.length > 0) parts.push(`- **Typography:** ${typographyParts.join("; ")}`);
+  }
+  if (!unresolved.has("motion") && design.motionLevel.value) {
+    parts.push(`- **Motion** (${source(design.motionLevel)}): ${design.motionLevel.value}`);
+  }
+  if (!unresolved.has("quality") && design.qualityBar.value) {
+    parts.push(`- **Quality** (${source(design.qualityBar)}): ${design.qualityBar.value}`);
+  }
+  if (design.domainProfile.value) {
+    parts.push(
+      `- **Domain profile** (${source(design.domainProfile)}): ${design.domainProfile.value}`,
+    );
+  }
+
+  const delegatedTokenKeys = unresolvedTokenKeys(design);
+  const tokenEntries = unresolved.has("palette")
+    ? []
+    : Object.entries(design.themeTokens).filter(
+        ([key, value]) =>
+          key !== "bodyBackgroundImage" && !delegatedTokenKeys.has(key) && Boolean(value?.value),
+      );
+  if (tokenEntries.length) {
+    parts.push("- **Final theme tokens** (emit in `app/globals.css` inside `@theme inline`):");
+    for (const [key, value] of tokenEntries) {
+      if (!value) continue;
+      parts.push(
+        `  - **${RESOLVED_TOKEN_NAMES[key] ?? key}** (${source(value)}): \`${value.value}\``,
+      );
+    }
+  }
+  const bodyBackground = unresolved.has("palette")
+    ? undefined
+    : delegatedTokenKeys.has("bodyBackgroundImage")
+      ? undefined
+      : design.themeTokens.bodyBackgroundImage;
+  if (bodyBackground?.value) {
+    parts.push(
+      `- **Body background recipe** (${source(bodyBackground)}; apply on \`body\`, outside \`@theme inline\`): \`${bodyBackground.value}\``,
+    );
+  }
+  parts.push(
+    "- **Rule:** Structural variant cues may shape composition, but may not replace a resolved value or an axis delegated to the current user message.",
     "",
   );
   return parts;
@@ -237,9 +403,12 @@ export function renderVisualIdentityBlock(params: {
   themeOverride: ThemeColors | null | undefined;
   brief: Brief | null | undefined;
   designThemePreset: string | null | undefined;
+  resolvedDesign?: ResolvedDesignContract | null;
 }): string[] {
-  const { themeOverride, brief, designThemePreset } = params;
-  const hasTheme = themeOverride && (themeOverride.primary || themeOverride.secondary || themeOverride.accent);
+  const { themeOverride, brief, designThemePreset, resolvedDesign } = params;
+  if (resolvedDesign) return [];
+  const hasTheme =
+    themeOverride && (themeOverride.primary || themeOverride.secondary || themeOverride.accent);
   const briefPalette = brief?.visualDirection?.colorPalette;
   const typography = brief?.visualDirection?.typography;
   const themePresetLabel = str(designThemePreset);
@@ -257,13 +426,19 @@ export function renderVisualIdentityBlock(params: {
     if (themeOverride!.primary) parts.push(`  - --primary: ${themeOverride!.primary}`);
     if (themeOverride!.secondary) parts.push(`  - --secondary: ${themeOverride!.secondary}`);
     if (themeOverride!.accent) parts.push(`  - --accent: ${themeOverride!.accent}`);
-    parts.push("- Apply these colors via Tailwind's semantic classes (`bg-primary`, `text-primary-foreground`, etc.).");
+    parts.push(
+      "- Apply these colors via Tailwind's semantic classes (`bg-primary`, `text-primary-foreground`, etc.).",
+    );
   } else if (briefPalette?.primary) {
-    parts.push(`- **Color palette:** primary ${briefPalette.primary}${briefPalette.secondary ? `, secondary ${briefPalette.secondary}` : ""}${briefPalette.accent ? `, accent ${briefPalette.accent}` : ""}`);
+    parts.push(
+      `- **Color palette:** primary ${briefPalette.primary}${briefPalette.secondary ? `, secondary ${briefPalette.secondary}` : ""}${briefPalette.accent ? `, accent ${briefPalette.accent}` : ""}`,
+    );
   }
 
   if (typography?.headings || typography?.body) {
-    parts.push(`- **Typography:** headings ${typography.headings || "system"}, body ${typography.body || "system"}`);
+    parts.push(
+      `- **Typography:** headings ${typography.headings || "system"}, body ${typography.body || "system"}`,
+    );
   }
 
   parts.push("");
@@ -283,7 +458,9 @@ export function renderDesignReferencesBlock(
   ];
   for (const reference of designReferences.slice(0, 6)) {
     const note = reference.note ? ` — ${reference.note}` : "";
-    parts.push(`- **${reference.kind === "figma" ? "Figma" : "Image"} reference:** ${reference.label}${note}`);
+    parts.push(
+      `- **${reference.kind === "figma" ? "Figma" : "Image"} reference:** ${reference.label}${note}`,
+    );
   }
   parts.push("");
   return parts;
@@ -296,14 +473,36 @@ export function renderGuidanceBlocks(params: {
   themeOverride: ThemeColors | null | undefined;
   toneKeywords: string[];
   styleKeywords: string[];
+  resolvedDesign?: ResolvedDesignContract | null;
 }): string[] {
-  const { userPrompt, intent, brief, themeOverride, toneKeywords, styleKeywords } = params;
+  const { userPrompt, intent, brief, themeOverride, toneKeywords, styleKeywords, resolvedDesign } =
+    params;
   // ── Guidance blocks (domain, motion, quality bar) ────────────────────────
   // Level 3 (INFERRED): guidance-resolvers provide deterministic heuristics.
   // Level 4 (DEFAULT): directive file text is used when resolvers have no signal.
   if (!userPrompt) return [];
 
-  const briefPalette = brief?.visualDirection?.colorPalette;
+  const briefPalette = resolvedDesign
+    ? isDesignAxisUnresolved(resolvedDesign, "palette")
+      ? null
+      : {
+          primary: isDesignFieldUnresolved(resolvedDesign, "palette.primary")
+            ? undefined
+            : resolvedDesign.themeTokens.primary?.value,
+          secondary: isDesignFieldUnresolved(resolvedDesign, "palette.secondary")
+            ? undefined
+            : resolvedDesign.themeTokens.secondary?.value,
+          accent: isDesignFieldUnresolved(resolvedDesign, "palette.accent")
+            ? undefined
+            : resolvedDesign.themeTokens.accent?.value,
+          background: isDesignFieldUnresolved(resolvedDesign, "palette.background")
+            ? undefined
+            : resolvedDesign.themeTokens.background?.value,
+          text: isDesignFieldUnresolved(resolvedDesign, "palette.text")
+            ? undefined
+            : resolvedDesign.themeTokens.foreground?.value,
+        }
+    : brief?.visualDirection?.colorPalette;
   const briefPaletteForGuidance: ColorPalette = briefPalette
     ? {
         primary: briefPalette.primary,
@@ -328,18 +527,28 @@ export function renderGuidanceBlocks(params: {
     ]
       .filter(Boolean)
       .join(" "),
-    briefDomainProfile: str(brief?.domainProfile) || undefined,
-    briefMotionLevel: brief?.motionLevel,
-    briefQualityBar: brief?.qualityBar,
+    briefDomainProfile:
+      resolvedDesign?.domainProfile.value ?? (str(brief?.domainProfile) || undefined),
+    briefMotionLevel: resolvedDesign
+      ? isDesignAxisUnresolved(resolvedDesign, "motion")
+        ? undefined
+        : (resolvedDesign.motionLevel.value ?? undefined)
+      : brief?.motionLevel,
+    briefQualityBar: resolvedDesign
+      ? isDesignAxisUnresolved(resolvedDesign, "quality")
+        ? undefined
+        : (resolvedDesign.qualityBar.value ?? undefined)
+      : brief?.qualityBar,
     briefSeasonalHints: brief?.seasonalHints?.filter(Boolean),
   });
 
   const parts: string[] = [];
 
   if (guidance.domainProfile !== "general") {
-    const domainSource = brief?.domainProfile && isDomainProfile(brief.domainProfile)
-      ? "from brief"
-      : "inferred from prompt keywords";
+    const domainSource =
+      brief?.domainProfile && isDomainProfile(brief.domainProfile)
+        ? "from brief"
+        : "inferred from prompt keywords";
     parts.push(
       "## Domain Inference",
       "",
@@ -348,12 +557,7 @@ export function renderGuidanceBlocks(params: {
     );
   }
   if (guidance.domainStructureHints.length > 0) {
-    parts.push(
-      "## Structure Hints",
-      "",
-      ...guidance.domainStructureHints.map((h) => `- ${h}`),
-      "",
-    );
+    parts.push("## Structure Hints", "", ...guidance.domainStructureHints.map((h) => `- ${h}`), "");
   }
   if (guidance.domainContractHints.length > 0) {
     parts.push(
@@ -363,18 +567,8 @@ export function renderGuidanceBlocks(params: {
       "",
     );
   }
-  parts.push(
-    "## Interaction & Motion",
-    "",
-    ...guidance.motionGuidance.map((g) => `- ${g}`),
-    "",
-  );
-  parts.push(
-    "## Quality Bar",
-    "",
-    ...guidance.qualityBarGuidance.map((g) => `- ${g}`),
-    "",
-  );
+  parts.push("## Interaction & Motion", "", ...guidance.motionGuidance.map((g) => `- ${g}`), "");
+  parts.push("## Quality Bar", "", ...guidance.qualityBarGuidance.map((g) => `- ${g}`), "");
   if (guidance.seasonalPaletteGuidance.length > 0) {
     parts.push(...guidance.seasonalPaletteGuidance.map((g) => `- ${g}`));
   }
@@ -415,9 +609,7 @@ export function renderImageryBlock(params: {
   return ["## Imagery (from brief)", "", ...imgNotes.map((n) => `- ${n}`), ""];
 }
 
-export function renderMediaCatalogBlock(
-  mediaCatalog: MediaCatalogItem[] | undefined,
-): string[] {
+export function renderMediaCatalogBlock(mediaCatalog: MediaCatalogItem[] | undefined): string[] {
   if (!mediaCatalog || mediaCatalog.length === 0) return [];
   const parts: string[] = [
     "## Media Catalog",
@@ -509,7 +701,11 @@ export function renderUiRecipesBlock(uiRecipes: ShadcnUiRecipe[] | undefined): s
       }
       const primary = files[0];
       if (primary) {
-        const fence = primary.path.endsWith(".json") ? "json" : primary.path.endsWith(".ts") ? "ts" : "tsx";
+        const fence = primary.path.endsWith(".json")
+          ? "json"
+          : primary.path.endsWith(".ts")
+            ? "ts"
+            : "tsx";
         parts.push("", `\`\`\`${fence} file="${primary.target || primary.path}"`);
         parts.push(excerptCode(primary.content));
         parts.push("```", "");

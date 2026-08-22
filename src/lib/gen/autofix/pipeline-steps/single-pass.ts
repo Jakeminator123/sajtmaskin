@@ -55,11 +55,7 @@ import { fixIconComponentValueMisuse } from "../rules/icon-component-value-fixer
 import { ensureTier2PreviewBasePathInNextConfig } from "../rules/tier2-preview-base-path-fixer";
 import { fixUseClient } from "./use-client-fixer";
 import { fixTailwindFontArbitrary } from "./tailwind-font-arbitrary-fixer";
-import {
-  guardFixerSyntax,
-  validateSyntax,
-  type SyntaxValidation,
-} from "./syntax-validation";
+import { guardFixerSyntax, validateSyntax, type SyntaxValidation } from "./syntax-validation";
 import { rebuildContent } from "./rebuild-content";
 import type { AutoFixContext, AutoFixResult } from "./types";
 
@@ -189,8 +185,10 @@ export async function runAutoFixSinglePass(
 
   for (const file of project.files) {
     const isTsxOrJsx =
-      file.language === "tsx" || file.language === "jsx" ||
-      file.language === "ts" || file.language === "js";
+      file.language === "tsx" ||
+      file.language === "jsx" ||
+      file.language === "ts" ||
+      file.language === "js";
 
     let currentCode = file.content;
 
@@ -580,10 +578,7 @@ export async function runAutoFixSinglePass(
       //       interface of the same name (duplicate-identifier error).
       // Empirical hit 2026-04-23 in components/showcase-gallery.tsx.
       try {
-        const typeCollisionResult = fixDuplicateImportAndLocalTypeCollision(
-          currentCode,
-          file.path,
-        );
+        const typeCollisionResult = fixDuplicateImportAndLocalTypeCollision(currentCode, file.path);
         if (typeCollisionResult.fixed) {
           currentCode = typeCollisionResult.code;
           for (const fix of typeCollisionResult.fixes) {
@@ -789,6 +784,7 @@ export async function runAutoFixSinglePass(
           const fontResult2 = fixFontImport(currentCode, file.path, {
             scaffoldId: context?.scaffoldId ?? null,
             variantId: context?.variantId ?? null,
+            resolvedFontPairing: context?.resolvedFontPairing ?? null,
           });
           if (fontResult2.fixed) {
             currentCode = fontResult2.code;
@@ -899,7 +895,8 @@ export async function runAutoFixSinglePass(
             allFixes.push({
               fixer: "scroll-smooth-html-fixer",
               category: "mechanical",
-              description: 'Replaced scroll-smooth className with data-scroll-behavior="smooth" on <html> for Next.js 16 compatibility',
+              description:
+                'Replaced scroll-smooth className with data-scroll-behavior="smooth" on <html> for Next.js 16 compatibility',
               file: file.path,
             });
           }
@@ -1005,7 +1002,8 @@ export async function runAutoFixSinglePass(
           allFixes.push({
             fixer: "tier2-preview-basepath-next-config",
             category: "mechanical",
-            description: "Injected conditional basePath from SAJTMASKIN_PREVIEW_BASE_PATH for preview-host URLs",
+            description:
+              "Injected conditional basePath from SAJTMASKIN_PREVIEW_BASE_PATH for preview-host URLs",
             file: file.path,
           });
         }
@@ -1047,7 +1045,8 @@ export async function runAutoFixSinglePass(
         allFixes.push({
           fixer: "scroll-smooth-css-fixer",
           category: "mechanical",
-          description: "Replaced scroll-behavior: smooth with scroll-behavior: auto in CSS for preview compatibility",
+          description:
+            "Replaced scroll-behavior: smooth with scroll-behavior: auto in CSS for preview compatibility",
           file: file.path,
         });
       }
@@ -1153,9 +1152,7 @@ export async function runAutoFixSinglePass(
       allWarnings.push(`[security:injection] ${indicator}`);
     }
   } catch (err) {
-    allWarnings.push(
-      `security-checks threw: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    allWarnings.push(`security-checks threw: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   return {

@@ -200,9 +200,17 @@ class ExtractorFingerprintTests(unittest.TestCase):
         addenda = json.loads(
             (REPO_ROOT / "config/variant-template-addenda.json").read_text(encoding="utf-8")
         )
+        expected = compute_extractor_sha256(REPO_ROOT)
+        stale_generated = [
+            entry.get("templateId")
+            for entry in addenda.get("templates") or []
+            if entry.get("reviewStatus") == "generated"
+            and entry.get("extractorSha256") != expected
+        ]
         self.assertEqual(
-            compute_extractor_sha256(REPO_ROOT),
-            addenda["templates"][0]["extractorSha256"],
+            stale_generated,
+            [],
+            "generated addenda must match the current extractor; reviewed rows keep their own hash",
         )
 
     def test_hash_normalizes_bom_crlf_sorts_paths_and_includes_nul(self) -> None:

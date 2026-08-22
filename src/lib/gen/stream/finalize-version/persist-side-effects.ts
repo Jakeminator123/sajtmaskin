@@ -28,10 +28,7 @@ import type { FinalizePreflightIssue } from "../finalize-preflight";
 import { buildFinalizePreflightLogBundle } from "../finalize-preflight-logs";
 import { resolveFinalDossierFileEvidence } from "./dossier-file-evidence";
 import { buildSyntaxFailureLog, buildVerifierFailureLogs } from "./failure-log";
-import type {
-  FinalizePreflightResult,
-  FinalizeSyntaxResult,
-} from "./types";
+import type { FinalizePreflightResult, FinalizeSyntaxResult } from "./types";
 import type { AutofixRiskSummary } from "./pre-phases";
 
 export async function persistOrchestrationSnapshot(params: {
@@ -43,14 +40,22 @@ export async function persistOrchestrationSnapshot(params: {
   lineageHash: string | null | undefined;
   buildIntent: BuildIntent | undefined;
 }): Promise<void> {
-  const { chatId, versionId, filesJson, orchestrationStreamMeta, lineageHash, buildIntent } = params;
+  const { chatId, versionId, filesJson, orchestrationStreamMeta, lineageHash, buildIntent } =
+    params;
   if (!orchestrationStreamMeta || typeof orchestrationStreamMeta !== "object") return;
   try {
+    const consumedPlanDesignLineageHash =
+      typeof orchestrationStreamMeta.consumedPlanDesignLineageHash === "string" &&
+      orchestrationStreamMeta.consumedPlanDesignLineageHash.trim()
+        ? orchestrationStreamMeta.consumedPlanDesignLineageHash.trim()
+        : null;
+    const streamMetaForStorage = { ...orchestrationStreamMeta };
+    delete streamMetaForStorage.consumedPlanDesignLineageHash;
     const { fileEvidenceCapabilities, fileEvidenceDossierIds } =
       resolveFinalDossierFileEvidence(filesJson);
     const snap = buildPersistedOrchestrationSnapshot({
       streamMeta: {
-        ...orchestrationStreamMeta,
+        ...streamMetaForStorage,
         // Finalize-owned truth: overwrite the base-version evidence from
         // orchestration with what the persisted post-merge version contains.
         fileEvidenceCapabilities,
@@ -63,15 +68,15 @@ export async function persistOrchestrationSnapshot(params: {
     });
     const previous = await chatRepo.getChatOrchestrationSnapshot(chatId);
     const merged = mergePersistedOrchestrationSnapshots(previous, snap);
-    await chatRepo.updateChatOrchestrationSnapshot(chatId, merged);
+    await chatRepo.updateChatOrchestrationSnapshot(chatId, merged, {
+      consumePendingPlanDesignLineageHash: consumedPlanDesignLineageHash,
+    });
     // P26: trace what we actually persisted so we can attribute later
     // variant-flippar to either missing snapshot.variantId, intent
     // classification or scaffold drift. Tysta info-loggar i prod;
     // devLogAppend gör det synligt i builder-UI.
-    const persistedVariantId =
-      typeof merged.variantId === "string" ? merged.variantId : null;
-    const persistedScaffoldId =
-      typeof merged.scaffoldId === "string" ? merged.scaffoldId : null;
+    const persistedVariantId = typeof merged.variantId === "string" ? merged.variantId : null;
+    const persistedScaffoldId = typeof merged.scaffoldId === "string" ? merged.scaffoldId : null;
     devLogAppend("in-progress", {
       type: "orchestration.snapshot.persisted",
       chatId,
@@ -258,12 +263,7 @@ export async function pruneStaleLogsIfCleanRepair(params: {
   repairPassIndex: number;
   hasCurrentPreflightBlockers: boolean;
 }): Promise<void> {
-  const {
-    chatId,
-    versionId,
-    repairPassIndex,
-    hasCurrentPreflightBlockers,
-  } = params;
+  const { chatId, versionId, repairPassIndex, hasCurrentPreflightBlockers } = params;
   // SAJ-25 — pruneStaleVersionErrorLogs:
   //
   // When the same `versionId` is re-finalised (follow-up / repair pass) and
@@ -289,17 +289,13 @@ export async function pruneStaleLogsIfCleanRepair(params: {
       reason: "clean-followup",
     });
   } catch (pruneErr) {
-    console.warn(
-      "[finalize] pruneStaleVersionErrorLogs failed (non-fatal):",
-      pruneErr,
-    );
+    console.warn("[finalize] pruneStaleVersionErrorLogs failed (non-fatal):", pruneErr);
     devLogAppend("in-progress", {
       type: "version_error_log_pruned.error",
       chatId,
       versionId,
       repairPassIndex,
-      message:
-        pruneErr instanceof Error ? pruneErr.message : "Unknown prune error",
+      message: pruneErr instanceof Error ? pruneErr.message : "Unknown prune error",
     });
   }
 }
@@ -385,7 +381,10 @@ export async function maybeFailVersionVerification(params: {
     });
     return failedVersion;
   } catch (verificationErr) {
-    console.warn("[preflight] Failed to mark version failed after blocking errors:", verificationErr);
+    console.warn(
+      "[preflight] Failed to mark version failed after blocking errors:",
+      verificationErr,
+    );
     devLogAppend("in-progress", {
       type: "preflight.version.fail-error",
       chatId,

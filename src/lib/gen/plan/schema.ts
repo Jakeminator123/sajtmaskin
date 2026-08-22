@@ -4,6 +4,7 @@
  * When the user clicks "Plan", the planner pass produces a PlanArtifact
  * instead of code.  The executor then runs the plan in phases.
  */
+import { parsePlanDesignAuthority, type PlanDesignAuthority } from "./design-authority";
 
 export type PlanPhase = "plan" | "build" | "refine" | "verify" | "done";
 
@@ -124,6 +125,8 @@ export type PlanArtifact = {
   contracts?: PlanContracts;
   scaffold?: PlanScaffoldChoice | null;
   variantTemplateReference?: PlanVariantTemplateReference | null;
+  /** Runtime-owned Brief/Variant resolution frozen for Plan → Build. */
+  designAuthority?: PlanDesignAuthority | null;
   currentPhase: PlanPhase;
   createdAt: number;
   updatedAt: number;
@@ -361,6 +364,7 @@ export function normalizePlanArtifact(value: unknown): PlanArtifact | null {
     contracts: normalizeContracts(value.contracts),
     scaffold: normalizeScaffold(value.scaffold),
     variantTemplateReference: normalizeVariantTemplateReference(value.variantTemplateReference),
+    designAuthority: parsePlanDesignAuthority(value.designAuthority),
     currentPhase,
     createdAt:
       typeof value.createdAt === "number" && Number.isFinite(value.createdAt)
@@ -443,6 +447,14 @@ export function serializePlanForPrompt(plan: PlanArtifact): string {
     lines.push(
       `- ${reference.title} [${reference.templateId}] — ${reference.category}; ` +
         `addendum:${reference.addendumState}; structure:${reference.hasStructuralReferences ? "yes" : "no"}`,
+    );
+  }
+
+  if (normalizedPlan.designAuthority) {
+    lines.push("", "### Runtime-frozen design authority");
+    lines.push(
+      `- Variant: ${normalizedPlan.designAuthority.variantId ?? "none"}; ` +
+        "the server-owned Resolved Design Contract in the system prompt is authoritative.",
     );
   }
 

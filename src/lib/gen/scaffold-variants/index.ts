@@ -1,9 +1,10 @@
+export { getDefaultVariantForScaffold, getVariantById, getVariantsForScaffold } from "./registry";
 export {
-  getDefaultVariantForScaffold,
-  getVariantById,
-  getVariantsForScaffold,
-} from "./registry";
-export { pickScaffoldVariant, pickScaffoldVariantAsync } from "./matcher";
+  pickScaffoldVariant,
+  pickScaffoldVariantAsync,
+  pickScaffoldVariantAsyncWithMeta,
+  pickScaffoldVariantWithMeta,
+} from "./matcher";
 export type { PickScaffoldVariantAsyncOptions } from "./matcher";
 export type {
   FontPairing,
@@ -11,11 +12,12 @@ export type {
   ScaffoldVariant,
   ScaffoldVariantId,
   ScaffoldVariantThemeTokens,
+  VariantMatchResult,
+  VariantMatchSource,
+  VariantSelection,
+  VariantSelectionSource,
 } from "./types";
-export {
-  buildVariantHintsForBrief,
-  formatVariantHintsForPrompt,
-} from "./variant-hints";
+export { buildVariantHintsForBrief, formatVariantHintsForPrompt } from "./variant-hints";
 export type { VariantHints } from "./variant-hints";
 export {
   buildVariantTemplateReferenceAttachments,

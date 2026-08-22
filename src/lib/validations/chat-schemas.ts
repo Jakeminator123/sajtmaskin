@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { MAX_CHAT_MESSAGE_CHARS, MAX_CHAT_SYSTEM_CHARS } from "@/lib/builder/prompt-limits";
-import {
-  ACCEPTED_MODEL_IDS,
-  DEFAULT_MODEL_ID,
-  type CanonicalModelId,
-} from "@/lib/models/catalog";
+import { ACCEPTED_MODEL_IDS, DEFAULT_MODEL_ID, type CanonicalModelId } from "@/lib/models/catalog";
 
 export type ModelTier = CanonicalModelId;
 
@@ -19,9 +15,7 @@ const attachmentSchema = z.object({
   purpose: z.string().optional(),
 });
 
-const modelIdSchema = z.enum(
-  ACCEPTED_MODEL_IDS as unknown as [string, ...string[]],
-);
+const modelIdSchema = z.enum(ACCEPTED_MODEL_IDS as unknown as [string, ...string[]]);
 
 const MAX_PROMPT_META_TEXT_CHARS = MAX_CHAT_MESSAGE_CHARS;
 const MAX_PROMPT_META_LABEL_CHARS = 200;
@@ -44,6 +38,8 @@ const promptMetaSchema = z
     promptSourceKind: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     promptSourceTechnical: z.boolean().optional(),
     promptSourcePreservePayload: z.boolean().optional(),
+    /** Exact server-issued Plan Design Authority lineage being approved. */
+    planDesignLineageHash: z.string().trim().min(1).max(128).optional(),
     /** Byggval (init controls): structured page-count hint for the route plan. */
     pageCountHint: z.number().int().min(1).max(20).optional(),
     /** Byggval (init controls): structured style keywords for variant matching. */

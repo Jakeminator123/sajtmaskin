@@ -32,6 +32,12 @@ import { emitFollowUpFreezeDrift, enforceFollowUpVariantFreeze } from "./follow-
 import { resolveGenerationMode } from "./generation-mode";
 import { buildSourceReceipt } from "./source-receipt";
 import type { FinalizedOrchestrationContext, OrchestrationBase, OrchestrationInput } from "./types";
+import {
+  detectFollowUpDesignAxes,
+  detectFollowUpDesignFields,
+  resolveDesignContract,
+} from "./design-resolution";
+import type { VariantSelection, VariantSelectionSource } from "../scaffold-variants";
 
 /**
  * Style inspiration (still image + SHA-bound addendum excerpts) is resolved
@@ -45,12 +51,9 @@ export function shouldResolveVariantTemplateInspiration(input: {
   importedRepoMode?: boolean;
   scaffoldId?: string | null;
 }): boolean {
-  const allowedMode =
-    input.resolvedMode === "init" || input.followUpIntent === "clear-redesign";
+  const allowedMode = input.resolvedMode === "init" || input.followUpIntent === "clear-redesign";
   return (
-    allowedMode &&
-    input.importedRepoMode !== true &&
-    input.scaffoldId !== SCAFFOLD_OFF_BASELINE_ID
+    allowedMode && input.importedRepoMode !== true && input.scaffoldId !== SCAFFOLD_OFF_BASELINE_ID
   );
 }
 
@@ -81,16 +84,12 @@ export async function finalizeOrchestrationPrompts(
     );
 
   const resolvedMode = resolveGenerationMode(input);
+  const approvedPlanAuthority = input.approvedPlanAuthority ?? null;
 
   const scaffoldIdForVariant = base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId;
-  // P22: variant-lock på follow-ups. När caller lämnar `followUpIntent`
-  // omarkerat tolkas det som "neutral" — då behåller vi nuvarande beteende
-  // och låser till `persistedVariantId`. Om en framtida caller skickar in
-  // `clear-redesign` släpper helpern loss matchern så att en ny stilriktning
-  // kan väljas.
-  // Samma unlock-signal som scaffold-sidan: `clear-redesign` ELLER
-  // `ignorePersistedScaffoldForMatch` (supplement-mönstren, t.ex.
-  // "gör om hela sajten").
+  // Final authority order: explicit style choice → follow-up lock → post-Brief
+  // matcher → pre-Brief hint. A cheap init hint is deliberately NOT a persisted
+  // lock: Deep Brief must get a chance to change the final variant.
   const variantLockReleased =
     resolvedMode === "followUp" &&
     (input.followUpIntent === "clear-redesign" || input.ignorePersistedScaffoldForMatch === true);
@@ -104,59 +103,119 @@ export async function finalizeOrchestrationPrompts(
           scaffoldUnlocked: input.ignorePersistedScaffoldForMatch === true,
         })
       : null;
-  // Utan `!variantLockReleased` band den här fallbacken omedelbart tillbaka den
-  // gamla varianten som låset just släppte — en redesign fick alltså rematchad
-  // scaffold men identisk stil. Fallbacken finns kvar för init-vägen (variant
-  // redan vald och persistad före första codegen).
   const persistedVariant =
     lockedVariant ??
-    (!variantLockReleased && input.persistedVariantId && scaffoldIdForVariant
+    (resolvedMode === "followUp" &&
+    !variantLockReleased &&
+    input.persistedVariantId &&
+    scaffoldIdForVariant
       ? getVariantById(scaffoldIdForVariant, input.persistedVariantId)
       : null);
   // Byggval "Stil" → a pinned variant, resolved against the FINAL scaffold.
   //
-  // Deliberately ahead of `persistedVariant` on init: create-chat pre-matches a
-  // variant from a keyword-only scaffold guess and passes it as
-  // `persistedVariantId`, so leaving the pin behind it would let that guess beat
-  // the user's explicit choice. Follow-ups are excluded — a frozen project keeps
-  // its style, and the pin has already become the persisted variant by then.
+  // Follow-ups are excluded — a frozen project keeps its style, and the pin has
+  // already become the persisted variant by then.
   const styleChoiceVariant =
     resolvedMode === "init"
       ? resolveVariantForStyleChoice(scaffoldIdForVariant, input.styleChoiceHint)
       : null;
+  const approvedPlanVariant =
+    approvedPlanAuthority?.variantId && scaffoldIdForVariant
+      ? getVariantById(scaffoldIdForVariant, approvedPlanAuthority.variantId)
+      : null;
+  if (approvedPlanAuthority?.variantId && !approvedPlanVariant) {
+    throw new Error(
+      `Approved plan variant ${approvedPlanAuthority.variantId} is no longer available for ${scaffoldIdForVariant ?? "no-scaffold"}.`,
+    );
+  }
 
-  let resolvedVariant =
-    styleChoiceVariant ??
-    persistedVariant ??
-    (await resolveScaffoldVariant(
-      scaffoldIdForVariant,
-      prompt,
-      brief,
-      resolvedMode,
-      input.sessionSeed,
-      // Byggval (init controls): structured style keywords participate in
-      // the fresh pick. No-op on follow-ups (persisted/locked variant wins).
-      input.styleKeywordsHint,
-      input.toneKeywordsHint,
-    ));
+  const matcherResult =
+    approvedPlanAuthority || styleChoiceVariant || persistedVariant
+      ? null
+      : await resolveScaffoldVariant(
+          scaffoldIdForVariant,
+          prompt,
+          brief,
+          resolvedMode,
+          input.sessionSeed,
+          input.styleKeywordsHint,
+          input.toneKeywordsHint,
+          input.embeddingScaffoldMatch,
+        );
+  const hintVariant =
+    input.variantHintId && scaffoldIdForVariant
+      ? getVariantById(scaffoldIdForVariant, input.variantHintId)
+      : null;
+  const matcherHasSignal = matcherResult && matcherResult.source !== "hash-fallback";
+  let resolvedVariant = approvedPlanAuthority
+    ? approvedPlanVariant
+    : (styleChoiceVariant ??
+      persistedVariant ??
+      (matcherHasSignal ? matcherResult.variant : null) ??
+      hintVariant ??
+      matcherResult?.variant ??
+      null);
+  let selectionSource: VariantSelectionSource = approvedPlanAuthority
+    ? "approved-plan"
+    : styleChoiceVariant
+      ? "style-choice"
+      : persistedVariant
+        ? "follow-up-lock"
+        : matcherHasSignal
+          ? matcherResult.source === "embedding"
+            ? matcherResult.usedBriefSignals
+              ? "brief-embedding"
+              : "embedding"
+            : matcherResult.usedBriefSignals
+              ? "brief-keyword"
+              : "keyword"
+          : hintVariant
+            ? "hint-fallback"
+            : "hash-fallback";
+  const hashFallbackWon = !matcherHasSignal && !hintVariant && Boolean(matcherResult);
+  let selectionScore = approvedPlanAuthority
+    ? approvedPlanAuthority.variantSelection.score
+    : matcherHasSignal || hashFallbackWon
+      ? (matcherResult?.score ?? null)
+      : null;
+  let selectionRunnerUpScore = approvedPlanAuthority
+    ? approvedPlanAuthority.variantSelection.runnerUpScore
+    : matcherHasSignal || hashFallbackWon
+      ? (matcherResult?.runnerUpScore ?? null)
+      : null;
+  let selectionMargin = approvedPlanAuthority
+    ? approvedPlanAuthority.variantSelection.margin
+    : matcherHasSignal || hashFallbackWon
+      ? (matcherResult?.margin ?? null)
+      : null;
 
   // ── 5-3 freeze-enforcement (variant) ──
   // Neutral follow-ups must keep the frozen contract variant. `lockedVariantForFollowUp`
   // already pins neutral runs; this clamps the residual case where the lock fell
   // through to a fresh pick. clear-redesign stays exempt. Behaviour-neutral when
   // there is no drift.
-  const variantFreeze = enforceFollowUpVariantFreeze({
-    resolvedMode,
-    followUpIntent: input.followUpIntent,
-    ignorePersistedScaffoldForMatch: input.ignorePersistedScaffoldForMatch === true,
-    contractVariantId: input.followUpContract?.variantId ?? null,
-    resolvedVariantId: resolvedVariant?.id ?? null,
-  });
-  if (variantFreeze.clamped && variantFreeze.variantId) {
+  // A server-bound approved plan is already the newer frozen authority. The
+  // ordinary follow-up freeze protects the accepted base version, but must not
+  // clamp a reviewed redesign back to that older variant when the technical
+  // approval prompt itself classifies as neutral.
+  const variantFreeze = approvedPlanAuthority
+    ? null
+    : enforceFollowUpVariantFreeze({
+        resolvedMode,
+        followUpIntent: input.followUpIntent,
+        ignorePersistedScaffoldForMatch: input.ignorePersistedScaffoldForMatch === true,
+        contractVariantId: input.followUpContract?.variantId ?? null,
+        resolvedVariantId: resolvedVariant?.id ?? null,
+      });
+  if (variantFreeze?.clamped && variantFreeze.variantId) {
     const frozenVariant = getVariantById(scaffoldIdForVariant, variantFreeze.variantId);
     if (frozenVariant) {
       const driftedFromVariantId = resolvedVariant?.id ?? null;
       resolvedVariant = frozenVariant;
+      selectionSource = "follow-up-lock";
+      selectionScore = null;
+      selectionRunnerUpScore = null;
+      selectionMargin = null;
       emitFollowUpFreezeDrift("variant", {
         chatId: input.chatId ?? null,
         from: driftedFromVariantId,
@@ -166,16 +225,28 @@ export async function finalizeOrchestrationPrompts(
     }
   }
 
-  const variantTemplateInspiration = shouldResolveVariantTemplateInspiration({
-    resolvedMode,
-    followUpIntent: input.followUpIntent,
-    importedRepoMode: input.importedRepoMode,
-    scaffoldId: scaffoldIdForVariant,
-  })
+  const shouldResolveTemplate = approvedPlanAuthority
+    ? approvedPlanAuthority.variantTemplateId !== null
+    : shouldResolveVariantTemplateInspiration({
+        resolvedMode,
+        followUpIntent: input.followUpIntent,
+        importedRepoMode: input.importedRepoMode,
+        scaffoldId: scaffoldIdForVariant,
+      });
+  const variantTemplateInspiration = shouldResolveTemplate
     ? await resolveVariantTemplateInspiration(resolvedVariant, {
         selectionContext: { prompt, brief },
+        preferredTemplateId: approvedPlanAuthority?.variantTemplateId ?? null,
       })
     : null;
+  if (
+    approvedPlanAuthority?.variantTemplateId &&
+    variantTemplateInspiration?.templateId !== approvedPlanAuthority.variantTemplateId
+  ) {
+    throw new Error(
+      `Approved plan template ${approvedPlanAuthority.variantTemplateId} is no longer available for variant ${approvedPlanAuthority.variantId ?? "none"}.`,
+    );
+  }
   const variantTemplateReferenceAttachments = buildVariantTemplateReferenceAttachments(
     variantTemplateInspiration,
   );
@@ -244,6 +315,43 @@ export async function finalizeOrchestrationPrompts(
   const lockedColorPaletteLabel = lockedColorPalette
     ? (THEME_CLUSTERS[normalizedDesignTheme as ThemeClusterId]?.label ?? null)
     : null;
+  const resolvedDesign = approvedPlanAuthority
+    ? approvedPlanAuthority.resolvedDesign
+    : resolveDesignContract({
+        brief: brief as DynamicContextOptions["brief"],
+        variant: resolvedVariant,
+        priorResolvedDesign:
+          resolvedMode === "followUp" && !variantLockReleased
+            ? (input.followUpContract?.resolvedDesign ?? null)
+            : null,
+        currentRequestAxes:
+          resolvedMode === "followUp" && !variantLockReleased
+            ? detectFollowUpDesignAxes(input.rawPrompt ?? prompt)
+            : [],
+        currentRequestFields:
+          resolvedMode === "followUp" && !variantLockReleased
+            ? detectFollowUpDesignFields(input.rawPrompt ?? prompt)
+            : [],
+        themeOverride: themeColors,
+        lockedColorPalette,
+        colorModeHint: input.colorModeHint ?? null,
+        styleKeywordsHint: input.styleKeywordsHint,
+        toneKeywordsHint: input.toneKeywordsHint,
+      });
+  const variantSelection: VariantSelection = {
+    source: selectionSource,
+    score: selectionScore,
+    runnerUpScore: selectionRunnerUpScore,
+    margin: selectionMargin,
+    hintId: approvedPlanAuthority
+      ? approvedPlanAuthority.variantSelection.hintId
+      : (input.variantHintId ?? null),
+    finalId: resolvedVariant?.id ?? null,
+    changedFromHint: approvedPlanAuthority
+      ? approvedPlanAuthority.variantSelection.changedFromHint
+      : Boolean(input.variantHintId && input.variantHintId !== (resolvedVariant?.id ?? null)),
+  };
+  console.info("[scaffold-variant] final_selection", variantSelection);
 
   const dynamicOpts: DynamicContextOptions = {
     intent: finalBuildIntent,
@@ -274,6 +382,7 @@ export async function finalizeOrchestrationPrompts(
     chatId: input.chatId ?? null,
     uiRecipes: base.uiRecipes,
     resolvedVariant,
+    resolvedDesign,
     variantTemplateInspiration,
     dossierSelection: base.dossierSelection,
     mutedCapabilities: base.mutedCapabilities ?? null,
@@ -311,6 +420,8 @@ export async function finalizeOrchestrationPrompts(
     dynamicContextPruning: dynamic.pruning,
     dynamicContextBlocks: dynamic.blocks,
     variantId: dynamic.variantId,
+    variantSelection,
+    resolvedDesign,
     variantTemplateId: variantTemplateInspiration?.templateId ?? null,
     variantTemplateReferenceAttachments,
     sources,

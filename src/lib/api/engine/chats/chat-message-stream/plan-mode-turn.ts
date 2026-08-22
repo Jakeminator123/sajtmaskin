@@ -15,6 +15,7 @@ import {
   buildPlanModeAssistantMessage,
   type PlanModeAssistantMessageKind,
 } from "@/lib/gen/plan/review";
+import { buildPlanDesignAuthority } from "@/lib/gen/plan/design-authority";
 import type {
   normalizeRequestAttachments,
   summarizeDesignReferences,
@@ -56,6 +57,7 @@ export async function runPlanModeTurn(params: {
   chatId: string;
   engineChat: ChatWithMessages;
   message: string;
+  system?: string;
   optimizedMessage: string;
   followUpIntentMessage: string;
   metaBuildIntent: string | null;
@@ -70,6 +72,9 @@ export async function runPlanModeTurn(params: {
   /** Chat started from a verbatim repo import (`edit_kind="imported_repo"`). */
   importedRepoMode: boolean;
   previousFiles: CodeFile[];
+  /** Exact version/file authority the planner is inspecting. */
+  baseVersionId: string | null;
+  baseFilesRevision: string | null;
   hasFollowUpBase: boolean;
   ignorePersistedScaffoldForMatch: boolean;
   promptOrchestration: ReturnType<typeof orchestratePromptMessage>;
@@ -90,6 +95,7 @@ export async function runPlanModeTurn(params: {
     chatId,
     engineChat,
     message,
+    system,
     optimizedMessage,
     followUpIntentMessage,
     metaBuildIntent,
@@ -103,6 +109,8 @@ export async function runPlanModeTurn(params: {
     persistedScaffoldId,
     importedRepoMode,
     previousFiles,
+    baseVersionId,
+    baseFilesRevision,
     hasFollowUpBase,
     ignorePersistedScaffoldForMatch,
     promptOrchestration,
@@ -156,6 +164,8 @@ export async function runPlanModeTurn(params: {
       followUpIntent,
       orchestrationSnapshot: engineChat.orchestration_snapshot as Record<string, unknown> | null,
       engineModelId: resolveEngineModelId(resolvedModelTier),
+      customInstructions: typeof system === "string" && system.trim() ? system.trim() : undefined,
+      chatId,
     }),
   );
   debugLog("orchestration", "Follow-up plan orchestration prepared", {
@@ -166,6 +176,20 @@ export async function runPlanModeTurn(params: {
     scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
   });
   const planResolvedScaffold = planOrchestration.resolvedScaffold;
+  const planDesignAuthority = buildPlanDesignAuthority(planOrchestration, {
+    baseVersionId,
+    baseFilesRevision,
+    requestAttachments,
+    customInstructions: typeof system === "string" ? system : null,
+    imageGenerations: resolvedImageGenerations,
+  });
+  const planAuthorityPersisted = await chatRepo.setPendingPlanDesignAuthority(
+    chatId,
+    planDesignAuthority,
+  );
+  if (!planAuthorityPersisted) {
+    throw new Error("Planens designauktoritet kunde inte sparas.");
+  }
   // Imported-repo chats never persist a scaffold id (see codegen-turn).
   if (
     planResolvedScaffold &&
@@ -246,6 +270,7 @@ export async function runPlanModeTurn(params: {
         buildSpec: planOrchestration.buildSpec,
         resolvedScaffold: planResolvedScaffold,
         variantTemplateId: planOrchestration.variantTemplateId,
+        designAuthority: planDesignAuthority,
         scaffoldMode: metaScaffoldMode,
         persistAssistantSummary: async (planData, hasBlockers, context) => {
           // Varje planner-tur ska lämna EN assistentrad efter sig, plan eller inte

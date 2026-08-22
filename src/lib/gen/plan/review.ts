@@ -1,6 +1,7 @@
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import { getVariantTemplateReviewReference } from "@/lib/gen/scaffold-variants/template-inspiration";
 import { normalizePlanArtifact, serializePlanForPrompt } from "./schema";
+import type { PlanDesignAuthority } from "./design-authority";
 
 function inferPlanSiteType(planData: Record<string, unknown>): string | undefined {
   const existing = typeof planData.siteType === "string" ? planData.siteType.trim() : "";
@@ -31,6 +32,7 @@ export function enrichPlanArtifactForReview(
     resolvedScaffold: ScaffoldManifest | null;
     scaffoldMode: "auto" | "manual" | "off";
     variantTemplateId?: string | null;
+    designAuthority?: PlanDesignAuthority | null;
   },
 ): Record<string, unknown> | null {
   if (!planData) return null;
@@ -72,6 +74,7 @@ export function enrichPlanArtifactForReview(
   nextPlan.variantTemplateReference = runtimeReference
     ? { ...runtimeReference, selectionReason: "selected-by-runtime-variant-ranking" }
     : null;
+  nextPlan.designAuthority = options.designAuthority ?? null;
 
   return nextPlan;
 }

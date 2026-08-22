@@ -14,6 +14,8 @@ import type { BuildSpec } from "./build-spec";
 import type { RequestAttachment } from "./request-metadata";
 import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-prompt";
 import { buildPromptSizeMetrics, type PromptSizeMetrics } from "./prompt-size-metrics";
+import type { ResolvedDesignContract } from "./design-contract";
+import type { VariantSelection } from "./scaffold-variants";
 
 export const GENERATION_SOURCE_KINDS = [
   "variant-reference",
@@ -61,6 +63,10 @@ export interface GenerationInputPackage extends OrchestrationBase {
   promptSize: PromptSizeMetrics;
   /** Chosen scaffold variant for this generation. */
   variantId: string | null;
+  /** Explainable authority path for the chosen variant. */
+  variantSelection: VariantSelection;
+  /** Canonical merged design values used by prompt and autofix. */
+  resolvedDesign: ResolvedDesignContract;
   /** The one complete-project Blob reference selected for the variant. */
   variantTemplateId: string | null;
   /** Style-only vision attachment corresponding to `variantTemplateId`. */
@@ -90,6 +96,13 @@ export interface GenerationInputPackage extends OrchestrationBase {
  */
 export function computeLineageHash(pkg: {
   userPrompt: string;
+  /** Exact final system prompt sent to the generator, after budgeting/pruning. */
+  engineSystemPrompt?: string;
+  /** Non-text payloads that also reach the model (image/reference attachments). */
+  referenceAttachments?: unknown;
+  /** Final source/pruning receipt used for forensic correlation. */
+  sources?: unknown;
+  dynamicContextPruning?: unknown;
   brief: unknown;
   scaffoldMode: string;
   scaffoldContext: string | undefined;
@@ -102,13 +115,19 @@ export function computeLineageHash(pkg: {
   componentPalette?: unknown;
   designReferences?: unknown;
   variantId?: string | null;
+  resolvedDesign?: ResolvedDesignContract | null;
   variantTemplateId?: string | null;
   importedRepoMode?: boolean;
   importedRepoBaselineHash?: string | null;
   importedRepoCurrentHash?: string | null;
 }): string {
   const h = createHash("sha256");
+  h.update("generation-lineage-v2\0");
   h.update(pkg.userPrompt);
+  h.update(pkg.engineSystemPrompt ?? "");
+  h.update(JSON.stringify(pkg.referenceAttachments ?? null));
+  h.update(JSON.stringify(pkg.sources ?? null));
+  h.update(JSON.stringify(pkg.dynamicContextPruning ?? null));
   h.update(JSON.stringify(pkg.brief ?? null));
   h.update(pkg.scaffoldMode);
   h.update(pkg.scaffoldContext ?? "");
@@ -121,6 +140,7 @@ export function computeLineageHash(pkg: {
   h.update(JSON.stringify(pkg.componentPalette ?? null));
   h.update(JSON.stringify(pkg.designReferences ?? null));
   h.update(pkg.variantId ?? "");
+  h.update(JSON.stringify(pkg.resolvedDesign ?? null));
   h.update(pkg.variantTemplateId ?? "");
   h.update(pkg.importedRepoMode ? "imported-repo" : "standard-project");
   h.update(pkg.importedRepoBaselineHash ?? "");
@@ -153,6 +173,8 @@ export function serializePackageForDump(pkg: GenerationInputPackage): Record<str
     dynamicContextBlocks: pkg.dynamicContextBlocks,
     promptSize: pkg.promptSize,
     variantId: pkg.variantId,
+    variantSelection: pkg.variantSelection,
+    resolvedDesign: pkg.resolvedDesign,
     variantTemplateId: pkg.variantTemplateId,
     sources: pkg.sources,
     importedRepoMode: pkg.importedRepoMode,

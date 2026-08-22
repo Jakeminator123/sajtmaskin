@@ -157,6 +157,8 @@ export type VersionEntry = {
   demoUrl?: string | null;
   createdAt?: string | null;
   versionNumber?: number | null;
+  /** Exact version whose files this generation was based on. */
+  parentVersionId?: string | null;
   previewPending?: boolean;
   releaseState?: string | null;
   verificationState?: string | null;
@@ -207,7 +209,12 @@ export type ModelInfoData = {
   contractDatabaseProvider?: string | null;
   contractAuthProvider?: string | null;
   contractPaymentProvider?: string | null;
-  contractIntegrations?: Array<{ provider?: string; name?: string; status?: string; envVars?: string[] }> | null;
+  contractIntegrations?: Array<{
+    provider?: string;
+    name?: string;
+    status?: string;
+    envVars?: string[];
+  }> | null;
   contractEnvVars?: Array<{ key?: string; reason?: string; required?: boolean }> | null;
   unresolvedContractDecisions?: Array<{ kind?: string; reason?: string } | string> | null;
   systemPromptLength?: number | null;
@@ -316,10 +323,7 @@ export type ChatMessagingParams = {
    */
   onVersionStatusRefresh?: () => void;
   /** Select and refresh a deterministic exact-file F3 fork after ReleaseGate settles. */
-  onDeterministicF3Settled?: (payload: {
-    versionId: string;
-    selectVersion: boolean;
-  }) => void;
+  onDeterministicF3Settled?: (payload: { versionId: string; selectVersion: boolean }) => void;
   onGenerationComplete?: (data: {
     chatId: string;
     versionId?: string;
@@ -327,7 +331,9 @@ export type ChatMessagingParams = {
     onlySelectVersionIfWasLatest?: boolean;
   }) => void;
   /** SSE `preview-ready`: bind session id to the current stream version for heartbeat/status. */
-  onPreviewSessionMeta?: (meta: { previewSessionId: string; versionId: string | null } | null) => void;
+  onPreviewSessionMeta?: (
+    meta: { previewSessionId: string; versionId: string | null } | null,
+  ) => void;
   onLinkedProjectId?: (projectId: string) => void;
   setMessages: SetMessages;
   resetBeforeCreateChat: () => void;
@@ -418,9 +424,6 @@ export type ChatMessagingReturn = {
     options?: MessageOptions,
     systemPromptOverride?: string,
   ) => Promise<boolean>;
-  sendMessage: (
-    messageText: string,
-    options?: MessageOptions,
-  ) => Promise<SendMessageOutcome>;
+  sendMessage: (messageText: string, options?: MessageOptions) => Promise<SendMessageOutcome>;
   cancelActiveGeneration: () => void;
 };

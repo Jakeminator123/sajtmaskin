@@ -159,6 +159,47 @@ describe("GET /api/engine/chats/[chatId]", () => {
     expect(json.latestVersion.canPin).toBe(false);
   });
 
+  it("rehydrates the persisted Live Review notice after a page reload", async () => {
+    const liveReviewPart = {
+      type: "tool:live-review",
+      toolName: "Live-granskning",
+      toolCallId: "live-review:ver_ok",
+      state: "output-available",
+      output: {
+        liveReview: { status: "completed", decision: { verdict: "pass" } },
+        screenshots: { desktopUrl: "https://blob.example/review.jpg", mobileUrl: null },
+      },
+    };
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: "proj_1",
+      title: "Test",
+      model: "gpt-5.4",
+      scaffold_id: null,
+      created_at: "2026-03-13T10:00:00.000Z",
+      updated_at: "2026-03-13T10:00:00.000Z",
+      messages: [
+        {
+          id: "msg_1",
+          role: "assistant",
+          content: "Klart",
+          ui_parts: [liveReviewPart],
+          token_count: 10,
+          created_at: "2026-03-13T10:01:00.000Z",
+        },
+      ],
+    });
+    getPreferredVersion.mockResolvedValue(null);
+    getLatestVersion.mockResolvedValue(null);
+
+    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1"), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const json = await response.json();
+
+    expect(json.messages[0].uiParts).toEqual([liveReviewPart]);
+  });
+
   it("returns 404 when chat is not engine-backed and has no legacy DB mapping", async () => {
     getEngineChatByIdForRequest.mockResolvedValue(null);
     getChatByV0ChatIdForRequest.mockResolvedValue(null);

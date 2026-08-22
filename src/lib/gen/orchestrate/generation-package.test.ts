@@ -35,6 +35,15 @@ function makePkg(): GenerationInputPackage {
     lineageHash: "lh",
     userPrompt: "prompt",
     variantId: null,
+    variantSelection: {
+      source: "hash-fallback",
+      score: null,
+      runnerUpScore: null,
+      margin: null,
+      hintId: null,
+      finalId: null,
+      changedFromHint: false,
+    },
     buildSpec: {
       buildIntent: "website",
       changeScope: "full",
@@ -147,6 +156,32 @@ describe("buildGenerationInputPackage — source receipt", () => {
         },
         dynamicContextBlocks: [],
         variantId: null,
+        variantSelection: {
+          source: "hash-fallback",
+          score: null,
+          runnerUpScore: null,
+          margin: null,
+          hintId: null,
+          finalId: null,
+          changedFromHint: false,
+        },
+        resolvedDesign: {
+          schemaVersion: 1,
+          variantId: null,
+          explicitAxes: [],
+          explicitFields: [],
+          styleKeywords: { value: [], source: "default", locked: false },
+          toneAndVoice: { value: [], source: "default", locked: false },
+          colorMode: { value: null, source: "default", locked: false },
+          themeTokens: {},
+          typography: {
+            heading: { value: "Inter", source: "default", locked: false },
+            body: { value: "Inter", source: "default", locked: false },
+          },
+          motionLevel: { value: null, source: "default", locked: false },
+          qualityBar: { value: null, source: "default", locked: false },
+          domainProfile: { value: null, source: "default", locked: false },
+        },
         variantTemplateId: null,
         variantTemplateReferenceAttachments: [],
         sources,
@@ -155,5 +190,52 @@ describe("buildGenerationInputPackage — source receipt", () => {
 
     expect(pkg.sources).toEqual(sources);
     expect(pkg.sources[0]?.reachedPrompt).toBe(false);
+  });
+
+  it("treats omitted variantTemplateReferenceAttachments as an empty list", () => {
+    const pkg = buildGenerationInputPackage(
+      {
+        resolvedScaffold: null,
+        orchestrationContract: {},
+        scaffoldContext: undefined,
+        capabilityHints: undefined,
+        routePlan: { routes: [] },
+        preGenerationContracts: {},
+        capabilities: {},
+        buildSpec: { buildIntent: "website" },
+        serializeMode: null,
+        uiRecipes: [],
+        dossierRequestedCapabilities: [],
+        scaffoldVariantId: null,
+        capabilityModifyHint: null,
+      } as never,
+      { prompt: "Bygg en hero" },
+      {
+        engineSystemPrompt: "system",
+        dynamicContext: "dynamic",
+        dynamicContextPruning: {
+          budgetTokens: 100,
+          usedTokens: 10,
+          droppedBlockKeys: [],
+          keptBlockKeys: [],
+        },
+        dynamicContextBlocks: [],
+        variantId: null,
+        variantSelection: {
+          source: "hash-fallback",
+          score: null,
+          runnerUpScore: null,
+          margin: null,
+          hintId: null,
+          finalId: null,
+          changedFromHint: false,
+        },
+        resolvedDesign: null,
+        variantTemplateId: null,
+        sources: [],
+      } as never,
+    );
+
+    expect(pkg.variantTemplateReferenceAttachments).toEqual([]);
   });
 });

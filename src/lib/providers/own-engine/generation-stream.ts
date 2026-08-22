@@ -156,6 +156,8 @@ export interface GenerationStreamParams {
   lineageHash?: string | null;
   /** When set, repair replaces this version in-place instead of creating a new one. */
   targetVersionId?: string | null;
+  /** Exact file parent for every follow-up, including edits of old versions. */
+  generationBaseVersionId?: string | null;
   /** F3 only: parent F2 version id, forwarded into `engine_versions.parent_version_id`. */
   lifecycleParentVersionId?: string | null;
   /**
@@ -210,6 +212,7 @@ export function createOwnEngineGenerationStream(
     previousFiles,
     lineageHash,
     targetVersionId,
+    generationBaseVersionId,
     lifecycleParentVersionId,
     f3PriorToolOnlyRounds,
     f3PriorSuggestedProviders,
@@ -685,6 +688,7 @@ export function createOwnEngineGenerationStream(
         onProgress: emitProgress,
         lineageHash,
         targetVersionId,
+        generationBaseVersionId,
         lifecycleParentVersionId,
         // SAJ-25: propagate repairPassIndex so finalize-version's `logPassId`
         // bucket stops collapsing follow-up passes under `:repair-0:` and
