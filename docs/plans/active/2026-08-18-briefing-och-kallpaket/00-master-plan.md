@@ -3,7 +3,7 @@
 Status: Active
 Startad: 2026-08-18
 Ägarbeslut: **delvis** — Prompt-assist-knappen 2026-08-19, Briefing (N1) 2026-08-20, Källpaket (N2) 2026-08-21.
-Kvar: N3, N4, N5. B4 och B5 körbara. B6 steg 1 körbart; steg 2 väntar N4. B7 väntar N5.
+Kvar: N3, N4, N5. B4 **klar** (första passet via K1/#1094). B5 körbar. B6 steg 1 körbart; steg 2 väntar N4. B7 väntar N5.
 
 Underlag från ägarens externa granskare: `övrigt/chadcn-addendum-aiassist/`
 (`summering..md` + `raw.txt`). Mappen är gitignorerad — cloud-agenter läser
@@ -25,7 +25,7 @@ Spåret är **inte** klart. Tabellen är live-status mot `master` / öppna PR:er
 | B10 | **Klar.** #1038 |
 | B11 | **Klar.** #1042. Follow-up (ton ≠ scaffoldtyp) landade i #1054. |
 | B2 | **Klar.** #1079 (`0bc4cfdaf`). Manifestets `promptAssist` slogs ihop i `briefing`. Human-facing etiketter landade i #1069. |
-| B4 | Inte startad. |
+| B4 | **Klar.** Första kurationspasset via K1 #1094 (18 av 68 poster har mänskligt beslut). |
 | B5 | Inte startad. |
 | B6 | Inte startad. Steg 1 får köras; steg 2 väntar N4. |
 | B7 | Inte startad. Väntar N5. B3 är landad. |
@@ -39,7 +39,7 @@ Spåret är **inte** klart. Tabellen är live-status mot `master` / öppna PR:er
 nådde kodgeneratorn.**
 
 Det finns ingen saknad orkestreringsagent att bygga. B1 (#1040) och B3 (#1035)
-är landade. Kvar bland de öppna punkterna: B4–B7, och att en ev. Ändringsbrief
+är landade. Kvar bland de öppna punkterna: B5–B7, och att en ev. Ändringsbrief
 för refine inte är densamma som en redesign (B6). Vanliga uppföljningar har
 redan Snapshot-Brief.
 
@@ -164,21 +164,18 @@ Kodidentifierare på tråd och i DB (`promptAssistModel`, `promptAssistDeep`,
 `prompt_assist_*`) **behålls** enligt `terminology.mdc` — de mappas i text, döps
 inte om.
 
-### Variant-template-addendum: aktivt, men helt ogranskat
+### Variant-template-addendum: aktivt, första kurationspasset gjort
 
-`config/variant-template-addenda.json`: 69 poster, **69 `generated`, 0
-`reviewed`, 0 `disabled`**. 66 poster har 3 utdrag, 2 har 2, 1 har 0. Alla 31
-variantfiler i `config/scaffold-variants/` bär `sourceTemplateIds` och pekar
-tillsammans på samma 69 ID. Gränser: max 3 utdrag, 9 000 tecken totalt,
-SHA-bundet mot både arkiv och extraktor
-(`src/lib/gen/scaffold-variants/variant-template-addendum.ts:19-21, 85-99`).
-Används bara vid init, ej importerat repo, ej Scaffold-off
-(`src/lib/gen/orchestrate/finalize-prompts.ts:143-148`). `generated` räknas som
-träff — runtime kräver inte `reviewed`.
+`config/variant-template-addenda.json` bär SHA-bundna utdrag (max 3 filer,
+9 000 tecken). Första kurationspasset är B4 via K1 #1094: 11 `reviewed`,
+7 `disabled`, 50 `generated` kvar. Inspiration resolvas vid init och
+`clear-redesign` (inte Importerat repo-läge, inte Scaffold: Av) i
+`shouldResolveVariantTemplateInspiration`. `generated` räknas som träff —
+runtime kräver inte `reviewed`.
 
-Kurationsverktyget finns redan: Backoffice **Template Curator**
+Kurationsverktyget är Backoffice **Template Curator**
 (`backoffice/pages/template_curator.py`, kommandon `templates:addenda`,
-`--refresh-reviewed`). Det som saknas är att någon faktiskt granskar.
+`--refresh-reviewed`). Ytterligare pass är eget B4-arbete, inte K5.
 
 ### shadcnblocks: nyckeln används automatiskt, men mäts inte
 
@@ -200,8 +197,8 @@ Kurationsverktyget finns redan: Backoffice **Template Curator**
 
 Frågan om LLM-flödet kan hämta inspiration och delar utan att ladda ner hela
 `.zip`-arkiv har redan ett ja. Utdragen ligger **inte** i Blob utan i
-`config/variant-template-addenda.json` (491 KB, 69 poster), statiskt importerad
-i bundlen. En init får max 3 filutdrag / 9 000 tecken plus **en** stillbilds-URL
+`config/variant-template-addenda.json`, statiskt importerad i bundlen. Init och
+`clear-redesign` får max 3 filutdrag / 9 000 tecken plus **en** stillbilds-URL
 som modell-leverantören hämtar — vi laddar aldrig ner bilden.
 
 I Blob ligger arkivet: 313 template-ZIP:ar, 313 stillbilder och tre
@@ -217,7 +214,7 @@ mitt i genereringen.
 
 `GenerationInputPackage.sources` loggar valda källor (variantreferens, UI Recipe,
 dossier, media) plus `reachedPrompt` efter tokenbudget. Selection Rationale visar
-kvittot. B4 och B5 kan nu utvärderas mot riktiga körningar, inte gissningar.
+kvittot. B4 är landat (första passet via #1094); B5 kan nu utvärderas mot riktiga körningar, inte gissningar.
 
 ## Beslut som behövs
 
@@ -248,7 +245,7 @@ löser den största kvalitetsskillnaden utan att kräva något nytt steg.
 | B1 | **Klar.** #1040. Förbikopplat prompt-addendum raderat. Plantext i git. | `src/lib/builder/prompt-assist/`, `useInitBrief.ts` | nej |
 | B2 | **Klar.** #1079. Manifestets `promptAssist` slogs ihop i `briefing`. Human-facing i #1069. Plantext i git. | `config/ai_models/manifest.json`, glossary | N1 (avgjord) |
 | B3 | **Klar.** #1035. Källkvitto i Selection Rationale. Plantext i git. | `generation-input-package.ts`, `selection_rationale.py` | nej |
-| [B4](aktiviteter/B4-kurera-variant-addenda.md) | Kurera de tio mest använda variant-addendumen, stäng de generiska. **Körbar.** | `config/variant-template-addenda.json` via Template Curator | nej |
+| [B4](aktiviteter/B4-kurera-variant-addenda.md) | **Klar.** Första passet via K1 #1094: 11 `reviewed`, 7 `disabled`, 50 `generated` kvar (lågtrafik). | `config/variant-template-addenda.json` via Template Curator | nej |
 | [B5](aktiviteter/B5-shadcnblocks-matning.md) | Sluta svälja shadcnblocks-fel tyst; mät om den betalda nyckeln ger riktig källkod. **Körbar.** | `shadcn-ui-recipes.ts`, `resolve-base.ts` | nej |
 | [B6](aktiviteter/B6-andringsbrief-followup.md) | Ändringsbrief: steg 1 (mät) är körbart; steg 2 väntar N4. | `delta-brief-phase.ts`, `follow-up-orchestration-input.ts`, `formatPriorDesignContext` | **N4** (bara steg 2) |
 | [B7](aktiviteter/B7-variantens-auktoritetsordning.md) | Variantens auktoritetsordning + Brief rankar addendum ur `sourceTemplateIds`. **Väntar N5.** | `orchestrate/finalize-prompts.ts`, `scaffold-variants/matcher.ts` | **N5** |
