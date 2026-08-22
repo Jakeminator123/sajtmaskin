@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "7491b86dc",
+    "commit": "c2c90832f9",
     "commitDate": "2026-08-22",
     "sinceDays": 14
   },
@@ -300,7 +300,7 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-037` **Hydreringskrock i genererade sajter (39 händelser / 18 chattar):** signaturer `ab89e0680a69` (text…"
+      "fynd": "`SM-037` **Historiska hydreringskrockar saknar nuvarande reproducerbar producent:** 39 händelser / 18 chattar…"
     }
   ],
   "topOpenRisksOmitted": 3,
