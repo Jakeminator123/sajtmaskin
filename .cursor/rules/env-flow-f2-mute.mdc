@@ -22,9 +22,10 @@ konfiguration.
 integrationsbygge: maskerade write-only inputs på expanderade hard-dossier-rader,
 sparade till `POST /api/v0/projects/[projectId]/env-vars`. En sparad
 feature-runtime-nyckel flippar `built-demo` → `built-live` utan ny LLM-runda.
-Katalogklick stage:ar först; utan nyckel körs demo. Placeholders är alltid
-tillåtna för build-nycklar i integrationsbygget. 412 bara när en build-nyckel
-saknar placeholder i katalogen.
+Katalogklick stage:ar först; utan nyckel körs demo, och ingen generering
+startar förrän «Lägg till i sajten». Placeholders är alltid tillåtna för
+build-nycklar i integrationsbygget. 412 bara när en build-nyckel saknar
+placeholder i katalogen.
 
 Vid `finalize-design` `412` är `missingByIntegration` sanningen för *vilka*
 nycklar som saknas. `F3RequirementsSurface` listar dem inte igen — den öppnar
