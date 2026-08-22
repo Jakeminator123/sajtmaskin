@@ -150,6 +150,15 @@ class AddendaValidationTests(unittest.TestCase):
         with self.assertRaises(CatalogValidationError):
             parse_addenda_registry(registry)
 
+    def test_disabled_null_extractor_sha_is_rejected(self) -> None:
+        registry = _valid_registry()
+        registry["templates"][0]["reviewStatus"] = "disabled"  # type: ignore[index]
+        registry["templates"][0]["structuralReferences"] = []  # type: ignore[index]
+        registry["templates"][0]["extractorSha256"] = None  # type: ignore[index]
+        with self.assertRaises(CatalogValidationError) as ctx:
+            parse_addenda_registry(registry)
+        self.assertIn("must be omitted, not null", str(ctx.exception))
+
     def test_disabled_without_extractor_sha_is_valid(self) -> None:
         registry = _valid_registry()
         registry["templates"][0]["reviewStatus"] = "disabled"  # type: ignore[index]

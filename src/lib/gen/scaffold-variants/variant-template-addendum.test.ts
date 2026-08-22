@@ -187,6 +187,26 @@ describe("variant template addenda", () => {
     }
   });
 
+  it("rejects extractorSha256 null the same way schema and Python do", () => {
+    for (const reviewStatus of ["disabled", "generated"] as const) {
+      expect(() =>
+        parseVariantTemplateAddendaRegistry(
+          registry({
+            templates: [
+              {
+                templateId: "template-a",
+                sourceArchiveSha256: SHA_A,
+                extractorSha256: null,
+                reviewStatus,
+                structuralReferences: [],
+              },
+            ],
+          }),
+        ),
+      ).toThrow();
+    }
+  });
+
   it("rejects extractorSha256 on disabled addenda", () => {
     expect(() =>
       parseVariantTemplateAddendaRegistry(
