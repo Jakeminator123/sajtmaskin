@@ -52,6 +52,7 @@ export async function persistOpenClawPowersForActiveChat(): Promise<boolean> {
         } catch {
           // Retried below via hydrate so the UI cannot drift from the server row.
         }
+        if (persistQueued) continue;
         await hydrateOpenClawPowersForChat(chatId, { allowDuringPersist: true });
         return false;
       } while (persistQueued);

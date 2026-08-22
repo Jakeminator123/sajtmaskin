@@ -81,6 +81,45 @@ describe("persistOpenClawPowersForActiveChat", () => {
     });
   });
 
+  it("skriver den köade granten även om första POST misslyckas", async () => {
+    let releaseFirst: (() => void) | undefined;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const posts: Array<{ granted: unknown; powersOn: unknown }> = [];
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        const body = JSON.parse(String(init.body)) as {
+          granted: unknown;
+          powersOn: unknown;
+        };
+        posts.push(body);
+        const granted = Array.isArray(body.granted) ? body.granted : [];
+        if (granted.includes("live_review")) {
+          if (posts.length === 1) await firstGate;
+          return { ok: false, json: async () => ({}) };
+        }
+        return { ok: true, json: async () => body };
+      }
+      return { ok: false, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    useOpenClawStore.setState({ powersOn: true, grantedPowers: ["live_review"] });
+    const first = persistOpenClawPowersForActiveChat();
+    useOpenClawStore.setState({ powersOn: false, grantedPowers: [] });
+    const second = persistOpenClawPowersForActiveChat();
+    releaseFirst?.();
+    const results = await Promise.all([first, second]);
+
+    expect(results.every(Boolean)).toBe(true);
+    expect(posts.at(-1)).toEqual({
+      chatId: "chat_1",
+      powersOn: false,
+      granted: [],
+    });
+  });
+
   it("applicerar inte GET-hydratisering för en chatt som inte längre är aktiv", async () => {
     let releaseGet: (() => void) | undefined;
     const getGate = new Promise<void>((resolve) => {
