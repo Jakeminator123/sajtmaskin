@@ -59,6 +59,15 @@ const THIRD_PARTY_HOSTS = {
   connect: ["https://api-js.mixpanel.com"],
 } as const;
 
+// LocationPicker and CompetitorMap bootstrap the Maps JavaScript API directly,
+// which then loads runtime chunks and Places data from these two exact origins.
+// Keep this narrower than Google's generic allowlist: the current UI disables
+// Street View and img-src already permits the HTTPS map tiles it renders.
+const GOOGLE_MAPS_HOSTS = [
+  "https://maps.googleapis.com",
+  "https://maps.gstatic.com",
+] as const;
+
 function isAvatarRoute(pathname: string): boolean {
   return pathname === "/avatar";
 }
@@ -115,7 +124,12 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     ].join("; ");
   }
 
-  const scriptSrc = [`'self'`, `'nonce-${nonce}'`, ...VERCEL_LIVE_HOSTS.script];
+  const scriptSrc = [
+    `'self'`,
+    `'nonce-${nonce}'`,
+    ...VERCEL_LIVE_HOSTS.script,
+    ...GOOGLE_MAPS_HOSTS,
+  ];
   const imgSrc = [
     "'self'",
     "data:",
@@ -136,6 +150,9 @@ function buildCspPolicy(pathname: string, nonce: string): string {
 
   // Mixpanel analytics egress (see THIRD_PARTY_HOSTS)
   connectSrc.push(...THIRD_PARTY_HOSTS.connect);
+
+  // Google Maps JS bootstrap, runtime chunks and Places requests.
+  connectSrc.push(...GOOGLE_MAPS_HOSTS);
 
   if (allowDidEmbed) {
     scriptSrc.push(...DID_EMBED_HOSTS);
