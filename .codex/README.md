@@ -18,7 +18,7 @@ här `.codex/config.toml` när projektet är trusted.
 - Ignorering: `.cursorignore` gäller Cursor. Codex har ingen repo-lokal
   `.codexignore`; använd `.gitignore` och var selektiv med vilka filer du ber
   Codex läsa.
-- Worktrees: `.worktreeinclude` kopierar bara utvalda ignorerade lokala filer
+- Worktrees: `.worktreeinclude` kopierar `.env.local` och `.cursor/mcp.json`
   till Codex-hanterade worktrees.
 - Secrets: lägg inte tokens i `.codex/config.toml`. GitHub går via `gh`/SSH
   eller Codex/GitHub-connectorn. Runtime-env ligger lokalt i `.env.local`.

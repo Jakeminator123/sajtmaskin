@@ -24,7 +24,15 @@
  * npm: `npm run worktree:link -- <path>` · `npm run worktree:remove -- <path>`
  */
 import { execFileSync } from "node:child_process";
-import { lstatSync, readdirSync, rmdirSync, symlinkSync, unlinkSync } from "node:fs";
+import {
+  copyFileSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  rmdirSync,
+  symlinkSync,
+  unlinkSync,
+} from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -347,6 +355,34 @@ function pathExists(candidate) {
   }
 }
 
+/**
+ * Gitignored `.cursor/mcp.json` does not appear in a fresh worktree.
+ * Copy the live file (or the tracked example) so MCP is on without a
+ * separate sync step. Prefer the main checkout's live file so local
+ * OAuth-less URL lists stay in one place.
+ *
+ * @param {string} mainWorktree
+ * @param {string} worktreePath
+ * @param {{ exists?: (p: string) => boolean, copyFile?: (from: string, to: string) => void, mkdir?: (p: string, opts: { recursive: boolean }) => void }} [io]
+ * @returns {{ ok: true, dest: string, source: string } | { ok: false, reason: string }}
+ */
+export function syncWorktreeMcpJson(mainWorktree, worktreePath, io = {}) {
+  const exists = io.exists ?? pathExists;
+  const copyFile = io.copyFile ?? copyFileSync;
+  const mkdir = io.mkdir ?? mkdirSync;
+  const live = join(mainWorktree, ".cursor", "mcp.json");
+  const example = join(mainWorktree, ".cursor", "mcp.json.example");
+  const source = exists(live) ? live : example;
+  if (!exists(source)) {
+    return { ok: false, reason: "no .cursor/mcp.json or mcp.json.example in the main checkout" };
+  }
+  const destDir = join(worktreePath, ".cursor");
+  const dest = join(destDir, "mcp.json");
+  mkdir(destDir, { recursive: true });
+  copyFile(source, dest);
+  return { ok: true, dest, source };
+}
+
 function commandLink(targetPath) {
   const worktrees = listWorktrees();
   const plan = resolveTargetWorktree({ targetPath, worktrees });
@@ -391,6 +427,13 @@ function commandLink(targetPath) {
     }
     symlinkSync(nestedSource, nestedLink, "junction");
     console.log(`[worktree] linked ${nestedLink} -> ${nestedSource}`);
+  }
+
+  const mcp = syncWorktreeMcpJson(mainWorktree, plan.worktreePath);
+  if (mcp.ok) {
+    console.log(`[worktree] synced ${mcp.dest}`);
+  } else {
+    console.log(`[worktree] skipped mcp.json — ${mcp.reason}`);
   }
 
   console.log(

@@ -1,4 +1,6 @@
-# Files copied into Codex-managed worktrees.
-# Keep this list short: these files are ignored by git and may contain secrets.
+# Ignored files copied into Codex-managed worktrees (and, for mcp.json,
+# also by `npm run worktree:link` for git worktrees).
+# Keep this list short.
 
 .env.local
+.cursor/mcp.json

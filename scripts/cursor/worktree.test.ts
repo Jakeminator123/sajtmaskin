@@ -9,6 +9,7 @@ import {
   protectedRemovalPaths,
   removeLink,
   resolveTargetWorktree,
+  syncWorktreeMcpJson,
 } from "./worktree.mjs";
 
 const MAIN = resolve("C:/repo/sajtmaskin");
@@ -111,6 +112,36 @@ describe("resolveTargetWorktree", () => {
     });
     expect(plan.ok).toBe(false);
     expect("reason" in plan && plan.reason).toContain("protected permanent/current");
+  });
+});
+
+describe("syncWorktreeMcpJson", () => {
+  it("prefers the live mcp.json over the example", () => {
+    const copied = [];
+    const result = syncWorktreeMcpJson(MAIN, FEATURE, {
+      exists: (p) => p.endsWith("mcp.json") || p.endsWith("mcp.json.example"),
+      mkdir: () => {},
+      copyFile: (from, to) => copied.push({ from, to }),
+    });
+    expect(result.ok).toBe(true);
+    expect(copied).toEqual([
+      {
+        from: join(MAIN, ".cursor", "mcp.json"),
+        to: join(FEATURE, ".cursor", "mcp.json"),
+      },
+    ]);
+  });
+
+  it("falls back to the tracked example when the live file is missing", () => {
+    const result = syncWorktreeMcpJson(MAIN, FEATURE, {
+      exists: (p) => p.endsWith("mcp.json.example"),
+      mkdir: () => {},
+      copyFile: () => {},
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.source).toBe(join(MAIN, ".cursor", "mcp.json.example"));
+    }
   });
 });
 
