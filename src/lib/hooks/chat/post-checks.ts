@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import type {
   AutoFixPayload,
+  QualityGateFailure,
   RepairContext,
   SetMessages,
   StreamQualitySignal,
@@ -1045,23 +1046,24 @@ async function handleRepairOrAutofix(params: {
     onAutoFix,
   } = params;
 
-  // M#rep1: the verify lane may include info-signals (`install-cache-share`,
-  // `install-peer-fallback`, …) in `checks[]`. The repair route's zod enum only
-  // accepts the three canonical checks, so anything else would 400 the whole
-  // repair POST if it ever arrived as `passed:false`. Filter, don't cast blindly.
-  const CANONICAL_QUALITY_GATE_CHECKS = new Set(["typecheck", "build", "lint"]);
+  // The client autofix needs every concrete repairable failure, including
+  // install output. Membership in `failedChecks` preserves both per-check
+  // advisory handling and the older `designAdvisory` envelope fallback.
+  const failedCheckNames = new Set(failedChecks);
   const repair: RepairContext = {
     qualityGate: (data.checks ?? [])
       .filter(
         (c) =>
           !c.passed &&
+          c.advisory !== true &&
           c.repairable !== false &&
-          CANONICAL_QUALITY_GATE_CHECKS.has(c.check),
+          failedCheckNames.has(c.check),
       )
       .map((c) => ({
-        check: c.check as "typecheck" | "build" | "lint",
+        check: c.check,
         exitCode: c.exitCode,
         output: c.output.slice(0, 4000),
+        ...(typeof c.errorCount === "number" ? { errorCount: c.errorCount } : {}),
         durationMs: c.durationMs ?? null,
       })),
     qualityGateMeta: {
@@ -1073,7 +1075,13 @@ async function handleRepairOrAutofix(params: {
     },
   };
 
-  const serverRepaired = await tryServerRepair(chatId, versionId, repair);
+  // `/repair` has a deliberately narrower zod enum. Keep that boundary typed
+  // and filter the broad client context before serializing a server request.
+  const serverRepair: ServerRepairContext = {
+    ...repair,
+    qualityGate: repair.qualityGate?.filter(isServerQualityGateFailure),
+  };
+  const serverRepaired = await tryServerRepair(chatId, versionId, serverRepair);
   appendToolPartToMessage(setMessages, assistantMessageId, {
     type: "tool:quality-gate",
     toolName: "Server repair",
@@ -1160,10 +1168,24 @@ type ServerRepairResult = {
   reason?: string | null;
 };
 
+type ServerQualityGateCheck = "typecheck" | "build" | "lint";
+type ServerQualityGateFailure = Omit<QualityGateFailure, "check"> & {
+  check: ServerQualityGateCheck;
+};
+type ServerRepairContext = Omit<RepairContext, "qualityGate"> & {
+  qualityGate?: ServerQualityGateFailure[];
+};
+
+function isServerQualityGateFailure(
+  failure: QualityGateFailure,
+): failure is ServerQualityGateFailure {
+  return failure.check === "typecheck" || failure.check === "build" || failure.check === "lint";
+}
+
 async function tryServerRepair(
   chatId: string,
   versionId: string,
-  repair: RepairContext,
+  repair: ServerRepairContext,
 ): Promise<ServerRepairResult> {
   if (isServerRepairDisabled()) {
     return {

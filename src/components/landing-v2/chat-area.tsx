@@ -267,7 +267,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
                   <Button
                     className={`w-full font-medium mt-2 ${
                       pkg.popular
-                        ? "btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+                        ? "btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover shadow-lg shadow-primary/20"
                         : "btn-3d bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/30"
                     }`}
                     onClick={() => router.push("/buy-credits")}
@@ -307,7 +307,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
 
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Button
-                      className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+                      className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover shadow-lg shadow-primary/20"
                       onClick={() => {
                         window.location.href = "mailto:hej@sajtmaskin.se"
                       }}
@@ -355,7 +355,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Button
                 size="lg"
-                className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-base px-8 shadow-lg shadow-primary/25"
+                className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover font-medium text-base px-8 shadow-lg shadow-primary/25"
                 disabled={isSubmitting}
                 onClick={() => {
                   const ctaCategory = selectedCategory === "audit" ? "fritext" : selectedCategory ?? "fritext"
