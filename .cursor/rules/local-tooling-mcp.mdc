@@ -14,6 +14,8 @@ Cursor läser **`.cursor/mcp.json`**. Det är den riktiga runtime-filen på disk
 Den är **gitignorerad och `.cursorignore`:ad** just därför att den är den riktiga:
 repot är publikt, och filen *kan* hålla OAuth-tokens eller auth-headers. En
 `Read` skulle då dra in nyckeln i kontexten. Committa den aldrig.
+`.cursor/tmp/` är däremot bara scratch (t.ex. `/logg`-dumpar) och ligger i
+`.cursorindexingignore` — läsbar, inte sökbar.
 
 [`.cursor/mcp.json.example`](../mcp.json.example) är **mallen** (inte
 `mcp.example.json`). Den är spårad så serverlistan är versionerad och
