@@ -111,4 +111,51 @@ describe("usePreviewRouteBridge", () => {
 
     expect(result.current).toBeNull();
   });
+
+  it("retains an early route until matching session metadata hydrates", () => {
+    const { child, iframeRef } = createHarness();
+    const { result, rerender } = renderHook(
+      ({ sessionId, versionId }: { sessionId: string | null; versionId: string | null }) =>
+        usePreviewRouteBridge({
+          previewUrl: PREVIEW_URL,
+          versionId,
+          activePreviewSessionId: sessionId,
+          viewerId: "viewer_1",
+          iframeRef,
+        }),
+      {
+        initialProps: { sessionId: null, versionId: null } as {
+          sessionId: string | null;
+          versionId: string | null;
+        },
+      },
+    );
+
+    act(() => postRoute({ child }));
+    expect(result.current).toBeNull();
+
+    rerender({ sessionId: "ps_1", versionId: "ver_1" });
+
+    expect(result.current).toBe("/about");
+  });
+
+  it("never exposes an early route when later metadata identifies another session", () => {
+    const { child, iframeRef } = createHarness();
+    const { result, rerender } = renderHook(
+      ({ sessionId }: { sessionId: string | null }) =>
+        usePreviewRouteBridge({
+          previewUrl: PREVIEW_URL,
+          versionId: "ver_1",
+          activePreviewSessionId: sessionId,
+          viewerId: "viewer_1",
+          iframeRef,
+        }),
+      { initialProps: { sessionId: null } as { sessionId: string | null } },
+    );
+
+    act(() => postRoute({ child }));
+    rerender({ sessionId: "ps_2" });
+
+    expect(result.current).toBeNull();
+  });
 });
