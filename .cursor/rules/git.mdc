@@ -10,10 +10,10 @@ alwaysApply: true
 - Stage bara filer som hör till aktuell uppgift.
 - Vid oklar working tree-status: visa `git status --short` och fråga.
 - Om du bedömer att PR behövs: förklara varför och invänta OK.
-- Om användaren ber om merge: följ `pr-merge.mdc` först.
-- Före PR-skapande **och** före push till master: kör ett **Cursor Bugbot-pass på egen diff** (bugbot-subagent, `readonly: true`, `model: <grok-4.5>`). Det är hela buggkollen (inga extra review-svärmar). Kör om på varje ny commit.
-- **Efter PR-skapande är du inte klar.** Vänta ~7 min, hämta de externa granskarnas fynd, triagera varje fynd och signera. `gh pr checks` visar **inte** fynden, och «usage limit reached» från Bugbot eller Codex betyder att granskaren är av — inte att det saknas fynd. Kommandon, sign-off-format och `merge:ready`-ordningen ägs av [`pr-merge.mdc`](pr-merge.mdc) § *Bugg-efterkontroll* och § *`merge:ready`*. Merga inte själv — merge-agenten gör det.
-- `gh pr merge --admin` är tillåtet på ägarens uppmaning (beslut 2026-08-11) — men bara när merge-grinden i `pr-merge.mdc` är uppfylld. Den listan är kanonisk och upprepas inte här. `--admin` överstyr `review-window`, så verifiera PR-åldern manuellt.
+- Om användaren ber om merge: följ [`pr-merge.mdc`](pr-merge.mdc) först. Merga inte själv — merge-agenten gör det.
+- Före PR-skapande **och** före push till master: kör ett Cursor Bugbot-pass på egen diff (`bugbot`-subagent, `readonly: true`, `model` enligt [`subagent-models.mdc`](subagent-models.mdc)). Det är hela buggkollen. Kör om på varje ny commit.
+- Efter PR: 7-min-fönster, fyndsvep, sign-off och `merge:ready` ägs av [`pr-merge.mdc`](pr-merge.mdc). Den här filen upprepar inte den listan.
+- Repo-regler här vinner över globala Cursor-regler när de krockar: commit-meddelande är pwsh here-string (se [`bash-och-pwsh-fel.mdc`](bash-och-pwsh-fel.mdc)), inte bash-heredoc. Bugbot-`Task` är obligatorisk i det här repot.
 
 ## Ignore-filer
 
@@ -25,7 +25,7 @@ Agenten får redigera `.gitignore`, `.cursorignore` och `.cursorindexingignore` 
 
 - **`master` är slutmålet.** Allt arbete ska till slut nå `master`. `master` är den enda långlivade branchen och ska alltid vara grön och deploybar.
 - **Vi testar ofta Sajtmaskin via Vercels production, som är länkad till `master`:** varje push/merge till master triggar en prod-deploy. En trasig master = trasig prod-test.
-- **Alla PR:er går mot `master`** (base = master).
+- **Alla PR:er går mot `master`** (base = master), **utom EmaCodeHero-PR:er** — base `ema`, aldrig agent-merge till master. Se [`ema-pr-sparr.mdc`](ema-pr-sparr.mdc).
 - **Default för riktigt arbete:** feature-branch (`fix/...`, `feat/...`, `chore/...`) → pusha branchen → PR mot master → merge-grind ([`pr-merge.mdc`](pr-merge.mdc)). Se [`agent-worktree.mdc`](agent-worktree.mdc) när flera agenter skriver samtidigt. Feature-branchen är mellanlager tills grinden passerar.
 - **Direkt commit + push till master är tillåtet** för ägaren och agenter — utan ny branch, worktree, PR och städ — när **allt** detta stämmer:
   1. **Rimligt:** dokumentation, Cursor-regler, ignore-filer eller annan liten ändring i filer som ska finnas på GitHub. Inte runtime (`src/`, `migrations/`, `.github/workflows/`, env, auth/tenant/db).

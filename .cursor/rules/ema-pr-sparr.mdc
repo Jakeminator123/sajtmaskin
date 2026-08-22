@@ -1,4 +1,5 @@
 ---
+description: "EmaCodeHero-PR:er får inte agent-mergas till master; base ska vara ema. Tillfällig spärr tills ägaren tar bort den."
 alwaysApply: true
 ---
 

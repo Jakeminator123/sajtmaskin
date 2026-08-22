@@ -1,49 +1,26 @@
 ---
-description: "Snabb kommandolista. package.json är kanonisk källa."
+description: "Token-/kontext-hygien för agenter. Kommandon ägs av package.json."
 alwaysApply: false
 ---
 
-# Useful commands
+# Token-hygien
 
-`package.json` är kanonisk källa om listan blir inaktuell.
+Kommandon: läs `package.json`. Minsta verifiering: [`workflow.mdc`](workflow.mdc).
+PR-väntan och merge-fönster: [`pr-merge.mdc`](pr-merge.mdc) § *Spendera fönstret
+utan att blocka*.
 
-| Kommando | Vad |
-|---|---|
-| `npm run dev` | start lokalt |
-| `npm run dev:clean` | rensa Next-cache + start |
-| `npm run typecheck` | TypeScript-check |
-| `npm run lint` | ESLint (TypeScript) |
-| `npm run lint:py` | ruff över `backoffice/` — konfig i `ruff.toml`, **ingen** required CI-check. Saknas ruff: `npm run lint:py:install` |
-| `npm run test:ci` | hela Vitest-sviten (körs **utan** databas, med flit) |
-| `npm run test:focused` | snabb kärnsubset |
-| `npm run test:postgres` | DB-backade kontrakt (`*.postgres.test.ts`) mot en riktig dev-Postgres. Skippas utan `POSTGRES_URL`; vägrar prod. Se [`docs/testing.md`](../../docs/testing.md) |
-| `npm run devtest` | typecheck + scaffold/dossier/test/lint |
-| `npm run backoffice` | starta Streamlit-backoffice |
-| `npm run scaffolds:validate` | validera scaffold-manifests |
-| `npm run dossiers:validate-all` | validera dossiers |
-| `npm run dossiers:capability-map:write` | regenerera capability-map (genererad Backoffice/tooling-vy; färskhet blockeras av `dossiers:capability-map:check` i CI) |
-| `npm run plans:archive` | dry-run planarkiv |
-| `npm run plans:archive:apply` | flytta klara planer |
-| `npm run env:status` | env-status |
-| `npm run db:check` | read-only DB sanity |
-| `npm run db:settle-stuck-verifications` | dry-run: lista versioner fast i `verifying`/`repairing` (lease-säker, inga writes). `-- --apply` + `DB_ALLOW_PROD_LIKE_WRITE=1` för prod-städning |
-| `npm --prefix preview-host run check` | syntaxcheck av preview-host |
-| `npm --prefix preview-host run test:guards` | runtime-, prewarm- och proxykontrakt |
-| `npm --prefix preview-host run test:proxy-contract` | HTTP/HMR-skydd + last-good-kontrakt |
-| `npm --prefix preview-host run smoke` | lokal preview-host end-to-end-smoke |
-
-## Token-/kontext-hygien (orkestratorns kontext är dyr)
-
-Gäller **brus**, inte kontroller: verifieringsdjup, tester och bugbot-pass ska aldrig skäras — bara meningslösa tokens (progressbarer, upprepade statustabeller, omläsning) och sessionens längd.
+Gäller **brus**, inte kontroller: verifieringsdjup, tester och bugbot-pass ska
+aldrig skäras — bara meningslösa tokens (progressbarer, upprepade statustabeller,
+omläsning) och sessionens längd.
 
 | Gör | I stället för |
 |---|---|
-| `git clone … -q` · `git … --quiet` för progress. Dämpar du stderr med `2>$null` (t.ex. `git worktree add`): **verifiera utfallet efteråt** (`$?` / `git … rev-parse`) — `2>$null` döljer även riktiga fel (upptagen path, utcheckad branch) | låta `Updating files: N%`-progressen fylla kontexten, eller blint `2>$null` utan koll |
+| `git clone … -q` · `git … --quiet` för progress. Dämpar du stderr med `2>$null` (t.ex. `git worktree add`): **verifiera utfallet efteråt** (`$?` / `git … rev-parse`) — `2>$null` döljer även riktiga fel | låta `Updating files: N%` fylla kontexten, eller blint `2>$null` utan koll |
 | `npm ci --silent --no-progress --no-audit --no-fund` | full npm-progress |
-| **Strömma aldrig** `gh pr checks --watch` in i kontext: kör bakgrundspoll och läs bara svansen (`… --watch 2>&1 \| Select-Object -Last 15`), engångs-`gh pr checks <n>`, eller `notify_on_output` med sentinel | `gh pr checks --watch` som skriver hela 13-raderstabellen var 30:e sek in i svaret |
-| **PR-vänta icke-blockerande:** kör bugbot (för-filtret) **före** PR, posta PR, starta **EN** bakgrundsshell (`Start-Sleep` till minst 7-min-golvet — räkna med upp till ~10 min → dumpa `gh pr checks` + nya review-kommentarer till fil), **avsluta turen** och merga på slutförande-notisen **först när `review-window` + alla required checks är gröna** (timern är ett golv, inte ett kvitto). Protected paths → billig `readonly`-bakgrunds-subagent (≤10 min) som **larmar** om fynd (triage + merge hos orkestratorn, aldrig watchern). Detalj: `pr-merge.mdc` → "Spendera fönstret utan att blocka" | blocka hela 7–13-min-fönstret med `AwaitShell`/`gh run watch`, merga på ren timer utan att kolla att `review-window` blev grön, eller låta den billiga watchern triagera/merga |
-| **PR-body och commit-meddelande till fil:** Shell-verktygets `$env:TEMP` (`C:\WINDOWS\TEMP`) är **inte** samma som Write-verktygets temp (`…\AppData\Local\Temp`). Skriv alltid scratch till **`.cursor/tmp/`** — enda tillåtna scratch-pathen — och referera exakt den, **eller** skapa filen i samma shell (`New-TemporaryFile`). Radera efter användning. | `--body-file "$env:TEMP\…"` efter Write-verktyget → "file not found". **Att hitta på ett eget filnamn direkt under `.cursor/`** (`_tmp-pr.md`, `pr-body.md`, `tmp-diff.txt`) → filerna blir kvar och dränker `git status`. Det hände: 21 `_tmp-*`-filer på en dag, för att `.gitignore` bara täckte prefixet `tmp-`. |
-| Läs stora filer riktat: `Grep`-slice eller `Read` med offset+limit; läs en fil **en gång** per session | full `Read` av 1000+ raders filer, upprepat i varje worktree |
-| Subagenter: terse output (tabell, bara fynd med impact ≥ 3, en rad styck); färre vinklar på lågrisk-diff | långa fritextrapporter · fler agenter än nödvändigt på lågrisk-diff (för-filtrets omfång styrs i `git.mdc`/`workflow.mdc`, inte här) |
+| Engångs-`gh pr checks <n>` eller bakgrundsdump till `.cursor/tmp/` | `gh pr checks --watch` in i chatten |
+| Scratch till **`.cursor/tmp/`** (eller `New-TemporaryFile` i samma shell); radera efteråt | `$env:TEMP\…` efter Write, eller slumpfil direkt under `.cursor/` |
+| Läs stora filer riktat: `Grep`-slice eller `Read` med offset+limit; en gång per session | full `Read` av 1000+ raders filer, upprepat i varje worktree |
+| Subagenter: terse output (tabell, bara fynd med impact ≥ 3) | långa fritextrapporter · extra agenter på lågrisk-diff |
 
-**Största hävstången:** dela upp stora initiativ i **en chatt per arbetskluster** (varje PR-familj) — en pågående sessions historik skickas om varje tur, så den växer monotont. Plan-/backlog-docs är handoff-tillståndet: en färsk session läser dem och fortsätter utan kvalitetstapp.
+**Största hävstången:** en chatt per arbetskluster (varje PR-familj). Plan- och
+backlog-docs är handoff; en färsk session läser dem och fortsätter.
