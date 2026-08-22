@@ -256,6 +256,8 @@ describe("inferCapabilities", () => {
   it.each([
     ["init", "Ta emot en engångsbetalning för kursen"],
     ["follow-up", "Lägg till en engångsbetalning på sidan"],
+    ["English plural", "Accept one-off payments for workshop bookings"],
+    ["Swedish plural", "Ta emot engångsbetalningar för kurser"],
   ])("recognizes explicit one-off payment intent with %s parity", (_mode, prompt) => {
     expect(inferCapabilities(prompt).needsPayments).toBe(true);
   });

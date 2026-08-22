@@ -50,6 +50,8 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
     "Stripe checkout",
     "Lägg till en kassa",
     "Ta emot en engångsbetalning för kursen",
+    "Accept one-off payments for workshop bookings",
+    "Ta emot engångsbetalningar för kurser",
   ])("keeps explicit one-off payment intent on Stripe contracts: %s", (prompt) => {
     const capabilities = inferCapabilities(prompt);
     const ctx = inferPreGenerationContracts({
