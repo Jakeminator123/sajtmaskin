@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildVariantHintsForBrief, formatVariantHintsForPrompt } from "./variant-hints";
+import { getVariantById } from "./registry";
 import type { ScaffoldVariant } from "./types";
+import { getScaffoldById } from "../scaffolds";
 import type { ScaffoldManifest } from "../scaffolds/types";
 
 const baseVariant: ScaffoldVariant = {
@@ -36,6 +38,44 @@ const baseScaffold: Partial<ScaffoldManifest> = {
 };
 
 describe("buildVariantHintsForBrief", () => {
+  it("projects starter-neutral as dark with its exact curated tokens", () => {
+    const variant = getVariantById("base-nextjs", "starter-neutral");
+    const scaffold = getScaffoldById("base-nextjs");
+    if (!variant) throw new Error("starter-neutral variant not registered");
+    if (!scaffold) throw new Error("base-nextjs scaffold not registered");
+
+    const hints = buildVariantHintsForBrief(scaffold, variant);
+
+    expect(hints).toMatchObject({
+      colorMode: "dark",
+      themeTokens: {
+        background: "oklch(0.15 0.004 0)",
+        foreground: "oklch(0.95 0.004 0)",
+        card: "oklch(0.18 0.004 0)",
+        primary: "oklch(0.58 0.16 258)",
+      },
+    });
+    expect(formatVariantHintsForPrompt(hints!)).toContain("- Color mode: dark");
+    expect(formatVariantHintsForPrompt(hints!)).toContain(
+      "background: oklch(0.15 0.004 0)",
+    );
+  });
+
+  it.each(["fresh-mint", "studio-soft"])(
+    "keeps the explicit light alternative %s selectable",
+    (variantId) => {
+      const variant = getVariantById("base-nextjs", variantId);
+      const scaffold = getScaffoldById("base-nextjs");
+      if (!variant) throw new Error(`${variantId} variant not registered`);
+      if (!scaffold) throw new Error("base-nextjs scaffold not registered");
+
+      const hints = buildVariantHintsForBrief(scaffold, variant);
+
+      expect(hints?.colorMode).toBe("light");
+      expect(formatVariantHintsForPrompt(hints!)).toContain("- Color mode: light");
+    },
+  );
+
   it("projects themeTokens onto the hint object verbatim", () => {
     const hints = buildVariantHintsForBrief(
       baseScaffold as ScaffoldManifest,
