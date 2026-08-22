@@ -183,4 +183,23 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     act(() => vi.advanceTimersByTime(8_000));
     expect(fetchPreviewStatus).toHaveBeenCalledTimes(1);
   });
+
+  it.each(["starting", "running"] as const)(
+    "hands a mismatched %s receipt to recovery without waiting for timeout",
+    async (state) => {
+      fetchPreviewStatus.mockResolvedValue(status(state, "ps_stale", "ver_stale"));
+      const params = makeParams({ iframeRef: makeIframeRef() });
+      const { result } = renderHook(() => usePreviewIframe(params));
+
+      await act(async () => {
+        result.current.handleIframeLoad();
+        await Promise.resolve();
+      });
+
+      expect(result.current.iframeLoading).toBe(true);
+      expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+      act(() => vi.advanceTimersByTime(8_000));
+      expect(fetchPreviewStatus).toHaveBeenCalledTimes(1);
+    },
+  );
 });

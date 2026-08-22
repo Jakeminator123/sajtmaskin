@@ -114,11 +114,10 @@ export function usePreviewIframe(params: {
         });
         if (abortController.signal.aborted || tier2LoadIdentityRef.current !== identity) return;
 
-        if (
-          status?.status === "running" &&
-          status.versionId === expectedVersionId &&
-          status.previewSessionId === previewSessionId
-        ) {
+        const receiptMatchesIdentity =
+          status?.versionId === expectedVersionId && status.previewSessionId === previewSessionId;
+
+        if (status?.status === "running" && receiptMatchesIdentity) {
           // A running receipt can arrive while the iframe still displays the
           // host's HTTP-200 starting document. Reload the exact current src now
           // that the runtime accepts traffic, and reveal only on that reload's
@@ -131,7 +130,7 @@ export function usePreviewIframe(params: {
           return;
         }
 
-        if (status && status.status !== "starting" && status.status !== "running") {
+        if (status && !(status.status === "starting" && receiptMatchesIdentity)) {
           // Terminal/mismatched states belong to the existing recovery owner.
           // Keep the overlay covered while it acts, and avoid refetching this
           // terminal receipt every four seconds.
