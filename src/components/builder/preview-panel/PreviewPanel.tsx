@@ -30,6 +30,7 @@ import type { PreviewIssuePayload } from "./runtime/iframe-diagnostics";
 import { fetchChatVersionFilesJson } from "./code/chat-version-files-fetch";
 import { usePreviewHeartbeat } from "./runtime/usePreviewHeartbeat";
 import { usePreviewIframe } from "./runtime/usePreviewIframe";
+import { usePreviewRouteBridge } from "./runtime/usePreviewRouteBridge";
 import { usePreviewPanelCodeDrafts } from "./code/usePreviewPanelCodeDrafts";
 import { usePreviewPanelInspectCapture } from "./inspect/usePreviewPanelInspectCapture";
 import { usePreviewPanelInspectMapPlacement } from "./inspect/usePreviewPanelInspectMapPlacement";
@@ -689,20 +690,6 @@ export function PreviewPanel({
     if (previewUrl) window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
 
-  const activePreviewRoute = useMemo(() => {
-    if (!previewUrl) return null;
-    try {
-      if (isOwnEnginePreview) {
-        const current = new URL(previewUrl, window.location.origin);
-        return current.searchParams.get("route") || "/";
-      }
-      const current = new URL(previewUrl, window.location.origin);
-      return extractTier2AppRoute(current.pathname);
-    } catch {
-      return null;
-    }
-  }, [previewUrl, isOwnEnginePreview]);
-
   const handleNavigateRoute = useCallback(
     (route: string) => {
       if (!previewUrl) return;
@@ -788,6 +775,28 @@ export function PreviewPanel({
     previewLifecycle,
     onSessionSuspect: onPreviewSessionSuspect,
   });
+
+  const observedPreviewRoute = usePreviewRouteBridge({
+    previewUrl,
+    versionId,
+    activePreviewSessionId,
+    viewerId: previewViewerId,
+    iframeRef,
+  });
+  const activePreviewRoute = useMemo(() => {
+    if (observedPreviewRoute) return observedPreviewRoute;
+    if (!previewUrl) return null;
+    try {
+      if (isOwnEnginePreview) {
+        const current = new URL(previewUrl, window.location.origin);
+        return current.searchParams.get("route") || "/";
+      }
+      const current = new URL(previewUrl, window.location.origin);
+      return extractTier2AppRoute(current.pathname);
+    } catch {
+      return null;
+    }
+  }, [observedPreviewRoute, previewUrl, isOwnEnginePreview]);
 
   const handleIframeError = useCallback(() => {
     clearPreviewReadyTimer();
