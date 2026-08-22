@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "aa80a9d95",
+    "commit": "373692b53",
     "commitDate": "2026-08-22",
     "sinceDays": 14
   },
@@ -295,7 +295,7 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-033` **Wizard-rutterna slår i sina egna tidsgränser:** `/api/wizard/competitors` gav 504 vid `maxDuration…"
+      "fynd": "`SM-033` **Wizardns competitor/enrich-flöde har bekräftade prod-timeouts men okänd dominant fas:** `/api/wiza…"
     },
     {
       "prio": "P2",
