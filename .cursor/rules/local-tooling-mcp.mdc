@@ -15,7 +15,7 @@ Detta är **IDE-lokal** setup — inte runtime för own-engine. Produktbeteende 
 | `.cursor/mcp.json` | Projekt-override (**gitignorerad + `.cursorignore`:ad**, committa aldrig) |
 | `.cursor/mcp.json.example` | **Kanonisk mall** — spårad i git; sync-skriptet kopierar den rakt av |
 
-**Varför två filer:** repot är publikt. Mallen är spårad så att servrarna är versionerade och granskningsbara, medan den faktiska filen är ignorerad för att en framtida auth-header aldrig ska kunna committas. Filen är dessutom `.cursorignore`:ad — inte för att den innehåller secrets idag (den gör den inte), utan för att den *kan* göra det och då hade ett `Read` dragit in nyckeln i kontexten.
+**Varför två filer:** repot är publikt. Mallen är spårad så att servrarna är versionerade och granskningsbara, medan den faktiska filen är ignorerad för att en framtida auth-header aldrig ska kunna committas. Filen är dessutom `.cursorignore`:ad — inte för att den innehåller secrets idag (den gör den inte), utan för att den *kan* göra det och då hade ett `Read` dragit in nyckeln i kontexten. `.cursor/tmp/` är däremot bara scratch och ligger i `.cursorindexingignore` (läsbar, inte sökbar).
 
 **Drift-fällan:** eftersom den faktiska filen är ignorerad kan den tyst hamna efter mallen. Det upptäcktes 2026-08-05 — den lokala filen hade fyra servrar (`shadcn`, `v0`, `openaiDeveloperDocs`, `openclaw-docs`) medan mallen hade åtta. **Både `supabase` och `supabase-prod` saknades**, alltså hela mekaniken bakom dev/prod-regeln i `project-phase-priorities.mdc`; kvar fanns bara en generisk Supabase-plugin utan synlig projektbindning. Jämför nyckelmängderna när något beter sig oväntat:
 

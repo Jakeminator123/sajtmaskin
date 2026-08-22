@@ -93,8 +93,6 @@ senaste_miljovariablar/
 *_agent_session.txt
 agent-session-*.txt
 tr*_agent.txt
-.cursor/tmp/
-.cursor/*tmp*
 # --- Build-cache Read-fällor (samma skäl som .eslintcache) ---
 # Gitignorerade + redan i .cursorindexingignore, men Read kan fortfarande
 # dumpa megabyte in i kontexten. Aldrig meningsfullt innehåll för en agent.
