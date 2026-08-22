@@ -135,6 +135,9 @@ describe("summarizeVersionLogsForAutoFix", () => {
 const capOverridden =
   process.env.NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT != null &&
   process.env.NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT !== "3";
+const reasonCapOverridden =
+  process.env.NEXT_PUBLIC_AUTOFIX_MAX_PER_REASON != null &&
+  process.env.NEXT_PUBLIC_AUTOFIX_MAX_PER_REASON !== "1";
 
 // Mutable `/readiness` response info read by the shared fetch mock below, so a
 // test can drive `isVersionUnderServerRepair` through the real nested response
@@ -259,6 +262,67 @@ describe("useAutoFix", () => {
     await act(async () => {
       await vi.runAllTimersAsync();
     });
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it.skipIf(reasonCapOverridden)(
+    "dedupes a mixed install+typecheck autofix against a later typecheck-only event",
+    async () => {
+      const sendMessage = vi.fn(async () => STARTED);
+      const { result } = renderHook(() => useAutoFix(sendMessage));
+
+      await act(async () => {
+        result.current.autoFixHandlerRef.current({
+          chatId: "chat_1",
+          versionId: "ver_failed",
+          reasons: ["install failed", "typecheck failed"],
+          repair: {
+            qualityGate: [
+              { check: "install", exitCode: 1, output: "npm ERR! peer dependency" },
+              { check: "typecheck", exitCode: 2, output: "TS2307: missing module" },
+            ],
+          },
+        });
+        await vi.runAllTimersAsync();
+      });
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        result.current.autoFixHandlerRef.current({
+          chatId: "chat_1",
+          versionId: "ver_failed",
+          reasons: ["typecheck failed"],
+          repair: {
+            qualityGate: [
+              { check: "typecheck", exitCode: 2, output: "TS2307: missing module" },
+            ],
+          },
+        });
+        await vi.runAllTimersAsync();
+      });
+
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.skipIf(reasonCapOverridden)("keeps install-only autofix dedupe stable", async () => {
+    const sendMessage = vi.fn(async () => STARTED);
+    const { result } = renderHook(() => useAutoFix(sendMessage));
+
+    for (const output of ["npm ERR! peer dependency", "npm ERR! resolution failed"]) {
+      await act(async () => {
+        result.current.autoFixHandlerRef.current({
+          chatId: "chat_1",
+          versionId: "ver_failed",
+          reasons: [`install failed: ${output}`],
+          repair: {
+            qualityGate: [{ check: "install", exitCode: 1, output }],
+          },
+        });
+        await vi.runAllTimersAsync();
+      });
+    }
 
     expect(sendMessage).toHaveBeenCalledTimes(1);
   });

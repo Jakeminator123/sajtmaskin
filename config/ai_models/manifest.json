@@ -502,8 +502,8 @@
         "provider": "Stripe",
         "name": "Stripe",
         "envVars": ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
-        "matchPatterns": ["\\bstripe\\b", "\\bcheckout\\b", "\\bsubscription\\b", "\\bbilling\\b"],
-        "reason": "Prompten pekar på checkout, subscription eller Stripe."
+        "matchPatterns": ["\\bstripe\\b", "\\bcheckout\\b"],
+        "reason": "Prompten pekar på checkout eller Stripe."
       },
       {
         "kind": "integration",

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { decideMergeReadyAction } from "./merge-ready-freshness.mjs";
 
@@ -11,6 +12,8 @@ function signoff(sha = HEAD, at = "2026-07-29T12:00:00Z") {
 function input(overrides: Record<string, unknown> = {}) {
   return {
     eventName: "pull_request_review",
+    senderLogin: "other-review-bot[bot]",
+    eventBody: "Nytt granskningsfynd",
     headSha: HEAD,
     labels: ["merge:ready"],
     eventAt: "2026-07-29T12:05:00Z",
@@ -45,6 +48,28 @@ describe("decideMergeReadyAction", () => {
     expect(result.reason).toContain("!= head");
   });
 
+  it.each(["", "abc123", "g".repeat(40), "a".repeat(41)])(
+    "river labeln för ogiltig sign-off-sha %j även vid Cursor-status",
+    (sha) => {
+      const result = decideMergeReadyAction(
+        input({
+          eventName: "issue_comment",
+          senderLogin: "cursor[bot]",
+          eventBody: "Verifiering klar. Inga blockerande fynd hittades.",
+          comments: [
+            {
+              body: `merge:ready — sha: ${sha}`,
+              createdAt: "2026-07-29T12:00:00Z",
+            },
+          ],
+        }),
+      );
+
+      expect(result.action).toBe("remove");
+      expect(result.reason).toContain("ogiltig sign-off sha");
+    },
+  );
+
   it("behåller labeln när händelsen är äldre än sign-offen", () => {
     const result = decideMergeReadyAction(input({ eventAt: "2026-07-29T11:59:00Z" }));
     expect(result.action).toBe("keep");
@@ -54,6 +79,95 @@ describe("decideMergeReadyAction", () => {
     const result = decideMergeReadyAction(input({ eventAt: "2026-07-29T12:00:01Z" }));
     expect(result.action).toBe("remove");
     expect(result.reason).toContain("efter sign-off");
+  });
+
+  it("behåller labeln för en vanlig Cursor-verifieringskommentar", () => {
+    const result = decideMergeReadyAction(
+      input({
+        eventName: "issue_comment",
+        senderLogin: "cursor[bot]",
+        eventBody: "Verifiering klar. Inga blockerande fynd hittades.",
+      }),
+    );
+    expect(result.action).toBe("keep");
+    expect(result.reason).toContain("utan Bugbot-fyndmarkör");
+  });
+
+  it("behåller labeln när Cursor Bugbot nått usage limit", () => {
+    const result = decideMergeReadyAction(
+      input({
+        eventName: "issue_comment",
+        senderLogin: "cursor[bot]",
+        eventBody: "Bugbot couldn't run - usage limit reached",
+      }),
+    );
+    expect(result.action).toBe("keep");
+  });
+
+  it("behåller labeln för en Cursor-automationskommentar utan ny buggranskning", () => {
+    const result = decideMergeReadyAction(
+      input({
+        eventName: "issue_comment",
+        senderLogin: "cursor[bot]",
+        eventBody: "<!-- CURSOR_AUTOMATION_ID: nightly -->\nIngen ny buggranskning här.",
+      }),
+    );
+    expect(result.action).toBe("keep");
+  });
+
+  it("river labeln för ett Cursor-fynd med BUGBOT_BUG_ID-markör", () => {
+    const result = decideMergeReadyAction(
+      input({
+        eventName: "issue_comment",
+        senderLogin: "cursor[bot]",
+        eventBody: "<!-- BUGBOT_BUG_ID: eb123 -->\nP2: stale state",
+      }),
+    );
+    expect(result.action).toBe("remove");
+  });
+
+  it("behåller labeln för ett trunkerat BUGBOT_BUG_ID-prefix", () => {
+    const result = decideMergeReadyAction(
+      input({
+        eventName: "issue_comment",
+        senderLogin: "cursor[bot]",
+        eventBody: "<!-- BUGBOT_BUG_ID:\nStatusraden blev avklippt.",
+      }),
+    );
+    expect(result.action).toBe("keep");
+  });
+
+  it("river labeln för ett Cursor-fynd med BUGBOT_REVIEW-markör", () => {
+    const result = decideMergeReadyAction(
+      input({
+        eventName: "issue_comment",
+        senderLogin: "cursor[bot]",
+        eventBody: "<!-- BUGBOT_REVIEW -->\nEtt nytt fynd.",
+      }),
+    );
+    expect(result.action).toBe("remove");
+  });
+
+  it("river labeln för en markörfri Cursor-review", () => {
+    const result = decideMergeReadyAction(
+      input({
+        eventName: "pull_request_review",
+        senderLogin: "cursor[bot]",
+        eventBody: "P2: markörfritt review-fynd",
+      }),
+    );
+    expect(result.action).toBe("remove");
+  });
+
+  it("river labeln för en annan bots nyare kommentar", () => {
+    const result = decideMergeReadyAction(
+      input({
+        eventName: "issue_comment",
+        senderLogin: "codex-reviewer[bot]",
+        eventBody: "Status utan Cursor-markör",
+      }),
+    );
+    expect(result.action).toBe("remove");
   });
 
   /**
@@ -127,5 +241,17 @@ describe("decideMergeReadyAction", () => {
       );
       expect(result.action, `separator ${separator}`).toBe("keep");
     }
+  });
+
+  it("trådar sender och event-body säkert från workflowens eventfil", () => {
+    const workflow = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
+
+    expect(workflow).toContain("GITHUB_EVENT_PATH");
+    expect(workflow).toContain('.comment.body // .review.body // ""');
+    expect(workflow).toContain('--arg senderLogin "$SENDER"');
+    expect(workflow).toContain('--arg eventBody "$EVENT_BODY"');
+    expect(workflow).toContain("senderLogin: $senderLogin");
+    expect(workflow).toContain("eventBody: $eventBody");
+    expect(workflow).not.toContain("${{ github.event.comment.body }}");
   });
 });

@@ -13,17 +13,27 @@
  * dependency-fritt (hsl -> sRGB -> relativ luminans), så en framtida
  * token-ändring som återinför felet blir röd här.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const GLOBALS_CSS_PATH = path.resolve(__dirname, "globals.css");
+const SRC_PATH = path.resolve(__dirname, "..");
+const TAILWIND_CONFIG_PATH = path.resolve(__dirname, "../../tailwind.config.cjs");
+
+function listTsxFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return listTsxFiles(entryPath);
+    return entry.isFile() && entry.name.endsWith(".tsx") ? [entryPath] : [];
+  });
+}
 
 /** Plockar ut HSL-tripletten (grader, %, %) ur `--<name>: H S% L%;` i :root. */
 function readHslToken(css: string, name: string): { h: number; s: number; l: number } {
   // (?<![\w-]) hindrar att t.ex. --sidebar-primary matchar för name="primary".
   const match = css.match(
-    new RegExp(`(?<![\\w-])--${name}:\\s*([\\d.]+)\\s+([\\d.]+)%\\s+([\\d.]+)%\\s*;`)
+    new RegExp(`(?<![\\w-])--${name}:\\s*([\\d.]+)\\s+([\\d.]+)%\\s+([\\d.]+)%\\s*;`),
   );
   if (!match) throw new Error(`Token --${name} hittades inte som HSL-triplett i globals.css`);
   return { h: Number(match[1]), s: Number(match[2]) / 100, l: Number(match[3]) / 100 };
@@ -57,6 +67,19 @@ function contrastRatio(l1: number, l2: number): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+/** Kompositerar en sRGB-overlay över en underliggande färg. */
+function compositeOver(
+  overlay: [number, number, number],
+  underlay: [number, number, number],
+  alpha: number,
+): [number, number, number] {
+  return underlay.map((channel, index) => overlay[index] * alpha + channel * (1 - alpha)) as [
+    number,
+    number,
+    number,
+  ];
+}
+
 describe("globals.css token-kontrast (WCAG 2 AA)", () => {
   const css = readFileSync(GLOBALS_CSS_PATH, "utf8");
 
@@ -65,9 +88,50 @@ describe("globals.css token-kontrast (WCAG 2 AA)", () => {
     const primaryFg = readHslToken(css, "primary-foreground");
     const ratio = contrastRatio(
       relativeLuminance(hslToRgb(primary.h, primary.s, primary.l)),
-      relativeLuminance(hslToRgb(primaryFg.h, primaryFg.s, primaryFg.l))
+      relativeLuminance(hslToRgb(primaryFg.h, primaryFg.s, primaryFg.l)),
     );
     expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("--primary-foreground på opak --primary-hover håller >= 4.5:1", () => {
+    const primaryHover = readHslToken(css, "primary-hover");
+    const primaryFg = readHslToken(css, "primary-foreground");
+    const ratio = contrastRatio(
+      relativeLuminance(hslToRgb(primaryHover.h, primaryHover.s, primaryHover.l)),
+      relativeLuminance(hslToRgb(primaryFg.h, primaryFg.s, primaryFg.l)),
+    );
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("hover-paret håller >= 4.5:1 även under btn-glows mörkaste overlay", () => {
+    const primaryHover = readHslToken(css, "primary-hover");
+    const primaryFg = readHslToken(css, "primary-foreground");
+    const black: [number, number, number] = [0, 0, 0];
+    const hoverUnderGlow = compositeOver(
+      black,
+      hslToRgb(primaryHover.h, primaryHover.s, primaryHover.l),
+      0.1,
+    );
+    const foregroundUnderGlow = compositeOver(
+      black,
+      hslToRgb(primaryFg.h, primaryFg.s, primaryFg.l),
+      0.1,
+    );
+
+    expect(
+      contrastRatio(relativeLuminance(hoverUnderGlow), relativeLuminance(foregroundUnderGlow)),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("produktens primära hover använder den opaka tokenen utan alfablending", () => {
+    const config = readFileSync(TAILWIND_CONFIG_PATH, "utf8");
+    expect(config).toContain('hover: "hsl(var(--primary-hover))"');
+
+    const opacityHover = ["hover:bg-primary", "90"].join("/");
+    const offenders = listTsxFiles(SRC_PATH).filter((file) =>
+      readFileSync(file, "utf8").includes(opacityHover),
+    );
+    expect(offenders).toEqual([]);
   });
 
   it("brand-blå --primary är oförändrad (ägarbeslut: text-primary på mörk bakgrund i ~67 filer)", () => {
