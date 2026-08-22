@@ -23,6 +23,10 @@ legacy-alias där kontraktet fortfarande kräver kompatibilitet. En `previewUrl`
 - Workspace och sessionsmetadata ska ligga under `PREVIEW_HOST_DATA_DIR`.
 - Boot och verify får inte dela muterbart workspace.
 - Install och runtimeprocesser måste ha timeout, cleanup och process-tree-stop.
+  `next dev` som aldrig accepterar HTTP ska faila splashen på
+  `PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS` (90s), inte hela Fly-taket.
+  Next-stdout-svansen ska skrivas till sessionsloggen vid stop/hibernate, inte
+  bara vid krasch.
 - Samma chat får inte bootas parallellt; en väntande restart ska använda senaste
   snapshotet.
 - Ett runtime-byte under en öppen iframe ska signalera `reloadPage` på preview-

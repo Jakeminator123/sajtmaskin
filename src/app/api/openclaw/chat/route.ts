@@ -11,6 +11,8 @@ import {
 } from "@/lib/openclaw/chat-context-policy";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import { resolveOpenClawPowersFromRequest } from "@/lib/openclaw/powers";
+import { shouldAttachOpenClawLiveReviewContext } from "@/lib/openclaw/live-review-access";
+import { readLiveReviewGrant } from "@/lib/db/services/live-review-grants";
 import { buildOpenClawEditSystemPrompt } from "@/lib/openclaw/edit-system-prompt";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
@@ -301,7 +303,18 @@ export async function POST(req: NextRequest) {
       // assistant answers with concrete diagnostics instead of guessing.
       // Compact + DB-guarded; null when nothing actionable, so normal chat
       // stays cheap.
-      if (routingIntent === "review" || debug || powers.liveReview) {
+      const persistedGrant =
+        scopedVersion && reviewChatId
+          ? await readLiveReviewGrant(reviewChatId).catch(() => null)
+          : null;
+      if (
+        shouldAttachOpenClawLiveReviewContext({
+          routingIntent,
+          debug,
+          editEnabled: OPENCLAW.editEnabled,
+          grant: persistedGrant,
+        })
+      ) {
         if (scopedVersion) {
           // Fas 1 (findings) + Fas 4 (timeline) share a single DB read, keyed
           // by the OWNERSHIP-VERIFIED version id. Live-reviewresultatet är

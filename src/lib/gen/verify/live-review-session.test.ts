@@ -266,8 +266,10 @@ describe("finishLiveReviewSession", () => {
     expect(completeRun).toHaveBeenCalled();
   });
 
-  it("raderar inte föregående par om complete misslyckas", async () => {
+  it("raderar inte föregående par om complete misslyckas — överger claimen", async () => {
     const deletePreviousBlobs = vi.fn(async () => 1);
+    const abandonRun = vi.fn(async () => {});
+    const deleteScreenshotUrls = vi.fn(async () => {});
     const result = await finishLiveReviewSession(
       {
         captureEnabled: true,
@@ -292,10 +294,14 @@ describe("finishLiveReviewSession", () => {
         beginPaidAttempt: async () => 1,
         completeRun: async () => false,
         deletePreviousBlobs,
+        abandonRun,
+        deleteScreenshotUrls,
       },
     );
     expect(result.status).toBe("completed");
     expect(deletePreviousBlobs).not.toHaveBeenCalled();
+    expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
+    expect(deleteScreenshotUrls).toHaveBeenCalled();
   });
 
   it("raderar redan uppladdade JPEG när claim överges", async () => {
@@ -333,7 +339,7 @@ describe("finishLiveReviewSession", () => {
     );
     expect(result).toEqual(skippedLiveReviewResult("postcheck_skipped"));
     expect(deleteScreenshotUrls).toHaveBeenCalledWith(screenshots);
-    expect(abandonRun).toHaveBeenCalledWith("lr_1");
+    expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
   });
 
   it("startar inte critic om leasen redan tagits över", async () => {

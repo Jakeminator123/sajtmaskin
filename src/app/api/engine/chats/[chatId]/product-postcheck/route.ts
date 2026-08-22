@@ -261,14 +261,20 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       );
       if (liveReviewSession.claim?.kind === "acquired") {
         await deleteLiveReviewScreenshotUrls(result.screenshots).catch(() => undefined);
-        await abandonLiveReviewRun(liveReviewSession.claim.row.id).catch(() => undefined);
+        await abandonLiveReviewRun(
+          liveReviewSession.claim.row.id,
+          liveReviewSession.claim.row.claimedAt,
+        ).catch(() => undefined);
       }
     }
 
     return NextResponse.json(result);
   } catch (err) {
     if (liveReviewSession?.claim?.kind === "acquired") {
-      await abandonLiveReviewRun(liveReviewSession.claim.row.id).catch(() => undefined);
+      await abandonLiveReviewRun(
+        liveReviewSession.claim.row.id,
+        liveReviewSession.claim.row.claimedAt,
+      ).catch(() => undefined);
     }
     console.error("[product-postcheck] Error:", err);
     // Mirror the skip emission for the runtime-error branch — same

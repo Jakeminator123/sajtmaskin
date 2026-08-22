@@ -32,8 +32,8 @@ plattformsspecifik setup, ignorering och worktree-paritet ägs av Codex-guiden.
 ## Allmänt per-PR-klart
 
 Välj minsta verifiering efter ändringstyp i
-[`workflow.mdc`](.cursor/rules/workflow.mdc). Kommandon ägs av `package.json` och
-routeras via [`useful-commands.mdc`](.cursor/rules/useful-commands.mdc).
+[`workflow.mdc`](.cursor/rules/workflow.mdc). Kommandon ägs av `package.json`.
+Token-hygien: [`useful-commands.mdc`](.cursor/rules/useful-commands.mdc).
 Docs-/schema-/Backoffice-sync vid pipelineändringar ägs av
 [`pipeline-rules.mdc`](.cursor/rules/pipeline-rules.mdc). Dependency-PR:er följer
 [`docs/dependency-policy.md`](docs/dependency-policy.md).

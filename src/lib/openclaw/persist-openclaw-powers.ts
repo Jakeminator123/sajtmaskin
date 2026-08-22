@@ -2,11 +2,13 @@ import { readActiveBuilderChatId } from "@/lib/openclaw/builder-target";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { sanitizeOpenClawPowerIds, type OpenClawPowerId } from "@/lib/openclaw/powers";
 
-async function postPowers(input: {
+type PersistJob = {
   chatId: string;
   powersOn: boolean;
-  granted: readonly OpenClawPowerId[];
-}): Promise<boolean> {
+  granted: OpenClawPowerId[];
+};
+
+async function postPowers(input: PersistJob): Promise<boolean> {
   const res = await fetch("/api/openclaw/powers", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -19,31 +21,94 @@ async function postPowers(input: {
   return res.ok;
 }
 
+let persistQueue: PersistJob[] = [];
+let persistInFlight: Promise<boolean> | null = null;
+let persistTargetChatId: string | null = null;
+let hydrateGeneration = 0;
+
+function enqueuePersistJob(job: PersistJob): void {
+  persistQueue = persistQueue.filter((entry) => entry.chatId !== job.chatId);
+  persistQueue.push(job);
+  hydrateGeneration += 1;
+}
+
+function chatHasPendingPersist(chatId: string): boolean {
+  if (persistTargetChatId === chatId) return true;
+  return persistQueue.some((job) => job.chatId === chatId);
+}
+
+/**
+ * Write the current store grant for the active chat. Overlapping toggles
+ * coalesce per chat, and a job never writes another chat's snapshot.
+ */
 export async function persistOpenClawPowersForActiveChat(): Promise<boolean> {
   const chatId = readActiveBuilderChatId();
   if (!chatId) return false;
   const { powersOn, grantedPowers } = useOpenClawStore.getState();
-  try {
-    if (await postPowers({ chatId, powersOn, granted: grantedPowers })) return true;
-    if (await postPowers({ chatId, powersOn, granted: grantedPowers })) return true;
-  } catch {
-    // Retried below via hydrate so the UI cannot drift from the server row.
-  }
-  await hydrateOpenClawPowersForChat(chatId);
-  return false;
+  enqueuePersistJob({
+    chatId,
+    powersOn,
+    granted: [...grantedPowers],
+  });
+  if (persistInFlight) return persistInFlight;
+  persistInFlight = drainPersistQueue();
+  return persistInFlight;
 }
 
-export async function hydrateOpenClawPowersForChat(chatId: string): Promise<void> {
+async function drainPersistQueue(): Promise<boolean> {
+  try {
+    let wrote = false;
+    while (persistQueue.length > 0) {
+      const job = persistQueue.shift();
+      if (!job) break;
+      persistTargetChatId = job.chatId;
+      try {
+        if (await postPowers(job)) {
+          wrote = true;
+          continue;
+        }
+        if (await postPowers(job)) {
+          wrote = true;
+          continue;
+        }
+      } catch {
+        // Hydrate only the job's chat, and only if it is still open.
+      }
+      if (readActiveBuilderChatId() === job.chatId) {
+        await hydrateOpenClawPowersForChat(job.chatId, { allowDuringPersist: true });
+      }
+    }
+    return wrote;
+  } finally {
+    persistTargetChatId = null;
+    persistInFlight = null;
+    if (persistQueue.length > 0) {
+      persistInFlight = drainPersistQueue();
+    }
+  }
+}
+
+export async function hydrateOpenClawPowersForChat(
+  chatId: string,
+  opts?: { allowDuringPersist?: boolean },
+): Promise<void> {
   const id = chatId.trim();
   if (!id) return;
+  const generation = ++hydrateGeneration;
   try {
     const res = await fetch(`/api/openclaw/powers?chatId=${encodeURIComponent(id)}`);
     if (!res.ok) return;
+    if (generation !== hydrateGeneration) return;
+    if (readActiveBuilderChatId() !== id) return;
+    if (chatHasPendingPersist(id) && !opts?.allowDuringPersist) return;
     const data = (await res.json().catch(() => null)) as {
       powersOn?: unknown;
       granted?: unknown;
     } | null;
     if (!data) return;
+    if (generation !== hydrateGeneration) return;
+    if (readActiveBuilderChatId() !== id) return;
+    if (chatHasPendingPersist(id) && !opts?.allowDuringPersist) return;
     const grantedPowers = sanitizeOpenClawPowerIds(data.granted) as OpenClawPowerId[];
     useOpenClawStore.getState().hydratePowers({
       powersOn: data.powersOn === true,

@@ -4,6 +4,7 @@ import {
   LIVE_REVIEW_MAX_MODEL_ATTEMPTS,
   decideLiveReviewClaim,
   liveReviewExpiresAt,
+  pickPreviousLiveReviewRun,
   skippedLiveReviewResult,
   type LiveReviewRunRow,
 } from "./live-review-claim";
@@ -58,7 +59,7 @@ describe("decideLiveReviewClaim", () => {
     ).toBe("cached");
   });
 
-  it("låter simultan körning vänta, stale lease tas över bara före första betalda försöket", () => {
+  it("låter simultan körning vänta, stale lease tas över om taket inte är nått", () => {
     const now = new Date("2026-08-21T00:02:00.000Z");
     expect(decideLiveReviewClaim(row(), now)).toEqual({ kind: "in_flight" });
     expect(
@@ -77,7 +78,67 @@ describe("decideLiveReviewClaim", () => {
         }),
         now,
       ),
-    ).toEqual({ kind: "in_flight" });
+    ).toEqual({ kind: "takeover" });
+  });
+
+  it("öppnar retrybara skip-rader under taket, cachear övriga skip", () => {
+    expect(
+      decideLiveReviewClaim(
+        row({
+          status: "skipped",
+          modelAttempts: 1,
+          result: skippedLiveReviewResult("review_error"),
+        }),
+      ),
+    ).toEqual({ kind: "takeover" });
+    expect(
+      decideLiveReviewClaim(
+        row({
+          status: "skipped",
+          modelAttempts: 1,
+          result: skippedLiveReviewResult("no_screenshots"),
+        }),
+      ).kind,
+    ).toBe("cached");
+  });
+
+  it("väljer högsta versionsnummer före senast avslutad tid", () => {
+    const olderHigher = {
+      versionNumber: 6,
+      completedAt: new Date("2026-08-21T00:00:00.000Z"),
+    };
+    const newerLower = {
+      versionNumber: 5,
+      completedAt: new Date("2026-08-21T01:00:00.000Z"),
+    };
+    expect(pickPreviousLiveReviewRun([newerLower, olderHigher])).toEqual(olderHigher);
+  });
+
+  it("tar över stale running vid taket när result saknas", () => {
+    const now = new Date("2026-08-21T00:10:00.000Z");
+    expect(
+      decideLiveReviewClaim(
+        row({
+          claimedAt: new Date(now.getTime() - LIVE_REVIEW_CLAIM_LEASE_MS),
+          modelAttempts: LIVE_REVIEW_MAX_MODEL_ATTEMPTS,
+          result: null,
+        }),
+        now,
+      ),
+    ).toEqual({ kind: "takeover" });
+    expect(
+      decideLiveReviewClaim(
+        row({
+          claimedAt: new Date(now.getTime() - LIVE_REVIEW_CLAIM_LEASE_MS),
+          modelAttempts: LIVE_REVIEW_MAX_MODEL_ATTEMPTS,
+          result: skippedLiveReviewResult("review_error"),
+        }),
+        now,
+      ),
+    ).toEqual({
+      kind: "cost_capped",
+      result: skippedLiveReviewResult("review_error"),
+    });
   });
 
   it("stoppar fler betalda försök när taket är nått", () => {

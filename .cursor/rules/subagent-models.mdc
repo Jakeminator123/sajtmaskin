@@ -1,5 +1,5 @@
 ---
-description: Grok = default för ALLA subagenter inkl. bugg-/kodgranskning; 4.6 xhigh fast under gratisperioden, annars 4.5; slug slås upp per session
+description: Grok = default för ALLA subagenter inkl. bugg-/kodgranskning; slå upp slugen per session, kopiera den inte
 alwaysApply: true
 ---
 
@@ -9,18 +9,18 @@ alwaysApply: true
 kedja-runner **och** bugg-/kodgranskning (`bugbot`). Detta är ägarens stående
 begäran, så `Task`-verktygets default (`inherit`) gäller inte här.
 
-**Vilken Grok (ägarbeslut 2026-08-14):** `cursor-grok-4.6-xhigh-fast` så länge den är
-gratis. Finns den inte i din sessions modellista: fall tillbaka till `cursor-grok-4.5`.
-Gratisperioden är tidsbegränsad — hittar du bara 4.5, använd den och rapportera inte
-det som ett fel.
+**Vilken Grok (ägarbeslut 2026-08-14):** slå upp slugen i din egen sessions
+`<available_subagent_models>`. Preferens så länge den är gratis:
+`cursor-grok-4.6-xhigh-fast`. Finns den inte: nästa Grok-post i **samma lista**
+(historiskt `cursor-grok-4.5`). Hittar du ingen Grok: stoppa och säg till —
+ärv inte Opus eller Composer.
 
 - **Skicka alltid `model`** i `Task`-anropet, inklusive `bugbot`. Utelämnas den
   ärver subagenten din egen, ofta dyra, modell — tyst.
-- **Slå upp slugen, skriv inte av den.** `<grok-4.5>` i repots kommandon och
-  skills är en **roll-platshållare**, inte en versionslåsning: den betyder «den
-  Grok-post som gäller enligt stycket ovan», slagen upp i din egen sessions
-  `<available_subagent_models>`. Formen varierar mellan sessioner, så en slug ur
-  en äldre textrad är fel ungefär varannan gång.
+- **Slå upp slugen, skriv inte av den.** `<grok-4.5>` i kommandon och skills är
+  en **roll-platshållare** för den Grok-post stycket ovan pekar på — inte
+  slugen `cursor-grok-4.5`. I `git.mdc` / `pr-merge.mdc` står det «slug enligt
+  denna fil». Formen varierar mellan sessioner.
 - Välj **inte** Composer (`composer-2.5` / `composer-2.5-fast`) som default.
 - **Hård regel:** dyra tänkande modeller — i synnerhet
   `claude-opus-5-thinking-xhigh` — får inte vara buggranskare/review-subagent

@@ -1,14 +1,16 @@
-import { and, desc, eq, lt, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db, dbConfigured } from "@/lib/db/client";
-import { engineChats, liveReviewRuns } from "@/lib/db/schema";
+import { engineChats, engineVersions, liveReviewRuns } from "@/lib/db/schema";
 import { deleteBlob } from "@/lib/vercel/blob-service";
 import {
   LIVE_REVIEW_CLAIM_LEASE_MS,
   LIVE_REVIEW_CLAIM_WAIT_MS,
   LIVE_REVIEW_MAX_MODEL_ATTEMPTS,
+  RETRYABLE_LIVE_REVIEW_SKIP_REASONS,
   decideLiveReviewClaim,
   liveReviewExpiresAt,
+  pickPreviousLiveReviewRun,
   skippedLiveReviewResult,
   type LiveReviewClaimDecision,
   type LiveReviewRunRow,
@@ -82,12 +84,22 @@ async function applyExistingDecision(
         claimedAt: now,
         expiresAt: liveReviewExpiresAt(now),
         skipReason: null,
+        result: null,
       })
       .where(
         and(
           eq(liveReviewRuns.id, existing.id),
-          eq(liveReviewRuns.status, "running"),
-          lt(liveReviewRuns.claimedAt, staleBefore),
+          eq(liveReviewRuns.modelAttempts, existing.modelAttempts),
+          or(
+            and(
+              eq(liveReviewRuns.status, "running"),
+              lt(liveReviewRuns.claimedAt, staleBefore),
+            ),
+            and(
+              eq(liveReviewRuns.status, "skipped"),
+              inArray(liveReviewRuns.skipReason, [...RETRYABLE_LIVE_REVIEW_SKIP_REASONS]),
+            ),
+          ),
         ),
       )
       .returning();
@@ -197,12 +209,19 @@ export async function completeLiveReviewRun(input: {
   }
 }
 
-export async function abandonLiveReviewRun(id: string): Promise<void> {
+export async function abandonLiveReviewRun(
+  id: string,
+  claimedAt?: Date,
+): Promise<void> {
   if (!dbConfigured) return;
   try {
-    await db
-      .delete(liveReviewRuns)
-      .where(and(eq(liveReviewRuns.id, id), eq(liveReviewRuns.status, "running")));
+    await db.delete(liveReviewRuns).where(
+      and(
+        eq(liveReviewRuns.id, id),
+        eq(liveReviewRuns.status, "running"),
+        ...(claimedAt ? [eq(liveReviewRuns.claimedAt, claimedAt)] : []),
+      ),
+    );
   } catch (error) {
     console.warn(
       "[live-review-claim] abandon failed:",
@@ -306,9 +325,26 @@ export async function getPreviousLiveReviewScreenshots(input: {
           ),
         ),
       );
-    const latest = rows
-      .map(mapRow)
-      .sort((a, b) => (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0))[0];
+    const versionIds = [...new Set(rows.map((raw) => raw.versionId))];
+    const versionRows =
+      versionIds.length === 0
+        ? []
+        : await db
+            .select({
+              id: engineVersions.id,
+              versionNumber: engineVersions.versionNumber,
+            })
+            .from(engineVersions)
+            .where(inArray(engineVersions.id, versionIds));
+    const versionNumberById = new Map(
+      versionRows.map((version) => [version.id, version.versionNumber]),
+    );
+    const latest = pickPreviousLiveReviewRun(
+      rows.map((raw) => ({
+        ...mapRow(raw),
+        versionNumber: versionNumberById.get(raw.versionId) ?? null,
+      })),
+    );
     return {
       desktopUrl: latest?.desktopUrl ?? null,
       mobileUrl: latest?.mobileUrl ?? null,
@@ -329,14 +365,26 @@ export async function deleteLiveReviewScreenshotUrls(
   await Promise.all(targets.map((target) => deleteBlob(target).catch(() => false)));
 }
 
-async function deleteRunBlobs(row: LiveReviewRunRow): Promise<void> {
+function isRequiredBlobDeleteTarget(target: string): boolean {
+  return target.includes(".blob.vercel-storage.com");
+}
+
+async function deleteRunBlobs(row: LiveReviewRunRow): Promise<boolean> {
   const targets = [
-    row.desktopUrl,
-    row.mobileUrl,
-    row.desktopBlobPath,
-    row.mobileBlobPath,
-  ].filter((value): value is string => Boolean(value));
-  await Promise.all(targets.map((target) => deleteBlob(target).catch(() => false)));
+    ...new Set(
+      [row.desktopUrl, row.mobileUrl, row.desktopBlobPath, row.mobileBlobPath].filter(
+        (value): value is string => Boolean(value),
+      ),
+    ),
+  ];
+  if (targets.length === 0) return true;
+  const required = targets.filter(isRequiredBlobDeleteTarget);
+  const optional = targets.filter((target) => !isRequiredBlobDeleteTarget(target));
+  const requiredResults = await Promise.all(
+    required.map((target) => deleteBlob(target).catch(() => false)),
+  );
+  await Promise.all(optional.map((target) => deleteBlob(target).catch(() => false)));
+  return requiredResults.every(Boolean);
 }
 
 export async function deletePreviousLiveReviewBlobs(input: {
@@ -361,7 +409,8 @@ export async function deletePreviousLiveReviewBlobs(input: {
     let deleted = 0;
     for (const raw of rows) {
       const row = mapRow(raw);
-      await deleteRunBlobs(row);
+      const removed = await deleteRunBlobs(row);
+      if (!removed) continue;
       await db
         .update(liveReviewRuns)
         .set({
@@ -392,12 +441,15 @@ export async function purgeExpiredLiveReviewBlobs(
       .select()
       .from(liveReviewRuns)
       .where(lt(liveReviewRuns.expiresAt, now));
+    let deleted = 0;
     for (const raw of rows) {
-      await deleteRunBlobs(mapRow(raw));
+      const row = mapRow(raw);
+      const removed = await deleteRunBlobs(row);
+      if (!removed) continue;
+      await db.delete(liveReviewRuns).where(eq(liveReviewRuns.id, row.id));
+      deleted += 1;
     }
-    if (rows.length === 0) return 0;
-    await db.delete(liveReviewRuns).where(lt(liveReviewRuns.expiresAt, now));
-    return rows.length;
+    return deleted;
   } catch (error) {
     console.warn(
       "[live-review-claim] ttl purge failed:",

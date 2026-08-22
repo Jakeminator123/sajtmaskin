@@ -44,6 +44,9 @@ swap_size_mb = 2048
   XDG_DATA_HOME = "/data/package-caches/xdg-data"
   XDG_CACHE_HOME = "/data/package-caches/xdg-cache"
   PREVIEW_HOST_RUNTIME_READY_MAX_MS = "600000"
+  # After next dev is spawned: fail splash if the port never accepts HTTP.
+  # The 600s ceiling still covers install + a slow first compile that does listen.
+  PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS = "90000"
   # Fast Edit Lane Fas 4: proxy Next dev HMR WebSocket to the runtime (true hot
   # reload, no iframe refresh). Reversible: set to "false" (or remove) + redeploy
   # to fall back to the no-op HMR stub. Default behaviour when unset is "off".

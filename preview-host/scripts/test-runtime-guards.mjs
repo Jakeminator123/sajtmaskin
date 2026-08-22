@@ -25,6 +25,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -791,6 +792,42 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
       delayedReady === true && hits >= 3,
     );
   }
+
+  // Persistent fetch failure (Next never listened) must not inherit the full
+  // readiness deadline — prod sat 10 minutes on "Startar preview" (2026-08-22).
+  const previousConnectMax = process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS;
+  process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = "60000";
+  process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS = "3000";
+  let connectRejected = false;
+  let connectMessage = "";
+  const connectStartedAt = Date.now();
+  try {
+    await waitForReady("http://127.0.0.1:1/");
+  } catch (err) {
+    connectRejected = true;
+    connectMessage = err instanceof Error ? err.message : String(err);
+  } finally {
+    if (previousConnectMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS = previousConnectMax;
+    }
+    if (previousReadyMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = previousReadyMax;
+    }
+  }
+  const connectElapsedMs = Date.now() - connectStartedAt;
+  check("waitForReady rejects a port that never accepts HTTP", connectRejected === true);
+  check(
+    "connect-fail rejection names the never-accepted-HTTP condition",
+    /never accepted HTTP/i.test(connectMessage),
+  );
+  check(
+    "connect-fail rejection uses its OWN window, not the readiness deadline",
+    connectElapsedMs >= 2500 && connectElapsedMs < 20_000,
+  );
 }
 
 // 12. PM-safe dependency postcondition: prefer the package manager's own view,
@@ -2097,6 +2134,99 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   } finally {
     setBootRunnerForTesting(null);
   }
+}
+
+{
+  const { waitForReady } = runtime.__testing;
+  const previousConnectMax = process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS;
+  const previousReadyMax = process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS;
+  process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = "20000";
+  process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS = "3000";
+  const server = createServer((socket) => {
+    void socket;
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = server.address().port;
+  const startedAt = Date.now();
+  let hungRejected = false;
+  try {
+    await waitForReady(`http://127.0.0.1:${port}/`);
+  } catch {
+    hungRejected = true;
+  } finally {
+    server.close();
+    if (previousConnectMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_CONNECT_MAX_MS = previousConnectMax;
+    }
+    if (previousReadyMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = previousReadyMax;
+    }
+  }
+  const elapsedMs = Date.now() - startedAt;
+  check("waitForReady fails a TCP-accept hang within the connect window", hungRejected === true);
+  check(
+    "TCP-accept hang does not wait out a 90s per-fetch abort",
+    elapsedMs >= 2500 && elapsedMs < 12_000,
+  );
+}
+
+{
+  const { clearStaleNextDevLock, setRuntimeStateForTesting, clearRuntimeStateForTesting } =
+    runtime.__testing;
+  const lockWs = join(dataDir, "lock-ws");
+  mkdirSync(join(lockWs, ".next", "dev"), { recursive: true });
+  const liveLock = join(lockWs, ".next", "dev", "lock");
+  writeFileSync(liveLock, String(process.pid));
+  clearStaleNextDevLock(lockWs);
+  check("clearStaleNextDevLock keeps a lock whose PID is still alive", existsSync(liveLock));
+
+  writeFileSync(liveLock, "99999999");
+  clearStaleNextDevLock(lockWs);
+  check("clearStaleNextDevLock removes a lock whose PID is dead", existsSync(liveLock) === false);
+
+  writeFileSync(liveLock, "1");
+  const liveSession = "session-lock-live";
+  setRuntimeStateForTesting({
+    sessionId: liveSession,
+    chatId: "chat-lock-live",
+    running: true,
+    workspaceDir: lockWs,
+    runtimePort: 4104,
+  });
+  clearStaleNextDevLock(lockWs);
+  check(
+    "clearStaleNextDevLock skips when a tracked child still owns the workspace",
+    existsSync(liveLock),
+  );
+  clearRuntimeStateForTesting("chat-lock-live", liveSession);
+  rmSync(lockWs, { recursive: true, force: true });
+}
+
+{
+  const { stopTrackedRuntime, setRuntimeStateForTesting, clearRuntimeStateForTesting } =
+    runtime.__testing;
+  const boom = ["next hung compile"];
+  Object.defineProperty(boom, "slice", {
+    value() {
+      throw new Error("flush boom");
+    },
+  });
+  const stopSession = "session-flush-boom";
+  setRuntimeStateForTesting({
+    sessionId: stopSession,
+    chatId: "chat-flush-boom",
+    running: true,
+    runtimePort: 4105,
+    previewSessionId: "preview-flush-boom",
+    recentOutput: boom,
+  });
+  const stopped = await stopTrackedRuntime(stopSession, "preview-flush-boom");
+  check("stopTrackedRuntime still stops when flush throws", stopped === true);
+  clearRuntimeStateForTesting("chat-flush-boom", stopSession);
 }
 
 rmSync(dataDir, { recursive: true, force: true });

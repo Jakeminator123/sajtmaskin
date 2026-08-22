@@ -43,3 +43,22 @@ export function requestedGrantHasLiveReview(requested: unknown): boolean {
   if (!Array.isArray(requested)) return false;
   return requested.some((entry) => isOpenClawPowerId(entry) && entry === "live_review");
 }
+
+/**
+ * OpenClaw chat may attach the [LIVE-REVIEW] info block from the persisted
+ * grant — never from a forged request-body powers list. Review-intent and
+ * debug still attach findings regardless of the critic tick.
+ */
+export function shouldAttachOpenClawLiveReviewContext(input: {
+  routingIntent: string;
+  debug: boolean;
+  editEnabled: boolean;
+  grant: LiveReviewGrantRecord | null | undefined;
+}): boolean {
+  if (input.routingIntent === "review" || input.debug) return true;
+  return resolveLiveReviewAccess({
+    flagEnabled: true,
+    editEnabled: input.editEnabled,
+    grant: input.grant,
+  }).allow;
+}
