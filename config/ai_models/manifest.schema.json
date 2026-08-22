@@ -276,6 +276,8 @@
               "name": { "type": "string" },
               "envVars": { "type": "array", "items": { "type": "string" } },
               "matchPatterns": { "type": "array", "items": { "type": "string" } },
+              "requiresCapabilities": { "type": "array", "items": { "type": "string" } },
+              "requiresDossierCapabilities": { "type": "array", "items": { "type": "string" } },
               "status": { "type": "string", "enum": ["chosen", "optional"] },
               "reason": { "type": "string" }
             }

@@ -18,6 +18,8 @@ import { getLatestEngineVersionErrorLogForCategory } from "@/lib/db/services/ver
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import { getStoredProjectEnvVarMap } from "@/lib/projects/project-env-vars";
 import {
+  alignParkedDatabaseProviders,
+  alignTier3BuildSpecWithDatabaseSelection,
   deriveTier3BuildSpec,
   deriveTier3BuildSpecForDossierIds,
   deriveTier3BuildSpecForProviderKeys,
@@ -353,21 +355,35 @@ export async function checkTier3ReadinessForVersion(params: {
     pending: pendingDossiers,
     preserveDossierIds: presentDossierIds,
   });
-  const spec = await deriveTier3BuildSpecForVersion(
+  const rawSpec = await deriveTier3BuildSpecForVersion(
     params.versionId,
     selectedDossiers,
     { preloadedFiles: versionFiles ?? [] },
   );
-  if (!spec) {
+  if (!rawSpec) {
     return { ok: false, reason: "version_files_unavailable" };
   }
+  const databaseAlignmentContext = {
+    selectedCapabilities: selectedDossiers.map(
+      (selected) => selected.entry.capability,
+    ),
+    selectedDossierIds: selectedDossiers.map((selected) => selected.entry.id),
+  };
+  const spec = alignTier3BuildSpecWithDatabaseSelection(
+    rawSpec,
+    databaseAlignmentContext,
+  );
   const normalizedPendingApproved = dedupeApprovedProviderKeys(
     params.pendingApprovedProviderKeys ?? [],
   );
+  const alignedPendingApproved = alignParkedDatabaseProviders(
+    normalizedPendingApproved,
+    databaseAlignmentContext,
+  ).providers;
   const pendingApprovalSpec =
-    normalizedPendingApproved.length > 0
+    alignedPendingApproved.length > 0
       ? promotePendingProviderBuildKeys(
-          deriveTier3BuildSpecForProviderKeys(normalizedPendingApproved),
+          deriveTier3BuildSpecForProviderKeys(alignedPendingApproved),
         )
       : { requirements: [] };
   const pendingDossierSpec = deriveTier3BuildSpecForDossierIds(

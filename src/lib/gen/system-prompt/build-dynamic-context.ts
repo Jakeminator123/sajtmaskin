@@ -311,6 +311,9 @@ export function buildDynamicContext(options: DynamicContextOptions): BuildDynami
       preGenerationContracts,
       tier3BuildSpec,
       approvedProviders: tier3ApprovedProviders,
+      selectedDossierIds: options.dossierSelection?.selected.map(
+        (selected) => selected.entry.id,
+      ),
     }),
   );
   // F3-gated: pre-generation contracts (integrations/env/placeholder policy)

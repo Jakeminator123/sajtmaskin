@@ -189,6 +189,10 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(contractConfig.defaults.fallbackAuthProvider).toBeTruthy();
     expect(contractConfig.defaults.fallbackPaymentProvider).toBeTruthy();
     expect(contractConfig.providerRules.length).toBeGreaterThan(5);
+    expect(
+      contractConfig.providerRules.find((rule) => rule.provider === "postgres-drizzle")
+        ?.requiresDossierCapabilities,
+    ).toEqual(["database"]);
   });
 
   it("generated-site integration placeholders files exist and parse (harmless + tier-3 stub)", () => {

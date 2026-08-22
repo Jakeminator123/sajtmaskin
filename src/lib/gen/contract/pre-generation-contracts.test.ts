@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import { inferPreGenerationContracts } from "./pre-generation-contracts";
-import type { InferredCapabilities } from "../capability-inference";
+import { inferCapabilities, type InferredCapabilities } from "../capability-inference";
 
 const baseCaps = (over: Partial<InferredCapabilities> = {}): InferredCapabilities => ({
   needsMotion: false,
@@ -47,6 +48,96 @@ describe("inferPreGenerationContracts — preview-first defaults", () => {
     expect(ctx.unresolvedDecisions.some((d) => d.kind === "database")).toBe(false);
     expect(ctx.contracts.databaseProvider).toBe("SQLite");
     expect(ctx.contracts.integrations.some((i) => i.provider === "SQLite")).toBe(true);
+  });
+
+  it("contracts an explicit Mongo ask as the active Postgres/Drizzle database identity", () => {
+    const prompt = "Save products in MongoDB";
+    const capabilities = inferCapabilities(prompt);
+    const requestedDossierCapabilities = detectFollowUpCapabilities(prompt, {
+      mode: "init",
+    }).capabilityIds;
+    expect(capabilities.needsDatabase).toBe(false);
+    expect(requestedDossierCapabilities).toContain("database");
+
+    const ctx = inferPreGenerationContracts({
+      prompt,
+      buildIntent: "website",
+      capabilities,
+      requestedDossierCapabilities,
+    });
+
+    expect(ctx.contracts.databaseProvider).toBe("postgres-drizzle");
+    expect(ctx.contracts.integrations.map((integration) => integration.provider)).toEqual([
+      "postgres-drizzle",
+    ]);
+    expect(ctx.contracts.integrations.some((integration) => integration.provider === "SQLite"))
+      .toBe(false);
+    expect(ctx.contracts.envVars.map((envVar) => envVar.key)).toContain("DATABASE_URL");
+    expect(ctx.contracts.envVars.map((envVar) => envVar.key)).not.toContain("MONGODB_URI");
+  });
+
+  it("does not contract Mongoose as Postgres without the dossier database signal", () => {
+    const prompt = "Use Mongoose with a database";
+    const capabilities = inferCapabilities(prompt);
+    const requestedDossierCapabilities = detectFollowUpCapabilities(prompt, {
+      mode: "init",
+    }).capabilityIds;
+    expect(capabilities.needsDatabase).toBe(true);
+    expect(requestedDossierCapabilities).not.toContain("database");
+
+    const ctx = inferPreGenerationContracts({
+      prompt,
+      buildIntent: "website",
+      capabilities,
+      requestedDossierCapabilities,
+    });
+
+    expect(ctx.contracts.databaseProvider).not.toBe("postgres-drizzle");
+    expect(ctx.contracts.integrations.map((integration) => integration.provider)).not.toContain(
+      "postgres-drizzle",
+    );
+    expect(ctx.contracts.envVars.map((envVar) => envVar.key)).not.toContain("DATABASE_URL");
+  });
+
+  it("keeps an explicit SQLite choice when MongoDB is negated", () => {
+    const prompt = "Use SQLite for the database, not MongoDB";
+    const capabilities = inferCapabilities(prompt);
+    const requestedDossierCapabilities = detectFollowUpCapabilities(prompt, {
+      mode: "init",
+    }).capabilityIds;
+    expect(requestedDossierCapabilities).toContain("database");
+
+    const ctx = inferPreGenerationContracts({
+      prompt,
+      buildIntent: "website",
+      capabilities,
+      requestedDossierCapabilities,
+    });
+
+    expect(ctx.contracts.databaseProvider).toBe("SQLite");
+    expect(ctx.contracts.integrations.map((integration) => integration.provider)).toEqual([
+      "SQLite",
+    ]);
+    expect(ctx.contracts.integrations.map((integration) => integration.provider)).not.toContain(
+      "postgres-drizzle",
+    );
+  });
+
+  it("does not activate Postgres for a fully negated MongoDB mention", () => {
+    const prompt = "avoid MongoDB";
+    const ctx = inferPreGenerationContracts({
+      prompt,
+      buildIntent: "website",
+      capabilities: inferCapabilities(prompt),
+      // Exercise the provider matcher defensively even if an upstream caller
+      // carries a broad/stale database capability into this contract pass.
+      requestedDossierCapabilities: ["database"],
+    });
+
+    expect(ctx.contracts.databaseProvider).not.toBe("postgres-drizzle");
+    expect(ctx.contracts.integrations.map((integration) => integration.provider)).not.toContain(
+      "postgres-drizzle",
+    );
   });
 
   it("marks inferred Stripe env as non-blocking (no env modal) when checkout is mentioned", () => {

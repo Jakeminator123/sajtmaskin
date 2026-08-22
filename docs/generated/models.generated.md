@@ -5,7 +5,7 @@
 > Source: `src/**/*.{ts,tsx}#resolvePhaseModel-literals`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:eb6e1a974771bd41 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:0279f898e9904636 -->
 <!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:d86cef922e896311 -->
 <!-- source-fingerprint: src/**/*.{ts,tsx}#resolvePhaseModel-literals sha256:df1d0e127dc60443 -->
 

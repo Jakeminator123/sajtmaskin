@@ -54,6 +54,17 @@ const clerkDetection = [
   },
 ];
 
+const mongoDetection = [
+  {
+    key: "mongodb",
+    provider: "mongodb",
+    name: "MongoDB",
+    intent: "database",
+    envVars: ["MONGODB_URI"],
+    envEnforcement: { MONGODB_URI: "warn-only" },
+  },
+];
+
 beforeEach(() => {
   vi.clearAllMocks();
   getVersionFiles.mockResolvedValue([
@@ -141,6 +152,65 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       pendingApprovedProviderKeys: ["posthog"],
     });
     expect(result.ok).toBe(true);
+  });
+
+  it("aligns a pending Mongo approval with the selected database dossier", async () => {
+    detectIntegrationsFromVersionFiles.mockReturnValue([]);
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: {
+        briefSummary: { requestedCapabilities: ["database"] },
+      },
+      projectId: "proj_1",
+      pendingApprovedProviderKeys: ["mongodb"],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.spec.requirements.map((requirement) => requirement.key)).toEqual([
+        "postgres-drizzle",
+      ]);
+      expect(result.spec.requirements.map((requirement) => requirement.provider)).not.toContain(
+        "mongodb",
+      );
+    }
+  });
+
+  it("removes file-derived Mongo when the selected database dossier contributes Postgres", async () => {
+    detectIntegrationsFromVersionFiles.mockReturnValue(mongoDetection);
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: {
+        briefSummary: { requestedCapabilities: ["database"] },
+      },
+      projectId: "proj_1",
+      pendingApprovedProviderKeys: ["mongodb"],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.spec.requirements.map((requirement) => requirement.key)).toEqual([
+        "postgres-drizzle",
+      ]);
+      expect(result.spec.requirements.map((requirement) => requirement.provider)).not.toContain(
+        "mongodb",
+      );
+    }
+  });
+
+  it("keeps a pending Mongo approval generic when no database selection exists", async () => {
+    detectIntegrationsFromVersionFiles.mockReturnValue([]);
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+      pendingApprovedProviderKeys: ["mongodb"],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.spec.requirements.map((requirement) => requirement.key)).toEqual(["mongodb"]);
+    }
   });
 
   it("passes when the required key has a real stored value", async () => {

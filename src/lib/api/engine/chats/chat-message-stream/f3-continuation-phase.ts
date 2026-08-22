@@ -6,8 +6,14 @@
  */
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import { resolveCapabilitiesPresentInVersion } from "@/lib/gen/dossiers/version-presence";
-import { readF3ApprovedFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import {
+  resolveCapabilitiesPresentInVersion,
+  resolveDossierIdsPresentInVersion,
+} from "@/lib/gen/dossiers/version-presence";
+import {
+  mergeF3ApprovedIntoSnapshot,
+  readF3ApprovedFromSnapshot,
+} from "@/lib/gen/orchestration-snapshot";
 import type { CodeFile } from "@/lib/gen/parser";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "@/lib/gen/prompt-wrapper-contract";
 import {
@@ -21,6 +27,7 @@ import {
 } from "@/lib/gen/stream/f3-continuation";
 import { resolveChatPreferredVersionId } from "@/lib/gen/version-manager";
 import {
+  alignParkedDatabaseProviders,
   approvedProvidersShipConfigNotice,
   mapProviderKeysToDossierCapabilities,
 } from "@/lib/integrations/tier3-build-spec";
@@ -423,8 +430,20 @@ export async function prepareF3ApprovalBuildRound(params: {
       engineChat.orchestration_snapshot as Record<string, unknown> | null,
     );
     const markerProviders = f3ContinuationDecision.markerSuggestedProviders;
-    f3EffectiveApprovedProviders =
+    const rawEffectiveApprovedProviders =
       markerProviders.length > 0 ? markerProviders : persistedApproved.providers;
+    const previousFilePaths = previousFiles.map((file) => file.path);
+    const providerAlignment = alignParkedDatabaseProviders(
+      rawEffectiveApprovedProviders,
+      {
+        selectedCapabilities: [
+          ...persistedApproved.capabilities,
+          ...resolveCapabilitiesPresentInVersion(previousFilePaths),
+        ],
+        selectedDossierIds: resolveDossierIdsPresentInVersion(previousFilePaths),
+      },
+    );
+    f3EffectiveApprovedProviders = providerAlignment.providers;
     try {
       f3ApprovedDossierCapabilities = mapProviderKeysToDossierCapabilities(
         f3EffectiveApprovedProviders,
@@ -487,13 +506,26 @@ export async function prepareF3ApprovalBuildRound(params: {
 
     // Persist the durable approval record (best-effort — a write failure
     // only means the NEXT round falls back to marker/file evidence).
-    await chatRepo
-      .appendF3ApprovedToSnapshot(
-        engineChat.id,
-        f3ApprovedDossierCapabilities,
-        f3EffectiveApprovedProviders,
-      )
-      .catch(() => null);
+    const approvalPersist =
+      providerAlignment.supersededProviders.length > 0
+        ? chatRepo.appendF3ApprovedToSnapshot(
+            engineChat.id,
+            f3ApprovedDossierCapabilities,
+            f3EffectiveApprovedProviders,
+            providerAlignment.supersededProviders,
+          )
+        : chatRepo.appendF3ApprovedToSnapshot(
+            engineChat.id,
+            f3ApprovedDossierCapabilities,
+            f3EffectiveApprovedProviders,
+          );
+    await approvalPersist.catch(() => null);
+    engineChat.orchestration_snapshot = mergeF3ApprovedIntoSnapshot(
+      engineChat.orchestration_snapshot as Record<string, unknown> | null,
+      f3ApprovedDossierCapabilities,
+      f3EffectiveApprovedProviders,
+      providerAlignment.supersededProviders,
+    );
 
     devLogAppend("in-progress", {
       type: "f3.approval_build_round",

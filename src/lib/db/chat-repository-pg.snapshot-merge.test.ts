@@ -34,6 +34,7 @@ vi.mock("./promote-guard", () => ({
 }));
 
 import {
+  appendF3ApprovedToSnapshot,
   recordKnownBrokenImageReplacements,
   updateChatOrchestrationSnapshot,
 } from "./chat-repository-pg";
@@ -121,5 +122,22 @@ describe("recordKnownBrokenImageReplacements — SQL-side hard ceiling on the me
     });
     expect(ok).toBe(false);
     expect(updateSet.value).toBeUndefined();
+  });
+});
+
+describe("appendF3ApprovedToSnapshot — case-insensitive provider supersession (SM-030)", () => {
+  it("renders a lowercase comparison so legacy MongoDB casing is removed atomically", async () => {
+    const ok = await appendF3ApprovedToSnapshot(
+      "chat_1",
+      ["database"],
+      ["postgres-drizzle"],
+      ["mongodb", "mongodb-atlas"],
+    );
+    expect(ok).toBe(true);
+
+    const { sql, params } = renderSetExpression();
+    expect(sql).toContain("lower(value)");
+    expect(sql).toContain("lower(dropped)");
+    expect(params).toContain(JSON.stringify(["mongodb", "mongodb-atlas"]));
   });
 });

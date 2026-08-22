@@ -120,8 +120,8 @@ export async function appendF3ApprovedToSnapshot(
         coalesce(${engineChats.orchestrationSnapshot}->${key}, '[]'::jsonb)
         || ${incomingJson}::jsonb
       ) AS entries(value)
-      WHERE value NOT IN (
-        SELECT dropped FROM jsonb_array_elements_text(
+      WHERE lower(value) NOT IN (
+        SELECT lower(dropped) FROM jsonb_array_elements_text(
           ${dropJson ?? "[]"}::jsonb
         ) AS superseded(dropped)
       ))`;

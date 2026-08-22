@@ -154,6 +154,84 @@ describe("renderTier3IntegrationBlock", () => {
     expect(lines.join("\n")).toContain("STRIPE_SECRET_KEY");
   });
 
+  it("does not union parked Mongo with an active Postgres/Drizzle dossier", () => {
+    const lines = renderTier3IntegrationBlock({
+      buildSpec: f3BuildSpec,
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "persisted",
+          databaseProvider: "Postgres / Drizzle",
+          integrations: [],
+          envVars: [],
+        },
+        unresolvedDecisions: [],
+      },
+      tier3BuildSpec: {
+        requirements: [
+          {
+            key: "mongodb",
+            name: "MongoDB",
+            provider: "mongodb",
+            requiredRealEnvKeys: [],
+            placeholderOkEnvKeys: [],
+            featureRuntimeEnvKeys: [],
+            warnOnlyEnvKeys: ["MONGODB_URI"],
+            buildInstructions: ["Use MongoDB."],
+            setupGuide: "MongoDB",
+            hasConfigNoticeComponent: false,
+          },
+          {
+            key: "postgres-drizzle",
+            name: "Databas — Postgres (standard)",
+            provider: "postgres",
+            requiredRealEnvKeys: [],
+            placeholderOkEnvKeys: [],
+            featureRuntimeEnvKeys: ["DATABASE_URL"],
+            warnOnlyEnvKeys: [],
+            buildInstructions: ["Use postgres-drizzle."],
+            setupGuide: "Postgres",
+            hasConfigNoticeComponent: true,
+          },
+        ],
+      },
+      approvedProviders: ["mongodb"],
+    });
+
+    const rendered = lines.join("\n");
+    expect(rendered).toContain("postgres-drizzle");
+    expect(rendered).not.toContain("MongoDB");
+    expect(rendered.match(/^### /gm)).toHaveLength(1);
+  });
+
+  it("keeps a file-derived Mongo plan when no database capability/dossier is selected", () => {
+    const lines = renderTier3IntegrationBlock({
+      buildSpec: f3BuildSpec,
+      preGenerationContracts: {
+        contracts: { dataMode: "none", integrations: [], envVars: [] },
+        unresolvedDecisions: [],
+      },
+      tier3BuildSpec: {
+        requirements: [
+          {
+            key: "mongodb",
+            name: "MongoDB",
+            provider: "mongodb",
+            requiredRealEnvKeys: [],
+            placeholderOkEnvKeys: [],
+            featureRuntimeEnvKeys: [],
+            warnOnlyEnvKeys: ["MONGODB_URI"],
+            buildInstructions: ["Use MongoDB."],
+            setupGuide: "MongoDB",
+            hasConfigNoticeComponent: false,
+          },
+        ],
+      },
+      approvedProviders: [],
+    });
+
+    expect(lines.join("\n")).toContain("### MongoDB (`mongodb`)");
+  });
+
   it("builds a plan from approvals when the parent has no integration files", () => {
     const lines = renderTier3IntegrationBlock({
       buildSpec: f3BuildSpec,

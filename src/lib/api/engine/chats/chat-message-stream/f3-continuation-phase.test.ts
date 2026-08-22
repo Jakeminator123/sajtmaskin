@@ -24,10 +24,15 @@ vi.mock("@/lib/utils/debug", () => ({ debugLog: vi.fn() }));
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import { F3_CONTINUATION_DESIGN_ROUND_NOTICE } from "@/lib/gen/stream/f3-continuation";
+import {
+  buildFollowUpContract,
+  mergePersistedOrchestrationSnapshots,
+} from "@/lib/gen/orchestration-snapshot";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import type { ParsedChatRequestMeta } from "../parse-chat-request-meta";
 import {
   consumeF3MarkerPhaseB,
+  prepareF3ApprovalBuildRound,
   type F3ContinuationDecision,
 } from "./f3-continuation-phase";
 
@@ -68,6 +73,7 @@ beforeEach(() => {
   vi.mocked(chatRepo.addMessage).mockResolvedValue(
     undefined as unknown as Awaited<ReturnType<typeof chatRepo.addMessage>>,
   );
+  vi.mocked(chatRepo.appendF3ApprovedToSnapshot).mockResolvedValue(true);
 });
 
 describe("consumeF3MarkerPhaseB — unrelated ('Annat') reply (M#li5)", () => {
@@ -184,5 +190,62 @@ describe("consumeF3MarkerPhaseB — no pending continuation", () => {
     expect(result).toBe(false);
     expect(chatRepo.consumeF3ContinuationMarker).not.toHaveBeenCalled();
     expect(chatRepo.addMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("prepareF3ApprovalBuildRound — database provider alignment (SM-030)", () => {
+  it("persists and prompts only postgres-drizzle for an approved Mongo marker on the database capability", async () => {
+    const decision = {
+      ...makeDecision("approve"),
+      markerSuggestedProviders: ["mongodb"],
+    };
+    const engineChat = {
+      ...makeEngineChat(),
+      orchestration_snapshot: {
+        f3ApprovedCapabilities: ["database"],
+        f3ApprovedProviders: ["MongoDB", "MongoDB-Atlas"],
+      },
+    } as ChatWithMessages;
+
+    const result = await prepareF3ApprovalBuildRound({
+      f3ApprovalBuildRound: true,
+      f3ContinuationDecision: decision,
+      engineChat,
+      chatId: CHAT_ID,
+      previousFiles: [],
+      optimizedMessage: "Godkänn",
+      promptStartedAt: Date.now(),
+      req: new Request("http://localhost/stream"),
+      attachSessionCookie: (response) => response,
+    });
+
+    expect(result).not.toBeInstanceOf(Response);
+    if (!(result instanceof Response)) {
+      expect(result.f3EffectiveApprovedProviders).toEqual(["postgres-drizzle"]);
+      expect(result.optimizedMessage).toContain("Approved integration providers: postgres-drizzle.");
+      expect(result.optimizedMessage).not.toContain("Approved integration providers: mongodb.");
+    }
+    expect(chatRepo.appendF3ApprovedToSnapshot).toHaveBeenCalledWith(
+      CHAT_ID,
+      ["database"],
+      ["postgres-drizzle"],
+      expect.arrayContaining(["mongodb", "mongodb-atlas"]),
+    );
+    expect(engineChat.orchestration_snapshot).toMatchObject({
+      f3ApprovedCapabilities: ["database"],
+      f3ApprovedProviders: ["postgres-drizzle"],
+    });
+    const finalSnapshotInput = buildFollowUpContract({
+      snapshot: engineChat.orchestration_snapshot as Record<string, unknown>,
+    });
+    expect(finalSnapshotInput.f3ApprovedProviders).toEqual(["postgres-drizzle"]);
+    const finalPersistedSnapshot = mergePersistedOrchestrationSnapshots(
+      engineChat.orchestration_snapshot as Record<string, unknown>,
+      {
+        f3ApprovedCapabilities: finalSnapshotInput.f3ApprovedCapabilities,
+        f3ApprovedProviders: finalSnapshotInput.f3ApprovedProviders,
+      },
+    );
+    expect(finalPersistedSnapshot.f3ApprovedProviders).toEqual(["postgres-drizzle"]);
   });
 });

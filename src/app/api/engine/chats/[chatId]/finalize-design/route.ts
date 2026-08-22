@@ -40,7 +40,10 @@ import {
 import {
   checkTier3ReadinessForVersion,
 } from "@/lib/integrations/tier3-readiness-gate";
-import { hasRequiredRealBuildKeys } from "@/lib/integrations/tier3-build-spec";
+import {
+  alignParkedDatabaseProviders,
+  hasRequiredRealBuildKeys,
+} from "@/lib/integrations/tier3-build-spec";
 import { logTier3MissingEnvBlockedDetached } from "@/lib/integrations/log-tier3-missing-env";
 
 export const runtime = "nodejs";
@@ -239,12 +242,24 @@ export async function POST(
           .map((sibling) => sibling.id)
           .filter((id) => !approvedIds.has(id)),
       );
+      const providerAlignment = alignParkedDatabaseProviders(
+        pendingDossierIds,
+        {
+          selectedCapabilities: pendingCapabilities,
+          selectedDossierIds: pendingDossierIds,
+        },
+      );
       try {
         const persisted = await appendF3ApprovedToSnapshot(
           chat.id,
           pendingCapabilities,
-          pendingDossierIds,
-          supersededDossierIds,
+          providerAlignment.providers,
+          Array.from(
+            new Set([
+              ...supersededDossierIds,
+              ...providerAlignment.supersededProviders,
+            ]),
+          ),
         );
         if (!persisted) throw new Error("approval snapshot was not updated");
       } catch (error) {

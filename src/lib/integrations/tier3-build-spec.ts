@@ -202,6 +202,92 @@ function findExactDossierInput(raw: string): DossierEntry | undefined {
  */
 const FORCED_GENERIC_PROVIDER_KEYS = new Set(["supabase", "openai"]);
 
+const ACTIVE_DATABASE_DOSSIER_ID = "postgres-drizzle";
+const PARKED_MONGO_PROVIDER_KEYS = ["mongodb", "mongodb-atlas"] as const;
+
+export interface DatabaseProviderAlignmentContext {
+  selectedCapabilities?: readonly string[];
+  selectedDossierIds?: readonly string[];
+}
+
+function databaseProviderSelectionIsActive(
+  context: DatabaseProviderAlignmentContext,
+): boolean {
+  return (
+    (context.selectedCapabilities ?? []).some(
+      (capability) => capability.trim().toLowerCase() === "database",
+    ) ||
+    (context.selectedDossierIds ?? []).some(
+      (dossierId) => dossierId.trim().toLowerCase() === ACTIVE_DATABASE_DOSSIER_ID,
+    )
+  );
+}
+
+function isParkedMongoIdentity(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return PARKED_MONGO_PROVIDER_KEYS.includes(
+    normalized as (typeof PARKED_MONGO_PROVIDER_KEYS)[number],
+  );
+}
+
+/**
+ * Align stale Mongo provider approvals with the sole active database dossier,
+ * but only when the database capability/dossier has already been selected.
+ *
+ * Mongo remains a valid dossierless registry provider outside that context;
+ * this helper therefore never performs a global registry rewrite. The
+ * superseded list is returned even when the incoming provider is already
+ * `postgres-drizzle`, so snapshot writers can remove parked Mongo identities
+ * left by an earlier approval.
+ */
+export function alignParkedDatabaseProviders(
+  providerKeys: readonly string[],
+  context: DatabaseProviderAlignmentContext,
+): { providers: string[]; supersededProviders: string[] } {
+  const databaseSelected = databaseProviderSelectionIsActive(context);
+  const seen = new Set<string>();
+  const providers: string[] = [];
+  for (const raw of providerKeys) {
+    if (typeof raw !== "string") continue;
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const provider =
+      databaseSelected && isParkedMongoIdentity(trimmed)
+        ? ACTIVE_DATABASE_DOSSIER_ID
+        : trimmed;
+    const dedupeKey = provider.toLowerCase();
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    providers.push(provider);
+  }
+  return {
+    providers,
+    supersededProviders: databaseSelected ? [...PARKED_MONGO_PROVIDER_KEYS] : [],
+  };
+}
+
+/**
+ * Remove stale file-derived Mongo requirements once the database capability
+ * has selected postgres-drizzle. This is deliberately a filter, not a global
+ * Mongo rewrite: the active Postgres requirement is supplied by the selected
+ * dossier/pending approval, while a dossierless Mongo spec remains untouched
+ * outside that context.
+ */
+export function alignTier3BuildSpecWithDatabaseSelection(
+  spec: Tier3BuildSpec,
+  context: DatabaseProviderAlignmentContext,
+): Tier3BuildSpec {
+  if (!databaseProviderSelectionIsActive(context)) return spec;
+  const requirements = spec.requirements.filter(
+    (requirement) =>
+      !isParkedMongoIdentity(requirement.key) &&
+      !isParkedMongoIdentity(requirement.provider),
+  );
+  return requirements.length === spec.requirements.length
+    ? spec
+    : { requirements };
+}
+
 /** Injection-decision variant of {@link resolveDossierProvider}: downgrades
  * forced-generic providers to "ambiguous" so no `status === "unique"` branch
  * in this module can inject a dossier for them. */

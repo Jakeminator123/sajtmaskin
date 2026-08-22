@@ -4,6 +4,7 @@ import {
   buildFollowUpContract,
   buildPersistedOrchestrationSnapshot,
   extractBriefSummaryFromSnapshot,
+  mergeF3ApprovedIntoSnapshot,
   mergePersistedOrchestrationSnapshots,
   prependOrchestrationContinuityToFollowUp,
   readF3ApprovedFromSnapshot,
@@ -375,6 +376,27 @@ describe("capability-signalnycklar överlever nyckelbudgeten (spår 01 steg 3)",
 
     const occurrences = Object.keys(out).filter((key) => key === "mutedCapabilities");
     expect(occurrences).toHaveLength(1);
+  });
+});
+
+describe("mergeF3ApprovedIntoSnapshot", () => {
+  it("unions approvals and removes parked Mongo providers case-insensitively", () => {
+    const out = mergeF3ApprovedIntoSnapshot(
+      {
+        f3ApprovedCapabilities: ["payments", "database"],
+        f3ApprovedProviders: ["stripe", "MongoDB", "MongoDB-Atlas"],
+        preserved: "value",
+      },
+      ["database"],
+      ["postgres-drizzle"],
+      ["mongodb", "mongodb-atlas"],
+    );
+
+    expect(out).toMatchObject({
+      f3ApprovedCapabilities: ["payments", "database"],
+      f3ApprovedProviders: ["stripe", "postgres-drizzle"],
+      preserved: "value",
+    });
   });
 });
 
