@@ -148,7 +148,7 @@
       "type": "array",
       "items": { "type": "string" },
       "maxItems": 6,
-      "description": "Ordered inspiration candidates: v0-mall Blob ids resolved against template-blob-manifest.json (written by the backoffice Scaffold Wizard / Lifecycle). Every id MUST exist in the Blob manifest. On init, runtime selects at most one candidate whose category denotes a complete site/app, sends its still image as style-only vision input, and may inject bounded frontend excerpts from the same Blob ZIP. Component/animation/layout/design-system and ambiguous AI categories are excluded."
+      "description": "Ordered inspiration candidates: v0-mall Blob ids resolved against template-blob-manifest.json (written by the backoffice Scaffold Wizard / Lifecycle). Every id MUST exist in the Blob manifest. On init and clear-redesign, runtime selects at most one candidate whose category denotes a complete site/app, sends its still image as style-only vision input, and may inject bounded frontend excerpts from the SHA-bound addenda registry. User flows never read the Blob ZIP. Component/animation/layout/design-system and ambiguous AI categories are excluded."
     },
     "default": {
       "type": "boolean",

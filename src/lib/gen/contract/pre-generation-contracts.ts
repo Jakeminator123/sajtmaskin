@@ -219,16 +219,12 @@ function applyDefaultCredentialsAuthWhenNeeded(
  * ingen blockerande fråga. LLM kan bygga UI mot Stripe test mode.
  */
 function applyDefaultStripePlaceholderWhenPaymentNeeded(
-  corpus: string,
   capabilities: InferredCapabilities,
   contracts: PlanContracts,
   integrations: PlanIntegrationContract[],
   envVars: PlanEnvVarContract[],
 ): void {
-  const needsPayment =
-    capabilities.needsPayments === true ||
-    /\b(payment|checkout|billing|subscription|betalning|kassa)\b/i.test(corpus);
-  if (!needsPayment || contracts.paymentProvider) {
+  if (!capabilities.needsPayments || contracts.paymentProvider) {
     return;
   }
   const stripeRule = findProviderRule(
@@ -335,7 +331,6 @@ export function inferPreGenerationContracts(params: {
 
   if (!suppressPayment) {
     applyDefaultStripePlaceholderWhenPaymentNeeded(
-      corpus,
       effectiveCapabilities,
       contracts,
       integrations,
