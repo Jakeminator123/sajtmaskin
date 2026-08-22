@@ -13,6 +13,52 @@ export function readLogPassId(meta: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+export type ErrorLogPassGroup<T extends ErrorLogRow> = {
+  passId: string;
+  logs: T[];
+};
+
+export type ErrorLogPassPartition<T extends ErrorLogRow> = {
+  latestPassId: string | null;
+  latestPassLogs: T[];
+  historicalPasses: ErrorLogPassGroup<T>[];
+  unscopedLogs: T[];
+};
+
+/**
+ * The error-log route returns rows newest first. Preserve that stable order
+ * while separating explicit passes from rows that have no pass identity. A
+ * passless row is never guessed into a neighboring pass.
+ */
+export function partitionErrorLogsByPass<T extends ErrorLogRow>(
+  logs: T[],
+): ErrorLogPassPartition<T> {
+  const passLogs = new Map<string, T[]>();
+  const unscopedLogs: T[] = [];
+
+  for (const log of logs) {
+    const passId = readLogPassId(log.meta);
+    if (passId === null) {
+      unscopedLogs.push(log);
+      continue;
+    }
+    const entries = passLogs.get(passId) ?? [];
+    entries.push(log);
+    passLogs.set(passId, entries);
+  }
+
+  const [latestPassId = null, ...historicalPassIds] = Array.from(passLogs.keys());
+  return {
+    latestPassId,
+    latestPassLogs: latestPassId === null ? [] : (passLogs.get(latestPassId) ?? []),
+    historicalPasses: historicalPassIds.map((passId) => ({
+      passId,
+      logs: passLogs.get(passId) ?? [],
+    })),
+    unscopedLogs,
+  };
+}
+
 function isPasslessLifecycleLog(log: ErrorLogRow): boolean {
   const cat = typeof log.category === "string" ? log.category : "";
   return cat.startsWith("quality-gate:") ||
@@ -54,7 +100,7 @@ export function buildErrorLogSummary(logs: ErrorLogRow[]) {
     byCategory[category] = (byCategory[category] ?? 0) + 1;
   }
 
-  const latestPassId = logs.map((log) => readLogPassId(log.meta)).find((id) => id) ?? null;
+  const { latestPassId } = partitionErrorLogsByPass(logs);
   const activeLogs = selectActiveErrorLogs(logs, latestPassId);
   const activeByLevel = { info: 0, warning: 0, error: 0 };
   for (const log of activeLogs) {
@@ -67,7 +113,6 @@ export function buildErrorLogSummary(logs: ErrorLogRow[]) {
 
   const latestRender =
     activeLogs.find((log) => log.category === "render-telemetry" || log.category === "preview") ??
-    logs.find((log) => log.category === "render-telemetry" || log.category === "preview") ??
     null;
   const latestRenderMeta = readPreviewDiagnosticMeta(latestRender?.meta);
 
@@ -80,15 +125,9 @@ export function buildErrorLogSummary(logs: ErrorLogRow[]) {
     activeByLevel,
     latestPreflight:
       activeLogs.find((log) => typeof log.category === "string" && log.category.startsWith("preflight:")) ??
-      logs.find((log) => typeof log.category === "string" && log.category.startsWith("preflight:")) ??
       null,
     latestQualityGate:
       activeLogs.find(
-        (log) =>
-          typeof log.category === "string" &&
-          (log.category === "preflight:quality-gate" || log.category.startsWith("quality-gate:")),
-      ) ??
-      logs.find(
         (log) =>
           typeof log.category === "string" &&
           (log.category === "preflight:quality-gate" || log.category.startsWith("quality-gate:")),

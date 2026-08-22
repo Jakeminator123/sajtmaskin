@@ -20,6 +20,7 @@ type VersionHistoryDialogsProps = {
   chatId: string;
   lifecycleStage: import("@/lib/db/engine-version-lifecycle").EngineVersionLifecycleStage | null;
   versionList: VersionSummary[];
+  versionLabelById: Map<string, string>;
   diagnosticsVersionId: string | null;
   setDiagnosticsVersionId: (id: string | null) => void;
   compareVersionId: string | null;
@@ -41,6 +42,7 @@ export function VersionHistoryDialogs({
   chatId,
   lifecycleStage,
   versionList,
+  versionLabelById,
   diagnosticsVersionId,
   setDiagnosticsVersionId,
   compareVersionId,
@@ -62,6 +64,9 @@ export function VersionHistoryDialogs({
       <VersionDiagnosticsDialog
         chatId={chatId}
         versionId={diagnosticsVersionId}
+        versionLabel={
+          diagnosticsVersionId ? (versionLabelById.get(diagnosticsVersionId) ?? null) : null
+        }
         open={Boolean(diagnosticsVersionId)}
         onOpenChange={(open) => {
           if (!open) setDiagnosticsVersionId(null);
