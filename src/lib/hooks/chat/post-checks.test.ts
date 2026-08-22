@@ -1490,6 +1490,102 @@ describe("runPostGenerationChecks", () => {
     );
   });
 
+  it("keeps install-only diagnostics for client autofix while sending no noncanonical server checks", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    const installOutput = `npm ERR! Could not resolve dependency @acme/widgets@2\n${"x".repeat(4500)}`;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: false,
+            checks: [
+              {
+                check: "install",
+                passed: false,
+                repairable: true,
+                failureKind: "code",
+                exitCode: 1,
+                output: installOutput,
+                errorCount: 3,
+                durationMs: 725,
+              },
+            ],
+            verifyLaneDurationMs: 725,
+            firstFailureCheck: "install",
+            jobStartedAt: "2026-08-22T10:00:00.000Z",
+            jobFinishedAt: "2026-08-22T10:00:00.725Z",
+          });
+        }
+        if (url.endsWith("/repair")) {
+          return jsonResponse({ repaired: false, deterministic: false });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const repairCall = fetchCalls.find((call) => call.url.endsWith("/repair"));
+    const repairBody = JSON.parse(String(repairCall?.init?.body)) as {
+      repairContext?: {
+        qualityGate?: Array<Record<string, unknown>>;
+        qualityGateMeta?: Record<string, unknown>;
+      };
+    };
+    expect(repairBody.repairContext?.qualityGate).toEqual([]);
+    expect(repairBody.repairContext?.qualityGateMeta).toEqual({
+      verifyLaneDurationMs: 725,
+      firstFailureCheck: "install",
+      jobStartedAt: "2026-08-22T10:00:00.000Z",
+      jobFinishedAt: "2026-08-22T10:00:00.725Z",
+    });
+
+    expect(onAutoFix).toHaveBeenCalledTimes(1);
+    const autoFixRepair = onAutoFix.mock.calls[0]?.[0]?.repair;
+    expect(autoFixRepair?.qualityGate).toHaveLength(1);
+    expect(autoFixRepair?.qualityGate?.[0]).toEqual({
+      check: "install",
+      exitCode: 1,
+      output: installOutput.slice(0, 4000),
+      errorCount: 3,
+      durationMs: 725,
+    });
+    expect(autoFixRepair?.qualityGateMeta).toEqual({
+      verifyLaneDurationMs: 725,
+      firstFailureCheck: "install",
+      jobStartedAt: "2026-08-22T10:00:00.000Z",
+      jobFinishedAt: "2026-08-22T10:00:00.725Z",
+    });
+  });
+
   it("includes verify-lane timing metadata in quality gate steps", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();
