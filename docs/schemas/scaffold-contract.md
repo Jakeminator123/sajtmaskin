@@ -313,8 +313,11 @@ Scaffolds may be enriched with curated reference data through:
 - `src/lib/gen/scaffolds/scaffold-research.generated.json`
 - `src/lib/gen/scaffolds/scaffold-research.ts`
 
-This metadata may improve search, matching, and upgrade decisions, but it does
-not create a second runtime scaffold registry.
+This metadata feeds the prompt research block (`qualityChecklist`,
+`upgradeTargets`) and scaffold embeddings. It is not a second matcher and does
+not create a second runtime scaffold registry. The former runtime scoring
+module (`scaffold-scoring.ts`) is gone; Backoffice Scaffold Performance reads
+`scripts/db/scaffold-scores.mjs`.
 
 The artifact contains only scaffold-owned quality guidance. Complete-project
 inspiration is selected from the active variant's Blob ids; request-specific
@@ -368,7 +371,11 @@ External references may inform a scaffold, but runtime scaffolds should remain:
 
 **Ersättare:** Per-integration- och stilexempel hanteras nu av dossier-pipen v2 i `data/dossiers/{hard,soft}/<id>/`. `data/dossiers/_index/capability-map.json` är en genererad backoffice-view (inte runtime-källa) — runtime walkar `hard/` + `soft/` direkt och matchar via deterministisk capability-regel. Aktivt via `SAJTMASKIN_DOSSIER_PIPELINE` (default på; sätt `false`/`0` för opt-out). Se [`docs/llm/dossier-selection-flow.md`](../llm/dossier-selection-flow.md) för urvalsflödet och [`docs/contracts/dossier-system.md`](../contracts/dossier-system.md) för full spec.
 
-**Nuvarande variantväg (2026-08-19):** `src/lib/gen/scaffold-variants/template-inspiration.ts` väljer högst en komplett sajt/app från variantens Blob-id:n. Inspirationen resolvas vid init och `clear-redesign` (inte Importerat repo-läge, inte Scaffold: Av). Vanliga follow-ups (`clear-refine`, `capability-*`, `neutral`) får ingen stillbild och inga utdrag. Stillbilden går till visionkanalen som style-only och dess URL får inte bli ett genererat asset. SHA-bundna `config/variant-template-addenda.json` äger de granskningsbara strukturutdragen. Ett `hit` ger högst tre frontendfiler och högst 9 000 utdragstecken; paketmanifest, lockfiler, backend och binära assets tas inte med. `disabled`, `missing`, `stale` och `invalid` ger inga utdrag och hämtar inte arkivet i användarflödet — en varning loggas så tystnaden går att räkna. ZIP-läsning hör till offline `templates:addenda` och till verbatim-import. `signaturePatterns` fortsätter bära variantens kuraterade layouts/motifs/antiPatterns i `## Scaffold Variant`, medan den valda mallen ligger separat i `## Variant Template Inspiration`.
+**Nuvarande variantväg (2026-08-21):** `src/lib/gen/scaffold-variants/template-inspiration.ts` väljer högst en komplett sajt/app från variantens Blob-id:n. Inspirationen resolvas vid init och `clear-redesign` (inte Importerat repo-läge, inte Scaffold: Av). Vanliga follow-ups (`clear-refine`, `capability-*`, `neutral`) får ingen stillbild och inga utdrag. Stillbilden går till visionkanalen som style-only och dess URL får inte bli ett genererat asset. SHA-bundna `config/variant-template-addenda.json` äger de granskningsbara strukturutdragen. Ett `hit` (`generated` eller `reviewed`) ger högst tre frontendfiler och högst 9 000 utdragstecken; paketmanifest, lockfiler, backend och binära assets tas inte med. `disabled` måste ha tom `structuralReferences` och sakna `extractorSha256`. `disabled`, `missing`, `stale` och `invalid` ger inga utdrag och hämtar inte arkivet i användarflödet — en varning loggas så tystnaden går att räkna. ZIP-läsning hör till offline `templates:addenda` och till verbatim-import. `signaturePatterns` fortsätter bära variantens kuraterade layouts/motifs/antiPatterns i `## Scaffold Variant`, medan den valda mallen ligger separat i `## Variant Template Inspiration`.
+
+Webbscaffoldernas **fil-hero** är olika (K2): `landing-page` behåller split
+60/40, `saas-landing` är centrerad produkt-scen, `portfolio` är bilddominant
+editorial. Varianter muterar inte filerna.
 
 Kandidaterna rangordnas mot prompt + Deep Brief med källordning som stabil
 tie-breaker. Det finns inget numeriskt kontrakt för hur många komponentfiler en
