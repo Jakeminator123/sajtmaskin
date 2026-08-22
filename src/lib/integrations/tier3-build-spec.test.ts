@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  alignParkedDatabaseProviders,
+  alignTier3BuildSpecWithDatabaseSelection,
   approvedProvidersShipConfigNotice,
   deriveTier3BuildSpec,
   deriveTier3BuildSpecForProviderKeys,
@@ -19,6 +21,67 @@ const emptyContracts: PlanContracts = {
   integrations: [],
   envVars: [],
 };
+
+describe("alignParkedDatabaseProviders (SM-030)", () => {
+  it("aligns parked Mongo identities to the selected Postgres dossier", () => {
+    expect(
+      alignParkedDatabaseProviders(["mongodb", "stripe", "mongodb-atlas"], {
+        selectedCapabilities: ["database"],
+      }),
+    ).toEqual({
+      providers: ["postgres-drizzle", "stripe"],
+      supersededProviders: ["mongodb", "mongodb-atlas"],
+    });
+  });
+
+  it("preserves dossierless Mongo when no database capability or dossier is selected", () => {
+    expect(alignParkedDatabaseProviders(["mongodb"], {})).toEqual({
+      providers: ["mongodb"],
+      supersededProviders: [],
+    });
+  });
+});
+
+describe("alignTier3BuildSpecWithDatabaseSelection (SM-030)", () => {
+  const mongoRequirement = {
+    key: "mongodb",
+    name: "MongoDB",
+    provider: "mongodb",
+    requiredRealEnvKeys: [],
+    placeholderOkEnvKeys: [],
+    featureRuntimeEnvKeys: [],
+    warnOnlyEnvKeys: ["MONGODB_URI"],
+    buildInstructions: ["Wire MongoDB."],
+    setupGuide: "MongoDB",
+    hasConfigNoticeComponent: false,
+  };
+  const postgresRequirement = {
+    ...mongoRequirement,
+    key: "postgres-drizzle",
+    name: "Postgres / Drizzle",
+    provider: "postgres",
+    featureRuntimeEnvKeys: ["DATABASE_URL"],
+    warnOnlyEnvKeys: [],
+  };
+
+  it("removes a file-derived Mongo requirement when postgres-drizzle is selected", () => {
+    expect(
+      alignTier3BuildSpecWithDatabaseSelection(
+        { requirements: [mongoRequirement, postgresRequirement] },
+        { selectedDossierIds: ["postgres-drizzle"] },
+      ).requirements.map((requirement) => requirement.key),
+    ).toEqual(["postgres-drizzle"]);
+  });
+
+  it("preserves a Mongo requirement without an active database selection", () => {
+    expect(
+      alignTier3BuildSpecWithDatabaseSelection(
+        { requirements: [mongoRequirement] },
+        {},
+      ),
+    ).toEqual({ requirements: [mongoRequirement] });
+  });
+});
 
 it("projects the unique Resend manifest contract, and the generic registry for dossierless Sentry", () => {
   const resend = integrationRegistryByKey.get("resend");

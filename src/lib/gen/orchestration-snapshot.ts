@@ -349,6 +349,48 @@ export function readMutedDossierIdsFromSnapshot(
 export const F3_APPROVED_CAPABILITIES_SNAPSHOT_KEY = "f3ApprovedCapabilities";
 export const F3_APPROVED_PROVIDERS_SNAPSHOT_KEY = "f3ApprovedProviders";
 
+/**
+ * Mirror an atomic F3-approval append into a request's already-loaded snapshot.
+ * The DB writer removes superseded providers from the live jsonb column; this
+ * pure companion prevents the same request's stale in-memory snapshot from
+ * feeding them back into orchestration/finalize. Provider comparison is
+ * case-insensitive so rollout-era `MongoDB` casing cannot survive.
+ */
+export function mergeF3ApprovedIntoSnapshot(
+  snapshot: Record<string, unknown> | null | undefined,
+  capabilities: readonly string[],
+  providers: readonly string[],
+  supersededProviders: readonly string[] = [],
+): Record<string, unknown> {
+  const base =
+    snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
+      ? { ...snapshot }
+      : {};
+  const cleanCapabilities = normalizeCapabilityList(capabilities);
+  const cleanProviders = normalizeCapabilityList(providers);
+  const approvedProviderSet = new Set(cleanProviders);
+  const supersededSet = new Set(
+    normalizeCapabilityList(supersededProviders).filter(
+      (provider) => !approvedProviderSet.has(provider),
+    ),
+  );
+  const mergedCapabilities = new Set([
+    ...normalizeCapabilityList(base[F3_APPROVED_CAPABILITIES_SNAPSHOT_KEY]),
+    ...cleanCapabilities,
+  ]);
+  const mergedProviders = new Set([
+    ...normalizeCapabilityList(base[F3_APPROVED_PROVIDERS_SNAPSHOT_KEY]),
+    ...cleanProviders,
+  ]);
+  return {
+    ...base,
+    [F3_APPROVED_CAPABILITIES_SNAPSHOT_KEY]: Array.from(mergedCapabilities),
+    [F3_APPROVED_PROVIDERS_SNAPSHOT_KEY]: Array.from(mergedProviders).filter(
+      (provider) => !supersededSet.has(provider),
+    ),
+  };
+}
+
 function readStringArraySnapshotKey(
   snapshot: Record<string, unknown> | null | undefined,
   key: string,

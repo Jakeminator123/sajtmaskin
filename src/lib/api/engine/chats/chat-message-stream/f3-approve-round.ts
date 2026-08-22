@@ -8,6 +8,7 @@ import {
 } from "@/lib/gen/dossiers/version-presence";
 import { readF3ApprovedFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 import {
+  alignParkedDatabaseProviders,
   mapProviderKeysToBackingDossierIds,
   providerKeysWithoutBackingDossier,
 } from "@/lib/integrations/tier3-build-spec";
@@ -49,10 +50,20 @@ export function approveRoundNeedsDossierInjection(params: {
   parentSpecProviderKeys: ReadonlySet<string>;
 }): boolean {
   const persistedApproved = readF3ApprovedFromSnapshot(params.snapshot);
-  const effectiveApprovedProviders =
+  const rawEffectiveApprovedProviders =
     params.markerSuggestedProviders.length > 0
       ? params.markerSuggestedProviders
       : persistedApproved.providers;
+  const presentDossierIds = resolveDossierIdsPresentInVersion(
+    params.parentFilePaths,
+  );
+  const effectiveApprovedProviders = alignParkedDatabaseProviders(
+    rawEffectiveApprovedProviders,
+    {
+      selectedCapabilities: persistedApproved.capabilities,
+      selectedDossierIds: presentDossierIds,
+    },
+  ).providers;
 
   // Provider approvals compare at DOSSIER-ID granularity (Codex P1 on #503):
   // capability granularity would treat a present SIBLING dossier
@@ -67,9 +78,7 @@ export function approveRoundNeedsDossierInjection(params: {
     requiredDossierIds = [];
   }
   if (requiredDossierIds.length > 0) {
-    const presentIds = new Set(
-      resolveDossierIdsPresentInVersion(params.parentFilePaths),
-    );
+    const presentIds = new Set(presentDossierIds);
     for (const dossierId of requiredDossierIds) {
       if (!presentIds.has(dossierId)) return true;
     }

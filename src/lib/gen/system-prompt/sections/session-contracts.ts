@@ -9,6 +9,8 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { renderTier3F2DenyBlockLines } from "@/lib/integrations/tier3-sdk-deny";
 import {
+  alignParkedDatabaseProviders,
+  alignTier3BuildSpecWithDatabaseSelection,
   deriveTier3BuildSpec,
   deriveTier3BuildSpecForProviderKeys,
   renderTier3BuildPlanBlock,
@@ -286,10 +288,49 @@ export function renderTier3IntegrationBlock(params: {
   preGenerationContracts: PreGenerationContractContext | null | undefined;
   tier3BuildSpec?: Tier3BuildSpec | null;
   approvedProviders?: readonly string[] | null;
+  selectedDossierIds?: readonly string[] | null;
 }): string[] {
-  const { buildSpec, preGenerationContracts, tier3BuildSpec, approvedProviders } = params;
-  const fileDerivedSpec = (tier3BuildSpec?.requirements.length ?? 0) > 0 ? tier3BuildSpec : null;
-  const hasApprovedProviders = (approvedProviders?.length ?? 0) > 0;
+  const {
+    buildSpec,
+    preGenerationContracts,
+    tier3BuildSpec,
+    approvedProviders,
+    selectedDossierIds,
+  } = params;
+  const rawFileDerivedSpec =
+    (tier3BuildSpec?.requirements.length ?? 0) > 0 ? tier3BuildSpec : null;
+  const databaseIdentitySelected =
+    (selectedDossierIds ?? []).some(
+      (dossierId) => dossierId.trim().toLowerCase() === "postgres-drizzle",
+    ) ||
+    (rawFileDerivedSpec?.requirements ?? []).some((requirement) =>
+      [requirement.key, requirement.provider].some((identity) => {
+        const normalized = identity.toLowerCase().replace(/[^a-z0-9]+/g, "");
+        return normalized === "postgres" || normalized === "postgresdrizzle";
+      }),
+    ) ||
+    preGenerationContracts?.contracts.databaseProvider
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]+/g, "") === "postgresdrizzle";
+  const databaseAlignmentContext = {
+    selectedCapabilities: databaseIdentitySelected ? ["database"] : [],
+    selectedDossierIds: selectedDossierIds ?? [],
+  };
+  const alignedFileDerivedSpec = rawFileDerivedSpec
+    ? alignTier3BuildSpecWithDatabaseSelection(
+        rawFileDerivedSpec,
+        databaseAlignmentContext,
+      )
+    : null;
+  const fileDerivedSpec =
+    (alignedFileDerivedSpec?.requirements.length ?? 0) > 0
+      ? alignedFileDerivedSpec
+      : null;
+  const effectiveApprovedProviders = alignParkedDatabaseProviders(
+    approvedProviders ?? [],
+    databaseAlignmentContext,
+  ).providers;
+  const hasApprovedProviders = effectiveApprovedProviders.length > 0;
   // ── Tier-3 Integration Build Plan (F3 only) ────────────────────────────
   // When previewPolicy is fidelity3 we render the structured tier-3 spec
   // derived from the contracts. This block tells the F3 LLM exactly which
@@ -313,7 +354,7 @@ export function renderTier3IntegrationBlock(params: {
     const normalizeProviderKey = (value: string) =>
       value.toLowerCase().replace(/[^a-z0-9]+/g, "");
     const approvedKeySet = new Set(
-      (approvedProviders ?? []).map((provider) => normalizeProviderKey(provider)),
+      effectiveApprovedProviders.map((provider) => normalizeProviderKey(provider)),
     );
     const contractRequirementsForApproved = (): Tier3BuildSpec["requirements"] => {
       if (!hasApprovedProviders || !preGenerationContracts) return [];
@@ -326,7 +367,7 @@ export function renderTier3IntegrationBlock(params: {
     let spec: Tier3BuildSpec;
     if (fileDerivedSpec) {
       const approvedProviderSpec = hasApprovedProviders
-        ? deriveTier3BuildSpecForProviderKeys(approvedProviders ?? [])
+        ? deriveTier3BuildSpecForProviderKeys(effectiveApprovedProviders)
         : { requirements: [] };
       const seenKeys = new Set(
         fileDerivedSpec.requirements.map((requirement) => requirement.key),
@@ -348,7 +389,7 @@ export function renderTier3IntegrationBlock(params: {
         ),
       };
     } else if (hasApprovedProviders) {
-      const registrySpec = deriveTier3BuildSpecForProviderKeys(approvedProviders ?? []);
+      const registrySpec = deriveTier3BuildSpecForProviderKeys(effectiveApprovedProviders);
       const seenKeys = new Set<string>();
       // Same precedence as the file branch: the contract's requirement for
       // an APPROVED provider wins over the registry-only generic (richer

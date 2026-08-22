@@ -14,6 +14,7 @@ import {
   hasNegatedBackendIntent,
   hasNegatedIntegrationIntent,
   hasNegatedPaymentIntent,
+  isTermFullyNegated,
   isVisualOnlyFollowUpPrompt,
 } from "@/lib/builder/prompt-negation";
 import type { InferredCapabilities } from "../capability-inference";
@@ -39,6 +40,8 @@ type ProviderRule = {
   name: string;
   envVars: string[];
   patterns: RegExp[];
+  requiresCapabilities: string[];
+  requiresDossierCapabilities: string[];
   status?: "chosen" | "optional";
   reason: string;
 };
@@ -52,6 +55,8 @@ const PROVIDER_RULES: ProviderRule[] = preGenerationContractsConfig.providerRule
     name: rule.name,
     envVars: rule.envVars,
     patterns: rule.matchPatterns.map((pattern) => new RegExp(pattern, "i")),
+    requiresCapabilities: rule.requiresCapabilities ?? [],
+    requiresDossierCapabilities: rule.requiresDossierCapabilities ?? [],
     status: rule.status,
     reason: rule.reason,
   }),
@@ -274,8 +279,15 @@ export function inferPreGenerationContracts(params: {
   buildIntent: BuildIntent;
   brief?: Record<string, unknown> | null;
   capabilities: InferredCapabilities;
+  requestedDossierCapabilities?: readonly string[];
 }): PreGenerationContractContext {
-  const { prompt, buildIntent, brief = null, capabilities } = params;
+  const {
+    prompt,
+    buildIntent,
+    brief = null,
+    capabilities,
+    requestedDossierCapabilities = [],
+  } = params;
   const corpus = getPromptCorpus(prompt, brief);
   const visualOnly = isVisualOnlyFollowUpPrompt(corpus);
   const suppressAuth = visualOnly || hasNegatedAuthIntent(corpus);
@@ -292,6 +304,13 @@ export function inferPreGenerationContracts(params: {
   const integrations: PlanIntegrationContract[] = [];
   const envVars: PlanEnvVarContract[] = [];
   const unresolvedDecisions: PreGenerationContractContext["unresolvedDecisions"] = [];
+  let guardedDatabaseProviderMention = false;
+  const dossierCapabilitySet = new Set(
+    requestedDossierCapabilities
+      .filter((capability): capability is string => typeof capability === "string")
+      .map((capability) => capability.trim().toLowerCase())
+      .filter(Boolean),
+  );
 
   const contracts: PlanContracts = {
     dataMode: suppressBackend ? "none" : inferDataMode(buildIntent, corpus, effectiveCapabilities),
@@ -304,7 +323,33 @@ export function inferPreGenerationContracts(params: {
     if (rule.kind === "payment" && suppressPayment) continue;
     if (rule.kind === "database" && suppressBackend) continue;
     if (rule.kind === "integration" && suppressIntegration) continue;
-    if (!rule.patterns.some((pattern) => pattern.test(corpus))) continue;
+    // Manifest-owned provider guards. `requiresDossierCapabilities` is fed by
+    // the caller's capability detector; never infer it again from this prompt.
+    // This matters for parked provider brands: Mongo selects the live database
+    // dossier, while Mongoose explicitly vetoes that dossier even if generic
+    // capability inference happens to set `needsDatabase`.
+    const matchesCorpus = rule.patterns.some(
+      (pattern) => pattern.test(corpus) && !isTermFullyNegated(corpus, pattern),
+    );
+    if (!matchesCorpus) continue;
+    const missesInferredCapabilityGuard =
+      rule.requiresCapabilities.some(
+        (flag) => effectiveCapabilities[flag as keyof InferredCapabilities] !== true,
+      );
+    const missesDossierCapabilityGuard =
+      rule.requiresDossierCapabilities.some(
+        (capability) => !dossierCapabilitySet.has(capability.trim().toLowerCase()),
+      );
+    if (missesInferredCapabilityGuard || missesDossierCapabilityGuard) {
+      // A manifest-recognized database brand with an unmet dossier guard is a
+      // deliberate veto, not an invitation to fall through to generic SQLite.
+      // Otherwise `Mongoose + database` would manufacture DATABASE_URL after
+      // the dossier detector intentionally rejected the database capability.
+      if (rule.kind === "database" && missesDossierCapabilityGuard) {
+        guardedDatabaseProviderMention = true;
+      }
+      continue;
+    }
 
     if (rule.kind === "database" && !contracts.databaseProvider) {
       contracts.databaseProvider = rule.provider;
@@ -343,7 +388,7 @@ export function inferPreGenerationContracts(params: {
     );
   }
 
-  if (!suppressBackend) {
+  if (!suppressBackend && !guardedDatabaseProviderMention) {
     applyDefaultSqliteWhenPersistenceNeedsProvider(
       corpus,
       effectiveCapabilities,

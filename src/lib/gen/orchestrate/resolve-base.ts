@@ -604,6 +604,10 @@ export async function resolveOrchestrationBase(
       buildIntent: effectiveBuildIntent,
       brief,
       capabilities,
+      requestedDossierCapabilities: (input.requestedDossierCapabilities ?? []).filter(
+        (capability) =>
+          !removedCapabilities.includes(capability.trim().toLowerCase()),
+      ),
     }),
     removedCapabilities,
   );

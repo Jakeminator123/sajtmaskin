@@ -429,6 +429,15 @@
     "providerRules": [
       {
         "kind": "database",
+        "provider": "postgres-drizzle",
+        "name": "Postgres / Drizzle",
+        "envVars": ["DATABASE_URL"],
+        "matchPatterns": ["\\bmongo(?:db)?\\b", "\\bmongodb\\s+atlas\\b", "\\bmongoose\\b"],
+        "requiresDossierCapabilities": ["database"],
+        "reason": "En explicit Mongo-brandask följer den aktiva database-capabilityns Postgres/Drizzle-dossier."
+      },
+      {
+        "kind": "database",
         "provider": "Supabase",
         "name": "Supabase",
         "envVars": ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],

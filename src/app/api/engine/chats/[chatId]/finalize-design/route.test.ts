@@ -344,6 +344,46 @@ describe("POST finalize-design", () => {
     expect(createDraftVersion).not.toHaveBeenCalled();
   });
 
+  it("supersedes stale Mongo approvals when persisting the active database dossier", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: null,
+      orchestration_snapshot: {
+        mutedCapabilities: ["database"],
+        mutedDossierIds: ["postgres-drizzle"],
+        f3ApprovedCapabilities: ["database"],
+        f3ApprovedProviders: ["mongodb"],
+      },
+    });
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: true,
+      spec: {
+        requirements: [
+          {
+            key: "postgres-drizzle",
+            name: "Databas — Postgres (standard)",
+            requiredRealEnvKeys: [],
+            featureRuntimeEnvKeys: ["DATABASE_URL"],
+            placeholderOkEnvKeys: [],
+            warnOnlyEnvKeys: [],
+          },
+        ],
+      },
+    });
+
+    const res = await POST(request({ versionId: "ver_current" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(appendF3ApprovedToSnapshot).toHaveBeenCalledWith(
+      "chat_1",
+      ["database"],
+      ["postgres-drizzle"],
+      expect.arrayContaining(["mongodb", "mongodb-atlas"]),
+    );
+  });
+
   it("restarts the approved OpenAI build from the selected design version after failed F3 evidence", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({
       id: "chat_1",

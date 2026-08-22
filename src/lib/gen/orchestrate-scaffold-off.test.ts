@@ -12,7 +12,8 @@ vi.mock("./system-prompt", async (importOriginal) => {
 });
 
 import { finalizeOrchestrationPrompts, resolveOrchestrationBase } from "./orchestrate";
-import type { InferredCapabilities } from "./capability-inference";
+import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
+import { inferCapabilities, type InferredCapabilities } from "./capability-inference";
 import { SCAFFOLD_OFF_BASELINE_ID } from "./scaffolds/types";
 
 const noCapabilities: InferredCapabilities = {
@@ -36,6 +37,59 @@ const noCapabilities: InferredCapabilities = {
 };
 
 describe("resolveOrchestrationBase scaffoldMode off (builder Scaffold: Av)", () => {
+  it("threads caller-detected database capability into Mongo contract inference", async () => {
+    const prompt = "Save products in MongoDB";
+    const capabilities = inferCapabilities(prompt);
+    const requestedDossierCapabilities = detectFollowUpCapabilities(prompt, {
+      mode: "init",
+    }).capabilityIds;
+
+    const base = await resolveOrchestrationBase({
+      prompt,
+      contractsPrompt: prompt,
+      buildIntent: "website",
+      scaffoldMode: "off",
+      embeddingScaffoldMatch: false,
+      capabilities,
+      requestedDossierCapabilities,
+      generationMode: "init",
+    });
+
+    expect(capabilities.needsDatabase).toBe(false);
+    expect(requestedDossierCapabilities).toContain("database");
+    expect(base.preGenerationContracts.contracts.databaseProvider).toBe(
+      "postgres-drizzle",
+    );
+    expect(base.preGenerationContracts.contracts.envVars.map((entry) => entry.key)).toContain(
+      "DATABASE_URL",
+    );
+  });
+
+  it("does not turn a caller-detected SQLite choice plus negated Mongo into Postgres", async () => {
+    const prompt = "Use SQLite for the database, not MongoDB";
+    const capabilities = inferCapabilities(prompt);
+    const requestedDossierCapabilities = detectFollowUpCapabilities(prompt, {
+      mode: "init",
+    }).capabilityIds;
+
+    const base = await resolveOrchestrationBase({
+      prompt,
+      contractsPrompt: prompt,
+      buildIntent: "website",
+      scaffoldMode: "off",
+      embeddingScaffoldMatch: false,
+      capabilities,
+      requestedDossierCapabilities,
+      generationMode: "init",
+    });
+
+    expect(requestedDossierCapabilities).toContain("database");
+    expect(base.preGenerationContracts.contracts.databaseProvider).toBe("SQLite");
+    expect(
+      base.preGenerationContracts.contracts.integrations.map((entry) => entry.provider),
+    ).toEqual(["SQLite"]);
+  });
+
   it("resolves projekt-bas-app for freeform off, not null", async () => {
     const base = await resolveOrchestrationBase({
       prompt: "Bygg en enkel todo-app",

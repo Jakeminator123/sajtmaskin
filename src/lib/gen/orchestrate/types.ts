@@ -230,6 +230,9 @@ export interface OrchestrationInput {
    * (3D, contact-form, payments, …) actually inject a dossier even when
    * the snapshot-hydrated brief and the keyword-based `inferCapabilities`
    * pass both miss the signal.
+   * Also passed into manifest-owned pre-generation provider guards so parked
+   * brands follow the same caller-detected dossier capability instead of the
+   * broader `InferredCapabilities` keyword surface.
    */
   requestedDossierCapabilities?: string[];
   /**
