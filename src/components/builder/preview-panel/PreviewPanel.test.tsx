@@ -210,6 +210,67 @@ describe("PreviewPanel", () => {
     }).not.toThrow();
   });
 
+  it("reloads the controlled route once when iframe SPA navigation moved elsewhere", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES", "preview.example");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            files: [
+              { name: "app/page.tsx", content: '<a href="/about">About</a>' },
+              { name: "app/about/page.tsx", content: "export default function About() {}" },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+    const onNavigatePreviewUrl = vi.fn();
+    renderPreviewPanel({
+      previewUrl: "https://preview.example/chat_1",
+      activePreviewSessionId: "session_1",
+      previewLifecycle: "live",
+      onNavigatePreviewUrl,
+    });
+
+    const homeButton = await screen.findByRole("button", { name: "/" });
+    const aboutButton = screen.getByRole("button", { name: "/about" });
+    const iframe = await screen.findByTitle("Preview") as HTMLIFrameElement;
+    const viewerId = new URL(iframe.src).searchParams.get("__sm_viewer");
+    expect(viewerId).toBeTruthy();
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        origin: "https://preview.example",
+        source: iframe.contentWindow,
+        data: {
+          type: "sajtmaskin:preview:route-change",
+          source: "sajtmaskin-preview-host",
+          payload: {
+            href: "https://preview.example/chat_1/about",
+            previewSessionId: "session_1",
+            versionId: "ver_1",
+            viewerId,
+          },
+        },
+      }),
+    );
+    await waitFor(() => {
+      expect(aboutButton.parentElement?.className).toContain("border-sky-500/60");
+    });
+
+    const controlledSrc = iframe.getAttribute("src");
+    expect(controlledSrc).toBeTruthy();
+    const setAttribute = vi.spyOn(iframe, "setAttribute");
+    fireEvent.click(homeButton);
+
+    expect(setAttribute).toHaveBeenCalledTimes(1);
+    expect(setAttribute).toHaveBeenCalledWith("src", controlledSrc);
+    expect(onNavigatePreviewUrl).not.toHaveBeenCalled();
+  });
+
   // Delat fetch-stub för drop-testerna: dossier-overviewn kräver sin riktiga
   // svarsform (counts/dossiers), övriga anrop får 404 → komponenternas egna
   // felvägar (aldrig en krasch som monterar ner drop-overlayn).

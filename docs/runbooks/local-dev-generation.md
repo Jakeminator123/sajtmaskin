@@ -105,10 +105,12 @@ När du behöver deterministisk preview utan att röra prod-Fly:
    ```powershell
    $env:HOST = "127.0.0.1"
    $env:PREVIEW_BASE_URL = "http://localhost:8080"
+   $env:SAJTMASKIN_APP_ORIGIN = "http://localhost:3000"
    npm start --prefix preview-host
    ```
    `HOST=127.0.0.1` gör miljön “lokal” så `PREVIEW_HOST_API_KEY` inte krävs.
-   Default `HOST=0.0.0.0` kräver nyckel.
+   Default `HOST=0.0.0.0` kräver nyckel. `SAJTMASKIN_APP_ORIGIN` måste vara
+   den exakta origin som bäddar in previewn; route-bryggan fail-closar utan den.
 3. I appens `.env.local`:
    - `SAJTMASKIN_PREVIEW_HOST_BASE_URL=http://localhost:8080`
    - `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=localhost,fly.dev`  

@@ -63,8 +63,8 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "0c13d9226",
-    "commitDate": "2026-08-21",
+    "commit": "31eb2d292",
+    "commitDate": "2026-08-22",
     "sinceDays": 14
   },
   "totals": {
@@ -72,7 +72,7 @@ const DATA: CanvasData = {
     "openP0": 0,
     "openP1": 2,
     "openP2": 13,
-    "openP3": 8,
+    "openP3": 7,
     "blocked": 1,
     "shaky": 3,
     "evalExactHitPct": null
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 50,
+      "churn": 49,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
@@ -159,7 +159,7 @@ const DATA: CanvasData = {
         "P3": 4,
         "other": 0
       },
-      "churn": 40,
+      "churn": 45,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
       "note": "7 oppna backlog-rader (P0:0 P1:0 P2:3 P3:4)"
     },
@@ -176,24 +176,24 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 68,
+      "churn": 73,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 68 commits / 14d"
+      "note": "Aktiv: 73 commits / 14d"
     },
     {
       "name": "Preview och versioner",
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 14,
+      "openBugs": 13,
       "openByPrio": {
         "P0": 0,
         "P1": 2,
         "P2": 7,
-        "P3": 5,
+        "P3": 4,
         "other": 0
       },
-      "churn": 24,
+      "churn": 22,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-007` **Domänköpets restlista är en releasegrind, inte en aktiv incident:** tolv fynd …"
     },
