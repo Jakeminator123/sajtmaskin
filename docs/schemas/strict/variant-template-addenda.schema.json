@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sajtmaskin.local/schemas/variant-template-addenda.schema.json",
   "title": "Variant Template Addenda Registry",
-  "description": "SHA-bound, reviewable frontend excerpts used by scaffold variants before the runtime falls back to reading a template ZIP.",
+  "description": "SHA-bound, reviewable frontend excerpts used by scaffold variants at init and clear-redesign. User flows never read the template ZIP; offline templates:addenda and verbatim import still do.",
   "type": "object",
   "additionalProperties": false,
   "required": ["$schema", "_comment", "_version", "templates"],
@@ -57,8 +57,18 @@
             "required": ["reviewStatus"]
           },
           "then": {
-            "properties": { "structuralReferences": { "maxItems": 0 } }
+            "properties": {
+              "structuralReferences": { "maxItems": 0 },
+              "extractorSha256": false
+            }
           }
+        },
+        {
+          "if": {
+            "properties": { "reviewStatus": { "enum": ["generated", "reviewed"] } },
+            "required": ["reviewStatus"]
+          },
+          "then": { "required": ["extractorSha256"] }
         }
       ],
       "required": ["templateId", "sourceArchiveSha256", "reviewStatus", "structuralReferences"],
@@ -71,7 +81,7 @@
         "extractorSha256": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$",
-          "description": "SHA-256 over the LF-normalized sources that produce these excerpts (template-inspiration.ts plus local-v0-template-source.ts). Records are bound to the extractor as well as the input archive, so a changed extraction rule cannot leave stale excerpts cached. Required in practice for generated records; omitted for disabled ones."
+          "description": "SHA-256 over the LF-normalized sources that produce these excerpts (template-inspiration.ts plus local-v0-template-source.ts). Records are bound to the extractor as well as the input archive, so a changed extraction rule cannot leave stale excerpts cached. Required for generated and reviewed; omitted for disabled."
         },
         "reviewStatus": {
           "type": "string",

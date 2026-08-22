@@ -116,7 +116,7 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
                       onClose();
                       router.push("/buy-credits");
                     }}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-full font-medium"
+                    className="bg-primary text-primary-foreground hover:bg-primary-hover h-11 w-full font-medium"
                   >
                     <Coins className="mr-2 h-4 w-4" />
                     Köp credits
@@ -134,7 +134,7 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
                 <>
                   <Button
                     onClick={() => handleAuthClick("register")}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-full font-medium"
+                    className="bg-primary text-primary-foreground hover:bg-primary-hover h-11 w-full font-medium"
                   >
                     Skapa gratis konto
                   </Button>
