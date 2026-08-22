@@ -64,7 +64,7 @@ export function TeknikContent() {
                 <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
                   <Button
                     size="lg"
-                    className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-base px-8 shadow-lg shadow-primary/25"
+                    className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary-hover font-medium text-base px-8 shadow-lg shadow-primary/25"
                     onClick={handleRegisterClick}
                   >
                     Kom ig&aring;ng gratis

@@ -40,7 +40,7 @@ export default function TemplatesPage() {
             </p>
             <Link
               href="/"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-2 rounded-lg px-6 py-3 text-sm font-medium transition-colors"
+              className="bg-primary text-primary-foreground hover:bg-primary-hover inline-flex items-center gap-2 rounded-lg px-6 py-3 text-sm font-medium transition-colors"
             >
               <Wand2 className="h-4 w-4" />
               Skapa med AI
