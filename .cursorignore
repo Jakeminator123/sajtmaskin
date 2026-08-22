@@ -52,8 +52,13 @@ id_rsa*
 google-services.json
 .token-status.json
 
-# OpenClaw-bryggan, .cursor/mcp.json och .cursor/tmp ligger i
-# .cursorindexingignore (läsbara, inte sökbara) — ägarbeslut 2026-08-22.
+# --- OpenClaw-bryggan ---
+# Agent-till-agent-trafik som regelmässigt citerar env-värden och felutdrag.
+.cursor/openclaw-bridge/
+.cursor/openclaw-bridge-message.txt
+
+# Lokal IDE-MCP-config (kan hålla tokens; mall: .cursor/mcp.json.example)
+.cursor/mcp.json
 
 # Vercel-länkmap (OIDC-token + .env.development.local). Gitignorerad, men
 # Read kan annars dra in tokens.
