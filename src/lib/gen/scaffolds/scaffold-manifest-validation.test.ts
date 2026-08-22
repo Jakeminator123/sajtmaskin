@@ -301,6 +301,66 @@ describe("validateScaffoldManifest — routeContract shape", () => {
     expect(messages).toContain("requiredOnlyForBuildIntents on optional route /extra");
   });
 
+  it("accepts normalized unique init equivalents", () => {
+    const errors = errorsOf(
+      contractScaffold({
+        requiredRoutes: [
+          {
+            path: "/blog",
+            name: "Blog",
+            planIntent: "Keep it.",
+            initEquivalentPaths: ["/artiklar", "/articles"],
+          },
+        ],
+        optionalRoutes: [],
+        declaredRoutePaths: [],
+        dynamicRoutePatterns: [],
+      }),
+    );
+
+    expect(errors).toEqual([]);
+  });
+
+  it("flags malformed, non-normalized, duplicate and canonical-colliding init equivalents", () => {
+    const messages = errorsOf(
+      contractScaffold({
+        requiredRoutes: [
+          {
+            path: "/blog",
+            name: "Blog",
+            planIntent: "Keep it.",
+            initEquivalentPaths: ["/articles/", "/artiklar", "/artiklar", "/news"],
+          },
+          {
+            path: "/news",
+            name: "News",
+            planIntent: "Keep news.",
+            initEquivalentPaths: null as unknown as string[],
+          },
+        ],
+        optionalRoutes: [
+          {
+            path: "/archive",
+            name: "Archive",
+            planIntent: "Keep archive.",
+            initEquivalentPaths: ["/artiklar"],
+          },
+        ],
+        declaredRoutePaths: [],
+        dynamicRoutePatterns: [],
+      }),
+    ).map((issue) => issue.message);
+
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("initEquivalentPaths on /news must be an array"),
+        expect.stringContaining('equivalent path "/articles/" is not normalized'),
+        expect.stringContaining('equivalent path "/artiklar" is declared more than once'),
+        expect.stringContaining('equivalent path "/news" on /blog collides with canonical'),
+      ]),
+    );
+  });
+
   it("accepts deliveryGroups whose members are contract paths", () => {
     const errors = errorsOf(
       contractScaffold({
