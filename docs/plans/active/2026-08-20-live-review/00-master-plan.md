@@ -1,65 +1,90 @@
-# Live-review — mergad som advisory, aktivering är en stängd grind
+# Live-review — advisory bakom stängd flagga, aktiveringsresidualer kvar
 
-Status: **Kodgrind stängd i PR. Flaggan av i koden.**
-PR: [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052) — kritikern
-Backlograd: `SM-070` (kvar: Preview-rökprov, sedan Production)
+Status: **Åtkomst och claim/cache är mergade; attempt-taket är inte beständigt över alla felvägar. Aktiveringsgrinden är inte stängd och flaggan är av.**
+Levererat: [#1052](https://github.com/Jakeminator123/sajtmaskin/pull/1052),
+[#1089](https://github.com/Jakeminator123/sajtmaskin/pull/1089) och
+[#1098](https://github.com/Jakeminator123/sajtmaskin/pull/1098)
+Backlograd: `SM-070` (kvar: beständig betald attempt-budget, Blob-retry,
+schemalagd retention, chat-delete-hook och omprövning av #1116-överlapp före
+Preview; #1116 behöver inte mergas)
 Rökprov: [`01-preview-smoke.md`](01-preview-smoke.md)
 
-Steg 1 av kritikern ligger på `master`. Den är **advisory** och hela vägen bakom
-`SAJTMASKIN_LIVE_REVIEW`, som är av i kod (`env.ts:221-222`;
-`isLiveReviewEnabled()` kräver `"1"` eller `"true"`, `live-review.ts:91-94`).
-Ingenting i den här planen är alltså en aktiv incident — det är en grind som ska
-vara stängd innan flaggan vänds.
+Kritikern ligger på `master` som **advisory**. Hela capture-/critic-vägen kräver
+`SAJTMASKIN_LIVE_REVIEW` ∧ `OC_EDIT` ∧ en persistad `live_review`-grant;
+request-body är inte auktoritet. `SAJTMASKIN_LIVE_REVIEW` är default av.
+Ingenting här är därför en aktiv Production-incident, men flaggan får inte
+aktiveras förrän residualerna nedan är stängda och testade.
 
-## Vad som landade
+## Vad som faktiskt är levererat
 
-| P1 före merge | Utfall |
+| Del | Nuläge |
 |---|---|
-| Knyt LLM-usage till generationen | `runWithLlmUsageContext` + chat/version/user/session på product-postcheck |
-| Logga misslyckanden sanningsenligt | `ok: false` + stabil `errorCode` (`review_error`, `invalid_model_output`, `model_unavailable`) |
-| Kräv en faktiskt bifogad bild | Dubbel grind: `no_screenshots` före `runLiveReview` (`live-review.ts:636-638`) och `reviewWithModel` vägrar noll bilddelar (`:462-465`). `isAttachableScreenshotUrl` kräver `http:`/`https:`, så relativ och `blob:` faller (`:118-125`) |
-| Triagera de sju reviewtrådarna | Alla sju var filade mot gamla headen `c5ed09592` och prövades om mot `3027e287b` före merge — åtgärdade i sak, inte flyttade. Bevisen ligger i merge-agentens grindkommentar på PR:en |
+| Advisory-kritiker | #1052 gav strukturerad dom, sanningsenlig usage/error-loggning och bildbevisgrind. Kritikern ändrar inte filer och sätter inte `productBlocked`. |
+| Auktorisering | #1089/#1098 kräver env-flagga, `OC_EDIT` och persistad `live_review`-grant för både capture och critic. Grant från request-body räcker inte. |
+| Claim och attempt-guard | Atomisk claim/cache per `(versionId, filesRevision)` och stale takeover med CAS är landat. `modelAttempts < 2` vaktas atomiskt medan run-raden finns kvar; det är inte ett beständigt kostnadstak över delete/återskapande. |
+| Robusthetsuppföljning | #1098 stängde retrybara skip, övergiven claim när persist misslyckas, serialiserad persist, stale hydrate och flera Blob-delete-/versionvalsfynd. |
+| Retentionsmetadata | Varje run får `expiresAt` sju dagar framåt. Det är metadata och opportunistisk purge, inte ännu en schemalagd TTL-garanti. |
 
-Loggraden säger nu `Live review skipped: <orsak>.` i stället för att påstå att
-skärmbilder togs — det var merge-agentens P2-fynd 19 augusti.
+## Kvarvarande aktiveringsblockerare
 
-## Kodgrind (stängd, flaggan fortfarande av)
+1. **Same-revision-upload är inte retry-säker.**
+   `liveReviewJpegFilename()` ger en stabil fil per viewport och revision.
+   `uploadBlob()` använder `addRandomSuffix: false` men skickar inte
+   `allowOverwrite: true`. Om Blob-uploaden lyckas men runnen avbryts innan
+   referensen persisteras kan nästa försök träffa samma path, uppladdningen
+   misslyckas och reviewn sluta i `no_screenshots`. Gör overwrite eller annan
+   idempotent retry explicit och testlås partiell-upload→retry.
 
-De tre grindpunkterna är implementerade i koden. **Slå inte på flaggan i samma
-PR.** Nästa steg är Preview-rökprovet.
+2. **Sju dagar är inte en tidsstyrd rensningsgaranti.**
+   `purgeExpiredLiveReviewBlobs()` startas fire-and-forget först när en ny
+   auktoriserad live-review-session börjar. `vercel.json` saknar live-review-
+   cron. Projektradering purgar projektets chattar, men en fristående
+   chat-delete-väg anropar inte en egen live-review-hook. Lägg schemalagd purge
+   och koppla verklig chat-delete till Blob-rensningen; behåll projektpurgen.
 
-1. **Retention och ägarskap.** JPEG under ägarens user-id, stabil nyckel per
-   `filesRevision`, senaste paret behålls, föregående raderas efter jämförelse,
-   TTL 7 dagar, delete-hook vid chat/projekt-radering.
-2. **Idempotens och kostnadstak.** Atomisk claim på
-   `(version_id, files_revision)`. Samtidiga/retried postchecks återanvänder
-   resultatet. Max två betalda modellförsök per revision.
-3. **Ärlig kontroll.** `SAJTMASKIN_LIVE_REVIEW` ∧ `OC_EDIT` ∧ persistad
-   `live_review`-grant. Request-body kan inte förfalska grant. Samma AND
-   stänger av både capture och LLM.
+3. **Betald attempt-budget kan nollställas på persistfel.**
+   `finishLiveReviewSession()` anropar `beginPaidLiveReviewAttempt()` före
+   kritikern och ökar därmed `modelAttempts`. Om resultatet sedan inte kan
+   skrivas (`completeLiveReviewRun() === false`) anropas
+   `abandonLiveReviewRun()`, som kan radera den körande run-raden inklusive
+   räknaren. En ny claim för samma revision börjar då på noll; upprepade
+   persistfel + lyckad delete kan ge fler än två betalda critic-anrop. Bevara
+   budgeten över abandon/retry och testlås flera `completeRun=false` i följd.
+
+4. **Ompröva överlappande #1116 innan driftbevis.**
+   Den PR:n rör live-review-koden men är inte ett mergekrav. Granska överlappet
+   självständigt, porta bara de relevanta delar som godkänns till
+   residualfixarnas träd och kör om claim-, capture-, purge- och route-testerna
+   innan Preview-rökprovet. Den här docs-PR:n ändrar ingen runtime eller flagga.
+
+## Aktiveringsordning
+
+1. Landa och verifiera de tre kodresidualerna ovan.
+2. Ompröva #1116:s överlapp, porta bara godkända relevanta delar och kör om den
+   kombinerade live-review-sviten. Hela #1116 behöver inte mergas.
+3. Kör [`01-preview-smoke.md`](01-preview-smoke.md) med flaggan **endast i
+   Vercel Preview**.
+4. Dokumentera Preview-beviset. Arkivera inte `SM-070` i förväg.
+5. Production-aktivering kräver en separat, uttrycklig ägaråtgärd efter grönt
+   Preview-bevis — aldrig i samma kodmerge eller smoke-körning.
 
 ## Dokumentationsrest
 
-PR-bodyn säger `maxDuration = 180` på tre ställen. Koden är **300** sedan
-`96ee3477d`. Body-texten är inaktuell, inte koden — noterat i merge-agentens
-kommentar. Rör inte koden för att matcha bodyn.
+PR-bodyn på #1052 säger `maxDuration = 180` på tre ställen. Koden är **300**
+sedan `96ee3477d`. Body-texten är inaktuell, inte koden.
 
 ## Gränser
 
-- Slå **inte** på `SAJTMASKIN_LIVE_REVIEW` förrän alla tre punkterna är klara,
-  och gör det som ett **separat driftbeslut** — inte som del av en kodmerge.
-- Kritikern förblir **advisory**. Den får inte bli en ny repair-agent och inte
-  ändra verifierarens blocker-severity (`SM-036` stängdes i #1080).
-- Rör inte användarsajtens filer i samma PR.
+- Kritikern förblir **advisory** och får inte bli en ny repair-agent.
+- Rör inte användarsajtens filer som del av aktiveringen.
+- Slå inte på Production för att "testa" residualfixarna.
+- #1116:s runtime-diff ska omprövas separat, inte tas in som ett implicit
+  mergekrav; denna reklassificering är dokumentation-only.
 
-## Not om den lokala specen
+## När den här planen är klar
 
-`.cursor/swarms/SPEC-2026-08-19-live-review.md` är en ägargodkänd design som bara
-finns lokalt och är gitignorerad — den dör med maskinen. Nu när `#1052` är
-avgjord är frågan öppen: ska resterande steg in i repot? Det är ett ägarbeslut.
-
-## När den här filen är inaktuell
-
-När grinden är stängd och flaggan påslagen: väv en rad i
+När residualerna är mergade, #1116:s överlapp är omprövad och eventuella
+godkända relevanta delar portade, Preview-rökprovet grönt och
+Production-beslutet uttryckligen dokumenterat: väv en rad i
 [`../../avklarat/README.md`](../../avklarat/README.md), arkivera `SM-070` och
 radera mappen.
