@@ -69,6 +69,13 @@ templates_v0/
 .cursor/automation/archive/
 .cursor/automation/input/
 .cursor/migration-archive/
+# Flyttade från .cursorignore 2026-08-22 (ägarbeslut): läsbara vid felsökning,
+# inte sökbara. Riktiga secrets (.env, .vercel, nycklar) stannar i .cursorignore.
+.cursor/mcp.json
+.cursor/tmp/
+.cursor/*tmp*
+.cursor/openclaw-bridge/
+.cursor/openclaw-bridge-message.txt
 # .cursor/swarms/ utelämnad med flit: .gitignore täcker fynd-filerna redan,
 # och README.md är undantagen där för att förbli sökbar.
 

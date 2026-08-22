@@ -52,13 +52,8 @@ id_rsa*
 google-services.json
 .token-status.json
 
-# --- OpenClaw-bryggan ---
-# Agent-till-agent-trafik som regelmässigt citerar env-värden och felutdrag.
-.cursor/openclaw-bridge/
-.cursor/openclaw-bridge-message.txt
-
-# Lokal IDE-MCP-config (kan hålla tokens; mall: .cursor/mcp.json.example)
-.cursor/mcp.json
+# OpenClaw-bryggan, .cursor/mcp.json och .cursor/tmp ligger i
+# .cursorindexingignore (läsbara, inte sökbara) — ägarbeslut 2026-08-22.
 
 # Vercel-länkmap (OIDC-token + .env.development.local). Gitignorerad, men
 # Read kan annars dra in tokens.
@@ -93,8 +88,6 @@ senaste_miljovariablar/
 *_agent_session.txt
 agent-session-*.txt
 tr*_agent.txt
-.cursor/tmp/
-.cursor/*tmp*
 # --- Build-cache Read-fällor (samma skäl som .eslintcache) ---
 # Gitignorerade + redan i .cursorindexingignore, men Read kan fortfarande
 # dumpa megabyte in i kontexten. Aldrig meningsfullt innehåll för en agent.
