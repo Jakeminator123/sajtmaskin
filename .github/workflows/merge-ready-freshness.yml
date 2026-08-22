@@ -96,14 +96,22 @@ jobs:
           comments_json=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" \
             --jq '.[] | {body: (.body // ""), createdAt: .created_at}' 2>/dev/null | jq -s '.' || echo '[]')
 
+          # Läs kommentaren/reviewen från eventfilen. Direkt interpolation av
+          # användarstyrd body i shell hade varit command-injection-känslig.
+          EVENT_BODY=$(jq -r '.comment.body // .review.body // ""' "$GITHUB_EVENT_PATH")
+
           payload=$(jq -n \
             --arg eventName "$EVENT_NAME" \
+            --arg senderLogin "$SENDER" \
+            --arg eventBody "$EVENT_BODY" \
             --arg headSha "$HEAD_SHA" \
             --arg eventAt "${EVENT_AT:-}" \
             --argjson pr "$pr_json" \
             --argjson comments "$comments_json" \
             '{
               eventName: $eventName,
+              senderLogin: $senderLogin,
+              eventBody: $eventBody,
               headSha: $headSha,
               eventAt: $eventAt,
               labels: [$pr.labels[].name],

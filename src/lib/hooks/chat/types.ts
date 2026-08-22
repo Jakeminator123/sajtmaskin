@@ -67,7 +67,7 @@ export type CreateChatLock = {
 };
 
 export type QualityGateFailure = {
-  check: "typecheck" | "build" | "lint";
+  check: string;
   exitCode: number;
   /** Truncated check output (max ~4000 chars). */
   output: string;

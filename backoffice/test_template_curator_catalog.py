@@ -135,6 +135,39 @@ class AddendaValidationTests(unittest.TestCase):
         with self.assertRaises(CatalogValidationError):
             parse_addenda_registry(registry)
 
+    def test_generated_and_reviewed_require_extractor_sha(self) -> None:
+        for status in ("generated", "reviewed"):
+            registry = _valid_registry()
+            registry["templates"][0]["reviewStatus"] = status  # type: ignore[index]
+            del registry["templates"][0]["extractorSha256"]  # type: ignore[index]
+            with self.subTest(status=status), self.assertRaises(CatalogValidationError):
+                parse_addenda_registry(registry)
+
+    def test_disabled_must_omit_extractor_sha(self) -> None:
+        registry = _valid_registry()
+        registry["templates"][0]["reviewStatus"] = "disabled"  # type: ignore[index]
+        registry["templates"][0]["structuralReferences"] = []  # type: ignore[index]
+        with self.assertRaises(CatalogValidationError):
+            parse_addenda_registry(registry)
+
+    def test_disabled_null_extractor_sha_is_rejected(self) -> None:
+        registry = _valid_registry()
+        registry["templates"][0]["reviewStatus"] = "disabled"  # type: ignore[index]
+        registry["templates"][0]["structuralReferences"] = []  # type: ignore[index]
+        registry["templates"][0]["extractorSha256"] = None  # type: ignore[index]
+        with self.assertRaises(CatalogValidationError) as ctx:
+            parse_addenda_registry(registry)
+        self.assertIn("must be omitted, not null", str(ctx.exception))
+
+    def test_disabled_without_extractor_sha_is_valid(self) -> None:
+        registry = _valid_registry()
+        registry["templates"][0]["reviewStatus"] = "disabled"  # type: ignore[index]
+        registry["templates"][0]["structuralReferences"] = []  # type: ignore[index]
+        del registry["templates"][0]["extractorSha256"]  # type: ignore[index]
+        parsed = parse_addenda_registry(registry)
+        self.assertEqual(parsed["template-a"].review_status, "disabled")
+        self.assertIsNone(parsed["template-a"].extractor_sha256)
+
     def test_any_bad_structural_reference_invalidates_whole_registry(self) -> None:
         for patch in (
             {"path": "../app/page.tsx"},
