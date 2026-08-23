@@ -1,0 +1,77 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "evening-venue",
+  "scaffoldId": "landing-page",
+  "label": "Evening Venue",
+  "description": "Dark hospitality landing for restaurants, wine bars, hotels, and evening venues. Photography and reservation lead; daytime card-storefronts do not.",
+  "keywords": [
+    "vinbar",
+    "kväll",
+    "middag",
+    "nightlife",
+    "reservation",
+    "wine-bar",
+    "restaurang-kväll",
+    "hotellbar",
+    "aperitivo",
+    "fine-dining",
+    "lounge",
+    "boka-bord"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Cormorant Garamond",
+      "body": "Outfit"
+    },
+    {
+      "heading": "Playfair Display",
+      "body": "Manrope"
+    }
+  ],
+  "signatureMotif": "full-bleed night photography, gold-on-ink type, and a reservation-first close",
+  "colorMode": "dark",
+  "promptHints": [
+    "Lead with a full-viewport night photograph: venue exterior, candlelit interior, or plated dish. Overlay a serif nameplate and one reservation CTA — no split 60/40 hero.",
+    "Treat the page as a night out: menu highlights, atmosphere, and booking. Opening hours belong in a quiet strip, not a card grid.",
+    "Keep surfaces ink, charcoal, and warm metal. Gold or champagne is the only accent — no peach cards, no startup gradients."
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "Hero is min-h-screen with a full-bleed evening photo, a large serif wordmark anchored low-left or centered, a one-line cuisine or neighborhood cue, and a single Reserve / Boka bord button.",
+      "Next section is a horizontal menu tasting: 4–6 dishes as type + price on a dark field, not product cards. Pair with one oversized food crop that bleeds off an edge.",
+      "Atmosphere section uses a 2+1 photo mosaic (interior, detail, street at night) with a short caption column — no icon-feature grid.",
+      "Close with a reservation band: date/time/party fields or a strong booking CTA beside address, hours, and a quiet map link on near-black."
+    ],
+    "motifs": [
+      "Background stays near-black (ink, not purple neon). Type is cream; the only metal is a thin gold rule or a champagne button.",
+      "Photography is candlelight, glassware, linen, wet street, or a lit facade — never stock handshake or abstract 3D.",
+      "Cormorant or Playfair at display size with tight tracking; body stays 16–18px Outfit/Manrope in warm gray."
+    ],
+    "antiPatterns": [
+      "Never use the warm-local storefront: peach cards, rounded booking widgets, or a daytime 60/40 hero with a hours-card on the right.",
+      "Avoid SaaS proof rows, neon gradients, glass metric tiles, and Get Started Free as the primary action.",
+      "Do not build a 3-up icon service grid (Klippning / Färg / Skägg). This is a venue night, not a daytime salon menu.",
+      "Avoid centering a narrow max-w-3xl column of stacked cards on a light cream background."
+    ]
+  },
+  "themeTokens": {
+    "background": "oklch(0.16 0.02 50)",
+    "foreground": "oklch(0.93 0.02 85)",
+    "card": "oklch(0.20 0.02 50)",
+    "primary": "oklch(0.78 0.10 85)",
+    "primaryForeground": "oklch(0.16 0.02 50)",
+    "secondary": "oklch(0.24 0.02 50)",
+    "muted": "oklch(0.28 0.02 50)",
+    "accent": "oklch(0.72 0.12 70)",
+    "border": "oklch(0.32 0.02 55)",
+    "ring": "oklch(0.78 0.10 85)",
+    "radius": "0.4rem"
+  },
+  "sourceTemplateIds": [
+    "R3n0gnvYFbO",
+    "lJXGkoM1koN",
+    "XOMN4texeRO",
+    "ZIHJBIvfeuW"
+  ],
+  "default": false
+}
