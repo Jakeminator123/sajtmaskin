@@ -21,7 +21,7 @@ function liveManifestPaths(): string[] {
   for (const dossierClass of ["hard", "soft"] as const) {
     const root = join(REPO_ROOT, "data", "dossiers", dossierClass);
     for (const entry of readdirSync(root, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
+      if (!entry.isDirectory() || entry.name.startsWith("_")) continue;
       paths.push(join(root, entry.name, "manifest.json"));
     }
   }
