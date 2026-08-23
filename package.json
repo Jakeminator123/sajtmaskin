@@ -56,6 +56,7 @@
     "db:rows": "node scripts/db/db-row-overview.mjs",
     "db:latest": "node scripts/db/latest-site.mjs",
     "db:latest:prod": "node scripts/db/latest-site.mjs --prod",
+    "db:redis-cache": "node scripts/db/dump-redis-cache.mjs",
     "db:health": "node scripts/db/db-health-check.mjs",
     "db:perf-indexes": "node scripts/db/add-performance-indexes.mjs",
     "db:perf-indexes:dry": "node scripts/db/add-performance-indexes.mjs --dry-run",
