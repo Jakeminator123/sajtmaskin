@@ -1,9 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
+const REPO_ROOT = process.cwd();
 const STRICT_SCHEMA_PATH = join(
   REPO_ROOT,
   "docs",
