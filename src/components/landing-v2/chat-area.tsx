@@ -76,7 +76,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
 
       {/* Scrollable content */}
       <div
-        className="relative z-10 flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain scroll-smooth [-webkit-overflow-scrolling:touch]"
+        className="relative z-10 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain scroll-smooth [-webkit-overflow-scrolling:touch]"
         data-scroll-container
       >
 
@@ -384,4 +384,3 @@ export function ChatArea(props: ChatAreaProps = {}) {
     </main>
   )
 }
-

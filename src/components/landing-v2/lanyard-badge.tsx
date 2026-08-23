@@ -158,7 +158,6 @@ export function LanyardBadge() {
 
   const onDown = useCallback((e: React.PointerEvent) => {
     if (!runPhysics) return;
-    e.preventDefault();
     drag.current = true;
     lastX.current = e.clientX;
     p.current.va = 0;
@@ -188,8 +187,10 @@ export function LanyardBadge() {
         className="relative w-full h-[450px] md:h-[530px] overflow-hidden select-none"
         onPointerMove={runPhysics ? onMove : undefined}
         onPointerUp={runPhysics ? onUp : undefined}
+        onPointerCancel={runPhysics ? onUp : undefined}
+        onLostPointerCapture={runPhysics ? onUp : undefined}
         onPointerLeave={runPhysics ? onUp : undefined}
-        style={{ touchAction: runPhysics ? "none" : "auto" }}
+        style={{ touchAction: runPhysics ? "pan-y pinch-zoom" : "auto" }}
       >
         <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40">
           <div className="w-5 h-5 rounded-full bg-primary shadow-lg shadow-primary/40 border-2 border-background" />

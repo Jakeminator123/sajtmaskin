@@ -236,16 +236,16 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
             onPointerOver={() => setHovered(true)}
             onPointerOut={() => setHovered(false)}
             onPointerUp={(e) => {
+              const press = pressInfo.current
+              pressInfo.current = null
+              setDragged(false)
               try {
                 ;(e.target as Element)?.releasePointerCapture?.(e.pointerId)
               } catch {
                 /* Ogiltigt pointerId — ignorera. */
               }
-              setDragged(false)
               // Snabbt klick utan rörelse = "stöt till" kortet: det snurrar
               // runt sin egen axel och fjädrar tillbaka som en spänd snodd.
-              const press = pressInfo.current
-              pressInfo.current = null
               if (press) {
                 const dx = e.nativeEvent.clientX - press.x
                 const dy = e.nativeEvent.clientY - press.y
@@ -260,6 +260,14 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
                   }, 30)
                 }
               }
+            }}
+            onPointerCancel={() => {
+              pressInfo.current = null
+              setDragged(false)
+            }}
+            onLostPointerCapture={() => {
+              pressInfo.current = null
+              setDragged(false)
             }}
             onPointerDown={(e) => {
               // Registrera trycket FÖRST — setPointerCapture kan kasta för
@@ -349,7 +357,7 @@ export function LanyardCard({
       <Canvas
         camera={{ position: [0, 0, 11], fov: 25 }}
         gl={{ alpha: true, antialias: true }}
-        style={{ background: "transparent", touchAction: "none" }}
+        style={{ background: "transparent", touchAction: "pan-y pinch-zoom" }}
         dpr={[1, 2]}
       >
         <ambientLight intensity={0.6} />

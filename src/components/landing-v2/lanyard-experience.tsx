@@ -78,18 +78,17 @@ function StaticLanyardFallback() {
     <div
       data-testid="lanyard-static"
       aria-hidden="true"
-      className="flex h-full w-full flex-col items-center justify-start pt-[6vh]"
+      className="flex h-full w-full flex-col items-center justify-start overflow-hidden pt-1"
     >
       <span
-        className="block w-[6px] rounded-full"
+        className="block h-[22%] min-h-8 w-[6px] shrink-0 rounded-full"
         style={{
-          height: "clamp(70px, 12vh, 130px)",
           background:
             "linear-gradient(180deg, rgba(45,212,191,0) 0%, rgba(45,212,191,0.55) 22%, rgba(45,212,191,0.95) 100%)",
           boxShadow: "0 0 14px rgba(45,212,191,0.45)",
         }}
       />
-      <div className="relative mt-1 aspect-[3/4] w-[min(60vw,260px)] overflow-hidden rounded-[26px] shadow-2xl ring-1 ring-primary/30">
+      <div className="relative mt-1 aspect-[3/4] h-[72%] max-w-[min(60vw,220px)] shrink-0 overflow-hidden rounded-[26px] shadow-2xl ring-1 ring-primary/30">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={CARD_IMAGE}
