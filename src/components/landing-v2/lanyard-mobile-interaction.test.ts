@@ -15,6 +15,17 @@ describe("lanyard mobile interactions", () => {
     expect(source).not.toContain('touchAction: "none"');
   });
 
+  it("keeps the settled business card inside the camera instead of clipping its bottom", () => {
+    const source = readComponent("lanyard-card.tsx");
+
+    expect(source).toContain("const ROPE_SEGMENT_LENGTH = 0.75");
+    expect(source).toContain(
+      "const CARD_START_Y = -(ROPE_SEGMENT_LENGTH * 3 + CARD_JOINT_Y)",
+    );
+    expect(source.match(/ROPE_SEGMENT_LENGTH\]\)/g)).toHaveLength(3);
+    expect(source).toContain("position={[0, CARD_START_Y, 0]}");
+  });
+
   it("applies the same scroll-safe contract to the lower badge", () => {
     const source = readComponent("lanyard-badge.tsx");
 
@@ -22,5 +33,19 @@ describe("lanyard mobile interactions", () => {
     expect(source).toContain("onPointerCancel");
     expect(source).toContain("onLostPointerCapture");
     expect(source).not.toContain('touchAction: runPhysics ? "none"');
+  });
+
+  it("keeps the interactive canvas within a reduced adaptive render budget", () => {
+    const lanyard = readComponent("lanyard-card.tsx");
+    const journey = readComponent("how-it-works-scene.tsx");
+
+    expect(lanyard).toContain("<AdaptiveDpr />");
+    expect(lanyard).toContain("dpr={[1, 1.35]}");
+    expect(lanyard).toContain("<Environment resolution={64}>");
+    expect(lanyard).toContain("const bandPoints = useRef");
+
+    expect(journey).toContain('frameloop={sceneActive ? "always" : "never"}');
+    expect(journey).toContain("setSceneActive(isNearViewport)");
+    expect(journey).toContain("<AdaptiveDpr />");
   });
 });

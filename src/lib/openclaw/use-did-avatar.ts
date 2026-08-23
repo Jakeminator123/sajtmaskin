@@ -151,6 +151,17 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     setAvatarReady(false);
   }, []);
 
+  const reconnect = useCallback(async () => {
+    const previousAgent = agentRef.current;
+    agentRef.current = null;
+    streamRef.current = null;
+    setAvatarReady(false);
+    if (previousAgent?.disconnect) {
+      await previousAgent.disconnect().catch(() => {});
+    }
+    await connect();
+  }, [connect]);
+
   useEffect(() => {
     if (enabled) {
       void connect();
@@ -178,6 +189,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     avatarReady,
     videoRef,
     connect,
+    reconnect,
     speak,
     disconnect,
     available: DID_AVATAR_AVAILABLE,

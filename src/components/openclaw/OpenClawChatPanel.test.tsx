@@ -24,7 +24,12 @@ beforeEach(() => {
     })),
   );
   act(() => {
-    useOpenClawStore.setState({ editEnabled: false, powersOn: false, grantedPowers: [] });
+    useOpenClawStore.setState({
+      avatarMode: false,
+      editEnabled: false,
+      powersOn: false,
+      grantedPowers: [],
+    });
   });
 });
 
@@ -36,7 +41,32 @@ describe("OpenClawChatPanel", () => {
     expect(panel).toBeTruthy();
     expect(panel?.className).toContain("w-[min(380px,calc(100vw-1rem))]");
     expect(panel?.className).toContain("max-w-[calc(100vw-1rem)]");
-    expect(panel?.className).toContain("h-[min(640px,calc(100vh-5rem))]");
+    expect(panel?.className).toContain("h-[min(580px,calc(100dvh-4.5rem))]");
+  });
+
+  it("starts as a clean text chat without canned question buttons", () => {
+    render(<OpenClawChatPanel onClose={vi.fn()} />);
+
+    expect(screen.getByPlaceholderText("Fråga Sajtagenten...")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", {
+        name: "Hur kan Sajtagenten hjälpa ett småföretag på sajten?",
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", {
+        name: "Hur fungerar Sajtagenten i buildern i dag?",
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps the collapsed panel out of the accessibility tree", () => {
+    const { container } = render(<OpenClawChatPanel onClose={vi.fn()} isOpen={false} />);
+    const panel = container.firstElementChild as HTMLElement;
+
+    expect(panel.getAttribute("aria-hidden")).toBe("true");
+    expect(panel.hasAttribute("inert")).toBe(true);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   // Extra powers can only act where the builder composer/versions exist, so the
@@ -52,8 +82,6 @@ describe("OpenClawChatPanel", () => {
 
   it("shows the powers control on a builder surface with OC_EDIT on", async () => {
     render(<OpenClawChatPanel onClose={vi.fn()} powersAvailable />);
-    expect(
-      await screen.findByRole("button", { name: "Slå på extra befogenheter" }),
-    ).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Slå på extra befogenheter" })).toBeTruthy();
   });
 });

@@ -35,12 +35,6 @@ import { OpenClawMessage } from "./OpenClawMessage";
 import { OpenClawPowersControl } from "./OpenClawPowersControl";
 import { describeMandate, isMandateActive } from "@/lib/openclaw/debug/armed-mandate";
 
-const DEFAULT_STARTER_PROMPTS = [
-  "Hur kan Sajtagenten hjälpa ett småföretag på sajten?",
-  "Vad kan jag senare kundanpassa för ett specifikt företag?",
-  "Hur fungerar Sajtagenten i buildern i dag?",
-] as const;
-
 export interface OpenClawChatPanelContent {
   badgeLabel: string;
   assistantLabel: string;
@@ -48,7 +42,6 @@ export interface OpenClawChatPanelContent {
   emptyTitle: string;
   emptyBody: string;
   inputPlaceholder: string;
-  starterPrompts: readonly string[];
 }
 
 export const DEFAULT_OPENCLAW_CHAT_PANEL_CONTENT: OpenClawChatPanelContent = {
@@ -56,10 +49,8 @@ export const DEFAULT_OPENCLAW_CHAT_PANEL_CONTENT: OpenClawChatPanelContent = {
   assistantLabel: "Sajtagenten",
   idleStatus: "Guidar, förklarar och visar möjligheter",
   emptyTitle: "Hej! Jag är Sajtagenten.",
-  emptyBody:
-    "Jag kan förklara hur Sajtagenten fungerar, hur den kan presenteras på sajten och hur du bygger vidare på din sajt i Sajtmaskin.",
-  inputPlaceholder: "Skriv ett meddelande...",
-  starterPrompts: DEFAULT_STARTER_PROMPTS,
+  emptyBody: "Fråga om din sajt, funktionerna eller vad som är smartast att göra härnäst.",
+  inputPlaceholder: "Fråga Sajtagenten...",
 };
 
 // Web Speech API constructor type (sv-SE recognition)
@@ -133,6 +124,7 @@ export function OpenClawChatPanel({
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
 
+  const panelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollContentRef = useRef<HTMLDivElement>(null);
   // True while the user is at (or near) the bottom of the chat. Streaming
@@ -145,9 +137,12 @@ export function OpenClawChatPanel({
   const dragStartRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(
     null,
   );
+  const liveDragOffsetRef = useRef(dragOffset);
 
   useEffect(() => {
-    setDragOffset(readStoredOffset());
+    const storedOffset = readStoredOffset();
+    liveDragOffsetRef.current = storedOffset;
+    setDragOffset(storedOffset);
     setSpeechSupported(getSpeechRecognitionCtor() !== null);
   }, []);
 
@@ -245,12 +240,6 @@ export function OpenClawChatPanel({
       e.preventDefault();
       handleSend();
     }
-  };
-
-  const handleStarterPrompt = (prompt: string) => {
-    if (isStreaming) return;
-    void send(prompt);
-    setInput("");
   };
 
   const startListening = useCallback(() => {
@@ -355,7 +344,10 @@ export function OpenClawChatPanel({
       x: start.offsetX + (e.clientX - start.x),
       y: start.offsetY + (e.clientY - start.y),
     };
-    setDragOffset(next);
+    liveDragOffsetRef.current = next;
+    if (panelRef.current) {
+      panelRef.current.style.transform = `translate3d(${next.x}px, ${next.y}px, 0)`;
+    }
   }, []);
 
   const handleHeaderPointerUp = useCallback((e: PointerEvent<HTMLDivElement>) => {
@@ -368,17 +360,16 @@ export function OpenClawChatPanel({
       /* ignore */
     }
     try {
-      // Snapshot current offset directly to storage
-      setDragOffset((current) => {
-        sessionStorage.setItem(DRAG_STORAGE_KEY, JSON.stringify(current));
-        return current;
-      });
+      const current = liveDragOffsetRef.current;
+      setDragOffset(current);
+      sessionStorage.setItem(DRAG_STORAGE_KEY, JSON.stringify(current));
     } catch {
       /* ignore */
     }
   }, []);
 
   const resetPanelPosition = useCallback(() => {
+    liveDragOffsetRef.current = { x: 0, y: 0 };
     setDragOffset({ x: 0, y: 0 });
     try {
       sessionStorage.removeItem(DRAG_STORAGE_KEY);
@@ -394,13 +385,18 @@ export function OpenClawChatPanel({
 
   return (
     <div
+      ref={panelRef}
+      role={isOpen ? "dialog" : undefined}
+      aria-label={isOpen ? `${content.assistantLabel} chatt` : undefined}
+      aria-hidden={!isOpen}
+      inert={!isOpen}
       style={{
         transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0)`,
         transition: isDragging ? "none" : "transform 200ms ease-out",
       }}
       className={cn(
-        "flex flex-col overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/95 text-slate-50 shadow-2xl shadow-cyan-950/35 backdrop-blur-xl",
-        "h-[min(640px,calc(100vh-5rem))] max-w-[calc(100vw-1rem)]",
+        "flex flex-col overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/[0.98] text-slate-50 shadow-2xl shadow-cyan-950/35",
+        "h-[min(580px,calc(100dvh-4.5rem))] max-w-[calc(100vw-1rem)]",
         "transition-[width] duration-300 ease-out",
         panelWidthClass,
       )}
@@ -440,9 +436,11 @@ export function OpenClawChatPanel({
                     ? "Pratar..."
                     : avatar.connectionState === "connecting"
                       ? "Ansluter avatar..."
-                      : isStreaming
-                        ? "Skriver..."
-                        : content.idleStatus}
+                      : avatar.connectionState === "error"
+                        ? "Avatar offline · textchatten fungerar"
+                        : isStreaming
+                          ? "Skriver..."
+                          : content.idleStatus}
             </p>
           </div>
         </div>
@@ -503,11 +501,12 @@ export function OpenClawChatPanel({
         </div>
       </div>
 
-      {/* Avatar video — landscape, embedded card */}
+      {/* Avatar video. Anslutningsfel tar aldrig över halva chatten: textchatten
+          fortsätter fungera och avataren kan startas om eller stängas av. */}
       {showAvatar ? (
-        <div className="shrink-0 border-b border-white/10 bg-slate-950/40 px-3 pt-3 pb-3">
-          <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black/60 shadow-lg shadow-black/20">
-            {avatar.avatarReady ? (
+        avatar.avatarReady ? (
+          <div className="shrink-0 border-b border-white/10 bg-slate-950/40 p-3">
+            <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black/60 shadow-lg shadow-black/20">
               <video
                 ref={avatar.videoRef}
                 autoPlay
@@ -515,75 +514,92 @@ export function OpenClawChatPanel({
                 muted={avatar.connectionState !== "speaking"}
                 className="h-full w-full object-cover"
               />
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <div className="flex flex-col items-center gap-2">
-                  {avatar.connectionState === "error" ? (
-                    <>
-                      <div className="h-3 w-3 rounded-full bg-red-400" />
-                      <p className="text-[10px] text-red-300">Kunde inte ansluta</p>
-                      <button
-                        type="button"
-                        onClick={() => void avatar.connect()}
-                        className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] text-slate-200 hover:bg-white/5"
-                      >
-                        Försök igen
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="h-3 w-3 animate-pulse rounded-full bg-cyan-400" />
-                      <p className="text-[10px] text-slate-400">Ansluter till mAIa...</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-            {avatar.connectionState === "speaking" && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-linear-to-r from-cyan-400 via-purple-400 to-cyan-400 opacity-80" />
-            )}
-            {/* Floating expand toggle on the video itself */}
-            <button
-              type="button"
-              onClick={() => setAvatarExpanded((v) => !v)}
-              className="absolute top-2 right-2 rounded-md bg-black/40 p-1 text-slate-200 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white"
-              aria-label={avatarExpanded ? "Förminska panel" : "Förstora panel"}
-              title={avatarExpanded ? "Förminska panel" : "Förstora panel"}
-            >
-              {avatarExpanded ? (
-                <Minimize2 className="h-3 w-3" />
-              ) : (
-                <Maximize2 className="h-3 w-3" />
-              )}
-            </button>
+              {avatar.connectionState === "speaking" ? (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-linear-to-r from-cyan-400 via-purple-400 to-cyan-400 opacity-80" />
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setAvatarExpanded((v) => !v)}
+                className="absolute top-2 right-2 rounded-md bg-black/55 p-1 text-slate-200 transition-colors hover:bg-black/75 hover:text-white"
+                aria-label={avatarExpanded ? "Förminska panel" : "Förstora panel"}
+                title={avatarExpanded ? "Förminska panel" : "Förstora panel"}
+              >
+                {avatarExpanded ? (
+                  <Minimize2 className="h-3 w-3" />
+                ) : (
+                  <Maximize2 className="h-3 w-3" />
+                )}
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div
+            className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-white/[0.035] px-4 py-3"
+            aria-live="polite"
+          >
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span
+                className={cn(
+                  "h-2.5 w-2.5 shrink-0 rounded-full",
+                  avatar.connectionState === "error" ? "bg-amber-400" : "animate-pulse bg-cyan-300",
+                )}
+              />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-100">
+                  {avatar.connectionState === "error"
+                    ? "Avataren kunde inte ansluta"
+                    : "Startar avataren..."}
+                </p>
+                <p className="truncate text-[10px] text-slate-400">
+                  Textchatten fungerar under tiden.
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {avatar.connectionState === "error" ? (
+                <button
+                  type="button"
+                  onClick={() => void avatar.reconnect()}
+                  className="rounded-full border border-white/10 px-2.5 py-1.5 text-[10px] font-medium text-slate-100 transition-colors hover:bg-white/10"
+                >
+                  Försök igen
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setAvatarMode(false)}
+                className="rounded-full px-2.5 py-1.5 text-[10px] text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                Endast text
+              </button>
+            </div>
+          </div>
+        )
       ) : null}
 
       <div ref={scrollRef} onScroll={handleChatScroll} className="flex-1 overflow-y-auto px-4 py-3">
         <div ref={scrollContentRef} className="flex min-h-full flex-col space-y-3">
           {messages.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-sm text-slate-300">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-cyan-400/20 bg-cyan-400/10">
-                <Bot className="h-6 w-6 text-cyan-200" />
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-2 text-center text-sm text-slate-300">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 shadow-[0_0_28px_rgba(34,211,238,0.08)]">
+                <Bot className="h-5 w-5 text-cyan-200" />
               </div>
-              <p className="font-medium text-white">{content.emptyTitle}</p>
-              <p className="max-w-[290px] text-xs leading-5 text-slate-300/80">
-                {content.emptyBody}
-              </p>
-              <div className="mt-2 flex w-full flex-col gap-2">
-                {content.starterPrompts.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    onClick={() => handleStarterPrompt(prompt)}
-                    disabled={isStreaming}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-slate-100 transition-colors hover:bg-white/10 disabled:opacity-50"
-                  >
-                    {prompt}
-                  </button>
-                ))}
+              <div>
+                <p className="font-medium text-white">{content.emptyTitle}</p>
+                <p className="mx-auto mt-1.5 max-w-[270px] text-xs leading-5 text-slate-300/80">
+                  {content.emptyBody}
+                </p>
               </div>
+              {DID_AVATAR_AVAILABLE && !avatarMode ? (
+                <button
+                  type="button"
+                  onClick={() => setAvatarMode(true)}
+                  className="mt-1 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-medium text-cyan-100 transition-colors hover:bg-cyan-400/15"
+                >
+                  <Video className="h-3.5 w-3.5" />
+                  Starta med avatar
+                </button>
+              ) : null}
             </div>
           ) : null}
           {messages.map((msg, index) => (

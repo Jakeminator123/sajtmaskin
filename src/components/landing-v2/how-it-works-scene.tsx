@@ -2,6 +2,7 @@
 
 import { Canvas, useFrame } from "@react-three/fiber"
 import {
+  AdaptiveDpr,
   ContactShadows,
   Environment,
   Float,
@@ -622,7 +623,29 @@ function PipelineScene({ activeStep }: { activeStep: number }) {
 
 export function HowItWorksScene({ steps }: { steps: JourneyStep[] }) {
   const [activeStep, setActiveStep] = useState(0)
+  const [sceneMounted, setSceneMounted] = useState(false)
+  const [sceneActive, setSceneActive] = useState(false)
   const cardRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const sceneHostRef = useRef<HTMLDivElement>(null)
+
+  // Den här scenen har flera useFrame-loopar och post-processing. Låt den inte
+  // konkurrera med hero-kortets första interaktion när den ligger flera
+  // skärmhöjder ned. Den monteras strax innan den syns och pausas när den åter
+  // lämnar närheten av viewporten.
+  useEffect(() => {
+    const host = sceneHostRef.current
+    if (!host) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const isNearViewport = entry?.isIntersecting ?? false
+        if (isNearViewport) setSceneMounted(true)
+        setSceneActive(isNearViewport)
+      },
+      { rootMargin: "320px 0px", threshold: 0 },
+    )
+    observer.observe(host)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -653,15 +676,23 @@ export function HowItWorksScene({ steps }: { steps: JourneyStep[] }) {
     <div className="rounded-[32px] border border-border/20 bg-card/30 p-5 md:p-6 shadow-[0_24px_80px_rgba(6,10,20,0.28)]">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,420px)]">
         <div className="lg:sticky lg:top-24">
-          <div className="relative min-h-[420px] overflow-hidden rounded-[28px] border border-border/20 bg-[#060b16] md:min-h-[520px]">
+          <div
+            ref={sceneHostRef}
+            className="relative min-h-[420px] overflow-hidden rounded-[28px] border border-border/20 bg-[#060b16] md:min-h-[520px]"
+          >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(45,212,191,0.20),transparent_55%),radial-gradient(circle_at_80%_85%,rgba(34,197,94,0.12),transparent_50%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_40%)]" />
-            <Canvas
-              gl={{ alpha: true, antialias: true }}
-              dpr={[1, 1.6]}
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-            >
-              <PipelineScene activeStep={activeStep} />
-            </Canvas>
+            {sceneMounted ? (
+              <Canvas
+                frameloop={sceneActive ? "always" : "never"}
+                gl={{ alpha: true, antialias: true }}
+                dpr={[1, 1.35]}
+                performance={{ min: 0.5, max: 1, debounce: 200 }}
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+              >
+                <AdaptiveDpr />
+                <PipelineScene activeStep={activeStep} />
+              </Canvas>
+            ) : null}
 
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-linear-to-t from-[#060b16] via-[#060b16]/45 to-transparent" />
             <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-border/20 bg-background/55 p-4 backdrop-blur-xl">

@@ -79,13 +79,6 @@ function getKostnadsfriSurfaceContent(
   const introBody =
     config?.introBody ||
     `Jag kan skissa på hur en Sajtagent för ${companyName} kan ta emot frågor, guida besökare och driva fler förfrågningar direkt på sajten.`;
-  const starterPrompts = config?.starterPrompts?.length
-    ? config.starterPrompts
-    : [
-        `Hur skulle en digital receptionist för ${companyName} kunna låta?`,
-        `Vilka frågor borde Sajtagenten kunna svara på för ${companyName}?`,
-        `Hur kan Sajtagenten hjälpa ${companyName} att få fler leads?`,
-      ];
 
   return {
     panel: {
@@ -95,14 +88,13 @@ function getKostnadsfriSurfaceContent(
       emptyTitle: introTitle,
       emptyBody: introBody,
       inputPlaceholder: `Fråga om agenten för ${companyName}...`,
-      starterPrompts,
     },
     teaserTitle: `Visa ${companyName} med ${roleLabel}`,
     teaserBody: introBody,
     teaserTags: ["Företagston", "FAQ", "Lead capture"],
     teaserCta: `Prova Sajtagenten för ${companyName}`,
-    fabTitle: "Sajtagenten",
-    fabSubtitle: `För ${companyName}`,
+    fabTitle: "Fråga Sajtagenten",
+    fabSubtitle: `${companyName} · text eller avatar`,
     showTeaser: true,
   };
 }
@@ -125,15 +117,15 @@ function getSurfaceContent(
       "Sajtagenten kan guida besökare, svara på vanliga frågor och visa hur hemsidan kan kännas mer levande direkt på sajten.",
     teaserTags: ["FAQ", "Lead capture", "SMB tone"],
     teaserCta: "Prova Sajtagenten",
-    fabTitle: "Sajtagenten",
-    fabSubtitle: "AI-hjälp på sajten",
+    fabTitle: "Fråga Sajtagenten",
+    fabSubtitle: "Text först · avatar vid behov",
     showTeaser: false,
   };
 }
 
 export function OpenClawChat() {
   const pathname = usePathname();
-  const { isOpen, toggle, close, setScope } = useOpenClawStore();
+  const { isOpen, open, close, setScope } = useOpenClawStore();
   const [showTeaser, setShowTeaser] = useState(true);
   const [contextSurface, setContextSurface] = useState<KostnadsfriOpenClawSurfaceContext | null>(
     null,
@@ -179,7 +171,7 @@ export function OpenClawChat() {
 
   const handleOpen = () => {
     setShowTeaser(false);
-    toggle();
+    open();
   };
 
   // Extra befogenheter kan bara agera där builderns composer/versioner finns.
@@ -268,39 +260,24 @@ export function OpenClawChat() {
         />
       </div>
 
-      {/* FAB toggle — icon-only on mobile, label on sm+ */}
-      <button
-        type="button"
-        onClick={handleOpen}
-        className={cn(
-          "group pointer-events-auto relative flex items-center self-end overflow-hidden rounded-full border shadow-lg transition-all duration-200",
-          "gap-0 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3",
-          isOpen
-            ? "border-border bg-muted text-muted-foreground hover:bg-muted/90"
-            : "border-cyan-400/30 bg-slate-950 text-slate-50 shadow-cyan-950/40 hover:-translate-y-0.5",
-        )}
-        aria-label={
-          // Accessible name must start with the visible text ("Sajtagenten")
-          // so voice control can target the button (axe: label-content-name-mismatch).
-          isOpen ? "Sajtagenten — stäng chattrutan" : "Sajtagenten — öppna chattrutan"
-        }
-      >
-        {isOpen ? null : (
+      {/* En enda tydlig ingång. När chatten är öppen äger headern stängningen,
+          så ingen extra "Stäng"-bubbla ligger bakom panelen. */}
+      {!isOpen ? (
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="group pointer-events-auto relative flex items-center gap-0 self-end overflow-hidden rounded-full border border-cyan-400/30 bg-slate-950 px-3 py-2.5 text-slate-50 shadow-lg shadow-cyan-950/40 transition-all duration-200 hover:-translate-y-0.5 sm:gap-3 sm:px-4 sm:py-3"
+          aria-label="Fråga Sajtagenten — öppna chattrutan"
+        >
           <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.18),transparent_38%)]" />
-        )}
-        <MessageCircle className="h-5 w-5" />
-        <span className="relative hidden flex-col items-start leading-none sm:flex">
-          <span className="text-sm font-semibold">{isOpen ? "Stäng" : content.fabTitle}</span>
-          <span
-            className={cn("text-[11px]", isOpen ? "text-muted-foreground" : "text-cyan-200/90")}
-          >
-            {isOpen ? "Sajtagenten aktiv" : content.fabSubtitle}
+          <MessageCircle className="relative h-5 w-5" />
+          <span className="relative hidden flex-col items-start leading-none sm:flex">
+            <span className="text-sm font-semibold">{content.fabTitle}</span>
+            <span className="text-[11px] text-cyan-200/90">{content.fabSubtitle}</span>
           </span>
-        </span>
-        {isOpen ? null : (
           <span className="relative ml-1 hidden h-2.5 w-2.5 rounded-full bg-cyan-300 shadow-[0_0_16px_rgba(103,232,249,0.85)] sm:block" />
-        )}
-      </button>
+        </button>
+      ) : null}
     </div>
   );
 }

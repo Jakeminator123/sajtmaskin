@@ -116,7 +116,9 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   messages: [],
   isStreaming: false,
   scopeKey: "global",
-  avatarMode: true,
+  // Text first: opening the chat must not synchronously load the D-ID SDK or
+  // start a video connection. The user can opt into the avatar from the panel.
+  avatarMode: false,
   debugEnabled: false,
   editEnabled: false,
   powersOn: false,
