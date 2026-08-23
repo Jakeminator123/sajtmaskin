@@ -24,6 +24,7 @@ import { createDirectModel, getTemperatureConfig } from "@/lib/builder/direct-mo
 import {
   attachBriefReasoningSummary,
   extractGenerateObjectReasoning,
+  OPENAI_REASONING_SUMMARY_DETAILED,
   openaiBriefReasoningProviderOptions,
   supportsOpenAIReasoningSummary,
 } from "@/lib/builder/deep-brief-visibility";
@@ -245,21 +246,25 @@ type BriefGenerateObjectProviderOptions = {
   };
 };
 
-function briefGenerateObjectProviderOptions(
+/**
+ * Exporterad för regressionstestet: invarianten "fallback-schemat skickas
+ * icke-strikt" måste vaktas på vägen som faktiskt anropar `generateObject`.
+ * Vaktar testet bara konstanten ovan blir det grönt även om den här helpern
+ * slutar skicka flaggan.
+ */
+export function briefGenerateObjectProviderOptions(
   provider: "openai" | "anthropic",
   modelId: string,
   simplified: boolean,
 ): { providerOptions?: BriefGenerateObjectProviderOptions } {
-  if (provider === "anthropic") {
-    return simplified ? { providerOptions: { openai: { strictJsonSchema: false } } } : {};
-  }
-  if (!supportsOpenAIReasoningSummary(modelId)) {
-    return simplified ? { providerOptions: { openai: { strictJsonSchema: false } } } : {};
+  const nonStrict = { ...SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS.openai };
+  if (provider === "anthropic" || !supportsOpenAIReasoningSummary(modelId)) {
+    return simplified ? { providerOptions: { openai: nonStrict } } : {};
   }
   if (simplified) {
     return {
       providerOptions: {
-        openai: { reasoningSummary: "detailed", strictJsonSchema: false },
+        openai: { ...nonStrict, reasoningSummary: OPENAI_REASONING_SUMMARY_DETAILED },
       },
     };
   }
