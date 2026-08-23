@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawChatPanel } from "./OpenClawChatPanel";
@@ -67,6 +67,32 @@ describe("OpenClawChatPanel", () => {
     expect(panel.getAttribute("aria-hidden")).toBe("true");
     expect(panel.hasAttribute("inert")).toBe(true);
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("keeps the live drag transform through unrelated React re-renders", () => {
+    const { container, rerender } = render(<OpenClawChatPanel onClose={vi.fn()} />);
+    const panel = container.firstElementChild as HTMLElement;
+    const header = screen.getByTitle("Dra för att flytta — dubbelklicka för att återställa position");
+
+    fireEvent.pointerDown(header, {
+      button: 0,
+      pointerId: 1,
+      pointerType: "mouse",
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(header, {
+      pointerId: 1,
+      pointerType: "mouse",
+      clientX: 145,
+      clientY: 125,
+    });
+    expect(panel.style.transform).toBe("translate3d(45px, 25px, 0)");
+
+    rerender(<OpenClawChatPanel onClose={vi.fn()} powersAvailable />);
+
+    expect(panel.style.transform).toBe("translate3d(45px, 25px, 0)");
+    fireEvent.pointerUp(header, { pointerId: 1, pointerType: "mouse" });
   });
 
   // Extra powers can only act where the builder composer/versions exist, so the

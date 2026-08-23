@@ -22,6 +22,7 @@ import {
   type RapierRigidBody,
 } from "@react-three/rapier"
 import { MeshLineGeometry, MeshLineMaterial } from "meshline"
+import { LANYARD_CARD_LAYOUT } from "@/components/landing-v2/lanyard-card-layout"
 
 extend({ MeshLineGeometry, MeshLineMaterial })
 
@@ -42,13 +43,20 @@ declare module "@react-three/fiber" {
 const CARD_TEXTURE = "/branding/lanyard-card.png"
 const CARD_BACK_TEXTURE = "/branding/lanyard-card-back.png"
 const ACCENT = "#2dd4bf"
-// Tre kortare, redan utspända repsegment håller visitkortets nederkant inom
+// Tre kortare, redan utspända repsegment håller hela visitkortet inom
 // kameran när fysiken har stabiliserats. De tidigare 1.0-segmenten startade
 // hoptryckta men föll sedan ut till full längd och klippte av kortets nederkant.
-const ROPE_SEGMENT_LENGTH = 0.75
-const CARD_JOINT_Y = 1.45
-const FIXED_ANCHOR_Y = 2.8
-const CARD_START_Y = -(ROPE_SEGMENT_LENGTH * 3 + CARD_JOINT_Y)
+const {
+  ropeSegmentLength: ROPE_SEGMENT_LENGTH,
+  ropeSegmentCount: ROPE_SEGMENT_COUNT,
+  cardJointY: CARD_JOINT_Y,
+  fixedAnchorY: FIXED_ANCHOR_Y,
+  cardHeight: CARD_HEIGHT,
+  cardVisualOffsetY: CARD_VISUAL_OFFSET_Y,
+  cameraDistance: CAMERA_DISTANCE,
+  cameraFovDegrees: CAMERA_FOV_DEGREES,
+} = LANYARD_CARD_LAYOUT
+const CARD_START_Y = -(ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_COUNT + CARD_JOINT_Y)
 
 type BandProps = { maxSpeed?: number; minSpeed?: number; autoSwing?: boolean }
 
@@ -103,7 +111,11 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   // lodrät lina så att geometrin är giltig redan innan fysiken kickat igång.
   const curve = useRef(
     new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH * 3, 0),
+      new THREE.Vector3(
+        0,
+        FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_COUNT,
+        0,
+      ),
       new THREE.Vector3(0, FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH * 2, 0),
       new THREE.Vector3(0, FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH, 0),
       new THREE.Vector3(0, FIXED_ANCHOR_Y, 0),
@@ -248,7 +260,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
         </RigidBody>
         <RigidBody
           ref={j3}
-          position={[0, -ROPE_SEGMENT_LENGTH * 3, 0]}
+          position={[0, -ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_COUNT, 0]}
           colliders={false}
           angularDamping={2}
           linearDamping={2}
@@ -267,7 +279,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
           <CuboidCollider args={[0.85, 1.2, 0.02]} />
           <group
             scale={1}
-            position={[0, -0.05, 0]}
+            position={[0, CARD_VISUAL_OFFSET_Y, 0]}
             onPointerOver={() => setHovered(true)}
             onPointerOut={() => setHovered(false)}
             onPointerUp={(e) => {
@@ -322,7 +334,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
             }}
           >
             {/* Själva kortet */}
-            <RoundedBox args={[1.6, 2.3, 0.04]} radius={0.09} smoothness={3} castShadow receiveShadow>
+            <RoundedBox args={[1.6, CARD_HEIGHT, 0.04]} radius={0.09} smoothness={3} castShadow receiveShadow>
               <meshPhysicalMaterial
                 color="#0a0f14"
                 metalness={0.55}
@@ -390,7 +402,7 @@ export function LanyardCard({
   return (
     <div className={`relative w-full select-none ${className}`} aria-hidden="true">
       <Canvas
-        camera={{ position: [0, 0, 11], fov: 25 }}
+        camera={{ position: [0, 0, CAMERA_DISTANCE], fov: CAMERA_FOV_DEGREES }}
         gl={{ alpha: true, antialias: true }}
         style={{ background: "transparent", touchAction: "pan-y pinch-zoom" }}
         dpr={[1, 1.35]}

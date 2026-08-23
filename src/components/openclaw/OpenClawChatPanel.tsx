@@ -146,6 +146,15 @@ export function OpenClawChatPanel({
     setSpeechSupported(getSpeechRecognitionCtor() !== null);
   }, []);
 
+  // React äger inte `transform` under själva dragningen. Då kan en orelaterad
+  // re-render (streaming/avatarstatus) inte skriva tillbaka den senast
+  // committade state-positionen ovanpå den live-position som ligger i refen.
+  useEffect(() => {
+    if (!panelRef.current) return;
+    panelRef.current.style.transform =
+      `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0)`;
+  }, [dragOffset]);
+
   // Learn the server OC_DEBUG state once so the armed-autonomy auto-send path is
   // gated client-side too (defense in depth). Best-effort: failure leaves debug
   // off, which means OpenClaw stays passive (fill-but-never-send).
@@ -321,11 +330,12 @@ export function OpenClawChatPanel({
       if (e.button !== 0 && e.pointerType === "mouse") return;
 
       e.preventDefault();
+      const currentOffset = liveDragOffsetRef.current;
       dragStartRef.current = {
         x: e.clientX,
         y: e.clientY,
-        offsetX: dragOffset.x,
-        offsetY: dragOffset.y,
+        offsetX: currentOffset.x,
+        offsetY: currentOffset.y,
       };
       setIsDragging(true);
       try {
@@ -334,7 +344,7 @@ export function OpenClawChatPanel({
         /* ignore */
       }
     },
-    [dragOffset],
+    [],
   );
 
   const handleHeaderPointerMove = useCallback((e: PointerEvent<HTMLDivElement>) => {
@@ -391,7 +401,6 @@ export function OpenClawChatPanel({
       aria-hidden={!isOpen}
       inert={!isOpen}
       style={{
-        transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0)`,
         transition: isDragging ? "none" : "transform 200ms ease-out",
       }}
       className={cn(

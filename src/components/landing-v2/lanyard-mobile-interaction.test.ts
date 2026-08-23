@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { calculateSettledCardFrame } from "./lanyard-card-layout";
 
 const readComponent = (name: string) =>
   readFileSync(resolve(process.cwd(), `src/components/landing-v2/${name}`), "utf8");
@@ -15,15 +16,12 @@ describe("lanyard mobile interactions", () => {
     expect(source).not.toContain('touchAction: "none"');
   });
 
-  it("keeps the settled business card inside the camera instead of clipping its bottom", () => {
-    const source = readComponent("lanyard-card.tsx");
+  it("keeps the fully extended business card inside the camera with a safety margin", () => {
+    const frame = calculateSettledCardFrame();
 
-    expect(source).toContain("const ROPE_SEGMENT_LENGTH = 0.75");
-    expect(source).toContain(
-      "const CARD_START_Y = -(ROPE_SEGMENT_LENGTH * 3 + CARD_JOINT_Y)",
-    );
-    expect(source.match(/ROPE_SEGMENT_LENGTH\]\)/g)).toHaveLength(3);
-    expect(source).toContain("position={[0, CARD_START_Y, 0]}");
+    expect(frame.cardBottom).toBeGreaterThan(frame.cameraBottom);
+    expect(frame.cardTop).toBeLessThan(frame.cameraTop);
+    expect(frame.bottomMargin).toBeGreaterThanOrEqual(0.35);
   });
 
   it("applies the same scroll-safe contract to the lower badge", () => {
