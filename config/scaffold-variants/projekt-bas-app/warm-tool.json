@@ -1,0 +1,70 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "warm-tool",
+  "scaffoldId": "projekt-bas-app",
+  "label": "Warm Tool",
+  "description": "Light, warm counterpart to Neutral Core. For small product apps that should feel like a helpful tool on a desk, not a dark developer shell.",
+  "keywords": [
+    "varm-app",
+    "ljust-verktyg",
+    "desk-tool",
+    "warm-tool",
+    "hjälpsam",
+    "dagsljus-app",
+    "mjuk-produkt"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Inter",
+      "body": "Inter"
+    },
+    {
+      "heading": "Geist",
+      "body": "Geist"
+    }
+  ],
+  "signatureMotif": "warm light chrome, clear primary actions, and desk-tool calm",
+  "colorMode": "light",
+  "promptHints": [
+    "Invert Neutral Core: light surfaces, warm gray type, one terracotta or amber primary. Same app structure, different daylight.",
+    "Keep the scaffold routes and app vocabulary. Change only the visual temperature and density.",
+    "Buttons read as tools (Spara, Skapa) — not marketing CTAs."
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "App frame is a light top bar + optional slim nav. Content sits on warm white with a single focused view, not a dark IDE-like pane.",
+      "Primary work area is a form or list with 16–20px type and 8–12px gaps. Destructive actions stay visually secondary.",
+      "Settings and empty states use short sentences and one illustration-free helper line.",
+      "Keep scaffold file structure; restyle tokens, radius, and chrome only."
+    ],
+    "motifs": [
+      "Background cream-white, cards white, borders warm gray. Radius 0.7rem.",
+      "Primary is a muted terracotta or amber — never electric blue on black.",
+      "Inter/Geist only. No display serifs. Icons outline, 18–20px."
+    ],
+    "antiPatterns": [
+      "Do not keep Neutral Core's near-black background and cool blue primary as the default look.",
+      "Avoid marketing landing sections, hero claims, or pricing tables inside the app shell.",
+      "No neon, glass glow, or terminal mono as the UI font."
+    ]
+  },
+  "themeTokens": {
+    "background": "oklch(0.98 0.012 80)",
+    "foreground": "oklch(0.24 0.02 50)",
+    "card": "oklch(0.995 0.006 80)",
+    "primary": "oklch(0.55 0.12 45)",
+    "primaryForeground": "oklch(0.99 0.01 80)",
+    "secondary": "oklch(0.94 0.015 80)",
+    "muted": "oklch(0.93 0.012 80)",
+    "accent": "oklch(0.75 0.08 55)",
+    "border": "oklch(0.88 0.015 70)",
+    "ring": "oklch(0.55 0.12 45)",
+    "radius": "0.7rem"
+  },
+  "sourceTemplateIds": [
+    "sV0OtrkXM6x",
+    "ov3ApgfOdx5",
+    "Pf7lw1nypu5"
+  ],
+  "default": false
+}

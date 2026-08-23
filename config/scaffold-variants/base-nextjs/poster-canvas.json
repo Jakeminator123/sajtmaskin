@@ -1,0 +1,71 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "poster-canvas",
+  "scaffoldId": "base-nextjs",
+  "label": "Poster Canvas",
+  "description": "Typography-first Next.js starter that treats the first page as a poster. For experiments and art-directed one-pagers when the prompt wants a statement, not a blank app.",
+  "keywords": [
+    "affisch",
+    "poster",
+    "canvas",
+    "typografi-experiment",
+    "statement-page",
+    "art-directed",
+    "stor-typ",
+    "poster-start"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Fraunces",
+      "body": "Inter"
+    },
+    {
+      "heading": "Space Grotesk",
+      "body": "Manrope"
+    }
+  ],
+  "signatureMotif": "one oversized poster line, empty canvas, and a single quiet action",
+  "colorMode": "light",
+  "promptHints": [
+    "The first route is a poster: one huge line, lots of empty canvas, one small action. Do not lay out a product landing with feature cards.",
+    "Keep Next.js starter structure. Visual energy lives in type and space, not in extra sections.",
+    "If the user later asks for an app, grow from this poster — do not suddenly switch to a mint dashboard."
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "Home is min-h-screen with a single headline at clamp(4rem, 12vw, 9rem), flush left or slightly off-center, and a short line + one text link or button under it. The rest of the viewport stays empty.",
+      "If a second block is needed, it is a thin footer strip: year, name, one social — not a 3-column starter feature grid.",
+      "Do not invent pricing, testimonials, or a product screenshot. This scaffold is a canvas.",
+      "Mobile stacks the same poster tighter; never introduce cards to fill space."
+    ],
+    "motifs": [
+      "Paper or bone background, ink type, one accent only if the prompt names a color.",
+      "Fraunces or Space Grotesk for the poster line; Inter/Manrope for the small line.",
+      "No gradients, no noise textures, no glass. The empty space is the design."
+    ],
+    "antiPatterns": [
+      "Do not render starter-neutral or playground-mono chrome: dark IDE shell, mono playground, or extension-first empty app frames.",
+      "Avoid fresh-mint teal product cards and studio-soft designer dashboards.",
+      "No 3-up Getting started cards, counter widgets, or template-looking hero+features."
+    ]
+  },
+  "themeTokens": {
+    "background": "oklch(0.985 0.008 90)",
+    "foreground": "oklch(0.14 0.02 260)",
+    "card": "oklch(0.99 0.005 90)",
+    "primary": "oklch(0.20 0.03 260)",
+    "primaryForeground": "oklch(0.99 0 0)",
+    "secondary": "oklch(0.95 0.008 90)",
+    "muted": "oklch(0.93 0.008 90)",
+    "accent": "oklch(0.55 0.12 30)",
+    "border": "oklch(0.86 0.01 80)",
+    "ring": "oklch(0.20 0.03 260)",
+    "radius": "0.2rem"
+  },
+  "sourceTemplateIds": [
+    "XOMN4texeRO",
+    "iBPsMqPGRTZ",
+    "ZIHJBIvfeuW"
+  ],
+  "default": false
+}

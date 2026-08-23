@@ -1,0 +1,73 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "field-notebook",
+  "scaffoldId": "blog",
+  "label": "Field Notebook",
+  "description": "Dated journal blog for travel notes, field reports, and personal logs. Margin metadata and paper texture — not a magazine cover or a docs site.",
+  "keywords": [
+    "dagbok",
+    "anteckning",
+    "reseblogg",
+    "journal",
+    "notebook",
+    "field-notes",
+    "logg",
+    "resedagbok",
+    "handskriven",
+    "fältanteckning"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Source Serif 4",
+      "body": "Source Sans 3"
+    },
+    {
+      "heading": "Merriweather",
+      "body": "IBM Plex Sans"
+    }
+  ],
+  "signatureMotif": "dated entries, margin metadata, and paper-like reading columns",
+  "colorMode": "light",
+  "promptHints": [
+    "Treat the index as a chronological notebook: date first, short title, one-line place or weather note. No hero magazine cover.",
+    "Article pages read as a field report: wide left margin for date/location, a single reading column, and a small sketch or photo inset — not a 3-column news grid.",
+    "Paper, ink, and muted earth. Avoid tech-docs chrome and luxury fashion magazines."
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "Home is a vertical log: each entry is date (small-caps) + title + 2-line excerpt + a place tag, separated by a hairline. No card tiles and no featured-hero image taking half the viewport.",
+      "Post layout is a single measure (max-w-prose) with a persistent left rail showing date, location, and reading time. Pull-quotes sit in the margin, not in colored callout boxes.",
+      "A trip or series page groups entries as a timeline of dates, not as a masonry image gallery.",
+      "Footer stays quiet: previous/next entry by date, not related-posts cards."
+    ],
+    "motifs": [
+      "Warm paper background (#F6F1E8 or similar), brown-black ink, and one terracotta or moss mark for tags.",
+      "Source Serif / Merriweather for titles; body 18–20px with 1.7 line-height. Dates in small-caps tabular figures.",
+      "Photography is a single inset print with a thin rule — like a photo taped into a notebook — not a full-bleed fashion crop."
+    ],
+    "antiPatterns": [
+      "Do not use editorial-serif magazine covers, oversized display type, or a featured-story hero with a full-bleed portrait.",
+      "Avoid tech-minimal docs chrome: left nav of API sections, mono code-first index, or dark developer theme.",
+      "No 3-up post cards with hover lift, category chips, or newsletter popups as the first screen."
+    ]
+  },
+  "themeTokens": {
+    "background": "oklch(0.96 0.015 85)",
+    "foreground": "oklch(0.22 0.02 50)",
+    "card": "oklch(0.98 0.01 85)",
+    "primary": "oklch(0.42 0.08 40)",
+    "primaryForeground": "oklch(0.98 0.01 85)",
+    "secondary": "oklch(0.92 0.02 80)",
+    "muted": "oklch(0.91 0.015 80)",
+    "accent": "oklch(0.55 0.10 45)",
+    "border": "oklch(0.84 0.02 70)",
+    "ring": "oklch(0.42 0.08 40)",
+    "radius": "0.25rem"
+  },
+  "sourceTemplateIds": [
+    "1FuIGdkaNxS",
+    "1fwaS3xF7MM",
+    "XOMN4texeRO"
+  ],
+  "default": false
+}

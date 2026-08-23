@@ -1,0 +1,72 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "case-study-rail",
+  "scaffoldId": "portfolio",
+  "label": "Case Study Rail",
+  "description": "Process-led portfolio that presents work as horizontal case studies: problem, approach, result. For studios that sell a method, not a moodboard.",
+  "keywords": [
+    "case-study",
+    "process",
+    "uppdrag",
+    "metod",
+    "case-rail",
+    "arbetsprocess",
+    "resultat",
+    "kunduppdrag"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Instrument Serif",
+      "body": "Inter"
+    },
+    {
+      "heading": "Instrument Sans",
+      "body": "Inter"
+    }
+  ],
+  "signatureMotif": "horizontal case rails with problem, process, and a hard result",
+  "colorMode": "light",
+  "promptHints": [
+    "Index is a stack of case rails: name, sector, one result number, and a still. Clicking opens a process story, not a lightbox of pretty shots.",
+    "Each case uses the same spine: Context → Approach → Outcome. Imagery supports the steps.",
+    "Keep type calm. This is a consulting/studio method page, not a loud showcase wall."
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "Home lists 4–7 cases as full-width rails (min-h-40): left text (client, year, one-line problem), right a single still, and a result numeral at the far edge.",
+      "Case page is a vertical process: a short brief, 3 numbered approach blocks with one image each, then a result band with a metric and a quote. No masonry gallery as the first screen.",
+      "About sits after work and states the method in 4–6 lines plus a contact CTA — not a giant personal hero.",
+      "Navigation is Work / Method / Contact. Avoid a visual-only grid of thumbnails without captions."
+    ],
+    "motifs": [
+      "Off-white ground, near-black type, one muted rust or slate accent for numerals (01, 02, 03).",
+      "Instrument Serif for case titles; Inter for process body. Wide tracking on sector labels.",
+      "Photos are workplace or product-in-use, captioned. No decorative grain overlays."
+    ],
+    "antiPatterns": [
+      "Do not use showcase-bold: oversized full-bleed hero, screaming type, or a thumbnail wall without process.",
+      "Avoid minimal-studio empty pages that are only whitespace and a name — this variant must show method.",
+      "No 3-up pretty project cards with hover zoom and no problem/result text."
+    ]
+  },
+  "themeTokens": {
+    "background": "oklch(0.98 0.006 90)",
+    "foreground": "oklch(0.18 0.015 260)",
+    "card": "oklch(1 0 0)",
+    "primary": "oklch(0.38 0.06 40)",
+    "primaryForeground": "oklch(0.99 0 0)",
+    "secondary": "oklch(0.95 0.008 90)",
+    "muted": "oklch(0.93 0.008 90)",
+    "accent": "oklch(0.55 0.08 40)",
+    "border": "oklch(0.86 0.01 80)",
+    "ring": "oklch(0.38 0.06 40)",
+    "radius": "0.35rem"
+  },
+  "sourceTemplateIds": [
+    "NFhsR5cAXJp",
+    "pCMjvDLPVe3",
+    "E3xFlIXCZi4",
+    "mA8N4h1POSv"
+  ],
+  "default": false
+}
