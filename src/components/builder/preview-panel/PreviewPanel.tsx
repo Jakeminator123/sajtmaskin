@@ -269,6 +269,7 @@ export function PreviewPanel({
     refreshToken,
     chatId,
     versionId,
+    activePreviewSessionId,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,

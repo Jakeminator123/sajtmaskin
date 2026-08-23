@@ -1,22 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import { fetchPreviewStatus } from "@/lib/builder/preview-session/api";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
 import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
-import {
-  detectOwnEnginePreviewIssue,
-  type PreviewIssuePayload,
-} from "./iframe-diagnostics";
+import { detectOwnEnginePreviewIssue, type PreviewIssuePayload } from "./iframe-diagnostics";
 
 const PREVIEW_READY_TIMEOUT_MS = 45_000;
 const PREVIEW_READY_POLL_MS = 250;
-const TIER2_LOAD_TIMEOUT_MS = 30_000;
+// Match the preview host's 4s starting-page refresh and leave ample room in
+// the shared 60 requests/minute preview-status bucket (including other tabs
+// and the recovery check that runs after a timeout).
+const TIER2_STATUS_POLL_MS = 4_000;
+// `/preview-status` legally reports `starting` for a 90s boot grace. Allow two
+// complete poll intervals beyond that boundary before failing closed.
+const TIER2_LOAD_TIMEOUT_MS = 90_000 + TIER2_STATUS_POLL_MS * 2;
+// A matching running receipt starts a same-src reload. That reload has its own
+// bounded recovery window and must not inherit the nearly-expired boot timer.
+const TIER2_READY_RELOAD_TIMEOUT_MS = 15_000;
 
 export function usePreviewIframe(params: {
   previewUrl: string | null;
   refreshToken?: number;
   chatId: string | null;
   versionId: string | null;
+  activePreviewSessionId?: string | null;
   isOwnEnginePreview: boolean;
   onPreviewSessionSuspect?: () => void;
   reportOwnEngineRenderFailure: (payload: PreviewIssuePayload) => void;
@@ -28,6 +36,7 @@ export function usePreviewIframe(params: {
     refreshToken,
     chatId,
     versionId,
+    activePreviewSessionId,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
@@ -43,6 +52,21 @@ export function usePreviewIframe(params: {
   const iframeRef = externalIframeRef ?? internalIframeRef;
   const previewReadyTimerRef = useRef<number | null>(null);
   const tier2LoadTimerRef = useRef<number | null>(null);
+  const tier2StatusPollTimerRef = useRef<number | null>(null);
+  const tier2StatusAbortRef = useRef<AbortController | null>(null);
+  const tier2LoadIdentityRef = useRef<string | null>(null);
+  const tier2LoadedFrameIdentityRef = useRef<string | null>(null);
+  const tier2ReadyReloadIdentityRef = useRef<string | null>(null);
+  const tier2RecoveryRequestedIdentityRef = useRef<string | null>(null);
+
+  const stopTier2StatusPolling = useCallback(() => {
+    if (tier2StatusPollTimerRef.current) {
+      window.clearTimeout(tier2StatusPollTimerRef.current);
+      tier2StatusPollTimerRef.current = null;
+    }
+    tier2StatusAbortRef.current?.abort();
+    tier2StatusAbortRef.current = null;
+  }, []);
 
   const clearPreviewReadyTimer = useCallback(() => {
     if (previewReadyTimerRef.current) {
@@ -53,7 +77,120 @@ export function usePreviewIframe(params: {
       window.clearTimeout(tier2LoadTimerRef.current);
       tier2LoadTimerRef.current = null;
     }
-  }, []);
+    stopTier2StatusPolling();
+    tier2LoadIdentityRef.current = null;
+    tier2ReadyReloadIdentityRef.current = null;
+    tier2RecoveryRequestedIdentityRef.current = null;
+  }, [stopTier2StatusPolling]);
+
+  const settleTier2Ready = useCallback(() => {
+    setIframeLoading(false);
+    setIframeError(false);
+    setIframeErrorMessage(null);
+    clearPreviewReadyTimer();
+  }, [clearPreviewReadyTimer]);
+
+  const failTier2Ready = useCallback(
+    (identity: string) => {
+      if (tier2LoadIdentityRef.current !== identity) return;
+      if (tier2LoadTimerRef.current) {
+        window.clearTimeout(tier2LoadTimerRef.current);
+        tier2LoadTimerRef.current = null;
+      }
+      stopTier2StatusPolling();
+      // Invalidate the receipt before invoking recovery so a late onLoad
+      // cannot settle or restart polling after this timeout has fired.
+      tier2LoadIdentityRef.current = null;
+      tier2ReadyReloadIdentityRef.current = null;
+      setIframeLoading(false);
+      setIframeError(true);
+      setIframeDiagnosticCode("preview_ready_timeout");
+      setIframeErrorMessage(describePreviewDiagnosticCode("preview_ready_timeout"));
+      if (tier2RecoveryRequestedIdentityRef.current !== identity) {
+        tier2RecoveryRequestedIdentityRef.current = identity;
+        onPreviewSessionSuspect?.();
+      }
+    },
+    [onPreviewSessionSuspect, stopTier2StatusPolling],
+  );
+
+  const startTier2StatusPolling = useCallback(
+    (
+      identity: string,
+      previewSessionId: string,
+      expectedChatId: string,
+      expectedVersionId: string,
+    ) => {
+      if (
+        tier2LoadIdentityRef.current !== identity ||
+        tier2ReadyReloadIdentityRef.current === identity ||
+        tier2RecoveryRequestedIdentityRef.current === identity
+      ) {
+        return;
+      }
+
+      stopTier2StatusPolling();
+      const abortController = new AbortController();
+      tier2StatusAbortRef.current = abortController;
+
+      const pollStatus = async () => {
+        if (abortController.signal.aborted || tier2LoadIdentityRef.current !== identity) return;
+        const status = await fetchPreviewStatus({
+          chatId: expectedChatId,
+          versionId: expectedVersionId,
+          previewSessionId,
+          signal: abortController.signal,
+        });
+        if (abortController.signal.aborted || tier2LoadIdentityRef.current !== identity) return;
+
+        const receiptMatchesIdentity =
+          status?.versionId === expectedVersionId && status.previewSessionId === previewSessionId;
+
+        if (status?.status === "running" && receiptMatchesIdentity) {
+          // A running receipt can arrive while the iframe still displays the
+          // host's HTTP-200 starting document. Reload the exact current src now
+          // that the runtime accepts traffic, and reveal only on that reload's
+          // subsequent onLoad.
+          stopTier2StatusPolling();
+          if (tier2LoadTimerRef.current) {
+            window.clearTimeout(tier2LoadTimerRef.current);
+            tier2LoadTimerRef.current = null;
+          }
+          tier2ReadyReloadIdentityRef.current = identity;
+          const iframe = iframeRef.current;
+          const currentSrc = iframe?.getAttribute("src") || iframe?.src || "";
+          if (iframe && currentSrc) {
+            iframe.src = currentSrc;
+            tier2LoadTimerRef.current = window.setTimeout(
+              () => failTier2Ready(identity),
+              TIER2_READY_RELOAD_TIMEOUT_MS,
+            );
+          } else {
+            failTier2Ready(identity);
+          }
+          return;
+        }
+
+        if (status && !(status.status === "starting" && receiptMatchesIdentity)) {
+          // Terminal/mismatched states belong to the existing recovery owner.
+          // Keep the overlay covered while it acts, and avoid refetching this
+          // terminal receipt every four seconds.
+          stopTier2StatusPolling();
+          tier2RecoveryRequestedIdentityRef.current = identity;
+          onPreviewSessionSuspect?.();
+          return;
+        }
+
+        tier2StatusPollTimerRef.current = window.setTimeout(
+          () => void pollStatus(),
+          TIER2_STATUS_POLL_MS,
+        );
+      };
+
+      void pollStatus();
+    },
+    [failTier2Ready, iframeRef, onPreviewSessionSuspect, stopTier2StatusPolling],
+  );
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- clear diagnostic when error clears */
@@ -66,16 +203,23 @@ export function usePreviewIframe(params: {
   }, [clearPreviewReadyTimer]);
 
   useEffect(() => {
+    // Session metadata may arrive after the iframe's first load, so retain the
+    // loaded receipt across session-id changes but never across frame identity.
+    tier2LoadedFrameIdentityRef.current = null;
+  }, [chatId, previewUrl, refreshToken]);
+
+  useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- reset iframe error state when preview identity changes */
     clearPreviewReadyTimer();
     setIframeError(false);
     setIframeErrorMessage(null);
     setIframeDiagnosticCode(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [chatId, versionId, previewUrl, clearPreviewReadyTimer]);
+  }, [chatId, versionId, previewUrl, activePreviewSessionId, clearPreviewReadyTimer]);
 
   useEffect(() => {
     if (!previewUrl) return;
+    clearPreviewReadyTimer();
     /* eslint-disable react-hooks/set-state-in-effect -- loading state when URL or refresh token changes */
     setIframeLoading(true);
     setIframeError(false);
@@ -83,15 +227,64 @@ export function usePreviewIframe(params: {
     /* eslint-enable react-hooks/set-state-in-effect */
 
     if (!isOwnEnginePreview && isTier2LivePreviewUrl(previewUrl)) {
-      if (tier2LoadTimerRef.current) window.clearTimeout(tier2LoadTimerRef.current);
-      tier2LoadTimerRef.current = window.setTimeout(() => {
-        tier2LoadTimerRef.current = null;
-        onPreviewSessionSuspect?.();
-      }, TIER2_LOAD_TIMEOUT_MS);
+      const previewSessionId = activePreviewSessionId?.trim() ?? "";
+      const frameIdentity = JSON.stringify([chatId ?? "", previewUrl, refreshToken ?? 0]);
+      const identity = JSON.stringify([
+        chatId ?? "",
+        versionId ?? "",
+        previewSessionId,
+        previewUrl,
+        refreshToken ?? 0,
+      ]);
+      tier2LoadIdentityRef.current = identity;
+      tier2LoadTimerRef.current = window.setTimeout(
+        () => failTier2Ready(identity),
+        TIER2_LOAD_TIMEOUT_MS,
+      );
+
+      if (
+        chatId &&
+        versionId &&
+        previewSessionId &&
+        tier2LoadedFrameIdentityRef.current === frameIdentity
+      ) {
+        startTier2StatusPolling(identity, previewSessionId, chatId, versionId);
+      }
     }
-  }, [previewUrl, refreshToken, isOwnEnginePreview, onPreviewSessionSuspect]);
+  }, [
+    previewUrl,
+    refreshToken,
+    chatId,
+    versionId,
+    activePreviewSessionId,
+    isOwnEnginePreview,
+    clearPreviewReadyTimer,
+    failTier2Ready,
+    startTier2StatusPolling,
+  ]);
 
   const handleIframeLoad = useCallback(() => {
+    if (!isOwnEnginePreview && previewUrl && isTier2LivePreviewUrl(previewUrl)) {
+      const previewSessionId = activePreviewSessionId?.trim() ?? "";
+      const frameIdentity = JSON.stringify([chatId ?? "", previewUrl, refreshToken ?? 0]);
+      tier2LoadedFrameIdentityRef.current = frameIdentity;
+      if (!chatId || !versionId || !previewSessionId) return;
+      const identity = JSON.stringify([
+        chatId,
+        versionId,
+        previewSessionId,
+        previewUrl,
+        refreshToken ?? 0,
+      ]);
+      if (tier2LoadIdentityRef.current !== identity) return;
+      if (tier2ReadyReloadIdentityRef.current === identity) {
+        settleTier2Ready();
+        return;
+      }
+      startTier2StatusPolling(identity, previewSessionId, chatId, versionId);
+      return;
+    }
+
     clearPreviewReadyTimer();
 
     const iframe = iframeRef.current;
@@ -179,10 +372,16 @@ export function usePreviewIframe(params: {
   }, [
     clearPreviewReadyTimer,
     previewUrl,
+    refreshToken,
+    chatId,
+    versionId,
+    activePreviewSessionId,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
     iframeRef,
+    settleTier2Ready,
+    startTier2StatusPolling,
   ]);
 
   return {
