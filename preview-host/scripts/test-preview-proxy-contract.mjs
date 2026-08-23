@@ -102,6 +102,12 @@ function assertInstalledNextViewerContract() {
 }
 
 assertInstalledNextViewerContract();
+const flyConfig = readFileSync(new URL("../fly.toml", import.meta.url), "utf8");
+assert.match(
+  flyConfig,
+  /^\s*SAJTMASKIN_APP_ORIGINS\s*=\s*"https:\/\/sajtmaskin\.vercel\.app,https:\/\/sajtmaskin\.se,https:\/\/www\.sajtmaskin\.se,https:\/\/sajtmaskin\.com,https:\/\/www\.sajtmaskin\.com"\s*$/m,
+  "Fly deploy pins every exact trusted builder parent origin required by the route bridge",
+);
 if (NEXT_SOURCE_ONLY) {
   console.log("[test-preview-proxy-contract] Next source contract green.");
   process.exit(0);
@@ -112,7 +118,8 @@ process.env.PREVIEW_HOST_DATA_DIR = dataDir;
 process.env.HOST = "127.0.0.1";
 process.env.PREVIEW_BASE_URL = "http://127.0.0.1:0000";
 process.env.SAJTMASKIN_PREVIEW_HMR_PROXY = "true";
-process.env.SAJTMASKIN_APP_ORIGIN = "https://app.example";
+process.env.SAJTMASKIN_APP_ORIGINS =
+  "https://app.example,https://secondary.example,https://rejected.example/path,https://ignored.example?wide=1";
 
 let upstreamUpgradeHits = 0;
 let lastUpstreamHeaders = null;
@@ -549,7 +556,7 @@ function openStreamingGet(pathname, headers = {}) {
 
 function extractBootstrapTag(body) {
   const match = body.match(
-    /<script data-sajtmaskin-preview-bootstrap data-document-id="([^"]+)" data-storage-key="([^"]+)" data-chat-path="([^"]+)" src="([^"]+)"(?: nonce="([^"]+)")?><\/script>/,
+    /<script data-sajtmaskin-preview-bootstrap data-document-id="([^"]+)" data-storage-key="([^"]+)" data-chat-path="([^"]+)" data-preview-session-id="([^"]*)" data-version-id="([^"]*)" data-app-origins="([^"]*)" src="([^"]+)"(?: nonce="([^"]+)")?><\/script>/,
   );
   assert.ok(match, "successful document HTML contains the host bootstrap tag");
   return {
@@ -557,8 +564,11 @@ function extractBootstrapTag(body) {
     documentId: match[1],
     storageKey: match[2],
     chatPath: match[3],
-    bootstrapSrc: match[4],
-    nonce: match[5] ?? "",
+    previewSessionId: match[4],
+    versionId: match[5],
+    appOrigins: match[6],
+    bootstrapSrc: match[7],
+    nonce: match[8] ?? "",
     index: match.index,
   };
 }
@@ -568,6 +578,7 @@ async function executePreviewBootstrap({
   browserUrl,
   sessionStorage,
   mintedUuid,
+  appOriginsOverride,
 }) {
   const tag = extractBootstrapTag(page.body);
   const bootstrapResponse = await rawGet(tag.bootstrapSrc);
@@ -580,6 +591,8 @@ async function executePreviewBootstrap({
   let currentUrl = new URL(browserUrl);
   let replacedUrl = null;
   const openedSockets = [];
+  const routeMessages = [];
+  const windowListeners = new Map();
   class NativeWebSocket {
     constructor(url, protocols) {
       this.url = String(url);
@@ -600,6 +613,9 @@ async function executePreviewBootstrap({
         "data-document-id": tag.documentId,
         "data-storage-key": tag.storageKey,
         "data-chat-path": tag.chatPath,
+        "data-preview-session-id": tag.previewSessionId,
+        "data-version-id": tag.versionId,
+        "data-app-origins": appOriginsOverride ?? tag.appOrigins,
         nonce: tag.nonce,
       }[name] ?? null;
     },
@@ -629,6 +645,11 @@ async function executePreviewBootstrap({
       replaceState(_state, _title, nextUrl) {
         replacedUrl = nextUrl;
         currentUrl = new URL(nextUrl, currentUrl);
+        return "replace-result";
+      },
+      pushState(_state, _title, nextUrl) {
+        currentUrl = new URL(nextUrl, currentUrl);
+        return "push-result";
       },
     },
     sessionStorage: {
@@ -641,6 +662,16 @@ async function executePreviewBootstrap({
     },
     crypto: { randomUUID: () => mintedUuid },
     WebSocket: NativeWebSocket,
+    parent: {
+      postMessage(data, targetOrigin) {
+        routeMessages.push({ data, targetOrigin });
+      },
+    },
+    addEventListener(type, listener) {
+      const listeners = windowListeners.get(type) ?? [];
+      listeners.push(listener);
+      windowListeners.set(type, listeners);
+    },
   };
   const document = {
     currentScript,
@@ -694,6 +725,10 @@ async function executePreviewBootstrap({
     stableHmrId: tag.documentId,
     hmrUrl: hmrUrl.toString(),
     openedSockets,
+    routeMessages,
+    dispatchWindowEvent(type) {
+      for (const listener of windowListeners.get(type) ?? []) listener({ type });
+    },
     currentUrl,
     replacedUrl,
   };
@@ -1047,6 +1082,12 @@ try {
     firstBootstrapTag.bootstrapSrc,
     `/${originSession.chatId}/__sm/preview-bootstrap.js`,
   );
+  assert.equal(firstBootstrapTag.previewSessionId, originSession.previewSessionId);
+  assert.equal(firstBootstrapTag.versionId, originSession.versionId);
+  assert.equal(
+    firstBootstrapTag.appOrigins,
+    "https://app.example,https://secondary.example",
+  );
   assert.equal(
     firstBootstrapTag.nonce,
     "preview-test",
@@ -1076,6 +1117,80 @@ try {
     executeMockNextBootstrap(viewerDecoratedPage, firstBrowser),
     "?category=boots&inspect=1",
     "inspect remains available across hard reload/MPA while upstream SSR stays clean",
+  );
+  assert.deepEqual(JSON.parse(JSON.stringify(firstBrowser.routeMessages)), [
+    {
+      targetOrigin: "https://app.example",
+      data: {
+        type: "sajtmaskin:preview:route-change",
+        source: "sajtmaskin-preview-host",
+        payload: {
+          href: `${hostBase}/${originSession.chatId}/products?category=boots&inspect=1#details`,
+          previewSessionId: originSession.previewSessionId,
+          versionId: originSession.versionId,
+          viewerId: viewerA,
+        },
+      },
+    },
+    {
+      targetOrigin: "https://secondary.example",
+      data: {
+        type: "sajtmaskin:preview:route-change",
+        source: "sajtmaskin-preview-host",
+        payload: {
+          href: `${hostBase}/${originSession.chatId}/products?category=boots&inspect=1#details`,
+          previewSessionId: originSession.previewSessionId,
+          versionId: originSession.versionId,
+          viewerId: viewerA,
+        },
+      },
+    },
+  ], "bootstrap reports the initial cleaned route even when inspector injection is independent");
+  for (const invalidAppOrigins of [
+    "",
+    "not a URL",
+    "data:text/plain,opaque",
+    "https://app.example/path",
+    "https://user:secret@app.example",
+    "https://app.example?wide=1",
+    "https://app.example#wide",
+  ]) {
+    const failClosedBrowser = await executePreviewBootstrap({
+      page: viewerDecoratedPage,
+      browserUrl: `${hostBase}/${originSession.chatId}/products?__sm_viewer=${viewerA}`,
+      sessionStorage: new Map(),
+      mintedUuid: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      appOriginsOverride: invalidAppOrigins,
+    });
+    assert.deepEqual(
+      failClosedBrowser.routeMessages,
+      [],
+      `bootstrap does not broadcast route identity for invalid app origins ${JSON.stringify(invalidAppOrigins)}`,
+    );
+  }
+  assert.equal(
+    firstBrowser.browserWindow.history.pushState({}, "", `/${originSession.chatId}/about?tab=team#lead`),
+    "push-result",
+    "history.pushState preserves the native return value",
+  );
+  assert.equal(
+    firstBrowser.routeMessages.at(-1)?.data.payload.href,
+    `${hostBase}/${originSession.chatId}/about?tab=team#lead`,
+  );
+  assert.equal(
+    firstBrowser.browserWindow.history.replaceState({}, "", `/${originSession.chatId}/contact`),
+    "replace-result",
+    "history.replaceState preserves the native return value",
+  );
+  assert.equal(
+    firstBrowser.routeMessages.at(-1)?.data.payload.href,
+    `${hostBase}/${originSession.chatId}/contact`,
+  );
+  firstBrowser.dispatchWindowEvent("popstate");
+  assert.equal(
+    firstBrowser.routeMessages.at(-1)?.data.payload.href,
+    `${hostBase}/${originSession.chatId}/contact`,
+    "popstate reports the browser's current route",
   );
   assert.deepEqual(
     runtime.__testing.previewHmrIdentityFromSearch(new URL(firstBrowser.hmrUrl).search),

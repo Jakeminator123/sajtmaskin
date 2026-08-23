@@ -29,11 +29,32 @@ const {
   queueRuntimeBoot,
 } = require("./process-lifecycle.js");
 
-// Inspector-bridge (opt-in): injicera bridge-scriptet i HTML-svar BARA när
-// klienten ber om det via `?inspect=1` OCH app-origin är konfigurerad. App-origin
-// tas medvetet från EGEN env (inte query) för att undvika injektionshål. Utan
-// env är injektionen helt inert → ingen beteendeförändring för dagens previews.
-const INSPECT_APP_ORIGIN = (process.env.SAJTMASKIN_APP_ORIGIN || "").trim().replace(/\/+$/, "");
+// Betrodda parent-origins för den alltid aktiva route-bryggan. De kommer bara
+// från hostens egen env och normaliseras till exakta HTTP(S)-origins. Att skicka
+// samma signal till varje explicit tillåten origin är säkert: webbläsaren
+// levererar den bara när den faktiska parent-origin matchar targetOrigin.
+function configuredAppOrigins(rawValue) {
+  const origins = new Set();
+  for (const candidate of String(rawValue || "").split(",")) {
+    try {
+      const exact = candidate.trim();
+      const parsed = new URL(exact);
+      if (!/^https?:$/.test(parsed.protocol) || parsed.origin === "null") continue;
+      if (exact !== parsed.origin) continue;
+      origins.add(parsed.origin);
+    } catch {
+      // Invalid entries fail closed.
+    }
+  }
+  return [...origins];
+}
+
+const APP_ORIGINS = configuredAppOrigins(
+  process.env.SAJTMASKIN_APP_ORIGINS || process.env.SAJTMASKIN_APP_ORIGIN,
+);
+// Inspector-scriptet behöver fortfarande en enda canonical app-origin. Första
+// posten äger det kontraktet; route-bryggan använder hela allowlisten.
+const INSPECT_APP_ORIGIN = APP_ORIGINS[0] || "";
 const PREVIEW_VIEWER_QUERY_PARAM = "__sm_viewer";
 const PREVIEW_REFRESH_QUERY_PARAM = "__sm_refresh";
 const PREVIEW_INSPECT_QUERY_PARAM = "inspect";
@@ -77,6 +98,9 @@ var script=document.currentScript;if(!script)return;
 var documentId=script.getAttribute("data-document-id");
 var storageKey=script.getAttribute("data-storage-key");
 var chatPath=script.getAttribute("data-chat-path")||"";
+var previewSessionId=script.getAttribute("data-preview-session-id")||"";
+var versionId=script.getAttribute("data-version-id")||"";
+var appOriginsRaw=script.getAttribute("data-app-origins")||"";
 var viewerPattern=/^${PREVIEW_VIEWER_UUID_SOURCE}$/i;
 var pageUrl=new URL(window.location.href);
 var viewer=pageUrl.searchParams.get("${PREVIEW_VIEWER_QUERY_PARAM}");
@@ -85,6 +109,12 @@ try{var stored=window.sessionStorage.getItem(storageKey);if(!viewer&&viewerPatte
 if(!viewer){var uuid=window.crypto&&typeof window.crypto.randomUUID==="function"?window.crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,function(token){var random=Math.floor(Math.random()*16);return(token==="x"?random:(random&3)|8).toString(16)});viewer="smv_"+uuid;}
 try{window.sessionStorage.setItem(storageKey,viewer)}catch(_){}
 var cleanupParams=${JSON.stringify(PREVIEW_BROWSER_CLEANUP_QUERY_PARAMS)};var hadHostParams=cleanupParams.some(function(name){return pageUrl.searchParams.has(name)});cleanupParams.forEach(function(name){pageUrl.searchParams.delete(name)});if(hadHostParams){window.history.replaceState(window.history.state,"",pageUrl.pathname+pageUrl.search+pageUrl.hash)}
+var appOrigins=[];appOriginsRaw.split(",").forEach(function(candidate){try{var exact=candidate.trim();var parsed=new URL(exact);if(exact===parsed.origin&&/^https?:$/.test(parsed.protocol)&&parsed.origin!=="null"&&appOrigins.indexOf(parsed.origin)===-1)appOrigins.push(parsed.origin)}catch(_){}});
+function postRouteChange(){try{if(window.parent===window||appOrigins.length===0||!previewSessionId||!versionId||!viewer)return;var message={type:"sajtmaskin:preview:route-change",source:"sajtmaskin-preview-host",payload:{href:window.location.href,previewSessionId:previewSessionId,versionId:versionId,viewerId:viewer}};appOrigins.forEach(function(appOrigin){window.parent.postMessage(message,appOrigin)})}catch(_){} }
+function wrapHistory(name){var native=window.history&&window.history[name];if(typeof native!=="function")return;window.history[name]=function(){var result=native.apply(this,arguments);postRouteChange();return result}}
+wrapHistory("pushState");wrapHistory("replaceState");
+if(typeof window.addEventListener==="function"){window.addEventListener("popstate",postRouteChange);window.addEventListener("hashchange",postRouteChange)}
+postRouteChange();
 var NativeWebSocket=window.WebSocket;if(typeof NativeWebSocket==="function"&&typeof Proxy==="function"){window.WebSocket=new Proxy(NativeWebSocket,{construct:function(Target,args,NewTarget){try{var socketUrl=new URL(String(args[0]),window.location.href);var expectedProtocol=window.location.protocol==="https:"?"wss:":"ws:";var prefix=chatPath.endsWith("/")?chatPath.slice(0,-1):chatPath;var hmrSuffixes=${JSON.stringify(PREVIEW_HMR_PATH_SUFFIXES)};var hmrPath=hmrSuffixes.some(function(suffix){var full=prefix+suffix;return socketUrl.pathname===full||socketUrl.pathname.indexOf(full+"/")===0});if(socketUrl.protocol===expectedProtocol&&socketUrl.host===window.location.host&&hmrPath&&socketUrl.searchParams.get("id")===documentId){socketUrl.searchParams.set("${PREVIEW_VIEWER_QUERY_PARAM}",viewer);args=Array.prototype.slice.call(args);args[0]=socketUrl.toString()}}catch(_){}return Reflect.construct(Target,args,NewTarget)},apply:function(Target,thisArg,args){return Reflect.apply(Target,thisArg,args)}})}
 script.remove();
 }catch(_){}})();`;
@@ -454,8 +484,8 @@ function acceptAndHoldWebSocket(req, socket) {
 /**
  * Returnerar `<script>`-taggen att injicera om requesten är ett opt-in
  * inspektera-anrop (`?inspect=1`) och app-origin är satt; annars `null`.
- * Script-källan kommer från preview-hostens EGEN env (`SAJTMASKIN_APP_ORIGIN`),
- * aldrig från query — så ingen kan be oss injicera en godtycklig origin.
+ * Script-källan kommer från första posten i preview-hostens EGEN allowlist
+ * (`SAJTMASKIN_APP_ORIGINS`), aldrig från query.
  */
 function inspectInjectionScriptSrc(search) {
   if (!INSPECT_APP_ORIGIN) return null;
@@ -473,7 +503,7 @@ function inspectInjectionScriptSrc(search) {
  * Strippa parametrarna innan requesten proxas vidare så den genererade appens
  * `searchParams`/SSR aldrig ser dem.
  * Körs OAVSETT om injektion är möjlig (Codex P2, PR #351): även när
- * `SAJTMASKIN_APP_ORIGIN` saknas (partiell rollout/felkonfig) får appen
+ * app-origin-allowlisten saknas (partiell rollout/felkonfig) får appen
  * aldrig se parametern. Fast-path: no-op när `inspect` inte finns i queryn.
  */
 function stripPreviewHostParams(search) {
@@ -794,6 +824,9 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
         bootstrapScriptSrc: `/${encodeURIComponent(info.chatId)}${PREVIEW_BOOTSTRAP_PATH}`,
         chatPath: `/${encodeURIComponent(info.chatId)}`,
         storageKey: `sajtmaskin:preview-viewer:${info.chatId}`,
+        previewSessionId: state.session.previewSessionId,
+        versionId: state.session.versionId,
+        appOrigins: APP_ORIGINS.join(","),
         inspectEnabled: Boolean(inspectScriptSrc),
         initialViewerId: PREVIEW_VIEWER_ID_RE_MINTED.test(initialViewerId || "")
           ? initialViewerId
@@ -1171,7 +1204,7 @@ function previewBootstrapTag(documentState, html, headers = {}) {
   if (!responseAllowsPreviewBootstrap(headers)) return null;
   const nonce = responseScriptNonce(headers, html);
   const nonceAttribute = nonce ? ` nonce="${escapeHtmlAttribute(nonce)}"` : "";
-  return `<script data-sajtmaskin-preview-bootstrap data-document-id="${escapeHtmlAttribute(documentState.documentId)}" data-storage-key="${escapeHtmlAttribute(documentState.storageKey)}" data-chat-path="${escapeHtmlAttribute(documentState.chatPath)}" src="${escapeHtmlAttribute(documentState.bootstrapScriptSrc)}"${nonceAttribute}></script>`;
+  return `<script data-sajtmaskin-preview-bootstrap data-document-id="${escapeHtmlAttribute(documentState.documentId)}" data-storage-key="${escapeHtmlAttribute(documentState.storageKey)}" data-chat-path="${escapeHtmlAttribute(documentState.chatPath)}" data-preview-session-id="${escapeHtmlAttribute(documentState.previewSessionId || "")}" data-version-id="${escapeHtmlAttribute(documentState.versionId || "")}" data-app-origins="${escapeHtmlAttribute(documentState.appOrigins || "")}" src="${escapeHtmlAttribute(documentState.bootstrapScriptSrc)}"${nonceAttribute}></script>`;
 }
 
 function previewInspectorTag(scriptSrc, headers, html = "") {
