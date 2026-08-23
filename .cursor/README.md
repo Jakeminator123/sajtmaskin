@@ -9,7 +9,8 @@ Se [`docs/README.md`](../docs/README.md) — tunn dokumentationsrouter. Snabb or
 - **Föredra** att öppna **`sajtmaskin.code-workspace`** i repots rot (`File → Open Workspace from File…`). Den är committad, pekar på en rot (`.`) med visningsnamnet `sajtmaskin`, och håller Cursor-sessionen konsekvent. Att öppna bara mappen fungerar också, men skapa inte två parallella fönster (folder + workspace) mot samma checkout.
 - Lägg **inte** till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`) eller andra worktrees som extra workspace-mappar — det ger brus i Problems/sök.
 - **Standard:** huvudcheckouten `…\sajtmaskin` på `master` i ett eget fönster. Separata worktrees öppnas i egna fönster och tas bort när de inte längre bär unikt arbete.
-- **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`** är canonical. När du öppnar mappen gäller hela filen. I `.code-workspace`-läge tillämpar VS Code bara dess resurs-/mappscopade värden, så workspace-filen speglar de sex Window-scopade TypeScript-/terminalvärdena som annars ignoreras. Ändra värdena i `.vscode` först och håll den smala speglingen synkad; duplicera inte resten av filen.
+- **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`** äger resurs-/mappscopade värden. **`sajtmaskin.code-workspace`** äger de Window-scopade TypeScript-/terminalvärdena — lägg dem inte i `.vscode` (Cursor varnar, och de tillämpas ändå inte i workspace-läge). Öppna workspace-filen, inte bara mappen, så terminal och tsserver-flaggorna gäller.
+- **Tillägg:** [`.vscode/extensions.json`](../.vscode/extensions.json) (samma lista i workspace-filen). ESLint, Prettier, Tailwind IntelliSense och markdownlint — det `settings.json` redan antar. Codex (`openai.chatgpt`) är valfritt.
 - **Endast Cursor**: **`.cursor/settings.json`** (t.ex. plugins). Den ersätter inte `.vscode` för vanliga tillägg.
 - Markdown-projektkonfiguration: **`.markdownlint.json`**, **`.markdownlintignore`**. Filer _utanför_ repot kräver i regel **User Settings** (`markdownlint.ignore`) eller att de inte ingår i workspace.
 
@@ -41,8 +42,9 @@ Börja med [`repo-router.mdc`](rules/repo-router.mdc) och välj därefter ägare
   [`local-tooling-mcp.mdc`](rules/local-tooling-mcp.mdc),
   [`useful-commands.mdc`](rules/useful-commands.mdc) (token-hygien, inte kommandolista),
 - kommunikation och scope: [`response-format.mdc`](rules/response-format.mdc),
-  [`mvp-scope-freeze.mdc`](rules/mvp-scope-freeze.mdc),
-  [`project-phase-priorities.mdc`](rules/project-phase-priorities.mdc),
+  [`project-phase-priorities.mdc`](rules/project-phase-priorities.mdc)
+  (MVP-bias; [`mvp-scope-freeze.mdc`](rules/mvp-scope-freeze.mdc) är bara
+  pekare, requestable),
   [`subagent-models.mdc`](rules/subagent-models.mdc).
 
 Övriga regler väljs direkt från `.cursor/rules/` efter filens `description` och

@@ -76,9 +76,6 @@
   "search.useGlobalIgnoreFiles": true,
   "search.useParentIgnoreFiles": true,
 
-  // ── TypeScript ──
-  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
-
   // ── Formatterare per språk ──
   "[json]": { "editor.defaultFormatter": "vscode.json-language-features" },
   "[jsonc]": { "editor.defaultFormatter": "vscode.json-language-features" },
@@ -95,30 +92,5 @@
 
   // ── Git: hämta från origin automatiskt, snabbare än default 180 s ──
   "git.autofetch": true,
-  "git.autofetchPeriod": 120,
-
-  // ── Python: stoppa auto-aktivering av .venv i NYA terminaler ──
-  "python.terminal.activateEnvironment": false,
-
-  // ── Terminal: PowerShell 7 ──
-  "terminal.integrated.defaultProfile.windows": "PowerShell 7",
-  "terminal.integrated.profiles.windows": {
-    "PowerShell 7": {
-      "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
-      "args": ["-NoLogo"],
-      "icon": "terminal-powershell"
-    }
-  },
-  "terminal.integrated.automationProfile.windows": {
-    "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
-    "args": ["-NoLogo", "-NoProfile"]
-  },
-  // Denna nyckel ERSÄTTER user-settings (objekt slås inte ihop mellan scopes),
-  // så GIT_SSH/GIT_SSH_COMMAND måste upprepas här för att inte tappas.
-  "terminal.integrated.env.windows": {
-    "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}",
-    "GIT_SSH": "C:\\Windows\\System32\\OpenSSH\\ssh.exe",
-    "GIT_SSH_COMMAND": "C:/Windows/System32/OpenSSH/ssh.exe"
-  },
-  "js/ts.experimental.useTsgo": false
+  "git.autofetchPeriod": 120
 }

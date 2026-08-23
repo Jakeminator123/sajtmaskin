@@ -40,7 +40,7 @@ Set-Location ..\sajtmaskin
 npm run worktree:remove -- ..\sajtmaskin-feat-X
 ```
 
-Saknar worktreen MCP-config: `pwsh -File scripts/cursor/sync-mcp-json.ps1` (se [`local-tooling-mcp.mdc`](../../.cursor/rules/local-tooling-mcp.mdc)).
+`npm run worktree:link` kopierar också `.cursor/mcp.json`. Manuell omsync: `pwsh -File scripts/cursor/sync-mcp-json.ps1 -AllWorktrees`.
 
 ### Vitest i länkad worktree
 

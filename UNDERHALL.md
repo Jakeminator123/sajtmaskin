@@ -35,8 +35,9 @@ själv (dry-run).
 
 ### `npm run clean:scratch:apply`
 
-**Vad:** Raderar gitignorerad scratch: `.cursor/swarms/runs` (behåller 3
-nyaste), `.cursor/kedja`, `.cursor/bugs`, handoffs, logg-dumps (max 2 mappar),
+**Vad:** Raderar gitignorerad scratch: `.cursor/swarms/runs` och
+`logg-internet/runs` (behåller 3 nyaste, raderar äldre än 14 dagar),
+`.cursor/kedja`, `.cursor/bugs`, handoffs, logg-dumps (max 2 mappar),
 `.tmp`, m.m. Se `scripts/dev/clean-scratch.mjs`.
 
 **När:** Efter `/automat`, många `/kedja`, eller när `.cursor/` / `logs/` känns

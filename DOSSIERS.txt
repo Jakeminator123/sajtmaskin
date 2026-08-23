@@ -1,0 +1,171 @@
+SAJTMASKIN — DOSSIER-SYSTEMETS ARBETSSANNING
+Senast samordnad: 2026-08-22
+
+1. OMFATTNING
+Det här dokumentet sammanför den hållbara sanningen för dossier-v2,
+hard/soft, capability-val, provideridentitet, F2/F3, Byggblock,
+schemaägarskap och de fortsatta stegen D2–D4.
+
+2. KANONISKA KÄLLOR
+[MASTER]
+- Runtime: src/lib/gen/dossiers/
+- Dossierpool: data/dossiers/hard/ och data/dossiers/soft/
+- Strict schema: docs/schemas/strict/dossier.schema.json
+- Systemkontrakt: docs/contracts/dossier-system.md
+- Urval/prompt: docs/llm/dossier-selection-flow.md
+- Operativ guide: docs/llm/dossier-cheatsheet.md
+- Genererade vyer: docs/generated/dossiers.generated.md och
+  docs/generated/capabilities.generated.md
+- Capability-map: data/dossiers/_index/capability-map.json är en genererad
+  backoffice/tooling-vy; runtime walkar manifesten direkt.
+Kod, schema och tester på aktuell master vinner vid avvikelse.
+
+[HISTORIK]
+Äldre chattpåståenden om en kanonisk Python-runtime i
+src/sajtmaskin/context/dossier.py gäller inte nuvarande master; sökvägen finns
+inte. De får inte återinföras som importregel eller användas för att bedöma den
+aktiva TypeScript-pipelinen.
+
+3. VAD EN DOSSIER ÄR
+[MASTER]
+En dossier är ett återanvändbart, capability-bundet byggblock som ger
+codegen-LLM:n implementationskunskap, dependencies, instruktioner och ibland
+filer. Dossiers är inte kompletta templates, inte scaffolds och inte variants.
+Urvalet är deterministiskt och capability-drivet: inga embeddings, ingen fuzzy
+matching, ingen category boost och inget domain veto.
+
+4. HARD OCH SOFT
+[MASTER]
+hard
+- Ligger under data/dossiers/hard/<id>/.
+- Deklarerar en koppling till extern provider/tjänst eller ett
+  integrations-/runtimekontrakt.
+- Måste deklarera providers. Kan vara nyckelfri.
+- hard betyder inte automatiskt att F3 krävs.
+
+soft
+- Ligger under data/dossiers/soft/<id>/.
+- Har ingen deklarerad integrationsprovider/account/hemlighet.
+- Får använda npm, lokala filer och publika nyckelfria resurser.
+- Måste utelämna providers och betraktas som configured.
+
+Tre axlar får inte blandas ihop:
+- hard/soft = provider-/integrationskoppling
+- mock = beteende i preview utan livekonfiguration
+- requires F3 = separat regel, bland annat enforcement build eller server-roll
+
+Soft får inte skriva över harda provider-, säkerhets- eller runtimekontrakt.
+
+5. PROVIDERÄGARSKAP
+[MASTER]
+Auktoritetsordningen är:
+1. Dossierns manifest äger exakt provider→dossier/capability, env enforcement,
+   filer, exports och verifieringsstatus.
+2. src/lib/gen/dossiers/registry.ts exponerar runtimeprojektionen. Exakt en
+   träff är unique; flera är ambiguous och får inte väljas implicit.
+3. src/lib/integrations/registry.ts ger generisk providermetadata bara när ett
+   unikt dossierkontrakt saknas.
+4. Tool-enums härleds; de är inte en separat manuellt underhållen ägare.
+Provideridentitet får inte gissas från dossier-id, paketnamn eller kategori.
+
+6. URVAL
+[MASTER]
+Briefens requestedCapabilities matas till selectDossiersForRequest.
+Per capability:
+- hämta kandidater
+- sortera deterministiskt efter id
+- dependency-/alias-pin vinner
+- annars explicit relevanceKeyword
+- annars defaultForCapability
+- annars första id-sorterade kandidat
+- kontrollera required env mot projektets sparade nycklar
+- ladda och rendera instruktioner enligt promptInstructionMode
+Ingen träff hoppas över och ska loggas som unresolved; den får inte ersättas av
+en godtycklig närliggande dossier.
+
+Vanlig follow-up återkonstruerar capabilities från snapshot. clear-redesign kan
+få ett nytt brief-delta. Repair-pass ska behålla samma dossierurval som den
+körning det reparerar.
+
+7. CONFIGURED, MOCK OCH F2
+[MASTER]
+En hard-dossier med saknade required env injiceras fortfarande och markeras
+configured:false. Flaggan är en promptsignal, inte en runtimegate. Den valda
+dossierns eget mock-kontrakt avgör previewbeteendet. Varje användarsynlig hard
+capability ska ha ett verkligt, ärligt demo-/fallbackbeteende eller ett
+uttryckligt capabilityundantag. Preview får inte krascha eller låtsas ha gjort
+en riktig betalning, inloggning eller transport.
+
+8. F3 OCH BYGGBLOCK
+[MASTER/BESLUT]
+- F2/designpreview och F3/integrationsbygge är separata ansvar.
+- Intern kompatibilitetslogik mellan F2, F3, readiness, snapshot och prompt är
+  aktiv kod och får inte raderas som kosmetisk "dead code" utan konsumentbevis.
+- Samma provider/dossieridentitet ska användas i selection, approval,
+  readiness, snapshot och prompt. Split identity är en bugg.
+- Byggblock är produktens enda yta som skriver projektets env-värden.
+  Readinessytor ska deep-linka dit, inte skapa parallella skrivflöden.
+- Statusorden ska följa produktens verkliga ägare:
+  Inte byggd än, Nyckel krävs, Demo, Live, Klar.
+
+9. PROMPTFIDELITET
+[MASTER]
+- compact: manifestrenderad sammanfattning
+- selected-sections: When to use, How to integrate och Avoid, med separat cap
+  per sektion
+- full: hela instructions.md när manifestet uttryckligen kräver det
+- verbatimfiler ska emitteras byte-exakt
+- rewritablefiler får anpassas av byggmodellen
+En HardDossierIntegration får inte bli en andra mekanisk filmotor som duplicerar
+manifest, selection och verbatimregler.
+
+10. D2 → D3 → D4
+[BESLUT]
+Stegen är sekventiella kvalitets-/arkitektursteg, inte bevis på att det redan
+fungerande Byggblockflödet saknas.
+
+D2 — konfigurationssemantik
+- configInputs för värden som användaren anger i Sajtmaskin
+- providerSetup för handgrepp som görs hos leverantören
+- måste ha schema, UI och runtimeägare innan D3 byggs
+
+D3 — HardDossierIntegration
+- ett internt, strukturerat promptbidrag för vald hard-dossier
+- ska sammanställa befintlig manifesterad sanning, inte uppfinna en parallell
+  provider-, env- eller filkälla
+- ska vara kreativ där UI/integration måste anpassas, men strikt kring
+  provideridentitet, secrets, server/client-gräns och verbatimkontrakt
+
+D4 — selected-sections för alla aktiva hard-dossiers
+- kuraterade When to use, How to integrate och Avoid
+- införs först när D2 och D3 har tydligt ägarskap och regressionsskydd
+
+11. SCHEMAÄGARSKAP
+[MASTER/BESLUT]
+docs/schemas/strict/dossier.schema.json är den kanoniska stricta kontraktsfilen
+för live-manifest. Runtime-AJV, Backoffice, editor/CI och manifestens $schema
+ska peka på samma ägare. Ett kontraktstest ska blockera drift mellan dessa
+ytor. Att schemafilen ligger under docs gör den inte till enbart dokumentation.
+
+12. ÖPPNA KONTROLLPUNKTER
+[ÖPPET]
+- Slutför och verifiera D2 före D3 och D4.
+- Säkerställ att alla nio aktiva hard-dossiers har kuraterade sektioner innan
+  D4 sägs vara klart; använd genererad katalog för aktuellt antal.
+- Lås provideridentitet över F2/F3 för explicit Mongo-/legacyfall utan att
+  tvinga Postgres när ingen database-dossier är vald.
+- Testa snapshot/cache/state-isolering under parallella och upprepade körningar.
+- Håll STAGING_BY_ID och stora Byggblock-filer synliga som skuld tills de är
+  bevisat förenklade; kalla dem inte död kod utan nollkonsumentbevis.
+- Uppdatera denna fil när D2, D3 eller D4 faktiskt når master.
+
+13. ANTI-REGLER
+- Inför inte embeddings eller fuzzy matching i dossierurvalet utan nytt beslut.
+- Härled inte provider från id, dependency eller kategori.
+- Tolka inte hard som requires F3.
+- Använd inte plattformens process.env som ersättning för projektets sparade
+  env-karta i configured-bedömningen.
+- Skapa inte en andra env-skrivyta utanför Byggblock.
+- Pressa inte in en hard-dossier mekaniskt i en form som strider mot projektets
+  arkitektur; bevara kontraktet men anpassa implementationen.
+- Återuppliva inte gamla Python-importregler från historiska chattar.

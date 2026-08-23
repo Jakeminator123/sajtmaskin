@@ -6,11 +6,19 @@ här `.codex/config.toml` när projektet är trusted.
 
 ## Så här ska projektet öppnas
 
-- Primary folder i Codex ska vara `C:\Users\jakem\dev\projects\sajtmaskin`.
-- Starta nya Codex-chattar från projektet, inte från en genererad
-  `Documents\Codex\...`-mapp.
-- För parallellt arbete: använd Codex Worktree eller explicit `git worktree`,
-  samma princip som Cursor-regeln `agent-worktree.mdc`.
+- Cursor behåller huvudcheckouten
+  `C:\Users\jakem\dev\projects\sajtmaskin` och arbetar normalt på `master`.
+- Primary folder i Codex-projektet `sajtmaskin` är den permanenta worktreen
+  `C:\Users\jakem\Documents\codex-sajtmaskin\sajtmaskin-worktrees\codex`
+  på branchen `codex/workspace`.
+- `codex/workspace` är ett återanvändbart projektankare, inte en tillfällig
+  feature-worktree. `tidy` skyddar namnet; ta inte bort den som `FRI`.
+- Starta nya Codex-chattar från projektet `sajtmaskin`. Parallellt eller
+  långvarigt featurearbete: egen Codex-worktree per chatt, bas
+  `origin/master` — inte Cursor-checkouten och inte den permanenta
+  Codex-ytan.
+- Efter mergad PR: samma permanenta checkout får återanvändas, men nästa
+  arbete ligger på en ny branch från färsk `origin/master`.
 
 ## Cursor-paritet
 
@@ -18,7 +26,7 @@ här `.codex/config.toml` när projektet är trusted.
 - Ignorering: `.cursorignore` gäller Cursor. Codex har ingen repo-lokal
   `.codexignore`; använd `.gitignore` och var selektiv med vilka filer du ber
   Codex läsa.
-- Worktrees: `.worktreeinclude` kopierar bara utvalda ignorerade lokala filer
+- Worktrees: `.worktreeinclude` kopierar `.env.local` och `.cursor/mcp.json`
   till Codex-hanterade worktrees.
 - Secrets: lägg inte tokens i `.codex/config.toml`. GitHub går via `gh`/SSH
   eller Codex/GitHub-connectorn. Runtime-env ligger lokalt i `.env.local`.

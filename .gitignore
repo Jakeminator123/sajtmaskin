@@ -244,26 +244,17 @@ docs/old/**/*env*.txt
 
 # Vercel: `.vercel` ligger i env-blocket längst upp.
 
-# Automation kit + cursor-gpt local artifacts (local-only)
+# Old local-only automation kit (root only — do not ignore a future
+# src/**/automation/ or a generated site's config.txt).
 .cursor/agents/
-automation/
-.automation/
-.cursor-gpt-kit/
-config.txt
-config.browser.txt
-config.example.txt
-INSTALERA.py
-INSTALLERA.py
-automation/state/run-state.json
-automation/state/ui-dashboard/
-automation/inbox/deep-research-report*.md
-automation/inbox/tmp-*
-automation/runtime/browser-input-*.md
-automation/packets/iteration-*/
-automation/reports/iteration-*/
-automation/reports/browser-run-iteration-*.json
-automation/reports/final-summary.md
-automation/reports/final-summary.json
+/automation/
+/.automation/
+/.cursor-gpt-kit/
+/config.txt
+/config.browser.txt
+/config.example.txt
+/INSTALERA.py
+/INSTALLERA.py
 playwright-report/
 
 
