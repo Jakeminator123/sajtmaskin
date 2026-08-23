@@ -39,6 +39,7 @@ Read-only. Skriv aldrig till prod. Hämtar bara. Se Guardrails.
 | **Appens `console.warn`/`console.error`** (postcheck-krascher, `/tmp`-slut, droppade scaffold-filer, rutt-timeouts, CSP) | Postgres `vercel_log_drain_events` **eller** Vercel-plattformen — **XOR** | `--kinds=drain` om rader finns (2c); annars `vercel logs --json` |
 | **DB-pool-hälsa** (connect-timeout / EMAXCONNSESSION) | Vercel runtime-logg + Postgres `pg_stat_activity` | MCP `get_runtime_logs` (sök felsträngarna) + valfri Supabase-MCP `pg_stat_activity` |
 | Fly preview-host runtime-logg | Fly VM `vm-fly-jakem` | `fly logs` / store-fil / `/preview/logs/:id` |
+| **Redis-cache** (Deep Brief, prompt-handoff, preview-session) | Upstash Redis (`prod:`/`preview:`/`dev:`) | `dump-redis-cache` / `npm run db:redis-cache` (valfritt, 2d) |
 | Per-run fil-logg (dev) | `logs/generationslogg/<run>/` | **bara om körningen skedde lokalt** — i prod avstängt |
 
 > Telemetrin är per **version** (`generation_telemetry.version_id`, `chat_id`). Prod skriver
@@ -75,6 +76,7 @@ Kopiera checklistan och bocka av:
 - [ ] 0. Env: prod-snapshot finns, Vercel-ids + Fly-åtkomst upplösta
 - [ ] 1. Hitta senaste sajten (chatId, versionId, projectId, previewUrl, created_at)
 - [ ] 2. Alla prod-DB-loggar för chatId (inkl. `drain`) + 2c XOR-regel för console
+- [ ] 2d. Redis-cache (valfritt) — briefs / handoffs / previews
 - [ ] 3. Vercel: felkluster/5xx + sajtens deploy-loggar + DB-pool — **inte** omgreppa 2c:s console-mönster
 - [ ] 4. Fly: preview-host-loggar för sajtens previewSessionId
 - [ ] 5. Syntes: en rapport om hur körningen gick
@@ -175,6 +177,25 @@ Sök minst efter:
 | `[CSP Violation]` | egen CSP blockerar resurs |
 | `AI SDK Warning` | modell-/parameterproblem |
 
+#### 2d. Redis-cache (valfritt)
+
+Deep Brief-svar, prompt-handoff och preview-sessioner ligger i Redis (TTL, inte
+Postgres). **`--chat` betyder `--chat`:** bara briefs vars nyckel innehåller
+chatId. Init-briefs cachas som `anon` och hoppas över — de kan inte knytas till
+chatten. **Handoffs hoppas över vid `--chat`:** nyckeln är id-only och
+payloaden saknar chatId (`sessionId` är auth-session). Tom `--chat=` avvisas
+(fail-closed). Preview provar även legacy `sandbox-preview:session:`. Bara
+SCAN + GET. Prefix defaultar till `prod:` för `.env.vercel.production.pulled`.
+
+```powershell
+node scripts/db/dump-redis-cache.mjs --json `
+  --env=.env.vercel.production.pulled `
+  --kinds=briefs,handoffs,previews `
+  --chat=<chatId> --limit=50
+```
+
+Alias: `npm run db:redis-cache -- --json --env=.env.vercel.production.pulled --chat=<chatId>`.
+
 ### 3. Vercel-loggar (MCP-server `vercel` — projekt-scopad, eller `user-vercel`)
 
 > Servern `vercel` i `.cursor/mcp.json` är projekt-scopad (`mcp.vercel.com/jakeminator123s-projects/sajtmaskin`).
@@ -265,7 +286,7 @@ Säkerhet: <%>. Verifierat mot <källor>; inte live-kört mot X.
 
 ## Guardrails
 
-- **Read-only mot prod.** Bara `SELECT`/GET/`fly logs`. Aldrig skriv, deploy, secrets-set eller migration.
+- **Read-only mot prod.** Bara `SELECT`/SCAN+GET/`fly logs`. Aldrig skriv, deploy, secrets-set eller migration.
 - Skriv **inte** secrets till filer. Hämta prod-env via `npm run env:pull:prod-snapshot` (CLI äger creds).
 - `.env.vercel.production.pulled` och `.vercel/project.json` är gitignored — stage dem aldrig.
 - Klistra inte in råa connection strings, tokens eller nycklar i svaret.
@@ -275,7 +296,7 @@ Säkerhet: <%>. Verifierat mot <källor>; inte live-kört mot X.
 ## Related
 
 - Kommando: [`.cursor/commands/logg.md`](../../commands/logg.md)
-- Read-only DB-dumper: `scripts/db/dump-logs.mjs` · senaste sajt: `scripts/db/latest-site.mjs`
+- Read-only DB-dumper: `scripts/db/dump-logs.mjs` · Redis-cache: `scripts/db/dump-redis-cache.mjs` · senaste sajt: `scripts/db/latest-site.mjs`
 - Log Drain-mottagare (`--kinds=drain`): `src/lib/vercel/vercel-log-drain.ts`, `src/app/api/drains/vercel/route.ts` · setup + URL: [`docs/runbooks/vercel-log-drain.md`](../../../docs/runbooks/vercel-log-drain.md)
 - Observability-regel: [`.cursor/rules/agent-observatory.mdc`](../../rules/agent-observatory.mdc)
 - Preview-host & Fly: `preview-host/README.md`
