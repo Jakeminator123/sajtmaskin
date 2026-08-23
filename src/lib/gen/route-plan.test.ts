@@ -511,6 +511,273 @@ describe("buildRoutePlan", () => {
     expect(bloggRoute?.required).toBe(true);
   });
 
+  describe("init-only scaffold equivalent authoritative paths", () => {
+    it("canonicalizes the sole /artiklar brief route to blog /blog and preserves brief semantics", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Bygg enligt briefen.",
+        resolvedScaffold: getScaffoldById("blog"),
+        brief: {
+          pages: [
+            { path: "/", name: "Hem", purpose: "Startsida" },
+            { path: "/artiklar", name: "Artiklar", purpose: "Kuraterade teknikartiklar" },
+          ],
+        },
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual(["/", "/blog"]);
+      expect(plan.routes.find((route) => route.path === "/blog")).toEqual({
+        path: "/blog",
+        name: "Artiklar",
+        intent: "Route purpose: Kuraterade teknikartiklar",
+        required: true,
+      });
+    });
+
+    it("canonicalizes the English /articles equivalent", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Build from the brief.",
+        resolvedScaffold: getScaffoldById("blog"),
+        locale: "en",
+        brief: {
+          pages: [
+            { path: "/", name: "Home", purpose: "Entry" },
+            { path: "/articles", name: "Articles", purpose: "Editorial archive" },
+          ],
+        },
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual(["/", "/blog"]);
+      expect(plan.routes.find((route) => route.path === "/blog")?.intent).toBe(
+        "Route purpose: Editorial archive",
+      );
+    });
+
+    it("canonicalizes a sole prompt-named /artiklar route before blog defaults", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Sidor: Hem, Artiklar",
+        resolvedScaffold: getScaffoldById("blog"),
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual(["/", "/blog"]);
+      expect(plan.routes.find((route) => route.path === "/blog")).toEqual({
+        path: "/blog",
+        name: "Artiklar",
+        intent: "Implement the explicitly requested Artiklar page.",
+        required: true,
+      });
+      expect(plan.provenance).toEqual({ primarySource: "prompt", sources: ["prompt"] });
+    });
+
+    it("canonicalizes the same sole alias across prompt and brief while preserving brief metadata", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Sidor: Hem, Artiklar",
+        resolvedScaffold: getScaffoldById("blog"),
+        brief: {
+          pages: [
+            { path: "/", name: "Hem", purpose: "Startsida" },
+            { path: "/artiklar", name: "Kunskapsbank", purpose: "Fördjupande guider" },
+          ],
+        },
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual(["/", "/blog"]);
+      expect(plan.routes.find((route) => route.path === "/blog")).toEqual({
+        path: "/blog",
+        name: "Kunskapsbank",
+        intent: "Route purpose: Fördjupande guider",
+        required: true,
+      });
+      expect(plan.provenance).toEqual({
+        primarySource: "brief",
+        sources: ["brief", "prompt"],
+      });
+    });
+
+    it("preserves canonical and alias coexistence when they come from prompt and brief", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Sidor: Hem, Blog",
+        resolvedScaffold: getScaffoldById("blog"),
+        brief: {
+          pages: [
+            { path: "/", name: "Hem", purpose: "Startsida" },
+            { path: "/artiklar", name: "Artiklar", purpose: "Kunskapsbank" },
+          ],
+        },
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual(["/", "/artiklar", "/blog"]);
+      expect(plan.routes.find((route) => route.path === "/artiklar")?.intent).toBe(
+        "Route purpose: Kunskapsbank",
+      );
+      expect(plan.routes.find((route) => route.path === "/blog")?.intent).toBe(
+        "Implement the explicitly requested Blog page.",
+      );
+    });
+
+    it("preserves two distinct aliases when prompt and brief request one each", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Pages: Home, Articles",
+        locale: "en",
+        resolvedScaffold: getScaffoldById("blog"),
+        brief: {
+          pages: [
+            { path: "/", name: "Home", purpose: "Entry" },
+            { path: "/artiklar", name: "Artiklar", purpose: "Swedish archive" },
+          ],
+        },
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual([
+        "/",
+        "/artiklar",
+        "/articles",
+        "/blog",
+      ]);
+    });
+
+    it("treats repeated normalization-equivalent aliases as one requested family path", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Bygg enligt briefen.",
+        resolvedScaffold: getScaffoldById("blog"),
+        brief: {
+          pages: [
+            { path: "/", name: "Hem", purpose: "Startsida" },
+            { path: "/artiklar", name: "Artiklar", purpose: "Kunskapsbank" },
+            { path: "/artiklar/", name: "Artiklar igen", purpose: "Dubblett" },
+          ],
+        },
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual(["/", "/blog"]);
+      expect(plan.routes.find((route) => route.path === "/blog")?.intent).toBe(
+        "Route purpose: Kunskapsbank",
+      );
+    });
+
+    it.each([null, getScaffoldById("landing-page")])(
+      "does not rewrite /artiklar without the owning blog scaffold",
+      (resolvedScaffold) => {
+        const plan = buildRoutePlan({
+          ...websiteBase,
+          prompt: "Bygg enligt briefen.",
+          resolvedScaffold,
+          brief: {
+            pages: [
+              { path: "/", name: "Hem", purpose: "Startsida" },
+              { path: "/artiklar", name: "Artiklar", purpose: "Arkiv" },
+            ],
+          },
+        });
+
+        expect(plan.routes.map((route) => route.path)).toContain("/artiklar");
+        expect(plan.routes.map((route) => route.path)).not.toContain("/blog");
+      },
+    );
+
+    it("does not rewrite frozen follow-up routes or add the scaffold canonical route", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Förfina artikelarkivet utan att ändra sidor.",
+        resolvedScaffold: getScaffoldById("blog"),
+        generationMode: "followUp",
+        existingRoutePaths: ["/", "/artiklar"],
+        brief: {
+          pages: [
+            { path: "/", name: "Hem", purpose: "Startsida" },
+            { path: "/artiklar", name: "Artiklar", purpose: "Arkiv" },
+          ],
+        },
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual(["/", "/artiklar"]);
+    });
+
+    it("preserves explicit canonical-and-alias coexistence from the same authoritative brief", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Bygg båda de uttryckligen listade arkiven.",
+        resolvedScaffold: getScaffoldById("blog"),
+        brief: {
+          pages: [
+            { path: "/", name: "Hem", purpose: "Startsida" },
+            { path: "/blog", name: "Blogg", purpose: "Nyhetsarkiv" },
+            { path: "/artiklar", name: "Artiklar", purpose: "Kunskapsbank" },
+          ],
+        },
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual(["/", "/blog", "/artiklar"]);
+      expect(plan.routes.find((route) => route.path === "/blog")?.intent).toBe(
+        "Route purpose: Nyhetsarkiv",
+      );
+      expect(plan.routes.find((route) => route.path === "/artiklar")?.intent).toBe(
+        "Route purpose: Kunskapsbank",
+      );
+    });
+
+    it("preserves two distinct equivalent aliases as explicit coexistence", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Bygg båda de uttryckligen listade arkiven.",
+        resolvedScaffold: getScaffoldById("blog"),
+        brief: {
+          pages: [
+            { path: "/", name: "Hem", purpose: "Startsida" },
+            { path: "/artiklar", name: "Artiklar", purpose: "Svenskt arkiv" },
+            { path: "/articles", name: "Articles", purpose: "English archive" },
+          ],
+        },
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual([
+        "/",
+        "/artiklar",
+        "/articles",
+        "/blog",
+      ]);
+    });
+
+    it("keeps the explicit page cap unchanged after canonicalization", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Två sidor.",
+        pageCountHint: 2,
+        resolvedScaffold: getScaffoldById("blog"),
+        brief: {
+          pages: [
+            { path: "/", name: "Hem", purpose: "Startsida" },
+            { path: "/artiklar", name: "Artiklar", purpose: "Arkiv" },
+          ],
+        },
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual(["/", "/blog"]);
+    });
+
+    it("leaves the existing /blog↔/blogg locale behavior unchanged", () => {
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt: "Bygg enligt briefen.",
+        resolvedScaffold: getScaffoldById("blog"),
+        brief: {
+          pages: [
+            { path: "/", name: "Hem", purpose: "Startsida" },
+            { path: "/blogg", name: "Blogg", purpose: "Svenskt arkiv" },
+          ],
+        },
+      });
+
+      expect(plan.routes.map((route) => route.path)).toEqual(["/", "/blogg"]);
+    });
+  });
+
   it("parseRoutePlanFromUnknown accepts legacy JSON with source only", () => {
     const parsed = parseRoutePlanFromUnknown({
       source: "brief",

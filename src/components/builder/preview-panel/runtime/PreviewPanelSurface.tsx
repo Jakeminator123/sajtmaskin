@@ -2,19 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
-import type {
-  Dispatch,
-  DragEvent,
-  MouseEventHandler,
-  RefObject,
-  SetStateAction,
-} from "react";
+import type { Dispatch, DragEvent, MouseEventHandler, RefObject, SetStateAction } from "react";
 import { Button } from "@/components/ui/button";
 import type { FileNode, ElementMapItem } from "@/lib/builder/types";
-import {
-  buildJsxElementRegistry,
-  type RegistryMatch,
-} from "@/lib/builder/jsx-element-registry";
+import { buildJsxElementRegistry, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import type { InsertionPoint } from "@/lib/builder/section-analyzer";
 import {
   PreviewPanelComposerOverlay,
@@ -31,11 +22,7 @@ import {
   PreviewInspectRegionMenu,
   PreviewInspectTextEditor,
 } from "../inspect/PreviewInspectMenu";
-import type {
-  InspectEngine,
-  InspectPulseMarker,
-  PreviewPanelProps,
-} from "../preview-panel-types";
+import type { InspectEngine, InspectPulseMarker, PreviewPanelProps } from "../preview-panel-types";
 import type { PreviewRouteInfo } from "../pages/preview-route-helpers";
 import {
   describeRegionElement,
@@ -444,6 +431,7 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
               iframeRef={iframeRef}
               handleIframeLoad={handleIframeLoad}
               handleIframeError={handleIframeError}
+              bypassLoadingHardCap={isTier2LivePreview && iframeLoading && !externalLoading}
               versionMismatchPayload={versionMismatchPayload}
               onForceRestart={onForcePreviewResync ?? onPreviewSessionSuspect}
             >
@@ -482,7 +470,9 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
                   isCapturePending={isCapturePending}
                   handleCaptureClick={handleCaptureClick}
                   handleInspectMouseMove={
-                    inspectEngine === "map" && elementMap.length > 0 ? handleInspectMouseMove : undefined
+                    inspectEngine === "map" && elementMap.length > 0
+                      ? handleInspectMouseMove
+                      : undefined
                   }
                   onInspectMouseLeave={
                     inspectEngine === "map" ? () => setHoveredMapElement(null) : undefined
