@@ -1,7 +1,7 @@
 # Scaffoldmatris — baslinje 2026-08-21
 
 Ögonblicksbild av scaffold-/variant-/mall-/addendumkedjan **före**
-initiativet [`docs/plans/avklarat/2026-08-21-scaffold-komposition-och-stad/`](docs/plans/avklarat/2026-08-21-scaffold-komposition-och-stad/00-master-plan.md).
+initiativet [`docs/plans/avklarat/2026-08-21-scaffold-komposition-och-stad/`](../docs/plans/avklarat/2026-08-21-scaffold-komposition-och-stad/00-master-plan.md).
 Syfte: jämförelsepunkt när K1–K5 är levererade — mät om mot samma kolumner och
 se vad som faktiskt förbättrades. Analysbas: `master` @ `0c13d9226`,
 prod-telemetri (`generation_telemetry`) 11–19 aug 2026.
