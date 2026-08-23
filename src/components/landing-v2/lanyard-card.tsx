@@ -51,7 +51,9 @@ const {
   ropeSegmentCount: ROPE_SEGMENT_COUNT,
   cardJointY: CARD_JOINT_Y,
   fixedAnchorY: FIXED_ANCHOR_Y,
+  cardWidth: CARD_WIDTH,
   cardHeight: CARD_HEIGHT,
+  cardDepth: CARD_DEPTH,
   cardVisualOffsetY: CARD_VISUAL_OFFSET_Y,
   cameraDistance: CAMERA_DISTANCE,
   cameraFovDegrees: CAMERA_FOV_DEGREES,
@@ -334,7 +336,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
             }}
           >
             {/* Själva kortet */}
-            <RoundedBox args={[1.6, CARD_HEIGHT, 0.04]} radius={0.09} smoothness={3} castShadow receiveShadow>
+            <RoundedBox args={[CARD_WIDTH, CARD_HEIGHT, CARD_DEPTH]} radius={0.09} smoothness={3} castShadow receiveShadow>
               <meshPhysicalMaterial
                 color="#0a0f14"
                 metalness={0.55}
