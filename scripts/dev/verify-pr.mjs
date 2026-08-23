@@ -13,6 +13,8 @@ const ordered = [
   "control-plane:check",
   "backoffice:test",
   "db:schema-drift",
+  "baseline-deps:verify",
+  "baseline-deps:tree",
   "typecheck",
   "test:ci",
   "lint",

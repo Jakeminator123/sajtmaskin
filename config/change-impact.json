@@ -1,7 +1,14 @@
 {
   "$schema": "../docs/schemas/strict/change-impact.schema.json",
   "version": 1,
-  "protectedPrefixes": [".github/", "drizzle/", "scripts/db/", "src/lib/db/", "src/app/api/"],
+  "protectedPrefixes": [
+    ".github/",
+    "package",
+    "drizzle/",
+    "scripts/db/",
+    "src/lib/db/",
+    "src/app/api/"
+  ],
   "rules": [
     { "prefix": "backoffice/", "owners": ["backoffice"], "checks": ["backoffice:test"] },
     {
@@ -27,6 +34,11 @@
     { "prefix": ".cursor/", "owners": ["agent-policy"], "checks": ["check:agent-context"] },
     { "prefix": ".agents/", "owners": ["agent-policy"], "checks": ["check:agent-context"] },
     { "prefix": ".github/", "owners": ["delivery"], "checks": ["docs:test"] },
+    {
+      "prefix": "package",
+      "owners": ["dependencies", "tooling"],
+      "checks": ["typecheck", "test:ci", "lint", "baseline-deps:verify", "baseline-deps:tree"]
+    },
     { "prefix": "scripts/", "owners": ["tooling"], "checks": ["lint"] }
   ]
 }

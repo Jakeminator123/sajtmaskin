@@ -15,3 +15,10 @@ test("protected paths are high risk", () => {
   assert.equal(result.risk, "high");
   assert.deepEqual(result.protectedFiles, [".github/workflows/ci.yml"]);
 });
+
+test("package and lockfile changes require the full dependency lane", () => {
+  const result = analyze(["package.json", "package-lock.json"]);
+  assert.equal(result.risk, "high");
+  assert.ok(result.checks.includes("baseline-deps:tree"));
+  assert.ok(result.checks.includes("test:ci"));
+});

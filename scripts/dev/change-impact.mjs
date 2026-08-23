@@ -17,15 +17,18 @@ const config = JSON.parse(
 function gitDiffNames() {
   const outputs = staged
     ? [
-        execFileSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMR"], {
+        execFileSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMRD"], {
           encoding: "utf8",
         }),
       ]
     : [
-        execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR", `${base}...HEAD`], {
+        execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMRD", `${base}...HEAD`], {
           encoding: "utf8",
         }),
-        execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR"], { encoding: "utf8" }),
+        execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMRD"], { encoding: "utf8" }),
+        execFileSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMRD"], {
+          encoding: "utf8",
+        }),
         execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { encoding: "utf8" }),
       ];
   return [

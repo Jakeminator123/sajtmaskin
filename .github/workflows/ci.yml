@@ -725,8 +725,8 @@ jobs:
           POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
           POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}
 
-  # Ett stabilt required-check-namn. Ruleseten behöver bara kräva merge-gate;
-  # nya blockerande lanes läggs till i needs utan att branchskyddet driftar.
+  # Ett stabilt aggregat för CI-lanes. Ruleseten ska kräva BÅDE merge-gate och
+  # det separata review-window; ett workflow kan inte needs-koppla ett annat.
   merge-gate:
     if: ${{ always() && github.event_name == 'pull_request' }}
     needs:

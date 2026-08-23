@@ -14,8 +14,9 @@ subagenter ger korta risksignaler.
    sannolikhet, impact och minimal åtgärd.
 4. Verifiera varje bärande påstående själv. Fixa bara bekräftade fynd inom
    scope; rapportera större beslut utan att bredda diffen.
-5. Om backlogg faktiskt måste ändras: följ `/buggrapport`, sök exakt ID/rubrik
-   och kör `check:bug-backlog`; läs inte hela filen som rutin.
+5. Om ett nytt fynd måste in i backloggen: följ `/buggrapport`. Om diffen fixar
+   ett befintligt `SM-###`: flytta raden från `Aktiv kö` till `Arkiv` i samma
+   fix-PR med PR-/masterbevis. Kör `check:bug-backlog`; läs inte hela filen.
 6. Kör minsta relevanta verifiering i
    [`workflow.mdc`](../rules/workflow.mdc) och rapportera fynd, avfärdanden och
    medvetet exkluderade filer.

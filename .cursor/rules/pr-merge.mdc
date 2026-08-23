@@ -58,8 +58,7 @@ att författaren inte är klar.
 Merga bara när allt är sant:
 
 - inte draft; korrekt base; mergeable;
-- required checks `quality`, `backoffice-tests`, `schema-drift`, `build` och
-  `review-window` gröna;
+- required checks `merge-gate` och det separata `review-window` gröna;
 - Vercel-deployment är lyckad eller saknas;
 - PR minst sju minuter gammal och externa botar färdiga/triagerade;
 - inga blockerande labels, reviews, trådar eller otriagerade fynd;
