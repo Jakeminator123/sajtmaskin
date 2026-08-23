@@ -32,6 +32,7 @@ export {
 
 export {
   resolveDeepBriefModelInfoFields,
+  resolveDeepBriefVisibilityFields,
   buildModelInfoSteps,
   appendModelInfoPart,
   buildPromptStrategySteps,

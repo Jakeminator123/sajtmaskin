@@ -130,10 +130,13 @@ export function generateCode(
         reasoningEffort,
         // OpenAI exposes no raw chain-of-thought; without this opt-in the
         // Responses API sends zero reasoning text and the chat's Reasoning
-        // box stays empty for every OpenAI model. `auto` = the most detailed
-        // summarizer the model supports. Verified live 2026-08-19 against
-        // gpt-5.3-codex and gpt-5.6-sol (no org-verification block).
-        reasoningSummary: "auto",
+        // box stays empty. AI SDK maps `reasoningSummary` 1:1 onto Responses
+        // `reasoning.summary`. `"auto"` is the condensed summarizer in the
+        // SDK docs and produced one-line summaries in prod; `"detailed"` is
+        // the comprehensive summarizer. Non-reasoning models only get a
+        // warning from @ai-sdk/openai (the param is omitted). Anthropic
+        // never reaches this branch.
+        reasoningSummary: "detailed",
         ...(reasoningMode ? { reasoningMode } : {}),
       },
     };

@@ -519,6 +519,7 @@ export async function runCodegenTurn(params: {
       buildSpec: orchestrationBase.buildSpec,
       engineSystemPromptLength: engineSystemPrompt.length,
       metaBriefApplied: Boolean(metaBrief) || hasPersistedBrief,
+      metaBrief,
       customInstructionsLength: trimmedSystem?.length ?? 0,
       scaffoldId: resolvedScaffold?.id ?? null,
       variantId: finalized.variantId,

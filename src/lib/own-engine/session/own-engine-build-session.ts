@@ -2,6 +2,7 @@
  * Shared own-engine stream assembly for POST /chats/stream and POST /chats/[chatId]/stream.
  * Routes keep auth, credits, and persistence; this module keeps generation SSE meta consistent.
  */
+import { buildDeepBriefVisibility } from "@/lib/builder/deep-brief-visibility";
 import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import { filterRemovedCapabilitiesFromBriefSummary } from "@/lib/gen/capability-removal";
@@ -171,6 +172,9 @@ export function buildOwnEngineGenerationStreamMeta(
     meta.sources = input.sources;
   }
   if (input.routeVariant === "new-chat") {
+    const visibility = buildDeepBriefVisibility(input.metaBrief);
+    if (visibility.reasoning) meta.deepBriefReasoning = visibility.reasoning;
+    if (visibility.blueprint) meta.deepBriefBlueprint = visibility.blueprint;
     (meta as Record<string, unknown>).chatPrivacy = input.chatPrivacy;
     (meta as Record<string, unknown>).scaffoldLabel = input.scaffoldLabel;
   }

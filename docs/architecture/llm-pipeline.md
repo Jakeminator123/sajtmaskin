@@ -110,7 +110,7 @@ emitterade reasoning) och **output** (första content-token → slut). Ägaren �
 
 Reasoning-texten i strömmen: Anthropic skickar riktiga thinking-deltas;
 OpenAI exponerar aldrig rå chain-of-thought utan skickar bara en sammanfattning,
-och bara när `reasoningSummary: "auto"` beställs (görs i `engine.ts` när
+och bara när `reasoningSummary: "detailed"` beställs (görs i `engine.ts` när
 thinking är på). Båda vägarna blir `thinking`-SSE-event och renderas i chattens
 Reasoning-ruta. Se `config/ai_models/10-own-engine.md`.
 

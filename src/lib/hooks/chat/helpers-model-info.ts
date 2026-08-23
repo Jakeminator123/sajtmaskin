@@ -1,3 +1,7 @@
+import {
+  buildDeepBriefVisibility,
+  readDeepBriefVisibilityFromMeta,
+} from "@/lib/builder/deep-brief-visibility";
 import { getPromptAssistModelLabel } from "@/lib/builder/defaults";
 import { describeDossierStatus } from "@/lib/builder/dossier-overview";
 import { isPromptAssistOff, resolvePromptAssistProvider } from "@/lib/builder/prompt-assist";
@@ -13,6 +17,29 @@ function formatEnginePathLabel(enginePath: string | null | undefined): string | 
   if (enginePath === "own-engine") return "egen motor";
   if (enginePath === "plan-mode") return "planläge";
   return enginePath;
+}
+
+/** Reasoning or ritning for the init log. Absent on cache/follow-up is fine. */
+export function resolveDeepBriefVisibilityFields(params: {
+  briefUsedThisTurn: boolean;
+  meta?: Record<string, unknown> | null;
+  initBrief?: Record<string, unknown> | null;
+}): Pick<ModelInfoData, "deepBriefReasoning" | "deepBriefBlueprint"> {
+  if (!params.briefUsedThisTurn) {
+    return { deepBriefReasoning: null, deepBriefBlueprint: null };
+  }
+  const fromMeta = params.meta ? readDeepBriefVisibilityFromMeta(params.meta) : null;
+  if (fromMeta?.reasoning) {
+    return { deepBriefReasoning: fromMeta.reasoning, deepBriefBlueprint: null };
+  }
+  if (fromMeta?.blueprint) {
+    return { deepBriefReasoning: null, deepBriefBlueprint: fromMeta.blueprint };
+  }
+  const fromClient = buildDeepBriefVisibility(params.initBrief);
+  return {
+    deepBriefReasoning: fromClient.reasoning,
+    deepBriefBlueprint: fromClient.blueprint,
+  };
 }
 
 /**

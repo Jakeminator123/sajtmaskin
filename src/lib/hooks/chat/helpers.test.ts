@@ -14,6 +14,7 @@ import {
   integrationSignalToToolPart,
   mergeStreamingText,
   resolveDeepBriefModelInfoFields,
+  resolveDeepBriefVisibilityFields,
 } from "./helpers";
 import { describeDossierStatus } from "@/lib/builder/dossier-overview";
 import type { PromptStrategyMeta } from "@/lib/builder/prompt-orchestration";
@@ -420,6 +421,53 @@ describe("resolveDeepBriefModelInfoFields", () => {
     expect(steps).toContain("Deep brief-inställning: av");
     expect(steps.some((step) => step.startsWith("Deep Brief-provider:"))).toBe(false);
     expect(steps.some((step) => step.startsWith("Deep Brief-modell:"))).toBe(false);
+  });
+});
+
+describe("resolveDeepBriefVisibilityFields", () => {
+  it("prefers SSE reasoning, then ritning, then the client brief", () => {
+    expect(
+      resolveDeepBriefVisibilityFields({
+        briefUsedThisTurn: true,
+        meta: { deepBriefReasoning: "Tänker igenom sidorna." },
+        initBrief: { oneSentencePitch: "Ett kafé.", reasoningSummary: "Klienttext" },
+      }),
+    ).toEqual({
+      deepBriefReasoning: "Tänker igenom sidorna.",
+      deepBriefBlueprint: null,
+    });
+
+    expect(
+      resolveDeepBriefVisibilityFields({
+        briefUsedThisTurn: true,
+        meta: { deepBriefBlueprint: "Pitch: Ett kafé." },
+        initBrief: { reasoningSummary: "Klienttext" },
+      }),
+    ).toEqual({
+      deepBriefReasoning: null,
+      deepBriefBlueprint: "Pitch: Ett kafé.",
+    });
+
+    expect(
+      resolveDeepBriefVisibilityFields({
+        briefUsedThisTurn: true,
+        meta: {},
+        initBrief: { oneSentencePitch: "Ett kafé." },
+      }),
+    ).toEqual({
+      deepBriefReasoning: null,
+      deepBriefBlueprint: "Pitch: Ett kafé.",
+    });
+  });
+
+  it("stays empty when the turn did not use a brief", () => {
+    expect(
+      resolveDeepBriefVisibilityFields({
+        briefUsedThisTurn: false,
+        meta: { deepBriefReasoning: "Ska inte synas." },
+        initBrief: { oneSentencePitch: "Ett kafé." },
+      }),
+    ).toEqual({ deepBriefReasoning: null, deepBriefBlueprint: null });
   });
 });
 

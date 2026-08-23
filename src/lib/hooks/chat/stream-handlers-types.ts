@@ -55,6 +55,11 @@ export type StreamContext = {
    * other init-turn signal (auto-brief). Follow-ups leave this unset.
    */
   briefUsedThisTurn?: boolean;
+  /**
+   * Client Deep Brief payload snapshotted when the create-request was built.
+   * Used as fallback when SSE meta lacks reasoning/ritning (older servers).
+   */
+  initBrief?: Record<string, unknown> | null;
 };
 
 export type StreamHandlerResult = {

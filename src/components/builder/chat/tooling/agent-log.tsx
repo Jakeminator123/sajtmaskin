@@ -192,7 +192,11 @@ function AgentLogCardContent({
                       aria-hidden
                     />
                   )}
-                  <span className="min-w-0 flex-1">{item.label}</span>
+                  {item.detail ? (
+                    <AgentLogDetailRow label={item.label} detail={item.detail} />
+                  ) : (
+                    <span className="min-w-0 flex-1">{item.label}</span>
+                  )}
                   {item.failed ? (
                     <span className="text-destructive shrink-0 text-[10px] font-medium uppercase tracking-wide">
                       Fel
@@ -212,6 +216,63 @@ function AgentLogCardContent({
   );
 }
 
+function AgentLogDetailRow({ label, detail }: { label: string; detail: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="min-w-0 flex-1"
+    >
+      <CollapsibleTrigger
+        className="hover:text-foreground flex w-full items-center gap-1 text-left"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span className="min-w-0 flex-1">{label}</span>
+        <ChevronDown
+          className={cn(
+            "text-muted-foreground h-3 w-3 shrink-0 transition-transform",
+            open && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <p className="text-foreground/80 mt-1 whitespace-pre-wrap break-words text-[11px] leading-relaxed">
+          {detail}
+        </p>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function readDeepBriefVisibilityItem(
+  tool: Partial<ToolUIPart> & { type?: string },
+): AgentLogItem | null {
+  const output = tool.output;
+  if (!output || typeof output !== "object") return null;
+  const rec = output as Record<string, unknown>;
+  const reasoning =
+    typeof rec.deepBriefReasoning === "string" && rec.deepBriefReasoning.trim()
+      ? rec.deepBriefReasoning.trim()
+      : null;
+  if (reasoning) {
+    return { label: "Deep Brief (resonemang)", detail: reasoning };
+  }
+  const blueprint =
+    typeof rec.deepBriefBlueprint === "string" && rec.deepBriefBlueprint.trim()
+      ? rec.deepBriefBlueprint.trim()
+      : null;
+  if (blueprint) {
+    return { label: "Deep Brief (ritning)", detail: blueprint };
+  }
+  return null;
+}
+
+function isDeepBriefFactStep(step: string): boolean {
+  return step.startsWith("Deep Brief-") || step.startsWith("Deep brief-");
+}
+
 export function buildAgentLogItems(toolParts: ToolPart[]) {
   const items: AgentLogItem[] = [];
   toolParts.forEach((part) => {
@@ -225,12 +286,26 @@ export function buildAgentLogItems(toolParts: ToolPart[]) {
     const toolFailed = toolState === "output-error";
 
     if (steps.length > 0) {
+      const visibility = readDeepBriefVisibilityItem(tool);
+      let visibilityInserted = false;
       steps.forEach((step, stepIndex) => {
         const isLastStep = stepIndex === steps.length - 1;
         items.push(
           toolFailed && isLastStep ? { label: step, failed: true } : { label: step },
         );
+        if (
+          visibility &&
+          !visibilityInserted &&
+          isDeepBriefFactStep(step) &&
+          (isLastStep || !isDeepBriefFactStep(steps[stepIndex + 1] ?? ""))
+        ) {
+          items.push(visibility);
+          visibilityInserted = true;
+        }
       });
+      if (visibility && !visibilityInserted) {
+        items.push(visibility);
+      }
     } else {
       const label = `${toolTitle} • ${getToolStateLabel(toolState)}`;
       items.push(toolFailed ? { label, failed: true } : { label });

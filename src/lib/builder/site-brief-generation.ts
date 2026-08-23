@@ -22,6 +22,12 @@ import {
 } from "@/lib/builder/prompt-assist";
 import { createDirectModel, getTemperatureConfig } from "@/lib/builder/direct-model";
 import {
+  attachBriefReasoningSummary,
+  extractGenerateObjectReasoning,
+  openaiBriefReasoningProviderOptions,
+  supportsOpenAIReasoningSummary,
+} from "@/lib/builder/deep-brief-visibility";
+import {
   DOMAIN_PROFILES,
   inferSiteTypeHintFromDomain,
 } from "@/lib/builder/domain-inference";
@@ -232,6 +238,34 @@ export const SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS = {
   openai: { strictJsonSchema: false },
 } as const;
 
+type BriefGenerateObjectProviderOptions = {
+  openai: {
+    reasoningSummary?: "detailed";
+    strictJsonSchema?: boolean;
+  };
+};
+
+function briefGenerateObjectProviderOptions(
+  provider: "openai" | "anthropic",
+  modelId: string,
+  simplified: boolean,
+): { providerOptions?: BriefGenerateObjectProviderOptions } {
+  if (provider === "anthropic") {
+    return simplified ? { providerOptions: { openai: { strictJsonSchema: false } } } : {};
+  }
+  if (!supportsOpenAIReasoningSummary(modelId)) {
+    return simplified ? { providerOptions: { openai: { strictJsonSchema: false } } } : {};
+  }
+  if (simplified) {
+    return {
+      providerOptions: {
+        openai: { reasoningSummary: "detailed", strictJsonSchema: false },
+      },
+    };
+  }
+  return { providerOptions: openaiBriefReasoningProviderOptions() };
+}
+
 export const simplifiedBriefSchema = z.object({
   projectTitle: z.string(),
   brandName: z.string().default(""),
@@ -425,6 +459,8 @@ function buildBriefUserPrompt(
 
 export type SiteBriefGenerationResult = {
   brief: Record<string, unknown>;
+  /** generateObject.reasoning when the provider returned a summary; otherwise null. */
+  reasoningSummary: string | null;
   usedSimplified: boolean;
   provider: "openai" | "anthropic";
   normalizedModel: string;
@@ -610,6 +646,7 @@ export async function generateSiteBriefObject(
         maxRetries: 1,
         maxOutputTokens: outputTokenCap,
         abortSignal,
+        ...briefGenerateObjectProviderOptions("anthropic", normalizedModel, false),
         ...getTemperatureConfig(normalizedModel, temperature),
       });
     } catch (fullSchemaErr) {
@@ -640,7 +677,7 @@ export async function generateSiteBriefObject(
           maxRetries: 1,
           maxOutputTokens: Math.min(outputTokenCap, 40_960),
           abortSignal,
-          providerOptions: SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS,
+          ...briefGenerateObjectProviderOptions("anthropic", normalizedModel, true),
           ...getTemperatureConfig(normalizedModel, temperature),
         });
         usedSimplified = true;
@@ -671,6 +708,7 @@ export async function generateSiteBriefObject(
       meta: { schema: usedSimplified ? "simplified" : "full" },
     });
     const briefObject = result.object as Record<string, unknown>;
+    const reasoningSummary = extractGenerateObjectReasoning(result);
     const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
     devLogAppend("latest", {
       type: "assist.brief.response",
@@ -682,9 +720,11 @@ export async function generateSiteBriefObject(
       schema: usedSimplified ? "simplified" : "full",
       projectTitle: typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
       pages,
+      reasoningChars: reasoningSummary?.length ?? 0,
     });
     return {
-      brief: briefObject,
+      brief: attachBriefReasoningSummary(briefObject, reasoningSummary),
+      reasoningSummary,
       usedSimplified,
       provider: "anthropic",
       normalizedModel,
@@ -706,6 +746,7 @@ export async function generateSiteBriefObject(
       maxRetries: 1,
       maxOutputTokens: outputTokenCap,
       abortSignal,
+      ...briefGenerateObjectProviderOptions("openai", normalizedModel, false),
       ...getTemperatureConfig(normalizedModel, temperature),
     });
   } catch (fullSchemaErr) {
@@ -734,7 +775,7 @@ export async function generateSiteBriefObject(
         maxRetries: 1,
         maxOutputTokens: Math.min(outputTokenCap, 40_960),
         abortSignal,
-        providerOptions: SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS,
+        ...briefGenerateObjectProviderOptions("openai", normalizedModel, true),
         ...getTemperatureConfig(normalizedModel, temperature),
       });
       usedSimplified = true;
@@ -765,6 +806,7 @@ export async function generateSiteBriefObject(
     meta: { schema: usedSimplified ? "simplified" : "full" },
   });
   const briefObject = result.object as Record<string, unknown>;
+  const reasoningSummary = extractGenerateObjectReasoning(result);
   const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
   devLogAppend("latest", {
     type: "assist.brief.response",
@@ -776,9 +818,11 @@ export async function generateSiteBriefObject(
     schema: usedSimplified ? "simplified" : "full",
     projectTitle: typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
     pages,
+    reasoningChars: reasoningSummary?.length ?? 0,
   });
   return {
-    brief: briefObject,
+    brief: attachBriefReasoningSummary(briefObject, reasoningSummary),
+    reasoningSummary,
     usedSimplified,
     provider: "openai",
     normalizedModel,
