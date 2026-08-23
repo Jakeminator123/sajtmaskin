@@ -149,16 +149,25 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(result.current.iframeLoading).toBe(true);
   });
 
-  it("settles loading and requests recovery after the Tier-2 readiness timeout", () => {
+  it("honors the 90s boot grace and fails closed after the Tier-2 readiness timeout", () => {
     fetchPreviewStatus.mockReturnValueOnce(new Promise(() => {}));
     const params = makeParams();
     const { result } = renderHook(() => usePreviewIframe(params));
 
     act(() => result.current.handleIframeLoad());
     const signal = fetchPreviewStatus.mock.calls[0]?.[0]?.signal as AbortSignal;
-    act(() => vi.advanceTimersByTime(30_000));
+    act(() => vi.advanceTimersByTime(90_000));
+
+    expect(result.current.iframeLoading).toBe(true);
+    expect(result.current.iframeError).toBe(false);
+    expect(signal.aborted).toBe(false);
+    expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
+
+    act(() => vi.advanceTimersByTime(8_000));
 
     expect(result.current.iframeLoading).toBe(false);
+    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
     expect(signal.aborted).toBe(true);
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
 
@@ -166,6 +175,51 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     act(() => result.current.handleIframeLoad());
     act(() => vi.advanceTimersByTime(8_000));
     expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAtTimeout);
+  });
+
+  it("makes the boot timeout inert when running arrives just before its deadline", async () => {
+    let resolveStatus: ((value: PreviewStatusApiJson) => void) | undefined;
+    fetchPreviewStatus.mockReturnValueOnce(
+      new Promise<PreviewStatusApiJson>((resolve) => {
+        resolveStatus = resolve;
+      }),
+    );
+    const params = makeParams({ iframeRef: makeIframeRef() });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    act(() => vi.advanceTimersByTime(97_999));
+
+    await act(async () => {
+      resolveStatus?.(status("running"));
+      await Promise.resolve();
+    });
+
+    act(() => vi.advanceTimersByTime(1));
+    expect(result.current.iframeLoading).toBe(true);
+    expect(result.current.iframeError).toBe(false);
+    expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
+
+    act(() => result.current.handleIframeLoad());
+    expect(result.current.iframeLoading).toBe(false);
+    expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
+  });
+
+  it("fails closed if the ready reload never emits onLoad", async () => {
+    fetchPreviewStatus.mockResolvedValue(status("running"));
+    const params = makeParams({ iframeRef: makeIframeRef() });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    await act(async () => {
+      result.current.handleIframeLoad();
+      await Promise.resolve();
+    });
+    act(() => vi.advanceTimersByTime(15_000));
+
+    expect(result.current.iframeLoading).toBe(false);
+    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
+    expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
 
   it("hands terminal status to recovery once without continuing the poll", async () => {

@@ -85,6 +85,38 @@ describe("PreviewPanelFrame — loading-overlayens debounce och hard-cap", () =>
     }
   });
 
+  it("behåller en synlig overlay när Tier-2 tar över hard-cap-ägarskapet", () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = renderFrame({ bypassLoadingHardCap: false });
+
+      act(() => vi.advanceTimersByTime(400));
+      expect(screen.getByText("Laddar...")).toBeTruthy();
+
+      rerender(
+        <PreviewPanelFrame
+          isLoading
+          iframeError={false}
+          iframeErrorMessage={null}
+          iframeDiagnosticCode={null}
+          iframeRunbookLines={[]}
+          handleOpenInNewTab={vi.fn()}
+          previewSrc="https://preview.example/ver_1"
+          iframeRef={{ current: null }}
+          handleIframeLoad={vi.fn()}
+          handleIframeError={vi.fn()}
+          bypassLoadingHardCap
+        />,
+      );
+
+      expect(screen.getByText("Laddar...")).toBeTruthy();
+      act(() => vi.advanceTimersByTime(6_000));
+      expect(screen.getByText("Laddar...")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("behåller hard-capen när Tier-2 fortfarande ägs av extern lifecycle-loading", () => {
     vi.useFakeTimers();
     try {

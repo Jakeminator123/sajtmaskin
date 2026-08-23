@@ -88,21 +88,26 @@ export function PreviewPanelFrame({
     const debounceId = window.setTimeout(() => {
       setDebounceElapsed(true);
     }, LOADING_OVERLAY_DEBOUNCE_MS);
-    const hardCapId = bypassLoadingHardCap
-      ? null
-      : window.setTimeout(() => {
-          setHardCapReached(true);
-        }, LOADING_OVERLAY_HARD_CAP_MS);
     // Cleanup handles (a) isLoading → false, (b) ny previewSrc och (c) unmount.
-    // Resetting the flags here — rather than in the effect body — prepares for
+    // Resetting the flag here — rather than in the effect body — prepares for
     // the next rising edge without cascading renders on the current one.
     // `previewSrc` är med i deps så en NY laddning (route-byte medan isLoading
-    // förblir sann) re-armar debounce/hard-cap i stället för att ärva en
-    // förbrukad cap och bli helt tyst (Bugbot-fynd 2026-08-01).
+    // förblir sann) re-armar debouncen. Hard-cap-ägarskap är avsiktligt inte
+    // en dependency: en ägarväxling under samma navigation får inte kort blotta
+    // Tier-2-iframens starting-dokument.
     return () => {
       window.clearTimeout(debounceId);
-      if (hardCapId !== null) window.clearTimeout(hardCapId);
       setDebounceElapsed(false);
+    };
+  }, [isLoading, previewSrc]);
+
+  useEffect(() => {
+    if (!isLoading || bypassLoadingHardCap) return;
+    const hardCapId = window.setTimeout(() => {
+      setHardCapReached(true);
+    }, LOADING_OVERLAY_HARD_CAP_MS);
+    return () => {
+      window.clearTimeout(hardCapId);
       setHardCapReached(false);
     };
   }, [isLoading, previewSrc, bypassLoadingHardCap]);
