@@ -207,7 +207,6 @@ logg.txt
 # Temp/dev files
 .preprompt_history.json
 .cursor/openclaw-bridge-message.txt
-övrigt
 skrapning
 /[{]*.png
 _env.production

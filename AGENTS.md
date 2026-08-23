@@ -8,6 +8,7 @@ börja med uppgiften, sökvägarna den nämner och den minsta ägare som behövs
 | När | Läs |
 |---|---|
 | Okänd produktyta | `docs/README.md`, därefter högst relevant mental modell eller kodkarta |
+| Byggblock/dossiers | `övrigt/FUSKLAPP-BYGGBLOCK.md` (koden vinner) |
 | Kodändring | närliggande kod, tester och relevant `.cursor/rules/*.mdc` |
 | Terminologi | riktad sökning i `docs/architecture/glossary.md`; läs inte hela filen |
 | Env/DB | `config/env-policy.json` eller `docs/ENV.md`, bara relevant sektion |

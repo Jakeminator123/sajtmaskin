@@ -5,8 +5,8 @@ scratch, lokala worktrees, env-/DB-kollar och städ som medvetet *inte* raderas
 automatiskt (för att inte döda en pågående agentkörning).
 
 `package.json` är alltid kanonisk källa om ett skript byter namn.
-Detaljerad hygien: [`docs/runbooks/hygiene.md`](docs/runbooks/hygiene.md).
-Worktrees: [`docs/runbooks/git-worktree.md`](docs/runbooks/git-worktree.md).
+Detaljerad hygien: [`docs/runbooks/hygiene.md`](../docs/runbooks/hygiene.md).
+Worktrees: [`docs/runbooks/git-worktree.md`](../docs/runbooks/git-worktree.md).
 
 ## Snabbmeny
 
@@ -103,7 +103,7 @@ om tree är smutsig och du medvetet vill kasta.
 **Vad:** `db:check` = read-only sanity mot lokal/dev-DB. `db:migrate` applicerar
 migrationer mot **dev** (inte prod). Prod körs i CI vid push till master, eller
 medvetet via `npm run db:migrate:prod` (se
-[`docs/runbooks/db-migrations.md`](docs/runbooks/db-migrations.md)).
+[`docs/runbooks/db-migrations.md`](../docs/runbooks/db-migrations.md)).
 
 **När:** Efter ny fil under `src/lib/db/migrations/`, eller när lokal app klagar
 på saknad kolumn.

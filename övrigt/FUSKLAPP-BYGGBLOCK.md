@@ -62,7 +62,7 @@ Valfritt: `envVars[]` (med `enforcement` och `setupUrl`), `dependencies` (npm), 
 `summarySv` (svensk UI-text), `relevanceKeywords` (uttrycklig leverantörsträff),
 `defaultForCapability` och `promptInstructionMode` (hur mycket av `instructions.md`
 som når byggmodellen). Fullt schema:
-[`docs/schemas/strict/dossier.schema.json`](docs/schemas/strict/dossier.schema.json).
+[`docs/schemas/strict/dossier.schema.json`](../docs/schemas/strict/dossier.schema.json).
 
 ## Används schemat faktiskt?
 
@@ -145,6 +145,6 @@ databas är en egen capability med eget byggblock.
 | Svenska UI-orden | `src/lib/builder/dossier-axes.ts` och `dossier-overview.ts` (+ spegel i backoffice) |
 | Statusregeln | `src/lib/gen/dossiers/lifecycle.ts` |
 | Grupperna | `src/lib/builder/dossier-groups.ts` |
-| Hela kontraktet i prosa | [`docs/contracts/dossier-system.md`](docs/contracts/dossier-system.md) |
+| Hela kontraktet i prosa | [`docs/contracts/dossier-system.md`](../docs/contracts/dossier-system.md) |
 
 Denna fusklapp är en läskarta, inte en sanningskälla — driftar den mot koden vinner koden.
