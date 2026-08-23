@@ -1,0 +1,68 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "calm-ops",
+  "scaffoldId": "dashboard",
+  "label": "Calm Ops",
+  "description": "Light operations dashboard with air and a few honest numbers. For daytime ops and support leads — not a frosted glass analytics toy and not a dense terminal.",
+  "keywords": [
+    "ljust-dashboard",
+    "calm-ops",
+    "översikt",
+    "support-board",
+    "luftig-ops",
+    "daytime-ops",
+    "operations-light",
+    "kö-översikt"
+  ],
+  "fontPairings": [
+    {
+      "heading": "IBM Plex Sans",
+      "body": "Inter"
+    }
+  ],
+  "signatureMotif": "light airy ops board, few KPIs, and a readable work queue",
+  "colorMode": "light",
+  "promptHints": [
+    "Open on a light overview: 3–4 KPIs with room around them, then a work queue. Do not pack 12 sparkline tiles.",
+    "Tables are readable (15–16px, row height 48px+). Status is a quiet pill, not a neon badge.",
+    "This is a day-shift board. No glassmorphism and no terminal green-on-black."
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "Top row: page title + date range + one primary action. Next: 3–4 KPI tiles in a single row with a number, a 7-day spark, and a one-word delta — then stop.",
+      "Main body is a work queue or ticket table taking ~60% width, with a slim right rail for filters or a selected-item summary — not a widget wall.",
+      "Charts, if needed, are one large line or bar under the queue, not a mosaic of 6 mini-charts.",
+      "Empty and zero states stay on-canvas with a sentence, not a dark empty glass panel."
+    ],
+    "motifs": [
+      "White/gray-100 ground, slate text, one calm blue or green for positive delta. Hairline cards, 0.6rem radius.",
+      "IBM Plex Sans for numbers and titles; Inter for table copy. Tabular figures on every metric.",
+      "Alerts use amber text, not red full-row fills. Density stays low enough to scan in 3 seconds."
+    ],
+    "antiPatterns": [
+      "Do not use glass-frosted: dark canvas, blur panels, glow metrics, or layered glass cards.",
+      "Avoid dense-terminal: mono walls, 12px tables, and CRT-green accents.",
+      "No 8–12 widget bento on the first screen. If you need that many numbers, you picked the wrong variant."
+    ]
+  },
+  "themeTokens": {
+    "background": "oklch(0.975 0.006 250)",
+    "foreground": "oklch(0.24 0.02 260)",
+    "card": "oklch(0.995 0.003 250)",
+    "primary": "oklch(0.45 0.08 240)",
+    "primaryForeground": "oklch(0.99 0 0)",
+    "secondary": "oklch(0.95 0.008 250)",
+    "muted": "oklch(0.93 0.008 250)",
+    "accent": "oklch(0.70 0.08 150)",
+    "border": "oklch(0.88 0.01 250)",
+    "ring": "oklch(0.45 0.08 240)",
+    "radius": "0.6rem"
+  },
+  "sourceTemplateIds": [
+    "SD8IPhg8bcC",
+    "6UhtTqtAVaZ",
+    "JfGEPnqVAVL",
+    "jUBqSBJsNrz"
+  ],
+  "default": false
+}

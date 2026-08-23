@@ -1,0 +1,69 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "soft-workspace",
+  "scaffoldId": "app-shell",
+  "label": "Soft Workspace",
+  "description": "Light, human internal tool shell for team apps and everyday workspaces. Soft panels and clear type — not a dense admin CRM and not a neon dark cockpit.",
+  "keywords": [
+    "mjuk",
+    "ljus-app",
+    "teamverktyg",
+    "vänlig-app",
+    "pastel",
+    "soft-ui",
+    "everyday-tool",
+    "ljust-workspace",
+    "human-app"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Plus Jakarta Sans",
+      "body": "Inter"
+    }
+  ],
+  "signatureMotif": "light panels, large friendly type, and quiet pastel action color",
+  "colorMode": "light",
+  "promptHints": [
+    "Build a light app chrome: pale sidebar, generous list rows, and a single pastel primary. This is a daily team tool, not an ops terminal.",
+    "Prefer readable empty states and plain-language buttons (Skapa, Dela, Klart) over icon-only toolbars.",
+    "Keep density low: one task in focus, not a packed CRM table."
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "Shell is a light left nav (soft gray, 14–15px labels with a small leading icon) plus a content pane with a large page title and one primary action top-right.",
+      "Lists are spacious rows (min-h-14) with avatar, title, one meta line, and a quiet status pill — not compact data tables.",
+      "Detail views use a single column of soft cards with 16–20px padding and a sticky footer action bar, not a 3-pane inspector.",
+      "Empty states are illustrated lightly with one sentence and one button, centered in the content pane."
+    ],
+    "motifs": [
+      "Background is warm gray-white; cards are white with 0.9–1rem radius and a hairline border, almost no shadow.",
+      "Primary is a muted teal or periwinkle — never neon, never black full-bleed headers.",
+      "Plus Jakarta Sans for titles; Inter for UI. Iconography stays outline, 20px, low contrast."
+    ],
+    "antiPatterns": [
+      "Do not use immersive-dark or quantum neon: glowing borders, particle fields, or near-black chrome.",
+      "Avoid clean-utility dense admin: tiny 12px tables, packed filter bars, and spreadsheet-like CRM density.",
+      "No glassmorphism overlays, metric-sparkline walls, or terminal fonts in the shell."
+    ]
+  },
+  "themeTokens": {
+    "background": "oklch(0.97 0.008 90)",
+    "foreground": "oklch(0.24 0.02 260)",
+    "card": "oklch(0.995 0.004 90)",
+    "primary": "oklch(0.58 0.10 230)",
+    "primaryForeground": "oklch(0.99 0 0)",
+    "secondary": "oklch(0.94 0.01 90)",
+    "muted": "oklch(0.93 0.01 90)",
+    "accent": "oklch(0.82 0.06 230)",
+    "border": "oklch(0.88 0.01 90)",
+    "ring": "oklch(0.58 0.10 230)",
+    "radius": "0.9rem"
+  },
+  "sourceTemplateIds": [
+    "Pf7lw1nypu5",
+    "m23KLm1bn8K",
+    "FlR7JxdFesy",
+    "ZZFpa3jFqnO"
+  ],
+  "default": false
+}

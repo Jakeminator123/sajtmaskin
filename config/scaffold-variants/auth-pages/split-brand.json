@@ -1,0 +1,71 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "split-brand",
+  "scaffoldId": "auth-pages",
+  "label": "Split Brand",
+  "description": "Split authentication: brand story on one half, form on the other. For products that want a welcome panel without glass-card theatrics.",
+  "keywords": [
+    "split-login",
+    "varumärkessida",
+    "välkommen-panel",
+    "two-column-auth",
+    "brand-panel",
+    "split-screen",
+    "välkomsthalva"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Sora",
+      "body": "Inter"
+    },
+    {
+      "heading": "Geist",
+      "body": "Geist"
+    }
+  ],
+  "signatureMotif": "half brand panel, half crisp form, no floating glass card",
+  "colorMode": "either",
+  "promptHints": [
+    "Desktop is 50/50: left (or right) is brand — name, one sentence, one still or color field. The other half is the form on a plain surface.",
+    "Mobile stacks brand as a short header, then the form. Do not hide the form behind a modal.",
+    "Keep auth states (error, pending, password rules) obvious. Brand must not steal focus from the fields."
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "lg:grid-cols-2 min-h-screen. Brand pane: large product name, 1–2 lines of welcome, optional muted photo or solid brand color. Form pane: title, fields, submit, and a text link to the other auth route.",
+      "Form width is max-w-sm, left-aligned in its pane with consistent 12–16px gaps. No card chrome around the form — the pane is the surface.",
+      "Legal and SSO sit under the primary button as text links or a single stacked Google/GitHub row, not a third column.",
+      "Error text is inline under the field, 14px, not a toast-only flow."
+    ],
+    "motifs": [
+      "Brand pane can be dark or a saturated brand color; form pane stays high-contrast and quiet.",
+      "Sora or Geist for the brand name; Inter for labels. One radius (0.5rem) on inputs only.",
+      "No extra illustration mascots. If a photo is used it is cropped and low-contrast so type stays readable."
+    ],
+    "antiPatterns": [
+      "Do not center a floating glass-modern card on a gradient mesh.",
+      "Avoid clean-auth single-column beige form with no brand pane on desktop.",
+      "No full-page marketing hero above the form, and no dashboard chrome around login."
+    ]
+  },
+  "themeTokens": {
+    "background": "oklch(0.99 0.004 250)",
+    "foreground": "oklch(0.20 0.02 260)",
+    "card": "oklch(1 0 0)",
+    "primary": "oklch(0.42 0.12 260)",
+    "primaryForeground": "oklch(0.99 0 0)",
+    "secondary": "oklch(0.95 0.01 250)",
+    "muted": "oklch(0.94 0.008 250)",
+    "accent": "oklch(0.60 0.10 250)",
+    "border": "oklch(0.88 0.01 250)",
+    "ring": "oklch(0.42 0.12 260)",
+    "radius": "0.5rem"
+  },
+  "sourceTemplateIds": [
+    "VEoDcF84vxz",
+    "FjVZH4DboBv",
+    "Pr8Pms0CEBm",
+    "E2PMKQo5S11"
+  ],
+  "default": false
+}

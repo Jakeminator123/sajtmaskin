@@ -1,0 +1,73 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "lookbook-runway",
+  "scaffoldId": "ecommerce",
+  "label": "Lookbook Runway",
+  "description": "Campaign-led storefront that opens as a lookbook, not a catalog grid. For fashion and object brands that sell through editorial images first.",
+  "keywords": [
+    "lookbook",
+    "runway",
+    "kampanj",
+    "editorial-shop",
+    "kampanjbutik",
+    "modekampanj",
+    "campaign-store",
+    "lookbook-shop"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Cormorant Garamond",
+      "body": "Inter"
+    },
+    {
+      "heading": "Fraunces",
+      "body": "Manrope"
+    }
+  ],
+  "signatureMotif": "full-bleed campaign frames, sparse type, and shop-the-look after the image",
+  "colorMode": "light",
+  "promptHints": [
+    "Open on a full-bleed campaign still. Product names appear as captions after the image, not as a 4-up card grid above the fold.",
+    "PDP is a large photo column plus a slim buy rail — no megastore facet chrome on the first screen.",
+    "Keep merchandising editorial: one look, then the SKUs in that look."
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "Home is a vertical lookbook: each chapter is a full-width photo (min-h-[70vh]) with a small season label and a Shop the look link that jumps to 2–4 products listed as text + price under the frame.",
+      "Collection pages stay image-forward: 2-column alternating tall crops, product title overlaid late or below — never a dense 4-column tile grid with filters as the hero.",
+      "Product page: one large photo stack on the left (or full-bleed on mobile), name/price/size/CTA in a narrow right rail. Related items are other looks, not a You may also like card row of 8.",
+      "Cart and checkout stay visually quiet so the campaign photography remains the brand, not the chrome."
+    ],
+    "motifs": [
+      "White or bone ground, black type, almost no fill buttons until the buy action. Hairlines instead of cards.",
+      "Cormorant/Fraunces for look titles; Inter/Manrope for price and size. Tracking wide on season labels.",
+      "Photography is styled campaign — models, still life, or runway — not packshots on seamless gray."
+    ],
+    "antiPatterns": [
+      "Do not open with megastore-clean: facet sidebar, sort dropdown, and a 4-up product card grid.",
+      "Avoid boutique-warm stacked lifestyle cards with rounded peach surfaces and cute badges.",
+      "No streetwear-bold dark/neon campaign type or Bebas screaming across the viewport.",
+      "Avoid icon-feature rows (Free shipping / Easy returns) as the first content under the hero."
+    ]
+  },
+  "themeTokens": {
+    "background": "oklch(0.99 0.004 90)",
+    "foreground": "oklch(0.15 0.01 260)",
+    "card": "oklch(1 0 0)",
+    "primary": "oklch(0.18 0.02 260)",
+    "primaryForeground": "oklch(0.99 0 0)",
+    "secondary": "oklch(0.96 0.005 90)",
+    "muted": "oklch(0.94 0.005 90)",
+    "accent": "oklch(0.45 0.04 40)",
+    "border": "oklch(0.88 0.005 90)",
+    "ring": "oklch(0.18 0.02 260)",
+    "radius": "0.15rem"
+  },
+  "sourceTemplateIds": [
+    "QkihcSMmdWP",
+    "0brPGNpjNkt",
+    "XmzC9oi7g4m",
+    "iBPsMqPGRTZ"
+  ],
+  "default": false
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
+  "id": "proof-led",
+  "scaffoldId": "saas-landing",
+  "label": "Proof Led",
+  "description": "Serious B2B product landing that leads with logos, numbers, and one case study. For buyers who need evidence before a demo — not a friendly growth cartoon.",
+  "keywords": [
+    "kundcase",
+    "social-proof",
+    "case-study",
+    "logotyper",
+    "bevis",
+    "enterprise-proof",
+    "referens",
+    "metrics-landing",
+    "roi"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Manrope",
+      "body": "Inter"
+    },
+    {
+      "heading": "Plus Jakarta Sans",
+      "body": "IBM Plex Sans"
+    }
+  ],
+  "signatureMotif": "logo row first, hard numbers, and one deep case study",
+  "colorMode": "light",
+  "promptHints": [
+    "Put proof above charm: logo strip, 3 hard metrics, then a single case study with a quote and a result number. Product UI can wait until after proof.",
+    "CTA is Book a demo or Talk to sales — never Start free trial as the only action if the prompt is enterprise.",
+    "Keep the page light and measured. No terminal aesthetic, no playful blobs."
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "Hero is a short claim + subclaim + two CTAs, then an immediate logo row of 5–8 customer marks on a hairline. No illustrated 3D product hero.",
+      "Directly under logos: three large numerals (time saved, revenue, teams) with a one-line source each — not icon-feature cards.",
+      "One case-study band: company name, 80-word story, one quote, one result, and a text link to a longer story. Optional muted product screenshot after the story.",
+      "Pricing or demo form comes last, after proof. Comparison table is acceptable; friendly three-tier cartoon cards are not the lead."
+    ],
+    "motifs": [
+      "Cool gray-white ground, ink text, one restrained blue or slate primary. Logos in grayscale.",
+      "Manrope headings at 40–56px, Inter body 16–18px. Numbers use tabular figures and a tight label above.",
+      "Screenshots are framed as evidence, cropped and muted, never a glowing glass mockup."
+    ],
+    "antiPatterns": [
+      "Do not use friendly-saas pastel blobs, playful illustrations, or a cute product cartoon as the hero.",
+      "Avoid dev-terminal: dark canvas, mono headings, and CLI-first storytelling.",
+      "No 3-up icon feature grid as the first section after the hero.",
+      "Avoid testimonial carousels of generic avatars without a company name or a measurable result."
+    ]
+  },
+  "themeTokens": {
+    "background": "oklch(0.985 0.005 250)",
+    "foreground": "oklch(0.22 0.02 260)",
+    "card": "oklch(1 0 0)",
+    "primary": "oklch(0.40 0.10 255)",
+    "primaryForeground": "oklch(0.99 0 0)",
+    "secondary": "oklch(0.95 0.01 250)",
+    "muted": "oklch(0.94 0.008 250)",
+    "accent": "oklch(0.55 0.08 230)",
+    "border": "oklch(0.88 0.01 250)",
+    "ring": "oklch(0.40 0.10 255)",
+    "radius": "0.5rem"
+  },
+  "sourceTemplateIds": [
+    "8Y9E0cStKrW",
+    "8QhCJAwn16K",
+    "zoQPxUaTqvE",
+    "fUqrRFEXLnm"
+  ],
+  "default": false
+}
