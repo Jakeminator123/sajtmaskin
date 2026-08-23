@@ -28,7 +28,7 @@ describe("MessageList", () => {
             toolCallId: "progress:validate_syntax",
             state: "input-streaming",
             output: {
-              steps: ["Validerar genererad kod (pass 1)."],
+              steps: ["Validerar genererad kod (pass 1)"],
             },
           },
         ],
@@ -39,7 +39,7 @@ describe("MessageList", () => {
 
     expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
     expect(
-      screen.getAllByText("Validerar genererad kod (pass 1).").length,
+      screen.getAllByText("Validerar genererad kod (pass 1)").length,
     ).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Pågår")).toBeTruthy();
   });

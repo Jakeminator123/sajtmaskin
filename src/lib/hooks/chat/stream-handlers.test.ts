@@ -291,7 +291,7 @@ describe("handleSseStream", () => {
     expect(
       Array.isArray(generationPart?.output?.steps) ? generationPart.output.steps : [],
     ).toContain(
-      "Innehåll strömmades till chatten men kunde inte sparas som version. Texten ovan finns kvar.",
+      "Innehåll strömmades till chatten men kunde inte sparas som version — texten ovan finns kvar",
     );
   });
 
@@ -725,7 +725,7 @@ describe("handleSseStream", () => {
         ? readyPreviewProgress.output.steps
         : [],
     ).toContain(
-      "Preview-sessionen är skapad. Miljön fortsätter starta i previewytan.",
+      "Preview-sessionen är skapad — miljön fortsätter starta i previewytan",
     );
   });
 
@@ -1051,8 +1051,8 @@ describe("handleSseStream", () => {
     ).output?.steps;
     expect(Array.isArray(doneSteps) ? doneSteps : []).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("Generering klar (2.1s)."),
-        expect.stringContaining("reasoning 1.2s, output 0.9s."),
+        expect.stringContaining("Generering klar (2.1s)"),
+        expect.stringContaining("reasoning 1.2s, output 0.9s"),
       ]),
     );
     expect(Array.isArray(doneSteps) ? doneSteps.join(" ") : "").not.toMatch(/\bwait\b/);
@@ -1158,7 +1158,7 @@ describe("handleSseStream", () => {
       (part) => (part as { type?: string }).type === "tool:engine-generation",
     ) as { output?: { steps?: unknown } } | undefined;
     expect(Array.isArray(progress?.output?.steps) ? progress.output.steps : []).toContain(
-      "Modellen analyserar fortfarande uppgiften (31s).",
+      "Modellen analyserar fortfarande uppgiften (31s)",
     );
   });
 });

@@ -73,13 +73,14 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
           : [],
       )
       .slice(0, 3);
+  // Ett tidsformat för alla Slutsteg-rader: 0.0s / 2.4s under 10 s, 14s från 10 s.
   const formatSeconds = (ms: number) => `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1)}s`;
   const doneSuffix = durationMs !== null ? ` (${formatSeconds(durationMs)})` : "";
 
   if (step === "generation") {
-    if (phase === "start") return ["Startar own-engine-strömmen."];
+    if (phase === "start") return ["Startar own-engine-strömmen"];
     if (phase === "reasoning") {
-      return ["Modellen analyserar uppgiften innan första synliga outputen kommer."];
+      return ["Modellen analyserar uppgiften innan första synliga outputen kommer"];
     }
     if (phase === "reasoning-slow") {
       const elapsedMs =
@@ -88,35 +89,35 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
           : null;
       return [
         elapsedMs !== null
-          ? `Modellen analyserar fortfarande uppgiften (${formatSeconds(elapsedMs)}).`
-          : "Modellen analyserar fortfarande uppgiften.",
+          ? `Modellen analyserar fortfarande uppgiften (${formatSeconds(elapsedMs)})`
+          : "Modellen analyserar fortfarande uppgiften",
       ];
     }
     if (phase === "awaiting-output") {
-      return ["Väntar på första kod- eller textoutput från modellen."];
+      return ["Väntar på första kod- eller textoutput från modellen"];
     }
-    if (phase === "streaming") return ["Genererar innehåll och filer från prompten."];
+    if (phase === "streaming") return ["Genererar innehåll och filer från prompten"];
     if (phase === "awaiting-input") {
-      return ["Genereringen pausades eftersom modellen behöver mer input eller konfiguration."];
+      return ["Genereringen pausades eftersom modellen behöver mer input eller konfiguration"];
     }
     if (phase === "empty-output") {
-      return ["Genereringen avslutades utan användbar kod eller preview-artifact."];
+      return ["Genereringen avslutades utan användbar kod eller preview-artifact"];
     }
     if (phase === "stream-without-version") {
       return [
-        "Innehåll strömmades till chatten men kunde inte sparas som version. Texten ovan finns kvar.",
+        "Innehåll strömmades till chatten men kunde inte sparas som version — texten ovan finns kvar",
       ];
     }
     if (phase === "tool") {
       const toolName = typeof payload.toolName === "string" ? payload.toolName.trim() : "";
       return [
         toolName
-          ? `Modellen kör verktyget "${toolName}" (integration, plan eller fråga).`
-          : "Modellen kör ett verktyg — väntar på nästa kodoutput.",
+          ? `Modellen kör verktyget "${toolName}" (integration, plan eller fråga)`
+          : "Modellen kör ett verktyg — väntar på nästa kodoutput",
       ];
     }
     if (phase === "done") {
-      const lines = [`Generering klar${doneSuffix}. Startar efterkontroller och slutsteg.`];
+      const lines = [`Generering klar${doneSuffix} — startar efterkontroller och slutsteg`];
       const phaseParts: string[] = [];
       if (waitMs !== null && waitMs > 0) {
         phaseParts.push(`wait ${formatSeconds(waitMs)}`);
@@ -128,34 +129,34 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
         phaseParts.push(`output ${formatSeconds(outputMs)}`);
       }
       if (phaseParts.length > 0) {
-        lines.push(`Faser: ${phaseParts.join(", ")}.`);
+        lines.push(`Faser: ${phaseParts.join(", ")}`);
       }
       return lines;
     }
   }
   if (step === "autofix") {
-    if (phase === "start") return ["Mekanisk autofix startad."];
+    if (phase === "start") return ["Startar mekanisk autofix"];
     if (phase === "done") {
-      const summary: string[] = [`Mekanisk autofix klar${doneSuffix}.`];
+      const summary: string[] = [`Mekanisk autofix klar${doneSuffix}`];
       if (fixes !== null || warnings !== null) {
         summary.push(
-          `Fixar: ${fixes ?? 0}${warnings !== null ? `, varningar: ${warnings}` : ""}${dependencies !== null ? `, dependencies: ${dependencies}` : ""}.`,
+          `Fixar: ${fixes ?? 0}${warnings !== null ? `, varningar: ${warnings}` : ""}${dependencies !== null ? `, dependencies: ${dependencies}` : ""}`,
         );
       }
       if ((fixes ?? 0) === 0 && fixers.length === 0) {
-        summary.push("Inga mekaniska fixar behövdes.");
+        summary.push("Inga mekaniska fixar behövdes");
       } else if (fixers.length > 0) {
-        summary.push(`Fixers: ${fixers.slice(0, 6).map(formatFixerLabel).join(", ")}.`);
+        summary.push(`Fixers: ${fixers.slice(0, 6).map(formatFixerLabel).join(", ")}`);
         const examples = formatFixerExamples();
-        if (examples.length > 0) summary.push(`Exempel: ${examples.join(" • ")}.`);
+        if (examples.length > 0) summary.push(`Exempel: ${examples.join(" • ")}`);
       }
       return summary;
     }
-    if (phase === "error") return ["Mekanisk autofix misslyckades. Fortsätter med rått innehåll."];
+    if (phase === "error") return ["Mekanisk autofix misslyckades — fortsätter med rått innehåll"];
   }
   if (step === "verifier") {
     if (phase === "start") {
-      return ["Verifiering: läser av projektet efter syntax (ingen kodändring i detta steg)."];
+      return ["Verifiering: läser av projektet efter syntax (ingen kodändring i detta steg)"];
     }
     if (phase === "done") {
       const bc =
@@ -166,52 +167,53 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
         typeof payload.qualityCount === "number" && Number.isFinite(payload.qualityCount)
           ? payload.qualityCount
           : null;
-      return [
-        `Verifiering klar${doneSuffix}.${bc !== null ? ` Blockerande fynd: ${bc}.` : ""}${qc !== null ? ` Kvalitetsanteckningar: ${qc}.` : ""}`,
-      ];
+      const lines = [`Verifiering klar${doneSuffix}`];
+      if (bc !== null) lines.push(`Blockerande fynd: ${bc}`);
+      if (qc !== null) lines.push(`Kvalitetsanteckningar: ${qc}`);
+      return lines;
     }
-    if (phase === "error") return ["Verifiering misslyckades; fortsätter med nuvarande kod."];
-    if (phase === "skipped") return ["Verifiering hoppades över."];
+    if (phase === "error") return ["Verifiering misslyckades — fortsätter med nuvarande kod"];
+    if (phase === "skipped") return ["Verifiering hoppades över"];
     if (phase === "fixing") {
       return [
         `Försöker laga ${
           typeof payload.findingsCount === "number" && Number.isFinite(payload.findingsCount)
             ? `${payload.findingsCount} verifieringsfynd`
             : "verifieringsfynd"
-        }.`,
+        }`,
       ];
     }
-    if (phase === "fixed") return [`Verifieringsfynd lagades${doneSuffix}.`];
+    if (phase === "fixed") return [`Verifieringsfynd lagades${doneSuffix}`];
     if (phase === "fix-partial") {
-      return [`Verifieringen minskade fynden men rensade inte alla${doneSuffix}.`];
+      return [`Verifieringen minskade fynden men rensade inte alla${doneSuffix}`];
     }
     if (phase === "fix-failed") {
-      return [`Verifieringen kunde inte laga fyndet${doneSuffix}.`];
+      return [`Verifieringen kunde inte laga fyndet${doneSuffix}`];
     }
   }
   if (step === "url_expand") {
-    if (phase === "start") return ["Expanderar kortade URL:er till fulla adresser."];
-    if (phase === "done") return [`URL-expansion klar${doneSuffix}.`];
+    if (phase === "start") return ["Expanderar kortade URL:er till fulla adresser"];
+    if (phase === "done") return [`URL-expansion klar${doneSuffix}`];
   }
   if (step === "materialize_images") {
-    if (phase === "start") return ["Materialiserar bildplatshållare (t.ex. riktiga bild-URL:er)…"];
+    if (phase === "start") return ["Materialiserar bildplatshållare (t.ex. riktiga bild-URL:er)"];
     if (phase === "done") {
       const replaced =
         typeof payload.replacedCount === "number" && Number.isFinite(payload.replacedCount)
           ? payload.replacedCount
           : null;
       if (replaced !== null && replaced > 0) {
-        return [`Bytte ut ${replaced} bildplatshållare${doneSuffix}.`];
+        return [`Bytte ut ${replaced} bildplatshållare${doneSuffix}`];
       }
-      return [`Inga bildplatshållare behövde bytas${doneSuffix}.`];
+      return [`Inga bildplatshållare behövde bytas${doneSuffix}`];
     }
     if (phase === "error") {
-      return ["Bildmaterialisering misslyckades; platshållare kan kvarstå."];
+      return ["Bildmaterialisering misslyckades — platshållare kan kvarstå"];
     }
   }
   if (step === "validate_syntax") {
     if (phase === "start" || phase === "validating") {
-      return [`Validerar genererad kod${pass ? ` (pass ${pass})` : ""}.`];
+      return [`Validerar genererad kod${pass ? ` (pass ${pass})` : ""}`];
     }
     if (phase === "fixing") {
       // Tidigare: "Försöker reparera syntaxfel..." — gav intryck av att
@@ -219,36 +221,36 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
       // som körs på varje generation och nästan alltid lyckas inom
       // några sekunder. Neutralare formulering.
       return [
-        `Polerar syntax${pass ? ` (pass ${pass})` : ""}${errorCount !== null ? `, ${errorCount} småfel` : ""}.`,
+        `Polerar syntax${pass ? ` (pass ${pass})` : ""}${errorCount !== null ? `, ${errorCount} småfel` : ""}`,
       ];
     }
     if (phase === "retrying") {
-      return [`Kör om valideringen efter fixförsök${pass ? ` i pass ${pass}` : ""}.`];
+      return [`Kör om valideringen efter fixförsök${pass ? ` i pass ${pass}` : ""}`];
     }
-    if (phase === "passed") return ["Validering klar."];
+    if (phase === "passed") return ["Validering klar"];
     if (phase === "done") {
-      const details = [`Syntaxvalidering klar${doneSuffix}.`];
+      const details = [`Syntaxvalidering klar${doneSuffix}`];
       if (pass !== null || errorsAfter !== null) {
         details.push(
-          `${pass ?? 1} pass, ${errorsAfter ?? errorCount ?? 0} kvarvarande fel${fixerUsed ? " efter fixförsök" : ""}.`,
+          `Pass: ${pass ?? 1}, kvarvarande fel: ${errorsAfter ?? errorCount ?? 0}${fixerUsed ? " efter fixförsök" : ""}`,
         );
       }
       return details;
     }
     if (phase === "gave-up") {
       return [
-        `Valideringen gav upp${errorCount !== null ? ` med ${errorCount} kvarvarande fel` : ""}.`,
+        `Valideringen gav upp${errorCount !== null ? ` med ${errorCount} kvarvarande fel` : ""}`,
       ];
     }
-    if (phase === "error") return ["Valideringen misslyckades."];
+    if (phase === "error") return ["Valideringen misslyckades"];
   }
   if (step === "parse_merge_preflight") {
-    if (phase === "start") return ["Finaliserar filer, gör project checks och sparar versionen."];
+    if (phase === "start") return ["Finaliserar filer, gör project checks och sparar versionen"];
     if (phase === "done") {
-      const details: string[] = [`Finalisering klar${doneSuffix}.`];
-      if (fileCount !== null) details.push(`Filer i versionen: ${fileCount}.`);
-      if (versionId) details.push(`Version: ${versionId}.`);
-      details.push("Versionen sparades.");
+      const details: string[] = [`Finalisering klar${doneSuffix}`];
+      if (fileCount !== null) details.push(`Filer i versionen: ${fileCount}`);
+      if (versionId) details.push(`Version: ${versionId}`);
+      details.push("Versionen sparades");
       return details;
     }
   }
@@ -282,39 +284,39 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
       lines.push(
         `Ändringen i ${file} återställdes till föregående version för att bevara viktiga element${
           labels.length > 0 ? ` (${labels.join(", ")})` : ""
-        }. Beskriv ändringen tydligare och försök igen om den var avsiktlig.`,
+        } — beskriv ändringen tydligare och försök igen om den var avsiktlig`,
       );
     }
     for (const entry of shrinks) {
       if (!entry || typeof entry !== "object") continue;
       const file = typeof entry.file === "string" ? entry.file : "okänd fil";
       lines.push(
-        `Ändringen i ${file} återställdes eftersom det nya innehållet var kraftigt förkortat (sannolik avhuggen output). Föregående version behölls, så inget gick förlorat — be om ändringen igen om den var avsiktlig.`,
+        `Ändringen i ${file} återställdes eftersom det nya innehållet var kraftigt förkortat (sannolik avhuggen output) — föregående version behölls, så inget gick förlorat — be om ändringen igen om den var avsiktlig`,
       );
     }
     if (lines.length === 0) {
-      lines.push("En eller flera follow-up-ändringar återställdes av ändringsskyddet.");
+      lines.push("En eller flera follow-up-ändringar återställdes av ändringsskyddet");
     }
     return lines;
   }
   if (step === "preview") {
     if (phase === "starting") {
-      return ["Startar tier-2-preview (VM) ..."];
+      return ["Startar tier-2-preview (VM)"];
     }
     if (phase === "boot-queued") {
       return [
-        "Preview-sessionen är skapad. Miljön fortsätter starta i previewytan.",
+        "Preview-sessionen är skapad — miljön fortsätter starta i previewytan",
       ];
     }
     if (phase === "ready") {
-      return ["Live-preview är klar."];
+      return ["Live-preview är klar"];
     }
     if (phase === "build-verified") {
-      return ["Production build (npm run build) lyckades i verifierings-VM — separat från dev-preview."];
+      return ["Production build (npm run build) lyckades i verifierings-VM — separat från dev-preview"];
     }
     if (phase === "build-failed") {
       return [
-        "Production build misslyckades i verifierings-VM. Dev-server-preview kan ändå vara användbar.",
+        "Production build misslyckades i verifierings-VM — dev-server-preview kan ändå vara användbar",
       ];
     }
     if (phase === "error") {
@@ -325,7 +327,7 @@ const buildProgressSteps = (step: string, phase: string, payload: Record<string,
       return [
         message
           ? `Live-preview kunde inte starta: ${message}`
-          : "Live-preview kunde inte starta.",
+          : "Live-preview kunde inte starta",
       ];
     }
   }

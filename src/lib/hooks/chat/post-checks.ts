@@ -365,7 +365,7 @@ export async function runPostGenerationChecks(params: {
     state: "input-streaming",
     input: { chatId, versionId },
     output: {
-      steps: ["Efterkontrollerar filer och preview."],
+        steps: ["Efterkontrollerar filer och preview"],
     },
   });
 
@@ -627,9 +627,14 @@ function formatDurationMs(durationMs: number | null | undefined): string | null 
   if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs < 0) {
     return null;
   }
-  if (durationMs < 1000) return `${Math.round(durationMs)}ms`;
-  const seconds = durationMs / 1000;
-  return `${seconds >= 10 ? Math.round(seconds) : seconds.toFixed(1).replace(/\.0$/, "")}s`;
+  // Samma format som Slutsteg-progress: 0.0s / 2.4s under 10 s, 14s från 10 s.
+  return `${(durationMs / 1000).toFixed(durationMs >= 10000 ? 0 : 1)}s`;
+}
+
+function formatCheckDisplayLabel(check: string): string {
+  const trimmed = check.trim();
+  if (!trimmed) return check;
+  return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
 }
 
 function formatUtcClock(timestamp: string | null | undefined): string | null {
@@ -803,7 +808,7 @@ async function runTier2VerifyLane(params: {
       const reasonText =
         typeof data.reason === "string" && data.reason.trim()
           ? data.reason
-          : "Quality gate avstängd.";
+          : "Quality gate avstängd";
       appendToolPartToMessage(
         setMessages,
         assistantMessageId,
@@ -848,7 +853,7 @@ async function runTier2VerifyLane(params: {
       const icon = isAdvisory ? "Varning" : check.passed ? "Godkänd" : "Underkänd";
       const durationLabel = formatDurationMs(check.durationMs);
       steps.push(
-        `${check.check}: ${icon} (exit ${check.exitCode}${durationLabel ? `, ${durationLabel}` : ""})`,
+        `${formatCheckDisplayLabel(check.check)}: ${icon} (exit ${check.exitCode}${durationLabel ? `, ${durationLabel}` : ""})`,
       );
       // Bugbot medium på diffen: en advisory-stämplad check får aldrig räknas
       // som reparerbart fel — inte ens när envelopen saknar designAdvisory
@@ -877,17 +882,17 @@ async function runTier2VerifyLane(params: {
     // card reads as "not green" with a reason, instead of a confusing all-PASS.
     if (data.promotionBlocked) {
       steps.push(
-        "Promotion blockerad: finalize-verifieraren flaggade blockerande fynd (bygg-checkar gröna).",
+        "Promotion blockerad: finalize-verifieraren flaggade blockerande fynd (bygg-checkar gröna)",
       );
     } else if (data.promoteError) {
-      steps.push("Promotion misslyckades tillfälligt — försök verifiera igen.");
+      steps.push("Promotion misslyckades tillfälligt — försök verifiera igen");
     } else if (data.designAdvisory) {
       const advisoryLabel =
         Array.isArray(data.advisoryChecks) && data.advisoryChecks.length > 0
           ? data.advisoryChecks.join(", ")
           : "typecheck";
       steps.push(
-        `Designläge: ${advisoryLabel}-varning (advisory) — previewen renderar, versionen är användbar. Åtgärda i lugn och ro; ingen automatisk reparation kördes.`,
+        `Designläge: ${advisoryLabel}-varning (advisory) — previewen renderar, versionen är användbar — åtgärda i lugn och ro; ingen automatisk reparation kördes`,
       );
     } else if (data.qualityGateAdvisory) {
       const advisoryLabel =
@@ -895,7 +900,7 @@ async function runTier2VerifyLane(params: {
           ? data.advisoryChecks.join(", ")
           : "lint";
       steps.push(
-        `ReleaseGate: ${advisoryLabel}-varningar är advisory — versionen kan publiceras och ingen automatisk reparation kördes.`,
+        `ReleaseGate: ${advisoryLabel}-varningar är advisory — versionen kan publiceras och ingen automatisk reparation kördes`,
       );
     }
 
@@ -908,7 +913,7 @@ async function runTier2VerifyLane(params: {
 
     if (visualQa) {
       const vqaSteps = visualQa.checks.map(
-        (c) => `visuell:${c.check}: ${c.passed ? "Godkänd" : "Underkänd"} (${c.score}/100) — ${c.detail}`,
+        (c) => `Visuell: ${c.check}: ${c.passed ? "Godkänd" : "Underkänd"} (${c.score}/100) — ${c.detail}`,
       );
       steps.push(
         `Visuell QA: ${visualQa.overallScore}/100 ${visualQa.passed ? "Godkänd" : "Under tröskel"}`,
