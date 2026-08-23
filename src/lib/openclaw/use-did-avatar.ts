@@ -217,6 +217,10 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     const activeStream = streamRef;
     return () => {
       ++generation.current;
+      // React StrictMode kör setup → cleanup → setup i utveckling. Nollställ
+      // den synkrona vakten utan en state-uppdatering på den avmonterade
+      // instansen, så nästa legitima setup inte fastnar bakom "connecting".
+      connectionStateRef.current = "idle";
       const agent = activeAgent.current;
       activeAgent.current = null;
       activeStream.current = null;

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { StrictMode, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sdkMock = vi.hoisted(() => ({
@@ -35,6 +36,23 @@ afterEach(() => {
 });
 
 describe("useDidAvatar connection lifecycle", () => {
+  it("connects after React StrictMode repeats the effect lifecycle", async () => {
+    const agent = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      speak: vi.fn().mockResolvedValue(undefined),
+    };
+    sdkMock.createAgentManager.mockResolvedValue(agent);
+    const { useDidAvatar } = await loadHook();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <StrictMode>{children}</StrictMode>
+    );
+    const { result } = renderHook(() => useDidAvatar({ enabled: true }), { wrapper });
+
+    await waitFor(() => expect(result.current.connectionState).toBe("connected"));
+    expect(agent.connect).toHaveBeenCalledTimes(1);
+  });
+
   it("disconnects an agent created after avatar mode was already disabled", async () => {
     const creation = deferred<{
       connect: ReturnType<typeof vi.fn>;
