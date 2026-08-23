@@ -164,7 +164,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.95",
-    "@ai-sdk/openai": "^3.0.90",
+    "@ai-sdk/openai": "^3.0.99",
     "@base-ui/react": "^1.2.0",
     "@d-id/client-sdk": "^1.2.10",
     "@hookform/resolvers": "^5.4.0",
@@ -279,11 +279,19 @@
     "@vercel/fun": "1.3.0",
     "@vercel/node": {
       "path-to-regexp": "6.3.0",
-      "undici": "6.23.0"
+      "undici": "6.28.0"
     },
     "@vercel/remix-builder": {
       "path-to-regexp": "6.3.0"
     },
-    "esbuild": "$esbuild"
+    "esbuild": "$esbuild",
+    "@babel/core": "7.29.7",
+    "brace-expansion@1": "1.1.18",
+    "brace-expansion@5": "5.0.9",
+    "fast-uri": "3.1.6",
+    "js-yaml": "4.3.1",
+    "undici@6": "6.28.0",
+    "undici@7": "7.29.0",
+    "vite": "7.3.6"
   }
 }
