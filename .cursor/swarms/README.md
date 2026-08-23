@@ -1,6 +1,6 @@
 # .cursor/swarms/
 
-Lokal **rapportfabrik** för `/automat` — sekventiella read-only audit-svärmar (8 billiga Composer-agenter per runda) som letar buggar, död kod, namnöverlappningar, förbättringar, optimeringar, testluckor och drift. Mappen är **gitignored** (utom denna README) och ligger inte på GitHub.
+Lokal **rapportfabrik** för `/automat` — sekventiella read-only audit-svärmar. Luna gör mekanisk scanning; Sol analyserar, prioriterar och falsifierar. Mappen är **gitignored** (utom denna README) och ligger inte på GitHub.
 
 > **Audit mode, aldrig fix mode.** Svärmen ändrar **aldrig** kod. Den producerar bara fynd. När du själv hinner plockar du ut värdefulla fynd härifrån och driver dem vidare (t.ex. `/818` för beslut eller `/buggrapport` för att lyfta en bekräftad defekt till den kanoniska `BUG-SWARM-BACKLOG.md`).
 
@@ -32,4 +32,4 @@ Lokal **rapportfabrik** för `/automat` — sekventiella read-only audit-svärma
 
 - `/automat` → 3 rundor: scan → falsifiera → scan. 8 agenter per scan-runda.
 - `/automat 7` → 7 rundor sekventiellt, växlande scan och falsifiering.
-- Detaljer: [`.cursor/commands/automat.md`](../commands/automat.md) och [`.cursor/skills/automat-swarm/SKILL.md`](../skills/automat-swarm/SKILL.md).
+- Detaljer: [`.cursor/commands/automat.md`](../commands/automat.md) och [`.agents/skills/automat-swarm/SKILL.md`](../../.agents/skills/automat-swarm/SKILL.md).

@@ -292,6 +292,6 @@ nödbromsen om en loop skulle återkomma — särskilt vid same-app.
 ## Related
 
 - Env-sanning: [`docs/ENV.md`](../ENV.md) → `VERCEL_LOG_DRAIN_ENABLED` + `VERCEL_LOG_DRAIN_SECRET`
-- Loggöversikt: [`.cursor/skills/logg/SKILL.md`](../../.cursor/skills/logg/SKILL.md) steg 2c
+- Loggöversikt: [`.agents/skills/logg/SKILL.md`](../../.agents/skills/logg/SKILL.md) steg 2c
 - Migration: `src/lib/db/migrations/add-vercel-log-drain-events.sql`
 - Vercels dokumentation: [Drains](https://vercel.com/docs/drains) · [Logs-schema](https://vercel.com/docs/drains/reference/logs) · [Säkerhet](https://vercel.com/docs/drains/security) · [Skapa drain](https://vercel.com/docs/rest-api/reference/endpoints/drains/create-a-new-drain) · [Testa leverans](https://vercel.com/docs/rest-api/reference/endpoints/drains/validate-drain-delivery-configuration)

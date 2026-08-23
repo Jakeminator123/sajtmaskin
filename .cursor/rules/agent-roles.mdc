@@ -1,6 +1,6 @@
 ---
 description: "Agentroller: Scout, Builder, Steward. Säte A/B. Sign-off. Worktree följer rollen."
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Agentroller

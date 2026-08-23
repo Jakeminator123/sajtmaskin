@@ -512,6 +512,23 @@
       "notes": "plan-mode/F3 build plan cards."
     },
     {
+      "id": "change-impact-schema",
+      "sourceOfTruth": "docs/schemas/strict/change-impact.schema.json",
+      "type": "schema",
+      "validator": "change-impact",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "medium"
+      },
+      "mobility": "safe",
+      "notes": "Schema for config/change-impact.json; the CLI loads it before every local PR verification."
+    },
+    {
       "id": "control-plane-registry-schema",
       "sourceOfTruth": "docs/schemas/strict/control-plane-registry.schema.json",
       "type": "schema",

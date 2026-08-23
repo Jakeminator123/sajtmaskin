@@ -84,6 +84,11 @@ public/images/
 # Parkerade/skrotade planer. Avklarat-indexet hålls sökbart; detaljarkiv = git.
 docs/plans/archived/**
 
+# --- Stor operativ sanning: läs riktat, indexera inte ---
+# Backloggen är fortsatt kanonisk och läsbar. Sök på exakt SM-id/rubrik i
+# stället för att låta operativ status och historik konkurrera i varje sökning.
+BUG-SWARM-BACKLOG.md
+
 # --- Ägarens experiment- och inputyta ---
 # `övrigt/` är ägarens arbetsyta för LLM-experiment och felsökningsunderlag
 # (DOM-dumpar, mhtml-snapshots, coach-resonemang, zippar). Den är gitignorerad

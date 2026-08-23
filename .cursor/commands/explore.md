@@ -1,65 +1,16 @@
 # Explore
 
-Sätter rollen **Scout**. Sign-off `— Scout A` (eller `B`). Ingen worktree.
+Sätter rollen **Scout**. Read-only: inga filändringar, commits eller långkörande
+dev-/preview-sessioner. Rollkommandot är [`scout.md`](scout.md).
 
-Read-only kodbasutforskning. Använd när du vill få en tabell, karta, scorecard, risklista eller snabb audit utan att agenten ändrar filer. Rollkommandot är [`scout.md`](scout.md).
+1. Avgränsa frågan smalt.
+2. Följ [`repo-router.mdc`](../rules/repo-router.mdc) och sök direkt i relevant
+   kod. Vid okänd yta: `docs/README.md` och högst en relevant mental modell.
+3. Slå upp glossary, env eller backlogg med exakt term, nyckel eller `SM-###`;
+   läs inte hela dokumentet.
+4. Verifiera bärande påståenden mot runtime-owner, inte bara docs.
+5. Svara kort med bedömning, filbevis och nästa rekommenderade steg. Skilj
+   verifierade fel från subjektiva förbättringar.
 
-## Grundregel
-
-Ändra inga filer, skapa inga commits och starta inga långkörande dev-/preview-sessioner. Svara med fynd + filreferenser + nästa rekommenderade steg.
-
-## Arbetsflöde
-
-1. Tolka användarens fråga till ett smalt scope.
-2. Läs relevanta repo-router-filer först vid osäkerhet:
-   - `docs/README.md`
-   - `AGENTS.md`
-   - `docs/architecture/code-map.md`
-   - `docs/architecture/glossary.md`
-   - `docs/plans/active/README.md`
-3. Sök i kod, inte bara docs. Kod är source of truth.
-4. Om frågan gäller builder/generation/repair: börja i `src/lib/gen/`, `src/lib/providers/own-engine/`, `src/app/api/engine/`, `src/components/builder/`.
-5. Om frågan gäller deploy: börja i `src/app/api/v0/deployments/route.ts`, `src/lib/deploy/`, `docs/ENV.md`.
-6. Om frågan gäller backoffice: börja i `sajtmaskin_backoffice.py` och `backoffice/pages/`.
-7. Om frågan gäller eval: `src/lib/gen/eval/README.md`. Enda publika kommandot är `npm run eval`.
-
-## Output-format
-
-För översikter och jämförelser: tabell först.
-
-```markdown
-| Område | Bedömning | Bevis | Nästa steg |
-|---|---|---|---|
-| ... | ... | `path/to/file.ts` | ... |
-```
-
-För scorecards:
-
-```markdown
-## Sajtmaskin Scorecard — <branch/tid>
-
-**Betyg: X.Y / 10** (produktionsmognad ~XX%)
-
-| Område | Betyg | Kommentar |
-|---|---:|---|
-| Arkitektur | | |
-| Kodkvalitet | | |
-| Test/CI | | |
-| Säkerhet | | |
-| Drift/deploy | | |
-| Underhållbarhet | | |
-
-### Det Som Är Bra
-
-### Det Som Drar Ner Betyget
-
-### Senaste Commit Före Nu
-```
-
-## Regler
-
-- Citera filer med `path/to/file.ts`; ta med radnummer bara om du faktiskt läst dem.
-- Skilj **GLASKLAR**, **KRÄVER ANALYS**, **INTE FIXA** vid triage.
-- Markera om något är subjektiv bedömning snarare än verifierat fel.
-- Om du hittar en uppenbar bug: föreslå fix, men implementera inte utan ny explicit instruktion.
-- Undvik browser mot `/builder?...` om användaren kan ha en aktiv builder-session.
+En hittad bugg får föreslås men inte implementeras utan nytt mandat. Undvik
+browser mot en builder som användaren kan ha aktiv.

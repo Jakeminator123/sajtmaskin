@@ -1,6 +1,6 @@
 ---
 description: "Projektprioritet + MVP-bias: hygien alltid; varna innan nya features; inga onödiga säkerhetslager."
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Projektprioritet

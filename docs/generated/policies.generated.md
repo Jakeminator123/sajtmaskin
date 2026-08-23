@@ -10,7 +10,7 @@
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:37411e2494bc615f -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:5015ae889ed37dda -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:58bf6977a6cef5d5 -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:ee7018aff0bbc9dd -->
 
 # Policies
 
@@ -207,7 +207,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 ## Control-plane registry
 
-This index contains 55 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
+This index contains 56 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
 
 | ID                                            | Type                | Canonical source                                                  | Validator               | CI status | Runtime status  | Runtime enforced |
 | --------------------------------------------- | ------------------- | ----------------------------------------------------------------- | ----------------------- | --------- | --------------- | ---------------- |
@@ -238,6 +238,7 @@ This index contains 55 control-plane entries. It is a map to canonical owners, n
 | `ai-models-manifest`                          | `schema`            | `config/ai_models/manifest.json`                                  | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `ai-models-manifest-jsonschema`               | `schema`            | `config/ai_models/manifest.schema.json`                           | —                       | `none`    | `n/a`           | No               |
 | `backoffice-domain-map-schema`                | `schema`            | `docs/schemas/strict/backoffice-domain-map.schema.json`           | `test:ci`               | `hard`    | `n/a`           | No               |
+| `change-impact-schema`                        | `schema`            | `docs/schemas/strict/change-impact.schema.json`                   | `change-impact`         | `hard`    | `n/a`           | No               |
 | `chat-request-schemas`                        | `runtime-authority` | `src/lib/validations/chat-schemas.ts`                             | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `control-plane-registry-schema`               | `schema`            | `docs/schemas/strict/control-plane-registry.schema.json`          | `control-plane:check`   | `hard`    | `n/a`           | No               |
 | `db-health-report-schema`                     | `schema`            | `docs/schemas/strict/db-health-check-report.schema.json`          | `test:ci`               | `hard`    | `declared-only` | No               |

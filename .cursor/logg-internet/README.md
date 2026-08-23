@@ -23,7 +23,7 @@ Lokal **notis-yta** för `/logg-internet` — live prod-sessioner där agenten k
 
 - `/logg-internet` → observatörssession på prod (friprompt + ~2 uppföljningar), notiser.
 - `/logg-internet <ämne>` → använd angivet ämne som friprompt.
-- Detaljer: [`.cursor/commands/logg-internet.md`](../commands/logg-internet.md) och [`.cursor/skills/logg-internet/SKILL.md`](../skills/logg-internet/SKILL.md).
+- Detaljer: [`.cursor/commands/logg-internet.md`](../commands/logg-internet.md) och [`.agents/skills/logg-internet/SKILL.md`](../../.agents/skills/logg-internet/SKILL.md).
 - Vilka backlog-rader sessionen kan träffa: [`docs/runbooks/live-verifiering.md`](../../docs/runbooks/live-verifiering.md).
 
 ## Relation till `/logg`

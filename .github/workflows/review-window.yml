@@ -11,7 +11,7 @@ name: review-window
 #
 # Beteende: jobbet håller sig "pending" (och blockerar därmed merge via
 # grenskyddet) tills BÅDA är sanna:
-#   1. PR:en är minst 7 min gammal (räknat från createdAt), OCH
+#   1. jobbet för nuvarande head-SHA har varit aktivt minst 7 min, OCH
 #   2. de kända bot-granskarna för nuvarande head-SHA är KLARA — dvs minst en
 #      matchad bot-check finns, ingen matchad är kvar in_progress, OCH ett kort
 #      settle-golv (3 min från jobbstart) passerats så en snabb bot inte kan
@@ -51,23 +51,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.event.pull_request.head.sha }}
-          CREATED: ${{ github.event.pull_request.created_at }}
         run: |
           set -uo pipefail
 
-          MIN_PR_AGE=420      # 7 min golv från PR-skapande
+          MIN_SHA_AGE=420     # 7 min golv från jobbstart för denna head-SHA
           MIN_BOT_SETTLE=180  # 3 min golv från JOBBSTART innan bot-villkoret får uppfyllas
           MAX_BOT_WAIT=600    # 10 min tak för väntan på botar (från jobbstart)
           # Substrängar (case-insensitive) mot check-run-namn. "agent review"
           # träffar Vercel Agent Review men INTE Vercels deploy-check.
           PATTERNS='agent review|find critical bugs|bugbot|codex|gitguardian'
 
-          created_epoch=$(date -u -d "$CREATED" +%s)
           start_epoch=$(date -u +%s)
 
           while true; do
             now=$(date -u +%s)
-            pr_age=$(( now - created_epoch ))
             waited=$(( now - start_epoch ))
 
             runs=$(timeout 60 gh api --method GET --paginate -F per_page=100 \
@@ -93,11 +90,11 @@ jobs:
             bots_done="false"
             if [ "${matched_count:-0}" -gt 0 ] && [ "${pending:-0}" -eq 0 ] && [ "$waited" -ge "$MIN_BOT_SETTLE" ]; then bots_done="true"; fi
 
-            if [ "$pr_age" -ge "$MIN_PR_AGE" ] && { [ "$bots_done" = "true" ] || [ "$waited" -ge "$MAX_BOT_WAIT" ]; }; then
-              echo "✓ review-window uppfyllt (pr_age=${pr_age}s, matchade_botar=${matched_count}, pending=${pending}, väntat=${waited}s, settle-golv=${MIN_BOT_SETTLE}s)"
+            if [ "$waited" -ge "$MIN_SHA_AGE" ] && { [ "$bots_done" = "true" ] || [ "$waited" -ge "$MAX_BOT_WAIT" ]; }; then
+              echo "✓ review-window uppfyllt (sha_age=${waited}s, matchade_botar=${matched_count}, pending=${pending}, settle-golv=${MIN_BOT_SETTLE}s)"
               exit 0
             fi
 
-            echo "väntar… pr_age=${pr_age}s (golv ${MIN_PR_AGE}s), matchade_botar=${matched_count}, pending=${pending}, väntat=${waited}s (settle-golv ${MIN_BOT_SETTLE}s, tak ${MAX_BOT_WAIT}s)"
+            echo "väntar… sha_age=${waited}s (golv ${MIN_SHA_AGE}s), matchade_botar=${matched_count}, pending=${pending} (settle-golv ${MIN_BOT_SETTLE}s, tak ${MAX_BOT_WAIT}s)"
             sleep 20
           done

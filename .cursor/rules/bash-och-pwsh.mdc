@@ -1,6 +1,6 @@
 ---
 description: "Lokal Cursor-miljö är Windows/PowerShell. Använd pwsh-syntax i terminalexempel."
-alwaysApply: true
+alwaysApply: false
 ---
 
 # PowerShell först
