@@ -1,50 +1,6 @@
-# /logg-internet — live prod-session med notiser
+# /logg-internet
 
-Kör en **riktig** generering på produktions-sajten via **Cursor-browsern** och **antecknar** hur körningen går. Default-persona = **Observatör** (ta notiser, inte jaga fel). Kopplad till loggarna — kan korsreferera mot `/logg` för samma `chatId`.
+Kanoniskt recept: [`.agents/skills/logg-internet/SKILL.md`](../../.agents/skills/logg-internet/SKILL.md).
 
-Prod-URL: **https://sajtmaskin.vercel.app/**
-
-## Fråga först
-
-Innan något annat: fråga om användaren har **öppnat en Cursor-browser** och **loggat in** på prod-URL:en. Detta drar credits på riktigt. Logga **aldrig** in åt användaren — påminn och pausa om headern visar "Logga in"/"Kom igång gratis".
-
-## Argument
-
-| Kommando | Betydelse |
-|---|---|
-| `/logg-internet` | Observatörssession: agenten komponerar friprompt + ~2 uppföljningar. |
-| `/logg-internet <ämne>` | Använd angivet ämne som friprompt. |
-| `/logg-internet followups=<N>` | Antal uppföljningar (default ~2). |
-| `/logg-internet felsök` | Byt till Felsökare-persona. |
-| `/logg-internet loggar` | Korsreferera mot `/logg` (backend-loggar) efteråt. |
-
-## Flöde
-
-1. **Fråga** om browser öppen + inloggad på prod.
-2. **Verifiera** flik + inloggning (`browser_tabs` → `browser_navigate` → `browser_lock` → `browser_snapshot`). Header "Mina projekt"/"Öppna builder" = inloggad; "Logga in" = påminn + pausa.
-3. **Friprompt** i Fritext-fältet (`landing.freeform.primary`) → skicka (Enter eller "Skicka").
-4. **Builder**: klicka skicka (`builder.chat.primary`) för att starta genereringen; läs `chatId` från URL:en; observera tills preview visas.
-5. **~2 uppföljningar** i `builder.chat.primary`, en i taget, observera var och en.
-6. **Notiser** till `.cursor/logg-internet/runs/<ts>.md` + (valfritt) korsref mot `/logg`; `browser_lock` unlock; kort chattsummering.
-   - Vid `loggar`/Felsökare: kör **bara** `/logg` för `chatId`. Drain/console ägs där — hämta dem inte separat (annars dubbelrapport).
-
-## Persona
-
-- **Observatör (default):** beskriv neutralt vad som händer; jaga inte fel. Utgå från detta i all diskussion tills du säger annat. **Skriv aldrig till `BUG-SWARM-BACKLOG.md` Aktiv kö** — brus och misstankar stannar i run-notisen.
-- **Felsökare (på begäran):** leta aktivt fel (console/network/preview); lyft **bara** bekräftad defekt via `/buggrapport` efter grinden där (falsifierbar + ankare; inte CORS/Fast Refresh/enstaka 4xx).
-
-## Anti-mönster
-
-- Köra utan att fråga/verifiera inloggning först (steg 0–2).
-- Logga in åt användaren eller lösa captcha/passkey automatiskt.
-- Gå i felsökarläge utan att användaren bett om det.
-- Improvisera vidare efter upprepade misslyckanden — stanna och rapportera.
-- Dumpa console-/nätverksbrus som SM-rader “för säkerhets skull”.
-- Klistra in secrets/cookies/tokens i notiser.
-- Hämta `--kinds=drain` / `vercel logs` **separat** när `loggar` redan kör `/logg` — console-sanningen ägs där (XOR drain vs vercel logs).
-
-## Projekt-skill
-
-Fullständigt browser-MCP-flöde, target-map och notis-mall: [`.cursor/skills/logg-internet/SKILL.md`](../skills/logg-internet/SKILL.md).
-
-Vilka backlog-rader en session kan träffa: [`docs/runbooks/live-verifiering.md`](../../docs/runbooks/live-verifiering.md).
+Läs skillen **en gång** och följ dess samtycke, browserlås, prodkostnadsvarning
+och notisformat. Text efter kommandot är scenario/fokus.

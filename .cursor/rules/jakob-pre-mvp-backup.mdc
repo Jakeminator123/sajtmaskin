@@ -1,6 +1,6 @@
 ---
 description: "Brancher med BRA i versaler är ägarens frysta backuper och får aldrig raderas, force-pushas eller återanvändas av agenter."
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Skyddade backup-brancher

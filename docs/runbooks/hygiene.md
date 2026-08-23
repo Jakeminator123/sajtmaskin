@@ -23,6 +23,7 @@ buntar ihop dem och antingen godkänner eller pekar på problemet.
 | `docs:links`           | Pekar alla aktiva Markdown-länkar på filer som finns?                        | Rätta/ta bort den brutna länken.                                                               |
 | `plans:history:check`  | Är planhistoriken (statusar/arkivrubriker) konsekvent?                       | Följ meddelandet — oftast en status/rubrik som glidit.                                         |
 | `check:terms:contract` | Äger ordlistan sina begrepp (inga dubbeldefinitioner)?                       | Registrera begreppet i glossaryn, inte på två ställen.                                         |
+| `check:agent-context`  | Håller AGENTS, rules, glossary, commands och skills sin kontextbudget?        | Banta den aktiva texten eller flytta detaljer till rätt requestable owner; duplicera inte skills. |
 | `check:bug-backlog`    | Är `BUG-SWARM-BACKLOG.md` i rätt format?                                     | Följ felet (sektioner, SM-id, inga `[x]` i Aktiv kö).                                          |
 | `canvas:check`         | Matchar canvasens backlog-totals/prio/processdata Aktiv kö, och nämns inget stale `SM-###`? | Kör `npm run canvas:build` efter backlogändring. |
 | `knip:files`           | Finns någon **oimporterad källfil** (dött skräp)?                            | Se nästa avsnitt.                                                                              |

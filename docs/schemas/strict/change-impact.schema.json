@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/docs/schemas/strict/change-impact.schema.json",
+  "title": "Change impact routing",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "protectedPrefixes", "rules"],
+  "properties": {
+    "$schema": { "const": "../docs/schemas/strict/change-impact.schema.json" },
+    "version": { "const": 1 },
+    "protectedPrefixes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["prefix", "owners", "checks"],
+        "properties": {
+          "prefix": { "type": "string", "minLength": 1 },
+          "owners": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "checks": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          }
+        }
+      }
+    }
+  }
+}

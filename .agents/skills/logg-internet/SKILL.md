@@ -1,12 +1,11 @@
 ---
 name: logg-internet
-description: >-
-  Kör en live prod-session i Codex-browsern på https://sajtmaskin.vercel.app/: verifierar inloggning, skriver en friprompt på startsidan (landing.freeform.primary) och i snitt två uppföljningsprompter i buildern, och ANTECKNAR vad som händer (observatörspersona) snarare än att jaga fel. Kopplad till loggarna — kan korsreferera mot /logg efteråt. Use when the user runs /logg-internet, says "logg-internet" / "logg internet", or wants a note-taking live prod browser generation run.
+description: Kör en samtyckesstyrd live prod-generation i Cursor-browsern och anteckna förloppet. Use for /logg-internet or an explicit live browser observation run.
 ---
 
 # /logg-internet — live prod-session med notiser
 
-Kör en **riktig** generering på produktions-sajten via **Codex-browsern** och
+Kör en **riktig** generering på produktions-sajten via **Cursor-browsern** och
 **antecknar** hur körningen går. Default-persona = **Observatör** (ta notiser, inte
 jaga fel). Kopplad till loggarna: kan korsreferera mot `/logg` för samma `chatId`.
 
@@ -35,7 +34,7 @@ Utgå alltid från Observatör i diskussion och körning tills användaren säge
 
 **Fråga alltid** innan något annat:
 
-> "Har du öppnat en Codex-browser och loggat in på https://sajtmaskin.vercel.app/?
+> "Har du öppnat en Cursor-browser och loggat in på https://sajtmaskin.vercel.app/?
 > Detta kör en **riktig** generering på prod och drar credits på ditt konto."
 
 Vänta på svar. Logga **aldrig** in åt användaren (lösenord/passkey är manuellt).
@@ -55,7 +54,7 @@ Vänta på svar. Logga **aldrig** in åt användaren (lösenord/passkey är manu
 > Landing-submit skapar projektet och navigerar till `/builder` med prompten **förifylld** i
 > builder-fältet. Generering startar **först vid explicit skicka** i buildern (så steg 3 måste klicka skicka).
 
-## Arbetsflöde (Codex-browser MCP `cursor-ide-browser`)
+## Arbetsflöde (Cursor-browser MCP `cursor-ide-browser`)
 
 Ordning för lås: **navigate → lock → interagera → unlock**. Utelämna `position` så
 fokus behålls (bakgrundsautomation). Vid ihållande stopp (~4 misslyckade försök):
@@ -161,7 +160,7 @@ Persona: Observatör | Prod: https://sajtmaskin.vercel.app/ | chatId: <…>
 ## Related
 
 - Kommando: [`.cursor/commands/logg-internet.md`](../../../.cursor/commands/logg-internet.md)
-- Backend-loggar (DB/Vercel/Fly): [`.cursor/skills/logg/SKILL.md`](../logg/SKILL.md)
+- Backend-loggar (DB/Vercel/Fly): [`.agents/skills/logg/SKILL.md`](../logg/SKILL.md)
 - Notis-yta: [`.cursor/logg-internet/README.md`](../../../.cursor/logg-internet/README.md)
 - Lyft bekräftad defekt: `/buggrapport` → `BUG-SWARM-BACKLOG.md`
 - Vilka backlog-rader en session kan träffa: [`docs/runbooks/live-verifiering.md`](../../../docs/runbooks/live-verifiering.md)

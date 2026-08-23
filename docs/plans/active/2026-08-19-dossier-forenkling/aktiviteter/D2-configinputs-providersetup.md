@@ -100,6 +100,6 @@ Att lämna frågan obesvarad är inte ett tredje alternativ.
 > `npx vitest run src/lib/gen/dossiers`.
 >
 > Kör ett Cursor Bugbot-pass på din egen diff innan PR (`bugbot`-subagent,
-> `readonly: true`, en Grok-modell — inte en dyr tänkande modell). Lämna EN PR mot
+> `readonly: true`, enligt den kanoniska modellregeln). Lämna EN PR mot
 > `master` med en body som säger vad som ändrats och varför. **Merga inte**, och
 > sätt inte `merge:ready` förrän du triagerat buggkollen.

@@ -178,6 +178,12 @@ jobs:
       - name: Verify terminology ownership
         run: npm run check:terms:contract
 
+      - name: Verify agent context budget
+        run: npm run check:agent-context
+
+      - name: Verify change-impact routing
+        run: node --test scripts/dev/change-impact.test.mjs
+
       - name: Verify removed v0 chat boundary
         run: npm run compat:v0-chat-boundary:check
 
@@ -674,6 +680,7 @@ jobs:
         env:
           POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
           POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}
+
         run: |
           if [ -n "$POSTGRES_URL_DEV" ] && [ -n "$POSTGRES_URL_PROD" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
@@ -717,3 +724,28 @@ jobs:
         env:
           POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
           POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}
+
+  # Ett stabilt aggregat för CI-lanes. Ruleseten ska kräva BÅDE merge-gate och
+  # det separata review-window; ett workflow kan inte needs-koppla ett annat.
+  merge-gate:
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs:
+      - quality
+      - build
+      - backoffice-tests
+      - schema-drift
+      - stability
+      - preview-host-guards
+      - dead-code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every blocking PR lane
+        env:
+          RESULTS: ${{ toJson(needs) }}
+        run: |
+          failed=$(printf '%s' "$RESULTS" | jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key)=\(.value.result)"')
+          if [ -n "$failed" ]; then
+            echo "::error::Blocking PR lanes failed: $failed"
+            exit 1
+          fi
+          echo "All blocking PR lanes passed."
