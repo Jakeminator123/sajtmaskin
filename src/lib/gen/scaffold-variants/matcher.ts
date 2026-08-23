@@ -243,7 +243,7 @@ function scoreVariant(
  *
  * Init reuses the pre-match id as `persistedVariantId` so finalize does not
  * re-pick unless style pin or lock says otherwise. See K4 in
- * `docs/plans/active/2026-08-21-scaffold-komposition-och-stad/aktiviteter/`.
+ * `docs/plans/avklarat/2026-08-21-scaffold-komposition-och-stad/00-master-plan.md`.
  */
 export function pickScaffoldVariant(
   input: PickScaffoldVariantInput,

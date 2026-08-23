@@ -44,6 +44,7 @@ KPI, tabeller = annan komposition), inte teknik eller tokens.
 | #1093 | K2 hero-variation | Mergad |
 | #1092 | K3 redesign-inspiration | Mergad |
 | #1091 | K4 död logik | Mergad |
+| #1095 | K5 housekeeping och sanningssynk | Mergad |
 
 ## Ägarbeslut som K1 applicerade
 
@@ -64,15 +65,15 @@ variationen. Applicerat i #1094.
 Domarna satta 2026-08-21 enligt rekommendationen ovan, på ägarens delegering
 («DU får merga») i arbetsledningschatten.
 
-## Läge 2026-08-21 (K5)
+## Slutläge 2026-08-22 (K5)
 
-K1–K4 är mergade. K5 (`chore/k5-housekeeping-sweep`) är housekeeping-svepet mot
-slutläget: scheman, control-plane, genererade docs, embeddings, handskrivna
-kontrakt, Backoffice-paritet, `SM-071` och den här planhygien.
+K1–K5 är mergade. K5 (#1095, `2a0544c8`) sanningssynkade scheman,
+control-plane, genererade docs, embeddings, handskrivna kontrakt,
+Backoffice-paritet, `SM-071` och planhygien.
 
 Aktivitetsfilerna K1–K4 är raderade — git + PR-tabellen ovan är arkivet.
-Kvar efter K5-merge: Selection Rationale-stickprov (en sajt per webbscaffold
-med olika hero), inte mer kod i det här spåret.
+Kvar är bara Selection Rationale-stickprov (en sajt per webbscaffold med olika
+hero), inte mer kod i det här spåret.
 
 ## Aktiviteter och vågordning
 
@@ -83,18 +84,18 @@ med olika hero), inte mer kod i det här spåret.
 | 2 | K2 — hero-variation i filer | #1093 | Mergad (aktivitetsfil raderad) |
 | 2 | K3 — redesign-follow-up får variantinspirationen | #1092 | Mergad (aktivitetsfil raderad) |
 | 2 | K4 — död logik: scoring, research-merge, tags | #1091 | Mergad (aktivitetsfil raderad) |
-| 3 | [K5 — housekeeping](aktiviteter/K5-housekeeping-scheman-policys-docs.md) | denna PR | Pågår |
+| 3 | K5 — housekeeping | #1095 | Mergad |
 
 ## Utanför scope
 
 - Buggkön, SM-035, SM-070/live-review, domänköp (egna spår).
-- `app-shell` 0 % preview-OK — `SM-071` i `BUG-SWARM-BACKLOG.md`; åtgärdas inte här.
+- Det äldre `app-shell`-utfallet — `SM-071` väntar ny repro i `BUG-SWARM-BACKLOG.md`; åtgärdas inte här.
 - Nya produktytor, nya scaffolds, ny UI (MVP-bias).
 - Byte av interna namn (`addendum`/`addenda`, kodidentifierare) — Källpaket är
   produktordet, koden behåller sina namn (`terminology.mdc`).
 
 ## Klart när
 
-K1–K4 mergade (klart). K5:s svep grönt i CI. Residual, inte kod: en genererad
-sajt per webbscaffold uppvisar olika hero-komposition i Selection
+K1–K5 är mergade och K5:s svep var grönt i CI. Residual, inte kod: verifiera
+olika hero-komposition med en genererad sajt per webbscaffold i Selection
 Rationale-stickprov.
