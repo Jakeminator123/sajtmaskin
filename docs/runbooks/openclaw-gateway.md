@@ -9,8 +9,12 @@ Detaljerad konfiguration och felkatalog finns i
 1. `GET https://<gateway>.onrender.com/health` ska ge HTTP 200.
 2. Bootloggen ska visa `Config written`, den pinnade OpenClaw-versionen och
    rätt `controlUi.allowedOrigins`.
-3. Vercel ska ha `OPENCLAW_GATEWAY_URL=https://<gateway>.onrender.com`, samma
-   `OPENCLAW_GATEWAY_TOKEN` som Render och `IMPLEMENT_UNDERSCORE_CLAW=true`.
+3. Vercel ska ha `OPENCLAW_GATEWAY_URL` mot den **live** gatewayn
+   (`https://openclaw-sajtagenten.onrender.com` — en läsbar/non-sensitive rad
+   på development, preview, production och pre-production). Samma
+   `OPENCLAW_GATEWAY_TOKEN` som Render, plus `IMPLEMENT_UNDERSCORE_CLAW=true`.
+   Peka inte på `https://sajtagenten.onrender.com` — den tjänsten är
+   suspended. En ny env slår igenom först efter ny Vercel-deploy.
 4. `GET https://<appen>/api/openclaw/health` ska visa `readiness: "ready"`.
    Den kontrollen anropar autentiserat `/v1/models` och fångar både fel token
    och saknade agentmål; Renders `/health` är bara process-liveness.
@@ -84,6 +88,27 @@ från en gammal skärmbild eller loggrad.
 | `phase=auth_validated` följt av 1008/pairing    | Tokenen accepterades; browsern väntar på device approval.                        | Följ pairing-flödet ovan.                                                                                  |
 | `Proxy headers detected from untrusted address` | Render terminerar TLS framför containern, så anslutningen räknas inte som lokal. | Förväntad varning med token-auth; inte orsaken till pairing. Lägg inte till `0.0.0.0/0` som trusted proxy. |
 | Origin-fel                                      | Browserns exakta origin saknas.                                                  | Rätta `SAJTAGENT_ALLOWED_ORIGINS`; entrypointen stoppar nu felaktigt formaterade origins.                  |
+
+## Workspace-webhook (deploy-händelser, inte loggar)
+
+Workspace-webhooken `openclaw-sajtagenten-events` finns i Render
+(Integrations → Webhooks). Den skickar tunna händelser
+(`deploy_started` / `deploy_ended`, build, server, disk) — inte
+stdout från boot eller runtime.
+
+- Destinationen är en **operator-lokal** inspektör, inte en Sajtmaskin-route
+  och inte gatewayns `/hooks`. Appen har ingen `/api/webhooks/render`.
+- Signing secret ligger bara lokalt (`.env.local`). Committa den inte, lägg
+  den inte i Vercel, och lägg inte in den i `config/env-policy.json` förrän
+  en riktig mottagare finns.
+- Pro-planen har **en** destination. Byt URL i dashboarden; skapa inte en
+  andra webhook för samma syfte.
+- Själva loggarna: tjänstens **Logs**-flik (eller Log Streams). Webhooken
+  ersätter inte dem.
+
+Peka den inte mot `OPENCLAW_GATEWAY_URL` eller `/hooks/wake`: inbound hooks
+är av i `generate-config.mjs`, och Renders payload matchar inte OpenClaws
+`{text}`-kontrakt.
 
 ## Version och uppgradering
 

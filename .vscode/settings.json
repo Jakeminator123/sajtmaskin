@@ -1,18 +1,6 @@
 {
-  // ── Markdown-lint: ignorera genererade/tunga mappar ──
-  "markdownlint.ignore": [
-    "**/node_modules/**",
-    "**/.git/**",
-    "**/.next/**",
-    "**/out/**",
-    "**/build/**",
-    "**/dist/**",
-    "**/coverage/**",
-    "**/.cursor/**",
-    "templates_v0/**",
-    "data/template-references/**",
-    "data/dossiers/_repo-cache/**"
-  ],
+  // markdownlint tillför bara Problems-brus (ingen CI-grind). Av i workspace.
+  "markdownlint.enable": false,
 
   // ── Editor ──
   "editor.tabSize": 2,

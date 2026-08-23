@@ -10,10 +10,8 @@ Se [`docs/README.md`](../docs/README.md) — tunn dokumentationsrouter. Snabb or
 - Lägg **inte** till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`) eller andra worktrees som extra workspace-mappar — det ger brus i Problems/sök.
 - **Standard:** huvudcheckouten `…\sajtmaskin` på `master` i ett eget fönster. Separata worktrees öppnas i egna fönster och tas bort när de inte längre bär unikt arbete.
 - **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`** äger resurs-/mappscopade värden. **`sajtmaskin.code-workspace`** äger de Window-scopade TypeScript-/terminalvärdena — lägg dem inte i `.vscode` (Cursor varnar, och de tillämpas ändå inte i workspace-läge). Öppna workspace-filen, inte bara mappen, så terminal och tsserver-flaggorna gäller.
-- **Tillägg:** [`.vscode/extensions.json`](../.vscode/extensions.json) (samma lista i workspace-filen). ESLint, Prettier, Tailwind IntelliSense och markdownlint — det `settings.json` redan antar. Codex (`openai.chatgpt`) är valfritt.
+- **Tillägg:** [`.vscode/extensions.json`](../.vscode/extensions.json) (samma lista i workspace-filen). ESLint, Prettier, Tailwind IntelliSense — det `settings.json` redan antar. Codex (`openai.chatgpt`) är valfritt. markdownlint är av (`markdownlint.enable: false`); den gav bara Problems-brus.
 - **Endast Cursor**: **`.cursor/settings.json`** (t.ex. plugins). Den ersätter inte `.vscode` för vanliga tillägg.
-- Markdown-projektkonfiguration: **`.markdownlint.json`**, **`.markdownlintignore`**. Filer _utanför_ repot kräver i regel **User Settings** (`markdownlint.ignore`) eller att de inte ingår i workspace.
-
 ## Prioriteringsordning
 
 1. **Slash-kommandon** överstyr generella regler när de körs.

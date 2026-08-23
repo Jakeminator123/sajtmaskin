@@ -42,6 +42,12 @@ deploys and Blueprint configuration syncs are intentionally unaffected.
 Do not use Starter. The live service exceeded 2 GB and OOM-restarted on
 2026-08-05. The persistent disk holds agent/session state and cannot be shrunk.
 
+Workspace webhook `openclaw-sajtagenten-events` (Integrations → Webhooks)
+notifies on deploy/build/server/disk events only — not container logs.
+Destination and signing secret are operator-local; do not commit them or
+point the URL at this gateway's /hooks. See
+docs/runbooks/openclaw-gateway.md (Workspace-webhook).
+
 Secrets / instance values:
 - OPENCLAW_GATEWAY_TOKEN=<secret shared with Vercel>
 - OPENAI_API_KEY=<existing OpenAI platform key>
@@ -83,7 +89,8 @@ per-agent thinkingDefault is the effective configuration.
 Vercel app env
 --------------
 Required for the Sajtagenten surface:
-- OPENCLAW_GATEWAY_URL=https://<gateway>.onrender.com
+- OPENCLAW_GATEWAY_URL=https://openclaw-sajtagenten.onrender.com
+  (old sajtagenten.onrender.com is suspended; do not point here)
 - OPENCLAW_GATEWAY_TOKEN=<same token as Render>
 - IMPLEMENT_UNDERSCORE_CLAW=true
 

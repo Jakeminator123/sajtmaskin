@@ -3,7 +3,9 @@
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
     "bradlc.vscode-tailwindcss",
-    "DavidAnson.vscode-markdownlint",
     "openai.chatgpt"
+  ],
+  "unwantedRecommendations": [
+    "DavidAnson.vscode-markdownlint"
   ]
 }
