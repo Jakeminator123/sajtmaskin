@@ -267,7 +267,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   // project against that drift.
   "ably": "^2",
   "ai": "^6.0.239",
-  "@ai-sdk/openai": "^3.0.90",
+  "@ai-sdk/openai": "^3.0.99",
   "@ai-sdk/fal": "^3",
   "@ai-sdk/react": "3.0.259",
   // Dossier wave 2 (legacy import 2026-07-08, capability `database`):
