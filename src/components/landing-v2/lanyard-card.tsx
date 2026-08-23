@@ -22,7 +22,10 @@ import {
   type RapierRigidBody,
 } from "@react-three/rapier"
 import { MeshLineGeometry, MeshLineMaterial } from "meshline"
-import { LANYARD_CARD_LAYOUT } from "@/components/landing-v2/lanyard-card-layout"
+import {
+  LANYARD_CARD_LAYOUT,
+  stabilizeLanyardAngularVelocity,
+} from "@/components/landing-v2/lanyard-card-layout"
 
 extend({ MeshLineGeometry, MeshLineMaterial })
 
@@ -55,6 +58,7 @@ const {
   cardHeight: CARD_HEIGHT,
   cardDepth: CARD_DEPTH,
   cardVisualOffsetY: CARD_VISUAL_OFFSET_Y,
+  initialImpulse: INITIAL_IMPULSE,
   cameraDistance: CAMERA_DISTANCE,
   cameraFovDegrees: CAMERA_FOV_DEGREES,
 } = LANYARD_CARD_LAYOUT
@@ -167,7 +171,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   useEffect(() => {
     if (!autoSwing) return
     const t = setTimeout(() => {
-      card.current?.applyImpulse({ x: -3.5, y: 0, z: 0.8 }, true)
+      card.current?.applyImpulse(INITIAL_IMPULSE, true)
     }, 800)
     return () => clearTimeout(t)
   }, [autoSwing])
@@ -224,15 +228,8 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
       // Dämpa rotationen så kortet återgår mot framsidan (quaternion -> euler).
       const a = card.current.angvel()
       const r = card.current.rotation()
-      ang.set(a.x, a.y, a.z)
-      quat.set(r.x, r.y, r.z, r.w)
-      euler.setFromQuaternion(quat)
       card.current.setAngvel(
-        {
-          x: ang.x - euler.x * 0.3,
-          y: ang.y - euler.y * 0.6,
-          z: ang.z - euler.z * 0.2,
-        },
+        stabilizeLanyardAngularVelocity(a, r, euler, quat, ang),
         false,
       )
     }
