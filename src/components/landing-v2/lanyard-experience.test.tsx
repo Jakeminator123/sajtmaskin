@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { LanyardExperience } from "./lanyard-experience";
 
 vi.mock("next/dynamic", () => ({
@@ -33,12 +33,37 @@ describe("LanyardExperience", () => {
 
   afterEach(() => {
     cleanup();
+    vi.clearAllTimers();
+    vi.useRealTimers();
     localStorage.removeItem(CONSENT_KEY);
     localStorage.removeItem(CONSENT_DATE_KEY);
     if (originalMatchMedia) {
       window.matchMedia = originalMatchMedia;
       originalMatchMedia = undefined;
     }
+  });
+
+  it("uses the welcome card as the cookie dialog for a first-time visitor", () => {
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+
+    expect(screen.getByRole("dialog", { name: "Cookie-inställningar" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Acceptera alla" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Endast nödvändiga" })).toBeTruthy();
+  });
+
+  it.each([
+    ["Acceptera alla", "accepted", true],
+    ["Endast nödvändiga", "declined", false],
+  ] as const)("persists %s from the welcome card", (buttonName, value, storesDate) => {
+    vi.useFakeTimers();
+    originalMatchMedia = stubMatchMedia(false);
+    render(<LanyardExperience />);
+
+    fireEvent.click(screen.getByRole("button", { name: buttonName }));
+
+    expect(localStorage.getItem(CONSENT_KEY)).toBe(value);
+    expect(Boolean(localStorage.getItem(CONSENT_DATE_KEY))).toBe(storesDate);
   });
 
   it("shows the static card for a returning visitor who prefers reduced motion", async () => {
@@ -48,6 +73,7 @@ describe("LanyardExperience", () => {
     await waitFor(() => {
       expect(screen.getByTestId("lanyard-static")).toBeTruthy();
     });
+    expect(screen.getByTestId("lanyard-static").className).toContain("overflow-hidden");
     expect(screen.queryByTestId("lanyard-physics")).toBeNull();
   });
 

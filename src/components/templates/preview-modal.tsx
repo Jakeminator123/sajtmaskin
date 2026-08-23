@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 interface PreviewModalProps {
@@ -15,7 +17,36 @@ interface PreviewModalProps {
  * Endast en statisk bildvisning som förstorar befintlig preview.
  */
 export function PreviewModal({ isOpen, onClose, imageUrl, title }: PreviewModalProps) {
-  if (!isOpen) return null;
+  const titleId = useId();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      } else if (event.key === "Tab") {
+        event.preventDefault();
+        closeButtonRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen || typeof document === "undefined") return null;
 
   const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) {
@@ -23,30 +54,37 @@ export function PreviewModal({ isOpen, onClose, imageUrl, title }: PreviewModalP
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-2 backdrop-blur-sm sm:p-4"
       onClick={handleBackdropClick}
     >
-      <div className="relative w-[90vw] max-w-4xl border border-gray-800 bg-black shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
-          <h3 className="truncate font-semibold text-white">{title}</h3>
+      <div className="relative flex max-h-[calc(100dvh-1rem)] w-full max-w-4xl flex-col overflow-hidden border border-gray-800 bg-black shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
+        <div className="flex shrink-0 items-center gap-3 border-b border-gray-800 px-4 py-3">
+          <h3 id={titleId} className="min-w-0 flex-1 truncate font-semibold text-white">
+            {title}
+          </h3>
           <button
+            ref={closeButtonRef}
+            type="button"
             onClick={onClose}
-            className="p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
             aria-label="Stäng preview"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="flex min-h-[60vh] items-center justify-center bg-black/80 p-4">
+        <div className="flex h-[min(72dvh,46rem)] min-h-0 items-center justify-center overflow-auto bg-black/80 p-2 sm:p-4">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageUrl}
               alt={title}
-              className="max-h-[70vh] w-auto rounded border border-gray-800 shadow-xl"
+              className="h-auto max-h-full w-auto max-w-full rounded border border-gray-800 object-contain shadow-xl"
             />
           ) : (
             <p className="text-center text-sm text-gray-400">
@@ -55,6 +93,7 @@ export function PreviewModal({ isOpen, onClose, imageUrl, title }: PreviewModalP
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
