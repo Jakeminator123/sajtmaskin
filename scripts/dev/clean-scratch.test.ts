@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   AGE_SKIP_NAMES,
   LOGS_RETAIN_COUNT,
+  RETAIN_COUNT,
+  RETAIN_DAYS,
   planLogsTree,
   runCleanScratch,
 } from "./clean-scratch.mjs";
@@ -128,6 +130,51 @@ describe("planLogsTree / logs retention", () => {
     expect(plan.remove.map((r) => r.abs)).not.toContain(linkPath);
     expect(plan.keep).not.toContain(linkPath);
     expect(fs.existsSync(path.join(linkTarget, "precious.txt"))).toBe(true);
+  });
+});
+
+describe("COUNT_TREES — swarms/logg-internet", () => {
+  it("raderar en ensam leftover äldre än RETAIN_DAYS även under taket", () => {
+    const root = makeTempRepo();
+    const runs = path.join(root, ".cursor", "swarms", "runs");
+    fs.mkdirSync(runs, { recursive: true });
+
+    const now = Date.now();
+    const stale = path.join(runs, "2026-07-31_1502");
+    const fresh = path.join(runs, "2026-08-22_1000");
+    touchDir(stale, now - (RETAIN_DAYS + 6) * 24 * 60 * 60 * 1000);
+    touchDir(fresh, now - 60_000);
+
+    const { removed, kept } = runCleanScratch({ root, apply: true });
+
+    expect(removed.some((r) => r.abs === stale && r.label === "count-age:.cursor/swarms/runs")).toBe(
+      true,
+    );
+    expect(kept).toContain(fresh);
+    expect(fs.existsSync(stale)).toBe(false);
+    expect(fs.existsSync(fresh)).toBe(true);
+  });
+
+  it("håller högst RETAIN_COUNT nyaste även när alla är unga", () => {
+    const root = makeTempRepo();
+    const runs = path.join(root, ".cursor", "logg-internet", "runs");
+    fs.mkdirSync(runs, { recursive: true });
+
+    const now = Date.now();
+    const names = ["a.md", "b.md", "c.md", "d.md"];
+    for (const [i, name] of names.entries()) {
+      touchFile(path.join(runs, name), now - (names.length - i) * 60_000);
+    }
+
+    const { removed } = runCleanScratch({ root, apply: true });
+    const removedNames = removed
+      .filter((r) => r.label === "count-cap:.cursor/logg-internet/runs")
+      .map((r) => path.basename(r.abs));
+
+    expect(RETAIN_COUNT).toBe(3);
+    expect(removedNames).toEqual(["a.md"]);
+    expect(fs.existsSync(path.join(runs, "a.md"))).toBe(false);
+    expect(fs.existsSync(path.join(runs, "d.md"))).toBe(true);
   });
 });
 

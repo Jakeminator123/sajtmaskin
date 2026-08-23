@@ -110,7 +110,8 @@ För varje uppföljning (default 2; 1–3):
 ### 5. Notiser + ev. logg-korsref
 
 - Skriv en notis-fil: `.cursor/logg-internet/runs/<YYYY-MM-DD_HHMM>.md` (tidsstämpel:
-  `Get-Date -Format "yyyy-MM-dd_HHmm"`). Se mallen nedan.
+  `Get-Date -Format "yyyy-MM-dd_HHmm"`). Se mallen nedan. Kör sedan
+  `npm run clean:scratch:apply` så `runs/` håller 3 nyaste / raderar >14 dagar.
 - **Valfritt** (om `loggar` eller Felsökare): kör **bara** `/logg` för `chatId` och
   väv in resultatet. `/logg` äger redan drain (`--kinds=drain`) **eller**
   `vercel logs`-fallback — hämta **inte** drain/console en andra gång här. Annars

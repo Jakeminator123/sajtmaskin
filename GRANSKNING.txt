@@ -1,0 +1,150 @@
+SAJTMASKIN — GRANSKNING, PR-HANTERING OCH MERGE-SANNING
+Senast samordnad: 2026-08-22
+
+1. SYFTE
+Det här dokumentet anger hur master, öppna PR:ar, draftspärrar, CI, Bugbot,
+överlappande brancher och gamla chattpåståenden ska bedömas. Målet är en ren
+röd tråd, inte maximal mängd mergad kod.
+
+2. AKTUELL MASTER FÖRST
+[MASTER]
+När någon säger "master" ska granskningen alltid hämta aktuell master från
+GitHub. Ett gammalt snapshot, en tidigare checkout, en PR:s base_sha eller en
+chatt från tidigare samma dag är inte tillräckligt. Master kan ändras medan en
+granskning pågår; kontrollera SHA igen före branchskapande och före merge.
+
+3. FAKTISK DIFF VÄGER TYNGRE ÄN PR-TEXT
+[BESLUT]
+Bedöm i följande ordning:
+1. faktisk diff mot aktuell master
+2. mergeability/konflikter och branch freshness
+3. remote CI på exakt head
+4. öppna reviewtrådar och Bugbotfynd
+5. testernas relevans och frånvaro av dubbla ägare
+6. PR-titel, body och branchlokala sammanfattningar
+En titel/body som inte matchar diffen ska rättas eller betraktas som stale.
+Testantal från en lokal eller gammal head bevisar inte den aktuella PR:n.
+
+4. GRANSKNING-2
+[HISTORIK]
+Chatten GRANSKNING-2 blandade in gamla PR-nummer och ett äldre repoögonblick.
+Påståenden där om att något hade pushats, mergats eller fortfarande var öppet
+är inte auktoritativa. Chatten får användas som hypoteslista, men varje punkt
+måste återverifieras mot GitHub, aktuell diff och CI. Den ska aldrig ensam
+motivera merge, stängning eller återställning.
+
+5. DRAFT OCH GODNATT-BUGG
+[BESLUT]
+En textspärr som "DO NOT MERGE — ADMIN REVIEW REQUIRED" ska respekteras tills
+en mänsklig/admin-granskning faktiskt har utförts. Därefter får granskaren:
+- kontrollera buggrepro, scope, säkerhetsgränser och faktisk diff
+- kontrollera att Bugbotfynd är lösta på exakt head
+- markera ready for review
+- låta komplett remote CI köra
+- merga med expected head SHA om allt är rent
+Spärren är inte permanent, men den får inte tas bort mekaniskt bara för att
+målet är färre öppna PR:ar.
+
+6. BUGBOT
+[BESLUT]
+Minst ett Bugbot-pass ska köras på en färdig integrations- eller produkt-PR.
+Ett gammalt pass på en tidigare commit räcker inte efter nya ändringar.
+- fynd ska klassificeras mot faktisk kod
+- riktiga fynd ska fixas och få regressionsskydd
+- felaktiga fynd ska besvaras med konkret evidens
+- kör om eller invänta nytt pass på slutlig head
+- merge först när slutlig sammanfattning inte döljer öppna relevanta fynd
+Bugbot ersätter inte CI eller adminbedömning.
+
+7. MERGEORDNING
+[BESLUT]
+- Merga små, självständiga och gröna PR:ar före stora överlappande PR:ar.
+- Säkerhets-/runtimefixar med tydlig repro och smalt scope prioriteras.
+- Dokument- och genererade backlogändringar får inte tvinga fram konfliktfylld
+  produktmerge; portera vid behov produktändringen till en ren branch och
+  regenerera dokumenten en gång från slutligt masterläge.
+- Efter varje merge: hämta ny master, kontrollera återstående diffar igen.
+- Använd expected head SHA vid merge så en samtidsskrivning inte smyger in.
+
+8. ÖVERLAPP OCH SUPERSESSION
+[BESLUT]
+En PR ska inte mergas när:
+- den duplicerar kod som redan finns på master
+- den har stale eller konfliktfylld bas och resultatet inte har verifierats på
+  nytt
+- den blandar många orelaterade områden utan en granskningsbar migrationsplan
+- dess beskrivning inte längre beskriver diffen
+- den återinför borttagen kod, namnskuggning eller parallella sanningskällor
+Gör då en av följande:
+- dela upp den
+- portera verifierade hunks till en ny branch från aktuell master
+- stäng som superseded med länk och tydlig motivering
+Lämna inte både originalet och ersättaren öppna som två möjliga sanningar.
+
+9. STORA PR:AR
+[BESLUT]
+En PR med hundratals filer eller tusentals rader får inte godkännas enbart på
+branchlokala tester. Kräv:
+- begriplig uppdelning per ansvar
+- kartlagda överlapp mot redan mergade PR:ar
+- full remote CI på aktuell, konfliktfri head
+- särskild granskning av auth, persistence, preview, env, prompt authority och
+  migrationsbeteende
+- inga stale bot-sammanfattningar som beskriver bara en liten del av diffen
+Om detta saknas ska PR:n delas eller ersättas, inte "låsas upp" för att nå ett
+numeriskt merge-mål.
+
+10. CI-MINIMUM
+[BESLUT]
+Före merge ska relevanta obligatoriska ytor vara gröna på exakt head:
+- build/typecheck/lint/full tests enligt repository-workflow
+- source-/secret-/schema-/generated-doc-grindar
+- dossier/scaffold-kontrakt när dessa ytor berörs
+- DB/Blob eller preview-host-kontrakt när dessa ytor berörs
+- review-window/freshness där repot kräver dem
+Ett känt flake får köras om, men ett reproducerbart fel får inte kallas flake
+utan evidens.
+
+11. HOUSEKEEPING EFTER MERGE
+[BESLUT]
+- stäng superseded PR:ar med konkret kommentar
+- ta bort eller arkivera tillfälliga branchdokument när de inte längre behövs
+- regenerera härledda kataloger/canvas en gång från slutligt masterläge
+- sök efter döda imports, dubbla helpers, namnskuggning och stale tests
+- kontrollera att scheman och docs pekar på aktiva ägare
+- lämna öppna risker uttryckligt namngivna, inte gömda bakom "allt grönt"
+
+12. BESLUTSLÄGEN
+MERGE
+- smalt/relevant scope
+- konfliktfri mot aktuell master
+- aktuell CI grön
+- Bugbot/reviewtrådar hanterade
+- ingen dubbel ägare eller stale dokumentation
+
+PORTERA/SPLITTA
+- nyttig produktfix men konflikt i branchmetadata, backlog eller orelaterade
+  filer
+- flera bra deländringar i en för bred PR
+- senare master har ändrat samma kontrakt
+
+STÄNG SOM SUPERSEDED
+- ändringen finns redan på master eller i en bättre ersättnings-PR
+- diffen är tom, felriktad eller återinför gammal sanning
+- den kvarvarande nyttan har porterats och verifierats
+
+BLOCKERA
+- failing CI med oklar orsak
+- unresolved säkerhets-/state-/race-risk
+- faktisk diff kan inte förklaras
+- branchens bot-/PR-sammanfattning motsäger innehållet
+
+13. RAPPORTERING
+Slutrapporten ska ange exakt:
+- vilka PR:ar som mergades och varför
+- vilka som porterades/splittades/stängdes och varför
+- vilka som fortfarande är blockerade
+- slutlig master-SHA
+- vilka CI- och Bugbot-pass som gällde slutlig head
+Formuleringen "alla PR:ar mergade" får bara användas om GitHub faktiskt visar
+det och inga ersatta eller blockerade PR:ar återstår.

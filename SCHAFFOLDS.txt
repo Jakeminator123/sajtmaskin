@@ -1,0 +1,167 @@
+SAJTMASKIN — SCHAFFOLDS, VARIANTS OCH PROMPTKOMPOSITION
+Senast samordnad: 2026-08-22
+
+1. OMFATTNING
+Det här är den korta tvärgående sanningen för scaffolds, variants,
+sourceTemplateIds, variant-template-inspiration, addenda, Deep Brief och hur
+de möts före byggmodellen. Detaljerade inventarier ska läsas från genererade
+kataloger; den här filen ska inte hårdkoda antal som snabbt blir gamla.
+
+2. KANONISKA KÄLLOR
+[MASTER]
+- Runtime-scaffolds: src/lib/gen/scaffolds/
+- Scaffold-variants: config/scaffold-variants/
+- Variantkatalog och integritetsgrindar: src/lib/gen/scaffold-variants/
+- Mallmanifest: src/lib/templates/template-blob-manifest.json
+- SHA-bundna strukturutdrag: config/variant-template-addenda.json
+- Stabilt kontrakt: docs/contracts/scaffold-system.md och
+  docs/schemas/scaffold-contract.md
+- Aktuell katalog: docs/generated/scaffolds.generated.md och
+  docs/generated/variants.generated.md
+Kod och tester på master vinner vid avvikelse.
+
+3. BEGREPPSGRÄNSER
+[MASTER]
+Scaffold
+- Är projektets valda startstruktur och stabila kontrakt: filansvar, routes,
+  baseline, kritiska filer och kontroller.
+- Är inte en komplett importerad v0-mall och inte en dossier.
+
+Scaffold variant
+- Är ett visuellt uttryck inom en scaffold: design-axes, motiv, fontpar,
+  theme tokens, prompt hints och sourceTemplateIds.
+- Är inte en fristående runtime-bas och ska inte konkurrera med scaffolden om
+  fil- eller routeägarskap.
+
+sourceTemplateIds
+- Är en ordnad kandidatpool med riktiga mall-id:n från Blob-manifestet.
+- Är metadata för val av högst en style-only referens; listan är inte en andra
+  prompt, en andra scaffold eller ett mekaniskt importkommando.
+
+Variant-template-inspiration
+- Består av en vald stillbild plus högst ett begränsat, SHA-validerat urval av
+  frontendstruktur från variant-template-addenda.
+- Mallens brand, assets, paketversioner, routes och backend är aldrig
+  auktoritativa för användarprojektet.
+- Missing/stale/invalid addendum får inte ersättas av en tyst felvariant eller
+  live-ZIP-hämtning i codegen-hot-path.
+
+Addendum
+- Ett variant-template-addendum och användarens addendum är olika källor.
+- De ska sammanfogas deterministiskt; den ena får inte skriva över eller tappa
+  den andra genom ett sent stränguppdrag.
+- Addenda är pluralnamnet på registret. Ett valt resultat är ett addendum.
+
+Deep Brief
+- Är strukturerad, dynamisk projektinformation: produktfakta, sidor,
+  målgrupp, visuell riktning, must-have/avoid och liknande.
+- Är inte en scaffold, variant eller duplicerad systemprompt.
+- En vanlig follow-up ska kunna återanvända godkänd brief/snapshot; en avsiktlig
+  förändring ska kunna skapa ett kontrollerat delta i stället för att gammal
+  brieftext återställer användarens nya val.
+
+Dossier
+- Är capability-bunden implementations-/integrationskunskap.
+- Får inte användas som layoutvariant eller ersättning för scaffolden.
+
+4. AKTUELL RUNTIMEVÄG
+[MASTER]
+Prompt och Deep Brief matar scaffold-matchning och capability-inferens.
+Scaffolden väljs manuellt, automatiskt, från persisted state eller som
+Scaffold: Av-bas. Varianten väljs inom den scaffolden. BuildSpec avgör bland
+annat contextPolicy och scaffoldens serialize mode. Systemprompten komponerar
+sedan scaffold, variant, inspiration, brief, dossiers och övriga kontrakt.
+
+Klientens val måste överleva hela kedjan som strukturerade fält. Det räcker
+inte att UI:t visar ett variantnamn; scaffoldId, variantId och relevant
+proveniens ska kunna följas i promptdump/telemetri och i tester.
+
+5. NÄR VARIANT-TEMPLATE-INSPIRATION ANVÄNDS
+[MASTER]
+- Init: ja, när scaffoldläget tillåter det.
+- Explicit clear-redesign: ja.
+- Vanlig clear-refine, capability-add, capability-modify eller neutral
+  follow-up: nej.
+- Importerat repo-läge: nej.
+- Scaffold: Av: nej.
+Detta blev master-sanning genom den granskade K3-ändringen. En stillbild kan
+fortsätta vara style-only även när ett addendum saknas; felstatus ska vara
+observerbar.
+
+6. STATISK OCH DYNAMISK INPUT
+[MASTER/BESLUT]
+Statiska lager
+- hårda system- och repositorykontrakt
+- scaffoldens stabila invariants
+- variantens design-axes och kuraterade regler
+- dossierkontrakt och verbatimfiler
+
+Dynamiska lager
+- aktuell användarprompt och avsedd change scope
+- Deep Brief eller godkänt brief-delta
+- projektsnapshot, routes, capabilities och sparad variant
+- användaraddendum och tillgängliga assets
+
+Kompositionen ska ske centralt och strukturerat. Samma källa får inte
+konkateneras på flera platser med olika ordning. Prompten ska kunna förklara
+vilka källor som nådde byggmodellen utan att exponera privat chain-of-thought.
+
+7. AUKTORITET OCH ÖVERLAPP
+[BESLUT]
+Ingen generell regel av typen "sista strängen vinner" är tillräcklig.
+Auktoritet ska avgöras per fält och förändringsyta:
+- Säkerhets-, runtime-, schema- och repositorykontrakt är absoluta.
+- En explicit aktuell användarinstruktion äger den begärda förändringen och
+  får inte återställas av en äldre brief- eller variantsträng.
+- Scaffolden äger strukturella invariants när serialize mode är structural.
+- Varianten äger ospecificerade visuella val inom scaffolden, men inte ett
+  explicit motsatt designval från användaren.
+- Deep Brief äger godkända produktfakta tills användaren avsiktligt ändrar dem.
+- Variant-template-inspiration är inspiration, aldrig fil-/routeägare.
+- Användaraddendum ska alltid bevaras men får inte bryta högre kontrakt.
+
+[ÖPPET]
+Den stora PR som försöker införa ett fullständigt fältgranulärt designkontrakt
+måste delas eller ombaseras rent innan den kan bli master-sanning. En stor,
+konfliktfylld branch får inte användas som bevis på att kontraktet redan är
+implementerat.
+
+8. HEAVY OCH STRUCTURAL
+[BESLUT]
+Orden ska inte tas bort eller göras till synonymer.
+- heavy beskriver kontextbudget/komplexitet och hur mycket underlag en körning
+  behöver.
+- structural beskriver hur bindande scaffoldens struktur är för modellen.
+De är ortogonala. En website kan behöva heavy kontext utan att automatiskt
+låsa den visuella kompositionen. En app eller en försiktig follow-up kan vara
+structural även när kontexten inte är maximal.
+
+[ÖPPET]
+Målbilden är att website-init kan vara inspirational även vid premium-, 3D-
+eller integrationssignaler, medan heavy app-init och vanliga follow-ups är
+structural. Riktade theme/hero/background/component-ändringar ska behålla
+struktur; endast ett uttryckligt helprojekts-redesign får öppna replacement.
+Den fokuserade implementationen fanns i PR #1121 men är konfliktfylld mot
+senare master och är därför inte master-sanning förrän den har porterats och
+CI-verifierats på nytt.
+
+9. TEST- OCH OBSERVABILITYKONTRAKT
+[BESLUT]
+Minimikrav för ändringar i denna kedja:
+- end-to-end-kontrakt från valt scaffold/variant till final prompt
+- tester för init, vanlig follow-up, clear-redesign, importerat repo och
+  Scaffold: Av
+- test att användaraddendum och variantaddendum båda överlever
+- test för unknown/missing/stale variant/template-id
+- test för website/app × light/normal/heavy × structural/inspirational
+- promptdump/telemetri med final scaffold, final variant, selection source,
+  serialize mode och om inspiration faktiskt nådde prompten
+- inga påståenden om grönhet från branchlokala testantal utan aktuell remote CI
+
+10. ANTI-REGLER
+- Bygg inte två parallella promptkompositörer.
+- Låt inte variant eller mall skriva över scaffoldens routes/kontrakt.
+- Låt inte en gammal Deep Brief återställa ett nytt explicit användarval.
+- Hämta inte mall-ZIP i codegen-hot-path som fallback för trasigt addendum.
+- Tolka inte heavy som structural och ta inte bort något av begreppen.
+- Använd inte en gammal PR-beskrivning som bevis på aktuell implementation.

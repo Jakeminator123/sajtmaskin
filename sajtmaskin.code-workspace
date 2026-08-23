@@ -14,8 +14,13 @@
   // Window-scopade värden i `.code-workspace`-läge, så bara de speglas här.
   "settings": {
     "typescript.tsserver.experimental.enableProjectDiagnostics": false,
-    "terminal.integrated.defaultProfile.windows": "PowerShell 7",
+    "terminal.integrated.defaultProfile.windows": "PowerShell 7 (x64)",
     "terminal.integrated.profiles.windows": {
+      "PowerShell 7 (x64)": {
+        "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+        "args": ["-NoLogo"],
+        "icon": "terminal-powershell"
+      },
       "PowerShell 7": {
         "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
         "args": ["-NoLogo"],

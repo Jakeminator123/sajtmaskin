@@ -75,7 +75,7 @@ Skriptet: [`scripts/dev/tidy.mjs`](../../scripts/dev/tidy.mjs). Torrkörning är
 | Yta             | Policy                                                                                                                                                                                                                                       |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Lokala brancher | Raderas bara när remoten är borta **och** innehållet finns i `origin/master`. Omergat = pågående arbete, rörs inte.                                                                                                                          |
-| Skyddade namn   | `master`, `main`, `ema`, allt med `BRA`, `rescue/*`, `dependabot/*`, `archive/*` — aldrig.                                                                                                                                                   |
+| Skyddade namn   | `master`, `main`, `ema`, `codex/workspace`, allt med `BRA`, `rescue/*`, `dependabot/*`, `archive/*` — aldrig.                                                                                                                                |
 | Worktrees       | `git worktree prune` på avregistrerade poster, plus en **klassning av levande worktrees**: varje sekundär yta rapporteras som `FRI` eller `behåll` med skäl. `tidy` raderar aldrig en katalog — det gör `npm run worktree:remove`. Se nedan. |
 | `.next`         | Raderas om cachen är äldre än HEAD. En förlegad `.next/dev/types` pekar på borttagna rutter och ger fantomfel i `typecheck` — det hände efter en 548-commit-pull 2026-08-17.                                                                 |
 | `.gitignore`    | Tar bort dubbletter av `.env*` och `.vercel` som `vercel link` / `vercel env pull` appendar, och normaliserar till LF (CLI:n skriver CRLF på Windows). Bara exakta träffar rörs, så en riktig regel kan inte försvinna.                      |
@@ -110,7 +110,7 @@ Skriptet: [`scripts/dev/clean-scratch.mjs`](../../scripts/dev/clean-scratch.mjs)
 | Yta                                                                      | Policy                                                   |
 | ------------------------------------------------------------------------ | -------------------------------------------------------- |
 | `.tmp`, `.pytest_cache`, `.cursor/tmp`, `.eslintcache`                   | Wipe (rensas helt)                                       |
-| `.cursor/handoffs`, `kedja`, `bugs`, `logg-internet/runs`, `swarms/runs` | Hårt antalstak: 3 nyaste, ingen åldersflykt              |
+| `.cursor/handoffs`, `kedja`, `bugs`, `logg-internet/runs`, `swarms/runs` | Hårt antalstak: 3 nyaste, plus radera >14 dagar även under taket |
 | `logs/` **mappar** (t.ex. `hydration-*`)                                 | Hårt antalstak: **2** nyaste, ingen åldersflykt          |
 | `logs/` **lösa filer** (`tmp-*`, `dump-*`, `*.log`-artefakter m.m.)      | Wipe — inget referensvärde                               |
 | `logs/generationslogg`, `site-observability`, `llm-segmentts-and-index`  | Orörda här — egen retention i `generation-log-writer`    |

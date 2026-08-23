@@ -1,0 +1,43 @@
+SAJTMASKIN — ROTINDEX FÖR ARBETSSANNING
+Senast samordnad: 2026-08-22
+Gäller: Jakeminator123/sajtmaskin, branch master
+
+SYFTE
+Det här dokumentet pekar ut de korta, tvärgående sanningsdokument som ska
+användas när flera chattar, planer och pull requests säger olika saker.
+Dokumenten sammanför de hållbara besluten från arbetslinjerna DOSSIERS,
+SCHAFFOLDS, GRANSKNING och GRANSKNING-2.
+
+AUKTORITETSORDNING
+1. Kod, scheman och tester på aktuell master avgör vad produkten faktiskt gör.
+2. Rotfilerna nedan äger gemensamma begrepp, avsikt och granskningsregler.
+3. Aktiva kontraktsdokument och genererade kataloger äger detaljer inom sin yta.
+4. En öppen PR beskriver ett förslag, inte master-sanning.
+5. PR-titlar, PR-beskrivningar, chattar och arkiverade planer är historik eller
+   hypoteser tills de har verifierats mot aktuell master.
+
+ROTENS SANNINGSDOKUMENT
+- SCHAFFOLDS.txt
+  Scaffold, variant, sourceTemplateIds, variant-template-inspiration, addenda,
+  Deep Brief, promptkomposition, heavy/structural och website/app-frihet.
+
+- DOSSIERS.txt
+  Aktiv dossier-v2, hard/soft, capability-val, providerägarskap, F2/F3,
+  Byggblock, schemaägarskap och D2–D4.
+
+- GRANSKNING.txt
+  Hur PR:ar, CI, Bugbot, överlappning, draftspärrar och gamla chattpåståenden
+  ska bedömas och hur arbetet ska lämnas efter merge.
+
+STATUSORD
+- [MASTER] = verifierat i aktuell master eller i dess aktiva kontrakt.
+- [BESLUT] = accepterad målbild som ska bevaras vid implementation.
+- [ÖPPET] = ännu inte bevisat eller ännu inte infört på master.
+- [HISTORIK] = får inte användas som aktuell teknisk sanning.
+
+UPPDATERINGSREGEL
+En PR som ändrar ett tvärgående kontrakt ska uppdatera berörd rotfil i samma
+PR. Flyktiga antal, testantal och branch-SHA:n ska normalt inte skrivas här;
+de hör hemma i PR:n eller genererade kataloger. När kod och rotfil avviker ska
+avvikelsen göras synlig som [ÖPPET] i stället för att döljas med formuleringar
+som antyder att arbetet redan är klart.

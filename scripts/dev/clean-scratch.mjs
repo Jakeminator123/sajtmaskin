@@ -81,7 +81,10 @@ export const AGE_TREES = [".env-backups"];
 /** logs/ is count-capped (dirs) + loose-file wiped — see pruneLogs / planLogsTree. */
 export const LOGS_TREE = "logs";
 /**
- * Hard-capped trees: keep only the newest RETAIN_COUNT entries, age irrelevant.
+ * Hard-capped trees: keep only the newest RETAIN_COUNT entries.
+ * Also drop any entry older than RETAIN_DAYS even if the tree is
+ * under the cap — otherwise a single leftover (one July swarm run)
+ * sits forever because the count never overflows.
  *
  * These are the gitignored `.cursor/` scratch surfaces (pattern `X/*` +
  * `!X/README.md` in .gitignore). They differ from AGE_TREES in one way that
@@ -458,19 +461,22 @@ function createCleaner(root, apply) {
   }
 
   /**
-   * Hard count cap: keep the newest RETAIN_COUNT entries, delete the rest no
-   * matter how young they are. No age escape hatch — that is the whole point,
-   * see COUNT_TREES.
+   * Hard count cap plus stale eviction: keep the newest RETAIN_COUNT
+   * entries that are still younger than RETAIN_DAYS. Young extras still
+   * go (no age escape for the count). A lone leftover older than
+   * RETAIN_DAYS goes even if the tree is under the cap.
    */
   function pruneByCount(rel) {
     const dir = path.join(root, rel);
     if (!fs.existsSync(dir)) return;
+    const now = Date.now();
     const candidates = collectPruneCandidates(dir);
     candidates.forEach((c, i) => {
-      if (i < RETAIN_COUNT) {
+      const tooOld = now - c.mtime >= RETAIN_MS;
+      if (i < RETAIN_COUNT && !tooOld) {
         kept.push(c.abs);
       } else {
-        removeEntry(c.abs, `count-cap:${rel}`);
+        removeEntry(c.abs, tooOld ? `count-age:${rel}` : `count-cap:${rel}`);
       }
     });
   }

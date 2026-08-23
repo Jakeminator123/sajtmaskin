@@ -1,6 +1,6 @@
 ---
 description: "MVP-bias: stabilitet före coolhet — varna innan nya features/ytor; buggfix, hygien och små härdningar går utan friktion."
-alwaysApply: true
+alwaysApply: false
 ---
 
 # MVP-bias

@@ -18,7 +18,7 @@ import {
  * git-repo någon förlorat en branch i.
  */
 describe("isProtectedBranch", () => {
-  it("skyddar ägarens backuper och botens brancher", () => {
+  it("skyddar permanenta checkouter, ägarens backuper och botens brancher", () => {
     for (const name of [
       "master",
       "main",
@@ -28,6 +28,7 @@ describe("isProtectedBranch", () => {
       "rescue/stash-2026-08-14-natt-regler-och-backlog",
       "dependabot/npm_and_yarn/next-16.3.1",
       "archive/sanering-integration-2026-08-04",
+      "codex/workspace",
     ]) {
       expect(isProtectedBranch(name), name).toBe(true);
     }
