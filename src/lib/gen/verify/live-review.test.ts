@@ -317,6 +317,11 @@ describe("runLiveReview", () => {
       expect(result.decision.verdict).toBe("pass");
       expect(result.modelId).toBe("gpt-4o");
     }
+    expect(generateObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: { openai: { strictJsonSchema: false } },
+      }),
+    );
   });
 
   it("en riktig advisory-dom med confidence 0 och inga issues completar", async () => {

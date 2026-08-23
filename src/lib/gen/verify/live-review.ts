@@ -497,6 +497,12 @@ async function reviewWithModel(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
   try {
+    // Zod optional/default fields (target, suggestedOperation, reasoning, issues)
+    // omit keys from JSON-schema `required`. OpenAI strict structured outputs
+    // then 400 before the model runs — prod 2026-08-23 Missing 'target', same
+    // class as SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS in site-brief-generation
+    // (prod 2026-07-27 Missing 'bullets'). Server still parses via
+    // tryParseReviewDecision, so tolerant transport is the safe setting.
     const result = await generateObject({
       model,
       schema: ReviewDecisionSchema,
@@ -510,6 +516,7 @@ async function reviewWithModel(
       maxOutputTokens: MAX_OUTPUT_TOKENS,
       maxRetries: 0,
       abortSignal: controller.signal,
+      providerOptions: { openai: { strictJsonSchema: false } },
     });
     const decision = tryParseReviewDecision(result.object);
     if (!decision) {
