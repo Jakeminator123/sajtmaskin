@@ -32,7 +32,6 @@ listas i kolumnen *Extra*.
 | Analytics före cookie-consent | Initieras analytics före consent på den genererade sajten? | Preview-console efter init |
 | Media `/api/uploads/media` | Nås fallbacken från preview-VM? | Bara om sajten faktiskt hämtar media där |
 | Font mest Inter | Variant→font-parning syns i output? | Glance i preview/filer, inte eval |
-| `SM-014` (Aktiv kö) | Halvfärdig iframe innan runtime redo? | Titta när overlayen släpper |
 | `SM-018` (Aktiv kö) | Aktiv flik följer intern iframe-navigation? | Klicka runt om sajten har flera sidor |
 | `SM-032` (Aktiv kö) | Maps-autocomplete blockerad av CSP på `/`? | Landing före builder |
 | `SM-035` (Aktiv kö) | Fly `npm install` exit 254 / preview startar inte? | Preview-host-logg via `/logg` |
