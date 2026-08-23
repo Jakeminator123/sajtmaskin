@@ -63,8 +63,8 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "cc51359179",
-    "commitDate": "2026-08-22",
+    "commit": "feac0570",
+    "commitDate": "2026-08-23",
     "sinceDays": 14
   },
   "totals": {
@@ -159,7 +159,7 @@ const DATA: CanvasData = {
         "P3": 2,
         "other": 0
       },
-      "churn": 46,
+      "churn": 47,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
       "note": "4 oppna backlog-rader (P0:0 P1:0 P2:2 P3:2)"
     },
@@ -176,9 +176,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 76,
+      "churn": 78,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 76 commits / 14d"
+      "note": "Aktiv: 78 commits / 14d"
     },
     {
       "name": "Preview och versioner",
@@ -193,7 +193,7 @@ const DATA: CanvasData = {
         "P3": 2,
         "other": 0
       },
-      "churn": 21,
+      "churn": 19,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-007` **Domänköpets restlista är en releasegrind, inte en aktiv incident:** tolv fynd …"
     },
@@ -210,9 +210,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 30,
+      "churn": 29,
       "summary": "Backoffice-yta för den canonicala evalen (`npm run eval`). Ett läge (gratis / smoke / full), en knapp. Scaffold-lanen läser senaste lokala JSON-rapport. Codegen-lanen läser data/ev",
-      "note": "Aktiv: 30 commits / 14d"
+      "note": "Aktiv: 29 commits / 14d"
     }
   ],
   "shaky": [

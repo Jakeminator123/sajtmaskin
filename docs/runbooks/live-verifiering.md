@@ -52,7 +52,7 @@ Inte default-Fritext. En egen `/logg-internet`-prompt eller manuellt steg.
 | Rad | Kräver |
 | --- | --- |
 | OpenAI-acceptanskedjan | Byggblock → spara riktig projektägd `OPENAI_API_KEY` → «Bygg integrationer» en gång → chatt → reload |
-| `SM-030` Mongo i F2 + F3 | Prompt som ber om Mongo + F3-godkännande |
+| `SM-030` Mongo-marker + vald Postgres-dossier | F2 med pending `postgres-drizzle` → tool-only F3 som föreslår `mongodb` → godkänn; readiness/state/prompt ska bära exakt en databasidentitet. Kör även utan vald database-dossier och kräv att dossierless Mongo bevaras. |
 | `SM-033` wizard-timeout | Landing **Analyserad**, inte Fritext |
 | `SM-013` «Läser in mallen» | Landing **Template** + misslyckad init |
 | Template-gallerikrasch | Click-smoke på synliga mallar |
