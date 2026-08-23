@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanelBrowseGallery } from "./PreviewPanelBrowseGallery";
 import type { ComponentCategory } from "@/lib/shadcn/registry-service";
-import { SHADCN_ITEM_DND_TYPE } from "@/lib/builder/shadcn-insert";
 import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 
 /** Insättning där sändvägen faktiskt startade en generation. */
@@ -123,6 +122,19 @@ describe("PreviewPanelBrowseGallery", () => {
     expect(screen.queryByText("Login 01")).toBeNull();
   });
 
+  it("håller kategorichips i en kompakt scroll-remsa och rutnätet i 3–4 kolumner", async () => {
+    render(<PreviewPanelBrowseGallery />);
+    await waitFor(() => screen.getByText("Login 01"));
+
+    const strip = screen.getByRole("group", { name: "Kategorier" });
+    expect(strip.className).toMatch(/max-h-/);
+    expect(strip.className).toMatch(/overflow-y-auto/);
+
+    const grid = screen.getByText("Login 01").closest("button")?.parentElement;
+    expect(grid?.className).toMatch(/grid-cols-3/);
+    expect(grid?.className).toMatch(/md:grid-cols-4/);
+  });
+
   it("opens a read-only detail view when no insert callback is provided", async () => {
     render(<PreviewPanelBrowseGallery />);
     await waitFor(() => screen.getByText("Login 01"));
@@ -220,6 +232,39 @@ describe("PreviewPanelBrowseGallery", () => {
     await waitFor(() => screen.getByText(/Skickat till chatten/i));
   });
 
+  it("anropar onCloseBeforeInsert innan onPickPlacement så overlayn hinner bort", async () => {
+    const order: string[] = [];
+    const onCloseBeforeInsert = vi.fn(() => {
+      order.push("close");
+    });
+    const onPickPlacement = vi.fn(async () => {
+      order.push("pick");
+      return {
+        placement: "after-hero",
+        placementLabel: "Efter Hero",
+        anchorSectionLabel: "Hero",
+      };
+    });
+    const onInsertItem = vi.fn(async () => {
+      order.push("insert");
+      return STARTED_OUTCOME;
+    });
+
+    render(
+      <PreviewPanelBrowseGallery
+        onInsertItem={onInsertItem}
+        onPickPlacement={onPickPlacement}
+        onCloseBeforeInsert={onCloseBeforeInsert}
+      />,
+    );
+    await waitFor(() => screen.getByText("Login 01"));
+    fireEvent.click(screen.getByText("Login 01"));
+    fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));
+
+    await waitFor(() => expect(onInsertItem).toHaveBeenCalledTimes(1));
+    expect(order).toEqual(["close", "pick", "insert"]);
+  });
+
   it("Esc/avbruten placement-pick → onInsertItem utan ankare (default längst ner)", async () => {
     const onInsertItem = vi.fn().mockResolvedValue(STARTED_OUTCOME);
     const onPickPlacement = vi.fn().mockResolvedValue(null);
@@ -292,39 +337,13 @@ describe("PreviewPanelBrowseGallery", () => {
     await waitFor(() => screen.getByText("Login 01"));
   });
 
-  it("kort är draggbara med registry-payload när insättning är möjlig (DnD-lane)", async () => {
+  it("kort är inte draggbara i overlay-läget även när insättning är möjlig", async () => {
     const onInsertItem = vi.fn();
-    const onDragStart = vi.fn();
-    const onDragEnd = vi.fn();
-    render(
-      <PreviewPanelBrowseGallery
-        onInsertItem={onInsertItem}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-      />,
-    );
+    render(<PreviewPanelBrowseGallery onInsertItem={onInsertItem} />);
     await waitFor(() => screen.getByText("Login 01"));
 
     const card = screen.getByText("Login 01").closest("button");
-    expect(card?.getAttribute("draggable")).toBe("true");
-
-    const dataTransfer = { setData: vi.fn(), effectAllowed: "" };
-    fireEvent.dragStart(card!, { dataTransfer });
-
-    expect(onDragStart).toHaveBeenCalledTimes(1);
-    expect(dataTransfer.setData).toHaveBeenCalledTimes(1);
-    const [mime, payload] = dataTransfer.setData.mock.calls[0] as [string, string];
-    expect(mime).toBe(SHADCN_ITEM_DND_TYPE);
-    expect(JSON.parse(payload)).toEqual({
-      name: "login-01",
-      registry: "@shadcn",
-      title: "Login 01",
-      description: "Enkelt inloggningsformulär",
-      origin: "browse",
-    });
-
-    fireEvent.dragEnd(card!);
-    expect(onDragEnd).toHaveBeenCalledTimes(1);
+    expect(card?.getAttribute("draggable")).toBe("false");
   });
 
   it("kort är INTE draggbara utan insert-callback (read-only-läge)", async () => {
