@@ -8,7 +8,12 @@ describe("OpenClaw store assistant targeting", () => {
       messages: [],
       isStreaming: false,
       scopeKey: "global",
+      avatarMode: false,
     });
+  });
+
+  it("opens text-first without starting the D-ID avatar", () => {
+    expect(useOpenClawStore.getState().avatarMode).toBe(false);
   });
 
   it("updates the targeted assistant message instead of the last one", () => {

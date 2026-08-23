@@ -39,6 +39,11 @@ export const DID_AVATAR_AVAILABLE = Boolean(AVATAR_ENABLED && AGENT_ID && CLIENT
 type DidClientSdk = typeof import("@d-id/client-sdk");
 type DidAgentManager = Awaited<ReturnType<DidClientSdk["createAgentManager"]>>;
 
+async function safelyDisconnectAgent(agent: DidAgentManager | null) {
+  if (!agent?.disconnect) return;
+  await agent.disconnect().catch(() => {});
+}
+
 export function truncateForSpeech(text: string, maxSentences = 3): string {
   const clean = text
     .replace(/[*_`#\[\]]/g, "")
@@ -56,10 +61,20 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
   const agentRef = useRef<DidAgentManager | null>(null);
   const sdkModuleRef = useRef<DidClientSdk | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Varje connect/reconnect/disconnect får en ny generation. Asynkrona SDK-
+  // steg som blir klara efter att användaren valt "Endast text" får då aldrig
+  // återaktivera eller lämna en D-ID-session levande i bakgrunden.
+  const connectionGenerationRef = useRef(0);
+  const connectionStateRef = useRef<DidConnectionState>("idle");
 
   const [connectionState, setConnectionState] =
     useState<DidConnectionState>("idle");
   const [avatarReady, setAvatarReady] = useState(false);
+
+  const updateConnectionState = useCallback((state: DidConnectionState) => {
+    connectionStateRef.current = state;
+    setConnectionState(state);
+  }, []);
 
   const syncVideoPlayback = useCallback(() => {
     const video = videoRef.current;
@@ -76,28 +91,34 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     return sdkModuleRef.current;
   }, []);
 
-  const initAgent = useCallback(async () => {
+  const initAgent = useCallback(async (generation: number) => {
     if (!AGENT_ID || !CLIENT_KEY) return null;
     if (agentRef.current) return agentRef.current;
 
     const did = await loadSdk();
+    if (generation !== connectionGenerationRef.current) return null;
+
+    let createdAgent: DidAgentManager | null = null;
     const agent = await did.createAgentManager(AGENT_ID, {
       auth: { type: "key", clientKey: CLIENT_KEY },
       callbacks: {
         onSrcObjectReady(value: MediaStream) {
+          if (agentRef.current !== createdAgent) return;
           streamRef.current = value;
           setAvatarReady(true);
           syncVideoPlayback();
         },
         onConnectionStateChange(state: string) {
-          if (state === "connected") setConnectionState("connected");
-          else if (state === "failed") setConnectionState("error");
+          if (agentRef.current !== createdAgent) return;
+          if (state === "connected") updateConnectionState("connected");
+          else if (state === "failed") updateConnectionState("error");
           else if (state === "disconnected" || state === "closed")
-            setConnectionState("idle");
+            updateConnectionState("idle");
         },
         onVideoStateChange(state: string) {
-          if (state === "STOP") setConnectionState("connected");
-          else if (state === "speaking") setConnectionState("speaking");
+          if (agentRef.current !== createdAgent) return;
+          if (state === "STOP") updateConnectionState("connected");
+          else if (state === "speaking") updateConnectionState("speaking");
           syncVideoPlayback();
         },
       },
@@ -106,70 +127,104 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
         streamWarmup: true,
       },
     });
+    createdAgent = agent;
+
+    if (generation !== connectionGenerationRef.current) {
+      await safelyDisconnectAgent(agent);
+      return null;
+    }
     agentRef.current = agent;
     return agent;
-  }, [loadSdk, syncVideoPlayback]);
+  }, [loadSdk, syncVideoPlayback, updateConnectionState]);
 
   const connect = useCallback(async () => {
     if (!AGENT_ID || !CLIENT_KEY) return;
-    if (connectionState === "connected" || connectionState === "speaking")
+    if (
+      connectionStateRef.current === "connecting" ||
+      connectionStateRef.current === "connected" ||
+      connectionStateRef.current === "speaking"
+    )
       return;
 
+    const generation = ++connectionGenerationRef.current;
     try {
-      setConnectionState("connecting");
-      const agent = await initAgent();
+      updateConnectionState("connecting");
+      const agent = await initAgent(generation);
+      if (generation !== connectionGenerationRef.current) return;
       if (!agent) {
-        setConnectionState("error");
+        updateConnectionState("error");
         return;
       }
       await agent.connect();
-      setConnectionState("connected");
+      if (generation !== connectionGenerationRef.current) {
+        if (agentRef.current === agent) agentRef.current = null;
+        await safelyDisconnectAgent(agent);
+        return;
+      }
+      updateConnectionState("connected");
     } catch {
-      setConnectionState("error");
+      if (generation === connectionGenerationRef.current) {
+        updateConnectionState("error");
+      }
     }
-  }, [connectionState, initAgent]);
+  }, [initAgent, updateConnectionState]);
 
   const speak = useCallback(async (text: string) => {
     const normalized = text.trim();
     if (!normalized || !agentRef.current?.speak) return;
 
     try {
-      setConnectionState("speaking");
+      updateConnectionState("speaking");
       await agentRef.current.speak({ type: "text", input: normalized });
     } catch {
-      if (agentRef.current) setConnectionState("connected");
+      if (agentRef.current) updateConnectionState("connected");
     }
-  }, []);
+  }, [updateConnectionState]);
 
   const disconnect = useCallback(() => {
-    if (agentRef.current?.disconnect) {
-      void agentRef.current.disconnect().catch(() => {});
-    }
+    ++connectionGenerationRef.current;
+    const agent = agentRef.current;
     agentRef.current = null;
     streamRef.current = null;
-    setConnectionState("idle");
+    void safelyDisconnectAgent(agent);
+    updateConnectionState("idle");
     setAvatarReady(false);
-  }, []);
+  }, [updateConnectionState]);
+
+  const reconnect = useCallback(async () => {
+    const generation = ++connectionGenerationRef.current;
+    const previousAgent = agentRef.current;
+    agentRef.current = null;
+    streamRef.current = null;
+    setAvatarReady(false);
+    updateConnectionState("idle");
+    await safelyDisconnectAgent(previousAgent);
+    if (generation !== connectionGenerationRef.current) return;
+    await connect();
+  }, [connect, updateConnectionState]);
 
   useEffect(() => {
     if (enabled) {
       void connect();
-    } else if (
-      connectionState !== "idle" ||
-      agentRef.current
-    ) {
+    } else {
       disconnect();
     }
-    // Only react to enabled changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
+  }, [connect, disconnect, enabled]);
 
   useEffect(() => {
+    const generation = connectionGenerationRef;
+    const activeAgent = agentRef;
+    const activeStream = streamRef;
     return () => {
-      if (agentRef.current?.disconnect) {
-        void agentRef.current.disconnect().catch(() => {});
-      }
-      streamRef.current = null;
+      ++generation.current;
+      // React StrictMode kör setup → cleanup → setup i utveckling. Nollställ
+      // den synkrona vakten utan en state-uppdatering på den avmonterade
+      // instansen, så nästa legitima setup inte fastnar bakom "connecting".
+      connectionStateRef.current = "idle";
+      const agent = activeAgent.current;
+      activeAgent.current = null;
+      activeStream.current = null;
+      void safelyDisconnectAgent(agent);
     };
   }, []);
 
@@ -178,6 +233,7 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
     avatarReady,
     videoRef,
     connect,
+    reconnect,
     speak,
     disconnect,
     available: DID_AVATAR_AVAILABLE,

@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react"
 import * as THREE from "three"
 import { Canvas, extend, useFrame, useThree } from "@react-three/fiber"
-import { Environment, Lightformer, RoundedBox, useTexture } from "@react-three/drei"
+import { AdaptiveDpr, Environment, Lightformer, RoundedBox, useTexture } from "@react-three/drei"
 import {
   BallCollider,
   CuboidCollider,
@@ -22,6 +22,10 @@ import {
   type RapierRigidBody,
 } from "@react-three/rapier"
 import { MeshLineGeometry, MeshLineMaterial } from "meshline"
+import {
+  LANYARD_CARD_LAYOUT,
+  stabilizeLanyardAngularVelocity,
+} from "@/components/landing-v2/lanyard-card-layout"
 
 extend({ MeshLineGeometry, MeshLineMaterial })
 
@@ -42,6 +46,23 @@ declare module "@react-three/fiber" {
 const CARD_TEXTURE = "/branding/lanyard-card.png"
 const CARD_BACK_TEXTURE = "/branding/lanyard-card-back.png"
 const ACCENT = "#2dd4bf"
+// Tre kortare, redan utspända repsegment håller hela visitkortet inom
+// kameran när fysiken har stabiliserats. De tidigare 1.0-segmenten startade
+// hoptryckta men föll sedan ut till full längd och klippte av kortets nederkant.
+const {
+  ropeSegmentLength: ROPE_SEGMENT_LENGTH,
+  ropeSegmentCount: ROPE_SEGMENT_COUNT,
+  cardJointY: CARD_JOINT_Y,
+  fixedAnchorY: FIXED_ANCHOR_Y,
+  cardWidth: CARD_WIDTH,
+  cardHeight: CARD_HEIGHT,
+  cardDepth: CARD_DEPTH,
+  cardVisualOffsetY: CARD_VISUAL_OFFSET_Y,
+  initialImpulse: INITIAL_IMPULSE,
+  cameraDistance: CAMERA_DISTANCE,
+  cameraFovDegrees: CAMERA_FOV_DEGREES,
+} = LANYARD_CARD_LAYOUT
+const CARD_START_Y = -(ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_COUNT + CARD_JOINT_Y)
 
 type BandProps = { maxSpeed?: number; minSpeed?: number; autoSwing?: boolean }
 
@@ -96,12 +117,19 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   // lodrät lina så att geometrin är giltig redan innan fysiken kickat igång.
   const curve = useRef(
     new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, 1, 0),
-      new THREE.Vector3(0, 1.6, 0),
-      new THREE.Vector3(0, 2.2, 0),
-      new THREE.Vector3(0, 2.8, 0),
+      new THREE.Vector3(
+        0,
+        FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_COUNT,
+        0,
+      ),
+      new THREE.Vector3(0, FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH * 2, 0),
+      new THREE.Vector3(0, FIXED_ANCHOR_Y - ROPE_SEGMENT_LENGTH, 0),
+      new THREE.Vector3(0, FIXED_ANCHOR_Y, 0),
     ]),
   ).current
+  // Återanvänd punkterna i stället för att allokera 33 nya Vector3 varje
+  // frame. Det minskar GC-pauser precis när användaren trycker på canvasen.
+  const bandPoints = useRef(Array.from({ length: 19 }, () => new THREE.Vector3())).current
 
   // Ge meshline-geometrin giltiga punkter direkt vid montering, och sätt en
   // manuell boundingSphere så att Three aldrig försöker beräkna den från
@@ -111,20 +139,24 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
       | (THREE.BufferGeometry & { setPoints: (pts: THREE.Vector3[]) => void })
       | undefined
     if (!geometry) return
-    geometry.setPoints(curve.getPoints(32))
+    bandPoints.forEach((point, index) => {
+      curve.getPoint(index / (bandPoints.length - 1), point)
+    })
+    geometry.setPoints(bandPoints)
     geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 1, 0), 12)
     geometry.computeBoundingSphere = () => {
       /* Bandet rör sig inom en känd radie — behåll den manuella sfären. */
     }
-  }, [curve])
+  }, [bandPoints, curve])
 
   const lerped = useRef({ j1: new THREE.Vector3(), j2: new THREE.Vector3() }).current
+  const targets = useRef({ j1: new THREE.Vector3(), j2: new THREE.Vector3() }).current
 
   // Rep-leder mellan ankaret och kortet.
-  useRopeJoint(fixed, j1, [[0, 0, 0], [0, 0, 0], 1])
-  useRopeJoint(j1, j2, [[0, 0, 0], [0, 0, 0], 1])
-  useRopeJoint(j2, j3, [[0, 0, 0], [0, 0, 0], 1])
-  useSphericalJoint(j3, card, [[0, 0, 0], [0, 1.45, 0]])
+  useRopeJoint(fixed, j1, [[0, 0, 0], [0, 0, 0], ROPE_SEGMENT_LENGTH])
+  useRopeJoint(j1, j2, [[0, 0, 0], [0, 0, 0], ROPE_SEGMENT_LENGTH])
+  useRopeJoint(j2, j3, [[0, 0, 0], [0, 0, 0], ROPE_SEGMENT_LENGTH])
+  useSphericalJoint(j3, card, [[0, 0, 0], [0, CARD_JOINT_Y, 0]])
 
   useEffect(() => {
     if (hovered) document.body.style.cursor = dragged ? "grabbing" : "grab"
@@ -139,7 +171,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
   useEffect(() => {
     if (!autoSwing) return
     const t = setTimeout(() => {
-      card.current?.applyImpulse({ x: -3.5, y: 0, z: 0.8 }, true)
+      card.current?.applyImpulse(INITIAL_IMPULSE, true)
     }, 800)
     return () => clearTimeout(t)
   }, [autoSwing])
@@ -163,7 +195,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
         const key = i === 0 ? "j1" : "j2"
         const store = lerped[key as "j1" | "j2"]
         const trans = ref.current!.translation()
-        const target = new THREE.Vector3(trans.x, trans.y, trans.z)
+        const target = targets[key as "j1" | "j2"].set(trans.x, trans.y, trans.z)
         if (store.lengthSq() === 0) store.copy(target)
         const clampedDistance = Math.max(0.1, Math.min(1, store.distanceTo(target)))
         store.lerp(target, delta * (minSpeed + clampedDistance * (maxSpeed - minSpeed)))
@@ -187,21 +219,17 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
         const geometry = band.current.geometry as unknown as {
           setPoints: (pts: THREE.Vector3[]) => void
         }
-        geometry.setPoints(curve.getPoints(32))
+        bandPoints.forEach((point, index) => {
+          curve.getPoint(index / (bandPoints.length - 1), point)
+        })
+        geometry.setPoints(bandPoints)
       }
 
       // Dämpa rotationen så kortet återgår mot framsidan (quaternion -> euler).
       const a = card.current.angvel()
       const r = card.current.rotation()
-      ang.set(a.x, a.y, a.z)
-      quat.set(r.x, r.y, r.z, r.w)
-      euler.setFromQuaternion(quat)
       card.current.setAngvel(
-        {
-          x: ang.x - euler.x * 0.3,
-          y: ang.y - euler.y * 0.6,
-          z: ang.z - euler.z * 0.2,
-        },
+        stabilizeLanyardAngularVelocity(a, r, euler, quat, ang),
         false,
       )
     }
@@ -209,21 +237,39 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
 
   return (
     <>
-      <group position={[0, 2.8, 0]}>
+      <group position={[0, FIXED_ANCHOR_Y, 0]}>
         <RigidBody ref={fixed} type="fixed" colliders={false} />
-        <RigidBody ref={j1} position={[0, -0.6, 0]} colliders={false} angularDamping={2} linearDamping={2}>
+        <RigidBody
+          ref={j1}
+          position={[0, -ROPE_SEGMENT_LENGTH, 0]}
+          colliders={false}
+          angularDamping={2}
+          linearDamping={2}
+        >
           <BallCollider args={[0.1]} />
         </RigidBody>
-        <RigidBody ref={j2} position={[0, -1.2, 0]} colliders={false} angularDamping={2} linearDamping={2}>
+        <RigidBody
+          ref={j2}
+          position={[0, -ROPE_SEGMENT_LENGTH * 2, 0]}
+          colliders={false}
+          angularDamping={2}
+          linearDamping={2}
+        >
           <BallCollider args={[0.1]} />
         </RigidBody>
-        <RigidBody ref={j3} position={[0, -1.8, 0]} colliders={false} angularDamping={2} linearDamping={2}>
+        <RigidBody
+          ref={j3}
+          position={[0, -ROPE_SEGMENT_LENGTH * ROPE_SEGMENT_COUNT, 0]}
+          colliders={false}
+          angularDamping={2}
+          linearDamping={2}
+        >
           <BallCollider args={[0.1]} />
         </RigidBody>
 
         <RigidBody
           ref={card}
-          position={[0, -3.4, 0]}
+          position={[0, CARD_START_Y, 0]}
           colliders={false}
           angularDamping={2.5}
           linearDamping={2.5}
@@ -232,7 +278,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
           <CuboidCollider args={[0.85, 1.2, 0.02]} />
           <group
             scale={1}
-            position={[0, -0.05, 0]}
+            position={[0, CARD_VISUAL_OFFSET_Y, 0]}
             onPointerOver={() => setHovered(true)}
             onPointerOut={() => setHovered(false)}
             onPointerUp={(e) => {
@@ -287,7 +333,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
             }}
           >
             {/* Själva kortet */}
-            <RoundedBox args={[1.6, 2.3, 0.04]} radius={0.09} smoothness={5} castShadow receiveShadow>
+            <RoundedBox args={[CARD_WIDTH, CARD_HEIGHT, CARD_DEPTH]} radius={0.09} smoothness={3} castShadow receiveShadow>
               <meshPhysicalMaterial
                 color="#0a0f14"
                 metalness={0.55}
@@ -318,7 +364,7 @@ function Band({ maxSpeed = 50, minSpeed = 10, autoSwing = true }: BandProps) {
 
             {/* Metallclips ovanför kortet */}
             <mesh position={[0, 1.25, 0]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.12, 0.03, 16, 32]} />
+              <torusGeometry args={[0.12, 0.03, 12, 24]} />
               <meshStandardMaterial color="#cbd5e1" metalness={1} roughness={0.25} />
             </mesh>
             <mesh position={[0, 1.14, 0]}>
@@ -355,17 +401,19 @@ export function LanyardCard({
   return (
     <div className={`relative w-full select-none ${className}`} aria-hidden="true">
       <Canvas
-        camera={{ position: [0, 0, 11], fov: 25 }}
+        camera={{ position: [0, 0, CAMERA_DISTANCE], fov: CAMERA_FOV_DEGREES }}
         gl={{ alpha: true, antialias: true }}
         style={{ background: "transparent", touchAction: "pan-y pinch-zoom" }}
-        dpr={[1, 2]}
+        dpr={[1, 1.35]}
+        performance={{ min: 0.5, max: 1, debounce: 200 }}
       >
+        <AdaptiveDpr />
         <ambientLight intensity={0.6} />
         <directionalLight position={[3, 5, 4]} intensity={1.1} castShadow />
         <Physics gravity={[0, -40, 0]} timeStep={1 / 60}>
           <Band autoSwing={autoSwing} />
         </Physics>
-        <Environment resolution={256}>
+        <Environment resolution={64}>
           <Lightformer intensity={2.4} color={ACCENT} position={[3, 2, 3]} scale={[6, 6, 1]} form="rect" />
           <Lightformer intensity={1.6} color="#38bdf8" position={[-4, 1, 2]} scale={[5, 5, 1]} form="rect" />
           <Lightformer intensity={1} color="#ffffff" position={[0, 4, -3]} scale={[10, 3, 1]} form="rect" />
