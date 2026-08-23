@@ -118,7 +118,8 @@ process.env.PREVIEW_HOST_DATA_DIR = dataDir;
 process.env.HOST = "127.0.0.1";
 process.env.PREVIEW_BASE_URL = "http://127.0.0.1:0000";
 process.env.SAJTMASKIN_PREVIEW_HMR_PROXY = "true";
-process.env.SAJTMASKIN_APP_ORIGINS = "https://app.example,https://secondary.example";
+process.env.SAJTMASKIN_APP_ORIGINS =
+  "https://app.example,https://secondary.example,https://rejected.example/path,https://ignored.example?wide=1";
 
 let upstreamUpgradeHits = 0;
 let lastUpstreamHeaders = null;
@@ -1145,7 +1146,15 @@ try {
       },
     },
   ], "bootstrap reports the initial cleaned route even when inspector injection is independent");
-  for (const invalidAppOrigins of ["", "not a URL", "data:text/plain,opaque"]) {
+  for (const invalidAppOrigins of [
+    "",
+    "not a URL",
+    "data:text/plain,opaque",
+    "https://app.example/path",
+    "https://user:secret@app.example",
+    "https://app.example?wide=1",
+    "https://app.example#wide",
+  ]) {
     const failClosedBrowser = await executePreviewBootstrap({
       page: viewerDecoratedPage,
       browserUrl: `${hostBase}/${originSession.chatId}/products?__sm_viewer=${viewerA}`,

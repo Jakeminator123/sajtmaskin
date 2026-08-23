@@ -37,8 +37,10 @@ function configuredAppOrigins(rawValue) {
   const origins = new Set();
   for (const candidate of String(rawValue || "").split(",")) {
     try {
-      const parsed = new URL(candidate.trim());
+      const exact = candidate.trim();
+      const parsed = new URL(exact);
       if (!/^https?:$/.test(parsed.protocol) || parsed.origin === "null") continue;
+      if (exact !== parsed.origin) continue;
       origins.add(parsed.origin);
     } catch {
       // Invalid entries fail closed.
@@ -107,7 +109,7 @@ try{var stored=window.sessionStorage.getItem(storageKey);if(!viewer&&viewerPatte
 if(!viewer){var uuid=window.crypto&&typeof window.crypto.randomUUID==="function"?window.crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,function(token){var random=Math.floor(Math.random()*16);return(token==="x"?random:(random&3)|8).toString(16)});viewer="smv_"+uuid;}
 try{window.sessionStorage.setItem(storageKey,viewer)}catch(_){}
 var cleanupParams=${JSON.stringify(PREVIEW_BROWSER_CLEANUP_QUERY_PARAMS)};var hadHostParams=cleanupParams.some(function(name){return pageUrl.searchParams.has(name)});cleanupParams.forEach(function(name){pageUrl.searchParams.delete(name)});if(hadHostParams){window.history.replaceState(window.history.state,"",pageUrl.pathname+pageUrl.search+pageUrl.hash)}
-var appOrigins=[];appOriginsRaw.split(",").forEach(function(candidate){try{var parsed=new URL(candidate.trim());if(/^https?:$/.test(parsed.protocol)&&parsed.origin!=="null"&&appOrigins.indexOf(parsed.origin)===-1)appOrigins.push(parsed.origin)}catch(_){}});
+var appOrigins=[];appOriginsRaw.split(",").forEach(function(candidate){try{var exact=candidate.trim();var parsed=new URL(exact);if(exact===parsed.origin&&/^https?:$/.test(parsed.protocol)&&parsed.origin!=="null"&&appOrigins.indexOf(parsed.origin)===-1)appOrigins.push(parsed.origin)}catch(_){}});
 function postRouteChange(){try{if(window.parent===window||appOrigins.length===0||!previewSessionId||!versionId||!viewer)return;var message={type:"sajtmaskin:preview:route-change",source:"sajtmaskin-preview-host",payload:{href:window.location.href,previewSessionId:previewSessionId,versionId:versionId,viewerId:viewer}};appOrigins.forEach(function(appOrigin){window.parent.postMessage(message,appOrigin)})}catch(_){} }
 function wrapHistory(name){var native=window.history&&window.history[name];if(typeof native!=="function")return;window.history[name]=function(){var result=native.apply(this,arguments);postRouteChange();return result}}
 wrapHistory("pushState");wrapHistory("replaceState");

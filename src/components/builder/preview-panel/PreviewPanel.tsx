@@ -779,6 +779,10 @@ export function PreviewPanel({
   const handleNavigateRoute = useCallback(
     (route: string) => {
       if (!previewUrl) return;
+      // The route bridge is the live browser truth. Selecting that already
+      // active SPA route is always a no-op, even when the controlled src still
+      // points at the route from before the in-frame navigation.
+      if (!isOwnEnginePreview && observedPreviewRoute === route) return;
       const nextUrl = isOwnEnginePreview
         ? buildOwnEngineRoutePreviewUrl(previewUrl, route)
         : buildExternalRoutePreviewUrl(previewUrl, route);
@@ -790,7 +794,7 @@ export function PreviewPanel({
         // (including viewer/inspect metadata) instead of becoming a React
         // state no-op. When the bridge already reports this route, no reload is
         // needed.
-        if (!observedPreviewRoute || observedPreviewRoute === route) return;
+        if (!observedPreviewRoute) return;
         reloadControlledPreview();
         return;
       }
