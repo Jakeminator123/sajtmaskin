@@ -117,7 +117,7 @@ describe("resolveTargetWorktree", () => {
 
 describe("syncWorktreeMcpJson", () => {
   it("prefers the live mcp.json over the example", () => {
-    const copied = [];
+    const copied: Array<{ from: string; to: string }> = [];
     const result = syncWorktreeMcpJson(MAIN, FEATURE, {
       exists: (p) => p.endsWith("mcp.json") || p.endsWith("mcp.json.example"),
       mkdir: () => {},
