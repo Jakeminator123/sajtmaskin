@@ -1,6 +1,6 @@
 ---
 name: godnatt-bugg
-description: Drive one or more Sajtmaskin BUG-SWARM backlog items from fresh revalidation through isolated implementation, independent review, pull request, merge gate or draft-only Cloud evaluation, cleanup, and cooldown. Use when the user invokes $godnatt-bugg, writes /godnatt-bugg or "godnatt bugg", asks for one or N autonomous backlog bug passes, requests a Cloud evaluation with admin-blocked draft PRs, or when a scheduled Godnatt-bugg tick resumes an armed full batch. Do not use for general audits or bugs outside BUG-SWARM-BACKLOG.md.
+description: Use for $godnatt-bugg, /godnatt-bugg, evaluation batches or scheduled safe passes over BUG-SWARM items. Owns isolated fix/review/PR state; not general auditing.
 ---
 
 # Godnatt bugg
@@ -117,7 +117,7 @@ read-only API. Starta godnatt_investigator med backloggraden ordagrant, origin/m
 app-worktree-path och krav på verdict relevant, already-resolved, reclassify
 eller blocked.
 
-Utredaren är skrivskyddad och kör GPT-5.6 sol xhigh enligt
+Utredaren är skrivskyddad och kör GPT-5.6 Terra high enligt
 .codex/agents/godnatt-investigator.toml. Kontrollera dess bevis själv. Flytta
 state sekventiellt till verified och investigated. Kör samma lokala och GitHub-
 snapshots efteråt och kräv identisk state. Vid mutation från den påstått
@@ -151,7 +151,7 @@ PR-nummer blir immutable efter registrering.
 
 Ta före-snapshot av git status/diff och worktree-lista. Starta godnatt_worker i
 passets app-worktree med exakt cwd, branch, brief och acceptance criteria.
-Workern kör GPT-5.6 sol high och lämnar diffen ocommittad.
+Workern kör GPT-5.6 Terra medium och lämnar diffen ocommittad.
 
 Custom-agentens sandbox_mode är inte en separat säkerhetsgräns när förälderns
 live permissions är bredare. App-worktreets sandbox är den riktiga gränsen.

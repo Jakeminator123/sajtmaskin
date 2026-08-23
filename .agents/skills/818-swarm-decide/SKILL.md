@@ -1,7 +1,6 @@
 ---
 name: 818-swarm-decide
-description: >-
-  Runs three parallel read-only subagents on one decision topic from three non-overlapping angles (consequence, the counter-case, canonical ownership), the parent verifies their claims against the code, then decides once, implements minimally and runs a short review pass. Use when the user runs /818, says "818", "svärm innan beslut" or wants a structured go/no-go before a risky change in Sajtmaskin. For fixing a bug rather than making a decision, use /kedja instead.
+description: Use for /818 or one structured go/no-go: three read-only angles, parent verification, one decision and a minimal reviewed change. Use /kedja for bugs.
 ---
 
 # 818 — one question → three angles → one decision
@@ -13,14 +12,14 @@ The name is historical: `818` meant eight agents. Since 2026-08-02 it is **three
 ## Pattern (orchestrator = main agent)
 
 1. **One-sentence problem statement** from the user, or ask one clarifying line. Never guess the scope.
-2. **Three** parallel `Task` calls: `explore`, `readonly: true`, `model: <grok-4.5>` (scan role — roles in [`subagent-models.mdc`](../../../.cursor/rules/subagent-models.mdc); `<grok-4.5>` is a role placeholder you resolve against the Grok entry the rule designates, looked up in your own session's `<available_subagent_models>`).
+2. **Three** parallel `Task` calls: `explore`, `readonly: true`, `model: <luna>` (resolve the current Luna slug via [`subagent-models.mdc`](../../../.cursor/rules/subagent-models.mdc)).
 3. **Three fixed angles**, one per agent — see the table below. Do not add a fourth.
 4. Require **short** output: max 6 lines, table or bullets, `%` or H/M/L where it fits. No prose.
 5. **Parent verifies** every load-bearing claim with repo tools before deciding. Code is source of truth; subagents may not see `.git`, may miss an existing guard, and sometimes invent `fil:rad`.
 6. **Aggregate** into one table + **one** recommended action.
 7. **Implement** only if the decision is clear and narrow; otherwise list the blockers and stop.
 8. **Verify**: `npm run typecheck`, targeted `vitest`, `ReadLints` on touched files.
-9. **Review pass**: one readonly agent on the same resolved `<grok-4.5>` slug as step 2 (judgement role) reviews the **intent of the change**, without rewriting code. Two agents if the diff touches protected paths.
+9. **Review pass**: one readonly `<terra>` agent reviews the **intent of the change** without rewriting code. Two agents only for protected paths.
 
 ## The three angles
 

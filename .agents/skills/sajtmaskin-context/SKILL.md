@@ -1,36 +1,27 @@
 ---
 name: sajtmaskin-context
-description: Quick domain/context skill for Sajtmaskin. Use when working on builder, preview, scaffolds, own-engine, templates, sandbox, deploy, or terminology-sensitive tasks.
+description: Route Sajtmaskin builder, preview, own-engine, scaffold, template, deploy and terminology tasks to the smallest canonical owner.
 ---
 
-# Sajtmaskin Context
+# Sajtmaskin context
 
-## Read first
+## Börja selektivt
 
-1. `docs/architecture/glossary.md` — canonical glossary (slim, ~100 termer)
-2. `.cursor/rules/terminology.mdc` — confusion table + signal ownership
-3. `docs/architecture/README.md` — **arkitekturprinciper/målbild** för LLM-flödet (init/follow-up som distinkta operationer, designläge/integrationsbygge, single repair gate)
-4. `docs/README.md` — doc navigation
-5. `docs/plans/active/README.md` — aktiva planer + aktuella öppna punkter (koncentrat)
+1. Läs uppgiftens filer och `repo-router.mdc`.
+2. Vid okänd semantik: relevant del av `docs/concepts/mental-model.md`.
+3. Vid okänd term: sök exakt rad i `docs/architecture/glossary.md`.
+4. Läs kod/manifest/policy som faktiskt äger beteendet.
 
-## Guardrails
+Läs inte glossary, docs-nav, planer och kodkarta i sin helhet som obligatorisk
+startstack.
 
-- `v0-mallar` / Mallar-tab ≠ `template-library` ≠ Vercel-mallar.
-- Runtime scaffolds (`src/lib/gen/scaffolds/`) ≠ v0-mallar ≠ Vercel-mallar.
-- `/api/v0/` = API versioning, not the external v0 provider.
-- VM / `preview_host` (Fly.io) is primary live-preview. `sandbox` = mostly legacy naming.
-- Own-engine behavior: read code + canonical docs, don't guess.
+## Vanliga förväxlingar
 
-## Source of truth hierarchy
+- Template/import, runtime-Scaffold och Dossier är olika system.
+- `/api/v0/` kan vara API-versionering, inte extern v0-provider.
+- VM/`preview_host` är iteration; deploy/publicering är en annan nivå.
+- Prompt-assist, Briefing/Deep Brief och Orkestrering är olika lager.
+- Kod/runtime vinner när en handskriven doc beskriver beteendet fel.
 
-1. **Code** — always wins when docs disagree.
-2. **`docs/schemas/strict/*.schema.json`** — machine-readable contracts (must match TS types).
-3. **`docs/schemas/*.md`** — human-readable contracts (explain intent behind code).
-4. **`docs/architecture/*.md`** — system structure docs.
-5. **`backoffice/`** + `sajtmaskin_backoffice.py` — Streamlit operational panels (must reflect actual runtime, not aspiration).
-
-When changing pipeline code: verify that schemas, strict schemas, and backoffice panels still reflect reality.
-
-## Response behavior
-
-- Reply in Swedish if the user writes Swedish.
+Vid pipelineändring: kontrollera berörda schema-, generated-doc- och
+backofficekonsumenter, inte hela dokumentträdet.

@@ -1,30 +1,25 @@
 ---
-description: Grok = default för ALLA subagenter inkl. bugg-/kodgranskning; slå upp slugen per session, kopiera den inte
-alwaysApply: true
+description: "Läs före varje subagent/Task: Luna för billiga scans, Terra som standard, Sol bara vid motiverad eskalering."
+alwaysApply: false
 ---
 
-# Subagent-modeller
+# Subagentmodeller
 
-**En Grok-modell är standard för ALLA subagenter** — scan, omdöme, destillering,
-kedja-runner **och** bugg-/kodgranskning (`bugbot`). Detta är ägarens stående
-begäran, så `Task`-verktygets default (`inherit`) gäller inte här.
+Använd den aktuella sessionens modellista och skicka alltid ett explicit
+`model`-värde. Kopiera inte en gammal Cursor-prefixad slug och låt inte en
+ogiltig slug tyst ärva den dyra parentmodellen.
 
-**Vilken Grok (ägarbeslut 2026-08-14):** slå upp slugen i din egen sessions
-`<available_subagent_models>`. Preferens så länge den är gratis:
-`cursor-grok-4.6-xhigh-fast`. Finns den inte: nästa Grok-post i **samma lista**
-(historiskt `cursor-grok-4.5`). Hittar du ingen Grok: stoppa och säg till —
-ärv inte Opus eller Composer.
+| Roll | Default | Använd för |
+|---|---|---|
+| `<luna>` | GPT-5.6 Luna | sök, triage, indexering, destillering, bevakning och stora read-only-svärmar |
+| `<terra>` | GPT-5.6 Terra | implementation, orkestrering, omdöme, kodreview och Bugbot |
+| `<sol>` | GPT-5.6 Sol | explicit eskalering när Terra lämnar en hög-riskfråga olöst |
 
-- **Skicka alltid `model`** i `Task`-anropet, inklusive `bugbot`. Utelämnas den
-  ärver subagenten din egen, ofta dyra, modell — tyst.
-- **Slå upp slugen, skriv inte av den.** `<grok-4.5>` i kommandon och skills är
-  en **roll-platshållare** för den Grok-post stycket ovan pekar på — inte
-  slugen `cursor-grok-4.5`. I `git.mdc` / `pr-merge.mdc` står det «slug enligt
-  denna fil». Formen varierar mellan sessioner.
-- Välj **inte** Composer (`composer-2.5` / `composer-2.5-fast`) som default.
-- **Hård regel:** dyra tänkande modeller — i synnerhet
-  `claude-opus-5-thinking-xhigh` — får inte vara buggranskare/review-subagent
-  som default. Bara när ägaren uttryckligen ber om en specialkoll.
+Terra är normalstandard. Luna väljs när arbetet är mekaniskt, högvolym eller
+lätt att verifiera. Sol kräver ett skrivet skäl: P0/security/cross-tenant,
+irreversibel data-/migrationsrisk eller två motsägande Terra-bedömningar.
 
-Kommandot eller skillen som startar subagenten äger rollens exakta uppdrag och
-antal. Den här regeln äger enbart modellvalet.
+Användarens uttryckliga modellval vinner. Saknas rätt familj i sessionens lista:
+välj en billigare verifierbar familj eller stoppa och säg till; hoppa inte tyst
+till en dyrare thinking-modell. Begränsa antal agenter och deras svarslängd
+innan du höjer modellnivån.

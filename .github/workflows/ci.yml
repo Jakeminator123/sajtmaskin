@@ -178,6 +178,9 @@ jobs:
       - name: Verify terminology ownership
         run: npm run check:terms:contract
 
+      - name: Verify agent context budget
+        run: npm run check:agent-context
+
       - name: Verify removed v0 chat boundary
         run: npm run compat:v0-chat-boundary:check
 

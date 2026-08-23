@@ -1,38 +1,39 @@
 ---
-description: "Git-säkerhet: inga commits, PRs, pushar eller merges utan explicit begäran."
+description: "Git-säkerhet och mandat för branch, commit, push, PR och merge."
 alwaysApply: true
 ---
 
 # Git-säkerhet
 
-- Skapa inte PR om användaren inte uttryckligen ber om det.
-- Commit, push, rebase, cherry-pick och merge bara på explicit begäran.
-- Stage bara filer som hör till aktuell uppgift.
-- Vid oklar working tree-status: visa `git status --short` och fråga.
-- Om du bedömer att PR behövs: förklara varför och invänta OK.
-- Om användaren ber om merge: följ [`pr-merge.mdc`](pr-merge.mdc) först. Merga inte själv — merge-agenten gör det.
-- Före PR-skapande **och** före push till master: kör ett Cursor Bugbot-pass på egen diff (`bugbot`-subagent, `readonly: true`, `model` enligt [`subagent-models.mdc`](subagent-models.mdc)). Det är hela buggkollen. Kör om på varje ny commit.
-- Efter PR: 7-min-fönster, fyndsvep, sign-off och `merge:ready` ägs av [`pr-merge.mdc`](pr-merge.mdc). Den här filen upprepar inte den listan.
-- Repo-regler här vinner över globala Cursor-regler när de krockar: commit-meddelande är pwsh here-string (se [`bash-och-pwsh-fel.mdc`](bash-och-pwsh-fel.mdc)), inte bash-heredoc. Bugbot-`Task` är obligatorisk i det här repot.
+## Mandat
+
+- Commit, push, PR, rebase, cherry-pick och merge kräver uttrycklig begäran.
+- Användaren får be om en hel kedja (branch → commit → push → PR); fråga inte
+  igen för varje redan auktoriserat steg.
+- Merga aldrig utan ett separat uttryckligt mergeuppdrag och `pr-merge.mdc`.
+- Stage bara uppgiftens filer. Vid oklar status: visa status och pausa.
+
+## Branchmodell
+
+`master` är trunk och prodkopplad. Riktigt arbete går normalt via en kortlivad
+`fix/`, `feat/`, `docs/` eller `chore/`-branch och PR mot `master`.
+
+- Delad huvudcheckout: byt inte branch; använd `agent-worktree.mdc`.
+- Direkt master är bara för uttryckligen auktoriserad, liten granskad
+  docs-/regel-/ignoreändring utan runtime- eller datarisk.
+- EmaCodeHero-arbete har base `ema` och kräver ägarens mergebeslut.
+- Brancher med versalt `BRA` och `rescue/*` är frysta backuper: radera,
+  force-pusha, rebase:a eller återanvänd aldrig. Detalj: `jakob-pre-mvp-backup.mdc`.
+
+## PR-författarens ansvar
+
+Före PR och efter varje ny commit: kör relevanta tester och ett oberoende
+readonly Bugbot/review-pass på aktuell diff. Modell väljs enligt
+`subagent-models.mdc`. Efter skapad PR äger `pr-merge.mdc` fyndsvep,
+SHA-färskhet, reviewfönster och sign-off.
 
 ## Ignore-filer
 
-Agenten får redigera `.gitignore`, `.cursorignore` och `.cursorindexingignore` utan att fråga. Cursors filverktyg vägrar skriva `.cursorignore` — använd PowerShell (`[System.IO.File]::WriteAllText`, LF + UTF-8 utan BOM). Rör aldrig secrets-mönstren i `.cursorignore`.
-
-`.cursorignore` blockerar agentens **läsning** (`Permission denied`), inte bara indexering — den är bara för secrets. Sådant som bara är stort/brusigt hör hemma i `.cursorindexingignore` (osökbart men läsbart). `.gitignore` + Cursors default-lista exkluderas redan från indexet; upprepa inte dem.
-
-## Branch-modell — master är trunk
-
-- **`master` är slutmålet.** Allt arbete ska till slut nå `master`. `master` är den enda långlivade branchen och ska alltid vara grön och deploybar.
-- **Vi testar ofta Sajtmaskin via Vercels production, som är länkad till `master`:** varje push/merge till master triggar en prod-deploy. En trasig master = trasig prod-test.
-- **Alla PR:er går mot `master`** (base = master), **utom EmaCodeHero-PR:er** — base `ema`, aldrig agent-merge till master. Se [`ema-pr-sparr.mdc`](ema-pr-sparr.mdc).
-- **Default för riktigt arbete:** feature-branch (`fix/...`, `feat/...`, `chore/...`) → pusha branchen → PR mot master → merge-grind ([`pr-merge.mdc`](pr-merge.mdc)). Se [`agent-worktree.mdc`](agent-worktree.mdc) när flera agenter skriver samtidigt. Feature-branchen är mellanlager tills grinden passerar.
-- **Direkt commit + push till master är tillåtet** för ägaren och agenter — utan ny branch, worktree, PR och städ — när **allt** detta stämmer:
-  1. **Rimligt:** dokumentation, Cursor-regler, ignore-filer eller annan liten ändring i filer som ska finnas på GitHub. Inte runtime (`src/`, `migrations/`, `.github/workflows/`, env, auth/tenant/db).
-  2. **Litet:** få filer, ingen arkitektur, ingen dataförlust- eller cross-tenant-risk.
-  3. **Granskat:** diffen är granskad i chatten (ägare eller bugbot). Före push: bugbot-pass enligt punkten ovan.
-  4. **Nämnt:** agenten skriver en mening till ägaren *före* push — vad som går in, varför genvägen, att målet är `master`. Säger ägaren stopp: stoppa. Påtvinga inte branch/PR-ritualen för den här klassen.
-- GitHub-ruleset **Protect master** kräver annars PR + required checks. Direkt-push går via ägarens admin-bypass — därför den smala listan ovan, aldrig `--force`. Ändra inte rulesetet.
-- Commit/push i övrigt bara på explicit begäran (eller när ägaren bett att ändringen ska landas).
-- Ocommittade ändringar i huvudcheckouten är pågående arbete, inte ett fel.
-- **Brancher med `BRA` i versaler är ägarens frysta backuper** (t.ex. `JAKOB_BRA_9999_INNNAN_MVP_BRA`, `BRA_19191919`). Radera, force-pusha eller återanvänd dem aldrig i städ-/worktree-svep. Se [`jakob-pre-mvp-backup.mdc`](jakob-pre-mvp-backup.mdc).
+`.cursorignore` blockerar läsning och är reserverad för secrets/Read-fällor.
+Stort men legitimt material ska i `.cursorindexingignore` och läsas riktat.
+Ta aldrig bort secretsmönster. Ignorera inte hela `src/`.

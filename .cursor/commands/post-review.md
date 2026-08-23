@@ -48,7 +48,7 @@ Parent-agenten äger beslutet. Subagenter ger korta risksignaler, inte facit.
    - `bugagent` om kod/pipeline/API/runtime ändrats.
    - `docs-backoffice-schema-agent` om docs/schemas/backoffice/config/dossiers/scripts kan ha driftat.
    - `städagent` bara vid stor/stökig diff, cleanup/rename, eller många otrackade filer.
-   - Använd modell `<grok-4.5>` om en explicit modell väljs (scan-rollen i [`subagent-models.mdc`](../rules/subagent-models.mdc)).
+   - Använd `<luna>` för bred read-only scan och `<terra>` för kodomdöme enligt [`subagent-models.mdc`](../rules/subagent-models.mdc).
 5. Subagenternas format ska vara kort:
 
 ```text

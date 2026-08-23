@@ -40,8 +40,8 @@ policies kan äga olika beslut.
 | Vilka planer är aktiva?                   | [`plans/README.md`](plans/README.md)                                                 |
 | Vad har ägaren beslutat?                  | [`decisions/README.md`](decisions/README.md)                                         |
 
-Full terminologi finns tills vidare i
-[`architecture/glossary.md`](architecture/glossary.md). Regler för
+Kanonisk, kort terminologi finns i
+[`architecture/glossary.md`](architecture/glossary.md); slå upp relevanta termer riktat. Regler för
 dokumentationslivscykeln finns i
 [`documentation-lifecycle.md`](documentation-lifecycle.md).
 

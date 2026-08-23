@@ -1,28 +1,27 @@
 ---
-description: "Snabb repo-router: var canonical owners, docs och artefakter bor."
+description: "Snabb repo-router: välj minsta canonical owner och läs inte hela dokumentstacken."
 alwaysApply: true
 ---
 
-# Repo router
+# Repo-router
 
-Canonical owner avgörs per faktatyp. Genererad Markdown är projektion;
-handskrivna docs är mental modell. Anta inte att du ser ocommittade filer.
-
-**Startordning vid osäker yta:** `docs/README.md` → `docs/concepts/mental-model.md`
-→ `docs/architecture/code-map.md` → relevant owner. Läs inte hela stacken varje tur.
+Välj owner per faktatyp. Kod/manifest/policy äger beteende; genererad Markdown
+är projektion; handskrivna docs är mental modell. Läs bara relevant rad nedan.
 
 | Uppgift | Börja här |
 |---|---|
 | LLM/generation | `src/lib/gen/`, `docs/architecture/llm-pipeline.md` |
 | Preview/VM | `preview-host/`, `src/lib/gen/preview/` |
-| Builder UI/chat | `src/app/builder/`, `src/components/builder/` |
+| Builder/chat | `src/app/builder/`, `src/components/builder/` |
 | Deploy | `src/lib/deploy/` |
-| Env/config | `docs/ENV.md`, `config/env-policy.json` |
-| Scaffolds / variants | `src/lib/gen/scaffolds/`, `config/scaffold-variants/` |
-| Dossiers | `data/dossiers/{hard,soft}/` |
-| Eval | `src/lib/gen/eval/` — bara `npm run eval` |
+| Env/DB | exakt nyckel i `config/env-policy.json`, `docs/ENV.md`, `src/lib/db/` |
+| Scaffolds/variants | `src/lib/gen/scaffolds/`, `config/scaffold-variants/` |
+| Dossiers | `src/lib/gen/dossiers/`, `data/dossiers/{hard,soft}/` |
+| Eval | `src/lib/gen/eval/`; kör bara `npm run eval` |
 | Backoffice | `backoffice/pages/*.py` |
-| Termer / roller | `docs/architecture/glossary.md`, `agent-roles.mdc` |
+| Term | exakt rad/rubrik i `docs/architecture/glossary.md` |
+| Bugg | exakt `SM-###` i `BUG-SWARM-BACKLOG.md` |
 
-`templates_v0/` och `v0`-namn kan vara legacy eller API — verifiera mot kod.
-`_parkering/` är borttagen (historik via git).
+Vid okänd yta: `docs/README.md` → högst en relevant mental modell/kodkarta →
+runtime-owner. Läs inte hela kedjan. `templates_v0`/`v0` kan vara legacy eller
+API-versionering; verifiera mot kod.

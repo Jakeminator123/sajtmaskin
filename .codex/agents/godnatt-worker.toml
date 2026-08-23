@@ -1,7 +1,7 @@
 name = "godnatt_worker"
 description = "Implements one investigated BUG-SWARM fix inside the explicitly assigned app-isolated pass worktree and branch."
-model = "gpt-5.6-sol"
-model_reasoning_effort = "high"
+model = "gpt-5.6-terra"
+model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """

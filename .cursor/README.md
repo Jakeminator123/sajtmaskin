@@ -1,110 +1,66 @@
-# Cursor-konfiguration i detta repo
+# Cursor i detta repo
 
-## Agent: var börja?
+## Grundprincip
 
-Se [`docs/README.md`](../docs/README.md) — tunn dokumentationsrouter. Snabb ordning: `docs/README.md` → `docs/concepts/mental-model.md` → `docs/architecture/code-map.md` → `rules/terminology.mdc`.
+Cursor ska ladda så lite som möjligt. `AGENTS.md` och always-applied regler är
+startkontext; övriga regler/skills laddas först när beskrivning, glob eller
+explicit kommando matchar uppgiften. Läs aldrig hela docs-, regel- eller
+backloggstacken som rutin.
 
-## Workspace (en rot, samma verktygsinställningar)
+## Regler
 
-- **Föredra** att öppna **`sajtmaskin.code-workspace`** i repots rot (`File → Open Workspace from File…`). Den är committad, pekar på en rot (`.`) med visningsnamnet `sajtmaskin`, och håller Cursor-sessionen konsekvent. Att öppna bara mappen fungerar också, men skapa inte två parallella fönster (folder + workspace) mot samma checkout.
-- Lägg **inte** till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`) eller andra worktrees som extra workspace-mappar — det ger brus i Problems/sök.
-- **Standard:** huvudcheckouten `…\sajtmaskin` på `master` i ett eget fönster. Separata worktrees öppnas i egna fönster och tas bort när de inte längre bär unikt arbete.
-- **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`** äger resurs-/mappscopade värden. **`sajtmaskin.code-workspace`** äger de Window-scopade TypeScript-/terminalvärdena — lägg dem inte i `.vscode` (Cursor varnar, och de tillämpas ändå inte i workspace-läge). Öppna workspace-filen, inte bara mappen, så terminal och tsserver-flaggorna gäller.
-- **Tillägg:** [`.vscode/extensions.json`](../.vscode/extensions.json) (samma lista i workspace-filen). ESLint, Prettier, Tailwind IntelliSense — det `settings.json` redan antar. Codex (`openai.chatgpt`) är valfritt. markdownlint är av (`markdownlint.enable: false`); den gav bara Problems-brus.
-- **Endast Cursor**: **`.cursor/settings.json`** (t.ex. plugins). Den ersätter inte `.vscode` för vanliga tillägg.
-## Prioriteringsordning
+Frontmatter i varje `.cursor/rules/*.mdc` äger aktiveringen. Tre tunna regler
+är generella: `repo-router.mdc`, `git.mdc` och `workflow.mdc`. Övriga är
+globstyrda eller agent-requested.
 
-1. **Slash-kommandon** överstyr generella regler när de körs.
-2. **Generella regler** (`alwaysApply: true`) gäller i alla sessioner.
-3. **Glob-triggrade regler** gäller automatiskt vid relevanta filändringar.
-4. **Manuellt bifogade regler** gäller när användaren lägger till dem med `@`.
-5. "Ta inte bort om du är osäker" gäller alltid — men enkelhet är ett självständigt mål (se `workflow.mdc § Städning och scope`).
+| Uppgift | Regel |
+|---|---|
+| Hitta owner/sökväg | `repo-router.mdc` |
+| Skriva/branch/PR | `git.mdc`, `workflow.mdc`; vid parallellt arbete även `agent-worktree.mdc` |
+| Merge eller PR-efterkontroll | `pr-merge.mdc` |
+| Pipeline/scaffold/dossier/env | motsvarande globstyrd regel |
+| Terminologi | `terminology.mdc` + riktad glossary-sökning |
+| Subagenter | `subagent-models.mdc` |
+| Lokal tooling/Vercel/Supabase | `local-tooling-mcp.mdc` |
 
-## Projektregler (`.cursor/rules/*.mdc`)
+Bifoga bara den regel som äger uppgiften. `@.cursor/rules/` i sin helhet skapar
+brus och motstridiga instruktioner.
 
-Varje regels frontmatter äger själv om den är generell, glob-triggad eller
-manuellt bifogad; återge inte den klassificeringen i en parallell tabell här.
-Börja med [`repo-router.mdc`](rules/repo-router.mdc) och välj därefter ägare:
+## Skills och kommandon
 
-- ändrings-/Git-/mergeflöde: [`workflow.mdc`](rules/workflow.mdc),
-  [`git.mdc`](rules/git.mdc), [`pr-merge.mdc`](rules/pr-merge.mdc),
-  [`agent-worktree.mdc`](rules/agent-worktree.mdc),
-  [`agent-roles.mdc`](rules/agent-roles.mdc),
-- pipeline/runtime: [`pipeline-rules.mdc`](rules/pipeline-rules.mdc),
-  [`scaffold-rules.mdc`](rules/scaffold-rules.mdc),
-  [`evals.mdc`](rules/evals.mdc),
-  [`dossier-rules.mdc`](rules/dossier-rules.mdc),
-  [`db-env-parity.mdc`](rules/db-env-parity.mdc),
-  [`env-flow-f2-mute.mdc`](rules/env-flow-f2-mute.mdc),
-- plattform/tooling: [`bash-och-pwsh.mdc`](rules/bash-och-pwsh.mdc),
-  [`local-tooling-mcp.mdc`](rules/local-tooling-mcp.mdc),
-  [`useful-commands.mdc`](rules/useful-commands.mdc) (token-hygien, inte kommandolista),
-- kommunikation och scope: [`response-format.mdc`](rules/response-format.mdc),
-  [`project-phase-priorities.mdc`](rules/project-phase-priorities.mdc)
-  (MVP-bias; [`mvp-scope-freeze.mdc`](rules/mvp-scope-freeze.mdc) är bara
-  pekare, requestable),
-  [`subagent-models.mdc`](rules/subagent-models.mdc).
+`.agents/skills/` är den kanoniska skill-katalogen
+för både Cursor och andra repo-agenter. `.cursor/commands/` innehåller tunna
+slash-routrar som pekar dit. Skapa inte en andra kopia under `.cursor/skills/`.
 
-Övriga regler väljs direkt från `.cursor/rules/` efter filens `description` och
-`globs`. I chat: bifoga **bara den regel som äger uppgiften** (`@` + sökväg).
-Dumpa inte hela `.cursor/rules/`.
+Stora workflow-skills (`/automat`, `/kedja`, `/818`, `/logg`,
+`/logg-internet`, `/godnatt-bugg`) ska bara läsas när de anropas. Ladda inte
+både en lång command-text och samma skillrecept.
 
-## Terminologi
+## Stora sanningskällor
 
-**Kanonisk och enda ordlista:** [`docs/architecture/glossary.md`](../docs/architecture/glossary.md) — kärntermer, namnskuggor, legacy, URL-nivåer, fas-skillnad och agent-/modellplan.
+- Glossary: sök exakt term/rubrik i `docs/architecture/glossary.md`.
+- Backlogg: sök exakt `SM-###` eller sektion i `BUG-SWARM-BACKLOG.md`.
+- Env: sök exakt nyckel i `config/env-policy.json`/`docs/ENV.md`.
+- Runtimeinventarier: använd `docs/generated/` eller respektive registry.
 
-**Tunn terminologirouter:** [rules/terminology.mdc](rules/terminology.mdc) — always-applied pekare till glossaryn utan en parallell ordlista.
+`BUG-SWARM-BACKLOG.md` ligger utanför semantisk indexering men är fortsatt
+läsbar och kanonisk. `övrigt/` är användarens gitignorerade, icke-kanoniska
+arbetsyta och ligger också utanför indexet.
 
-I chat: `@terminology` eller `@.cursor/rules/terminology.mdc`.
+## Ignore-filer
 
-## Schemas
+- `.cursorignore` blockerar läsning: endast secrets och extrema Read-fällor.
+- `.cursorindexingignore` blockerar bara indexering: stora artefakter, loggar,
+  historik och operativa jättedokument som fortfarande kan behöva läsas riktat.
+- Ignorera aldrig hela `src/`; det tvingar agenten till dyrare omvägar.
 
-**Human-readable:** [`docs/schemas/`](../docs/schemas/) — kontrakt och fältformer för människor.
+## Workspace
 
-**Strict (machine-readable):** [`docs/schemas/strict/`](../docs/schemas/strict/) — JSON schemas för tooling och validering.
+Öppna `sajtmaskin.code-workspace` som en enda rot. Separata worktrees öppnas i
+separata fönster. Lokal MCP-runtime är `.cursor/mcp.json` (gitignorerad); den
+spårade mallen är `.cursor/mcp.json.example`.
 
-Canonical owner avgörs per faktatyp enligt
-[`docs/documentation-lifecycle.md`](../docs/documentation-lifecycle.md).
-Strict schemas speglar runtime-typer där sådana äger formen; de blir inte en
-parallell owner.
+## Kontroller
 
-## Slash-kommandon (`.cursor/commands/*.md`)
-
-Kommandofilens instruktion är ägare; README:t återger inte dess steg, antal
-agenter eller historiska defaults. Se [`commands/`](commands/) och börja med
-den namngivna filen, till exempel [`scout.md`](commands/scout.md),
-[`builder.md`](commands/builder.md), [`steward.md`](commands/steward.md),
-[`automat.md`](commands/automat.md),
-[`kedja.md`](commands/kedja.md), [`avslutning.md`](commands/avslutning.md),
-[`buggrapport.md`](commands/buggrapport.md), [`pr-herde.md`](commands/pr-herde.md),
-[`logg.md`](commands/logg.md) eller
-[`logg-internet.md`](commands/logg-internet.md). När ett kommando delegerar till
-en skill äger dess länkade `SKILL.md` detaljflödet.
-
-Modellval för alla subagenter ägs av
-[`rules/subagent-models.mdc`](rules/subagent-models.mdc); respektive command
-eller skill äger sin rollindelning. Kopiera inte modellsluggar eller mätdata hit.
-
-## Backoffice
-
-**Kanonisk Streamlit-app:** `backoffice/` (sidmoduler, delad logik i `backoffice/shared.py`).
-
-**Entrypoint:** `npm run backoffice` från repo-rot (kanonisk, plattformsoberoende). Direktanrop `python(3) sajtmaskin_backoffice.py` fungerar också.
-
-**Domänkarta:** `config/backoffice/domain-map.json` — mappar Backoffice-vyer till kanoniska sökvägar, docs och kodsanningar.
-
-## Flera agenter / parallellt arbete
-
-Rollerna Scout / Builder / Steward och säte A/B ägs av
-[`rules/agent-roles.mdc`](rules/agent-roles.mdc). Branch-/worktree-regler ägs av
-[`rules/agent-worktree.mdc`](rules/agent-worktree.mdc). Scope, staging och
-verifiering ägs av [`rules/workflow.mdc`](rules/workflow.mdc) och
-[`rules/git.mdc`](rules/git.mdc).
-
-## MCP (`mcp.json`)
-
-Cursor läser den lokala **`.cursor/mcp.json`** (riktig runtime-fil, gitignorerad
-just därför). Den spårade mallen är [`.cursor/mcp.json.example`](mcp.json.example).
-Installation, synk, varför mallen är spårad och dev/prod-säkerhet ägs av
-[`rules/local-tooling-mcp.mdc`](rules/local-tooling-mcp.mdc) och
-[`rules/project-phase-priorities.mdc`](rules/project-phase-priorities.mdc).
+`npm run check:agent-context` håller budget för AGENTS, always-regler, glossary,
+merge-regel och dubbla skills. Vanliga repo-kontroller väljs via `workflow.mdc`.

@@ -3,7 +3,7 @@
 # Project-scoped Codex defaults for Sajtmaskin.
 # Keep provider/auth/token settings in ~/.codex/config.toml, not in this repo.
 
-model_reasoning_effort = "high"
+model_reasoning_effort = "medium"
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 web_search = "cached"
@@ -18,8 +18,8 @@ sandbox = "elevated"
 
 [agents]
 enabled = true
-default_subagent_reasoning_effort = "high"
-max_concurrent_threads_per_session = 8
+default_subagent_reasoning_effort = "medium"
+max_concurrent_threads_per_session = 4
 
 [shell_environment_policy]
 # Do not forward KEY/SECRET/TOKEN variables by default. Sajtmaskin should load

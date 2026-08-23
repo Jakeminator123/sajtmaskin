@@ -128,7 +128,7 @@ branch/PR. Release bevarar current/stage men släpper runner-leasen.
 ## Desktop-automation
 
 Automationens stabila id är godnatt-bugg. Den ska vara projektbunden,
-worktree-isolerad och initialt PAUSED. Modell: gpt-5.6-sol. Reasoning: xhigh.
+worktree-isolerad och initialt PAUSED. Modell: gpt-5.6-terra. Reasoning: high.
 Femminuterstickens prompt:
 
     Use $godnatt-bugg scheduled to resume exactly one safe pass. Never begin or promote a batch. Pause this automation when state is paused, completed, or missing.

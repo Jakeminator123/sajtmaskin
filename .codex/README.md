@@ -56,10 +56,10 @@ genom färsk revalidering, app-isolerat pass-worktree, implementation, oberoende
 review, draft-PR, repo-gate, merge och säker cleanup. Den använder tre
 projektprofiler:
 
-- `.codex/agents/godnatt-investigator.toml` — skrivskyddad GPT-5.6 sol xhigh.
-- `.codex/agents/godnatt-worker.toml` — avgränsad GPT-5.6 sol high i angivet
+- `.codex/agents/godnatt-investigator.toml` — skrivskyddad GPT-5.6 Terra high.
+- `.codex/agents/godnatt-worker.toml` — avgränsad GPT-5.6 Terra medium i angivet
   app-worktree.
-- `.codex/agents/godnatt-reviewer.toml` — skrivskyddad GPT-5.6 sol xhigh.
+- `.codex/agents/godnatt-reviewer.toml` — skrivskyddad GPT-5.6 Terra high.
 
 Native skill-anrop använder dollarformen. Slashformen förstås som vanligt
 språk:

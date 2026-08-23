@@ -32,4 +32,4 @@ Lokal **rapportfabrik** för `/automat` — sekventiella read-only audit-svärma
 
 - `/automat` → 3 rundor: scan → falsifiera → scan. 8 agenter per scan-runda.
 - `/automat 7` → 7 rundor sekventiellt, växlande scan och falsifiering.
-- Detaljer: [`.cursor/commands/automat.md`](../commands/automat.md) och [`.cursor/skills/automat-swarm/SKILL.md`](../skills/automat-swarm/SKILL.md).
+- Detaljer: [`.cursor/commands/automat.md`](../commands/automat.md) och [`.agents/skills/automat-swarm/SKILL.md`](../../.agents/skills/automat-swarm/SKILL.md).

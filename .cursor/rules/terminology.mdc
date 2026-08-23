@@ -1,22 +1,19 @@
 ---
-description: "Terminologi och namnskuggor: använd etablerade begrepp och undvik nya ord utan skäl."
-alwaysApply: true
+description: "Läs när en Sajtmaskin-term är oklar eller när terminologisemantik ändras; gör riktade glossary-uppslag."
+alwaysApply: false
 ---
 
 # Terminologi
 
-**Kanonisk och enda ordlista:** [`docs/architecture/glossary.md`](../../docs/architecture/glossary.md). Slå upp [kärntermer](../../docs/architecture/glossary.md#kärntermer) och [namnskuggor/legacy](../../docs/architecture/glossary.md#namnskuggor-och-legacy) där när ett ord är oklart. `config/naming-dictionary.json` innehåller bara maskinregler för validering och är inte en andra ordlista.
+`docs/architecture/glossary.md` är enda mänskliga semantikägaren.
+`config/naming-dictionary.json` är bara maskinmatchning.
 
-Inför inte nya svåra begrepp om ett befintligt ord räcker. Ändrar en term semantik: uppdatera glossaryn **och** den faktiska signalägaren.
+- Sök exakt term eller rubrik; läs inte hela glossaryn som startkontext.
+- Inför inte ett nytt begrepp när ett etablerat räcker.
+- Ändrad semantik kräver glossary + den faktiska runtime-ownern.
+- Kodidentifierare/event/DB-strängar behåller legacy-namn; mappa dem i text.
+- Template/import, Scaffold och Dossier är olika system.
+- Prompt-assist, Briefing/Deep Brief och Orkestrering är olika lager.
+- Builder-agenten är inte produktens Builder-UI; Steward är merge/städ.
 
-Kodidentifierare, filnamn, telemetri-nycklar, event-typer, enum-värden och DB-strängar behåller sina legacy-namn — mappa i text i stället för att döpa om.
-
-**Viktig förväxling:** en importerad Template/ZIP/GitHub körs i **Importerat repo-läge**. Den importerade projektkontexten är Dynamic Context, inte builderns `Scaffold: Av`-basprojekt och inte en syntetisk Scaffold.
-
-**Viktig förväxling:** **Prompt-assist** är knappen bredvid Plan i chattinputen (rättar/strukturerar utkastet, naturligt språk). Det är inte Deep Brief, inte Orkestrering och inte Sajtagenten/OpenClaw. Kodnyckeln `promptAssist` är legacy för Deep Brief-modellen.
-
-**Viktig förväxling:** **Briefing** är lagret före kodgeneratorn. **Deep Brief** är ett LLM-läge i det lagret, inte hela lagret. Ändringsbrief och Snapshot-Brief är andra lägen. Scaffold-valet är Orkestrering (kod), inte en modell.
-
-**Viktig förväxling:** **rollen Builder** är en Cursor-agent som skriver kod. Den är inte produktens Builder-UI. **Steward** är förvaltaren (merge/städ); **Stewart** är samma roll. Se [agentroller](../../docs/architecture/glossary.md#kärntermer) och [`agent-roles.mdc`](agent-roles.mdc).
-
-**Signal-gate:** ny signal? Hitta canonical source först. Ändra ägaren, inte fem konsumenter.
+Ny signal: hitta canonical source först och ändra ägaren, inte fem konsumenter.

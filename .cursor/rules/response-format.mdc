@@ -1,6 +1,6 @@
 ---
 description: "Svarsformat för Cursor-agenter: kort, tydligt, svenska, tabeller när det hjälper."
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Svarsformat
