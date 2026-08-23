@@ -33,7 +33,7 @@ kodkartan när ett ansvar flyttar; skapa inte en parallell sökvägstabell här.
 ## Dokumentation
 
 1. [`docs/README.md`](docs/README.md) — dokumentationsrouter.
-2. [`FUSKLAPP-BYGGBLOCK.md`](FUSKLAPP-BYGGBLOCK.md) — Byggblock/dossiers på en sida
+2. [`övrigt/FUSKLAPP-BYGGBLOCK.md`](övrigt/FUSKLAPP-BYGGBLOCK.md) — Byggblock/dossiers på en sida
    (inga poolantal; koden vinner vid drift).
 3. [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md)
    — stabil huvudloop.
@@ -53,4 +53,4 @@ per ändringstyp finns i [`.cursor/rules/workflow.mdc`](.cursor/rules/workflow.m
 Token-hygien för agenter:
 [`.cursor/rules/useful-commands.mdc`](.cursor/rules/useful-commands.mdc).
 Manuella underhållsknappar (scratch, worktrees, env) som CI _inte_ kör:
-[`UNDERHALL.md`](UNDERHALL.md).
+[`övrigt/UNDERHALL.md`](övrigt/UNDERHALL.md).

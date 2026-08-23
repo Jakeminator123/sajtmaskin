@@ -79,7 +79,7 @@ Att lämna frågan obesvarad är inte ett tredje alternativ.
 ## Agentprompt
 
 > Du arbetar i Sajtmaskin. Läs först `AGENTS.md`,
-> `docs/contracts/dossier-system.md`, `FUSKLAPP-BYGGBLOCK.md` och
+> `docs/contracts/dossier-system.md`, `övrigt/FUSKLAPP-BYGGBLOCK.md` och
 > `.cursor/rules/workflow.mdc`. Läs sedan
 > `docs/plans/active/2026-08-19-dossier-forenkling/00-master-plan.md` — det äger
 > spårets gränser — och den här filen.

@@ -5,7 +5,7 @@ Tunn pekare — canonical innehåll finns redan i `docs/` och `.cursor/rules/`.
 ## Läs i denna ordning innan du börjar
 
 1. [`docs/README.md`](docs/README.md) — dokumentationsnav
-2. [`FUSKLAPP-BYGGBLOCK.md`](FUSKLAPP-BYGGBLOCK.md) — Byggblock/dossiers på en sida (koden vinner)
+2. [`övrigt/FUSKLAPP-BYGGBLOCK.md`](övrigt/FUSKLAPP-BYGGBLOCK.md) — Byggblock/dossiers på en sida (koden vinner)
 3. [`docs/concepts/mental-model.md`](docs/concepts/mental-model.md) — stabil mental modell
 4. [`docs/architecture/code-map.md`](docs/architecture/code-map.md) — kodkarta
 5. [`docs/architecture/glossary.md`](docs/architecture/glossary.md) — kanonisk ordlista

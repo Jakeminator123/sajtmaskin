@@ -11,7 +11,8 @@ policies kan äga olika beslut.
 | Vilken produktvision styr arbetet?        | [`övergripande-vision-och-mål.md`](övergripande-vision-och-mål.md)                   |
 | Vad är huvudflödet?                       | [`architecture/system-overview.md`](architecture/system-overview.md)                 |
 | Hur hänger begreppen ihop?                | [`concepts/mental-model.md`](concepts/mental-model.md)                               |
-| Byggblock/dossiers på en sida             | [`../FUSKLAPP-BYGGBLOCK.md`](../FUSKLAPP-BYGGBLOCK.md)                               |
+| Byggblock/dossiers på en sida             | [`../övrigt/FUSKLAPP-BYGGBLOCK.md`](../övrigt/FUSKLAPP-BYGGBLOCK.md)                 |
+| GitHub/Vercel/Fly/Supabase på en sida     | [`../övrigt/FUSKLAPP-TOOLING.md`](../övrigt/FUSKLAPP-TOOLING.md)                     |
 | Var bor koden?                            | [`architecture/code-map.md`](architecture/code-map.md)                               |
 | Hur fungerar init och follow-up?          | [`concepts/init-and-follow-up.md`](concepts/init-and-follow-up.md)                   |
 | Hur skiljer sig designläge och integrationsbygge? | [`concepts/f2-and-f3.md`](concepts/f2-and-f3.md)                               |
@@ -36,7 +37,7 @@ policies kan äga olika beslut.
 | Vad applicerar DB-migrationerna?          | [`runbooks/db-migrations.md`](runbooks/db-migrations.md)                             |
 | Hur aktiveras varumärkta användar-URL:er? | [`runbooks/branded-user-urls.md`](runbooks/branded-user-urls.md)                     |
 | Var hamnar appens console-loggar?         | [`runbooks/vercel-log-drain.md`](runbooks/vercel-log-drain.md)                       |
-| Vilka manuella underhållsknappar?         | [`../UNDERHALL.md`](../UNDERHALL.md)                                                 |
+| Vilka manuella underhållsknappar?         | [`../övrigt/UNDERHALL.md`](../övrigt/UNDERHALL.md)                                   |
 | Vilka planer är aktiva?                   | [`plans/README.md`](plans/README.md)                                                 |
 | Vad har ägaren beslutat?                  | [`decisions/README.md`](decisions/README.md)                                         |
 
