@@ -2,18 +2,18 @@
   // Öppna denna fil i Cursor (File → Open Workspace from File…).
   // En rot = huvudcheckouten. Lägg inte till worktrees eller globala Cursor-mappar här.
   //
-  // Editor-settings bor i .vscode/settings.json (canonical). Resurs-/mappscopade
-  // värden gäller även här; de sex Window-scopade undantagen speglas nedan.
+  // Resurs-/mappscopade editor-settings bor i .vscode/settings.json.
+  // Window-scopade TypeScript-/terminalvärden ägs här (annars gula varningar
+  // i .vscode/settings.json, och VS Code ignorerar dem i workspace-läge).
   "folders": [
     {
       "name": "sajtmaskin",
       "path": "."
     }
   ],
-  // `.vscode/settings.json` är canonical. VS Code ignorerar dock dess
-  // Window-scopade värden i `.code-workspace`-läge, så bara de speglas här.
+  // Window-scope: måste ligga i den här filen, inte i .vscode/settings.json.
   "settings": {
-    "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+    "js/ts.tsserver.experimental.enableProjectDiagnostics": false,
     "terminal.integrated.defaultProfile.windows": "PowerShell 7 (x64)",
     "terminal.integrated.profiles.windows": {
       "PowerShell 7 (x64)": {
@@ -40,6 +40,10 @@
   },
   "extensions": {
     "recommendations": [
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      "bradlc.vscode-tailwindcss",
+      "DavidAnson.vscode-markdownlint",
       "openai.chatgpt"
     ]
   }
