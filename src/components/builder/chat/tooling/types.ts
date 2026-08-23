@@ -56,6 +56,8 @@ export type AgentLogItem = {
   label: string;
   /** Satt bara när steget faktiskt felade, så en bock aldrig hamnar på ett fel. */
   failed?: boolean;
+  /** Long body — when set the row is a nested collapsible in the init log. */
+  detail?: string;
 };
 
 export type ToolQuestionPrompt = {

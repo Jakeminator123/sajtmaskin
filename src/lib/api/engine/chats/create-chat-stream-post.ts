@@ -1075,6 +1075,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               buildSpec: orchestrationBase.buildSpec,
               engineSystemPromptLength: engineSystemPrompt.length,
               metaBriefApplied: Boolean(metaBrief),
+              metaBrief,
               customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
               scaffoldId: resolvedScaffold?.id ?? null,
               variantId: finalized.variantId,

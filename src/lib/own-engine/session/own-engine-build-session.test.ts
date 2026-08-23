@@ -251,6 +251,47 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
     });
   });
 
+  it("exposes Deep Brief reasoning on new-chat meta and ritning when reasoning is missing", () => {
+    const withReasoning = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "new-chat",
+      chatPrivacy: "private",
+      scaffoldLabel: null,
+      metaBriefApplied: true,
+      metaBrief: {
+        oneSentencePitch: "Ett kafé i Malmö.",
+        reasoningSummary: "Jag håller sajten till en sida.",
+      },
+    });
+    expect(withReasoning.deepBriefReasoning).toBe("Jag håller sajten till en sida.");
+    expect(withReasoning.deepBriefBlueprint).toBeUndefined();
+
+    const ritningOnly = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "new-chat",
+      chatPrivacy: "private",
+      scaffoldLabel: null,
+      metaBriefApplied: true,
+      metaBrief: {
+        oneSentencePitch: "Ett kafé i Malmö.",
+      },
+    });
+    expect(ritningOnly.deepBriefReasoning).toBeUndefined();
+    expect(ritningOnly.deepBriefBlueprint).toContain("Pitch: Ett kafé i Malmö.");
+
+    const followUp = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "follow-up",
+      metaBriefApplied: true,
+      metaBrief: {
+        oneSentencePitch: "Ett kafé i Malmö.",
+        reasoningSummary: "Ska inte synas på follow-up.",
+      },
+    });
+    expect(followUp.deepBriefReasoning).toBeUndefined();
+    expect(followUp.deepBriefBlueprint).toBeUndefined();
+  });
+
   it("carries a non-empty source receipt and omits an empty one", () => {
     const sources = [
       {

@@ -6,6 +6,7 @@ import {
   appendToolPartToMessage,
   buildStreamErrorMessage,
   resolveDeepBriefModelInfoFields,
+  resolveDeepBriefVisibilityFields,
   updateCreateChatLockChatId,
 } from "./helpers";
 import type { StreamContext, StreamRunState } from "./stream-handlers-types";
@@ -34,6 +35,11 @@ export function handleMetaEvent(
     promptAssistModel: ctx.promptAssistModel,
     promptAssistDeep: ctx.promptAssistDeep,
   });
+  const deepBriefVisibility = resolveDeepBriefVisibilityFields({
+    briefUsedThisTurn,
+    meta,
+    initBrief: ctx.initBrief,
+  });
   appendModelInfoPart(ctx.setMessages, ctx.assistantMessageId, {
     modelId: (meta.modelId as string) ?? ctx.selectedModelTier,
     modelTier:
@@ -50,6 +56,8 @@ export function handleMetaEvent(
     promptAssistProvider: deepBrief.promptAssistProvider,
     promptAssistModel: deepBrief.promptAssistModel,
     promptAssistDeep: deepBrief.promptAssistDeep,
+    deepBriefReasoning: deepBriefVisibility.deepBriefReasoning,
+    deepBriefBlueprint: deepBriefVisibility.deepBriefBlueprint,
     scaffoldId: typeof meta.scaffoldId === "string" ? meta.scaffoldId : null,
     scaffoldLabel: typeof meta.scaffoldLabel === "string" ? meta.scaffoldLabel : null,
     capabilities: meta.capabilities && typeof meta.capabilities === "object" ? meta.capabilities as Record<string, boolean> : null,

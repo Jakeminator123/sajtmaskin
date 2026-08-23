@@ -213,6 +213,10 @@ export type ModelInfoData = {
   systemPromptLength?: number | null;
   briefApplied?: boolean | null;
   customInstructionsLength?: number | null;
+  /** generateObject reasoning for the init Deep Brief; omitted on cache/absence. */
+  deepBriefReasoning?: string | null;
+  /** Fallback ritning when reasoning is missing. */
+  deepBriefBlueprint?: string | null;
 };
 
 export type IntegrationSseSignal = {

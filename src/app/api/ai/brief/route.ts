@@ -22,6 +22,7 @@ import {
   readBriefCache,
   writeBriefCache,
 } from "@/lib/api/ai/brief-cache";
+import { omitBriefReasoningSummary } from "@/lib/builder/deep-brief-visibility";
 import { FEATURES } from "@/lib/config";
 import { incBriefCache } from "@/lib/observability/metrics";
 
@@ -32,7 +33,20 @@ type CachedBriefPayload = {
   brief: Record<string, unknown>;
   briefQuality: "full" | "server-auto";
   provider: "openai" | "anthropic";
+  /** Absent on `brief:v1:` entries written before reasoning was persisted. */
+  reasoningSummary?: string | null;
 };
+
+function briefResponseBody(
+  brief: Record<string, unknown>,
+  reasoningSummary: string | null | undefined,
+): Record<string, unknown> {
+  const clean = omitBriefReasoningSummary(brief) ?? brief;
+  if (typeof reasoningSummary === "string" && reasoningSummary.trim()) {
+    return { ...clean, reasoningSummary: reasoningSummary.trim() };
+  }
+  return clean;
+}
 
 function buildBriefHeaders(
   payload: CachedBriefPayload,
@@ -159,9 +173,12 @@ export async function POST(req: Request) {
               traceId: trace.traceId,
               promptHash: trace.promptHash,
             });
-            return NextResponse.json(payload.brief, {
-              headers: buildBriefHeaders(payload, "hit", trace),
-            });
+            return NextResponse.json(
+              briefResponseBody(payload.brief, payload.reasoningSummary),
+              {
+                headers: buildBriefHeaders(payload, "hit", trace),
+              },
+            );
           }
         }
       } else {
@@ -189,7 +206,7 @@ export async function POST(req: Request) {
             { status: 422 },
           );
         }
-        const { brief, provider: briefProvider } = result;
+        const { brief, provider: briefProvider, reasoningSummary } = result;
         // `/api/ai/brief` is always triggered explicitly by the client (via
         // useInitBrief), so the output quality is always "full". The
         // alternative "server-auto" value is reserved for implicit briefs
@@ -198,9 +215,10 @@ export async function POST(req: Request) {
         // consumer treats both schema variants as a "full" brief.
         const briefQuality: "full" | "server-auto" = "full";
         const payload: CachedBriefPayload = {
-          brief: brief as Record<string, unknown>,
+          brief: omitBriefReasoningSummary(brief) ?? brief,
           briefQuality,
           provider: briefProvider,
+          ...(reasoningSummary ? { reasoningSummary } : {}),
         };
 
         if (FEATURES.useRedisCache) {
@@ -217,7 +235,7 @@ export async function POST(req: Request) {
         }
 
         const cacheState = FEATURES.useRedisCache ? "miss" : "skip";
-        return NextResponse.json(brief, {
+        return NextResponse.json(briefResponseBody(brief, reasoningSummary), {
           headers: buildBriefHeaders(payload, cacheState, result.trace),
         });
       } catch (briefErr) {

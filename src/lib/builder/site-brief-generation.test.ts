@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
+  briefGenerateObjectProviderOptions,
   briefRequestSchema,
   buildBriefTrace,
   resolveServerAutoBriefPreferredModel,
-  SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS,
   simplifiedBriefSchema,
   siteBriefSchema,
 } from "./site-brief-generation";
@@ -136,7 +136,19 @@ describe("siteBriefSchema", () => {
     // helt-required får flaggan tas bort, och tar man bort flaggan måste
     // schemat först göras strict-safe. Ett enda villkor, alltid utvärderat.
     const strictSafe = optionalJsonSchemaPaths(simplifiedBriefSchema).length === 0;
-    const sentNonStrict = SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS.openai.strictJsonSchema === false;
+    // Vakta vägen som faktiskt anropar generateObject, inte konstanten vid
+    // sidan om: en inlinead flagga i helpern skulle annars göra testet ihåligt.
+    const sentNonStrict = (
+      [
+        ["openai", "gpt-5.6-sol"],
+        ["openai", "gpt-4o"],
+        ["anthropic", "claude-sonnet-4-5"],
+      ] as const
+    ).every(
+      ([provider, modelId]) =>
+        briefGenerateObjectProviderOptions(provider, modelId, true).providerOptions?.openai
+          .strictJsonSchema === false,
+    );
 
     expect(strictSafe || sentNonStrict).toBe(true);
   });

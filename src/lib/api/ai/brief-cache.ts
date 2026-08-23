@@ -4,6 +4,8 @@
  * Identical prompts (refresh / retry / multiple variants of the same model)
  * skip the LLM round-trip and replay the previously generated brief. Keys are
  * versioned so a future shape change can be rolled out by bumping the prefix.
+ * Optional sibling fields (e.g. `reasoningSummary`) stay on `brief:v1:` —
+ * old entries simply omit them and the UI falls back to the ritning.
  *
  * Audit reference: `docs/reports/audit-2026-04-20-komplexitet-vs-varde/02-forbattringar.md` §2.7.
  */

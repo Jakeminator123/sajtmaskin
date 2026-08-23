@@ -296,6 +296,58 @@ describe("StructuredToolParts", () => {
     ).toBe("Quality gate • Förbereder");
   });
 
+  it("inserts a collapsible Deep Brief reasoning row after the provider/model facts", () => {
+    expect(
+      buildAgentLogItems([
+        {
+          type: "tool",
+          tool: {
+            type: "tool:model-info",
+            toolName: "Model info",
+            state: "output-available",
+            output: {
+              steps: [
+                "Körmodell: gpt-5.6-sol",
+                "Deep Brief-provider: OpenAI",
+                "Deep Brief-modell: GPT-5.6 Sol",
+                "Brief: applicerad",
+              ],
+              deepBriefReasoning: "Jag håller sajten till en sida.",
+            },
+          },
+        } as never,
+      ]),
+    ).toEqual([
+      { label: "Körmodell: gpt-5.6-sol" },
+      { label: "Deep Brief-provider: OpenAI" },
+      { label: "Deep Brief-modell: GPT-5.6 Sol" },
+      { label: "Deep Brief (resonemang)", detail: "Jag håller sajten till en sida." },
+      { label: "Brief: applicerad" },
+    ]);
+  });
+
+  it("falls back to Deep Brief (ritning) when reasoning is missing", () => {
+    expect(
+      buildAgentLogItems([
+        {
+          type: "tool",
+          tool: {
+            type: "tool:model-info",
+            toolName: "Model info",
+            state: "output-available",
+            output: {
+              steps: ["Deep Brief-provider: OpenAI"],
+              deepBriefBlueprint: "Pitch: Ett kafé.",
+            },
+          },
+        } as never,
+      ]),
+    ).toEqual([
+      { label: "Deep Brief-provider: OpenAI" },
+      { label: "Deep Brief (ritning)", detail: "Pitch: Ett kafé." },
+    ]);
+  });
+
   it("extracts detailed server-repair steps for the agent log", () => {
     expect(
       buildAgentLogItems([

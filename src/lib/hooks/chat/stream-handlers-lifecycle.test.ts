@@ -140,4 +140,37 @@ describe("handleMetaEvent — Deep Brief labels", () => {
     expect(steps.some((step) => step.startsWith("Deep Brief-provider:"))).toBe(false);
     expect(steps.some((step) => step.startsWith("Deep Brief-modell:"))).toBe(false);
   });
+
+  it("stores Deep Brief reasoning from SSE meta on the model-info part", () => {
+    const store = createMessageStore();
+    handleMetaEvent(
+      { modelId: "gpt-5.5", briefApplied: true, deepBriefReasoning: "Jag planerar en enkelsida." },
+      createState(),
+      createCtx(store.setMessages, { streamType: "create", briefUsedThisTurn: true }),
+    );
+
+    const part = store.getMessages()[0]?.uiParts?.find(
+      (entry) => (entry as { type?: string }).type === "tool:model-info",
+    ) as { output?: { deepBriefReasoning?: unknown } } | undefined;
+    expect(part?.output?.deepBriefReasoning).toBe("Jag planerar en enkelsida.");
+  });
+
+  it("falls back to the client brief ritning when SSE meta has no reasoning", () => {
+    const store = createMessageStore();
+    handleMetaEvent(
+      { modelId: "gpt-5.5", briefApplied: true },
+      createState(),
+      createCtx(store.setMessages, {
+        streamType: "create",
+        briefUsedThisTurn: true,
+        initBrief: { oneSentencePitch: "Ett kafé i Malmö." },
+      }),
+    );
+
+    const part = store.getMessages()[0]?.uiParts?.find(
+      (entry) => (entry as { type?: string }).type === "tool:model-info",
+    ) as { output?: { deepBriefBlueprint?: unknown; deepBriefReasoning?: unknown } } | undefined;
+    expect(part?.output?.deepBriefReasoning).toBeNull();
+    expect(part?.output?.deepBriefBlueprint).toContain("Pitch: Ett kafé i Malmö.");
+  });
 });

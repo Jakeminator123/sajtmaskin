@@ -17,6 +17,7 @@ import {
   appendModelInfoPart,
   appendPromptStrategyPart,
   resolveDeepBriefModelInfoFields,
+  resolveDeepBriefVisibilityFields,
   buildApiErrorMessage,
   buildCreateChatKey,
   clearCreateChatLock,
@@ -246,11 +247,17 @@ export function useCreateChat(
           data?.meta && typeof data.meta === "object"
             ? (data.meta as Record<string, unknown>)
             : null;
+        const briefUsedThisTurn = requestIncludedBrief || meta?.briefApplied === true;
         const deepBrief = resolveDeepBriefModelInfoFields({
           isInitTurn: true,
-          briefUsedThisTurn: requestIncludedBrief || meta?.briefApplied === true,
+          briefUsedThisTurn,
           promptAssistModel,
           promptAssistDeep,
+        });
+        const deepBriefVisibility = resolveDeepBriefVisibilityFields({
+          briefUsedThisTurn,
+          meta,
+          initBrief: pendingBriefRef?.current ?? null,
         });
         appendModelInfoPart(setMessages, assistantMessageId, {
           modelId:
@@ -271,6 +278,8 @@ export function useCreateChat(
           promptAssistProvider: deepBrief.promptAssistProvider,
           promptAssistModel: deepBrief.promptAssistModel,
           promptAssistDeep: deepBrief.promptAssistDeep,
+          deepBriefReasoning: deepBriefVisibility.deepBriefReasoning,
+          deepBriefBlueprint: deepBriefVisibility.deepBriefBlueprint,
           mutedCapabilityLabels: Array.isArray(meta?.mutedCapabilityLabels)
             ? (meta.mutedCapabilityLabels as string[])
             : null,
@@ -641,6 +650,7 @@ export function useCreateChat(
               promptAssistModel,
               promptAssistDeep,
               briefUsedThisTurn: requestIncludedBrief,
+              initBrief: pendingBriefRef?.current ?? null,
             },
             streamController.signal,
           );
