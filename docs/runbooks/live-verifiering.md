@@ -33,7 +33,6 @@ listas i kolumnen *Extra*.
 | Media `/api/uploads/media` | Nås fallbacken från preview-VM? | Bara om sajten faktiskt hämtar media där |
 | Font mest Inter | Variant→font-parning syns i output? | Glance i preview/filer, inte eval |
 | `SM-014` (Aktiv kö) | Halvfärdig iframe innan runtime redo? | Titta när overlayen släpper |
-| `SM-018` (Aktiv kö) | Aktiv flik följer intern iframe-navigation? | Klicka runt om sajten har flera sidor |
 | `SM-032` (Aktiv kö) | Maps-autocomplete blockerad av CSP på `/`? | Landing före builder |
 | `SM-035` (Aktiv kö) | Fly `npm install` exit 254 / preview startar inte? | Preview-host-logg via `/logg` |
 | `SM-037` (Aktiv kö) | next-themes hydration-mismatch i console? | Preview-iframe console |
@@ -98,7 +97,7 @@ one-page-premissen på init):
 2. **Uppföljning 1:** lägg till en synlig sektion (priser/paket) — tvingar
    v2 och därmed `SM-025`.
 3. **Uppföljning 2:** antingen quick edit (Fast Edit Lane) **eller** «lägg
-   till blogg» (`SM-038` / `SM-018`).
+   till blogg» (`SM-038`).
 4. **Efter preview:** «Lägg till» → Block/`hero1`; versionspanel
    (`SM-017`/`SM-031`); diagnos om den finns (`SM-039`).
 5. **Före Fritext:** 10 s på `/` — Maps (`SM-032`) och WebGL-scenen.

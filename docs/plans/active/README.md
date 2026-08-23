@@ -15,7 +15,7 @@ Vågschemat 20 aug är avklarat. Ta en rad ur `## Aktiv kö`, inte en planmapp.
 
 | Spår | Vad | Styrdokument |
 |---|---|---|
-| Bug-kö | **Start här.** 16 öppna rader; senaste arkivering är `SM-021` i draft #1108. | [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) |
+| Bug-kö | **Start här.** 15 öppna rader; senaste arkivering är `SM-018` via mergade #1126 / `42a00f9d`. | [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) |
 | Scaffold-komposition + städ | K1–K4 mergade (#1094/#1093/#1092/#1091). K5 housekeeping i `chore/k5-housekeeping-sweep`. | [`2026-08-21-scaffold-komposition-och-stad/00-master-plan.md`](2026-08-21-scaffold-komposition-och-stad/00-master-plan.md) |
 | Live-review `SM-070` | Grant och atomisk claim/cache landade i #1089/#1098; flaggan är av. Kvar före Preview: beständig betald attempt-budget över persistfel/abandon, overwrite-säker Blob-retry, schemalagd 7d-purge, chat-delete-hook samt omprövning och eventuell portning av godkänd relevant #1116-överlapp. #1116 behöver inte mergas. Production kräver separat ägaråtgärd. | [`2026-08-20-live-review/00-master-plan.md`](2026-08-20-live-review/00-master-plan.md) + [`01-preview-smoke.md`](2026-08-20-live-review/01-preview-smoke.md) |
 | Dossier-förenkling | Produktflödet manuellt accepterat 2026-08-22. D1 landat (#1045); D2 → D3 → D4 är kvarvarande kvalitets-/arkitektursteg och körs strikt sekventiellt. D5 väntar ägarbeslut. | [`2026-08-19-dossier-forenkling/00-master-plan.md`](2026-08-19-dossier-forenkling/00-master-plan.md) |
