@@ -384,6 +384,17 @@ export function PreviewPanel({
       const target = event.target;
       if (!(target instanceof Element)) return;
       if (target.closest('[data-testid="placement-overlay"]')) return;
+      // Radix håller dialog-overlay/content monterad under exit-animationen
+      // (`data-state="closed"`). Bläddra stänger den med flit innan
+      // placeringsläget startar — ett klick på den uttonande ytan är inte
+      // "klick utanför", det är rest från stängningen.
+      if (
+        target.closest(
+          '[data-slot="dialog-overlay"][data-state="closed"], [data-slot="dialog-content"][data-state="closed"]',
+        )
+      ) {
+        return;
+      }
       resolveShadcnPlacementPick("aborted");
     };
     window.addEventListener("keydown", onKeyDown);

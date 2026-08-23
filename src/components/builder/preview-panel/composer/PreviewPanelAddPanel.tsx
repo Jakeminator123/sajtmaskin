@@ -82,6 +82,9 @@ export function PreviewPanelAddPanel({
   const [describeEnabled, setDescribeEnabled] = useState(false);
 
   const closeBrowseOverlay = useCallback(() => {
+    // Synkron stängning så overlayn hinner få `data-state="closed"` innan
+    // placeringsläget lyssnar. Exit-animationen äter inte klick:
+    // `pointer-events-none` på stängd dialog + PreviewPanel ignorerar den ytan.
     flushSync(() => setBrowseOpen(false));
   }, []);
 
