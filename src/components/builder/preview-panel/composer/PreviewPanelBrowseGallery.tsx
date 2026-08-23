@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowLeft, Check, Loader2, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -20,8 +20,6 @@ import {
 import type { CommunityIndexCategory } from "@/lib/shadcn/community-registry-catalog";
 import {
   OFFICIAL_SHADCN_REGISTRY,
-  serializeShadcnDragPayload,
-  SHADCN_ITEM_DND_TYPE,
   type ShadcnInsertHandler,
   type ShadcnInsertSelection,
   type ShadcnPlacementPicker,
@@ -30,7 +28,9 @@ import { RegistryItemThumb } from "./RegistryItemThumb";
 
 /**
  * "Bläddra"-galleriet — shadcn/ui (PNG-thumbs) + Marknadsblock (@shadcnblocks
- * via community-index). Insättning går alltid via own-engine-lanen.
+ * via community-index). Renderas i Add-panelens overlay-dialog (inte i den
+ * 280 px smala asiden). Insättning går alltid via own-engine-lanen.
+ * Overlay-läget har ingen drag-and-drop — klick → detalj → Lägg till.
  *
  * Del av plan: `docs/plans/avklarat/2026-07-22-shadcn-registry-beskriv-komposition.md`.
  * Block/Marknadsblock levererat i #994 (`72abd4b53`).
@@ -52,12 +52,14 @@ interface PreviewPanelBrowseGalleryProps {
    * Esc/klick utanför/kontextbyte → ingen insättning.
    */
   onPickPlacement?: ShadcnPlacementPicker;
-  /** Aktiverar Composer-overlayns drop-yta medan ett kort dras (samma som Block-fliken). */
-  onDragStart?: () => void;
-  onDragEnd?: () => void;
+  /**
+   * Stäng overlayn innan placeringsläge/insättning så previewn inte täcks.
+   * Add-panelen unmountar dialogen synkront (`flushSync`).
+   */
+  onCloseBeforeInsert?: () => void;
 }
 
-/** Bygg drag-payloaden för ett galleri-kort (placering räknas ut vid drop). */
+/** Bygg insert-payloaden för ett galleri-kort (placering räknas ut vid klick). */
 export function toBrowseSelection(item: BrowseGalleryItem): ShadcnInsertSelection {
   return {
     name: item.name,
@@ -98,8 +100,7 @@ export function PreviewPanelBrowseGallery({
   disabled = false,
   onInsertItem,
   onPickPlacement,
-  onDragStart,
-  onDragEnd,
+  onCloseBeforeInsert,
 }: PreviewPanelBrowseGalleryProps) {
   const [source, setSource] = useState<BrowseSource>("official");
   const [itemType, setItemType] = useState<BrowseItemType>("block");
@@ -322,6 +323,7 @@ export function PreviewPanelBrowseGallery({
           onBack={() => setSelectedItem(null)}
           onInsertItem={onInsertItem}
           onPickPlacement={onPickPlacement}
+          onCloseBeforeInsert={onCloseBeforeInsert}
           panelDisabled={disabled}
         />
       ) : (
@@ -410,20 +412,26 @@ export function PreviewPanelBrowseGallery({
           </div>
 
           {!loading && !error && categoryChips.length > 0 ? (
-            <div className="flex flex-wrap gap-1 border-b border-violet-900/30 px-2 py-2">
-              <CategoryChip
-                label="Alla"
-                active={activeCategory === null}
-                onClick={() => setActiveCategory(null)}
-              />
-              {categoryChips.map((category) => (
+            <div
+              role="group"
+              aria-label="Kategorier"
+              className="max-h-[4.75rem] shrink-0 overflow-y-auto border-b border-violet-900/30 px-3 py-2"
+            >
+              <div className="flex flex-wrap gap-1">
                 <CategoryChip
-                  key={category.id}
-                  label={category.label}
-                  active={activeCategory === category.id}
-                  onClick={() => setActiveCategory(category.id)}
+                  label="Alla"
+                  active={activeCategory === null}
+                  onClick={() => setActiveCategory(null)}
                 />
-              ))}
+                {categoryChips.map((category) => (
+                  <CategoryChip
+                    key={category.id}
+                    label={category.label}
+                    active={activeCategory === category.id}
+                    onClick={() => setActiveCategory(category.id)}
+                  />
+                ))}
+              </div>
             </div>
           ) : null}
 
@@ -456,15 +464,12 @@ export function PreviewPanelBrowseGallery({
                     Visar {visibleItems.length} av {communityTotal}
                   </p>
                 ) : null}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2 md:grid-cols-4">
                   {visibleItems.map((item) => (
                     <BrowseCard
                       key={`${item.registry}:${item.type}:${item.name}`}
                       item={item}
                       onSelect={() => handleSelectItem(item)}
-                      draggable={Boolean(onInsertItem) && !disabled}
-                      onDragStart={onDragStart}
-                      onDragEnd={onDragEnd}
                     />
                   ))}
                 </div>
@@ -538,36 +543,18 @@ function thumbnailUrl(item: BrowseGalleryItem): string | null {
 function BrowseCard({
   item,
   onSelect,
-  draggable = false,
-  onDragStart,
-  onDragEnd,
 }: {
   item: BrowseGalleryItem;
   onSelect: () => void;
-  draggable?: boolean;
-  onDragStart?: () => void;
-  onDragEnd?: () => void;
 }) {
   const thumb = thumbnailUrl(item);
-  const handleDragStart = (e: DragEvent<HTMLButtonElement>) => {
-    if (!draggable) return;
-    e.dataTransfer.setData(SHADCN_ITEM_DND_TYPE, serializeShadcnDragPayload(toBrowseSelection(item)));
-    e.dataTransfer.effectAllowed = "copy";
-    onDragStart?.();
-  };
   return (
     <button
       type="button"
       onClick={onSelect}
-      draggable={draggable}
-      onDragStart={handleDragStart}
-      onDragEnd={() => onDragEnd?.()}
+      draggable={false}
       className="group flex flex-col overflow-hidden rounded-lg border border-violet-900/50 bg-black/30 text-left transition hover:border-violet-700/60 hover:bg-violet-950/40 focus:border-violet-600/70 focus:outline-none"
-      title={
-        draggable
-          ? `${item.description || item.title} — dra till previewn för att välja placering`
-          : item.description || item.title
-      }
+      title={item.description || item.title}
     >
       <div className="flex aspect-video items-center justify-center overflow-hidden bg-zinc-900/80">
         <RegistryItemThumb
@@ -594,12 +581,14 @@ function BrowseDetailView({
   onBack,
   onInsertItem,
   onPickPlacement,
+  onCloseBeforeInsert,
   panelDisabled = false,
 }: {
   item: BrowseGalleryItem;
   onBack: () => void;
   onInsertItem?: ShadcnInsertHandler;
   onPickPlacement?: ShadcnPlacementPicker;
+  onCloseBeforeInsert?: () => void;
   /**
    * Panelens disabled-läge (saknad preview, placement mode, composer-historik).
    * Wrappern har bara `pointer-events-none` — utan detta kan tangentbordet
@@ -614,6 +603,13 @@ function BrowseDetailView({
   // `inserting === false` (stale closure) — refen uppdateras synkront och
   // stoppar det andra klicket från att trigga en duplicerad generation.
   const insertingRef = useRef(false);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const handleInsert = useCallback(async () => {
     if (!onInsertItem || insertingRef.current) return;
@@ -622,6 +618,8 @@ function BrowseDetailView({
     setInserted(false);
     try {
       const selection = toBrowseSelection(item);
+      // Overlayn måste bort innan placeringsläget ritas mot previewn.
+      onCloseBeforeInsert?.();
       const picked = onPickPlacement ? await onPickPlacement(selection) : null;
       if (picked === "aborted") return;
       const outcome = await onInsertItem({
@@ -635,15 +633,18 @@ function BrowseDetailView({
           : {}),
       });
       if (outcome.status !== "started") return;
+      if (!mountedRef.current) return;
       setInserted(true);
-      window.setTimeout(() => setInserted(false), 8000);
+      window.setTimeout(() => {
+        if (mountedRef.current) setInserted(false);
+      }, 8000);
     } catch {
       // Fel-ytan ägs av callern (toast) — markera bara ALDRIG som skickad.
     } finally {
       insertingRef.current = false;
-      setInserting(false);
+      if (mountedRef.current) setInserting(false);
     }
-  }, [onInsertItem, onPickPlacement, item]);
+  }, [onInsertItem, onPickPlacement, onCloseBeforeInsert, item]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

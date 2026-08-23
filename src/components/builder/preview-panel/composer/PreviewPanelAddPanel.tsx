@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { LayoutGrid, MessageSquareText, Search } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
+import { LayoutGrid, MessageSquareText, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isShadcnDescribeEnabled } from "@/lib/shadcn/describe-feature";
 import type { ShadcnInsertHandler, ShadcnPlacementPicker } from "@/lib/builder/shadcn-insert";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PreviewPanelFeaturedBlocks } from "./PreviewPanelFeaturedBlocks";
 import { PreviewPanelBrowseGallery } from "./PreviewPanelBrowseGallery";
 import { PreviewPanelDescribeTab } from "./PreviewPanelDescribeTab";
@@ -15,8 +24,10 @@ import { PreviewPanelDescribeTab } from "./PreviewPanelDescribeTab";
  *
  * Flikar:
  * - **Block**   — kuraterade @shadcnblocks-snabbval (own-engine-insättning).
- * - **Bläddra** — shadcn/ui + Marknadsblock-galleri; kortval → insättning via
- *   `onInsertShadcnItem` (own-engine-lane v1, se `shadcn-insert.ts`).
+ * - **Bläddra** — teaser i asiden + overlay-galleri (shadcn/ui + Marknadsblock);
+ *   kortval → stäng overlay → `onPickPlacement` → `onInsertShadcnItem`
+ *   (own-engine-lane v1, se `shadcn-insert.ts`). Galleriet ritas aldrig i
+ *   den 280 px smala asiden — kategorichips + rutnät kräver overlay-ytan.
  * - **Beskriv** — fritext → `/api/shadcn/describe` → rankade kandidatkort →
  *   välj → samma insättnings-lane. Kräver även
  *   `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE` (annars "kommer snart"-platshållare).
@@ -64,10 +75,23 @@ export function PreviewPanelAddPanel({
   onPickPlacement,
 }: PreviewPanelAddPanelProps) {
   const [activeTab, setActiveTab] = useState<AddPanelTab>("block");
+  const [browseOpen, setBrowseOpen] = useState(false);
   // Beskriv-fliken kräver describe-flaggan. Läs EFTER mount (initial false)
   // för att undvika SSR/CSR-hydratmismatch — samma mönster som add-panel-
   // flaggan i PreviewPanel.tsx (NEXT_PUBLIC-flaggor läses aldrig direkt i render).
   const [describeEnabled, setDescribeEnabled] = useState(false);
+
+  const closeBrowseOverlay = useCallback(() => {
+    // Synkron stängning så overlayn hinner få `data-state="closed"` innan
+    // placeringsläget lyssnar. Exit-animationen äter inte klick:
+    // `pointer-events-none` på stängd dialog + PreviewPanel ignorerar den ytan.
+    flushSync(() => setBrowseOpen(false));
+  }, []);
+
+  const handleSelectTab = useCallback((tab: AddPanelTab) => {
+    setActiveTab(tab);
+    if (tab !== "browse") setBrowseOpen(false);
+  }, []);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- engångs mount-läsning av NEXT_PUBLIC-flaggan (SSR/CSR-hydratmönstret), ingen kaskad
     setDescribeEnabled(isShadcnDescribeEnabled());
@@ -99,7 +123,7 @@ export function PreviewPanelAddPanel({
               type="button"
               role="tab"
               aria-selected={isActive}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleSelectTab(tab.id)}
               title={soon ? "Beskriv-läget kommer snart" : undefined}
               className={cn(
                 "flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition",
@@ -129,13 +153,7 @@ export function PreviewPanelAddPanel({
           onDragEnd={onDragEnd}
         />
       ) : activeTab === "browse" ? (
-        <PreviewPanelBrowseGallery
-          disabled={disabled}
-          onInsertItem={onInsertShadcnItem}
-          onPickPlacement={onPickPlacement}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-        />
+        <BrowseTeaser disabled={disabled} onOpen={() => setBrowseOpen(true)} />
       ) : describeEnabled ? (
         <PreviewPanelDescribeTab
           disabled={disabled}
@@ -147,7 +165,59 @@ export function PreviewPanelAddPanel({
       ) : (
         <DescribePlaceholder />
       )}
+
+      <Dialog open={browseOpen} onOpenChange={setBrowseOpen}>
+        <DialogContent
+          showCloseButton={false}
+          className="flex h-[80vh] max-h-[80vh] w-full max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+        >
+          <DialogHeader className="shrink-0 space-y-1 border-b border-violet-900/40 px-4 py-3 pr-12 text-left">
+            <DialogTitle className="text-sm text-violet-100">Bläddra bland block</DialogTitle>
+            <DialogDescription className="text-[11px] text-zinc-500">
+              Sök, filtrera och lägg till shadcn/ui eller Marknadsblock i sajten.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogClose className="absolute top-3.5 right-3 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden">
+            <X className="h-4 w-4" aria-hidden />
+            <span className="sr-only">Stäng</span>
+          </DialogClose>
+          <PreviewPanelBrowseGallery
+            disabled={disabled}
+            onInsertItem={onInsertShadcnItem}
+            onPickPlacement={onPickPlacement}
+            onCloseBeforeInsert={closeBrowseOverlay}
+          />
+        </DialogContent>
+      </Dialog>
     </aside>
+  );
+}
+
+/** Kort aside-yta — hela galleriet lever i overlayn, inte i 280 px. */
+function BrowseTeaser({
+  disabled,
+  onOpen,
+}: {
+  disabled?: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 py-8 text-center">
+      <Search className="h-6 w-6 text-zinc-600" aria-hidden />
+      <p className="text-[12px] font-medium text-violet-200/80">Bläddra bland block</p>
+      <p className="text-[11px] leading-snug text-zinc-500">
+        shadcn/ui och Marknadsblock öppnas i ett större fönster så kategorier och resultat ryms
+        på skärmen.
+      </p>
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={disabled}
+        className="rounded-md border border-violet-800/60 bg-violet-950/30 px-3 py-1.5 text-[11px] font-medium text-violet-200 transition hover:bg-violet-900/40 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Öppna galleri
+      </button>
+    </div>
   );
 }
 

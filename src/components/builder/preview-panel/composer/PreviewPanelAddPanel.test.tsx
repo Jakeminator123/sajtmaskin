@@ -96,8 +96,71 @@ describe("PreviewPanelAddPanel", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: /Bläddra/ }));
 
+    expect(screen.getByRole("button", { name: /Öppna galleri/i })).toBeTruthy();
+    expect(screen.queryByText("Login 01")).toBeNull();
+    expect(getBlocksByCategory).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Öppna galleri/i }));
     await waitFor(() => screen.getByText("Login 01"));
     expect(getBlocksByCategory).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("stänger Bläddra-overlayn med Escape utan sidoeffekter", async () => {
+    render(<PreviewPanelAddPanel />);
+    fireEvent.click(screen.getByRole("tab", { name: /Bläddra/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Öppna galleri/i }));
+    await waitFor(() => screen.getByRole("dialog"));
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    expect(screen.queryByText("Login 01")).toBeNull();
+    expect(screen.getByRole("button", { name: /Öppna galleri/i })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /Bläddra/ }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("Lägg till stänger overlayn innan placeringsläget startar", async () => {
+    const onInsertShadcnItem = vi.fn().mockResolvedValue({
+      status: "started",
+      via: "stream",
+    } satisfies SendMessageOutcome);
+    const onPickPlacement = vi.fn().mockImplementation(async () => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+      return {
+        placement: "after-hero",
+        placementLabel: "Efter Hero",
+        anchorSectionLabel: "Hero",
+      };
+    });
+
+    render(
+      <PreviewPanelAddPanel
+        onInsertShadcnItem={onInsertShadcnItem}
+        onPickPlacement={onPickPlacement}
+      />,
+    );
+    fireEvent.click(screen.getByRole("tab", { name: /Bläddra/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Öppna galleri/i }));
+    await waitFor(() => screen.getByText("Login 01"));
+    fireEvent.click(screen.getByText("Login 01"));
+    fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));
+
+    await waitFor(() => expect(onPickPlacement).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(onInsertShadcnItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "login-01",
+          registry: "@shadcn",
+          origin: "browse",
+          placement: "after-hero",
+          placementLabel: "Efter Hero",
+          anchorSectionLabel: "Hero",
+        }),
+      ),
+    );
   });
 
   it("shows the Beskriv 'kommer snart' placeholder when the describe flag is off", () => {

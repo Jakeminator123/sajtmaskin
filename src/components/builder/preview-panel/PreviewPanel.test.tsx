@@ -395,6 +395,7 @@ describe("PreviewPanel", () => {
     // Add-panelen läser flaggan efter mount.
     await waitFor(() => screen.getByRole("tab", { name: /Bläddra/i }));
     fireEvent.click(screen.getByRole("tab", { name: /Bläddra/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Öppna galleri/i }));
     await waitFor(() => screen.getByText("Login 01"));
     fireEvent.click(screen.getByText("Login 01"));
     fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));
@@ -515,6 +516,30 @@ describe("PreviewPanel", () => {
         {...buildPreviewPanelProps({ onShadcnItemInsert, versionId: "ver_1" })}
       />,
     );
+
+    expect(screen.getByTestId("placement-overlay")).toBeTruthy();
+    expect(onShadcnItemInsert).not.toHaveBeenCalled();
+  });
+
+  // Bugbot: Radix-overlay ligger kvar på z-50 under exit-animationen efter
+  // att Bläddra stängt dialogen. Pointerdown där får inte räknas som
+  // "klick utanför" — det skulle avbryta insättningen.
+  it("click-path stängande dialog-overlay avbryter INTE placeringsvalet", async () => {
+    const onShadcnItemInsert = vi.fn(
+      async (_selection: ShadcnInsertSelection): Promise<SendMessageOutcome> => ({
+        status: "started",
+        via: "stream",
+      }),
+    );
+    await openBrowseDetailAndStartInsert(onShadcnItemInsert);
+    await screen.findByTestId("placement-overlay");
+
+    const fadingOverlay = document.createElement("div");
+    fadingOverlay.setAttribute("data-slot", "dialog-overlay");
+    fadingOverlay.setAttribute("data-state", "closed");
+    document.body.appendChild(fadingOverlay);
+    fireEvent.pointerDown(fadingOverlay);
+    fadingOverlay.remove();
 
     expect(screen.getByTestId("placement-overlay")).toBeTruthy();
     expect(onShadcnItemInsert).not.toHaveBeenCalled();
