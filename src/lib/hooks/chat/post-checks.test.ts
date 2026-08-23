@@ -172,7 +172,7 @@ describe("runPostGenerationChecks", () => {
     const pendingPostCheck = getToolPart("Post-check", store);
     expect(pendingPostCheck?.state).toBe("input-streaming");
     expect((pendingPostCheck?.output as { steps?: unknown }).steps).toEqual([
-      "Efterkontrollerar filer och preview.",
+      "Efterkontrollerar filer och preview",
     ]);
 
     releaseFiles();
@@ -1130,7 +1130,7 @@ describe("runPostGenerationChecks", () => {
     const steps = Array.isArray(output.steps) ? output.steps.map(String) : [];
     expect(steps).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("lint: Varning"),
+        expect.stringContaining("Lint: Varning"),
         expect.stringContaining("ingen automatisk reparation"),
       ]),
     );
@@ -1204,11 +1204,11 @@ describe("runPostGenerationChecks", () => {
     expect(output.designAdvisory).toBe(true);
     expect(steps).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("typecheck: Varning"),
+        expect.stringContaining("Typecheck: Varning"),
         expect.stringContaining("Designläge:"),
       ]),
     );
-    expect(steps.some((step) => step.includes("typecheck: Underkänd"))).toBe(false);
+    expect(steps.some((step) => step.includes("Typecheck: Underkänd"))).toBe(false);
     expect(onAutoFix).not.toHaveBeenCalled();
     expect(fetchCalls.some((call) => call.url.includes("/repair"))).toBe(false);
   });
@@ -1274,7 +1274,7 @@ describe("runPostGenerationChecks", () => {
     expect(output.passed).toBe(true);
     expect(output.designAdvisory).toBe(true);
     expect(steps).toEqual(
-      expect.arrayContaining([expect.stringContaining("typecheck: Varning")]),
+      expect.arrayContaining([expect.stringContaining("Typecheck: Varning")]),
     );
     expect(onAutoFix).not.toHaveBeenCalled();
   });
@@ -1392,7 +1392,7 @@ describe("runPostGenerationChecks", () => {
     const output = (qualityGate?.output as Record<string, unknown>) ?? {};
     const steps = Array.isArray(output.steps) ? output.steps.map(String) : [];
     expect(steps).toEqual(
-      expect.arrayContaining([expect.stringContaining("lint: Underkänd (exit 2")]),
+      expect.arrayContaining([expect.stringContaining("Lint: Underkänd (exit 2")]),
     );
     expect(output.checks).toEqual(
       expect.arrayContaining([
@@ -1653,7 +1653,7 @@ describe("runPostGenerationChecks", () => {
 
     expect(steps).toEqual(
       expect.arrayContaining([
-        "build: Underkänd (exit 1, 1.8s)",
+        "Build: Underkänd (exit 1, 1.8s)",
         "Tid: 3.2s",
         "Start: 12:00:00Z",
         "Slut: 12:00:03Z",

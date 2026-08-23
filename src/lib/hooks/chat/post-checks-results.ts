@@ -148,7 +148,7 @@ export function buildPostCheckArtifacts(params: {
     steps.push(...formatChangeSteps("Ändrade", changes.modified, "~"));
     steps.push(...formatChangeSteps("Borttagna", changes.removed, "-"));
   } else {
-    steps.push("Ingen tidigare version att jämföra.");
+    steps.push("Ingen tidigare version att jämföra");
   }
 
   if (warnings.length > 0) {
@@ -191,7 +191,7 @@ export function buildPostCheckArtifacts(params: {
     steps.push(`Bilder: alla ${imageValidation.total} URL:er giltiga ✓`);
   }
   if (productPostcheck?.productBlocked) {
-    steps.push("Produktkontroll: blockerande synliga produktproblem hittades.");
+    steps.push("Produktkontroll: blockerande synliga produktproblem hittades");
   }
 
   const finalDemoUrl = imageValidation?.demoUrl || resolvedDemoUrl;
@@ -199,13 +199,13 @@ export function buildPostCheckArtifacts(params: {
     steps.push(buildPreviewUnavailableStep(preflight));
   }
   if (preflight?.previewStart?.hasCriticalInstallRisk) {
-    steps.push("Preview readiness: package/dependency-risk blocker upptäckt före live-preview.");
+    steps.push("Preview-readiness: package/dependency-risk blocker upptäckt före live-preview");
   }
   if (preflight?.previewStart?.requiresEnvConfig) {
-    steps.push("Preview readiness: live-preview väntar på projektets miljövariabler eller secrets.");
+    steps.push("Preview-readiness: live-preview väntar på projektets miljövariabler eller secrets");
   }
   if (preflight?.previewStart?.hasCriticalCodeFailure) {
-    steps.push("Preview readiness: kodstrukturen blockerar live-preview tills preflightfel är lösta.");
+    steps.push("Preview-readiness: kodstrukturen blockerar live-preview tills preflightfel är lösta");
   }
   if (preflight?.scaffoldRetry) {
     steps.push(
@@ -329,10 +329,10 @@ export function buildPostCheckArtifacts(params: {
   );
   steps.push(
     readinessPassed
-      ? "Readiness: PASS (changes + preview + stream quality)."
+      ? "Readiness: PASS (ändringar + preview + strömkvalitet)"
       : autoFixQueued && preflightOnlyFailures.length === readinessFailures.length
-        ? `Preflight blocker: ${readinessFailures.join(" | ")}. Verify-lane körs efter fix.`
-        : `Readiness: FAIL (${readinessFailures.join(" | ")}).`,
+        ? `Preflight-blockering: ${readinessFailures.join(" | ")} — verify-lane körs efter fix`
+        : `Readiness: FAIL (${readinessFailures.join(" | ")})`,
   );
 
   const regressionMatrix = [

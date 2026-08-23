@@ -45,7 +45,7 @@ describe("post-checks-results", () => {
     });
 
     expect(artifacts.output.steps).toContain(
-      "Preflight blocker: preflight_preview_blocked. Verify-lane körs efter fix.",
+      "Preflight-blockering: preflight_preview_blocked — verify-lane körs efter fix",
     );
   });
 

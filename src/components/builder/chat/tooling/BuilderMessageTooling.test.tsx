@@ -12,19 +12,19 @@ import {
 describe("StructuredToolParts", () => {
   it("shows the current measured activity while work is running and collapses when done", async () => {
     const items = [
-      { label: "Startar own-engine-strömmen." },
-      { label: "Validerar genererad kod." },
+      { label: "Startar own-engine-strömmen" },
+      { label: "Validerar genererad kod" },
     ];
     const { rerender } = render(
       <AgentLogCard
         items={items}
-        activeLabel="Validerar genererad kod."
+        activeLabel="Validerar genererad kod"
         isActive
       />,
     );
 
     expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
-    expect(screen.getAllByText("Validerar genererad kod.").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Validerar genererad kod").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Pågår")).toBeTruthy();
 
     rerender(<AgentLogCard items={items} isActive={false} />);
@@ -47,7 +47,7 @@ describe("StructuredToolParts", () => {
   it("uses a neutral handoff status between measured phases instead of repeating pre-stream copy", () => {
     render(
       <AgentLogCard
-        items={[{ label: "Generering klar. Startar efterkontroller och slutsteg." }]}
+        items={[{ label: "Generering klar — startar efterkontroller och slutsteg" }]}
         isActive
       />,
     );
@@ -64,11 +64,11 @@ describe("StructuredToolParts", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-31T12:00:00Z"));
     try {
-      const items = [{ label: "Genererar innehåll och filer från prompten." }];
+      const items = [{ label: "Genererar innehåll och filer från prompten" }];
       const { rerender } = render(
         <AgentLogCard
           items={items}
-          activeLabel="Genererar innehåll och filer från prompten."
+          activeLabel="Genererar innehåll och filer från prompten"
           isActive
         />,
       );
@@ -101,7 +101,7 @@ describe("StructuredToolParts", () => {
           tool: {
             type: "tool:engine-generation",
             state: "output-available",
-            output: { steps: ["Generering klar."] },
+            output: { steps: ["Generering klar"] },
           },
         } as never,
         {
@@ -110,12 +110,12 @@ describe("StructuredToolParts", () => {
             type: "tool:engine-autofix",
             state: "input-streaming",
             output: {
-              steps: ["Mekanisk autofix startad.", "Kontrollerar importer."],
+              steps: ["Startar mekanisk autofix", "Kontrollerar importer"],
             },
           },
         } as never,
       ]),
-    ).toBe("Kontrollerar importer.");
+    ).toBe("Kontrollerar importer");
   });
 
   it("uses the same pending label for an empty streaming tool in header and log", () => {
@@ -158,21 +158,21 @@ describe("StructuredToolParts", () => {
             type: "tool:engine-preview",
             toolName: "Preview",
             state: "output-error",
-            output: { steps: ["Startar preview.", "Bygget misslyckades."] },
+            output: { steps: ["Startar preview", "Bygget misslyckades"] },
           },
         } as never,
       ]),
     ).toEqual([
-      { label: "Startar preview." },
-      { label: "Bygget misslyckades.", failed: true },
+      { label: "Startar preview" },
+      { label: "Bygget misslyckades", failed: true },
     ]);
   });
 
   it("renders a warning icon instead of a checkmark for a failed step", () => {
     render(
       <AgentLogCard
-        items={[{ label: "Bygget misslyckades.", failed: true }]}
-        activeLabel="Försöker igen."
+        items={[{ label: "Bygget misslyckades", failed: true }]}
+        activeLabel="Försöker igen"
         isActive
       />,
     );
@@ -183,7 +183,7 @@ describe("StructuredToolParts", () => {
   it("keeps failure status visible in the collapsed completed header", () => {
     render(
       <AgentLogCard
-        items={[{ label: "Preview kunde inte starta.", failed: true }]}
+        items={[{ label: "Preview kunde inte starta", failed: true }]}
         isActive={false}
       />,
     );
@@ -205,7 +205,7 @@ describe("StructuredToolParts", () => {
             step: "verifier",
             phase: "fix-failed",
             severity: "advisory",
-            steps: ["Verifieringen kunde inte laga fyndet."],
+            steps: ["Verifieringen kunde inte laga fyndet"],
           },
         },
       } as never,
@@ -232,7 +232,7 @@ describe("StructuredToolParts", () => {
             step: "verifier",
             phase: "fix-failed",
             severity: "blocking",
-            steps: ["Verifieringen kunde inte laga fyndet."],
+            steps: ["Verifieringen kunde inte laga fyndet"],
           },
         },
       } as never,
@@ -250,10 +250,10 @@ describe("StructuredToolParts", () => {
     render(
       <AgentLogCard
         items={[
-          { label: "Preview kunde inte starta.", failed: true },
-          { label: "Efterkontrollerar filer och preview." },
+          { label: "Preview kunde inte starta", failed: true },
+          { label: "Efterkontrollerar filer och preview" },
         ]}
-        activeLabel="Efterkontrollerar filer och preview."
+        activeLabel="Efterkontrollerar filer och preview"
         isActive
       />,
     );
@@ -261,7 +261,7 @@ describe("StructuredToolParts", () => {
     expect(screen.getByText("Arbetar vidare efter fel")).toBeTruthy();
     expect(screen.getByLabelText("Ett byggsteg misslyckades")).toBeTruthy();
     expect(
-      screen.getAllByText("Efterkontrollerar filer och preview.").length,
+      screen.getAllByText("Efterkontrollerar filer och preview").length,
     ).toBeGreaterThanOrEqual(1);
   });
 
@@ -272,7 +272,7 @@ describe("StructuredToolParts", () => {
         type: "tool:engine-generation",
         toolName: "Generering",
         state: "input-streaming",
-        output: { steps: ["Genererar innehåll och filer från prompten."] },
+        output: { steps: ["Genererar innehåll och filer från prompten"] },
       },
     } as never;
     const activeQualityGate = {
