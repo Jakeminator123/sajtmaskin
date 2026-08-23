@@ -73,4 +73,4 @@ rätt verktyg, och repot har redan mönstret
 > `npx vitest run src/lib/gen/dossiers`.
 >
 > Kör ett Cursor Bugbot-pass på din egen diff innan PR (`bugbot`-subagent,
-> `readonly: true`, en Grok-modell). Lämna EN PR mot `master`. **Merga inte.**
+> `readonly: true`, enligt den kanoniska modellregeln). Lämna EN PR mot `master`. **Merga inte.**

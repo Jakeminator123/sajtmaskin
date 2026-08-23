@@ -314,9 +314,9 @@ docs/plans/**/run.log.jsonl
 # workflows belong in git.
 #
 # Why they must be tracked (2026-08-20): a cloud agent gets the repo, nothing
-# else. While these files were ignored, `/kedja`, `/automat`, `/818`, `/logg`
-# and `sajtmaskin-context` existed on one laptop only — so a cloud agent asked
-# to follow them silently had no such file, and they were invisible to codebase
+# else. While these files were ignored, `/kedja`, `/automat`, `/818` and `/logg`
+# existed on one laptop only — so a cloud agent asked to follow them silently
+# had no such file, and they were invisible to codebase
 # search on every machine. Adding a skill without a line here makes it local
 # folklore, not a repo capability.
 !.agents/
@@ -337,8 +337,6 @@ docs/plans/**/run.log.jsonl
 !.agents/skills/logg/**
 !.agents/skills/logg-internet/
 !.agents/skills/logg-internet/**
-!.agents/skills/sajtmaskin-context/
-!.agents/skills/sajtmaskin-context/**
 # `source-command-*` är maskinmigrerade speglingar av `.cursor/commands/*.md`,
 # som redan är spårade. De skulle bli en andra sanning bredvid kommandofilerna,
 # så de förblir ignorerade med avsikt — inte av förbiseende.

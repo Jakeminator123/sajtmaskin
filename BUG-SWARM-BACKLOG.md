@@ -11,8 +11,8 @@ Regler:
 - Obevisade hypoteser ligger i `Behöver repro`; avstängda funktioner ligger som
   releaseblockerare. De påverkar inte canvasens antal öppna produktbuggar.
 - Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-072`.
-- En draft-PR är inte en fix. Flytta först till `Arkiv` när ändringen finns på
-  `master`, med mergebevis.
+- En draft-PR är inte en fix. Arkivflytten ska ingå i samma fix-PR med PR- och
+  planerat masterbevis; den blir kanonisk först när PR:n mergas till `master`.
 
 ## Aktiv kö
 

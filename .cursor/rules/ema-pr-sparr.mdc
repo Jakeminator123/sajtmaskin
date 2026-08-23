@@ -1,6 +1,6 @@
 ---
 description: "EmaCodeHero-PR:er får inte agent-mergas till master; base ska vara ema. Tillfällig spärr tills ägaren tar bort den."
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Ema/Emil PR-spärr (ägarbeslut 2026-08-05, tillfällig)

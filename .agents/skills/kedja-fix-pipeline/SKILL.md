@@ -1,14 +1,13 @@
 ---
 name: kedja-fix-pipeline
-description: >-
-  Staged bug-fix pipeline for Sajtmaskin. A cheap orchestrator drives seven steps — frame, workspace, repro, localize, decide, fix, judge, review — where a failing test written in step 2 is what lets cheap agents be judged mechanically instead of by opinion. Write steps run in dedicated git worktrees, never in the main checkout; the winner is committed on its kedja branch (never pushed) while losers stay uncommitted. Use when the user runs /kedja, says "kedja", or asks to drive one specific bug through a staged multi-agent fix flow. Fix mode — the opposite of /automat, which is audit only.
+description: Use for /kedja or one staged multi-agent bug fix with failing-test acceptance, isolated worktrees, compared candidates and independent review. Not broad audit.
 ---
 
 # Kedja — staged bug fix
 
-The orchestrator is the cheap model in the user's chat. Subagents are cheap too; none of them are trusted. What makes the flow work is that **step 2 produces a red test**, so step 6 is a measurement rather than a judgement call.
+No agent is trusted merely because the model is strong. What makes the flow work is that **step 2 produces a red test**, so step 6 is a measurement rather than a judgement call.
 
-**Expensive orchestrator? Delegate.** If the model in the user's chat is not a cheap Grok-class orchestrator, the DEFAULT is delegated mode (see command stub `kedja.md § Delegerat läge`): the parent does step 0 only, launches ONE cheap runner subagent that drives steps 1–6 end to end, receives only the final report table, then runs step 7 (bugbot) itself. Every report an orchestrator receives is re-paid in every later turn — do not carry the bulk in an expensive context.
+The default is one `<sol>` runner for steps 1–6; the parent receives only the final table and runs step 7. Every intermediate report is re-paid on later turns, so keep it out of the parent context.
 
 **This skill is the sole fulltext** for steps, prompts, judging and teardown. The slash command is a short stub (args + stop + delegate) — do not re-read duplicated procedure from the command.
 
@@ -17,7 +16,7 @@ The orchestrator is the cheap model in the user's chat. Subagents are cheap too;
 1. **No writes in the main checkout.** Every write step runs inside a worktree created in step 1. No `git checkout`/`switch` in the main checkout (`agent-worktree.mdc`).
 2. **No push, rebase or PR** (`git.mdc`) — but the WINNER is committed on its `kedja/<slug>-<x>` branch as the final step. An uncommitted winner looks like debris to every other agent's cleanup sweep (`kedja-clean` refuses branches with own commits — a commit is the winner's life insurance; two uncommitted winners were swept 2026-08-04). Losers stay uncommitted and are torn down after their diffs are saved.
 3. **One bug.** Adjacent findings go to `/buggrapport`, not into the diff (`mvp-scope-freeze.mdc`).
-4. **Models from the canonical rule** in [`subagent-models.mdc`](../../../.cursor/rules/subagent-models.mdc): `<grok-4.5>` for localisation, repro and fix agents, and for step 7 `bugbot` (`model: <grok-4.5>`). `<grok-4.5>` is a role placeholder — resolve it against the Grok entry the rule designates, looked up in your own session's `<available_subagent_models>`, rather than copying a slug from an older line. Never default to Opus/expensive thinking models.
+4. **Models from the canonical rule** in [`subagent-models.mdc`](../../../.cursor/rules/subagent-models.mdc): `<luna>` only for mechanical read-only localisation; `<sol>` for repro, fixes, runner and Bugbot.
 5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only. Raw `git worktree remove` follows the `node_modules` junction and empties the main checkout's copy — and dropping `--force` does not help, because git only refuses on dirty or _untracked_ entries while a junctioned `node_modules` is _ignored_. A hook denies both forms.
 6. **One retry, then stop.** Two red judging rounds means the bug is too big for the chain; report that instead of looping.
 
@@ -38,7 +37,7 @@ npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
 
 ## Prompt templates
 
-### Step 2 — repro agent (1 agent, writes, `<grok-4.5>`)
+### Step 2 — repro agent (1 agent, writes, `<sol>`)
 
 ```text
 Work ONLY inside: {WORKTREE_PATH}. Never touch any other checkout.
@@ -76,7 +75,7 @@ condition, not a nuisance.
 step 5/6 so all candidates are judged by the exact same red test + counter-test
 (same path under each worktree root). Do not re-write the tests per candidate.
 
-### Step 3 — localisation agents (3 parallel, `readonly: true`, `<grok-4.5>`)
+### Step 3 — localisation agents (3 parallel, `readonly: true`, `<luna>`)
 
 Same bug and same test output for all three; only the angle differs.
 
@@ -111,7 +110,7 @@ continue. If they contradict: re-run step 3 **once** with a sharper question.
 Still unclear → **stop** (do not coin-flip). Fix agents in step 5 receive the
 chosen root cause; they must not re-diagnose.
 
-### Step 5 — fix agents (N parallel, write, `<grok-4.5>`)
+### Step 5 — fix agents (N parallel, write, `<sol>`)
 
 Every candidate gets the **same** root cause and a **different, named** approach. Leaving the approach open produces N identical diffs — same diagnosis, same test, same model, so they converge. If you cannot name two genuinely different approaches, run one candidate.
 
@@ -145,7 +144,7 @@ Risk: <the caller most likely to be affected, or "-">
 
 **Read the test diff line by line, not just its outcome.** The whole chain rests on the step 2 test measuring the right thing; if it does not, the mechanical verdict is worthless, and red-before/green-after will not reveal it. Before opening a PR the orchestrator reads the test addition itself and asks: does the red test measure the bug or a proxy? Is the counter-test the _closest legitimate_ case? And — easiest to miss — **does the test assert what the fix deliberately gives up?** On #780 `rebuild-content.test.ts` locked that the wrong file is not corrupted but said nothing about the right file's fix now being dropped on a fence miss; the trade-off lived only in the head of whoever read the diff. One more assertion turned it into a contract.
 
-`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"` (bug-grind role in the canonical rule — never Opus/expensive thinking models as default), prompt form per `AGENTS.md § Review guidelines`:
+`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<sol>"`, prompt form per `AGENTS.md` review guidance:
 
 ```text
 Full Repository Path: {WINNER_WORKTREE_PATH}

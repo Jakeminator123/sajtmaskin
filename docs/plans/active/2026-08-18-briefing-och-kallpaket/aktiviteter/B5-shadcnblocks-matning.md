@@ -50,7 +50,7 @@ Krav:
      `--kinds=errors` (kategori för `fetch_failed`). Ingen ny kind om en
      befintlig räcker. `/logg` kör redan de kindsen.
   2. [`.cursor/commands/logg.md`](../../../../../.cursor/commands/logg.md) +
-     [`.cursor/skills/logg/SKILL.md`](../../../../../.cursor/skills/logg/SKILL.md)
+     [`.agents/skills/logg/SKILL.md`](../../../../../.agents/skills/logg/SKILL.md)
      — rapporten ska kunna svara «Pro-källkod / metadata-gissning / hämtning
      misslyckades» för körningen.
   3. Befintlig `/admin`-yta: [`/admin/loggar`](../../../../../src/app/admin/loggar/page.tsx)

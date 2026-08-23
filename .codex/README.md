@@ -4,6 +4,10 @@ Den här katalogen är projektets Codex-lager. Cursor-reglerna ligger kvar i
 `.cursor/`, medan Codex automatiskt läser `AGENTS.md` från repo-roten och den
 här `.codex/config.toml` när projektet är trusted.
 
+Projektets Codex-default är GPT-5.6 Sol med `high` reasoning för huvudtråd och
+spawnade agenter. En explicit agentprofil vinner; Godnatt behåller Sol `xhigh`
+för investigator/reviewer och Sol `high` för worker.
+
 ## Så här ska projektet öppnas
 
 - Cursor behåller huvudcheckouten

@@ -8,13 +8,13 @@ Lägg in en bugg i den **enda** bugglistan: [`BUG-SWARM-BACKLOG.md`](../../BUG-S
 - Ett **policy-/produktval** (systemet gör som tänkt men vi kan välja annorlunda) → rad i **`## Väntar på ägarbeslut`**, inte Aktiv kö. Raden ska ha beslutsägare + deadline/trigger.
 - Kan inte avgöras statiskt (kräver repro/livekörning) → **`## Behöver repro`**, med exakt vad som ska köras.
 - Hardening, testlucka, dokumentations- eller arkitekturskuld → **`## Säkerhet, infra och teknisk skuld`**. Det är ingen produktbugg och ska inte inflatera kön.
-- Läs `BUG-SWARM-BACKLOG.md` § "Hur den hålls sann" innan du skriver — den styr formatet.
+- Läs reglerna högst upp i `BUG-SWARM-BACKLOG.md` innan du skriver — de styr formatet.
 
 ## Gate — skriv INTE till Aktiv kö om
 
 1. **Körningsbrus:** CORS/CORB, Fast Refresh, CSP report-only, D-ID 4xx, enstaka nätverksblipp utan repro.
 2. **Ingen falsifierbar premiss** + saknat fil-/route-ankare (“känns trasigt”).
-3. **`/logg-internet` Observatör:** notera i run-filen; Aktiv kö bara efter persona **Felsökare** *och* bekräftad defekt.
+3. **`/logg-internet` Observatör:** notera i run-filen; Aktiv kö bara efter persona **Felsökare** _och_ bekräftad defekt.
 4. **Önskemål / saknad feature** — inte bugg (beslut eller ignorera; varna per MVP-bias).
 5. **Dublett** av öppen rad — uppdatera den i stället.
 
@@ -48,17 +48,16 @@ Finns en aktuell öppen rad för samma rotorsak → **uppdatera den raden** (sk�
 
 ### 2. Tilldela ID
 
-Två olika ID, båda krävs för en Aktiv kö-rad:
-
-- **Stabilt rad-ID `SM-###`** — radens identitet. Hitta högsta befintliga `SM-` i `BUG-SWARM-BACKLOG.md` **och** i [`docs/plans/avklarat/bug-swarm/README.md`](../../docs/plans/avklarat/bug-swarm/README.md) (fältet "Högsta förbrukade"), och ta nästa lediga nummer. **Återanvänd aldrig** ett nummer, inte ens från en arkiverad rad (äldre arkiv = git-historik).
-- **Källa-tag `M#<n>`** — varifrån fyndet kom. Manuellt rapporterade buggar inkrementerar högsta `M#` (`M#1`, `M#2`, …). Saknas någon → börja på `M#1`.
+Aktiv kö använder bara det stabila rad-ID:t `SM-###`. Hitta högsta befintliga
+`SM-` i backloggen och historikindexet, ta nästa lediga nummer och återanvänd
+aldrig ett nummer. Det gamla `M#`-källformatet är avvecklat.
 
 ### 3. Lägg till raden
 
-Skriv en `[ ]`-rad i rätt sektion. Aktiv kö använder 7-kolumnsformatet (det är detta canvas + formatkontrollen läser), och `Fynd`-cellen **måste** börja med det stabila ID:t:
+Skriv en `[ ]`-rad i rätt sektion. Aktiv kö använder sex kolumner och `Fynd`-cellen måste börja med det stabila ID:t:
 
 ```markdown
-| [ ] | Öppen bug | P2 | `SM-###` **<kort fynd>:** <fil:rad-ankare + varför det är fel> | M#<n> | <minsta åtgärd / nästa steg> |
+| [ ] | Öppen bug | P2 | `SM-###` **<kort fynd>:** <vad som går fel> | <fil/route/test som bevisar felet på master> | <minsta åtgärd> |
 ```
 
 - **Fynd:** kort, konkret, med kod-ankare (`fil.ts:rad`) om koden är inblandad. **En** falsifierbar premiss per rad — är den bred, dela raden.
@@ -72,7 +71,7 @@ Bara om rapporten har tung evidens (skärmdump, lång console-/network-dump) som
 Filnamn:
 
 ```text
-.cursor/bugs/YYYY-MM-DD_HHMM_M<n>_<kort-slug>.md
+.cursor/bugs/YYYY-MM-DD_HHMM_SM-###_<kort-slug>.md
 ```
 
 - Tidsstämpel = lokal tid: `Get-Date -Format "yyyy-MM-dd_HHmm"`.
@@ -90,7 +89,7 @@ Undvik `Det funkar inte`.
 
 ## Slutsvar till användaren
 
-- Vilken sektion + källa-id (`M#<n>`) som lades/uppdaterades.
+- Vilken sektion + `SM-###` som lades/uppdaterades.
 - Prio.
 - Ev. lokal evidens-fil (`.cursor/bugs/...`).
 - Om dublett-check hittade en befintlig rad och den uppdaterades i stället → säg vilken.

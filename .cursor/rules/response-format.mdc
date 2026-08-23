@@ -1,26 +1,14 @@
 ---
 description: "Svarsformat för Cursor-agenter: kort, tydligt, svenska, tabeller när det hjälper."
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Svarsformat
 
-| Regel | Gör |
-|---|---|
-| Kort först | Ge beslutet först. Max 3-5 rader innan tabell/flöde. |
-| Lagom längd | Skriv inte överdrivet utförligt. Ge det viktigaste kort; hellre för kort än för långt. Undvik onödig ordkomplexitet. |
-| Tabell vid val | Använd tabell för jämförelser, risker, steg och status. |
-| Svåra ord | Undvik onödigt krångliga/tekniska ord. Måste du ändå använda ett: sätt en kort förklaring i parentes direkt efter — `term (kort förklaring)`. |
-| Svenska | Svara på svenska om användaren gör det. Kodnamn/filnamn lämnas på engelska. |
-| Plan betyder plan | Om användaren ber om plan: börja inte implementera utan OK. |
-| Osäkerhet | Säg kort vad som är verifierat och vad som är antagande. |
-| Roll | Sista raden är alltid `— Scout A` / `— Builder B` / `— Steward A`. Rollerna ägs av [`agent-roles.mdc`](agent-roles.mdc). |
+- Beslutet först; håll svenska svar korta och konkreta.
+- Förklara första ovanliga tekniska ordet med en kort parentes.
+- Skilj verifierat bevis från antagande eller subjektiv bedömning.
+- Använd tabell bara när den gör en jämförelse tydligare.
+- En begärd plan är inte mandat att implementera.
 
-Exempel på avslut: `Säkerhet: 80 %. Verifierat mot filer, inte livekört.`
-`— Builder A`
-
-## Parentesregeln i praktik
-
-Sätt parentesen **första gången** ett otydligt engelskt tech-ord eller en förkortning används, sedan inte mer i samma svar: `scope (avgränsning)`, `snapshot (ögonblicksbild)`, `RLS (radnivåsäkerhet)`, `CI (automatisk kontroll)`, `workflow (automatiskt flöde)`.
-
-Hoppa över vardagliga repo-ord som redan är etablerade: `commit`, `merge`, `branch`, `push`, `PR`, `fil`, `repo`, `prod`.
+Roll och eventuell sign-off ägs av [`agent-roles.mdc`](agent-roles.mdc).

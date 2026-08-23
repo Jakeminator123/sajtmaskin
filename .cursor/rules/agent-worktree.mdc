@@ -1,6 +1,6 @@
 ---
 description: "Delat working tree: agenter får inte byta branch i huvudcheckouten. Worktree för skrivarbete som kan ta tid; små master-landningar enligt git.mdc undantas."
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Agent worktree-isolation

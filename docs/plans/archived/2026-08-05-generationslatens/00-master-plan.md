@@ -75,7 +75,7 @@ riktig kolumn i stället växer steg 1 från två timmar till ett migrationsäre
 
 | Steg | Docs | Backoffice | Schema / kontrakt | Tester |
 |---|---|---|---|---|
-| 1 | `.cursor/skills/logg/SKILL.md` (kolumnlistan för telemetri-kinden) | `pages/observability.py` läser histogrammet `sajtmaskin_phase_duration_ms` — får en ny fas | Inget. Ny meta-nyckel i JSONB | `persist-telemetry.test.ts`, `metrics.test.ts` |
+| 1 | `.agents/skills/logg/SKILL.md` (kolumnlistan för telemetri-kinden) | `pages/observability.py` läser histogrammet `sajtmaskin_phase_duration_ms` — får en ny fas | Inget. Ny meta-nyckel i JSONB | `persist-telemetry.test.ts`, `metrics.test.ts` |
 | 2 | `docs/architecture/llm-pipeline.md` Fas 2 (BuildSpec-avsnittet) | Ingen | Ingen — `qualityTarget`/`contextPolicy` är interna BuildSpec-fält | BuildSpec-testerna i `src/lib/gen/build-spec/` |
 | 3 | `docs/architecture/llm-pipeline.md` Fas 3 punkt 6 beskriver gaten · `docs/schemas/quality-gate.md` om gate-semantiken rör sig | `pages/observability.py` (`sajtmaskin_verifier_blocking_total` + fasen `verifier`) och `pages/llm_flode_telemetry.py` (`verifier_skipped_by_policy`, `verifier_skipped_safe_fixes_only`) | Ingen schemaändring, men **ett medvetet skyddsnät sänks** | `finalize-version.test.ts`, `policy`-testerna |
 | 4 | Fas 2–3 skrivs om i grunden, inte kompletteras · `docs/schemas/orchestration-signal-contract.md` | `pages/generation_history.py` antar en rad per generation | `engine_generation_logs`, credit-flödet och SSE-kontraktet antar alla **en** ström | Hela finalize-sviten |

@@ -47,4 +47,4 @@ Skriptet sparar varje worktrees diff hit **innan** den tas bort, och vägrar rö
 ## Kör
 
 - `/kedja <bugg eller backlog-rad>` — hela pipelinen på en bugg.
-- Detaljer: [`.cursor/commands/kedja.md`](../commands/kedja.md) och [`.cursor/skills/kedja-fix-pipeline/SKILL.md`](../skills/kedja-fix-pipeline/SKILL.md).
+- Detaljer: [`.cursor/commands/kedja.md`](../commands/kedja.md) och [`.agents/skills/kedja-fix-pipeline/SKILL.md`](../../.agents/skills/kedja-fix-pipeline/SKILL.md).

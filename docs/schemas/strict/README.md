@@ -15,6 +15,7 @@ Rules:
 |--------|-----------|-----------------|----------------|
 | `dossier.schema.json` | `data/dossiers/<class>/<id>/manifest.json` | `src/lib/gen/dossiers/types.ts` + `validate-manifest.ts` | **Yes** — AJV in `validate-manifest.ts` |
 | `control-plane-registry.schema.json` | `config/control-plane/{schema,policy}-registry.json` | `config/control-plane/README.md` | CI: `npm run control-plane:check` (AJV 2020-12) + `src/lib/control-plane/registry.test.ts`. No runtime read. |
+| `change-impact.schema.json` | `config/change-impact.json` | `scripts/dev/change-impact.mjs` | CI/local: `npm run change-impact`; selects owners and checks before PR. |
 | `scaffold-variant.schema.json` | `config/scaffold-variants/<scaffoldId>/*.json` | `src/lib/gen/scaffold-variants/types.ts` | Backoffice validate-on-save + blocking `backoffice:test`; runtime parser in `registry.ts` |
 | `variant-template-addenda.schema.json` | `config/variant-template-addenda.json` | `src/lib/gen/scaffold-variants/variant-template-addendum.ts` | **Yes** — Zod at runtime + variant-integrity/CLI checks |
 | `env-policy.schema.json` | `config/env-policy.json` (env governance + classification) | `src/lib/env-audit.ts` + `scripts/env/manage_env.py`; runtime read-truth = Zod `serverSchema` i `src/lib/env.ts` | CI: parity via `src/lib/env-policy-parity.test.ts`. Ingen runtime-read. |

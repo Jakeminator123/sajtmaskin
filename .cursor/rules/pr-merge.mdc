@@ -1,178 +1,75 @@
 ---
-description: "Kanonisk merge-grind OCH PR-författarens efterkontroll. Läs när du just skapat en PR, före PR-granskning, före approval och före merge. Mergeable betyder inte granskad — och gh pr checks visar inte bot-fynden."
+description: "Kanonisk PR-grind. Läs efter skapad PR, vid PR-review/sign-off och före merge; inte under vanlig kodning."
 alwaysApply: false
 ---
 
-# PR-merge: grind, fyndsvep och sign-off
+# PR-grind
 
-`mergeable: true` betyder bara "inga gitkonflikter". Grönt CI är inte granskning. Den här filen är kanonisk för hela merge-flödet; bakgrunden till varje krav ligger i [`docs/runbooks/pr-merge-gate.md`](../../docs/runbooks/pr-merge-gate.md).
+Mergeable betyder bara konfliktfri. Merga aldrig utan användarens uttryckliga
+mergeuppdrag. Bakgrund och incidenter:
+`docs/runbooks/pr-merge-gate.md`.
 
-## Proportionalitet — grinden skyddar, den bromsar inte
+## Hårda stopp
 
-| Blockerar merge (fixa först) | Blockerar ALDRIG (logga/notera, merga ändå) |
-|---|---|
-| P0/P1, säkerhet, cross-tenant, secret-läcka | Smak, stil, namn-preferens, formattering |
-| Brutet kontrakt: schema/policy/typer/tester rött | "Skulle kunna vara snyggare/DRY:are" |
-| False-green, körtidsregression | Hypotetisk kant utan repro |
-| Protected path utan oberoende granskning | Nit som inte fångar verklig risk |
+- Draft, fel base, konflikt, röd/pending required check eller requested changes.
+- `do-not-merge`, `agent:needs-human`, `risk:4` eller `risk:5`.
+- Adminspärrad Godnatt-evaluation: aldrig ready, merge, auto-merge eller close
+  före adminbeslut.
+- P0/P1, security/cross-tenant, secretläcka, false-green eller brutet kontrakt.
+- Head-SHA ändrad efter review/sign-off.
 
-En välmotiverad förbättring stoppas aldrig av smaknit — logga niten (P2/backlog) och merga. Är en gate flaky utan att fånga verklig risk: logga, merga, fixa gaten separat.
+P2/nits blockerar inte när de är fixade, loggade eller konkret avfärdade.
+EmaCodeHero har base `ema` och kräver ägarens beslut.
 
-## Merge-grinden — merga BARA när allt är sant
+## Författaren efter varje head-SHA
 
-ej draft · base master (EmaCodeHero: base `ema`, se [`ema-pr-sparr.mdc`](ema-pr-sparr.mdc)) · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`, `build`, `review-window`) · Vercel ok/saknas · inga requested changes eller blockerande trådar · **PR ≥ 7 min gammal** · **bugbot-pass kört på aktuell head-SHA** · **minst en extern buggkoll gjord** · **varje bot-fynd triagerat** · **`merge:ready`-label + sign-off satt av PR-agenten** · head-SHA oförändrad sedan sign-off · PR-body beskriver ändringen.
+1. Kör relevanta tester och oberoende readonly Bugbot/review med `<sol>` enligt
+   `subagent-models.mdc`; protected paths kräver alltid ett sådant pass.
+2. Skapa/uppdatera PR:n först när aktuell diff är pushad. Arbete kvar = draft.
+3. Läs alla botytor, inte bara checks: inline comments, reviews, PR-kommentarer,
+   check-run summary/text och annotations.
+4. Triagera varje konkret fynd: **fixat**, **loggat** i rätt canonical tracker
+   eller **avfärdat** med verifierbart skäl. Kör om efter ny commit.
 
-Faller ett enda villkor → `NEEDS_HUMAN`, ingen merge.
+En uttömmande PR AI-review/Codex-review för aktuell SHA kan vara det oberoende
+passet. En usage-limit-kommentar är varken pass eller blocker; använd lokal
+Sol-review. Manuell strukturerad diffreview är sista fallback.
 
-**Blockerande labels väger tyngre än `merge:ready`:** `do-not-merge`, `agent:needs-human`, `risk:4`, `risk:5` betyder stopp tills ägaren beslutat, även när `merge:ready` sitter kvar. `merge:ready` betyder "författaren är färdig", inte "detta får merge:as". Labels är gratis att läsa i samma `gh pr list` som resten av svepet — läs dem före allt dyrt arbete.
+**Protected paths** är `.github/workflows/**`, package-/lockfil, DB/auth/tenant,
+generation/providers/integrations/logging, API-routes, migration/env,
+grandmaster-docs och bugbackloggen. Risk ≥ 3 (CI/runtime/security/false-green)
+räknas också som protected, även för test-only diff.
 
-### `review-window` gör 7-min-fönstret tekniskt tvingat
+## Ready-signal
 
-Required-checken `review-window` (`.github/workflows/review-window.yml`) håller sig **pending** tills PR:en är ≥ 7 min gammal **och** de kända externa botarna för nuvarande head-SHA är klara — dock aldrig längre än ett 10-min-tak, så den fastnar inte om en bot är avstängd. Den gör ingen verdict-bedömning; triagen är fortfarande agentens jobb.
+När tester/review är klara och P0/P1 = 0:
 
-**`gh pr merge --admin` överstyr checken**, så vid admin-merge måste PR-åldern verifieras manuellt (`gh pr view <n> --json createdAt`).
+1. Kommentera först:
+   `merge:ready — sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
+2. Sätt därefter labeln `merge:ready`.
+3. Ny commit eller senare botfynd ogiltigförklarar signalen; granska, kommentera
+   och labela om i samma ordning.
 
-### Mergarens kontroll precis före merge
+Mergaren sätter aldrig författarens label åt den. Avsaknad av label betyder
+att författaren inte är klar.
 
-Detta är **mergarens** kontroll, skild från författarens bugg-efterkontroll längre ner (som körs vid PR-skapandet). Ingen merge — **inte ens admin** — förrän minst en extern buggkoll hunnit köra:
+## Mergarens sista kontroll
 
-1. **Codex-fönstret är 7 min och bounded.** Ge Codex upp till 7 min från PR-skapandet att lägga en review. Kommer ingen: **vänta inte längre** — författarens bugbot-pass för aktuell head-SHA räcker som oberoende ögon.
-2. **Landar en Codex-review inom fönstret** → läs och triagera den. Ett redan gjort bugbot-pass behöver inte köras om — men kör bugbot ändå på protected paths. Codex ersätter **aldrig** författarens obligatoriska efterkontroll; den är ett tillägg.
-3. **Har inget bugbot-pass körts för aktuell SHA** — eller landade en ny commit efter passet — kör `bugbot`-subagenten **nu** (`readonly: true`, `model` enligt [`subagent-models.mdc`](subagent-models.mdc)) och dokumentera fynden innan du mergar.
+Merga bara när allt är sant:
 
-### `--admin`: tillåtet på ägarens uppmaning, aldrig före grinden
+- inte draft; korrekt base; mergeable;
+- required checks `quality`, `backoffice-tests`, `schema-drift`, `build` och
+  `review-window` gröna;
+- Vercel-deployment är lyckad eller saknas;
+- PR minst sju minuter gammal och externa botar färdiga/triagerade;
+- inga blockerande labels, reviews, trådar eller otriagerade fynd;
+- giltig `merge:ready`-kommentar + label på oförändrad head-SHA;
+- PR-body beskriver diff, verifiering och kvarvarande risk.
 
-**Ägarbeslut 2026-08-11:** ber ägaren om merge får agenten köra `gh pr merge --admin` direkt — ingen extra tillståndsfråga per PR. Mandatet ändrar **ingenting** i grinden ovan; den är fortfarande det enda som avgör.
+`--admin` är tillåtet efter ägarens mergeuppdrag men får aldrig användas för att
+passera grinden. Serialisera merges och fetch:a mellan dem.
 
-Admin-bypass kringgår required checks och code-owner-review, och ägarens egna PR:er kan ändå inte självgodkännas — därför är `--admin` normalvägen här, inte ett undantag. Men aldrig förbi ett rött check, en utebliven granskning eller ett fönster som inte gått ut. Eftersom `--admin` även överstyr `review-window` måste PR-åldern verifieras manuellt (`gh pr view <n> --json createdAt`).
+## Väntan
 
-Mandatet gäller agent-merge, inte helautomatisk merge: dashboard-automationen "PR-mergare" förblir av (se "Vem mergar").
-
-### Protected paths → kräver oberoende pass
-
-`.github/workflows/**`, `package.json`/`package-lock.json`, `src/lib/db/**`, `src/lib/auth/**`, `src/lib/tenant/**`, `src/lib/gen/**`, `src/lib/providers/**`, `src/lib/integrations/**`, `src/lib/logging/**`, `src/app/api/**`, `migrations/**`, `env*`, grandmaster-docs, `BUG-SWARM-BACKLOG.md`, m.fl. Likaså risk ≥ 3 (CI/runtime/security/false-green) och **grandmaster-PR som inte är ren typo/docs**. Gäller även test-only diff.
-
-Detta betyder **oberoende bugbot-subagent-pass + uttrycklig bedömning** — inte att PR:en är omergbar. Merge-agenten uppfyller kravet och får merga sådana PR:er efter passet; annars kunde nästan ingen riktig PR någonsin mergas (de flesta rör `src/lib/**` eller `src/app/api/**`). En helautomatisk mergare kan inte uppfylla det → avstår.
-
-**Auto- vs agent-merge är separata kriterier.** "Inga protected paths" + "risk 1–2" gäller **helautomatisk** merge. Agent-mergaren — läget vi valt — får merga protected-path- och risk ≥ 3-PR:er efter bugbot-passet ovan. Alla övriga villkor i grinden (grönt CI, 7 min, `merge:ready` + sign-off, stabil SHA) gäller **alltid**, oavsett mergare.
-
-### Dependabot-PR:er
-
-Ingen författaragent finns, och `package.json`/`package-lock.json` är protected path där övertagande av författarrollen är förbjudet. En agent mergar dem därför inte på eget initiativ utan rapporterar för ägarbeslut. `dependabot-patch-safe` är workflowens klassning (patch + icke-core), inte ett godkännande; `dependabot-safe-automerge.yml` **labelar bara** — automerge är AV bakom `DEPENDABOT_AUTOMERGE_ENABLED`.
-
-## Hämta ALLA fynd — `gh pr checks` räcker inte
-
-Checks visar bara grönt/rött. De faktiska bug-fynden ligger som review-kommentarer och reviews, och missas tyst av både `gh pr checks` och `gh pr view --json comments`.
-
-```powershell
-# Inline review-fynd — HÄR ligger Codex P1/P2
-gh api repos/<owner>/<repo>/pulls/<n>/comments --jq '.[] | .user.login + " " + .path + ": " + .body'
-# Reviews — Codex-sammanfattning, godkännanden, requested changes
-gh api repos/<owner>/<repo>/pulls/<n>/reviews  --jq '.[] | .user.login + " [" + .state + "] " + (.body // "")'
-# PR-nivå-kommentarer — Vercel-deploy + författarens triage-noter
-gh api repos/<owner>/<repo>/issues/<n>/comments --jq '.[] | .user.login + ": " + .body'
-# Check-run output — Vercel Agent Review (VADE) lägger fynd här även vid neutral/success.
-# check-runs är SHA-keyade, så hämta head-SHA först:
-$sha = gh pr view <n> --json headRefOid -q .headRefOid
-gh api --method GET --paginate -F per_page=100 repos/<owner>/<repo>/commits/$sha/check-runs --jq '.check_runs[] | (.id|tostring) + " " + .name + ": " + (.output.title // "") + "\n" + (.output.summary // "") + (.output.text // "")'
-# Annotations ligger på EGEN endpoint per check-run-id:
-gh api --method GET --paginate -F per_page=100 repos/<owner>/<repo>/check-runs/<check-run-id>/annotations --jq '.[] | .path + ":" + (.start_line|tostring) + " " + .annotation_level + " — " + .message'
-```
-
-`--method GET` krävs (`-F` gör annars anropet till POST) och `--paginate` behövs eftersom default-sidstorleken är 30.
-
-**Aktiva granskare:** `Cursor Automation: Find critical bugs` + `Vercel Agent Review` (som checks), `GitGuardian` (secrets), **Codex** (på/av beroende på credits) och den **eventstyrda PR AI-reviewen** (`.github/workflows/pr-ai-review.yml` / `scripts/pr-review/`, OpenAI via modellmanifestet — Sol/high full review, Luna/low uppföljning). Codex/AI-review kan landa några minuter efter grönt CI → **re-läs reviews precis före merge**.
-
-**PR AI-review = fullgod buggkoll när den landat.** En publicerad uttömmande review från `github-actions[bot]` via `pr-ai-review` (eller motsvarande bot-kommentar med fynd/“inga trovärdiga buggar”) räknas som **fullgott bugbot-pass** för den head-SHA den granskat. Dokumentera då `bugkoll: pr-ai-review` (eller `codex` om det är Codex Desktop/connector). Den ersätter inte författarens triage av fynden — P0/P1 måste fortfarande fixas/loggas/avfärdas. Kommer ingen sådan review: fall tillbaka till stegen nedan.
-
-En kommentar som **bara** säger att budgeten är slut (`Bugbot couldn't run - usage limit reached`, Codex "usage limit") betyder att granskaren är av → **icke-blockerande, och inte ett fynd att triagera**. Den är däremot ett skäl att köra bugbot-subagenten lokalt; se fallback-stegen nedan.
-
-**Svep även PR:er rörda senaste ~12h**, inklusive mergade — ett bot-fynd på en syskon-PR kan peka på en reell bugg i delad kod.
-
-```powershell
-gh pr list --state all --limit 30 --json number,updatedAt,state,title |
-  ConvertFrom-Json |
-  Where-Object { $_.updatedAt -gt (Get-Date).ToUniversalTime().AddHours(-12).ToString("o") }
-```
-
-### Svep hela fyndlistan — aldrig ett tidsfönster
-
-Frågan är "är varje fynd åtgärdat på nuvarande head?", inte "har något nytt landat sedan sist?". Jämför varje fynds `original_commit_id` mot head och kontrollera i koden om det ligger bakåt. Ett tidsfilter felar åt båda hållen (se runbooken: #610 och #613).
-
-### Spårningskrav — varje fynd, inget tappas
-
-| Utfall | Krav |
-|---|---|
-| **Fixat** | i PR:en, helst med test/verifiering |
-| **Loggat** | rad i `BUG-SWARM-BACKLOG.md` med fil-ankare + ev. repro |
-| **Avfärdat** | en rad om varför (trivialt / by-design / naming) |
-
-P1/High/säkerhet/cross-tenant blockerar merge. Att merga med kvarvarande P2 **utan** att fixa eller logga dem är ett regelbrott — även om CI är grönt och PR:en redan mergats.
-
-## Bugg-efterkontroll: PR-författaren äger den
-
-Oberoende av Codex är det **agenten som skapade PR:en** som äger efterkontrollen — kör den före push/PR-skapande (se `git.mdc`, `workflow.mdc`). Vänta aldrig på Codex och räkna inte dess frånvaro som ett gap, men **finns en Codex-review ska den läsas och triageras**.
-
-**Fallback-stege — hoppa inte över steg 2/3:**
-
-1. GitHub-integrerad Bugbot på PR:en.
-2. Eventstyrd **PR AI-review** (`pr-ai-review.yml`) — om den publicerat en uttömmande review för aktuell head-SHA räknas den som fullgod (se ovan).
-3. Bugbot/PR AI-review slut budget eller utebliven → **kör Cursor Bugbot-passet lokalt**: `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model` enligt [`subagent-models.mdc`](subagent-models.mdc). Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
-4. Först om även det misslyckas → strukturerad manuell diff-granskning med fil- och radreferenser.
-
-Dokumentera i PR:en vilket steg som användes: `bugbot`, `bugbot-local`, `pr-ai-review`, `codex` eller `manual local bug review`. Samma värde går i `bugkoll:`-fältet i sign-offen.
-
-Kör om bugbot **på varje ny commit** (SHA-färskhet) och alltid på protected paths. `review-bugbot`-skillen är en global skill som sätter **varken** `model` eller `readonly` — anger du dem inte själv den vägen ärvs sessionens dyra modell tyst.
-
-### Author-is-merger
-
-Är mergaren samma agent som skapade PR:en räknas inte "jag läste min egen diff igen" som granskning — bugbot-subagentens pass är minimum, särskilt på protected paths. Mergar en **annan** agent: kör inte om författarens efterkontroll, verifiera bara att den är dokumenterad, att checks är gröna och att inga P0/P1 står öppna.
-
-## `merge:ready` — författarens sign-off
-
-Ingen agent mergar utan att författaren intygat att buggkollen är gjord. Ordningen är **inte kosmetisk** — omvänd ordning river labeln automatiskt (se runbooken, #665).
-
-1. **Sign-off som PR-kommentar först**, efter att triagen är klar och inga P0/P1 står öppna:
-   `merge:ready — sha: <40-tecken head-SHA>, at: <ISO8601 UTC>, bugkoll: <bugbot|bugbot-local|pr-ai-review|manual|codex>, triage: <fixat/loggat/avfärdat>, P0/P1: 0`
-2. **Sedan** labeln: `gh pr edit <n> --add-label "merge:ready"`.
-3. **Mergaren verifierar** label + sign-off-rad + att head-SHA är oförändrad sedan sign-off (`gh pr view <n> --json headRefOid`, jämför mot SHA:t i raden) + hela grinden. Saknas labeln, eller har en nyare commit landat → `NEEDS_HUMAN`.
-4. **Ny commit eller bot-fynd efter sign-off ogiltigförklarar labeln.** `merge-ready-freshness.yml` tar bort den vid `synchronize` och vid bot-review/kommentar som landat efter sign-offens tidsstämpel. Gör om buggkollen och signera på nytt **i samma ordning** — ny sign-off för aktuell SHA först, label sedan. Att bara sätta tillbaka labeln på en gammal sign-off är inget godkännande.
-
-### Signalordning för författaren
-
-| Läge | Signal |
-|---|---|
-| Arbetar fortfarande, allt är inte pushat | **Draft.** Mergare rör aldrig drafts |
-| Allt pushat, granskning pågår | Ready for review, **ingen** `merge:ready` |
-| Bugg-efterkontroll klar, inga öppna P0/P1 | Sign-off-rad först, `merge:ready` sedan |
-
-- **Öppna aldrig en icke-draft PR med arbete kvar att pusha.**
-- **Sent tillkommet arbete går i en NY PR**, aldrig som extra commit på en signerad PR.
-- Spegelbilden: avsaknad av `merge:ready` betyder "författaren är inte klar". Mergaren sätter aldrig labeln åt författaren för att komma vidare.
-
-## Spendera fönstret utan att blocka
-
-Väggklockan går inte att korta bort, men agenten ska inte bindas upp under tiden. **Blocka aldrig fönstret med `AwaitShell`-polling eller `gh run watch`** — det bränner kontext utan nytta.
-
-| Diff-typ | Mönster |
-|---|---|
-| **Default (de flesta PR:er)** | Kör bugbot **före** PR → posta PR → starta **EN** bakgrundsshell som sover till 7-min-golvet (räkna med ~10 min) och sedan dumpar `gh pr checks <n>` + nya review-kommentarer till fil → **avsluta turen**. Slutförande-notisen tar dig tillbaka för triage + merge |
-| **Protected paths / risk ≥ 3** | Uppgradera till en bakgrunds-subagent (`run_in_background: true`, `readonly: true`, `model` enligt [`subagent-models.mdc`](subagent-models.mdc), tidsbudget ≤ 10 min) som **bevakar och ytar** inkommande fynd och sedan självdör |
-
-**Rollsplit — billig bevakare, dyr beslutsfattare:** bevakaren *larmar bara*. Den triagerar aldrig och mergar aldrig själv. Pollning kräver ingen intelligens; triage- och merge-beslutet ligger alltid hos orkestratorn.
-
-Sov-timern är ett **golv, aldrig ett merge-kvitto** — verifiera att alla required checks (inkl. `review-window`) faktiskt är gröna, läs om reviews precis före merge, och kolla att ingen redan mergat (`gh pr view <n> --json state,reviews,createdAt`).
-
-## Vem mergar
-
-Dashboard-automationen "PR-mergare" ska vara **AV** (beslut 2026-07-09 — se runbooken). Merge sker via **merge-agenten**, som verifierar sign-off, verifierar hela grinden och först då kör `gh pr merge`.
-
-### Merge-agenten väntar aldrig passivt
-
-Har du mandat som merge-agent är väntan **inte** en aktivitet. `quality` tar ~8 min, `review-window` minst 7, och ett bugbot-pass flera minuter — den tiden ska gå till att föra de **övriga** öppna PR:erna framåt, inte till att polla samma check om.
-
-Under väntan: svep `gh pr list --state open` (labels, draft, checks), hämta och triagera externa bot-fynd per PR (se "Hämta ALLA fynd" ovan — `gh pr checks` visar dem inte), verifiera författarnas påståenden mot koden, och identifiera vilka PR:er som krockar i samma fil. Kom tillbaka till den väntande PR:en när den faktiskt är klar.
-
-**Men serialisera själva mergarna.** Granskningsarbetet parallelliseras; `gh pr merge` körs en PR i taget, med `git fetch` emellan, eftersom en merge gör alla andra PR:ers head-SHA:n inaktuella och kan väcka konflikter som var osynliga i deras gröna CI. Börja inte heller skriva kod på en annan agents branch bara för att du väntar — rapportera i stället att den behöver arbete.
-
-Bakgrund: 2026-08-05 stod merge-agenten still i ~10 min på en `quality`-check medan fyra andra öppna PR:er låg ogranskade, varav två med krockande ändringar i samma fil.
+Blockera inte chatten med watch-loopar. Gör en engångskontroll eller bakgrunds-
+bevakning, arbeta med andra PR:er och återkom när reviewfönstret/checks är klara.

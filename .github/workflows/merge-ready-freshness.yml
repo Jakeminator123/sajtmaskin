@@ -36,7 +36,6 @@ jobs:
       (
         github.event.sender.type == 'Bot' &&
         github.event.sender.login != 'dependabot[bot]' &&
-        github.event.sender.login != 'github-actions[bot]' &&
         (
           github.event_name != 'issue_comment' ||
           (
