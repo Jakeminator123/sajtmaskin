@@ -263,16 +263,16 @@ describe("PreviewPanel", () => {
 
     const controlledSrc = iframe.getAttribute("src");
     expect(controlledSrc).toBeTruthy();
-    const setAttribute = vi.spyOn(iframe, "setAttribute");
+    const setSrc = vi.spyOn(iframe, "src", "set");
 
     fireEvent.click(aboutButton);
-    expect(setAttribute).not.toHaveBeenCalled();
+    expect(setSrc).not.toHaveBeenCalled();
     expect(onNavigatePreviewUrl).not.toHaveBeenCalled();
 
     fireEvent.click(homeButton);
 
-    expect(setAttribute).toHaveBeenCalledTimes(1);
-    expect(setAttribute).toHaveBeenCalledWith("src", controlledSrc);
+    expect(setSrc).toHaveBeenCalledTimes(1);
+    expect(setSrc).toHaveBeenCalledWith(controlledSrc);
     expect(onNavigatePreviewUrl).not.toHaveBeenCalled();
   });
 

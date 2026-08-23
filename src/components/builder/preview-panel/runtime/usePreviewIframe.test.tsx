@@ -41,12 +41,20 @@ function makeParams(overrides: Partial<Parameters<typeof usePreviewIframe>[0]> =
 }
 
 function makeIframeRef(src = TIER2_URL) {
+  let currentSrc = src;
+  const setSrc = vi.fn((nextSrc: string) => {
+    currentSrc = nextSrc;
+  });
   const iframe = {
-    src,
-    getAttribute: vi.fn((name: string) => (name === "src" ? src : null)),
+    getAttribute: vi.fn((name: string) => (name === "src" ? currentSrc : null)),
     setAttribute: vi.fn(),
   } as unknown as HTMLIFrameElement;
-  return { current: iframe };
+  Object.defineProperty(iframe, "src", {
+    configurable: true,
+    get: () => currentSrc,
+    set: setSrc,
+  });
+  return { current: iframe, setSrc };
 }
 
 describe("usePreviewIframe — Tier-2 readiness", () => {
@@ -233,7 +241,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
       expect(result.current.reloadControlledPreview()).toBe(true);
     });
 
-    expect(iframeRef.current?.setAttribute).toHaveBeenCalledWith("src", decoratedSrc);
+    expect(iframeRef.setSrc).toHaveBeenCalledWith(decoratedSrc);
     act(() => vi.advanceTimersByTime(97_999));
     expect(result.current.iframeLoading).toBe(true);
     expect(result.current.iframeError).toBe(false);

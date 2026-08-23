@@ -294,7 +294,7 @@ export function usePreviewIframe(params: {
     // A controlled URL is often unchanged after SPA navigation. React will
     // therefore not write the src again, so explicitly reload the exact
     // decorated URL (including viewer/refresh parameters).
-    iframe.setAttribute("src", controlledSrc);
+    iframe.src = controlledSrc;
     return true;
   }, [
     activePreviewSessionId,
