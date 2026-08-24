@@ -298,18 +298,36 @@ describe("getPreviewLogs", () => {
     });
   });
 
-  it("scrubs bearer tokens, sk/rk/whsec secrets, PEM keys, and https URLs", () => {
+  it("does not return logs when the session is unpinned", () => {
+    const result = getPreviewLogs(
+      logsInput({
+        session: session({ versionId: null, filesRevision: null }),
+        lines: [line("t1", "should not leak")],
+      }),
+    );
+    expect(result).toEqual({
+      ok: true,
+      tool: "preview.logs",
+      available: false,
+      reason: "no_session",
+      lines: [],
+      truncated: false,
+    });
+  });
+
+  it("scrubs bearer tokens, sk/rk/whsec secrets, PEM keys, and http(s) URLs", () => {
     const result = getPreviewLogs(
       logsInput({
         lines: [
           line("t1", "auth Bearer fly-abc123.token"),
-          line("t2", "openai sk-proj-SUPERSECRET and stripe rk-live-XYZ"),
-          line("t3", "webhook whsec_should_stay webhook whsec-abcDEF"),
+          line("t2", "openai sk-proj-SUPERSECRET and stripe rk-live-XYZ rk_live_ABC"),
+          line("t3", "webhook whsec_should_go webhook whsec-abcDEF"),
           line(
             "t4",
             "key -----BEGIN RSA PRIVATE KEY-----\nMIISECRET\n-----END RSA PRIVATE KEY----- done",
           ),
           line("t5", "open https://preview-host.fly.dev/sess/abc?token=1 now"),
+          line("t6", "also http://insecure.example.invalid/sess"),
         ],
       }),
     );
@@ -321,15 +339,33 @@ describe("getPreviewLogs", () => {
     expect(blob).not.toContain("sk-proj");
     expect(blob).not.toContain("SUPERSECRET");
     expect(blob).not.toContain("rk-live");
+    expect(blob).not.toContain("rk_live");
+    expect(blob).not.toContain("whsec_should_go");
     expect(blob).not.toContain("whsec-abcDEF");
     expect(blob).not.toContain("BEGIN RSA");
     expect(blob).not.toContain("MIISECRET");
     expect(blob).not.toContain("https://");
+    expect(blob).not.toContain("http://");
     expect(blob).not.toContain("preview-host.fly.dev");
     expect(blob).toContain("[redacted]");
     expect(result.lines[0]?.message).toBe("auth Bearer [redacted]");
     expect(result.lines[1]?.message).toContain("[redacted]");
     expect(result.lines[4]?.message).toBe("open [redacted] now");
+  });
+
+  it("drops lines whose timestamp looks like a URL or secret", () => {
+    const result = getPreviewLogs(
+      logsInput({
+        lines: [
+          line("https://evil.example/ts", "kept-message-must-not-appear-with-bad-ts"),
+          line("sk-live-abc", "also-dropped"),
+          line("t-ok", "kept"),
+        ],
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.lines).toEqual([{ ts: "t-ok", message: "kept" }]);
   });
 
   it("drops messages that are empty after scrub and does not invent lines", () => {

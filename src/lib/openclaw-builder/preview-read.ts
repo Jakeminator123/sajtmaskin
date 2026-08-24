@@ -179,9 +179,17 @@ function scrubMessage(message: string): string {
     REDACTED,
   );
   out = out.replace(/\bBearer\s+\S+/gi, `Bearer ${REDACTED}`);
-  out = out.replace(/\b(?:sk|rk|whsec)-[A-Za-z0-9+/=_\-]+/g, REDACTED);
-  out = out.replace(/https:\/\/[^\s]+/gi, REDACTED);
+  out = out.replace(/\b(?:sk|rk|whsec)[-_][A-Za-z0-9+/=_\-]+/g, REDACTED);
+  out = out.replace(/\b(?:sk|rk)_live_[A-Za-z0-9+/=_\-]+/g, REDACTED);
+  out = out.replace(/https?:\/\/[^\s]+/gi, REDACTED);
   return out.trim();
+}
+
+function isSafeLogTimestamp(ts: string): boolean {
+  if (ts.length === 0 || ts.length > 64) return false;
+  if (ts.includes("://") || /https?/i.test(ts)) return false;
+  if (/\b(?:sk|rk|whsec)[-_]/i.test(ts) || /bearer/i.test(ts)) return false;
+  return /^[A-Za-z0-9._:+-]+$/.test(ts);
 }
 
 function parseLogLines(value: unknown): PreviewLogLine[] | "invalid" {
@@ -191,6 +199,7 @@ function parseLogLines(value: unknown): PreviewLogLine[] | "invalid" {
     if (item == null || typeof item !== "object") continue;
     const raw = item as Record<string, unknown>;
     if (typeof raw.ts !== "string" || typeof raw.message !== "string") continue;
+    if (!isSafeLogTimestamp(raw.ts)) continue;
     const message = scrubMessage(raw.message);
     if (message.length === 0) continue;
     lines.push({ ts: raw.ts, message });
@@ -254,22 +263,22 @@ export function getPreviewLogs(input: {
       truncated: false,
     };
   }
-  if (versionMatches === false) {
+  if (versionMatches !== true) {
     return {
       ok: true,
       tool: "preview.logs",
       available: false,
-      reason: "version_mismatch",
+      reason: versionMatches === false ? "version_mismatch" : "no_session",
       lines: [],
       truncated: false,
     };
   }
-  if (revisionMatches === false) {
+  if (revisionMatches !== true) {
     return {
       ok: true,
       tool: "preview.logs",
       available: false,
-      reason: "revision_mismatch",
+      reason: revisionMatches === false ? "revision_mismatch" : "no_session",
       lines: [],
       truncated: false,
     };
