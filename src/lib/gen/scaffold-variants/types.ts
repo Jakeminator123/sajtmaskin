@@ -95,3 +95,17 @@ export interface PickScaffoldVariantInput {
   generationMode?: "init" | "followUp";
   sessionSeed?: string;
 }
+
+export type VariantSelectionSource =
+  "style-choice" | "follow-up-lock" | "hint-fallback" | "keyword" | "embedding" | "hash";
+
+/** Compact, JSON-safe receipt for the variant decision. */
+export interface VariantSelection {
+  source: VariantSelectionSource;
+  score: number | null;
+  runnerUpScore: number | null;
+  margin: number | null;
+  hintId: string | null;
+  finalId: string | null;
+  changedFromHint: boolean;
+}

@@ -8,8 +8,9 @@
  */
 
 import {
-  pickScaffoldVariantAsync,
+  pickScaffoldVariantAsyncWithReceipt,
   type ScaffoldVariant,
+  type VariantSelection,
 } from "../scaffold-variants";
 
 export async function resolveScaffoldVariant(
@@ -30,6 +31,28 @@ export async function resolveScaffoldVariant(
    */
   extraToneKeywords?: string[],
 ): Promise<ScaffoldVariant | null> {
+  return (
+    await resolveScaffoldVariantWithReceipt(
+      scaffoldId,
+      prompt,
+      brief,
+      generationMode,
+      sessionSeed,
+      extraStyleKeywords,
+      extraToneKeywords,
+    )
+  ).variant;
+}
+
+export async function resolveScaffoldVariantWithReceipt(
+  scaffoldId: string | null | undefined,
+  prompt: string,
+  brief: Record<string, unknown> | null,
+  generationMode: "init" | "followUp",
+  sessionSeed?: string,
+  extraStyleKeywords?: string[],
+  extraToneKeywords?: string[],
+): Promise<{ variant: ScaffoldVariant | null; selection: VariantSelection }> {
   const briefStyleKeywords = Array.isArray(
     (brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection
       ?.styleKeywords,
@@ -38,8 +61,7 @@ export async function resolveScaffoldVariant(
         (brief as { visualDirection?: { styleKeywords?: unknown[] } } | null)?.visualDirection
           ?.styleKeywords ?? []
       ).filter(
-        (keyword): keyword is string =>
-          typeof keyword === "string" && keyword.trim().length > 0,
+        (keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0,
       )
     : [];
 
@@ -61,8 +83,7 @@ export async function resolveScaffoldVariant(
     (brief as { toneAndVoice?: unknown } | null)?.toneAndVoice,
   )
     ? ((brief as { toneAndVoice?: unknown[] } | null)?.toneAndVoice ?? []).filter(
-        (keyword): keyword is string =>
-          typeof keyword === "string" && keyword.trim().length > 0,
+        (keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0,
       )
     : [];
 
@@ -80,7 +101,7 @@ export async function resolveScaffoldVariant(
     toneKeywords.push(trimmed);
   }
 
-  return pickScaffoldVariantAsync({
+  return pickScaffoldVariantAsyncWithReceipt({
     prompt,
     scaffoldId: (scaffoldId as ScaffoldVariant["scaffoldId"] | null | undefined) ?? null,
     styleKeywords,

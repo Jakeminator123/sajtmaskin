@@ -61,6 +61,8 @@ export interface GenerationInputPackage extends OrchestrationBase {
   promptSize: PromptSizeMetrics;
   /** Chosen scaffold variant for this generation. */
   variantId: string | null;
+  /** Why the final variant won, including the preliminary init hint. */
+  variantSelection: import("./scaffold-variants").VariantSelection;
   /** The one complete-project Blob reference selected for the variant. */
   variantTemplateId: string | null;
   /** Style-only vision attachment corresponding to `variantTemplateId`. */
@@ -153,6 +155,7 @@ export function serializePackageForDump(pkg: GenerationInputPackage): Record<str
     dynamicContextBlocks: pkg.dynamicContextBlocks,
     promptSize: pkg.promptSize,
     variantId: pkg.variantId,
+    variantSelection: pkg.variantSelection,
     variantTemplateId: pkg.variantTemplateId,
     sources: pkg.sources,
     importedRepoMode: pkg.importedRepoMode,

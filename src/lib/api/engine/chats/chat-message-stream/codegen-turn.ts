@@ -523,6 +523,7 @@ export async function runCodegenTurn(params: {
       customInstructionsLength: trimmedSystem?.length ?? 0,
       scaffoldId: resolvedScaffold?.id ?? null,
       variantId: finalized.variantId,
+      variantSelection: finalized.variantSelection,
       variantTemplateId: finalized.variantTemplateId,
       sources: finalized.sources,
     }),

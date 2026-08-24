@@ -46,6 +46,7 @@ interface FinalizedOrchestrationContextLike {
   dynamicContextPruning: GenerationInputPackage["dynamicContextPruning"];
   dynamicContextBlocks: GenerationInputPackage["dynamicContextBlocks"];
   variantId: string | null;
+  variantSelection: GenerationInputPackage["variantSelection"];
   variantTemplateId: string | null;
   variantTemplateReferenceAttachments: GenerationInputPackage["variantTemplateReferenceAttachments"];
   sources?: GenerationInputPackage["sources"];
@@ -97,6 +98,7 @@ export function buildGenerationInputPackage(
     dynamicContextBlocks: finalized.dynamicContextBlocks,
     promptSize,
     variantId: finalized.variantId,
+    variantSelection: finalized.variantSelection,
     variantTemplateId: finalized.variantTemplateId,
     variantTemplateReferenceAttachments: finalized.variantTemplateReferenceAttachments,
     sources: finalized.sources ?? [],
@@ -141,6 +143,7 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
     dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
     dynamicContextLargestBlocks: pkg.promptSize.blocks.largest,
     variantId: pkg.variantId ?? null,
+    variantSelection: pkg.variantSelection,
     variantTemplateId: pkg.variantTemplateId ?? null,
     sourceCount: pkg.sources.length,
     sourceKinds: [...new Set(pkg.sources.map((source) => source.kind))],

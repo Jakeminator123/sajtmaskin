@@ -6,16 +6,46 @@ import {
   buildKeywordWordPattern,
   lockedVariantForFollowUp,
   pickScaffoldVariant,
-  pickScaffoldVariantAsync,
+  pickScaffoldVariantAsyncWithReceipt,
+  pickScaffoldVariantWithReceipt,
 } from "./matcher";
 import { getVariantsForScaffold } from "./registry";
 import * as embeddingsStorage from "@/lib/gen/embeddings/embeddings-storage";
 
 describe("pickScaffoldVariant", () => {
+  it("receipts keyword and deterministic hash decisions", () => {
+    const keyword = pickScaffoldVariantWithReceipt({
+      prompt: "professional b2b consulting corporate enterprise",
+      scaffoldId: "landing-page",
+      sessionSeed: "receipt-keyword",
+    });
+    expect(keyword.selection).toMatchObject({
+      source: "keyword",
+      finalId: keyword.variant?.id,
+      hintId: null,
+      changedFromHint: false,
+    });
+    expect(keyword.selection.score).toBeGreaterThan(0);
+
+    const first = pickScaffoldVariantWithReceipt({
+      prompt: "folk ska kunna boka tid hos mig",
+      scaffoldId: "landing-page",
+      sessionSeed: "receipt-hash",
+    });
+    const second = pickScaffoldVariantWithReceipt({
+      prompt: "folk ska kunna boka tid hos mig",
+      scaffoldId: "landing-page",
+      sessionSeed: "receipt-hash",
+    });
+    expect(first.selection.source).toBe("hash");
+    expect(first.selection.score).toBe(0);
+    expect(first.selection.runnerUpScore).toBe(0);
+    expect(first.selection.margin).toBe(0);
+    expect(second.variant?.id).toBe(first.variant?.id);
+  });
   it("picks corporate-grid when the prompt carries strong b2b/consulting keywords", () => {
     const variant = pickScaffoldVariant({
-      prompt:
-        "Build a professional b2b consulting corporate landing page for an enterprise agency",
+      prompt: "Build a professional b2b consulting corporate landing page for an enterprise agency",
       scaffoldId: "landing-page",
       generationMode: "init",
       sessionSeed: "seed-1",
@@ -195,7 +225,7 @@ describe("variant candidate authority", () => {
     });
 
     try {
-      const picked = await pickScaffoldVariantAsync({
+      const picked = await pickScaffoldVariantAsyncWithReceipt({
         // Keyword fallback would pick corporate-grid, so this assertion also
         // proves that queryVector + the embedding candidate path were used.
         prompt: "Professional B2B consulting and enterprise services",
@@ -205,7 +235,11 @@ describe("variant candidate authority", () => {
         queryVector: [1, 0],
       });
 
-      expect(picked?.id).toBe(targetId);
+      expect(picked.variant?.id).toBe(targetId);
+      expect(picked.selection).toMatchObject({
+        source: "embedding",
+        finalId: targetId,
+      });
       expect(loadSpy).toHaveBeenCalledWith("variant");
     } finally {
       loadSpy.mockRestore();

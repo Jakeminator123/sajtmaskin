@@ -179,15 +179,10 @@ export interface OrchestrationInput {
   capabilities?: InferredCapabilities;
   /** Per-session seed (e.g. chatId) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
-  /**
-   * Variant id to lock for this orchestration run. Used in two ways:
-   *  - Initial chat (create-chat-stream-post): pinned to the keyword
-   *    pre-match pick so brief-LLM hints and codegen agree.
-   *  - Follow-ups (chat-message-stream-post): reused from the previous
-   *    orchestration_snapshot.variantId to prevent variant drift across turns.
-   * If the id no longer resolves via getVariantById, async picker runs as fallback.
-   */
+  /** Accepted follow-up variant reused from orchestration_snapshot.variantId to prevent drift. */
   persistedVariantId?: string | null;
+  /** Preliminary init pre-match. Unlike persistedVariantId, this is not an accepted follow-up lock. */
+  variantHintId?: string | null;
   /**
    * True when this is the first real code generation in a chat that already has a
    * persistedScaffoldId (e.g. after a contract gate turn). Allows init-only features
@@ -449,6 +444,7 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
+  variantSelection: import("../scaffold-variants").VariantSelection;
   variantTemplateId: string | null;
   variantTemplateReferenceAttachments: RequestAttachment[];
   /** Source receipt. Built here after pruning; see `GenerationInputPackage.sources`. */

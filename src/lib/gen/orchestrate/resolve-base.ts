@@ -895,7 +895,7 @@ export async function resolveOrchestrationBase(
     f3ApprovedProviders,
     dossierSelection,
     requestedCapabilityTiers: input.requestedCapabilityTiers,
-    scaffoldVariantId: input.persistedVariantId ?? null,
+    scaffoldVariantId: resolvedMode === "followUp" ? input.persistedVariantId ?? null : null,
     capabilityModifyHint: input.capabilityModifyHint ?? null,
   };
 }
