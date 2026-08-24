@@ -6,14 +6,21 @@ import { fileURLToPath } from "node:url";
 import { collectImpact, loadWorkflowInputs, parseGitNameStatus } from "./path-impact.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const isWindows = process.platform === "win32";
+const npm = isWindows ? "npm.cmd" : "npm";
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, {
     cwd: REPO_ROOT,
     encoding: "utf8",
     stdio: options.inherit ? "inherit" : ["ignore", "pipe", "pipe"],
+    // Node vägrar spawna .cmd utan shell sedan CVE-2024-27980.
+    shell: options.shell ?? false,
   });
+}
+
+function runNpm(args, options = {}) {
+  return run(npm, args, { ...options, shell: isWindows });
 }
 
 function git(args, options = {}) {
@@ -152,7 +159,15 @@ async function main() {
 
   for (const command of impact.commands) {
     console.log(`\n[verify:pr] kör npm run ${command}`);
-    const result = run(npm, ["run", command], { inherit: true });
+    const result = runNpm(["run", command], { inherit: true });
+    // status === null betyder att kontrollen aldrig startade. Att rapportera det
+    // som ett vanligt kontrollfel gör miljöfel oskiljbara från riktiga fynd.
+    if (result.error || result.status === null) {
+      throw new Error(
+        `kunde inte starta "npm run ${command}": ${result.error?.message ?? "okänt spawn-fel"}. ` +
+          `Ingen kontroll är verifierad — behandla inte detta som ett kodfynd.`,
+      );
+    }
     if (result.status !== 0) failures.push(`npm run ${command}`);
   }
 
