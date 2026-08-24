@@ -19,7 +19,7 @@ function request(
 }
 
 describe("openCandidatePreview", () => {
-  it("leaves the live preview URL and session pointer untouched", () => {
+  it("never returns the live preview URL or session pointer", () => {
     const result = openCandidatePreview(request());
     expect(result).toEqual({
       ok: true,
@@ -28,9 +28,11 @@ describe("openCandidatePreview", () => {
       workspaceRevision: HEX_REVISION,
       movedLivePreviewUrl: false,
       movedLiveSessionPointer: false,
-      livePreviewUrl: LIVE_URL,
-      liveSessionPointer: LIVE_POINTER,
+      livePreviewUrl: null,
+      liveSessionPointer: null,
     });
+    expect(JSON.stringify(result)).not.toContain(LIVE_URL);
+    expect(JSON.stringify(result)).not.toContain(LIVE_POINTER);
   });
 
   it("echoes null live fields unchanged and never claims they moved", () => {
@@ -61,9 +63,11 @@ describe("openCandidatePreview", () => {
       identity: "candidate",
       movedLivePreviewUrl: false,
       movedLiveSessionPointer: false,
-      livePreviewUrl: LIVE_URL,
-      liveSessionPointer: LIVE_POINTER,
+      livePreviewUrl: null,
+      liveSessionPointer: null,
     });
+    expect(JSON.stringify(result)).not.toContain(LIVE_URL);
+    expect(JSON.stringify(result)).not.toContain(LIVE_POINTER);
   });
 
   it("denies an attempted live preview URL change", () => {

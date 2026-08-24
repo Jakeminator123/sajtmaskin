@@ -74,7 +74,7 @@ export function openCandidatePreview(
     workspaceRevision: input.candidateWorkspaceRevision,
     movedLivePreviewUrl: false,
     movedLiveSessionPointer: false,
-    livePreviewUrl: input.livePreviewUrl,
-    liveSessionPointer: input.liveSessionPointer,
+      livePreviewUrl: null,
+      liveSessionPointer: null,
   };
 }
