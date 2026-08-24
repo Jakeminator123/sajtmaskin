@@ -11,6 +11,7 @@ import {
 import { hashCanonicalJson } from "./canonical-json";
 import { hashBuilderAuditTenant, redactBuilderAuditMetadata } from "./audit";
 import { createGenerationInputPackageReceipt } from "./package-receipt";
+import { createClassicBuilderExecutionTrace } from "./telemetry";
 import type { GenerationInputPackage } from "@/lib/gen/generation-input-package";
 
 function packageFixture(extra: Record<string, unknown> = {}): GenerationInputPackage {
@@ -18,9 +19,15 @@ function packageFixture(extra: Record<string, unknown> = {}): GenerationInputPac
     userPrompt: "Bygg en säker sajt",
     rawPrompt: "Bygg en säker sajt",
     engineSystemPrompt: "private system prompt",
+    dynamicContext: "private dynamic context",
     buildSpec: { buildIntent: "app", previewPolicy: "fidelity2" },
-    resolvedScaffold: { id: "saas" },
+    resolvedScaffold: {
+      id: "saas",
+      files: [{ path: "app/page.tsx", content: "export default function Page() {}" }],
+    },
     variantId: "grid",
+    variantTemplateId: null,
+    variantTemplateReferenceAttachments: [],
     sources: [
       {
         kind: "dossier",
@@ -31,13 +38,15 @@ function packageFixture(extra: Record<string, unknown> = {}): GenerationInputPac
         reachedPrompt: true,
       },
     ],
+    importedRepoMode: false,
+    importedRepoContractHashes: null,
     lineageHash: "a".repeat(64),
     ...extra,
   } as unknown as GenerationInputPackage;
 }
 
 describe("GenerationInputPackage receipt", () => {
-  it("is deterministic, order-stable and sensitive to package changes", () => {
+  it("is deterministic, order-stable and sensitive to relevant package changes", () => {
     expect(hashCanonicalJson({ b: 2, a: { y: 2, x: 1 } })).toBe(
       hashCanonicalJson({ a: { x: 1, y: 2 }, b: 2 }),
     );
@@ -46,10 +55,75 @@ describe("GenerationInputPackage receipt", () => {
     const changed = createGenerationInputPackageReceipt(
       packageFixture({ userPrompt: "Bygg en annan säker sajt" }),
     );
+    const changedSystemPrompt = createGenerationInputPackageReceipt(
+      packageFixture({ engineSystemPrompt: "different private system prompt" }),
+    );
+    const changedScaffold = createGenerationInputPackageReceipt(
+      packageFixture({
+        resolvedScaffold: {
+          id: "saas",
+          files: [{ path: "app/page.tsx", content: "export default function Changed() {}" }],
+        },
+      }),
+    );
     expect(replay).toEqual(first);
     expect(changed.generationInputPackageHash).not.toBe(first.generationInputPackageHash);
+    expect(changedSystemPrompt.generationInputPackageHash).not.toBe(
+      first.generationInputPackageHash,
+    );
+    expect(changedScaffold.generationInputPackageHash).not.toBe(
+      first.generationInputPackageHash,
+    );
     expect(JSON.stringify(first)).not.toContain("private system prompt");
     expect(JSON.stringify(first)).not.toContain("Bygg en säker sajt");
+  });
+
+  it("keeps the classic package immutable and emits only the existing scrubbed trace", () => {
+    const pkg = packageFixture({
+      userPrompt: "prompt-with-TEST_SECRET_SENTINEL_DO_NOT_LOG",
+      engineSystemPrompt: "system-with-TEST_AUTH_SENTINEL_DO_NOT_LOG",
+      resolvedScaffold: {
+        id: "saas",
+        files: [{ path: "app/private-page.tsx", content: "const secret = 'do-not-log'" }],
+      },
+    });
+    const before = structuredClone(pkg);
+    const trace = createClassicBuilderExecutionTrace(
+      createGenerationInputPackageReceipt(pkg),
+    );
+
+    expect(pkg).toEqual(before);
+    expect(trace).toMatchObject({ lane: "classic", executionEngine: "own-engine" });
+    expect(Object.keys(trace).sort()).toEqual(
+      [
+        "checkpoints",
+        "executionEngine",
+        "generationInputPackageHash",
+        "lane",
+        "lineageHash",
+        "qualityGateCorrelation",
+        "schemaVersion",
+        "sourceReceiptHash",
+      ].sort(),
+    );
+    const persisted = JSON.stringify(trace);
+    expect(persisted).not.toContain("do-not-log");
+    expect(persisted).not.toContain("private-page.tsx");
+  });
+
+  it("keeps receipt telemetry additive for legacy classic route fixtures", () => {
+    const legacyFixture = packageFixture({
+      rawPrompt: undefined,
+      sources: undefined,
+      variantTemplateReferenceAttachments: undefined,
+    });
+
+    expect(() => createGenerationInputPackageReceipt(legacyFixture)).not.toThrow();
+    expect(createGenerationInputPackageReceipt(legacyFixture)).toMatchObject({
+      lineageHash: "a".repeat(64),
+      sourceCount: 0,
+      promptChars: "Bygg en säker sajt".length,
+    });
   });
 });
 
