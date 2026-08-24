@@ -151,6 +151,9 @@ describe("audit redaction", () => {
     });
     expect(JSON.stringify(redacted)).not.toContain("page.tsx");
     expect(JSON.stringify(redacted)).not.toContain("sk-live-secret");
+    expect(redactBuilderAuditMetadata({ reason: "no_extension" })).toEqual({
+      reason: "no_extension",
+    });
     expect(hashBuilderAuditTenant("tenant:1", "local-test-salt")).toMatch(/^[a-f0-9]{64}$/);
   });
 });

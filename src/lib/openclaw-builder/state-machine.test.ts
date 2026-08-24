@@ -72,6 +72,33 @@ describe("OpenClaw Builder job state", () => {
         requestedExtensionMs: 100,
       }),
     ).toEqual({ outcome: "rejected", reason: "not_running" });
+    expect(
+      evaluateBuilderLease({
+        status: "running",
+        nowMs: 1_000,
+        expiresAtMs: 1_500,
+        absoluteExpiresAtMs: 2_000,
+        requestedExtensionMs: 0,
+      }),
+    ).toEqual({ outcome: "rejected", reason: "no_extension" });
+    expect(
+      evaluateBuilderLease({
+        status: "running",
+        nowMs: 1_000,
+        expiresAtMs: 1_500,
+        absoluteExpiresAtMs: 2_000,
+        requestedExtensionMs: -100,
+      }),
+    ).toEqual({ outcome: "rejected", reason: "no_extension" });
+    expect(
+      evaluateBuilderLease({
+        status: "running",
+        nowMs: 1_000,
+        expiresAtMs: 1_500,
+        absoluteExpiresAtMs: 1_500,
+        requestedExtensionMs: 500,
+      }),
+    ).toEqual({ outcome: "rejected", reason: "absolute_limit" });
   });
 
   it("detects stale bases and makes result replay idempotent", () => {

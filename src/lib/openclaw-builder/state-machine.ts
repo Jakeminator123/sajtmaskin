@@ -98,16 +98,25 @@ export function evaluateBuilderLease(input: {
 }):
   | { outcome: "extended"; expiresAtMs: number }
   | { outcome: "expired" }
-  | { outcome: "rejected"; reason: "not_running" | "absolute_limit" } {
+  | { outcome: "rejected"; reason: "not_running" | "no_extension" | "absolute_limit" } {
   if (input.status !== "running") return { outcome: "rejected", reason: "not_running" };
   if (input.nowMs >= input.expiresAtMs || input.nowMs >= input.absoluteExpiresAtMs) {
     return { outcome: "expired" };
   }
+  if (input.expiresAtMs >= input.absoluteExpiresAtMs) {
+    return { outcome: "rejected", reason: "absolute_limit" };
+  }
+  if (!Number.isFinite(input.requestedExtensionMs)) {
+    return { outcome: "rejected", reason: "no_extension" };
+  }
+  const requestedExpiry = input.nowMs + Math.max(0, input.requestedExtensionMs);
+  if (requestedExpiry <= input.expiresAtMs) {
+    return { outcome: "rejected", reason: "no_extension" };
+  }
   const nextExpiry = Math.min(
     input.absoluteExpiresAtMs,
-    Math.max(input.expiresAtMs, input.nowMs + Math.max(0, input.requestedExtensionMs)),
+    requestedExpiry,
   );
-  if (nextExpiry <= input.expiresAtMs) return { outcome: "rejected", reason: "absolute_limit" };
   return { outcome: "extended", expiresAtMs: nextExpiry };
 }
 

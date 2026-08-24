@@ -53,6 +53,7 @@ const REASON_VALUES = new Set([
   "completed",
   "cancelled",
   "not_running",
+  "no_extension",
   "absolute_limit",
   "stale_version",
   "stale_revision",
