@@ -76,16 +76,29 @@ jobs:
           echo "reason=$reason" >> "$GITHUB_OUTPUT"
           echo "Eligibility: $eligible ${reason:+($reason)}"
 
-      - name: Label eligible patch PR (metadata only)
-        if: ${{ steps.classify.outputs.eligible == 'true' }}
+      - name: Reconcile low-risk label (metadata only)
+        # Desired-state reconciliation: synchronize/failure must also remove a
+        # label that an older version of this PR qualified for.
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SHOULD_LABEL: ${{ steps.meta.outcome == 'success' && steps.classify.outcome == 'success' && steps.classify.outputs.eligible == 'true' }}
         run: |
           gh label create "dependabot-patch-safe" \
             --repo "$REPO" \
             --color "0e8a16" \
             --description "Low-risk Dependabot patch; canonical review and merge still required" \
-            || echo "label already exists"
-          gh pr edit "$PR_URL" --add-label "dependabot-patch-safe"
+            --force
+
+          has_label=$(gh api "repos/${REPO}/issues/${PR_NUMBER}" \
+            --jq '[.labels[].name] | contains(["dependabot-patch-safe"])')
+          if [ "$SHOULD_LABEL" = "true" ]; then
+            if [ "$has_label" != "true" ]; then
+              gh pr edit "$PR_URL" --add-label "dependabot-patch-safe"
+            fi
+          elif [ "$has_label" = "true" ]; then
+            gh pr edit "$PR_URL" --remove-label "dependabot-patch-safe"
+          fi

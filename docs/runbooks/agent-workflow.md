@@ -9,7 +9,10 @@ flowchart TD
   U["Jakob beskriver målet"] --> A["Agent: färsk master + egen worktree"]
   A --> B["Ändra canonical owner + verkliga följdytor"]
   B --> C["verify:pr visar impact och kör lokala tester"]
-  C --> D["Oberoende review + draft-PR + parallell CI"]
+  C --> W{"Ändras .github/workflows/?"}
+  W -- "nej" --> D["Oberoende review + draft-PR + parallell CI"]
+  W -- "ja" --> X["Separat, ägargodkänd infrastruktur-bootstrap"]
+  X --> D
   D --> E["Övriga required gröna + 7 min + review klar"]
   E --> F["Betrodd head+base-exakt merge:ready"]
   F --> G["Required review-window blir grön"]
@@ -26,7 +29,8 @@ flowchart TD
 2. Agenten hämtar live `master`, kontrollerar överlappande PR:er, skapar en egen
    worktree/branch och visar vilka owners och följdytor som träffas.
 3. Agenten ändrar, regenererar, testar, gör oberoende review och öppnar en
-   draft-PR. Varje ny commit startar om reviewfönstret på sju minuter.
+   draft-PR. Varje ny commit skapar en ny canonical CI-körning; dess
+   serverbundna `WorkflowRun.created_at` startar om sjuminutersgolvet.
 4. Agenten pausar bara när ett riktigt ägarbeslut behövs eller när ändringen kan
    innebära dataförlust, security/cross-tenant-risk eller ett väsentligt större
    scope. Vanliga test-, docs- och Backoffice-följder ska agenten hantera.
@@ -102,13 +106,50 @@ base/compare igen och gör en squash-merge med GitHubs expected-head-SHA.
 Review-event-workflows får inte användas för denna token: deras YAML kommer
 från PR:ens obetrodda merge-ref.
 
+Reviews läses paginerat via GitHubs GraphQL-data, eftersom REST-listan inte har
+reviewens serverbundna `updatedAt`. Både inskicknings- och senaste ändringstid
+ingår i ordningen och evidensfingerprinten. Om en bot editerar ett gammalt
+reviewinlägg med ett nytt fynd efter sign-off eller mergekommando blir mandatet
+alltså stale även om review-ID:t är oförändrat.
+
 Final merge använder inte checknamnet eller dess självvalda `external_id` som
 behörighetsbevis. Alla GitHub Actions-workflows delar appidentitet, så den
 betrodda controllern räknar om core-checkar, botstatus, live sign-off och
-sjuminutersgolvet från GitHubs serverbundna `created_at` på aktuell heads
-required checks vid varje evidensläsning. Vanliga `pull_request`-workflows får
+sjuminutersgolvet från den senaste serverbundna körningen av exakt
+`.github/workflows/ci.yml` på eventet `pull_request`. Varje required check knyts
+till sitt exakta jobb via GitHubs job-/check-run-URL och måste ha
+serverreturnerade Actions-steg; en steglös custom check räknas inte som ett
+core-jobb. Ett custom reviewkvitto som delar en annan workflows suite blir inte
+ett jobb bara av den anledningen: controllern kräver en exakt jobb-/check-ID-
+bindning och använder annars live review-state + review-ID. Tiden kommer från
+WorkflowRun-resursens `created_at`, inte från ett
+återanvänt checknamn. För varje jobbnamn väljs senaste attempt där just jobbet
+kördes; ett partial rerun behåller därmed andra serververifierade jobb utan att
+återanvända ett ersatt resultat. Ett dubblerat skyddat jobbnamn i något attempt
+stoppar. För fork-PR:ar där GitHub lämnar PR-associationen tom krävs exakt
+matchning mot live head-repository och branch;
+oklar eller flerdubbel identitet stoppar. Vanliga `pull_request`-workflows får
 inga skrivrättigheter; skrivande Dependabot-klassificering kör enbart
 default-branch-kod och kan aldrig merga.
+
+## Särskilt spår för workflow-infrastruktur
+
+`.github/workflows/**` är trust root för hela grinden. Den vanliga
+`review-window`- och `merge:execute`-controllern vägrar därför en PR där en fil
+har nuvarande **eller tidigare** namn under den mappen. Det är det enda verkligt
+manuella mergeundantaget, och ska inte blandas med en produktändring.
+
+En sådan ändring görs i en separat PR: ägaren godkänner uttryckligen
+infrastruktur-bootstrapen, agenten kör samma lokala verifiering, CI, oberoende
+review och sjuminutersfönster, och den exakta head/base-paret läses om direkt
+före en dokumenterad expected-head-squash-merge. Efteråt körs CI på nya master och övriga
+öppna PR:ar omvärderas. Själva införandet av denna spärr är en engångs-bootstrap;
+när den finns på master får ingen agent dölja en workflowändring bakom ett
+vanligt mergekommando.
+
+Den egna `trusted-pr-ai-review`-checkens namn är inte heller reviewbevis. Både
+den levande state-kommentaren och dess publicerade review-ID måste binda till
+exakt repo, PR och head; en stale eller omdöpt Actions-check räknas inte.
 
 Expected-head är en riktig CAS för head, men GitHubs merge-API saknar motsvarande
 base-SHA-parameter. Därför måste native branch protection/ruleset dessutom
@@ -124,6 +165,12 @@ inte som en kryptografiskt unik workflow-publicerare. Därför är manuell
 webbmerge, generell API-merge och separat auto-merge inte agentvägar. Om UI:n i
 framtiden också ska vara lika stark krävs en separat GitHub App-identitet eller
 ett ruleset med required workflow; tills dess används bara `merge:execute`.
+
+Repo-kontraktet som reserverar `review-window`-namnet och jobb-/stegbindningen
+är defense-in-depth. De gör inte native UI kryptografiskt säkert, eftersom en
+PR-ref kan försöka ändra både workflow och kontrakt före merge. Det är just
+varför workflowfiler stoppas av den kanoniska controllern och UI/API-merge inte
+är en godkänd agentväg.
 
 Efter lyckad merge kör controllern base-invalideringen direkt och dispatchar
 `ci.yml` samt `db-blob-sync-check.yml` på master. Det behövs eftersom en merge

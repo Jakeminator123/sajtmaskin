@@ -21,11 +21,16 @@
     "breakGlassReason": "SAJTMASKIN_BREAK_GLASS_REASON"
   },
   "requiredChecks": ["quality", "backoffice-tests", "schema-drift", "build", "review-window"],
+  "manualMergePathPrefixes": [".github/workflows/"],
   "review": {
     "minHeadAgeSeconds": 420,
     "botSettleSeconds": 180,
     "maxBotWaitSeconds": 600,
     "maxSignoffWaitSeconds": 840,
+    "requiredCheckWorkflow": {
+      "path": ".github/workflows/ci.yml",
+      "event": "pull_request"
+    },
     "qualifyingCheckPatterns": [
       "trusted-pr-ai-review",
       "agent review",

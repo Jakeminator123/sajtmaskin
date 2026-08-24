@@ -8,12 +8,12 @@ uppgraderingar tas en domän åt gången med full review.**
 
 ## Riskklasser
 
-| Klass | Hantering | Merge |
-| --- | --- | --- |
+| Klass               | Hantering                                                                                                                                      | Merge                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | **Patch** (`x.y.Z`) | Grupperas av Dependabot i små PR:ar (`npm-production-patch`, `npm-development-patch`). Låg-risk-patchar kan få labeln `dependabot-patch-safe`. | Samma kanoniska review-window, mänskliga mandat och betrodda merge-controller som övriga PR:ar. |
-| **Minor** (`x.Y.z`) | Små PR:ar, review-light. Låg-risk-paket grupperas (`npm-low-risk-minor`); övriga minors kommer som individuella PR:ar. | Kan få snabb review men aldrig en separat auto-merge-väg. |
-| **Major** (`X.y.z`) | **Alltid manuellt.** Dependabot version updates ignorerar majors (`ignore` på `version-update:semver-major`). | Separat branch/PR, läs migration/changelog och kör full verifiering. |
-| **Security** | Security updates är undantagna från `ignore`-reglerna och kommer alltid fram, även för majors. | Samma grindar, men prioriterad handläggning. |
+| **Minor** (`x.Y.z`) | Små PR:ar, review-light. Låg-risk-paket grupperas (`npm-low-risk-minor`); övriga minors kommer som individuella PR:ar.                         | Kan få snabb review men aldrig en separat auto-merge-väg.                                       |
+| **Major** (`X.y.z`) | **Alltid manuellt.** Dependabot version updates ignorerar majors (`ignore` på `version-update:semver-major`).                                  | Separat branch/PR, läs migration/changelog och kör full verifiering.                            |
+| **Security**        | Security updates är undantagna från `ignore`-reglerna och kommer alltid fram, även för majors.                                                 | Samma grindar, men prioriterad handläggning.                                                    |
 
 ### protected-path-ändringar
 
@@ -92,9 +92,13 @@ En gång i månaden (eller vid behov), kör en riktad uppgraderingsomgång:
 ## Klassificering — aldrig en separat mergeväg
 
 [`dependabot-safe-classify.yml`](../.github/workflows/dependabot-safe-classify.yml)
-kör betrodd default-branch-kod och sätter bara metadata-labeln
-`dependabot-patch-safe`. Den checkar inte ut PR-head, kör inget från PR-branchen
-och innehåller ingen merge- eller auto-merge-åtgärd.
+kör betrodd default-branch-kod och synkar bara metadata-labeln
+`dependabot-patch-safe` till önskat läge vid `opened`, `synchronize`,
+`reopened` och `ready_for_review`. Labeln finns endast om metadatahämtning och
+klassificering lyckas och aktuell PR fortfarande är en berättigad patch på ett
+icke-core-paket. Annars tas en gammal label bort; `--force` håller också
+labelbeskrivningen kanonisk. Workflowen checkar inte ut PR-head, kör inget från
+PR-branchen och innehåller ingen merge- eller auto-merge-åtgärd.
 
 Alla Dependabot-PR:ar går därefter genom samma lokala verifieringsprofil,
 required checks, sjuminutersfönster, bottriage, exakta mänskliga sign-off och
