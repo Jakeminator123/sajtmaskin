@@ -291,7 +291,7 @@ export function pickScaffoldVariantWithReceipt(input: PickScaffoldVariantInput):
   if (positive.length === 1 || top.score - positive[1]!.score >= VARIANT_DOMINANT_MARGIN) {
     return {
       variant: top.variant,
-      selection: matcherReceipt("keyword", top.variant, top.score, positive[1]?.score ?? null),
+      selection: rankedMatcherReceipt("keyword", top.variant, ranked),
     };
   }
   const tiedCandidates = positive
@@ -487,7 +487,7 @@ export async function pickScaffoldVariantAsyncWithReceipt(
   if (qualifying.length === 1 || top.score - qualifying[1]!.score >= VARIANT_DOMINANT_MARGIN) {
     return {
       variant: top.variant,
-      selection: matcherReceipt("embedding", top.variant, top.score, qualifying[1]?.score ?? null),
+      selection: rankedMatcherReceipt("embedding", top.variant, ranked),
     };
   }
   const tiedCandidates = qualifying

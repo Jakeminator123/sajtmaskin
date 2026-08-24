@@ -88,13 +88,15 @@ describe("pickScaffoldVariant", () => {
     // 0 keyword-träffar (skogen ≠ forest) och landade i corporate-grid via
     // den gamla alfabetiska tie-breaken. Med "skog" som keyword + suffix-
     // tolerans ska nature-flow vinna deterministiskt (enda positiva poängen).
-    const variant = pickScaffoldVariant({
+    const picked = pickScaffoldVariantWithReceipt({
       prompt: "En hemsida om att springa i skogen på Vindö",
       scaffoldId: "landing-page",
       generationMode: "init",
       sessionSeed: "seed-skog",
     });
-    expect(variant?.id).toBe("nature-flow");
+    expect(picked.variant?.id).toBe("nature-flow");
+    expect(picked.selection.runnerUpScore).toBe(0);
+    expect(picked.selection.margin).toBe(picked.selection.score);
   });
 
   it("does not escape the selected scaffold's variant pool", () => {
@@ -239,6 +241,9 @@ describe("variant candidate authority", () => {
       expect(picked.selection).toMatchObject({
         source: "embedding",
         finalId: targetId,
+        score: 1,
+        runnerUpScore: 0,
+        margin: 1,
       });
       expect(loadSpy).toHaveBeenCalledWith("variant");
     } finally {

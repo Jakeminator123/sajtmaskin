@@ -12,6 +12,7 @@ import type { ParsedChatRequestMeta } from "./parse-chat-request-meta";
 
 const CODEGEN_ONLY_KEYS = [
   "persistedVariantId",
+  "variantHintId",
   "customInstructions",
   "chatId",
   "priorQualityTarget",
@@ -97,7 +98,7 @@ function baseParams(
     followUpIntent: "neutral",
     orchestrationSnapshot: null,
     engineModelId: "gpt-5.4",
-    persistedVariantId: "minimalist-mag",
+    snapshotVariantId: "minimalist-mag",
     customInstructions: "Be brief.",
     chatId: "chat_test_1",
     priorQualityTarget: "standard",
@@ -181,11 +182,26 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     const codegenInput = buildFollowUpOrchestrationInput(baseParams({ mode: "codegen" }));
 
     expect(codegenInput.persistedVariantId).toBe("minimalist-mag");
+    expect(codegenInput.variantHintId).toBeUndefined();
     expect(codegenInput.customInstructions).toBe("Be brief.");
     expect(codegenInput.chatId).toBe("chat_test_1");
     expect(codegenInput.followUpIntent).toBe("neutral");
     expect(codegenInput.priorQualityTarget).toBe("standard");
     expect(codegenInput.requestKind).toBeNull();
+  });
+
+  it("routes a versionless first-codegen snapshot variant as an init hint", () => {
+    const codegenInput = buildFollowUpOrchestrationInput(
+      baseParams({
+        mode: "codegen",
+        hasFollowUpBase: false,
+        previousFilesCount: 0,
+        snapshotVariantId: "nature-flow",
+      }),
+    );
+
+    expect(codegenInput.variantHintId).toBe("nature-flow");
+    expect(Object.prototype.hasOwnProperty.call(codegenInput, "persistedVariantId")).toBe(false);
   });
 
   it("plan and codegen agree on dossier capability bridge fields", () => {

@@ -5,6 +5,16 @@ import {
   sanitizeOrchestrationSnapshotForStorage,
 } from "./orchestration-snapshot";
 
+const VARIANT_SELECTION = {
+  source: "hint-fallback",
+  score: null,
+  runnerUpScore: null,
+  margin: null,
+  hintId: "editorial-lux",
+  finalId: "editorial-lux",
+  changedFromHint: false,
+};
+
 describe("sanitizeOrchestrationSnapshotForStorage — variantId roundtrip", () => {
   it("preserves variantId when meta has minimal nested fields", () => {
     const meta = {
@@ -42,6 +52,7 @@ describe("sanitizeOrchestrationSnapshotForStorage — variantId roundtrip", () =
         scaffoldId: "landing-page",
         buildSpec: heavyBuildSpec,
         variantId: "editorial-lux",
+        variantSelection: VARIANT_SELECTION,
       },
       versionId: "ver_1",
       chatId: "chat_1",
@@ -49,6 +60,21 @@ describe("sanitizeOrchestrationSnapshotForStorage — variantId roundtrip", () =
     });
     expect(out.variantId).toBe("editorial-lux");
     expect(out.scaffoldId).toBe("landing-page");
+    expect(out.variantSelection).toEqual(VARIANT_SELECTION);
+  });
+
+  it("keeps scalar identity fields strict while allowing the receipt object", () => {
+    const out = sanitizeOrchestrationSnapshotForStorage({
+      variantId: { malformed: true },
+      scaffoldId: ["landing-page"],
+      lineageHash: { malformed: true },
+      variantSelection: VARIANT_SELECTION,
+    });
+
+    expect(out.variantId).toBeUndefined();
+    expect(out.scaffoldId).toBeUndefined();
+    expect(out.lineageHash).toBeUndefined();
+    expect(out.variantSelection).toEqual(VARIANT_SELECTION);
   });
 
   it("preserves variantTemplateId under heavy buildSpec budget", () => {
@@ -74,6 +100,21 @@ describe("sanitizeOrchestrationSnapshotForStorage — variantId roundtrip", () =
 });
 
 describe("mergePersistedOrchestrationSnapshots — variantId protection", () => {
+  it("reads a legacy snapshot without a receipt and accepts one on a later round", () => {
+    const legacy = {
+      variantId: "editorial-lux",
+      capturedAt: "2026-01-01T00:00:00Z",
+    };
+    const merged = mergePersistedOrchestrationSnapshots(legacy, {
+      variantSelection: VARIANT_SELECTION,
+      capturedAt: "2026-01-02T00:00:00Z",
+    });
+
+    expect(legacy).not.toHaveProperty("variantSelection");
+    expect(merged.variantId).toBe("editorial-lux");
+    expect(merged.variantSelection).toEqual(VARIANT_SELECTION);
+  });
+
   it("base.variantId='X', next.variantId=null => merged.variantId='X'", () => {
     const base = { variantId: "editorial-lux", capturedAt: "2026-01-01T00:00:00Z" };
     const next = { variantId: null, capturedAt: "2026-01-02T00:00:00Z" };

@@ -175,12 +175,12 @@ describe("finalizeOrchestrationPrompts variant inspiration", () => {
     inspirationMocks.resolveVariantTemplateInspiration.mockResolvedValue(inspirationMocks.fixture);
   });
 
-  it("keeps the init hint authoritative while identifying it as a hint", async () => {
+  it("keeps a versionless init hint authoritative while identifying it as a hint", async () => {
     const input = {
       prompt: "professional b2b consulting corporate enterprise",
       buildIntent: "website" as const,
-      generationMode: "init" as const,
       persistedScaffoldId: "landing-page",
+      previousFilesCount: 0,
       variantHintId: "nature-flow",
       embeddingScaffoldMatch: false,
       capabilities: noCapabilities,

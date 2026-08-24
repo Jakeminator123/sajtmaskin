@@ -89,7 +89,12 @@ export function sanitizeOrchestrationSnapshotForStorage(
         typeof value === "boolean"
       ) {
         out[key] = value;
-      } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      } else if (
+        key === "variantSelection" &&
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
         out[key] = sanitizeOrchestrationSnapshotForStorage(
           value as Record<string, unknown>,
           depth + 1,
