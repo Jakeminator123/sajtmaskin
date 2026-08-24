@@ -180,9 +180,14 @@ Efter att hela diffen och relevant filkontext granskats publicerar automationen:
 `review-window` räknar kvittot endast när båda resurserna kommer från en actor i
 `config/agent-workflow.json.review.trustedAccountReviewActors`, har betrodd
 repository-association, samma användare, samma review-ID och exakt live head.
-En vanlig kommentar, fel konto, stale review eller saknad receipt kan därför
-inte ge grönt. Automationens lokala exekvering kräver att Codex-appen och datorn
-är igång; om den uteblir fortsätter mergegrinden att stoppa.
+Dessutom måste `github-actions[bot]` först ha postat fallbackbegäran för samma
+head med orsaken `openai_key_missing` eller `openai_quota`; ett konto-review får
+aldrig maskera auth-, server- eller andra providerfel. Enda no-request-undantaget
+är en PR vars live REST-author är exakt `dependabot[bot]` med typen `Bot`, eftersom
+den primära workflowen avsiktligt skippar Dependabot före providersteget. En
+vanlig kommentar, fel konto, stale review eller saknad receipt kan därför inte ge
+grönt. Automationens lokala exekvering kräver att Codex-appen och datorn är
+igång; om den uteblir fortsätter mergegrinden att stoppa.
 
 ## Mergade PR:er
 

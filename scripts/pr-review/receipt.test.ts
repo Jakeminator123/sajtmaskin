@@ -103,7 +103,9 @@ describe("trusted PR review receipt", () => {
     const runResult = createReviewRunResult({
       kind: "account-fallback",
       reason: "openai_quota",
+      headSha: head1,
     });
+    expect(runResult).toMatchObject({ handoffHeadSha: head1 });
     expect(decideTrustedReceipt({ runResult, currentHeadSha: head1 })).toMatchObject({
       conclusion: "neutral",
       title: "PR review handed off to the Codex account",
@@ -112,6 +114,36 @@ describe("trusted PR review receipt", () => {
       name: "trusted-pr-ai-review",
       head_sha: head1,
       conclusion: "neutral",
+    });
+  });
+
+  it("blocks an account handoff when GitHub has moved to a new head", () => {
+    const runResult = createReviewRunResult({
+      kind: "account-fallback",
+      reason: "openai_quota",
+      headSha: head1,
+    });
+
+    expect(decideTrustedReceipt({ runResult, currentHeadSha: head2 })).toMatchObject({
+      conclusion: "action_required",
+      title: "PR review handoff is stale",
+    });
+    expect(buildCheckRunPayload({ runResult, currentHeadSha: head2, prNumber: 88 })).toMatchObject({
+      head_sha: head2,
+      conclusion: "action_required",
+    });
+  });
+
+  it("rejects account handoff results without an exact handed-off head", () => {
+    const runResult = createReviewRunResult({
+      kind: "account-fallback",
+      reason: "openai_quota",
+    });
+
+    expect(runResult).toMatchObject({ handoffHeadSha: null });
+    expect(decideTrustedReceipt({ runResult, currentHeadSha: head1 })).toMatchObject({
+      conclusion: "action_required",
+      title: "Trusted PR AI receipt blocked",
     });
   });
 

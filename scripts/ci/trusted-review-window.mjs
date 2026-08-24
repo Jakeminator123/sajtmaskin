@@ -10,6 +10,7 @@ import {
 } from "./merge-ready-freshness.mjs";
 import { decodeMarker, EXHAUSTIVE_MARKER_PREFIX, parseStateComment } from "../pr-review/core.mjs";
 import {
+  parseAccountFallbackRequest,
   parseAccountReviewMarker,
   parseAccountReviewReceiptMarker,
 } from "../pr-review/account-fallback.mjs";
@@ -326,17 +327,52 @@ function validateInternalPrAiEvidence({ issueComments, reviews, headSha, reposit
 }
 
 const TRUSTED_ACCOUNT_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
+const TRUSTED_ACCOUNT_FALLBACK_REASONS = new Set(["openai_key_missing", "openai_quota"]);
 
 export function validateAccountPrReviewEvidence({
   issueComments,
   reviews,
   headSha,
+  prAuthor,
   trustedActors = POLICY.review.trustedAccountReviewActors ?? [],
 }) {
   const normalizedHead = String(headSha ?? "").toLowerCase();
   const actors = new Set(trustedActors.map((actor) => String(actor).toLowerCase()));
   if (actors.size === 0) {
     return { valid: false, reason: "betrodda konto-reviewers saknas", completedAtEpoch: 0 };
+  }
+  const fallbackRequest = issueComments
+    .map((comment) => ({ comment, marker: parseAccountFallbackRequest(comment.body) }))
+    .filter(
+      ({ comment, marker }) =>
+        marker?.headSha === normalizedHead &&
+        TRUSTED_ACCOUNT_FALLBACK_REASONS.has(marker.reason) &&
+        comment.user?.login === "github-actions[bot]" &&
+        comment.user?.type === "Bot",
+    )
+    .sort(
+      (left, right) =>
+        (epoch(right.comment.updated_at ?? right.comment.created_at) ?? 0) -
+        (epoch(left.comment.updated_at ?? left.comment.created_at) ?? 0),
+    )[0]?.comment;
+  const isDependabotPr =
+    prAuthor?.login === "dependabot[bot]" && prAuthor?.type === "Bot";
+  if (!fallbackRequest && !isDependabotPr) {
+    return {
+      valid: false,
+      reason: "betrodd kontoöverlämning för live head saknas",
+      completedAtEpoch: 0,
+    };
+  }
+  const fallbackEpoch = fallbackRequest
+    ? epoch(fallbackRequest.updated_at ?? fallbackRequest.created_at)
+    : 0;
+  if (fallbackEpoch === null) {
+    return {
+      valid: false,
+      reason: "kontoöverlämningen saknar serverside-tid",
+      completedAtEpoch: 0,
+    };
   }
   const receipts = issueComments
     .map((comment) => ({ comment, marker: parseAccountReviewReceiptMarker(comment.body) }))
@@ -384,7 +420,7 @@ export function validateAccountPrReviewEvidence({
     return {
       valid: true,
       reason: `konto-review ${review.id} täcker live head ${normalizedHead.slice(0, 7)}`,
-      completedAtEpoch: Math.max(receiptEpoch, reviewEpoch),
+      completedAtEpoch: Math.max(fallbackEpoch, receiptEpoch, reviewEpoch),
     };
   }
   return {
@@ -1214,6 +1250,7 @@ async function readMergeSnapshot(client, prNumber, commentId, expectedHeadSha, p
     issueComments: evidence.issueComments ?? [],
     reviews: evidence.reviews ?? [],
     headSha: expectedHeadSha,
+    prAuthor: evidence.pr.user,
     repository: client.repository,
     prNumber,
   });
@@ -1438,6 +1475,7 @@ export async function runTrustedGate({
         issueComments: liveEvidence.issueComments,
         reviews: liveEvidence.reviews,
         headSha,
+        prAuthor: livePr.user,
         repository: client.repository,
         prNumber,
       });
@@ -1501,6 +1539,7 @@ export async function runTrustedGate({
             issueComments: confirmationEvidence.issueComments ?? [],
             reviews: confirmationEvidence.reviews ?? [],
             headSha,
+            prAuthor: confirmationEvidence.pr.user,
             repository: client.repository,
             prNumber,
           });

@@ -58,12 +58,20 @@ describe("OpenAI account fallback", () => {
     [{ status: 429, code: "insufficient_quota" }],
     [{ status: 403, error: { type: "billing_not_active" } }],
     [{ status: 400, message: "Billing hard limit reached" }],
+    [
+      {
+        status: 429,
+        message:
+          "429 You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/.",
+      },
+    ],
   ])("recognizes billing and quota failures: %o", (error) => {
     expect(isOpenAIAccountFallbackError(error)).toBe(true);
   });
 
   it.each([
     [{ status: 429, code: "rate_limit_exceeded" }],
+    [{ status: 429, message: "Rate limit reached for requests per minute" }],
     [{ status: 500, message: "upstream failed" }],
     [{ status: 401, code: "invalid_api_key" }],
     [{ status: 403, code: "account_deactivated" }],

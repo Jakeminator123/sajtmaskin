@@ -261,7 +261,10 @@ export function isOpenAIAccountFallbackError(error) {
   const billingSignal =
     values.some((value) =>
       ["insufficient_quota", "billing_hard_limit_reached", "billing_not_active"].includes(value),
-    ) || /insufficient[_ ]quota|billing (?:hard )?limit|billing.*inactive/.test(message);
+    ) ||
+    /insufficient[_ ]quota|billing (?:hard )?limit|billing.*inactive|\bno (?:api )?credits? remaining\b/.test(
+      message,
+    );
   return [400, 403, 429].includes(status) && billingSignal;
 }
 
