@@ -152,6 +152,8 @@ describe("getPreviewScreenshot", () => {
       "/absolute-shot",
       "http",
       "HTTP-ID",
+      "ftp:evil",
+      "shot:1",
     ]) {
       expect(
         getPreviewScreenshot({

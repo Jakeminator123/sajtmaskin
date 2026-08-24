@@ -34,7 +34,7 @@ export type PreviewScreenshotErr = {
 export type PreviewScreenshotResult = PreviewScreenshotOk | PreviewScreenshotErr;
 
 const HEX64_RE = /^[0-9a-f]{64}$/;
-const ARTIFACT_ID_RE = /^[A-Za-z0-9._:-]{1,128}$/;
+const ARTIFACT_ID_RE = /^[A-Za-z0-9._-]{1,128}$/;
 const ISO_DATETIME_RE =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
 const MAX_ARTIFACT_ID = 128;
@@ -54,6 +54,7 @@ function revisionMismatch(left: ScreenshotIdentity, right: ScreenshotIdentity): 
 function looksLikeUrl(artifactId: string): boolean {
   return (
     artifactId.includes("://") ||
+    artifactId.includes(":") ||
     artifactId.includes("/") ||
     artifactId.toLowerCase().includes("http")
   );
