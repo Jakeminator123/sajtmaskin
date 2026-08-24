@@ -35,6 +35,13 @@ const TRUSTED_SIGNOFF_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]
 const BUGBOT_FINDING_MARKER =
   /<!--\s*BUGBOT_REVIEW\s*-->|<!--\s*BUGBOT_BUG_ID\s*:\s*[a-z0-9_-]+\s*-->/i;
 const PR_REVIEW_STATE_MARKER = /<!--\s*sajtmaskin-pr-review-state:v1:/i;
+const INVALIDATING_PULL_REQUEST_ACTIONS = new Map([
+  ["synchronize", "ny commit"],
+  ["converted_to_draft", "PR ändrad till draft"],
+  ["reopened", "PR återöppnad"],
+  ["ready_for_review", "PR markerad redo efter draft"],
+]);
+const NON_INVALIDATING_PULL_REQUEST_ACTIONS = new Set(["opened", "edited"]);
 
 function commaField(line, name) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -257,12 +264,20 @@ export function decideMergeReadyAction(input) {
   const isPullRequestEvent =
     input.eventName === "pull_request_target" || input.eventName === "pull_request";
   const isLabeledEvent = isPullRequestEvent && input.eventAction === "labeled";
+  const isUnlabeledEvent = isPullRequestEvent && input.eventAction === "unlabeled";
   const eventLabel = input.eventLabel?.toLowerCase() ?? "";
 
-  // En annan label får inte råka omvalidera eller riva en redan godkänd
-  // merge:ready. Workflowens job-if filtrerar också, detta är defense-in-depth.
-  if (isLabeledEvent && eventLabel !== MERGE_READY_LABEL) {
+  // En annan labels tillkomst eller borttagning får inte råka omvalidera eller
+  // riva en redan godkänd merge:ready. Workflowens job-if filtrerar också,
+  // detta är defense-in-depth.
+  if ((isLabeledEvent || isUnlabeledEvent) && eventLabel !== MERGE_READY_LABEL) {
     return { action: "keep", reason: `annan label (${input.eventLabel ?? "okänd"}) — no-op` };
+  }
+
+  // När merge:ready själv tas bort är önskat slutläge redan uppnått. Live
+  // labels-svaret kan ligga efter eventet, så försök inte ta bort labeln igen.
+  if (isUnlabeledEvent) {
+    return { action: "keep", reason: "merge:ready togs bort — no-op" };
   }
 
   const labels = input.labels ?? [];
@@ -285,17 +300,37 @@ export function decideMergeReadyAction(input) {
     };
   }
 
-  if (isPullRequestEvent && !isLabeledEvent) {
+  const invalidatingPullRequestReason = isPullRequestEvent
+    ? INVALIDATING_PULL_REQUEST_ACTIONS.get(input.eventAction ?? "")
+    : undefined;
+  if (invalidatingPullRequestReason) {
     const short = (input.headSha ?? "").slice(0, 7);
     const reason =
       input.eventAction === "converted_to_draft"
         ? "PR ändrad till draft — gör ny sign-off när den åter är redo"
         : input.eventAction === "reopened"
           ? "PR återöppnad — verifiera aktuell head och merge-bas igen"
-          : `ny commit (${short}) — gör om buggkollen och sätt merge:ready igen`;
+          : input.eventAction === "ready_for_review"
+            ? "PR markerad redo efter draft — gör ny sign-off"
+            : `${invalidatingPullRequestReason} (${short}) — gör om buggkollen och sätt merge:ready igen`;
     return {
       action: "remove",
       reason,
+    };
+  }
+
+  // Bara ovanstående, uttryckligen semantiska PR-övergångar ogiltigförklarar
+  // sign-offen direkt. `edited` kan vara en titel- eller beskrivningsändring;
+  // en eventuell base-förflyttning fångas i stället av live SHA-valideringen
+  // nedan. Okända framtida PR-actions lämnas fail-closed tills de klassats.
+  if (
+    isPullRequestEvent &&
+    !isLabeledEvent &&
+    !NON_INVALIDATING_PULL_REQUEST_ACTIONS.has(input.eventAction ?? "")
+  ) {
+    return {
+      action: "remove",
+      reason: `okänd PR-händelse (${input.eventAction ?? "saknas"}) — signera om fail-closed`,
     };
   }
 
@@ -315,6 +350,15 @@ export function decideMergeReadyAction(input) {
     return {
       action: "keep",
       reason: validation.reason,
+    };
+  }
+
+  // Metadataändringar och opened-event är inte granskningsfynd. Efter att
+  // aktuell head/base/sign-off verifierats ovan kan labeln ligga kvar.
+  if (isPullRequestEvent) {
+    return {
+      action: "keep",
+      reason: `PR-händelsen ${input.eventAction} ändrade inte verifierad head/base`,
     };
   }
 

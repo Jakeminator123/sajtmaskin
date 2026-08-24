@@ -76,5 +76,18 @@ describe("PR AI review workflow security contract", () => {
     expect(reviewWindow).toContain('$3=="success"');
     expect(reviewWindow).toContain("fail_closed");
     expect(reviewWindow).toContain('if [ "$waited" -ge "$MAX_BOT_WAIT" ]');
+    const bootstrapJob = reviewWindow.split("jobs:\n  review-window:\n")[1] ?? "";
+    const bootstrapName = bootstrapJob.match(/^    name:\s*(.+)$/m)?.[1] ?? "";
+    const bootstrapIf = bootstrapJob.match(/^    if:\s*>\n([\s\S]*?)^    runs-on:/m)?.[1] ?? "";
+    for (const guard of [
+      "github.event.pull_request.draft == false",
+      "github.event.pull_request.number == 1146",
+      "github.event.pull_request.head.repo.full_name == github.repository",
+      "github.event.pull_request.head.ref == 'chore/agent-workflow-v2'",
+    ]) {
+      expect(bootstrapName).toContain(guard);
+      expect(bootstrapIf).toContain(guard);
+    }
+    expect(bootstrapName).toContain("'review-window' || 'review-window-bootstrap-retired'");
   });
 });

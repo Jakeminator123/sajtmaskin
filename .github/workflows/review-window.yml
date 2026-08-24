@@ -5,7 +5,10 @@ name: review-window
 # enbart 7-minutersfönstret och reviewkvittona och checkar inte ut/kör något
 # repo-script. Själva pull_request-workflowen är ändå head-kontrollerad och ska
 # därför tas bort i rolloutens fas 2 när controllern i
-# merge-ready-freshness.yml finns på master.
+# merge-ready-freshness.yml finns på master. Jobbet får bara heta den required
+# checken på den enda fas-1-grenen. På alla andra grenar får ett event bara
+# skapa ett avsiktligt annat, skippat jobbnamn så att bootstrap och trusted
+# controller aldrig kan kollidera i GitHubs check-aggregering.
 
 on:
   pull_request:
@@ -23,7 +26,12 @@ permissions:
 
 jobs:
   review-window:
-    if: github.event.pull_request.draft == false
+    name: ${{ github.event.pull_request.draft == false && github.event.pull_request.number == 1146 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'chore/agent-workflow-v2' && 'review-window' || 'review-window-bootstrap-retired' }}
+    if: >
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.number == 1146 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'chore/agent-workflow-v2'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

@@ -129,6 +129,12 @@ mellan faserna är rollout-PR:n; annat featurearbete väntar. Slutläget har bar
 den betrodda default-branch-controllern som publicerar `review-window` på exakt
 PR-head.
 
+Bootstrap-jobbet får bara heta `review-window` på exakt PR #1146 från samma
+repository och fas-1-grenen `chore/agent-workflow-v2`. På alla andra PR:er heter det
+`review-window-bootstrap-retired` och skippas. Därmed kan fas-2-PR:n aldrig få
+två GitHub Actions-checkar med samma required namn, och controllern väljer
+dessutom trusted-kvittot via dess `external_id` innan checkar dedupliceras.
+
 Fas 2 är mekanisk: radera `.github/workflows/review-window.yml`, ta bort
 bootstrapkraven/prosan ur `scripts/workflow/check-contract.mjs`, den här sidan,
 `.github/README.md`, `docs/testing.md` och bootstrap-assertionerna i

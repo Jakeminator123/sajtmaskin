@@ -218,9 +218,58 @@ describe("trusted review-window check decisions", () => {
       completed_at: at(130),
       external_id: `sajtmaskin-trusted-review-window:v1:${HEAD}:base-${BASE}`,
     });
+    const newerBootstrap = run("review-window", {
+      id: 902,
+      created_at: at(140),
+      started_at: at(140),
+      completed_at: at(150),
+      external_id: "",
+    });
     expect(
-      evaluateMergeChecks([...greenRuns(), trusted, invalidation], policy as never).mergeChecksDone,
+      evaluateMergeChecks(
+        [...greenRuns(), trusted, invalidation, newerBootstrap],
+        policy as never,
+      ).mergeChecksDone,
     ).toBe(false);
+  });
+
+  it("accepterar aldrig bootstrap-success som trusted mergekvitto", () => {
+    const bootstrap = run("review-window", {
+      id: 800,
+      external_id: "",
+      created_at: at(100),
+      started_at: at(100),
+      completed_at: at(120),
+    });
+
+    const state = evaluateMergeChecks([...greenRuns(), bootstrap], policy as never);
+    expect(state.trustedWindowDone).toBe(false);
+    expect(state.mergeChecksDone).toBe(false);
+  });
+
+  it("låter aldrig en nyare bootstrap-check skymma trusted review-window", () => {
+    const trusted = run("review-window", {
+      id: 900,
+      external_id: `sajtmaskin-trusted-review-window:v1:${HEAD}:100`,
+      created_at: at(100),
+      started_at: at(100),
+      completed_at: at(120),
+    });
+    const sameAppBootstrap = run("review-window", {
+      id: 901,
+      external_id: "",
+      created_at: at(130),
+      started_at: at(130),
+      completed_at: at(140),
+    });
+
+    const state = evaluateMergeChecks(
+      [...greenRuns(), trusted, sameAppBootstrap],
+      policy as never,
+    );
+    expect(state.trustedWindowDone).toBe(true);
+    expect(state.mergeChecksDone).toBe(true);
+    expect(state.reviewWindowEpoch).toBe(120);
   });
 });
 

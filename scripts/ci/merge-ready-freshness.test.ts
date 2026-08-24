@@ -70,6 +70,49 @@ describe("decideMergeReadyAction", () => {
     expect(result.reason).not.toContain("ny commit");
   });
 
+  it("river labeln när en draft markeras redo igen", () => {
+    const result = decideMergeReadyAction(
+      input({ eventName: "pull_request_target", eventAction: "ready_for_review" }),
+    );
+    expect(result.action).toBe("remove");
+    expect(result.reason).toContain("redo efter draft");
+  });
+
+  it("behåller labeln vid metadata-edit när live head och base fortfarande matchar", () => {
+    const result = decideMergeReadyAction(
+      input({ eventName: "pull_request_target", eventAction: "edited" }),
+    );
+    expect(result.action).toBe("keep");
+    expect(result.reason).toContain("inte verifierad head/base");
+  });
+
+  it("river labeln vid edit som flyttat live base från sign-offens base", () => {
+    const result = decideMergeReadyAction(
+      input({
+        eventName: "pull_request_target",
+        eventAction: "edited",
+        baseSha: OTHER_BASE,
+      }),
+    );
+    expect(result.action).toBe("remove");
+    expect(result.reason).toContain("!= aktuell base");
+  });
+
+  it("behåller labeln vid opened-event när live head och base fortfarande matchar", () => {
+    const result = decideMergeReadyAction(
+      input({ eventName: "pull_request_target", eventAction: "opened" }),
+    );
+    expect(result.action).toBe("keep");
+  });
+
+  it("river labeln fail-closed för en okänd PR-action", () => {
+    const result = decideMergeReadyAction(
+      input({ eventName: "pull_request_target", eventAction: "future_action" }),
+    );
+    expect(result.action).toBe("remove");
+    expect(result.reason).toContain("okänd PR-händelse");
+  });
+
   it("behåller merge:ready vid labeltillfället när head och base matchar", () => {
     const result = decideMergeReadyAction(
       input({
@@ -100,6 +143,36 @@ describe("decideMergeReadyAction", () => {
 
     expect(result.action).toBe("keep");
     expect(result.reason).toContain("annan label");
+  });
+
+  it("ignorerar unlabeled-event för en annan label", () => {
+    const result = decideMergeReadyAction(
+      input({
+        eventName: "pull_request_target",
+        eventAction: "unlabeled",
+        eventLabel: "risk:3",
+        labels: ["merge:ready"],
+        comments: [],
+      }),
+    );
+
+    expect(result.action).toBe("keep");
+    expect(result.reason).toContain("annan label");
+  });
+
+  it("gör no-op när merge:ready själv tas bort även om live labels-svaret släpar", () => {
+    const result = decideMergeReadyAction(
+      input({
+        eventName: "pull_request_target",
+        eventAction: "unlabeled",
+        eventLabel: "merge:ready",
+        labels: ["merge:ready"],
+        comments: [],
+      }),
+    );
+
+    expect(result.action).toBe("keep");
+    expect(result.reason).toContain("togs bort");
   });
 
   it("river merge:ready vid labeltillfället när head-sign-offen är gammal", () => {

@@ -43,13 +43,18 @@ function newestByIdentity(runs) {
  * that the review-window controller itself waits for. */
 export function evaluateMergeChecks(checkRuns, policy = POLICY) {
   const state = evaluateHeadChecks(checkRuns, policy);
-  const newest = newestByIdentity(checkRuns);
-  const reviewWindow = newest.find(
-    (run) =>
-      run.name === CHECK_NAME &&
-      run.app?.slug === "github-actions" &&
-      run.external_id?.startsWith(EXTERNAL_ID_PREFIX),
-  );
+  // Välj trusted-kandidater *innan* identitetsdedupliceringen. GitHub Actions
+  // använder samma app-id för alla workflows; en vanlig pull_request-check
+  // med samma visningsnamn får därför aldrig kunna skymma controllerns
+  // external_id-bundna kvitto bara genom att vara nyare.
+  const reviewWindow = newestByIdentity(
+    checkRuns.filter(
+      (run) =>
+        run.name === CHECK_NAME &&
+        run.app?.slug === "github-actions" &&
+        run.external_id?.startsWith(EXTERNAL_ID_PREFIX),
+    ),
+  )[0];
   const trustedWindowDone =
     reviewWindow?.status === "completed" && reviewWindow?.conclusion === "success";
   const reviewWindowEpoch = trustedWindowDone ? epoch(reviewWindow.completed_at) : null;

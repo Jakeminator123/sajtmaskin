@@ -272,6 +272,25 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   ) {
     errors.push("bootstrap review-window must never checkout or execute PR-head repository files");
   }
+  const bootstrapJob = reviewWindow.split("jobs:\n  review-window:\n")[1] ?? "";
+  const bootstrapName = bootstrapJob.match(/^    name:\s*(.+)$/m)?.[1] ?? "";
+  const bootstrapIf = bootstrapJob.match(/^    if:\s*>\n([\s\S]*?)^    runs-on:/m)?.[1] ?? "";
+  const bootstrapGuards = [
+    "github.event.pull_request.draft == false",
+    "github.event.pull_request.number == 1146",
+    "github.event.pull_request.head.repo.full_name == github.repository",
+    "github.event.pull_request.head.ref == 'chore/agent-workflow-v2'",
+  ];
+  if (
+    bootstrapGuards.some(
+      (guard) => !bootstrapName.includes(guard) || !bootstrapIf.includes(guard),
+    ) ||
+    !bootstrapName.includes("'review-window' || 'review-window-bootstrap-retired'")
+  ) {
+    errors.push(
+      "bootstrap review-window name and if must share the exact phase-1 draft/PR/repo/branch guards and use a non-colliding retired name elsewhere",
+    );
+  }
 
   const prAiReview = read(root, ".github/workflows/pr-ai-review.yml");
   const prAiReviewer = read(root, "scripts/pr-review/run.mjs");
