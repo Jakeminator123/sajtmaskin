@@ -158,6 +158,7 @@ function isSafeSnapshotPath(path: string): boolean {
   const segments = path.split("/");
   for (const segment of segments) {
     if (segment === "" || segment === "." || segment === "..") return false;
+    if (segment.toLowerCase() === ".git") return false;
   }
   const basename = (segments[segments.length - 1] ?? "").toLowerCase();
   if (!basename) return false;

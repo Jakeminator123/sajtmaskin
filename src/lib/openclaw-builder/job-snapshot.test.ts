@@ -302,7 +302,15 @@ describe("getProjectSnapshot", () => {
   });
 
   it("returns invalid_snapshot for traversal or restricted snapshot paths", () => {
-    for (const path of ["../secret.ts", "foo/../../etc/passwd", ".env", "keys/id_ed25519"]) {
+    for (const path of [
+      "../secret.ts",
+      "foo/../../etc/passwd",
+      ".env",
+      "keys/id_ed25519",
+      ".git/config",
+      "vendor/.git/config",
+      ".GIT/HEAD",
+    ]) {
       expect(
         getProjectSnapshot({
           job: frozenJob(),
