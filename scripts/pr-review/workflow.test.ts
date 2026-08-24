@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(".github/workflows/pr-ai-review.yml", "utf8");
-const reviewWindow = readFileSync(".github/workflows/review-window.yml", "utf8");
 const reviewerSource = readFileSync("scripts/pr-review/run.mjs", "utf8");
 const automationSource = readFileSync("scripts/pr-review/automation.mjs", "utf8");
 const receiptSource = readFileSync("scripts/pr-review/receipt.mjs", "utf8");
@@ -69,25 +68,5 @@ describe("PR AI review workflow security contract", () => {
     expect(automationSource).toContain('kind: "receipt-recovery"');
     expect(automationSource).toContain("verifiedCurrentReview");
     expect(automationSource).toContain("snapshot?.headSha === review.commitId");
-  });
-
-  it("keeps the downstream review window exact-head and fail-closed", () => {
-    expect(reviewWindow).toContain('"repos/${REPO}/commits/${SHA}/check-runs"');
-    expect(reviewWindow).toContain('$3=="success"');
-    expect(reviewWindow).toContain("fail_closed");
-    expect(reviewWindow).toContain('if [ "$waited" -ge "$MAX_BOT_WAIT" ]');
-    const bootstrapJob = reviewWindow.split("jobs:\n  review-window:\n")[1] ?? "";
-    const bootstrapName = bootstrapJob.match(/^    name:\s*(.+)$/m)?.[1] ?? "";
-    const bootstrapIf = bootstrapJob.match(/^    if:\s*>\n([\s\S]*?)^    runs-on:/m)?.[1] ?? "";
-    for (const guard of [
-      "github.event.pull_request.draft == false",
-      "github.event.pull_request.number == 1146",
-      "github.event.pull_request.head.repo.full_name == github.repository",
-      "github.event.pull_request.head.ref == 'chore/agent-workflow-v2'",
-    ]) {
-      expect(bootstrapName).toContain(guard);
-      expect(bootstrapIf).toContain(guard);
-    }
-    expect(bootstrapName).toContain("'review-window' || 'review-window-bootstrap-retired'");
   });
 });

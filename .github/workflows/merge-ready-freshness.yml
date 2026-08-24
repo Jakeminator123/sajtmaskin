@@ -1,12 +1,8 @@
 name: merge-ready-freshness
 
-# Restlista R9 — validera `merge:ready` när labeln sätts och ta bort den när
-# head eller master byts, eller när en bot postar fynd efter sign-off.
-#
-# Fas 1 landar också den betrodda default-branch-controllern som publicerar
-# den head-bundna required checken `review-window`. Den äldre pull_request-
-# workflowen finns bara kvar tills nästa rollout-PR och checkar inte ut eller
-# kör några repositoryfiler från PR-headen.
+# Betrodd default-branch-controller: publicera den head-bundna required checken
+# `review-window`, validera `merge:ready` och ta bort stale mandat när head,
+# master eller granskningsunderlaget ändras.
 
 on:
   # Kör den betrodda workflow-/skriptversionen från default-branchen. Jobbet
@@ -38,6 +34,7 @@ on:
     branches: [master]
 
 permissions:
+  actions: read
   contents: read
   pull-requests: read
   checks: read
@@ -57,6 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
+      actions: read
       contents: read
       pull-requests: read
       checks: write

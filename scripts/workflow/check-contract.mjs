@@ -4,6 +4,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
+import yaml from "js-yaml";
 import { PATH_GROUP_FLOORS } from "./path-impact.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -15,7 +16,12 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const POLICY_FLOORS = Object.freeze({
   retiredBugIdsSha256: "6cb7f4b94e167f05471dd6c08ae928672927a41a972856992ca2a1cbd54b5634",
   requiredChecks: ["quality", "backoffice-tests", "schema-drift", "build", "review-window"],
+  manualMergePathPrefixes: [".github/workflows/"],
   review: {
+    requiredCheckWorkflow: {
+      path: ".github/workflows/ci.yml",
+      event: "pull_request",
+    },
     qualifyingCheckPatterns: ["trusted-pr-ai-review"],
     securityVetoCheckPatterns: ["gitguardian"],
     deploymentCheckNames: ["Vercel"],
@@ -102,6 +108,121 @@ function workflowJob(source, name) {
   return remainder.slice(0, end);
 }
 
+function workflowEvents(document) {
+  const trigger = document?.on;
+  if (typeof trigger === "string") return new Set([trigger]);
+  if (Array.isArray(trigger)) return new Set(trigger.map(String));
+  if (trigger && typeof trigger === "object") return new Set(Object.keys(trigger));
+  return new Set();
+}
+
+function grantsWrite(permission) {
+  if (typeof permission === "string") return permission.toLowerCase() === "write-all";
+  if (!permission || typeof permission !== "object") return false;
+  return Object.values(permission).some(
+    (value) => typeof value === "string" && value.toLowerCase() === "write",
+  );
+}
+
+export function evaluatePrHeadWorkflowPermissions(workflowSources) {
+  const errors = [];
+  for (const workflow of workflowSources) {
+    let document;
+    try {
+      document = yaml.load(workflow.source);
+    } catch (error) {
+      errors.push(
+        `${workflow.name} is not valid YAML: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      continue;
+    }
+    if (!workflowEvents(document).has("pull_request")) continue;
+    if (document?.permissions === undefined) {
+      errors.push(
+        `${workflow.name} pull_request workflow must declare explicit read-only permissions`,
+      );
+      continue;
+    }
+    if (grantsWrite(document.permissions)) {
+      errors.push(
+        `${workflow.name} runs PR-head workflow code and must not receive write permissions`,
+      );
+    }
+    for (const [jobName, job] of Object.entries(document.jobs ?? {})) {
+      if (grantsWrite(job?.permissions)) {
+        errors.push(
+          `${workflow.name} job ${jobName} runs PR-head workflow code and must not receive write permissions`,
+        );
+      }
+    }
+  }
+  return errors;
+}
+
+export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POLICY_FLOORS) {
+  const errors = [];
+  const canonicalWorkflow = String(policy.review?.requiredCheckWorkflow?.path ?? "")
+    .split("/")
+    .at(-1);
+  const coreNames = new Set(
+    (policy.requiredChecks ?? [])
+      .map((name) => String(name).trim().toLowerCase())
+      .filter((name) => name && name !== "review-window"),
+  );
+  const reviewPatterns = (policy.review?.qualifyingCheckPatterns ?? [])
+    .map((pattern) => String(pattern).trim().toLowerCase())
+    .filter(Boolean);
+  const canonicalCoreCounts = new Map([...coreNames].map((name) => [name, 0]));
+  for (const workflow of workflowSources) {
+    if (/^review-window\.ya?ml$/iu.test(workflow.name)) {
+      errors.push(`${workflow.name} is retired; the default-branch controller owns review-window`);
+    }
+    let document;
+    try {
+      document = yaml.load(workflow.source);
+    } catch {
+      continue;
+    }
+    for (const [jobId, job] of Object.entries(document?.jobs ?? {})) {
+      const publishedName = String(job?.name ?? jobId).trim();
+      if (publishedName.includes("${{")) {
+        errors.push(
+          `${workflow.name} job ${jobId} has a dynamic check name that cannot be proven non-reserved`,
+        );
+      }
+      const identities = new Set([String(jobId).trim().toLowerCase(), publishedName.toLowerCase()]);
+      for (const identity of identities) {
+        if (identity === "review-window") {
+          errors.push(`${workflow.name} job ${jobId} may not use reserved identity review-window`);
+        }
+        if (coreNames.has(identity)) {
+          if (workflow.name !== canonicalWorkflow) {
+            errors.push(
+              `${workflow.name} job ${jobId} may not use canonical CI identity ${identity}`,
+            );
+          } else if (identity === publishedName.toLowerCase()) {
+            canonicalCoreCounts.set(identity, (canonicalCoreCounts.get(identity) ?? 0) + 1);
+          }
+        }
+        const reviewPattern = reviewPatterns.find((pattern) => identity.includes(pattern));
+        if (reviewPattern) {
+          errors.push(
+            `${workflow.name} job ${jobId} may not impersonate review evidence pattern ${reviewPattern}`,
+          );
+        }
+      }
+    }
+  }
+  for (const [name, count] of canonicalCoreCounts) {
+    if (count !== 1) {
+      errors.push(
+        `${canonicalWorkflow || "canonical CI workflow"} must publish ${name} exactly once (found ${count})`,
+      );
+    }
+  }
+  return errors;
+}
+
 export function evaluateRetiredBugIdFloor(source) {
   const ledgerBlock =
     /const RETIRED_ID_LEDGER = Object\.freeze\(\[([\s\S]*?)\]\);/u.exec(source)?.[1] ?? "";
@@ -122,6 +243,18 @@ export function evaluatePolicyFloors(policy) {
   };
 
   requireValues("requiredChecks", policy.requiredChecks, POLICY_FLOORS.requiredChecks);
+  requireValues(
+    "manualMergePathPrefixes",
+    policy.manualMergePathPrefixes,
+    POLICY_FLOORS.manualMergePathPrefixes,
+  );
+  if (
+    policy.review?.requiredCheckWorkflow?.path !==
+      POLICY_FLOORS.review.requiredCheckWorkflow.path ||
+    policy.review?.requiredCheckWorkflow?.event !== POLICY_FLOORS.review.requiredCheckWorkflow.event
+  ) {
+    errors.push("review.requiredCheckWorkflow security floor changed");
+  }
   requireValues(
     "review.qualifyingCheckPatterns",
     policy.review?.qualifyingCheckPatterns,
@@ -237,61 +370,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const backlogValidator = read(root, "scripts/dev/check-bug-backlog.mjs");
   errors.push(...evaluateRetiredBugIdFloor(backlogValidator));
 
-  const reviewWindow = read(root, ".github/workflows/review-window.yml");
-  const qualifyingPatternExpression = policy.review.qualifyingCheckPatterns.join("|");
-  const securityVetoPatternExpression = policy.review.securityVetoCheckPatterns.join("|");
-  const deploymentCheckExpression = policy.review.deploymentCheckNames.join("|");
-  if (!reviewWindow.includes(`MIN_HEAD_AGE=${policy.review.minHeadAgeSeconds}`)) {
-    errors.push("review-window min head age drifts from agent-workflow policy");
-  }
-  if (!reviewWindow.includes(`MIN_BOT_SETTLE=${policy.review.botSettleSeconds}`)) {
-    errors.push("review-window bot settle drifts from agent-workflow policy");
-  }
-  if (!reviewWindow.includes(`MAX_BOT_WAIT=${policy.review.maxBotWaitSeconds}`)) {
-    errors.push("review-window max bot wait drifts from agent-workflow policy");
-  }
-  if (/MIN_PR_AGE|pull_request\.created_at/.test(reviewWindow)) {
-    errors.push("review-window must restart from the current head workflow, not PR creation");
-  }
-  if (!reviewWindow.includes('(.conclusion // "")') || !reviewWindow.includes('$3=="success"')) {
-    errors.push("review-window must require a successful review conclusion, not status only");
-  }
-  if (!reviewWindow.includes(`QUALIFYING_PATTERNS='${qualifyingPatternExpression}'`)) {
-    errors.push("review-window qualifying check patterns drift from agent-workflow policy");
-  }
-  if (!reviewWindow.includes(`SECURITY_VETO_PATTERNS='${securityVetoPatternExpression}'`)) {
-    errors.push("review-window security veto patterns drift from agent-workflow policy");
-  }
-  if (!reviewWindow.includes(`DEPLOYMENT_CHECK_NAMES='${deploymentCheckExpression}'`)) {
-    errors.push("review-window exact optional deployment checks drift from agent-workflow policy");
-  }
-  if (
-    reviewWindow.includes("actions/checkout") ||
-    reviewWindow.includes("merge-ready-freshness.mjs") ||
-    !reviewWindow.includes("FAS 1 / BOOTSTRAP")
-  ) {
-    errors.push("bootstrap review-window must never checkout or execute PR-head repository files");
-  }
-  const bootstrapJob = reviewWindow.split("jobs:\n  review-window:\n")[1] ?? "";
-  const bootstrapName = bootstrapJob.match(/^    name:\s*(.+)$/m)?.[1] ?? "";
-  const bootstrapIf = bootstrapJob.match(/^    if:\s*>\n([\s\S]*?)^    runs-on:/m)?.[1] ?? "";
-  const bootstrapGuards = [
-    "github.event.pull_request.draft == false",
-    "github.event.pull_request.number == 1146",
-    "github.event.pull_request.head.repo.full_name == github.repository",
-    "github.event.pull_request.head.ref == 'chore/agent-workflow-v2'",
-  ];
-  if (
-    bootstrapGuards.some(
-      (guard) => !bootstrapName.includes(guard) || !bootstrapIf.includes(guard),
-    ) ||
-    !bootstrapName.includes("'review-window' || 'review-window-bootstrap-retired'")
-  ) {
-    errors.push(
-      "bootstrap review-window name and if must share the exact phase-1 draft/PR/repo/branch guards and use a non-colliding retired name elsewhere",
-    );
-  }
-
   const prAiReview = read(root, ".github/workflows/pr-ai-review.yml");
   const prAiReviewer = read(root, "scripts/pr-review/run.mjs");
   const prAiAutomation = read(root, "scripts/pr-review/automation.mjs");
@@ -331,15 +409,54 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const workflowSources = readdirSync(resolve(root, ".github/workflows"))
     .filter((name) => /\.ya?ml$/u.test(name))
     .map((name) => ({ name, source: read(root, `.github/workflows/${name}`) }));
+  errors.push(...evaluateReservedWorkflowCheckNames(workflowSources, policy));
+  errors.push(...evaluatePrHeadWorkflowPermissions(workflowSources));
   for (const workflow of workflowSources) {
-    if (/^  pull_request_review(?:_comment)?:/mu.test(workflow.source)) {
+    let events = new Set();
+    try {
+      events = workflowEvents(yaml.load(workflow.source));
+    } catch {
+      continue;
+    }
+    if (events.has("pull_request_review") || events.has("pull_request_review_comment")) {
       errors.push(
         `${workflow.name} must not listen to PR-ref review events; final merge re-reads reviews from trusted issue_comment code`,
       );
     }
   }
-  const freshnessOn = freshness.match(/^on:\s*\n([\s\S]*?)^permissions:/mu)?.[1] ?? "";
-  const privilegedEvents = [...freshnessOn.matchAll(/^  ([a-z_]+):/gmu)].map((match) => match[1]);
+  const dependabotWorkflow =
+    workflowSources.find(({ name }) => name === "dependabot-safe-classify.yml")?.source ?? "";
+  let dependabotEvents = new Set();
+  try {
+    dependabotEvents = workflowEvents(yaml.load(dependabotWorkflow));
+  } catch {
+    // Den generella YAML-valideringen ovan rapporterar det exakta parse-felet.
+  }
+  if (
+    !dependabotEvents.has("pull_request_target") ||
+    dependabotEvents.has("pull_request") ||
+    dependabotWorkflow.includes("actions/checkout") ||
+    dependabotWorkflow.includes("gh pr merge") ||
+    dependabotWorkflow.includes("DEPENDABOT_AUTOMERGE_ENABLED") ||
+    !dependabotWorkflow.includes("if: always()") ||
+    !dependabotWorkflow.includes("steps.meta.outcome == 'success'") ||
+    !dependabotWorkflow.includes("--force") ||
+    !dependabotWorkflow.includes('--remove-label "dependabot-patch-safe"') ||
+    !dependabotWorkflow.includes("github.event.pull_request.user.login == 'dependabot[bot]'") ||
+    !dependabotWorkflow.includes(
+      "github.event.pull_request.head.repo.full_name == github.repository",
+    )
+  ) {
+    errors.push(
+      "Dependabot classifier must run default-branch code, never checkout PR-head or merge",
+    );
+  }
+  let privilegedEvents = [];
+  try {
+    privilegedEvents = [...workflowEvents(yaml.load(freshness))];
+  } catch {
+    // Den generella YAML-valideringen ovan rapporterar det exakta parse-felet.
+  }
   if (
     privilegedEvents.length !== 3 ||
     !["pull_request_target", "issue_comment", "push"].every((event) =>
@@ -360,14 +477,28 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     errors.push("merge-ready sign-off must be human-authored and identity-bound");
   }
   if (
+    !freshness.includes("actions: read") ||
     !freshness.includes("checks: write") ||
     !freshness.includes("node scripts/ci/trusted-review-window.mjs gate") ||
     !freshness.includes("node scripts/ci/trusted-review-window.mjs invalidate-base") ||
     !trustedReviewWindow.includes('const CHECK_NAME = "review-window"') ||
+    !trustedReviewWindow.includes(
+      'const EXTERNAL_ID_PREFIX = "sajtmaskin-trusted-review-window:v1:"',
+    ) ||
     !trustedReviewWindow.includes("head_sha: headSha") ||
     !trustedReviewWindow.includes('conclusion: "action_required"') ||
     !trustedReviewWindow.includes("validateMergeReadySignoff") ||
     !trustedReviewWindow.includes("latestInvalidatingFindingEpoch") ||
+    !trustedReviewWindow.includes("validateTrustedPrAiEvidence") ||
+    !trustedReviewWindow.includes("/actions/runs?check_suite_id=") ||
+    !trustedReviewWindow.includes("job.check_run_url") ||
+    !trustedReviewWindow.includes("fullDatabaseId") ||
+    !trustedReviewWindow.includes("updatedAt") ||
+    !trustedReviewWindow.includes('endsWith("[bot]")') ||
+    !trustedReviewWindow.includes("review.updated_at") ||
+    !trustedReviewWindow.includes("policy.review.requiredCheckWorkflow") ||
+    !trustedReviewWindow.includes("run.provenance?.workflowRun?.created_at") ||
+    !trustedReviewWindow.includes("manualMergeFiles") ||
     !trustedReviewWindow.includes("policy.requiredChecks.filter") ||
     !trustedReviewWindow.includes("policy.review.maxSignoffWaitSeconds")
   ) {
@@ -421,8 +552,11 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (checkoutCount === 0 || nonPersistingCheckoutCount !== checkoutCount) {
     errors.push("every PR-head CI checkout must disable persisted GitHub credentials");
   }
-  const allWorkflowJobs = `${ci}\n${reviewWindow}\n${freshness}`;
+  const allWorkflowJobs = `${ci}\n${freshness}`;
   for (const check of policy.requiredChecks) {
+    // `review-window` is a policy-owned check run published by the trusted
+    // default-branch controller above, not a PR-head workflow job.
+    if (check === "review-window") continue;
     if (!new RegExp(`^  ${escapeRegExp(check)}:`, "m").test(allWorkflowJobs)) {
       errors.push(`required check has no workflow job: ${check}`);
     }

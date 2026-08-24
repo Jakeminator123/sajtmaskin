@@ -94,6 +94,47 @@ och jämför en innehållshashad fingerprint över evidensen. Kommandot måste v
 strikt senare än allt underlag. Efter settle görs ännu en live base/compare och
 slutligen en squash-merge med exakt expected head-SHA.
 
+PR-reviews hämtas paginerat med GraphQL och måste ha unik databasidentitet samt
+både `submittedAt` och serverbunden `updatedAt`. Ordningen använder den senare
+av tiderna, och `updatedAt` ingår i fingerprinten. En bot som editerar ett äldre
+review med ett nytt fynd efter sign-off eller mergekommando gör därför mandatet
+stale; REST-fältet `submitted_at` ensamt får aldrig användas för detta beslut.
+Saknas en verifierbar `User`-/`Bot`-författare stoppar controllern i stället för
+att gissa att ett möjligt botfynd skrevs av en människa. GraphQLs bare
+bot-appslug (`github-actions`) normaliseras vid API-gränsen till samma identitet
+som REST använder (`github-actions[bot]`).
+
+`review-window`-namnet och dess `external_id` är native status/UX, inte
+mergebehörighet: andra Actions-workflows delar samma GitHub App och custom
+checks väljer själva dessa fält. Finalcontrollern räknar därför själv om
+required checks, botar, live sign-off och sjuminutersgolvet från GitHubs
+senaste serverbundna WorkflowRun för exakt `.github/workflows/ci.yml`, eventet
+`pull_request`, aktuell head och aktuell PR. Varje core-check måste länka till
+ett exakt jobb i den körningen och ha serverreturnerade Actions-steg. GitHub kan
+visa en steglös custom check som ett jobb under samma run; den räknas aldrig som
+core-proveniens. Även när ett custom reviewkvitto delar suite med en annan
+workflow hämtas samtliga attempts och check-ID:t binds mot jobbens
+`check_run_url`; utan sådan jobb-bindning är kvittot bara UX och live review-ID
+är fortsatt auktoritet. Äldre försök av samma jobbnamn är stale; jobb som inte
+kördes om i en partial rerun behåller sitt senaste serververifierade försök.
+Dubbla skyddade jobbnamn i något försök eller flera lika nya runs är en
+kollision och stoppar.
+Sjuminutersgolvet börjar vid WorkflowRun-resursens `created_at`, inte vid ett
+CheckRun-fält. Senaste verifierade jobbslut, review-state och publicerat
+review-ID sätter dessutom ett senare freshness-golv när det behövs. Om GitHub
+lämnar `pull_requests` tomt för en fork krävs exakt live head-repository och
+head-branch. Vanliga `pull_request`-workflows är read-only och Dependabots
+skrivande klassificering kör bara default-branch-kod utan mergekommando.
+
+Controllern läser hela PR-fillistan för varje ny head, cachar den under
+pollingen och hämtar den på nytt i slutkontrollen. Antal och unika filnamn måste
+matcha GitHubs PR-metadata. En fil vars nuvarande eller tidigare namn ligger i
+`.github/workflows/**` stoppas av standardmergen: workflow-infrastruktur kräver
+en separat, uttryckligen ägargodkänd och dokumenterad bootstrap-merge efter
+samma tester, review och väntetid. Det undantaget får aldrig användas för att
+passera en röd eller ofullständig grind. Efter exakt head/base-kontroll används
+expected-head-squash och post-merge-CI körs på nya master.
+
 Expected head stänger head-racet. GitHubs merge-endpoint tar däremot ingen
 expected base-SHA. Native ruleset/branch protection måste därför kräva
 up-to-date branch; den serialiserade controllern och sista compare-läsningen
@@ -101,6 +142,17 @@ minimerar men kan inte matematiskt ersätta base-CAS. Manuell webbmerge/bypass �
 inte den kanoniska agentvägen. Live-auditen 2026-08-24 visade
 `strict_required_status_checks_policy=false`; rolloutens inställningssteg måste
 slå på strict.
+
+GitHubs native UI kan inte skilja två checkpublicerare som båda är GitHub
+Actions-appen. Manuell webb-/API-merge och separat auto-merge är därför
+icke-kanoniska även när UI:n ser grön ut. Likvärdig UI-säkerhet kräver en separat
+GitHub App eller ett ruleset med required workflow; agentvägen är tills dess
+endast det betrodda `merge:execute`-kommandot.
+
+Den statiska namnreserveringen och jobb-/stegkontrollen är defense-in-depth, inte
+ett påstående att native UI-residualen är stängd. En obetrodd PR-ref kan försöka
+ändra både workflow och dess kontrakttest; canonical merge stoppar därför alla
+`.github/workflows/**`-ändringar och inget UI-/API-bypass räknas som agentmerge.
 
 En merge med Actions egen `GITHUB_TOKEN` startar normalt inte push-workflows.
 Efter terminal merge gör controllern därför base-invalideringen själv och

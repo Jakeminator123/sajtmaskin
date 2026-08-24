@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateCiBranch,
   evaluatePolicyFloors,
+  evaluatePrHeadWorkflowPermissions,
+  evaluateReservedWorkflowCheckNames,
   evaluateRetiredBugIdFloor,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
@@ -298,12 +300,99 @@ describe("agent workflow repository contract", () => {
     expect(evaluateWorkflowContract().errors).toEqual([]);
   });
 
+  it("runs write-capable Dependabot automation only from trusted default-branch code", () => {
+    const source = readFileSync(".github/workflows/dependabot-safe-classify.yml", "utf8");
+    expect(source).toContain("pull_request_target:");
+    expect(source).not.toMatch(/^  pull_request:\s*$/mu);
+    expect(source).not.toContain("actions/checkout");
+    expect(source).not.toContain("gh pr merge");
+    expect(source).not.toContain("DEPENDABOT_AUTOMERGE_ENABLED");
+    expect(source).toContain("github.event.pull_request.user.login == 'dependabot[bot]'");
+    expect(source).toContain("github.event.pull_request.head.repo.full_name == github.repository");
+    expect(source).toContain("if: always()");
+    expect(source).toContain("steps.meta.outcome == 'success'");
+    expect(source).toContain("--force");
+    expect(source).toContain('--remove-label "dependabot-patch-safe"');
+  });
+
+  it.each([
+    ["block.yml", "on: pull_request\npermissions: write-all\njobs: {}\n"],
+    ["block.yml", "on: [push, pull_request]\npermissions:\n  checks: write\njobs: {}\n"],
+    ["block.yml", "on:\n  pull_request: {}\npermissions: { checks: write }\njobs: {}\n"],
+    ["block.yml", "on:\n  'pull_request':\npermissions:\n  checks: 'write'\njobs: {}\n"],
+    ["block.yml", "on:\n  pull_request:\npermissions:\n  checks: write # granted\njobs: {}\n"],
+    ["block.yml", "on:\n    pull_request:\npermissions: write-all\njobs: {}\n"],
+    ["block.yml", "on:\n  pull_request:\njobs: {}\n"],
+    [
+      "block.yml",
+      "on: [pull_request]\npermissions: { contents: read }\njobs:\n  unsafe:\n    permissions: { issues: 'write' }\n",
+    ],
+  ])("parses every PR-head trigger/permission form fail-closed: %s", (name, source) => {
+    expect(evaluatePrHeadWorkflowPermissions([{ name, source }]).length).toBeGreaterThan(0);
+  });
+
+  it("allows an explicit read-only pull_request workflow and ignores comments", () => {
+    const source = [
+      "on: [pull_request]",
+      "permissions: { contents: read } # issues: write is only a comment",
+      "jobs:",
+      "  safe:",
+      "    runs-on: ubuntu-latest",
+      "    steps: []",
+      "",
+    ].join("\n");
+    expect(evaluatePrHeadWorkflowPermissions([{ name: "safe.yml", source }])).toEqual([]);
+  });
+
+  it.each([
+    ["review-window.yaml", "on: push\njobs: {}\n"],
+    ["other.yml", "on: push\njobs:\n  review-window:\n    runs-on: ubuntu-latest\n"],
+    [
+      "other.yml",
+      "on: push\njobs:\n  fake:\n    name: review-window\n    runs-on: ubuntu-latest\n",
+    ],
+    ["other.yml", "on: push\njobs:\n  quality:\n    name: harmless\n    runs-on: ubuntu-latest\n"],
+    ["other.yml", "on: push\njobs:\n  fake:\n    name: build\n    runs-on: ubuntu-latest\n"],
+    [
+      "other.yml",
+      "on: push\njobs:\n  fake:\n    name: trusted-pr-ai-review\n    runs-on: ubuntu-latest\n",
+    ],
+    [
+      "other.yml",
+      "on: pull_request\njobs:\n  fake:\n    name: ${{ matrix.check }}\n    runs-on: ubuntu-latest\n",
+    ],
+  ])("reserves the native review-window identity: %s", (name, source) => {
+    expect(evaluateReservedWorkflowCheckNames([{ name, source }]).length).toBeGreaterThan(0);
+  });
+
+  it("allows every core context exactly once only in canonical CI", () => {
+    const source = [
+      "on: pull_request",
+      "permissions: { contents: read }",
+      "jobs:",
+      "  quality: { runs-on: ubuntu-latest, steps: [] }",
+      "  build: { runs-on: ubuntu-latest, steps: [] }",
+      "  backoffice-tests: { runs-on: ubuntu-latest, steps: [] }",
+      "  schema-drift: { runs-on: ubuntu-latest, steps: [] }",
+      "",
+    ].join("\n");
+    expect(evaluateReservedWorkflowCheckNames([{ name: "ci.yml", source }])).toEqual([]);
+  });
+
   it("keeps an independent security floor below the editable policy", () => {
     const policy = loadWorkflowInputs().policy;
     expect(evaluatePolicyFloors(policy)).toEqual([]);
 
     const weakened = [
       { ...structuredClone(policy), requiredChecks: ["quality"] },
+      { ...structuredClone(policy), manualMergePathPrefixes: [] },
+      {
+        ...structuredClone(policy),
+        review: {
+          ...structuredClone(policy.review),
+          requiredCheckWorkflow: { path: ".github/workflows/fake.yml", event: "pull_request" },
+        },
+      },
       {
         ...structuredClone(policy),
         verificationProfiles: { ...structuredClone(policy.verificationProfiles), runtime: [] },

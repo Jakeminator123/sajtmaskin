@@ -30,7 +30,7 @@ updates:
         #    (docs/dependency-policy.md). Without this the grouped patch PR swept
         #    them in — #408 bundled next/react/react-dom/ai patches together with
         #    19 other bumps, defeating the "one reviewed core package per PR"
-        #    intent even though the auto-merge workflow blocks core names.
+        #    intent even though the classifier blocks core names.
         # 2. BASELINE-PINNED packages are exact-locked (major.minor.patch) in the
         #    scaffold baseline (KNOWN_PACKAGES / project-scaffold.ts); even a patch
         #    breaks project-scaffold-baseline-parity.test.ts unless the pin is
