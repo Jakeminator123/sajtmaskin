@@ -66,6 +66,30 @@ npx vitest run --pool=threads --no-file-parallelism <sökväg>
 
 Räkna med ~40 s miljöuppsättning per fil i worktree, så kör riktat. `--poolOptions.*` finns inte som CLI-flagga i vår vitest-version.
 
+#### `pool: "threads"` gör `chdir`-tester obrukbara
+
+Priset för threads-läget: Node stöder inte `process.chdir()` i worker threads, så
+varje test som byter arbetskatalog faller med
+`TypeError: process.chdir() is not supported in workers`. Det gäller minst
+`src/lib/logging/*`, `scripts/db/db-target-guard.test.ts` och
+`scripts/docs/contract-docs-core.test.ts` — cirka 25 tester.
+
+De felen är **artefakter av länken, inte fynd i koden**. Jaga dem inte. Ska
+`test:ci` eller `verify:pr` vara trovärdig i en worktree måste `node_modules`
+vara en riktig installation:
+
+```powershell
+cmd /c rmdir node_modules   # tar bort junctionen, följer den INTE
+npm ci                      # ~2 min
+```
+
+`Remove-Item -Recurse` följer junctionen och tömmer huvudcheckoutens
+`node_modules` — använd `cmd /c rmdir`.
+
+Två andra falska röd är värda att känna igen: tester som spawnar `sh` hoppas över
+när Git Bash saknas, och full `test:ci` kan tajma ut enstaka filer under
+parallellitet. Kör de filerna riktat innan du tror på ett fynd.
+
 ### Basen `origin/master` är inte valfri
 
 Utelämnar du den sista referensen baserar git branchen på **huvudcheckoutens HEAD i det ögonblicket**. Står ägaren på en lokal commit som ännu inte är pushad — eller som inte är verifierad — ärver agentens branch den, tyst.
