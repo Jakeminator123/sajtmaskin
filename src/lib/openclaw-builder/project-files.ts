@@ -27,7 +27,10 @@ const RESTRICTED_EXACT_BASENAMES = new Set([
   ".env",
   ".npmrc",
   ".netrc",
+  ".yarnrc.yml",
+  ".pypirc",
   "id_rsa",
+  "id_ed25519",
   "credentials.json",
   "service-account.json",
   "package-lock.json",
@@ -64,6 +67,7 @@ function isRestrictedPath(path: string): boolean {
   if (RESTRICTED_EXACT_BASENAMES.has(basename)) return true;
   if (basename.endsWith(".pem") || basename.endsWith(".key")) return true;
   if (basename.includes("secret") || basename.includes("credential")) return true;
+  if (path === ".git/config" || path.startsWith(".git/")) return true;
   return false;
 }
 
