@@ -18,6 +18,29 @@ function input(overrides: Partial<DecideRolloutInput> = {}): DecideRolloutInput 
 }
 
 describe("decideRollout", () => {
+  it("treats a missing or non-false kill switch as kill_switch", () => {
+    expect(
+      decideRollout({
+        ...input({ requestedLane: "openclaw_shadow", optIn: true }),
+        killSwitch: undefined as unknown as boolean,
+      }),
+    ).toEqual({
+      lane: "classic",
+      fallbackClassic: true,
+      reason: "kill_switch",
+    });
+    expect(
+      decideRollout({
+        ...input({ requestedLane: "openclaw_shadow", optIn: true }),
+        killSwitch: "false" as unknown as boolean,
+      }),
+    ).toEqual({
+      lane: "classic",
+      fallbackClassic: true,
+      reason: "kill_switch",
+    });
+  });
+
   it("lets the kill switch win over every other input", () => {
     expect(decideRollout(input({ killSwitch: true }))).toEqual({
       lane: "classic",
@@ -91,6 +114,22 @@ describe("decideRollout", () => {
           optIn: true,
         }),
       ),
+    ).toEqual({
+      lane: "classic",
+      fallbackClassic: true,
+      reason: "cohort_closed",
+    });
+  });
+
+  it("requires optIn === true, not a truthy stand-in", () => {
+    expect(
+      decideRollout({
+        ...input({
+          requestedLane: "openclaw_shadow",
+          openCohorts: ["internal_f2"],
+        }),
+        optIn: "yes" as unknown as boolean,
+      }),
     ).toEqual({
       lane: "classic",
       fallbackClassic: true,

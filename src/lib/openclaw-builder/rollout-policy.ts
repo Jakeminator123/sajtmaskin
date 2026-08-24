@@ -35,7 +35,7 @@ function classic(reason: RolloutDecision["reason"]): RolloutDecision {
 }
 
 export function decideRollout(input: DecideRolloutInput): RolloutDecision {
-  if (input.killSwitch) {
+  if (input.killSwitch !== false) {
     return classic("kill_switch");
   }
 
@@ -45,11 +45,11 @@ export function decideRollout(input: DecideRolloutInput): RolloutDecision {
 
   const requestedLane = input.requestedLane as "openclaw_shadow" | "openclaw_candidate";
 
-  if (!input.openCohorts.includes(input.cohort)) {
+  if (!Array.isArray(input.openCohorts) || !input.openCohorts.includes(input.cohort)) {
     return classic("cohort_closed");
   }
 
-  if (!input.optIn) {
+  if (input.optIn !== true) {
     return classic("cohort_closed");
   }
 
