@@ -12,6 +12,13 @@ import {
   renderHookScript,
 } from "./install-git-hooks.mjs";
 
+// Två tester nedan kör den riktiga hooken genom en POSIX-shell. Windows utan
+// Git Bash saknar `sh`, och då rapporterar spawnSync ENOENT i stället för
+// hookens exitkod — ett falskt rött som inte säger något om hooken. CI kör
+// Linux och behåller därför full täckning.
+const hasPosixShell = spawnSync("sh", ["-c", "exit 0"]).status === 0;
+const itWithPosixShell = hasPosixShell ? it : it.skip;
+
 // Skyddar dev/prod-symmetrin: prod migreras av CI vid push till master, dev av
 // dessa hooks när master dras hem. Går de sönder tyst är vi tillbaka i "kör mot
 // ett schema koden lämnat bakom sig".
@@ -95,7 +102,7 @@ describe("renderHookScript", () => {
     );
   });
 
-  it("pre-push nekar non-fast-forward men tillåter fast-forward", () => {
+  itWithPosixShell("pre-push nekar non-fast-forward men tillåter fast-forward", () => {
     const root = mkdtempSync(join(tmpdir(), "sajtmaskin-pre-push-"));
     const bin = join(root, "bin");
     mkdirSync(join(root, "scripts", "dev"), { recursive: true });
@@ -215,7 +222,7 @@ describe("renderHookScript", () => {
     expect(otherLocalRef.stderr).toContain("inte utcheckad HEAD");
   });
 
-  it("blockerar vanlig branch-delete men tillåter exakt proof-bunden cleanup", () => {
+  itWithPosixShell("blockerar vanlig branch-delete men tillåter exakt proof-bunden cleanup", () => {
     const root = mkdtempSync(join(tmpdir(), "sajtmaskin-pre-push-delete-"));
     const bin = join(root, "bin");
     mkdirSync(join(root, "scripts", "dev"), { recursive: true });
