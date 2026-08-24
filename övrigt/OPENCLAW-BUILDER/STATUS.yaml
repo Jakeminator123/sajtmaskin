@@ -1,0 +1,23 @@
+schema_version: 1
+status: proposal
+branch: builder-branch
+base_sha: "22673963a88cca84264929abcdfb3fa8a4afe611"
+created_at: "2026-08-24"
+runtime_authority: false
+production_code_changed: false
+recommended_pattern: hybrid
+decision:
+  agent_role: project_lead
+  canonical_pipeline_role: compiler_version_engine_and_quality_judge
+guardrails:
+  - project_scoped_sandbox
+  - short_lived_job_identity
+  - stale_base_compare_and_swap
+  - no_direct_database_write
+  - no_direct_preview_disk_write
+  - no_platform_repo_write
+  - bounded_time_tokens_cost_and_preview_loops
+canvas_review:
+  url: "https://ai-workflow-canvas.v0.build/builder?prompt=grgre&mode=analyserad"
+  result: login_required
+  dependency: optional

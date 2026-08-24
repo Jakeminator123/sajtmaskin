@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="930" viewBox="0 0 1280 930" role="img" aria-labelledby="title desc">
+  <title id="title">Nuvarande OpenClaw i Sajtmaskin</title>
+  <desc id="desc">Next-applikationen monterar kontext och skickar den till en Render-hostad OpenClaw med minimal verktygsprofil. Handling sker genom befintliga Sajtmaskin-flöden.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#475569"/></marker>
+    <style>.t{font-family:Inter,Segoe UI,Arial,sans-serif;fill:#0f172a}.h{font-size:30px;font-weight:600}.s{font-size:16px;fill:#475569}.l{font-size:18px;font-weight:600}.sm{font-size:14px;fill:#475569}.n{fill:#eff6ff;stroke:#2563eb;stroke-width:2}.d{fill:#f5f3ff;stroke:#7c3aed;stroke-width:2}.g{fill:#ecfdf5;stroke:#059669;stroke-width:2}.w{fill:#fffbeb;stroke:#d97706;stroke-width:2}.r{fill:#fef2f2;stroke:#dc2626;stroke-width:2}.a{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.dash{stroke:#94a3b8;stroke-width:2;stroke-dasharray:8 7;fill:none;marker-end:url(#arrow)}</style>
+  </defs>
+  <text x="640" y="48" text-anchor="middle" class="t h">Nuvarande OpenClaw: kontextmatad assistent</text>
+  <text x="640" y="78" text-anchor="middle" class="t s">Projektförståelsen byggs i Next — Render-agenten navigerar inte själv i projektet</text>
+
+  <rect x="430" y="112" width="420" height="74" rx="14" class="n"/>
+  <text x="640" y="156" text-anchor="middle" class="t l">OpenClaw-chatten i buildern</text>
+
+  <rect x="410" y="238" width="460" height="94" rx="14" class="g"/>
+  <text x="640" y="274" text-anchor="middle" class="t l">Next: /api/openclaw/chat</text>
+  <text x="640" y="300" text-anchor="middle" class="t sm">auth, tenantguard, kontextpolicy och modellrouting</text>
+
+  <rect x="50" y="382" width="310" height="84" rx="14" class="d"/>
+  <text x="205" y="416" text-anchor="middle" class="t l">Ägd versionssnapshot</text>
+  <text x="205" y="442" text-anchor="middle" class="t sm">fulltext eller manifest</text>
+
+  <rect x="485" y="382" width="310" height="84" rx="14" class="d"/>
+  <text x="640" y="416" text-anchor="middle" class="t l">Fynd och previewloggar</text>
+  <text x="640" y="442" text-anchor="middle" class="t sm">bounded och serverhämtat</text>
+
+  <rect x="920" y="382" width="310" height="84" rx="14" class="w"/>
+  <text x="1075" y="416" text-anchor="middle" class="t l">GitHub i ägardebug</text>
+  <text x="1075" y="442" text-anchor="middle" class="t sm">kuraterad read-only, default HEAD</text>
+
+  <rect x="385" y="544" width="510" height="118" rx="20" class="w"/>
+  <text x="640" y="580" text-anchor="middle" class="t l">Render: OpenClaw gateway</text>
+  <text x="640" y="607" text-anchor="middle" class="t sm">skills: [] · tools.profile: minimal</text>
+  <text x="640" y="633" text-anchor="middle" class="t sm">inget shell · filsystem · browser · subagenter</text>
+
+  <rect x="410" y="722" width="460" height="78" rx="14" class="n"/>
+  <text x="640" y="756" text-anchor="middle" class="t l">Text eller hårt avgränsat actionförslag</text>
+  <text x="640" y="781" text-anchor="middle" class="t sm">ingen direkt filskrivning</text>
+
+  <rect x="215" y="844" width="370" height="62" rx="14" class="g"/>
+  <text x="400" y="883" text-anchor="middle" class="t l">Godkänd quick edit / repair</text>
+  <rect x="695" y="844" width="370" height="62" rx="14" class="g"/>
+  <text x="880" y="883" text-anchor="middle" class="t l">Builder-follow-up via vanlig pipeline</text>
+
+  <path d="M640 186L640 238" class="a"/>
+  <path d="M205 382L205 352L520 352L520 332" class="dash"/><path d="M640 382L640 332" class="dash"/><path d="M1075 382L1075 352L760 352L760 332" class="dash"/>
+  <path d="M640 332L640 544" class="a"/><path d="M640 662L640 722" class="a"/>
+  <path d="M640 800L640 820L400 820L400 844" class="a"/><path d="M640 800L640 820L880 820L880 844" class="a"/>
+</svg>

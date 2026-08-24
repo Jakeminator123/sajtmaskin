@@ -1,0 +1,9 @@
+flowchart TD
+    U["OpenClaw-chatten"] --> A["Next /api/openclaw/chat"]
+    D["Ägd versionssnapshot"] --> A
+    P["Fynd och previewloggar"] --> A
+    R["Kuraterad GitHub-read i debug"] --> A
+    A --> O["Render OpenClaw minimal tools"]
+    O --> X["Text eller actionförslag"]
+    X --> Q{"Användargrant och godkännande"}
+    Q --> B["Befintlig builder, quick edit eller repair"]

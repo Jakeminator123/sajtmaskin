@@ -1,0 +1,12 @@
+flowchart TD
+    U["Användarprompt"] --> C["Sajtmaskin Job Controller"]
+    C --> J["Signerad JobSpec och kortlivad token"]
+    J --> A["Separat OpenClaw Builder"]
+    A --> S["Efemär sandbox per jobb"]
+    S --> T["Policy Tool Broker"]
+    T --> R["Checks, preview och evidens"]
+    R --> A
+    T --> K["Komplett kandidatsnapshot"]
+    K --> F["Befintlig CAS, finalize och persist"]
+    F --> D[("Ny draftversion i Postgres")]
+    D --> G["Officiell preview och kvalitetsgrindar"]
