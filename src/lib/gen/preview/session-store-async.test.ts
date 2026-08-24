@@ -7,12 +7,12 @@ const { fakeStore, redisStub } = vi.hoisted(() => {
     fakeStore,
     redisStub: {
       get: async (k: string) => fakeStore.get(k) ?? null,
-      setex: async (k: string, _ttl: number, v: string) => {
+      setex: vi.fn(async (k: string, _ttl: number, v: string) => {
         fakeStore.set(k, v);
-      },
-      del: async (k: string) => {
+      }),
+      del: vi.fn(async (k: string) => {
         fakeStore.delete(k);
-      },
+      }),
     },
   };
 });
@@ -24,6 +24,7 @@ vi.mock("@/lib/data/redis", () => ({
 import {
   clearPreviewSessionAsync,
   getActivePreviewSessionAsync,
+  peekActivePreviewSessionAsync,
   resetPreviewSessionStoreForTests,
   touchPreviewSessionAsync,
 } from "./session-store";
@@ -31,6 +32,8 @@ import {
 afterEach(() => {
   resetPreviewSessionStoreForTests();
   fakeStore.clear();
+  redisStub.setex.mockClear();
+  redisStub.del.mockClear();
 });
 
 describe("preview-session-store async + Redis", () => {
@@ -103,5 +106,45 @@ describe("preview-session-store async + Redis", () => {
     });
     expect(parsed.sandboxId).toBeUndefined();
     expect(parsed.sandboxUrl).toBeUndefined();
+  });
+
+  it("peek returns an expired entry as absent without deleting Redis state", async () => {
+    await touchPreviewSessionAsync({
+      chatId: "c-peek-expired",
+      previewSessionId: "ps-peek-expired",
+      previewUrl: "https://preview.example/expired",
+      versionId: "ver-expired",
+      filesRevision: "rev-expired",
+      now: 1_000,
+    });
+    resetPreviewSessionStoreForTests();
+    redisStub.del.mockClear();
+
+    const entry = await peekActivePreviewSessionAsync("c-peek-expired", {
+      now: 1_000_000,
+      idleMs: 10,
+      hardCapMs: 10,
+    });
+    expect(entry).toBeNull();
+    expect(redisStub.del).not.toHaveBeenCalled();
+    expect(fakeStore.has(`${REDIS_KEY_PREFIX}preview-session:session:c-peek-expired`)).toBe(true);
+  });
+
+  it("peek does not fill the in-process cache after a Redis read", async () => {
+    await touchPreviewSessionAsync({
+      chatId: "c-peek-cache",
+      previewSessionId: "ps-peek-cache",
+      previewUrl: "https://preview.example/cache",
+      versionId: "ver-cache",
+      filesRevision: "rev-cache",
+      now: 1_000,
+    });
+    resetPreviewSessionStoreForTests();
+    const first = await peekActivePreviewSessionAsync("c-peek-cache", { now: 1_500 });
+    expect(first?.previewSessionId).toBe("ps-peek-cache");
+
+    fakeStore.delete(`${REDIS_KEY_PREFIX}preview-session:session:c-peek-cache`);
+    const second = await peekActivePreviewSessionAsync("c-peek-cache", { now: 1_500 });
+    expect(second).toBeNull();
   });
 });

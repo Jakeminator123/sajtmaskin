@@ -93,7 +93,10 @@ async function readPreviewSessionFromRedis(chatId: string): Promise<PreviewSessi
   }
 }
 
-async function writePreviewSessionToRedis(chatId: string, entry: PreviewSessionEntry): Promise<void> {
+async function writePreviewSessionToRedis(
+  chatId: string,
+  entry: PreviewSessionEntry,
+): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   try {
@@ -125,7 +128,12 @@ async function deletePreviewSessionFromRedis(chatId: string): Promise<void> {
   }
 }
 
-function isExpired(entry: PreviewSessionEntry, now: number, idleMs: number, hardCapMs: number): boolean {
+function isExpired(
+  entry: PreviewSessionEntry,
+  now: number,
+  idleMs: number,
+  hardCapMs: number,
+): boolean {
   if (now - entry.createdAt > hardCapMs) return true;
   if (now - entry.lastUsedAt > idleMs) return true;
   return false;
@@ -239,6 +247,34 @@ export async function getActivePreviewSessionAsync(
     await deletePreviewSessionFromRedis(chatId);
     return null;
   }
+  return entry;
+}
+
+/**
+ * Side-effect-free preview-session lookup for diagnostics/read-tool callers.
+ *
+ * Unlike {@link getActivePreviewSessionAsync}, this function never deletes an
+ * expired Redis key, fills the in-process cache, or otherwise performs
+ * maintenance writes. An expired entry is simply reported as absent. Runtime
+ * resume/status flows should keep using the active lookup above.
+ */
+export async function peekActivePreviewSessionAsync(
+  chatId: string,
+  options?: GetPreviewSessionOptions,
+): Promise<PreviewSessionEntry | null> {
+  const now = options?.now ?? Date.now();
+  const idleMs = options?.idleMs ?? DEFAULT_IDLE_MS;
+  const hardCapMs = options?.hardCapMs ?? DEFAULT_HARD_CAP_MS;
+
+  if (getRedis()) {
+    const fromRedis = await readPreviewSessionFromRedis(chatId);
+    if (fromRedis && !isExpired(fromRedis, now, idleMs, hardCapMs)) {
+      return fromRedis;
+    }
+  }
+
+  const entry = sessions.get(chatId);
+  if (!entry || isExpired(entry, now, idleMs, hardCapMs)) return null;
   return entry;
 }
 
