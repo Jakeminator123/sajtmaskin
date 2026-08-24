@@ -342,7 +342,7 @@ så en saknad token failar stängt i stället för att bara skriva lokal cache.
 Sync cache: `npm run embeddings:sync`.
 Promote befintlig lokal JSON: `npm run embeddings:promote`.
 
-**Sedan 2026-04-18:** `create-chat-stream-post.ts` låser keyword-pre-match-varianten via `OrchestrationInput.persistedVariantId`, så orchestrate hämtar samma variant via `getVariantById` istället för att köra async-pickaren. Async körs då bara som fallback (id stale, plan-mode, eval). Eliminerar drift mellan brief-LLM-hint och codegen-variant.
+**Sedan 2026-08-24:** `create-chat-stream-post.ts` skickar keyword-pre-matchen som `OrchestrationInput.variantHintId`. Hinten behåller samma init-prioritet som tidigare, men `persistedVariantId` betyder nu enbart en accepterad follow-up-lock. Ett `variantSelection`-kvitto följer generation package, snapshot, telemetri och Selection Rationale.
 
 Tre ingångar till variantvalet (K4, 2026-08-21 — slås inte ihop): sync
 `pickScaffoldVariant` (pre-match/fallback), async embeddings-vägen, och

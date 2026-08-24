@@ -147,6 +147,15 @@ describe("buildGenerationInputPackage — source receipt", () => {
         },
         dynamicContextBlocks: [],
         variantId: null,
+        variantSelection: {
+          source: "hash",
+          score: 0,
+          runnerUpScore: 0,
+          margin: 0,
+          hintId: null,
+          finalId: null,
+          changedFromHint: false,
+        },
         variantTemplateId: null,
         variantTemplateReferenceAttachments: [],
         sources,
@@ -155,5 +164,6 @@ describe("buildGenerationInputPackage — source receipt", () => {
 
     expect(pkg.sources).toEqual(sources);
     expect(pkg.sources[0]?.reachedPrompt).toBe(false);
+    expect(pkg.variantSelection.source).toBe("hash");
   });
 });

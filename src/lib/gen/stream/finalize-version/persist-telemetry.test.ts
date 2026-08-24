@@ -221,6 +221,15 @@ describe("persistTelemetryRecord — källkvitto", () => {
     expect(arg.meta.sources).toEqual(sources);
   });
 
+  it("skriver variantSelection bredvid det befintliga källkvittot", async () => {
+    const variantSelection = {
+      source: "hint-fallback", score: null, runnerUpScore: null, margin: null,
+      hintId: "nature-flow", finalId: "nature-flow", changedFromHint: false,
+    };
+    await persistTelemetryRecord(makeParams({ orchestrationStreamMeta: { variantSelection } }));
+    expect(createGenerationTelemetryRecord.mock.calls[0][0].meta.variantSelection).toEqual(variantSelection);
+  });
+
   it("utelämnar nyckeln när sources är tom eller saknas", async () => {
     await persistTelemetryRecord(
       makeParams({ orchestrationStreamMeta: { sources: [] } }),
