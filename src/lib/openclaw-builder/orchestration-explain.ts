@@ -4,6 +4,7 @@
  */
 
 const HEX_64 = /^[0-9a-f]{64}$/;
+const SECRET_RE = /bearer|sk-|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key/i;
 const MAX_LIST = 32;
 const MAX_BUILD_INTENT = 64;
 const MAX_LOCKED_CONTRACT = 80;
@@ -91,7 +92,8 @@ function normalizeLockedContracts(value: unknown): string[] | null {
     if (
       typeof item !== "string" ||
       item.length === 0 ||
-      item.length > MAX_LOCKED_CONTRACT
+      item.length > MAX_LOCKED_CONTRACT ||
+      SECRET_RE.test(item)
     ) {
       return null;
     }

@@ -105,10 +105,16 @@ describe("explainOrchestration", () => {
     ).toEqual({ ok: false, code: "invalid_view" });
   });
 
+  it("rejects secret-like locked contracts instead of echoing them", () => {
+    expect(
+      explainOrchestration({
+        view: validView({ lockedContracts: ["sk-live-this-must-not-echo"] }),
+      }),
+    ).toEqual({ ok: false, code: "invalid_view" });
+  });
+
   it("does not put raw secrets or huge text in notes", () => {
-    const view = Object.assign(validView({
-      lockedContracts: ["sk-live-this-must-stay-off-notes"],
-    }), {
+    const view = Object.assign(validView(), {
       promptDump: `${"SECRET_PROMPT_BLOB ".repeat(400)}apiKey=sk-live-huge`,
       apiKey: "sk-live-abc123",
     });
@@ -117,10 +123,11 @@ describe("explainOrchestration", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok");
 
+    const blob = JSON.stringify(result);
+    expect(blob).not.toContain("sk-live");
+    expect(blob).not.toContain("SECRET_PROMPT_BLOB");
+    expect(blob).not.toContain("apiKey");
     const notesBlob = result.explanation.notes.join("\n");
-    expect(notesBlob).not.toContain("sk-live");
-    expect(notesBlob).not.toContain("SECRET_PROMPT_BLOB");
-    expect(notesBlob).not.toContain("apiKey");
     expect(notesBlob.length).toBeLessThan(400);
     expect(result.explanation.notes.every((note) => note.length <= 160)).toBe(
       true,
