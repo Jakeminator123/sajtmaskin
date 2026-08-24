@@ -117,6 +117,7 @@ denna trim; tabellen håller bara själva beslutet och när det behövs.
 | P3 | Ska verifier-LLM sluta få hela projektet varje gång (`SM-047`)? | När verifierkostnad/latens prioriteras. |
 | P2 | Ska generation flyttas ur HTTP-anslutningen (`T9b`) efter mobilens frånkopplingsincident? | Nästa döda generation eller uttrycklig beställning. |
 | P2 | Ska en loop-säker Vercel Log Drain skapas (`T11`)? | Endast när ägaren kör runbooken. |
+| P2 | Ska preview-hostens Fly-maskin uppgraderas, och i så fall till vilken klass? `shared`-vCPU har enligt Flys dokumentation en baseline på 5 ms per 80 ms-period och vCPU, delad över maskinen — dagens `shared-cpu-4x` sustainar därför ~0,25 kärna när burst-balansen är slut, vilket träffar `npm install`/`tsc` rakt i previewlatensen. Månadspris i `arn` vid drift dygnet runt: nuvarande `shared-cpu-4x`/8 GB **$44**, `shared-cpu-8x`/8 GB **$47** (dubbel kvot, +$3), `performance-2x`/8 GB **$85** (~2,0 kärnor sustained), `performance-4x`/8 GB **$129**. Mer RAM utan mer CPU hjälper bara om det faktiskt är OOM/swap-tröskning. Mät throttling/burst-balans i Flys metrics före beslut. | Före MVP-lansering, eller vid nästa previewlatens-klagomål. |
 | P3 | Flytta stor historik till Blob och därefter eventuellt `git filter-repo`? | När PR-kön är tom och alla kloner kan ersättas. |
 | P3 | Kör produktbenchmark på 20–30 verkliga byggen? | Inför lansering/värdering. |
 
@@ -135,6 +136,7 @@ fixade; de finns i git-snapshoten `feac0570e`.
 | --- | --- | --- |
 | P2 | Observability | `engine_version_error_logs.version_id` är `NOT NULL`, så fel före första versionen kan inte loggas (`T3`). |
 | P2 | Säkerhet | Läsande CI-jobb delar prod-credentials med skrivande jobb; inför separat read-only-roll/DSN. |
+| P2 | Säkerhet (cross-tenant) | `sites.sajtmaskin.se` saknar Public-Suffix-List-post, så en kundsajt skulle kunna sätta cookie på den delade parent-domänen och nå syskonsajter. Blockerar branded-rollouten — se [`docs/runbooks/branded-user-urls.md`](docs/runbooks/branded-user-urls.md). |
 | P2 | Observability (`SM-045`) | Brief-anropets `llm_usage` saknar både `chat_id` och `session_id`, till skillnad från resten av körningen. |
 | P2 | Sanningsskuld (`SM-054`) | `verification_state` bär ingen `filesRevision`; ett lagrat verdikt kan därför gälla äldre innehåll. |
 | P3 | Kontraktsasymmetri (`SM-056`) | Ruttplanens filfilter gäller scaffoldfiler men inte modellens egna emitterade sidfiler. |
@@ -146,6 +148,7 @@ fixade; de finns i git-snapshoten `feac0570e`.
 | P3 | Prompt | Budgettruncering är blind; mät triggerfrekvens och gör den fil-/fence-medveten. |
 | P3 | Legacy | Bestäm kompatibilitetsperiod och migration för `template_cache`. |
 | P3 | UX | Blockera save under `verifying/repairing` utan att tappa lokal draft. |
+| P3 | UX (lastbärande copy) | Preview-hostens boot-splash visar rått internt sessionsstatus för användaren (`Status: warm_project`) på en mörk placeholder. Texten är **inte** fri att skriva om: `hasPreviewHostBootMarkers` i `src/lib/capture/preview-boot-page.ts` klassar boot-sidan på fyra exakta markörer — rubrikerna `^Startar (om )?preview$` och `^Preview kunde inte starta$`, brödtexterna `Preview-host bygger projektet och startar Next.js` / `Preview-runtimen startar om i bakgrunden`, samt `Status: warm_project`. Alla fyra sänds från `preview-proxy.js` (`sendRuntimeStartingPage` **och** `sendHeldPreviewErrorPage`); skriv om bara en av sidorna och detektorn tappar den. Snyggare copy kräver en maskinläsbar markör (meta/data-attribut) plus samtidig ändring av detektorn — annars kan produktkontrollen sluta känna igen boot-sidan och rapportera grönt på en sajt som bara startar. |
 | P3 | Dossier-test | Demotester bevisar inte övergång till riktig projektnyckel; lägg representativa aktiveringstest. |
 | P3 | Dossier-arkitektur | `STAGING_BY_ID` är en handkodad placeringskarta parallellt med manifesten. |
 | P3 | Uppdelning | Dela `DossiersPanelView`, `usePreviewPanelDossiersController`, `audit-modal`, `repair-loop`, `import-validator` och `scaffold_wizard` bakom oförändrade fasader. |
