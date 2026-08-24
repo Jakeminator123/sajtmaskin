@@ -64,6 +64,14 @@ describe("createRevisionMemory", () => {
       ok: false,
       code: "invalid_summary",
     });
+    expect(memory.put(scope(), "stripe rk_live_example")).toEqual({
+      ok: false,
+      code: "invalid_summary",
+    });
+    expect(memory.put(scope(), "webhook whsec_example")).toEqual({
+      ok: false,
+      code: "invalid_summary",
+    });
     expect(
       memory.put(scope(), "-----BEGIN PRIVATE KEY-----\nMIIB"),
     ).toEqual({ ok: false, code: "invalid_summary" });
@@ -168,6 +176,20 @@ describe("createRevisionMemory", () => {
     });
     expect(memory.put(scope(), "a\nb\tok")).toEqual({ ok: true });
     expect(memory.get(scope())).toMatchObject({ summary: "a\nb\tok" });
+  });
+
+  it("rejects a rewind of updatedAtMs and misses aged entries", () => {
+    const memory = createRevisionMemory({ maxAgeMs: 1_000 });
+    expect(memory.put(scope(), "First", 100)).toEqual({ ok: true });
+    expect(memory.put(scope(), "Older clock", 50)).toEqual({
+      ok: false,
+      code: "invalid_summary",
+    });
+    expect(memory.get(scope(), 100)).toMatchObject({
+      summary: "First",
+      updatedAtMs: 100,
+    });
+    expect(memory.get(scope(), 1_101)).toBeNull();
   });
 
   it("keeps the same chatId isolated across tenants", () => {

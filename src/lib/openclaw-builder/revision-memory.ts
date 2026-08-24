@@ -32,7 +32,7 @@ type StoredEntry = MemoryEntry & {
 type InvalidateScope = Pick<MemoryScope, "tenantId" | "chatId"> &
   Partial<Pick<MemoryScope, "versionId" | "filesRevision">>;
 
-const SECRET_RE = /bearer|sk-|BEGIN PRIVATE KEY/i;
+const SECRET_RE = /bearer|sk-|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key/i;
 
 function normalizeId(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -86,8 +86,9 @@ function resolveUpdatedAtMs(nowMs: number | undefined): number {
 export function createRevisionMemory(options?: {
   maxEntries?: number;
   maxSummaryChars?: number;
+  maxAgeMs?: number;
 }): {
-  get(scope: MemoryScope): MemoryEntry | null;
+  get(scope: MemoryScope, nowMs?: number): MemoryEntry | null;
   put(
     scope: MemoryScope,
     summary: string,
@@ -97,6 +98,8 @@ export function createRevisionMemory(options?: {
 } {
   const maxEntries = boundInt(options?.maxEntries, DEFAULT_MAX_ENTRIES);
   const maxSummaryChars = boundInt(options?.maxSummaryChars, DEFAULT_MAX_SUMMARY_CHARS);
+  const maxAgeMs =
+    options?.maxAgeMs == null ? null : boundInt(options.maxAgeMs, 0);
   const tenants = new Map<string, Map<string, StoredEntry>>();
 
   function entryCount(): number {
@@ -110,7 +113,7 @@ export function createRevisionMemory(options?: {
   }
 
   return {
-    get(scope) {
+    get(scope, nowMs) {
       const parsed = parseScope(scope);
       if (!parsed) return null;
       const stored = tenants.get(parsed.tenantId)?.get(parsed.chatId);
@@ -120,6 +123,12 @@ export function createRevisionMemory(options?: {
         stored.filesRevision !== parsed.filesRevision
       ) {
         return null;
+      }
+      if (maxAgeMs != null) {
+        const now = resolveUpdatedAtMs(nowMs);
+        if (now < stored.updatedAtMs || now - stored.updatedAtMs > maxAgeMs) {
+          return null;
+        }
       }
       return publicEntry(stored);
     },
@@ -137,9 +146,14 @@ export function createRevisionMemory(options?: {
         return { ok: false, code: "capacity" };
       }
 
+      const proposedAt = resolveUpdatedAtMs(nowMs);
+      if (existing && proposedAt < existing.updatedAtMs) {
+        return { ok: false, code: "invalid_summary" };
+      }
+
       const next: StoredEntry = {
         summary: clean,
-        updatedAtMs: resolveUpdatedAtMs(nowMs),
+        updatedAtMs: proposedAt,
         versionId: parsed.versionId,
         filesRevision: parsed.filesRevision,
       };
