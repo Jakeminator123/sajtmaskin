@@ -12,7 +12,7 @@ export const MAX_PLAN_ARRAY_LENGTH = 32;
 export const MAX_EXPECTED_FILE_PATH_LENGTH = 200;
 export const MAX_PLAN_ITEM_LENGTH = 240;
 
-const SECRET_PATTERN_RE = /bearer|sk-|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key/i;
+const SECRET_PATTERN_RE = /bearer|sk[-_]|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key|ghp_|gho_|github_pat_|xox[baprs]-/i;
 
 const RESTRICTED_EXPECTED_BASENAMES = new Set([
   ".env",
@@ -99,7 +99,7 @@ function isRestrictedExpectedPath(value: string): boolean {
   if (basename === ".env" || basename.startsWith(".env.")) return true;
   if (RESTRICTED_EXPECTED_BASENAMES.has(basename)) return true;
   if (basename.endsWith(".pem") || basename.endsWith(".key")) return true;
-  if (value === ".git/config" || value.startsWith(".git/")) return true;
+  if (value.split("/").some((segment) => segment.toLowerCase() === ".git")) return true;
   return false;
 }
 

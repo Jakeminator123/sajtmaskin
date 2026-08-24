@@ -90,11 +90,22 @@ describe("parseShadowPlan", () => {
       ok: false,
       code: "invalid_plan",
     });
+    expect(parseShadowPlan(validPlan({ expectedFiles: ["vendor/.git/config"] }))).toEqual({
+      ok: false,
+      code: "invalid_plan",
+    });
+    expect(parseShadowPlan(validPlan({ expectedFiles: [".GIT/config"] }))).toEqual({
+      ok: false,
+      code: "invalid_plan",
+    });
   });
 
   it("rejects secrets or control characters in risks, checkPlan, and notes", () => {
     expect(
       parseShadowPlan(validPlan({ risks: ["Use sk-live-secret"] })),
+    ).toEqual({ ok: false, code: "invalid_plan" });
+    expect(
+      parseShadowPlan(validPlan({ notes: ["stripe sk_live_example"] })),
     ).toEqual({ ok: false, code: "invalid_plan" });
     expect(
       parseShadowPlan(validPlan({ checkPlan: ["Bearer abc.def"] })),
