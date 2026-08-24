@@ -20,7 +20,7 @@ swap_size_mb = 2048
   PREVIEW_BASE_URL = "https://vm-fly-jakem.fly.dev"
   # Exact trust boundary for the always-on route bridge. Public metadata, not
   # a secret. First entry is canonical for the opt-in inspector script.
-  SAJTMASKIN_APP_ORIGINS = "https://sajtmaskin.vercel.app,https://sajtmaskin.se,https://www.sajtmaskin.se,https://sajtmaskin.com,https://www.sajtmaskin.com"
+  SAJTMASKIN_APP_ORIGINS = "https://sajtmaskin.vercel.app,https://sajtmaskin.se,https://www.sajtmaskin.se,https://sajtmaskin.com,https://www.sajtmaskin.com,https://sajtmaskin-git-preview-jakeminator123s-projects.vercel.app"
   PREVIEW_SESSION_TTL_MS = "7200000"
   PREVIEW_HOST_DATA_DIR = "/data"
   # Package caches belong on the mounted volume, never the rootfs. The rootfs
