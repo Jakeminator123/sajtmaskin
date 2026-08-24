@@ -33,8 +33,19 @@ export const MAX_FILE_CHARS = 200_000;
 export const MAX_OVERLAY_BYTES = 2_000_000;
 export const MAX_PATH_LENGTH = 200;
 
-const RESTRICTED_EXACT_BASENAMES = new Set([".env", "package-lock.json", "id_rsa", "credentials.json"]);
-const SECRET_RE = /bearer|sk-|BEGIN PRIVATE/i;
+const RESTRICTED_EXACT_BASENAMES = new Set([
+  ".env",
+  ".npmrc",
+  ".netrc",
+  ".yarnrc.yml",
+  ".pypirc",
+  "package-lock.json",
+  "id_rsa",
+  "id_ed25519",
+  "credentials.json",
+  "service-account.json",
+]);
+const SECRET_RE = /bearer|sk-|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key/i;
 
 const INVALID_INPUT = { ok: false, code: "invalid_input" } as const;
 
@@ -80,7 +91,22 @@ function isRestrictedPath(path: string): boolean {
   if (basename === ".env" || basename.startsWith(".env.")) return true;
   if (RESTRICTED_EXACT_BASENAMES.has(basename)) return true;
   if (basename.endsWith(".pem") || basename.endsWith(".key")) return true;
+  if (path === ".git/config" || path.startsWith(".git/")) return true;
   return false;
+}
+
+function validateExistingOverlay(
+  overlay: Record<string, string>,
+): CandidatePatchResult | null {
+  for (const [path, content] of Object.entries(overlay)) {
+    const normalized = normalizePath(path);
+    if (!normalized.ok) return normalized;
+    if (normalized.path !== path) return { ok: false, code: "invalid_path" };
+    if (isRestrictedPath(normalized.path)) return { ok: false, code: "restricted_path" };
+    if (content.length > MAX_FILE_CHARS) return { ok: false, code: "too_large" };
+    if (content.includes("\0") || SECRET_RE.test(content)) return INVALID_INPUT;
+  }
+  return null;
 }
 
 function overlayByteLength(overlay: Record<string, string>): number {
@@ -98,6 +124,8 @@ function applyWrites(
 ): CandidatePatchResult {
   if (!isStringRecord(base) || !isStringRecord(overlay)) return INVALID_INPUT;
   if (!Array.isArray(writes)) return INVALID_INPUT;
+  const overlayError = validateExistingOverlay(overlay);
+  if (overlayError) return overlayError;
 
   const next = cloneStringRecord(overlay);
   const changed = new Set<string>();

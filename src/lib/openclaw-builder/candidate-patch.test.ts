@@ -62,7 +62,12 @@ describe("applyCandidatePatch / replaceCandidateFiles", () => {
       "keys/app.key",
       "package-lock.json",
       "keys/id_rsa",
+      "keys/id_ed25519",
       "config/credentials.json",
+      ".npmrc",
+      ".yarnrc.yml",
+      ".pypirc",
+      ".git/config",
     ];
     for (const path of cases) {
       expect(
@@ -150,6 +155,23 @@ describe("applyCandidatePatch / replaceCandidateFiles", () => {
         }),
       ).toEqual({ ok: false, code: "invalid_input" });
     }
+  });
+
+  it("rejects a restricted or secret-bearing existing overlay", () => {
+    expect(
+      applyCandidatePatch({
+        base: { ...BASE },
+        overlay: { ".env": "SECRET=1" },
+        hunks: [],
+      }),
+    ).toEqual({ ok: false, code: "restricted_path" });
+    expect(
+      applyCandidatePatch({
+        base: { ...BASE },
+        overlay: { "src/leaked.ts": "openai key sk-proj-example" },
+        hunks: [],
+      }),
+    ).toEqual({ ok: false, code: "invalid_input" });
   });
 
   it("rejects malformed input without writing", () => {
