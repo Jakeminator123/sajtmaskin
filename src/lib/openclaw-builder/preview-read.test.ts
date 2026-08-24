@@ -345,7 +345,10 @@ describe("getPreviewLogs", () => {
     );
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok");
-    expect(result.lines).toEqual([{ ts: "t3", message: "kept" }]);
+    expect(result.lines).toEqual([
+      { ts: "t2", message: "[redacted]" },
+      { ts: "t3", message: "kept" },
+    ]);
     expect(result.truncated).toBe(false);
   });
 
