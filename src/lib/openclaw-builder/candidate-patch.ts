@@ -45,7 +45,7 @@ const RESTRICTED_EXACT_BASENAMES = new Set([
   "credentials.json",
   "service-account.json",
 ]);
-const SECRET_RE = /bearer|sk-|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key/i;
+const SECRET_RE = /bearer|sk[-_]|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key|ghp_|gho_|github_pat_|xox[baprs]-/i;
 
 const INVALID_INPUT = { ok: false, code: "invalid_input" } as const;
 
@@ -91,7 +91,7 @@ function isRestrictedPath(path: string): boolean {
   if (basename === ".env" || basename.startsWith(".env.")) return true;
   if (RESTRICTED_EXACT_BASENAMES.has(basename)) return true;
   if (basename.endsWith(".pem") || basename.endsWith(".key")) return true;
-  if (path === ".git/config" || path.startsWith(".git/")) return true;
+  if (path.split("/").some((segment) => segment.toLowerCase() === ".git")) return true;
   return false;
 }
 

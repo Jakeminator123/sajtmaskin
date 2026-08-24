@@ -68,6 +68,8 @@ describe("applyCandidatePatch / replaceCandidateFiles", () => {
       ".yarnrc.yml",
       ".pypirc",
       ".git/config",
+      "vendor/.git/config",
+      ".GIT/config",
     ];
     for (const path of cases) {
       expect(
@@ -169,6 +171,13 @@ describe("applyCandidatePatch / replaceCandidateFiles", () => {
       applyCandidatePatch({
         base: { ...BASE },
         overlay: { "src/leaked.ts": "openai key sk-proj-example" },
+        hunks: [],
+      }),
+    ).toEqual({ ok: false, code: "invalid_input" });
+    expect(
+      applyCandidatePatch({
+        base: { ...BASE },
+        overlay: { "src/stripe.ts": "stripe sk_live_example" },
         hunks: [],
       }),
     ).toEqual({ ok: false, code: "invalid_input" });
