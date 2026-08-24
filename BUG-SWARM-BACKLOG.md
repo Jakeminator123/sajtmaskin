@@ -1,6 +1,6 @@
 # Bug-backlog (konsoliderad)
 
-Operativ sanning mot `master` **`feac0570e`**, kontrollerad 2026-08-23. Full
+Operativ sanning mot `master` **`c7416967`**, kontrollerad 2026-08-24. Full
 historik finns i git; återställ vid behov föregående snapshot från den committen.
 Det tunna historikindexet finns i
 [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md).
@@ -25,27 +25,23 @@ Regler:
 | [ ] | Öppen a11y-bug | P2 | `SM-015` Läsbar sekundärtext och placeholders använder fortfarande kontrastsvaga `text-muted-foreground/70` och `text-gray-500` på mörka standardytor. | Träffar kvar i `audit-modal.tsx`, `templates-browser.tsx` och `PreviewPanelFrame.tsx`; fixförslag i draft [#1138](https://github.com/Jakeminator123/sajtmaskin/pull/1138). | Byt bara läsbar text till solid token och lås kontrast- och komponenttester. |
 | [ ] | Öppen bug | P3 | `SM-030` En sparad `postgres-drizzle`-dossier kan samexistera med en senare Mongo-markör från tool/F3, så BuildSpec och prompt kan bära två databasidentiteter. | Dossierselectionen väljer Postgres medan `detect-integrations.ts` fortfarande producerar `mongodb`; omklassning dokumenterad i draft [#1139](https://github.com/Jakeminator123/sajtmaskin/pull/1139). | Låt markören följa vald dossier; bevara dossierlös Mongo när ingen DB-dossier är vald. |
 | [ ] | Bekräftad prod-bugg | P2 | `SM-033` Wizardns competitor/enrich-rutter har nått sina 25/30-sekunderstak, men saknar ovillkorlig terminal fastelemetri som visar dominant steg. | Prod-504 samt `src/app/api/wizard/competitors/route.ts` och `enrich/route.ts`. | Lägg content-free terminal event och gemensam deadline/abort; mät p95/p99 före ändrat tak. |
-| [ ] | Öppen bug | P3 | `SM-040` En giltig treordstitel efter kolonlistans `och` eller `and` tappas av tvåordsgränsen, exempelvis `Data Protection Policy`. | `MAX_WORDS_AFTER_LIST_CONJUNCTION = 2`; fixförslag i draft [#1137](https://github.com/Jakeminator123/sajtmaskin/pull/1137). | Utöka explicit titelstrategi utan att acceptera instruktionssvansar. |
 
 Prioritering: `SM-033` först; därefter `SM-013`, `SM-003`, `SM-001` och
-`SM-015`; sist `SM-030` och `SM-040`.
+`SM-015`; sist `SM-030`.
 
 ## Pågående PR-spår
 
-Kontrollerat mot alla sex öppna PR:ar 2026-08-23. En PR ändrar inte radens status
+Kontrollerat mot de öppna PR:arna 2026-08-24. En PR ändrar inte radens status
 förrän dess runtimeändring finns på `master`.
 
 <!-- prettier-ignore -->
 | PR | Påverkan på denna utvärdering |
 | --- | --- |
-| [#1137](https://github.com/Jakeminator123/sajtmaskin/pull/1137) | Draft med runtimefix för `SM-040`; raden förblir aktiv tills fixen mergats. |
 | [#1138](https://github.com/Jakeminator123/sajtmaskin/pull/1138) | Draft med runtimefix för `SM-015`; raden förblir aktiv tills fixen mergats. |
-| [#1139](https://github.com/Jakeminator123/sajtmaskin/pull/1139) | Dokumenterar omklassningen av `SM-030` men innehåller ingen runtimefix; slutsatsen är inarbetad här. |
-| [#1140](https://github.com/Jakeminator123/sajtmaskin/pull/1140), [#1141](https://github.com/Jakeminator123/sajtmaskin/pull/1141) | Dokumentutkast som arkiverar redan lösta `SM-014`/`SM-018`; de överlappar denna konsoliderade sanningssynk. |
 | [#1134](https://github.com/Jakeminator123/sajtmaskin/pull/1134) | Minskar AI SDK-pinndrift men har ett öppet reviewfynd om `process.cwd()` och stänger inte den bredare katalog-/paritetsskulden. |
 
-Draft #1137–#1141 behöver rebasera och regenerera delade statusfiler efter denna
-städning. #1134 är funktionellt fristående.
+#1139–#1141 är stängda som ersatta av #1142. #1138 behöver regenerera delade
+statusfiler mot aktuell master före merge. #1134 är funktionellt fristående.
 
 ## Releaseblockerare bakom avstängd flagga
 
@@ -192,6 +188,7 @@ draftbeskrivningar och journalprosa finns i git och i
 | [x] | `SM-018` | Fixad | [#1126](https://github.com/Jakeminator123/sajtmaskin/pull/1126) synkar parentens aktiva route med iframe-navigation. |
 | [x] | `SM-032` | Fixad | [#1124](https://github.com/Jakeminator123/sajtmaskin/pull/1124) lägger minsta Maps-hostar i CSP med test. |
 | [x] | `SM-038` | Fixad | [#1124](https://github.com/Jakeminator123/sajtmaskin/pull/1124) återanvänder kanonisk bloggrutt i stället för parallell aliasstruktur. |
+| [x] | `SM-040` | Fixad | [#1137](https://github.com/Jakeminator123/sajtmaskin/pull/1137) tillåter exakt `Data Protection Policy` efter `och`/`and`, även med yttre citattecken och terminal interpunktion, utan att släppa igenom okända treordstitlar eller instruktionssvansar. |
 
 Stängda eller supersedade PR-utkast räknas inte som mergebevis. Det gäller bland
 annat de äldre arkivrader som beskrev en draft som ”kodfixad”; aktuell kod på

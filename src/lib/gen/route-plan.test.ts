@@ -2159,6 +2159,13 @@ describe("extractExplicitNamedPages — obundna namn kapas vid satsgräns", () =
         (page) => page.path,
       ),
     ).toEqual(["/terms-and-conditions", "/kontakt"]);
+    for (const punctuation of [".", "!", "?"]) {
+      expect(
+        extractExplicitNamedPages(`Sidor: Hem, Terms and Conditions${punctuation}`).map(
+          (page) => page.path,
+        ),
+      ).toEqual(["/terms-and-conditions"]);
+    }
   });
 
   it("splittrar okända och/and i kolonlistan — slår inte ihop Om och Kontakt", () => {
@@ -2168,6 +2175,52 @@ describe("extractExplicitNamedPages — obundna namn kapas vid satsgräns", () =
     expect(
       extractExplicitNamedPages("Sidor: Home, About and Contact").map((page) => page.path),
     ).toEqual(["/about", "/contact"]);
+  });
+
+  it("behåller en tillåten treordstitel efter listans och/and", () => {
+    expect(
+      extractExplicitNamedPages("Sidor: Hem, Om och Data Protection Policy").map(
+        (page) => page.path,
+      ),
+    ).toEqual(["/om", "/data-protection-policy"]);
+    for (const punctuation of [".", ";", ":", "!", "?"]) {
+      expect(
+        extractExplicitNamedPages(
+          `Sidor: Hem, Om och Data Protection Policy${punctuation}`,
+        ).map((page) => page.path),
+      ).toEqual(["/om", "/data-protection-policy"]);
+    }
+    for (const title of [
+      '"Data Protection Policy"',
+      '"Data Protection Policy."',
+      '“Data Protection Policy”.',
+    ]) {
+      expect(
+        extractExplicitNamedPages(`Sidor: Hem, Om och ${title}`).map(
+          (page) => page.path,
+        ),
+      ).toEqual(["/om", "/data-protection-policy"]);
+    }
+    expect(
+      extractExplicitNamedPages('Sidor: Hem, Om och "Cookie Preferences Center"').map(
+        (page) => page.path,
+      ),
+    ).toEqual(["/om"]);
+    expect(
+      extractExplicitNamedPages("Sidor: Hem, Om och Cookie Preferences Center.").map(
+        (page) => page.path,
+      ),
+    ).toEqual(["/om"]);
+    expect(
+      extractExplicitNamedPages("Sidor: Hem, Om och gör knapparna gröna.").map(
+        (page) => page.path,
+      ),
+    ).toEqual(["/om"]);
+    expect(
+      extractExplicitNamedPages(
+        "Sidor: Hem, Om och Data Protection Policy. Gör knapparna gröna",
+      ).map((page) => page.path),
+    ).toEqual(["/om", "/data-protection-policy"]);
   });
 
   it("planerar /bilder — inte den slukade varianten — för hela instruktionen", () => {

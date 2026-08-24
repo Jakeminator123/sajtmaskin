@@ -63,8 +63,8 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "feac0570",
-    "commitDate": "2026-08-23",
+    "commit": "c741696",
+    "commitDate": "2026-08-24",
     "sinceDays": 14
   },
   "totals": {
@@ -72,7 +72,7 @@ const DATA: CanvasData = {
     "openP0": 0,
     "openP1": 0,
     "openP2": 5,
-    "openP3": 2,
+    "openP3": 1,
     "blocked": 0,
     "shaky": 3,
     "evalExactHitPct": null
