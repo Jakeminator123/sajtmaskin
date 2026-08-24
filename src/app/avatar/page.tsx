@@ -18,11 +18,14 @@ const publicEnvVars = [
   "NEXT_PUBLIC_AVATAR_CLIENT_KEY",
 ];
 
+// Preview har två browser-origins: den egna domänen och deploy-URL:en. Båda
+// måste ligga i D-ID Studio, annars nekas embedden på den som saknas.
 const allowedOrigins = [
   "http://localhost:3000",
   "https://sajtmaskin.se",
   "https://sajtmaskin.com",
   "https://preview.sajtmaskin.se",
+  "https://sajtmaskin-git-preview-jakeminator123s-projects.vercel.app",
   "https://sajtmaskin.vercel.app",
 ];
 
