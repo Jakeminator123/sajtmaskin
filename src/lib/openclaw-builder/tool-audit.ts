@@ -149,8 +149,11 @@ function sortKeys(value: unknown): unknown {
     return value.map((item) => (item === undefined ? null : sortKeys(item)));
   }
   if (isPlainObject(value)) {
-    const sorted: Record<string, unknown> = {};
+    const sorted: Record<string, unknown> = Object.create(null);
     for (const key of Object.keys(value).sort()) {
+      if (key === "__proto__" || key === "constructor" || key === "prototype") {
+        throw new Error("non_json");
+      }
       const child = value[key];
       if (child === undefined) continue;
       sorted[key] = sortKeys(child);

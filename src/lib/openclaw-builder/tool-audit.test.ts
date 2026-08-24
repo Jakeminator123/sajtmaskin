@@ -266,6 +266,14 @@ describe("createToolAuditEvent redaction", () => {
     expect(result.event).not.toHaveProperty("request");
   });
 
+  it("rejects prototype-polluting request keys instead of hashing them", () => {
+    const polluted = JSON.parse('{"__proto__":{"admin":true},"path":"src/app.ts"}');
+    expect(createToolAuditEvent(validInput({ request: polluted }))).toEqual({
+      ok: false,
+      code: "invalid_input",
+    });
+  });
+
   it("rejects requests that cannot be canonicalized", () => {
     expect(
       createToolAuditEvent(validInput({ request: { run: () => "secret" } })),
