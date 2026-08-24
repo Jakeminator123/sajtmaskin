@@ -187,4 +187,26 @@ describe("PreviewPanelFrame — loading-overlayens debounce och hard-cap", () =>
       vi.useRealTimers();
     }
   });
+
+  it("visar fel-overlayens hjälptext med opak sekundärtexttoken", () => {
+    renderFrame({
+      isLoading: false,
+      iframeError: true,
+      iframeErrorMessage: "Iframe failed to load.",
+      iframeDiagnosticCode: "preview_runtime_error",
+    });
+
+    const helpText = screen.getByText(
+      "Öppna i ny flik eller försök reparera previewn om felet kvarstår.",
+    );
+    const classes = helpText.className.split(/\s+/);
+    expect(classes).toContain("text-muted-foreground");
+    expect(classes).not.toContain("text-gray-500");
+
+    const diagnosticCode = screen.getByText("Kod: preview_runtime_error");
+    const diagnosticClasses = diagnosticCode.className.split(/\s+/);
+    expect(diagnosticClasses).toContain("text-muted-foreground");
+    expect(diagnosticClasses).not.toContain("text-zinc-500");
+    expect(diagnosticCode.parentElement?.className.split(/\s+/)).toContain("bg-black/85");
+  });
 });

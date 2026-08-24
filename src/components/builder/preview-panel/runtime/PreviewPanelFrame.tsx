@@ -208,7 +208,9 @@ export function PreviewPanelFrame({
             {iframeErrorMessage || "Preview kunde inte laddas i iframe. Öppna i ny flik istället."}
           </p>
           {iframeDiagnosticCode ? (
-            <p className="mb-2 font-mono text-[11px] text-zinc-500">Kod: {iframeDiagnosticCode}</p>
+            <p className="mb-2 font-mono text-[11px] text-muted-foreground">
+              Kod: {iframeDiagnosticCode}
+            </p>
           ) : null}
           {iframeRunbookLines.length > 0 ? (
             <ul className="mb-4 max-h-48 max-w-lg list-disc space-y-1.5 overflow-y-auto pl-5 text-left text-[11px] leading-snug text-zinc-400">
@@ -217,7 +219,7 @@ export function PreviewPanelFrame({
               ))}
             </ul>
           ) : (
-            <p className="mb-4 text-center text-xs text-gray-500">
+            <p className="mb-4 text-center text-xs text-muted-foreground">
               Öppna i ny flik eller försök reparera previewn om felet kvarstår.
             </p>
           )}
