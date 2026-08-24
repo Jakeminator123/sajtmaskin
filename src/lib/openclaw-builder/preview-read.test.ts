@@ -359,6 +359,7 @@ describe("getPreviewLogs", () => {
         lines: [
           line("https://evil.example/ts", "kept-message-must-not-appear-with-bad-ts"),
           line("sk-live-abc", "also-dropped"),
+          line("ghp_exampletoken", "also-dropped"),
           line("t-ok", "kept"),
         ],
       }),

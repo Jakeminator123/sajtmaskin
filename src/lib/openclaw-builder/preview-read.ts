@@ -180,7 +180,8 @@ function scrubMessage(message: string): string {
   );
   out = out.replace(/\bBearer\s+\S+/gi, `Bearer ${REDACTED}`);
   out = out.replace(/\b(?:sk|rk|whsec)[-_][A-Za-z0-9+/=_\-]+/g, REDACTED);
-  out = out.replace(/\b(?:sk|rk)_live_[A-Za-z0-9+/=_\-]+/g, REDACTED);
+  out = out.replace(/\b(?:ghp|gho|github_pat)_[A-Za-z0-9]+/g, REDACTED);
+  out = out.replace(/\bxox[baprs]-[A-Za-z0-9-]+/gi, REDACTED);
   out = out.replace(/https?:\/\/[^\s]+/gi, REDACTED);
   return out.trim();
 }
@@ -188,7 +189,9 @@ function scrubMessage(message: string): string {
 function isSafeLogTimestamp(ts: string): boolean {
   if (ts.length === 0 || ts.length > 64) return false;
   if (ts.includes("://") || /https?/i.test(ts)) return false;
-  if (/\b(?:sk|rk|whsec)[-_]/i.test(ts) || /bearer/i.test(ts)) return false;
+  if (/\b(?:sk|rk|whsec)[-_]/i.test(ts) || /bearer|ghp_|gho_|github_pat_|xox[baprs]-/i.test(ts)) {
+    return false;
+  }
   return /^[A-Za-z0-9._:+-]+$/.test(ts);
 }
 
