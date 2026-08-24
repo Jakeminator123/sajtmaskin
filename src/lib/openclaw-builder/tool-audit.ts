@@ -133,9 +133,11 @@ function normalizeDecisionCode(
 }
 
 function canonicalize(value: unknown): string | null {
+  if (value === undefined) return null;
   try {
     const sorted = sortKeys(value);
-    return JSON.stringify(sorted);
+    const canonical = JSON.stringify(sorted);
+    return typeof canonical === "string" ? canonical : null;
   } catch {
     return null;
   }

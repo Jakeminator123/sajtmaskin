@@ -266,6 +266,13 @@ describe("createToolAuditEvent redaction", () => {
     expect(result.event).not.toHaveProperty("request");
   });
 
+  it("rejects an undefined request instead of throwing", () => {
+    expect(createToolAuditEvent(validInput({ request: undefined }))).toEqual({
+      ok: false,
+      code: "invalid_input",
+    });
+  });
+
   it("rejects prototype-polluting request keys instead of hashing them", () => {
     const polluted = JSON.parse('{"__proto__":{"admin":true},"path":"src/app.ts"}');
     expect(createToolAuditEvent(validInput({ request: polluted }))).toEqual({
