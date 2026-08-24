@@ -61,6 +61,8 @@ describe("listProjectFiles", () => {
       file(".pypirc", "[pypi]"),
       file("keys/id_ed25519", "-----BEGIN-----"),
       file(".git/config", "[core]"),
+      file("vendor/.git/config", "[core]"),
+      file(".GIT/config", "[core]"),
       file("service-account.json", "{}"),
       file("config/credentials.json", "{}"),
       file("lib/api-secret.ts", "nope"),
