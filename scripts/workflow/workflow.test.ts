@@ -298,6 +298,19 @@ describe("agent workflow repository contract", () => {
     expect(evaluateWorkflowContract().errors).toEqual([]);
   });
 
+  it("runs write-capable Dependabot automation only from trusted default-branch code", () => {
+    const source = readFileSync(".github/workflows/dependabot-safe-classify.yml", "utf8");
+    expect(source).toContain("pull_request_target:");
+    expect(source).not.toMatch(/^  pull_request:\s*$/mu);
+    expect(source).not.toContain("actions/checkout");
+    expect(source).not.toContain("gh pr merge");
+    expect(source).not.toContain("DEPENDABOT_AUTOMERGE_ENABLED");
+    expect(source).toContain("github.event.pull_request.user.login == 'dependabot[bot]'");
+    expect(source).toContain(
+      "github.event.pull_request.head.repo.full_name == github.repository",
+    );
+  });
+
   it("keeps an independent security floor below the editable policy", () => {
     const policy = loadWorkflowInputs().policy;
     expect(evaluatePolicyFloors(policy)).toEqual([]);

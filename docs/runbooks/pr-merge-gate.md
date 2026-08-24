@@ -94,6 +94,14 @@ och jämför en innehållshashad fingerprint över evidensen. Kommandot måste v
 strikt senare än allt underlag. Efter settle görs ännu en live base/compare och
 slutligen en squash-merge med exakt expected head-SHA.
 
+`review-window`-namnet och dess `external_id` är native status/UX, inte
+mergebehörighet: andra Actions-workflows delar samma GitHub App och custom
+checks väljer själva dessa fält. Finalcontrollern räknar därför själv om
+required checks, botar, live sign-off och sjuminutersgolvet från GitHubs
+serverbundna `created_at` på aktuell heads core-checkar. Vanliga
+`pull_request`-workflows är read-only och Dependabots skrivande klassificering
+kör bara default-branch-kod utan mergekommando.
+
 Expected head stänger head-racet. GitHubs merge-endpoint tar däremot ingen
 expected base-SHA. Native ruleset/branch protection måste därför kräva
 up-to-date branch; den serialiserade controllern och sista compare-läsningen
@@ -101,6 +109,12 @@ minimerar men kan inte matematiskt ersätta base-CAS. Manuell webbmerge/bypass �
 inte den kanoniska agentvägen. Live-auditen 2026-08-24 visade
 `strict_required_status_checks_policy=false`; rolloutens inställningssteg måste
 slå på strict.
+
+GitHubs native UI kan inte skilja två checkpublicerare som båda är GitHub
+Actions-appen. Manuell webb-/API-merge och separat auto-merge är därför
+icke-kanoniska även när UI:n ser grön ut. Likvärdig UI-säkerhet kräver en separat
+GitHub App eller ett ruleset med required workflow; agentvägen är tills dess
+endast det betrodda `merge:execute`-kommandot.
 
 En merge med Actions egen `GITHUB_TOKEN` startar normalt inte push-workflows.
 Efter terminal merge gör controllern därför base-invalideringen själv och

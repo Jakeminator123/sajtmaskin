@@ -3,7 +3,6 @@ import {
   deadlineDecision,
   earliestTrustedWindowEpoch,
   evaluateHeadChecks,
-  evaluateMergeChecks,
   hasBaseInvalidation,
   invalidateForBasePush,
   latestInvalidatingFindingEpoch,
@@ -58,6 +57,7 @@ function run(name: string, overrides: Record<string, unknown> = {}): Record<stri
     name,
     status: "completed",
     conclusion: "success",
+    created_at: at(100),
     started_at: at(100),
     completed_at: at(110),
     app: { id: name.length + 10, slug: "github-actions" },
@@ -99,6 +99,15 @@ describe("trusted review-window check decisions", () => {
       policy as never,
     );
     expect(noReceipt.botsDone).toBe(false);
+
+    const missingServerTime = evaluateHeadChecks(
+      greenRuns().map((item) =>
+        item.name === "quality" ? { ...item, created_at: undefined } : item,
+      ),
+      policy as never,
+    );
+    expect(missingServerTime.requiredDone).toBe(false);
+    expect(missingServerTime.requiredCreatedTimesValid).toBe(false);
   });
 
   it("låter en säkerhetsveto blockera även när reviewkvittot är grönt", () => {
@@ -141,11 +150,26 @@ describe("trusted review-window check decisions", () => {
         id: 1,
         status: "completed",
         conclusion: "failure",
+        created_at: at(50),
         started_at: at(50),
         completed_at: at(60),
       }),
     );
     expect(evaluateHeadChecks(runs, policy as never).requiredDone).toBe(true);
+  });
+
+  it("väljer senaste check via server-created_at, aldrig anroparstyrd started_at", () => {
+    const runs = greenRuns();
+    runs.push(
+      run("quality", {
+        id: 999,
+        conclusion: "failure",
+        created_at: at(200),
+        started_at: at(1),
+        completed_at: at(210),
+      }),
+    );
+    expect(evaluateHeadChecks(runs, policy as never).requiredFailed).toContain("quality");
   });
 
   it("håller 600-sekunders botdeadline skild från 840-sekunders signoffdeadline", () => {
@@ -187,89 +211,20 @@ describe("trusted review-window check decisions", () => {
     ).toBe("bot-timeout");
   });
 
-  it("återanvänder första trusted head-fönstret vid label-retrigger", () => {
+  it("återanvänder första serverbundna head-fönstret vid label-retrigger", () => {
     const runs = [
       run("review-window", {
         external_id: `sajtmaskin-trusted-review-window:v1:${"a".repeat(40)}:1`,
-        started_at: at(100),
+        created_at: at(100),
+        started_at: at(1),
       }),
       run("review-window", {
         external_id: `sajtmaskin-trusted-review-window:v1:${"a".repeat(40)}:2`,
-        started_at: at(500),
+        created_at: at(500),
+        started_at: at(2),
       }),
     ];
     expect(earliestTrustedWindowEpoch(runs, 999)).toBe(100);
-  });
-
-  it("kräver den senaste trusted review-window-checken inför faktisk merge", () => {
-    const trusted = run("review-window", {
-      id: 900,
-      external_id: `sajtmaskin-trusted-review-window:v1:${HEAD}:100`,
-      completed_at: at(120),
-    });
-    expect(evaluateMergeChecks([...greenRuns(), trusted], policy as never).mergeChecksDone).toBe(
-      true,
-    );
-    const invalidation = run("review-window", {
-      id: 901,
-      conclusion: "action_required",
-      created_at: at(130),
-      started_at: at(130),
-      completed_at: at(130),
-      external_id: `sajtmaskin-trusted-review-window:v1:${HEAD}:base-${BASE}`,
-    });
-    const newerBootstrap = run("review-window", {
-      id: 902,
-      created_at: at(140),
-      started_at: at(140),
-      completed_at: at(150),
-      external_id: "",
-    });
-    expect(
-      evaluateMergeChecks(
-        [...greenRuns(), trusted, invalidation, newerBootstrap],
-        policy as never,
-      ).mergeChecksDone,
-    ).toBe(false);
-  });
-
-  it("accepterar aldrig bootstrap-success som trusted mergekvitto", () => {
-    const bootstrap = run("review-window", {
-      id: 800,
-      external_id: "",
-      created_at: at(100),
-      started_at: at(100),
-      completed_at: at(120),
-    });
-
-    const state = evaluateMergeChecks([...greenRuns(), bootstrap], policy as never);
-    expect(state.trustedWindowDone).toBe(false);
-    expect(state.mergeChecksDone).toBe(false);
-  });
-
-  it("låter aldrig en nyare bootstrap-check skymma trusted review-window", () => {
-    const trusted = run("review-window", {
-      id: 900,
-      external_id: `sajtmaskin-trusted-review-window:v1:${HEAD}:100`,
-      created_at: at(100),
-      started_at: at(100),
-      completed_at: at(120),
-    });
-    const sameAppBootstrap = run("review-window", {
-      id: 901,
-      external_id: "",
-      created_at: at(130),
-      started_at: at(130),
-      completed_at: at(140),
-    });
-
-    const state = evaluateMergeChecks(
-      [...greenRuns(), trusted, sameAppBootstrap],
-      policy as never,
-    );
-    expect(state.trustedWindowDone).toBe(true);
-    expect(state.mergeChecksDone).toBe(true);
-    expect(state.reviewWindowEpoch).toBe(120);
   });
 });
 
@@ -478,7 +433,14 @@ function integrationHarness({ raceHead = false, failCheckPoll = false } = {}) {
   return { client, patches, counters };
 }
 
-function mergeHarness({ failDispatch = false } = {}) {
+function mergeHarness({
+  failDispatch = false,
+  invalidSignoff = false,
+  includeForgedWindow = false,
+  missingReviewReceipt = false,
+  failedRequiredCheck = false,
+  newerBotFinding = false,
+} = {}) {
   const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = [];
   let mutateConversation = false;
   const pr = {
@@ -487,6 +449,7 @@ function mergeHarness({ failDispatch = false } = {}) {
     draft: false,
     base: { ref: "master" },
     head: { sha: HEAD },
+    user: { login: "pr-author" },
     labels: [{ name: "merge:ready" }],
   };
   const command = {
@@ -500,18 +463,29 @@ function mergeHarness({ failDispatch = false } = {}) {
   };
   const signoff = {
     id: 55,
-    body: "tidigare sign-off",
+    body: invalidSignoff
+      ? "saknar verifierbar sign-off"
+      : `merge:ready — head-sha: ${HEAD}, base-sha: ${BASE}, at: 1970-01-01T00:02:30Z, bugkoll: trusted, triage: klar, P0/P1: 0`,
     created_at: at(150),
     updated_at: at(150),
     user: { login: "pr-author", type: "User" },
     author_association: "NONE",
   };
-  const trustedWindow = run("review-window", {
+  // Samma GitHub Actions-app och ett självvalt external_id är avsiktligt inte
+  // tillräckligt för merge. Harnessen behandlar denna som möjlig förfalskning.
+  const forgedWindow = run("review-window", {
     id: 900,
     external_id: `sajtmaskin-trusted-review-window:v1:${HEAD}:100`,
     completed_at: at(120),
   });
-  const checks = [...greenRuns(), trustedWindow];
+  const coreChecks = greenRuns()
+    .filter((item) => !missingReviewReceipt || item.name !== "trusted-pr-ai-review")
+    .map((item) =>
+      failedRequiredCheck && item.name === "quality"
+        ? { ...item, conclusion: "failure" }
+        : item,
+    );
+  const checks = [...coreChecks, ...(includeForgedWindow ? [forgedWindow] : [])];
   const client = {
     async request(path: string, options: { method?: string; body?: Record<string, unknown> } = {}) {
       calls.push({ path, method: options.method ?? "GET", body: options.body });
@@ -539,8 +513,22 @@ function mergeHarness({ failDispatch = false } = {}) {
         return [
           {
             ...structuredClone(signoff),
-            body: mutateConversation ? "ändrad sign-off" : signoff.body,
+            body: mutateConversation
+              ? String(signoff.body).replace("triage: klar", "triage: omkontrollerad")
+              : signoff.body,
           },
+          ...(newerBotFinding
+            ? [
+                {
+                  id: 56,
+                  body: "<!-- BUGBOT_REVIEW --> nytt blockerande fynd",
+                  created_at: at(175),
+                  updated_at: at(175),
+                  user: { login: "cursor[bot]", type: "Bot" },
+                  author_association: "NONE",
+                },
+              ]
+            : []),
           structuredClone(command),
         ];
       }
@@ -591,6 +579,75 @@ describe("trusted review-window controller", () => {
         }),
       ]),
     );
+  });
+
+  it("låter aldrig ett förfalskningsbart review-window-kvitto ersätta live sign-off", async () => {
+    const { client, calls } = mergeHarness({
+      invalidSignoff: true,
+      includeForgedWindow: true,
+    });
+    await expect(
+      runTrustedMerge({
+        client: client as never,
+        prNumber: 1,
+        commentId: 77,
+        pause: async () => undefined,
+        settleSeconds: 1,
+        policy: integrationPolicy() as never,
+      }),
+    ).rejects.toThrow("live sign-off avvisad");
+    expect(calls.some((call) => call.path === "/pulls/1/merge")).toBe(false);
+  });
+
+  it.each([
+    {
+      name: "saknat reviewkvitto",
+      options: { missingReviewReceipt: true },
+      message: "inget lyckat reviewkvitto",
+    },
+    {
+      name: "röd required check",
+      options: { failedRequiredCheck: true },
+      message: "required checks är röda",
+    },
+    {
+      name: "nyare botfynd",
+      options: { newerBotFinding: true },
+      message: "live sign-off avvisad",
+    },
+  ])("låter inte förfalskad check dölja $name", async ({ options, message }) => {
+    const { client, calls } = mergeHarness({
+      ...options,
+      includeForgedWindow: true,
+    });
+    await expect(
+      runTrustedMerge({
+        client: client as never,
+        prNumber: 1,
+        commentId: 77,
+        pause: async () => undefined,
+        settleSeconds: 1,
+        policy: integrationPolicy() as never,
+      }),
+    ).rejects.toThrow(message);
+    expect(calls.some((call) => call.path === "/pulls/1/merge")).toBe(false);
+  });
+
+  it("mäter finalt sjuminutersgolv från GitHubs required-checktider", async () => {
+    const { client, calls } = mergeHarness();
+    const hardenedPolicy = integrationPolicy();
+    hardenedPolicy.review.minHeadAgeSeconds = 420;
+    await expect(
+      runTrustedMerge({
+        client: client as never,
+        prNumber: 1,
+        commentId: 77,
+        pause: async () => undefined,
+        settleSeconds: 1,
+        policy: hardenedPolicy as never,
+      }),
+    ).rejects.toThrow("granskningsfönstret");
+    expect(calls.some((call) => call.path === "/pulls/1/merge")).toBe(false);
   });
 
   it("avbryter om evidens ändras under settle-fönstret", async () => {

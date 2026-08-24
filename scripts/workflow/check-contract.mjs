@@ -237,61 +237,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const backlogValidator = read(root, "scripts/dev/check-bug-backlog.mjs");
   errors.push(...evaluateRetiredBugIdFloor(backlogValidator));
 
-  const reviewWindow = read(root, ".github/workflows/review-window.yml");
-  const qualifyingPatternExpression = policy.review.qualifyingCheckPatterns.join("|");
-  const securityVetoPatternExpression = policy.review.securityVetoCheckPatterns.join("|");
-  const deploymentCheckExpression = policy.review.deploymentCheckNames.join("|");
-  if (!reviewWindow.includes(`MIN_HEAD_AGE=${policy.review.minHeadAgeSeconds}`)) {
-    errors.push("review-window min head age drifts from agent-workflow policy");
-  }
-  if (!reviewWindow.includes(`MIN_BOT_SETTLE=${policy.review.botSettleSeconds}`)) {
-    errors.push("review-window bot settle drifts from agent-workflow policy");
-  }
-  if (!reviewWindow.includes(`MAX_BOT_WAIT=${policy.review.maxBotWaitSeconds}`)) {
-    errors.push("review-window max bot wait drifts from agent-workflow policy");
-  }
-  if (/MIN_PR_AGE|pull_request\.created_at/.test(reviewWindow)) {
-    errors.push("review-window must restart from the current head workflow, not PR creation");
-  }
-  if (!reviewWindow.includes('(.conclusion // "")') || !reviewWindow.includes('$3=="success"')) {
-    errors.push("review-window must require a successful review conclusion, not status only");
-  }
-  if (!reviewWindow.includes(`QUALIFYING_PATTERNS='${qualifyingPatternExpression}'`)) {
-    errors.push("review-window qualifying check patterns drift from agent-workflow policy");
-  }
-  if (!reviewWindow.includes(`SECURITY_VETO_PATTERNS='${securityVetoPatternExpression}'`)) {
-    errors.push("review-window security veto patterns drift from agent-workflow policy");
-  }
-  if (!reviewWindow.includes(`DEPLOYMENT_CHECK_NAMES='${deploymentCheckExpression}'`)) {
-    errors.push("review-window exact optional deployment checks drift from agent-workflow policy");
-  }
-  if (
-    reviewWindow.includes("actions/checkout") ||
-    reviewWindow.includes("merge-ready-freshness.mjs") ||
-    !reviewWindow.includes("FAS 1 / BOOTSTRAP")
-  ) {
-    errors.push("bootstrap review-window must never checkout or execute PR-head repository files");
-  }
-  const bootstrapJob = reviewWindow.split("jobs:\n  review-window:\n")[1] ?? "";
-  const bootstrapName = bootstrapJob.match(/^    name:\s*(.+)$/m)?.[1] ?? "";
-  const bootstrapIf = bootstrapJob.match(/^    if:\s*>\n([\s\S]*?)^    runs-on:/m)?.[1] ?? "";
-  const bootstrapGuards = [
-    "github.event.pull_request.draft == false",
-    "github.event.pull_request.number == 1146",
-    "github.event.pull_request.head.repo.full_name == github.repository",
-    "github.event.pull_request.head.ref == 'chore/agent-workflow-v2'",
-  ];
-  if (
-    bootstrapGuards.some(
-      (guard) => !bootstrapName.includes(guard) || !bootstrapIf.includes(guard),
-    ) ||
-    !bootstrapName.includes("'review-window' || 'review-window-bootstrap-retired'")
-  ) {
-    errors.push(
-      "bootstrap review-window name and if must share the exact phase-1 draft/PR/repo/branch guards and use a non-colliding retired name elsewhere",
-    );
-  }
-
   const prAiReview = read(root, ".github/workflows/pr-ai-review.yml");
   const prAiReviewer = read(root, "scripts/pr-review/run.mjs");
   const prAiAutomation = read(root, "scripts/pr-review/automation.mjs");
@@ -331,12 +276,43 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const workflowSources = readdirSync(resolve(root, ".github/workflows"))
     .filter((name) => /\.ya?ml$/u.test(name))
     .map((name) => ({ name, source: read(root, `.github/workflows/${name}`) }));
+  if (workflowSources.some(({ name }) => name === "review-window.yml")) {
+    errors.push(
+      "review-window.yml is retired; only the trusted default-branch controller may publish review-window",
+    );
+  }
+  const writePermissionPattern =
+    /^\s+(?:actions|checks|contents|deployments|discussions|id-token|issues|packages|pages|pull-requests|repository-projects|security-events|statuses):\s+write\s*$/mu;
   for (const workflow of workflowSources) {
+    if (/^  pull_request:\s*$/mu.test(workflow.source) && writePermissionPattern.test(workflow.source)) {
+      errors.push(
+        `${workflow.name} runs PR-head workflow code and must not receive write permissions`,
+      );
+    }
     if (/^  pull_request_review(?:_comment)?:/mu.test(workflow.source)) {
       errors.push(
         `${workflow.name} must not listen to PR-ref review events; final merge re-reads reviews from trusted issue_comment code`,
       );
     }
+  }
+  const dependabotWorkflow =
+    workflowSources.find(({ name }) => name === "dependabot-safe-classify.yml")?.source ?? "";
+  if (
+    !dependabotWorkflow.includes("pull_request_target:") ||
+    /^  pull_request:\s*$/mu.test(dependabotWorkflow) ||
+    dependabotWorkflow.includes("actions/checkout") ||
+    dependabotWorkflow.includes("gh pr merge") ||
+    dependabotWorkflow.includes("DEPENDABOT_AUTOMERGE_ENABLED") ||
+    !dependabotWorkflow.includes(
+      "github.event.pull_request.user.login == 'dependabot[bot]'",
+    ) ||
+    !dependabotWorkflow.includes(
+      "github.event.pull_request.head.repo.full_name == github.repository",
+    )
+  ) {
+    errors.push(
+      "Dependabot classifier must run default-branch code, never checkout PR-head or merge",
+    );
   }
   const freshnessOn = freshness.match(/^on:\s*\n([\s\S]*?)^permissions:/mu)?.[1] ?? "";
   const privilegedEvents = [...freshnessOn.matchAll(/^  ([a-z_]+):/gmu)].map((match) => match[1]);
@@ -364,6 +340,9 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !freshness.includes("node scripts/ci/trusted-review-window.mjs gate") ||
     !freshness.includes("node scripts/ci/trusted-review-window.mjs invalidate-base") ||
     !trustedReviewWindow.includes('const CHECK_NAME = "review-window"') ||
+    !trustedReviewWindow.includes(
+      'const EXTERNAL_ID_PREFIX = "sajtmaskin-trusted-review-window:v1:"',
+    ) ||
     !trustedReviewWindow.includes("head_sha: headSha") ||
     !trustedReviewWindow.includes('conclusion: "action_required"') ||
     !trustedReviewWindow.includes("validateMergeReadySignoff") ||
@@ -421,8 +400,11 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (checkoutCount === 0 || nonPersistingCheckoutCount !== checkoutCount) {
     errors.push("every PR-head CI checkout must disable persisted GitHub credentials");
   }
-  const allWorkflowJobs = `${ci}\n${reviewWindow}\n${freshness}`;
+  const allWorkflowJobs = `${ci}\n${freshness}`;
   for (const check of policy.requiredChecks) {
+    // `review-window` is a policy-owned check run published by the trusted
+    // default-branch controller above, not a PR-head workflow job.
+    if (check === "review-window") continue;
     if (!new RegExp(`^  ${escapeRegExp(check)}:`, "m").test(allWorkflowJobs)) {
       errors.push(`required check has no workflow job: ${check}`);
     }

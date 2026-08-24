@@ -30,42 +30,15 @@ function newestByIdentity(runs) {
   for (const run of runs) {
     const key = `${run.app?.id ?? run.app?.slug ?? "unknown"}:${run.name}`;
     const previous = newest.get(key);
-    const runTime = epoch(run.started_at ?? run.created_at) ?? 0;
-    const previousTime = epoch(previous?.started_at ?? previous?.created_at) ?? 0;
+    // `created_at` är GitHub-serverdata. `started_at` får anroparen däremot
+    // välja för custom checks och får därför bara vara fallback.
+    const runTime = epoch(run.created_at ?? run.started_at) ?? 0;
+    const previousTime = epoch(previous?.created_at ?? previous?.started_at) ?? 0;
     if (!previous || runTime > previousTime || (runTime === previousTime && run.id > previous.id)) {
       newest.set(key, run);
     }
   }
   return [...newest.values()];
-}
-
-/** Final merge requires the latest trusted review-window as well as the checks
- * that the review-window controller itself waits for. */
-export function evaluateMergeChecks(checkRuns, policy = POLICY) {
-  const state = evaluateHeadChecks(checkRuns, policy);
-  // Välj trusted-kandidater *innan* identitetsdedupliceringen. GitHub Actions
-  // använder samma app-id för alla workflows; en vanlig pull_request-check
-  // med samma visningsnamn får därför aldrig kunna skymma controllerns
-  // external_id-bundna kvitto bara genom att vara nyare.
-  const reviewWindow = newestByIdentity(
-    checkRuns.filter(
-      (run) =>
-        run.name === CHECK_NAME &&
-        run.app?.slug === "github-actions" &&
-        run.external_id?.startsWith(EXTERNAL_ID_PREFIX),
-    ),
-  )[0];
-  const trustedWindowDone =
-    reviewWindow?.status === "completed" && reviewWindow?.conclusion === "success";
-  const reviewWindowEpoch = trustedWindowDone ? epoch(reviewWindow.completed_at) : null;
-  return {
-    ...state,
-    trustedWindowDone,
-    reviewWindowEpoch,
-    mergeChecksDone:
-      state.botsDone && state.requiredDone && trustedWindowDone && reviewWindowEpoch !== null,
-    latestCompletionEpoch: Math.max(state.latestCompletionEpoch, reviewWindowEpoch ?? 0),
-  };
 }
 
 /**
@@ -131,6 +104,19 @@ export function evaluateHeadChecks(checkRuns, policy = POLICY) {
     else latestCompletionEpoch = Math.max(latestCompletionEpoch, completed);
   }
 
+  // `created_at` sätts av GitHub och kan, till skillnad från `started_at`, inte
+  // bakdateras av den som skapar en check run. Final merge använder den senaste
+  // av de aktuella core-checkarnas startpunkter som ett serverbundet golv för
+  // sjuminutersfönstret.
+  let latestRequiredCreatedEpoch = 0;
+  let requiredCreatedTimesValid = true;
+  for (const { run } of required) {
+    if (!run) continue;
+    const created = epoch(run.created_at);
+    if (created === null) requiredCreatedTimesValid = false;
+    else latestRequiredCreatedEpoch = Math.max(latestRequiredCreatedEpoch, created);
+  }
+
   return {
     botsDone:
       completedSuccess > 0 &&
@@ -141,7 +127,10 @@ export function evaluateHeadChecks(checkRuns, policy = POLICY) {
       deploymentFailed === 0 &&
       completionTimesValid,
     requiredDone:
-      requiredMissing.length === 0 && requiredPending.length === 0 && requiredFailed.length === 0,
+      requiredMissing.length === 0 &&
+      requiredPending.length === 0 &&
+      requiredFailed.length === 0 &&
+      requiredCreatedTimesValid,
     completedSuccess,
     qualifyingPending,
     securityPending,
@@ -153,6 +142,8 @@ export function evaluateHeadChecks(checkRuns, policy = POLICY) {
     requiredFailed,
     completionTimesValid,
     latestCompletionEpoch,
+    requiredCreatedTimesValid,
+    latestRequiredCreatedEpoch,
   };
 }
 
@@ -197,7 +188,9 @@ export function latestInvalidatingFindingEpoch({ issueComments, reviews, reviewC
 export function earliestTrustedWindowEpoch(checkRuns, fallbackEpoch) {
   const starts = checkRuns
     .filter((run) => run.name === CHECK_NAME && run.external_id?.startsWith(EXTERNAL_ID_PREFIX))
-    .map((run) => epoch(run.started_at ?? run.created_at))
+    // Checks-API:t låter anroparen välja started_at men inte created_at.
+    // Återanvänd därför bara GitHubs serverbundna skapandetid mellan retriggers.
+    .map((run) => epoch(run.created_at))
     .filter((value) => value !== null);
   return starts.length > 0 ? Math.min(...starts) : fallbackEpoch;
 }
@@ -519,9 +512,22 @@ export function validateMergeSnapshot({
     return { valid: false, reason: "merge:ready-label saknas vid final merge" };
   }
 
-  const checks = evaluateMergeChecks(checkRuns, policy);
-  if (!checks.mergeChecksDone) {
-    return { valid: false, reason: failureSummary(checks, "trusted review-window är inte grön") };
+  // Lita aldrig på `review-window`-namnet eller external_id som merge-mandat:
+  // alla vanliga workflows delar GitHub Actions-appidentitet och en check run-
+  // skapare väljer external_id själv. Den betrodda default-branch-controllern
+  // återvaliderar därför core-checkar, botar, live sign-off och sjuminutersgolv
+  // direkt. GitHubs required check är fortfarande en UX/native branch gate.
+  const checks = evaluateHeadChecks(checkRuns, policy);
+  if (!checks.botsDone || !checks.requiredDone) {
+    return { valid: false, reason: failureSummary(checks, "live merge-evidens är inte klar") };
+  }
+  const signoffMinimumEpoch = Math.max(
+    checks.latestCompletionEpoch,
+    checks.latestRequiredCreatedEpoch + Number(policy.review.minHeadAgeSeconds ?? 0),
+  );
+  const signoff = validateEvidence(evidence, expectedHeadSha, signoffMinimumEpoch);
+  if (!signoff.valid) {
+    return { valid: false, reason: `live sign-off avvisad: ${signoff.reason}` };
   }
   const commandEpoch = epoch(commandComment.created_at);
   const conversation = latestConversationEpoch(evidence, commandComment.id);
@@ -575,6 +581,8 @@ function failureSummary(state, freshnessReason) {
     return `required checks är pending: ${state.requiredPending.join(", ")}`;
   if (state.requiredFailed.length > 0)
     return `required checks är röda: ${state.requiredFailed.join(", ")}`;
+  if (!state.requiredCreatedTimesValid)
+    return "required checks saknar GitHub-verifierbar created_at";
   if (state.completedSuccess === 0) return "inget lyckat reviewkvitto för live head";
   if (state.qualifyingPending > 0)
     return `${state.qualifyingPending} reviewkvitton är fortfarande pending`;

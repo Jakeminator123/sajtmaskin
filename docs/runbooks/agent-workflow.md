@@ -102,6 +102,14 @@ base/compare igen och gör en squash-merge med GitHubs expected-head-SHA.
 Review-event-workflows får inte användas för denna token: deras YAML kommer
 från PR:ens obetrodda merge-ref.
 
+Final merge använder inte checknamnet eller dess självvalda `external_id` som
+behörighetsbevis. Alla GitHub Actions-workflows delar appidentitet, så den
+betrodda controllern räknar om core-checkar, botstatus, live sign-off och
+sjuminutersgolvet från GitHubs serverbundna `created_at` på aktuell heads
+required checks vid varje evidensläsning. Vanliga `pull_request`-workflows får
+inga skrivrättigheter; skrivande Dependabot-klassificering kör enbart
+default-branch-kod och kan aldrig merga.
+
 Expected-head är en riktig CAS för head, men GitHubs merge-API saknar motsvarande
 base-SHA-parameter. Därför måste native branch protection/ruleset dessutom
 kräva att branchen är uppdaterad före merge. Controllern serialiserar merges och
@@ -111,6 +119,12 @@ Live-auditen 2026-08-24 visade att `Protect master` ännu hade
 `strict_required_status_checks_policy=false`; rolloutens GitHub-inställningssteg
 måste slå på strict innan det kvarvarande base-racet kan betraktas som stängt.
 
+Native GitHub visar fortfarande required checks som namn + GitHub Actions-app,
+inte som en kryptografiskt unik workflow-publicerare. Därför är manuell
+webbmerge, generell API-merge och separat auto-merge inte agentvägar. Om UI:n i
+framtiden också ska vara lika stark krävs en separat GitHub App-identitet eller
+ett ruleset med required workflow; tills dess används bara `merge:execute`.
+
 Efter lyckad merge kör controllern base-invalideringen direkt och dispatchar
 `ci.yml` samt `db-blob-sync-check.yml` på master. Det behövs eftersom en merge
 med `GITHUB_TOKEN` normalt inte triggar nya push-workflows. Om någon av dessa
@@ -118,30 +132,6 @@ post-merge-åtgärder fallerar blir jobbet rött med
 `POST_MERGE_VERIFICATION_FAILED`, men PR:n är redan terminalt mergad: kör då
 base-invalidering och båda workflow-dispatcherna manuellt; försök aldrig merga
 samma PR igen.
-
-## Tillfällig tvåfas-rollout
-
-PR:n som först landar controllern behåller `review-window.yml` som en smal
-bootstrap-check, eftersom `pull_request_target` alltid kör workflowkod från
-nuvarande master. Direkt efter den mergen ska en separat rollout-PR från nya
-master ta bort bootstrapfilen och den här notisen. Mergarens enda uppgift
-mellan faserna är rollout-PR:n; annat featurearbete väntar. Slutläget har bara
-den betrodda default-branch-controllern som publicerar `review-window` på exakt
-PR-head.
-
-Bootstrap-jobbet får bara heta `review-window` på exakt PR #1146 från samma
-repository och fas-1-grenen `chore/agent-workflow-v2`. På alla andra PR:er heter det
-`review-window-bootstrap-retired` och skippas. Därmed kan fas-2-PR:n aldrig få
-två GitHub Actions-checkar med samma required namn, och controllern väljer
-dessutom trusted-kvittot via dess `external_id` innan checkar dedupliceras.
-
-Fas 2 är mekanisk: radera `.github/workflows/review-window.yml`, ta bort
-bootstrapkraven/prosan ur `scripts/workflow/check-contract.mjs`, den här sidan,
-`.github/README.md`, `docs/testing.md` och bootstrap-assertionerna i
-`scripts/pr-review/workflow.test.ts`, men behåll kontraktet som kräver att
-`trusted-review-window.mjs` publicerar det policyägda checknamnet. Kör
-`workflow:contract`, workflow-testerna och freshness-testerna och merga fas 2
-endast via den nya betrodda head-checken.
 
 ## Vad agenten ska redovisa
 

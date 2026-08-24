@@ -1,0 +1,91 @@
+name: Dependabot safe classification
+
+# Metadata-only classifier for low-risk patch PRs. It never merges or enables
+# auto-merge: Dependabot follows the same required checks, review window,
+# human mandate and trusted default-branch merge controller as every agent.
+
+on:
+  # Skrivande automation måste alltid köra workflowkoden från default branch.
+  # Jobbet checkar inte ut eller exekverar Dependabots PR-head.
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# pull_request_target ger den granskade default-branch-versionen rättigheter;
+# håll dem explicita och kör aldrig kod från PR-head i det här jobbet.
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  dependabot-safe-classify:
+    runs-on: ubuntu-latest
+    # Only act on Dependabot-authored PRs from this repository.
+    if: >
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Classify update (patch + non-core only)
+        id: classify
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          DEP_NAMES: ${{ steps.meta.outputs.dependency-names }}
+        run: |
+          eligible=true
+          reason=""
+
+          # Low-risk metadata is only assigned to PATCH updates.
+          if [ "$UPDATE_TYPE" != "version-update:semver-patch" ]; then
+            eligible=false
+            reason="not a patch update ($UPDATE_TYPE)"
+          fi
+
+          # Core packages ALWAYS require full manual dependency review
+          # (docs/dependency-policy.md).
+          # Blocked names: ai, @ai-sdk/*, next, react, react-dom, typescript,
+          # tailwindcss, @tailwindcss/*, eslint, @eslint/*, @types/node, stripe,
+          # openai, recharts. Matching is fail-closed: anything uncertain stays
+          # manual.
+          #
+          # Baseline-pinned packages are ALSO blocked: three, @react-three/*
+          # and lucide-react are pinned at exact major.minor.patch in the scaffold
+          # baseline (KNOWN_PACKAGES in src/lib/gen/autofix/dep-completer.ts /
+          # project-scaffold.ts). Even a patch bump breaks
+          # project-scaffold-baseline-parity.test.ts unless the pin is updated in
+          # the same commit, so these can never enter the low-risk lane (e.g. #399 @react-three/
+          # fiber 9.6.0->9.6.1). See docs/dependency-policy.md "Baseline-pinnade
+          # paket".
+          core_regex='^(ai|openai|stripe|recharts|typescript|next|react|react-dom|@types/node|three|lucide-react)$|^@ai-sdk/|^tailwindcss$|^@tailwindcss/|^eslint$|^@eslint/|^@react-three/'
+          IFS=',' read -ra names <<< "$DEP_NAMES"
+          for raw in "${names[@]}"; do
+            name="$(echo "$raw" | xargs)"
+            [ -z "$name" ] && continue
+            if echo "$name" | grep -Eq "$core_regex"; then
+              eligible=false
+              reason="core package requires manual PR: $name"
+            fi
+          done
+
+          echo "eligible=$eligible" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "Eligibility: $eligible ${reason:+($reason)}"
+
+      - name: Label eligible patch PR (metadata only)
+        if: ${{ steps.classify.outputs.eligible == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh label create "dependabot-patch-safe" \
+            --repo "$REPO" \
+            --color "0e8a16" \
+            --description "Low-risk Dependabot patch; canonical review and merge still required" \
+            || echo "label already exists"
+          gh pr edit "$PR_URL" --add-label "dependabot-patch-safe"
