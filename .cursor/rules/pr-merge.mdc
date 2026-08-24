@@ -6,8 +6,11 @@ alwaysApply: false
 # PR-grind
 
 Mergeable betyder bara konfliktfri. Merga aldrig utan användarens uttryckliga
-mergeuppdrag. Bakgrund och incidenter:
+mergeuppdrag. Bakgrund:
 `docs/runbooks/pr-merge-gate.md`.
+
+Körordning ägs av `.agents/skills/pr-workflow/SKILL.md`; checknamn, väntetider
+och protected globs ägs av `config/agent-workflow.json`, inte av denna prosa.
 
 ## Hårda stopp
 
@@ -16,15 +19,15 @@ mergeuppdrag. Bakgrund och incidenter:
 - Adminspärrad Godnatt-evaluation: aldrig ready, merge, auto-merge eller close
   före adminbeslut.
 - P0/P1, security/cross-tenant, secretläcka, false-green eller brutet kontrakt.
-- Head-SHA ändrad efter review/sign-off.
+- Head- eller base-SHA ändrad efter review/sign-off.
 
 P2/nits blockerar inte när de är fixade, loggade eller konkret avfärdade.
 EmaCodeHero har base `ema` och kräver ägarens beslut.
 
 ## Författaren efter varje head-SHA
 
-1. Kör relevanta tester och oberoende readonly Bugbot/review med `<sol>` enligt
-   `subagent-models.mdc`; protected paths kräver alltid ett sådant pass.
+1. Kör `npm run verify:pr` och oberoende readonly Sol-review enligt
+   `subagent-models.mdc`; protected paths kräver alltid ett färskt pass.
 2. Skapa/uppdatera PR:n först när aktuell diff är pushad. Arbete kvar = draft.
 3. Läs alla botytor, inte bara checks: inline comments, reviews, PR-kommentarer,
    check-run summary/text och annotations.
@@ -32,43 +35,68 @@ EmaCodeHero har base `ema` och kräver ägarens beslut.
    eller **avfärdat** med verifierbart skäl. Kör om efter ny commit.
 
 En uttömmande PR AI-review/Codex-review för aktuell SHA kan vara det oberoende
-passet. En usage-limit-kommentar är varken pass eller blocker; använd lokal
-Sol-review. Manuell strukturerad diffreview är sista fallback.
+passet. Usage-limit hos en enskild bot är inte ett fynd; använd lokal Sol-review
+för innehållet. Den required `review-window` kräver ändå minst ett lyckat,
+maskinverifierat reviewkvitto (trusted PR AI eller extern bot). Om alla sådana
+kvitton saknas/rödar stoppas merge tills en körning lyckas eller ägaren fattar
+ett uttryckligt break-glass-beslut; lokal självattestering gör inte checken grön.
 
-**Protected paths** är `.github/workflows/**`, package-/lockfil, DB/auth/tenant,
-generation/providers/integrations/logging, API-routes, migration/env,
-grandmaster-docs och bugbackloggen. Risk ≥ 3 (CI/runtime/security/false-green)
-räknas också som protected, även för test-only diff.
+Protected paths avgörs endast av `config/agent-workflow.json` och visas av
+`npm run verify:pr -- --plan`. Risk ≥ 3 (CI/runtime/security/false-green) kräver
+samma behandling även om filen ännu inte finns i listan.
 
 ## Ready-signal
 
-När tester/review är klara och P0/P1 = 0:
+När övriga required checks (`quality`, Backoffice, schema, build), Vercel och
+review är klara, P0/P1 = 0 och head innehåller aktuell base-tip — medan
+`review-window` fortfarande väntar på slutbeviset:
 
 1. Kommentera först:
-   `merge:ready — sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
+   `merge:ready — head-sha: <40 hex>, base-sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
 2. Sätt därefter labeln `merge:ready`.
-3. Ny commit eller senare botfynd ogiltigförklarar signalen; granska, kommentera
-   och labela om i samma ordning.
+3. Den betrodda default-branch-controllern validerar båda SHA:na, signerarens
+   identitet och ordningen mot GitHubs live-tillstånd. Först då blir den
+   head-bundna required checken `review-window` grön. Ny commit, flyttad
+   master/base, borttagen label eller senare botfynd ogiltigförklarar signalen;
+   uppdatera, granska, kommentera och labela om i samma ordning.
 
 Mergaren sätter aldrig författarens label åt den. Avsaknad av label betyder
 att författaren inte är klar.
 
-## Mergarens sista kontroll
+## Slutligt mergekommando
 
-Merga bara när allt är sant:
+När `review-window` är grön för exakt head/base gör en betrodd människa den
+sista kontrollen. Allt nedan ska vara sant:
 
 - inte draft; korrekt base; mergeable;
-- required checks `merge-gate` och det separata `review-window` gröna;
+- alla `requiredChecks` i `config/agent-workflow.json` gröna;
 - Vercel-deployment är lyckad eller saknas;
-- PR minst sju minuter gammal och externa botar färdiga/triagerade;
+- `review-window` grönt för aktuell head-SHA med lyckat reviewkvitto och botar triagerade;
 - inga blockerande labels, reviews, trådar eller otriagerade fynd;
-- giltig `merge:ready`-kommentar + label på oförändrad head-SHA;
+- giltig `merge:ready`-kommentar + label på oförändrad head- och base-SHA;
 - PR-body beskriver diff, verifiering och kvarvarande risk.
 
-`--admin` är tillåtet efter ägarens mergeuppdrag men får aldrig användas för att
-passera grinden. Serialisera merges och fetch:a mellan dem.
+En verifierad mänsklig `OWNER`, `MEMBER` eller `COLLABORATOR` postar därefter
+exakt en ny PR-kommentar:
+
+`merge:execute — head-sha: <40 hex>, base-sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
+
+PR-författarskap ger inte mergebehörighet. Agenten postar kommandot först efter
+människans uttryckliga mergeuppdrag och gör ingen separat API-/webbmerge.
+Default-branch-controllern hämtar kommentaren igen, kräver att den är oredigerad
+och strikt senare än all evidens, läser live head/base/checks/reviews/
+kommentarer i ett settle-fönster och squash-mergar med expected head-SHA.
+
+Native branch protection/ruleset måste dessutom kräva att branchen är
+uppdaterad före merge; expected-head stänger inte base-racet. Saknas den
+inställningen: rapportera `NEEDS_HUMAN` i stället för att beskriva grinden som
+fullt racesäker.
+
+`--admin` och manuell webbmerge är inte normalvägen och får aldrig passera en
+röd/väntande grind. Serialisera merges och hämta master efter varje. Röd
+post-merge-dispatch återkörs på master; merga aldrig samma PR igen.
 
 ## Väntan
 
-Blockera inte chatten med watch-loopar. Gör en engångskontroll eller bakgrunds-
-bevakning, arbeta med andra PR:er och återkom när reviewfönstret/checks är klara.
+Blockera inte chatten med watch-loopar. Gör en engångskontroll eller
+bakgrundsbevakning och återkom när reviewfönstret/checks är klara.

@@ -1,12 +1,14 @@
 {
   "$schema": "../../docs/schemas/strict/backoffice-domain-map.schema.json",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "title": "Karta: Backoffice-vy → kataloger",
   "repoSiblings": {
     "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen backoffice/ innehåller stöddata till den konsoliderade Streamlit-backoffice-appen.",
     "backoffice": "Kanonisk Python-kod för den konsoliderade Streamlit-backoffice-appen: delad helperlogik, sidmoduler och huvudskal.",
-    "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara code-map.md.",
-    ".cursor": "Cursor-projektregler (`.cursor/rules/*.mdc`) och skills. Komplett, aktuellt regelindex med kategorier: `.cursor/README.md` (source of truth — räkna/lista inte reglerna här, det driftar). Slash-kommandon: `/avslutning`, `/buggrapport`."
+    "docs": "Förklaringar, arkitektur och runbooks. Ändras via branch/PR; vyn Cursor-agenter visar dem read-only.",
+    ".agents": "Kanoniska agent-skills. Detaljerade arbetsflöden bor här och laddas selektivt; skapa inte kopior under .cursor/skills.",
+    ".cursor": "Cursor-projektregler, tunna kommandoroutrar och lokala hooks. Regelindex: `.cursor/README.md`; skills ägs av `.agents/skills/`.",
+    ".codex": "Codex-profiler, projektstandarder och separat checkout-guide. Produktens runtime läser inte denna katalog."
   },
   "pages": {
     "Översikt": {
@@ -547,10 +549,26 @@
       ]
     },
     "Cursor-agenter": {
-      "summary": "Ordlista och struktur för agenter — projektreglernas kanoniska katalog under .cursor/rules/ och den tunna kodkartan. Regelindex och slash-kommandon finns i .cursor/README.md.",
-      "canonicalPaths": [".cursor/rules/", "docs/architecture/code-map.md"],
-      "docsPaths": [".cursor/README.md", "docs/README.md"],
-      "codeReaders": []
+      "summary": "Read-only karta över agenternas selektiva kontext och local→PR→master-flöde. AGENTS.md är tunn ingång, .agents/skills äger detaljerade recept, .cursor äger regler/routrar/hooks, .codex äger Codex-profiler och config/agent-workflow.json äger maskinvärden. Glossaryn är den mänskliga termägaren.",
+      "canonicalPaths": [
+        "AGENTS.md",
+        ".agents/skills/",
+        ".cursor/rules/",
+        ".cursor/commands/",
+        ".cursor/hooks.json",
+        ".codex/",
+        "config/agent-workflow.json",
+        "scripts/dev/check-agent-context-budget.mjs",
+        "scripts/workflow/"
+      ],
+      "docsPaths": [
+        ".cursor/README.md",
+        "docs/architecture/glossary.md",
+        "docs/architecture/code-map.md",
+        "docs/runbooks/agent-workflow.md"
+      ],
+      "strictSchemaPaths": ["docs/schemas/strict/agent-workflow.schema.json"],
+      "codeReaders": ["backoffice/pages/cursor_agents.py", "scripts/workflow/"]
     }
   }
 }

@@ -43,6 +43,7 @@ export function createInitialState(pr, now = new Date()) {
     exhaustiveReviewCompleted: false,
     totalRunCount: 0,
     findings: [],
+    resolutionLedger: [],
     github: {
       stateCommentId: null,
       exhaustiveReviewId: null,
@@ -81,7 +82,7 @@ export function renderStateComment(state) {
     "",
     "Den här kommentaren ägs av workflowen och används för idempotens. Redigera eller radera den inte manuellt.",
     "",
-    `Körningar: ${state.totalRunCount}/${MAX_RUNS} · full review: ${state.exhaustiveReviewCompleted ? "klar" : "inte klar"}`,
+    `Head-platser: ${state.totalRunCount}/${MAX_RUNS} · full review: ${state.exhaustiveReviewCompleted ? "klar" : "inte klar"}`,
     "",
     encodeMarker(STATE_MARKER_PREFIX, state),
     "</details>",
@@ -105,24 +106,35 @@ function sameHeadReclaim(state, headSha) {
 export function decideReview({ pr, state }) {
   if (pr.mergedAt) return { kind: "skip", reason: "merged" };
   if (pr.baseRef !== TARGET_BASE_BRANCH) return { kind: "skip", reason: "wrong-base" };
+  // Only completed processing of this head is sticky. A claim that dies mid-run
+  // must not permanently skip via head-already-processed.
+  if (
+    state.latestProcessedHeadSha === pr.headSha &&
+    state.lastRun?.kind === "exhaustive" &&
+    !lastRunIncomplete(state)
+  ) {
+    return { kind: "skip", reason: "head-already-processed" };
+  }
   // Reclaim is only for the same incomplete head. A new head always counts as
-  // a new run against MAX_RUNS — otherwise failed follow-ups across commits
-  // could schedule unbounded model calls at a frozen totalRunCount.
+  // a new run against MAX_RUNS — otherwise failed attempts across commits could
+  // schedule unbounded model calls at a frozen totalRunCount.
   if (state.totalRunCount >= MAX_RUNS && !sameHeadReclaim(state, pr.headSha)) {
     return { kind: "skip", reason: "run-limit" };
   }
-  // Only completed processing of this head is sticky. A claim that dies mid-run
-  // must not permanently skip via head-already-processed / exhaustive-attempt.
-  if (state.latestProcessedHeadSha === pr.headSha && !lastRunIncomplete(state)) {
-    return { kind: "skip", reason: "head-already-processed" };
-  }
-  if (!state.exhaustiveReviewCompleted) {
-    if (state.totalRunCount > 0 && !lastRunIncomplete(state)) {
-      return { kind: "skip", reason: "exhaustive-attempt-already-used" };
-    }
+
+  // A successful receipt is evidence about one immutable head, not the whole
+  // lifetime of a PR. Every unprocessed head therefore needs a fresh full-diff
+  // review while the PR-wide run budget remains. This also reclaims a failed
+  // exhaustive attempt on the same head without consuming another slot.
+  if (
+    state.latestProcessedHeadSha !== pr.headSha ||
+    (state.lastRun?.kind === "follow-up" && !lastRunIncomplete(state))
+  ) {
     return { kind: "exhaustive" };
   }
 
+  // Kept for recovery of legacy in-flight follow-ups. Normal synchronize
+  // events always take the exhaustive new-head path above.
   const activeFindings = state.findings.filter((finding) =>
     ACTIVE_FINDING_STATUSES.has(finding.status),
   );
@@ -300,9 +312,27 @@ export function validateFollowUpResult(result, expectedFindings) {
 export function applyFollowUpStatuses(state, statuses, now = new Date()) {
   const byId = new Map(statuses.map((item) => [item.findingId, item]));
   const updatedAt = nowIso(now);
+  const resolutionLedger = mergeResolutionLedger({
+    resolutionLedger: state.resolutionLedger,
+    previousFindings: state.findings,
+    currentFindings: [],
+    headSha: state.latestProcessedHeadSha,
+    now,
+  }).map((entry) => {
+    const next = byId.get(entry.id);
+    return next
+      ? {
+          ...entry,
+          status: next.status,
+          statusReason: next.reason.slice(0, 120),
+          updatedAt,
+        }
+      : entry;
+  });
   return {
     ...state,
     latestProcessedHeadSha: state.lastRun?.headSha ?? state.latestProcessedHeadSha,
+    resolutionLedger,
     findings: state.findings.map((finding) => {
       const next = byId.get(finding.id);
       return next
@@ -312,6 +342,60 @@ export function applyFollowUpStatuses(state, statuses, now = new Date()) {
     updatedAt,
     lastRun: { ...(state.lastRun ?? {}), status: "completed", error: null },
   };
+}
+
+export function mergeResolutionLedger({
+  resolutionLedger,
+  previousFindings,
+  currentFindings,
+  headSha,
+  now = new Date(),
+}) {
+  const updatedAt = nowIso(now);
+  const entries = new Map();
+  const existing = Array.isArray(resolutionLedger) ? resolutionLedger : [];
+  for (const entry of existing) {
+    if (!entry?.id || typeof entry.status !== "string") continue;
+    entries.set(entry.id, {
+      id: entry.id,
+      status: entry.status,
+      statusReason:
+        typeof entry.statusReason === "string" ? entry.statusReason.slice(0, 120) : null,
+      firstSeenHeadSha: entry.firstSeenHeadSha ?? null,
+      lastSeenHeadSha: entry.lastSeenHeadSha ?? null,
+      originalCommentId: entry.originalCommentId ?? null,
+      updatedAt: entry.updatedAt ?? updatedAt,
+    });
+  }
+  for (const finding of Array.isArray(previousFindings) ? previousFindings : []) {
+    if (!finding?.id || entries.has(finding.id)) continue;
+    entries.set(finding.id, {
+      id: finding.id,
+      status: finding.status ?? "open",
+      statusReason:
+        typeof finding.statusReason === "string" ? finding.statusReason.slice(0, 120) : null,
+      firstSeenHeadSha: finding.firstSeenHeadSha ?? headSha ?? null,
+      lastSeenHeadSha: finding.lastSeenHeadSha ?? headSha ?? null,
+      originalCommentId: finding.originalCommentId ?? null,
+      updatedAt: finding.updatedAt ?? updatedAt,
+    });
+  }
+  for (const finding of Array.isArray(currentFindings) ? currentFindings : []) {
+    if (!finding?.id) continue;
+    const prior = entries.get(finding.id);
+    entries.set(finding.id, {
+      id: finding.id,
+      // A fresh exhaustive finding is explicit evidence that the issue is
+      // active again, even if an older occurrence had been disposed.
+      status: "open",
+      statusReason: null,
+      firstSeenHeadSha: prior?.firstSeenHeadSha ?? headSha ?? null,
+      lastSeenHeadSha: headSha ?? prior?.lastSeenHeadSha ?? null,
+      originalCommentId: prior?.originalCommentId ?? finding.originalCommentId ?? null,
+      updatedAt,
+    });
+  }
+  return [...entries.values()];
 }
 
 export function exhaustiveJsonSchema() {
@@ -394,8 +478,14 @@ export function followUpInstructions(expectedIds) {
   ].join("\n");
 }
 
-export function renderExhaustiveReview({ headSha, summary, findings }) {
-  const snapshot = { headSha, findings };
+export function renderExhaustiveReview({
+  headSha,
+  runNumber,
+  summary,
+  findings,
+  resolutionLedger,
+}) {
+  const snapshot = { headSha, runNumber, findings, resolutionLedger };
   const lines = [
     encodeMarker(EXHAUSTIVE_MARKER_PREFIX, snapshot),
     "## Automatisk uttömmande bugggranskning",
@@ -407,7 +497,18 @@ export function renderExhaustiveReview({ headSha, summary, findings }) {
     lines.push(`${findings.length} trovärdiga fynd publicerades inline.`);
     if (summary) lines.push("", summary);
   }
-  lines.push("", "Detta är PR:ens enda uttömmande automatiska review.");
+  const unresolvedCarried = (resolutionLedger ?? []).filter(
+    (entry) =>
+      ACTIVE_FINDING_STATUSES.has(entry.status) &&
+      !findings.some((finding) => finding.id === entry.id),
+  ).length;
+  if (unresolvedCarried > 0) {
+    lines.push(
+      "",
+      `${unresolvedCarried} äldre aktiva fynd ligger kvar i resolution-ledgern tills de disponeras uttryckligen.`,
+    );
+  }
+  lines.push("", "Reviewn gäller exakt den markerade head-SHA:n.");
   return lines.join("\n");
 }
 

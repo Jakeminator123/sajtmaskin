@@ -7,7 +7,7 @@ Blockerar: inget.
 
 Ett hard-dossier når byggmodellen genom flera separata block som byggs på olika
 ställen i `src/lib/gen/system-prompt/sections/dossiers.ts`. Blocken har vuxit fram
-ett i taget, och därför finns ingen plats där man kan läsa vad *ett* kopplat
+ett i taget, och därför finns ingen plats där man kan läsa vad _ett_ kopplat
 dossier faktiskt skickar. Det gör två saker svåra: att se om två block säger
 motstridiga saker, och att lägga till ett fält utan att röra fyra kodvägar.
 
@@ -28,13 +28,13 @@ rätt verktyg, och repot har redan mönstret
 ## Gränser
 
 - **Lägg inte till ett nytt orkestreringssteg eller en ny signal.**
- [`pipeline-rules.mdc`](../../../../../.cursor/rules/pipeline-rules.mdc) är tydlig:
- stärk befintlig ägare i stället för att införa en ny. Det här är en
- sammanslagning, inte ett nytt lager.
+  [`pipeline-rules.mdc`](../../../../../.cursor/rules/pipeline-rules.mdc) är tydlig:
+  stärk befintlig ägare i stället för att införa en ny. Det här är en
+  sammanslagning, inte ett nytt lager.
 - **Rör inte** `SELECTED_SECTION_CHAR_CAP` eller läges-logiken i
- `resolveInstructionMode`. `selected-sections` för fler dossiers är D4.
+  `resolveInstructionMode`. `selected-sections` för fler dossiers är D4.
 - **Rör inte** knappen «Bygg integrationer» — beslut 2026-08-17, se
- [styrdokumentet](../00-master-plan.md#vad-som-inte-ska-göras).
+  [styrdokumentet](../00-master-plan.md#vad-som-inte-ska-göras).
 - Soft-dossiers går genom samma renderare. Bryt dem inte medan du städar hard-vägen.
 
 ## Klart när
@@ -72,5 +72,6 @@ rätt verktyg, och repot har redan mönstret
 > `npm run docs:check`, `npm run docs:links`, `npm run typecheck`,
 > `npx vitest run src/lib/gen/dossiers`.
 >
-> Kör ett Cursor Bugbot-pass på din egen diff innan PR (`bugbot`-subagent,
-> `readonly: true`, enligt den kanoniska modellregeln). Lämna EN PR mot `master`. **Merga inte.**
+> Följ `.agents/skills/pr-workflow/SKILL.md`: kör `npm run verify:pr`, därefter
+> ett oberoende readonly Sol-pass på slutdiffen. Lämna EN draft-PR mot `master`.
+> **Merga inte.**

@@ -3,16 +3,16 @@
   "hooks": {
     "beforeShellExecution": [
       {
-        "command": "node .cursor/hooks/fas-check-commit-guard.mjs",
-        "matcher": "git\\s+commit",
+        "command": "node scripts/workflow/commit-guard.mjs",
+        "matcher": ".*",
         "timeout": 10,
-        "failClosed": false
+        "failClosed": true
       },
       {
         "command": "node .cursor/hooks/worktree-force-guard.mjs",
-        "matcher": "worktree\\s+remove",
+        "matcher": ".*",
         "timeout": 10,
-        "failClosed": false
+        "failClosed": true
       },
       {
         "command": "node .cursor/hooks/heredoc-guard.mjs",

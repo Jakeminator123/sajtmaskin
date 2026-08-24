@@ -24,9 +24,12 @@
  *     ditt eget beslut; den här filen rapporterar bara vad som ligger kvar där.
  *     En robot som raderar omergade brancher tar förr eller senare något du
  *     ville ha.
- *   - Skyddade branchnamn hoppas alltid över (se SKYDDADE), och en lokal branch
- *     raderas bara när BÅDA gäller: dess remote är borta OCH den är mergad in i
- *     basen. En omergad branch är pågående arbete, inte skräp.
+ *   - Skyddade branchnamn från config/agent-workflow.json hoppas alltid över,
+ *     och en lokal branch
+ *     raderas bara när BÅDA gäller: dess remote är borta OCH innehållet är
+ *     landat. "Landat" bevisas av Git-ancestry eller en mergad GitHub-PR med
+ *     exakt samma branch och head-SHA (squash-merge bevarar inte ancestry).
+ *     Saknas GitHub-svar bevaras allt som behöver PR-bevis.
  *
  * Användning:
  *   npm run tidy         # rapport (dry-run)
@@ -55,35 +58,71 @@ export const STALE_AFTER_DAYS = 30;
  * (`Documents/codex-sajtmaskin/sajtmaskin-worktrees/codex`) och får inte
  * städas som en tillfällig feature-worktree.
  */
-export const SKYDDADE = [
-  /^master$/,
-  /^main$/,
-  /^ema$/,
-  /BRA/,
-  /^rescue\//,
-  /^dependabot\//,
-  /^archive\//,
-  /^codex\/workspace$/,
-];
+export const PROTECTED_BRANCH_PATTERN_FLOORS = Object.freeze([
+  "master",
+  "main",
+  "ema",
+  "*BRA*",
+  "rescue/*",
+  "dependabot/*",
+  "archive/*",
+  "codex/workspace",
+]);
+
+const configuredProtectedBranchPatterns = JSON.parse(
+  fs.readFileSync(path.join(DEFAULT_ROOT, "config/agent-workflow.json"), "utf8"),
+).protectedBranchPatterns;
+if (
+  !Array.isArray(configuredProtectedBranchPatterns) ||
+  configuredProtectedBranchPatterns.some(
+    (pattern) => typeof pattern !== "string" || pattern.length === 0,
+  )
+) {
+  throw new Error("config/agent-workflow.json: protectedBranchPatterns must be strings");
+}
+
+// Konfigurationen får lägga till skydd, aldrig ta bort kodens miniminivå. Det
+// gör den destruktiva vakten verksam även innan contract-grinden hunnit köras.
+export const PROTECTED_BRANCH_PATTERNS = Object.freeze([
+  ...new Set([...PROTECTED_BRANCH_PATTERN_FLOORS, ...configuredProtectedBranchPatterns]),
+]);
+
+function branchPatternRegex(pattern) {
+  const source = pattern.replace(/[.+?^${}()|[\]\\]/gu, "\\$&").replace(/\*/gu, ".*");
+  return new RegExp(`^${source}$`, "u");
+}
 
 /** @param {string} name */
 export function isProtectedBranch(name) {
-  return SKYDDADE.some((rx) => rx.test(name));
+  return PROTECTED_BRANCH_PATTERNS.some((pattern) => branchPatternRegex(pattern).test(name));
 }
 
 /**
  * Ska en LOKAL branch raderas? Kräver att remoten är borta och att innehållet
  * finns i basen — annars är den pågående arbete.
  *
- * @param {{ name: string, upstreamGone: boolean, mergedIntoBase: boolean, isCurrent: boolean }} b
+ * @param {{ name: string, upstreamGone: boolean, mergedIntoBase: boolean, mergedByExactPr?: boolean, isCurrent: boolean }} b
  * @returns {{ action: "delete" | "keep", reason: string }}
  */
-export function classifyLocalBranch({ name, upstreamGone, mergedIntoBase, isCurrent }) {
+export function classifyLocalBranch({
+  name,
+  upstreamGone,
+  mergedIntoBase,
+  mergedByExactPr = false,
+  isCurrent,
+}) {
   if (isCurrent) return { action: "keep", reason: "utcheckad" };
   if (isProtectedBranch(name)) return { action: "keep", reason: "skyddat namn" };
-  if (!mergedIntoBase) return { action: "keep", reason: "omergad — pågående arbete" };
+  if (!mergedIntoBase && !mergedByExactPr) {
+    return { action: "keep", reason: "ingen exakt merge bevisad — pågående arbete" };
+  }
   if (!upstreamGone) return { action: "keep", reason: "remote finns kvar" };
-  return { action: "delete", reason: "remote borta + mergad" };
+  return {
+    action: "delete",
+    reason: mergedIntoBase
+      ? "remote borta + Git-merge bevisad"
+      : "remote borta + squash-PR bevisad",
+  };
 }
 
 /**
@@ -148,16 +187,30 @@ export function isWorktreeDirty(statusOutput) {
  * `npm run worktree:remove` vägrar redan på smutsigt eller ospårat innehåll.
  * Den vet däremot ingenting om PR-status — det hålet täcks här.
  *
- * @param {{ branch: string | null, hasOpenPr: boolean, isDirty: boolean, mergedIntoBase: boolean, isMain: boolean }} wt
+ * @param {{ branch: string | null, hasOpenPr: boolean, isDirty: boolean, mergedIntoBase: boolean, mergedByExactPr?: boolean, isMain: boolean }} wt
  * @returns {{ verdict: "keep" | "free", reason: string }}
  */
-export function classifyWorktree({ branch, hasOpenPr, isDirty, mergedIntoBase, isMain }) {
+export function classifyWorktree({
+  branch,
+  hasOpenPr,
+  isDirty,
+  mergedIntoBase,
+  mergedByExactPr = false,
+  isMain,
+}) {
   if (isMain) return { verdict: "keep", reason: "huvudcheckouten — delas med ägaren" };
   if (branch && isProtectedBranch(branch)) return { verdict: "keep", reason: "skyddat branchnamn" };
   if (hasOpenPr) return { verdict: "keep", reason: "branchen har en ÖPPEN PR — någon arbetar" };
   if (isDirty) return { verdict: "keep", reason: "ocommitterat eller ospårat innehåll" };
-  if (!mergedIntoBase) return { verdict: "keep", reason: "innehållet finns inte i basen ännu" };
-  return { verdict: "free", reason: "ingen öppen PR, rent träd, innehållet i basen" };
+  if (!mergedIntoBase && !mergedByExactPr) {
+    return { verdict: "keep", reason: "ingen exakt merge bevisad ännu" };
+  }
+  return {
+    verdict: "free",
+    reason: mergedIntoBase
+      ? "ingen öppen PR, rent träd, Git-merge bevisad"
+      : "ingen öppen PR, rent träd, squash-PR bevisad",
+  };
 }
 
 /**
@@ -245,22 +298,86 @@ export function parsePorcelainWorktrees(lines) {
 }
 
 /**
- * Öppna PR-huvuden via gh. `null` betyder «vet inte» (gh saknas eller nätet är
- * nere), inte «inga öppna PR:er» — skillnaden är viktig, för worktree-klassningen
- * behandlar «vet inte» som upptaget.
+ * PR-livscykel via ett enda gh-anrop. `null` betyder «vet inte» (gh saknas,
+ * nätet är nere eller svaret är trasigt), aldrig «inga PR:er». En squash-merge
+ * får bara räknas när både branch och den lokala 40-teckens head-SHA:n matchar
+ * GitHubs bevarade PR-head exakt.
  */
-function openPrHeads(root) {
+export function parsePrLifecycle(rows) {
+  if (!Array.isArray(rows)) throw new Error("PR lifecycle must be an array");
+  const openHeads = new Set();
+  const mergedHeads = new Map();
+  for (const row of rows) {
+    const branch = typeof row?.headRefName === "string" ? row.headRefName : "";
+    if (!branch) continue;
+    if (String(row.state ?? "").toUpperCase() === "OPEN") openHeads.add(branch);
+    const sha = typeof row.headRefOid === "string" ? row.headRefOid.toLowerCase() : "";
+    if (row.mergedAt && /^[0-9a-f]{40}$/.test(sha)) {
+      const shas = mergedHeads.get(branch) ?? new Set();
+      shas.add(sha);
+      mergedHeads.set(branch, shas);
+    }
+  }
+  return { openHeads, mergedHeads };
+}
+
+/**
+ * `gh api --paginate` bearbetar varje sida och skriver en TSV-rad per PR. Varje
+ * rad valideras strikt: ett delvis/trunkerat svar får aldrig se ut som «inga
+ * öppna PR:er». API:t använder `closed` även för mergade PR:er; `merged_at` är
+ * därför det terminala mergebeviset, bundet till exakt head-SHA nedan.
+ *
+ * @param {string} output
+ */
+export function parsePrLifecycleTsv(output) {
+  if (typeof output !== "string") throw new Error("PR lifecycle TSV must be a string");
+
+  const rows = [];
+  for (const line of output.split(/\r?\n/u)) {
+    if (line === "") continue;
+    const fields = line.split("\t");
+    if (fields.length !== 4) throw new Error("PR lifecycle TSV row must have four fields");
+    const [headRefName, headRefOid, state, mergedAt] = fields;
+    if (!headRefName || !/^[0-9a-fA-F]{40}$/u.test(headRefOid)) {
+      throw new Error("PR lifecycle TSV row has an invalid head");
+    }
+    if (state !== "open" && state !== "closed") {
+      throw new Error("PR lifecycle TSV row has an invalid state");
+    }
+    if (mergedAt && (state !== "closed" || Number.isNaN(Date.parse(mergedAt)))) {
+      throw new Error("PR lifecycle TSV row has an invalid merged_at");
+    }
+    rows.push({
+      headRefName,
+      headRefOid,
+      state: state.toUpperCase(),
+      mergedAt: mergedAt || null,
+    });
+  }
+  return parsePrLifecycle(rows);
+}
+
+export function isExactMergedPr(lifecycle, branch, headSha) {
+  if (!lifecycle || !branch || !/^[0-9a-fA-F]{40}$/.test(headSha ?? "")) return false;
+  return lifecycle.mergedHeads.get(branch)?.has(headSha.toLowerCase()) ?? false;
+}
+
+export const PR_LIFECYCLE_API_ARGS = Object.freeze([
+  "api",
+  "--paginate",
+  "repos/{owner}/{repo}/pulls?state=all&per_page=100",
+  "--jq",
+  '.[] | [.head.ref, .head.sha, .state, (.merged_at // "")] | @tsv',
+]);
+
+export function loadPrLifecycle(root) {
   try {
-    const out = execFileSync(
-      "gh",
-      ["pr", "list", "--state", "open", "--limit", "200", "--json", "headRefName"],
-      {
-        cwd: root,
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
-    return new Set(JSON.parse(out).map((p) => p.headRefName));
+    const out = execFileSync("gh", PR_LIFECYCLE_API_ARGS, {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return parsePrLifecycleTsv(out);
   } catch {
     return null;
   }
@@ -277,6 +394,7 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
 
   // --- 1. Lokala döda brancher ---
   const current = git(["rev-parse", "--abbrev-ref", "HEAD"], root);
+  const lifecycle = loadPrLifecycle(root);
   const rows = gitLines(
     ["for-each-ref", "--format=%(refname:short)%09%(upstream:track)", "refs/heads"],
     root,
@@ -286,10 +404,12 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
     const [name, track = ""] = row.split("\t");
     const mergedIntoBase =
       git(["merge-base", "--is-ancestor", name, BASE_REF], root, { allowFail: true }) !== null;
+    const branchHead = git(["rev-parse", name], root, { allowFail: true });
     const verdict = classifyLocalBranch({
       name,
       upstreamGone: track.includes("gone"),
       mergedIntoBase,
+      mergedByExactPr: isExactMergedPr(lifecycle, name, branchHead),
       isCurrent: name === current,
     });
     if (verdict.action === "delete") localDelete.push({ name, reason: verdict.reason });
@@ -319,8 +439,8 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
   // Rapport, aldrig radering. Katalogen tas bort med `npm run worktree:remove`,
   // som kopplar loss junctions först. Poängen här är att säga VILKA som är fria.
   const worktrees = parsePorcelainWorktrees(wtLines);
-  // Ett enda gh-anrop återanvänds av både worktree-klassningen och remote-rapporten.
-  const openPrBranches = openPrHeads(root);
+  // Ett enda gh-anrop återanvänds av branch-, worktree- och remote-klassningen.
+  const openPrBranches = lifecycle?.openHeads ?? null;
   if (worktrees.length > 1) {
     for (const wt of worktrees.slice(1)) {
       const dirty = isWorktreeDirty(git(["status", "--porcelain"], wt.path, { allowFail: true }));
@@ -328,12 +448,16 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
         wt.branch !== null &&
         git(["merge-base", "--is-ancestor", wt.branch, BASE_REF], root, { allowFail: true }) !==
           null;
+      const branchHead = wt.branch
+        ? git(["rev-parse", wt.branch], root, { allowFail: true })
+        : null;
       const { verdict, reason } = classifyWorktree({
         branch: wt.branch,
         // Kan vi inte fråga GitHub vet vi inte om någon arbetar → antag att de gör det.
         hasOpenPr: openPrBranches === null ? true : openPrBranches.has(wt.branch ?? ""),
         isDirty: dirty,
         mergedIntoBase: merged,
+        mergedByExactPr: isExactMergedPr(lifecycle, wt.branch, branchHead),
         isMain: false,
       });
       const label = verdict === "free" ? "FRI" : "behåll";

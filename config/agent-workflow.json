@@ -1,0 +1,158 @@
+{
+  "$schema": "../docs/schemas/strict/agent-workflow.schema.json",
+  "schemaVersion": 1,
+  "trunk": "master",
+  "allowedBranchPrefixes": ["fix/", "feat/", "docs/", "chore/"],
+  "branchPrefixExemptActors": ["dependabot[bot]"],
+  "immutableRemoteBranchPatterns": ["*BRA*", "rescue/*"],
+  "protectedBranchPatterns": [
+    "master",
+    "main",
+    "ema",
+    "*BRA*",
+    "rescue/*",
+    "dependabot/*",
+    "archive/*",
+    "codex/workspace"
+  ],
+  "directMaster": {
+    "allowed": false,
+    "breakGlassFlag": "SAJTMASKIN_BREAK_GLASS",
+    "breakGlassReason": "SAJTMASKIN_BREAK_GLASS_REASON"
+  },
+  "requiredChecks": ["quality", "backoffice-tests", "schema-drift", "build", "review-window"],
+  "review": {
+    "minHeadAgeSeconds": 420,
+    "botSettleSeconds": 180,
+    "maxBotWaitSeconds": 600,
+    "maxSignoffWaitSeconds": 840,
+    "qualifyingCheckPatterns": [
+      "trusted-pr-ai-review",
+      "agent review",
+      "find critical bugs",
+      "bugbot",
+      "codex"
+    ],
+    "securityVetoCheckPatterns": ["gitguardian"],
+    "deploymentCheckNames": ["Vercel"]
+  },
+  "protectedPaths": [
+    ".github/**",
+    "package.json",
+    "package-lock.json",
+    "AGENTS.md",
+    ".agents/skills/**",
+    ".codex/**",
+    ".cursor/rules/**",
+    ".cursor/hooks/**",
+    ".cursor/hooks.json",
+    ".cursor/**",
+    "config/agent-workflow.json",
+    "docs/schemas/**",
+    "docs/decisions/**",
+    "BUG-SWARM-BACKLOG.md",
+    "src/app/api/**",
+    "src/lib/api/**",
+    "src/lib/auth/**",
+    "src/lib/db/**",
+    "src/lib/gen/**",
+    "src/lib/models/**",
+    "src/lib/providers/**",
+    "src/lib/integrations/**",
+    "scripts/db/**",
+    "drizzle/**",
+    "config/env-policy.json",
+    "**/migrations/**"
+  ],
+  "pathGroups": {
+    "docs": ["**/*.md", "**/*.mdx", "docs/**"],
+    "controlPlane": ["docs/schemas/**", "config/control-plane/**", "config/backoffice/**"],
+    "agent": [
+      "AGENTS.md",
+      ".agents/**",
+      ".codex/**",
+      ".cursor/**",
+      "config/agent-workflow.json",
+      "scripts/dev/check-agent-context-budget.mjs",
+      "scripts/workflow/**"
+    ],
+    "runtime": [
+      "src/**",
+      "tests/**",
+      "e2e/**",
+      "backoffice/**",
+      "scripts/**",
+      "preview-host/**",
+      "public/**",
+      "infra/**",
+      "drizzle/**",
+      "config/**",
+      "*.config.js",
+      "*.config.mjs",
+      "*.config.ts",
+      "tsconfig*.json",
+      "vercel.json",
+      "knip.json",
+      ".node-version",
+      "package.json",
+      "package-lock.json",
+      "requirements*.txt",
+      "sajtmaskin_backoffice.py"
+    ],
+    "backoffice": [
+      "backoffice/**",
+      "scripts/template_curator/**",
+      "sajtmaskin_backoffice.py",
+      "requirements.backoffice*.txt"
+    ],
+    "database": [
+      "src/lib/db/**",
+      "scripts/db/**",
+      "drizzle/**",
+      "requirements.dbtest.txt",
+      "**/migrations/**"
+    ],
+    "dependencies": [
+      "package.json",
+      "package-lock.json",
+      "preview-host/package.json",
+      "requirements*.txt",
+      ".node-version"
+    ],
+    "ci": [".github/**", "scripts/ci/**", "scripts/pr-review/**"],
+    "previewHost": ["preview-host/**"],
+    "observability": ["scripts/observability/**", "requirements.genlogs.txt"],
+    "e2e": ["e2e/**", "playwright*.config.ts"]
+  },
+  "verificationProfiles": {
+    "always": ["workflow:contract"],
+    "docs": [
+      "docs:check",
+      "docs:links",
+      "docs:test",
+      "plans:history:check",
+      "check:terms:contract"
+    ],
+    "controlPlane": ["control-plane:check"],
+    "agent": ["check:agent-context"],
+    "runtime": ["embeddings:ensure", "typecheck", "test:ci", "lint"],
+    "backoffice": ["backoffice:test"],
+    "database": ["db:schema-drift", "db:blob-sync-unit"],
+    "dependencies": ["baseline-deps:verify", "baseline-deps:tree"],
+    "ci": ["typecheck", "test:ci"],
+    "previewHost": ["preview-host:verify"],
+    "observability": ["observability:test"],
+    "e2e": ["test:e2e:contract"],
+    "full": [
+      "lint",
+      "scaffolds:validate",
+      "dossiers:validate-all",
+      "route-timeouts:check",
+      "check:bug-backlog",
+      "canvas:check",
+      "knip:files",
+      "clean:orphans:dry",
+      "clean:scratch"
+    ]
+  }
+}

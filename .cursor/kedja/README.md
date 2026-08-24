@@ -2,7 +2,12 @@
 
 Sparade kandidat-diffar från `/kedja` — den stegade buggfix-pipelinen. Mappen är **gitignored** (utom denna README) och ligger inte på GitHub.
 
-> **Diffarna här är en säkerhetskopia, inte leveransen.** Vinnaren **committas** på sin `kedja/<slug>-<x>`-branch i worktreet (`..\sajtmaskin-kedja-<slug>-a`) — ej push/PR utan begäran. Commit är livförsäkringen mot `kedja-clean` (brancher utan egna commits sopas bort). Filerna här finns för att förlorarnas worktrees rivs efter körningen — utan dem vore de kandidaterna borta, och ibland är en förlorares ansats bättre.
+> **Diffarna här är en säkerhetskopia, inte leveransen.** Nya kandidater använder
+> `fix/kedja-<slug>-<x>` i varsitt worktree. Vinnaren lämnas sedan över till den
+> kanoniska [`pr-workflow`](../../.agents/skills/pr-workflow/SKILL.md): verifiera,
+> committa, pusha och öppna PR när det är auktoriserat. Vinnarens worktree står
+> kvar tills PR:n är mergad eller stängd. Filerna här behövs för att förlorarnas
+> worktrees rivs efter körningen — utan dem vore kandidaternas ansatser borta.
 
 ## Layout
 
@@ -19,7 +24,8 @@ Sparade kandidat-diffar från `/kedja` — den stegade buggfix-pipelinen. Mappen
 1. `/kedja` skapar en worktree per kandidat och låter en agent fixa buggen i var och en.
 2. Domarsteget kör testet, grannskapets tester och typecheck. Minsta gröna diff vinner.
 3. **Före** teardown skrivs varje kandidats `git diff` hit.
-4. Förlorarnas worktrees tas bort med `npm run worktree:remove -- <sökväg> --force`. Vinnarens står kvar med **committad** fix (orkestratorn efter steg 7).
+4. Förlorarnas worktrees tas bort med `npm run worktree:remove -- <sökväg> --force`.
+5. Vinnaren lämnas till `pr-workflow` och worktreet behålls till terminal PR.
 
 Kan rensas när som helst — så snart vinnarens fix är mergad har diffarna inget värde.
 
@@ -27,7 +33,15 @@ Kan rensas när som helst — så snart vinnarens fix är mergad har diffarna in
 
 ## Städa upp efteråt
 
-`git worktree remove` tar bort katalogen men lämnar branchen kvar, så en avbruten eller ofullständig körning lämnar skräp. Sopa upp med:
+`git worktree remove` tar bort katalogen men lämnar branchen kvar. Använd alltid
+den säkra wrappern för nya `fix/kedja-*`-rester:
+
+```powershell
+npm run worktree:remove -- <sökväg> --force
+```
+
+Det äldre städskriptet nedan gäller **endast** worktrees och brancher från den
+tidigare `kedja/*`-konventionen:
 
 ```powershell
 npm run kedja:clean                                                              # torrkörning, visar bara
@@ -36,13 +50,20 @@ node scripts/cursor/kedja-clean.mjs --yes --keep ..\sajtmaskin-kedja-x-a        
 
 **Anropa flaggorna via `node`, inte via `npm run -- …`.** npm äter både `--yes` (dess egen `-y`-alias) och `--keep` (okänd config) innan de når skriptet, så npm-vägen faller tillbaka på torrkörning utan att säga varför. Verifierat 2026-08-02. Fallet är åt rätt håll — inget raderas av misstag — men flaggorna får bara effekt via `node`.
 
-Skriptet sparar varje worktrees diff hit **innan** den tas bort, och vägrar röra en worktree vars tillstånd det inte kunde läsa — en oläsbar worktree är oftast en som körs just nu. Branchar raderas bara när de heter `kedja/*` och saknar egna commits.
+Legacy-skriptet sparar varje worktrees diff hit **innan** den tas bort och vägrar
+röra en worktree vars tillstånd det inte kunde läsa — en oläsbar worktree är
+oftast en som körs just nu. Brancher raderas bara när de heter `kedja/*` och
+saknar egna commits. Det hanterar inte nya `fix/kedja-*`-brancher.
 
 `--keep` tar **worktree-sökväg** och behövs främst för ocommittat arbete du vill skydda. En **committad** vinnare (`commits ahead of trunk`) behålls automatiskt även utan `--keep` — skriptet vägrar röra brancher/worktrees med egna commits. Ocommittade förlorare (inga commits ahead) sopas bort; deras diff sparas hit först.
 
 ## Relation till bugglistan
 
-`BUG-SWARM-BACKLOG.md` (repo-rot) rörs **aldrig** av `/kedja`. Att bocka av en rad är en manuell åtgärd efter att fixen är mergad, precis som `/automat` aldrig skriver dit.
+`/kedja` ändrar inte backloggen under kandidatjakten. När vinnaren går vidare
+ska däremot samma fix-PR flytta den lösta raden från `Aktiv kö` till `Arkiv`
+med merge-/kodbevis; den blir canonical först när PR:n har mergats. Skapa inte
+en separat efterhands-PR och bocka inte bara av raden på plats. `/automat` är
+fortsatt read-only och skriver aldrig till backloggen.
 
 ## Kör
 

@@ -145,11 +145,18 @@ En yta utan dokumenterat DELETE-beslut är KEEP.
 
 ## Ändringsregel
 
-1. Ändra runtime-owner först när beteendet ändras.
-2. Regenerera referensdocs när en strukturerad källa ändras.
-3. Uppdatera en mental modell bara när den stabila modellen ändras.
-4. Ersätt stale text i stället för att lägga till en parallell sanning.
-5. Uppdatera router, länkar och planstatus i samma ändring.
+Arbeta nedifrån och upp i samma PR:
+
+1. Kör `npm run verify:pr -- --plan` tidigt. Den kopplar diffen till
+   control-plane, strict schemas, Backoffice-ytor och rätt lokala kontroller.
+2. Ändra runtime-owner eller deklarativ owner först när beteendet ändras.
+3. Uppdatera validator/schema och regenerera projektioner från ägaren. Ett
+   `strict`-schema bevisar format; `runtimeStatus` i control-plane avgör om det
+   dessutom är inkopplat i produkten.
+4. Uppdatera en mental modell bara när den stabila modellen ändras.
+5. Ersätt stale text i stället för att lägga till en parallell sanning.
+6. Uppdatera router, länkar, Backoffice-karta och planstatus i samma PR.
+7. Kör `npm run verify:pr`; drift ska bli ett rött fel, inte en minnesregel.
 
 Äldre borttaget arkitekturmaterial återfinns med `git log` och `git show`; skapa
 inte en ny aktiv kopia för att bevara historik.

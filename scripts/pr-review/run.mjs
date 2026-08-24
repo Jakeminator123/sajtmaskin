@@ -8,6 +8,7 @@ import {
   followUpJsonSchema,
 } from "./core.mjs";
 import { runReviewAutomation } from "./automation.mjs";
+import { writeReviewRunResult } from "./receipt.mjs";
 
 const API_VERSION = "2022-11-28";
 const MAINTAINER_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
@@ -96,6 +97,10 @@ export function createGitHubAdapter({ token, repository, fetchImpl = fetch }) {
         number: raw.number,
         baseRef: raw.base.ref,
         headSha: raw.head.sha,
+        // GitHub's list-files endpoint is capped at 3,000 entries. Preserve the
+        // authoritative PR count so the reviewer can prove that pagination
+        // returned the complete file universe before calling it exhaustive.
+        changedFiles: raw.changed_files,
         headRepository: raw.head.repo?.full_name ?? repository,
         draft: raw.draft,
         mergedAt: raw.merged_at,
@@ -118,6 +123,7 @@ export function createGitHubAdapter({ token, repository, fetchImpl = fetch }) {
           id: item.id,
           body: item.body ?? "",
           author: item.user?.login ?? "unknown",
+          commitId: item.commit_id,
         })),
       );
     },
@@ -250,6 +256,7 @@ export async function main(env = process.env) {
   if (!env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY saknas");
   if (!env.GITHUB_REPOSITORY || !env.GITHUB_EVENT_PATH)
     throw new Error("GitHub Actions-kontext saknas");
+  if (!env.PR_REVIEW_RESULT_PATH) throw new Error("PR_REVIEW_RESULT_PATH saknas");
   const event = JSON.parse(await readFile(env.GITHUB_EVENT_PATH, "utf8"));
   const prNumber = event.pull_request?.number;
   if (!prNumber) throw new Error("Workflow-eventet innehåller inget PR-nummer");
@@ -260,7 +267,10 @@ export async function main(env = process.env) {
   });
   const model = createOpenAIReviewer({ apiKey: env.OPENAI_API_KEY, ...models });
   const result = await runReviewAutomation({ github, model, prNumber });
-  console.log(`PR review automation: ${result.kind}${result.reason ? ` (${result.reason})` : ""}`);
+  const runResult = await writeReviewRunResult(env.PR_REVIEW_RESULT_PATH, result);
+  console.log(
+    `PR review automation: ${result.kind}${result.reason ? ` (${result.reason})` : ""}; receipt=${runResult.outcome}`,
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

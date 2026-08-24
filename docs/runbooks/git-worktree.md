@@ -12,19 +12,24 @@ Huvudcheckouten delas av användaren och alla agenter. `git checkout`/`git switc
 
 - läsa filer, `git status`, `git diff`, `git log`, `git fetch`
 - köra typecheck/test mot aktuell HEAD
-- `git push origin <local>:<remote>` om användaren bett om push
 - `git stash push -m "namn" -- <filer>` vid räddning
-- små docs-/regel-landningar direkt på `master` enligt [`.cursor/rules/git.mdc`](../../.cursor/rules/git.mdc) — då behövs ingen worktree
+
+Push sker från uppgiftens egen utcheckade branch och bara för exakt aktuell
+HEAD. Huvudcheckouten ska inte användas som genväg för att pusha andra refs.
+
+Huvudcheckouten är läs-/testankare. Allt normalt agentskrivarbete, även
+docs/regler, går via egen worktree, branch och PR enligt
+[`config/agent-workflow.json`](../../config/agent-workflow.json).
 
 ## Vem behöver en worktree?
 
 Rollen äger frågan. Säg inte «gå till eget worktree» till varje agent.
 
-| Roll | Worktree? |
-|---|---|
-| Scout | Nej |
-| Builder | Ja, från `origin/master`, därefter `npm run worktree:link`. Undantag: docs/regel-genvägen i `git.mdc` (huvudcheckouten). |
-| Steward | Nej för merge (`gh` räcker). Ja bara vid konflikt. |
+| Roll    | Worktree?                                                                           |
+| ------- | ----------------------------------------------------------------------------------- |
+| Scout   | Nej                                                                                 |
+| Builder | Ja, från färsk `origin/master`, därefter `npm run worktree:link`. Även docs/regler. |
+| Steward | Nej för merge (`gh` räcker). Ja bara vid konflikt.                                  |
 
 `node_modules` används hela tiden (typecheck, test, dev). Det finns **en** riktig installation — i huvudcheckouten. En worktree utan länk måste annars köra `npm ci` (~flera minuter). Ändra inte `package.json` i två Builder-säten samtidigt: de delar samma installation.
 
@@ -33,11 +38,16 @@ Rollen äger frågan. Säg inte «gå till eget worktree» till varje agent.
 Bredvid repo-roten, aldrig under `.cursor/`. Namn: `sajtmaskin-<säte>-<kort>`, till exempel `..\sajtmaskin-a-hoist`.
 
 ```powershell
+git fetch origin master
 git worktree add ..\sajtmaskin-feat-X -b feat/X origin/master
 Set-Location ..\sajtmaskin-feat-X
-# jobba, testa, commit/push vid OK
+npm run worktree:link -- ..\sajtmaskin-feat-X
+# jobba, kör verify:pr, öppna draft-PR och behåll worktreet för fixrundor
+# först efter merge/close och verifierad remote-status:
 Set-Location ..\sajtmaskin
+npm run tidy # målytan måste uttryckligen stå som FRI
 npm run worktree:remove -- ..\sajtmaskin-feat-X
+npm run tidy:apply
 ```
 
 `npm run worktree:link` kopierar också `.cursor/mcp.json`. Manuell omsync: `pwsh -File scripts/cursor/sync-mcp-json.ps1 -AllWorktrees`.
@@ -65,15 +75,35 @@ Det inträffade 2026-08-17: en parallell agents `fix/eval-provider-error` fick m
 Två saker som **inte** är risken, så du inte vaktar fel:
 
 - **Ocommitterade ändringar läcker aldrig.** `git worktree add` checkar ut från en commit; ägarens smutsiga arbetskopia är osynlig för nya worktrees.
-- **`origin/master` behöver inte vara färskt hämtat** för att skydda mot lokalt spill, men kör `git fetch origin` först om du vill starta på trunkens senaste läge.
+- **En explicit remote-bas skyddar mot lokalt spill, men en gammal remote-bas
+  är ändå inte godtagbar.** Kör alltid `git fetch origin` först och skapa sedan
+  worktreet från färska `origin/master`. Om fetch eller ancestrykontrollen
+  misslyckas ska agenten stanna, inte gissa.
 
-Motsvarande skydd i andra ledet: låt aldrig overifierade commits ligga kvar på lokal `master`. Antingen är de gröna och pushade, eller så hör de på en egen branch.
+Motsvarande skydd i andra ledet: gör inga normala agentcommits på lokal
+`master`. Direkt master är endast owner break-glass för en uttrycklig incident.
 
-## Städa alltid med `npm run worktree:remove`
+## Städa bara efter `tidy` → `FRI`
 
-Kommandot kopplar loss eventuella länkar **innan** det kör `git worktree remove`, och vägrar köra mot huvudcheckouten eller mot en katalog som inte är en registrerad worktree. Ett bart `git worktree remove` är bara säkert när du vet att worktreen saknar länkar — och det vet du sällan.
+Kör först `npm run tidy` från en yta som ska behållas. Exakt målyta måste
+rapporteras som `FRI`: ingen öppen PR, rent träd och exakt Git-ancestry eller
+squash-PR med samma branch/head-SHA. Om GitHub inte kan läsas är ytan upptagen,
+fail-closed.
 
-Utan `--force` vägrar det också om worktreen har ocommittat eller ospårat innehåll, precis som `git worktree remove` gör, och lämnar då länkarna orörda. Rädda i så fall med `git stash push -u -m ...` innan du kör om.
+Först därefter kopplar `npm run worktree:remove -- <sökväg>` loss eventuella
+länkar **innan** det tar bort den registrerade worktreen. Kör aldrig ett bart
+`git worktree remove`; hooken blockerar det eftersom wrappern är den enda
+kanoniska junction-säkra vägen.
+
+Städa inte när PR:n bara är skapad. Buildern äger nya head-SHA:er tills PR:n är
+mergad eller stängd. Kräv först `FRI`, kör sedan den säkra borttagningen och
+avsluta med `npm run tidy:apply`.
+
+Utan `--force` kräver wrappern samma `FRI`-bevis igen och vägrar smutsigt
+innehåll. `--force` är bara för uttryckligt kasserade kandidater: GitHub måste
+fortfarande bevisa att ingen PR är öppen och
+`SAJTMASKIN_DISCARD_REASON` måste beskriva beslutet. Rädda annars med
+`git stash push -u -m ...`; använd inte force som genväg.
 
 ## Junction-fällan
 
@@ -84,13 +114,16 @@ npm run worktree:link -- ..\sajtmaskin-feat-X   # junction till huvudcheckoutens
 npm run worktree:remove -- ..\sajtmaskin-feat-X # kopplar loss länken först, sedan git worktree remove
 ```
 
-Måste du göra det för hand är ordningen hela poängen: `cmd /c rmdir node_modules` (tar bort LÄNKEN, rör inte målet) **före** `git worktree remove`.
+Gör inte teardown för hand. Om wrappern stoppar ska du bevara ytan och utreda
+orsaken; kringgå inte skyddet med `rmdir` eller rå `git worktree remove`.
 
 Har det redan hänt: `npm ci` i huvudcheckouten återställer (~4 min). Inget spårat innehåll går förlorat — `node_modules` är gitignorerad.
 
 ## Flera agenter samtidigt
 
-- **Max en git-mutator i huvudcheckouten.** Alla andra som ska committa/pusha/branch:a gör det i egen worktree — aldrig `switch`/`merge`/`pull`/`reset` i den delade checkouten medan någon annan är aktiv.
+- **Huvudcheckouten är ankare.** Agenter som ska committa/pusha/branch:a gör det
+  i egen worktree — aldrig `switch`/`merge`/`pull`/`reset` i den delade
+  checkouten medan någon annan är aktiv.
 - **En merge-agent landar allt.** Övriga agenter lämnar antingen en pushad worktree-branch + PR, eller en ocommittad diff som merge-agenten tar. Stage bara **egna** filer (`git add <path>`), aldrig `git add -A` i delad tree.
 - **HEAD kan flyttas under dig** av en parallell process — en branch som "försvinner" är oftast redan mergad, inte tappad. Verifiera med `git log`/`gh pr view` innan du tror att arbete gått förlorat; rädda ocommittat med `git stash push -m ... -- <filer>`.
 

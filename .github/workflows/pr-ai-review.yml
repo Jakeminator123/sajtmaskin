@@ -12,7 +12,7 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
-  checks: read
+  checks: write
 
 # Different PRs run in parallel. Every delivery for one PR queues and executes
 # serially so two events cannot create duplicate exhaustive reviews or race the
@@ -47,7 +47,23 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Review pull request
+        id: review
         env:
           GITHUB_TOKEN: ${{ github.token }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PR_REVIEW_RESULT_PATH: ${{ runner.temp }}/pr-review-result.json
         run: node scripts/pr-review/run.mjs
+
+      # pull_request_target-jobbets vanliga check ligger på default-branchens
+      # SHA, inte PR-headen. Den betrodda publiceraren läser review-resultatet
+      # och hämtar PR:ens live-head igen. Endast en full review av exakt den
+      # headen, eller verifierad återhämtning av samma publicerade review-ID,
+      # får success; vanlig skip/follow-up/stale blir action_required.
+      - name: Publish trusted review receipt on current PR head
+        if: steps.review.outcome == 'success'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_REVIEW_RESULT_PATH: ${{ runner.temp }}/pr-review-result.json
+        run: node scripts/pr-review/receipt.mjs

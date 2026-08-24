@@ -1,39 +1,105 @@
 name: merge-ready-freshness
 
-# Restlista R9 — ta bort `merge:ready` när head byts eller en bot postar
-# review/inline/kommentar-fynd efter författarens sign-off.
+# Restlista R9 — validera `merge:ready` när labeln sätts och ta bort den när
+# head eller master byts, eller när en bot postar fynd efter sign-off.
 #
-# Separat från review-window.yml (read-only väntan). Ingen ny required check
-# och ingen verdict-triage — bara mekanisk label-invalidation.
+# Fas 1 landar också den betrodda default-branch-controllern som publicerar
+# den head-bundna required checken `review-window`. Den äldre pull_request-
+# workflowen finns bara kvar tills nästa rollout-PR och checkar inte ut eller
+# kör några repositoryfiler från PR-headen.
 
 on:
-  pull_request:
-    types: [synchronize]
-  pull_request_review:
-    types: [submitted]
-  pull_request_review_comment:
-    types: [created]
+  # Kör den betrodda workflow-/skriptversionen från default-branchen. Jobbet
+  # skriver labels och får därför aldrig exekvera kod från PR-headen.
+  pull_request_target:
+    branches: [master]
+    types:
+      [
+        opened,
+        synchronize,
+        reopened,
+        edited,
+        ready_for_review,
+        converted_to_draft,
+        labeled,
+        unlabeled,
+      ]
+  # pull_request_review och pull_request_review_comment får aldrig läggas här:
+  # GitHub kör deras workflow-YAML från PR:ens obetrodda merge-ref. Sen review-
+  # evidens läses live igen av den betrodda merge-kommandovägen nedan.
   # Codex-sammanfattningar, GitGuardian och bugbot-summeringar landar som
   # vanliga PR-kommentarer, inte som reviews. Utan den här triggern överlever
   # labeln precis de fynden (granskning 2026-07-29).
   issue_comment:
-    types: [created]
+    types: [created, edited, deleted]
+  # En PR:s testade merge-resultat kan bli inaktuellt även utan ny head-commit
+  # när dess bas flyttas. Ogiltigförklara därför alla öppna, sign-offade PR:er.
+  push:
+    branches: [master]
 
 permissions:
-  pull-requests: write
   contents: read
+  pull-requests: read
+  checks: read
+  issues: read
 
 jobs:
+  trusted-review-window:
+    if: >
+      github.event_name != 'push' &&
+      (
+        github.event_name != 'issue_comment' ||
+        (
+          github.event.issue.pull_request != null &&
+          !startsWith(github.event.comment.body, 'merge:execute')
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: write
+      issues: read
+    concurrency:
+      group: trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Publish trusted head-bound review-window
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+        run: node scripts/ci/trusted-review-window.mjs gate
+
   invalidate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # `vercel[bot]` är avsiktligt tillåten på review-vägarna: Vercel Agent
-    # Review postar riktiga logikfynd som review-kommentarer (bevisat på #642
-    # och #643). Dess deploy-brus är däremot *issue*-kommentarer, så det är
-    # bara där den filtreras bort.
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    # Vercels issue-kommentarer är deploy-brus och filtreras bort. Review- och
+    # inline-kommentarer hanteras inte via ett privilegierat PR-ref-event; den
+    # finala merge-kommandovägen läser i stället hela konversationen live.
     if: >
-      github.event_name == 'pull_request' ||
       (
+        github.event_name == 'pull_request_target' &&
+        (
+          github.event.action != 'labeled' ||
+          github.event.label.name == 'merge:ready'
+        )
+      ) ||
+      (
+        github.event_name != 'pull_request_target' &&
+        github.event_name != 'push' &&
         github.event.sender.type == 'Bot' &&
         github.event.sender.login != 'dependabot[bot]' &&
         (
@@ -49,15 +115,12 @@ jobs:
       # Beslutslogiken ligger i `scripts/ci/merge-ready-freshness.mjs` så den
       # kan enhetstestas — bash inuti YAML kan den inte (Codex P1 på #652).
       #
-      # Utan `ref:`, med flit: checkouten följer då samma ref som workflowen
-      # själv kördes från. På `pull_request` är det PR:ens merge-commit, på
-      # review-/kommentarvägarna default-branchen. Att pinna till
-      # default-branchen såg säkrare ut men bröt `pull_request`-vägen för den
-      # PR som inför skriptet — workflowen kom från PR:en, skriptet fanns bara
-      # där, och node föll på ENOENT. Något skydd gav det inte heller: en
-      # `pull_request`-körning använder redan PR:ens egen workflow-fil.
+      # Alla skrivande event kör enbart den granskade implementationen från
+      # default-branchen. `pull_request_target` + explicit ref gör att en PR
+      # aldrig kan byta ut beslutslogiken som förvaltar labels.
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Remove stale merge:ready
@@ -65,9 +128,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          EVENT_LABEL: ${{ github.event.label.name }}
           SENDER: ${{ github.event.sender.login }}
-          REVIEW_AT: ${{ github.event.review.submitted_at }}
-          COMMENT_AT: ${{ github.event.comment.created_at }}
+          COMMENT_AT: ${{ github.event.comment.updated_at }}
           PR_FROM_PULL: ${{ github.event.pull_request.number }}
           PR_FROM_ISSUE: ${{ github.event.issue.number }}
         run: |
@@ -80,20 +144,55 @@ jobs:
           fi
 
           case "$EVENT_NAME" in
-            pull_request_review) EVENT_AT="${REVIEW_AT:-}" ;;
-            pull_request_review_comment|issue_comment) EVENT_AT="${COMMENT_AT:-}" ;;
+            issue_comment) EVENT_AT="${COMMENT_AT:-}" ;;
             *) EVENT_AT="" ;;
           esac
 
-          # `issue_comment` bär ingen head-sha i payloaden, så alla event-vägar
-          # läser PR:en från API:t i stället.
+          # PR-objektets `.base.sha` är historisk och får INTE användas som
+          # aktuell master-tip. Läs base-refens levande SHA via Git refs-API:t
+          # och bevisa sedan via compare/merge-base att head faktiskt innehåller
+          # den. Lookup-/compare-fel lämnas fail-closed som false i payloaden.
           pr_json=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")
           HEAD_SHA=$(printf '%s' "$pr_json" | jq -r '.head.sha')
+          BASE_REF=$(printf '%s' "$pr_json" | jq -r '.base.ref')
+          if [ "$BASE_REF" != "master" ]; then
+            echo "PR #${PR_NUMBER} har base ${BASE_REF}, inte master — no-op."
+            exit 0
+          fi
+          BASE_SHA=""
+          BASE_IS_ANCESTOR="false"
+
+          if BASE_SHA=$(gh api "repos/${REPO}/git/ref/heads/${BASE_REF}" --jq '.object.sha'); then
+            if [[ "$BASE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              if compare_json=$(gh api "repos/${REPO}/compare/${BASE_SHA}...${HEAD_SHA}" \
+                  --jq '{status: (.status // ""), mergeBaseSha: (.merge_base_commit.sha // "")}'); then
+                COMPARE_STATUS=$(printf '%s' "$compare_json" | jq -r '.status // ""')
+                MERGE_BASE_SHA=$(printf '%s' "$compare_json" | jq -r '.mergeBaseSha // ""')
+                if { [ "$COMPARE_STATUS" = "ahead" ] || [ "$COMPARE_STATUS" = "identical" ]; } && [ "${MERGE_BASE_SHA,,}" = "${BASE_SHA,,}" ]; then
+                  BASE_IS_ANCESTOR="true"
+                else
+                  echo "::warning::Head ${HEAD_SHA} innehåller inte aktuell ${BASE_REF} ${BASE_SHA} (status=${COMPARE_STATUS}, merge-base=${MERGE_BASE_SHA})."
+                fi
+              else
+                echo "::warning::Kunde inte jämföra aktuell base ${BASE_SHA} med head ${HEAD_SHA}; valideringen blir fail-closed."
+              fi
+            else
+              echo "::warning::Git refs-API:t gav ogiltig SHA för ${BASE_REF}; valideringen blir fail-closed."
+            fi
+          else
+            echo "::warning::Kunde inte läsa aktuell SHA för base-ref ${BASE_REF}; valideringen blir fail-closed."
+          fi
 
           # `created_at` per kommentar följer med: sign-offens tidpunkt tas från
           # GitHub, inte från det författarstyrda `at:`-fältet.
           comments_json=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" \
-            --jq '.[] | {body: (.body // ""), createdAt: .created_at}' 2>/dev/null | jq -s '.' || echo '[]')
+            --jq '.[] | {
+              body: (.body // ""),
+              createdAt: .created_at,
+              authorLogin: (.user.login // ""),
+              authorType: (.user.type // ""),
+              authorAssociation: (.author_association // "")
+            }' 2>/dev/null | jq -s '.' || echo '[]')
 
           # Läs kommentaren/reviewen från eventfilen. Direkt interpolation av
           # användarstyrd body i shell hade varit command-injection-känslig.
@@ -101,17 +200,26 @@ jobs:
 
           payload=$(jq -n \
             --arg eventName "$EVENT_NAME" \
+            --arg eventAction "$EVENT_ACTION" \
+            --arg eventLabel "$EVENT_LABEL" \
             --arg senderLogin "$SENDER" \
             --arg eventBody "$EVENT_BODY" \
             --arg headSha "$HEAD_SHA" \
+            --arg baseSha "$BASE_SHA" \
+            --argjson baseIsAncestor "$BASE_IS_ANCESTOR" \
             --arg eventAt "${EVENT_AT:-}" \
             --argjson pr "$pr_json" \
             --argjson comments "$comments_json" \
             '{
               eventName: $eventName,
+              eventAction: $eventAction,
+              eventLabel: $eventLabel,
               senderLogin: $senderLogin,
               eventBody: $eventBody,
               headSha: $headSha,
+              baseSha: $baseSha,
+              baseIsAncestor: $baseIsAncestor,
+              prAuthorLogin: ($pr.user.login // ""),
               eventAt: $eventAt,
               labels: [$pr.labels[].name],
               prBody: ($pr.body // ""),
@@ -130,3 +238,64 @@ jobs:
           gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "merge:ready"
           gh pr comment "$PR_NUMBER" --repo "$REPO" --body "♻️ \`merge:ready\` borttagen automatiskt: ${REASON}."
           echo "Removed merge:ready on PR #${PR_NUMBER}: ${REASON}"
+
+  execute-merge:
+    if: >
+      github.event_name == 'issue_comment' &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request != null &&
+      github.event.sender.type == 'User' &&
+      (
+        github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'
+      ) &&
+      startsWith(github.event.comment.body, 'merge:execute')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      # Canonical merges serialiseras så att två godkända PR:er inte flyttar
+      # master under varandras slutvalidering.
+      group: trusted-master-merge
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      checks: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Re-read all evidence and execute SHA-bound squash merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: node scripts/ci/trusted-review-window.mjs merge
+
+  invalidate-on-master-push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Block every open PR on exact head after master moves
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE_SHA: ${{ github.sha }}
+        run: node scripts/ci/trusted-review-window.mjs invalidate-base

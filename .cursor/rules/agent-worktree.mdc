@@ -1,5 +1,5 @@
 ---
-description: "Delat working tree: agenter får inte byta branch i huvudcheckouten. Worktree för skrivarbete som kan ta tid; små master-landningar enligt git.mdc undantas."
+description: "Delat working tree: agenter får inte byta branch i huvudcheckouten. Allt Builder-skrivarbete går i egen worktree och PR."
 alwaysApply: false
 ---
 
@@ -7,7 +7,10 @@ alwaysApply: false
 
 **Kärnregel:** huvudcheckouten delas av användaren och andra agenter. `git checkout`/`git switch` flyttar HEAD globalt och kan sabotera någon annans arbete.
 
-**Rollstyrning:** Scout skapar ingen worktree. Steward skapar ingen för merge (`gh` räcker); worktree bara vid konflikt, då från `origin/master`. Builder skapar worktree med bas `origin/master`, utom docs/regel-genvägen i [`git.mdc`](git.mdc). Se [`agent-roles.mdc`](agent-roles.mdc).
+**Rollstyrning:** Scout skapar ingen worktree. Steward skapar ingen för merge
+(`gh` räcker); worktree bara vid konflikt, då från `origin/master`. Builder
+skapar alltid worktree med bas `origin/master`, även för docs/regler. Se
+[`agent-roles.mdc`](agent-roles.mdc) och `config/agent-workflow.json`.
 
 ## Förbjudet i huvudcheckouten
 
@@ -19,20 +22,24 @@ alwaysApply: false
 
 Läsning, `git status/diff/log/fetch`, tester och `git push origin <local>:<remote>` (på begäran) är OK.
 
-## Skrivarbete som kan ta tid
+## Skrivarbete
 
-Små docs-/regeländringar som landas direkt på `master` enligt [`git.mdc`](git.mdc) får göras i huvudcheckouten — spinn inte worktree+PR för det.
+Huvudcheckouten är läs-/testankare. Direkt master är ingen normal agentväg.
 
 Egen worktree bredvid repo-roten, aldrig under `.cursor/`:
 
 ```powershell
 git worktree add ..\sajtmaskin-feat-X -b feat/X origin/master
-npm run worktree:remove -- ..\sajtmaskin-feat-X   # städa så här, inte med git worktree remove
+npm run worktree:link -- ..\sajtmaskin-feat-X
 ```
 
-**Ange alltid basen `origin/master`.** Utan den tar git huvudcheckoutens HEAD *just då*, så branchen ärver vad ägaren eller en annan agent råkar ha committat lokalt men inte pushat. Det hände 2026-08-17: en parallell agents branch fick merge-base `efc2eb89d`, en commit som låg osynligt på lokal master. (Ocommitterat läcker aldrig — `worktree add` checkar ut från en commit, inte från arbetskopian.)
+Behåll worktreet medan PR:n är öppen och CI/review kan kräva nya commits. Ta
+bort den först efter merge/close och verifierad remote-status, med
+`npm run worktree:remove -- <sökväg>` enligt `pr-workflow` — aldrig rå git-remove.
 
-**Junction-fällan:** kör aldrig rå `git worktree remove` på en worktree med junction-länkad `node_modules` — den följer länken och tömmer **huvudcheckoutens** `node_modules`. Att utelämna `--force` skyddar inte: git vägrar bara vid smutsig tree eller **ospårade** filer, och en junctionad `node_modules` är *ignorerad*, alltså osynlig för den kontrollen. Använd `npm run worktree:remove`, som kopplar loss länken först. Hooken `.cursor/hooks/worktree-force-guard.mjs` blockerar båda varianterna.
+**Ange alltid basen `origin/master`.** Utan den tar git huvudcheckoutens HEAD _just då_, så branchen ärver vad ägaren eller en annan agent råkar ha committat lokalt men inte pushat. Det hände 2026-08-17: en parallell agents branch fick merge-base `efc2eb89d`, en commit som låg osynligt på lokal master. (Ocommitterat läcker aldrig — `worktree add` checkar ut från en commit, inte från arbetskopian.)
+
+**Junction-fällan:** kör aldrig rå `git worktree remove` på en worktree med junction-länkad `node_modules` — den följer länken och tömmer **huvudcheckoutens** `node_modules`. Att utelämna `--force` skyddar inte: git vägrar bara vid smutsig tree eller **ospårade** filer, och en junctionad `node_modules` är _ignorerad_, alltså osynlig för den kontrollen. Använd `npm run worktree:remove`, som kopplar loss länken först. Hooken `.cursor/hooks/worktree-force-guard.mjs` blockerar båda varianterna.
 
 Flera agenter samtidigt: max **en** git-mutator i huvudcheckouten, övriga i egen worktree. En branch som "försvinner" är oftast redan mergad — verifiera med `git log`/`gh pr view` innan du tror att arbete gått förlorat.
 

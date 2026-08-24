@@ -10,7 +10,7 @@
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:37411e2494bc615f -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:5015ae889ed37dda -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:ee7018aff0bbc9dd -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:bdabd528d04d5fad -->
 
 # Policies
 
@@ -207,11 +207,12 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 ## Control-plane registry
 
-This index contains 56 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
+This index contains 57 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
 
 | ID                                            | Type                | Canonical source                                                  | Validator               | CI status | Runtime status  | Runtime enforced |
 | --------------------------------------------- | ------------------- | ----------------------------------------------------------------- | ----------------------- | --------- | --------------- | ---------------- |
-| `agent-rules`                                 | `rule`              | `.cursor/rules`                                                   | —                       | `none`    | `n/a`           | No               |
+| `agent-context-policy`                        | `rule`              | `AGENTS.md`                                                       | `check:agent-context`   | `hard`    | `n/a`           | No               |
+| `agent-workflow-policy`                       | `rule`              | `config/agent-workflow.json`                                      | `workflow:contract`     | `hard`    | `n/a`           | No               |
 | `backoffice-domain-map`                       | `rule`              | `config/backoffice/domain-map.json`                               | `test:ci`               | `hard`    | `n/a`           | No               |
 | `build-spec-policy-inference`                 | `policy`            | `src/lib/gen/build-spec/policy-inference.ts`                      | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `domain-rules`                                | `policy`            | `config/domain-rules.json`                                        | `backoffice:test`       | `hard`    | `wired`         | Yes              |
@@ -235,10 +236,10 @@ This index contains 56 control-plane entries. It is a map to canonical owners, n
 | `tier3-sdk-deny`                              | `policy`            | `config/integrations/tier3-sdk-deny.json`                         | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `user-degraded-env`                           | `policy`            | `config/user_degraded_env.txt`                                    | —                       | `none`    | `declared-only` | No               |
 | `variant-template-addenda-runtime`            | `runtime-authority` | `src/lib/gen/scaffold-variants/variant-template-addendum.ts`      | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `agent-workflow-schema`                       | `schema`            | `docs/schemas/strict/agent-workflow.schema.json`                  | `workflow:contract`     | `hard`    | `n/a`           | No               |
 | `ai-models-manifest`                          | `schema`            | `config/ai_models/manifest.json`                                  | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `ai-models-manifest-jsonschema`               | `schema`            | `config/ai_models/manifest.schema.json`                           | —                       | `none`    | `n/a`           | No               |
 | `backoffice-domain-map-schema`                | `schema`            | `docs/schemas/strict/backoffice-domain-map.schema.json`           | `test:ci`               | `hard`    | `n/a`           | No               |
-| `change-impact-schema`                        | `schema`            | `docs/schemas/strict/change-impact.schema.json`                   | `change-impact`         | `hard`    | `n/a`           | No               |
 | `chat-request-schemas`                        | `runtime-authority` | `src/lib/validations/chat-schemas.ts`                             | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `control-plane-registry-schema`               | `schema`            | `docs/schemas/strict/control-plane-registry.schema.json`          | `control-plane:check`   | `hard`    | `n/a`           | No               |
 | `db-health-report-schema`                     | `schema`            | `docs/schemas/strict/db-health-check-report.schema.json`          | `test:ci`               | `hard`    | `declared-only` | No               |

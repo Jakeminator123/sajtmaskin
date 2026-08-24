@@ -512,23 +512,6 @@
       "notes": "plan-mode/F3 build plan cards."
     },
     {
-      "id": "change-impact-schema",
-      "sourceOfTruth": "docs/schemas/strict/change-impact.schema.json",
-      "type": "schema",
-      "validator": "change-impact",
-      "ciStatus": "hard",
-      "runtimeEnforced": false,
-      "runtimeStatus": "n/a",
-      "backoffice": {
-        "surface": null,
-        "editable": false,
-        "writePath": null,
-        "danger": "medium"
-      },
-      "mobility": "safe",
-      "notes": "Schema for config/change-impact.json; the CLI loads it before every local PR verification."
-    },
-    {
       "id": "control-plane-registry-schema",
       "sourceOfTruth": "docs/schemas/strict/control-plane-registry.schema.json",
       "type": "schema",
@@ -544,6 +527,23 @@
       },
       "mobility": "safe",
       "notes": "schema for the registries themselves (self-describing); prevents the map from drifting."
+    },
+    {
+      "id": "agent-workflow-schema",
+      "sourceOfTruth": "docs/schemas/strict/agent-workflow.schema.json",
+      "type": "schema",
+      "validator": "workflow:contract",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": "Cursor-agenter",
+        "editable": false,
+        "writePath": null,
+        "danger": "high"
+      },
+      "mobility": "leave",
+      "notes": "Strict format mirror for config/agent-workflow.json. workflow:contract validates the policy and its wiring into CI, hooks, routers and PR templates; no product runtime reads it."
     }
   ]
 }

@@ -9,6 +9,7 @@ import {
   followUpInstructions,
   followUpJsonSchema,
   isMergedMoreThanOneHourAgo,
+  mergeResolutionLedger,
   validateExhaustiveResult,
   validateFollowUpResult,
 } from "./core.mjs";
@@ -48,7 +49,7 @@ function stateWithFinding() {
 }
 
 describe("PR review state machine", () => {
-  it("allows exactly one initial exhaustive review, including for drafts", () => {
+  it("allows one exhaustive review per head, including for drafts", () => {
     const state = createInitialState(PR);
     expect(decideReview({ pr: PR, state })).toEqual({ kind: "exhaustive" });
     const claimed = claimRun(state, { kind: "exhaustive", headSha: PR.headSha });
@@ -69,12 +70,11 @@ describe("PR review state machine", () => {
       reason: "head-already-processed",
     });
     expect(decideReview({ pr: { ...PR, headSha: "c".repeat(40) }, state: completed })).toEqual({
-      kind: "skip",
-      reason: "nothing-to-follow-up",
+      kind: "exhaustive",
     });
   });
 
-  it("skips a second exhaustive attempt only after a completed claim", () => {
+  it("does not let a completed legacy attempt suppress a later head", () => {
     const state = {
       ...createInitialState(PR),
       totalRunCount: 1,
@@ -89,8 +89,7 @@ describe("PR review state machine", () => {
       },
     };
     expect(decideReview({ pr: { ...PR, headSha: "c".repeat(40) }, state })).toEqual({
-      kind: "skip",
-      reason: "exhaustive-attempt-already-used",
+      kind: "exhaustive",
     });
   });
 
@@ -128,25 +127,54 @@ describe("PR review state machine", () => {
       kind: "skip",
       reason: "run-limit",
     });
-    expect(() =>
-      claimRun(failedOnB, { kind: "follow-up", headSha: "c".repeat(40) }),
-    ).toThrow("PR review run limit reached");
+    expect(() => claimRun(failedOnB, { kind: "follow-up", headSha: "c".repeat(40) })).toThrow(
+      "PR review run limit reached",
+    );
   });
 
-  it("uses synchronize only for finding-specific follow-up", () => {
+  it("uses a new head for exhaustive review even when older findings exist", () => {
     const state = stateWithFinding();
+    expect(decideReview({ pr: PR, state })).toEqual({ kind: "exhaustive" });
+  });
+
+  it("re-reviews a clean PR on a later commit", () => {
+    const state = { ...stateWithFinding(), findings: [] };
+    expect(decideReview({ pr: PR, state })).toEqual({ kind: "exhaustive" });
+  });
+
+  it("keeps a same-head legacy follow-up reclaim finding-specific", () => {
+    const state = {
+      ...stateWithFinding(),
+      latestProcessedHeadSha: PR.headSha,
+      totalRunCount: 2,
+      lastRun: {
+        kind: "follow-up",
+        headSha: PR.headSha,
+        status: "failed",
+        at: "2026-08-11T00:00:00.000Z",
+        error: "provider down",
+      },
+    };
     expect(decideReview({ pr: PR, state })).toMatchObject({
       kind: "follow-up",
       findings: [{ id: "F-existing" }],
     });
   });
 
-  it("never re-reviews a clean PR on later commits", () => {
-    const state = { ...stateWithFinding(), findings: [] };
-    expect(decideReview({ pr: PR, state })).toEqual({
-      kind: "skip",
-      reason: "nothing-to-follow-up",
-    });
+  it("upgrades a completed legacy follow-up on the current head to exhaustive", () => {
+    const state = {
+      ...stateWithFinding(),
+      latestProcessedHeadSha: PR.headSha,
+      totalRunCount: 2,
+      lastRun: {
+        kind: "follow-up",
+        headSha: PR.headSha,
+        status: "completed",
+        at: "2026-08-11T00:00:00.000Z",
+        error: null,
+      },
+    };
+    expect(decideReview({ pr: PR, state })).toEqual({ kind: "exhaustive" });
   });
 
   it("hard-stops after three total runs", () => {
@@ -281,5 +309,54 @@ describe("review output contracts", () => {
     ]);
     expect(updated.findings).toHaveLength(1);
     expect(updated.findings[0]).toMatchObject({ id: "F-existing", status: "fixed" });
+    expect(updated.resolutionLedger).toMatchObject([
+      { id: "F-existing", status: "fixed", statusReason: "Guard added." },
+    ]);
+  });
+
+  it("keeps an older active finding when a later exhaustive snapshot is clean", () => {
+    const previous = stateWithFinding().findings;
+    const ledger = mergeResolutionLedger({
+      resolutionLedger: [],
+      previousFindings: previous,
+      currentFindings: [],
+      headSha: "b".repeat(40),
+      now: new Date("2026-08-11T00:00:00.000Z"),
+    });
+    expect(ledger).toMatchObject([
+      {
+        id: "F-existing",
+        status: "open",
+        originalCommentId: 7,
+      },
+    ]);
+  });
+
+  it("keeps explicit disposition until the same finding is observed again", () => {
+    const fixed = applyFollowUpStatuses(stateWithFinding(), [
+      { findingId: "F-existing", status: "fixed", reason: "Guard added." },
+    ]);
+    const cleanLedger = mergeResolutionLedger({
+      resolutionLedger: fixed.resolutionLedger,
+      previousFindings: [],
+      currentFindings: [],
+      headSha: "c".repeat(40),
+    });
+    expect(cleanLedger).toMatchObject([{ id: "F-existing", status: "fixed" }]);
+
+    const reappeared = mergeResolutionLedger({
+      resolutionLedger: cleanLedger,
+      previousFindings: [],
+      currentFindings: stateWithFinding().findings,
+      headSha: "d".repeat(40),
+    });
+    expect(reappeared).toMatchObject([
+      {
+        id: "F-existing",
+        status: "open",
+        statusReason: null,
+        lastSeenHeadSha: "d".repeat(40),
+      },
+    ]);
   });
 });

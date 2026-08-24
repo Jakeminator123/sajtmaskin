@@ -11,7 +11,9 @@ för investigator/reviewer och Sol `high` för worker.
 ## Så här ska projektet öppnas
 
 - Cursor behåller huvudcheckouten
-  `C:\Users\jakem\dev\projects\sajtmaskin` och arbetar normalt på `master`.
+  `C:\Users\jakem\dev\projects\sajtmaskin` som läs-, test- och kontrollankare
+  på `master`. Normalt skrivarbete sker i uppgiftens egen worktree/branch enligt
+  `pr-workflow`, aldrig direkt i huvudcheckouten.
 - Primary folder i Codex-projektet `sajtmaskin` är den permanenta worktreen
   `C:\Users\jakem\Documents\codex-sajtmaskin\sajtmaskin-worktrees\codex`
   på branchen `codex/workspace`.

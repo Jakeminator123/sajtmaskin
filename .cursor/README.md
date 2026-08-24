@@ -12,12 +12,9 @@ backloggstacken som rutin.
 Ja, ändringarna gäller lokalt efter att branchen med dem har hämtats. En ny
 agentkörning får den korta startkontexten och hämtar detaljer först vid behov.
 
-- En redan öppen chatt tappar inte text den redan har fått; börja en ny chatt
-  efter `git pull` för tydligast effekt.
-- Varje worktree följer sin egen branch. Gamla worktrees får inte reglerna förrän
-  de uppdateras mot branchen som innehåller dem.
-- Normal kodindexering sköts av Cursor. Vid stale sökträffar: öppna reporoten på
-  nytt och kontrollera indexstatus i Cursor Settings.
+- Börja en ny chatt efter `git pull`; öppna chattar behåller gammal kontext.
+- Varje worktree följer sin branch och får nya regler först efter uppdatering.
+- Vid stale sökträffar: öppna reporoten igen och kontrollera Cursors indexstatus.
 - Sajtmaskins produktmodeller, runtime och `backoffice/` ändras inte av
   kontextreglerna. Backoffice förblir sökbart så att följdändringar upptäcks.
 
@@ -32,31 +29,28 @@ Frontmatter i varje `.cursor/rules/*.mdc` äger aktiveringen. Tre tunna regler
 är generella: `repo-router.mdc`, `git.mdc` och `workflow.mdc`. Övriga är
 globstyrda eller agent-requested.
 
-| Uppgift | Regel |
-|---|---|
-| Hitta owner/sökväg | `repo-router.mdc` |
-| Skriva/branch/PR | `git.mdc`, `workflow.mdc`; vid parallellt arbete även `agent-worktree.mdc` |
-| Merge eller PR-efterkontroll | `pr-merge.mdc` |
-| Pipeline/scaffold/dossier/env | motsvarande globstyrd regel |
-| Terminologi | `terminology.mdc` + riktad glossary-sökning |
-| Subagenter | `subagent-models.mdc` |
-| Lokal tooling/Vercel/Supabase | `local-tooling-mcp.mdc` |
+| Uppgift                       | Regel                                                           |
+| ----------------------------- | --------------------------------------------------------------- |
+| Hitta owner/sökväg            | `repo-router.mdc`                                               |
+| Skriva/branch/PR              | `pr-workflow` + `git.mdc`, `workflow.mdc`, `agent-worktree.mdc` |
+| Merge/PR-efterkontroll        | `pr-merge.mdc`                                                  |
+| Pipeline/scaffold/dossier/env | matchande globregel                                             |
+| Terminologi                   | `terminology.mdc` + riktad glossary-sökning                     |
+| Subagenter                    | `subagent-models.mdc`                                           |
+| Lokal tooling/Vercel/Supabase | `local-tooling-mcp.mdc`                                         |
 
 Bifoga bara den regel som äger uppgiften. `@.cursor/rules/` i sin helhet skapar
 brus och motstridiga instruktioner.
 
 ## Skills och kommandon
 
-`.agents/skills/` är den kanoniska skill-katalogen för Cursor och repo-agenter
-som stöder dessa skills. Miljöspecifika recept, exempelvis `/logg-internet`,
-kräver fortfarande verktyget som skillen anger (där: Cursor-browsern). Stora
-workflow-kommandon i `.cursor/commands/` är tunna routrar dit; mindre roll-/
-leveranskommandon innehåller bara sin unika loop. Skapa inte en andra skillkopia
-under `.cursor/skills/`.
+`.agents/skills/` är den enda kanoniska skill-katalogen. Miljöspecifika recept
+kräver verktyget som skillen anger. Stora kommandon är tunna routrar dit; skapa
+inte en andra editorlokal skillkopia.
 
-Stora workflow-skills (`/automat`, `/kedja`, `/818`, `/logg`,
-`/logg-internet`, `/godnatt-bugg`) ska bara läsas när de anropas. Ladda inte
-både en lång command-text och samma skillrecept.
+`pr-workflow` laddas för allt skriv-, PR- och mergearbete. Övriga stora skills
+(`/automat`, `/kedja`, `/818`, `/logg`, `/logg-internet`, `/godnatt-bugg`) läses
+bara när de anropas. Ladda inte både lång command-text och samma skillrecept.
 
 ## Stora sanningskällor
 
@@ -71,16 +65,14 @@ arbetsyta och ligger också utanför indexet.
 
 ## Ignore-filer
 
-- `.cursorignore` blockerar läsning: endast secrets och extrema Read-fällor.
-- `.cursorindexingignore` blockerar bara indexering: stora artefakter, loggar,
-  historik och operativa jättedokument som fortfarande kan behöva läsas riktat.
+- `.cursorignore` blockerar läsning: bara secrets och extrema Read-fällor.
+- `.cursorindexingignore` blockerar bara indexering av stora riktläsbara ytor.
 - Ignorera aldrig hela `src/`; det tvingar agenten till dyrare omvägar.
 
 ## Tokenhygien i praktiken
 
-- Dämpa progress med quiet/no-progress, men dölj inte stderr utan att verifiera utfallet.
-- Kör inte watch-loopar i chatten; gör en engångskontroll eller skriv bakgrundsstatus till `.cursor/tmp/`.
-- Håll en chatt per arbetskluster och kräv korta, fyndfokuserade subagentsvar.
+- Dämpa progress, men dölj inte stderr. Kör engångskontroller, inte watch-loopar.
+- Håll en chatt per arbetskluster och kräv fyndfokuserade subagentsvar.
 - Tester och oberoende review ska inte kapas; minska omläsning och brus.
 
 ## Workspace
@@ -91,5 +83,6 @@ spårade mallen är `.cursor/mcp.json.example`.
 
 ## Kontroller
 
-`npm run check:agent-context` håller budget för AGENTS, always-regler, glossary,
-merge-regel och dubbla skills. Vanliga repo-kontroller väljs via `workflow.mdc`.
+`config/agent-workflow.json` äger branch-, protected-path- och verifieringsdata.
+Kör `npm run verify:pr -- --plan` tidigt och `npm run verify:pr` före push.
+`check:agent-context` låser den tunna startkontexten och enda skill-katalogen.

@@ -41,7 +41,7 @@ Workflowens enda permissions är:
 contents: read
 pull-requests: write
 issues: write
-checks: read
+checks: write
 ```
 
 GitHub-access använder enbart `${{ github.token }}`. Inget personligt PAT krävs.
@@ -55,20 +55,28 @@ Det innehåller minst:
 
 - repository, PR-nummer och base branch,
 - första fullt granskade head-SHA och senaste behandlade head-SHA,
-- om den uttömmande reviewn är klar,
-- totalt antal reviewkörningar (hårt tak 3),
-- stabilt ID, plats, status och GitHub-kommentar-ID för varje fynd,
-- review-/uppföljningskommentar-ID:n, tidsstämplar och merge-status.
+- om minst en uttömmande review är klar,
+- totalt antal automatiska head-platser (hårt tak 3),
+- den senaste headens fulla fyndsnapshot,
+- en kompakt resolution-ledger med ID, status och originalkommentar för alla
+  historiska fynd,
+- senaste uttömmande review-ID, uppföljningskommentar-ID:n, tidsstämplar och
+  merge-status.
 
-Den uttömmande reviewn och varje uppföljning bäddar dessutom in en separat
-återställningsmarkör. Om state-kommentaren försvinner eller en körning avbryts
-efter publicering kan nästa event återskapa state från redan publicerade
-GitHub-reviews/kommentarer i stället för att köra en ny full review.
+Varje uttömmande review och uppföljning bäddar dessutom in en separat
+återställningsmarkör. Den uttömmande markören innehåller head-SHA, run-nummer och
+resolution-ledgern.
+Om state-kommentaren försvinner kan nästa event återskapa senaste state från de
+publicerade GitHub-reviewerna. En avbruten körning får däremot bara läkas från en
+publicerad review för **exakt samma head**; en äldre head är aldrig bevis för att
+den nya granskningen blev klar.
 
 ## Granskningskontrakt
 
-En PR får exakt ett uttömmande automatiskt reviewförsök, och därmed aldrig mer
-än en publicerad uttömmande review:
+Varje ny head-SHA får en uttömmande automatisk review så länge PR:ens hårda
+budget på tre distinkta head-platser inte är förbrukad. En normal
+`synchronize` granskar alltså hela den aktuella GitHub-diffen igen, även om den
+föregående headen var ren eller hade äldre fynd:
 
 1. Hela GitHub-diffen skickas som ok betrodd data till den starka modellen.
 2. Endast trovärdiga beteendefel, säkerhetsfel, dataförlust, brutna kontrakt och
@@ -76,8 +84,9 @@ En PR får exakt ett uttömmande automatiskt reviewförsök, och därmed aldrig 
 3. Varje fynd måste ange impact 1–10, bugsannolikhet 0–100 %, fil och rad.
 4. Bara RIGHT-side-rader som verifierats mot GitHubs verkliga diff får
    publiceras inline. Hallucinerade/ogiltiga platser filtreras bort.
-5. En ren diff får en kort COMMENTED-review som säger att inga trovärdiga
-   buggar hittades. Inga fynd konstrueras för att skapa aktivitet.
+5. En ren diff får en kort COMMENTED-review som säger att inga nya trovärdiga
+   buggar hittades. Äldre aktiva fynd ligger ändå kvar i resolution-ledgern;
+   frånvaro i ett nytt modellresultat är inte en disposition.
 
 Modellvalet ägs av workloaden `github_pr_reviewer` i
 `config/ai_models/manifest.json`:
@@ -87,11 +96,12 @@ Modellvalet ägs av workloaden `github_pr_reviewer` i
 
 Workflow-YAML:en duplicerar inga modell-ID:n.
 
-## Uppföljningar och kostnadstak
+## Per-head-review, uppföljningar och kostnadstak
 
-Efter den fulla reviewn kan högst två nya head-SHA:n utlösa en billig
-fyndspecifik uppföljning. Uppföljningsschemat innehåller bara redan kända
-finding-ID:n och statusarna:
+En ny head får aldrig kvitteras av en billig fyndspecifik uppföljning. Den kör
+alltid den uttömmande modellen mot hela current-diffen. Den kvarvarande
+uppföljningsvägen är endast för återtagning av äldre, redan påbörjat state och
+är strikt begränsad till redan kända finding-ID:n och statusarna:
 
 - `fixed`
 - `still-present`
@@ -101,18 +111,46 @@ finding-ID:n och statusarna:
 Det finns inget schemafält för nya fynd. Runtime validerar dessutom att varje
 tidigare aktivt ID förekommer exakt en gång och att inget nytt ID har lagts till.
 När ett fynd är fixat reagerar automationen med tumme upp på originalkommentaren
-och publicerar en kort statuskommentar.
+och publicerar en kort statuskommentar. Samma explicita status uppdaterar
+resolution-ledgern. Bara `fixed` eller `rejected-with-reason` gör ett äldre fynd
+terminalt; en ren senare snapshot får aldrig tappa ett öppet fynd.
 
 Hårda stopp:
 
-- högst tre modellkörningstillfällen totalt per PR,
-- ett misslyckat första full-reviewförsök gör inte en senare commit till en ny
-  full review; felet förblir synligt och kräver manuell åtgärd,
-- noll fynd efter full review innebär noll framtida modellkörningar,
-- alla fynd terminalt `fixed`/`rejected-with-reason` innebär noll framtida
-  modellkörningar,
-- samma head-SHA behandlas aldrig två gånger,
+- högst tre distinkta head-SHA:n får en automatisk reviewplats per PR,
+- ett misslyckat försök kan återtas på samma head utan en ny budgetplats; en
+  annan head förbrukar en ny plats (återförsök på samma head kan därför ge fler än tre
+  faktiska modellanrop),
+- när tre platser är förbrukade får nästa head inget trusted success-kvitto och
+  behöver ett annat kvalificerande reviewkvitto för att `review-window` ska bli
+  grön,
+- samma head-SHA behandlas aldrig två gånger efter en slutförd review,
 - modell-/GitHub-fel sparas som `failed`, aldrig som en lyckad/grön review.
+
+## Maskinläsbart kvitto på aktuell head
+
+Review-steget skriver ett versionsmärkt JSON-resultat till runnerns temporära
+katalog. Resultatet blir `qualified` bara när körningen just har:
+
+1. granskat hela diffen med `kind: exhaustive`, eller återläst exakt samma
+   publicerade exhaustive-review som `kind: receipt-recovery`,
+2. slutfört state för samma head-SHA, och
+3. publicerat en GitHub-review med ett giltigt review-ID.
+
+En receipt-recovery kvalificerar bara när den betrodda automationen på nytt har
+verifierat reviewmarkör, review-ID och att markörens head-SHA är samma som
+GitHub-reviewns `commit_id`. Det behövs om
+reviewn publicerades men POST:en av check-run-kvittot tillfälligt misslyckades:
+en omkörning återanvänder då reviewbeviset utan nytt modellanrop eller ny review.
+
+Vanlig skip, finding-only follow-up, ofullständigt state och saknat
+modellresultat kan aldrig bli kvalificerade. Ett separat steg utan
+`OPENAI_API_KEY` läser resultatet,
+hämtar PR:ens **live-head** på nytt och publicerar `trusted-pr-ai-review=success`
+endast när granskad head och live-head är identiska. Om headen har flyttat eller
+resultatet är okvalificerat publiceras `action_required`; om review-steget
+misslyckas publiceras inget grönt kvitto alls. `review-window` fortsätter därmed
+fail-closed på exakt aktuell SHA.
 
 ## Mergade PR:er
 
@@ -145,7 +183,7 @@ storlekstaket eller GitHub API-fel. State-kommentarens `lastRun.status` förblir
 En framtida `/granska-pr`-kommandoväg eller `workflow_dispatch` får bara anropa
 samma `scripts/pr-review/run.mjs` med ett PR-event/PR-nummer och samma
 PR-scopade concurrency-grupp. Den får inte ha egen state, nollställa räknaren
-eller kringgå exakt-en-/max-tre-kontraktet.
+eller kringgå per-head-/max-tre-kontraktet.
 
 Stäng av automationen genom GitHub Actions-inställningen för workflowen eller
 genom att inaktivera/radera `.github/workflows/pr-ai-review.yml` i en vanlig PR.

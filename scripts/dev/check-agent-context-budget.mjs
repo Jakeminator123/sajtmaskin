@@ -21,8 +21,33 @@ export const FILE_BUDGETS = Object.freeze({
   ".cursor/rules/response-format.mdc": 800,
 });
 
-export const ALWAYS_RULE_LIMIT = 4;
+export const REQUIRED_ALWAYS_RULES = Object.freeze([
+  ".cursor/rules/git.mdc",
+  ".cursor/rules/repo-router.mdc",
+  ".cursor/rules/workflow.mdc",
+]);
 export const ALWAYS_RULE_BYTES_LIMIT = 6_000;
+const REQUIRED_CONTEXT_FILES = Object.freeze([
+  "config/agent-workflow.json",
+  ".agents/skills/pr-workflow/SKILL.md",
+]);
+const ACTIVE_CONTEXT_ROOTS = Object.freeze([
+  ".cursor",
+  ".agents",
+  ".codex",
+  "docs/runbooks",
+  "docs/plans/active",
+]);
+const ACTIVE_CONTEXT_FILES = Object.freeze(["AGENTS.md", "README.md", "docs/README.md"]);
+const ACTIVE_TEXT_SUFFIXES = Object.freeze([".md", ".mdc", ".json", ".toml", ".yaml", ".yml"]);
+const LEGACY_ACTIVE_REFERENCES = Object.freeze([
+  { label: "legacy Grok model instruction", pattern: /\bGrok\b/iu },
+  { label: "legacy Composer-agent instruction", pattern: /\bComposer-agenter?\b/iu },
+  { label: "retired Cursor skill path", pattern: /\.cursor\/skills\//u },
+  { label: "retired fas-check path", pattern: /fas-check(?:-commit-guard)?/iu },
+  { label: "retired useful-commands rule", pattern: /useful-commands\.mdc/iu },
+  { label: "retired broad context skill", pattern: /sajtmaskin-context/iu },
+]);
 const GODNATT_PROFILES = Object.freeze({
   ".codex/agents/godnatt-investigator.toml": "xhigh",
   ".codex/agents/godnatt-worker.toml": "high",
@@ -55,9 +80,23 @@ function skillIds(root, relativeDir) {
   );
 }
 
+function activeContextFiles(root) {
+  return [
+    ...ACTIVE_CONTEXT_FILES,
+    ...ACTIVE_CONTEXT_ROOTS.flatMap((dir) => filesBelow(root, dir, "")),
+  ]
+    .filter((path) => ACTIVE_TEXT_SUFFIXES.some((suffix) => path.endsWith(suffix)))
+    .sort();
+}
+
 export function evaluateAgentContext(root = REPO_ROOT) {
   const errors = [];
   const files = {};
+
+  for (const path of REQUIRED_CONTEXT_FILES) {
+    if (!existsSync(resolve(root, path)))
+      errors.push(`missing canonical agent context file: ${path}`);
+  }
 
   for (const [path, limit] of Object.entries(FILE_BUDGETS)) {
     if (!existsSync(resolve(root, path))) {
@@ -74,19 +113,28 @@ export function evaluateAgentContext(root = REPO_ROOT) {
     /^alwaysApply:\s*true(?:\s+#.*)?\s*$/im.test(read(root, path)),
   );
   const alwaysBytes = alwaysRules.reduce((sum, path) => sum + byteLength(root, path), 0);
-  if (alwaysRules.length > ALWAYS_RULE_LIMIT) {
-    errors.push(`alwaysApply rules: ${alwaysRules.length}; limit is ${ALWAYS_RULE_LIMIT}`);
+  if (
+    alwaysRules.length !== REQUIRED_ALWAYS_RULES.length ||
+    alwaysRules.some((path, index) => path !== REQUIRED_ALWAYS_RULES[index])
+  ) {
+    errors.push(
+      `alwaysApply rules must be exactly: ${REQUIRED_ALWAYS_RULES.join(", ")}; found: ${alwaysRules.join(", ") || "none"}`,
+    );
   }
   if (alwaysBytes > ALWAYS_RULE_BYTES_LIMIT) {
     errors.push(`alwaysApply rule bytes: ${alwaysBytes}; limit is ${ALWAYS_RULE_BYTES_LIMIT}`);
   }
 
   const canonicalSkills = skillIds(root, ".agents/skills");
+  const cursorSkillsPath = resolve(root, ".cursor/skills");
   const cursorSkills = skillIds(root, ".cursor/skills");
-  const duplicates = cursorSkills.filter((id) => canonicalSkills.includes(id));
-  if (duplicates.length > 0) errors.push(`duplicate skill ids: ${duplicates.join(", ")}`);
-  if (cursorSkills.length > 0) {
-    errors.push(`skills must be canonical under .agents/skills; found: ${cursorSkills.join(", ")}`);
+  if (existsSync(cursorSkillsPath)) {
+    errors.push(
+      ".cursor/skills must not exist; .agents/skills is the only canonical skill directory",
+    );
+  }
+  if (!canonicalSkills.includes("pr-workflow")) {
+    errors.push("missing canonical pr-workflow skill under .agents/skills");
   }
 
   const indexingIgnore = read(root, ".cursorindexingignore")
@@ -130,6 +178,15 @@ export function evaluateAgentContext(root = REPO_ROOT) {
     ].every((needle) => command.includes(needle));
     if (restoresBroadReadBundle) {
       errors.push(`${path} must not restore the old broad pre-read bundle`);
+    }
+  }
+
+  for (const path of activeContextFiles(root)) {
+    const body = read(root, path);
+    for (const legacy of LEGACY_ACTIVE_REFERENCES) {
+      if (legacy.pattern.test(body)) {
+        errors.push(`${path} contains ${legacy.label}`);
+      }
     }
   }
 

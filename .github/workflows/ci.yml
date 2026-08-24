@@ -11,8 +11,14 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# PR-head kod far aldrig ett skrivtoken. Betrodda check-runs publiceras av den
+# separata pull_request_target-controllern med snava, explicita rattigheter.
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
-  quality:
+  quality-core:
     runs-on: ubuntu-latest
 
     # Efemär Postgres för de DB-backade kontraktstesterna (t.ex.
@@ -51,6 +57,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -63,7 +71,7 @@ jobs:
 
       # Next-HMR-källkontraktet (#1064 residual): `preview-host-guards` installerar
       # bara standalone-deps, så `assertInstalledNextViewerContract` hoppar över
-      # sig självt där. quality har redan `next` via `npm ci`.
+      # sig självt där. quality-core har redan `next` via `npm ci`.
       # `REQUIRE_NEXT_CONTRACT=1` gör ett hopp till FEL — samma mönster som
       # `REQUIRE_POSTGRES_TESTS`. `--next-source-only` kör bara källåsen, inte
       # HTTP/WS-proxyn (den körs fortfarande i `preview-host-guards`).
@@ -133,67 +141,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run test:followup-contract
 
-      - name: Verify baseline dependency versions
-        run: npm run baseline-deps:verify
-
-      # Ofiltrerat med flit. Steget tar ~16 s, och dess utfall beror inte bara
-      # på PACKAGE_JSON i project-scaffold.ts utan också på vilken npm-version
-      # runnern kör (`.node-version`) — peer-upplösning kan alltså ändras av en
-      # Node-bump ensam. Ett filter på en gate måste lista varje sådan indirekt
-      # indata, och missar man en blir jobbet grönt utan att ha kontrollerat
-      # något. 16 sekunder är inte värt den risken.
-      - name: Verify baseline dependency tree
-        run: npm run baseline-deps:tree
-
-      - name: Validate scaffold manifests
-        run: npm run scaffolds:validate
-
-      - name: Validate dossier manifests
-        run: npm run dossiers:validate-all
-
-      # Dossier-projektionen (data/dossiers/_index/capability-map.json) är
-      # GENERERAD och läses aldrig i runtime — registryt går direkt på
-      # data/dossiers/{hard,soft}/. Drift-checken togs bort 2026 som ren
-      # underhållsskatt, men är tillbaka som blockerande steg eftersom
-      # backoffice Systemkarta nu LÄSER filen: en stale projektion visar fel
-      # F2-/build-status för operatören, alltså har staleness en verklig
-      # konsument. Checken skriver inget, hashar bara `sourceFiles` och namnger
-      # vilken vy som drivit isär. Fixa rött med
-      # `npm run dossiers:capability-map:write` (eller backoffice "Bygg om").
-      - name: Dossier-projektionen är färsk (blocking)
-        run: npm run dossiers:capability-map:check
-
-      - name: Validate control-plane registries
-        run: npm run control-plane:check
-
-      - name: Verify generated contract docs
-        run: npm run docs:check
-
-      - name: Verify active documentation links
-        run: npm run docs:links
-
-      - name: Verify historical plan statuses
-        run: npm run plans:history:check
-
-      - name: Verify terminology ownership
-        run: npm run check:terms:contract
-
-      - name: Verify agent context budget
-        run: npm run check:agent-context
-
-      - name: Verify change-impact routing
-        run: node --test scripts/dev/change-impact.test.mjs
-
-      - name: Verify removed v0 chat boundary
-        run: npm run compat:v0-chat-boundary:check
-
-      # Plan B #9: route `maxDuration` literals are generated from
-      # config/ai_models/manifest.json routeTimeouts (canonical owner:
-      # scripts/ai-models/sync-route-timeouts.mjs). Blocking gate so a drifted
-      # literal reddens CI instead of shipping a stale per-route stream ceiling.
-      - name: Verify route maxDuration ↔ manifest sync
-        run: npm run route-timeouts:check
-
       # CI/Vercel-paritet (2026-07-03): Vercels prebuild kör `preflight:common`
       # — men detta jobb gjorde det inte, så en commit kunde bli CI-grön och
       # ändå fälla prod-deployen (hänt: #368). Kör samma sanity-checks här så
@@ -203,11 +150,89 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run preflight:common
 
-      # Bug-backloggens formatkontroll låg tidigare INUTI `preflight:common`, dvs
-      # även i Vercels prebuild — en avbockad [x]-rad kvar i Aktiv kö kunde alltså
-      # fälla PROD-BYGGET (hänt: #368). Bokföring i en markdown-fil ska inte kunna
-      # stoppa en deploy, så checken är flyttad hit: fortfarande blockerande på PR
-      # (samma enforcement, snabbare feedback) men utanför build-kedjan.
+  # Avtal, genererade projektioner och dokumentation körs parallellt med
+  # runtime/test-lanen ovan. Det gör huvudgrinden snabbare utan att någon kontroll
+  # försvinner. `quality` nedan aggregerar båda och behåller det stabila checknamn
+  # som branch protection och efterföljande jobb redan använder.
+  quality-contracts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify baseline dependency versions
+        if: ${{ !cancelled() }}
+        run: npm run baseline-deps:verify
+
+      # Ofiltrerat med flit. Utfallet beror också på runnerns npm-version och
+      # peer-upplösning, inte bara på en enda källfil.
+      - name: Verify baseline dependency tree
+        if: ${{ !cancelled() }}
+        run: npm run baseline-deps:tree
+
+      - name: Validate scaffold manifests
+        if: ${{ !cancelled() }}
+        run: npm run scaffolds:validate
+
+      - name: Validate dossier manifests
+        if: ${{ !cancelled() }}
+        run: npm run dossiers:validate-all
+
+      - name: Dossier-projektionen är färsk (blocking)
+        if: ${{ !cancelled() }}
+        run: npm run dossiers:capability-map:check
+
+      - name: Validate control-plane registries
+        if: ${{ !cancelled() }}
+        run: npm run control-plane:check
+
+      # Det lokala agentflödet har ett strikt schema. Kör samma kontrakt i CI så
+      # instruktioner, package-script och faktisk konfiguration inte kan driva isär.
+      - name: Validate agent workflow contract
+        if: ${{ !cancelled() }}
+        run: npm run workflow:contract
+
+      - name: Verify generated contract docs
+        if: ${{ !cancelled() }}
+        run: npm run docs:check
+
+      - name: Verify active documentation links
+        if: ${{ !cancelled() }}
+        run: npm run docs:links
+
+      - name: Verify historical plan statuses
+        if: ${{ !cancelled() }}
+        run: npm run plans:history:check
+
+      - name: Verify terminology ownership
+        if: ${{ !cancelled() }}
+        run: npm run check:terms:contract
+
+      - name: Verify agent context budget
+        if: ${{ !cancelled() }}
+        run: npm run check:agent-context
+
+      - name: Verify removed v0 chat boundary
+        if: ${{ !cancelled() }}
+        run: npm run compat:v0-chat-boundary:check
+
+      - name: Verify route maxDuration ↔ manifest sync
+        if: ${{ !cancelled() }}
+        run: npm run route-timeouts:check
+
+      # Dessa är repo-/arbetsflödeskontrakt, inte produktionsbyggets ansvar.
       - name: Bug-backlog sanity (blocking)
         if: ${{ !cancelled() }}
         run: npm run check:bug-backlog
@@ -215,6 +240,25 @@ jobs:
       - name: Canvas backlog drift (blocking)
         if: ${{ !cancelled() }}
         run: npm run canvas:check
+
+  quality:
+    needs: [quality-core, quality-contracts, preview-host-guards, dead-code]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate required quality result
+        env:
+          CORE_RESULT: ${{ needs['quality-core'].result }}
+          CONTRACTS_RESULT: ${{ needs['quality-contracts'].result }}
+          PREVIEW_HOST_RESULT: ${{ needs['preview-host-guards'].result }}
+          DEAD_CODE_RESULT: ${{ needs['dead-code'].result }}
+        run: |
+          set -euo pipefail
+          if [ "$CORE_RESULT" != "success" ] || [ "$CONTRACTS_RESULT" != "success" ] || [ "$PREVIEW_HOST_RESULT" != "success" ] || [ "$DEAD_CODE_RESULT" != "success" ]; then
+            echo "::error::quality-core=${CORE_RESULT}, quality-contracts=${CONTRACTS_RESULT}, preview-host-guards=${PREVIEW_HOST_RESULT}, dead-code=${DEAD_CODE_RESULT}"
+            exit 1
+          fi
+          echo "✓ quality-core, quality-contracts, preview-host-guards och dead-code är gröna"
 
   # Produktionsbygge (2026-07-29). `next build` kördes INGENSTANS före merge:
   # preview-deployer är avstängda i `vercel.json` (`deploymentEnabled` bara för
@@ -265,6 +309,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # Medvetet UTAN paths-filter. `backoffice-tests` är en required check som
       # skyddar control-plane-paritet, och flera av testerna läser repots
@@ -318,6 +364,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -347,6 +395,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Detect stability-relevant changes
         id: filter
@@ -401,13 +451,13 @@ jobs:
         run: echo "No stability-related files changed; skipping install and tests."
 
   # Preview-host runtime-guards (A#13/A#28). `preview-host/` är ett fristående
-  # Node-paket (egen `package.json`, ingen lockfile → `npm install`, inte
-  # `npm ci`). Guard-testerna är deterministiska, nyckelfria och plattforms-
+  # Node-paket med egen `package.json` och spårad lockfile; `npm ci` gör grinden
+  # reproducerbar mot exakt committat dependency-träd. Guard-testerna är
+  # deterministiska, nyckelfria och plattforms-
   # oberoende (kör mot tmpdir, ingen Fly/nät): `check` (syntax), `test:guards`
   # (timeout-settle, idle-sweep, boot-serialisering) och `test:patch`. Kördes
   # tidigare bara lokalt, så en regression i preview-host-runtimen syntes först
-  # på Fly. Blockerande gate (att göra checken required på master-rulesetet är
-  # ett separat repo-inställningsval).
+  # på Fly. Jobbet ingår i required-aggregatet `quality` ovan.
   #
   # Next-källåsen (HMR-path mot installerad `next`) körs inte här — jobbet har
   # ingen `next`. Den lanen sitter i `quality` (`REQUIRE_NEXT_CONTRACT=1`).
@@ -417,6 +467,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Detect preview-host-relevant changes
         id: filter
@@ -437,7 +489,7 @@ jobs:
       - name: Install preview-host dependencies
         if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
         working-directory: preview-host
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Preview-host runtime guards (blocking)
         if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.preview_host == 'true' }}
@@ -461,57 +513,31 @@ jobs:
   #   2. Orphan-FIL-grind (blockerande): en genuint oimporterad källfil rödar CI. Fixa
   #      genom att radera den — eller, om den är runtime-/tooling-laddad, lägg till den i
   #      knip.json `entry`. Runbook: docs/runbooks/hygiene.md.
-  # Som `preview-host-guards`: jobbet failar hårt, men det är ännu INTE en required
-  # check på master-rulesetet, så ett rött resultat blockerar inte merge av sig självt.
+  # Orphan-grinden ingår indirekt i required-checken `quality`; den fulla
+  # rapporten är fortsatt rådgivande via `|| true`.
   dead-code:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-
-      - name: Detect dead-code-relevant changes
-        id: filter
-        uses: dorny/paths-filter@v4
         with:
-          filters: |
-            dead_code:
-              - '.github/workflows/ci.yml'
-              - '.node-version'
-              - 'knip.json'
-              - 'package.json'
-              - 'package-lock.json'
-              - 'tsconfig.json'
-              - 'tsconfig*.json'
-              - 'src/**'
-              - 'scripts/**'
-              # knip:files scannar allt som tsconfig-globbarna inkluderar, och
-              # `tests/` är en av dem — en orphan där ska inte kunna smyga
-              # igenom bara för att diffen inte rörde src/ eller scripts/.
-              - 'tests/**'
+          persist-credentials: false
 
       - name: Setup Node.js
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.dead_code == 'true' }}
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
           cache: npm
 
       - name: Install dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.dead_code == 'true' }}
         run: npm ci
 
       - name: Dead-code report (full, advisory — never blocks)
-        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || steps.filter.outputs.dead_code == 'true') }}
         run: npm run knip || true
 
       - name: Orphan-file gate (blocking)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.dead_code == 'true' }}
         run: npm run knip:files
-
-      - name: Skip dead-code (no relevant changes)
-        if: ${{ github.event_name != 'workflow_dispatch' && steps.filter.outputs.dead_code != 'true' }}
-        run: echo "No knip-related files changed; skipping install and knip."
 
   # Auto-applicerar migrationer mot PRODUKTIONS-databasen vid merge till master —
   # så en migration ALDRIG kan bli deployad utan att köras (grundorsaken till att
@@ -724,28 +750,3 @@ jobs:
         env:
           POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
           POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}
-
-  # Ett stabilt aggregat för CI-lanes. Ruleseten ska kräva BÅDE merge-gate och
-  # det separata review-window; ett workflow kan inte needs-koppla ett annat.
-  merge-gate:
-    if: ${{ always() && github.event_name == 'pull_request' }}
-    needs:
-      - quality
-      - build
-      - backoffice-tests
-      - schema-drift
-      - stability
-      - preview-host-guards
-      - dead-code
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require every blocking PR lane
-        env:
-          RESULTS: ${{ toJson(needs) }}
-        run: |
-          failed=$(printf '%s' "$RESULTS" | jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key)=\(.value.result)"')
-          if [ -n "$failed" ]; then
-            echo "::error::Blocking PR lanes failed: $failed"
-            exit 1
-          fi
-          echo "All blocking PR lanes passed."

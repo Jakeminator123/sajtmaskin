@@ -23,7 +23,7 @@
  *
  * npm: `npm run worktree:link -- <path>` · `npm run worktree:remove -- <path>`
  */
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   copyFileSync,
   lstatSync,
@@ -35,6 +35,7 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { BASE_REF, isExactMergedPr, isProtectedBranch, loadPrLifecycle } from "../dev/tidy.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -87,6 +88,38 @@ export function resolveTargetWorktree({ targetPath, worktrees, protectedWorktree
   return { ok: true, worktreePath: match.path };
 }
 
+export function classifyRemovalLifecycle({
+  branch,
+  headSha,
+  isDirty,
+  force,
+  discardReason = "",
+  lifecycle,
+  mergedIntoBase,
+}) {
+  if (typeof branch === "string" && isProtectedBranch(branch)) {
+    return { ok: false, reason: "skyddat branchnamn får aldrig tas bort" };
+  }
+  if (!lifecycle) return { ok: false, reason: "GitHub PR-livscykeln kunde inte verifieras" };
+  if (lifecycle.openHeads.has(branch)) {
+    return { ok: false, reason: "branchen äger en öppen PR" };
+  }
+  if (force) {
+    if (discardReason.trim().length < 20) {
+      return {
+        ok: false,
+        reason: "--force kräver SAJTMASKIN_DISCARD_REASON med ett tydligt beslut",
+      };
+    }
+    return { ok: true, reason: "explicit discard utan öppen PR" };
+  }
+  if (isDirty) return { ok: false, reason: "worktreet är smutsigt" };
+  if (!mergedIntoBase && !isExactMergedPr(lifecycle, branch, headSha)) {
+    return { ok: false, reason: "ingen exakt Git-/squash-merge bevisad" };
+  }
+  return { ok: true, reason: "FRI: ingen öppen PR, rent och exakt mergat" };
+}
+
 /**
  * Protect both the checkout running this script and the repo-conventional
  * permanent Codex checkout next to the main checkout.
@@ -110,7 +143,9 @@ export function protectedRemovalPaths(
 }
 
 function normalizePath(p) {
-  return resolve(p).replace(/[\\/]+$/, "").toLowerCase();
+  return resolve(p)
+    .replace(/[\\/]+$/, "")
+    .toLowerCase();
 }
 
 /**
@@ -192,11 +227,7 @@ export function findLinkedEntries(worktreePath, io = {}) {
         linked.push(full);
         continue;
       }
-      if (
-        depth < LINK_SCAN_MAX_DEPTH &&
-        !LINK_SCAN_LEAF_DIRS.has(entry) &&
-        stats.isDirectory?.()
-      ) {
+      if (depth < LINK_SCAN_MAX_DEPTH && !LINK_SCAN_LEAF_DIRS.has(entry) && stats.isDirectory?.()) {
         walk(full, depth + 1);
       }
     }
@@ -242,12 +273,7 @@ export function parseDirtyEntries(porcelainStatus) {
  * @param {{ worktreePath: string, detachedLinks: string[], stillRegistered: boolean, message: string }} input
  * @returns {string}
  */
-export function describeRemovalFailure({
-  worktreePath,
-  detachedLinks,
-  stillRegistered,
-  message,
-}) {
+export function describeRemovalFailure({ worktreePath, detachedLinks, stillRegistered, message }) {
   const lines = [];
   if (detachedLinks.length > 0) {
     lines.push(
@@ -401,9 +427,7 @@ function commandLink(targetPath) {
   const source = join(mainWorktree, "node_modules");
 
   if (pathExists(linkPath)) {
-    console.error(
-      `[worktree] ${linkPath} already exists. Remove it first if you want to relink.`,
-    );
+    console.error(`[worktree] ${linkPath} already exists. Remove it first if you want to relink.`);
     process.exit(1);
   }
 
@@ -466,18 +490,43 @@ function commandRemove(targetPath, { force }) {
     process.exit(1);
   }
 
-  if (!force) {
-    const dirty = parseDirtyEntries(git(["-C", plan.worktreePath, "status", "--porcelain"]));
-    if (dirty.length > 0) {
-      console.error(
-        `[worktree] ${plan.worktreePath} has uncommitted or untracked content. ` +
-          "Refusing, exactly as `git worktree remove` would, and leaving all links attached:\n" +
-          dirty.map((entry) => `  ${entry}`).join("\n") +
-          "\n[worktree] Commit or rescue it (`git stash push -u -m ...`), or rerun with --force if you have decided to discard it.",
-      );
-      process.exit(1);
-    }
+  const headSha = git(["-C", plan.worktreePath, "rev-parse", "HEAD"]).trim();
+  let lifecycle = loadPrLifecycle(REPO_ROOT);
+  // Connector-baserade merge-stewards kan sakna gh lokalt. De får överlämna
+  // ett exakt, terminalt MERGED-bevis; alla tre fält måste matcha live target.
+  if (
+    !lifecycle &&
+    process.env.SAJTMASKIN_TERMINAL_PR_STATE === "MERGED" &&
+    process.env.SAJTMASKIN_TERMINAL_PR_BRANCH === branch &&
+    process.env.SAJTMASKIN_TERMINAL_PR_HEAD_SHA?.toLowerCase() === headSha.toLowerCase()
+  ) {
+    lifecycle = {
+      openHeads: new Set(),
+      mergedHeads: new Map([[branch, new Set([headSha.toLowerCase()])]]),
+    };
   }
+
+  const dirty = parseDirtyEntries(git(["-C", plan.worktreePath, "status", "--porcelain"]));
+  const ancestry = spawnSync("git", ["merge-base", "--is-ancestor", headSha, BASE_REF], {
+    cwd: REPO_ROOT,
+    stdio: "ignore",
+  });
+  const lifecycleDecision = classifyRemovalLifecycle({
+    branch,
+    headSha,
+    isDirty: dirty.length > 0,
+    force,
+    discardReason: process.env.SAJTMASKIN_DISCARD_REASON ?? "",
+    lifecycle,
+    mergedIntoBase: ancestry.status === 0,
+  });
+  if (!lifecycleDecision.ok) {
+    console.error(
+      `[worktree] Refusing removal: ${lifecycleDecision.reason}. Run npm run tidy first.`,
+    );
+    process.exit(1);
+  }
+  console.log(`[worktree] lifecycle proof: ${lifecycleDecision.reason}`);
 
   const links = findLinkedEntries(plan.worktreePath);
   for (const link of links) {
