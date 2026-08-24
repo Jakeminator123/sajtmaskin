@@ -82,16 +82,30 @@ export function authorizeBuilderToolCall(input: {
   const statusDenied = denyForJobStatus(input.expected.jobStatus);
   if (statusDenied) return statusDenied;
 
-  const payloadBytes = input.payloadBytes ?? 0;
-  if (payloadBytes > BUILDER_TOOL_PAYLOAD_MAX_BYTES) {
+  if (!isFiniteNonNegative(input.payloadBytes)) {
+    return { ok: false, code: "payload_too_large" };
+  }
+  if (input.payloadBytes > BUILDER_TOOL_PAYLOAD_MAX_BYTES) {
     return { ok: false, code: "payload_too_large" };
   }
 
-  if (input.budgetRemaining && input.budgetRemaining.toolCalls < 1) {
+  if (!isBudgetRemaining(input.budgetRemaining) || input.budgetRemaining.toolCalls < 1) {
     return { ok: false, code: "budget_exhausted" };
   }
 
   return { ok: true };
+}
+
+function isFiniteNonNegative(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isBudgetRemaining(
+  value: unknown,
+): value is { toolCalls: number; readBytes: number } {
+  if (value == null || typeof value !== "object") return false;
+  const budget = value as { toolCalls?: unknown; readBytes?: unknown };
+  return isFiniteNonNegative(budget.toolCalls) && isFiniteNonNegative(budget.readBytes);
 }
 
 function identitiesMatch(

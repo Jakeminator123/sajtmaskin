@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   BUILDER_JOB_TOKEN_AUDIENCE,
+  BUILDER_JOB_TOKEN_MAX_TTL_MS,
   BUILDER_TOOL_NAMES,
   issueBuilderJobToken,
   verifyBuilderJobToken,
@@ -121,12 +122,26 @@ describe("issueBuilderJobToken / verifyBuilderJobToken", () => {
     }
   });
 
-  it("rejects an empty verify secret as invalid", () => {
+  it("rejects an empty or whitespace verify secret as invalid", () => {
     const token = issueBuilderJobToken({ secret: SECRET, claims: validClaims(), nowMs: NOW });
     expect(verifyBuilderJobToken({ secret: "", token, nowMs: NOW })).toEqual({
       ok: false,
       code: "invalid",
     });
+    expect(verifyBuilderJobToken({ secret: "   ", token, nowMs: NOW })).toEqual({
+      ok: false,
+      code: "invalid",
+    });
+  });
+
+  it("rejects a non-finite nowMs as invalid", () => {
+    const token = issueBuilderJobToken({ secret: SECRET, claims: validClaims(), nowMs: NOW });
+    expect(
+      verifyBuilderJobToken({ secret: SECRET, token, nowMs: Number.NaN }),
+    ).toEqual({ ok: false, code: "invalid" });
+    expect(
+      verifyBuilderJobToken({ secret: SECRET, token, nowMs: Number.POSITIVE_INFINITY }),
+    ).toEqual({ ok: false, code: "invalid" });
   });
 
   it("signs canonical JSON so key order does not affect verification", () => {
@@ -203,6 +218,16 @@ describe("issueBuilderJobToken validation", () => {
         nowMs: NOW,
       }),
     ).toThrow(/read-only builder tools/);
+  });
+
+  it("rejects a ttl longer than 15 minutes", () => {
+    expect(() =>
+      issueBuilderJobToken({
+        secret: SECRET,
+        claims: validClaims({ expiresAtMs: NOW + BUILDER_JOB_TOKEN_MAX_TTL_MS + 1 }),
+        nowMs: NOW,
+      }),
+    ).toThrow(/expiresAtMs exceeds max ttl/);
   });
 
   it("rejects expiresAtMs in the past or equal to now", () => {

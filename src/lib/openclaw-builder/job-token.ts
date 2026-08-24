@@ -6,6 +6,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  */
 
 export const BUILDER_JOB_TOKEN_AUDIENCE = "openclaw-builder" as const;
+export const BUILDER_JOB_TOKEN_MAX_TTL_MS = 15 * 60 * 1000;
 
 export const BUILDER_TOOL_NAMES = [
   "job.get",
@@ -60,7 +61,10 @@ export function issueBuilderJobToken(input: {
   claims: BuilderJobTokenClaims;
   nowMs?: number;
 }): string {
-  const nowMs = input.nowMs ?? Date.now();
+  const nowMs = resolveNowMs(input.nowMs);
+  if (nowMs === null) {
+    throw new Error("nowMs must be a finite number");
+  }
   const secret = requireNonEmptySecret(input.secret);
   const claims = normalizeIssuableClaims(input.claims, nowMs);
   const body = canonicalize(signedBody(BUILDER_JOB_TOKEN_AUDIENCE, claims));
@@ -74,7 +78,7 @@ export function verifyBuilderJobToken(input: {
   nowMs?: number;
   expectedAudience?: "openclaw-builder";
 }): VerifyBuilderJobTokenResult {
-  if (typeof input.secret !== "string" || input.secret.length === 0) {
+  if (typeof input.secret !== "string" || input.secret.length === 0 || input.secret.trim() === "") {
     return { ok: false, code: "invalid" };
   }
   if (typeof input.token !== "string") {
@@ -121,12 +125,20 @@ export function verifyBuilderJobToken(input: {
     return { ok: false, code: "invalid" };
   }
 
-  const nowMs = input.nowMs ?? Date.now();
+  const nowMs = resolveNowMs(input.nowMs);
+  if (nowMs === null) {
+    return { ok: false, code: "invalid" };
+  }
   if (nowMs >= claims.expiresAtMs) {
     return { ok: false, code: "expired" };
   }
 
   return { ok: true, claims };
+}
+
+function resolveNowMs(nowMs: number | undefined): number | null {
+  const resolved = nowMs ?? Date.now();
+  return Number.isFinite(resolved) ? resolved : null;
 }
 
 function requireNonEmptySecret(secret: string): string {
@@ -161,6 +173,9 @@ function normalizeIssuableClaims(
   }
   if (claims.expiresAtMs <= nowMs) {
     throw new Error("expiresAtMs must be in the future");
+  }
+  if (claims.expiresAtMs - nowMs > BUILDER_JOB_TOKEN_MAX_TTL_MS) {
+    throw new Error("expiresAtMs exceeds max ttl");
   }
 
   if (!Array.isArray(claims.allowedTools)) {
@@ -248,8 +263,11 @@ function sortKeys(value: unknown): unknown {
     return value.map(sortKeys);
   }
   if (isRecord(value)) {
-    const sorted: Record<string, unknown> = {};
+    const sorted: Record<string, unknown> = Object.create(null);
     for (const key of Object.keys(value).sort()) {
+      if (key === "__proto__" || key === "constructor" || key === "prototype") {
+        continue;
+      }
       sorted[key] = sortKeys(value[key]);
     }
     return sorted;

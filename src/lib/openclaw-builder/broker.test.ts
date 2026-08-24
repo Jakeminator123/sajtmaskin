@@ -67,6 +67,8 @@ function authorize(
     tool: "job.get",
     nowMs: NOW,
     expected: expectedIdentity(),
+    payloadBytes: 0,
+    budgetRemaining: { toolCalls: 1, readBytes: 4_096 },
     ...overrides,
   });
 }
@@ -219,6 +221,37 @@ describe("authorizeBuilderToolCall", () => {
     });
     expect(authorize({ budgetRemaining: { toolCalls: 1, readBytes: 0 } })).toEqual({
       ok: true,
+    });
+  });
+
+  it("fails closed when payloadBytes or budgetRemaining is missing or not finite", () => {
+    expect(
+      authorizeBuilderToolCall({
+        secret: SECRET,
+        token: issueToken(),
+        tool: "job.get",
+        nowMs: NOW,
+        expected: expectedIdentity(),
+        budgetRemaining: { toolCalls: 1, readBytes: 4_096 },
+      }),
+    ).toEqual({ ok: false, code: "payload_too_large" });
+    expect(authorize({ payloadBytes: Number.NaN })).toEqual({
+      ok: false,
+      code: "payload_too_large",
+    });
+    expect(
+      authorizeBuilderToolCall({
+        secret: SECRET,
+        token: issueToken(),
+        tool: "job.get",
+        nowMs: NOW,
+        expected: expectedIdentity(),
+        payloadBytes: 0,
+      }),
+    ).toEqual({ ok: false, code: "budget_exhausted" });
+    expect(authorize({ budgetRemaining: { toolCalls: 1, readBytes: Number.NaN } })).toEqual({
+      ok: false,
+      code: "budget_exhausted",
     });
   });
 });
