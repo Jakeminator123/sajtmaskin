@@ -179,7 +179,7 @@ describe("createRevisionMemory", () => {
   });
 
   it("rejects a rewind of updatedAtMs and misses aged entries", () => {
-    const memory = createRevisionMemory({ maxAgeMs: 1_000 });
+    const memory = createRevisionMemory({ maxEntries: 1, maxAgeMs: 1_000 });
     expect(memory.put(scope(), "First", 100)).toEqual({ ok: true });
     expect(memory.put(scope(), "Older clock", 50)).toEqual({
       ok: false,
@@ -190,6 +190,9 @@ describe("createRevisionMemory", () => {
       updatedAtMs: 100,
     });
     expect(memory.get(scope(), 1_101)).toBeNull();
+    expect(memory.put(scope({ chatId: "chat-fresh" }), "Replacement", 1_101)).toEqual({
+      ok: true,
+    });
   });
 
   it("keeps the same chatId isolated across tenants", () => {

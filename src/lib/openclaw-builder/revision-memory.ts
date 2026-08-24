@@ -32,7 +32,7 @@ type StoredEntry = MemoryEntry & {
 type InvalidateScope = Pick<MemoryScope, "tenantId" | "chatId"> &
   Partial<Pick<MemoryScope, "versionId" | "filesRevision">>;
 
-const SECRET_RE = /bearer|sk-|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key/i;
+const SECRET_RE = /bearer|sk[-_]|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key|ghp_|gho_|github_pat_|xox[baprs]-/i;
 
 function normalizeId(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -112,6 +112,27 @@ export function createRevisionMemory(options?: {
     return { summary: stored.summary, updatedAtMs: stored.updatedAtMs };
   }
 
+  function isStale(stored: StoredEntry, now: number): boolean {
+    return maxAgeMs != null && now >= stored.updatedAtMs && now - stored.updatedAtMs > maxAgeMs;
+  }
+
+  function deleteStored(tenantId: string, chatId: string): void {
+    const chats = tenants.get(tenantId);
+    if (!chats) return;
+    chats.delete(chatId);
+    if (chats.size === 0) tenants.delete(tenantId);
+  }
+
+  function evictStale(now: number): void {
+    if (maxAgeMs == null) return;
+    for (const [tenantId, chats] of [...tenants.entries()]) {
+      for (const [chatId, stored] of [...chats.entries()]) {
+        if (isStale(stored, now)) chats.delete(chatId);
+      }
+      if (chats.size === 0) tenants.delete(tenantId);
+    }
+  }
+
   return {
     get(scope, nowMs) {
       const parsed = parseScope(scope);
@@ -126,7 +147,9 @@ export function createRevisionMemory(options?: {
       }
       if (maxAgeMs != null) {
         const now = resolveUpdatedAtMs(nowMs);
-        if (now < stored.updatedAtMs || now - stored.updatedAtMs > maxAgeMs) {
+        if (now < stored.updatedAtMs) return null;
+        if (isStale(stored, now)) {
+          deleteStored(parsed.tenantId, parsed.chatId);
           return null;
         }
       }
@@ -140,13 +163,14 @@ export function createRevisionMemory(options?: {
       const clean = normalizeSummary(summary, maxSummaryChars);
       if (clean == null) return { ok: false, code: "invalid_summary" };
 
+      const proposedAt = resolveUpdatedAtMs(nowMs);
+      evictStale(proposedAt);
+
       const chats = tenants.get(parsed.tenantId);
       const existing = chats?.get(parsed.chatId);
       if (!existing && entryCount() >= maxEntries) {
         return { ok: false, code: "capacity" };
       }
-
-      const proposedAt = resolveUpdatedAtMs(nowMs);
       if (existing && proposedAt < existing.updatedAtMs) {
         return { ok: false, code: "invalid_summary" };
       }
