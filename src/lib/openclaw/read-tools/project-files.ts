@@ -167,12 +167,12 @@ export function readOpenClawProjectFile(
   const lines = entry.file.content.split(/\r?\n/);
   const totalLines = lines.length;
   const requestedStart = Math.max(1, args.startLine ?? 1);
-  const requestedEnd = Math.max(
-    requestedStart,
-    args.endLine ?? requestedStart + OPENCLAW_READ_MAX_FILE_LINES - 1,
-  );
   const startLine = Math.min(requestedStart, Math.max(1, totalLines));
-  const endLine = Math.min(totalLines, requestedEnd, startLine + OPENCLAW_READ_MAX_FILE_LINES - 1);
+  const requestedEnd =
+    args.endLine === undefined ? Number.POSITIVE_INFINITY : Math.max(requestedStart, args.endLine);
+  const lineBudgetEnd = startLine + OPENCLAW_READ_MAX_FILE_LINES - 1;
+  const endLine = Math.min(totalLines, requestedEnd, lineBudgetEnd);
+  const lineBudgetTruncated = Math.min(totalLines, requestedEnd) > lineBudgetEnd;
   const selected = lines.slice(startLine - 1, endLine).join("\n");
   const scrubbed = scrubOpenClawReadText(selected, { maxChars: OPENCLAW_READ_MAX_FILE_CHARS });
   return {
@@ -185,7 +185,7 @@ export function readOpenClawProjectFile(
       endLine,
       totalLines,
       redacted: scrubbed.redacted,
-      truncated: scrubbed.truncated || requestedEnd > endLine || totalLines > endLine,
+      truncated: scrubbed.truncated || lineBudgetTruncated,
     },
   };
 }

@@ -212,15 +212,18 @@ function sanitizePreviewLogs(
     truncated: logs.truncated,
     lines: logs.lines.map((line) => {
       const timestamp = scrubOpenClawReadText(line.ts, { maxChars: 64 });
-      const identifierScrubbed = exactRedactions.reduce(
-        (text, value) => text.replaceAll(value, "[REDACTED]"),
-        line.message,
-      );
+      let identifierScrubbed = line.message;
+      let exactIdentifierRedacted = false;
+      for (const value of exactRedactions) {
+        const next = identifierScrubbed.replaceAll(value, "[REDACTED]");
+        exactIdentifierRedacted ||= next !== identifierScrubbed;
+        identifierScrubbed = next;
+      }
       const message = scrubOpenClawReadText(identifierScrubbed, { maxChars: 1_000 });
       return {
         ts: timestamp.text,
         message: message.text,
-        redacted: timestamp.redacted || message.redacted,
+        redacted: timestamp.redacted || exactIdentifierRedacted || message.redacted,
         truncated: message.truncated,
       };
     }),

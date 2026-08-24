@@ -4,6 +4,10 @@ import { createOpenClawReadToolSession } from "./broker";
 import type { OpenClawReadTarget, OpenClawReadToolDataSource } from "./source";
 
 const request = new Request("https://sajtmaskin.test/api/openclaw");
+const syntheticBearerValue = ["synthetic", "bearer", "credential"].join("-");
+const syntheticNamedSecret = ["synthetic", "named", "credential"].join("-");
+const syntheticPreviewSessionId = ["preview", "session", "synthetic", "id"].join("-");
+const syntheticPreviewOrigin = ["https://preview", "synthetic", "invalid"].join(".");
 
 function makeTarget(overrides?: {
   chatId?: string;
@@ -333,7 +337,7 @@ describe("OpenClaw read-tool broker security", () => {
       {
         level: "error",
         category: "auth",
-        message: "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
+        message: `Authorization: Bearer ${syntheticBearerValue}`,
         createdAt: "2026-08-24T00:00:00.000Z",
         defect: null,
       },
@@ -344,12 +348,23 @@ describe("OpenClaw read-tool broker security", () => {
       lines: [
         {
           ts: "2026-08-24T00:00:00.000Z",
-          message:
-            "session ps-secret https://preview.internal/x?token=top-secret api_key=sk-proj-abcdefghijklmnopqrstuvwxyz",
+          message: `session ${syntheticPreviewSessionId}`,
+        },
+        {
+          ts: "2026-08-24T00:00:01.000Z",
+          message: `preview ${syntheticPreviewOrigin}/project`,
+        },
+        {
+          ts: "2026-08-24T00:00:02.000Z",
+          message: `api_key=${syntheticNamedSecret}`,
+        },
+        {
+          ts: "2026-08-24T00:00:03.000Z",
+          message: "preview server ready",
         },
       ],
       truncated: false,
-      redactValues: ["ps-secret-id", "https://preview.internal"],
+      redactValues: [syntheticPreviewSessionId, syntheticPreviewOrigin],
     });
     const created = await createSession(dataSource);
     expect(created.ok).toBe(true);
@@ -359,14 +374,24 @@ describe("OpenClaw read-tool broker security", () => {
       name: "project_get_diagnostics",
       arguments: {},
     });
-    expect(JSON.stringify(diagnostics)).not.toContain("abcdefghijklmnopqrstuvwxyz");
+    expect(JSON.stringify(diagnostics)).not.toContain(syntheticBearerValue);
 
     const logs = await created.session.execute({ name: "preview_get_logs", arguments: {} });
     const serialized = JSON.stringify(logs);
-    expect(serialized).not.toContain("top-secret");
-    expect(serialized).not.toContain("sk-proj-");
-    expect(serialized).not.toContain("ps-secret-id");
-    expect(serialized).not.toContain("preview.internal");
+    expect(logs).toMatchObject({
+      ok: true,
+      data: {
+        lines: [
+          { message: "session [REDACTED]", redacted: true },
+          { message: "preview [REDACTED]/project", redacted: true },
+          { message: "api_key=[REDACTED]", redacted: true },
+          { message: "preview server ready", redacted: false },
+        ],
+      },
+    });
+    expect(serialized).not.toContain(syntheticNamedSecret);
+    expect(serialized).not.toContain(syntheticPreviewSessionId);
+    expect(serialized).not.toContain(syntheticPreviewOrigin);
     expect(serialized).not.toContain("previewSessionId");
     expect(serialized).not.toContain("previewUrl");
     expect(serialized).toContain("[REDACTED]");

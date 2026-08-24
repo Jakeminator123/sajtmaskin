@@ -6,12 +6,13 @@ import {
   searchOpenClawProjectCode,
 } from "./project-files";
 
+const syntheticProviderToken = ["sk", "proj", "syntheticprojectcredential"].join("-");
+
 const files: CodeFile[] = [
   {
     path: "app/page.tsx",
     language: "tsx",
-    content:
-      'export const apiKey = "sk-proj-abcdefghijklmnopqrstuvwxyz";\nexport default function Page() { return <main>Hello needle</main>; }',
+    content: `export const apiKey = "${syntheticProviderToken}";\nexport default function Page() { return <main>Hello needle</main>; }`,
   },
   { path: ".env", language: "text", content: "DATABASE_URL=postgres://owner:secret@db/x" },
   { path: "package-lock.json", language: "json", content: '{"needle":"secret"}' },
@@ -48,9 +49,46 @@ describe("OpenClaw project-file tools", () => {
     const result = readOpenClawProjectFile(files, { path: "app/page.tsx" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.content).not.toContain("sk-proj-");
+    expect(result.data.content).not.toContain(syntheticProviderToken);
     expect(result.data.content).toContain("[REDACTED]");
     expect(result.data.redacted).toBe(true);
+  });
+
+  it("distinguishes complete reads and explicit partial ranges from budget truncation", () => {
+    const shortFile: CodeFile = {
+      path: "src/short.ts",
+      language: "ts",
+      content: ["line 1", "line 2", "line 3"].join("\n"),
+    };
+    const complete = readOpenClawProjectFile([shortFile], { path: shortFile.path });
+    expect(complete.ok).toBe(true);
+    if (complete.ok) {
+      expect(complete.data.content).toBe(shortFile.content);
+      expect(complete.data.truncated).toBe(false);
+    }
+
+    const partial = readOpenClawProjectFile([shortFile], {
+      path: shortFile.path,
+      startLine: 1,
+      endLine: 2,
+    });
+    expect(partial.ok).toBe(true);
+    if (partial.ok) {
+      expect(partial.data.content).toBe("line 1\nline 2");
+      expect(partial.data.truncated).toBe(false);
+    }
+
+    const budgetLimited: CodeFile = {
+      path: "src/budget-limited.ts",
+      language: "ts",
+      content: Array.from({ length: 251 }, (_, index) => `line ${index + 1}`).join("\n"),
+    };
+    const capped = readOpenClawProjectFile([budgetLimited], { path: budgetLimited.path });
+    expect(capped.ok).toBe(true);
+    if (capped.ok) {
+      expect(capped.data.endLine).toBe(250);
+      expect(capped.data.truncated).toBe(true);
+    }
   });
 
   it("skips sensitive files during code search and scrubs matching lines", () => {

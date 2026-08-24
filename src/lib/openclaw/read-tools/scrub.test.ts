@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { scrubOpenClawReadText } from "./scrub";
 
+const syntheticBearer = ["Authorization:", "Bearer", "synthetic-bearer-credential"].join(" ");
+const syntheticProviderToken = ["sk", "proj", "syntheticprojectcredential"].join("-");
+const syntheticGithubToken = ["ghp", "syntheticgithubcredentialvalue"].join("_");
+const syntheticJwt = ["eyJsyntheticheader", "eyJsyntheticpayload", "syntheticsignature"].join(".");
+
 describe("OpenClaw read-tool scrubbing", () => {
   it.each([
-    "Authorization: Bearer abcdefghijklmnopqrstuvwxyz",
-    "api_key=sk-proj-abcdefghijklmnopqrstuvwxyz",
+    syntheticBearer,
+    `api_key=${syntheticProviderToken}`,
     "password: super-secret-value",
     "DATABASE_URL=postgres://owner:password@database.example/app",
     "https://user:password@example.test/path?token=top-secret",
-    "github=ghp_abcdefghijklmnopqrstuvwxyz1234567890",
-    "jwt=eyJabcdefghijk.eyJabcdefghijk.abcdefghijklmno",
+    `github=${syntheticGithubToken}`,
+    `jwt=${syntheticJwt}`,
     "OPENCLAW_API_KEY=literal-secret-value",
     "SUPABASE_SERVICE_ROLE_KEY=literal-service-secret",
     "STRIPE_SECRET_KEY=literal-stripe-secret-value",

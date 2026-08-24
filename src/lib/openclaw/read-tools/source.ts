@@ -252,6 +252,18 @@ function sessionExpiresAt(session: { createdAt: number; lastUsedAt: number }): n
   );
 }
 
+function normalizePreviewFileHashes(
+  entries: Iterable<readonly [path: string, hash: string]>,
+): Map<string, string> | null {
+  const normalized = new Map<string, string>();
+  for (const [rawPath, hash] of entries) {
+    const path = normalizeOpenClawReadPath(rawPath);
+    if (!path || normalized.has(path)) return null;
+    normalized.set(path, hash);
+  }
+  return normalized;
+}
+
 async function loadPreviewStatus(
   target: OpenClawReadTarget,
 ): Promise<OpenClawPassivePreviewStatus> {
@@ -320,27 +332,47 @@ async function loadPreviewStatus(
       readiness: "not_available_without_side_effects",
     };
   }
-  const expectedFiles = new Map(
+  const expectedFiles = normalizePreviewFileHashes(
     applyPreviewOnlyRulesToFiles(target.files)
       .filter((file) => file.path !== ".env.local")
-      .map((file) => [file.path, hashPreviewFileContent(file.content)]),
+      .map((file) => [file.path, hashPreviewFileContent(file.content)] as const),
   );
-  if (
-    !expectedFiles.has("app/api/placeholder/route.ts") &&
-    !expectedFiles.has("app/api/placeholder/route.js")
-  ) {
-    expectedFiles.set(
-      "app/api/placeholder/route.ts",
-      hashPreviewFileContent(PLACEHOLDER_API_ROUTE),
-    );
+  const manifestEntries = Object.entries(manifest.files);
+  const manifestFiles = normalizePreviewFileHashes(manifestEntries);
+  const manifestPathsCanonical = manifestEntries.every(
+    ([rawPath]) => normalizeOpenClawReadPath(rawPath) === rawPath,
+  );
+  if (expectedFiles) {
+    if (
+      !expectedFiles.has("app/api/placeholder/route.ts") &&
+      !expectedFiles.has("app/api/placeholder/route.js")
+    ) {
+      expectedFiles.set(
+        "app/api/placeholder/route.ts",
+        hashPreviewFileContent(PLACEHOLDER_API_ROUTE),
+      );
+    }
   }
-  const hostPaths = Object.keys(manifest.files);
+  const canonicalHashesMatch =
+    expectedFiles !== null &&
+    manifestFiles !== null &&
+    manifestFiles.has(".env.local") &&
+    [...manifestFiles.keys()].every((path) => path === ".env.local" || expectedFiles.has(path)) &&
+    [...expectedFiles].every(([path, hash]) => manifestFiles.get(path) === hash);
+  // Manifest keys mirror the session payload, not verified filesystem paths. A
+  // backslash can be a literal filename character on Linux, so equal hashes in
+  // canonical form remove a false mismatch but cannot safely prove a match.
   const hostRevisionMatches =
-    Object.hasOwn(manifest.files, ".env.local") &&
-    hostPaths.every((path) => path === ".env.local" || expectedFiles.has(path)) &&
-    [...expectedFiles].every(([path, hash]) => manifest.files[path] === hash);
+    canonicalHashesMatch && !manifestPathsCanonical ? null : canonicalHashesMatch;
   return {
-    status: hostRevisionMatches ? (manifest.running ? "running" : "stopped") : "revision_mismatch",
+    status:
+      hostRevisionMatches === null
+        ? "unknown"
+        : hostRevisionMatches
+          ? manifest.running
+            ? "running"
+            : "stopped"
+          : "revision_mismatch",
     source: "files_manifest",
     sessionVersionMatches: true,
     sessionRevisionMatches: true,

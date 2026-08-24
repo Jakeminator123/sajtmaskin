@@ -41,15 +41,19 @@ import { defaultOpenClawReadToolDataSource } from "./source";
 import { OPENCLAW_READ_MAX_LANGUAGE_CHARS, OPENCLAW_READ_MAX_RAW_SNAPSHOT_CHARS } from "./policy";
 
 const request = new Request("https://sajtmaskin.test/api/openclaw");
+const syntheticInternalAuthorization = ["Bearer", "synthetic", "internal"].join(" ");
 
 function sha256(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-function validHostFiles(): Record<string, string> {
+function validHostFiles(
+  pagePath = "app/page.tsx",
+  placeholderPath = "app/api/placeholder/route.ts",
+): Record<string, string> {
   return {
-    "app/page.tsx": sha256("export default function Page() {}"),
-    "app/api/placeholder/route.ts": sha256(PLACEHOLDER_API_ROUTE),
+    [pagePath]: sha256("export default function Page() {}"),
+    [placeholderPath]: sha256(PLACEHOLDER_API_ROUTE),
     ".env.local": sha256("server-owned-preview-env"),
   };
 }
@@ -99,7 +103,7 @@ beforeEach(() => {
   mocks.getSession.mockResolvedValue(null);
   mocks.getManifest.mockResolvedValue(null);
   mocks.getBaseUrl.mockReturnValue("https://preview-host.internal");
-  mocks.authHeaders.mockReturnValue({ authorization: "Bearer internal-secret" });
+  mocks.authHeaders.mockReturnValue({ authorization: syntheticInternalAuthorization });
   vi.stubGlobal("fetch", mocks.fetch);
 });
 
@@ -207,6 +211,27 @@ describe("production OpenClaw read-tool source", () => {
     ).toEqual({ ok: false, code: "project_too_large" });
   });
 
+  it.each(["../app/page.tsx", "/app/page.tsx", "C:\\app\\page.tsx"])(
+    "rejects unsafe stored path %s",
+    async (path) => {
+      mocks.getById.mockResolvedValue({
+        chat: {},
+        version: ownedVersion({
+          files_json: JSON.stringify([
+            { path, language: "tsx", content: "export default function Page() {}" },
+          ]),
+        }),
+      });
+      expect(
+        await defaultOpenClawReadToolDataSource.loadTarget({
+          request,
+          chatId: "chat-owned",
+          versionId: "version-owned",
+        }),
+      ).toEqual({ ok: false, code: "snapshot_invalid" });
+    },
+  );
+
   it("never contacts the preview host when version or revision binding mismatches", async () => {
     const target = await loadTarget();
     mocks.getSession.mockResolvedValue({
@@ -263,6 +288,78 @@ describe("production OpenClaw read-tool source", () => {
     expect(serialized).not.toContain("preview-secret.internal");
   });
 
+  it.each([
+    [
+      "slash paths",
+      "app/page.tsx",
+      "app/page.tsx",
+      "app/api/placeholder/route.ts",
+      "running",
+      true,
+    ],
+    [
+      "a stored Windows path and canonical host paths",
+      "app\\page.tsx",
+      "app/page.tsx",
+      "app/api/placeholder/route.ts",
+      "running",
+      true,
+    ],
+    [
+      "non-canonical host backslashes",
+      "app\\page.tsx",
+      "app\\page.tsx",
+      "app\\api\\placeholder\\route.ts",
+      "unknown",
+      null,
+    ],
+  ])(
+    "matches a normal preview file with %s",
+    async (
+      _case,
+      storedPath,
+      manifestPath,
+      manifestPlaceholderPath,
+      expectedStatus,
+      expectedRevisionMatch,
+    ) => {
+      mocks.getById.mockResolvedValue({
+        chat: {},
+        version: ownedVersion({
+          files_json: JSON.stringify([
+            {
+              path: storedPath,
+              language: "tsx",
+              content: "export default function Page() {}",
+            },
+          ]),
+        }),
+      });
+      const target = await loadTarget();
+      mocks.getSession.mockResolvedValue({
+        previewSessionId: "preview-bound-id",
+        previewUrl: "https://preview-secret.internal",
+        versionId: "version-owned",
+        filesRevision: "revision-owned",
+        createdAt: 1_000,
+        lastUsedAt: 1_500,
+      });
+      mocks.getManifest.mockResolvedValue({
+        previewSessionId: "preview-bound-id",
+        versionId: "version-owned",
+        running: true,
+        files: validHostFiles(manifestPath, manifestPlaceholderPath),
+      });
+
+      await expect(
+        defaultOpenClawReadToolDataSource.loadPreviewStatus(target),
+      ).resolves.toMatchObject({
+        status: expectedStatus,
+        hostRevisionMatches: expectedRevisionMatch,
+      });
+    },
+  );
+
   it("rejects a host manifest for a different preview session", async () => {
     const target = await loadTarget();
     mocks.getSession.mockResolvedValue({
@@ -317,6 +414,38 @@ describe("production OpenClaw read-tool source", () => {
       status: "revision_mismatch",
       source: "files_manifest",
       hostVersionMatches: true,
+      hostRevisionMatches: false,
+    });
+  });
+
+  it.each([
+    ["traversal", { ...validHostFiles(), "../escape.ts": sha256("unsafe") }],
+    ["absolute path", { ...validHostFiles(), "C:\\escape.ts": sha256("unsafe") }],
+    [
+      "normalization collision",
+      { ...validHostFiles(), "app\\page.tsx": sha256("export default function Page() {}") },
+    ],
+  ])("rejects a manifest containing %s", async (_case, files) => {
+    const target = await loadTarget();
+    mocks.getSession.mockResolvedValue({
+      previewSessionId: "preview-bound-id",
+      previewUrl: "https://preview-secret.internal",
+      versionId: "version-owned",
+      filesRevision: "revision-owned",
+      createdAt: 1_000,
+      lastUsedAt: 1_500,
+    });
+    mocks.getManifest.mockResolvedValue({
+      previewSessionId: "preview-bound-id",
+      versionId: "version-owned",
+      running: true,
+      files,
+    });
+
+    await expect(
+      defaultOpenClawReadToolDataSource.loadPreviewStatus(target),
+    ).resolves.toMatchObject({
+      status: "revision_mismatch",
       hostRevisionMatches: false,
     });
   });
