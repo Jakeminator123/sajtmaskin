@@ -18,7 +18,13 @@ const publicEnvVars = [
   "NEXT_PUBLIC_AVATAR_CLIENT_KEY",
 ];
 
-const allowedOrigins = ["http://localhost:3000", "https://sajtmaskin.vercel.app"];
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://sajtmaskin.se",
+  "https://sajtmaskin.com",
+  "https://preview.sajtmaskin.se",
+  "https://sajtmaskin.vercel.app",
+];
 
 const avatarFlagEnabled = (process.env.NEXT_PUBLIC_AVATAR_ENABLED ?? "").trim().replace(/^['"]|['"]$/g, "") === "1";
 
