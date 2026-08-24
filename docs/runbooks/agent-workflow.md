@@ -149,7 +149,10 @@ vanligt mergekommando.
 
 Den egna `trusted-pr-ai-review`-checkens namn är inte heller reviewbevis. Både
 den levande state-kommentaren och dess publicerade review-ID måste binda till
-exakt repo, PR och head; en stale eller omdöpt Actions-check räknas inte.
+exakt repo, PR och head; en stale eller omdöpt Actions-check räknas inte. Den
+kontobaserade fallbacken använder ett separat tvåresursbevis: SHA-bunden review
+plus PR-kommentar med review-ID. Båda måste komma från samma konfigurerade,
+betrodda repository-actor och exakt live head.
 
 Expected-head är en riktig CAS för head, men GitHubs merge-API saknar motsvarande
 base-SHA-parameter. Därför måste native branch protection/ruleset dessutom

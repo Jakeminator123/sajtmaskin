@@ -99,6 +99,22 @@ describe("trusted PR review receipt", () => {
     });
   });
 
+  it("marks an explicit account handoff neutral instead of red or green", () => {
+    const runResult = createReviewRunResult({
+      kind: "account-fallback",
+      reason: "openai_quota",
+    });
+    expect(decideTrustedReceipt({ runResult, currentHeadSha: head1 })).toMatchObject({
+      conclusion: "neutral",
+      title: "PR review handed off to the Codex account",
+    });
+    expect(buildCheckRunPayload({ runResult, currentHeadSha: head1, prNumber: 88 })).toMatchObject({
+      name: "trusted-pr-ai-review",
+      head_sha: head1,
+      conclusion: "neutral",
+    });
+  });
+
   it("does not qualify an incomplete or unpublished exhaustive attempt", () => {
     const complete = exhaustiveResult();
     const unpublished = {

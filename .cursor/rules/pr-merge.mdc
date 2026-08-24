@@ -36,10 +36,11 @@ EmaCodeHero har base `ema` och kräver ägarens beslut.
 
 En uttömmande PR AI-review/Codex-review för aktuell SHA kan vara det oberoende
 passet. Usage-limit hos en enskild bot är inte ett fynd; använd lokal Sol-review
-för innehållet. Den required `review-window` kräver ändå minst ett lyckat,
-maskinverifierat reviewkvitto (trusted PR AI eller extern bot). Om alla sådana
-kvitton saknas/rödar stoppas merge tills en körning lyckas eller ägaren fattar
-ett uttryckligt break-glass-beslut; lokal självattestering gör inte checken grön.
+för innehållet. `review-window` kräver maskinkvitto från trusted bot eller
+konfigurerad Codex-kontoreview. Den kräver `COMMENTED` review + receipt med
+samma betrodda aktör och exakt head/review-ID. Utan kvitto stoppas merge tills
+lyckad körning eller ägarens break-glass; annan självattestering gör inte checken
+grön.
 
 Protected paths avgörs endast av `config/agent-workflow.json` och visas av
 `npm run verify:pr -- --plan`. Risk ≥ 3 (CI/runtime/security/false-green) kräver

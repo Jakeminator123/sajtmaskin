@@ -34,6 +34,8 @@ Actions inbyggda `GITHUB_TOKEN`. Därför gäller en hård gräns:
 
 Dependabot hoppas över innan checkout eftersom GitHub ger sådana
 `pull_request_target`-körningar fork-liknande secret-/tokenbegränsningar.
+Dependabot-PR:er tas i stället upp av den kontobaserade fallbacken när de saknar
+ett giltigt reviewkvitto för aktuell head.
 
 Workflowens enda permissions är:
 
@@ -125,7 +127,10 @@ Hårda stopp:
   behöver ett annat kvalificerande reviewkvitto för att `review-window` ska bli
   grön,
 - samma head-SHA behandlas aldrig två gånger efter en slutförd review,
-- modell-/GitHub-fel sparas som `failed`, aldrig som en lyckad/grön review.
+- programmerings-, modellformat- och GitHub-fel sparas som `failed`, aldrig som
+  en lyckad/grön review,
+- saknad `OPENAI_API_KEY` eller verifierad billing-/kvotspärr lämnar över till
+  kontofallbacken; vanliga rate limits och andra providerfel maskeras inte.
 
 ## Maskinläsbart kvitto på aktuell head
 
@@ -152,6 +157,33 @@ resultatet är okvalificerat publiceras `action_required`; om review-steget
 misslyckas publiceras inget grönt kvitto alls. `review-window` fortsätter därmed
 fail-closed på exakt aktuell SHA.
 
+Vid den uttryckliga kontofallbacken blir `trusted-pr-ai-review` i stället
+`neutral`, aldrig grön. Workflowen postar samtidigt en
+`sajtmaskin-pr-review-fallback:v2`-begäran för exakt head-SHA. Därmed syns
+överlämningen utan att tom API-kredit i sig gör providerchecken röd.
+
+## Kontobaserad Codex-fallback
+
+Den lokala Codex-automationen **PR fallback-bugggranskare** kör med det anslutna
+GitHub-kontot och OpenAI-kontot i Codex-appen, inte med repository-secreten eller
+OpenAI Platform API. Den söker högst en öppen, icke-draft PR per körning som
+antingen har fallbackbegäran för aktuell head eller är en Dependabot-PR utan
+aktuellt reviewkvitto.
+
+Efter att hela diffen och relevant filkontext granskats publicerar automationen:
+
+1. en `COMMENT`-review bunden till exakt `commit_id`, med markören
+   `sajtmaskin-codex-account-review:v2`, och
+2. en separat PR-kommentar med samma head-SHA och det serverreturnerade
+   review-ID:t i `sajtmaskin-codex-account-review-receipt:v2`.
+
+`review-window` räknar kvittot endast när båda resurserna kommer från en actor i
+`config/agent-workflow.json.review.trustedAccountReviewActors`, har betrodd
+repository-association, samma användare, samma review-ID och exakt live head.
+En vanlig kommentar, fel konto, stale review eller saknad receipt kan därför
+inte ge grönt. Automationens lokala exekvering kräver att Codex-appen och datorn
+är igång; om den uteblir fortsätter mergegrinden att stoppa.
+
 ## Mergade PR:er
 
 Merge-kontrollen är den första kontrollen efter den read-only PR-hämtningen.
@@ -161,8 +193,9 @@ mer än en timme.
 
 ## Setup och felsökning
 
-Repository-secreten `OPENAI_API_KEY` måste finnas. Kontrollera bara namnet, aldrig
-värdet:
+Repository-secreten `OPENAI_API_KEY` behövs för den primära eventstyrda reviewn.
+Utan den lämnas varje vanlig PR-head över till kontofallbacken. Kontrollera bara
+namnet, aldrig värdet:
 
 ```powershell
 gh secret list --repo Jakeminator123/sajtmaskin --json name
@@ -174,9 +207,10 @@ Kontrollera körningar via Actions → **PR AI review** eller:
 gh run list --repo Jakeminator123/sajtmaskin --workflow "PR AI review"
 ```
 
-Vanliga stopporsaker är saknad secret, modellkvot, en diff över det uttryckliga
-storlekstaket eller GitHub API-fel. State-kommentarens `lastRun.status` förblir då
-`failed`; en review får inte tolkas som grön bara för att andra CI-checks är gröna.
+Vanliga stopporsaker är en diff över det uttryckliga storlekstaket, modellformat-
+eller GitHub API-fel. Saknad secret och billing-/kvotspärr är överlämningsorsaker
+till kontofallbacken. En review får inte tolkas som grön bara för att andra
+CI-checks är gröna.
 
 ## Manuell körning och avstängning
 

@@ -80,6 +80,16 @@ export function decideTrustedReceipt({ runResult, currentHeadSha }) {
     };
   }
   if (runResult.outcome !== "qualified") {
+    if (
+      runResult.automationKind === "account-fallback" &&
+      ["openai_key_missing", "openai_quota"].includes(runResult.reason)
+    ) {
+      return {
+        conclusion: "neutral",
+        title: "PR review handed off to the Codex account",
+        summary: `The Platform API could not review current head ${currentHeadSha}; a separate account-backed review is required.`,
+      };
+    }
     return {
       conclusion: "action_required",
       title: "Current head lacks a qualifying PR AI review",

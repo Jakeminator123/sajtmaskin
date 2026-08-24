@@ -15,8 +15,13 @@ import {
   reviewMutationRequiresNewSignoff,
   targetsTrunk,
   validateTrustedPrAiEvidence,
+  validateAccountPrReviewEvidence,
 } from "./trusted-review-window.mjs";
 import { renderExhaustiveReview, renderStateComment } from "../pr-review/core.mjs";
+import {
+  renderAccountReviewMarker,
+  renderAccountReviewReceiptMarker,
+} from "../pr-review/account-fallback.mjs";
 
 const at = (seconds: number) => new Date(seconds * 1000).toISOString();
 const policy = {
@@ -188,6 +193,150 @@ function trustedReviewEvidence(headSha = HEAD) {
 }
 
 describe("trusted review evidence", () => {
+  it("accepts a two-resource account review only from the configured owner on exact head", () => {
+    const reviewId = 912;
+    const accountEvidence = {
+      issueComments: [
+        {
+          id: 71,
+          body: renderAccountReviewReceiptMarker({ headSha: HEAD, reviewId }),
+          created_at: at(120),
+          updated_at: at(120),
+          author_association: "OWNER",
+          user: { login: "Jakeminator123", type: "User" },
+        },
+      ],
+      reviews: [
+        {
+          id: reviewId,
+          body: `${renderAccountReviewMarker(HEAD)}\n\nbugkoll: codex\n\nInga fynd.`,
+          state: "COMMENTED",
+          commit_id: HEAD,
+          submitted_at: at(115),
+          updated_at: at(115),
+          author_association: "OWNER",
+          user: { login: "Jakeminator123", type: "User" },
+        },
+      ],
+    };
+
+    expect(
+      validateAccountPrReviewEvidence({
+        ...accountEvidence,
+        headSha: HEAD,
+        trustedActors: ["Jakeminator123"],
+      }),
+    ).toMatchObject({ valid: true, completedAtEpoch: 120 });
+    expect(
+      validateTrustedPrAiEvidence({
+        ...accountEvidence,
+        headSha: HEAD,
+        repository: REPOSITORY,
+        prNumber: 1,
+        trustedActors: ["Jakeminator123"],
+      }),
+    ).toMatchObject({ valid: true });
+  });
+
+  it.each([
+    { label: "wrong actor", commentLogin: "attacker", reviewLogin: "attacker" },
+    { label: "mixed actors", commentLogin: "Jakeminator123", reviewLogin: "attacker" },
+  ])("rejects a forged account receipt: $label", ({ commentLogin, reviewLogin }) => {
+    const reviewId = 913;
+    expect(
+      validateAccountPrReviewEvidence({
+        headSha: HEAD,
+        trustedActors: ["Jakeminator123"],
+        issueComments: [
+          {
+            body: renderAccountReviewReceiptMarker({ headSha: HEAD, reviewId }),
+            created_at: at(120),
+            updated_at: at(120),
+            author_association: "OWNER",
+            user: { login: commentLogin, type: "User" },
+          },
+        ],
+        reviews: [
+          {
+            id: reviewId,
+            body: renderAccountReviewMarker(HEAD),
+            state: "COMMENTED",
+            commit_id: HEAD,
+            submitted_at: at(115),
+            updated_at: at(115),
+            author_association: "OWNER",
+            user: { login: reviewLogin, type: "User" },
+          },
+        ],
+      }).valid,
+    ).toBe(false);
+  });
+
+  it("rejects an account review or receipt bound to a different head", () => {
+    const reviewId = 914;
+    expect(
+      validateAccountPrReviewEvidence({
+        headSha: HEAD,
+        trustedActors: ["Jakeminator123"],
+        issueComments: [
+          {
+            body: renderAccountReviewReceiptMarker({ headSha: HEAD, reviewId }),
+            created_at: at(120),
+            updated_at: at(120),
+            author_association: "OWNER",
+            user: { login: "Jakeminator123", type: "User" },
+          },
+        ],
+        reviews: [
+          {
+            id: reviewId,
+            body: renderAccountReviewMarker(OTHER_HEAD),
+            state: "COMMENTED",
+            commit_id: OTHER_HEAD,
+            submitted_at: at(115),
+            updated_at: at(115),
+            author_association: "OWNER",
+            user: { login: "Jakeminator123", type: "User" },
+          },
+        ],
+      }).valid,
+    ).toBe(false);
+  });
+
+  it.each(["CHANGES_REQUESTED", "APPROVED", "DISMISSED"])(
+    "rejects an account review with state %s",
+    (state) => {
+      const reviewId = 915;
+      expect(
+        validateAccountPrReviewEvidence({
+          headSha: HEAD,
+          trustedActors: ["Jakeminator123"],
+          issueComments: [
+            {
+              body: renderAccountReviewReceiptMarker({ headSha: HEAD, reviewId }),
+              created_at: at(120),
+              updated_at: at(120),
+              author_association: "OWNER",
+              user: { login: "Jakeminator123", type: "User" },
+            },
+          ],
+          reviews: [
+            {
+              id: reviewId,
+              body: renderAccountReviewMarker(HEAD),
+              state,
+              commit_id: HEAD,
+              submitted_at: at(115),
+              updated_at: at(115),
+              author_association: "OWNER",
+              user: { login: "Jakeminator123", type: "User" },
+            },
+          ],
+        }).valid,
+      ).toBe(false);
+    },
+  );
+
   it("läser review-updatedAt och fullDatabaseId från paginerad GraphQL", async () => {
     const pages = [
       {

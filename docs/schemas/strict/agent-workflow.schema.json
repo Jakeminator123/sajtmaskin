@@ -90,6 +90,7 @@
         "maxSignoffWaitSeconds",
         "requiredCheckWorkflow",
         "qualifyingCheckPatterns",
+        "trustedAccountReviewActors",
         "securityVetoCheckPatterns",
         "deploymentCheckNames"
       ],
@@ -112,6 +113,12 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/nonEmpty" }
+        },
+        "trustedAccountReviewActors": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9-]{1,39}$" }
         },
         "securityVetoCheckPatterns": {
           "type": "array",
