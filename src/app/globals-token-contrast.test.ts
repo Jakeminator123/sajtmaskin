@@ -20,6 +20,11 @@ import { describe, expect, it } from "vitest";
 const GLOBALS_CSS_PATH = path.resolve(__dirname, "globals.css");
 const SRC_PATH = path.resolve(__dirname, "..");
 const TAILWIND_CONFIG_PATH = path.resolve(__dirname, "../../tailwind.config.cjs");
+const AUDIT_MODAL_PATH = path.resolve(__dirname, "../components/modals/audit-modal.tsx");
+const TEMPLATES_BROWSER_PATH = path.resolve(
+  __dirname,
+  "../components/templates/templates-browser.tsx",
+);
 
 function listTsxFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -101,6 +106,67 @@ describe("globals.css token-kontrast (WCAG 2 AA)", () => {
       relativeLuminance(hslToRgb(primaryFg.h, primaryFg.s, primaryFg.l)),
     );
     expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(["background", "card", "popover", "muted"])(
+    "opak --muted-foreground på --%s håller >= 4.5:1 för liten sekundärtext",
+    (backgroundToken) => {
+      const mutedForeground = readHslToken(css, "muted-foreground");
+      const background = readHslToken(css, backgroundToken);
+      const ratio = contrastRatio(
+        relativeLuminance(hslToRgb(mutedForeground.h, mutedForeground.s, mutedForeground.l)),
+        relativeLuminance(hslToRgb(background.h, background.s, background.l)),
+      );
+
+      expect(ratio).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it.each([
+    { surface: "--secondary/40 över --card", overlay: "secondary", underlay: "card", alpha: 0.4 },
+    { surface: "--card/60 över --background", overlay: "card", underlay: "background", alpha: 0.6 },
+  ])("opak --muted-foreground på $surface håller >= 4.5:1", ({ overlay, underlay, alpha }) => {
+    const mutedForeground = readHslToken(css, "muted-foreground");
+    const overlayToken = readHslToken(css, overlay);
+    const underlayToken = readHslToken(css, underlay);
+    const blendedSurface = compositeOver(
+      hslToRgb(overlayToken.h, overlayToken.s, overlayToken.l),
+      hslToRgb(underlayToken.h, underlayToken.s, underlayToken.l),
+      alpha,
+    );
+
+    expect(
+      contrastRatio(
+        relativeLuminance(hslToRgb(mutedForeground.h, mutedForeground.s, mutedForeground.l)),
+        relativeLuminance(blendedSurface),
+      ),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("opak --muted-foreground på bg-black/85 håller >= 4.5:1 även över vit iframe", () => {
+    const mutedForeground = readHslToken(css, "muted-foreground");
+    const worstCaseOverlay = compositeOver([0, 0, 0], [1, 1, 1], 0.85);
+
+    expect(
+      contrastRatio(
+        relativeLuminance(hslToRgb(mutedForeground.h, mutedForeground.s, mutedForeground.l)),
+        relativeLuminance(worstCaseOverlay),
+      ),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("berörd audittext och template-placeholder använder den opaka sekundärtexttokenen", () => {
+    const auditModal = readFileSync(AUDIT_MODAL_PATH, "utf8");
+    const templatesBrowser = readFileSync(TEMPLATES_BROWSER_PATH, "utf8");
+
+    expect(auditModal).toContain('<span className="text-muted-foreground">Nuläge:</span>');
+    expect(auditModal).toContain('<span className="text-muted-foreground">Rekommendation:</span>');
+    expect(auditModal).not.toContain("text-muted-foreground/70");
+    expect(auditModal).toContain("border-t border-border bg-secondary/40 p-4");
+    expect(templatesBrowser).toContain('placeholder="Sök bland kategorier och templates…"');
+    expect(templatesBrowser).toContain("placeholder:text-muted-foreground w-full");
+    expect(templatesBrowser).not.toContain("placeholder:text-muted-foreground/70 w-full");
+    expect(templatesBrowser).toContain("border border-border bg-card/60 px-4");
   });
 
   it("hover-paret håller >= 4.5:1 även under btn-glows mörkaste overlay", () => {

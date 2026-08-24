@@ -63,7 +63,7 @@ function sanitizeDisplayText(value?: string): string {
 
 function renderTextList(items?: string[]) {
   if (!items || items.length === 0) {
-    return <p className="text-xs text-muted-foreground/70">–</p>;
+    return <p className="text-xs text-muted-foreground">–</p>;
   }
   return (
     <ul className="list-inside list-disc space-y-1 text-xs text-foreground/90">
@@ -566,7 +566,7 @@ export function AuditModal({
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
-                  {scrapeLine && <div className="mt-1 text-[11px] text-muted-foreground/70">{scrapeLine}</div>}
+                  {scrapeLine && <div className="mt-1 text-[11px] text-muted-foreground">{scrapeLine}</div>}
                 </div>
                 {result.company && (
                   <span className="rounded-md bg-secondary px-3 py-1 text-sm text-foreground/90">
@@ -779,10 +779,10 @@ export function AuditModal({
                               <div key={i} className="rounded-lg border border-border bg-secondary/30 p-4">
                                 <h4 className="text-brand-teal mb-2 font-medium">{rec.area}</h4>
                                 <p className="mb-2 text-sm text-muted-foreground">
-                                  <span className="text-muted-foreground/70">Nuläge:</span> {rec.current_state}
+                                  <span className="text-muted-foreground">Nuläge:</span> {rec.current_state}
                                 </p>
                                 <p className="text-sm text-foreground/90">
-                                  <span className="text-muted-foreground/70">Rekommendation:</span>{" "}
+                                  <span className="text-muted-foreground">Rekommendation:</span>{" "}
                                   {rec.recommendation}
                                 </p>
                                 {rec.implementation && (
@@ -1032,7 +1032,7 @@ export function AuditModal({
 
             {/* Footer */}
             <div className="flex shrink-0 items-center justify-between border-t border-border bg-secondary/40 p-4">
-              <div className="text-xs text-muted-foreground/70">
+              <div className="text-xs text-muted-foreground">
                 {result.timestamp && (
                   <span>Analyserad: {new Date(result.timestamp).toLocaleString("sv-SE")}</span>
                 )}
@@ -1142,7 +1142,7 @@ export function AuditModal({
                 .
               </p>
               <div className="mb-6 rounded-lg border border-border bg-secondary/40 p-4 text-left">
-                <p className="mb-2 text-xs text-muted-foreground/70 uppercase">Detta kommer att:</p>
+                <p className="mb-2 text-xs text-muted-foreground uppercase">Detta kommer att:</p>
                 <ul className="space-y-1 text-sm text-foreground/90">
                   <li className="flex items-start gap-2">
                     <Check className="text-brand-teal mt-0.5 h-4 w-4 shrink-0" />
@@ -1201,7 +1201,7 @@ function EmptyState({
     <div className="py-12 text-center">
       <span className="mb-4 block text-4xl">{icon}</span>
       <h3 className="mb-2 text-lg font-medium text-foreground">{title}</h3>
-      <p className="text-sm text-muted-foreground/70">{description}</p>
+      <p className="text-sm text-muted-foreground">{description}</p>
     </div>
   );
 }

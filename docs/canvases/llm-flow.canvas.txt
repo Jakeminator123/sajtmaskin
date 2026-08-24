@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "c741696",
+    "commit": "d9170dc",
     "commitDate": "2026-08-24",
     "sinceDays": 14
   },
@@ -71,7 +71,7 @@ const DATA: CanvasData = {
     "processes": 8,
     "openP0": 0,
     "openP1": 0,
-    "openP2": 5,
+    "openP2": 4,
     "openP3": 1,
     "blocked": 0,
     "shaky": 3,
@@ -176,26 +176,26 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 78,
+      "churn": 79,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 78 commits / 14d"
+      "note": "Aktiv: 79 commits / 14d"
     },
     {
       "name": "Preview och versioner",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 2,
+      "openBugs": 1,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 2,
+        "P2": 1,
         "P3": 0,
         "other": 0
       },
       "churn": 19,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
+      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     },
     {
       "name": "Eval",
@@ -217,12 +217,6 @@ const DATA: CanvasData = {
   ],
   "shaky": [
     {
-      "name": "Preview och versioner",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
-    },
-    {
       "name": "ai_models",
       "statusLabel": "Skakigt",
       "tone": "warning",
@@ -233,6 +227,12 @@ const DATA: CanvasData = {
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+    },
+    {
+      "name": "Preview och versioner",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     }
   ],
   "topOpenRisks": [
@@ -250,11 +250,6 @@ const DATA: CanvasData = {
       "prio": "P2",
       "blocker": false,
       "fynd": "`SM-013` Misslyckad template-init lämnar `?templateId=...` utan `chatId`; tomläget fortsätter därför visa ”Lä…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "`SM-015` Läsbar sekundärtext och placeholders använder fortfarande kontrastsvaga `text-muted-foreground/70` o…"
     },
     {
       "prio": "P2",

@@ -118,7 +118,7 @@ export function TemplatesBrowser() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Sök bland kategorier och templates…"
             aria-label="Sök bland kategorier och templates"
-            className="text-foreground placeholder:text-muted-foreground/70 w-full bg-transparent py-3 text-sm outline-none"
+            className="text-foreground placeholder:text-muted-foreground w-full bg-transparent py-3 text-sm outline-none"
           />
           {query && (
             <button

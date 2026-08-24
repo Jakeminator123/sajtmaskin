@@ -1,6 +1,6 @@
 # Bug-backlog (konsoliderad)
 
-Operativ sanning mot `master` **`c7416967`**, kontrollerad 2026-08-24. Full
+Operativ sanning mot `master` **`d9170dc2`**, kontrollerad 2026-08-24. Full
 historik finns i git; återställ vid behov föregående snapshot från den committen.
 Det tunna historikindexet finns i
 [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md).
@@ -22,12 +22,11 @@ Regler:
 | [ ] | Öppen bug | P2 | `SM-001` Repair accepterar nya filer genom att skriva över samma versions `files_json`; ingen användbar rollbackpunkt skapas. | `saveRepairedFiles` och `acceptRepair` i `src/lib/db/chat-repository/repair.ts`. | Skapa immutable repair-version eller snapshot och exponera rollback. |
 | [ ] | Öppen bug | P2 | `SM-003` Deploy-repair betraktar versionsglobal `repair_available` som bevis för att just den failade deploymenten redan reparerats. | `src/app/api/v0/deployments/repair/route.ts`. | Bind idempotens och provenance till `deploymentId` och repair-origin. |
 | [ ] | Öppen bug | P2 | `SM-013` Misslyckad template-init lämnar `?templateId=...` utan `chatId`; tomläget fortsätter därför visa ”Läser in templaten” tills reload. | `useBuilderEffects.ts`, `PreviewPanelEmptyState.tsx` och `POST /api/template`. | Landa idempotent serverkontrakt, därefter explicit felläge och säker ”Försök igen”. |
-| [ ] | Öppen a11y-bug | P2 | `SM-015` Läsbar sekundärtext och placeholders använder fortfarande kontrastsvaga `text-muted-foreground/70` och `text-gray-500` på mörka standardytor. | Träffar kvar i `audit-modal.tsx`, `templates-browser.tsx` och `PreviewPanelFrame.tsx`; fixförslag i draft [#1138](https://github.com/Jakeminator123/sajtmaskin/pull/1138). | Byt bara läsbar text till solid token och lås kontrast- och komponenttester. |
 | [ ] | Öppen bug | P3 | `SM-030` En sparad `postgres-drizzle`-dossier kan samexistera med en senare Mongo-markör från tool/F3, så BuildSpec och prompt kan bära två databasidentiteter. | Dossierselectionen väljer Postgres medan `detect-integrations.ts` fortfarande producerar `mongodb`; omklassning dokumenterad i draft [#1139](https://github.com/Jakeminator123/sajtmaskin/pull/1139). | Låt markören följa vald dossier; bevara dossierlös Mongo när ingen DB-dossier är vald. |
 | [ ] | Bekräftad prod-bugg | P2 | `SM-033` Wizardns competitor/enrich-rutter har nått sina 25/30-sekunderstak, men saknar ovillkorlig terminal fastelemetri som visar dominant steg. | Prod-504 samt `src/app/api/wizard/competitors/route.ts` och `enrich/route.ts`. | Lägg content-free terminal event och gemensam deadline/abort; mät p95/p99 före ändrat tak. |
 
-Prioritering: `SM-033` först; därefter `SM-013`, `SM-003`, `SM-001` och
-`SM-015`; sist `SM-030`.
+Prioritering: `SM-033` först; därefter `SM-013`, `SM-003` och `SM-001`; sist
+`SM-030`.
 
 ## Pågående PR-spår
 
@@ -37,11 +36,9 @@ förrän dess runtimeändring finns på `master`.
 <!-- prettier-ignore -->
 | PR | Påverkan på denna utvärdering |
 | --- | --- |
-| [#1138](https://github.com/Jakeminator123/sajtmaskin/pull/1138) | Draft med runtimefix för `SM-015`; raden förblir aktiv tills fixen mergats. |
 | [#1134](https://github.com/Jakeminator123/sajtmaskin/pull/1134) | Minskar AI SDK-pinndrift men har ett öppet reviewfynd om `process.cwd()` och stänger inte den bredare katalog-/paritetsskulden. |
 
-#1139–#1141 är stängda som ersatta av #1142. #1138 behöver regenerera delade
-statusfiler mot aktuell master före merge. #1134 är funktionellt fristående.
+#1139–#1141 är stängda som ersatta av #1142. #1134 är funktionellt fristående.
 
 ## Releaseblockerare bakom avstängd flagga
 
@@ -189,6 +186,7 @@ draftbeskrivningar och journalprosa finns i git och i
 | [x] | `SM-032` | Fixad | [#1124](https://github.com/Jakeminator123/sajtmaskin/pull/1124) lägger minsta Maps-hostar i CSP med test. |
 | [x] | `SM-038` | Fixad | [#1124](https://github.com/Jakeminator123/sajtmaskin/pull/1124) återanvänder kanonisk bloggrutt i stället för parallell aliasstruktur. |
 | [x] | `SM-040` | Fixad | [#1137](https://github.com/Jakeminator123/sajtmaskin/pull/1137) tillåter exakt `Data Protection Policy` efter `och`/`and`, även med yttre citattecken och terminal interpunktion, utan att släppa igenom okända treordstitlar eller instruktionssvansar. |
+| [x] | `SM-015` | Fixad | [#1138](https://github.com/Jakeminator123/sajtmaskin/pull/1138) använder opak `text-muted-foreground` för läsbar audittext, sökplaceholder, previewhjälp och diagnostikkod. Kontrasttester låser 5,75–6,45:1 mot `background`, `card`, `popover` och `muted`; käll- och komponenttester hindrar de svaga `/70`, `text-gray-500` och `text-zinc-500`-fallen från att återkomma. |
 
 Stängda eller supersedade PR-utkast räknas inte som mergebevis. Det gäller bland
 annat de äldre arkivrader som beskrev en draft som ”kodfixad”; aktuell kod på
