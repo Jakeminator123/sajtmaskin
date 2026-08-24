@@ -61,13 +61,15 @@ Audit events carry a tenant hash and an allowlisted metadata subset. Prompt,
 code, project files, env, tokens, authorization and arbitrary nested payloads
 are not valid audit metadata.
 
-P0 hashes the frozen `GenerationInputPackage` with canonical JSON and adds a
-scrubbed classic execution trace to the existing generation telemetry row.
-The trace ends honestly at finalize. Its explicit `version_id` correlation
-joins to the canonical VM-gate verdicts in `engine_version_error_logs`, where
-RenderGate (`designPreview`) and ReleaseGate (`integrationsBuild`) are stored.
-`generation_telemetry.qualityGateResult` remains finalize-only and is not
-misrepresented as the later VM-gate verdict.
+P0 reuses the package lineage/source receipts and incrementally hashes large
+prompt and scaffold-file content. Canonical JSON sees only a bounded projection
+of digests and low-cardinality routing metadata, never the full package text.
+A scrubbed classic execution trace is then added to the existing generation
+telemetry row. The trace ends honestly at finalize. Its explicit `version_id`
+correlation joins to the canonical VM-gate verdicts in
+`engine_version_error_logs`, where RenderGate (`designPreview`) and ReleaseGate
+(`integrationsBuild`) are stored. `generation_telemetry.qualityGateResult`
+remains finalize-only and is not misrepresented as the later VM-gate verdict.
 
 The five package fixtures cover init, follow-up, F2, F3 and import receipt
 shapes. They are not an execution simulator. Existing init/follow-up route
