@@ -255,7 +255,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@ai-sdk/react": "3.0.259",
+    "@ai-sdk/react": "3.0.264",
     "@playwright/test": "^1.58.2",
     "@testing-library/react": "^16.3.2",
     "@types/canvas-confetti": "^1.9.0",
@@ -282,7 +282,7 @@
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tsx": "^4.20.5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "@vercel/fun": "1.3.0",
