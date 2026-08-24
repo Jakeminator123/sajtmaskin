@@ -6,11 +6,9 @@ import { fileURLToPath } from "node:url";
 import { collectImpact, loadWorkflowInputs, parseGitNameStatus } from "./path-impact.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const isWindows = process.platform === "win32";
-const npm = isWindows ? "npm.cmd" : "npm";
 
-function run(command, args, options = {}) {
-  return spawnSync(command, args, {
+function run(command, args, options = {}, spawnCommand = spawnSync) {
+  return spawnCommand(command, args, {
     cwd: REPO_ROOT,
     encoding: "utf8",
     stdio: options.inherit ? "inherit" : ["ignore", "pipe", "pipe"],
@@ -19,8 +17,25 @@ function run(command, args, options = {}) {
   });
 }
 
-function runNpm(args, options = {}) {
-  return run(npm, args, { ...options, shell: isWindows });
+export function runNpm(
+  args,
+  options = {},
+  { platform = process.platform, spawnCommand = spawnSync } = {},
+) {
+  const isWindows = platform === "win32";
+  const npm = isWindows ? "npm.cmd" : "npm";
+  return run(npm, args, { ...options, shell: isWindows }, spawnCommand);
+}
+
+export function classifyProcessResult(result) {
+  if (result.error) return { kind: "spawn-error", error: result.error };
+  if (result.signal !== null && result.signal !== undefined) {
+    return { kind: "signal", signal: result.signal };
+  }
+  if (typeof result.status === "number") {
+    return { kind: "exit", status: result.status };
+  }
+  return { kind: "unknown" };
 }
 
 function git(args, options = {}) {
@@ -160,15 +175,24 @@ async function main() {
   for (const command of impact.commands) {
     console.log(`\n[verify:pr] kör npm run ${command}`);
     const result = runNpm(["run", command], { inherit: true });
-    // status === null betyder att kontrollen aldrig startade. Att rapportera det
-    // som ett vanligt kontrollfel gör miljöfel oskiljbara från riktiga fynd.
-    if (result.error || result.status === null) {
+    const outcome = classifyProcessResult(result);
+    if (outcome.kind === "spawn-error") {
       throw new Error(
-        `kunde inte starta "npm run ${command}": ${result.error?.message ?? "okänt spawn-fel"}. ` +
+        `kunde inte starta "npm run ${command}": ${outcome.error.message}. ` +
           `Ingen kontroll är verifierad — behandla inte detta som ett kodfynd.`,
       );
     }
-    if (result.status !== 0) failures.push(`npm run ${command}`);
+    if (outcome.kind === "unknown") {
+      throw new Error(
+        `"npm run ${command}" rapporterade varken exitstatus, signal eller spawnfel. ` +
+          `Ingen kontroll är verifierad — behandla inte detta som ett godkänt resultat.`,
+      );
+    }
+    if (outcome.kind === "signal") {
+      failures.push(`npm run ${command} (avbruten av signal ${outcome.signal})`);
+    } else if (outcome.status !== 0) {
+      failures.push(`npm run ${command} (exit ${outcome.status})`);
+    }
   }
 
   if (failures.length > 0) {
