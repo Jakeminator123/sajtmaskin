@@ -100,7 +100,9 @@ av tiderna, och `updatedAt` ingår i fingerprinten. En bot som editerar ett äld
 review med ett nytt fynd efter sign-off eller mergekommando gör därför mandatet
 stale; REST-fältet `submitted_at` ensamt får aldrig användas för detta beslut.
 Saknas en verifierbar `User`-/`Bot`-författare stoppar controllern i stället för
-att gissa att ett möjligt botfynd skrevs av en människa.
+att gissa att ett möjligt botfynd skrevs av en människa. GraphQLs bare
+bot-appslug (`github-actions`) normaliseras vid API-gränsen till samma identitet
+som REST använder (`github-actions[bot]`).
 
 `review-window`-namnet och dess `external_id` är native status/UX, inte
 mergebehörighet: andra Actions-workflows delar samma GitHub App och custom

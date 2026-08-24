@@ -494,6 +494,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !trustedReviewWindow.includes("job.check_run_url") ||
     !trustedReviewWindow.includes("fullDatabaseId") ||
     !trustedReviewWindow.includes("updatedAt") ||
+    !trustedReviewWindow.includes('endsWith("[bot]")') ||
     !trustedReviewWindow.includes("review.updated_at") ||
     !trustedReviewWindow.includes("policy.review.requiredCheckWorkflow") ||
     !trustedReviewWindow.includes("run.provenance?.workflowRun?.created_at") ||

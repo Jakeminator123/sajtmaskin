@@ -503,6 +503,11 @@ export function createClient({ repository, token, fetchImpl = fetch }) {
         );
       }
       seen.add(id);
+      const actorLogin = node.author.login.trim();
+      const normalizedLogin =
+        node.author.__typename === "Bot" && !actorLogin.toLowerCase().endsWith("[bot]")
+          ? `${actorLogin}[bot]`
+          : actorLogin;
       return {
         id,
         node_id: node.id,
@@ -513,7 +518,10 @@ export function createClient({ repository, token, fetchImpl = fetch }) {
         updated_at: node.updatedAt,
         author_association: node.authorAssociation,
         user: {
-          login: node.author.login,
+          // GraphQL Bot.login är appsluggen (t.ex. `github-actions`) medan
+          // REST-resurserna använder `github-actions[bot]`. Normalisera exakt
+          // vid API-gränsen så samma aktör inte får två identiteter i evidensen.
+          login: normalizedLogin,
           type: node.author?.__typename === "Bot" ? "Bot" : "User",
         },
       };

@@ -201,7 +201,7 @@ describe("trusted review evidence", () => {
             submittedAt: at(100),
             updatedAt: at(150),
             authorAssociation: "NONE",
-            author: { login: "bugbot[bot]", __typename: "Bot" },
+            author: { login: "bugbot", __typename: "Bot" },
             commit: { oid: HEAD },
           },
         ],
@@ -250,6 +250,59 @@ describe("trusted review evidence", () => {
       updated_at: at(150),
       user: { login: "bugbot[bot]", type: "Bot" },
     });
+  });
+
+  it("normaliserar GraphQLs bare Bot.login innan trusted review valideras", async () => {
+    const evidence = trustedReviewEvidence();
+    const source = evidence.reviews[0];
+    const client = createClient({
+      repository: REPOSITORY,
+      token: "test",
+      fetchImpl: async () =>
+        ({
+          ok: true,
+          status: 200,
+          async json() {
+            return {
+              data: {
+                repository: {
+                  pullRequest: {
+                    reviews: {
+                      totalCount: 1,
+                      nodes: [
+                        {
+                          id: "PRR_trusted",
+                          fullDatabaseId: String(source.id),
+                          body: source.body,
+                          state: source.state,
+                          submittedAt: source.submitted_at,
+                          updatedAt: source.updated_at,
+                          authorAssociation: "NONE",
+                          author: { login: "github-actions", __typename: "Bot" },
+                          commit: { oid: HEAD },
+                        },
+                      ],
+                      pageInfo: { hasNextPage: false, endCursor: null },
+                    },
+                  },
+                },
+              },
+            };
+          },
+        }) as Response,
+    });
+    const reviews = await client.listReviewsWithServerTimes(1);
+
+    expect(reviews[0].user).toEqual({ login: "github-actions[bot]", type: "Bot" });
+    expect(
+      validateTrustedPrAiEvidence({
+        issueComments: evidence.issueComments,
+        reviews,
+        headSha: HEAD,
+        repository: REPOSITORY,
+        prNumber: 1,
+      }),
+    ).toMatchObject({ valid: true });
   });
 
   it("stoppar om GitHub upprepar samma review-cursor", async () => {
