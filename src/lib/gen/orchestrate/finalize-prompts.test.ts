@@ -45,7 +45,10 @@ vi.mock("../scaffold-variants", async (importOriginal) => {
   };
 });
 
-import { finalizeOrchestrationPrompts, shouldResolveVariantTemplateInspiration } from "./finalize-prompts";
+import {
+  finalizeOrchestrationPrompts,
+  shouldResolveVariantTemplateInspiration,
+} from "./finalize-prompts";
 import { resolveOrchestrationBase } from "./resolve-base";
 
 const noCapabilities: InferredCapabilities = {
@@ -172,6 +175,123 @@ describe("finalizeOrchestrationPrompts variant inspiration", () => {
     inspirationMocks.resolveVariantTemplateInspiration.mockResolvedValue(inspirationMocks.fixture);
   });
 
+  it("keeps a versionless init hint authoritative while identifying it as a hint", async () => {
+    const input = {
+      prompt: "professional b2b consulting corporate enterprise",
+      buildIntent: "website" as const,
+      persistedScaffoldId: "landing-page",
+      previousFilesCount: 0,
+      variantHintId: "nature-flow",
+      embeddingScaffoldMatch: false,
+      capabilities: noCapabilities,
+    };
+    const base = await resolveOrchestrationBase(input);
+    const finalized = await finalizeOrchestrationPrompts(base, input);
+
+    expect(finalized.variantId).toBe("nature-flow");
+    expect(finalized.variantSelection).toEqual({
+      source: "hint-fallback",
+      score: null,
+      runnerUpScore: null,
+      margin: null,
+      hintId: "nature-flow",
+      finalId: "nature-flow",
+      changedFromHint: false,
+    });
+  });
+
+  it("lets explicit Byggval Stil beat the init hint", async () => {
+    const input = {
+      prompt: "nåt lugnt för min lilla salong",
+      buildIntent: "website" as const,
+      generationMode: "init" as const,
+      persistedScaffoldId: "landing-page",
+      variantHintId: "nature-flow",
+      styleChoiceHint: "minimal",
+      embeddingScaffoldMatch: false,
+      capabilities: noCapabilities,
+    };
+    const base = await resolveOrchestrationBase(input);
+    const finalized = await finalizeOrchestrationPrompts(base, input);
+
+    expect(finalized.variantSelection.source).toBe("style-choice");
+    expect(finalized.variantSelection.finalId).not.toBe("nature-flow");
+    expect(finalized.variantSelection.changedFromHint).toBe(true);
+  });
+
+  it("falls back deterministically when an init hint is stale", async () => {
+    const input = {
+      prompt: "skogen och naturen ska kännas i designen",
+      buildIntent: "website" as const,
+      generationMode: "init" as const,
+      persistedScaffoldId: "landing-page",
+      variantHintId: "stale-variant",
+      sessionSeed: "stale-hint",
+      embeddingScaffoldMatch: false,
+      capabilities: noCapabilities,
+    };
+    const base = await resolveOrchestrationBase(input);
+    const first = await finalizeOrchestrationPrompts(base, input);
+    const second = await finalizeOrchestrationPrompts(base, input);
+
+    expect(first.variantId).toBe(second.variantId);
+    expect(first.variantSelection.source).toBe("keyword");
+    expect(first.variantSelection.changedFromHint).toBe(true);
+  });
+
+  it("receipts a neutral accepted follow-up as a lock", async () => {
+    const finalized = await finalizeFollowUp({ followUpIntent: "neutral" });
+    expect(finalized.variantId).toBe("editorial-lux");
+    expect(finalized.variantSelection).toMatchObject({
+      source: "follow-up-lock",
+      hintId: null,
+      finalId: "editorial-lux",
+      changedFromHint: false,
+    });
+  });
+
+  it("receipts the contract lock when freeze clamps a stale persisted id", async () => {
+    const finalized = await finalizeFollowUp({
+      followUpIntent: "neutral",
+      persistedVariantId: "stale-variant",
+      followUpContract: {
+        variantId: "editorial-lux",
+        scaffoldId: "landing-page",
+        routePlan: { existingRoutePaths: ["/"], existingShellRoutePaths: [] },
+        capabilities: [],
+        qualityTarget: null,
+        previewSessionId: null,
+      },
+    });
+
+    expect(finalized.variantId).toBe("editorial-lux");
+    expect(finalized.variantSelection).toMatchObject({
+      source: "follow-up-lock",
+      score: null,
+      runnerUpScore: null,
+      margin: null,
+      finalId: "editorial-lux",
+    });
+  });
+
+  it("does not receipt an unresolved contract variant as a lock", async () => {
+    const finalized = await finalizeFollowUp({
+      followUpIntent: "neutral",
+      persistedVariantId: "stale-variant",
+      followUpContract: {
+        variantId: "also-stale",
+        scaffoldId: "landing-page",
+        routePlan: { existingRoutePaths: ["/"], existingShellRoutePaths: [] },
+        capabilities: [],
+        qualityTarget: null,
+        previewSessionId: null,
+      },
+    });
+
+    expect(finalized.variantId).not.toBe("also-stale");
+    expect(finalized.variantSelection.source).not.toBe("follow-up-lock");
+  });
+
   it("resolves inspiration, still image and source receipt on clear-redesign", async () => {
     const finalized = await finalizeFollowUp({
       prompt: "Gör om hela sajten i en mörk editorial stil",
@@ -198,7 +318,9 @@ describe("finalizeOrchestrationPrompts variant inspiration", () => {
     ]);
     expect(finalized.dynamicContext).toContain("## Variant Template Inspiration");
     expect(finalized.dynamicContext).toContain("K3 Redesign Fixture");
-    expect(finalized.dynamicContext).toContain("These are visual reference points, not a contract.");
+    expect(finalized.dynamicContext).toContain(
+      "These are visual reference points, not a contract.",
+    );
     expect(finalized.dynamicContextPruning.keptBlockKeys).toContain("variant_template_inspiration");
     expect(finalized.sources).toEqual(
       expect.arrayContaining([

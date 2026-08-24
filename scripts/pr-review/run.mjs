@@ -8,6 +8,7 @@ import {
   followUpJsonSchema,
 } from "./core.mjs";
 import { runReviewAutomation } from "./automation.mjs";
+import { parseAccountFallbackRequest, renderAccountFallbackRequest } from "./account-fallback.mjs";
 import { writeReviewRunResult } from "./receipt.mjs";
 
 const API_VERSION = "2022-11-28";
@@ -251,9 +252,44 @@ export function createOpenAIReviewer({ apiKey, exhaustiveModel, followUpModel, c
   };
 }
 
+export function isOpenAIAccountFallbackError(error) {
+  const status = Number(error?.status ?? error?.response?.status ?? 0);
+  const values = [error?.code, error?.type, error?.error?.code, error?.error?.type]
+    .filter((value) => typeof value === "string")
+    .map((value) => value.toLowerCase());
+  const message = String(error?.message ?? error?.error?.message ?? "").toLowerCase();
+  const billingSignal =
+    values.some((value) =>
+      ["insufficient_quota", "billing_hard_limit_reached", "billing_not_active"].includes(value),
+    ) ||
+    /insufficient[_ ]quota|billing (?:hard )?limit|billing.*inactive|\bno (?:api )?credits? remaining\b/.test(
+      message,
+    );
+  return [400, 403, 429].includes(status) && billingSignal;
+}
+
+export async function requestAccountFallback({ github, prNumber, reason }) {
+  const pr = await github.getPullRequest(prNumber);
+  if (pr.mergedAt) return { kind: "skip", reason: "merged", modelCalls: 0, writes: 0 };
+  if (pr.baseRef !== "master") {
+    return { kind: "skip", reason: "wrong-base", modelCalls: 0, writes: 0 };
+  }
+  const comments = await github.listIssueComments(prNumber);
+  const existing = comments.find((comment) => {
+    const marker = parseAccountFallbackRequest(comment.body);
+    return comment.author === "github-actions[bot]" && marker?.headSha === pr.headSha.toLowerCase();
+  });
+  if (!existing) {
+    await github.createIssueComment(
+      prNumber,
+      renderAccountFallbackRequest({ headSha: pr.headSha, reason }),
+    );
+  }
+  return { kind: "account-fallback", reason, headSha: pr.headSha };
+}
+
 export async function main(env = process.env) {
   if (!env.GITHUB_TOKEN) throw new Error("GITHUB_TOKEN saknas");
-  if (!env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY saknas");
   if (!env.GITHUB_REPOSITORY || !env.GITHUB_EVENT_PATH)
     throw new Error("GitHub Actions-kontext saknas");
   if (!env.PR_REVIEW_RESULT_PATH) throw new Error("PR_REVIEW_RESULT_PATH saknas");
@@ -265,8 +301,22 @@ export async function main(env = process.env) {
     token: env.GITHUB_TOKEN,
     repository: env.GITHUB_REPOSITORY,
   });
-  const model = createOpenAIReviewer({ apiKey: env.OPENAI_API_KEY, ...models });
-  const result = await runReviewAutomation({ github, model, prNumber });
+  let result;
+  if (!env.OPENAI_API_KEY) {
+    result = await requestAccountFallback({
+      github,
+      prNumber,
+      reason: "openai_key_missing",
+    });
+  } else {
+    const model = createOpenAIReviewer({ apiKey: env.OPENAI_API_KEY, ...models });
+    try {
+      result = await runReviewAutomation({ github, model, prNumber });
+    } catch (error) {
+      if (!isOpenAIAccountFallbackError(error)) throw error;
+      result = await requestAccountFallback({ github, prNumber, reason: "openai_quota" });
+    }
+  }
   const runResult = await writeReviewRunResult(env.PR_REVIEW_RESULT_PATH, result);
   console.log(
     `PR review automation: ${result.kind}${result.reason ? ` (${result.reason})` : ""}; receipt=${runResult.outcome}`,

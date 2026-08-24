@@ -20,6 +20,7 @@ const PROTECTED_TOP_LEVEL_KEYS = [
   "lineageHash",
   "versionId",
   "chatId",
+  "variantSelection",
 ] as const;
 const PROTECTED_TOP_LEVEL_KEY_SET = new Set<string>(PROTECTED_TOP_LEVEL_KEYS as readonly string[]);
 
@@ -88,6 +89,17 @@ export function sanitizeOrchestrationSnapshotForStorage(
         typeof value === "boolean"
       ) {
         out[key] = value;
+      } else if (
+        key === "variantSelection" &&
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
+        out[key] = sanitizeOrchestrationSnapshotForStorage(
+          value as Record<string, unknown>,
+          depth + 1,
+          keyCount,
+        );
       }
     }
     for (const key of PROTECTED_CAPABILITY_SIGNAL_KEYS) {
