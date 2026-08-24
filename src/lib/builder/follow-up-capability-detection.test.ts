@@ -135,11 +135,37 @@ describe("detectFollowUpCapabilities — booking", () => {
       "lägg till ett bokningssystem för lokaler",
       "lägg till onlinebokning för bord",
       "lägg till ett bokningssystem för rum",
+      "lägg till en bokningskalender för rum",
+      "lägg till tidsbokning för bord",
+      "lägg till en bokningskalender för lokaler",
       "add a booking system for rooms",
       "add a booking system for tables",
       "add a booking system for courts",
+      "add a booking system for restaurant tables",
+      "add a booking system for tennis courts",
+      "add a booking system for sports fields",
+      "add a booking system for a restaurant",
+      "add a booking system for our hotel",
+      "add Cal.com booking for hotel rooms",
+      "lägg till ett bokningssystem för en restaurang",
+      "lägg till ett bokningssystem för vårt hotell",
     ]) {
       expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("booking");
+    }
+  });
+
+  it("does not let incidental inventory nouns suppress real appointments", () => {
+    for (const prompt of [
+      "lägg till ett bokningssystem för konsultationer i våra lokaler",
+      "add appointment scheduling for interviews in hotel rooms",
+      "lägg till Cal.com-bokning för restaurangens personalmöten",
+      "lägg till Cal.com-bokning för konsultationer på hotellrum",
+      "lägg till tidsbokning för personalmöten vid restaurangbord",
+      "add online booking for a clinic",
+      "add appointment scheduling for restaurant staff meetings",
+      "add Cal.com booking for consultations in hotel rooms",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).toContain("booking");
     }
   });
 });

@@ -231,11 +231,12 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     capability: "booking",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:cal\.com|calcom)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:bokningssystem(?:et)?|bokningskalender(?:n)?|tidsbokning(?:en)?|online[-\s]?bokning|appointment[-\s]?(?:booking|scheduling)|booking[-\s]?(?:calendar|system)|schedule\s+an?\s+appointment)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:bokningssystem(?:et)?|bokningskalender(?:n)?|tidsbokning(?:en)?|online[-\s]?bokning|online[-\s]?booking|appointment[-\s]?(?:booking|scheduling)|booking[-\s]?(?:calendar|system)|schedule\s+an?\s+appointment)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:boka\s+(?:en\s+)?tid|book\s+an?\s+(?:appointment|consultation|meeting|service))(?![\p{L}\p{N}_])/iu,
     ],
     vetoes: [
-      /(?<![\p{L}\p{N}_])(?:boka\s+bord|bord(?:et|en)?|tables?|table[-\s]?reservation|restaurang(?:bord)?|restaurant|hotell(?:rum(?:men)?)?|hotel|rum(?:met|men)?|rooms?|rumsbokning|room[-\s]?booking|boende|accommodation|biljett|ticket|platsbokning|seat[-\s]?reservation|utrustning(?:en)?|equipment[-\s]?(?:booking|rental)|rental[-\s]?equipment|hyrutrustning|fordon(?:en)?|vehicle[-\s]?booking|biluthyrning|car[-\s]?rental|cykeluthyrning|bike[-\s]?rental|sportban(?:a|or|orna)|padelban(?:a|or|an)|tennisban(?:a|or|an)|golfban(?:a|or|an)|courts?|court[-\s]?booking|field[-\s]?booking|lokaler(?:na)?|lokalbokning|venue[-\s]?booking)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:bokningssystem(?:et)?|bokningskalender(?:n)?|tidsbokning(?:en)?|online[-\s]?bokning|bokning)\s+(?:för|av|till)\s+(?:(?:våra|era|vårt|ert|ett|en)\s+)?(?:restaurang(?:en)?|hotell(?:et)?|restaurangens\s+bord|hotellets\s+rum|bord(?:et|en)?|restaurangbord|hotellrum(?:men)?|rum(?:met|men)?|utrustning(?:en)?|hyrutrustning|fordon(?:en)?|biluthyrning|cykeluthyrning|sportban(?:a|or|orna)|padelban(?:a|or|an)|tennisban(?:a|or|an)|golfban(?:a|or|an)|lokaler(?:na)?|biljetter(?:na)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:cal\.com[-\s]?(?:booking|scheduling)|booking[-\s]?(?:calendar|system)|online[-\s]?booking)\s+(?:for|of)\s+(?:(?:a|an|the|our)\s+)?(?:restaurants?|hotels?|(?:hotel|meeting)[-\s]+rooms?|(?:restaurant[-\s]+)?tables?|(?:tennis|padel|sports?)[-\s]+courts?|sports?[-\s]+fields?|rooms?|courts?|equipment|rental[-\s]?equipment|vehicles?|car[-\s]?rental|bike[-\s]?rental|venues?|tickets?)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
