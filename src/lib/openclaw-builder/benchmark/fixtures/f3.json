@@ -1,0 +1,13 @@
+{
+  "id": "p0-f3-integrations",
+  "scenario": "f3",
+  "frozenPackage": {
+    "userPrompt": "Bygg de godkända auth- och betalningsintegrationerna.",
+    "buildIntent": "app",
+    "lifecycleStage": "integrations",
+    "scaffoldId": "saas",
+    "variantId": "product-grid",
+    "importedRepoMode": false,
+    "sourceIds": ["clerk-auth", "stripe-checkout"]
+  }
+}

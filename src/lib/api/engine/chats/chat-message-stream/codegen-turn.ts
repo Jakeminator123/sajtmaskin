@@ -40,6 +40,8 @@ import {
   buildOwnEngineGenerationStreamMeta,
 } from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
+import { createGenerationInputPackageReceipt } from "@/lib/openclaw-builder/package-receipt";
+import { createClassicBuilderExecutionTrace } from "@/lib/openclaw-builder/telemetry";
 import { createSSEHeaders } from "@/lib/streaming";
 import { debugLog } from "@/lib/utils/debug";
 import { buildEngineStreamResponse } from "../stream-error-response";
@@ -443,6 +445,9 @@ export async function runCodegenTurn(params: {
     orchestrationInput,
     finalized,
   );
+  const builderExecutionTrace = createClassicBuilderExecutionTrace(
+    createGenerationInputPackageReceipt(generationInputPackage),
+  );
   const lineageHash = generationInputPackage.lineageHash;
   writeOrchestrationDynamicDump(generationInputPackage);
   dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
@@ -534,6 +539,7 @@ export async function runCodegenTurn(params: {
     routePlan: routePlan ?? null,
     orchestrationContract: orchestrationBase.orchestrationContract,
     resolvedScaffold: resolvedScaffold ?? null,
+    builderExecutionTrace,
     urlMap,
     commitCredits: commitCreditsOnce,
     previousFiles: hasFollowUpBase ? previousFiles : undefined,

@@ -1,0 +1,13 @@
+{
+  "id": "p0-follow-up-colors",
+  "scenario": "follow-up",
+  "frozenPackage": {
+    "userPrompt": "Gör färgerna mörkare och flytta kontaktknappen till heron.",
+    "buildIntent": "website",
+    "lifecycleStage": "design",
+    "scaffoldId": "business",
+    "variantId": "editorial-warm",
+    "importedRepoMode": false,
+    "sourceIds": ["hero-editorial"]
+  }
+}

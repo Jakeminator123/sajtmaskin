@@ -235,3 +235,48 @@ describe("persistTelemetryRecord — källkvitto", () => {
     );
   });
 });
+
+describe("persistTelemetryRecord — classic builder-spår", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createGenerationTelemetryRecord.mockResolvedValue({ id: "tel_1" });
+  });
+
+  it("persisterar ett strikt scrubbat package → classic → finalize-spår", async () => {
+    const builderExecution = {
+      schemaVersion: 1,
+      lane: "classic",
+      executionEngine: "own-engine",
+      generationInputPackageHash: "a".repeat(64),
+      lineageHash: "b".repeat(64),
+      sourceReceiptHash: "c".repeat(64),
+      checkpoints: ["package_frozen", "classic_codegen", "finalize"],
+      qualityGateCorrelation: {
+        joinKey: "version_id",
+        verdictOwner: "engine_version_error_logs",
+        gates: ["designPreview", "integrationsBuild"],
+      },
+    };
+    await persistTelemetryRecord(
+      makeParams({ orchestrationStreamMeta: { builderExecution } }),
+    );
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.builderExecution).toEqual(builderExecution);
+  });
+
+  it("ignorerar ett ogiltigt eller utökat spår", async () => {
+    await persistTelemetryRecord(
+      makeParams({
+        orchestrationStreamMeta: {
+          builderExecution: {
+            schemaVersion: 1,
+            lane: "classic",
+            prompt: "ska inte persisteras",
+          },
+        },
+      }),
+    );
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta).not.toHaveProperty("builderExecution");
+  });
+});

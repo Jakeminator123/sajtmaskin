@@ -34,6 +34,7 @@ all references move in the same change.
 | `llm-role-matrix.md`               | LLM roles: prompt assist, deep brief, planner, generator, fixer, verifier, deploy-assistant.                               | `src/lib/models/phase-routing.ts` |
 | `integrations-and-data.md`         | DB-tabeller och requestvalidering som schema-ytor. Drift: `docs/contracts/data-layer.md`.                                  | `src/lib/db/schema.ts` |
 | `chat-message-ui-parts.md`         | Structured builder message parts in own-engine chat storage.                                                               | `engine_messages.ui_parts` |
+| `openclaw-builder-job-spec.md`     | Server-owned OpenClaw Builder job identity, lanes, budgets, lease, state and replay contract.                              | `src/lib/openclaw-builder/` |
 | `strict/`                          | Machine-oriented schemas. See [`strict/README.md`](strict/README.md).                                                      | per-schema sourceOfTruth |
 
 > **Pensionerat:** `plan-file.schema.json` är **borttaget** (grandmaster-område 8) —

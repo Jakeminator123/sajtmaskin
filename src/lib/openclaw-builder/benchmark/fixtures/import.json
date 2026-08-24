@@ -1,0 +1,13 @@
+{
+  "id": "p0-import-repository",
+  "scenario": "import",
+  "frozenPackage": {
+    "userPrompt": "Behåll strukturen och modernisera den importerade startsidan.",
+    "buildIntent": "website",
+    "lifecycleStage": "design",
+    "scaffoldId": null,
+    "variantId": null,
+    "importedRepoMode": true,
+    "sourceIds": []
+  }
+}

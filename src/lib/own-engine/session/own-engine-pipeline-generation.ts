@@ -12,6 +12,7 @@ import { getAgentTools } from "@/lib/gen/agent-tools";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import { resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
+import type { BuilderExecutionTrace } from "@/lib/openclaw-builder/telemetry";
 import {
   createOwnEngineGenerationStream,
   type GenerationStreamMeta,
@@ -45,6 +46,7 @@ export type OwnEnginePipelineAndGenerationInput = {
   urlMap: Record<string, string>;
   commitCredits: () => Promise<void>;
   previousFiles?: CodeFile[];
+  builderExecutionTrace?: BuilderExecutionTrace;
   lineageHash?: string | null;
   targetVersionId?: string | null;
   includeIntegrationSignals?: boolean;
@@ -119,6 +121,7 @@ export function createOwnEnginePipelineAndGenerationStream(
     urlMap: input.urlMap,
     commitCredits: input.commitCredits,
     previousFiles: input.previousFiles,
+    builderExecutionTrace: input.builderExecutionTrace,
     lineageHash: input.lineageHash,
     targetVersionId: input.targetVersionId,
     lifecycleParentVersionId: input.lifecycleParentVersionId,

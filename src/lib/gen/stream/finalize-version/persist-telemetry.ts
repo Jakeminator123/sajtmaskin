@@ -19,6 +19,7 @@ import type {
   FinalizeSyntaxResult,
 } from "./types";
 import type { AutofixFixerSummary, AutofixRiskSummary } from "./pre-phases";
+import { parseBuilderExecutionTrace } from "@/lib/openclaw-builder/telemetry";
 
 export async function persistTelemetryRecord(params: {
   chatId: string;
@@ -179,6 +180,12 @@ export async function persistTelemetryRecord(params: {
     const tls = orchestrationStreamMeta?.templateLibrarySearch;
     if (tls && typeof tls === "object") {
       telemetryMeta.templateLibrarySearch = tls;
+    }
+    const builderExecution = parseBuilderExecutionTrace(
+      orchestrationStreamMeta?.builderExecution,
+    );
+    if (builderExecution) {
+      telemetryMeta.builderExecution = builderExecution;
     }
 
     // Fas 0 telemetri-hygien: dossier-val. Skriv bara när något valdes så

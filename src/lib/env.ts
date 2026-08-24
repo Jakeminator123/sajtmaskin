@@ -216,6 +216,10 @@ export const serverSchema = z.object({
   SAJTMASKIN_SHADCN_RESOLVER_SEARCH: z.string().optional(),
   /** Preview prewarm: default OFF. Requires preview-host base URL + API key (keyed lease HMAC); otherwise optional prewarm skips. Host ownership hides the skeleton/refuses WS, and the canonical subject cooldown survives boot failure. Deploy/verify host before app rollout or activation. Read via `FEATURES.previewPrewarm`. */
   SAJTMASKIN_PREVIEW_PREWARM: z.string().optional(),
+  /** Separate OpenClaw Builder shadow lane request. P0 declares it but keeps runtime availability false, so unset/false/true all execute classic until a later phase explicitly ships the lane. */
+  SAJTMASKIN_OPENCLAW_BUILDER_SHADOW: z.string().optional(),
+  /** Separate OpenClaw Builder candidate lane request. Declared and hard-unavailable in P0; candidate writes require the later sandbox/broker phases. */
+  SAJTMASKIN_OPENCLAW_BUILDER_CANDIDATE: z.string().optional(),
   /** Static visual-QA heuristic on exportable files (no screenshot). Optional, default off. Read via `isVisualQAEnabled` in `src/lib/gen/verify/visual-qa.ts`. */
   SAJTMASKIN_VISUAL_QA: z.string().optional(),
   /** Live review critic after Product Postcheck (screenshots + structured multimodal verdict). Optional, default off. Read via `isLiveReviewEnabled` in `src/lib/gen/verify/live-review.ts`. */

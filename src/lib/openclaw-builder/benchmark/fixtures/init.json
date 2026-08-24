@@ -1,0 +1,13 @@
+{
+  "id": "p0-init-restaurant",
+  "scenario": "init",
+  "frozenPackage": {
+    "userPrompt": "Bygg en restaurangsajt med meny och bokningsknapp.",
+    "buildIntent": "website",
+    "lifecycleStage": "design",
+    "scaffoldId": "business",
+    "variantId": "editorial-warm",
+    "importedRepoMode": false,
+    "sourceIds": ["hero-editorial", "restaurant-dossier"]
+  }
+}
