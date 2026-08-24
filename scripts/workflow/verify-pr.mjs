@@ -13,7 +13,17 @@ function run(command, args, options = {}) {
     cwd: REPO_ROOT,
     encoding: "utf8",
     stdio: options.inherit ? "inherit" : ["ignore", "pipe", "pipe"],
+    // Node >= 20 refuses to spawn .cmd/.bat wrappers without a shell
+    // (CVE-2024-27980), so `npm.cmd` on Windows fails with EINVAL unless the
+    // caller opts in. `git` is a real executable and must stay shell-free:
+    // routing ref names through cmd parsing would be a new injection surface.
+    shell: options.shell === true,
   });
+}
+
+/** Run a package script. Opts into a shell only where `npm.cmd` requires it. */
+function npmRun(script, options = {}) {
+  return run(npm, ["run", script], { ...options, shell: process.platform === "win32" });
 }
 
 function git(args, options = {}) {
@@ -152,7 +162,7 @@ async function main() {
 
   for (const command of impact.commands) {
     console.log(`\n[verify:pr] kör npm run ${command}`);
-    const result = run(npm, ["run", command], { inherit: true });
+    const result = npmRun(command, { inherit: true });
     if (result.status !== 0) failures.push(`npm run ${command}`);
   }
 

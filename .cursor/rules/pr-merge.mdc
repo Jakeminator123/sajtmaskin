@@ -34,12 +34,13 @@ EmaCodeHero har base `ema` och kräver ägarens beslut.
 4. Triagera varje konkret fynd: **fixat**, **loggat** i rätt canonical tracker
    eller **avfärdat** med verifierbart skäl. Kör om efter ny commit.
 
-En uttömmande PR AI-review/Codex-review för aktuell SHA kan vara det oberoende
-passet. Usage-limit hos en enskild bot är inte ett fynd; använd lokal Sol-review
-för innehållet. Den required `review-window` kräver ändå minst ett lyckat,
-maskinverifierat reviewkvitto (trusted PR AI eller extern bot). Om alla sådana
-kvitton saknas/rödar stoppas merge tills en körning lyckas eller ägaren fattar
-ett uttryckligt break-glass-beslut; lokal självattestering gör inte checken grön.
+En uttömmande PR AI-review för aktuell SHA duger som oberoende pass.
+Kvot-/creditfel (`429`, «no credits remaining») är infrastrukturfel, inte fynd.
+`review-window` kräver ändå ett maskinverifierat kvitto
+(`qualifyingCheckPatterns`); saknas det på aktuell head-SHA kör mergaren själv
+ett Bugbot-pass och sveper PR-/inline-kommentarerna, där botfynd ofta hamnar
+i stället. Självattestering gör inte checken grön; annars krävs ägarens
+break-glass-beslut.
 
 Protected paths avgörs endast av `config/agent-workflow.json` och visas av
 `npm run verify:pr -- --plan`. Risk ≥ 3 (CI/runtime/security/false-green) kräver
