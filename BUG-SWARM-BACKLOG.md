@@ -1,6 +1,6 @@
 # Bug-backlog (konsoliderad)
 
-Operativ sanning mot `master` **`d9170dc2`**, kontrollerad 2026-08-24. Full
+Operativ sanning mot `master` **`2fef6230`**, kontrollerad 2026-08-24. Full
 historik finns i git; återställ vid behov föregående snapshot från den committen.
 Det tunna historikindexet finns i
 [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md).
@@ -27,18 +27,6 @@ Regler:
 
 Prioritering: `SM-033` först; därefter `SM-013`, `SM-003` och `SM-001`; sist
 `SM-030`.
-
-## Pågående PR-spår
-
-Kontrollerat mot de öppna PR:arna 2026-08-24. En PR ändrar inte radens status
-förrän dess runtimeändring finns på `master`.
-
-<!-- prettier-ignore -->
-| PR | Påverkan på denna utvärdering |
-| --- | --- |
-| [#1134](https://github.com/Jakeminator123/sajtmaskin/pull/1134) | Minskar AI SDK-pinndrift men har ett öppet reviewfynd om `process.cwd()` och stänger inte den bredare katalog-/paritetsskulden. |
-
-#1139–#1141 är stängda som ersatta av #1142. #1134 är funktionellt fristående.
 
 ## Releaseblockerare bakom avstängd flagga
 

@@ -1,8 +1,30 @@
+import platformPackageJson from "../../../../package.json";
 import type { AutoFixEntry } from "./pipeline";
 import { getAllDossiers, getDossierById } from "@/lib/gen/dossiers/registry";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
+
+const PLATFORM_DECLARED_DEPENDENCIES: Readonly<Record<string, string>> = {
+  ...platformPackageJson.dependencies,
+  ...platformPackageJson.devDependencies,
+};
+
+/**
+ * Return the dependency range used by the platform's warm pre-VM typecheck.
+ *
+ * The static JSON import is resolved from this module, not from the process
+ * launch directory. That keeps production bundles and non-root invocations
+ * deterministic. Missing declarations fail fast instead of silently reviving
+ * a stale handwritten fallback.
+ */
+function platformDeclaredRange(packageName: string): string {
+  const range = PLATFORM_DECLARED_DEPENDENCIES[packageName];
+  if (!range?.trim()) {
+    throw new Error(`Missing ${packageName} in the platform package.json`);
+  }
+  return range;
+}
 
 const PACKAGE_SOURCE_PATTERN = String.raw`((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))`;
 
@@ -259,17 +281,16 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "resend": "^6",
   // Dossier wave 1 (legacy import 2026-07-08): ably-realtime,
   // fal-image-generation (+ parked ai-tool-calling-chat). `ai` + the live
-  // OpenAI chat packages intentionally mirror the platform package.json
-  // ranges: the warm pre-VM typecheck reuses the platform node_modules while
-  // the authoritative VM installs these generated-project ranges. A major
-  // skew here can therefore make pre-VM look green for code that fails after
-  // install. `acceptance-project.test.ts` guards the materialized openai-chat
-  // project against that drift.
+  // OpenAI chat packages are copied from the statically imported platform
+  // package.json. The warm pre-VM typecheck reuses the platform node_modules,
+  // while the authoritative VM installs these generated-project ranges; using
+  // one declaration prevents a false-green precheck after a platform bump.
+  // `acceptance-project.test.ts` guards the materialized project as well.
   "ably": "^2",
-  "ai": "^6.0.239",
-  "@ai-sdk/openai": "^3.0.99",
+  "ai": platformDeclaredRange("ai"),
+  "@ai-sdk/openai": platformDeclaredRange("@ai-sdk/openai"),
   "@ai-sdk/fal": "^3",
-  "@ai-sdk/react": "3.0.259",
+  "@ai-sdk/react": platformDeclaredRange("@ai-sdk/react"),
   // Dossier wave 2 (legacy import 2026-07-08, capability `database`):
   // postgres-drizzle is the sole live dossier (neon-postgres / mongodb-atlas
   // parked 2026-08-06). Majors verified against the npm registry 2026-07-08

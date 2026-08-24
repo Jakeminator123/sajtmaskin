@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import platformPackageJson from "../../../../package.json";
 import { KNOWN_PACKAGES } from "@/lib/gen/autofix/dep-completer";
 import { SHADCN_FALLBACK_VERSIONS } from "@/lib/deploy/dependency-utils";
 import { buildCompleteProject } from "./project-scaffold";
@@ -48,11 +49,10 @@ function parseMajor(range: string): number {
 }
 
 function readPlatformDeps(): Record<string, string> {
-  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
+  return {
+    ...platformPackageJson.dependencies,
+    ...platformPackageJson.devDependencies,
   };
-  return { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
 }
 
 function readGeneratedBaselineDeps(): Record<string, string> {
@@ -190,8 +190,17 @@ describe("3D stack gated pins parity with platform package.json", () => {
  * resolving an older lucide can be handed an icon its runtime lacks. Bumping
  * lucide therefore means editing the baseline pin, KNOWN_PACKAGES, and running
  * `node scripts/dev/generate-lucide-icons.mjs`.
+ *
+ * The AI SDK ranges are copied from the statically imported platform manifest
+ * in `dep-completer.ts`. Keeping them in this exact-parity block makes that
+ * load-time contract explicit and guards the generated-project path.
  */
-const KNOWN_PACKAGES_MAJOR_MINOR_PATCH_LOCKED = ["lucide-react"] as const;
+const KNOWN_PACKAGES_MAJOR_MINOR_PATCH_LOCKED = [
+  "lucide-react",
+  "ai",
+  "@ai-sdk/openai",
+  "@ai-sdk/react",
+] as const;
 
 describe("KNOWN_PACKAGES parity with platform package.json", () => {
   const platform = readPlatformDeps();

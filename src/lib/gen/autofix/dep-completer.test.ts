@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import platformPackageJson from "../../../../package.json";
 import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import {
@@ -56,6 +57,16 @@ describe("dep-completer", () => {
     expect(completerMajor).not.toBeNull();
     expect(baselineMajor).not.toBeNull();
     expect(completerMajor).toBe(baselineMajor);
+  });
+
+  it("copies warm-cache AI SDK ranges from the platform package.json", () => {
+    const declared: Record<string, string> = {
+      ...platformPackageJson.dependencies,
+      ...platformPackageJson.devDependencies,
+    };
+    for (const pkg of ["ai", "@ai-sdk/openai", "@ai-sdk/react"] as const) {
+      expect(KNOWN_PACKAGES[pkg], pkg).toBe(declared[pkg]);
+    }
   });
 
   it("keeps ALL overlapping KNOWN_PACKAGES majors aligned with scaffold baseline", () => {
