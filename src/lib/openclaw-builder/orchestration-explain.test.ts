@@ -111,6 +111,11 @@ describe("explainOrchestration", () => {
         view: validView({ lockedContracts: ["sk-live-this-must-not-echo"] }),
       }),
     ).toEqual({ ok: false, code: "invalid_view" });
+    expect(
+      explainOrchestration({
+        view: validView({ lockedContracts: ["ghp_exampletoken"] }),
+      }),
+    ).toEqual({ ok: false, code: "invalid_view" });
   });
 
   it("does not put raw secrets or huge text in notes", () => {

@@ -4,7 +4,7 @@
  */
 
 const HEX_64 = /^[0-9a-f]{64}$/;
-const SECRET_RE = /bearer|sk-|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key/i;
+const SECRET_RE = /bearer|sk[-_]|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key|ghp_|gho_|github_pat_|xox[baprs]-/i;
 const MAX_LIST = 32;
 const MAX_BUILD_INTENT = 64;
 const MAX_LOCKED_CONTRACT = 80;
