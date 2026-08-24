@@ -12,7 +12,20 @@ export const MAX_PLAN_ARRAY_LENGTH = 32;
 export const MAX_EXPECTED_FILE_PATH_LENGTH = 200;
 export const MAX_PLAN_ITEM_LENGTH = 240;
 
-const SECRET_PATTERN_RE = /bearer|sk-|BEGIN PRIVATE/i;
+const SECRET_PATTERN_RE = /bearer|sk-|rk[_-]|whsec|BEGIN PRIVATE|api[_-]?key/i;
+
+const RESTRICTED_EXPECTED_BASENAMES = new Set([
+  ".env",
+  ".npmrc",
+  ".netrc",
+  ".yarnrc.yml",
+  ".pypirc",
+  "id_rsa",
+  "id_ed25519",
+  "credentials.json",
+  "service-account.json",
+  "package-lock.json",
+]);
 
 export const SHADOW_PLAN_CONTRACTS = [
   "GenerationInputPackage",
@@ -71,6 +84,25 @@ function isHex64(value: unknown): value is string {
   return typeof value === "string" && HEX64_RE.test(value);
 }
 
+function hasIllegalControlChars(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code === 9 || code === 10) continue;
+    if (code < 32 || code === 127) return true;
+  }
+  return false;
+}
+
+function isRestrictedExpectedPath(value: string): boolean {
+  const basename = (value.split("/").pop() ?? "").toLowerCase();
+  if (!basename) return true;
+  if (basename === ".env" || basename.startsWith(".env.")) return true;
+  if (RESTRICTED_EXPECTED_BASENAMES.has(basename)) return true;
+  if (basename.endsWith(".pem") || basename.endsWith(".key")) return true;
+  if (value === ".git/config" || value.startsWith(".git/")) return true;
+  return false;
+}
+
 function isSafeRelativePath(value: string): boolean {
   if (value.length === 0 || value.length > MAX_EXPECTED_FILE_PATH_LENGTH) return false;
   if (value.includes("\\") || value.includes("\0")) return false;
@@ -79,7 +111,7 @@ function isSafeRelativePath(value: string): boolean {
   for (const segment of segments) {
     if (segment === "" || segment === "." || segment === "..") return false;
   }
-  return true;
+  return !isRestrictedExpectedPath(value);
 }
 
 function parseStringList(
@@ -96,7 +128,10 @@ function parseStringList(
 }
 
 function isBoundedItem(item: string): boolean {
-  return item.length <= MAX_PLAN_ITEM_LENGTH;
+  if (item.length > MAX_PLAN_ITEM_LENGTH) return false;
+  if (hasIllegalControlChars(item)) return false;
+  if (SECRET_PATTERN_RE.test(item)) return false;
+  return true;
 }
 
 function isAllowedContract(item: string): boolean {

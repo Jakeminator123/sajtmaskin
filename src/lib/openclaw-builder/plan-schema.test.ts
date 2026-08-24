@@ -77,6 +77,33 @@ describe("parseShadowPlan", () => {
     });
   });
 
+  it("rejects restricted expectedFiles", () => {
+    expect(parseShadowPlan(validPlan({ expectedFiles: [".env"] }))).toEqual({
+      ok: false,
+      code: "invalid_plan",
+    });
+    expect(parseShadowPlan(validPlan({ expectedFiles: ["keys/id_ed25519"] }))).toEqual({
+      ok: false,
+      code: "invalid_plan",
+    });
+    expect(parseShadowPlan(validPlan({ expectedFiles: [".git/config"] }))).toEqual({
+      ok: false,
+      code: "invalid_plan",
+    });
+  });
+
+  it("rejects secrets or control characters in risks, checkPlan, and notes", () => {
+    expect(
+      parseShadowPlan(validPlan({ risks: ["Use sk-live-secret"] })),
+    ).toEqual({ ok: false, code: "invalid_plan" });
+    expect(
+      parseShadowPlan(validPlan({ checkPlan: ["Bearer abc.def"] })),
+    ).toEqual({ ok: false, code: "invalid_plan" });
+    expect(
+      parseShadowPlan(validPlan({ notes: ["bad\0note"] })),
+    ).toEqual({ ok: false, code: "invalid_plan" });
+  });
+
   it("rejects path traversal in expectedFiles", () => {
     expect(parseShadowPlan(validPlan({ expectedFiles: ["../secret"] }))).toEqual({
       ok: false,
