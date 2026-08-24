@@ -374,6 +374,18 @@ const MAX_NAMED_PAGES_FROM_LIST = 20;
 const MAX_WORDS_AFTER_LIST_CONJUNCTION = 2;
 
 /**
+ * Exact longer page titles that are safe after a list conjunction. Keep this
+ * separate from conjunction-bearing titles: these entries do not affect how
+ * the list is split, they only opt a known title out of the two-word cap.
+ */
+const KNOWN_LONG_PAGE_TITLES_AFTER_LIST_CONJUNCTION = new Set<string>([
+  "data protection policy",
+]);
+
+const EXACT_LIST_TITLE_EDGE_QUOTES_RE = /^["'«»“”]+|["'«»“”]+$/gu;
+const EXACT_LIST_TITLE_TRAILING_PUNCTUATION_RE = /[.;:!?]+$/u;
+
+/**
  * Real page titles that contain `and`/`och` as part of the name, not as a
  * list separator (SM-040, ägarbeslut 2026-08-14). Keep this small: unknown
  * conjunctions still split, because dropping a page the user asked for is
@@ -410,8 +422,15 @@ const KNOWN_CONJUNCTION_TITLE_RE = new RegExp(
   "giu",
 );
 
+function normalizeExactListPageTitle(raw: string): string {
+  let normalized = raw.trim().replace(/\s+/g, " ");
+  normalized = normalized.replace(EXACT_LIST_TITLE_TRAILING_PUNCTUATION_RE, "");
+  normalized = normalized.replace(EXACT_LIST_TITLE_EDGE_QUOTES_RE, "").trim();
+  return normalized.replace(EXACT_LIST_TITLE_TRAILING_PUNCTUATION_RE, "").trim();
+}
+
 function isKnownConjunctionTitle(raw: string): boolean {
-  return KNOWN_CONJUNCTION_TITLE_SET.has(raw.trim().replace(/\s+/g, " ").toLowerCase());
+  return KNOWN_CONJUNCTION_TITLE_SET.has(normalizeExactListPageTitle(raw).toLowerCase());
 }
 
 function splitPageListOnConjunctions(text: string): string[] {
@@ -448,8 +467,12 @@ function splitPageListOnConjunctions(text: string): string[] {
 function acceptConjunctionListItem(raw: string): string | null {
   const stripped = raw.replace(PAGE_LIST_OXFORD_PREFIX_RE, "").trim();
   if (!stripped) return null;
-  if (isKnownConjunctionTitle(stripped)) return stripped.replace(/\s+/g, " ");
   const normalized = stripped.replace(/\s+/g, " ");
+  const exactTitle = normalizeExactListPageTitle(normalized);
+  if (isKnownConjunctionTitle(exactTitle)) return exactTitle;
+  if (KNOWN_LONG_PAGE_TITLES_AFTER_LIST_CONJUNCTION.has(exactTitle.toLowerCase())) {
+    return exactTitle;
+  }
   const trimmed = trimBarePageName(normalized);
   if (!trimmed) return null;
   if (trimmed !== normalized) return null;
@@ -460,7 +483,7 @@ function acceptConjunctionListItem(raw: string): string | null {
 function acceptLabeledListItem(raw: string, afterConjunction: boolean): string | null {
   const stripped = raw.replace(PAGE_LIST_OXFORD_PREFIX_RE, "").trim();
   if (!stripped) return null;
-  if (isKnownConjunctionTitle(stripped)) return stripped.replace(/\s+/g, " ");
+  if (isKnownConjunctionTitle(stripped)) return normalizeExactListPageTitle(stripped);
   if (!afterConjunction) {
     const name = trimBarePageName(stripped);
     return name || null;
