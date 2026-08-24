@@ -299,6 +299,15 @@ function realisticStreamMeta(): Record<string, unknown> {
     f3ApprovedProviders: ["resend"],
     customInstructionsLength: 0,
     variantId: "warm-editorial",
+    variantSelection: {
+      source: "keyword",
+      score: 8,
+      runnerUpScore: 3,
+      margin: 5,
+      hintId: "warm-editorial",
+      finalId: "warm-editorial",
+      changedFromHint: false,
+    },
     lineageHash: "abc123",
   };
 }
@@ -339,6 +348,24 @@ describe("capability-signalnycklar överlever nyckelbudgeten (spår 01 steg 3)",
     expect(out.selectedDossierIds).toEqual(["resend-contact-form"]);
     expect(out.f3ApprovedCapabilities).toEqual(["contact-form"]);
     expect(out.f3ApprovedProviders).toEqual(["resend"]);
+  });
+
+  it("behåller hela variantkvittot trots stora payloads och nyckelbudget", () => {
+    const out = buildPersistedOrchestrationSnapshot({
+      streamMeta: realisticStreamMeta(),
+      versionId: "version-1",
+      chatId: "chat-1",
+    });
+
+    expect(out.variantSelection).toEqual({
+      source: "keyword",
+      score: 8,
+      runnerUpScore: 3,
+      margin: 5,
+      hintId: "warm-editorial",
+      finalId: "warm-editorial",
+      changedFromHint: false,
+    });
   });
 
   it("bär en uppskjuten integration hela vägen skriv → merge → läs", () => {

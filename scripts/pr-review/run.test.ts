@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { createOpenAIReviewer } from "./run.mjs";
+import {
+  createOpenAIReviewer,
+  isOpenAIAccountFallbackError,
+  requestAccountFallback,
+} from "./run.mjs";
+import { parseAccountFallbackRequest } from "./account-fallback.mjs";
 
 describe("OpenAI PR reviewer model policy", () => {
   it("reads canonical manifest models and keeps follow-up output finding-specific", async () => {
@@ -45,5 +50,114 @@ describe("OpenAI PR reviewer model policy", () => {
       store: false,
     });
     expect(JSON.stringify(calls[1])).not.toContain('"findings"');
+  });
+});
+
+describe("OpenAI account fallback", () => {
+  it.each([
+    [{ status: 429, code: "insufficient_quota" }],
+    [{ status: 403, error: { type: "billing_not_active" } }],
+    [{ status: 400, message: "Billing hard limit reached" }],
+    [
+      {
+        status: 429,
+        message:
+          "429 You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/.",
+      },
+    ],
+  ])("recognizes billing and quota failures: %o", (error) => {
+    expect(isOpenAIAccountFallbackError(error)).toBe(true);
+  });
+
+  it.each([
+    [{ status: 429, code: "rate_limit_exceeded" }],
+    [{ status: 429, message: "Rate limit reached for requests per minute" }],
+    [{ status: 500, message: "upstream failed" }],
+    [{ status: 401, code: "invalid_api_key" }],
+    [{ status: 403, code: "account_deactivated" }],
+  ])("does not hide unrelated provider failures: %o", (error) => {
+    expect(isOpenAIAccountFallbackError(error)).toBe(false);
+  });
+
+  it("publishes one idempotent fallback request for the current head", async () => {
+    const headSha = "a".repeat(40);
+    const comments: Array<{ body: string; author: string }> = [];
+    const github = {
+      async getPullRequest() {
+        return { headSha, baseRef: "master", mergedAt: null };
+      },
+      async listIssueComments() {
+        return comments.map((comment, index) => ({ id: index + 1, ...comment }));
+      },
+      async createIssueComment(_number: number, body: string) {
+        comments.push({ body, author: "github-actions[bot]" });
+        return { id: comments.length };
+      },
+    };
+
+    await requestAccountFallback({ github, prNumber: 17, reason: "openai_quota" });
+    await requestAccountFallback({ github, prNumber: 17, reason: "openai_quota" });
+
+    expect(comments).toHaveLength(1);
+    expect(parseAccountFallbackRequest(comments[0].body)).toEqual({
+      headSha,
+      reason: "openai_quota",
+    });
+  });
+
+  it("does not let another actor suppress the official fallback request", async () => {
+    const headSha = "a".repeat(40);
+    const comments = [
+      {
+        body: `<!-- sajtmaskin-pr-review-fallback:v2 head=${headSha} reason=openai_quota -->`,
+        author: "external-user",
+      },
+    ];
+    await requestAccountFallback({
+      github: {
+        async getPullRequest() {
+          return { headSha, baseRef: "master", mergedAt: null };
+        },
+        async listIssueComments() {
+          return comments;
+        },
+        async createIssueComment(_number: number, body: string) {
+          comments.push({ body, author: "github-actions[bot]" });
+        },
+      },
+      prNumber: 17,
+      reason: "openai_quota",
+    });
+
+    expect(comments).toHaveLength(2);
+    expect(comments[1].author).toBe("github-actions[bot]");
+  });
+
+  it.each([
+    [{ headSha: "a".repeat(40), baseRef: "master", mergedAt: "2026-08-24T09:00:00Z" }, "merged"],
+    [{ headSha: "a".repeat(40), baseRef: "release", mergedAt: null }, "wrong-base"],
+  ])("does not request account work for a terminal or wrong-base PR: %o", async (pr, reason) => {
+    let reads = 0;
+    let writes = 0;
+    const result = await requestAccountFallback({
+      github: {
+        async getPullRequest() {
+          return pr;
+        },
+        async listIssueComments() {
+          reads += 1;
+          return [];
+        },
+        async createIssueComment() {
+          writes += 1;
+        },
+      },
+      prNumber: 17,
+      reason: "openai_key_missing",
+    });
+
+    expect(result).toMatchObject({ kind: "skip", reason, writes: 0 });
+    expect(reads).toBe(0);
+    expect(writes).toBe(0);
   });
 });

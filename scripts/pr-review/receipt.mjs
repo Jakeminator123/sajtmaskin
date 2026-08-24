@@ -17,6 +17,11 @@ function unqualifiedReason(result) {
 export function createReviewRunResult(automationResult) {
   const lastRun = automationResult?.state?.lastRun;
   const reviewedHeadSha = lastRun?.headSha;
+  const handoffHeadSha =
+    automationResult?.kind === "account-fallback" &&
+    SHA_RE.test(String(automationResult?.headSha ?? ""))
+      ? String(automationResult.headSha).toLowerCase()
+      : null;
   const reviewId = automationResult?.state?.github?.exhaustiveReviewId;
   const publishedReview = automationResult?.publishedReview;
   const qualifies =
@@ -42,6 +47,7 @@ export function createReviewRunResult(automationResult) {
           reviewId,
         }
       : null,
+    ...(automationResult?.kind === "account-fallback" ? { handoffHeadSha } : {}),
     reason: qualifies ? null : unqualifiedReason(automationResult),
   };
 }
@@ -51,7 +57,13 @@ export function isReviewRunResult(value) {
   if (!["qualified", "unqualified"].includes(value.outcome)) return false;
   if (typeof value.automationKind !== "string") return false;
   if (value.outcome === "unqualified") {
-    return value.review === null && typeof value.reason === "string" && value.reason.length > 0;
+    return (
+      value.review === null &&
+      typeof value.reason === "string" &&
+      value.reason.length > 0 &&
+      (value.automationKind !== "account-fallback" ||
+        SHA_RE.test(String(value.handoffHeadSha ?? "")))
+    );
   }
   return (
     value.reason === null &&
@@ -80,6 +92,23 @@ export function decideTrustedReceipt({ runResult, currentHeadSha }) {
     };
   }
   if (runResult.outcome !== "qualified") {
+    if (
+      runResult.automationKind === "account-fallback" &&
+      ["openai_key_missing", "openai_quota"].includes(runResult.reason)
+    ) {
+      if (runResult.handoffHeadSha !== currentHeadSha) {
+        return {
+          conclusion: "action_required",
+          title: "PR review handoff is stale",
+          summary: `Account handoff covered ${runResult.handoffHeadSha}, but the current PR head is ${currentHeadSha}.`,
+        };
+      }
+      return {
+        conclusion: "neutral",
+        title: "PR review handed off to the Codex account",
+        summary: `The Platform API could not review current head ${currentHeadSha}; a separate account-backed review is required.`,
+      };
+    }
     return {
       conclusion: "action_required",
       title: "Current head lacks a qualifying PR AI review",

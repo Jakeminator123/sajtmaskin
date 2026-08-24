@@ -1,9 +1,5 @@
-import {
-  getDefaultVariantForScaffold,
-  getVariantsForScaffold,
-  getVariantById,
-} from "./registry";
-import type { PickScaffoldVariantInput, ScaffoldVariant } from "./types";
+import { getDefaultVariantForScaffold, getVariantsForScaffold, getVariantById } from "./registry";
+import type { PickScaffoldVariantInput, ScaffoldVariant, VariantSelection } from "./types";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
 import {
   invalidateEmbeddingsArtifactCache,
@@ -172,8 +168,7 @@ export function buildKeywordWordPattern(keyword: string): RegExp {
   // theme", "white-space") skulle suffixet tyst töja sista ledet ("dark
   // themed") — fraser matchas ordagrant (bugbot-fynd 2026-07-31).
   const isSingleWord = !/[\s-]/.test(keyword);
-  const inflectionSuffix =
-    isSingleWord && keyword.length >= 4 ? "\\p{L}{0,4}" : "";
+  const inflectionSuffix = isSingleWord && keyword.length >= 4 ? "\\p{L}{0,4}" : "";
   return new RegExp(
     `(?:^|[^\\p{L}\\p{N}])${escaped}${inflectionSuffix}(?:[^\\p{L}\\p{N}]|$)`,
     "iu",
@@ -217,7 +212,10 @@ function scoreVariant(
   // skickar "dark mode"/"light mode" via styleKeywordsHint i stället för
   // prompt-text, och brief-keywords kan bära samma signal.
   const colorSignalText = [promptLower, ...styleKeywordsLower, ...toneKeywordsLower].join(" ");
-  if (variant.colorMode === "dark" && /\b(dark|mörk|noir|black|svart|terminal)\b/i.test(colorSignalText)) {
+  if (
+    variant.colorMode === "dark" &&
+    /\b(dark|mörk|noir|black|svart|terminal)\b/i.test(colorSignalText)
+  ) {
     score += 2;
   }
   if (variant.colorMode === "light" && /\b(light|ljus|airy|clean|ren)\b/i.test(colorSignalText)) {
@@ -241,15 +239,22 @@ function scoreVariant(
  *    `resolveScaffoldVariant` in finalize-prompts, after style pin and
  *    persisted/locked variant. Embeddings when available; else this function.
  *
- * Init reuses the pre-match id as `persistedVariantId` so finalize does not
- * re-pick unless style pin or lock says otherwise. See K4 in
- * `docs/plans/avklarat/2026-08-21-scaffold-komposition-och-stad/00-master-plan.md`.
+ * Init carries the pre-match separately as `variantHintId`; the wrapper remains
+ * useful for legacy callers while the receipt-returning sibling exposes why the
+ * same deterministic pick won.
  */
-export function pickScaffoldVariant(
-  input: PickScaffoldVariantInput,
-): ScaffoldVariant | null {
+export function pickScaffoldVariant(input: PickScaffoldVariantInput): ScaffoldVariant | null {
+  return pickScaffoldVariantWithReceipt(input).variant;
+}
+
+export function pickScaffoldVariantWithReceipt(input: PickScaffoldVariantInput): {
+  variant: ScaffoldVariant | null;
+  selection: VariantSelection;
+} {
   const variants = getVariantsForScaffold(input.scaffoldId);
-  if (variants.length === 0) return null;
+  if (variants.length === 0) {
+    return { variant: null, selection: matcherReceipt("hash", null, null, null) };
+  }
 
   const promptLower = input.prompt.toLowerCase();
   const styleKeywordsLower = (input.styleKeywords ?? []).map((value) => value.toLowerCase());
@@ -272,24 +277,59 @@ export function pickScaffoldVariant(
   // seed-hashen håller valet deterministiskt per prompt/session.
   if (topScore <= 0) {
     const hash = hashSeed(buildVariantSeedKey(input));
-    return ranked[hash % ranked.length]?.variant ?? variants[0] ?? null;
+    const variant = ranked[hash % ranked.length]?.variant ?? variants[0] ?? null;
+    return {
+      variant,
+      selection: rankedMatcherReceipt("hash", variant, ranked),
+    };
   }
 
   // Speglar embedding-vägens dominance-margin: när #1 leder klart över #2
   // vinner toppen rakt av. Seed-hash-rotation bara när poängfältet är jämnt.
   const positive = ranked.filter((entry) => entry.score > 0);
   const top = positive[0]!;
-  if (
-    positive.length === 1 ||
-    top.score - positive[1]!.score >= VARIANT_DOMINANT_MARGIN
-  ) {
-    return top.variant;
+  if (positive.length === 1 || top.score - positive[1]!.score >= VARIANT_DOMINANT_MARGIN) {
+    return {
+      variant: top.variant,
+      selection: rankedMatcherReceipt("keyword", top.variant, ranked),
+    };
   }
   const tiedCandidates = positive
     .filter((entry) => top.score - entry.score < VARIANT_DOMINANT_MARGIN)
     .slice(0, 4);
   const hash = hashSeed(buildVariantSeedKey(input));
-  return tiedCandidates[hash % tiedCandidates.length]?.variant ?? top.variant;
+  const variant = tiedCandidates[hash % tiedCandidates.length]?.variant ?? top.variant;
+  return {
+    variant,
+    selection: rankedMatcherReceipt("hash", variant, positive),
+  };
+}
+
+function rankedMatcherReceipt(
+  source: VariantSelection["source"],
+  variant: ScaffoldVariant | null,
+  ranked: Array<{ variant: ScaffoldVariant; score: number }>,
+): VariantSelection {
+  const selected = ranked.find((entry) => entry.variant.id === variant?.id);
+  const runnerUp = ranked.find((entry) => entry.variant.id !== variant?.id);
+  return matcherReceipt(source, variant, selected?.score ?? null, runnerUp?.score ?? null);
+}
+
+function matcherReceipt(
+  source: VariantSelection["source"],
+  variant: ScaffoldVariant | null,
+  score: number | null,
+  runnerUpScore: number | null,
+): VariantSelection {
+  return {
+    source,
+    score,
+    runnerUpScore,
+    margin: score !== null && runnerUpScore !== null ? score - runnerUpScore : null,
+    hintId: null,
+    finalId: variant?.id ?? null,
+    changedFromHint: false,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -346,17 +386,23 @@ export interface PickScaffoldVariantAsyncOptions extends PickScaffoldVariantInpu
 export async function pickScaffoldVariantAsync(
   input: PickScaffoldVariantAsyncOptions,
 ): Promise<ScaffoldVariant | null> {
+  return (await pickScaffoldVariantAsyncWithReceipt(input)).variant;
+}
+
+export async function pickScaffoldVariantAsyncWithReceipt(
+  input: PickScaffoldVariantAsyncOptions,
+): Promise<{ variant: ScaffoldVariant | null; selection: VariantSelection }> {
   const variants = getVariantsForScaffold(input.scaffoldId);
-  if (variants.length === 0) return null;
+  if (variants.length === 0) return pickScaffoldVariantWithReceipt(input);
 
   const embeddingsFile = await loadVariantEmbeddings();
-  if (!embeddingsFile) return pickScaffoldVariant(input);
+  if (!embeddingsFile) return pickScaffoldVariantWithReceipt(input);
 
   // Get query vector
   let queryVec: number[] | null = input.queryVector ?? null;
   if (!queryVec) {
     const apiKey = (input.embeddingApiKey ?? process.env.OPENAI_API_KEY ?? "").trim();
-    if (!apiKey) return pickScaffoldVariant(input);
+    if (!apiKey) return pickScaffoldVariantWithReceipt(input);
     try {
       const { default: OpenAI } = await import("openai");
       const openai = new OpenAI({ apiKey });
@@ -364,7 +410,9 @@ export async function pickScaffoldVariantAsync(
         input.prompt,
         (input.styleKeywords ?? []).join(" "),
         (input.toneKeywords ?? []).join(" "),
-      ].filter(Boolean).join("\n");
+      ]
+        .filter(Boolean)
+        .join("\n");
       const embeddingStartedAt = Date.now();
       const res = await openai.embeddings.create({
         model: embeddingsFile._meta.model,
@@ -380,10 +428,10 @@ export async function pickScaffoldVariantAsync(
       });
       queryVec = res.data[0]?.embedding ?? null;
     } catch {
-      return pickScaffoldVariant(input);
+      return pickScaffoldVariantWithReceipt(input);
     }
   }
-  if (!queryVec) return pickScaffoldVariant(input);
+  if (!queryVec) return pickScaffoldVariantWithReceipt(input);
 
   // Cosine vs each variant for this scaffold
   const variantVecsById = new Map(
@@ -414,19 +462,17 @@ export async function pickScaffoldVariantAsync(
   //      arbitrary, so let keyword scoring decide instead.
   const hasAnyEmbedding = ranked.some((entry) => entry.score > 0);
   if (!hasAnyEmbedding) {
-    return pickScaffoldVariant(input);
+    return pickScaffoldVariantWithReceipt(input);
   }
   if (!ranked[0] || ranked[0].score < VARIANT_EMBEDDING_MIN_SCORE) {
-    return pickScaffoldVariant(input);
+    return pickScaffoldVariantWithReceipt(input);
   }
 
   // Only consider candidates that actually cleared the floor; otherwise the
   // hash-modulo could land on a variant lacking embeddings entirely.
-  const qualifying = ranked.filter(
-    (entry) => entry.score >= VARIANT_EMBEDDING_MIN_SCORE,
-  );
+  const qualifying = ranked.filter((entry) => entry.score >= VARIANT_EMBEDDING_MIN_SCORE);
   if (qualifying.length === 0) {
-    return pickScaffoldVariant(input);
+    return pickScaffoldVariantWithReceipt(input);
   }
 
   // Rotera bara mellan toppvarianter som faktiskt är *nära varandra*.
@@ -438,15 +484,19 @@ export async function pickScaffoldVariantAsync(
   // toppen rakt av. Bevarar variation mellan sessioner när cosine-fältet är
   // jämnt men skyddar dominanta embedding-vinster.
   const top = qualifying[0]!;
-  if (
-    qualifying.length === 1 ||
-    top.score - qualifying[1]!.score >= VARIANT_DOMINANT_MARGIN
-  ) {
-    return top.variant;
+  if (qualifying.length === 1 || top.score - qualifying[1]!.score >= VARIANT_DOMINANT_MARGIN) {
+    return {
+      variant: top.variant,
+      selection: rankedMatcherReceipt("embedding", top.variant, ranked),
+    };
   }
   const tiedCandidates = qualifying
     .filter((entry) => top.score - entry.score < VARIANT_DOMINANT_MARGIN)
     .slice(0, 3);
   const hash = hashSeed(buildVariantSeedKey(input));
-  return tiedCandidates[hash % tiedCandidates.length]?.variant ?? top.variant;
+  const variant = tiedCandidates[hash % tiedCandidates.length]?.variant ?? top.variant;
+  return {
+    variant,
+    selection: rankedMatcherReceipt("hash", variant, qualifying),
+  };
 }

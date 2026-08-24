@@ -9,6 +9,11 @@ import {
   validateMergeReadySignoff,
 } from "./merge-ready-freshness.mjs";
 import { decodeMarker, EXHAUSTIVE_MARKER_PREFIX, parseStateComment } from "../pr-review/core.mjs";
+import {
+  parseAccountFallbackRequest,
+  parseAccountReviewMarker,
+  parseAccountReviewReceiptMarker,
+} from "../pr-review/account-fallback.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const POLICY = JSON.parse(readFileSync(resolve(ROOT, "config/agent-workflow.json"), "utf8"));
@@ -247,13 +252,7 @@ export function latestInvalidatingFindingEpoch({ issueComments, reviews, reviewC
  * beständiga state-kommentaren och det publicerade review-ID:t på exakt head.
  * Ett checknamn från github-actions är avsiktligt aldrig kvittot.
  */
-export function validateTrustedPrAiEvidence({
-  issueComments,
-  reviews,
-  headSha,
-  repository,
-  prNumber,
-}) {
+function validateInternalPrAiEvidence({ issueComments, reviews, headSha, repository, prNumber }) {
   const candidates = issueComments
     .filter(
       (comment) =>
@@ -324,6 +323,125 @@ export function validateTrustedPrAiEvidence({
     valid: true,
     reason: `PR AI-review ${review.id} täcker live head ${headSha.slice(0, 7)}`,
     completedAtEpoch: Math.max(stateEpoch, reviewEpoch),
+  };
+}
+
+const TRUSTED_ACCOUNT_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
+const TRUSTED_ACCOUNT_FALLBACK_REASONS = new Set(["openai_key_missing", "openai_quota"]);
+
+export function validateAccountPrReviewEvidence({
+  issueComments,
+  reviews,
+  headSha,
+  prAuthor = /** @type {{ login?: string; type?: string } | null} */ (null),
+  trustedActors = POLICY.review.trustedAccountReviewActors ?? [],
+}) {
+  const normalizedHead = String(headSha ?? "").toLowerCase();
+  const actors = new Set(trustedActors.map((actor) => String(actor).toLowerCase()));
+  if (actors.size === 0) {
+    return { valid: false, reason: "betrodda konto-reviewers saknas", completedAtEpoch: 0 };
+  }
+  const fallbackRequest = issueComments
+    .map((comment) => ({ comment, marker: parseAccountFallbackRequest(comment.body) }))
+    .filter(
+      ({ comment, marker }) =>
+        marker?.headSha === normalizedHead &&
+        TRUSTED_ACCOUNT_FALLBACK_REASONS.has(marker.reason) &&
+        comment.user?.login === "github-actions[bot]" &&
+        comment.user?.type === "Bot",
+    )
+    .sort(
+      (left, right) =>
+        (epoch(right.comment.updated_at ?? right.comment.created_at) ?? 0) -
+        (epoch(left.comment.updated_at ?? left.comment.created_at) ?? 0),
+    )[0]?.comment;
+  const isDependabotPr =
+    prAuthor?.login === "dependabot[bot]" && prAuthor?.type === "Bot";
+  if (!fallbackRequest && !isDependabotPr) {
+    return {
+      valid: false,
+      reason: "betrodd kontoöverlämning för live head saknas",
+      completedAtEpoch: 0,
+    };
+  }
+  const fallbackEpoch = fallbackRequest
+    ? epoch(fallbackRequest.updated_at ?? fallbackRequest.created_at)
+    : 0;
+  if (fallbackEpoch === null) {
+    return {
+      valid: false,
+      reason: "kontoöverlämningen saknar serverside-tid",
+      completedAtEpoch: 0,
+    };
+  }
+  const receipts = issueComments
+    .map((comment) => ({ comment, marker: parseAccountReviewReceiptMarker(comment.body) }))
+    .filter(
+      ({ comment, marker }) =>
+        marker?.headSha === normalizedHead &&
+        comment.user?.type === "User" &&
+        actors.has(String(comment.user?.login ?? "").toLowerCase()) &&
+        TRUSTED_ACCOUNT_ASSOCIATIONS.has(comment.author_association),
+    )
+    .sort(
+      (left, right) =>
+        (epoch(right.comment.updated_at ?? right.comment.created_at) ?? 0) -
+        (epoch(left.comment.updated_at ?? left.comment.created_at) ?? 0),
+    );
+
+  for (const { comment, marker } of receipts) {
+    const review = reviews.find((candidate) => Number(candidate.id) === marker.reviewId);
+    const reviewMarker = parseAccountReviewMarker(review?.body);
+    const sameActor =
+      String(review?.user?.login ?? "").toLowerCase() ===
+      String(comment.user?.login ?? "").toLowerCase();
+    if (
+      !review ||
+      review.user?.type !== "User" ||
+      !sameActor ||
+      !actors.has(String(review.user?.login ?? "").toLowerCase()) ||
+      !TRUSTED_ACCOUNT_ASSOCIATIONS.has(review.author_association) ||
+      review.state !== "COMMENTED" ||
+      String(review.commit_id ?? "").toLowerCase() !== normalizedHead ||
+      reviewMarker?.headSha !== normalizedHead ||
+      reviewMarker.scope !== "full-current-diff"
+    ) {
+      continue;
+    }
+    const receiptEpoch = epoch(comment.updated_at ?? comment.created_at);
+    const reviewEpoch = reviewEvidenceEpoch(review);
+    if (receiptEpoch === null || reviewEpoch === null) {
+      return {
+        valid: false,
+        reason: "konto-reviewns evidens saknar serverside-tid",
+        completedAtEpoch: 0,
+      };
+    }
+    return {
+      valid: true,
+      reason: `konto-review ${review.id} täcker live head ${normalizedHead.slice(0, 7)}`,
+      completedAtEpoch: Math.max(fallbackEpoch, receiptEpoch, reviewEpoch),
+    };
+  }
+  return {
+    valid: false,
+    reason: "SHA-bundet konto-reviewkvitto saknas",
+    completedAtEpoch: 0,
+  };
+}
+
+export function validateTrustedPrAiEvidence(input) {
+  const internal = validateInternalPrAiEvidence(input);
+  if (internal.valid) return internal;
+  const account = validateAccountPrReviewEvidence({
+    ...input,
+    trustedActors: input.trustedActors ?? POLICY.review.trustedAccountReviewActors ?? [],
+  });
+  if (account.valid) return account;
+  return {
+    valid: false,
+    reason: `${internal.reason}; ${account.reason}`,
+    completedAtEpoch: 0,
   };
 }
 
@@ -1132,6 +1250,7 @@ async function readMergeSnapshot(client, prNumber, commentId, expectedHeadSha, p
     issueComments: evidence.issueComments ?? [],
     reviews: evidence.reviews ?? [],
     headSha: expectedHeadSha,
+    prAuthor: evidence.pr.user,
     repository: client.repository,
     prNumber,
   });
@@ -1356,6 +1475,7 @@ export async function runTrustedGate({
         issueComments: liveEvidence.issueComments,
         reviews: liveEvidence.reviews,
         headSha,
+        prAuthor: livePr.user,
         repository: client.repository,
         prNumber,
       });
@@ -1419,6 +1539,7 @@ export async function runTrustedGate({
             issueComments: confirmationEvidence.issueComments ?? [],
             reviews: confirmationEvidence.reviews ?? [],
             headSha,
+            prAuthor: confirmationEvidence.pr.user,
             repository: client.repository,
             prNumber,
           });

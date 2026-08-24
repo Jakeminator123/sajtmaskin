@@ -295,7 +295,7 @@ export async function runCodegenTurn(params: {
     // Q5a + MB-3: budget scales to the generator-phase model's context
     // window (Opus 4.8 on the anthropic tier), not the tier build-default.
     engineModelId: generatorModel,
-    persistedVariantId: snapshotVariantId,
+    snapshotVariantId,
     customInstructions: trimmedSystem || undefined,
     chatId,
     priorQualityTarget,
@@ -528,6 +528,7 @@ export async function runCodegenTurn(params: {
       customInstructionsLength: trimmedSystem?.length ?? 0,
       scaffoldId: resolvedScaffold?.id ?? null,
       variantId: finalized.variantId,
+      variantSelection: finalized.variantSelection,
       variantTemplateId: finalized.variantTemplateId,
       sources: finalized.sources,
     }),

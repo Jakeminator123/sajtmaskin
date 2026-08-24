@@ -266,7 +266,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         // Fast pre-match: keyword-only scaffold + variant (~1ms) to give Brief-LLM design hints.
         // Intentionally NOT pickScaffoldVariantAsync — that would add a +500ms OpenAI embedding
         // round-trip just for hint generation.
-        // The picked preMatchVariant.id is later passed as orchestrationInput.persistedVariantId
+        // The picked preMatchVariant.id is later passed as orchestrationInput.variantHintId
         // so the same variant is reused by finalizeOrchestrationPrompts (no async re-pick), keeping
         // brief-LLM hints and codegen aligned.
         // Scaffold: Av → thin baseline (`projekt-bas-app`) so Deep Brief / variant
@@ -608,7 +608,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             // Pinna samma pre-match-variant som huvudflödet (pre-matchen läser
             // styleKeywordsHint) så plan-orkestreringen inte async-väljer en
             // annan variant än brief-hints/codegen.
-            persistedVariantId: preMatchVariant?.id ?? null,
+            variantHintId: preMatchVariant?.id ?? null,
             promptStrategyMeta: strategyMeta,
             // Bug 04#3 (2026-04-22 audit): plan mode skickade tidigare inte
             // engineModelId/lifecycleStage. Det gav divergent BuildSpec mellan
@@ -892,7 +892,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             // land on a different variant after brief is ready, causing
             // brief→codegen drift. If preMatchVariant is null, async picker runs.
             // getVariantById fallback in orchestrate.ts re-picks if id is stale.
-            persistedVariantId: preMatchVariant?.id ?? null,
+            variantHintId: preMatchVariant?.id ?? null,
             // Q5a + MB-3: pass the generator-phase model id so deriveBuildSpec
             // scales tokenBudgets to the context window of the model that
             // actually generates (e.g. Opus 4.8's larger window on the anthropic
@@ -1084,6 +1084,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
               scaffoldId: resolvedScaffold?.id ?? null,
               variantId: finalized.variantId,
+              variantSelection: finalized.variantSelection,
               variantTemplateId: finalized.variantTemplateId,
               sources: finalized.sources,
             }),

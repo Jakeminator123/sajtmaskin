@@ -316,4 +316,25 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
     });
     expect(withoutSources).not.toHaveProperty("sources");
   });
+
+  it("carries the canonical variant-selection receipt into stream meta", () => {
+    const variantSelection = {
+      source: "hint-fallback" as const,
+      score: null,
+      runnerUpScore: null,
+      margin: null,
+      hintId: "nature-flow",
+      finalId: "nature-flow",
+      changedFromHint: false,
+    };
+
+    const meta = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "follow-up",
+      variantId: "nature-flow",
+      variantSelection,
+    });
+
+    expect(meta.variantSelection).toEqual(variantSelection);
+  });
 });

@@ -5,6 +5,7 @@ const workflow = readFileSync(".github/workflows/pr-ai-review.yml", "utf8");
 const reviewerSource = readFileSync("scripts/pr-review/run.mjs", "utf8");
 const automationSource = readFileSync("scripts/pr-review/automation.mjs", "utf8");
 const receiptSource = readFileSync("scripts/pr-review/receipt.mjs", "utf8");
+const gateSource = readFileSync("scripts/ci/trusted-review-window.mjs", "utf8");
 
 describe("PR AI review workflow security contract", () => {
   it("handles all required PR lifecycle events, including drafts", () => {
@@ -68,5 +69,15 @@ describe("PR AI review workflow security contract", () => {
     expect(automationSource).toContain('kind: "receipt-recovery"');
     expect(automationSource).toContain("verifiedCurrentReview");
     expect(automationSource).toContain("snapshot?.headSha === review.commitId");
+  });
+
+  it("hands billing failures to a neutral, SHA-bound account review without masking other errors", () => {
+    expect(reviewerSource).toContain("isOpenAIAccountFallbackError");
+    expect(reviewerSource).toContain('reason: "openai_key_missing"');
+    expect(reviewerSource).toContain('reason: "openai_quota"');
+    expect(receiptSource).toContain('conclusion: "neutral"');
+    expect(gateSource).toContain("validateAccountPrReviewEvidence");
+    expect(gateSource).toContain("review.author_association");
+    expect(gateSource).toContain("review.commit_id");
   });
 });

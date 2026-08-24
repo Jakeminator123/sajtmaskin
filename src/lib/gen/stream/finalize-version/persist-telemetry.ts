@@ -200,6 +200,11 @@ export async function persistTelemetryRecord(params: {
       telemetryMeta.sources = sources;
     }
 
+    const variantSelection = orchestrationStreamMeta?.variantSelection;
+    if (variantSelection && typeof variantSelection === "object" && !Array.isArray(variantSelection)) {
+      telemetryMeta.variantSelection = variantSelection;
+    }
+
     const scaffoldSelectionMethod =
       scaffoldSelection && typeof scaffoldSelection.selectionMethod === "string"
         ? scaffoldSelection.selectionMethod

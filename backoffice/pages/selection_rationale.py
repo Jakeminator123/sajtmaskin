@@ -239,7 +239,7 @@ def _render_scaffold_dump_panel(dump: dict[str, Any] | None) -> None:
             "**Förväntade fält:** `scaffoldId` · `selectionMethod` "
             "(keyword/embedding/manual/persisted/default/off) · `selectionConfidence` · "
             "`embeddingOverrideReason` · `briefContextApplied` · `topCandidates` · "
-            "`keywordScores` · `variantId` · `buildSpec` (buildIntent/qualityTarget/…) · "
+            "`keywordScores` · `variantId` · `variantSelection` · `buildSpec` (buildIntent/qualityTarget/…) · "
             "`sources` (kind/id/origin/reason/authority/reachedPrompt)."
         )
         return
@@ -264,6 +264,11 @@ def _render_scaffold_dump_panel(dump: dict[str, Any] | None) -> None:
     c4.metric("Vald variant", _txt(payload.get("variantId")))
     c5.metric("scaffoldMode", _txt(payload.get("scaffoldMode")))
     c6.metric("briefContextApplied", "ja" if selection.get("briefContextApplied") else "nej")
+
+    variant_selection = payload.get("variantSelection")
+    if isinstance(variant_selection, dict):
+        st.markdown("**Variant selection receipt**")
+        st.json(variant_selection)
 
     # Override / semantic-fallback skäl (varför embedding/keyword vann eller föll).
     override_reason = selection.get("embeddingOverrideReason")
