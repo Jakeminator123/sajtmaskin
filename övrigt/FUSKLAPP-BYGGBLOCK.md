@@ -87,7 +87,7 @@ sekventiell förbättring av manifest- och promptkontraktet:
 |---|---|---|
 | **D2** | Inför valfria `configInputs` (värden användaren fyller i hos Sajtmaskin) och `providerSetup` (handgrepp hos leverantören). `envVars` fortsätter äga configured/readiness tills en uttrycklig migration beslutas. | Skiljer fält från instruktioner utan att skapa en andra konfigurationssanning. |
 | **D3** | Samla det en Kopplad dossier bidrar med till prompten i en intern representation, `HardDossierIntegration`. Ingen ny agent eller pipelinefas. | Gör provider-, env-, setup-, mock- och filinstruktioner läsbara och testbara på ett ställe. |
-| **D4** | Ge alla nio hard-dossiers `selected-sections`, med verifierade rubrikerna `When to use`, `How to integrate` och `Avoid`. | Gör att de kuraterade gör/gör-inte-reglerna faktiskt når byggmodellen. |
+| **D4** | Ge alla aktiva hard-dossiers `selected-sections`, med verifierade rubrikerna `When to use`, `How to integrate` och `Avoid`. | Gör att de kuraterade gör/gör-inte-reglerna faktiskt når byggmodellen. |
 
 Ordningen är **D2 → D3 → D4**. Knappen ”Bygg integrationer” ska inte tas bort,
 och `SELECTED_SECTION_CHAR_CAP = 480` ska lämnas oförändrad: taket gäller per

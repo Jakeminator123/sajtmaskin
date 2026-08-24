@@ -228,6 +228,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "vaul": "^1",
   "embla-carousel-react": "^8",
   "embla-carousel-autoplay": "^8",
+  "@calcom/embed-react": "^1.5.3",
   "react-day-picker": "^9",
   "input-otp": "^1",
   "react-resizable-panels": "^4",

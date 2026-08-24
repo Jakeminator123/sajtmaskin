@@ -10,7 +10,7 @@ Do not use it for:
 
 # How to integrate
 
-1. Emit the verbatim `components/map-display.tsx` exactly as provided (its SSR-safe lazy init, cleanup and fallback are load-bearing).
+1. Emit the verbatim `components/map-display.tsx` exactly as provided (its MapLibre v6 worker URL, SSR-safe lazy init, cleanup and fallback are load-bearing).
 2. Add `maplibre-gl` to `package.json` dependencies.
 3. Mount `MapDisplay` in the relevant section and pass real place data as props:
 
@@ -30,6 +30,7 @@ import { MapDisplay } from "@/components/map-display";
 - `center` defaults to the first marker — usually omit it.
 - Props are read once on mount; pass a `key` if you must re-render with new markers.
 - Use plausible coordinates for the business's actual city. If the exact address is unknown, pick a central coordinate in the right city and keep the description generic.
+- If the site defines a strict CSP, allow `blob:` in `worker-src` and allow `https://cdn.jsdelivr.net` plus `https://tiles.openfreemap.org` in the relevant worker/connect directives. The exact-version worker is executable code; do not silently weaken an existing CSP.
 
 # UX rules
 
@@ -41,6 +42,7 @@ import { MapDisplay } from "@/components/map-display";
 # Avoid
 
 - Do not import `maplibre-gl` at module scope in OTHER files or render it during SSR — the library needs `window`; only this component's lazy init pattern is safe.
+- Do not remove or rewrite the version-matched `setWorkerUrl()` call. Next.js otherwise mounts MapLibre v6 without starting its ESM worker: controls and markers appear over a gray surface, but no vector tiles are requested.
 - Do not swap the OpenFreeMap style URL for a provider that requires an API key (Mapbox, Google) — that breaks the key-free contract of this capability.
 - Do not remove the error fallback or the cleanup (`map.remove()`) — leaking GL contexts crashes long-lived previews.
 - Do not use this component for geocoding/search — it displays fixed coordinates only.
@@ -48,6 +50,7 @@ import { MapDisplay } from "@/components/map-display";
 # Verification
 
 - The section renders a skeleton, then real vector tiles, without any env keys set.
+- Network inspection shows successful `.pbf` tile requests after the worker starts; controls or markers alone are not proof that the map loaded.
 - Scroll the page over the map — the page scrolls (no scroll hijack); ctrl/cmd + scroll zooms the map.
 - Click a marker — a popup with the place name (and description) opens.
 - Simulate offline tiles (devtools network block) — the location list fallback renders instead of a broken gray box.

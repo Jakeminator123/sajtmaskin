@@ -6,13 +6,13 @@
 > Source: `src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: validated dossier registry sha256:5d98808f29262513 -->
+<!-- source-fingerprint: validated dossier registry sha256:478997d6c7dafdfd -->
 <!-- source-fingerprint: src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities sha256:598c26d6f0c08460 -->
-<!-- source-fingerprint: src/lib/builder/dossier-groups.ts#resolveDossierGroup sha256:fbc05aa751a1572a -->
+<!-- source-fingerprint: src/lib/builder/dossier-groups.ts#resolveDossierGroup sha256:06bccb523740d4c8 -->
 
 # Capabilities
 
-This index contains 17 capabilities derived from 18 validated dossier manifests.
+This index contains 18 capabilities derived from 19 validated dossier manifests.
 Capability is the selection key. Dossier groups are presentation only. Designläge disposition and the integrationsbygge/build-server contract are independent: Analytics is currently planned in designläge while having no build/server requirement.
 Canonical owners: dossier manifest `capability`; `resolveDossierGroup()` for presentation groups; `getF2MutedIntegrationCapabilities()` for designläge disposition; `dossierRequiresF3()` for the build/server contract.
 
@@ -21,6 +21,7 @@ Canonical owners: dossier manifest `capability`; `resolveDossierGroup()` for pre
 | `ai` (AI)                        | `ai-chat`              | Planned (deferred) | `openai-chat`                 | `openai-chat`           | `hard`  | `canned`            | `openai-chat`                  |
 | `ops` (Drift & mätning)          | `analytics`            | Planned (deferred) | `vercel-analytics`            | `vercel-analytics`      | `hard`  | `none`              | —                              |
 | `auth` (Inloggning & konton)     | `auth`                 | Planned (deferred) | `clerk-auth`, `supabase-auth` | `clerk-auth`            | `hard`  | `visual`            | `clerk-auth`, `supabase-auth`  |
+| `contact` (Kontakt & utskick)    | `booking`              | Available          | `calcom-booking`              | `calcom-booking`        | `hard`  | `visual`            | —                              |
 | `media` (Media & galleri)        | `carousel`             | Available          | `embla-carousel`              | `embla-carousel`        | `soft`  | `none`              | —                              |
 | `data-content` (Data & innehåll) | `cms`                  | Planned (deferred) | `sanity-cms`                  | `sanity-cms`            | `hard`  | `seed`              | `sanity-cms`                   |
 | `search-maps` (Sök & karta)      | `command-palette`      | Available          | `cmdk-command-palette`        | `cmdk-command-palette`  | `soft`  | `none`              | —                              |

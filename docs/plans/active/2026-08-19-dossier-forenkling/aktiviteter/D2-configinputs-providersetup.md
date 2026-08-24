@@ -29,7 +29,7 @@ Inför två fält i dossier-manifestets schema:
 - `providerSetup` — stegen användaren gör hos leverantören. En ordnad lista av
   korta, verifierbara handgrepp.
 
-Båda ska vara **valfria** i schemat, så de nio befintliga manifesten fortsätter
+Båda ska vara **valfria** i schemat, så befintliga manifest fortsätter
 validera medan de fylls i efterhand. Fyll i dem för de dossiers där #1045 redan
 skrev ner handgreppen i prosa — `supabase-auth`, `sanity-cms`, `stripe-checkout`,
 `clerk-auth`, `postgres-drizzle` — och lämna resten tomma.
@@ -70,8 +70,8 @@ Att lämna frågan obesvarad är inte ett tredje alternativ.
 
 ## Klart när
 
-- Schemat accepterar båda fälten, och `npm run dossiers:validate-all` är grön för alla 18.
-- De fem dossiers som har handgrepp i prosa har dem även i `providerSetup`, med samma innebörd — inte utökad.
+- Schemat accepterar båda fälten, och `npm run dossiers:validate-all` är grön för alla aktiva dossiers.
+- De dossiers som har providerhandgrepp i prosa har dem även i `providerSetup`, med samma innebörd — inte utökad.
 - Ett test låser att ett manifest utan fälten fortfarande validerar.
 - `configInputs` har antingen en läsare eller en skriven schema-only-status. Ingen andra sanning bredvid `envVars`.
 - Hela verifieringslistan i [styrdokumentet](../00-master-plan.md#verifiering-per-ändring) är grön.

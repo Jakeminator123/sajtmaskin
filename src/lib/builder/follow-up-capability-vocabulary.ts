@@ -226,6 +226,19 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   {
+    // Hosted APPOINTMENT scheduling (calcom-booking), not generic reservation
+    // inventory for restaurant tables, hotel rooms, tickets or equipment.
+    capability: "booking",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:cal\.com|calcom)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:bokningssystem(?:et)?|bokningskalender(?:n)?|tidsbokning(?:en)?|online[-\s]?bokning|appointment[-\s]?(?:booking|scheduling)|booking[-\s]?(?:calendar|system)|schedule\s+an?\s+appointment)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:boka\s+(?:en\s+)?tid|book\s+an?\s+(?:appointment|consultation|meeting|service))(?![\p{L}\p{N}_])/iu,
+    ],
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:boka\s+bord|bord(?:et|en)?|tables?|table[-\s]?reservation|restaurang(?:bord)?|restaurant|hotell(?:rum(?:men)?)?|hotel|rum(?:met|men)?|rooms?|rumsbokning|room[-\s]?booking|boende|accommodation|biljett|ticket|platsbokning|seat[-\s]?reservation|utrustning(?:en)?|equipment[-\s]?(?:booking|rental)|rental[-\s]?equipment|hyrutrustning|fordon(?:en)?|vehicle[-\s]?booking|biluthyrning|car[-\s]?rental|cykeluthyrning|bike[-\s]?rental|sportban(?:a|or|orna)|padelban(?:a|or|an)|tennisban(?:a|or|an)|golfban(?:a|or|an)|courts?|court[-\s]?booking|field[-\s]?booking|lokaler(?:na)?|lokalbokning|venue[-\s]?booking)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
     capability: "newsletter-subscribe",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:nyhetsbrev|newsletter|prenumerera\s+på\s+nyhetsbrev|subscribe[-\s]?form|email[-\s]?signup|mailchimp|brevo|mailerlite)(?![\p{L}\p{N}_])/iu,

@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-08-19T18:40:31.638Z",
+  "generatedAt": "2026-08-24T12:31:57.781Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -11,6 +11,9 @@
     "auth": [
       "clerk-auth",
       "supabase-auth"
+    ],
+    "booking": [
+      "calcom-booking"
     ],
     "carousel": [
       "embla-carousel"
@@ -78,6 +81,7 @@
     "contact": {
       "label": "Kontakt & utskick",
       "capabilities": [
+        "booking",
         "contact-form",
         "newsletter-subscribe"
       ]
@@ -124,6 +128,51 @@
     }
   },
   "dossiers": [
+    {
+      "id": "calcom-booking",
+      "label": "Tidsbokning — Cal.com",
+      "class": "hard",
+      "capability": "booking",
+      "providers": [
+        "calcom"
+      ],
+      "defaultForCapability": true,
+      "mock": "visual",
+      "envVars": [
+        {
+          "key": "NEXT_PUBLIC_CALCOM_LINK",
+          "required": true,
+          "enforcement": "feature-runtime"
+        }
+      ],
+      "fileRoles": {
+        "client": 1
+      },
+      "dependencies": [
+        "@calcom/embed-react"
+      ],
+      "summarySv": "Robust tidsbokning via Cal.com för exempelvis salonger, konsulter och kliniker. Besökaren kan välja en verklig ledig tid direkt på sajten när en Cal.com-länk är kopplad. Utan länken visas ett tydligt demoläge där bokningsflödet går att prova, men ingen tid reserveras.",
+      "verificationStatus": "unverified",
+      "lastVerified": "2026-08-24",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Kopplad",
+          "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
+        },
+        "mock": {
+          "label": "Full yta, ärlig demo-notis",
+          "hint": "Ytan renderas fullt ut, men handlingen öppnar en ärlig demo-notis i stället för en riktig betalning eller inloggning."
+        },
+        "requiresF3": {
+          "label": "Klar utan extra bygge",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
+    },
     {
       "id": "clerk-auth",
       "label": "Inloggning — Clerk",
@@ -679,8 +728,8 @@
         "tailwind-merge"
       ],
       "summarySv": "Färdiga diagram och grafer för att visa siffror på ett tydligt sätt, till exempel försäljning eller besök över tid. Välj det när sajten behöver en översikt med staplar och kurvor; fungerar helt utan externa tjänster.",
-      "verificationStatus": "unverified",
-      "lastVerified": "2026-04-18",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-08-24",
       "f2Disposition": "available",
       "f2Reason": "available",
       "buildServerRequirement": false,
@@ -860,7 +909,7 @@
       ],
       "summarySv": "Interaktiv karta för t.ex. 'Hitta hit'-sektioner. Ingen API-nyckel eller konto behövs — kartan fungerar direkt i förhandsvisningen. Markörer och popup-rutor styrs med props; om kartan inte kan laddas visas platserna som en snygg lista i stället.",
       "verificationStatus": "accepted",
-      "lastVerified": "2026-08-05",
+      "lastVerified": "2026-08-24",
       "f2Disposition": "available",
       "f2Reason": "available",
       "buildServerRequirement": false,
@@ -1017,6 +1066,7 @@
     ]
   },
   "sourceFiles": {
+    "data/dossiers/hard/calcom-booking/manifest.json": "cbf3d4f3abd3e5721617954ed3d3c5b0c04ca14b8cfe027e3ca03979cbd1b790",
     "data/dossiers/hard/clerk-auth/manifest.json": "8d8a761c949e58077f0dc82e04bcb736ccf3e8965d8e5eeba1291e368d586640",
     "data/dossiers/hard/mailchimp-newsletter/manifest.json": "8b3400858050d66a5c383db99675264df32883c2d9d3a3ff954a309f336ea0f4",
     "data/dossiers/hard/openai-chat/manifest.json": "b929ec00bac5d4a7f25478eee88444c8916f08b0b24c931fef23f95bcdcd19a2",
@@ -1027,18 +1077,18 @@
     "data/dossiers/hard/supabase-auth/manifest.json": "3077977e752b0c11c8c0c466cf661b9c7868cb2577c85151066b7fe2a8efc40d",
     "data/dossiers/hard/vercel-analytics/manifest.json": "85913f69e9ca853141f4bf115b55afabd6637bcb7853b6fa16552c92e7ce6de4",
     "data/dossiers/soft/cmdk-command-palette/manifest.json": "f199ee6dfacebc40193ee48324c77c488048b78a197d848394176e1cfbbd5f99",
-    "data/dossiers/soft/dashboard-charts/manifest.json": "5a87faf952ea4490a4afdda1d1e48693d30cd6e48e86f4e7537db57c7a5dabf1",
+    "data/dossiers/soft/dashboard-charts/manifest.json": "fd254bcb85080f163833baf666a5810db2a8f60eda7663d7ac67642ebc5b6683",
     "data/dossiers/soft/embla-carousel/manifest.json": "d016ba15b9f322656c283d37d48407a21c3308030416e485518874d8da0da520",
     "data/dossiers/soft/gallery-lightbox/manifest.json": "d5c0160e7299eea08b59a04c3142252b23bc1b145a8b7ebc3372cd2823e2ec9b",
     "data/dossiers/soft/interactive-game-loop/manifest.json": "09c61bd792680e8d846a776dd459937d56f4b7f80b1cf85a07546343e5a98e69",
     "data/dossiers/soft/local-site-search/manifest.json": "a71d090610f5e8784bcc1b8773ee6678fc7f8748ba0aa2d3843c3a22727600c2",
-    "data/dossiers/soft/maplibre-map/manifest.json": "95308e041fcb3b18a3a38aea6d745a7f2103cd4384b6d476beaa17e1230ed442",
+    "data/dossiers/soft/maplibre-map/manifest.json": "45ecfd3588c401895e9850b0d18f4e98a67029aa207fc164551974902006ac02",
     "data/dossiers/soft/three-fiber-canvas/manifest.json": "a465b0c30f26663c8b0067f16f4e99ec2bfae59d3463d170a38c04d3f6bffad2",
     "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
     "docs/schemas/strict/dossier.schema.json": "9493baa6dd5c99cc93011d1e328d45048c1ee964da624cc558481c5abd535cda",
     "scripts/dossiers/regenerate-capability-map.ts": "ce15a798da3ac8056091104ae83854a2a92ade98b8468b077e1ebc4977035163",
     "src/lib/builder/dossier-axes.ts": "e216ee94304cf5f02a308c7be4c653d1d3d1d6fb128597bf555bf6938ffa825a",
-    "src/lib/builder/dossier-groups.ts": "67adc554dafd00c54766c732af6600737f6194138c7773ee09a977c03d97fd59",
+    "src/lib/builder/dossier-groups.ts": "b7184fec7c3ef4090de6cdcf7e288acc779ff7c3f415647b028f8bb8c7dc2d1a",
     "src/lib/gen/dossiers/f2-mute.ts": "f9fe5879bdd327277423c2a82374c11d303b6c1484fb17b88edb6d8bbd6882ed",
     "src/lib/gen/dossiers/registry.ts": "2766260fb71f0bef126a9f30274869b507bc466b84edb50501568a8b9cee7c11",
     "src/lib/gen/dossiers/types.ts": "07e75ba9f0ecd48a1eae6f5fe9f57bd1bf5e57cb31cbb1b02d820bedef6fe26d",

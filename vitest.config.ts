@@ -50,6 +50,7 @@ export default defineConfig({
       // (the dossier middleware) onto the root stub.
       "@clerk/nextjs/server": path.resolve(__dirname, "tests/stubs/clerk-nextjs-server.ts"),
       "@clerk/nextjs": path.resolve(__dirname, "tests/stubs/clerk-nextjs.tsx"),
+      "@calcom/embed-react": path.resolve(__dirname, "tests/stubs/calcom-embed-react.tsx"),
     },
   },
   test: {

@@ -30,6 +30,7 @@ import path from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { BookingCalendar } from "../../../../data/dossiers/hard/calcom-booking/components/booking-calendar";
 import { NewsletterForm } from "../../../../data/dossiers/hard/mailchimp-newsletter/components/newsletter-form";
 import { DbConfigNotice } from "../../../../data/dossiers/hard/postgres-drizzle/components/db-config-notice";
 
@@ -40,6 +41,7 @@ const HARD_DIR = path.resolve(__dirname, "../../../../data/dossiers/hard");
  * behöver leta — och så en flyttad svit syns som ett trasigt värde.
  */
 const MOUNTED: Record<string, string> = {
+  "calcom-booking/components/booking-calendar.tsx": "denna fil",
   "mailchimp-newsletter/components/newsletter-form.tsx": "denna fil",
   "postgres-drizzle/components/db-config-notice.tsx": "denna fil",
   "resend-contact-form/components/integration-config-notice.tsx":
@@ -194,6 +196,68 @@ describe("kopie-vakt: avsiktligt duplicerade notiser får inte drifta isär", ()
       }
     },
   );
+});
+
+describe("BookingCalendar — Cal.com visual demo fallback", () => {
+  const ENV_KEY = "NEXT_PUBLIC_CALCOM_LINK";
+  const savedValue = process.env[ENV_KEY];
+
+  afterEach(() => {
+    if (savedValue === undefined) delete process.env[ENV_KEY];
+    else process.env[ENV_KEY] = savedValue;
+  });
+
+  it("renders a complete demo surface and never pretends to reserve a time", async () => {
+    delete process.env[ENV_KEY];
+    render(<BookingCalendar />);
+
+    expect(screen.getByRole("heading", { name: "Boka en tid" })).toBeTruthy();
+    expect(screen.getByText(/Demoläge/)).toBeTruthy();
+    const trigger = screen.getByRole("button", { name: "09:00" });
+    fireEvent.click(trigger);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.tagName).toBe("DIALOG");
+    expect(dialog.getAttribute("aria-labelledby")).toBe("booking-demo-title");
+    expect(screen.getByText(/Ingen tid reserverades/)).toBeTruthy();
+    expect(screen.queryByTestId("calcom-embed")).toBeNull();
+
+    const closeButton = screen.getByRole("button", { name: "Stäng" });
+    trigger.focus();
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(document.activeElement).toBe(closeButton);
+
+    fireEvent.click(closeButton);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+
+  it("treats a full URL, domain prefix or preview placeholder as unconfigured", () => {
+    for (const invalid of [
+      "https://cal.com/anna/30min",
+      "//cal.com/anna/30min",
+      "cal.com/anna/30min",
+      "next_public_calcom_link_placeholder_preview_not_real",
+    ]) {
+      process.env[ENV_KEY] = invalid;
+      const { unmount } = render(<BookingCalendar />);
+      expect(screen.queryByTestId("calcom-embed")).toBeNull();
+      expect(screen.getByText(/Demoläge/)).toBeTruthy();
+      unmount();
+    }
+  });
+
+  it("mounts the official embed and safe hosted fallback for a valid event path", () => {
+    process.env[ENV_KEY] = "anna/30min";
+    render(<BookingCalendar layout="week_view" />);
+
+    const embed = screen.getByTestId("calcom-embed");
+    expect(embed.getAttribute("data-cal-link")).toBe("anna/30min");
+    expect(embed.getAttribute("data-cal-namespace")).toBe("booking");
+    expect(embed.getAttribute("data-cal-config")).toContain("week_view");
+    expect(screen.getByRole("link", { name: /boka direkt hos Cal.com/ }).getAttribute("href")).toBe(
+      "https://cal.com/anna/30min",
+    );
+  });
 });
 
 describe("DbConfigNotice — seed-läge (postgres-drizzle)", () => {

@@ -150,8 +150,8 @@ ytor. Att schemafilen ligger under docs gör den inte till enbart dokumentation.
 12. ÖPPNA KONTROLLPUNKTER
 [ÖPPET]
 - Slutför och verifiera D2 före D3 och D4.
-- Säkerställ att alla nio aktiva hard-dossiers har kuraterade sektioner innan
-  D4 sägs vara klart; använd genererad katalog för aktuellt antal.
+- Säkerställ att alla aktiva hard-dossiers har kuraterade sektioner innan D4
+  sägs vara klart; använd genererad katalog för aktuellt antal.
 - Lås provideridentitet över F2/F3 för explicit Mongo-/legacyfall utan att
   tvinga Postgres när ingen database-dossier är vald.
 - Testa snapshot/cache/state-isolering under parallella och upprepade körningar.

@@ -72,6 +72,7 @@ describe("resolveDossierGroup", () => {
       payments: "commerce",
       "contact-form": "contact",
       "newsletter-subscribe": "contact",
+      booking: "contact",
       "ai-chat": "ai",
       "site-search": "search-maps",
       "map-display": "search-maps",

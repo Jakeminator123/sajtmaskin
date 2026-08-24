@@ -20,10 +20,11 @@
     "paths": {
       "@/*": ["./src/*"],
       // Test/typecheck only (se tests/stubs/README.md). Inte Sajtmaskins
-      // produktionsruntime: genererade användarsajter installerar riktiga
-      // @clerk/nextjs från clerk-auth-dossierets manifest, inte detta alias.
+      // produktionsruntime: genererade användarsajter installerar dossierernas
+      // riktiga providerpaket, inte dessa inerta alias.
       "@clerk/nextjs": ["./tests/stubs/clerk-nextjs.tsx"],
-      "@clerk/nextjs/server": ["./tests/stubs/clerk-nextjs-server.ts"]
+      "@clerk/nextjs/server": ["./tests/stubs/clerk-nextjs-server.ts"],
+      "@calcom/embed-react": ["./tests/stubs/calcom-embed-react.tsx"]
     },
     "target": "ES2022",
     "forceConsistentCasingInFileNames": true

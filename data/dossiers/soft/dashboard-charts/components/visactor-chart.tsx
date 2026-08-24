@@ -3,12 +3,14 @@
 import React from "react";
 import { VChart } from "@visactor/react-vchart";
 
+type VChartProps = React.ComponentProps<typeof VChart>;
+
 export type VisactorChartProps = {
-  spec: Record<string, unknown>;
+  spec: NonNullable<VChartProps["spec"]>;
   className?: string;
   style?: React.CSSProperties;
-  options?: Record<string, unknown>;
-  onReady?: (instance: unknown) => void;
+  options?: VChartProps["options"];
+  onReady?: VChartProps["onReady"];
 };
 
 export function VisactorChart({

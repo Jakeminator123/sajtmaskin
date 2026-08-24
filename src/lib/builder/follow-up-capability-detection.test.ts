@@ -102,6 +102,48 @@ describe("detectFollowUpCapabilities — contact-form", () => {
   });
 });
 
+describe("detectFollowUpCapabilities — booking", () => {
+  it("detects a Cal.com booking-system follow-up", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till ett bokningssystem med Cal.com för konsultationer",
+    );
+    expect(result.capabilityIds).toContain("booking");
+  });
+
+  it("detects appointment scheduling in English", () => {
+    const result = detectFollowUpCapabilities("add appointment scheduling for our services");
+    expect(result.capabilityIds).toContain("booking");
+  });
+
+  it("detects an initial appointment-booking brief without an add verb", () => {
+    const result = detectFollowUpCapabilities(
+      "En frisörsajt där kunder kan boka tid online",
+      { mode: "init" },
+    );
+    expect(result.capabilityIds).toContain("booking");
+  });
+
+  it("does not route inventory reservations to Cal.com", () => {
+    for (const prompt of [
+      "lägg till ett bokningssystem för hotellrum",
+      "lägg till onlinebokning för restaurangbord",
+      "lägg till ett bokningssystem för padelbanor",
+      "add a booking system for rental equipment",
+      "lägg till ett bokningssystem för utrustning",
+      "lägg till ett bokningssystem för fordon",
+      "lägg till ett bokningssystem för sportbanor",
+      "lägg till ett bokningssystem för lokaler",
+      "lägg till onlinebokning för bord",
+      "lägg till ett bokningssystem för rum",
+      "add a booking system for rooms",
+      "add a booking system for tables",
+      "add a booking system for courts",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("booking");
+    }
+  });
+});
+
 describe("detectFollowUpCapabilities — payments", () => {
   it("detects 'stripe checkout'", () => {
     const result = detectFollowUpCapabilities("lägg till stripe-checkout på prissidan");
