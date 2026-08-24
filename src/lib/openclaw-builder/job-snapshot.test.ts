@@ -42,14 +42,18 @@ function requester(overrides: { tenantId?: string; projectId?: string; chatId?: 
 function snapshotRequester(
   overrides: {
     tenantId?: string;
+    projectId?: string;
     chatId?: string;
+    jobId?: string;
     baseVersionId?: string;
     baseFilesRevision?: string;
   } = {},
 ) {
   return {
     tenantId: "tenant-1",
+    projectId: "project-1",
     chatId: "chat-1",
+    jobId: "job-1",
     baseVersionId: "ver-1",
     baseFilesRevision: "rev-1",
     ...overrides,
@@ -266,7 +270,7 @@ describe("getProjectSnapshot", () => {
     ).toEqual({ ok: false, code: "stale_revision" });
   });
 
-  it("returns identity_mismatch when tenant or chat differs", () => {
+  it("returns identity_mismatch when tenant, project, chat, or job differs", () => {
     expect(
       getProjectSnapshot({
         job: frozenJob(),
@@ -277,10 +281,36 @@ describe("getProjectSnapshot", () => {
     expect(
       getProjectSnapshot({
         job: frozenJob(),
+        requester: snapshotRequester({ projectId: "project-other" }),
+        files: [snapshotFile()],
+      }),
+    ).toEqual({ ok: false, code: "identity_mismatch" });
+    expect(
+      getProjectSnapshot({
+        job: frozenJob(),
         requester: snapshotRequester({ chatId: "chat-other" }),
         files: [snapshotFile()],
       }),
     ).toEqual({ ok: false, code: "identity_mismatch" });
+    expect(
+      getProjectSnapshot({
+        job: frozenJob(),
+        requester: snapshotRequester({ jobId: "job-other" }),
+        files: [snapshotFile()],
+      }),
+    ).toEqual({ ok: false, code: "identity_mismatch" });
+  });
+
+  it("returns invalid_snapshot for traversal or restricted snapshot paths", () => {
+    for (const path of ["../secret.ts", "foo/../../etc/passwd", ".env", "keys/id_ed25519"]) {
+      expect(
+        getProjectSnapshot({
+          job: frozenJob(),
+          requester: snapshotRequester(),
+          files: [snapshotFile({ path })],
+        }),
+      ).toEqual({ ok: false, code: "invalid_snapshot" });
+    }
   });
 
   it("returns job_not_running unless status is running", () => {

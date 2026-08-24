@@ -139,10 +139,38 @@ function publicSnapshotFile(file: SnapshotFile): SnapshotFile {
   };
 }
 
+const RESTRICTED_SNAPSHOT_BASENAMES = new Set([
+  ".env",
+  ".npmrc",
+  ".netrc",
+  ".yarnrc.yml",
+  ".pypirc",
+  "id_rsa",
+  "id_ed25519",
+  "credentials.json",
+  "service-account.json",
+]);
+
+function isSafeSnapshotPath(path: string): boolean {
+  if (!isNonEmptyString(path) || path.length > MAX_SNAPSHOT_PATH_LENGTH) return false;
+  if (path.includes("\\") || path.includes("\0")) return false;
+  if (path.startsWith("/") || /^[a-zA-Z]:/.test(path)) return false;
+  const segments = path.split("/");
+  for (const segment of segments) {
+    if (segment === "" || segment === "." || segment === "..") return false;
+  }
+  const basename = (segments[segments.length - 1] ?? "").toLowerCase();
+  if (!basename) return false;
+  if (basename === ".env" || basename.startsWith(".env.")) return false;
+  if (RESTRICTED_SNAPSHOT_BASENAMES.has(basename)) return false;
+  if (basename.endsWith(".pem") || basename.endsWith(".key")) return false;
+  if (basename.includes("secret") || basename.includes("credential")) return false;
+  return true;
+}
+
 function isValidSnapshotFile(file: SnapshotFile): boolean {
   return (
-    isNonEmptyString(file.path) &&
-    file.path.length <= MAX_SNAPSHOT_PATH_LENGTH &&
+    isSafeSnapshotPath(file.path) &&
     typeof file.bytes === "number" &&
     Number.isInteger(file.bytes) &&
     file.bytes >= 0 &&
@@ -188,7 +216,9 @@ export function getProjectSnapshot(input: {
   job: FrozenBuilderJob;
   requester: {
     tenantId: string;
+    projectId: string;
     chatId: string;
+    jobId: string;
     baseVersionId: string;
     baseFilesRevision: string;
   };
@@ -198,7 +228,12 @@ export function getProjectSnapshot(input: {
     return { ok: false, code: "invalid_snapshot" };
   }
   const { job, requester, files } = input;
-  if (requester.tenantId !== job.tenantId || requester.chatId !== job.chatId) {
+  if (
+    requester.tenantId !== job.tenantId ||
+    requester.projectId !== job.projectId ||
+    requester.chatId !== job.chatId ||
+    requester.jobId !== job.jobId
+  ) {
     return { ok: false, code: "identity_mismatch" };
   }
   if (requester.baseVersionId !== job.baseVersionId) {
