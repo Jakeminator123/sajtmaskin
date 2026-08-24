@@ -333,7 +333,7 @@ export function validateAccountPrReviewEvidence({
   issueComments,
   reviews,
   headSha,
-  prAuthor,
+  prAuthor = /** @type {{ login?: string; type?: string } | null} */ (null),
   trustedActors = POLICY.review.trustedAccountReviewActors ?? [],
 }) {
   const normalizedHead = String(headSha ?? "").toLowerCase();
