@@ -6,13 +6,42 @@ import { fileURLToPath } from "node:url";
 import { collectImpact, loadWorkflowInputs, parseGitNameStatus } from "./path-impact.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+
+/**
+ * Prefer `node + npm-cli.js` so Windows never spawnar `npm.cmd` utan shell
+ * (Node ≥ 20 → EINVAL, CVE-2024-27980). `npm_execpath` finns när hooken
+ * kör `npm run verify:pr`. Fallback: `npm.cmd` + shell bara på win32.
+ * `git` ska förbli shell-fri.
+ */
+export function resolveNpmInvocation({
+  platform = process.platform,
+  npmExecPath = process.env.npm_execpath,
+  nodeExecutable = process.execPath,
+} = {}) {
+  const cliPath = String(npmExecPath ?? "").trim();
+  if (cliPath) {
+    return { command: nodeExecutable, args: [cliPath], shell: false };
+  }
+  if (platform === "win32") {
+    return { command: "npm.cmd", args: [], shell: true };
+  }
+  return { command: "npm", args: [], shell: false };
+}
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, {
     cwd: REPO_ROOT,
     encoding: "utf8",
     stdio: options.inherit ? "inherit" : ["ignore", "pipe", "pipe"],
+    shell: options.shell === true,
+  });
+}
+
+function npmRun(script, options = {}) {
+  const npm = resolveNpmInvocation();
+  return run(npm.command, [...npm.args, "run", script], {
+    ...options,
+    shell: npm.shell,
   });
 }
 
@@ -152,7 +181,7 @@ async function main() {
 
   for (const command of impact.commands) {
     console.log(`\n[verify:pr] kör npm run ${command}`);
-    const result = run(npm, ["run", command], { inherit: true });
+    const result = npmRun(command, { inherit: true });
     if (result.status !== 0) failures.push(`npm run ${command}`);
   }
 

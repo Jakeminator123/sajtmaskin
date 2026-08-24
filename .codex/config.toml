@@ -17,6 +17,9 @@ network_access = true
 [windows]
 sandbox = "elevated"
 
+[shell_environment_policy.set]
+PWSH = 'C:\Program Files\PowerShell\7\pwsh.exe'
+
 [agents]
 enabled = true
 default_subagent_model = "gpt-5.6-sol"
