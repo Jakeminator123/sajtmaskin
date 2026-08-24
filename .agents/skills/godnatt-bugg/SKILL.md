@@ -218,7 +218,8 @@ testet. Kontrollera draft/adminmarkörerna på nytt före evaluation-complete.
 
 I full mode: gör PR:n ready och följ
 [pr-merge-cleanup.md](references/pr-merge-cleanup.md). Repots gräns är 7
-minuter och required check review-window är teknisk sanning.
+minuter från den aktuella head-körningens jobbstart; required check
+review-window är teknisk sanning och startas om av ny head-SHA.
 
 I evaluation: håll PR:n i draft. Låt normal automation reviewa; fall tillbaka
 till lokal Bugbot/manuell bugggranskning enligt repots ordning om en användbar
@@ -248,10 +249,11 @@ Tillåtna evaluation-outcomes är `draft-fix`, `draft-already-resolved` och
 
 ### 9. Sign-off och merge
 
-Merga endast full mode när pr-merge.mdc är uppfylld: rätt base, ej draft,
-mergeable, alla required checks gröna, PR minst 7 minuter, inga blockerande
-reviews/trådar/labels, färsk oberoende buggkoll, all triage klar, korrekt
-sign-off, merge:ready och stabil head-SHA.
+I full mode: vänta först på övriga required checks, Vercel och reviewfynd.
+Posta därefter sign-off + `merge:ready`; den betrodda `review-window` blir grön
+först när live head/base, signeraridentitet och ordning är verifierade. Merga
+sedan endast när hela pr-merge.mdc är uppfylld: rätt base, ej draft, mergeable,
+inga blockerande reviews/trådar/labels, P0/P1=0 och stabil head/base.
 
 Läs övriga PR:er på nytt. Om base/head ändras: kör om alla SHA-känsliga gates.
 Verifiera PR state och origin/master efter merge. Registrera exakt merge-SHA:
@@ -264,9 +266,12 @@ Ta aldrig bort current app-worktree med worktree-script eller rå git. Desktop
 äger det. Efter verifierad merge:
 
 1. git fetch origin master.
-2. Verifiera merge-base --is-ancestor PASS_BRANCH origin/master.
-3. Radera remote pass-branch bara om den fortfarande finns och ancestor-testet
-   är grönt; använd aldrig force.
+2. Bevisa landningen med antingen `merge-base --is-ancestor` eller en mergad
+   GitHub-PR vars `headRefName` och `headRefOid` exakt matchar PASS_BRANCH och
+   dess lokala SHA. Detta andra bevis krävs efter squash-merge; ett API-fel är
+   stopp, aldrig godkänt.
+3. Radera remote pass-branch bara om den fortfarande finns och ett av de exakta
+   mergebevisen är grönt; använd aldrig force.
 4. Lämna den utcheckade lokala branchen till appens worktree-teardown.
 5. Flytta state till cleanup och complete med PR/merge-SHA som evidence.
 

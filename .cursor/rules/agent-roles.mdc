@@ -10,17 +10,20 @@ Tre roller. Högst två säten (`A` / `B`) samtidigt. Sätet är en **etikett p�
 | Roll | Gör | Worktree |
 |---|---|---|
 | **Scout** | Läser, kartlägger, föreslår. Rör inga filer. | Nej |
-| **Builder** | Skriver, lämnar PR. Mergar inte. | Ja — utom docs/regel-genvägen i `git.mdc` |
+| **Builder** | Skriver, verifierar, lämnar PR och äger fixrundor. Mergar inte. | Ja, även docs/regler |
 | **Steward** | Landar redo PR:er och städar. Skriver inte features. | Nej. `gh` mot GitHub. Worktree bara vid konflikt |
 
 **Säte:** `A` (default) eller `B`. En Builder per säte. En Steward i taget, även om chatten heter Steward A.
 
 **Okänd roll:** skrivning → Builder A. Merge/städ → Steward A. Annars Scout A.
 
-**Säg inte** «gå till eget worktree» varje gång. Rollen Builder betyder redan: `git worktree add ..\sajtmaskin-<säte>-<kort> -b <typ>/<kort> origin/master` och sedan `npm run worktree:link -- <sökväg>` — utom docs/regel-genvägen i `git.mdc`.
+**Säg inte** «gå till eget worktree» varje gång. Rollen Builder betyder redan:
+`git worktree add ..\sajtmaskin-<säte>-<kort> -b <typ>/<kort> origin/master` och
+sedan `npm run worktree:link -- <sökväg>`. Behåll den tills PR:n är terminal.
 
 **node_modules:** en riktig kopia, i huvudcheckouten. Worktrees länkar dit. Kör inte `npm ci` per worktree.
 
 **Sign-off:** sista raden är `— <Roll> <Säte>`, till exempel `— Builder A` eller `— Steward B`.
 
-Kommandon: `/scout` `/builder` `/steward`. Semantik: glossary (`Scout` / `Builder` / `Steward`). Merge-loop: `/pr-herde`.
+Kommandon: `/scout` `/builder` `/steward`. Semantik: glossary (`Scout` /
+`Builder` / `Steward`). Hela leveransflödet: `.agents/skills/pr-workflow/SKILL.md`.

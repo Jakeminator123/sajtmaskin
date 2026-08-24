@@ -7,6 +7,10 @@ alwaysApply: true
 
 `förstå scope → hitta owner/callers → ändra → synka referenser → verifiera → rapportera`
 
+Kör `npm run verify:pr -- --plan` när diffen fått form. Den gemensamma
+path-impactmotorn läser control-plane, Backoffice-kartan och
+`config/agent-workflow.json`; skapa ingen egen pathmatris i prose eller hook.
+
 ## Ändring
 
 1. Sök referenser före flytt/radering; 0 sökträffar i ett kallt index är inte bevis.
@@ -18,18 +22,21 @@ alwaysApply: true
 
 ## Minsta verifiering
 
-| Diff | Kör minst |
-|---|---|
-| Docs/regler/agentkontext | relevanta kontraktschecks, länkar, `git diff --check` |
-| TypeScript/runtime | `npm run typecheck` + riktade tester |
-| Backoffice/Python | `python -m pytest backoffice/test_pages_import_smoke.py -q` + relevanta tester |
-| Scaffold | ovan + `npm run scaffolds:validate` |
-| Dossier | `npm run dossiers:validate-all` + `npm run dossiers:capability-map:write` |
-| Pipeline/status | typecheck + relevant Vitest + docs-/canvas-sync |
-| Stor flytt | referenssökning + typecheck |
+| Diff                     | Kör minst                                                                 |
+| ------------------------ | ------------------------------------------------------------------------- |
+| Docs/regler/agentkontext | `npm run verify:pr`                                                       |
+| TypeScript/runtime       | `npm run typecheck` + riktade tester                                      |
+| Backoffice/Python        | `npm run backoffice:test`                                                 |
+| Scaffold                 | ovan + `npm run scaffolds:validate`                                       |
+| Dossier                  | `npm run dossiers:validate-all` + `npm run dossiers:capability-map:check` |
+| Pipeline/status          | typecheck + relevant Vitest + docs-/canvas-sync                           |
+| Stor flytt               | referenssökning + typecheck                                               |
 
-Kommandon ägs av `package.json`. Full repo-`hygiene` är lämplig för bred docs-
-eller konfigurationsstädning men ersätter inte riktade tester.
+Kommandon ägs av `package.json`. Före push körs alltid `npm run verify:pr`; den
+väljer fler kontroller, full profil för protected diff och rapporterar berörda
+Backoffice-sidor. Skrivande generatorer körs uttryckligt med `sync:derived` när
+deras owner ändrats. `verify:pr` gör inga tracked source-edits, men validators
+kan uppdatera lokala gitignorerade cacheartefakter och lintcache.
 
 ## Pausa
 

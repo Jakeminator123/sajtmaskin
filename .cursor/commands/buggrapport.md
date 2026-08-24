@@ -1,108 +1,82 @@
 # Buggrapport
 
-Lägg in en bugg i den **enda** bugglistan: [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) (repo-rot). Ingen Linear, ingen extern tracker — lokal markdown är källan till sanning. Funkar från manuellt resonemang, Cursor-browsern eller terminal-/testoutput.
+Uppdatera den enda spårade bugglistan:
+[`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md). Lokal evidens under
+`.cursor/bugs/` är gitignored stöd, aldrig en parallell sanning.
 
-## Princip
+## Klassificera först
 
-- En reell **defekt** (systemet gör fel) → ny `[ ]`-rad i sektionen **`## Aktiv kö`**.
-- Ett **policy-/produktval** (systemet gör som tänkt men vi kan välja annorlunda) → rad i **`## Väntar på ägarbeslut`**, inte Aktiv kö. Raden ska ha beslutsägare + deadline/trigger.
-- Kan inte avgöras statiskt (kräver repro/livekörning) → **`## Behöver repro`**, med exakt vad som ska köras.
-- Hardening, testlucka, dokumentations- eller arkitekturskuld → **`## Säkerhet, infra och teknisk skuld`**. Det är ingen produktbugg och ska inte inflatera kön.
-- Läs reglerna högst upp i `BUG-SWARM-BACKLOG.md` innan du skriver — de styr formatet.
+- Bekräftad defekt på aktuell `origin/master` → `## Aktiv kö`.
+- Kräver körning/livebevis → `## Behöver repro`, med exakt vad som ska köras.
+- Systemet gör som beslutat men ett nytt val behövs → `## Väntar på
+ägarbeslut`, med beslutsägare och deadline eller trigger.
+- Hardening, testlucka, docs- eller arkitekturskuld →
+  `## Säkerhet, infra och teknisk skuld`.
+- PR-introducerat fynd → fixa i PR:n; lägg inte in det som masterbugg.
 
-## Gate — skriv INTE till Aktiv kö om
+Körningsbrus, önskemål, ofalsifierbara antaganden och dubletter hör inte i
+Aktiv kö. Sök först på exakt `SM-###`, rubrik och 2–4 rotorsaksord.
 
-1. **Körningsbrus:** CORS/CORB, Fast Refresh, CSP report-only, D-ID 4xx, enstaka nätverksblipp utan repro.
-2. **Ingen falsifierbar premiss** + saknat fil-/route-ankare (“känns trasigt”).
-3. **`/logg-internet` Observatör:** notera i run-filen; Aktiv kö bara efter persona **Felsökare** _och_ bekräftad defekt.
-4. **Önskemål / saknad feature** — inte bugg (beslut eller ignorera; varna per MVP-bias).
-5. **Dublett** av öppen rad — uppdatera den i stället.
+## Ska inte bli en aktiv bugg
 
-Osäker → `Behöver repro` eller bara körningsnotis. Hellre för få rader i Aktiv kö än för många.
+- Körningsbrus som enstaka nätverksblipp, CORS/CORB, Fast Refresh eller
+  report-only-CSP utan en reproducerbar defekt.
+- ”Känns trasigt” utan falsifierbar premiss och kod-, route- eller prodankare.
+- Önskemål eller saknad feature; klassificera som beslut när ett val behövs.
+- Ett Observatörsfynd från `/logg-internet` utan bekräftelse från Felsökaren.
+- En dublett av samma rotorsak; uppdatera den befintliga raden i stället.
 
-## Indatakällor
+## Verifiera master
 
-Välj den/de som finns:
+En aktiv rad måste ha bevis från kod på aktuell `origin/master` eller konkret
+produktionsbevis. Kontrollera utan branchbyte, exempelvis med `git show
+origin/master:<sökväg>` eller `git grep <symbol> origin/master`. En draft, ett
+lokalt fynd-ID eller en agents slutsats är inte masterbevis.
 
-1. **Manuellt** — användaren beskriver buggen i prompten.
-2. **Cursor-browser** — `cursor-ide-browser` MCP:
-   - `browser_tabs { action: "list" }` → aktiv flik + URL.
-   - `browser_snapshot` → DOM-tillstånd (sammanfatta, klistra inte in hela).
-   - `browser_console_messages` → console errors/warnings.
-   - `browser_network_requests` → failed requests (4xx/5xx) eller långsamma anrop.
-   - `browser_take_screenshot` → spara skärmbild om visuell bug (se evidens-fil nedan).
-3. **Terminal/test-output** — läs senaste relevanta `terminals/`-fil eller rapporterad output; klipp ut minsta reproducerbara stack trace.
+Evidenscellen ska ange ett verkligt ankare: repo-sökväg/symbol och vad koden
+visar, en mergad PR eller konkret prod-repro. Använd aldrig gamla `M#`-taggar.
 
-## Steg
+## Stabilt ID
 
-### 1. Dublettkontroll (OBLIGATORISK)
+Varje kanonisk rad använder ett enda ID: `SM-###`. Kontrollera alla tabeller i
+backloggen och `docs/plans/avklarat/bug-swarm/README.md`, använd det deklarerade
+nästa numret och uppdatera räknaren i samma diff. Återanvänd aldrig ett
+arkiverat eller pensionerat nummer; `check:bug-backlog` verifierar det globala
+ID-kontraktet och det monotona tombstone-ledgret.
 
-Innan du lägger till: sök i backloggen + lokal evidens-mapp på 2–4 nyckelord ur titeln.
+## Exakt aktivt format
 
-```powershell
-Select-String -Path BUG-SWARM-BACKLOG.md -Pattern "<nyckelord>"
-Get-ChildItem .cursor/bugs/ -Filter *.md | Select-String -Pattern "<nyckelord>"
-```
-
-Finns en aktuell öppen rad för samma rotorsak → **uppdatera den raden** (skärp ankare/repro) i stället för att lägga en ny. Rapportera vilken rad som uppdaterades.
-
-### 2. Tilldela ID
-
-Aktiv kö använder bara det stabila rad-ID:t `SM-###`. Hitta högsta befintliga
-`SM-` i backloggen och historikindexet, ta nästa lediga nummer och återanvänd
-aldrig ett nummer. Det gamla `M#`-källformatet är avvecklat.
-
-### 3. Lägg till raden
-
-Skriv en `[ ]`-rad i rätt sektion. Aktiv kö använder sex kolumner och `Fynd`-cellen måste börja med det stabila ID:t:
+Tabellen har exakt sex kolumner:
 
 ```markdown
-| [ ] | Öppen bug | P2 | `SM-###` **<kort fynd>:** <vad som går fel> | <fil/route/test som bevisar felet på master> | <minsta åtgärd> |
+| Klar | Status    | Prio | Fynd                              | Bevis på `master`                    | Nästa steg      |
+| ---- | --------- | ---- | --------------------------------- | ------------------------------------ | --------------- |
+| [ ]  | Öppen bug | P2   | `SM-###` <en falsifierbar defekt> | `<repo/sökväg.ts:rad>` visar <bevis> | <minsta åtgärd> |
 ```
 
-- **Fynd:** kort, konkret, med kod-ankare (`fil.ts:rad`) om koden är inblandad. **En** falsifierbar premiss per rad — är den bred, dela raden.
-- **Prio:** `P0` produktion nere/dataförlust/säkerhetshål · `P1` kärnflöde brutet utan workaround · `P2` bug med workaround · `P3` kosmetiskt/edge. Osäker → `P2`.
-- Hör fyndet egentligen hemma i `Väntar på ägarbeslut`, `Behöver repro` eller skuldsektionen → använd de sektionernas format i stället (ingen 7-kolumns-kryssruta där).
+- `Fynd` börjar alltid med ID:t och innehåller en rotorsak.
+- `P0`: prod nere/dataförlust/säkerhet; `P1`: kärnflöde utan workaround;
+  `P2`: reell bugg med workaround; `P3`: kosmetiskt/edge.
+- En tom, hypotetisk eller enbart `M#`-baserad evidenscell är förbjuden.
 
-### 4. Valfri lokal evidens (`.cursor/bugs/`)
+Kör `npm run check:bug-backlog` efter ändringen. Rapportera ID, sektion, prio
+och masterbevis. Backloggändringen följer därefter det vanliga
+`.agents/skills/pr-workflow/SKILL.md`-flödet.
 
-Bara om rapporten har tung evidens (skärmdump, lång console-/network-dump) som inte ryms i en tabellcell. Mappen är **gitignored** (utom README) och är lokal arbetsyta — **inte** en parallell sanning.
+## Fix och arkiv
 
-Filnamn:
+När en PR fixar en aktiv rad får samma PR flytta raden till `## Arkiv` och ange
+PR-länk samt ändrad kodväg. Länken blir mergebevis när PR:n landar.
+Arkivflytten blir canonical först då; stängs PR:n utan merge ska raden
+återställas till Aktiv kö.
 
-```text
-.cursor/bugs/YYYY-MM-DD_HHMM_SM-###_<kort-slug>.md
-```
+Fixa direkt upptäckta PR-fynd utan ny backloggrad. Skapa inte flera rader för
+samma rotorsak.
 
-- Tidsstämpel = lokal tid: `Get-Date -Format "yyyy-MM-dd_HHmm"`.
-- Slug: 3–6 ord, kebab-case, transliterera å→a, ä→a, ö→o.
-- Innehåll: fri markdown (sammanfattning, repro, förväntat/faktiskt, bevis). Referera filen från backlog-raden bara om den behövs.
-- Skärmdumpar: spara bildfilen bredvid `.md`:n och länka relativt.
+Behövs längre repro eller skärmdumpar kan de sparas under
+`.cursor/bugs/YYYY-MM-DD_HHMM_SM-###_<kort-slug>.md`. Den ytan är gitignored
+lokalt stöd; backloggraden måste fortfarande bära det kanoniska beviset.
 
-## Format för fyndtext (rekommenderat)
-
-Håll cellen kort, men en bra fyndtext täcker: vad händer, var (fil/route), varför det är fel. Exempel:
-
-`Builder: preview kraschar när scaffold saknar manifest (PreviewPanel.tsx:170) — ingen fallback, vit iframe`
-
-Undvik `Det funkar inte`.
-
-## Slutsvar till användaren
-
-- Vilken sektion + `SM-###` som lades/uppdaterades.
-- Prio.
-- Ev. lokal evidens-fil (`.cursor/bugs/...`).
-- Om dublett-check hittade en befintlig rad och den uppdaterades i stället → säg vilken.
-- **Backlog-raden är en spårad git-ändring** — den persisteras först vid commit. Commit/push bara på explicit begäran (`git.mdc`).
-
-## När det INTE ska bli en rad
-
-- Användaren ber bara om en idé/diskussion.
-- Felet fixas direkt i samma session → en kort note i slutsvaret räcker (eller fixa + logga om PR-review-gaten kräver det).
-- Osäker → fråga "Ska detta in i backloggen?" innan du skriver.
-
-Skapa inte flera rader för samma rotorsak — slå ihop till en rad med flera repro-steg.
-
-## Cloud / Background Agent
-
-Background Agents kör i en ephemeral VM men `BUG-SWARM-BACKLOG.md` är **spårad i git** — så en tillagd rad följer med agentens branch/commit (till skillnad från den gamla Linear-mirror-modellen). Dublettkoll görs mot själva filen (`Select-String`), inte mot någon extern tjänst. `.cursor/bugs/`-evidens är fortfarande gitignored och pushas inte.
+Rapportera sektion, ID, prio, masterbevis och om en dublett uppdaterades.
+Backloggraden är en spårad ändring och persisteras först genom det vanliga
+PR-flödet.

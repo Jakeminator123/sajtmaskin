@@ -1,6 +1,11 @@
 # .cursor/swarms/
 
-Lokal **rapportfabrik** för `/automat` — sekventiella read-only audit-svärmar. Luna gör mekanisk scanning; Sol analyserar, prioriterar och falsifierar. Mappen är **gitignored** (utom denna README) och ligger inte på GitHub.
+Lokal **rapportfabrik** för `/automat` — sekventiella read-only audit-svärmar
+(upp till åtta agenter per runda) som letar buggar, död kod, namnöverlappningar,
+förbättringar, optimeringar, testluckor och drift. Modellval ägs av
+`subagent-models.mdc`: Luna gör mekanisk scanning; Sol analyserar, prioriterar
+och falsifierar. Mappen är **gitignored** (utom denna README) och ligger inte
+på GitHub.
 
 > **Audit mode, aldrig fix mode.** Svärmen ändrar **aldrig** kod. Den producerar bara fynd. När du själv hinner plockar du ut värdefulla fynd härifrån och driver dem vidare (t.ex. `/818` för beslut eller `/buggrapport` för att lyfta en bekräftad defekt till den kanoniska `BUG-SWARM-BACKLOG.md`).
 

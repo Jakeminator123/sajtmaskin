@@ -8,11 +8,11 @@ Runners (`db:migrate`, `db:migrate:prod`, `db:init`) bokför varje applicerad mi
 
 Ledgern är **deny-by-default** sedan 2026-08-19 (SM-057): RLS på, inga policies, och `anon`/`authenticated` fråntagna sina rättigheter. Innan dess kunde den läsas, skrivas och TRUNCATE:as med den publika anon-nyckeln över PostgREST, vilket räckte för att lura varje gate nedan — och i värsta fall få en runner att köra om migrationer. Runners påverkas inte: tabellägaren `postgres` är samma roll de ansluter med, och en ägare kringgår RLS. Skyddet bor på två ställen som ska hållas i lockstep — `ensureMigrationLedger` (nya databaser) och `harden-schema-migrations-ledger.sql` (befintliga).
 
-| Kommando | Vad |
-|---|---|
-| `npm run db:migrate:check` | Lokalt mot dev. Rött = DB:n ligger efter |
-| `npm run db:migrate:check:prod` | Read-only mot prod-snapshot |
-| `npm run db:ensure` | Fixkommandot: kollar → `db:migrate` → verifierar om |
+| Kommando                        | Vad                                                 |
+| ------------------------------- | --------------------------------------------------- |
+| `npm run db:migrate:check`      | Lokalt mot dev. Rött = DB:n ligger efter            |
+| `npm run db:migrate:check:prod` | Read-only mot prod-snapshot                         |
+| `npm run db:ensure`             | Fixkommandot: kollar → `db:migrate` → verifierar om |
 
 ## Lokal auto-apply och vakt
 
@@ -22,13 +22,37 @@ Utöver det kör `next-runner.mjs` `scripts/db/ensure-schema.mjs --check-only --
 
 Vakten kör **aldrig DDL själv** — den delegerar till `run-migrations.ts`, som äger apply-loopen och prod-skrivskyddet.
 
-## Git-hooks: dev-symmetrin mot prod
+## Git-hooks: verifiering före push och dev-symmetri mot prod
 
-`post-merge`, `post-checkout` och `post-rewrite` kör `ensure-schema.mjs --soft --quiet-ok`. Logiken: prod får migrationer när kod pushas till master, dev när master dras hem — alltså precis där driften uppstår.
+Samma installerare äger fyra managed hooks med olika hårdhet:
 
-**Varför tre hooks?** En merge-pull, ett grenbyte och en rebase-pull är tre olika vägar hem. `git pull --rebase` kör aldrig `post-merge`, och rebase med merge-backenden (default sedan git 2.26) ger inget pålitligt `post-checkout` heller. `post-checkout` kör bara vid grenbyten (arg 3 = 1), `post-rewrite` bara för `rebase` (inte `amend`).
+| Hook            | Kör                                   | Hårdhet                                                          |
+| --------------- | ------------------------------------- | ---------------------------------------------------------------- |
+| `pre-push`      | `npm run verify:pr`                   | **Fail-closed:** rött resultat eller saknat `npm` stoppar pushen |
+| `post-merge`    | `ensure-schema.mjs --soft --quiet-ok` | Soft; avbryter aldrig pull/merge                                 |
+| `post-checkout` | Samma DB-synk vid grenbyte            | Soft                                                             |
+| `post-rewrite`  | Samma DB-synk efter rebase            | Soft                                                             |
 
-Installeras av `npm run hooks:install` och automatiskt via `predev` (`hooks:install:soft`), så en färsk clone får dem utan att någon minns det. De är tysta i normalfallet, avbryter aldrig git-kommandot, står över i CI och vid `SAJTMASKIN_SKIP_DB_HOOKS=1`.
+`pre-push` gör den lokala PR-ready-kontrollen svår att glömma. Den står över i CI,
+som har egna gates. Endast ett uttryckligt ägarbeslut får använda
+`SAJTMASKIN_SKIP_VERIFY_HOOKS=1`; verifiera och dokumentera i så fall varför
+pushen behöver gå förbi den lokala grinden.
+
+DB-logiken är oförändrad: prod får migrationer när kod pushas till master, dev
+när master dras hem — alltså precis där driften uppstår.
+
+**Varför tre DB-posthooks?** En merge-pull, ett grenbyte och en rebase-pull är tre olika vägar hem. `git pull --rebase` kör aldrig `post-merge`, och rebase med merge-backenden (default sedan git 2.26) ger inget pålitligt `post-checkout` heller. `post-checkout` kör bara vid grenbyten (arg 3 = 1), `post-rewrite` bara för `rebase` (inte `amend`).
+
+Installeras obligatoriskt i agentstarten med `npm run hooks:install` och som
+extra mjukt skydd via `predev` (`hooks:install:soft`). En färsk clone som ännu
+inte har kört någon av vägarna har inga managed hooks; därför står bootstrapen
+uttryckligt i `AGENTS.md` och `pr-workflow`.
+DB-posthookarna är tysta, soft och står över i CI eller vid
+`SAJTMASKIN_SKIP_DB_HOOKS=1`. `pre-push` är däremot medvetet blockerande och har
+sin separata escape hatch ovan.
+Test-escape-hatchen hoppar inte över non-fast-forward-kontrollen; `master`
+force-pushas aldrig och en annan befintlig remote-ref kräver reasoned
+break-glass.
 
 Genererade filer bär markören `sajtmaskin-managed-hook` — en befintlig hook utan markören rörs aldrig, den rapporteras. Länkade worktrees delar `.git/hooks` med huvudcheckouten (`--git-common-dir`), så en installation räcker för alla.
 
@@ -36,7 +60,7 @@ Genererade filer bär markören `sajtmaskin-managed-hook` — en befintlig hook 
 
 `pretest:postgres` kör `ensure-schema.mjs --quiet-ok` före `npm run test:postgres`, så lanen inte kan bli röd av drift i stället för av en riktig bugg. Den felsökningen kostade en gång ett helt pass: nio tester kraschade på en saknad `variant_id`-kolumn långt innan de nådde koden de testade.
 
-**`--soft` utelämnas med flit här.** I hookarna får ett misslyckat migrationsförsök aldrig avbryta git-kommandot, men i testlanen ska det stoppa körningen — annars kör testerna vidare mot det gamla schemat och man får tillbaka exakt de vilseledande felen. Saknad DB-URL är fortfarande en tyst skip med exit 0, så forkar och CI utan databas påverkas inte.
+**`--soft` utelämnas med flit här.** I DB-posthookarna får ett misslyckat migrationsförsök aldrig avbryta git-kommandot, men i testlanen ska det stoppa körningen — annars kör testerna vidare mot det gamla schemat och man får tillbaka exakt de vilseledande felen. Saknad DB-URL är fortfarande en tyst skip med exit 0, så forkar och CI utan databas påverkas inte.
 
 ## Prod-skyddet sitter i registret, inte i en fil
 
@@ -48,11 +72,11 @@ Kvittot `DB_ALLOW_PROD_LIKE_WRITE=1` gäller som förut, så `db:migrate:prod` o
 
 ## CI-jobben
 
-| Jobb | När | Vad |
-|---|---|---|
-| `prod-migrations-apply` | Push till master eller manuell dispatch (**aldrig** på PR) | Kör `run-migrations.ts` mot prod. Idempotent → en migration kan inte längre bli deployad utan att köras. Gate:at bakom `quality` + `schema-drift` så prod-schemat aldrig muteras för en trasig merge |
-| `prod-migrations-applied` | `needs: prod-migrations-apply` | Läser prod-ledgern EFTER apply. Rött = kör `npm run db:migrate:prod` manuellt |
-| `db-schema-parity` | `needs: prod-migrations-apply` + dagligen (cron i `db-schema-parity.yml`) | Auto-applicerar migrationer + perf-index mot **dev** (`POSTGRES_URL_DEV`), kör sedan `npm run db:schema-parity` |
+| Jobb                      | När                                                                       | Vad                                                                                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prod-migrations-apply`   | Push till master eller manuell dispatch (**aldrig** på PR)                | Kör `run-migrations.ts` mot prod. Idempotent → en migration kan inte längre bli deployad utan att köras. Gate:at bakom `quality` + `schema-drift` så prod-schemat aldrig muteras för en trasig merge |
+| `prod-migrations-applied` | `needs: prod-migrations-apply`                                            | Läser prod-ledgern EFTER apply. Rött = kör `npm run db:migrate:prod` manuellt                                                                                                                        |
+| `db-schema-parity`        | `needs: prod-migrations-apply` + dagligen (cron i `db-schema-parity.yml`) | Auto-applicerar migrationer + perf-index mot **dev** (`POSTGRES_URL_DEV`), kör sedan `npm run db:schema-parity`                                                                                      |
 
 ### Varför ledgern inte räcker: live-paritet
 

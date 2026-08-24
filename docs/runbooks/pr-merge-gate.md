@@ -1,47 +1,123 @@
 # PR-merge-grinden: bakgrund och incidenter
 
-Den operativa regeln bor i [`.cursor/rules/pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc). Den här filen förklarar **varför** varje krav finns, så att regeln kan hållas kort. Läs den när du överväger att lätta på ett krav — varje rad nedan är ett fel som redan har hänt.
+Den operativa regeln bor i
+[`.cursor/rules/pr-merge.mdc`](../../.cursor/rules/pr-merge.mdc). Hela lokala
+körordningen ägs av [PR-workflow-skillen](../../.agents/skills/pr-workflow/SKILL.md)
+och [`config/agent-workflow.json`](../../config/agent-workflow.json). Den här
+filen förklarar varför grinden finns; historik här får aldrig bli en parallell
+policy.
 
-## GitHub-verkligheten (verifierat 2026-07-08, ruleset-kontroll 2026-07-31)
+## GitHub-verkligheten
 
-"Protect master"-rulesetet kräver **1 review + code-owner-review** (`@Jakeminator123` via `.github/CODEOWNERS`) och required status checks:
+GitHubs webbinställningar kan ändras utan repo-diff. CODEOWNERS visar ägare men
+bevisar inte ensam vilka rulesets, bypasser eller required checks som gäller.
+Kontrollera därför aktuell PR och GitHub-inställningen; luta dig aldrig mot ett
+gammalt runbookpåstående.
 
-| Check | Tillagd |
-|---|---|
-| `quality`, `backoffice-tests`, `schema-drift` | 2026-07-08 |
-| `review-window` | 2026-07-11 (workflow), läggs till i rulesetet via GitHub-API — syns inte i repo-diffen |
-| `build` | 2026-07-30 via #660 |
+Repoets avsedda required checknamn ägs av
+[`config/agent-workflow.json`](../../config/agent-workflow.json):
+
+| Check              | Roll                                           |
+| ------------------ | ---------------------------------------------- |
+| `quality`          | aggregerad kod- och kontraktsgrind             |
+| `backoffice-tests` | Python-/Backoffice-regression                  |
+| `schema-drift`     | DB-schema                                      |
+| `build`            | nyckelfri produktionsbuild                     |
+| `review-window`    | trusted 7 min/review + live head/base/sign-off |
 
 Konsekvenser:
 
-- Extern PR (t.ex. `chgenberg`) blockeras tills Jake godkänt — det är rulesetets syfte.
-- Jakes egna PR:er kan inte självgodkännas → mergas via `gh pr merge --admin`. Admin bypassar **allt**, inklusive röda och väntande required checks. Därför är "vänta på grönt" fortsatt agent-disciplin vid `--admin`, inte något GitHub tvingar.
-- Checks som **inte** är required (`stability` är warn-only, plus runtime-kontrakt) och bugbot-subagentens pass är därför verkligt skydd utöver de fyra.
+- Branch- och mergegrinden ska följas även om den aktuella identiteten kan
+  bypassa den.
+- `--admin` är inte normalvägen. Om GitHub kräver bypass trots helt grön grind
+  krävs ägarens uttryckliga mandat för just den mergen; använd den aldrig för
+  att passera rött, pending eller otriagerade fynd.
+- `stability` och andra warn-only-signaler ska läsas men är inte samma sak som
+  required checks.
 
 ## Varför sign-off-kommentaren måste komma före labeln
 
-`merge-ready-freshness.yml` triggar bland annat på bot-`issue_comment`. Sekunder efter att en PR öppnas postar Codex och Bugbot nästan alltid en kommentar (numera ofta bara "usage limit reached"). Den körningen tar ~20 sekunder och läser PR:ens labels **och** kommentarer från API:t när den väl kommer fram. Sätts labeln inuti det fönstret, innan sign-off-kommentaren finns, ser körningen en labelad PR utan sign-off och river labeln med skälet "merge:ready utan giltig sign-off-rad" — trots grön grind och oförändrad head-SHA.
+`merge-ready-freshness.yml` triggar direkt när en label sätts. Endast
+`merge:ready` valideras; andra labels är no-op. Den betrodda workflowversionen
+läser aktuell head samt base-refens **levande tip** via Git refs-API:t. PR-
+objektets historiska `.base.sha` används uttryckligen inte. Senaste sign-off-
+kommentaren måste innehålla båda som exakt 40 hextecken, och GitHubs compare/
+merge-base måste bevisa att head innehåller den aktuella base-tipen. Saknas
+beviset eller har head/base flyttats tas labeln bort direkt. Därmed kan en
+gammal sign-off inte labelas in efter en synchronize- eller master-push-körning
+som redan hann se PR:n utan label.
+
+Grinden triggar dessutom på bot-`issue_comment`. Sekunder efter att en PR
+öppnas postar Codex och Bugbot ofta en kommentar. Historiskt kunde en sådan
+körning ta ~20 sekunder och läsa labels och kommentarer först när den kom fram.
+Sattes labeln inuti det fönstret, innan sign-off-kommentaren fanns, såg den en
+labelad PR utan sign-off och rev labeln trots grön grind.
 
 **Skarpt fall #665, 2026-07-30:** bot-kommentarer 20:12:08–09 startade två körningar 20:12:12–13 som avslutades 20:12:31–33. Labeln sattes 20:12:24 och sign-offen 20:12:27, alltså båda mitt i fönstret → labeln revs 20:12:27. Mergaren såg "författaren är inte klar" på en PR som var helt färdig.
 
-Skrivs sign-offen först finns den när körningen läser, och dess tidsstämpel är nyare än bot-kommentarens → labeln behålls. Har det redan hänt ligger sign-offen kvar, så det räcker att sätta labeln igen.
+Skriv därför sign-offen först och labeln sedan, men först när **övriga**
+required checks och reviewkvitton är klara. `review-window` ska då vara pending;
+det är inte en cirkel utan den sista betrodda kontrollpunkten. Controllern kör
+default-branch-kod, publicerar required check på exakt PR-head och blir grön
+endast när kommentaren är nyare än sjuminutersgolvet, övriga checks och senaste
+botfynd samt matchar aktuell head och aktuell base. Har labeln rivits måste
+agenten läsa orsaken, uppdatera vid behov och posta en ny sign-off.
 
-Sign-off-raden är en **PR-kommentar**, inte PR-body, eftersom freshness-grinden använder GitHubs `created_at` på kommentaren som tidpunkt och en body inte har någon. `at:`-fältet i raden är läsbarhet för människor — det avgör ingenting, eftersom författarstyrd text inte kan vara ordningsgrund i en säkerhetsgrind.
+Sign-off-raden är en **PR-kommentar**, inte PR-body, eftersom freshness-grinden
+använder GitHubs `created_at` på kommentaren som tidpunkt och en body inte har
+någon. Författaren måste vara en mänsklig PR-författare, repoägare, medlem eller
+collaborator; botkvitton kan aldrig fungera som mänsklig sign-off. `at:`-fältet
+är läsbarhet — ordningen avgörs av GitHubs serverside-tider.
 
-### Kvarvarande lucka, medvetet
+När master flyttas publicerar samma betrodda workflow först ett
+`action_required`-kvitto på varje öppen PR:s exakta head och tar sedan bort
+labeln. Därmed räcker inte en misslyckad labelskrivning för att lämna en gammal
+grön required check. Ny base kräver ny head, omkörning och sign-off.
 
-Sätts labeln *efter* ett otriagerat bot-fynd triggar workflowen inget — den jämför händelser mot sign-off-tiden, och en färsk sign-off är alltid nyast. Att stänga luckan kräver verdict-kunskap som workflowen inte har. Ansvaret ligger därför kvar på författaren och mergaren.
+Beslutslogiken ligger i `scripts/ci/merge-ready-freshness.mjs` och är
+enhetstestad. Den kör betrodd default-branch-kod och får inte filtrera bort
+konkreta PR-AI-fynd bara för att de publiceras av `github-actions[bot]`.
 
-Beslutslogiken ligger i `scripts/ci/merge-ready-freshness.mjs` och är enhetstestad. `vercel[bot]` räknas på review-vägarna (Vercel Agent Review postar riktiga logikfynd där) men inte som issue-kommentar (deploy-brus).
+## Varför final merge är ett betrott issue_comment-kommando
+
+GitHub kör `pull_request_review` och `pull_request_review_comment` från PR:ens
+merge-ref. Ett skrivande workflow på dessa event skulle därför låta PR-kod byta
+workflowlogik och försöka stjäla dess token. Repoet har avsiktligt inga sådana
+listeners. Sent reviewunderlag fångas i stället av finalkommandot:
+
+`merge:execute — head-sha: <40 hex>, base-sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
+
+Bara en verifierad mänsklig `OWNER`, `MEMBER` eller `COLLABORATOR` får posta
+kommandot. Den betrodda default-branch-controllern hämtar kommentaren live,
+kräver att den är oredigerad, läser alla checks/reviews/kommentarer flera gånger
+och jämför en innehållshashad fingerprint över evidensen. Kommandot måste vara
+strikt senare än allt underlag. Efter settle görs ännu en live base/compare och
+slutligen en squash-merge med exakt expected head-SHA.
+
+Expected head stänger head-racet. GitHubs merge-endpoint tar däremot ingen
+expected base-SHA. Native ruleset/branch protection måste därför kräva
+up-to-date branch; den serialiserade controllern och sista compare-läsningen
+minimerar men kan inte matematiskt ersätta base-CAS. Manuell webbmerge/bypass är
+inte den kanoniska agentvägen. Live-auditen 2026-08-24 visade
+`strict_required_status_checks_policy=false`; rolloutens inställningssteg måste
+slå på strict.
+
+En merge med Actions egen `GITHUB_TOKEN` startar normalt inte push-workflows.
+Efter terminal merge gör controllern därför base-invalideringen själv och
+anropar `workflow_dispatch` för både `ci.yml` och `db-blob-sync-check.yml` på
+master. `workflow_dispatch` är recursion-undantaget. Misslyckas eftersteget blir
+jobbet rött med `POST_MERGE_VERIFICATION_FAILED`; PR:n är redan mergad och
+återhämtningen är manuell base-invalidering plus båda dispatcherna, inte en ny
+merge.
 
 ## Varför fyndsvepet aldrig får vara ett tidsfönster
 
 Frågan inför merge är "är varje fynd på PR:en åtgärdat på nuvarande head?", inte "har något nytt landat sedan jag sist tittade?". Ett tidsfilter felar åt båda hållen, och båda hände 2026-07-25:
 
-| PR | Fel |
-|---|---|
+| PR   | Fel                                                                                                                |
+| ---- | ------------------------------------------------------------------------------------------------------------------ |
 | #610 | Mergades förbi ett Vercel-fynd som låg åtta minuter före filtret. Författarens sista fix kapades och fick bli #619 |
-| #613 | Blockerades på tre fynd som redan var åtgärdade på en tidigare commit |
+| #613 | Blockerades på tre fynd som redan var åtgärdade på en tidigare commit                                              |
 
 Därför: jämför varje fynds `original_commit_id` mot head och kontrollera i koden om det ligger bakåt.
 
@@ -59,28 +135,28 @@ Samma skäl ligger bakom rollspliten mellan billig bevakare och dyr beslutsfatta
 
 ## Bot-granskarnas tillgänglighet över tid
 
-| Datum | Händelse |
-|---|---|
-| 2026-07-02 | Codex av (credits slut) |
-| 2026-07-08 | Codex tillbaka |
-| 2026-08-01 | GitHub-Bugbot **och** Codex slog i taket samtidigt — #703/#704 stod utan externa ögon |
+| Datum      | Händelse                                                                                                                                                                                                                                                                                                                            |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-02 | Codex av (credits slut)                                                                                                                                                                                                                                                                                                             |
+| 2026-07-08 | Codex tillbaka                                                                                                                                                                                                                                                                                                                      |
+| 2026-08-01 | GitHub-Bugbot **och** Codex slog i taket samtidigt — #703/#704 stod utan externa ögon                                                                                                                                                                                                                                               |
 | 2026-08-20 | Samma sak hela kvällen under en åttafiligs våg (#1069–#1077): GitHub-Bugbot, Codex **och** «Find critical bugs» alla usage-limitade. `pr-ai-review` var enda externa granskaren — och räckte: den postade uttömmande review per head-SHA och fann verkliga fynd i #1073, #1076 och #1077. Den lokala `bugbot`-subagenten bar resten |
 
-Den GitHub-integrerade Bugbot:en delar teamets budget och postar `Bugbot couldn't run - usage limit reached` när den tar slut. **Slut budget på GitHub är inget skäl att hoppa till manuell review** — den lokala `bugbot`-subagenten är en egen väg med egen budget. Det är hela poängen med fallback-stegen i regeln.
+Den GitHub-integrerade Bugbot:en delar teamets budget och postar `Bugbot couldn't run - usage limit reached` när den tar slut. Lokal Sol/bugbot är då innehållsfallback. Den required `review-window` blir dock bara grön när minst ett maskinverifierat reviewkvitto för aktuell head lyckas — normalt `trusted-pr-ai-review` eller en extern reviewbot. Det betrodda kvittot får `success` först efter en uttömmande review av exakt live-headens hela diff; skip, fyndspecifik uppföljning och stale resultat ger `action_required`. Är alla kvalificerande kvitton borta/röda stoppas merge i stället för att timeout bli falskt grön.
 
-En Codex-kommentar som **bara** är "usage limit" betyder att den är av → icke-blockerande, inte ett gap.
+En ren review på en senare head stänger inte automatiskt äldre fynd. PR AI-state
+bär dem i sin resolution-ledger tills en explicit `fixed` eller
+`rejected-with-reason` finns; merge-triagen ska därför fortfarande gå igenom
+hela PR:ens reviewtrådar.
+
+En Codex-kommentar som **bara** är "usage limit" är inget fynd och blockerar inte om ett annat reviewkvitto lyckas; den räknas inte själv som ett pass.
 
 ## Två fällor som kostade tid 2026-08-20
 
-**«Docs-only» skyddar inte mot kontraktstester.** Genvägen till master i
-[`git.mdc`](../../.cursor/rules/git.mdc) gäller docs — men flera tester *läser*
-`docs/`. En rad i `docs/decisions/README.md` vars kanoniska källa pekade på en
-planfil fällde `registry.test.ts`, och master hade rött `quality` i ~40 minuter.
-`docs:links` och `check:bug-backlog` var gröna hela tiden; de kontrollerar inte
-den regeln. **Kör `npx vitest run src/lib/control-plane` före varje docs-push
-till master** som rör `docs/decisions/`, glossaryn eller planroutern. Samma
-kontroll fångade senare 13 brutna länkar i nyspårade skills innan de nådde
-master — den är billig och betalar sig.
+**«Docs-only» skyddar inte mot kontraktstester.** Flera tester läser `docs/`,
+registries och agentregler. Därför finns ingen docs-/regelgenväg till master.
+`npm run verify:pr` läser diffen och väljer docs-, control-plane-, agent- och
+Backofficekontroller från samma policy som CI.
 
 **`cancelled` är inte `failure`.** CI:s concurrency-grupp avbryter en pågående
 körning när en ny commit landar på samma ref. En `quality: cancelled` på en
@@ -89,9 +165,9 @@ körning när en ny commit landar på samma ref. En `quality: cancelled` på en
 
 ## Meta vs produkt (håll planen isär)
 
-| Plan | Vad | Format |
-|---|---|---|
-| **Meta** | Modeller/verktyg som bygger Sajtmaskin: Cursor, Codex-review, `Task`-subagenter | slug, t.ex. `claude-opus-4-8-thinking-max` |
-| **Produkt** | Modeller i `config/ai_models/manifest.json` som betjänar användarsajter | id, t.ex. `gpt-5.5`, `openai/gpt-5.5` |
+| Plan        | Vad                                                                             | Format                                     |
+| ----------- | ------------------------------------------------------------------------------- | ------------------------------------------ |
+| **Meta**    | Modeller/verktyg som bygger Sajtmaskin: Cursor, Codex-review, `Task`-subagenter | slug, t.ex. `claude-opus-4-8-thinking-max` |
+| **Produkt** | Modeller i `config/ai_models/manifest.json` som betjänar användarsajter         | id, t.ex. `gpt-5.5`, `openai/gpt-5.5`      |
 
 Ange alltid vilket plan ett fynd hör till så de inte blandas ihop.

@@ -106,7 +106,7 @@ src/lib/gen/scaffolds/scaffold-embeddings.json
 # inte cache. Agent-skydd: .cursorindexingignore (sök), inte gitignore.
 config/variant-template-addenda.json
 src/lib/templates/template-blob-manifest.json
-# templates.json hålls spårad (importeras av template-data.ts) — agent-skydd i .cursorignore
+# templates.json hålls spårad och läsbar (importeras av template-data.ts), men undantas från index i .cursorindexingignore
 # LLM-flow canvas JSON-sidecar: lokal runtime-artefakt (regenereras vid backoffice-start
 # och av `npm run canvas:build`). Den diffbara .txt-artefakten committas; JSON:en inte.
 docs/canvases/llm-flow.canvas.json
@@ -166,7 +166,8 @@ google-services.json
 .cursor/automation/archive/
 .cursor/automation/input/
 .cursor/migration-archive/
-# Lokal mirror av buggrapporter via /buggrapport (Linear är källan-till-sanning).
+# Lokal inbox/cache för /buggrapport. BUG-SWARM-BACKLOG.md är enda buggsanning;
+# Linear eller denna katalog får aldrig ändra status på egen hand.
 # README:n committas så konventionen är synlig för agenter på andra maskiner.
 .cursor/bugs/*
 !.cursor/bugs/README.md
@@ -336,6 +337,8 @@ docs/plans/**/run.log.jsonl
 !.agents/skills/logg/**
 !.agents/skills/logg-internet/
 !.agents/skills/logg-internet/**
+!.agents/skills/pr-workflow/
+!.agents/skills/pr-workflow/**
 # `source-command-*` är maskinmigrerade speglingar av `.cursor/commands/*.md`,
 # som redan är spårade. De skulle bli en andra sanning bredvid kommandofilerna,
 # så de förblir ignorerade med avsikt — inte av förbiseende.

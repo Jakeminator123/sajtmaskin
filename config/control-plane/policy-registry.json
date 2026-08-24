@@ -240,21 +240,38 @@
       "notes": "also config/ai_models/41-tier3-stub-placeholders.env.txt; merged into preview .env.local; parity test placeholder-harmless.parity.test.ts."
     },
     {
-      "id": "agent-rules",
-      "sourceOfTruth": ".cursor/rules",
+      "id": "agent-context-policy",
+      "sourceOfTruth": "AGENTS.md",
       "type": "rule",
-      "validator": null,
-      "ciStatus": "none",
+      "validator": "check:agent-context",
+      "ciStatus": "hard",
       "runtimeEnforced": false,
       "runtimeStatus": "n/a",
       "backoffice": {
-        "surface": null,
+        "surface": "Cursor-agenter",
         "editable": false,
         "writePath": null,
-        "danger": "low"
+        "danger": "medium"
       },
       "mobility": "leave",
-      "notes": "Cursor agent governance (*.mdc); not app runtime; Cursor expects this path."
+      "notes": "Lean entry/router for AGENTS.md, .agents/skills, .cursor rules/commands and .codex profiles. CI-only agent governance; not product runtime. check:agent-context locks topology, context budgets and active model terminology."
+    },
+    {
+      "id": "agent-workflow-policy",
+      "sourceOfTruth": "config/agent-workflow.json",
+      "type": "rule",
+      "validator": "workflow:contract",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": "Cursor-agenter",
+        "editable": false,
+        "writePath": null,
+        "danger": "high"
+      },
+      "mobility": "leave",
+      "notes": "Machine-readable branch, protected-path, verification-profile, required-check and review-window policy consumed by local agent tooling and CI contract checks. Not product runtime."
     },
     {
       "id": "server-auto-brief-policy",

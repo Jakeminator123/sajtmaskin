@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/docs/schemas/strict/agent-workflow.schema.json",
+  "title": "Sajtmaskin agent workflow policy",
+  "description": "Strict format for config/agent-workflow.json. The policy is consumed by local verification and CI contract checks; it does not affect the product runtime.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "trunk",
+    "allowedBranchPrefixes",
+    "branchPrefixExemptActors",
+    "immutableRemoteBranchPatterns",
+    "protectedBranchPatterns",
+    "directMaster",
+    "requiredChecks",
+    "review",
+    "protectedPaths",
+    "pathGroups",
+    "verificationProfiles"
+  ],
+  "properties": {
+    "$schema": { "const": "../docs/schemas/strict/agent-workflow.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "trunk": { "const": "master" },
+    "allowedBranchPrefixes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*/$" }
+    },
+    "branchPrefixExemptActors": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "uniqueItems": true,
+      "items": { "const": "dependabot[bot]" }
+    },
+    "immutableRemoteBranchPatterns": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "prefixItems": [{ "const": "*BRA*" }, { "const": "rescue/*" }],
+      "items": false
+    },
+    "protectedBranchPatterns": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?![/\\\\])(?!.*\\\\).+$"
+      }
+    },
+    "directMaster": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "breakGlassFlag", "breakGlassReason"],
+      "properties": {
+        "allowed": { "const": false },
+        "breakGlassFlag": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
+        "breakGlassReason": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }
+      }
+    },
+    "requiredChecks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonEmpty" }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minHeadAgeSeconds",
+        "botSettleSeconds",
+        "maxBotWaitSeconds",
+        "maxSignoffWaitSeconds",
+        "qualifyingCheckPatterns",
+        "securityVetoCheckPatterns",
+        "deploymentCheckNames"
+      ],
+      "properties": {
+        "minHeadAgeSeconds": { "type": "integer", "minimum": 420 },
+        "botSettleSeconds": { "type": "integer", "minimum": 60 },
+        "maxBotWaitSeconds": { "type": "integer", "minimum": 420 },
+        "maxSignoffWaitSeconds": { "type": "integer", "minimum": 600, "maximum": 840 },
+        "qualifyingCheckPatterns": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmpty" }
+        },
+        "securityVetoCheckPatterns": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmpty" }
+        },
+        "deploymentCheckNames": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmpty" }
+        }
+      }
+    },
+    "protectedPaths": { "$ref": "#/$defs/pathPatterns" },
+    "pathGroups": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "docs",
+        "controlPlane",
+        "agent",
+        "runtime",
+        "backoffice",
+        "database",
+        "dependencies",
+        "ci",
+        "previewHost",
+        "observability",
+        "e2e"
+      ],
+      "properties": {
+        "docs": { "$ref": "#/$defs/pathPatterns" },
+        "controlPlane": { "$ref": "#/$defs/pathPatterns" },
+        "agent": { "$ref": "#/$defs/pathPatterns" },
+        "runtime": { "$ref": "#/$defs/pathPatterns" },
+        "backoffice": { "$ref": "#/$defs/pathPatterns" },
+        "database": { "$ref": "#/$defs/pathPatterns" },
+        "dependencies": { "$ref": "#/$defs/pathPatterns" },
+        "ci": { "$ref": "#/$defs/pathPatterns" },
+        "previewHost": { "$ref": "#/$defs/pathPatterns" },
+        "observability": { "$ref": "#/$defs/pathPatterns" },
+        "e2e": { "$ref": "#/$defs/pathPatterns" }
+      }
+    },
+    "verificationProfiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "always",
+        "docs",
+        "controlPlane",
+        "agent",
+        "runtime",
+        "backoffice",
+        "database",
+        "dependencies",
+        "ci",
+        "previewHost",
+        "observability",
+        "e2e",
+        "full"
+      ],
+      "properties": {
+        "always": { "$ref": "#/$defs/commands" },
+        "docs": { "$ref": "#/$defs/commands" },
+        "controlPlane": { "$ref": "#/$defs/commands" },
+        "agent": { "$ref": "#/$defs/commands" },
+        "runtime": { "$ref": "#/$defs/commands" },
+        "backoffice": { "$ref": "#/$defs/commands" },
+        "database": { "$ref": "#/$defs/commands" },
+        "dependencies": { "$ref": "#/$defs/commands" },
+        "ci": { "$ref": "#/$defs/commands" },
+        "previewHost": { "$ref": "#/$defs/commands" },
+        "observability": { "$ref": "#/$defs/commands" },
+        "e2e": { "$ref": "#/$defs/commands" },
+        "full": { "$ref": "#/$defs/commands" }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1, "pattern": "^\\S(?:.*\\S)?$" },
+    "pathPatterns": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9:_-]*$" }
+    }
+  }
+}

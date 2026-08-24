@@ -11,7 +11,7 @@
       "const": "../../docs/schemas/strict/backoffice-domain-map.schema.json"
     },
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "title": {
       "type": "string",
@@ -20,13 +20,15 @@
     },
     "repoSiblings": {
       "type": "object",
-      "required": ["config", "backoffice", "docs", ".cursor"],
+      "required": ["config", "backoffice", "docs", ".agents", ".cursor", ".codex"],
       "additionalProperties": false,
       "properties": {
         "config": { "$ref": "#/$defs/nonEmptyText" },
         "backoffice": { "$ref": "#/$defs/nonEmptyText" },
         "docs": { "$ref": "#/$defs/nonEmptyText" },
-        ".cursor": { "$ref": "#/$defs/nonEmptyText" }
+        ".agents": { "$ref": "#/$defs/nonEmptyText" },
+        ".cursor": { "$ref": "#/$defs/nonEmptyText" },
+        ".codex": { "$ref": "#/$defs/nonEmptyText" }
       }
     },
     "pages": {

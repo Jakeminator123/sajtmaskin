@@ -10,18 +10,74 @@ import {
   FINDING_MARKER_PREFIX,
   FOLLOW_UP_MARKER_PREFIX,
   markRunFailed,
+  mergeResolutionLedger,
   parseStateComment,
   renderExhaustiveReview,
   renderFindingComment,
   renderFollowUpComment,
   renderStateComment,
+  TARGET_BASE_BRANCH,
   validateExhaustiveResult,
   validateFollowUpResult,
 } from "./core.mjs";
 
 const AUTOMATION_LOGIN = "github-actions[bot]";
+export const MAX_GITHUB_PULL_FILES = 3_000;
 
-function completedStateFromReview(state, review, reviewComments, now) {
+export class IncompletePullFileUniverseError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "IncompletePullFileUniverseError";
+  }
+}
+
+export class DiscardedReviewFindingsError extends Error {
+  constructor(discardedFindings) {
+    super(
+      `Reviewer returned ${discardedFindings} finding(s) that could not be anchored to the complete current diff`,
+    );
+    this.name = "DiscardedReviewFindingsError";
+    this.discardedFindings = discardedFindings;
+  }
+}
+
+/**
+ * GitHub documents a hard 3,000-file ceiling for the pull-files endpoint.
+ * `changed_files` from the live PR object is therefore the independent count
+ * that proves whether the paginated response is complete. Missing counts,
+ * truncation and duplicate/malformed records all block an exhaustive receipt.
+ */
+export function assertCompletePullFileUniverse({ changedFiles, files }) {
+  if (!Number.isSafeInteger(changedFiles) || changedFiles < 0) {
+    throw new IncompletePullFileUniverseError(
+      "GitHub returned no valid changed_files count for the current PR head",
+    );
+  }
+  if (changedFiles > MAX_GITHUB_PULL_FILES) {
+    throw new IncompletePullFileUniverseError(
+      `PR has ${changedFiles} changed files, above GitHub's ${MAX_GITHUB_PULL_FILES}-file review API limit`,
+    );
+  }
+  if (!Array.isArray(files)) {
+    throw new IncompletePullFileUniverseError("GitHub returned no pull-file collection");
+  }
+  const filenames = files.map((file) => file?.filename);
+  if (filenames.some((filename) => typeof filename !== "string" || filename.length === 0)) {
+    throw new IncompletePullFileUniverseError("GitHub returned a malformed pull-file record");
+  }
+  if (new Set(filenames).size !== filenames.length) {
+    throw new IncompletePullFileUniverseError(
+      "GitHub returned duplicate pull-file records; completeness cannot be proven",
+    );
+  }
+  if (files.length !== changedFiles) {
+    throw new IncompletePullFileUniverseError(
+      `GitHub reported ${changedFiles} changed files but returned ${files.length}`,
+    );
+  }
+}
+
+function completedStateFromReview(state, review, reviewComments, now, minimumRunCount = 1) {
   const snapshot = decodeMarker(review.body, EXHAUSTIVE_MARKER_PREFIX);
   if (!snapshot || !snapshot.headSha || !Array.isArray(snapshot.findings)) return state;
   const commentIds = new Map();
@@ -30,17 +86,32 @@ function completedStateFromReview(state, review, reviewComments, now) {
     if (marker?.findingId) commentIds.set(marker.findingId, comment.id);
   }
   const at = now.toISOString();
+  const resolutionLedger = mergeResolutionLedger({
+    resolutionLedger: snapshot.resolutionLedger ?? state.resolutionLedger,
+    previousFindings: state.findings,
+    currentFindings: snapshot.findings,
+    headSha: snapshot.headSha,
+    now,
+  }).map((entry) => ({
+    ...entry,
+    originalCommentId: entry.originalCommentId ?? commentIds.get(entry.id) ?? null,
+  }));
   return {
     ...state,
-    firstReviewedHeadSha: snapshot.headSha,
+    firstReviewedHeadSha: state.firstReviewedHeadSha ?? snapshot.headSha,
     // Always take the published review's head — recovery must not leave a
     // sticky incomplete lastRun that reclaim logic treats as retryable.
     latestProcessedHeadSha: snapshot.headSha,
     exhaustiveReviewCompleted: true,
-    totalRunCount: Math.max(1, state.totalRunCount),
+    totalRunCount: Math.max(minimumRunCount, snapshot.runNumber ?? 1, state.totalRunCount),
+    resolutionLedger,
     findings: snapshot.findings.map((finding) => ({
       ...finding,
-      originalCommentId: commentIds.get(finding.id) ?? finding.originalCommentId ?? null,
+      originalCommentId:
+        resolutionLedger.find((entry) => entry.id === finding.id)?.originalCommentId ??
+        finding.originalCommentId ??
+        commentIds.get(finding.id) ??
+        null,
     })),
     github: { ...state.github, exhaustiveReviewId: review.id },
     updatedAt: at,
@@ -60,12 +131,24 @@ function enrichFindingCommentIds(state, reviewComments) {
     const marker = decodeMarker(comment.body, FINDING_MARKER_PREFIX);
     if (marker?.findingId) commentIds.set(marker.findingId, comment.id);
   }
+  let changed = false;
+  const resolutionLedger = (state.resolutionLedger ?? []).map((entry) => {
+    const originalCommentId = entry.originalCommentId ?? commentIds.get(entry.id) ?? null;
+    if (originalCommentId !== entry.originalCommentId) changed = true;
+    return originalCommentId === entry.originalCommentId ? entry : { ...entry, originalCommentId };
+  });
+  const findings = state.findings.map((finding) => {
+    const originalCommentId = finding.originalCommentId ?? commentIds.get(finding.id) ?? null;
+    if (originalCommentId !== finding.originalCommentId) changed = true;
+    return originalCommentId === finding.originalCommentId
+      ? finding
+      : { ...finding, originalCommentId };
+  });
+  if (!changed) return state;
   return {
     ...state,
-    findings: state.findings.map((finding) => ({
-      ...finding,
-      originalCommentId: finding.originalCommentId ?? commentIds.get(finding.id) ?? null,
-    })),
+    resolutionLedger,
+    findings,
   };
 }
 
@@ -129,14 +212,34 @@ async function loadAndReconcileState({ github, pr, now }) {
   }
   let dirty = false;
 
-  const exhaustiveReview = reviews.find(
-    (review) =>
-      review.author === AUTOMATION_LOGIN && decodeMarker(review.body, EXHAUSTIVE_MARKER_PREFIX),
-  );
-  if (exhaustiveReview && !state.exhaustiveReviewCompleted) {
-    state = completedStateFromReview(state, exhaustiveReview, reviewComments, now);
+  const exhaustiveReviews = reviews
+    .filter((review) => review.author === AUTOMATION_LOGIN)
+    .map((review) => ({ review, snapshot: decodeMarker(review.body, EXHAUSTIVE_MARKER_PREFIX) }))
+    .filter(
+      ({ review, snapshot }) =>
+        snapshot?.headSha === review.commitId && Array.isArray(snapshot.findings),
+    );
+  const latestExhaustive = exhaustiveReviews.at(-1);
+  const firstExhaustive = exhaustiveReviews.at(0);
+  if (!state.firstReviewedHeadSha && firstExhaustive) {
+    state = { ...state, firstReviewedHeadSha: firstExhaustive.snapshot.headSha };
     dirty = true;
-  } else if (exhaustiveReview) {
+  }
+  const currentHeadExhaustive = exhaustiveReviews.findLast(
+    ({ snapshot }) => snapshot.headSha === pr.headSha,
+  );
+  const reviewedHeadCount = new Set(exhaustiveReviews.map(({ snapshot }) => snapshot.headSha)).size;
+  if (latestExhaustive && !state.exhaustiveReviewCompleted) {
+    const recovery = currentHeadExhaustive ?? latestExhaustive;
+    state = completedStateFromReview(
+      state,
+      recovery.review,
+      reviewComments,
+      now,
+      reviewedHeadCount,
+    );
+    dirty = true;
+  } else if (latestExhaustive) {
     const before = state;
     state = enrichFindingCommentIds(state, reviewComments);
     // Heal only a sticky incomplete *exhaustive* claim. Never rewrite a
@@ -145,21 +248,27 @@ async function loadAndReconcileState({ github, pr, now }) {
     const incompleteExhaustiveClaim =
       state.lastRun?.status !== "completed" &&
       (state.lastRun?.kind ?? "exhaustive") === "exhaustive";
-    if (incompleteExhaustiveClaim) {
-      const snapshot = decodeMarker(exhaustiveReview.body, EXHAUSTIVE_MARKER_PREFIX);
-      const headSha = snapshot?.headSha ?? state.latestProcessedHeadSha ?? pr.headSha;
-      const at = now.toISOString();
-      state = {
-        ...state,
-        latestProcessedHeadSha: state.latestProcessedHeadSha ?? headSha,
-        lastRun: {
-          kind: "exhaustive",
-          headSha,
-          status: "completed",
-          at,
-          error: null,
-        },
-      };
+    const publishedClaim = incompleteExhaustiveClaim
+      ? exhaustiveReviews.findLast(({ snapshot }) => snapshot.headSha === state.lastRun?.headSha)
+      : null;
+    const currentHeadStateNeedsRecovery =
+      currentHeadExhaustive &&
+      (state.latestProcessedHeadSha !== pr.headSha ||
+        state.lastRun?.kind !== "exhaustive" ||
+        state.github?.exhaustiveReviewId !== currentHeadExhaustive.review.id);
+    const previouslyReviewedCurrentHead =
+      !incompleteExhaustiveClaim && currentHeadStateNeedsRecovery ? currentHeadExhaustive : null;
+    const recovery = publishedClaim ?? previouslyReviewedCurrentHead;
+    if (recovery) {
+      // Heal only from a review for the exact claimed head. An older review is
+      // not evidence that a newer interrupted head completed.
+      state = completedStateFromReview(
+        state,
+        recovery.review,
+        reviewComments,
+        now,
+        reviewedHeadCount,
+      );
       dirty = true;
     } else if (state !== before) {
       dirty = true;
@@ -168,7 +277,19 @@ async function loadAndReconcileState({ github, pr, now }) {
   const beforeFollowUps = state;
   state = applyRecoveredFollowUps(state, comments);
   if (state !== beforeFollowUps) dirty = true;
-  return { state, dirty, comments, reviews, reviewComments };
+  return {
+    state,
+    dirty,
+    comments,
+    reviews,
+    reviewComments,
+    verifiedCurrentReview: currentHeadExhaustive
+      ? {
+          reviewId: currentHeadExhaustive.review.id,
+          headSha: currentHeadExhaustive.snapshot.headSha,
+        }
+      : null,
+  };
 }
 
 async function persistState(github, state) {
@@ -224,6 +345,7 @@ async function runExhaustive({ github, model, pr, state, now }) {
     github.getPullDiff(pr.number),
     github.listPullFiles(pr.number),
   ]);
+  assertCompletePullFileUniverse({ changedFiles: pr.changedFiles, files });
   if (diff.length > MAX_DIFF_CHARS) {
     const failed = markRunFailed(
       state,
@@ -236,12 +358,38 @@ async function runExhaustive({ github, model, pr, state, now }) {
 
   const raw = await model.exhaustive(exhaustiveInput(pr, diff));
   const result = validateExhaustiveResult(raw, buildDiffLocationIndex(files));
-  // Discarded (unanchored) findings must not abort the whole review — publish
-  // the valid subset. Callers can still see discardedFindings on the result.
+  // A malformed path/line can be a real finding whose inline anchor was
+  // truncated or hallucinated. Publishing only the valid subset would turn
+  // that uncertainty into a false-green "exhaustive" receipt, so block the
+  // whole review before any GitHub review is created.
+  if (result.discardedFindings > 0) {
+    throw new DiscardedReviewFindingsError(result.discardedFindings);
+  }
+  const resolutionLedger = mergeResolutionLedger({
+    resolutionLedger: state.resolutionLedger,
+    previousFindings: state.findings,
+    currentFindings: result.findings,
+    headSha: pr.headSha,
+    now,
+  });
+  const renderedReview = renderExhaustiveReview({
+    headSha: pr.headSha,
+    runNumber: state.totalRunCount,
+    resolutionLedger,
+    ...result,
+  });
+  const currentPr = await github.getPullRequest(pr.number);
+  if (
+    currentPr.mergedAt ||
+    currentPr.baseRef !== TARGET_BASE_BRANCH ||
+    currentPr.headSha !== pr.headSha
+  ) {
+    throw new Error("PR head or base changed during exhaustive review");
+  }
   const review = await github.createReview(pr.number, {
     commit_id: pr.headSha,
     event: "COMMENT",
-    body: renderExhaustiveReview({ headSha: pr.headSha, ...result }),
+    body: renderedReview,
     comments: result.findings.map((finding) => ({
       path: finding.path,
       line: finding.line,
@@ -253,7 +401,7 @@ async function runExhaustive({ github, model, pr, state, now }) {
   const reviewComments = await github.listReviewComments(pr.number);
   const completed = completedStateFromReview(
     state,
-    { ...review, body: renderExhaustiveReview({ headSha: pr.headSha, ...result }) },
+    { ...review, body: renderedReview },
     reviewComments,
     now,
   );
@@ -297,7 +445,7 @@ export async function runReviewAutomation({ github, model, prNumber, now = new D
 
   // Absolute first gate: a merged PR never causes model or write operations.
   if (pr.mergedAt) return { kind: "skip", reason: "merged", modelCalls: 0, writes: 0 };
-  if (pr.baseRef !== "master")
+  if (pr.baseRef !== TARGET_BASE_BRANCH)
     return { kind: "skip", reason: "wrong-base", modelCalls: 0, writes: 0 };
 
   const reconciled = await loadAndReconcileState({ github, pr, now });
@@ -308,7 +456,16 @@ export async function runReviewAutomation({ github, model, prNumber, now = new D
     state = await persistState(github, state);
   }
   const decision = decideReview({ pr, state });
-  if (decision.kind === "skip") return decision;
+  if (decision.kind === "skip") {
+    if (decision.reason === "head-already-processed" && reconciled.verifiedCurrentReview) {
+      return {
+        kind: "receipt-recovery",
+        state,
+        publishedReview: reconciled.verifiedCurrentReview,
+      };
+    }
+    return decision;
+  }
 
   state = claimRun(state, { kind: decision.kind, headSha: pr.headSha, now });
   state = await persistState(github, state);
@@ -318,13 +475,42 @@ export async function runReviewAutomation({ github, model, prNumber, now = new D
     } else {
       state = await runFollowUp({ github, model, pr, state, findings: decision.findings, now });
     }
-    return { kind: decision.kind, state };
+    return {
+      kind: decision.kind,
+      state,
+      ...(decision.kind === "exhaustive"
+        ? {
+            publishedReview: {
+              reviewId: state.github.exhaustiveReviewId,
+              headSha: state.latestProcessedHeadSha,
+            },
+          }
+        : {}),
+    };
   } catch (error) {
     const failed = markRunFailed(state, error, now);
+    let persisted = failed;
     try {
-      await persistState(github, failed);
+      persisted = await persistState(github, failed);
     } catch {
       // Preserve the original provider/GitHub error; the pre-call claim is already durable when possible.
+    }
+    // This is an expected GitHub API coverage limit, not a transient provider
+    // crash. Return a machine-readable non-qualification so the next workflow
+    // step publishes `action_required` on the live head instead of leaving the
+    // trusted receipt absent or, worse, claiming a truncated review was full.
+    if (
+      error instanceof IncompletePullFileUniverseError ||
+      error instanceof DiscardedReviewFindingsError
+    ) {
+      return {
+        kind: "skip",
+        reason:
+          error instanceof IncompletePullFileUniverseError
+            ? "incomplete-pull-file-universe"
+            : "discarded-review-findings",
+        state: persisted,
+      };
     }
     throw error;
   }

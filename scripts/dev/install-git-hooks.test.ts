@@ -1,8 +1,13 @@
+import { chmodSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 import {
   HOOK_MARKER,
   HOOK_VERSION,
+  MANAGED_HOOKS,
   decideHookInstall,
   renderHookScript,
 } from "./install-git-hooks.mjs";
@@ -12,8 +17,11 @@ import {
 // ett schema koden lämnat bakom sig".
 describe("renderHookScript", () => {
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    const script = renderHookScript("post-merge");
-    expect(script).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
+    expect(HOOK_VERSION).toBe(6);
+    expect(MANAGED_HOOKS).toContain("pre-push");
+    for (const hook of MANAGED_HOOKS) {
+      expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
+    }
   });
 
   it("kör schema-synken soft och tyst — en hook får aldrig avbryta git", () => {
@@ -22,10 +30,11 @@ describe("renderHookScript", () => {
     expect(script.trimEnd().endsWith("exit 0")).toBe(true);
   });
 
-  it("har en escape hatch och står över i CI", () => {
+  it("har en exakt escape hatch och står bara över vid sann CI-signal", () => {
     const script = renderHookScript("post-merge");
-    expect(script).toContain("SAJTMASKIN_SKIP_DB_HOOKS");
-    expect(script).toContain('[ -n "$CI" ]');
+    expect(script).toContain('[ "$SAJTMASKIN_SKIP_DB_HOOKS" = "1" ]');
+    expect(script).toContain('[ "${CI:-}" = "true" ]');
+    expect(script).not.toContain('[ -n "$CI" ]');
   });
 
   // resolveHooksDir hedrar `git config core.hooksPath` utan `--local`, alltså
@@ -34,9 +43,7 @@ describe("renderHookScript", () => {
   // där och spytt module-not-found i orelaterade projekt.
   it("är en no-op i repon som saknar skriptet (global core.hooksPath)", () => {
     for (const hook of ["post-merge", "post-checkout", "post-rewrite"] as const) {
-      expect(renderHookScript(hook)).toContain(
-        "[ -f scripts/db/ensure-schema.mjs ] || exit 0",
-      );
+      expect(renderHookScript(hook)).toContain("[ -f scripts/db/ensure-schema.mjs ] || exit 0");
     }
   });
 
@@ -64,6 +71,215 @@ describe("renderHookScript", () => {
     expect(renderHookScript("post-rewrite")).not.toContain('"$3"');
     expect(renderHookScript("post-checkout")).not.toContain('"$1" != "rebase"');
   });
+
+  it("pre-push kör verify:pr och låter dess exitkod stoppa pushen", () => {
+    const script = renderHookScript("pre-push");
+    expect(script).toContain("npm run verify:pr");
+    expect(script).toContain('exit "$status"');
+    expect(script).not.toContain("--soft");
+    expect(script.trimEnd().endsWith("exit 0")).toBe(false);
+  });
+
+  it("pre-push står över först efter refsäkerheten vid sann CI eller exakt escape", () => {
+    const script = renderHookScript("pre-push");
+    expect(script).toContain('[ "${GITHUB_ACTIONS:-}" = "true" ]');
+    expect(script).toContain('[ "${CI:-}" = "true" ]');
+    expect(script).not.toContain('[ -n "$CI" ]');
+    expect(script).toContain('[ "$SAJTMASKIN_SKIP_VERIFY_HOOKS" = "1" ]');
+    expect(script).not.toContain("SAJTMASKIN_SKIP_DB_HOOKS");
+    expect(script.indexOf("refs/heads/master")).toBeLessThan(
+      script.indexOf('[ "${GITHUB_ACTIONS:-}" = "true" ]'),
+    );
+    expect(script.indexOf("git status --porcelain")).toBeLessThan(
+      script.indexOf('[ "${GITHUB_ACTIONS:-}" = "true" ]'),
+    );
+  });
+
+  it("pre-push nekar non-fast-forward men tillåter fast-forward", () => {
+    const root = mkdtempSync(join(tmpdir(), "sajtmaskin-pre-push-"));
+    const bin = join(root, "bin");
+    mkdirSync(join(root, "scripts", "dev"), { recursive: true });
+    mkdirSync(bin);
+    writeFileSync(join(root, "scripts", "dev", "install-git-hooks.mjs"), "marker\n");
+    writeFileSync(
+      join(bin, "git"),
+      '#!/bin/sh\nif [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then printf "%s\\n" "$HOOK_GIT_HEAD"; exit 0; fi\nif [ "$1" = "status" ]; then [ "$HOOK_GIT_DIRTY" = "1" ] && printf " M src/example.ts\\n"; exit 0; fi\n[ "$HOOK_GIT_ANCESTOR" = "1" ] && exit 0\nexit 1\n',
+    );
+    writeFileSync(join(bin, "npm"), "#!/bin/sh\nexit 0\n");
+    chmodSync(join(bin, "git"), 0o755);
+    chmodSync(join(bin, "npm"), 0o755);
+    const hook = join(root, "pre-push");
+    writeFileSync(hook, renderHookScript("pre-push"));
+    chmodSync(hook, 0o755);
+    const refLine = `refs/heads/fix/x ${"a".repeat(40)} refs/heads/fix/x ${"b".repeat(40)}\n`;
+    const env = {
+      ...process.env,
+      PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+      HOOK_GIT_HEAD: "a".repeat(40),
+    };
+
+    const rejected = spawnSync("sh", [hook], {
+      cwd: root,
+      input: refLine,
+      env: { ...env, CI: "false" },
+      encoding: "utf8",
+    });
+    expect(rejected.status).toBe(1);
+    expect(rejected.stderr).toContain("non-fast-forward");
+
+    const accepted = spawnSync("sh", [hook], {
+      cwd: root,
+      input: refLine,
+      env: { ...env, HOOK_GIT_ANCESTOR: "1" },
+      encoding: "utf8",
+    });
+    expect(accepted.status).toBe(0);
+
+    const dirty = spawnSync("sh", [hook], {
+      cwd: root,
+      input: refLine,
+      env: { ...env, HOOK_GIT_ANCESTOR: "1", HOOK_GIT_DIRTY: "1" },
+      encoding: "utf8",
+    });
+    expect(dirty.status).toBe(1);
+    expect(dirty.stderr).toContain("arbetskopian har ocommitterade");
+
+    const masterLine = `refs/heads/master ${"a".repeat(40)} refs/heads/master ${"b".repeat(40)}\n`;
+    const directMaster = spawnSync("sh", [hook], {
+      cwd: root,
+      input: masterLine,
+      env: { ...env, HOOK_GIT_ANCESTOR: "1" },
+      encoding: "utf8",
+    });
+    expect(directMaster.status).toBe(1);
+    expect(directMaster.stderr).toContain("direkt master ar stangd");
+
+    const breakGlass = {
+      ...env,
+      HOOK_GIT_ANCESTOR: "1",
+      SAJTMASKIN_BREAK_GLASS: "1",
+      SAJTMASKIN_BREAK_GLASS_REASON: "Akut aterstallning av trasig mergegrind",
+    };
+    expect(
+      spawnSync("sh", [hook], {
+        cwd: root,
+        input: masterLine,
+        env: breakGlass,
+        encoding: "utf8",
+      }).status,
+    ).toBe(0);
+
+    const forcedMaster = spawnSync("sh", [hook], {
+      cwd: root,
+      input: masterLine,
+      env: { ...breakGlass, HOOK_GIT_ANCESTOR: "0" },
+      encoding: "utf8",
+    });
+    expect(forcedMaster.status).toBe(1);
+    expect(forcedMaster.stderr).toContain("master far aldrig force-pushas");
+
+    const frozenBackupDelete = spawnSync("sh", [hook], {
+      cwd: root,
+      input: `refs/heads/BRA_snapshot ${"0".repeat(40)} refs/heads/BRA_snapshot ${"b".repeat(40)}\n`,
+      env,
+      encoding: "utf8",
+    });
+    expect(frozenBackupDelete.status).toBe(1);
+    expect(frozenBackupDelete.stderr).toContain("fryst backup");
+
+    const frozenRescueUpdate = spawnSync("sh", [hook], {
+      cwd: root,
+      input: `refs/heads/rescue/owner ${"a".repeat(40)} refs/heads/rescue/owner ${"0".repeat(40)}\n`,
+      env: { ...env, HOOK_GIT_ANCESTOR: "1" },
+      encoding: "utf8",
+    });
+    expect(frozenRescueUpdate.status).toBe(1);
+    expect(frozenRescueUpdate.stderr).toContain("fryst backup");
+
+    const ghaStillRejectsUnsafeRef = spawnSync("sh", [hook], {
+      cwd: root,
+      input: refLine,
+      env: { ...env, GITHUB_ACTIONS: "true" },
+      encoding: "utf8",
+    });
+    expect(ghaStillRejectsUnsafeRef.status).toBe(1);
+    expect(ghaStillRejectsUnsafeRef.stderr).toContain("non-fast-forward");
+
+    const otherLocalRef = spawnSync("sh", [hook], {
+      cwd: root,
+      input: `refs/heads/fix/other ${"c".repeat(40)} refs/heads/fix/other ${"0".repeat(40)}\n`,
+      env,
+      encoding: "utf8",
+    });
+    expect(otherLocalRef.status).toBe(1);
+    expect(otherLocalRef.stderr).toContain("inte utcheckad HEAD");
+  });
+
+  it("blockerar vanlig branch-delete men tillåter exakt proof-bunden cleanup", () => {
+    const root = mkdtempSync(join(tmpdir(), "sajtmaskin-pre-push-delete-"));
+    const bin = join(root, "bin");
+    mkdirSync(join(root, "scripts", "dev"), { recursive: true });
+    mkdirSync(bin);
+    writeFileSync(join(root, "scripts", "dev", "install-git-hooks.mjs"), "marker\n");
+    writeFileSync(
+      join(bin, "git"),
+      '#!/bin/sh\nif [ "$1" = "rev-parse" ]; then printf "%s\\n" "$HOOK_GIT_HEAD"; fi\nexit 0\n',
+    );
+    writeFileSync(join(bin, "npm"), "#!/bin/sh\nexit 99\n");
+    chmodSync(join(bin, "git"), 0o755);
+    chmodSync(join(bin, "npm"), 0o755);
+    const hook = join(root, "pre-push");
+    writeFileSync(hook, renderHookScript("pre-push"));
+    chmodSync(hook, 0o755);
+    const deleteLine = `refs/heads/fix/merged ${"0".repeat(40)} refs/heads/fix/merged ${"b".repeat(40)}\n`;
+
+    const rejected = spawnSync("sh", [hook], {
+      cwd: root,
+      input: deleteLine,
+      env: {
+        ...process.env,
+        PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+        HOOK_GIT_HEAD: "a".repeat(40),
+      },
+      encoding: "utf8",
+    });
+    expect(rejected.status).toBe(1);
+    expect(rejected.stderr).toContain("remote-delete kraver exakt terminal PR/head-bevis");
+
+    const accepted = spawnSync("sh", [hook], {
+      cwd: root,
+      input: deleteLine,
+      env: {
+        ...process.env,
+        PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+        HOOK_GIT_HEAD: "a".repeat(40),
+        SAJTMASKIN_PROVEN_REMOTE_DELETE_BRANCH: "fix/merged",
+        SAJTMASKIN_PROVEN_REMOTE_DELETE_SHA: "b".repeat(40),
+      },
+      encoding: "utf8",
+    });
+    expect(accepted.status).toBe(0);
+  });
+
+  it("pre-push nekar alltid non-fast-forward på master", () => {
+    const script = renderHookScript("pre-push");
+    expect(script).toContain('if [ "$remote_ref" = "refs/heads/master" ]');
+    expect(script.indexOf("refs/heads/master")).toBeLessThan(
+      script.indexOf('SAJTMASKIN_BREAK_GLASS" != "1"'),
+    );
+  });
+
+  it("pre-push är fail-closed när npm saknas i Sajtmaskin", () => {
+    const script = renderHookScript("pre-push");
+    expect(script).toContain("command -v npm >/dev/null 2>&1 || {");
+    expect(script).toContain("exit 1");
+  });
+
+  it("pre-push är en no-op i andra repon med global core.hooksPath", () => {
+    expect(renderHookScript("pre-push")).toContain(
+      "[ -f scripts/dev/install-git-hooks.mjs ] || exit 0",
+    );
+  });
 });
 
 describe("decideHookInstall", () => {
@@ -82,9 +298,32 @@ describe("decideHookInstall", () => {
     expect(decideHookInstall({ existing: outdated, desired }).action).toBe("write");
   });
 
+  it("låter inte en gammal worktree nedgradera en nyare delad hook", () => {
+    const newer = desired.replace(`v${HOOK_VERSION}`, `v${HOOK_VERSION + 1}`);
+    const decision = decideHookInstall({ existing: newer, desired });
+    expect(decision.action).toBe("conflict");
+    expect(decision.reason).toContain("får inte nedgraderas");
+  });
+
+  it("failar stängt när samma managed version har annat innehåll", () => {
+    const altered = desired.replace("--soft --quiet-ok", "--soft");
+    const decision = decideHookInstall({ existing: altered, desired });
+    expect(decision.action).toBe("conflict");
+    expect(decision.reason).toContain("oväntat annat innehåll");
+  });
+
   it("rör ALDRIG en främmande hook", () => {
-    // Någon annans post-merge får inte försvinna för att vi ville vara hjälpsamma.
+    // Någon annans pre-push/post-hook får inte försvinna för att vi ville vara hjälpsamma.
     const foreign = "#!/bin/sh\necho min egen hook\n";
     expect(decideHookInstall({ existing: foreign, desired }).action).toBe("conflict");
+  });
+
+  it("tillämpas likadant på den managed pre-push-hooken", () => {
+    const prePush = renderHookScript("pre-push");
+    expect(decideHookInstall({ existing: null, desired: prePush }).action).toBe("write");
+    expect(decideHookInstall({ existing: prePush, desired: prePush }).action).toBe("skip");
+    expect(
+      decideHookInstall({ existing: "#!/bin/sh\necho foreign\n", desired: prePush }).action,
+    ).toBe("conflict");
   });
 });

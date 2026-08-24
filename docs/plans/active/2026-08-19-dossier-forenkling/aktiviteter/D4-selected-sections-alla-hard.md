@@ -10,10 +10,10 @@ byggmodellen — bara manifestets `summary`, `envVars[].purpose`, `dependencies`
 `exposes`. Det betyder att de do-och-do-not-regler som är skrivna i
 `instructions.md` inte påverkar genereringen alls för de sju.
 
-| Läge i dag | Dossiers |
-|---|---|
-| `selected-sections` | `postgres-drizzle`, `supabase-auth` |
-| `compact` | `clerk-auth`, `mailchimp-newsletter`, `openai-chat`, `resend-contact-form`, `sanity-cms`, `stripe-checkout`, `vercel-analytics` |
+| Läge i dag          | Dossiers                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `selected-sections` | `postgres-drizzle`, `supabase-auth`                                                                                             |
+| `compact`           | `clerk-auth`, `mailchimp-newsletter`, `openai-chat`, `resend-contact-form`, `sanity-cms`, `stripe-checkout`, `vercel-analytics` |
 
 ## Uppgiften
 
@@ -85,5 +85,6 @@ rubrik i stället för att slåss mot taket. Det är den tillåtna vägen till m
 > `npm run docs:check`, `npm run docs:links`, `npm run typecheck`,
 > `npx vitest run src/lib/gen/dossiers`.
 >
-> Kör ett Cursor Bugbot-pass på din egen diff innan PR (`bugbot`-subagent,
-> `readonly: true`, enligt den kanoniska modellregeln). Lämna EN PR mot `master`. **Merga inte.**
+> Följ `.agents/skills/pr-workflow/SKILL.md`: kör `npm run verify:pr`, därefter
+> ett oberoende readonly Sol-pass på slutdiffen. Lämna EN draft-PR mot `master`.
+> **Merga inte.**

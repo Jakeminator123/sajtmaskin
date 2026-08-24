@@ -1,7 +1,8 @@
 # PR-herde
 
-Steward-loop för flera öppna PR:er. Grinden ägs helt av
-[`pr-merge.mdc`](../rules/pr-merge.mdc); detta kommando äger bara kön.
+Steward-loop för flera öppna PR:er. Körordningen ägs av
+`.agents/skills/pr-workflow/SKILL.md`, värden av `config/agent-workflow.json`
+och grinden av [`pr-merge.mdc`](../rules/pr-merge.mdc). Kommandot äger bara kön.
 
 1. Lista öppna PR:er och sortera bort drafts, blockerande labels,
    adminspärrade Godnatt-PR:er och EmaCodeHero mot `master`.
@@ -17,10 +18,12 @@ Steward-loop för flera öppna PR:er. Grinden ägs helt av
    sign-off fortfarande gäller samma SHA.
 5. Jämför changed filenames mellan mergekandidater. Överlapp i backlogg,
    canvas eller planrouter ska tillbaka till respektive författare.
-6. Merga högst en PR i taget efter hela grinden. Fetch:a `master` och
-   omvärdera övriga PR:er efter varje merge.
+6. Släpp fram högst en PR i taget till det mänskliga, SHA-exakta
+   `merge:execute`-kommandot. Den betrodda controllern mergar; fetch:a därefter
+   färsk `master` och omvärdera övriga PR:er.
 7. Rapportera `mergad`, `väntar` eller `NEEDS_HUMAN` och det exakta villkoret.
 
-Skriv aldrig på en annan agents branch, rebasa inte åt den och använd inte
-`--admin` för att passera grinden. Blockera inte chatten med watch-loopar.
+Skriv aldrig på en annan agents branch, rebasa inte åt den och använd aldrig
+`--admin` för att passera röd/väntande grind. Posta aldrig `merge:execute` utan
+ett separat, uttryckligt mergeuppdrag. Blockera inte chatten med watch-loopar.
 Bakgrund: [`docs/runbooks/pr-merge-gate.md`](../../docs/runbooks/pr-merge-gate.md).

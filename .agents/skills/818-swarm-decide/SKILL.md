@@ -17,9 +17,17 @@ The name is historical: `818` meant eight agents. Since 2026-08-02 it is **three
 4. Require **short** output: max 6 lines, table or bullets, `%` or H/M/L where it fits. No prose.
 5. **Parent verifies** every load-bearing claim with repo tools before deciding. Code is source of truth; subagents may not see `.git`, may miss an existing guard, and sometimes invent `fil:rad`.
 6. **Aggregate** into one table + **one** recommended action.
-7. **Implement** only if the decision is clear and narrow; otherwise list the blockers and stop.
-8. **Verify**: `npm run typecheck`, targeted `vitest`, `ReadLints` on touched files.
-9. **Review pass**: one readonly `<sol>` agent reviews the **intent of the change** without rewriting code. Two agents only for protected paths.
+7. **Promote before writing:** if the decision is clear and narrow, enter the
+   canonical [`pr-workflow`](../pr-workflow/SKILL.md) first. Fetch fresh
+   `origin/master`, create the task's own worktree/allowed branch and use its
+   commit→PR→`merge:ready`→review-window→`merge:execute`→cleanup lifecycle.
+   `/818` is never an alternate delivery path. Otherwise list the blockers and
+   stop without edits.
+8. **Implement** only inside that PR-workflow worktree.
+9. **Verify** through `npm run verify:pr`; targeted `vitest`/`ReadLints` may be
+   useful early but never replace the impact-selected profile.
+10. **Review pass**: one readonly `<sol>` agent reviews the **intent of the
+    change** without rewriting code. Two agents only for protected paths.
 
 ## The three angles
 

@@ -1,28 +1,14 @@
 name: review-window
 
-# Teknisk tvingad "minsta granskningsfönster" innan merge (variant B).
-#
-# Problemet detta löser: de vanliga CI-kontrollerna (quality/backoffice-tests/
-# schema-drift) blir gröna på några minuter — men de EXTERNA bot-granskarna
-# (Vercel Agent Review, Cursor "Find critical bugs", GitGuardian, ev. Codex)
-# lägger sina fynd först EFTER det. En ivrig agent som bara ser grönt CI kan då
-# hinna merga innan bot-fynden landat. 7-min-regeln i .cursor/rules är "mjuk"
-# (agent-disciplin) — detta jobb gör den till en hård, obligatorisk kontroll.
-#
-# Beteende: jobbet håller sig "pending" (och blockerar därmed merge via
-# grenskyddet) tills BÅDA är sanna:
-#   1. jobbet för nuvarande head-SHA har varit aktivt minst 7 min, OCH
-#   2. de kända bot-granskarna för nuvarande head-SHA är KLARA — dvs minst en
-#      matchad bot-check finns, ingen matchad är kvar in_progress, OCH ett kort
-#      settle-golv (3 min från jobbstart) passerats så en snabb bot inte kan
-#      grönljusa innan långsammare granskare hunnit registrera sin check-run.
-# ...men aldrig längre än ett tak (10 min väntan på botar) så det aldrig
-# fastnar om en bot är avstängd (t.ex. Codex utan credits). Jobbet gör ingen
-# verdict-bedömning — själva triagen av fynden är fortfarande agentens jobb
-# (se pr-merge.mdc). Det garanterar bara att botarna hunnit tala.
-#
-# Kör på ALLA PR:er (även forkar): läser bara publik check-run-status, inga
-# secrets. cancel-in-progress → en ny commit startar om fönstret för nya SHA:t.
+# FAS 1 / BOOTSTRAP: den här pull_request-grinden bevarar det redan required
+# checknamnet medan den betrodda default-branch-controllern landar. Den gör
+# enbart 7-minutersfönstret och reviewkvittona och checkar inte ut/kör något
+# repo-script. Själva pull_request-workflowen är ändå head-kontrollerad och ska
+# därför tas bort i rolloutens fas 2 när controllern i
+# merge-ready-freshness.yml finns på master. Jobbet får bara heta den required
+# checken på den enda fas-1-grenen. På alla andra grenar får ett event bara
+# skapa ett avsiktligt annat, skippat jobbnamn så att bootstrap och trusted
+# controller aldrig kan kollidera i GitHubs check-aggregering.
 
 on:
   pull_request:
@@ -30,7 +16,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
-  group: review-window-${{ github.event.pull_request.number }}
+  group: review-window-bootstrap-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
@@ -40,8 +26,12 @@ permissions:
 
 jobs:
   review-window:
-    # Drafts kan ändå inte merge:as — slösa inte fönster på dem.
-    if: github.event.pull_request.draft == false
+    name: ${{ github.event.pull_request.draft == false && github.event.pull_request.number == 1146 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'chore/agent-workflow-v2' && 'review-window' || 'review-window-bootstrap-retired' }}
+    if: >
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.number == 1146 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'chore/agent-workflow-v2'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -54,47 +44,104 @@ jobs:
         run: |
           set -uo pipefail
 
-          MIN_SHA_AGE=420     # 7 min golv från jobbstart för denna head-SHA
-          MIN_BOT_SETTLE=180  # 3 min golv från JOBBSTART innan bot-villkoret får uppfyllas
-          MAX_BOT_WAIT=600    # 10 min tak för väntan på botar (från jobbstart)
-          # Substrängar (case-insensitive) mot check-run-namn. "agent review"
-          # träffar Vercel Agent Review men INTE Vercels deploy-check.
-          PATTERNS='agent review|find critical bugs|bugbot|codex|gitguardian'
+          MIN_HEAD_AGE=420
+          MIN_BOT_SETTLE=180
+          MAX_BOT_WAIT=600
+          QUALIFYING_PATTERNS='trusted-pr-ai-review|agent review|find critical bugs|bugbot|codex'
+          SECURITY_VETO_PATTERNS='gitguardian'
+          DEPLOYMENT_CHECK_NAMES='Vercel'
 
           start_epoch=$(date -u +%s)
+          poll_ok="false"
+          poll_status="inte-körd"
+          completed_count=0
+          failed_count=0
+          pending=0
+          security_failed=0
+          security_pending=0
+          deployment_failed=0
+          deployment_pending=0
+
+          fail_closed() {
+            elapsed="$1"
+            if [ "$poll_ok" != "true" ]; then
+              failure="senaste check-run-pollen misslyckades (exit ${poll_status})"
+            elif [ "${security_failed:-0}" -gt 0 ]; then
+              failure="${security_failed} säkerhetsskannrar är röda"
+            elif [ "${security_pending:-0}" -gt 0 ]; then
+              failure="${security_pending} säkerhetsskannrar är fortfarande queued/in_progress"
+            elif [ "${deployment_failed:-0}" -gt 0 ]; then
+              failure="${deployment_failed} deployments är röda"
+            elif [ "${deployment_pending:-0}" -gt 0 ]; then
+              failure="${deployment_pending} deployments är fortfarande queued/in_progress"
+            elif [ "${completed_count:-0}" -eq 0 ]; then
+              failure="inga verifierade reviewkvitton blev completed med conclusion=success (misslyckade=${failed_count:-0})"
+            elif [ "${pending:-0}" -gt 0 ]; then
+              failure="${pending} matchade botkontroller är fortfarande queued/in_progress"
+            else
+              failure="botresultaten verifierades inte före tidsgränsen"
+            fi
+            echo "::error::review-window bootstrap fail-closed efter ${elapsed}s: ${failure}; merge blockeras för head ${SHA}."
+            exit 1
+          }
 
           while true; do
             now=$(date -u +%s)
             waited=$(( now - start_epoch ))
+            if [ "$waited" -ge "$MAX_BOT_WAIT" ]; then fail_closed "$waited"; fi
 
-            runs=$(timeout 60 gh api --method GET --paginate -F per_page=100 \
-                "repos/${REPO}/commits/${SHA}/check-runs" \
-                --jq '.check_runs[] | [.name, .status] | @tsv' 2>/dev/null || true)
+            remaining=$(( MAX_BOT_WAIT - waited ))
+            poll_timeout=60
+            if [ "$remaining" -lt "$poll_timeout" ]; then poll_timeout="$remaining"; fi
 
-            matched=$(printf '%s\n' "$runs" | grep -iE "$PATTERNS" || true)
+            runs=$(timeout "$poll_timeout" gh api --method GET --paginate -F per_page=100 \
+              "repos/${REPO}/commits/${SHA}/check-runs" \
+              --jq '.check_runs[] | [.name, .status, (.conclusion // "")] | @tsv')
+            poll_status=$?
+            poll_ok="true"
+            if [ "$poll_status" -ne 0 ]; then
+              poll_ok="false"
+              runs=""
+              echo "::warning::Kunde inte läsa check-runs för ${SHA} (exit ${poll_status}); försöker igen."
+            fi
+
+            matched=$(printf '%s\n' "$runs" | grep -iE "$QUALIFYING_PATTERNS" || true)
+            security=$(printf '%s\n' "$runs" | grep -iE "$SECURITY_VETO_PATTERNS" || true)
+            deployment=$(printf '%s\n' "$runs" | awk -F'\t' -v names="$DEPLOYMENT_CHECK_NAMES" '
+              BEGIN {
+                count = split(names, values, "|")
+                for (i = 1; i <= count; i++) wanted[values[i]] = 1
+              }
+              NF >= 1 && ($1 in wanted)
+            ')
             matched_count=$(printf '%s' "$matched" | grep -c . || true)
+            completed_count=$(printf '%s\n' "$matched" | awk -F'\t' 'NF>=3 && $2=="completed" && $3=="success"{c++} END{print c+0}')
+            failed_count=$(printf '%s\n' "$matched" | awk -F'\t' 'NF>=2 && $2=="completed" && $3!="success"{c++} END{print c+0}')
             pending=$(printf '%s\n' "$matched" | awk -F'\t' 'NF>=2 && $2!="completed"{c++} END{print c+0}')
+            security_failed=$(printf '%s\n' "$security" | awk -F'\t' 'NF>=2 && $2=="completed" && $3!="success"{c++} END{print c+0}')
+            security_pending=$(printf '%s\n' "$security" | awk -F'\t' 'NF>=2 && $2!="completed"{c++} END{print c+0}')
+            deployment_failed=$(printf '%s\n' "$deployment" | awk -F'\t' 'NF>=2 && $2=="completed" && $3!="success"{c++} END{print c+0}')
+            deployment_pending=$(printf '%s\n' "$deployment" | awk -F'\t' 'NF>=2 && $2!="completed"{c++} END{print c+0}')
 
-            # "Klara" kräver TRE saker:
-            #   (a) minst en bot-check har registrerats (matched_count>0) — 0 matchade
-            #       = botarna har inte startat än / gh api-fel → INTE klara;
-            #   (b) ingen matchad ligger kvar i queued/in_progress (pending==0); OCH
-            #   (c) jobbet har kört minst MIN_BOT_SETTLE sekunder — annars kan en enda
-            #       SNABB bot (t.ex. GitGuardian, klar på 1 s) grönljusa fönstret INNAN
-            #       långsammare granskare (Vercel Agent Review m.fl.) ens hunnit registrera
-            #       sin check-run för nya head-SHA:t (särskilt vid re-push på en gammal PR
-            #       där pr_age-golvet redan är passerat). Settle-golvet ger dem tid att dyka
-            #       upp som pending, varpå (b) håller grinden tills de blivit completed.
-            # Utan träffar väntar vi ändå till MAX_BOT_WAIT-taket (avstängd bot fastnar ej).
-            # (buggsvärm + Vercel Agent Review 2026-07-11, kategori logic.)
+            now=$(date -u +%s)
+            waited=$(( now - start_epoch ))
             bots_done="false"
-            if [ "${matched_count:-0}" -gt 0 ] && [ "${pending:-0}" -eq 0 ] && [ "$waited" -ge "$MIN_BOT_SETTLE" ]; then bots_done="true"; fi
+            if [ "$poll_ok" = "true" ] && [ "$completed_count" -gt 0 ] && \
+              [ "$pending" -eq 0 ] && [ "$security_failed" -eq 0 ] && \
+              [ "$security_pending" -eq 0 ] && [ "$deployment_failed" -eq 0 ] && \
+              [ "$deployment_pending" -eq 0 ] && [ "$waited" -ge "$MIN_BOT_SETTLE" ]; then
+              bots_done="true"
+            fi
 
-            if [ "$waited" -ge "$MIN_SHA_AGE" ] && { [ "$bots_done" = "true" ] || [ "$waited" -ge "$MAX_BOT_WAIT" ]; }; then
-              echo "✓ review-window uppfyllt (sha_age=${waited}s, matchade_botar=${matched_count}, pending=${pending}, settle-golv=${MIN_BOT_SETTLE}s)"
+            if [ "$waited" -ge "$MAX_BOT_WAIT" ]; then fail_closed "$waited"; fi
+            if [ "$waited" -ge "$MIN_HEAD_AGE" ] && [ "$bots_done" = "true" ]; then
+              echo "✓ bootstrap review-window uppfyllt för aktuell head (matchade=${matched_count}, lyckade=${completed_count}, misslyckade=${failed_count}, pending=${pending}, väntat=${waited}s)"
               exit 0
             fi
 
-            echo "väntar… sha_age=${waited}s (golv ${MIN_SHA_AGE}s), matchade_botar=${matched_count}, pending=${pending} (settle-golv ${MIN_BOT_SETTLE}s, tak ${MAX_BOT_WAIT}s)"
-            sleep 20
+            echo "väntar… aktuell head=${waited}s, matchade=${matched_count}, lyckade=${completed_count}, pending=${pending}, security-failed=${security_failed}, security-pending=${security_pending}, deployment-failed=${deployment_failed}, deployment-pending=${deployment_pending}"
+            remaining=$(( MAX_BOT_WAIT - waited ))
+            sleep_for=20
+            if [ "$remaining" -lt "$sleep_for" ]; then sleep_for="$remaining"; fi
+            if [ "$sleep_for" -gt 0 ]; then sleep "$sleep_for"; fi
           done

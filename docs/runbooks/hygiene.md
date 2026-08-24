@@ -3,32 +3,37 @@
 Den här sidan finns så att ingen ska behöva _minnas_ städrutinerna. Det mesta är
 redan automatiserat i CI; du behöver i praktiken bara en knapp.
 
-## TL;DR — en knapp före varje PR
+## TL;DR — en knapp väljs åt dig före varje PR
 
 ```bash
-npm run hygiene
+npm run verify:pr -- --plan  # visar följdytor och kommandon
+npm run verify:pr            # kör hela diffens valda kontrollprofil
 ```
 
-- **Grönt** = allt är rent och dokumentationen stämmer. Kör vidare.
+- **Grönt** = diffens runtime, dokumentation och följdytor har klarat sin profil.
 - **Rött** = kommandot skriver ut _exakt_ vad som är fel. Åtgärda det, kör igen.
 
-Du behöver inte kunna knip eller de enskilda checkarna utantill — `hygiene`
-buntar ihop dem och antingen godkänner eller pekar på problemet.
+Du behöver inte välja checklista ur minnet. `verify:pr` läser
+[`config/agent-workflow.json`](../../config/agent-workflow.json), control-plane-
+registren och Backoffice-kartan. Protected diff inkluderar full `hygiene`;
+smalare diff kör bara relevanta kontroller. Det kompletta agent→PR-flödet finns
+i [`agent-workflow.md`](agent-workflow.md).
 
 ## Vad `npm run hygiene` kontrollerar
 
-| Steg                   | Frågar                                                                       | Om det rödar                                                                                   |
-| ---------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `docs:check`           | Stämmer genererade contract-docs med sina källor?                            | Kör `npm run docs:generate` och committa.                                                      |
-| `docs:links`           | Pekar alla aktiva Markdown-länkar på filer som finns?                        | Rätta/ta bort den brutna länken.                                                               |
-| `plans:history:check`  | Är planhistoriken (statusar/arkivrubriker) konsekvent?                       | Följ meddelandet — oftast en status/rubrik som glidit.                                         |
-| `check:terms:contract` | Äger ordlistan sina begrepp (inga dubbeldefinitioner)?                       | Registrera begreppet i glossaryn, inte på två ställen.                                         |
-| `check:agent-context`  | Håller AGENTS, rules, glossary, commands och skills sin kontextbudget?        | Banta den aktiva texten eller flytta detaljer till rätt requestable owner; duplicera inte skills. |
-| `check:bug-backlog`    | Är `BUG-SWARM-BACKLOG.md` i rätt format?                                     | Följ felet (sektioner, SM-id, inga `[x]` i Aktiv kö).                                          |
-| `canvas:check`         | Matchar canvasens backlog-totals/prio/processdata Aktiv kö, och nämns inget stale `SM-###`? | Kör `npm run canvas:build` efter backlogändring. |
-| `knip:files`           | Finns någon **oimporterad källfil** (dött skräp)?                            | Se nästa avsnitt.                                                                              |
-| `clean:orphans:dry`    | Vilka regenererbara skräpfiler _skulle_ städas?                              | Bara en rapport — kör `npm run clean:orphans` för att faktiskt ta bort.                        |
-| `clean:scratch`        | Vilka gitignorade scratch-träd (t.ex. `.cursor/swarms/runs`) _skulle_ kapas? | Dry-run — kör `npm run clean:scratch:apply` för att faktiskt ta bort (behåller 3 nyaste runs). |
+| Steg                   | Frågar                                                                                      | Om det rödar                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `docs:check`           | Stämmer genererade contract-docs med sina källor?                                           | Kör `npm run docs:generate` och committa.                                                         |
+| `docs:links`           | Pekar alla aktiva Markdown-länkar på filer som finns?                                       | Rätta/ta bort den brutna länken.                                                                  |
+| `plans:history:check`  | Är planhistoriken (statusar/arkivrubriker) konsekvent?                                      | Följ meddelandet — oftast en status/rubrik som glidit.                                            |
+| `check:terms:contract` | Äger ordlistan sina begrepp (inga dubbeldefinitioner)?                                      | Registrera begreppet i glossaryn, inte på två ställen.                                            |
+| `check:agent-context`  | Håller AGENTS, rules, glossary, commands och skills sin kontextbudget?                      | Banta den aktiva texten eller flytta detaljer till rätt requestable owner; duplicera inte skills. |
+| `workflow:contract`    | Stämmer branch-, test-, hook-, CI- och reviewregler mot sin maskinpolicy?                   | Ändra canonical `config/agent-workflow.json` och alla verifierade konsumenter atomiskt.           |
+| `check:bug-backlog`    | Är `BUG-SWARM-BACKLOG.md` i rätt format?                                                    | Följ felet (sektioner, SM-id, inga `[x]` i Aktiv kö).                                             |
+| `canvas:check`         | Matchar canvasens backlog-totals/prio/processdata Aktiv kö, och nämns inget stale `SM-###`? | Kör `npm run canvas:build` efter backlogändring.                                                  |
+| `knip:files`           | Finns någon **oimporterad källfil** (dött skräp)?                                           | Se nästa avsnitt.                                                                                 |
+| `clean:orphans:dry`    | Vilka regenererbara skräpfiler _skulle_ städas?                                             | Bara en rapport — kör `npm run clean:orphans` för att faktiskt ta bort.                           |
+| `clean:scratch`        | Vilka gitignorade scratch-träd (t.ex. `.cursor/swarms/runs`) _skulle_ kapas?                | Dry-run — kör `npm run clean:scratch:apply` för att faktiskt ta bort (behåller 3 nyaste runs).    |
 
 ## Full dödkods-rapport (`npm run knip`)
 
@@ -82,7 +87,9 @@ Skriptet: [`scripts/dev/tidy.mjs`](../../scripts/dev/tidy.mjs). Torrkörning är
 | `.gitignore`    | Tar bort dubbletter av `.env*` och `.vercel` som `vercel link` / `vercel env pull` appendar, och normaliserar till LF (CLI:n skriver CRLF på Windows). Bara exakta träffar rörs, så en riktig regel kan inte försvinna.                      |
 | Remote-brancher | **Bara rapport** (äldre än 30 dagar utan öppen PR). Radering är ditt beslut; arkivera gärna som `archive/*`-tagg först.                                                                                                                      |
 
-GitHub-städet är redan självgående: repo-inställningen `deleteBranchOnMerge` raderar varje PR-mergad branch. Det som blir kvar är per definition omergat, och därför inget en robot ska ta.
+GitHub-städet är redan självgående: repo-inställningen `deleteBranchOnMerge`
+raderar normalt varje PR-mergad remote-branch. Lokala brancher och worktrees
+kräver ändå ett separat, exakt mergebevis innan de får klassas som skräp.
 
 #### Worktree-klassningen — skyddet mot att dra undan mattan för en annan agent
 
@@ -90,13 +97,17 @@ En worktree är en **pågående session**: agenten som äger den har sin `workin
 
 `tidy` täpper det hålet. Tre villkor måste **alla** hålla för att en yta klassas `FRI`:
 
-| Villkor                            | Varför                                                   |
-| ---------------------------------- | -------------------------------------------------------- |
-| Ingen öppen PR på branchen         | Öppen PR = någon arbetar, oavsett hur rent trädet ser ut |
-| Rent arbetsträd                    | Ocommitterat och ospårat innehåll är arbete              |
-| Innehållet finns i `origin/master` | Omergat = inget att kasta                                |
+| Villkor                    | Varför                                                   |
+| -------------------------- | -------------------------------------------------------- |
+| Ingen öppen PR på branchen | Öppen PR = någon arbetar, oavsett hur rent trädet ser ut |
+| Rent arbetsträd            | Ocommitterat och ospårat innehåll är arbete              |
+| Exakt merge är bevisad     | Git-ancestry eller mergad PR med samma branch + head-SHA |
 
-Faller ett enda villkor blir svaret `behåll`, med skälet utskrivet. Svarar inte `gh` behandlas **alla** som upptagna — «vet inte» är inte «ledig». Huvudcheckouten och skyddade branchnamn (`BRA`, `rescue/*`, …) klassas aldrig som fria.
+Det GitHub-bundna beviset behövs för squash-merge, där feature-committen
+avsiktligt inte blir ancestor till `master`. Faller ett enda villkor blir svaret
+`behåll`, med skälet utskrivet. Svarar inte `gh` behandlas **alla** som upptagna
+— «vet inte» är inte «ledig». Huvudcheckouten och skyddade branchnamn (`BRA`,
+`rescue/*`, …) klassas aldrig som fria.
 
 `tidy` raderar aldrig kataloger, ens med `--apply`. Den pekar bara ut vad som är fritt, och du kör `npm run worktree:remove -- <sökväg>` som kopplar loss junctions innan raderingen. Bakgrunden: en rå `git worktree remove --force` följer junctionen och **tömmer huvudcheckoutens `node_modules`** — det hände 2026-07-27.
 
@@ -108,15 +119,15 @@ Det naturliga vore att hitta en filform Vercel-CLI:n accepterar. Det går inte: 
 
 Skriptet: [`scripts/dev/clean-scratch.mjs`](../../scripts/dev/clean-scratch.mjs). Torrkörning är default; inget raderas utan `--apply` / `:apply`. Git-spårade filer och symlänkar/junctions rörs aldrig.
 
-| Yta                                                                      | Policy                                                   |
-| ------------------------------------------------------------------------ | -------------------------------------------------------- |
-| `.tmp`, `.pytest_cache`, `.cursor/tmp`, `.eslintcache`                   | Wipe (rensas helt)                                       |
+| Yta                                                                      | Policy                                                           |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `.tmp`, `.pytest_cache`, `.cursor/tmp`, `.eslintcache`                   | Wipe (rensas helt)                                               |
 | `.cursor/handoffs`, `kedja`, `bugs`, `logg-internet/runs`, `swarms/runs` | Hårt antalstak: 3 nyaste, plus radera >14 dagar även under taket |
-| `logs/` **mappar** (t.ex. `hydration-*`)                                 | Hårt antalstak: **2** nyaste, ingen åldersflykt          |
-| `logs/` **lösa filer** (`tmp-*`, `dump-*`, `*.log`-artefakter m.m.)      | Wipe — inget referensvärde                               |
-| `logs/generationslogg`, `site-observability`, `llm-segmentts-and-index`  | Orörda här — egen retention i `generation-log-writer`    |
-| `.env-backups`                                                           | Åldersbaserat: 3 nyaste **eller** yngre än 14 dagar      |
-| Lösa `.tmp-*` och `scratch-*.mjs`/`.json` i repo-roten                   | Wipe — mönstret är ankrat och speglar `.gitignore` exakt |
+| `logs/` **mappar** (t.ex. `hydration-*`)                                 | Hårt antalstak: **2** nyaste, ingen åldersflykt                  |
+| `logs/` **lösa filer** (`tmp-*`, `dump-*`, `*.log`-artefakter m.m.)      | Wipe — inget referensvärde                                       |
+| `logs/generationslogg`, `site-observability`, `llm-segmentts-and-index`  | Orörda här — egen retention i `generation-log-writer`            |
+| `.env-backups`                                                           | Åldersbaserat: 3 nyaste **eller** yngre än 14 dagar              |
+| Lösa `.tmp-*` och `scratch-*.mjs`/`.json` i repo-roten                   | Wipe — mönstret är ankrat och speglar `.gitignore` exakt         |
 
 Automatisk körning (t.ex. via `predev`) är **inte** inkopplad — kör manuellt när `logs/` eller `.cursor/`-scratch vuxit.
 
@@ -126,9 +137,9 @@ Automatisk körning (t.ex. via `predev`) är **inte** inkopplad — kör manuell
 
 CI (`.github/workflows/ci.yml`) kör vid varje PR och merge:
 
-- **Blockerande:** hela `quality`-jobbet (docs:check, docs:links,
-  plans:history:check, check:terms:contract m.fl.) + `dead-code`-jobbets
-  orphan-fil-grind. En stale doc eller en ny oimporterad fil **kan inte mergas**.
+- **Blockerande:** `quality` aggregerar kärntester, dokumentkontrakt,
+  `preview-host-guards` och `dead-code`-jobbets orphan-filgrind. En stale doc,
+  trasig preview-host eller ny oimporterad fil **kan inte mergas**.
 - **Rådgivande (blockerar aldrig):** `dead-code`-jobbets fulla knip-rapport, så
   deps/exports-svansen syns utan att låsa någon ute.
 

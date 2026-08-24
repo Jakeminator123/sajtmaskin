@@ -47,6 +47,7 @@ const REGISTRIES = [
       "embeddings-blob-manifest-schema",
       "variant-template-addenda-schema",
       "control-plane-registry-schema",
+      "agent-workflow-schema",
     ],
   },
   {
@@ -63,7 +64,8 @@ const REGISTRIES = [
       "prompt-heuristic-tokens",
       "tier3-sdk-deny",
       "naming-dictionary",
-      "agent-rules",
+      "agent-context-policy",
+      "agent-workflow-policy",
     ],
   },
 ];

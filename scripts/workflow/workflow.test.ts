@@ -1,0 +1,383 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+import {
+  evaluateCiBranch,
+  evaluatePolicyFloors,
+  evaluateRetiredBugIdFloor,
+  evaluateWorkflowContract,
+} from "./check-contract.mjs";
+import {
+  collectImpact,
+  expandBraces,
+  loadWorkflowInputs,
+  normalizeRepoPath,
+  parseGitNameStatus,
+  pathMatchesPattern,
+} from "./path-impact.mjs";
+import { assertBranchSafety, isCiRunner, trackedPathsForBase } from "./verify-pr.mjs";
+
+describe("agent workflow path matching", () => {
+  it.each([
+    ["src/lib/gen/a.ts", "src/lib/gen/**"],
+    ["src/lib/gen/a.ts", "src/lib/gen/*.ts"],
+    ["docs/a/b.md", "**/*.md"],
+    ["config/ai_models/manifest.json", "config/ai_models/manifest.json#repairPolicies"],
+    ["data/dossiers/hard/x/manifest.json", "data/dossiers/{hard,soft}/*/manifest.json"],
+    [".agents/skills/x/SKILL.md", ".agents/skills/"],
+  ])("matches %s against %s", (path, pattern) => {
+    expect(pathMatchesPattern(path, pattern)).toBe(true);
+  });
+
+  it("normalizes Windows separators and expands braces", () => {
+    expect(normalizeRepoPath("src\\lib\\db\\schema.ts")).toBe("src/lib/db/schema.ts");
+    expect(expandBraces("data/{hard,soft}/x")).toEqual(["data/hard/x", "data/soft/x"]);
+  });
+
+  it("does not overmatch a single star across directories", () => {
+    expect(pathMatchesPattern("src/lib/gen/deep/a.ts", "src/lib/gen/*.ts")).toBe(false);
+  });
+
+  it("keeps both sides of NUL-delimited rename and copy records", () => {
+    const output = [
+      "R100",
+      "config/agent-workflow.json",
+      "docs/agent-workflow.json",
+      "C087",
+      "backoffice/pages/cursor_agents.py",
+      "docs/cursor_agents.py",
+      "M",
+      "README.md",
+      "",
+    ].join("\0");
+    expect(parseGitNameStatus(output)).toEqual([
+      "config/agent-workflow.json",
+      "docs/agent-workflow.json",
+      "backoffice/pages/cursor_agents.py",
+      "docs/cursor_agents.py",
+      "README.md",
+    ]);
+  });
+
+  it("fails closed on malformed name-status output", () => {
+    expect(() => parseGitNameStatus("R100\0config/agent-workflow.json\0")).toThrow(
+      "missing its destination",
+    );
+  });
+});
+
+describe("agent workflow impact", () => {
+  const inputs = loadWorkflowInputs();
+
+  it("finds the Cursor-agenter Backoffice surface after the skill move", () => {
+    const impact = collectImpact({
+      ...inputs,
+      changedFiles: [".agents/skills/godnatt-bugg/SKILL.md", "AGENTS.md"],
+    });
+    expect(impact.backofficePages).toContain("Cursor-agenter");
+    expect(impact.commands).toContain("check:agent-context");
+    expect(impact.commands).toContain("backoffice:test");
+  });
+
+  it("maps a strict schema to its hard validator", () => {
+    const impact = collectImpact({
+      ...inputs,
+      changedFiles: ["docs/schemas/strict/dossier.schema.json"],
+    });
+    expect(impact.authorities.map((entry) => entry.id)).toContain("dossier-manifest-schema");
+    expect(impact.commands).toContain("dossiers:validate-all");
+  });
+
+  it.each([
+    "docs/schemas/strict/new.schema.json",
+    "config/control-plane/new-registry.json",
+    "config/backoffice/new-domain.json",
+  ])("routes control-plane surface %s to its hard contract", (path) => {
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    expect(impact.commands).toContain("control-plane:check");
+    if (path.startsWith("docs/")) expect(impact.commands).toContain("docs:test");
+  });
+
+  it("reports deleted or unknown runtime paths with fail-safe runtime checks", () => {
+    const impact = collectImpact({
+      ...inputs,
+      changedFiles: ["src/lib/new-area/deleted.ts"],
+    });
+    expect(impact.unmappedRuntimeFiles).toEqual(["src/lib/new-area/deleted.ts"]);
+    expect(impact.commands).toContain("typecheck");
+    expect(impact.commands).toContain("test:ci");
+    expect(impact.commands).toContain("lint");
+  });
+
+  it.each([
+    "tests/new.test.ts",
+    "e2e/new.spec.ts",
+    "infra/service.tf",
+    "drizzle/schema.ts",
+    "public/worker.js",
+    "vitest.config.ts",
+    "tsconfig.json",
+    "vercel.json",
+    "next.config.ts",
+    "eslint.config.mjs",
+    ".github/CODEOWNERS",
+    ".github/dependabot.yml",
+  ])("never gives a shallow plan for repository surface %s", (path) => {
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    expect(impact.commands).toContain("typecheck");
+    expect(impact.commands).toContain("test:ci");
+    expect(impact.commands).toContain("lint");
+  });
+
+  it("fails unknown top-level areas into runtime + full verification", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: ["new-zone/value.custom"] });
+    expect(impact.unclassifiedFiles).toEqual(["new-zone/value.custom"]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["embeddings:ensure", "typecheck", "test:ci", "lint"]),
+    );
+  });
+
+  it("runs the isolated preview-host package guards", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: ["preview-host/src/server.js"] });
+    expect(impact.commands).toContain("preview-host:verify");
+  });
+
+  it("routes Backoffice dependency changes to Python tests", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: ["requirements.backoffice.txt"] });
+    expect(impact.commands).toContain("backoffice:test");
+    expect(impact.commands).toContain("baseline-deps:verify");
+  });
+
+  it("treats the Node runtime version as a full runtime change", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: [".node-version"] });
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["embeddings:ensure", "typecheck", "test:ci", "lint", "knip:files"]),
+    );
+  });
+
+  it.each(["package.json", "package-lock.json"])(
+    "runs product verification for dependency owner %s",
+    (path) => {
+      const impact = collectImpact({ ...inputs, changedFiles: [path] });
+      expect(impact.commands).toEqual(expect.arrayContaining(["typecheck", "test:ci", "lint"]));
+    },
+  );
+
+  it.each([
+    ["requirements.backoffice.dev.txt", "backoffice:test"],
+    ["requirements.dbtest.txt", "db:blob-sync-unit"],
+    ["requirements.genlogs.txt", "observability:test"],
+  ])("routes Python dependency surface %s to %s", (path, command) => {
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    expect(impact.commands).toContain(command);
+    expect(impact.commands).toContain("lint");
+  });
+
+  it.each(["e2e/deploy/new.smoke.spec.ts", "playwright.deploy-smoke.config.ts"])(
+    "gives Playwright surface %s an explicit discovery contract",
+    (path) => {
+      const impact = collectImpact({ ...inputs, changedFiles: [path] });
+      expect(impact.commands).toContain("test:e2e:contract");
+    },
+  );
+
+  it("reports manual validators without executing them", () => {
+    const impact = collectImpact({
+      ...inputs,
+      changedFiles: ["config/env-policy.json"],
+    });
+    expect(impact.manualValidators).toContain("env:audit");
+  });
+
+  it("does not let editable group overlap hide product or unknown paths", () => {
+    const weakenedPolicy = structuredClone(inputs.policy);
+    weakenedPolicy.pathGroups = Object.fromEntries(
+      Object.keys(weakenedPolicy.pathGroups).map((group) => [
+        group,
+        group === "docs" ? ["**"] : ["__never__/**"],
+      ]),
+    );
+
+    for (const path of ["src/components/Foo.tsx", "new-zone/value.custom"]) {
+      const impact = collectImpact({ ...inputs, policy: weakenedPolicy, changedFiles: [path] });
+      expect(impact.commands, path).toEqual(
+        expect.arrayContaining(["typecheck", "test:ci", "lint"]),
+      );
+    }
+  });
+
+  it("keeps ordinary documentation changes on the docs-only plan", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: ["docs/example-guide.md"] });
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["workflow:contract", "docs:check", "docs:links"]),
+    );
+    expect(impact.commands).not.toContain("typecheck");
+    expect(impact.commands).not.toContain("test:ci");
+    expect(impact.commands).not.toContain("lint");
+  });
+});
+
+describe("agent workflow branch safety", () => {
+  const policy = loadWorkflowInputs().policy;
+
+  it("blocks ordinary direct master", () => {
+    expect(() =>
+      assertBranchSafety({
+        branch: "master",
+        head: "a".repeat(40),
+        policy,
+        env: { NODE_ENV: "test" },
+      }),
+    ).toThrow("direkt master är stängd");
+  });
+
+  it("allows an explicit reasoned break-glass", () => {
+    expect(() =>
+      assertBranchSafety({
+        branch: "master",
+        head: "a".repeat(40),
+        policy,
+        env: {
+          NODE_ENV: "test",
+          SAJTMASKIN_BREAK_GLASS: "1",
+          SAJTMASKIN_BREAK_GLASS_REASON: "Akut återställning av trasig mergegrind",
+        },
+      }),
+    ).not.toThrow();
+  });
+
+  it("enforces the same branch prefixes in pull-request CI", () => {
+    const baseEnv = {
+      GITHUB_ACTIONS: "true",
+      GITHUB_EVENT_NAME: "pull_request",
+      GITHUB_ACTOR: "octocat",
+    };
+    expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "fix/safe-change" })).toBeNull();
+    expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "tmp/hidden-rule" })).toContain(
+      "saknar tillåtet prefix",
+    );
+    expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "" })).toContain(
+      "saknar GITHUB_HEAD_REF",
+    );
+  });
+
+  it("keeps the explicit Dependabot branch exception", () => {
+    expect(
+      evaluateCiBranch(policy, {
+        GITHUB_ACTIONS: "true",
+        GITHUB_EVENT_NAME: "pull_request",
+        GITHUB_ACTOR: "dependabot[bot]",
+        GITHUB_HEAD_REF: "dependabot/npm_and_yarn/example-1.2.3",
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("local base freshness", () => {
+  it("treats only exact true runner signals as CI", () => {
+    expect(isCiRunner({ CI: "true" })).toBe(true);
+    expect(isCiRunner({ GITHUB_ACTIONS: "true" })).toBe(true);
+    expect(isCiRunner({ CI: "false" })).toBe(false);
+    expect(isCiRunner({ CI: "0" })).toBe(false);
+    expect(isCiRunner({})).toBe(false);
+  });
+
+  it("includes source and destination paths when verify:pr sees a rename", () => {
+    const git = () => ({
+      stdout: "R100\0config/agent-workflow.json\0docs/agent-workflow.json\0",
+    });
+    expect(trackedPathsForBase("origin/master", git)).toEqual([
+      "config/agent-workflow.json",
+      "docs/agent-workflow.json",
+    ]);
+  });
+});
+
+describe("agent workflow repository contract", () => {
+  it("keeps policy, CI, hooks, routers and registries in sync", () => {
+    expect(evaluateWorkflowContract().errors).toEqual([]);
+  });
+
+  it("keeps an independent security floor below the editable policy", () => {
+    const policy = loadWorkflowInputs().policy;
+    expect(evaluatePolicyFloors(policy)).toEqual([]);
+
+    const weakened = [
+      { ...structuredClone(policy), requiredChecks: ["quality"] },
+      {
+        ...structuredClone(policy),
+        verificationProfiles: { ...structuredClone(policy.verificationProfiles), runtime: [] },
+      },
+      {
+        ...structuredClone(policy),
+        verificationProfiles: {
+          ...structuredClone(policy.verificationProfiles),
+          runtime: policy.verificationProfiles.runtime.filter(
+            (command: string) => command !== "lint",
+          ),
+        },
+      },
+      {
+        ...structuredClone(policy),
+        verificationProfiles: { ...structuredClone(policy.verificationProfiles), full: ["lint"] },
+      },
+      {
+        ...structuredClone(policy),
+        protectedPaths: policy.protectedPaths.filter((path: string) => path !== ".github/**"),
+      },
+      {
+        ...structuredClone(policy),
+        protectedPaths: policy.protectedPaths.filter((path: string) => path !== "drizzle/**"),
+      },
+      {
+        ...structuredClone(policy),
+        branchPrefixExemptActors: ["dependabot[bot]", "octocat"],
+      },
+      {
+        ...structuredClone(policy),
+        review: {
+          ...structuredClone(policy.review),
+          qualifyingCheckPatterns: ["gitguardian"],
+        },
+      },
+      {
+        ...structuredClone(policy),
+        review: {
+          ...structuredClone(policy.review),
+          securityVetoCheckPatterns: ["other-scanner"],
+        },
+      },
+      {
+        ...structuredClone(policy),
+        review: {
+          ...structuredClone(policy.review),
+          deploymentCheckNames: ["Preview Deploy"],
+        },
+      },
+      {
+        ...structuredClone(policy),
+        immutableRemoteBranchPatterns: ["rescue/*"],
+      },
+      {
+        ...structuredClone(policy),
+        pathGroups: Object.fromEntries(
+          Object.keys(policy.pathGroups).map((group) => [
+            group,
+            group === "docs" ? ["**"] : ["__never__/**"],
+          ]),
+        ),
+      },
+    ];
+    for (const candidate of weakened) {
+      expect(evaluatePolicyFloors(candidate).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("does not let a retired SM id become reusable by editing only the backlog validator", () => {
+    const source = readFileSync("scripts/dev/check-bug-backlog.mjs", "utf8");
+    expect(evaluateRetiredBugIdFloor(source)).toEqual([]);
+    expect(evaluateRetiredBugIdFloor(source.replace('  "SM-002",\n', ""))).toEqual([
+      expect.stringContaining("historical SM ids must never become reusable"),
+    ]);
+  });
+});

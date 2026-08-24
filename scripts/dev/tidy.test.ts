@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  PR_LIFECYCLE_API_ARGS,
   STALE_AFTER_DAYS,
   classifyLocalBranch,
   classifyRemoteBranch,
   classifyWorktree,
   dedupeVercelIgnoreLines,
+  isExactMergedPr,
   isNextCacheStale,
   isProtectedBranch,
   isWorktreeDirty,
+  parsePrLifecycle,
+  parsePrLifecycleTsv,
   parsePorcelainWorktrees,
 } from "./tidy.mjs";
 
@@ -51,7 +55,18 @@ describe("classifyLocalBranch", () => {
   it("behåller omergad branch även när remoten är borta", () => {
     const v = classifyLocalBranch({ ...merged, name: "fix/pagaende", mergedIntoBase: false });
     expect(v.action).toBe("keep");
-    expect(v.reason).toContain("omergad");
+    expect(v.reason).toContain("ingen exakt merge");
+  });
+
+  it("städar en squash-mergad branch endast med exakt GitHub-PR-head", () => {
+    expect(
+      classifyLocalBranch({
+        ...merged,
+        name: "fix/squash",
+        mergedIntoBase: false,
+        mergedByExactPr: true,
+      }).action,
+    ).toBe("delete");
   });
 
   it("behåller mergad branch vars remote fortfarande finns", () => {
@@ -139,6 +154,68 @@ describe("classifyWorktree", () => {
 
   it("behåller en detached worktree som inte är mergad", () => {
     expect(classifyWorktree({ ...free, branch: null, mergedIntoBase: false }).verdict).toBe("keep");
+  });
+
+  it("frikallar en ren squash-mergad worktree med exakt PR-bevis", () => {
+    expect(
+      classifyWorktree({ ...free, mergedIntoBase: false, mergedByExactPr: true }).verdict,
+    ).toBe("free");
+  });
+});
+
+describe("PR lifecycle proof", () => {
+  const sha = "a".repeat(40);
+  const lifecycle = parsePrLifecycle([
+    { headRefName: "fix/open", headRefOid: "b".repeat(40), state: "OPEN", mergedAt: null },
+    { headRefName: "fix/squash", headRefOid: sha, state: "MERGED", mergedAt: "2026-08-24" },
+    { headRefName: "fix/closed", headRefOid: "c".repeat(40), state: "CLOSED", mergedAt: null },
+  ]);
+
+  it("binder mergebevis till både branch och exakt head-SHA", () => {
+    expect(lifecycle.openHeads.has("fix/open")).toBe(true);
+    expect(isExactMergedPr(lifecycle, "fix/squash", sha)).toBe(true);
+    expect(isExactMergedPr(lifecycle, "fix/squash", "d".repeat(40))).toBe(false);
+    expect(isExactMergedPr(lifecycle, "fix/closed", "c".repeat(40))).toBe(false);
+    expect(isExactMergedPr(null, "fix/squash", sha)).toBe(false);
+  });
+
+  it("avvisar trasig lifecycle-data i stället för att tolka den som tom", () => {
+    expect(() => parsePrLifecycle({})).toThrow("must be an array");
+  });
+
+  it("hämtar samtliga API-sidor utan en hårdkodad resultatgräns", () => {
+    expect(PR_LIFECYCLE_API_ARGS).toContain("--paginate");
+    expect(PR_LIFECYCLE_API_ARGS).toContain("repos/{owner}/{repo}/pulls?state=all&per_page=100");
+    expect(PR_LIFECYCLE_API_ARGS).not.toContain("--limit");
+    expect(PR_LIFECYCLE_API_ARGS).not.toContain("500");
+
+    const tsv = Array.from(
+      { length: 750 },
+      (_, index) => `fix/open-${index}\t${"b".repeat(40)}\topen\t`,
+    ).join("\n");
+    expect(parsePrLifecycleTsv(tsv).openHeads.size).toBe(750);
+  });
+
+  it("binder API:ts mergebevis till exakt branch och head-SHA", () => {
+    const apiLifecycle = parsePrLifecycleTsv(
+      [
+        `fix/open\t${"b".repeat(40)}\topen\t`,
+        `fix/squash\t${sha}\tclosed\t2026-08-24T10:00:00Z`,
+        `fix/closed\t${"c".repeat(40)}\tclosed\t`,
+      ].join("\n"),
+    );
+    expect(apiLifecycle.openHeads.has("fix/open")).toBe(true);
+    expect(isExactMergedPr(apiLifecycle, "fix/squash", sha)).toBe(true);
+    expect(isExactMergedPr(apiLifecycle, "fix/squash", "d".repeat(40))).toBe(false);
+    expect(isExactMergedPr(apiLifecycle, "fix/closed", "c".repeat(40))).toBe(false);
+  });
+
+  it("faller stängt på en trunkerad eller ogiltig API-rad", () => {
+    expect(() => parsePrLifecycleTsv(`fix/open\t${"b".repeat(40)}\topen`)).toThrow("four fields");
+    expect(() => parsePrLifecycleTsv(`fix/open\tbad-sha\topen\t`)).toThrow("invalid head");
+    expect(() => parsePrLifecycleTsv(`fix/open\t${"b".repeat(40)}\tunknown\t`)).toThrow(
+      "invalid state",
+    );
   });
 });
 

@@ -69,15 +69,13 @@ google-services.json
 .eslintcache
 # --- Stora genererade JSON (Read-fälla) ---
 # Embeddings: source of truth = Vercel Blob; lokala JSON är cache (gitignored).
-# Övriga stora JSON kan fortfarande vara spårade. Den här filen stoppar agent-Read.
+# Spårade runtime-/config-owners ska vara läsbara vid riktad felsökning och
+# ligger därför bara i .cursorindexingignore, inte här.
 # Terminal/Node kringgår — det är meningen. Indexering: .cursorindexingignore.
 **/template-embeddings.json
 **/scaffold-embeddings.json
 **/variant-embeddings.json
 **/dossier-embeddings.json
-**/variant-template-addenda.json
-**/template-blob-manifest.json
-src/lib/templates/templates.json
 # scaffold-research.generated.json (~20 KB, spårad runtime-override) är
 # läsbar med flit. Utanför sök: .cursorindexingignore.
 # --- Archived / agent dump secrets (spegel av .gitignore) ---

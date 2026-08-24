@@ -2,6 +2,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   describeRemovalFailure,
+  classifyRemovalLifecycle,
   findLinkedEntries,
   findMainWorktree,
   parseDirtyEntries,
@@ -112,6 +113,90 @@ describe("resolveTargetWorktree", () => {
     });
     expect(plan.ok).toBe(false);
     expect("reason" in plan && plan.reason).toContain("protected permanent/current");
+  });
+});
+
+describe("classifyRemovalLifecycle", () => {
+  const branch = "fix/example";
+  const headSha = "a".repeat(40);
+  const mergedLifecycle = {
+    openHeads: new Set<string>(),
+    mergedHeads: new Map([[branch, new Set([headSha])]]),
+  };
+
+  it("allows only a clean exact terminal PR/Git proof by default", () => {
+    expect(
+      classifyRemovalLifecycle({
+        branch,
+        headSha,
+        isDirty: false,
+        force: false,
+        lifecycle: mergedLifecycle,
+        mergedIntoBase: false,
+      }),
+    ).toEqual({ ok: true, reason: expect.stringContaining("FRI") });
+  });
+
+  it("fails closed without GitHub lifecycle or with an open PR", () => {
+    const base = { branch, headSha, isDirty: false, force: false, mergedIntoBase: true };
+    expect(classifyRemovalLifecycle({ ...base, lifecycle: null }).ok).toBe(false);
+    expect(
+      classifyRemovalLifecycle({
+        ...base,
+        lifecycle: { openHeads: new Set([branch]), mergedHeads: new Map() },
+      }).reason,
+    ).toContain("öppen PR");
+  });
+
+  it("does not let --force bypass open PR and requires a reason for discard", () => {
+    const open = { openHeads: new Set([branch]), mergedHeads: new Map() };
+    const base = {
+      branch,
+      headSha,
+      isDirty: true,
+      force: true,
+      mergedIntoBase: false,
+    };
+    expect(
+      classifyRemovalLifecycle({
+        ...base,
+        lifecycle: open,
+        discardReason: "Tydligt beslut att kasta kandidat",
+      }).ok,
+    ).toBe(false);
+    expect(
+      classifyRemovalLifecycle({ ...base, lifecycle: mergedLifecycle, discardReason: "kort" }).ok,
+    ).toBe(false);
+    expect(
+      classifyRemovalLifecycle({
+        ...base,
+        lifecycle: mergedLifecycle,
+        discardReason: "Verifierad förlorarkandidat; diffen är redan sparad",
+      }).ok,
+    ).toBe(true);
+  });
+
+  it.each([
+    "master",
+    "main",
+    "ema",
+    "JAKOB_BRA_9999_INNNAN_MVP_BRA",
+    "rescue/stash-2026-08-14",
+    "dependabot/npm_and_yarn/next-16.3.1",
+    "archive/sanering-2026-08-04",
+    "codex/workspace",
+  ])("never removes protected branch %s, even with --force", (protectedBranch) => {
+    const decision = classifyRemovalLifecycle({
+      branch: protectedBranch,
+      headSha,
+      isDirty: true,
+      force: true,
+      discardReason: "Verifierat beslut med en tillräckligt lång förklaring",
+      lifecycle: { openHeads: new Set<string>(), mergedHeads: new Map() },
+      mergedIntoBase: true,
+    });
+    expect(decision.ok).toBe(false);
+    expect(decision.reason).toContain("skyddat branchnamn");
   });
 });
 

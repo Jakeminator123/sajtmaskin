@@ -1,20 +1,18 @@
 # Agent entry — Sajtmaskin
 
-Använd **selektiv kontext**. Läs inte en fast dokumentstack före varje uppgift;
-börja med uppgiften, sökvägarna den nämner och den minsta ägare som behövs.
+Använd **selektiv kontext**. Börja med uppgiften, nämnda sökvägar och minsta
+relevanta owner; läs inte en fast dokumentstack.
 
 ## Router
 
 | När | Läs |
 |---|---|
-| Okänd produktyta | `docs/README.md`, därefter högst relevant mental modell eller kodkarta |
+| Okänd produktyta | `docs/README.md`, sedan högst relevant modell eller kodkarta |
 | Byggblock/dossiers | `övrigt/FUSKLAPP-BYGGBLOCK.md` (koden vinner) |
-| Kodändring | närliggande kod, tester och relevant `.cursor/rules/*.mdc` |
-| Terminologi | riktad sökning i `docs/architecture/glossary.md`; läs inte hela filen |
-| Env/DB | `config/env-policy.json` eller `docs/ENV.md`, bara relevant sektion |
-| Buggkö | sök på exakt `SM-###`/rubrik i `BUG-SWARM-BACKLOG.md`; läs inte hela filen |
-| PR/merge | `git.mdc`, `workflow.mdc`; `pr-merge.mdc` först efter skapad PR eller mergeuppdrag |
-| Branch → PR → master | `docs/runbooks/agent-pr-workflow.md`; kör alltid `npm run change-impact` och `npm run verify:pr` |
+| Kodändring | närliggande kod, tester och matchande `.cursor/rules/*.mdc` |
+| Terminologi/bugg | sök exakt term eller `SM-###`; läs inte hela glossaryn/kön |
+| Env/DB | relevant del av `config/env-policy.json` eller `docs/ENV.md` |
+| Skriv/PR/merge | `.agents/skills/pr-workflow/SKILL.md`, sedan `git.mdc` och `workflow.mdc`; läs `pr-merge.mdc` först efter skapad PR eller mergeuppdrag |
 
 Snabb kodrouter: [`.cursor/rules/repo-router.mdc`](.cursor/rules/repo-router.mdc).
 Cursor-konfiguration: [`.cursor/README.md`](.cursor/README.md). Codex:
@@ -22,20 +20,24 @@ Cursor-konfiguration: [`.cursor/README.md`](.cursor/README.md). Codex:
 
 ## Canonical owner
 
-Avgör ägare per faktatyp: körbar kod/manifest/policy → validator/schema →
-genererad projektion → handskriven mental modell → historik. Git är arkivet;
-skapa inte backupkopior av aktiva docs. Full policy:
+Per faktatyp: körbar/deklarativ owner → konsument/validator → genererad
+projektion → mental modell → historik. Git är arkivet; inga backupdocs. Policy:
 [`docs/documentation-lifecycle.md`](docs/documentation-lifecycle.md).
 
 ## Arbetsregel
 
-- Bevara användarens och andra agenters ändringar; stage bara uppgiftens filer.
-- Håll diffen smal och uppdatera beroende länkar/docs i samma ändring.
-- Branch, commit, push, PR och merge kräver användarens mandat enligt `git.mdc`.
+- Bevara andras arbete; håll diff och staging till uppgiftens filer och följdytor.
+- Allt agentskrivarbete går via färsk `origin/master`, egen branch/worktree och
+  PR. Ingen docs-/regelgenväg till master. Policy: `config/agent-workflow.json`.
+- Kör `npm run hooks:install` vid färsk clone eller workflowändring; främmande
+  hookkonflikt är ett stopp.
+- Kör `npm run verify:pr -- --plan` tidigt och `npm run verify:pr` före push.
+- Branch, commit, push, PR och merge kräver mandat enligt `git.mdc`; force-pusha
+  aldrig master eller en delad remote-branch.
 - Merga aldrig utan ett separat uttryckligt mergeuppdrag.
-- Kör `npm run verify:pr -- --base origin/master`; impactmotorn väljer minsta relevanta kontroller.
+- Behåll worktreet tills PR:n är terminal och fjärrläget verifierat.
 - Svara kort på svenska när användaren gör det; skilj bevis från antagande.
 - Pausa vid dataförlust, security/cross-tenant, oklar owner eller stort scope.
 
-Review: false-green, saknad verifiering och kontraktsbrott är riktiga fynd.
-Smak, formattering och hypotetiska nits är inte blockers.
+Review: false-green, saknad verifiering och kontraktsbrott är fynd; smak och
+hypotetiska nits är inte blockers.

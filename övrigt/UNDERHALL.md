@@ -1,7 +1,7 @@
 # Underhåll — kommandon du bör köra ibland
 
 CI och `predev` tar det mesta. Det här är **manuella** knappar: gitignorerad
-scratch, lokala worktrees, env-/DB-kollar och städ som medvetet *inte* raderas
+scratch, lokala worktrees, env-/DB-kollar och städ som medvetet _inte_ raderas
 automatiskt (för att inte döda en pågående agentkörning).
 
 `package.json` är alltid kanonisk källa om ett skript byter namn.
@@ -10,14 +10,15 @@ Worktrees: [`docs/runbooks/git-worktree.md`](../docs/runbooks/git-worktree.md).
 
 ## Snabbmeny
 
-| När | Kör |
-|---|---|
-| Före PR / “är det rent?” | `npm run hygiene` |
-| Disken växer / efter många agent-körningar | `npm run clean:scratch:apply` |
-| Efter `/kedja` eller trasiga worktrees | `npm run kedja:clean` → sedan med `--yes` |
-| Varje vecka eller efter många mergar | `git fetch --prune` |
-| Efter ny migration lokalt | `npm run db:migrate` (+ prod via CI eller `db:migrate:prod`) |
-| Env känns fel | `npm run env:status` |
+| När                                        | Kör                                                              |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| Före PR / “är diffen redo?”                | `npm run verify:pr -- --plan` → `npm run verify:pr`              |
+| Bred manuell underhållskoll                | `npm run hygiene` (ingår normalt automatiskt för protected diff) |
+| Disken växer / efter många agent-körningar | `npm run clean:scratch:apply`                                    |
+| Efter `/kedja` eller trasiga worktrees     | `npm run kedja:clean` → sedan med `--yes`                        |
+| Varje vecka eller efter många mergar       | `git fetch --prune`                                              |
+| Efter ny migration lokalt                  | `npm run db:migrate` (+ prod via CI eller `db:migrate:prod`)     |
+| Env känns fel                              | `npm run env:status`                                             |
 
 ---
 
@@ -25,13 +26,15 @@ Worktrees: [`docs/runbooks/git-worktree.md`](../docs/runbooks/git-worktree.md).
 
 ### `npm run hygiene`
 
-**Vad:** En knipsamling som *kontrollerar* (docs-synk, länkar, planhistorik,
-termer, bug-backlog-format, oimporterade filer) och *rapporterar* vad
-`clean:orphans` / `clean:scratch` *skulle* ta bort. Tar **inte** bort scratch
+**Vad:** En knipsamling som _kontrollerar_ (docs-synk, länkar, planhistorik,
+termer, bug-backlog-format, oimporterade filer) och _rapporterar_ vad
+`clean:orphans` / `clean:scratch` _skulle_ ta bort. Tar **inte** bort scratch
 själv (dry-run).
 
-**När:** Före varje PR, eller när du undrar om docs/död kod glidit isär.
-**Hur ofta:** Vid aktiv utveckling — typ varje PR. Annars ~1×/vecka.
+**När:** Som bred manuell kontroll, eller när du undrar om docs/död kod glidit
+isär. Före PR väljer `npm run verify:pr` rätt delar automatiskt och är den
+kanoniska knappen.
+**Hur ofta:** Vid behov; annars ~1×/vecka.
 
 ### `npm run clean:scratch:apply`
 
@@ -86,10 +89,16 @@ koll.
 fula.
 **Hur ofta:** Vid behov; efter periods med flera agenter.
 
-### `npm run worktree:remove -- ..\sajtmaskin-<namn>`
+### `npm run tidy` → exakt `FRI` → `npm run worktree:remove -- ..\sajtmaskin-<namn>`
 
-**Vad:** Säker teardown (kopplar loss junction först). Lägg till `--force` bara
-om tree är smutsig och du medvetet vill kasta.
+**Vad:** Säker teardown (kopplar loss junction först). Kör först `npm run tidy`
+från en worktree som ska behållas. Exakt målsökväg måste rapporteras som `FRI`:
+ingen öppen PR, rent träd och exakt Git-/PR-mergebevis. Wrappern verifierar
+samma livscykel igen och stoppar fail-closed om GitHub-status inte kan läsas.
+
+`--force` är endast ett uttryckligt discardbeslut, aldrig normal städning. Det
+kräver en tydlig `SAJTMASKIN_DISCARD_REASON`; rädda annars arbetet till en ny
+branch/PR.
 
 **När:** När en feature-/kedja-worktree är mergad eller övergiven.
 **Hur ofta:** Direkt när jobbet är klart — låt dem inte ligga kvar “för säkerhets skull”.
@@ -128,33 +137,34 @@ maskin/worktree.
 
 ## 4. Domänvalidering (när du rört området)
 
-| Kommando | Vad | När |
-|---|---|---|
-| `npm run dossiers:validate-all` | Manifest/deps/SDK för Byggblock | Efter dossier-ändring |
-| `npm run scaffolds:validate` | Scaffold-/variantkontrakt | Efter scaffold-ändring |
-| `npm run typecheck` | TypeScript utan emit | Efter större TS-ändring (CI kör också) |
-| `npm run knip` | Full dödkodsrapport (många FP i deps) | Vid städpass — lita mest på **Unused files** |
+| Kommando                        | Vad                                   | När                                          |
+| ------------------------------- | ------------------------------------- | -------------------------------------------- |
+| `npm run dossiers:validate-all` | Manifest/deps/SDK för Byggblock       | Efter dossier-ändring                        |
+| `npm run scaffolds:validate`    | Scaffold-/variantkontrakt             | Efter scaffold-ändring                       |
+| `npm run typecheck`             | TypeScript utan emit                  | Efter större TS-ändring (CI kör också)       |
+| `npm run knip`                  | Full dödkodsrapport (många FP i deps) | Vid städpass — lita mest på **Unused files** |
 
 Dessa ingår ofta i `devtest` / CI när du pushar — poängen med att köra lokalt är
 **snabbare feedback** innan PR.
 
 ---
 
-## 5. Medvetet *inte* här
+## 5. Medvetet _inte_ här
 
-| Sak | Varför |
-|---|---|
-| `npm run build` / hela testsviten | CI (`quality`, `build`, …) äger det på PR |
-| `prod-migrations-apply` | CI på push till master |
-| Rå `git worktree remove --force` | Junction-fälla → kan tömma huvudcheckoutens `node_modules` |
-| Att lägga `clean:scratch:apply` i CI | Scratch är lokal/agent-specifik; risk att radera mitt i körning |
+| Sak                                  | Varför                                                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `npm run build` / hela testsviten    | CI (`quality`, `build`, …) äger det på PR                                                                          |
+| `prod-migrations-apply`              | CI på push till master                                                                                             |
+| Rå `git worktree remove --force`     | Junction-fälla och saknar PR-livscykelbevis → kan både kasta agentarbete och tömma huvudcheckoutens `node_modules` |
+| Att lägga `clean:scratch:apply` i CI | Scratch är lokal/agent-specifik; risk att radera mitt i körning                                                    |
 
 ---
 
 ## Minimal veckorutin (ägare)
 
 ```powershell
-npm run hygiene
+npm run verify:pr -- --plan  # på en aktiv PR-branch
+npm run hygiene              # valfri bred veckokoll
 npm run clean:scratch:apply   # om hygiene/scratch-dry visar mycket
 git fetch --prune
 git worktree list             # ta bort övergivna med worktree:remove

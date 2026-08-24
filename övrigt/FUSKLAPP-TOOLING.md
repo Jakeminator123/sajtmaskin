@@ -92,7 +92,7 @@ powershell -File scripts/cursor/sync-mcp-json.ps1
 | `supabase` | **DEV** (`yubbckduwblyrbnlglwf`, eu-north-1) read-only |
 | `supabase-prod` | **PROD** (`egcitvwgettkftkyzbvn`, us-east-1) read-only |
 
-Efter ändring: Cursor → Tools & MCP → grön status / reload.  
+Efter ändring: Cursor → Tools & MCP → grön status / reload.
 **Ingen destruktiv SQL** via MCP. Svara aldrig om prod utifrån `supabase` (dev).
 
 Redis har **ingen** MCP här — använd env (`REDIS_URL` / Upstash) + `npm run redis:health`.

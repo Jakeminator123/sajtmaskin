@@ -5,6 +5,9 @@ alwaysApply: true
 
 # Git-säkerhet
 
+Körordning: [`.agents/skills/pr-workflow/SKILL.md`](../../.agents/skills/pr-workflow/SKILL.md).
+Maskinvärden: [`config/agent-workflow.json`](../../config/agent-workflow.json).
+
 ## Mandat
 
 - Commit, push, PR, rebase, cherry-pick och merge kräver uttrycklig begäran.
@@ -15,27 +18,29 @@ alwaysApply: true
 
 ## Branchmodell
 
-`master` är trunk och prodkopplad. Riktigt arbete går normalt via en kortlivad
-`fix/`, `feat/`, `docs/` eller `chore/`-branch och PR mot `master`.
+`master` är trunk och prodkopplad. Allt agentarbete, även docs/regler, går via
+färsk `origin/master`, kortlivad `fix/`, `feat/`, `docs/` eller `chore/`-branch
+och PR. Direkt master är endast owner break-glass för en uttrycklig incident
+enligt workflow-policyn; det är aldrig en agentgenväg.
 
 - Delad huvudcheckout: byt inte branch; använd `agent-worktree.mdc`.
-- Direkt master är bara för uttryckligen auktoriserad, liten granskad
-  docs-/regel-/ignoreändring utan runtime- eller datarisk.
-- Force-pusha aldrig `master`. Direktpush kräver färsk oberoende Sol-review och
-  obligatorisk kontroll av post-master-CI; behandla det som break-glass.
+- Pusha utan force. Force-pusha aldrig master eller en delad remote-branch.
 - EmaCodeHero-arbete har base `ema` och kräver ägarens mergebeslut.
 - Brancher med versalt `BRA` och `rescue/*` är frysta backuper: radera,
   force-pusha, rebase:a eller återanvänd aldrig. Detalj: `jakob-pre-mvp-backup.mdc`.
 
 ## PR-författarens ansvar
 
-Före PR och efter varje ny commit: kör relevanta tester och ett oberoende
-readonly Bugbot/review-pass på aktuell diff. Modell väljs enligt
-`subagent-models.mdc`. Efter skapad PR äger `pr-merge.mdc` fyndsvep,
-SHA-färskhet, reviewfönster och sign-off.
+Kör `npm run verify:pr -- --plan` tidigt och `npm run verify:pr` före push samt
+efter varje ny head-SHA. Kör därefter ett oberoende readonly Sol-pass på aktuell
+diff enligt `subagent-models.mdc`. Behåll worktreet medan CI/review kan kräva
+nya commits. Efter skapad PR äger `pr-merge.mdc` fyndsvep, SHA-färskhet,
+reviewfönster och författarens `merge:ready`. En separat betrodd människa ger
+det slutliga, SHA-exakta `merge:execute`-kommandot; den betrodda controllern
+läser om allt och mergar. PR-readiness ger aldrig i sig mergemandat.
 
-Kanoniskt flöde och enda lokala PR-klar-kommando:
-[`docs/runbooks/agent-pr-workflow.md`](../../docs/runbooks/agent-pr-workflow.md).
+Människoguide:
+[`docs/runbooks/agent-workflow.md`](../../docs/runbooks/agent-workflow.md).
 
 ## Ignore-filer
 

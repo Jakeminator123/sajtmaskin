@@ -11,10 +11,14 @@ The default is one `<sol>` runner for steps 1–6; the parent receives only the 
 
 **This skill is the sole fulltext** for steps, prompts, judging and teardown. The slash command is a short stub (args + stop + delegate) — do not re-read duplicated procedure from the command.
 
+Vinnarens leverans följer alltid den kanoniska
+[`pr-workflow`](../pr-workflow/SKILL.md). Den här skillen äger bara kandidat- och
+domarfasen; den återberättar inte push-, PR- eller mergegrinden.
+
 ## Hard rules
 
 1. **No writes in the main checkout.** Every write step runs inside a worktree created in step 1. No `git checkout`/`switch` in the main checkout (`agent-worktree.mdc`).
-2. **No push, rebase or PR** (`git.mdc`) — but the WINNER is committed on its `kedja/<slug>-<x>` branch as the final step. An uncommitted winner looks like debris to every other agent's cleanup sweep (`kedja-clean` refuses branches with own commits — a commit is the winner's life insurance; two uncommitted winners were swept 2026-08-04). Losers stay uncommitted and are torn down after their diffs are saved.
+2. **No candidate is pushed, rebased or opened as a PR during comparison.** The WINNER is committed on its allowed `fix/kedja-<slug>-<x>` branch. If push/PR is authorised, promote it through `pr-workflow`; otherwise keep and report the local winner. Losers stay uncommitted and are torn down after their diffs are saved.
 3. **One bug.** Adjacent findings go to `/buggrapport`, not into the diff (`mvp-scope-freeze.mdc`).
 4. **Models from the canonical rule** in [`subagent-models.mdc`](../../../.cursor/rules/subagent-models.mdc): `<luna>` only for mechanical read-only localisation; `<sol>` for repro, fixes, runner and Bugbot.
 5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only. Raw `git worktree remove` follows the `node_modules` junction and empties the main checkout's copy — and dropping `--force` does not help, because git only refuses on dirty or _untracked_ entries while a junctioned `node_modules` is _ignored_. A hook denies both forms.
@@ -25,7 +29,7 @@ The default is one `<sol>` runner for steps 1–6; the parent receives only the 
 `worktree:link` refuses a path that git does not already know, so the order is fixed:
 
 ```powershell
-git worktree add ..\sajtmaskin-kedja-<slug>-a -b kedja/<slug>-a origin/master
+git worktree add ..\sajtmaskin-kedja-<slug>-a -b fix/kedja-<slug>-a origin/master
 npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
 ```
 
@@ -33,7 +37,8 @@ npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
 - `<slug>` = 2–4 words, kebab-case, transliterated (å→a, ä→a, ö→o).
 - One suffix per candidate: `-a`, `-b`, `-c`.
 - Run subagents with `working_directory` set to the worktree's absolute path, and say the path in the prompt too — an agent that guesses will land in the main checkout.
-- Teardown after the diffs are saved: `npm run worktree:remove -- ..\sajtmaskin-kedja-<slug>-b --force`.
+- Teardown only losers after their diffs are saved. Keep the winner worktree for
+  handoff or through its terminal PR, as `pr-workflow` requires.
 
 ## Prompt templates
 
@@ -162,10 +167,10 @@ Document the pass as `bugbot-local`.
 
 Which command shows the truth depends on where you are, and getting it wrong is easy:
 
-| State                                              | Verify with                                                                                                                                                                        |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Step 7, winner **not yet committed** (the default) | `git add -A -N` + `git diff master` in the worktree, or read the file on disk. `HEAD` does not contain the fix yet, so `git show HEAD:<file>` would falsely "confirm" the finding. |
-| After _After the run_ step 2, or on a PR branch    | `git diff master...HEAD` and `git show HEAD:<file>`                                                                                                                                |
+| State                                              | Verify with                                                                                                                                                                               |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Step 7, winner **not yet committed** (the default) | `git add -A -N` + `git diff origin/master` in the worktree, or read the file on disk. `HEAD` does not contain the fix yet, so `git show HEAD:<file>` would falsely "confirm" the finding. |
+| After _After the run_ step 2, or on a PR branch    | `git diff origin/master...HEAD` and `git show HEAD:<file>`                                                                                                                                |
 
 ## Judging order
 
@@ -196,16 +201,16 @@ The lesson generalises: when the fix direction is "make X stop happening", the c
 ## Report format
 
 ```markdown
-| Steg       | Utfall                                                                                        |
-| ---------- | --------------------------------------------------------------------------------------------- |
-| Acceptans  | `npx vitest run …` — rött före, grönt efter                                                   |
-| Rotorsak   | <one sentence + fil:rad>                                                                      |
-| Kandidat a | <ansats> · grön · 12 rader · **vinnare** · `..\sajtmaskin-kedja-<slug>-a` på `kedja/<slug>-a` |
-| Kandidat b | <ansats> · röd i steg 2 av domen (bröt <test>) · worktree riven, diff kvar                    |
-| Utfört av  | repro: <roll/modell> · fix a/b: <roll/modell> · dom: orkestratorn maskinellt                  |
-| Bugbot     | <findings, or "inga fynd">                                                                    |
-| Diffar     | `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-*.diff` (även utslagna)                             |
-| Ligger i   | `..\sajtmaskin-kedja-<slug>-a` på `kedja/<slug>-a`, committad (ej pushad)                     |
+| Steg       | Utfall                                                                                            |
+| ---------- | ------------------------------------------------------------------------------------------------- |
+| Acceptans  | `npx vitest run …` — rött före, grönt efter                                                       |
+| Rotorsak   | <one sentence + fil:rad>                                                                          |
+| Kandidat a | <ansats> · grön · 12 rader · **vinnare** · `..\sajtmaskin-kedja-<slug>-a` på `fix/kedja-<slug>-a` |
+| Kandidat b | <ansats> · röd i steg 2 av domen (bröt <test>) · worktree riven, diff kvar                        |
+| Utfört av  | repro: <roll/modell> · fix a/b: <roll/modell> · dom: orkestratorn maskinellt                      |
+| Bugbot     | <findings, or "inga fynd">                                                                        |
+| Diffar     | `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-*.diff` (även utslagna)                                 |
+| Ligger i   | `..\sajtmaskin-kedja-<slug>-a` på `fix/kedja-<slug>-a`, committad; ange push-/PR-status           |
 ```
 
 Every row that names a worktree must give the **absolute or repo-relative disk
@@ -213,20 +218,32 @@ path and branch**, including for eliminated candidates (their worktrees are
 torn down but the diffs stay) — the user uses this table to jump in and make
 targeted follow-up fixes.
 
-Say explicitly that the winner is committed on its kedja branch but NOT pushed, and that the backlog row stays open until it is closed in the fix PR (same-PR archival, see § After the run).
+Say explicitly whether the winner is local-only or has entered `pr-workflow`,
+and that the backlog row stays open until it is archived in the fix PR.
 
 ## After the run — orchestrator duty
 
 User runs no commands. Right after step 7:
 
 1. Save each candidate diff to `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-<x>.diff` **before** teardown. New test files are untracked — use `git add -A -N` then `git diff HEAD` (same as `captureDiff` in `scripts/cursor/kedja-clean.mjs`).
-2. **Commit the winner** on its kedja branch: real `git add <paths>` (intent-to-add alone leaves an empty blob), then commit. No push/PR unless asked (`git.mdc`). Commit is the winner's life insurance against `kedja-clean` sweeps.
-3. Remove loser worktrees: `npm run worktree:remove -- <path> --force`, then `git branch -D kedja/<slug>-<x>`.
-4. Report with the table above.
+2. **Commit the winner** on its `fix/kedja-*` branch: real `git add <paths>`
+   (intent-to-add alone leaves an empty blob), then commit.
+3. If push/PR was requested, continue with `pr-workflow`; otherwise retain the
+   winner worktree for explicit handoff. Do not invent a second delivery loop.
+4. After the diff is saved and GitHub confirms that the loser owns no open PR,
+   remove it with an explicit discard decision:
+   `SAJTMASKIN_DISCARD_REASON="Verifierad förlorarkandidat; diffen är sparad" npm run worktree:remove -- <path> --force`,
+   then `git branch -D fix/kedja-<slug>-<x>`. `--force` without that reason is
+   fail-closed and never bypasses an open PR.
+5. Report with the table above.
 
-Leftovers: `npm run kedja:clean` (dry), then `node scripts/cursor/kedja-clean.mjs --yes --keep <winner>` (flags via `node`, not npm). Never `--yes` other agents' kedja worktrees without `--keep`.
+`kedja:clean` är endast legacy-städning för äldre `kedja/*`-brancher och tar
+inte bort nya `fix/kedja-*`-refs. Nya rester hanteras med den explicita
+loser-städningen ovan och den generella `pr-workflow`-/`tidy`-livscykeln.
 
-**Backlog row closes in the same PR as the fix** (`[x]` + PR ref in archive). After merge, the merging agent tears down the winner worktree + branch.
+**Backlog row closes in the same PR as the fix** (`[x]` + PR ref in archive).
+Winner-worktree cleanup follows `pr-workflow` after terminal PR; never tear it
+down merely because a draft was opened.
 
 ## Related
 
