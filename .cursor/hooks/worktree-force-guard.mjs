@@ -25,6 +25,13 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+function writeResponse(payload) {
+  process.stdout.once("error", (error) => {
+    if (error?.code !== "EPIPE") process.exitCode = 1;
+  });
+  process.stdout.write(`${JSON.stringify(payload)}\n`);
+}
+
 /**
  * Split a shell line into independently executed parts.
  *
@@ -225,6 +232,32 @@ export function readGitAliases() {
 }
 
 /**
+ * True when the alias table can still change this command's verdict.
+ *
+ * A Git alias is only reachable through a literal `git` executable or a shell
+ * expansion that assembles one: `hasDynamicGitExecutable` requires expansion in
+ * the executable token, and every other `looksLikeGit` arm requires a literal
+ * `git`. A command with neither therefore resolves identically against any
+ * alias set, so reading the table would spend a `git config` subprocess on a
+ * verdict that cannot move. That cost is paid on EVERY tool call, and a hook
+ * that misses its deadline reads as a crashed hook and fails closed.
+ */
+export function mayResolveToGit(command) {
+  if (typeof command !== "string") return true;
+  if (SHELL_EXPANSION.test(command)) return true;
+  return /git/iu.test(command.replace(/["'\\]/gu, ""));
+}
+
+/**
+ * Read aliases only when they can matter. `new Set()` is not a weaker default
+ * here: for commands `mayResolveToGit` rejects, `isAmbiguousGitCommand` returns
+ * false for every alias set, and `isRawWorktreeRemove` never consults aliases.
+ */
+export function resolveAliasesFor(command, read = readGitAliases) {
+  return mayResolveToGit(command) ? read() : new Set();
+}
+
+/**
  * Shell expansion and Git aliases are executable code. The hook deliberately
  * refuses them instead of pretending to implement a complete shell/Git parser.
  */
@@ -372,11 +405,13 @@ function main() {
     if (!input || typeof input !== "object" || typeof input.command !== "string") {
       throw new Error("ogiltig hook-input");
     }
-    response = decide(input.command, { aliases: readGitAliases() });
+    response = decide(input.command, { aliases: resolveAliasesFor(input.command) });
   } catch {
     response = failure("ogiltig hook-input");
   }
-  process.stdout.write(`${JSON.stringify(response)}\n`);
+  // EPIPE is emitted asynchronously as a stream error; try/catch cannot
+  // intercept it. Other stdout errors remain fail-closed.
+  writeResponse(response);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
