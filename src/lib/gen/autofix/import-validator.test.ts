@@ -1,5 +1,83 @@
 import { describe, expect, it } from "vitest";
-import { runImportValidator, runImportValidatorGuarded } from "./import-validator";
+import {
+  projectManagesScopedRadix,
+  runImportValidator,
+  runImportValidatorGuarded,
+} from "./import-validator";
+
+describe("radix unification vs scoped-only manifests (prod template imports 2026-08-25)", () => {
+  // Mirrors the imported v0 template "Saas Landing Page" (fnLkUW05eg3): the
+  // archive ships shadcn ui components importing scoped @radix-ui/react-*
+  // packages and a package.json that declares exactly those. Rewriting the
+  // imports to the unified "radix-ui" package pointed 33 files at a package
+  // the manifest never declared, and the preview died on
+  // `Module not found: Can't resolve 'radix-ui'`.
+  const SCOPED_ACCORDION = [
+    "'use client'",
+    "",
+    "import * as React from 'react'",
+    "import * as AccordionPrimitive from '@radix-ui/react-accordion'",
+    "",
+    "const Accordion = AccordionPrimitive.Root",
+    "export { Accordion }",
+    "",
+  ].join("\n");
+
+  const scopedOnlyManifest = JSON.stringify({
+    name: "saas-landing-page",
+    dependencies: { "@radix-ui/react-accordion": "^1.1.2", next: "14.0.3" },
+  });
+
+  it("unifies scoped radix imports by default (own-engine baseline declares radix-ui)", () => {
+    const result = runImportValidator(SCOPED_ACCORDION);
+    expect(result.code).toContain('from "radix-ui"');
+    expect(result.code).not.toContain("@radix-ui/react-accordion");
+  });
+
+  it("keeps scoped radix imports when unifyRadixImports is off", () => {
+    const result = runImportValidator(SCOPED_ACCORDION, { unifyRadixImports: false });
+    expect(result.code).toContain("@radix-ui/react-accordion");
+    expect(result.code).not.toContain('from "radix-ui"');
+    expect(result.fixes.filter((fix) => /unified "radix-ui"/.test(fix.description))).toEqual([]);
+  });
+
+  it("detects a scoped-only manifest", () => {
+    expect(
+      projectManagesScopedRadix([{ path: "package.json", content: scopedOnlyManifest }]),
+    ).toBe(true);
+  });
+
+  it("allows unification when the manifest also declares the unified package", () => {
+    const manifest = JSON.stringify({
+      dependencies: { "radix-ui": "1.4.3", "@radix-ui/react-accordion": "^1.1.2" },
+    });
+    expect(projectManagesScopedRadix([{ path: "package.json", content: manifest }])).toBe(false);
+  });
+
+  it("allows unification when no manifest travels with the fileset (generation lane)", () => {
+    expect(projectManagesScopedRadix([{ path: "app/page.tsx", content: "export {}" }])).toBe(
+      false,
+    );
+  });
+
+  it("allows unification for a manifest without any radix dependency", () => {
+    const manifest = JSON.stringify({ dependencies: { next: "14.0.3" } });
+    expect(projectManagesScopedRadix([{ path: "package.json", content: manifest }])).toBe(false);
+  });
+
+  it("fails open on an unparseable manifest", () => {
+    expect(
+      projectManagesScopedRadix([{ path: "package.json", content: "{not json" }]),
+    ).toBe(false);
+  });
+
+  it("detects scoped-only management via devDependencies too", () => {
+    const manifest = JSON.stringify({
+      devDependencies: { "@radix-ui/react-tabs": "^1.0.4" },
+    });
+    expect(projectManagesScopedRadix([{ path: "package.json", content: manifest }])).toBe(true);
+  });
+});
 
 describe("import-validator locally declared components (prod chat f98fd5c0)", () => {
   // `components/ui/dialog.tsx` declares `DialogPortal` / `DialogOverlay` itself

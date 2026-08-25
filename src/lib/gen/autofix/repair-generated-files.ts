@@ -31,7 +31,11 @@ import {
   fixIconComponentValueMisuse,
   ensureTier2PreviewBasePathInNextConfig,
 } from "./pipeline";
-import { runImportValidatorGuarded } from "./import-validator";
+import {
+  projectManagesScopedRadix,
+  runImportValidator,
+  runImportValidatorGuarded,
+} from "./import-validator";
 
 const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
 const CSS_SCROLL_SMOOTH_RE = /scroll-behavior:\s*smooth/g;
@@ -54,6 +58,9 @@ export function repairGeneratedFiles(files: CodeFile[]): {
   const exportIndex = buildProjectExportIndex(files);
   const typeOnlyExportIndex = buildProjectTypeOnlyExportIndex(files);
   const moduleExportIndex = buildProjectModuleExportIndex(files);
+  // Verbatim repos manage scoped @radix-ui/* in their own manifest; rewriting
+  // their imports to "radix-ui" targets a package the manifest never declared.
+  const unifyRadixImports = !projectManagesScopedRadix(files);
 
   const repairedFiles = files.map((file) => {
     if (/\.css$/i.test(file.path)) {
@@ -132,7 +139,9 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     // parseable code unparseable (TS-parser check). Closes the post-merge gap
     // where finalize-preflight / preview-session / preview-render / export ran
     // import-validator unguarded.
-    const importValidatorResult = runImportValidatorGuarded(content, file.path);
+    const importValidatorResult = runImportValidatorGuarded(content, file.path, (c) =>
+      runImportValidator(c, { unifyRadixImports }),
+    );
     content = importValidatorResult.code;
     for (const fix of importValidatorResult.fixes) {
       fixes.push({ ...fix, category: "mechanical", file: file.path });

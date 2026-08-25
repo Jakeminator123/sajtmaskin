@@ -565,6 +565,12 @@ export async function runDeterministicRepairPrepass(params: {
   failedOutputs: RepairFailedOutput[];
   previewPolicy?: BuildSpecPreviewPolicy;
   chatId?: string;
+  /**
+   * True for verbatim imported repos. Threaded into the mechanical pass so the
+   * scoped-`@radix-ui/*` → unified-`"radix-ui"` rewrite stays off for a repo
+   * whose own `package.json` declares only the scoped packages.
+   */
+  verbatimRepo?: boolean;
 }): Promise<DeterministicRepairPrepassResult> {
   // Thread the version's `previewPolicy` so the F2 SDK guard
   // (`tier3-sdk-guard-fixer`) only strips tier-3 backend SDK imports in F2.
@@ -575,6 +581,7 @@ export async function runDeterministicRepairPrepass(params: {
   let content = (
     await runAutoFix(params.initialContent, {
       previewPolicy: params.previewPolicy,
+      verbatimRepo: params.verbatimRepo,
     })
   ).fixedContent;
 
