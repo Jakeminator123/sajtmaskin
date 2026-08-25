@@ -9,12 +9,15 @@ import {
   invokesGit,
   isAmbiguousGitCommand,
   nestedShellPayloads,
-  readGitAliases,
+  resolveAliasesFor,
   shellSegments,
   shellTokens,
 } from "../../.cursor/hooks/worktree-force-guard.mjs";
 
 function respond(payload) {
+  process.stdout.once("error", (error) => {
+    if (error?.code !== "EPIPE") process.exitCode = 1;
+  });
   process.stdout.write(`${JSON.stringify(payload)}\n`);
 }
 
@@ -198,15 +201,29 @@ export function includesTrackedChanges(command) {
   );
 }
 
+/**
+ * @param {string} command
+ * @param {{
+ *   git?: (args: string[], cwd?: string) => string[],
+ *   env?: Record<string, string | undefined>,
+ *   aliases?: Set<string> | null,
+ *   cwd?: string,
+ * }} [options] `aliases` omitted means "resolve lazily"; an explicit value
+ *   (including `null`, i.e. inspection failed) is used as given.
+ */
 export function decideCommitCommand(
   command,
-  { git = gitFiles, env = process.env, aliases = readGitAliases(), cwd = process.cwd() } = {},
+  { git = gitFiles, env = process.env, aliases, cwd = process.cwd() } = {},
 ) {
   if (typeof command !== "string" || !command.trim()) return deny("saknat kommando");
-  if (isAmbiguousGitCommand(command, aliases)) {
+  // Resolved after the cheap input check and only when the command could reach
+  // git at all — an eager default argument spent a `git config` subprocess on
+  // every unrelated tool call, including the ones this guard immediately allows.
+  const resolved = aliases === undefined ? resolveAliasesFor(command) : aliases;
+  if (isAmbiguousGitCommand(command, resolved)) {
     return deny("dynamiskt eller aliasbaserat git-kommando — skriv det explicita git-kommandot");
   }
-  if (!isCommitCommand(command, { aliases })) return { permission: "allow" };
+  if (!isCommitCommand(command, { aliases: resolved })) return { permission: "allow" };
   if (OPAQUE_REPO_OPTION_RE.test(command)) {
     return deny("--git-dir/--work-tree kan peka på en annan checkout; kör commiten i dess worktree");
   }
