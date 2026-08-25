@@ -1,0 +1,11 @@
+flowchart TD
+    U["Användarens prompt"] --> N["Vercel Next API"]
+    N --> O["Brief, BuildSpec och kontrakt"]
+    O --> L["Kodmodell streamar kandidat"]
+    L --> F["Finalize, autofix och preflight"]
+    F --> D[("Postgres engine_versions.files_json")]
+    D --> H["Fly preview-host"]
+    H --> W["Live workspace per chat"]
+    H --> V["Isolerad verify-workspace"]
+    W --> P["Next dev och preview-iframe"]
+    V --> G["RenderGate eller ReleaseGate"]

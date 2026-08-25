@@ -81,4 +81,7 @@
   // ── Git: hämta från origin automatiskt, snabbare än default 180 s ──
   "git.autofetch": true,
   "git.autofetchPeriod": 120
+
+  // Terminalprofilerna (pwsh 7) är window-scopade och ignoreras härifrån när
+  // repot öppnas via sajtmaskin.code-workspace. De ägs av den filen.
 }
