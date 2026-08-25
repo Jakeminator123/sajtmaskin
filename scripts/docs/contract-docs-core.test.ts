@@ -55,6 +55,16 @@ describe("contract docs source coverage", () => {
     );
   });
 
+  it("projects explicit dossier verification status", () => {
+    const generated = baselineDocs.get(GENERATED_DOC_FAMILIES.dossiers.output);
+    const calcomRow = generated
+      ?.split("\n")
+      .find((line: string) => line.includes("| `calcom-booking` "));
+
+    expect(generated).toContain("| Verification status | Last verified |");
+    expect(calcomRow).toContain("| `unverified` | `2026-08-24` |");
+  });
+
   it("changes scaffold output when a scaffold manifest field changes", async () => {
     const scaffolds = structuredClone(inputs.scaffolds);
     const scaffold = scaffolds[0];

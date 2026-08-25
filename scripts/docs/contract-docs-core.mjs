@@ -416,7 +416,9 @@ function renderDossiers(dossiers, dossierRequiresF3, resolveDossierGroup, f2Mute
           dossierRequiresF3(dossier),
         )} | ${yesNo(dossier.defaultForCapability)} | ${renderEnvVars(dossier)} | ${list(
           dossier.dependencies ?? [],
-        )} | ${renderFileRoles(dossier)} | ${code(dossier.lastVerified)} |`,
+        )} | ${renderFileRoles(dossier)} | ${code(
+          dossier.verificationStatus ?? "accepted",
+        )} | ${code(dossier.lastVerified)} |`,
     );
 
   return [
@@ -439,8 +441,8 @@ function renderDossiers(dossiers, dossierRequiresF3, resolveDossierGroup, f2Mute
     "Env values and instruction text are intentionally excluded. Manifest mock mode describes behavior after dossier materialization without live configuration; it does not mean the dossier is injected during normal designläge.",
     "Canonical owners: dossier manifests; designläge disposition in `getF2MutedIntegrationCapabilities()`; build/server requirement in `dossierRequiresF3()`; presentation group in `resolveDossierGroup()`. Validator/schema mirror: runtime manifest validation and the strict dossier schema.",
     "",
-    "| Group | Capability | ID | Label | Class | Providers | Designläge | Manifest mock | Build/server requirement | Default | Env contract | Dependencies | File roles | Last verified |",
-    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+    "| Group | Capability | ID | Label | Class | Providers | Designläge | Manifest mock | Build/server requirement | Default | Env contract | Dependencies | File roles | Verification status | Last verified |",
+    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ...rows,
     "",
   ].join("\n");

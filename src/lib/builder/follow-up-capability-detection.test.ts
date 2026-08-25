@@ -135,6 +135,22 @@ describe("detectFollowUpCapabilities — booking", () => {
     }
   });
 
+  it("detects possessive appointment objects and Swedish service nouns", () => {
+    for (const prompt of [
+      "customers can schedule their appointments online",
+      "customers can book a consultation online",
+      "customers can book a meeting online",
+      "kunder ska kunna boka sina tider online",
+      "kunder ska kunna boka konsultationer online",
+      "boka en ledig tid",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).toContain("booking");
+      expect(
+        detectFollowUpCapabilities(prompt, { mode: "init" }).capabilityIds,
+      ).toContain("booking");
+    }
+  });
+
   it("vetoes inventory-first booking phrases", () => {
     for (const prompt of [
       "add a hotel booking system",
@@ -146,6 +162,21 @@ describe("detectFollowUpCapabilities — booking", () => {
       "lägg till Cal.com-hotellbokningssystem",
       "lägg till Cal.com för rumsbokning",
       "lägg till Cal.com så kunder kan boka bord",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("booking");
+    }
+  });
+
+  it("vetoes modified and compound inventory resources", () => {
+    for (const prompt of [
+      "add a booking system for rental cars",
+      "add a booking system for football fields",
+      "add a booking system for event spaces",
+      "lägg till ett bokningssystem för konferensrum",
+      "add appointment scheduling for rental cars",
+      "lägg till ett bokningssystem för padel",
+      "lägg till onlinebokning för golf",
+      "add a booking system for tennis",
     ]) {
       expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("booking");
     }
@@ -173,6 +204,14 @@ describe("detectFollowUpCapabilities — booking", () => {
     ]) {
       expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("booking");
     }
+  });
+
+  it("keeps an independent appointment clause when another clause books inventory", () => {
+    const result = detectFollowUpCapabilities(
+      "add Cal.com appointment scheduling for consultations and let customers book equipment",
+    );
+
+    expect(result.capabilityIds).toContain("booking");
   });
 
   it("does not route inventory reservations to Cal.com", () => {
