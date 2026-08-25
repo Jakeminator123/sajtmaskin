@@ -26,11 +26,11 @@ domarfasen; den återberättar inte push-, PR- eller mergegrinden.
 
 ## Worktree recipe
 
-`worktree:link` refuses a path that git does not already know, so the order is fixed:
+`worktree:setup` refuses a path that git does not already know, so the order is fixed:
 
 ```powershell
 git worktree add ..\sajtmaskin-kedja-<slug>-a -b fix/kedja-<slug>-a origin/master
-npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
+npm run worktree:setup -- ..\sajtmaskin-kedja-<slug>-a
 ```
 
 - **Always pass the base `origin/master`.** Omit it and git bases the candidate on the main checkout's HEAD at that moment, so every candidate silently inherits whatever the owner has committed locally but not pushed. All candidates must start from the same published trunk, or the judging round compares diffs against different baselines.
