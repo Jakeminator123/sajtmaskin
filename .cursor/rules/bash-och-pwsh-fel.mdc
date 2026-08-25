@@ -19,6 +19,12 @@ Bifogas vid behov. Kort alwaysApply-stub: `bash-och-pwsh.mdc`.
 | Parse error på here-string | `'@`/`"@` inte i kolumn 0, eller text efter `@'`/`@"` på öppningsraden | Stängningstoken längst till vänster; inget efter öppningstoken |
 | Oväntad variabel-/backtick-expansion (`$`, `` ` ``) | Dubbelcitat och `@" "@` expanderar | Enkla citat `'...'` / `@' '@` för literal text (regex, `$`, backticks) |
 | Trunkerad (`…`) eller tom output vid pipe till fil | PS formaterar objekt för konsolbredd | Avsluta med `| Out-String` (ev. `| Format-Table -Auto | Out-String -Width 4096`) |
+| Banner `Copyright (C) Microsoft Corporation` + `aka.ms/pscore6` | Interaktiv **Windows PowerShell 5.1**, inte `pwsh` 7 | Kör `C:\Program Files\PowerShell\7\pwsh.exe -NoLogo`. `powershell.exe` är alltid 5.1 |
+| `pwsh` är 0.0.0.0 / Store-prompt / tom exe | `WindowsApps\pwsh.exe` App Execution Alias före riktiga MSI-installationen | User PATH ska man `C:\Program Files\PowerShell\7` **före** WindowsApps. Verifiera med `where.exe pwsh` |
+| `The token '&&' is not a valid statement separator` | Kommando kördes i 5.1 (`&&` kom i 7) | Kedja med `;` och `$LASTEXITCODE` — även om du *tror* du är i pwsh |
+| `spawnSync('npm.cmd')` → `EINVAL` | Node ≥ 20 vägrar `.cmd`/`.bat` utan shell (CVE-2024-27980) | `shell: process.platform === "win32"` bara för npm/npx. `git` ska förbli shell-fri |
+| `npx`/`npm` exit 0 + tom stdout → nollbytesfil | Samma spawn utan shell, men fail-open | Samma `shell: true` på Windows. Se `scripts/observability/dump-fixer-registry.mjs` |
+| Svenska tecken blir `├ñ` / `ÔÇö` i filer | 5.1 default-encoding är inte UTF-8 | Skriv med Cursor StrReplace eller `[System.IO.File]::WriteAllText(..., UTF8)` från **pwsh 7** |
 
 ## Commit-meddelanden: mallen du minns är bash
 

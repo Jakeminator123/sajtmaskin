@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820" role="img" aria-labelledby="title desc">
+  <title id="title">Behörighetsgränser för OpenClaw Builder</title>
+  <desc id="desc">Agenten har breda rättigheter i sin isolerade sandbox men når bara ägd snapshot, checks, kandidatpreview och submit genom en smal broker. Plattformsadministration nekas.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#475569"/></marker>
+    <style>.t{font-family:Inter,Segoe UI,Arial,sans-serif;fill:#0f172a}.h{font-size:30px;font-weight:600}.s{font-size:16px;fill:#475569}.l{font-size:18px;font-weight:600}.sm{font-size:14px;fill:#475569}.n{fill:#eff6ff;stroke:#2563eb;stroke-width:2}.g{fill:#ecfdf5;stroke:#059669;stroke-width:2}.w{fill:#fffbeb;stroke:#d97706;stroke-width:2}.r{fill:#fef2f2;stroke:#dc2626;stroke-width:2}.a{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.deny{stroke:#dc2626;stroke-width:2.5;stroke-dasharray:9 7;fill:none;marker-end:url(#arrow)}</style>
+  </defs>
+  <text x="640" y="48" text-anchor="middle" class="t h">Bred i projektet, smal i plattformen</text>
+  <text x="640" y="78" text-anchor="middle" class="t s">Systemprompten är inte säkerhetsgränsen — brokern är det</text>
+
+  <rect x="430" y="118" width="420" height="76" rx="14" class="w"/>
+  <text x="640" y="164" text-anchor="middle" class="t l">OpenClaw Builder</text>
+
+  <rect x="365" y="246" width="550" height="108" rx="20" class="g"/>
+  <text x="640" y="282" text-anchor="middle" class="t l">Egen efemär sandbox</text>
+  <text x="640" y="309" text-anchor="middle" class="t sm">läsa · skapa · ändra · radera kandidatfiler</text>
+  <text x="640" y="333" text-anchor="middle" class="t sm">rootless · hemlighetsfri · bounded · isolerad per jobb</text>
+
+  <rect x="390" y="414" width="500" height="92" rx="18" class="n"/>
+  <text x="640" y="450" text-anchor="middle" class="t l">Policy Tool Broker</text>
+  <text x="640" y="477" text-anchor="middle" class="t sm">token · tenant · scope · revision · budget · audit</text>
+
+  <rect x="70" y="596" width="340" height="96" rx="14" class="g"/>
+  <text x="240" y="631" text-anchor="middle" class="t l">Tillåtet</text>
+  <text x="240" y="658" text-anchor="middle" class="t sm">ägd snapshot · BuildSpec · source receipt</text>
+  <text x="240" y="680" text-anchor="middle" class="t sm">list/search/read</text>
+
+  <rect x="470" y="596" width="340" height="96" rx="14" class="g"/>
+  <text x="640" y="631" text-anchor="middle" class="t l">Tillåtet</text>
+  <text x="640" y="658" text-anchor="middle" class="t sm">checks · candidate preview · scrubbed evidence</text>
+  <text x="640" y="680" text-anchor="middle" class="t sm">submit med CAS</text>
+
+  <rect x="870" y="596" width="340" height="146" rx="14" class="r"/>
+  <text x="1040" y="631" text-anchor="middle" class="t l">Alltid nekat</text>
+  <text x="1040" y="658" text-anchor="middle" class="t sm">DB-admin · andra tenants · Fly-shell</text>
+  <text x="1040" y="681" text-anchor="middle" class="t sm">Render/Vercel-admin · plattforms-GitHub write</text>
+  <text x="1040" y="704" text-anchor="middle" class="t sm">fri egress · promotion · live deploy</text>
+
+  <path d="M640 194L640 246" class="a"/><path d="M640 354L640 414" class="a"/>
+  <path d="M640 506L640 552L240 552L240 596" class="a"/><path d="M640 506L640 596" class="a"/>
+  <path d="M890 460L1040 460L1040 596" class="deny"/>
+  <text x="1080" y="485" text-anchor="middle" class="t sm">policy deny</text>
+</svg>

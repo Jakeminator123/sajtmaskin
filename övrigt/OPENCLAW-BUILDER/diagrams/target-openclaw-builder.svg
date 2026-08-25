@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1380" height="1080" viewBox="0 0 1380 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Målarkitektur för OpenClaw Builder</title>
+  <desc id="desc">En separat OpenClaw Builder arbetar i en efemär sandbox via en policybroker och lämnar en kandidat till Sajtmaskins befintliga finalize, versionering och kvalitetsgrindar.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#475569"/></marker>
+    <style>.t{font-family:Inter,Segoe UI,Arial,sans-serif;fill:#0f172a}.h{font-size:30px;font-weight:600}.s{font-size:16px;fill:#475569}.l{font-size:18px;font-weight:600}.sm{font-size:14px;fill:#475569}.n{fill:#eff6ff;stroke:#2563eb;stroke-width:2}.d{fill:#f5f3ff;stroke:#7c3aed;stroke-width:2}.g{fill:#ecfdf5;stroke:#059669;stroke-width:2}.w{fill:#fffbeb;stroke:#d97706;stroke-width:2}.r{fill:#fef2f2;stroke:#dc2626;stroke-width:2}.a{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.loop{stroke:#7c3aed;stroke-width:2.5;stroke-dasharray:8 7;fill:none;marker-end:url(#arrow)}</style>
+  </defs>
+  <text x="690" y="48" text-anchor="middle" class="t h">OpenClaw Builder: agent ovanpå befintliga räcken</text>
+  <text x="690" y="78" text-anchor="middle" class="t s">Bred projektmakt i sandbox · smal plattformsmakt via broker</text>
+
+  <rect x="465" y="110" width="450" height="72" rx="14" class="n"/>
+  <text x="690" y="154" text-anchor="middle" class="t l">Användarprompt</text>
+
+  <rect x="430" y="220" width="520" height="96" rx="14" class="g"/>
+  <text x="690" y="255" text-anchor="middle" class="t l">Sajtmaskin Job Controller</text>
+  <text x="690" y="281" text-anchor="middle" class="t sm">auth · brief · GenerationInputPackage · base/revision · budget</text>
+
+  <rect x="445" y="356" width="490" height="84" rx="14" class="d"/>
+  <text x="690" y="390" text-anchor="middle" class="t l">Signerad JobSpec + kortlivad jobtoken</text>
+  <text x="690" y="416" text-anchor="middle" class="t sm">tenant/project/chat/version/revision/tool scopes</text>
+
+  <rect x="80" y="500" width="390" height="100" rx="18" class="w"/>
+  <text x="275" y="537" text-anchor="middle" class="t l">Separat OpenClaw Builder</text>
+  <text x="275" y="563" text-anchor="middle" class="t sm">planerar, navigerar och väljer nästa tool</text>
+  <text x="275" y="585" text-anchor="middle" class="t sm">ingen plattformscredential</text>
+
+  <rect x="505" y="500" width="370" height="100" rx="18" class="n"/>
+  <text x="690" y="537" text-anchor="middle" class="t l">Efemär sandbox per jobb</text>
+  <text x="690" y="563" text-anchor="middle" class="t sm">exakt base snapshot + kandidat-overlay</text>
+  <text x="690" y="585" text-anchor="middle" class="t sm">rootless · bounded · default-deny egress</text>
+
+  <rect x="910" y="500" width="390" height="100" rx="18" class="g"/>
+  <text x="1105" y="537" text-anchor="middle" class="t l">Policy Tool Broker</text>
+  <text x="1105" y="563" text-anchor="middle" class="t sm">auth och scope på varje anrop</text>
+  <text x="1105" y="585" text-anchor="middle" class="t sm">audit · redaction · rate/budget</text>
+
+  <rect x="910" y="666" width="390" height="94" rx="14" class="d"/>
+  <text x="1105" y="701" text-anchor="middle" class="t l">Checks, preview och evidens</text>
+  <text x="1105" y="727" text-anchor="middle" class="t sm">inga direkta Fly-/DB-/deployrättigheter</text>
+
+  <rect x="480" y="680" width="420" height="84" rx="14" class="w"/>
+  <text x="690" y="714" text-anchor="middle" class="t l">Komplett kandidatsnapshot</text>
+  <text x="690" y="740" text-anchor="middle" class="t sm">diff, hash, receipts och idempotency</text>
+
+  <rect x="430" y="828" width="520" height="92" rx="14" class="g"/>
+  <text x="690" y="863" text-anchor="middle" class="t l">Befintlig CAS, finalize och persist</text>
+  <text x="690" y="889" text-anchor="middle" class="t sm">stale guard · mergepolicy · preflight · versionstransaktion</text>
+
+  <rect x="110" y="974" width="480" height="76" rx="14" class="d"/>
+  <text x="350" y="1008" text-anchor="middle" class="t l">Ny draftversion i Postgres</text>
+  <text x="350" y="1032" text-anchor="middle" class="t sm">kanonisk snapshot</text>
+
+  <rect x="790" y="974" width="480" height="76" rx="14" class="g"/>
+  <text x="1030" y="1008" text-anchor="middle" class="t l">Officiell preview och gates</text>
+  <text x="1030" y="1032" text-anchor="middle" class="t sm">RenderGate · ReleaseGate · lifecycle</text>
+
+  <path d="M690 182L690 220" class="a"/><path d="M690 316L690 356" class="a"/>
+  <path d="M690 440L690 470L275 470L275 500" class="a"/><path d="M690 440L690 500" class="a"/>
+  <path d="M690 440L690 470L1105 470L1105 500" class="a"/>
+  <path d="M470 550L505 550" class="a"/><path d="M875 550L910 550" class="a"/>
+  <path d="M1105 600L1105 666" class="a"/><path d="M910 713L900 713" class="a"/>
+  <path d="M910 713C850 650 760 630 470 560" class="loop"/>
+  <path d="M690 764L690 828" class="a"/>
+  <path d="M690 920L690 950L350 950L350 974" class="a"/><path d="M690 920L690 950L1030 950L1030 974" class="a"/>
+</svg>
