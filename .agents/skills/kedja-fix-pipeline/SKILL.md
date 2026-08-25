@@ -21,16 +21,16 @@ domarfasen; den återberättar inte push-, PR- eller mergegrinden.
 2. **No candidate is pushed, rebased or opened as a PR during comparison.** The WINNER is committed on its allowed `fix/kedja-<slug>-<x>` branch. If push/PR is authorised, promote it through `pr-workflow`; otherwise keep and report the local winner. Losers stay uncommitted and are torn down after their diffs are saved.
 3. **One bug.** Adjacent findings go to `/buggrapport`, not into the diff (`mvp-scope-freeze.mdc`).
 4. **Models from the canonical rule** in [`subagent-models.mdc`](../../../.cursor/rules/subagent-models.mdc): `<luna>` only for mechanical read-only localisation; `<sol>` for repro, fixes, runner and Bugbot.
-5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only. Raw `git worktree remove` follows the `node_modules` junction and empties the main checkout's copy — and dropping `--force` does not help, because git only refuses on dirty or _untracked_ entries while a junctioned `node_modules` is _ignored_. A hook denies both forms.
+5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only. New worktrees use local dependencies, but the wrapper also detects and safely detaches any legacy junction before removal. A hook denies both raw forms.
 6. **One retry, then stop.** Two red judging rounds means the bug is too big for the chain; report that instead of looping.
 
 ## Worktree recipe
 
-`worktree:link` refuses a path that git does not already know, so the order is fixed:
+`worktree:setup` refuses a path that git does not already know, so the order is fixed:
 
 ```powershell
 git worktree add ..\sajtmaskin-kedja-<slug>-a -b fix/kedja-<slug>-a origin/master
-npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
+npm run worktree:setup -- ..\sajtmaskin-kedja-<slug>-a
 ```
 
 - **Always pass the base `origin/master`.** Omit it and git bases the candidate on the main checkout's HEAD at that moment, so every candidate silently inherits whatever the owner has committed locally but not pushed. All candidates must start from the same published trunk, or the judging round compares diffs against different baselines.

@@ -19,9 +19,9 @@ Tre roller. Högst två säten (`A` / `B`) samtidigt. Sätet är en **etikett p�
 
 **Säg inte** «gå till eget worktree» varje gång. Rollen Builder betyder redan:
 `git worktree add ..\sajtmaskin-<säte>-<kort> -b <typ>/<kort> origin/master` och
-sedan `npm run worktree:link -- <sökväg>`. Behåll den tills PR:n är terminal.
+sedan `npm run worktree:setup -- <sökväg>`. Behåll den tills PR:n är terminal.
 
-**node_modules:** en riktig kopia, i huvudcheckouten. Worktrees länkar dit. Kör inte `npm ci` per worktree.
+**node_modules:** en lokal installation per worktree, skapad från worktreets egen `package-lock.json` av `worktree:setup`. Dela inte katalogen mellan brancher.
 
 **Sign-off:** sista raden är `— <Roll> <Säte>`, till exempel `— Builder A` eller `— Steward B`.
 

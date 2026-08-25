@@ -30,7 +30,7 @@ Egen worktree bredvid repo-roten, aldrig under `.cursor/`:
 
 ```powershell
 git worktree add ..\sajtmaskin-feat-X -b feat/X origin/master
-npm run worktree:link -- ..\sajtmaskin-feat-X
+npm run worktree:setup -- ..\sajtmaskin-feat-X
 ```
 
 Behåll worktreet medan PR:n är öppen och CI/review kan kräva nya commits. Ta
@@ -39,13 +39,14 @@ bort den först efter merge/close och verifierad remote-status, med
 
 **Ange alltid basen `origin/master`.** Utan den tar git huvudcheckoutens HEAD _just då_, så branchen ärver vad ägaren eller en annan agent råkar ha committat lokalt men inte pushat. Det hände 2026-08-17: en parallell agents branch fick merge-base `efc2eb89d`, en commit som låg osynligt på lokal master. (Ocommitterat läcker aldrig — `worktree add` checkar ut från en commit, inte från arbetskopian.)
 
-**Junction-fällan:** kör aldrig rå `git worktree remove` på en worktree med junction-länkad `node_modules` — den följer länken och tömmer **huvudcheckoutens** `node_modules`. Att utelämna `--force` skyddar inte: git vägrar bara vid smutsig tree eller **ospårade** filer, och en junctionad `node_modules` är _ignorerad_, alltså osynlig för den kontrollen. Använd `npm run worktree:remove`, som kopplar loss länken först. Hooken `.cursor/hooks/worktree-force-guard.mjs` blockerar båda varianterna.
+**Dependencies:** `worktree:setup` kör lokal `npm ci` från worktreets egen lockfil och synkar `.cursor/mcp.json`. Dela inte `node_modules` mellan worktrees; olika brancher kan ha olika lockfiler. Använd fortfarande `npm run worktree:remove`: den kan säkert koppla loss äldre junctioner som ännu finns kvar. Hooken `.cursor/hooks/worktree-force-guard.mjs` blockerar rå borttagning.
 
 Flera agenter samtidigt: max **en** git-mutator i huvudcheckouten, övriga i egen worktree. En branch som "försvinner" är oftast redan mergad — verifiera med `git log`/`gh pr view` innan du tror att arbete gått förlorat.
 
 ## Codex
 
-Codex har en **egen permanent checkout** — inte huvudcheckouten. Sökväg och
+Codex har en **egen permanent worktree** — inte huvudcheckouten, men i samma
+Git-familj och med samma common `.git`. Sökväg och
 branch ägs av [`.codex/README.md`](../../.codex/README.md). `codex/workspace`
 är skyddat i `tidy` precis som `rescue/*`. Skriv inte i Cursor-checkouten
 från Codex, och ta inte bort den permanenta Codex-ytan med

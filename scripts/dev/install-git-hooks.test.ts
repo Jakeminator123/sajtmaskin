@@ -13,10 +13,14 @@ import {
 } from "./install-git-hooks.mjs";
 
 // Två tester nedan kör den riktiga hooken genom en POSIX-shell. Windows utan
-// Git Bash saknar `sh`, och då rapporterar spawnSync ENOENT i stället för
-// hookens exitkod — ett falskt rött som inte säger något om hooken. CI kör
-// Linux och behåller därför full täckning.
-const hasPosixShell = spawnSync("sh", ["-c", "exit 0"]).status === 0;
+// Git Bash saknar `sh` i PATH, och då rapporterar spawnSync ENOENT i stället
+// för hookens exitkod. Peka därför på Git for Windows `sh.exe` när den finns.
+// CI kör Linux och behåller full täckning.
+const SH =
+  process.platform === "win32"
+    ? join(process.env.ProgramFiles ?? "C:\\Program Files", "Git", "usr", "bin", "sh.exe")
+    : "sh";
+const hasPosixShell = spawnSync(SH, ["-c", "exit 0"]).status === 0;
 const itWithPosixShell = hasPosixShell ? it : it.skip;
 
 // Skyddar dev/prod-symmetrin: prod migreras av CI vid push till master, dev av
@@ -24,7 +28,7 @@ const itWithPosixShell = hasPosixShell ? it : it.skip;
 // ett schema koden lämnat bakom sig".
 describe("renderHookScript", () => {
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(6);
+    expect(HOOK_VERSION).toBe(7);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -51,6 +55,14 @@ describe("renderHookScript", () => {
   it("är en no-op i repon som saknar skriptet (global core.hooksPath)", () => {
     for (const hook of ["post-merge", "post-checkout", "post-rewrite"] as const) {
       expect(renderHookScript(hook)).toContain("[ -f scripts/db/ensure-schema.mjs ] || exit 0");
+    }
+  });
+
+  it("är en no-op i en ny worktree innan dependencies har installerats", () => {
+    for (const hook of ["post-merge", "post-checkout", "post-rewrite"] as const) {
+      const script = renderHookScript(hook);
+      expect(script).toContain("[ -f node_modules/pg/package.json ] || exit 0");
+      expect(script).toContain("[ -f node_modules/dotenv/package.json ] || exit 0");
     }
   });
 
@@ -125,7 +137,7 @@ describe("renderHookScript", () => {
       HOOK_GIT_HEAD: "a".repeat(40),
     };
 
-    const rejected = spawnSync("sh", [hook], {
+    const rejected = spawnSync(SH, [hook], {
       cwd: root,
       input: refLine,
       env: { ...env, CI: "false" },
@@ -134,7 +146,7 @@ describe("renderHookScript", () => {
     expect(rejected.status).toBe(1);
     expect(rejected.stderr).toContain("non-fast-forward");
 
-    const accepted = spawnSync("sh", [hook], {
+    const accepted = spawnSync(SH, [hook], {
       cwd: root,
       input: refLine,
       env: { ...env, HOOK_GIT_ANCESTOR: "1" },
@@ -142,7 +154,7 @@ describe("renderHookScript", () => {
     });
     expect(accepted.status).toBe(0);
 
-    const dirty = spawnSync("sh", [hook], {
+    const dirty = spawnSync(SH, [hook], {
       cwd: root,
       input: refLine,
       env: { ...env, HOOK_GIT_ANCESTOR: "1", HOOK_GIT_DIRTY: "1" },
@@ -152,7 +164,7 @@ describe("renderHookScript", () => {
     expect(dirty.stderr).toContain("arbetskopian har ocommitterade");
 
     const masterLine = `refs/heads/master ${"a".repeat(40)} refs/heads/master ${"b".repeat(40)}\n`;
-    const directMaster = spawnSync("sh", [hook], {
+    const directMaster = spawnSync(SH, [hook], {
       cwd: root,
       input: masterLine,
       env: { ...env, HOOK_GIT_ANCESTOR: "1" },
@@ -168,7 +180,7 @@ describe("renderHookScript", () => {
       SAJTMASKIN_BREAK_GLASS_REASON: "Akut aterstallning av trasig mergegrind",
     };
     expect(
-      spawnSync("sh", [hook], {
+      spawnSync(SH, [hook], {
         cwd: root,
         input: masterLine,
         env: breakGlass,
@@ -176,7 +188,7 @@ describe("renderHookScript", () => {
       }).status,
     ).toBe(0);
 
-    const forcedMaster = spawnSync("sh", [hook], {
+    const forcedMaster = spawnSync(SH, [hook], {
       cwd: root,
       input: masterLine,
       env: { ...breakGlass, HOOK_GIT_ANCESTOR: "0" },
@@ -185,7 +197,7 @@ describe("renderHookScript", () => {
     expect(forcedMaster.status).toBe(1);
     expect(forcedMaster.stderr).toContain("master far aldrig force-pushas");
 
-    const frozenBackupDelete = spawnSync("sh", [hook], {
+    const frozenBackupDelete = spawnSync(SH, [hook], {
       cwd: root,
       input: `refs/heads/BRA_snapshot ${"0".repeat(40)} refs/heads/BRA_snapshot ${"b".repeat(40)}\n`,
       env,
@@ -194,7 +206,7 @@ describe("renderHookScript", () => {
     expect(frozenBackupDelete.status).toBe(1);
     expect(frozenBackupDelete.stderr).toContain("fryst backup");
 
-    const frozenRescueUpdate = spawnSync("sh", [hook], {
+    const frozenRescueUpdate = spawnSync(SH, [hook], {
       cwd: root,
       input: `refs/heads/rescue/owner ${"a".repeat(40)} refs/heads/rescue/owner ${"0".repeat(40)}\n`,
       env: { ...env, HOOK_GIT_ANCESTOR: "1" },
@@ -203,7 +215,7 @@ describe("renderHookScript", () => {
     expect(frozenRescueUpdate.status).toBe(1);
     expect(frozenRescueUpdate.stderr).toContain("fryst backup");
 
-    const ghaStillRejectsUnsafeRef = spawnSync("sh", [hook], {
+    const ghaStillRejectsUnsafeRef = spawnSync(SH, [hook], {
       cwd: root,
       input: refLine,
       env: { ...env, GITHUB_ACTIONS: "true" },
@@ -212,7 +224,7 @@ describe("renderHookScript", () => {
     expect(ghaStillRejectsUnsafeRef.status).toBe(1);
     expect(ghaStillRejectsUnsafeRef.stderr).toContain("non-fast-forward");
 
-    const otherLocalRef = spawnSync("sh", [hook], {
+    const otherLocalRef = spawnSync(SH, [hook], {
       cwd: root,
       input: `refs/heads/fix/other ${"c".repeat(40)} refs/heads/fix/other ${"0".repeat(40)}\n`,
       env,
@@ -240,7 +252,7 @@ describe("renderHookScript", () => {
     chmodSync(hook, 0o755);
     const deleteLine = `refs/heads/fix/merged ${"0".repeat(40)} refs/heads/fix/merged ${"b".repeat(40)}\n`;
 
-    const rejected = spawnSync("sh", [hook], {
+    const rejected = spawnSync(SH, [hook], {
       cwd: root,
       input: deleteLine,
       env: {
@@ -253,7 +265,7 @@ describe("renderHookScript", () => {
     expect(rejected.status).toBe(1);
     expect(rejected.stderr).toContain("remote-delete kraver exakt terminal PR/head-bevis");
 
-    const accepted = spawnSync("sh", [hook], {
+    const accepted = spawnSync(SH, [hook], {
       cwd: root,
       input: deleteLine,
       env: {

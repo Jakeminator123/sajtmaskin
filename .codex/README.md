@@ -11,12 +11,13 @@ för investigator/reviewer och Sol `high` för worker.
 ## Så här ska projektet öppnas
 
 - Cursor behåller huvudcheckouten
-  `C:\Users\jakem\dev\projects\sajtmaskin` som läs-, test- och kontrollankare
+  `C:\Users\jakob\dev\projects\sajtmaskin` som läs-, test- och kontrollankare
   på `master`. Normalt skrivarbete sker i uppgiftens egen worktree/branch enligt
   `pr-workflow`, aldrig direkt i huvudcheckouten.
 - Primary folder i Codex-projektet `sajtmaskin` är den permanenta worktreen
-  `C:\Users\jakem\Documents\codex-sajtmaskin\sajtmaskin-worktrees\codex`
-  på branchen `codex/workspace`.
+  `C:\Users\jakob\dev\projects\sajtmaskin-codex` på branchen
+  `codex/workspace`. Den är en riktig worktree i samma Git-familj som
+  huvudcheckouten, inte en separat klon.
 - `codex/workspace` är ett återanvändbart projektankare, inte en tillfällig
   feature-worktree. `tidy` skyddar namnet; ta inte bort den som `FRI`.
 - Starta nya Codex-chattar från projektet `sajtmaskin`. Parallellt eller

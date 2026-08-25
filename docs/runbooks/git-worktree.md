@@ -25,13 +25,13 @@ docs/regler, går via egen worktree, branch och PR enligt
 
 Rollen äger frågan. Säg inte «gå till eget worktree» till varje agent.
 
-| Roll    | Worktree?                                                                           |
-| ------- | ----------------------------------------------------------------------------------- |
-| Scout   | Nej                                                                                 |
-| Builder | Ja, från färsk `origin/master`, därefter `npm run worktree:link`. Även docs/regler. |
-| Steward | Nej för merge (`gh` räcker). Ja bara vid konflikt.                                  |
+| Roll    | Worktree?                                                                            |
+| ------- | ------------------------------------------------------------------------------------ |
+| Scout   | Nej                                                                                  |
+| Builder | Ja, från färsk `origin/master`, därefter `npm run worktree:setup`. Även docs/regler. |
+| Steward | Nej för merge (`gh` räcker). Ja bara vid konflikt.                                   |
 
-`node_modules` används hela tiden (typecheck, test, dev). Det finns **en** riktig installation — i huvudcheckouten. En worktree utan länk måste annars köra `npm ci` (~flera minuter). Ändra inte `package.json` i två Builder-säten samtidigt: de delar samma installation.
+`node_modules` används hela tiden (typecheck, test, dev). Varje worktree har en **egen** installation från sin egen `package-lock.json`. Det tar längre tid vid skapandet, men brancher kan då ändra dependencies utan att förgifta varandras ESLint, Next, TypeScript eller testkörningar.
 
 ## Skapa en worktree
 
@@ -41,7 +41,7 @@ Bredvid repo-roten, aldrig under `.cursor/`. Namn: `sajtmaskin-<säte>-<kort>`, 
 git fetch origin master
 git worktree add ..\sajtmaskin-feat-X -b feat/X origin/master
 Set-Location ..\sajtmaskin-feat-X
-npm run worktree:link -- ..\sajtmaskin-feat-X
+npm run worktree:setup -- ..\sajtmaskin-feat-X
 # jobba, kör verify:pr, öppna draft-PR och behåll worktreet för fixrundor
 # först efter merge/close och verifierad remote-status:
 Set-Location ..\sajtmaskin
@@ -50,11 +50,11 @@ npm run worktree:remove -- ..\sajtmaskin-feat-X
 npm run tidy:apply
 ```
 
-`npm run worktree:link` kopierar också `.cursor/mcp.json`. Manuell omsync: `pwsh -File scripts/cursor/sync-mcp-json.ps1 -AllWorktrees`.
+`npm run worktree:setup` kör lokal `npm ci` och kopierar också `.cursor/mcp.json`. Manuell MCP-omsync: `pwsh -File scripts/cursor/sync-mcp-json.ps1 -AllWorktrees`.
 
-### Vitest i länkad worktree
+### Vitest och äldre länkade worktrees
 
-Vitest kan inte starta forks-arbetare genom en junction-länkad `node_modules` — körningen dör med `Failed to start … worker` / `Timeout waiting for worker to respond` innan något test hunnit starta.
+Nya worktrees har lokal `node_modules` och behöver ingen specialbehandling. I en äldre, ännu inte migrerad worktree kan Vitest misslyckas med forks-arbetare genom en junction.
 
 `scripts/dev/linked-worktree-vitest-pool.ts` slår automatiskt på `pool: "threads"` + `fileParallelism: false` när `node_modules` är en symlink/junction. Alla tre Vitest-configarna importerar den. CI har en riktig installation och tar inte den grenen.
 
@@ -117,7 +117,7 @@ fail-closed.
 Först därefter kopplar `npm run worktree:remove -- <sökväg>` loss eventuella
 länkar **innan** det tar bort den registrerade worktreen. Kör aldrig ett bart
 `git worktree remove`; hooken blockerar det eftersom wrappern är den enda
-kanoniska junction-säkra vägen.
+kanoniska vägen som också hanterar äldre länkar säkert.
 
 Städa inte när PR:n bara är skapad. Buildern äger nya head-SHA:er tills PR:n är
 mergad eller stängd. Kräv först `FRI`, kör sedan den säkra borttagningen och
@@ -129,19 +129,16 @@ fortfarande bevisa att ingen PR är öppen och
 `SAJTMASKIN_DISCARD_REASON` måste beskriva beslutet. Rädda annars med
 `git stash push -u -m ...`; använd inte force som genväg.
 
-## Junction-fällan
+## Äldre junctioner
 
-En färsk worktree saknar `node_modules`. Att länka den till huvudcheckoutens sparar flera minuters `npm ci` — men `git worktree remove --force` **följer junctionen och tömmer länkens mål**, alltså huvudcheckoutens `node_modules`. Symptomet kommer senare och ser ut som ett trasigt repo: `ERR_MODULE_NOT_FOUND: Cannot find package 'dotenv'`. (Inträffade 2026-07-27.)
+Före 2026-08-24 länkade `worktree:link` worktreets `node_modules` till en annan checkout. Det sparade installationstid men kunde ge fel paket vid olika lockfiler. Dessutom kan `git worktree remove --force` följa en sådan junction och tömma målet.
 
 ```powershell
-npm run worktree:link -- ..\sajtmaskin-feat-X   # junction till huvudcheckoutens node_modules
-npm run worktree:remove -- ..\sajtmaskin-feat-X # kopplar loss länken först, sedan git worktree remove
+npm run worktree:setup -- ..\sajtmaskin-feat-X  # lokal npm ci + MCP-sync
+npm run worktree:remove -- ..\sajtmaskin-feat-X # hanterar även äldre länkar säkert
 ```
 
-Gör inte teardown för hand. Om wrappern stoppar ska du bevara ytan och utreda
-orsaken; kringgå inte skyddet med `rmdir` eller rå `git worktree remove`.
-
-Har det redan hänt: `npm ci` i huvudcheckouten återställer (~4 min). Inget spårat innehåll går förlorat — `node_modules` är gitignorerad.
+Gör inte teardown eller migrering för hand. Om wrappern stoppar ska du bevara ytan och utreda orsaken; kringgå inte skyddet med `rmdir` eller rå `git worktree remove`. `worktree:setup` kan koppla loss en äldre dependency-junction utan att följa den och därefter installera lokalt.
 
 ## Flera agenter samtidigt
 

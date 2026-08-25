@@ -144,6 +144,7 @@
     "db:push": "node scripts/db/db-push.mjs",
     "db:generate": "npx drizzle-kit generate",
     "vercel:link": "npx --yes vercel@58 link",
+    "worktree:setup": "node scripts/cursor/worktree.mjs setup",
     "worktree:link": "node scripts/cursor/worktree.mjs link",
     "worktree:remove": "node scripts/cursor/worktree.mjs remove",
     "kedja:clean": "node scripts/cursor/kedja-clean.mjs",

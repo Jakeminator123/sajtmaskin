@@ -2,37 +2,21 @@
 /**
  * scripts/cursor/worktree.mjs
  *
- * Safe create/remove for agent worktrees that share `node_modules` with the
- * main checkout via a Windows junction.
+ * Safe setup/remove for agent worktrees with worktree-local dependencies.
  *
- * Why this exists: a fresh worktree has no `node_modules`, and `npm ci` costs
- * minutes, so the fast path is a junction to the main checkout's copy. But
- * `git worktree remove --force` deletes the worktree directory recursively and
- * **follows the junction**, emptying the link's target — the main checkout's
- * real `node_modules`. The failure surfaces much later, somewhere unrelated, as
- * `ERR_MODULE_NOT_FOUND: Cannot find package 'dotenv'`, which reads like a
- * broken repo rather than a cleanup that went wrong. It happened 2026-07-27.
- *
- * The ordering that avoids it — unlink first, then remove the worktree — is
- * easy to get wrong by hand and impossible to notice when you do. This script
- * makes the safe order the default.
+ * A local install is intentionally preferred over a Windows junction. A
+ * junction can silently expose dependencies from a different lockfile and can
+ * make worktree removal follow the link into another checkout. The remove path
+ * still detects and detaches legacy links before asking Git to delete anything.
  *
  * Usage:
- *   node scripts/cursor/worktree.mjs link   ../sajtmaskin-feat-x
+ *   node scripts/cursor/worktree.mjs setup  ../sajtmaskin-feat-x
  *   node scripts/cursor/worktree.mjs remove ../sajtmaskin-feat-x [--force]
  *
- * npm: `npm run worktree:link -- <path>` · `npm run worktree:remove -- <path>`
+ * npm: `npm run worktree:setup -- <path>` · `npm run worktree:remove -- <path>`
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import {
-  copyFileSync,
-  lstatSync,
-  mkdirSync,
-  readdirSync,
-  rmdirSync,
-  symlinkSync,
-  unlinkSync,
-} from "node:fs";
+import { copyFileSync, lstatSync, mkdirSync, readdirSync, rmdirSync, unlinkSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BASE_REF, isExactMergedPr, isProtectedBranch, loadPrLifecycle } from "../dev/tidy.mjs";
@@ -149,7 +133,7 @@ function normalizePath(p) {
 }
 
 /**
- * The main checkout, whose `node_modules` is the only sane link source.
+ * The main checkout, used as the source for ignored local configuration.
  *
  * Derived from git rather than from this file's location on purpose: an agent
  * working inside a worktree runs that worktree's copy of this script, so a
@@ -185,14 +169,14 @@ const LINK_SCAN_MAX_DEPTH = 3;
  * The scan used to stop at depth 1, reasoning that the only junction anyone
  * creates is `node_modules` at the root. That stopped being true once
  * sub-projects needed their own linked `node_modules` (see
- * {@link NESTED_NODE_MODULES}). On 2026-08-01 a hand-made
+ * nested dependency directories). On 2026-08-01 a hand-made
  * `preview-host/node_modules` junction was invisible here: detaching skipped
  * it, and `git worktree remove` then followed it into the main checkout and
  * emptied the real directory — the exact failure the depth-1 scan was written
  * to prevent, one level down.
  *
- * Nested links are now created by {@link commandLink} rather than by hand, and
- * found here, so the two halves stay in step.
+ * New setups no longer create links. The broader scan remains so legacy links
+ * are found and detached safely during removal.
  *
  * @param {string} worktreePath
  * @param {{ readdir?: (p: string) => string[], lstat?: (p: string) => { isSymbolicLink: () => boolean, isDirectory?: () => boolean } }} [io]
@@ -358,24 +342,24 @@ function configuredProtectedWorktreePaths() {
 }
 
 /**
- * Sub-projects that carry their own `node_modules` and therefore get their own
- * junction alongside the root one.
- *
- * `preview-host` has a separate dependency set, so
- * `npm --prefix preview-host run test:guards` dies with MODULE_NOT_FOUND in a
- * fresh worktree unless this is linked too. It used to be created by hand with
- * `mklink /J` — which is precisely how the 2026-08-01 incident happened, since
- * a hand-made link is one the remove path never knew to detach. Creating it
- * here is what makes {@link findLinkedEntries} sufficient rather than merely
- * broader.
+ * Sub-projects with their own lockfile and dependency installation.
  */
-const NESTED_NODE_MODULES = ["preview-host"];
+const NESTED_PACKAGE_PROJECTS = ["preview-host"];
 
 /** `true` when the path exists, without following it. */
 function pathExists(candidate) {
   try {
     lstatSync(candidate);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/** `true` for a symlink or Windows junction, without following its target. */
+function pathIsLink(candidate) {
+  try {
+    return lstatSync(candidate).isSymbolicLink();
   } catch {
     return false;
   }
@@ -409,7 +393,42 @@ export function syncWorktreeMcpJson(mainWorktree, worktreePath, io = {}) {
   return { ok: true, dest, source };
 }
 
-function commandLink(targetPath) {
+export function npmCiInvocation({
+  platform = process.platform,
+  npmExecPath = process.env.npm_execpath,
+  nodeExecPath = process.execPath,
+} = {}) {
+  const args = ["ci", "--prefer-offline", "--no-audit", "--no-fund"];
+  if (platform !== "win32") return { file: "npm", args };
+  if (!npmExecPath) {
+    throw new Error(
+      "npm_execpath is unavailable. On Windows, run setup through `npm run worktree:setup -- <path>`.",
+    );
+  }
+  return { file: nodeExecPath, args: [npmExecPath, ...args] };
+}
+
+function installDependencies(worktreePath) {
+  const runNpm = (cwd) => {
+    const invocation = npmCiInvocation();
+    if (process.platform === "win32" && !pathExists(invocation.args[0])) {
+      throw new Error(`npm CLI does not exist: ${invocation.args[0]}`);
+    }
+    execFileSync(invocation.file, invocation.args, { cwd, stdio: "inherit" });
+  };
+
+  console.log(`[worktree] installing dependencies in ${worktreePath}`);
+  runNpm(worktreePath);
+
+  for (const project of NESTED_PACKAGE_PROJECTS) {
+    const projectPath = join(worktreePath, project);
+    if (!pathExists(join(projectPath, "package-lock.json"))) continue;
+    console.log(`[worktree] installing dependencies in ${projectPath}`);
+    runNpm(projectPath);
+  }
+}
+
+function commandSetup(targetPath) {
   const worktrees = listWorktrees();
   const plan = resolveTargetWorktree({ targetPath, worktrees });
   if (!plan.ok) {
@@ -423,35 +442,30 @@ function commandLink(targetPath) {
     process.exit(1);
   }
 
-  const linkPath = join(plan.worktreePath, "node_modules");
-  const source = join(mainWorktree, "node_modules");
+  const dependencyPath = join(plan.worktreePath, "node_modules");
 
-  if (pathExists(linkPath)) {
-    console.error(`[worktree] ${linkPath} already exists. Remove it first if you want to relink.`);
-    process.exit(1);
+  if (pathExists(dependencyPath)) {
+    if (!pathIsLink(dependencyPath)) {
+      console.error(
+        `[worktree] ${dependencyPath} is already a local directory. ` +
+          "Run `npm ci` there directly if you want to refresh it.",
+      );
+      process.exit(1);
+    }
+
+    const legacyLinks = [
+      dependencyPath,
+      ...NESTED_PACKAGE_PROJECTS.map((project) =>
+        join(plan.worktreePath, project, "node_modules"),
+      ).filter(pathIsLink),
+    ];
+    for (const legacyLink of legacyLinks) {
+      removeLink(legacyLink);
+      console.log(`[worktree] detached legacy dependency link ${legacyLink} (target untouched)`);
+    }
   }
 
-  symlinkSync(source, linkPath, "junction");
-  console.log(`[worktree] linked ${linkPath} -> ${source}`);
-
-  // Best-effort by design: a missing sub-project or an already-present link is
-  // not a reason to fail a link that otherwise succeeded. Skipping is safe —
-  // what is NOT safe is a link nobody records, which is why these are created
-  // here instead of by hand.
-  for (const project of NESTED_NODE_MODULES) {
-    const nestedLink = join(plan.worktreePath, project, "node_modules");
-    const nestedSource = join(mainWorktree, project, "node_modules");
-    if (pathExists(nestedLink)) {
-      console.log(`[worktree] skipped ${nestedLink} — already exists.`);
-      continue;
-    }
-    if (!pathExists(nestedSource)) {
-      console.log(`[worktree] skipped ${project}/node_modules — ${nestedSource} does not exist.`);
-      continue;
-    }
-    symlinkSync(nestedSource, nestedLink, "junction");
-    console.log(`[worktree] linked ${nestedLink} -> ${nestedSource}`);
-  }
+  installDependencies(plan.worktreePath);
 
   const mcp = syncWorktreeMcpJson(mainWorktree, plan.worktreePath);
   if (mcp.ok) {
@@ -460,10 +474,7 @@ function commandLink(targetPath) {
     console.log(`[worktree] skipped mcp.json — ${mcp.reason}`);
   }
 
-  console.log(
-    "[worktree] IMPORTANT: tear this worktree down with `npm run worktree:remove -- <path>`, " +
-      "never a bare `git worktree remove` — that follows the junction and empties the shared node_modules.",
-  );
+  console.log(`[worktree] ready: ${plan.worktreePath} has worktree-local dependencies.`);
 }
 
 function commandRemove(targetPath, { force }) {
@@ -571,17 +582,25 @@ function main() {
   const [action, targetPath, ...rest] = process.argv.slice(2);
   const force = rest.includes("--force");
 
-  if (!action || !targetPath || !["link", "remove"].includes(action)) {
+  if (!action || !targetPath || !["setup", "link", "remove"].includes(action)) {
     console.error(
       "Usage:\n" +
-        "  node scripts/cursor/worktree.mjs link   <worktree-path>\n" +
+        "  node scripts/cursor/worktree.mjs setup  <worktree-path>\n" +
         "  node scripts/cursor/worktree.mjs remove <worktree-path> [--force]",
     );
     process.exit(2);
   }
 
-  if (action === "link") commandLink(targetPath);
-  else commandRemove(targetPath, { force });
+  if (action === "setup" || action === "link") {
+    if (action === "link") {
+      console.log(
+        "[worktree] `link` is a compatibility alias; dependencies are installed locally.",
+      );
+    }
+    commandSetup(targetPath);
+  } else {
+    commandRemove(targetPath, { force });
+  }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

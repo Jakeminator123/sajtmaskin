@@ -5,6 +5,7 @@ import {
   classifyRemovalLifecycle,
   findLinkedEntries,
   findMainWorktree,
+  npmCiInvocation,
   parseDirtyEntries,
   parseWorktreeList,
   protectedRemovalPaths,
@@ -22,6 +23,34 @@ const WORKTREES = [
   { path: MAIN, isMain: true },
   { path: FEATURE, isMain: false },
 ];
+
+describe("npmCiInvocation", () => {
+  it("runs npm through node on Windows instead of spawning npm.cmd", () => {
+    expect(
+      npmCiInvocation({
+        platform: "win32",
+        npmExecPath: "C:/Volta/npm-cli.js",
+        nodeExecPath: "C:/Volta/node.exe",
+      }),
+    ).toEqual({
+      file: "C:/Volta/node.exe",
+      args: ["C:/Volta/npm-cli.js", "ci", "--prefer-offline", "--no-audit", "--no-fund"],
+    });
+  });
+
+  it("uses npm directly outside Windows", () => {
+    expect(npmCiInvocation({ platform: "linux" })).toEqual({
+      file: "npm",
+      args: ["ci", "--prefer-offline", "--no-audit", "--no-fund"],
+    });
+  });
+
+  it("fails clearly when Windows setup was not launched through npm", () => {
+    expect(() => npmCiInvocation({ platform: "win32", npmExecPath: "" })).toThrow(
+      "npm_execpath is unavailable",
+    );
+  });
+});
 
 describe("parseWorktreeList", () => {
   it("treats the first entry as the main worktree", () => {
