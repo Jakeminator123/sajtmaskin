@@ -337,11 +337,7 @@ async function loadPreviewStatus(
       .filter((file) => file.path !== ".env.local")
       .map((file) => [file.path, hashPreviewFileContent(file.content)] as const),
   );
-  const manifestEntries = Object.entries(manifest.files);
-  const manifestFiles = normalizePreviewFileHashes(manifestEntries);
-  const manifestPathsCanonical = manifestEntries.every(
-    ([rawPath]) => normalizeOpenClawReadPath(rawPath) === rawPath,
-  );
+  const manifestFiles = normalizePreviewFileHashes(Object.entries(manifest.files));
   if (expectedFiles) {
     if (
       !expectedFiles.has("app/api/placeholder/route.ts") &&
@@ -353,26 +349,14 @@ async function loadPreviewStatus(
       );
     }
   }
-  const canonicalHashesMatch =
+  const hostRevisionMatches =
     expectedFiles !== null &&
     manifestFiles !== null &&
     manifestFiles.has(".env.local") &&
     [...manifestFiles.keys()].every((path) => path === ".env.local" || expectedFiles.has(path)) &&
     [...expectedFiles].every(([path, hash]) => manifestFiles.get(path) === hash);
-  // Manifest keys mirror the session payload, not verified filesystem paths. A
-  // backslash can be a literal filename character on Linux, so equal hashes in
-  // canonical form remove a false mismatch but cannot safely prove a match.
-  const hostRevisionMatches =
-    canonicalHashesMatch && !manifestPathsCanonical ? null : canonicalHashesMatch;
   return {
-    status:
-      hostRevisionMatches === null
-        ? "unknown"
-        : hostRevisionMatches
-          ? manifest.running
-            ? "running"
-            : "stopped"
-          : "revision_mismatch",
+    status: hostRevisionMatches ? (manifest.running ? "running" : "stopped") : "revision_mismatch",
     source: "files_manifest",
     sessionVersionMatches: true,
     sessionRevisionMatches: true,

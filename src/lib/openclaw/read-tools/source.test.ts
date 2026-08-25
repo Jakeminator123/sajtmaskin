@@ -306,12 +306,12 @@ describe("production OpenClaw read-tool source", () => {
       true,
     ],
     [
-      "non-canonical host backslashes",
+      "stored and host backslash path keys",
       "app\\page.tsx",
       "app\\page.tsx",
       "app\\api\\placeholder\\route.ts",
-      "unknown",
-      null,
+      "running",
+      true,
     ],
   ])(
     "matches a normal preview file with %s",
