@@ -31,6 +31,7 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
   readdirSync,
   rmdirSync,
   symlinkSync,
@@ -385,16 +386,40 @@ function pathExists(candidate) {
 }
 
 /**
- * Gitignored `.cursor/mcp.json` does not appear in a fresh worktree.
- * Copy the live file (or the tracked example) so MCP is on without a
- * separate sync step. Prefer the main checkout's live file so local
- * OAuth-less URL lists stay in one place.
+ * Only a link to the main checkout's node_modules is a valid shared install.
+ * A real directory or a link to somewhere else is leftover / isolated, not setup.
  *
- * @param {string} mainWorktree
- * @param {string} worktreePath
- * @param {{ exists?: (p: string) => boolean, copyFile?: (from: string, to: string) => void, mkdir?: (p: string, opts: { recursive: boolean }) => void }} [io]
- * @returns {{ ok: true, dest: string, source: string } | { ok: false, reason: string }}
+ * @param {string} linkPath
+ * @param {string} expectedSource
+ * @param {{ lstat?: (p: string) => { isSymbolicLink: () => boolean }, readlink?: (p: string) => string }} [io]
+ * @returns {{ ok: true, reason: string } | { ok: false, reason: string }}
  */
+export function classifyExistingNodeModules(linkPath, expectedSource, io = {}) {
+  const lstat = io.lstat ?? lstatSync;
+  const readlink = io.readlink ?? readlinkSync;
+  let stats;
+  try {
+    stats = lstat(linkPath);
+  } catch {
+    return { ok: false, reason: "node_modules saknas" };
+  }
+  if (!stats.isSymbolicLink()) {
+    return {
+      ok: false,
+      reason: `${linkPath} is a real install, not a link to the main checkout`,
+    };
+  }
+  const raw = readlink(linkPath);
+  const resolved = normalizePath(resolve(dirname(linkPath), raw));
+  if (resolved !== normalizePath(expectedSource) && normalizePath(raw) !== normalizePath(expectedSource)) {
+    return {
+      ok: false,
+      reason: `${linkPath} points at ${raw}, not ${expectedSource}`,
+    };
+  }
+  return { ok: true, reason: "expected junction" };
+}
+
 /**
  * Paths listed in `.worktreeinclude`, minus comments and blanks.
  *
@@ -438,6 +463,16 @@ export function copyWorktreeIncludeFiles(mainWorktree, worktreePath, listed, io 
   return { copied, skipped };
 }
 
+/**
+ * Gitignored `.cursor/mcp.json` does not appear in a fresh worktree.
+ * Prefer the main checkout's live file so local OAuth-less URL lists stay
+ * in one place; fall back to the tracked example.
+ *
+ * @param {string} mainWorktree
+ * @param {string} worktreePath
+ * @param {{ exists?: (p: string) => boolean, copyFile?: (from: string, to: string) => void, mkdir?: (p: string, opts: { recursive: boolean }) => void }} [io]
+ * @returns {{ ok: true, dest: string, source: string } | { ok: false, reason: string }}
+ */
 export function syncWorktreeMcpJson(mainWorktree, worktreePath, io = {}) {
   const exists = io.exists ?? pathExists;
   const copyFile = io.copyFile ?? copyFileSync;
@@ -476,7 +511,12 @@ function linkNodeModules(worktreePath, mainWorktree, { skipExisting }) {
 
   if (pathExists(linkPath)) {
     if (skipExisting) {
-      console.log(`[worktree] skipped ${linkPath} — already exists.`);
+      const existing = classifyExistingNodeModules(linkPath, source);
+      if (!existing.ok) {
+        console.error(`[worktree] ${existing.reason}. Remove it first if you want to relink.`);
+        process.exit(1);
+      }
+      console.log(`[worktree] skipped ${linkPath} — ${existing.reason}.`);
     } else {
       console.error(
         `[worktree] ${linkPath} already exists. Remove it first if you want to relink.`,
@@ -488,14 +528,20 @@ function linkNodeModules(worktreePath, mainWorktree, { skipExisting }) {
     console.log(`[worktree] linked ${linkPath} -> ${source}`);
   }
 
-  // Best-effort by design: a missing sub-project or an already-present link is
-  // not a reason to fail a link that otherwise succeeded. Skipping is safe —
-  // what is NOT safe is a link nobody records, which is why these are created
-  // here instead of by hand.
+  // Best-effort by design: a missing sub-project or an already-present correct
+  // link is not a reason to fail a link that otherwise succeeded. A wrong
+  // nested install is still a recorded link — refuse it the same way.
   for (const project of NESTED_NODE_MODULES) {
     const nestedLink = join(worktreePath, project, "node_modules");
     const nestedSource = join(mainWorktree, project, "node_modules");
     if (pathExists(nestedLink)) {
+      if (skipExisting) {
+        const existing = classifyExistingNodeModules(nestedLink, nestedSource);
+        if (!existing.ok) {
+          console.error(`[worktree] ${existing.reason}. Remove it first if you want to relink.`);
+          process.exit(1);
+        }
+      }
       console.log(`[worktree] skipped ${nestedLink} — already exists.`);
       continue;
     }

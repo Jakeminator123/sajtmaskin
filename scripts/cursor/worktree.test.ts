@@ -13,6 +13,7 @@ import {
   syncWorktreeMcpJson,
   parseWorktreeIncludeList,
   copyWorktreeIncludeFiles,
+  classifyExistingNodeModules,
 } from "./worktree.mjs";
 
 const MAIN = resolve("C:/repo/sajtmaskin");
@@ -252,6 +253,37 @@ describe("copyWorktreeIncludeFiles", () => {
     expect(copied).toEqual([
       { from: join(MAIN, ".env.local"), to: join(FEATURE, ".env.local") },
     ]);
+  });
+});
+
+describe("classifyExistingNodeModules", () => {
+  const expected = join(MAIN, "node_modules");
+  const linkPath = join(FEATURE, "node_modules");
+
+  it("accepts a junction to the main checkout", () => {
+    const decision = classifyExistingNodeModules(linkPath, expected, {
+      lstat: () => ({ isSymbolicLink: () => true }),
+      readlink: () => expected,
+    });
+    expect(decision).toEqual({ ok: true, reason: "expected junction" });
+  });
+
+  it("rejects a real directory", () => {
+    const decision = classifyExistingNodeModules(linkPath, expected, {
+      lstat: () => ({ isSymbolicLink: () => false }),
+      readlink: () => expected,
+    });
+    expect(decision.ok).toBe(false);
+    expect(decision.reason).toContain("real install");
+  });
+
+  it("rejects a link to a different install", () => {
+    const decision = classifyExistingNodeModules(linkPath, expected, {
+      lstat: () => ({ isSymbolicLink: () => true }),
+      readlink: () => join(FEATURE, "stale-node_modules"),
+    });
+    expect(decision.ok).toBe(false);
+    expect(decision.reason).toContain("points at");
   });
 });
 
