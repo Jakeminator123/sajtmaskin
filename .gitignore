@@ -11,6 +11,10 @@ venv/
 .pytest_cache/
 
 # Node/Next.js
+# Directory form hides a real install. A worktree:link symlink/junction is a
+# file to git, so `node_modules/` alone leaves it untracked and fail-safes
+# verify:pr into the full profile.
+node_modules
 node_modules/
 node_modules.old/
 .next/

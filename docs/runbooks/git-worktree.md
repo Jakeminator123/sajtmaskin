@@ -28,7 +28,7 @@ Rollen äger frågan. Säg inte «gå till eget worktree» till varje agent.
 | Roll    | Worktree?                                                                           |
 | ------- | ----------------------------------------------------------------------------------- |
 | Scout   | Nej                                                                                 |
-| Builder | Ja, från färsk `origin/master`, därefter `npm run worktree:link`. Även docs/regler. |
+| Builder | Ja, från färsk `origin/master`, därefter `npm run worktree:setup`. Även docs/regler. |
 | Steward | Nej för merge (`gh` räcker). Ja bara vid konflikt.                                  |
 
 `node_modules` används hela tiden (typecheck, test, dev). Det finns **en** riktig installation — i huvudcheckouten. En worktree utan länk måste annars köra `npm ci` (~flera minuter). Ändra inte `package.json` i två Builder-säten samtidigt: de delar samma installation.
@@ -41,7 +41,7 @@ Bredvid repo-roten, aldrig under `.cursor/`. Namn: `sajtmaskin-<säte>-<kort>`, 
 git fetch origin master
 git worktree add ..\sajtmaskin-feat-X -b feat/X origin/master
 Set-Location ..\sajtmaskin-feat-X
-npm run worktree:link -- ..\sajtmaskin-feat-X
+npm run worktree:setup -- ..\sajtmaskin-feat-X
 # jobba, kör verify:pr, öppna draft-PR och behåll worktreet för fixrundor
 # först efter merge/close och verifierad remote-status:
 Set-Location ..\sajtmaskin
@@ -50,7 +50,7 @@ npm run worktree:remove -- ..\sajtmaskin-feat-X
 npm run tidy:apply
 ```
 
-`npm run worktree:link` kopierar också `.cursor/mcp.json`. Manuell omsync: `pwsh -File scripts/cursor/sync-mcp-json.ps1 -AllWorktrees`.
+`npm run worktree:setup` kopierar `.worktreeinclude` (`.env.local`, `mcp.json`) och länkar `node_modules`. `worktree:link` är bara junction-steget. Manuell omsync: `pwsh -File scripts/cursor/sync-mcp-json.ps1 -AllWorktrees`.
 
 ### Vitest i länkad worktree
 
@@ -134,7 +134,7 @@ fortfarande bevisa att ingen PR är öppen och
 En färsk worktree saknar `node_modules`. Att länka den till huvudcheckoutens sparar flera minuters `npm ci` — men `git worktree remove --force` **följer junctionen och tömmer länkens mål**, alltså huvudcheckoutens `node_modules`. Symptomet kommer senare och ser ut som ett trasigt repo: `ERR_MODULE_NOT_FOUND: Cannot find package 'dotenv'`. (Inträffade 2026-07-27.)
 
 ```powershell
-npm run worktree:link -- ..\sajtmaskin-feat-X   # junction till huvudcheckoutens node_modules
+npm run worktree:setup -- ..\sajtmaskin-feat-X  # .worktreeinclude + junction till huvudcheckoutens node_modules
 npm run worktree:remove -- ..\sajtmaskin-feat-X # kopplar loss länken först, sedan git worktree remove
 ```
 

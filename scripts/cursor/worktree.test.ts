@@ -11,6 +11,8 @@ import {
   removeLink,
   resolveTargetWorktree,
   syncWorktreeMcpJson,
+  parseWorktreeIncludeList,
+  copyWorktreeIncludeFiles,
 } from "./worktree.mjs";
 
 const MAIN = resolve("C:/repo/sajtmaskin");
@@ -227,6 +229,29 @@ describe("syncWorktreeMcpJson", () => {
     if (result.ok) {
       expect(result.source).toBe(join(MAIN, ".cursor", "mcp.json.example"));
     }
+  });
+});
+
+describe("parseWorktreeIncludeList", () => {
+  it("drops comments, blanks and surrounding whitespace", () => {
+    expect(
+      parseWorktreeIncludeList("# header\n.env.local\n\n  .cursor/mcp.json  \n# tail\n"),
+    ).toEqual([".env.local", ".cursor/mcp.json"]);
+  });
+});
+
+describe("copyWorktreeIncludeFiles", () => {
+  it("copies listed files that exist and skips the rest", () => {
+    const copied: Array<{ from: string; to: string }> = [];
+    const result = copyWorktreeIncludeFiles(MAIN, FEATURE, [".env.local", "missing.env"], {
+      exists: (p) => p === join(MAIN, ".env.local"),
+      mkdir: () => {},
+      copyFile: (from, to) => copied.push({ from, to }),
+    });
+    expect(result).toEqual({ copied: [".env.local"], skipped: ["missing.env"] });
+    expect(copied).toEqual([
+      { from: join(MAIN, ".env.local"), to: join(FEATURE, ".env.local") },
+    ]);
   });
 });
 

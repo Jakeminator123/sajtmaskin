@@ -37,7 +37,7 @@ $e = (Get-Content .cursor\mcp.json.example -Raw | ConvertFrom-Json).mcpServers.P
 Compare-Object $l $e   # tomt = i synk
 ```
 
-Ny git-worktree får `mcp.json` via `npm run worktree:link`. Codex-worktrees
+Ny git-worktree får `mcp.json` via `npm run worktree:setup`. Codex-worktrees
 får den via `.worktreeinclude`. På den här maskinen finns också
 `%USERPROFILE%\.cursor\mcp.json` som global fallback.
 
@@ -97,6 +97,6 @@ mandaträknaren, `armedContinuation`-watchen och `<openclaw-action>` bor i
 
 1. Reload Cursor efter MCP-ändring
 2. Tools & MCP → login / grön status
-3. Worktree saknar `.cursor/mcp.json`? `npm run worktree:link` eller lita på `%USERPROFILE%\.cursor\mcp.json`
+3. Worktree saknar `.cursor/mcp.json`? `npm run worktree:setup` eller lita på `%USERPROFILE%\.cursor\mcp.json`
 4. Vercel 403 → `user-vercel`
 5. `ssh`/`gh` saknas i terminal → ny pwsh-session (User PATH)
