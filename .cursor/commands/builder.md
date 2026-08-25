@@ -15,7 +15,7 @@ Följ `.agents/skills/pr-workflow/SKILL.md`. En Builder per säte.
 ```powershell
 git fetch origin
 git worktree add ..\sajtmaskin-<säte>-<kort> -b <typ>/<kort> origin/master
-npm run worktree:link -- ..\sajtmaskin-<säte>-<kort>
+npm run worktree:setup -- ..\sajtmaskin-<säte>-<kort>
 ```
 
 3. Kör `npm run verify:pr -- --plan` tidigt, `npm run verify:pr` före push och

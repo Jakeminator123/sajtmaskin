@@ -30,7 +30,7 @@ Egen worktree bredvid repo-roten, aldrig under `.cursor/`:
 
 ```powershell
 git worktree add ..\sajtmaskin-feat-X -b feat/X origin/master
-npm run worktree:link -- ..\sajtmaskin-feat-X
+npm run worktree:setup -- ..\sajtmaskin-feat-X
 ```
 
 Behåll worktreet medan PR:n är öppen och CI/review kan kräva nya commits. Ta

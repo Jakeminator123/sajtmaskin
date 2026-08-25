@@ -12,12 +12,19 @@ import {
   renderHookScript,
 } from "./install-git-hooks.mjs";
 
+// Två tester nedan kör den riktiga hooken genom en POSIX-shell. Windows utan
+// Git Bash saknar `sh`, och då rapporterar spawnSync ENOENT i stället för
+// hookens exitkod — ett falskt rött som inte säger något om hooken. CI kör
+// Linux och behåller därför full täckning.
+const hasPosixShell = spawnSync("sh", ["-c", "exit 0"]).status === 0;
+const itWithPosixShell = hasPosixShell ? it : it.skip;
+
 // Skyddar dev/prod-symmetrin: prod migreras av CI vid push till master, dev av
 // dessa hooks när master dras hem. Går de sönder tyst är vi tillbaka i "kör mot
 // ett schema koden lämnat bakom sig".
 describe("renderHookScript", () => {
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(6);
+    expect(HOOK_VERSION).toBe(7);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -28,6 +35,15 @@ describe("renderHookScript", () => {
     const script = renderHookScript("post-merge");
     expect(script).toContain("scripts/db/ensure-schema.mjs --soft --quiet-ok");
     expect(script.trimEnd().endsWith("exit 0")).toBe(true);
+  });
+
+  it("hoppar över schema-synken tills worktree:setup har gett node_modules", () => {
+    const script = renderHookScript("post-merge");
+    expect(script).toContain("[ -f node_modules/pg/package.json ] || exit 0");
+    expect(script).toContain("[ -f node_modules/dotenv/package.json ] || exit 0");
+    expect(script.indexOf("[ -f node_modules/pg/package.json ] || exit 0")).toBeLessThan(
+      script.indexOf("scripts/db/ensure-schema.mjs --soft --quiet-ok"),
+    );
   });
 
   it("har en exakt escape hatch och står bara över vid sann CI-signal", () => {
@@ -95,7 +111,7 @@ describe("renderHookScript", () => {
     );
   });
 
-  it("pre-push nekar non-fast-forward men tillåter fast-forward", () => {
+  itWithPosixShell("pre-push nekar non-fast-forward men tillåter fast-forward", () => {
     const root = mkdtempSync(join(tmpdir(), "sajtmaskin-pre-push-"));
     const bin = join(root, "bin");
     mkdirSync(join(root, "scripts", "dev"), { recursive: true });
@@ -215,7 +231,7 @@ describe("renderHookScript", () => {
     expect(otherLocalRef.stderr).toContain("inte utcheckad HEAD");
   });
 
-  it("blockerar vanlig branch-delete men tillåter exakt proof-bunden cleanup", () => {
+  itWithPosixShell("blockerar vanlig branch-delete men tillåter exakt proof-bunden cleanup", () => {
     const root = mkdtempSync(join(tmpdir(), "sajtmaskin-pre-push-delete-"));
     const bin = join(root, "bin");
     mkdirSync(join(root, "scripts", "dev"), { recursive: true });
