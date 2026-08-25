@@ -5,7 +5,9 @@ alwaysApply: false
 
 # PowerShell först
 
-Lokal miljö är Windows med PowerShell 7 (`pwsh`). Använd pwsh-syntax i terminalkommandon:
+Lokal miljö är Windows med PowerShell 7 (`pwsh`). Använd pwsh-syntax i terminalkommandon.
+
+**Riktig exe:** `C:\Program Files\PowerShell\7\pwsh.exe`. Starta aldrig `powershell` / `powershell.exe` — det är Windows PowerShell **5.1** och skriver bannern `Copyright (C) Microsoft Corporation` + `aka.ms/pscore6`. `WindowsApps\pwsh.exe` är ett 0-byte App Execution Alias och får inte användas (failar i sandbox/elevated). Cursor-agenten på Windows kan fortfarande välja 5.1 trots defaultProfile — skriv därför aldrig `&&` (finns bara i 7) och peka på full `pwsh`-sökväg om skalet är tveksamt.
 
 | Använd | Undvik |
 |---|---|
