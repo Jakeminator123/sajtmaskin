@@ -5,9 +5,8 @@ alwaysApply: false
 
 # PR-grind
 
-Mergeable betyder bara konfliktfri. Merga aldrig utan användarens uttryckliga
-mergeuppdrag. Bakgrund:
-`docs/runbooks/pr-merge-gate.md`.
+Mergeable betyder bara konfliktfri. Merga endast med uttryckligt mergeuppdrag.
+Bakgrund: `docs/runbooks/pr-merge-gate.md`.
 
 Körordning ägs av `.agents/skills/pr-workflow/SKILL.md`; checknamn, väntetider
 och protected globs ägs av `config/agent-workflow.json`, inte av denna prosa.
@@ -34,12 +33,12 @@ EmaCodeHero har base `ema` och kräver ägarens beslut.
 4. Triagera varje konkret fynd: **fixat**, **loggat** i rätt canonical tracker
    eller **avfärdat** med verifierbart skäl. Kör om efter ny commit.
 
-En uttömmande PR AI-review/Codex-review för aktuell SHA kan vara det oberoende
-passet. Usage-limit hos en enskild bot är inte ett fynd; använd lokal Sol-review
-för innehållet. Den required `review-window` kräver ändå minst ett lyckat,
-maskinverifierat reviewkvitto (trusted PR AI eller extern bot). Om alla sådana
-kvitton saknas/rödar stoppas merge tills en körning lyckas eller ägaren fattar
-ett uttryckligt break-glass-beslut; lokal självattestering gör inte checken grön.
+En full PR AI-/Codex-review av aktuell SHA kan vara oberoende pass. Usage-limit
+är inget fynd; använd lokal Sol-review. `review-window` kräver trusted botkvitto
+eller kontobevis: `COMMENTED` review + separat receipt från samma betrodda aktör,
+head och review-ID samt föregående `github-actions[bot]`-request med tillåten
+nyckel-/kvotorsak. Undantag: live REST-author `dependabot[bot]`/`Bot`. Utan
+giltigt kvitto/överlämning stoppas merge; självattestering ger inte grönt.
 
 Protected paths avgörs endast av `config/agent-workflow.json` och visas av
 `npm run verify:pr -- --plan`. Risk ≥ 3 (CI/runtime/security/false-green) kräver

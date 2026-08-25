@@ -217,7 +217,7 @@ async function runCase(testCase: FollowUpEvalCase): Promise<FollowUpEvalResult> 
       },
     },
     engineModelId: "gpt-5.4",
-    persistedVariantId: testCase.persistedVariantId,
+    snapshotVariantId: testCase.persistedVariantId,
     priorQualityTarget: "premium",
   });
   orchestrationInput.embeddingScaffoldMatch = false;

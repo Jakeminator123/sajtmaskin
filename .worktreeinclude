@@ -1,5 +1,5 @@
 # Ignored files copied into Codex-managed worktrees (and, for mcp.json,
-# also by `npm run worktree:link` for git worktrees).
+# also by `npm run worktree:setup` for git worktrees).
 # Keep this list short.
 
 .env.local

@@ -93,6 +93,7 @@ export type OwnEngineGenerationStreamMetaInput = {
   customInstructionsLength: number;
   scaffoldId: string | null;
   variantId?: string | null;
+  variantSelection?: import("@/lib/gen/scaffold-variants").VariantSelection;
   variantTemplateId?: string | null;
   sources?: GenerationSource[];
 } & (
@@ -166,6 +167,7 @@ export function buildOwnEngineGenerationStreamMeta(
     f3ApprovedProviders: orch.f3ApprovedProviders ?? [],
     customInstructionsLength: input.customInstructionsLength,
     variantId: input.variantId ?? null,
+    variantSelection: input.variantSelection ?? null,
     variantTemplateId: input.variantTemplateId ?? null,
   };
   if (input.sources && input.sources.length > 0) {

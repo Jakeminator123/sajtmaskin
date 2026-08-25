@@ -17,7 +17,7 @@ import {
 } from "../scaffold-variants";
 import { SCAFFOLD_OFF_BASELINE_ID } from "../scaffolds/types";
 import { resolveVariantForStyleChoice } from "../scaffold-variants/style-choice-variants";
-import { resolveScaffoldVariant } from "./scaffold-variant-resolver";
+import { resolveScaffoldVariantWithReceipt } from "./scaffold-variant-resolver";
 import { lockedVariantForFollowUp } from "../scaffold-variants/matcher";
 import {
   buildDynamicContext,
@@ -45,12 +45,9 @@ export function shouldResolveVariantTemplateInspiration(input: {
   importedRepoMode?: boolean;
   scaffoldId?: string | null;
 }): boolean {
-  const allowedMode =
-    input.resolvedMode === "init" || input.followUpIntent === "clear-redesign";
+  const allowedMode = input.resolvedMode === "init" || input.followUpIntent === "clear-redesign";
   return (
-    allowedMode &&
-    input.importedRepoMode !== true &&
-    input.scaffoldId !== SCAFFOLD_OFF_BASELINE_ID
+    allowedMode && input.importedRepoMode !== true && input.scaffoldId !== SCAFFOLD_OFF_BASELINE_ID
   );
 }
 
@@ -106,39 +103,65 @@ export async function finalizeOrchestrationPrompts(
       : null;
   // Utan `!variantLockReleased` band den här fallbacken omedelbart tillbaka den
   // gamla varianten som låset just släppte — en redesign fick alltså rematchad
-  // scaffold men identisk stil. Fallbacken finns kvar för init-vägen (variant
-  // redan vald och persistad före första codegen).
+  // scaffold men identisk stil. Persisted-id hör enbart till follow-up-vägen;
+  // initens preliminära val bärs separat av `variantHintId` nedan.
   const persistedVariant =
     lockedVariant ??
-    (!variantLockReleased && input.persistedVariantId && scaffoldIdForVariant
+    (resolvedMode === "followUp" &&
+    !variantLockReleased &&
+    input.persistedVariantId &&
+    scaffoldIdForVariant
       ? getVariantById(scaffoldIdForVariant, input.persistedVariantId)
       : null);
   // Byggval "Stil" → a pinned variant, resolved against the FINAL scaffold.
   //
-  // Deliberately ahead of `persistedVariant` on init: create-chat pre-matches a
-  // variant from a keyword-only scaffold guess and passes it as
-  // `persistedVariantId`, so leaving the pin behind it would let that guess beat
-  // the user's explicit choice. Follow-ups are excluded — a frozen project keeps
-  // its style, and the pin has already become the persisted variant by then.
+  // Deliberately ahead of `variantHintId`: the pre-match must never beat the
+  // user's explicit choice. Follow-ups are excluded — a frozen project keeps
+  // its accepted style through `persistedVariantId`.
   const styleChoiceVariant =
     resolvedMode === "init"
       ? resolveVariantForStyleChoice(scaffoldIdForVariant, input.styleChoiceHint)
       : null;
 
+  const hintedVariant =
+    resolvedMode === "init" && input.variantHintId && scaffoldIdForVariant
+      ? getVariantById(scaffoldIdForVariant, input.variantHintId)
+      : null;
+  const matched =
+    styleChoiceVariant || persistedVariant || hintedVariant
+      ? null
+      : await resolveScaffoldVariantWithReceipt(
+          scaffoldIdForVariant,
+          prompt,
+          brief,
+          resolvedMode,
+          input.sessionSeed,
+          // Byggval (init controls): structured style keywords participate in
+          // the fresh pick. No-op on follow-ups (persisted/locked variant wins).
+          input.styleKeywordsHint,
+          input.toneKeywordsHint,
+        );
   let resolvedVariant =
-    styleChoiceVariant ??
-    persistedVariant ??
-    (await resolveScaffoldVariant(
-      scaffoldIdForVariant,
-      prompt,
-      brief,
-      resolvedMode,
-      input.sessionSeed,
-      // Byggval (init controls): structured style keywords participate in
-      // the fresh pick. No-op on follow-ups (persisted/locked variant wins).
-      input.styleKeywordsHint,
-      input.toneKeywordsHint,
-    ));
+    styleChoiceVariant ?? persistedVariant ?? hintedVariant ?? matched?.variant ?? null;
+  const hintId = input.variantHintId ?? null;
+  const variantSelection = matched?.selection ?? {
+    source: styleChoiceVariant
+      ? ("style-choice" as const)
+      : persistedVariant
+        ? ("follow-up-lock" as const)
+        : ("hint-fallback" as const),
+    score: null,
+    runnerUpScore: null,
+    margin: null,
+    hintId,
+    finalId: resolvedVariant?.id ?? null,
+    changedFromHint: hintId !== null && resolvedVariant?.id !== hintId,
+  };
+  if (matched) {
+    variantSelection.hintId = hintId;
+    variantSelection.finalId = resolvedVariant?.id ?? null;
+    variantSelection.changedFromHint = hintId !== null && resolvedVariant?.id !== hintId;
+  }
 
   // ── 5-3 freeze-enforcement (variant) ──
   // Neutral follow-ups must keep the frozen contract variant. `lockedVariantForFollowUp`
@@ -163,6 +186,10 @@ export async function finalizeOrchestrationPrompts(
         to: frozenVariant.id,
         scaffoldId: scaffoldIdForVariant,
       });
+      variantSelection.source = "follow-up-lock";
+      variantSelection.score = null;
+      variantSelection.runnerUpScore = null;
+      variantSelection.margin = null;
     }
   }
 
@@ -311,6 +338,11 @@ export async function finalizeOrchestrationPrompts(
     dynamicContextPruning: dynamic.pruning,
     dynamicContextBlocks: dynamic.blocks,
     variantId: dynamic.variantId,
+    variantSelection: {
+      ...variantSelection,
+      finalId: dynamic.variantId,
+      changedFromHint: hintId !== null && dynamic.variantId !== hintId,
+    },
     variantTemplateId: variantTemplateInspiration?.templateId ?? null,
     variantTemplateReferenceAttachments,
     sources,

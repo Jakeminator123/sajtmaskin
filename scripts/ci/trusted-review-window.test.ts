@@ -15,8 +15,14 @@ import {
   reviewMutationRequiresNewSignoff,
   targetsTrunk,
   validateTrustedPrAiEvidence,
+  validateAccountPrReviewEvidence,
 } from "./trusted-review-window.mjs";
 import { renderExhaustiveReview, renderStateComment } from "../pr-review/core.mjs";
+import {
+  renderAccountFallbackRequest,
+  renderAccountReviewMarker,
+  renderAccountReviewReceiptMarker,
+} from "../pr-review/account-fallback.mjs";
 
 const at = (seconds: number) => new Date(seconds * 1000).toISOString();
 const policy = {
@@ -188,6 +194,254 @@ function trustedReviewEvidence(headSha = HEAD) {
 }
 
 describe("trusted review evidence", () => {
+  const fallbackRequest = (headSha = HEAD, reason = "openai_quota") => ({
+    id: 70,
+    body: renderAccountFallbackRequest({ headSha, reason }),
+    created_at: at(105),
+    updated_at: at(105),
+    author_association: "NONE",
+    user: { login: "github-actions[bot]", type: "Bot" },
+  });
+
+  it("accepts a two-resource account review only from the configured owner on exact head", () => {
+    const reviewId = 912;
+    const accountEvidence = {
+      issueComments: [
+        fallbackRequest(),
+        {
+          id: 71,
+          body: renderAccountReviewReceiptMarker({ headSha: HEAD, reviewId }),
+          created_at: at(120),
+          updated_at: at(120),
+          author_association: "OWNER",
+          user: { login: "Jakeminator123", type: "User" },
+        },
+      ],
+      reviews: [
+        {
+          id: reviewId,
+          body: `${renderAccountReviewMarker(HEAD)}\n\nbugkoll: codex\n\nInga fynd.`,
+          state: "COMMENTED",
+          commit_id: HEAD,
+          submitted_at: at(115),
+          updated_at: at(115),
+          author_association: "OWNER",
+          user: { login: "Jakeminator123", type: "User" },
+        },
+      ],
+    };
+
+    expect(
+      validateAccountPrReviewEvidence({
+        ...accountEvidence,
+        headSha: HEAD,
+        trustedActors: ["Jakeminator123"],
+      }),
+    ).toMatchObject({ valid: true, completedAtEpoch: 120 });
+    expect(
+      validateTrustedPrAiEvidence({
+        ...accountEvidence,
+        headSha: HEAD,
+        repository: REPOSITORY,
+        prNumber: 1,
+        trustedActors: ["Jakeminator123"],
+      }),
+    ).toMatchObject({ valid: true });
+  });
+
+  it.each([
+    { label: "missing request", request: null },
+    {
+      label: "request from a user",
+      request: {
+        ...fallbackRequest(),
+        user: { login: "Jakeminator123", type: "User" },
+      },
+    },
+    { label: "request for another head", request: fallbackRequest(OTHER_HEAD) },
+    { label: "request for an unrelated error", request: fallbackRequest(HEAD, "provider_error") },
+  ])("rejects account evidence without a trusted fallback request: $label", ({ request }) => {
+    const reviewId = 919;
+    expect(
+      validateAccountPrReviewEvidence({
+        headSha: HEAD,
+        trustedActors: ["Jakeminator123"],
+        issueComments: [
+          ...(request ? [request] : []),
+          {
+            body: renderAccountReviewReceiptMarker({ headSha: HEAD, reviewId }),
+            created_at: at(120),
+            updated_at: at(120),
+            author_association: "OWNER",
+            user: { login: "Jakeminator123", type: "User" },
+          },
+        ],
+        reviews: [
+          {
+            id: reviewId,
+            body: renderAccountReviewMarker(HEAD),
+            state: "COMMENTED",
+            commit_id: HEAD,
+            submitted_at: at(115),
+            updated_at: at(115),
+            author_association: "OWNER",
+            user: { login: "Jakeminator123", type: "User" },
+          },
+        ],
+      }).valid,
+    ).toBe(false);
+  });
+
+  it("accepts the no-request lane only for the live Dependabot bot author", () => {
+    const reviewId = 920;
+    const evidence = {
+      headSha: HEAD,
+      trustedActors: ["Jakeminator123"],
+      issueComments: [
+        {
+          body: renderAccountReviewReceiptMarker({ headSha: HEAD, reviewId }),
+          created_at: at(120),
+          updated_at: at(120),
+          author_association: "OWNER",
+          user: { login: "Jakeminator123", type: "User" },
+        },
+      ],
+      reviews: [
+        {
+          id: reviewId,
+          body: renderAccountReviewMarker(HEAD),
+          state: "COMMENTED",
+          commit_id: HEAD,
+          submitted_at: at(115),
+          updated_at: at(115),
+          author_association: "OWNER",
+          user: { login: "Jakeminator123", type: "User" },
+        },
+      ],
+    };
+
+    expect(
+      validateAccountPrReviewEvidence({
+        ...evidence,
+        prAuthor: { login: "dependabot[bot]", type: "Bot" },
+      }),
+    ).toMatchObject({ valid: true, completedAtEpoch: 120 });
+    expect(
+      validateAccountPrReviewEvidence({
+        ...evidence,
+        prAuthor: { login: "dependabot[bot]", type: "User" },
+      }).valid,
+    ).toBe(false);
+    expect(
+      validateAccountPrReviewEvidence({
+        ...evidence,
+        prAuthor: { login: "not-dependabot[bot]", type: "Bot" },
+      }).valid,
+    ).toBe(false);
+  });
+
+  it.each([
+    { label: "wrong actor", commentLogin: "attacker", reviewLogin: "attacker" },
+    { label: "mixed actors", commentLogin: "Jakeminator123", reviewLogin: "attacker" },
+  ])("rejects a forged account receipt: $label", ({ commentLogin, reviewLogin }) => {
+    const reviewId = 913;
+    expect(
+      validateAccountPrReviewEvidence({
+        headSha: HEAD,
+        trustedActors: ["Jakeminator123"],
+        issueComments: [
+          fallbackRequest(),
+          {
+            body: renderAccountReviewReceiptMarker({ headSha: HEAD, reviewId }),
+            created_at: at(120),
+            updated_at: at(120),
+            author_association: "OWNER",
+            user: { login: commentLogin, type: "User" },
+          },
+        ],
+        reviews: [
+          {
+            id: reviewId,
+            body: renderAccountReviewMarker(HEAD),
+            state: "COMMENTED",
+            commit_id: HEAD,
+            submitted_at: at(115),
+            updated_at: at(115),
+            author_association: "OWNER",
+            user: { login: reviewLogin, type: "User" },
+          },
+        ],
+      }).valid,
+    ).toBe(false);
+  });
+
+  it("rejects an account review or receipt bound to a different head", () => {
+    const reviewId = 914;
+    expect(
+      validateAccountPrReviewEvidence({
+        headSha: HEAD,
+        trustedActors: ["Jakeminator123"],
+        issueComments: [
+          fallbackRequest(),
+          {
+            body: renderAccountReviewReceiptMarker({ headSha: HEAD, reviewId }),
+            created_at: at(120),
+            updated_at: at(120),
+            author_association: "OWNER",
+            user: { login: "Jakeminator123", type: "User" },
+          },
+        ],
+        reviews: [
+          {
+            id: reviewId,
+            body: renderAccountReviewMarker(OTHER_HEAD),
+            state: "COMMENTED",
+            commit_id: OTHER_HEAD,
+            submitted_at: at(115),
+            updated_at: at(115),
+            author_association: "OWNER",
+            user: { login: "Jakeminator123", type: "User" },
+          },
+        ],
+      }).valid,
+    ).toBe(false);
+  });
+
+  it.each(["CHANGES_REQUESTED", "APPROVED", "DISMISSED"])(
+    "rejects an account review with state %s",
+    (state) => {
+      const reviewId = 915;
+      expect(
+        validateAccountPrReviewEvidence({
+          headSha: HEAD,
+          trustedActors: ["Jakeminator123"],
+          issueComments: [
+            fallbackRequest(),
+            {
+              body: renderAccountReviewReceiptMarker({ headSha: HEAD, reviewId }),
+              created_at: at(120),
+              updated_at: at(120),
+              author_association: "OWNER",
+              user: { login: "Jakeminator123", type: "User" },
+            },
+          ],
+          reviews: [
+            {
+              id: reviewId,
+              body: renderAccountReviewMarker(HEAD),
+              state,
+              commit_id: HEAD,
+              submitted_at: at(115),
+              updated_at: at(115),
+              author_association: "OWNER",
+              user: { login: "Jakeminator123", type: "User" },
+            },
+          ],
+        }).valid,
+      ).toBe(false);
+    },
+  );
+
   it("läser review-updatedAt och fullDatabaseId från paginerad GraphQL", async () => {
     const pages = [
       {

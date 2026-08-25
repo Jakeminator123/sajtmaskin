@@ -38,6 +38,7 @@
       "bugbot",
       "codex"
     ],
+    "trustedAccountReviewActors": ["Jakeminator123"],
     "securityVetoCheckPatterns": ["gitguardian"],
     "deploymentCheckNames": ["Vercel"]
   },

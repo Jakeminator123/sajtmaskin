@@ -224,7 +224,7 @@ function followUpParams(
     followUpIntent: "neutral",
     orchestrationSnapshot: baseSnapshot(),
     engineModelId: "gpt-5.4",
-    persistedVariantId: "minimalist-mag",
+    snapshotVariantId: "minimalist-mag",
     chatId: "chat_test_1",
     priorQualityTarget: "premium",
     requestKind: null,

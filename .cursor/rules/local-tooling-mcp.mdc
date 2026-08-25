@@ -37,7 +37,7 @@ $e = (Get-Content .cursor\mcp.json.example -Raw | ConvertFrom-Json).mcpServers.P
 Compare-Object $l $e   # tomt = i synk
 ```
 
-Ny git-worktree får `mcp.json` via `npm run worktree:link`. Codex-worktrees
+Ny git-worktree får `mcp.json` via `npm run worktree:setup`. Codex-worktrees
 får den via `.worktreeinclude`. På den här maskinen finns också
 `%USERPROFILE%\.cursor\mcp.json` som global fallback.
 
@@ -63,6 +63,7 @@ Lägger du till en server i mallen, lägg till raden här i samma ändring.
 | `supabase-prod` | **PROD**-schema/rader vid felsökning, read-only |
 | `shadcn` | Registry-sök/install (`scripts/cursor/shadcn-mcp.cmd`) |
 | `openclaw-docs` | Extern OpenClaw-produkt (gateway, CLI, nodes). Ett verktyg: `search_open_claw` |
+| `context7` | Versionspecifik lib-docs (Next/React m.m.) via Upstash Context7 |
 | `openai-docs` | OpenAI-docs + API-spec |
 | `v0` | v0 chat-API — **inte** docs, inte own-engine. Legacy |
 
@@ -84,7 +85,7 @@ mandaträknaren, `armedContinuation`-watchen och `<openclaw-action>` bor i
 - Vercel CLI: team/projekt för den här appen står i lokal `.vercel/repo.json`
   (gitignorerad). Inte samma id som användarsajters `vercel_project_id`.
 - GitHub: `Jakeminator123` via `gh` (HTTPS). SSH-host `github.com` i `~/.ssh/config`.
-- Terminal: PowerShell 7 (`pwsh`) — se `bash-och-pwsh.mdc`.
+- Terminal: PowerShell 7 via `C:\Program Files\PowerShell\7\pwsh.exe` — se `bash-och-pwsh.mdc`. Inte `powershell.exe` (5.1) och inte `WindowsApps\pwsh.exe`.
 - **RTK:** se `rtk-terminal.mdc`.
 - Worktrees: eget fönster per checkout — se `agent-worktree.mdc`.
 
@@ -97,6 +98,6 @@ mandaträknaren, `armedContinuation`-watchen och `<openclaw-action>` bor i
 
 1. Reload Cursor efter MCP-ändring
 2. Tools & MCP → login / grön status
-3. Worktree saknar `.cursor/mcp.json`? `npm run worktree:link` eller lita på `%USERPROFILE%\.cursor\mcp.json`
+3. Worktree saknar `.cursor/mcp.json`? `npm run worktree:setup` eller lita på `%USERPROFILE%\.cursor\mcp.json`
 4. Vercel 403 → `user-vercel`
 5. `ssh`/`gh` saknas i terminal → ny pwsh-session (User PATH)

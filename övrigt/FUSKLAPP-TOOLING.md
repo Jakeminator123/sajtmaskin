@@ -1,4 +1,4 @@
-# Fusklapp: verktyg (GitHub / Vercel / Fly / Supabase / Redis)
+# Fusklapp: verktyg och miljöer (GitHub / Vercel / Fly / Render / Supabase / Redis)
 
 > Kort lokal setup för den här maskinen + hur man vet att databaserna är rätt.
 > Secrets hör **aldrig** i git. Runtime-sanning: `docs/ENV.md`, `config/db-targets.json`.
@@ -49,6 +49,62 @@ vercel whoami
 
 - Produktion: `https://sajtmaskin.se` / Vercel-projektet **sajtmaskin**
 - `.vercel/` och `.env.local` är gitignorerade
+
+## Miljöer och URL:er
+
+Vercel-projektet **sajtmaskin** har en production-branch (`master`) och en
+preview-branch (`preview`). `vercel.json` (`git.deploymentEnabled`) är en
+allowlist: bara branchar som står där deployar överhuvudtaget.
+
+| URL | Branch | Vercel-env | Åtkomst |
+|---|---|---|---|
+| `https://sajtmaskin.se` | `master` | production | öppen |
+| `https://sajtmaskin.com` | `master` | production | öppen |
+| `https://www.sajtmaskin.se` / `.com` | — | — | 308 → apex |
+| `https://sajtmaskin.vercel.app` | `master` | production | öppen |
+| `https://preview.sajtmaskin.se` | `preview` | preview | Vercel-inloggning |
+| `sajtmaskin-git-preview-jakeminator123s-projects.vercel.app` | `preview` | preview | Vercel-inloggning |
+| `sajtmaskin-env-pre-production-…vercel.app` | `ema` | pre-production | Vercel-inloggning |
+| `https://vm-fly-jakem.fly.dev` | — | — | delas av alla miljöer |
+| `https://openclaw-sajtagenten.onrender.com` | — | — | token + device pairing |
+
+De fem första production-raderna är **samma** deploy — flera dörrar, ett rum.
+Preview delar databas och env-värden med production; det är avsiktligt, men
+generering från preview skriver alltså i prod-data.
+
+`ssoProtection` är `all_except_custom_domains`. Undantaget gäller bara
+**production**-domäner: `sajtmaskin.se` och `.com` svarar 200, medan varje
+preview-adress kräver Vercel-inloggning — även en egen domän som
+`preview.sajtmaskin.se`. Inloggad browser släpps in direkt. För anrop utan
+session finns ett bypass-secret på projektet (`scope=automation-bypass`) som
+skickas som headern `x-vercel-protection-bypass`.
+
+`preview.sajtmaskin.se` finns alltså för att vara kort och stabil, inte för att
+vara öppen. Den pekar alltid på senaste preview-deploy.
+
+### DNS
+
+`sajtmaskin.se` och `sajtmaskin.com` har nameservers hos **one.com**, inte
+Vercel. Vercels egen DNS-zon för domänerna är inte auktoritativ, så en post
+där får ingen effekt. Nya subdomäner läggs som CNAME hos one.com mot värdet i
+`vercel api /v6/domains/<domän>/config` (`recommendedCNAME`, rank 1).
+
+### Externa allowlists som måste följa med en ny URL
+
+Ingen av dessa läses från Vercel-env. De bor i respektive tjänst.
+
+| Tjänst | Nyckel / plats | Semantik |
+|---|---|---|
+| Preview-host (Fly) | `SAJTMASKIN_APP_ORIGINS` i `preview-host/fly.toml` | Exakta origins, aldrig wildcard. Fail-closed. Kräver `fly deploy`. Låst av kontraktstest i `preview-host/scripts/test-preview-proxy-contract.mjs` — ändra båda i samma diff |
+| OpenClaw-gateway (Render) | `SAJTAGENT_ALLOWED_ORIGINS` + `SAJTAGENT_TARGET_SITE_URL` | Gäller gatewayns **controlUi** (adminytan), inte appens widget — den går server-till-server med Bearer-token. `http://localhost:3000` läggs på automatiskt. Malformerad post kraschar boot |
+| D-ID avatar | D-ID Studio, manuellt | Browser-origins för embed-scriptet. Speglas i listan i `src/app/avatar/page.tsx` |
+| OpenAI-webhooks | OpenAI-dashboarden | Pekar på `sajtmaskin.vercel.app/api/webhooks/openai` — låt den peka på production |
+| Vercel Log Drain | Vercels drain-dialog | Pekar på `sajtmaskin.vercel.app/api/drains/vercel` — låt den peka på production |
+
+Checklista när en ny miljö-URL tillkommer: bind domänen i Vercel med rätt
+`gitBranch` → CNAME hos one.com → origin i `fly.toml` + kontraktstestet →
+`fly deploy` → sätt miljöns egen `NEXT_PUBLIC_APP_URL` i Vercel och redeploya
+den miljön (`NEXT_PUBLIC_*` bakas in vid build).
 
 ## Fly (preview-host)
 

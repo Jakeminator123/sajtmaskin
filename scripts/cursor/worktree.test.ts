@@ -11,6 +11,9 @@ import {
   removeLink,
   resolveTargetWorktree,
   syncWorktreeMcpJson,
+  parseWorktreeIncludeList,
+  copyWorktreeIncludeFiles,
+  classifyExistingNodeModules,
 } from "./worktree.mjs";
 
 const MAIN = resolve("C:/repo/sajtmaskin");
@@ -204,9 +207,9 @@ describe("syncWorktreeMcpJson", () => {
   it("prefers the live mcp.json over the example", () => {
     const copied: Array<{ from: string; to: string }> = [];
     const result = syncWorktreeMcpJson(MAIN, FEATURE, {
-      exists: (p) => p.endsWith("mcp.json") || p.endsWith("mcp.json.example"),
+      exists: (p: string) => p.endsWith("mcp.json") || p.endsWith("mcp.json.example"),
       mkdir: () => {},
-      copyFile: (from, to) => copied.push({ from, to }),
+      copyFile: (from: string, to: string) => copied.push({ from, to }),
     });
     expect(result.ok).toBe(true);
     expect(copied).toEqual([
@@ -219,7 +222,7 @@ describe("syncWorktreeMcpJson", () => {
 
   it("falls back to the tracked example when the live file is missing", () => {
     const result = syncWorktreeMcpJson(MAIN, FEATURE, {
-      exists: (p) => p.endsWith("mcp.json.example"),
+      exists: (p: string) => p.endsWith("mcp.json.example"),
       mkdir: () => {},
       copyFile: () => {},
     });
@@ -227,6 +230,60 @@ describe("syncWorktreeMcpJson", () => {
     if (result.ok) {
       expect(result.source).toBe(join(MAIN, ".cursor", "mcp.json.example"));
     }
+  });
+});
+
+describe("parseWorktreeIncludeList", () => {
+  it("drops comments, blanks and surrounding whitespace", () => {
+    expect(
+      parseWorktreeIncludeList("# header\n.env.local\n\n  .cursor/mcp.json  \n# tail\n"),
+    ).toEqual([".env.local", ".cursor/mcp.json"]);
+  });
+});
+
+describe("copyWorktreeIncludeFiles", () => {
+  it("copies listed files that exist and skips the rest", () => {
+    const copied: Array<{ from: string; to: string }> = [];
+    const result = copyWorktreeIncludeFiles(MAIN, FEATURE, [".env.local", "missing.env"], {
+      exists: (p: string) => p === join(MAIN, ".env.local"),
+      mkdir: () => {},
+      copyFile: (from: string, to: string) => copied.push({ from, to }),
+    });
+    expect(result).toEqual({ copied: [".env.local"], skipped: ["missing.env"] });
+    expect(copied).toEqual([
+      { from: join(MAIN, ".env.local"), to: join(FEATURE, ".env.local") },
+    ]);
+  });
+});
+
+describe("classifyExistingNodeModules", () => {
+  const expected = join(MAIN, "node_modules");
+  const linkPath = join(FEATURE, "node_modules");
+
+  it("accepts a junction to the main checkout", () => {
+    const decision = classifyExistingNodeModules(linkPath, expected, {
+      lstat: () => ({ isSymbolicLink: () => true }),
+      readlink: () => expected,
+    });
+    expect(decision).toEqual({ ok: true, reason: "expected junction" });
+  });
+
+  it("rejects a real directory", () => {
+    const decision = classifyExistingNodeModules(linkPath, expected, {
+      lstat: () => ({ isSymbolicLink: () => false }),
+      readlink: () => expected,
+    });
+    expect(decision.ok).toBe(false);
+    expect(decision.reason).toContain("real install");
+  });
+
+  it("rejects a link to a different install", () => {
+    const decision = classifyExistingNodeModules(linkPath, expected, {
+      lstat: () => ({ isSymbolicLink: () => true }),
+      readlink: () => join(FEATURE, "stale-node_modules"),
+    });
+    expect(decision.ok).toBe(false);
+    expect(decision.reason).toContain("points at");
   });
 });
 

@@ -81,7 +81,12 @@ export interface BuildFollowUpOrchestrationInputParams {
   approvedProviders?: string[] | null;
   orchestrationSnapshot: Record<string, unknown> | null;
   engineModelId: string;
-  persistedVariantId?: string | null;
+  /**
+   * Variant read from `orchestration_snapshot.variantId`. This helper classifies
+   * it at the codegen boundary: a versionless first generation receives an init
+   * hint, while a file-backed follow-up receives an accepted variant lock.
+   */
+  snapshotVariantId?: string | null;
   customInstructions?: string;
   chatId?: string;
   priorQualityTarget?: OrchestrationInput["priorQualityTarget"];
@@ -147,7 +152,7 @@ export function buildFollowUpOrchestrationInput(
   const followUpContract = buildFollowUpContract({
     snapshot: params.orchestrationSnapshot,
     persistedScaffoldId: params.persistedScaffoldId,
-    persistedVariantId: params.persistedVariantId,
+    persistedVariantId: params.snapshotVariantId,
     existingRoutePaths: params.existingRoutePaths,
     existingShellRoutePaths: params.existingShellRoutePaths,
     priorQualityTarget: params.priorQualityTarget,
@@ -278,7 +283,9 @@ export function buildFollowUpOrchestrationInput(
 
   return {
     ...commonInput,
-    persistedVariantId: params.persistedVariantId,
+    ...(params.hasFollowUpBase
+      ? { persistedVariantId: params.snapshotVariantId }
+      : { variantHintId: params.snapshotVariantId }),
     customInstructions: params.customInstructions,
     chatId: params.chatId,
     priorQualityTarget: params.priorQualityTarget,

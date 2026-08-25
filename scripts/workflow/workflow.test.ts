@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
@@ -17,7 +18,13 @@ import {
   parseGitNameStatus,
   pathMatchesPattern,
 } from "./path-impact.mjs";
-import { assertBranchSafety, isCiRunner, trackedPathsForBase } from "./verify-pr.mjs";
+import {
+  assertBranchSafety,
+  classifyProcessResult,
+  isCiRunner,
+  runNpm,
+  trackedPathsForBase,
+} from "./verify-pr.mjs";
 
 describe("agent workflow path matching", () => {
   it.each([
@@ -291,6 +298,58 @@ describe("local base freshness", () => {
     expect(trackedPathsForBase("origin/master", git)).toEqual([
       "config/agent-workflow.json",
       "docs/agent-workflow.json",
+    ]);
+  });
+});
+
+describe("verify:pr command execution", () => {
+  it("fails closed on a real spawn error", () => {
+    const result = spawnSync(`sajtmaskin-missing-command-${process.pid}`, []);
+    expect(classifyProcessResult(result)).toEqual({ kind: "spawn-error", error: result.error });
+    expect(result.error).toMatchObject({ code: "ENOENT" });
+  });
+
+  it("classifies signal termination as an interrupted process", () => {
+    expect(classifyProcessResult({ signal: "SIGTERM", status: null })).toEqual({
+      kind: "signal",
+      signal: "SIGTERM",
+    });
+  });
+
+  it.each([0, 7])("preserves the normal exit status %i", (status) => {
+    expect(classifyProcessResult({ signal: null, status })).toEqual({ kind: "exit", status });
+  });
+
+  it("starts the Windows npm command through a shell", () => {
+    const calls: Array<{
+      command: string;
+      args: string[];
+      options: Record<string, unknown>;
+    }> = [];
+    const spawnCommand = ((
+      command: string,
+      args: readonly string[],
+      options: Record<string, unknown>,
+    ) => {
+      calls.push({ command, args: [...args], options });
+      return { error: undefined, signal: null, status: 0 } as never;
+    }) as unknown as typeof spawnSync;
+    const result = runNpm(
+      ["run", "workflow:contract"],
+      { inherit: true },
+      {
+        platform: "win32",
+        spawnCommand,
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(calls).toEqual([
+      {
+        command: "npm.cmd",
+        args: ["run", "workflow:contract"],
+        options: expect.objectContaining({ shell: true, stdio: "inherit" }),
+      },
     ]);
   });
 });

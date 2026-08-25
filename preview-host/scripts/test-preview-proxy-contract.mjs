@@ -105,7 +105,7 @@ assertInstalledNextViewerContract();
 const flyConfig = readFileSync(new URL("../fly.toml", import.meta.url), "utf8");
 assert.match(
   flyConfig,
-  /^\s*SAJTMASKIN_APP_ORIGINS\s*=\s*"https:\/\/sajtmaskin\.vercel\.app,https:\/\/sajtmaskin\.se,https:\/\/www\.sajtmaskin\.se,https:\/\/sajtmaskin\.com,https:\/\/www\.sajtmaskin\.com"\s*$/m,
+  /^\s*SAJTMASKIN_APP_ORIGINS\s*=\s*"https:\/\/sajtmaskin\.vercel\.app,https:\/\/sajtmaskin\.se,https:\/\/www\.sajtmaskin\.se,https:\/\/sajtmaskin\.com,https:\/\/www\.sajtmaskin\.com,https:\/\/sajtmaskin-git-preview-jakeminator123s-projects\.vercel\.app,https:\/\/preview\.sajtmaskin\.se"\s*$/m,
   "Fly deploy pins every exact trusted builder parent origin required by the route bridge",
 );
 if (NEXT_SOURCE_ONLY) {
