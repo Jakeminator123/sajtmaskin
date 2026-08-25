@@ -144,11 +144,15 @@ export function commitTargetDirectories(command, fallback) {
   // splits on `;` and would tear a quoted `pwsh -c "cd x; git commit"` apart.
   const nestedPayloads = nestedShellPayloads(command);
   for (const payload of nestedPayloads) walk(shellSegments(payload), fallback);
-  // Do not parse quoted nested payloads a second time as outer shell syntax.
-  // Top-level commands that follow the wrapper are still inspected separately.
-  for (const segment of topLevelShellSegments(command)) {
-    if (nestedShellPayloads(segment).length === 0) walk([segment], fallback);
-  }
+  // Outer `cd; git commit` must stay one walk so the directory change sticks.
+  // Wrapper segments (`pwsh -c "…"`) are skipped here — their interiors were
+  // already walked as nested payloads. Walking each outer segment from
+  // `fallback` separately would treat `cd scripts; git commit` as a trunk
+  // commit.
+  const outerSegments = topLevelShellSegments(command).filter(
+    (segment) => nestedShellPayloads(segment).length === 0,
+  );
+  walk(outerSegments, fallback);
   if (directories.size === 0) directories.add(fallback);
   return [...directories];
 }

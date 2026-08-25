@@ -193,6 +193,9 @@ describe("commit guard", () => {
     // main checkout — which sits on master — and denies a legitimate commit.
     const mainCheckout = process.cwd();
     const worktree = resolve(mainCheckout, "scripts");
+    expect(commitTargetDirectories("cd scripts; git commit -am x", mainCheckout)).toEqual([
+      worktree,
+    ]);
     const git = vi.fn((args: string[], cwd?: string) => {
       if (args[0] === "branch") return [cwd === worktree ? "fix/task" : "master"];
       return args.includes("--cached") ? [] : ["src/components/example.tsx"];
