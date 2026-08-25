@@ -332,8 +332,9 @@ docs/plans/**/run.log.jsonl
 !.agents/skills/818-swarm-decide/**
 !.agents/skills/automat-swarm/
 !.agents/skills/automat-swarm/**
-!.agents/skills/developing-with-streamlit/
-!.agents/skills/developing-with-streamlit/**
+# Streamlit installer drops a machine-local symlink:
+# `.agents/skills/developing-with-streamlit` → site-packages.
+# Do not add a `!` allowlist — it must stay ignored.
 !.agents/skills/godnatt-bugg/
 !.agents/skills/godnatt-bugg/**
 !.agents/skills/kedja-fix-pipeline/
