@@ -3,6 +3,8 @@
 - Kort scope:
 - Canonical owner:
 - Base-SHA:
+- Ursprungsagent: <!-- Cursor bc-<uuid>, Codex-tråd eller "lokal session <namn>". Skriv "människa" om ingen agent skrev diffen. Fältet finns för att utfall, fynd och kvarvarande arbete ska kunna lämnas tillbaka till den som faktiskt skrev PR:n; Cursors egen footer räcker inte eftersom den bara finns på cloud-agenternas PR:er. -->
+
 
 - [ ] Branchen innehåller aktuell `master`; ingen direktpush eller force-push
 - [ ] Arbets-worktreet behålls tills PR:n är mergad eller stängd
