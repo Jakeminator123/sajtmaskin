@@ -13,6 +13,7 @@ import {
   parseBuilderJobClientIntent,
   parseBuilderJobSpec,
 } from "./builder-job-spec";
+import { OPENCLAW_BUILDER_BUDGETS } from "./budget-policy";
 import { resolveOpenClawBuilderLane } from "./lane-policy";
 
 const HASH = "a".repeat(64);
@@ -100,6 +101,33 @@ describe("BuilderJobSpec", () => {
       const requiredScope = BUILDER_TOOL_REQUIRED_SCOPE[tool];
       expect(requiredScope).toMatch(/:read$/);
       expect(shadowScopes.has(requiredScope)).toBe(true);
+    }
+  });
+
+  it("keeps JSON Schema tool scopes in parity with the TypeScript owner", () => {
+    const { validate } = compileStrictSchema();
+
+    for (const tool of BUILDER_JOB_ALLOWED_TOOLS) {
+      const requiredScope = BUILDER_TOOL_REQUIRED_SCOPE[tool];
+      const candidate = {
+        ...validSpec,
+        lane: "openclaw_candidate",
+        toolScopes: [requiredScope],
+        allowedTools: [tool],
+        budgets: OPENCLAW_BUILDER_BUDGETS.openclaw_candidate,
+      } as const;
+
+      expect(() => parseBuilderJobSpec(candidate), tool).not.toThrow();
+      expect(validate(candidate), `${tool}: ${JSON.stringify(validate.errors)}`).toBe(true);
+
+      const wrongScope =
+        requiredScope === "job:read"
+          ? "job:write"
+          : "job:read";
+      expect(
+        validate({ ...candidate, toolScopes: [wrongScope] }),
+        `${tool} must reject ${wrongScope}`,
+      ).toBe(false);
     }
   });
 

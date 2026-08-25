@@ -198,16 +198,29 @@
     {
       "if": {
         "properties": {
-          "allowedTools": {
-            "type": "array",
-            "contains": { "enum": ["job.get", "job.heartbeat", "job.cancel"] }
-          }
+          "allowedTools": { "type": "array", "contains": { "const": "job.get" } }
         },
         "required": ["allowedTools"]
       },
       "then": {
         "properties": {
           "toolScopes": { "type": "array", "contains": { "const": "job:read" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "allowedTools": {
+            "type": "array",
+            "contains": { "enum": ["job.heartbeat", "job.cancel"] }
+          }
+        },
+        "required": ["allowedTools"]
+      },
+      "then": {
+        "properties": {
+          "toolScopes": { "type": "array", "contains": { "const": "job:write" } }
         }
       }
     },
