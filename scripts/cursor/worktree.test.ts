@@ -206,9 +206,9 @@ describe("syncWorktreeMcpJson", () => {
   it("prefers the live mcp.json over the example", () => {
     const copied: Array<{ from: string; to: string }> = [];
     const result = syncWorktreeMcpJson(MAIN, FEATURE, {
-      exists: (p) => p.endsWith("mcp.json") || p.endsWith("mcp.json.example"),
+      exists: (p: string) => p.endsWith("mcp.json") || p.endsWith("mcp.json.example"),
       mkdir: () => {},
-      copyFile: (from, to) => copied.push({ from, to }),
+      copyFile: (from: string, to: string) => copied.push({ from, to }),
     });
     expect(result.ok).toBe(true);
     expect(copied).toEqual([
@@ -221,7 +221,7 @@ describe("syncWorktreeMcpJson", () => {
 
   it("falls back to the tracked example when the live file is missing", () => {
     const result = syncWorktreeMcpJson(MAIN, FEATURE, {
-      exists: (p) => p.endsWith("mcp.json.example"),
+      exists: (p: string) => p.endsWith("mcp.json.example"),
       mkdir: () => {},
       copyFile: () => {},
     });
@@ -244,9 +244,9 @@ describe("copyWorktreeIncludeFiles", () => {
   it("copies listed files that exist and skips the rest", () => {
     const copied: Array<{ from: string; to: string }> = [];
     const result = copyWorktreeIncludeFiles(MAIN, FEATURE, [".env.local", "missing.env"], {
-      exists: (p) => p === join(MAIN, ".env.local"),
+      exists: (p: string) => p === join(MAIN, ".env.local"),
       mkdir: () => {},
-      copyFile: (from, to) => copied.push({ from, to }),
+      copyFile: (from: string, to: string) => copied.push({ from, to }),
     });
     expect(result).toEqual({ copied: [".env.local"], skipped: ["missing.env"] });
     expect(copied).toEqual([

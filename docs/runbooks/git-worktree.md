@@ -50,7 +50,7 @@ npm run worktree:remove -- ..\sajtmaskin-feat-X
 npm run tidy:apply
 ```
 
-`npm run worktree:setup` kopierar `.worktreeinclude` (`.env.local`, `mcp.json`) och länkar `node_modules`. `worktree:link` är bara junction-steget. Manuell omsync: `pwsh -File scripts/cursor/sync-mcp-json.ps1 -AllWorktrees`.
+`npm run worktree:setup` kopierar `.worktreeinclude` (`.env.local`, `mcp.json`) och länkar `node_modules`. `worktree:link` gör junctionen och synkar `mcp.json` men kopierar inte övriga include-filer. Manuell omsync: `pwsh -File scripts/cursor/sync-mcp-json.ps1 -AllWorktrees`.
 
 ### Vitest i länkad worktree
 
