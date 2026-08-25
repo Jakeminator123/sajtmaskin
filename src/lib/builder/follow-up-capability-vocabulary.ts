@@ -231,12 +231,25 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     capability: "booking",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:cal\.com|calcom)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:bokningssystem(?:et)?|bokningskalender(?:n)?|tidsbokning(?:en)?|online[-\s]?bokning|online[-\s]?booking|appointment[-\s]?(?:booking|scheduling)|booking[-\s]?(?:calendar|system)|schedule\s+an?\s+appointment)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:boka\s+(?:en\s+)?tid|book\s+an?\s+(?:appointment|consultation|meeting|service))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:bokningssystem(?:et)?|bokningskalender(?:n)?|tidsbokning(?:en)?|online[-\s]?bokning|online[-\s]?booking|appointment[-\s]?(?:booking|scheduling)|booking[-\s]?(?:calendar|system))(?![\p{L}\p{N}_])/iu,
+      // Match the appointment action wherever it appears in a sentence, so
+      // subjects/modals and plural objects work too: "customers can schedule
+      // appointments" / "kunder kan boka tider".
+      /(?<![\p{L}\p{N}_])(?:(?:schedule|book)\s+(?:(?:an?|the)\s+)?appointments?|book\s+(?:(?:an?|the)\s+)?(?:consultations?|meetings?|services?)|boka\s+(?:en\s+)?tid(?:er)?)(?![\p{L}\p{N}_])/iu,
     ],
     vetoes: [
       /(?<![\p{L}\p{N}_])(?:bokningssystem(?:et)?|bokningskalender(?:n)?|tidsbokning(?:en)?|online[-\s]?bokning|bokning)\s+(?:för|av|till)\s+(?:(?:våra|era|vårt|ert|ett|en)\s+)?(?:restaurang(?:en)?|hotell(?:et)?|restaurangens\s+bord|hotellets\s+rum|bord(?:et|en)?|restaurangbord|hotellrum(?:men)?|rum(?:met|men)?|utrustning(?:en)?|hyrutrustning|fordon(?:en)?|biluthyrning|cykeluthyrning|sportban(?:a|or|orna)|padelban(?:a|or|an)|tennisban(?:a|or|an)|golfban(?:a|or|an)|lokaler(?:na)?|biljetter(?:na)?)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:cal\.com[-\s]?(?:booking|scheduling)|booking[-\s]?(?:calendar|system)|online[-\s]?booking)\s+(?:for|of)\s+(?:(?:a|an|the|our)\s+)?(?:restaurants?|hotels?|(?:hotel|meeting)[-\s]+rooms?|(?:restaurant[-\s]+)?tables?|(?:tennis|padel|sports?)[-\s]+courts?|sports?[-\s]+fields?|rooms?|courts?|equipment|rental[-\s]?equipment|vehicles?|car[-\s]?rental|bike[-\s]?rental|venues?|tickets?)(?![\p{L}\p{N}_])/iu,
+      // Inventory-first English order: the resource must directly modify the
+      // booking noun. A later location ("appointments in a hotel room") does
+      // not match this shape.
+      /(?<![\p{L}\p{N}_])(?:restaurants?|hotels?|(?:hotel|meeting)[-\s]+rooms?|(?:restaurant[-\s]+)?tables?|(?:tennis|padel|sports?)[-\s]+courts?|sports?[-\s]+fields?|rooms?|courts?|equipment|rental[-\s]?equipment|vehicles?|car[-\s]?rental|bike[-\s]?rental|venues?|tickets?)[-\s]+booking(?:[-\s]+(?:calendar|system))?(?![\p{L}\p{N}_])/iu,
+      // Swedish compounds and spaced variants keep the same adjacency rule:
+      // hotellbokningssystem, rumsbokning, bordsbokning.
+      /(?<![\p{L}\p{N}_])(?:restaurangbord(?:s)?|hotellrum(?:s)?|hyrutrustning(?:s)?|biluthyrning(?:s)?|cykeluthyrning(?:s)?|(?:padel|tennis|golf|sport)ban(?:a|e|or|s)?|restaurang|hotell|utrustning(?:s)?|fordon(?:s)?|lokal(?:s|er)?|biljett(?:s|er)?|rum(?:s)?|bord(?:s)?)[-\s]?(?:bokning(?:en)?|bokningssystem(?:et)?|bokningskalender(?:n)?)(?![\p{L}\p{N}_])/iu,
+      // Direct reservation verbs are also unambiguous resource context while
+      // still allowing appointment locations such as "boka tid i ett rum".
+      /(?<![\p{L}\p{N}_])(?:boka|book)\s+(?:(?:ett|en|a|an|the|våra?|era?|our|your)\s+)?(?:restaurangbord|hotellrum|bord(?:et)?|rum(?:met)?|tables?|rooms?|courts?|equipment|vehicles?|venues?|tickets?)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {

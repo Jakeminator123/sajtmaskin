@@ -126,6 +126,11 @@ const STRONG_ADD_VERB_PATTERNS: RegExp[] = [
   // till / sätta in / koppla …". Rena önskeformer ligger i WEAK nedan.
   /(?<![\p{L}\p{N}_])skulle\s+vilja\s+(?:lägga\s+till|sätta\s+in|koppla|bygga|skapa|aktivera|integrera)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:add|insert|include|build|create|implement|set\s+up|wire\s+up|hook\s+up|enable|integrate)(?![\p{L}\p{N}_])/iu,
+  // Appointment actions express the addition themselves. Keep this phrase-
+  // specific so a subject/modal sentence over the short-prompt budget
+  // ("customers can schedule appointments online") opens the gate without
+  // turning bare inventory or location nouns into global add signals.
+  /(?<![\p{L}\p{N}_])(?:boka\s+(?:en\s+)?tid(?:er)?|(?:book|schedule)\s+(?:an?\s+)?appointments?)(?![\p{L}\p{N}_])/iu,
 ];
 
 /**

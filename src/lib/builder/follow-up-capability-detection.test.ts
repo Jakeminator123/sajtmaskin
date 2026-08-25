@@ -123,6 +123,34 @@ describe("detectFollowUpCapabilities — booking", () => {
     expect(result.capabilityIds).toContain("booking");
   });
 
+  it("detects plural appointment actions and subject/modal forms", () => {
+    for (const prompt of [
+      "customers can schedule appointments online",
+      "customers can book appointments",
+      "kunder kan boka tider",
+      "boka tid",
+      "schedule an appointment",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).toContain("booking");
+    }
+  });
+
+  it("vetoes inventory-first booking phrases", () => {
+    for (const prompt of [
+      "add a hotel booking system",
+      "add a room booking calendar",
+      "table booking for our restaurant",
+      "hotellbokningssystem",
+      "rumsbokning",
+      "boka bord",
+      "lägg till Cal.com-hotellbokningssystem",
+      "lägg till Cal.com för rumsbokning",
+      "lägg till Cal.com så kunder kan boka bord",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("booking");
+    }
+  });
+
   it("does not route inventory reservations to Cal.com", () => {
     for (const prompt of [
       "lägg till ett bokningssystem för hotellrum",
@@ -164,6 +192,7 @@ describe("detectFollowUpCapabilities — booking", () => {
       "add online booking for a clinic",
       "add appointment scheduling for restaurant staff meetings",
       "add Cal.com booking for consultations in hotel rooms",
+      "boka tid i vårt behandlingsrum",
     ]) {
       expect(detectFollowUpCapabilities(prompt).capabilityIds).toContain("booking");
     }
