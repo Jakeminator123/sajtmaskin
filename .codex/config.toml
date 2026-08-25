@@ -1,18 +1,17 @@
-<<<<<<< Updated upstream
 #:schema https://developers.openai.com/codex/config-schema.json
 
 # Project-scoped Codex defaults for Sajtmaskin.
 # Keep provider/auth/token settings in ~/.codex/config.toml, not in this repo.
 
 model = "gpt-5.6-sol"
-=======
->>>>>>> Stashed changes
 model_reasoning_effort = "high"
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 web_search = "cached"
 
 [sandbox_workspace_write]
+# Sajtmaskin routinely needs npm, Vercel, GitHub, and package registry access.
+# Approval prompts still protect writes outside the workspace and other gated actions.
 network_access = true
 
 [windows]
@@ -25,6 +24,8 @@ default_subagent_reasoning_effort = "high"
 max_concurrent_threads_per_session = 8
 
 [shell_environment_policy]
+# Do not forward KEY/SECRET/TOKEN variables by default. Sajtmaskin should load
+# project runtime secrets from local env files or tool auth stores instead.
 ignore_default_excludes = false
 
 [shell_environment_policy.set]
