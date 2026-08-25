@@ -18,8 +18,7 @@ import {
 
 const MAIN = resolve("C:/repo/sajtmaskin");
 const FEATURE = resolve("C:/repo/sajtmaskin-feat-x");
-const PERMANENT_CODEX = resolve("C:/repo/sajtmaskin-codex");
-const REGISTERED_PERMANENT = resolve("C:/agent-worktrees/ed66/sajtmaskin-codex");
+const REGISTERED_PERMANENT = resolve("C:/agent-worktrees/ed66/sajtmaskin-keep");
 
 const WORKTREES = [
   { path: MAIN, isMain: true },
@@ -90,27 +89,15 @@ describe("resolveTargetWorktree", () => {
     expect("reason" in plan && plan.reason).toContain("protected permanent/current");
   });
 
-  it("refuses the conventional permanent Codex checkout during removal", () => {
-    const worktrees = [...WORKTREES, { path: PERMANENT_CODEX, isMain: false }];
-    const plan = resolveTargetWorktree({
-      targetPath: PERMANENT_CODEX,
-      worktrees,
-      protectedWorktreePaths: protectedRemovalPaths(worktrees, FEATURE),
-    });
-    expect(plan.ok).toBe(false);
-    expect("reason" in plan && plan.reason).toContain("protected permanent/current");
-  });
-
   it("refuses a registry-protected worktree when called from another checkout", () => {
     const worktrees = [
       ...WORKTREES,
-      { path: PERMANENT_CODEX, isMain: false },
       { path: REGISTERED_PERMANENT, isMain: false },
     ];
     const plan = resolveTargetWorktree({
       targetPath: REGISTERED_PERMANENT,
       worktrees,
-      protectedWorktreePaths: protectedRemovalPaths(worktrees, PERMANENT_CODEX, [
+      protectedWorktreePaths: protectedRemovalPaths(worktrees, FEATURE, [
         REGISTERED_PERMANENT,
       ]),
     });
@@ -187,7 +174,6 @@ describe("classifyRemovalLifecycle", () => {
     "rescue/stash-2026-08-14",
     "dependabot/npm_and_yarn/next-16.3.1",
     "archive/sanering-2026-08-04",
-    "codex/workspace",
   ])("never removes protected branch %s, even with --force", (protectedBranch) => {
     const decision = classifyRemovalLifecycle({
       branch: protectedBranch,

@@ -48,7 +48,6 @@ export const POLICY_FLOORS = Object.freeze({
     "package-lock.json",
     "AGENTS.md",
     ".agents/skills/**",
-    ".codex/**",
     ".cursor/rules/**",
     ".cursor/hooks/**",
     ".cursor/hooks.json",
@@ -80,7 +79,6 @@ export const POLICY_FLOORS = Object.freeze({
     "rescue/*",
     "dependabot/*",
     "archive/*",
-    "codex/workspace",
   ],
 });
 

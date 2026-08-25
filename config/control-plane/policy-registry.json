@@ -254,7 +254,7 @@
         "danger": "medium"
       },
       "mobility": "leave",
-      "notes": "Lean entry/router for AGENTS.md, .agents/skills, .cursor rules/commands and .codex profiles. CI-only agent governance; not product runtime. check:agent-context locks topology, context budgets and active model terminology."
+      "notes": "Lean entry/router for AGENTS.md, .agents/skills and .cursor rules/commands. CI-only agent governance; not product runtime. check:agent-context locks topology, context budgets and active model terminology."
     },
     {
       "id": "agent-workflow-policy",

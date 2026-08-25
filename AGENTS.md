@@ -15,8 +15,7 @@ relevanta owner; läs inte en fast dokumentstack.
 | Skriv/PR/merge | `.agents/skills/pr-workflow/SKILL.md`, sedan `git.mdc` och `workflow.mdc`; läs `pr-merge.mdc` först efter skapad PR eller mergeuppdrag |
 
 Snabb kodrouter: [`.cursor/rules/repo-router.mdc`](.cursor/rules/repo-router.mdc).
-Cursor-konfiguration: [`.cursor/README.md`](.cursor/README.md). Codex:
-[`.codex/README.md`](.codex/README.md).
+Cursor-konfiguration: [`.cursor/README.md`](.cursor/README.md).
 
 ## Canonical owner
 

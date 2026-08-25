@@ -190,7 +190,7 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 | syntetisk scaffold | Undvik som nulägesbegrepp. `projekt-bas-app` är en riktig registrerad Scaffold; variant-template inspiration är ett separat inspirationslager |
 | addendum (ospecificerat) | `Källpaket` för samlingen av valbara ingredienser; `Variant-template-addendum` när `config/variant-template-addenda.json` avses |
 | variant template / template snapshot | Precisera till `sourceTemplateIds`, `Variant-template inspiration` eller `Template (v0-mall)` beroende på om kandidatpool, inspiration eller helprojekt avses |
-| modell (ospecificerat) | Precisera `Sajtmaskins produktmodell`, `Cursor/IDE-modell` eller `Codex agentprofil`; de delar inte automatiskt modell-id eller routing |
+| modell (ospecificerat) | Precisera `Sajtmaskins produktmodell` eller `Cursor/IDE-modell`; de delar inte automatiskt modell-id eller routing |
 | fast (som aktuell build profile) | `premium`; `fast` får bara förekomma som dokumenterat legacy-/persistensalias. |
 | `hasRealBuildIntegrations` som "har externa integrationer" | Kostnadssignal: `true` = «Bygg integrationer» tar LLM-vägen (planerad dossier saknas i versionen, eller integrationen har ett verkligt buildkrav). |
 | `previewPending` som previewstatus | `/preview-status` äger previewstatusen. |
@@ -206,7 +206,6 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 
 - **Cursor/IDE-agent:** arbetar i repot; regler i `.cursor/rules/`, skills i
   `.agents/skills/`.
-- **Codex repo-agent:** arbetar i repot och läser `AGENTS.md` samt `.codex/`.
 - **GitHub/Vercel-bot:** review- eller deploysignal, inte produktens Verifier.
 - **Sajtmaskins produktmodell:** runtimeval i `config/ai_models/manifest.json`.
 - **Extern coach/LLM:** har bara den kontext användaren uttryckligen ger den.

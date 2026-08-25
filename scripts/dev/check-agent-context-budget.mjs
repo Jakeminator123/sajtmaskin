@@ -34,7 +34,6 @@ const REQUIRED_CONTEXT_FILES = Object.freeze([
 const ACTIVE_CONTEXT_ROOTS = Object.freeze([
   ".cursor",
   ".agents",
-  ".codex",
   "docs/runbooks",
   "docs/plans/active",
 ]);
@@ -48,12 +47,6 @@ const LEGACY_ACTIVE_REFERENCES = Object.freeze([
   { label: "retired useful-commands rule", pattern: /useful-commands\.mdc/iu },
   { label: "retired broad context skill", pattern: /sajtmaskin-context/iu },
 ]);
-const GODNATT_PROFILES = Object.freeze({
-  ".codex/agents/godnatt-investigator.toml": "xhigh",
-  ".codex/agents/godnatt-worker.toml": "high",
-  ".codex/agents/godnatt-reviewer.toml": "xhigh",
-});
-
 function read(root, path) {
   return readFileSync(resolve(root, path), "utf8");
 }
@@ -150,23 +143,6 @@ export function evaluateAgentContext(root = REPO_ROOT) {
   }
   if (/\b(?:PowerShell|pwsh)\b/i.test(agents)) {
     errors.push("AGENTS.md must not inject shell-specific reminders into every task");
-  }
-
-  const codexConfig = read(root, ".codex/config.toml");
-  if (!/^model\s*=\s*"gpt-5\.6-sol"\s*$/m.test(codexConfig)) {
-    errors.push(".codex/config.toml must keep gpt-5.6-sol as the project default");
-  }
-  if (!/^default_subagent_model\s*=\s*"gpt-5\.6-sol"\s*$/m.test(codexConfig)) {
-    errors.push(".codex/config.toml must keep gpt-5.6-sol as the subagent default");
-  }
-  for (const [path, effort] of Object.entries(GODNATT_PROFILES)) {
-    const profile = read(root, path);
-    if (
-      !/^model\s*=\s*"gpt-5\.6-sol"\s*$/m.test(profile) ||
-      !new RegExp(`^model_reasoning_effort\\s*=\\s*"${effort}"\\s*$`, "m").test(profile)
-    ) {
-      errors.push(`${path} must stay on gpt-5.6-sol with ${effort} reasoning`);
-    }
   }
 
   for (const path of filesBelow(root, ".cursor/commands", ".md")) {

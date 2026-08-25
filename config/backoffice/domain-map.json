@@ -7,8 +7,7 @@
     "backoffice": "Kanonisk Python-kod för den konsoliderade Streamlit-backoffice-appen: delad helperlogik, sidmoduler och huvudskal.",
     "docs": "Förklaringar, arkitektur och runbooks. Ändras via branch/PR; vyn Cursor-agenter visar dem read-only.",
     ".agents": "Kanoniska agent-skills. Detaljerade arbetsflöden bor här och laddas selektivt; skapa inte kopior under .cursor/skills.",
-    ".cursor": "Cursor-projektregler, tunna kommandoroutrar och lokala hooks. Regelindex: `.cursor/README.md`; skills ägs av `.agents/skills/`.",
-    ".codex": "Codex-profiler, projektstandarder och separat checkout-guide. Produktens runtime läser inte denna katalog."
+    ".cursor": "Cursor-projektregler, tunna kommandoroutrar och lokala hooks. Regelindex: `.cursor/README.md`; skills ägs av `.agents/skills/`."
   },
   "pages": {
     "Översikt": {
@@ -549,14 +548,13 @@
       ]
     },
     "Cursor-agenter": {
-      "summary": "Read-only karta över agenternas selektiva kontext och local→PR→master-flöde. AGENTS.md är tunn ingång, .agents/skills äger detaljerade recept, .cursor äger regler/routrar/hooks, .codex äger Codex-profiler och config/agent-workflow.json äger maskinvärden. Glossaryn är den mänskliga termägaren.",
+      "summary": "Read-only karta över agenternas selektiva kontext och local→PR→master-flöde. AGENTS.md är tunn ingång, .agents/skills äger detaljerade recept, .cursor äger regler/routrar/hooks och config/agent-workflow.json äger maskinvärden. Glossaryn är den mänskliga termägaren.",
       "canonicalPaths": [
         "AGENTS.md",
         ".agents/skills/",
         ".cursor/rules/",
         ".cursor/commands/",
         ".cursor/hooks.json",
-        ".codex/",
         "config/agent-workflow.json",
         "scripts/dev/check-agent-context-budget.mjs",
         "scripts/workflow/"

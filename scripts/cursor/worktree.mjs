@@ -125,8 +125,7 @@ export function classifyRemovalLifecycle({
 }
 
 /**
- * Protect both the checkout running this script and the repo-conventional
- * permanent Codex checkout next to the main checkout.
+ * Protect the checkout running this script plus any registry-configured paths.
  *
  * @param {{ path: string, isMain: boolean }[]} worktrees
  * @param {string} [currentWorktreePath]
@@ -134,16 +133,11 @@ export function classifyRemovalLifecycle({
  * @returns {string[]}
  */
 export function protectedRemovalPaths(
-  worktrees,
+  _worktrees,
   currentWorktreePath = REPO_ROOT,
   configuredPaths = [],
 ) {
-  const mainWorktree = findMainWorktree(worktrees);
-  return [
-    currentWorktreePath,
-    ...(mainWorktree ? [`${mainWorktree}-codex`] : []),
-    ...configuredPaths,
-  ];
+  return [currentWorktreePath, ...configuredPaths];
 }
 
 function normalizePath(p) {
@@ -608,13 +602,6 @@ function commandRemove(targetPath, { force }) {
   }
 
   const branch = git(["-C", plan.worktreePath, "rev-parse", "--abbrev-ref", "HEAD"]).trim();
-  if (branch === "codex/workspace") {
-    console.error(
-      `[worktree] ${plan.worktreePath} is the permanent Codex checkout (${branch}). Refusing removal.`,
-    );
-    process.exit(1);
-  }
-
   const headSha = git(["-C", plan.worktreePath, "rev-parse", "HEAD"]).trim();
   let lifecycle = loadPrLifecycle(REPO_ROOT);
   // Connector-baserade merge-stewards kan sakna gh lokalt. De får överlämna

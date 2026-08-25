@@ -146,5 +146,5 @@ aldrig rebindas till en pausad branch. Detta förhindrar både no-op-runs och at
 samma branch försöker checkas ut i två worktrees.
 
 Skapa/uppdatera aldrig genom rå automationsfil eller egen schematext i repot.
-Använd Desktop automation-API/UI och projektet sajtmaskin-codex. Lokala
+Använd Desktop automation-API/UI och Cursor-projektet sajtmaskin. Lokala
 scheduled tasks kräver att app och maskin är igång.

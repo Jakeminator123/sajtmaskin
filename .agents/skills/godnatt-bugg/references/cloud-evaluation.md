@@ -8,7 +8,6 @@ Det är inte Desktop-automationen och ger aldrig merge-authority.
 Starta inte Cloud-tasken förrän aktuell `origin/master` innehåller:
 
 - `.agents/skills/godnatt-bugg/`, inklusive evaluation-state och tester;
-- `.codex/agents/godnatt-{investigator,worker,reviewer}.toml`;
 - permanenta worktree-skyddet och dess tester.
 
 Cloud checkar ut en pushad branch eller commit och kan inte använda lokala

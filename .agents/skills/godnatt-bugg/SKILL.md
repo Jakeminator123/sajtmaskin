@@ -118,7 +118,7 @@ app-worktree-path och krav på verdict relevant, already-resolved, reclassify
 eller blocked.
 
 Utredaren är skrivskyddad och kör GPT-5.6 sol xhigh enligt
-.codex/agents/godnatt-investigator.toml. Kontrollera dess bevis själv. Flytta
+`.cursor/rules/subagent-models.mdc`. Kontrollera dess bevis själv. Flytta
 state sekventiellt till verified och investigated. Kör samma lokala och GitHub-
 snapshots efteråt och kräv identisk state. Vid mutation från den påstått
 skrivskyddade agenten: pausa och räkna inte resultatet som oberoende.

@@ -20,15 +20,14 @@
     },
     "repoSiblings": {
       "type": "object",
-      "required": ["config", "backoffice", "docs", ".agents", ".cursor", ".codex"],
+      "required": ["config", "backoffice", "docs", ".agents", ".cursor"],
       "additionalProperties": false,
       "properties": {
         "config": { "$ref": "#/$defs/nonEmptyText" },
         "backoffice": { "$ref": "#/$defs/nonEmptyText" },
         "docs": { "$ref": "#/$defs/nonEmptyText" },
         ".agents": { "$ref": "#/$defs/nonEmptyText" },
-        ".cursor": { "$ref": "#/$defs/nonEmptyText" },
-        ".codex": { "$ref": "#/$defs/nonEmptyText" }
+        ".cursor": { "$ref": "#/$defs/nonEmptyText" }
       }
     },
     "pages": {

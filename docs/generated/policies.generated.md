@@ -10,7 +10,7 @@
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:37411e2494bc615f -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:5015ae889ed37dda -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:bdabd528d04d5fad -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:74527a8ec3fbd34e -->
 
 # Policies
 
