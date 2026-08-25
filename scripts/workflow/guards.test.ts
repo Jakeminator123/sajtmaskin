@@ -3,8 +3,58 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
-import { decide as decideWorktree } from "../../.cursor/hooks/worktree-force-guard.mjs";
+import {
+  decide as decideWorktree,
+  mayResolveToGit,
+  resolveAliasesFor,
+} from "../../.cursor/hooks/worktree-force-guard.mjs";
 import { decideCommitCommand, includesTrackedChanges, isCommitCommand } from "./commit-guard.mjs";
+
+describe("alias lookup fast path", () => {
+  it.each([
+    "echo hello",
+    "npm run build",
+    "vercel env ls",
+    "node scripts/dev/check-unicode-regex.mjs",
+    "npm run worktree:remove -- ../x",
+  ])("skips the alias table for commands that cannot reach git: %s", (command) => {
+    expect(mayResolveToGit(command)).toBe(false);
+    const read = vi.fn(() => new Set(["ci"]));
+    expect(resolveAliasesFor(command, read)).toEqual(new Set());
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "git commit -m x",
+    "git worktree remove ../x",
+    '"git" status',
+    "/usr/bin/git commit",
+    "$(command -v git) worktree remove ../x",
+    "$G commit -a -m test",
+    "GIT_CONFIG_KEY_0=alias.ci git ci",
+  ])("still reads the alias table when git is reachable: %s", (command) => {
+    expect(mayResolveToGit(command)).toBe(true);
+    const read = vi.fn(() => new Set(["ci"]));
+    expect(resolveAliasesFor(command, read)).toEqual(new Set(["ci"]));
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it("reaches the same verdict with and without the fast path", () => {
+    const command = "npm run worktree:remove -- ../x";
+    expect(decideCommitCommand(command)).toEqual({ permission: "allow" });
+    expect(decideCommitCommand(command, { aliases: new Set(["ci"]) })).toEqual({
+      permission: "allow",
+    });
+    expect(decideWorktree(command, { aliases: new Set(["ci"]) })).toEqual({ permission: "allow" });
+  });
+
+  it("keeps denying a worktree removal that never names git", () => {
+    expect(mayResolveToGit("tool worktree remove ../victim")).toBe(false);
+    expect(decideWorktree("tool worktree remove ../victim", { aliases: new Set() }).permission).toBe(
+      "deny",
+    );
+  });
+});
 
 describe("destructive worktree guard", () => {
   it.each([

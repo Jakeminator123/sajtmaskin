@@ -9,13 +9,19 @@ import {
   invokesGit,
   isAmbiguousGitCommand,
   nestedShellPayloads,
-  readGitAliases,
+  resolveAliasesFor,
   shellSegments,
   shellTokens,
 } from "../../.cursor/hooks/worktree-force-guard.mjs";
 
 function respond(payload) {
-  process.stdout.write(`${JSON.stringify(payload)}\n`);
+  try {
+    process.stdout.write(`${JSON.stringify(payload)}\n`);
+  } catch {
+    // A closed pipe (the client already gave up waiting) must not surface as a
+    // non-zero exit: the client reports that as a crashed hook rather than as
+    // its own timeout, which hides the real cause.
+  }
 }
 
 function deny(reason) {
@@ -71,15 +77,25 @@ export function includesTrackedChanges(command) {
   );
 }
 
-export function decideCommitCommand(
-  command,
-  { git = gitFiles, env = process.env, aliases = readGitAliases() } = {},
-) {
+/**
+ * @param {string} command
+ * @param {{
+ *   git?: (args: string[]) => string[],
+ *   env?: Record<string, string | undefined>,
+ *   aliases?: Set<string> | null,
+ * }} [options] `aliases` omitted means "resolve lazily"; an explicit value
+ *   (including `null`, i.e. inspection failed) is used as given.
+ */
+export function decideCommitCommand(command, { git = gitFiles, env = process.env, aliases } = {}) {
   if (typeof command !== "string" || !command.trim()) return deny("saknat kommando");
-  if (isAmbiguousGitCommand(command, aliases)) {
+  // Resolved after the cheap input check and only when the command could reach
+  // git at all — an eager default argument spent a `git config` subprocess on
+  // every unrelated tool call, including the ones this guard immediately allows.
+  const resolved = aliases === undefined ? resolveAliasesFor(command) : aliases;
+  if (isAmbiguousGitCommand(command, resolved)) {
     return deny("dynamiskt eller aliasbaserat git-kommando — skriv det explicita git-kommandot");
   }
-  if (!isCommitCommand(command, { aliases })) return { permission: "allow" };
+  if (!isCommitCommand(command, { aliases: resolved })) return { permission: "allow" };
 
   try {
     const inputs = loadWorkflowInputs();
