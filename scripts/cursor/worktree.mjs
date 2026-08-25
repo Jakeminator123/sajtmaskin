@@ -18,16 +18,20 @@
  * makes the safe order the default.
  *
  * Usage:
+ *   node scripts/cursor/worktree.mjs setup  ../sajtmaskin-feat-x
  *   node scripts/cursor/worktree.mjs link   ../sajtmaskin-feat-x
  *   node scripts/cursor/worktree.mjs remove ../sajtmaskin-feat-x [--force]
  *
- * npm: `npm run worktree:link -- <path>` · `npm run worktree:remove -- <path>`
+ * npm: `npm run worktree:setup -- <path>` · `npm run worktree:link -- <path>` ·
+ * `npm run worktree:remove -- <path>`
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   copyFileSync,
   lstatSync,
   mkdirSync,
+  readFileSync,
+  readlinkSync,
   readdirSync,
   rmdirSync,
   symlinkSync,
@@ -382,10 +386,87 @@ function pathExists(candidate) {
 }
 
 /**
+ * Only a link to the main checkout's node_modules is a valid shared install.
+ * A real directory or a link to somewhere else is leftover / isolated, not setup.
+ *
+ * @param {string} linkPath
+ * @param {string} expectedSource
+ * @param {{ lstat?: (p: string) => { isSymbolicLink: () => boolean }, readlink?: (p: string) => string }} [io]
+ * @returns {{ ok: true, reason: string } | { ok: false, reason: string }}
+ */
+export function classifyExistingNodeModules(linkPath, expectedSource, io = {}) {
+  const lstat = io.lstat ?? lstatSync;
+  const readlink = io.readlink ?? readlinkSync;
+  let stats;
+  try {
+    stats = lstat(linkPath);
+  } catch {
+    return { ok: false, reason: "node_modules saknas" };
+  }
+  if (!stats.isSymbolicLink()) {
+    return {
+      ok: false,
+      reason: `${linkPath} is a real install, not a link to the main checkout`,
+    };
+  }
+  const raw = readlink(linkPath);
+  const resolved = normalizePath(resolve(dirname(linkPath), raw));
+  if (resolved !== normalizePath(expectedSource) && normalizePath(raw) !== normalizePath(expectedSource)) {
+    return {
+      ok: false,
+      reason: `${linkPath} points at ${raw}, not ${expectedSource}`,
+    };
+  }
+  return { ok: true, reason: "expected junction" };
+}
+
+/**
+ * Paths listed in `.worktreeinclude`, minus comments and blanks.
+ *
+ * @param {string} contents
+ * @returns {string[]}
+ */
+export function parseWorktreeIncludeList(contents) {
+  return String(contents ?? "")
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+}
+
+/**
+ * Copy gitignored files from the main checkout into a fresh worktree.
+ * Missing sources are skipped — a brand-new clone may not have `.env.local`.
+ *
+ * @param {string} mainWorktree
+ * @param {string} worktreePath
+ * @param {string[]} listed
+ * @param {{ exists?: (p: string) => boolean, copyFile?: (from: string, to: string) => void, mkdir?: (p: string, opts: { recursive: boolean }) => void }} [io]
+ * @returns {{ copied: string[], skipped: string[] }}
+ */
+export function copyWorktreeIncludeFiles(mainWorktree, worktreePath, listed, io = {}) {
+  const exists = io.exists ?? pathExists;
+  const copyFile = io.copyFile ?? copyFileSync;
+  const mkdir = io.mkdir ?? mkdirSync;
+  const copied = [];
+  const skipped = [];
+  for (const rel of listed) {
+    const source = join(mainWorktree, rel);
+    const dest = join(worktreePath, rel);
+    if (!exists(source)) {
+      skipped.push(rel);
+      continue;
+    }
+    mkdir(dirname(dest), { recursive: true });
+    copyFile(source, dest);
+    copied.push(rel);
+  }
+  return { copied, skipped };
+}
+
+/**
  * Gitignored `.cursor/mcp.json` does not appear in a fresh worktree.
- * Copy the live file (or the tracked example) so MCP is on without a
- * separate sync step. Prefer the main checkout's live file so local
- * OAuth-less URL lists stay in one place.
+ * Prefer the main checkout's live file so local OAuth-less URL lists stay
+ * in one place; fall back to the tracked example.
  *
  * @param {string} mainWorktree
  * @param {string} worktreePath
@@ -409,39 +490,58 @@ export function syncWorktreeMcpJson(mainWorktree, worktreePath, io = {}) {
   return { ok: true, dest, source };
 }
 
-function commandLink(targetPath) {
+function resolveSecondaryWorktree(targetPath) {
   const worktrees = listWorktrees();
   const plan = resolveTargetWorktree({ targetPath, worktrees });
   if (!plan.ok) {
     console.error(`[worktree] ${plan.reason}`);
     process.exit(1);
   }
-
   const mainWorktree = findMainWorktree(worktrees);
   if (!mainWorktree) {
     console.error("[worktree] Could not determine the main checkout from `git worktree list`.");
     process.exit(1);
   }
+  return { worktreePath: plan.worktreePath, mainWorktree };
+}
 
-  const linkPath = join(plan.worktreePath, "node_modules");
+function linkNodeModules(worktreePath, mainWorktree, { skipExisting }) {
+  const linkPath = join(worktreePath, "node_modules");
   const source = join(mainWorktree, "node_modules");
 
   if (pathExists(linkPath)) {
-    console.error(`[worktree] ${linkPath} already exists. Remove it first if you want to relink.`);
-    process.exit(1);
+    if (skipExisting) {
+      const existing = classifyExistingNodeModules(linkPath, source);
+      if (!existing.ok) {
+        console.error(`[worktree] ${existing.reason}. Remove it first if you want to relink.`);
+        process.exit(1);
+      }
+      console.log(`[worktree] skipped ${linkPath} — ${existing.reason}.`);
+    } else {
+      console.error(
+        `[worktree] ${linkPath} already exists. Remove it first if you want to relink.`,
+      );
+      process.exit(1);
+    }
+  } else {
+    symlinkSync(source, linkPath, "junction");
+    console.log(`[worktree] linked ${linkPath} -> ${source}`);
   }
 
-  symlinkSync(source, linkPath, "junction");
-  console.log(`[worktree] linked ${linkPath} -> ${source}`);
-
-  // Best-effort by design: a missing sub-project or an already-present link is
-  // not a reason to fail a link that otherwise succeeded. Skipping is safe —
-  // what is NOT safe is a link nobody records, which is why these are created
-  // here instead of by hand.
+  // Best-effort by design: a missing sub-project or an already-present correct
+  // link is not a reason to fail a link that otherwise succeeded. A wrong
+  // nested install is still a recorded link — refuse it the same way.
   for (const project of NESTED_NODE_MODULES) {
-    const nestedLink = join(plan.worktreePath, project, "node_modules");
+    const nestedLink = join(worktreePath, project, "node_modules");
     const nestedSource = join(mainWorktree, project, "node_modules");
     if (pathExists(nestedLink)) {
+      if (skipExisting) {
+        const existing = classifyExistingNodeModules(nestedLink, nestedSource);
+        if (!existing.ok) {
+          console.error(`[worktree] ${existing.reason}. Remove it first if you want to relink.`);
+          process.exit(1);
+        }
+      }
       console.log(`[worktree] skipped ${nestedLink} — already exists.`);
       continue;
     }
@@ -452,8 +552,10 @@ function commandLink(targetPath) {
     symlinkSync(nestedSource, nestedLink, "junction");
     console.log(`[worktree] linked ${nestedLink} -> ${nestedSource}`);
   }
+}
 
-  const mcp = syncWorktreeMcpJson(mainWorktree, plan.worktreePath);
+function syncMcpAndWarn(mainWorktree, worktreePath) {
+  const mcp = syncWorktreeMcpJson(mainWorktree, worktreePath);
   if (mcp.ok) {
     console.log(`[worktree] synced ${mcp.dest}`);
   } else {
@@ -464,6 +566,29 @@ function commandLink(targetPath) {
     "[worktree] IMPORTANT: tear this worktree down with `npm run worktree:remove -- <path>`, " +
       "never a bare `git worktree remove` — that follows the junction and empties the shared node_modules.",
   );
+}
+
+function commandLink(targetPath) {
+  const { worktreePath, mainWorktree } = resolveSecondaryWorktree(targetPath);
+  linkNodeModules(worktreePath, mainWorktree, { skipExisting: false });
+  syncMcpAndWarn(mainWorktree, worktreePath);
+}
+
+function commandSetup(targetPath) {
+  const { worktreePath, mainWorktree } = resolveSecondaryWorktree(targetPath);
+  const includeFile = join(mainWorktree, ".worktreeinclude");
+  const listed = pathExists(includeFile)
+    ? parseWorktreeIncludeList(readFileSync(includeFile, "utf8"))
+    : [];
+  const copied = copyWorktreeIncludeFiles(mainWorktree, worktreePath, listed);
+  for (const rel of copied.copied) {
+    console.log(`[worktree] copied ${rel}`);
+  }
+  for (const rel of copied.skipped) {
+    console.log(`[worktree] skipped ${rel} — missing in main checkout`);
+  }
+  linkNodeModules(worktreePath, mainWorktree, { skipExisting: true });
+  syncMcpAndWarn(mainWorktree, worktreePath);
 }
 
 function commandRemove(targetPath, { force }) {
@@ -571,16 +696,18 @@ function main() {
   const [action, targetPath, ...rest] = process.argv.slice(2);
   const force = rest.includes("--force");
 
-  if (!action || !targetPath || !["link", "remove"].includes(action)) {
+  if (!action || !targetPath || !["setup", "link", "remove"].includes(action)) {
     console.error(
       "Usage:\n" +
+        "  node scripts/cursor/worktree.mjs setup  <worktree-path>\n" +
         "  node scripts/cursor/worktree.mjs link   <worktree-path>\n" +
         "  node scripts/cursor/worktree.mjs remove <worktree-path> [--force]",
     );
     process.exit(2);
   }
 
-  if (action === "link") commandLink(targetPath);
+  if (action === "setup") commandSetup(targetPath);
+  else if (action === "link") commandLink(targetPath);
   else commandRemove(targetPath, { force });
 }
 

@@ -24,7 +24,7 @@ const itWithPosixShell = hasPosixShell ? it : it.skip;
 // ett schema koden lämnat bakom sig".
 describe("renderHookScript", () => {
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(6);
+    expect(HOOK_VERSION).toBe(7);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -35,6 +35,15 @@ describe("renderHookScript", () => {
     const script = renderHookScript("post-merge");
     expect(script).toContain("scripts/db/ensure-schema.mjs --soft --quiet-ok");
     expect(script.trimEnd().endsWith("exit 0")).toBe(true);
+  });
+
+  it("hoppar över schema-synken tills worktree:setup har gett node_modules", () => {
+    const script = renderHookScript("post-merge");
+    expect(script).toContain("[ -f node_modules/pg/package.json ] || exit 0");
+    expect(script).toContain("[ -f node_modules/dotenv/package.json ] || exit 0");
+    expect(script.indexOf("[ -f node_modules/pg/package.json ] || exit 0")).toBeLessThan(
+      script.indexOf("scripts/db/ensure-schema.mjs --soft --quiet-ok"),
+    );
   });
 
   it("har en exakt escape hatch och står bara över vid sann CI-signal", () => {
