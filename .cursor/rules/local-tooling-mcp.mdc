@@ -63,6 +63,7 @@ Lägger du till en server i mallen, lägg till raden här i samma ändring.
 | `supabase-prod` | **PROD**-schema/rader vid felsökning, read-only |
 | `shadcn` | Registry-sök/install (`scripts/cursor/shadcn-mcp.cmd`) |
 | `openclaw-docs` | Extern OpenClaw-produkt (gateway, CLI, nodes). Ett verktyg: `search_open_claw` |
+| `context7` | Versionspecifik lib-docs (Next/React m.m.) via Upstash Context7 |
 | `openai-docs` | OpenAI-docs + API-spec |
 | `v0` | v0 chat-API — **inte** docs, inte own-engine. Legacy |
 
