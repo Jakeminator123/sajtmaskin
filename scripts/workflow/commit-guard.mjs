@@ -43,25 +43,78 @@ function gitFiles(args, cwd = process.cwd()) {
     .filter(Boolean);
 }
 
+const DIRECTORY_CHANGE_RE =
+  /^(?:cd|chdir|pushd|set-location|sl)\s+(?:-(?:literal)?path\s+)?(?:"([^"]+)"|'([^']+)'|(\S+))\s*$/iu;
+const COMMIT_WORD_RE = /(?<![\p{L}\p{N}_])commit(?![\p{L}\p{N}_])/u;
+// `--git-dir`/`--work-tree` can point a commit at a checkout this guard cannot
+// reconstruct from the string alone. Those forms are denied instead of guessed.
+const OPAQUE_REPO_OPTION_RE = /(?<![\p{L}\p{N}_-])--(?:git-dir|work-tree)(?:[=\s]|$)/iu;
+
+function directoryChangeTarget(segment) {
+  const match = DIRECTORY_CHANGE_RE.exec(segment.trim());
+  if (!match) return null;
+  const target = match[1] ?? match[2] ?? match[3];
+  return target && !target.startsWith("-") ? target : null;
+}
+
 /**
- * Cursor sends an empty `cwd` and only the workspace root, so a commit made in
- * a sibling agent worktree would otherwise be judged against the main
- * checkout's branch — and denied as a direct-`master` commit even though the
- * worktree sits on a task branch. Read the command's own directory change.
+ * Every checkout a command could commit in.
+ *
+ * Cursor sends an empty `cwd` and only the workspace root, so judging against
+ * the hook's own directory denied legitimate commits made in a sibling agent
+ * worktree. But following the shell `cd` alone is not enough either: `git -C`
+ * overrides it, so `cd <feature-worktree>; git -C <main> commit` would be judged
+ * against the feature branch while Git commits on the trunk. Collect all
+ * candidates and let the caller refuse if *any* of them is on the trunk.
  *
  * Deliberately regex-based rather than tokenised: `shellTokens` treats `\` as
  * an escape, which destroys Windows paths such as `cd C:\dev\sajtmaskin-x`.
  */
+export function commitTargetDirectories(command, fallback) {
+  const directories = new Set();
+  const walk = (segments, startCwd) => {
+    let cwd = startCwd;
+    for (const segment of segments) {
+      const target = directoryChangeTarget(segment);
+      if (target) {
+        const resolved = resolve(cwd, target);
+        if (existsSync(resolved)) cwd = resolved;
+        continue;
+      }
+      if (!COMMIT_WORD_RE.test(segment)) continue;
+      // Only `-C` *before* the subcommand is a directory. `git commit -C HEAD`
+      // reuses a commit message and must not be read as a path. When present it
+      // replaces the shell directory for this invocation rather than adding to
+      // it, so `cd <main>; git -C <worktree> commit` is not falsely denied.
+      const commitIndex = segment.search(COMMIT_WORD_RE);
+      const prefix = commitIndex >= 0 ? segment.slice(0, commitIndex) : segment;
+      const targets = [];
+      for (const match of prefix.matchAll(
+        /(?:^|\s)-C\s+(?:"([^"]+)"|'([^']+)'|([^\s;&|]+))/gu,
+      )) {
+        const dir = match[1] ?? match[2] ?? match[3];
+        if (!dir) continue;
+        const resolved = resolve(cwd, dir);
+        targets.push(existsSync(resolved) ? resolved : cwd);
+      }
+      if (targets.length === 0) directories.add(cwd);
+      else for (const target of targets) directories.add(target);
+    }
+  };
+  // Nested payloads must be pulled from the whole command: `shellSegments`
+  // splits on `;` and would tear a quoted `pwsh -c "cd x; git commit"` apart.
+  for (const payload of nestedShellPayloads(command)) walk(shellSegments(payload), fallback);
+  walk(shellSegments(command), fallback);
+  if (directories.size === 0) directories.add(fallback);
+  return [...directories];
+}
+
+/** Kept for callers that only need the shell's own final directory. */
 export function commandWorkingDirectory(command, fallback) {
   let cwd = fallback;
   for (const segment of shellSegments(command)) {
-    const match =
-      /^(?:cd|chdir|pushd|set-location|sl)\s+(?:-(?:literal)?path\s+)?(?:"([^"]+)"|'([^']+)'|(\S+))\s*$/iu.exec(
-        segment.trim(),
-      );
-    if (!match) continue;
-    const target = match[1] ?? match[2] ?? match[3];
-    if (!target || target.startsWith("-")) continue;
+    const target = directoryChangeTarget(segment);
+    if (!target) continue;
     const resolved = resolve(cwd, target);
     if (existsSync(resolved)) cwd = resolved;
   }
@@ -106,34 +159,49 @@ export function decideCommitCommand(
     return deny("dynamiskt eller aliasbaserat git-kommando — skriv det explicita git-kommandot");
   }
   if (!isCommitCommand(command, { aliases })) return { permission: "allow" };
+  if (OPAQUE_REPO_OPTION_RE.test(command)) {
+    return deny("--git-dir/--work-tree kan peka på en annan checkout; kör commiten i dess worktree");
+  }
 
   try {
     const inputs = loadWorkflowInputs();
     const { policy } = inputs;
-    const repo = commandWorkingDirectory(command, cwd);
-    const branch = git(["branch", "--show-current"], repo)[0] ?? "";
-    if (!branch) return deny("detached HEAD — skapa uppgiftens branch före commit");
-    if (branch === policy.trunk) {
-      const enabled = env[policy.directMaster.breakGlassFlag] === "1";
-      const reason = String(env[policy.directMaster.breakGlassReason] ?? "").trim();
-      if (!enabled || reason.length < 12) {
+    // Judge every checkout the command could commit in, not just the shell's
+    // final directory. `git -C <trunk-checkout>` must not be able to hide
+    // behind an earlier `cd` into a task worktree.
+    const repositories = commitTargetDirectories(command, cwd);
+    const files = new Set();
+    for (const repo of repositories) {
+      const branch = git(["branch", "--show-current"], repo)[0] ?? "";
+      // An empty branch means detached HEAD *or* a checkout misconfigured as
+      // bare — `core.bare=true` has silently reappeared in this repo's main
+      // checkout twice, and it reads exactly like a detached HEAD here.
+      if (!branch) {
         return deny(
-          `direkt ${policy.trunk} är stängd; break-glass kräver ` +
-            `${policy.directMaster.breakGlassFlag}=1 och tydlig ${policy.directMaster.breakGlassReason}`,
+          `ingen branch i ${repo} — detached HEAD, eller checkouten är felkonfigurerad som bare (kontrollera core.bare)`,
         );
       }
+      if (branch === policy.trunk) {
+        const enabled = env[policy.directMaster.breakGlassFlag] === "1";
+        const reason = String(env[policy.directMaster.breakGlassReason] ?? "").trim();
+        if (!enabled || reason.length < 12) {
+          return deny(
+            `direkt ${policy.trunk} är stängd; break-glass kräver ` +
+              `${policy.directMaster.breakGlassFlag}=1 och tydlig ${policy.directMaster.breakGlassReason}`,
+          );
+        }
+      }
+
+      // Always inspect tracked working-tree changes too. Git accepts pathspecs,
+      // --only and --include, so parsing only -a/--all would leave bypasses. A
+      // conservative ask for an unrelated protected dirty file is preferable to
+      // silently committing one through an unrecognised Git form.
+      for (const file of git(["diff", "--cached", "--name-status", "-z"], repo)) files.add(file);
+      for (const file of git(["diff", "--name-status", "-z"], repo)) files.add(file);
     }
+    if (files.size === 0) return { permission: "allow" };
 
-    const staged = git(["diff", "--cached", "--name-status", "-z"], repo);
-    // Always inspect tracked working-tree changes too. Git accepts pathspecs,
-    // --only and --include, so parsing only -a/--all would leave bypasses. A
-    // conservative ask for an unrelated protected dirty file is preferable to
-    // silently committing one through an unrecognised Git form.
-    const tracked = git(["diff", "--name-status", "-z"], repo);
-    const files = [...new Set([...staged, ...tracked])];
-    if (files.length === 0) return { permission: "allow" };
-
-    const impact = collectImpact({ ...inputs, changedFiles: files });
+    const impact = collectImpact({ ...inputs, changedFiles: [...files] });
     if (impact.protectedFiles.length === 0 && impact.backofficePages.length === 0) {
       return { permission: "allow" };
     }

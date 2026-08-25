@@ -71,15 +71,7 @@
     "**/migrations/**"
   ],
   "pathGroups": {
-    "docs": [
-      "**/*.md",
-      "**/*.mdx",
-      "docs/**",
-      "**/*.mmd",
-      "**/*.svg",
-      "övrigt/**/*.yaml",
-      "övrigt/**/*.yml"
-    ],
+    "docs": ["**/*.md", "**/*.mdx", "docs/**", "övrigt/OPENCLAW-BUILDER/**"],
     "controlPlane": ["docs/schemas/**", "config/control-plane/**", "config/backoffice/**"],
     "agent": [
       "AGENTS.md",

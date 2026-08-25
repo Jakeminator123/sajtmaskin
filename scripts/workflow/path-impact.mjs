@@ -7,18 +7,18 @@ import { resolve } from "node:path";
 // both as effective routes and as the only basis for deciding that a path is
 // classified enough to avoid the unknown-path fail-safe.
 export const PATH_GROUP_FLOORS = Object.freeze({
-  // Diagramkällor och renderade bilder är dokumentation: de körs aldrig, så de
-  // ska inte utlösa unknown-path-skyddet nedan och dra in hela testsviten.
-  // `.yaml` är medvetet bara klassat inne i dokumentationsträdet `övrigt/` —
-  // en ny `infra/*.yaml` ska fortsätta falla i skyddet.
+  // Dokumentationsassets måste vara scopade till dokumentationsrötter, inte
+  // globala mönster. `**/*.svg` skulle klassa emit-bart dossierinnehåll som
+  // `data/dossiers/hard/*/public/icon.svg` som docs, och `övrigt/**/*.yml`
+  // skulle klassa `övrigt/testyta/docker-compose.yml` — en yta som ligger i
+  // tsconfig `exclude` just för att den innehåller kod. Båda skulle då slippa
+  // unknown-path-skyddet längre ner. `docs/**` täcker redan alla filtyper
+  // under `docs/`; nya dokumentationsträd läggs till uttryckligen här.
   docs: Object.freeze([
     "**/*.md",
     "**/*.mdx",
     "docs/**",
-    "**/*.mmd",
-    "**/*.svg",
-    "övrigt/**/*.yaml",
-    "övrigt/**/*.yml",
+    "övrigt/OPENCLAW-BUILDER/**",
   ]),
   controlPlane: Object.freeze([
     "docs/schemas/**",

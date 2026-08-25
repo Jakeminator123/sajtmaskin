@@ -158,9 +158,16 @@ describe("agent workflow impact", () => {
     expect(impact.commands).toContain("docs:check");
   });
 
-  it("still fails an unknown yaml outside the documentation tree into full verification", () => {
-    const impact = collectImpact({ ...inputs, changedFiles: ["deploy/cluster.yaml"] });
-    expect(impact.unclassifiedFiles).toEqual(["deploy/cluster.yaml"]);
+  // The documentation-asset classification must stay scoped to documentation
+  // roots. A global `**/*.svg` or `övrigt/**/*.yml` would let emit-capable
+  // dossier content and the excluded code surface `övrigt/testyta` skip the
+  // fail-safe.
+  it.each([
+    "deploy/cluster.yaml",
+    "data/dossiers/hard/demo/public/icon.svg",
+    "övrigt/testyta/docker-compose.yml",
+  ])("still fails a non-documentation asset into full verification: %s", (path) => {
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
     expect(impact.commands).toContain("test:ci");
   });
 
