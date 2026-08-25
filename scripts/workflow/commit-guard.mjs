@@ -57,6 +57,45 @@ function directoryChangeTarget(segment) {
   return target && !target.startsWith("-") ? target : null;
 }
 
+function topLevelShellSegments(command) {
+  const segments = [];
+  let value = "";
+  let quote = null;
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index];
+    if (char === "\\" && quote !== "'") {
+      value += char;
+      if (index + 1 < command.length) value += command[++index];
+      continue;
+    }
+    if (quote) {
+      value += char;
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      value += char;
+      continue;
+    }
+    const pair = command.slice(index, index + 2);
+    if (pair === "&&" || pair === "||") {
+      if (value.trim()) segments.push(value.trim());
+      value = "";
+      index += 1;
+      continue;
+    }
+    if (char === ";" || char === "|" || char === "\n") {
+      if (value.trim()) segments.push(value.trim());
+      value = "";
+      continue;
+    }
+    value += char;
+  }
+  if (value.trim()) segments.push(value.trim());
+  return segments;
+}
+
 /**
  * Every checkout a command could commit in.
  *
@@ -103,8 +142,13 @@ export function commitTargetDirectories(command, fallback) {
   };
   // Nested payloads must be pulled from the whole command: `shellSegments`
   // splits on `;` and would tear a quoted `pwsh -c "cd x; git commit"` apart.
-  for (const payload of nestedShellPayloads(command)) walk(shellSegments(payload), fallback);
-  walk(shellSegments(command), fallback);
+  const nestedPayloads = nestedShellPayloads(command);
+  for (const payload of nestedPayloads) walk(shellSegments(payload), fallback);
+  // Do not parse quoted nested payloads a second time as outer shell syntax.
+  // Top-level commands that follow the wrapper are still inspected separately.
+  for (const segment of topLevelShellSegments(command)) {
+    if (nestedShellPayloads(segment).length === 0) walk([segment], fallback);
+  }
   if (directories.size === 0) directories.add(fallback);
   return [...directories];
 }

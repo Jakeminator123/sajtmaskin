@@ -242,14 +242,24 @@ describe("commit guard", () => {
     // point at both causes instead of only one.
     const git = vi.fn(() => []);
     const decision = decideCommitCommand("git commit -m x", { git });
-    expect(decision.permission).toBe("deny");
-    expect(decision.user_message).toContain("core.bare");
+    expect(decision).toEqual(
+      expect.objectContaining({
+        permission: "deny",
+        user_message: expect.stringContaining("core.bare"),
+      }),
+    );
   });
 
   it("collects the commit target directory from a nested shell payload", () => {
     const cwd = process.cwd();
     const nested = commitTargetDirectories(`pwsh -c "cd scripts; git commit -m x"`, cwd);
-    expect(nested).toContain(resolve(cwd, "scripts"));
+    expect(nested).toEqual([resolve(cwd, "scripts")]);
+
+    const nestedThenOuter = commitTargetDirectories(
+      `pwsh -c "cd scripts; git status"; git commit -m x`,
+      cwd,
+    );
+    expect(nestedThenOuter).toEqual([cwd]);
   });
 
   it("resolves only directory changes that actually exist", () => {
