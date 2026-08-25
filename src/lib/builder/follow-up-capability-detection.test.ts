@@ -151,6 +151,30 @@ describe("detectFollowUpCapabilities — booking", () => {
     }
   });
 
+  it("vetoes direct inventory-booking verbs across the shared resource set", () => {
+    for (const prompt of [
+      "lägg till ett bokningssystem för att boka padelbana",
+      "boka tennisbana",
+      "boka golfbana",
+      "boka lokal",
+      "boka bil",
+      "boka utrustning",
+      "book a padel court",
+      "book equipment",
+      // Pair the direct verbs with another positive booking cue so these cases
+      // prove the veto, rather than passing only because no pattern matched.
+      "lägg till Cal.com så kunder kan boka tennisbana",
+      "lägg till Cal.com så kunder kan boka golfbana",
+      "lägg till Cal.com så kunder kan boka lokal",
+      "lägg till Cal.com så kunder kan boka bil",
+      "lägg till Cal.com så kunder kan boka utrustning",
+      "add Cal.com so customers can book a padel court",
+      "add Cal.com so customers can book equipment",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("booking");
+    }
+  });
+
   it("does not route inventory reservations to Cal.com", () => {
     for (const prompt of [
       "lägg till ett bokningssystem för hotellrum",

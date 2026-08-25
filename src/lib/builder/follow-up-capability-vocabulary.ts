@@ -57,6 +57,19 @@ export interface CapabilityVocabularyEntry {
   vetoes?: RegExp[];
 }
 
+const UNICODE_WORD_START_SOURCE = String.raw`(?<![\p{L}\p{N}_])`;
+const UNICODE_WORD_END_SOURCE = String.raw`(?![\p{L}\p{N}_])`;
+
+/**
+ * Reservation inventory excluded from the appointment-booking dossier.
+ *
+ * This bilingual source is shared by every booking veto so post-positive,
+ * resource-first and direct-verb word orders cannot drift to different
+ * resource coverage. Keep the alternatives context-free: each consuming
+ * regex supplies the booking relationship that makes the veto precise.
+ */
+const BOOKING_INVENTORY_RESOURCE_SOURCE = String.raw`(?:restaurangens\s+bord|hotellets\s+rum|restaurangbord(?:et|en|s)?|hotellrum(?:met|men|s)?|hyrutrustning(?:en|s)?|biluthyrning(?:en|s)?|cykeluthyrning(?:en|s)?|(?:padel|tennis|golf|sport)ban(?:a|an|or|orna|e|s)?|sportfält(?:et|en)?|restaurang(?:en|er)?|hotell(?:et)?|utrustning(?:en|ar|arna|s)?|fordon(?:et|en|s)?|bil(?:en|ar|arna|s)?|cykel(?:n|ar|arna|s)?|lokal(?:en|er|erna|s)?|biljett(?:en|er|erna|s)?|boende(?:t)?|bord(?:et|en|s)?|rum(?:met|men|s)?|(?:hotel|meeting)[-\s]+rooms?|(?:restaurant[-\s]+)?tables?|(?:tennis|padel|sports?)[-\s]+courts?|sports?[-\s]+fields?|rental[-\s]?equipment|car[-\s]?rental|bike[-\s]?rental|restaurants?|hotels?|rooms?|courts?|equipment|vehicles?|cars?|bikes?|venues?|tickets?|accommodation|lodging)`;
+
 export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
   {
     capability: "visual-3d",
@@ -238,18 +251,24 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:(?:schedule|book)\s+(?:(?:an?|the)\s+)?appointments?|book\s+(?:(?:an?|the)\s+)?(?:consultations?|meetings?|services?)|boka\s+(?:en\s+)?tid(?:er)?)(?![\p{L}\p{N}_])/iu,
     ],
     vetoes: [
-      /(?<![\p{L}\p{N}_])(?:bokningssystem(?:et)?|bokningskalender(?:n)?|tidsbokning(?:en)?|online[-\s]?bokning|bokning)\s+(?:för|av|till)\s+(?:(?:våra|era|vårt|ert|ett|en)\s+)?(?:restaurang(?:en)?|hotell(?:et)?|restaurangens\s+bord|hotellets\s+rum|bord(?:et|en)?|restaurangbord|hotellrum(?:men)?|rum(?:met|men)?|utrustning(?:en)?|hyrutrustning|fordon(?:en)?|biluthyrning|cykeluthyrning|sportban(?:a|or|orna)|padelban(?:a|or|an)|tennisban(?:a|or|an)|golfban(?:a|or|an)|lokaler(?:na)?|biljetter(?:na)?)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:cal\.com[-\s]?(?:booking|scheduling)|booking[-\s]?(?:calendar|system)|online[-\s]?booking)\s+(?:for|of)\s+(?:(?:a|an|the|our)\s+)?(?:restaurants?|hotels?|(?:hotel|meeting)[-\s]+rooms?|(?:restaurant[-\s]+)?tables?|(?:tennis|padel|sports?)[-\s]+courts?|sports?[-\s]+fields?|rooms?|courts?|equipment|rental[-\s]?equipment|vehicles?|car[-\s]?rental|bike[-\s]?rental|venues?|tickets?)(?![\p{L}\p{N}_])/iu,
-      // Inventory-first English order: the resource must directly modify the
-      // booking noun. A later location ("appointments in a hotel room") does
-      // not match this shape.
-      /(?<![\p{L}\p{N}_])(?:restaurants?|hotels?|(?:hotel|meeting)[-\s]+rooms?|(?:restaurant[-\s]+)?tables?|(?:tennis|padel|sports?)[-\s]+courts?|sports?[-\s]+fields?|rooms?|courts?|equipment|rental[-\s]?equipment|vehicles?|car[-\s]?rental|bike[-\s]?rental|venues?|tickets?)[-\s]+booking(?:[-\s]+(?:calendar|system))?(?![\p{L}\p{N}_])/iu,
-      // Swedish compounds and spaced variants keep the same adjacency rule:
-      // hotellbokningssystem, rumsbokning, bordsbokning.
-      /(?<![\p{L}\p{N}_])(?:restaurangbord(?:s)?|hotellrum(?:s)?|hyrutrustning(?:s)?|biluthyrning(?:s)?|cykeluthyrning(?:s)?|(?:padel|tennis|golf|sport)ban(?:a|e|or|s)?|restaurang|hotell|utrustning(?:s)?|fordon(?:s)?|lokal(?:s|er)?|biljett(?:s|er)?|rum(?:s)?|bord(?:s)?)[-\s]?(?:bokning(?:en)?|bokningssystem(?:et)?|bokningskalender(?:n)?)(?![\p{L}\p{N}_])/iu,
+      // Booking noun followed by its inventory resource.
+      new RegExp(
+        String.raw`${UNICODE_WORD_START_SOURCE}(?:(?:bokningssystem(?:et)?|bokningskalender(?:n)?|tidsbokning(?:en)?|online[-\s]?bokning|bokning)\s+(?:för|av|till)\s+(?:(?:våra|era|vårt|ert|ett|en)\s+)?|(?:cal\.com[-\s]?(?:booking|scheduling)|booking[-\s]?(?:calendar|system)|online[-\s]?booking)\s+(?:for|of)\s+(?:(?:a|an|the|our|your)\s+)?)${BOOKING_INVENTORY_RESOURCE_SOURCE}${UNICODE_WORD_END_SOURCE}`,
+        "iu",
+      ),
+      // Inventory-first English order and Swedish compounds. The resource
+      // directly modifies the booking noun, so a later appointment location
+      // ("appointments in a hotel room") cannot trigger this veto.
+      new RegExp(
+        String.raw`${UNICODE_WORD_START_SOURCE}${BOOKING_INVENTORY_RESOURCE_SOURCE}[-\s]*(?:bokning(?:en)?|bokningssystem(?:et)?|bokningskalender(?:n)?|booking(?:[-\s]+(?:calendar|system))?)${UNICODE_WORD_END_SOURCE}`,
+        "iu",
+      ),
       // Direct reservation verbs are also unambiguous resource context while
       // still allowing appointment locations such as "boka tid i ett rum".
-      /(?<![\p{L}\p{N}_])(?:boka|book)\s+(?:(?:ett|en|a|an|the|våra?|era?|our|your)\s+)?(?:restaurangbord|hotellrum|bord(?:et)?|rum(?:met)?|tables?|rooms?|courts?|equipment|vehicles?|venues?|tickets?)(?![\p{L}\p{N}_])/iu,
+      new RegExp(
+        String.raw`${UNICODE_WORD_START_SOURCE}(?:boka|book)\s+(?:(?:ett|en|a|an|the|våra?|era?|our|your)\s+)?${BOOKING_INVENTORY_RESOURCE_SOURCE}${UNICODE_WORD_END_SOURCE}`,
+        "iu",
+      ),
     ],
   },
   {
