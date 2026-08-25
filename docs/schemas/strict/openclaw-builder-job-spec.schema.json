@@ -46,6 +46,7 @@
       "items": {
         "enum": [
           "job:read",
+          "job:write",
           "project:read",
           "orchestration:read",
           "preview:read",
@@ -154,7 +155,7 @@
             "type": "array",
             "items": {
               "enum": [
-                "job.get", "job.heartbeat", "job.cancel", "project.snapshot",
+                "job.get", "project.snapshot",
                 "project.list_files", "project.read_file", "project.search", "project.diff",
                 "orchestration.explain", "preview.status", "preview.logs", "preview.screenshot"
               ]

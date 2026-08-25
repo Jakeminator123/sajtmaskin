@@ -6,8 +6,10 @@ import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 
 import {
+  BUILDER_LANE_GRANTS,
   BUILDER_JOB_ALLOWED_TOOLS,
   BUILDER_JOB_TOOL_SCOPES,
+  BUILDER_TOOL_REQUIRED_SCOPE,
   parseBuilderJobClientIntent,
   parseBuilderJobSpec,
 } from "./builder-job-spec";
@@ -68,6 +70,37 @@ describe("BuilderJobSpec", () => {
     expect(validate(validSpec), JSON.stringify(validate.errors)).toBe(true);
     expect(schema.properties.toolScopes.items.enum).toEqual([...BUILDER_JOB_TOOL_SCOPES]);
     expect(schema.properties.allowedTools.items.enum).toEqual([...BUILDER_JOB_ALLOWED_TOOLS]);
+    const shadowSchema = schema.allOf.find(
+      (entry: { if?: { properties?: { lane?: { const?: string } } } }) =>
+        entry.if?.properties?.lane?.const === "openclaw_shadow",
+    );
+    expect(shadowSchema.then.properties.toolScopes.items.enum).toEqual([
+      ...BUILDER_LANE_GRANTS.openclaw_shadow.toolScopes,
+    ]);
+    expect(shadowSchema.then.properties.allowedTools.items.enum).toEqual([
+      ...BUILDER_LANE_GRANTS.openclaw_shadow.allowedTools,
+    ]);
+  });
+
+  it("keeps mutating tools off read scopes and the shadow lane read-only", () => {
+    const mutatingToolName =
+      /(?:^|[._])(apply|cancel|heartbeat|patch|replace|submit|write)(?:[._]|$)/;
+    const mutatingTools = BUILDER_JOB_ALLOWED_TOOLS.filter((tool) =>
+      mutatingToolName.test(tool),
+    );
+
+    expect(mutatingTools).not.toHaveLength(0);
+    for (const tool of mutatingTools) {
+      expect(BUILDER_TOOL_REQUIRED_SCOPE[tool]).not.toMatch(/:read$/);
+    }
+
+    const shadowScopes = new Set<string>(BUILDER_LANE_GRANTS.openclaw_shadow.toolScopes);
+    expect([...shadowScopes].every((scope) => scope.endsWith(":read"))).toBe(true);
+    for (const tool of BUILDER_LANE_GRANTS.openclaw_shadow.allowedTools) {
+      const requiredScope = BUILDER_TOOL_REQUIRED_SCOPE[tool];
+      expect(requiredScope).toMatch(/:read$/);
+      expect(shadowScopes.has(requiredScope)).toBe(true);
+    }
   });
 
   it("requires both base identity fields and rejects duplicate grants", () => {

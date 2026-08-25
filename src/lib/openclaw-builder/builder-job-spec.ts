@@ -6,6 +6,7 @@ import { OPENCLAW_BUILDER_BUDGETS } from "./budget-policy";
 export const BUILDER_JOB_SCHEMA_VERSION = 1 as const;
 export const BUILDER_JOB_TOOL_SCOPES = [
   "job:read",
+  "job:write",
   "project:read",
   "orchestration:read",
   "preview:read",
@@ -34,7 +35,7 @@ export const BUILDER_JOB_ALLOWED_TOOLS = [
   "candidate.submit",
 ] as const;
 
-const BUILDER_LANE_GRANTS = {
+export const BUILDER_LANE_GRANTS = {
   classic: {
     toolScopes: ["job:read"],
     allowedTools: ["job.get"],
@@ -43,8 +44,6 @@ const BUILDER_LANE_GRANTS = {
     toolScopes: ["job:read", "project:read", "orchestration:read", "preview:read"],
     allowedTools: [
       "job.get",
-      "job.heartbeat",
-      "job.cancel",
       "project.snapshot",
       "project.list_files",
       "project.read_file",
@@ -62,13 +61,10 @@ const BUILDER_LANE_GRANTS = {
   },
 } as const;
 
-const BUILDER_TOOL_REQUIRED_SCOPE: Record<
-  (typeof BUILDER_JOB_ALLOWED_TOOLS)[number],
-  (typeof BUILDER_JOB_TOOL_SCOPES)[number]
-> = {
+export const BUILDER_TOOL_REQUIRED_SCOPE = {
   "job.get": "job:read",
-  "job.heartbeat": "job:read",
-  "job.cancel": "job:read",
+  "job.heartbeat": "job:write",
+  "job.cancel": "job:write",
   "project.snapshot": "project:read",
   "project.list_files": "project:read",
   "project.read_file": "project:read",
@@ -84,7 +80,10 @@ const BUILDER_TOOL_REQUIRED_SCOPE: Record<
   "candidate.preview": "candidate:check",
   "candidate.evidence": "candidate:check",
   "candidate.submit": "candidate:submit",
-};
+} as const satisfies Record<
+  (typeof BUILDER_JOB_ALLOWED_TOOLS)[number],
+  (typeof BUILDER_JOB_TOOL_SCOPES)[number]
+>;
 
 const opaqueId = z.string().min(1).max(256).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/);
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
