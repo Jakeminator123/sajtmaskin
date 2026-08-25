@@ -4,7 +4,12 @@ import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import { decide as decideWorktree } from "../../.cursor/hooks/worktree-force-guard.mjs";
-import { decideCommitCommand, includesTrackedChanges, isCommitCommand } from "./commit-guard.mjs";
+import {
+  commandWorkingDirectory,
+  decideCommitCommand,
+  includesTrackedChanges,
+  isCommitCommand,
+} from "./commit-guard.mjs";
 
 describe("destructive worktree guard", () => {
   it.each([
@@ -176,7 +181,36 @@ describe("commit guard", () => {
       return ["docs/agent-workflow.json"];
     });
     expect(decideCommitCommand("git commit -m x", { git }).permission).toBe("ask");
-    expect(git).toHaveBeenCalledWith(["diff", "--cached", "--name-status", "-z"]);
+    expect(git).toHaveBeenCalledWith(
+      ["diff", "--cached", "--name-status", "-z"],
+      commandWorkingDirectory("git commit -m x", process.cwd()),
+    );
+  });
+
+  it("judges a worktree commit against the worktree branch, not the hook cwd", () => {
+    // Cursor reports an empty cwd, so without this the guard reads the shared
+    // main checkout — which sits on master — and denies a legitimate commit.
+    const mainCheckout = process.cwd();
+    const worktree = resolve(mainCheckout, "scripts");
+    const git = vi.fn((args: string[], cwd?: string) => {
+      if (args[0] === "branch") return [cwd === worktree ? "fix/task" : "master"];
+      return args.includes("--cached") ? [] : ["src/components/example.tsx"];
+    });
+    expect(decideCommitCommand("cd scripts; git commit -am x", { git }).permission).toBe("allow");
+    expect(decideCommitCommand("git commit -am x", { git }).permission).toBe("deny");
+  });
+
+  it("resolves only directory changes that actually exist", () => {
+    const cwd = process.cwd();
+    expect(commandWorkingDirectory("git commit -m x", cwd)).toBe(cwd);
+    expect(commandWorkingDirectory("cd scripts; git commit -m x", cwd)).toBe(
+      resolve(cwd, "scripts"),
+    );
+    expect(commandWorkingDirectory("cd no-such-directory-here; git commit -m x", cwd)).toBe(cwd);
+    // Windows paths must survive: shellTokens would eat the backslashes.
+    expect(commandWorkingDirectory(`cd "${resolve(cwd, "scripts")}"; git commit -m x`, cwd)).toBe(
+      resolve(cwd, "scripts"),
+    );
   });
 
   it.each([

@@ -7,7 +7,19 @@ import { resolve } from "node:path";
 // both as effective routes and as the only basis for deciding that a path is
 // classified enough to avoid the unknown-path fail-safe.
 export const PATH_GROUP_FLOORS = Object.freeze({
-  docs: Object.freeze(["**/*.md", "**/*.mdx", "docs/**"]),
+  // Diagramkällor och renderade bilder är dokumentation: de körs aldrig, så de
+  // ska inte utlösa unknown-path-skyddet nedan och dra in hela testsviten.
+  // `.yaml` är medvetet bara klassat inne i dokumentationsträdet `övrigt/` —
+  // en ny `infra/*.yaml` ska fortsätta falla i skyddet.
+  docs: Object.freeze([
+    "**/*.md",
+    "**/*.mdx",
+    "docs/**",
+    "**/*.mmd",
+    "**/*.svg",
+    "övrigt/**/*.yaml",
+    "övrigt/**/*.yml",
+  ]),
   controlPlane: Object.freeze([
     "docs/schemas/**",
     "config/control-plane/**",

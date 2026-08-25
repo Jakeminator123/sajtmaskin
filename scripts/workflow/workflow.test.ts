@@ -146,6 +146,24 @@ describe("agent workflow impact", () => {
     );
   });
 
+  it.each([
+    "övrigt/OPENCLAW-BUILDER/STATUS.yaml",
+    "övrigt/OPENCLAW-BUILDER/diagrams/target.mmd",
+    "övrigt/OPENCLAW-BUILDER/diagrams/target.svg",
+    "docs/architecture/flow.svg",
+  ])("treats documentation assets as docs instead of unknown paths: %s", (path) => {
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    expect(impact.unclassifiedFiles).toEqual([]);
+    expect(impact.commands).not.toContain("test:ci");
+    expect(impact.commands).toContain("docs:check");
+  });
+
+  it("still fails an unknown yaml outside the documentation tree into full verification", () => {
+    const impact = collectImpact({ ...inputs, changedFiles: ["deploy/cluster.yaml"] });
+    expect(impact.unclassifiedFiles).toEqual(["deploy/cluster.yaml"]);
+    expect(impact.commands).toContain("test:ci");
+  });
+
   it("runs the isolated preview-host package guards", () => {
     const impact = collectImpact({ ...inputs, changedFiles: ["preview-host/src/server.js"] });
     expect(impact.commands).toContain("preview-host:verify");

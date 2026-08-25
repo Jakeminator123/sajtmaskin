@@ -71,7 +71,15 @@
     "**/migrations/**"
   ],
   "pathGroups": {
-    "docs": ["**/*.md", "**/*.mdx", "docs/**"],
+    "docs": [
+      "**/*.md",
+      "**/*.mdx",
+      "docs/**",
+      "**/*.mmd",
+      "**/*.svg",
+      "övrigt/**/*.yaml",
+      "övrigt/**/*.yml"
+    ],
     "controlPlane": ["docs/schemas/**", "config/control-plane/**", "config/backoffice/**"],
     "agent": [
       "AGENTS.md",

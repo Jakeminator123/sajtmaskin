@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,8 +30,9 @@ function deny(reason) {
   };
 }
 
-function gitFiles(args) {
+function gitFiles(args, cwd = process.cwd()) {
   const output = execFileSync("git", args, {
+    cwd,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -40,6 +41,31 @@ function gitFiles(args) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+/**
+ * Cursor sends an empty `cwd` and only the workspace root, so a commit made in
+ * a sibling agent worktree would otherwise be judged against the main
+ * checkout's branch — and denied as a direct-`master` commit even though the
+ * worktree sits on a task branch. Read the command's own directory change.
+ *
+ * Deliberately regex-based rather than tokenised: `shellTokens` treats `\` as
+ * an escape, which destroys Windows paths such as `cd C:\dev\sajtmaskin-x`.
+ */
+export function commandWorkingDirectory(command, fallback) {
+  let cwd = fallback;
+  for (const segment of shellSegments(command)) {
+    const match =
+      /^(?:cd|chdir|pushd|set-location|sl)\s+(?:-(?:literal)?path\s+)?(?:"([^"]+)"|'([^']+)'|(\S+))\s*$/iu.exec(
+        segment.trim(),
+      );
+    if (!match) continue;
+    const target = match[1] ?? match[2] ?? match[3];
+    if (!target || target.startsWith("-")) continue;
+    const resolved = resolve(cwd, target);
+    if (existsSync(resolved)) cwd = resolved;
+  }
+  return cwd;
 }
 
 export function isCommitCommand(command, { aliases = new Set() } = {}) {
@@ -73,7 +99,7 @@ export function includesTrackedChanges(command) {
 
 export function decideCommitCommand(
   command,
-  { git = gitFiles, env = process.env, aliases = readGitAliases() } = {},
+  { git = gitFiles, env = process.env, aliases = readGitAliases(), cwd = process.cwd() } = {},
 ) {
   if (typeof command !== "string" || !command.trim()) return deny("saknat kommando");
   if (isAmbiguousGitCommand(command, aliases)) {
@@ -84,7 +110,8 @@ export function decideCommitCommand(
   try {
     const inputs = loadWorkflowInputs();
     const { policy } = inputs;
-    const branch = git(["branch", "--show-current"])[0] ?? "";
+    const repo = commandWorkingDirectory(command, cwd);
+    const branch = git(["branch", "--show-current"], repo)[0] ?? "";
     if (!branch) return deny("detached HEAD — skapa uppgiftens branch före commit");
     if (branch === policy.trunk) {
       const enabled = env[policy.directMaster.breakGlassFlag] === "1";
@@ -97,12 +124,12 @@ export function decideCommitCommand(
       }
     }
 
-    const staged = git(["diff", "--cached", "--name-status", "-z"]);
+    const staged = git(["diff", "--cached", "--name-status", "-z"], repo);
     // Always inspect tracked working-tree changes too. Git accepts pathspecs,
     // --only and --include, so parsing only -a/--all would leave bypasses. A
     // conservative ask for an unrelated protected dirty file is preferable to
     // silently committing one through an unrecognised Git form.
-    const tracked = git(["diff", "--name-status", "-z"]);
+    const tracked = git(["diff", "--name-status", "-z"], repo);
     const files = [...new Set([...staged, ...tracked])];
     if (files.length === 0) return { permission: "allow" };
 
