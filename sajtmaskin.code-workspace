@@ -25,7 +25,9 @@
         "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
         "args": ["-NoLogo"],
         "icon": "terminal-powershell"
-      }
+      },
+      // Dölj Windows PowerShell 5.1 helt. Den saknar `&&` och skriver inte UTF-8.
+      "Windows PowerShell": null
     },
     "terminal.integrated.automationProfile.windows": {
       "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",

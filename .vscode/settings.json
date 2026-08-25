@@ -80,23 +80,8 @@
 
   // ── Git: hämta från origin automatiskt, snabbare än default 180 s ──
   "git.autofetch": true,
-  "git.autofetchPeriod": 120,
+  "git.autofetchPeriod": 120
 
-  // ── Terminal: pinna PowerShell 7. Aldrig Windows PowerShell 5.1 ──
-  // Agent-skalet på Windows ignorerar ofta defaultProfile och faller till 5.1
-  // om profilen heter något annat än "PowerShell". Pekaren måste vara MSI-sökvägen,
-  // inte WindowsApps-aliaset (0-byte).
-  "terminal.integrated.defaultProfile.windows": "PowerShell",
-  "terminal.integrated.automationProfile.windows": {
-    "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
-    "args": ["-NoLogo"]
-  },
-  "terminal.integrated.profiles.windows": {
-    "PowerShell": {
-      "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
-      "icon": "terminal-powershell",
-      "args": ["-NoLogo"]
-    },
-    "Windows PowerShell": null
-  }
+  // Terminalprofilerna (pwsh 7) är window-scopade och ignoreras härifrån när
+  // repot öppnas via sajtmaskin.code-workspace. De ägs av den filen.
 }
