@@ -28,6 +28,9 @@ max_concurrent_threads_per_session = 8
 # project runtime secrets from local env files or tool auth stores instead.
 ignore_default_excludes = false
 
+[shell_environment_policy.set]
+PWSH = 'C:\Program Files\PowerShell\7\pwsh.exe'
+
 [shell_environment_policy.filters]
 PATH = "include"
 PATHEXT = "include"
@@ -45,3 +48,27 @@ CODEX_API_KEY = "exclude"
 CODEX_ACCESS_TOKEN = "exclude"
 GH_TOKEN = "exclude"
 GITHUB_TOKEN = "exclude"
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+
+[mcp_servers.openai-docs]
+url = "https://developers.openai.com/mcp"
+
+[mcp_servers.openclaw-docs]
+url = "https://docs.openclaw.ai/mcp"
+
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=yubbckduwblyrbnlglwf&read_only=true"
+
+[mcp_servers.supabase-prod]
+url = "https://mcp.supabase.com/mcp?project_ref=egcitvwgettkftkyzbvn&read_only=true"
+
+[mcp_servers.user-vercel]
+url = "https://mcp.vercel.com"
+
+[mcp_servers.v0]
+url = "https://mcp.v0.dev"
+
+[mcp_servers.vercel]
+url = "https://mcp.vercel.com/jakeminator123s-projects/sajtmaskin"
