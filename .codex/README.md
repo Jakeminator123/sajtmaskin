@@ -26,6 +26,18 @@ för investigator/reviewer och Sol `high` för worker.
 - Efter mergad PR: samma permanenta checkout får återanvändas, men nästa
   arbete ligger på en ny branch från färsk `origin/master`.
 
+## Windows-skal (pwsh 7)
+
+Codex Desktop på Windows startar ofta **Windows PowerShell 5.1** (`powershell.exe`)
+trots att `pwsh` 7 är installerat. 5.1 skriver
+`Copyright (C) Microsoft Corporation` / `aka.ms/pscore6` och förstår inte `&&`.
+
+- Riktig exe: `C:\Program Files\PowerShell\7\pwsh.exe` (MSI/winget, inte Store).
+- User PATH ska ha den mappen **före** `WindowsApps` (0-byte alias).
+- `PWSH` injiceras via `shell_environment_policy.set` i `config.toml`.
+- Kör kommandon som `& $env:PWSH -NoLogo -NoProfile -Command '…'` om skalet är 5.1.
+- `[windows] sandbox = "elevated"` är avsiktligt; aliaset i WindowsApps failar där.
+
 ## Cursor-paritet
 
 - Repo-regler: `AGENTS.md` pekar vidare till `docs/` och `.cursor/rules/`.

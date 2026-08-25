@@ -1,17 +1,18 @@
+<<<<<<< Updated upstream
 #:schema https://developers.openai.com/codex/config-schema.json
 
 # Project-scoped Codex defaults for Sajtmaskin.
 # Keep provider/auth/token settings in ~/.codex/config.toml, not in this repo.
 
 model = "gpt-5.6-sol"
+=======
+>>>>>>> Stashed changes
 model_reasoning_effort = "high"
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 web_search = "cached"
 
 [sandbox_workspace_write]
-# Sajtmaskin routinely needs npm, Vercel, GitHub, and package registry access.
-# Approval prompts still protect writes outside the workspace and other gated actions.
 network_access = true
 
 [windows]
@@ -24,9 +25,10 @@ default_subagent_reasoning_effort = "high"
 max_concurrent_threads_per_session = 8
 
 [shell_environment_policy]
-# Do not forward KEY/SECRET/TOKEN variables by default. Sajtmaskin should load
-# project runtime secrets from local env files or tool auth stores instead.
 ignore_default_excludes = false
+
+[shell_environment_policy.set]
+PWSH = 'C:\Program Files\PowerShell\7\pwsh.exe'
 
 [shell_environment_policy.filters]
 PATH = "include"
@@ -45,3 +47,27 @@ CODEX_API_KEY = "exclude"
 CODEX_ACCESS_TOKEN = "exclude"
 GH_TOKEN = "exclude"
 GITHUB_TOKEN = "exclude"
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+
+[mcp_servers.openai-docs]
+url = "https://developers.openai.com/mcp"
+
+[mcp_servers.openclaw-docs]
+url = "https://docs.openclaw.ai/mcp"
+
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=yubbckduwblyrbnlglwf&read_only=true"
+
+[mcp_servers.supabase-prod]
+url = "https://mcp.supabase.com/mcp?project_ref=egcitvwgettkftkyzbvn&read_only=true"
+
+[mcp_servers.user-vercel]
+url = "https://mcp.vercel.com"
+
+[mcp_servers.v0]
+url = "https://mcp.v0.dev"
+
+[mcp_servers.vercel]
+url = "https://mcp.vercel.com/jakeminator123s-projects/sajtmaskin"
