@@ -33,6 +33,10 @@
       "type": "http",
       "url": "https://docs.openclaw.ai/mcp",
       "note": "Hostad docs-MCP (ett verktyg: search_open_claw). Täcker den EXTERNA OpenClaw-produkten: gateway, CLI, nodes, kanaler, plugins, browser-verktyget — alltså hur man integrerar MOT OpenClaw. Den täcker INTE Sajtmaskins eget openclaw-lager: armerad autonomi, mandaträknaren, armedContinuation-watchen och <openclaw-action>-envelopen är lokala begrepp som bor i src/lib/openclaw/ och openclaw-bridge.mdc. Verifierat 2026-08-05: sökning på 'autonomy mandate follow-up' ger No results."
+    },
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "note": "Upstash Context7 — versionspecifik lib-dokumentation (resolve-library-id, get-library-docs). Anonym rate limit utan nyckel; valfri CONTEXT7_API_KEY via headers. Inte OpenClaw-specifik. Gateway-MCP (openclaw-mcp) är medvetet inte med — kräver lokal OpenClaw-gateway."
     }
   }
 }
