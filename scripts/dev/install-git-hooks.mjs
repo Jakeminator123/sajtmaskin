@@ -38,7 +38,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 6;
+export const HOOK_VERSION = 7;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -242,6 +242,11 @@ if [ "$SAJTMASKIN_SKIP_DB_HOOKS" = "1" ] || [ "\${GITHUB_ACTIONS:-}" = "true" ] 
 ${guard}
 # Saknas node är det inget fel värt att larma om i en git-hook.
 command -v node >/dev/null 2>&1 || exit 0
+
+# En ny worktree har de spårade skripten före worktree:setup har installerat
+# dependencies. Försök inte importera pg/dotenv i det mellanläget.
+[ -f node_modules/pg/package.json ] || exit 0
+[ -f node_modules/dotenv/package.json ] || exit 0
 
 node scripts/db/ensure-schema.mjs --soft --quiet-ok
 exit 0
