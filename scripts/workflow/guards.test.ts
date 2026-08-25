@@ -1,4 +1,5 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -108,6 +109,21 @@ describe("destructive worktree guard", () => {
     });
     expect(run.status).toBe(0);
     expect(JSON.parse(run.stdout).permission).toBe("deny");
+  });
+
+  it.each([
+    ".cursor/hooks/worktree-force-guard.mjs",
+    "scripts/workflow/commit-guard.mjs",
+  ])("does not crash when stdout closes before %s responds", async (script) => {
+    const child = spawn(process.execPath, [resolve(script)], {
+      cwd: process.cwd(),
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    child.stdout.destroy();
+    child.stdin.end(JSON.stringify({ command: "echo ok" }));
+    const [code, signal] = await once(child, "close");
+    expect(signal).toBeNull();
+    expect(code).toBe(0);
   });
 
   it.each([

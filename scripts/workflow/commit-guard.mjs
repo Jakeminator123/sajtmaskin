@@ -15,13 +15,10 @@ import {
 } from "../../.cursor/hooks/worktree-force-guard.mjs";
 
 function respond(payload) {
-  try {
-    process.stdout.write(`${JSON.stringify(payload)}\n`);
-  } catch {
-    // A closed pipe (the client already gave up waiting) must not surface as a
-    // non-zero exit: the client reports that as a crashed hook rather than as
-    // its own timeout, which hides the real cause.
-  }
+  process.stdout.once("error", (error) => {
+    if (error?.code !== "EPIPE") process.exitCode = 1;
+  });
+  process.stdout.write(`${JSON.stringify(payload)}\n`);
 }
 
 function deny(reason) {

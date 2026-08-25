@@ -25,6 +25,13 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+function writeResponse(payload) {
+  process.stdout.once("error", (error) => {
+    if (error?.code !== "EPIPE") process.exitCode = 1;
+  });
+  process.stdout.write(`${JSON.stringify(payload)}\n`);
+}
+
 /**
  * Split a shell line into independently executed parts.
  *
@@ -402,13 +409,9 @@ function main() {
   } catch {
     response = failure("ogiltig hook-input");
   }
-  try {
-    process.stdout.write(`${JSON.stringify(response)}\n`);
-  } catch {
-    // A closed pipe (the client already gave up waiting) must not surface as a
-    // non-zero exit: the client reports that as a crashed hook rather than as
-    // its own timeout, which hides the real cause.
-  }
+  // EPIPE is emitted asynchronously as a stream error; try/catch cannot
+  // intercept it. Other stdout errors remain fail-closed.
+  writeResponse(response);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
