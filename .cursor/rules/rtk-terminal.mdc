@@ -1,16 +1,27 @@
 ---
-description: "RTK komprimerar Shell-output globalt i Cursor. Läs vid konstig/kort terminaloutput, git-historikbeslut eller RTK-felsökning."
+description: "RTK kan komprimera Shell-output. Läs vid konstig/kort terminaloutput, git-historikbeslut eller RTK-felsökning. Anta inte att RTK är installerat."
 alwaysApply: false
 ---
 
 # RTK (terminalkomprimering)
 
-Ägaren har **RTK** (v0.45+) installerat globalt. Cursor-hooken
-(`%USERPROFILE%\.cursor\hooks.json` → `preToolUse` / `rtk hook cursor`) wrappar
-Shell så agenten ofta ser **filtrerad** output. Projektets
-`.cursor/hooks.json` (`beforeShellExecution`-guards) är separat och ska lämnas.
+RTK är **valfri och maskin-lokal**. Den är inte ett repo-beroende. Kontrollera
+att den faktiskt finns innan du antar filtrerad output.
 
-## Agentbeteende
+## Är RTK aktivt på den här maskinen?
+
+Aktivt bara om **båda** gäller:
+
+1. `Get-Command rtk` hittar binären (v0.45+).
+2. `%USERPROFILE%\.cursor\hooks.json` wrappar Shell med `rtk hook cursor`.
+
+Saknas något av det: behandla stdout som rå. Hitta inte på komprimering,
+tee-filer eller `RTK_DISABLED`-prefix.
+
+Projektets `.cursor/hooks.json` (`beforeShellExecution`-guards) är separat och
+ska lämnas.
+
+## Agentbeteende när RTK är aktivt
 
 | Gör | Undvik |
 |---|---|
@@ -19,7 +30,7 @@ Shell så agenten ofta ser **filtrerad** output. Projektets
 | Historik/merge: plain `git log` (exclude) eller `gh` | `rtk git log` manuellt — döljer merge-commits utan `-N` |
 | Acceptera komprimering av status/fetch/diff/test/lint | "Fixa" bort RTK eller kämpa emot hooken |
 
-## Override (en kommandosträng)
+## Override (en kommandosträng, bara om RTK är aktivt)
 
 Hooken förstår **unix-prefix**, inte pwsh-env:
 
@@ -33,7 +44,7 @@ Inte `$env:RTK_DISABLED='1'; …` — det omskrivs ändå.
 
 Fil: `%APPDATA%\rtk\config.toml`
 
-Förväntat minimum:
+Förväntat minimum **om** RTK är installerat:
 
 ```toml
 [telemetry]
