@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="940" viewBox="0 0 1500 940" role="img" aria-labelledby="title desc">
+  <title id="title">OpenClaw Builder Now Next Later Never canvas</title>
+  <desc id="desc">En fyrkolumnscanvas som visar nuläge, närmaste förbättringar, senare agentfunktioner och förbjudna plattformsrättigheter.</desc>
+  <defs><style>.t{font-family:Inter,Segoe UI,Arial,sans-serif;fill:#0f172a}.h{font-size:32px;font-weight:600}.s{font-size:16px;fill:#475569}.ch{font-size:23px;font-weight:600}.b{font-size:17px}.sm{font-size:14px;fill:#475569}.c1{fill:#f8fafc;stroke:#94a3b8;stroke-width:2}.c2{fill:#eff6ff;stroke:#2563eb;stroke-width:2}.c3{fill:#ecfdf5;stroke:#059669;stroke-width:2}.c4{fill:#fef2f2;stroke:#dc2626;stroke-width:2}.rule{stroke:#cbd5e1;stroke-width:1.5}</style></defs>
+  <text x="750" y="50" text-anchor="middle" class="t h">OpenClaw Builder Canvas</text>
+  <text x="750" y="82" text-anchor="middle" class="t s">Från säker kontextassistent till isolerad projektbyggare</text>
+
+  <rect x="35" y="120" width="340" height="740" rx="18" class="c1"/>
+  <rect x="395" y="120" width="340" height="740" rx="18" class="c2"/>
+  <rect x="755" y="120" width="340" height="740" rx="18" class="c3"/>
+  <rect x="1115" y="120" width="350" height="740" rx="18" class="c4"/>
+
+  <text x="205" y="168" text-anchor="middle" class="t ch">NOW</text>
+  <text x="565" y="168" text-anchor="middle" class="t ch">NEXT</text>
+  <text x="925" y="168" text-anchor="middle" class="t ch">LATER</text>
+  <text x="1290" y="168" text-anchor="middle" class="t ch">NEVER</text>
+  <path d="M65 190H345M425 190H705M785 190H1065M1145 190H1435" class="rule"/>
+
+  <text x="65" y="230" class="t b"><tspan x="65" dy="0">• Kontextmatad chattgateway</tspan><tspan x="65" dy="42">• tools.profile minimal</tspan><tspan x="65" dy="42">• Ingen egen filnavigation</tspan><tspan x="65" dy="42">• Quick edit kräver godkännande</tspan><tspan x="65" dy="42">• Follow-up via vanlig builder</tspan><tspan x="65" dy="42">• DB-snapshot är kanonisk</tspan><tspan x="65" dy="42">• Fly har härledda kopior</tspan><tspan x="65" dy="42">• GitHub debug-read är kuraterad</tspan></text>
+
+  <text x="425" y="230" class="t b"><tspan x="425" dy="0">• Sanningsenlig capability-UX</tspan><tspan x="425" dy="42">• Separat Builder-identitet</tspan><tspan x="425" dy="42">• JobSpec + revision + lease</tspan><tspan x="425" dy="42">• list / search / read</tspan><tspan x="425" dy="42">• Previewstatus och evidence</tspan><tspan x="425" dy="42">• Revisionsbundet minne</tspan><tspan x="425" dy="42">• Shadow planner</tspan><tspan x="425" dy="42">• Benchmark och audit</tspan></text>
+
+  <text x="785" y="230" class="t b"><tspan x="785" dy="0">• Efemär candidate sandbox</tspan><tspan x="785" dy="42">• Bounded filverktyg</tspan><tspan x="785" dy="42">• Rootless checks/executor</tspan><tspan x="785" dy="42">• Candidate preview</tspan><tspan x="785" dy="42">• Högst två repairvarv</tspan><tspan x="785" dy="42">• Submit genom CAS/finalize</tspan><tspan x="785" dy="42">• Opt-in F2</tspan><tspan x="785" dy="42">• Follow-up, imported, F3 sist</tspan></text>
+
+  <text x="1145" y="230" class="t b"><tspan x="1145" dy="0">• Supabase-admin hos agenten</tspan><tspan x="1145" dy="42">• Shell på permanent host</tspan><tspan x="1145" dy="42">• Andra tenants</tspan><tspan x="1145" dy="42">• Fri egress med projektdata</tspan><tspan x="1145" dy="42">• Plattformens GitHub write</tspan><tspan x="1145" dy="42">• Direkt promotion eller deploy</tspan><tspan x="1145" dy="42">• Parallella kontraktsregister</tspan><tspan x="1145" dy="42">• Agentminne som source of truth</tspan></text>
+
+  <rect x="240" y="885" width="1020" height="38" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+  <text x="750" y="910" text-anchor="middle" class="t b">Beslutsregel: read-only först · broker alltid · exakt revision · befintliga gates sist</text>
+</svg>
