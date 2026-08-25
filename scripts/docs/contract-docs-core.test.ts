@@ -62,7 +62,7 @@ describe("contract docs source coverage", () => {
       .find((line: string) => line.includes("| `calcom-booking` "));
 
     expect(generated).toContain("| Verification status | Last verified |");
-    expect(calcomRow).toContain("| `unverified` | `2026-08-24` |");
+    expect(calcomRow).toMatch(/\|\s*`unverified`\s*\|\s*`2026-08-24`\s*\|/u);
   });
 
   it("changes scaffold output when a scaffold manifest field changes", async () => {
