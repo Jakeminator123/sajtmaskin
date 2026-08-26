@@ -93,7 +93,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(11);
+    expect(HOOK_VERSION).toBe(12);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -188,6 +188,11 @@ describe("renderHookScript", () => {
       script.indexOf("npm run verify:pr"),
     );
     expect(script).toContain("GIT_CONFIG_KEY_0=safe.directory");
+    expect(script).toContain("git rev-parse --show-toplevel");
+    expect(script).not.toContain("VERIFY_ROOT=$(pwd -P)");
+    expect(script.indexOf("VERIFY_ROOT=$(git rev-parse --show-toplevel")).toBeLessThan(
+      script.indexOf("GIT_LOCAL_ENV_VARS=$(git rev-parse --local-env-vars"),
+    );
     expect(script.indexOf("GIT_CONFIG_KEY_0=safe.directory")).toBeLessThan(
       script.indexOf("npm run verify:pr"),
     );
@@ -220,11 +225,11 @@ describe("renderHookScript", () => {
       writeFileSync(join(root, "scripts", "dev", "install-git-hooks.mjs"), "marker\n");
       writeFileSync(
         join(bin, "git"),
-        '#!/bin/sh\nif [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then printf "%s\\n" "$HOOK_GIT_HEAD"; exit 0; fi\nif [ "$1" = "rev-parse" ] && [ "$2" = "--local-env-vars" ]; then printf "GIT_ALTERNATE_OBJECT_DIRECTORIES\\nGIT_CONFIG\\nGIT_CONFIG_PARAMETERS\\nGIT_CONFIG_COUNT\\nGIT_OBJECT_DIRECTORY\\nGIT_DIR\\nGIT_WORK_TREE\\nGIT_IMPLICIT_WORK_TREE\\nGIT_GRAFT_FILE\\nGIT_INDEX_FILE\\nGIT_NO_REPLACE_OBJECTS\\nGIT_REPLACE_REF_BASE\\nGIT_PREFIX\\nGIT_SHALLOW_FILE\\nGIT_COMMON_DIR\\n"; exit 0; fi\nif [ "$1" = "status" ]; then [ "$HOOK_GIT_DIRTY" = "1" ] && printf " M src/example.ts\\n"; exit 0; fi\n[ "$HOOK_GIT_ANCESTOR" = "1" ] && exit 0\nexit 1\n',
+        '#!/bin/sh\nif [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then printf "%s\\n" "$HOOK_GIT_HEAD"; exit 0; fi\nif [ "$1" = "rev-parse" ] && [ "$2" = "--show-toplevel" ]; then printf "%s\\n" "$HOOK_GIT_TOPLEVEL"; exit 0; fi\nif [ "$1" = "rev-parse" ] && [ "$2" = "--local-env-vars" ]; then printf "GIT_ALTERNATE_OBJECT_DIRECTORIES\\nGIT_CONFIG\\nGIT_CONFIG_PARAMETERS\\nGIT_CONFIG_COUNT\\nGIT_OBJECT_DIRECTORY\\nGIT_DIR\\nGIT_WORK_TREE\\nGIT_IMPLICIT_WORK_TREE\\nGIT_GRAFT_FILE\\nGIT_INDEX_FILE\\nGIT_NO_REPLACE_OBJECTS\\nGIT_REPLACE_REF_BASE\\nGIT_PREFIX\\nGIT_SHALLOW_FILE\\nGIT_COMMON_DIR\\n"; exit 0; fi\nif [ "$1" = "status" ]; then [ "$HOOK_GIT_DIRTY" = "1" ] && printf " M src/example.ts\\n"; exit 0; fi\n[ "$HOOK_GIT_ANCESTOR" = "1" ] && exit 0\nexit 1\n',
       );
       writeFileSync(
         join(bin, "npm"),
-        '#!/bin/sh\n[ -z "${GIT_DIR:-}" ] && [ -z "${GIT_WORK_TREE:-}" ] && [ -z "${GIT_CONFIG_PARAMETERS:-}" ] && [ -z "${GIT_REPLACE_REF_BASE:-}" ] && [ -z "${GIT_SHALLOW_FILE:-}" ] && [ -z "${GIT_NAMESPACE:-}" ] && [ -z "${GIT_INTERNAL_SUPER_PREFIX:-}" ] && [ "$GIT_CONFIG_COUNT" = "1" ] && [ "$GIT_CONFIG_KEY_0" = "safe.directory" ] && [ "$GIT_CONFIG_VALUE_0" = "$PWD" ]\n',
+        '#!/bin/sh\n[ -z "${GIT_DIR:-}" ] && [ -z "${GIT_WORK_TREE:-}" ] && [ -z "${GIT_CONFIG_PARAMETERS:-}" ] && [ -z "${GIT_REPLACE_REF_BASE:-}" ] && [ -z "${GIT_SHALLOW_FILE:-}" ] && [ -z "${GIT_NAMESPACE:-}" ] && [ -z "${GIT_INTERNAL_SUPER_PREFIX:-}" ] && [ "$GIT_CONFIG_COUNT" = "1" ] && [ "$GIT_CONFIG_KEY_0" = "safe.directory" ] && [ "$GIT_CONFIG_VALUE_0" = "$HOOK_GIT_TOPLEVEL" ]\n',
       );
       chmodSync(join(bin, "git"), 0o755);
       chmodSync(join(bin, "npm"), 0o755);
@@ -236,6 +241,7 @@ describe("renderHookScript", () => {
         ...process.env,
         PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
         HOOK_GIT_HEAD: "a".repeat(40),
+        HOOK_GIT_TOPLEVEL: "C:/workspace/sajtmaskin",
         GIT_DIR: "parent.git",
         GIT_WORK_TREE: root,
         GIT_CONFIG_COUNT: "2",

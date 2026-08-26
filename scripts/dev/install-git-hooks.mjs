@@ -38,7 +38,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 11;
+export const HOOK_VERSION = 12;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -197,10 +197,16 @@ if [ "$SAJTMASKIN_SKIP_VERIFY_HOOKS" = "1" ]; then exit 0; fi
 # tester och verktyg som avsiktligt arbetar i egna temporara repon; de maste fa
 # losa sitt repo fran cwd. Codex kan samtidigt injicera safe.directory via
 # GIT_CONFIG_COUNT, sa efter saneringen byggs exakt arbetsrotens safe-entry ater.
-VERIFY_ROOT=$(pwd -P) || {
+# Git far sjalv kanonisera sokvagen: Git Bash pwd ger /c/... medan git.exe
+# jamfor safe.directory mot C:/..., och de formerna ar inte alltid likvardiga.
+VERIFY_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
   echo "[hooks] Push stoppad: kunde inte lasa verifieringens arbetsrot." >&2
   exit 1
 }
+if [ -z "$VERIFY_ROOT" ]; then
+  echo "[hooks] Push stoppad: verifieringens arbetsrot ar tom." >&2
+  exit 1
+fi
 GIT_LOCAL_ENV_VARS=$(git rev-parse --local-env-vars 2>/dev/null) || {
   echo "[hooks] Push stoppad: kunde inte isolera git-miljon for verifieringen." >&2
   exit 1
