@@ -4,16 +4,10 @@ Den här katalogen är projektets Codex-lager. Cursor-reglerna ligger kvar i
 `.cursor/`, medan Codex automatiskt läser `AGENTS.md` från repo-roten och den
 här `.codex/config.toml` när projektet är trusted.
 
-Projektets Codex-default är GPT-5.6 Sol med `high` reasoning för huvudtråd och
-spawnade agenter. En explicit agentprofil vinner; Godnatt behåller Sol `xhigh`
-för investigator/reviewer och Sol `high` för worker.
-
 ## Så här ska projektet öppnas
 
 - Cursor behåller huvudcheckouten
-  `C:\Users\jakem\dev\projects\sajtmaskin` som läs-, test- och kontrollankare
-  på `master`. Normalt skrivarbete sker i uppgiftens egen worktree/branch enligt
-  `pr-workflow`, aldrig direkt i huvudcheckouten.
+  `C:\Users\jakem\dev\projects\sajtmaskin` och arbetar normalt på `master`.
 - Primary folder i Codex-projektet `sajtmaskin` är den permanenta worktreen
   `C:\Users\jakem\Documents\codex-sajtmaskin\sajtmaskin-worktrees\codex`
   på branchen `codex/workspace`.
@@ -25,18 +19,6 @@ för investigator/reviewer och Sol `high` för worker.
   Codex-ytan.
 - Efter mergad PR: samma permanenta checkout får återanvändas, men nästa
   arbete ligger på en ny branch från färsk `origin/master`.
-
-## Windows-skal (pwsh 7)
-
-Codex Desktop på Windows startar ofta **Windows PowerShell 5.1** (`powershell.exe`)
-trots att `pwsh` 7 är installerat. 5.1 skriver
-`Copyright (C) Microsoft Corporation` / `aka.ms/pscore6` och förstår inte `&&`.
-
-- Riktig exe: `C:\Program Files\PowerShell\7\pwsh.exe` (MSI/winget, inte Store).
-- User PATH ska ha den mappen **före** `WindowsApps` (0-byte alias).
-- `PWSH` injiceras via `shell_environment_policy.set` i `config.toml`.
-- Kör kommandon som `& $env:PWSH -NoLogo -NoProfile -Command '…'` om skalet är 5.1.
-- `[windows] sandbox = "elevated"` är avsiktligt; aliaset i WindowsApps failar där.
 
 ## Cursor-paritet
 
