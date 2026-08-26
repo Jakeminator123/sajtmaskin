@@ -38,7 +38,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 7;
+export const HOOK_VERSION = 8;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -187,6 +187,17 @@ fi
 if [ "\${GITHUB_ACTIONS:-}" = "true" ] || [ "\${CI:-}" = "true" ]; then exit 0; fi
 
 if [ "$SAJTMASKIN_SKIP_VERIFY_HOOKS" = "1" ]; then exit 0; fi
+
+# Git exporterar repository-lokala variabler till hooken. Verifieringen startar
+# tester och verktyg som avsiktligt arbetar i egna temporara repon; de maste fa
+# losa sitt repo fran cwd i stallet for att arva pushens GIT_DIR/GIT_WORK_TREE.
+GIT_LOCAL_ENV_VARS=$(git rev-parse --local-env-vars 2>/dev/null) || {
+  echo "[hooks] Push stoppad: kunde inte isolera git-miljon for verifieringen." >&2
+  exit 1
+}
+for GIT_LOCAL_ENV_VAR in $GIT_LOCAL_ENV_VARS; do
+  unset "$GIT_LOCAL_ENV_VAR"
+done
 
 command -v npm >/dev/null 2>&1 || {
   echo "[hooks] STOPP: npm saknas; kan inte kora npm run verify:pr." >&2

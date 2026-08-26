@@ -18,13 +18,14 @@ import {
 // Linux och behåller därför full täckning.
 const hasPosixShell = spawnSync("sh", ["-c", "exit 0"]).status === 0;
 const itWithPosixShell = hasPosixShell ? it : it.skip;
+const POSIX_HOOK_TEST_TIMEOUT_MS = 30_000;
 
 // Skyddar dev/prod-symmetrin: prod migreras av CI vid push till master, dev av
 // dessa hooks när master dras hem. Går de sönder tyst är vi tillbaka i "kör mot
 // ett schema koden lämnat bakom sig".
 describe("renderHookScript", () => {
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(7);
+    expect(HOOK_VERSION).toBe(8);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -109,6 +110,11 @@ describe("renderHookScript", () => {
     expect(script.indexOf("git status --porcelain")).toBeLessThan(
       script.indexOf('[ "${GITHUB_ACTIONS:-}" = "true" ]'),
     );
+    expect(script).toContain("git rev-parse --local-env-vars");
+    expect(script).not.toContain("git rev-parse --local-env-vars |");
+    expect(script.indexOf("git rev-parse --local-env-vars")).toBeLessThan(
+      script.indexOf("npm run verify:pr"),
+    );
   });
 
   itWithPosixShell("pre-push nekar non-fast-forward men tillåter fast-forward", () => {
@@ -119,9 +125,12 @@ describe("renderHookScript", () => {
     writeFileSync(join(root, "scripts", "dev", "install-git-hooks.mjs"), "marker\n");
     writeFileSync(
       join(bin, "git"),
-      '#!/bin/sh\nif [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then printf "%s\\n" "$HOOK_GIT_HEAD"; exit 0; fi\nif [ "$1" = "status" ]; then [ "$HOOK_GIT_DIRTY" = "1" ] && printf " M src/example.ts\\n"; exit 0; fi\n[ "$HOOK_GIT_ANCESTOR" = "1" ] && exit 0\nexit 1\n',
+      '#!/bin/sh\nif [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then printf "%s\\n" "$HOOK_GIT_HEAD"; exit 0; fi\nif [ "$1" = "rev-parse" ] && [ "$2" = "--local-env-vars" ]; then printf "GIT_DIR\\nGIT_WORK_TREE\\n"; exit 0; fi\nif [ "$1" = "status" ]; then [ "$HOOK_GIT_DIRTY" = "1" ] && printf " M src/example.ts\\n"; exit 0; fi\n[ "$HOOK_GIT_ANCESTOR" = "1" ] && exit 0\nexit 1\n',
     );
-    writeFileSync(join(bin, "npm"), "#!/bin/sh\nexit 0\n");
+    writeFileSync(
+      join(bin, "npm"),
+      '#!/bin/sh\n[ -z "${GIT_DIR:-}" ] && [ -z "${GIT_WORK_TREE:-}" ]\n',
+    );
     chmodSync(join(bin, "git"), 0o755);
     chmodSync(join(bin, "npm"), 0o755);
     const hook = join(root, "pre-push");
@@ -132,6 +141,8 @@ describe("renderHookScript", () => {
       ...process.env,
       PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
       HOOK_GIT_HEAD: "a".repeat(40),
+      GIT_DIR: "parent.git",
+      GIT_WORK_TREE: root,
     };
 
     const rejected = spawnSync("sh", [hook], {
@@ -229,7 +240,7 @@ describe("renderHookScript", () => {
     });
     expect(otherLocalRef.status).toBe(1);
     expect(otherLocalRef.stderr).toContain("inte utcheckad HEAD");
-  });
+  }, POSIX_HOOK_TEST_TIMEOUT_MS);
 
   itWithPosixShell("blockerar vanlig branch-delete men tillåter exakt proof-bunden cleanup", () => {
     const root = mkdtempSync(join(tmpdir(), "sajtmaskin-pre-push-delete-"));
@@ -275,7 +286,7 @@ describe("renderHookScript", () => {
       encoding: "utf8",
     });
     expect(accepted.status).toBe(0);
-  });
+  }, POSIX_HOOK_TEST_TIMEOUT_MS);
 
   it("pre-push nekar alltid non-fast-forward på master", () => {
     const script = renderHookScript("pre-push");
