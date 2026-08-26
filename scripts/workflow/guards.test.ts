@@ -270,6 +270,36 @@ describe("commit guard", () => {
     expect(decideCommitCommand("git commit -am x", { git }).permission).toBe("deny");
   });
 
+  it("does not let a pipe carry cwd, while && and ; still do", () => {
+    const startCwd = process.cwd();
+    const scripts = resolve(startCwd, "scripts");
+    expect(commitTargetDirectories("cd scripts | git commit -m x", startCwd)).toEqual([startCwd]);
+    expect(commitTargetDirectories("cd scripts; git commit -m x", startCwd)).toEqual([scripts]);
+    expect(commitTargetDirectories("cd scripts && git commit -m x", startCwd)).toEqual([scripts]);
+    expect(commitTargetDirectories("cd scripts || git commit -m x", startCwd)).toEqual([scripts]);
+    expect(commandWorkingDirectory("cd scripts | git commit -m x", startCwd)).toBe(startCwd);
+    expect(commandWorkingDirectory("cd scripts; git commit -m x", startCwd)).toBe(scripts);
+    expect(commandWorkingDirectory("cd scripts && git commit -m x", startCwd)).toBe(scripts);
+    expect(commandWorkingDirectory("cd scripts || git commit -m x", startCwd)).toBe(scripts);
+
+    const git = vi.fn((args: string[], cwd?: string) => {
+      if (args[0] === "branch") return [cwd === scripts ? "fix/task" : "master"];
+      return args.includes("--cached") ? [] : ["src/components/example.tsx"];
+    });
+    expect(decideCommitCommand("cd scripts | git commit -m x", { git, cwd: startCwd }).permission).toBe(
+      "deny",
+    );
+    expect(decideCommitCommand("cd scripts; git commit -m x", { git, cwd: startCwd }).permission).toBe(
+      "allow",
+    );
+    expect(decideCommitCommand("cd scripts && git commit -m x", { git, cwd: startCwd }).permission).toBe(
+      "allow",
+    );
+    expect(decideCommitCommand("cd scripts || git commit -m x", { git, cwd: startCwd }).permission).toBe(
+      "allow",
+    );
+  });
+
   it("denies when git -C targets the trunk checkout behind an earlier cd", () => {
     // `cd <task worktree>; git -C <trunk checkout> commit` must not be judged
     // against the task branch — Git commits in the -C directory.
@@ -338,6 +368,7 @@ describe("commit guard", () => {
       resolve(cwd, "scripts"),
     );
     expect(commandWorkingDirectory("cd no-such-directory-here; git commit -m x", cwd)).toBe(cwd);
+    expect(commandWorkingDirectory("cd scripts | git commit -m x", cwd)).toBe(cwd);
     // Windows paths must survive: shellTokens would eat the backslashes.
     expect(commandWorkingDirectory(`cd "${resolve(cwd, "scripts")}"; git commit -m x`, cwd)).toBe(
       resolve(cwd, "scripts"),

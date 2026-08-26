@@ -10,6 +10,7 @@ Covers the data-loss / correctness fixes:
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -20,16 +21,33 @@ from unittest import mock
 
 from backoffice.pages import scaffold_lifecycle as sl
 
+# Inherited git identity vars point a child `git` at another checkout. Tests
+# that init a throwaway repo must drop them, or `git config`/`commit` can write
+# the parent worktree's config.
+_GIT_ISOLATION_UNSET = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)
+
 
 def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=str(repo), check=True, capture_output=True, text=True)
+    env = os.environ.copy()
+    for key in _GIT_ISOLATION_UNSET:
+        env.pop(key, None)
+    argv = ["git"]
+    if args[:1] == ("commit",):
+        argv.extend(("-c", "user.name=Test", "-c", "user.email=test@example.com"))
+    argv.extend(args)
+    subprocess.run(argv, cwd=str(repo), check=True, capture_output=True, text=True, env=env)
 
 
 def _seed_baseline_repo(repo: Path) -> None:
     """Init a repo with a file under every BASELINE_PATH and tag the baseline."""
     _git(repo, "init")
-    _git(repo, "config", "user.email", "test@example.com")
-    _git(repo, "config", "user.name", "Test")
     for rel in sl.BASELINE_PATHS:
         target = repo / rel
         # A trailing-less BASELINE_PATH may be a dir (scaffolds/variants) or a
@@ -245,6 +263,37 @@ class BaselineResetTests(unittest.TestCase):
         self.assertIn("aaa-first.txt", calls)
         self.assertTrue(first.exists(), "an earlier file must not be deleted already")
         self.assertTrue(second.exists(), "the failing file must not be deleted")
+
+    def test_inherited_git_dir_cannot_write_parent_config(self) -> None:
+        """An inherited GIT_DIR at the parent checkout must not receive config writes."""
+        parent_tmp = tempfile.mkdtemp(prefix="baseline-parent-")
+        parent = Path(parent_tmp)
+        try:
+            _git(parent, "init")
+            parent_config = parent / ".git" / "config"
+            before = parent_config.read_text(encoding="utf-8")
+            inherited = {
+                "GIT_DIR": str(parent / ".git"),
+                "GIT_WORK_TREE": str(parent),
+                "GIT_COMMON_DIR": str(parent / ".git"),
+                "GIT_INDEX_FILE": str(parent / ".git" / "index"),
+                "GIT_OBJECT_DIRECTORY": str(parent / ".git" / "objects"),
+                "GIT_ALTERNATE_OBJECT_DIRECTORIES": str(parent / ".git" / "objects"),
+            }
+            with mock.patch.dict(os.environ, inherited, clear=False):
+                _git(self.repo, "config", "sajtmaskin.testLeak", "1")
+                (self.repo / "leak-probe.txt").write_text("x\n", encoding="utf-8")
+                _git(self.repo, "add", "-A")
+                _git(self.repo, "commit", "-m", "leak probe")
+
+            after = parent_config.read_text(encoding="utf-8")
+            self.assertEqual(before, after, "parent .git/config must stay untouched")
+            self.assertNotIn("testLeak", after)
+            child_config = (self.repo / ".git" / "config").read_text(encoding="utf-8")
+            self.assertIn("[sajtmaskin]", child_config)
+            self.assertIn("testLeak", child_config)
+        finally:
+            shutil.rmtree(parent_tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":
