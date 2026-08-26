@@ -107,6 +107,12 @@ export type RunRepairLoopParams<TPayload = unknown> = {
    * (re)introduced in F3. Omitted → treated as F2-safe (never adds tier-3).
    */
   previewPolicy?: BuildSpecPreviewPolicy;
+  /**
+   * True for verbatim imported repos (v0 template / ZIP). Threaded into the
+   * deterministic prepass and later mechanical `runAutoFix` calls so scoped
+   * `@radix-ui/*` imports are not rewritten to `"radix-ui"`.
+   */
+  verbatimRepo?: boolean;
   failedOutputs: RepairFailedOutput[];
   contextLines: string[];
   maxLlmPasses: number;
@@ -565,6 +571,12 @@ export async function runDeterministicRepairPrepass(params: {
   failedOutputs: RepairFailedOutput[];
   previewPolicy?: BuildSpecPreviewPolicy;
   chatId?: string;
+  /**
+   * True for verbatim imported repos. Threaded into the mechanical pass so the
+   * scoped-`@radix-ui/*` → unified-`"radix-ui"` rewrite stays off for a repo
+   * whose own `package.json` declares only the scoped packages.
+   */
+  verbatimRepo?: boolean;
 }): Promise<DeterministicRepairPrepassResult> {
   // Thread the version's `previewPolicy` so the F2 SDK guard
   // (`tier3-sdk-guard-fixer`) only strips tier-3 backend SDK imports in F2.
@@ -575,6 +587,7 @@ export async function runDeterministicRepairPrepass(params: {
   let content = (
     await runAutoFix(params.initialContent, {
       previewPolicy: params.previewPolicy,
+      verbatimRepo: params.verbatimRepo,
     })
   ).fixedContent;
 
@@ -641,6 +654,7 @@ export async function runRepairLoop<TPayload = unknown>(
     failedOutputs: params.failedOutputs,
     previewPolicy: params.previewPolicy,
     chatId: params.chatId,
+    verbatimRepo: params.verbatimRepo,
   });
   let content = prepass.content;
   const importRepair = {
@@ -888,6 +902,7 @@ export async function runRepairLoop<TPayload = unknown>(
       const fixerOutput = bundle ? bundle.mergeBack(result.fixedContent) : result.fixedContent;
       const reFixed = await runAutoFix(fixerOutput, {
         previewPolicy: params.previewPolicy,
+        verbatimRepo: params.verbatimRepo,
       });
       content = reFixed.fixedContent;
       syntaxResult = await validateGeneratedCode(content);
@@ -1029,6 +1044,7 @@ export async function runRepairLoop<TPayload = unknown>(
     // valid backend SDK import is not stripped by the F2 guard.
     const reFixed = await runAutoFix(fixerOutput, {
       previewPolicy: params.previewPolicy,
+      verbatimRepo: params.verbatimRepo,
     });
     content = reFixed.fixedContent;
     syntaxResult = await validateGeneratedCode(content);

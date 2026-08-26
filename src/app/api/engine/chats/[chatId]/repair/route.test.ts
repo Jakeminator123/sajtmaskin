@@ -1068,10 +1068,12 @@ describe("POST repair — Fas 3 base-aware early abort (superseded mid-loop)", (
       repairLedger?: unknown;
       repairScopeId?: string;
       shouldAbortSuperseded?: unknown;
+      verbatimRepo?: boolean;
     };
     expect(loopArgs.repairLedger).toBeTruthy();
     expect(loopArgs.repairScopeId).toBe("ver-1:manual-repair");
     expect(typeof loopArgs.shouldAbortSuperseded).toBe("function");
+    expect(loopArgs.verbatimRepo).toBe(false);
 
     // Early abort: no save was attempted, B is never failed from the stale
     // repair, and the outcome surfaces as superseded.

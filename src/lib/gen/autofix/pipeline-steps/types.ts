@@ -23,6 +23,15 @@ export interface AutoFixContext {
    */
   previewPolicy?: BuildSpecPreviewPolicy;
   /**
+   * True when the fileset is a verbatim imported repo (v0 template / ZIP —
+   * `edit_kind="imported_repo"`). Such a repo owns its `package.json`, so the
+   * scoped-`@radix-ui/*` → unified-`"radix-ui"` rewrite must not run: the
+   * unified package is never declared there and Next fails the build. Callers
+   * that know the lane should pass it; when omitted the pass falls back to
+   * inspecting the manifest that travels with the fileset.
+   */
+  verbatimRepo?: boolean;
+  /**
    * Canonical capability ids for deterministic dependency-injection.
    * Example: `visual-3d` -> `three` + `@react-three/fiber` + `@react-three/drei`.
    */

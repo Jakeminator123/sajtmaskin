@@ -627,6 +627,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       // F2/F3 gate for the deterministic import-repair pre-pass: tier-3 backend
       // SDK imports (stripe/Clerk-server) are only (re)introduced in F3.
       previewPolicy,
+      verbatimRepo,
       failedOutputs: normalizedFailures,
       contextLines: gateErrorLines,
       maxLlmPasses: MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,
