@@ -157,37 +157,17 @@ resultatet är okvalificerat publiceras `action_required`; om review-steget
 misslyckas publiceras inget grönt kvitto alls. `review-window` fortsätter därmed
 fail-closed på exakt aktuell SHA.
 
-Vid den uttryckliga kontofallbacken blir `trusted-pr-ai-review` i stället
-`neutral`, aldrig grön. Workflowen postar samtidigt en
-`sajtmaskin-pr-review-fallback:v2`-begäran för exakt head-SHA. Därmed syns
-överlämningen utan att tom API-kredit i sig gör providerchecken röd.
+Saknad `OPENAI_API_KEY` eller Platform-kvot ger `trusted-pr-ai-review=neutral`
+och **ingen** PR-kommentar till ett Codex-konto. Parsern för gamla
+`sajtmaskin-pr-review-fallback:v2`-markörer finns kvar så historiska kommentarer
+inte kraschar, men workflowen skapar inga nya överlämningar.
 
 ## Kontobaserad Codex-fallback
 
-Den lokala Codex-automationen **PR fallback-bugggranskare** kör med det anslutna
-GitHub-kontot och OpenAI-kontot i Codex-appen, inte med repository-secreten eller
-OpenAI Platform API. Den söker högst en öppen, icke-draft PR per körning som
-antingen har fallbackbegäran för aktuell head eller är en Dependabot-PR utan
-aktuellt reviewkvitto.
-
-Efter att hela diffen och relevant filkontext granskats publicerar automationen:
-
-1. en `COMMENT`-review bunden till exakt `commit_id`, med markören
-   `sajtmaskin-codex-account-review:v2`, och
-2. en separat PR-kommentar med samma head-SHA och det serverreturnerade
-   review-ID:t i `sajtmaskin-codex-account-review-receipt:v2`.
-
-`review-window` räknar kvittot endast när båda resurserna kommer från en actor i
-`config/agent-workflow.json.review.trustedAccountReviewActors`, har betrodd
-repository-association, samma användare, samma review-ID och exakt live head.
-Dessutom måste `github-actions[bot]` först ha postat fallbackbegäran för samma
-head med orsaken `openai_key_missing` eller `openai_quota`; ett konto-review får
-aldrig maskera auth-, server- eller andra providerfel. Enda no-request-undantaget
-är en PR vars live REST-author är exakt `dependabot[bot]` med typen `Bot`, eftersom
-den primära workflowen avsiktligt skippar Dependabot före providersteget. En
-vanlig kommentar, fel konto, stale review eller saknad receipt kan därför inte ge
-grönt. Automationens lokala exekvering kräver att Codex-appen och datorn är
-igång; om den uteblir fortsätter mergegrinden att stoppa.
+Avstängd. Nya PR:er ska inte överlämnas till Codex-kontot. `review-window`
+godkänner i stället qualifying externa checks (till exempel Cursor Bugbot).
+Gamla kvitton med `sajtmaskin-codex-account-review:v2` kan fortfarande läsas,
+men ingen automation ska posta nya.
 
 ## Mergade PR:er
 

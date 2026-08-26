@@ -8,7 +8,6 @@ import {
   followUpJsonSchema,
 } from "./core.mjs";
 import { runReviewAutomation } from "./automation.mjs";
-import { parseAccountFallbackRequest, renderAccountFallbackRequest } from "./account-fallback.mjs";
 import { writeReviewRunResult } from "./receipt.mjs";
 
 const API_VERSION = "2022-11-28";
@@ -274,18 +273,7 @@ export async function requestAccountFallback({ github, prNumber, reason }) {
   if (pr.baseRef !== "master") {
     return { kind: "skip", reason: "wrong-base", modelCalls: 0, writes: 0 };
   }
-  const comments = await github.listIssueComments(prNumber);
-  const existing = comments.find((comment) => {
-    const marker = parseAccountFallbackRequest(comment.body);
-    return comment.author === "github-actions[bot]" && marker?.headSha === pr.headSha.toLowerCase();
-  });
-  if (!existing) {
-    await github.createIssueComment(
-      prNumber,
-      renderAccountFallbackRequest({ headSha: pr.headSha, reason }),
-    );
-  }
-  return { kind: "account-fallback", reason, headSha: pr.headSha };
+  return { kind: "skip", reason, modelCalls: 0, writes: 0 };
 }
 
 export async function main(env = process.env) {
