@@ -320,6 +320,9 @@ export function evaluateCiBranch(policy, env = process.env) {
   );
   if (actor && exemptActors.has(actor)) return null;
 
+  const base = (env.GITHUB_BASE_REF ?? "").trim();
+  if (base && base !== policy.trunk) return null;
+
   const branch = (env.GITHUB_HEAD_REF ?? "").trim();
   if (!branch) return "CI branch policy saknar GITHUB_HEAD_REF för pull request";
   if (!policy.allowedBranchPrefixes.some((prefix) => branch.startsWith(prefix))) {

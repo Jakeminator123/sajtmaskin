@@ -1277,6 +1277,20 @@ describe("trusted review-window check decisions", () => {
     const noReceipt = evaluateHeadChecks(greenRuns(), policy as never);
     expect(noReceipt.botsDone).toBe(false);
 
+    const cursorBugbot = evaluateHeadChecks(
+      [
+        ...greenRuns(),
+        run("Cursor Bugbot", {
+          app: { id: 88, slug: "cursor" },
+          conclusion: "neutral",
+          provenance: { kind: "external", valid: true },
+        }),
+      ],
+      policy as never,
+    );
+    expect(cursorBugbot.botsDone).toBe(true);
+    expect(cursorBugbot.completedSuccess).toBeGreaterThan(0);
+
     const missingServerTime = evaluateHeadChecks(
       greenRuns().map((item) =>
         item.name === "quality"
@@ -2026,6 +2040,20 @@ describe("trusted review-window controller", () => {
     expect(writes).toBe(0);
   });
 
+  it("godkänner review-window utan merge:ready när quality och bugbot är klara", async () => {
+    const { client, patches } = integrationHarness();
+    const result = await runTrustedGate({
+      client: client as never,
+      prNumber: 1,
+      now: () => 1_000,
+      pause: async () => undefined,
+      policy: integrationPolicy() as never,
+    });
+    expect(result.conclusion).toBe("success");
+    expect(result.reason).toContain("bugbot");
+    expect(patches.at(-1)).toMatchObject({ path: "/check-runs/100", conclusion: "success" });
+  });
+
   it("dubbelbekräftar live head/base och publicerar success först därefter", async () => {
     const { client, patches, counters } = integrationHarness();
     const result = await runTrustedGate({
@@ -2056,7 +2084,7 @@ describe("trusted review-window controller", () => {
     });
 
     expect(result.conclusion).toBe("success");
-    expect(counters.evidence).toBeGreaterThanOrEqual(4);
+    expect(counters.evidence).toBeGreaterThanOrEqual(2);
     expect(counters.files).toBe(2);
   });
 

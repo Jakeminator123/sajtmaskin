@@ -293,6 +293,20 @@ describe("agent workflow branch safety", () => {
     expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "" })).toContain(
       "saknar GITHUB_HEAD_REF",
     );
+    expect(
+      evaluateCiBranch(policy, {
+        ...baseEnv,
+        GITHUB_BASE_REF: "master",
+        GITHUB_HEAD_REF: "sand/ocb-p0-1bbc",
+      }),
+    ).toContain("saknar tillåtet prefix");
+    expect(
+      evaluateCiBranch(policy, {
+        ...baseEnv,
+        GITHUB_BASE_REF: "sand-oc",
+        GITHUB_HEAD_REF: "sand/ocb-p0-1bbc",
+      }),
+    ).toBeNull();
   });
 
   it("keeps the explicit Dependabot branch exception", () => {
