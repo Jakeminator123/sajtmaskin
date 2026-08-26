@@ -470,6 +470,7 @@ export async function tryServerRepairLoop(params: {
     initialContent,
     chatId,
     previewPolicy,
+    verbatimRepo: repairVerbatimRepo,
     failedOutputs,
     contextLines: repairLogContext.contextLines,
     // Global budget (manifest `repairPolicies.serverRepairPasses`, default 2).

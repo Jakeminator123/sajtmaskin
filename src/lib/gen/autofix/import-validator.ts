@@ -443,6 +443,44 @@ const PACKAGE_TO_RADIX_EXPORT: Record<string, string> = {
   "@radix-ui/react-aspect-ratio": "AspectRatio",
 };
 
+/**
+ * True when the project's own root `package.json` manages the scoped
+ * `@radix-ui/react-*` packages WITHOUT declaring the unified `radix-ui`
+ * package. Rewriting such a project's imports to `"radix-ui"` points them at a
+ * package its manifest cannot resolve — Next fails with
+ * `Module not found: Can't resolve 'radix-ui'` (prod template imports
+ * 2026-08-13..25, chat 39856586: the archive shipped 34 scoped imports and a
+ * scoped-only manifest; the repair prepass unified 33 of them and the preview
+ * never compiled again).
+ *
+ * Generated projects are unaffected: their filesets either carry no
+ * `package.json` at this stage (the scaffold baseline, which declares
+ * `radix-ui`, is merged later) or carry a baseline-merged manifest that
+ * declares it. A missing or unparseable manifest keeps today's behaviour.
+ */
+export function projectManagesScopedRadix(
+  files: ReadonlyArray<{ path: string; content: string }>,
+): boolean {
+  const pkg = files.find((file) => file.path === "package.json");
+  if (!pkg) return false;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(pkg.content);
+  } catch {
+    return false;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+  const record = parsed as Record<string, unknown>;
+  const sections = [record.dependencies, record.devDependencies];
+  const keys = sections.flatMap((section) =>
+    section && typeof section === "object" && !Array.isArray(section)
+      ? Object.keys(section as Record<string, unknown>)
+      : [],
+  );
+  if (keys.includes("radix-ui")) return false;
+  return keys.some((key) => key.startsWith("@radix-ui/"));
+}
+
 const OLD_RADIX_NAMESPACE_RE =
   /^(\s*)import\s+\*\s+as\s+(\w+)\s+from\s+["'](@radix-ui\/react-[\w-]+)["']\s*;?\s*$/;
 
@@ -1201,7 +1239,21 @@ function fixDuplicateDefaultExport(code: string): { code: string; fixes: AutoFix
   };
 }
 
-export function runImportValidator(code: string): {
+export interface RunImportValidatorOptions {
+  /**
+   * Rewrite `@radix-ui/react-*` imports to the unified `"radix-ui"` package.
+   * Default on (own-engine stack: the scaffold baseline declares `radix-ui`).
+   * Callers with project context turn it off via
+   * `!projectManagesScopedRadix(files)` when the project's own manifest
+   * manages the scoped packages — see that predicate for why.
+   */
+  unifyRadixImports?: boolean;
+}
+
+export function runImportValidator(
+  code: string,
+  options?: RunImportValidatorOptions,
+): {
   code: string;
   fixes: AutoFixEntry[];
   warnings: string[];
@@ -1210,7 +1262,10 @@ export function runImportValidator(code: string): {
   const dupExport = fixDuplicateDefaultExport(nested.code);
   const shadcn = fixShadcnImports(dupExport.code);
   const lucide = fixLucideImports(shadcn.code);
-  const radix = fixRadixImports(lucide.code);
+  const radix =
+    options?.unifyRadixImports === false
+      ? { code: lucide.code, fixes: [] as AutoFixEntry[] }
+      : fixRadixImports(lucide.code);
   const slot = fixRadixSlotUsage(radix.code);
   const missing = detectMissingImports(slot.code);
   // Runs AFTER the JSX scan so a JSX-added lucide import is already present in

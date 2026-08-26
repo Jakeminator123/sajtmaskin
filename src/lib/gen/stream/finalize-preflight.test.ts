@@ -356,6 +356,66 @@ describe("runFinalizePreflight", () => {
     expect(result.previewStart.canStartPreview).toBe(false);
   });
 
+  it("threads importedRepoMode into merged-syntax runAutoFix as verbatimRepo", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    validateGeneratedCode
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [
+          {
+            file: "components/flying-can-scene.tsx",
+            line: 24,
+            column: 0,
+            message: 'Unexpected "}"',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [
+          {
+            file: "components/flying-can-scene.tsx",
+            line: 24,
+            column: 0,
+            message: 'Unexpected "}"',
+          },
+        ],
+      });
+    const mergedContent = serializeCodeProject([
+      { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+      {
+        path: "components/flying-can-scene.tsx",
+        content: "export function FlyingCanScene() {\n  return <div />;\n}\n}",
+        language: "tsx",
+      },
+    ]);
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent: mergedContent,
+      fixes: [],
+      warnings: [],
+      dependencies: [],
+    });
+
+    await runFinalizePreflight({
+      chatId: "chat_imported_merged_syntax",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+        {
+          path: "components/flying-can-scene.tsx",
+          content: "export function FlyingCanScene() {\n  return <div />;\n}\n}",
+          language: "tsx",
+        },
+      ]),
+      importedRepoMode: true,
+    });
+
+    expect(runAutoFix).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ verbatimRepo: true }),
+    );
+  });
+
   it("escalates merged syntax to LLM once when mechanical pass is a no-op", async () => {
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     const repairedContent = serializeCodeProject([

@@ -202,6 +202,9 @@ describe("tryServerRepairLoop — stillMissing protected path must not persist (
     });
 
     expect(saveRepairedFiles).toHaveBeenCalled();
+    expect(runRepairLoop).toHaveBeenCalledWith(
+      expect.objectContaining({ verbatimRepo: true }),
+    );
     const failSummaries = failVersionVerification.mock.calls.map((call) =>
       String(call[1] ?? ""),
     );

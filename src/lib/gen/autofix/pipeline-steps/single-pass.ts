@@ -1,5 +1,9 @@
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
-import { runImportValidatorGuarded } from "../import-validator";
+import {
+  projectManagesScopedRadix,
+  runImportValidator,
+  runImportValidatorGuarded,
+} from "../import-validator";
 import { fixReactAndNavigationImports } from "../rules/react-import-consolidated";
 import {
   buildProjectModuleExportIndex,
@@ -186,6 +190,14 @@ export async function runAutoFixSinglePass(
   // `previewPolicy` defaults to "guard on" — legacy callers that genuinely
   // want F3 semantics must opt in explicitly.
   const tier3GuardActive = context?.previewPolicy !== "fidelity3";
+  // Verbatim repos manage scoped @radix-ui/* in their own manifest; rewriting
+  // their imports to "radix-ui" targets a package the manifest never declared.
+  // The explicit lane flag wins; without it, judge the manifest that travels
+  // with the fileset (own-engine filesets carry none until baseline merge).
+  const unifyRadixImports =
+    context?.verbatimRepo === undefined
+      ? !projectManagesScopedRadix(project.files)
+      : !context.verbatimRepo;
 
   for (const file of project.files) {
     const isTsxOrJsx =
@@ -290,7 +302,9 @@ export async function runAutoFixSinglePass(
       // reverts it (TS-parser check) if it ever turns parseable code
       // unparseable. This is the ONLY way import-validator runs in runtime.
       try {
-        const importResult = runImportValidatorGuarded(currentCode, file.path);
+        const importResult = runImportValidatorGuarded(currentCode, file.path, (c) =>
+          runImportValidator(c, { unifyRadixImports }),
+        );
         currentCode = importResult.code;
         if (!importResult.reverted) {
           for (const fix of importResult.fixes) {

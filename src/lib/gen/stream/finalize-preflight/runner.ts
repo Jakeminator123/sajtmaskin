@@ -198,7 +198,7 @@ export async function runFinalizePreflight({
     // validation and the render-safety gates below still run.
     const repairResult = importedRepoMode
       ? { files: finalFiles, fixes: [] }
-      : repairGeneratedFiles(finalFiles);
+      : repairGeneratedFiles(finalFiles, { verbatimRepo: false });
     finalFiles = repairResult.files;
     postMergeFixes = repairResult.fixes;
     if (repairResult.fixes.length > 0) {
@@ -244,6 +244,9 @@ export async function runFinalizePreflight({
           // guard in the autofix pipeline treats the project as F2 and can
           // strip genuine integration imports from an F3 (fidelity3) build.
           previewPolicy: buildSpec?.previewPolicy,
+          // Imported repos own their scoped `@radix-ui/*` manifest; do not
+          // rewrite those imports to `"radix-ui"` on the merged-syntax path.
+          verbatimRepo: importedRepoMode,
         });
         mergedProjectContent = mechanicalResult.fixedContent;
         mergedSyntax = await validateGeneratedCode(mergedProjectContent);
@@ -499,6 +502,7 @@ export async function runFinalizePreflight({
             collectRequiredUiComponents(cleanedFiles),
             projectEnvLocalOptions,
           ),
+          { verbatimRepo: false },
         ).files;
     let importedRepoPinnedDependencies: string[] = [];
     if (importedRepoMode) {

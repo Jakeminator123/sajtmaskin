@@ -447,6 +447,7 @@ export async function triggerServerVerification(params: {
             failedOutputs,
             previewPolicy,
             chatId,
+            verbatimRepo: repairVerbatimRepo,
           });
           deterministicMeta = {
             attempted: true,
