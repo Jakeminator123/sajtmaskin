@@ -8,6 +8,19 @@ from backoffice.shared import BackofficeContext
 from .constants import BASELINE_TAG, BASELINE_PATHS
 
 
+# Git exports repository-local identity variables to hooks.  Backoffice may be
+# exercised from a managed hook, but every command here must resolve the
+# explicit ``ctx.repo_root`` instead of the hook caller's repository.
+_GIT_ISOLATION_UNSET = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)
+
+
 def _facade():
     """Late-bind through the page module so tests can patch ``sl._run_git`` / ``sl.backup_file``."""
     from backoffice.pages import scaffold_lifecycle as page
@@ -52,11 +65,16 @@ def _run_git(ctx: BackofficeContext, args: list[str], *, timeout: int = 60) -> t
     Either mistake made the backup pass silently skip a file that the following
     `git restore` then deleted for real.
     """
+    env = os.environ.copy()
+    for key in _GIT_ISOLATION_UNSET:
+        env.pop(key, None)
+    env["PYTHONIOENCODING"] = "utf-8"
+
     result = subprocess.run(
         ["git", "-c", "core.quotePath=false", *args],
         capture_output=True,
         cwd=str(ctx.repo_root),
-        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        env=env,
         text=True,
         encoding="utf-8",
         timeout=timeout,

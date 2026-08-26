@@ -75,6 +75,19 @@ class BaselineResetTests(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self._tmp, ignore_errors=True)
 
+    def test_run_git_ignores_inherited_parent_repository(self) -> None:
+        """A managed git hook must not redirect commands away from ctx.repo_root."""
+        parent_git = str(Path(__file__).resolve().parents[1] / ".git")
+        with mock.patch.dict(
+            os.environ,
+            {
+                "GIT_DIR": parent_git,
+                "GIT_WORK_TREE": str(Path(__file__).resolve().parents[1]),
+            },
+            clear=False,
+        ):
+            self.assertTrue(sl._baseline_tag_exists(self.ctx))
+
     def test_happy_path_reverts_modified_and_removes_added(self) -> None:
         base = self.scaffolds / "base.txt"
         base.write_text("v2-experiment\n", encoding="utf-8")
