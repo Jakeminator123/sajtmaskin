@@ -118,7 +118,9 @@ export function evaluateHeadChecks(
   const deployments = newestByIdentity(runs).filter((run) => deploymentNames.has(run.name ?? ""));
 
   const externalCompletedSuccess = qualifying.filter(
-    (run) => run.status === "completed" && run.conclusion === "success",
+    (run) =>
+      run.status === "completed" &&
+      (run.conclusion === "success" || run.conclusion === "neutral"),
   ).length;
   const completedSuccess = externalCompletedSuccess + (trustedReview.valid ? 1 : 0);
   const qualifyingPending = qualifying.filter((run) => run.status !== "completed").length;
@@ -1509,76 +1511,63 @@ export async function runTrustedGate({
         break;
       }
 
-      if (headAge >= policy.review.minHeadAgeSeconds && botsDone && latestState.requiredDone) {
-        const minimumEpoch = Math.max(
-          windowStart + policy.review.minHeadAgeSeconds,
-          latestState.latestCompletionEpoch,
-          invalidateExistingSignoff ? runStarted : 0,
+      if (latestState.botsDone && latestState.requiredDone) {
+        const [confirmationRawRuns, confirmationEvidence] = await Promise.all([
+          listCheckRuns(client, headSha),
+          readLiveEvidence(client, prNumber, headSha, policy, {
+            fileCache,
+            refreshFiles: true,
+          }),
+        ]);
+        const confirmationRuns = await enrichCheckRunProvenance({
+          client,
+          checkRuns: confirmationRawRuns,
+          expectedHeadSha: headSha,
+          expectedHeadRepository: confirmationEvidence.pr.head?.repo?.full_name,
+          expectedHeadRef: confirmationEvidence.pr.head?.ref,
+          prNumber,
+          repository: client.repository,
+          policy,
+        });
+        const confirmationReview = validateTrustedPrAiEvidence({
+          issueComments: confirmationEvidence.issueComments ?? [],
+          reviews: confirmationEvidence.reviews ?? [],
+          headSha,
+          prAuthor: confirmationEvidence.pr.user,
+          repository: client.repository,
+          prNumber,
+        });
+        const confirmationState = evaluateHeadChecks(
+          confirmationRuns,
+          policy,
+          confirmationReview,
         );
-        const first = validateEvidence(liveEvidence, headSha, minimumEpoch);
-        latestFreshnessReason = first.reason;
-        if (first.valid) {
-          const [confirmationRawRuns, confirmationEvidence] = await Promise.all([
-            listCheckRuns(client, headSha),
-            readLiveEvidence(client, prNumber, headSha, policy, {
-              fileCache,
-              refreshFiles: true,
-            }),
-          ]);
-          const confirmationRuns = await enrichCheckRunProvenance({
+        if (confirmationEvidence.staleHead || confirmationEvidence.wrongBase) {
+          latestFreshnessReason = "head eller base flyttades under slutvalideringen";
+        } else if (
+          !confirmationEvidence.fileUniverseComplete ||
+          confirmationEvidence.manualMergeFiles.length > 0
+        ) {
+          latestFreshnessReason = "workflow-/filunderlaget ändrades";
+        } else if (
+          confirmationState.botsDone &&
+          confirmationState.requiredDone &&
+          !hasBaseInvalidation(confirmationRawRuns, headSha)
+        ) {
+          const reason = "quality och qualifying bugbot på live head";
+          await completeGateCheck(
             client,
-            checkRuns: confirmationRawRuns,
-            expectedHeadSha: headSha,
-            expectedHeadRepository: confirmationEvidence.pr.head?.repo?.full_name,
-            expectedHeadRef: confirmationEvidence.pr.head?.ref,
-            prNumber,
-            repository: client.repository,
-            policy,
-          });
-          const confirmationReview = validateTrustedPrAiEvidence({
-            issueComments: confirmationEvidence.issueComments ?? [],
-            reviews: confirmationEvidence.reviews ?? [],
-            headSha,
-            prAuthor: confirmationEvidence.pr.user,
-            repository: client.repository,
-            prNumber,
-          });
-          const confirmationState = evaluateHeadChecks(
-            confirmationRuns,
-            policy,
-            confirmationReview,
+            gate.id,
+            "success",
+            "Quality och bugbot godkända",
+            `${reason}. merge:ready krävs bara för merge:execute, inte för review-window.`,
+            now(),
           );
-          const confirmationMinimum = Math.max(
-            confirmationState.latestRequiredCreatedEpoch + policy.review.minHeadAgeSeconds,
-            confirmationState.latestCompletionEpoch,
-            invalidateExistingSignoff ? runStarted : 0,
-          );
-          const confirmation =
-            confirmationEvidence.staleHead || confirmationEvidence.wrongBase
-              ? { valid: false, reason: "head eller base flyttades under slutvalideringen" }
-              : !confirmationEvidence.fileUniverseComplete ||
-                  confirmationEvidence.manualMergeFiles.length > 0
-                ? { valid: false, reason: "workflow-/filunderlaget ändrades" }
-                : validateEvidence(confirmationEvidence, headSha, confirmationMinimum);
-          if (
-            confirmation.valid &&
-            confirmationState.botsDone &&
-            confirmationState.requiredDone &&
-            !hasBaseInvalidation(confirmationRawRuns, headSha)
-          ) {
-            await completeGateCheck(
-              client,
-              gate.id,
-              "success",
-              "Betrodd review-window godkänd",
-              `${confirmation.reason}. Övriga required checks och reviewkvitton är verifierade på ${headSha}.`,
-              now(),
-            );
-            finished = true;
-            return { conclusion: "success", reason: confirmation.reason };
-          }
+          finished = true;
+          return { conclusion: "success", reason };
+        } else {
           latestState = confirmationState;
-          latestFreshnessReason = confirmation.reason;
+          latestFreshnessReason = failureSummary(confirmationState, trustedReview.reason);
         }
       }
 
