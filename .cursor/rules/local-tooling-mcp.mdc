@@ -5,7 +5,8 @@ alwaysApply: false
 
 # Lokal tooling (MCP / Git / Vercel / Supabase)
 
-Detta är **IDE-lokal** setup — inte runtime för own-engine. Produktbeteende läses i `docs/`, övriga `.cursor/rules/` och `sajtmaskin-context`-skillen.
+Detta är **IDE-lokal** setup — inte runtime för own-engine. Produktbeteende
+läses via `repo-router.mdc`, relevant runtimekod och riktade docs/regler.
 
 ## Två MCP-filer — den riktiga är ignorerad med flit
 
