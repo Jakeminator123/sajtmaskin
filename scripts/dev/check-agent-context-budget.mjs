@@ -41,7 +41,7 @@ const ACTIVE_CONTEXT_ROOTS = Object.freeze([
 const ACTIVE_CONTEXT_FILES = Object.freeze(["AGENTS.md", "README.md", "docs/README.md"]);
 const ACTIVE_TEXT_SUFFIXES = Object.freeze([".md", ".mdc", ".json", ".toml", ".yaml", ".yml"]);
 const LEGACY_ACTIVE_REFERENCES = Object.freeze([
-  { label: "legacy Grok model instruction", pattern: /\bGrok\b/iu },
+  { label: "legacy Grok 4.5 model instruction", pattern: /\bGrok\s+4\.5\b/iu },
   { label: "legacy Composer-agent instruction", pattern: /\bComposer-agenter?\b/iu },
   { label: "retired Cursor skill path", pattern: /\.cursor\/skills\//u },
   { label: "retired fas-check path", pattern: /fas-check(?:-commit-guard)?/iu },
