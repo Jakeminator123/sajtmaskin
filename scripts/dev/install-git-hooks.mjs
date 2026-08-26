@@ -38,7 +38,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 10;
+export const HOOK_VERSION = 11;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -78,10 +78,10 @@ export function renderHookScript(hookName) {
 [ -f scripts/dev/install-git-hooks.mjs ] || exit 0
 
 ZERO_SHA=0000000000000000000000000000000000000000
-# GIT_NAMESPACE ingar inte i git rev-parse --local-env-vars men kan styra
-# alla refuppslag. Hooken ska alltid verifiera den utcheckade, onamespacade
-# arbetskopian och maste darfor rensa den fore forsta git-anropet.
-unset GIT_NAMESPACE
+# Namespace ingar inte i git rev-parse --local-env-vars och super-prefix finns
+# bara i vissa Git-versioner. Bada kan styra ref- eller pathuppslag. Hooken ska
+# verifiera den utcheckade arbetskopian och rensar dem fore forsta git-anropet.
+unset GIT_NAMESPACE GIT_INTERNAL_SUPER_PREFIX
 
 CHECKOUT_SHA=$(git rev-parse HEAD 2>/dev/null) || {
   echo "[hooks] Push stoppad: kunde inte lasa aktuell HEAD." >&2

@@ -8,10 +8,10 @@ from backoffice.shared import BackofficeContext
 from .constants import BASELINE_TAG, BASELINE_PATHS
 
 
-# Complete output of `git rev-parse --local-env-vars` for the supported Git.
-# Any one of these may redirect repository discovery or alter the object graph
-# used by the destructive baseline-reset path.
-_GIT_LOCAL_ENV_VARS = (
+# Superset of `git rev-parse --local-env-vars` across supported Git versions,
+# plus namespace. Any one may redirect discovery, ref resolution, path handling,
+# or the object graph used by the destructive baseline-reset path.
+_GIT_ENV_VARS_TO_CLEAR = (
     "GIT_ALTERNATE_OBJECT_DIRECTORIES",
     "GIT_CONFIG",
     "GIT_CONFIG_PARAMETERS",
@@ -27,14 +27,15 @@ _GIT_LOCAL_ENV_VARS = (
     "GIT_PREFIX",
     "GIT_SHALLOW_FILE",
     "GIT_COMMON_DIR",
+    "GIT_INTERNAL_SUPER_PREFIX",
+    "GIT_NAMESPACE",
 )
-_GIT_EXTRA_ISOLATION_VARS = ("GIT_NAMESPACE",)
 
 
 def _isolated_git_env(repo_root) -> dict[str, str]:
     """Drop inherited repo identity and re-add this root as safe.directory."""
     env = os.environ.copy()
-    for key in (*_GIT_LOCAL_ENV_VARS, *_GIT_EXTRA_ISOLATION_VARS):
+    for key in _GIT_ENV_VARS_TO_CLEAR:
         env.pop(key, None)
     for key in tuple(env):
         if key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")):

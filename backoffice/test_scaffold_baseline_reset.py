@@ -71,10 +71,9 @@ class BaselineResetTests(unittest.TestCase):
     def test_run_git_sanitizes_full_inherited_repository_environment(self) -> None:
         """Hook identity/config/graph variables must not escape ctx.repo_root."""
         parent_git = str(Path(__file__).resolve().parents[1] / ".git")
-        poisoned = {key: parent_git for key in baseline_lib._GIT_LOCAL_ENV_VARS}
+        poisoned = {key: parent_git for key in baseline_lib._GIT_ENV_VARS_TO_CLEAR}
         poisoned.update(
             {
-                "GIT_NAMESPACE": "poisoned-baseline-namespace",
                 "GIT_CONFIG_COUNT": "2",
                 "GIT_CONFIG_KEY_0": "safe.directory",
                 "GIT_CONFIG_VALUE_0": str(Path(__file__).resolve().parents[1]),
@@ -96,9 +95,11 @@ class BaselineResetTests(unittest.TestCase):
             code, output = sl._run_git(self.ctx, ["config", "--get-all", "safe.directory"])
             self.assertEqual(code, 0, output)
             self.assertEqual(Path(output.splitlines()[-1]).resolve(), self.repo.resolve())
-            self.assertNotIn("GIT_NAMESPACE", baseline_lib._isolated_git_env(self.repo))
+            isolated = baseline_lib._isolated_git_env(self.repo)
+            self.assertNotIn("GIT_NAMESPACE", isolated)
+            self.assertNotIn("GIT_INTERNAL_SUPER_PREFIX", isolated)
 
-    def test_git_isolation_list_matches_supported_git(self) -> None:
+    def test_git_isolation_list_covers_supported_git(self) -> None:
         result = subprocess.run(
             ["git", "rev-parse", "--local-env-vars"],
             cwd=str(self.repo),
@@ -107,10 +108,11 @@ class BaselineResetTests(unittest.TestCase):
             text=True,
             env=baseline_lib._isolated_git_env(self.repo),
         )
-        self.assertEqual(
-            tuple(line for line in result.stdout.splitlines() if line),
-            baseline_lib._GIT_LOCAL_ENV_VARS,
-        )
+        reported = {line for line in result.stdout.splitlines() if line}
+        covered = set(baseline_lib._GIT_ENV_VARS_TO_CLEAR)
+        self.assertFalse(reported - covered, f"uncovered Git env vars: {reported - covered}")
+        self.assertIn("GIT_NAMESPACE", covered)
+        self.assertIn("GIT_INTERNAL_SUPER_PREFIX", covered)
 
     def test_happy_path_reverts_modified_and_removes_added(self) -> None:
         base = self.scaffolds / "base.txt"

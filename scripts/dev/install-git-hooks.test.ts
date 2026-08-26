@@ -93,7 +93,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(10);
+    expect(HOOK_VERSION).toBe(11);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -178,8 +178,8 @@ describe("renderHookScript", () => {
     expect(script.indexOf("git status --porcelain")).toBeLessThan(
       script.indexOf('[ "${GITHUB_ACTIONS:-}" = "true" ]'),
     );
-    expect(script).toContain("unset GIT_NAMESPACE");
-    expect(script.indexOf("unset GIT_NAMESPACE")).toBeLessThan(
+    expect(script).toContain("unset GIT_NAMESPACE GIT_INTERNAL_SUPER_PREFIX");
+    expect(script.indexOf("unset GIT_NAMESPACE GIT_INTERNAL_SUPER_PREFIX")).toBeLessThan(
       script.indexOf("git rev-parse HEAD"),
     );
     expect(script).toContain("git rev-parse --local-env-vars");
@@ -224,7 +224,7 @@ describe("renderHookScript", () => {
       );
       writeFileSync(
         join(bin, "npm"),
-        '#!/bin/sh\n[ -z "${GIT_DIR:-}" ] && [ -z "${GIT_WORK_TREE:-}" ] && [ -z "${GIT_CONFIG_PARAMETERS:-}" ] && [ -z "${GIT_REPLACE_REF_BASE:-}" ] && [ -z "${GIT_SHALLOW_FILE:-}" ] && [ -z "${GIT_NAMESPACE:-}" ] && [ "$GIT_CONFIG_COUNT" = "1" ] && [ "$GIT_CONFIG_KEY_0" = "safe.directory" ] && [ "$GIT_CONFIG_VALUE_0" = "$PWD" ]\n',
+        '#!/bin/sh\n[ -z "${GIT_DIR:-}" ] && [ -z "${GIT_WORK_TREE:-}" ] && [ -z "${GIT_CONFIG_PARAMETERS:-}" ] && [ -z "${GIT_REPLACE_REF_BASE:-}" ] && [ -z "${GIT_SHALLOW_FILE:-}" ] && [ -z "${GIT_NAMESPACE:-}" ] && [ -z "${GIT_INTERNAL_SUPER_PREFIX:-}" ] && [ "$GIT_CONFIG_COUNT" = "1" ] && [ "$GIT_CONFIG_KEY_0" = "safe.directory" ] && [ "$GIT_CONFIG_VALUE_0" = "$PWD" ]\n',
       );
       chmodSync(join(bin, "git"), 0o755);
       chmodSync(join(bin, "npm"), 0o755);
@@ -247,6 +247,7 @@ describe("renderHookScript", () => {
         GIT_REPLACE_REF_BASE: "refs/poisoned",
         GIT_SHALLOW_FILE: join(root, "poisoned-shallow"),
         GIT_NAMESPACE: "poisoned-hook-namespace",
+        GIT_INTERNAL_SUPER_PREFIX: "poisoned/super-prefix/",
       };
 
       const rejected = runHookSync(hook, {
