@@ -1402,7 +1402,7 @@ export async function runTrustedGate({
   now = () => Math.floor(Date.now() / 1000),
   pause = sleep,
   policy = POLICY,
-  invalidateExistingSignoff = false,
+  invalidateExistingSignoff: _invalidateExistingSignoff = false,
 }) {
   const initialPr = await client.request(`/pulls/${prNumber}`);
   if (!targetsTrunk(initialPr, policy)) {
