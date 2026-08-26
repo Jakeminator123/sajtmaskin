@@ -1,0 +1,31 @@
+Min nya dom
+
+Senaste master är a9d86c68 och produkt-CI är grön.
+
+Det finns 25 öppna PR:er, men den verkliga kön är bara fem PR:er. De övriga 20 är avsiktliga sand/*-prototyper som ska förbli frysta.
+
+PR	Ny bedömning	Beslut
+#1188	All CI grön, SHA-review ren, inga trådar, merge:ready	Mergeklar nu
+#1187	Ett verkligt guardfel och röd quality-core	Merga inte
+#1161	Kod-CI grön; kända fel ser fixade ut, men sju trådar och ingen färsk review	Nära, inte klar
+#1157	Schemafixen är korrekt och kod-CI grön, men två commits bakom och saknar slutreview	Nära, inte klar
+#1154	Kod-CI grön och gamla fynd lösta; draft och GitGuardian-fynd kvar	Merga inte ännu
+Viktiga rättelser mot tidigare granskning
+#1187 är faktiskt trasig. cd scripts; git commit tappar katalogen mellan kommandosegmenten och bedöms mot fel checkout. Även nästlade shell-kommandon, multipla git -C och GIT_DIR/GIT_WORK_TREE behöver låsas.
+#1157:s heartbeat/cancel-fel är däremot löst. Både TypeScript och JSON-schemat kräver nu job:write. Den öppna tråden beskriver gammal kod.
+#1154:s GitGuardian-rött är aktuellt, men gäller ett syntetiskt tokenvärde i en testcommit – inte en riktig läckt credential. Det måste markeras som test/false positive i GitGuardian.
+#1154 är medvetet ännu inte inkopplad i chattrutten. Det är inte ett misslyckande inom P1-scope, men en merge ger ännu inte Sajtagenten de nya befogenheterna.
+De 20 sand-PR:erna är bra prototypmaterial, inte 20 misslyckade produktionsleveranser.
+Rätt ordning
+Merga endast #1188 nu.
+Rebasea #1187 på nya master, bevara #1188:s EPIPE/lazy-alias-fixar och reparera kataloganalysen ordentligt.
+Slutgranska och merga #1161.
+Synka #1157, regenerera policies.generated.md, kör CI och SHA-review, lös schematråden och merga.
+Hantera GitGuardian-fyndet på #1154, gör färsk säkerhetsreview, ta ur draft och merga.
+Först därefter startas Sajtagent-P2 och Builder-P1. Porta värdefull kod från sand-PR:erna; merga dem inte direkt.
+
+Min samlade slutsats:
+
+Arkitekturen och grundkoden är bra. Den fristående Buildern är fortfarande tidig, vilket är avsiktligt. Det verkligt svaga området är den överkomplicerade PR-/workflowprocessen.
+
+Det saknas inte teknisk auktoritet: ditt GitHub-konto har admin- och bypassrättigheter. Men använd inte bypass normalt. När kön är rensad bör Protect master förenklas och skärpas med strikt aktuella statuskontroller, obligatoriskt lösta reviewtrådar och en enda merge-steward. Inga ändringar eller merges gjordes i denna granskning.
