@@ -9,7 +9,13 @@ import {
   mayResolveToGit,
   resolveAliasesFor,
 } from "../../.cursor/hooks/worktree-force-guard.mjs";
-import { decideCommitCommand, includesTrackedChanges, isCommitCommand } from "./commit-guard.mjs";
+import {
+  commandWorkingDirectory,
+  commitTargetDirectories,
+  decideCommitCommand,
+  includesTrackedChanges,
+  isCommitCommand,
+} from "./commit-guard.mjs";
 
 describe("alias lookup fast path", () => {
   it.each([
@@ -242,7 +248,100 @@ describe("commit guard", () => {
       return ["docs/agent-workflow.json"];
     });
     expect(decideCommitCommand("git commit -m x", { git }).permission).toBe("ask");
-    expect(git).toHaveBeenCalledWith(["diff", "--cached", "--name-status", "-z"]);
+    expect(git).toHaveBeenCalledWith(
+      ["diff", "--cached", "--name-status", "-z"],
+      commandWorkingDirectory("git commit -m x", process.cwd()),
+    );
+  });
+
+  it("judges a worktree commit against the worktree branch, not the hook cwd", () => {
+    // Cursor reports an empty cwd, so without this the guard reads the shared
+    // main checkout — which sits on master — and denies a legitimate commit.
+    const mainCheckout = process.cwd();
+    const worktree = resolve(mainCheckout, "scripts");
+    expect(commitTargetDirectories("cd scripts; git commit -am x", mainCheckout)).toEqual([
+      worktree,
+    ]);
+    const git = vi.fn((args: string[], cwd?: string) => {
+      if (args[0] === "branch") return [cwd === worktree ? "fix/task" : "master"];
+      return args.includes("--cached") ? [] : ["src/components/example.tsx"];
+    });
+    expect(decideCommitCommand("cd scripts; git commit -am x", { git }).permission).toBe("allow");
+    expect(decideCommitCommand("git commit -am x", { git }).permission).toBe("deny");
+  });
+
+  it("denies when git -C targets the trunk checkout behind an earlier cd", () => {
+    // `cd <task worktree>; git -C <trunk checkout> commit` must not be judged
+    // against the task branch — Git commits in the -C directory.
+    const mainCheckout = process.cwd();
+    const worktree = resolve(mainCheckout, "scripts");
+    const git = vi.fn((args: string[], cwd?: string) => {
+      if (args[0] === "rev-parse") return ["true"];
+      if (args[0] === "branch") return [cwd === worktree ? "fix/task" : "master"];
+      return args.includes("--cached") ? [] : ["src/components/example.tsx"];
+    });
+    expect(
+      decideCommitCommand(`cd scripts; git -C "${mainCheckout}" commit -m x`, { git }).permission,
+    ).toBe("deny");
+  });
+
+  it("does not read git commit -C as a directory", () => {
+    // `-C` after the subcommand reuses a commit message; only `git -C <dir>`
+    // before it is a path.
+    const cwd = process.cwd();
+    expect(commitTargetDirectories("git commit -C HEAD --no-edit", cwd)).toEqual([cwd]);
+    expect(commitTargetDirectories(`git -C "${resolve(cwd, "scripts")}" commit -m x`, cwd)).toEqual([
+      resolve(cwd, "scripts"),
+    ]);
+  });
+
+  it("denies a commit routed through an opaque repository option", () => {
+    const git = vi.fn(() => ["fix/task"]);
+    for (const command of [
+      "git --git-dir=/tmp/other/.git commit -m x",
+      "git --work-tree /tmp/other commit -m x",
+    ]) {
+      expect(decideCommitCommand(command, { git }).permission, command).toBe("deny");
+    }
+  });
+
+  it("names the bare-checkout case when no branch can be read", () => {
+    // core.bare=true has silently reappeared in this repo's main checkout twice
+    // and looks exactly like a detached HEAD from here, so the message must
+    // point at both causes instead of only one.
+    const git = vi.fn(() => []);
+    const decision = decideCommitCommand("git commit -m x", { git });
+    expect(decision).toEqual(
+      expect.objectContaining({
+        permission: "deny",
+        user_message: expect.stringContaining("core.bare"),
+      }),
+    );
+  });
+
+  it("collects the commit target directory from a nested shell payload", () => {
+    const cwd = process.cwd();
+    const nested = commitTargetDirectories(`pwsh -c "cd scripts; git commit -m x"`, cwd);
+    expect(nested).toEqual([resolve(cwd, "scripts")]);
+
+    const nestedThenOuter = commitTargetDirectories(
+      `pwsh -c "cd scripts; git status"; git commit -m x`,
+      cwd,
+    );
+    expect(nestedThenOuter).toEqual([cwd]);
+  });
+
+  it("resolves only directory changes that actually exist", () => {
+    const cwd = process.cwd();
+    expect(commandWorkingDirectory("git commit -m x", cwd)).toBe(cwd);
+    expect(commandWorkingDirectory("cd scripts; git commit -m x", cwd)).toBe(
+      resolve(cwd, "scripts"),
+    );
+    expect(commandWorkingDirectory("cd no-such-directory-here; git commit -m x", cwd)).toBe(cwd);
+    // Windows paths must survive: shellTokens would eat the backslashes.
+    expect(commandWorkingDirectory(`cd "${resolve(cwd, "scripts")}"; git commit -m x`, cwd)).toBe(
+      resolve(cwd, "scripts"),
+    );
   });
 
   it.each([

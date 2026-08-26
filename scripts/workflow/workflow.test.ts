@@ -146,6 +146,31 @@ describe("agent workflow impact", () => {
     );
   });
 
+  it.each([
+    "övrigt/OPENCLAW-BUILDER/STATUS.yaml",
+    "övrigt/OPENCLAW-BUILDER/diagrams/target.mmd",
+    "övrigt/OPENCLAW-BUILDER/diagrams/target.svg",
+    "docs/architecture/flow.svg",
+  ])("treats documentation assets as docs instead of unknown paths: %s", (path) => {
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    expect(impact.unclassifiedFiles).toEqual([]);
+    expect(impact.commands).not.toContain("test:ci");
+    expect(impact.commands).toContain("docs:check");
+  });
+
+  // The documentation-asset classification must stay scoped to documentation
+  // roots. A global `**/*.svg` or `övrigt/**/*.yml` would let emit-capable
+  // dossier content and the excluded code surface `övrigt/testyta` skip the
+  // fail-safe.
+  it.each([
+    "deploy/cluster.yaml",
+    "data/dossiers/hard/demo/public/icon.svg",
+    "övrigt/testyta/docker-compose.yml",
+  ])("still fails a non-documentation asset into full verification: %s", (path) => {
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    expect(impact.commands).toContain("test:ci");
+  });
+
   it("runs the isolated preview-host package guards", () => {
     const impact = collectImpact({ ...inputs, changedFiles: ["preview-host/src/server.js"] });
     expect(impact.commands).toContain("preview-host:verify");

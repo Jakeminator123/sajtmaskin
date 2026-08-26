@@ -5,13 +5,13 @@
       {
         "command": "node scripts/workflow/commit-guard.mjs",
         "matcher": ".*",
-        "timeout": 10,
+        "timeout": 30,
         "failClosed": true
       },
       {
         "command": "node .cursor/hooks/worktree-force-guard.mjs",
         "matcher": ".*",
-        "timeout": 10,
+        "timeout": 30,
         "failClosed": true
       },
       {
