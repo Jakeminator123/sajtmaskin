@@ -88,7 +88,10 @@ function topLevelShellSegments(command) {
       index += 1;
       continue;
     }
-    if (char === ";" || char === "|" || char === "\n") {
+    // `|` must not split here: a pipe does not persist cwd, so
+    // `cd scripts | git commit` is one segment and stays at start-cwd.
+    // `&&` / `||` / `;` still split so a preceding `cd` carries.
+    if (char === ";" || char === "\n") {
       if (value.trim()) segments.push(value.trim());
       value = "";
       continue;
@@ -143,10 +146,10 @@ export function commitTargetDirectories(command, fallback) {
       else for (const target of targets) directories.add(target);
     }
   };
-  // Nested payloads must be pulled from the whole command: `shellSegments`
-  // splits on `;` and would tear a quoted `pwsh -c "cd x; git commit"` apart.
+  // Nested payloads must be pulled from the whole command: a naive split
+  // on `;` would tear a quoted `pwsh -c "cd x; git commit"` apart.
   const nestedPayloads = nestedShellPayloads(command);
-  for (const payload of nestedPayloads) walk(shellSegments(payload), fallback);
+  for (const payload of nestedPayloads) walk(topLevelShellSegments(payload), fallback);
   // Outer `cd; git commit` must stay one walk so the directory change sticks.
   // Wrapper segments (`pwsh -c "…"`) are skipped here — their interiors were
   // already walked as nested payloads. Walking each outer segment from
@@ -163,7 +166,7 @@ export function commitTargetDirectories(command, fallback) {
 /** Kept for callers that only need the shell's own final directory. */
 export function commandWorkingDirectory(command, fallback) {
   let cwd = fallback;
-  for (const segment of shellSegments(command)) {
+  for (const segment of topLevelShellSegments(command)) {
     const target = directoryChangeTarget(segment);
     if (!target) continue;
     const resolved = resolve(cwd, target);
