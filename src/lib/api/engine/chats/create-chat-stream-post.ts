@@ -64,6 +64,8 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import { isAppScaffold } from "@/lib/builder/build-intent";
 import { buildOwnEngineGenerationStreamMeta } from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
+import { createGenerationInputPackageReceipt } from "@/lib/openclaw-builder/package-receipt";
+import { createClassicBuilderExecutionTrace } from "@/lib/openclaw-builder/telemetry";
 import {
   computePlanModePlannerPrompts,
   createPlanModePipelineStream,
@@ -959,6 +961,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             orchestrationInput,
             finalized,
           );
+          const builderExecutionTrace = createClassicBuilderExecutionTrace(
+            createGenerationInputPackageReceipt(generationInputPackage),
+          );
           const lineageHash = generationInputPackage.lineageHash;
           writeOrchestrationDynamicDump(generationInputPackage);
           dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
@@ -1091,6 +1096,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             routePlan: routePlan ?? null,
             orchestrationContract: orchestrationBase.orchestrationContract,
             resolvedScaffold: resolvedScaffold ?? null,
+            builderExecutionTrace,
             lineageHash,
             urlMap,
             commitCredits: commitCreditsOnce,

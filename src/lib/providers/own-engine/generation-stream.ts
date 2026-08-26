@@ -33,6 +33,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
+import type { BuilderExecutionTrace } from "@/lib/openclaw-builder/telemetry";
 
 type UrlMap = Record<string, string>;
 
@@ -152,6 +153,8 @@ export interface GenerationStreamParams {
   urlMap: UrlMap;
   commitCredits: (target?: { chatId: string; versionId: string }) => Promise<void>;
   previousFiles?: CodeFile[];
+  /** Scrubbed package-to-finalize trace; persisted only, never emitted over SSE. */
+  builderExecutionTrace?: BuilderExecutionTrace;
   /** SHA-256 of deterministic generation inputs (prompt lineage). */
   lineageHash?: string | null;
   /** When set, repair replaces this version in-place instead of creating a new one. */
@@ -208,6 +211,7 @@ export function createOwnEngineGenerationStream(
     urlMap,
     commitCredits,
     previousFiles,
+    builderExecutionTrace,
     lineageHash,
     targetVersionId,
     lifecycleParentVersionId,
@@ -675,7 +679,9 @@ export function createOwnEngineGenerationStream(
         resolvedScaffold,
         urlMap,
         startedAt: engineStartedAt,
-        orchestrationStreamMeta: meta as Record<string, unknown>,
+        orchestrationStreamMeta: builderExecutionTrace
+          ? ({ ...meta, builderExecution: builderExecutionTrace } as Record<string, unknown>)
+          : (meta as Record<string, unknown>),
         tokenUsage: {
           prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
           completion:

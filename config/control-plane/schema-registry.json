@@ -544,6 +544,23 @@
       },
       "mobility": "leave",
       "notes": "Strict format mirror for config/agent-workflow.json. workflow:contract validates the policy and its wiring into CI, hooks, routers and PR templates; no product runtime reads it."
+    },
+    {
+      "id": "openclaw-builder-job-spec-schema",
+      "sourceOfTruth": "docs/schemas/strict/openclaw-builder-job-spec.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "high"
+      },
+      "mobility": "leave",
+      "notes": "Strict documentation mirror of the server-owned BuilderJobSpec. The adjacent Zod owner is tested directly, but P0 has no create-job route and therefore no product runtime enforcement yet."
     }
   ]
 }

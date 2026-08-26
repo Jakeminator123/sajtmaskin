@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/docs/schemas/strict/openclaw-builder-job-spec.schema.json",
+  "title": "OpenClaw BuilderJobSpec",
+  "description": "Strict structural mirror of the server-owned job envelope for the separate OpenClaw Builder. Runtime authority and timestamp ordering are enforced by src/lib/openclaw-builder/builder-job-spec.ts.",
+  "$comment": "JSON Schema cannot compare RFC 3339 instants. Runtime additionally enforces issuedAt < expiresAt <= absoluteExpiresAt.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "jobId",
+    "lane",
+    "tenantId",
+    "projectId",
+    "chatId",
+    "baseVersionId",
+    "baseFilesRevision",
+    "generationInputPackageHash",
+    "lineageHash",
+    "sourceReceiptHash",
+    "toolScopes",
+    "allowedTools",
+    "budgets",
+    "lease",
+    "idempotencyKey",
+    "attempt",
+    "maxAttempts",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "jobId": { "$ref": "#/$defs/opaqueId" },
+    "lane": { "enum": ["classic", "openclaw_shadow", "openclaw_candidate"] },
+    "tenantId": { "$ref": "#/$defs/opaqueId" },
+    "projectId": { "$ref": "#/$defs/opaqueId" },
+    "chatId": { "$ref": "#/$defs/opaqueId" },
+    "baseVersionId": { "$ref": "#/$defs/opaqueId" },
+    "baseFilesRevision": { "type": "string", "pattern": "^[a-f0-9]{32,64}$" },
+    "generationInputPackageHash": { "$ref": "#/$defs/sha256" },
+    "lineageHash": { "$ref": "#/$defs/sha256" },
+    "sourceReceiptHash": { "$ref": "#/$defs/sha256" },
+    "toolScopes": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "job:read",
+          "job:write",
+          "project:read",
+          "orchestration:read",
+          "preview:read",
+          "candidate:write",
+          "candidate:check",
+          "candidate:submit"
+        ]
+      }
+    },
+    "allowedTools": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "job.get",
+          "job.heartbeat",
+          "job.cancel",
+          "project.snapshot",
+          "project.list_files",
+          "project.read_file",
+          "project.search",
+          "project.diff",
+          "orchestration.explain",
+          "preview.status",
+          "preview.logs",
+          "preview.screenshot",
+          "candidate.apply_patch",
+          "candidate.replace_files",
+          "candidate.run_checks",
+          "candidate.preview",
+          "candidate.evidence",
+          "candidate.submit"
+        ]
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxModelTurns",
+        "maxToolCalls",
+        "maxWallTimeMs",
+        "maxPreviewLoops",
+        "maxChangedFiles",
+        "maxCandidateBytes",
+        "maxReadBytes"
+      ],
+      "properties": {
+        "maxModelTurns": { "type": "integer", "minimum": 0, "maximum": 32 },
+        "maxToolCalls": { "type": "integer", "minimum": 0, "maximum": 500 },
+        "maxWallTimeMs": { "type": "integer", "minimum": 0, "maximum": 3600000 },
+        "maxPreviewLoops": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "maxChangedFiles": { "type": "integer", "minimum": 0, "maximum": 500 },
+        "maxCandidateBytes": { "type": "integer", "minimum": 0, "maximum": 20000000 },
+        "maxReadBytes": { "type": "integer", "minimum": 0, "maximum": 20000000 }
+      }
+    },
+    "lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["issuedAt", "expiresAt", "absoluteExpiresAt", "heartbeatIntervalMs"],
+      "properties": {
+        "issuedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "absoluteExpiresAt": { "type": "string", "format": "date-time" },
+        "heartbeatIntervalMs": { "type": "integer", "minimum": 1, "maximum": 300000 }
+      }
+    },
+    "idempotencyKey": { "$ref": "#/$defs/opaqueId" },
+    "attempt": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "createdAt": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "lane": { "const": "classic" } }, "required": ["lane"] },
+      "then": {
+        "properties": {
+          "toolScopes": { "type": "array", "items": { "enum": ["job:read"] } },
+          "allowedTools": { "type": "array", "items": { "enum": ["job.get"] } },
+          "budgets": {
+            "type": "object",
+            "properties": {
+              "maxModelTurns": { "const": 0 },
+              "maxToolCalls": { "const": 0 },
+              "maxWallTimeMs": { "const": 0 },
+              "maxPreviewLoops": { "const": 0 },
+              "maxChangedFiles": { "const": 0 },
+              "maxCandidateBytes": { "const": 0 },
+              "maxReadBytes": { "const": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "lane": { "const": "openclaw_shadow" } }, "required": ["lane"] },
+      "then": {
+        "properties": {
+          "toolScopes": {
+            "type": "array",
+            "items": { "enum": ["job:read", "project:read", "orchestration:read", "preview:read"] }
+          },
+          "allowedTools": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "job.get", "project.snapshot",
+                "project.list_files", "project.read_file", "project.search", "project.diff",
+                "orchestration.explain", "preview.status", "preview.logs", "preview.screenshot"
+              ]
+            }
+          },
+          "budgets": {
+            "type": "object",
+            "properties": {
+              "maxModelTurns": { "const": 3 },
+              "maxToolCalls": { "const": 25 },
+              "maxWallTimeMs": { "const": 120000 },
+              "maxPreviewLoops": { "const": 0 },
+              "maxChangedFiles": { "const": 0 },
+              "maxCandidateBytes": { "const": 0 },
+              "maxReadBytes": { "const": 2000000 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "lane": { "const": "openclaw_candidate" } }, "required": ["lane"] },
+      "then": {
+        "properties": {
+          "budgets": {
+            "type": "object",
+            "properties": {
+              "maxModelTurns": { "const": 8 },
+              "maxToolCalls": { "const": 80 },
+              "maxWallTimeMs": { "const": 900000 },
+              "maxPreviewLoops": { "const": 2 },
+              "maxChangedFiles": { "const": 80 },
+              "maxCandidateBytes": { "const": 2000000 },
+              "maxReadBytes": { "const": 5000000 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "allowedTools": { "type": "array", "contains": { "const": "job.get" } }
+        },
+        "required": ["allowedTools"]
+      },
+      "then": {
+        "properties": {
+          "toolScopes": { "type": "array", "contains": { "const": "job:read" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "allowedTools": {
+            "type": "array",
+            "contains": { "enum": ["job.heartbeat", "job.cancel"] }
+          }
+        },
+        "required": ["allowedTools"]
+      },
+      "then": {
+        "properties": {
+          "toolScopes": { "type": "array", "contains": { "const": "job:write" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "allowedTools": {
+            "type": "array",
+            "contains": {
+              "enum": ["project.snapshot", "project.list_files", "project.read_file", "project.search", "project.diff"]
+            }
+          }
+        },
+        "required": ["allowedTools"]
+      },
+      "then": {
+        "properties": {
+          "toolScopes": { "type": "array", "contains": { "const": "project:read" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "allowedTools": { "type": "array", "contains": { "const": "orchestration.explain" } }
+        },
+        "required": ["allowedTools"]
+      },
+      "then": {
+        "properties": {
+          "toolScopes": { "type": "array", "contains": { "const": "orchestration:read" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "allowedTools": {
+            "type": "array",
+            "contains": { "enum": ["preview.status", "preview.logs", "preview.screenshot"] }
+          }
+        },
+        "required": ["allowedTools"]
+      },
+      "then": {
+        "properties": {
+          "toolScopes": { "type": "array", "contains": { "const": "preview:read" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "allowedTools": {
+            "type": "array",
+            "contains": { "enum": ["candidate.apply_patch", "candidate.replace_files"] }
+          }
+        },
+        "required": ["allowedTools"]
+      },
+      "then": {
+        "properties": {
+          "toolScopes": { "type": "array", "contains": { "const": "candidate:write" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "allowedTools": {
+            "type": "array",
+            "contains": { "enum": ["candidate.run_checks", "candidate.preview", "candidate.evidence"] }
+          }
+        },
+        "required": ["allowedTools"]
+      },
+      "then": {
+        "properties": {
+          "toolScopes": { "type": "array", "contains": { "const": "candidate:check" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "allowedTools": { "type": "array", "contains": { "const": "candidate.submit" } }
+        },
+        "required": ["allowedTools"]
+      },
+      "then": {
+        "properties": {
+          "toolScopes": { "type": "array", "contains": { "const": "candidate:submit" } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "maxAttempts": { "const": 1 } }, "required": ["maxAttempts"] },
+      "then": { "properties": { "attempt": { "type": "integer", "maximum": 1 } } }
+    },
+    {
+      "if": { "properties": { "maxAttempts": { "const": 2 } }, "required": ["maxAttempts"] },
+      "then": { "properties": { "attempt": { "type": "integer", "maximum": 2 } } }
+    },
+    {
+      "if": { "properties": { "maxAttempts": { "const": 3 } }, "required": ["maxAttempts"] },
+      "then": { "properties": { "attempt": { "type": "integer", "maximum": 3 } } }
+    },
+    {
+      "if": { "properties": { "maxAttempts": { "const": 4 } }, "required": ["maxAttempts"] },
+      "then": { "properties": { "attempt": { "type": "integer", "maximum": 4 } } }
+    },
+    {
+      "if": { "properties": { "maxAttempts": { "const": 5 } }, "required": ["maxAttempts"] },
+      "then": { "properties": { "attempt": { "type": "integer", "maximum": 5 } } }
+    },
+    {
+      "if": { "properties": { "maxAttempts": { "const": 6 } }, "required": ["maxAttempts"] },
+      "then": { "properties": { "attempt": { "type": "integer", "maximum": 6 } } }
+    },
+    {
+      "if": { "properties": { "maxAttempts": { "const": 7 } }, "required": ["maxAttempts"] },
+      "then": { "properties": { "attempt": { "type": "integer", "maximum": 7 } } }
+    },
+    {
+      "if": { "properties": { "maxAttempts": { "const": 8 } }, "required": ["maxAttempts"] },
+      "then": { "properties": { "attempt": { "type": "integer", "maximum": 8 } } }
+    },
+    {
+      "if": { "properties": { "maxAttempts": { "const": 9 } }, "required": ["maxAttempts"] },
+      "then": { "properties": { "attempt": { "type": "integer", "maximum": 9 } } }
+    }
+  ],
+  "$defs": {
+    "opaqueId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

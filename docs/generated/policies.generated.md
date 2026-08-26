@@ -8,9 +8,9 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:37411e2494bc615f -->
+<!-- source-fingerprint: config/env-policy.json sha256:13e4482495f2990b -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:5015ae889ed37dda -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:bdabd528d04d5fad -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:c6658d673255318b -->
 
 # Policies
 
@@ -126,6 +126,8 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_MODEL_MAX`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_MODEL_PREMIUM`                           | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_MODEL_PRO`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `SAJTMASKIN_OPENCLAW_BUILDER_CANDIDATE`              | `optional_runtime`     | —                                      | Yes           | No           |
+| `SAJTMASKIN_OPENCLAW_BUILDER_SHADOW`                 | `optional_runtime`     | —                                      | Yes           | No           |
 | `SAJTMASKIN_PHASE_FORCE_AUDIT_CHARS`                 | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_PHASE_FORCE_CHARS`                       | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_PLAN_MODE_MAX_PLAN_CHARS`                | `environment_specific` | `production`                           | No            | No           |
@@ -207,7 +209,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 ## Control-plane registry
 
-This index contains 57 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
+This index contains 58 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
 
 | ID                                            | Type                | Canonical source                                                  | Validator               | CI status | Runtime status  | Runtime enforced |
 | --------------------------------------------- | ------------------- | ----------------------------------------------------------------- | ----------------------- | --------- | --------------- | ---------------- |
@@ -257,6 +259,7 @@ This index contains 57 control-plane entries. It is a map to canonical owners, n
 | `llm-fixer-aborted-telemetry-schema`          | `schema`            | `docs/schemas/strict/llm-fixer-aborted.schema.json`               | `test:ci`               | `hard`    | `declared-only` | No               |
 | `llm-fixer-partial-response-telemetry-schema` | `schema`            | `docs/schemas/strict/llm-fixer-partial-response.schema.json`      | `test:ci`               | `hard`    | `declared-only` | No               |
 | `llm-repair-gate-deduped-telemetry-schema`    | `schema`            | `docs/schemas/strict/llm-repair-gate-deduped.schema.json`         | `docs:test`             | `hard`    | `declared-only` | No               |
+| `openclaw-builder-job-spec-schema`            | `schema`            | `docs/schemas/strict/openclaw-builder-job-spec.schema.json`       | `test:ci`               | `hard`    | `n/a`           | No               |
 | `plan-artifact-schema`                        | `runtime-authority` | `src/lib/gen/plan/schema.ts`                                      | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `preview-session-contract-spec`               | `schema`            | `docs/schemas/strict/preview-session-contract.schema.json`        | `docs:test`             | `hard`    | `n/a`           | No               |
 | `product-postcheck-telemetry-schema`          | `schema`            | `docs/schemas/strict/product-postcheck.schema.json`               | `test:ci`               | `hard`    | `declared-only` | No               |

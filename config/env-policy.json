@@ -35,6 +35,8 @@
     "SAJTMASKIN_DISABLE_QUALITY_GATE",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
+    "SAJTMASKIN_OPENCLAW_BUILDER_CANDIDATE",
+    "SAJTMASKIN_OPENCLAW_BUILDER_SHADOW",
     "SAJTMASKIN_PREVIEW_PREWARM",
     "SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
@@ -198,6 +200,8 @@
     "SAJTMASKIN_DISABLE_QUALITY_GATE",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
+    "SAJTMASKIN_OPENCLAW_BUILDER_CANDIDATE",
+    "SAJTMASKIN_OPENCLAW_BUILDER_SHADOW",
     "SAJTMASKIN_PREVIEW_PREWARM",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
@@ -451,6 +455,18 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Opt-in (grandmaster A7-2 false-green hardening). When true/1, autofix refuses to fabricate a silent null-render stub for a dossier-exposed import the LLM did not emit; the unresolved import then degrades/blocks the preview honestly (preview blocked with reason via runProjectSanityChecks code_structure_failure) instead of shipping a hollow false-green page. Default off. Reversible: set false/unset to restore the silent-stub behavior. Recommended rollout: enable on preview first and watch how often legitimate builds get blocked (frequency is LLM-runtime dependent) before production. Source: src/lib/gen/autofix/rules/cross-file-import-checker.ts (FEATURES.refuseDossierStubs)."
+    },
+    {
+      "key": "SAJTMASKIN_OPENCLAW_BUILDER_CANDIDATE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "P0 declaration only. DEFAULT OFF and hard-unavailable in src/lib/openclaw-builder/lane-policy.ts; even an affirmative value falls back to classic. Do not set in Vercel until the candidate sandbox, broker and existing-finalize handoff land in later phases."
+    },
+    {
+      "key": "SAJTMASKIN_OPENCLAW_BUILDER_SHADOW",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "P0 declaration only. DEFAULT OFF and hard-unavailable in src/lib/openclaw-builder/lane-policy.ts; even an affirmative value falls back to classic. A later read-only/shadow phase must explicitly change availability before this can select openclaw_shadow."
     },
     {
       "key": "SAJTMASKIN_PREVIEW_PREWARM",
