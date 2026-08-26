@@ -8,6 +8,18 @@ Projektets Codex-default är GPT-5.6 Sol med `high` reasoning för huvudtråd oc
 spawnade agenter. En explicit agentprofil vinner; Godnatt behåller Sol `xhigh`
 för investigator/reviewer och Sol `high` för worker.
 
+## Behörighet
+
+- Det här trusted personliga projektet använder avsiktligt
+  `approval_policy = "never"` och `sandbox_mode = "danger-full-access"`.
+- Inställningen gäller när en ny Codex-uppgift startas från projektet. En redan
+  startad uppgift med host-managed sandbox kan fortfarande kräva värdens
+  godkännanden; dess behörighetsprofil kan inte bytas mitt i körningen.
+- Full filsystemsåtkomst breddar inte uppdragets mandat. Branch-, worktree-,
+  verifierings- och destructive-action-reglerna gäller fortfarande.
+- Webbsökning är `live`; autentisering och tokens ligger fortfarande utanför
+  repot.
+
 ## Så här ska projektet öppnas
 
 - Cursor behåller huvudcheckouten

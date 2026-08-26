@@ -5,14 +5,10 @@
 
 model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
-approval_policy = "on-request"
-sandbox_mode = "workspace-write"
-web_search = "cached"
-
-[sandbox_workspace_write]
-# Sajtmaskin routinely needs npm, Vercel, GitHub, and package registry access.
-# Approval prompts still protect writes outside the workspace and other gated actions.
-network_access = true
+# Owner decision: this trusted personal project runs without per-command prompts.
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+web_search = "live"
 
 [windows]
 sandbox = "elevated"
