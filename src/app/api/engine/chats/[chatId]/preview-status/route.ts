@@ -67,6 +67,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           ok: true,
           status: "missing",
           previewSessionId: null,
+          lifecycleToken: null,
           previewUrl: null,
           versionId: null,
           sessionExpiresAt: null,
@@ -88,6 +89,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           ok: true,
           status: "missing",
           previewSessionId: null,
+          lifecycleToken: null,
           previewUrl: null,
           versionId: null,
           sessionExpiresAt: null,
@@ -114,6 +116,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           ok: true,
           status: "version_mismatch",
           previewSessionId: session.previewSessionId,
+          lifecycleToken: session.lifecycleToken,
           previewUrl: session.previewUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session),
@@ -135,6 +138,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           ok: true,
           status: "stopped",
           previewSessionId: session.previewSessionId,
+          lifecycleToken: session.lifecycleToken,
           previewUrl: session.previewUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session),
@@ -161,6 +165,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         // row and reaches RepairGate instead of quietly reading as "stopped".
         const verdict = await fetchPreviewHostReadinessVerdict(session.previewSessionId, {
           expectedVersionId: sessionVid,
+          expectedLifecycleToken: session.lifecycleToken ?? null,
         }).catch(() => null);
         if (verdict?.readinessState === "failed") {
           const failureDecision = decidePreviewReadinessOutcome(verdict);
@@ -176,6 +181,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             ok: true,
             status: "build_error",
             previewSessionId: session.previewSessionId,
+            lifecycleToken: session.lifecycleToken,
             previewUrl: session.previewUrl,
             versionId: sessionVid,
             sessionExpiresAt: sessionSoftExpiryAt(session),
@@ -199,6 +205,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           ok: true,
           status,
           previewSessionId: session.previewSessionId,
+          lifecycleToken: session.lifecycleToken,
           previewUrl: session.previewUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session),
@@ -241,6 +248,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           ok: true,
           status: "build_error",
           previewSessionId: resumed.previewSessionId,
+          lifecycleToken: resumed.lifecycleToken ?? session.lifecycleToken,
           previewUrl: resumed.primaryUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session),
@@ -262,6 +270,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         ok: true,
         status: stillStarting ? "starting" : "running",
         previewSessionId: resumed.previewSessionId,
+        lifecycleToken: resumed.lifecycleToken ?? session.lifecycleToken,
         previewUrl: resumed.primaryUrl,
         versionId: sessionVid,
         sessionExpiresAt: sessionSoftExpiryAt(session),

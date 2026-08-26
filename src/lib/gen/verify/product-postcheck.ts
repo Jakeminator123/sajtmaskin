@@ -45,6 +45,7 @@ export type ProductPostcheckSkipReason =
   | "navigation_failed"
   | "playwright_unavailable"
   | "timeout"
+  | "preview_superseded"
   | "runtime_error";
 
 export type ProductPostcheckWarning = {
@@ -58,6 +59,12 @@ export type ProductPostcheckWarning = {
   formId?: string | null;
   /** Pathname for the page being visited when the issue was captured. */
   route?: string | null;
+};
+
+export type ProductPostcheckAttestation = {
+  previewSessionId: string;
+  lifecycleToken: string | null;
+  filesRevision: string;
 };
 
 /** Raw browser-runtime signal collected during Playwright navigation. */
@@ -86,6 +93,8 @@ export type ProductPostcheckResult = {
   domSummary?: ProductDomSummary | null;
   /** Critic verdict. Absent when the flag is off or the review was not eligible. */
   liveReview?: LiveReviewResult | null;
+  /** Exact preview lifecycle/revision this result attests, set by the route. */
+  attestation?: ProductPostcheckAttestation | null;
 };
 
 type DomSnapshot = {
@@ -187,18 +196,26 @@ function isHostRuntimeReady(verdict: PreviewHostReadinessVerdict): boolean {
 async function askPreviewHostReadiness(params: {
   chatId: string;
   versionId: string;
+  previewSessionId?: string | null;
+  lifecycleToken?: string | null;
+  filesRevision?: string | null;
   page: Page;
   deadlineAt: number;
 }): Promise<PreviewHostReadinessVerdict | null> {
   const session = await getActivePreviewSessionAsync(params.chatId);
-  const previewSessionId = session?.previewSessionId?.trim() || "";
+  if (!matchesExpectedPreviewTarget(session, params)) {
+    throw new PreviewTargetSupersededError();
+  }
+  const previewSessionId = params.previewSessionId?.trim() || session?.previewSessionId?.trim() || "";
   // No session id: nothing to ask. Distinct from a transient fetch miss.
   if (!previewSessionId) return null;
 
   let last: PreviewHostReadinessVerdict | null = null;
   while (true) {
+    const expected = expectedPreviewTarget(params);
     const verdict = await fetchPreviewHostReadinessVerdict(previewSessionId, {
       expectedVersionId: params.versionId,
+      ...(expected ? { expectedLifecycleToken: expected.lifecycleToken } : {}),
     });
     if (verdict) {
       last = verdict;
@@ -214,6 +231,72 @@ async function askPreviewHostReadiness(params: {
       Math.min(PREVIEW_BOOT_RETRY_INTERVAL_MS, remainingMs),
     );
   }
+}
+
+type ExpectedPreviewTarget = {
+  previewSessionId?: string | null;
+  lifecycleToken?: string | null;
+  filesRevision?: string | null;
+  versionId: string;
+};
+
+type ActivePreviewTarget = {
+  previewSessionId?: string | null;
+  lifecycleToken?: string | null;
+  filesRevision?: string | null;
+  versionId?: string | null;
+} | null;
+
+class PreviewTargetSupersededError extends Error {
+  constructor() {
+    super("Product Postcheck preview target was superseded");
+    this.name = "PreviewTargetSupersededError";
+  }
+}
+
+function expectedPreviewTarget(params: ExpectedPreviewTarget): {
+  previewSessionId: string;
+  lifecycleToken: string | null;
+  filesRevision: string;
+} | null {
+  const previewSessionId = params.previewSessionId?.trim() || "";
+  const filesRevision = params.filesRevision?.trim() || "";
+  const hasLifecycleExpectation = Object.prototype.hasOwnProperty.call(
+    params,
+    "lifecycleToken",
+  );
+  if (!previewSessionId || !filesRevision || !hasLifecycleExpectation) return null;
+  return {
+    previewSessionId,
+    lifecycleToken: params.lifecycleToken?.trim() || null,
+    filesRevision,
+  };
+}
+
+function matchesExpectedPreviewTarget(
+  session: ActivePreviewTarget,
+  params: ExpectedPreviewTarget,
+): boolean {
+  const expected = expectedPreviewTarget(params);
+  // Direct helper consumers/tests without a preview-host fence keep the
+  // legacy behavior. The HTTP route always supplies the complete tuple.
+  if (!expected) return true;
+  return Boolean(
+    session &&
+      session.versionId === params.versionId &&
+      session.previewSessionId === expected.previewSessionId &&
+      (session.lifecycleToken?.trim() || null) === expected.lifecycleToken &&
+      session.filesRevision === expected.filesRevision,
+  );
+}
+
+async function isExpectedPreviewTargetCurrent(
+  chatId: string,
+  params: ExpectedPreviewTarget,
+): Promise<boolean> {
+  if (!expectedPreviewTarget(params)) return true;
+  const session = await getActivePreviewSessionAsync(chatId);
+  return matchesExpectedPreviewTarget(session, params);
 }
 
 /**
@@ -790,6 +873,9 @@ function pathnameOf(rawUrl: string): string {
  * navigation failure they were.
  */
 const NAVIGATION_ERROR_PATTERN = /page\.goto|navigating\s+to|navigation|net::|err_/i;
+/** Browser launched, but its first page/context died before navigation began. */
+const POST_LAUNCH_TARGET_CLOSED_PATTERN =
+  /(?:browser\.)?newpage.*target page, context or browser has been closed/i;
 /** Genuine launch failures: the binary is missing or the launch itself threw. */
 const BROWSER_UNAVAILABLE_PATTERN =
   /playwright|browsertype\.launch|failed\s+to\s+launch|executable\s+doesn'?t\s+exist|browser/i;
@@ -798,6 +884,7 @@ export function productPostcheckSkipReasonFromError(err: unknown): ProductPostch
   if (!(err instanceof Error)) return "runtime_error";
   if (/timeout/i.test(err.message)) return "timeout";
   if (NAVIGATION_ERROR_PATTERN.test(err.message)) return "navigation_failed";
+  if (POST_LAUNCH_TARGET_CLOSED_PATTERN.test(err.message)) return "runtime_error";
   if (BROWSER_UNAVAILABLE_PATTERN.test(err.message)) return "playwright_unavailable";
   return "runtime_error";
 }
@@ -895,12 +982,17 @@ export async function runProductPostcheck(params: {
   captureEnabled?: boolean;
   captureUserId?: string;
   filesRevision?: string | null;
+  previewSessionId?: string | null;
+  lifecycleToken?: string | null;
 }): Promise<ProductPostcheckResult> {
   const startedAt = Date.now();
   const previewUrl = params.previewUrl.trim();
   if (!previewUrl) return skippedResult("missing_preview_url", 0, null);
   if (!isAllowedProductPostcheckUrl(previewUrl)) {
     return skippedResult("url_not_allowed", Date.now() - startedAt, previewUrl);
+  }
+  if (!(await isExpectedPreviewTargetCurrent(params.chatId, params))) {
+    return skippedResult("preview_superseded", Date.now() - startedAt, previewUrl);
   }
 
   const timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -1007,6 +1099,9 @@ export async function runProductPostcheck(params: {
       const readiness = await askPreviewHostReadiness({
         chatId: params.chatId,
         versionId: params.versionId,
+        previewSessionId: params.previewSessionId,
+        lifecycleToken: params.lifecycleToken,
+        filesRevision: params.filesRevision,
         page,
         deadlineAt: startedAt + timeoutMs,
       });
@@ -1044,6 +1139,14 @@ export async function runProductPostcheck(params: {
       }
     }
     if (readinessDecision.action === "warn") {
+      if (!(await isExpectedPreviewTargetCurrent(params.chatId, params))) {
+        return skippedResult(
+          "preview_superseded",
+          Date.now() - startedAt,
+          previewUrl,
+          routesChecked,
+        );
+      }
       const message =
         readinessDecision.code === "preview_boot_page"
           ? PREVIEW_BOOT_PAGE_MESSAGE
@@ -1263,6 +1366,17 @@ export async function runProductPostcheck(params: {
     ];
     // productBlocked comes ONLY from DOM + render-fatal evaluators — browser
     // runtime issues are advisory-only by design.
+    // This is the last point before capture buffers are uploaded under the
+    // starting filesRevision. A same-version replacement must discard N
+    // instead of attaching N+1 DOM/readiness to N's durable evidence.
+    if (!(await isExpectedPreviewTargetCurrent(params.chatId, params))) {
+      return skippedResult(
+        "preview_superseded",
+        Date.now() - startedAt,
+        previewUrl,
+        routesChecked,
+      );
+    }
     const screenshots = captureEnabled
       ? await persistCapturedScreenshots({
           chatId: params.chatId,
@@ -1287,6 +1401,14 @@ export async function runProductPostcheck(params: {
       domSummary,
     };
   } catch (err) {
+    if (err instanceof PreviewTargetSupersededError) {
+      return skippedResult(
+        "preview_superseded",
+        Date.now() - startedAt,
+        previewUrl,
+        routesChecked,
+      );
+    }
     // A render-fatal crash may already be visible even though a later phase
     // (mobile nav / menu probe) threw. Surface it instead of silently
     // downgrading to a skip (productBlocked:false) — a dead preview must never
@@ -1314,6 +1436,14 @@ export async function runProductPostcheck(params: {
     const browserEval = evaluateBrowserRuntimeIssues(browserRuntimeIssues);
     const warnings = [...runtimeEval.warnings, ...browserEval.warnings];
     if (runtimeEval.productBlocked) {
+      if (!(await isExpectedPreviewTargetCurrent(params.chatId, params))) {
+        return skippedResult(
+          "preview_superseded",
+          Date.now() - startedAt,
+          previewUrl,
+          routesChecked,
+        );
+      }
       console.warn("[product-postcheck] fatal runtime crash captured before phase error:", err);
       return {
         ok: true,

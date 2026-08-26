@@ -7,6 +7,7 @@
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
+const { withChatLifecycleLock } = require("../session-lifecycle.js");
 
 const { readStoreSync, withStoreLock } = require("./../store.js");
 const {
@@ -59,7 +60,7 @@ async function cleanupDirectoryEntries(dirPath, keepEntries = null) {
   return { freedEntries: freed };
 }
 
-async function stopStaleRuntimes(nowMs) {
+async function stopStaleRuntimes() {
   const { stopTrackedRuntime } = require("./process-lifecycle.js");
   const snapshot = readStoreSync();
   const preservedSessionIds = new Set();
@@ -68,39 +69,45 @@ async function stopStaleRuntimes(nowMs) {
   let stoppedRuntimes = 0;
 
   for (const [sessionId, tracked] of runtimeChildren.entries()) {
-    const session = snapshot.sessions[sessionId] ?? null;
-    if (session && isSessionUsable(session, nowMs)) {
-      continue;
-    }
-
-    const previewSessionId =
-      (typeof session?.previewSessionId === "string" && session.previewSessionId.trim()) ||
-      (typeof tracked.previewSessionId === "string" && tracked.previewSessionId.trim()) ||
-      "";
-    try {
-      if (previewSessionId) {
-        await appendRuntimeLog(
-          previewSessionId,
-          "Cleanup stopping stale runtime before removing session/workspace.",
-        );
+    const snapshottedSession = snapshot.sessions[sessionId] ?? null;
+    const chatId =
+      getSessionChatId(snapshottedSession) ||
+      (typeof tracked.chatId === "string" ? tracked.chatId.trim() : "");
+    await withChatLifecycleLock(chatId, async () => {
+      const current = readStoreSync().sessions[sessionId] ?? null;
+      // A start may have replaced both the store lifecycle and tracked child
+      // after this cleanup snapshotted them. Never stop that newer runtime.
+      if (
+        (current && isSessionUsable(current, Date.now())) ||
+        runtimeChildren.get(sessionId) !== tracked
+      ) {
+        return;
       }
-      const stopped = await stopTrackedRuntime(sessionId, previewSessionId || null);
-      if (stopped) {
-        stoppedRuntimes += 1;
+      const previewSessionId =
+        (typeof current?.previewSessionId === "string" && current.previewSessionId.trim()) ||
+        (typeof tracked.previewSessionId === "string" && tracked.previewSessionId.trim()) ||
+        "";
+      try {
+        if (previewSessionId) {
+          await appendRuntimeLog(
+            previewSessionId,
+            "Cleanup stopping stale runtime before removing session/workspace.",
+          );
+        }
+        const stopped = await stopTrackedRuntime(sessionId, previewSessionId || null);
+        if (stopped) stoppedRuntimes += 1;
+      } catch (error) {
+        preservedSessionIds.add(sessionId);
+        if (chatId) preservedWorkspaceEntries.add(safeChatKey(chatId));
+        if (previewSessionId) {
+          preservedPreviewSessionIds.add(previewSessionId);
+          await appendRuntimeLog(
+            previewSessionId,
+            `Cleanup could not stop stale runtime: ${error instanceof Error ? error.message : "unknown error"}`,
+          ).catch(() => {});
+        }
       }
-    } catch (error) {
-      preservedSessionIds.add(sessionId);
-      if (typeof tracked.chatId === "string" && tracked.chatId.trim()) {
-        preservedWorkspaceEntries.add(safeChatKey(tracked.chatId));
-      }
-      if (previewSessionId) {
-        preservedPreviewSessionIds.add(previewSessionId);
-        await appendRuntimeLog(
-          previewSessionId,
-          `Cleanup could not stop stale runtime: ${error instanceof Error ? error.message : "unknown error"}`,
-        ).catch(() => {});
-      }
-    }
+    });
   }
 
   return {
@@ -109,6 +116,35 @@ async function stopStaleRuntimes(nowMs) {
     preservedPreviewSessionIds,
     stoppedRuntimes,
   };
+}
+
+async function cleanupWorkspaceEntries(keepEntries) {
+  if (!fs.existsSync(WORKSPACES_DIR)) return { freedEntries: 0 };
+  let freedEntries = 0;
+  for (const entry of fs.readdirSync(WORKSPACES_DIR)) {
+    if (keepEntries.has(entry)) continue;
+    let chatId;
+    try {
+      chatId = decodeURIComponent(entry);
+    } catch {
+      chatId = entry;
+    }
+    await withChatLifecycleLock(chatId, async () => {
+      // Re-read under the same lock as /start. If lifecycle N+1 arrived after
+      // the cleanup snapshot, its usable store row fences this directory.
+      const current = Object.values(readStoreSync().sessions).find(
+        (session) => getSessionChatId(session) === chatId,
+      );
+      if (current && isSessionUsable(current, Date.now())) return;
+      try {
+        await removeDirWithRetries(path.join(WORKSPACES_DIR, entry));
+        freedEntries += 1;
+      } catch {
+        // best-effort
+      }
+    });
+  }
+  return { freedEntries };
 }
 
 /**
@@ -212,7 +248,7 @@ async function cleanupPackageCachesUnqueued({ force = false } = {}) {
 
 async function cleanupPreviewHostStorage() {
   const nowMs = Date.now();
-  const staleRuntimeCleanup = await stopStaleRuntimes(nowMs);
+  const staleRuntimeCleanup = await stopStaleRuntimes();
   const activeWorkspaceEntries = new Set(staleRuntimeCleanup.preservedWorkspaceEntries);
   const activePreviewSessionIds = new Set(staleRuntimeCleanup.preservedPreviewSessionIds);
   let removedSessions = 0;
@@ -273,10 +309,8 @@ async function cleanupPreviewHostStorage() {
     VERIFY_WORKSPACES_DIR,
     activeVerifyChatKeys,
   );
-  const workspaceResult = await cleanupDirectoryEntries(
-    WORKSPACES_DIR,
-    activeWorkspaceEntries,
-  );
+  if (beforeWorkspaceSweepForTesting) await beforeWorkspaceSweepForTesting();
+  const workspaceResult = await cleanupWorkspaceEntries(activeWorkspaceEntries);
   const cacheResult = await cleanupPackageCaches();
 
   return {
@@ -293,6 +327,12 @@ async function cleanupPreviewHostStorage() {
     preservedStaleRuntimes: staleRuntimeCleanup.preservedSessionIds.size,
     preservedWorkspaceEntries: activeWorkspaceEntries.size,
   };
+}
+
+let beforeWorkspaceSweepForTesting = null;
+
+function setBeforeWorkspaceSweepForTesting(hook) {
+  beforeWorkspaceSweepForTesting = typeof hook === "function" ? hook : null;
 }
 
 async function withNoSpaceCleanupRetry(run, options = {}) {
@@ -339,4 +379,5 @@ module.exports = {
   cleanupPreviewHostStorage,
   withNoSpaceCleanupRetry,
   describePackageCacheStorage,
+  setBeforeWorkspaceSweepForTesting,
 };

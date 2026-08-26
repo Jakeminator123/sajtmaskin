@@ -293,6 +293,55 @@ describe("projectProductPostcheckReadiness", () => {
 
     expect(projection).toEqual({ warnings: [], blockers: [], blocksF3: false, blockedReason: null });
   });
+
+  it("projects a newer persisted skip as advisory degradation without blocking F3", () => {
+    const projection = projectProductPostcheckReadiness([
+      log("product_postcheck.skipped", "F2 Product Postcheck skipped.", {
+        skippedReason: "transport_error",
+      }, "2026-08-14T11:00:00Z"),
+      log("product_postcheck.summary", "F2 Product Postcheck passed.", {
+        warningCount: 0,
+        productBlocked: false,
+      }, "2026-08-14T10:00:00Z"),
+    ]);
+
+    expect(projection.blocksF3).toBe(false);
+    expect(projection.blockers).toEqual([]);
+    expect(projection.warnings).toEqual([
+      expect.objectContaining({
+        id: "product-postcheck-skipped",
+        severity: "warning",
+        category: "advisory",
+        action: "preview",
+      }),
+    ]);
+  });
+
+  it("does not let a later skip erase an older concrete product blocker", () => {
+    const projection = projectProductPostcheckReadiness([
+      log("product_postcheck.skipped", "F2 Product Postcheck skipped.", {
+        skippedReason: "timeout",
+      }, "2026-08-14T11:00:00Z"),
+      log(
+        "product_postcheck.mobile_menu_failed",
+        "Mobilmeny kunde inte verifieras.",
+        { code: "mobile_menu_failed" },
+        "2026-08-14T10:00:02Z",
+      ),
+      log("product_postcheck.summary", "F2 Product Postcheck found 1 warning(s).", {
+        warningCount: 1,
+        productBlocked: true,
+      }, "2026-08-14T10:00:01Z"),
+    ]);
+
+    expect(projection.blocksF3).toBe(true);
+    expect(projection.blockers.map((item) => item.id)).toEqual([
+      "product-postcheck-mobile_menu_failed",
+    ]);
+    expect(projection.warnings.map((item) => item.id)).not.toContain(
+      "product-postcheck-skipped",
+    );
+  });
 });
 
 describe("buildChatReadiness + postcheck projection", () => {

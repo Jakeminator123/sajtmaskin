@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lt, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, notInArray, notLike, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
@@ -36,6 +36,8 @@ export const PRUNE_EXEMPT_CATEGORIES = [
   "f3-readiness:missing-env",
   "preview:client-error",
 ] as const;
+
+export const PRUNE_EXEMPT_CATEGORY_PREFIXES = ["product_postcheck."] as const;
 
 type EngineScaffoldContext = {
   scaffoldId: string;
@@ -278,7 +280,8 @@ export async function getLatestEngineVersionErrorLogForCategory(
  *
  * This prune is best-effort:
  *  - only deletes rows with strictly lower `meta.repairPassIndex`
- *  - never touches {@link PRUNE_EXEMPT_CATEGORIES}
+ *  - never touches {@link PRUNE_EXEMPT_CATEGORIES} or
+ *    {@link PRUNE_EXEMPT_CATEGORY_PREFIXES}
  *  - never throws (callers wrap in try/catch and rely on devLog telemetry)
  *
  * Returns the number of rows deleted so the caller can log
@@ -312,6 +315,10 @@ export async function pruneStaleVersionErrorLogs(
         notInArray(sql`COALESCE(${engineVersionErrorLogs.category}, '')`, [
           ...PRUNE_EXEMPT_CATEGORIES,
         ]),
+        notLike(
+          sql`COALESCE(${engineVersionErrorLogs.category}, '')`,
+          `${PRUNE_EXEMPT_CATEGORY_PREFIXES[0]}%`,
+        ),
       ),
     )
     .returning({ id: engineVersionErrorLogs.id });

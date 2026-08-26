@@ -203,6 +203,10 @@ const BUILTIN_PACKAGES = new Set([
  * `lucide-react: "^1"`-felet) så fångar validatorn det och bumpar till
  * `^latest`. Tabellen kan därmed vara mer "good enough" än "perfekt aktuell".
  */
+const CANONICAL_PROJECT_DEPENDENCY_PINS = {
+  "radix-ui": "1.6.7",
+} as const satisfies Readonly<Record<string, string>>;
+
 export const KNOWN_PACKAGES: Record<string, string> = {
   "recharts": "^2",
   "framer-motion": "^12",
@@ -222,7 +226,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "canvas-confetti": "^1.9",
   "react-error-boundary": "^6",
   "react-intersection-observer": "^10",
-  "radix-ui": "^1",
+  "radix-ui": CANONICAL_PROJECT_DEPENDENCY_PINS["radix-ui"],
   "cmdk": "^1",
   "sonner": "^2",
   "vaul": "^1",
@@ -530,6 +534,29 @@ function toDependencyRecord(input: unknown): Record<string, string> {
   ) as Record<string, string>;
 }
 
+function normalizeCanonicalProjectDependencies(
+  packageJson: Record<string, unknown>,
+): Record<string, string> {
+  const normalized: Record<string, string> = {};
+  for (const section of ["dependencies", "devDependencies"] as const) {
+    const rawSection = packageJson[section];
+    if (!rawSection || typeof rawSection !== "object" || Array.isArray(rawSection)) continue;
+
+    let nextSection: Record<string, unknown> | undefined;
+    for (const [name, canonicalVersion] of Object.entries(
+      CANONICAL_PROJECT_DEPENDENCY_PINS,
+    )) {
+      const currentVersion = (rawSection as Record<string, unknown>)[name];
+      if (typeof currentVersion !== "string" || currentVersion === canonicalVersion) continue;
+      nextSection ??= { ...(rawSection as Record<string, unknown>) };
+      nextSection[name] = canonicalVersion;
+      normalized[name] = canonicalVersion;
+    }
+    if (nextSection) packageJson[section] = nextSection;
+  }
+  return normalized;
+}
+
 export function mergeMissingDependenciesIntoPackageJson(
   packageJson: Record<string, unknown>,
   missingDependencies: Record<string, string>,
@@ -564,10 +591,12 @@ const PROJECT_CODE_FILE_RE = /\.(?:tsx?|jsx?|mjs|cjs|css)$/i;
  *
  * This helper scans every code/CSS file for third-party imports and merges the
  * ones with a KNOWN version pin into the project's EXISTING `package.json`.
- * It never touches already-declared versions (dependencies or
- * devDependencies), so template framework majors and lockfile identities stay
- * intact. Unknown packages are reported but never pinned — guessing "latest"
- * for an arbitrary specifier could break an install that currently works.
+ * It preserves already-declared versions (dependencies or devDependencies)
+ * except for the small explicit canonical-pin allowlist above. This keeps
+ * template framework majors intact while preventing known-broken dependency
+ * versions from bypassing the import scanner. Unknown packages are reported
+ * but never pinned — guessing "latest" for an arbitrary specifier could break
+ * an install that currently works.
  */
 export function completeProjectDependencies<
   T extends { path: string; content: string },
@@ -594,6 +623,8 @@ export function completeProjectDependencies<
     return { files, pinnedDependencies: {}, unknownPackages: [] };
   }
 
+  const normalizedDependencies = normalizeCanonicalProjectDependencies(pkg);
+
   const declared = new Set([
     ...Object.keys(toDependencyRecord(pkg.dependencies)),
     ...Object.keys(toDependencyRecord(pkg.devDependencies)),
@@ -619,7 +650,10 @@ export function completeProjectDependencies<
     }
   }
 
-  if (Object.keys(collected).length === 0) {
+  if (
+    Object.keys(collected).length === 0 &&
+    Object.keys(normalizedDependencies).length === 0
+  ) {
     return { files, pinnedDependencies: {}, unknownPackages: [...unknown] };
   }
 
@@ -627,7 +661,7 @@ export function completeProjectDependencies<
     pkg,
     collected,
   );
-  if (mergedCount === 0) {
+  if (mergedCount === 0 && Object.keys(normalizedDependencies).length === 0) {
     return { files, pinnedDependencies: {}, unknownPackages: [...unknown] };
   }
 
@@ -638,7 +672,7 @@ export function completeProjectDependencies<
   };
   return {
     files: nextFiles,
-    pinnedDependencies: collected,
+    pinnedDependencies: { ...normalizedDependencies, ...collected },
     unknownPackages: [...unknown],
   };
 }

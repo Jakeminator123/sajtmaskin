@@ -86,6 +86,30 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.dependencies.three).toBe("0.185.1");
   });
 
+  it.each([
+    ["the model's stale pin", "1.4.3", undefined],
+    ["the detected major range", undefined, "^1"],
+  ])("normalizes radix-ui from %s to the exact baseline", (_source, modelRadix, detectedRadix) => {
+    const merged = mergePackageJsonWithBaseline(
+      {
+        dependencies: {
+          ...(modelRadix === undefined ? {} : { "radix-ui": modelRadix }),
+          "model-only-package": "2.3.4",
+        },
+      },
+      {
+        dependencies: {
+          ...(detectedRadix === undefined ? {} : { "radix-ui": detectedRadix }),
+          "detected-only-package": "^5.6.7",
+        },
+      },
+    ) as { dependencies: Record<string, string> };
+
+    expect(merged.dependencies["radix-ui"]).toBe("1.6.7");
+    expect(merged.dependencies["model-only-package"]).toBe("2.3.4");
+    expect(merged.dependencies["detected-only-package"]).toBe("^5.6.7");
+  });
+
   it("pins eslint-config-next in devDependencies so the model cannot leave it on an older minor", () => {
     const merged = mergePackageJsonWithBaseline(
       { devDependencies: { "eslint-config-next": "16.2.9" } } as Record<string, unknown>,

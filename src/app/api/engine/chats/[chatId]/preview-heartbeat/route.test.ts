@@ -309,6 +309,7 @@ describe("POST preview-heartbeat — readiness-failure utan levande process", ()
 
     expect(fetchPreviewHostReadinessVerdict).toHaveBeenCalledWith("ps1", {
       expectedVersionId: "v1",
+      expectedLifecycleToken: null,
     });
     expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false);
   });

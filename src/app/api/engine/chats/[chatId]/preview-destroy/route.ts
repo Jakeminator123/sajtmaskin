@@ -66,6 +66,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       if (matchedSession?.tier2Provider === "preview_host") {
         const destroyed = await destroyPreviewHostSession({
           previewSessionId: matchedSession.previewSessionId,
+          ...(matchedSession.lifecycleToken
+            ? { lifecycleToken: matchedSession.lifecycleToken }
+            : {}),
         });
         if (destroyed.ok) {
           destroyedOnProvider = destroyed.destroyed;
@@ -94,10 +97,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         }
       }
 
-      if (matchedSession) {
-        await clearPreviewSessionAsync(chatId);
-      }
-
+      // Clear the DB projection before releasing the local lifecycle pointer.
+      // A lifecycle N+1 start that races from here writes its URL afterwards;
+      // the old ordering could instead null N+1 after its pointer was visible.
       const updated = await updateVersionPreviewUrl(requestedVersion.version.id, null);
       if (!updated) {
         return NextResponse.json(
@@ -108,6 +110,85 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           } satisfies PreviewDestroyApiJson,
           { status: 500 },
         );
+      }
+
+      if (matchedSession) {
+        let cleared: boolean;
+        try {
+          cleared = await clearPreviewSessionAsync(chatId, {
+            expectedPreviewSessionId: matchedSession.previewSessionId,
+            expectedLifecycleToken: matchedSession.lifecycleToken,
+          });
+        } catch (error) {
+          const active = await getActivePreviewSessionAsync(chatId).catch(() => null);
+          const restoreUrl =
+            active?.versionId === requestedVersion.version.id
+              ? active.previewUrl
+              : matchedSession.previewUrl;
+          await updateVersionPreviewUrl(requestedVersion.version.id, restoreUrl).catch(() => false);
+          return NextResponse.json(
+            {
+              ok: false,
+              reason: "session_store_failed",
+              message: error instanceof Error ? error.message : "Preview session store failed.",
+            } satisfies PreviewDestroyApiJson,
+            { status: 500 },
+          );
+        }
+        if (!cleared) {
+          const active = await getActivePreviewSessionAsync(chatId).catch(() => null);
+          if (active?.versionId === requestedVersion.version.id) {
+            const reconciled = await updateVersionPreviewUrl(
+              requestedVersion.version.id,
+              active.previewUrl,
+            );
+            if (!reconciled) {
+              return NextResponse.json(
+                {
+                  ok: false,
+                  reason: "update_failed",
+                  message: "Failed to reconcile stored previewUrl for the newer session.",
+                } satisfies PreviewDestroyApiJson,
+                { status: 500 },
+              );
+            }
+          }
+          return NextResponse.json({
+            ok: true,
+            destroyed: destroyedOnProvider,
+            clearedPreviewUrl: false,
+            tier2Provider: matchedSession.tier2Provider ?? null,
+            reason: "session_superseded",
+          } satisfies PreviewDestroyApiJson);
+        }
+      } else {
+        // The initial lookup can race a brand-new lifecycle on another app
+        // instance. Reconcile after the DB null so that start's newly visible
+        // pointer remains the projection authority even in the no-session path.
+        const active = await getActivePreviewSessionAsync(chatId).catch(() => null);
+        if (active?.versionId === requestedVersion.version.id) {
+          const reconciled = await updateVersionPreviewUrl(
+            requestedVersion.version.id,
+            active.previewUrl,
+          );
+          if (!reconciled) {
+            return NextResponse.json(
+              {
+                ok: false,
+                reason: "update_failed",
+                message: "Failed to reconcile stored previewUrl for the newer session.",
+              } satisfies PreviewDestroyApiJson,
+              { status: 500 },
+            );
+          }
+          return NextResponse.json({
+            ok: true,
+            destroyed: false,
+            clearedPreviewUrl: false,
+            tier2Provider: active.tier2Provider ?? null,
+            reason: "session_superseded",
+          } satisfies PreviewDestroyApiJson);
+        }
       }
 
       const response: PreviewDestroyApiJson = {

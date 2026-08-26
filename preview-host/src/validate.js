@@ -43,6 +43,12 @@ function readPreviewSessionId(payload) {
   return undefined;
 }
 
+function readLifecycleToken(payload) {
+  return typeof payload.lifecycleToken === "string" && payload.lifecycleToken.trim()
+    ? payload.lifecycleToken.trim()
+    : undefined;
+}
+
 /**
  * Reject paths that could escape the workspace via traversal, absolute refs,
  * or Windows drive letters. Only clean relative paths are allowed.
@@ -197,6 +203,7 @@ function validateUpdatePayload(payload) {
   return {
     sessionId: typeof p.sessionId === "string" ? p.sessionId.trim() : undefined,
     previewSessionId,
+    lifecycleToken: readLifecycleToken(p),
     versionId,
     changeClass,
     filesJson,
@@ -219,6 +226,7 @@ function validateSessionRefPayload(payload) {
   return {
     sessionId: typeof p.sessionId === "string" ? p.sessionId.trim() : undefined,
     previewSessionId,
+    lifecycleToken: readLifecycleToken(p),
   };
 }
 
@@ -272,6 +280,7 @@ function validatePatchPayload(payload) {
   return {
     sessionId: typeof p.sessionId === "string" ? p.sessionId.trim() : undefined,
     previewSessionId,
+    lifecycleToken: readLifecycleToken(p),
     versionId,
     expectedBaseVersionId,
     files: files ?? {},

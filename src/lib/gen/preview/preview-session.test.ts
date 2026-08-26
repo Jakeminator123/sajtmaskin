@@ -269,12 +269,18 @@ describe("startPreviewSession update path", () => {
 
   it("forceRestart destroys the prior preview-host session before starting fresh", async () => {
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
-    destroyPreviewHostSession.mockResolvedValueOnce({ ok: true, destroyed: true });
+    let finishDestroy!: (value: { ok: true; destroyed: true }) => void;
+    destroyPreviewHostSession.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishDestroy = resolve;
+      }),
+    );
     startPreviewHostSession.mockResolvedValueOnce({
       ok: true,
       previewSessionId: "ps-new",
       previewUrl: "https://preview-host.example.com/chat-3",
       startOutcome: "recreated",
+      lifecycleToken: "life-new",
     });
 
     await touchPreviewSessionAsync({
@@ -282,10 +288,11 @@ describe("startPreviewSession update path", () => {
       previewSessionId: "ps-old",
       previewUrl: "https://preview-host.example.com/chat-3",
       versionId: "version-old",
+      lifecycleToken: "life-old",
       tier2Provider: "preview_host",
     });
 
-    const result = await startPreviewSession(
+    const resultPromise = startPreviewSession(
       [
         {
           path: "app/page.tsx",
@@ -302,9 +309,21 @@ describe("startPreviewSession update path", () => {
       },
     );
 
+    await vi.waitFor(() => expect(destroyPreviewHostSession).toHaveBeenCalledOnce());
+    expect(startPreviewHostSession).not.toHaveBeenCalled();
+    finishDestroy({ ok: true, destroyed: true });
+    const result = await resultPromise;
+
     expect(result.ok).toBe(true);
-    expect(destroyPreviewHostSession).toHaveBeenCalledWith({ previewSessionId: "ps-old" });
+    expect(destroyPreviewHostSession).toHaveBeenCalledWith({
+      previewSessionId: "ps-old",
+      lifecycleToken: "life-old",
+    });
     expect(startPreviewHostSession).toHaveBeenCalledOnce();
+    expect(getActivePreviewSession("chat-3")).toMatchObject({
+      previewSessionId: "ps-new",
+      lifecycleToken: "life-new",
+    });
   });
 });
 
@@ -600,6 +619,7 @@ describe("startPreviewSession follow-up Fast Edit Lane", () => {
 
     expect(fetchPreviewHostStatus).toHaveBeenCalledWith("ps-live", {
       expectedVersionId: "version-b",
+      expectedLifecycleToken: null,
     });
     expect(reopened.ok).toBe(true);
     if (reopened.ok) {

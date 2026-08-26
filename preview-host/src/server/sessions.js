@@ -4,6 +4,7 @@ const { createHash } = require("node:crypto");
 const { SESSION_TTL_MS } = require("./config.js");
 const { nowIso } = require("./http.js");
 const { getSessionChatId } = require("../runtime.js");
+const { readMutationRevision, withChatLifecycleLock } = require("../session-lifecycle.js");
 
 /**
  * Sentinel for a stored entry that cannot be hashed (validation only ever
@@ -25,6 +26,11 @@ function sessionResponse(session) {
   return {
     sessionId: session.sessionId,
     previewSessionId,
+    lifecycleToken:
+      typeof session.lifecycleToken === "string" && session.lifecycleToken.trim()
+        ? session.lifecycleToken
+        : null,
+    mutationRevision: readMutationRevision(session),
     /** @legacy External alias for older Sajtmaskin app deployments. */
     sandboxId: previewSessionId,
     chatId: getSessionChatId(session),
@@ -144,4 +150,5 @@ module.exports = {
   getPreviewStatusSessionId,
   getPreviewFilesManifestSessionId,
   buildSessionFilesManifest,
+  withChatLifecycleLock,
 };

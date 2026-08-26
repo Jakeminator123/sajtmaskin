@@ -109,6 +109,8 @@ export interface PreviewPanelProps {
   previewPending?: boolean;
   /** Server-known preview session id for heartbeat / status (own-engine). */
   activePreviewSessionId?: string | null;
+  /** Host lifecycle fence for pagehide/hibernate; null only for a legacy lifecycle. */
+  activePreviewLifecycleToken?: string | null;
   previewLifecycle?: PreviewLifecycleState;
   activeVersionStatus?: VersionDisplayStatus | null;
   activeVersionSummary?: string | null;

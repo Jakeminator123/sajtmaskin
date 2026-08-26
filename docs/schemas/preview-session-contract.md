@@ -233,6 +233,16 @@ For `version_mismatch`, `versionId` is the preview-session-bound version. Option
 - `GET /preview/sandbox/:previewSessionId/status` (legacy path alias)
 - `GET /preview/logs/:previewSessionId`
 
+Every new non-legacy host session returns a `lifecycleToken`. The app stores it
+with the preview pointer and sends it on update, patch, hibernate and destroy.
+A token-bearing host session rejects a missing or different mutation token with
+`409 stale_lifecycle` before mutating store, runtime or workspace. Status and
+readiness remain recovery receipts, not UI mutation identities: the route reads
+the current Redis pointer and requires the host receipt to echo that lifecycle,
+so a cached N receipt cannot approve N+1. A later poll may intentionally follow
+the current same-version N+1 lifecycle. Persisted sessions created by an older
+host have no token and remain operable without one during rollout.
+
 #### Prewarm start contract (`POST /preview/session/start`)
 
 Ordinary finalize starts keep the existing payload. A prewarm start additionally
@@ -293,10 +303,12 @@ By-design limits:
 - Multi-machine locking is future topology work; the current authoritative
   store lock matches the deployed single-host topology.
 
-Deployment order is host first: deploy preview-host with this contract, verify
-`npm run check`, `npm run test:guards`, `npm run test:proxy-contract`, and smoke;
-only then may an app deployment containing prewarm calls be considered. The app
-flag remains default OFF and must not be activated before the host is deployed.
+Lifecycle-token deployment order is app first: deploy the app version that can
+store/send an optional token while still accepting tokenless legacy host
+responses. Then deploy preview-host with strict fencing for newly created
+token-bearing sessions and verify `npm run check`, `npm run test:guards`,
+`npm run test:proxy-contract`, and smoke. The independent prewarm flag remains
+default OFF and must not be activated before its host support is deployed.
 
 #### Fast Edit Lane patch route (`POST /preview/session/patch`)
 

@@ -415,6 +415,16 @@ describe("useResumePendingVerification", () => {
       }),
     );
     await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    expect(callsTo("/error-log")).toHaveLength(1);
+    const persisted = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
+      logs: Array<{ category: string; meta?: { skippedReason?: string } }>;
+    };
+    expect(persisted.logs).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.skipped",
+        meta: expect.objectContaining({ skippedReason: "transport_error" }),
+      }),
+    ]);
   });
 
   it("does nothing while streaming", async () => {
@@ -642,6 +652,29 @@ describe("useResumePendingVerification", () => {
     expect(JSON.parse(String(callsTo("/quality-gate")[0][1].body))).toEqual({
       versionId: "ver_pending",
     });
+  });
+
+  it("persists an import-lane postcheck transport error and still runs the VM gate", async () => {
+    mockRoutes({ postcheck: { ok: false } });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo" })],
+        isStreaming: false,
+      }),
+    );
+
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    expect(callsTo("/error-log")).toHaveLength(1);
+    const persisted = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
+      logs: Array<{ category: string; meta?: { skippedReason?: string } }>;
+    };
+    expect(persisted.logs).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.skipped",
+        meta: expect.objectContaining({ skippedReason: "transport_error" }),
+      }),
+    ]);
   });
 
   it("import lane rehydrates a missing preview before the gate", async () => {

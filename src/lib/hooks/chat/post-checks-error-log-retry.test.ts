@@ -103,4 +103,33 @@ describe("persistVersionErrorLogs — 503-retry", () => {
     ).resolves.toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("bär Product Postchecks exakta revision/lifecycle till den durabla skrivningen", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => response(200));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      persistVersionErrorLogs({
+        chatId: "c1",
+        versionId: "v1",
+        logs: LOGS,
+        productPostcheckAttestation: {
+          previewSessionId: "ps_legacy",
+          lifecycleToken: null,
+          filesRevision: "rev_n",
+        },
+      }),
+    ).resolves.toBe(true);
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(init.body))).toEqual(
+      expect.objectContaining({
+        productPostcheckAttestation: {
+          previewSessionId: "ps_legacy",
+          lifecycleToken: null,
+          filesRevision: "rev_n",
+        },
+      }),
+    );
+  });
 });

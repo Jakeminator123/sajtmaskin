@@ -135,6 +135,7 @@ const RECENT_QUERY = `
     gt.preflight_warning_count,
     gt.quality_gate_result,
     pps.product_blocked,
+    pps.product_degraded,
     gt.preview_success,
     gt.preview_blocking_reason,
     gt.deploy_result,
@@ -177,6 +178,7 @@ const CHAT_TELEMETRY_QUERY = `
          gt.prompt_classification, gt.retry_count, gt.autofix_applied, gt.syntax_fixer_used,
          gt.preflight_error_count, gt.preflight_warning_count, gt.quality_gate_result,
          pps.product_blocked,
+         pps.product_degraded,
          gt.preview_success, gt.preview_blocking_reason, gt.deploy_result, gt.duration_ms,
          gt.file_count, gt.meta, gt.created_at
   FROM generation_telemetry gt

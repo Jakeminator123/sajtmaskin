@@ -66,6 +66,7 @@ module.exports = {
     sanitizedEnv: shared.sanitizedEnv,
     runInInstallSlot: shared.runInInstallSlot,
     cleanupPackageCachesUnqueued: storageCleanup.cleanupPackageCachesUnqueued,
+    setBeforeWorkspaceSweepForTesting: storageCleanup.setBeforeWorkspaceSweepForTesting,
     PACKAGE_CACHE_DIR: shared.PACKAGE_CACHE_DIR,
     NPM_CACHE_DIR: shared.NPM_CACHE_DIR,
     dependencyFingerprint: packageInstall.dependencyFingerprint,
@@ -125,6 +126,8 @@ module.exports = {
     createFakeRuntimeChildForTesting: processLifecycle.createFakeRuntimeChildForTesting,
     clearRuntimeStateForTesting: processLifecycle.clearRuntimeStateForTesting,
     setBootRunnerForTesting: processLifecycle.setBootRunnerForTesting,
+    setBeforeIdleLifecycleCheckForTesting:
+      processLifecycle.setBeforeIdleLifecycleCheckForTesting,
     setVerifyRunnersForTesting: verifyJobs.setVerifyRunnersForTesting,
     setBootInstallRunnersForTesting: packageInstall.setBootInstallRunnersForTesting,
   },

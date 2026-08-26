@@ -83,6 +83,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         previewSessionId: session.previewSessionId,
         previewUrl: session.previewUrl,
         versionId: session.versionId,
+        lifecycleToken: session.lifecycleToken,
+        mutationRevision: session.mutationRevision,
+        writeIntent: "refresh",
       });
 
       // M#pv1 (PR #377 runda 3): the heartbeat is the receipt point that
@@ -134,6 +137,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           // the builder may not make. Same version binding as above.
           const verdict = await fetchPreviewHostReadinessVerdict(session.previewSessionId, {
             expectedVersionId: versionId,
+            expectedLifecycleToken: session.lifecycleToken ?? null,
           });
           if (verdict?.readinessState === "failed") {
             await applyPreviewReadinessOutcome({

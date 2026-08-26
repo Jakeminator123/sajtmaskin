@@ -427,6 +427,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               previewProdBuild={vm.previewProdBuild}
               previewPending={vm.previewPending}
               activePreviewSessionId={vm.activePreviewSessionId}
+              activePreviewLifecycleToken={vm.activePreviewLifecycleToken}
               previewLifecycle={vm.previewLifecycle}
               activeVersionStatus={activeVersionStatus}
               activeVersionSummary={localizeVerificationSummary(

@@ -5,6 +5,8 @@ import {
   getEngineVersionErrorLogs,
 } from "@/lib/db/services/version-errors";
 import { buildErrorLogSummary } from "./summary";
+import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
+import type { ProductPostcheckAttestation } from "@/lib/gen/verify/product-postcheck";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 
@@ -14,6 +16,41 @@ type ErrorLogPayload = {
   message: string;
   meta?: Record<string, unknown> | null;
 };
+
+type ErrorLogBatchPayload = {
+  logs?: ErrorLogPayload[];
+  productPostcheckAttestation?: ProductPostcheckAttestation | null;
+};
+
+function isProductPostcheckAttestation(
+  value: unknown,
+): value is ProductPostcheckAttestation {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const input = value as Record<string, unknown>;
+  return (
+    typeof input.previewSessionId === "string" &&
+    Boolean(input.previewSessionId.trim()) &&
+    typeof input.filesRevision === "string" &&
+    Boolean(input.filesRevision.trim()) &&
+    (input.lifecycleToken === null || typeof input.lifecycleToken === "string")
+  );
+}
+
+function productPostcheckAttestationMatches(
+  attestation: ProductPostcheckAttestation,
+  version: { id: string; files_revision?: string | null },
+  session: Awaited<ReturnType<typeof getActivePreviewSessionAsync>>,
+): boolean {
+  const filesRevision = attestation.filesRevision.trim();
+  return Boolean(
+    version.files_revision?.trim() === filesRevision &&
+      session?.versionId === version.id &&
+      session.previewSessionId === attestation.previewSessionId.trim() &&
+      session.filesRevision === filesRevision &&
+      (session.lifecycleToken?.trim() || null) ===
+        (attestation.lifecycleToken?.trim() || null),
+  );
+}
 
 /**
  * Bounded row-lock wait for the error-log insert. The insert's FK check takes a
@@ -47,11 +84,40 @@ export async function POST(request: Request, ctx: RouteParams) {
     const internalChatId = scopedVersion.chat.id;
     const internalVersionId = scopedVersion.version.id;
     const body = (await request.json().catch(() => null)) as
-      | { logs?: ErrorLogPayload[] }
+      | ErrorLogBatchPayload
       | ErrorLogPayload
       | null;
     if (!body) {
       return NextResponse.json({ error: "Missing payload" }, { status: 400 });
+    }
+
+    if ("productPostcheckAttestation" in body) {
+      if (!isProductPostcheckAttestation(body.productPostcheckAttestation)) {
+        return NextResponse.json(
+          { success: false, stored: false, code: "invalid_product_postcheck_attestation" },
+          { status: 400 },
+        );
+      }
+      // Re-read both authorities immediately before the all-or-nothing batch
+      // insert. A response for N cannot write PASS/blocker rows after N+1 has
+      // replaced either the DB revision or the active preview lifecycle.
+      const [latestScopedVersion, activeSession] = await Promise.all([
+        getEngineVersionForChatByIdForRequest(request, chatId, versionId),
+        getActivePreviewSessionAsync(chatId),
+      ]);
+      if (
+        !latestScopedVersion ||
+        !productPostcheckAttestationMatches(
+          body.productPostcheckAttestation,
+          latestScopedVersion.version,
+          activeSession,
+        )
+      ) {
+        return NextResponse.json(
+          { success: false, stored: false, code: "product_postcheck_superseded" },
+          { status: 409 },
+        );
+      }
     }
 
     if ("logs" in body && Array.isArray(body.logs)) {

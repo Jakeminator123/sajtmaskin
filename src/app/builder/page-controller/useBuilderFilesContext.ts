@@ -24,7 +24,11 @@ type Params = {
   pendingCreatedVersionRef: MutableRefObject<{ id: string; ts: number } | null>;
   mutateVersions: () => unknown;
   onPreviewSessionMeta: (
-    meta: { previewSessionId: string; versionId: string | null } | null,
+    meta: {
+      previewSessionId: string;
+      versionId: string | null;
+      lifecycleToken?: string | null;
+    } | null,
   ) => void;
   setCurrentPageCode: Dispatch<SetStateAction<string | undefined>>;
   setExistingUiComponents: Dispatch<SetStateAction<string[]>>;

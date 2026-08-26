@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
-import { versions } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { engineVersionErrorLogs, versions } from "@/lib/db/schema";
+import { and, eq, desc, inArray } from "drizzle-orm";
 import {
   getChatByV0ChatIdForRequest,
   getEngineChatByIdForRequest,
@@ -27,6 +27,43 @@ import {
 import { isContentRevisionGateEnabled } from "@/lib/gen/verify/content-revision";
 import { getLatestQualityGateSignalsForChat } from "@/lib/db/services/generation-telemetry";
 import { incContentRevisionMismatch } from "@/lib/observability/metrics";
+import {
+  applyProductPostcheckLogReadFailureToVersionStatus,
+  applyProductPostcheckReportToVersionStatus,
+} from "@/lib/db/services/reported-quality-gate";
+import type { ProductPostcheckReportLog } from "@/lib/db/services/reported-quality-gate";
+
+async function getProductPostcheckReportsForVersions(
+  versionIds: string[],
+): Promise<Map<string, ProductPostcheckReportLog[]>> {
+  if (versionIds.length === 0) return new Map();
+  const rows = await db
+    .select({
+      versionId: engineVersionErrorLogs.version_id,
+      category: engineVersionErrorLogs.category,
+      message: engineVersionErrorLogs.message,
+      meta: engineVersionErrorLogs.meta,
+      created_at: engineVersionErrorLogs.created_at,
+    })
+    .from(engineVersionErrorLogs)
+    .where(
+      and(
+        inArray(engineVersionErrorLogs.version_id, versionIds),
+        inArray(engineVersionErrorLogs.category, [
+          "product_postcheck.summary",
+          "product_postcheck.skipped",
+        ]),
+      ),
+    )
+    .orderBy(desc(engineVersionErrorLogs.created_at));
+  const byVersion = new Map<string, ProductPostcheckReportLog[]>();
+  for (const row of rows) {
+    const list = byVersion.get(row.versionId) ?? [];
+    list.push(row);
+    byVersion.set(row.versionId, list);
+  }
+  return byVersion;
+}
 
 // P0 stream-abort recovery (2026-04-26). The `/versions` route is the
 // canonical poll surface used by useVersions. By piggy-backing the chat's
@@ -101,8 +138,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       // gate must therefore look at bus OR DB, not bus alone (Bugbot on this
       // diff: bus-only gating dropped the stale signal exactly where it
       // matters most, right after a deploy).
+      const eventsByVersion = new Map(
+        engineVersions.map((version) => [version.id, readAll(version.id)] as const),
+      );
       const projectedByVersion = new Map(
-        engineVersions.map((v) => [v.id, selectVersionStatus(readAll(v.id))] as const),
+        engineVersions.map(
+          (version) => [
+            version.id,
+            selectVersionStatus(eventsByVersion.get(version.id) ?? []),
+          ] as const,
+        ),
       );
       const canRenderTerminal = (projected: { phase: string }, verificationState: string | null) =>
         projected.phase === "done" ||
@@ -124,6 +169,17 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
               () => new Map(),
             )
           : null;
+      // Durable Product Postcheck truth for every version in ONE query. The
+      // list route is polled and must never perform one error-log read per row.
+      let productPostcheckReadFailed = false;
+      const productPostcheckByVersion = anyTerminal
+        ? await getProductPostcheckReportsForVersions(
+            engineVersions.map((version) => version.id),
+          ).catch(() => {
+            productPostcheckReadFailed = true;
+            return new Map<string, ProductPostcheckReportLog[]>();
+          })
+        : new Map<string, ProductPostcheckReportLog[]>();
 
       const versionsList = engineVersions.map((v) => {
           const projected = projectedByVersion.get(v.id) ?? selectVersionStatus([]);
@@ -200,7 +256,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             ) {
               incContentRevisionMismatch("versions_list", { verdict: staleSignalResult });
             }
-            return reconciled;
+            const terminal = reconciled.phase === "done" || reconciled.phase === "failed";
+            return productPostcheckReadFailed && terminal
+              ? applyProductPostcheckLogReadFailureToVersionStatus(reconciled)
+              : terminal
+                ? applyProductPostcheckReportToVersionStatus(
+                  reconciled,
+                  productPostcheckByVersion.get(v.id) ?? [],
+                  eventsByVersion.get(v.id) ?? [],
+                )
+                : reconciled;
           })(),
           canPin: false,
       };

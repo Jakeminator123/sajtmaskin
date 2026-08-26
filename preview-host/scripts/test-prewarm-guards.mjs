@@ -174,6 +174,7 @@ try {
   const updatePrewarm = await startPrewarm("chat-update", key("c"));
   const update = await request("/preview/session/update", {
     previewSessionId: updatePrewarm.body.previewSessionId,
+    lifecycleToken: updatePrewarm.body.lifecycleToken,
     versionId: "version-update-real",
     replaceFiles: true,
     filesJson: files("update-real"),
@@ -186,6 +187,7 @@ try {
   const patchPrewarm = await startPrewarm("chat-patch", key("d"));
   const patch = await request("/preview/session/patch", {
     previewSessionId: patchPrewarm.body.previewSessionId,
+    lifecycleToken: patchPrewarm.body.lifecycleToken,
     versionId: "version-patch-real",
     files: { "app/page.tsx": "export default function Page(){return <main>real</main>}" },
   });
@@ -199,6 +201,7 @@ try {
   const destroyPrewarm = await startPrewarm("chat-destroy", key("e"));
   const destroyed = await request("/preview/session/destroy", {
     previewSessionId: destroyPrewarm.body.previewSessionId,
+    lifecycleToken: destroyPrewarm.body.lifecycleToken,
   });
   assert.equal(destroyed.status, 200);
   assert.equal(leaseExistsForChat("chat-destroy"), false);
@@ -211,6 +214,7 @@ try {
     (
       await request("/preview/session/hibernate", {
         previewSessionId: hibernatePrewarm.body.previewSessionId,
+        lifecycleToken: hibernatePrewarm.body.lifecycleToken,
       })
     ).status,
     200,
@@ -218,6 +222,7 @@ try {
   assert.equal(leaseExistsForChat("chat-hibernate"), true);
   await request("/preview/session/destroy", {
     previewSessionId: hibernatePrewarm.body.previewSessionId,
+    lifecycleToken: hibernatePrewarm.body.lifecycleToken,
   });
   assert.equal(leaseExistsForChat("chat-hibernate"), false);
 

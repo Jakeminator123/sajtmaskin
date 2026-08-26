@@ -11,31 +11,75 @@
  */
 
 export const REPORTED_PRODUCT_BLOCKED = "product_blocked";
+export const REPORTED_PRODUCT_POSTCHECK_DEGRADED = "product_postcheck_degraded";
 export const FINALIZE_PREFLIGHT_PASSED = "preflight_passed";
 
 /**
- * Senaste `product_postcheck.summary` per `gt.version_id`.
+ * Senaste `product_postcheck.summary` + `product_postcheck.skipped` per
+ * `gt.version_id`.
  * Anroparen måste aliasa `generation_telemetry` som `gt`.
  */
 export const LATEST_PRODUCT_POSTCHECK_JOIN = `
   LEFT JOIN LATERAL (
-    SELECT (e.meta @> '{"productBlocked": true}'::jsonb) AS product_blocked
-    FROM engine_version_error_logs e
-    WHERE e.version_id = gt.version_id
-      AND e.category = 'product_postcheck.summary'
-    ORDER BY e.created_at DESC
-    LIMIT 1
+    SELECT
+      COALESCE(summary.product_blocked, false) AS product_blocked,
+      CASE
+        WHEN COALESCE(summary.product_blocked, false) THEN false
+        WHEN skipped.created_at IS NOT NULL
+          AND (summary.created_at IS NULL OR skipped.created_at >= summary.created_at)
+          THEN true
+        ELSE false
+      END AS product_degraded
+    FROM (
+      SELECT
+        e.created_at,
+        (e.meta @> '{"productBlocked": true}'::jsonb) AS product_blocked
+      FROM engine_version_error_logs e
+      WHERE e.version_id = gt.version_id
+        AND e.category = 'product_postcheck.summary'
+      ORDER BY e.created_at DESC
+      LIMIT 1
+    ) summary
+    FULL JOIN (
+      SELECT e.created_at
+      FROM engine_version_error_logs e
+      WHERE e.version_id = gt.version_id
+        AND e.category = 'product_postcheck.skipped'
+      ORDER BY e.created_at DESC
+      LIMIT 1
+    ) skipped ON true
   ) pps ON true
 `;
 
-/** Senaste summary för en given version (`$1` = version_id). */
+/** Senaste summary+skip-projektion för en given version (`$1` = version_id). */
 export const LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL = `
-  SELECT (e.meta @> '{"productBlocked": true}'::jsonb) AS product_blocked
-  FROM engine_version_error_logs e
-  WHERE e.version_id = $1
-    AND e.category = 'product_postcheck.summary'
-  ORDER BY e.created_at DESC
-  LIMIT 1
+  SELECT
+    COALESCE(summary.product_blocked, false) AS product_blocked,
+    CASE
+      WHEN COALESCE(summary.product_blocked, false) THEN false
+      WHEN skipped.created_at IS NOT NULL
+        AND (summary.created_at IS NULL OR skipped.created_at >= summary.created_at)
+        THEN true
+      ELSE false
+    END AS product_degraded
+  FROM (
+    SELECT
+      e.created_at,
+      (e.meta @> '{"productBlocked": true}'::jsonb) AS product_blocked
+    FROM engine_version_error_logs e
+    WHERE e.version_id = $1
+      AND e.category = 'product_postcheck.summary'
+    ORDER BY e.created_at DESC
+    LIMIT 1
+  ) summary
+  FULL JOIN (
+    SELECT e.created_at
+    FROM engine_version_error_logs e
+    WHERE e.version_id = $1
+      AND e.category = 'product_postcheck.skipped'
+    ORDER BY e.created_at DESC
+    LIMIT 1
+  ) skipped ON true
 `;
 
 export function isReportedQualityGateGreen(result) {
@@ -50,12 +94,20 @@ export function productBlockedFromSummaryMeta(meta) {
 /**
  * @param {string | null | undefined} qualityGateResult
  * @param {boolean | null | undefined} productBlocked
+ * @param {boolean | null | undefined} productDegraded
  * @returns {string | null}
  */
-export function resolveReportedQualityGateResult(qualityGateResult, productBlocked) {
+export function resolveReportedQualityGateResult(
+  qualityGateResult,
+  productBlocked,
+  productDegraded = false,
+) {
   const finalize = qualityGateResult ?? null;
   if (finalize === FINALIZE_PREFLIGHT_PASSED && productBlocked === true) {
     return REPORTED_PRODUCT_BLOCKED;
+  }
+  if (finalize === FINALIZE_PREFLIGHT_PASSED && productDegraded === true) {
+    return REPORTED_PRODUCT_POSTCHECK_DEGRADED;
   }
   return finalize;
 }
@@ -67,11 +119,12 @@ export function resolveReportedQualityGateResult(qualityGateResult, productBlock
 export function annotateReportedQualityGate(row) {
   const finalize = row?.quality_gate_result ?? null;
   const blocked = row?.product_blocked === true;
-  const reported = resolveReportedQualityGateResult(finalize, blocked);
+  const degraded = row?.product_degraded === true;
+  const reported = resolveReportedQualityGateResult(finalize, blocked, degraded);
   return {
     ...row,
     reported_quality_gate: reported,
-    quality_gate_overlaid: reported === REPORTED_PRODUCT_BLOCKED && finalize === FINALIZE_PREFLIGHT_PASSED,
+    quality_gate_overlaid: reported !== finalize,
   };
 }
 
@@ -83,7 +136,12 @@ export function annotateReportedQualityGate(row) {
  */
 export function isQualityGatePassResult(result) {
   const text = String(result ?? "").toLowerCase();
-  if (text === REPORTED_PRODUCT_BLOCKED) return false;
+  if (
+    text === REPORTED_PRODUCT_BLOCKED ||
+    text === REPORTED_PRODUCT_POSTCHECK_DEGRADED
+  ) {
+    return false;
+  }
   if (isReportedQualityGateGreen(result) || text === FINALIZE_PREFLIGHT_PASSED) {
     return true;
   }
@@ -105,18 +163,23 @@ export function rollupReportedQualityGate(rows, extraKeys = []) {
       rows: Array.isArray(rows) ? rows : [],
       finalizeRows: Array.isArray(rows) ? rows : [],
       overlaidN: 0,
+      blockedOverlaidN: 0,
+      degradedOverlaidN: 0,
     };
   }
 
   const reported = new Map();
   const finalize = new Map();
   let overlaidN = 0;
+  let blockedOverlaidN = 0;
+  let degradedOverlaidN = 0;
 
   for (const row of rows) {
     const n = rowCount(row);
     const raw = row.result === "(null)" || row.result == null ? null : String(row.result);
     const blocked = row.product_blocked === true;
-    const shown = resolveReportedQualityGateResult(raw, blocked);
+    const degraded = row.product_degraded === true;
+    const shown = resolveReportedQualityGateResult(raw, blocked, degraded);
     const shownKey = shown ?? "(null)";
     const rawKey = raw ?? "(null)";
     const extra = {};
@@ -128,7 +191,10 @@ export function rollupReportedQualityGate(rows, extraKeys = []) {
     if (!prevReported) {
       const next = { ...extra, result: shownKey, n };
       if (row.avg_fix_count != null) next.avg_fix_count = Number(row.avg_fix_count);
-      if (shown === REPORTED_PRODUCT_BLOCKED && raw === FINALIZE_PREFLIGHT_PASSED) {
+      if (
+        (shown === REPORTED_PRODUCT_BLOCKED || shown === REPORTED_PRODUCT_POSTCHECK_DEGRADED) &&
+        raw === FINALIZE_PREFLIGHT_PASSED
+      ) {
         next.overlaid = n;
       }
       reported.set(reportedId, next);
@@ -142,7 +208,10 @@ export function rollupReportedQualityGate(rows, extraKeys = []) {
             : 0;
       }
       prevReported.n += n;
-      if (shown === REPORTED_PRODUCT_BLOCKED && raw === FINALIZE_PREFLIGHT_PASSED) {
+      if (
+        (shown === REPORTED_PRODUCT_BLOCKED || shown === REPORTED_PRODUCT_POSTCHECK_DEGRADED) &&
+        raw === FINALIZE_PREFLIGHT_PASSED
+      ) {
         prevReported.overlaid = (prevReported.overlaid ?? 0) + n;
       }
     }
@@ -155,8 +224,13 @@ export function rollupReportedQualityGate(rows, extraKeys = []) {
       prevFinalize.n += n;
     }
 
-    if (shown === REPORTED_PRODUCT_BLOCKED && raw === FINALIZE_PREFLIGHT_PASSED) {
+    if (
+      (shown === REPORTED_PRODUCT_BLOCKED || shown === REPORTED_PRODUCT_POSTCHECK_DEGRADED) &&
+      raw === FINALIZE_PREFLIGHT_PASSED
+    ) {
       overlaidN += n;
+      if (shown === REPORTED_PRODUCT_BLOCKED) blockedOverlaidN += n;
+      if (shown === REPORTED_PRODUCT_POSTCHECK_DEGRADED) degradedOverlaidN += n;
     }
   }
 
@@ -165,5 +239,7 @@ export function rollupReportedQualityGate(rows, extraKeys = []) {
     rows: [...reported.values()].sort(byN),
     finalizeRows: [...finalize.values()].sort(byN),
     overlaidN,
+    blockedOverlaidN,
+    degradedOverlaidN,
   };
 }

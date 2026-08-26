@@ -243,6 +243,14 @@ describe("productPostcheckSkipReasonFromError", () => {
       productPostcheckSkipReasonFromError(new Error("Failed to launch the browser process")),
     ).toBe("playwright_unavailable");
   });
+
+  it("klassificerar browser.newPage Target closed efter lyckad launch som runtime_error", () => {
+    expect(
+      productPostcheckSkipReasonFromError(
+        new Error("browser.newPage: Target page, context or browser has been closed"),
+      ),
+    ).toBe("runtime_error");
+  });
 });
 
 describe("isRenderFatalError", () => {
@@ -400,9 +408,10 @@ describe("runProductPostcheck browser-startpunkt", () => {
 
   const previewSession = {
     previewSessionId: "ps_1",
+    lifecycleToken: "life_1",
     previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
     versionId: "v1",
-    filesRevision: null,
+    filesRevision: "rev_1",
     createdAt: 1,
     lastUsedAt: 1,
   };
@@ -525,6 +534,9 @@ describe("runProductPostcheck browser-startpunkt", () => {
       previewUrl: "http://127.0.0.1:3000/chat_1",
       chatId: "chat_1",
       versionId: "v1",
+      previewSessionId: "ps_1",
+      lifecycleToken: "life_1",
+      filesRevision: "rev_1",
     });
 
     expect(result.productBlocked).toBe(true);
@@ -533,10 +545,17 @@ describe("runProductPostcheck browser-startpunkt", () => {
     expect(result.warnings[0]?.message).toContain("Preview-host");
     expect(desktop.reload).toHaveBeenCalled();
     expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(1);
+    expect(fetchPreviewHostReadinessVerdictMock).toHaveBeenCalledWith("ps_1", {
+      expectedVersionId: "v1",
+      expectedLifecycleToken: "life_1",
+    });
   });
 
   it("blockerar med preview_boot_page när hosten är failed och sidan är boot-placeholder", async () => {
-    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    getActivePreviewSessionAsyncMock.mockResolvedValue({
+      ...previewSession,
+      lifecycleToken: null,
+    });
     fetchPreviewHostReadinessVerdictMock.mockResolvedValue(readinessVerdict("failed"));
     const desktop = fakePage([bootPageProbe, bootPageProbe]);
     launchCaptureBrowserMock.mockResolvedValue({
@@ -548,12 +567,19 @@ describe("runProductPostcheck browser-startpunkt", () => {
       previewUrl: "http://127.0.0.1:3000/chat_1",
       chatId: "chat_1",
       versionId: "v1",
+      previewSessionId: "ps_1",
+      lifecycleToken: null,
+      filesRevision: "rev_1",
     });
 
     expect(result.productBlocked).toBe(true);
     expect(result.skipped).toBe(false);
     expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
     expect(desktop.reload).not.toHaveBeenCalled();
+    expect(fetchPreviewHostReadinessVerdictMock).toHaveBeenCalledWith("ps_1", {
+      expectedVersionId: "v1",
+      expectedLifecycleToken: null,
+    });
   });
 
   it("klassar tomt/misslyckat svar som preview_probe_unreadable utan att skylla på preview-hosten", async () => {
@@ -1160,6 +1186,115 @@ describe("runProductPostcheck screenshot best-effort", () => {
       desktopUrl: "https://blob.example/desktop.jpg",
       mobileUrl: "https://blob.example/mobile.jpg",
     });
+  });
+
+  it("persisterar inte N-skärmbilder när samma version har ersatts av N+1", async () => {
+    const desktop = pageWithScreenshot(
+      [
+        { title: "N", h1: "Hero", bodyText: "Revision N" },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "N", h1: "Hero", bodyText: "Revision N" },
+      ],
+      async () => Buffer.from("desk-n"),
+    );
+    const mobile = pageWithScreenshot(
+      [{ status: "not_applicable" }, false],
+      async () => Buffer.from("mobile-n"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+    getActivePreviewSessionAsyncMock
+      .mockResolvedValueOnce({
+        previewSessionId: "ps_n",
+        lifecycleToken: "life_n",
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        versionId: "v1",
+        filesRevision: "rev_n",
+      })
+      .mockResolvedValue({
+        previewSessionId: "ps_n_plus_1",
+        lifecycleToken: "life_n_plus_1",
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        versionId: "v1",
+        filesRevision: "rev_n_plus_1",
+      });
+
+    const result = await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+      captureEnabled: true,
+      previewSessionId: "ps_n",
+      lifecycleToken: "life_n",
+      filesRevision: "rev_n",
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        skipped: true,
+        skippedReason: "preview_superseded",
+        productBlocked: false,
+      }),
+    );
+    expect(result.screenshots).toBeUndefined();
+    expect(persistLiveReviewJpegMock).not.toHaveBeenCalled();
+  });
+
+  it("fence:ar explicit legacy-null så en tokenövergång sker före JPEG-persistens", async () => {
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Legacy", h1: "Hero", bodyText: "Revision N" },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "Legacy", h1: "Hero", bodyText: "Revision N" },
+      ],
+      async () => Buffer.from("legacy-desktop"),
+    );
+    const mobile = pageWithScreenshot(
+      [{ status: "not_applicable" }, false],
+      async () => Buffer.from("legacy-mobile"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+    getActivePreviewSessionAsyncMock
+      .mockResolvedValueOnce({
+        previewSessionId: "ps_shared",
+        lifecycleToken: null,
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        versionId: "v1",
+        filesRevision: "rev_n",
+      })
+      .mockResolvedValue({
+        previewSessionId: "ps_shared",
+        lifecycleToken: "life_n_plus_1",
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        versionId: "v1",
+        filesRevision: "rev_n",
+      });
+
+    const result = await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+      captureEnabled: true,
+      previewSessionId: "ps_shared",
+      lifecycleToken: null,
+      filesRevision: "rev_n",
+    });
+
+    expect(result.skippedReason).toBe("preview_superseded");
+    expect(persistLiveReviewJpegMock).not.toHaveBeenCalled();
   });
 
   it("env-flaggan ensam räcker inte för capture", async () => {

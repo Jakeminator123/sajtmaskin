@@ -68,6 +68,7 @@ export type LiveReviewSkipReason =
   | "cost_capped"
   | "claim_busy"
   | "postcheck_skipped"
+  | "preview_superseded"
   | "preview_not_ready"
   | "preview_unreadable"
   | "runtime_crash"

@@ -34,10 +34,14 @@ const {
   acquirePrewarmLease,
   pruneExpiredPrewarmLeases,
   releasePrewarmLeaseForChat,
-  resetPrewarmLeases,
 } = require("../prewarm-leases.js");
 const { sendRootPlaceholderSvg } = require("../placeholder-svg.js");
 const { PREVIEW_BASE_URL, PREWARM_LEASE_MS } = require("./config.js");
+const {
+  matchesLifecycleToken,
+  nextMutationRevision,
+  readMutationRevision,
+} = require("../session-lifecycle.js");
 const {
   json,
   notFound,
@@ -56,11 +60,28 @@ const {
   getPreviewStatusSessionId,
   getPreviewFilesManifestSessionId,
   buildSessionFilesManifest,
+  withChatLifecycleLock,
 } = require("./sessions.js");
 const {
   maybeRunOpportunisticCleanup,
   describeStorageState,
 } = require("./storage.js");
+
+function findReferencedSession(data, validated) {
+  return (
+    (validated.sessionId ? findSessionById(data, validated.sessionId) : null) ??
+    (validated.previewSessionId
+      ? findSessionByPreviewSessionId(data, validated.previewSessionId)
+      : null)
+  );
+}
+
+function staleLifecycleResponse(res) {
+  return json(res, 409, {
+    error: "stale_lifecycle",
+    message: "A newer preview lifecycle owns this session.",
+  });
+}
 
 async function routeRequest(req, res) {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
@@ -183,6 +204,11 @@ async function routeRequest(req, res) {
         ? { installDiagnostics: latest.installDiagnostics }
         : {}),
       previewSessionId: latest.previewSessionId,
+      lifecycleToken:
+        typeof latest.lifecycleToken === "string" && latest.lifecycleToken.trim()
+          ? latest.lifecycleToken
+          : null,
+      mutationRevision: readMutationRevision(latest),
       /** @legacy External alias for older Sajtmaskin app deployments. */
       sandboxId: latest.previewSessionId,
       previewUrl: latest.previewUrl,
@@ -236,7 +262,8 @@ async function routeRequest(req, res) {
     const raw = await readJsonBody(req);
     const validated = validateStartPayload(raw);
     await maybeRunOpportunisticCleanup();
-    const created = await withStoreLock((data) => {
+    const created = await withChatLifecycleLock(validated.chatId, async () => {
+      const outcome = await withStoreLock((data) => {
       const nowMs = Date.now();
       const existing = findSessionByChatId(data, validated.chatId);
       if (validated.prewarm) {
@@ -295,6 +322,8 @@ async function routeRequest(req, res) {
       const session = {
         sessionId,
         previewSessionId,
+        lifecycleToken: `life_${randomUUID()}`,
+        mutationRevision: nextMutationRevision(data, validated.chatId, existing),
         chatId: validated.chatId,
         versionId: validated.versionId,
         previewUrl: buildPreviewUrl(PREVIEW_BASE_URL, validated.chatId),
@@ -322,7 +351,17 @@ async function routeRequest(req, res) {
           ? `Session reused for chat ${validated.chatId}; booting updated runtime.`
           : `Session created for chat ${validated.chatId}.`,
       );
-      return { type: "created", session };
+        return { type: "created", session };
+      });
+      if (outcome.type === "created") {
+        queueRuntimeBoot(validated.chatId, { restart: true });
+      } else if (outcome.type === "prewarm_idempotent") {
+        const runtimeState = getRuntimeStateForChat(validated.chatId);
+        if (!runtimeState.running && !runtimeState.booting) {
+          queueRuntimeBoot(validated.chatId, { restart: true });
+        }
+      }
+      return outcome;
     });
     if (created.type === "prewarm_superseded") {
       return json(res, 409, {
@@ -348,13 +387,8 @@ async function routeRequest(req, res) {
       // A persisted prewarm may outlive the host process that started it.
       // Recover only a missing/dead runtime. A healthy prewarm (or one already
       // booting) must not be restarted by an idempotent app retry.
-      const runtimeState = getRuntimeStateForChat(validated.chatId);
-      if (!runtimeState.running && !runtimeState.booting) {
-        queueRuntimeBoot(validated.chatId, { restart: true });
-      }
       return json(res, 200, sessionResponse(created.session));
     }
-    queueRuntimeBoot(validated.chatId, { restart: true });
     return json(
       res,
       201,
@@ -365,7 +399,15 @@ async function routeRequest(req, res) {
   if (req.method === "POST" && url.pathname === "/preview/session/update") {
     const raw = await readJsonBody(req);
     const validated = validateUpdatePayload(raw);
-    const updated = await withStoreLock((data) => {
+    const referenced = findReferencedSession(readStoreSync(), validated);
+    if (!referenced) {
+      return json(res, 404, {
+        error: "session_not_found",
+        message: "No preview session matched the provided id.",
+      });
+    }
+    const outcome = await withChatLifecycleLock(getSessionChatId(referenced), async () => {
+      const updated = await withStoreLock((data) => {
       let session = null;
       if (validated.sessionId) {
         session = findSessionById(data, validated.sessionId);
@@ -379,9 +421,13 @@ async function routeRequest(req, res) {
       if (!isSessionUsable(session, Date.now())) {
         return null;
       }
+      if (!matchesLifecycleToken(session, validated.lifecycleToken)) {
+        return { staleLifecycle: true };
+      }
       const replacingPrewarm =
         session.prewarm === true || session.prewarmReplacementPending === true;
       session.versionId = validated.versionId;
+      session.mutationRevision = nextMutationRevision(data, getSessionChatId(session), session);
       session.prewarm = false;
       session.prewarmReplacementPending = replacingPrewarm;
       releasePrewarmLeaseForChat(data, getSessionChatId(session));
@@ -424,20 +470,32 @@ async function routeRequest(req, res) {
       session.sessionExpiresAt = sessionExpiresAtIso();
       appendLog(data, session.previewSessionId, `Session updated with changeClass=${session.changeClass}.`);
       return session;
+      });
+      if (!updated || updated.staleLifecycle === true) return updated;
+      queueRuntimeBoot(getSessionChatId(updated), { restart: true });
+      return updated;
     });
-    if (!updated) {
+    if (!outcome) {
       return json(res, 404, {
         error: "session_not_found",
         message: "No preview session matched the provided id.",
       });
     }
-    queueRuntimeBoot(getSessionChatId(updated), { restart: true });
-    return json(res, 200, sessionResponse(findSessionById(readStoreSync(), updated.sessionId) ?? updated));
+    if (outcome.staleLifecycle === true) return staleLifecycleResponse(res);
+    return json(res, 200, sessionResponse(findSessionById(readStoreSync(), outcome.sessionId) ?? outcome));
   }
 
   if (req.method === "POST" && url.pathname === "/preview/session/patch") {
     const raw = await readJsonBody(req);
     const validated = validatePatchPayload(raw);
+    const referenced = findReferencedSession(readStoreSync(), validated);
+    if (!referenced) {
+      return json(res, 404, {
+        error: "session_not_found",
+        message: "No preview session matched the provided id.",
+      });
+    }
+    return withChatLifecycleLock(getSessionChatId(referenced), async () => {
     const patchOutcome = await withStoreLock((data) => {
       let session = null;
       if (validated.sessionId) {
@@ -451,6 +509,9 @@ async function routeRequest(req, res) {
       }
       if (!isSessionUsable(session, Date.now())) {
         return { type: "missing" };
+      }
+      if (!matchesLifecycleToken(session, validated.lifecycleToken)) {
+        return { type: "stale_lifecycle" };
       }
       // Finding #2 (FEL-3): re-check the expected base under the store lock.
       // The app does an optimistic precheck, but two near-simultaneous quick
@@ -478,6 +539,7 @@ async function routeRequest(req, res) {
       // back. Otherwise the session would advertise a new versionId/filesJson
       // that never actually landed on disk -> false-green stale preview.
       const rollback = {
+        mutationRevision: session.mutationRevision,
         versionId: session.versionId,
         filesJson: session.filesJson,
         status: session.status,
@@ -494,6 +556,7 @@ async function routeRequest(req, res) {
       const replacingPrewarm =
         session.prewarm === true || session.prewarmReplacementPending === true;
       session.versionId = validated.versionId;
+      session.mutationRevision = nextMutationRevision(data, getSessionChatId(session), session);
       session.prewarm = false;
       session.prewarmReplacementPending = replacingPrewarm;
       releasePrewarmLeaseForChat(data, getSessionChatId(session));
@@ -536,6 +599,11 @@ async function routeRequest(req, res) {
         type: "ok",
         sessionId: session.sessionId,
         previewSessionId: session.previewSessionId,
+        lifecycleToken:
+          typeof session.lifecycleToken === "string" && session.lifecycleToken.trim()
+            ? session.lifecycleToken.trim()
+            : null,
+        mutationRevision: readMutationRevision(session),
         chatId: getSessionChatId(session),
         replacingPrewarm,
         rollback,
@@ -547,6 +615,7 @@ async function routeRequest(req, res) {
         message: "No preview session matched the provided id.",
       });
     }
+    if (patchOutcome.type === "stale_lifecycle") return staleLifecycleResponse(res);
     if (patchOutcome.type === "base_mismatch") {
       return json(res, 409, {
         error: "base_mismatch",
@@ -564,6 +633,8 @@ async function routeRequest(req, res) {
       : applyRuntimePatch(patchOutcome.chatId, {
           files: validated.files,
           removedPaths: validated.removedPaths,
+          mutationRevision: patchOutcome.mutationRevision,
+          expectedPreviousMutationRevision: patchOutcome.rollback.mutationRevision ?? null,
         });
     if (patchResult.mode === "error") {
       // Finding #3 (FEL-5): the workspace patch did not land. Roll the session
@@ -599,6 +670,8 @@ async function routeRequest(req, res) {
         sessionId: patchOutcome.sessionId,
         previewSessionId: patchOutcome.previewSessionId,
         versionId: validated.versionId,
+        lifecycleToken: patchOutcome.lifecycleToken,
+        mutationRevision: patchOutcome.mutationRevision,
       });
     }
     const latest = findSessionById(readStoreSync(), patchOutcome.sessionId);
@@ -613,12 +686,21 @@ async function routeRequest(req, res) {
       patchMode: patchResult.mode,
       patchReason: patchResult.reason ?? null,
     });
+    });
   }
 
   if (req.method === "POST" && url.pathname === "/preview/session/hibernate") {
     const raw = await readJsonBody(req);
     const validated = validateSessionRefPayload(raw);
-    const out = await withStoreLock((data) => {
+    const referenced = findReferencedSession(readStoreSync(), validated);
+    if (!referenced) {
+      return json(res, 404, {
+        error: "session_not_found",
+        message: "No preview session matched the provided id.",
+      });
+    }
+    const out = await withChatLifecycleLock(getSessionChatId(referenced), async () => {
+      const hibernated = await withStoreLock((data) => {
       let session = null;
       if (validated.sessionId) {
         session = findSessionById(data, validated.sessionId);
@@ -629,11 +711,18 @@ async function routeRequest(req, res) {
       if (!session || !isSessionUsable(session, Date.now())) {
         return null;
       }
+      if (!matchesLifecycleToken(session, validated.lifecycleToken)) {
+        return { staleLifecycle: true };
+      }
       session.status = "hibernated";
       session.lastAction = "hibernate";
       session.updatedAt = nowIso();
       appendLog(data, session.previewSessionId, "Session hibernated.");
       return session;
+      });
+      if (!hibernated || hibernated.staleLifecycle === true) return hibernated;
+      await hibernateChatRuntime(getSessionChatId(hibernated));
+      return hibernated;
     });
     if (!out) {
       return json(res, 404, {
@@ -641,53 +730,83 @@ async function routeRequest(req, res) {
         message: "No preview session matched the provided id.",
       });
     }
-    await hibernateChatRuntime(getSessionChatId(out));
+    if (out.staleLifecycle === true) return staleLifecycleResponse(res);
     return json(res, 200, sessionResponse(out));
   }
 
   if (req.method === "POST" && url.pathname === "/preview/session/destroy") {
     const raw = await readJsonBody(req);
     const validated = validateSessionRefPayload(raw);
-    const destroyed = await withStoreLock((data) => {
-      let session = null;
-      if (validated.sessionId) {
-        session = findSessionById(data, validated.sessionId);
-      }
-      if (!session && validated.previewSessionId) {
-        session = findSessionByPreviewSessionId(data, validated.previewSessionId);
-      }
-      if (!session) {
-        return null;
-      }
-      const chatId = getSessionChatId(session);
-      const { sessionId, previewSessionId } = session;
-      session.status = "destroyed";
-      session.lastAction = "destroy";
-      session.updatedAt = nowIso();
-      appendLog(data, previewSessionId, "Session destroyed.");
-      releasePrewarmLeaseForChat(data, chatId);
-      delete data.sessions[sessionId];
-      delete data.previewSessionToSession[previewSessionId];
-      return { sessionId, previewSessionId, chatId };
-    });
-    if (!destroyed) {
+    const snapshot = readStoreSync();
+    const referenced =
+      (validated.sessionId ? findSessionById(snapshot, validated.sessionId) : null) ??
+      (validated.previewSessionId
+        ? findSessionByPreviewSessionId(snapshot, validated.previewSessionId)
+        : null);
+    if (!referenced) {
       return json(res, 404, {
         error: "session_not_found",
         message: "No preview session matched the provided id.",
       });
     }
-    await stopRuntimeForSession(destroyed);
-    try {
-      await destroyChatWorkspace(destroyed.chatId);
-    } catch {
-      // Best-effort cleanup only; the session is already destroyed.
+    const referencedChatId = getSessionChatId(referenced);
+    const outcome = await withChatLifecycleLock(referencedChatId, async () => {
+      const destroyed = await withStoreLock((data) => {
+        let session = null;
+        if (validated.sessionId) {
+          session = findSessionById(data, validated.sessionId);
+        }
+        if (!session && validated.previewSessionId) {
+          session = findSessionByPreviewSessionId(data, validated.previewSessionId);
+        }
+        if (!session) {
+          return { type: "missing" };
+        }
+        if (
+          typeof session.lifecycleToken === "string" &&
+          session.lifecycleToken.trim() &&
+          validated.lifecycleToken !== session.lifecycleToken
+        ) {
+          return { type: "stale" };
+        }
+        const chatId = getSessionChatId(session);
+        const { sessionId, previewSessionId } = session;
+        session.status = "destroyed";
+        session.lastAction = "destroy";
+        session.updatedAt = nowIso();
+        appendLog(data, previewSessionId, "Session destroyed.");
+        releasePrewarmLeaseForChat(data, chatId);
+        delete data.sessions[sessionId];
+        delete data.previewSessionToSession[previewSessionId];
+        return { type: "destroyed", sessionId, previewSessionId, chatId };
+      });
+      if (destroyed.type !== "destroyed") return destroyed;
+      await stopRuntimeForSession(destroyed);
+      try {
+        await destroyChatWorkspace(destroyed.chatId);
+      } catch {
+        // Best-effort cleanup only; the session is already destroyed.
+      }
+      return destroyed;
+    });
+    if (outcome.type === "missing") {
+      return json(res, 404, {
+        error: "session_not_found",
+        message: "No preview session matched the provided id.",
+      });
+    }
+    if (outcome.type === "stale") {
+      return json(res, 409, {
+        error: "stale_lifecycle",
+        message: "A newer preview lifecycle owns this session.",
+      });
     }
     return json(res, 200, {
       destroyed: true,
-      sessionId: destroyed.sessionId,
-      previewSessionId: destroyed.previewSessionId,
+      sessionId: outcome.sessionId,
+      previewSessionId: outcome.previewSessionId,
       /** @legacy External alias for older Sajtmaskin app deployments. */
-      sandboxId: destroyed.previewSessionId,
+      sandboxId: outcome.previewSessionId,
     });
   }
 
@@ -797,36 +916,74 @@ async function routeRequest(req, res) {
 
   if (req.method === "POST" && url.pathname === "/admin/destroy-all") {
     if (!checkApiKey(req, res)) return;
-    const activeSessions = listSessions(readStoreSync());
-    const destroyed = await withStoreLock((data) => {
-      const toDestroy = [];
-      for (const session of activeSessions) {
-        const chatId = getSessionChatId(session);
-        const { sessionId, previewSessionId } = session;
-        delete data.sessions[sessionId];
-        delete data.previewSessionToSession[previewSessionId];
-        delete data.logs[previewSessionId];
-        toDestroy.push({ sessionId, previewSessionId, chatId });
+    const adminSnapshot = readStoreSync();
+    const activeSessions = listSessions(adminSnapshot);
+    const leaseSnapshot = Object.entries(adminSnapshot.prewarmLeases ?? {});
+    // Reset the snapshot's leases before individual chat cleanup. A start that
+    // happens afterwards writes a fresh lease which must not be wiped by this
+    // older admin request.
+    const resetLeases = await withStoreLock((data) => {
+      let removed = 0;
+      for (const [key, snapshottedLease] of leaseSnapshot) {
+        if (
+          data.prewarmLeases[key] &&
+          JSON.stringify(data.prewarmLeases[key]) === JSON.stringify(snapshottedLease)
+        ) {
+          delete data.prewarmLeases[key];
+          removed += 1;
+        }
       }
-      const resetLeases = resetPrewarmLeases(data);
-      return { sessions: toDestroy, resetLeases };
+      return removed;
     });
-    for (const session of destroyed.sessions) {
-      try {
-        await stopRuntimeForSession(session);
-      } catch {
-        // best effort
-      }
-      try {
-        await destroyChatWorkspace(session.chatId);
-      } catch {
-        // best effort
-      }
+    const destroyed = [];
+    for (const snapshot of activeSessions) {
+      const chatId = getSessionChatId(snapshot);
+      const outcome = await withChatLifecycleLock(chatId, async () => {
+        const removed = await withStoreLock((data) => {
+          const current = data.sessions[snapshot.sessionId];
+          if (!current) return null;
+          const currentToken =
+            typeof current.lifecycleToken === "string" && current.lifecycleToken.trim()
+              ? current.lifecycleToken
+              : null;
+          const snapshotToken =
+            typeof snapshot.lifecycleToken === "string" && snapshot.lifecycleToken.trim()
+              ? snapshot.lifecycleToken
+              : null;
+          if (
+            current.previewSessionId !== snapshot.previewSessionId ||
+            currentToken !== snapshotToken
+          ) {
+            return null;
+          }
+          delete data.sessions[current.sessionId];
+          delete data.previewSessionToSession[current.previewSessionId];
+          delete data.logs[current.previewSessionId];
+          return {
+            sessionId: current.sessionId,
+            previewSessionId: current.previewSessionId,
+            chatId,
+          };
+        });
+        if (!removed) return null;
+        try {
+          await stopRuntimeForSession(removed);
+        } catch {
+          // best effort
+        }
+        try {
+          await destroyChatWorkspace(chatId);
+        } catch {
+          // best effort
+        }
+        return removed;
+      });
+      if (outcome) destroyed.push(outcome);
     }
     return json(res, 200, {
-      destroyed: destroyed.sessions.length,
-      resetPrewarmLeases: destroyed.resetLeases,
-      sessions: destroyed.sessions,
+      destroyed: destroyed.length,
+      resetPrewarmLeases: resetLeases,
+      sessions: destroyed,
     });
   }
 

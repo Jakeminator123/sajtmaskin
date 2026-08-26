@@ -52,6 +52,10 @@ import {
   settleStaleVerificationIfNeeded,
 } from "@/lib/gen/verify/settle-stale-verification";
 import { getLatestVersion, promoteVersionIfUnleased } from "@/lib/db/chat-repository-pg";
+import {
+  applyProductPostcheckLogReadFailureToVersionStatus,
+  applyProductPostcheckReportToVersionStatus,
+} from "@/lib/db/services/reported-quality-gate";
 
 export type VersionStatusApiResponse =
   | { ok: true; versionId: string; status: VersionStatus }
@@ -92,18 +96,20 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     // so it can never false-red them; stuck F2 rows are additionally covered by
     // the client-side poll cap in `useVersionStatus`.
     let dbVersion = scopedVersion.version;
+    let cachedLogs: VersionErrorLog[] | null = null;
+    let logsLoaded = false;
+    const loadLogs = async (): Promise<VersionErrorLog[]> => {
+      if (!logsLoaded) {
+        cachedLogs = await getEngineVersionErrorLogs(dbVersion.id);
+        logsLoaded = true;
+      }
+      return cachedLogs ?? [];
+    };
     const busStuck = busStatus.phase === "verifying" || busStatus.phase === "repairing";
     if (busStuck) {
       // Fetch the error logs at most once, shared by both watchdog resolvers
       // (failure-summary + BB#299 green reconciliation), so the 4s poll stays a
       // single DB read even when the row is actually stale.
-      let cachedLogs: VersionErrorLog[] | null = null;
-      const loadLogs = async (): Promise<VersionErrorLog[]> => {
-        if (cachedLogs === null) {
-          cachedLogs = await getEngineVersionErrorLogs(dbVersion.id);
-        }
-        return cachedLogs;
-      };
       const versionIdForReconcile = dbVersion.id;
       // Read the chat head at most once per settle and reuse for the head gate
       // (bugbot medium #518) — mirrors the quality-gate route's
@@ -177,9 +183,11 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     // until the next ~4s poll — the exact transient false-green the emit was
     // meant to prevent. Cheap: `readAll` is an in-memory read, and the branch
     // only runs on the rare settle-mutated path.
+    const effectiveEvents =
+      dbVersion !== scopedVersion.version ? readAll(dbVersion.id) : events;
     const effectiveBusStatus =
       dbVersion !== scopedVersion.version
-        ? selectVersionStatus(readAll(dbVersion.id))
+        ? selectVersionStatus(effectiveEvents)
         : busStatus;
 
     // Innehållsrevision steg 3 (flagg-gated): en terminal status kan beskriva
@@ -216,12 +224,24 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     // no-op when the DB is non-terminal (e.g. a pending design preview), so this
     // never fabricates a terminal state. release_state is threaded so a
     // promoted+passed row can upgrade a stale terminal bus `failed` (M#flap1).
-    const status = reconcileTerminalDbState(
+    const reconciledStatus = reconcileTerminalDbState(
       effectiveBusStatus,
       dbVersion.verification_state,
       dbVersion.release_state,
       contentRevision,
     );
+    const productPostcheckLogs = mayRenderTerminal
+      ? await loadLogs().catch(() => null)
+      : null;
+    const status = productPostcheckLogs
+      ? applyProductPostcheckReportToVersionStatus(
+          reconciledStatus,
+          productPostcheckLogs,
+          effectiveEvents,
+        )
+      : mayRenderTerminal
+        ? applyProductPostcheckLogReadFailureToVersionStatus(reconciledStatus)
+        : reconciledStatus;
     // Räkna mismatchen först när slutfasen faktiskt är terminal — en spinner
     // är ingen claim, och räknaren ska mäta degraderade terminal-claims.
     if (staleSignalResult !== null && (status.phase === "done" || status.phase === "failed")) {

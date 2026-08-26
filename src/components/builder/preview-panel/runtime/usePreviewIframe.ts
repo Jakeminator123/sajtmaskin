@@ -3,14 +3,17 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { fetchPreviewStatus } from "@/lib/builder/preview-session/api";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
-import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
+import {
+  isSameTier2PreviewSession,
+  isTier2LivePreviewUrl,
+} from "@/lib/gen/preview/preview-url-classifier";
 import { detectOwnEnginePreviewIssue, type PreviewIssuePayload } from "./iframe-diagnostics";
 
 const PREVIEW_READY_TIMEOUT_MS = 45_000;
 const PREVIEW_READY_POLL_MS = 250;
 // Match the preview host's 4s starting-page refresh and leave ample room in
 // the shared 60 requests/minute preview-status bucket (including other tabs
-// and the recovery check that runs after a timeout).
+// and the bounded recovery window that can run after a timeout).
 const TIER2_STATUS_POLL_MS = 4_000;
 // `/preview-status` legally reports `starting` for a 90s boot grace. Allow two
 // complete poll intervals beyond that boundary before failing closed.
@@ -18,6 +21,10 @@ const TIER2_LOAD_TIMEOUT_MS = 90_000 + TIER2_STATUS_POLL_MS * 2;
 // A matching running receipt starts a same-src reload. That reload has its own
 // bounded recovery window and must not inherit the nearly-expired boot timer.
 const TIER2_READY_RELOAD_TIMEOUT_MS = 15_000;
+// The normal timeout still reports the suspect session to the controller. A
+// short, read-only status window then gives that exact session time to finish
+// starting without creating another restart loop or an unbounded poller.
+const TIER2_LATE_RECOVERY_WINDOW_MS = 30_000;
 
 export function usePreviewIframe(params: {
   previewUrl: string | null;
@@ -25,6 +32,8 @@ export function usePreviewIframe(params: {
   chatId: string | null;
   versionId: string | null;
   activePreviewSessionId?: string | null;
+  /** Exact rendered host lifecycle; undefined means identity is not hydrated yet. */
+  activePreviewLifecycleToken: string | null | undefined;
   isOwnEnginePreview: boolean;
   onPreviewSessionSuspect?: () => void;
   reportOwnEngineRenderFailure: (payload: PreviewIssuePayload) => void;
@@ -37,6 +46,7 @@ export function usePreviewIframe(params: {
     chatId,
     versionId,
     activePreviewSessionId,
+    activePreviewLifecycleToken,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
@@ -53,16 +63,22 @@ export function usePreviewIframe(params: {
   const previewReadyTimerRef = useRef<number | null>(null);
   const tier2LoadTimerRef = useRef<number | null>(null);
   const tier2StatusPollTimerRef = useRef<number | null>(null);
+  const tier2LateRecoveryDeadlineTimerRef = useRef<number | null>(null);
   const tier2StatusAbortRef = useRef<AbortController | null>(null);
   const tier2LoadIdentityRef = useRef<string | null>(null);
   const tier2LoadedFrameIdentityRef = useRef<string | null>(null);
   const tier2ReadyReloadIdentityRef = useRef<string | null>(null);
   const tier2RecoveryRequestedIdentityRef = useRef<string | null>(null);
+  const tier2LateRecoveryIdentityRef = useRef<string | null>(null);
 
   const stopTier2StatusPolling = useCallback(() => {
     if (tier2StatusPollTimerRef.current) {
       window.clearTimeout(tier2StatusPollTimerRef.current);
       tier2StatusPollTimerRef.current = null;
+    }
+    if (tier2LateRecoveryDeadlineTimerRef.current) {
+      window.clearTimeout(tier2LateRecoveryDeadlineTimerRef.current);
+      tier2LateRecoveryDeadlineTimerRef.current = null;
     }
     tier2StatusAbortRef.current?.abort();
     tier2StatusAbortRef.current = null;
@@ -81,6 +97,7 @@ export function usePreviewIframe(params: {
     tier2LoadIdentityRef.current = null;
     tier2ReadyReloadIdentityRef.current = null;
     tier2RecoveryRequestedIdentityRef.current = null;
+    tier2LateRecoveryIdentityRef.current = null;
   }, [stopTier2StatusPolling]);
 
   const settleTier2Ready = useCallback(() => {
@@ -114,12 +131,51 @@ export function usePreviewIframe(params: {
     [onPreviewSessionSuspect, stopTier2StatusPolling],
   );
 
+  const startTier2ReadyReload = useCallback(
+    (identity: string, expectedPreviewUrl: string) => {
+      const iframe = iframeRef.current;
+      const currentSrc = iframe?.getAttribute("src") || iframe?.src || "";
+      if (
+        !iframe ||
+        !currentSrc ||
+        !isSameTier2PreviewSession(expectedPreviewUrl, currentSrc)
+      ) {
+        // Never reload a frame that has drifted to another origin/chat-session
+        // while the status request was in flight.
+        tier2LoadIdentityRef.current = identity;
+        failTier2Ready(identity);
+        return;
+      }
+
+      stopTier2StatusPolling();
+      if (tier2LoadTimerRef.current) {
+        window.clearTimeout(tier2LoadTimerRef.current);
+        tier2LoadTimerRef.current = null;
+      }
+      tier2LateRecoveryIdentityRef.current = null;
+      tier2LoadIdentityRef.current = identity;
+      tier2ReadyReloadIdentityRef.current = identity;
+      setIframeLoading(true);
+      setIframeError(false);
+      setIframeDiagnosticCode(null);
+      setIframeErrorMessage(null);
+      iframe.src = currentSrc;
+      tier2LoadTimerRef.current = window.setTimeout(
+        () => failTier2Ready(identity),
+        TIER2_READY_RELOAD_TIMEOUT_MS,
+      );
+    },
+    [failTier2Ready, iframeRef, stopTier2StatusPolling],
+  );
+
   const startTier2StatusPolling = useCallback(
     (
       identity: string,
       previewSessionId: string,
+      expectedLifecycleToken: string | null,
       expectedChatId: string,
       expectedVersionId: string,
+      expectedPreviewUrl: string,
     ) => {
       if (
         tier2LoadIdentityRef.current !== identity ||
@@ -144,30 +200,17 @@ export function usePreviewIframe(params: {
         if (abortController.signal.aborted || tier2LoadIdentityRef.current !== identity) return;
 
         const receiptMatchesIdentity =
-          status?.versionId === expectedVersionId && status.previewSessionId === previewSessionId;
+          status?.versionId === expectedVersionId &&
+          status.previewSessionId === previewSessionId &&
+          (status.lifecycleToken ?? null) === expectedLifecycleToken &&
+          isSameTier2PreviewSession(status.previewUrl, expectedPreviewUrl);
 
         if (status?.status === "running" && receiptMatchesIdentity) {
           // A running receipt can arrive while the iframe still displays the
           // host's HTTP-200 starting document. Reload the exact current src now
           // that the runtime accepts traffic, and reveal only on that reload's
           // subsequent onLoad.
-          stopTier2StatusPolling();
-          if (tier2LoadTimerRef.current) {
-            window.clearTimeout(tier2LoadTimerRef.current);
-            tier2LoadTimerRef.current = null;
-          }
-          tier2ReadyReloadIdentityRef.current = identity;
-          const iframe = iframeRef.current;
-          const currentSrc = iframe?.getAttribute("src") || iframe?.src || "";
-          if (iframe && currentSrc) {
-            iframe.src = currentSrc;
-            tier2LoadTimerRef.current = window.setTimeout(
-              () => failTier2Ready(identity),
-              TIER2_READY_RELOAD_TIMEOUT_MS,
-            );
-          } else {
-            failTier2Ready(identity);
-          }
+          startTier2ReadyReload(identity, expectedPreviewUrl);
           return;
         }
 
@@ -189,7 +232,78 @@ export function usePreviewIframe(params: {
 
       void pollStatus();
     },
-    [failTier2Ready, iframeRef, onPreviewSessionSuspect, stopTier2StatusPolling],
+    [onPreviewSessionSuspect, startTier2ReadyReload, stopTier2StatusPolling],
+  );
+
+  const queueTier2LateRecoveryPolling = useCallback(
+    (
+      identity: string,
+      previewSessionId: string,
+      expectedLifecycleToken: string | null,
+      expectedChatId: string,
+      expectedVersionId: string,
+      expectedPreviewUrl: string,
+    ) => {
+      if (tier2RecoveryRequestedIdentityRef.current !== identity) return;
+
+      stopTier2StatusPolling();
+      tier2LateRecoveryIdentityRef.current = identity;
+      tier2LateRecoveryDeadlineTimerRef.current = window.setTimeout(() => {
+        if (tier2LateRecoveryIdentityRef.current !== identity) return;
+        tier2LateRecoveryIdentityRef.current = null;
+        stopTier2StatusPolling();
+      }, TIER2_LATE_RECOVERY_WINDOW_MS);
+
+      const pollStatus = async () => {
+        if (tier2LateRecoveryIdentityRef.current !== identity) return;
+        const abortController = new AbortController();
+        tier2StatusAbortRef.current = abortController;
+        const status = await fetchPreviewStatus({
+          chatId: expectedChatId,
+          versionId: expectedVersionId,
+          previewSessionId,
+          signal: abortController.signal,
+        });
+        if (
+          abortController.signal.aborted ||
+          tier2LateRecoveryIdentityRef.current !== identity
+        ) {
+          return;
+        }
+
+        tier2StatusAbortRef.current = null;
+        const receiptMatchesIdentity =
+          status?.versionId === expectedVersionId &&
+          status.previewSessionId === previewSessionId &&
+          (status.lifecycleToken ?? null) === expectedLifecycleToken &&
+          isSameTier2PreviewSession(status.previewUrl, expectedPreviewUrl);
+        if (status?.status === "running" && receiptMatchesIdentity) {
+          tier2LateRecoveryIdentityRef.current = null;
+          startTier2ReadyReload(identity, expectedPreviewUrl);
+          return;
+        }
+
+        if (status && !(status.status === "starting" && receiptMatchesIdentity)) {
+          // A terminal or mismatched receipt ends the late window immediately.
+          // The controller already received exactly one suspect notification,
+          // so this path cannot trigger another restart or callback.
+          tier2LateRecoveryIdentityRef.current = null;
+          stopTier2StatusPolling();
+          return;
+        }
+
+        tier2StatusPollTimerRef.current = window.setTimeout(() => {
+          tier2StatusPollTimerRef.current = null;
+          void pollStatus();
+        }, TIER2_STATUS_POLL_MS);
+      };
+
+      tier2StatusPollTimerRef.current = window.setTimeout(() => {
+        tier2StatusPollTimerRef.current = null;
+        void pollStatus();
+      }, TIER2_STATUS_POLL_MS);
+    },
+    [startTier2ReadyReload, stopTier2StatusPolling],
   );
 
   useEffect(() => {
@@ -215,7 +329,14 @@ export function usePreviewIframe(params: {
     setIframeErrorMessage(null);
     setIframeDiagnosticCode(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [chatId, versionId, previewUrl, activePreviewSessionId, clearPreviewReadyTimer]);
+  }, [
+    chatId,
+    versionId,
+    previewUrl,
+    activePreviewSessionId,
+    activePreviewLifecycleToken,
+    clearPreviewReadyTimer,
+  ]);
 
   useEffect(() => {
     if (!previewUrl) return;
@@ -233,12 +354,31 @@ export function usePreviewIframe(params: {
         chatId ?? "",
         versionId ?? "",
         previewSessionId,
+        activePreviewLifecycleToken !== undefined,
+        activePreviewLifecycleToken ?? null,
         previewUrl,
         refreshToken ?? 0,
       ]);
       tier2LoadIdentityRef.current = identity;
       tier2LoadTimerRef.current = window.setTimeout(
-        () => failTier2Ready(identity),
+        () => {
+          failTier2Ready(identity);
+          if (
+            chatId &&
+            versionId &&
+            previewSessionId &&
+            activePreviewLifecycleToken !== undefined
+          ) {
+            queueTier2LateRecoveryPolling(
+              identity,
+              previewSessionId,
+              activePreviewLifecycleToken,
+              chatId,
+              versionId,
+              previewUrl,
+            );
+          }
+        },
         TIER2_LOAD_TIMEOUT_MS,
       );
 
@@ -246,9 +386,17 @@ export function usePreviewIframe(params: {
         chatId &&
         versionId &&
         previewSessionId &&
+        activePreviewLifecycleToken !== undefined &&
         tier2LoadedFrameIdentityRef.current === frameIdentity
       ) {
-        startTier2StatusPolling(identity, previewSessionId, chatId, versionId);
+        startTier2StatusPolling(
+          identity,
+          previewSessionId,
+          activePreviewLifecycleToken,
+          chatId,
+          versionId,
+          previewUrl,
+        );
       }
     }
   }, [
@@ -257,9 +405,11 @@ export function usePreviewIframe(params: {
     chatId,
     versionId,
     activePreviewSessionId,
+    activePreviewLifecycleToken,
     isOwnEnginePreview,
     clearPreviewReadyTimer,
     failTier2Ready,
+    queueTier2LateRecoveryPolling,
     startTier2StatusPolling,
   ]);
 
@@ -280,13 +430,32 @@ export function usePreviewIframe(params: {
         chatId ?? "",
         versionId ?? "",
         previewSessionId,
+        activePreviewLifecycleToken !== undefined,
+        activePreviewLifecycleToken ?? null,
         previewUrl,
         refreshToken ?? 0,
       ]);
       tier2LoadedFrameIdentityRef.current = null;
       tier2LoadIdentityRef.current = identity;
       tier2LoadTimerRef.current = window.setTimeout(
-        () => failTier2Ready(identity),
+        () => {
+          failTier2Ready(identity);
+          if (
+            chatId &&
+            versionId &&
+            previewSessionId &&
+            activePreviewLifecycleToken !== undefined
+          ) {
+            queueTier2LateRecoveryPolling(
+              identity,
+              previewSessionId,
+              activePreviewLifecycleToken,
+              chatId,
+              versionId,
+              previewUrl,
+            );
+          }
+        },
         TIER2_LOAD_TIMEOUT_MS,
       );
     }
@@ -297,6 +466,7 @@ export function usePreviewIframe(params: {
     iframe.src = controlledSrc;
     return true;
   }, [
+    activePreviewLifecycleToken,
     activePreviewSessionId,
     chatId,
     clearPreviewReadyTimer,
@@ -304,6 +474,7 @@ export function usePreviewIframe(params: {
     iframeRef,
     isOwnEnginePreview,
     previewUrl,
+    queueTier2LateRecoveryPolling,
     refreshToken,
     versionId,
   ]);
@@ -313,11 +484,20 @@ export function usePreviewIframe(params: {
       const previewSessionId = activePreviewSessionId?.trim() ?? "";
       const frameIdentity = JSON.stringify([chatId ?? "", previewUrl, refreshToken ?? 0]);
       tier2LoadedFrameIdentityRef.current = frameIdentity;
-      if (!chatId || !versionId || !previewSessionId) return;
+      if (
+        !chatId ||
+        !versionId ||
+        !previewSessionId ||
+        activePreviewLifecycleToken === undefined
+      ) {
+        return;
+      }
       const identity = JSON.stringify([
         chatId,
         versionId,
         previewSessionId,
+        true,
+        activePreviewLifecycleToken,
         previewUrl,
         refreshToken ?? 0,
       ]);
@@ -326,7 +506,14 @@ export function usePreviewIframe(params: {
         settleTier2Ready();
         return;
       }
-      startTier2StatusPolling(identity, previewSessionId, chatId, versionId);
+      startTier2StatusPolling(
+        identity,
+        previewSessionId,
+        activePreviewLifecycleToken,
+        chatId,
+        versionId,
+        previewUrl,
+      );
       return;
     }
 
@@ -421,6 +608,7 @@ export function usePreviewIframe(params: {
     chatId,
     versionId,
     activePreviewSessionId,
+    activePreviewLifecycleToken,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,

@@ -79,6 +79,7 @@ import { PREVIEW_CLIENT_ERROR_CATEGORY } from "@/lib/builder/preview-client-erro
 import {
   createEngineVersionErrorLogs,
   PRUNE_EXEMPT_CATEGORIES,
+  PRUNE_EXEMPT_CATEGORY_PREFIXES,
   pruneStaleVersionErrorLogs,
 } from "./version-errors";
 
@@ -162,6 +163,17 @@ describe("pruneStaleVersionErrorLogs", () => {
    */
   it("undantagslistan täcker preview:client-error", () => {
     expect(PRUNE_EXEMPT_CATEGORIES).toContain(PREVIEW_CLIENT_ERROR_CATEGORY);
+  });
+
+  it("undantar alla product_postcheck.*-rader från repair-prunet", async () => {
+    deletedRows.mockReturnValue([]);
+    await pruneStaleVersionErrorLogs("v-42", 2);
+
+    const where = whereSpy.mock.calls[0]?.[0];
+    const { sql, params } = new PgDialect().sqlToQuery(where as never);
+    expect(sql.toLowerCase()).toContain("not like");
+    expect(params).toContain("product_postcheck.%");
+    expect(PRUNE_EXEMPT_CATEGORY_PREFIXES).toContain("product_postcheck.");
   });
 });
 

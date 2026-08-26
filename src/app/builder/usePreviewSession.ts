@@ -21,7 +21,11 @@ type UsePreviewSessionParams = {
    */
   activeVersionFailedWithoutPreviewUrl?: boolean;
   currentPreviewUrl: string | null;
-  activePreviewSessionMeta: { previewSessionId: string; versionId: string } | null;
+  activePreviewSessionMeta: {
+    previewSessionId: string;
+    versionId: string;
+    lifecycleToken?: string | null;
+  } | null;
   setCurrentPreviewUrl: (url: string) => void;
   setPreviewSessionRecovering: (v: boolean) => void;
   previewBootstrapDoneKeysRef: MutableRefObject<Set<string>>;

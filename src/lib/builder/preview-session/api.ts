@@ -61,6 +61,7 @@ export async function postPreviewHibernate(params: {
   chatId: string;
   versionId: string;
   previewSessionId?: string | null;
+  lifecycleToken: string | null;
   keepalive?: boolean;
 }): Promise<PreviewHibernateApiJson | null> {
   try {
@@ -69,6 +70,7 @@ export async function postPreviewHibernate(params: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         versionId: params.versionId,
+        lifecycleToken: params.lifecycleToken,
         ...(params.previewSessionId?.trim()
           ? { previewSessionId: params.previewSessionId.trim() }
           : {}),

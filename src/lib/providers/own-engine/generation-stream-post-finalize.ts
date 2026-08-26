@@ -471,6 +471,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
             formatSSEEvent("preview-ready", {
               previewUrl: sr.previewUrl,
               previewSessionId: sr.previewSessionId,
+              lifecycleToken: sr.lifecycleToken,
               previewMode: sr.previewMode,
               previewTier: sr.fidelityTier,
               runtimeConfirmed: sr.runtimeReady,

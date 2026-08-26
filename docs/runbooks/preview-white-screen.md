@@ -1,9 +1,9 @@
 # Runbook: vit preview, tom iframe och shim vs preview-host
 
-**Senast uppdaterad:** 2026-07-11
+**Senast uppdaterad:** 2026-08-26
 **Mål:** Snabb felsökning när preview-ytan ser **vit** ut eller **ingen** Next.js-preview syns, plus **förebyggande** åtgärder så samma klass av fel inte upprepas. `preview_host` / VM är den primära previewvägen; shim är bara en kompatibilitetsvy under migration/fallback.
 
-**Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-beteende i `src/components/builder/preview-panel/PreviewPanel.tsx`; tier-2-preview går via `src/lib/gen/preview/preview-session.ts` + `preview-host/`.
+**Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-readiness ägs av `src/components/builder/preview-panel/runtime/usePreviewIframe.ts`; tier-2-preview går via `src/lib/gen/preview/preview-session.ts` + `preview-host/`.
 
 **Lokal laptop mot delad Fly:** om codegen lyckas men preview strejkar, börja
 med hybrid-checklistan i [`local-dev-generation.md`](local-dev-generation.md)
@@ -33,11 +33,13 @@ innan du misstänker Postgres.
 3. **Preview-host:** Next-appen kraschar eller visar tom sida.
    - **Bekräfta:** Öppna **samma** `previewUrl` / iframe-URL i ny flik; läs Next/overlay-fel.
 
-### B. Toast / röd overlay efter ~45 s: "Previewn laddade inte klart innan timeout"
+### B. Toast / röd overlay: "Previewn laddade inte klart innan timeout"
 
-- **Kod:** `preview_ready_timeout` (`describePreviewDiagnosticCode` i `preview-diagnostics.ts`).
-- **Timeout:** `PREVIEW_READY_TIMEOUT_MS = 45_000` i `usePreviewIframe.ts` (höjd från 10s → 45s för att ge VM-boot tid).
-- **Vanlig orsak:** Ingen render i `#root` inom tid — ofta CDN blockerad, eller runtime-fel utan synlig text.
+- **Kod:** `preview_ready_timeout` (`describePreviewDiagnosticCode` i `src/lib/gen/preview/diagnostics.ts`).
+- **Shim:** `PREVIEW_READY_TIMEOUT_MS = 45_000`. Vanlig orsak är att ingen render når `#root` — ofta blockerad CDN eller runtime-fel utan synlig text.
+- **Tier 2:** iframe-`load` är inte readiness: hostens startdokument svarar också HTTP 200. Klienten håller därför ytan och inspectorn låsta medan `/preview-status` är `starting`, i högst bootgrace 90 s + två 4 s-intervall.
+- **Sen återhämtning efter Tier-2-timeout:** timeouten anmäler sessionen som misstänkt exakt en gång och öppnar ett begränsat 30-sekundersfönster med read-only statuskontroller var fjärde sekund. Ett matchande `starting` får fortsätta inom fönstret; terminalt eller mismatched kvitto stänger det direkt, och fönstret upphör utan fler kontroller när tiden löpt ut. Endast `running` för exakt version + preview-session + lifecycle-token och samma canonical Tier-2-session-URL (samma origin och chat/session-bas; SPA-subroute får skilja) får ladda om iframe-elementets exakta befintliga `src`. Explicit `null` är legacy-identiteten; `undefined` betyder att lifecycle-identiteten ännu inte är hydratiserad och öppnar inte readiness-grinden. Fönstret skapar inga ytterligare suspect-callbacks eller restarts. Ytan och inspectorn öppnas först när den verifierade reloaden därefter har gett `load`.
+- **Fail closed:** annan version, session, origin eller chat-path, ett stale svar efter identitetsbyte, eller uteblivet `load` efter reload behåller fel-overlayn. Kontrollen pollar eller restartar inte vidare, så timeouten kan inte skapa en restartstorm.
 
 ### C. "Preview-fel" med röd text *inuti* iframe
 

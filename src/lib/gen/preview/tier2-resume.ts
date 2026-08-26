@@ -17,5 +17,6 @@ export async function tryResumeTier2Runtime(
 ): Promise<PreviewHostStatusResult | null> {
   return fetchPreviewHostStatus(entry.previewSessionId, {
     expectedVersionId: entry.versionId,
+    expectedLifecycleToken: entry.lifecycleToken ?? null,
   });
 }

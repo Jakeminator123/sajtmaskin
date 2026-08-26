@@ -331,7 +331,11 @@ export type ChatMessagingParams = {
     onlySelectVersionIfWasLatest?: boolean;
   }) => void;
   /** SSE `preview-ready`: bind session id to the current stream version for heartbeat/status. */
-  onPreviewSessionMeta?: (meta: { previewSessionId: string; versionId: string | null } | null) => void;
+  onPreviewSessionMeta?: (meta: {
+    previewSessionId: string;
+    versionId: string | null;
+    lifecycleToken?: string | null;
+  } | null) => void;
   onLinkedProjectId?: (projectId: string) => void;
   setMessages: SetMessages;
   resetBeforeCreateChat: () => void;

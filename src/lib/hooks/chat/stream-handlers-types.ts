@@ -43,7 +43,11 @@ export type StreamContext = {
     onlySelectVersionIfWasLatest?: boolean;
   }) => void;
   /** Own-engine preview session metadata (SSE `preview-ready`). */
-  onPreviewSessionMeta?: (meta: { previewSessionId: string; versionId: string | null } | null) => void;
+  onPreviewSessionMeta?: (meta: {
+    previewSessionId: string;
+    versionId: string | null;
+    lifecycleToken?: string | null;
+  } | null) => void;
   mutateVersions: () => void;
   enableImageMaterialization: boolean;
   autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;

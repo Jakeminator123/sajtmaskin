@@ -405,30 +405,32 @@ async function runResumeProductPostcheck(params: {
   versionId: string;
   previewUrl: string | null;
 }): Promise<{ productBlocked: boolean; blockerPersistFailed: boolean }> {
+  let data: ProductPostcheckResult | null = null;
   try {
     const res = await fetch(`${engineChatBaseUrl(params.chatId)}/product-postcheck`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ versionId: params.versionId, previewUrl: params.previewUrl }),
     });
-    if (!res.ok) return { productBlocked: false, blockerPersistFailed: false };
-    const data = (await res.json().catch(() => null)) as ProductPostcheckResult | null;
-    let persisted = true;
-    if (data) {
-      // Normal-lane parity: persist the postcheck result as error-log rows.
-      // Without the summary row, a product-blocked resume would be liftable
-      // to F3 after reload (the F3 trigger reads /error-log, not the bus).
-      persisted = await persistVersionErrorLogs({
-        chatId: params.chatId,
-        versionId: params.versionId,
-        logs: buildProductPostcheckLogItems(data),
-      });
+    if (res.ok) {
+      data = (await res.json().catch(() => null)) as ProductPostcheckResult | null;
     }
-    const productBlocked = data?.productBlocked === true;
-    return { productBlocked, blockerPersistFailed: productBlocked && !persisted };
   } catch {
-    return { productBlocked: false, blockerPersistFailed: false };
+    // Persist the transport-level degradation below. It is advisory and must
+    // not stop the import lane's VM quality gate.
   }
+  // Normal-lane parity: persist both a concrete result and a missing/transport
+  // result. Without the summary row, a product-blocked resume would be
+  // liftable to F3 after reload; without the transport row, the version would
+  // read as fully verified although DOM verification never produced a result.
+  const persisted = await persistVersionErrorLogs({
+    chatId: params.chatId,
+    versionId: params.versionId,
+    logs: buildProductPostcheckLogItems(data),
+    productPostcheckAttestation: data?.attestation ?? null,
+  });
+  const productBlocked = data?.productBlocked === true;
+  return { productBlocked, blockerPersistFailed: productBlocked && !persisted };
 }
 
 export function useResumePendingVerification(params: {

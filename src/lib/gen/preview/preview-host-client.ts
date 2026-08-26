@@ -97,6 +97,13 @@ function nonEmptyString(raw: unknown): string | null {
   return typeof raw === "string" && raw.trim() ? raw.trim() : null;
 }
 
+function readMutationRevisionFromHostBody(body: Record<string, unknown>): number | null {
+  const revision = body.mutationRevision;
+  return typeof revision === "number" && Number.isSafeInteger(revision) && revision > 0
+    ? revision
+    : null;
+}
+
 function readPreviewSessionIdFromHostBody(body: Record<string, unknown>): string | null {
   return nonEmptyString(body.previewSessionId) ?? nonEmptyString(body.sandboxId);
 }
@@ -108,12 +115,15 @@ function readPreviewUrlFromHostBody(body: Record<string, unknown>): string | nul
 function previewSessionRefBody(params: {
   previewSessionId?: string | null;
   sessionId?: string | null;
+  lifecycleToken?: string | null;
 }): Record<string, string> {
   const previewSessionId = params.previewSessionId?.trim() || null;
   const sessionId = params.sessionId?.trim() || null;
+  const lifecycleToken = params.lifecycleToken?.trim() || null;
   return {
     ...(previewSessionId ? { previewSessionId, sandboxId: previewSessionId } : {}),
     ...(sessionId ? { sessionId } : {}),
+    ...(lifecycleToken ? { lifecycleToken } : {}),
   };
 }
 
@@ -161,6 +171,9 @@ export type PreviewHostRegeneratedLockfile = { path: string; content: string };
 export type PreviewHostStatusResult = {
   previewSessionId: string;
   primaryUrl: string;
+  lifecycleToken: string | null;
+  /** Host-authoritative ordering receipt; null for an older host. */
+  mutationRevision: number | null;
   /**
    * `waitForReady` verdict for this exact session/version, or `null` when the
    * host omitted it (older preview-host deploy — callers then fall back to the
@@ -266,7 +279,7 @@ function readRegeneratedLockfileFromHostBody(
 
 export async function fetchPreviewHostStatus(
   previewSessionId: string,
-  opts?: { expectedVersionId?: string | null },
+  opts?: { expectedVersionId?: string | null; expectedLifecycleToken?: string | null },
 ): Promise<PreviewHostStatusResult | null> {
   const base = getPreviewHostBaseUrl();
   const id = previewSessionId.trim();
@@ -307,6 +320,12 @@ export async function fetchPreviewHostStatus(
     if (expectedVersionId && hostVersionId !== expectedVersionId) {
       return null;
     }
+    const hostLifecycleToken = nonEmptyString(body.lifecycleToken);
+    const hasLifecycleExpectation = Boolean(
+      opts && Object.prototype.hasOwnProperty.call(opts, "expectedLifecycleToken"),
+    );
+    const expectedLifecycleToken = nonEmptyString(opts?.expectedLifecycleToken);
+    if (hasLifecycleExpectation && hostLifecycleToken !== expectedLifecycleToken) return null;
     // Readiness ≠ process liveness (req A5). The object is returned even when
     // readiness is `failed` (process alive but serving a build-error overlay) so
     // status/heartbeat callers can stamp `preview_success=false` + fire repair
@@ -315,6 +334,8 @@ export async function fetchPreviewHostStatus(
     return {
       previewSessionId: sid,
       primaryUrl: url,
+      lifecycleToken: hostLifecycleToken,
+      mutationRevision: readMutationRevisionFromHostBody(body),
       readinessState: readReadinessStateFromHostBody(body),
       httpReady: body.httpReady === true,
       readinessError: nonEmptyString(body.readinessError),
@@ -344,7 +365,13 @@ export async function fetchPreviewHostStatus(
  */
 export type PreviewHostReadinessVerdict = Pick<
   PreviewHostStatusResult,
-  "readinessState" | "readinessError" | "installDiagnostics" | "regeneratedLockfile" | "httpReady"
+  | "readinessState"
+  | "readinessError"
+  | "installDiagnostics"
+  | "regeneratedLockfile"
+  | "httpReady"
+  | "lifecycleToken"
+  | "mutationRevision"
 > & {
   running: boolean;
   /** Version the host says this session is pinned to, or `null` if unknown. */
@@ -353,7 +380,7 @@ export type PreviewHostReadinessVerdict = Pick<
 
 export async function fetchPreviewHostReadinessVerdict(
   previewSessionId: string,
-  opts?: { expectedVersionId?: string | null },
+  opts?: { expectedVersionId?: string | null; expectedLifecycleToken?: string | null },
 ): Promise<PreviewHostReadinessVerdict | null> {
   const base = getPreviewHostBaseUrl();
   const id = previewSessionId.trim();
@@ -382,9 +409,17 @@ export async function fetchPreviewHostReadinessVerdict(
     if (expectedVersionId && hostVersionId !== expectedVersionId) {
       return null;
     }
+    const lifecycleToken = nonEmptyString(body.lifecycleToken);
+    const hasLifecycleExpectation = Boolean(
+      opts && Object.prototype.hasOwnProperty.call(opts, "expectedLifecycleToken"),
+    );
+    const expectedLifecycleToken = nonEmptyString(opts?.expectedLifecycleToken);
+    if (hasLifecycleExpectation && lifecycleToken !== expectedLifecycleToken) return null;
     return {
       running: body.running === true,
       versionId: hostVersionId,
+      lifecycleToken,
+      mutationRevision: readMutationRevisionFromHostBody(body),
       readinessState: readReadinessStateFromHostBody(body),
       httpReady: typeof body.httpReady === "boolean" ? body.httpReady : null,
       readinessError: nonEmptyString(body.readinessError),
@@ -466,6 +501,10 @@ export type PreviewHostStartOk = {
   previewUrl: string;
   previewSessionId: string;
   startOutcome: "resumed" | "recreated";
+  /** Host-issued fence for destructive operations on this lifecycle. */
+  lifecycleToken: string | null;
+  /** Host-authoritative ordering receipt; null for an older host. */
+  mutationRevision: number | null;
 };
 
 /**
@@ -514,6 +553,8 @@ export type PreviewHostStartErr = {
 export type PreviewHostDestroyOk = {
   ok: true;
   destroyed: boolean;
+  /** A newer lifecycle owns the session; the requested old lifecycle is already gone. */
+  superseded?: boolean;
 };
 
 export type PreviewHostDestroyErr = {
@@ -525,6 +566,7 @@ export type PreviewHostDestroyErr = {
 export type PreviewHostHibernateOk = {
   ok: true;
   hibernated: boolean;
+  superseded?: boolean;
   /**
    * `true` when the preview host returned 404 — i.e. the session was already
    * gone or never existed. Treated as ok (the caller wanted it stopped) but
@@ -655,7 +697,14 @@ export async function startPreviewHostSession(params: {
       const raw =
         typeof responseBody.startOutcome === "string" ? responseBody.startOutcome.trim() : "fresh";
       const startOutcome: "resumed" | "recreated" = raw === "resumed" ? "resumed" : "recreated";
-      return { ok: true, previewUrl, previewSessionId, startOutcome };
+      return {
+        ok: true,
+        previewUrl,
+        previewSessionId,
+        startOutcome,
+        lifecycleToken: nonEmptyString(responseBody.lifecycleToken),
+        mutationRevision: readMutationRevisionFromHostBody(responseBody),
+      };
     } catch (e) {
       const message = e instanceof Error ? e.message : "Preview host request failed";
       return { ok: false, message, retryable: true };
@@ -680,10 +729,12 @@ export type PreviewHostUpdateOk = PreviewHostStartOk;
 export type PreviewHostUpdateErr = PreviewHostStartErr & {
   /** True när host returnerade 404 (preview-session saknas). Caller bör då falla tillbaka till `startPreviewHostSession`. */
   sessionMissing?: boolean;
+  superseded?: boolean;
 };
 
 export async function updatePreviewHostSession(params: {
   previewSessionId: string;
+  lifecycleToken?: string | null;
   versionId: string;
   filesJson: Record<string, string>;
 }): Promise<PreviewHostUpdateOk | PreviewHostUpdateErr> {
@@ -698,7 +749,10 @@ export async function updatePreviewHostSession(params: {
   return retryPreviewHostRequestAfterCleanup(async () => {
     try {
       const requestBody = {
-        ...previewSessionRefBody({ previewSessionId: params.previewSessionId }),
+        ...previewSessionRefBody({
+          previewSessionId: params.previewSessionId,
+          lifecycleToken: params.lifecycleToken,
+        }),
         versionId: params.versionId,
         filesJson: params.filesJson,
         replaceFiles: true,
@@ -728,6 +782,14 @@ export async function updatePreviewHostSession(params: {
           sessionMissing: true,
         };
       }
+      if (res.status === 409 && responseBody.error === "stale_lifecycle") {
+        return {
+          ok: false,
+          message: "A newer preview lifecycle owns this session.",
+          retryable: false,
+          superseded: true,
+        };
+      }
       if (!res.ok) {
         const msg = describePreviewHostHttpFailure({
           endpoint: "/preview/session/update",
@@ -749,7 +811,14 @@ export async function updatePreviewHostSession(params: {
           retryable: true,
         };
       }
-      return { ok: true, previewUrl, previewSessionId, startOutcome: "resumed" };
+      return {
+        ok: true,
+        previewUrl,
+        previewSessionId,
+        startOutcome: "resumed",
+        lifecycleToken: nonEmptyString(responseBody.lifecycleToken),
+        mutationRevision: readMutationRevisionFromHostBody(responseBody),
+      };
     } catch (e) {
       const message = e instanceof Error ? e.message : "Preview host update failed";
       return { ok: false, message, retryable: true };
@@ -783,6 +852,7 @@ export type PreviewHostPatchOk = PreviewHostStartOk & {
 };
 export type PreviewHostPatchErr = PreviewHostStartErr & {
   sessionMissing?: boolean;
+  superseded?: boolean;
   /**
    * Host returned 409: the live session no longer points at `expectedBaseVersionId`
    * (it advanced between our optimistic precheck and the host store lock — the
@@ -793,6 +863,7 @@ export type PreviewHostPatchErr = PreviewHostStartErr & {
 
 export async function patchPreviewHostSession(params: {
   previewSessionId: string;
+  lifecycleToken?: string | null;
   versionId: string;
   /** Only the changed files (path -> content). Partial set, merged on the host. */
   files: Record<string, string>;
@@ -817,7 +888,10 @@ export async function patchPreviewHostSession(params: {
     try {
       const expectedBaseVersionId = params.expectedBaseVersionId?.trim() || null;
       const requestBody = {
-        ...previewSessionRefBody({ previewSessionId: params.previewSessionId }),
+        ...previewSessionRefBody({
+          previewSessionId: params.previewSessionId,
+          lifecycleToken: params.lifecycleToken,
+        }),
         versionId: params.versionId,
         files: params.files,
         ...(params.removedPaths && params.removedPaths.length > 0
@@ -847,6 +921,14 @@ export async function patchPreviewHostSession(params: {
         };
       }
       if (res.status === 409) {
+        if (responseBody.error === "stale_lifecycle") {
+          return {
+            ok: false,
+            message: "A newer preview lifecycle owns this session.",
+            retryable: false,
+            superseded: true,
+          };
+        }
         return {
           ok: false,
           message:
@@ -893,6 +975,8 @@ export async function patchPreviewHostSession(params: {
         patchMode,
         patchReason,
         hostVersionId: nonEmptyString(responseBody.versionId),
+        lifecycleToken: nonEmptyString(responseBody.lifecycleToken),
+        mutationRevision: readMutationRevisionFromHostBody(responseBody),
       };
     } catch (e) {
       const message = e instanceof Error ? e.message : "Preview host patch failed";
@@ -909,6 +993,7 @@ export async function patchPreviewHostSession(params: {
 export async function destroyPreviewHostSession(params: {
   previewSessionId?: string | null;
   sessionId?: string | null;
+  lifecycleToken?: string | null;
 }): Promise<PreviewHostDestroyOk | PreviewHostDestroyErr> {
   const base = getPreviewHostBaseUrl();
   if (!base) {
@@ -921,6 +1006,7 @@ export async function destroyPreviewHostSession(params: {
 
   const previewSessionId = params.previewSessionId?.trim() || null;
   const sessionId = params.sessionId?.trim() || null;
+  const lifecycleToken = params.lifecycleToken?.trim() || null;
   if (!previewSessionId && !sessionId) {
     return {
       ok: false,
@@ -936,12 +1022,21 @@ export async function destroyPreviewHostSession(params: {
         "content-type": "application/json",
         ...previewHostAuthHeaders(),
       },
-      body: JSON.stringify(previewSessionRefBody({ previewSessionId, sessionId })),
+      body: JSON.stringify(
+        previewSessionRefBody({
+          previewSessionId,
+          sessionId,
+          lifecycleToken,
+        }),
+      ),
       signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
     });
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     if (res.status === 404) {
       return { ok: true, destroyed: false };
+    }
+    if (res.status === 409 && body.error === "stale_lifecycle") {
+      return { ok: true, destroyed: false, superseded: true };
     }
     if (!res.ok) {
       const msg = describePreviewHostHttpFailure({
@@ -968,6 +1063,7 @@ export async function destroyPreviewHostSession(params: {
 export async function hibernatePreviewHostSession(params: {
   previewSessionId?: string | null;
   sessionId?: string | null;
+  lifecycleToken?: string | null;
 }): Promise<PreviewHostHibernateOk | PreviewHostHibernateErr> {
   const base = getPreviewHostBaseUrl();
   if (!base) {
@@ -980,6 +1076,7 @@ export async function hibernatePreviewHostSession(params: {
 
   const previewSessionId = params.previewSessionId?.trim() || null;
   const sessionId = params.sessionId?.trim() || null;
+  const lifecycleToken = params.lifecycleToken?.trim() || null;
   if (!previewSessionId && !sessionId) {
     return {
       ok: false,
@@ -995,7 +1092,9 @@ export async function hibernatePreviewHostSession(params: {
         "content-type": "application/json",
         ...previewHostAuthHeaders(),
       },
-      body: JSON.stringify(previewSessionRefBody({ previewSessionId, sessionId })),
+      body: JSON.stringify(
+        previewSessionRefBody({ previewSessionId, sessionId, lifecycleToken }),
+      ),
       signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
     });
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
@@ -1007,6 +1106,9 @@ export async function hibernatePreviewHostSession(params: {
       // an idempotent miss). Caller treats `notFound: true` as still ok but
       // can log it as a config-suspicion signal.
       return { ok: true, hibernated: false, notFound: true };
+    }
+    if (res.status === 409 && body.error === "stale_lifecycle") {
+      return { ok: true, hibernated: false, superseded: true };
     }
     if (!res.ok) {
       const msg = describePreviewHostHttpFailure({

@@ -805,6 +805,7 @@ export function useBuilderPageController() {
     previewProdBuild,
     previewPending,
     activePreviewSessionId: activePreviewSessionMeta?.previewSessionId ?? null,
+    activePreviewLifecycleToken: activePreviewSessionMeta?.lifecycleToken,
     previewLifecycle,
     handleDeterministicF3Settled,
     handlePreviewSessionSuspect,

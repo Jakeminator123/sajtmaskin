@@ -233,17 +233,20 @@ try {
     "qualityGateResults",
     `SELECT COALESCE(gt.quality_gate_result,'(null)') AS result,
             COALESCE(pps.product_blocked, false) AS product_blocked,
+            COALESCE(pps.product_degraded, false) AS product_degraded,
             COUNT(*)::int AS n
      FROM generation_telemetry gt
      ${LATEST_PRODUCT_POSTCHECK_JOIN.trim()}
      WHERE gt.created_at > ${W}
-     GROUP BY 1, 2 ORDER BY n DESC`,
+     GROUP BY 1, 2, 3 ORDER BY n DESC`,
   );
   const qualityGateRolled = rollupReportedQualityGate(qualityGateRaw);
   out.qualityGateResults = qualityGateRolled.rows;
   out.qualityGateResultsFinalize = qualityGateRolled.finalizeRows;
   out.qualityGateOverlay = {
-    productBlockedOverlaid: qualityGateRolled.overlaidN,
+    productBlockedOverlaid: qualityGateRolled.blockedOverlaidN,
+    productPostcheckDegradedOverlaid: qualityGateRolled.degradedOverlaidN,
+    totalOverlaid: qualityGateRolled.overlaidN,
     note:
       "qualityGateResults uses resolveReportedQualityGateResult; " +
       "qualityGateResultsFinalize is the raw finalize column.",
@@ -348,11 +351,12 @@ try {
     `SELECT COALESCE(gt.meta->'buildSpec'->>'generationMode','(saknas)') AS mode,
             COALESCE(gt.quality_gate_result,'(null)') AS result,
             COALESCE(pps.product_blocked, false) AS product_blocked,
+            COALESCE(pps.product_degraded, false) AS product_degraded,
             COUNT(*)::int AS n
      FROM generation_telemetry gt
      ${LATEST_PRODUCT_POSTCHECK_JOIN.trim()}
      WHERE gt.created_at > ${W}
-     GROUP BY 1, 2, 3 ORDER BY 1, n DESC`,
+     GROUP BY 1, 2, 3, 4 ORDER BY 1, n DESC`,
   );
   out.byGenerationMode = rollupReportedQualityGate(byModeRaw, ["mode"]).rows;
 
@@ -362,12 +366,13 @@ try {
     `SELECT COALESCE(gt.meta->'phaseRouting'->>'generator','(saknas)') AS generator,
             COALESCE(gt.quality_gate_result,'(null)') AS result,
             COALESCE(pps.product_blocked, false) AS product_blocked,
+            COALESCE(pps.product_degraded, false) AS product_degraded,
             COUNT(*)::int AS n,
             AVG(COALESCE((gt.meta->'autofix'->>'fixCount')::int,0))::numeric(10,1) AS avg_fix_count
      FROM generation_telemetry gt
      ${LATEST_PRODUCT_POSTCHECK_JOIN.trim()}
      WHERE gt.created_at > ${W}
-     GROUP BY 1, 2, 3 ORDER BY 1, n DESC`,
+     GROUP BY 1, 2, 3, 4 ORDER BY 1, n DESC`,
   );
   out.byGeneratorModel = rollupReportedQualityGate(byGeneratorRaw, ["generator"]).rows;
 

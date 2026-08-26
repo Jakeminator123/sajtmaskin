@@ -15,6 +15,7 @@ const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const readAll = vi.hoisted(() => vi.fn(() => [] as unknown[]));
 const getLatestQualityGateSignalsForChat = vi.hoisted(() => vi.fn());
 const incContentRevisionMismatch = vi.hoisted(() => vi.fn());
+const dbSelect = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/logging/event-bus", () => ({ readAll }));
 
@@ -54,13 +55,7 @@ vi.mock("@/lib/observability/metrics", () => ({
 vi.mock("@/lib/db/client", () => ({
   dbConfigured: true,
   db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          orderBy: vi.fn(async () => []),
-        })),
-      })),
-    })),
+    select: dbSelect,
   },
 }));
 
@@ -75,12 +70,20 @@ vi.mock("@/lib/db/schema", () => ({
     createdAt: Symbol("createdAt"),
     chatId: Symbol("chatId"),
   },
+  engineVersionErrorLogs: {
+    version_id: Symbol("version_id"),
+    category: Symbol("category"),
+    message: Symbol("message"),
+    meta: Symbol("meta"),
+    created_at: Symbol("created_at"),
+  },
 }));
 
 vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
   desc: vi.fn(),
   eq: vi.fn(),
+  inArray: vi.fn(),
   or: vi.fn(),
   sql: (strings: TemplateStringsArray) => ({
     op: "sql",
@@ -125,6 +128,14 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     getLatestQualityGateSignalsForChat.mockReset();
     getLatestQualityGateSignalsForChat.mockResolvedValue(new Map());
     incContentRevisionMismatch.mockReset();
+    dbSelect.mockReset();
+    dbSelect.mockImplementation(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: vi.fn(async () => []),
+        })),
+      })),
+    }));
     delete process.env.SAJTMASKIN_CONTENT_REVISION_GATE;
   });
 
@@ -280,6 +291,113 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     expect(response.status).toBe(200);
     // Without the reconcile this would be "repairing" (a perpetual spinner).
     expect(json.versions[0].busStatus.phase).toBe("failed");
+  });
+
+  it("batches persisted postcheck signals and degrades every affected history row without N+1", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_2",
+        created_at: "2026-08-26T10:02:00Z",
+        version_number: 2,
+        message_id: "msg_2",
+        release_state: "promoted",
+        verification_state: "passed",
+        verification_summary: "PASS",
+        promoted_at: "2026-08-26T10:02:30Z",
+      },
+      {
+        id: "ver_1",
+        created_at: "2026-08-26T10:00:00Z",
+        version_number: 1,
+        message_id: "msg_1",
+        release_state: "promoted",
+        verification_state: "passed",
+        verification_summary: "PASS",
+        promoted_at: "2026-08-26T10:00:30Z",
+      },
+    ]);
+    dbSelect.mockImplementation(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: vi.fn(async () => [
+            {
+              versionId: "ver_2",
+              category: "product_postcheck.skipped",
+              message: "F2 Product Postcheck skipped.",
+              meta: { skippedReason: "transport_error" },
+              created_at: "2026-08-26T10:03:00Z",
+            },
+            {
+              versionId: "ver_1",
+              category: "product_postcheck.skipped",
+              message: "F2 Product Postcheck skipped.",
+              meta: { skippedReason: "timeout" },
+              created_at: "2026-08-26T10:01:00Z",
+            },
+          ]),
+        })),
+      })),
+    }));
+
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(dbSelect).toHaveBeenCalledTimes(1);
+    expect(
+      json.versions.map((version: { busStatus: { degradations: Array<{ kind: string }> } }) =>
+        version.busStatus.degradations.map((item) => item.kind),
+      ),
+    ).toEqual([
+      ["product_postcheck_skipped"],
+      ["product_postcheck_skipped"],
+    ]);
+  });
+
+  it("degrades empty-bus terminal history rows when the batched postcheck read fails", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_1",
+        created_at: "2026-08-26T10:00:00Z",
+        version_number: 1,
+        message_id: "msg_1",
+        release_state: "promoted",
+        verification_state: "passed",
+        verification_summary: "PASS",
+        promoted_at: "2026-08-26T10:00:30Z",
+      },
+    ]);
+    readAll.mockReturnValue([]);
+    dbSelect.mockImplementation(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: vi.fn(async () => {
+            throw new Error("db read failed");
+          }),
+        })),
+      })),
+    }));
+
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.versions[0].busStatus.phase).toBe("done");
+    expect(json.versions[0].busStatus.degradations).toEqual([
+      expect.objectContaining({
+        kind: "product_postcheck_skipped",
+        meta: expect.objectContaining({ skippedReason: "log_read_error" }),
+      }),
+    ]);
+    expect(json.versions[0].busStatus.verificationBlocked).toBe(false);
   });
 
   describe("innehållsrevision (R15) — historikbadgen får inte visa solid Klar för omskrivet innehåll", () => {

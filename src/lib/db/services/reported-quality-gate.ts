@@ -8,7 +8,233 @@
  * overlay so a displayed gate is not green when postcheck blocked.
  */
 
+import type { VersionStatus } from "@/lib/logging/event-bus-types";
+
 export const REPORTED_PRODUCT_BLOCKED = "product_blocked";
+export const REPORTED_PRODUCT_POSTCHECK_DEGRADED = "product_postcheck_degraded";
+
+const PRODUCT_POSTCHECK_SUMMARY = "product_postcheck.summary";
+const PRODUCT_POSTCHECK_SKIPPED = "product_postcheck.skipped";
+
+export type ProductPostcheckReportLog = {
+  category?: string | null;
+  message?: string | null;
+  meta?: unknown;
+  created_at?: Date | string | null;
+};
+
+export type ProductPostcheckReportState = {
+  kind: "unknown" | "clear" | "degraded" | "blocked";
+  summary: ProductPostcheckReportLog | null;
+  skipped: ProductPostcheckReportLog | null;
+};
+
+export type ProductPostcheckEventSignal = {
+  t?: string | null;
+  kind?: string | null;
+  message?: string | null;
+  meta?: unknown;
+  ts?: Date | string | null;
+};
+
+function signalClock(value: Date | string | null | undefined): number | null {
+  if (value == null) return null;
+  const ms = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function newestSignal(
+  logs: readonly ProductPostcheckReportLog[],
+  category: string,
+): { log: ProductPostcheckReportLog; index: number } | null {
+  let newest: { log: ProductPostcheckReportLog; index: number; ms: number | null } | null = null;
+  for (let index = 0; index < logs.length; index += 1) {
+    const log = logs[index]!;
+    if (log.category !== category) continue;
+    const ms = signalClock(log.created_at);
+    if (!newest || (ms != null && (newest.ms == null || ms > newest.ms))) {
+      newest = { log, index, ms };
+    }
+  }
+  return newest ? { log: newest.log, index: newest.index } : null;
+}
+
+function isLaterSignal(
+  candidate: { log: ProductPostcheckReportLog; index: number },
+  baseline: { log: ProductPostcheckReportLog; index: number },
+): boolean {
+  const candidateMs = signalClock(candidate.log.created_at);
+  const baselineMs = signalClock(baseline.log.created_at);
+  if (candidateMs != null && baselineMs != null) {
+    // Separate writes can land in the same DB millisecond. A skip is the
+    // conservative truth at equality: we cannot prove the clean summary came
+    // later, so hiding the incomplete run would be a false green.
+    return candidateMs >= baselineMs;
+  }
+  // DB readers return newest first. Keep that deterministic fallback for
+  // legacy rows whose timestamps could not be parsed.
+  return candidate.index < baseline.index;
+}
+
+/**
+ * Resolve the durable Product Postcheck report without letting an inconclusive
+ * later attempt erase a concrete blocker from the latest completed run.
+ * A later completed summary is authoritative and therefore clears an older
+ * skip; a later skip only degrades a clean/absent summary.
+ */
+export function resolveProductPostcheckReportState(
+  logs: readonly ProductPostcheckReportLog[],
+): ProductPostcheckReportState {
+  const summary = newestSignal(logs, PRODUCT_POSTCHECK_SUMMARY);
+  const skipped = newestSignal(logs, PRODUCT_POSTCHECK_SKIPPED);
+  if (!summary && !skipped) {
+    return { kind: "unknown", summary: null, skipped: null };
+  }
+
+  if (summary && productBlockedFromSummaryMeta(summary.log.meta)) {
+    return { kind: "blocked", summary: summary.log, skipped: skipped?.log ?? null };
+  }
+
+  if (skipped && (!summary || isLaterSignal(skipped, summary))) {
+    return { kind: "degraded", summary: summary?.log ?? null, skipped: skipped.log };
+  }
+
+  return { kind: "clear", summary: summary?.log ?? null, skipped: skipped?.log ?? null };
+}
+
+function reportMeta(meta: unknown): Record<string, unknown> | null {
+  return meta && typeof meta === "object" && !Array.isArray(meta)
+    ? (meta as Record<string, unknown>)
+    : null;
+}
+
+function latestEventSignal(
+  events: readonly ProductPostcheckEventSignal[],
+  kind: "product_postcheck_skipped" | "product_postcheck_blocked",
+): ProductPostcheckEventSignal | null {
+  let newest: { event: ProductPostcheckEventSignal; index: number; ms: number | null } | null = null;
+  for (let index = 0; index < events.length; index += 1) {
+    const event = events[index]!;
+    if (event.t !== "version.degraded" || event.kind !== kind) continue;
+    const ms = signalClock(event.ts);
+    if (
+      !newest ||
+      (ms != null && (newest.ms == null || ms > newest.ms)) ||
+      (ms === newest.ms && index > newest.index)
+    ) {
+      newest = { event, index, ms };
+    }
+  }
+  return newest?.event ?? null;
+}
+
+function summaryStrictlyLaterThanEvent(
+  summary: ProductPostcheckReportLog | null,
+  event: ProductPostcheckEventSignal | null,
+): boolean {
+  if (!summary || !event) return false;
+  const summaryMs = signalClock(summary.created_at);
+  const eventMs = signalClock(event.ts);
+  return summaryMs != null && eventMs != null && summaryMs > eventMs;
+}
+
+function eventDegradation(
+  event: ProductPostcheckEventSignal,
+  kind: "product_postcheck_skipped" | "product_postcheck_blocked",
+): VersionStatus["degradations"][number] {
+  return {
+    kind,
+    message:
+      event.message?.trim() ||
+      (kind === "product_postcheck_blocked"
+        ? "Product Postcheck hittade blockerande produktfel."
+        : "F2 Product Postcheck gav inget verifierbart resultat."),
+    meta: reportMeta(event.meta),
+  };
+}
+
+/** Overlay persisted postcheck truth onto an in-memory event-bus projection. */
+export function applyProductPostcheckReportToVersionStatus(
+  status: VersionStatus,
+  logs: readonly ProductPostcheckReportLog[],
+  events: readonly ProductPostcheckEventSignal[] = [],
+): VersionStatus {
+  const report = resolveProductPostcheckReportState(logs);
+  if (report.kind === "unknown") return status;
+
+  const blockedEvent = latestEventSignal(events, "product_postcheck_blocked");
+  const skippedEvent = latestEventSignal(events, "product_postcheck_skipped");
+  const unresolvedBlockedEvent =
+    blockedEvent && !summaryStrictlyLaterThanEvent(report.summary, blockedEvent)
+      ? blockedEvent
+      : null;
+  const unresolvedSkippedEvent =
+    skippedEvent && !summaryStrictlyLaterThanEvent(report.summary, skippedEvent)
+      ? skippedEvent
+      : null;
+
+  const degradations = status.degradations.filter(
+    (item) =>
+      item.kind !== "product_postcheck_skipped" &&
+      item.kind !== "product_postcheck_blocked",
+  );
+  if (report.kind === "blocked" || unresolvedBlockedEvent) {
+    if (report.kind !== "blocked" && unresolvedBlockedEvent) {
+      degradations.push(
+        eventDegradation(unresolvedBlockedEvent, "product_postcheck_blocked"),
+      );
+      return { ...status, degradations };
+    }
+    degradations.push({
+      kind: "product_postcheck_blocked",
+      message:
+        report.summary?.message?.trim() ||
+        "Product Postcheck hittade blockerande produktfel.",
+      meta: reportMeta(report.summary?.meta) ?? null,
+    });
+  } else if (report.kind === "degraded") {
+    const meta = reportMeta(report.skipped?.meta);
+    const reason = typeof meta?.skippedReason === "string" ? meta.skippedReason : "unknown";
+    degradations.push({
+      kind: "product_postcheck_skipped",
+      message:
+        report.skipped?.message?.trim() ||
+        `F2 Product Postcheck gav inget verifierbart resultat (${reason}).`,
+      meta,
+    });
+  } else if (unresolvedSkippedEvent) {
+    degradations.push(
+      eventDegradation(unresolvedSkippedEvent, "product_postcheck_skipped"),
+    );
+  }
+  return { ...status, degradations };
+}
+
+/** A failed durable-log read is itself an inconclusive verification signal. */
+export function applyProductPostcheckLogReadFailureToVersionStatus(
+  status: VersionStatus,
+): VersionStatus {
+  if (
+    status.degradations.some(
+      (item) =>
+        item.kind === "product_postcheck_blocked" ||
+        item.kind === "product_postcheck_skipped",
+    )
+  ) {
+    return status;
+  }
+  return {
+    ...status,
+    degradations: [
+      ...status.degradations,
+      {
+        kind: "product_postcheck_skipped",
+        message: "Produktkontrollens sparade status kunde inte läsas.",
+        meta: { skippedReason: "log_read_error", transient: true },
+      },
+    ],
+  };
+}
 
 export function isReportedQualityGateGreen(
   result: string | null | undefined,
@@ -28,11 +254,17 @@ export function productBlockedFromSummaryMeta(meta: unknown): boolean {
  */
 export function resolveReportedQualityGateResult(
   qualityGateResult: string | null | undefined,
-  productPostcheck?: { productBlocked?: boolean | null } | null,
+  productPostcheck?: {
+    productBlocked?: boolean | null;
+    degraded?: boolean | null;
+  } | null,
 ): string | null {
   const finalize = qualityGateResult ?? null;
   if (finalize === "preflight_passed" && productPostcheck?.productBlocked === true) {
     return REPORTED_PRODUCT_BLOCKED;
+  }
+  if (finalize === "preflight_passed" && productPostcheck?.degraded === true) {
+    return REPORTED_PRODUCT_POSTCHECK_DEGRADED;
   }
   return finalize;
 }
@@ -40,8 +272,15 @@ export function resolveReportedQualityGateResult(
 export function resolveReportedQualityGateFromSignals(input: {
   qualityGateResult?: string | null;
   productPostcheckSummaryMeta?: unknown;
+  productPostcheckLogs?: readonly ProductPostcheckReportLog[];
 }): string | null {
+  const report = input.productPostcheckLogs
+    ? resolveProductPostcheckReportState(input.productPostcheckLogs)
+    : null;
   return resolveReportedQualityGateResult(input.qualityGateResult, {
-    productBlocked: productBlockedFromSummaryMeta(input.productPostcheckSummaryMeta),
+    productBlocked: report
+      ? report.kind === "blocked"
+      : productBlockedFromSummaryMeta(input.productPostcheckSummaryMeta),
+    degraded: report?.kind === "degraded",
   });
 }

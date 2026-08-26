@@ -13,6 +13,8 @@ export type PreviewSessionPostApiJson = {
   retryable?: boolean;
   previewUrl?: string;
   previewSessionId?: string;
+  /** Exact host lifecycle returned by preview-session; null for legacy sessions. */
+  lifecycleToken?: string | null;
   previewMode?: string;
   previewTier?: number;
   prodBuildVerified?: boolean;
@@ -40,6 +42,8 @@ export type PreviewStatusApiJson = {
     | "version_mismatch"
     | "build_error";
   previewSessionId: string | null;
+  /** Host lifecycle fence; null for legacy/tokenless sessions. */
+  lifecycleToken?: string | null;
   previewUrl: string | null;
   versionId: string | null;
   sessionExpiresAt: number | null;

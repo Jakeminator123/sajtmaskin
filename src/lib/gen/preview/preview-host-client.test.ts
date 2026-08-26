@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   describePreviewHostHttpFailure,
+  destroyPreviewHostSession,
   fetchPreviewHostFilesManifest,
   fetchPreviewHostReadinessVerdict,
   fetchPreviewHostStatus,
+  hibernatePreviewHostSession,
   isPreviewHostDiskFullMessage,
   LEASE_HOLDING_ROUTE_MAX_DURATION_S,
   patchPreviewHostSession,
@@ -13,6 +15,55 @@ import {
   startPreviewHostSession,
   updatePreviewHostSession,
 } from "./preview-host-client";
+
+describe("destroyPreviewHostSession lifecycle fencing", () => {
+  it("sends the lifecycle token and treats a stale 409 as superseded idempotence", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: "stale_lifecycle",
+          message: "A newer preview lifecycle owns this session.",
+        }),
+        { status: 409, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const result = await destroyPreviewHostSession({
+      previewSessionId: "ps-shared",
+      lifecycleToken: "life-old",
+    });
+
+    expect(result).toEqual({ ok: true, destroyed: false, superseded: true });
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      previewSessionId: "ps-shared",
+      lifecycleToken: "life-old",
+    });
+  });
+});
+
+describe("hibernatePreviewHostSession lifecycle fencing", () => {
+  it("sends the lifecycle token for the exact host session", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ hibernated: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await expect(
+      hibernatePreviewHostSession({
+        previewSessionId: "ps-shared",
+        lifecycleToken: "life-hibernate",
+      }),
+    ).resolves.toEqual({ ok: true, hibernated: true });
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      previewSessionId: "ps-shared",
+      lifecycleToken: "life-hibernate",
+    });
+  });
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -69,6 +120,7 @@ describe("preview-host cleanup retry", () => {
 
     const result = await updatePreviewHostSession({
       previewSessionId: "ps_123",
+      lifecycleToken: "life-update",
       versionId: "version-2",
       filesJson: { "app/page.tsx": "export default function Page(){return null;}" },
     });
@@ -77,6 +129,7 @@ describe("preview-host cleanup retry", () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(body).toMatchObject({
       previewSessionId: "ps_123",
+      lifecycleToken: "life-update",
       // Legacy rollout alias for older preview-host deployments.
       // Legacy alias intentionally sent to support older preview-host deploys.
       sandboxId: "ps_123",
@@ -131,6 +184,7 @@ describe("preview-host cleanup retry", () => {
             previewUrl: "https://preview-host.example.com/chat-1",
             previewSessionId: "ps_123",
             startOutcome: "recreated",
+            lifecycleToken: "life-start",
           }),
           { status: 201, headers: { "content-type": "application/json" } },
         ),
@@ -146,6 +200,7 @@ describe("preview-host cleanup retry", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.previewSessionId).toBe("ps_123");
+      expect(result.lifecycleToken).toBe("life-start");
     }
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[1]?.[0]).toBe("https://preview-host.example.com/admin/cleanup");
@@ -304,6 +359,7 @@ describe("patchPreviewHostSession (Fast Edit Lane)", () => {
 
     const result = await patchPreviewHostSession({
       previewSessionId: "ps_123",
+      lifecycleToken: "life-patch",
       versionId: "version-3",
       files: { "app/page.tsx": "export default function Page(){return <div>Hej</div>;}" },
     });
@@ -318,6 +374,7 @@ describe("patchPreviewHostSession (Fast Edit Lane)", () => {
     const body = JSON.parse(String(init?.body));
     expect(body).toMatchObject({
       previewSessionId: "ps_123",
+      lifecycleToken: "life-patch",
       versionId: "version-3",
       files: { "app/page.tsx": "export default function Page(){return <div>Hej</div>;}" },
     });
@@ -470,6 +527,8 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       ok: true,
       running: true,
       previewSessionId: "ps_1",
+      lifecycleToken: "life-status",
+      mutationRevision: null,
       previewUrl: "https://live.example",
       versionId: "v3",
     });
@@ -478,12 +537,69 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     expect(result).toEqual({
       previewSessionId: "ps_1",
       primaryUrl: "https://live.example",
+      lifecycleToken: "life-status",
+      mutationRevision: null,
       readinessState: null,
       httpReady: false,
       readinessError: null,
       installDiagnostics: null,
       regeneratedLockfile: null,
     });
+  });
+
+  it("keeps tokenless legacy host status receipts compatible", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      previewSessionId: "ps_legacy",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+    });
+
+    await expect(fetchPreviewHostStatus("ps_legacy", { expectedVersionId: "v3" })).resolves.toMatchObject({
+      previewSessionId: "ps_legacy",
+      lifecycleToken: null,
+      mutationRevision: null,
+    });
+  });
+
+  it("treats expected null as the exact legacy lifecycle, not as no expectation", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      previewSessionId: "ps_legacy",
+      lifecycleToken: "life-new",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+    });
+
+    await expect(
+      fetchPreviewHostStatus("ps_legacy", {
+        expectedVersionId: "v3",
+        expectedLifecycleToken: null,
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("rejects a cached status receipt from the lifecycle replaced in Redis", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      previewSessionId: "ps_shared",
+      lifecycleToken: "life-old",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+    });
+
+    await expect(
+      fetchPreviewHostStatus("ps_shared", {
+        expectedVersionId: "v3",
+        expectedLifecycleToken: "life-new",
+      }),
+    ).resolves.toBeNull();
   });
 
   it("refuses to resume when the host serves a different version (no stale/white iframe)", async () => {
@@ -532,6 +648,8 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     expect(result).toEqual({
       previewSessionId: "ps_1",
       primaryUrl: "https://live.example",
+      lifecycleToken: null,
+      mutationRevision: null,
       readinessState: null,
       httpReady: false,
       readinessError: null,
@@ -800,6 +918,24 @@ describe("fetchPreviewHostReadinessVerdict — läser verdikt även utan levande
     });
 
     expect(await fetchPreviewHostReadinessVerdict("ps_1", { expectedVersionId: "v3" })).toBeNull();
+  });
+
+  it("rejects a token-bearing readiness receipt when the expected lifecycle is legacy", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: false,
+      readinessState: "failed",
+      readinessError: "old cached verdict",
+      versionId: "v3",
+      previewSessionId: "ps_1",
+      lifecycleToken: "life-new",
+    });
+
+    expect(await fetchPreviewHostReadinessVerdict("ps_1", {
+      expectedVersionId: "v3",
+      expectedLifecycleToken: null,
+    })).toBeNull();
   });
 
   it("returnerar null när hosten inte ekar någon version alls", async () => {

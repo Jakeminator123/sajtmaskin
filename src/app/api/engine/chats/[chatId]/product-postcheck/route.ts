@@ -9,7 +9,10 @@ import {
   setLlmUsageContext,
 } from "@/lib/observability/llm-usage";
 import { getEngineVersionForChatByIdForRequest, getRequestUserId } from "@/lib/tenant";
-import { runProductPostcheck } from "@/lib/gen/verify/product-postcheck";
+import {
+  runProductPostcheck,
+  type ProductPostcheckResult,
+} from "@/lib/gen/verify/product-postcheck";
 import { pickUserRequest, summarizeBrief } from "@/lib/gen/verify/live-review";
 import {
   beginLiveReviewSession,
@@ -21,6 +24,7 @@ import {
   deleteLiveReviewScreenshotUrls,
 } from "@/lib/db/services/live-review-runs";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
+import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 
 export const runtime = "nodejs";
 // Postcheck alone can approach ~150s worst case (boot wait, crawl with the
@@ -34,6 +38,52 @@ const requestSchema = z.object({
   versionId: z.string().min(1),
   previewUrl: z.string().trim().optional().nullable(),
 });
+
+type ProductPostcheckTarget = {
+  previewSessionId: string;
+  lifecycleToken: string | null;
+  filesRevision: string;
+};
+
+function bindProductPostcheckTarget(
+  session: Awaited<ReturnType<typeof getActivePreviewSessionAsync>>,
+  versionId: string,
+  filesRevision: string | null,
+): ProductPostcheckTarget | null {
+  const previewSessionId = session?.previewSessionId?.trim() || "";
+  const lifecycleToken = session?.lifecycleToken?.trim() || null;
+  const sessionFilesRevision = session?.filesRevision?.trim() || "";
+  if (
+    !filesRevision ||
+    session?.versionId !== versionId ||
+    !previewSessionId ||
+    sessionFilesRevision !== filesRevision
+  ) {
+    return null;
+  }
+  return { previewSessionId, lifecycleToken, filesRevision };
+}
+
+function supersededPostcheckResult(params: {
+  previewUrl: string;
+  durationMs?: number | null;
+  routesChecked?: number | null;
+}): ProductPostcheckResult {
+  return {
+    ok: true,
+    skipped: true,
+    skippedReason: "preview_superseded",
+    warnings: [],
+    warningCount: 0,
+    productBlocked: false,
+    routesChecked: params.routesChecked ?? 0,
+    durationMs: params.durationMs ?? 0,
+    checkedUrl: params.previewUrl,
+    screenshots: null,
+    domSummary: null,
+    attestation: null,
+  };
+}
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "engine:product-postcheck", () =>
@@ -184,6 +234,43 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   let liveReviewSession: LiveReviewSession | null = null;
   try {
     const filesRevision = scopedVersion.version.files_revision?.trim() || null;
+    const activeSession = await getActivePreviewSessionAsync(chatId);
+    const target = bindProductPostcheckTarget(
+      activeSession,
+      resolvedVersionId,
+      filesRevision,
+    );
+    if (!target) {
+      const superseded = supersededPostcheckResult({
+        previewUrl: previewUrl.trim(),
+      });
+      emitPostcheckDegraded({
+        versionId: resolvedVersionId,
+        chatId,
+        reason: "preview_superseded",
+        checkedUrl: superseded.checkedUrl,
+        durationMs: superseded.durationMs,
+      });
+      return NextResponse.json(superseded);
+    }
+
+    const targetIsCurrent = async (): Promise<boolean> => {
+      const [latestScopedVersion, latestSession] = await Promise.all([
+        getEngineVersionForChatByIdForRequest(req, chatId, versionId),
+        getActivePreviewSessionAsync(chatId),
+      ]);
+      return Boolean(
+        latestScopedVersion?.version.id === resolvedVersionId &&
+          latestScopedVersion.version.files_revision?.trim() === target.filesRevision &&
+          bindProductPostcheckTarget(
+            latestSession,
+            resolvedVersionId,
+            target.filesRevision,
+          )?.previewSessionId === target.previewSessionId &&
+          (latestSession?.lifecycleToken?.trim() || null) === target.lifecycleToken,
+      );
+    };
+
     liveReviewSession = await beginLiveReviewSession({
       chatId,
       versionId: resolvedVersionId,
@@ -198,14 +285,87 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       captureEnabled: liveReviewSession.captureEnabled,
       captureUserId: usageOwnerId ?? undefined,
       filesRevision,
+      previewSessionId: target.previewSessionId,
+      lifecycleToken: target.lifecycleToken,
     });
+
+    if (!(await targetIsCurrent().catch(() => false))) {
+      if (result.screenshots) {
+        await deleteLiveReviewScreenshotUrls(result.screenshots).catch(() => undefined);
+      }
+      if (liveReviewSession.claim?.kind === "acquired") {
+        await abandonLiveReviewRun(
+          liveReviewSession.claim.row.id,
+          liveReviewSession.claim.row.claimedAt,
+        ).catch(() => undefined);
+      }
+      const superseded = supersededPostcheckResult({
+        previewUrl: previewUrl.trim(),
+        durationMs: result.durationMs,
+        routesChecked: result.routesChecked,
+      });
+      emitPostcheckDegraded({
+        versionId: resolvedVersionId,
+        chatId,
+        reason: "preview_superseded",
+        checkedUrl: superseded.checkedUrl,
+        durationMs: superseded.durationMs,
+      });
+      return NextResponse.json(superseded);
+    }
+
+    try {
+      result.liveReview = await finishLiveReviewSession(liveReviewSession, {
+        skipped: result.skipped,
+        findings: result.warnings.map((warning) => ({
+          code: warning.code,
+          message: warning.message,
+        })),
+        screenshots: result.screenshots,
+        domSummary: result.domSummary,
+        versionNumber: scopedVersion.version.version_number,
+        filesJson: scopedVersion.version.files_json,
+        userRequest: pickUserRequest(scopedVersion.chat?.messages ?? []),
+        briefSummary: summarizeBrief(scopedVersion.chat?.orchestration_snapshot),
+        isTargetCurrent: targetIsCurrent,
+      });
+    } catch (reviewError) {
+      console.warn(
+        "[product-postcheck] live review skipped:",
+        reviewError instanceof Error ? reviewError.message : reviewError,
+      );
+      if (liveReviewSession.claim?.kind === "acquired") {
+        await deleteLiveReviewScreenshotUrls(result.screenshots).catch(() => undefined);
+        await abandonLiveReviewRun(
+          liveReviewSession.claim.row.id,
+          liveReviewSession.claim.row.claimedAt,
+        ).catch(() => undefined);
+      }
+    }
+
+    // The critic can take another minute. Re-check immediately before the
+    // HTTP result becomes durable client-side evidence; no pass/block event
+    // is emitted until this fence succeeds.
+    if (!(await targetIsCurrent().catch(() => false))) {
+      const superseded = supersededPostcheckResult({
+        previewUrl: previewUrl.trim(),
+        durationMs: result.durationMs,
+        routesChecked: result.routesChecked,
+      });
+      emitPostcheckDegraded({
+        versionId: resolvedVersionId,
+        chatId,
+        reason: "preview_superseded",
+        checkedUrl: superseded.checkedUrl,
+        durationMs: superseded.durationMs,
+      });
+      return NextResponse.json(superseded);
+    }
 
     // OMTAG-06 follow-up: emit a `version.degraded` bus event when the
     // product-postcheck never ran. The route already returns
-    // `skipped: true` to the caller and post-checks.ts logs an info-level
-    // engine_version_error_logs row, but neither surfaced the skip on
-    // the version-status projection — so the UI showed "preview ok"
-    // with no hint that DOM-level verification was missing.
+    // `skipped: true` to the caller and post-checks.ts persists the skip,
+    // but neither surface may attest a superseded lifecycle/revision.
     if (result.skipped) {
       emitPostcheckDegraded({
         versionId: resolvedVersionId,
@@ -215,9 +375,6 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         durationMs: result.durationMs ?? null,
       });
     } else if (result.productBlocked) {
-      // The check ran and found blocking product defects — surface a
-      // distinct degradation so the lifecycle badge stays honest (not solid
-      // green) even though the page rendered and the build passed.
       const blockingCodes = Array.from(
         new Set(
           result.warnings
@@ -240,34 +397,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       });
     }
 
-    try {
-      result.liveReview = await finishLiveReviewSession(liveReviewSession, {
-        skipped: result.skipped,
-        findings: result.warnings.map((warning) => ({
-          code: warning.code,
-          message: warning.message,
-        })),
-        screenshots: result.screenshots,
-        domSummary: result.domSummary,
-        versionNumber: scopedVersion.version.version_number,
-        filesJson: scopedVersion.version.files_json,
-        userRequest: pickUserRequest(scopedVersion.chat?.messages ?? []),
-        briefSummary: summarizeBrief(scopedVersion.chat?.orchestration_snapshot),
-      });
-    } catch (reviewError) {
-      console.warn(
-        "[product-postcheck] live review skipped:",
-        reviewError instanceof Error ? reviewError.message : reviewError,
-      );
-      if (liveReviewSession.claim?.kind === "acquired") {
-        await deleteLiveReviewScreenshotUrls(result.screenshots).catch(() => undefined);
-        await abandonLiveReviewRun(
-          liveReviewSession.claim.row.id,
-          liveReviewSession.claim.row.claimedAt,
-        ).catch(() => undefined);
-      }
-    }
-
+    result.attestation = target;
     return NextResponse.json(result);
   } catch (err) {
     if (liveReviewSession?.claim?.kind === "acquired") {

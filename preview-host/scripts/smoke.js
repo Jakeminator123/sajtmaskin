@@ -78,11 +78,14 @@ async function main() {
 
     const sessionId = started.body.sessionId;
     const previewSessionId = started.body.previewSessionId;
+    const lifecycleToken = started.body.lifecycleToken;
+    assert.equal(typeof lifecycleToken, "string");
 
     const st = await getJson(`${baseUrl}/preview/session/${encodeURIComponent(previewSessionId)}/status`);
     assert.equal(st.status, 200);
     assert.equal(st.body.ok, true);
     assert.equal(st.body.previewSessionId, previewSessionId);
+    assert.equal(st.body.lifecycleToken, lifecycleToken);
 
     const verified = await postJson(`${baseUrl}/preview/verify`, {
       chatId: "chat_demo_1",
@@ -122,6 +125,7 @@ async function main() {
 
     const updated = await postJson(`${baseUrl}/preview/session/update`, {
       previewSessionId,
+      lifecycleToken,
       versionId: "ver_2",
       changeClass: "light",
       filesJson: {
@@ -134,6 +138,7 @@ async function main() {
 
     const replaced = await postJson(`${baseUrl}/preview/session/update`, {
       previewSessionId,
+      lifecycleToken,
       versionId: "ver_replace",
       changeClass: "light",
       replaceFiles: true,
@@ -150,6 +155,7 @@ async function main() {
 
     const invalidReplace = await postJson(`${baseUrl}/preview/session/update`, {
       previewSessionId,
+      lifecycleToken,
       versionId: "ver_bad_replace",
       changeClass: "light",
       replaceFiles: true,
@@ -166,6 +172,7 @@ async function main() {
     // replacement) and reports a patch mode.
     const patched = await postJson(`${baseUrl}/preview/session/patch`, {
       previewSessionId,
+      lifecycleToken,
       versionId: "ver_patch_1",
       files: {
         "app/about.tsx": "export default function About() { return <div>About</div>; }",
@@ -183,6 +190,7 @@ async function main() {
     // (the session still serves ver_patch_1, not the rejected ver_patch_stale).
     const staleBasePatch = await postJson(`${baseUrl}/preview/session/patch`, {
       previewSessionId,
+      lifecycleToken,
       versionId: "ver_patch_stale",
       expectedBaseVersionId: "ver_not_the_current_base",
       files: { "app/page.tsx": "export default function Page(){return <div>Stale</div>;}" },
@@ -197,6 +205,7 @@ async function main() {
     // the session as a normal patch would.
     const matchingBasePatch = await postJson(`${baseUrl}/preview/session/patch`, {
       previewSessionId,
+      lifecycleToken,
       versionId: "ver_patch_base_ok",
       expectedBaseVersionId: "ver_patch_1",
       files: { "app/contact.tsx": "export default function Contact(){return <div>Contact</div>;}" },
@@ -208,6 +217,7 @@ async function main() {
     // Structural change (package.json) forces a restart mode, not a hot patch.
     const structuralPatch = await postJson(`${baseUrl}/preview/session/patch`, {
       previewSessionId,
+      lifecycleToken,
       versionId: "ver_patch_2",
       files: {
         "package.json": JSON.stringify({ name: "demo-project", private: true }, null, 2),
@@ -226,6 +236,7 @@ async function main() {
 
     const hibernated = await postJson(`${baseUrl}/preview/session/hibernate`, {
       previewSessionId,
+      lifecycleToken,
     });
     assert.equal(hibernated.status, 200);
     assert.equal(hibernated.body.status, "hibernated");
@@ -238,6 +249,7 @@ async function main() {
 
     const destroyed = await postJson(`${baseUrl}/preview/session/destroy`, {
       previewSessionId,
+      lifecycleToken,
     });
     assert.equal(destroyed.status, 200);
     assert.equal(destroyed.body.destroyed, true);

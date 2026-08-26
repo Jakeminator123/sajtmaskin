@@ -48,7 +48,7 @@ const PACKAGE_JSON = `{
     "next": "16.3.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "radix-ui": "1.4.3",
+    "radix-ui": "1.6.7",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "tailwind-merge": "3.3.0",
@@ -533,6 +533,7 @@ const BASELINE_PINNED_DEPS = [
   "react",
   "react-dom",
   "next",
+  "radix-ui",
   "lucide-react",
 ] as const;
 
@@ -1046,5 +1047,4 @@ export function buildCompleteProject(
 
   return result.sort((a, b) => a.path.localeCompare(b.path));
 }
-
 

@@ -122,6 +122,50 @@ function getToolPart(toolName: string, store: ReturnType<typeof createMessageSto
 }
 
 describe("runPostGenerationChecks", () => {
+  it("persists transport_error when the outer flow fails before postcheck returns", async () => {
+    const store = createMessageStore();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions/") && url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        if (url.includes("/versions")) throw new Error("versions transport failed");
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files: buildHealthyFiles() });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const errorLogCall = fetchCalls.find(
+      (call) => call.url.includes("/error-log") && call.init?.method === "POST",
+    );
+    const body = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
+      logs?: Array<{ category?: string; meta?: { skippedReason?: string } }>;
+    };
+    expect(body.logs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "product_postcheck.skipped",
+          meta: expect.objectContaining({ skippedReason: "transport_error" }),
+        }),
+      ]),
+    );
+    expect(fetchCalls.some((call) => call.url.includes("/quality-gate"))).toBe(false);
+  });
+
   let fetchCalls: FetchCall[];
 
   beforeEach(() => {
@@ -1990,7 +2034,13 @@ describe("runPostGenerationChecks", () => {
     const errorLogCall = fetchCalls.find(
       (call) => call.url.includes("/error-log") && call.init?.method === "POST",
     );
-    expect(errorLogCall).toBeUndefined();
+    const persisted = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
+      logs?: Array<{ category?: string }>;
+    };
+    expect(persisted.logs?.map((log) => log.category)).toEqual([
+      "product_postcheck.skipped",
+    ]);
+    expect(persisted.logs?.some((log) => log.category?.includes("seo"))).toBe(false);
 
     expect(onAutoFix).not.toHaveBeenCalled();
   });
@@ -2141,6 +2191,16 @@ describe("runPostGenerationChecks", () => {
 });
 
 describe("buildProductPostcheckLogItems live review", () => {
+  it("persists a transport failure when the postcheck API returned no result", () => {
+    expect(buildProductPostcheckLogItems(null)).toEqual([
+      expect.objectContaining({
+        level: "warning",
+        category: "product_postcheck.skipped",
+        meta: expect.objectContaining({ skippedReason: "transport_error" }),
+      }),
+    ]);
+  });
+
   it("skriver skip-orsaken i stället för 'screenshots captured'", () => {
     const logs = buildProductPostcheckLogItems({
       ok: true,
@@ -2158,6 +2218,39 @@ describe("buildProductPostcheckLogItems live review", () => {
     expect(logs.find((log) => log.category === "product_postcheck.live_review")?.message).toBe(
       "Live review skipped: no_screenshots.",
     );
+  });
+
+  it("bär postcheck-attesteringen i varje durabel loggrad", () => {
+    const attestation = {
+      previewSessionId: "preview_n",
+      lifecycleToken: null,
+      filesRevision: "rev_n",
+    };
+    const logs = buildProductPostcheckLogItems({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [{ code: "console_error", message: "boom" }],
+      warningCount: 1,
+      productBlocked: false,
+      durationMs: 12,
+      checkedUrl: "https://preview.example",
+      routesChecked: 1,
+      screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
+      liveReview: { status: "skipped", reason: "no_screenshots" },
+      attestation,
+    });
+
+    expect(logs.length).toBeGreaterThan(1);
+    for (const log of logs) {
+      expect(log.meta).toEqual(
+        expect.objectContaining({
+          attestedPreviewSessionId: "preview_n",
+          attestedLifecycleToken: null,
+          attestedFilesRevision: "rev_n",
+        }),
+      );
+    }
   });
 
   it("behåller verdikten när review är completed", () => {

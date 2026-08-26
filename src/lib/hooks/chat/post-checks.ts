@@ -32,7 +32,10 @@ import type {
   StreamQualitySignal,
   VersionErrorLogPayload,
 } from "./types";
-import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
+import type {
+  ProductPostcheckAttestation,
+  ProductPostcheckResult,
+} from "@/lib/gen/verify/product-postcheck";
 
 /** Extra försök efter det första, bara vid en retryable 503. */
 const ERROR_LOG_RETRY_ATTEMPTS = 2;
@@ -101,8 +104,9 @@ export async function persistVersionErrorLogs(params: {
   chatId: string;
   versionId: string;
   logs: VersionErrorLogPayload[];
+  productPostcheckAttestation?: ProductPostcheckAttestation | null;
 }): Promise<boolean> {
-  const { chatId, versionId, logs } = params;
+  const { chatId, versionId, logs, productPostcheckAttestation } = params;
   if (!logs.length) return true;
   const url = `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`;
 
@@ -112,7 +116,12 @@ export async function persistVersionErrorLogs(params: {
       res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ logs }),
+        body: JSON.stringify({
+          logs,
+          ...(productPostcheckAttestation
+            ? { productPostcheckAttestation }
+            : {}),
+        }),
       });
     } catch {
       // Best-effort only
@@ -147,7 +156,8 @@ async function validateImages(params: {
     );
     if (!response.ok) return null;
     return (await response.json()) as ImageValidationResult;
-  } catch {
+  } catch (error) {
+    if (isAbortError(error)) throw error;
     return null;
   }
 }
@@ -171,7 +181,8 @@ async function runProductPostcheckApi(params: {
     );
     if (!response.ok) return null;
     return (await response.json()) as ProductPostcheckResult;
-  } catch {
+  } catch (error) {
+    if (isAbortError(error)) throw error;
     return null;
   }
 }
@@ -194,7 +205,27 @@ export function formatLiveReviewLogMessage(result: ProductPostcheckResult): stri
 export function buildProductPostcheckLogItems(
   result: ProductPostcheckResult | null,
 ): VersionErrorLogPayload[] {
-  if (!result) return [];
+  if (!result) {
+    return [
+      {
+        level: "warning",
+        category: "product_postcheck.skipped",
+        message: "F2 Product Postcheck failed before a result was returned.",
+        meta: {
+          skippedReason: "transport_error",
+          durationMs: null,
+          checkedUrl: null,
+        },
+      },
+    ];
+  }
+  const attestationMeta = result.attestation
+    ? {
+        attestedPreviewSessionId: result.attestation.previewSessionId,
+        attestedLifecycleToken: result.attestation.lifecycleToken,
+        attestedFilesRevision: result.attestation.filesRevision,
+      }
+    : {};
   if (result.skipped) {
     // Krasch-skäl (Playwright dog, navigering föll, timeout) är INTE policy-skips
     // och ska synas i defect-aggregatet — prod-körningen 2026-08-11 visade sex
@@ -216,6 +247,7 @@ export function buildProductPostcheckLogItems(
         category: "product_postcheck.skipped",
         message: "F2 Product Postcheck skipped.",
         meta: {
+          ...attestationMeta,
           skippedReason,
           durationMs: result.durationMs ?? null,
           checkedUrl: result.checkedUrl ?? null,
@@ -230,6 +262,7 @@ export function buildProductPostcheckLogItems(
     category: `product_postcheck.${warning.code || "warning"}`,
     message: warning.message || "F2 Product Postcheck warning.",
     meta: {
+      ...attestationMeta,
       ...warning,
       durationMs: result.durationMs ?? null,
       checkedUrl: result.checkedUrl ?? null,
@@ -243,6 +276,7 @@ export function buildProductPostcheckLogItems(
         ? `F2 Product Postcheck found ${warnings.length} warning(s).`
         : "F2 Product Postcheck passed.",
     meta: {
+      ...attestationMeta,
       warningCount: warnings.length,
       productBlocked: result.productBlocked === true,
       durationMs: result.durationMs ?? null,
@@ -260,6 +294,7 @@ export function buildProductPostcheckLogItems(
       category: "product_postcheck.live_review",
       message: liveReviewMessage,
       meta: {
+        ...attestationMeta,
         screenshots: result.screenshots ?? null,
         liveReview: result.liveReview ?? null,
       },
@@ -357,6 +392,8 @@ export async function runPostGenerationChecks(params: {
   const releasePipelineWork = beginPipelineWork();
   let spawnedVerifyLane = false;
   let completionPersistence: Promise<boolean> | null = null;
+  let productPostcheckResult: ProductPostcheckResult | null | undefined;
+  let productPostcheckPersistenceScheduled = false;
 
   appendToolPartToMessage(setMessages, assistantMessageId, {
     type: "tool:post-check",
@@ -391,7 +428,7 @@ export async function runPostGenerationChecks(params: {
 
     // Independent HTTP checks — run in parallel so the post-check tail (and
     // the verify-lane behind it) is not serialized on two network round-trips.
-    const [imageValidation, productPostcheck] = await Promise.all([
+    const [imageValidation, resolvedProductPostcheck] = await Promise.all([
       validateImages({
         chatId,
         versionId,
@@ -404,6 +441,8 @@ export async function runPostGenerationChecks(params: {
         signal: controller.signal,
       }),
     ]);
+    productPostcheckResult = resolvedProductPostcheck;
+    const productPostcheck = resolvedProductPostcheck;
     const warnings = [...baseline.warnings];
     if (imageValidation?.warnings?.length) {
       warnings.push(...imageValidation.warnings);
@@ -437,7 +476,9 @@ export async function runPostGenerationChecks(params: {
       chatId,
       versionId,
       logs: [...artifacts.logItems, ...buildProductPostcheckLogItems(productPostcheck)],
+      productPostcheckAttestation: productPostcheck?.attestation ?? null,
     });
+    productPostcheckPersistenceScheduled = true;
 
     if (artifacts.autoFixReasons.length > 0) {
       onAutoFix?.({
@@ -565,6 +606,9 @@ export async function runPostGenerationChecks(params: {
             category: "post-check",
             message: error instanceof Error ? error.message : "Post-check failed",
           },
+          ...(productPostcheckPersistenceScheduled
+            ? []
+            : buildProductPostcheckLogItems(productPostcheckResult ?? null)),
         ],
       });
       appendToolPartToMessage(setMessages, assistantMessageId, {

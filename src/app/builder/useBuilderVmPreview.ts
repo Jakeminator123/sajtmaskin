@@ -118,6 +118,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
   const [activePreviewSessionMeta, setActivePreviewSessionMeta] = useState<{
     previewSessionId: string;
     versionId: string;
+    lifecycleToken?: string | null;
   } | null>(null);
   const [previewSessionRecovering, setPreviewSessionRecovering] = useState(false);
   const previewBootstrapGenRef = useRef(0);
@@ -139,14 +140,25 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
   const lastPreviewBootstrapSyncAtRef = useRef(0);
 
   const onPreviewSessionMeta = useCallback(
-    (meta: { previewSessionId: string; versionId: string | null } | null) => {
+    (meta: {
+      previewSessionId: string;
+      versionId: string | null;
+      lifecycleToken?: string | null;
+    } | null) => {
       if (!meta?.previewSessionId?.trim() || !meta.versionId?.trim()) return;
       const vid = meta.versionId.trim();
-      setActivePreviewSessionMeta({
-        previewSessionId: meta.previewSessionId.trim(),
+      const previewSessionId = meta.previewSessionId.trim();
+      setActivePreviewSessionMeta((current) => ({
+        previewSessionId,
         versionId: vid,
-      });
-      if (chatId && vid) {
+        lifecycleToken:
+          meta.lifecycleToken !== undefined
+            ? meta.lifecycleToken
+            : current?.previewSessionId === previewSessionId && current.versionId === vid
+              ? current.lifecycleToken
+              : undefined,
+      }));
+      if (chatId && vid && meta.lifecycleToken !== undefined) {
         previewBootstrapDoneKeysRef.current.add(`${chatId}:${vid}`);
       }
     },
@@ -283,10 +295,9 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
       previewBootstrapControllersRef.current.delete(otherKey);
       previewBootstrapInFlightRef.current.delete(otherKey);
     }
-    const hasMatchingSession = hasMatchingPreviewSessionMeta(
-      activePreviewSessionMeta,
-      activeVersionId,
-    );
+    const hasMatchingSession =
+      hasMatchingPreviewSessionMeta(activePreviewSessionMeta, activeVersionId) &&
+      activePreviewSessionMeta?.lifecycleToken !== undefined;
     if (previewBootstrapDoneKeysRef.current.has(key) && !isForcedRestart) return;
 
     if (!isForcedRestart && hasMatchingSession) {
@@ -514,6 +525,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
             setActivePreviewSessionMeta({
               previewSessionId: data.previewSessionId.trim(),
               versionId: activeVid,
+              lifecycleToken: data.lifecycleToken ?? null,
             });
           }
           if (typeof data.prodBuildVerified === "boolean") {

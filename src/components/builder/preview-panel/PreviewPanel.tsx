@@ -101,6 +101,7 @@ export function PreviewPanel({
   previewProdBuild = null,
   previewPending = false,
   activePreviewSessionId = null,
+  activePreviewLifecycleToken,
   previewLifecycle,
   activeVersionStatus = null,
   activeVersionSummary = null,
@@ -272,6 +273,7 @@ export function PreviewPanel({
     chatId,
     versionId,
     activePreviewSessionId,
+    activePreviewLifecycleToken,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
@@ -761,6 +763,7 @@ export function PreviewPanel({
     versionId,
     previewUrl,
     activePreviewSessionId,
+    activePreviewLifecycleToken,
     previewLifecycle,
     onSessionSuspect: onPreviewSessionSuspect,
   });
@@ -905,13 +908,24 @@ export function PreviewPanel({
         showImagesDisabledWarning ||
         showImagesUnsupportedWarning),
   );
-  const showPlacementOverlay = inspectorEnabled && effectivePlacementMode && Boolean(previewUrl);
+  // Inspect/placement controls sit above the iframe. The overlay may stay
+  // mounted to preserve the selected mode while loading, but its component
+  // disables pointer events until usePreviewIframe reports ready. Any iframe
+  // error removes the higher-z inspector entirely so it cannot cover the
+  // actionable error overlay.
+  const previewCanHostInspector = Boolean(previewUrl) && !iframeError;
+  const showPlacementOverlay =
+    inspectorEnabled && effectivePlacementMode && previewCanHostInspector;
   const showComposerOverlay =
     composerMode && Boolean(previewUrl) && !effectivePlacementMode && !isCodeView;
   // Bridge-engine renderar INTE den täckande overlayn — preview-iframen måste
   // få mus-eventen själv (det injicerade scriptet ritar highlight + postar pick).
   const showInspectOverlay =
-    inspectorEnabled && inspectMode && !showPlacementOverlay && inspectEngine !== "bridge";
+    inspectorEnabled &&
+    inspectMode &&
+    previewCanHostInspector &&
+    !showPlacementOverlay &&
+    inspectEngine !== "bridge";
   const shouldRenderInspectorDev = inspectorEnabled && (showPlacementOverlay || showInspectOverlay);
 
   if (!previewUrl && !isCodeView) {

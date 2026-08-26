@@ -163,13 +163,16 @@ try {
       );
       if (t) {
         let productBlocked = false;
+        let productDegraded = false;
         if (hasVersionErrors) {
           const [pc] = await safeRows(LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL, [v.id]);
           productBlocked = pc?.product_blocked === true;
+          productDegraded = pc?.product_degraded === true;
         }
         const reported = annotateReportedQualityGate({
           ...t,
           product_blocked: productBlocked,
+          product_degraded: productDegraded,
         });
         console.log("  -- telemetri --");
         line("buildIntent", t.build_intent);
