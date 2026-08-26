@@ -20,29 +20,22 @@ from types import SimpleNamespace
 from unittest import mock
 
 from backoffice.pages import scaffold_lifecycle as sl
-
-# Inherited git identity vars point a child `git` at another checkout. Tests
-# that init a throwaway repo must drop them, or `git config`/`commit` can write
-# the parent worktree's config.
-_GIT_ISOLATION_UNSET = (
-    "GIT_DIR",
-    "GIT_WORK_TREE",
-    "GIT_COMMON_DIR",
-    "GIT_INDEX_FILE",
-    "GIT_OBJECT_DIRECTORY",
-    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-)
+from backoffice.pages.scaffold_lifecycle_lib import baseline as baseline_lib
 
 
 def _git(repo: Path, *args: str) -> None:
-    env = os.environ.copy()
-    for key in _GIT_ISOLATION_UNSET:
-        env.pop(key, None)
     argv = ["git"]
     if args[:1] == ("commit",):
         argv.extend(("-c", "user.name=Test", "-c", "user.email=test@example.com"))
     argv.extend(args)
-    subprocess.run(argv, cwd=str(repo), check=True, capture_output=True, text=True, env=env)
+    subprocess.run(
+        argv,
+        cwd=str(repo),
+        check=True,
+        capture_output=True,
+        text=True,
+        env=baseline_lib._isolated_git_env(repo),
+    )
 
 
 def _seed_baseline_repo(repo: Path) -> None:
@@ -75,18 +68,47 @@ class BaselineResetTests(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self._tmp, ignore_errors=True)
 
-    def test_run_git_ignores_inherited_parent_repository(self) -> None:
-        """A managed git hook must not redirect commands away from ctx.repo_root."""
+    def test_run_git_sanitizes_full_inherited_repository_environment(self) -> None:
+        """Hook identity/config/graph variables must not escape ctx.repo_root."""
         parent_git = str(Path(__file__).resolve().parents[1] / ".git")
+        poisoned = {key: parent_git for key in baseline_lib._GIT_LOCAL_ENV_VARS}
+        poisoned.update(
+            {
+                "GIT_CONFIG_COUNT": "2",
+                "GIT_CONFIG_KEY_0": "safe.directory",
+                "GIT_CONFIG_VALUE_0": str(Path(__file__).resolve().parents[1]),
+                "GIT_CONFIG_KEY_1": "core.worktree",
+                "GIT_CONFIG_VALUE_1": str(Path(__file__).resolve().parents[1]),
+            }
+        )
         with mock.patch.dict(
             os.environ,
-            {
-                "GIT_DIR": parent_git,
-                "GIT_WORK_TREE": str(Path(__file__).resolve().parents[1]),
-            },
+            poisoned,
             clear=False,
         ):
             self.assertTrue(sl._baseline_tag_exists(self.ctx))
+            code, output = sl._run_git(self.ctx, ["rev-parse", "--show-toplevel"])
+            self.assertEqual(code, 0, output)
+            self.assertEqual(Path(output).resolve(), self.repo.resolve())
+            code, output = sl._run_git(self.ctx, ["config", "--get", "core.worktree"])
+            self.assertEqual((code, output), (1, ""))
+            code, output = sl._run_git(self.ctx, ["config", "--get-all", "safe.directory"])
+            self.assertEqual(code, 0, output)
+            self.assertEqual(Path(output.splitlines()[-1]).resolve(), self.repo.resolve())
+
+    def test_git_isolation_list_matches_supported_git(self) -> None:
+        result = subprocess.run(
+            ["git", "rev-parse", "--local-env-vars"],
+            cwd=str(self.repo),
+            check=True,
+            capture_output=True,
+            text=True,
+            env=baseline_lib._isolated_git_env(self.repo),
+        )
+        self.assertEqual(
+            tuple(line for line in result.stdout.splitlines() if line),
+            baseline_lib._GIT_LOCAL_ENV_VARS,
+        )
 
     def test_happy_path_reverts_modified_and_removes_added(self) -> None:
         base = self.scaffolds / "base.txt"

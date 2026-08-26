@@ -58,7 +58,7 @@ function runHookSync(
 // ett schema koden lämnat bakom sig".
 describe("renderHookScript", () => {
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(8);
+    expect(HOOK_VERSION).toBe(9);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -148,6 +148,10 @@ describe("renderHookScript", () => {
     expect(script.indexOf("git rev-parse --local-env-vars")).toBeLessThan(
       script.indexOf("npm run verify:pr"),
     );
+    expect(script).toContain("GIT_CONFIG_KEY_0=safe.directory");
+    expect(script.indexOf("GIT_CONFIG_KEY_0=safe.directory")).toBeLessThan(
+      script.indexOf("npm run verify:pr"),
+    );
   });
 
   itWithPosixShell("avbryter en hängd hook-child med ett tydligt timeoutfel", () => {
@@ -173,11 +177,11 @@ describe("renderHookScript", () => {
     writeFileSync(join(root, "scripts", "dev", "install-git-hooks.mjs"), "marker\n");
     writeFileSync(
       join(bin, "git"),
-      '#!/bin/sh\nif [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then printf "%s\\n" "$HOOK_GIT_HEAD"; exit 0; fi\nif [ "$1" = "rev-parse" ] && [ "$2" = "--local-env-vars" ]; then printf "GIT_DIR\\nGIT_WORK_TREE\\n"; exit 0; fi\nif [ "$1" = "status" ]; then [ "$HOOK_GIT_DIRTY" = "1" ] && printf " M src/example.ts\\n"; exit 0; fi\n[ "$HOOK_GIT_ANCESTOR" = "1" ] && exit 0\nexit 1\n',
+      '#!/bin/sh\nif [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then printf "%s\\n" "$HOOK_GIT_HEAD"; exit 0; fi\nif [ "$1" = "rev-parse" ] && [ "$2" = "--local-env-vars" ]; then printf "GIT_ALTERNATE_OBJECT_DIRECTORIES\\nGIT_CONFIG\\nGIT_CONFIG_PARAMETERS\\nGIT_CONFIG_COUNT\\nGIT_OBJECT_DIRECTORY\\nGIT_DIR\\nGIT_WORK_TREE\\nGIT_IMPLICIT_WORK_TREE\\nGIT_GRAFT_FILE\\nGIT_INDEX_FILE\\nGIT_NO_REPLACE_OBJECTS\\nGIT_REPLACE_REF_BASE\\nGIT_PREFIX\\nGIT_SHALLOW_FILE\\nGIT_COMMON_DIR\\n"; exit 0; fi\nif [ "$1" = "status" ]; then [ "$HOOK_GIT_DIRTY" = "1" ] && printf " M src/example.ts\\n"; exit 0; fi\n[ "$HOOK_GIT_ANCESTOR" = "1" ] && exit 0\nexit 1\n',
     );
     writeFileSync(
       join(bin, "npm"),
-      '#!/bin/sh\n[ -z "${GIT_DIR:-}" ] && [ -z "${GIT_WORK_TREE:-}" ]\n',
+      '#!/bin/sh\n[ -z "${GIT_DIR:-}" ] && [ -z "${GIT_WORK_TREE:-}" ] && [ -z "${GIT_CONFIG_PARAMETERS:-}" ] && [ -z "${GIT_REPLACE_REF_BASE:-}" ] && [ -z "${GIT_SHALLOW_FILE:-}" ] && [ "$GIT_CONFIG_COUNT" = "1" ] && [ "$GIT_CONFIG_KEY_0" = "safe.directory" ] && [ "$GIT_CONFIG_VALUE_0" = "$PWD" ]\n',
     );
     chmodSync(join(bin, "git"), 0o755);
     chmodSync(join(bin, "npm"), 0o755);
@@ -191,6 +195,14 @@ describe("renderHookScript", () => {
       HOOK_GIT_HEAD: "a".repeat(40),
       GIT_DIR: "parent.git",
       GIT_WORK_TREE: root,
+      GIT_CONFIG_COUNT: "2",
+      GIT_CONFIG_KEY_0: "safe.directory",
+      GIT_CONFIG_VALUE_0: root,
+      GIT_CONFIG_KEY_1: "core.worktree",
+      GIT_CONFIG_VALUE_1: join(root, "poisoned-worktree"),
+      GIT_CONFIG_PARAMETERS: "'core.bare'='true'",
+      GIT_REPLACE_REF_BASE: "refs/poisoned",
+      GIT_SHALLOW_FILE: join(root, "poisoned-shallow"),
     };
 
     const rejected = runHookSync(hook, {

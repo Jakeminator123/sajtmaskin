@@ -8,17 +8,45 @@ from backoffice.shared import BackofficeContext
 from .constants import BASELINE_TAG, BASELINE_PATHS
 
 
-# Git exports repository-local identity variables to hooks.  Backoffice may be
-# exercised from a managed hook, but every command here must resolve the
-# explicit ``ctx.repo_root`` instead of the hook caller's repository.
-_GIT_ISOLATION_UNSET = (
+# Complete output of `git rev-parse --local-env-vars` for the supported Git.
+# Any one of these may redirect repository discovery or alter the object graph
+# used by the destructive baseline-reset path.
+_GIT_LOCAL_ENV_VARS = (
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_CONFIG",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT",
+    "GIT_OBJECT_DIRECTORY",
     "GIT_DIR",
     "GIT_WORK_TREE",
-    "GIT_COMMON_DIR",
+    "GIT_IMPLICIT_WORK_TREE",
+    "GIT_GRAFT_FILE",
     "GIT_INDEX_FILE",
-    "GIT_OBJECT_DIRECTORY",
-    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_NO_REPLACE_OBJECTS",
+    "GIT_REPLACE_REF_BASE",
+    "GIT_PREFIX",
+    "GIT_SHALLOW_FILE",
+    "GIT_COMMON_DIR",
 )
+
+
+def _isolated_git_env(repo_root) -> dict[str, str]:
+    """Drop inherited repo identity and re-add this root as safe.directory."""
+    env = os.environ.copy()
+    for key in _GIT_LOCAL_ENV_VARS:
+        env.pop(key, None)
+    for key in tuple(env):
+        if key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")):
+            env.pop(key, None)
+    env.update(
+        {
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "safe.directory",
+            "GIT_CONFIG_VALUE_0": str(repo_root.resolve()),
+            "PYTHONIOENCODING": "utf-8",
+        }
+    )
+    return env
 
 
 def _facade():
@@ -34,7 +62,7 @@ def _run_repo_command(ctx: BackofficeContext, command: list[str], *, timeout: in
         command,
         capture_output=True,
         cwd=str(ctx.repo_root),
-        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        env=_isolated_git_env(ctx.repo_root),
         text=True,
         timeout=timeout,
         check=False,
@@ -65,16 +93,11 @@ def _run_git(ctx: BackofficeContext, args: list[str], *, timeout: int = 60) -> t
     Either mistake made the backup pass silently skip a file that the following
     `git restore` then deleted for real.
     """
-    env = os.environ.copy()
-    for key in _GIT_ISOLATION_UNSET:
-        env.pop(key, None)
-    env["PYTHONIOENCODING"] = "utf-8"
-
     result = subprocess.run(
         ["git", "-c", "core.quotePath=false", *args],
         capture_output=True,
         cwd=str(ctx.repo_root),
-        env=env,
+        env=_isolated_git_env(ctx.repo_root),
         text=True,
         encoding="utf-8",
         timeout=timeout,

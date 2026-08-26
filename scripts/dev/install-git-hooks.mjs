@@ -38,7 +38,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 8;
+export const HOOK_VERSION = 9;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -190,7 +190,12 @@ if [ "$SAJTMASKIN_SKIP_VERIFY_HOOKS" = "1" ]; then exit 0; fi
 
 # Git exporterar repository-lokala variabler till hooken. Verifieringen startar
 # tester och verktyg som avsiktligt arbetar i egna temporara repon; de maste fa
-# losa sitt repo fran cwd i stallet for att arva pushens GIT_DIR/GIT_WORK_TREE.
+# losa sitt repo fran cwd. Codex kan samtidigt injicera safe.directory via
+# GIT_CONFIG_COUNT, sa efter saneringen byggs exakt arbetsrotens safe-entry ater.
+VERIFY_ROOT=$(pwd -P) || {
+  echo "[hooks] Push stoppad: kunde inte lasa verifieringens arbetsrot." >&2
+  exit 1
+}
 GIT_LOCAL_ENV_VARS=$(git rev-parse --local-env-vars 2>/dev/null) || {
   echo "[hooks] Push stoppad: kunde inte isolera git-miljon for verifieringen." >&2
   exit 1
@@ -198,6 +203,10 @@ GIT_LOCAL_ENV_VARS=$(git rev-parse --local-env-vars 2>/dev/null) || {
 for GIT_LOCAL_ENV_VAR in $GIT_LOCAL_ENV_VARS; do
   unset "$GIT_LOCAL_ENV_VAR"
 done
+GIT_CONFIG_COUNT=1
+GIT_CONFIG_KEY_0=safe.directory
+GIT_CONFIG_VALUE_0=$VERIFY_ROOT
+export GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
 
 command -v npm >/dev/null 2>&1 || {
   echo "[hooks] STOPP: npm saknas; kan inte kora npm run verify:pr." >&2
