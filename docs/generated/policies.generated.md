@@ -9,7 +9,7 @@
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:37411e2494bc615f -->
-<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:5015ae889ed37dda -->
+<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:de9157bb936dbdc1 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:bdabd528d04d5fad -->
 
 # Policies
@@ -183,6 +183,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 | Dossier                | Capability             | Key                                  | Required | Enforcement       | Demoläge  |
 | ---------------------- | ---------------------- | ------------------------------------ | -------- | ----------------- | --------- |
+| `calcom-booking`       | `booking`              | `NEXT_PUBLIC_CALCOM_LINK`            | Yes      | `feature-runtime` | `visual`  |
 | `clerk-auth`           | `auth`                 | `CLERK_SECRET_KEY`                   | Yes      | `build`           | `visual`  |
 | `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`  | Yes      | `build`           | `visual`  |
 | `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL`      | No       | `warn-only`       | `visual`  |

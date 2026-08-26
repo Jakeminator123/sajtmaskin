@@ -1,0 +1,42 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "calcom-booking",
+  "label": "Tidsbokning — Cal.com",
+  "capability": "booking",
+  "providers": ["calcom"],
+  "codeFidelity": "verbatim",
+  "complexity": "medium",
+  "defaultForCapability": true,
+  "summary": "Hosted appointment scheduling through an inline Cal.com calendar. Use for service businesses, consultants and teams that need real availability, time-zone handling, reminders and booking confirmation without building a scheduling backend. Demo mode (mock: visual): without a valid Cal.com event link, the component renders a complete sample availability surface whose time buttons open an honest demo dialog — no appointment is created.",
+  "summarySv": "Robust tidsbokning via Cal.com för exempelvis salonger, konsulter och kliniker. Besökaren kan välja en verklig ledig tid direkt på sajten när en Cal.com-länk är kopplad. Utan länken visas ett tydligt demoläge där bokningsflödet går att prova, men ingen tid reserveras.",
+  "mock": "visual",
+  "envVars": [
+    {
+      "key": "NEXT_PUBLIC_CALCOM_LINK",
+      "required": true,
+      "enforcement": "feature-runtime",
+      "purpose": "Public Cal.com event path in the form username/event-type or team/team-slug/event-type. Copy the path after cal.com/ from the event type's share/embed screen. It is public configuration, not a secret; missing or placeholder values keep the component in honest visual demo mode.",
+      "setupUrl": "https://cal.com/help/embedding/embed-snippet-generator"
+    }
+  ],
+  "dependencies": ["@calcom/embed-react"],
+  "files": [
+    {
+      "path": "components/booking-calendar.tsx",
+      "role": "client",
+      "injectionMode": "verbatim"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "BookingCalendar",
+      "type": "component",
+      "import": "@/components/booking-calendar"
+    }
+  ],
+  "lastVerified": "2026-08-24",
+  "verificationStatus": "unverified",
+  "notes": "Keyless Next.js typecheck/build and the visual demo interaction are verified. A live booking completion against a dedicated Cal.com test event is still required before changing verificationStatus to accepted.",
+  "sourceRepoUrl": "https://github.com/calcom/cal.com/tree/main/packages/embeds/embed-react",
+  "promptInstructionMode": "selected-sections"
+}

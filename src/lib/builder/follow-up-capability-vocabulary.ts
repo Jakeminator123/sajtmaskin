@@ -55,7 +55,38 @@ export interface CapabilityVocabularyEntry {
   patterns: RegExp[];
   /** Optional veto patterns; if any matches, the capability is suppressed. */
   vetoes?: RegExp[];
+  /**
+   * Positive patterns that can survive a veto in another independent clause.
+   * A survivor in the same clause as a veto remains suppressed.
+   */
+  vetoSurvivors?: RegExp[];
 }
+
+const UNICODE_WORD_START_SOURCE = String.raw`(?<![\p{L}\p{N}_])`;
+const UNICODE_WORD_END_SOURCE = String.raw`(?![\p{L}\p{N}_])`;
+
+/**
+ * Reservation inventory excluded from the appointment-booking dossier.
+ *
+ * This bilingual source is shared by every booking veto so post-positive,
+ * resource-first and direct-verb word orders cannot drift to different
+ * resource coverage. Keep the alternatives context-free: each consuming
+ * regex supplies the booking relationship that makes the veto precise.
+ */
+const BOOKING_INVENTORY_RESOURCE_SOURCE = String.raw`(?:(?:konferens|mötes|behandlings|hotell)rum(?:met|men|s)?|(?:event|konferens|mötes)lokal(?:en|er|erna|s)?|restaurangens\s+bord|hotellets\s+rum|restaurangbord(?:et|en|s)?|hotellrum(?:met|men|s)?|hyrutrustning(?:en|s)?|biluthyrning(?:en|s)?|cykeluthyrning(?:en|s)?|(?:padel|tennis|golf|sport)ban(?:a|an|or|orna|e|s)?|sportfält(?:et|en)?|restaurang(?:en|er)?|hotell(?:et)?|utrustning(?:en|ar|arna|s)?|fordon(?:et|en|s)?|bil(?:en|ar|arna|s)?|cykel(?:n|ar|arna|s)?|lokal(?:en|er|erna|s)?|biljett(?:en|er|erna|s)?|boende(?:t)?|bord(?:et|en|s)?|rum(?:met|men|s)?|(?:rental|hire)[-\s]+(?:cars?|vehicles?|equipment|bikes?)|(?:football|soccer|sports?)[-\s]+(?:fields?|courts?)|(?:event|conference)[-\s]+(?:spaces?|venues?|rooms?)|(?:hotel|meeting|treatment)[-\s]+rooms?|(?:restaurant[-\s]+)?tables?|(?:tennis|padel)[-\s]+courts?|restaurants?|hotels?|rooms?|courts?|fields?|spaces?|equipment|vehicles?|cars?|bikes?|venues?|tickets?|accommodation|lodging)`;
+
+/**
+ * Genuine appointment objects. Both the vocabulary and the detector's
+ * capability-add gate build their action pattern from this exact source.
+ */
+export const BOOKING_APPOINTMENT_OBJECT_SOURCE = String.raw`(?:(?:(?:an?|the|their|our|your|his|her)\s+)?appointments?|(?:(?:a|the|their|our|your)\s+)?(?:consultations?|meetings?|services?)|(?:(?:en|sin|sina|vår|våra|er|era|deras)\s+)?(?:(?:nästa|första)\s+)?(?:ledig(?:a)?\s+)?(?:tid(?:en|er|erna)?|konsultation(?:en|er|erna)?|möte(?:t|n)?|möten(?:a)?|behandling(?:en|ar|arna)?))`;
+
+const BOOKING_APPOINTMENT_NOUN_PATTERN =
+  /(?<![\p{L}\p{N}_])(?:tidsbokning(?:en)?|appointment[-\s]?(?:booking|scheduling))(?![\p{L}\p{N}_])/iu;
+const BOOKING_APPOINTMENT_ACTION_PATTERN = new RegExp(
+  String.raw`${UNICODE_WORD_START_SOURCE}(?:boka|book|schedule)\s+${BOOKING_APPOINTMENT_OBJECT_SOURCE}${UNICODE_WORD_END_SOURCE}`,
+  "iu",
+);
 
 export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
   {
@@ -223,6 +254,50 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     capability: "contact-form",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:kontaktform(?:ulär)?|contact[-\s]?form|kontaktsida\s+med\s+formulär|skicka\s+e-?post|skicka\s+mail|email[-\s]?form|resend)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
+    // Hosted APPOINTMENT scheduling (calcom-booking), not generic reservation
+    // inventory for restaurant tables, hotel rooms, tickets or equipment.
+    capability: "booking",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:cal\.com|calcom)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:bokningssystem(?:et)?|bokningskalender(?:n)?|online[-\s]?bokning|online[-\s]?booking|booking[-\s]?(?:calendar|system))(?![\p{L}\p{N}_])/iu,
+      BOOKING_APPOINTMENT_NOUN_PATTERN,
+      // Match the appointment action wherever it appears in a sentence, so
+      // subjects, modals and possessive objects work too.
+      BOOKING_APPOINTMENT_ACTION_PATTERN,
+    ],
+    vetoes: [
+      // Booking noun followed by its inventory resource.
+      new RegExp(
+        String.raw`${UNICODE_WORD_START_SOURCE}(?:(?:bokningssystem(?:et)?|bokningskalender(?:n)?|tidsbokning(?:en)?|online[-\s]?bokning|bokning)\s+(?:för|av|till)\s+(?:(?:vår|våra|er|era|vårt|ert|sin|sina|ett|en)\s+)?|(?:cal\.com[-\s]?(?:booking|scheduling)|appointment[-\s]?(?:booking|scheduling)|booking[-\s]?(?:calendar|system)|online[-\s]?booking)\s+(?:for|of)\s+(?:(?:a|an|the|our|your|their)\s+)?)${BOOKING_INVENTORY_RESOURCE_SOURCE}${UNICODE_WORD_END_SOURCE}(?![-\s]+(?:staff|team|personnel)[-\s]+(?:meetings?|appointments?|consultations?))`,
+        "iu",
+      ),
+      // Inventory-first English order and Swedish compounds. The resource
+      // directly modifies the booking noun, so a later appointment location
+      // ("appointments in a hotel room") cannot trigger this veto.
+      new RegExp(
+        String.raw`${UNICODE_WORD_START_SOURCE}${BOOKING_INVENTORY_RESOURCE_SOURCE}[-\s]*(?:bokning(?:en)?|bokningssystem(?:et)?|bokningskalender(?:n)?|booking(?:[-\s]+(?:calendar|system))?)${UNICODE_WORD_END_SOURCE}`,
+        "iu",
+      ),
+      // Direct reservation verbs are also unambiguous resource context while
+      // still allowing appointment locations such as "boka tid i ett rum".
+      new RegExp(
+        String.raw`${UNICODE_WORD_START_SOURCE}(?:boka|book)\s+(?:(?:ett|en|a|an|the|våra?|era?|our|your)\s+)?${BOOKING_INVENTORY_RESOURCE_SOURCE}${UNICODE_WORD_END_SOURCE}`,
+        "iu",
+      ),
+      // Bare sport names are inventory intent only in a bounded reservation
+      // relationship. Keeping them out of the shared noun bank avoids
+      // suppressing appointment phrases such as "tennis coaching".
+      new RegExp(
+        String.raw`${UNICODE_WORD_START_SOURCE}(?:(?:(?:bokningssystem(?:et)?|online[-\s]?bokning|bokning)\s+(?:för|av|till)|(?:booking[-\s]?(?:calendar|system)|online[-\s]?booking)\s+(?:for|of))\s+(?:(?:a|an|the|our|your|ett|en|vår|vårt)\s+)?(?:padel|tennis|golf)(?=$|[.,;!?])|(?:padel|tennis|golf)[-\s]+(?:bokning(?:en)?|bokningssystem(?:et)?|booking(?:[-\s]+(?:calendar|system))?)|(?:boka|book)\s+(?:padel|tennis|golf)(?=$|[.,;!?]))`,
+        "iu",
+      ),
+    ],
+    vetoSurvivors: [
+      BOOKING_APPOINTMENT_NOUN_PATTERN,
+      BOOKING_APPOINTMENT_ACTION_PATTERN,
     ],
   },
   {

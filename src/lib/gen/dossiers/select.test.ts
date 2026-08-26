@@ -396,6 +396,17 @@ describe("selectDossiersForRequest — command-palette rename + new soft dossier
     expect(result.selected[0]?.configured).toBe(true);
   });
 
+  it("selects Cal.com for appointment booking", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["booking"],
+      configuredEnvKeys: new Set<string>(),
+    });
+    expect(result.selected).toHaveLength(1);
+    expect(result.selected[0]?.entry.id).toBe("calcom-booking");
+    expect(result.selected[0]?.entry.class).toBe("hard");
+    expect(result.selected[0]?.configured).toBe(false);
+  });
+
   it("selects local-site-search for site-search", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["site-search"],

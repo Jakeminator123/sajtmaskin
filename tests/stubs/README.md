@@ -1,13 +1,13 @@
 # `tests/stubs`
 
-Handskrivna Clerk-falsker för **det här repots** tester och typecheck. Inte en lokal körningsdump, och inte Sajtmaskins produktion.
+Handskrivna providerfalsker för **det här repots** dossier-tester och typecheck. Inte en lokal körningsdump, och inte Sajtmaskins produktion.
 
-`@clerk/nextjs` tillhör den _genererade_ användarsajten (Byggblocket `clerk-auth`). Sajtmaskin själv har inte paketet installerat. Därför aliasar `tsconfig.json` och `vitest.config.ts` importen hit, så dossier-komponenttester kan resolva utan riktig SDK.
+`@clerk/nextjs` och `@calcom/embed-react` tillhör _genererade_ användarsajter (Byggblocken `clerk-auth` respektive `calcom-booking`). Sajtmaskin själv har inte paketen installerade. Därför aliasar `tsconfig.json` och `vitest.config.ts` importerna hit, så dossier-komponenttester kan resolva utan riktiga SDK:er.
 
-| Yta                                   | Vad som körs                                            |
-| ------------------------------------- | ------------------------------------------------------- |
-| Sajtmaskin i prod                     | Inte de här filerna. Ingen Clerk-import i appen.        |
-| Genererad användarsajt med inloggning | Riktiga `@clerk/nextjs` från dossierets `package.json`. |
-| CI / `vitest` / `tsc` i det här repot | Stubbarna, så typecheck inte kräver Clerk-SDK:n.        |
+| Yta                                       | Vad som körs                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------- |
+| Sajtmaskin i prod                         | Inte de här filerna. Inga providerimporter från dessa dossiers i appen. |
+| Genererad användarsajt med valt byggblock | Riktigt providerpaket från dossierets materialiserade `package.json`.    |
+| CI / `vitest` / `tsc` i det här repot     | Stubbarna, så typecheck inte kräver provider-SDK:erna i plattformsappen. |
 
 Warm-cache/pre-VM typecheck aliasar **inte** hit — den droppar oavgörbara modul-fel i stället (`src/lib/gen/preview/generated-only-modules.ts`).

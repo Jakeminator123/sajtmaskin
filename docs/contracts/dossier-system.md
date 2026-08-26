@@ -68,7 +68,7 @@ Aktuell capability→grupp-vy:
 | 1   | `data-content` | Data & innehåll     | `database`, `cms`                                                            |
 | 2   | `auth`         | Inloggning & konton | `auth` (en capability — clerk-auth default, supabase-auth leverantörssyskon) |
 | 3   | `commerce`     | Betalning & handel  | `payments` (`subscriptions` lämnade 2026-08-06 med parkerade paddle-billing) |
-| 4   | `contact`      | Kontakt & utskick   | `contact-form`, `newsletter-subscribe`                                       |
+| 4   | `contact`      | Kontakt & utskick   | `contact-form`, `newsletter-subscribe`, `booking`                            |
 | 5   | `ai`           | AI                  | `ai-chat` (`ai-tool-calling` / `rag-chat` lämnade 2026-08-06 med etapp 4)    |
 | 6   | `search-maps`  | Sök & karta         | `site-search`, `map-display`, `command-palette`                              |
 | 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`                                               |
@@ -173,6 +173,7 @@ Konkreta kombinationer som visar oberoendet:
 | `stripe-checkout`  | Ja       | `visual` | Ja         | Serverfil (`/api/checkout-session`) — inte nyckeln; `STRIPE_SECRET_KEY` är `feature-runtime` |
 | `clerk-auth`       | Ja       | `visual` | Ja         | Enda kvarvarande `enforcement: "build"` — trasig inloggning är värre än demo-friktion        |
 | `vercel-analytics` | Ja       | `none`   | **Nej**    | Inga egna env-nycklar (`envVars: []`) + bara klientfil; F2-policyn mutar ändå analytics (`F2_MUTE_POLICY_ONLY_CAPABILITIES`) så den inte injiceras i designläget; self-disable utan hosting-token |
+| `calcom-booking`   | Ja       | `visual` | **Nej**    | Publik event-path med `feature-runtime` + bara klientfil; riktig kalender körs direkt medan saknad config ger ärligt demoläge |
 | `embla-carousel`   | Nej      | —        | Nej        | Fristående; npm-paket + lokal komponentfil                                                    |
 
 Följden av detta: **läs aldrig av "Kopplad" som "kräver F3"**, och läs aldrig av

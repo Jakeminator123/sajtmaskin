@@ -11,6 +11,15 @@ import {
 type ContractDocInputs = Awaited<ReturnType<typeof loadContractDocInputs>>;
 type GeneratedDocs = Awaited<ReturnType<typeof buildGeneratedDocs>>;
 
+function canChangeWorkingDirectory(): boolean {
+  try {
+    process.chdir(process.cwd());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 let inputs: ContractDocInputs;
 let baselineDocs: GeneratedDocs;
 
@@ -53,6 +62,16 @@ describe("contract docs source coverage", () => {
     expect(changed.get(GENERATED_DOC_FAMILIES.dossiers.output)).not.toBe(
       baselineDocs.get(GENERATED_DOC_FAMILIES.dossiers.output),
     );
+  });
+
+  it("projects explicit dossier verification status", () => {
+    const generated = baselineDocs.get(GENERATED_DOC_FAMILIES.dossiers.output);
+    const calcomRow = generated
+      ?.split("\n")
+      .find((line: string) => line.includes("| `calcom-booking` "));
+
+    expect(generated).toContain("| Verification status | Last verified |");
+    expect(calcomRow).toMatch(/\|\s*`unverified`\s*\|\s*`2026-08-24`\s*\|/u);
   });
 
   it("changes scaffold output when a scaffold manifest field changes", async () => {
@@ -312,7 +331,9 @@ describe("contract docs source coverage", () => {
     ]);
   });
 
-  it("loads repository-owned inputs independently of the caller cwd", async () => {
+  it.skipIf(!canChangeWorkingDirectory())(
+    "loads repository-owned inputs independently of the caller cwd",
+    async () => {
     const previousCwd = process.cwd();
     process.chdir("scripts/docs");
     try {

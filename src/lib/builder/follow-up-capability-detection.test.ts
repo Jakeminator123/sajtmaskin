@@ -102,6 +102,166 @@ describe("detectFollowUpCapabilities — contact-form", () => {
   });
 });
 
+describe("detectFollowUpCapabilities — booking", () => {
+  it("detects a Cal.com booking-system follow-up", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till ett bokningssystem med Cal.com för konsultationer",
+    );
+    expect(result.capabilityIds).toContain("booking");
+  });
+
+  it("detects appointment scheduling in English", () => {
+    const result = detectFollowUpCapabilities("add appointment scheduling for our services");
+    expect(result.capabilityIds).toContain("booking");
+  });
+
+  it("detects an initial appointment-booking brief without an add verb", () => {
+    const result = detectFollowUpCapabilities(
+      "En frisörsajt där kunder kan boka tid online",
+      { mode: "init" },
+    );
+    expect(result.capabilityIds).toContain("booking");
+  });
+
+  it("detects plural appointment actions and subject/modal forms", () => {
+    for (const prompt of [
+      "customers can schedule appointments online",
+      "customers can book appointments",
+      "kunder kan boka tider",
+      "boka tid",
+      "schedule an appointment",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).toContain("booking");
+    }
+  });
+
+  it("detects possessive appointment objects and Swedish service nouns", () => {
+    for (const prompt of [
+      "customers can schedule their appointments online",
+      "customers can book a consultation online",
+      "customers can book a meeting online",
+      "kunder ska kunna boka sina tider online",
+      "kunder ska kunna boka konsultationer online",
+      "boka en ledig tid",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).toContain("booking");
+      expect(
+        detectFollowUpCapabilities(prompt, { mode: "init" }).capabilityIds,
+      ).toContain("booking");
+    }
+  });
+
+  it("vetoes inventory-first booking phrases", () => {
+    for (const prompt of [
+      "add a hotel booking system",
+      "add a room booking calendar",
+      "table booking for our restaurant",
+      "hotellbokningssystem",
+      "rumsbokning",
+      "boka bord",
+      "lägg till Cal.com-hotellbokningssystem",
+      "lägg till Cal.com för rumsbokning",
+      "lägg till Cal.com så kunder kan boka bord",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("booking");
+    }
+  });
+
+  it("vetoes modified and compound inventory resources", () => {
+    for (const prompt of [
+      "add a booking system for rental cars",
+      "add a booking system for football fields",
+      "add a booking system for event spaces",
+      "lägg till ett bokningssystem för konferensrum",
+      "add appointment scheduling for rental cars",
+      "lägg till ett bokningssystem för padel",
+      "lägg till onlinebokning för golf",
+      "add a booking system for tennis",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("booking");
+    }
+  });
+
+  it("vetoes direct inventory-booking verbs across the shared resource set", () => {
+    for (const prompt of [
+      "lägg till ett bokningssystem för att boka padelbana",
+      "boka tennisbana",
+      "boka golfbana",
+      "boka lokal",
+      "boka bil",
+      "boka utrustning",
+      "book a padel court",
+      "book equipment",
+      // Pair the direct verbs with another positive booking cue so these cases
+      // prove the veto, rather than passing only because no pattern matched.
+      "lägg till Cal.com så kunder kan boka tennisbana",
+      "lägg till Cal.com så kunder kan boka golfbana",
+      "lägg till Cal.com så kunder kan boka lokal",
+      "lägg till Cal.com så kunder kan boka bil",
+      "lägg till Cal.com så kunder kan boka utrustning",
+      "add Cal.com so customers can book a padel court",
+      "add Cal.com so customers can book equipment",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("booking");
+    }
+  });
+
+  it("keeps an independent appointment clause when another clause books inventory", () => {
+    const result = detectFollowUpCapabilities(
+      "add Cal.com appointment scheduling for consultations and let customers book equipment",
+    );
+
+    expect(result.capabilityIds).toContain("booking");
+  });
+
+  it("does not route inventory reservations to Cal.com", () => {
+    for (const prompt of [
+      "lägg till ett bokningssystem för hotellrum",
+      "lägg till onlinebokning för restaurangbord",
+      "lägg till ett bokningssystem för padelbanor",
+      "add a booking system for rental equipment",
+      "lägg till ett bokningssystem för utrustning",
+      "lägg till ett bokningssystem för fordon",
+      "lägg till ett bokningssystem för sportbanor",
+      "lägg till ett bokningssystem för lokaler",
+      "lägg till onlinebokning för bord",
+      "lägg till ett bokningssystem för rum",
+      "lägg till en bokningskalender för rum",
+      "lägg till tidsbokning för bord",
+      "lägg till en bokningskalender för lokaler",
+      "add a booking system for rooms",
+      "add a booking system for tables",
+      "add a booking system for courts",
+      "add a booking system for restaurant tables",
+      "add a booking system for tennis courts",
+      "add a booking system for sports fields",
+      "add a booking system for a restaurant",
+      "add a booking system for our hotel",
+      "add Cal.com booking for hotel rooms",
+      "lägg till ett bokningssystem för en restaurang",
+      "lägg till ett bokningssystem för vårt hotell",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("booking");
+    }
+  });
+
+  it("does not let incidental inventory nouns suppress real appointments", () => {
+    for (const prompt of [
+      "lägg till ett bokningssystem för konsultationer i våra lokaler",
+      "add appointment scheduling for interviews in hotel rooms",
+      "lägg till Cal.com-bokning för restaurangens personalmöten",
+      "lägg till Cal.com-bokning för konsultationer på hotellrum",
+      "lägg till tidsbokning för personalmöten vid restaurangbord",
+      "add online booking for a clinic",
+      "add appointment scheduling for restaurant staff meetings",
+      "add Cal.com booking for consultations in hotel rooms",
+      "boka tid i vårt behandlingsrum",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).toContain("booking");
+    }
+  });
+});
+
 describe("detectFollowUpCapabilities — payments", () => {
   it("detects 'stripe checkout'", () => {
     const result = detectFollowUpCapabilities("lägg till stripe-checkout på prissidan");

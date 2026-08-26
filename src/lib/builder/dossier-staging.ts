@@ -105,12 +105,13 @@ const CMS_CONTENT = {
 const NONE = { kind: "none" } as const satisfies DossierStagingSpec;
 
 /**
- * Owner-classified staging for the current 18 runtime dossiers.
+ * Owner-classified staging for every current runtime dossier.
  * New ids are intentionally absent — {@link getDossierStagingSpec} falls
  * back to confirm-only so a missing row never blocks the catalog.
  */
 const STAGING_BY_ID: Record<string, DossierStagingSpec> = {
   "openai-chat": CHAT_PLACEMENT,
+  "calcom-booking": GENERIC_PLACEMENT,
   "clerk-auth": AUTH_PLACEMENT,
   "supabase-auth": AUTH_PLACEMENT,
   "resend-contact-form": CONTACT_PLACEMENT,

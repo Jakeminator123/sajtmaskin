@@ -26,7 +26,11 @@
  * scene file) is Plan 07 territory.
  */
 
-import { CAPABILITY_VOCABULARY } from "./follow-up-capability-vocabulary";
+import {
+  BOOKING_APPOINTMENT_OBJECT_SOURCE,
+  CAPABILITY_VOCABULARY,
+  type CapabilityVocabularyEntry,
+} from "./follow-up-capability-vocabulary";
 import { isCapabilityNegated, isTermFullyNegated } from "./prompt-negation";
 
 export type CapabilitySpecificityTier = "generic" | "specific" | "beyond-dossier";
@@ -126,6 +130,14 @@ const STRONG_ADD_VERB_PATTERNS: RegExp[] = [
   // till / sätta in / koppla …". Rena önskeformer ligger i WEAK nedan.
   /(?<![\p{L}\p{N}_])skulle\s+vilja\s+(?:lägga\s+till|sätta\s+in|koppla|bygga|skapa|aktivera|integrera)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:add|insert|include|build|create|implement|set\s+up|wire\s+up|hook\s+up|enable|integrate)(?![\p{L}\p{N}_])/iu,
+  // Appointment actions express the addition themselves. Keep this phrase-
+  // specific so a subject/modal sentence over the short-prompt budget
+  // ("customers can schedule appointments online") opens the gate without
+  // turning bare inventory or location nouns into global add signals.
+  new RegExp(
+    String.raw`(?<![\p{L}\p{N}_])(?:boka|book|schedule)\s+${BOOKING_APPOINTMENT_OBJECT_SOURCE}(?![\p{L}\p{N}_])`,
+    "iu",
+  ),
 ];
 
 /**
@@ -296,6 +308,36 @@ function findMatches(message: string, patterns: RegExp[]): string[] {
   return matched;
 }
 
+const INDEPENDENT_CLAUSE_SEPARATOR =
+  /(?<![\p{L}\p{N}_])(?:and|och)(?![\p{L}\p{N}_])|[.;!?]+/giu;
+
+function hasNonNegatedPatternMatch(message: string, patterns: RegExp[]): boolean {
+  return patterns.some((re) => re.test(message) && !isTermFullyNegated(message, re));
+}
+
+/**
+ * A veto suppresses the positive ask in its own clause, not an independent
+ * appointment ask elsewhere in the prompt. Survivors are intentionally
+ * capability-owned and appointment-specific; a provider name or generic
+ * booking noun alone never overrides an inventory veto.
+ */
+function hasIndependentVetoSurvivor(
+  message: string,
+  entry: CapabilityVocabularyEntry,
+): boolean {
+  if (!entry.vetoes || !entry.vetoSurvivors) return false;
+
+  return message
+    .split(INDEPENDENT_CLAUSE_SEPARATOR)
+    .map((clause) => clause.trim())
+    .filter(Boolean)
+    .some(
+      (clause) =>
+        hasNonNegatedPatternMatch(clause, entry.vetoSurvivors ?? []) &&
+        !hasNonNegatedPatternMatch(clause, entry.vetoes ?? []),
+    );
+}
+
 function resolveTier(params: {
   capability: string;
   message: string;
@@ -387,17 +429,14 @@ export function detectFollowUpCapabilities(
     // den NEGERADE providern — kräv minst ett mönster med en förekomst
     // utanför negationsfönstren. "använd mongodb, inte postgres" överlever
     // (mongodb-förekomsten är icke-negerad i samma mönster).
-    const hasPositiveMatch = entry.patterns.some(
-      (re) => re.test(trimmed) && !isTermFullyNegated(trimmed, re),
-    );
+    const hasPositiveMatch = hasNonNegatedPatternMatch(trimmed, entry.patterns);
     if (!hasPositiveMatch) continue;
     // Provider-negation, veton (Codex P2 på #445): en NEGERAD konkurrent får
     // inte tysta capabilityn — "lägg till postgres, inte prisma" är en
     // explicit positiv postgres-ask, inte ett Prisma-val.
-    if (
-      entry.vetoes &&
-      entry.vetoes.some((re) => re.test(trimmed) && !isTermFullyNegated(trimmed, re))
-    ) {
+    const hasActiveVeto =
+      entry.vetoes && hasNonNegatedPatternMatch(trimmed, entry.vetoes);
+    if (hasActiveVeto && !hasIndependentVetoSurvivor(trimmed, entry)) {
       continue;
     }
     const tier = resolveTier({

@@ -69,6 +69,14 @@ export function MapDisplay({
           init.center ??
           (init.markers[0] ? [init.markers[0].lng, init.markers[0].lat] : [18.0686, 59.3293]);
 
+        // MapLibre v6's ESM worker is not emitted correctly by either Next.js
+        // bundler. The exact installed npm version is immutable on jsDelivr,
+        // and its sibling shared module resolves beside it there. This needs
+        // `worker-src blob:` when the generated site sets a strict CSP.
+        maplibregl.setWorkerUrl(
+          `https://cdn.jsdelivr.net/npm/maplibre-gl@${maplibregl.getVersion()}/dist/maplibre-gl-worker.mjs`,
+        );
+
         const mapInstance = new maplibregl.Map({
           container: el,
           // OpenFreeMap: key-free, account-free vector tiles.
