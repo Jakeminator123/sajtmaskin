@@ -18,7 +18,7 @@ agentkörning får den korta startkontexten och hämtar detaljer först vid beho
 - Sajtmaskins produktmodeller, runtime och `backoffice/` ändras inte av
   kontextreglerna. Backoffice förblir sökbart så att följdändringar upptäcks.
 
-Sol är kvalitetsstandard för utvecklingsagenter; Luna är bara för mekanisk
+Sol-körningar använder Grok 4.6 Extra High Fast; Luna är bara för mekanisk
 read-only-sökning och Terra ett uttryckligt lågriskval. Godnatt behåller sina
 separata profiler. Detta styr subagenter, inte Cursors modellväljare eller
 produktens sajtrouting.
