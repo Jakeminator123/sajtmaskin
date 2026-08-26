@@ -74,6 +74,7 @@ class BaselineResetTests(unittest.TestCase):
         poisoned = {key: parent_git for key in baseline_lib._GIT_LOCAL_ENV_VARS}
         poisoned.update(
             {
+                "GIT_NAMESPACE": "poisoned-baseline-namespace",
                 "GIT_CONFIG_COUNT": "2",
                 "GIT_CONFIG_KEY_0": "safe.directory",
                 "GIT_CONFIG_VALUE_0": str(Path(__file__).resolve().parents[1]),
@@ -95,6 +96,7 @@ class BaselineResetTests(unittest.TestCase):
             code, output = sl._run_git(self.ctx, ["config", "--get-all", "safe.directory"])
             self.assertEqual(code, 0, output)
             self.assertEqual(Path(output.splitlines()[-1]).resolve(), self.repo.resolve())
+            self.assertNotIn("GIT_NAMESPACE", baseline_lib._isolated_git_env(self.repo))
 
     def test_git_isolation_list_matches_supported_git(self) -> None:
         result = subprocess.run(

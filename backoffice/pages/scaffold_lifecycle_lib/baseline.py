@@ -28,12 +28,13 @@ _GIT_LOCAL_ENV_VARS = (
     "GIT_SHALLOW_FILE",
     "GIT_COMMON_DIR",
 )
+_GIT_EXTRA_ISOLATION_VARS = ("GIT_NAMESPACE",)
 
 
 def _isolated_git_env(repo_root) -> dict[str, str]:
     """Drop inherited repo identity and re-add this root as safe.directory."""
     env = os.environ.copy()
-    for key in _GIT_LOCAL_ENV_VARS:
+    for key in (*_GIT_LOCAL_ENV_VARS, *_GIT_EXTRA_ISOLATION_VARS):
         env.pop(key, None)
     for key in tuple(env):
         if key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")):
