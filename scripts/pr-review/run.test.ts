@@ -5,8 +5,6 @@ import {
   isOpenAIAccountFallbackError,
   requestAccountFallback,
 } from "./run.mjs";
-import { parseAccountFallbackRequest } from "./account-fallback.mjs";
-
 describe("OpenAI PR reviewer model policy", () => {
   it("reads canonical manifest models and keeps follow-up output finding-specific", async () => {
     const manifest = JSON.parse(readFileSync("config/ai_models/manifest.json", "utf8"));
@@ -79,7 +77,7 @@ describe("OpenAI account fallback", () => {
     expect(isOpenAIAccountFallbackError(error)).toBe(false);
   });
 
-  it("publishes one idempotent fallback request for the current head", async () => {
+  it("does not post a Codex account handoff when billing or quota fails", async () => {
     const headSha = "a".repeat(40);
     const comments: Array<{ body: string; author: string }> = [];
     const github = {
@@ -87,7 +85,7 @@ describe("OpenAI account fallback", () => {
         return { headSha, baseRef: "master", mergedAt: null };
       },
       async listIssueComments() {
-        return comments.map((comment, index) => ({ id: index + 1, ...comment }));
+        return comments;
       },
       async createIssueComment(_number: number, body: string) {
         comments.push({ body, author: "github-actions[bot]" });
@@ -95,42 +93,12 @@ describe("OpenAI account fallback", () => {
       },
     };
 
-    await requestAccountFallback({ github, prNumber: 17, reason: "openai_quota" });
-    await requestAccountFallback({ github, prNumber: 17, reason: "openai_quota" });
+    const first = await requestAccountFallback({ github, prNumber: 17, reason: "openai_quota" });
+    const second = await requestAccountFallback({ github, prNumber: 17, reason: "openai_quota" });
 
-    expect(comments).toHaveLength(1);
-    expect(parseAccountFallbackRequest(comments[0].body)).toEqual({
-      headSha,
-      reason: "openai_quota",
-    });
-  });
-
-  it("does not let another actor suppress the official fallback request", async () => {
-    const headSha = "a".repeat(40);
-    const comments = [
-      {
-        body: `<!-- sajtmaskin-pr-review-fallback:v2 head=${headSha} reason=openai_quota -->`,
-        author: "external-user",
-      },
-    ];
-    await requestAccountFallback({
-      github: {
-        async getPullRequest() {
-          return { headSha, baseRef: "master", mergedAt: null };
-        },
-        async listIssueComments() {
-          return comments;
-        },
-        async createIssueComment(_number: number, body: string) {
-          comments.push({ body, author: "github-actions[bot]" });
-        },
-      },
-      prNumber: 17,
-      reason: "openai_quota",
-    });
-
-    expect(comments).toHaveLength(2);
-    expect(comments[1].author).toBe("github-actions[bot]");
+    expect(first).toMatchObject({ kind: "skip", reason: "openai_quota", writes: 0 });
+    expect(second).toMatchObject({ kind: "skip", reason: "openai_quota", writes: 0 });
+    expect(comments).toHaveLength(0);
   });
 
   it.each([

@@ -71,11 +71,14 @@ describe("PR AI review workflow security contract", () => {
     expect(automationSource).toContain("snapshot?.headSha === review.commitId");
   });
 
-  it("hands billing failures to a neutral, SHA-bound account review without masking other errors", () => {
+  it("keeps billing failures neutral without posting a Codex account handoff", () => {
     expect(reviewerSource).toContain("isOpenAIAccountFallbackError");
     expect(reviewerSource).toContain('reason: "openai_key_missing"');
     expect(reviewerSource).toContain('reason: "openai_quota"');
+    expect(reviewerSource).not.toContain("renderAccountFallbackRequest");
+    expect(reviewerSource).toContain('kind: "skip"');
     expect(receiptSource).toContain('conclusion: "neutral"');
+    expect(receiptSource).toContain("No account handoff is posted");
     expect(gateSource).toContain("validateAccountPrReviewEvidence");
     expect(gateSource).toContain("review.author_association");
     expect(gateSource).toContain("review.commit_id");

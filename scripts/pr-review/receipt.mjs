@@ -93,10 +93,13 @@ export function decideTrustedReceipt({ runResult, currentHeadSha }) {
   }
   if (runResult.outcome !== "qualified") {
     if (
-      runResult.automationKind === "account-fallback" &&
+      ["account-fallback", "skip"].includes(runResult.automationKind) &&
       ["openai_key_missing", "openai_quota"].includes(runResult.reason)
     ) {
-      if (runResult.handoffHeadSha !== currentHeadSha) {
+      if (
+        SHA_RE.test(String(runResult.handoffHeadSha ?? "")) &&
+        runResult.handoffHeadSha !== currentHeadSha
+      ) {
         return {
           conclusion: "action_required",
           title: "PR review handoff is stale",
@@ -105,8 +108,8 @@ export function decideTrustedReceipt({ runResult, currentHeadSha }) {
       }
       return {
         conclusion: "neutral",
-        title: "PR review handed off to the Codex account",
-        summary: `The Platform API could not review current head ${currentHeadSha}; a separate account-backed review is required.`,
+        title: "PR AI review skipped",
+        summary: `The Platform API could not review current head ${currentHeadSha} (${runResult.reason}). No account handoff is posted.`,
       };
     }
     return {

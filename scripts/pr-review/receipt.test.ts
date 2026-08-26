@@ -99,6 +99,17 @@ describe("trusted PR review receipt", () => {
     });
   });
 
+  it("marks a quota skip as neutral without a Codex handoff title", () => {
+    const runResult = createReviewRunResult({
+      kind: "skip",
+      reason: "openai_quota",
+    });
+    expect(decideTrustedReceipt({ runResult, currentHeadSha: head1 })).toMatchObject({
+      conclusion: "neutral",
+      title: "PR AI review skipped",
+    });
+  });
+
   it("marks an explicit account handoff neutral instead of red or green", () => {
     const runResult = createReviewRunResult({
       kind: "account-fallback",
@@ -108,7 +119,7 @@ describe("trusted PR review receipt", () => {
     expect(runResult).toMatchObject({ handoffHeadSha: head1 });
     expect(decideTrustedReceipt({ runResult, currentHeadSha: head1 })).toMatchObject({
       conclusion: "neutral",
-      title: "PR review handed off to the Codex account",
+      title: "PR AI review skipped",
     });
     expect(buildCheckRunPayload({ runResult, currentHeadSha: head1, prNumber: 88 })).toMatchObject({
       name: "trusted-pr-ai-review",
