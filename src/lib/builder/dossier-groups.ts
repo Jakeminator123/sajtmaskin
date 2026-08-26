@@ -73,6 +73,9 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   payments: "commerce",
   "contact-form": "contact",
   "newsletter-subscribe": "contact",
+  // Hosted appointment scheduling (calcom-booking). Table/room inventory is
+  // deliberately outside this capability.
+  booking: "contact",
   // ai-tool-calling / rag-chat left the map 2026-08-06 with their parked
   // dossiers (etapp 4) — AI group is openai-chat / `ai-chat` only.
   "ai-chat": "ai",

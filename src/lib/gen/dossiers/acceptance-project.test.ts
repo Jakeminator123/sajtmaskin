@@ -90,4 +90,16 @@ describe("keyless dossier acceptance project", () => {
     }
     expect(generated.dependencies?.ai).not.toMatch(/^\^?7(?:\.|$)/);
   });
+
+  it("keeps the MapLibre v6 worker URL before map construction", () => {
+    const project = buildDossierAcceptanceProject("maplibre-map");
+    const mapDisplay = project.files.find((file) => file.path === "components/map-display.tsx");
+    expect(mapDisplay).toBeDefined();
+
+    const workerSetup = mapDisplay!.content.indexOf("maplibregl.setWorkerUrl(");
+    const mapConstruction = mapDisplay!.content.indexOf("new maplibregl.Map(");
+    expect(workerSetup).toBeGreaterThan(-1);
+    expect(mapConstruction).toBeGreaterThan(workerSetup);
+    expect(mapDisplay!.content).toContain("maplibre-gl-worker.mjs");
+  });
 });

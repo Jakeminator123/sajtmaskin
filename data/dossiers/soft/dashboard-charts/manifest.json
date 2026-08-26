@@ -48,9 +48,8 @@
       "import": "@/lib/visactor-specs"
     }
   ],
-  "lastVerified": "2026-04-18",
-  "verificationStatus": "unverified",
+  "lastVerified": "2026-08-24",
+  "verificationStatus": "accepted",
   "sourceRepoUrl": "https://github.com/mengxi-ream/visactor-next-template",
-  "notes": "Soft, self-contained chart module. Dropped app/layout guidance, the brand icon (missing @/types/types) and the generic container to keep it narrow. 2026-07-26: dropped components/lib/utils.ts — it mapped to the scaffold-baseline lib/utils.ts, so the dossier reported itself as built in every site; cn comes from the baseline. lastVerified carries the legacy source's date until a preview/generate-test selects this dossier (Codex P1 on PR #422: no false-green for an unpreviewed dependency path).",
   "promptInstructionMode": "selected-sections"
 }

@@ -32,7 +32,7 @@ smygimplementera D2–D4, ändra schemafält eller radera aktiv kompatibilitetsl
 
 ## Varför det spelar roll i runtime
 
-Sju av nio hard-dossiers kör `promptInstructionMode: "compact"`. I det läget är
+Sju aktiva hard-dossiers kör `promptInstructionMode: "compact"`. I det läget är
 manifestets `summary`, `envVars[].purpose`, `dependencies` och `exposes` **det
 enda** som når byggmodellen — `instructions.md` läses inte. Ett manifest som
 överdriver är därför en instruktionsbugg, inte slarvig text. Det är premissen
@@ -40,7 +40,7 @@ hela spåret vilar på.
 
 | Dossier | `promptInstructionMode` |
 |---|---|
-| `postgres-drizzle` | `selected-sections` |
+| `postgres-drizzle`, `calcom-booking` | `selected-sections` |
 | `supabase-auth` | `selected-sections` |
 | `clerk-auth`, `mailchimp-newsletter`, `openai-chat`, `resend-contact-form`, `sanity-cms`, `stripe-checkout`, `vercel-analytics` | `compact` |
 
@@ -51,7 +51,7 @@ hela spåret vilar på.
 | D1 | Laga datat i kopplade dossiers | **Klar.** #1045 |
 | [D2](aktiviteter/D2-configinputs-providersetup.md) | `configInputs` + `providerSetup` i schemat | Inte startad. Kvalitetssteg; klar för cloud |
 | [D3](aktiviteter/D3-harddossierintegration.md) | Slå ihop promptblocken till `HardDossierIntegration` | Inte startad. **Beror på D2** |
-| [D4](aktiviteter/D4-selected-sections-alla-hard.md) | `selected-sections` för alla nio hard | Inte startad. **Beror på D3**; läs 480-beslutet först |
+| [D4](aktiviteter/D4-selected-sections-alla-hard.md) | `selected-sections` för alla aktiva hard | Inte startad. **Beror på D3**; läs 480-beslutet först |
 | [D5](aktiviteter/D5-backoffice-fri-add-remove.md) | Fri add/remove i Backoffice | **Väntar ägarbeslut.** Bygg inte |
 | — | Ta bort knappen «Bygg integrationer» | **Avgjord mot.** Se nedan |
 
@@ -80,7 +80,7 @@ soft-dossiers är oförändrade.
 
 ### D4 — `selected-sections` för alla hard
 
-D4 sätter alla nio hard-dossiers till `selected-sections` och säkerställer att
+D4 sätter alla aktiva hard-dossiers till `selected-sections` och säkerställer att
 varje `instructions.md` har extraherbara H1-rubriker:
 
 ```text
@@ -110,7 +110,7 @@ P2). Att ta bort taket «så att mer text når modellen» återinför starvation
 Om 480 är rätt siffra är en öppen avvägning som hör i
 [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md), inte en uppgift här.
 Notera att flera **soft**-dossiers också kör `selected-sections` och träffar
-samma tak, så en ändring av siffran har bredare yta än de nio hard.
+samma tak, så en ändring av siffran har bredare yta än de aktiva hard-dossiererna.
 
 ## Hur spåret körs
 

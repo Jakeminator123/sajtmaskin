@@ -20,7 +20,7 @@ Samla det ett hard-dossier bidrar med till prompten i **en** representation,
 `HardDossierIntegration`, och låt renderaren gå via den.
 
 Det här är en refaktor. Prompten som når modellen ska vara **oförändrad** för de
-nio hard-dossiererna, med undantag för de fält D2 införde. Bevisa det — ett
+aktiva hard-dossiererna, med undantag för de fält D2 införde. Bevisa det — ett
 golden-test eller ett snapshot-test över den renderade prompten per dossier är
 rätt verktyg, och repot har redan mönstret
 (`src/lib/providers/own-engine/generation-stream.golden.test.ts`).
@@ -57,8 +57,8 @@ rätt verktyg, och repot har redan mönstret
 > `src/lib/gen/system-prompt/sections/dossiers.ts` gå via den i stället för via
 > flera separata block.
 >
-> Det är en refaktor: prompten som når modellen ska vara **oförändrad** för de nio
-> hard-dossiererna frånsett de fält D2 införde. Skriv ett test som bevisar det —
+> Det är en refaktor: prompten som når modellen ska vara **oförändrad** för alla
+> aktiva hard-dossiers frånsett de fält D2 införde. Skriv ett test som bevisar det —
 > repot har golden-test-mönstret i
 > `src/lib/providers/own-engine/generation-stream.golden.test.ts`.
 >

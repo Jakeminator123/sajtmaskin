@@ -11,10 +11,42 @@ const GENERATOR_PATH = "scripts/docs/generate-contract-docs.mjs";
 
 let runtimeBindingsPromise;
 
+function isSameResolvedPath(left, right) {
+  return resolve(left).toLowerCase() === resolve(right).toLowerCase();
+}
+
+/**
+ * Registry modules resolve `data/dossiers` from `process.cwd()`. Import them
+ * from the repo root when we can. Linked worktrees force Vitest onto a thread
+ * pool, where `process.chdir` throws even if the target is already cwd.
+ */
+function restoreAfterRepoRootImport() {
+  const previousCwd = process.cwd();
+  if (isSameResolvedPath(previousCwd, REPO_ROOT)) {
+    return () => {};
+  }
+  try {
+    process.chdir(REPO_ROOT);
+  } catch (error) {
+    if (error && error.code === "ERR_WORKER_UNSUPPORTED_OPERATION") {
+      return () => {};
+    }
+    throw error;
+  }
+  return () => {
+    try {
+      process.chdir(previousCwd);
+    } catch (error) {
+      if (error && error.code !== "ERR_WORKER_UNSUPPORTED_OPERATION") {
+        throw error;
+      }
+    }
+  };
+}
+
 async function loadRuntimeBindings() {
   if (!runtimeBindingsPromise) {
-    const previousCwd = process.cwd();
-    process.chdir(REPO_ROOT);
+    const restoreCwd = restoreAfterRepoRootImport();
     runtimeBindingsPromise = Promise.all([
       import("../../src/lib/gen/dossiers/registry.ts"),
       import("../../src/lib/gen/dossiers/types.ts"),
@@ -55,7 +87,7 @@ async function loadRuntimeBindings() {
     try {
       return await runtimeBindingsPromise;
     } finally {
-      process.chdir(previousCwd);
+      restoreCwd();
     }
   }
   return runtimeBindingsPromise;
@@ -416,7 +448,9 @@ function renderDossiers(dossiers, dossierRequiresF3, resolveDossierGroup, f2Mute
           dossierRequiresF3(dossier),
         )} | ${yesNo(dossier.defaultForCapability)} | ${renderEnvVars(dossier)} | ${list(
           dossier.dependencies ?? [],
-        )} | ${renderFileRoles(dossier)} | ${code(dossier.lastVerified)} |`,
+        )} | ${renderFileRoles(dossier)} | ${code(
+          dossier.verificationStatus ?? "accepted",
+        )} | ${code(dossier.lastVerified)} |`,
     );
 
   return [
@@ -439,8 +473,8 @@ function renderDossiers(dossiers, dossierRequiresF3, resolveDossierGroup, f2Mute
     "Env values and instruction text are intentionally excluded. Manifest mock mode describes behavior after dossier materialization without live configuration; it does not mean the dossier is injected during normal designläge.",
     "Canonical owners: dossier manifests; designläge disposition in `getF2MutedIntegrationCapabilities()`; build/server requirement in `dossierRequiresF3()`; presentation group in `resolveDossierGroup()`. Validator/schema mirror: runtime manifest validation and the strict dossier schema.",
     "",
-    "| Group | Capability | ID | Label | Class | Providers | Designläge | Manifest mock | Build/server requirement | Default | Env contract | Dependencies | File roles | Last verified |",
-    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+    "| Group | Capability | ID | Label | Class | Providers | Designläge | Manifest mock | Build/server requirement | Default | Env contract | Dependencies | File roles | Verification status | Last verified |",
+    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ...rows,
     "",
   ].join("\n");
