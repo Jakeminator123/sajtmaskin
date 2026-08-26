@@ -1,5 +1,5 @@
 ---
-description: "Läs före varje subagent/Task: Sol är kvalitetsstandard; Luna bara för mekaniska read-only-scans och Terra för uttryckligt låg risk."
+description: "Läs före varje subagent/Task: Sol-körningar använder Grok 4.6 Extra High Fast; Luna bara för mekaniska read-only-scans och Terra för uttryckligt låg risk."
 alwaysApply: false
 ---
 
@@ -7,15 +7,19 @@ alwaysApply: false
 
 Använd den aktuella sessionens modellista och skicka alltid ett explicit
 `model`-värde. Kopiera inte en gammal Cursor-prefixad slug och låt inte en
-ogiltig slug tyst ärva den dyra parentmodellen.
+ogiltig slug tyst ärva parentmodellen.
 
 | Roll | Default | Använd för |
 |---|---|---|
-| `<sol>` | GPT-5.6 Sol | standard för implementation, orkestrering, omdöme, kodreview, Bugbot och PR-arbete |
+| `<sol>` | Grok 4.6 Extra High Fast (`cursor-grok-4.6-xhigh-fast`) | standard för implementation, orkestrering, omdöme, kodreview, Bugbot och PR-arbete |
 | `<luna>` | GPT-5.6 Luna | mekanisk sök, indexering, bevakning och stora verifierbara read-only-svärmar |
 | `<terra>` | GPT-5.6 Terra | uttryckligt avgränsad lågriskimplementation med deterministiskt facit |
 
-Sol är normalstandard eftersom repot och PR:erna är stora och tvärgående.
+Sol-rollen är kvar som kvalitetsstandard, men Sol-körningar i Cursor Task
+ska använda `cursor-grok-4.6-xhigh-fast`. Använd inte `gpt-5.6-sol-xhigh` —
+den sluggen finns inte i den här sessionens lista. Produktens sajtmodeller
+(Premium/`gpt-5.6-sol`) påverkas inte.
+
 Använd `high` reasoning för normalt arbete; Godnatt följer sina explicita
 profiler. Använd annars `xhigh` för protected paths, P0/security/cross-tenant,
 irreversibel data-/migrationsrisk eller motsägande reviewbevis. Luna får bara
@@ -23,7 +27,8 @@ väljas när arbetet är mekaniskt,
 read-only och lätt att verifiera. Terra är ett medvetet låg-riskval, inte en
 tyst kostnadsfallback.
 
-Användarens uttryckliga modellval vinner. Saknas Sol i sessionens lista: stoppa
-och säg till eller välj en uttryckligen godkänd fallback; låt inte en ogiltig
-slug tyst ärva parentmodellen. Begränsa antal agenter och deras svarslängd för
-tokenhygien, inte kvaliteten på huvudbedömningen.
+Användarens uttryckliga modellval vinner. Saknas `cursor-grok-4.6-xhigh-fast`
+i sessionens lista: stoppa och säg till eller välj en uttryckligen godkänd
+fallback; låt inte en ogiltig slug tyst ärva parentmodellen. Begränsa antal
+agenter och deras svarslängd för tokenhygien, inte kvaliteten på
+huvudbedömningen.
