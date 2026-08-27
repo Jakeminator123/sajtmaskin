@@ -4,21 +4,50 @@ Den här katalogen är projektets Codex-lager. Cursor-reglerna ligger kvar i
 `.cursor/`, medan Codex automatiskt läser `AGENTS.md` från repo-roten och den
 här `.codex/config.toml` när projektet är trusted.
 
+Projektets Codex-default är GPT-5.6 Sol med `high` reasoning för huvudtråd och
+spawnade agenter. En explicit agentprofil vinner; Godnatt behåller Sol `xhigh`
+för investigator/reviewer och Sol `high` för worker.
+
+## Behörighet
+
+- Det här trusted personliga projektet använder avsiktligt
+  `approval_policy = "never"` och `sandbox_mode = "danger-full-access"`.
+- Inställningen gäller när en ny Codex-uppgift startas från projektet. En redan
+  startad uppgift med host-managed sandbox kan fortfarande kräva värdens
+  godkännanden; dess behörighetsprofil kan inte bytas mitt i körningen.
+- Full filsystemsåtkomst breddar inte uppdragets mandat. Branch-, worktree-,
+  verifierings- och destructive-action-reglerna gäller fortfarande.
+- Webbsökning är `live`; autentisering och tokens ligger fortfarande utanför
+  repot.
+
 ## Så här ska projektet öppnas
 
 - Cursor behåller huvudcheckouten
-  `C:\Users\jakem\dev\projects\sajtmaskin` och arbetar normalt på `master`.
-- Primary folder i Codex-projektet `sajtmaskin` är den permanenta worktreen
-  `C:\Users\jakem\Documents\codex-sajtmaskin\sajtmaskin-worktrees\codex`
-  på branchen `codex/workspace`.
-- `codex/workspace` är ett återanvändbart projektankare, inte en tillfällig
-  feature-worktree. `tidy` skyddar namnet; ta inte bort den som `FRI`.
-- Starta nya Codex-chattar från projektet `sajtmaskin`. Parallellt eller
-  långvarigt featurearbete: egen Codex-worktree per chatt, bas
-  `origin/master` — inte Cursor-checkouten och inte den permanenta
-  Codex-ytan.
-- Efter mergad PR: samma permanenta checkout får återanvändas, men nästa
-  arbete ligger på en ny branch från färsk `origin/master`.
+  `C:\Users\jakob\dev\projects\sajtmaskin` som läs-, test- och kontrollankare
+  på `master`. Normalt skrivarbete sker i uppgiftens egen worktree/branch enligt
+  `pr-workflow`, aldrig direkt i huvudcheckouten.
+- Primary folder i det sparade Codex-projektet `sajtmaskin` är den separata
+  Codex-kopian `C:\Users\jakob\Documents\ChatGPT\sajtmasin` på ankarbranchen
+  `codex/workspace`.
+- `codex/workspace` är ett återanvändbart projektankare, inte en featurebranch.
+  `tidy` skyddar namnet; ta inte bort Codex-kopian som `FRI`.
+- Starta nya Codex-chattar från projektet `sajtmaskin`. Allt skrivarbete sker
+  i en egen Codex-worktree/branch per uppgift, baserad på färsk
+  `origin/master` — inte i Cursor-checkouten eller projektankaret.
+- Efter mergad PR behålls projektankaret på `codex/workspace`; nästa arbete
+  startas från färsk `origin/master`.
+
+## Windows-skal (pwsh 7)
+
+Codex Desktop på Windows startar ofta **Windows PowerShell 5.1** (`powershell.exe`)
+trots att `pwsh` 7 är installerat. 5.1 skriver
+`Copyright (C) Microsoft Corporation` / `aka.ms/pscore6` och förstår inte `&&`.
+
+- Riktig exe: `C:\Program Files\PowerShell\7\pwsh.exe` (MSI/winget, inte Store).
+- User PATH ska ha den mappen **före** `WindowsApps` (0-byte alias).
+- `PWSH` injiceras via `shell_environment_policy.set` i `config.toml`.
+- Kör kommandon som `& $env:PWSH -NoLogo -NoProfile -Command '…'` om skalet är 5.1.
+- `[windows] sandbox = "elevated"` är avsiktligt; aliaset i WindowsApps failar där.
 
 ## Cursor-paritet
 

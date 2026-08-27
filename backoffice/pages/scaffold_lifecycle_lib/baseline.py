@@ -8,6 +8,49 @@ from backoffice.shared import BackofficeContext
 from .constants import BASELINE_TAG, BASELINE_PATHS
 
 
+# Superset of `git rev-parse --local-env-vars` across supported Git versions,
+# plus namespace. Any one may redirect discovery, ref resolution, path handling,
+# or the object graph used by the destructive baseline-reset path.
+_GIT_ENV_VARS_TO_CLEAR = (
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_CONFIG",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_IMPLICIT_WORK_TREE",
+    "GIT_GRAFT_FILE",
+    "GIT_INDEX_FILE",
+    "GIT_NO_REPLACE_OBJECTS",
+    "GIT_REPLACE_REF_BASE",
+    "GIT_PREFIX",
+    "GIT_SHALLOW_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_INTERNAL_SUPER_PREFIX",
+    "GIT_NAMESPACE",
+)
+
+
+def _isolated_git_env(repo_root) -> dict[str, str]:
+    """Drop inherited repo identity and re-add this root as safe.directory."""
+    env = os.environ.copy()
+    for key in _GIT_ENV_VARS_TO_CLEAR:
+        env.pop(key, None)
+    for key in tuple(env):
+        if key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")):
+            env.pop(key, None)
+    env.update(
+        {
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "safe.directory",
+            "GIT_CONFIG_VALUE_0": str(repo_root.resolve()),
+            "PYTHONIOENCODING": "utf-8",
+        }
+    )
+    return env
+
+
 def _facade():
     """Late-bind through the page module so tests can patch ``sl._run_git`` / ``sl.backup_file``."""
     from backoffice.pages import scaffold_lifecycle as page
@@ -21,7 +64,7 @@ def _run_repo_command(ctx: BackofficeContext, command: list[str], *, timeout: in
         command,
         capture_output=True,
         cwd=str(ctx.repo_root),
-        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        env=_isolated_git_env(ctx.repo_root),
         text=True,
         timeout=timeout,
         check=False,
@@ -56,7 +99,7 @@ def _run_git(ctx: BackofficeContext, args: list[str], *, timeout: int = 60) -> t
         ["git", "-c", "core.quotePath=false", *args],
         capture_output=True,
         cwd=str(ctx.repo_root),
-        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        env=_isolated_git_env(ctx.repo_root),
         text=True,
         encoding="utf-8",
         timeout=timeout,
