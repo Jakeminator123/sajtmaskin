@@ -38,7 +38,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 7;
+export const HOOK_VERSION = 12;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -78,6 +78,11 @@ export function renderHookScript(hookName) {
 [ -f scripts/dev/install-git-hooks.mjs ] || exit 0
 
 ZERO_SHA=0000000000000000000000000000000000000000
+# Namespace ingar inte i git rev-parse --local-env-vars och super-prefix finns
+# bara i vissa Git-versioner. Bada kan styra ref- eller pathuppslag. Hooken ska
+# verifiera den utcheckade arbetskopian och rensar dem fore forsta git-anropet.
+unset GIT_NAMESPACE GIT_INTERNAL_SUPER_PREFIX
+
 CHECKOUT_SHA=$(git rev-parse HEAD 2>/dev/null) || {
   echo "[hooks] Push stoppad: kunde inte lasa aktuell HEAD." >&2
   exit 1
@@ -187,6 +192,32 @@ fi
 if [ "\${GITHUB_ACTIONS:-}" = "true" ] || [ "\${CI:-}" = "true" ]; then exit 0; fi
 
 if [ "$SAJTMASKIN_SKIP_VERIFY_HOOKS" = "1" ]; then exit 0; fi
+
+# Git exporterar repository-lokala variabler till hooken. Verifieringen startar
+# tester och verktyg som avsiktligt arbetar i egna temporara repon; de maste fa
+# losa sitt repo fran cwd. Codex kan samtidigt injicera safe.directory via
+# GIT_CONFIG_COUNT, sa efter saneringen byggs exakt arbetsrotens safe-entry ater.
+# Git far sjalv kanonisera sokvagen: Git Bash pwd ger /c/... medan git.exe
+# jamfor safe.directory mot C:/..., och de formerna ar inte alltid likvardiga.
+VERIFY_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo "[hooks] Push stoppad: kunde inte lasa verifieringens arbetsrot." >&2
+  exit 1
+}
+if [ -z "$VERIFY_ROOT" ]; then
+  echo "[hooks] Push stoppad: verifieringens arbetsrot ar tom." >&2
+  exit 1
+fi
+GIT_LOCAL_ENV_VARS=$(git rev-parse --local-env-vars 2>/dev/null) || {
+  echo "[hooks] Push stoppad: kunde inte isolera git-miljon for verifieringen." >&2
+  exit 1
+}
+for GIT_LOCAL_ENV_VAR in $GIT_LOCAL_ENV_VARS; do
+  unset "$GIT_LOCAL_ENV_VAR"
+done
+GIT_CONFIG_COUNT=1
+GIT_CONFIG_KEY_0=safe.directory
+GIT_CONFIG_VALUE_0=$VERIFY_ROOT
+export GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
 
 command -v npm >/dev/null 2>&1 || {
   echo "[hooks] STOPP: npm saknas; kan inte kora npm run verify:pr." >&2
