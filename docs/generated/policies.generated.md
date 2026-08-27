@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:37411e2494bc615f -->
+<!-- source-fingerprint: config/env-policy.json sha256:968f3cfa30cd34b6 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:de9157bb936dbdc1 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:bdabd528d04d5fad -->
 
@@ -114,6 +114,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_DOSSIER_PIPELINE`                        | `environment_specific` | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_F2_PRODUCT_POSTCHECK`                    | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_LIVE_REVIEW`                             | `environment_specific` | `preview`, `production`                | No            | Yes          |
+| `SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT`                  | `environment_specific` | `preview`, `production`                | No            | Yes          |
 | `SAJTMASKIN_LIVE_SITE_DOMAIN`                        | `environment_specific` | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_LLM_FIXER_TIMEOUT_MS`                    | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS`              | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
