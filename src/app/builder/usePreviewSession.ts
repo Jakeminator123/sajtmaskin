@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { fetchPreviewStatus } from "@/lib/builder/preview-session/api";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import {
@@ -109,7 +109,9 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     normalizePreviewUrl(currentPreviewUrl),
   ]);
   const activePreviewIdentityKeyRef = useRef(activePreviewIdentityKey);
-  activePreviewIdentityKeyRef.current = activePreviewIdentityKey;
+  useLayoutEffect(() => {
+    activePreviewIdentityKeyRef.current = activePreviewIdentityKey;
+  }, [activePreviewIdentityKey]);
 
   useEffect(() => {
     previewRecoverAttemptsRef.current = 0;

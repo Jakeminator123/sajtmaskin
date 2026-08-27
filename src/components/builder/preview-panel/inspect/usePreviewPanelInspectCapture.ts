@@ -94,10 +94,8 @@ export function usePreviewPanelInspectCapture(options: {
     previewIdentityKeyRef.current = previewIdentityKey;
     captureRequestTokenRef.current += 1;
     if (inspectPulseTimerRef.current) clearTimeout(inspectPulseTimerRef.current);
-    /* eslint-disable react-hooks/set-state-in-effect -- invalidate pending capture UI with preview identity */
     setIsCapturePending(false);
     setInspectPulse(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [previewIdentityKey]);
 
   useEffect(() => {

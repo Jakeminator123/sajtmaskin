@@ -106,12 +106,10 @@ export function usePreviewPanelInspectMapPlacement(options: {
   useEffect(() => {
     previewIdentityKeyRef.current = previewIdentityKey;
     inspectFetchTokenRef.current += 1;
-    /* eslint-disable react-hooks/set-state-in-effect -- invalidate map state synchronously with preview identity */
     setElementMap([]);
     setElementMapLoading(false);
     setHoveredMapElement(null);
     setHoveredPlacement(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [previewIdentityKey]);
   /** Spegel av elementMap.length för rena timeout-beslut (inga setState i updaters). */
   const elementMapLengthRef = useRef(0);
