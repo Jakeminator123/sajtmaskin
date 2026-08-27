@@ -152,6 +152,7 @@ function deriveQualityGatePassPct(stats) {
     const reported = resolveReportedQualityGateResult(
       raw === "(null)" || raw === "" ? null : String(raw),
       row.product_blocked === true,
+      row.product_degraded === true,
     );
     if (isQualityGatePassResult(reported)) {
       pass += n;

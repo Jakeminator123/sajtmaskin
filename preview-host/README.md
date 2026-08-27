@@ -78,10 +78,13 @@ verktyg och ska skyddas av samma hostnyckel i icke-lokal miljö.
 ## Deployordning
 
 1. Kör hostens fyra verifieringskommandon.
-2. Deploya preview-hosten och verifiera health/status.
-3. Verifiera API-key och persistent volume.
-4. Deploya huvudappen.
-5. Aktivera eventuella nya hostfunktioner först när båda sidor stödjer samma
+2. För lifecycle-tokenändringar: deploya huvudappen först. Appen accepterar
+   tokenlösa svar från en äldre host och skickar token bara när den finns.
+3. Deploya därefter preview-hosten och verifiera health/status, API-key och
+   persistent volume. Nya hostsessioner får en token; update, patch, hibernate
+   och destroy kräver då exakt samma token. Redan lagrade tokenlösa sessioner
+   fortsätter fungera under övergången.
+4. Aktivera eventuella andra hostfunktioner först när båda sidor stödjer samma
    kontrakt.
 
 Hemligheter och miljöklassificering dokumenteras i

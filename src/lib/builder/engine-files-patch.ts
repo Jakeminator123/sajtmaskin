@@ -27,6 +27,7 @@ export type QuickEditClientResult =
       changedFiles: string[];
       previewUrl: string | null;
       previewSessionId: string | null;
+      lifecycleToken: string | null;
       previewMode: string | null;
     }
   | { ok: false; error: string; reason?: string };
@@ -71,6 +72,7 @@ export async function quickEditChatFiles(params: {
           changedFiles?: string[];
           previewUrl?: string | null;
           previewSessionId?: string | null;
+          lifecycleToken?: string | null;
           previewMode?: string | null;
           error?: string;
           reason?: string;
@@ -89,6 +91,7 @@ export async function quickEditChatFiles(params: {
       changedFiles: Array.isArray(data.changedFiles) ? data.changedFiles : [],
       previewUrl: data.previewUrl ?? null,
       previewSessionId: data.previewSessionId ?? null,
+      lifecycleToken: data.lifecycleToken ?? null,
       previewMode: data.previewMode ?? null,
     };
   } catch (e) {
@@ -106,6 +109,7 @@ export type PatchEngineChatFileResult =
       versionId?: string;
       previewUrl?: string | null;
       previewSessionId?: string | null;
+      lifecycleToken?: string | null;
       previewMode?: string | null;
     }
   | { ok: false; error: string };
@@ -195,6 +199,7 @@ export async function patchEngineChatFile(params: {
         versionId: result.versionId,
         previewUrl: result.previewUrl,
         previewSessionId: result.previewSessionId,
+        lifecycleToken: result.lifecycleToken,
         previewMode: result.previewMode,
       };
     }

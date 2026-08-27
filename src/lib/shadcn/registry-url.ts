@@ -7,9 +7,10 @@ const DEFAULT_REGISTRY_BASE_URL = "https://ui.shadcn.com";
 /**
  * Canonical registry style for ui.shadcn.com.
  *
- * `new-york-v4` is the Tailwind v4 / React 19 "New York" set — the COMPLETE,
- * screenshot-backed style on ui.shadcn.com (full block + chart catalog, every
- * `{name}-{theme}.png` preview, non-empty component payloads). The newer
+ * `new-york-v4` is the Tailwind v4 / React 19 "New York" JSON set on
+ * ui.shadcn.com (full block + chart catalog and non-empty component payloads).
+ * Preview PNG availability is sparse and owned separately by
+ * `registry-service.ts`; the JSON style does not imply a screenshot. The newer
  * `radix-vega` label renders the same look but is only partially populated
  * upstream (empty `form.json`, no chart blocks, missing preview PNGs), which
  * made the Elements picker show "Ingen preview" walls and dropped charts.
@@ -41,8 +42,10 @@ export const LEGACY_STYLE_DEFAULT = "new-york";
  *
  * The 2026-07 site redesign removed the `{name}-{theme}.png` screenshots from
  * the `new-york-v4` style path (verified 404 2026-07-24), while the legacy
- * `new-york` path still serves them (200, image/png). JSON payloads stay on
- * {@link DEFAULT_REGISTRY_STYLE}; ONLY preview-image URLs use this constant.
+ * `new-york` path still serves a sparse verified subset (200, image/png).
+ * Availability is owned by `OFFICIAL_BLOCK_PREVIEW_IMAGE_NAMES`; JSON payloads
+ * stay on {@link DEFAULT_REGISTRY_STYLE}; ONLY preview-image URLs use this
+ * constant.
  * Re-verify with `https://ui.shadcn.com/r/styles/new-york/dashboard-01-light.png`
  * if thumbnails go blank again.
  */
@@ -50,8 +53,8 @@ export const PREVIEW_IMAGE_STYLE = "new-york";
 
 /**
  * Resolve the style segment for preview-image URLs (`{name}-{theme}.png`).
- * Official ui.shadcn.com → {@link PREVIEW_IMAGE_STYLE} (the only style path
- * that still hosts the PNGs). Custom registry hosts pass through the normal
+ * Official ui.shadcn.com → {@link PREVIEW_IMAGE_STYLE} (the style path that
+ * hosts the verified subset). Custom registry hosts pass through the normal
  * style resolution untouched.
  */
 export function resolvePreviewImageStyle(style?: string, baseUrl?: string): string {

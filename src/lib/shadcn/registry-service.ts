@@ -205,6 +205,55 @@ export function buildPreviewImageUrl(
   return `${baseUrl}/r/styles/${resolvedStyle}/${name}-${theme}.png`;
 }
 
+/**
+ * The official index contains 97 blocks, but only these 22 currently publish
+ * `{name}-{theme}.png` under the legacy image namespace. Unknown names must not
+ * be turned into guaranteed 404s: absence means the gallery renders its layout
+ * icon. Verified against the official registry on 2026-08-27.
+ */
+export const OFFICIAL_BLOCK_PREVIEW_IMAGE_NAMES = new Set([
+  "dashboard-01",
+  "sidebar-01",
+  "sidebar-02",
+  "sidebar-03",
+  "sidebar-04",
+  "sidebar-05",
+  "sidebar-06",
+  "sidebar-07",
+  "sidebar-08",
+  "sidebar-09",
+  "sidebar-10",
+  "sidebar-11",
+  "sidebar-12",
+  "sidebar-13",
+  "sidebar-14",
+  "sidebar-15",
+  "sidebar-16",
+  "login-01",
+  "login-02",
+  "login-03",
+  "login-04",
+  "login-05",
+]);
+
+export function buildAvailablePreviewImageUrl(
+  name: string,
+  theme: "light" | "dark",
+  style?: string,
+): string | undefined {
+  const baseUrl = getRegistryBaseUrl();
+  let official = false;
+  try {
+    official = new URL(baseUrl).hostname.toLowerCase() === "ui.shadcn.com";
+  } catch {
+    official = false;
+  }
+  if (official && !OFFICIAL_BLOCK_PREVIEW_IMAGE_NAMES.has(name.trim().toLowerCase())) {
+    return undefined;
+  }
+  return buildPreviewImageUrl(name, theme, style);
+}
+
 // ============================================
 // FETCH FUNCTIONS
 // ============================================
@@ -441,8 +490,10 @@ export async function getRegistryItemsByCategory(
       description: item.description || "",
       category: categoryId,
       type: kind,
-      lightImageUrl: kind === "block" ? buildPreviewImageUrl(item.name, "light", style) : undefined,
-      darkImageUrl: kind === "block" ? buildPreviewImageUrl(item.name, "dark", style) : undefined,
+      lightImageUrl:
+        kind === "block" ? buildAvailablePreviewImageUrl(item.name, "light", style) : undefined,
+      darkImageUrl:
+        kind === "block" ? buildAvailablePreviewImageUrl(item.name, "dark", style) : undefined,
       previewKind: componentMetadata?.previewKind,
       iconKey: componentMetadata?.iconKey,
       usageHint: componentMetadata?.usageHint,

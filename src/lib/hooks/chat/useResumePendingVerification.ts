@@ -404,31 +404,57 @@ async function runResumeProductPostcheck(params: {
   chatId: string;
   versionId: string;
   previewUrl: string | null;
-}): Promise<{ productBlocked: boolean; blockerPersistFailed: boolean }> {
+}): Promise<{
+  productBlocked: boolean;
+  blockerPersistFailed: boolean;
+  superseded: boolean;
+}> {
+  let data: ProductPostcheckResult | null = null;
   try {
     const res = await fetch(`${engineChatBaseUrl(params.chatId)}/product-postcheck`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ versionId: params.versionId, previewUrl: params.previewUrl }),
     });
-    if (!res.ok) return { productBlocked: false, blockerPersistFailed: false };
-    const data = (await res.json().catch(() => null)) as ProductPostcheckResult | null;
-    let persisted = true;
-    if (data) {
-      // Normal-lane parity: persist the postcheck result as error-log rows.
-      // Without the summary row, a product-blocked resume would be liftable
-      // to F3 after reload (the F3 trigger reads /error-log, not the bus).
-      persisted = await persistVersionErrorLogs({
-        chatId: params.chatId,
-        versionId: params.versionId,
-        logs: buildProductPostcheckLogItems(data),
-      });
+    if (res.ok) {
+      data = (await res.json().catch(() => null)) as ProductPostcheckResult | null;
     }
-    const productBlocked = data?.productBlocked === true;
-    return { productBlocked, blockerPersistFailed: productBlocked && !persisted };
   } catch {
-    return { productBlocked: false, blockerPersistFailed: false };
+    // Persist the transport-level degradation below, then retry. Promoting on
+    // an absent response would create the exact false-green this lane repairs.
   }
+  if (!data) {
+    await persistVersionErrorLogs({
+      chatId: params.chatId,
+      versionId: params.versionId,
+      logs: buildProductPostcheckLogItems(null),
+    });
+    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+  }
+  if (data?.skippedReason === "preview_superseded") {
+    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+  }
+  if (data && data.skippedReason !== "feature_disabled" && !data.attestation) {
+    // A current route response is always attested. Treat an older/unscoped
+    // response as a retryable hold instead of promoting without durable proof.
+    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+  }
+  // Normal-lane parity: persist both a concrete result and a missing/transport
+  // result. Without the summary row, a product-blocked resume would be
+  // liftable to F3 after reload; without the transport row, the version would
+  // read as fully verified although DOM verification never produced a result.
+  const persisted = await persistVersionErrorLogs({
+    chatId: params.chatId,
+    versionId: params.versionId,
+    logs: buildProductPostcheckLogItems(data),
+    productPostcheckAttestation: data?.attestation ?? null,
+  });
+  const productBlocked = data?.productBlocked === true;
+  return {
+    productBlocked,
+    blockerPersistFailed: productBlocked && !persisted,
+    superseded: false,
+  };
 }
 
 export function useResumePendingVerification(params: {
@@ -618,6 +644,14 @@ export function useResumePendingVerification(params: {
         // promotion can never read as solid green without DOM verification
         // (Codex P1 rounds 1+2).
         const postcheck = await runResumeProductPostcheck({ chatId, versionId, previewUrl });
+        if (postcheck.superseded) {
+          // The inspected lifecycle was replaced while the browser work ran.
+          // Refund the slot and retry against the new active tuple; never emit
+          // a quality-gate verdict for the stale DOM.
+          attemptsRef.current.set(versionId, attemptsUsed);
+          scheduleRetry();
+          return;
+        }
         if (postcheck.blockerPersistFailed) {
           // Fail closed (Codex P1 round 4): the blocker row never reached the
           // /error-log enforcement surface — promoting now could let the

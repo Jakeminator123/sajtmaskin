@@ -23,6 +23,37 @@ const MAX_REFERENCE_TEXT_BYTES = 8 * 1024 * 1024;
  * can distinguish text from binary when writing to the workspace filesystem.
  */
 const BINARY_BASE64_PREFIX = "base64:";
+const KNOWN_TEMPLATE_ASSET_MAGICS = [
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), // PNG
+  Buffer.from([0xff, 0xd8, 0xff]), // JPEG
+  Buffer.from("GIF87a", "ascii"),
+  Buffer.from("GIF89a", "ascii"),
+  Buffer.from([0x00, 0x00, 0x01, 0x00]), // ICO
+  Buffer.from("wOFF", "ascii"),
+  Buffer.from("wOF2", "ascii"),
+  Buffer.from([0x00, 0x01, 0x00, 0x00]), // TrueType sfnt
+  Buffer.from("OTTO", "ascii"), // OpenType CFF
+  Buffer.from("%PDF-", "ascii"),
+] as const;
+const ISO_BMFF_ASSET_BRANDS = new Set([
+  "avif",
+  "avis",
+  "isom",
+  "iso2",
+  "iso3",
+  "iso4",
+  "iso5",
+  "iso6",
+  "mp41",
+  "mp42",
+  "avc1",
+  "M4V ",
+  "M4A ",
+  "MSNV",
+  "dash",
+  "qt  ",
+]);
+const EOT_VERSIONS = new Set([0x00010000, 0x00020001, 0x00020002]);
 const BLOCKED_IMPORT_PREFIXES = [
   "node_modules/",
   ".git/",
@@ -281,6 +312,169 @@ function looksBinary(buffer: Buffer): boolean {
   return suspicious / sample.length > 0.1;
 }
 
+function startsWithBytes(buffer: Buffer, prefix: Buffer): boolean {
+  return buffer.length >= prefix.length && buffer.subarray(0, prefix.length).equals(prefix);
+}
+
+function readEbmlVint(buffer: Buffer, offset: number): { length: number; value: number } | null {
+  if (offset >= buffer.length) return null;
+  const first = buffer[offset];
+  let length = 1;
+  let marker = 0x80;
+  while (length <= 4 && (first & marker) === 0) {
+    length += 1;
+    marker >>= 1;
+  }
+  if (length > 4 || offset + length > buffer.length) return null;
+  let value = first & (marker - 1);
+  for (let index = 1; index < length; index += 1) value = value * 256 + buffer[offset + index];
+  if (value === 2 ** (7 * length) - 1) return null;
+  return { length, value };
+}
+
+function readEbmlIdLength(buffer: Buffer, offset: number): number | null {
+  if (offset >= buffer.length) return null;
+  let length = 1;
+  let marker = 0x80;
+  while (length <= 4 && (buffer[offset] & marker) === 0) {
+    length += 1;
+    marker >>= 1;
+  }
+  return length <= 4 && offset + length <= buffer.length ? length : null;
+}
+
+function hasWebmMagic(buffer: Buffer): boolean {
+  if (!startsWithBytes(buffer, Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))) return false;
+  const headerSize = readEbmlVint(buffer, 4);
+  if (!headerSize) return false;
+  let offset = 4 + headerSize.length;
+  const headerEnd = offset + headerSize.value;
+  if (headerEnd > buffer.length) return false;
+  while (offset < headerEnd) {
+    const idLength = readEbmlIdLength(buffer, offset);
+    if (!idLength) return false;
+    const size = readEbmlVint(buffer, offset + idLength);
+    if (!size) return false;
+    const valueStart = offset + idLength + size.length;
+    const valueEnd = valueStart + size.value;
+    if (valueEnd > headerEnd) return false;
+    if (idLength === 2 && buffer[offset] === 0x42 && buffer[offset + 1] === 0x82) {
+      return size.value === 4 && buffer.subarray(valueStart, valueEnd).toString("ascii") === "webm";
+    }
+    offset = valueEnd;
+  }
+  return false;
+}
+
+function hasRiffAssetMagic(buffer: Buffer): boolean {
+  if (buffer.length < 12 || buffer.subarray(0, 4).toString("ascii") !== "RIFF") return false;
+  const declaredEnd = buffer.readUInt32LE(4) + 8;
+  const formType = buffer.subarray(8, 12).toString("ascii");
+  return (
+    declaredEnd >= 12 &&
+    declaredEnd <= buffer.length &&
+    (formType === "WEBP" || formType === "WAVE" || formType === "AVI ")
+  );
+}
+
+function hasIsoBmffAssetMagic(buffer: Buffer): boolean {
+  if (buffer.length < 16 || buffer.subarray(4, 8).toString("ascii") !== "ftyp") return false;
+  const boxSize = buffer.readUInt32BE(0);
+  if (boxSize < 16 || boxSize > buffer.length || (boxSize - 16) % 4 !== 0) return false;
+  if (ISO_BMFF_ASSET_BRANDS.has(buffer.subarray(8, 12).toString("ascii"))) return true;
+  for (let offset = 16; offset + 4 <= boxSize; offset += 4) {
+    if (ISO_BMFF_ASSET_BRANDS.has(buffer.subarray(offset, offset + 4).toString("ascii"))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function hasBmpMagic(buffer: Buffer): boolean {
+  if (buffer.length < 14 || buffer.subarray(0, 2).toString("ascii") !== "BM") return false;
+  const declaredSize = buffer.readUInt32LE(2);
+  const pixelOffset = buffer.readUInt32LE(10);
+  return (
+    declaredSize === buffer.length &&
+    buffer.readUInt32LE(6) === 0 &&
+    pixelOffset >= 14 &&
+    pixelOffset <= declaredSize
+  );
+}
+
+function hasEotMagic(buffer: Buffer): boolean {
+  if (buffer.length < 36) return false;
+  const declaredSize = buffer.readUInt32LE(0);
+  const fontDataSize = buffer.readUInt32LE(4);
+  return (
+    declaredSize === buffer.length &&
+    fontDataSize > 0 &&
+    fontDataSize <= declaredSize &&
+    EOT_VERSIONS.has(buffer.readUInt32LE(8)) &&
+    buffer.readUInt16LE(34) === 0x504c
+  );
+}
+
+function hasId3v2Magic(buffer: Buffer): boolean {
+  if (buffer.length < 10 || buffer.subarray(0, 3).toString("ascii") !== "ID3") return false;
+  if (buffer[3] < 2 || buffer[3] > 4 || buffer[4] === 0xff) return false;
+  for (let offset = 6; offset <= 9; offset += 1) {
+    if ((buffer[offset] & 0x80) !== 0) return false;
+  }
+  const tagSize =
+    (buffer[6] << 21) | (buffer[7] << 14) | (buffer[8] << 7) | buffer[9];
+  return 10 + tagSize <= buffer.length;
+}
+
+function hasKnownTemplateAssetMagic(buffer: Buffer): boolean {
+  if (KNOWN_TEMPLATE_ASSET_MAGICS.some((magic) => startsWithBytes(buffer, magic))) {
+    return true;
+  }
+  return (
+    hasRiffAssetMagic(buffer) ||
+    hasIsoBmffAssetMagic(buffer) ||
+    hasBmpMagic(buffer) ||
+    hasEotMagic(buffer) ||
+    hasId3v2Magic(buffer) ||
+    hasWebmMagic(buffer)
+  );
+}
+
+function isBase64AlphabetCode(code: number): boolean {
+  return (
+    (code >= 0x41 && code <= 0x5a) ||
+    (code >= 0x61 && code <= 0x7a) ||
+    (code >= 0x30 && code <= 0x39) ||
+    code === 0x2b ||
+    code === 0x2f
+  );
+}
+
+function decodeCanonicalBase64(value: string): Buffer | null {
+  if (!value || value.length % 4 !== 0) return null;
+  let dataEnd = value.length;
+  while (dataEnd > 0 && value.charCodeAt(dataEnd - 1) === 0x3d) dataEnd -= 1;
+  if (value.length - dataEnd > 2) return null;
+  for (let index = 0; index < dataEnd; index += 1) {
+    if (!isBase64AlphabetCode(value.charCodeAt(index))) return null;
+  }
+  const decoded = Buffer.from(value, "base64");
+  return decoded.toString("base64") === value ? decoded : null;
+}
+
+/**
+ * Some downloaded ZIPs contain the persisted CodeFile representation for an
+ * asset (`base64:<bytes>`) instead of the raw bytes. Normalize exactly that
+ * one layer when both the Base64 spelling and decoded file signature prove it
+ * is an asset. Text and recursively wrapped envelopes remain ordinary bytes.
+ */
+function normalizeArchiveBinaryBytes(buffer: Buffer): Buffer {
+  const serialized = buffer.toString("utf8");
+  if (!serialized.startsWith(BINARY_BASE64_PREFIX)) return buffer;
+  const decoded = decodeCanonicalBase64(serialized.slice(BINARY_BASE64_PREFIX.length));
+  return decoded && hasKnownTemplateAssetMagic(decoded) ? decoded : buffer;
+}
+
 function declaredUncompressedSize(entry: unknown): number | null {
   if (!entry || typeof entry !== "object") return null;
   const data = (entry as { _data?: unknown })._data;
@@ -458,11 +652,14 @@ export async function extractV0TemplateArchiveFiles(buffer: Buffer): Promise<Cod
         language: inferFileLanguage(safePath),
       });
     } else {
-      totalBinaryBytes += contentBuffer.byteLength;
+      const binaryBytes = normalizeArchiveBinaryBytes(contentBuffer);
+      // Budget the semantic bytes written by preview-host, not the larger
+      // Base64 transport spelling that may have been stored inside the ZIP.
+      totalBinaryBytes += binaryBytes.byteLength;
       if (totalBinaryBytes > MAX_IMPORTED_BINARY_BYTES) continue;
       files.push({
         path: safePath,
-        content: BINARY_BASE64_PREFIX + contentBuffer.toString("base64"),
+        content: BINARY_BASE64_PREFIX + binaryBytes.toString("base64"),
         language: "binary",
       });
     }

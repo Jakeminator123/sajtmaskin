@@ -200,9 +200,14 @@ class ExtractorFingerprintTests(unittest.TestCase):
         addenda = json.loads(
             (REPO_ROOT / "config/variant-template-addenda.json").read_text(encoding="utf-8")
         )
+        generated = next(
+            template
+            for template in addenda["templates"]
+            if template["reviewStatus"] == "generated"
+        )
         self.assertEqual(
             compute_extractor_sha256(REPO_ROOT),
-            addenda["templates"][0]["extractorSha256"],
+            generated["extractorSha256"],
         )
 
     def test_hash_normalizes_bom_crlf_sorts_paths_and_includes_nul(self) -> None:

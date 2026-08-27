@@ -547,6 +547,46 @@ describe("completeProjectDependencies", () => {
     expect(pkg.dependencies.react).toBe("^18");
   });
 
+  it.each([
+    ["a missing dependency detected from imports", undefined],
+    ["a declared major range", "^1"],
+    ["a declared stale pin", "1.4.3"],
+  ])("normalizes imported radix-ui from %s to the canonical exact pin", (_source, radixVersion) => {
+    const dependencies = {
+      next: "14.2.0",
+      react: "^18",
+      "kept-template-package": "~2.3.4",
+      ...(radixVersion === undefined ? {} : { "radix-ui": radixVersion }),
+    };
+    const result = completeProjectDependencies([
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          name: "radix-template",
+          dependencies,
+          devDependencies: { typescript: "^5" },
+        }),
+      },
+      {
+        path: "components/ui/button.tsx",
+        content: 'import { Slot } from "radix-ui";\nexport const Button = Slot;\n',
+      },
+    ]);
+
+    expect(result.pinnedDependencies["radix-ui"]).toBe("1.6.7");
+    const pkg = JSON.parse(
+      result.files.find((file) => file.path === "package.json")!.content,
+    ) as {
+      dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
+    };
+    expect(pkg.dependencies["radix-ui"]).toBe("1.6.7");
+    expect(pkg.dependencies.next).toBe("14.2.0");
+    expect(pkg.dependencies.react).toBe("^18");
+    expect(pkg.dependencies["kept-template-package"]).toBe("~2.3.4");
+    expect(pkg.devDependencies.typescript).toBe("^5");
+  });
+
   it("keeps deterministic import-scan pins for freehand token and flow code", () => {
     const result = completeProjectDependencies([
       { path: "package.json", content: templatePackageJson },

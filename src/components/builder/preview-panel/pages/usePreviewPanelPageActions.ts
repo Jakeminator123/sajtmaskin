@@ -143,6 +143,7 @@ export function usePreviewPanelPageActions({
           versionId: result.versionId,
           previewUrl: result.previewUrl,
           previewSessionId: result.previewSessionId,
+          lifecycleToken: result.lifecycleToken,
           previewMode: result.previewMode,
         });
       } catch {
@@ -197,6 +198,7 @@ export function usePreviewPanelPageActions({
           versionId: result.versionId,
           previewUrl: result.previewUrl,
           previewSessionId: result.previewSessionId,
+          lifecycleToken: result.lifecycleToken,
           previewMode: result.previewMode,
         });
       } catch {

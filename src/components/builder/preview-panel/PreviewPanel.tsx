@@ -101,6 +101,7 @@ export function PreviewPanel({
   previewProdBuild = null,
   previewPending = false,
   activePreviewSessionId = null,
+  activePreviewLifecycleToken,
   previewLifecycle,
   activeVersionStatus = null,
   activeVersionSummary = null,
@@ -272,11 +273,19 @@ export function PreviewPanel({
     chatId,
     versionId,
     activePreviewSessionId,
+    activePreviewLifecycleToken,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
     iframeRef,
   });
+  const hasVersionMismatch = Boolean(versionMismatchPayload);
+  const hasHydratedLifecycle =
+    !activePreviewSessionId ||
+    Boolean(chatId && versionId && activePreviewLifecycleToken !== undefined);
+  const previewIdentityCurrent = Boolean(
+    previewUrl && !iframeError && !hasVersionMismatch && hasHydratedLifecycle,
+  );
 
   const fetchFilesForRegistry = useCallback(async () => {
     if (!chatId || !versionId || files.length > 0) return;
@@ -457,8 +466,12 @@ export function PreviewPanel({
     handleInspectMouseMove,
   } = usePreviewPanelInspectMapPlacement({
     inspectorEnabled,
+    chatId,
     previewUrl,
     versionId,
+    previewSessionId: activePreviewSessionId,
+    lifecycleToken: activePreviewLifecycleToken,
+    identityReady: previewIdentityCurrent,
     placementMode: effectivePlacementMode,
     composerMode,
     inspectMode,
@@ -497,6 +510,10 @@ export function PreviewPanel({
     hoveredMapElement,
     chatId,
     versionId,
+    previewSessionId: activePreviewSessionId,
+    lifecycleToken: activePreviewLifecycleToken,
+    identityReady: previewIdentityCurrent,
+    onPreviewIdentityStale: onPreviewSessionSuspect,
     flatFilesForAi,
     elementRegistryRef,
     setFiles,
@@ -586,9 +603,13 @@ export function PreviewPanel({
 
   usePreviewInspectBridge({
     enabled: bridgeEnabled,
-    active: inspectEngine === "bridge",
+    active: inspectEngine === "bridge" && previewIdentityCurrent,
     inspectMode,
     previewUrl,
+    versionId,
+    previewSessionId: activePreviewSessionId,
+    lifecycleToken: activePreviewLifecycleToken,
+    identityCurrent: previewIdentityCurrent,
     iframeRef,
     elementRegistryRef,
     fetchFilesForRegistry,
@@ -618,6 +639,7 @@ export function PreviewPanel({
     requestSections:
       bridgeEnabled &&
       inspectEngine === "bridge" &&
+      previewIdentityCurrent &&
       (effectivePlacementMode || composerMode),
     onSections: applyBridgeSectionCandidates,
   });
@@ -635,8 +657,17 @@ export function PreviewPanel({
     /* eslint-disable react-hooks/set-state-in-effect -- drop floating inspect UI when preview identity or code view changes */
     setInspectMenu(null);
     setInspectRegion(null);
+    setLastCodeMatch(null);
+    setInspectStatus(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [previewUrl, isCodeView]);
+  }, [
+    previewUrl,
+    versionId,
+    activePreviewSessionId,
+    activePreviewLifecycleToken,
+    hasVersionMismatch,
+    isCodeView,
+  ]);
 
   const iframeRunbookLines = useMemo(
     () => (iframeError ? previewRunbookLinesForCode(iframeDiagnosticCode) : []),
@@ -761,6 +792,7 @@ export function PreviewPanel({
     versionId,
     previewUrl,
     activePreviewSessionId,
+    activePreviewLifecycleToken,
     previewLifecycle,
     onSessionSuspect: onPreviewSessionSuspect,
   });
@@ -905,13 +937,24 @@ export function PreviewPanel({
         showImagesDisabledWarning ||
         showImagesUnsupportedWarning),
   );
-  const showPlacementOverlay = inspectorEnabled && effectivePlacementMode && Boolean(previewUrl);
+  // Inspect/placement controls sit above the iframe. The overlay may stay
+  // mounted to preserve the selected mode while loading, but its component
+  // disables pointer events until usePreviewIframe reports ready. Any iframe
+  // error removes the higher-z inspector entirely so it cannot cover the
+  // actionable error overlay.
+  const previewCanHostInspector = previewIdentityCurrent;
+  const showPlacementOverlay =
+    inspectorEnabled && effectivePlacementMode && previewCanHostInspector;
   const showComposerOverlay =
-    composerMode && Boolean(previewUrl) && !effectivePlacementMode && !isCodeView;
+    composerMode && previewCanHostInspector && !effectivePlacementMode && !isCodeView;
   // Bridge-engine renderar INTE den täckande overlayn — preview-iframen måste
   // få mus-eventen själv (det injicerade scriptet ritar highlight + postar pick).
   const showInspectOverlay =
-    inspectorEnabled && inspectMode && !showPlacementOverlay && inspectEngine !== "bridge";
+    inspectorEnabled &&
+    inspectMode &&
+    previewCanHostInspector &&
+    !showPlacementOverlay &&
+    inspectEngine !== "bridge";
   const shouldRenderInspectorDev = inspectorEnabled && (showPlacementOverlay || showInspectOverlay);
 
   if (!previewUrl && !isCodeView) {

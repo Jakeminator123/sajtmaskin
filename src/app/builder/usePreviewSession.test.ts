@@ -377,4 +377,72 @@ describe("usePreviewSession — version_mismatch auto-resync + loop-skydd", () =
     expect(h.rendered.result.current.versionMismatchPayload).toBeNull();
     expect(h.setForceKey).not.toHaveBeenCalled();
   });
+
+  it("ignorerar ett sent status-svar från den gamla preview-identiteten", async () => {
+    let resolveStatus!: (value: PreviewStatusApiJson) => void;
+    vi.mocked(fetchPreviewStatus).mockReturnValue(
+      new Promise<PreviewStatusApiJson>((resolve) => {
+        resolveStatus = resolve;
+      }),
+    );
+    const setCurrentPreviewUrl = vi.fn();
+    const setRecovering = vi.fn();
+    const setForceKey = vi.fn();
+    const setRetryNonce = vi.fn();
+    const bootstrapDone = { current: new Set<string>() } as MutableRefObject<Set<string>>;
+    const oldUrl = "https://chat-1.fly.dev/preview/old";
+    const newUrl = "https://chat-1.fly.dev/preview/new";
+    const rendered = renderHook(
+      (props: {
+        versionId: string;
+        previewSessionId: string;
+        lifecycleToken: string;
+        previewUrl: string;
+      }) =>
+        usePreviewSession({
+          chatId: "chat_1",
+          activeVersionId: props.versionId,
+          currentPreviewUrl: props.previewUrl,
+          activePreviewSessionMeta: {
+            previewSessionId: props.previewSessionId,
+            versionId: props.versionId,
+            lifecycleToken: props.lifecycleToken,
+          },
+          setCurrentPreviewUrl,
+          setPreviewSessionRecovering: setRecovering,
+          previewBootstrapDoneKeysRef: bootstrapDone,
+          setForcedPreviewRestartKey: setForceKey,
+          setPreviewBootstrapRetryNonce: setRetryNonce,
+        }),
+      {
+        initialProps: {
+          versionId: "c3ff",
+          previewSessionId: "ps_old",
+          lifecycleToken: "life_old",
+          previewUrl: oldUrl,
+        },
+      },
+    );
+
+    let pending!: Promise<void>;
+    act(() => {
+      pending = rendered.result.current.handlePreviewSessionSuspect();
+    });
+    rendered.rerender({
+      versionId: "cac4",
+      previewSessionId: "ps_new",
+      lifecycleToken: "life_new",
+      previewUrl: newUrl,
+    });
+    resolveStatus(mismatch("ps_old", "older-host-version", "session_older"));
+    await act(async () => {
+      await pending;
+    });
+
+    expect(setCurrentPreviewUrl).not.toHaveBeenCalled();
+    expect(setForceKey).not.toHaveBeenCalled();
+    expect(setRetryNonce).not.toHaveBeenCalled();
+    expect(setRecovering).not.toHaveBeenCalled();
+    expect(rendered.result.current.versionMismatchPayload).toBeNull();
+  });
 });

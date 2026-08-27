@@ -102,6 +102,11 @@ describe("summarizeVersionLogsForAutoFix", () => {
       },
       {
         level: "warning",
+        category: "product_postcheck.hydration_dom_loss",
+        message: "En server-renderad CTA försvann efter hydrering.",
+      },
+      {
+        level: "warning",
         category: "preview:client-error",
         message: "Hydration failed because the server rendered HTML didn't match the client.",
         meta: { kind: "uncaught" },
@@ -118,6 +123,9 @@ describe("summarizeVersionLogsForAutoFix", () => {
     );
     expect(diagnostics).toContain(
       "[product_postcheck.runtime_crash] Next.js-felöverlägg visas — previewen kraschade vid körning.",
+    );
+    expect(diagnostics).toContain(
+      "[product_postcheck.hydration_dom_loss] En server-renderad CTA försvann efter hydrering.",
     );
     expect(diagnostics).toContain(
       "[preview:client-error] Hydration failed because the server rendered HTML didn't match the client.",

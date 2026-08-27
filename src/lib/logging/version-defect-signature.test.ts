@@ -11,6 +11,7 @@ describe("classifyVersionDefectKind", () => {
   it("läser produktkoden ur product_postcheck-kategorin", () => {
     const kind = (category: string) => classifyVersionDefectKind({ category, message: "x" });
     expect(kind("product_postcheck.hydration_mismatch")).toBe("hydration");
+    expect(kind("product_postcheck.hydration_dom_loss")).toBe("hydration");
     expect(kind("product_postcheck.runtime_crash")).toBe("runtime");
     expect(kind("product_postcheck.console_error")).toBe("runtime");
     expect(kind("product_postcheck.preview_boot_page")).toBe("runtime");

@@ -28,11 +28,14 @@ vi.mock("@/lib/gen/verify/live-review", () => ({
 
 import {
   evaluateBrowserRuntimeIssues,
+  evaluateHydrationDomLoss,
+  evaluateHydrationDomLossForViewports,
   evaluateProductDomSnapshot,
   evaluateRuntimeErrors,
   CRAWL_DEADLINE_MS,
   isAllowedProductPostcheckUrl,
   isHydrationConsoleError,
+  extractServerCtaBaseline,
   isPreviewHostBootPage,
   isRenderFatalError,
   productPostcheckSkipReasonFromError,
@@ -243,6 +246,14 @@ describe("productPostcheckSkipReasonFromError", () => {
       productPostcheckSkipReasonFromError(new Error("Failed to launch the browser process")),
     ).toBe("playwright_unavailable");
   });
+
+  it("klassificerar browser.newPage Target closed efter lyckad launch som runtime_error", () => {
+    expect(
+      productPostcheckSkipReasonFromError(
+        new Error("browser.newPage: Target page, context or browser has been closed"),
+      ),
+    ).toBe("runtime_error");
+  });
 });
 
 describe("isRenderFatalError", () => {
@@ -393,16 +404,25 @@ describe("runProductPostcheck browser-startpunkt", () => {
       reload: vi.fn(async () => {}),
       waitForLoadState: vi.fn(async () => {}),
       waitForTimeout: vi.fn(async (_delayMs?: number) => {}),
-      evaluate: vi.fn(async () => results[call++]),
+      evaluate: vi.fn(async (pageFunction?: unknown) => {
+        if (
+          typeof pageFunction === "function" &&
+          pageFunction.name === "captureHydrationCtaLabelsInBrowser"
+        ) {
+          return [];
+        }
+        return results[call++];
+      }),
       close: vi.fn(async () => {}),
     };
   }
 
   const previewSession = {
     previewSessionId: "ps_1",
+    lifecycleToken: "life_1",
     previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
     versionId: "v1",
-    filesRevision: null,
+    filesRevision: "rev_1",
     createdAt: 1,
     lastUsedAt: 1,
   };
@@ -525,6 +545,9 @@ describe("runProductPostcheck browser-startpunkt", () => {
       previewUrl: "http://127.0.0.1:3000/chat_1",
       chatId: "chat_1",
       versionId: "v1",
+      previewSessionId: "ps_1",
+      lifecycleToken: "life_1",
+      filesRevision: "rev_1",
     });
 
     expect(result.productBlocked).toBe(true);
@@ -533,10 +556,17 @@ describe("runProductPostcheck browser-startpunkt", () => {
     expect(result.warnings[0]?.message).toContain("Preview-host");
     expect(desktop.reload).toHaveBeenCalled();
     expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(1);
+    expect(fetchPreviewHostReadinessVerdictMock).toHaveBeenCalledWith("ps_1", {
+      expectedVersionId: "v1",
+      expectedLifecycleToken: "life_1",
+    });
   });
 
   it("blockerar med preview_boot_page när hosten är failed och sidan är boot-placeholder", async () => {
-    getActivePreviewSessionAsyncMock.mockResolvedValue(previewSession);
+    getActivePreviewSessionAsyncMock.mockResolvedValue({
+      ...previewSession,
+      lifecycleToken: null,
+    });
     fetchPreviewHostReadinessVerdictMock.mockResolvedValue(readinessVerdict("failed"));
     const desktop = fakePage([bootPageProbe, bootPageProbe]);
     launchCaptureBrowserMock.mockResolvedValue({
@@ -548,12 +578,19 @@ describe("runProductPostcheck browser-startpunkt", () => {
       previewUrl: "http://127.0.0.1:3000/chat_1",
       chatId: "chat_1",
       versionId: "v1",
+      previewSessionId: "ps_1",
+      lifecycleToken: null,
+      filesRevision: "rev_1",
     });
 
     expect(result.productBlocked).toBe(true);
     expect(result.skipped).toBe(false);
     expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
     expect(desktop.reload).not.toHaveBeenCalled();
+    expect(fetchPreviewHostReadinessVerdictMock).toHaveBeenCalledWith("ps_1", {
+      expectedVersionId: "v1",
+      expectedLifecycleToken: null,
+    });
   });
 
   it("klassar tomt/misslyckat svar som preview_probe_unreadable utan att skylla på preview-hosten", async () => {
@@ -792,6 +829,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
     const desktop = fakePage([
       bootPageProbe,
       liveBootProbe,
+      liveBootProbe,
       { anchors: [], images: [], ctas: [], forms: [] },
       false,
     ]);
@@ -812,6 +850,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
     expect(result.productBlocked).toBe(false);
     expect(result.skipped).toBe(false);
     expect(result.warnings.map((w) => w.code)).not.toContain("preview_boot_page");
+    expect(desktop.reload).toHaveBeenCalledTimes(1);
     expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(2);
   });
 
@@ -856,6 +895,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
     const desktop = fakePage([
       null, // meta-refresh / transient evaluate failure — must not fail-open
       bootPageProbe,
+      liveBootProbe,
       liveBootProbe,
       { anchors: [], images: [], ctas: [], forms: [] },
       false,
@@ -913,6 +953,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
     const titledEmpty = { title: "Home", h1: null, bodyText: "" };
     const desktop = fakePage([
       titledEmpty,
+      liveBootProbe,
       liveBootProbe,
       { anchors: [], images: [], ctas: [], forms: [] },
       false,
@@ -1077,7 +1118,15 @@ describe("runProductPostcheck screenshot best-effort", () => {
       reload: vi.fn(async () => {}),
       waitForLoadState: vi.fn(async () => {}),
       waitForTimeout: vi.fn(async () => {}),
-      evaluate: vi.fn(async () => results[call++]),
+      evaluate: vi.fn(async (pageFunction?: unknown) => {
+        if (
+          typeof pageFunction === "function" &&
+          pageFunction.name === "captureHydrationCtaLabelsInBrowser"
+        ) {
+          return [];
+        }
+        return results[call++];
+      }),
       screenshot: vi.fn(screenshotImpl),
       close: vi.fn(async () => {}),
     };
@@ -1160,6 +1209,115 @@ describe("runProductPostcheck screenshot best-effort", () => {
       desktopUrl: "https://blob.example/desktop.jpg",
       mobileUrl: "https://blob.example/mobile.jpg",
     });
+  });
+
+  it("persisterar inte N-skärmbilder när samma version har ersatts av N+1", async () => {
+    const desktop = pageWithScreenshot(
+      [
+        { title: "N", h1: "Hero", bodyText: "Revision N" },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "N", h1: "Hero", bodyText: "Revision N" },
+      ],
+      async () => Buffer.from("desk-n"),
+    );
+    const mobile = pageWithScreenshot(
+      [{ status: "not_applicable" }, false],
+      async () => Buffer.from("mobile-n"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+    getActivePreviewSessionAsyncMock
+      .mockResolvedValueOnce({
+        previewSessionId: "ps_n",
+        lifecycleToken: "life_n",
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        versionId: "v1",
+        filesRevision: "rev_n",
+      })
+      .mockResolvedValue({
+        previewSessionId: "ps_n_plus_1",
+        lifecycleToken: "life_n_plus_1",
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        versionId: "v1",
+        filesRevision: "rev_n_plus_1",
+      });
+
+    const result = await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+      captureEnabled: true,
+      previewSessionId: "ps_n",
+      lifecycleToken: "life_n",
+      filesRevision: "rev_n",
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        skipped: true,
+        skippedReason: "preview_superseded",
+        productBlocked: false,
+      }),
+    );
+    expect(result.screenshots).toBeUndefined();
+    expect(persistLiveReviewJpegMock).not.toHaveBeenCalled();
+  });
+
+  it("fence:ar explicit legacy-null så en tokenövergång sker före JPEG-persistens", async () => {
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Legacy", h1: "Hero", bodyText: "Revision N" },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "Legacy", h1: "Hero", bodyText: "Revision N" },
+      ],
+      async () => Buffer.from("legacy-desktop"),
+    );
+    const mobile = pageWithScreenshot(
+      [{ status: "not_applicable" }, false],
+      async () => Buffer.from("legacy-mobile"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+    getActivePreviewSessionAsyncMock
+      .mockResolvedValueOnce({
+        previewSessionId: "ps_shared",
+        lifecycleToken: null,
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        versionId: "v1",
+        filesRevision: "rev_n",
+      })
+      .mockResolvedValue({
+        previewSessionId: "ps_shared",
+        lifecycleToken: "life_n_plus_1",
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        versionId: "v1",
+        filesRevision: "rev_n",
+      });
+
+    const result = await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+      captureEnabled: true,
+      previewSessionId: "ps_shared",
+      lifecycleToken: null,
+      filesRevision: "rev_n",
+    });
+
+    expect(result.skippedReason).toBe("preview_superseded");
+    expect(persistLiveReviewJpegMock).not.toHaveBeenCalled();
   });
 
   it("env-flaggan ensam räcker inte för capture", async () => {
@@ -1360,6 +1518,94 @@ describe("isHydrationConsoleError", () => {
     expect(isHydrationConsoleError("Type mismatch in props")).toBe(false);
     expect(isHydrationConsoleError("schema mismatch")).toBe(false);
     expect(isHydrationConsoleError("TypeError: x is not a function")).toBe(false);
+  });
+});
+
+describe("hydration CTA DOM-loss gate", () => {
+  const hydrationIssue: BrowserRuntimeIssue = {
+    kind: "console",
+    route: "/chat_1",
+    message: "Hydration failed because the server rendered HTML didn't match the client.",
+  };
+
+  it("blocks when a server-rendered offer CTA disappears after hydration", () => {
+    const baseline = extractServerCtaBaseline(`
+      <html><body><main><section class="hero">
+        <a href="#kontakt">Få en kostnadsfri offert</a>
+      </section></main></body></html>
+    `);
+
+    const result = evaluateHydrationDomLoss(
+      baseline,
+      { hydrationCtaLabels: [] },
+      [hydrationIssue],
+      "/chat_1",
+    );
+
+    expect(baseline.labels).toEqual(["få en kostnadsfri offert"]);
+    expect(result.productBlocked).toBe(true);
+    expect(codes(result)).toEqual(["hydration_dom_loss"]);
+    expect(result.warnings[0]?.text).toContain("kostnadsfri offert");
+  });
+
+  it("does not block a hydration warning when the server CTA remains in the DOM", () => {
+    const baseline = extractServerCtaBaseline(
+      "<main><button class='primary-action'>Boka möte</button></main>",
+    );
+    expect(
+      evaluateHydrationDomLoss(
+        baseline,
+        { hydrationCtaLabels: ["Boka möte"] },
+        [hydrationIssue],
+        "/chat_1",
+      ),
+    ).toEqual({ warnings: [], productBlocked: false });
+  });
+
+  it("blocks when a server CTA is replaced even if the client count is unchanged", () => {
+    const baseline = extractServerCtaBaseline(
+      "<main><a class='primary-action'>Få offert</a></main>",
+    );
+    const result = evaluateHydrationDomLoss(
+      baseline,
+      { hydrationCtaLabels: ["Kontakta oss"] },
+      [hydrationIssue],
+      "/chat_1",
+    );
+
+    expect(result.productBlocked).toBe(true);
+    expect(result.warnings[0]?.message).toContain("1 serverrenderad CTA");
+    expect(result.warnings[0]?.text).toContain("få offert");
+  });
+
+  it("uses the mobile baseline and mobile hydration signal independently", () => {
+    const result = evaluateHydrationDomLossForViewports({
+      desktopBaseline: { labels: ["boka möte"] },
+      desktopSnapshot: { hydrationCtaLabels: ["Boka möte"] },
+      mobileBaseline: { labels: ["få offert"] },
+      mobileSnapshot: { hydrationCtaLabels: [] },
+      issues: [
+        {
+          ...hydrationIssue,
+          viewport: "mobile",
+        },
+      ],
+      startRoute: "/chat_1",
+    });
+
+    expect(result.productBlocked).toBe(true);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]?.message).toContain("(mobil)");
+    expect(result.warnings[0]?.text).toContain("få offert");
+  });
+
+  it("does not infer DOM loss without a hydration signal on the start route", () => {
+    const baseline = extractServerCtaBaseline(
+      "<main><button class='primary-action'>Boka möte</button></main>",
+    );
+    expect(
+      evaluateHydrationDomLoss(baseline, { hydrationCtaLabels: [] }, [], "/chat_1"),
+    ).toEqual({ warnings: [], productBlocked: false });
   });
 });
 

@@ -172,6 +172,7 @@ describe("OpenClawQuickEditCard — execution", () => {
       changedFiles: ["app/page.tsx", "components/unused.tsx"],
       previewUrl: null,
       previewSessionId: null,
+      lifecycleToken: null,
       previewMode: null,
     });
     render(<OpenClawMessage msg={quickEditMessage()} />);
@@ -203,6 +204,7 @@ describe("OpenClawQuickEditCard — execution", () => {
       changedFiles: ["app/page.tsx"],
       previewUrl: "https://vm.example/p/abc",
       previewSessionId: "psid-1",
+      lifecycleToken: "life-1",
       previewMode: "dev_only",
     });
     const handler = vi.fn();
@@ -221,6 +223,7 @@ describe("OpenClawQuickEditCard — execution", () => {
         versionId: "v-2",
         previewUrl: "https://vm.example/p/abc",
         previewSessionId: "psid-1",
+        lifecycleToken: "life-1",
         previewMode: "dev_only",
       });
     } finally {
@@ -343,6 +346,7 @@ describe("OpenClawQuickEditCard — execution", () => {
       changedFiles: ["app/page.tsx"],
       previewUrl: null,
       previewSessionId: null,
+      lifecycleToken: null,
       previewMode: null,
     });
 
@@ -376,6 +380,7 @@ describe("OpenClawQuickEditCard — execution", () => {
       changedFiles: ["app/page.tsx"],
       previewUrl: null,
       previewSessionId: null,
+      lifecycleToken: null,
       previewMode: null,
     });
     // Aktiv version har hunnit flytta till v-9 — men turen skickades mot v-1.
@@ -411,6 +416,7 @@ describe("OpenClawQuickEditCard — execution", () => {
       changedFiles: ["app/page.tsx"],
       previewUrl: null,
       previewSessionId: null,
+      lifecycleToken: null,
       previewMode: null,
     });
     render(<OpenClawMessage msg={quickEditMessage()} />);
@@ -459,6 +465,7 @@ describe("OpenClawQuickEditCard — execution", () => {
         changedFiles: ["app/page.tsx"],
         previewUrl: null,
         previewSessionId: null,
+        lifecycleToken: null,
         previewMode: null,
       });
     });

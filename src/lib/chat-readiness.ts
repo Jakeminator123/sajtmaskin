@@ -1,3 +1,5 @@
+import { resolveProductPostcheckReportState } from "@/lib/db/services/reported-quality-gate";
+
 export type ChatReadinessSeverity = "blocker" | "warning" | "info";
 
 export type ChatReadinessStatus = "blocked" | "warning" | "ready";
@@ -227,6 +229,24 @@ const EMPTY_PRODUCT_POSTCHECK_PROJECTION: ProductPostcheckReadinessProjection = 
   blockedReason: null,
 };
 
+function skippedPostcheckWarning(
+  log: ProductPostcheckReadinessLog | null,
+): ChatReadinessItem {
+  const meta = readMeta(log?.meta);
+  const reason =
+    meta && typeof meta.skippedReason === "string" && meta.skippedReason.trim()
+      ? meta.skippedReason.trim()
+      : "unknown";
+  return {
+    id: "product-postcheck-skipped",
+    title: "Produktkontrollen kunde inte slutföras.",
+    detail: `${reason} · ${PRODUCT_POSTCHECK_SKIPPED}`,
+    severity: "warning",
+    category: "advisory",
+    action: "preview",
+  };
+}
+
 function findingsThatGateF3(findings: readonly ProjectedFinding[]): ProjectedFinding[] {
   const brokenAnchorCount = findings.filter((row) => row.code === "broken_anchor").length;
   return findings.filter((row) => {
@@ -271,8 +291,17 @@ function toBlockerItem(row: ProjectedFinding): ChatReadinessItem {
 export function projectProductPostcheckReadiness(
   logs: readonly ProductPostcheckReadinessLog[],
 ): ProductPostcheckReadinessProjection {
+  const report = resolveProductPostcheckReportState(logs);
   const newestSummary = pickNewestSummary(logs);
   if (!newestSummary) {
+    if (report.kind === "degraded") {
+      return {
+        warnings: [skippedPostcheckWarning(report.skipped)],
+        blockers: [],
+        blocksF3: false,
+        blockedReason: null,
+      };
+    }
     return EMPTY_PRODUCT_POSTCHECK_PROJECTION;
   }
 
@@ -307,8 +336,7 @@ export function projectProductPostcheckReadiness(
     });
   }
 
-  const newestMeta = readMeta(newestSummary.meta);
-  const productBlocked = newestMeta?.productBlocked === true;
+  const productBlocked = report.kind === "blocked";
   const gating = findingsThatGateF3(findings);
   const unreadableOnly =
     findings.length > 0 &&
@@ -318,7 +346,12 @@ export function projectProductPostcheckReadiness(
   const blocksF3 = productBlocked && !unreadableOnly;
   if (!blocksF3) {
     return {
-      warnings: findings.map((row) => row.item),
+      warnings: [
+        ...findings.map((row) => row.item),
+        ...(report.kind === "degraded"
+          ? [skippedPostcheckWarning(report.skipped)]
+          : []),
+      ],
       blockers: [],
       blocksF3: false,
       blockedReason: null,

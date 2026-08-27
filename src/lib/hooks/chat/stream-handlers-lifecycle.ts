@@ -216,9 +216,16 @@ export function handlePreviewReadyEvent(
       ? previewData.previewSessionId.trim()
       : "";
   if (previewSessionIdRaw) {
+    const lifecycleToken =
+      typeof previewData.lifecycleToken === "string" && previewData.lifecycleToken.trim()
+        ? previewData.lifecycleToken.trim()
+        : previewData.lifecycleToken === null
+          ? null
+          : undefined;
     ctx.onPreviewSessionMeta?.({
       previewSessionId: previewSessionIdRaw,
       versionId: state.versionIdFromStream,
+      lifecycleToken,
     });
   }
   

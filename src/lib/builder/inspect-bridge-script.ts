@@ -19,6 +19,11 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     try { return new URL(me && me.src ? me.src : location.href).searchParams.get(name); } catch (e) { return null; }
   }
   var PARENT = qp("parent") || "";
+  var IDENTITY = {
+    versionId: qp("versionId"),
+    previewSessionId: qp("previewSessionId"),
+    lifecycleToken: qp("lifecycleToken")
+  };
   var T = {
     setMode: "sajtmaskin:inspect:set-mode",
     hover: "sajtmaskin:inspect:hover",
@@ -151,7 +156,7 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     else setTimeout(fn, 16);
   }
   function post(type, payload) {
-    try { window.parent.postMessage({ type: type, source: "sajtmaskin-inspect", payload: payload }, PARENT || "*"); } catch (e) {}
+    try { window.parent.postMessage({ type: type, source: "sajtmaskin-inspect", identity: IDENTITY, payload: payload }, PARENT || "*"); } catch (e) {}
   }
   function truncateStr(v, max) {
     if (v == null) return "";

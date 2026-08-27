@@ -449,6 +449,7 @@ describe("GET preview-status — readiness-failure utan levande process", () => 
     );
     expect(fetchPreviewHostReadinessVerdict).toHaveBeenCalledWith("ps_1", {
       expectedVersionId: "v1",
+      expectedLifecycleToken: null,
     });
   });
 

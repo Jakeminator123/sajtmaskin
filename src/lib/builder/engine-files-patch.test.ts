@@ -264,6 +264,7 @@ describe("engine-files-patch · Fast Edit Lane", () => {
             changedFiles: ["app/page.tsx"],
             previewUrl: "https://preview.example/ver_3_1",
             previewSessionId: "sess_1",
+            lifecycleToken: "life_1",
             previewMode: "patched",
           });
         }
@@ -283,6 +284,7 @@ describe("engine-files-patch · Fast Edit Lane", () => {
         versionId: "ver_3_1",
         previewUrl: "https://preview.example/ver_3_1",
         previewSessionId: "sess_1",
+        lifecycleToken: "life_1",
         previewMode: "patched",
       });
       expect(calledFilesPatch()).toBe(false);

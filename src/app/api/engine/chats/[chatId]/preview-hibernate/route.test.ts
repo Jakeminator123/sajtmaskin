@@ -87,6 +87,38 @@ describe("POST preview-hibernate", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean; hibernated?: boolean };
     expect(body).toMatchObject({ ok: true, hibernated: true });
-    expect(hibernatePreviewHostSession).toHaveBeenCalledWith({ previewSessionId: "ps1" });
+    expect(hibernatePreviewHostSession).toHaveBeenCalledWith({
+      previewSessionId: "ps1",
+      lifecycleToken: null,
+    });
+  });
+
+  it("does not let a stale pagehide from lifecycle N hibernate lifecycle N+1", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps1",
+      previewUrl: "https://preview.example",
+      versionId: "v1",
+      lifecycleToken: "life-new",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+      tier2Provider: "preview_host",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "v1",
+          previewSessionId: "ps1",
+          lifecycleToken: "life-old",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "c1" }) },
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ ok: false, reason: "session_superseded" });
+    expect(hibernatePreviewHostSession).not.toHaveBeenCalled();
   });
 });

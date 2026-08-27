@@ -40,11 +40,31 @@ const { runInstallCommand } = require("./package-install.js");
 // Ingen load-cykel: storage-cleanup kräver denna modul enbart via en lazy
 // require inuti stopStaleRuntimes (körs långt efter att allt laddats).
 const { withNoSpaceCleanupRetry } = require("./storage-cleanup.js");
+const { readMutationRevision, withChatLifecycleLock } = require("../session-lifecycle.js");
 
 const READINESS_INTERVAL_MS = 1200;
 const READINESS_EMPTY_BODY_MIN_CHARS = 50;
 /** Per-attempt fetch abort. The connect-fail window is wall-clock; a 90s abort would double it. */
 const READINESS_FETCH_TIMEOUT_MS = 8000;
+
+function sameSessionLifecycle(stored, snapshot) {
+  return Boolean(
+    stored &&
+    snapshot &&
+    stored.sessionId === snapshot.sessionId &&
+    (stored.lifecycleToken ?? null) === (snapshot.lifecycleToken ?? null) &&
+    readMutationRevision(stored) === readMutationRevision(snapshot),
+  );
+}
+
+function assertCurrentSessionLifecycle(session) {
+  const current = findSessionByChatId(readStoreSync(), getSessionChatId(session));
+  if (!sameSessionLifecycle(current, session)) {
+    const error = new Error("Preview session lifecycle was superseded during runtime boot.");
+    error.code = "PREVIEW_LIFECYCLE_SUPERSEDED";
+    throw error;
+  }
+}
 
 /** Read at call time so guard tests can shrink the deadline without reloading the module. */
 function readinessMaxMs() {
@@ -132,6 +152,7 @@ const RUNTIME_CLEAN_EXIT_WINDOW_MS = 2 * 60 * 1000;
 const RUNTIME_BOOT_FAILURE_LIMIT = 3;
 const RUNTIME_BOOT_FAILURE_WINDOW_MS = 2 * 60 * 1000;
 let nextRuntimeBootId = 1;
+let beforeIdleLifecycleCheckForTesting = null;
 
 function classifyRuntimeCleanExitLoop({ timestamps, now = Date.now() }) {
   const recent = (Array.isArray(timestamps) ? timestamps : [])
@@ -187,34 +208,54 @@ function bootFailureTimestampsForSession(session) {
  * guarded on `stored.versionId` still being the version we probed — so a slow
  * result belonging to an older patch can never stamp a newer version.
  */
-async function probeReadinessAfterPatch({ chatId, sessionId, previewSessionId, versionId }) {
+async function probeReadinessAfterPatch({
+  chatId,
+  sessionId,
+  previewSessionId,
+  versionId,
+  lifecycleToken,
+  mutationRevision,
+}) {
   const { runtimePort } = getRuntimeStateForChat(chatId);
   if (!runtimePort || !sessionId || !versionId) return;
+  const probeLifecycle = {
+    sessionId,
+    lifecycleToken: lifecycleToken ?? null,
+    mutationRevision: mutationRevision ?? null,
+  };
   const url = `http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`;
   try {
     await waitForReady(url);
+    let applied = false;
     await updateSessionById(sessionId, (stored) => {
-      if (stored.versionId !== versionId) return;
+      if (stored.versionId !== versionId || !sameSessionLifecycle(stored, probeLifecycle)) return;
       stored.readinessState = "ready";
       stored.readinessError = null;
       stored.updatedAt = nowIso();
+      applied = true;
     });
-    await appendRuntimeLog(
-      previewSessionId,
-      `Readiness confirmed after hot patch (version ${versionId}).`,
-    );
+    if (applied) {
+      await appendRuntimeLog(
+        previewSessionId,
+        `Readiness confirmed after hot patch (version ${versionId}).`,
+      );
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown readiness failure";
+    let applied = false;
     await updateSessionById(sessionId, (stored) => {
-      if (stored.versionId !== versionId) return;
+      if (stored.versionId !== versionId || !sameSessionLifecycle(stored, probeLifecycle)) return;
       stored.readinessState = "failed";
       stored.readinessError = message;
       stored.updatedAt = nowIso();
+      applied = true;
     });
-    await appendRuntimeLog(
-      previewSessionId,
-      `Readiness failed after hot patch (version ${versionId}): ${message}`,
-    );
+    if (applied) {
+      await appendRuntimeLog(
+        previewSessionId,
+        `Readiness failed after hot patch (version ${versionId}): ${message}`,
+      );
+    }
   }
 }
 
@@ -228,7 +269,10 @@ async function probeReadinessAfterPatch({ chatId, sessionId, previewSessionId, v
  *   `{ mode: "error" }` so the caller can roll the session back instead of
  *   advertising a version that never actually landed on disk.
  */
-function applyRuntimePatch(chatId, { files, removedPaths } = {}) {
+function applyRuntimePatch(
+  chatId,
+  { files, removedPaths, versionId, mutationRevision, expectedPreviousMutationRevision } = {},
+) {
   const changed = files && typeof files === "object" ? files : {};
   const removed = Array.isArray(removedPaths) ? removedPaths : [];
   const allPaths = [...Object.keys(changed), ...removed];
@@ -266,7 +310,50 @@ function applyRuntimePatch(chatId, { files, removedPaths } = {}) {
       reason: error instanceof Error ? error.message : "Workspace patch write failed.",
     };
   }
+  const tracked = runtimeChildren.get(runtimeState.session.sessionId);
+  promoteTrackedRuntimeReceipt(tracked, runtimeState.session, {
+    versionId,
+    mutationRevision,
+    expectedPreviousMutationRevision,
+  });
   return { mode: "patched", reason: null };
+}
+
+/**
+ * A hot patch keeps the same child process but advances the content receipt it
+ * owns. The exit handler must therefore compare against this promoted receipt,
+ * not the boot-time session snapshot captured before the patch.
+ */
+function promoteTrackedRuntimeReceipt(
+  tracked,
+  session,
+  { versionId, mutationRevision, expectedPreviousMutationRevision } = {},
+) {
+  if (
+    !tracked ||
+    (tracked.lifecycleToken ?? null) !== (session?.lifecycleToken ?? null) ||
+    readMutationRevision(tracked) !== (expectedPreviousMutationRevision ?? null)
+  ) {
+    return false;
+  }
+  tracked.versionId = typeof versionId === "string" && versionId.trim()
+    ? versionId.trim()
+    : session?.versionId ?? null;
+  tracked.mutationRevision = mutationRevision ?? null;
+  return true;
+}
+
+function runtimeExitOwnsStoredSession(stored, tracked, sessionId) {
+  return Boolean(
+    stored &&
+      tracked &&
+      stored.versionId === tracked.versionId &&
+      sameSessionLifecycle(stored, {
+        sessionId,
+        lifecycleToken: tracked.lifecycleToken ?? null,
+        mutationRevision: readMutationRevision(tracked),
+      }),
+  );
 }
 
 function responseHeadersLookLikeHtmlDocument(res) {
@@ -622,7 +709,7 @@ function isLiveBoot(sessionId, bootId) {
 function exposeRuntimeToClients(session, { restart = false, runtimePort = null, bootId = null } = {}) {
   const chatId = getSessionChatId(session);
   const latest = findSessionByChatId(readStoreSync(), chatId);
-  if (!latest || latest.versionId !== session.versionId) return false;
+  if (!sameSessionLifecycle(latest, session) || latest.versionId !== session.versionId) return false;
   const tracked = runtimeChildren.get(session.sessionId);
   if (!tracked || tracked.child?.exitCode !== null) return false;
   if (runtimePort != null && tracked.port !== runtimePort) return false;
@@ -645,6 +732,10 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
   // serialized per chat, so this is normally a no-op — it only fires if a
   // prior child survived an aborted/raced boot path.
   await stopTrackedRuntime(session.sessionId, null);
+  // stopTrackedRuntime flushes logs asynchronously. A destroy/new start may
+  // win while that await is pending; fence immediately before spawning so the
+  // old lifecycle cannot leak a dev server after its session was removed.
+  assertCurrentSessionLifecycle(session);
   clearStaleNextDevLock(workspaceDir);
   const chatId = getSessionChatId(session);
   const basePath = `/${chatId}`;
@@ -683,6 +774,12 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     workspaceDir,
     chatId,
     previewSessionId: session.previewSessionId,
+    versionId: session.versionId ?? null,
+    lifecycleToken:
+      typeof session.lifecycleToken === "string" && session.lifecycleToken.trim()
+        ? session.lifecycleToken.trim()
+        : null,
+    mutationRevision: readMutationRevision(session),
     // Idle-reaper: stämplas om vid varje proxad request/WS-upgrade. Boot räknas
     // som aktivitet så en nystartad runtime inte reapas innan iframen hunnit in.
     lastActivityAt: Date.now(),
@@ -715,15 +812,17 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
   child.stderr.on("data", captureRuntimeOutput);
 
   child.once("exit", async (code, signal) => {
-    runtimeChildren.delete(session.sessionId);
+    if (runtimeChildren.get(session.sessionId) === tracked) {
+      runtimeChildren.delete(session.sessionId);
+    }
     if (tracked.ignoreExit) return;
     const outputTail = tracked.recentOutput.slice(-RUNTIME_OUTPUT_EXIT_TAIL).join("\n");
     let cleanExitLoopDetected = false;
     await updateSessionById(session.sessionId, (stored) => {
-      if (stored.versionId !== session.versionId) return;
+      if (!runtimeExitOwnsStoredSession(stored, tracked, session.sessionId)) return;
       if (code === 0 && signal == null) {
         const priorTimestamps =
-          stored.runtimeCleanExitVersionId === session.versionId &&
+          stored.runtimeCleanExitVersionId === tracked.versionId &&
           Array.isArray(stored.runtimeCleanExitTimestamps)
             ? stored.runtimeCleanExitTimestamps
             : [];
@@ -731,7 +830,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
           timestamps: priorTimestamps,
           now: Date.now(),
         });
-        stored.runtimeCleanExitVersionId = session.versionId;
+        stored.runtimeCleanExitVersionId = tracked.versionId;
         stored.runtimeCleanExitTimestamps = next.timestamps;
         cleanExitLoopDetected = next.failed;
       }
@@ -753,7 +852,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     if (cleanExitLoopDetected) {
       await appendRuntimeLog(
         session.previewSessionId,
-        `Runtime clean-exit restart limit reached for version ${session.versionId}; readiness marked failed.`,
+        `Runtime clean-exit restart limit reached for version ${tracked.versionId}; readiness marked failed.`,
       );
     }
     // (D) Endast vid onormal exit (krasch/boot-fel) — rena stopp sätter
@@ -803,6 +902,7 @@ async function bootRuntimeForSession(session, options = {}) {
       "Retry from the builder after fixing the project, or wait for the failure window to expire.",
     ].join(" ");
     await updateSessionById(session.sessionId, (stored) => {
+      if (!sameSessionLifecycle(stored, session)) return;
       if (stored.versionId !== session.versionId) return;
       stored.status = "error";
       stored.runtimeBootFailureVersionId = session.versionId;
@@ -820,6 +920,7 @@ async function bootRuntimeForSession(session, options = {}) {
   }
 
   await updateSessionById(session.sessionId, (stored) => {
+    if (!sameSessionLifecycle(stored, session)) return;
     stored.status = "starting";
     // A start request writes `starting` before it queues the boot. Treat that
     // as an explicit retry and give the same version a fresh exit budget.
@@ -848,6 +949,7 @@ async function bootRuntimeForSession(session, options = {}) {
     const chatId = getSessionChatId(session);
     const isPrewarm = session.prewarm === true;
     const runBoot = async () => {
+      assertCurrentSessionLifecycle(session);
       const workspaceDir = writeWorkspaceFiles(chatId, session.filesJson);
       patchNextConfigForPreviewBasePath(workspaceDir);
       const runtimePort = await resolvePortForChat(chatId, Number(session.runtimePort));
@@ -859,10 +961,12 @@ async function bootRuntimeForSession(session, options = {}) {
         session.previewSessionId,
         session.filesJson,
       );
+      assertCurrentSessionLifecycle(session);
       await spawnDevServer(session, workspaceDir, runtimePort);
       const spawnedBootId = runtimeChildren.get(session.sessionId)?.bootId ?? null;
 
       await updateSessionById(session.sessionId, (stored) => {
+        if (!sameSessionLifecycle(stored, session)) return;
         if (stored.versionId !== session.versionId) return;
         stored.status = "warm_project";
         stored.runtimePort = runtimePort;
@@ -898,6 +1002,7 @@ async function bootRuntimeForSession(session, options = {}) {
         void readiness
           .then(() =>
             updateSessionById(session.sessionId, (stored) => {
+              if (!sameSessionLifecycle(stored, session)) return;
               if (stored.versionId !== session.versionId) return;
               if (!isLiveBoot(session.sessionId, spawnedBootId)) return;
               stored.readinessState = "ready";
@@ -918,6 +1023,7 @@ async function bootRuntimeForSession(session, options = {}) {
             const tail = runtimeOutputTail(tracked);
             const withTail = tail ? `${message}\nLast Next.js output:\n${tail}` : message;
             return updateSessionById(session.sessionId, (stored) => {
+              if (!sameSessionLifecycle(stored, session)) return;
               if (stored.versionId !== session.versionId) return;
               if (!isLiveBoot(session.sessionId, spawnedBootId)) return;
               stored.readinessState = "failed";
@@ -964,6 +1070,7 @@ async function bootRuntimeForSession(session, options = {}) {
         // outer catch, which sets status "error" and keeps the hold in place.
         await readiness;
         await updateSessionById(session.sessionId, (stored) => {
+          if (!sameSessionLifecycle(stored, session)) return;
           if (stored.versionId !== session.versionId || stored.prewarm === true) return;
           stored.prewarmReplacementPending = false;
           stored.status = "warm_project";
@@ -988,6 +1095,12 @@ async function bootRuntimeForSession(session, options = {}) {
       },
     });
   } catch (error) {
+    if (error && typeof error === "object" && error.code === "PREVIEW_LIFECYCLE_SUPERSEDED") {
+      // Every superseded assertion is before spawn. Do not stop by sessionId
+      // here: /start deliberately reuses that id, so a later lifecycle may
+      // already own runtimeChildren by the time this catch runs.
+      throw error;
+    }
     const message = error instanceof Error ? error.message : "unknown error";
     const installDiagnostics =
       error && typeof error === "object" && error.installDiagnostics && typeof error.installDiagnostics === "object"
@@ -1001,6 +1114,7 @@ async function bootRuntimeForSession(session, options = {}) {
     // guard refuses the very boot the update asked for.
     let failure = { timestamps: [], failed: false };
     await updateSessionById(session.sessionId, (stored) => {
+      if (!sameSessionLifecycle(stored, session)) return;
       if (stored.versionId !== session.versionId) return;
       failure = classifyRuntimeBootFailureLoop({
         timestamps: bootFailureTimestampsForSession(stored),
@@ -1185,7 +1299,13 @@ function getRuntimeStateForChat(chatId) {
     };
   }
   const tracked = runtimeChildren.get(session.sessionId);
-  const running = Boolean(tracked && tracked.child.exitCode === null);
+  // Process liveness may intentionally lag one mutation while /patch writes
+  // into that child. Token identity still fences a superseded lifecycle; the
+  // patch promotes tracked.mutationRevision only after the workspace write.
+  const trackedOwnsLifecycle = Boolean(
+    tracked && (tracked.lifecycleToken ?? null) === (session.lifecycleToken ?? null),
+  );
+  const running = Boolean(trackedOwnsLifecycle && tracked && tracked.child.exitCode === null);
   // `status:"starting"` is persisted and may survive a host restart; it is not
   // proof that this process owns a live boot. Only the in-memory boot chain is.
   const booting = inflightBootByChat.has(chatId);
@@ -1235,36 +1355,62 @@ async function sweepIdleRuntimes(nowMs = Date.now()) {
       ? tracked.lastActivityAt
       : 0;
     if (nowMs - lastActivityAt < RUNTIME_IDLE_STOP_MS) continue;
+    if (beforeIdleLifecycleCheckForTesting) {
+      await beforeIdleLifecycleCheckForTesting({ chatId, sessionId, tracked });
+    }
+    await withChatLifecycleLock(chatId, async () => {
+      const currentTracked = runtimeChildren.get(sessionId);
+      if (currentTracked !== tracked) return;
+      if (chatId && inflightBootByChat.has(chatId)) return;
+      if (chatId && activeVerifyChatKeys.has(safeChatKey(chatId))) return;
+      if (chatId && activePreviewSocketCount(chatId) > 0) return;
 
-    const previewSessionId =
-      typeof tracked.previewSessionId === "string" && tracked.previewSessionId.trim()
-        ? tracked.previewSessionId.trim()
-        : null;
-    // Markera `hibernated` FÖRE stoppet (Codex P2): stopTrackedRuntime tar
-    // bort runtimen ur runtimeChildren och drainar upp till RUNTIME_DRAIN_MS —
-    // i det fönstret skulle en status-poll annars se running=false med status
-    // `warm_project` och auto-boota om runtimen, vilket besegrar reapern.
-    // Status-routen auto-bootar aldrig `hibernated`-sessioner.
-    // Saknas session-posten (städad store) är runtimen en orphan — stoppa den
-    // ändå; status-skrivningen är bara relevant när posten finns.
-    await updateSessionById(sessionId, (stored) => {
-      stored.status = "hibernated";
-      stored.lastAction = "idle_stop";
-      stored.updatedAt = nowIso();
-    }).catch(() => null);
-    const stopped = await stopTrackedRuntime(sessionId, null).catch(() => false);
-    if (!stopped) {
-      // Runtimen försvann samtidigt (annan stop-väg). `hibernated` är ändå
-      // rätt vilotillstånd för en idle runtime utan process, så lämna kvar.
-      continue;
-    }
-    stoppedRuntimes += 1;
-    if (previewSessionId) {
-      await appendRuntimeLog(
-        previewSessionId,
-        `Runtime idle-stopped after ${Math.round(RUNTIME_IDLE_STOP_MS / 60000)} min without preview traffic; next visit boots it again.`,
-      ).catch(() => {});
-    }
+      const currentSession = chatId ? findSessionByChatId(readStoreSync(), chatId) : null;
+      const trackedLifecycle = {
+        sessionId,
+        lifecycleToken: tracked.lifecycleToken ?? null,
+        mutationRevision: tracked.mutationRevision ?? null,
+      };
+      if (currentSession && !sameSessionLifecycle(currentSession, trackedLifecycle)) return;
+      if (
+        currentSession?.readinessState === "starting" &&
+        tracked.child &&
+        tracked.child.exitCode === null
+      ) {
+        return;
+      }
+      const currentLastActivityAt = Number.isFinite(tracked.lastActivityAt)
+        ? tracked.lastActivityAt
+        : 0;
+      if (nowMs - currentLastActivityAt < RUNTIME_IDLE_STOP_MS) return;
+
+      const previewSessionId =
+        typeof tracked.previewSessionId === "string" && tracked.previewSessionId.trim()
+          ? tracked.previewSessionId.trim()
+          : null;
+      // Mark `hibernated` before the stop, but only while the snapshotted child
+      // and lifecycle are still current under the same per-chat lock as start.
+      let marked = currentSession === null;
+      if (currentSession) {
+        await updateSessionById(sessionId, (stored) => {
+          if (!sameSessionLifecycle(stored, trackedLifecycle)) return;
+          stored.status = "hibernated";
+          stored.lastAction = "idle_stop";
+          stored.updatedAt = nowIso();
+          marked = true;
+        }).catch(() => null);
+      }
+      if (!marked || runtimeChildren.get(sessionId) !== tracked) return;
+      const stopped = await stopTrackedRuntime(sessionId, null).catch(() => false);
+      if (!stopped) return;
+      stoppedRuntimes += 1;
+      if (previewSessionId) {
+        await appendRuntimeLog(
+          previewSessionId,
+          `Runtime idle-stopped after ${Math.round(RUNTIME_IDLE_STOP_MS / 60000)} min without preview traffic; next visit boots it again.`,
+        ).catch(() => {});
+      }
+    });
   }
   return { stoppedRuntimes };
 }
@@ -1291,11 +1437,20 @@ function createFakeRuntimeChildForTesting() {
 function setRuntimeStateForTesting(params) {
   const sessionId = params.sessionId;
   if (params.running) {
+    const stored = findSessionByChatId(readStoreSync(), params.chatId);
     runtimeChildren.set(sessionId, {
       child: createFakeRuntimeChildForTesting(),
       port: params.runtimePort,
       chatId: params.chatId,
       previewSessionId: params.previewSessionId ?? "",
+      lifecycleToken:
+        params.lifecycleToken === undefined
+          ? stored?.lifecycleToken ?? null
+          : params.lifecycleToken ?? null,
+      mutationRevision:
+        params.mutationRevision === undefined
+          ? readMutationRevision(stored)
+          : readMutationRevision(params),
       workspaceDir: params.workspaceDir ?? null,
       recentOutput: Array.isArray(params.recentOutput) ? params.recentOutput : [],
       lastActivityAt: Number.isFinite(params.lastActivityAt) ? params.lastActivityAt : Date.now(),
@@ -1323,9 +1478,15 @@ function setBootRunnerForTesting(runner) {
   bootRunnerForChat = runner ?? bootRuntimeForSession;
 }
 
+function setBeforeIdleLifecycleCheckForTesting(hook) {
+  beforeIdleLifecycleCheckForTesting = typeof hook === "function" ? hook : null;
+}
+
 module.exports = {
   probeReadinessAfterPatch,
   applyRuntimePatch,
+  promoteTrackedRuntimeReceipt,
+  runtimeExitOwnsStoredSession,
   classifyRuntimeCleanExitLoop,
   RUNTIME_CLEAN_EXIT_LIMIT,
   RUNTIME_CLEAN_EXIT_WINDOW_MS,
@@ -1348,4 +1509,5 @@ module.exports = {
   createFakeRuntimeChildForTesting,
   clearRuntimeStateForTesting,
   setBootRunnerForTesting,
+  setBeforeIdleLifecycleCheckForTesting,
 };

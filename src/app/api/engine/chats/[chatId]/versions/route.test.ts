@@ -12,9 +12,20 @@ const maybeAutoAcceptTimedOutRepair = vi.hoisted(() =>
 const addMessage = vi.hoisted(() => vi.fn());
 const createDraftVersion = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
+const productPostcheckLogMatchesCurrentFilesRevision = vi.hoisted(() =>
+  vi.fn((meta: unknown, currentRevision: string | null | undefined) => {
+    if (!meta || typeof meta !== "object" || Array.isArray(meta)) return true;
+    const record = meta as Record<string, unknown>;
+    if (!Object.prototype.hasOwnProperty.call(record, "attestedFilesRevision")) return true;
+    const attested = record.attestedFilesRevision;
+    if (attested == null) return true;
+    return typeof attested === "string" && attested === currentRevision;
+  }),
+);
 const readAll = vi.hoisted(() => vi.fn(() => [] as unknown[]));
 const getLatestQualityGateSignalsForChat = vi.hoisted(() => vi.fn());
 const incContentRevisionMismatch = vi.hoisted(() => vi.fn());
+const dbSelect = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/logging/event-bus", () => ({ readAll }));
 
@@ -38,6 +49,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 
 vi.mock("@/lib/db/services/version-errors", () => ({
   createEngineVersionErrorLogs,
+  productPostcheckLogMatchesCurrentFilesRevision,
 }));
 
 // Innehållsrevision R15: list path batches revision reads (not N+1). Mocked so
@@ -54,13 +66,7 @@ vi.mock("@/lib/observability/metrics", () => ({
 vi.mock("@/lib/db/client", () => ({
   dbConfigured: true,
   db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          orderBy: vi.fn(async () => []),
-        })),
-      })),
-    })),
+    select: dbSelect,
   },
 }));
 
@@ -75,12 +81,20 @@ vi.mock("@/lib/db/schema", () => ({
     createdAt: Symbol("createdAt"),
     chatId: Symbol("chatId"),
   },
+  engineVersionErrorLogs: {
+    version_id: Symbol("version_id"),
+    category: Symbol("category"),
+    message: Symbol("message"),
+    meta: Symbol("meta"),
+    created_at: Symbol("created_at"),
+  },
 }));
 
 vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
   desc: vi.fn(),
   eq: vi.fn(),
+  inArray: vi.fn(),
   or: vi.fn(),
   sql: (strings: TemplateStringsArray) => ({
     op: "sql",
@@ -125,6 +139,14 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     getLatestQualityGateSignalsForChat.mockReset();
     getLatestQualityGateSignalsForChat.mockResolvedValue(new Map());
     incContentRevisionMismatch.mockReset();
+    dbSelect.mockReset();
+    dbSelect.mockImplementation(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: vi.fn(async () => []),
+        })),
+      })),
+    }));
     delete process.env.SAJTMASKIN_CONTENT_REVISION_GATE;
   });
 
@@ -282,6 +304,201 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     expect(json.versions[0].busStatus.phase).toBe("failed");
   });
 
+  it("batches persisted postcheck signals and degrades every affected history row without N+1", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_2",
+        created_at: "2026-08-26T10:02:00Z",
+        version_number: 2,
+        message_id: "msg_2",
+        release_state: "promoted",
+        verification_state: "passed",
+        verification_summary: "PASS",
+        promoted_at: "2026-08-26T10:02:30Z",
+      },
+      {
+        id: "ver_1",
+        created_at: "2026-08-26T10:00:00Z",
+        version_number: 1,
+        message_id: "msg_1",
+        release_state: "promoted",
+        verification_state: "passed",
+        verification_summary: "PASS",
+        promoted_at: "2026-08-26T10:00:30Z",
+      },
+    ]);
+    dbSelect.mockImplementation(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: vi.fn(async () => [
+            {
+              versionId: "ver_2",
+              category: "product_postcheck.skipped",
+              message: "F2 Product Postcheck skipped.",
+              meta: { skippedReason: "transport_error" },
+              created_at: "2026-08-26T10:03:00Z",
+            },
+            {
+              versionId: "ver_1",
+              category: "product_postcheck.skipped",
+              message: "F2 Product Postcheck skipped.",
+              meta: { skippedReason: "timeout" },
+              created_at: "2026-08-26T10:01:00Z",
+            },
+          ]),
+        })),
+      })),
+    }));
+
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(dbSelect).toHaveBeenCalledTimes(1);
+    expect(
+      json.versions.map((version: { busStatus: { degradations: Array<{ kind: string }> } }) =>
+        version.busStatus.degradations.map((item) => item.kind),
+      ),
+    ).toEqual([
+      ["product_postcheck_skipped"],
+      ["product_postcheck_skipped"],
+    ]);
+  });
+
+  it("ignores an attested N postcheck after the same version became N+1", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_1",
+        created_at: "2026-08-27T10:00:00Z",
+        version_number: 1,
+        message_id: "msg_1",
+        release_state: "promoted",
+        verification_state: "passed",
+        verification_summary: "PASS",
+        promoted_at: "2026-08-27T10:00:30Z",
+        files_revision: "rev_n_plus_1",
+      },
+    ]);
+    dbSelect.mockImplementation(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: vi.fn(async () => [
+            {
+              versionId: "ver_1",
+              category: "product_postcheck.summary",
+              message: "N var blockerad",
+              meta: { productBlocked: true, attestedFilesRevision: "rev_n" },
+              created_at: "2026-08-27T10:01:00Z",
+            },
+          ]),
+        })),
+      })),
+    }));
+
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(productPostcheckLogMatchesCurrentFilesRevision).toHaveBeenCalledWith(
+      expect.objectContaining({ attestedFilesRevision: "rev_n" }),
+      "rev_n_plus_1",
+    );
+    expect(json.versions[0].busStatus.verificationBlocked).toBe(false);
+    expect(json.versions[0].busStatus.degradations).toEqual([]);
+  });
+
+  it("ignores a stamped N bus degradation after the same version became N+1", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_1",
+        created_at: "2026-08-27T10:00:00Z",
+        version_number: 1,
+        message_id: "msg_1",
+        release_state: "promoted",
+        verification_state: "passed",
+        verification_summary: "PASS",
+        promoted_at: "2026-08-27T10:00:30Z",
+        files_revision: "rev_n_plus_1",
+      },
+    ]);
+    readAll.mockReturnValue([
+      {
+        t: "version.degraded",
+        id: "e_stale",
+        ts: "2026-08-27T10:01:00Z",
+        runId: "root",
+        versionId: "ver_1",
+        chatId: "chat_1",
+        kind: "product_postcheck_blocked",
+        message: "revision N was blocked",
+        meta: { attestedFilesRevision: "rev_n" },
+      },
+    ]);
+
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.versions[0].busStatus.phase).toBe("done");
+    expect(json.versions[0].busStatus.eventCount).toBe(0);
+    expect(json.versions[0].busStatus.verificationBlocked).toBe(false);
+    expect(json.versions[0].busStatus.degradations).toEqual([]);
+  });
+
+  it("degrades empty-bus terminal history rows when the batched postcheck read fails", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_1",
+        created_at: "2026-08-26T10:00:00Z",
+        version_number: 1,
+        message_id: "msg_1",
+        release_state: "promoted",
+        verification_state: "passed",
+        verification_summary: "PASS",
+        promoted_at: "2026-08-26T10:00:30Z",
+      },
+    ]);
+    readAll.mockReturnValue([]);
+    dbSelect.mockImplementation(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          orderBy: vi.fn(async () => {
+            throw new Error("db read failed");
+          }),
+        })),
+      })),
+    }));
+
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.versions[0].busStatus.phase).toBe("done");
+    expect(json.versions[0].busStatus.degradations).toEqual([
+      expect.objectContaining({
+        kind: "product_postcheck_skipped",
+        meta: expect.objectContaining({ skippedReason: "log_read_error" }),
+      }),
+    ]);
+    expect(json.versions[0].busStatus.verificationBlocked).toBe(false);
+  });
+
   describe("innehållsrevision (R15) — historikbadgen får inte visa solid Klar för omskrivet innehåll", () => {
     beforeEach(() => {
       getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
@@ -295,6 +512,7 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
           verification_state: "pending",
           verification_summary: null,
           promoted_at: null,
+          files_revision: REVISION_N_PLUS_1,
         },
       ]);
       readAll.mockReturnValue(terminalDoneBus);
@@ -315,6 +533,20 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
           ],
         ]),
       );
+      readAll.mockReturnValue([
+        ...terminalDoneBus,
+        {
+          t: "version.degraded",
+          id: "e_stale_product",
+          ts: "2026-08-04T10:00:01.000Z",
+          runId: "root",
+          versionId: "ver_rewritten",
+          chatId: "chat_1",
+          kind: "product_postcheck_blocked",
+          message: "revision N was blocked",
+          meta: { attestedFilesRevision: REVISION_N },
+        },
+      ]);
 
       const response = await GET(
         new Request("https://example.com/api/engine/chats/chat_1/versions"),

@@ -159,7 +159,7 @@ const KIND_SPECS = {
       params.push(max);
       return {
         sql: `
-          SELECT ${colSql}, pps.product_blocked
+          SELECT ${colSql}, pps.product_blocked, pps.product_degraded
           FROM generation_telemetry gt
           ${LATEST_PRODUCT_POSTCHECK_JOIN.trim()}
           ${where.length ? `WHERE ${where.join(" AND ")}` : ""}

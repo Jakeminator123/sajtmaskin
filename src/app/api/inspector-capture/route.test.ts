@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const launchCaptureBrowser = vi.hoisted(() => vi.fn());
 const getPreviewHostBaseUrl = vi.hoisted(() => vi.fn());
+const getActivePreviewSessionAsync = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/auth", () => ({
   getCurrentUser,
@@ -18,6 +19,7 @@ vi.mock("@/lib/builder/inspector-feature", () => ({
 }));
 
 vi.mock("@/lib/gen/preview/tier2-config", () => ({ getPreviewHostBaseUrl }));
+vi.mock("@/lib/gen/preview/session-store", () => ({ getActivePreviewSessionAsync }));
 
 vi.mock("@/lib/ssrf-guard", () => ({
   isDisallowedHost: () => false,
@@ -34,7 +36,22 @@ vi.mock("@/lib/capture/browser", () => ({
 
 const { POST } = await import("./route");
 
-function captureRequest(url: string): Request {
+const currentIdentity = {
+  chatId: "chat_1",
+  versionId: "v1",
+  previewSessionId: "ps_1",
+  lifecycleToken: "life_1",
+};
+
+function captureRequest(
+  url: string,
+  identity: {
+    chatId: string;
+    versionId: string;
+    previewSessionId: string;
+    lifecycleToken: string | null;
+  } | null = currentIdentity,
+): Request {
   return new Request("http://localhost/api/inspector-capture", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -44,6 +61,7 @@ function captureRequest(url: string): Request {
       yPercent: 50,
       viewportWidth: 1280,
       viewportHeight: 800,
+      ...(identity ?? {}),
     }),
   });
 }
@@ -53,6 +71,12 @@ describe("POST /api/inspector-capture", () => {
     vi.clearAllMocks();
     getCurrentUser.mockResolvedValue(null);
     getPreviewHostBaseUrl.mockReturnValue("https://preview.example/p");
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_1",
+      lifecycleToken: "life_1",
+      versionId: "v1",
+      previewUrl: "https://preview.example/p/abc",
+    });
     launchCaptureBrowser.mockRejectedValue(new Error("browsern skulle aldrig ha startats"));
   });
 
@@ -79,10 +103,26 @@ describe("POST /api/inspector-capture", () => {
     // Utan allowlisten är routen en publik screenshot-proxy: SSRF-kontrollen
     // godkänner varje PUBLIK värd.
     getCurrentUser.mockResolvedValue({ id: "user-1" });
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_1",
+      lifecycleToken: "life_1",
+      versionId: "v1",
+      previewUrl: "https://angripare.example/hemligt",
+    });
 
     const res = await POST(captureRequest("https://angripare.example/hemligt"));
 
     expect(res.status).toBe(403);
+    expect(launchCaptureBrowser).not.toHaveBeenCalled();
+  });
+
+  it("avvisar capture utan serverbunden preview-identitet", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user-1" });
+
+    const res = await POST(captureRequest("https://preview.example/p/abc", null));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual(expect.objectContaining({ staleIdentity: true }));
     expect(launchCaptureBrowser).not.toHaveBeenCalled();
   });
 
@@ -93,6 +133,28 @@ describe("POST /api/inspector-capture", () => {
     const res = await POST(captureRequest("https://preview.example/p/abc"));
 
     expect(res.status).toBe(503);
+    expect(launchCaptureBrowser).not.toHaveBeenCalled();
+  });
+
+  it("avvisar en stale preview-identitet innan Chromium startas", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user-1" });
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_new",
+      lifecycleToken: "life_new",
+      versionId: "v_new",
+      previewUrl: "https://preview.example/p/abc",
+    });
+
+    const res = await POST(
+      captureRequest("https://preview.example/p/abc", {
+        chatId: "chat_1",
+        versionId: "v_old",
+        previewSessionId: "ps_old",
+        lifecycleToken: "life_old",
+      }),
+    );
+
+    expect(res.status).toBe(409);
     expect(launchCaptureBrowser).not.toHaveBeenCalled();
   });
 

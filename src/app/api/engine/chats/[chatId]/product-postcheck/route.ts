@@ -9,7 +9,10 @@ import {
   setLlmUsageContext,
 } from "@/lib/observability/llm-usage";
 import { getEngineVersionForChatByIdForRequest, getRequestUserId } from "@/lib/tenant";
-import { runProductPostcheck } from "@/lib/gen/verify/product-postcheck";
+import {
+  runProductPostcheck,
+  type ProductPostcheckResult,
+} from "@/lib/gen/verify/product-postcheck";
 import { pickUserRequest, summarizeBrief } from "@/lib/gen/verify/live-review";
 import {
   beginLiveReviewSession,
@@ -21,6 +24,7 @@ import {
   deleteLiveReviewScreenshotUrls,
 } from "@/lib/db/services/live-review-runs";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
+import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 
 export const runtime = "nodejs";
 // Postcheck alone can approach ~150s worst case (boot wait, crawl with the
@@ -35,6 +39,52 @@ const requestSchema = z.object({
   previewUrl: z.string().trim().optional().nullable(),
 });
 
+type ProductPostcheckTarget = {
+  previewSessionId: string;
+  lifecycleToken: string | null;
+  filesRevision: string;
+};
+
+function bindProductPostcheckTarget(
+  session: Awaited<ReturnType<typeof getActivePreviewSessionAsync>>,
+  versionId: string,
+  filesRevision: string | null,
+): ProductPostcheckTarget | null {
+  const previewSessionId = session?.previewSessionId?.trim() || "";
+  const lifecycleToken = session?.lifecycleToken?.trim() || null;
+  const sessionFilesRevision = session?.filesRevision?.trim() || "";
+  if (
+    !filesRevision ||
+    session?.versionId !== versionId ||
+    !previewSessionId ||
+    sessionFilesRevision !== filesRevision
+  ) {
+    return null;
+  }
+  return { previewSessionId, lifecycleToken, filesRevision };
+}
+
+function supersededPostcheckResult(params: {
+  previewUrl: string;
+  durationMs?: number | null;
+  routesChecked?: number | null;
+}): ProductPostcheckResult {
+  return {
+    ok: true,
+    skipped: true,
+    skippedReason: "preview_superseded",
+    warnings: [],
+    warningCount: 0,
+    productBlocked: false,
+    routesChecked: params.routesChecked ?? 0,
+    durationMs: params.durationMs ?? 0,
+    checkedUrl: params.previewUrl,
+    screenshots: null,
+    domSummary: null,
+    attestation: null,
+  };
+}
+
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "engine:product-postcheck", () =>
     runWithLlmUsageContext({}, () => handlePOST(req, ctx)),
@@ -47,6 +97,7 @@ function emitPostcheckDegraded(params: {
   reason: string;
   checkedUrl: string | null;
   durationMs: number | null;
+  attestation: ProductPostcheckTarget;
 }): void {
   // `runtime_error` means the postcheck CRASHED, not that it was
   // intentionally skipped. The human-readable `message` must reflect
@@ -69,6 +120,9 @@ function emitPostcheckDegraded(params: {
         skippedReason: params.reason,
         checkedUrl: params.checkedUrl,
         durationMs: params.durationMs,
+        attestedPreviewSessionId: params.attestation.previewSessionId,
+        attestedLifecycleToken: params.attestation.lifecycleToken,
+        attestedFilesRevision: params.attestation.filesRevision,
       },
     });
   } catch {
@@ -84,6 +138,7 @@ function emitPostcheckBlocked(params: {
   blockingCodes: string[];
   checkedUrl: string | null;
   durationMs: number | null;
+  attestation: ProductPostcheckTarget;
 }): void {
   // The postcheck RAN and judged the product broken (dead mobile menu or
   // 2+ broken in-page anchors). Distinct from a skip: emit a dedicated
@@ -103,6 +158,9 @@ function emitPostcheckBlocked(params: {
         blockingCodes: params.blockingCodes,
         checkedUrl: params.checkedUrl,
         durationMs: params.durationMs,
+        attestedPreviewSessionId: params.attestation.previewSessionId,
+        attestedLifecycleToken: params.attestation.lifecycleToken,
+        attestedFilesRevision: params.attestation.filesRevision,
       },
     });
   } catch {
@@ -156,34 +214,68 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   const resolvedVersionId = scopedVersion.version.id;
   setLlmUsageContext({ versionId: resolvedVersionId });
 
-  if (!previewUrl?.trim()) {
-    // A skipped DOM postcheck must never read as solid green. The common
-    // client call passes `previewUrl: null` when the VM URL is not yet
-    // resolved; without this emit the version-status badge stayed "ready"
-    // even though DOM verification never ran. Mirror the post-run skip path.
-    emitPostcheckDegraded({
-      versionId: resolvedVersionId,
-      chatId,
-      reason: "missing_preview_url",
-      checkedUrl: null,
-      durationMs: 0,
-    });
-    return NextResponse.json({
-      ok: true,
-      skipped: true,
-      skippedReason: "missing_preview_url",
-      warnings: [],
-      warningCount: 0,
-      productBlocked: false,
-      routesChecked: 0,
-      durationMs: 0,
-      checkedUrl: null,
-    });
-  }
-
   let liveReviewSession: LiveReviewSession | null = null;
+  let target: ProductPostcheckTarget | null = null;
+  let targetIsCurrent: (() => Promise<boolean>) | null = null;
   try {
     const filesRevision = scopedVersion.version.files_revision?.trim() || null;
+    const activeSession = await getActivePreviewSessionAsync(chatId);
+    const boundTarget = bindProductPostcheckTarget(
+      activeSession,
+      resolvedVersionId,
+      filesRevision,
+    );
+    if (!boundTarget) {
+      return NextResponse.json(
+        supersededPostcheckResult({ previewUrl: previewUrl?.trim() || "" }),
+      );
+    }
+    target = boundTarget;
+
+    const isTargetCurrent = async (): Promise<boolean> => {
+      const [latestScopedVersion, latestSession] = await Promise.all([
+        getEngineVersionForChatByIdForRequest(req, chatId, versionId),
+        getActivePreviewSessionAsync(chatId),
+      ]);
+      return Boolean(
+        latestScopedVersion?.version.id === resolvedVersionId &&
+          latestScopedVersion.version.files_revision?.trim() === boundTarget.filesRevision &&
+          bindProductPostcheckTarget(
+            latestSession,
+            resolvedVersionId,
+            boundTarget.filesRevision,
+          )?.previewSessionId === boundTarget.previewSessionId &&
+          (latestSession?.lifecycleToken?.trim() || null) === boundTarget.lifecycleToken,
+      );
+    };
+    targetIsCurrent = isTargetCurrent;
+
+    if (!previewUrl?.trim()) {
+      // This is a real failure to run against the CURRENT preview target, so it
+      // may be projected and persisted with the same attestation. A request
+      // without a current target was returned as a silent supersession above.
+      emitPostcheckDegraded({
+        versionId: resolvedVersionId,
+        chatId,
+        reason: "missing_preview_url",
+        checkedUrl: null,
+        durationMs: 0,
+        attestation: boundTarget,
+      });
+      return NextResponse.json({
+        ok: true,
+        skipped: true,
+        skippedReason: "missing_preview_url",
+        warnings: [],
+        warningCount: 0,
+        productBlocked: false,
+        routesChecked: 0,
+        durationMs: 0,
+        checkedUrl: null,
+        attestation: boundTarget,
+      });
+    }
+
     liveReviewSession = await beginLiveReviewSession({
       chatId,
       versionId: resolvedVersionId,
@@ -198,46 +290,27 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       captureEnabled: liveReviewSession.captureEnabled,
       captureUserId: usageOwnerId ?? undefined,
       filesRevision,
+      previewSessionId: boundTarget.previewSessionId,
+      lifecycleToken: boundTarget.lifecycleToken,
     });
 
-    // OMTAG-06 follow-up: emit a `version.degraded` bus event when the
-    // product-postcheck never ran. The route already returns
-    // `skipped: true` to the caller and post-checks.ts logs an info-level
-    // engine_version_error_logs row, but neither surfaced the skip on
-    // the version-status projection — so the UI showed "preview ok"
-    // with no hint that DOM-level verification was missing.
-    if (result.skipped) {
-      emitPostcheckDegraded({
-        versionId: resolvedVersionId,
-        chatId,
-        reason: result.skippedReason ?? "unknown",
-        checkedUrl: result.checkedUrl ?? null,
-        durationMs: result.durationMs ?? null,
-      });
-    } else if (result.productBlocked) {
-      // The check ran and found blocking product defects — surface a
-      // distinct degradation so the lifecycle badge stays honest (not solid
-      // green) even though the page rendered and the build passed.
-      const blockingCodes = Array.from(
-        new Set(
-          result.warnings
-            .map((warning) => warning.code)
-            .filter(
-              (code) =>
-                code === "mobile_menu_failed" ||
-                code === "broken_anchor" ||
-                code === "runtime_crash",
-            ),
-        ),
+    if (!(await isTargetCurrent().catch(() => false))) {
+      if (result.screenshots) {
+        await deleteLiveReviewScreenshotUrls(result.screenshots).catch(() => undefined);
+      }
+      if (liveReviewSession.claim?.kind === "acquired") {
+        await abandonLiveReviewRun(
+          liveReviewSession.claim.row.id,
+          liveReviewSession.claim.row.claimedAt,
+        ).catch(() => undefined);
+      }
+      return NextResponse.json(
+        supersededPostcheckResult({
+          previewUrl: previewUrl.trim(),
+          durationMs: result.durationMs,
+          routesChecked: result.routesChecked,
+        }),
       );
-      emitPostcheckBlocked({
-        versionId: resolvedVersionId,
-        chatId,
-        warningCount: result.warningCount,
-        blockingCodes,
-        checkedUrl: result.checkedUrl ?? null,
-        durationMs: result.durationMs ?? null,
-      });
     }
 
     try {
@@ -253,6 +326,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         filesJson: scopedVersion.version.files_json,
         userRequest: pickUserRequest(scopedVersion.chat?.messages ?? []),
         briefSummary: summarizeBrief(scopedVersion.chat?.orchestration_snapshot),
+        isTargetCurrent,
       });
     } catch (reviewError) {
       console.warn(
@@ -268,6 +342,59 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       }
     }
 
+    // The critic can take another minute. Re-check immediately before the
+    // HTTP result becomes durable client-side evidence; no pass/block event
+    // is emitted until this fence succeeds.
+    if (!(await isTargetCurrent().catch(() => false))) {
+      return NextResponse.json(
+        supersededPostcheckResult({
+          previewUrl: previewUrl.trim(),
+          durationMs: result.durationMs,
+          routesChecked: result.routesChecked,
+        }),
+      );
+    }
+
+    // OMTAG-06 follow-up: emit a `version.degraded` bus event when the
+    // product-postcheck never ran. The route already returns
+    // `skipped: true` to the caller and post-checks.ts persists the skip,
+    // but neither surface may attest a superseded lifecycle/revision.
+    if (result.skipped && result.skippedReason !== "preview_superseded") {
+      emitPostcheckDegraded({
+        versionId: resolvedVersionId,
+        chatId,
+        reason: result.skippedReason ?? "unknown",
+        checkedUrl: result.checkedUrl ?? null,
+        durationMs: result.durationMs ?? null,
+        attestation: boundTarget,
+      });
+    } else if (result.productBlocked) {
+      const blockingCodes = Array.from(
+        new Set(
+          result.warnings
+            .map((warning) => warning.code)
+            .filter(
+              (code) =>
+                code === "mobile_menu_failed" ||
+                code === "broken_anchor" ||
+                code === "runtime_crash" ||
+                code === "preview_boot_page" ||
+                code === "hydration_dom_loss",
+            ),
+        ),
+      );
+      emitPostcheckBlocked({
+        versionId: resolvedVersionId,
+        chatId,
+        warningCount: result.warningCount,
+        blockingCodes,
+        checkedUrl: result.checkedUrl ?? null,
+        durationMs: result.durationMs ?? null,
+        attestation: boundTarget,
+      });
+    }
+
+    result.attestation = boundTarget;
     return NextResponse.json(result);
   } catch (err) {
     if (liveReviewSession?.claim?.kind === "acquired") {
@@ -277,17 +404,29 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       ).catch(() => undefined);
     }
     console.error("[product-postcheck] Error:", err);
+    if (
+      target &&
+      targetIsCurrent &&
+      !(await targetIsCurrent().catch(() => false))
+    ) {
+      return NextResponse.json(
+        supersededPostcheckResult({ previewUrl: previewUrl?.trim() || "" }),
+      );
+    }
     // Mirror the skip emission for the runtime-error branch — same
     // observability surface for "ran but threw" as for the planned
     // skip cases above. Without this the version-status projection
     // can show solid green even when the postcheck blew up.
-    emitPostcheckDegraded({
-      versionId: resolvedVersionId,
-      chatId,
-      reason: "runtime_error",
-      checkedUrl: null,
-      durationMs: null,
-    });
+    if (target) {
+      emitPostcheckDegraded({
+        versionId: resolvedVersionId,
+        chatId,
+        reason: "runtime_error",
+        checkedUrl: previewUrl?.trim() || null,
+        durationMs: null,
+        attestation: target,
+      });
+    }
     return NextResponse.json({
       ok: true,
       skipped: true,
@@ -297,8 +436,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       productBlocked: false,
       routesChecked: 0,
       durationMs: 0,
-      checkedUrl: null,
+      checkedUrl: previewUrl?.trim() || null,
       error: err instanceof Error ? err.message : "Product postcheck failed",
+      attestation: target,
     });
   }
 }

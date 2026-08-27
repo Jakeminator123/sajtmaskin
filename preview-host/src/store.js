@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { normalizePrewarmLeaseKey } = require("./prewarm-leases.js");
 
-/** @typedef {{ sessions: Record<string, object>, logs: Record<string, object[]>, previewSessionToSession: Record<string, string>, prewarmLeases: Record<string, object> }} StoreRoot */
+/** @typedef {{ sessions: Record<string, object>, logs: Record<string, object[]>, previewSessionToSession: Record<string, string>, prewarmLeases: Record<string, object>, mutationRevisionByChat: Record<string, number> }} StoreRoot */
 
 function getDataDir() {
   const raw = process.env.PREVIEW_HOST_DATA_DIR || process.env.DATA_DIR;
@@ -20,7 +20,23 @@ function getStoreFilePath() {
 
 /** @returns {StoreRoot} */
 function emptyStore() {
-  return { sessions: {}, logs: {}, previewSessionToSession: {}, prewarmLeases: {} };
+  return {
+    sessions: {},
+    logs: {},
+    previewSessionToSession: {},
+    prewarmLeases: {},
+    mutationRevisionByChat: {},
+  };
+}
+
+function normalizeMutationRevisions(rawRevisions) {
+  if (!rawRevisions || typeof rawRevisions !== "object" || Array.isArray(rawRevisions)) return {};
+  const revisions = {};
+  for (const [chatId, rawRevision] of Object.entries(rawRevisions)) {
+    const revision = Number(rawRevision);
+    if (chatId && Number.isSafeInteger(revision) && revision > 0) revisions[chatId] = revision;
+  }
+  return revisions;
 }
 
 function normalizeSession(raw) {
@@ -121,6 +137,7 @@ function readStoreSync() {
           : {},
       previewSessionToSession: normalizePreviewSessionMap(parsed, sessions),
       prewarmLeases: normalizePrewarmLeases(parsed.prewarmLeases),
+      mutationRevisionByChat: normalizeMutationRevisions(parsed.mutationRevisionByChat),
     };
   } catch (e) {
     if (e && e.code === "ENOENT") {

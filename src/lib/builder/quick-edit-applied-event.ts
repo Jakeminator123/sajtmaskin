@@ -18,6 +18,7 @@ export interface QuickEditAppliedPayload {
   versionId: string;
   previewUrl: string | null;
   previewSessionId: string | null;
+  lifecycleToken: string | null;
   previewMode: string | null;
 }
 

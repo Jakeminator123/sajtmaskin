@@ -75,7 +75,6 @@ function readGeneratedBaselineDeps(): Record<string, string> {
 const MAJOR_LOCKED = [
   "react",
   "react-dom",
-  "radix-ui",
   "framer-motion",
 ] as const;
 
@@ -86,6 +85,8 @@ const MAJOR_MINOR_LOCKED = ["tailwindcss", "next", "eslint-config-next"] as cons
  * Packages locked at the full major.minor.patch level — the highest build-break
  * risk if they drift.
  *
+ * - `radix-ui`: generated shadcn components use the unified package, whose
+ *   transitive primitives must match the platform-tested runtime exactly.
  * - `lucide-react`: the LUCIDE_ICONS allowlist is generated from, and validated
  *   (`check-lucide-icons.mjs`) against, the platform's lucide, while generated
  *   projects ship the exact pin below. Locking the declared patch keeps those
@@ -103,7 +104,7 @@ const MAJOR_MINOR_LOCKED = ["tailwindcss", "next", "eslint-config-next"] as cons
  * patches) and `check-lucide-icons.mjs` re-validates every name against the
  * installed package in CI, so a removed/renamed export is still caught.
  */
-const MAJOR_MINOR_PATCH_LOCKED = ["lucide-react"] as const;
+const MAJOR_MINOR_PATCH_LOCKED = ["radix-ui", "lucide-react"] as const;
 
 describe("project-scaffold baseline parity with platform package.json", () => {
   const platform = readPlatformDeps();

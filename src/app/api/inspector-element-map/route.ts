@@ -2,8 +2,15 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
+import {
+  inspectorPreviewIdentityCacheKey,
+  isInspectorCompatibilityPreviewUrl,
+  isInspectorPreviewIdentityCurrent,
+  parseInspectorPreviewIdentity,
+} from "@/lib/builder/inspector-preview-identity";
 import { hostResolvesToPrivate, isDisallowedHost, isLoopbackHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rate-limit";
+import { applyCaptureRequestGate, launchCaptureBrowser } from "@/lib/capture/browser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,14 +24,24 @@ type MapRequest = {
   viewportWidth?: number;
   viewportHeight?: number;
   maxElements?: number;
+  chatId?: string;
+  versionId?: string;
+  previewSessionId?: string;
+  lifecycleToken?: string | null;
 };
 
 
 const cache = new Map<string, { data: unknown; ts: number }>();
 const CACHE_TTL_MS = 60_000;
 
-function cacheKey(url: string, w: number, h: number, maxElements: number): string {
-  return `${url}|${w}x${h}|max=${maxElements}`;
+function cacheKey(
+  url: string,
+  w: number,
+  h: number,
+  maxElements: number,
+  identityKey: string,
+): string {
+  return `${identityKey}|${url}|${w}x${h}|max=${maxElements}`;
 }
 
 /** Expected "inspector capture is unavailable right now" response. */
@@ -40,23 +57,22 @@ async function localElementMap(
   vpW: number,
   vpH: number,
   maxElements: number,
+  applyRequestGate: boolean,
 ): Promise<NextResponse> {
-  let chromium: typeof import("playwright").chromium;
+  let browser: Awaited<ReturnType<typeof launchCaptureBrowser>> | null = null;
   try {
-    ({ chromium } = await import("playwright"));
-  } catch {
-    return unavailableResponse(
-      "Inspector worker is not running and the local Playwright fallback is not installed.",
-    );
-  }
-  let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
-  try {
-    browser = await chromium.launch({ headless: true });
+    // Use the same serialized Chromium owner as screenshots and postchecks.
+    // Besides preventing concurrent-profile races, this keeps the local
+    // `playwright` package behind the playwright-core-compatible adapter in
+    // one place instead of leaking two incompatible Page type identities here.
+    browser = await launchCaptureBrowser();
     const page = await browser.newPage({
       viewport: { width: vpW, height: vpH },
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
     });
+
+    if (applyRequestGate) await applyCaptureRequestGate(page);
 
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
     await page.waitForLoadState("networkidle", { timeout: NETWORK_IDLE_TIMEOUT_MS }).catch(() => {});
@@ -118,6 +134,7 @@ async function localElementMap(
       elements,
       viewport: { width: vpW, height: vpH },
       elementCount: elements.length,
+      capturedUrl: page.url(),
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Local element map failed";
@@ -157,6 +174,35 @@ async function handlePOST(req: Request) {
   if (!body?.url?.trim()) {
     return NextResponse.json({ success: false, error: "Missing url." }, { status: 400 });
   }
+  const parsedIdentity = parseInspectorPreviewIdentity(body as Record<string, unknown>);
+  if (parsedIdentity.status === "invalid") {
+    return NextResponse.json(
+      { success: false, staleIdentity: true, error: "Ofullständig preview-identitet." },
+      { status: 400 },
+    );
+  }
+  const compatibilityPreview =
+    parsedIdentity.status === "absent" &&
+    isInspectorCompatibilityPreviewUrl(body.url, req.url);
+  if (parsedIdentity.status === "absent" && !compatibilityPreview) {
+    return NextResponse.json(
+      {
+        success: false,
+        staleIdentity: true,
+        error: "Elementkartan kräver en aktuell preview-identitet.",
+      },
+      { status: 400 },
+    );
+  }
+  if (
+    parsedIdentity.status === "valid" &&
+    !(await isInspectorPreviewIdentityCurrent(parsedIdentity.identity, body.url))
+  ) {
+    return NextResponse.json(
+      { success: false, staleIdentity: true, error: "Previewen har bytt version eller session." },
+      { status: 409 },
+    );
+  }
 
   // SSRF guard: localElementMap navigates this URL server-side with Playwright.
   // Block localhost / private / metadata hosts for an authenticated caller.
@@ -169,15 +215,11 @@ async function handlePOST(req: Request) {
   if (!["http:", "https:"].includes(target.protocol)) {
     return NextResponse.json({ success: false, error: "Endast http/https stöds." }, { status: 400 });
   }
-  // Loopback exemption: the compatibility preview (/api/preview-render) is
-  // expanded client-side to the app's own origin, which in local dev is loopback
-  // (e.g. localhost:3000). Re-allow ONLY loopback so the own-fallback preview
-  // keeps working in dev, while private/metadata targets stay blocked. This must
-  // be derived from the parsed target host — NOT from req.url / the Host header,
-  // which is client-controllable and would let a caller forge same-origin and
-  // drive Playwright to a private/metadata host.
+  // Only the exact same-origin `/api/preview-render` compatibility shim may use
+  // loopback in local development. Every Tier-2 target is both tuple-bound and
+  // private-network denied; its subrequests are gated again in Chromium.
   if (
-    !isLoopbackHost(target.hostname) &&
+    (!compatibilityPreview || !isLoopbackHost(target.hostname)) &&
     (isDisallowedHost(target.hostname) || (await hostResolvesToPrivate(target.hostname)))
   ) {
     return NextResponse.json({ success: false, error: "Otillåten host för capture." }, { status: 403 });
@@ -186,7 +228,13 @@ async function handlePOST(req: Request) {
   const vpW = Math.round(Number(body.viewportWidth) || 1280);
   const vpH = Math.round(Number(body.viewportHeight) || 800);
   const maxElements = body.maxElements || 300;
-  const key = cacheKey(body.url, vpW, vpH, maxElements);
+  const key = cacheKey(
+    body.url,
+    vpW,
+    vpH,
+    maxElements,
+    inspectorPreviewIdentityCacheKey(parsedIdentity.identity),
+  );
   const cached = cache.get(key);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
     return NextResponse.json(cached.data);
@@ -199,9 +247,30 @@ async function handlePOST(req: Request) {
     );
   }
 
-  const localResult = await localElementMap(body.url, vpW, vpH, maxElements);
+  const localResult = await localElementMap(
+    body.url,
+    vpW,
+    vpH,
+    maxElements,
+    parsedIdentity.status === "valid",
+  );
   if (localResult.ok) {
-    const data = (await localResult.json()) as { success?: boolean; unavailable?: boolean };
+    const data = (await localResult.json()) as {
+      success?: boolean;
+      unavailable?: boolean;
+      capturedUrl?: string;
+    };
+    const capturedUrl = data.capturedUrl || body.url;
+    const identityStillCurrent =
+      parsedIdentity.status === "valid"
+        ? await isInspectorPreviewIdentityCurrent(parsedIdentity.identity, capturedUrl)
+        : isInspectorCompatibilityPreviewUrl(capturedUrl, req.url);
+    if (!identityStillCurrent) {
+      return NextResponse.json(
+        { success: false, staleIdentity: true, error: "Previewen byttes under inspektionen." },
+        { status: 409 },
+      );
+    }
     // Only cache real captures; expected unavailable responses must not
     // starve the client's retry loop.
     if (data.success === true) {

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { fetchPreviewStatus } from "@/lib/builder/preview-session/api";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import {
@@ -21,7 +21,11 @@ type UsePreviewSessionParams = {
    */
   activeVersionFailedWithoutPreviewUrl?: boolean;
   currentPreviewUrl: string | null;
-  activePreviewSessionMeta: { previewSessionId: string; versionId: string } | null;
+  activePreviewSessionMeta: {
+    previewSessionId: string;
+    versionId: string;
+    lifecycleToken?: string | null;
+  } | null;
   setCurrentPreviewUrl: (url: string) => void;
   setPreviewSessionRecovering: (v: boolean) => void;
   previewBootstrapDoneKeysRef: MutableRefObject<Set<string>>;
@@ -88,6 +92,26 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
   const autoResyncAttemptsRef = useRef<Set<string>>(new Set());
   const [versionMismatchPayload, setVersionMismatchPayload] =
     useState<VersionMismatchOverlayPayload | null>(null);
+  // A status request is allowed to mutate UI state only while the complete
+  // preview identity it was started for is still current. Version/session/url
+  // can all advance while the request is in flight (notably quick edit); a late
+  // response from N must never reintroduce N's URL, overlay or recovery action
+  // after N+1 has rendered.
+  const activePreviewIdentityKey = JSON.stringify([
+    chatId ?? null,
+    activeVersionId ?? null,
+    activePreviewSessionMeta?.previewSessionId ?? null,
+    activePreviewSessionMeta
+      ? activePreviewSessionMeta.lifecycleToken === undefined
+        ? "__unhydrated__"
+        : activePreviewSessionMeta.lifecycleToken
+      : null,
+    normalizePreviewUrl(currentPreviewUrl),
+  ]);
+  const activePreviewIdentityKeyRef = useRef(activePreviewIdentityKey);
+  useLayoutEffect(() => {
+    activePreviewIdentityKeyRef.current = activePreviewIdentityKey;
+  }, [activePreviewIdentityKey]);
 
   useEffect(() => {
     previewRecoverAttemptsRef.current = 0;
@@ -161,12 +185,14 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     const tNow = now();
     if (tNow - lastPreviewRecoverAtRef.current < 12_000) return;
     lastPreviewRecoverAtRef.current = tNow;
+    const requestedIdentityKey = activePreviewIdentityKeyRef.current;
 
     const statusPayload = await fetchPreviewStatus({
       chatId,
       versionId,
       previewSessionId: activePreviewSessionMeta?.previewSessionId ?? null,
     });
+    if (activePreviewIdentityKeyRef.current !== requestedIdentityKey) return;
     if (!statusPayload) {
       statusUnavailableCountRef.current += 1;
       logPreviewLifecycleTelemetry({

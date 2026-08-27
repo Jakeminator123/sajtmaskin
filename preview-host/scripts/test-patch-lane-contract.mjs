@@ -92,6 +92,7 @@ try {
   });
   assert.equal(started.status, 201);
   const previewSessionId = started.body.previewSessionId;
+  const lifecycleToken = started.body.lifecycleToken;
 
   // Exact hash view of the stored file set, and no boot side effect.
   const bootsBeforeManifest = queuedBoots.length;
@@ -128,6 +129,7 @@ try {
   // new versionId must all be visible in the next manifest read.
   const patched = await request("/preview/session/patch", {
     previewSessionId,
+    lifecycleToken,
     versionId: "ver_2",
     expectedBaseVersionId: "ver_1",
     files: { "app/page.tsx": PAGE_V2 },
@@ -135,6 +137,11 @@ try {
   });
   assert.equal(patched.status, 200);
   assert.equal(patched.body.versionId, "ver_2");
+  assert.equal(
+    patched.body.mutationRevision,
+    started.body.mutationRevision + 1,
+    "patch response advances the host mutation receipt exactly once",
+  );
 
   const afterPatch = await manifestFor(previewSessionId);
   assert.equal(afterPatch.body.versionId, "ver_2");
@@ -150,6 +157,7 @@ try {
   );
   assert.equal(statusAfterPatch.status, 200);
   assert.equal(statusAfterPatch.body.versionId, "ver_2");
+  assert.equal(statusAfterPatch.body.mutationRevision, patched.body.mutationRevision);
   assert.equal(statusAfterPatch.body.running, true);
 
   // Readiness is a per-version verdict, and a hot patch advances the version
@@ -169,6 +177,16 @@ try {
     assert.equal(probe.versionId, "ver_2", "the probe must be bound to the patched version");
     assert.equal(probe.sessionId, started.body.sessionId);
     assert.equal(probe.previewSessionId, previewSessionId);
+    assert.equal(
+      probe.lifecycleToken,
+      lifecycleToken,
+      "the probe must be bound to the patched lifecycle, not only version/session id",
+    );
+    assert.equal(
+      probe.mutationRevision,
+      patched.body.mutationRevision,
+      "the probe must be bound to the exact patch mutation receipt",
+    );
   }
 
   // Version binding (a): a patch that fails mid-way must never leave the host
@@ -178,6 +196,7 @@ try {
   nextPatchOutcome = { mode: "error", reason: "ENOSPC simulated" };
   const failedPatch = await request("/preview/session/patch", {
     previewSessionId,
+    lifecycleToken,
     versionId: "ver_3",
     expectedBaseVersionId: "ver_2",
     files: { "app/nyhet/page.tsx": "export default function N(){return <main>N</main>;}" },
@@ -211,6 +230,7 @@ try {
   // And the rolled-back base is still the only base a patch may build on.
   const patchOnRolledBackBase = await request("/preview/session/patch", {
     previewSessionId,
+    lifecycleToken,
     versionId: "ver_4",
     expectedBaseVersionId: "ver_3",
     files: { "app/page.tsx": PAGE_V2 },
@@ -230,6 +250,7 @@ try {
   }
   const patchOnUnknownBase = await request("/preview/session/patch", {
     previewSessionId,
+    lifecycleToken,
     versionId: "ver_5",
     expectedBaseVersionId: "ver_2",
     files: { "app/page.tsx": PAGE_V2 },
@@ -264,11 +285,16 @@ try {
 
     const updated = await request("/preview/session/update", {
       previewSessionId,
+      lifecycleToken,
       versionId: "ver_6",
       filesJson: { "app/page.tsx": PAGE_V2 },
     });
     assert.equal(updated.status, 200);
     assert.equal(updated.body.versionId, "ver_6");
+    assert.ok(
+      updated.body.mutationRevision > patched.body.mutationRevision,
+      "update must advance past every prior host mutation receipt",
+    );
 
     const updatedSession = store.readStoreSync().sessions[started.body.sessionId];
     assert.equal(
@@ -319,10 +345,16 @@ try {
     store.writeStoreAtomicSync(sameVersionSeed);
     const sameVersionUpdate = await request("/preview/session/update", {
       previewSessionId,
+      lifecycleToken,
       versionId: "ver_6",
       filesJson: { "app/page.tsx": `${PAGE_V2}\n// repair` },
     });
     assert.equal(sameVersionUpdate.status, 200);
+    assert.equal(
+      sameVersionUpdate.body.mutationRevision,
+      updated.body.mutationRevision + 1,
+      "same-version update must still receive a later mutation receipt",
+    );
     const afterSameVersionUpdate = store.readStoreSync().sessions[started.body.sessionId];
     assert.equal(afterSameVersionUpdate.runtimeCleanExitVersionId, "ver_6");
     assert.deepEqual(
@@ -376,8 +408,28 @@ try {
   );
 
   // A destroyed session is not usable -> 404 (same rule as /status).
-  await request("/preview/session/destroy", { previewSessionId });
+  const revisionBeforeDestroy =
+    store.readStoreSync().sessions[started.body.sessionId].mutationRevision;
+  await request("/preview/session/destroy", {
+    previewSessionId,
+    lifecycleToken: started.body.lifecycleToken,
+  });
   assert.equal((await manifestFor(previewSessionId)).status, 404);
+
+  const replacement = await request("/preview/session/start", {
+    chatId: "chat-manifest",
+    versionId: "ver_replacement",
+    filesJson: files,
+  });
+  assert.equal(replacement.status, 201);
+  assert.ok(
+    replacement.body.mutationRevision > revisionBeforeDestroy,
+    "destroy/recreate must preserve the per-chat mutation order",
+  );
+  await request("/preview/session/destroy", {
+    previewSessionId: replacement.body.previewSessionId,
+    lifecycleToken: replacement.body.lifecycleToken,
+  });
 
   console.log("[test-patch-lane-contract] All guards green.");
 } finally {

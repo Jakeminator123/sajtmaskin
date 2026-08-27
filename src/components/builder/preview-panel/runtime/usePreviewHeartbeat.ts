@@ -36,6 +36,8 @@ export function usePreviewHeartbeat(params: {
   versionId: string | null;
   previewUrl: string | null;
   activePreviewSessionId: string | null | undefined;
+  /** Exact lifecycle rendered by this panel; undefined means identity is not hydrated yet. */
+  activePreviewLifecycleToken: string | null | undefined;
   previewLifecycle: PreviewLifecycleState | undefined;
   onSessionSuspect?: () => void;
 }): string | null {
@@ -44,6 +46,7 @@ export function usePreviewHeartbeat(params: {
     versionId,
     previewUrl,
     activePreviewSessionId,
+    activePreviewLifecycleToken,
     previewLifecycle,
     onSessionSuspect,
   } = params;
@@ -106,6 +109,7 @@ export function usePreviewHeartbeat(params: {
 
   useEffect(() => {
     if (!chatId || !versionId || !activePreviewSessionId?.trim()) return;
+    if (activePreviewLifecycleToken === undefined) return;
     if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return;
 
     const requestHibernate = () => {
@@ -115,6 +119,7 @@ export function usePreviewHeartbeat(params: {
         chatId,
         versionId,
         previewSessionId: activePreviewSessionId.trim(),
+        lifecycleToken: activePreviewLifecycleToken,
         keepalive: true,
       }).finally(() => {
         window.setTimeout(() => {
@@ -147,7 +152,14 @@ export function usePreviewHeartbeat(params: {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", handlePageHide);
     };
-  }, [chatId, versionId, activePreviewSessionId, previewUrl, sendHeartbeat]);
+  }, [
+    chatId,
+    versionId,
+    activePreviewSessionId,
+    activePreviewLifecycleToken,
+    previewUrl,
+    sendHeartbeat,
+  ]);
 
   return viewerId;
 }

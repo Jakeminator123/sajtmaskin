@@ -233,6 +233,16 @@ For `version_mismatch`, `versionId` is the preview-session-bound version. Option
 - `GET /preview/sandbox/:previewSessionId/status` (legacy path alias)
 - `GET /preview/logs/:previewSessionId`
 
+Every new non-legacy host session returns a `lifecycleToken`. The app stores it
+with the preview pointer and sends it on update, patch, hibernate and destroy.
+A token-bearing host session rejects a missing or different mutation token with
+`409 stale_lifecycle` before mutating store, runtime or workspace. Status and
+readiness remain recovery receipts, not UI mutation identities: the route reads
+the current Redis pointer and requires the host receipt to echo that lifecycle,
+so a cached N receipt cannot approve N+1. A later poll may intentionally follow
+the current same-version N+1 lifecycle. Persisted sessions created by an older
+host have no token and remain operable without one during rollout.
+
 #### Prewarm start contract (`POST /preview/session/start`)
 
 Ordinary finalize starts keep the existing payload. A prewarm start additionally
@@ -293,10 +303,12 @@ By-design limits:
 - Multi-machine locking is future topology work; the current authoritative
   store lock matches the deployed single-host topology.
 
-Deployment order is host first: deploy preview-host with this contract, verify
-`npm run check`, `npm run test:guards`, `npm run test:proxy-contract`, and smoke;
-only then may an app deployment containing prewarm calls be considered. The app
-flag remains default OFF and must not be activated before the host is deployed.
+Lifecycle-token deployment order is app first: deploy the app version that can
+store/send an optional token while still accepting tokenless legacy host
+responses. Then deploy preview-host with strict fencing for newly created
+token-bearing sessions and verify `npm run check`, `npm run test:guards`,
+`npm run test:proxy-contract`, and smoke. The independent prewarm flag remains
+default OFF and must not be activated before its host support is deployed.
 
 #### Fast Edit Lane patch route (`POST /preview/session/patch`)
 
@@ -314,6 +326,8 @@ Request fields (validated in `preview-host/src/validate.js` → `validatePatchPa
 
 - `previewSessionId` (or `sessionId`)
 - `versionId`
+- `lifecycleToken` for every token-bearing session (`null`/omitted only for
+  persisted legacy sessions)
 - `expectedBaseVersionId` (optional) — the version the `files` were derived from.
   When set, the host re-checks it **inside the store lock** before advancing the
   session (optimistic-concurrency guard, added 2026-06-23): if the live session no
@@ -335,6 +349,8 @@ Response adds two fields on top of the standard session response:
 Error / edge responses:
 
 - `404 session_not_found` → caller should fall back to `update`/`start`.
+- `409 stale_lifecycle` → caller must discard the result; the same-version
+  session has already advanced to a newer lifecycle.
 - `409 base_mismatch` (carries the current `versionId`) → the live session advanced
   past `expectedBaseVersionId`; caller does a full (re)start instead of patching.
 - `500 patch_failed` → the workspace write failed (e.g. ENOSPC); the host **rolls
@@ -347,7 +363,29 @@ restart.
 
 App side: `patchPreviewHostSession` in `src/lib/gen/preview/preview-host-client.ts`,
 gated by `SAJTMASKIN_PREVIEW_PATCH_LANE` via `tryPatchPreviewSession` (quick edits)
-and the follow-up lane in `src/lib/gen/preview/preview-session.ts`.
+and the follow-up lane in `src/lib/gen/preview/preview-session.ts`. A successful
+quick edit carries the host-returned `lifecycleToken` through service, route,
+client result and builder handoff; URL/session without that token is not a
+complete modern preview identity. A stale process-exit callback may only delete
+the lifecycle it started for, never a later hot-patched lifecycle.
+
+#### Inspector identity on Tier 2
+
+The Fly/preview-host session URL is the rendered site that inspector and visual
+capture must observe. The host-owned boot document (`Startar preview`) is only a
+temporary HTTP response and is not evidence that a new version has landed.
+
+Inspector bridge messages, Tier-2 element maps and screenshot captures use the
+same complete identity: `chatId`, `versionId`, `previewSessionId`, explicit
+lifecycle token (`null` only for legacy) and a URL below the current session
+base. Preview-host stamps the injected bridge script; the parent rejects
+unstamped or mismatched messages for a token-bearing session. Map/capture routes
+check the server-owned session both before work and after asynchronous Chromium
+work, while the client also discards late responses after an identity change.
+Version mismatch, incomplete lifecycle hydration and iframe error keep
+inspector overlays non-interactive. Screenshot capture always requires the
+tuple. The sole tuple-less exception is element-map against the exact
+same-origin `/api/preview-render` compatibility shim.
 
 #### Live file manifest (`GET /preview/session/:previewSessionId/files-manifest`)
 

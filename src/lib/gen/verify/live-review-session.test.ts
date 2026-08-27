@@ -24,6 +24,7 @@ import type { ClaimedLiveReview } from "@/lib/db/services/live-review-runs";
 import type { LiveReviewResult } from "./live-review-types";
 
 const GRANT = { powersOn: true, granted: ["live_review"] as const };
+type AcquiredLiveReview = Extract<ClaimedLiveReview, { kind: "acquired" }>;
 
 const completed: LiveReviewResult = {
   status: "completed",
@@ -38,7 +39,9 @@ const completed: LiveReviewResult = {
   modelId: "gpt-4o",
 };
 
-function acquired(overrides: Partial<ClaimedLiveReview & { row: object }> = {}): ClaimedLiveReview {
+function acquired(
+  overrides: { row?: Partial<AcquiredLiveReview["row"]> } = {},
+): AcquiredLiveReview {
   return {
     kind: "acquired",
     row: {
@@ -58,7 +61,7 @@ function acquired(overrides: Partial<ClaimedLiveReview & { row: object }> = {}):
       claimedAt: new Date(),
       completedAt: null,
       expiresAt: new Date(),
-      ...((overrides as { row?: object }).row ?? {}),
+      ...(overrides.row ?? {}),
     },
   };
 }
@@ -264,6 +267,113 @@ describe("finishLiveReviewSession", () => {
       keepFilesRevision: "rev_b",
     });
     expect(completeRun).toHaveBeenCalled();
+  });
+
+  it("låter inte en långsam critic för N committa eller radera N+1-blobs", async () => {
+    let resolveCritic!: (result: LiveReviewResult) => void;
+    const critic = new Promise<LiveReviewResult>((resolve) => {
+      resolveCritic = resolve;
+    });
+    let targetCurrent = true;
+    const attachReview = vi.fn(async () => critic);
+    const completeRun = vi.fn(async () => true);
+    const deletePreviousBlobs = vi.fn(async () => 1);
+    const deleteScreenshotUrls = vi.fn(async () => {});
+    const abandonRun = vi.fn(async () => {});
+    const isTargetCurrent = vi.fn(async () => targetCurrent);
+    const nScreenshots = {
+      desktopUrl: "https://blob.example/n-desktop.jpg",
+      mobileUrl: null,
+    };
+
+    const finishingN = finishLiveReviewSession(
+      {
+        captureEnabled: true,
+        claim: acquired({ row: { filesRevision: "rev_n" } }),
+        earlyResult: null,
+        chatId: "chat_1",
+        versionId: "v1",
+        filesRevision: "rev_n",
+        userId: "user_1",
+      },
+      {
+        skipped: false,
+        findings: [],
+        screenshots: nScreenshots,
+        domSummary: null,
+        filesJson: "[]",
+        userRequest: "x",
+        briefSummary: "",
+        isTargetCurrent,
+      },
+      {
+        attachReview,
+        beginPaidAttempt: async () => 1,
+        completeRun,
+        deletePreviousBlobs,
+        deleteScreenshotUrls,
+        abandonRun,
+      },
+    );
+
+    await vi.waitFor(() => expect(attachReview).toHaveBeenCalledTimes(1));
+    // N+1 commits while N's critic is still running.
+    targetCurrent = false;
+    resolveCritic(completed);
+    const result = await finishingN;
+
+    expect(result).toEqual(skippedLiveReviewResult("preview_superseded"));
+    expect(completeRun).not.toHaveBeenCalled();
+    expect(deletePreviousBlobs).not.toHaveBeenCalled();
+    expect(deleteScreenshotUrls).toHaveBeenCalledWith(nScreenshots);
+    expect(deleteScreenshotUrls).not.toHaveBeenCalledWith(
+      expect.objectContaining({ desktopUrl: "https://blob.example/n-plus-1.jpg" }),
+    );
+    expect(abandonRun).toHaveBeenCalledWith("lr_1", expect.any(Date));
+  });
+
+  it("raderar inte N+1-blobs när målet supersedas direkt efter N:s complete", async () => {
+    let targetCurrent = true;
+    const deletePreviousBlobs = vi.fn(async () => 1);
+    const isTargetCurrent = vi.fn(async () => targetCurrent);
+    const completeRun = vi.fn(async () => {
+      // Deterministisk modell av N+1 som blir aktivt precis efter att N:s rad
+      // har slutförts men innan den supersederande blob-städningen börjar.
+      targetCurrent = false;
+      return true;
+    });
+
+    const result = await finishLiveReviewSession(
+      {
+        captureEnabled: true,
+        claim: acquired({ row: { filesRevision: "rev_n" } }),
+        earlyResult: null,
+        chatId: "chat_1",
+        versionId: "v1",
+        filesRevision: "rev_n",
+        userId: "user_1",
+      },
+      {
+        skipped: false,
+        findings: [],
+        screenshots: { desktopUrl: "https://blob.example/n.jpg", mobileUrl: null },
+        domSummary: null,
+        filesJson: "[]",
+        userRequest: "x",
+        briefSummary: "",
+        isTargetCurrent,
+      },
+      {
+        attachReview: async () => completed,
+        beginPaidAttempt: async () => 1,
+        completeRun,
+        deletePreviousBlobs,
+      },
+    );
+
+    expect(result).toEqual(skippedLiveReviewResult("preview_superseded"));
+    expect(completeRun).toHaveBeenCalledTimes(1);
+    expect(deletePreviousBlobs).not.toHaveBeenCalled();
   });
 
   it("raderar inte föregående par om complete misslyckas — överger claimen", async () => {

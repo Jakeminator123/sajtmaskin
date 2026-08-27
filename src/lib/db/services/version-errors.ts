@@ -1,8 +1,8 @@
-import { and, desc, eq, inArray, lt, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, notInArray, notLike, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
-import { engineChats, engineVersionErrorLogs } from "@/lib/db/schema";
+import { engineChats, engineVersionErrorLogs, engineVersions } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 import type { VersionErrorLog } from "./shared";
 import { appendBugRegisterEntries } from "@/lib/logging/bug-register";
@@ -17,6 +17,11 @@ type VersionErrorLogPayload = {
   message: string;
   meta?: Record<string, unknown> | null;
 };
+
+export type AttestedProductPostcheckInsertResult =
+  | { status: "stored"; logs: VersionErrorLog[] }
+  | { status: "superseded"; logs: [] }
+  | { status: "contention"; logs: [] };
 
 /**
  * Kategorier som repair-pass-prunet aldrig får röra.
@@ -36,6 +41,8 @@ export const PRUNE_EXEMPT_CATEGORIES = [
   "f3-readiness:missing-env",
   "preview:client-error",
 ] as const;
+
+export const PRUNE_EXEMPT_CATEGORY_PREFIXES = ["product_postcheck."] as const;
 
 type EngineScaffoldContext = {
   scaffoldId: string;
@@ -216,12 +223,120 @@ export async function createEngineVersionErrorLogs(
   return rows;
 }
 
+/**
+ * Writes one Product Postcheck batch against the exact files revision it
+ * inspected. The `FOR UPDATE` lock serializes this check with every files-json
+ * writer, so revision N can never be inserted after N+1 has committed.
+ *
+ * Preview-session/lifecycle authority lives in Redis and is fenced by the API
+ * route immediately before this call. It cannot participate in the Postgres
+ * transaction; the durable guarantee here is therefore the canonical DB
+ * content revision, while the attestation metadata preserves the cross-store
+ * identity for diagnostics.
+ */
+export async function createAttestedProductPostcheckErrorLogs(
+  payloads: VersionErrorLogPayload[],
+  options: { expectedFilesRevision: string; lockTimeoutMs: number },
+): Promise<AttestedProductPostcheckInsertResult> {
+  assertDbConfigured();
+  if (payloads.length === 0) return { status: "stored", logs: [] };
+
+  const versionId = payloads[0]?.versionId;
+  if (!versionId || payloads.some((payload) => payload.versionId !== versionId)) {
+    throw new Error("Attested Product Postcheck batch must target one version");
+  }
+
+  const expectedFilesRevision = options.expectedFilesRevision.trim();
+  if (!expectedFilesRevision) {
+    throw new Error("Attested Product Postcheck requires files revision");
+  }
+
+  const now = new Date();
+  const enrichedPayloads = await enrichEnginePayloads(payloads);
+  const values = enrichedPayloads.map((payload) => mapLogPayload(payload, now));
+
+  try {
+    const result = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT set_config('lock_timeout', ${String(Math.floor(options.lockTimeoutMs))}, true)`,
+      );
+      const locked = await tx
+        .select({ filesRevision: engineVersions.filesRevision })
+        .from(engineVersions)
+        .where(eq(engineVersions.id, versionId))
+        .for("update");
+      if (locked[0]?.filesRevision?.trim() !== expectedFilesRevision) {
+        return {
+          status: "superseded",
+          logs: [] as [],
+        } satisfies AttestedProductPostcheckInsertResult;
+      }
+      const logs = (await tx
+        .insert(engineVersionErrorLogs)
+        .values(values)
+        .returning()) as VersionErrorLog[];
+      return { status: "stored", logs } satisfies AttestedProductPostcheckInsertResult;
+    });
+    if (result.status === "stored") appendBugRegisterEntries(enrichedPayloads);
+    return result;
+  } catch (err) {
+    if (isLockTimeoutError(err)) return { status: "contention", logs: [] };
+    throw err;
+  }
+}
+
+/**
+ * Product Postcheck rows are revision-scoped observations. Legacy rows without
+ * an attestation remain readable, but attested N rows disappear from every
+ * readiness/status consumer as soon as the version becomes N+1.
+ */
+function currentRevisionErrorLogPredicate(versionId: string) {
+  return or(
+    notLike(
+      sql`COALESCE(${engineVersionErrorLogs.category}, '')`,
+      `${PRUNE_EXEMPT_CATEGORY_PREFIXES[0]}%`,
+    ),
+    sql`${engineVersionErrorLogs.meta}->>'attestedFilesRevision' IS NULL`,
+    sql`${engineVersionErrorLogs.meta}->>'attestedFilesRevision' = (
+      SELECT ${engineVersions.filesRevision}
+      FROM ${engineVersions}
+      WHERE ${engineVersions.id} = ${versionId}
+    )`,
+  );
+}
+
+/**
+ * In-memory parity for batched readers that already own each version's current
+ * files revision. Legacy rows without the key remain readable; once a writer
+ * supplied an attestation, only an exact current-revision match is valid.
+ */
+export function productPostcheckLogMatchesCurrentFilesRevision(
+  meta: unknown,
+  currentFilesRevision: string | null | undefined,
+): boolean {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return true;
+  const record = meta as Record<string, unknown>;
+  if (!Object.prototype.hasOwnProperty.call(record, "attestedFilesRevision")) return true;
+  const attested = record.attestedFilesRevision;
+  if (attested == null) return true;
+  return (
+    typeof attested === "string" &&
+    Boolean(currentFilesRevision?.trim()) &&
+    attested.trim() === currentFilesRevision?.trim()
+  );
+}
+
 export async function getEngineVersionErrorLogs(versionId: string): Promise<VersionErrorLog[]> {
   assertDbConfigured();
   const rows = await db
     .select()
     .from(engineVersionErrorLogs)
-    .where(eq(engineVersionErrorLogs.version_id, versionId))
+    .where(
+      and(
+        eq(engineVersionErrorLogs.version_id, versionId),
+        currentRevisionErrorLogPredicate(versionId),
+      ),
+    )
     .orderBy(desc(engineVersionErrorLogs.created_at));
   return rows as VersionErrorLog[];
 }
@@ -234,7 +349,12 @@ export async function getLatestEngineVersionErrorLogs(
   const rows = await db
     .select()
     .from(engineVersionErrorLogs)
-    .where(eq(engineVersionErrorLogs.version_id, versionId))
+    .where(
+      and(
+        eq(engineVersionErrorLogs.version_id, versionId),
+        currentRevisionErrorLogPredicate(versionId),
+      ),
+    )
     .orderBy(desc(engineVersionErrorLogs.created_at))
     .limit(limit);
   return rows as VersionErrorLog[];
@@ -260,6 +380,7 @@ export async function getLatestEngineVersionErrorLogForCategory(
       and(
         eq(engineVersionErrorLogs.version_id, versionId),
         eq(engineVersionErrorLogs.category, category),
+        currentRevisionErrorLogPredicate(versionId),
       ),
     )
     .orderBy(desc(engineVersionErrorLogs.created_at))
@@ -278,7 +399,8 @@ export async function getLatestEngineVersionErrorLogForCategory(
  *
  * This prune is best-effort:
  *  - only deletes rows with strictly lower `meta.repairPassIndex`
- *  - never touches {@link PRUNE_EXEMPT_CATEGORIES}
+ *  - never touches {@link PRUNE_EXEMPT_CATEGORIES} or
+ *    {@link PRUNE_EXEMPT_CATEGORY_PREFIXES}
  *  - never throws (callers wrap in try/catch and rely on devLog telemetry)
  *
  * Returns the number of rows deleted so the caller can log
@@ -312,6 +434,10 @@ export async function pruneStaleVersionErrorLogs(
         notInArray(sql`COALESCE(${engineVersionErrorLogs.category}, '')`, [
           ...PRUNE_EXEMPT_CATEGORIES,
         ]),
+        notLike(
+          sql`COALESCE(${engineVersionErrorLogs.category}, '')`,
+          `${PRUNE_EXEMPT_CATEGORY_PREFIXES[0]}%`,
+        ),
       ),
     )
     .returning({ id: engineVersionErrorLogs.id });

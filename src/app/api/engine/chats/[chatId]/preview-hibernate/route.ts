@@ -13,6 +13,7 @@ import type { PreviewHibernateApiJson } from "@/lib/gen/preview/preview-contract
 const bodySchema = z.object({
   versionId: z.string().min(1),
   previewSessionId: z.string().min(1).optional(),
+  lifecycleToken: z.string().min(1).nullable().optional(),
 });
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -60,22 +61,29 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const session = await getActivePreviewSessionAsync(chatId);
       const requestedPreviewSessionId = parsed.data.previewSessionId?.trim() || null;
+      const requestedLifecycleToken = parsed.data.lifecycleToken?.trim() || null;
       const matchedSession =
         session &&
         session.versionId === requestedVersion.version.id &&
-        (!requestedPreviewSessionId || session.previewSessionId === requestedPreviewSessionId)
+        (!requestedPreviewSessionId || session.previewSessionId === requestedPreviewSessionId) &&
+        (session.lifecycleToken ?? null) === requestedLifecycleToken
           ? session
           : null;
 
       if (!matchedSession) {
         return NextResponse.json(
-          { ok: false, reason: "no_matching_session", message: "No active preview session matched the request." } satisfies PreviewHibernateApiJson,
-          { status: 404 },
+          {
+            ok: false,
+            reason: session ? "session_superseded" : "no_matching_session",
+            message: "No active preview lifecycle matched the request.",
+          } satisfies PreviewHibernateApiJson,
+          { status: session ? 409 : 404 },
         );
       }
 
       const hibernated = await hibernatePreviewHostSession({
         previewSessionId: matchedSession.previewSessionId,
+        lifecycleToken: matchedSession.lifecycleToken ?? null,
       });
       if (!hibernated.ok) {
         return NextResponse.json(
@@ -85,6 +93,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             message: hibernated.message,
           } satisfies PreviewHibernateApiJson,
           { status: hibernated.retryable ? 502 : 400 },
+        );
+      }
+      if (hibernated.superseded === true) {
+        return NextResponse.json(
+          {
+            ok: false,
+            reason: "session_superseded",
+            message: "Preview lifecycle was superseded before hibernation.",
+          } satisfies PreviewHibernateApiJson,
+          { status: 409 },
         );
       }
 

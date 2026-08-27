@@ -71,7 +71,12 @@ function attachFakeContentWindow(iframe: HTMLIFrameElement): Window {
   return fakeWindow;
 }
 
-function postBridgeMessage(source: Window, type: string, payload?: Record<string, unknown>) {
+function postBridgeMessage(
+  source: Window,
+  type: string,
+  payload?: Record<string, unknown>,
+  identity?: { versionId: string; previewSessionId: string; lifecycleToken: string | null },
+) {
   window.dispatchEvent(
     new MessageEvent("message", {
       source,
@@ -79,6 +84,7 @@ function postBridgeMessage(source: Window, type: string, payload?: Record<string
       data: {
         type,
         source: "sajtmaskin-inspect",
+        ...(identity ? { identity } : {}),
         ...(payload ? { payload } : {}),
       },
     }),
@@ -255,5 +261,58 @@ describe("PreviewPanel inspect bridge recovery", () => {
 
     expect(screen.queryByRole("menu")).toBeNull();
     expect(screen.queryByText(/Valt: button/i)).toBeNull();
+  }, 15000);
+
+  it("ignorerar ready och pick från en äldre preview-lifecycle", async () => {
+    render(
+      <InspectOnHarness
+        {...buildPreviewPanelProps({
+          activePreviewSessionId: "ps_new",
+          activePreviewLifecycleToken: "life_new",
+        })}
+      />,
+    );
+
+    const iframe = document.getElementById("preview-iframe") as HTMLIFrameElement | null;
+    expect(iframe).toBeTruthy();
+    const contentWindow = attachFakeContentWindow(iframe!);
+    const pick = {
+      tag: "button",
+      text: "Gammal CTA",
+      rect: { x: 10, y: 10, width: 80, height: 30 },
+      viewport: { w: 1280, h: 800 },
+      click: { x: 40, y: 20 },
+    };
+
+    await act(async () => {
+      postBridgeMessage(contentWindow, INSPECT_BRIDGE_MESSAGE.ready, undefined, {
+        versionId: "ver_old",
+        previewSessionId: "ps_old",
+        lifecycleToken: "life_old",
+      });
+      postBridgeMessage(contentWindow, INSPECT_BRIDGE_MESSAGE.pick, pick, {
+        versionId: "ver_old",
+        previewSessionId: "ps_old",
+        lifecycleToken: "life_old",
+      });
+    });
+
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    await act(async () => {
+      postBridgeMessage(contentWindow, INSPECT_BRIDGE_MESSAGE.ready, undefined, {
+        versionId: "ver_1",
+        previewSessionId: "ps_new",
+        lifecycleToken: "life_new",
+      });
+      postBridgeMessage(contentWindow, INSPECT_BRIDGE_MESSAGE.pick, pick, {
+        versionId: "ver_1",
+        previewSessionId: "ps_new",
+        lifecycleToken: "life_new",
+      });
+    });
+
+    vi.useRealTimers();
+    await waitFor(() => expect(screen.getByRole("menu")).toBeTruthy());
   }, 15000);
 });

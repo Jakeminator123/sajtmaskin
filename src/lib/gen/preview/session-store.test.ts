@@ -4,6 +4,7 @@ import {
   getActivePreviewSession,
   resetPreviewSessionStoreForTests,
   touchPreviewSession,
+  touchPreviewSessionAsync,
 } from "./session-store";
 
 afterEach(() => {
@@ -78,5 +79,34 @@ describe("preview-session-store", () => {
     });
     clearPreviewSession("c1");
     expect(getActivePreviewSession("c1", { now: 0 })).toBeNull();
+  });
+
+  it("reports a stale in-memory authoritative receipt as rejected", async () => {
+    expect(await touchPreviewSessionAsync({
+      chatId: "c-stale",
+      previewSessionId: "ps-current",
+      previewUrl: "https://x.run/current",
+      versionId: "v2",
+      lifecycleToken: "life-current",
+      mutationRevision: 2,
+      writeIntent: "authoritative",
+      now: 2_000,
+    })).toBe(true);
+
+    expect(await touchPreviewSessionAsync({
+      chatId: "c-stale",
+      previewSessionId: "ps-old",
+      previewUrl: "https://x.run/old",
+      versionId: "v1",
+      lifecycleToken: "life-old",
+      mutationRevision: 1,
+      writeIntent: "authoritative",
+      now: 1_000,
+    })).toBe(false);
+    expect(getActivePreviewSession("c-stale", { now: 2_000 })).toMatchObject({
+      versionId: "v2",
+      lifecycleToken: "life-current",
+      mutationRevision: 2,
+    });
   });
 });

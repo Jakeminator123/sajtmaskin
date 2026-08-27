@@ -199,6 +199,11 @@ describe("findResumeEligibleAtMs", () => {
 
 describe("useResumePendingVerification", () => {
   const fetchMock = vi.fn();
+  const currentAttestation = {
+    previewSessionId: "ps_n",
+    lifecycleToken: "life_n",
+    filesRevision: "rev_n",
+  };
 
   function mockRoutes(params: {
     postcheck?: { ok?: boolean; body?: unknown };
@@ -222,7 +227,11 @@ describe("useResumePendingVerification", () => {
           ok: params.postcheck?.ok ?? true,
           status: (params.postcheck?.ok ?? true) ? 200 : 500,
           json: async () =>
-            params.postcheck?.body ?? { skipped: false, productBlocked: false },
+            params.postcheck?.body ?? {
+              skipped: false,
+              productBlocked: false,
+              attestation: currentAttestation,
+            },
         };
       }
       if (u.includes("/preview-session")) {
@@ -334,6 +343,7 @@ describe("useResumePendingVerification", () => {
           productBlocked: true,
           warnings: [{ code: "mobile_menu_failed", message: "Mobilmeny kunde inte verifieras" }],
           warningCount: 1,
+          attestation: currentAttestation,
         },
       },
     });
@@ -378,7 +388,11 @@ describe("useResumePendingVerification", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ skipped: false, productBlocked: false }),
+          json: async () => ({
+            skipped: false,
+            productBlocked: false,
+            attestation: currentAttestation,
+          }),
         };
       }
       if (u.includes("/validate-images") || u.includes("/error-log")) {
@@ -405,7 +419,7 @@ describe("useResumePendingVerification", () => {
     await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
   });
 
-  it("continues to the gate when product-postcheck fails transport-level (normal-lane parity)", async () => {
+  it("holds the gate and persists a non-product diagnostic on transport failure", async () => {
     mockRoutes({ postcheck: { ok: false } });
     renderHook(() =>
       useResumePendingVerification({
@@ -414,7 +428,43 @@ describe("useResumePendingVerification", () => {
         isStreaming: false,
       }),
     );
-    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    await waitFor(() => expect(callsTo("/error-log")).toHaveLength(1));
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+    const persisted = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
+      logs: Array<{ category: string; meta?: { skippedReason?: string } }>;
+    };
+    expect(persisted.logs).toEqual([
+      expect.objectContaining({
+        category: "post-check.product-postcheck-transport",
+        meta: expect.objectContaining({ skippedReason: "transport_error" }),
+      }),
+    ]);
+  });
+
+  it("silently retries a superseded postcheck without logging or gating the stale DOM", async () => {
+    mockRoutes({
+      postcheck: {
+        body: {
+          ok: true,
+          skipped: true,
+          skippedReason: "preview_superseded",
+          productBlocked: false,
+          warnings: [],
+        },
+      },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+
+    await waitFor(() => expect(callsTo("/product-postcheck")).toHaveLength(1));
+    await Promise.resolve();
+    expect(callsTo("/error-log")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
   });
 
   it("does nothing while streaming", async () => {
@@ -558,7 +608,11 @@ describe("useResumePendingVerification", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ skipped: false, productBlocked: false }),
+          json: async () => ({
+            skipped: false,
+            productBlocked: false,
+            attestation: currentAttestation,
+          }),
         };
       }
       if (u.includes("/error-log") || u.includes("/validate-images")) {
@@ -644,6 +698,29 @@ describe("useResumePendingVerification", () => {
     });
   });
 
+  it("persists an import-lane transport diagnostic and holds the VM gate", async () => {
+    mockRoutes({ postcheck: { ok: false } });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow({ editKind: "imported_repo" })],
+        isStreaming: false,
+      }),
+    );
+
+    await waitFor(() => expect(callsTo("/error-log")).toHaveLength(1));
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+    const persisted = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
+      logs: Array<{ category: string; meta?: { skippedReason?: string } }>;
+    };
+    expect(persisted.logs).toEqual([
+      expect.objectContaining({
+        category: "post-check.product-postcheck-transport",
+        meta: expect.objectContaining({ skippedReason: "transport_error" }),
+      }),
+    ]);
+  });
+
   it("import lane rehydrates a missing preview before the gate", async () => {
     mockRoutes({});
     renderHook(() =>
@@ -712,7 +789,11 @@ describe("useResumePendingVerification", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ skipped: false, productBlocked: false }),
+          json: async () => ({
+            skipped: false,
+            productBlocked: false,
+            attestation: currentAttestation,
+          }),
         };
       }
       if (u.includes("/preview-session")) {
@@ -881,7 +962,11 @@ describe("useResumePendingVerification", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ skipped: false, productBlocked: false }),
+          json: async () => ({
+            skipped: false,
+            productBlocked: false,
+            attestation: currentAttestation,
+          }),
         };
       }
       if (u.includes("/error-log") || u.includes("/validate-images")) {
@@ -921,6 +1006,7 @@ describe("useResumePendingVerification", () => {
           productBlocked: true,
           warnings: [{ code: "mobile_menu_failed", message: "Mobilmeny kunde inte verifieras" }],
           warningCount: 1,
+          attestation: currentAttestation,
         },
       },
       errorLog: { ok: false },

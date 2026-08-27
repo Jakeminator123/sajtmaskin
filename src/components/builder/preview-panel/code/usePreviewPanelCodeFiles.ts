@@ -22,6 +22,7 @@ export function usePreviewPanelCodeFiles(options: {
     versionId?: string;
     previewUrl?: string | null;
     previewSessionId?: string | null;
+    lifecycleToken?: string | null;
     previewMode?: string | null;
   }) => void;
 }): {
@@ -140,6 +141,7 @@ export function usePreviewPanelCodeFiles(options: {
           versionId: saved.versionId,
           previewUrl: saved.previewUrl,
           previewSessionId: saved.previewSessionId,
+          lifecycleToken: saved.lifecycleToken,
           previewMode: saved.previewMode,
         });
         return true;

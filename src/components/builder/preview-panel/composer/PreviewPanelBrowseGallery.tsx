@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowLeft, Check, Loader2, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  buildPreviewImageUrl,
   FEATURED_BLOCKS,
   getBlocksByCategory,
   getComponentsByCategory,
@@ -537,7 +536,7 @@ function CategoryChip({
 function thumbnailUrl(item: BrowseGalleryItem): string | null {
   if (item.registry !== OFFICIAL_SHADCN_REGISTRY) return null;
   if (item.type !== "block") return null;
-  return item.lightImageUrl ?? buildPreviewImageUrl(item.name, "light");
+  return item.lightImageUrl ?? null;
 }
 
 function BrowseCard({
@@ -560,7 +559,7 @@ function BrowseCard({
         <RegistryItemThumb
           src={thumb}
           alt={item.title}
-          previewKind={item.previewKind}
+          previewKind={item.previewKind ?? (item.type === "block" ? "layout" : undefined)}
           iconKey={item.iconKey}
         />
       </div>
@@ -664,7 +663,7 @@ function BrowseDetailView({
             src={thumb}
             alt={item.title}
             fallbackLabel="Ingen förhandsbild"
-            previewKind={item.previewKind}
+            previewKind={item.previewKind ?? (item.type === "block" ? "layout" : undefined)}
             iconKey={item.iconKey}
           />
         </div>

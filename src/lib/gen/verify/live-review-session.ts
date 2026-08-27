@@ -122,6 +122,7 @@ export async function finishLiveReviewSession(
     filesJson: string | null | undefined;
     userRequest: string;
     briefSummary: string;
+    isTargetCurrent?: () => Promise<boolean>;
   },
   deps: LiveReviewSessionDeps = {},
 ): Promise<LiveReviewResult> {
@@ -137,6 +138,19 @@ export async function finishLiveReviewSession(
   if (session.claim?.kind !== "acquired") {
     return skippedLiveReviewResult("review_error", "no acquired claim");
   }
+
+  const acquiredClaim = session.claim;
+  const targetIsCurrent = async () =>
+    input.isTargetCurrent ? input.isTargetCurrent().catch(() => false) : true;
+  const discardSuperseded = async () => {
+    await (deps.deleteScreenshotUrls ?? deleteLiveReviewScreenshotUrls)(input.screenshots);
+    await (deps.abandonRun ?? abandonLiveReviewRun)(
+      acquiredClaim.row.id,
+      acquiredClaim.row.claimedAt,
+    );
+    return skippedLiveReviewResult("preview_superseded");
+  };
+  if (!(await targetIsCurrent())) return discardSuperseded();
 
   if (session.claim.row.modelAttempts >= LIVE_REVIEW_MAX_MODEL_ATTEMPTS) {
     const capped = skippedLiveReviewResult("cost_capped");
@@ -179,6 +193,11 @@ export async function finishLiveReviewSession(
     filesRevision: session.filesRevision,
   });
 
+  // The critic may be slow enough for N+1 to commit while N is in flight.
+  // Fence before completeRun and, critically, before deletePreviousBlobs;
+  // otherwise late N would delete the newer revision's screenshots.
+  if (!(await targetIsCurrent())) return discardSuperseded();
+
   const paid =
     result.status === "completed" ||
     (result.status === "skipped" &&
@@ -209,6 +228,13 @@ export async function finishLiveReviewSession(
       session.claim.row.claimedAt,
     );
     return result;
+  }
+
+  // completeRun and the blob superseder are separate durable side effects.
+  // Re-fence between them so a newly active N+1 can never have its screenshots
+  // selected for deletion by late cleanup from N.
+  if (!(await targetIsCurrent())) {
+    return skippedLiveReviewResult("preview_superseded");
   }
 
   if (result.status === "completed" && session.filesRevision) {

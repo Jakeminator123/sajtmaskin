@@ -45,6 +45,7 @@ describe("POST preview-destroy", () => {
       version: { id: "v1" },
     });
     updateVersionPreviewUrl.mockResolvedValue(true);
+    clearPreviewSessionAsync.mockResolvedValue(true);
   });
 
   it("destroys preview_host sessions and clears stored preview url", async () => {
@@ -55,6 +56,7 @@ describe("POST preview-destroy", () => {
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
       tier2Provider: "preview_host",
+      lifecycleToken: "life-1",
     });
     destroyPreviewHostSession.mockResolvedValue({ ok: true, destroyed: true });
 
@@ -80,8 +82,14 @@ describe("POST preview-destroy", () => {
       clearedPreviewUrl: true,
       tier2Provider: "preview_host",
     });
-    expect(destroyPreviewHostSession).toHaveBeenCalledWith({ previewSessionId: "ps1" });
-    expect(clearPreviewSessionAsync).toHaveBeenCalledWith("c1");
+    expect(destroyPreviewHostSession).toHaveBeenCalledWith({
+      previewSessionId: "ps1",
+      lifecycleToken: "life-1",
+    });
+    expect(clearPreviewSessionAsync).toHaveBeenCalledWith("c1", {
+      expectedPreviewSessionId: "ps1",
+      expectedLifecycleToken: "life-1",
+    });
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith("v1", null);
   });
 
@@ -157,7 +165,10 @@ describe("POST preview-destroy", () => {
     expect(body.clearedPreviewUrl).toBe(true);
     expect(body.providerDestroyDeferred).toBe(true);
     expect(body.message).toBe("preview-host unavailable");
-    expect(clearPreviewSessionAsync).toHaveBeenCalledWith("c1");
+    expect(clearPreviewSessionAsync).toHaveBeenCalledWith("c1", {
+      expectedPreviewSessionId: "sb1",
+      expectedLifecycleToken: undefined,
+    });
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith("v1", null);
   });
 
@@ -191,5 +202,86 @@ describe("POST preview-destroy", () => {
     expect(body.reason).toBe("destroy_failed");
     expect(clearPreviewSessionAsync).not.toHaveBeenCalled();
     expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
+  });
+
+  it("does not clear a newer pointer or its version URL after a stale destroy", async () => {
+    const oldSession = {
+      previewSessionId: "ps-shared",
+      previewUrl: "https://preview.example",
+      versionId: "v1",
+      lifecycleToken: "life-old",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+      tier2Provider: "preview_host",
+    };
+    const newSession = {
+      ...oldSession,
+      previewUrl: "https://preview.example/new",
+      lifecycleToken: "life-new",
+    };
+    getActivePreviewSessionAsync
+      .mockResolvedValueOnce(oldSession)
+      .mockResolvedValueOnce(newSession);
+    destroyPreviewHostSession.mockResolvedValue({
+      ok: true,
+      destroyed: false,
+      superseded: true,
+    });
+    clearPreviewSessionAsync.mockResolvedValue(false);
+
+    const res = await POST(
+      new Request("http://localhost/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "ps-shared" }),
+      }),
+      { params: Promise.resolve({ chatId: "c1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      destroyed: false,
+      clearedPreviewUrl: false,
+      reason: "session_superseded",
+    });
+    expect(updateVersionPreviewUrl.mock.calls).toEqual([
+      ["v1", null],
+      ["v1", "https://preview.example/new"],
+    ]);
+    expect(updateVersionPreviewUrl.mock.invocationCallOrder[0]).toBeLessThan(
+      clearPreviewSessionAsync.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("restores the active preview URL and returns 500 when Redis clear fails", async () => {
+    const session = {
+      previewSessionId: "ps1",
+      previewUrl: "https://preview.example/current",
+      versionId: "v1",
+      lifecycleToken: "life-1",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+      tier2Provider: "preview_host",
+    };
+    getActivePreviewSessionAsync.mockResolvedValue(session);
+    destroyPreviewHostSession.mockResolvedValue({ ok: true, destroyed: true });
+    clearPreviewSessionAsync.mockRejectedValue(new Error("redis unavailable"));
+
+    const res = await POST(
+      new Request("http://localhost/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "ps1" }),
+      }),
+      { params: Promise.resolve({ chatId: "c1" }) },
+    );
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ ok: false, reason: "session_store_failed" });
+    expect(updateVersionPreviewUrl.mock.calls).toEqual([
+      ["v1", null],
+      ["v1", "https://preview.example/current"],
+    ]);
   });
 });

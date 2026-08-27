@@ -22,6 +22,7 @@ import { config } from "dotenv";
 import pg from "pg";
 import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
 import {
+  CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL,
   LATEST_PRODUCT_POSTCHECK_JOIN,
   annotateReportedQualityGate,
 } from "./lib/reported-quality-gate.mjs";
@@ -135,6 +136,7 @@ const RECENT_QUERY = `
     gt.preflight_warning_count,
     gt.quality_gate_result,
     pps.product_blocked,
+    pps.product_degraded,
     gt.preview_success,
     gt.preview_blocking_reason,
     gt.deploy_result,
@@ -177,6 +179,7 @@ const CHAT_TELEMETRY_QUERY = `
          gt.prompt_classification, gt.retry_count, gt.autofix_applied, gt.syntax_fixer_used,
          gt.preflight_error_count, gt.preflight_warning_count, gt.quality_gate_result,
          pps.product_blocked,
+         pps.product_degraded,
          gt.preview_success, gt.preview_blocking_reason, gt.deploy_result, gt.duration_ms,
          gt.file_count, gt.meta, gt.created_at
   FROM generation_telemetry gt
@@ -186,10 +189,11 @@ const CHAT_TELEMETRY_QUERY = `
 `;
 
 const CHAT_ERROR_LOGS_QUERY = `
-  SELECT version_id, level, category, message, created_at
-  FROM engine_version_error_logs
-  WHERE chat_id = $1
-  ORDER BY created_at ASC
+  SELECT e.version_id, e.level, e.category, e.message, e.created_at
+  FROM engine_version_error_logs e
+  WHERE e.chat_id = $1
+    AND ${CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL.trim()}
+  ORDER BY e.created_at ASC
   LIMIT 500
 `;
 

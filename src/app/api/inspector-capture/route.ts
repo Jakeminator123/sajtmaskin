@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import type { Page } from "playwright-core";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
+import {
+  isInspectorPreviewIdentityCurrent,
+  parseInspectorPreviewIdentity,
+} from "@/lib/builder/inspector-preview-identity";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rate-limit";
 import {
@@ -474,6 +478,25 @@ async function handlePOST(req: Request) {
       { status: 400 },
     );
   }
+  const parsedIdentity = parseInspectorPreviewIdentity(
+    json && typeof json === "object" ? (json as Record<string, unknown>) : {},
+  );
+  if (parsedIdentity.status !== "valid") {
+    return NextResponse.json(
+      {
+        success: false,
+        staleIdentity: true,
+        error: "Capture kräver en fullständig aktuell preview-identitet.",
+      },
+      { status: 400 },
+    );
+  }
+  if (!(await isInspectorPreviewIdentityCurrent(parsedIdentity.identity, parsed.url))) {
+    return NextResponse.json(
+      { success: false, staleIdentity: true, error: "Previewen har bytt version eller session." },
+      { status: 409 },
+    );
+  }
 
   let target: URL;
   try {
@@ -623,6 +646,12 @@ async function handlePOST(req: Request) {
       });
       previewMimeType = "image/jpeg";
     }
+    if (!(await isInspectorPreviewIdentityCurrent(parsedIdentity.identity, page.url()))) {
+      return NextResponse.json(
+        { success: false, staleIdentity: true, error: "Previewen byttes under bildfångsten." },
+        { status: 409 },
+      );
+    }
     if (previewBuffer.byteLength > MAX_CAPTURE_BYTES) {
       // Hellre ett ärligt fel än en bild som ser ut att fungera och sedan
       // avvisas av uppladdningen utan att modellen får något.
@@ -668,4 +697,3 @@ async function handlePOST(req: Request) {
     }
   }
 }
-

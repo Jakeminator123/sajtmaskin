@@ -32,7 +32,10 @@ import type {
   StreamQualitySignal,
   VersionErrorLogPayload,
 } from "./types";
-import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
+import type {
+  ProductPostcheckAttestation,
+  ProductPostcheckResult,
+} from "@/lib/gen/verify/product-postcheck";
 
 /** Extra försök efter det första, bara vid en retryable 503. */
 const ERROR_LOG_RETRY_ATTEMPTS = 2;
@@ -101,9 +104,18 @@ export async function persistVersionErrorLogs(params: {
   chatId: string;
   versionId: string;
   logs: VersionErrorLogPayload[];
+  productPostcheckAttestation?: ProductPostcheckAttestation | null;
 }): Promise<boolean> {
-  const { chatId, versionId, logs } = params;
+  const { chatId, versionId, logs, productPostcheckAttestation } = params;
   if (!logs.length) return true;
+  if (
+    logs.some((log) => log.category?.startsWith("product_postcheck.")) &&
+    !productPostcheckAttestation
+  ) {
+    // Fail closed client-side as well as in the route. Sending a Product
+    // Postcheck row without its exact preview/revision tuple is never valid.
+    return false;
+  }
   const url = `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`;
 
   for (let attempt = 0; attempt <= ERROR_LOG_RETRY_ATTEMPTS; attempt += 1) {
@@ -112,7 +124,12 @@ export async function persistVersionErrorLogs(params: {
       res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ logs }),
+        body: JSON.stringify({
+          logs,
+          ...(productPostcheckAttestation
+            ? { productPostcheckAttestation }
+            : {}),
+        }),
       });
     } catch {
       // Best-effort only
@@ -147,7 +164,8 @@ async function validateImages(params: {
     );
     if (!response.ok) return null;
     return (await response.json()) as ImageValidationResult;
-  } catch {
+  } catch (error) {
+    if (isAbortError(error)) throw error;
     return null;
   }
 }
@@ -171,7 +189,8 @@ async function runProductPostcheckApi(params: {
     );
     if (!response.ok) return null;
     return (await response.json()) as ProductPostcheckResult;
-  } catch {
+  } catch (error) {
+    if (isAbortError(error)) throw error;
     return null;
   }
 }
@@ -194,7 +213,34 @@ export function formatLiveReviewLogMessage(result: ProductPostcheckResult): stri
 export function buildProductPostcheckLogItems(
   result: ProductPostcheckResult | null,
 ): VersionErrorLogPayload[] {
-  if (!result) return [];
+  // A transport failure has no server-owned tuple. Persist it under a separate
+  // non-product category so it remains visible without being mistaken for a
+  // Product Postcheck PASS/skip. The verify lane holds and retries below.
+  if (!result) {
+    return [
+      {
+        level: "warning",
+        category: "post-check.product-postcheck-transport",
+        message: "F2 Product Postcheck failed before an attested result was returned.",
+        meta: { skippedReason: "transport_error" },
+      },
+    ];
+  }
+  // A superseded response deliberately carries no tuple and must leave no
+  // durable evidence for the replaced preview. Other unscoped responses are
+  // likewise unsafe, except the explicit deployment-level feature kill-switch.
+  if (
+    result.skippedReason === "preview_superseded" ||
+    (!result.attestation && result.skippedReason !== "feature_disabled")
+  ) {
+    return [];
+  }
+  if (!result.attestation) return [];
+  const attestationMeta = {
+    attestedPreviewSessionId: result.attestation.previewSessionId,
+    attestedLifecycleToken: result.attestation.lifecycleToken,
+    attestedFilesRevision: result.attestation.filesRevision,
+  };
   if (result.skipped) {
     // Krasch-skäl (Playwright dog, navigering föll, timeout) är INTE policy-skips
     // och ska synas i defect-aggregatet — prod-körningen 2026-08-11 visade sex
@@ -216,6 +262,7 @@ export function buildProductPostcheckLogItems(
         category: "product_postcheck.skipped",
         message: "F2 Product Postcheck skipped.",
         meta: {
+          ...attestationMeta,
           skippedReason,
           durationMs: result.durationMs ?? null,
           checkedUrl: result.checkedUrl ?? null,
@@ -230,6 +277,7 @@ export function buildProductPostcheckLogItems(
     category: `product_postcheck.${warning.code || "warning"}`,
     message: warning.message || "F2 Product Postcheck warning.",
     meta: {
+      ...attestationMeta,
       ...warning,
       durationMs: result.durationMs ?? null,
       checkedUrl: result.checkedUrl ?? null,
@@ -243,6 +291,7 @@ export function buildProductPostcheckLogItems(
         ? `F2 Product Postcheck found ${warnings.length} warning(s).`
         : "F2 Product Postcheck passed.",
     meta: {
+      ...attestationMeta,
       warningCount: warnings.length,
       productBlocked: result.productBlocked === true,
       durationMs: result.durationMs ?? null,
@@ -260,6 +309,7 @@ export function buildProductPostcheckLogItems(
       category: "product_postcheck.live_review",
       message: liveReviewMessage,
       meta: {
+        ...attestationMeta,
         screenshots: result.screenshots ?? null,
         liveReview: result.liveReview ?? null,
       },
@@ -357,6 +407,8 @@ export async function runPostGenerationChecks(params: {
   const releasePipelineWork = beginPipelineWork();
   let spawnedVerifyLane = false;
   let completionPersistence: Promise<boolean> | null = null;
+  let productPostcheckResult: ProductPostcheckResult | null | undefined;
+  let productPostcheckPersistenceScheduled = false;
 
   appendToolPartToMessage(setMessages, assistantMessageId, {
     type: "tool:post-check",
@@ -391,7 +443,7 @@ export async function runPostGenerationChecks(params: {
 
     // Independent HTTP checks — run in parallel so the post-check tail (and
     // the verify-lane behind it) is not serialized on two network round-trips.
-    const [imageValidation, productPostcheck] = await Promise.all([
+    const [imageValidation, resolvedProductPostcheck] = await Promise.all([
       validateImages({
         chatId,
         versionId,
@@ -404,12 +456,21 @@ export async function runPostGenerationChecks(params: {
         signal: controller.signal,
       }),
     ]);
+    productPostcheckResult = resolvedProductPostcheck;
+    const productPostcheck = resolvedProductPostcheck;
+    const productPostcheckNeedsRetry =
+      !productPostcheck ||
+      productPostcheck.skippedReason === "preview_superseded" ||
+      (productPostcheck.skippedReason !== "feature_disabled" && !productPostcheck.attestation);
     const warnings = [...baseline.warnings];
     if (imageValidation?.warnings?.length) {
       warnings.push(...imageValidation.warnings);
     }
     if (!productPostcheck?.skipped && productPostcheck?.warnings?.length) {
       warnings.push(...productPostcheck.warnings.map((warning) => `Product: ${warning.message}`));
+    }
+    if (!productPostcheck) {
+      warnings.push("Product: kontrollen saknar ett aktuellt attesterat svar och måste köras om.");
     }
 
     const artifacts = buildPostCheckArtifacts({
@@ -437,7 +498,9 @@ export async function runPostGenerationChecks(params: {
       chatId,
       versionId,
       logs: [...artifacts.logItems, ...buildProductPostcheckLogItems(productPostcheck)],
+      productPostcheckAttestation: productPostcheck?.attestation ?? null,
     });
+    productPostcheckPersistenceScheduled = true;
 
     if (artifacts.autoFixReasons.length > 0) {
       onAutoFix?.({
@@ -515,6 +578,23 @@ export async function runPostGenerationChecks(params: {
           serverOwned: true,
         },
       } as UiMessagePart);
+    } else if (
+      productPostcheckNeedsRetry &&
+      artifacts.autoFixReasons.length === 0 &&
+      artifacts.verifyPending
+    ) {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        toolCallId: `quality-gate:${versionId}`,
+        state: "output-available",
+        output: {
+          skipped: true,
+          retryPending: true,
+          reason:
+            "Produktkontrollen saknar ett aktuellt attesterat resultat — versionen lämnas pending och återupptas mot rätt preview.",
+        },
+      } as UiMessagePart);
     } else if (artifacts.autoFixReasons.length === 0 && artifacts.verifyPending) {
       spawnedVerifyLane = true;
       void runTier2VerifyLane({
@@ -565,7 +645,11 @@ export async function runPostGenerationChecks(params: {
             category: "post-check",
             message: error instanceof Error ? error.message : "Post-check failed",
           },
+          ...(productPostcheckPersistenceScheduled
+            ? []
+            : buildProductPostcheckLogItems(productPostcheckResult ?? null)),
         ],
+        productPostcheckAttestation: productPostcheckResult?.attestation ?? null,
       });
       appendToolPartToMessage(setMessages, assistantMessageId, {
         type: "tool:post-check",

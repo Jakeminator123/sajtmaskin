@@ -279,6 +279,20 @@ describe("LLM telemetri strict schemas", () => {
       expect(validate(payload)).toBe(true);
     });
 
+    it("matchar blockerande hydrering med DOM-förlust", () => {
+      const payload = {
+        level: "warning",
+        category: "product_postcheck.hydration_dom_loss",
+        message: "En server-renderad CTA försvann efter hydrering.",
+        meta: {
+          code: "hydration_dom_loss",
+          productBlocked: true,
+          checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        },
+      };
+      expect(validate(payload)).toBe(true);
+    });
+
     it("matchar product_postcheck.broken_image", () => {
       const payload = {
         level: "warning",

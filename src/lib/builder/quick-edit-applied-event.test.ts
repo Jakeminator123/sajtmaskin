@@ -16,6 +16,7 @@ describe("quick-edit-applied-event", () => {
       versionId: "ver_2",
       previewUrl: "https://vm.example/p/abc",
       previewSessionId: "psid_1",
+      lifecycleToken: "life_1",
       previewMode: "dev_only",
     });
 
@@ -26,6 +27,7 @@ describe("quick-edit-applied-event", () => {
       versionId: "ver_2",
       previewUrl: "https://vm.example/p/abc",
       previewSessionId: "psid_1",
+      lifecycleToken: "life_1",
       previewMode: "dev_only",
     });
 

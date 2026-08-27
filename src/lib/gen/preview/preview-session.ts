@@ -45,6 +45,8 @@ export type PreviewSessionTier2Meta = {
 export interface PreviewSessionResult {
   previewUrl: string;
   previewSessionId: string;
+  /** Exact host lifecycle rendered by the client; null only for a legacy host session. */
+  lifecycleToken: string | null;
   previewMode: PreviewSessionMode;
   /** Tier-2 live preview only. */
   fidelityTier: 2;
@@ -89,35 +91,30 @@ type StartPreviewSessionOutcome =
 const inflightPreviewSessionByChatVersion = new Map<string, Promise<StartPreviewSessionOutcome>>();
 
 /**
- * Best-effort destroy + clear: read the existing session, fire-and-forget
- * the host destroy so the Fly preview-session is released, then clear the local +
- * Redis pointer.
+ * Best-effort destroy + fenced clear: read the existing session, await the host
+ * destroy, then clear only that exact local + Redis lifecycle pointer.
  *
  * The previous behaviour only cleared the local pointer, leaving the host
-   * preview session running until idle TTL fired or `/admin/cleanup` reaped it. That
+ * preview session running until idle TTL fired or `/admin/cleanup` reaped it. That
  * was the root cause of the disk-full retries we keep seeing in
  * `triggerPreviewHostCleanup`. Errors from the host are swallowed because
  * the local pointer must always be cleared even if the host call fails —
  * the alternative is a zombie entry the user cannot recover from.
  */
 async function destroyAndClearPreviewSession(chatId: string): Promise<void> {
+  let existing: Awaited<ReturnType<typeof getActivePreviewSessionAsync>> = null;
   try {
-    const existing = await getActivePreviewSessionAsync(chatId);
+    existing = await getActivePreviewSessionAsync(chatId);
     if (existing?.previewSessionId) {
-      destroyPreviewHostSession({ previewSessionId: existing.previewSessionId })
-        .then((res) => {
-          if (!res.ok) {
-            console.warn(
-              `[preview-session] best-effort destroy for ${chatId}/${existing.previewSessionId} failed: ${res.message}`,
-            );
-          }
-        })
-        .catch((err) => {
-          console.warn(
-            "[preview-session] best-effort destroy threw:",
-            err instanceof Error ? err.message : err,
-          );
-        });
+      const res = await destroyPreviewHostSession({
+        previewSessionId: existing.previewSessionId,
+        ...(existing.lifecycleToken ? { lifecycleToken: existing.lifecycleToken } : {}),
+      });
+      if (!res.ok) {
+        console.warn(
+          `[preview-session] best-effort destroy for ${chatId}/${existing.previewSessionId} failed: ${res.message}`,
+        );
+      }
     }
   } catch (err) {
     console.warn(
@@ -125,7 +122,12 @@ async function destroyAndClearPreviewSession(chatId: string): Promise<void> {
       err instanceof Error ? err.message : err,
     );
   }
-  await clearPreviewSessionAsync(chatId);
+  if (existing) {
+    await clearPreviewSessionAsync(chatId, {
+      expectedPreviewSessionId: existing.previewSessionId,
+      expectedLifecycleToken: existing.lifecycleToken,
+    });
+  }
 }
 
 /**
@@ -142,11 +144,18 @@ export type TryPatchPreviewSessionResult =
       ok: true;
       previewUrl: string;
       previewSessionId: string;
+      lifecycleToken: string | null;
       patchMode: PreviewHostPatchMode;
     }
   | {
       ok: false;
-      reason: "disabled" | "no_session" | "session_missing" | "host_error" | "base_mismatch";
+      reason:
+        | "disabled"
+        | "no_session"
+        | "session_missing"
+        | "session_superseded"
+        | "host_error"
+        | "base_mismatch";
       message?: string;
     };
 
@@ -197,6 +206,7 @@ export async function tryPatchPreviewSession(params: {
   }
   const patched = await patchPreviewHostSession({
     previewSessionId: sess.previewSessionId,
+    lifecycleToken: sess.lifecycleToken,
     versionId,
     files: params.changedFiles,
     removedPaths: params.removedPaths,
@@ -205,18 +215,25 @@ export async function tryPatchPreviewSession(params: {
     expectedBaseVersionId: expectedBase,
   });
   if (patched.ok) {
-    await touchPreviewSessionAsync({
+    const stored = await touchPreviewSessionAsync({
       chatId,
       previewSessionId: patched.previewSessionId,
       previewUrl: patched.previewUrl,
       versionId,
       filesRevision: params.filesRevision,
+      lifecycleToken: patched.lifecycleToken ?? sess.lifecycleToken,
+      mutationRevision: patched.mutationRevision,
       tier2Provider: "preview_host",
+      writeIntent: "authoritative",
     });
+    if (!stored) {
+      return { ok: false, reason: "session_superseded" };
+    }
     return {
       ok: true,
       previewUrl: patched.previewUrl,
       previewSessionId: patched.previewSessionId,
+      lifecycleToken: patched.lifecycleToken ?? sess.lifecycleToken,
       patchMode: patched.patchMode,
     };
   }
@@ -225,6 +242,9 @@ export async function tryPatchPreviewSession(params: {
   }
   if ("baseMismatch" in patched && patched.baseMismatch === true) {
     return { ok: false, reason: "base_mismatch", message: patched.message };
+  }
+  if ("superseded" in patched && patched.superseded === true) {
+    return { ok: false, reason: "session_superseded", message: patched.message };
   }
   return { ok: false, reason: "host_error", message: patched.message };
 }
@@ -256,6 +276,7 @@ export async function tryPatchPreviewSession(params: {
 async function tryFollowUpPatchLane(params: {
   chatId: string;
   previewSessionId: string;
+  lifecycleToken: string | null;
   /** Version the live session is pinned to (the base we diff against). */
   baseVersionId: string | null;
   versionId: string;
@@ -298,6 +319,7 @@ async function tryFollowUpPatchLane(params: {
 
   const patched = await patchPreviewHostSession({
     previewSessionId: params.previewSessionId,
+    lifecycleToken: params.lifecycleToken,
     versionId: params.versionId,
     files: plan.changedFiles,
     ...(plan.removedPaths.length > 0 ? { removedPaths: plan.removedPaths } : {}),
@@ -319,14 +341,18 @@ async function tryFollowUpPatchLane(params: {
     );
   }
 
-  await touchPreviewSessionAsync({
+  const stored = await touchPreviewSessionAsync({
     chatId: params.chatId,
     previewSessionId: patched.previewSessionId,
     previewUrl: patched.previewUrl,
     versionId: params.versionId,
     filesRevision: params.filesRevision,
+    lifecycleToken: patched.lifecycleToken ?? params.lifecycleToken,
+    mutationRevision: patched.mutationRevision,
     tier2Provider: "preview_host",
+    writeIntent: "authoritative",
   });
+  if (!stored) return fallBackToUpdate("session_pointer_superseded");
   logPreviewLifecycleTelemetry({
     kind: "preview_followup_lane",
     chatId: params.chatId,
@@ -342,6 +368,7 @@ async function tryFollowUpPatchLane(params: {
   return {
     previewUrl: patched.previewUrl,
     previewSessionId: patched.previewSessionId,
+    lifecycleToken: patched.lifecycleToken ?? params.lifecycleToken,
     previewMode: params.previewMode,
     fidelityTier: 2,
     startOutcome: "resumed",
@@ -485,19 +512,32 @@ async function runStartPreviewSession(
       // healthy preview — fall through to destroy + re-pin so the fresh boot can
       // re-run install/repair instead of surfacing the broken overlay as live.
       if (resumed && resumed.readinessState !== "failed") {
-        await touchPreviewSessionAsync({
+        const stored = await touchPreviewSessionAsync({
           chatId: cid,
           previewSessionId: resumed.previewSessionId,
           previewUrl: resumed.primaryUrl,
           versionId: vid,
           filesRevision: filesRevision ?? sess.filesRevision,
+          lifecycleToken: resumed.lifecycleToken ?? sess.lifecycleToken,
+          mutationRevision: resumed.mutationRevision,
           tier2Provider: "preview_host",
+          writeIntent: "authoritative",
         });
+        if (!stored) {
+          return {
+            ok: false,
+            error: {
+              stage: "preview-start",
+              message: "Preview session lifecycle was superseded before its resume receipt was stored.",
+            },
+          };
+        }
         return {
           ok: true,
           result: {
             previewUrl: resumed.primaryUrl,
             previewSessionId: resumed.previewSessionId,
+            lifecycleToken: resumed.lifecycleToken ?? sess.lifecycleToken,
             previewMode: resolvedMode,
             fidelityTier: 2,
             startOutcome: "resumed",
@@ -603,6 +643,7 @@ async function runStartPreviewSession(
       const patchedResult = await tryFollowUpPatchLane({
         chatId: cid,
         previewSessionId: sess.previewSessionId,
+        lifecycleToken: sess.lifecycleToken,
         baseVersionId: sess.versionId,
         versionId: vid,
         filesRevision,
@@ -614,23 +655,37 @@ async function runStartPreviewSession(
       }
       const updated = await updatePreviewHostSession({
         previewSessionId: sess.previewSessionId,
+        lifecycleToken: sess.lifecycleToken,
         versionId: vid,
         filesJson: updatePayload,
       });
       if (updated.ok) {
-        await touchPreviewSessionAsync({
+        const stored = await touchPreviewSessionAsync({
           chatId: cid,
           previewSessionId: updated.previewSessionId,
           previewUrl: updated.previewUrl,
           versionId: vid,
           filesRevision,
+          lifecycleToken: updated.lifecycleToken ?? sess.lifecycleToken,
+          mutationRevision: updated.mutationRevision,
           tier2Provider: "preview_host",
+          writeIntent: "authoritative",
         });
+        if (!stored) {
+          return {
+            ok: false,
+            error: {
+              stage: "preview-start",
+              message: "Preview session lifecycle was superseded before its update receipt was stored.",
+            },
+          };
+        }
         return {
           ok: true,
           result: {
             previewUrl: updated.previewUrl,
             previewSessionId: updated.previewSessionId,
+            lifecycleToken: updated.lifecycleToken ?? sess.lifecycleToken,
             previewMode: resolvedMode,
             fidelityTier: 2,
             startOutcome: updated.startOutcome ?? "resumed",
@@ -648,6 +703,12 @@ async function runStartPreviewSession(
       // att bli förvirrad av föråldrad session-store-data.
       if ("sessionMissing" in updated && updated.sessionMissing === true) {
         await destroyAndClearPreviewSession(cid);
+      }
+      if ("superseded" in updated && updated.superseded === true) {
+        return {
+          ok: false,
+          error: { stage: "preview-start", message: updated.message },
+        };
       }
       // Annan typ av update-fel → fall genom till startPreviewHostSession
       // som har full retry+disk-cleanup-logik.
@@ -731,6 +792,7 @@ async function runStartPreviewSession(
   }
 
   const filesJson = Object.fromEntries(runtimeFiles.map((f) => [f.name, f.content]));
+  const pointerBeforeStart = await getActivePreviewSessionAsync(cid);
   const started = await startPreviewHostSession({
     chatId: cid,
     versionId: hostVersionId,
@@ -755,19 +817,34 @@ async function runStartPreviewSession(
     };
   }
 
-  await touchPreviewSessionAsync({
+  const stored = await touchPreviewSessionAsync({
     chatId: cid,
     previewSessionId: started.previewSessionId,
     previewUrl: started.previewUrl,
     versionId: vid,
     filesRevision,
+    lifecycleToken: started.lifecycleToken,
+    mutationRevision: started.mutationRevision,
+    allowLifecycleAdvance: true,
+    expectedPreviousLifecycleToken: pointerBeforeStart?.lifecycleToken ?? null,
     tier2Provider: "preview_host",
+    writeIntent: "authoritative",
   });
+  if (!stored) {
+    return {
+      ok: false,
+      error: {
+        stage: "preview-start",
+        message: "Preview session lifecycle was superseded before its start receipt was stored.",
+      },
+    };
+  }
   return {
     ok: true,
     result: {
       previewUrl: started.previewUrl,
       previewSessionId: started.previewSessionId,
+      lifecycleToken: started.lifecycleToken,
       previewMode: resolvedMode,
       fidelityTier: 2,
       startOutcome: started.startOutcome,

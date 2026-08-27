@@ -487,14 +487,27 @@ function acceptAndHoldWebSocket(req, socket) {
  * Script-källan kommer från första posten i preview-hostens EGEN allowlist
  * (`SAJTMASKIN_APP_ORIGINS`), aldrig från query.
  */
-function inspectInjectionScriptSrc(search) {
+function inspectInjectionScriptSrc(search, session) {
   if (!INSPECT_APP_ORIGIN) return null;
   let qs = String(search || "");
   if (qs.startsWith("?")) qs = qs.slice(1);
   let on = false;
   try { on = new URLSearchParams(qs).get(PREVIEW_INSPECT_QUERY_PARAM) === "1"; } catch { on = false; }
   if (!on) return null;
-  return `${INSPECT_APP_ORIGIN}/api/inspect-bridge?parent=${encodeURIComponent(INSPECT_APP_ORIGIN)}`;
+  const params = new URLSearchParams({ parent: INSPECT_APP_ORIGIN });
+  if (typeof session?.versionId === "string" && session.versionId.trim()) {
+    params.set("versionId", session.versionId.trim());
+  }
+  if (typeof session?.previewSessionId === "string" && session.previewSessionId.trim()) {
+    params.set("previewSessionId", session.previewSessionId.trim());
+    // Empty is an explicit legacy lifecycle, while absence means the host did
+    // not have a complete identity and parent must fail closed.
+    params.set(
+      "lifecycleToken",
+      typeof session.lifecycleToken === "string" ? session.lifecycleToken.trim() : "",
+    );
+  }
+  return `${INSPECT_APP_ORIGIN}/api/inspect-bridge?${params.toString()}`;
 }
 
 /**
@@ -805,7 +818,7 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
   if (state.running && state.runtimePort && state.acceptingTraffic) {
     const trackedForActivity = runtimeChildren.get(state.session.sessionId);
     if (trackedForActivity) trackedForActivity.lastActivityAt = Date.now();
-    const inspectScriptSrc = inspectInjectionScriptSrc(search);
+    const inspectScriptSrc = inspectInjectionScriptSrc(search, state.session);
     const documentId = previewDocumentNavigation
       ? createPendingPreviewDocument(info.chatId, state.session.sessionId)
       : null;
