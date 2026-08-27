@@ -717,6 +717,7 @@ export function useBuilderPageController() {
     promptFetchDoneRef,
     pendingCreatedVersionRef,
     mutateVersions,
+    onVersionStatusRefresh: bumpVersionStatusRefresh,
     onPreviewSessionMeta,
     setCurrentPageCode,
     setExistingUiComponents,

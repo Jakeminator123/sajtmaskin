@@ -75,6 +75,7 @@ beforeEach(() => {
     ok: true,
     previewUrl: "https://preview.example/chat_1",
     previewSessionId: "ps_1",
+    lifecycleToken: "life_1",
     patchMode: "patched",
   });
 });
@@ -124,7 +125,12 @@ describe("runQuickEdit — textändring blir en ny minorversion", () => {
   it("persisterar en quick_edit-minor med basen som förälder och lämnar basen orörd", async () => {
     const result = await runQuickEdit(runParams());
 
-    expect(result).toMatchObject({ ok: true, versionId: "ver_new" });
+    expect(result).toMatchObject({
+      ok: true,
+      versionId: "ver_new",
+      previewSessionId: "ps_1",
+      lifecycleToken: "life_1",
+    });
     const [, , filesJson, options] =
       addAssistantMessageAndCreateDraftVersion.mock.calls[0] ?? [];
     expect(options).toMatchObject({
@@ -174,6 +180,7 @@ describe("runQuickEdit — dossier-env-nycklar ärvs och rehydreras", () => {
       result: {
         previewUrl: "https://preview.example/chat_1",
         previewSessionId: "ps_2",
+        lifecycleToken: "life_2",
         startOutcome: "recreated",
       },
     });
@@ -196,6 +203,7 @@ describe("runQuickEdit — dossier-env-nycklar ärvs och rehydreras", () => {
       result: {
         previewUrl: "https://preview.example/chat_1",
         previewSessionId: "ps_2",
+        lifecycleToken: "life_2",
         startOutcome: "recreated",
       },
     });

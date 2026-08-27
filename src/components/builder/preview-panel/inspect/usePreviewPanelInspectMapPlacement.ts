@@ -33,8 +33,13 @@ import { toast } from "sonner";
 
 export function usePreviewPanelInspectMapPlacement(options: {
   inspectorEnabled: boolean;
+  chatId: string | null;
   previewUrl: string | null;
   versionId: string | null;
+  previewSessionId?: string | null;
+  lifecycleToken?: string | null;
+  /** False while the builder has a mismatch or incomplete lifecycle tuple. */
+  identityReady?: boolean;
   placementMode: boolean;
   /** När sann, ladda elementkarta/zoner som för placering (t.ex. Visual Composer) utan chat-picker-läge. */
   composerMode?: boolean;
@@ -57,8 +62,12 @@ export function usePreviewPanelInspectMapPlacement(options: {
 }) {
   const {
     inspectorEnabled,
+    chatId,
     previewUrl,
     versionId,
+    previewSessionId = null,
+    lifecycleToken,
+    identityReady = true,
     placementMode,
     composerMode = false,
     inspectMode,
@@ -82,6 +91,28 @@ export function usePreviewPanelInspectMapPlacement(options: {
   const [hoveredMapElement, setHoveredMapElement] = useState<ElementMapItem | null>(null);
   const [hoveredPlacement, setHoveredPlacement] = useState<InsertionPoint | null>(null);
   const inspectFetchTokenRef = useRef(0);
+  const previewIdentityKey = useMemo(
+    () =>
+      JSON.stringify([
+        chatId,
+        versionId,
+        previewSessionId,
+        lifecycleToken === undefined ? "unhydrated" : lifecycleToken,
+        previewUrl,
+      ]),
+    [chatId, versionId, previewSessionId, lifecycleToken, previewUrl],
+  );
+  const previewIdentityKeyRef = useRef(previewIdentityKey);
+  useEffect(() => {
+    previewIdentityKeyRef.current = previewIdentityKey;
+    inspectFetchTokenRef.current += 1;
+    /* eslint-disable react-hooks/set-state-in-effect -- invalidate map state synchronously with preview identity */
+    setElementMap([]);
+    setElementMapLoading(false);
+    setHoveredMapElement(null);
+    setHoveredPlacement(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [previewIdentityKey]);
   /** Spegel av elementMap.length för rena timeout-beslut (inga setState i updaters). */
   const elementMapLengthRef = useRef(0);
   useEffect(() => {
@@ -95,7 +126,12 @@ export function usePreviewPanelInspectMapPlacement(options: {
       height: number,
       requestToken = inspectFetchTokenRef.current,
     ) => {
-      if (!inspectorEnabled) {
+      const requestIdentityKey = previewIdentityKey;
+      const requestIsCurrent = () =>
+        requestToken === inspectFetchTokenRef.current &&
+        requestIdentityKey === previewIdentityKeyRef.current &&
+        identityReady;
+      if (!inspectorEnabled || !identityReady) {
         if (requestToken === inspectFetchTokenRef.current) {
           setElementMap([]);
           setElementMapLoading(false);
@@ -103,7 +139,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
         }
         return 0;
       }
-      if (requestToken !== inspectFetchTokenRef.current) return 0;
+      if (!requestIsCurrent()) return 0;
       setElementMapLoading(true);
       setInspectorUnavailable(false);
       try {
@@ -119,15 +155,18 @@ export function usePreviewPanelInspectMapPlacement(options: {
             viewportWidth: width,
             viewportHeight: height,
             maxElements: 300,
+            ...(chatId && versionId && previewSessionId && lifecycleToken !== undefined
+              ? { chatId, versionId, previewSessionId, lifecycleToken }
+              : {}),
           }),
         });
         const data = (await res.json().catch(() => null)) as ElementMapResponse | null;
         if (res.ok && data?.success && Array.isArray(data.elements)) {
-          if (requestToken !== inspectFetchTokenRef.current) return 0;
+          if (!requestIsCurrent()) return 0;
           setElementMap(data.elements);
           return data.elements.length;
         }
-        if (requestToken !== inspectFetchTokenRef.current) return 0;
+        if (!requestIsCurrent()) return 0;
         setElementMap([]);
         setInspectorUnavailable(true);
         if (isOwnEnginePreview) {
@@ -137,23 +176,31 @@ export function usePreviewPanelInspectMapPlacement(options: {
         }
         return 0;
       } catch {
-        if (requestToken !== inspectFetchTokenRef.current) return 0;
+        if (!requestIsCurrent()) return 0;
         setElementMap([]);
         setInspectorUnavailable(true);
         return 0;
       } finally {
-        if (requestToken === inspectFetchTokenRef.current) {
+        if (requestIsCurrent()) {
           setElementMapLoading(false);
         }
       }
     },
-    [inspectorEnabled],
+    [
+      inspectorEnabled,
+      identityReady,
+      previewIdentityKey,
+      chatId,
+      versionId,
+      previewSessionId,
+      lifecycleToken,
+    ],
   );
 
   const handleToggleInspect = useCallback(() => {
-    if (!inspectorEnabled || !previewUrl) return;
+    if (!inspectorEnabled || !previewUrl || !identityReady) return;
     setInspectMode((prev) => !prev);
-  }, [inspectorEnabled, previewUrl, setInspectMode]);
+  }, [inspectorEnabled, previewUrl, identityReady, setInspectMode]);
 
   // Sidoeffekterna hänger på lägesbytet, inte på knappen: `inspectMode` ägs av
   // builderskalet och togglas numera från chatpanelens Verktyg-rad.
@@ -314,7 +361,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
   );
 
   useEffect(() => {
-    if (!previewUrl || !inspectorEnabled) return;
+    if (!previewUrl || !inspectorEnabled || !identityReady) return;
     // Bridge-engine använder ingen element-map → hoppa över pre-warm (annars
     // onödiga 503 mot /api/inspector-element-map i prod).
     if (inspectEngine === "bridge") return;
@@ -356,7 +403,15 @@ export function usePreviewPanelInspectMapPlacement(options: {
         pendingSleepTimerId = null;
       }
     };
-  }, [previewUrl, versionId, fetchElementMap, inspectorEnabled, iframeRef, inspectEngine]);
+  }, [
+    previewUrl,
+    versionId,
+    fetchElementMap,
+    inspectorEnabled,
+    identityReady,
+    iframeRef,
+    inspectEngine,
+  ]);
 
   useEffect(() => {
     if (inspectorEnabled) return;
@@ -374,7 +429,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
   }, [zonesActive, setInspectMode]);
 
   useEffect(() => {
-    if (!zonesActive || !previewUrl || !inspectorEnabled) {
+    if (!zonesActive || !previewUrl || !inspectorEnabled || !identityReady) {
       setHoveredPlacement(null);
       return;
     }
@@ -407,6 +462,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
     previewUrl,
     fetchElementMap,
     inspectorEnabled,
+    identityReady,
     iframeRef,
     inspectEngine,
   ]);

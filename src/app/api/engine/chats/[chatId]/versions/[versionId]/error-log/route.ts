@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import {
+  createAttestedProductPostcheckErrorLogs,
   createEngineVersionErrorLogs,
   getEngineVersionErrorLogs,
 } from "@/lib/db/services/version-errors";
@@ -21,6 +22,21 @@ type ErrorLogBatchPayload = {
   logs?: ErrorLogPayload[];
   productPostcheckAttestation?: ProductPostcheckAttestation | null;
 };
+
+function isProductPostcheckCategory(value: unknown): boolean {
+  return typeof value === "string" && value.startsWith("product_postcheck.");
+}
+
+function productPostcheckAttestationRequiredResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      stored: false,
+      code: "product_postcheck_attestation_required",
+    },
+    { status: 400 },
+  );
+}
 
 function isProductPostcheckAttestation(
   value: unknown,
@@ -98,6 +114,12 @@ export async function POST(request: Request, ctx: RouteParams) {
           { status: 400 },
         );
       }
+      if (!("logs" in body) || !Array.isArray(body.logs)) {
+        return NextResponse.json(
+          { success: false, stored: false, code: "invalid_product_postcheck_batch" },
+          { status: 400 },
+        );
+      }
       // Re-read both authorities immediately before the all-or-nothing batch
       // insert. A response for N cannot write PASS/blocker rows after N+1 has
       // replaced either the DB revision or the active preview lifecycle.
@@ -118,9 +140,45 @@ export async function POST(request: Request, ctx: RouteParams) {
           { status: 409 },
         );
       }
+
+      const attestation = body.productPostcheckAttestation;
+      const attestationMeta = {
+        attestedPreviewSessionId: attestation.previewSessionId.trim(),
+        attestedLifecycleToken: attestation.lifecycleToken?.trim() || null,
+        attestedFilesRevision: attestation.filesRevision.trim(),
+      };
+      const result = await createAttestedProductPostcheckErrorLogs(
+        body.logs.map((log) => ({
+          chatId: internalChatId,
+          versionId: internalVersionId,
+          level: log.level,
+          category: log.category || null,
+          message: log.message,
+          meta: { ...(log.meta || {}), ...attestationMeta },
+        })),
+        {
+          expectedFilesRevision: attestationMeta.attestedFilesRevision,
+          lockTimeoutMs: ERROR_LOG_LOCK_TIMEOUT_MS,
+        },
+      );
+      if (result.status === "superseded") {
+        return NextResponse.json(
+          { success: false, stored: false, code: "product_postcheck_superseded" },
+          { status: 409 },
+        );
+      }
+      if (result.status === "contention") return errorLogContentionResponse();
+      return NextResponse.json({ success: true, stored: true, logs: result.logs });
     }
 
     if ("logs" in body && Array.isArray(body.logs)) {
+      // Product Postcheck observations are lifecycle/revision-scoped. Existing
+      // unattested rows remain readable for backwards compatibility, but every
+      // new Product Postcheck write must use the attested all-or-nothing path
+      // above. Otherwise an old client could publish a false PASS after N+1.
+      if (body.logs.some((log) => isProductPostcheckCategory(log.category))) {
+        return productPostcheckAttestationRequiredResponse();
+      }
       const requestedCount = body.logs.length;
       const rows = await createEngineVersionErrorLogs(
         body.logs.map((log) => ({
@@ -142,6 +200,9 @@ export async function POST(request: Request, ctx: RouteParams) {
     }
 
     const payload = body as ErrorLogPayload;
+    if (isProductPostcheckCategory(payload.category)) {
+      return productPostcheckAttestationRequiredResponse();
+    }
     const rows = await createEngineVersionErrorLogs(
       [
         {

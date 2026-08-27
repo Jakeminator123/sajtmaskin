@@ -68,6 +68,36 @@ export type BridgeRegion = {
   elements: Array<{ element: BridgeElement & { tag: string }; match: RegistryMatch | null }>;
 };
 
+type BridgeIdentityStamp = {
+  versionId?: unknown;
+  previewSessionId?: unknown;
+  lifecycleToken?: unknown;
+};
+
+export function bridgeIdentityStampMatches(
+  stamp: BridgeIdentityStamp | null | undefined,
+  expected: {
+    versionId: string | null;
+    previewSessionId: string | null;
+    lifecycleToken: string | null | undefined;
+  },
+): boolean {
+  // Compatibility previews do not have a tier-2 lifecycle tuple.
+  if (!expected.previewSessionId) return true;
+  if (!expected.versionId || expected.lifecycleToken === undefined || !stamp) return false;
+  const lifecycleToken =
+    stamp.lifecycleToken === null || stamp.lifecycleToken === ""
+      ? null
+      : typeof stamp.lifecycleToken === "string" && stamp.lifecycleToken.trim()
+        ? stamp.lifecycleToken.trim()
+        : undefined;
+  return (
+    stamp.versionId === expected.versionId &&
+    stamp.previewSessionId === expected.previewSessionId &&
+    lifecycleToken === expected.lifecycleToken
+  );
+}
+
 function originForUrl(url: string | null): string | null {
   if (!url) return null;
   try {
@@ -152,6 +182,10 @@ export function usePreviewInspectBridge(options: {
   active: boolean;
   inspectMode: boolean;
   previewUrl: string | null;
+  versionId: string | null;
+  previewSessionId?: string | null;
+  lifecycleToken?: string | null;
+  identityCurrent?: boolean;
   iframeRef: RefObject<HTMLIFrameElement | null>;
   elementRegistryRef: MutableRefObject<JsxElementRegistryItem[]>;
   fetchFilesForRegistry: () => void | Promise<void>;
@@ -200,6 +234,10 @@ export function usePreviewInspectBridge(options: {
     active,
     inspectMode,
     previewUrl,
+    versionId,
+    previewSessionId = null,
+    lifecycleToken,
+    identityCurrent = true,
     iframeRef,
     elementRegistryRef,
     fetchFilesForRegistry,
@@ -256,7 +294,7 @@ export function usePreviewInspectBridge(options: {
   // Ny preview-laddning → scriptet måste re-announcera 'ready'.
   useEffect(() => {
     childReadyRef.current = false;
-  }, [previewUrl]);
+  }, [previewUrl, versionId, previewSessionId, lifecycleToken]);
 
   // Pusha läget till barnet när toggeln ändras (om redan ready).
   useEffect(() => {
@@ -323,6 +361,7 @@ export function usePreviewInspectBridge(options: {
         | {
             type?: string;
             source?: string;
+            identity?: BridgeIdentityStamp;
             payload?: BridgeElement & {
               elements?: Array<BridgeElement | BridgeSectionCandidate>;
               scroll?: { x?: number; y?: number };
@@ -334,6 +373,16 @@ export function usePreviewInspectBridge(options: {
       // preview page shares the iframe's window/origin and could otherwise post a
       // forged inspect message.
       if (data.source !== "sajtmaskin-inspect") return;
+      if (!identityCurrent) return;
+      if (
+        !bridgeIdentityStampMatches(data.identity, {
+          versionId,
+          previewSessionId,
+          lifecycleToken,
+        })
+      ) {
+        return;
+      }
 
       if (data.type === INSPECT_BRIDGE_MESSAGE.ready) {
         childReadyRef.current = true;
@@ -444,6 +493,10 @@ export function usePreviewInspectBridge(options: {
     enabled,
     active,
     previewUrl,
+    versionId,
+    previewSessionId,
+    lifecycleToken,
+    identityCurrent,
     iframeRef,
     elementRegistryRef,
     fetchFilesForRegistry,

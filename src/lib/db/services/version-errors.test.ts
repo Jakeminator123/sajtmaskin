@@ -9,6 +9,7 @@ const whereSpy = vi.fn();
 const returningSpy = vi.fn();
 const insertRows = vi.fn(() => [] as unknown[]);
 const selectRows = vi.fn(() => [] as unknown[]);
+const lockedVersionRows = vi.fn(() => [] as Array<{ filesRevision: string | null }>);
 /** Fångar raderna som faktiskt skulle skrivas, så metan går att granska. */
 const insertValuesSpy = vi.fn();
 
@@ -39,6 +40,13 @@ vi.mock("@/lib/db/client", () => {
         const tx = {
           execute: vi.fn(() => Promise.resolve([])),
           insert: vi.fn(() => insertChain()),
+          select: vi.fn(() => ({
+            from: () => ({
+              where: () => ({
+                for: () => Promise.resolve(lockedVersionRows()),
+              }),
+            }),
+          })),
         };
         return await fn(tx);
       }),
@@ -68,6 +76,10 @@ vi.mock("@/lib/db/schema", () => ({
     meta: "engine_version_error_logs.meta",
     created_at: "engine_version_error_logs.created_at",
   },
+  engineVersions: {
+    id: "engine_versions.id",
+    filesRevision: "engine_versions.files_revision",
+  },
 }));
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
@@ -77,11 +89,38 @@ import { db } from "@/lib/db/client";
 import { F3_READINESS_MISSING_ENV_CATEGORY } from "@/lib/integrations/log-tier3-missing-env";
 import { PREVIEW_CLIENT_ERROR_CATEGORY } from "@/lib/builder/preview-client-error-report";
 import {
+  createAttestedProductPostcheckErrorLogs,
   createEngineVersionErrorLogs,
+  productPostcheckLogMatchesCurrentFilesRevision,
   PRUNE_EXEMPT_CATEGORIES,
   PRUNE_EXEMPT_CATEGORY_PREFIXES,
   pruneStaleVersionErrorLogs,
 } from "./version-errors";
+
+describe("productPostcheckLogMatchesCurrentFilesRevision", () => {
+  it("keeps legacy rows but rejects an attested stale or malformed revision", () => {
+    expect(productPostcheckLogMatchesCurrentFilesRevision(null, "rev_n_plus_1")).toBe(true);
+    expect(productPostcheckLogMatchesCurrentFilesRevision({}, "rev_n_plus_1")).toBe(true);
+    expect(
+      productPostcheckLogMatchesCurrentFilesRevision(
+        { attestedFilesRevision: "rev_n_plus_1" },
+        "rev_n_plus_1",
+      ),
+    ).toBe(true);
+    expect(
+      productPostcheckLogMatchesCurrentFilesRevision(
+        { attestedFilesRevision: "rev_n" },
+        "rev_n_plus_1",
+      ),
+    ).toBe(false);
+    expect(
+      productPostcheckLogMatchesCurrentFilesRevision(
+        { attestedFilesRevision: 42 },
+        "rev_n_plus_1",
+      ),
+    ).toBe(false);
+  });
+});
 
 describe("pruneStaleVersionErrorLogs", () => {
   beforeEach(() => {
@@ -229,6 +268,80 @@ describe("createEngineVersionErrorLogs (lock-timeout degrade)", () => {
     await expect(
       createEngineVersionErrorLogs(onePayload, { lockTimeoutMs: 3000 }),
     ).rejects.toThrow("boom");
+  });
+});
+
+describe("createAttestedProductPostcheckErrorLogs", () => {
+  const payloads = [
+    {
+      chatId: "c-1",
+      versionId: "v-1",
+      level: "info" as const,
+      category: "product_postcheck.summary",
+      message: "passed",
+      meta: { attestedFilesRevision: "rev_n" },
+    },
+    {
+      chatId: "c-1",
+      versionId: "v-1",
+      level: "warning" as const,
+      category: "product_postcheck.hydration_mismatch",
+      message: "warning",
+      meta: { attestedFilesRevision: "rev_n" },
+    },
+  ];
+
+  beforeEach(() => {
+    insertRows.mockReset();
+    insertRows.mockReturnValue([{ id: "log_1" }, { id: "log_2" }]);
+    selectRows.mockReset();
+    selectRows.mockReturnValue([]);
+    lockedVersionRows.mockReset();
+    lockedVersionRows.mockReturnValue([{ filesRevision: "rev_n" }]);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("locks and stores the whole batch only when the revision is current", async () => {
+    const result = await createAttestedProductPostcheckErrorLogs(payloads, {
+      expectedFilesRevision: "rev_n",
+      lockTimeoutMs: 3000,
+    });
+
+    expect(result).toEqual({
+      status: "stored",
+      logs: [{ id: "log_1" }, { id: "log_2" }],
+    });
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(insertValuesSpy).toHaveBeenCalledTimes(1);
+    expect((insertValuesSpy.mock.calls[0]?.[0] as unknown[])).toHaveLength(2);
+  });
+
+  it("stores nothing when N became N+1 before the locked check", async () => {
+    lockedVersionRows.mockReturnValue([{ filesRevision: "rev_n_plus_1" }]);
+
+    const result = await createAttestedProductPostcheckErrorLogs(payloads, {
+      expectedFilesRevision: "rev_n",
+      lockTimeoutMs: 3000,
+    });
+
+    expect(result).toEqual({ status: "superseded", logs: [] });
+    expect(insertValuesSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns contention without a partial insert", async () => {
+    const lockError = Object.assign(new Error("lock timeout"), { code: "55P03" });
+    (db.transaction as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(lockError);
+
+    const result = await createAttestedProductPostcheckErrorLogs(payloads, {
+      expectedFilesRevision: "rev_n",
+      lockTimeoutMs: 3000,
+    });
+
+    expect(result).toEqual({ status: "contention", logs: [] });
+    expect(insertValuesSpy).not.toHaveBeenCalled();
   });
 });
 

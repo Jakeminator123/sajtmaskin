@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL,
   FINALIZE_PREFLIGHT_PASSED,
   LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL,
   LATEST_PRODUCT_POSTCHECK_JOIN,
@@ -160,5 +161,32 @@ describe("SQL/TypeScript timestamp parity", () => {
     expect(LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL).toContain(
       "skipped.created_at >= summary.created_at",
     );
+  });
+
+  it("filters attested stale revisions while keeping legacy null rows", () => {
+    for (const sql of [LATEST_PRODUCT_POSTCHECK_JOIN, LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL]) {
+      expect(sql).toContain("attestedFilesRevision' IS NULL");
+      expect(sql).toContain("SELECT ev.files_revision FROM engine_versions ev");
+    }
+    expect(LATEST_PRODUCT_POSTCHECK_JOIN.match(/attestedFilesRevision/g)).toHaveLength(4);
+    expect(LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL.match(/attestedFilesRevision/g)).toHaveLength(4);
+  });
+
+  it("gives raw /logg readers the same revision predicate", () => {
+    expect(CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL).toContain(
+      "COALESCE(e.category, '') NOT LIKE 'product_postcheck.%'",
+    );
+    expect(CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL).toContain(
+      "e.meta->>'attestedFilesRevision' IS NULL",
+    );
+    expect(CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL).toContain(
+      "SELECT ev.files_revision FROM engine_versions ev WHERE ev.id = e.version_id",
+    );
+    for (const file of [
+      join(here, "..", "generation-history.mjs"),
+      join(here, "..", "latest-site.mjs"),
+    ]) {
+      expect(readFileSync(file, "utf8")).toContain("CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL");
+    }
   });
 });

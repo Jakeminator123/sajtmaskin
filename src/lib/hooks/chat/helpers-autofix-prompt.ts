@@ -55,7 +55,8 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
       entry.startsWith("[render-telemetry]") ||
       entry.startsWith("[product_postcheck.console_error]") ||
       entry.startsWith("[product_postcheck.runtime_crash]") ||
-      entry.startsWith("[product_postcheck.hydration_mismatch]");
+      entry.startsWith("[product_postcheck.hydration_mismatch]") ||
+      entry.startsWith("[product_postcheck.hydration_dom_loss]");
     if (!isBlocker) continue;
     // Trim to a single line + cap length so the headline stays readable.
     const oneLine = entry.replace(/\s+/g, " ").trim();

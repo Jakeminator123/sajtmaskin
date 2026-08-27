@@ -188,6 +188,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         structuralChange: result.structuralChange,
         previewUrl: result.previewUrl,
         previewSessionId: result.previewSessionId,
+        lifecycleToken: result.lifecycleToken,
         previewMode: result.previewMode,
         ...(result.previewError ? { previewError: result.previewError } : {}),
       });

@@ -194,6 +194,7 @@ export function usePreviewPanelComposerActions({
         versionId: saved.versionId,
         previewUrl: saved.previewUrl,
         previewSessionId: saved.previewSessionId,
+        lifecycleToken: saved.lifecycleToken,
         previewMode: saved.previewMode,
       });
     } finally {
@@ -233,6 +234,7 @@ export function usePreviewPanelComposerActions({
         versionId: saved.versionId,
         previewUrl: saved.previewUrl,
         previewSessionId: saved.previewSessionId,
+        lifecycleToken: saved.lifecycleToken,
         previewMode: saved.previewMode,
       });
     } finally {
@@ -419,6 +421,7 @@ export function usePreviewPanelComposerActions({
           versionId: saved.versionId,
           previewUrl: saved.previewUrl,
           previewSessionId: saved.previewSessionId,
+          lifecycleToken: saved.lifecycleToken,
           previewMode: saved.previewMode,
         });
       } catch {

@@ -233,6 +233,7 @@ describe("bundle helpers", () => {
       screenshots: { desktopUrl: "https://blob.example/d.jpg", mobileUrl: null },
       findings: [
         { code: "console_error", message: "Hydration failed" },
+        { code: "hydration_dom_loss", message: "CTA försvann efter hydrering" },
         { code: "request_failed", message: "GET /x failed" },
         { code: "runtime_crash", message: "Next.js-felöverlägg visas." },
       ],
@@ -244,7 +245,10 @@ describe("bundle helpers", () => {
         formCount: 0,
       },
     });
-    expect(bundle.consoleErrors).toEqual(["Hydration failed"]);
+    expect(bundle.consoleErrors).toEqual([
+      "Hydration failed",
+      "CTA försvann efter hydrering",
+    ]);
     expect(bundle.failedRequests).toEqual(["GET /x failed"]);
     expect(bundle.nextOverlayErrors).toEqual(["Next.js-felöverlägg visas."]);
   });

@@ -12,6 +12,7 @@ type FilesSavedInfo = {
   versionId?: string;
   previewUrl?: string | null;
   previewSessionId?: string | null;
+  lifecycleToken?: string | null;
   previewMode?: string | null;
 };
 
@@ -23,6 +24,7 @@ type Params = {
   promptFetchDoneRef: MutableRefObject<string | null>;
   pendingCreatedVersionRef: MutableRefObject<{ id: string; ts: number } | null>;
   mutateVersions: () => unknown;
+  onVersionStatusRefresh: () => void;
   onPreviewSessionMeta: (
     meta: {
       previewSessionId: string;
@@ -55,6 +57,7 @@ export function useBuilderFilesContext({
   promptFetchDoneRef,
   pendingCreatedVersionRef,
   mutateVersions,
+  onVersionStatusRefresh,
   onPreviewSessionMeta,
   setCurrentPageCode,
   setExistingUiComponents,
@@ -171,7 +174,6 @@ export function useBuilderFilesContext({
         // guard tolerates it while the mutateVersions refetch is in flight.
         pendingCreatedVersionRef.current = { id: info.versionId, ts: Date.now() };
         setSelectedVersionId(info.versionId);
-        void mutateVersions();
         // If the live preview was patched in place (same preview session, new
         // version + URL), thread the session meta and mark the new version's
         // bootstrap as done so useBuilderVmPreview does NOT re-POST
@@ -183,10 +185,17 @@ export function useBuilderFilesContext({
           onPreviewSessionMeta({
             previewSessionId: info.previewSessionId,
             versionId: info.versionId,
+            lifecycleToken: info.lifecycleToken,
           });
           vmPreview.previewBootstrapDoneKeysRef.current.add(`${chatId}:${info.versionId}`);
         }
       }
+      // A legacy/default files save may mutate the SAME version (N -> N+1)
+      // without returning a new versionId. Refresh both status projections so
+      // a cached Product Postcheck degradation for N cannot survive after the
+      // server has revision-filtered it for N+1.
+      void mutateVersions();
+      onVersionStatusRefresh();
       setPreviewRefreshToken(Date.now());
     },
     [
@@ -196,6 +205,7 @@ export function useBuilderFilesContext({
       setPreviewRefreshToken,
       setSelectedVersionId,
       mutateVersions,
+      onVersionStatusRefresh,
       chatId,
       state,
       onPreviewSessionMeta,

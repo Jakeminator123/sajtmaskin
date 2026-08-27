@@ -109,6 +109,7 @@ function metaString(meta: Record<string, unknown> | null | undefined, key: strin
 function kindFromProductPostcheckCode(code: string): VersionDefectKind {
   switch (code) {
     case "hydration_mismatch":
+    case "hydration_dom_loss":
       return "hydration";
     case "runtime_crash":
     case "console_error":

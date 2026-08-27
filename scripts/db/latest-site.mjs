@@ -29,6 +29,7 @@ import {
 } from "./db-target-guard.mjs";
 import { formatLogTimestamp, LOG_TIMESTAMP_NOTE } from "./log-timestamp.mjs";
 import {
+  CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL,
   LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL,
   annotateReportedQualityGate,
 } from "./lib/reported-quality-gate.mjs";
@@ -209,9 +210,10 @@ try {
 
     if (hasVersionErrors) {
       const errs = await safeRows(
-        `select level, category, message, created_at
-         from engine_version_error_logs
-         where version_id = $1
+        `select e.level, e.category, e.message, e.created_at
+         from engine_version_error_logs e
+         where e.version_id = $1
+           and ${CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL.trim()}
          order by created_at desc
          limit 5`,
         [v.id],

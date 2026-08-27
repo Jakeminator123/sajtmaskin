@@ -14,7 +14,10 @@ import {
   maybeAutoAcceptTimedOutRepair,
   updateVersionPreviewUrl,
 } from "@/lib/db/chat-repository-pg";
-import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import {
+  createEngineVersionErrorLogs,
+  productPostcheckLogMatchesCurrentFilesRevision,
+} from "@/lib/db/services/version-errors";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { transientDbResponseIfRetryable } from "@/lib/api/transient-db-response";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
@@ -30,11 +33,13 @@ import { incContentRevisionMismatch } from "@/lib/observability/metrics";
 import {
   applyProductPostcheckLogReadFailureToVersionStatus,
   applyProductPostcheckReportToVersionStatus,
+  filterProductPostcheckEventsForCurrentFilesRevision,
 } from "@/lib/db/services/reported-quality-gate";
 import type { ProductPostcheckReportLog } from "@/lib/db/services/reported-quality-gate";
 
 async function getProductPostcheckReportsForVersions(
   versionIds: string[],
+  currentRevisionByVersion: ReadonlyMap<string, string | null>,
 ): Promise<Map<string, ProductPostcheckReportLog[]>> {
   if (versionIds.length === 0) return new Map();
   const rows = await db
@@ -58,6 +63,14 @@ async function getProductPostcheckReportsForVersions(
     .orderBy(desc(engineVersionErrorLogs.created_at));
   const byVersion = new Map<string, ProductPostcheckReportLog[]>();
   for (const row of rows) {
+    if (
+      !productPostcheckLogMatchesCurrentFilesRevision(
+        row.meta,
+        currentRevisionByVersion.get(row.versionId),
+      )
+    ) {
+      continue;
+    }
     const list = byVersion.get(row.versionId) ?? [];
     list.push(row);
     byVersion.set(row.versionId, list);
@@ -139,7 +152,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       // diff: bus-only gating dropped the stale signal exactly where it
       // matters most, right after a deploy).
       const eventsByVersion = new Map(
-        engineVersions.map((version) => [version.id, readAll(version.id)] as const),
+        engineVersions.map(
+          (version) =>
+            [
+              version.id,
+              filterProductPostcheckEventsForCurrentFilesRevision(
+                readAll(version.id),
+                version.files_revision,
+              ),
+            ] as const,
+        ),
       );
       const projectedByVersion = new Map(
         engineVersions.map(
@@ -175,6 +197,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const productPostcheckByVersion = anyTerminal
         ? await getProductPostcheckReportsForVersions(
             engineVersions.map((version) => version.id),
+            new Map(
+              engineVersions.map((version) => [
+                version.id,
+                version.files_revision?.trim() || null,
+              ]),
+            ),
           ).catch(() => {
             productPostcheckReadFailed = true;
             return new Map<string, ProductPostcheckReportLog[]>();

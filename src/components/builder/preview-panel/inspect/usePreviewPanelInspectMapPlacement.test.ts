@@ -27,8 +27,11 @@ function harness(overrides?: {
     const [inspectMode, setInspectMode] = useState(false);
     return usePreviewPanelInspectMapPlacement({
       inspectorEnabled: true,
+      chatId: "chat_1",
       previewUrl: overrides?.previewUrl ?? "https://chat-1.fly.dev/preview",
       versionId: "ver_1",
+      previewSessionId: "ps_1",
+      lifecycleToken: "life_1",
       placementMode: overrides?.placementMode ?? false,
       composerMode: overrides?.composerMode ?? false,
       inspectMode,
@@ -211,5 +214,87 @@ export default function Page() {
     expect(rendered.result.current.sectionZones.length).toBeGreaterThanOrEqual(2);
     expect(rendered.result.current.sectionZones.some((z) => z.type === "hero")).toBe(true);
     rendered.unmount();
+  });
+});
+
+describe("usePreviewPanelInspectMapPlacement — preview identity fence", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("ignores an old element-map response after the version changes", async () => {
+    let resolveOld!: (value: unknown) => void;
+    const oldResponse = new Promise((resolve) => {
+      resolveOld = resolve;
+    });
+    const freshElement = {
+      tag: "main",
+      id: "fresh",
+      className: null,
+      text: "Fresh",
+      selector: "main#fresh",
+      rect: { x: 0, y: 0, width: 100, height: 100 },
+      vpPercent: { x: 0, y: 0, w: 100, h: 100 },
+    } satisfies ElementMapItem;
+    const staleElement = { ...freshElement, id: "stale", selector: "main#stale", text: "Stale" };
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => oldResponse)
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, elements: [freshElement] }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const iframeRef = { current: null } as RefObject<HTMLIFrameElement | null>;
+
+    const rendered = renderHook(
+      ({ versionId, lifecycleToken }) => {
+        const [inspectMode, setInspectMode] = useState(false);
+        return usePreviewPanelInspectMapPlacement({
+          inspectorEnabled: true,
+          chatId: "chat_1",
+          previewUrl: "https://chat-1.fly.dev/preview",
+          versionId,
+          previewSessionId: "ps_1",
+          lifecycleToken,
+          identityReady: true,
+          placementMode: true,
+          inspectMode,
+          setInspectMode,
+          iframeLoading: false,
+          externalLoading: false,
+          iframeRef,
+          fetchFilesForRegistry: vi.fn(),
+          setInspectStatus: vi.fn(),
+          setLastCodeMatch: vi.fn(),
+          inspectEngine: "map",
+        });
+      },
+      { initialProps: { versionId: "ver_old", lifecycleToken: "life_old" } },
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    rendered.rerender({ versionId: "ver_new", lifecycleToken: "life_new" });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(rendered.result.current.elementMap[0]?.id).toBe("fresh"));
+
+    await act(async () => {
+      resolveOld({
+        ok: true,
+        json: async () => ({ success: true, elements: [staleElement] }),
+      });
+      await oldResponse;
+    });
+
+    expect(rendered.result.current.elementMap[0]?.id).toBe("fresh");
+    const secondBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
+    expect(secondBody).toEqual(
+      expect.objectContaining({
+        versionId: "ver_new",
+        previewSessionId: "ps_1",
+        lifecycleToken: "life_new",
+      }),
+    );
   });
 });

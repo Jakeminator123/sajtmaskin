@@ -181,6 +181,37 @@ describe("GET version-status (engine)", () => {
     expect(body.status?.degradations.map((d) => d.kind)).toEqual(["verifier_skipped_by_policy"]);
   });
 
+  it("hides a stale postcheck event after the same version becomes N+1", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "v1", files_revision: "rev_n_plus_1" },
+    });
+    readAll.mockReturnValue([
+      {
+        t: "version.degraded",
+        id: "e_stale",
+        ts: "2026-08-27T10:00:00.000Z",
+        runId: "root",
+        versionId: "v1",
+        chatId: "chat_1",
+        kind: "product_postcheck_blocked",
+        message: "revision N was blocked",
+        meta: { attestedFilesRevision: "rev_n" },
+      },
+    ]);
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const body = (await res.json()) as {
+      status?: { degradations: Array<{ kind: string }>; eventCount: number };
+    };
+
+    expect(res.status).toBe(200);
+    expect(body.status?.degradations).toEqual([]);
+    expect(body.status?.eventCount).toBe(0);
+  });
+
   it("projects the latest persisted postcheck skip onto a terminal status", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       version: {
@@ -576,7 +607,12 @@ describe("GET version-status (engine)", () => {
 
     beforeEach(() => {
       getEngineVersionForChatByIdForRequest.mockResolvedValue({
-        version: { id: "v1", verification_state: "pending", release_state: "draft" },
+        version: {
+          id: "v1",
+          verification_state: "pending",
+          release_state: "draft",
+          files_revision: "rev_n_plus_1",
+        },
       });
       readAll.mockReturnValue(terminalBus);
     });
@@ -589,6 +625,20 @@ describe("GET version-status (engine)", () => {
         verdictRevision: "1".repeat(32),
         contentRevision: "2".repeat(32),
       });
+      readAll.mockReturnValue([
+        ...terminalBus,
+        {
+          t: "version.degraded",
+          id: "e_stale_product",
+          ts: "2026-07-01T10:00:06.000Z",
+          runId: "root",
+          versionId: "v1",
+          chatId: "chat_1",
+          kind: "product_postcheck_blocked",
+          message: "revision N was blocked",
+          meta: { attestedFilesRevision: "rev_n" },
+        },
+      ]);
 
       const res = await GET(
         new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),

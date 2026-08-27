@@ -1,4 +1,5 @@
-import type { Browser, Page } from "playwright-core";
+import type { Browser, Page, Response as PlaywrightResponse } from "playwright-core";
+import { load } from "cheerio";
 import { applyCaptureRequestGate, launchCaptureBrowser } from "@/lib/capture/browser";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import {
@@ -27,6 +28,7 @@ export type ProductPostcheckWarningCode =
   | "preview_boot_page"
   | "preview_probe_unreadable"
   | "hydration_mismatch"
+  | "hydration_dom_loss"
   | "console_error"
   | "request_failed"
   | "http_error";
@@ -72,6 +74,7 @@ export type BrowserRuntimeIssue = {
   kind: "console" | "requestfailed" | "http";
   route: string;
   message: string;
+  viewport?: "desktop" | "mobile";
   url?: string;
   status?: number;
 };
@@ -113,6 +116,8 @@ type DomSnapshot = {
     formAction: string | null;
     demoOnly: boolean;
   }>;
+  /** All CTA candidates in <main>, including responsive/hidden duplicates. */
+  hydrationCtaLabels?: string[];
   forms: Array<{
     id: string | null;
     action: string | null;
@@ -124,6 +129,8 @@ type DomSnapshot = {
     text: string | null;
   }>;
 };
+
+export type ServerCtaBaseline = { labels: string[] };
 
 type MobileMenuCheck =
   | { status: "not_applicable" }
@@ -433,6 +440,148 @@ export function isAllowedProductPostcheckUrl(rawUrl: string): boolean {
 function textPreview(value: string | null | undefined): string | null {
   const trimmed = typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
   return trimmed ? trimmed.slice(0, 120) : null;
+}
+
+const CTA_TEXT_PATTERN =
+  /^(få|utforska|starta|kom igång|bygg|boka|kontakta|skicka|köp|läs mer|begär|offert|learn more|get started|contact|submit|send|book|request|quote)/i;
+const CTA_CLASS_PATTERN = /(cta|button|btn|primary|action)/i;
+
+function normalizedCtaLabel(value: string | null | undefined): string | null {
+  const normalized = value?.trim().replace(/\s+/g, " ").toLocaleLowerCase("sv-SE") || "";
+  return normalized || null;
+}
+
+/** Parse the unhydrated document response, scoped to product content in <main>. */
+export function extractServerCtaBaseline(html: string): ServerCtaBaseline {
+  if (!html.trim()) return { labels: [] };
+  const $ = load(html);
+  const root = $("main").first();
+  if (root.length === 0) return { labels: [] };
+  const labels: string[] = [];
+  root.find("a,button").each((_index, element) => {
+    const node = $(element);
+    if (node.is("[data-demo-only]") || node.closest("[data-demo-only]").length > 0) return;
+    const text = node.text().trim().replace(/\s+/g, " ").slice(0, 160);
+    const className = node.attr("class") || "";
+    if (!CTA_TEXT_PATTERN.test(text) && !CTA_CLASS_PATTERN.test(className)) return;
+    const label = normalizedCtaLabel(text);
+    if (label) labels.push(label);
+  });
+  return { labels };
+}
+
+export function evaluateHydrationDomLoss(
+  baseline: ServerCtaBaseline,
+  snapshot: Pick<DomSnapshot, "hydrationCtaLabels">,
+  issues: readonly BrowserRuntimeIssue[],
+  startRoute: string,
+): ProductDomEvaluation {
+  const hydrationSeen = issues.some(
+    (issue) =>
+      issue.kind === "console" &&
+      issue.route === startRoute &&
+      isHydrationConsoleError(issue.message),
+  );
+  if (!hydrationSeen || baseline.labels.length === 0) {
+    return { warnings: [], productBlocked: false };
+  }
+
+  const clientLabels = (snapshot.hydrationCtaLabels ?? [])
+    .map(normalizedCtaLabel)
+    .filter((label): label is string => Boolean(label));
+
+  const remaining = new Map<string, number>();
+  for (const label of clientLabels) remaining.set(label, (remaining.get(label) ?? 0) + 1);
+  const missing = baseline.labels.filter((label) => {
+    const count = remaining.get(label) ?? 0;
+    if (count <= 0) return true;
+    remaining.set(label, count - 1);
+    return false;
+  });
+  if (missing.length === 0) {
+    return { warnings: [], productBlocked: false };
+  }
+  return {
+    warnings: [
+      warning(
+        "hydration_dom_loss",
+        `Hydreringen tog bort ${missing.length} serverrenderad CTA från sidan.`,
+        { route: startRoute, text: missing.slice(0, 3).join(" | ") || null },
+      ),
+    ],
+    productBlocked: true,
+  };
+}
+
+export function evaluateHydrationDomLossForViewports(params: {
+  desktopBaseline: ServerCtaBaseline;
+  desktopSnapshot: Pick<DomSnapshot, "hydrationCtaLabels">;
+  mobileBaseline: ServerCtaBaseline;
+  mobileSnapshot: Pick<DomSnapshot, "hydrationCtaLabels">;
+  issues: readonly BrowserRuntimeIssue[];
+  startRoute: string;
+}): ProductDomEvaluation {
+  const desktop = evaluateHydrationDomLoss(
+    params.desktopBaseline,
+    params.desktopSnapshot,
+    params.issues.filter((issue) => issue.viewport === "desktop"),
+    params.startRoute,
+  );
+  const mobile = evaluateHydrationDomLoss(
+    params.mobileBaseline,
+    params.mobileSnapshot,
+    params.issues.filter((issue) => issue.viewport === "mobile"),
+    params.startRoute,
+  );
+  return {
+    warnings: [
+      ...desktop.warnings.map((item) => ({
+        ...item,
+        message: `${item.message} (desktop)`,
+      })),
+      ...mobile.warnings.map((item) => ({
+        ...item,
+        message: `${item.message} (mobil)`,
+      })),
+    ],
+    productBlocked: desktop.productBlocked || mobile.productBlocked,
+  };
+}
+
+/** Browser-serializable CTA multiset capture shared by both viewport passes. */
+function captureHydrationCtaLabelsInBrowser(): string[] {
+  const root = document.querySelector("main");
+  if (!root) return [];
+  const ctaText =
+    /^(få|utforska|starta|kom igång|bygg|boka|kontakta|skicka|köp|läs mer|begär|offert|learn more|get started|contact|submit|send|book|request|quote)/i;
+  const ctaClass = /(cta|button|btn|primary|action)/i;
+  return Array.from(root.querySelectorAll<HTMLAnchorElement | HTMLButtonElement>("a,button"))
+    .filter((element) => {
+      if (
+        element.hasAttribute("data-demo-only") ||
+        element.closest("[data-demo-only]") !== null
+      ) {
+        return false;
+      }
+      const text = (element.innerText || element.textContent || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 160);
+      const className = element.className?.toString?.() || "";
+      return ctaText.test(text) || ctaClass.test(className);
+    })
+    .map((element) =>
+      (element.innerText || element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 160),
+    )
+    .filter(Boolean);
+}
+
+async function serverCtaBaselineFromResponse(
+  response: PlaywrightResponse | null,
+): Promise<ServerCtaBaseline> {
+  if (!response) return { labels: [] };
+  const html = await response.text().catch(() => "");
+  return extractServerCtaBaseline(html);
 }
 
 function warning(
@@ -1020,8 +1169,10 @@ export async function runProductPostcheck(params: {
   // medvetet bara varnar för.
   let startPageOverlaySeen = false;
   let desktopLeftStartUrl = false;
+  let desktopServerCtaBaseline: ServerCtaBaseline = { labels: [] };
+  let mobileServerCtaBaseline: ServerCtaBaseline = { labels: [] };
 
-  const attachRuntimeListeners = (target: Page) => {
+  const attachRuntimeListeners = (target: Page, viewport: "desktop" | "mobile") => {
     // Listeners MUST be registered before page.goto — a post-nav listener
     // misses everything that fired during navigation/boot.
     target.on("pageerror", (error) => {
@@ -1033,6 +1184,7 @@ export async function runProductPostcheck(params: {
         kind: "console",
         route: currentRoute,
         message: msg.text(),
+        viewport,
       });
     });
     target.on("requestfailed", (request) => {
@@ -1041,6 +1193,7 @@ export async function runProductPostcheck(params: {
         kind: "requestfailed",
         route: currentRoute,
         message: `${request.method()} ${request.url()}: ${errorText}`,
+        viewport,
         url: request.url(),
       });
     });
@@ -1051,6 +1204,7 @@ export async function runProductPostcheck(params: {
         kind: "http",
         route: currentRoute,
         message: `${status} ${response.url()}`,
+        viewport,
         url: response.url(),
         status,
       });
@@ -1081,10 +1235,14 @@ export async function runProductPostcheck(params: {
     // design preview reads as solid green (M#f2et). Classified by
     // `evaluateRuntimeErrors` below; only render-fatal crashes block.
     // Also console/network listeners (advisory) — before goto.
-    attachRuntimeListeners(page);
+    attachRuntimeListeners(page, "desktop");
 
     currentRoute = pathnameOf(previewUrl);
-    await page.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    const initialResponse = await page.goto(previewUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+    desktopServerCtaBaseline = await serverCtaBaselineFromResponse(initialResponse);
     await page.waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) }).catch(() => {});
     routesChecked = 1;
 
@@ -1111,12 +1269,13 @@ export async function runProductPostcheck(params: {
         // Keep `firstProbe` for the live fast-path above — it is stale after
         // the status wait (empty → boot page was the 2026-08-14 case).
         if (isHostRuntimeReady(readiness)) {
-          await page
+          const readyResponse = await page
             .reload({
               waitUntil: "domcontentloaded",
               timeout: Math.min(8_000, timeoutMs),
             })
-            .catch(() => {});
+            .catch(() => null);
+          desktopServerCtaBaseline = await serverCtaBaselineFromResponse(readyResponse);
           await page
             .waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) })
             .catch(() => {});
@@ -1132,10 +1291,30 @@ export async function runProductPostcheck(params: {
           startedAt,
           timeoutMs,
         });
-        readinessDecision = decidePreviewReadiness({
-          probe: afterPoll,
-          readiness: null,
-        });
+        if (classifyPreviewPageProbe(afterPoll) === "live") {
+          // The host's boot page can refresh itself to the live app while the
+          // status endpoint is unavailable. Reload once so the unhydrated HTML
+          // baseline belongs to that live app rather than the old boot shell.
+          const liveResponse = await page
+            .reload({
+              waitUntil: "domcontentloaded",
+              timeout: Math.min(8_000, timeoutMs),
+            })
+            .catch(() => null);
+          desktopServerCtaBaseline = await serverCtaBaselineFromResponse(liveResponse);
+          await page
+            .waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) })
+            .catch(() => {});
+          readinessDecision = decidePreviewReadiness({
+            probe: await readPageProbe(page),
+            readiness: null,
+          });
+        } else {
+          readinessDecision = decidePreviewReadiness({
+            probe: afterPoll,
+            readiness: null,
+          });
+        }
       }
     }
     if (readinessDecision.action === "warn") {
@@ -1177,8 +1356,17 @@ export async function runProductPostcheck(params: {
         el.hasAttribute("data-demo-only") ||
         el.closest("[data-demo-only]") !== null ||
         /demo only|demo-läge|ej aktivt|disabled/i.test(text(el) || "");
-      const ctaText = /^(utforska|starta|kom igång|bygg|boka|kontakta|skicka|köp|läs mer|learn more|get started|contact|submit|send|book)/i;
+      const ctaText = /^(få|utforska|starta|kom igång|bygg|boka|kontakta|skicka|köp|läs mer|begär|offert|learn more|get started|contact|submit|send|book|request|quote)/i;
       const ctaClass = /(cta|button|btn|primary|action)/i;
+
+      const ctaCandidates = Array.from(
+        document.querySelectorAll<HTMLAnchorElement | HTMLButtonElement>("a,button"),
+      ).filter((el) => {
+        const t = text(el) || "";
+        const cls = (el as HTMLElement).className?.toString?.() || "";
+        return ctaText.test(t) || ctaClass.test(cls);
+      });
+      const hydrationRoot = document.querySelector("main");
 
       return {
         anchors: Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]'))
@@ -1196,13 +1384,8 @@ export async function runProductPostcheck(params: {
             naturalWidth: img.naturalWidth || 0,
             complete: img.complete,
           })),
-        ctas: Array.from(document.querySelectorAll<HTMLAnchorElement | HTMLButtonElement>("a,button"))
+        ctas: ctaCandidates
           .filter(visible)
-          .filter((el) => {
-            const t = text(el) || "";
-            const cls = (el as HTMLElement).className?.toString?.() || "";
-            return ctaText.test(t) || ctaClass.test(cls);
-          })
           .map((el) => ({
             tag: el.tagName.toLowerCase(),
             text: text(el),
@@ -1216,6 +1399,12 @@ export async function runProductPostcheck(params: {
             formAction: el instanceof HTMLButtonElement ? el.formAction || null : null,
             demoOnly: isDemoOnly(el),
           })),
+        hydrationCtaLabels: hydrationRoot
+          ? ctaCandidates
+              .filter((el) => hydrationRoot.contains(el) && !isDemoOnly(el))
+              .map((el) => text(el))
+              .filter((value): value is string => Boolean(value))
+          : [],
         forms: Array.from(document.querySelectorAll<HTMLFormElement>("form"))
           .filter(visible)
           .map((form) => ({
@@ -1230,6 +1419,9 @@ export async function runProductPostcheck(params: {
           })),
       };
     });
+    snapshot.hydrationCtaLabels = await page
+      .evaluate(captureHydrationCtaLabelsInBrowser)
+      .catch(() => []);
 
     // Desktop Next.js error-overlay probe — catches ambiguous render crashes
     // (Codex #321 P1) without piercing app content.
@@ -1314,14 +1506,21 @@ export async function runProductPostcheck(params: {
     // Capture mobile-viewport runtime crashes too (Bugbot #321): a render-fatal
     // error can surface only at 375px or after the hamburger toggle below.
     // Console/network listeners also attached (advisory) before goto.
-    attachRuntimeListeners(mobilePage);
-    await mobilePage.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    attachRuntimeListeners(mobilePage, "mobile");
+    const mobileResponse = await mobilePage.goto(previewUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+    mobileServerCtaBaseline = await serverCtaBaselineFromResponse(mobileResponse);
     // Let the mobile page settle like the desktop one so a render-fatal crash
     // that fires just after the initial paint is captured before we classify
     // `pageErrors` below (Bugbot #321).
     await mobilePage
       .waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) })
       .catch(() => {});
+    const mobileHydrationCtaLabels = await mobilePage
+      .evaluate(captureHydrationCtaLabelsInBrowser)
+      .catch(() => []);
     if (captureEnabled) {
       mobileJpeg = await capturePostcheckJpeg(mobilePage);
     }
@@ -1359,10 +1558,19 @@ export async function runProductPostcheck(params: {
       nextErrorOverlay: desktopErrorOverlay || mobileErrorOverlay,
     });
     const browserEval = evaluateBrowserRuntimeIssues(browserRuntimeIssues);
+    const hydrationDomEval = evaluateHydrationDomLossForViewports({
+      desktopBaseline: desktopServerCtaBaseline,
+      desktopSnapshot: snapshot,
+      mobileBaseline: mobileServerCtaBaseline,
+      mobileSnapshot: { hydrationCtaLabels: mobileHydrationCtaLabels },
+      issues: browserRuntimeIssues,
+      startRoute: pathnameOf(previewUrl),
+    });
     const warnings = [
       ...evaluation.warnings,
       ...runtimeEval.warnings,
       ...browserEval.warnings,
+      ...hydrationDomEval.warnings,
     ];
     // productBlocked comes ONLY from DOM + render-fatal evaluators — browser
     // runtime issues are advisory-only by design.
@@ -1393,7 +1601,8 @@ export async function runProductPostcheck(params: {
       skippedReason: null,
       warnings,
       warningCount: warnings.length,
-      productBlocked: evaluation.productBlocked || runtimeEval.productBlocked,
+      productBlocked:
+        evaluation.productBlocked || runtimeEval.productBlocked || hydrationDomEval.productBlocked,
       durationMs: Date.now() - startedAt,
       checkedUrl: previewUrl,
       routesChecked,

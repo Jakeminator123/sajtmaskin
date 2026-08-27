@@ -55,6 +55,7 @@ import { getLatestVersion, promoteVersionIfUnleased } from "@/lib/db/chat-reposi
 import {
   applyProductPostcheckLogReadFailureToVersionStatus,
   applyProductPostcheckReportToVersionStatus,
+  filterProductPostcheckEventsForCurrentFilesRevision,
 } from "@/lib/db/services/reported-quality-gate";
 
 export type VersionStatusApiResponse =
@@ -86,7 +87,10 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       );
     }
 
-    const events = readAll(scopedVersion.version.id);
+    const events = filterProductPostcheckEventsForCurrentFilesRevision(
+      readAll(scopedVersion.version.id),
+      scopedVersion.version.files_revision,
+    );
     const busStatus = selectVersionStatus(events);
 
     // Only touch the DB when the spinner is actually stuck: a terminal bus (incl.
@@ -184,7 +188,12 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
     // meant to prevent. Cheap: `readAll` is an in-memory read, and the branch
     // only runs on the rare settle-mutated path.
     const effectiveEvents =
-      dbVersion !== scopedVersion.version ? readAll(dbVersion.id) : events;
+      dbVersion !== scopedVersion.version
+        ? filterProductPostcheckEventsForCurrentFilesRevision(
+            readAll(dbVersion.id),
+            dbVersion.files_revision,
+          )
+        : events;
     const effectiveBusStatus =
       dbVersion !== scopedVersion.version
         ? selectVersionStatus(effectiveEvents)

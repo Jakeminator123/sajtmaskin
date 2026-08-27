@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanelBrowseGallery } from "./PreviewPanelBrowseGallery";
 import type { ComponentCategory } from "@/lib/shadcn/registry-service";
@@ -50,7 +50,6 @@ const BLOCK_CATEGORIES: ComponentCategory[] = [
         description: "Registreringsformulär",
         category: "authentication",
         type: "block",
-        lightImageUrl: "https://ui.example/signup-01-light.png",
       },
     ],
   },
@@ -66,7 +65,6 @@ const BLOCK_CATEGORIES: ComponentCategory[] = [
         description: "Stapeldiagram för KPI:er",
         category: "charts",
         type: "block",
-        lightImageUrl: "https://ui.example/chart-bar-default-light.png",
       },
     ],
   },
@@ -96,6 +94,20 @@ describe("PreviewPanelBrowseGallery", () => {
     expect(screen.getByText("Signup 01")).toBeTruthy();
     expect(screen.getByText("Chart Bar Default")).toBeTruthy();
     expect(getBlocksByCategory).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses images only for declared previews and layout icons for missing block PNGs", async () => {
+    render(<PreviewPanelBrowseGallery />);
+    await waitFor(() => screen.getByText("Login 01"));
+
+    const loginCard = screen.getByText("Login 01").closest("button")!;
+    const signupCard = screen.getByText("Signup 01").closest("button")!;
+    const chartCard = screen.getByText("Chart Bar Default").closest("button")!;
+    expect(within(loginCard).getByRole("img", { name: "Login 01" })).toBeTruthy();
+    expect(within(signupCard).queryByRole("img")).toBeNull();
+    expect(within(signupCard).getByTestId("registry-thumbnail-kind-layout")).toBeTruthy();
+    expect(within(chartCard).queryByRole("img")).toBeNull();
+    expect(within(chartCard).getByTestId("registry-thumbnail-kind-layout")).toBeTruthy();
   });
 
   it("filters cards via the search field (searchBlocks)", async () => {
@@ -417,6 +429,9 @@ describe("PreviewPanelBrowseGallery", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Marknadsblock$/ }));
     await waitFor(() => screen.getByText("Hero 1 - Split hero"));
     expect(fetchCommunityIndexPage).toHaveBeenCalled();
+    const marketCard = screen.getByText("Hero 1 - Split hero").closest("button")!;
+    expect(within(marketCard).queryByRole("img")).toBeNull();
+    expect(within(marketCard).getByTestId("registry-thumbnail-kind-layout")).toBeTruthy();
 
     fireEvent.click(screen.getByText("Hero 1 - Split hero"));
     fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));

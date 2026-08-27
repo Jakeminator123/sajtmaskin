@@ -633,6 +633,7 @@ async function routeRequest(req, res) {
       : applyRuntimePatch(patchOutcome.chatId, {
           files: validated.files,
           removedPaths: validated.removedPaths,
+          versionId: validated.versionId,
           mutationRevision: patchOutcome.mutationRevision,
           expectedPreviousMutationRevision: patchOutcome.rollback.mutationRevision ?? null,
         });

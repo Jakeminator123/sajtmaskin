@@ -20,6 +20,13 @@ innan du misstänker Postgres.
 
 **Preflight grön** (`previewBlocked: false`) betyder inte längre “shim funkar”, utan att den aktiva versionen fortfarande kan exponeras. Preview-host kräver **`SAJTMASKIN_PREVIEW_HOST_BASE_URL`** i huvudappen och ev. auth mellan appen och preview-host. Se [`llm-pipeline.md`](../architecture/llm-pipeline.md) § FAS 3 och [`docs/ENV.md`](../ENV.md).
 
+Den direkta Fly-URL:en är alltså rätt sida att jämföra med iframe-resultatet.
+Sidan **”Startar preview”** (`warm_project` eller motsvarande) kommer däremot
+från preview-hostens bootlager. Den kan svara HTTP 200 och ladda om automatiskt,
+men bevisar varken att den efterfrågade versionen är igång eller att en ny
+version har ersatt den gamla. Godkänt kvitto är `running` för exakt
+version/session/lifecycle och därefter iframe-`load` av samma sessions-URL.
+
 ---
 
 ## 2. Symptom → trolig orsak → var du bekräftar
@@ -38,6 +45,14 @@ innan du misstänker Postgres.
 - **Kod:** `preview_ready_timeout` (`describePreviewDiagnosticCode` i `src/lib/gen/preview/diagnostics.ts`).
 - **Shim:** `PREVIEW_READY_TIMEOUT_MS = 45_000`. Vanlig orsak är att ingen render når `#root` — ofta blockerad CDN eller runtime-fel utan synlig text.
 - **Tier 2:** iframe-`load` är inte readiness: hostens startdokument svarar också HTTP 200. Klienten håller därför ytan och inspectorn låsta medan `/preview-status` är `starting`, i högst bootgrace 90 s + två 4 s-intervall.
+- **Inspector/visuell kontroll:** bridge och screenshot-capture kräver den
+  kompletta aktuella preview-identiteten; Tier-2-elementkartan gör samma sak.
+  Enda tuple-lösa undantaget är elementkartan för exakt same-origin
+  `/api/preview-render` (legacy-shim). En versionsmismatch, ohydrerad
+  lifecycle-token eller ett sent svar från föregående session nollar markeringar
+  och får inte skickas till chatten. Product Postcheck och screenshot-capture
+  navigerar den betrodda Fly-sessions-URL:en med Chromium; builderns mörka
+  loading-overlay är inte deras granskningsyta.
 - **Sen återhämtning efter Tier-2-timeout:** timeouten anmäler sessionen som misstänkt exakt en gång och öppnar ett begränsat 30-sekundersfönster med read-only statuskontroller var fjärde sekund. Ett matchande `starting` får fortsätta inom fönstret; terminalt eller mismatched kvitto stänger det direkt, och fönstret upphör utan fler kontroller när tiden löpt ut. Endast `running` för exakt version + preview-session + lifecycle-token och samma canonical Tier-2-session-URL (samma origin och chat/session-bas; SPA-subroute får skilja) får ladda om iframe-elementets exakta befintliga `src`. Explicit `null` är legacy-identiteten; `undefined` betyder att lifecycle-identiteten ännu inte är hydratiserad och öppnar inte readiness-grinden. Fönstret skapar inga ytterligare suspect-callbacks eller restarts. Ytan och inspectorn öppnas först när den verifierade reloaden därefter har gett `load`.
 - **Fail closed:** annan version, session, origin eller chat-path, ett stale svar efter identitetsbyte, eller uteblivet `load` efter reload behåller fel-overlayn. Kontrollen pollar eller restartar inte vidare, så timeouten kan inte skapa en restartstorm.
 

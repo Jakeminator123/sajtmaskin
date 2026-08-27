@@ -46,6 +46,17 @@ Candidate selection is **search-driven** (Fas 4 of the shadcn-registry plan, 202
 
 UI Recipes replace the old local `data/shadcn-examples/` cache and the old `## Component References` path. Static component patterns in `config/prompt-core/02-component-contract.md` still serve as always-present baseline; `## UI Recipes` add request-specific depth for blocks/components without giving the codegen LLM live MCP or arbitrary web access.
 
+### Registry thumbnails
+
+Registry metadata and preview images are separate contracts. The official
+`new-york-v4` JSON index is complete enough for discovery, while the legacy
+`new-york/{name}-{theme}.png` path only exposes a sparse verified subset.
+`registry-service.ts` owns that availability set; it must not synthesize an
+image URL for every block. A block without a verified preview renders the
+layout/component icon, not a broken-image state. Community/Marknadsblock index
+metadata has no thumbnail field and therefore follows the same icon fallback;
+image URLs embedded inside downloadable source files are not gallery metadata.
+
 ## Libraries evaluated but not default
 
 | Library | Status | Rationale |

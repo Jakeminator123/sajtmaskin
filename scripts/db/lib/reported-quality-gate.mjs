@@ -15,6 +15,22 @@ export const REPORTED_PRODUCT_POSTCHECK_DEGRADED = "product_postcheck_degraded";
 export const FINALIZE_PREFLIGHT_PASSED = "preflight_passed";
 
 /**
+ * Shared predicate for raw error-log readers (`e` = engine_version_error_logs).
+ * Generic and legacy rows remain visible; only attested Product Postcheck rows
+ * are revision-scoped. Keep this beside the summary projections so `/logg`
+ * drilldowns cannot disagree with the UI about an overwritten same-version row.
+ */
+export const CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL = `
+  (
+    COALESCE(e.category, '') NOT LIKE 'product_postcheck.%'
+    OR e.meta->>'attestedFilesRevision' IS NULL
+    OR e.meta->>'attestedFilesRevision' = (
+      SELECT ev.files_revision FROM engine_versions ev WHERE ev.id = e.version_id
+    )
+  )
+`;
+
+/**
  * Senaste `product_postcheck.summary` + `product_postcheck.skipped` per
  * `gt.version_id`.
  * Anroparen måste aliasa `generation_telemetry` som `gt`.
@@ -37,6 +53,12 @@ export const LATEST_PRODUCT_POSTCHECK_JOIN = `
       FROM engine_version_error_logs e
       WHERE e.version_id = gt.version_id
         AND e.category = 'product_postcheck.summary'
+        AND (
+          e.meta->>'attestedFilesRevision' IS NULL
+          OR e.meta->>'attestedFilesRevision' = (
+            SELECT ev.files_revision FROM engine_versions ev WHERE ev.id = gt.version_id
+          )
+        )
       ORDER BY e.created_at DESC
       LIMIT 1
     ) summary
@@ -45,6 +67,12 @@ export const LATEST_PRODUCT_POSTCHECK_JOIN = `
       FROM engine_version_error_logs e
       WHERE e.version_id = gt.version_id
         AND e.category = 'product_postcheck.skipped'
+        AND (
+          e.meta->>'attestedFilesRevision' IS NULL
+          OR e.meta->>'attestedFilesRevision' = (
+            SELECT ev.files_revision FROM engine_versions ev WHERE ev.id = gt.version_id
+          )
+        )
       ORDER BY e.created_at DESC
       LIMIT 1
     ) skipped ON true
@@ -69,6 +97,12 @@ export const LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL = `
     FROM engine_version_error_logs e
     WHERE e.version_id = $1
       AND e.category = 'product_postcheck.summary'
+      AND (
+        e.meta->>'attestedFilesRevision' IS NULL
+        OR e.meta->>'attestedFilesRevision' = (
+          SELECT ev.files_revision FROM engine_versions ev WHERE ev.id = $1
+        )
+      )
     ORDER BY e.created_at DESC
     LIMIT 1
   ) summary
@@ -77,6 +111,12 @@ export const LATEST_PRODUCT_BLOCKED_FOR_VERSION_SQL = `
     FROM engine_version_error_logs e
     WHERE e.version_id = $1
       AND e.category = 'product_postcheck.skipped'
+      AND (
+        e.meta->>'attestedFilesRevision' IS NULL
+        OR e.meta->>'attestedFilesRevision' = (
+          SELECT ev.files_revision FROM engine_versions ev WHERE ev.id = $1
+        )
+      )
     ORDER BY e.created_at DESC
     LIMIT 1
   ) skipped ON true

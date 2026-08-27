@@ -116,6 +116,9 @@ function PreviewPanelHarness(props: React.ComponentProps<typeof PreviewPanel>) {
       <button type="button" onClick={surface.toggleComposer}>
         Lägg till block
       </button>
+      <button type="button" onClick={surface.toggleInspect}>
+        Inspektera
+      </button>
       <PreviewPanel {...props} surface={surface} />
     </>
   );
@@ -566,6 +569,24 @@ describe("PreviewPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /Försök igen/i }));
 
     expect(onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps inspector controls unavailable behind a version mismatch", async () => {
+    renderPreviewPanelWithTools({
+      versionMismatchPayload: {
+        chatId: "chat_1",
+        expectedVersionId: "expected_ver_2",
+        currentVersionId: "current_ver_1",
+        msSinceMismatch: 12_000,
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Inspektera" }));
+
+    expect(screen.getByTestId("version-mismatch-overlay")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByText("Inspektion aktiv")).toBeNull();
+    });
   });
 
   it("adds one stable viewer id only to the embedded tier-2 URL", async () => {

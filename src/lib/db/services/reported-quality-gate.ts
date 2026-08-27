@@ -37,6 +37,43 @@ export type ProductPostcheckEventSignal = {
   ts?: Date | string | null;
 };
 
+/**
+ * Product Postcheck bus events are revision-scoped just like their durable
+ * error-log rows. Legacy events predate the attestation key and remain visible;
+ * a stamped event for N must disappear as soon as the same version becomes N+1.
+ */
+export function productPostcheckEventMatchesCurrentFilesRevision(
+  event: ProductPostcheckEventSignal,
+  currentFilesRevision: string | null | undefined,
+): boolean {
+  if (
+    event.t !== "version.degraded" ||
+    (event.kind !== "product_postcheck_skipped" &&
+      event.kind !== "product_postcheck_blocked")
+  ) {
+    return true;
+  }
+  const meta = reportMeta(event.meta);
+  if (!meta || !Object.prototype.hasOwnProperty.call(meta, "attestedFilesRevision")) {
+    return true;
+  }
+  const attested = meta.attestedFilesRevision;
+  const current = currentFilesRevision?.trim() || "";
+  return (
+    typeof attested === "string" &&
+    attested.trim() !== "" &&
+    attested.trim() === current
+  );
+}
+
+export function filterProductPostcheckEventsForCurrentFilesRevision<
+  T extends ProductPostcheckEventSignal,
+>(events: readonly T[], currentFilesRevision: string | null | undefined): T[] {
+  return events.filter((event) =>
+    productPostcheckEventMatchesCurrentFilesRevision(event, currentFilesRevision),
+  );
+}
+
 function signalClock(value: Date | string | null | undefined): number | null {
   if (value == null) return null;
   const ms = value instanceof Date ? value.getTime() : new Date(value).getTime();

@@ -9,6 +9,7 @@ import type { PreviewSurfaceState } from "./usePreviewSurfaceMode";
 
 export type CaptureResponse = {
   success?: boolean;
+  staleIdentity?: boolean;
   capturedUrl?: string;
   previewDataUrl?: string;
   previewMimeType?: string;
@@ -94,6 +95,7 @@ export interface PreviewPanelProps {
     versionId?: string;
     previewUrl?: string | null;
     previewSessionId?: string | null;
+    lifecycleToken?: string | null;
     previewMode?: string | null;
   }) => void;
   imageGenerationsEnabled?: boolean;

@@ -22,6 +22,7 @@ import { config } from "dotenv";
 import pg from "pg";
 import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
 import {
+  CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL,
   LATEST_PRODUCT_POSTCHECK_JOIN,
   annotateReportedQualityGate,
 } from "./lib/reported-quality-gate.mjs";
@@ -188,10 +189,11 @@ const CHAT_TELEMETRY_QUERY = `
 `;
 
 const CHAT_ERROR_LOGS_QUERY = `
-  SELECT version_id, level, category, message, created_at
-  FROM engine_version_error_logs
-  WHERE chat_id = $1
-  ORDER BY created_at ASC
+  SELECT e.version_id, e.level, e.category, e.message, e.created_at
+  FROM engine_version_error_logs e
+  WHERE e.chat_id = $1
+    AND ${CURRENT_VERSION_ERROR_LOG_PREDICATE_SQL.trim()}
+  ORDER BY e.created_at ASC
   LIMIT 500
 `;
 

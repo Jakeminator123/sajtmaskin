@@ -1,11 +1,43 @@
 import { describe, expect, it } from "vitest";
 import {
   applyProductPostcheckReportToVersionStatus,
+  filterProductPostcheckEventsForCurrentFilesRevision,
   isReportedQualityGateGreen,
+  productPostcheckEventMatchesCurrentFilesRevision,
   resolveProductPostcheckReportState,
   resolveReportedQualityGateFromSignals,
   resolveReportedQualityGateResult,
 } from "./reported-quality-gate";
+
+describe("product postcheck event revision scope", () => {
+  const event = {
+    t: "version.degraded",
+    kind: "product_postcheck_blocked",
+    message: "blocked",
+  };
+
+  it("drops a stamped N event after the same version becomes N+1", () => {
+    const stale = { ...event, meta: { attestedFilesRevision: "rev_n" } };
+    expect(productPostcheckEventMatchesCurrentFilesRevision(stale, "rev_n_plus_1")).toBe(false);
+    expect(filterProductPostcheckEventsForCurrentFilesRevision([stale], "rev_n_plus_1")).toEqual([]);
+  });
+
+  it("keeps current, legacy, and unrelated events", () => {
+    expect(
+      productPostcheckEventMatchesCurrentFilesRevision(
+        { ...event, meta: { attestedFilesRevision: "rev_n" } },
+        "rev_n",
+      ),
+    ).toBe(true);
+    expect(productPostcheckEventMatchesCurrentFilesRevision(event, "rev_n_plus_1")).toBe(true);
+    expect(
+      productPostcheckEventMatchesCurrentFilesRevision(
+        { ...event, kind: "typecheck_advisory", meta: { attestedFilesRevision: "rev_n" } },
+        "rev_n_plus_1",
+      ),
+    ).toBe(true);
+  });
+});
 
 describe("resolveReportedQualityGateResult — SM-017", () => {
   it("does not report a green gate when postcheck set productBlocked", () => {

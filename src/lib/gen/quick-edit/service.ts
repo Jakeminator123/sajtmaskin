@@ -26,6 +26,7 @@ export type RunQuickEditResult =
       structuralChange: boolean;
       previewUrl: string | null;
       previewSessionId: string | null;
+      lifecycleToken: string | null;
       previewMode: QuickEditPreviewMode | null;
       previewError: string | null;
     }
@@ -171,6 +172,7 @@ export async function runQuickEdit(params: {
 
   let previewUrl: string | null = null;
   let previewSessionId: string | null = null;
+  let lifecycleToken: string | null = null;
   let previewMode: QuickEditPreviewMode | null = null;
   let previewError: string | null = null;
 
@@ -191,6 +193,7 @@ export async function runQuickEdit(params: {
   if (patch.ok) {
     previewUrl = patch.previewUrl;
     previewSessionId = patch.previewSessionId;
+    lifecycleToken = patch.lifecycleToken;
     previewMode = patch.patchMode;
   } else {
     // Patch lane disabled or no live session to patch — (re)create a full
@@ -210,6 +213,7 @@ export async function runQuickEdit(params: {
     if (started.ok) {
       previewUrl = started.result.previewUrl;
       previewSessionId = started.result.previewSessionId;
+      lifecycleToken = started.result.lifecycleToken;
       previewMode = started.result.startOutcome;
     } else {
       previewError = started.error.message;
@@ -237,6 +241,7 @@ export async function runQuickEdit(params: {
     structuralChange,
     previewUrl,
     previewSessionId,
+    lifecycleToken,
     previewMode,
     previewError,
   };

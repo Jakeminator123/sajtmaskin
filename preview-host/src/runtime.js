@@ -63,6 +63,8 @@ module.exports = {
     isHmrPath: previewProxy.isHmrPath,
     PREVIEW_HMR_PATH_SUFFIXES: previewProxy.PREVIEW_HMR_PATH_SUFFIXES,
     probeReadinessAfterPatch: processLifecycle.probeReadinessAfterPatch,
+    promoteTrackedRuntimeReceipt: processLifecycle.promoteTrackedRuntimeReceipt,
+    runtimeExitOwnsStoredSession: processLifecycle.runtimeExitOwnsStoredSession,
     sanitizedEnv: shared.sanitizedEnv,
     runInInstallSlot: shared.runInInstallSlot,
     cleanupPackageCachesUnqueued: storageCleanup.cleanupPackageCachesUnqueued,

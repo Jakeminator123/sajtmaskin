@@ -40,6 +40,7 @@
             "preview_boot_page",
             "preview_probe_unreadable",
             "hydration_mismatch",
+            "hydration_dom_loss",
             "console_error",
             "request_failed",
             "http_error"

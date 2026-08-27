@@ -19,10 +19,26 @@ type FetchCall = {
   init?: RequestInit;
 };
 
+const CURRENT_POSTCHECK_ATTESTATION = {
+  previewSessionId: "ps_n",
+  lifecycleToken: "life_n",
+  filesRevision: "rev_n",
+};
+
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "Content-Type": "application/json" },
+  });
+}
+
+function featureDisabledProductPostcheckResponse() {
+  return jsonResponse({
+    ok: true,
+    skipped: true,
+    skippedReason: "feature_disabled",
+    warnings: [],
+    productBlocked: false,
   });
 }
 
@@ -158,7 +174,7 @@ describe("runPostGenerationChecks", () => {
     expect(body.logs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          category: "product_postcheck.skipped",
+            category: "post-check.product-postcheck-transport",
           meta: expect.objectContaining({ skippedReason: "transport_error" }),
         }),
       ]),
@@ -195,7 +211,11 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/validate-images")) return jsonResponse({});
         if (url.includes("/product-postcheck")) {
-          return jsonResponse({ skipped: true, warnings: [] });
+          return jsonResponse({
+            skipped: true,
+            skippedReason: "feature_disabled",
+            warnings: [],
+          });
         }
         if (url.includes("/error-log")) return jsonResponse({ ok: true });
         if (url.includes("/quality-gate")) {
@@ -245,6 +265,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/validate-images")) {
           return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
         }
         if (url.includes("/error-log")) {
           return jsonResponse({ ok: true });
@@ -311,6 +334,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/validate-images")) {
           return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
         }
         if (url.includes("/error-log")) {
           return jsonResponse({ ok: true });
@@ -380,6 +406,9 @@ describe("runPostGenerationChecks", () => {
         if (url.includes("/validate-images")) {
           return jsonResponse({});
         }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/error-log")) {
           return jsonResponse({ ok: true });
         }
@@ -440,6 +469,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/validate-images")) {
           return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
         }
         if (url.includes("/error-log")) {
           return jsonResponse({ ok: true });
@@ -571,6 +603,7 @@ describe("runPostGenerationChecks", () => {
             skipped: false,
             productBlocked: true,
             warnings: [{ code: "fake_form", message: "Formuläret är inte kopplat." }],
+            attestation: CURRENT_POSTCHECK_ATTESTATION,
           });
         }
         throw new Error(`Unexpected fetch: ${url}`);
@@ -665,7 +698,11 @@ describe("runPostGenerationChecks", () => {
         if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
         if (url.includes("/validate-images")) return jsonResponse({});
         if (url.includes("/product-postcheck")) {
-          return jsonResponse({ skipped: true, warnings: [] });
+          return jsonResponse({
+            skipped: true,
+            skippedReason: "feature_disabled",
+            warnings: [],
+          });
         }
         if (url.includes("/quality-gate")) return delayedQualityGate;
         throw new Error(`Unexpected fetch: ${url}`);
@@ -717,6 +754,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/validate-images")) {
           return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
         }
         if (url.includes("/error-log")) {
           return jsonResponse({ ok: true });
@@ -770,6 +810,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/validate-images")) {
           return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
         }
         if (url.includes("/quality-gate")) {
           return jsonResponse({ error: "Sandbox not configured" }, 501);
@@ -849,6 +892,9 @@ describe("runPostGenerationChecks", () => {
         if (url.includes("/validate-images")) {
           return jsonResponse({});
         }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           return jsonResponse({ error: "Sandbox not configured" }, 501);
         }
@@ -910,6 +956,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/validate-images")) {
           return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
         }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
@@ -1005,6 +1054,9 @@ describe("runPostGenerationChecks", () => {
         if (url.includes("/validate-images")) {
           return jsonResponse({});
         }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           qualityGateCalls += 1;
           if (qualityGateCalls <= 2) {
@@ -1077,6 +1129,9 @@ describe("runPostGenerationChecks", () => {
         if (url.includes("/validate-images")) {
           return jsonResponse({});
         }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           qualityGateCalls += 1;
           return jsonResponse(
@@ -1135,6 +1190,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
         if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
             passed: true,
@@ -1208,6 +1266,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
         if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
             passed: true,
@@ -1281,6 +1342,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
         if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
             passed: true,
@@ -1401,6 +1465,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
         if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
             passed: false,
@@ -1477,6 +1544,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
         if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
             passed: false,
@@ -1559,6 +1629,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
         if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
             passed: false,
@@ -1658,6 +1731,9 @@ describe("runPostGenerationChecks", () => {
         if (url.includes("/validate-images")) {
           return jsonResponse({});
         }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
             passed: false,
@@ -1733,6 +1809,9 @@ describe("runPostGenerationChecks", () => {
         }
         if (url.includes("/validate-images")) {
           return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
         }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
@@ -1825,6 +1904,9 @@ describe("runPostGenerationChecks", () => {
         if (url.includes("/validate-images")) {
           return jsonResponse({});
         }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
             passed: false,
@@ -1915,6 +1997,9 @@ describe("runPostGenerationChecks", () => {
         if (url.includes("/validate-images")) {
           return jsonResponse({});
         }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/quality-gate")) {
           return jsonResponse({
             passed: false,
@@ -1999,6 +2084,9 @@ describe("runPostGenerationChecks", () => {
         if (url.includes("/validate-images")) {
           return jsonResponse({});
         }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
         if (url.includes("/error-log")) {
           return jsonResponse({ ok: true });
         }
@@ -2034,13 +2122,7 @@ describe("runPostGenerationChecks", () => {
     const errorLogCall = fetchCalls.find(
       (call) => call.url.includes("/error-log") && call.init?.method === "POST",
     );
-    const persisted = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
-      logs?: Array<{ category?: string }>;
-    };
-    expect(persisted.logs?.map((log) => log.category)).toEqual([
-      "product_postcheck.skipped",
-    ]);
-    expect(persisted.logs?.some((log) => log.category?.includes("seo"))).toBe(false);
+    expect(errorLogCall).toBeUndefined();
 
     expect(onAutoFix).not.toHaveBeenCalled();
   });
@@ -2080,6 +2162,7 @@ describe("runPostGenerationChecks", () => {
             productBlocked: true,
             durationMs: 123,
             checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+            attestation: CURRENT_POSTCHECK_ATTESTATION,
           });
         }
         if (url.includes("/error-log")) {
@@ -2156,6 +2239,7 @@ describe("runPostGenerationChecks", () => {
             productBlocked: false,
             durationMs: 0,
             checkedUrl: null,
+            attestation: CURRENT_POSTCHECK_ATTESTATION,
           });
         }
         if (url.includes("/error-log")) {
@@ -2195,7 +2279,7 @@ describe("buildProductPostcheckLogItems live review", () => {
     expect(buildProductPostcheckLogItems(null)).toEqual([
       expect.objectContaining({
         level: "warning",
-        category: "product_postcheck.skipped",
+        category: "post-check.product-postcheck-transport",
         meta: expect.objectContaining({ skippedReason: "transport_error" }),
       }),
     ]);
@@ -2214,6 +2298,7 @@ describe("buildProductPostcheckLogItems live review", () => {
       routesChecked: 1,
       screenshots: { desktopUrl: null, mobileUrl: null },
       liveReview: { status: "skipped", reason: "no_screenshots" },
+      attestation: CURRENT_POSTCHECK_ATTESTATION,
     });
     expect(logs.find((log) => log.category === "product_postcheck.live_review")?.message).toBe(
       "Live review skipped: no_screenshots.",
@@ -2277,9 +2362,27 @@ describe("buildProductPostcheckLogItems live review", () => {
         durationMs: 9,
         modelId: "gpt-4o",
       },
+      attestation: CURRENT_POSTCHECK_ATTESTATION,
     });
     expect(logs.find((log) => log.category === "product_postcheck.live_review")?.message).toBe(
       "Live review: pass.",
     );
+  });
+
+  it("drops a superseded result instead of persisting a legacy skip", () => {
+    expect(
+      buildProductPostcheckLogItems({
+        ok: true,
+        skipped: true,
+        skippedReason: "preview_superseded",
+        warnings: [],
+        warningCount: 0,
+        productBlocked: false,
+        durationMs: 1,
+        checkedUrl: "https://preview.example",
+        routesChecked: 1,
+        attestation: null,
+      }),
+    ).toEqual([]);
   });
 });

@@ -131,6 +131,11 @@ describe("POST product-postcheck", () => {
     const body = await res.json();
     expect(body.skipped).toBe(true);
     expect(body.skippedReason).toBe("missing_preview_url");
+    expect(body.attestation).toEqual({
+      previewSessionId: "ps_n",
+      lifecycleToken: "life_n",
+      filesRevision: "rev_n",
+    });
     // Scope now runs before the skip so a skipped DOM check is surfaced on the
     // version-status projection (cannot read as solid green).
     expect(getVersion).toHaveBeenCalled();
@@ -141,7 +146,12 @@ describe("POST product-postcheck", () => {
         versionId: "v1",
         chatId: "chat_1",
         kind: "product_postcheck_skipped",
-        meta: expect.objectContaining({ skippedReason: "missing_preview_url" }),
+        meta: expect.objectContaining({
+          skippedReason: "missing_preview_url",
+          attestedPreviewSessionId: "ps_n",
+          attestedLifecycleToken: "life_n",
+          attestedFilesRevision: "rev_n",
+        }),
       }),
     );
   });
@@ -178,7 +188,12 @@ describe("POST product-postcheck", () => {
       expect.objectContaining({
         t: "version.degraded",
         kind: "product_postcheck_skipped",
-        meta: expect.objectContaining({ skippedReason: "playwright_unavailable" }),
+        meta: expect.objectContaining({
+          skippedReason: "playwright_unavailable",
+          attestedPreviewSessionId: "ps_n",
+          attestedLifecycleToken: "life_n",
+          attestedFilesRevision: "rev_n",
+        }),
       }),
     );
   });
@@ -228,8 +243,9 @@ describe("POST product-postcheck", () => {
         { code: "mobile_menu_failed", message: "Mobilmeny kunde inte verifieras" },
         { code: "broken_anchor", message: "Anchor target saknas för #pris" },
         { code: "broken_anchor", message: "Anchor target saknas för #kontakt" },
+        { code: "hydration_dom_loss", message: "SSR CTA försvann efter hydrering" },
       ],
-      warningCount: 3,
+      warningCount: 4,
       productBlocked: true,
       durationMs: 12,
       checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
@@ -246,8 +262,15 @@ describe("POST product-postcheck", () => {
         chatId: "chat_1",
         kind: "product_postcheck_blocked",
         meta: expect.objectContaining({
-          blockingCodes: expect.arrayContaining(["mobile_menu_failed", "broken_anchor"]),
-          warningCount: 3,
+          blockingCodes: expect.arrayContaining([
+            "mobile_menu_failed",
+            "broken_anchor",
+            "hydration_dom_loss",
+          ]),
+          warningCount: 4,
+          attestedPreviewSessionId: "ps_n",
+          attestedLifecycleToken: "life_n",
+          attestedFilesRevision: "rev_n",
         }),
       }),
     );
@@ -427,12 +450,7 @@ describe("POST product-postcheck", () => {
       desktopUrl: "https://blob.example/n.jpg",
       mobileUrl: null,
     });
-    expect(emitBusEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "product_postcheck_skipped",
-        meta: expect.objectContaining({ skippedReason: "preview_superseded" }),
-      }),
-    );
+    expect(emitBusEvent).not.toHaveBeenCalled();
     expect(emitBusEvent).not.toHaveBeenCalledWith(
       expect.objectContaining({ kind: "product_postcheck_blocked" }),
     );
@@ -524,11 +542,6 @@ describe("POST product-postcheck", () => {
         productBlocked: false,
       }),
     );
-    expect(emitBusEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "product_postcheck_skipped",
-        meta: expect.objectContaining({ skippedReason: "preview_superseded" }),
-      }),
-    );
+    expect(emitBusEvent).not.toHaveBeenCalled();
   });
 });

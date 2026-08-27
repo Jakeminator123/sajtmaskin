@@ -55,6 +55,7 @@ const SENSOR_CODES = new Set([
   "request_failed",
   "http_error",
   "hydration_mismatch",
+  "hydration_dom_loss",
   "broken_anchor",
   "broken_image",
   "cta_no_handler",
@@ -306,7 +307,11 @@ function splitFindings(findings: readonly ReviewFinding[]): {
   const nextOverlayErrors: string[] = [];
   const failedRequests: string[] = [];
   for (const finding of findings) {
-    if (finding.code === "console_error" || finding.code === "hydration_mismatch") {
+    if (
+      finding.code === "console_error" ||
+      finding.code === "hydration_mismatch" ||
+      finding.code === "hydration_dom_loss"
+    ) {
       consoleErrors.push(finding.message);
     } else if (finding.code === "request_failed" || finding.code === "http_error") {
       failedRequests.push(finding.message);

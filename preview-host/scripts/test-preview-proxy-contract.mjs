@@ -1084,6 +1084,21 @@ try {
   );
   assert.equal(firstBootstrapTag.previewSessionId, originSession.previewSessionId);
   assert.equal(firstBootstrapTag.versionId, originSession.versionId);
+  const inspectorSrc = /<script src="([^"]*\/api\/inspect-bridge[^"]*)"/.exec(
+    viewerDecoratedPage.body,
+  )?.[1]?.replaceAll("&amp;", "&");
+  assert.ok(inspectorSrc, "inspect navigation injects an identity-stamped bridge URL");
+  const inspectorUrl = new URL(inspectorSrc);
+  assert.equal(inspectorUrl.searchParams.get("versionId"), originSession.versionId);
+  assert.equal(
+    inspectorUrl.searchParams.get("previewSessionId"),
+    originSession.previewSessionId,
+  );
+  assert.equal(
+    inspectorUrl.searchParams.get("lifecycleToken"),
+    "",
+    "a missing host token is stamped as explicit legacy, never omitted",
+  );
   assert.equal(
     firstBootstrapTag.appOrigins,
     "https://app.example,https://secondary.example",
@@ -1199,7 +1214,7 @@ try {
   );
   assert.match(
     viewerDecoratedPage.body,
-    /<script src="https:\/\/app\.example\/api\/inspect-bridge\?parent=https%3A%2F%2Fapp\.example" defer nonce="preview-test"><\/script>/,
+    /<script src="https:\/\/app\.example\/api\/inspect-bridge\?parent=https%3A%2F%2Fapp\.example[^"]*" defer nonce="preview-test"><\/script>/,
     "inspector bridge inherits the response nonce",
   );
   assert.equal(

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  buildAvailablePreviewImageUrl,
   buildPreviewImageUrl,
   buildRegistryIndexUrl,
   buildRegistryItemUrl,
@@ -79,6 +80,18 @@ describe("registry-service URL builders (official registry)", () => {
     }
   });
 
+  it("only exposes verified official preview PNGs and leaves missing blocks icon-backed", () => {
+    delete process.env.NEXT_PUBLIC_REGISTRY_BASE_URL;
+    expect(buildAvailablePreviewImageUrl("login-01", "light")).toBe(
+      "https://ui.shadcn.com/r/styles/new-york/login-01-light.png",
+    );
+    expect(buildAvailablePreviewImageUrl("sidebar-16", "dark")).toBe(
+      "https://ui.shadcn.com/r/styles/new-york/sidebar-16-dark.png",
+    );
+    expect(buildAvailablePreviewImageUrl("signup-01", "light")).toBeUndefined();
+    expect(buildAvailablePreviewImageUrl("chart-bar-default", "light")).toBeUndefined();
+  });
+
   it("no official registry URL ever leaks the incomplete radix-vega style", () => {
     delete process.env.NEXT_PUBLIC_REGISTRY_STYLE;
     const jsonUrls = [
@@ -103,6 +116,13 @@ describe("registry-service URL builders (official registry)", () => {
   it("buildPreviewImageUrl passes custom-registry styles through untouched", () => {
     process.env.NEXT_PUBLIC_REGISTRY_BASE_URL = "https://registry.example.com";
     expect(buildPreviewImageUrl("hero1", "light", "minimal")).toBe(
+      "https://registry.example.com/r/styles/minimal/hero1-light.png",
+    );
+  });
+
+  it("keeps the custom-registry preview convention untouched", () => {
+    process.env.NEXT_PUBLIC_REGISTRY_BASE_URL = "https://registry.example.com";
+    expect(buildAvailablePreviewImageUrl("hero1", "light", "minimal")).toBe(
       "https://registry.example.com/r/styles/minimal/hero1-light.png",
     );
   });

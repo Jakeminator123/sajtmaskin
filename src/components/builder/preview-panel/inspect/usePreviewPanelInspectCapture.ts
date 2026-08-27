@@ -11,6 +11,7 @@ import type { ElementMapItem, FileNode } from "@/lib/builder/types";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type Dispatch,
@@ -37,6 +38,10 @@ export function usePreviewPanelInspectCapture(options: {
   hoveredMapElement: ElementMapItem | null;
   chatId: string | null;
   versionId: string | null;
+  previewSessionId?: string | null;
+  lifecycleToken?: string | null;
+  identityReady?: boolean;
+  onPreviewIdentityStale?: () => void;
   flatFilesForAi: Array<{ name: string; content: string }>;
   elementRegistryRef: MutableRefObject<JsxElementRegistryItem[]>;
   setFiles: Dispatch<SetStateAction<FileNode[]>>;
@@ -55,6 +60,10 @@ export function usePreviewPanelInspectCapture(options: {
     hoveredMapElement,
     chatId,
     versionId,
+    previewSessionId = null,
+    lifecycleToken,
+    identityReady = true,
+    onPreviewIdentityStale,
     flatFilesForAi,
     elementRegistryRef,
     setFiles,
@@ -67,6 +76,29 @@ export function usePreviewPanelInspectCapture(options: {
   const [isCapturePending, setIsCapturePending] = useState(false);
   const [inspectPulse, setInspectPulse] = useState<InspectPulseMarker | null>(null);
   const inspectPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const captureRequestTokenRef = useRef(0);
+  const previewIdentityKey = useMemo(
+    () =>
+      JSON.stringify([
+        chatId,
+        versionId,
+        previewSessionId,
+        lifecycleToken === undefined ? "unhydrated" : lifecycleToken,
+        previewUrl,
+      ]),
+    [chatId, versionId, previewSessionId, lifecycleToken, previewUrl],
+  );
+  const previewIdentityKeyRef = useRef(previewIdentityKey);
+
+  useEffect(() => {
+    previewIdentityKeyRef.current = previewIdentityKey;
+    captureRequestTokenRef.current += 1;
+    if (inspectPulseTimerRef.current) clearTimeout(inspectPulseTimerRef.current);
+    /* eslint-disable react-hooks/set-state-in-effect -- invalidate pending capture UI with preview identity */
+    setIsCapturePending(false);
+    setInspectPulse(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [previewIdentityKey]);
 
   useEffect(() => {
     return () => {
@@ -78,7 +110,19 @@ export function usePreviewPanelInspectCapture(options: {
 
   const handleCaptureClick = useCallback(
     async (event: MouseEvent<HTMLDivElement>) => {
-      if (!inspectorEnabled || !previewUrl || !inspectMode || isCapturePending || iframeLoading || externalLoading) {
+      if (
+        !inspectorEnabled ||
+        !previewUrl ||
+        !chatId ||
+        !versionId ||
+        !previewSessionId ||
+        lifecycleToken === undefined ||
+        !inspectMode ||
+        !identityReady ||
+        isCapturePending ||
+        iframeLoading ||
+        externalLoading
+      ) {
         return;
       }
 
@@ -90,9 +134,17 @@ export function usePreviewPanelInspectCapture(options: {
       const xPercent = Number(((x / rect.width) * 100).toFixed(2));
       const yPercent = Number(((y / rect.height) * 100).toFixed(2));
       const captureId = `inspect-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const requestToken = ++captureRequestTokenRef.current;
+      const requestIdentityKey = previewIdentityKey;
+      const requestIsCurrent = () =>
+        requestToken === captureRequestTokenRef.current &&
+        requestIdentityKey === previewIdentityKeyRef.current &&
+        identityReady;
       setInspectPulse({ x, y, key: Date.now() });
       if (inspectPulseTimerRef.current) clearTimeout(inspectPulseTimerRef.current);
-      inspectPulseTimerRef.current = setTimeout(() => setInspectPulse(null), 900);
+      inspectPulseTimerRef.current = setTimeout(() => {
+        if (requestIsCurrent()) setInspectPulse(null);
+      }, 900);
 
       setIsCapturePending(true);
       setLastCodeMatch(null);
@@ -160,6 +212,7 @@ export function usePreviewPanelInspectCapture(options: {
             setInspectStatus("Hämtar kodfiler...");
             try {
               const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+              if (!requestIsCurrent()) return;
               const rows = Array.isArray(data?.files) ? data.files : [];
               if (response.ok && rows.length > 0) {
                 const normalized = rows.map((f) => ({
@@ -187,6 +240,7 @@ export function usePreviewPanelInspectCapture(options: {
             }),
           });
           const data = (await response.json().catch(() => null)) as AiMatchResponse | null;
+          if (!requestIsCurrent()) return;
 
           if (data?.cost?.display) setLastAiCostDisplay(data.cost.display);
           if (data?.cost?.usd) setTotalAiCostUsd((prev) => prev + data.cost!.usd);
@@ -252,10 +306,11 @@ export function usePreviewPanelInspectCapture(options: {
             );
           }
         } catch {
+          if (!requestIsCurrent()) return;
           toast.error("Nätverksfel vid AI-matchning.");
           setInspectStatus("AI-matchning misslyckades (nätverksfel).");
         } finally {
-          setIsCapturePending(false);
+          if (requestIsCurrent()) setIsCapturePending(false);
         }
         return;
       }
@@ -272,10 +327,20 @@ export function usePreviewPanelInspectCapture(options: {
             yPercent,
             viewportWidth: Math.round(rect.width),
             viewportHeight: Math.round(rect.height),
+            chatId,
+            versionId,
+            previewSessionId,
+            lifecycleToken,
           }),
         });
 
         const data = (await response.json().catch(() => null)) as CaptureResponse | null;
+        if (!requestIsCurrent()) return;
+        if (data?.staleIdentity) {
+          setInspectStatus("Previewen byttes under inspektionen — synkar aktuell version.");
+          onPreviewIdentityStale?.();
+          return;
+        }
 
         const codeMatch = data?.element
           ? matchCapturedElement(elementRegistryRef.current, {
@@ -342,6 +407,7 @@ export function usePreviewPanelInspectCapture(options: {
           );
         }
       } catch {
+        if (!requestIsCurrent()) return;
         dispatchInspectCaptureEvent({
           id: captureId,
           demoUrl: previewUrl,
@@ -354,7 +420,7 @@ export function usePreviewPanelInspectCapture(options: {
         toast.error("Nätverksfel vid punktfångst.");
         setInspectStatus("Punkt tillagd utan bild (nätverksfel).");
       } finally {
-        setIsCapturePending(false);
+        if (requestIsCurrent()) setIsCapturePending(false);
       }
     },
     [
@@ -367,6 +433,11 @@ export function usePreviewPanelInspectCapture(options: {
       flatFilesForAi,
       chatId,
       versionId,
+      previewSessionId,
+      lifecycleToken,
+      identityReady,
+      onPreviewIdentityStale,
+      previewIdentityKey,
       hoveredMapElement,
       inspectorEnabled,
       elementRegistryRef,

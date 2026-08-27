@@ -271,7 +271,7 @@ async function probeReadinessAfterPatch({
  */
 function applyRuntimePatch(
   chatId,
-  { files, removedPaths, mutationRevision, expectedPreviousMutationRevision } = {},
+  { files, removedPaths, versionId, mutationRevision, expectedPreviousMutationRevision } = {},
 ) {
   const changed = files && typeof files === "object" ? files : {};
   const removed = Array.isArray(removedPaths) ? removedPaths : [];
@@ -311,14 +311,49 @@ function applyRuntimePatch(
     };
   }
   const tracked = runtimeChildren.get(runtimeState.session.sessionId);
-  if (
-    tracked &&
-    (tracked.lifecycleToken ?? null) === (runtimeState.session.lifecycleToken ?? null) &&
-    readMutationRevision(tracked) === (expectedPreviousMutationRevision ?? null)
-  ) {
-    tracked.mutationRevision = mutationRevision ?? null;
-  }
+  promoteTrackedRuntimeReceipt(tracked, runtimeState.session, {
+    versionId,
+    mutationRevision,
+    expectedPreviousMutationRevision,
+  });
   return { mode: "patched", reason: null };
+}
+
+/**
+ * A hot patch keeps the same child process but advances the content receipt it
+ * owns. The exit handler must therefore compare against this promoted receipt,
+ * not the boot-time session snapshot captured before the patch.
+ */
+function promoteTrackedRuntimeReceipt(
+  tracked,
+  session,
+  { versionId, mutationRevision, expectedPreviousMutationRevision } = {},
+) {
+  if (
+    !tracked ||
+    (tracked.lifecycleToken ?? null) !== (session?.lifecycleToken ?? null) ||
+    readMutationRevision(tracked) !== (expectedPreviousMutationRevision ?? null)
+  ) {
+    return false;
+  }
+  tracked.versionId = typeof versionId === "string" && versionId.trim()
+    ? versionId.trim()
+    : session?.versionId ?? null;
+  tracked.mutationRevision = mutationRevision ?? null;
+  return true;
+}
+
+function runtimeExitOwnsStoredSession(stored, tracked, sessionId) {
+  return Boolean(
+    stored &&
+      tracked &&
+      stored.versionId === tracked.versionId &&
+      sameSessionLifecycle(stored, {
+        sessionId,
+        lifecycleToken: tracked.lifecycleToken ?? null,
+        mutationRevision: readMutationRevision(tracked),
+      }),
+  );
 }
 
 function responseHeadersLookLikeHtmlDocument(res) {
@@ -739,6 +774,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     workspaceDir,
     chatId,
     previewSessionId: session.previewSessionId,
+    versionId: session.versionId ?? null,
     lifecycleToken:
       typeof session.lifecycleToken === "string" && session.lifecycleToken.trim()
         ? session.lifecycleToken.trim()
@@ -776,16 +812,17 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
   child.stderr.on("data", captureRuntimeOutput);
 
   child.once("exit", async (code, signal) => {
-    runtimeChildren.delete(session.sessionId);
+    if (runtimeChildren.get(session.sessionId) === tracked) {
+      runtimeChildren.delete(session.sessionId);
+    }
     if (tracked.ignoreExit) return;
     const outputTail = tracked.recentOutput.slice(-RUNTIME_OUTPUT_EXIT_TAIL).join("\n");
     let cleanExitLoopDetected = false;
     await updateSessionById(session.sessionId, (stored) => {
-      if (!sameSessionLifecycle(stored, session)) return;
-      if (stored.versionId !== session.versionId) return;
+      if (!runtimeExitOwnsStoredSession(stored, tracked, session.sessionId)) return;
       if (code === 0 && signal == null) {
         const priorTimestamps =
-          stored.runtimeCleanExitVersionId === session.versionId &&
+          stored.runtimeCleanExitVersionId === tracked.versionId &&
           Array.isArray(stored.runtimeCleanExitTimestamps)
             ? stored.runtimeCleanExitTimestamps
             : [];
@@ -793,7 +830,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
           timestamps: priorTimestamps,
           now: Date.now(),
         });
-        stored.runtimeCleanExitVersionId = session.versionId;
+        stored.runtimeCleanExitVersionId = tracked.versionId;
         stored.runtimeCleanExitTimestamps = next.timestamps;
         cleanExitLoopDetected = next.failed;
       }
@@ -815,7 +852,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     if (cleanExitLoopDetected) {
       await appendRuntimeLog(
         session.previewSessionId,
-        `Runtime clean-exit restart limit reached for version ${session.versionId}; readiness marked failed.`,
+        `Runtime clean-exit restart limit reached for version ${tracked.versionId}; readiness marked failed.`,
       );
     }
     // (D) Endast vid onormal exit (krasch/boot-fel) — rena stopp sätter
@@ -1448,6 +1485,8 @@ function setBeforeIdleLifecycleCheckForTesting(hook) {
 module.exports = {
   probeReadinessAfterPatch,
   applyRuntimePatch,
+  promoteTrackedRuntimeReceipt,
+  runtimeExitOwnsStoredSession,
   classifyRuntimeCleanExitLoop,
   RUNTIME_CLEAN_EXIT_LIMIT,
   RUNTIME_CLEAN_EXIT_WINDOW_MS,

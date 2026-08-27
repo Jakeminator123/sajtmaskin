@@ -197,6 +197,49 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("clean-exit window retains only the new attempt", afterWindow.timestamps.length === 1);
 }
 
+// 5b. A hot patch promotes the receipt owned by the existing child. When that
+// child later exits, the current patched session must be settled; the stale
+// boot-time receipt must not make the exit callback silently ignore it.
+{
+  const {
+    promoteTrackedRuntimeReceipt,
+    runtimeExitOwnsStoredSession,
+  } = runtime.__testing;
+  const tracked = {
+    lifecycleToken: "life-current",
+    mutationRevision: 1,
+    versionId: "v1",
+  };
+  const bootSession = {
+    sessionId: "session-hot-patch",
+    lifecycleToken: "life-current",
+    mutationRevision: 1,
+    versionId: "v1",
+  };
+  check(
+    "hot patch promotes the tracked child receipt",
+    promoteTrackedRuntimeReceipt(tracked, bootSession, {
+      versionId: "v2",
+      mutationRevision: 2,
+      expectedPreviousMutationRevision: 1,
+    }) === true && tracked.versionId === "v2" && tracked.mutationRevision === 2,
+  );
+  const patchedSession = {
+    sessionId: "session-hot-patch",
+    lifecycleToken: "life-current",
+    mutationRevision: 2,
+    versionId: "v2",
+  };
+  check(
+    "patched child exit still owns the current stored session",
+    runtimeExitOwnsStoredSession(patchedSession, tracked, patchedSession.sessionId) === true,
+  );
+  check(
+    "boot-time receipt no longer owns the patched session",
+    runtimeExitOwnsStoredSession(patchedSession, bootSession, patchedSession.sessionId) === false,
+  );
+}
+
 // 6. Per-chat boot serialization (prod-incident 2026-07-03, chat e8420220):
 //    concurrent `restart: true` boots must NEVER run bootRuntimeForSession
 //    concurrently — the old "await existing, then run" released all waiters in

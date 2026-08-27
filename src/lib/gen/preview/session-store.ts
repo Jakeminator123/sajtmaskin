@@ -338,23 +338,24 @@ function receiptOrder(
   return sameAuthoritativeReceipt(requested, previous) ? "duplicate" : "stale";
 }
 
-export function touchPreviewSession(params: TouchPreviewSessionParams): void {
+export function touchPreviewSession(params: TouchPreviewSessionParams): boolean {
   const prev = sessions.get(params.chatId);
   if (params.writeIntent === "refresh") {
     if (
       !prev ||
       prev.previewSessionId !== params.previewSessionId ||
       prev.lifecycleToken !== nonEmptyString(params.lifecycleToken)
-    ) return;
+    ) return false;
     sessions.set(params.chatId, { ...prev, lastUsedAt: params.now ?? Date.now() });
-    return;
+    return true;
   }
   const entry = buildTouchedPreviewSession(params, prev);
-  if (receiptOrder(entry, prev) === "stale") return;
+  if (receiptOrder(entry, prev) === "stale") return false;
   sessions.set(
     params.chatId,
     entry,
   );
+  return true;
 }
 
 export type GetPreviewSessionOptions = {
@@ -435,8 +436,7 @@ export async function touchPreviewSessionAsync(
   params: TouchPreviewSessionParams,
 ): Promise<boolean> {
   if (!getRedis()) {
-    touchPreviewSession(params);
-    return true;
+    return touchPreviewSession(params);
   }
 
   let snapshot = await readRedisSessionSnapshot(params.chatId);

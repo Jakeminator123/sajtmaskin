@@ -658,6 +658,68 @@ describe("startPreviewSession follow-up Fast Edit Lane", () => {
     expect(startPreviewHostSession).toHaveBeenCalledOnce();
   });
 
+  it("refuses a resume receipt when the app session pointer advanced while status was in flight", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    await touchPreviewSessionAsync({
+      chatId: "chat-resume-race",
+      previewSessionId: "ps-old",
+      previewUrl: PREVIEW_URL,
+      versionId: "version-a",
+      filesRevision: "revision-a",
+      lifecycleToken: "life-old",
+      mutationRevision: 1,
+      writeIntent: "authoritative",
+    });
+    fetchPreviewHostStatus.mockImplementationOnce(async () => {
+      await touchPreviewSessionAsync({
+        chatId: "chat-resume-race",
+        previewSessionId: "ps-new",
+        previewUrl: "https://preview-host.example.com/chat-resume-race-new",
+        versionId: "version-b",
+        filesRevision: "revision-b",
+        lifecycleToken: "life-new",
+        mutationRevision: 2,
+        writeIntent: "authoritative",
+      });
+      return {
+        previewSessionId: "ps-old",
+        primaryUrl: PREVIEW_URL,
+        lifecycleToken: "life-old",
+        mutationRevision: 1,
+        readinessState: "ready",
+        httpReady: true,
+        readinessError: null,
+        regeneratedLockfile: null,
+      };
+    });
+
+    const result = await startPreviewSession(
+      [file("app/page.tsx", PAGE_V1)],
+      {
+        chatId: "chat-resume-race",
+        versionIdForSession: "version-a",
+        filesRevisionForSession: "revision-a",
+        skipProjectScaffold: true,
+        skipRepair: true,
+      },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        stage: "preview-start",
+        message: "Preview session lifecycle was superseded before its resume receipt was stored.",
+      },
+    });
+    expect(getActivePreviewSession("chat-resume-race")).toMatchObject({
+      previewSessionId: "ps-new",
+      versionId: "version-b",
+      lifecycleToken: "life-new",
+      mutationRevision: 2,
+    });
+    expect(destroyPreviewHostSession).not.toHaveBeenCalled();
+  });
+
   it("never touches the host manifest when the patch lane flag is off", async () => {
     const livePayload = await primeLiveSession("version-a", [file("app/page.tsx", PAGE_V1)]);
     mockManifest("version-a", livePayload);

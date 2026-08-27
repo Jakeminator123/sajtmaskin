@@ -19,7 +19,8 @@ De är inte Normalize, syntaxvalidering i finalize, verifier-pass, live
 CapabilitySmoke-fynd projiceras i publiceringskollen (`GET .../readiness`).
 När senaste `product_postcheck.summary` har `productBlocked: true` från ett
 spärrande fynd (`preview_boot_page`, `runtime_crash`, `mobile_menu_failed`,
-≥2 `broken_anchor`) blir ytan röd (`status: "blocked"`) och fyndet syns som
+≥2 `broken_anchor`, eller `hydration_dom_loss` där en server-renderad CTA
+saknas efter klienthydrering) blir ytan röd (`status: "blocked"`) och fyndet syns som
 orsak (B1, 2026-08-15). `info.productPostcheckBlocksF3` och
 `info.productPostcheckBlockedReason` bär samma signal.
 `preview_probe_unreadable` (tomt/misslyckat Chromium-svar) är advisory och
@@ -28,6 +29,20 @@ Rådgivande koder stannar i `warnings`. Promotion läser inte fältet.
 Fynden är aldrig `canDeploy`-blockers. Sena browser-fel
 (`preview:client-error` med `created_at` > `promoted_at`) projiceras som
 advisory warnings och är aldrig `canDeploy`-blockers.
+
+Product Postcheck-loggar stämplas av servern med files-revision och aktuell
+preview-tuple. Hela batchen skrivs i en Postgres-transaktion efter låsning av
+versionsraden; revision som redan har överspelats ger inget delresultat. Alla
+readiness-/statusläsare ignorerar attesterade rader vars revision inte längre
+matchar versionens filer. Motsvarande `version.degraded`-händelser bär samma
+revision; status- och historikprojektionerna filtrerar bort en stämplad händelse
+från N så snart samma version har blivit N+1. Preview-sessionen ligger i Redis och kan därför inte
+delta i samma DB-transaktion; den valideras före skrivningen och tuplen bevaras
+som spårbar metadata, medan den atomiska hållbarhetsgrinden är files-revisionen.
+Nya `product_postcheck.*`-rader utan denna attestation avvisas; äldre oattesterade
+rader förblir läsbara historiskt. Ett superseded resultat är helt tyst och ett
+saknat/ogiltigt route-svar ger bara en generisk transportdiagnos samt retry/hold
+i verify-lanen — inget av fallen får skapa ett gammalt produktverdikt.
 
 | Lane | Syfte | Typisk körning |
 | --- | --- | --- |

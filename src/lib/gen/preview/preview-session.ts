@@ -144,6 +144,7 @@ export type TryPatchPreviewSessionResult =
       ok: true;
       previewUrl: string;
       previewSessionId: string;
+      lifecycleToken: string | null;
       patchMode: PreviewHostPatchMode;
     }
   | {
@@ -232,6 +233,7 @@ export async function tryPatchPreviewSession(params: {
       ok: true,
       previewUrl: patched.previewUrl,
       previewSessionId: patched.previewSessionId,
+      lifecycleToken: patched.lifecycleToken ?? sess.lifecycleToken,
       patchMode: patched.patchMode,
     };
   }
@@ -510,7 +512,7 @@ async function runStartPreviewSession(
       // healthy preview — fall through to destroy + re-pin so the fresh boot can
       // re-run install/repair instead of surfacing the broken overlay as live.
       if (resumed && resumed.readinessState !== "failed") {
-        await touchPreviewSessionAsync({
+        const stored = await touchPreviewSessionAsync({
           chatId: cid,
           previewSessionId: resumed.previewSessionId,
           previewUrl: resumed.primaryUrl,
@@ -521,6 +523,15 @@ async function runStartPreviewSession(
           tier2Provider: "preview_host",
           writeIntent: "authoritative",
         });
+        if (!stored) {
+          return {
+            ok: false,
+            error: {
+              stage: "preview-start",
+              message: "Preview session lifecycle was superseded before its resume receipt was stored.",
+            },
+          };
+        }
         return {
           ok: true,
           result: {

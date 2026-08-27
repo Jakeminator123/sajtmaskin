@@ -346,7 +346,8 @@ function isBlockingAutoFixLog(log: PersistedVersionLog): boolean {
     category === "preview:client-error" ||
     category === "product_postcheck.console_error" ||
     category === "product_postcheck.runtime_crash" ||
-    category === "product_postcheck.hydration_mismatch"
+    category === "product_postcheck.hydration_mismatch" ||
+    category === "product_postcheck.hydration_dom_loss"
   );
 }
 

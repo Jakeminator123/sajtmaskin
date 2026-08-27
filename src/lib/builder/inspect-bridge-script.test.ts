@@ -22,6 +22,13 @@ describe("INSPECT_BRIDGE_SCRIPT", () => {
     expect(INSPECT_BRIDGE_SCRIPT).toContain('src: clean(el.getAttribute && el.getAttribute("src"))');
   });
 
+  it("stämplar varje child-meddelande med previewens hostägda identitet", () => {
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("identity: IDENTITY");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('versionId: qp("versionId")');
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('previewSessionId: qp("previewSessionId")');
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('lifecycleToken: qp("lifecycleToken")');
+  });
+
   it("lyssnar på drag för rektangelmarkering och följer elementet vid scroll", () => {
     expect(INSPECT_BRIDGE_SCRIPT).toContain('document.addEventListener("mousedown", onDown, true)');
     expect(INSPECT_BRIDGE_SCRIPT).toContain('document.addEventListener("mouseup", onUp, true)');
