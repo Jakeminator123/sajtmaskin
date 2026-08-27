@@ -7,7 +7,6 @@
  */
 import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
-import { getServerEnv } from "@/lib/env";
 import {
   getWorkloadDefaultModelFromManifest,
   getWorkloadFallbackModelsFromManifest,
@@ -16,6 +15,7 @@ import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { uploadBlob } from "@/lib/vercel/blob-service";
 import { extractBriefSummaryFromSnapshot } from "@/lib/gen/orchestration-snapshot";
 import { isAutoRepairPromptMessage, isF3KickPromptMessage } from "@/lib/builder/types";
+import { isLiveReviewEnabled } from "@/lib/openclaw/live-review-access";
 import {
   ReviewDecisionSchema,
   tryParseReviewDecision,
@@ -28,6 +28,8 @@ import {
 } from "./live-review-types";
 
 export const LIVE_REVIEW_WORKLOAD_ID = "live_review";
+
+export { isLiveReviewEnabled } from "@/lib/openclaw/live-review-access";
 
 export {
   ReviewVerdictSchema,
@@ -88,11 +90,6 @@ const SYSTEM_PROMPT = [
   "In this stage every non-pass verdict is a clickable suggestion — nothing is applied automatically.",
   "Write rationale and reasoning in Swedish. Keep rationale to 1-2 sentences.",
 ].join(" ");
-
-export function isLiveReviewEnabled(): boolean {
-  const v = getServerEnv().SAJTMASKIN_LIVE_REVIEW?.trim().toLowerCase();
-  return v === "1" || v === "true";
-}
 
 export function hasBlockingRuntimeCrash(findings: readonly ReviewFinding[]): boolean {
   return findings.some((finding) => BLOCKING_RUNTIME_CODES.has(finding.code));

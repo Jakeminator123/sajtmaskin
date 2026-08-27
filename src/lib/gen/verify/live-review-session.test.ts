@@ -100,6 +100,30 @@ describe("beginLiveReviewSession", () => {
     expect(claimRun).not.toHaveBeenCalled();
   });
 
+  it("auto-grant startar review utan en persistad chattgrant", async () => {
+    const claimRun = vi.fn(async () => acquired());
+    const readGrant = vi.fn();
+    const session = await beginLiveReviewSession(
+      {
+        chatId: "chat_1",
+        versionId: "v1",
+        filesRevision: "rev_a",
+        userId: "user_1",
+      },
+      {
+        flagEnabled: true,
+        editEnabled: true,
+        autoGrantEnabled: true,
+        readGrant,
+        claimRun,
+      },
+    );
+    expect(session.captureEnabled).toBe(true);
+    expect(session.claim?.kind).toBe("acquired");
+    expect(readGrant).not.toHaveBeenCalled();
+    expect(claimRun).toHaveBeenCalledTimes(1);
+  });
+
   it("förfalskad grant i request räknas inte — bara persistad grant", async () => {
     const session = await beginLiveReviewSession(
       {

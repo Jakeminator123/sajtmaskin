@@ -77,6 +77,7 @@
     "GENERATIONSLOGG",
     "SAJTMASKIN_VISUAL_QA",
     "SAJTMASKIN_LIVE_REVIEW",
+    "SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT",
     "AI_BRIEF_MAX_TOKENS",
     "SAJTMASKIN_MAX_PROMPT_LENGTH",
     "SAJTMASKIN_WARN_PROMPT_LENGTH",
@@ -894,7 +895,13 @@
       "key": "SAJTMASKIN_LIVE_REVIEW",
       "classification": "environment_specific",
       "recommendedVercelTargets": ["preview", "production"],
-      "notes": "Optional live-site critic after Product Postcheck. Code default off. Capture + LLM also require OC_EDIT AND a persisted OpenClaw live_review grant. Does not change user files or set productBlocked. Do not flip this flag in the same change as the grind."
+      "notes": "Optional live-site critic after Product Postcheck. Code default off. Capture + LLM also require OC_EDIT AND either a persisted OpenClaw live_review grant or SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT. Does not change user files or set productBlocked."
+    },
+    {
+      "key": "SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Optional deployment-wide replacement for the persisted per-chat live_review grant. Code default off. It never bypasses SAJTMASKIN_LIVE_REVIEW or OC_EDIT, and the critic remains advisory."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",

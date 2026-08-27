@@ -11,7 +11,11 @@ import {
 } from "@/lib/openclaw/chat-context-policy";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import { resolveOpenClawPowersFromRequest } from "@/lib/openclaw/powers";
-import { shouldAttachOpenClawLiveReviewContext } from "@/lib/openclaw/live-review-access";
+import {
+  isLiveReviewAutoGrantEnabled,
+  isLiveReviewEnabled,
+  shouldAttachOpenClawLiveReviewContext,
+} from "@/lib/openclaw/live-review-access";
 import { readLiveReviewGrant } from "@/lib/db/services/live-review-grants";
 import { buildOpenClawEditSystemPrompt } from "@/lib/openclaw/edit-system-prompt";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
@@ -311,7 +315,9 @@ export async function POST(req: NextRequest) {
         shouldAttachOpenClawLiveReviewContext({
           routingIntent,
           debug,
+          flagEnabled: isLiveReviewEnabled(),
           editEnabled: OPENCLAW.editEnabled,
+          autoGrantEnabled: isLiveReviewAutoGrantEnabled(),
           grant: persistedGrant,
         })
       ) {

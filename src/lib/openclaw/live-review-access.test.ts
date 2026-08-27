@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { resetServerEnvCacheForTests } from "@/lib/env";
 import {
+  isLiveReviewAutoGrantEnabled,
   parsePersistedLiveReviewGrant,
   requestedGrantHasLiveReview,
   resolveLiveReviewAccess,
@@ -7,6 +9,23 @@ import {
 } from "./live-review-access";
 
 const GRANT = { powersOn: true, granted: ["live_review"] as const };
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  resetServerEnvCacheForTests();
+});
+
+describe("isLiveReviewAutoGrantEnabled", () => {
+  it("är av som default och slås på av true", () => {
+    vi.stubEnv("SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT", "");
+    resetServerEnvCacheForTests();
+    expect(isLiveReviewAutoGrantEnabled()).toBe(false);
+
+    vi.stubEnv("SAJTMASKIN_LIVE_REVIEW_AUTO_GRANT", "true");
+    resetServerEnvCacheForTests();
+    expect(isLiveReviewAutoGrantEnabled()).toBe(true);
+  });
+});
 
 describe("resolveLiveReviewAccess", () => {
   it("kräver flagga, OC_EDIT och persistad live_review-grant", () => {
@@ -24,6 +43,33 @@ describe("resolveLiveReviewAccess", () => {
   it("OC_EDIT av slår igen även med giltig grant", () => {
     expect(
       resolveLiveReviewAccess({ flagEnabled: true, editEnabled: false, grant: GRANT }),
+    ).toEqual({ allow: false, reason: "edit_off" });
+  });
+
+  it("auto-grant ersätter bara den persistenta chattgrinden", () => {
+    expect(
+      resolveLiveReviewAccess({
+        flagEnabled: true,
+        editEnabled: true,
+        autoGrantEnabled: true,
+        grant: null,
+      }),
+    ).toEqual({ allow: true });
+    expect(
+      resolveLiveReviewAccess({
+        flagEnabled: false,
+        editEnabled: true,
+        autoGrantEnabled: true,
+        grant: null,
+      }),
+    ).toEqual({ allow: false, reason: "flag_off" });
+    expect(
+      resolveLiveReviewAccess({
+        flagEnabled: true,
+        editEnabled: false,
+        autoGrantEnabled: true,
+        grant: null,
+      }),
     ).toEqual({ allow: false, reason: "edit_off" });
   });
 
@@ -65,6 +111,7 @@ describe("shouldAttachOpenClawLiveReviewContext", () => {
       shouldAttachOpenClawLiveReviewContext({
         routingIntent: "guide",
         debug: false,
+        flagEnabled: true,
         editEnabled: true,
         grant: GRANT,
       }),
@@ -73,6 +120,7 @@ describe("shouldAttachOpenClawLiveReviewContext", () => {
       shouldAttachOpenClawLiveReviewContext({
         routingIntent: "guide",
         debug: false,
+        flagEnabled: true,
         editEnabled: true,
         grant: null,
       }),
@@ -81,10 +129,34 @@ describe("shouldAttachOpenClawLiveReviewContext", () => {
       shouldAttachOpenClawLiveReviewContext({
         routingIntent: "review",
         debug: false,
+        flagEnabled: false,
         editEnabled: true,
         grant: null,
       }),
     ).toBe(true);
+  });
+
+  it("auto-grant kräver huvudflaggan för vanlig Sajtagent-chatt", () => {
+    expect(
+      shouldAttachOpenClawLiveReviewContext({
+        routingIntent: "guide",
+        debug: false,
+        flagEnabled: true,
+        editEnabled: true,
+        autoGrantEnabled: true,
+        grant: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAttachOpenClawLiveReviewContext({
+        routingIntent: "guide",
+        debug: false,
+        flagEnabled: false,
+        editEnabled: true,
+        autoGrantEnabled: true,
+        grant: null,
+      }),
+    ).toBe(false);
   });
 });
 

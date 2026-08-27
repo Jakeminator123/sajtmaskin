@@ -12,12 +12,14 @@ import {
   type ClaimedLiveReview,
 } from "@/lib/db/services/live-review-runs";
 import {
+  isLiveReviewAutoGrantEnabled,
+  isLiveReviewEnabled,
   resolveLiveReviewAccess,
   type LiveReviewGrantRecord,
 } from "@/lib/openclaw/live-review-access";
 import { LIVE_REVIEW_MAX_MODEL_ATTEMPTS } from "./live-review-claim";
 import { skippedLiveReviewResult } from "./live-review-claim";
-import { isLiveReviewEnabled, maybeAttachLiveReview } from "./live-review";
+import { maybeAttachLiveReview } from "./live-review";
 import type {
   LiveReviewResult,
   LiveReviewScreenshotSet,
@@ -48,6 +50,7 @@ export interface LiveReviewSessionDeps {
   attachReview?: typeof maybeAttachLiveReview;
   flagEnabled?: boolean;
   editEnabled?: boolean;
+  autoGrantEnabled?: boolean;
 }
 
 export async function beginLiveReviewSession(
@@ -62,11 +65,19 @@ export async function beginLiveReviewSession(
 ): Promise<LiveReviewSession> {
   const flagEnabled = deps.flagEnabled ?? isLiveReviewEnabled();
   const editEnabled = deps.editEnabled ?? OPENCLAW.editEnabled;
+  const autoGrantEnabled = deps.autoGrantEnabled ?? isLiveReviewAutoGrantEnabled();
   const grant =
     input.grant !== undefined
       ? input.grant
-      : await (deps.readGrant ?? readLiveReviewGrant)(input.chatId);
-  const access = resolveLiveReviewAccess({ flagEnabled, editEnabled, grant });
+      : autoGrantEnabled
+        ? null
+        : await (deps.readGrant ?? readLiveReviewGrant)(input.chatId);
+  const access = resolveLiveReviewAccess({
+    flagEnabled,
+    editEnabled,
+    autoGrantEnabled,
+    grant,
+  });
   const base = {
     captureEnabled: false,
     claim: null,
