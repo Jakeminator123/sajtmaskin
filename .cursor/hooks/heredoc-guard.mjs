@@ -26,6 +26,8 @@
  */
 import { readFileSync } from "node:fs";
 
+import { writeHookResponse } from "./hook-io.mjs";
+
 /** `<<WORD`, `<< 'WORD'`, `<<-"WORD"` — the delimiter form, not a bare `<<`. */
 const HEREDOC_RE = /<<-?[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/;
 
@@ -170,4 +172,4 @@ try {
   response = { permission: "allow" };
 }
 
-process.stdout.write(`${JSON.stringify(response)}\n`);
+writeHookResponse(response);

@@ -3,7 +3,7 @@
 ## Öppna projektet
 
 File → Open Folder → repo-roten `sajtmaskin`. En Git-root.
-Inte TEMP-fönster, worktree eller Codex-kopian. MCP: `.cursor/mcp.json`.
+Inte TEMP-fönster eller ett uppgifts-worktree. MCP: `.cursor/mcp.json`.
 `sajtmaskin.code-workspace` är valfri, inte multi-root. Terminal/pwsh 7 ligger i `.vscode/settings.json`.
 
 ## Grundprincip

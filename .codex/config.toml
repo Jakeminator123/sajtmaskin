@@ -5,10 +5,11 @@
 
 model = "gpt-5.6-sol"
 model_reasoning_effort = "high"
-# Owner decision: this trusted personal project runs without per-command prompts.
-approval_policy = "never"
-sandbox_mode = "danger-full-access"
-web_search = "live"
+# Safe interactive defaults: keep writes inside the selected checkout/worktree
+# and ask before a command needs broader access.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "cached"
 
 [windows]
 sandbox = "elevated"

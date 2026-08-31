@@ -12,8 +12,7 @@
     "*BRA*",
     "rescue/*",
     "dependabot/*",
-    "archive/*",
-    "codex/workspace"
+    "archive/*"
   ],
   "directMaster": {
     "allowed": true,

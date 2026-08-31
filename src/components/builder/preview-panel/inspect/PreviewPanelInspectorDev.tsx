@@ -138,12 +138,34 @@ export function PreviewPanelInspectorDev({
               // sky overlay above. Inspector mode is now visible without
               // hiding the content underneath.
               "absolute inset-0 z-20 cursor-crosshair bg-emerald-950/20 ring-2 ring-inset ring-emerald-400/40",
-              (iframeLoading || externalLoading || isCapturePending) && "pointer-events-none",
+              (iframeLoading ||
+                externalLoading ||
+                isCapturePending ||
+                // Död elementkarta (prod 2026-08-31): utan karta kan ytan bara
+                // svälja klick och toasta "Hovra över ett element först". Släpp
+                // då igenom pekaren till sajten och säg det i bannern nedan i
+                // stället för att agera osynlig klickvägg.
+                (inspectEngine === "map" && inspectorUnavailable && !elementMapLoading)) &&
+                "pointer-events-none",
             )}
             onClick={handleCaptureClick}
             onMouseMove={handleInspectMouseMove}
             onMouseLeave={onInspectMouseLeave}
           />
+          {inspectEngine === "map" && inspectorUnavailable && !elementMapLoading ? (
+            <div
+              data-testid="inspector-map-unavailable-banner"
+              className="pointer-events-none absolute top-3 right-3 left-3 z-30 rounded border border-amber-700/70 bg-amber-950/85 px-3 py-2 text-xs text-amber-100 shadow-lg backdrop-blur-sm"
+            >
+              <div className="font-semibold tracking-tight text-amber-300">
+                Inspektorn kan inte läsa den här previewn
+              </div>
+              <div className="mt-1">
+                Elementkartan gick inte att hämta, så klick går just nu rakt till sajten.
+                Ladda om previewn eller prova AI-motorn i panelen nedan.
+              </div>
+            </div>
+          ) : null}
           {inspectEngine === "map" && hoveredMapElement ? (
             <div
               className="pointer-events-none absolute z-25 border-2 border-violet-400 bg-violet-500/10"
@@ -236,7 +258,9 @@ export function PreviewPanelInspectorDev({
                 </div>
                 <div className="text-zinc-400">
                   {inspectEngine === "map"
-                    ? "Hovra för att markera element. Klicka för att välja."
+                    ? inspectorUnavailable && !elementMapLoading
+                      ? "Elementkartan saknas — klick går rakt till sajten tills previewn laddats om."
+                      : "Hovra för att markera element. Klicka för att välja."
                     : inspectEngine === "ai"
                       ? "Klicka i previewn — AI identifierar elementet i koden."
                       : "Klicka i previewn — Playwright tar screenshot + hittar DOM-element."}
