@@ -177,9 +177,10 @@ export function evaluateHeadChecks(
   }
 
   return {
+    // Cursor-/Codex-/bugbot-kvitton noteras men blockerar inte. En Cloud Agent
+    // som 404:ar eller hoppas över ska inte hålla review-window röd. Säkerhet,
+    // Vercel och namnkollisioner spärrar fortfarande.
     botsDone:
-      completedSuccess > 0 &&
-      qualifyingPending === 0 &&
       securityPending === 0 &&
       securityFailed === 0 &&
       deploymentPending === 0 &&
@@ -1416,11 +1417,15 @@ function failureSummary(state, freshnessReason) {
     return `required checks är röda: ${state.requiredFailed.join(", ")}`;
   if (!state.requiredCreatedTimesValid)
     return "required checks saknar verifierbar created_at från canonical WorkflowRun";
-  if (state.completedSuccess === 0) return "inget lyckat reviewkvitto för live head";
-  if (state.qualifyingPending > 0)
-    return `${state.qualifyingPending} reviewkvitton är fortfarande pending`;
   if (!state.completionTimesValid) return "completed_at saknas för en verifierad check";
   return `merge-ready-beviset är ogiltigt: ${freshnessReason}`;
+}
+
+export function gateSuccessReason(state) {
+  if ((state?.completedSuccess ?? 0) > 0) {
+    return "quality och qualifying reviewkvitto på live head";
+  }
+  return "quality på live head; reviewkvitto saknas eller hoppades över (noterat, blockerar inte)";
 }
 
 export async function runTrustedGate({
@@ -1594,12 +1599,14 @@ export async function runTrustedGate({
           confirmationState.requiredDone &&
           !hasBaseInvalidation(confirmationRawRuns, headSha)
         ) {
-          const reason = "quality och qualifying bugbot på live head";
+          const reason = gateSuccessReason(confirmationState);
           await completeGateCheck(
             client,
             gate.id,
             "success",
-            "Quality och bugbot godkända",
+            confirmationState.completedSuccess > 0
+              ? "Quality godkänd; reviewkvitto noterat"
+              : "Quality godkänd; reviewkvitto noterat som saknat",
             `${reason}. merge:ready krävs bara för merge:execute, inte för review-window.`,
             now(),
           );

@@ -93,9 +93,12 @@ aktuell head och base-refens levande tip via GitHub. Båda måste matcha
 kommentaren, compare/merge-base måste visa att head innehåller base-tipen och
 kommentaren måste komma från PR-författaren eller en mänsklig repo-collaborator.
 Först därefter kan `merge:execute` köras. Den head-bundna required checken
-`review-window` blir grön när quality och qualifying reviewkvitto är klara;
-orchestrator-jobbet som publicerar checken ska inte själv bli rött bara för att
-kvittot fortfarande saknas.
+`review-window` blir grön när quality och övriga required checks är klara.
+Ett Cursor-/Codex-/bugbot-kvitto noteras om det finns, men saknat, hoppat eller
+404:at Cloud Agent-kvitto blockerar inte. Orchestrator-jobbet
+`trusted-review-window` är inte required checken — en avbruten körning av det
+jobbet ska inte läsas som röd grind. `bugkoll:` i `merge:ready` är den
+mänskliga noteringen.
 
 När den är grön postar en mänsklig `OWNER`, `MEMBER` eller `COLLABORATOR` den
 slutliga kommandoraden (PR-författarskap ensamt ger inte merge-mandat):
