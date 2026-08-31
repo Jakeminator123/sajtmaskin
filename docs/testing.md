@@ -13,6 +13,27 @@ CI eller `verify:pr`. Ovanpå den finns två smalare lanes:
 | DB-backad  | `npm run test:postgres`  | `*.postgres.test.ts`     | **Ja** (steg i `quality`) |
 
 Den fulla sviten körs **utan databas**, med flit — se `test:postgres` nedan.
+Äkta nätverksprober hör till stabilitets-lanen och får inte ligga i den blockerande
+`test:ci`: externa hostar, DNS och rate limits är inte deterministiska kodkontrakt.
+
+## Lokal runtime och beroenden
+
+- `.node-version` är exakt runtimekontrakt: **Node 22.23.1**. `verify:pr` och
+  `test:ci` stoppar nu före teststart om en annan Node körs, i stället för att
+  producera tusentals missvisande följdfel. Använd Volta eller nvm-windows.
+- Kör `npm ci` efter checkout eller ändrad lockfile.
+- `test:ci` rensar injicerade runtime-credentials (AI, Redis, Postgres, Vercel
+  m.fl.) innan varje testfil. Tester som verifierar en integration sätter egna
+  sentinelvärden; live- och DB-kontroller hör till sina separata lanes.
+- Embeddings som `embeddings:ensure` har synkat läses från den lokala cachen i
+  test/dev. Endast en cache-miss får falla vidare till Blob/public URL.
+- `npm run backoffice:test` och `npm run backoffice` skapar automatiskt en
+  gitignorerad `.venv` och installerar `requirements.backoffice.txt` när den
+  saknas eller har ändrats. `SAJTMASKIN_PYTHON` fortsätter vara ett uttryckligt
+  alternativ för en redan hanterad interpreter.
+- I GitHub Actions installeras Node och Python fortfarande explicit i respektive
+  jobb. Bootstrap-skriptet verifierar då installationen men skapar ingen extra
+  CI-venv.
 
 ## Vilka CI-jobb blockerar faktiskt merge
 
@@ -23,17 +44,17 @@ repots avsedda kontrakt och en historisk snapshot (verifierad mot rulesetet `Pro
 mergeagenten måste därför live-verifiera aktuellt ruleset och checks för exakt head-SHA före
 varje merge; snapshoten nedan är aldrig ensam mergeauktoritet.
 
-| Jobb                          | Failar hårt?                              | Required (blockerar merge)?                                  |
-| ----------------------------- | ----------------------------------------- | ------------------------------------------------------------ |
-| `quality`                     | Ja                                        | **Ja**                                                       |
-| `backoffice-tests`            | Ja                                        | **Ja**                                                       |
-| `schema-drift`                | Ja                                        | **Ja**                                                       |
+| Jobb                          | Failar hårt?                                                                         | Required (blockerar merge)?                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `quality`                     | Ja                                                                                   | **Ja**                                                       |
+| `backoffice-tests`            | Ja                                                                                   | **Ja**                                                       |
+| `schema-drift`                | Ja                                                                                   | **Ja**                                                       |
 | `review-window`               | Checken kan bli `action_required` vid väntan; orchestrator-jobbet ska då sluta grönt | **Ja** — det är checken, inte jobbets exitkod, som blockerar |
-| `build`                       | Ja                                        | **Ja** — tillagd i rulesetet 2026-07-30 (#660)               |
-| `preview-host-guards`         | Ja                                        | **Ja, via `quality`-aggregatet**                             |
-| `dead-code` (orphan-filgrind) | Ja                                        | **Ja, via `quality`-aggregatet**                             |
-| `db-blob-sync`                | Ja                                        | Nej — och på PR körs den utan credentials (ren script-smoke) |
-| `stability`                   | Nej (`continue-on-error`)                 | Nej                                                          |
+| `build`                       | Ja                                                                                   | **Ja** — tillagd i rulesetet 2026-07-30 (#660)               |
+| `preview-host-guards`         | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
+| `dead-code` (orphan-filgrind) | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
+| `db-blob-sync`                | Ja                                                                                   | Nej — och på PR körs den utan credentials (ren script-smoke) |
+| `stability`                   | Nej (`continue-on-error`)                                                            | Nej                                                          |
 
 `db-blob-sync` är fortsatt en separat, icke-required hård kontroll. Preview-host och
 orphan-filgrinden är däremot transitivt blockerande eftersom den required checken
@@ -53,13 +74,13 @@ env-hanteringen, inte ett skäl att ge jobbet credentials.
 
 ## `test:stability` — stabilitets-lane
 
-En liten, snabb lane som låser **större buggar och UX-invarianter** — inte en bred
-regressionssvit. Den kör två saker, i ordning:
+En liten lane som bevakar **större buggar, UX-invarianter och externa live-smokes**
+utan att göra externa tjänster till mergeauktoritet. Den kör två saker, i ordning:
 
 1. `npm run db:schema-drift` — deterministisk, nyckelfri (kräver ingen DB) gate som låser att
    avsett schema (`src/lib/db/schema.ts`) matchar applicerat (`db-init` + migrations).
 2. Kuraterade stabilitetstester via egen vitest-config ([`vitest.stability.config.ts`](../vitest.stability.config.ts)):
-   filer som heter `*.stability.test.ts(x)`.
+   filer som heter `*.stability.test.ts(x)`, inklusive live-prober mot externa register.
 
 Lanen kör grönt även med **noll** stabilitetstester (`--passWithNoTests`). Testfallen läggs
 in efter hand (t.ex. aktivitet S2/S3) och varje fall ska peka på sin källa (se

@@ -16,10 +16,16 @@
  */
 import { spawnSync } from "node:child_process";
 
+import { evaluateRepositoryNodeVersion } from "./check-node-version.mjs";
+
+const nodeRuntime = evaluateRepositoryNodeVersion();
+if (!nodeRuntime.valid) {
+  console.error(`[predev] STOPP: ${nodeRuntime.reason}`);
+  process.exit(1);
+}
+
 if (process.env.SKIP_PREDEV) {
-  console.log(
-    "[predev] SKIP_PREDEV satt - hoppar over preflight/db/token (snabb iteration)",
-  );
+  console.log("[predev] SKIP_PREDEV satt - hoppar over preflight/db/token (snabb iteration)");
   process.exit(0);
 }
 

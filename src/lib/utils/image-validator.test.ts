@@ -92,8 +92,7 @@ describe("validateImages", () => {
   it("applies known dead Unsplash replacements without network calls", () => {
     const deadUrl =
       "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop";
-    const replacementUrl =
-      "https://images.unsplash.com/photo-1647164789794?w=1200&h=800&fit=crop";
+    const replacementUrl = "https://images.unsplash.com/photo-1647164789794?w=1200&h=800&fit=crop";
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     const result = applyKnownImageReplacementsToFiles(
@@ -161,9 +160,7 @@ describe("validateImages", () => {
     });
 
     it("does NOT persist a placeholder fallback for transient failures", () => {
-      const map = buildKnownImageReplacementMap([
-        brokenEntry("error", { replacementUrl: null }),
-      ]);
+      const map = buildKnownImageReplacementMap([brokenEntry("error", { replacementUrl: null })]);
       expect(map).toEqual({});
     });
   });
@@ -187,9 +184,7 @@ describe("validateImages", () => {
       capped[
         `https://images.unsplash.com/photo-dead-${KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES}?w=800`
       ],
-    ).toBe(
-      `https://images.unsplash.com/photo-live-${KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES}?w=800`,
-    );
+    ).toBe(`https://images.unsplash.com/photo-live-${KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES}?w=800`);
   });
 
   it("adds duplicate_alt warning for repeated descriptive alt texts", async () => {
@@ -213,10 +208,7 @@ describe("validateImages", () => {
       files,
       autoFix: false,
       unsplashAccessKey: null,
-      skipUrls: new Set([
-        "https://cdn.example.com/a.jpg",
-        "https://cdn.example.com/b.jpg",
-      ]),
+      skipUrls: new Set(["https://cdn.example.com/a.jpg", "https://cdn.example.com/b.jpg"]),
     });
 
     expect(result.warnings).toContain(
@@ -354,6 +346,9 @@ describe("validateImages", () => {
   // karta. En platshållare är en degradering, inte en lagad bild, och
   // varningstexten måste säga det.
   it("kallar en platshållare för en platshållare, inte en 'tillgänglig ersättning'", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("reserved .invalid URL must not hit the network"));
     const files: TextFile[] = [
       {
         name: "app/page.tsx",
@@ -375,6 +370,8 @@ describe("validateImages", () => {
     expect(result.warnings).not.toContain(
       "Ersatte 1 trasig(a) bild-URL:er med tillgängliga ersättningar.",
     );
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 
   // SM-063: generatorn skriver rot-relativa src mot assets som aldrig
@@ -456,9 +453,7 @@ describe("validateImages", () => {
 
       expect(result.replacedCount).toBe(1);
       expect(result.broken[0]?.url).toBe("/images/hero-sky.jpg?v=2");
-      expect(result.files[0]?.content).toContain(
-        "/api/placeholder?w=1200&h=800&label=Himmel",
-      );
+      expect(result.files[0]?.content).toContain("/api/placeholder?w=1200&h=800&label=Himmel");
       expect(result.files[0]?.content).not.toContain("/images/hero-sky.jpg");
       expect(result.files[0]?.content).not.toMatch(/\/api\/placeholder\?[^"']*\?v=2/);
     });
@@ -506,12 +501,8 @@ describe("validateImages", () => {
       });
 
       expect(result.replacedCount).toBe(2);
-      expect(result.files[0]?.content).toContain(
-        "/api/placeholder?w=1200&h=800&label=Bar",
-      );
-      expect(result.files[0]?.content).toContain(
-        "/api/placeholder?w=1200&h=800&label=Versionerad",
-      );
+      expect(result.files[0]?.content).toContain("/api/placeholder?w=1200&h=800&label=Bar");
+      expect(result.files[0]?.content).toContain("/api/placeholder?w=1200&h=800&label=Versionerad");
       expect(result.files[0]?.content).not.toContain("/images/hero-sky.jpg");
       expect(result.files[0]?.content).not.toMatch(/\/api\/placeholder\?[^"']*\?v=2/);
     });
@@ -536,12 +527,8 @@ describe("validateImages", () => {
 
       const hero = result.files.find((file) => file.name === "components/hero.tsx");
       const footer = result.files.find((file) => file.name === "components/footer.tsx");
-      expect(hero?.content).toContain(
-        "/api/placeholder?w=1200&h=800&label=Solnedg%C3%A5ng",
-      );
-      expect(footer?.content).toContain(
-        "/api/placeholder?w=1200&h=800&label=Logotyp",
-      );
+      expect(hero?.content).toContain("/api/placeholder?w=1200&h=800&label=Solnedg%C3%A5ng");
+      expect(footer?.content).toContain("/api/placeholder?w=1200&h=800&label=Logotyp");
       expect(hero?.content).not.toContain("Logotyp");
       expect(footer?.content).not.toContain("Solnedg");
     });

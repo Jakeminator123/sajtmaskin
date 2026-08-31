@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("./data/shadcn-ui-recipes", () => ({
+  resolveShadcnUiRecipes: vi.fn(async () => []),
+}));
+
 vi.mock("./system-prompt", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./system-prompt")>();
   return {

@@ -11,6 +11,10 @@
  * per-test mock) always wins.
  */
 
+import { scrubHermeticTestEnv } from "./scripts/dev/hermetic-test-env";
+
+scrubHermeticTestEnv();
+
 class NoopObserver {
   observe(): void {}
   unobserve(): void {}
@@ -25,8 +29,7 @@ if (typeof globalThis.ResizeObserver === "undefined") {
 }
 
 if (typeof globalThis.IntersectionObserver === "undefined") {
-  globalThis.IntersectionObserver =
-    NoopObserver as unknown as typeof IntersectionObserver;
+  globalThis.IntersectionObserver = NoopObserver as unknown as typeof IntersectionObserver;
 }
 
 if (typeof Element !== "undefined") {

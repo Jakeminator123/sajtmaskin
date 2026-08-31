@@ -366,8 +366,24 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (String(pkg.scripts?.["test:ci"] ?? "").includes("godnatt")) {
     errors.push("test:ci must not invoke godnatt-bugg; keep that command on-demand");
   }
+  if (pkg.scripts?.["pretest:ci"] !== "npm run node:check" || !pkg.scripts?.["node:check"]) {
+    errors.push("test:ci must fail fast through the exact .node-version contract");
+  }
+  if (
+    !String(pkg.scripts?.["prebackoffice:test"] ?? "").includes("python:backoffice:ensure") ||
+    !pkg.scripts?.["python:backoffice:ensure"]
+  ) {
+    errors.push("backoffice:test must bootstrap the declared local Python environment");
+  }
   if (!pkg.scripts?.["test:godnatt-bugg"]) {
     errors.push("test:godnatt-bugg command missing in package.json");
+  }
+  if (!String(pkg.scripts?.["provision:warm-cache"] ?? "").startsWith("node --import tsx")) {
+    errors.push("warm-cache provisioning must avoid the tsx CLI IPC server");
+  }
+  const vitestSetup = read(root, "vitest.setup.ts");
+  if (!vitestSetup.includes("scrubHermeticTestEnv()")) {
+    errors.push("test:ci must scrub injected runtime credentials in Vitest setup");
   }
 
   const schemas = json(root, "config/control-plane/schema-registry.json").entries;

@@ -45,6 +45,10 @@ vi.mock("../scaffold-variants", async (importOriginal) => {
   };
 });
 
+vi.mock("../data/shadcn-ui-recipes", () => ({
+  resolveShadcnUiRecipes: vi.fn(async () => []),
+}));
+
 import {
   finalizeOrchestrationPrompts,
   shouldResolveVariantTemplateInspiration,

@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("./data/shadcn-ui-recipes", () => ({
+  resolveShadcnUiRecipes: vi.fn(async () => []),
+}));
 
 import { resolveOrchestrationBase } from "./orchestrate";
 import type { InferredCapabilities } from "./capability-inference";

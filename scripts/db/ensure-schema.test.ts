@@ -26,9 +26,10 @@ describe("decideSchemaAction", () => {
   it("only reports — never applies — in check-only mode", () => {
     // The dev-start guard runs fire-and-forget in the background; it must stay
     // read-only so DDL keeps coming from explicit entry points only.
-    expect(
-      decideSchemaAction({ pending: ["add-llm-usage.sql"], checkOnly: true }),
-    ).toEqual({ action: "report", inSync: false });
+    expect(decideSchemaAction({ pending: ["add-llm-usage.sql"], checkOnly: true })).toEqual({
+      action: "report",
+      inSync: false,
+    });
   });
 
   it("does not treat check-only mode as in sync when migrations are missing", () => {
@@ -89,7 +90,7 @@ describe("ensure-schema CLI", () => {
    * Keeps the test hermetic — it must not touch the real dev database.
    */
   function runWithoutConnection(args: string[]) {
-    const env: NodeJS.ProcessEnv = { ...process.env };
+    const env: NodeJS.ProcessEnv = { ...process.env, NODE_NO_WARNINGS: "1" };
     for (const k of CONNECTION_KEYS) delete env[k];
     const dir = mkdtempSync(join(tmpdir(), "ensure-schema-"));
     try {

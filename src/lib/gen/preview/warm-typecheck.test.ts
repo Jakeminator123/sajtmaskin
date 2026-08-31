@@ -187,13 +187,16 @@ describe("runPreVmTypecheck against a real provisioned warm cache", () => {
   beforeAll(() => {
     cacheRoot = mkdtempSync(join(tmpdir(), "warm-typecheck-e2e-"));
     cacheDir = join(cacheRoot, SCAFFOLD_ID);
-    const provision = spawnSync("npx", ["tsx", "scripts/provision-warm-cache.ts"], {
-      cwd: process.cwd(),
-      encoding: "utf8",
-      shell: process.platform === "win32",
-      timeout: 180_000,
-      env: { ...process.env, SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT: cacheRoot },
-    });
+    const provision = spawnSync(
+      process.execPath,
+      ["--import", "tsx", "scripts/provision-warm-cache.ts"],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        timeout: 180_000,
+        env: { ...process.env, SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT: cacheRoot },
+      },
+    );
     if (provision.status !== 0) {
       throw new Error(
         `provision-warm-cache failed (exit ${provision.status}): ${provision.stderr || provision.stdout}`,

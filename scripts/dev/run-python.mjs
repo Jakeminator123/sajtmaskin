@@ -14,41 +14,19 @@
  * interpreter (e.g. a virtualenv).
  */
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import process from "node:process";
 
-const FORCED = process.env.SAJTMASKIN_PYTHON?.trim();
+import { pythonCandidates, resolvePython } from "./python-runtime.mjs";
 
-const CANDIDATES = FORCED
-  ? [{ command: FORCED, args: [] }]
-  : [
-      { command: "python3", args: [] },
-      { command: "python", args: [] },
-      ...(process.platform === "win32"
-        ? [
-            { command: "py", args: ["-3"] },
-            { command: "py", args: [] },
-          ]
-        : []),
-    ];
-
-function probe(candidate) {
-  try {
-    const result = spawnSync(
-      candidate.command,
-      [...candidate.args, "-c", "import sys; sys.exit(0 if sys.version_info[0] >= 3 else 1)"],
-      { stdio: "ignore", windowsHide: true },
-    );
-    return result.status === 0;
-  } catch {
-    return false;
-  }
-}
-
-const interpreter = CANDIDATES.find(probe);
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const candidates = pythonCandidates({ root: REPO_ROOT });
+const interpreter = resolvePython({ root: REPO_ROOT });
 
 if (!interpreter) {
-  const tried = CANDIDATES.map((c) => [c.command, ...c.args].join(" ")).join(", ");
+  const tried = candidates.map((c) => [c.command, ...c.args].join(" ")).join(", ");
   console.error(
     `[run-python] No Python 3 interpreter found. Tried: ${tried}.\n` +
       `Install Python 3 or set SAJTMASKIN_PYTHON to an absolute path.`,

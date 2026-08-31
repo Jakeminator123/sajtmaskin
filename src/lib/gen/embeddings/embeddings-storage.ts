@@ -36,8 +36,7 @@ export const EMBEDDINGS_GIT_TRACKED_FORBIDDEN_PATHS: readonly string[] = Object.
   EMBEDDINGS_ARTIFACTS,
 ).map((a) => a.localRelPath.replace(/\\/g, "/"));
 
-export const EMBEDDINGS_BLOB_MANIFEST_REL =
-  "config/embeddings-blob-manifest.json";
+export const EMBEDDINGS_BLOB_MANIFEST_REL = "config/embeddings-blob-manifest.json";
 
 export type EmbeddingsStorageMode = "blob" | "local";
 
@@ -84,6 +83,10 @@ export function getBlobReadWriteToken(): string | null {
 
 export function resolveEmbeddingsStorageMode(): EmbeddingsStorageMode {
   return getBlobReadWriteToken() ? "blob" : "local";
+}
+
+export function prefersLocalEmbeddingsCache(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.NODE_ENV === "test" || !env.VERCEL;
 }
 
 function canWriteLocalCache(): boolean {
@@ -180,7 +183,8 @@ async function loadFromPublicManifest(id: EmbeddingsArtifactId): Promise<unknown
 }
 
 /**
- * Load an embeddings artifact: memory → Blob API → public manifest URL → local cache.
+ * Load an embeddings artifact. Tests and local development prefer the cache
+ * populated by `embeddings:ensure`; deployed Vercel runtimes prefer Blob.
  */
 export async function loadEmbeddingsArtifact(id: EmbeddingsArtifactId): Promise<unknown | null> {
   const cached = memoryCache.get(id);
@@ -190,9 +194,11 @@ export async function loadEmbeddingsArtifact(id: EmbeddingsArtifactId): Promise<
   if (existing) return existing;
 
   const loadPromise = (async (): Promise<unknown | null> => {
-    let data: unknown | null = await loadFromBlobProvider(id);
+    const localFirst = prefersLocalEmbeddingsCache();
+    let data: unknown | null = localFirst ? await loadFromLocal(id) : null;
+    if (data == null) data = await loadFromBlobProvider(id);
     if (data == null) data = await loadFromPublicManifest(id);
-    if (data == null) data = await loadFromLocal(id);
+    if (data == null && !localFirst) data = await loadFromLocal(id);
     if (data != null) memoryCache.set(id, { data });
     return data;
   })();
@@ -223,8 +229,7 @@ export async function saveEmbeddingsArtifact(
   data: unknown,
 ): Promise<SaveEmbeddingsResult> {
   const compactBody = JSON.stringify(data);
-  const localBody =
-    id === "template" ? compactBody : `${JSON.stringify(data, null, 2)}\n`;
+  const localBody = id === "template" ? compactBody : `${JSON.stringify(data, null, 2)}\n`;
 
   let blobUrl: string | undefined;
   let localPath: string | undefined;

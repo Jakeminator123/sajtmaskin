@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { evaluateRepositoryNodeVersion } from "../dev/check-node-version.mjs";
 import { collectImpact, loadWorkflowInputs, parseGitNameStatus } from "./path-impact.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -167,6 +168,11 @@ async function main() {
     return;
   }
   if (options.plan) return;
+
+  const nodeRuntime = evaluateRepositoryNodeVersion({ root: REPO_ROOT });
+  if (!nodeRuntime.valid) {
+    throw new Error(`${nodeRuntime.reason} Ingen testsvit startades med fel runtime.`);
+  }
 
   const failures = [];
   const diffCheck = git(["diff", "--check", base], { allowFailure: true, inherit: true });

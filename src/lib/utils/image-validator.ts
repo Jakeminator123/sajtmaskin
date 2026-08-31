@@ -73,8 +73,7 @@ export const KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES = 50;
  * incoming batch in the same UPDATE. JSONB does not preserve insertion
  * order, so exact FIFO in the DB is not the goal — a bounded column is.
  */
-export const KNOWN_IMAGE_REPLACEMENTS_DB_HARD_CEILING =
-  KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES * 2;
+export const KNOWN_IMAGE_REPLACEMENTS_DB_HARD_CEILING = KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES * 2;
 
 export type KnownImageReplacementMap = Record<string, string>;
 
@@ -114,9 +113,7 @@ export function isDefinitivelyDeadImageStatus(status: number | "error"): boolean
   return status === 404 || status === 410;
 }
 
-export function buildKnownImageReplacementMap(
-  broken: BrokenImage[],
-): KnownImageReplacementMap {
+export function buildKnownImageReplacementMap(broken: BrokenImage[]): KnownImageReplacementMap {
   const out: KnownImageReplacementMap = {};
   for (const entry of broken) {
     if (!isDefinitivelyDeadImageStatus(entry.status)) continue;
@@ -125,8 +122,7 @@ export function buildKnownImageReplacementMap(
     // `buildPlaceholderReplacementUrl(alt)` while leaving `replacementUrl`
     // null. Persist that same mapping so the heal path stays consistent
     // with what was actually written to the files.
-    const replacementUrl =
-      entry.replacementUrl ?? buildPlaceholderReplacementUrl(entry.alt);
+    const replacementUrl = entry.replacementUrl ?? buildPlaceholderReplacementUrl(entry.alt);
     if (replacementUrl === entry.url) continue;
     if (!isExternalImageUrl(entry.url)) continue;
     if (!isPersistableImageReplacementUrl(replacementUrl)) continue;
@@ -448,13 +444,8 @@ async function headCheck(url: string): Promise<number | "error"> {
  * Runs checks in parallel with a concurrency limit.
  * @param skipUrls URLs known to be valid (e.g. freshly materialized from Unsplash)
  */
-async function findBrokenImages(
-  refs: ImageRef[],
-  skipUrls?: Set<string>,
-): Promise<BrokenImage[]> {
-  const refsToCheck = skipUrls?.size
-    ? refs.filter((ref) => !skipUrls.has(ref.url))
-    : refs;
+async function findBrokenImages(refs: ImageRef[], skipUrls?: Set<string>): Promise<BrokenImage[]> {
+  const refsToCheck = skipUrls?.size ? refs.filter((ref) => !skipUrls.has(ref.url)) : refs;
 
   const broken: BrokenImage[] = [];
 
@@ -469,6 +460,17 @@ async function findBrokenImages(
         alt: ref.alt,
         file: ref.file,
         status: 410,
+        replacementUrl: null,
+      });
+    } else if (isReservedInvalidUrl(ref.url)) {
+      // `.invalid` is a reserved, guaranteed-nonresolving TLD. Generated
+      // fixtures and fallback URLs using it are deterministically broken;
+      // a DNS/HEAD round-trip can only add latency and flakiness.
+      broken.push({
+        url: ref.url,
+        alt: ref.alt,
+        file: ref.file,
+        status: 404,
         replacementUrl: null,
       });
     } else {
@@ -530,6 +532,15 @@ function isUnsplashUrl(url: string): boolean {
 function isDeadUnsplashSourceUrl(url: string): boolean {
   try {
     return new URL(url).hostname === "source.unsplash.com";
+  } catch {
+    return false;
+  }
+}
+
+function isReservedInvalidUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname === "invalid" || hostname.endsWith(".invalid");
   } catch {
     return false;
   }
@@ -768,9 +779,7 @@ export async function validateImages(params: {
 
   const unreplaceable = broken.filter((b) => !b.replacementUrl);
   for (const entry of unreplaceable) {
-    warnings.push(
-      `Trasig bild i ${entry.file}: ${entry.alt || entry.url} (${entry.status})`,
-    );
+    warnings.push(`Trasig bild i ${entry.file}: ${entry.alt || entry.url} (${entry.status})`);
   }
 
   const total = refs.length + danglingBroken.length;
