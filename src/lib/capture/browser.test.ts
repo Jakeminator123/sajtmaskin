@@ -237,6 +237,45 @@ describe("launchCaptureBrowser", () => {
     expect(fs.existsSync(almostDir)).toBe(true);
   });
 
+  it("försöker igen exakt en gång när launchen kastar transient (SM-025-flake)", async () => {
+    // Prod 2026-08-27: samma deployment lanserade lyckat 2 min tidigare, men
+    // nästa launch dog och hela postchecken skippades som playwright_unavailable.
+    // En transient spawnflake ska kosta ett omförsök, inte DOM-kontrollen.
+    delete process.env.VERCEL;
+    localLaunch.mockRejectedValueOnce(new Error("browserType.launch: spawn failure"));
+    localLaunch.mockResolvedValueOnce({ id: "local", close: async () => undefined });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(localLaunch).toHaveBeenCalledTimes(2);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[capture-browser] launch failed, retrying once"),
+    );
+    warnSpy.mockRestore();
+  }, 15_000);
+
+  it("kastar andra felet vidare och släpper gaten när även omförsöket faller", async () => {
+    // Deterministiska fel (saknad binär) ska inte maskeras — och en död launch
+    // får inte lämna mutexen låst för nästa capture.
+    delete process.env.VERCEL;
+    localLaunch.mockRejectedValueOnce(new Error("first spawn failure"));
+    localLaunch.mockRejectedValueOnce(new Error("second spawn failure"));
+    localLaunch.mockResolvedValueOnce({ id: "local", close: async () => undefined });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    await expect(launchCaptureBrowser()).rejects.toThrow("second spawn failure");
+
+    // Gaten är släppt: en efterföljande launch går igenom utan att fastna.
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+    expect(localLaunch).toHaveBeenCalledTimes(3);
+    warnSpy.mockRestore();
+  }, 15_000);
+
   it("låter serverless-launch fortsätta när profilsvepet kastar", async () => {
     process.env.VERCEL = "1";
     sparticuzLaunch.mockResolvedValue({
