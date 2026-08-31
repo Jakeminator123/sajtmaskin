@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 import { fetchPreviewStatus } from "@/lib/builder/preview-session/api";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
 import {
@@ -60,6 +67,18 @@ export function usePreviewIframe(params: {
 
   const internalIframeRef = useRef<HTMLIFrameElement | null>(null);
   const iframeRef = externalIframeRef ?? internalIframeRef;
+  // Rotorsak prod 2026-08-31 (chattar 18e55beb, 757d2def): callbacken kom via
+  // en inline-funktion i sidkontrollern och bytte identitet på varje render.
+  // Identiteten kaskadade genom failTier2Ready → startTier2StatusPolling →
+  // huvudeffekten, som då startade om kvitto-kedjan på VARJE builder-render —
+  // varje omstart avbröt den pågående /preview-status-frågan (kancellerings-
+  // stormen i DevTools), "running"-kvittot observerades aldrig, och en frisk
+  // sajt dömdes ut med preview_ready_timeout efter 98 s. Callbacken hålls
+  // därför i en ref: förälderns render-brus kan aldrig mer riva kedjan.
+  const onPreviewSessionSuspectRef = useRef(onPreviewSessionSuspect);
+  useLayoutEffect(() => {
+    onPreviewSessionSuspectRef.current = onPreviewSessionSuspect;
+  }, [onPreviewSessionSuspect]);
   const previewReadyTimerRef = useRef<number | null>(null);
   const tier2LoadTimerRef = useRef<number | null>(null);
   const tier2StatusPollTimerRef = useRef<number | null>(null);
@@ -125,10 +144,10 @@ export function usePreviewIframe(params: {
       setIframeErrorMessage(describePreviewDiagnosticCode("preview_ready_timeout"));
       if (tier2RecoveryRequestedIdentityRef.current !== identity) {
         tier2RecoveryRequestedIdentityRef.current = identity;
-        onPreviewSessionSuspect?.();
+        onPreviewSessionSuspectRef.current?.();
       }
     },
-    [onPreviewSessionSuspect, stopTier2StatusPolling],
+    [stopTier2StatusPolling],
   );
 
   const startTier2ReadyReload = useCallback(
@@ -220,7 +239,7 @@ export function usePreviewIframe(params: {
           // terminal receipt every four seconds.
           stopTier2StatusPolling();
           tier2RecoveryRequestedIdentityRef.current = identity;
-          onPreviewSessionSuspect?.();
+          onPreviewSessionSuspectRef.current?.();
           return;
         }
 
@@ -232,7 +251,7 @@ export function usePreviewIframe(params: {
 
       void pollStatus();
     },
-    [onPreviewSessionSuspect, startTier2ReadyReload, stopTier2StatusPolling],
+    [startTier2ReadyReload, stopTier2StatusPolling],
   );
 
   const queueTier2LateRecoveryPolling = useCallback(
@@ -575,7 +594,7 @@ export function usePreviewIframe(params: {
           setIframeErrorMessage(describePreviewDiagnosticCode("preview_ready_timeout"));
           clearPreviewReadyTimer();
           if (previewUrl && isTier2LivePreviewUrl(previewUrl)) {
-            onPreviewSessionSuspect?.();
+            onPreviewSessionSuspectRef.current?.();
           }
           reportOwnEngineRenderFailure({
             message: `Preview remained blank after waiting ${PREVIEW_READY_TIMEOUT_MS}ms.`,
@@ -610,7 +629,6 @@ export function usePreviewIframe(params: {
     activePreviewSessionId,
     activePreviewLifecycleToken,
     isOwnEnginePreview,
-    onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
     iframeRef,
     settleTier2Ready,

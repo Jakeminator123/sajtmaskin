@@ -110,6 +110,47 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
   });
 
+  it("river inte kvitto-kedjan när föräldern re-renderar med nya callback-identiteter", async () => {
+    // Prod 2026-08-31 (chattar 18e55beb, 757d2def): en inline-callback i
+    // sidkontrollern bytte identitet varje render, huvudeffekten startade om
+    // på varje builder-render och avbröt varje pågående /preview-status-fråga
+    // — "running"-kvittot sågs aldrig och frisk sajt dömdes ut på timeout.
+    let resolveStatus!: (value: PreviewStatusApiJson) => void;
+    fetchPreviewStatus.mockImplementation(
+      () => new Promise<PreviewStatusApiJson>((resolve) => (resolveStatus = resolve)),
+    );
+    const iframeRef = makeIframeRef();
+    const { result, rerender } = renderHook(
+      (props: Parameters<typeof usePreviewIframe>[0]) => usePreviewIframe(props),
+      { initialProps: makeParams({ iframeRef }) },
+    );
+
+    await act(async () => {
+      result.current.handleIframeLoad();
+      await Promise.resolve();
+    });
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(1);
+    const { signal } = fetchPreviewStatus.mock.calls[0][0] as { signal: AbortSignal };
+    expect(signal.aborted).toBe(false);
+
+    // Samma preview-identitet, men helt nya funktions-identiteter — exakt vad
+    // varje builder-render producerade före fixen.
+    rerender(makeParams({ iframeRef }));
+    rerender(makeParams({ iframeRef }));
+
+    expect(signal.aborted).toBe(false);
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(1);
+
+    // Kedjan fullföljer: running-kvitto → ready-reload → onLoad → settle.
+    await act(async () => {
+      resolveStatus(status("running"));
+      await Promise.resolve();
+    });
+    act(() => result.current.handleIframeLoad());
+    expect(result.current.iframeLoading).toBe(false);
+    expect(result.current.iframeError).toBe(false);
+  });
+
   it("starts the gate when version and session metadata arrive after the iframe loaded", async () => {
     fetchPreviewStatus.mockResolvedValue(status("running"));
     const iframeRef = makeIframeRef();
