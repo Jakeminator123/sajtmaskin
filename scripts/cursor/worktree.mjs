@@ -2,16 +2,14 @@
 /**
  * scripts/cursor/worktree.mjs
  *
- * Safe create/remove for agent worktrees that share `node_modules` with the
- * main checkout via a Windows junction.
+ * Safe create/remove for optional agent worktrees.
  *
- * Why this exists: a fresh worktree has no `node_modules`, and `npm ci` costs
- * minutes, so the fast path is a junction to the main checkout's copy. But
- * `git worktree remove --force` deletes the worktree directory recursively and
- * **follows the junction**, emptying the link's target — the main checkout's
- * real `node_modules`. The failure surfaces much later, somewhere unrelated, as
- * `ERR_MODULE_NOT_FOUND: Cannot find package 'dotenv'`, which reads like a
- * broken repo rather than a cleanup that went wrong. It happened 2026-07-27.
+ * Default setup copies env/mcp files and does NOT junction `node_modules`.
+ * A shared junction breaks Vitest on Windows (fork workers + chdir). If you
+ * still want the old speed hack, run `worktree:link` explicitly.
+ *
+ * `git worktree remove` follows an existing junction and can empty the main
+ * checkout's real `node_modules`. Always tear down with `worktree:remove`.
  *
  * The ordering that avoids it — unlink first, then remove the worktree — is
  * easy to get wrong by hand and impossible to notice when you do. This script
@@ -563,13 +561,18 @@ function syncMcpAndWarn(mainWorktree, worktreePath) {
   }
 
   console.log(
-    "[worktree] IMPORTANT: tear this worktree down with `npm run worktree:remove -- <path>`, " +
-      "never a bare `git worktree remove` — that follows the junction and empties the shared node_modules.",
+    "[worktree] Kör `npm ci` i worktreet om du ska köra tester där. " +
+      "Junctiona inte node_modules — det sabbar Vitest. " +
+      "Ta bort worktreet med `npm run worktree:remove -- <path>`.",
   );
 }
 
 function commandLink(targetPath) {
   const { worktreePath, mainWorktree } = resolveSecondaryWorktree(targetPath);
+  console.warn(
+    "[worktree] worktree:link junctionar node_modules. Vitest i den här ytan blir opålitlig. " +
+      "Föredra `npm ci` i worktreet.",
+  );
   linkNodeModules(worktreePath, mainWorktree, { skipExisting: false });
   syncMcpAndWarn(mainWorktree, worktreePath);
 }
@@ -587,7 +590,6 @@ function commandSetup(targetPath) {
   for (const rel of copied.skipped) {
     console.log(`[worktree] skipped ${rel} — missing in main checkout`);
   }
-  linkNodeModules(worktreePath, mainWorktree, { skipExisting: true });
   syncMcpAndWarn(mainWorktree, worktreePath);
 }
 

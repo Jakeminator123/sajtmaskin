@@ -1,58 +1,25 @@
 ---
-description: "Delat working tree: agenter får inte byta branch i huvudcheckouten. Allt Builder-skrivarbete går i egen worktree och PR."
+description: "Valfria git-worktrees. Läs när du skapar eller tar bort en worktree, eller när flera agenter ska skriva parallellt."
 alwaysApply: false
 ---
 
-# Agent worktree-isolation
+# Worktrees (valfritt)
 
-**Kärnregel:** huvudcheckouten delas av användaren och andra agenter. `git checkout`/`git switch` flyttar HEAD globalt och kan sabotera någon annans arbete.
+Default: jobba i den öppna checkouten. Skapa worktree bara vid parallellt
+arbete eller när Jakob ber om det.
 
-**Rollstyrning:** Scout skapar ingen worktree. Steward skapar ingen för merge
-(`gh` räcker); worktree bara vid konflikt, då från `origin/master`. Builder
-skapar alltid worktree med bas `origin/master`, även för docs/regler. Se
-[`agent-roles.mdc`](agent-roles.mdc) och `config/agent-workflow.json`.
-
-## Förbjudet i huvudcheckouten
-
-- `git checkout <annan-branch>` / `git switch <annan-branch>`
-- `git reset --hard <annan-ref>`
-- lång `rebase` / konfliktfylld merge
-- `git stash pop` utan att först läsa `git stash list`
-- `git add -A` — stage bara **egna** filer (`git add <path>`)
-
-Läsning, `git status/diff/log/fetch`, tester och `git push origin <local>:<remote>` (på begäran) är OK.
-
-## Skrivarbete
-
-Huvudcheckouten är läs-/testankare. Direkt master är ingen normal agentväg.
-
-Egen worktree bredvid repo-roten, aldrig under `.cursor/`:
+Placering: **bredvid** repo-roten, aldrig under `.cursor/`.
 
 ```powershell
-git worktree add ..\sajtmaskin-feat-X -b feat/X origin/master
-npm run worktree:setup -- ..\sajtmaskin-feat-X
+git fetch origin
+git worktree add ..\sajtmaskin-<kort> -b <branch> origin/master
+npm run worktree:setup -- ..\sajtmaskin-<kort>
 ```
 
-Behåll worktreet medan PR:n är öppen och CI/review kan kräva nya commits. Ta
-bort den först efter merge/close och verifierad remote-status, med
-`npm run worktree:remove -- <sökväg>` enligt `pr-workflow` — aldrig rå git-remove.
+`worktree:setup` kopierar env/mcp. Den junctionar **inte** `node_modules` —
+kör `npm ci` i worktreet om du ska testa där. `worktree:link` är en medveten
+genväg som sabbar Vitest; använd den inte.
 
-**Ange alltid basen `origin/master`.** Utan den tar git huvudcheckoutens HEAD _just då_, så branchen ärver vad ägaren eller en annan agent råkar ha committat lokalt men inte pushat. Det hände 2026-08-17: en parallell agents branch fick merge-base `efc2eb89d`, en commit som låg osynligt på lokal master. (Ocommitterat läcker aldrig — `worktree add` checkar ut från en commit, inte från arbetskopian.)
-
-**Junction-fällan:** kör aldrig rå `git worktree remove` på en worktree med junction-länkad `node_modules` — den följer länken och tömmer **huvudcheckoutens** `node_modules`. Att utelämna `--force` skyddar inte: git vägrar bara vid smutsig tree eller **ospårade** filer, och en junctionad `node_modules` är _ignorerad_, alltså osynlig för den kontrollen. Använd `npm run worktree:remove`, som kopplar loss länken först. Hooken `.cursor/hooks/worktree-force-guard.mjs` blockerar båda varianterna.
-
-Flera agenter samtidigt: max **en** git-mutator i huvudcheckouten, övriga i egen worktree. En branch som "försvinner" är oftast redan mergad — verifiera med `git log`/`gh pr view` innan du tror att arbete gått förlorat.
-
-## Codex
-
-Codex har en **egen permanent checkout** — inte huvudcheckouten. Sökväg och
-branch ägs av [`.codex/README.md`](../../.codex/README.md). `codex/workspace`
-är skyddat i `tidy` precis som `rescue/*`. Skriv inte i Cursor-checkouten
-från Codex, och ta inte bort den permanenta Codex-ytan med
-`worktree:remove`.
-
-Recept, återställning och hela bakgrunden: [`docs/runbooks/git-worktree.md`](../../docs/runbooks/git-worktree.md).
-
-## Om regeln brutits
-
-Stoppa. Kör `git status`. Rädda med `git stash push -u -m "rescue-<kort>-<tid>"`. Rapportera branch, stash-namn och ändrade filer.
+Ta bort med `npm run worktree:remove -- <sökväg>`, aldrig rå `git worktree remove`
+(junction-fälla mot huvudcheckoutens `node_modules`). Recept:
+[`docs/runbooks/git-worktree.md`](../../docs/runbooks/git-worktree.md).

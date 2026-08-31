@@ -1,45 +1,12 @@
 {
-  // Öppna denna fil i Cursor (File → Open Workspace from File…).
-  // En rot = huvudcheckouten. Lägg inte till worktrees eller globala Cursor-mappar här.
-  //
-  // Resurs-/mappscopade editor-settings bor i .vscode/settings.json.
-  // Window-scopade TypeScript-/terminalvärden ägs här (annars gula varningar
-  // i .vscode/settings.json, och VS Code ignorerar dem i workspace-läge).
+  // Valfri. Normal öppning: File → Open Folder på repo-roten.
+  // En rot. Lägg inte till fler mappar. Settings ägs av .vscode/settings.json.
   "folders": [
     {
       "name": "sajtmaskin",
       "path": "."
     }
   ],
-  // Window-scope: måste ligga i den här filen, inte i .vscode/settings.json.
-  "settings": {
-    "js/ts.tsserver.experimental.enableProjectDiagnostics": false,
-    "terminal.integrated.defaultProfile.windows": "PowerShell 7 (x64)",
-    "terminal.integrated.profiles.windows": {
-      "PowerShell 7 (x64)": {
-        "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
-        "args": ["-NoLogo"],
-        "icon": "terminal-powershell"
-      },
-      "PowerShell 7": {
-        "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
-        "args": ["-NoLogo"],
-        "icon": "terminal-powershell"
-      },
-      // Dölj Windows PowerShell 5.1 helt. Den saknar `&&` och skriver inte UTF-8.
-      "Windows PowerShell": null
-    },
-    "terminal.integrated.automationProfile.windows": {
-      "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
-      "args": ["-NoLogo", "-NoProfile"]
-    },
-    "terminal.integrated.env.windows": {
-      "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}",
-      "GIT_SSH": "C:\\Windows\\System32\\OpenSSH\\ssh.exe",
-      "GIT_SSH_COMMAND": "C:/Windows/System32/OpenSSH/ssh.exe"
-    },
-    "js/ts.experimental.useTsgo": false
-  },
   "extensions": {
     "recommendations": [
       "dbaeumer.vscode-eslint",

@@ -80,8 +80,34 @@
 
   // ── Git: hämta från origin automatiskt, snabbare än default 180 s ──
   "git.autofetch": true,
-  "git.autofetchPeriod": 120
+  "git.autofetchPeriod": 120,
 
-  // Terminalprofilerna (pwsh 7) är window-scopade och ignoreras härifrån när
-  // repot öppnas via sajtmaskin.code-workspace. De ägs av den filen.
+  // ── Terminal + TS (gäller File → Open Folder) ──
+  // VS Code kan varna att några är window-scopade. De ska ändå ligga här så
+  // Open Folder får pwsh 7, Volta och OpenSSH utan .code-workspace.
+  "js/ts.tsserver.experimental.enableProjectDiagnostics": false,
+  "js/ts.experimental.useTsgo": false,
+  "terminal.integrated.defaultProfile.windows": "PowerShell 7 (x64)",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell 7 (x64)": {
+      "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "args": ["-NoLogo"],
+      "icon": "terminal-powershell"
+    },
+    "PowerShell 7": {
+      "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "args": ["-NoLogo"],
+      "icon": "terminal-powershell"
+    },
+    "Windows PowerShell": null
+  },
+  "terminal.integrated.automationProfile.windows": {
+    "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+    "args": ["-NoLogo", "-NoProfile"]
+  },
+  "terminal.integrated.env.windows": {
+    "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}",
+    "GIT_SSH": "C:\\Windows\\System32\\OpenSSH\\ssh.exe",
+    "GIT_SSH_COMMAND": "C:/Windows/System32/OpenSSH/ssh.exe"
+  }
 }

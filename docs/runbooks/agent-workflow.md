@@ -6,11 +6,11 @@ av `npm run workflow:contract`.
 
 ```mermaid
 flowchart TD
-  U["Jakob beskriver målet"] --> A["Agent: färsk master + egen worktree"]
+  U["Jakob beskriver målet"] --> A["Agent jobbar i öppna checkouten"]
   A --> B["Ändra canonical owner + verkliga följdytor"]
   B --> C["verify:pr visar impact och kör lokala tester"]
   C --> W{"Ändras .github/workflows/?"}
-  W -- "nej" --> D["Oberoende review + draft-PR + parallell CI"]
+  W -- "nej" --> D["Review + PR + parallell CI"]
   W -- "ja" --> X["Separat, ägargodkänd infrastruktur-bootstrap"]
   X --> D
   D --> E["Övriga required gröna + 7 min + review klar"]
@@ -24,19 +24,13 @@ flowchart TD
 
 ## Det enkla arbetssättet för Jakob
 
-1. Beskriv vad du vill ändra. Du behöver inte välja branch, tester eller
-   dokumentlista själv.
-2. Agenten hämtar live `master`, kontrollerar överlappande PR:er, skapar en egen
-   worktree/branch och visar vilka owners och följdytor som träffas.
-3. Agenten ändrar, regenererar, testar, gör oberoende review och öppnar en
-   draft-PR. Varje ny commit skapar en ny canonical CI-körning; dess
-   serverbundna `WorkflowRun.created_at` startar om sjuminutersgolvet.
-4. Agenten pausar bara när ett riktigt ägarbeslut behövs eller när ändringen kan
-   innebära dataförlust, security/cross-tenant-risk eller ett väsentligt större
-   scope. Vanliga test-, docs- och Backoffice-följder ska agenten hantera.
-5. När exakt PR-head är grön och genomgången får du en kort riskrapport. Säg då
-   uttryckligen att den får mergas; controllern gör en sista livekontroll och
-   squash-mergar. Otydliga formuleringar räknas inte som mergeuppdrag.
+1. Öppna repo-roten (File → Open Folder) och beskriv vad du vill ändra.
+2. Agenten är en vanlig repo-agent. Ingen Scout/Builder/Steward-roll om du inte
+   nämner den. Ingen tvingad worktree. Branchnamn behöver inget `fix/`-prefix.
+3. Agenten ändrar, testar och öppnar PR när du ber om det.
+4. Agenten pausar vid dataförlust, security/cross-tenant eller oväntat stort
+   scope.
+5. När PR-head är grön: säg uttryckligen att den får mergas.
 
 Skyddade ytor betyder alltså **extra bevis, inte förbjudet område**. Om en
 produktändring påverkar ett strict schema, en policy, Sajtmaskins Backoffice
@@ -76,9 +70,8 @@ PR:ers faktiska diff, head-SHA, checks och reviewfynd omvärderas. En äldre
 generated-/statusfil vinner aldrig en konflikt bara för att den redan låg i en
 branch; källägaren på nya master vinner och projektionen regenereras.
 
-Branchprefixen (`fix/`, `feat/`, `docs/`, `chore/`) kontrolleras både lokalt och
-i den blockerande CI-grinden. Endast aktörer som uttryckligen finns i policyn,
-för närvarande Dependabot, undantas.
+Branchnamn har inget obligatoriskt prefix. `*BRA*` och `rescue/*` är fortfarande
+frysta backuper.
 
 Git-hooken är ett lokalt räcke, inte den yttersta sanningen: den installeras
 idempotent och stoppar push om `verify:pr --plan` är rött. Full `verify:pr` körs
@@ -93,9 +86,12 @@ aktuell head och base-refens levande tip via GitHub. Båda måste matcha
 kommentaren, compare/merge-base måste visa att head innehåller base-tipen och
 kommentaren måste komma från PR-författaren eller en mänsklig repo-collaborator.
 Först därefter kan `merge:execute` köras. Den head-bundna required checken
-`review-window` blir grön när quality och qualifying reviewkvitto är klara;
-orchestrator-jobbet som publicerar checken ska inte själv bli rött bara för att
-kvittot fortfarande saknas.
+`review-window` blir grön när quality och övriga required checks är klara.
+Ett Cursor-/Codex-/bugbot-kvitto noteras om det finns, men saknat, hoppat eller
+404:at Cloud Agent-kvitto blockerar inte. Orchestrator-jobbet
+`trusted-review-window` är inte required checken — en avbruten körning av det
+jobbet ska inte läsas som röd grind. `bugkoll:` i `merge:ready` är den
+mänskliga noteringen.
 
 När den är grön postar en mänsklig `OWNER`, `MEMBER` eller `COLLABORATOR` den
 slutliga kommandoraden (PR-författarskap ensamt ger inte merge-mandat):
