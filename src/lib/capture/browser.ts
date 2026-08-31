@@ -145,6 +145,31 @@ async function launchCaptureBrowserUnscoped(): Promise<Browser> {
   return pw.launch({ headless: true }) as unknown as Browser;
 }
 
+/**
+ * En transient Chromium-spawnflake ska inte kosta hela DOM-kontrollen.
+ * Prod 2026-08-27 (chat 560afbc9, v2): launchen dog och postcheck skippades
+ * med `playwright_unavailable` — trots att samma deployment lanserade lyckat
+ * två minuter tidigare (4 sådana skips på 14 dagar). Exakt ETT omförsök efter
+ * kort paus; ett deterministiskt fel (t.ex. saknad binär) failar likadant två
+ * gånger och kastas vidare oförändrat. Gaten hålls över båda försöken så
+ * ingen annan capture kan smyga in mellan dem.
+ */
+const LAUNCH_RETRY_DELAY_MS = 750;
+
+async function launchCaptureBrowserWithRetry(): Promise<Browser> {
+  try {
+    return await launchCaptureBrowserUnscoped();
+  } catch (firstError) {
+    const message =
+      firstError instanceof Error ? firstError.message : String(firstError);
+    console.warn(
+      `[capture-browser] launch failed, retrying once in ${LAUNCH_RETRY_DELAY_MS}ms: ${message.slice(0, 200)}`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, LAUNCH_RETRY_DELAY_MS));
+    return launchCaptureBrowserUnscoped();
+  }
+}
+
 export async function launchCaptureBrowser(): Promise<Browser> {
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
@@ -155,7 +180,7 @@ export async function launchCaptureBrowser(): Promise<Browser> {
   await previous;
 
   try {
-    const browser = await launchCaptureBrowserUnscoped();
+    const browser = await launchCaptureBrowserWithRetry();
     const originalClose = browser.close.bind(browser);
     let released = false;
     const releaseOnce = () => {
