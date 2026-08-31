@@ -577,6 +577,48 @@ describe("POST product-postcheck", () => {
     );
   });
 
+  it("host configured + wait budget slut utan bind ⇒ skip preview_not_running med emit", async () => {
+    setF2ProductPostcheck(true);
+    getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    waitForProductPostcheckPreviewRunning.mockResolvedValue({
+      ok: false,
+      reason: "preview_not_running",
+      lastProbe: {
+        running: false,
+        versionId: null,
+        filesRevision: null,
+        previewSessionId: null,
+        lifecycleToken: null,
+        previewUrl: null,
+        readinessState: null,
+      },
+    });
+
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+
+    expect(body.skippedReason).toBe("preview_not_running");
+    expect(body.attestation).toEqual({
+      previewSessionId: "unbound",
+      lifecycleToken: null,
+      filesRevision: "rev_n",
+    });
+    expect(runProductPostcheck).not.toHaveBeenCalled();
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "product_postcheck_skipped",
+        message: "F2 Product Postcheck skipped (product_postcheck_skipped: preview_not_running).",
+        meta: expect.objectContaining({
+          skippedReason: "preview_not_running",
+          attestedFilesRevision: "rev_n",
+        }),
+      }),
+    );
+  });
+
   it("host configured + wait tills running ⇒ kör postcheck", async () => {
     setF2ProductPostcheck(true);
     getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");

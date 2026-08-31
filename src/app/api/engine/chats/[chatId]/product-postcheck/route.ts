@@ -265,14 +265,19 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         filesRevision,
       );
       if (!previewWait.ok) {
-        if (waitedTarget) {
+        const timeoutAttestation: ProductPostcheckTarget = waitedTarget ?? {
+          previewSessionId: waitedProbe?.previewSessionId?.trim() || "unbound",
+          lifecycleToken: waitedProbe?.lifecycleToken?.trim() || null,
+          filesRevision: filesRevision || waitedProbe?.filesRevision?.trim() || "",
+        };
+        if (timeoutAttestation.filesRevision) {
           emitPostcheckDegraded({
             versionId: resolvedVersionId,
             chatId,
             reason: "preview_not_running",
             checkedUrl: previewUrl?.trim() || waitedProbe?.previewUrl || null,
             durationMs: 0,
-            attestation: waitedTarget,
+            attestation: timeoutAttestation,
           });
           return NextResponse.json({
             ok: true,
@@ -284,7 +289,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             routesChecked: 0,
             durationMs: 0,
             checkedUrl: previewUrl?.trim() || waitedProbe?.previewUrl || null,
-            attestation: waitedTarget,
+            attestation: timeoutAttestation,
           });
         }
         return NextResponse.json(
