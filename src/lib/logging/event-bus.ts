@@ -287,9 +287,9 @@ function directorySizeBytes(dir: string): number {
 function pruneTmpMirrorVersionDirsBestEffort(): void {
   if (!isInsideTmpDir(RUNS_ROOT_DIR)) return;
   try {
-    if (!fs.existsSync(RUNS_ROOT_DIR)) return;
+    if (!fs.existsSync(/* turbopackIgnore: true */ RUNS_ROOT_DIR)) return;
     const scored = fs
-      .readdirSync(RUNS_ROOT_DIR, { withFileTypes: true })
+      .readdirSync(/* turbopackIgnore: true */ RUNS_ROOT_DIR, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => {
         const dir = path.join(RUNS_ROOT_DIR, entry.name);
