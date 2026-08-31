@@ -1,8 +1,6 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { linkedWorktreeVitestPool } from "./scripts/dev/linked-worktree-vitest-pool";
-
 /**
  * Stabilitets-lane-filer (grandmaster S1): `*.stability.test.ts(x)` körs ENBART av
  * `npm run test:stability` (egen config: `vitest.stability.config.ts`). De exkluderas
@@ -67,6 +65,5 @@ export default defineConfig({
       "scripts/**/*.{test,spec}.ts",
     ],
     exclude: [...SHARED_TEST_EXCLUDE, ...STABILITY_TEST_GLOBS, ...POSTGRES_TEST_GLOBS],
-    ...linkedWorktreeVitestPool(__dirname),
   },
 });

@@ -314,6 +314,9 @@ export function evaluateCiBranch(policy, env = process.env) {
     return null;
   }
 
+  const prefixes = policy.allowedBranchPrefixes ?? [];
+  if (prefixes.length === 0) return null;
+
   const actor = (env.GITHUB_ACTOR ?? "").trim().toLowerCase();
   const exemptActors = new Set(
     (policy.branchPrefixExemptActors ?? []).map((login) => login.toLowerCase()),
@@ -325,8 +328,8 @@ export function evaluateCiBranch(policy, env = process.env) {
 
   const branch = (env.GITHUB_HEAD_REF ?? "").trim();
   if (!branch) return "CI branch policy saknar GITHUB_HEAD_REF för pull request";
-  if (!policy.allowedBranchPrefixes.some((prefix) => branch.startsWith(prefix))) {
-    return `PR-branch \"${branch}\" saknar tillåtet prefix (${policy.allowedBranchPrefixes.join(", ")})`;
+  if (!prefixes.some((prefix) => branch.startsWith(prefix))) {
+    return `PR-branch \"${branch}\" saknar tillåtet prefix (${prefixes.join(", ")})`;
   }
   return null;
 }
@@ -342,8 +345,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     }
   }
   errors.push(...evaluatePolicyFloors(policy));
-  if (policy.directMaster.allowed !== false) {
-    errors.push("direct master must stay closed in the normal agent workflow");
+  if (typeof policy.directMaster?.allowed !== "boolean") {
+    errors.push("directMaster.allowed must be a boolean");
   }
   if (policy.review.maxBotWaitSeconds < policy.review.minHeadAgeSeconds) {
     errors.push("max bot wait must not be shorter than the current-head review window");

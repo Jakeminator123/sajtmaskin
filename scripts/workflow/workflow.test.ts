@@ -254,7 +254,7 @@ describe("agent workflow impact", () => {
 describe("agent workflow branch safety", () => {
   const policy = loadWorkflowInputs().policy;
 
-  it("blocks ordinary direct master", () => {
+  it("allows ordinary work on master when the policy is open", () => {
     expect(() =>
       assertBranchSafety({
         branch: "master",
@@ -262,7 +262,7 @@ describe("agent workflow branch safety", () => {
         policy,
         env: { NODE_ENV: "test" },
       }),
-    ).toThrow("direkt master är stängd");
+    ).not.toThrow();
   });
 
   it("allows an explicit reasoned break-glass", () => {
@@ -280,30 +280,19 @@ describe("agent workflow branch safety", () => {
     ).not.toThrow();
   });
 
-  it("enforces the same branch prefixes in pull-request CI", () => {
+  it("does not require a branch-name prefix when the policy list is empty", () => {
     const baseEnv = {
       GITHUB_ACTIONS: "true",
       GITHUB_EVENT_NAME: "pull_request",
       GITHUB_ACTOR: "octocat",
     };
     expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "fix/safe-change" })).toBeNull();
-    expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "tmp/hidden-rule" })).toContain(
-      "saknar tillåtet prefix",
-    );
-    expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "" })).toContain(
-      "saknar GITHUB_HEAD_REF",
-    );
+    expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "tmp/hidden-rule" })).toBeNull();
+    expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "simplify-agent-workflow" })).toBeNull();
     expect(
       evaluateCiBranch(policy, {
         ...baseEnv,
         GITHUB_BASE_REF: "master",
-        GITHUB_HEAD_REF: "sand/ocb-p0-1bbc",
-      }),
-    ).toContain("saknar tillåtet prefix");
-    expect(
-      evaluateCiBranch(policy, {
-        ...baseEnv,
-        GITHUB_BASE_REF: "sand-oc",
         GITHUB_HEAD_REF: "sand/ocb-p0-1bbc",
       }),
     ).toBeNull();

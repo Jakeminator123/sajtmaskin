@@ -3,7 +3,7 @@
 > Source: `docs/schemas/strict/*.schema.json`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: docs/schemas/strict/agent-workflow.schema.json sha256:274f1137674312f8 -->
+<!-- source-fingerprint: docs/schemas/strict/agent-workflow.schema.json sha256:006f99470d70b9bb -->
 <!-- source-fingerprint: docs/schemas/strict/backoffice-domain-map.schema.json sha256:bea5600512e840ee -->
 <!-- source-fingerprint: docs/schemas/strict/control-plane-registry.schema.json sha256:74ad77ab2059be1e -->
 <!-- source-fingerprint: docs/schemas/strict/db-health-check-report.schema.json sha256:cf2768d09f0d3090 -->

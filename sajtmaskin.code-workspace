@@ -1,6 +1,6 @@
 {
-  // Öppna denna fil i Cursor (File → Open Workspace from File…).
-  // En rot = huvudcheckouten. Lägg inte till worktrees eller globala Cursor-mappar här.
+  // Valfri. Normal öppning är File → Open Folder på repo-roten.
+  // En rot = huvudcheckouten. Lägg inte till fler mappar här.
   //
   // Resurs-/mappscopade editor-settings bor i .vscode/settings.json.
   // Window-scopade TypeScript-/terminalvärden ägs här (annars gula varningar

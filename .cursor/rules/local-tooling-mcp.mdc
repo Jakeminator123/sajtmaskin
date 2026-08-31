@@ -87,7 +87,7 @@ mandaträknaren, `armedContinuation`-watchen och `<openclaw-action>` bor i
 - GitHub: `Jakeminator123` via `gh` (HTTPS). SSH-host `github.com` i `~/.ssh/config`.
 - Terminal: PowerShell 7 via `C:\Program Files\PowerShell\7\pwsh.exe` — se `bash-och-pwsh.mdc`. Inte `powershell.exe` (5.1) och inte `WindowsApps\pwsh.exe`.
 - **RTK:** se `rtk-terminal.mdc`.
-- Worktrees: eget fönster per checkout — se `agent-worktree.mdc`.
+- Worktrees (valfritt): eget fönster per checkout — se `agent-worktree.mdc`.
 
 ## shadcn
 

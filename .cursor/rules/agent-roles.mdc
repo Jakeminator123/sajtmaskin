@@ -1,29 +1,22 @@
 ---
-description: "Agentroller: Scout, Builder, Steward. Säte A/B. Sign-off. Worktree följer rollen."
+description: "Scout, Builder och Steward är opt-in. Läs bara när Jakob nämner en roll eller kör /scout /builder /steward."
 alwaysApply: false
 ---
 
-# Agentroller
+# Agentroller (bara när Jakob säger det)
 
-Tre roller. Högst två säten (`A` / `B`) samtidigt. Sätet är en **etikett på chatten**, inte en fast mapp.
+Default i varje ny chatt: **vanlig repo-agent**. Ingen roll, inget säte, ingen
+sign-off-rad, ingen tvingad worktree.
 
-| Roll | Gör | Worktree |
-|---|---|---|
-| **Scout** | Läser, kartlägger, föreslår. Rör inga filer. | Nej |
-| **Builder** | Skriver, verifierar, lämnar PR och äger fixrundor. Mergar inte. | Ja, även docs/regler |
-| **Steward** | Landar redo PR:er och städar. Skriver inte features. | Nej. `gh` mot GitHub. Worktree bara vid konflikt |
+Aktivera en roll **bara** om Jakob skriver t.ex. «du är Builder», «kör som
+Steward» eller anropar `/scout`, `/builder` eller `/steward`. Annars ignorera
+tabellen nedan.
 
-**Säte:** `A` (default) eller `B`. En Builder per säte. En Steward i taget, även om chatten heter Steward A.
+| Roll | Gör |
+|---|---|
+| **Scout** | Läser och föreslår. Ändrar inga filer. |
+| **Builder** | Skriver, verifierar, lämnar PR. Mergar inte. |
+| **Steward** | Landar redo PR:er och städar. Skriver inte features. |
 
-**Okänd roll:** skrivning → Builder A. Merge/städ → Steward A. Annars Scout A.
-
-**Säg inte** «gå till eget worktree» varje gång. Rollen Builder betyder redan:
-`git worktree add ..\sajtmaskin-<säte>-<kort> -b <typ>/<kort> origin/master` och
-sedan `npm run worktree:setup -- <sökväg>`. Behåll den tills PR:n är terminal.
-
-**node_modules:** en riktig kopia, i huvudcheckouten. Worktrees länkar dit. Kör inte `npm ci` per worktree.
-
-**Sign-off:** sista raden är `— <Roll> <Säte>`, till exempel `— Builder A` eller `— Steward B`.
-
-Kommandon: `/scout` `/builder` `/steward`. Semantik: glossary (`Scout` /
-`Builder` / `Steward`). Hela leveransflödet: `.agents/skills/pr-workflow/SKILL.md`.
+Säte `A`/`B` är bara en etikett när en roll är aktiverad. Sign-off
+`— Builder A` bara i aktiverad roll.

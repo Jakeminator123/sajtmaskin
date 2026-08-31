@@ -87,9 +87,9 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | Internt `@sajtmaskin`-register | Sajtmaskins kuraterade, självbärande shadcn-kompatibla registry-källa. |
 | Registry Discovery | Läs-only sökning över shadcn-register (officiella + community) via HTTP (`registry-service`), inte program-API:t. |
 | Beskriv-flöde | Fritext blir registry-sökfrågor, verkliga Registry Discovery-träffar, LLM-rankning och valbara kandidater; modellen får inte hitta på registry-poster. |
-| Scout (agentroll) | Cursor-agent som bara läser och föreslår. |
-| Builder (agentroll) | Cursor-agent som skriver och lämnar PR. |
-| Steward (agentroll) | Cursor-agent som landar redo PR:er och städar (`tidy`). |
+| Scout (agentroll) | Opt-in: läser och föreslår. Gäller bara när Jakob nämner rollen. |
+| Builder (agentroll) | Opt-in: skriver och lämnar PR. Inte default. |
+| Steward (agentroll) | Opt-in: landar redo PR:er och städar (`tidy`). |
 
 ## Auktoritetsordning
 

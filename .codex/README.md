@@ -22,18 +22,16 @@ för investigator/reviewer och Sol `high` för worker.
 
 ## Så här ska projektet öppnas
 
-- Cursor behåller huvudcheckouten
-  `C:\Users\jakob\dev\projects\sajtmaskin` som läs-, test- och kontrollankare
-  på `master`. Normalt skrivarbete sker i uppgiftens egen worktree/branch enligt
-  `pr-workflow`, aldrig direkt i huvudcheckouten.
+- Cursor öppnas via `sajtmaskin.code-workspace` i
+  `C:\Users\jakob\dev\projects\sajtmaskin`. Det är den vanliga arbetsytan.
+  Worktree är valfritt.
 - Primary folder i det sparade Codex-projektet `sajtmaskin` är den separata
   Codex-kopian `C:\Users\jakob\Documents\ChatGPT\sajtmasin` på ankarbranchen
   `codex/workspace`.
 - `codex/workspace` är ett återanvändbart projektankare, inte en featurebranch.
   `tidy` skyddar namnet; ta inte bort Codex-kopian som `FRI`.
-- Starta nya Codex-chattar från projektet `sajtmaskin`. Allt skrivarbete sker
-  i en egen Codex-worktree/branch per uppgift, baserad på färsk
-  `origin/master` — inte i Cursor-checkouten eller projektankaret.
+- Starta nya Codex-chattar från projektet `sajtmaskin`. Jobba i den öppna
+  kopian eller en valfri branch från färsk `origin/master`.
 - Efter mergad PR behålls projektankaret på `codex/workspace`; nästa arbete
   startas från färsk `origin/master`.
 

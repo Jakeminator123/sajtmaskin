@@ -1,5 +1,11 @@
 # Cursor i detta repo
 
+## Öppna projektet
+
+File → Open Folder → repo-roten `sajtmaskin`. En Git-root.
+Inte TEMP-fönster, worktree eller Codex-kopian. MCP: `.cursor/mcp.json`.
+`sajtmaskin.code-workspace` är valfri (pwsh 7-fönsterinställningar), inte multi-root.
+
 ## Grundprincip
 
 Cursor ska ladda så lite som möjligt. `AGENTS.md` och always-applied regler är
@@ -74,12 +80,6 @@ arbetsyta och ligger också utanför indexet.
 - Dämpa progress, men dölj inte stderr. Kör engångskontroller, inte watch-loopar.
 - Håll en chatt per arbetskluster och kräv fyndfokuserade subagentsvar.
 - Tester och oberoende review ska inte kapas; minska omläsning och brus.
-
-## Workspace
-
-Öppna `sajtmaskin.code-workspace` som en enda rot. Separata worktrees öppnas i
-separata fönster. Lokal MCP-runtime är `.cursor/mcp.json` (gitignorerad); den
-spårade mallen är `.cursor/mcp.json.example`.
 
 ## Kontroller
 

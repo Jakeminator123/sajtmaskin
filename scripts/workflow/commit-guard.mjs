@@ -249,7 +249,7 @@ export function decideCommitCommand(
           `ingen branch i ${repo} — detached HEAD, eller checkouten är felkonfigurerad som bare (kontrollera core.bare)`,
         );
       }
-      if (branch === policy.trunk) {
+      if (branch === policy.trunk && policy.directMaster?.allowed !== true) {
         const enabled = env[policy.directMaster.breakGlassFlag] === "1";
         const reason = String(env[policy.directMaster.breakGlassReason] ?? "").trim();
         if (!enabled || reason.length < 12) {

@@ -1,6 +1,7 @@
 # PR-herde
 
-Steward-loop för flera öppna PR:er. Körordningen ägs av
+Körs bara när Jakob anropar det här kommandot. Loop för flera öppna PR:er.
+Körordningen ägs av
 `.agents/skills/pr-workflow/SKILL.md`, värden av `config/agent-workflow.json`
 och grinden av [`pr-merge.mdc`](../rules/pr-merge.mdc). Kommandot äger bara kön.
 
