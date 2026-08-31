@@ -27,7 +27,7 @@
     "trunk": { "const": "master" },
     "allowedBranchPrefixes": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*/$" }
     },
@@ -61,7 +61,7 @@
       "additionalProperties": false,
       "required": ["allowed", "breakGlassFlag", "breakGlassReason"],
       "properties": {
-        "allowed": { "const": false },
+        "allowed": { "type": "boolean" },
         "breakGlassFlag": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
         "breakGlassReason": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }
       }

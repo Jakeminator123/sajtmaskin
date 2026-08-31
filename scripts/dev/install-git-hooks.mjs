@@ -38,7 +38,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 13;
+export const HOOK_VERSION = 14;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -121,9 +121,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
       ;;
   esac
 
-  # master ar stangd aven for fast-forward. Non-fast-forward/delete nekas
-  # alltid; en vanlig direktuppdatering kraver samma reasoned break-glass som
-  # workflow-policyn.
+  # master far fast-forward-pushas. Force-push och delete ar fortfarande stangda.
   if [ "$remote_ref" = "refs/heads/master" ]; then
     if [ "$local_sha" = "$ZERO_SHA" ]; then
       echo "[hooks] Push stoppad: master far aldrig raderas." >&2
@@ -135,12 +133,6 @@ while read -r local_ref local_sha remote_ref remote_sha; do
       echo "[hooks] Push stoppad: master far aldrig force-pushas." >&2
       exit 1
     fi
-    reason=\${SAJTMASKIN_BREAK_GLASS_REASON:-}
-    if [ "$SAJTMASKIN_BREAK_GLASS" != "1" ] || [ "\${#reason}" -lt 12 ]; then
-      echo "[hooks] Push stoppad: direkt master ar stangd; skapa branch och PR." >&2
-      exit 1
-    fi
-    echo "[hooks] BREAK-GLASS direkt master: \${reason}" >&2
     continue
   fi
 

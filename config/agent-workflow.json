@@ -2,7 +2,7 @@
   "$schema": "../docs/schemas/strict/agent-workflow.schema.json",
   "schemaVersion": 1,
   "trunk": "master",
-  "allowedBranchPrefixes": ["fix/", "feat/", "docs/", "chore/"],
+  "allowedBranchPrefixes": [],
   "branchPrefixExemptActors": ["dependabot[bot]"],
   "immutableRemoteBranchPatterns": ["*BRA*", "rescue/*"],
   "protectedBranchPatterns": [
@@ -16,7 +16,7 @@
     "codex/workspace"
   ],
   "directMaster": {
-    "allowed": false,
+    "allowed": true,
     "breakGlassFlag": "SAJTMASKIN_BREAK_GLASS",
     "breakGlassReason": "SAJTMASKIN_BREAK_GLASS_REASON"
   },

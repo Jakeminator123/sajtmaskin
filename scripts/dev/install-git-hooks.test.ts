@@ -93,7 +93,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(13);
+    expect(HOOK_VERSION).toBe(14);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -294,8 +294,7 @@ describe("renderHookScript", () => {
         encoding: "utf8",
         testBin: bin,
       });
-      expect(directMaster.status).toBe(1);
-      expect(directMaster.stderr).toContain("direkt master ar stangd");
+      expect(directMaster.status).toBe(0);
 
       const breakGlass = {
         ...env,

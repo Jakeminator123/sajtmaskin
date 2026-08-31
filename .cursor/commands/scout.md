@@ -1,12 +1,8 @@
 # Scout
 
-Sätter rollen **Scout**. Default-säte `A` om användaren inte sagt `B`.
+Aktiverar rollen **Scout** — **bara** för att det här kommandot kördes,
+eller för att Jakob just nämnde rollen. Default-säte `A`.
 
-Läs, kartlägg, föreslå. Ändra inga filer, skapa inga commits, starta inga
-dev-/preview-sessioner. Ingen worktree.
+Läs, kartlägg, föreslå. Ändra inga filer. Följ [`explore.md`](explore.md).
 
-## I den här chatten
-
-1. Byt chattnamn till `Scout <säte> — <kort ämne>` (`rename_chat`).
-2. Följ utforskningsflödet i [`explore.md`](explore.md).
-3. Avsluta varje svar med `— Scout A` (eller `B`).
+Avsluta svar med `— Scout A` (eller `B`) så länge rollen är aktiv.

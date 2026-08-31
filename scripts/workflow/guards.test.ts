@@ -278,10 +278,11 @@ describe("commit guard", () => {
     ]);
     const git = vi.fn((args: string[], cwd?: string) => {
       if (args[0] === "branch") return [cwd === worktree ? "fix/task" : "master"];
-      return args.includes("--cached") ? [] : ["src/components/example.tsx"];
+      if (cwd === worktree) return args.includes("--cached") ? [] : ["src/components/example.tsx"];
+      return args.includes("--cached") ? [] : ["AGENTS.md"];
     });
     expect(decideCommitCommand("cd scripts; git commit -am x", { git }).permission).toBe("allow");
-    expect(decideCommitCommand("git commit -am x", { git }).permission).toBe("deny");
+    expect(decideCommitCommand("git commit -am x", { git }).permission).toBe("ask");
   });
 
   it("does not let a pipe carry cwd, while && and ; still do", () => {
@@ -298,10 +299,11 @@ describe("commit guard", () => {
 
     const git = vi.fn((args: string[], cwd?: string) => {
       if (args[0] === "branch") return [cwd === scripts ? "fix/task" : "master"];
-      return args.includes("--cached") ? [] : ["src/components/example.tsx"];
+      if (cwd === scripts) return args.includes("--cached") ? [] : ["src/components/example.tsx"];
+      return args.includes("--cached") ? [] : ["AGENTS.md"];
     });
     expect(decideCommitCommand("cd scripts | git commit -m x", { git, cwd: startCwd }).permission).toBe(
-      "deny",
+      "ask",
     );
     expect(decideCommitCommand("cd scripts; git commit -m x", { git, cwd: startCwd }).permission).toBe(
       "allow",
@@ -322,11 +324,12 @@ describe("commit guard", () => {
     const git = vi.fn((args: string[], cwd?: string) => {
       if (args[0] === "rev-parse") return ["true"];
       if (args[0] === "branch") return [cwd === worktree ? "fix/task" : "master"];
-      return args.includes("--cached") ? [] : ["src/components/example.tsx"];
+      if (cwd === worktree) return args.includes("--cached") ? [] : ["src/components/example.tsx"];
+      return args.includes("--cached") ? [] : ["AGENTS.md"];
     });
     expect(
       decideCommitCommand(`cd scripts; git -C "${mainCheckout}" commit -m x`, { git }).permission,
-    ).toBe("deny");
+    ).toBe("ask");
   });
 
   it("does not read git commit -C as a directory", () => {
@@ -401,11 +404,11 @@ describe("commit guard", () => {
     expect(decideCommitCommand(command, { git }).permission).toBe("ask");
   });
 
-  it("denies ordinary commits on master even for unprotected source", () => {
+  it("allows ordinary commits on master for unprotected source", () => {
     const git = vi.fn((args: string[]) =>
       args[0] === "branch" ? ["master"] : ["src/components/example.tsx"],
     );
-    expect(decideCommitCommand("git commit -am x", { git }).permission).toBe("deny");
+    expect(decideCommitCommand("git commit -am x", { git }).permission).toBe("allow");
   });
 
   it("allows the same commit only with reasoned policy break-glass", () => {

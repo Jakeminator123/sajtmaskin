@@ -81,6 +81,7 @@ export function isCiRunner(env = process.env) {
 export function assertBranchSafety({ branch, head, policy, env = process.env }) {
   if (!branch) throw new Error("detached HEAD — skapa eller öppna uppgiftens branch");
   if (branch === policy.trunk) {
+    if (policy.directMaster?.allowed === true) return;
     const enabled = env[policy.directMaster.breakGlassFlag] === "1";
     const reason = String(env[policy.directMaster.breakGlassReason] ?? "").trim();
     if (!enabled || reason.length < 12) {
@@ -93,10 +94,9 @@ export function assertBranchSafety({ branch, head, policy, env = process.env }) 
     console.warn(`[verify:pr] BREAK-GLASS för ${head.slice(0, 8)}: ${reason}`);
     return;
   }
-  if (!policy.allowedBranchPrefixes.some((prefix) => branch.startsWith(prefix))) {
-    throw new Error(
-      `branch "${branch}" saknar tillåtet prefix (${policy.allowedBranchPrefixes.join(", ")})`,
-    );
+  const prefixes = policy.allowedBranchPrefixes ?? [];
+  if (prefixes.length > 0 && !prefixes.some((prefix) => branch.startsWith(prefix))) {
+    throw new Error(`branch "${branch}" saknar tillåtet prefix (${prefixes.join(", ")})`);
   }
 }
 
