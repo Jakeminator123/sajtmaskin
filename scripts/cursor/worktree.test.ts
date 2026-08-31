@@ -18,8 +18,7 @@ import {
 
 const MAIN = resolve("C:/repo/sajtmaskin");
 const FEATURE = resolve("C:/repo/sajtmaskin-feat-x");
-const PERMANENT_CODEX = resolve("C:/repo/sajtmaskin-codex");
-const REGISTERED_PERMANENT = resolve("C:/agent-worktrees/ed66/sajtmaskin-codex");
+const REGISTERED_LONG_LIVED = resolve("C:/agent-worktrees/ed66/sajtmaskin-long-lived");
 
 const WORKTREES = [
   { path: MAIN, isMain: true },
@@ -84,38 +83,26 @@ describe("resolveTargetWorktree", () => {
     const plan = resolveTargetWorktree({
       targetPath: FEATURE,
       worktrees: WORKTREES,
-      protectedWorktreePaths: protectedRemovalPaths(WORKTREES, FEATURE),
+      protectedWorktreePaths: protectedRemovalPaths(FEATURE),
     });
     expect(plan.ok).toBe(false);
-    expect("reason" in plan && plan.reason).toContain("protected permanent/current");
-  });
-
-  it("refuses the conventional permanent Codex checkout during removal", () => {
-    const worktrees = [...WORKTREES, { path: PERMANENT_CODEX, isMain: false }];
-    const plan = resolveTargetWorktree({
-      targetPath: PERMANENT_CODEX,
-      worktrees,
-      protectedWorktreePaths: protectedRemovalPaths(worktrees, FEATURE),
-    });
-    expect(plan.ok).toBe(false);
-    expect("reason" in plan && plan.reason).toContain("protected permanent/current");
+    expect("reason" in plan && plan.reason).toContain("protected current/registered");
   });
 
   it("refuses a registry-protected worktree when called from another checkout", () => {
     const worktrees = [
       ...WORKTREES,
-      { path: PERMANENT_CODEX, isMain: false },
-      { path: REGISTERED_PERMANENT, isMain: false },
+      { path: REGISTERED_LONG_LIVED, isMain: false },
     ];
     const plan = resolveTargetWorktree({
-      targetPath: REGISTERED_PERMANENT,
+      targetPath: REGISTERED_LONG_LIVED,
       worktrees,
-      protectedWorktreePaths: protectedRemovalPaths(worktrees, PERMANENT_CODEX, [
-        REGISTERED_PERMANENT,
+      protectedWorktreePaths: protectedRemovalPaths(FEATURE, [
+        REGISTERED_LONG_LIVED,
       ]),
     });
     expect(plan.ok).toBe(false);
-    expect("reason" in plan && plan.reason).toContain("protected permanent/current");
+    expect("reason" in plan && plan.reason).toContain("protected current/registered");
   });
 });
 
@@ -187,7 +174,6 @@ describe("classifyRemovalLifecycle", () => {
     "rescue/stash-2026-08-14",
     "dependabot/npm_and_yarn/next-16.3.1",
     "archive/sanering-2026-08-04",
-    "codex/workspace",
   ])("never removes protected branch %s, even with --force", (protectedBranch) => {
     const decision = classifyRemovalLifecycle({
       branch: protectedBranch,
@@ -204,7 +190,7 @@ describe("classifyRemovalLifecycle", () => {
 });
 
 describe("syncWorktreeMcpJson", () => {
-  it("prefers the live mcp.json over the example", () => {
+  it("copies only the tracked example, even when a live file exists", () => {
     const copied: Array<{ from: string; to: string }> = [];
     const result = syncWorktreeMcpJson(MAIN, FEATURE, {
       exists: (p: string) => p.endsWith("mcp.json") || p.endsWith("mcp.json.example"),
@@ -214,22 +200,19 @@ describe("syncWorktreeMcpJson", () => {
     expect(result.ok).toBe(true);
     expect(copied).toEqual([
       {
-        from: join(MAIN, ".cursor", "mcp.json"),
+        from: join(MAIN, ".cursor", "mcp.json.example"),
         to: join(FEATURE, ".cursor", "mcp.json"),
       },
     ]);
   });
 
-  it("falls back to the tracked example when the live file is missing", () => {
+  it("fails closed when the tracked example is missing", () => {
     const result = syncWorktreeMcpJson(MAIN, FEATURE, {
-      exists: (p: string) => p.endsWith("mcp.json.example"),
+      exists: (p: string) => p.endsWith("mcp.json"),
       mkdir: () => {},
       copyFile: () => {},
     });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.source).toBe(join(MAIN, ".cursor", "mcp.json.example"));
-    }
+    expect(result.ok).toBe(false);
   });
 });
 

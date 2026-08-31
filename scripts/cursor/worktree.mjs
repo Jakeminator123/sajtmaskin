@@ -84,7 +84,7 @@ export function resolveTargetWorktree({ targetPath, worktrees, protectedWorktree
   if (protectedWorktreePaths.some((path) => normalizePath(path) === wanted)) {
     return {
       ok: false,
-      reason: `${targetPath} is a protected permanent/current worktree. Refusing removal.`,
+      reason: `${targetPath} is a protected current/registered worktree. Refusing removal.`,
     };
   }
   return { ok: true, worktreePath: match.path };
@@ -123,25 +123,18 @@ export function classifyRemovalLifecycle({
 }
 
 /**
- * Protect both the checkout running this script and the repo-conventional
- * permanent Codex checkout next to the main checkout.
+ * Protect the checkout running this script and explicitly registered
+ * long-lived worktrees.
  *
- * @param {{ path: string, isMain: boolean }[]} worktrees
  * @param {string} [currentWorktreePath]
  * @param {string[]} [configuredPaths]
  * @returns {string[]}
  */
 export function protectedRemovalPaths(
-  worktrees,
   currentWorktreePath = REPO_ROOT,
   configuredPaths = [],
 ) {
-  const mainWorktree = findMainWorktree(worktrees);
-  return [
-    currentWorktreePath,
-    ...(mainWorktree ? [`${mainWorktree}-codex`] : []),
-    ...configuredPaths,
-  ];
+  return [currentWorktreePath, ...configuredPaths];
 }
 
 function normalizePath(p) {
@@ -463,8 +456,8 @@ export function copyWorktreeIncludeFiles(mainWorktree, worktreePath, listed, io 
 
 /**
  * Gitignored `.cursor/mcp.json` does not appear in a fresh worktree.
- * Prefer the main checkout's live file so local OAuth-less URL lists stay
- * in one place; fall back to the tracked example.
+ * Seed it only from the tracked public example; never copy live
+ * machine-local config.
  *
  * @param {string} mainWorktree
  * @param {string} worktreePath
@@ -475,11 +468,9 @@ export function syncWorktreeMcpJson(mainWorktree, worktreePath, io = {}) {
   const exists = io.exists ?? pathExists;
   const copyFile = io.copyFile ?? copyFileSync;
   const mkdir = io.mkdir ?? mkdirSync;
-  const live = join(mainWorktree, ".cursor", "mcp.json");
-  const example = join(mainWorktree, ".cursor", "mcp.json.example");
-  const source = exists(live) ? live : example;
+  const source = join(mainWorktree, ".cursor", "mcp.json.example");
   if (!exists(source)) {
-    return { ok: false, reason: "no .cursor/mcp.json or mcp.json.example in the main checkout" };
+    return { ok: false, reason: "no tracked .cursor/mcp.json.example in the main checkout" };
   }
   const destDir = join(worktreePath, ".cursor");
   const dest = join(destDir, "mcp.json");
@@ -599,7 +590,6 @@ function commandRemove(targetPath, { force }) {
     targetPath,
     worktrees,
     protectedWorktreePaths: protectedRemovalPaths(
-      worktrees,
       REPO_ROOT,
       configuredProtectedWorktreePaths(),
     ),
@@ -610,13 +600,6 @@ function commandRemove(targetPath, { force }) {
   }
 
   const branch = git(["-C", plan.worktreePath, "rev-parse", "--abbrev-ref", "HEAD"]).trim();
-  if (branch === "codex/workspace") {
-    console.error(
-      `[worktree] ${plan.worktreePath} is the permanent Codex checkout (${branch}). Refusing removal.`,
-    );
-    process.exit(1);
-  }
-
   const headSha = git(["-C", plan.worktreePath, "rev-parse", "HEAD"]).trim();
   let lifecycle = loadPrLifecycle(REPO_ROOT);
   // Connector-baserade merge-stewards kan sakna gh lokalt. De får överlämna
