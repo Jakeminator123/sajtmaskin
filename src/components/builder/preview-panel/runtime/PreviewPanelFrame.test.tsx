@@ -188,6 +188,36 @@ describe("PreviewPanelFrame — loading-overlayens debounce och hard-cap", () =>
     }
   });
 
+  it("ersätter Laddar-pillen med Verifierar preview när dokumentet redan laddat", () => {
+    vi.useFakeTimers();
+    try {
+      renderFrame({ bypassLoadingHardCap: true });
+      fireEvent.load(screen.getByTitle("Preview"));
+      act(() => vi.advanceTimersByTime(400));
+
+      expect(screen.queryByText("Laddar...")).toBeNull();
+      const chip = screen.getByText("Verifierar preview…");
+      const surface = chip.closest('[aria-hidden="true"]');
+      expect(surface).not.toBeNull();
+      expect(surface!.className.split(/\s+/)).toContain("pointer-events-none");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("behåller Laddar-pillen innan något dokument laddats", () => {
+    vi.useFakeTimers();
+    try {
+      renderFrame({ bypassLoadingHardCap: true });
+      act(() => vi.advanceTimersByTime(400));
+
+      expect(screen.getByText("Laddar...")).toBeTruthy();
+      expect(screen.queryByText("Verifierar preview…")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("visar aldrig overlayen när laddningen redan är klar", () => {
     vi.useFakeTimers();
     try {

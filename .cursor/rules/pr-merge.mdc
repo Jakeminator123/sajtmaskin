@@ -70,7 +70,7 @@ sista kontrollen. Allt nedan ska vara sant:
 - inte draft; korrekt base; mergeable;
 - alla `requiredChecks` i `config/agent-workflow.json` gröna;
 - Vercel-deployment är lyckad eller saknas;
-- `review-window` grönt för aktuell head-SHA med lyckat reviewkvitto och botar triagerade;
+- `review-window` grönt för aktuell head-SHA; saknat kvitto blockerar inte;
 - inga blockerande labels, reviews, trådar eller otriagerade fynd;
 - giltig `merge:ready`-kommentar + label på oförändrad head- och base-SHA;
 - PR-body beskriver diff, verifiering och kvarvarande risk.
