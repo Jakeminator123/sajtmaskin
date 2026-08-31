@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
@@ -56,6 +56,32 @@ function shouldStopPolling(chatStatus: ChatRunStatus | null | undefined): boolea
 }
 
 /**
+ * Aktivitets-burst (prod-observation 2026-08-31): buildern kändes "piggare"
+ * med versions-panelen öppen — panelen råkar polla var 15:e sekund medan
+ * grundcadensen är 60 s, så statusbyten (promoted/superseded/degraded) nådde
+ * UI:t upp till en minut senare utan den. Konvergensen ska inte bero på
+ * vilken panel som råkar vara öppen: efter att en generering avslutats eller
+ * någon versionsrad bytt tillstånd pollas det snabbt i ett begränsat fönster,
+ * därefter gäller viloläget igen. Fönstret är avsiktligt kort — permanent
+ * 15 s-polling för varje öppen builder-flik vore ren serverlast.
+ */
+export const VERSIONS_ACTIVITY_BURST_WINDOW_MS = 3 * 60_000;
+export const VERSIONS_ACTIVITY_BURST_INTERVAL_MS = 15_000;
+
+/** Stabil radsignatur: ändras när en version tillkommer eller byter tillstånd. */
+function versionsFingerprint(latest: unknown): string {
+  const payload = latest as { versions?: unknown[] } | undefined;
+  const rows = Array.isArray(payload?.versions) ? payload.versions : [];
+  return rows
+    .map((row) => {
+      const r = (row ?? {}) as Record<string, unknown>;
+      const id = r.id ?? r.versionId ?? "";
+      return `${String(id)}:${String(r.verificationState ?? "")}:${String(r.releaseState ?? "")}`;
+    })
+    .join("|");
+}
+
+/**
  * Hook to fetch and manage chat versions.
  * Polling is controlled by isGenerating:
  * - When generating: poll every 10s to show progress
@@ -75,6 +101,21 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
   // starved endpoint at the healthy interval. Reset on the first success.
   const consecutiveErrorsRef = useRef(0);
   const lastErrorRef = useRef<unknown>(null);
+  // Aktivitets-burst: senaste tidpunkt då något faktiskt hände (generering
+  // avslutades eller en versionsrad bytte tillstånd). 0 = ingen aktivitet än,
+  // så en nyöppnad gammal chatt startar i viloläge, inte i burst.
+  const lastActivityAtRef = useRef(0);
+  const versionsFingerprintRef = useRef<string | null>(null);
+  const prevIsGeneratingRef = useRef(isGenerating);
+
+  useEffect(() => {
+    // Generering → klar är exakt ögonblicket då promoted/superseded/degraded
+    // börjar trilla in server-side; öppna burstfönstret då.
+    if (prevIsGeneratingRef.current && !isGenerating) {
+      lastActivityAtRef.current = Date.now();
+    }
+    prevIsGeneratingRef.current = isGenerating;
+  }, [isGenerating]);
   // Polling cadence is decided per-tick based on the most recent payload's
   // `chatStatus`, not just the caller's `isGenerating` hint. This is what stops
   // the "polling forever on a versionless dead chat" bug — once the server
@@ -88,7 +129,16 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
       const chatStatus = (latest as { chatStatus?: ChatRunStatus } | undefined)?.chatStatus ?? null;
       if (shouldStopPolling(chatStatus)) return 0;
       if (pauseWhileGenerating && isGenerating) return 0;
-      const base = isGenerating ? generatingRefreshIntervalMs : idleRefreshIntervalMs;
+      // Refs läses per tick — identiteten på callbacken påverkas inte (SWR
+      // river annars polling-timern på varje re-render, se swr-poll-config).
+      const withinBurst =
+        lastActivityAtRef.current > 0 &&
+        Date.now() - lastActivityAtRef.current < VERSIONS_ACTIVITY_BURST_WINDOW_MS;
+      const base = isGenerating
+        ? generatingRefreshIntervalMs
+        : withinBurst
+          ? Math.min(VERSIONS_ACTIVITY_BURST_INTERVAL_MS, idleRefreshIntervalMs)
+          : idleRefreshIntervalMs;
       return swrRefreshIntervalMs(base, consecutiveErrorsRef.current, lastErrorRef.current);
     },
     [isGenerating, pauseWhileGenerating, generatingRefreshIntervalMs, idleRefreshIntervalMs],
@@ -106,9 +156,20 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
-      onSuccess: () => {
+      onSuccess: (latest: unknown) => {
         consecutiveErrorsRef.current = 0;
         lastErrorRef.current = null;
+        // Radbyte (ny version eller nytt verifierings-/release-tillstånd)
+        // öppnar burstfönstret. Första lyckade hämtningen sätter bara
+        // baslinjen — en nyladdad sida ska inte bursta på gammal historik.
+        const fingerprint = versionsFingerprint(latest);
+        if (
+          versionsFingerprintRef.current !== null &&
+          versionsFingerprintRef.current !== fingerprint
+        ) {
+          lastActivityAtRef.current = Date.now();
+        }
+        versionsFingerprintRef.current = fingerprint;
       },
       onError: (err: unknown) => {
         consecutiveErrorsRef.current += 1;

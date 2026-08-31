@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type CapturedConfig = {
   refreshInterval?: unknown;
-  onSuccess?: () => void;
+  onSuccess?: (latest?: unknown) => void;
   onError?: (err: unknown) => void;
   onErrorRetry?: (
     error: unknown,
@@ -34,7 +34,11 @@ const useSWRMock = vi.hoisted(() => vi.fn());
 vi.mock("swr", () => ({ default: useSWRMock }));
 
 const { useChatReadiness } = await import("./useChatReadiness");
-const { useVersions } = await import("./useVersions");
+const {
+  useVersions,
+  VERSIONS_ACTIVITY_BURST_INTERVAL_MS,
+  VERSIONS_ACTIVITY_BURST_WINDOW_MS,
+} = await import("./useVersions");
 const { PollFetchError } = await import("./poll-backoff");
 
 function lastConfig(): CapturedConfig {
@@ -222,5 +226,61 @@ describe("useVersions — SWR poll config", () => {
 
     config.onSuccess?.();
     expect(callRefreshInterval(config, undefined)).toBe(10_000);
+  });
+
+  // Aktivitets-burst (prod 2026-08-31): konvergensen får inte bero på att
+  // versions-panelen råkar vara öppen. Efter ett radbyte eller en avslutad
+  // generering pollas snabbt i ett begränsat fönster, sedan viloläge igen.
+  it("burstar cadensen efter ett radbyte och återgår när fönstret stängts", () => {
+    vi.useFakeTimers();
+    try {
+      renderHook(() => useVersions("chat_1"));
+      const config = lastConfig();
+
+      const pendingPayload = {
+        versions: [{ id: "ver_1", verificationState: "pending", releaseState: "draft" }],
+      };
+      const promotedPayload = {
+        versions: [{ id: "ver_1", verificationState: "passed", releaseState: "promoted" }],
+      };
+
+      // Första hämtningen sätter bara baslinjen — en nyöppnad gammal chatt
+      // ska inte bursta på historik.
+      config.onSuccess?.(pendingPayload);
+      expect(callRefreshInterval(config, pendingPayload)).toBe(60_000);
+
+      // Radbyte (pending → promoted) öppnar fönstret.
+      config.onSuccess?.(promotedPayload);
+      expect(callRefreshInterval(config, promotedPayload)).toBe(
+        VERSIONS_ACTIVITY_BURST_INTERVAL_MS,
+      );
+
+      // Stängt fönster: tillbaka till viloläge.
+      vi.advanceTimersByTime(VERSIONS_ACTIVITY_BURST_WINDOW_MS + 1_000);
+      expect(callRefreshInterval(config, promotedPayload)).toBe(60_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("öppnar burstfönstret när genereringen avslutas", () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = renderHook(
+        ({ generating }: { generating: boolean }) =>
+          useVersions("chat_1", { isGenerating: generating }),
+        { initialProps: { generating: true } },
+      );
+
+      rerender({ generating: false });
+      expect(callRefreshInterval(lastConfig(), undefined)).toBe(
+        VERSIONS_ACTIVITY_BURST_INTERVAL_MS,
+      );
+
+      vi.advanceTimersByTime(VERSIONS_ACTIVITY_BURST_WINDOW_MS + 1_000);
+      expect(callRefreshInterval(lastConfig(), undefined)).toBe(60_000);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
