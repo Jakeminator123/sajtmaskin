@@ -221,6 +221,12 @@ describe("productPostcheckSkipReasonFromError", () => {
       "navigation_failed",
     );
     expect(productPostcheckSkipReasonFromError(new Error("unexpected"))).toBe("runtime_error");
+    expect(productPostcheckSkipReasonFromError(new Error("page.screenshot: Timeout"))).toBe(
+      "capture_failed",
+    );
+    expect(productPostcheckSkipReasonFromError(new Error("persistLiveReviewJpeg failed"))).toBe(
+      "capture_failed",
+    );
   });
 
   // Prod 2026-08-08 (flugfiske-sajten): tre körningar i rad loggades som

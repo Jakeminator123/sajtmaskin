@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatProductPostcheckSkipTooltip,
   localizeVerificationSummary,
+  productPostcheckSkipReasonFromDegradations,
   resolveVersionHistorySummary,
   shouldShowVerifiedBadge,
   versionHistoryStatusBadge,
@@ -157,6 +159,76 @@ describe("resolveVersionHistorySummary", () => {
     expect(resolveVersionHistorySummary(display("degraded", { degraded: true }), null)).toMatch(
       /hoppades över eller hittade blockerande fel/i,
     );
+  });
+
+  it("surfaces a product-postcheck skip reason instead of the passed verify summary", () => {
+    const degraded = display("degraded", {
+      degraded: true,
+      degradations: [
+        {
+          kind: "product_postcheck_skipped",
+          message: "F2 Product Postcheck skipped.",
+          meta: { skippedReason: "preview_not_running" },
+        },
+      ],
+    });
+    expect(resolveVersionHistorySummary(degraded, "Automatic verification passed.")).toBe(
+      formatProductPostcheckSkipTooltip("preview_not_running"),
+    );
+    expect(resolveVersionHistorySummary(degraded, "Automatic verification passed.")).toContain(
+      "preview_not_running",
+    );
+  });
+});
+
+describe("product-postcheck skip reason on Degraderad", () => {
+  it("puts the machine-readable reason in the badge tooltip", () => {
+    const badge = versionHistoryStatusBadge(
+      display("degraded", {
+        degraded: true,
+        degradations: [
+          {
+            kind: "product_postcheck_skipped",
+            message: "F2 Product Postcheck skipped.",
+            meta: { skippedReason: "preview_not_running" },
+          },
+        ],
+      }),
+    );
+    expect(badge.label).toBe("Degraderad");
+    expect(badge.variant).toBe("outline");
+    expect(badge.className).toContain("amber");
+    expect(badge.tooltip).toContain("product_postcheck_skipped: preview_not_running");
+    expect(badge.tooltip).toMatch(/inte igång/);
+  });
+
+  it("explains capture_failed in the tooltip", () => {
+    const badge = versionHistoryStatusBadge(
+      display("degraded", {
+        degraded: true,
+        degradations: [
+          {
+            kind: "product_postcheck_skipped",
+            message: "F2 Product Postcheck skipped (product_postcheck_skipped: capture_failed).",
+            meta: { skippedReason: "capture_failed" },
+          },
+        ],
+      }),
+    );
+    expect(badge.tooltip).toContain("product_postcheck_skipped: capture_failed");
+    expect(badge.tooltip).toMatch(/skärmdumparna/);
+  });
+
+  it("reads the reason from meta first", () => {
+    expect(
+      productPostcheckSkipReasonFromDegradations([
+        {
+          kind: "product_postcheck_skipped",
+          message: "F2 Product Postcheck skipped.",
+          meta: { skippedReason: "preview_not_running" },
+        },
+      ]),
+    ).toBe("preview_not_running");
   });
 });
 
