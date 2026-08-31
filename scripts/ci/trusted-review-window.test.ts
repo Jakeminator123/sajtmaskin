@@ -13,6 +13,8 @@ import {
   runTrustedMerge,
   runTrustedGate,
   reviewMutationRequiresNewSignoff,
+  shouldRunTrustedGate,
+  isIntegrityGateFailure,
   targetsTrunk,
   validateTrustedPrAiEvidence,
   validateAccountPrReviewEvidence,
@@ -39,6 +41,52 @@ const OTHER_HEAD = "b".repeat(40);
 const BASE = "c".repeat(40);
 const REPOSITORY = "example/repo";
 const TRUSTED_REVIEW = { valid: true, completedAtEpoch: 110 };
+
+describe("trusted gate event filter", () => {
+  it.each([
+    {
+      name: "hoppar över vanliga kommentarer",
+      input: { eventName: "issue_comment", eventAction: "created" },
+      expected: { run: false, reason: "comment" },
+    },
+    {
+      name: "hoppar över draft utom ready_for_review",
+      input: { eventName: "pull_request_target", eventAction: "synchronize", draft: true },
+      expected: { run: false, reason: "draft" },
+    },
+    {
+      name: "kör ready_for_review även om draft-flaggan hänger kvar",
+      input: { eventName: "pull_request_target", eventAction: "ready_for_review", draft: true },
+      expected: { run: true, reason: "ready_for_review" },
+    },
+    {
+      name: "kör synchronize på icke-draft",
+      input: { eventName: "pull_request_target", eventAction: "synchronize" },
+      expected: { run: true, reason: "synchronize" },
+    },
+    {
+      name: "hoppar över labeled",
+      input: { eventName: "pull_request_target", eventAction: "labeled" },
+      expected: { run: false, reason: "event labeled" },
+    },
+    {
+      name: "kör tester utan event",
+      input: {},
+      expected: { run: true, reason: "unspecified" },
+    },
+  ])("$name", ({ input, expected }) => {
+    expect(shouldRunTrustedGate(input)).toEqual(expected);
+  });
+
+  it("klassar bootstrap och filistafel som integritetsfel", () => {
+    expect(isIntegrityGateFailure("workflow-infrastruktur kräver explicit bootstrap: x")).toBe(
+      true,
+    );
+    expect(isIntegrityGateFailure("PR-filistan kunde inte verifieras komplett")).toBe(true);
+    expect(isIntegrityGateFailure("inget lyckat reviewkvitto för live head")).toBe(false);
+    expect(isIntegrityGateFailure("required checks är röda: quality")).toBe(false);
+  });
+});
 
 describe("trusted review mutation ordering", () => {
   it.each(["edited", "dismissed"])("requires new sign-off after review %s", (action) => {
@@ -1607,13 +1655,16 @@ function integrationHarness({
   failCheckPoll = false,
   changedFiles = [] as Array<Record<string, unknown>>,
   signoffAfterEvidenceReads = 0,
+  draft = false,
+  failedQuality = false,
+  missingReviewReceipt = false,
 } = {}) {
   const patches: Array<Record<string, unknown>> = [];
-  const counters = { pulls: 0, evidence: 0, checkPolls: 0, files: 0 };
+  const counters = { pulls: 0, evidence: 0, checkPolls: 0, files: 0, created: 0 };
   const pr = {
     number: 1,
     state: "open",
-    draft: false,
+    draft,
     changed_files: changedFiles.length,
     base: { ref: "master" },
     head: { sha: HEAD, ref: "feature/test", repo: { full_name: REPOSITORY } },
@@ -1636,7 +1687,13 @@ function integrationHarness({
     external_id: `sajtmaskin-trusted-review-window:v1:${HEAD}:900`,
     started_at: at(900),
   };
-  const checks = rawChecks([currentGate, olderGate, ...greenRuns()]);
+  const checks = rawChecks([
+    currentGate,
+    olderGate,
+    ...greenRuns().map((item) =>
+      failedQuality && item.name === "quality" ? { ...item, conclusion: "failure" } : item,
+    ),
+  ]);
   const reviewEvidence = trustedReviewEvidence();
   const signoff = {
     body: `merge:ready — head-sha: ${HEAD}, base-sha: ${BASE}, at: 1970-01-01T00:16:40Z, bugkoll: trusted, triage: klar, P0/P1: 0`,
@@ -1655,7 +1712,10 @@ function integrationHarness({
         }
         return structuredClone(pr);
       }
-      if (path === "/check-runs" && options.method === "POST") return structuredClone(currentGate);
+      if (path === "/check-runs" && options.method === "POST") {
+        counters.created += 1;
+        return structuredClone(currentGate);
+      }
       if (path.startsWith("/check-runs/") && options.method === "PATCH") {
         patches.push({ path, ...(options.body ?? {}) });
         return options.body;
@@ -1673,7 +1733,7 @@ function integrationHarness({
       throw new Error(`unexpected request ${options.method ?? "GET"} ${path}`);
     },
     async listReviewsWithServerTimes() {
-      return structuredClone(reviewEvidence.reviews);
+      return missingReviewReceipt ? [] : structuredClone(reviewEvidence.reviews);
     },
     async paginate(path: string, key?: string | null) {
       if (path.startsWith(`/commits/${HEAD}/check-runs`)) {
@@ -1683,7 +1743,7 @@ function integrationHarness({
       }
       if (path === "/issues/1/comments") {
         return [
-          ...structuredClone(reviewEvidence.issueComments),
+          ...(missingReviewReceipt ? [] : structuredClone(reviewEvidence.issueComments)),
           ...(counters.evidence >= signoffAfterEvidenceReads ? [structuredClone(signoff)] : []),
         ];
       }
@@ -2038,6 +2098,71 @@ describe("trusted review-window controller", () => {
     });
     expect(result).toEqual({ conclusion: "ignored", reason: "base ema" });
     expect(writes).toBe(0);
+  });
+
+  it("gör no-op på draft + synchronize utan att skapa check", async () => {
+    const { client, counters } = integrationHarness({ draft: true });
+    const result = await runTrustedGate({
+      client: client as never,
+      prNumber: 1,
+      eventName: "pull_request_target",
+      eventAction: "synchronize",
+      now: () => 1_000,
+      pause: async () => undefined,
+      policy: integrationPolicy() as never,
+    });
+    expect(result).toEqual({ conclusion: "ignored", reason: "draft" });
+    expect(counters.created).toBe(0);
+  });
+
+  it("gör no-op på issue_comment utan att skapa check", async () => {
+    const { client, counters } = integrationHarness();
+    const result = await runTrustedGate({
+      client: client as never,
+      prNumber: 1,
+      eventName: "issue_comment",
+      eventAction: "created",
+      now: () => 1_000,
+      pause: async () => undefined,
+      policy: integrationPolicy() as never,
+    });
+    expect(result).toEqual({ conclusion: "ignored", reason: "comment" });
+    expect(counters.created).toBe(0);
+  });
+
+  it("publicerar action_required utan throw när quality redan är röd", async () => {
+    const { client, patches, counters } = integrationHarness({ failedQuality: true });
+    const result = await runTrustedGate({
+      client: client as never,
+      prNumber: 1,
+      now: () => 1_000,
+      pause: async () => undefined,
+      policy: integrationPolicy() as never,
+    });
+    expect(result).toEqual({
+      conclusion: "action_required",
+      reason: "required checks är röda: quality",
+    });
+    expect(counters.checkPolls).toBeLessThanOrEqual(2);
+    expect(patches.at(-1)).toMatchObject({ conclusion: "action_required" });
+  });
+
+  it("publicerar action_required utan throw när reviewkvitto saknas efter timeout", async () => {
+    const { client, patches } = integrationHarness({ missingReviewReceipt: true });
+    let clock = 1_000;
+    const result = await runTrustedGate({
+      client: client as never,
+      prNumber: 1,
+      now: () => {
+        clock += 5;
+        return clock;
+      },
+      pause: async () => undefined,
+      policy: integrationPolicy() as never,
+    });
+    expect(result.conclusion).toBe("action_required");
+    expect(result.reason).toContain("inget lyckat reviewkvitto");
+    expect(patches.at(-1)).toMatchObject({ conclusion: "action_required" });
   });
 
   it("godkänner review-window utan merge:ready när quality och bugbot är klara", async () => {

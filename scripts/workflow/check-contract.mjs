@@ -360,6 +360,12 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     if (!pkg.scripts?.[command])
       errors.push(`verification command missing in package.json: ${command}`);
   }
+  if (String(pkg.scripts?.["test:ci"] ?? "").includes("godnatt")) {
+    errors.push("test:ci must not invoke godnatt-bugg; keep that command on-demand");
+  }
+  if (!pkg.scripts?.["test:godnatt-bugg"]) {
+    errors.push("test:godnatt-bugg command missing in package.json");
+  }
 
   const schemas = json(root, "config/control-plane/schema-registry.json").entries;
   const policies = json(root, "config/control-plane/policy-registry.json").entries;
@@ -503,7 +509,9 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !trustedReviewWindow.includes("run.provenance?.workflowRun?.created_at") ||
     !trustedReviewWindow.includes("manualMergeFiles") ||
     !trustedReviewWindow.includes("policy.requiredChecks.filter") ||
-    !trustedReviewWindow.includes("policy.review.maxSignoffWaitSeconds")
+    !trustedReviewWindow.includes("policy.review.maxSignoffWaitSeconds") ||
+    !trustedReviewWindow.includes("export function shouldRunTrustedGate") ||
+    !trustedReviewWindow.includes("export function isIntegrityGateFailure")
   ) {
     errors.push(
       "trusted default-branch controller must publish the head-bound required review-window",

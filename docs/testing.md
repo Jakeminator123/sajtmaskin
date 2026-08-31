@@ -1,8 +1,10 @@
 # Testning
 
 Repots tester körs med [Vitest](https://vitest.dev). Den fulla sviten (`npm run test:ci`)
-körs på varje PR och push via [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
-Ovanpå den finns två smalare lanes:
+är `vitest run` och körs på varje PR och push via
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Godnatt-buggs egna
+skripttester (`npm run test:godnatt-bugg`) är on-demand och ingår inte i `test:ci`,
+CI eller `verify:pr`. Ovanpå den finns två smalare lanes:
 
 | Lane       | Kommando                 | Filnamn                  | Blockerar merge?          |
 | ---------- | ------------------------ | ------------------------ | ------------------------- |
@@ -26,7 +28,7 @@ varje merge; snapshoten nedan är aldrig ensam mergeauktoritet.
 | `quality`                     | Ja                                        | **Ja**                                                       |
 | `backoffice-tests`            | Ja                                        | **Ja**                                                       |
 | `schema-drift`                | Ja                                        | **Ja**                                                       |
-| `review-window`               | Håller pending till trusted live-sign-off | **Ja**                                                       |
+| `review-window`               | Checken kan bli `action_required` vid väntan; orchestrator-jobbet ska då sluta grönt | **Ja** — det är checken, inte jobbets exitkod, som blockerar |
 | `build`                       | Ja                                        | **Ja** — tillagd i rulesetet 2026-07-30 (#660)               |
 | `preview-host-guards`         | Ja                                        | **Ja, via `quality`-aggregatet**                             |
 | `dead-code` (orphan-filgrind) | Ja                                        | **Ja, via `quality`-aggregatet**                             |

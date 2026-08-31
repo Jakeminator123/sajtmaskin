@@ -485,6 +485,33 @@ export function targetsTrunk(pr, policy = POLICY) {
   return pr?.base?.ref === policy.trunk;
 }
 
+const GATE_PR_ACTIONS = new Set(["opened", "reopened", "synchronize", "ready_for_review"]);
+
+export function shouldRunTrustedGate({ eventName = "", eventAction = "", draft = false } = {}) {
+  if (eventName === "issue_comment") return { run: false, reason: "comment" };
+  if (draft && eventAction !== "ready_for_review") return { run: false, reason: "draft" };
+  if (!eventName) return { run: true, reason: "unspecified" };
+  if (eventName === "pull_request_target" || eventName === "pull_request") {
+    if (!GATE_PR_ACTIONS.has(eventAction)) {
+      return { run: false, reason: `event ${eventAction || "unknown"}` };
+    }
+    return { run: true, reason: eventAction };
+  }
+  return { run: false, reason: `event ${eventName}` };
+}
+
+export function isIntegrityGateFailure(reason) {
+  const text = String(reason ?? "");
+  return (
+    text.includes("filistan kunde inte verifieras") ||
+    text.includes("explicit bootstrap") ||
+    text.includes("workflow-/filunderlaget") ||
+    text.includes("checknamnskollision") ||
+    text.includes("saknar verifierbar created_at") ||
+    text.includes("completed_at saknas")
+  );
+}
+
 export function reviewMutationRequiresNewSignoff(eventName, eventAction) {
   return eventName === "pull_request_review" && ["edited", "dismissed"].includes(eventAction);
 }
@@ -1402,11 +1429,21 @@ export async function runTrustedGate({
   now = () => Math.floor(Date.now() / 1000),
   pause = sleep,
   policy = POLICY,
+  eventName = "",
+  eventAction = "",
   invalidateExistingSignoff: _invalidateExistingSignoff = false,
 }) {
   const initialPr = await client.request(`/pulls/${prNumber}`);
   if (!targetsTrunk(initialPr, policy)) {
     return { conclusion: "ignored", reason: `base ${initialPr.base?.ref ?? "unknown"}` };
+  }
+  const gateDecision = shouldRunTrustedGate({
+    eventName,
+    eventAction,
+    draft: Boolean(initialPr.draft),
+  });
+  if (!gateDecision.run) {
+    return { conclusion: "ignored", reason: gateDecision.reason };
   }
   const headSha = initialPr.head.sha;
   const runStarted = now();
@@ -1485,6 +1522,9 @@ export async function runTrustedGate({
       const current = now();
       const elapsed = current - runStarted;
       latestState = evaluateHeadChecks(runs, policy, trustedReview);
+      if (latestState.requiredFailed.length > 0) {
+        break;
+      }
       const windowStart = latestState.latestRequiredCreatedEpoch;
       const headAge = windowStart > 0 ? current - windowStart : 0;
       if (hasBaseInvalidation(rawRuns, headSha)) {
@@ -1586,7 +1626,8 @@ export async function runTrustedGate({
       now(),
     );
     finished = true;
-    throw new Error(summary);
+    if (isIntegrityGateFailure(summary)) throw new Error(summary);
+    return { conclusion: "action_required", reason: summary };
   } catch (error) {
     if (!finished) {
       try {
@@ -1824,6 +1865,8 @@ async function main() {
   await runTrustedGate({
     client,
     prNumber,
+    eventName: process.env.EVENT_NAME ?? "",
+    eventAction: process.env.EVENT_ACTION ?? "",
     invalidateExistingSignoff: reviewMutationRequiresNewSignoff(
       process.env.EVENT_NAME ?? "",
       process.env.EVENT_ACTION ?? "",
