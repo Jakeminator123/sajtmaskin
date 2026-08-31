@@ -122,8 +122,16 @@ export const RESUME_VERIFY_IMPORT_MIN_AGE_MS = 90_000;
  * auto-promoting them has no UX value, and rows created before the
  * import/restore provenance markers existed (editKind null) must not be
  * retroactively gate-promoted long after the fact.
+ *
+ * 7 days (was 24 h until 2026-08-31, ägarbeslut): prod chat 3e982c00 showed
+ * the realistic stranded case — a follow-up version whose tab closed before
+ * the gate ran, in a chat nobody reopened the same day. Users routinely come
+ * back to a project days later; a 24 h window silently expired the repair
+ * before that. The legacy-row concern above is unaffected: pre-provenance
+ * rows are months old and only ever get older, so they stay far outside any
+ * 7-day window.
  */
-export const RESUME_VERIFY_MAX_AGE_MS = 24 * 60 * 60_000;
+export const RESUME_VERIFY_MAX_AGE_MS = 7 * 24 * 60 * 60_000;
 
 /**
  * Attempts per version per builder session (Codex P2 round 4): a transient
