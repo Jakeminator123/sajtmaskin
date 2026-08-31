@@ -1,6 +1,3 @@
-# Ignored files copied into Codex-managed worktrees (and, for mcp.json,
-# also by `npm run worktree:setup` for git worktrees).
-# Keep this list short.
-
-.env.local
-.cursor/mcp.json
+# No ignored machine-local files are copied into Codex-managed worktrees by
+# default. Add only an explicitly reviewed, non-sensitive path when a task
+# genuinely needs it. Never add `.env.local` or live connector credentials.

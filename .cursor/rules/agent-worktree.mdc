@@ -16,10 +16,21 @@ git worktree add ..\sajtmaskin-<kort> -b <branch> origin/master
 npm run worktree:setup -- ..\sajtmaskin-<kort>
 ```
 
-`worktree:setup` kopierar env/mcp. Den junctionar **inte** `node_modules` —
-kör `npm ci` i worktreet om du ska testa där. `worktree:link` är en medveten
-genväg som sabbar Vitest; använd den inte.
+`worktree:setup` seedar `.cursor/mcp.json` från den spårade
+`.cursor/mcp.json.example`. Den kopierar **inte** `.env.local` eller live-MCP,
+och junctionar **inte** `node_modules` — kör `npm ci` i worktreet om du ska
+testa där. `worktree:link` är en medveten genväg som sabbar Vitest; använd
+den inte.
 
 Ta bort med `npm run worktree:remove -- <sökväg>`, aldrig rå `git worktree remove`
 (junction-fälla mot huvudcheckoutens `node_modules`). Recept:
 [`docs/runbooks/git-worktree.md`](../../docs/runbooks/git-worktree.md).
+
+## Codex
+
+Det sparade Codex-projektet pekar på repo-roten, men huvudcheckouten förblir
+en läs-, test- och kontrollankare. Codex skriver i ett app-isolerat eller
+namngivet worktree från färsk `origin/master`. Se
+[`.codex/README.md`](../../.codex/README.md). En långlivad worktree som
+verkligen behövs skyddas med Git-config `sajtmaskin.protectedWorktree`, inte
+med ett särskilt Codex-branchnamn.
