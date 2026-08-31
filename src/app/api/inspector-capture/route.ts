@@ -629,11 +629,16 @@ async function handlePOST(req: Request) {
       "Inspector capture",
     );
 
+    // caret:"initial" — Playwright's default caret-hiding mutates every
+    // editable element's inline style during the shot; mid-hydration that
+    // fabricates a hydration mismatch + Next dev overlay in the page being
+    // inspected (see capturePostcheckJpeg in product-postcheck.ts).
     let previewBuffer = await page.screenshot({
       type: "png",
       omitBackground: false,
       clip,
       timeout: SCREENSHOT_TIMEOUT_MS,
+      caret: "initial",
     });
     let previewMimeType = "image/png";
     for (const quality of JPEG_FALLBACK_QUALITIES) {
@@ -643,6 +648,7 @@ async function handlePOST(req: Request) {
         quality,
         clip,
         timeout: SCREENSHOT_TIMEOUT_MS,
+        caret: "initial",
       });
       previewMimeType = "image/jpeg";
     }

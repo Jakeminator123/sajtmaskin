@@ -1059,7 +1059,19 @@ function skippedResult(
 
 const SCREENSHOT_TIMEOUT_MS = 15_000;
 
-/** Best-effort viewport JPEG. A throw here must never become a postcheck finding. */
+/**
+ * Best-effort viewport JPEG. A throw here must never become a postcheck finding.
+ *
+ * `caret: "initial"` is load-bearing: Playwright's default (`"hide"`) sets
+ * inline `caret-color: transparent !important` on every input/textarea/
+ * contenteditable for the duration of the shot. A screenshot taken while React
+ * is still hydrating (the mobile pass shoots BEFORE its overlay probe) makes
+ * hydration see attributes the server never rendered → hydration mismatch →
+ * Next dev error overlay → our overlay probe reports `runtime_crash` on a
+ * healthy site (prod chat 660bfe4b v1, 2026-08-31: every form field flagged
+ * with exactly this style). Nothing is ever focused in these captures, so a
+ * visible caret cannot occur anyway.
+ */
 export async function capturePostcheckJpeg(page: Page): Promise<Buffer | null> {
   try {
     return await page.screenshot({
@@ -1067,6 +1079,7 @@ export async function capturePostcheckJpeg(page: Page): Promise<Buffer | null> {
       quality: 70,
       fullPage: false,
       timeout: SCREENSHOT_TIMEOUT_MS,
+      caret: "initial",
     });
   } catch {
     return null;
