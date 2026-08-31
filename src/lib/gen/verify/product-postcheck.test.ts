@@ -1211,6 +1211,48 @@ describe("runProductPostcheck screenshot best-effort", () => {
     });
   });
 
+  it("skjuter med caret:'initial' — default caret:'hide' muterar inputs och fabricerar hydration-krasch", async () => {
+    // Prod chat 660bfe4b v1 (2026-08-31): Playwrights default caret-gömning
+    // satte inline `caret-color: transparent` på varje formulärfält medan React
+    // hydrerade → hydration mismatch → Next-overlay → runtime_crash på en frisk
+    // sajt. caret:"initial" är kontraktet som stänger den klassen.
+    const desktop = pageWithScreenshot(
+      [
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+        { anchors: [], images: [], ctas: [], forms: [] },
+        false,
+        [],
+        { title: "Jakob & Johan Stays", h1: "Hero", bodyText: "Handplockade." },
+      ],
+      async () => Buffer.from("desk"),
+    );
+    const mobile = pageWithScreenshot([{ status: "not_applicable" }, false], async () =>
+      Buffer.from("mob"),
+    );
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+      captureEnabled: true,
+    });
+
+    const screenshotCalls = [
+      ...desktop.screenshot.mock.calls,
+      ...mobile.screenshot.mock.calls,
+    ] as unknown[][];
+    expect(screenshotCalls.length).toBeGreaterThan(0);
+    for (const call of screenshotCalls) {
+      expect(call[0]).toMatchObject({ caret: "initial" });
+    }
+  });
+
   it("persisterar inte N-skärmbilder när samma version har ersatts av N+1", async () => {
     const desktop = pageWithScreenshot(
       [

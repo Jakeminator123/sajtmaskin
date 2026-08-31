@@ -399,6 +399,12 @@ async function screenshotThumbnailJpeg(page: Page): Promise<Buffer> {
       quality: 70,
       fullPage: false,
       timeout: SCREENSHOT_TIMEOUT_MS,
+      // Playwright's default caret:"hide" mutates every editable element's
+      // inline style for the shot; mid-hydration that fabricates a React
+      // hydration mismatch + Next dev overlay in the captured page (see
+      // capturePostcheckJpeg in product-postcheck.ts). No element is focused
+      // in a thumbnail, so the caret cannot be visible anyway.
+      caret: "initial",
     });
   } finally {
     if (previous === undefined) {
