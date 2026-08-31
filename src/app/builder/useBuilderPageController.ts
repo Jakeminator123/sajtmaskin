@@ -359,18 +359,14 @@ export function useBuilderPageController() {
     resetPreviewForNewChat,
   } = vmPreview;
 
-  const { handlePreviewSessionSuspect, forcePreviewResync, resetRecoverAttempts, versionMismatchPayload } = usePreviewSession({
-    chatId: state.chatId,
-    activeVersionId: derived.activeVersionId,
-    activeVersionFailedWithoutPreviewUrl,
-    currentPreviewUrl: state.currentPreviewUrl,
-    activePreviewSessionMeta,
-    setCurrentPreviewUrl: state.setCurrentPreviewUrl,
-    setPreviewSessionRecovering: vmPreview.setPreviewSessionRecovering,
-    previewBootstrapDoneKeysRef: vmPreview.previewBootstrapDoneKeysRef,
-    setForcedPreviewRestartKey: vmPreview.setForcedPreviewRestartKey,
-    setPreviewBootstrapRetryNonce: vmPreview.setPreviewBootstrapRetryNonce,
-    onRecoverFailed: ({ reason, detail }) => {
+  // Stabil identitet med flit (prod 2026-08-31): som inline-arrow byggdes den
+  // om varje render och kaskadade genom usePreviewSession →
+  // handlePreviewSessionSuspect → usePreviewIframe, vars kvitto-kedja då rev
+  // sina egna /preview-status-frågor på varje builder-render. Vakten är numera
+  // ref-immun mot instabila callbacks, men källan ska inte churna i onödan —
+  // handlePreviewSessionSuspect matar även heartbeat och inspector.
+  const handlePreviewRecoverFailed = useCallback(
+    ({ reason, detail }: { reason: string; detail?: string | null }) => {
       setPreviewBuildError({
         stage: reason === "build_error" ? "preview-build-error" : "preview-recover",
         message:
@@ -384,6 +380,21 @@ export function useBuilderPageController() {
       });
       setPreviewPending(false);
     },
+    [setPreviewBuildError, setPreviewPending],
+  );
+
+  const { handlePreviewSessionSuspect, forcePreviewResync, resetRecoverAttempts, versionMismatchPayload } = usePreviewSession({
+    chatId: state.chatId,
+    activeVersionId: derived.activeVersionId,
+    activeVersionFailedWithoutPreviewUrl,
+    currentPreviewUrl: state.currentPreviewUrl,
+    activePreviewSessionMeta,
+    setCurrentPreviewUrl: state.setCurrentPreviewUrl,
+    setPreviewSessionRecovering: vmPreview.setPreviewSessionRecovering,
+    previewBootstrapDoneKeysRef: vmPreview.previewBootstrapDoneKeysRef,
+    setForcedPreviewRestartKey: vmPreview.setForcedPreviewRestartKey,
+    setPreviewBootstrapRetryNonce: vmPreview.setPreviewBootstrapRetryNonce,
+    onRecoverFailed: handlePreviewRecoverFailed,
   });
   /* eslint-disable react-hooks/refs -- wire bootstrap success callback without putting resetRecoverAttempts in effect deps */
   resetRecoverAfterBootstrapRef.current = resetRecoverAttempts;
