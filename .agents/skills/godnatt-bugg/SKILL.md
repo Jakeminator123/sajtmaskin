@@ -25,6 +25,10 @@ regler som den routar till innan någon åtgärd.
 - $godnatt-bugg scheduled: skapa eller promovera aldrig en batch; återuppta bara
   befintlig full state när den är körbar.
 
+`npm run test:godnatt-bugg` är on-demand och ingår inte i `test:ci`, CI eller
+`verify:pr`. Kör det bara när du ändrar Godnatt-skripten eller uttryckligen
+verifierar skillens egna tester.
+
 Pilot tillåter implementation, commit, push och draft-PR men state spärrar
 ci-review, sign-off, merge och complete. Pilot-begin returnerar en slumpad
 promotionCode som inte lagras i klartext. Visa den för användaren och håll den

@@ -23,7 +23,7 @@ Repoets avsedda required checknamn ägs av
 | `backoffice-tests` | Python-/Backoffice-regression                  |
 | `schema-drift`     | DB-schema                                      |
 | `build`            | nyckelfri produktionsbuild                     |
-| `review-window`    | trusted 7 min/review + live head/base/sign-off |
+| `review-window`    | trusted 7 min/review + live head/base; saknat kvitto gör checken `action_required`, inte orchestrator-jobbet rött |
 
 Konsekvenser:
 
@@ -56,12 +56,16 @@ labelad PR utan sign-off och rev labeln trots grön grind.
 **Skarpt fall #665, 2026-07-30:** bot-kommentarer 20:12:08–09 startade två körningar 20:12:12–13 som avslutades 20:12:31–33. Labeln sattes 20:12:24 och sign-offen 20:12:27, alltså båda mitt i fönstret → labeln revs 20:12:27. Mergaren såg "författaren är inte klar" på en PR som var helt färdig.
 
 Skriv därför sign-offen först och labeln sedan, men först när **övriga**
-required checks och reviewkvitton är klara. `review-window` ska då vara pending;
-det är inte en cirkel utan den sista betrodda kontrollpunkten. Controllern kör
+required checks och reviewkvitton är klara. `review-window` ska då vara pending
+eller `action_required`; det är inte en cirkel utan den sista betrodda
+kontrollpunkten. Orchestrator-jobbet i `merge-ready-freshness.yml` är inte
+själva required checken — saknat kvitto eller röd quality ska publicera
+`review-window=action_required` och låta jobbet sluta grönt. Controllern kör
 default-branch-kod, publicerar required check på exakt PR-head och blir grön
-endast när kommentaren är nyare än sjuminutersgolvet, övriga checks och senaste
-botfynd samt matchar aktuell head och aktuell base. Har labeln rivits måste
-agenten läsa orsaken, uppdatera vid behov och posta en ny sign-off.
+när quality och minst ett qualifying reviewkvitto är klara på live head.
+`merge:ready` krävs för `merge:execute`, inte för att checken ska bli grön.
+Har labeln rivits måste agenten läsa orsaken, uppdatera vid behov och posta
+en ny sign-off.
 
 Sign-off-raden är en **PR-kommentar**, inte PR-body, eftersom freshness-grinden
 använder GitHubs `created_at` på kommentaren som tidpunkt och en body inte har

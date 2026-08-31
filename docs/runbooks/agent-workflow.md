@@ -91,7 +91,10 @@ som PR-kommentar och sätt sedan labeln `merge:ready`. Label-eventet läser
 aktuell head och base-refens levande tip via GitHub. Båda måste matcha
 kommentaren, compare/merge-base måste visa att head innehåller base-tipen och
 kommentaren måste komma från PR-författaren eller en mänsklig repo-collaborator.
-Först därefter blir den head-bundna required checken `review-window` grön.
+Först därefter kan `merge:execute` köras. Den head-bundna required checken
+`review-window` blir grön när quality och qualifying reviewkvitto är klara;
+orchestrator-jobbet som publicerar checken ska inte själv bli rött bara för att
+kvittot fortfarande saknas.
 
 När den är grön postar en mänsklig `OWNER`, `MEMBER` eller `COLLABORATOR` den
 slutliga kommandoraden (PR-författarskap ensamt ger inte merge-mandat):
