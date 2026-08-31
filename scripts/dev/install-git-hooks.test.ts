@@ -93,7 +93,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(12);
+    expect(HOOK_VERSION).toBe(13);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -157,9 +157,10 @@ describe("renderHookScript", () => {
     expect(renderHookScript("post-checkout")).not.toContain('"$1" != "rebase"');
   });
 
-  it("pre-push kör verify:pr och låter dess exitkod stoppa pushen", () => {
+  it("pre-push kör verify:pr --plan och låter dess exitkod stoppa pushen", () => {
     const script = renderHookScript("pre-push");
-    expect(script).toContain("npm run verify:pr");
+    expect(script).toContain("npm run verify:pr -- --plan");
+    expect(script).not.toMatch(/npm run verify:pr\s*$/m);
     expect(script).toContain('exit "$status"');
     expect(script).not.toContain("--soft");
     expect(script.trimEnd().endsWith("exit 0")).toBe(false);

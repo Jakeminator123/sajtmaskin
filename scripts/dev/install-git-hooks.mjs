@@ -12,9 +12,9 @@
  * — vilket syns som obegripliga fel långt senare (`column ... does not exist`
  * mitt i en testsvit).
  *
- * Samma glömskerisk fanns före push: `verify:pr` kunde hoppas över och GitHub
- * fick upptäcka följdfel flera minuter senare. Därför är pre-push-hooken hård,
- * medan DB-hookarna nedan fortsätter vara soft.
+ * Samma glömskerisk fanns före push: planen kunde hoppas över och GitHub
+ * fick upptäcka följdfel flera minuter senare. Därför är pre-push-hooken hård
+ * för `verify:pr --plan`, medan DB-hookarna nedan fortsätter vara soft.
  *
  * Symmetrin hookarna ger: prod får migrationer när kod pushas till master, dev
  * får dem när master dras hem. Drift uppstår vid `git pull`/`git checkout`, så
@@ -38,7 +38,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 12;
+export const HOOK_VERSION = 13;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -56,8 +56,9 @@ export const MANAGED_HOOKS = Object.freeze([
  *
  * DB-hookarna är tysta i normalfallet och avbryter aldrig git-kommandot:
  * `--soft` ger alltid exit 0, `--quiet-ok` skriver inget när allt är i synk.
- * `pre-push` är avsiktligt motsatsen: `verify:pr` måste bli grönt, annars
- * stoppas pushen. Bara CI och den uttryckliga escape hatchen får hoppa över den.
+ * `pre-push` är avsiktligt motsatsen: `verify:pr --plan` måste bli grönt, annars
+ * stoppas pushen. Full `verify:pr` körs av agenten och i CI. Bara CI och den
+ * uttryckliga escape hatchen får hoppa över planen.
  *
  * @param {HookName} hookName
  * @returns {string}
@@ -65,13 +66,14 @@ export const MANAGED_HOOKS = Object.freeze([
 export function renderHookScript(hookName) {
   if (hookName === "pre-push") {
     return `#!/bin/sh
-# ${HOOK_MARKER} v${HOOK_VERSION} (${hookName}: verify-pr)
+# ${HOOK_MARKER} v${HOOK_VERSION} (${hookName}: verify-pr-plan)
 #
 # Genererad av scripts/dev/install-git-hooks.mjs — redigera inte for hand.
 # Kor 'npm run hooks:install' for att uppgradera, ta bort filen for att sluta.
 #
-# Fail-closed: en rod lokal PR-verifiering eller non-fast-forward stoppar
-# pushen. Test-escape far inte samtidigt bli en force-push-escape.
+# Fail-closed: en rod lokal PR-plan eller non-fast-forward stoppar
+# pushen. Full verify:pr kors av agenten och i CI. Test-escape far inte
+# samtidigt bli en force-push-escape.
 
 # Global core.hooksPath delas mellan repon. Utan den har repo-signaturen ska
 # hooken inte gora nagonting i ett annat projekt.
@@ -173,16 +175,16 @@ done
 
 if [ "$verify_needed" = "0" ]; then exit 0; fi
 
-# verify:pr laser arbetskopian. Om den ar smutsig kan en ocommitterad fix gora
-# testerna grona trots att den aldre, trasiga HEAD-commiten ar det som pushas.
-# Krav darfor exakt rent trad innan nagon verifierings-/CI-escape tillats.
+# verify:pr --plan laser arbetskopian. Om den ar smutsig kan en ocommitterad
+# fix dolja att den aldre HEAD-commiten ar det som pushas. Krav darfor exakt
+# rent trad innan nagon plan-/CI-escape tillats.
 WORKTREE_STATUS=$(git status --porcelain --untracked-files=normal 2>/dev/null) || {
   echo "[hooks] Push stoppad: kunde inte verifiera att arbetskopian ar ren." >&2
   exit 1
 }
 if [ -n "$WORKTREE_STATUS" ]; then
   echo "[hooks] Push stoppad: arbetskopian har ocommitterade eller osparade filer." >&2
-  echo "[hooks] Commit:a exakta paths eller radda arbetet innan push; verify:pr ska prova exakt HEAD." >&2
+  echo "[hooks] Commit:a exakta paths eller radda arbetet innan push; planen ska prova exakt HEAD." >&2
   exit 1
 fi
 
@@ -220,16 +222,16 @@ GIT_CONFIG_VALUE_0=$VERIFY_ROOT
 export GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
 
 command -v npm >/dev/null 2>&1 || {
-  echo "[hooks] STOPP: npm saknas; kan inte kora npm run verify:pr." >&2
+  echo "[hooks] STOPP: npm saknas; kan inte kora npm run verify:pr -- --plan." >&2
   echo "[hooks] Endast med agarsbeslut: SAJTMASKIN_SKIP_VERIFY_HOOKS=1 git push" >&2
   exit 1
 }
 
-echo "[hooks] Verifierar diffen med npm run verify:pr fore push..."
-npm run verify:pr
+echo "[hooks] Planerar diffen med npm run verify:pr -- --plan fore push..."
+npm run verify:pr -- --plan
 status=$?
 if [ "$status" -ne 0 ]; then
-  echo "[hooks] Push stoppad: npm run verify:pr blev rod." >&2
+  echo "[hooks] Push stoppad: npm run verify:pr -- --plan blev rod." >&2
   echo "[hooks] Ratta felet och forsok igen. Escape hatch kraver agarsbeslut." >&2
 fi
 exit "$status"

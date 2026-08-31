@@ -628,8 +628,17 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     errors.push("pull request template must require verify:pr");
   }
   const hookInstaller = read(root, "scripts/dev/install-git-hooks.mjs");
-  if (!hookInstaller.includes('"pre-push"') || !hookInstaller.includes("npm run verify:pr")) {
-    errors.push("managed git hooks must install the fail-closed verify:pr pre-push gate");
+  if (
+    !hookInstaller.includes('"pre-push"') ||
+    !hookInstaller.includes("npm run verify:pr -- --plan")
+  ) {
+    errors.push("managed git hooks must install the fail-closed verify:pr --plan pre-push gate");
+  }
+  if (commitGuard?.matcher === ".*" || worktreeGuard?.matcher === ".*") {
+    errors.push("Cursor shell guards must not match every command");
+  }
+  if (!String(pkg.scripts?.["backoffice:test"] ?? "").includes("assert-git-checkout-unchanged")) {
+    errors.push("backoffice:test must wrap the suite in the checkout-isolation guard");
   }
   if (!hookInstaller.includes("refs/heads/*BRA*|refs/heads/rescue/*")) {
     errors.push("managed pre-push must reject every update to immutable backup branches");

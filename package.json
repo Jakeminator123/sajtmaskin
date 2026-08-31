@@ -94,7 +94,7 @@
     "embeddings:check-untracked": "node scripts/embeddings/check-embeddings-not-tracked.mjs",
     "embeddings:push": "npx tsx scripts/embeddings/promote-embeddings-to-blob.ts",
     "backoffice": "node scripts/dev/run-python.mjs sajtmaskin_backoffice.py",
-    "backoffice:test": "node scripts/dev/run-python.mjs -m unittest discover -s backoffice -p \"test_*.py\" -t .",
+    "backoffice:test": "node scripts/dev/assert-git-checkout-unchanged.mjs -- node scripts/dev/run-python.mjs -m unittest discover -s backoffice -p \"test_*.py\" -t .",
     "logg:site": "node scripts/dev/run-python.mjs scripts/observability/last-generated-usersite.py",
     "observability:test": "node scripts/dev/run-python.mjs -m unittest discover -s scripts/observability -p \"test_*.py\" -t scripts/observability",
     "canvas:build": "node scripts/canvas/build-llm-flow-canvas.mjs",

@@ -48,9 +48,9 @@ det får inte beskrivas som runtime-låst.
 
 ```bash
 npm run hooks:install       # en gång per clone; idempotent och worktree-delad
-npm run verify:pr -- --plan  # visa vad diffen påverkar
+npm run verify:pr -- --plan  # visa vad diffen påverkar (även pre-push-hooken)
 npm run sync:derived         # skriv om genererade projektioner vid behov
-npm run verify:pr            # PR-ready-kontroll före push
+npm run verify:pr            # full PR-ready-kontroll före push; CI kör den igen
 ```
 
 `verify:pr` jämför med färsk `origin/master`. Det läser control-plane-registren
@@ -81,8 +81,9 @@ i den blockerande CI-grinden. Endast aktörer som uttryckligen finns i policyn,
 för närvarande Dependabot, undantas.
 
 Git-hooken är ett lokalt räcke, inte den yttersta sanningen: den installeras
-idempotent och stoppar push om `verify:pr` är rött. CI kör samma kontrakt igen på
-den pushade committen, så en saknad lokal hook kan inte göra en ogiltig PR grön.
+idempotent och stoppar push om `verify:pr --plan` är rött. Full `verify:pr` körs
+av agenten och i CI på den pushade committen, så en saknad lokal hook kan inte
+göra en ogiltig PR grön.
 
 När `quality`, `backoffice-tests`, `schema-drift`, `build`, Vercel och alla
 reviewfynd är klara — medan `review-window` fortfarande väntar — posta först

@@ -37,6 +37,8 @@ rapportens `runtimeStatus`. Manuella validators rapporteras men körs inte tyst.
   owners ändrats. `verify:pr` gör inga tracked source-edits, men validators får
   uppdatera lokala gitignorerade cacheartefakter, exempelvis lintcache.
 - Kör `npm run verify:pr` före push. Protected diff väljer full lokal profil.
+  Den managed pre-push-hooken kör bara `verify:pr --plan`; den ersätter inte
+  den fulla kontrollen.
 - Kör ett oberoende readonly Sol-pass på den färdiga diffen. Fixa eller
   verifierbart avfärda riktiga fynd; kör sedan om verifieringen.
 
