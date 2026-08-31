@@ -48,9 +48,9 @@ det får inte beskrivas som runtime-låst.
 
 ```bash
 npm run hooks:install       # en gång per clone; idempotent och worktree-delad
-npm run verify:pr -- --plan  # visa vad diffen påverkar
+npm run verify:pr -- --plan  # visa vad diffen påverkar (även pre-push-hooken)
 npm run sync:derived         # skriv om genererade projektioner vid behov
-npm run verify:pr            # PR-ready-kontroll före push
+npm run verify:pr            # full PR-ready-kontroll före push; CI kör den igen
 ```
 
 `verify:pr` jämför med färsk `origin/master`. Det läser control-plane-registren

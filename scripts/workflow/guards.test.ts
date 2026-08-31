@@ -227,6 +227,20 @@ describe("commit guard", () => {
       expect(matcher.test(command), command).toBe(true);
       expect(isCommitCommand(command), command).toBe(true);
     }
+    for (const command of ["npm run typecheck", "echo ok", "python3 -m unittest"]) {
+      expect(matcher.test(command), command).toBe(false);
+    }
+  });
+
+  it("does not run the worktree guard matcher on ordinary commands", () => {
+    const hooks = JSON.parse(readFileSync(".cursor/hooks.json", "utf8"));
+    const source = hooks.hooks.beforeShellExecution.find((hook: { command: string }) =>
+      hook.command.endsWith("worktree-force-guard.mjs"),
+    ).matcher;
+    const matcher = new RegExp(source, "iu");
+    expect(matcher.test("git worktree remove ../x")).toBe(true);
+    expect(matcher.test("npm run typecheck")).toBe(false);
+    expect(matcher.test("echo ok")).toBe(false);
   });
 
   it("asks for protected unstaged files included by -am", () => {

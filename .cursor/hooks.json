@@ -4,13 +4,13 @@
     "beforeShellExecution": [
       {
         "command": "node scripts/workflow/commit-guard.mjs",
-        "matcher": ".*",
+        "matcher": "git|commit",
         "timeout": 30,
         "failClosed": true
       },
       {
         "command": "node .cursor/hooks/worktree-force-guard.mjs",
-        "matcher": ".*",
+        "matcher": "git|worktree",
         "timeout": 30,
         "failClosed": true
       },
