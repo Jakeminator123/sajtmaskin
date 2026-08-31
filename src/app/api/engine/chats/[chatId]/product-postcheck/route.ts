@@ -25,6 +25,13 @@ import {
 } from "@/lib/db/services/live-review-runs";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
+import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
+import {
+  readProductPostcheckPreviewProbe,
+  waitForProductPostcheckPreviewRunning,
+  type ProductPostcheckPreviewProbe,
+} from "@/lib/gen/verify/product-postcheck-preview-wait";
+import { formatProductPostcheckSkippedMessage } from "@/lib/gen/verify/product-postcheck-skip";
 
 export const runtime = "nodejs";
 // Postcheck alone can approach ~150s worst case (boot wait, crawl with the
@@ -46,7 +53,12 @@ type ProductPostcheckTarget = {
 };
 
 function bindProductPostcheckTarget(
-  session: Awaited<ReturnType<typeof getActivePreviewSessionAsync>>,
+  session: {
+    previewSessionId?: string | null;
+    lifecycleToken?: string | null;
+    filesRevision?: string | null;
+    versionId?: string | null;
+  } | null,
   versionId: string,
   filesRevision: string | null,
 ): ProductPostcheckTarget | null {
@@ -108,7 +120,7 @@ function emitPostcheckDegraded(params: {
   const isRuntimeError = params.reason === "runtime_error";
   const message = isRuntimeError
     ? `F2 Product Postcheck failed at runtime (${params.reason}).`
-    : `F2 Product Postcheck skipped (${params.reason}).`;
+    : formatProductPostcheckSkippedMessage(params.reason);
   try {
     emitBusEvent({
       t: "version.degraded",
@@ -219,9 +231,77 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   let targetIsCurrent: (() => Promise<boolean>) | null = null;
   try {
     const filesRevision = scopedVersion.version.files_revision?.trim() || null;
-    const activeSession = await getActivePreviewSessionAsync(chatId);
+    // Slow Fly rebuilds used to hit bind/capture immediately and skip with
+    // no visible reason. Wait read-only until the host is running for this
+    // versionId (or the budget ends) before Playwright starts. Without a
+    // configured host there is nothing to poll — keep the legacy bind path.
+    let waitedProbe: ProductPostcheckPreviewProbe | null = null;
+    if (getPreviewHostBaseUrl()) {
+      const previewWait = await waitForProductPostcheckPreviewRunning({
+        expectedVersionId: resolvedVersionId,
+        expectedFilesRevision: filesRevision ?? "",
+        probe: () =>
+          readProductPostcheckPreviewProbe({
+            chatId,
+            expectedVersionId: resolvedVersionId,
+          }),
+      });
+      if (!previewWait.ok && previewWait.reason === "preview_superseded") {
+        return NextResponse.json(
+          supersededPostcheckResult({ previewUrl: previewUrl?.trim() || "" }),
+        );
+      }
+      waitedProbe = previewWait.ok ? previewWait.probe : previewWait.lastProbe;
+      const waitedTarget = bindProductPostcheckTarget(
+        waitedProbe
+          ? {
+              previewSessionId: waitedProbe.previewSessionId,
+              lifecycleToken: waitedProbe.lifecycleToken,
+              versionId: waitedProbe.versionId,
+              filesRevision: waitedProbe.filesRevision,
+            }
+          : null,
+        resolvedVersionId,
+        filesRevision,
+      );
+      if (!previewWait.ok) {
+        if (waitedTarget) {
+          emitPostcheckDegraded({
+            versionId: resolvedVersionId,
+            chatId,
+            reason: "preview_not_running",
+            checkedUrl: previewUrl?.trim() || waitedProbe?.previewUrl || null,
+            durationMs: 0,
+            attestation: waitedTarget,
+          });
+          return NextResponse.json({
+            ok: true,
+            skipped: true,
+            skippedReason: "preview_not_running",
+            warnings: [],
+            warningCount: 0,
+            productBlocked: false,
+            routesChecked: 0,
+            durationMs: 0,
+            checkedUrl: previewUrl?.trim() || waitedProbe?.previewUrl || null,
+            attestation: waitedTarget,
+          });
+        }
+        return NextResponse.json(
+          supersededPostcheckResult({ previewUrl: previewUrl?.trim() || "" }),
+        );
+      }
+    }
+
     const boundTarget = bindProductPostcheckTarget(
-      activeSession,
+      waitedProbe
+        ? {
+            previewSessionId: waitedProbe.previewSessionId,
+            lifecycleToken: waitedProbe.lifecycleToken,
+            versionId: waitedProbe.versionId,
+            filesRevision: waitedProbe.filesRevision,
+          }
+        : await getActivePreviewSessionAsync(chatId),
       resolvedVersionId,
       filesRevision,
     );
@@ -250,7 +330,8 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     };
     targetIsCurrent = isTargetCurrent;
 
-    if (!previewUrl?.trim()) {
+    const resolvedPreviewUrl = previewUrl?.trim() || waitedProbe?.previewUrl?.trim() || "";
+    if (!resolvedPreviewUrl) {
       // This is a real failure to run against the CURRENT preview target, so it
       // may be projected and persisted with the same attestation. A request
       // without a current target was returned as a silent supersession above.
@@ -284,7 +365,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     });
 
     const result = await runProductPostcheck({
-      previewUrl,
+      previewUrl: resolvedPreviewUrl,
       chatId,
       versionId,
       captureEnabled: liveReviewSession.captureEnabled,
@@ -306,7 +387,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       }
       return NextResponse.json(
         supersededPostcheckResult({
-          previewUrl: previewUrl.trim(),
+          previewUrl: resolvedPreviewUrl,
           durationMs: result.durationMs,
           routesChecked: result.routesChecked,
         }),
@@ -348,7 +429,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     if (!(await isTargetCurrent().catch(() => false))) {
       return NextResponse.json(
         supersededPostcheckResult({
-          previewUrl: previewUrl.trim(),
+          previewUrl: resolvedPreviewUrl,
           durationMs: result.durationMs,
           routesChecked: result.routesChecked,
         }),
