@@ -192,9 +192,23 @@ export function PreviewPanelFrame({
           <div className="bg-primary/70 h-full w-full animate-pulse rounded-full" />
         </div>
       ) : null}
+      {/*
+        Statusyta, aldrig spärr: Tier-2 (Fly) hoppar över hard-capen, så den
+        här overlayen kan ligga kvar i minuter medan readiness-kedjan
+        (status-poll → running-kvitto → ready-reload) fortfarande verifierar —
+        samtidigt som iframen redan visar en fullt fungerande sajt (prod
+        2026-08-27, båda observationskörningarna). `pointer-events-none` låter
+        användaren klicka rakt igenom till sajten, och den lätta dimningen
+        ersätter förra helskärms-dimman + blur som gjorde sidan oläslig.
+      */}
       {overlayVisible ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px] transition-opacity">
-          <div className="text-center">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/15 transition-opacity"
+        >
+          {/* bg-black/85: samma golv som fel-overlayen — muted-foreground
+              klarar AA över en vit iframe först på /85 (globals-token-contrast). */}
+          <div className="rounded-xl bg-black/85 px-4 py-3 text-center shadow-lg">
             <Loader2 className="text-primary mx-auto mb-2 h-6 w-6 animate-spin" />
             <p className="text-muted-foreground text-xs">Laddar...</p>
           </div>
