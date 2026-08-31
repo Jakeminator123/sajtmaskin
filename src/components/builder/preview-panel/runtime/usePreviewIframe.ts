@@ -32,6 +32,9 @@ const TIER2_READY_RELOAD_TIMEOUT_MS = 15_000;
 // short, read-only status window then gives that exact session time to finish
 // starting without creating another restart loop or an unbounded poller.
 const TIER2_LATE_RECOVERY_WINDOW_MS = 30_000;
+// The boot-deadline's final status check must itself be bounded: a hung
+// /preview-status request may otherwise suppress the failure state forever.
+const TIER2_FINAL_CHECK_TIMEOUT_MS = 5_000;
 
 export function usePreviewIframe(params: {
   previewUrl: string | null;
@@ -325,6 +328,80 @@ export function usePreviewIframe(params: {
     [startTier2ReadyReload, stopTier2StatusPolling],
   );
 
+  /**
+   * The boot deadline alone is not proof of failure: the running receipt can
+   * be seconds late (slow Fly boot, rate-limited /preview-status) while the
+   * site below already renders. Prod 2026-08-31 (chat a3346e1e): the red
+   * `preview_ready_timeout` banner covered a working v2. Do one final
+   * read-only status check at the deadline — a matching running receipt goes
+   * to the normal ready-reload with no banner; anything else fails exactly
+   * like before (banner + one suspect report + bounded late recovery).
+   */
+  const confirmOrFailTier2Ready = useCallback(
+    (
+      identity: string,
+      session: {
+        previewSessionId: string;
+        lifecycleToken: string | null;
+        chatId: string;
+        versionId: string;
+        previewUrl: string;
+      } | null,
+    ) => {
+      if (tier2LoadIdentityRef.current !== identity) return;
+      const failAndQueueLateRecovery = () => {
+        failTier2Ready(identity);
+        if (!session) return;
+        queueTier2LateRecoveryPolling(
+          identity,
+          session.previewSessionId,
+          session.lifecycleToken,
+          session.chatId,
+          session.versionId,
+          session.previewUrl,
+        );
+      };
+      if (!session) {
+        failAndQueueLateRecovery();
+        return;
+      }
+      stopTier2StatusPolling();
+      const abortController = new AbortController();
+      tier2StatusAbortRef.current = abortController;
+      const guardTimer = window.setTimeout(() => {
+        if (tier2LoadIdentityRef.current !== identity) return;
+        abortController.abort();
+        failAndQueueLateRecovery();
+      }, TIER2_FINAL_CHECK_TIMEOUT_MS);
+      void (async () => {
+        const status = await fetchPreviewStatus({
+          chatId: session.chatId,
+          versionId: session.versionId,
+          previewSessionId: session.previewSessionId,
+          signal: abortController.signal,
+        });
+        window.clearTimeout(guardTimer);
+        if (abortController.signal.aborted || tier2LoadIdentityRef.current !== identity) return;
+        const receiptMatchesIdentity =
+          status?.versionId === session.versionId &&
+          status.previewSessionId === session.previewSessionId &&
+          (status.lifecycleToken ?? null) === session.lifecycleToken &&
+          isSameTier2PreviewSession(status.previewUrl, session.previewUrl);
+        if (status?.status === "running" && receiptMatchesIdentity) {
+          startTier2ReadyReload(identity, session.previewUrl);
+          return;
+        }
+        failAndQueueLateRecovery();
+      })();
+    },
+    [
+      failTier2Ready,
+      queueTier2LateRecoveryPolling,
+      startTier2ReadyReload,
+      stopTier2StatusPolling,
+    ],
+  );
+
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- clear diagnostic when error clears */
     if (!iframeError) setIframeDiagnosticCode(null);
@@ -379,27 +456,20 @@ export function usePreviewIframe(params: {
         refreshToken ?? 0,
       ]);
       tier2LoadIdentityRef.current = identity;
-      tier2LoadTimerRef.current = window.setTimeout(
-        () => {
-          failTier2Ready(identity);
-          if (
-            chatId &&
-            versionId &&
-            previewSessionId &&
-            activePreviewLifecycleToken !== undefined
-          ) {
-            queueTier2LateRecoveryPolling(
-              identity,
-              previewSessionId,
-              activePreviewLifecycleToken,
-              chatId,
-              versionId,
-              previewUrl,
-            );
-          }
-        },
-        TIER2_LOAD_TIMEOUT_MS,
-      );
+      tier2LoadTimerRef.current = window.setTimeout(() => {
+        confirmOrFailTier2Ready(
+          identity,
+          chatId && versionId && previewSessionId && activePreviewLifecycleToken !== undefined
+            ? {
+                previewSessionId,
+                lifecycleToken: activePreviewLifecycleToken,
+                chatId,
+                versionId,
+                previewUrl,
+              }
+            : null,
+        );
+      }, TIER2_LOAD_TIMEOUT_MS);
 
       if (
         chatId &&
@@ -427,8 +497,7 @@ export function usePreviewIframe(params: {
     activePreviewLifecycleToken,
     isOwnEnginePreview,
     clearPreviewReadyTimer,
-    failTier2Ready,
-    queueTier2LateRecoveryPolling,
+    confirmOrFailTier2Ready,
     startTier2StatusPolling,
   ]);
 
@@ -456,27 +525,20 @@ export function usePreviewIframe(params: {
       ]);
       tier2LoadedFrameIdentityRef.current = null;
       tier2LoadIdentityRef.current = identity;
-      tier2LoadTimerRef.current = window.setTimeout(
-        () => {
-          failTier2Ready(identity);
-          if (
-            chatId &&
-            versionId &&
-            previewSessionId &&
-            activePreviewLifecycleToken !== undefined
-          ) {
-            queueTier2LateRecoveryPolling(
-              identity,
-              previewSessionId,
-              activePreviewLifecycleToken,
-              chatId,
-              versionId,
-              previewUrl,
-            );
-          }
-        },
-        TIER2_LOAD_TIMEOUT_MS,
-      );
+      tier2LoadTimerRef.current = window.setTimeout(() => {
+        confirmOrFailTier2Ready(
+          identity,
+          chatId && versionId && previewSessionId && activePreviewLifecycleToken !== undefined
+            ? {
+                previewSessionId,
+                lifecycleToken: activePreviewLifecycleToken,
+                chatId,
+                versionId,
+                previewUrl,
+              }
+            : null,
+        );
+      }, TIER2_LOAD_TIMEOUT_MS);
     }
 
     // A controlled URL is often unchanged after SPA navigation. React will
@@ -489,11 +551,10 @@ export function usePreviewIframe(params: {
     activePreviewSessionId,
     chatId,
     clearPreviewReadyTimer,
-    failTier2Ready,
+    confirmOrFailTier2Ready,
     iframeRef,
     isOwnEnginePreview,
     previewUrl,
-    queueTier2LateRecoveryPolling,
     refreshToken,
     versionId,
   ]);
