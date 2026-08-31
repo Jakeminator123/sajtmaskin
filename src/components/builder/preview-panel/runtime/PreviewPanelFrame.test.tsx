@@ -85,6 +85,34 @@ describe("PreviewPanelFrame — loading-overlayens debounce och hard-cap", () =>
     }
   });
 
+  it("loading-overlayen är ren status och blockerar aldrig pekare mot previewn", () => {
+    // Prod 2026-08-27: Tier-2 hoppar över hard-capen, så overlayen kan ligga
+    // kvar länge ovanpå en redan fungerande sajt. Den får då inte äta klick.
+    vi.useFakeTimers();
+    try {
+      renderFrame({ bypassLoadingHardCap: true });
+      act(() => vi.advanceTimersByTime(400));
+
+      const overlay = screen
+        .getByText("Laddar...")
+        .closest('[aria-hidden="true"]');
+      expect(overlay).not.toBeNull();
+      expect(overlay!.className.split(/\s+/)).toContain("pointer-events-none");
+
+      // Även långt förbi den generiska hard-capen (Tier-2-bypassens fönster,
+      // där overlayen bevisligen legat kvar i minuter i prod) ska hela
+      // fullskärmsytan förbli klickgenomsläpplig.
+      act(() => vi.advanceTimersByTime(60_000));
+      const lateOverlay = screen
+        .getByText("Laddar...")
+        .closest('[aria-hidden="true"]');
+      expect(lateOverlay).not.toBeNull();
+      expect(lateOverlay!.className.split(/\s+/)).toContain("pointer-events-none");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("behåller en synlig overlay när Tier-2 tar över hard-cap-ägarskapet", () => {
     vi.useFakeTimers();
     try {
