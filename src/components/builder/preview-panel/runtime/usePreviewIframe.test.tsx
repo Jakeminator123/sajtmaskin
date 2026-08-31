@@ -296,7 +296,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
   it("honors the 90s boot grace and fails closed after the Tier-2 readiness timeout", async () => {
     fetchPreviewStatus
       .mockReturnValueOnce(new Promise(() => {}))
-      .mockResolvedValueOnce(status("build_error"));
+      .mockResolvedValue(status("build_error"));
     const params = makeParams();
     const { result } = renderHook(() => usePreviewIframe(params));
 
@@ -309,27 +309,83 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(signal.aborted).toBe(false);
     expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
 
-    act(() => vi.advanceTimersByTime(8_000));
+    // The deadline first runs one bounded final status check; a non-running
+    // receipt fails exactly like before.
+    await act(async () => {
+      vi.advanceTimersByTime(8_000);
+      await Promise.resolve();
+    });
 
     expect(result.current.iframeLoading).toBe(false);
     expect(result.current.iframeError).toBe(true);
     expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
     expect(signal.aborted).toBe(true);
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(2);
 
-    const callsAtTimeout = fetchPreviewStatus.mock.calls.length;
+    // A late onLoad cannot restart polling; late recovery hands the terminal
+    // receipt to the existing owner once and then stops.
     act(() => result.current.handleIframeLoad());
     await act(async () => {
       vi.advanceTimersByTime(4_000);
       await Promise.resolve();
     });
-    expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAtTimeout + 1);
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(3);
 
     await act(async () => {
       vi.advanceTimersByTime(8_000);
       await Promise.resolve();
     });
-    expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAtTimeout + 1);
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(3);
+    expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+  });
+
+  it("visar aldrig timeout-bannern när deadline-kontrollen säger running", async () => {
+    // Prod 2026-08-31 (chat a3346e1e): röd preview_ready_timeout-banner över
+    // en fungerande v2. Ett running-kvitto som hinner fram exakt vid
+    // deadline ska gå till ready-reload — inte till bannern.
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValueOnce(status("running"));
+    const decoratedSrc = `${TIER2_URL}?__sm_viewer=viewer_1`;
+    const iframeRef = makeIframeRef(decoratedSrc);
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+
+    expect(result.current.iframeError).toBe(false);
+    expect(result.current.iframeDiagnosticCode).toBeNull();
+    expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(1);
+    expect(iframeRef.setSrc).toHaveBeenCalledWith(decoratedSrc);
+
+    act(() => result.current.handleIframeLoad());
+    expect(result.current.iframeLoading).toBe(false);
+    expect(result.current.iframeError).toBe(false);
+  });
+
+  it("failar ändå när deadline-kontrollen själv hänger (bunden vakt)", async () => {
+    fetchPreviewStatus.mockReturnValue(new Promise(() => {}));
+    const params = makeParams({ iframeRef: makeIframeRef() });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    act(() => vi.advanceTimersByTime(98_000));
+    expect(result.current.iframeError).toBe(false);
+
+    await act(async () => {
+      vi.advanceTimersByTime(5_000);
+      await Promise.resolve();
+    });
+
+    expect(result.current.iframeLoading).toBe(false);
+    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
 
@@ -344,13 +400,9 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     const { result } = renderHook(() => usePreviewIframe(params));
 
     act(() => result.current.handleIframeLoad());
-    act(() => vi.advanceTimersByTime(98_000));
-
-    expect(result.current.iframeError).toBe(true);
-    expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
-
+    // Deadline: final check consumes the starting receipt and fails as before.
     await act(async () => {
-      vi.advanceTimersByTime(4_000);
+      vi.advanceTimersByTime(98_000);
       await Promise.resolve();
     });
 
@@ -358,6 +410,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
     expect(result.current.iframeLoading).toBe(false);
     expect(result.current.iframeError).toBe(true);
+    expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       vi.advanceTimersByTime(4_000);
@@ -386,7 +439,11 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     const { result } = renderHook(() => usePreviewIframe(params));
 
     act(() => result.current.handleIframeLoad());
-    act(() => vi.advanceTimersByTime(98_000));
+    // Deadline: the bounded final check consumes one starting receipt first.
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
 
     for (let index = 0; index < 7; index += 1) {
       await act(async () => {
@@ -395,7 +452,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
       });
     }
 
-    expect(fetchPreviewStatus).toHaveBeenCalledTimes(8);
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(9);
     expect(result.current.iframeLoading).toBe(false);
     expect(result.current.iframeError).toBe(true);
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
@@ -406,7 +463,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
       await Promise.resolve();
     });
 
-    expect(fetchPreviewStatus).toHaveBeenCalledTimes(8);
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(9);
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
@@ -423,28 +480,35 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
   ])("rejects a late running receipt with mismatched %s", async (_label, lateStatus) => {
     fetchPreviewStatus
       .mockReturnValueOnce(new Promise(() => {}))
-      .mockResolvedValueOnce(lateStatus);
+      .mockResolvedValue(lateStatus);
     const iframeRef = makeIframeRef();
     const params = makeParams({ iframeRef });
     const { result } = renderHook(() => usePreviewIframe(params));
 
     act(() => result.current.handleIframeLoad());
-    act(() => vi.advanceTimersByTime(98_000));
+    // The deadline's final check must reject the mismatched receipt too.
     await act(async () => {
-      vi.advanceTimersByTime(4_000);
+      vi.advanceTimersByTime(98_000);
       await Promise.resolve();
     });
 
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(2);
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
     expect(result.current.iframeLoading).toBe(false);
     expect(result.current.iframeError).toBe(true);
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
 
+    // Late recovery reads the same mismatched receipt once and ends silently.
+    await act(async () => {
+      vi.advanceTimersByTime(4_000);
+      await Promise.resolve();
+    });
     await act(async () => {
       vi.advanceTimersByTime(12_000);
       await Promise.resolve();
     });
-    expect(fetchPreviewStatus).toHaveBeenCalledTimes(2);
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(3);
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
 
@@ -528,7 +592,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
 
-  it("explicitly reloads the decorated controlled src and keeps the readiness gate closed", () => {
+  it("explicitly reloads the decorated controlled src and keeps the readiness gate closed", async () => {
     const decoratedSrc = `${TIER2_URL}?__sm_viewer=viewer_1`;
     const iframeRef = makeIframeRef(decoratedSrc);
     const params = makeParams({ iframeRef });
@@ -544,7 +608,11 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(result.current.iframeError).toBe(false);
     expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
 
-    act(() => vi.advanceTimersByTime(1));
+    // Deadline: the final check gets no receipt and fails as before.
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
     expect(result.current.iframeLoading).toBe(false);
     expect(result.current.iframeError).toBe(true);
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
