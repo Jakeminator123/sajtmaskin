@@ -268,6 +268,38 @@ describe("resolveReportedQualityGateResult — SM-017", () => {
     expect(status.verificationBlocked).toBe(false);
   });
 
+  it("propagates skippedReason into the degradation message", () => {
+    const status = applyProductPostcheckReportToVersionStatus(
+      {
+        runId: "run_1",
+        phase: "done",
+        previewBlocked: false,
+        verificationBlocked: false,
+        repairPassIndex: 0,
+        lastBuildError: null,
+        eventCount: 0,
+        done: true,
+        verifierOutcome: "passed",
+        degradations: [],
+      },
+      [
+        {
+          category: "product_postcheck.skipped",
+          message: "F2 Product Postcheck skipped.",
+          meta: { skippedReason: "preview_not_running" },
+          created_at: "2026-08-31T10:00:00Z",
+        },
+      ],
+    );
+    expect(status.degradations).toEqual([
+      expect.objectContaining({
+        kind: "product_postcheck_skipped",
+        message: "F2 Product Postcheck skipped (product_postcheck_skipped: preview_not_running).",
+        meta: expect.objectContaining({ skippedReason: "preview_not_running" }),
+      }),
+    ]);
+  });
+
   it("lets a strictly later clean DB summary clear an older bus skip", () => {
     const status = applyProductPostcheckReportToVersionStatus(
       {

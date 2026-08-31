@@ -48,6 +48,8 @@ export type ProductPostcheckSkipReason =
   | "playwright_unavailable"
   | "timeout"
   | "preview_superseded"
+  | "preview_not_running"
+  | "capture_failed"
   | "runtime_error";
 
 export type ProductPostcheckWarning = {
@@ -1028,9 +1030,12 @@ const POST_LAUNCH_TARGET_CLOSED_PATTERN =
 /** Genuine launch failures: the binary is missing or the launch itself threw. */
 const BROWSER_UNAVAILABLE_PATTERN =
   /playwright|browsertype\.launch|failed\s+to\s+launch|executable\s+doesn'?t\s+exist|browser/i;
+/** JPEG/screenshot persist or page.screenshot blew up after the preview was up. */
+const CAPTURE_ERROR_PATTERN = /screenshot|capturejpeg|capture failed|persist.*jpeg/i;
 
 export function productPostcheckSkipReasonFromError(err: unknown): ProductPostcheckSkipReason {
   if (!(err instanceof Error)) return "runtime_error";
+  if (CAPTURE_ERROR_PATTERN.test(err.message)) return "capture_failed";
   if (/timeout/i.test(err.message)) return "timeout";
   if (NAVIGATION_ERROR_PATTERN.test(err.message)) return "navigation_failed";
   if (POST_LAUNCH_TARGET_CLOSED_PATTERN.test(err.message)) return "runtime_error";
