@@ -215,7 +215,44 @@ export function PreviewPanelFrame({
         </div>
       ) : null}
 
-      {iframeError ? (
+      {/*
+        `preview_ready_timeout` är en MISSTANKE, inte ett bevis: prod
+        2026-08-31 (chat 18e55beb) dömde readiness-kedjan ut previewn på
+        timeout mitt i ett versionsbyte medan iframen redan visade en fullt
+        fungerande sajt — och helskärms-overlayen stängde ute användaren från
+        den. Timeouten renderas därför som en icke-blockerande banner ovanför
+        sajten (åtgärderna behåller sina klick via pointer-events-auto).
+        Alla andra iframe-fel (dokument oläsbart, transportfel) behåller den
+        heltäckande overlayen — där finns inget under att interagera med.
+      */}
+      {iframeError && iframeDiagnosticCode === "preview_ready_timeout" ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center p-3">
+          <div className="pointer-events-auto flex max-w-2xl flex-wrap items-center gap-3 rounded-xl border border-red-400/30 bg-black/85 px-4 py-3 shadow-lg">
+            <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-gray-300">
+                {iframeErrorMessage ||
+                  "Previewen laddade inte klart innan timeout."}{" "}
+                Fungerar sajten nedanför kan du fortsätta använda den.
+              </p>
+              <p className="font-mono text-[11px] text-muted-foreground">
+                Kod: {iframeDiagnosticCode}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button size="sm" onClick={handleOpenInNewTab}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Öppna i ny flik
+              </Button>
+              {onFixPreview ? (
+                <Button size="sm" variant="outline" onClick={onFixPreview} disabled={isLoading}>
+                  Försök reparera preview
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : iframeError ? (
         <div className="absolute inset-0 z-10 flex max-h-full flex-col items-center justify-center overflow-y-auto bg-black/85 p-4">
           <AlertCircle className="mb-4 h-12 w-12 shrink-0 text-red-400" />
           <p className="mb-2 max-w-lg text-center text-sm text-gray-300">
