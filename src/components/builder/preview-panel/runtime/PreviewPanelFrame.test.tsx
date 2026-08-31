@@ -216,6 +216,46 @@ describe("PreviewPanelFrame — loading-overlayens debounce och hard-cap", () =>
     }
   });
 
+  it("renderar preview_ready_timeout som icke-blockerande banner, inte helskärmslock", () => {
+    // Prod 2026-08-31 (chat 18e55beb): timeouten slog mitt i ett versionsbyte
+    // medan iframen redan visade en fungerande sajt. En misstanke får varna,
+    // aldrig stänga ute användaren från en levande preview.
+    renderFrame({
+      isLoading: false,
+      iframeError: true,
+      iframeErrorMessage: "Previewen laddade inte klart innan timeout.",
+      iframeDiagnosticCode: "preview_ready_timeout",
+    });
+
+    const banner = screen.getByText(/Fungerar sajten nedanför/);
+    expect(banner).toBeTruthy();
+    expect(screen.getByText("Öppna i ny flik")).toBeTruthy();
+
+    // Ytterwrappern släpper igenom pekare; bara bannerkortet är klickbart.
+    const wrapper = banner.closest(".pointer-events-none");
+    expect(wrapper).not.toBeNull();
+    expect(wrapper!.className.split(/\s+/)).not.toContain("inset-0");
+
+    // Ingen heltäckande fel-yta för timeout-koden.
+    const fullCover = document.querySelector(".absolute.inset-0.bg-black\\/85");
+    expect(fullCover).toBeNull();
+  });
+
+  it("behåller helskärms-fel-overlayen för andra diagnostikkoder", () => {
+    renderFrame({
+      isLoading: false,
+      iframeError: true,
+      iframeErrorMessage: "Preview iframe document could not be read.",
+      iframeDiagnosticCode: "preview_document_unavailable",
+    });
+
+    expect(screen.queryByText(/Fungerar sajten nedanför/)).toBeNull();
+    const message = screen.getByText("Preview iframe document could not be read.");
+    const cover = message.closest("div.absolute");
+    expect(cover).not.toBeNull();
+    expect(cover!.className.split(/\s+/)).toContain("inset-0");
+  });
+
   it("visar fel-overlayens hjälptext med opak sekundärtexttoken", () => {
     renderFrame({
       isLoading: false,
