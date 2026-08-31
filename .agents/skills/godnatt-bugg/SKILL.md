@@ -80,8 +80,8 @@ kommandon, promotion och automationslivscykel. Läs
 ### 1. Preflight
 
 1. Kräv ett Codex-appisolerat worktree för passet. Kör aldrig i
-   Cursor-huvudcheckouten eller det permanenta Codex-projektankaret; aktuella
-   sökvägar ägs av [`.codex/README.md`](../../../.codex/README.md).
+   huvudcheckouten, även om Cursor är stängt; aktuella sökvägar och
+   worktree-modellen ägs av [`.codex/README.md`](../../../.codex/README.md).
 2. Kontrollera cwd, git status, aktuell branch och git worktree list.
 3. Läs AGENTS.md, BUG-SWARM-BACKLOG.md och reglerna för git, workflow,
    worktrees, Bugbot och merge.

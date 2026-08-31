@@ -5,7 +5,9 @@ import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  cheapShellDecision,
   decide as decideWorktree,
+  isImmutableBranchName,
   mayResolveToGit,
   resolveAliasesFor,
 } from "../../.cursor/hooks/worktree-force-guard.mjs";
@@ -302,18 +304,24 @@ describe("commit guard", () => {
       if (cwd === scripts) return args.includes("--cached") ? [] : ["src/components/example.tsx"];
       return args.includes("--cached") ? [] : ["AGENTS.md"];
     });
-    expect(decideCommitCommand("cd scripts | git commit -m x", { git, cwd: startCwd }).permission).toBe(
-      "ask",
-    );
-    expect(decideCommitCommand("cd scripts; git commit -m x", { git, cwd: startCwd }).permission).toBe(
-      "allow",
-    );
-    expect(decideCommitCommand("cd scripts && git commit -m x", { git, cwd: startCwd }).permission).toBe(
-      "allow",
-    );
-    expect(decideCommitCommand("cd scripts || git commit -m x", { git, cwd: startCwd }).permission).toBe(
-      "allow",
-    );
+    // Explicit aliases keep this unit test off a real `git config` subprocess.
+    const aliases = new Set<string>();
+    expect(
+      decideCommitCommand("cd scripts | git commit -m x", { git, cwd: startCwd, aliases })
+        .permission,
+    ).toBe("ask");
+    expect(
+      decideCommitCommand("cd scripts; git commit -m x", { git, cwd: startCwd, aliases })
+        .permission,
+    ).toBe("allow");
+    expect(
+      decideCommitCommand("cd scripts && git commit -m x", { git, cwd: startCwd, aliases })
+        .permission,
+    ).toBe("allow");
+    expect(
+      decideCommitCommand("cd scripts || git commit -m x", { git, cwd: startCwd, aliases })
+        .permission,
+    ).toBe("allow");
   });
 
   it("denies when git -C targets the trunk checkout behind an earlier cd", () => {
@@ -442,5 +450,110 @@ describe("commit guard", () => {
         },
       }).permission,
     ).toBe("deny");
+  });
+});
+
+describe("cheap read-only git path", () => {
+  const readonly = [
+    "git worktree list",
+    "git branch -vv",
+    "git fetch --prune origin",
+    "git status",
+    "git status --short --branch",
+    "git log -1 --oneline",
+    "git diff --stat",
+    "git rev-parse --abbrev-ref HEAD",
+    "git show HEAD",
+    "git checkout -b tmp-hook-repro",
+    "git switch -c tmp-hook-repro",
+  ];
+
+  it.each(readonly)("allows %s before alias inspection", (command) => {
+    expect(cheapShellDecision(command)).toEqual({ permission: "allow" });
+    expect(decideCommitCommand(command, { aliases: null })).toEqual({ permission: "allow" });
+    expect(decideWorktree(command, { aliases: null })).toEqual({ permission: "allow" });
+  });
+
+  it("treats checkout -b and switch -c the same", () => {
+    expect(cheapShellDecision("git checkout -b feat/hook")).toEqual(
+      cheapShellDecision("git switch -c feat/hook"),
+    );
+    expect(decideCommitCommand("git checkout -b feat/hook", { aliases: null })).toEqual({
+      permission: "allow",
+    });
+    expect(decideCommitCommand("git switch -c feat/hook", { aliases: null })).toEqual({
+      permission: "allow",
+    });
+  });
+
+  it("does not cheap-allow a commit or raw worktree remove", () => {
+    expect(cheapShellDecision("git commit -m x")).toBeNull();
+    expect(cheapShellDecision("git worktree remove ../x --force")).toBeNull();
+    expect(cheapShellDecision("tool worktree remove ../victim")).toBeNull();
+  });
+
+  it("recognizes immutable backup branch names", () => {
+    expect(isImmutableBranchName("JAKOB_BRA_9999_INNNAN_MVP_BRA")).toBe(true);
+    expect(isImmutableBranchName("rescue/stash-2026-08-14")).toBe(true);
+    expect(isImmutableBranchName("feat/hook")).toBe(false);
+  });
+
+  it.each([
+    "git checkout JAKOB_BRA_9999_INNNAN_MVP_BRA",
+    "git switch rescue/stash-2026-08-14",
+    "git checkout -b JAKOB_BRA_new",
+    "git switch -c rescue/new",
+    "git branch -D JAKOB_BRA_9999_INNNAN_MVP_BRA",
+    "git worktree add -b JAKOB_BRA_tmp ../tmp-bra",
+  ])("denies mutating an immutable branch: %s", (command) => {
+    expect(cheapShellDecision(command)?.permission).toBe("deny");
+    expect(decideCommitCommand(command, { aliases: null }).permission).toBe("deny");
+    expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
+  });
+});
+
+describe("hook CLI contract", () => {
+  function ask(script: string, command: string) {
+    const run = spawnSync(process.execPath, [resolve(script)], {
+      cwd: process.cwd(),
+      input: JSON.stringify({ command }),
+      encoding: "utf8",
+      timeout: 15000,
+      windowsHide: true,
+    });
+    expect(run.status, `${script} ${command}`).toBe(0);
+    expect(run.stdout.trim(), `${script} ${command} stdout`).not.toBe("");
+    return JSON.parse(run.stdout) as { permission: string };
+  }
+
+  it("writes hook responses synchronously and never exits after write", () => {
+    const io = readFileSync(resolve(".cursor/hooks/hook-io.mjs"), "utf8");
+    expect(io).toContain("writeSync");
+    // The doc comment names `process.exit()` as the thing to avoid, so match
+    // against code only.
+    const code = io.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gmu, "");
+    expect(code).not.toMatch(/process\.exit\(/);
+    expect(readFileSync(resolve(".cursor/hooks/worktree-force-guard.mjs"), "utf8")).toContain(
+      "writeHookResponse",
+    );
+    expect(readFileSync(resolve("scripts/workflow/commit-guard.mjs"), "utf8")).toContain(
+      "writeHookResponse",
+    );
+  });
+
+  it.each([
+    [".cursor/hooks/worktree-force-guard.mjs", "git worktree list", "allow"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git status --short --branch", "allow"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git checkout -b tmp-cli", "allow"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git switch -c tmp-cli", "allow"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git worktree remove ../x --force", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git checkout JAKOB_BRA_9999_INNNAN_MVP_BRA", "deny"],
+    ["scripts/workflow/commit-guard.mjs", "git branch -vv", "allow"],
+    ["scripts/workflow/commit-guard.mjs", "git fetch --prune origin", "allow"],
+    ["scripts/workflow/commit-guard.mjs", "git checkout -b tmp-cli", "allow"],
+    ["scripts/workflow/commit-guard.mjs", "git switch -c tmp-cli", "allow"],
+    ["scripts/workflow/commit-guard.mjs", "git switch rescue/stash-2026-08-14", "deny"],
+  ] as const)("%s %s → %s", (script, command, permission) => {
+    expect(ask(script, command).permission).toBe(permission);
   });
 });
