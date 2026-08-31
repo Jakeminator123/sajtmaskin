@@ -10,7 +10,7 @@ Regler:
 - `Aktiv kö` innehåller bara kod- eller prodverifierade fel på nuvarande `master`.
 - Obevisade hypoteser ligger i `Behöver repro`; avstängda funktioner ligger som
   releaseblockerare. De påverkar inte canvasens antal öppna produktbuggar.
-- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-072`.
+- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-074`.
 - En draft-PR är inte en fix. Arkivflytten ska ingå i samma fix-PR med PR- och
   planerat masterbevis; den blir kanonisk först när PR:n mergas till `master`.
 
@@ -24,9 +24,11 @@ Regler:
 | [ ] | Öppen bug | P2 | `SM-013` Misslyckad template-init lämnar `?templateId=...` utan `chatId`; tomläget fortsätter därför visa ”Läser in templaten” tills reload. | `useBuilderEffects.ts`, `PreviewPanelEmptyState.tsx` och `POST /api/template`. | Landa idempotent serverkontrakt, därefter explicit felläge och säker ”Försök igen”. |
 | [ ] | Öppen bug | P3 | `SM-030` En sparad `postgres-drizzle`-dossier kan samexistera med en senare Mongo-markör från tool/F3, så BuildSpec och prompt kan bära två databasidentiteter. | Dossierselectionen väljer Postgres medan `detect-integrations.ts` fortfarande producerar `mongodb`; omklassning dokumenterad i draft [#1139](https://github.com/Jakeminator123/sajtmaskin/pull/1139). | Låt markören följa vald dossier; bevara dossierlös Mongo när ingen DB-dossier är vald. |
 | [ ] | Bekräftad prod-bugg | P2 | `SM-033` Wizardns competitor/enrich-rutter har nått sina 25/30-sekunderstak, men saknar ovillkorlig terminal fastelemetri som visar dominant steg. | Prod-504 samt `src/app/api/wizard/competitors/route.ts` och `enrich/route.ts`. | Lägg content-free terminal event och gemensam deadline/abort; mät p95/p99 före ändrat tak. |
+| [ ] | Bekräftad prod-bugg | P1 | `SM-072` Chromium-captures svälter `/tmp` på warm Fluid-instans: burst av postcheck/live review läcker tills nästa launch dör (`Target page, context or browser has been closed`) och versionen visas som Degraderad trots frisk sajt. | Vercel runtime 2026-08-31 (chat `30840b09`, dpl `dpl_81XhZUJJ…`): 513→31→23 MB fritt inom 5 min; DB-skip `playwright_unavailable` + `runtime_error`; plattformsbred defektsignatur `e18935fd85a9` (6 chattar sedan 22 aug). Utredning: `docs/plans/active/2026-09-01-verifieringsflode-och-inspector/`. | Trycksvep landat i `src/lib/capture/browser.ts` (< 200 MB fritt ⇒ svep profiler äldre än 2 min). Verifiera i prod-logg efter nästa burst; består läckan: identifiera artefakten som äter ~480 MB mellan launches (profil/V8-cache/run-NDJSON). |
+| [ ] | Bekräftad prod-bugg | P1 | `SM-073` Preview-hostens injicerade inspector-bridge saknar identitetsstämpel (`versionId`/`previewSessionId`/`lifecycleToken` utelämnas ur script-URL:en) när sessionsmetadata tappats ur hostens store; parent släpper fail-closed alla meddelanden och inspektorn dör tyst i det i prod döda kartläget. | Injektionsbevis 2026-08-31 (chat `cdf5e0aa`): `<script src=".../api/inspect-bridge?parent=...">` utan identitetsparametrar; `/admin/sessions` = 0 trots servande runtime; live-repro med "Hovra över ett element först" på Verifierad version. `inspectInjectionScriptSrc` i `preview-host/src/runtime/preview-proxy.js`. | Klientdiagnos landad (banner + status + avvisat-ready-varning). Kvar: host-sidan — utred sessionstappet i store:n och injicera aldrig ostämplat script när en tier-2-session förväntas. |
 
-Prioritering: `SM-033` först; därefter `SM-013`, `SM-003` och `SM-001`; sist
-`SM-030`.
+Prioritering: `SM-072` och `SM-073` först; därefter `SM-033`, `SM-013`,
+`SM-003` och `SM-001`; sist `SM-030`.
 
 ## Releaseblockerare bakom avstängd flagga
 
@@ -74,8 +76,7 @@ Detta är testkö, inte bekräftade buggar. Fulla körvägar finns i
 | --- | --- | --- |
 | Block/Marknadsblock | Flaggan är på men riktig Pro-källa är inte livebevisad. | Infoga `hero1` i prod och verifiera hämtad källkod, inte metadata-fallback. |
 | OpenAI E2E | UX-kedjan finns; tidigare projektnyckel saknade quota. | Spara riktig projektägd nyckel, bygg integrationen en gång, få providersvar och reloada. |
-| `SM-025` | Product Postcheck kan fortfarande kollidera med thumbnail i annan isolate. | Kör follow-up v2+; flytta till aktivt bara vid `browser-closed`/skip. |
-| Chromium `/tmp` | Capture kan läcka profil/data, men ingen felkörning är korrelerad. | Vid nästa capture-fel: bind free/total MB och profilkataloger till samma instans. |
+| `SM-025` | Product Postcheck kan fortfarande kollidera med thumbnail i annan isolate. 2026-08-31:s `browser-closed`-skips (chat `30840b09`) förklaras av `/tmp`-svält (`SM-072`) — kollisionshypotesen är fortfarande obevisad separat. | Nästa `browser-closed`-skip **med gott om fritt `/tmp`** i samma logg är kollisionsbeviset; med lågt fritt utrymme hör fyndet till `SM-072`. |
 | Scaffold-kohort | `(null)` kan vara blandning av explicit off, import och pending. | Kör `control-stats.mjs` per kohort; skapa buggrad endast för konkret fallande kohort. |
 | `SM-071` | Fem äldre `app-shell`-körningar misslyckades, men manifestet ändrades 21 aug och en ny variant landade 23 aug; historiken bevisar därför inte fel på dagens `master`. | Kör en ny `app-shell` mot nuvarande master och lokalisera första preview-/buildfelet innan raden återaktiveras. |
 | `SM-035` | Historisk Fly `npm install` exit 254 saknar klassificerad återkomst. | Nästa träff ska bära bounded manager/mode/duration, OOM-, disk-, machine- och regiondata. |

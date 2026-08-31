@@ -219,6 +219,73 @@ describe("launchCaptureBrowser", () => {
     warnSpy.mockRestore();
   });
 
+  it("sveper en yngre läckt profil när /tmp är under tryck (SM-072)", async () => {
+    // Prod 2026-08-31: /tmp föll 513 → 23 MB fritt inom en burst-session och
+    // nästa Chromium dog. Under tryck (< 200 MB fritt) flippar avvägningen —
+    // då gäller 2-minutersgränsen i stället för 15.
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    // Default-mocken ger ~1 MB fritt = tryck.
+    const tmp = createSweepTmp();
+    const midAgedDir = makeDir(tmp, `${PLAYWRIGHT_PROFILE_PREFIX}mid`, 5 * 60 * 1000);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(fs.existsSync(midAgedDir)).toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[capture-browser] pruned 1 leaked Playwright profile dir(s)",
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("behåller en 5 minuter gammal profil när /tmp har gott om plats", async () => {
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    // ~400 MB fritt av ~512 MB — inget tryck, 15-minutersgränsen gäller.
+    statfs.mockResolvedValue({ bavail: 409_600, bsize: 1024, blocks: 524_288 });
+    const tmp = createSweepTmp();
+    const midAgedDir = makeDir(tmp, `${PLAYWRIGHT_PROFILE_PREFIX}mid`, 5 * 60 * 1000);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(fs.existsSync(midAgedDir)).toBe(true);
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringMatching(/pruned \d+ leaked Playwright profile dir/),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("använder 15-minutersgränsen när statfs inte kan mäta /tmp", async () => {
+    // Fail-open: utan mätning finns inget tryckbevis, så den försiktiga
+    // gränsen gäller och en 5 minuter gammal profil lämnas i fred.
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    statfs.mockRejectedValue(new Error("statfs unavailable"));
+    const tmp = createSweepTmp();
+    const midAgedDir = makeDir(tmp, `${PLAYWRIGHT_PROFILE_PREFIX}mid`, 5 * 60 * 1000);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(fs.existsSync(midAgedDir)).toBe(true);
+  });
+
   it("rör inte mappar vars namn inte matchar Playwright-profilprefixet", async () => {
     process.env.VERCEL = "1";
     sparticuzLaunch.mockResolvedValue({

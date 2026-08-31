@@ -59,14 +59,16 @@ let captureBrowserGate: Promise<void> = Promise.resolve();
  * här du ska titta först.
  */
 /**
- * Mätsteg för `/tmp`-reprot i `BUG-SWARM-BACKLOG.md` § Behöver repro:
- * Chromium loggade "free space in temporary directory: 0" och dog i
- * `browser.newPage`. Fluid Compute återanvänder instansen, så /tmp ackumulerar
- * (Sparticuz-binär, läckta Playwright-profiler, run-NDJSON). En rad per launch
- * gör hypotesen mätbar i Vercel-loggen utan att ändra beteende. Fail-open —
- * statfs får aldrig stoppa en capture.
+ * Mätsteg för `/tmp`-reprot (`SM-072`): Chromium loggade "free space in
+ * temporary directory: 0" och dog i `browser.newPage`. Fluid Compute
+ * återanvänder instansen, så /tmp ackumulerar (Sparticuz-binär, läckta
+ * Playwright-profiler, run-NDJSON). Prod 2026-08-31 (chat `30840b09`, dpl
+ * `dpl_81XhZUJJ…`): 513 → 31 → 23 MB fritt på fem minuter, två postcheck-skip
+ * med `Target page, context or browser has been closed`. Raden per launch gör
+ * förloppet mätbart i Vercel-loggen; returvärdet driver trycksvepet nedan.
+ * Fail-open — statfs får aldrig stoppa en capture.
  */
-async function logTmpFreeSpaceBestEffort(): Promise<void> {
+async function measureTmpFreeSpaceBestEffort(): Promise<number | null> {
   try {
     const [{ statfs }, osMod] = await Promise.all([import("node:fs/promises"), import("node:os")]);
     const tmp = osMod.default.tmpdir();
@@ -76,8 +78,10 @@ async function logTmpFreeSpaceBestEffort(): Promise<void> {
     console.warn(
       `[capture-browser] free space in temporary directory: ${freeMb}MB of ${totalMb}MB (${tmp})`,
     );
+    return freeMb;
   } catch {
     // Best effort only.
+    return null;
   }
 }
 
@@ -86,13 +90,23 @@ async function logTmpFreeSpaceBestEffort(): Promise<void> {
  * och städar vid ren `close()`. En dödad Fluid-invocation lämnar mapparna kvar
  * tills /tmp tar slut. Svepet är fail-open, åldersbundet (levande launch i en
  * annan isolate är färskare än 15 min) och takat så det inte äter launch-budget.
+ *
+ * Åldersgränsen är tvådelad sedan SM-072-reproduktionen: i normalläge gäller
+ * 15 min (skyddar en samtidig capture i annan isolate), men när /tmp redan är
+ * under tryck flippar avvägningen — en burst av postchecks läcker snabbare än
+ * 15-minutersgränsen hinner återvinna, och med < 200 MB fritt dör nästa
+ * Chromium ändå. Under tryck sveps därför allt äldre än 2 min.
  */
 const PLAYWRIGHT_PROFILE_PREFIX = "playwright_chromiumdev_profile-";
 const PLAYWRIGHT_PROFILE_MAX_AGE_MS = 15 * 60 * 1000;
+const PLAYWRIGHT_PROFILE_PRESSURE_AGE_MS = 2 * 60 * 1000;
+const TMP_PRESSURE_FREE_MB = 200;
 const PLAYWRIGHT_PROFILE_SWEEP_MAX_CANDIDATES = 100;
 const PLAYWRIGHT_PROFILE_SWEEP_BUDGET_MS = 2_000;
 
-function pruneLeakedPlaywrightProfilesBestEffort(): number {
+function pruneLeakedPlaywrightProfilesBestEffort(
+  maxAgeMs: number = PLAYWRIGHT_PROFILE_MAX_AGE_MS,
+): number {
   try {
     const tmp = os.tmpdir();
     const started = Date.now();
@@ -106,7 +120,7 @@ function pruneLeakedPlaywrightProfilesBestEffort(): number {
       const dir = path.join(tmp, entry.name);
       try {
         const ageMs = Date.now() - fs.statSync(dir).mtimeMs;
-        if (ageMs < PLAYWRIGHT_PROFILE_MAX_AGE_MS) continue;
+        if (ageMs < maxAgeMs) continue;
         // Kandidat-taket räknar bara RADERINGSFÖRSÖK (Bugbot high på diffen:
         // färska profiler fick inte äta budgeten så att gamla läckor aldrig
         // nåddes). Unga skips är redan tidsbundna via svep-budgeten ovan.
@@ -126,11 +140,14 @@ function pruneLeakedPlaywrightProfilesBestEffort(): number {
 
 async function launchCaptureBrowserUnscoped(): Promise<Browser> {
   if (IS_SERVERLESS) {
-    await logTmpFreeSpaceBestEffort();
-    const pruned = pruneLeakedPlaywrightProfilesBestEffort();
+    const freeMb = await measureTmpFreeSpaceBestEffort();
+    const underPressure = freeMb !== null && freeMb < TMP_PRESSURE_FREE_MB;
+    const pruned = pruneLeakedPlaywrightProfilesBestEffort(
+      underPressure ? PLAYWRIGHT_PROFILE_PRESSURE_AGE_MS : PLAYWRIGHT_PROFILE_MAX_AGE_MS,
+    );
     if (pruned > 0) {
       console.warn(`[capture-browser] pruned ${pruned} leaked Playwright profile dir(s)`);
-      await logTmpFreeSpaceBestEffort();
+      await measureTmpFreeSpaceBestEffort();
     }
     const chromium = (await import("@sparticuz/chromium")).default;
     const { chromium: pw } = await import("playwright-core");

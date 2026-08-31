@@ -381,6 +381,20 @@ export function usePreviewInspectBridge(options: {
           lifecycleToken,
         })
       ) {
+        // Fail-closed som förut — stämpellöst/felstämplat accepteras aldrig.
+        // Men ett tappat `ready` var tidigare helt tyst: prod 2026-08-31
+        // injicerade hosten scriptet UTAN identitetsparametrar (sessionsdata
+        // saknades i preview-hostens store), parent släppte allt och
+        // inspektorn dog spårlöst ner i det i prod döda kartläget. Diagnosen
+        // ska synas för användaren utan att grinden öppnas.
+        if (data.type === INSPECT_BRIDGE_MESSAGE.ready) {
+          console.warn(
+            "[inspect-bridge] ready avvisades: identitetsstämpeln matchar inte aktiv preview-session",
+          );
+          setInspectStatus(
+            "Inspector-bron svarade med fel preview-identitet — ladda om previewn för att inspektera.",
+          );
+        }
         return;
       }
 
