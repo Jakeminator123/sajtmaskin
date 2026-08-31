@@ -32,6 +32,13 @@ const TIER2_READY_RELOAD_TIMEOUT_MS = 15_000;
 // short, read-only status window then gives that exact session time to finish
 // starting without creating another restart loop or an unbounded poller.
 const TIER2_LATE_RECOVERY_WINDOW_MS = 30_000;
+// After the 30s late-recovery window the red banner can still sit on a
+// healthy site (prod 2026-08-31, chat 47607bca): Fly finished after both
+// the 98s boot deadline and the 30s tail. Keep a sparse, read-only poll
+// (~12s) so a later matching running receipt can reuse ready-reload.
+// 12s ≈ 5 req/min from this tab; together with the 4s boot/late polls
+// and other tabs this stays inside the shared 60 req/min bucket.
+const TIER2_SELF_HEAL_POLL_MS = 12_000;
 // The boot-deadline's final status check must itself be bounded: a hung
 // /preview-status request may otherwise suppress the failure state forever.
 const TIER2_FINAL_CHECK_TIMEOUT_MS = 5_000;
@@ -92,6 +99,7 @@ export function usePreviewIframe(params: {
   const tier2ReadyReloadIdentityRef = useRef<string | null>(null);
   const tier2RecoveryRequestedIdentityRef = useRef<string | null>(null);
   const tier2LateRecoveryIdentityRef = useRef<string | null>(null);
+  const tier2SelfHealIdentityRef = useRef<string | null>(null);
 
   const stopTier2StatusPolling = useCallback(() => {
     if (tier2StatusPollTimerRef.current) {
@@ -104,6 +112,7 @@ export function usePreviewIframe(params: {
     }
     tier2StatusAbortRef.current?.abort();
     tier2StatusAbortRef.current = null;
+    tier2SelfHealIdentityRef.current = null;
   }, []);
 
   const clearPreviewReadyTimer = useCallback(() => {
@@ -120,6 +129,7 @@ export function usePreviewIframe(params: {
     tier2ReadyReloadIdentityRef.current = null;
     tier2RecoveryRequestedIdentityRef.current = null;
     tier2LateRecoveryIdentityRef.current = null;
+    tier2SelfHealIdentityRef.current = null;
   }, [stopTier2StatusPolling]);
 
   const settleTier2Ready = useCallback(() => {
@@ -189,6 +199,67 @@ export function usePreviewIframe(params: {
     },
     [failTier2Ready, iframeRef, stopTier2StatusPolling],
   );
+
+  const startTier2SelfHealPolling = useCallback(
+    (
+      identity: string,
+      previewSessionId: string,
+      expectedLifecycleToken: string | null,
+      expectedChatId: string,
+      expectedVersionId: string,
+      expectedPreviewUrl: string,
+    ) => {
+      stopTier2StatusPolling();
+      tier2SelfHealIdentityRef.current = identity;
+
+      const pollStatus = async () => {
+        if (tier2SelfHealIdentityRef.current !== identity) return;
+        const abortController = new AbortController();
+        tier2StatusAbortRef.current = abortController;
+        const status = await fetchPreviewStatus({
+          chatId: expectedChatId,
+          versionId: expectedVersionId,
+          previewSessionId,
+          signal: abortController.signal,
+        });
+        if (
+          abortController.signal.aborted ||
+          tier2SelfHealIdentityRef.current !== identity
+        ) {
+          return;
+        }
+
+        tier2StatusAbortRef.current = null;
+        const receiptMatchesIdentity =
+          status?.versionId === expectedVersionId &&
+          status.previewSessionId === previewSessionId &&
+          (status.lifecycleToken ?? null) === expectedLifecycleToken &&
+          isSameTier2PreviewSession(status.previewUrl, expectedPreviewUrl);
+        if (status?.status === "running" && receiptMatchesIdentity) {
+          tier2SelfHealIdentityRef.current = null;
+          startTier2ReadyReload(identity, expectedPreviewUrl);
+          return;
+        }
+
+        // Starting, mismatch, or a dropped request: keep the banner and
+        // keep reading. Never notify the controller again from this path.
+        tier2StatusPollTimerRef.current = window.setTimeout(() => {
+          tier2StatusPollTimerRef.current = null;
+          void pollStatus();
+        }, TIER2_SELF_HEAL_POLL_MS);
+      };
+
+      tier2StatusPollTimerRef.current = window.setTimeout(() => {
+        tier2StatusPollTimerRef.current = null;
+        void pollStatus();
+      }, TIER2_SELF_HEAL_POLL_MS);
+    },
+    [startTier2ReadyReload, stopTier2StatusPolling],
+  );
+  const startTier2SelfHealPollingRef = useRef(startTier2SelfHealPolling);
+  useLayoutEffect(() => {
+    startTier2SelfHealPollingRef.current = startTier2SelfHealPolling;
+  }, [startTier2SelfHealPolling]);
 
   const startTier2StatusPolling = useCallback(
     (
@@ -274,6 +345,17 @@ export function usePreviewIframe(params: {
         if (tier2LateRecoveryIdentityRef.current !== identity) return;
         tier2LateRecoveryIdentityRef.current = null;
         stopTier2StatusPolling();
+        // Banner stays up after the 30s tail. A later matching running
+        // receipt (prod 2026-08-31, chat 47607bca) must still be able
+        // to take the existing ready-reload path — no new restart loop.
+        startTier2SelfHealPollingRef.current(
+          identity,
+          previewSessionId,
+          expectedLifecycleToken,
+          expectedChatId,
+          expectedVersionId,
+          expectedPreviewUrl,
+        );
       }, TIER2_LATE_RECOVERY_WINDOW_MS);
 
       const pollStatus = async () => {

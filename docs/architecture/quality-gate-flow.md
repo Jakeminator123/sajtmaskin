@@ -23,7 +23,11 @@ spärrande fynd (`preview_boot_page`, `runtime_crash`, `mobile_menu_failed`,
 saknas efter klienthydrering) blir ytan röd (`status: "blocked"`) och fyndet syns som
 orsak (B1, 2026-08-15). `info.productPostcheckBlocksF3` och
 `info.productPostcheckBlockedReason` bär samma signal.
-`preview_probe_unreadable` (tomt/misslyckat Chromium-svar) är advisory och
+Live-preview-skärmdumpar (postcheck, thumbnail, inspector) måste skickas med
+Playwright `caret: "initial"`. Default `"hide"` injicerar `caret-color` på
+formulärfält och kan fabricera `hydration_mismatch` → overlay →
+`runtime_crash` på en frisk sajt. `preview_probe_unreadable` (tomt/misslyckat
+Chromium-svar) är advisory och
 får inte färga rött eller formuleras som att preview-hosten visar startsidan.
 Rådgivande koder stannar i `warnings`. Promotion läser inte fältet.
 Fynden är aldrig `canDeploy`-blockers. Sena browser-fel

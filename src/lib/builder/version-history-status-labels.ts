@@ -34,6 +34,7 @@ import {
   type VersionDisplayStatus,
   type VersionStatusDisplay,
 } from "./version-status-display";
+import { productPostcheckSkipReasonFromMessage } from "@/lib/gen/verify/product-postcheck-skip";
 
 /** Subset of shadcn `Badge` variants this surface uses. */
 export type VersionHistoryBadgeVariant = "default" | "secondary" | "destructive" | "outline";
@@ -55,6 +56,39 @@ export interface VersionHistoryStatusBadge {
 
 const AMBER = "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300";
 const ORANGE = "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300";
+
+const PRODUCT_POSTCHECK_SKIP_REASON_SV: Record<string, string> = {
+  preview_not_running: "previewn var inte igång för den här versionen",
+  capture_failed: "skärmdumparna kunde inte tas",
+  missing_preview_url: "preview-URL saknades",
+  url_not_allowed: "preview-URL:en var inte tillåten",
+  navigation_failed: "previewn gick inte att öppna",
+  playwright_unavailable: "webbläsaren för kontrollen saknades",
+  timeout: "kontrollen tidsgränsades",
+  runtime_error: "kontrollen kraschade",
+  feature_disabled: "produkt-postcheck är avstängd",
+};
+
+export function productPostcheckSkipReasonFromDegradations(
+  degradations: VersionStatusDisplay["degradations"],
+): string | null {
+  for (const item of degradations) {
+    if (item.kind !== "product_postcheck_skipped") continue;
+    const metaReason =
+      item.meta && typeof item.meta.skippedReason === "string"
+        ? item.meta.skippedReason.trim()
+        : "";
+    if (metaReason) return metaReason;
+    const fromMessage = productPostcheckSkipReasonFromMessage(item.message);
+    if (fromMessage) return fromMessage;
+  }
+  return null;
+}
+
+export function formatProductPostcheckSkipTooltip(reason: string): string {
+  const detail = PRODUCT_POSTCHECK_SKIP_REASON_SV[reason] ?? reason;
+  return `Klar men med luckor: product_postcheck_skipped: ${reason} — ${detail}.`;
+}
 
 const BADGES: Record<VersionDisplayStatus, VersionHistoryStatusBadge> = {
   promoted: {
@@ -223,6 +257,12 @@ export function versionHistoryStatusBadge(
       return { ...badge, label: `${badge.label} ${progress}` };
     }
   }
+  if (display.status === "degraded") {
+    const skipReason = productPostcheckSkipReasonFromDegradations(display.degradations);
+    if (skipReason) {
+      return { ...badge, tooltip: formatProductPostcheckSkipTooltip(skipReason) };
+    }
+  }
   return badge;
 }
 
@@ -242,6 +282,10 @@ export function resolveVersionHistorySummary(
     return summary || "Ersatt av en nyare version innan denna hann bli klar.";
   }
   if (display.status === "degraded") {
+    const skipReason = productPostcheckSkipReasonFromDegradations(display.degradations);
+    if (skipReason) {
+      return formatProductPostcheckSkipTooltip(skipReason);
+    }
     return (
       summary ||
       display.degradations[0]?.message ||

@@ -82,6 +82,7 @@ export function PreviewPanelFrame({
   // effect body free of synchronous setState calls (react-hooks/set-state-in-effect).
   const [debounceElapsed, setDebounceElapsed] = useState(false);
   const [hardCapReached, setHardCapReached] = useState(false);
+  const [hasLoadedCurrentSrc, setHasLoadedCurrentSrc] = useState(false);
 
   useEffect(() => {
     if (!isLoading) return;
@@ -122,6 +123,20 @@ export function PreviewPanelFrame({
   // ledtråd tills iframen fått fokus.
   const [previewFocused, setPreviewFocused] = useState(false);
   const [focusHintExpired, setFocusHintExpired] = useState(false);
+
+  // Track a successful document load for this exact previewSrc so the
+  // Tier-2 overlay can switch from "Laddar..." to a quieter verifying
+  // chip. Reset in cleanup on src change — same pattern as debounce.
+  useEffect(() => {
+    return () => {
+      setHasLoadedCurrentSrc(false);
+    };
+  }, [previewSrc]);
+
+  const handleFrameLoad = useCallback(() => {
+    setHasLoadedCurrentSrc(true);
+    handleIframeLoad();
+  }, [handleIframeLoad]);
 
   const focusPreviewIframe = useCallback(() => {
     const iframe = iframeRef.current;
@@ -201,7 +216,16 @@ export function PreviewPanelFrame({
         användaren klicka rakt igenom till sajten, och den lätta dimningen
         ersätter förra helskärms-dimman + blur som gjorde sidan oläslig.
       */}
-      {overlayVisible ? (
+      {overlayVisible && hasLoadedCurrentSrc ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-1.5 z-10 flex justify-center"
+        >
+          <div className="rounded-full border border-white/10 bg-black/70 px-3 py-1 text-[11px] text-zinc-200 shadow-lg">
+            Verifierar preview…
+          </div>
+        </div>
+      ) : overlayVisible ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/15 transition-opacity"
@@ -294,7 +318,7 @@ export function PreviewPanelFrame({
           ref={iframeRef}
           src={previewSrc}
           className="h-full w-full border-0"
-          onLoad={handleIframeLoad}
+          onLoad={handleFrameLoad}
           onError={handleIframeError}
           onMouseDown={focusPreviewIframe}
           // allow-pointer-lock: required by R3F's OrbitControls + drei pointer-locking helpers.
