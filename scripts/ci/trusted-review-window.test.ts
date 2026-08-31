@@ -5,6 +5,7 @@ import {
   enrichCheckRunProvenance,
   latestRequiredWorkflowEpoch,
   evaluateHeadChecks,
+  gateSuccessReason,
   hasBaseInvalidation,
   invalidateForBasePush,
   latestInvalidatingFindingEpoch,
@@ -1309,7 +1310,7 @@ describe("trusted review-window check decisions", () => {
     expect(targetsTrunk({ base: { ref: "ema" } }, { trunk: "master" } as never)).toBe(false);
   });
 
-  it("kräver alla övriga required checks och minst ett lyckat reviewkvitto", () => {
+  it("kräver required checks men låter saknat reviewkvitto bara noteras", () => {
     const green = evaluateHeadChecks(greenRuns(), policy as never, TRUSTED_REVIEW);
     expect(green.requiredDone).toBe(true);
     expect(green.botsDone).toBe(true);
@@ -1323,7 +1324,9 @@ describe("trusted review-window check decisions", () => {
     expect(missing.requiredMissing).toContain("build");
 
     const noReceipt = evaluateHeadChecks(greenRuns(), policy as never);
-    expect(noReceipt.botsDone).toBe(false);
+    expect(noReceipt.botsDone).toBe(true);
+    expect(noReceipt.completedSuccess).toBe(0);
+    expect(gateSuccessReason(noReceipt)).toContain("blockerar inte");
 
     const cursorBugbot = evaluateHeadChecks(
       [
@@ -1992,11 +1995,6 @@ describe("trusted review-window controller", () => {
 
   it.each([
     {
-      name: "saknat reviewkvitto",
-      options: { missingReviewReceipt: true },
-      message: "inget lyckat reviewkvitto",
-    },
-    {
       name: "röd required check",
       options: { failedRequiredCheck: true },
       message: "required checks är röda",
@@ -2147,22 +2145,18 @@ describe("trusted review-window controller", () => {
     expect(patches.at(-1)).toMatchObject({ conclusion: "action_required" });
   });
 
-  it("publicerar action_required utan throw när reviewkvitto saknas efter timeout", async () => {
+  it("godkänner review-window utan throw när reviewkvitto saknas", async () => {
     const { client, patches } = integrationHarness({ missingReviewReceipt: true });
-    let clock = 1_000;
     const result = await runTrustedGate({
       client: client as never,
       prNumber: 1,
-      now: () => {
-        clock += 5;
-        return clock;
-      },
+      now: () => 1_000,
       pause: async () => undefined,
       policy: integrationPolicy() as never,
     });
-    expect(result.conclusion).toBe("action_required");
-    expect(result.reason).toContain("inget lyckat reviewkvitto");
-    expect(patches.at(-1)).toMatchObject({ conclusion: "action_required" });
+    expect(result.conclusion).toBe("success");
+    expect(result.reason).toContain("blockerar inte");
+    expect(patches.at(-1)).toMatchObject({ conclusion: "success" });
   });
 
   it("godkänner review-window utan merge:ready när quality och bugbot är klara", async () => {
@@ -2175,7 +2169,7 @@ describe("trusted review-window controller", () => {
       policy: integrationPolicy() as never,
     });
     expect(result.conclusion).toBe("success");
-    expect(result.reason).toContain("bugbot");
+    expect(result.reason).toContain("reviewkvitto");
     expect(patches.at(-1)).toMatchObject({ path: "/check-runs/100", conclusion: "success" });
   });
 

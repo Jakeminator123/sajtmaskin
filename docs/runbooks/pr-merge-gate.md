@@ -56,13 +56,14 @@ labelad PR utan sign-off och rev labeln trots grön grind.
 **Skarpt fall #665, 2026-07-30:** bot-kommentarer 20:12:08–09 startade två körningar 20:12:12–13 som avslutades 20:12:31–33. Labeln sattes 20:12:24 och sign-offen 20:12:27, alltså båda mitt i fönstret → labeln revs 20:12:27. Mergaren såg "författaren är inte klar" på en PR som var helt färdig.
 
 Skriv därför sign-offen först och labeln sedan, men först när **övriga**
-required checks och reviewkvitton är klara. `review-window` ska då vara pending
-eller `action_required`; det är inte en cirkel utan den sista betrodda
-kontrollpunkten. Orchestrator-jobbet i `merge-ready-freshness.yml` är inte
-själva required checken — saknat kvitto eller röd quality ska publicera
-`review-window=action_required` och låta jobbet sluta grönt. Controllern kör
+required checks är klara. `review-window` ska då vara pending
+eller `action_required` om quality/Vercel/säkerhet inte är klara; det är inte en
+cirkel utan den sista betrodda kontrollpunkten. Orchestrator-jobbet i
+`merge-ready-freshness.yml` är inte själva required checken — röd quality ska
+publicera `review-window=action_required` och låta jobbet sluta grönt. Saknat
+Cursor-/bugbot-kvitto noteras och får inte hålla checken röd. Controllern kör
 default-branch-kod, publicerar required check på exakt PR-head och blir grön
-när quality och minst ett qualifying reviewkvitto är klara på live head.
+när quality och övriga required checks är klara på live head.
 `merge:ready` krävs för `merge:execute`, inte för att checken ska bli grön.
 Har labeln rivits måste agenten läsa orsaken, uppdatera vid behov och posta
 en ny sign-off.
