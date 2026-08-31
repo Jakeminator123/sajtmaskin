@@ -81,8 +81,9 @@ i den blockerande CI-grinden. Endast aktörer som uttryckligen finns i policyn,
 för närvarande Dependabot, undantas.
 
 Git-hooken är ett lokalt räcke, inte den yttersta sanningen: den installeras
-idempotent och stoppar push om `verify:pr` är rött. CI kör samma kontrakt igen på
-den pushade committen, så en saknad lokal hook kan inte göra en ogiltig PR grön.
+idempotent och stoppar push om `verify:pr --plan` är rött. Full `verify:pr` körs
+av agenten och i CI på den pushade committen, så en saknad lokal hook kan inte
+göra en ogiltig PR grön.
 
 När `quality`, `backoffice-tests`, `schema-drift`, `build`, Vercel och alla
 reviewfynd är klara — medan `review-window` fortfarande väntar — posta först
