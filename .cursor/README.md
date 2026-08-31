@@ -4,7 +4,7 @@
 
 File → Open Folder → repo-roten `sajtmaskin`. En Git-root.
 Inte TEMP-fönster, worktree eller Codex-kopian. MCP: `.cursor/mcp.json`.
-`sajtmaskin.code-workspace` är valfri (pwsh 7-fönsterinställningar), inte multi-root.
+`sajtmaskin.code-workspace` är valfri, inte multi-root. Terminal/pwsh 7 ligger i `.vscode/settings.json`.
 
 ## Grundprincip
 

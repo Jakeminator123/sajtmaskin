@@ -22,9 +22,8 @@ för investigator/reviewer och Sol `high` för worker.
 
 ## Så här ska projektet öppnas
 
-- Cursor öppnas via `sajtmaskin.code-workspace` i
-  `C:\Users\jakob\dev\projects\sajtmaskin`. Det är den vanliga arbetsytan.
-  Worktree är valfritt.
+- Cursor: File → Open Folder på `C:\Users\jakob\dev\projects\sajtmaskin`.
+  Worktree är valfritt. Terminal/pwsh 7 ligger i `.vscode/settings.json`.
 - Primary folder i det sparade Codex-projektet `sajtmaskin` är den separata
   Codex-kopian `C:\Users\jakob\Documents\ChatGPT\sajtmasin` på ankarbranchen
   `codex/workspace`.
