@@ -32,15 +32,28 @@ export type PreviewStatusReason =
   | "boot_grace_period"
   | "build_error_overlay";
 
+export type PreviewRuntimeStatus =
+  | "running"
+  | "stopped"
+  | "starting"
+  | "missing"
+  | "version_mismatch"
+  | "build_error";
+
+export function isTerminalPreviewStatus(
+  status: string | null | undefined,
+): status is Exclude<PreviewRuntimeStatus, "running" | "starting"> {
+  return (
+    status === "stopped" ||
+    status === "missing" ||
+    status === "build_error" ||
+    status === "version_mismatch"
+  );
+}
+
 export type PreviewStatusApiJson = {
   ok: boolean;
-  status:
-    | "running"
-    | "stopped"
-    | "starting"
-    | "missing"
-    | "version_mismatch"
-    | "build_error";
+  status: PreviewRuntimeStatus;
   previewSessionId: string | null;
   /** Host lifecycle fence; null for legacy/tokenless sessions. */
   lifecycleToken?: string | null;

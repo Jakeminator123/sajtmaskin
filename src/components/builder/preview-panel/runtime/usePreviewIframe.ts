@@ -10,6 +10,7 @@ import {
 } from "react";
 import { fetchPreviewStatus } from "@/lib/builder/preview-session/api";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
+import { isTerminalPreviewStatus } from "@/lib/gen/preview/preview-contract";
 import {
   isSameTier2PreviewSession,
   isTier2LivePreviewUrl,
@@ -122,6 +123,37 @@ export function usePreviewIframe(params: {
     expectedPreviewUrl: string;
   } | null>(null);
   const tier2SelfHealReloadAttemptsRef = useRef(0);
+  const startTier2SelfHealPollingRef = useRef<
+    (
+      identity: string,
+      previewSessionId: string,
+      expectedLifecycleToken: string | null,
+      expectedChatId: string,
+      expectedVersionId: string,
+      expectedPreviewUrl: string,
+    ) => void
+  >(() => {});
+
+  const rememberSelfHealContext = (
+    identity: string,
+    previewSessionId: string,
+    expectedLifecycleToken: string | null,
+    expectedChatId: string,
+    expectedVersionId: string,
+    expectedPreviewUrl: string,
+  ) => {
+    if (tier2SelfHealContextRef.current?.identity !== identity) {
+      tier2SelfHealReloadAttemptsRef.current = 0;
+    }
+    tier2SelfHealContextRef.current = {
+      identity,
+      previewSessionId,
+      expectedLifecycleToken,
+      expectedChatId,
+      expectedVersionId,
+      expectedPreviewUrl,
+    };
+  };
 
   const stopTier2StatusPolling = useCallback(() => {
     if (tier2StatusPollTimerRef.current) {
@@ -166,6 +198,10 @@ export function usePreviewIframe(params: {
   const failTier2Ready = useCallback(
     (identity: string) => {
       if (tier2LoadIdentityRef.current !== identity) return;
+      // Bara en timeoutad ready-reload får återuppta self-heal. Boot-/finalcheck-
+      // timeout ska fortfarande gå via late-recovery — annars hoppar vi över
+      // 30s-fönstret och startar två pollers samtidigt.
+      const timedOutReadyReload = tier2ReadyReloadIdentityRef.current === identity;
       if (tier2LoadTimerRef.current) {
         window.clearTimeout(tier2LoadTimerRef.current);
         tier2LoadTimerRef.current = null;
@@ -183,11 +219,9 @@ export function usePreviewIframe(params: {
         tier2RecoveryRequestedIdentityRef.current = identity;
         onPreviewSessionSuspectRef.current?.();
       }
-      // SM-074: kom detta timeout från en self-heal-initierad ready-reload får
-      // banner-läget inte bli terminalt — återuppta den glesa pollen så nästa
-      // matchande running-kvitto kan försöka igen, upp till taket.
       const healContext = tier2SelfHealContextRef.current;
       if (
+        timedOutReadyReload &&
         healContext &&
         healContext.identity === identity &&
         tier2SelfHealReloadAttemptsRef.current < TIER2_SELF_HEAL_MAX_RELOADS
@@ -253,19 +287,14 @@ export function usePreviewIframe(params: {
     ) => {
       stopTier2StatusPolling();
       tier2SelfHealIdentityRef.current = identity;
-      // Ny identitet = ny läkningskedja med färsk reload-budget. Samma
-      // identitet (återupptagen efter en reload-timeout) behåller räknaren.
-      if (tier2SelfHealContextRef.current?.identity !== identity) {
-        tier2SelfHealReloadAttemptsRef.current = 0;
-      }
-      tier2SelfHealContextRef.current = {
+      rememberSelfHealContext(
         identity,
         previewSessionId,
         expectedLifecycleToken,
         expectedChatId,
         expectedVersionId,
         expectedPreviewUrl,
-      };
+      );
 
       const pollStatus = async () => {
         if (tier2SelfHealIdentityRef.current !== identity) return;
@@ -297,6 +326,11 @@ export function usePreviewIframe(params: {
           return;
         }
 
+        if (receiptMatchesIdentity && isTerminalPreviewStatus(status?.status)) {
+          stopTier2StatusPolling();
+          return;
+        }
+
         // Starting, mismatch, or a dropped request: keep the banner and
         // keep reading. Never notify the controller again from this path.
         tier2StatusPollTimerRef.current = window.setTimeout(() => {
@@ -312,14 +346,12 @@ export function usePreviewIframe(params: {
     },
     [startTier2ReadyReload, stopTier2StatusPolling],
   );
-  // Latest-ref över en äkta cykel: `handleTier2ReadyReloadTimeout` ovan måste
-  // kunna återuppta pollen (SM-074), men `startTier2SelfHealPolling` beror i sin
-  // tur på `startTier2ReadyReload` — de kan inte båda deklareras först. Till
-  // skillnad från husets övriga latest-refs, som håller props, håller den här en
-  // `useCallback`, och `react-hooks/immutability` förbjuder att ett värde som
-  // passerats in i en hook muteras efteråt. Mutationen är avsiktlig och
-  // begränsad till den här raden.
-  const startTier2SelfHealPollingRef = useRef(startTier2SelfHealPolling);
+  // Latest-ref över en äkta cykel: `failTier2Ready` måste kunna återuppta
+  // pollen (SM-074), men `startTier2SelfHealPolling` beror på
+  // `startTier2ReadyReload`. Refen deklareras därför före callbacken.
+  // `react-hooks/immutability` förbjuder att ett värde som passerats in i en
+  // hook muteras efteråt; mutationen är avsiktlig och begränsad till den här
+  // raden.
   useLayoutEffect(() => {
     // eslint-disable-next-line react-hooks/immutability -- latest-ref, se ovan
     startTier2SelfHealPollingRef.current = startTier2SelfHealPolling;
@@ -367,6 +399,14 @@ export function usePreviewIframe(params: {
           // host's HTTP-200 starting document. Reload the exact current src now
           // that the runtime accepts traffic, and reveal only on that reload's
           // subsequent onLoad.
+          rememberSelfHealContext(
+            identity,
+            previewSessionId,
+            expectedLifecycleToken,
+            expectedChatId,
+            expectedVersionId,
+            expectedPreviewUrl,
+          );
           startTier2ReadyReload(identity, expectedPreviewUrl);
           return;
         }
@@ -447,6 +487,14 @@ export function usePreviewIframe(params: {
           isSameTier2PreviewSession(status.previewUrl, expectedPreviewUrl);
         if (status?.status === "running" && receiptMatchesIdentity) {
           tier2LateRecoveryIdentityRef.current = null;
+          rememberSelfHealContext(
+            identity,
+            previewSessionId,
+            expectedLifecycleToken,
+            expectedChatId,
+            expectedVersionId,
+            expectedPreviewUrl,
+          );
           startTier2ReadyReload(identity, expectedPreviewUrl);
           return;
         }
@@ -534,6 +582,14 @@ export function usePreviewIframe(params: {
           (status.lifecycleToken ?? null) === session.lifecycleToken &&
           isSameTier2PreviewSession(status.previewUrl, session.previewUrl);
         if (status?.status === "running" && receiptMatchesIdentity) {
+          rememberSelfHealContext(
+            identity,
+            session.previewSessionId,
+            session.lifecycleToken,
+            session.chatId,
+            session.versionId,
+            session.previewUrl,
+          );
           startTier2ReadyReload(identity, session.previewUrl);
           return;
         }
