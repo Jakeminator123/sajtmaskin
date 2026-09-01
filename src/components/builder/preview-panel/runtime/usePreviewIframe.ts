@@ -192,7 +192,7 @@ export function usePreviewIframe(params: {
         healContext.identity === identity &&
         tier2SelfHealReloadAttemptsRef.current < TIER2_SELF_HEAL_MAX_RELOADS
       ) {
-        startTier2SelfHealPollingRef.current(
+        startTier2SelfHealPollingRef.current?.(
           healContext.identity,
           healContext.previewSessionId,
           healContext.expectedLifecycleToken,
@@ -312,10 +312,10 @@ export function usePreviewIframe(params: {
     },
     [startTier2ReadyReload, stopTier2StatusPolling],
   );
-  const startTier2SelfHealPollingRef = useRef(startTier2SelfHealPolling);
-  useLayoutEffect(() => {
-    startTier2SelfHealPollingRef.current = startTier2SelfHealPolling;
-  }, [startTier2SelfHealPolling]);
+  const startTier2SelfHealPollingRef = useRef<typeof startTier2SelfHealPolling | null>(null);
+  // Latest callback for the mutually recursive status/self-heal poll pair.
+  // eslint-disable-next-line react-hooks/immutability -- ref.current is the supported latest-callback slot
+  startTier2SelfHealPollingRef.current = startTier2SelfHealPolling;
 
   const startTier2StatusPolling = useCallback(
     (
@@ -404,7 +404,7 @@ export function usePreviewIframe(params: {
         // Banner stays up after the 30s tail. A later matching running
         // receipt (prod 2026-08-31, chat 47607bca) must still be able
         // to take the existing ready-reload path — no new restart loop.
-        startTier2SelfHealPollingRef.current(
+        startTier2SelfHealPollingRef.current?.(
           identity,
           previewSessionId,
           expectedLifecycleToken,
@@ -541,9 +541,7 @@ export function usePreviewIframe(params: {
   );
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- clear diagnostic when error clears */
     if (!iframeError) setIframeDiagnosticCode(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [iframeError]);
 
   useEffect(() => {
@@ -557,12 +555,10 @@ export function usePreviewIframe(params: {
   }, [chatId, previewUrl, refreshToken]);
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- reset iframe error state when preview identity changes */
     clearPreviewReadyTimer();
     setIframeError(false);
     setIframeErrorMessage(null);
     setIframeDiagnosticCode(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [
     chatId,
     versionId,
@@ -575,11 +571,9 @@ export function usePreviewIframe(params: {
   useEffect(() => {
     if (!previewUrl) return;
     clearPreviewReadyTimer();
-    /* eslint-disable react-hooks/set-state-in-effect -- loading state when URL or refresh token changes */
     setIframeLoading(true);
     setIframeError(false);
     setIframeErrorMessage(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
 
     if (!isOwnEnginePreview && isTier2LivePreviewUrl(previewUrl)) {
       const previewSessionId = activePreviewSessionId?.trim() ?? "";
