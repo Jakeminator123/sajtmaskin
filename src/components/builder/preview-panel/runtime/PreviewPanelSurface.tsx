@@ -293,7 +293,6 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
   return (
     <div className="flex h-full flex-col bg-black/40">
       <PreviewPanelChrome
-        previewUrl={previewUrl}
         isOwnEnginePreview={isOwnEnginePreview}
         isTier2LivePreview={isTier2LivePreview}
         previewBuildError={previewBuildError}

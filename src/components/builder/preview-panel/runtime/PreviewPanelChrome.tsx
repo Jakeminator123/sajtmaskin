@@ -13,7 +13,6 @@ import type { PreviewRouteInfo } from "../pages/preview-route-helpers";
 import { cn } from "@/lib/utils";
 
 interface PreviewPanelChromeProps {
-  previewUrl: string | null;
   isOwnEnginePreview: boolean;
   isTier2LivePreview: boolean;
   previewBuildError?: { stage: string; message: string } | null;
@@ -39,7 +38,6 @@ interface PreviewPanelChromeProps {
 }
 
 export function PreviewPanelChrome({
-  previewUrl,
   isOwnEnginePreview,
   isTier2LivePreview,
   previewBuildError,

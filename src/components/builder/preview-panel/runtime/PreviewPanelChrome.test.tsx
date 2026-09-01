@@ -12,7 +12,6 @@ import type { PreviewRouteInfo } from "../pages/preview-route-helpers";
 const ROUTE_BAR_SELECTOR = "div.border-b.border-gray-800.bg-black\\/30";
 
 const BASE_PROPS = {
-  previewUrl: "https://vm.example/chat_1",
   isOwnEnginePreview: true,
   isTier2LivePreview: false,
   isCodeView: false,
