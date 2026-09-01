@@ -642,6 +642,7 @@ export async function maybeAttachLiveReview(params: {
   briefSummary: string;
   enabled?: boolean;
   filesRevision?: string | null;
+  totalTimeoutMs?: number;
 }): Promise<LiveReviewResult> {
   const isFollowUp =
     isChatFollowUpVersion(params.versionNumber) || Boolean(params.previousVersionId);
@@ -704,7 +705,9 @@ export async function maybeAttachLiveReview(params: {
   });
 
   try {
-    return await runLiveReview(bundle);
+    return await runLiveReview(bundle, {
+      ...(params.totalTimeoutMs != null ? { totalTimeoutMs: params.totalTimeoutMs } : {}),
+    });
   } catch (error) {
     return {
       status: "skipped",

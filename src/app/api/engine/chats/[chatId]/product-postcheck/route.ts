@@ -26,7 +26,11 @@ import {
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
+import { LIVE_REVIEW_TOTAL_TIMEOUT_MS } from "@/lib/gen/verify/live-review";
+import { isLiveReviewEnabled } from "@/lib/openclaw/live-review-access";
 import {
+  PRODUCT_POSTCHECK_ROUTE_BUDGET_MS,
+  productPostcheckPreviewWaitBudgetMs,
   readProductPostcheckPreviewProbe,
   waitForProductPostcheckPreviewRunning,
   type ProductPostcheckPreviewProbe,
@@ -229,17 +233,33 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   let liveReviewSession: LiveReviewSession | null = null;
   let target: ProductPostcheckTarget | null = null;
   let targetIsCurrent: (() => Promise<boolean>) | null = null;
+  const routeStartedAt = Date.now();
   try {
     const filesRevision = scopedVersion.version.files_revision?.trim() || null;
+    if (!filesRevision) {
+      return NextResponse.json({
+        ok: true,
+        skipped: true,
+        skippedReason: "preview_not_running",
+        warnings: [],
+        warningCount: 0,
+        productBlocked: false,
+        routesChecked: 0,
+        durationMs: Date.now() - routeStartedAt,
+        checkedUrl: previewUrl?.trim() || null,
+      });
+    }
     // Slow Fly rebuilds used to hit bind/capture immediately and skip with
     // no visible reason. Wait read-only until the host is running for this
     // versionId (or the budget ends) before Playwright starts. Without a
     // configured host there is nothing to poll — keep the legacy bind path.
     let waitedProbe: ProductPostcheckPreviewProbe | null = null;
+    const liveReviewReserveMs = isLiveReviewEnabled() ? LIVE_REVIEW_TOTAL_TIMEOUT_MS : 0;
     if (getPreviewHostBaseUrl()) {
       const previewWait = await waitForProductPostcheckPreviewRunning({
         expectedVersionId: resolvedVersionId,
-        expectedFilesRevision: filesRevision ?? "",
+        expectedFilesRevision: filesRevision,
+        timeoutMs: productPostcheckPreviewWaitBudgetMs({ liveReviewReserveMs }),
         probe: () =>
           readProductPostcheckPreviewProbe({
             chatId,
@@ -369,10 +389,19 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       userId: usageOwnerId ?? "anonymous",
     });
 
+    const remainingAfterWaitMs = Math.max(
+      0,
+      PRODUCT_POSTCHECK_ROUTE_BUDGET_MS - (Date.now() - routeStartedAt),
+    );
+    const postcheckTimeoutMs = Math.max(
+      8_000,
+      remainingAfterWaitMs - liveReviewReserveMs,
+    );
     const result = await runProductPostcheck({
       previewUrl: resolvedPreviewUrl,
       chatId,
       versionId,
+      timeoutMs: postcheckTimeoutMs,
       captureEnabled: liveReviewSession.captureEnabled,
       captureUserId: usageOwnerId ?? undefined,
       filesRevision,
@@ -400,6 +429,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     }
 
     try {
+      const remainingForReviewMs = Math.max(
+        0,
+        PRODUCT_POSTCHECK_ROUTE_BUDGET_MS - (Date.now() - routeStartedAt),
+      );
       result.liveReview = await finishLiveReviewSession(liveReviewSession, {
         skipped: result.skipped,
         findings: result.warnings.map((warning) => ({
@@ -413,6 +446,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         userRequest: pickUserRequest(scopedVersion.chat?.messages ?? []),
         briefSummary: summarizeBrief(scopedVersion.chat?.orchestration_snapshot),
         isTargetCurrent,
+        totalTimeoutMs: Math.min(LIVE_REVIEW_TOTAL_TIMEOUT_MS, remainingForReviewMs),
       });
     } catch (reviewError) {
       console.warn(

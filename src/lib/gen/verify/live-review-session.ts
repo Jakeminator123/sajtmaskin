@@ -134,6 +134,7 @@ export async function finishLiveReviewSession(
     userRequest: string;
     briefSummary: string;
     isTargetCurrent?: () => Promise<boolean>;
+    totalTimeoutMs?: number;
   },
   deps: LiveReviewSessionDeps = {},
 ): Promise<LiveReviewResult> {
@@ -202,6 +203,7 @@ export async function finishLiveReviewSession(
     userRequest: input.userRequest,
     briefSummary: input.briefSummary,
     filesRevision: session.filesRevision,
+    totalTimeoutMs: input.totalTimeoutMs,
   });
 
   // The critic may be slow enough for N+1 to commit while N is in flight.
