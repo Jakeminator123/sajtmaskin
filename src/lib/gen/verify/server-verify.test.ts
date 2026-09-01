@@ -1,13 +1,74 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const appendErrorLogEvent = vi.hoisted(() => vi.fn());
+const dbClientState = vi.hoisted(() => ({ configured: false }));
+const acquireVersionLease = vi.hoisted(() => vi.fn());
+const releaseVersionLease = vi.hoisted(() => vi.fn());
+const markVersionVerifying = vi.hoisted(() => vi.fn());
+const promoteVersion = vi.hoisted(() => vi.fn());
+const failVersionVerification = vi.hoisted(() => vi.fn());
+const markVersionSupersededByRepair = vi.hoisted(() => vi.fn());
+const updateVersionFiles = vi.hoisted(() => vi.fn());
+const getPreferredVersion = vi.hoisted(() => vi.fn());
+const getLatestVersion = vi.hoisted(() => vi.fn());
+const getChat = vi.hoisted(() => vi.fn());
+const getVersionById = vi.hoisted(() => vi.fn());
+const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
+const runQualityGateOnExportable = vi.hoisted(() => vi.fn());
+const qualityGateAllPassed = vi.hoisted(() => vi.fn());
+const isQualityGateConfigured = vi.hoisted(() => vi.fn(() => false));
+const maybeAnalyzeVisualQAForPassedExportable = vi.hoisted(() => vi.fn(() => null));
+const buildExportableProject = vi.hoisted(() => vi.fn());
+const chatUsesVerbatimRepo = vi.hoisted(() => vi.fn());
+const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
+const emitBusEvent = vi.hoisted(() => vi.fn());
+const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/logging/error-log-rag", () => ({ appendErrorLogEvent }));
 // `logQualityGateFailuresBestEffort` (below) is a pure helper, but importing
 // it pulls in the whole `server-verify.ts` module graph, which transitively
 // reaches `@/lib/db/client` (throws at import time without a configured
 // POSTGRES_URL). Stub just that one leaf so the module loads in CI/dev
-// without a real DB — nothing here calls any DB function.
-vi.mock("@/lib/db/client", () => ({ dbConfigured: false, db: {}, pool: null }));
+// without a real DB — nothing here calls any DB function. A getter lets the
+// lease/readiness suites flip `dbConfigured` without affecting the pure tests.
+vi.mock("@/lib/db/client", () => ({
+  get dbConfigured() {
+    return dbClientState.configured;
+  },
+  db: {},
+  pool: null,
+}));
+vi.mock("@/lib/db/chat-repository-pg", () => ({
+  acquireVersionLease,
+  releaseVersionLease,
+  markVersionVerifying,
+  promoteVersion,
+  failVersionVerification,
+  markVersionSupersededByRepair,
+  updateVersionFiles,
+  getPreferredVersion,
+  getLatestVersion,
+  getChat,
+  getVersionById,
+}));
+vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
+vi.mock("@/lib/gen/export/build-exportable-project", () => ({
+  buildExportableProject,
+  chatUsesVerbatimRepo,
+}));
+vi.mock("@/lib/db/services/version-errors", () => ({ createEngineVersionErrorLogs }));
+vi.mock("@/lib/logging/event-bus", () => ({ emit: emitBusEvent }));
+vi.mock("@/lib/logging/event-bus-subscribers", () => ({}));
+vi.mock("@/lib/logging/event-bus-error-log-sink", () => ({}));
+vi.mock("./preview-quality-gate", () => ({
+  isQualityGateConfigured,
+  runQualityGateOnExportable,
+  qualityGateAllPassed,
+  maybeAnalyzeVisualQAForPassedExportable,
+}));
+vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
+  checkTier3ReadinessForVersion,
+}));
 
 import {
   isRepairBudgetExhausted,
@@ -19,6 +80,7 @@ import {
 import {
   logQualityGateFailuresBestEffort,
   partitionServerVerifyFailures,
+  triggerServerVerification,
 } from "./server-verify";
 import {
   buildServerVerifyQualityGateMeta,
@@ -1144,5 +1206,190 @@ describe("logQualityGateFailuresBestEffort (TF-IDF error-log RAG producer covera
     });
 
     expect(appendErrorLogEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("triggerServerVerification lease fail-closed + F3 readiness (L4/L1)", () => {
+  const chatId = "chat-l4-l1";
+  const versionId = "ver-l4-l1";
+  const parentVersionId = "ver-f2-parent";
+  const files = [{ path: "app/page.tsx", content: "export default function Page(){}", language: "tsx" }];
+  const filesJson = JSON.stringify(files);
+  const passingGate = {
+    results: [
+      { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 1 },
+    ],
+    verifyLaneDurationMs: 1,
+    firstFailureCheck: null,
+    jobStartedAt: null,
+    jobFinishedAt: null,
+  };
+
+  beforeEach(() => {
+    dbClientState.configured = true;
+    acquireVersionLease.mockReset().mockResolvedValue({ runId: "run-l4-l1" });
+    releaseVersionLease.mockReset().mockResolvedValue(undefined);
+    markVersionVerifying.mockReset().mockResolvedValue(null);
+    promoteVersion.mockReset().mockResolvedValue({ id: versionId });
+    failVersionVerification.mockReset().mockResolvedValue({ id: versionId });
+    markVersionSupersededByRepair.mockReset().mockResolvedValue(null);
+    updateVersionFiles.mockReset().mockResolvedValue(true);
+    getPreferredVersion.mockReset().mockResolvedValue({ id: versionId });
+    getLatestVersion.mockReset().mockResolvedValue({ id: versionId });
+    getChat.mockReset().mockResolvedValue({
+      id: chatId,
+      project_id: "proj-1",
+      orchestration_snapshot: { selectedDossiers: [] },
+    });
+    getVersionById.mockReset().mockImplementation(async (id: string) =>
+      id === parentVersionId
+        ? { id: parentVersionId, chat_id: chatId, parent_version_id: null }
+        : { id: versionId, chat_id: chatId, parent_version_id: parentVersionId },
+    );
+    getVersionFilesSnapshot.mockReset().mockResolvedValue({
+      files,
+      filesJson,
+      lifecycleStage: "integrations",
+    });
+    runQualityGateOnExportable.mockReset().mockResolvedValue(passingGate);
+    qualityGateAllPassed.mockReset().mockReturnValue(true);
+    isQualityGateConfigured.mockReset().mockReturnValue(true);
+    maybeAnalyzeVisualQAForPassedExportable.mockReset().mockReturnValue(null);
+    buildExportableProject.mockReset().mockImplementation(async (f: unknown) => f);
+    chatUsesVerbatimRepo.mockReset().mockResolvedValue(false);
+    createEngineVersionErrorLogs.mockReset().mockResolvedValue(undefined);
+    emitBusEvent.mockReset();
+    checkTier3ReadinessForVersion.mockReset().mockResolvedValue({ ok: true });
+  });
+
+  afterEach(() => {
+    dbClientState.configured = false;
+    isQualityGateConfigured.mockReturnValue(false);
+  });
+
+  it("L4: acquireVersionLease throw skips the job — no markVersionVerifying, no gate", async () => {
+    acquireVersionLease.mockRejectedValue(new Error("relation engine_version_jobs does not exist"));
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(runQualityGateOnExportable).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
+
+  it("L1: integrations + product_postcheck_blocked does not promote", async () => {
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: false,
+      reason: "product_postcheck_blocked",
+    });
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith({
+      versionId,
+      productPostcheckVersionId: parentVersionId,
+      orchestrationSnapshot: { selectedDossiers: [] },
+      projectId: "proj-1",
+      preloadedFiles: files,
+    });
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(runQualityGateOnExportable).not.toHaveBeenCalled();
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      versionId,
+      expect.stringMatching(/product postcheck/i),
+      "run-l4-l1",
+    );
+  });
+
+  it("L1: integrations + missing_env does not promote", async () => {
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: false,
+      reason: "missing_env",
+    });
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(runQualityGateOnExportable).not.toHaveBeenCalled();
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      versionId,
+      expect.stringMatching(/required env/i),
+      "run-l4-l1",
+    );
+  });
+
+  it("L1: integrations without a design parent fails closed and never calls readiness", async () => {
+    getVersionById.mockResolvedValue({
+      id: versionId,
+      chat_id: chatId,
+      parent_version_id: null,
+    });
+
+    await triggerServerVerification({ chatId, versionId });
+
+    // Passing `productPostcheckVersionId: undefined` would make the helper
+    // check the F3 row itself, which never carries the parent's summary.
+    expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      versionId,
+      expect.stringMatching(/no design version/i),
+      "run-l4-l1",
+    );
+  });
+
+  it("L1: a design parent belonging to another chat fails closed", async () => {
+    getVersionById.mockImplementation(async (id: string) =>
+      id === parentVersionId
+        ? { id: parentVersionId, chat_id: "someone-elses-chat", parent_version_id: null }
+        : { id: versionId, chat_id: chatId, parent_version_id: parentVersionId },
+    );
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      versionId,
+      expect.stringMatching(/could not be resolved/i),
+      "run-l4-l1",
+    );
+  });
+
+  it("L1: the readiness bail still releases the lease and frees the version", async () => {
+    checkTier3ReadinessForVersion.mockResolvedValue({ ok: false, reason: "missing_env" });
+
+    await triggerServerVerification({ chatId, versionId });
+    // A leaked lease would make the retry below a no-op (409 busy).
+    expect(releaseVersionLease).toHaveBeenCalledWith(versionId, "run-l4-l1");
+
+    checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+    await triggerServerVerification({ chatId, versionId });
+    expect(runQualityGateOnExportable).toHaveBeenCalled();
+  });
+
+  it("regression: a design (F2) version is unaffected by the F3 readiness gate", async () => {
+    getVersionFilesSnapshot.mockResolvedValue({
+      files,
+      filesJson,
+      lifecycleStage: "design",
+    });
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+    expect(markVersionVerifying).toHaveBeenCalled();
+    expect(runQualityGateOnExportable).toHaveBeenCalled();
+    expect(promoteVersion).toHaveBeenCalledWith(
+      versionId,
+      expect.any(String),
+      "run-l4-l1",
+    );
   });
 });

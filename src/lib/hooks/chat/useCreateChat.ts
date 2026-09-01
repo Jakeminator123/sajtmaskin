@@ -411,24 +411,34 @@ export function useCreateChat(
         });
         mutateVersions();
         if (resolvedVersionId) {
-          void triggerImageMaterialization({
-            chatId: String(newChatId),
-            versionId: String(resolvedVersionId),
-            enabled: enableImageMaterialization,
-          });
-        }
-        if (resolvedVersionId) {
-          void runPostGenerationChecks({
-            chatId: String(newChatId),
-            versionId: String(resolvedVersionId),
-            demoUrl: resolvedDemoUrl,
-            preflight,
-            assistantMessageId,
-            setMessages,
-            mutateVersions,
-            onAutoFix: (payload) => autoFixHandlerRef.current(payload),
-            onComplete: onVersionStatusRefresh,
-          });
+          // Generation tail: await materialize before post-checks so the
+          // attested files_revision is the one Product Postcheck sees.
+          // GET `/files?materialize=1` does not emit 409. A thrown
+          // materialization must not swallow the rest of the tail.
+          const tailChatId = String(newChatId);
+          const tailVersionId = String(resolvedVersionId);
+          void (async () => {
+            try {
+              await triggerImageMaterialization({
+                chatId: tailChatId,
+                versionId: tailVersionId,
+                enabled: enableImageMaterialization,
+              });
+            } catch {
+              // Best-effort — same as the previous unawaited `void`.
+            }
+            await runPostGenerationChecks({
+              chatId: tailChatId,
+              versionId: tailVersionId,
+              demoUrl: resolvedDemoUrl,
+              preflight,
+              assistantMessageId,
+              setMessages,
+              mutateVersions,
+              onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+              onComplete: onVersionStatusRefresh,
+            });
+          })();
         }
 
         setMessages((prev) =>

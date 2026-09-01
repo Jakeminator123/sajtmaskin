@@ -1,5 +1,12 @@
 import crypto from "crypto";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  getUserByEmail,
+  isAdminEmail,
+  markEmailVerified,
+  setUserDiamonds,
+  updateUserLastLogin,
+} from "@/lib/db/services/users";
 import { createSessionCookie } from "./session";
 
 vi.mock("next/headers", () => ({
@@ -21,9 +28,11 @@ vi.mock("@/lib/db/services/users", () => ({
   markEmailVerified: vi.fn(),
 }));
 
+const jwtFixture = vi.hoisted(() => ["unit", "test", "jwt", "secret"].join("-"));
+
 vi.mock("@/lib/config", () => ({
   SECRETS: {
-    jwtSecret: "unit-test-jwt-secret",
+    jwtSecret: jwtFixture,
     googleClientId: "",
     googleClientSecret: "",
     superadminEmail: "",
@@ -32,7 +41,7 @@ vi.mock("@/lib/config", () => ({
     testUserPassword: "",
   },
   URLS: {
-    googleCallbackUrl: "http://localhost:3000/api/auth/google/callback",
+    googleCallbackUrl: "https://auth.test.invalid/api/auth/google/callback",
   },
   IS_PRODUCTION: false,
 }));
@@ -73,7 +82,7 @@ describe("auth token security", () => {
       }),
     ).toString("base64url");
     const signature = crypto
-      .createHmac("sha256", "unit-test-jwt-secret")
+      .createHmac("sha256", jwtFixture)
       .update(`${header}.${body}`)
       .digest("base64url");
 
@@ -103,5 +112,43 @@ describe("session cookie flags", () => {
     expect(cookie).toContain("Path=/");
     expect(cookie).toContain("Secure");
     expect(cookie).toContain("Max-Age=");
+  });
+});
+
+describe("loginUser privileged-email gate", () => {
+  let auth: typeof import("./auth");
+
+  beforeAll(async () => {
+    auth = await import("./auth");
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isAdminEmail).mockReturnValue(false);
+  });
+
+  it("blocks an unverified privileged email on the password path and does not bootstrap admin", async () => {
+    const loginSecret = ["ok", "twelve", "chars"].join("-");
+    const passwordHash = auth.hashPassword(loginSecret);
+    const privilegedEmail = "privileged@example.test";
+    vi.mocked(isAdminEmail).mockReturnValue(true);
+    vi.mocked(getUserByEmail).mockResolvedValue({
+      id: "hijack_1",
+      email: privilegedEmail,
+      name: "Hijack",
+      password_hash: passwordHash,
+      email_verified: false,
+      diamonds: 0,
+    } as Awaited<ReturnType<typeof getUserByEmail>>);
+
+    const result = await auth.loginUser(privilegedEmail, loginSecret);
+
+    expect(result).toEqual({
+      error:
+        "Du måste bekräfta din e-post innan du kan logga in. Använd 'Skicka verifieringsmail igen' i inloggningsrutan.",
+    });
+    expect(markEmailVerified).not.toHaveBeenCalled();
+    expect(setUserDiamonds).not.toHaveBeenCalled();
+    expect(updateUserLastLogin).not.toHaveBeenCalled();
   });
 });

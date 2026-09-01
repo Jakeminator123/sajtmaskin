@@ -1,11 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fetchPreviewHostReadinessVerdict } from "@/lib/gen/preview/preview-host-client";
+import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 import {
   PRODUCT_POSTCHECK_PREVIEW_POLL_INTERVAL_MS,
   PRODUCT_POSTCHECK_PREVIEW_WAIT_MS,
   productPostcheckPreviewWaitBudgetMs,
+  readProductPostcheckPreviewProbe,
   waitForProductPostcheckPreviewRunning,
   type ProductPostcheckPreviewProbe,
 } from "./product-postcheck-preview-wait";
+
+vi.mock("@/lib/gen/preview/preview-host-client", () => ({
+  fetchPreviewHostReadinessVerdict: vi.fn(),
+}));
+vi.mock("@/lib/gen/preview/session-store", () => ({
+  getActivePreviewSessionAsync: vi.fn(),
+}));
 
 function probe(
   overrides: Partial<ProductPostcheckPreviewProbe> = {},
@@ -18,6 +28,7 @@ function probe(
     lifecycleToken: "life_1",
     previewUrl: "https://preview.example/v1",
     readinessState: "starting",
+    httpReady: null,
     ...overrides,
   };
 }
@@ -28,7 +39,9 @@ describe("waitForProductPostcheckPreviewRunning", () => {
   });
 
   it("returns immediately when the first probe is already running for the version", async () => {
-    const read = vi.fn(async () => probe({ running: true, readinessState: "ready" }));
+    const read = vi.fn(async () =>
+      probe({ running: true, readinessState: "ready", httpReady: true }),
+    );
     const sleep = vi.fn(async () => undefined);
 
     const result = await waitForProductPostcheckPreviewRunning({
@@ -51,7 +64,7 @@ describe("waitForProductPostcheckPreviewRunning", () => {
     const reads: ProductPostcheckPreviewProbe[] = [
       probe({ running: false, readinessState: "starting" }),
       probe({ running: false, readinessState: "starting" }),
-      probe({ running: true, readinessState: "ready" }),
+      probe({ running: true, readinessState: "ready", httpReady: true }),
     ];
     let index = 0;
     const pending = waitForProductPostcheckPreviewRunning({
@@ -119,7 +132,12 @@ describe("waitForProductPostcheckPreviewRunning", () => {
     vi.useFakeTimers();
     const reads: ProductPostcheckPreviewProbe[] = [
       probe({ running: false, filesRevision: "rev_0" }),
-      probe({ running: true, filesRevision: "rev_1" }),
+      probe({
+        running: true,
+        filesRevision: "rev_1",
+        readinessState: "ready",
+        httpReady: true,
+      }),
     ];
     let index = 0;
     const pending = waitForProductPostcheckPreviewRunning({
@@ -145,7 +163,13 @@ describe("waitForProductPostcheckPreviewRunning", () => {
       expectedVersionId: "v1",
       expectedFilesRevision: "rev_1",
       timeoutMs: 0,
-      probe: async () => probe({ running: true, filesRevision: null, readinessState: "ready" }),
+      probe: async () =>
+        probe({
+          running: true,
+          filesRevision: null,
+          readinessState: "ready",
+          httpReady: true,
+        }),
       sleep,
     });
 
@@ -153,6 +177,93 @@ describe("waitForProductPostcheckPreviewRunning", () => {
       ok: false,
       reason: "preview_not_running",
       lastProbe: expect.objectContaining({ filesRevision: null, running: true }),
+    });
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("keeps waiting while the host is still starting after a hot patch", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const result = await waitForProductPostcheckPreviewRunning({
+      expectedVersionId: "v1",
+      expectedFilesRevision: "rev_1",
+      timeoutMs: 0,
+      probe: async () =>
+        probe({ running: true, readinessState: "starting", httpReady: false }),
+      sleep,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "preview_not_running",
+      lastProbe: expect.objectContaining({
+        running: true,
+        filesRevision: "rev_1",
+        readinessState: "starting",
+      }),
+    });
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("keeps waiting when readinessState is ready but httpReady is false", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const result = await waitForProductPostcheckPreviewRunning({
+      expectedVersionId: "v1",
+      expectedFilesRevision: "rev_1",
+      timeoutMs: 0,
+      probe: async () =>
+        probe({ running: true, readinessState: "ready", httpReady: false }),
+      sleep,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "preview_not_running",
+      lastProbe: expect.objectContaining({
+        readinessState: "ready",
+        httpReady: false,
+      }),
+    });
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("returns ready when readinessState is ready and httpReady is true", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const result = await waitForProductPostcheckPreviewRunning({
+      expectedVersionId: "v1",
+      expectedFilesRevision: "rev_1",
+      probe: async () =>
+        probe({ running: true, readinessState: "ready", httpReady: true }),
+      sleep,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      probe: expect.objectContaining({
+        running: true,
+        readinessState: "ready",
+        httpReady: true,
+      }),
+    });
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("treats a legacy host that omitted readinessState and httpReady as ready when running", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const result = await waitForProductPostcheckPreviewRunning({
+      expectedVersionId: "v1",
+      expectedFilesRevision: "rev_1",
+      probe: async () =>
+        probe({ running: true, readinessState: null, httpReady: null }),
+      sleep,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      probe: expect.objectContaining({
+        running: true,
+        readinessState: null,
+        httpReady: null,
+      }),
     });
     expect(sleep).not.toHaveBeenCalled();
   });
@@ -180,5 +291,65 @@ describe("waitForProductPostcheckPreviewRunning", () => {
     ).toBeLessThan(PRODUCT_POSTCHECK_PREVIEW_WAIT_MS);
     expect(productPostcheckPreviewWaitBudgetMs({ liveReviewReserveMs: 90_000 })).toBe(145_000);
     expect(productPostcheckPreviewWaitBudgetMs({ liveReviewReserveMs: 0 })).toBe(150_000);
+  });
+});
+
+/**
+ * The wait tests above inject probes, so they cannot catch the probe READER
+ * dropping the host's traffic gate. If `httpReady` is not carried across,
+ * `readinessState: "ready"` alone is treated as ready and the stale-HTML hole
+ * reopens silently.
+ */
+describe("readProductPostcheckPreviewProbe", () => {
+  function mockHost(verdict: Record<string, unknown>) {
+    vi.mocked(getActivePreviewSessionAsync).mockResolvedValue({
+      versionId: "v1",
+      previewSessionId: "ps_1",
+      lifecycleToken: "life_1",
+      filesRevision: "rev_1",
+      previewUrl: "https://preview.example/v1",
+    } as never);
+    vi.mocked(fetchPreviewHostReadinessVerdict).mockResolvedValue(verdict as never);
+  }
+
+  /** Feed the READ probe through the real predicate instead of a fixture. */
+  async function waitOnRealProbe() {
+    const read = await readProductPostcheckPreviewProbe({
+      chatId: "chat-1",
+      expectedVersionId: "v1",
+    });
+    return {
+      read,
+      result: await waitForProductPostcheckPreviewRunning({
+        expectedVersionId: "v1",
+        expectedFilesRevision: "rev_1",
+        probe: async () => read,
+        sleep: async () => undefined,
+        timeoutMs: 0,
+      }),
+    };
+  }
+
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("carries httpReady: false so a host still gating traffic is not ready", async () => {
+    mockHost({ running: true, versionId: "v1", readinessState: "ready", httpReady: false });
+
+    const { read, result } = await waitOnRealProbe();
+
+    expect(read.httpReady).toBe(false);
+    expect(read.readinessState).toBe("ready");
+    expect(result.ok).toBe(false);
+  });
+
+  it("carries httpReady: true so a genuinely ready host is accepted", async () => {
+    mockHost({ running: true, versionId: "v1", readinessState: "ready", httpReady: true });
+
+    const { read, result } = await waitOnRealProbe();
+
+    expect(read.httpReady).toBe(true);
+    expect(result.ok).toBe(true);
   });
 });

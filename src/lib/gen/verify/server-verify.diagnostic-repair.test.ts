@@ -18,6 +18,7 @@ const renewVersionLease = vi.hoisted(() => vi.fn());
 const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
+const getVersionById = vi.hoisted(() => vi.fn());
 const markVersionSupersededByRepair = vi.hoisted(() => vi.fn());
 const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const runQualityGateOnExportable = vi.hoisted(() => vi.fn());
@@ -47,6 +48,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion,
   getLatestVersion,
   getChat,
+  getVersionById,
   markVersionSupersededByRepair,
 }));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
@@ -86,6 +88,7 @@ import { triggerServerVerification } from "./server-verify";
 
 const chatId = "chat-sm024";
 const versionId = "version-sm024";
+const parentVersionId = "version-sm024-parent";
 
 const pageFile = {
   path: "components/map-display.tsx",
@@ -145,6 +148,13 @@ beforeEach(() => {
   getPreferredVersion.mockReset().mockResolvedValue({ id: versionId });
   getLatestVersion.mockReset().mockResolvedValue({ id: versionId });
   getChat.mockReset().mockResolvedValue(null);
+  // F3 readiness resolves the design parent before the gate; these fixtures are
+  // `integrations`, so they need a parent that belongs to the same chat.
+  getVersionById.mockReset().mockImplementation(async (id: string) =>
+    id === parentVersionId
+      ? { id: parentVersionId, chat_id: chatId, parent_version_id: null }
+      : { id: versionId, chat_id: chatId, parent_version_id: parentVersionId },
+  );
   markVersionSupersededByRepair.mockReset().mockResolvedValue(null);
   getVersionFilesSnapshot.mockReset().mockResolvedValue({
     files: projectFiles,

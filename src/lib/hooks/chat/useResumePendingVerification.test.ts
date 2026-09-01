@@ -49,7 +49,7 @@ function pendingRow(overrides: Record<string, unknown> = {}) {
     editKind: null,
     createdAt: OLD_ENOUGH,
     versionNumber: 2,
-    previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+    previewUrl: "https://preview.test.invalid/chat_1",
     ...overrides,
   };
 }
@@ -71,7 +71,7 @@ describe("findResumablePendingVersion", () => {
   it("returns the latest stranded F2 draft with its persisted previewUrl", () => {
     expect(findResumablePendingVersion([pendingRow(), promotedRow()], NOW)).toEqual({
       versionId: "ver_pending",
-      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      previewUrl: "https://preview.test.invalid/chat_1",
       lane: "generated",
     });
   });
@@ -249,7 +249,7 @@ describe("useResumePendingVerification", () => {
           status: (params.previewSession?.ok ?? true) ? 200 : 503,
           json: async () =>
             params.previewSession?.body ?? {
-              previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+              previewUrl: "https://preview.test.invalid/chat_1",
             },
         };
       }
@@ -340,7 +340,7 @@ describe("useResumePendingVerification", () => {
     expect(postcheckCalls).toHaveLength(1);
     expect(JSON.parse(String(postcheckCalls[0][1].body))).toEqual({
       versionId: "ver_pending",
-      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      previewUrl: "https://preview.test.invalid/chat_1",
     });
     // Order: image validation → postcheck → gate (normal-lane parity).
     const order = fetchMock.mock.calls.map(([url]) => String(url));
@@ -505,6 +505,35 @@ describe("useResumePendingVerification", () => {
     expect(callsTo("/quality-gate")).toHaveLength(0);
   });
 
+  it("holds on an unattested claim_busy instead of gating an unchecked version", async () => {
+    // Single-flight waiter timed out on another run that owns this target, so
+    // no check ran. An attested skip here would start the gate, and F3 would
+    // read the missing product_postcheck.summary row as "not blocked".
+    mockRoutes({
+      postcheck: {
+        body: {
+          ok: true,
+          skipped: true,
+          skippedReason: "claim_busy",
+          productBlocked: false,
+          warnings: [],
+          attestation: null,
+        },
+      },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+
+    await waitFor(() => expect(callsTo("/product-postcheck")).toHaveLength(1));
+    await Promise.resolve();
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
   it("does nothing while streaming", async () => {
     renderHook(() =>
       useResumePendingVerification({
@@ -607,7 +636,7 @@ describe("useResumePendingVerification", () => {
     const postcheckBody = JSON.parse(String(callsTo("/product-postcheck")[0][1].body)) as {
       previewUrl: string | null;
     };
-    expect(postcheckBody.previewUrl).toBe("https://vm-fly-jakem.fly.dev/chat_1");
+    expect(postcheckBody.previewUrl).toBe("https://preview.test.invalid/chat_1");
   });
 
   it("holds the resume (no gate) when the preview cannot be rehydrated", async () => {
@@ -639,7 +668,7 @@ describe("useResumePendingVerification", () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({ previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }),
+          json: async () => ({ previewUrl: "https://preview.test.invalid/chat_1" }),
         };
       }
       if (u.includes("/product-postcheck")) {

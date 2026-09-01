@@ -236,6 +236,31 @@ describe("POST repair — lease before snapshot (Codex P2)", () => {
     expect(markVersionRepairing).not.toHaveBeenCalled();
   });
 
+  it("returns retryable 503 lease_unavailable when acquiring the lease throws — never starts repair", async () => {
+    acquireVersionLease.mockRejectedValue(new Error("relation engine_version_jobs does not exist"));
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "x" }],
+      filesJson: '[{"path":"app/page.tsx","content":"x"}]',
+    });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body).toMatchObject({
+      success: false,
+      code: "lease_unavailable",
+      retryable: true,
+    });
+    expect(res.headers.get("Retry-After")).toBe("3");
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(markVersionRepairing).not.toHaveBeenCalled();
+    expect(runRepairLoop).not.toHaveBeenCalled();
+    expect(releaseVersionLease).not.toHaveBeenCalled();
+  });
+
   it("creates a non-free marker before paid repair work on a historical version", async () => {
     getGenerationBillingMarkerPolicy.mockResolvedValue(null);
     getVersionFilesSnapshot.mockResolvedValue({ files: [], filesJson: "[]" });
@@ -1003,6 +1028,33 @@ describe("POST repair — catch re-reads base when the crash precedes staleBaseN
     // No concurrent edit -> the crash legitimately fails the version.
     expect(failVersionVerification).toHaveBeenCalledTimes(1);
     expect(afterCallbacks.value).toHaveLength(0);
+  });
+
+  it("CAS-guards the unleased fallback on `repairing` when this run lost ownership", async () => {
+    getVersionFilesSnapshot.mockReset();
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    // Lease-scoped write no-ops => this run's lease expired or was taken over.
+    failVersionVerification.mockResolvedValue(null);
+    failVersionVerificationIfUnleased.mockResolvedValue(null);
+
+    await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    // Without the CAS this write matches on id + no-active-lease alone, so a
+    // takeover that already promoted the row would be clobbered to failed.
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(
+      "ver-1",
+      expect.any(String),
+      { verificationState: "repairing" },
+    );
   });
 });
 

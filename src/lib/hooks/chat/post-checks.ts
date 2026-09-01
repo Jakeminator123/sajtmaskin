@@ -104,9 +104,10 @@ function appendAbortedQualityGateCard(
  * `product_postcheck.summary` row that `PreviewPanelF3Trigger` reads to block
  * F3 on product-blocked versions (Codex P1 on #353).
  *
- * Returns whether the write verifiably succeeded (2xx). The normal lane
- * stays fire-and-forget, but the resume lane must fail closed when a
- * product-BLOCKER row could not be persisted (Codex P1 round 4).
+ * Returns whether the write verifiably succeeded (2xx). Both the generation
+ * tail and the resume lane await this write before `/quality-gate`. When a
+ * product-BLOCKER row could not be persisted the caller fail-closes
+ * (`blockerPersistFailed`) and leaves the version pending (Codex P1 round 4).
  *
  * **Retryar på 503 (spår B).** Routen degraderar medvetet till
  * `503 row_contention` + `Retry-After` när verify/lease håller `FOR UPDATE` på
@@ -527,37 +528,48 @@ export async function runPostGenerationChecks(params: {
       ? await fetchChatFiles(chatId, previousVersionId, controller.signal, true)
       : [];
 
+    // Mutating validate-images first: `autoFix: true` can rewrite files_json
+    // (generated `files_revision` follows). Running Product Postcheck in
+    // parallel attested the revision captured at start against a fileset
+    // that no longer existed. Same order as the resume lane.
+    const imageValidation = await validateImages({
+      chatId,
+      versionId,
+      signal: controller.signal,
+    });
+
+    let filesForBaseline = currentFiles;
+    let versionsForBaseline = versions;
+    if (didPersistScopedImageReplacement(imageValidation)) {
+      // Preview + file-list the postcheck binds to must describe the
+      // revision that just landed — not the pre-fix snapshot.
+      const [refreshedFiles, refreshedVersions] = await Promise.all([
+        fetchChatFiles(chatId, versionId, controller.signal, true),
+        fetchChatVersions(chatId, controller.signal),
+      ]);
+      filesForBaseline = refreshedFiles;
+      versionsForBaseline = refreshedVersions;
+    }
+
     const baseline = buildPostCheckBaseline({
-      currentFiles,
+      currentFiles: filesForBaseline,
       previousFiles,
       previousVersionId,
-      versions,
+      versions: versionsForBaseline,
       versionId,
-      demoUrl,
+      demoUrl: imageValidation?.demoUrl ?? demoUrl,
       preflight,
     });
 
-    // Independent HTTP checks — run in parallel so the post-check tail (and
-    // the verify-lane behind it) is not serialized on two network round-trips.
-    const [imageValidation, resolvedProductPostcheck] = await Promise.all([
-      validateImages({
-        chatId,
-        versionId,
-        signal: controller.signal,
-      }),
-      runProductPostcheckApi({
-        chatId,
-        versionId,
-        previewUrl: baseline.resolvedDemoUrl ?? null,
-        signal: controller.signal,
-      }),
-    ]);
+    const resolvedProductPostcheck = await runProductPostcheckApi({
+      chatId,
+      versionId,
+      previewUrl: baseline.resolvedDemoUrl ?? null,
+      signal: controller.signal,
+    });
     productPostcheckResult = resolvedProductPostcheck;
     const productPostcheck = resolvedProductPostcheck;
-    const productPostcheckNeedsRetry =
-      !productPostcheck ||
-      productPostcheck.skippedReason === "preview_superseded" ||
-      (productPostcheck.skippedReason !== "feature_disabled" && !productPostcheck.attestation);
+    const needsPostcheckRetry = productPostcheckNeedsRetry(productPostcheck);
     const warnings = [...baseline.warnings];
     if (imageValidation?.warnings?.length) {
       warnings.push(...imageValidation.warnings);
@@ -570,7 +582,7 @@ export async function runPostGenerationChecks(params: {
     }
 
     const artifacts = buildPostCheckArtifacts({
-      currentFileCount: currentFiles.length,
+      currentFileCount: filesForBaseline.length,
       versionId,
       changes: baseline.changes,
       warnings,
@@ -590,13 +602,20 @@ export async function runPostGenerationChecks(params: {
       resolvedDemoUrl: baseline.resolvedDemoUrl,
     });
 
-    completionPersistence = persistVersionErrorLogs({
+    // Await the error-log write before the quality gate takes the verify
+    // lease. Fire-and-forget let `503 row_contention` eat the
+    // `product_postcheck.summary` row while the VM lane held `FOR UPDATE`,
+    // and a missing summary reads as not blocked on F3.
+    const persisted = await persistVersionErrorLogs({
       chatId,
       versionId,
       logs: [...artifacts.logItems, ...buildProductPostcheckLogItems(productPostcheck)],
       productPostcheckAttestation: productPostcheck?.attestation ?? null,
     });
+    completionPersistence = Promise.resolve(persisted);
     productPostcheckPersistenceScheduled = true;
+    const blockerPersistFailed =
+      productPostcheck?.productBlocked === true && !persisted;
 
     if (artifacts.autoFixReasons.length > 0) {
       onAutoFix?.({
@@ -651,7 +670,7 @@ export async function runPostGenerationChecks(params: {
     // lease (409 `version_busy` noise, duplicated VM work). The client
     // observes the outcome via the existing status polling
     // (`useVersionStatus` / `useVersions`) instead.
-    const currentVersionEntry = versions.find(
+    const currentVersionEntry = versionsForBaseline.find(
       (v) => v.versionId === versionId || v.id === versionId,
     );
     const serverOwnsVerifyLane = currentVersionEntry?.lifecycleStage === "integrations";
@@ -675,7 +694,7 @@ export async function runPostGenerationChecks(params: {
         },
       } as UiMessagePart);
     } else if (
-      productPostcheckNeedsRetry &&
+      needsPostcheckRetry &&
       artifacts.autoFixReasons.length === 0 &&
       artifacts.verifyPending
     ) {
@@ -689,6 +708,27 @@ export async function runPostGenerationChecks(params: {
           retryPending: true,
           reason:
             "Produktkontrollen saknar ett aktuellt attesterat resultat — versionen lämnas pending och återupptas mot rätt preview.",
+        },
+      } as UiMessagePart);
+    } else if (
+      blockerPersistFailed &&
+      artifacts.autoFixReasons.length === 0 &&
+      artifacts.verifyPending
+    ) {
+      // Resume-lane parity (`blockerPersistFailed`): the product block never
+      // reached `/error-log`, so starting the gate would let F3 read a
+      // missing summary as "not blocked". Leave the version pending.
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        toolCallId: `quality-gate:${versionId}`,
+        state: "output-available",
+        output: {
+          skipped: true,
+          retryPending: true,
+          blockerPersistFailed: true,
+          reason:
+            "Produktkontrollens blockerare kunde inte sparas — versionen lämnas pending.",
         },
       } as UiMessagePart);
     } else if (artifacts.autoFixReasons.length === 0 && artifacts.verifyPending) {
@@ -770,9 +810,8 @@ export async function runPostGenerationChecks(params: {
     // post-check's own error-log write has settled. In particular, the
     // product_postcheck.summary row is an input to the F3 trigger; refreshing
     // before that row exists can cache the previous summary for another SWR
-    // interval. The write remains fire-and-forget for the generation tail —
-    // its retry policy owns settlement and either outcome releases the
-    // refresh callback.
+    // interval. The success path already awaited the write before deciding
+    // whether to start the quality gate; the catch path still settles here.
     const refreshStatusSurfaces = () => {
       mutateVersions?.();
       onComplete?.();
@@ -1438,6 +1477,20 @@ function didPersistScopedImageReplacement(
   result: ImageValidationResult | null,
 ): boolean {
   return result?.fixed === true;
+}
+
+/**
+ * Same hold as the resume lane: no attested current result → leave pending
+ * instead of promoting or starting the VM gate against a stale preview.
+ */
+function productPostcheckNeedsRetry(
+  result: ProductPostcheckResult | null,
+): boolean {
+  return (
+    !result ||
+    result.skippedReason === "preview_superseded" ||
+    (result.skippedReason !== "feature_disabled" && !result.attestation)
+  );
 }
 
 /**

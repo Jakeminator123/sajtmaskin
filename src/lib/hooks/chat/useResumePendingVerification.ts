@@ -451,8 +451,12 @@ async function runResumeProductPostcheck(params: {
     return { productBlocked: false, blockerPersistFailed: false, superseded: true };
   }
   if (data && data.skippedReason !== "feature_disabled" && !data.attestation) {
-    // A current route response is always attested. Treat an older/unscoped
-    // response as a retryable hold instead of promoting without durable proof.
+    // An unattested response is a retryable hold, never a promotable result.
+    // Two shapes land here: an older/unscoped response, and `claim_busy` —
+    // the single-flight waiter timing out on another run that owns this exact
+    // target. Do NOT narrow this to `preview_superseded`: `claim_busy` writes
+    // no summary row, so starting the gate would let F3 read the missing row
+    // as "not blocked" and go green without any check having run.
     return { productBlocked: false, blockerPersistFailed: false, superseded: true };
   }
   // Normal-lane parity: persist both a concrete result and a missing/transport
