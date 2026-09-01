@@ -35,6 +35,7 @@ import {
   type VersionStatusDisplay,
 } from "./version-status-display";
 import { productPostcheckSkipReasonFromMessage } from "@/lib/gen/verify/product-postcheck-skip";
+import { PRODUCT_POSTCHECK_ADVISORY_META_KEY } from "@/lib/db/services/reported-quality-gate";
 
 /** Subset of shadcn `Badge` variants this surface uses. */
 export type VersionHistoryBadgeVariant = "default" | "secondary" | "destructive" | "outline";
@@ -74,6 +75,8 @@ export function productPostcheckSkipReasonFromDegradations(
 ): string | null {
   for (const item of degradations) {
     if (item.kind !== "product_postcheck_skipped") continue;
+    // Infrastruktur-skips har en egen, icke-anklagande yta längre ner.
+    if (item.meta?.[PRODUCT_POSTCHECK_ADVISORY_META_KEY] === true) continue;
     const metaReason =
       item.meta && typeof item.meta.skippedReason === "string"
         ? item.meta.skippedReason.trim()
@@ -88,6 +91,33 @@ export function productPostcheckSkipReasonFromDegradations(
 export function formatProductPostcheckSkipTooltip(reason: string): string {
   const detail = PRODUCT_POSTCHECK_SKIP_REASON_SV[reason] ?? reason;
   return `Klar men med luckor: product_postcheck_skipped: ${reason} — ${detail}.`;
+}
+
+/**
+ * Texten för en skip som berodde på kontrollkedjan. Den säger uttryckligen att
+ * utfallet inte handlar om sajten — annars läser användaren "kontrollen dog"
+ * som "min sajt är trasig", vilket är exakt felet `SM-072` orsakade i prod.
+ */
+export function formatProductPostcheckAdvisoryTooltip(reason: string): string {
+  const detail = PRODUCT_POSTCHECK_SKIP_REASON_SV[reason] ?? reason;
+  return `Produktkontrollen kunde inte köras (${reason} — ${detail}). Det är ett fel i kontrollen, inte i sajten; inga produktfel hittades.`;
+}
+
+/** Första advisory-orsaken bland noteringarna, om någon. */
+export function productPostcheckAdvisoryReasonFromDegradations(
+  degradations: VersionStatusDisplay["degradations"],
+): string | null {
+  for (const item of degradations) {
+    if (item.kind !== "product_postcheck_skipped") continue;
+    if (item.meta?.[PRODUCT_POSTCHECK_ADVISORY_META_KEY] !== true) continue;
+    const metaReason =
+      typeof item.meta?.skippedReason === "string" ? item.meta.skippedReason.trim() : "";
+    if (metaReason) return metaReason;
+    const fromMessage = productPostcheckSkipReasonFromMessage(item.message);
+    if (fromMessage) return fromMessage;
+    return "unknown";
+  }
+  return null;
 }
 
 const BADGES: Record<VersionDisplayStatus, VersionHistoryStatusBadge> = {
@@ -262,6 +292,16 @@ export function versionHistoryStatusBadge(
     if (skipReason) {
       return { ...badge, tooltip: formatProductPostcheckSkipTooltip(skipReason) };
     }
+    return badge;
+  }
+  // Kontrollen dog men versionen är hel: behåll etiketten och färgen, men säg
+  // rakt ut i tooltipen att produktkontrollen saknas.
+  const advisoryReason = productPostcheckAdvisoryReasonFromDegradations(display.degradations);
+  if (advisoryReason) {
+    return {
+      ...badge,
+      tooltip: `${badge.tooltip} ${formatProductPostcheckAdvisoryTooltip(advisoryReason)}`,
+    };
   }
   return badge;
 }
@@ -291,6 +331,10 @@ export function resolveVersionHistorySummary(
       display.degradations[0]?.message ||
       "Klar men verifier/produkt-postcheck hoppades över eller hittade blockerande fel."
     );
+  }
+  const advisoryReason = productPostcheckAdvisoryReasonFromDegradations(display.degradations);
+  if (advisoryReason) {
+    return formatProductPostcheckAdvisoryTooltip(advisoryReason);
   }
   return summary;
 }

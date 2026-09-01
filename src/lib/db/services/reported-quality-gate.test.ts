@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyProductPostcheckLogReadFailureToVersionStatus,
   applyProductPostcheckReportToVersionStatus,
   filterProductPostcheckEventsForCurrentFilesRevision,
   isReportedQualityGateGreen,
@@ -338,5 +339,97 @@ describe("resolveReportedQualityGateResult — SM-017", () => {
       ],
     );
     expect(status.degradations).toEqual([]);
+  });
+});
+
+describe("infrastruktur-skip blir advisory, inte degraded — SM-072", () => {
+  const baseStatus = {
+    runId: "run_1",
+    phase: "done" as const,
+    previewBlocked: false,
+    verificationBlocked: false,
+    repairPassIndex: 0,
+    lastBuildError: null,
+    eventCount: 0,
+    done: true,
+    verifierOutcome: "passed" as const,
+    degradations: [],
+  };
+
+  const skipLog = (reason: string) => ({
+    category: "product_postcheck.skipped",
+    message: "F2 Product Postcheck skipped.",
+    meta: { skippedReason: reason },
+    created_at: "2026-09-01T01:16:24Z",
+  });
+
+  it("rapporterar advisory när Chromium dog av /tmp-svält", () => {
+    // Prod 2026-09-01 01:16:24Z: `Target page, context or browser has been
+    // closed` med 8 MB fritt i /tmp, på en version som passerade allt annat.
+    expect(resolveProductPostcheckReportState([skipLog("runtime_error")]).kind).toBe("advisory");
+    expect(resolveProductPostcheckReportState([skipLog("playwright_unavailable")]).kind).toBe(
+      "advisory",
+    );
+  });
+
+  it("håller kvar degraded när skipen säger något om produkten", () => {
+    expect(resolveProductPostcheckReportState([skipLog("preview_not_running")]).kind).toBe(
+      "degraded",
+    );
+    expect(resolveProductPostcheckReportState([skipLog("navigation_failed")]).kind).toBe(
+      "degraded",
+    );
+  });
+
+  it("låter kvalitetsgrinden förbli grön vid advisory men inte vid degraded", () => {
+    expect(
+      resolveReportedQualityGateFromSignals({
+        qualityGateResult: "preflight_passed",
+        productPostcheckLogs: [skipLog("playwright_unavailable")],
+      }),
+    ).toBe("preflight_passed");
+    expect(
+      resolveReportedQualityGateFromSignals({
+        qualityGateResult: "preflight_passed",
+        productPostcheckLogs: [skipLog("preview_not_running")],
+      }),
+    ).toBe("product_postcheck_degraded");
+  });
+
+  it("behåller noteringen för diagnostiken men märker den infrastructureSkip", () => {
+    const status = applyProductPostcheckReportToVersionStatus(baseStatus, [
+      skipLog("runtime_error"),
+    ]);
+    expect(status.degradations).toEqual([
+      expect.objectContaining({
+        kind: "product_postcheck_skipped",
+        meta: expect.objectContaining({
+          skippedReason: "runtime_error",
+          infrastructureSkip: true,
+        }),
+      }),
+    ]);
+  });
+
+  it("märker inte en produktbärande skip som infrastruktur", () => {
+    const status = applyProductPostcheckReportToVersionStatus(baseStatus, [
+      skipLog("preview_not_running"),
+    ]);
+    expect(status.degradations[0]?.meta).not.toHaveProperty("infrastructureSkip");
+  });
+
+  it("märker en misslyckad loggläsning som infrastruktur", () => {
+    const status = applyProductPostcheckLogReadFailureToVersionStatus(baseStatus);
+    expect(status.degradations[0]?.meta).toEqual(
+      expect.objectContaining({ skippedReason: "log_read_error", infrastructureSkip: true }),
+    );
+  });
+
+  it("en blockerande summary vinner fortfarande över allt", () => {
+    const state = resolveProductPostcheckReportState([
+      { category: "product_postcheck.summary", meta: { productBlocked: true }, created_at: "2026-09-01T01:00:00Z" },
+      skipLog("runtime_error"),
+    ]);
+    expect(state.kind).toBe("blocked");
   });
 });

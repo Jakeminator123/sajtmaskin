@@ -9,10 +9,22 @@
  */
 
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
-import { formatProductPostcheckSkippedMessage } from "@/lib/gen/verify/product-postcheck-skip";
+import {
+  formatProductPostcheckSkippedMessage,
+  isInfrastructureSkipReason,
+  productPostcheckSkipReasonFromMessage,
+} from "@/lib/gen/verify/product-postcheck-skip";
 
 export const REPORTED_PRODUCT_BLOCKED = "product_blocked";
 export const REPORTED_PRODUCT_POSTCHECK_DEGRADED = "product_postcheck_degraded";
+
+/**
+ * Metanyckeln som märker en skip vars orsak låg i kontrollkedjan, inte i
+ * produkten. Bäraren stannar kvar i `degradations[]` så diagnostiken behåller
+ * hela historien — men presentationslagret får inte måla versionen amber på
+ * den. Se `classifyProductPostcheckSkipReason`.
+ */
+export const PRODUCT_POSTCHECK_ADVISORY_META_KEY = "infrastructureSkip";
 
 const PRODUCT_POSTCHECK_SUMMARY = "product_postcheck.summary";
 const PRODUCT_POSTCHECK_SKIPPED = "product_postcheck.skipped";
@@ -25,7 +37,13 @@ export type ProductPostcheckReportLog = {
 };
 
 export type ProductPostcheckReportState = {
-  kind: "unknown" | "clear" | "degraded" | "blocked";
+  /**
+   * `advisory` = postchecken kunde inte köras av skäl som ligger i
+   * kontrollkedjan. Den är avsiktligt skild från `degraded`: båda betyder
+   * "ingen produktdom finns", men bara `degraded` får läsas som ett påstående
+   * om sajten.
+   */
+  kind: "unknown" | "clear" | "advisory" | "degraded" | "blocked";
   summary: ProductPostcheckReportLog | null;
   skipped: ProductPostcheckReportLog | null;
 };
@@ -134,10 +152,21 @@ export function resolveProductPostcheckReportState(
   }
 
   if (skipped && (!summary || isLaterSignal(skipped, summary))) {
-    return { kind: "degraded", summary: summary?.log ?? null, skipped: skipped.log };
+    const kind = isInfrastructureSkipReason(skipReasonFromLog(skipped.log))
+      ? "advisory"
+      : "degraded";
+    return { kind, summary: summary?.log ?? null, skipped: skipped.log };
   }
 
   return { kind: "clear", summary: summary?.log ?? null, skipped: skipped?.log ?? null };
+}
+
+/** `meta.skippedReason` när den finns, annars orsaken inbakad i meddelandet. */
+function skipReasonFromLog(log: ProductPostcheckReportLog): string | null {
+  const meta = reportMeta(log.meta);
+  const fromMeta = typeof meta?.skippedReason === "string" ? meta.skippedReason.trim() : "";
+  if (fromMeta) return fromMeta;
+  return productPostcheckSkipReasonFromMessage(log.message);
 }
 
 function reportMeta(meta: unknown): Record<string, unknown> | null {
@@ -180,6 +209,14 @@ function eventDegradation(
   event: ProductPostcheckEventSignal,
   kind: "product_postcheck_skipped" | "product_postcheck_blocked",
 ): VersionStatus["degradations"][number] {
+  const meta = reportMeta(event.meta);
+  const advisory =
+    kind === "product_postcheck_skipped" &&
+    isInfrastructureSkipReason(
+      typeof meta?.skippedReason === "string"
+        ? meta.skippedReason
+        : productPostcheckSkipReasonFromMessage(event.message),
+    );
   return {
     kind,
     message:
@@ -187,7 +224,7 @@ function eventDegradation(
       (kind === "product_postcheck_blocked"
         ? "Product Postcheck hittade blockerande produktfel."
         : "F2 Product Postcheck gav inget verifierbart resultat."),
-    meta: reportMeta(event.meta),
+    meta: withAdvisoryFlag(meta, advisory),
   };
 }
 
@@ -230,7 +267,7 @@ export function applyProductPostcheckReportToVersionStatus(
         "Product Postcheck hittade blockerande produktfel.",
       meta: reportMeta(report.summary?.meta) ?? null,
     });
-  } else if (report.kind === "degraded") {
+  } else if (report.kind === "degraded" || report.kind === "advisory") {
     const meta = reportMeta(report.skipped?.meta);
     const reason =
       typeof meta?.skippedReason === "string" && meta.skippedReason.trim()
@@ -239,7 +276,9 @@ export function applyProductPostcheckReportToVersionStatus(
     degradations.push({
       kind: "product_postcheck_skipped",
       message: formatProductPostcheckSkippedMessage(reason),
-      meta,
+      // Noteringen bevaras oavsett klass — diagnostiken ska kunna visa exakt
+      // vad som hände. Flaggan styr bara hur badgen får läsa den.
+      meta: withAdvisoryFlag(meta, report.kind === "advisory"),
     });
   } else if (unresolvedSkippedEvent) {
     degradations.push(
@@ -247,6 +286,14 @@ export function applyProductPostcheckReportToVersionStatus(
     );
   }
   return { ...status, degradations };
+}
+
+function withAdvisoryFlag(
+  meta: Record<string, unknown> | null,
+  advisory: boolean,
+): Record<string, unknown> | null {
+  if (!advisory) return meta;
+  return { ...(meta ?? {}), [PRODUCT_POSTCHECK_ADVISORY_META_KEY]: true };
 }
 
 /** A failed durable-log read is itself an inconclusive verification signal. */
@@ -269,7 +316,12 @@ export function applyProductPostcheckLogReadFailureToVersionStatus(
       {
         kind: "product_postcheck_skipped",
         message: formatProductPostcheckSkippedMessage("log_read_error"),
-        meta: { skippedReason: "log_read_error", transient: true },
+        // Vår egen läsning brast — det är kontrollkedjan, inte sajten.
+        meta: {
+          skippedReason: "log_read_error",
+          transient: true,
+          [PRODUCT_POSTCHECK_ADVISORY_META_KEY]: true,
+        },
       },
     ],
   };

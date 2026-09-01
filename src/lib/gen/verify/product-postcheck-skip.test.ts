@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyProductPostcheckSkipReason,
   formatProductPostcheckSkippedMessage,
+  isInfrastructureSkipReason,
   productPostcheckSkipReasonFromMessage,
 } from "./product-postcheck-skip";
 
@@ -38,5 +40,49 @@ describe("productPostcheckSkipReasonFromMessage", () => {
   it("returns null when no reason is present", () => {
     expect(productPostcheckSkipReasonFromMessage("F2 Product Postcheck skipped.")).toBeNull();
     expect(productPostcheckSkipReasonFromMessage(null)).toBeNull();
+  });
+});
+
+describe("classifyProductPostcheckSkipReason — SM-072", () => {
+  it("klassar kontrollkedjans egna haverier som infrastruktur", () => {
+    // Exakt de orsaker prod-bursten 2026-09-01 skrev medan sajterna var friska.
+    for (const reason of [
+      "playwright_unavailable",
+      "runtime_error",
+      "capture_failed",
+      "log_read_error",
+      "feature_disabled",
+    ]) {
+      expect(classifyProductPostcheckSkipReason(reason), reason).toBe("infrastructure");
+      expect(isInfrastructureSkipReason(reason), reason).toBe(true);
+    }
+  });
+
+  it("behåller produktbärande orsaker som product", () => {
+    for (const reason of [
+      "preview_not_running",
+      "missing_preview_url",
+      "url_not_allowed",
+      "navigation_failed",
+      "timeout",
+      "preview_superseded",
+    ]) {
+      expect(classifyProductPostcheckSkipReason(reason), reason).toBe("product");
+      expect(isInfrastructureSkipReason(reason), reason).toBe(false);
+    }
+  });
+
+  it("faller tillbaka på product för okänt, tomt och null", () => {
+    // Allowlist, inte denylist: en ny orsak får aldrig tyst bli advisory.
+    expect(classifyProductPostcheckSkipReason("nagot_helt_nytt")).toBe("product");
+    expect(classifyProductPostcheckSkipReason("")).toBe("product");
+    expect(classifyProductPostcheckSkipReason(null)).toBe("product");
+    expect(classifyProductPostcheckSkipReason(undefined)).toBe("product");
+  });
+
+  it("normaliserar skiftläge och blanksteg", () => {
+    expect(classifyProductPostcheckSkipReason("  Playwright_Unavailable ")).toBe(
+      "infrastructure",
+    );
   });
 });

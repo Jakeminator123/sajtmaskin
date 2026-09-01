@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatProductPostcheckSkipTooltip,
   localizeVerificationSummary,
+  productPostcheckAdvisoryReasonFromDegradations,
   productPostcheckSkipReasonFromDegradations,
   resolveVersionHistorySummary,
   shouldShowVerifiedBadge,
@@ -275,5 +276,71 @@ describe("shouldShowVerifiedBadge (B09 false-green guard)", () => {
     expect(shouldShowVerifiedBadge("design_ready", false)).toBe(false);
     expect(shouldShowVerifiedBadge(null, false)).toBe(false);
     expect(shouldShowVerifiedBadge(undefined, false)).toBe(false);
+  });
+});
+
+describe("advisory-yta för infrastruktur-skip — SM-072", () => {
+  const infraSkip = {
+    kind: "product_postcheck_skipped" as const,
+    message: "F2 Product Postcheck skipped (product_postcheck_skipped: runtime_error).",
+    meta: { skippedReason: "runtime_error", infrastructureSkip: true },
+  };
+
+  it("behåller Publicerad-etiketten men säger att kontrollen inte kunde köras", () => {
+    const badge = versionHistoryStatusBadge(
+      display("promoted", { degradations: [infraSkip] }),
+    );
+    expect(badge.label).toBe("Publicerad");
+    expect(badge.variant).toBe("default");
+    expect(badge.className).toBeUndefined();
+    expect(badge.tooltip).toContain("Produktkontrollen kunde inte köras");
+    expect(badge.tooltip).toContain("inte i sajten");
+  });
+
+  it("plockar ut advisory-orsaken men inte den produktbärande", () => {
+    expect(productPostcheckAdvisoryReasonFromDegradations([infraSkip])).toBe("runtime_error");
+    expect(
+      productPostcheckAdvisoryReasonFromDegradations([
+        {
+          kind: "product_postcheck_skipped",
+          message: "skip",
+          meta: { skippedReason: "preview_not_running" },
+        },
+      ]),
+    ).toBeNull();
+  });
+
+  it("degraded-ytan ignorerar advisory-noteringen", () => {
+    // Annars skulle Degraderad-tooltippen skylla på infrastrukturen.
+    expect(productPostcheckSkipReasonFromDegradations([infraSkip])).toBeNull();
+  });
+
+  it("sammanfattningen förklarar utan att anklaga sajten", () => {
+    const summary = resolveVersionHistorySummary(
+      display("promoted", { degradations: [infraSkip] }),
+      null,
+    );
+    expect(summary).toContain("Produktkontrollen kunde inte köras");
+    expect(summary).not.toContain("Klar men med luckor");
+  });
+
+  it("Verifierad-badgen får visas när bara kontrollen dog", () => {
+    expect(shouldShowVerifiedBadge("verified", false)).toBe(true);
+  });
+
+  it("en produktbärande skip behåller Degraderad och sin skarpa text", () => {
+    const badge = versionHistoryStatusBadge(
+      display("degraded", {
+        degradations: [
+          {
+            kind: "product_postcheck_skipped",
+            message: "skip",
+            meta: { skippedReason: "preview_not_running" },
+          },
+        ],
+      }),
+    );
+    expect(badge.label).toBe("Degraderad");
+    expect(badge.tooltip).toContain("Klar men med luckor");
   });
 });
