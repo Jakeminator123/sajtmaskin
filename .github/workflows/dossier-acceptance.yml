@@ -1,9 +1,32 @@
 name: Dossier acceptance
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/dossier-acceptance.yml"
+      - "data/dossiers/**"
+      - "scripts/dossiers/**"
+      - "src/lib/gen/dossiers/**"
+      - "src/lib/gen/export/**"
+      - "src/lib/gen/scaffolds/landing-page/**"
+      - "src/lib/gen/autofix/dep-completer.ts"
+      - "src/lib/gen/data/shadcn-components.ts"
+      - "src/lib/gen/parser.ts"
+      - "src/lib/gen/preview/env-local.ts"
+      - "src/lib/utils/infer-file-language.ts"
+      - "src/lib/utils/path-utils.ts"
+      - "package.json"
+      - "package-lock.json"
   schedule:
     - cron: "17 3 * * 2"
   workflow_dispatch: {}
+
+# A new commit on the same PR supersedes its older acceptance build. Scheduled
+# and manual runs share their ref key so they also cannot burn two matrices in
+# parallel for the same branch.
+concurrency:
+  group: dossier-acceptance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
