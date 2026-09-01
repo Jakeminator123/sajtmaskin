@@ -95,4 +95,5 @@ tr*_agent.txt
 tsconfig.tsbuildinfo
 *.tsbuildinfo
 .eslintcache
+node_modules
 
