@@ -5,7 +5,6 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getTokenFromRequest } from "@/lib/auth/auth";
 import { SECRETS } from "@/lib/config";
 
 export type OAuthProvider = "google" | "github";
@@ -72,8 +71,16 @@ function stateSignature(body: string): string {
     .digest("base64url");
 }
 
-function currentSessionBinding(request: Request): string | null {
-  const token = getTokenFromRequest(request);
+function currentSessionToken(request: NextRequest): string | null {
+  const authorization = request.headers.get("authorization");
+  if (authorization?.startsWith("Bearer ")) {
+    return authorization.slice("Bearer ".length);
+  }
+  return request.cookies.get("sajtmaskin_auth")?.value ?? null;
+}
+
+function currentSessionBinding(request: NextRequest): string | null {
+  const token = currentSessionToken(request);
   if (!token) return null;
   return createHmac("sha256", oauthSecret())
     .update(`${OAUTH_SESSION_PURPOSE}.${token}`)
