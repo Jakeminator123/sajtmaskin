@@ -4,6 +4,8 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
 import { getVersionById } from "@/lib/db/chat-repository-pg";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
+import { buildPortableExportProject } from "@/lib/gen/export/build-portable-export-project";
+import { buildGitHubExportPlan } from "@/lib/gen/export/github-tree-plan";
 import { getCurrentUser } from "@/lib/auth/auth";
 
 export const runtime = "nodejs";
@@ -34,9 +36,15 @@ type GitHubTreeResponse = {
   sha: string;
 };
 
+type GitHubTreeListingResponse = {
+  tree: Array<{
+    path: string;
+    type: "blob" | "tree" | "commit";
+  }>;
+  truncated?: boolean;
+};
+
 const GITHUB_API = "https://api.github.com";
-const BLOCKED_PATHS = ["node_modules/", ".git/"];
-const BLOCKED_FILES = [".env", ".env.local", ".env.production", ".env.development", ".env.test"];
 
 function normalizeRepoInput(
   input: string,
@@ -61,19 +69,6 @@ function sanitizeRepoName(value: string): string {
     .replace(/^-+/, "")
     .replace(/-+$/, "")
     .slice(0, 80);
-}
-
-function normalizeFilePath(raw: string): string | null {
-  const normalized = raw.replace(/^\.?\//, "").replace(/^\/+/, "");
-  if (!normalized) return null;
-  if (normalized.split("/").some((seg) => seg === "..")) return null;
-  if (BLOCKED_FILES.some((name) => normalized === name || normalized.startsWith(`${name}/`))) {
-    return null;
-  }
-  if (BLOCKED_PATHS.some((prefix) => normalized.startsWith(prefix))) {
-    return null;
-  }
-  return normalized;
 }
 
 async function githubRequest<T>(
@@ -155,6 +150,28 @@ async function getBaseCommit(params: {
   return { commitSha: commit.data.sha, treeSha: commit.data.tree.sha };
 }
 
+async function getBaseTreePaths(params: {
+  token: string;
+  owner: string;
+  repo: string;
+  treeSha: string;
+}): Promise<string[]> {
+  const { token, owner, repo, treeSha } = params;
+  const tree = await githubRequest<GitHubTreeListingResponse>(
+    token,
+    `/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`,
+  );
+  if (!tree.ok || !tree.data) {
+    throw new Error("Failed to inspect existing GitHub tree");
+  }
+  if (tree.data.truncated) {
+    throw new Error("Existing GitHub tree is too large to export safely");
+  }
+  return tree.data.tree
+    .filter((entry) => entry.type !== "tree")
+    .map((entry) => entry.path);
+}
+
 export async function POST(request: NextRequest) {
   return withRateLimit(request, "github:export", async () => {
     try {
@@ -203,14 +220,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 });
       }
       const rawFiles = parseCodeFilesFromFilesJson(ev.files_json) ?? [];
-      const files = rawFiles
-        .map((file) => ({
-          path: normalizeFilePath(file.path),
-          content: file.content,
-        }))
-        .filter((file): file is { path: string; content: string } =>
-          Boolean(file.path && file.content),
-        );
+      const portableProject = await buildPortableExportProject(rawFiles, chatId);
+      const files = buildGitHubExportPlan(portableProject).files;
       if (files.length === 0) {
         return NextResponse.json(
           { success: false, error: "No files available to export" },
@@ -234,6 +245,15 @@ export async function POST(request: NextRequest) {
         repo: repoName,
         branch: repoResult.repo.default_branch || "main",
       });
+      const basePaths = base
+        ? await getBaseTreePaths({
+            token,
+            owner,
+            repo: repoName,
+            treeSha: base.treeSha,
+          })
+        : [];
+      const { deletionPaths } = buildGitHubExportPlan(portableProject, basePaths);
 
       const treeEntries = [];
       for (const file of files) {
@@ -260,6 +280,9 @@ export async function POST(request: NextRequest) {
           type: "blob",
           sha: response.data.sha,
         });
+      }
+      for (const path of deletionPaths) {
+        treeEntries.push({ path, sha: null });
       }
 
       const treeResponse = await githubRequest<GitHubTreeResponse>(
