@@ -1,4 +1,7 @@
 import { FEATURES, SECRETS } from "@/lib/config";
+import { resolveUnsplashDownloadUrl } from "@/lib/images/unsplash-download-url";
+import { withRateLimit } from "@/lib/rate-limit";
+import { safeFetch } from "@/lib/ssrf-guard";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -24,6 +27,10 @@ import { NextRequest, NextResponse } from "next/server";
  */
 
 export async function POST(req: NextRequest) {
+  return withRateLimit(req, "unsplash:download", () => handlePOST(req));
+}
+
+async function handlePOST(req: NextRequest) {
   try {
     const body = await req.json();
     const { downloadLocation, photoId } = body;
@@ -33,12 +40,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, tracked: false });
     }
 
-    // Use downloadLocation if provided, otherwise construct from photoId
-    let trackUrl = downloadLocation;
-
-    if (!trackUrl && photoId) {
-      trackUrl = `https://api.unsplash.com/photos/${photoId}/download`;
-    }
+    const trackUrl = resolveUnsplashDownloadUrl({ downloadLocation, photoId });
 
     if (!trackUrl) {
       return NextResponse.json(
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const response = await fetch(trackUrl, {
+    const response = await safeFetch(trackUrl, {
       headers: {
         Authorization: `Client-ID ${SECRETS.unsplashAccessKey}`,
         "Accept-Version": "v1",
