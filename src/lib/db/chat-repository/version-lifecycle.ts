@@ -165,10 +165,20 @@ export async function failVersionVerification(
  * readiness poll from failing a version that a verify/repair run legitimately
  * acquired in the gap between a separate `hasActiveVersionLease` check and the
  * write. Returns null (no-op) when a job holds the lease or the row is gone.
+ *
+ * Optional expected-state/revision CAS (P1a TOCTOU sibling of
+ * `promoteVersionIfUnleased`): when the caller supplies the `verificationState`
+ * and/or `filesRevision` it decided on, the UPDATE also requires those columns
+ * still match. A concurrent verify that finished, promoted, and dropped its
+ * lease in the gap then misses the WHERE and we return null instead of
+ * clobbering a passed/promoted row back to failed/draft. The expected state is
+ * caller-supplied — never hardcoded to `verifying` — because the watchdog also
+ * legitimately settles stale `repairing` and integrations-`pending` rows.
  */
 export async function failVersionVerificationIfUnleased(
   versionId: string,
   verificationSummary: string,
+  expected?: { verificationState?: string | null; filesRevision?: string | null },
 ): Promise<Version | null> {
   // Codex P2 (missing-table fail-safe): decide whether to reference the lease
   // table BEFORE building the statement (Postgres resolves relations at plan
@@ -202,6 +212,17 @@ export async function failVersionVerificationIfUnleased(
       .where(
         and(
           eq(engineVersions.id, versionId),
+          // P1a TOCTOU: only fail a row STILL in the state/revision the caller
+          // decided on. Omitted/null expected fields are skipped so legacy
+          // callers (repair fallback) keep compiling; never hardcode
+          // `verifying` — stale `repairing` / integrations-`pending` are
+          // legitimate watchdog targets.
+          expected?.verificationState != null
+            ? eq(engineVersions.verificationState, expected.verificationState)
+            : undefined,
+          expected?.filesRevision != null
+            ? eq(engineVersions.filesRevision, expected.filesRevision)
+            : undefined,
           // Only enforce the no-active-lease guard once the table exists; before
           // migration this degrades to the legacy unconditional watchdog.
           jobsExist

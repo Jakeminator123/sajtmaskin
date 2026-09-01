@@ -188,7 +188,14 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       return null;
     });
     if (owned) return true;
-    await failVersionVerificationIfUnleased(versionId, summary).catch((err) => {
+    // CAS on `repairing`: this run marked the row repairing before the loop, so
+    // a takeover that already moved it on (including to a promoted `passed`)
+    // must not be clobbered back to failed/draft. Without the CAS the comment
+    // above — "a genuine takeover keeps its own state" — was not enforced. A
+    // missed CAS leaves the row for the unleased watchdog, which is recoverable.
+    await failVersionVerificationIfUnleased(versionId, summary, {
+      verificationState: "repairing",
+    }).catch((err) => {
       console.warn("[repair] Unleased fail fallback errored:", err);
     });
     return false;

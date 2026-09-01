@@ -301,6 +301,30 @@ describe("failVersionVerificationIfUnleased — lease-safe stuck-repair recovery
     const lockStmts = txExecSqls.value.map((s) => renderSql(s));
     expect(lockStmts.some((s) => s.includes("for update"))).toBe(true);
   });
+
+  it("CAS-gates the fail on expected verification_state + files_revision when provided (P1a TOCTOU)", async () => {
+    mockLeaseTableExists(true);
+    await failVersionVerificationIfUnleased("ver-1", "stuck repair recovered", {
+      verificationState: "repairing",
+      filesRevision: "rev-1",
+    });
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("verification_state");
+    expect(where).toContain("files_revision");
+    // Lease guard is unchanged when expected is supplied.
+    expect(where).toContain("not exists");
+    expect(where).toContain("engine_version_jobs");
+    expect(where).toContain("lease_expires_at");
+    expect(where).toContain("now()");
+  });
+
+  it("omits state/revision CAS predicates when expected is not passed (back-compat)", async () => {
+    mockLeaseTableExists(true);
+    await failVersionVerificationIfUnleased("ver-1", "stuck repair recovered");
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).not.toContain("verification_state");
+    expect(where).not.toContain("files_revision");
+  });
 });
 
 describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot high #518)", () => {
