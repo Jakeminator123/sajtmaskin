@@ -4,10 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   evaluateCiBranch,
+  evaluateCiScopeWorkflow,
   evaluatePolicyFloors,
   evaluatePrHeadWorkflowPermissions,
   evaluateReservedWorkflowCheckNames,
   evaluateRetiredBugIdFloor,
+  evaluateSecretWorkflowDispatches,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
 import {
@@ -288,7 +290,9 @@ describe("agent workflow branch safety", () => {
     };
     expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "fix/safe-change" })).toBeNull();
     expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "tmp/hidden-rule" })).toBeNull();
-    expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "simplify-agent-workflow" })).toBeNull();
+    expect(
+      evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "simplify-agent-workflow" }),
+    ).toBeNull();
     expect(
       evaluateCiBranch(policy, {
         ...baseEnv,
@@ -385,6 +389,129 @@ describe("verify:pr command execution", () => {
 describe("agent workflow repository contract", () => {
   it("keeps policy, CI, hooks, routers and registries in sync", () => {
     expect(evaluateWorkflowContract().errors).toEqual([]);
+  });
+
+  it("keeps CI scope fail-closed and live credentials on trusted master", () => {
+    const source = readFileSync(".github/workflows/ci.yml", "utf8");
+    expect(evaluateCiScopeWorkflow(source)).toEqual([]);
+    const replaceOnce = (search: string, replacement: string) => {
+      const candidate = source.replace(search, replacement);
+      expect(candidate).not.toBe(source);
+      return candidate;
+    };
+
+    const weakened = [
+      replaceOnce("ready_for_review, ", ""),
+      replaceOnce(
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+        "cancel-in-progress: true",
+      ),
+      replaceOnce("group: ci-${{ github.ref }}", "group: ci-${{ github.run_id }}"),
+      replaceOnce("github.ref == 'refs/heads/master'", "github.ref == 'refs/heads/feature'"),
+      replaceOnce(
+        "needs: [quality, schema-drift, build, backoffice-tests]",
+        "needs: [quality, schema-drift]",
+      ),
+      replaceOnce(
+        "needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false'",
+        "needs.scope.outputs.run_heavy == 'true'",
+      ),
+      replaceOnce(
+        "if: ${{ !cancelled() }}\n    runs-on: ubuntu-latest\n    env:\n      RUN_HEAVY:",
+        "if: ${{ !cancelled() && needs.scope.outputs.run_heavy == 'true' }}\n    runs-on: ubuntu-latest\n    env:\n      RUN_HEAVY:",
+      ),
+      replaceOnce(
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' || true }}",
+      ),
+      replaceOnce(
+        "github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')",
+        "github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || true)",
+      ),
+      replaceOnce(
+        "    # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.\n    if: ${{ !cancelled() }}",
+        "    # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.\n    if: ${{ always() }}",
+      ),
+      replaceOnce("run: npm run docs:test", "run: npm run test:ci"),
+    ];
+    for (const candidate of weakened) {
+      expect(evaluateCiScopeWorkflow(candidate).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("rejects secret-bearing manual workflow runs outside master", () => {
+    const blob = readFileSync(".github/workflows/db-blob-sync-check.yml", "utf8");
+    const parity = readFileSync(".github/workflows/db-schema-parity.yml", "utf8");
+    expect(evaluateSecretWorkflowDispatches(blob, parity)).toEqual([]);
+    const replaceOnce = (source: string, search: string, replacement: string) => {
+      const candidate = source.replace(search, replacement);
+      expect(candidate).not.toBe(source);
+      return candidate;
+    };
+
+    const weakened = [
+      [
+        replaceOnce(
+          blob,
+          "if: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}",
+          "if: ${{ github.event_name == 'workflow_dispatch' }}",
+        ),
+        parity,
+      ],
+      [
+        replaceOnce(
+          blob,
+          "if: ${{ github.event_name == 'pull_request' || (github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) }}",
+          "if: ${{ github.event_name != 'workflow_dispatch' || true }}",
+        ),
+        parity,
+      ],
+      [
+        replaceOnce(
+          blob,
+          "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}",
+          "if: ${{ github.event_name != 'pull_request' }}",
+        ),
+        parity,
+      ],
+      [
+        replaceOnce(
+          blob,
+          "          exit 1\n\n  db-blob-sync:",
+          "          exit 0\n\n  db-blob-sync:",
+        ),
+        parity,
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "if: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}",
+          "if: ${{ github.event_name == 'workflow_dispatch' }}",
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}",
+          "if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}",
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "          exit 1\n\n  db-schema-parity-scheduled:",
+          "          exit 0\n\n  db-schema-parity-scheduled:",
+        ),
+      ],
+    ];
+    for (const [blobCandidate, parityCandidate] of weakened) {
+      expect(
+        evaluateSecretWorkflowDispatches(blobCandidate, parityCandidate).length,
+      ).toBeGreaterThan(0);
+    }
   });
 
   it("runs write-capable Dependabot automation only from trusted default-branch code", () => {

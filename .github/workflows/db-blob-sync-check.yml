@@ -28,7 +28,20 @@ permissions:
   contents: read
 
 jobs:
+  # En manuell körning från en feature-ref får varken checka ut refen eller nå
+  # jobbet som har live-secrets. Gör felvalet synligt rött i stället för ett
+  # tyst grönt workflow där den viktiga kontrollen aldrig kördes.
+  reject-untrusted-manual-ref:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject secret-bearing dispatch outside master
+        run: |
+          echo "::error::DB + Blob sync med live-secrets får bara dispatchas från refs/heads/master."
+          exit 1
+
   db-blob-sync:
+    if: ${{ github.event_name == 'pull_request' || (github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) }}
     runs-on: ubuntu-latest
 
     steps:
@@ -55,11 +68,11 @@ jobs:
         working-directory: scripts/db
         run: python -m unittest test_pydatabastest -v
 
-      # SECURITY: production credentials are injected ONLY on trusted events (push to
-      # master / manual dispatch). On pull_request a separate no-secret step runs the
-      # same script, so PR-controlled code can never execute with production secrets.
+      # SECURITY: production credentials are injected ONLY on trusted master events.
+      # Både jobb- och steggrinden är avsiktligt explicita (defence in depth).
+      # På pull_request kör ett separat steg utan secrets samma script.
       - name: Run DB + Blob sync gate (trusted events, with credentials)
-        if: github.event_name != 'pull_request'
+        if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
         run: python scripts/db/pydatabastest.py --ci
         env:
           # The script tries the pooled (pooler.supabase.com) URL first, then direct.
@@ -71,7 +84,7 @@ jobs:
           DB_SSL_REJECT_UNAUTHORIZED: "false"
 
       - name: Validate gate script (pull_request, no credentials)
-        if: github.event_name == 'pull_request'
+        if: ${{ github.event_name == 'pull_request' }}
         # No secrets are injected here, so the PR's (untrusted) script can never run
         # with production credentials. Each DB/blob target SKIPs with a WARN; this step
         # only validates that the script parses and runs.
