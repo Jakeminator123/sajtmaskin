@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { safeFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 import { VercelBlobProvider } from "@/lib/storage/vercel-blob-provider";
 
 export type ImageAssetStrategy = "external" | "blob";
@@ -143,12 +144,25 @@ async function fetchWithLimits(
   url: string,
   limits: MaterializeImagesLimits,
 ): Promise<{ buffer: Buffer; contentType: string | null }> {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new Error("Invalid URL");
+  }
+
+  const ssrfCheck = validateSsrfTarget(parsedUrl);
+  if (!ssrfCheck.ok) {
+    throw new Error(`Request blocked: ${ssrfCheck.reason}`);
+  }
+
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), limits.timeoutMs);
 
   try {
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       signal: controller.signal,
+      timeoutMs: limits.timeoutMs,
       headers: {
         "User-Agent": "sajtmaskin/1.0 (+https://localhost)",
       },
