@@ -225,7 +225,7 @@
         "src/lib/integrations/placeholder-harmless.ts",
         "src/lib/gen/preview/warm-typecheck.ts"
       ],
-      "docsPaths": ["docs/architecture/llm-pipeline.md"],
+      "docsPaths": ["docs/architecture/llm-pipeline.md", "docs/architecture/quality-gate-flow.md"],
       "humanSchemaPaths": ["docs/schemas/preview-session-contract.md"],
       "strictSchemaPaths": ["docs/schemas/strict/preview-session-contract.schema.json"],
       "codeReaders": [

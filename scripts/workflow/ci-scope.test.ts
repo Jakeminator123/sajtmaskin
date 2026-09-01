@@ -49,6 +49,15 @@ describe("CI scope decision", () => {
     expect(result.safeDocsBlockers).toEqual(expect.arrayContaining(blockers));
   });
 
+  it("runs Backoffice tests for a documentation source rendered by a Backoffice page", () => {
+    const result = decide(["docs/architecture/quality-gate-flow.md"]);
+
+    expect(result).toMatchObject({ runHeavy: true, safeDocsOnly: false });
+    expect(result.safeDocsBlockers).toEqual(
+      expect.arrayContaining(["backoffice-page", "extra-command:backoffice:test"]),
+    );
+  });
+
   it("blocks an allowlisted docs path that also belongs to a runtime group", () => {
     const impact = collectImpact({ ...inputs, changedFiles: ["docs/example-guide.md"] });
     impact.groups.runtime = ["docs/example-guide.md"];

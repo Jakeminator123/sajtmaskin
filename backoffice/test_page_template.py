@@ -19,7 +19,7 @@ import unittest
 from pathlib import Path
 
 from backoffice import REPO_ROOT
-from backoffice.pages import PAGE_NAMES
+from backoffice.pages import PAGE_NAMES, PAGE_SPECS
 from backoffice.shared import (
     STATIC_REFERENCE_BADGE,
     render_static_reference,
@@ -46,6 +46,44 @@ def _calls(path: Path, func_name: str) -> int:
             or (isinstance(node.func, ast.Attribute) and node.func.attr == func_name)
         )
     )
+
+
+def _static_reference_sources(path: Path) -> list[str]:
+    """Literal repo paths passed to ``render_static_reference`` in one page."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    imported_names = {"render_static_reference"}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        for alias in node.names:
+            if alias.name == "render_static_reference":
+                imported_names.add(alias.asname or alias.name)
+
+    sources: list[str] = []
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and (
+                (isinstance(node.func, ast.Name) and node.func.id in imported_names)
+                or (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "render_static_reference"
+                )
+            )
+        ):
+            continue
+        for kw in node.keywords:
+            if kw.arg != "source":
+                continue
+            if not (
+                isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str)
+            ):
+                raise AssertionError(
+                    f"{path.name}: render_static_reference source måste vara en literal repo-sökväg"
+                )
+            if kw.value.value:
+                sources.append(kw.value.value)
+    return sources
 
 
 class WherePanelIsPartOfThePageTemplateTests(unittest.TestCase):
@@ -81,7 +119,9 @@ class WherePanelIsPartOfThePageTemplateTests(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        missing = [name for name in PAGE_NAMES if name not in (domain_map.get("pages") or {})]
+        missing = [
+            name for name in PAGE_NAMES if name not in (domain_map.get("pages") or {})
+        ]
         self.assertEqual(missing, [], f"Sidor utan domain-map-post: {missing}")
 
     def test_panel_helper_is_callable(self) -> None:
@@ -140,20 +180,62 @@ class StaticReferenceBadgeTests(unittest.TestCase):
         rådet värdelöst. Grinden gäller alla sidor som sätter badgen."""
         missing: list[str] = []
         for path in _page_modules():
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            for node in ast.walk(tree):
-                if not (
-                    isinstance(node, ast.Call)
-                    and isinstance(node.func, ast.Name)
-                    and node.func.id == "render_static_reference"
-                ):
-                    continue
-                for kw in node.keywords:
-                    if kw.arg == "source" and isinstance(kw.value, ast.Constant):
-                        rel = str(kw.value.value)
-                        if rel and not (REPO_ROOT / rel).exists():
-                            missing.append(f"{path.name} → {rel}")
-        self.assertEqual(missing, [], f"Badge pekar på sökvägar som inte finns: {missing}")
+            for rel in _static_reference_sources(path):
+                if not (REPO_ROOT / rel).exists():
+                    missing.append(f"{path.name} → {rel}")
+        self.assertEqual(
+            missing, [], f"Badge pekar på sökvägar som inte finns: {missing}"
+        )
+
+    def test_every_source_pointer_is_owned_by_its_page_domain_map(self) -> None:
+        """Direkta Backoffice-konsumenter måste finnas i den centrala kartan.
+
+        CI-scope använder kartan för att välja ``backoffice:test`` när den
+        utpekade filen ändras. En literal som bara finns i Python-koden skulle
+        annars kunna se ut som vanlig docs-only och hoppa över sin konsument.
+        """
+        import json
+
+        domain_pages = json.loads(
+            (REPO_ROOT / "config" / "backoffice" / "domain-map.json").read_text(
+                encoding="utf-8"
+            )
+        ).get("pages", {})
+        page_names_by_module: dict[str, list[str]] = {}
+        for spec in PAGE_SPECS:
+            module_name = getattr(spec.render, "__module__", "").rsplit(".", 1)[-1]
+            if module_name:
+                page_names_by_module.setdefault(f"{module_name}.py", []).append(
+                    spec.name
+                )
+
+        missing: list[str] = []
+        path_fields = (
+            "canonicalPaths",
+            "docsPaths",
+            "humanSchemaPaths",
+            "strictSchemaPaths",
+            "codeReaders",
+        )
+        for path in _page_modules():
+            page_names = page_names_by_module.get(path.name, [])
+            declared = {
+                rel
+                for page_name in page_names
+                for field in path_fields
+                for rel in (domain_pages.get(page_name, {}).get(field) or [])
+            }
+            for source in _static_reference_sources(path):
+                if source not in declared:
+                    owners = ", ".join(page_names) or "ingen registrerad PageSpec"
+                    missing.append(f"{path.name} ({owners}) → {source}")
+
+        self.assertEqual(
+            missing,
+            [],
+            "Statisk Backoffice-källpekare saknas i sidans domain-map: "
+            + "; ".join(missing),
+        )
 
     def test_badge_is_not_put_on_pages_that_read_live_values(self) -> None:
         """Badgen påstår "uppdateras manuellt". På en sida som läser värdena vid
