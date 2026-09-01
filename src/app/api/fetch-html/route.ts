@@ -6,20 +6,29 @@ import { getSessionIdFromRequest } from "@/lib/auth/session";
 
 /**
  * Server-side fetch of external HTML pages.
- * This bypasses CORS by proxying the request, then sanitizes
- * dangerous content so the HTML can be safely displayed in an iframe with srcDoc.
+ *
+ * The payload is always returned as inert text, never as renderable HTML from
+ * the Sajtmaskin origin. Callers that turn the text into `srcDoc` must still
+ * use an iframe sandbox without `allow-same-origin`.
  *
  * Security: Private/internal IPs are blocked. Redirects are validated.
  */
 
+const INERT_HTML_CSP = [
+  "default-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+  "sandbox",
+].join("; ");
+
 function stripDangerous(html: string): string {
   let out = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
 
-  // Remove inline event handlers (onclick, onload, etc.)
-  out = out.replace(/\son\w+="[^"\n\r]*"/gi, "");
-  out = out.replace(/\son\w+='[^'\n\r]*'/gi, "");
+  // Remove inline event handlers (quoted and unquoted).
+  out = out.replace(/\son\w+\s*=\s*(?:"[^"\n\r]*"|'[^'\n\r]*'|[^\s>]+)/gi, "");
 
-  // Remove CSP meta tags that could interfere with srcDoc rendering
+  // Remove CSP meta tags that could interfere with sandboxed srcDoc rendering.
   out = removeCspMeta(out);
 
   return out;
@@ -50,7 +59,7 @@ function rewriteRootRelativeUrls(html: string, origin: string): string {
 }
 
 function rewriteRelativeUrls(html: string, baseHref: string): string {
-  // Rewrite href/src that are relative (no scheme, no //, no leading /, no #, no data:, blob:, mailto:, tel:)
+  // Rewrite href/src that are relative (no scheme, no //, no leading /, no #, data:, blob:, mailto:, tel:).
   // Example: href="styles.css" -> href="https://host/path/styles.css"
   return html.replace(
     /\b(href|src)=("|')(?![a-z]+:|\/\/|\/|#)([^"']+)\2/gi,
@@ -73,6 +82,18 @@ export async function GET(req: Request) {
 
     if (!url) {
       return NextResponse.json({ error: "Missing ?url= parameter" }, { status: 400 });
+    }
+
+    // Active third-party HTML must never be transported from the app origin.
+    // Hydrated inspection belongs on the isolated preview host instead.
+    if (allowScripts) {
+      return NextResponse.json(
+        {
+          error:
+            "allowScripts is no longer supported on the app origin; use an isolated preview host",
+        },
+        { status: 400 },
+      );
     }
 
     let target: URL;
@@ -109,14 +130,7 @@ export async function GET(req: Request) {
         );
       }
 
-      let html = await res.text();
-
-      if (allowScripts) {
-        // Keep scripts so hydration can run, but drop CSP that could block our injector
-        html = removeCspMeta(html);
-      } else {
-        html = stripDangerous(html);
-      }
+      let html = stripDangerous(await res.text());
 
       // Build base href to the "directory" of the target URL so relative resources work.
       const baseHref = target.origin + target.pathname.replace(/\/[^/]*$/, "/");
@@ -128,8 +142,10 @@ export async function GET(req: Request) {
 
       return new NextResponse(html, {
         headers: {
-          "content-type": "text/html; charset=utf-8",
+          "content-type": "text/plain; charset=utf-8",
           "cache-control": "no-store",
+          "content-security-policy": INERT_HTML_CSP,
+          "x-content-type-options": "nosniff",
         },
       });
     } catch (err: unknown) {
