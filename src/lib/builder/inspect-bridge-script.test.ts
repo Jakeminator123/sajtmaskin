@@ -1,3 +1,5 @@
+// jsdom is already a runtime dependency; this repo does not ship @types/jsdom.
+// @ts-expect-error -- no declaration file for "jsdom"
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 import { INSPECT_BRIDGE_MESSAGE } from "./inspect-bridge-feature";
