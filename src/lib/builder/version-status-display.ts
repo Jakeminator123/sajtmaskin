@@ -26,6 +26,14 @@
  * `done`/`promoted` collapses to `degraded` so the UI surfaces
  * "green but missing X" instead of solid green.
  *
+ * Undantaget — och bara detta — är en postcheck-skip vars orsak ligger i
+ * kontrollkedjan (`infrastructureSkip` i noteringens meta). Vakten finns för
+ * att hindra oss från att påstå mer än vi vet om produkten; en Chromium som dog
+ * av `/tmp`-svält i lambdan är inget påstående om produkten alls, och att måla
+ * versionen amber på den säger användaren att hens friska sajt har brister.
+ * Noteringen ligger kvar i `degradations[]` för diagnostiken — den får bara
+ * inte driva lifecycle-token. Bevis: `SM-072`.
+ *
  * Scope note: as of område 6-2 `VersionHistory.tsx` also consumes this
  * mapper — via the server-enriched `busStatus` field on the `/versions`
  * route plus the `version-history-status-labels` presentation layer — so
@@ -34,6 +42,25 @@
  */
 
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
+import { PRODUCT_POSTCHECK_ADVISORY_META_KEY } from "@/lib/db/services/reported-quality-gate";
+
+/**
+ * Sant för varje notering som får dra ner lifecycle-token till `degraded`.
+ * Enda undantaget är en postcheck-skip som märkts som infrastrukturfel.
+ */
+export function isLifecycleDegrading(
+  degradation: VersionStatus["degradations"][number],
+): boolean {
+  if (degradation.kind !== "product_postcheck_skipped") return true;
+  return degradation.meta?.[PRODUCT_POSTCHECK_ADVISORY_META_KEY] !== true;
+}
+
+/** Noteringar som bara informerar om att kontrollen inte kunde köras. */
+export function productPostcheckAdvisories(
+  degradations: VersionStatus["degradations"],
+): VersionStatus["degradations"] {
+  return degradations.filter((item) => !isLifecycleDegrading(item));
+}
 
 /**
  * Display token consumed by the preview empty-state copy and (område 6-2)
@@ -129,7 +156,9 @@ export function mapVersionStatusToDisplay(
   const degradations: VersionStatus["degradations"] = status?.degradations ?? [];
   // False-green-vakt (defense-in-depth): en skippad verifierare är aldrig
   // ren success även om projektionen/emittern inte gav en degradering.
-  const degraded = degradations.length > 0 || status?.verifierOutcome === "skipped";
+  // Infrastruktur-skips räknas inte — se filhuvudet.
+  const degraded =
+    degradations.some(isLifecycleDegrading) || status?.verifierOutcome === "skipped";
   const isPromoted = context.releaseState === "promoted";
 
   // No bus data yet (hook loading / empty stream). The empty-state copy

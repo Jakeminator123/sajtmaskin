@@ -3,6 +3,7 @@ import {
   formatRepairPassProgress,
   mapVersionStatusToDisplay,
   MAX_REPAIR_PASSES_DISPLAY,
+  productPostcheckAdvisories,
   type VersionDisplayContext,
 } from "./version-status-display";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
@@ -305,5 +306,75 @@ describe("repair pass progress", () => {
 
   it("keeps the client display denominator in sync with the server max (drift guard)", () => {
     expect(MAX_REPAIR_PASSES_DISPLAY).toBe(SERVER_REPAIR_MAX_PASSES);
+  });
+});
+
+describe("infrastruktur-skip drar inte ner lifecycle-token — SM-072", () => {
+  const infraSkip = {
+    kind: "product_postcheck_skipped" as const,
+    message: "F2 Product Postcheck skipped (product_postcheck_skipped: browser_crashed).",
+    meta: { skippedReason: "browser_crashed", infrastructureSkip: true },
+  };
+  const productSkip = {
+    kind: "product_postcheck_skipped" as const,
+    message: "F2 Product Postcheck skipped (product_postcheck_skipped: preview_not_running).",
+    meta: { skippedReason: "preview_not_running" },
+  };
+
+  it("en promotad version med bara infra-skip förblir promoted", () => {
+    const display = mapVersionStatusToDisplay(
+      status({ phase: "done", degradations: [infraSkip] }),
+      { isLatest: true, releaseState: "promoted" },
+    );
+    expect(display.status).toBe("promoted");
+    expect(display.degraded).toBe(false);
+  });
+
+  it("noteringen finns kvar för diagnostiken", () => {
+    const display = mapVersionStatusToDisplay(
+      status({ phase: "done", degradations: [infraSkip] }),
+      LATEST,
+    );
+    expect(display.status).toBe("ready");
+    expect(display.degradations).toEqual([infraSkip]);
+    expect(productPostcheckAdvisories(display.degradations)).toEqual([infraSkip]);
+  });
+
+  it("en produktbärande skip degraderar fortfarande", () => {
+    const display = mapVersionStatusToDisplay(
+      status({ phase: "done", degradations: [productSkip] }),
+      { isLatest: true, releaseState: "promoted" },
+    );
+    expect(display.status).toBe("degraded");
+    expect(display.degraded).toBe(true);
+  });
+
+  it("blandning degraderar — den strängare noteringen vinner", () => {
+    const display = mapVersionStatusToDisplay(
+      status({ phase: "done", degradations: [infraSkip, productSkip] }),
+      LATEST,
+    );
+    expect(display.status).toBe("degraded");
+  });
+
+  it("en skippad verifierare degraderar oavsett postcheck-klass", () => {
+    const display = mapVersionStatusToDisplay(
+      status({ phase: "done", degradations: [infraSkip], verifierOutcome: "skipped" }),
+      LATEST,
+    );
+    expect(display.status).toBe("degraded");
+  });
+
+  it("andra degraderingskinds påverkas inte av undantaget", () => {
+    const display = mapVersionStatusToDisplay(
+      status({
+        phase: "done",
+        degradations: [
+          { kind: "verifier_skipped_safe_fixes_only", message: "skipped", meta: null },
+        ],
+      }),
+      LATEST,
+    );
+    expect(display.status).toBe("degraded");
   });
 });

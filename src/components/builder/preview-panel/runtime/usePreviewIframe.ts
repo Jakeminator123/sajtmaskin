@@ -192,7 +192,7 @@ export function usePreviewIframe(params: {
         healContext.identity === identity &&
         tier2SelfHealReloadAttemptsRef.current < TIER2_SELF_HEAL_MAX_RELOADS
       ) {
-        startTier2SelfHealPollingRef.current?.(
+        startTier2SelfHealPollingRef.current(
           healContext.identity,
           healContext.previewSessionId,
           healContext.expectedLifecycleToken,
@@ -312,10 +312,18 @@ export function usePreviewIframe(params: {
     },
     [startTier2ReadyReload, stopTier2StatusPolling],
   );
-  const startTier2SelfHealPollingRef = useRef<typeof startTier2SelfHealPolling | null>(null);
-  // Latest callback for the mutually recursive status/self-heal poll pair.
-  // eslint-disable-next-line react-hooks/immutability -- ref.current is the supported latest-callback slot
-  startTier2SelfHealPollingRef.current = startTier2SelfHealPolling;
+  // Latest-ref över en äkta cykel: `handleTier2ReadyReloadTimeout` ovan måste
+  // kunna återuppta pollen (SM-074), men `startTier2SelfHealPolling` beror i sin
+  // tur på `startTier2ReadyReload` — de kan inte båda deklareras först. Till
+  // skillnad från husets övriga latest-refs, som håller props, håller den här en
+  // `useCallback`, och `react-hooks/immutability` förbjuder att ett värde som
+  // passerats in i en hook muteras efteråt. Mutationen är avsiktlig och
+  // begränsad till den här raden.
+  const startTier2SelfHealPollingRef = useRef(startTier2SelfHealPolling);
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability -- latest-ref, se ovan
+    startTier2SelfHealPollingRef.current = startTier2SelfHealPolling;
+  }, [startTier2SelfHealPolling]);
 
   const startTier2StatusPolling = useCallback(
     (
@@ -404,7 +412,7 @@ export function usePreviewIframe(params: {
         // Banner stays up after the 30s tail. A later matching running
         // receipt (prod 2026-08-31, chat 47607bca) must still be able
         // to take the existing ready-reload path — no new restart loop.
-        startTier2SelfHealPollingRef.current?.(
+        startTier2SelfHealPollingRef.current(
           identity,
           previewSessionId,
           expectedLifecycleToken,
