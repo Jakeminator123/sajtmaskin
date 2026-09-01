@@ -8,8 +8,9 @@ describe("buildGitHubExportPlan", () => {
       {
         path: "app/page.tsx",
         content: "export default function Page() { return null; }",
+        language: "tsx",
       },
-      { path: "public/.gitkeep", content: "" },
+      { path: "public/.gitkeep", content: "", language: "text" },
     ];
 
     const plan = buildGitHubExportPlan(files);
@@ -22,8 +23,9 @@ describe("buildGitHubExportPlan", () => {
       {
         path: "app/page.tsx",
         content: "export default function Page() { return null; }",
+        language: "tsx",
       },
-      { path: "public/.gitkeep", content: "" },
+      { path: "public/.gitkeep", content: "", language: "text" },
     ];
 
     const plan = buildGitHubExportPlan(files, [
@@ -38,9 +40,9 @@ describe("buildGitHubExportPlan", () => {
 
   it("keeps the existing GitHub secret and traversal filters", () => {
     const files: CodeFile[] = [
-      { path: ".env", content: "SECRET=do-not-export" },
-      { path: "../escape.txt", content: "nope" },
-      { path: "app/page.tsx", content: "ok" },
+      { path: ".env", content: "SECRET=do-not-export", language: "text" },
+      { path: "../escape.txt", content: "nope", language: "text" },
+      { path: "app/page.tsx", content: "ok", language: "tsx" },
     ];
 
     expect(buildGitHubExportPlan(files).files).toEqual([
