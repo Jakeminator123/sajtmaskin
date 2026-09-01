@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCronRefreshAuthorized } from "./route";
+import { isCronRefreshAuthorized } from "./cron-auth";
 
 function envWith(overrides: { CRON_SECRET?: string; VERCEL_ENV?: string }): NodeJS.ProcessEnv {
   return { ...process.env, ...overrides };
