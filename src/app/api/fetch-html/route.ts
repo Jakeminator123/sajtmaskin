@@ -22,11 +22,39 @@ const INERT_HTML_CSP = [
   "sandbox",
 ].join("; ");
 
+function stripVoid(html: string, tag: string): string {
+  return html.replace(new RegExp(`<${tag}\\b[^>]*/?>`, "gi"), "");
+}
+
+function stripElement(html: string, tag: string): string {
+  const closed = new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?</${tag}>`, "gi");
+  return stripVoid(html.replace(closed, ""), tag);
+}
+
 function stripDangerous(html: string): string {
-  let out = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+  let out = html;
+
+  // Drop executable / embedding surfaces before any URL rewrite or <base> inject.
+  // Script may lack a closer; treat the remainder of the document as tainted.
+  out = out.replace(/<script\b[^>]*>[\s\S]*?(?:<\/script>|$)/gi, "");
+  out = stripVoid(out, "script");
+  out = stripElement(out, "iframe");
+  out = stripElement(out, "object");
+  out = stripVoid(out, "embed");
+  out = stripVoid(out, "base");
 
   // Remove inline event handlers (quoted and unquoted).
   out = out.replace(/\son\w+\s*=\s*(?:"[^"\n\r]*"|'[^'\n\r]*'|[^\s>]+)/gi, "");
+
+  // Neutralize javascript: URLs in navigation and resource attributes.
+  out = out.replace(
+    /(\b(?:href|src|action|formaction)\s*=\s*)(["'])\s*javascript\s*:[\s\S]*?\2/gi,
+    "$1$2#$2",
+  );
+  out = out.replace(
+    /(\b(?:href|src|action|formaction)\s*=\s*)javascript\s*:[^\s>]*/gi,
+    '$1"#"',
+  );
 
   // Remove CSP meta tags that could interfere with sandboxed srcDoc rendering.
   out = removeCspMeta(out);
@@ -35,7 +63,10 @@ function stripDangerous(html: string): string {
 }
 
 function removeCspMeta(html: string): string {
-  return html.replace(/<meta[^>]+http-equiv=["']Content-Security-Policy["'][^>]*>/gi, "");
+  return html.replace(
+    /<meta\b[^>]*http-equiv\s*=\s*["']?Content-Security-Policy\b["']?[^>]*>/gi,
+    "",
+  );
 }
 
 function injectBaseHref(html: string, baseHref: string): string {

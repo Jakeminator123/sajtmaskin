@@ -26,10 +26,57 @@ const { GET } = await import("./route");
 
 const originalCspEnforce = process.env.CSP_ENFORCE;
 
+const REMOTE_HTML = [
+  "<!doctype html><html><head>",
+  '<base href="https://evil.example/hijack/">',
+  '<meta http-equiv="Content-Security-Policy" content="script-src *">',
+  "<title>Keep title</title>",
+  '<link rel="stylesheet" href="/assets/app.css">',
+  "</head><body>",
+  "<h1>Visible copy</h1>",
+  "<p>Needed text</p>",
+  '<a href="/about">About</a>',
+  '<a href="javascript:alert(1)">xss link</a>',
+  '<img src="photo.jpg" alt="keep">',
+  '<button onclick="globalThis.pwned=true">Open</button>',
+  "<script>globalThis.pwned=true</script>",
+  '<iframe src="https://evil.example/frame"></iframe>',
+  '<object data="https://evil.example/swf"></object>',
+  '<embed src="https://evil.example/plugin">',
+  "</body></html>",
+].join("");
+
 function request(params = ""): Request {
   return new Request(`http://localhost/api/fetch-html?url=${encodeURIComponent(
     "https://remote.example/path/page",
   )}${params}`);
+}
+
+function expectInertHeaders(res: Response) {
+  expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+  expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+  expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
+  expect(res.headers.get("content-security-policy")).toContain("sandbox");
+  expect(res.headers.get("content-security-policy-report-only")).toBeNull();
+}
+
+function expectSanitizedBody(body: string) {
+  expect(body).not.toContain("<script");
+  expect(body).not.toContain("</script>");
+  expect(body).not.toContain("onclick=");
+  expect(body).not.toContain("javascript:");
+  expect(body).not.toContain("Content-Security-Policy");
+  expect(body).not.toContain("<iframe");
+  expect(body).not.toContain("<object");
+  expect(body).not.toContain("<embed");
+  expect(body).not.toContain("evil.example");
+  expect(body).not.toContain('href="https://evil.example/hijack/"');
+  expect(body).toContain('<base href="https://remote.example/path/" target="_blank">');
+  expect(body).toContain("Keep title");
+  expect(body).toContain("Visible copy");
+  expect(body).toContain("Needed text");
+  expect(body).toContain("https://remote.example/about");
+  expect(body).toContain("https://remote.example/path/photo.jpg");
 }
 
 describe("GET /api/fetch-html", () => {
@@ -39,17 +86,10 @@ describe("GET /api/fetch-html", () => {
     getSessionIdFromRequest.mockReturnValue(null);
     validateSsrfTarget.mockReturnValue({ ok: true });
     safeFetch.mockResolvedValue(
-      new Response(
-        [
-          "<!doctype html><html><head>",
-          '<meta http-equiv="Content-Security-Policy" content="script-src *">',
-          "</head><body>",
-          '<button onclick="globalThis.pwned=true">Open</button>',
-          "<script>globalThis.pwned=true</script>",
-          "</body></html>",
-        ].join(""),
-        { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
-      ),
+      new Response(REMOTE_HTML, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
     );
   });
 
@@ -61,15 +101,19 @@ describe("GET /api/fetch-html", () => {
     }
   });
 
-  it("rejects the legacy active-script mode before fetching the remote page", async () => {
-    const res = await GET(request("&allowScripts=true"));
+  it.each(["true", "1"])(
+    "rejects allowScripts=%s with script+CSP payload before any network call",
+    async (value) => {
+      const res = await GET(request(`&allowScripts=${value}`));
 
-    expect(res.status).toBe(400);
-    expect(await res.json()).toEqual(
-      expect.objectContaining({ error: expect.stringContaining("no longer supported") }),
-    );
-    expect(safeFetch).not.toHaveBeenCalled();
-  });
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual(
+        expect.objectContaining({ error: expect.stringContaining("no longer supported") }),
+      );
+      expect(safeFetch).not.toHaveBeenCalled();
+      expect(validateSsrfTarget).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(["false", "true"])(
     "serves third-party markup as inert text when CSP_ENFORCE=%s",
@@ -80,15 +124,20 @@ describe("GET /api/fetch-html", () => {
       const body = await res.text();
 
       expect(res.status).toBe(200);
-      expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
-      expect(res.headers.get("x-content-type-options")).toBe("nosniff");
-      expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
-      expect(res.headers.get("content-security-policy")).toContain("sandbox");
-      expect(body).not.toContain("<script");
-      expect(body).not.toContain("onclick=");
-      expect(body).not.toContain("Content-Security-Policy");
-      expect(body).toContain('<base href="https://remote.example/path/" target="_blank">');
+      expectInertHeaders(res);
+      expectSanitizedBody(body);
       expect(safeFetch).toHaveBeenCalledTimes(1);
     },
   );
+
+  it("keeps the raw-text contract for clients that call response.text()", async () => {
+    const res = await GET(request());
+    const body = await res.text();
+
+    expect(typeof body).toBe("string");
+    expect(body.startsWith("{")).toBe(false);
+    expect(() => JSON.parse(body)).toThrow();
+    expect(body).toContain("<h1>Visible copy</h1>");
+    expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+  });
 });
