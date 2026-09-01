@@ -521,6 +521,104 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(result.current.iframeError).toBe(false);
   });
 
+  it("återupptar self-heal efter en ready-reload vars onLoad missar 15s-fönstret (SM-074)", async () => {
+    // Prod 2026-09-01 (chat 4cac8fb0): hosten rapporterade ready men första
+    // sidladdningen efter VM-omstarten tog >15 s på delad CPU. Den enda
+    // ready-reloaden timeoutade och hela läkningen dog — bannern satt kvar
+    // permanent på en frisk sajt tills identiteten råkade bytas.
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const decoratedSrc = `${TIER2_URL}?__sm_viewer=viewer_1`;
+    const iframeRef = makeIframeRef(decoratedSrc);
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    // Första matchande kvittot → reload #1, vars onLoad aldrig hinner.
+    fetchPreviewStatus.mockResolvedValue(status("running"));
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(15_000);
+      await Promise.resolve();
+    });
+    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
+
+    // Pollen ska ha återupptagits: nästa kvitto ger reload #2 …
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(2);
+    expect(result.current.iframeLoading).toBe(true);
+    expect(result.current.iframeError).toBe(false);
+
+    // … och den här gången hinner sidan ladda → banner borta, allt friskt.
+    act(() => result.current.handleIframeLoad());
+    expect(result.current.iframeLoading).toBe(false);
+    expect(result.current.iframeError).toBe(false);
+    expect(result.current.iframeDiagnosticCode).toBeNull();
+  });
+
+  it("ger upp self-heal-reloads efter taket så ingen reload-loop uppstår", async () => {
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const iframeRef = makeIframeRef();
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    fetchPreviewStatus.mockResolvedValue(status("running"));
+    // Tre kvitto→reload→timeout-varv förbrukar hela budgeten.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(12_000);
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(15_000);
+        await Promise.resolve();
+      });
+    }
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(3);
+    const callsAfterBudget = fetchPreviewStatus.mock.calls.length;
+
+    // Budgeten är slut: inga fler reloads och ingen fortsatt poll.
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+      await Promise.resolve();
+    });
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(3);
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterBudget);
+    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
+  });
+
   it("does not clear the timeout banner on a mismatched self-heal receipt", async () => {
     fetchPreviewStatus
       .mockReturnValueOnce(new Promise(() => {}))

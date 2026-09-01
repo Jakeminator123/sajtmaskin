@@ -138,10 +138,66 @@ function pruneLeakedPlaywrightProfilesBestEffort(
   }
 }
 
+/**
+ * SM-072-diagnos: prod 2026-09-01 (chat `4cac8fb0`) hade 18 MB fritt vid
+ * launch och trycksvepet hittade INGA profiler att rensa — ätaren är alltså
+ * en annan artefakt. Under tryck listas /tmp:s största toppostposter med
+ * ungefärlig storlek så nästa träff namnger boven i Vercel-loggen.
+ * Fail-open och budgetstyrt — diagnosen får aldrig stoppa eller försena en
+ * capture nämnvärt.
+ */
+const TMP_TOP_CONSUMER_COUNT = 6;
+const TMP_TOP_SCAN_BUDGET_MS = 1_500;
+const TMP_TOP_SCAN_MAX_ENTRIES = 5_000;
+
+function logTmpTopConsumersBestEffort(): void {
+  try {
+    const tmp = os.tmpdir();
+    const started = Date.now();
+    let scanned = 0;
+
+    const sizeOf = (target: string): number => {
+      if (Date.now() - started >= TMP_TOP_SCAN_BUDGET_MS) return 0;
+      if (scanned >= TMP_TOP_SCAN_MAX_ENTRIES) return 0;
+      scanned += 1;
+      try {
+        const stat = fs.lstatSync(target);
+        if (stat.isFile()) return stat.size;
+        if (!stat.isDirectory()) return 0;
+        let total = 0;
+        for (const entry of fs.readdirSync(target)) {
+          total += sizeOf(path.join(target, entry));
+          if (Date.now() - started >= TMP_TOP_SCAN_BUDGET_MS) break;
+        }
+        return total;
+      } catch {
+        return 0;
+      }
+    };
+
+    const rows = fs
+      .readdirSync(tmp)
+      .map((name) => ({ name, mb: Math.round(sizeOf(path.join(tmp, name)) / 1_048_576) }))
+      .filter((row) => row.mb >= 1)
+      .sort((a, b) => b.mb - a.mb)
+      .slice(0, TMP_TOP_CONSUMER_COUNT);
+    const truncated =
+      Date.now() - started >= TMP_TOP_SCAN_BUDGET_MS || scanned >= TMP_TOP_SCAN_MAX_ENTRIES;
+    console.warn(
+      `[capture-browser] tmp top consumers${truncated ? " (truncated scan)" : ""}: ${
+        rows.length > 0 ? rows.map((row) => `${row.name}=${row.mb}MB`).join(", ") : "none >= 1MB"
+      }`,
+    );
+  } catch {
+    // Best effort only.
+  }
+}
+
 async function launchCaptureBrowserUnscoped(): Promise<Browser> {
   if (IS_SERVERLESS) {
     const freeMb = await measureTmpFreeSpaceBestEffort();
     const underPressure = freeMb !== null && freeMb < TMP_PRESSURE_FREE_MB;
+    if (underPressure) logTmpTopConsumersBestEffort();
     const pruned = pruneLeakedPlaywrightProfilesBestEffort(
       underPressure ? PLAYWRIGHT_PROFILE_PRESSURE_AGE_MS : PLAYWRIGHT_PROFILE_MAX_AGE_MS,
     );

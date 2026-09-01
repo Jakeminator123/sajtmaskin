@@ -10,7 +10,7 @@ Regler:
 - `Aktiv kö` innehåller bara kod- eller prodverifierade fel på nuvarande `master`.
 - Obevisade hypoteser ligger i `Behöver repro`; avstängda funktioner ligger som
   releaseblockerare. De påverkar inte canvasens antal öppna produktbuggar.
-- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-074`.
+- Varje aktiv rad har ett stabilt `SM-###`. Nästa lediga ID är `SM-075`.
 - En draft-PR är inte en fix. Arkivflytten ska ingå i samma fix-PR med PR- och
   planerat masterbevis; den blir kanonisk först när PR:n mergas till `master`.
 
@@ -27,8 +27,10 @@ Regler:
 | [ ] | Bekräftad prod-bugg | P1 | `SM-072` Chromium-captures svälter `/tmp` på warm Fluid-instans: burst av postcheck/live review läcker tills nästa launch dör (`Target page, context or browser has been closed`) och versionen visas som Degraderad trots frisk sajt. | Vercel runtime 2026-08-31 (chat `30840b09`, dpl `dpl_81XhZUJJ…`): 513→31→23 MB fritt inom 5 min; DB-skip `playwright_unavailable` + `runtime_error`; plattformsbred defektsignatur `e18935fd85a9` (6 chattar sedan 22 aug). Utredning: `docs/plans/active/2026-09-01-verifieringsflode-och-inspector/`. | Trycksvep landat i `src/lib/capture/browser.ts` (< 200 MB fritt ⇒ svep profiler äldre än 2 min). Verifiera i prod-logg efter nästa burst; består läckan: identifiera artefakten som äter ~480 MB mellan launches (profil/V8-cache/run-NDJSON). |
 | [ ] | Bekräftad prod-bugg | P1 | `SM-073` Preview-hostens injicerade inspector-bridge saknar identitetsstämpel (`versionId`/`previewSessionId`/`lifecycleToken` utelämnas ur script-URL:en) när sessionsmetadata tappats ur hostens store; parent släpper fail-closed alla meddelanden och inspektorn dör tyst i det i prod döda kartläget. | Injektionsbevis 2026-08-31 (chat `cdf5e0aa`): `<script src=".../api/inspect-bridge?parent=...">` utan identitetsparametrar; `/admin/sessions` = 0 trots servande runtime; live-repro med "Hovra över ett element först" på Verifierad version. `inspectInjectionScriptSrc` i `preview-host/src/runtime/preview-proxy.js`. | Klientdiagnos landad (banner + status + avvisat-ready-varning). Kvar: host-sidan — utred sessionstappet i store:n och injicera aldrig ostämplat script när en tier-2-session förväntas. |
 
-Prioritering: `SM-072` och `SM-073` först; därefter `SM-033`, `SM-013`,
-`SM-003` och `SM-001`; sist `SM-030`.
+| [ ] | Bekräftad prod-bugg | P1 | `SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt: #1220-självläkningen gör exakt EN ready-reload och dör om dess onLoad missar 15s-fönstret — men första sidladdningen efter en VM-omstart överskrider lätt 15 s på Flys delade CPU (första Next-kompilering). | Live-repro 2026-09-01 (chat `4cac8fb0`): hostens `/status` svarade `running: true, httpReady: true, readinessState: ready` och appens Redis-post matchade identiteten exakt, men bannern satt kvar 8+ min tills nästa version nollställde kedjan. Hostens `session.status: warm_project` i `/admin/sessions` är kosmetisk (running beräknas), inte felet. Utredning: `docs/plans/active/2026-09-01-verifieringsflode-och-inspector/`. | Klientfix landad: self-heal-kontexten sparas och pollen återupptas efter reload-timeout, max 3 reload-försök per identitet (`usePreviewIframe.ts`). Verifiera i prod efter deploy; om 3 försök inte räcker på kall shared-CPU: överväg höjd reload-timeout i stället för fler försök. |
+
+Prioritering: `SM-072`, `SM-073` och `SM-074` först; därefter `SM-033`,
+`SM-013`, `SM-003` och `SM-001`; sist `SM-030`.
 
 ## Releaseblockerare bakom avstängd flagga
 
