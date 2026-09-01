@@ -369,6 +369,135 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(result.current.iframeError).toBe(false);
   });
 
+  it("adopterar en roterad session vid deadline-kontrollen i stället för banner", async () => {
+    // Prod 2026-09-01 (chat c2371f9c): follow-up mot hibernerad VM handoffade
+    // gamla sessionen (ps_1) medan boot:en kom upp som ps_2/life_2 för samma
+    // version och URL. Deadline-kontrollen ska adoptera identiteten — inte
+    // fälla banner + suspect.
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValueOnce(status("running", "ps_2", "ver_1", TIER2_URL, "life_2"));
+    const onPreviewSessionRotated = vi.fn();
+    const params = makeParams({ iframeRef: makeIframeRef(), onPreviewSessionRotated });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+
+    expect(onPreviewSessionRotated).toHaveBeenCalledTimes(1);
+    expect(onPreviewSessionRotated).toHaveBeenCalledWith({
+      previewSessionId: "ps_2",
+      versionId: "ver_1",
+      lifecycleToken: "life_2",
+    });
+    expect(result.current.iframeError).toBe(false);
+    expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
+  });
+
+  it("adopterar rotation under den vanliga statuspollen utan suspect-rapport", async () => {
+    fetchPreviewStatus.mockResolvedValue(
+      status("running", "ps_2", "ver_1", TIER2_URL, "life_2"),
+    );
+    const onPreviewSessionRotated = vi.fn();
+    const params = makeParams({ iframeRef: makeIframeRef(), onPreviewSessionRotated });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onPreviewSessionRotated).toHaveBeenCalledTimes(1);
+    expect(params.onPreviewSessionSuspect).not.toHaveBeenCalled();
+    expect(result.current.iframeError).toBe(false);
+    // Adoption stops this chain; no further polling with the stale identity.
+    act(() => vi.advanceTimersByTime(8_000));
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it("läker hela vägen: rotation → adopterade props → verifierad ready-reload", async () => {
+    const decoratedSrc = `${TIER2_URL}?__sm_viewer=viewer_1`;
+    const iframeRef = makeIframeRef(decoratedSrc);
+    fetchPreviewStatus.mockResolvedValue(
+      status("running", "ps_2", "ver_1", TIER2_URL, "life_2"),
+    );
+    const onPreviewSessionRotated = vi.fn();
+    const initialParams = makeParams({ iframeRef, onPreviewSessionRotated });
+    const { result, rerender } = renderHook((params) => usePreviewIframe(params), {
+      initialProps: initialParams,
+    });
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(onPreviewSessionRotated).toHaveBeenCalledTimes(1);
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
+
+    // Controllern adopterar identiteten → props uppdateras → kedjan startar om
+    // och det matchande running-kvittot går till den verifierade ready-reloaden.
+    await act(async () => {
+      rerender(
+        makeParams({
+          iframeRef,
+          onPreviewSessionRotated,
+          activePreviewSessionId: "ps_2",
+          activePreviewLifecycleToken: "life_2",
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(1);
+    expect(iframeRef.setSrc).toHaveBeenCalledWith(decoratedSrc);
+    expect(onPreviewSessionRotated).toHaveBeenCalledTimes(1);
+
+    act(() => result.current.handleIframeLoad());
+    expect(result.current.iframeLoading).toBe(false);
+    expect(result.current.iframeError).toBe(false);
+  });
+
+  it("utan adoptionscallback behåller ett roterat kvitto legacy-failbeteendet", async () => {
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValueOnce(status("running", "ps_2", "ver_1", TIER2_URL, "life_2"));
+    const params = makeParams({ iframeRef: makeIframeRef() });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+
+    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
+    expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+  });
+
+  it("adopterar aldrig rotation för fel version eller annan chat-URL", async () => {
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      // Fel version: samma URL, ny session — men kvittot gäller ver_2.
+      .mockResolvedValueOnce(status("running", "ps_2", "ver_2", TIER2_URL, "life_2"));
+    const onPreviewSessionRotated = vi.fn();
+    const params = makeParams({ iframeRef: makeIframeRef(), onPreviewSessionRotated });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+
+    expect(onPreviewSessionRotated).not.toHaveBeenCalled();
+    expect(result.current.iframeError).toBe(true);
+    expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+  });
+
   it("failar ändå när deadline-kontrollen själv hänger (bunden vakt)", async () => {
     fetchPreviewStatus.mockReturnValue(new Promise(() => {}));
     const params = makeParams({ iframeRef: makeIframeRef() });

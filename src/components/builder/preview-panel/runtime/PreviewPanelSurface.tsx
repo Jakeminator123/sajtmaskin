@@ -318,6 +318,7 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
         activeVersionRepairPassIndex={activeVersionRepairPassIndex}
         iframeError={iframeError}
         iframeErrorMessage={iframeErrorMessage}
+        iframeDiagnosticCode={iframeDiagnosticCode}
         isCodeView={isCodeView}
         previewRoutesLoading={previewRoutesLoading}
         previewRoutes={previewRoutes}

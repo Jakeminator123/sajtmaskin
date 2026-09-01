@@ -33,6 +33,8 @@ interface PreviewPanelChromeProps {
   activeVersionRepairPassIndex?: number;
   iframeError: boolean;
   iframeErrorMessage?: string | null;
+  /** Diagnostic code for the iframe error, when known (e.g. preview_ready_timeout). */
+  iframeDiagnosticCode?: string | null;
   isCodeView: boolean;
   previewRoutesLoading: boolean;
   previewRoutes: PreviewRouteInfo[];
@@ -67,6 +69,7 @@ export function PreviewPanelChrome({
   activeVersionRepairPassIndex = 0,
   iframeError,
   iframeErrorMessage,
+  iframeDiagnosticCode = null,
   isCodeView,
   previewRoutesLoading,
   previewRoutes,
@@ -117,6 +120,18 @@ export function PreviewPanelChrome({
   const previewTruth = (() => {
     if (isCodeView || !previewUrl) return null;
     if (iframeError) {
+      // `preview_ready_timeout` är en misstanke, inte ett bevis (samma kontrakt
+      // som den icke-blockerande bannern i PreviewPanelFrame). Att kalla ytan
+      // "trasig" här motsade banner-texten på exakt samma flagga — prod
+      // 2026-09-01 (chat c2371f9c) visade båda över en fullt fungerande sajt.
+      if (iframeDiagnosticCode === "preview_ready_timeout") {
+        return {
+          tone: "warning" as const,
+          title: "Previewn laddade inte klart innan timeout",
+          detail:
+            "Misstanke, inte bevis — fungerar sajten i ytan nedanför kan du fortsätta använda den.",
+        };
+      }
       return {
         tone: "error" as const,
         title: "Preview-iframe är trasig",

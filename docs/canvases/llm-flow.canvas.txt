@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "4146548ef",
+    "commit": "22276a507",
     "commitDate": "2026-09-01",
     "sinceDays": 14
   },
@@ -193,7 +193,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 8,
+      "churn": 9,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "4 oppna backlog-rader (P0:0 P1:3 P2:1 P3:0)"
     },
@@ -249,7 +249,7 @@ const DATA: CanvasData = {
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt: #1220-självläkningen gör exakt …"
+      "fynd": "`SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt. REVIDERAD ROTORSAK 2026-09-01: …"
     },
     {
       "prio": "P2",

@@ -383,6 +383,22 @@ export function useBuilderPageController() {
     [setPreviewBuildError, setPreviewPending],
   );
 
+  // SM-074 (reviderad rotorsak): VM:en kan nyckla om preview-sessionen när en
+  // follow-up bootar en hibernerad maskin — servern rapporterar då `running`
+  // för rätt version under NY session/lifecycle. Adoptera identiteten via
+  // samma onPreviewSessionMeta-ägare som SSE-handoffen använder; det ersätter
+  // den stale identiteten och låter iframe-kedjan starta om och verifiera.
+  const handlePreviewSessionRotated = useCallback(
+    (meta: { previewSessionId: string; versionId: string; lifecycleToken: string | null }) => {
+      onPreviewSessionMeta({
+        previewSessionId: meta.previewSessionId,
+        versionId: meta.versionId,
+        lifecycleToken: meta.lifecycleToken,
+      });
+    },
+    [onPreviewSessionMeta],
+  );
+
   const { handlePreviewSessionSuspect, forcePreviewResync, resetRecoverAttempts, versionMismatchPayload } = usePreviewSession({
     chatId: state.chatId,
     activeVersionId: derived.activeVersionId,
@@ -821,6 +837,7 @@ export function useBuilderPageController() {
     previewLifecycle,
     handleDeterministicF3Settled,
     handlePreviewSessionSuspect,
+    handlePreviewSessionRotated,
     forcePreviewResync,
     versionMismatchPayload,
     clearPreviewBuildError,
