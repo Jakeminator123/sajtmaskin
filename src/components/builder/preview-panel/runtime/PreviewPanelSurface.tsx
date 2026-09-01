@@ -53,12 +53,6 @@ type PreviewPanelSurfaceProps = {
   isTier2LivePreview: boolean;
   previewBuildError: PreviewPanelProps["previewBuildError"];
   previewProdBuild: PreviewPanelProps["previewProdBuild"];
-  previewPending: boolean;
-  previewLifecycle: PreviewPanelProps["previewLifecycle"];
-  activeVersionStatus: PreviewPanelProps["activeVersionStatus"];
-  activeVersionSummary: PreviewPanelProps["activeVersionSummary"];
-  activeVersionIsLatest: boolean;
-  activeVersionRepairPassIndex: number;
   iframeError: boolean;
   iframeErrorMessage: string | null;
   isCodeView: boolean;
@@ -174,12 +168,6 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
     isTier2LivePreview,
     previewBuildError,
     previewProdBuild,
-    previewPending,
-    previewLifecycle,
-    activeVersionStatus,
-    activeVersionSummary,
-    activeVersionIsLatest,
-    activeVersionRepairPassIndex,
     iframeError,
     iframeErrorMessage,
     isCodeView,
@@ -305,20 +293,10 @@ export function PreviewPanelSurface(props: PreviewPanelSurfaceProps) {
   return (
     <div className="flex h-full flex-col bg-black/40">
       <PreviewPanelChrome
-        previewUrl={previewUrl}
         isOwnEnginePreview={isOwnEnginePreview}
         isTier2LivePreview={isTier2LivePreview}
         previewBuildError={previewBuildError}
         previewProdBuild={previewProdBuild}
-        previewPending={previewPending}
-        previewLifecycle={previewLifecycle}
-        activeVersionStatus={activeVersionStatus}
-        activeVersionSummary={activeVersionSummary}
-        activeVersionIsLatest={activeVersionIsLatest}
-        activeVersionRepairPassIndex={activeVersionRepairPassIndex}
-        iframeError={iframeError}
-        iframeErrorMessage={iframeErrorMessage}
-        iframeDiagnosticCode={iframeDiagnosticCode}
         isCodeView={isCodeView}
         previewRoutesLoading={previewRoutesLoading}
         previewRoutes={previewRoutes}
