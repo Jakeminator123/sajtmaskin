@@ -185,9 +185,14 @@ export const LLM_FIXER_TIMEOUT_MS = readIntEnv(
   300_000,
 );
 
+/**
+ * Retry attempt must not outlast the first one: 2 × (180 s + 240 s) + 120 s
+ * verifier = 960 s, over the 950 s repair-route budget. 180 s + the reduced
+ * error bundle is enough; a longer budget only delays the deadline abort.
+ */
 export const LLM_FIXER_RETRY_TIMEOUT_MS = readIntEnv(
   "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
-  240_000,
+  180_000,
   15_000,
   300_000,
 );

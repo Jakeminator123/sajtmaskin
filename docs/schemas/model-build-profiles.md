@@ -49,10 +49,9 @@ Compatibility-alias är en inputgräns. De ska inte bli nya kanoniska profiler
 eller återberättas som nuvarande defaults i docs.
 
 Den tidigare kanoniska profilen `fast` är pensionerad. Äldre requests och
-persisterade val normaliseras till `premium`, men nya UI-, manifest- och
-env-värden använder `premium` / `SAJTMASKIN_MODEL_PREMIUM`. Premium kör
-GPT-5.6 Sol i hela phase-routing-kedjan. GPT-5.6 Terra och Luna finns som
-explicita backoffice-val för faser, men är inte Premium-profilens default.
+persisterade val normaliseras till `premium` (UI: Hög). Låg / Mellan / Hög
+(`pro` / `max` / `premium`) bygger alla med GPT-5.6 Sol; Terra och Luna tar
+sidofaser per `phaseRouting`. `codex` är en dold spegling av Mellan.
 
 ## Ändringsregel
 

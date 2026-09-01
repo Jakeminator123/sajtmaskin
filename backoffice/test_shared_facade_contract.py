@@ -36,6 +36,7 @@ EXPECTED_PUBLIC_NAMES = {
     "SAVE_SCOPE_MESSAGES",
     "SAVE_SCOPE_PATHS",
     "STATIC_REFERENCE_BADGE",
+    "TIER_LABELS_SV",
     "annotations",
     "backup_file",
     "backup_root",

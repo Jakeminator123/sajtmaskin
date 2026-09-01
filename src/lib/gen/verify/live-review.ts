@@ -8,6 +8,7 @@
 import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import {
+  getAiModelsManifest,
   getWorkloadDefaultModelFromManifest,
   getWorkloadFallbackModelsFromManifest,
 } from "@/lib/ai-models/load-manifest";
@@ -361,10 +362,26 @@ function uniqueModelIds(ids: Array<string | null | undefined>): string[] {
 
 export function resolveLiveReviewModelIds(override?: string): string[] {
   if (override?.trim()) return [override.trim()];
-  return uniqueModelIds([
-    getWorkloadDefaultModelFromManifest(LIVE_REVIEW_WORKLOAD_ID),
-    ...getWorkloadFallbackModelsFromManifest(LIVE_REVIEW_WORKLOAD_ID),
-  ]);
+  let defaultModel = getWorkloadDefaultModelFromManifest(LIVE_REVIEW_WORKLOAD_ID);
+  let fallbacks = [...getWorkloadFallbackModelsFromManifest(LIVE_REVIEW_WORKLOAD_ID)];
+  let visionModels: string[] = [];
+  try {
+    const workload = getAiModelsManifest().workloads.find(
+      (entry) => entry.id === LIVE_REVIEW_WORKLOAD_ID,
+    );
+    if (workload) {
+      defaultModel = workload.defaultModel ?? defaultModel;
+      if (workload.fallbackModels?.length) fallbacks = [...workload.fallbackModels];
+      visionModels = workload.visionModels ?? [];
+    }
+  } catch {
+    // Test mocks may omit getAiModelsManifest; fall back to the two getters.
+  }
+  const ordered = uniqueModelIds([defaultModel, ...fallbacks]);
+  if (visionModels.length === 0) return ordered;
+  const allowed = new Set(visionModels);
+  const visionOnly = ordered.filter((id) => allowed.has(id));
+  return visionOnly.length > 0 ? visionOnly : ordered;
 }
 
 export function versionOrdinal(version: {

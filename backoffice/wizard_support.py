@@ -311,12 +311,11 @@ def _is_reasoning_model(model: str) -> bool:
 
 
 # Reasoning-modeller räknar sina DOLDA reasoning-tokens mot
-# `max_completion_tokens`. En budget som räckte för gpt-4o kan därför konsumeras
-# helt av tänkandet innan ett enda synligt tecken skrivs — svaret blir tomt
-# `content` och `_post_openai_chat` kastar. Det slog till direkt av Fas D:
-# guidens default gick från gpt-4o till gpt-5.4-mini med samma 500-tak
-# (Vercel Agent Review på #656). Faktorn ger plats för resonemanget; det synliga
-# svaret är fortfarande kort.
+# `max_completion_tokens`. En budget som räckte för en klassisk chat-modell kan
+# därför konsumeras helt av tänkandet innan ett enda synligt tecken skrivs —
+# svaret blir tomt `content` och `_post_openai_chat` kastar. Guidens default är
+# nu gpt-5.6-luna (persona: gpt-5.6-terra). Faktorn ger plats för
+# resonemanget; det synliga svaret är fortfarande kort.
 _REASONING_TOKEN_HEADROOM = 4
 
 
@@ -333,10 +332,10 @@ def _chat_payload(
     temperature: float,
     response_format: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build a Chat Completions payload valid for both classic (gpt-4o) and
-    reasoning (gpt-5.x) models. Uses `max_completion_tokens` (accepted by all
-    current chat models); omits the custom `temperature` for reasoning models
-    that only allow the default."""
+    """Build a Chat Completions payload valid for both classic and
+    reasoning (gpt-5.6 terra/sol/luna) models. Uses `max_completion_tokens`
+    (accepted by all current chat models); omits the custom `temperature` for
+    reasoning models that only allow the default."""
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,

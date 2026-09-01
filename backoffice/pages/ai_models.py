@@ -8,6 +8,7 @@ import streamlit as st
 from backoffice.shared import (
     AVAILABLE_PHASE_MODELS,
     BUILD_PROFILE_ORDER,
+    TIER_LABELS_SV,
     PHASE_LABELS,
     PHASE_ORDER,
     REASONING_EFFORT_OPTIONS,
@@ -28,6 +29,47 @@ from backoffice.shared import (
     write_phase_thinking,
     write_text,
 )
+
+
+def _resolve_phase_model_ref(phase_ref: str, tier_build_model: str) -> str:
+    ref = (phase_ref or "").strip() or "selected_build_model"
+    if ref == "selected_build_model":
+        return (tier_build_model or "").strip() or "selected_build_model"
+    return ref
+
+
+def _render_tier_ladder_help(manifest: dict[str, Any], build_profiles: dict[str, Any]) -> None:
+    """Explain the Låg→Mellan→Hög ladder from live manifest values."""
+
+    routing = ((manifest.get("phaseRouting") or {}).get("defaultByTier") or {})
+    thinking = ((manifest.get("phaseRouting") or {}).get("thinkingByTier") or {})
+    notes = str((manifest.get("phaseRouting") or {}).get("notes") or "").strip()
+
+    lines: list[str] = [
+        "Låg / Mellan / Hög kör **samma byggmodell**. Skillnaden är "
+        "generator-effort (`medium` → `high` → `xhigh`) i `reasoningMode: standard`, "
+        "plus vilket 5.6-syskon som tar fixer/verifier.",
+        "`reasoningMode: \"pro\"` är inte längre default (valbart i backoffice): "
+        "prod `llm_usage` 28 jul–1 sep 2026 visade att Premiums pro-läge blåste "
+        "upp fakturerad input ~6× (142k vs 22k p50).",
+    ]
+    for tier in BUILD_PROFILE_ORDER:
+        build_model = str(build_profiles.get(tier, "")).strip() or "—"
+        tier_routing = routing.get(tier) or {}
+        tier_thinking = thinking.get(tier) or {}
+        generator = tier_thinking.get("generator") or {}
+        effort = str(generator.get("reasoningEffort") or "—")
+        mode = str(generator.get("reasoningMode") or "—")
+        fixer = _resolve_phase_model_ref(str(tier_routing.get("fixer", "")), build_model)
+        verifier = _resolve_phase_model_ref(str(tier_routing.get("verifier", "")), build_model)
+        lines.append(
+            f"- **{TIER_LABELS_SV.get(tier, tier)}**: bygg `{build_model}`, "
+            f"generator {effort}/{mode}, fixer `{fixer}`, verifier `{verifier}`"
+        )
+    with st.expander("Stege Låg → Mellan → Hög (live från manifestet)", expanded=False):
+        st.markdown("\n".join(lines))
+        if notes:
+            st.caption(notes)
 
 
 def _guard_manifest_or_stop(manifest: dict[str, Any]) -> None:
@@ -145,19 +187,12 @@ def _render_generator_chain(
     )
 
     st.markdown("### Byggprofiler (own-engine, den som skriver sajtens kod)")
-    profile_labels = {
-        "premium": "Premium / GPT-5.6 Sol",
-        "pro": "Pro / Lagom",
-        "max": "Max / Tänker",
-        "codex": "Codex / Kod Max",
-        "anthropic": "Anthropic",
-    }
     profile_inputs: dict[str, str] = {}
     cols = st.columns(5, gap="small")
-    for col, key in zip(cols, ["premium", "pro", "max", "codex", "anthropic"]):
+    for col, key in zip(cols, BUILD_PROFILE_ORDER):
         with col:
             profile_inputs[key] = st.text_input(
-                profile_labels[key],
+                TIER_LABELS_SV.get(key, key),
                 value=str(build_profiles.get(key, "")),
                 help="Konkret modell-ID som används när denna byggprofil väljs i buildern.",
                 key=f"bp_{key}",
@@ -178,10 +213,11 @@ def _render_generator_chain(
     st.caption(
         "Sätt `selected_build_model` om fasen ska följa användarens valda byggprofil. Planner/generator kräver fortfarande att builderns vanliga thinking-toggle är på."
     )
+    _render_tier_ladder_help(manifest, build_profiles)
     thinking_defaults = phase_thinking_defaults(manifest)
     edited_routing: dict[str, dict[str, str]] = {}
     edited_thinking: dict[str, dict[str, dict[str, Any]]] = {}
-    tier_tabs = st.tabs([tier for tier in BUILD_PROFILE_ORDER])
+    tier_tabs = st.tabs([TIER_LABELS_SV.get(tier, tier) for tier in BUILD_PROFILE_ORDER])
     for idx, tier in enumerate(BUILD_PROFILE_ORDER):
         tier_cfg = phase_routing.get(tier) or {}
         tier_thinking = thinking_defaults.get(tier) or {}
@@ -770,22 +806,21 @@ def _render_per_tier_briefing(manifest: dict[str, Any]) -> None:
     if not briefing:
         st.info(
             "Inget `perTierBriefing`-fält hittades i manifestet. Förvänta sig 5 tiers "
-            "(premium/pro/max/codex/anthropic)."
+            "(Låg/Mellan/Hög/Kod Max/Anthropic)."
         )
         return
-
-    tiers = ["premium", "pro", "max", "codex", "anthropic"]
 
     st.markdown("#### perTierBriefing · wired till runtime")
     st.dataframe(
         [
             {
                 "tier": tier,
+                "etikett": TIER_LABELS_SV.get(tier, tier),
                 "briefingModel": human_model_label(
                     str((briefing.get(tier) or {}).get("briefingModel", ""))
                 ),
             }
-            for tier in tiers
+            for tier in BUILD_PROFILE_ORDER
         ],
         hide_index=True,
         width="stretch",
