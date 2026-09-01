@@ -6,6 +6,13 @@
 
 export const PRODUCT_POSTCHECK_SKIPPED_KIND = "product_postcheck_skipped" as const;
 
+/**
+ * Ett annat körande anspråk äger exakt samma previewmål och blev inte klart
+ * inom väntebudgeten. Säger ingenting om produkten — kontrollen kördes aldrig
+ * här. Resultatet bär därför ingen attestering och versionen lämnas pending.
+ */
+export const PRODUCT_POSTCHECK_CLAIM_BUSY_SKIP_REASON = "claim_busy" as const;
+
 export function formatProductPostcheckSkippedMessage(reason: string): string {
   const trimmed = reason.trim() || "unknown";
   return `F2 Product Postcheck skipped (${PRODUCT_POSTCHECK_SKIPPED_KIND}: ${trimmed}).`;
@@ -62,7 +69,29 @@ const INFRASTRUCTURE_SKIP_REASONS: ReadonlySet<string> = new Set([
   "capture_failed",
   // Operatören har stängt av postchecken. Inget om sajten.
   "feature_disabled",
+  // Ett annat anspråk ägde målet; den här requesten körde aldrig kontrollen.
+  PRODUCT_POSTCHECK_CLAIM_BUSY_SKIP_REASON,
 ]);
+
+/**
+ * Utfall som inte är ett slutgiltigt svar för målet. Single-flight-anspråket
+ * får inte servera dem ur cachen — en retry ska köra kontrollen igen.
+ *
+ * Medvetet skild från {@link isInfrastructureSkipReason}, som besvarar en
+ * annan fråga (säger skipen något om produkten?) och där `runtime_error`
+ * avsiktligt är `product` för Degraderad-etiketten.
+ */
+const NON_FINAL_SKIP_REASONS: ReadonlySet<string> = new Set([
+  PRODUCT_POSTCHECK_CLAIM_BUSY_SKIP_REASON,
+  "timeout",
+  "runtime_error",
+]);
+
+export function isNonFinalProductPostcheckSkipReason(
+  reason: string | null | undefined,
+): boolean {
+  return NON_FINAL_SKIP_REASONS.has(reason?.trim().toLowerCase() ?? "");
+}
 
 export function classifyProductPostcheckSkipReason(
   reason: string | null | undefined,

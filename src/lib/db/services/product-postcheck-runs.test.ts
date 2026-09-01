@@ -152,6 +152,20 @@ describe("decideProductPostcheckClaim", () => {
     ).toEqual({ kind: "takeover" });
   });
 
+  it("cachear aldrig ett icke-slutgiltigt utfall — en retry ska köra om", () => {
+    // Före single-flight körde varje retry kontrollen igen. Servas de här ur
+    // cachen förgiftar ett enda dåligt försök tupeln hela radens TTL ut.
+    const nonFinal = ["claim_busy", "timeout", "runtime_error"] as const;
+    for (const reason of nonFinal) {
+      expect(
+        decideProductPostcheckClaim(
+          row({ status: "skipped", skipReason: reason, result: skippedResult(reason) }),
+        ),
+        `${reason} ska tas över, inte cachas`,
+      ).toEqual({ kind: "takeover" });
+    }
+  });
+
   it("normaliserar null lifecycleToken till tom sträng för claim-nyckeln", () => {
     expect(normalizeProductPostcheckLifecycleToken(null)).toBe("");
     expect(normalizeProductPostcheckLifecycleToken("  life_n  ")).toBe("life_n");

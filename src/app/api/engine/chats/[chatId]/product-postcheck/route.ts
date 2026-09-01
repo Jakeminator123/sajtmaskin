@@ -43,7 +43,10 @@ import {
   waitForProductPostcheckPreviewRunning,
   type ProductPostcheckPreviewProbe,
 } from "@/lib/gen/verify/product-postcheck-preview-wait";
-import { formatProductPostcheckSkippedMessage } from "@/lib/gen/verify/product-postcheck-skip";
+import {
+  PRODUCT_POSTCHECK_CLAIM_BUSY_SKIP_REASON,
+  formatProductPostcheckSkippedMessage,
+} from "@/lib/gen/verify/product-postcheck-skip";
 
 export const runtime = "nodejs";
 // Postcheck alone can approach ~150s worst case (boot wait, crawl with the
@@ -125,16 +128,21 @@ function resolveAuthoritativePreviewUrl(params: {
   return sessionUrl;
 }
 
-function timeoutPostcheckResult(params: {
+/**
+ * Another run owns this exact target and did not finish inside our wait.
+ * Deliberately unattested: this outcome carries no information about the
+ * product, so it must leave the version pending for a retry rather than
+ * letting the caller treat it as a completed, non-blocking check.
+ */
+function claimBusyPostcheckResult(params: {
   previewUrl: string;
-  attestation: ProductPostcheckTarget;
   verificationRunId: string;
   durationMs?: number;
 }): ProductPostcheckResult {
   return {
     ok: true,
     skipped: true,
-    skippedReason: "timeout",
+    skippedReason: PRODUCT_POSTCHECK_CLAIM_BUSY_SKIP_REASON,
     warnings: [],
     warningCount: 0,
     productBlocked: false,
@@ -143,7 +151,7 @@ function timeoutPostcheckResult(params: {
     checkedUrl: params.previewUrl,
     screenshots: null,
     domSummary: null,
-    attestation: params.attestation,
+    attestation: null,
     verificationRunId: params.verificationRunId,
   };
 }
@@ -518,12 +526,14 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         timeoutMs: waitBudgetMs,
       });
       if (waited) return NextResponse.json(waited);
-      // Winner still running past our wait budget. Do NOT launch a second
-      // browser. `timeout` is a skip the client already understands.
+      // Winner still running (or its pod died) past our wait budget. Do NOT
+      // launch a second browser — but do NOT attest either. An attested skip
+      // reads as "checked, nothing blocking": `productPostcheckNeedsRetry`
+      // ignores it and the F3 gate then finds no summary row and goes green.
+      // A null attestation is the hold that keeps the version pending.
       return NextResponse.json(
-        timeoutPostcheckResult({
+        claimBusyPostcheckResult({
           previewUrl: resolvedPreviewUrl,
-          attestation: boundTarget,
           verificationRunId:
             postcheckClaim.row.verificationRunId ?? verificationRunId,
           durationMs: Date.now() - routeStartedAt,

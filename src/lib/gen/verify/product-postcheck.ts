@@ -57,6 +57,12 @@ export type ProductPostcheckSkipReason =
    * får därför den icke-anklagande ytan i buildern.
    */
   | "browser_crashed"
+  /**
+   * Ett annat single-flight-anspråk ägde exakt samma previewmål och blev inte
+   * klart inom väntebudgeten. Kontrollen kördes aldrig i den här requesten, så
+   * resultatet bär ingen attestering och versionen lämnas pending.
+   */
+  | "claim_busy"
   | "runtime_error";
 
 export type ProductPostcheckWarning = {

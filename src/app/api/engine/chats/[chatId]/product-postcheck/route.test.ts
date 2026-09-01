@@ -929,6 +929,32 @@ describe("POST product-postcheck", () => {
     expect(claimProductPostcheckRun).toHaveBeenCalledTimes(2);
   });
 
+  it("väntetimeout ⇒ oattesterad claim_busy-hold, aldrig ett attesterat skip", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    // Vinnaren äger målet och blir inte klar inom vår budget (eller dog).
+    claimProductPostcheckRun.mockResolvedValue({
+      kind: "in_flight" as const,
+      row: acquiredClaim().row,
+    });
+    waitForProductPostcheckRun.mockResolvedValue(null);
+
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+
+    // Ingen andra webbläsare.
+    expect(runProductPostcheck).not.toHaveBeenCalled();
+    expect(body.skipped).toBe(true);
+    expect(body.skippedReason).toBe("claim_busy");
+    // Kärnan: ett attesterat skip läses som "kontrollerad, inget blockerar" av
+    // productPostcheckNeedsRetry, och F3-grinden hittar sedan ingen summary-rad
+    // och går grön. Attesteringen MÅSTE vara null så versionen lämnas pending.
+    expect(body.attestation).toBeNull();
+    expect(body.productBlocked).toBe(false);
+  });
+
   it("annan lifecycleToken eller previewSessionId ⇒ andra claimet tillåts", async () => {
     setF2ProductPostcheck(true);
     getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });

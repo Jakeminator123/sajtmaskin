@@ -2,7 +2,10 @@ import { and, eq, lt, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { db, dbConfigured } from "@/lib/db/client";
 import { productPostcheckRuns } from "@/lib/db/schema";
-import { isInfrastructureSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
+import {
+  isInfrastructureSkipReason,
+  isNonFinalProductPostcheckSkipReason,
+} from "@/lib/gen/verify/product-postcheck-skip";
 import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 
 /**
@@ -82,7 +85,13 @@ export function decideProductPostcheckClaim(
     return { kind: "cached", result: existing.result };
   }
   if (existing.status === "skipped" && existing.result) {
-    if (isInfrastructureSkipReason(existing.skipReason ?? existing.result.skippedReason)) {
+    const reason = existing.skipReason ?? existing.result.skippedReason;
+    // Infrastructure skips say nothing about the site, and non-final outcomes
+    // (claim_busy / timeout / runtime_error) are not an answer for this target
+    // at all. Serving either from cache would let one bad attempt poison the
+    // tuple for the row's whole TTL — before single-flight a retry simply ran
+    // the check again.
+    if (isInfrastructureSkipReason(reason) || isNonFinalProductPostcheckSkipReason(reason)) {
       return { kind: "takeover" };
     }
     return { kind: "cached", result: existing.result };
