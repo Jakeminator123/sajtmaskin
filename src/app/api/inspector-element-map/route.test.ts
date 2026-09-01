@@ -43,6 +43,7 @@ const { POST } = await import("./route");
 describe("POST /api/inspector-element-map", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     getCurrentUser.mockResolvedValue(null);
     getSessionIdFromRequest.mockReturnValue(null);
     pageGoto.mockResolvedValue(null);
@@ -108,6 +109,50 @@ describe("POST /api/inspector-element-map", () => {
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual(expect.objectContaining({ staleIdentity: true }));
+    expect(launchBrowser).not.toHaveBeenCalled();
+  });
+
+  it("returns the honest serverless 503 for a tuple-less request, not staleIdentity", async () => {
+    vi.stubEnv("VERCEL", "1");
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+
+    const res = await POST(
+      new Request("http://localhost/api/inspector-element-map", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          url: "https://vm-fly-jakem.fly.dev/57027ae6-19df-48cb-aa47-9c42a626db50",
+          viewportWidth: 1280,
+          viewportHeight: 800,
+          maxElements: 300,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body).toEqual(
+      expect.objectContaining({
+        success: false,
+        error: expect.stringMatching(/serverless/i),
+      }),
+    );
+    expect(body).not.toEqual(expect.objectContaining({ staleIdentity: true }));
+    expect(launchBrowser).not.toHaveBeenCalled();
+  });
+
+  it("still requires auth before the serverless 503", async () => {
+    vi.stubEnv("VERCEL", "1");
+
+    const res = await POST(
+      new Request("http://localhost/api/inspector-element-map", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: "https://vm.fly.dev/chat_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(401);
     expect(launchBrowser).not.toHaveBeenCalled();
   });
 

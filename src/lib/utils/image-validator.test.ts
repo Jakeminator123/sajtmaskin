@@ -5,10 +5,78 @@ import {
   coerceKnownImageReplacementMap,
   extractImageRefs,
   KNOWN_IMAGE_REPLACEMENTS_MAX_ENTRIES,
+  unwrapNextImageUrl,
   validateImages,
   type BrokenImage,
   type TextFile,
 } from "./image-validator";
+
+describe("unwrapNextImageUrl", () => {
+  const rawUnsplash = "https://images.unsplash.com/photo-123?w=1200&h=800&fit=crop";
+  const encodedRaw = encodeURIComponent(rawUnsplash);
+
+  it("packar upp en relativ /_next/image-wrapper utan origin", () => {
+    expect(
+      unwrapNextImageUrl(`/_next/image?url=${encodedRaw}&w=828&q=75`),
+    ).toBe(rawUnsplash);
+  });
+
+  it("packar upp en absolut host/_next/image-wrapper", () => {
+    expect(
+      unwrapNextImageUrl(
+        `https://preview.example.com/_next/image?url=${encodedRaw}&w=828&q=75`,
+      ),
+    ).toBe(rawUnsplash);
+  });
+
+  it("ger null utan att kasta när query saknas", () => {
+    expect(unwrapNextImageUrl("/_next/image")).toBeNull();
+    expect(unwrapNextImageUrl("https://preview.example.com/_next/image")).toBeNull();
+  });
+
+  it("ger null för en URL som inte är next/image-wrapper", () => {
+    expect(unwrapNextImageUrl("https://cdn.example.com/hero.jpg")).toBeNull();
+    expect(unwrapNextImageUrl("/images/hero.jpg")).toBeNull();
+  });
+
+  it("förstör inte en redan avkodad / rå Unsplash-URL", () => {
+    expect(unwrapNextImageUrl(rawUnsplash)).toBeNull();
+    expect(unwrapNextImageUrl(decodeURIComponent(encodedRaw))).toBe(null);
+  });
+
+  it("träffar inte /_next/image-foo (exakt path-segment, inte substring)", () => {
+    expect(
+      unwrapNextImageUrl(`/_next/image-foo?url=${encodedRaw}&w=828&q=75`),
+    ).toBeNull();
+  });
+
+  it("kastar aldrig på konstiga värden", () => {
+    const weird: unknown[] = [
+      "",
+      " ",
+      "???",
+      "http://",
+      "not a url",
+      "/_next/image?url=",
+      "/_next/image?url=%",
+      "/_next/image?url=%E0%A4%A",
+      "%",
+      "//",
+      "\n",
+      `/_next/image?url=${"x".repeat(10_000)}`,
+      "file:///_next/image?url=foo",
+      null,
+      undefined,
+      0,
+      {},
+      [],
+      true,
+    ];
+    for (const value of weird) {
+      expect(() => unwrapNextImageUrl(value as string)).not.toThrow();
+    }
+  });
+});
 
 describe("extractImageRefs", () => {
   it("extracts CSS background-image urls", () => {

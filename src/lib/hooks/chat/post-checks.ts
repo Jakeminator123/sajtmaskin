@@ -37,6 +37,7 @@ import type {
   ProductPostcheckResult,
 } from "@/lib/gen/verify/product-postcheck";
 import { isInfrastructureSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
+import { MAX_SCOPED_IMAGE_URLS } from "@/lib/utils/validate-images-limit";
 
 /** Extra försök efter det första, bara vid en retryable 503. */
 const ERROR_LOG_RETRY_ATTEMPTS = 2;
@@ -841,6 +842,13 @@ async function runTier2VerifyLane(params: {
    * auto-fix-runda — samma väg som Visual QA, synlig i chatten.
    */
   productPostcheck?: ProductPostcheckResult | null;
+  /**
+   * True när den här körningen ÄR den skopade bildfixens enda tillåtna
+   * omverifiering. Taket är exekverbart: follow-up-passet skickar flaggan
+   * vidare till `handlePassedGateProductFollowUp`, som då inte får starta
+   * en ny lane även om `fixed` skulle bli true igen.
+   */
+  isScopedImageReverify?: boolean;
 }) {
   const {
     chatId,
@@ -852,6 +860,7 @@ async function runTier2VerifyLane(params: {
     previewPolicy = "fidelity2",
     abortController,
     productPostcheck = null,
+    isScopedImageReverify = false,
   } = params;
   const toolCallId = `quality-gate:${versionId}`;
   const releasePipelineWork = beginPipelineWork();
@@ -861,13 +870,18 @@ async function runTier2VerifyLane(params: {
   const QUALITY_GATE_503_MAX_RETRIES = 2;
   const QUALITY_GATE_503_RETRY_BASE_DELAY_MS = 2_000;
 
-  appendToolPartToMessage(setMessages, assistantMessageId, {
-    type: "tool:quality-gate",
-    toolName: "Quality gate",
-    toolCallId,
-    state: "input-streaming",
-    input: { chatId, versionId, checks },
-  } as UiMessagePart);
+  // Follow-up-passet ska inte rita över den första passerade kortbilden
+  // förrän det finns ett nytt utfall — annars lämnar ett tyst abort
+  // (navigering mitt i) kortet i input-streaming.
+  if (!isScopedImageReverify) {
+    appendToolPartToMessage(setMessages, assistantMessageId, {
+      type: "tool:quality-gate",
+      toolName: "Quality gate",
+      toolCallId,
+      state: "input-streaming",
+      input: { chatId, versionId, checks },
+    } as UiMessagePart);
+  }
 
   try {
     if (previewPolicy === "fidelity2" && checks.includes("build")) {
@@ -900,14 +914,18 @@ async function runTier2VerifyLane(params: {
       attempt++
     ) {
       if (abortController?.signal.aborted) {
-        appendAbortedQualityGateCard(setMessages, assistantMessageId, toolCallId);
+        if (!isScopedImageReverify) {
+          appendAbortedQualityGateCard(setMessages, assistantMessageId, toolCallId);
+        }
         return;
       }
       await new Promise((resolve) =>
         setTimeout(resolve, QUALITY_GATE_503_RETRY_BASE_DELAY_MS * attempt),
       );
       if (abortController?.signal.aborted) {
-        appendAbortedQualityGateCard(setMessages, assistantMessageId, toolCallId);
+        if (!isScopedImageReverify) {
+          appendAbortedQualityGateCard(setMessages, assistantMessageId, toolCallId);
+        }
         return;
       }
       res = await postQualityGate();
@@ -1164,23 +1182,40 @@ async function runTier2VerifyLane(params: {
       // det läge den behövs mest. Bildfixen körs därför alltid efter gate-pass;
       // bara LLM-rundan är exklusiv, så turen aldrig får två auto-fix-anrop.
       const visualQaFailed = Boolean(visualQa && !visualQa.passed);
-      if (productPostcheck && !productPostcheck.skipped) {
-        await handlePassedGateProductFollowUp({
-          chatId,
-          versionId,
-          productPostcheck,
-          onAutoFix,
-          signal: abortController?.signal,
-          allowLlmAutofix: !visualQaFailed,
-        });
-      }
-      if (visualQaFailed && visualQa && onAutoFix && !abortController?.signal.aborted) {
+      const startedImageFixReverify =
+        productPostcheck && !productPostcheck.skipped
+          ? await handlePassedGateProductFollowUp({
+              chatId,
+              versionId,
+              productPostcheck,
+              onAutoFix,
+              signal: abortController?.signal,
+              allowLlmAutofix: !visualQaFailed,
+              isScopedImageReverify,
+              assistantMessageId,
+              setMessages,
+              mutateVersions,
+              abortController,
+              previewPolicy,
+            })
+          : false;
+      // Första passets Visual QA är inaktuell när filerna just muterades —
+      // follow-up-lanen äger den färska rundan.
+      if (
+        visualQaFailed &&
+        visualQa &&
+        onAutoFix &&
+        !abortController?.signal.aborted &&
+        !startedImageFixReverify
+      ) {
         handleVisualQaAutofix({ chatId, versionId, visualQa, onAutoFix });
       }
     }
   } catch (error) {
     if (isAbortError(error)) {
-      appendAbortedQualityGateCard(setMessages, assistantMessageId, toolCallId);
+      if (!isScopedImageReverify) {
+        appendAbortedQualityGateCard(setMessages, assistantMessageId, toolCallId);
+      }
       return;
     }
     appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -1192,7 +1227,14 @@ async function runTier2VerifyLane(params: {
     } as UiMessagePart);
   } finally {
     releasePipelineWork();
-    if (abortController && postCheckControllers.get(chatId) === abortController) {
+    // Follow-up-passet delar yttre lanes controller. Om vi rensar registret
+    // här blir `hasActivePostCheck` falskt medan yttre lanen fortfarande
+    // kör — resume kan då stjäla leasen. Yttre `finally` äger delete.
+    if (
+      !isScopedImageReverify &&
+      abortController &&
+      postCheckControllers.get(chatId) === abortController
+    ) {
       postCheckControllers.delete(chatId);
     }
     // The quality-gate route owns the promotion transition. Revalidate only
@@ -1356,13 +1398,7 @@ function mapPostcheckWarningToFinding(
   };
 }
 
-/**
- * Taket för `urls` i `POST /validate-images`. Zod avvisar hela requesten över
- * taket, och klienten tolkar ett icke-ok svar som "ingen ersättning alls" — en
- * okapad lista hade alltså tappat även de bilder som ryms.
- */
-const MAX_SCOPED_IMAGE_URLS = 16;
-
+/** Kapa mot den delade konstanten — Zod 400:ar hela requesten över taket. */
 function collectBrokenImageUrls(
   warnings: ProductPostcheckResult["warnings"],
 ): string[] {
@@ -1397,11 +1433,22 @@ function collectLiveReviewAutofixFindings(
   return findings;
 }
 
+/** Routen sätter `fixed` bara när `updateVersionFiles` faktiskt persistade. */
+function didPersistScopedImageReplacement(
+  result: ImageValidationResult | null,
+): boolean {
+  return result?.fixed === true;
+}
+
 /**
  * Efter gate-pass: HEAD-verifierad bildersättning för exakta broken_image-URL:er
  * (ingen LLM), sedan EN batchad auto-fix för övriga strukturerade fynd och
  * live-review-issues. Fynden förblir icke-blockerande; befintliga throttlar
  * begränsar omkörningar.
+ *
+ * Returnerar `true` när en materiell ersättning startade den enda tillåtna
+ * omverifieringen — anroparen ska då inte köra Visual QA mot det gamla
+ * gate-utfallet.
  */
 async function handlePassedGateProductFollowUp(params: {
   chatId: string;
@@ -1414,7 +1461,13 @@ async function handlePassedGateProductFollowUp(params: {
    * bildersättningen körs ändå — den kostar ingen modelltur.
    */
   allowLlmAutofix?: boolean;
-}): Promise<void> {
+  isScopedImageReverify?: boolean;
+  assistantMessageId: string;
+  setMessages: SetMessages;
+  mutateVersions?: () => void;
+  abortController?: AbortController;
+  previewPolicy?: "fidelity2" | "fidelity3";
+}): Promise<boolean> {
   const {
     chatId,
     versionId,
@@ -1422,23 +1475,55 @@ async function handlePassedGateProductFollowUp(params: {
     onAutoFix,
     signal,
     allowLlmAutofix = true,
+    isScopedImageReverify = false,
+    assistantMessageId,
+    setMessages,
+    mutateVersions,
+    abortController,
+    previewPolicy,
   } = params;
   const brokenImageUrls = collectBrokenImageUrls(productPostcheck.warnings);
   const scopedImageUrls = new Set(brokenImageUrls);
+  let wroteReplacement = false;
   if (brokenImageUrls.length > 0) {
     try {
-      await validateImages({
+      const imageResult = await validateImages({
         chatId,
         versionId,
         signal: signal ?? new AbortController().signal,
         urls: brokenImageUrls,
       });
+      wroteReplacement = didPersistScopedImageReplacement(imageResult);
     } catch (error) {
       // Ett avbrutet körpass får inte läcka ut som gate-nätverksfel i chatten
       // — lanen är redan terminal och bildfixen är best-effort.
-      if (isAbortError(error)) return;
+      if (isAbortError(error)) return false;
       throw error;
     }
+  }
+
+  // Tak: exakt en follow-up-verify per gate-pass. `isScopedImageReverify`
+  // är true bara på den omkörningen — även om nästa skopade anrop också
+  // skulle rapportera `fixed` startas ingen tredje lane.
+  if (wroteReplacement && !isScopedImageReverify) {
+    try {
+      await runTier2VerifyLane({
+        chatId,
+        versionId,
+        assistantMessageId,
+        setMessages,
+        mutateVersions,
+        onAutoFix,
+        previewPolicy,
+        abortController,
+        productPostcheck,
+        isScopedImageReverify: true,
+      });
+    } catch (error) {
+      if (isAbortError(error)) return true;
+      throw error;
+    }
+    return true;
   }
 
   const llmFindings = [
@@ -1458,7 +1543,7 @@ async function handlePassedGateProductFollowUp(params: {
     ...collectLiveReviewAutofixFindings(productPostcheck),
   ].slice(0, 8);
 
-  if (!allowLlmAutofix || !onAutoFix || llmFindings.length === 0) return;
+  if (!allowLlmAutofix || !onAutoFix || llmFindings.length === 0) return false;
 
   const liveReview = productPostcheck.liveReview;
   const extraReasons =
@@ -1476,6 +1561,7 @@ async function handlePassedGateProductFollowUp(params: {
     findings: llmFindings,
     extraReasons,
   });
+  return false;
 }
 
 /**

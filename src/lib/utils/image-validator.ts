@@ -755,13 +755,27 @@ export function applyKnownImageReplacementsToFiles<T extends { content: string }
  * on the scaffolds that use `next/image` (ecommerce, portfolio). Unwrap the
  * `url` parameter so both spellings resolve to the same key.
  */
+const NEXT_IMAGE_PATH = "/_next/image";
+
+function isNextImagePathBoundary(value: string, markerIndex: number): boolean {
+  const after = value.charAt(markerIndex + NEXT_IMAGE_PATH.length);
+  return after === "" || after === "?" || after === "#" || after === "/";
+}
+
 export function unwrapNextImageUrl(value: string): string | null {
-  const markerIndex = value.indexOf("/_next/image");
-  if (markerIndex === -1) return null;
-  const queryIndex = value.indexOf("?", markerIndex);
-  if (queryIndex === -1) return null;
-  const inner = new URLSearchParams(value.slice(queryIndex + 1)).get("url");
-  return inner?.trim() || null;
+  try {
+    if (typeof value !== "string") return null;
+    const markerIndex = value.indexOf(NEXT_IMAGE_PATH);
+    if (markerIndex === -1 || !isNextImagePathBoundary(value, markerIndex)) {
+      return null;
+    }
+    const queryIndex = value.indexOf("?", markerIndex);
+    if (queryIndex === -1) return null;
+    const inner = new URLSearchParams(value.slice(queryIndex + 1)).get("url");
+    return inner?.trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 function buildScopedUrlSet(urls: Iterable<string>): Set<string> {

@@ -182,6 +182,15 @@ describe("POST product-postcheck", () => {
   it("feature flag on + missing previewUrl => skipped + version.degraded (false-green guard)", async () => {
     setF2ProductPostcheck(true);
     getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_n",
+      lifecycleToken: "life_n",
+      previewUrl: "",
+      versionId: "v1",
+      filesRevision: "rev_n",
+      createdAt: 1,
+      lastUsedAt: 1,
+    });
     const res = await POST(req({ versionId: "v1", previewUrl: null }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
@@ -211,6 +220,32 @@ describe("POST product-postcheck", () => {
         }),
       }),
     );
+  });
+
+  it("feature flag on + klienten skickar null men sessionen har URL => kör mot sessionens URL", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 8,
+      checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+    });
+    const res = await POST(req({ versionId: "v1", previewUrl: null }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+    expect(body.skipped).toBe(false);
+    expect(runProductPostcheck).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      }),
+    );
+    expect(body.checkedUrl).toBe("https://vm-fly-jakem.fly.dev/chat_1");
   });
 
   it("feature flag on + missing previewUrl + okänd version => 404, ingen emit", async () => {
@@ -281,18 +316,19 @@ describe("POST product-postcheck", () => {
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
       chatId: "chat_1",
       versionId: "v1",
-      // Routen ger postchecken den tid som ÅTERSTÅR av budgeten
-      // (`PRODUCT_POSTCHECK_ROUTE_BUDGET_MS - (Date.now() - routeStartedAt)`), så
-      // ett exakt tal gör assertionen väggklockeberoende: under full svit hann
-      // 1 ms gå och testet blev rött på 279999 utan att något var fel.
-      // Kontraktet är "resten av budgeten", inte ett bestämt heltal.
-      timeoutMs: expect.closeTo(280_000, -2),
+      // Budgeten räknas av från routens väggklocka, så en exakt siffra här är
+      // en tidsbomb: assertionen höll bara så länge hela routen hann köra på
+      // under en millisekund. Lås intervallet i stället för millisekunden.
+      timeoutMs: expect.any(Number),
       captureEnabled: false,
       captureUserId: "user_1",
       filesRevision: "rev_n",
       previewSessionId: "ps_n",
       lifecycleToken: "life_n",
     });
+    const { timeoutMs } = runProductPostcheck.mock.calls[0][0] as { timeoutMs: number };
+    expect(timeoutMs).toBeGreaterThan(270_000);
+    expect(timeoutMs).toBeLessThanOrEqual(280_000);
   });
 
   it("feature flag on + productBlocked => version.degraded {product_postcheck_blocked}", async () => {
@@ -630,11 +666,12 @@ describe("POST product-postcheck", () => {
     const body = await res.json();
 
     expect(body.skippedReason).toBe("preview_not_running");
-    // No session was ever bound, so there is nothing to attest. Returning the
-    // `unbound` sentinel here made `error-log` 409 the whole batch (no live
-    // session can match it) while the client read a truthy `attestation` as
-    // "attested" and released the verify lane on an unattested skip.
     expect(body.attestation).toBeNull();
+    expect(body).not.toEqual(
+      expect.objectContaining({
+        attestation: expect.objectContaining({ previewSessionId: "unbound" }),
+      }),
+    );
     expect(runProductPostcheck).not.toHaveBeenCalled();
     expect(emitBusEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -642,12 +679,61 @@ describe("POST product-postcheck", () => {
         message: "F2 Product Postcheck skipped (product_postcheck_skipped: preview_not_running).",
         meta: expect.objectContaining({
           skippedReason: "preview_not_running",
-          // Telemetry still names the missing bind.
-          attestedPreviewSessionId: "unbound",
-          attestedFilesRevision: "rev_n",
+          attestedPreviewSessionId: null,
+          attestedFilesRevision: null,
         }),
       }),
     );
+  });
+
+  it("sessionens previewUrl vinner över klientens på samma tillåtna host", async () => {
+    setF2ProductPostcheck(true);
+    getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    waitForProductPostcheckPreviewRunning.mockResolvedValue({
+      ok: true,
+      probe: {
+        running: true,
+        versionId: "v1",
+        filesRevision: "rev_n",
+        previewSessionId: "ps_n",
+        lifecycleToken: "life_n",
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        readinessState: "ready",
+      },
+    });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 8,
+      checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+    });
+
+    const res = await POST(
+      req({
+        versionId: "v1",
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1/stale",
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const body = await res.json();
+
+    expect(runProductPostcheck).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      }),
+    );
+    expect(body.checkedUrl).toBe("https://vm-fly-jakem.fly.dev/chat_1");
+    expect(body.skipped).toBe(false);
+    expect(body.attestation).toEqual({
+      previewSessionId: "ps_n",
+      lifecycleToken: "life_n",
+      filesRevision: "rev_n",
+    });
   });
 
   it("host configured + wait tills running ⇒ kör postcheck", async () => {

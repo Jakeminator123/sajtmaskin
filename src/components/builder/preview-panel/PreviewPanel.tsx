@@ -33,7 +33,10 @@ import { usePreviewIframe } from "./runtime/usePreviewIframe";
 import { usePreviewRouteBridge } from "./runtime/usePreviewRouteBridge";
 import { usePreviewPanelCodeDrafts } from "./code/usePreviewPanelCodeDrafts";
 import { usePreviewPanelInspectCapture } from "./inspect/usePreviewPanelInspectCapture";
-import { usePreviewPanelInspectMapPlacement } from "./inspect/usePreviewPanelInspectMapPlacement";
+import {
+  isInspectorMapIdentityReady,
+  usePreviewPanelInspectMapPlacement,
+} from "./inspect/usePreviewPanelInspectMapPlacement";
 import {
   usePreviewInspectBridge,
   type BridgePick,
@@ -282,9 +285,16 @@ export function PreviewPanel({
     iframeRef,
   });
   const hasVersionMismatch = Boolean(versionMismatchPayload);
-  const hasHydratedLifecycle =
-    !activePreviewSessionId ||
-    Boolean(chatId && versionId && activePreviewLifecycleToken !== undefined);
+  // Kartan och request-payloaden måste ha samma sanning: `!session` är bara
+  // compat-shim/own-engine. En tier-2-preview utan hydrerad tuple får inte
+  // passera — annars går en tom identitet iväg och routen 400:ar staleIdentity.
+  const hasHydratedLifecycle = isInspectorMapIdentityReady({
+    previewUrl,
+    chatId,
+    versionId,
+    previewSessionId: activePreviewSessionId,
+    lifecycleToken: activePreviewLifecycleToken,
+  });
   const previewIdentityCurrent = Boolean(
     previewUrl && !iframeError && !hasVersionMismatch && hasHydratedLifecycle,
   );

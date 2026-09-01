@@ -3,6 +3,7 @@ import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { buildKnownImageReplacementMap, validateImages } from "@/lib/utils/image-validator";
+import { MAX_SCOPED_IMAGE_URLS } from "@/lib/utils/validate-images-limit";
 import { z } from "zod";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
@@ -17,7 +18,7 @@ export const runtime = "nodejs";
 const requestSchema = z.object({
   versionId: z.string().min(1),
   autoFix: z.boolean().optional().default(true),
-  urls: z.array(z.string().trim().min(1).max(2000)).max(16).optional(),
+  urls: z.array(z.string().trim().min(1).max(2000)).max(MAX_SCOPED_IMAGE_URLS).optional(),
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
@@ -76,9 +77,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
             const replacement = result.files.find((f) => f.name === file.path);
             return replacement ? { ...file, content: replacement.content } : file;
           });
+          // Material mutation: the replacement image is different content
+          // than the verdict (if any) was earned on. Same flag as PUT
+          // `/files` — never leave `passed`/`promoted` describing revision N
+          // after `files_json` advanced to N+1. Gated on `replacedCount > 0`
+          // above, so a no-op scan never resets the row.
           const updated = await updateVersionFiles(
             scopedVersion.version.id,
             JSON.stringify(updatedFiles),
+            { invalidateVerification: true },
           );
           // Bugbot on #507: only report `fixed` when the write actually
           // persisted — a no-op (missing row / degraded guard) must not 200

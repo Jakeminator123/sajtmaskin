@@ -63,37 +63,37 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "90f651aef",
+    "commit": "7decf68ec",
     "commitDate": "2026-09-01",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 3,
-    "openP2": 4,
+    "openP1": 4,
+    "openP2": 5,
     "openP3": 1,
     "blocked": 0,
-    "shaky": 3,
+    "shaky": 4,
     "evalExactHitPct": null
   },
   "processes": [
     {
       "name": "LLM-faser & runtime-sanning",
-      "status": "ongoing",
-      "statusLabel": "Pagar",
-      "tone": "info",
-      "openBugs": 0,
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 1,
       "openByPrio": {
         "P0": 0,
-        "P1": 0,
+        "P1": 1,
         "P2": 0,
         "P3": 0,
         "other": 0
       },
       "churn": 11,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 11 commits / 14d"
+      "note": "1 oppna backlog-rader (P0:0 P1:1 P2:0 P3:0)"
     },
     {
       "name": "Codegen core",
@@ -134,17 +134,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 1,
+      "openBugs": 2,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 0,
+        "P2": 1,
         "P3": 1,
         "other": 0
       },
       "churn": 28,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
-      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
     {
       "name": "Scaffolds: titta & justera",
@@ -185,17 +185,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 4,
+      "openBugs": 6,
       "openByPrio": {
         "P0": 0,
-        "P1": 3,
-        "P2": 1,
+        "P1": 4,
+        "P2": 2,
         "P3": 0,
         "other": 0
       },
       "churn": 9,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "4 oppna backlog-rader (P0:0 P1:3 P2:1 P3:0)"
+      "note": "6 oppna backlog-rader (P0:0 P1:4 P2:2 P3:0)"
     },
     {
       "name": "Eval",
@@ -220,19 +220,25 @@ const DATA: CanvasData = {
       "name": "Preview och versioner",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "4 oppna backlog-rader (P0:0 P1:3 P2:1 P3:0)"
+      "reason": "6 oppna backlog-rader (P0:0 P1:4 P2:2 P3:0)"
     },
     {
       "name": "ai_models",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
     {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+    },
+    {
+      "name": "LLM-faser & runtime-sanning",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "1 oppna backlog-rader (P0:0 P1:1 P2:0 P3:0)"
     }
   ],
   "topOpenRisks": [
@@ -250,6 +256,11 @@ const DATA: CanvasData = {
       "prio": "P1",
       "blocker": false,
       "fynd": "`SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt. REVIDERAD ROTORSAK 2026-09-01: …"
+    },
+    {
+      "prio": "P1",
+      "blocker": false,
+      "fynd": "`SM-075` F2-gaten treatar TS2724 och TS2693 som advisory-safe: `isAdvisorySafeTypecheckOutput` släpper igenom…"
     },
     {
       "prio": "P2",
@@ -270,6 +281,11 @@ const DATA: CanvasData = {
       "prio": "P2",
       "blocker": false,
       "fynd": "`SM-033` Wizardns competitor/enrich-rutter har nått sina 25/30-sekunderstak, men saknar ovillkorlig terminal …"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "`SM-076` Build-error-repair sätter `repairing` men catch anropar inte `failVersionVerification` när `files_js…"
     }
   ],
   "topOpenRisksOmitted": 0,
