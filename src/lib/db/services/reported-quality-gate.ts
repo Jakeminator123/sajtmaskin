@@ -316,12 +316,11 @@ export function applyProductPostcheckLogReadFailureToVersionStatus(
       {
         kind: "product_postcheck_skipped",
         message: formatProductPostcheckSkippedMessage("log_read_error"),
-        // Vår egen läsning brast — det är kontrollkedjan, inte sajten.
-        meta: {
-          skippedReason: "log_read_error",
-          transient: true,
-          [PRODUCT_POSTCHECK_ADVISORY_META_KEY]: true,
-        },
+        // Medvetet INTE advisory. Vid en misslyckad loggläsning vet vi inte vad
+        // loggen innehöll — där kan ha legat ett `product_postcheck_blocked`.
+        // Att visa Publicerad då vore fail-open på precis den signal som ska
+        // stoppa en trasig sajt. Advisory kräver att vi vet att ingen dom finns.
+        meta: { skippedReason: "log_read_error", transient: true },
       },
     ],
   };

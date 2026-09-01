@@ -45,12 +45,10 @@ describe("productPostcheckSkipReasonFromMessage", () => {
 
 describe("classifyProductPostcheckSkipReason — SM-072", () => {
   it("klassar kontrollkedjans egna haverier som infrastruktur", () => {
-    // Exakt de orsaker prod-bursten 2026-09-01 skrev medan sajterna var friska.
     for (const reason of [
       "playwright_unavailable",
-      "runtime_error",
+      "browser_crashed",
       "capture_failed",
-      "log_read_error",
       "feature_disabled",
     ]) {
       expect(classifyProductPostcheckSkipReason(reason), reason).toBe("infrastructure");
@@ -70,6 +68,18 @@ describe("classifyProductPostcheckSkipReason — SM-072", () => {
       expect(classifyProductPostcheckSkipReason(reason), reason).toBe("product");
       expect(isInfrastructureSkipReason(reason), reason).toBe(false);
     }
+  });
+
+  it("runtime_error är catch-all och får aldrig bli advisory", () => {
+    // `productPostcheckSkipReasonFromError` returnerar runtime_error för varje
+    // oidentifierat fel. Ett okänt fel kan vara ett riktigt produktfel som
+    // kastade, så det bevisade browser-dödsfallet har egen orsak i stället.
+    expect(classifyProductPostcheckSkipReason("runtime_error")).toBe("product");
+  });
+
+  it("log_read_error är fail-closed — vi vet inte vad loggen dolde", () => {
+    // En misslyckad loggläsning kan ha dolt ett product_postcheck_blocked.
+    expect(classifyProductPostcheckSkipReason("log_read_error")).toBe("product");
   });
 
   it("faller tillbaka på product för okänt, tomt och null", () => {

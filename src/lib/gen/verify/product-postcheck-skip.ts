@@ -53,13 +53,13 @@ export type ProductPostcheckSkipClass = "infrastructure" | "product";
 const INFRASTRUCTURE_SKIP_REASONS: ReadonlySet<string> = new Set([
   // Chromium gick inte att starta (saknad binär, launch kastade).
   "playwright_unavailable",
-  // Processen dog mitt i — inklusive `Target page, context or browser has been
-  // closed` när `/tmp` tog slut under körningen.
-  "runtime_error",
+  // Chromium startade men processen dog före navigering — `/tmp`-svältfallet.
+  // Egen orsak, inte catch-all-`runtime_error`: den senare returneras även för
+  // varje oidentifierat fel, och ett okänt fel kan mycket väl vara ett riktigt
+  // produktfel som kastade.
+  "browser_crashed",
   // Sidan levde men JPEG-fångsten brast.
   "capture_failed",
-  // Vår egen läsning av error-loggen misslyckades.
-  "log_read_error",
   // Operatören har stängt av postchecken. Inget om sajten.
   "feature_disabled",
 ]);

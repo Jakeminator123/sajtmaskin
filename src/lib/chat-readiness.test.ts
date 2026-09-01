@@ -635,3 +635,34 @@ describe("buildChatReadiness + late client-error projection", () => {
     expect(readiness.warnings).toEqual([]);
   });
 });
+
+describe("advisory-skip tystar inte readiness-kortet — SM-072", () => {
+  const skipLog = (reason: string) => ({
+    category: "product_postcheck.skipped",
+    message: "F2 Product Postcheck skipped.",
+    meta: { skippedReason: reason },
+    created_at: "2026-09-01T01:16:24Z",
+  });
+
+  it("infrastruktur-skip ger fortfarande en varning", () => {
+    // Utan den här grenen foll projektionen till tomt nar Chromium dog, och
+    // anvandaren hade da trott att sajten var fullt kontrollerad.
+    const projection = projectProductPostcheckReadiness([skipLog("browser_crashed")]);
+    expect(projection.warnings).toHaveLength(1);
+    expect(projection.warnings[0]?.id).toBe("product-postcheck-skipped");
+    expect(projection.warnings[0]?.severity).toBe("warning");
+    expect(projection.blockers).toEqual([]);
+    expect(projection.blocksF3).toBe(false);
+  });
+
+  it("produktbarande skip varnar som forut", () => {
+    const projection = projectProductPostcheckReadiness([skipLog("preview_not_running")]);
+    expect(projection.warnings).toHaveLength(1);
+    expect(projection.warnings[0]?.detail).toContain("preview_not_running");
+  });
+
+  it("catch-all runtime_error varnar ocksa", () => {
+    const projection = projectProductPostcheckReadiness([skipLog("runtime_error")]);
+    expect(projection.warnings).toHaveLength(1);
+  });
+});

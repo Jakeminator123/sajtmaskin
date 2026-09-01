@@ -253,12 +253,22 @@ describe("productPostcheckSkipReasonFromError", () => {
     ).toBe("playwright_unavailable");
   });
 
-  it("klassificerar browser.newPage Target closed efter lyckad launch som runtime_error", () => {
+  it("klassificerar browser.newPage Target closed efter lyckad launch som browser_crashed", () => {
+    // Egen orsak sedan SM-072: det här är det bevisade /tmp-svältfallet och
+    // enda post-launch-döden vi kan kalla infrastruktur. Catch-all-
+    // `runtime_error` får inte dela etikett med den.
     expect(
       productPostcheckSkipReasonFromError(
         new Error("browser.newPage: Target page, context or browser has been closed"),
       ),
-    ).toBe("runtime_error");
+    ).toBe("browser_crashed");
+  });
+
+  it("okänt fel förblir catch-all runtime_error", () => {
+    expect(productPostcheckSkipReasonFromError(new Error("something unexpected"))).toBe(
+      "runtime_error",
+    );
+    expect(productPostcheckSkipReasonFromError("not an error")).toBe("runtime_error");
   });
 });
 

@@ -282,8 +282,8 @@ describe("shouldShowVerifiedBadge (B09 false-green guard)", () => {
 describe("advisory-yta för infrastruktur-skip — SM-072", () => {
   const infraSkip = {
     kind: "product_postcheck_skipped" as const,
-    message: "F2 Product Postcheck skipped (product_postcheck_skipped: runtime_error).",
-    meta: { skippedReason: "runtime_error", infrastructureSkip: true },
+    message: "F2 Product Postcheck skipped (product_postcheck_skipped: browser_crashed).",
+    meta: { skippedReason: "browser_crashed", infrastructureSkip: true },
   };
 
   it("behåller Publicerad-etiketten men säger att kontrollen inte kunde köras", () => {
@@ -298,7 +298,7 @@ describe("advisory-yta för infrastruktur-skip — SM-072", () => {
   });
 
   it("plockar ut advisory-orsaken men inte den produktbärande", () => {
-    expect(productPostcheckAdvisoryReasonFromDegradations([infraSkip])).toBe("runtime_error");
+    expect(productPostcheckAdvisoryReasonFromDegradations([infraSkip])).toBe("browser_crashed");
     expect(
       productPostcheckAdvisoryReasonFromDegradations([
         {

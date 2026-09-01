@@ -294,7 +294,11 @@ export function projectProductPostcheckReadiness(
   const report = resolveProductPostcheckReportState(logs);
   const newestSummary = pickNewestSummary(logs);
   if (!newestSummary) {
-    if (report.kind === "degraded") {
+    // `advisory` räknas med: den betyder fortfarande att ingen produktdom
+    // finns, bara att orsaken låg i kontrollkedjan. Utan den här grenen tystnar
+    // readiness-kortet helt när Chromium dog — användaren skulle då tro att
+    // sajten var fullt kontrollerad.
+    if (report.kind === "degraded" || report.kind === "advisory") {
       return {
         warnings: [skippedPostcheckWarning(report.skipped)],
         blockers: [],

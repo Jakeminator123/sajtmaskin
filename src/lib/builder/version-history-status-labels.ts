@@ -66,7 +66,9 @@ const PRODUCT_POSTCHECK_SKIP_REASON_SV: Record<string, string> = {
   navigation_failed: "previewn gick inte att öppna",
   playwright_unavailable: "webbläsaren för kontrollen saknades",
   timeout: "kontrollen tidsgränsades",
+  browser_crashed: "kontrollens webbläsare dog innan sidan hann läsas",
   runtime_error: "kontrollen kraschade",
+  log_read_error: "kontrollens logg gick inte att läsa",
   feature_disabled: "produkt-postcheck är avstängd",
 };
 

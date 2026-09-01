@@ -366,10 +366,14 @@ describe("infrastruktur-skip blir advisory, inte degraded — SM-072", () => {
   it("rapporterar advisory när Chromium dog av /tmp-svält", () => {
     // Prod 2026-09-01 01:16:24Z: `Target page, context or browser has been
     // closed` med 8 MB fritt i /tmp, på en version som passerade allt annat.
-    expect(resolveProductPostcheckReportState([skipLog("runtime_error")]).kind).toBe("advisory");
+    expect(resolveProductPostcheckReportState([skipLog("browser_crashed")]).kind).toBe("advisory");
     expect(resolveProductPostcheckReportState([skipLog("playwright_unavailable")]).kind).toBe(
       "advisory",
     );
+  });
+
+  it("degraderar på catch-all runtime_error", () => {
+    expect(resolveProductPostcheckReportState([skipLog("runtime_error")]).kind).toBe("degraded");
   });
 
   it("håller kvar degraded när skipen säger något om produkten", () => {
@@ -398,13 +402,13 @@ describe("infrastruktur-skip blir advisory, inte degraded — SM-072", () => {
 
   it("behåller noteringen för diagnostiken men märker den infrastructureSkip", () => {
     const status = applyProductPostcheckReportToVersionStatus(baseStatus, [
-      skipLog("runtime_error"),
+      skipLog("browser_crashed"),
     ]);
     expect(status.degradations).toEqual([
       expect.objectContaining({
         kind: "product_postcheck_skipped",
         meta: expect.objectContaining({
-          skippedReason: "runtime_error",
+          skippedReason: "browser_crashed",
           infrastructureSkip: true,
         }),
       }),
@@ -418,17 +422,20 @@ describe("infrastruktur-skip blir advisory, inte degraded — SM-072", () => {
     expect(status.degradations[0]?.meta).not.toHaveProperty("infrastructureSkip");
   });
 
-  it("märker en misslyckad loggläsning som infrastruktur", () => {
+  it("en misslyckad loggläsning degraderar — aldrig advisory", () => {
+    // Fail-closed: loggen kan ha burit ett product_postcheck_blocked som vi
+    // aldrig fick se. Att visa Publicerad då vore false-green.
     const status = applyProductPostcheckLogReadFailureToVersionStatus(baseStatus);
     expect(status.degradations[0]?.meta).toEqual(
-      expect.objectContaining({ skippedReason: "log_read_error", infrastructureSkip: true }),
+      expect.objectContaining({ skippedReason: "log_read_error", transient: true }),
     );
+    expect(status.degradations[0]?.meta).not.toHaveProperty("infrastructureSkip");
   });
 
   it("en blockerande summary vinner fortfarande över allt", () => {
     const state = resolveProductPostcheckReportState([
       { category: "product_postcheck.summary", meta: { productBlocked: true }, created_at: "2026-09-01T01:00:00Z" },
-      skipLog("runtime_error"),
+      skipLog("browser_crashed"),
     ]);
     expect(state.kind).toBe("blocked");
   });

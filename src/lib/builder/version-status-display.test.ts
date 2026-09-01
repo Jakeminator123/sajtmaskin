@@ -312,8 +312,8 @@ describe("repair pass progress", () => {
 describe("infrastruktur-skip drar inte ner lifecycle-token — SM-072", () => {
   const infraSkip = {
     kind: "product_postcheck_skipped" as const,
-    message: "F2 Product Postcheck skipped (product_postcheck_skipped: runtime_error).",
-    meta: { skippedReason: "runtime_error", infrastructureSkip: true },
+    message: "F2 Product Postcheck skipped (product_postcheck_skipped: browser_crashed).",
+    meta: { skippedReason: "browser_crashed", infrastructureSkip: true },
   };
   const productSkip = {
     kind: "product_postcheck_skipped" as const,
