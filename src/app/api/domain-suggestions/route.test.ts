@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
+const generateText = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/auth", () => ({
   getCurrentUser,
@@ -10,29 +12,32 @@ vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 
+vi.mock("ai", () => ({
+  generateText,
+}));
+
+vi.mock("@/lib/builder/direct-model", () => ({
+  createDirectModel: vi.fn(),
+}));
+
 const { POST } = await import("./route");
 
-describe("POST /api/inspector-ai-match", () => {
+describe("POST /api/domain-suggestions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getCurrentUser.mockResolvedValue(null);
   });
 
-  it("requires a logged-in user before AI matching", async () => {
-    const res = await POST(new Request("http://localhost/api/inspector-ai-match", { method: "POST" }));
-
-    expect(res.status).toBe(401);
-  });
-
-  it("rejects a spoofed x-session-id without a user", async () => {
+  it("requires login before spending an LLM call", async () => {
     const res = await POST(
-      new Request("http://localhost/api/inspector-ai-match", {
+      new NextRequest("http://localhost/api/domain-suggestions", {
         method: "POST",
-        headers: { "x-session-id": "anything" },
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName: "Acme" }),
       }),
     );
 
     expect(res.status).toBe(401);
-    expect(getCurrentUser).toHaveBeenCalled();
+    expect(generateText).not.toHaveBeenCalled();
   });
 });

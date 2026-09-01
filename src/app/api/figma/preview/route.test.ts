@@ -2,10 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const config = vi.hoisted(() => ({ useFigmaApi: true }));
+const getCurrentUser = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/config", () => ({
   FEATURES: config,
   SECRETS: { figmaAccessToken: "figma-token" },
+}));
+
+vi.mock("@/lib/auth/auth", () => ({
+  getCurrentUser,
 }));
 
 vi.mock("@/lib/bot-protection", () => ({
@@ -56,6 +61,19 @@ describe("POST /api/figma/preview", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     config.useFigmaApi = true;
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+  });
+
+  it("rejects anonymous callers before contacting Figma", async () => {
+    getCurrentUser.mockResolvedValueOnce(null);
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    const response = await POST(
+      makeRequest({ url: "https://www.figma.com/design/file-key/name?node-id=1-2" }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects missing and invalid Figma URLs before calling Figma", async () => {
