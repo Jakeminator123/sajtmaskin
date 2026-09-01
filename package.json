@@ -244,7 +244,7 @@
     "recharts": "^2.15.4",
     "resend": "^6.18.1",
     "sonner": "^2.0.8",
-    "streamdown": "^2.4.0",
+    "streamdown": "^2.6.0",
     "stripe": "^20.4.1",
     "swr": "^2.5.1",
     "tailwind-merge": "^3.6.0",
