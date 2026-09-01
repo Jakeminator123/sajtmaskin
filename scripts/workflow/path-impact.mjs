@@ -14,12 +14,7 @@ export const PATH_GROUP_FLOORS = Object.freeze({
   // tsconfig `exclude` just för att den innehåller kod. Båda skulle då slippa
   // unknown-path-skyddet längre ner. `docs/**` täcker redan alla filtyper
   // under `docs/`; nya dokumentationsträd läggs till uttryckligen här.
-  docs: Object.freeze([
-    "**/*.md",
-    "**/*.mdx",
-    "docs/**",
-    "övrigt/OPENCLAW-BUILDER/**",
-  ]),
+  docs: Object.freeze(["**/*.md", "**/*.mdx", "docs/**", "övrigt/OPENCLAW-BUILDER/**"]),
   controlPlane: Object.freeze([
     "docs/schemas/**",
     "config/control-plane/**",
@@ -30,6 +25,8 @@ export const PATH_GROUP_FLOORS = Object.freeze({
     ".agents/**",
     ".codex/**",
     ".cursor/**",
+    ".cursorignore",
+    ".cursorindexingignore",
     "config/agent-workflow.json",
     "scripts/dev/check-agent-context-budget.mjs",
     "scripts/workflow/**",
@@ -241,6 +238,9 @@ export function collectImpact({
   if (backofficePages.length > 0) {
     for (const command of policy.verificationProfiles.backoffice) commands.add(command);
   }
+  if (forceFull) {
+    for (const command of policy.verificationProfiles.runtime) commands.add(command);
+  }
   if (forceFull || protectedFiles.length > 0) {
     for (const command of policy.verificationProfiles.full) commands.add(command);
   }
@@ -264,11 +264,12 @@ export function collectImpact({
   );
   const unclassifiedFiles = files.filter((file) => !classifiedFiles.has(file));
 
-  // Unknown paths and runtime files without a declared owner fail safe into
-  // both the broad runtime checks and the supplemental full profile. This is
-  // deliberately expensive: adding a new repo area must never produce a green
-  // plan that only ran the workflow self-check.
-  if (unmappedRuntimeFiles.length > 0 || unclassifiedFiles.length > 0) {
+  // Only genuinely unclassified paths fail safe into the supplemental full
+  // profile. `authorities` and Backoffice's domain map are curated contract
+  // registries, not a complete CODEOWNERS map, so an ordinary runtime file can
+  // legitimately be absent from `ownedFiles`. The code-owned runtime floor has
+  // already selected typecheck, tests and lint for those files.
+  if (unclassifiedFiles.length > 0) {
     for (const command of policy.verificationProfiles.runtime) commands.add(command);
     for (const command of policy.verificationProfiles.full) commands.add(command);
   }

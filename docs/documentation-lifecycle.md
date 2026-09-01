@@ -156,7 +156,8 @@ Arbeta nedifrån och upp i samma PR:
 4. Uppdatera en mental modell bara när den stabila modellen ändras.
 5. Ersätt stale text i stället för att lägga till en parallell sanning.
 6. Uppdatera router, länkar, Backoffice-karta och planstatus i samma PR.
-7. Kör `npm run verify:pr`; drift ska bli ett rött fel, inte en minnesregel.
+7. Kör relevanta riktade kontroller från planen; required GitHub-checks ska göra
+   kvarvarande drift röd på aktuell head-SHA, inte lämna den som en minnesregel.
 
 Äldre borttaget arkitekturmaterial återfinns med `git log` och `git show`; skapa
 inte en ny aktiv kopia för att bevara historik.

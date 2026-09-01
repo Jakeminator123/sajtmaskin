@@ -56,6 +56,76 @@ describe("assert-git-checkout-unchanged", () => {
     }
   });
 
+  it("ignores a branch advance in a sibling worktree", () => {
+    const cwd = seedRepo();
+    const sibling = `${cwd}-sibling`;
+    try {
+      git(cwd, ["worktree", "add", "-b", "sibling", sibling]);
+      const before = snapshotCheckout(cwd);
+      git(sibling, ["commit", "--allow-empty", "-m", "sibling advance"]);
+      expect(describeCheckoutDrift(before, snapshotCheckout(cwd))).toEqual([]);
+    } finally {
+      rmSync(sibling, { recursive: true, force: true });
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("still detects HEAD drift while a sibling worktree is registered", () => {
+    const cwd = seedRepo();
+    const sibling = `${cwd}-sibling`;
+    try {
+      git(cwd, ["worktree", "add", "-b", "sibling", sibling]);
+      const before = snapshotCheckout(cwd);
+      writeFileSync(join(cwd, "README.md"), "two\n");
+      git(cwd, ["add", "README.md"]);
+      git(cwd, ["commit", "-m", "source advance"]);
+      const drift = describeCheckoutDrift(before, snapshotCheckout(cwd));
+      expect(drift.some((line) => line.startsWith("HEAD"))).toBe(true);
+    } finally {
+      rmSync(sibling, { recursive: true, force: true });
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("still detects a tag leak while a sibling worktree is registered", () => {
+    const cwd = seedRepo();
+    const sibling = `${cwd}-sibling`;
+    try {
+      git(cwd, ["worktree", "add", "-b", "sibling", sibling]);
+      const before = snapshotCheckout(cwd);
+      git(cwd, ["tag", "test-leak"]);
+      expect(describeCheckoutDrift(before, snapshotCheckout(cwd))).toContain("heads/tags ändrades");
+    } finally {
+      rmSync(sibling, { recursive: true, force: true });
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("still detects an unowned branch leak while a sibling worktree is registered", () => {
+    const cwd = seedRepo();
+    const sibling = `${cwd}-sibling`;
+    try {
+      git(cwd, ["worktree", "add", "-b", "sibling", sibling]);
+      const before = snapshotCheckout(cwd);
+      git(cwd, ["branch", "test-leak"]);
+      expect(describeCheckoutDrift(before, snapshotCheckout(cwd))).toContain("heads/tags ändrades");
+    } finally {
+      rmSync(sibling, { recursive: true, force: true });
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("detects a tag leak when refs are exclusive", () => {
+    const cwd = seedRepo();
+    try {
+      const before = snapshotCheckout(cwd);
+      git(cwd, ["tag", "test-leak"]);
+      expect(describeCheckoutDrift(before, snapshotCheckout(cwd))).toContain("heads/tags ändrades");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("exits nonzero when a wrapped command rewrites HEAD", () => {
     const cwd = seedRepo();
     try {
