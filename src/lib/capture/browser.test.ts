@@ -315,7 +315,7 @@ describe("launchCaptureBrowser", () => {
     });
     // Default-mocken ger ~1 MB fritt = tryck.
     const tmp = createSweepTmp();
-    const midAgedDir = makeDir(tmp, `${PLAYWRIGHT_PROFILE_PREFIX}mid`, 5 * 60 * 1000);
+    const midAgedDir = makeDir(tmp, `${PLAYWRIGHT_PROFILE_PREFIX}mid`, 6 * 60 * 1000);
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { launchCaptureBrowser } = await import("./browser");
 
@@ -329,20 +329,50 @@ describe("launchCaptureBrowser", () => {
     warnSpy.mockRestore();
   });
 
-  it("behåller en profil som fortfarande skrivs i, även under tryck", async () => {
-    // Chromium skriver i undermappar; profilkatalogens EGEN mtime slutar ticka
-    // strax efter start. Bedömdes åldern på den ensam kunde trycksvepet radera
-    // user-data-dir under en levande postcheck i en annan process på instansen
-    // och återskapa SM-072:s `Target page, context or browser has been closed`.
+  it("behåller en profil yngre än postcheckens maxDuration även under tryck", async () => {
+    // Tryckgränsen är 2 min, men en postcheck får leva 300 s. En 4 minuter
+    // gammal profil kan fortfarande vara den crawl som fyller /tmp — radera
+    // den inte bara för att nested mtimes också är 4 min.
     process.env.VERCEL = "1";
     sparticuzLaunch.mockResolvedValue({
       id: "serverless",
       close: async () => undefined,
     });
     const tmp = createSweepTmp();
-    const liveDir = makeDir(tmp, `${PLAYWRIGHT_PROFILE_PREFIX}live`, 5 * 60 * 1000);
-    // Katalogen ser gammal ut, men Chromium skrev nyss i den.
-    fs.writeFileSync(path.join(liveDir, "SingletonLock"), "host-4711");
+    const youngDir = makeDir(tmp, `${PLAYWRIGHT_PROFILE_PREFIX}young`, 4 * 60 * 1000);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(fs.existsSync(youngDir)).toBe(true);
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringMatching(/pruned \d+ leaked Playwright profile dir/),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("behåller en profil som skrivs två nivåer ner, även under tryck", async () => {
+    // Chromium skriver i Default/Cache/**; varken profilroten eller Default/
+    // tickar då. En toppnivå-lstat (eller SingletonLock i roten) bevisar inte
+    // det fallet. Nested färsk fil + åldrad rot/Default är den riktiga formen.
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    const tmp = createSweepTmp();
+    const staleMs = 6 * 60 * 1000;
+    const liveDir = makeDir(tmp, `${PLAYWRIGHT_PROFILE_PREFIX}live`, staleMs);
+    const defaultDir = path.join(liveDir, "Default");
+    const cacheDir = path.join(defaultDir, "Cache");
+    fs.mkdirSync(cacheDir, { recursive: true });
+    const when = new Date(Date.now() - staleMs);
+    fs.utimesSync(cacheDir, when, when);
+    fs.utimesSync(defaultDir, when, when);
+    fs.utimesSync(liveDir, when, when);
+    fs.writeFileSync(path.join(cacheDir, "data"), "chromium-cache");
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { launchCaptureBrowser } = await import("./browser");
 
