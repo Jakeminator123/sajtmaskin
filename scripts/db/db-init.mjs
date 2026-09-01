@@ -245,6 +245,7 @@ const setupQueries = [
     description TEXT,
     stripe_payment_intent TEXT,
     stripe_session_id TEXT,
+    idempotency_key TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
   `CREATE TABLE IF NOT EXISTS guest_usage (

@@ -29,11 +29,17 @@ vi.mock("@/lib/utils/debug", () => ({ debugLog, errorLog }));
 
 const { POST } = await import("./route");
 
+const WIZARD_RUN_ID = "11111111-1111-4111-8111-111111111111";
+
 function makeRequest(body: unknown): Request {
+  const payload = {
+    wizardRunId: WIZARD_RUN_ID,
+    ...(body as Record<string, unknown>),
+  };
   return new Request("http://localhost/api/wizard/enrich", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -145,6 +151,10 @@ describe("POST /api/wizard/enrich", () => {
         model: "model",
         prompt: expect.stringContaining('Befintlig sajt: "Befintlig sajt"'),
       }),
+    );
+    expect(prepareCredits).toHaveBeenCalledWith(
+      expect.any(Request), "wizard.enrich", {},
+      { idempotencyKey: `wizard:${WIZARD_RUN_ID}` },
     );
     expect(commit).toHaveBeenCalledTimes(1);
   });

@@ -22,6 +22,7 @@ export const runtime = "nodejs";
 export const maxDuration = 25;
 
 const requestSchema = z.object({
+  wizardRunId: z.string().uuid(),
   companyName: z.string().min(1).max(300),
   industry: z.string().min(1).max(200),
   location: z.string().max(300).optional().default(""),
@@ -117,10 +118,15 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Validation failed", ...EMPTY }, { status: 400 });
       }
 
-      const { companyName, industry, location, existingWebsite } = parsed.data;
+      const { companyName, industry, location, existingWebsite, wizardRunId } = parsed.data;
       debugLog("WIZARD", "Competitors request", { companyName, industry, location });
 
-      const creditCheck = await prepareCredits(req, "wizard.enrich");
+      const creditCheck = await prepareCredits(
+        req,
+        "wizard.enrich",
+        {},
+        { idempotencyKey: `wizard:${wizardRunId}` },
+      );
       if (!creditCheck.ok) return creditCheck.response;
 
       if (!FEATURES.useResponsesApi) {

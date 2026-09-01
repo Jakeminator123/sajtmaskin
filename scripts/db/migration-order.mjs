@@ -38,6 +38,9 @@ export const MIGRATION_ORDER = [
   "add-engine-versions-chat-version-unique.sql",
   "add-engine-version-jobs.sql",
   "add-transactions-stripe-session-unique.sql",
+  // B1: one durable credit entitlement per wizard run, shared by lookup,
+  // competitors and every enrich/prefetch request.
+  "add-transactions-idempotency-key.sql",
   "rename-engine-version-preview-url.sql",
   "add-cascade-engine-chats-project.sql",
   "add-cascade-to-engine-fks.sql",

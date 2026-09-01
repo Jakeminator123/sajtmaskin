@@ -37,6 +37,7 @@ const MAX_FOLLOWUP_QUESTIONS = 4;
 const MAX_SUGGESTIONS = 4;
 
 const enrichRequestSchema = z.object({
+  wizardRunId: z.string().uuid(),
   mode: z.enum(["step", "final_check"]).optional().default("step"),
   step: z.number().int().min(1).max(5),
   data: z.object({
@@ -294,12 +295,17 @@ export async function POST(req: Request) {
         );
       }
 
-      const { mode, step, data, scrapeUrl } = parsed.data;
+      const { mode, step, data, scrapeUrl, wizardRunId } = parsed.data;
 
       debugLog("WIZARD", "Enrich request", { mode, step, industry: data.industry, scrapeUrl });
 
       // Check credits (wizard enrich costs 11 credits)
-      const creditCheck = await prepareCredits(req, "wizard.enrich");
+      const creditCheck = await prepareCredits(
+        req,
+        "wizard.enrich",
+        {},
+        { idempotencyKey: `wizard:${wizardRunId}` },
+      );
       if (!creditCheck.ok) {
         return creditCheck.response;
       }

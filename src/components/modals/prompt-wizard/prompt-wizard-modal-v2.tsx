@@ -56,6 +56,8 @@ import { StepReview } from "@/components/modals/prompt-wizard/steps/step-review"
  * hooks, step views, prompt builder) -- no behavior change intended.
  */
 
+const WIZARD_RUN_STORAGE_KEY = "sajtmaskin:prompt-wizard-run-id";
+
 // ── Main Component ────────────────────────────────────────────────
 
 export function PromptWizardModalV2({
@@ -69,6 +71,21 @@ export function PromptWizardModalV2({
 }: PromptWizardModalProps) {
   const { isAuthenticated, isInitialized } = useAuth();
   const [step, setStep] = useState<number>(1);
+  const [wizardRunId, setWizardRunId] = useState("");
+
+  // One durable run id owns the 11-credit entitlement across every automatic
+  // lookup, competitor and enrich request. Keep it through close/reload while
+  // the wizard draft exists; completion starts the next wizard with a new id.
+  useEffect(() => {
+    if (!isOpen || wizardRunId) return;
+    const stored = window.localStorage.getItem(WIZARD_RUN_STORAGE_KEY);
+    const nextId =
+      stored && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(stored)
+        ? stored
+        : window.crypto.randomUUID();
+    window.localStorage.setItem(WIZARD_RUN_STORAGE_KEY, nextId);
+    setWizardRunId(nextId);
+  }, [isOpen, wizardRunId]);
 
   // Loading states
   const [isExpanding, setIsExpanding] = useState(false);
@@ -134,6 +151,7 @@ export function PromptWizardModalV2({
       isOpen,
       isAuthenticated,
       isInitialized,
+      wizardRunId,
       companyName,
       industry,
       location,
@@ -195,6 +213,7 @@ export function PromptWizardModalV2({
     isOpen,
     isAuthenticated,
     isInitialized,
+    wizardRunId,
     step,
     companyName,
     industry,
@@ -551,6 +570,8 @@ export function PromptWizardModalV2({
     };
 
     clearDraft();
+    window.localStorage.removeItem(WIZARD_RUN_STORAGE_KEY);
+    setWizardRunId("");
     onComplete(wizardData, finalPrompt);
   }, [
     clearDraft,
@@ -575,6 +596,7 @@ export function PromptWizardModalV2({
     editedPrompt,
     generatedPrompt,
     setError,
+    setWizardRunId,
     onComplete,
   ]);
 

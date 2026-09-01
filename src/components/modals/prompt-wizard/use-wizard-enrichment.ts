@@ -30,6 +30,7 @@ export function useWizardEnrichment({
   isOpen,
   isAuthenticated,
   isInitialized,
+  wizardRunId,
   step,
   companyName,
   industry,
@@ -48,6 +49,7 @@ export function useWizardEnrichment({
   isOpen: boolean;
   isAuthenticated: boolean;
   isInitialized: boolean;
+  wizardRunId: string;
   step: number;
   companyName: string;
   industry: string;
@@ -153,7 +155,7 @@ export function useWizardEnrichment({
       const scrapeUrl = options.scrapeUrl;
       const contextHash = buildEnrichContextHash(currentStep, mode, scrapeUrl);
       // Wizard enrich requires auth (credits action). Skip calls for guests.
-      if (!isInitialized || !isAuthenticated) return null;
+      if (!isInitialized || !isAuthenticated || !wizardRunId) return null;
 
       if (!options.force) {
         const cached = enrichCacheRef.current.get(contextHash);
@@ -181,6 +183,7 @@ export function useWizardEnrichment({
           headers: { "Content-Type": "application/json" },
           signal: controller.signal,
           body: JSON.stringify({
+            wizardRunId,
             mode,
             step: currentStep,
             data: {
@@ -244,7 +247,7 @@ export function useWizardEnrichment({
         setIsEnriching(false);
       }
     },
-    [applyEnrichmentToActiveStep, buildEnrichContextHash, isAuthenticated, isInitialized, companyLookup, competitors],
+    [applyEnrichmentToActiveStep, buildEnrichContextHash, isAuthenticated, isInitialized, wizardRunId, companyLookup, competitors],
   );
 
   // ── Scrape website: quick-scrape first, then AI analysis with real content ──

@@ -13,6 +13,7 @@ export function useCompanyIntelligence({
   isOpen,
   isAuthenticated,
   isInitialized,
+  wizardRunId,
   companyName,
   industry,
   location,
@@ -24,6 +25,7 @@ export function useCompanyIntelligence({
   isOpen: boolean;
   isAuthenticated: boolean;
   isInitialized: boolean;
+  wizardRunId: string;
   companyName: string;
   industry: string;
   location: string;
@@ -42,7 +44,7 @@ export function useCompanyIntelligence({
 
   // ── V3: Auto company lookup from companyName ──────────────────
   useEffect(() => {
-    if (!isOpen || !isAuthenticated || !isInitialized) return;
+    if (!isOpen || !isAuthenticated || !isInitialized || !wizardRunId) return;
     const name = companyName.trim();
     if (name.length < 3 || companyLookupRef.current === name) return;
     const controller = new AbortController();
@@ -54,7 +56,7 @@ export function useCompanyIntelligence({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({ companyName: name }),
+        body: JSON.stringify({ wizardRunId, companyName: name }),
       })
         .then((r) => r.json())
         .then((data: CompanyLookupResult) => {
@@ -64,7 +66,7 @@ export function useCompanyIntelligence({
         .finally(() => setIsLookingUp(false));
     }, 1200);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [companyName, isOpen, isAuthenticated, isInitialized]);
+  }, [companyName, isOpen, isAuthenticated, isInitialized, wizardRunId]);
 
   // Auto-fill location from company lookup (only if user hasn't set one)
   useEffect(() => {
@@ -74,7 +76,7 @@ export function useCompanyIntelligence({
 
   // ── V3: Auto competitor discovery ─────────────────────────────
   useEffect(() => {
-    if (!isOpen || !isAuthenticated || !isInitialized) return;
+    if (!isOpen || !isAuthenticated || !isInitialized || !wizardRunId) return;
     if (!companyName.trim() || !industry) return;
     const key = `${companyName.trim()}|${industry}|${location.trim()}|${locationLat?.toFixed(5) ?? ""}|${locationLng?.toFixed(5) ?? ""}`;
     if (competitorsRef.current === key) return;
@@ -88,6 +90,7 @@ export function useCompanyIntelligence({
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
+          wizardRunId,
           companyName: companyName.trim(),
           industry,
           location: location.trim(),
@@ -105,7 +108,7 @@ export function useCompanyIntelligence({
         .finally(() => setIsLoadingCompetitors(false));
     }, 1500);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [companyName, industry, location, locationLat, locationLng, existingWebsite, isOpen, isAuthenticated, isInitialized]);
+  }, [companyName, industry, location, locationLat, locationLng, existingWebsite, isOpen, isAuthenticated, isInitialized, wizardRunId]);
 
   return { companyLookup, isLookingUp, competitors, marketInsight, isLoadingCompetitors };
 }

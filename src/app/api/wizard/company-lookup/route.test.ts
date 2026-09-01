@@ -16,11 +16,17 @@ vi.mock("@/lib/brave-search", () => ({ braveWebSearch }));
 
 const { POST } = await import("./route");
 
+const WIZARD_RUN_ID = "11111111-1111-4111-8111-111111111111";
+
 function makeRequest(body: unknown): Request {
+  const payload = {
+    wizardRunId: WIZARD_RUN_ID,
+    ...(body as Record<string, unknown>),
+  };
   return new Request("http://localhost/api/wizard/company-lookup", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -111,6 +117,10 @@ describe("POST /api/wizard/company-lookup", () => {
       employees: 7,
       source: "allabolag",
     });
+    expect(prepareCredits).toHaveBeenCalledWith(
+      expect.any(Request), "wizard.enrich", {},
+      { idempotencyKey: `wizard:${WIZARD_RUN_ID}` },
+    );
     expect(commit).toHaveBeenCalledTimes(1);
     expect(braveWebSearch).not.toHaveBeenCalled();
   });

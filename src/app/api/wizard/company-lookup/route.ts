@@ -23,6 +23,7 @@ export const maxDuration = 25;
 const ALLABOLAG_BASE = "https://www.allabolag.se";
 
 const requestSchema = z.object({
+  wizardRunId: z.string().uuid(),
   companyName: z.string().min(1).max(300),
   orgNr: z.string().max(20).optional(),
 });
@@ -190,10 +191,15 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Validation failed", ...EMPTY_RESULT }, { status: 400 });
       }
 
-      const { companyName } = parsed.data;
+      const { companyName, wizardRunId } = parsed.data;
       debugLog("WIZARD", "Company lookup", { companyName });
 
-      const creditCheck = await prepareCredits(req, "wizard.enrich");
+      const creditCheck = await prepareCredits(
+        req,
+        "wizard.enrich",
+        {},
+        { idempotencyKey: `wizard:${wizardRunId}` },
+      );
       if (!creditCheck.ok) return creditCheck.response;
 
       let result: CompanyLookupResult = EMPTY_RESULT;

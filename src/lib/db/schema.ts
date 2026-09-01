@@ -395,6 +395,8 @@ export const transactions = pgTable(
     description: text("description"),
     stripe_payment_intent: text("stripe_payment_intent"),
     stripe_session_id: text("stripe_session_id"),
+    /** Stable entitlement key for retry/concurrency-safe fixed charges. */
+    idempotency_key: text("idempotency_key"),
     created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -402,6 +404,9 @@ export const transactions = pgTable(
     // ever produce one transaction row, so a duplicate webhook delivery
     // surfaces as a unique-violation we can swallow.
     stripeSessionIdx: uniqueIndex("transactions_stripe_session_idx").on(table.stripe_session_id),
+    idempotencyIdx: uniqueIndex("transactions_user_type_idempotency_idx")
+      .on(table.user_id, table.type, table.idempotency_key)
+      .where(sql`${table.idempotency_key} is not null`),
     userIdx: index("idx_transactions_user_id").on(table.user_id),
     userCreatedIdx: index("idx_transactions_user_created").on(table.user_id, table.created_at),
   }),
