@@ -71,3 +71,36 @@ describe("PreviewPanelChrome sidflik-rad", () => {
     expect(container.querySelector(ROUTE_BAR_SELECTOR)).toBeNull();
   });
 });
+
+describe("PreviewPanelChrome sanningsrad vid iframe-fel", () => {
+  it("kallar preview_ready_timeout misstanke (warning), aldrig 'trasig'", () => {
+    // Prod 2026-09-01 (chat c2371f9c): "Preview-iframe är trasig" låg över en
+    // fullt fungerande sajt medan den icke-blockerande bannern på samma flagga
+    // kallade läget misstanke. Samma diagnostikkod ska ge samma sanningsanspråk.
+    const { queryByText, getByText } = render(
+      <PreviewPanelChrome
+        {...BASE_PROPS}
+        iframeError
+        iframeErrorMessage="Previewn laddade inte klart innan timeout."
+        iframeDiagnosticCode="preview_ready_timeout"
+      />,
+    );
+
+    expect(queryByText("Preview-iframe är trasig")).toBeNull();
+    const title = getByText("Previewn laddade inte klart innan timeout");
+    expect(title.className).toContain("text-amber-100");
+  });
+
+  it("behåller fel-anspråket för andra iframe-fel", () => {
+    const { getByText } = render(
+      <PreviewPanelChrome
+        {...BASE_PROPS}
+        iframeError
+        iframeErrorMessage="Preview iframe document could not be read."
+        iframeDiagnosticCode="preview_document_unavailable"
+      />,
+    );
+
+    expect(getByText("Preview-iframe är trasig")).toBeTruthy();
+  });
+});

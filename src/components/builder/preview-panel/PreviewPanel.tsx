@@ -110,6 +110,7 @@ export function PreviewPanel({
   activeVersionRepairPassIndex = 0,
   versionMismatchPayload = null,
   onPreviewSessionSuspect,
+  onPreviewSessionRotated,
   onForcePreviewResync,
   placementMode = false,
   pendingPlacementItem = null,
@@ -276,6 +277,7 @@ export function PreviewPanel({
     activePreviewLifecycleToken,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
+    onPreviewSessionRotated,
     reportOwnEngineRenderFailure,
     iframeRef,
   });
