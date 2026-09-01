@@ -15,6 +15,10 @@ const deleteLiveReviewScreenshotUrls = vi.hoisted(() => vi.fn());
 const getPreviewHostBaseUrl = vi.hoisted(() => vi.fn((): string | null => null));
 const waitForProductPostcheckPreviewRunning = vi.hoisted(() => vi.fn());
 const readProductPostcheckPreviewProbe = vi.hoisted(() => vi.fn());
+const claimProductPostcheckRun = vi.hoisted(() => vi.fn());
+const waitForProductPostcheckRun = vi.hoisted(() => vi.fn());
+const completeProductPostcheckRun = vi.hoisted(() => vi.fn());
+const failProductPostcheckRun = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) =>
@@ -77,6 +81,37 @@ vi.mock("@/lib/db/services/live-review-runs", () => ({
   deleteLiveReviewScreenshotUrls,
 }));
 
+vi.mock("@/lib/db/services/product-postcheck-runs", () => ({
+  claimProductPostcheckRun,
+  waitForProductPostcheckRun,
+  completeProductPostcheckRun,
+  failProductPostcheckRun,
+}));
+
+function acquiredClaim(overrides: Record<string, unknown> = {}) {
+  const claimedAt = new Date("2026-09-01T00:00:00.000Z");
+  return {
+    kind: "acquired" as const,
+    row: {
+      id: "ppr_test",
+      chatId: "chat_1",
+      versionId: "v1",
+      filesRevision: "rev_n",
+      previewSessionId: "ps_n",
+      lifecycleToken: "life_n",
+      verificationRunId: "run_test",
+      status: "running",
+      skipReason: null,
+      result: null,
+      claimedAt,
+      leaseExpiresAt: new Date(claimedAt.getTime() + 6 * 60 * 1000),
+      completedAt: null,
+      expiresAt: new Date("2026-09-08T00:00:00.000Z"),
+      ...overrides,
+    },
+  };
+}
+
 function req(body: unknown): Request {
   return new Request("http://localhost/api/engine/chats/chat_1/product-postcheck", {
     method: "POST",
@@ -117,6 +152,10 @@ describe("POST product-postcheck", () => {
     });
     abandonLiveReviewRun.mockResolvedValue(undefined);
     deleteLiveReviewScreenshotUrls.mockResolvedValue(undefined);
+    claimProductPostcheckRun.mockResolvedValue(acquiredClaim());
+    waitForProductPostcheckRun.mockResolvedValue(null);
+    completeProductPostcheckRun.mockResolvedValue(true);
+    failProductPostcheckRun.mockResolvedValue(true);
     getPreviewHostBaseUrl.mockReturnValue(null);
     waitForProductPostcheckPreviewRunning.mockResolvedValue({
       ok: true,
@@ -808,5 +847,179 @@ describe("POST product-postcheck", () => {
       }),
     );
     expect(emitBusEvent).not.toHaveBeenCalled();
+  });
+
+  it("två POST med samma claim-tuple ⇒ runProductPostcheck en gång (single-flight)", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    const winnerResult = {
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 8,
+      checkedUrl: "[REDACTED]/chat_1",
+      routesChecked: 1,
+      attestation: {
+        previewSessionId: "ps_n",
+        lifecycleToken: "life_n",
+        filesRevision: "rev_n",
+      },
+      verificationRunId: "run_winner",
+    };
+    let releaseWinner: ((value: typeof winnerResult) => void) | null = null;
+    runProductPostcheck.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseWinner = resolve;
+        }),
+    );
+
+    const store = new Map<
+      string,
+      { status: "running" | "completed"; result?: typeof winnerResult }
+    >();
+    const key = "v1|rev_n|ps_n|life_n";
+    claimProductPostcheckRun.mockImplementation(async () => {
+      const existing = store.get(key);
+      if (!existing) {
+        store.set(key, { status: "running" });
+        return acquiredClaim();
+      }
+      if (existing.status === "completed" && existing.result) {
+        return { kind: "cached" as const, result: existing.result, row: acquiredClaim().row };
+      }
+      return { kind: "in_flight" as const, row: acquiredClaim().row };
+    });
+    waitForProductPostcheckRun.mockImplementation(async () => {
+      for (let i = 0; i < 50; i += 1) {
+        const existing = store.get(key);
+        if (existing?.status === "completed" && existing.result) return existing.result;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+      return null;
+    });
+    completeProductPostcheckRun.mockImplementation(async (input: { result: typeof winnerResult }) => {
+      store.set(key, { status: "completed", result: input.result });
+      return true;
+    });
+
+    const first = POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    await vi.waitFor(() => expect(runProductPostcheck).toHaveBeenCalledTimes(1));
+
+    const second = POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    expect(runProductPostcheck).toHaveBeenCalledTimes(1);
+    expect(releaseWinner).toBeTruthy();
+    releaseWinner!(winnerResult);
+
+    const [firstRes, secondRes] = await Promise.all([first, second]);
+    const firstBody = await firstRes.json();
+    const secondBody = await secondRes.json();
+
+    expect(runProductPostcheck).toHaveBeenCalledTimes(1);
+    expect(firstBody.skipped).toBe(false);
+    expect(secondBody.skipped).toBe(false);
+    expect(secondBody.checkedUrl).toBe("[REDACTED]/chat_1");
+    expect(claimProductPostcheckRun).toHaveBeenCalledTimes(2);
+  });
+
+  it("annan lifecycleToken eller previewSessionId ⇒ andra claimet tillåts", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 8,
+      checkedUrl: "[REDACTED]/chat_1",
+      routesChecked: 1,
+    });
+
+    const claimed = new Set<string>();
+    claimProductPostcheckRun.mockImplementation(
+      async (input: {
+        versionId: string;
+        filesRevision: string;
+        previewSessionId: string;
+        lifecycleToken: string | null;
+      }) => {
+        const key = [
+          input.versionId,
+          input.filesRevision,
+          input.previewSessionId,
+          input.lifecycleToken ?? "",
+        ].join("|");
+        if (claimed.has(key)) return { kind: "in_flight" as const, row: acquiredClaim().row };
+        claimed.add(key);
+        return acquiredClaim({
+          previewSessionId: input.previewSessionId,
+          lifecycleToken: input.lifecycleToken ?? "",
+        });
+      },
+    );
+
+    const first = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    expect((await first.json()).skipped).toBe(false);
+    expect(runProductPostcheck).toHaveBeenCalledTimes(1);
+
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_other",
+      lifecycleToken: "life_other",
+      previewUrl: "[REDACTED]/chat_1",
+      versionId: "v1",
+      filesRevision: "rev_n",
+      createdAt: 1,
+      lastUsedAt: 1,
+    });
+    const second = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    expect((await second.json()).skipped).toBe(false);
+    expect(runProductPostcheck).toHaveBeenCalledTimes(2);
+    expect(claimProductPostcheckRun).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        previewSessionId: "ps_other",
+        lifecycleToken: "life_other",
+        filesRevision: "rev_n",
+        versionId: "v1",
+      }),
+    );
+  });
+
+  it("saknad tabell ⇒ degraderar till att köra postchecken", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    claimProductPostcheckRun.mockResolvedValue(null);
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 8,
+      checkedUrl: "[REDACTED]/chat_1",
+    });
+
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+
+    expect(body.skipped).toBe(false);
+    expect(runProductPostcheck).toHaveBeenCalledTimes(1);
+    expect(completeProductPostcheckRun).not.toHaveBeenCalled();
   });
 });

@@ -24,6 +24,13 @@ import {
   abandonLiveReviewRun,
   deleteLiveReviewScreenshotUrls,
 } from "@/lib/db/services/live-review-runs";
+import {
+  claimProductPostcheckRun,
+  completeProductPostcheckRun,
+  failProductPostcheckRun,
+  waitForProductPostcheckRun,
+  type ClaimedProductPostcheck,
+} from "@/lib/db/services/product-postcheck-runs";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
@@ -116,6 +123,29 @@ function resolveAuthoritativePreviewUrl(params: {
     );
   }
   return sessionUrl;
+}
+
+function timeoutPostcheckResult(params: {
+  previewUrl: string;
+  attestation: ProductPostcheckTarget;
+  verificationRunId: string;
+  durationMs?: number;
+}): ProductPostcheckResult {
+  return {
+    ok: true,
+    skipped: true,
+    skippedReason: "timeout",
+    warnings: [],
+    warningCount: 0,
+    productBlocked: false,
+    routesChecked: 0,
+    durationMs: params.durationMs ?? 0,
+    checkedUrl: params.previewUrl,
+    screenshots: null,
+    domSummary: null,
+    attestation: params.attestation,
+    verificationRunId: params.verificationRunId,
+  };
 }
 
 function supersededPostcheckResult(params: {
@@ -276,6 +306,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   let target: ProductPostcheckTarget | null = null;
   let targetIsCurrent: (() => Promise<boolean>) | null = null;
   let resolvedPreviewUrl = "";
+  let postcheckClaim: ClaimedProductPostcheck | null = null;
   const routeStartedAt = Date.now();
   // Ett id per verifieringskörning. Alla persisterade rader, bus-events och
   // svaret bär samma id så en omkörning aldrig kan förväxlas med en tidigare.
@@ -459,6 +490,47 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       });
     }
 
+    // Single-flight: claim AFTER bind+URL succeed and BEFORE Chromium starts.
+    // `null` = table missing / DB down — fail-open and run today's path.
+    // Resource protection, not a correctness gate: blocking every postcheck
+    // on a pod whose migration is not applied yet is worse than the bug.
+    postcheckClaim = await claimProductPostcheckRun({
+      chatId,
+      versionId: resolvedVersionId,
+      filesRevision: boundTarget.filesRevision,
+      previewSessionId: boundTarget.previewSessionId,
+      lifecycleToken: boundTarget.lifecycleToken,
+      verificationRunId,
+    });
+    if (postcheckClaim?.kind === "cached") {
+      return NextResponse.json(postcheckClaim.result);
+    }
+    if (postcheckClaim?.kind === "in_flight") {
+      const waitBudgetMs = Math.max(
+        8_000,
+        PRODUCT_POSTCHECK_ROUTE_BUDGET_MS - (Date.now() - routeStartedAt) - 15_000,
+      );
+      const waited = await waitForProductPostcheckRun({
+        versionId: resolvedVersionId,
+        filesRevision: boundTarget.filesRevision,
+        previewSessionId: boundTarget.previewSessionId,
+        lifecycleToken: boundTarget.lifecycleToken,
+        timeoutMs: waitBudgetMs,
+      });
+      if (waited) return NextResponse.json(waited);
+      // Winner still running past our wait budget. Do NOT launch a second
+      // browser. `timeout` is a skip the client already understands.
+      return NextResponse.json(
+        timeoutPostcheckResult({
+          previewUrl: resolvedPreviewUrl,
+          attestation: boundTarget,
+          verificationRunId:
+            postcheckClaim.row.verificationRunId ?? verificationRunId,
+          durationMs: Date.now() - routeStartedAt,
+        }),
+      );
+    }
+
     liveReviewSession = await beginLiveReviewSession({
       chatId,
       versionId: resolvedVersionId,
@@ -496,13 +568,13 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           liveReviewSession.claim.row.claimedAt,
         ).catch(() => undefined);
       }
-      return NextResponse.json(
-        supersededPostcheckResult({
-          previewUrl: resolvedPreviewUrl,
-          durationMs: result.durationMs,
-          routesChecked: result.routesChecked,
-        }),
-      );
+      const superseded = supersededPostcheckResult({
+        previewUrl: resolvedPreviewUrl,
+        durationMs: result.durationMs,
+        routesChecked: result.routesChecked,
+      });
+      await persistAcquiredPostcheckClaim(postcheckClaim, superseded);
+      return NextResponse.json(superseded);
     }
 
     try {
@@ -538,13 +610,13 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     // HTTP result becomes durable client-side evidence; no pass/block event
     // is emitted until this fence succeeds.
     if (!(await isTargetCurrent().catch(() => false))) {
-      return NextResponse.json(
-        supersededPostcheckResult({
-          previewUrl: resolvedPreviewUrl,
-          durationMs: result.durationMs,
-          routesChecked: result.routesChecked,
-        }),
-      );
+      const superseded = supersededPostcheckResult({
+        previewUrl: resolvedPreviewUrl,
+        durationMs: result.durationMs,
+        routesChecked: result.routesChecked,
+      });
+      await persistAcquiredPostcheckClaim(postcheckClaim, superseded);
+      return NextResponse.json(superseded);
     }
 
     // OMTAG-06 follow-up: emit a `version.degraded` bus event when the
@@ -590,6 +662,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
 
     result.attestation = boundTarget;
     result.verificationRunId = verificationRunId;
+    await persistAcquiredPostcheckClaim(postcheckClaim, result);
     return NextResponse.json(result);
   } catch (err) {
     if (liveReviewSession?.claim?.kind === "acquired") {
@@ -604,17 +677,30 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       targetIsCurrent &&
       !(await targetIsCurrent().catch(() => false))
     ) {
-      return NextResponse.json(
-        supersededPostcheckResult({
-          previewUrl: resolvedPreviewUrl || previewUrl?.trim() || "",
-        }),
-      );
+      const superseded = supersededPostcheckResult({
+        previewUrl: resolvedPreviewUrl || previewUrl?.trim() || "",
+      });
+      await persistAcquiredPostcheckClaim(postcheckClaim, superseded);
+      return NextResponse.json(superseded);
     }
     // Mirror the skip emission for the runtime-error branch — same
     // observability surface for "ran but threw" as for the planned
     // skip cases above. Without this the version-status projection
     // can show solid green even when the postcheck blew up.
     const runtimeCheckedUrl = resolvedPreviewUrl || previewUrl?.trim() || null;
+    const runtimeResult: ProductPostcheckResult = {
+      ok: true,
+      skipped: true,
+      skippedReason: "runtime_error",
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      routesChecked: 0,
+      durationMs: 0,
+      checkedUrl: runtimeCheckedUrl,
+      attestation: target,
+      verificationRunId,
+    };
     if (target) {
       emitPostcheckDegraded({
         versionId: resolvedVersionId,
@@ -626,19 +712,34 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         verificationRunId,
       });
     }
+    await failProductPostcheckRunIfAcquired(postcheckClaim, runtimeResult);
     return NextResponse.json({
-      ok: true,
-      skipped: true,
-      skippedReason: "runtime_error",
-      warnings: [],
-      warningCount: 0,
-      productBlocked: false,
-      routesChecked: 0,
-      durationMs: 0,
-      checkedUrl: runtimeCheckedUrl,
+      ...runtimeResult,
       error: err instanceof Error ? err.message : "Product postcheck failed",
-      attestation: target,
-      verificationRunId,
     });
   }
+}
+
+async function persistAcquiredPostcheckClaim(
+  claim: ClaimedProductPostcheck | null,
+  result: ProductPostcheckResult,
+): Promise<void> {
+  if (claim?.kind !== "acquired") return;
+  await completeProductPostcheckRun({
+    id: claim.row.id,
+    claimedAt: claim.row.claimedAt,
+    result,
+  }).catch(() => undefined);
+}
+
+async function failProductPostcheckRunIfAcquired(
+  claim: ClaimedProductPostcheck | null,
+  result: ProductPostcheckResult,
+): Promise<void> {
+  if (claim?.kind !== "acquired") return;
+  await failProductPostcheckRun({
+    id: claim.row.id,
+    claimedAt: claim.row.claimedAt,
+    result,
+  }).catch(() => undefined);
 }
