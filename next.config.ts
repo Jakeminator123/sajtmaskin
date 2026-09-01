@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
         "./config/**",
         "./data/dossiers/**",
         "./src/components/ui/**",
+        "./src/lib/gen/scaffolds/**",
       ],
       "/api/projects/*/thumbnail": [
         "./node_modules/playwright-core/browsers.json",
@@ -63,6 +64,10 @@ const nextConfig: NextConfig = {
       // the dynamic path.join in event-bus.ts made NFT trace the whole project
       // into every route importing the bus ("matches 10194 files" warning).
       "./data/runs/**",
+      // Embeddings caches are runtime-optional (Blob is source of truth) and
+      // ~1.8 MB of variant vectors must not ship in every serverless function.
+      "./config/scaffold-variants/_index/variant-embeddings.json",
+      "./src/lib/gen/scaffolds/scaffold-embeddings.json",
     ],
   },
   experimental: {

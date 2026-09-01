@@ -1467,6 +1467,13 @@ describe("outputFileTracingIncludes för browser-routes", () => {
       expect(config).toContain(`"${route}"`);
     }
   });
+
+  it("force-inkluderar scaffold-filer och exkluderar embeddings-cachen", () => {
+    const config = readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");
+    expect(config).toContain('"./src/lib/gen/scaffolds/**"');
+    expect(config).toContain("./config/scaffold-variants/_index/variant-embeddings.json");
+    expect(config).toContain("./src/lib/gen/scaffolds/scaffold-embeddings.json");
+  });
 });
 
 describe("shouldIgnoreConsoleError", () => {

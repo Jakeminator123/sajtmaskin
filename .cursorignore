@@ -74,7 +74,7 @@ google-services.json
 # Terminal/Node kringgår — det är meningen. Indexering: .cursorindexingignore.
 **/template-embeddings.json
 **/scaffold-embeddings.json
-**/variant-embeddings
+**/variant-embeddings.json
 **/dossier-embeddings.json
 # scaffold-research.generated.json (~20 KB, spårad runtime-override) är
 # läsbar med flit. Utanför sök: .cursorindexingignore.
