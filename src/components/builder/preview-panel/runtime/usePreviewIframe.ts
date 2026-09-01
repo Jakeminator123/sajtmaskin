@@ -39,6 +39,11 @@ const TIER2_LATE_RECOVERY_WINDOW_MS = 30_000;
 // 12s ≈ 5 req/min from this tab; together with the 4s boot/late polls
 // and other tabs this stays inside the shared 60 req/min bucket.
 const TIER2_SELF_HEAL_POLL_MS = 12_000;
+// SM-074: en self-heal-reload vars onLoad missar 15s-fönstret får inte döda
+// hela läkningen — första kompileringen efter en VM-omstart kan ta längre på
+// delad CPU. Taket håller det ändå ändligt: max så här många reload-försök
+// per identitet, och varje försök kräver ett nytt matchande running-kvitto.
+const TIER2_SELF_HEAL_MAX_RELOADS = 3;
 // The boot-deadline's final status check must itself be bounded: a hung
 // /preview-status request may otherwise suppress the failure state forever.
 const TIER2_FINAL_CHECK_TIMEOUT_MS = 5_000;
@@ -100,6 +105,23 @@ export function usePreviewIframe(params: {
   const tier2RecoveryRequestedIdentityRef = useRef<string | null>(null);
   const tier2LateRecoveryIdentityRef = useRef<string | null>(null);
   const tier2SelfHealIdentityRef = useRef<string | null>(null);
+  /**
+   * SM-074: självläkningen gav tidigare upp permanent efter EN ready-reload
+   * vars onLoad inte hann inom 15 s — men första sidladdningen efter en
+   * VM-omstart kan ta längre än så på Flys delade CPU (första Next-kompilering).
+   * Kontexten sparas så att en misslyckad self-heal-reload kan återuppta den
+   * glesa pollen, och räknaren begränsar omförsöken så ingen reload-loop kan
+   * uppstå: varje nytt försök kräver ett färskt matchande running-kvitto.
+   */
+  const tier2SelfHealContextRef = useRef<{
+    identity: string;
+    previewSessionId: string;
+    expectedLifecycleToken: string | null;
+    expectedChatId: string;
+    expectedVersionId: string;
+    expectedPreviewUrl: string;
+  } | null>(null);
+  const tier2SelfHealReloadAttemptsRef = useRef(0);
 
   const stopTier2StatusPolling = useCallback(() => {
     if (tier2StatusPollTimerRef.current) {
@@ -130,6 +152,8 @@ export function usePreviewIframe(params: {
     tier2RecoveryRequestedIdentityRef.current = null;
     tier2LateRecoveryIdentityRef.current = null;
     tier2SelfHealIdentityRef.current = null;
+    tier2SelfHealContextRef.current = null;
+    tier2SelfHealReloadAttemptsRef.current = 0;
   }, [stopTier2StatusPolling]);
 
   const settleTier2Ready = useCallback(() => {
@@ -158,6 +182,24 @@ export function usePreviewIframe(params: {
       if (tier2RecoveryRequestedIdentityRef.current !== identity) {
         tier2RecoveryRequestedIdentityRef.current = identity;
         onPreviewSessionSuspectRef.current?.();
+      }
+      // SM-074: kom detta timeout från en self-heal-initierad ready-reload får
+      // banner-läget inte bli terminalt — återuppta den glesa pollen så nästa
+      // matchande running-kvitto kan försöka igen, upp till taket.
+      const healContext = tier2SelfHealContextRef.current;
+      if (
+        healContext &&
+        healContext.identity === identity &&
+        tier2SelfHealReloadAttemptsRef.current < TIER2_SELF_HEAL_MAX_RELOADS
+      ) {
+        startTier2SelfHealPollingRef.current(
+          healContext.identity,
+          healContext.previewSessionId,
+          healContext.expectedLifecycleToken,
+          healContext.expectedChatId,
+          healContext.expectedVersionId,
+          healContext.expectedPreviewUrl,
+        );
       }
     },
     [stopTier2StatusPolling],
@@ -211,6 +253,19 @@ export function usePreviewIframe(params: {
     ) => {
       stopTier2StatusPolling();
       tier2SelfHealIdentityRef.current = identity;
+      // Ny identitet = ny läkningskedja med färsk reload-budget. Samma
+      // identitet (återupptagen efter en reload-timeout) behåller räknaren.
+      if (tier2SelfHealContextRef.current?.identity !== identity) {
+        tier2SelfHealReloadAttemptsRef.current = 0;
+      }
+      tier2SelfHealContextRef.current = {
+        identity,
+        previewSessionId,
+        expectedLifecycleToken,
+        expectedChatId,
+        expectedVersionId,
+        expectedPreviewUrl,
+      };
 
       const pollStatus = async () => {
         if (tier2SelfHealIdentityRef.current !== identity) return;
@@ -237,6 +292,7 @@ export function usePreviewIframe(params: {
           isSameTier2PreviewSession(status.previewUrl, expectedPreviewUrl);
         if (status?.status === "running" && receiptMatchesIdentity) {
           tier2SelfHealIdentityRef.current = null;
+          tier2SelfHealReloadAttemptsRef.current += 1;
           startTier2ReadyReload(identity, expectedPreviewUrl);
           return;
         }

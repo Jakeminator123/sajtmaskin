@@ -267,6 +267,54 @@ describe("launchCaptureBrowser", () => {
     warnSpy.mockRestore();
   });
 
+  it("namnger /tmp:s största poster under tryck (SM-072-diagnos)", async () => {
+    // Prod 2026-09-01: 18 MB fritt men inga profiler att rensa — utan
+    // topplistan förblir ätaren anonym i loggen.
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    const tmp = createSweepTmp();
+    const bigDir = path.join(tmp, "chromium-cache");
+    fs.mkdirSync(bigDir);
+    fs.writeFileSync(path.join(bigDir, "blob.bin"), Buffer.alloc(2 * 1_048_576));
+    fs.writeFileSync(path.join(tmp, "tiny.txt"), "liten");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    const topLine = warnSpy.mock.calls
+      .map((call) => String(call[0]))
+      .find((line) => line.includes("tmp top consumers"));
+    expect(topLine).toBeTruthy();
+    expect(topLine).toContain("chromium-cache=2MB");
+    expect(topLine).not.toContain("tiny.txt");
+    warnSpy.mockRestore();
+  });
+
+  it("hoppar över topplistan när /tmp har gott om plats", async () => {
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    statfs.mockResolvedValue({ bavail: 409_600, bsize: 1024, blocks: 524_288 });
+    createSweepTmp();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(
+      warnSpy.mock.calls.some((call) => String(call[0]).includes("tmp top consumers")),
+    ).toBe(false);
+    warnSpy.mockRestore();
+  });
+
   it("använder 15-minutersgränsen när statfs inte kan mäta /tmp", async () => {
     // Fail-open: utan mätning finns inget tryckbevis, så den försiktiga
     // gränsen gäller och en 5 minuter gammal profil lämnas i fred.

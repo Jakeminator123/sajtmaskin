@@ -37,12 +37,17 @@ avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
 
 ## C. Kvarvarande kodarbete (agent-körbart)
 
-- [ ] `SM-073` host-sidan: `preview-host/src/runtime/preview-proxy.js` —
-      injicera aldrig ostämplat bridge-script när tier-2-session förväntas;
-      utred sessionstappet i `/data/preview-host-store.json`. Kräver
-      `fly deploy` av `preview-host/` (Vercel-deploy räcker inte).
-- [ ] `SM-072` uppföljning: om läckan består efter trycksvepet — instrumentera
-      vilken katalog som växer (profiler vs `/tmp/chromium` vs run-NDJSON).
+- [x] `SM-073` host-sidan: **löst av Fly-deployen v59 2026-09-01** — hosten
+      körde kod från 24 aug (före #1201); repo-koden var redan korrekt.
+      Injektionen bär nu full identitetsstämpel (verifierat live).
+- [x] `SM-072` instrumentering: topplista av `/tmp`-poster loggas under tryck
+      (`[capture-browser] tmp top consumers: ...`) — nästa prod-burst namnger
+      ätaren. Läs Vercel-loggen efter nästa Degraderad-version.
+- [x] `SM-074` klientfix: self-heal återupptar pollen efter reload-timeout
+      (max 3 försök) i stället för att dö permanent (`usePreviewIframe.ts`).
+- [ ] `SM-074` uppföljning efter deploy: falsklarmar bannern fortfarande efter
+      3 försök — höj `TIER2_READY_RELOAD_TIMEOUT_MS` (15 s är tajt mot första
+      Next-kompileringen på Flys delade CPU) eller vänta in Fly-maskinbeslutet.
 
 ## D. Ägarbeslut (bara Jakob)
 
