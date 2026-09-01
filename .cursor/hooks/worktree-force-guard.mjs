@@ -157,6 +157,10 @@ const COMMAND_PREFIXES = new Set([
   "--",
 ]);
 const SHELL_EXPANSION = /\$\(|`|\$\{|\$[A-Za-z_]/u;
+// Bash ANSI-C / locale quotes (`$'…'` / `$"…"`). The hook must not cheap-allow
+// them: `git -c $'remote.origin.fetch=+refs/heads/BRA:refs/heads/BRA' fetch`
+// tokenizes as `$remote.origin.fetch=…` and would miss the dest-refspec.
+const ANSI_C_QUOTING = /\$['"]/u;
 const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=.*/u;
 
 function firstExecutableIndex(tokens) {
@@ -332,6 +336,7 @@ export function isAmbiguousGitCommand(command, aliases = new Set()) {
     if (aliases === null) return true;
 
     if (hasInlineAliasOption(tokens, gitIndex)) return true;
+    if (ANSI_C_QUOTING.test(segment) && (gitIndex >= 0 || dynamicGit)) return true;
     if (injectsGitConfig && (gitIndex >= 0 || dynamicGit)) return true;
     if (injectsAliasEnvironment && (gitIndex >= 0 || dynamicGit)) return true;
     if (dynamicGit) return true;
@@ -611,6 +616,12 @@ function classifyGitInvocation(subcommand, args, configAssignments = []) {
     return subcommand === "fetch" ? "allow" : "heavy";
   }
   if (subcommand === "config") {
+    // `--edit` / `-e` is an opaque write of the whole config file, including
+    // remote.*.fetch and include.path. Fail closed; do not wait for the next
+    // `git fetch --prune` to pick up a BRA dest the hook never saw.
+    if (args.some((token) => token === "--edit" || token === "-e")) {
+      return "deny-immutable";
+    }
     if (configWritesImmutableFetch(args)) return "deny-immutable";
     return "heavy";
   }
@@ -711,6 +722,11 @@ export function cheapShellDecision(command) {
   if (typeof command !== "string" || !command.trim()) return null;
   const expandable = command.replace(/'[^']*'/gu, "");
   if (SHELL_EXPANSION.test(expandable)) return null;
+  // `$'…'` is not `$VAR` / `$(…)` so the expansion skip above misses it, and
+  // the tokenizer keeps the `$` so dest-refspec / include.path never match.
+  if (ANSI_C_QUOTING.test(command) && mayResolveToGit(command)) {
+    return immutableBranchDenial();
+  }
   if (/(?:^|\s)-c\s+['"]?alias\.[^\s=]+=/iu.test(command)) return null;
   // GIT_CONFIG_KEY_* / PARAMETERS can redefine a "read-only" subcommand
   // (`alias.status=checkout -f BRA`). Cheap-allow must not run first.

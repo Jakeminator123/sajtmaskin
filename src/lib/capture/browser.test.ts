@@ -194,6 +194,8 @@ describe("launchCaptureBrowser", () => {
     const measureCalls = warnSpy.mock.calls.filter((call) =>
       String(call[0]).includes("free space in temporary directory"),
     );
+    // Ett enda svep som prunar mäter och mäter om — det här är inte kontraktet
+    // för svepet efter kön. Det sitter i testet nedan.
     expect(measureCalls.length).toBeGreaterThanOrEqual(2);
     warnSpy.mockRestore();
   });
