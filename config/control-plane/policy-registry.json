@@ -231,13 +231,47 @@
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
-        "surface": null,
+        "surface": "Env Readiness (read-only)",
         "editable": false,
         "writePath": null,
         "danger": "medium"
       },
       "mobility": "leave",
-      "notes": "also config/ai_models/41-tier3-stub-placeholders.env.txt; merged into preview .env.local; parity test placeholder-harmless.parity.test.ts."
+      "notes": "Harmless generated-site preview placeholder fragment loaded by load-generated-site-placeholders.ts and merged into preview .env.local; test:ci covers its classification and placeholder-harmless parity. Exposed read-only in Env Readiness."
+    },
+    {
+      "id": "generated-site-tier3-stub-placeholders",
+      "sourceOfTruth": "config/ai_models/41-tier3-stub-placeholders.env.txt",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": "Env Readiness (read-only)",
+        "editable": false,
+        "writePath": null,
+        "danger": "medium"
+      },
+      "mobility": "leave",
+      "notes": "F2-only tier-3 stub placeholder fragment loaded by load-generated-site-placeholders.ts and merged into preview .env.local before being stripped from F3; test:ci covers its classification and placeholder-harmless parity. Exposed read-only in Env Readiness."
+    },
+    {
+      "id": "ai-model-pricing",
+      "sourceOfTruth": "config/ai_models/pricing.json",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": {
+        "surface": "Generation Cost",
+        "editable": false,
+        "writePath": null,
+        "danger": "high"
+      },
+      "mobility": "leave",
+      "notes": "Canonical token-rate and FX snapshot imported by src/lib/billing/model-cost.ts for provider-cost and customer-charge billing; scripts/db/generation-cost.mjs also reads it for the read-only Generation Cost surface."
     },
     {
       "id": "agent-context-policy",

@@ -88,6 +88,8 @@ const REGISTRIES: Array<{ name: string; file: string; requiredIds: string[] }> =
       "naming-dictionary",
       "agent-context-policy",
       "agent-workflow-policy",
+      "generated-site-tier3-stub-placeholders",
+      "ai-model-pricing",
       "openclaw-builder-prompt-tips",
     ],
   },
@@ -471,6 +473,48 @@ describe("control-plane Backoffice and CI truth", () => {
         surface: "user_degraded_env",
         editable: true,
         writePath: "config/user_degraded_env.txt",
+      },
+    });
+  });
+
+  it("records generated-site placeholder and billing inputs as wired read-only policies", () => {
+    expect(byId.get("generated-site-placeholders")).toMatchObject({
+      sourceOfTruth: "config/ai_models/40-harmless-placeholders.env.txt",
+      validator: "test:ci",
+      ciStatus: "hard",
+      runtimeEnforced: true,
+      runtimeStatus: "wired",
+      backoffice: {
+        surface: "Env Readiness (read-only)",
+        editable: false,
+        writePath: null,
+        danger: "medium",
+      },
+    });
+    expect(byId.get("generated-site-tier3-stub-placeholders")).toMatchObject({
+      sourceOfTruth: "config/ai_models/41-tier3-stub-placeholders.env.txt",
+      validator: "test:ci",
+      ciStatus: "hard",
+      runtimeEnforced: true,
+      runtimeStatus: "wired",
+      backoffice: {
+        surface: "Env Readiness (read-only)",
+        editable: false,
+        writePath: null,
+        danger: "medium",
+      },
+    });
+    expect(byId.get("ai-model-pricing")).toMatchObject({
+      sourceOfTruth: "config/ai_models/pricing.json",
+      validator: "test:ci",
+      ciStatus: "hard",
+      runtimeEnforced: true,
+      runtimeStatus: "wired",
+      backoffice: {
+        surface: "Generation Cost",
+        editable: false,
+        writePath: null,
+        danger: "high",
       },
     });
   });

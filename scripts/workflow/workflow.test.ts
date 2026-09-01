@@ -143,6 +143,51 @@ describe("agent workflow impact", () => {
     expect(impact.commands).not.toContain("knip:files");
   });
 
+  it.each([
+    [
+      "config/ai_models/41-tier3-stub-placeholders.env.txt",
+      "generated-site-tier3-stub-placeholders",
+      "Env Readiness (read-only)",
+      "medium",
+    ],
+    ["config/ai_models/pricing.json", "ai-model-pricing", "Generation Cost", "high"],
+  ])("never gives draft changes to %s a shallow verification plan", (path, id, surface, danger) => {
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    const owner = inputs.policyRegistry.entries.find((entry: { id: string }) => entry.id === id);
+
+    expect(owner).toMatchObject({
+      sourceOfTruth: path,
+      validator: "test:ci",
+      ciStatus: "hard",
+      runtimeEnforced: true,
+      runtimeStatus: "wired",
+      backoffice: { surface, editable: false, writePath: null, danger },
+    });
+    expect(impact.groups.runtime).toContain(path);
+    expect(impact.authorities).toContainEqual(
+      expect.objectContaining({
+        id,
+        sourceOfTruth: path,
+        validator: "test:ci",
+        runtimeStatus: "wired",
+        backofficeSurface: surface,
+      }),
+    );
+    expect(impact.unmappedRuntimeFiles).toEqual([]);
+    expect(impact.unclassifiedFiles).toEqual([]);
+    expect(impact.backofficePages).toContain(surface);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining([
+        "embeddings:ensure",
+        "typecheck",
+        "lint",
+        "test:ci",
+        "backoffice:test",
+      ]),
+    );
+    expect(impact.commands).not.toContain("knip:files");
+  });
+
   it("routes the production OpenClaw prompt tips through their runtime owner", () => {
     const path = "data/openclaw/builder-prompt-tips.md";
     const impact = collectImpact({ ...inputs, changedFiles: [path] });
