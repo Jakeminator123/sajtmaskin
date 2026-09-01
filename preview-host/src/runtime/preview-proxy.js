@@ -28,33 +28,22 @@ const {
   getRuntimeStateForChat,
   queueRuntimeBoot,
 } = require("./process-lifecycle.js");
+const {
+  configuredAppOrigins,
+  inspectInjectionScriptSrc: buildInspectInjectionScriptSrc,
+} = require("./inspect-bridge-src.js");
 
-// Betrodda parent-origins för den alltid aktiva route-bryggan. De kommer bara
-// från hostens egen env och normaliseras till exakta HTTP(S)-origins. Att skicka
-// samma signal till varje explicit tillåten origin är säkert: webbläsaren
-// levererar den bara när den faktiska parent-origin matchar targetOrigin.
-function configuredAppOrigins(rawValue) {
-  const origins = new Set();
-  for (const candidate of String(rawValue || "").split(",")) {
-    try {
-      const exact = candidate.trim();
-      const parsed = new URL(exact);
-      if (!/^https?:$/.test(parsed.protocol) || parsed.origin === "null") continue;
-      if (exact !== parsed.origin) continue;
-      origins.add(parsed.origin);
-    } catch {
-      // Invalid entries fail closed.
-    }
-  }
-  return [...origins];
-}
-
+// Betrodda parent-origins för route-bryggan och Inspector-bryggan. De kommer
+// bara från hostens egen env och normaliseras till exakta HTTP(S)-origins. Att
+// skicka samma signal till varje explicit tillåten origin är säkert:
+// webbläsaren levererar den bara när den faktiska parent-origin matchar
+// targetOrigin. Aldrig wildcard.
 const APP_ORIGINS = configuredAppOrigins(
   process.env.SAJTMASKIN_APP_ORIGINS || process.env.SAJTMASKIN_APP_ORIGIN,
 );
-// Inspector-scriptet behöver fortfarande en enda canonical app-origin. Första
-// posten äger det kontraktet; route-bryggan använder hela allowlisten.
-const INSPECT_APP_ORIGIN = APP_ORIGINS[0] || "";
+// Första posten är canonical källa för `/api/inspect-bridge`. Hela allowlisten
+// är tillåtna Inspector-parents. Route-bryggan använder samma lista.
+const INSPECT_SCRIPT_ORIGIN = APP_ORIGINS[0] || "";
 const PREVIEW_VIEWER_QUERY_PARAM = "__sm_viewer";
 const PREVIEW_REFRESH_QUERY_PARAM = "__sm_refresh";
 const PREVIEW_INSPECT_QUERY_PARAM = "inspect";
@@ -482,32 +471,14 @@ function acceptAndHoldWebSocket(req, socket) {
 }
 
 /**
- * Returnerar `<script>`-taggen att injicera om requesten är ett opt-in
+ * Returnerar script-src att injicera om requesten är ett opt-in
  * inspektera-anrop (`?inspect=1`) och app-origin är satt; annars `null`.
  * Script-källan kommer från första posten i preview-hostens EGEN allowlist
- * (`SAJTMASKIN_APP_ORIGINS`), aldrig från query.
+ * (`INSPECT_SCRIPT_ORIGIN`). Parent-listan är hela den validerade allowlisten
+ * (`APP_ORIGINS`), aldrig från användarens preview-query.
  */
 function inspectInjectionScriptSrc(search, session) {
-  if (!INSPECT_APP_ORIGIN) return null;
-  let qs = String(search || "");
-  if (qs.startsWith("?")) qs = qs.slice(1);
-  let on = false;
-  try { on = new URLSearchParams(qs).get(PREVIEW_INSPECT_QUERY_PARAM) === "1"; } catch { on = false; }
-  if (!on) return null;
-  const params = new URLSearchParams({ parent: INSPECT_APP_ORIGIN });
-  if (typeof session?.versionId === "string" && session.versionId.trim()) {
-    params.set("versionId", session.versionId.trim());
-  }
-  if (typeof session?.previewSessionId === "string" && session.previewSessionId.trim()) {
-    params.set("previewSessionId", session.previewSessionId.trim());
-    // Empty is an explicit legacy lifecycle, while absence means the host did
-    // not have a complete identity and parent must fail closed.
-    params.set(
-      "lifecycleToken",
-      typeof session.lifecycleToken === "string" ? session.lifecycleToken.trim() : "",
-    );
-  }
-  return `${INSPECT_APP_ORIGIN}/api/inspect-bridge?${params.toString()}`;
+  return buildInspectInjectionScriptSrc(search, session, APP_ORIGINS);
 }
 
 /**
@@ -1562,6 +1533,9 @@ module.exports = {
   isPreviewDocumentNavigation,
   injectPreviewHeadTag,
   stripPreviewHostParams,
+  inspectInjectionScriptSrc,
+  APP_ORIGINS,
+  INSPECT_SCRIPT_ORIGIN,
   PREVIEW_VIEWER_QUERY_PARAM,
   PREVIEW_HMR_PATH_SUFFIXES,
   isHmrPath,

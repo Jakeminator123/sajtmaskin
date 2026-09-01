@@ -1116,6 +1116,17 @@ try {
   )?.[1]?.replaceAll("&amp;", "&");
   assert.ok(inspectorSrc, "inspect navigation injects an identity-stamped bridge URL");
   const inspectorUrl = new URL(inspectorSrc);
+  assert.equal(inspectorUrl.origin, "https://app.example");
+  assert.equal(inspectorUrl.origin, runtime.__testing.INSPECT_SCRIPT_ORIGIN);
+  assert.deepEqual(
+    inspectorUrl.searchParams.getAll("parent"),
+    ["https://app.example", "https://secondary.example"],
+    "inspect script receives every validated app origin, not only the script source",
+  );
+  assert.equal(
+    runtime.__testing.inspectInjectionScriptSrc("?inspect=1", originSession),
+    inspectorSrc,
+  );
   assert.equal(inspectorUrl.searchParams.get("versionId"), originSession.versionId);
   assert.equal(
     inspectorUrl.searchParams.get("previewSessionId"),
