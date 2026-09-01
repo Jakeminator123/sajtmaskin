@@ -528,7 +528,7 @@ Do **not** bump `lastVerified` just to make CI green. A completed pass means:
    can be obtained, and dependency/API usage still matches current official
    provider documentation.
 
-The weekly [dossier-acceptance workflow](../../.github/workflows/dossier-acceptance.yml)
+The path-filtered PR and weekly [dossier-acceptance workflow](../../.github/workflows/dossier-acceptance.yml)
 automates the first, keyless layer for **every dossier that ships files —
 hard AND soft** (instructions-only dossiers have nothing to build and are
 skipped). It materializes the exact dossier files on the common
