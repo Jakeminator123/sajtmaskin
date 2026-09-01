@@ -5,6 +5,10 @@ const debugLog = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/webscraper", () => ({ quickScrapeWebsite }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog }));
+vi.mock("@/lib/bot-protection", () => ({ requireNotBot: () => null }));
+vi.mock("@/lib/rate-limit", () => ({
+  withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
+}));
 
 const { POST } = await import("./route");
 

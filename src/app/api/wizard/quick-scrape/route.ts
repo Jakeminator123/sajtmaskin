@@ -9,6 +9,8 @@
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireNotBot } from "@/lib/bot-protection";
+import { withRateLimit } from "@/lib/rate-limit";
 import { quickScrapeWebsite } from "@/lib/webscraper";
 import { debugLog } from "@/lib/utils/debug";
 
@@ -20,6 +22,12 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const botError = requireNotBot(req);
+  if (botError) return botError;
+  return withRateLimit(req, "wizard:quick-scrape", () => handlePOST(req));
+}
+
+async function handlePOST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
     const parsed = requestSchema.safeParse(body);
