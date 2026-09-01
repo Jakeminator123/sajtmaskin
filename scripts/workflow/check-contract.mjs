@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import yaml from "js-yaml";
+import { SAFE_DOCS_COMMANDS } from "./ci-scope.mjs";
 import { PATH_GROUP_FLOORS } from "./path-impact.mjs";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -16,7 +17,18 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const POLICY_FLOORS = Object.freeze({
   retiredBugIdsSha256: "6cb7f4b94e167f05471dd6c08ae928672927a41a972856992ca2a1cbd54b5634",
   requiredChecks: ["quality", "backoffice-tests", "schema-drift", "build", "review-window"],
-  manualMergePathPrefixes: [".github/workflows/"],
+  manualMergePathPrefixes: [
+    ".github/workflows/",
+    "scripts/ci/",
+    "scripts/pr-review/",
+    "scripts/workflow/check-contract.mjs",
+    "scripts/workflow/ci-scope.mjs",
+    "scripts/workflow/path-impact.mjs",
+    "config/agent-workflow.json",
+    "config/control-plane/policy-registry.json",
+    "config/control-plane/schema-registry.json",
+    "config/backoffice/domain-map.json",
+  ],
   review: {
     requiredCheckWorkflow: {
       path: ".github/workflows/ci.yml",
@@ -46,6 +58,7 @@ export const POLICY_FLOORS = Object.freeze({
     ".github/**",
     "package.json",
     "package-lock.json",
+    ".node-version",
     "AGENTS.md",
     ".agents/skills/**",
     ".codex/**",
@@ -232,6 +245,424 @@ export function evaluateRetiredBugIdFloor(source) {
     : ["immutable retired bug-ID floor changed — historical SM ids must never become reusable"];
 }
 
+function values(value) {
+  if (Array.isArray(value)) return value.map(String);
+  if (value === undefined || value === null) return [];
+  return [String(value)];
+}
+
+function includesEvery(actual, required) {
+  const available = new Set(values(actual));
+  return required.every((value) => available.has(value));
+}
+
+function normalizedExpression(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/gu, " ");
+}
+
+function hasExactExpression(actual, expected) {
+  return normalizedExpression(actual) === normalizedExpression(expected);
+}
+
+const TRUSTED_MASTER_PUSH_OR_DISPATCH =
+  "${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
+const REJECT_NON_MASTER_DISPATCH =
+  "${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}";
+// Oberoende från controllerns GATE_PR_ACTIONS: workflow-jobbet måste filtrera
+// innan GitHub placerar körningen i cancel-in-progress-gruppen. Annars kan ett
+// no-op-event avbryta den riktiga gate-körningen utan att publicera ett avslut.
+const TRUSTED_REVIEW_GATE_JOB_IF =
+  "github.event_name == 'pull_request_target' && " +
+  "( github.event.action == 'opened' || github.event.action == 'reopened' || " +
+  "github.event.action == 'synchronize' || github.event.action == 'ready_for_review' )";
+const TRUSTED_REVIEW_GATE_CONCURRENCY =
+  "trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number }}";
+// Oberoende golv: ci-scope får inte krympa sin egen allowlist och sedan använda
+// samma krympta lista som bevis för att light-lanen täcker allt den lovar.
+const SAFE_DOCS_COMMAND_FLOOR = Object.freeze([
+  "workflow:contract",
+  "docs:check",
+  "docs:links",
+  "docs:test",
+  "plans:history:check",
+  "check:terms:contract",
+]);
+const DB_BLOB_PR_PATH_FLOOR = Object.freeze([
+  ".github/workflows/db-blob-sync-check.yml",
+  "requirements.dbtest.txt",
+  "scripts/db/**/*.py",
+]);
+const E2E_CONTRACT_SCRIPT = "playwright test -c playwright.deploy-smoke.config.ts --list";
+
+function hasExactStringSet(actual, expected) {
+  if (!Array.isArray(actual) || actual.length !== expected.length) return false;
+  const values = new Set(actual.map(String));
+  return values.size === actual.length && expected.every((value) => values.has(value));
+}
+
+export function evaluateTrustedReviewWindowGate(source) {
+  let document;
+  try {
+    document = yaml.load(source);
+  } catch (error) {
+    return [
+      `merge-ready freshness is not valid YAML: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    ];
+  }
+
+  const gate = document?.jobs?.["trusted-review-window"];
+  const errors = [];
+  if (document?.concurrency !== undefined) {
+    errors.push(
+      "merge-ready freshness must not use workflow-level concurrency across independent controller jobs",
+    );
+  }
+  if (!hasExactExpression(gate?.if, TRUSTED_REVIEW_GATE_JOB_IF)) {
+    errors.push(
+      "trusted review-window job may enter gate concurrency only for opened, reopened, synchronize and ready_for_review",
+    );
+  }
+  if (!hasExactExpression(gate?.concurrency?.group, TRUSTED_REVIEW_GATE_CONCURRENCY)) {
+    errors.push("trusted review-window concurrency must remain isolated per pull request");
+  }
+  if (gate?.concurrency?.["cancel-in-progress"] !== true) {
+    errors.push("trusted review-window must still cancel stale runs for a newer real gate event");
+  }
+  if (!gate?.steps?.some((step) => step.run === "node scripts/ci/trusted-review-window.mjs gate")) {
+    errors.push("trusted review-window gate job must invoke the default-branch controller");
+  }
+  return errors;
+}
+
+/**
+ * CI scoping is allowed only inside the workflow. Required job identities must
+ * still finish with success, while missing scope output always selects heavy.
+ */
+export function evaluateCiScopeWorkflow(source, packageScripts) {
+  const errors = [];
+  let document;
+  try {
+    document = yaml.load(source);
+  } catch (error) {
+    return [`CI is not valid YAML: ${error instanceof Error ? error.message : String(error)}`];
+  }
+
+  const pullRequest = document?.on?.pull_request;
+  const requiredTypes = [
+    "opened",
+    "synchronize",
+    "reopened",
+    "ready_for_review",
+    "converted_to_draft",
+  ];
+  if (!includesEvery(pullRequest?.types, requiredTypes)) {
+    errors.push("CI pull_request events must rerun scope when draft readiness changes");
+  }
+
+  if (!hasExactExpression(document?.concurrency?.group, "ci-${{ github.ref }}")) {
+    errors.push("CI concurrency must serialize runs per ref, including master migrations");
+  }
+  if (
+    !hasExactExpression(
+      document?.concurrency?.["cancel-in-progress"],
+      "${{ github.event_name == 'pull_request' }}",
+    )
+  ) {
+    errors.push("CI may cancel stale PR runs but must never cancel a running master migration");
+  }
+
+  const scope = document?.jobs?.scope;
+  if (
+    !scope ||
+    !scope.outputs?.run_heavy ||
+    !scope.outputs?.safe_docs_only ||
+    !scope.steps?.some((step) => step.run === "node scripts/workflow/ci-scope.mjs") ||
+    !scope.steps?.some((step) =>
+      hasExactExpression(step.env?.SAJTMASKIN_PR_ACTION, "${{ github.event.action }}"),
+    )
+  ) {
+    errors.push("CI scope job must publish fail-closed profile and draft-action outputs");
+  }
+
+  const qualityCore = document?.jobs?.["quality-core"];
+  if (
+    !values(qualityCore?.needs).includes("scope") ||
+    !hasExactExpression(
+      qualityCore?.if,
+      "${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false') }}",
+    )
+  ) {
+    errors.push("quality-core may defer work only on an explicit successful light scope");
+  }
+  const e2eContract = qualityCore?.steps?.find((step) => step.run === "npm run test:e2e:contract");
+  if (
+    !e2eContract ||
+    Object.hasOwn(e2eContract, "continue-on-error") ||
+    e2eContract.if !== undefined
+  ) {
+    errors.push("heavy quality-core must block unconditionally on Playwright E2E discovery");
+  }
+  if (packageScripts?.["test:e2e:contract"] !== E2E_CONTRACT_SCRIPT) {
+    errors.push("test:e2e:contract must retain its exact Playwright discovery command");
+  }
+
+  const qualityContracts = document?.jobs?.["quality-contracts"];
+  if (
+    !values(qualityContracts?.needs).includes("scope") ||
+    !hasExactExpression(qualityContracts?.if, "${{ !cancelled() }}")
+  ) {
+    errors.push("quality-contracts must run after every non-cancelled scope result");
+  }
+  if (
+    SAFE_DOCS_COMMANDS.length !== SAFE_DOCS_COMMAND_FLOOR.length ||
+    !SAFE_DOCS_COMMAND_FLOOR.every((command) => SAFE_DOCS_COMMANDS.includes(command))
+  ) {
+    errors.push("safe docs command allowlist changed below its independent security floor");
+  }
+  for (const command of SAFE_DOCS_COMMAND_FLOOR) {
+    const step = qualityContracts?.steps?.find(
+      (candidate) => candidate.run === `npm run ${command}`,
+    );
+    const expectedCondition =
+      command === "docs:test"
+        ? "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.safe_docs_only == 'true' }}"
+        : "${{ !cancelled() }}";
+    if (!step || !hasExactExpression(step.if, expectedCondition)) {
+      errors.push(`light docs scope requires guarded quality-contract coverage for ${command}`);
+    }
+  }
+
+  const heavyFallback =
+    "${{ needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false' }}";
+  for (const jobName of ["build", "backoffice-tests", "schema-drift", "dead-code"]) {
+    const job = document?.jobs?.[jobName];
+    if (!job || !values(job.needs).includes("scope")) {
+      errors.push(`${jobName} must consume the shared CI scope`);
+      continue;
+    }
+    if (!hasExactExpression(job.if, "${{ !cancelled() }}")) {
+      errors.push(`${jobName} must still publish a successful required check on light scope`);
+    }
+    if (!hasExactExpression(job.env?.RUN_HEAVY, heavyFallback)) {
+      errors.push(`${jobName} must fall back to heavy when CI scope is missing or failed`);
+    }
+    const report = job.steps?.find((step) => step.name === "Report light CI scope");
+    if (!hasExactExpression(report?.if, "${{ env.RUN_HEAVY == 'false' }}")) {
+      errors.push(`${jobName} must run an explicit successful light-scope receipt`);
+    }
+    const unguardedHeavy = (job.steps ?? []).filter(
+      (step) =>
+        step.name !== "Report light CI scope" &&
+        !hasExactExpression(step.if, "${{ env.RUN_HEAVY == 'true' }}"),
+    );
+    if (unguardedHeavy.length > 0) {
+      errors.push(`${jobName} has heavy steps outside the shared scope guard`);
+    }
+  }
+
+  const qualityNeeds = [
+    "scope",
+    "quality-core",
+    "quality-contracts",
+    "preview-host-guards",
+    "dead-code",
+  ];
+  if (!includesEvery(document?.jobs?.quality?.needs, qualityNeeds)) {
+    errors.push("quality must aggregate scope, core, contracts, preview-host and dead-code");
+  }
+  if (!hasExactExpression(document?.jobs?.quality?.if, "${{ !cancelled() }}")) {
+    errors.push(
+      "quality must publish after failed/skipped dependencies without surviving cancellation",
+    );
+  }
+
+  const deadCode = document?.jobs?.["dead-code"];
+  const advisoryKnip = deadCode?.steps?.find((step) => step.run === "npm run knip || true");
+  const orphanGate = deadCode?.steps?.find((step) => step.run === "npm run knip:files");
+  if (!advisoryKnip || !orphanGate || Object.hasOwn(orphanGate, "continue-on-error")) {
+    errors.push("heavy dead-code must retain advisory knip and a blocking orphan-file gate");
+  }
+
+  for (const jobName of ["prod-migrations-apply", "prod-migrations-applied", "db-schema-parity"]) {
+    if (!hasExactExpression(document?.jobs?.[jobName]?.if, TRUSTED_MASTER_PUSH_OR_DISPATCH)) {
+      errors.push(`${jobName} may receive live credentials only on trusted master events`);
+    }
+  }
+  if (
+    !includesEvery(document?.jobs?.["prod-migrations-apply"]?.needs, [
+      "quality",
+      "schema-drift",
+      "build",
+      "backoffice-tests",
+    ])
+  ) {
+    errors.push("prod migrations must wait for every blocking CI lane");
+  }
+
+  return errors;
+}
+
+function containsSecretExpression(value) {
+  return /\bsecrets\s*(?:\.|\[)/u.test(JSON.stringify(value ?? null));
+}
+
+function hasFailingManualRefRejection(document) {
+  const job = document?.jobs?.["reject-untrusted-manual-ref"];
+  const rejectingStep = job?.steps?.find(
+    (step) =>
+      step.name === "Reject secret-bearing dispatch outside master" &&
+      String(step.run ?? "")
+        .trim()
+        .endsWith("exit 1") &&
+      step["continue-on-error"] === undefined,
+  );
+  return (
+    hasExactExpression(job?.if, REJECT_NON_MASTER_DISPATCH) &&
+    job?.["continue-on-error"] === undefined &&
+    Boolean(rejectingStep) &&
+    !containsSecretExpression(job)
+  );
+}
+
+/**
+ * Repo secrets may never be evaluated by code checked out from a manually
+ * selected feature ref. The explicit rejection job makes that misuse red;
+ * exact job/step guards keep the secret-bearing paths closed independently.
+ */
+export function evaluateSecretWorkflowDispatches(dbBlobSource, dbParitySource) {
+  const errors = [];
+  const workflows = [];
+  for (const [name, source] of [
+    ["db-blob-sync-check.yml", dbBlobSource],
+    ["db-schema-parity.yml", dbParitySource],
+  ]) {
+    try {
+      workflows.push([name, yaml.load(source)]);
+    } catch (error) {
+      errors.push(
+        `${name} is not valid YAML: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+  if (errors.length > 0) return errors;
+
+  const documents = Object.fromEntries(workflows);
+  const blob = documents["db-blob-sync-check.yml"];
+  const parity = documents["db-schema-parity.yml"];
+  for (const [name, document] of workflows) {
+    const workflowLevel = { ...(document ?? {}), jobs: {} };
+    if (containsSecretExpression(workflowLevel)) {
+      errors.push(`${name} may not expose repo secrets at workflow level`);
+    }
+    if (!hasFailingManualRefRejection(document)) {
+      errors.push(`${name} must fail visibly before a non-master manual dispatch can run`);
+    }
+  }
+
+  const blobEvents = blob?.on;
+  if (
+    !hasExactStringSet(blobEvents?.pull_request?.branches, ["master"]) ||
+    !hasExactStringSet(blobEvents?.pull_request?.paths, DB_BLOB_PR_PATH_FLOOR) ||
+    blobEvents?.pull_request?.["paths-ignore"] !== undefined
+  ) {
+    errors.push("DB/Blob PR trigger must use the exact executable-input path allowlist");
+  }
+  if (
+    !hasExactStringSet(blobEvents?.push?.branches, ["master"]) ||
+    blobEvents?.push?.paths !== undefined ||
+    blobEvents?.push?.["paths-ignore"] !== undefined ||
+    !Object.hasOwn(blobEvents ?? {}, "workflow_dispatch")
+  ) {
+    errors.push("DB/Blob live verification must remain unfiltered on master and dispatch");
+  }
+
+  const blobJob = blob?.jobs?.["db-blob-sync"];
+  const trustedBlobJob =
+    "${{ github.event_name == 'pull_request' || (github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) }}";
+  if (!hasExactExpression(blobJob?.if, trustedBlobJob)) {
+    errors.push("DB/Blob job must exclude non-master manual refs before checkout");
+  }
+  if (Object.hasOwn(blobJob ?? {}, "continue-on-error")) {
+    errors.push("DB/Blob verification job must remain blocking on relevant events");
+  }
+  if (containsSecretExpression({ ...blobJob, steps: [] })) {
+    errors.push("DB/Blob secrets must stay on an individually master-guarded step");
+  }
+  const blobInstall = blobJob?.steps?.find(
+    (step) =>
+      step.run === "python -m pip install --disable-pip-version-check -r requirements.dbtest.txt",
+  );
+  const blobUnit = blobJob?.steps?.find(
+    (step) =>
+      step["working-directory"] === "scripts/db" &&
+      step.run === "python -m unittest test_pydatabastest -v",
+  );
+  const blobPrSmoke = blobJob?.steps?.find(
+    (step) =>
+      step.run === "python scripts/db/pydatabastest.py --ci" &&
+      hasExactExpression(step.if, "${{ github.event_name == 'pull_request' }}"),
+  );
+  if (
+    !blobInstall ||
+    blobInstall.if !== undefined ||
+    Object.hasOwn(blobInstall, "continue-on-error") ||
+    !blobUnit ||
+    blobUnit.if !== undefined ||
+    Object.hasOwn(blobUnit, "continue-on-error") ||
+    !blobPrSmoke ||
+    Object.hasOwn(blobPrSmoke, "continue-on-error") ||
+    containsSecretExpression(blobPrSmoke)
+  ) {
+    errors.push("DB/Blob PR smoke must execute every allowlisted Python input without secrets");
+  }
+  let blobSecretSteps = 0;
+  for (const [jobName, job] of Object.entries(blob?.jobs ?? {})) {
+    if (jobName !== "db-blob-sync" && containsSecretExpression(job)) {
+      errors.push("DB/Blob secrets must stay inside the guarded DB/Blob job");
+    }
+    for (const step of job?.steps ?? []) {
+      if (!containsSecretExpression(step)) continue;
+      blobSecretSteps += 1;
+      if (
+        jobName !== "db-blob-sync" ||
+        !hasExactExpression(step.if, TRUSTED_MASTER_PUSH_OR_DISPATCH) ||
+        Object.hasOwn(step, "continue-on-error")
+      ) {
+        errors.push(
+          "every DB/Blob secret-bearing step must block and require trusted master explicitly",
+        );
+      }
+    }
+  }
+  if (blobSecretSteps === 0) {
+    errors.push("DB/Blob workflow lost its guarded live verification step");
+  }
+
+  const parityJob = parity?.jobs?.["db-schema-parity-scheduled"];
+  const trustedParityJob =
+    "${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}";
+  if (!hasExactExpression(parityJob?.if, trustedParityJob)) {
+    errors.push("scheduled schema parity must exclude non-master manual refs before checkout");
+  }
+  let paritySecretSteps = 0;
+  for (const [jobName, job] of Object.entries(parity?.jobs ?? {})) {
+    if (!containsSecretExpression(job)) continue;
+    paritySecretSteps += (job.steps ?? []).filter(containsSecretExpression).length;
+    if (jobName !== "db-schema-parity-scheduled") {
+      errors.push("schema-parity secrets must stay inside the master-guarded job");
+    }
+  }
+  if (paritySecretSteps === 0) {
+    errors.push("schema-parity workflow lost its guarded live verification step");
+  }
+
+  return errors;
+}
+
 export function evaluatePolicyFloors(policy) {
   const errors = [];
   const requireValues = (label, actual, floor) => {
@@ -406,6 +837,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
 
   const freshness = read(root, ".github/workflows/merge-ready-freshness.yml");
+  errors.push(...evaluateTrustedReviewWindowGate(freshness));
   if (!freshness.includes("pull_request_target:")) {
     errors.push("merge-ready freshness must use trusted pull_request_target");
   }
@@ -554,6 +986,9 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
 
   const ci = read(root, ".github/workflows/ci.yml");
   const dbBlobSync = read(root, ".github/workflows/db-blob-sync-check.yml");
+  const dbSchemaParity = read(root, ".github/workflows/db-schema-parity.yml");
+  errors.push(...evaluateCiScopeWorkflow(ci, pkg.scripts));
+  errors.push(...evaluateSecretWorkflowDispatches(dbBlobSync, dbSchemaParity));
   if (!ci.includes("workflow_dispatch: {}") || !dbBlobSync.includes("workflow_dispatch: {}")) {
     errors.push("post-merge CI and DB/blob verification must remain workflow-dispatchable");
   }
@@ -577,22 +1012,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   for (const job of ["quality-core", "quality-contracts", "quality"]) {
     if (!new RegExp(`^  ${job}:`, "m").test(ci)) errors.push(`CI missing ${job} job`);
   }
-  if (
-    !/quality:\s*[\s\S]*?needs:\s*\[quality-core, quality-contracts, preview-host-guards, dead-code\]/m.test(
-      ci,
-    )
-  ) {
-    errors.push("quality must aggregate core, contracts, preview-host guards and dead-code gate");
-  }
   const deadCodeJob = workflowJob(ci, "dead-code");
-  if (!deadCodeJob) {
-    errors.push("CI missing dead-code job");
-  } else if (
-    /paths-filter|steps\.filter|Skip dead-code/.test(deadCodeJob) ||
-    !/name: Orphan-file gate \(blocking\)\s*\n\s*run: npm run knip:files/.test(deadCodeJob)
-  ) {
-    errors.push("dead-code orphan gate must run unconditionally for every CI change");
-  }
+  if (!deadCodeJob) errors.push("CI missing dead-code job");
   const previewHostJob = workflowJob(ci, "preview-host-guards");
   if (
     !previewHostJob ||
@@ -613,6 +1034,30 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (!mergeRule.includes("config/agent-workflow.json")) {
     errors.push("pr-merge.mdc must route checks and timing to config/agent-workflow.json");
   }
+  const agentEntry = read(root, "AGENTS.md");
+  const workflowRule = read(root, ".cursor/rules/workflow.mdc");
+  const prWorkflow = read(root, ".agents/skills/pr-workflow/SKILL.md");
+  for (const [name, source] of [
+    ["AGENTS.md", agentEntry],
+    ["pr-workflow skill", prWorkflow],
+    ["workflow.mdc", workflowRule],
+  ]) {
+    if (
+      !source.includes("npm run verify:pr -- --plan") ||
+      !/(?:GitHub Actions|\bCI\b)/u.test(source) ||
+      !/rikt(?:ade kontroller|at)/iu.test(source)
+    ) {
+      errors.push(`${name} must assign local planning/targeted checks and full verification to CI`);
+    }
+    if (/`npm run verify:pr` före push|efter ny head-SHA:\s*kör lokal verifiering/iu.test(source)) {
+      errors.push(`${name} must not require a bare full local verify:pr run for every push or SHA`);
+    }
+  }
+  if (!mergeRule.includes("required GitHub-checks") || /Kör `npm run verify:pr`/u.test(mergeRule)) {
+    errors.push(
+      "pr-merge.mdc must use current-head GitHub checks instead of a bare local full run",
+    );
+  }
 
   const hooks = json(root, ".cursor/hooks.json");
   const beforeShell = hooks.hooks?.beforeShellExecution ?? [];
@@ -626,8 +1071,20 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   if (!existsSync(resolve(root, ".github/pull_request_template.md"))) {
     errors.push("missing pull request template");
-  } else if (!read(root, ".github/pull_request_template.md").includes("npm run verify:pr")) {
-    errors.push("pull request template must require verify:pr");
+  } else {
+    const template = read(root, ".github/pull_request_template.md");
+    if (!template.includes("npm run verify:pr -- --plan")) {
+      errors.push("pull request template must require the local verify:pr plan");
+    }
+    if (/^- \[ \] `npm run verify:pr`\s*$/mu.test(template)) {
+      errors.push("pull request template must not require a bare full local verify:pr run");
+    }
+    if (!template.includes("Körda riktade kontroller")) {
+      errors.push("pull request template must record targeted local checks");
+    }
+    if (!template.includes("aktuell head-SHA")) {
+      errors.push("pull request template must require GitHub checks for the current head SHA");
+    }
   }
   const hookInstaller = read(root, "scripts/dev/install-git-hooks.mjs");
   if (
@@ -662,7 +1119,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   ) {
     errors.push("Godnatt cleanup must lease remote deletion to the exact merged head SHA");
   }
-  const prWorkflow = read(root, ".agents/skills/pr-workflow/SKILL.md");
   if (!prWorkflow.includes("npm run hooks:install")) {
     errors.push("canonical PR workflow must install the managed local hooks");
   }
@@ -681,9 +1137,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     errors.push("worktree removal wrapper must recompute PR/merge lifecycle fail-closed");
   }
   if (
-    !worktreeWrapper.includes(
-      'const source = join(mainWorktree, ".cursor", "mcp.json.example")',
-    ) ||
+    !worktreeWrapper.includes('const source = join(mainWorktree, ".cursor", "mcp.json.example")') ||
     worktreeWrapper.includes('const live = join(mainWorktree, ".cursor", "mcp.json")')
   ) {
     errors.push("worktree setup must seed MCP only from the tracked public example");

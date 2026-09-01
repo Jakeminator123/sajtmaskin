@@ -17,12 +17,12 @@ gammalt runbookpåstående.
 Repoets avsedda required checknamn ägs av
 [`config/agent-workflow.json`](../../config/agent-workflow.json):
 
-| Check              | Roll                                           |
-| ------------------ | ---------------------------------------------- |
-| `quality`          | aggregerad kod- och kontraktsgrind             |
-| `backoffice-tests` | Python-/Backoffice-regression                  |
-| `schema-drift`     | DB-schema                                      |
-| `build`            | nyckelfri produktionsbuild                     |
+| Check              | Roll                                                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `quality`          | aggregerad kod- och kontraktsgrind                                                                                |
+| `backoffice-tests` | Python-/Backoffice-regression                                                                                     |
+| `schema-drift`     | DB-schema                                                                                                         |
+| `build`            | nyckelfri produktionsbuild                                                                                        |
 | `review-window`    | trusted 7 min/review + live head/base; saknat kvitto gör checken `action_required`, inte orchestrator-jobbet rött |
 
 Konsekvenser:
@@ -133,12 +133,14 @@ skrivande klassificering kör bara default-branch-kod utan mergekommando.
 
 Controllern läser hela PR-fillistan för varje ny head, cachar den under
 pollingen och hämtar den på nytt i slutkontrollen. Antal och unika filnamn måste
-matcha GitHubs PR-metadata. En fil vars nuvarande eller tidigare namn ligger i
-`.github/workflows/**` stoppas av standardmergen: workflow-infrastruktur kräver
-en separat, uttryckligen ägargodkänd och dokumenterad bootstrap-merge efter
-samma tester, review och väntetid. Det undantaget får aldrig användas för att
-passera en röd eller ofullständig grind. Efter exakt head/base-kontroll används
-expected-head-squash och post-merge-CI körs på nya master.
+matcha GitHubs PR-metadata. En fil vars nuvarande eller tidigare namn träffar
+`manualMergePathPrefixes` stoppas av standardmergen. Listan omfattar workflow,
+default-branch-controller/reviewmoduler, scope-exekvering och centrala
+klassificeringsinputs; de kräver en separat, uttryckligen ägargodkänd och
+dokumenterad bootstrap-merge efter samma tester, review och väntetid. Det
+undantaget får aldrig användas för att passera en röd eller ofullständig grind.
+Efter exakt head/base-kontroll används expected-head-squash och post-merge-CI
+körs på nya master.
 
 Expected head stänger head-racet. GitHubs merge-endpoint tar däremot ingen
 expected base-SHA. Native ruleset/branch protection måste därför kräva
@@ -157,7 +159,7 @@ endast det betrodda `merge:execute`-kommandot.
 Den statiska namnreserveringen och jobb-/stegkontrollen är defense-in-depth, inte
 ett påstående att native UI-residualen är stängd. En obetrodd PR-ref kan försöka
 ändra både workflow och dess kontrakttest; canonical merge stoppar därför alla
-`.github/workflows/**`-ändringar och inget UI-/API-bypass räknas som agentmerge.
+policyägda CI-trust roots och inget UI-/API-bypass räknas som agentmerge.
 
 En merge med Actions egen `GITHUB_TOKEN` startar normalt inte push-workflows.
 Efter terminal merge gör controllern därför base-invalideringen själv och
@@ -211,9 +213,12 @@ En Codex-kommentar som **bara** är "usage limit" är inget fynd och blockerar i
 ## Två fällor som kostade tid 2026-08-20
 
 **«Docs-only» skyddar inte mot kontraktstester.** Flera tester läser `docs/`,
-registries och agentregler. Därför finns ingen docs-/regelgenväg till master.
-`npm run verify:pr` läser diffen och väljer docs-, control-plane-, agent- och
-Backofficekontroller från samma policy som CI.
+registries och agentregler. Bara en exklusiv, bevisat safe docs-diff får den
+explicita light-profilen; docs som också har runtime-, Backoffice-, authority-
+eller extra validatorpåverkan kör tungt. `npm run verify:pr -- --plan` visar
+docs-, control-plane-, agent- och Backofficepåverkan. Riktade kontroller ger
+lokal återkoppling; required GitHub-checks publicerar fullprofil eller ett
+explicit light-kvitto för aktuell head-SHA.
 
 **`cancelled` är inte `failure`.** CI:s concurrency-grupp avbryter en pågående
 körning när en ny commit landar på samma ref. En `quality: cancelled` på en

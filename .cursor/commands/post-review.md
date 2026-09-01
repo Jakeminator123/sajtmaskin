@@ -21,8 +21,9 @@ subagenter ger korta risksignaler. Körordning:
    och kör `check:bug-backlog`; läs inte hela filen som rutin. Om diffen fixar
    ett befintligt `SM-###`, flytta raden till `Arkiv` i samma fix-PR med
    PR-/masterbevis.
-7. Kör `npm run verify:pr` och rapportera fynd, avfärdanden, Backoffice-impact
-   och medvetet exkluderade filer.
+7. Kör planens relevanta riktade kontroller och rapportera fynd, avfärdanden,
+   Backoffice-impact och medvetet exkluderade filer. Fullprofilen körs av
+   GitHub Actions efter push.
 
 Ett fullgott oberoende Sol-pass på aktuell diff kan uppfylla `git.mdc`:s
 lokala reviewkrav; kör inte ett identiskt extra pass. Protected paths eller ny

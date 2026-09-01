@@ -8,8 +8,8 @@ av `npm run workflow:contract`.
 flowchart TD
   U["Jakob beskriver målet"] --> A["Agent jobbar i öppna checkouten"]
   A --> B["Ändra canonical owner + verkliga följdytor"]
-  B --> C["verify:pr visar impact och kör lokala tester"]
-  C --> W{"Ändras .github/workflows/?"}
+  B --> C["verify:pr-plan + riktade lokala tester"]
+  C --> W{"Ändras en CI-trust root?"}
   W -- "nej" --> D["Review + PR + parallell CI"]
   W -- "ja" --> X["Separat, ägargodkänd infrastruktur-bootstrap"]
   X --> D
@@ -44,17 +44,23 @@ det får inte beskrivas som runtime-låst.
 npm run hooks:install       # en gång per clone; idempotent och worktree-delad
 npm run verify:pr -- --plan  # visa vad diffen påverkar (även pre-push-hooken)
 npm run sync:derived         # skriv om genererade projektioner vid behov
-npm run verify:pr            # full PR-ready-kontroll före push; CI kör den igen
+# kör relevanta riktade kontroller; GitHub väljer tung profil eller light-kvitto
 ```
 
 `verify:pr` jämför med färsk `origin/master`. Det läser control-plane-registren
-och Backoffice domain-map samt deduplicerar hårda validators. Okända eller
-oägda filer får både runtime- och full verifiering; `preview-host/**` får också
-paketets egna grindar. Protected paths är tillåtna men får den fulla lokala
-profilen och ska följas genom owner → konsument/validator → schema/Backoffice →
-genererad projektion/docs. Det ändrar inte tracked sourcefiler. Underkommandon kan däremot
-uppdatera lokala gitignorerade cacheartefakter, exempelvis `.eslintcache` och
-validatorcache; kontrollera därför tracked diff, inte en helt orörd arbetsmapp.
+och Backoffice domain-map samt deduplicerar hårda validators. Okända filer får
+fail-safe runtime- och fullprofil; runtimefiler utan en control-plane-owner
+rapporteras som information men har redan runtimeprofilen. `preview-host/**`
+får också paketets egna grindar. Protected paths är tillåtna men får den fulla
+CI-profilen och ska följas genom owner → konsument/validator → schema/Backoffice
+→ genererad projektion/docs. Lokalt körs relevanta riktade kontroller. Bare
+`npm run verify:pr` är frivillig felsökning, eller ett uttryckligt krav när
+själva CI-/verifieringsmotorn ändras. GitHub publicerar required checks på varje
+PR-head. Ready runtime, högrisk och `master` kör tung profil; bevisat safe docs
+och vanliga drafts får i stället ett explicit grönt light-kvitto. Underkommandon
+kan uppdatera lokala gitignorerade cacheartefakter, exempelvis `.eslintcache`
+och validatorcache; kontrollera därför tracked diff, inte en helt orörd
+arbetsmapp.
 
 ## Flera agenter utan statuskonflikter
 
@@ -74,9 +80,10 @@ Branchnamn har inget obligatoriskt prefix. `*BRA*` och `rescue/*` är fortfarand
 frysta backuper.
 
 Git-hooken är ett lokalt räcke, inte den yttersta sanningen: den installeras
-idempotent och stoppar push om `verify:pr --plan` är rött. Full `verify:pr` körs
-av agenten och i CI på den pushade committen, så en saknad lokal hook kan inte
-göra en ogiltig PR grön.
+idempotent och stoppar push om `verify:pr --plan` är rött. Riktade kontroller
+körs lokalt. CI publicerar required checks för den pushade committen och väljer
+fail-closed tung profil eller ett explicit light-kvitto, så en saknad lokal hook
+kan inte göra en ogiltig PR grön.
 
 När `quality`, `backoffice-tests`, `schema-drift`, `build`, Vercel och alla
 reviewfynd är klara — medan `review-window` fortfarande väntar — posta först
@@ -132,20 +139,24 @@ oklar eller flerdubbel identitet stoppar. Vanliga `pull_request`-workflows får
 inga skrivrättigheter; skrivande Dependabot-klassificering kör enbart
 default-branch-kod och kan aldrig merga.
 
-## Särskilt spår för workflow-infrastruktur
+## Särskilt spår för CI-trust roots
 
-`.github/workflows/**` är trust root för hela grinden. Den vanliga
+`manualMergePathPrefixes` i `config/agent-workflow.json` äger trust roots för
+hela grinden: workflowfiler, default-branch-controller/reviewmoduler, själva
+scope-exekverbara filerna och deras centrala JSON-inputs. Den vanliga
 `review-window`- och `merge:execute`-controllern vägrar därför en PR där en fil
-har nuvarande **eller tidigare** namn under den mappen. Det är det enda verkligt
-manuella mergeundantaget, och ska inte blandas med en produktändring.
+har nuvarande **eller tidigare** namn på någon sådan yta. Det är det enda
+verkligt manuella mergeundantaget, och ska inte blandas med en produktändring.
 
 En sådan ändring görs i en separat PR: ägaren godkänner uttryckligen
-infrastruktur-bootstrapen, agenten kör samma lokala verifiering, CI, oberoende
-review och sjuminutersfönster, och den exakta head/base-paret läses om direkt
-före en dokumenterad expected-head-squash-merge. Efteråt körs CI på nya master och övriga
-öppna PR:ar omvärderas. Själva införandet av denna spärr är en engångs-bootstrap;
-när den finns på master får ingen agent dölja en workflowändring bakom ett
-vanligt mergekommando.
+infrastruktur-bootstrapen, agenten kör samma lokala plan + riktade kontroller,
+CI, oberoende review och sjuminutersfönster, och det exakta head/base-paret läses
+om direkt före en dokumenterad expected-head-squash-merge. Efteråt körs CI på
+nya master och övriga öppna PR:ar omvärderas. Själva införandet av denna spärr är
+en engångs-bootstrap; när den finns på master får ingen agent dölja en
+workflowändring bakom ett vanligt mergekommando. Det oberoende golvet i
+`workflow:contract` hindrar en PR-head från att ta bort sin egen trust root ur
+den redigerbara policyn.
 
 Den egna `trusted-pr-ai-review`-checkens namn är inte heller reviewbevis. Både
 den levande state-kommentaren och dess publicerade review-ID måste binda till

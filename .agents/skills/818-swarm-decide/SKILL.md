@@ -24,8 +24,8 @@ The name is historical: `818` meant eight agents. Since 2026-08-02 it is **three
    `/818` is never an alternate delivery path. Otherwise list the blockers and
    stop without edits.
 8. **Implement** only inside that PR-workflow worktree.
-9. **Verify** through `npm run verify:pr`; targeted `vitest`/`ReadLints` may be
-   useful early but never replace the impact-selected profile.
+9. **Verify** with `npm run verify:pr -- --plan` plus relevant targeted
+   `vitest`/`ReadLints` checks. GitHub Actions owns the blocking full profile.
 10. **Review pass**: one readonly `<sol>` agent reviews the **intent of the
     change** without rewriting code. Two agents only for protected paths.
 

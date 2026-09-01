@@ -97,6 +97,19 @@ export type RepairContext = {
   qualityGate?: QualityGateFailure[];
   qualityGateMeta?: RepairQualityGateMeta;
   visualQA?: { check: string; score: number; detail: string }[];
+  /**
+   * Product Postcheckens blockerande DOM-fynd från den körande sajten
+   * (t.ex. `cta_no_handler` med selector + knapptext, `mobile_menu_failed`
+   * med orsak). Renderas som eget promptblock i `buildAutoFixPrompt`.
+   */
+  productFindings?: {
+    code: string;
+    message: string;
+    selector?: string;
+    text?: string;
+    href?: string;
+    route?: string;
+  }[];
   previousVersionErrors?: string[];
   currentVersionErrors?: string[];
   scaffoldRetry?: RepairScaffoldRetry | null;

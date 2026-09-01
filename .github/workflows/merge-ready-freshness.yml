@@ -42,14 +42,16 @@ permissions:
 
 jobs:
   trusted-review-window:
+    # Bara händelser som faktiskt kör gate-controllern får komma in i dess
+    # cancel-in-progress-grupp. Ett no-op-event (t.ex. edited/issue_comment)
+    # får annars avbryta synchronize-körningen och lämna review-window hängande.
     if: >
-      github.event_name != 'push' &&
+      github.event_name == 'pull_request_target' &&
       (
-        github.event_name != 'issue_comment' ||
-        (
-          github.event.issue.pull_request != null &&
-          !startsWith(github.event.comment.body, 'merge:execute')
-        )
+        github.event.action == 'opened' ||
+        github.event.action == 'reopened' ||
+        github.event.action == 'synchronize' ||
+        github.event.action == 'ready_for_review'
       )
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -4,10 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   evaluateCiBranch,
+  evaluateCiScopeWorkflow,
   evaluatePolicyFloors,
   evaluatePrHeadWorkflowPermissions,
   evaluateReservedWorkflowCheckNames,
   evaluateRetiredBugIdFloor,
+  evaluateSecretWorkflowDispatches,
+  evaluateTrustedReviewWindowGate,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
 import {
@@ -21,10 +24,14 @@ import {
 import {
   assertBranchSafety,
   classifyProcessResult,
+  executeVerificationCommands,
   isCiRunner,
+  parseArgs,
+  resolveVerificationCommand,
   runNpm,
   trackedPathsForBase,
 } from "./verify-pr.mjs";
+import { missingCursorSecretIgnores } from "../dev/check-agent-context-budget.mjs";
 
 describe("agent workflow path matching", () => {
   it.each([
@@ -78,6 +85,26 @@ describe("agent workflow path matching", () => {
 describe("agent workflow impact", () => {
   const inputs = loadWorkflowInputs();
 
+  it("keeps workstation cleanup out of the PR verification profile", () => {
+    expect(inputs.policy.verificationProfiles.full).not.toEqual(
+      expect.arrayContaining(["clean:orphans:dry", "clean:scratch"]),
+    );
+  });
+
+  it("fails the agent check if a proven Cursor secret guard is removed", () => {
+    const source = readFileSync(".cursorignore", "utf8");
+    expect(missingCursorSecretIgnores(source)).toEqual([]);
+    expect(missingCursorSecretIgnores(source.replace(/^\.env-backups\/$/mu, ""))).toContain(
+      ".env-backups/",
+    );
+  });
+
+  it("orders cheaper runtime gates before the full Vitest suite", () => {
+    const commands = inputs.policy.verificationProfiles.runtime;
+    expect(commands.indexOf("typecheck")).toBeLessThan(commands.indexOf("test:ci"));
+    expect(commands.indexOf("lint")).toBeLessThan(commands.indexOf("test:ci"));
+  });
+
   it("finds the Cursor-agenter Backoffice surface after the skill move", () => {
     const impact = collectImpact({
       ...inputs,
@@ -107,7 +134,7 @@ describe("agent workflow impact", () => {
     if (path.startsWith("docs/")) expect(impact.commands).toContain("docs:test");
   });
 
-  it("reports deleted or unknown runtime paths with fail-safe runtime checks", () => {
+  it("reports runtime paths without a control-plane owner while keeping the core profile", () => {
     const impact = collectImpact({
       ...inputs,
       changedFiles: ["src/lib/new-area/deleted.ts"],
@@ -116,7 +143,121 @@ describe("agent workflow impact", () => {
     expect(impact.commands).toContain("typecheck");
     expect(impact.commands).toContain("test:ci");
     expect(impact.commands).toContain("lint");
+    expect(impact.commands).not.toContain("knip:files");
   });
+
+  it.each([
+    [
+      "config/ai_models/41-tier3-stub-placeholders.env.txt",
+      "generated-site-tier3-stub-placeholders",
+      "Env Readiness (read-only)",
+      "medium",
+    ],
+    ["config/ai_models/pricing.json", "ai-model-pricing", "Generation Cost", "high"],
+  ])("never gives draft changes to %s a shallow verification plan", (path, id, surface, danger) => {
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    const owner = inputs.policyRegistry.entries.find((entry: { id: string }) => entry.id === id);
+
+    expect(owner).toMatchObject({
+      sourceOfTruth: path,
+      validator: "test:ci",
+      ciStatus: "hard",
+      runtimeEnforced: true,
+      runtimeStatus: "wired",
+      backoffice: { surface, editable: false, writePath: null, danger },
+    });
+    expect(impact.groups.runtime).toContain(path);
+    expect(impact.authorities).toContainEqual(
+      expect.objectContaining({
+        id,
+        sourceOfTruth: path,
+        validator: "test:ci",
+        runtimeStatus: "wired",
+        backofficeSurface: surface,
+      }),
+    );
+    expect(impact.unmappedRuntimeFiles).toEqual([]);
+    expect(impact.unclassifiedFiles).toEqual([]);
+    expect(impact.backofficePages).toContain(surface);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining([
+        "embeddings:ensure",
+        "typecheck",
+        "lint",
+        "test:ci",
+        "backoffice:test",
+      ]),
+    );
+    expect(impact.commands).not.toContain("knip:files");
+  });
+
+  it("routes the production OpenClaw prompt tips through their runtime owner", () => {
+    const path = "data/openclaw/builder-prompt-tips.md";
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    const owner = inputs.policyRegistry.entries.find(
+      (entry: { id: string }) => entry.id === "openclaw-builder-prompt-tips",
+    );
+
+    expect(owner).toMatchObject({
+      sourceOfTruth: path,
+      validator: "test:ci",
+      ciStatus: "hard",
+      runtimeEnforced: true,
+      runtimeStatus: "wired",
+      backoffice: { surface: null, editable: false, writePath: null },
+    });
+    expect(impact.groups.runtime).toContain(path);
+    expect(impact.authorities).toContainEqual(
+      expect.objectContaining({
+        id: "openclaw-builder-prompt-tips",
+        sourceOfTruth: path,
+        validator: "test:ci",
+        runtimeStatus: "wired",
+        backofficeSurface: null,
+      }),
+    );
+    expect(impact.unmappedRuntimeFiles).not.toContain(path);
+    expect(impact.backofficePages).toEqual([]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["embeddings:ensure", "typecheck", "lint", "test:ci"]),
+    );
+  });
+
+  it("keeps ownerless OpenClaw debug scenarios on the fail-closed runtime core", () => {
+    const path = "data/openclaw/debug-scenarios.json";
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+
+    expect(impact.groups.runtime).toContain(path);
+    expect(impact.authorities).toEqual([]);
+    expect(impact.unmappedRuntimeFiles).toEqual([path]);
+    expect(impact.unclassifiedFiles).toEqual([]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["embeddings:ensure", "typecheck", "lint", "test:ci"]),
+    );
+    expect(impact.commands).not.toContain("knip:files");
+  });
+
+  it.each([".cursorignore", ".cursorindexingignore"])(
+    "routes the root Cursor control file %s to the agent profile",
+    (path) => {
+      const impact = collectImpact({ ...inputs, changedFiles: [path] });
+      expect(impact.unclassifiedFiles).toEqual([]);
+      expect(impact.commands).toEqual(
+        expect.arrayContaining(["workflow:contract", "check:agent-context"]),
+      );
+      expect(impact.commands).not.toContain("test:ci");
+      expect(impact.commands).not.toContain("knip:files");
+    },
+  );
+
+  it.each(["src/components/Foo.tsx", "tests/new.test.ts", "public/worker.js"])(
+    "does not add the supplemental full profile for classified runtime path %s",
+    (path) => {
+      const impact = collectImpact({ ...inputs, changedFiles: [path] });
+      expect(impact.commands).toEqual(expect.arrayContaining(["typecheck", "lint", "test:ci"]));
+      expect(impact.commands).not.toContain("knip:files");
+    },
+  );
 
   it.each([
     "tests/new.test.ts",
@@ -146,6 +287,17 @@ describe("agent workflow impact", () => {
     );
   });
 
+  it("makes an explicit --full request include runtime and supplemental checks", () => {
+    const impact = collectImpact({
+      ...inputs,
+      changedFiles: ["docs/example-guide.md"],
+      forceFull: true,
+    });
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["typecheck", "lint", "test:ci", "knip:files"]),
+    );
+  });
+
   it.each([
     "övrigt/OPENCLAW-BUILDER/STATUS.yaml",
     "övrigt/OPENCLAW-BUILDER/diagrams/target.mmd",
@@ -169,6 +321,7 @@ describe("agent workflow impact", () => {
   ])("still fails a non-documentation asset into full verification: %s", (path) => {
     const impact = collectImpact({ ...inputs, changedFiles: [path] });
     expect(impact.commands).toContain("test:ci");
+    expect(impact.commands).toContain("knip:files");
   });
 
   it("runs the isolated preview-host package guards", () => {
@@ -288,7 +441,9 @@ describe("agent workflow branch safety", () => {
     };
     expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "fix/safe-change" })).toBeNull();
     expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "tmp/hidden-rule" })).toBeNull();
-    expect(evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "simplify-agent-workflow" })).toBeNull();
+    expect(
+      evaluateCiBranch(policy, { ...baseEnv, GITHUB_HEAD_REF: "simplify-agent-workflow" }),
+    ).toBeNull();
     expect(
       evaluateCiBranch(policy, {
         ...baseEnv,
@@ -331,6 +486,50 @@ describe("local base freshness", () => {
 });
 
 describe("verify:pr command execution", () => {
+  it("uses fail-fast by default and exposes an explicit diagnostic override", () => {
+    expect(parseArgs([]).keepGoing).toBe(false);
+    expect(parseArgs(["--keep-going"]).keepGoing).toBe(true);
+  });
+
+  it("uses the resource-capped test profile only outside CI", () => {
+    expect(resolveVerificationCommand("test:ci", {})).toBe("test:pr");
+    expect(resolveVerificationCommand("test:ci", { CI: "true" })).toBe("test:ci");
+    expect(resolveVerificationCommand("test:ci", { GITHUB_ACTIONS: "true" })).toBe("test:ci");
+    expect(resolveVerificationCommand("lint", {})).toBe("lint");
+  });
+
+  it("stops after the first failed command and reports what was skipped", () => {
+    const calls: string[] = [];
+    const execution = executeVerificationCommands(["first", "broken", "later"], (command) => {
+      calls.push(command);
+      return { signal: null, status: command === "broken" ? 7 : 0 };
+    });
+
+    expect(calls).toEqual(["first", "broken"]);
+    expect(execution.passed).toEqual(["first"]);
+    expect(execution.failures).toEqual([
+      { command: "broken", outcome: { kind: "exit", status: 7 } },
+    ]);
+    expect(execution.skipped).toEqual(["later"]);
+  });
+
+  it("continues only when --keep-going was explicitly requested", () => {
+    const calls: string[] = [];
+    const execution = executeVerificationCommands(
+      ["first", "broken", "later"],
+      (command) => {
+        calls.push(command);
+        return { signal: null, status: command === "broken" ? 7 : 0 };
+      },
+      { keepGoing: true },
+    );
+
+    expect(calls).toEqual(["first", "broken", "later"]);
+    expect(execution.passed).toEqual(["first", "later"]);
+    expect(execution.failures).toHaveLength(1);
+    expect(execution.skipped).toEqual([]);
+  });
+
   it("fails closed on a real spawn error", () => {
     const result = spawnSync(`sajtmaskin-missing-command-${process.pid}`, []);
     expect(classifyProcessResult(result)).toEqual({ kind: "spawn-error", error: result.error });
@@ -385,6 +584,210 @@ describe("verify:pr command execution", () => {
 describe("agent workflow repository contract", () => {
   it("keeps policy, CI, hooks, routers and registries in sync", () => {
     expect(evaluateWorkflowContract().errors).toEqual([]);
+  });
+
+  it("keeps CI scope fail-closed and live credentials on trusted master", () => {
+    const source = readFileSync(".github/workflows/ci.yml", "utf8");
+    const packageScripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
+    expect(evaluateCiScopeWorkflow(source, packageScripts)).toEqual([]);
+    const replaceOnce = (search: string, replacement: string) => {
+      const candidate = source.replace(search, replacement);
+      expect(candidate).not.toBe(source);
+      return candidate;
+    };
+
+    const weakened = [
+      replaceOnce("ready_for_review, ", ""),
+      replaceOnce(
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+        "cancel-in-progress: true",
+      ),
+      replaceOnce("group: ci-${{ github.ref }}", "group: ci-${{ github.run_id }}"),
+      replaceOnce("github.ref == 'refs/heads/master'", "github.ref == 'refs/heads/feature'"),
+      replaceOnce(
+        "needs: [quality, schema-drift, build, backoffice-tests]",
+        "needs: [quality, schema-drift]",
+      ),
+      replaceOnce(
+        "needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false'",
+        "needs.scope.outputs.run_heavy == 'true'",
+      ),
+      replaceOnce(
+        "if: ${{ !cancelled() }}\n    runs-on: ubuntu-latest\n    env:\n      RUN_HEAVY:",
+        "if: ${{ !cancelled() && needs.scope.outputs.run_heavy == 'true' }}\n    runs-on: ubuntu-latest\n    env:\n      RUN_HEAVY:",
+      ),
+      replaceOnce(
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' || true }}",
+      ),
+      replaceOnce(
+        "github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')",
+        "github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || true)",
+      ),
+      replaceOnce(
+        "    # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.\n    if: ${{ !cancelled() }}",
+        "    # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.\n    if: ${{ always() }}",
+      ),
+      replaceOnce("run: npm run docs:test", "run: npm run test:ci"),
+      replaceOnce("run: npm run test:e2e:contract", "run: echo e2e-contract-skipped"),
+      replaceOnce(
+        "  dead-code:\n    needs: scope\n    if: ${{ !cancelled() }}",
+        "  dead-code:\n    if: ${{ !cancelled() }}",
+      ),
+      replaceOnce(
+        "      - name: Orphan-file gate (blocking)\n        if: ${{ env.RUN_HEAVY == 'true' }}\n        run: npm run knip:files",
+        "      - name: Orphan-file gate (blocking)\n        run: npm run knip:files",
+      ),
+    ];
+    for (const candidate of weakened) {
+      expect(evaluateCiScopeWorkflow(candidate, packageScripts).length).toBeGreaterThan(0);
+    }
+    expect(
+      evaluateCiScopeWorkflow(source, {
+        ...packageScripts,
+        "test:e2e:contract": "true",
+      }),
+    ).toContain("test:e2e:contract must retain its exact Playwright discovery command");
+  });
+
+  it("keeps no-op review events outside trusted gate concurrency", () => {
+    const source = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
+    expect(evaluateTrustedReviewWindowGate(source)).toEqual([]);
+
+    const mutations = [
+      source.replace(
+        "        github.event.action == 'ready_for_review'\n",
+        "        github.event.action == 'ready_for_review' ||\n" +
+          "        github.event.action == 'edited'\n",
+      ),
+      source.replace(
+        "      github.event_name == 'pull_request_target' &&\n",
+        "      (github.event_name == 'pull_request_target' || " +
+          "github.event_name == 'issue_comment') &&\n",
+      ),
+      source.replace(
+        "      group: trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number }}\n",
+        "      group: trusted-review-window\n",
+      ),
+      source.replace(
+        "\npermissions:\n",
+        "\nconcurrency:\n  group: merge-ready-freshness-global\n  cancel-in-progress: true\n\npermissions:\n",
+      ),
+    ];
+
+    for (const candidate of mutations) {
+      expect(candidate).not.toBe(source);
+      expect(evaluateTrustedReviewWindowGate(candidate).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("scopes DB/Blob PR smoke to its exact executable inputs", () => {
+    const blob = readFileSync(".github/workflows/db-blob-sync-check.yml", "utf8");
+    const parity = readFileSync(".github/workflows/db-schema-parity.yml", "utf8");
+    expect(evaluateSecretWorkflowDispatches(blob, parity)).toEqual([]);
+    const replaceOnce = (search: string, replacement: string) => {
+      const candidate = blob.replace(search, replacement);
+      expect(candidate).not.toBe(blob);
+      return candidate;
+    };
+
+    const weakened = [
+      replaceOnce('      - ".github/workflows/db-blob-sync-check.yml"\n', ""),
+      replaceOnce('      - "requirements.dbtest.txt"\n', ""),
+      replaceOnce('      - "scripts/db/**/*.py"', '      - "scripts/db/**"'),
+      replaceOnce(
+        "  push:\n    branches: [master]",
+        "  push:\n    branches: [master]\n    paths: [scripts/db/**]",
+      ),
+      replaceOnce("-r requirements.dbtest.txt", "-r requirements.backoffice.txt"),
+      replaceOnce("python -m unittest test_pydatabastest -v", "python -m unittest -v"),
+      replaceOnce(
+        "      - name: Validate gate script (pull_request, no credentials)\n        if: ${{ github.event_name == 'pull_request' }}\n        # No secrets are injected here, so the PR's (untrusted) script can never run\n        # with production credentials. Each DB/blob target SKIPs with a WARN; this step\n        # only validates that the script parses and runs.\n        run: python scripts/db/pydatabastest.py --ci",
+        "      - name: Validate gate script (pull_request, no credentials)\n        if: ${{ github.event_name == 'pull_request' }}\n        run: python scripts/db/pydatabastest.py --json",
+      ),
+      replaceOnce(
+        "        run: python scripts/db/pydatabastest.py --ci\n        env:",
+        "        run: python scripts/db/pydatabastest.py --ci\n        continue-on-error: true\n        env:",
+      ),
+    ];
+    for (const candidate of weakened) {
+      expect(evaluateSecretWorkflowDispatches(candidate, parity).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("rejects secret-bearing manual workflow runs outside master", () => {
+    const blob = readFileSync(".github/workflows/db-blob-sync-check.yml", "utf8");
+    const parity = readFileSync(".github/workflows/db-schema-parity.yml", "utf8");
+    expect(evaluateSecretWorkflowDispatches(blob, parity)).toEqual([]);
+    const replaceOnce = (source: string, search: string, replacement: string) => {
+      const candidate = source.replace(search, replacement);
+      expect(candidate).not.toBe(source);
+      return candidate;
+    };
+
+    const weakened = [
+      [
+        replaceOnce(
+          blob,
+          "if: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}",
+          "if: ${{ github.event_name == 'workflow_dispatch' }}",
+        ),
+        parity,
+      ],
+      [
+        replaceOnce(
+          blob,
+          "if: ${{ github.event_name == 'pull_request' || (github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) }}",
+          "if: ${{ github.event_name != 'workflow_dispatch' || true }}",
+        ),
+        parity,
+      ],
+      [
+        replaceOnce(
+          blob,
+          "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}",
+          "if: ${{ github.event_name != 'pull_request' }}",
+        ),
+        parity,
+      ],
+      [
+        replaceOnce(
+          blob,
+          "          exit 1\n\n  db-blob-sync:",
+          "          exit 0\n\n  db-blob-sync:",
+        ),
+        parity,
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "if: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}",
+          "if: ${{ github.event_name == 'workflow_dispatch' }}",
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}",
+          "if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}",
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "          exit 1\n\n  db-schema-parity-scheduled:",
+          "          exit 0\n\n  db-schema-parity-scheduled:",
+        ),
+      ],
+    ];
+    for (const [blobCandidate, parityCandidate] of weakened) {
+      expect(
+        evaluateSecretWorkflowDispatches(blobCandidate, parityCandidate).length,
+      ).toBeGreaterThan(0);
+    }
   });
 
   it("runs write-capable Dependabot automation only from trusted default-branch code", () => {
@@ -469,10 +872,26 @@ describe("agent workflow repository contract", () => {
   it("keeps an independent security floor below the editable policy", () => {
     const policy = loadWorkflowInputs().policy;
     expect(evaluatePolicyFloors(policy)).toEqual([]);
+    expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/check-contract.mjs");
+    expect(
+      evaluatePolicyFloors({
+        ...structuredClone(policy),
+        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+          (candidate: string) => candidate !== "scripts/workflow/check-contract.mjs",
+        ),
+      }),
+    ).toContain(
+      "manualMergePathPrefixes security floor missing: scripts/workflow/check-contract.mjs",
+    );
 
     const weakened = [
       { ...structuredClone(policy), requiredChecks: ["quality"] },
-      { ...structuredClone(policy), manualMergePathPrefixes: [] },
+      ...policy.manualMergePathPrefixes.map((prefix: string) => ({
+        ...structuredClone(policy),
+        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+          (candidate: string) => candidate !== prefix,
+        ),
+      })),
       {
         ...structuredClone(policy),
         review: {

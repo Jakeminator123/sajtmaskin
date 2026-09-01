@@ -66,6 +66,9 @@ const REGISTRIES = [
       "naming-dictionary",
       "agent-context-policy",
       "agent-workflow-policy",
+      "generated-site-tier3-stub-placeholders",
+      "ai-model-pricing",
+      "openclaw-builder-prompt-tips",
     ],
   },
 ];

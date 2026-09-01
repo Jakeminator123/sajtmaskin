@@ -5,7 +5,6 @@
 - Base-SHA:
 - Ursprungsagent: <!-- Cursor bc-<uuid>, Codex-tråd eller "lokal session <namn>". Skriv "människa" om ingen agent skrev diffen. Fältet finns för att utfall, fynd och kvarvarande arbete ska kunna lämnas tillbaka till den som faktiskt skrev PR:n; Cursors egen footer räcker inte eftersom den bara finns på cloud-agenternas PR:er. -->
 
-
 - [ ] Branchen innehåller aktuell `master`; ingen direktpush eller force-push
 - [ ] Arbets-worktreet behålls tills PR:n är mergad eller stängd
 
@@ -18,11 +17,11 @@
 
 ## Verifiering
 
-- [ ] `npm run verify:pr`
+- [ ] `npm run verify:pr -- --plan`
 - [ ] Oberoende readonly review på aktuell head-SHA
 - [ ] Alla P0/P1 är fixade eller verifierbart avfärdade
 - [ ] Backoffice-/schema-/dokumentföljder ovan är uppdaterade eller uttryckligen ej träffade
-- [ ] Övriga required checks (`quality`, Backoffice, schema, build) är gröna före sign-off
+- [ ] Övriga required GitHub-checks (`quality`, Backoffice, schema, build) är gröna för aktuell head-SHA före sign-off
 
 Körda riktade kontroller:
 

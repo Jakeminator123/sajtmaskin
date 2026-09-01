@@ -1,18 +1,24 @@
 # Testning
 
-Repots tester körs med [Vitest](https://vitest.dev). Den fulla sviten (`npm run test:ci`)
-är `vitest run` och körs på varje PR och push via
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Godnatt-buggs egna
-skripttester (`npm run test:godnatt-bugg`) är on-demand och ingår inte i `test:ci`,
-CI eller `verify:pr`. Ovanpå den finns två smalare lanes:
+Repots tester körs med [Vitest](https://vitest.dev). Den fulla sviten
+(`npm run test:ci`) är `vitest run` och ingår i den tunga profilen i
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml): ready runtime,
+högrisk-PR:ar och `master`. Bevisat safe docs och vanliga drafts får i stället
+ett explicit light-kvitto; required checknamn publiceras fortfarande för varje
+PR-head. Godnatt-buggs egna skripttester (`npm run test:godnatt-bugg`) är
+on-demand och ingår inte i `test:ci`, CI eller `verify:pr`. Ovanpå den finns två
+smalare testlanes och ett separat E2E-discoverykontrakt:
 
-| Lane       | Kommando                 | Filnamn                  | Blockerar merge?          |
-| ---------- | ------------------------ | ------------------------ | ------------------------- |
-| Full svit  | `npm run test:ci`        | `*.test.ts(x)`           | **Ja** (`quality`)        |
-| Stabilitet | `npm run test:stability` | `*.stability.test.ts(x)` | Nej — warn-only           |
-| DB-backad  | `npm run test:postgres`  | `*.postgres.test.ts`     | **Ja** (steg i `quality`) |
+| Lane         | Kommando                    | Filnamn                  | Blockerar merge?                 |
+| ------------ | --------------------------- | ------------------------ | -------------------------------- |
+| Full svit    | `npm run test:ci`           | `*.test.ts(x)`           | **Ja i tung profil** (`quality`) |
+| E2E-kontrakt | `npm run test:e2e:contract` | `e2e/**/*.smoke.spec.ts` | **Ja i tung profil** (`quality`) |
+| Stabilitet   | `npm run test:stability`    | `*.stability.test.ts(x)` | Nej — warn-only                  |
+| DB-backad    | `npm run test:postgres`     | `*.postgres.test.ts`     | **Ja** (steg i `quality`)        |
 
 Den fulla sviten körs **utan databas**, med flit — se `test:postgres` nedan.
+E2E-kontraktet kör Playwrights `--list`: det kompilerar och discoverar sviten
+utan browser eller nätverk. Själva deploy-smoken är fortsatt separat.
 
 ## Vilka CI-jobb blockerar faktiskt merge
 
@@ -23,17 +29,17 @@ repots avsedda kontrakt och en historisk snapshot (verifierad mot rulesetet `Pro
 mergeagenten måste därför live-verifiera aktuellt ruleset och checks för exakt head-SHA före
 varje merge; snapshoten nedan är aldrig ensam mergeauktoritet.
 
-| Jobb                          | Failar hårt?                              | Required (blockerar merge)?                                  |
-| ----------------------------- | ----------------------------------------- | ------------------------------------------------------------ |
-| `quality`                     | Ja                                        | **Ja**                                                       |
-| `backoffice-tests`            | Ja                                        | **Ja**                                                       |
-| `schema-drift`                | Ja                                        | **Ja**                                                       |
+| Jobb                          | Failar hårt?                                                                         | Required (blockerar merge)?                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `quality`                     | Ja                                                                                   | **Ja**                                                       |
+| `backoffice-tests`            | Ja                                                                                   | **Ja**                                                       |
+| `schema-drift`                | Ja                                                                                   | **Ja**                                                       |
 | `review-window`               | Checken kan bli `action_required` vid väntan; orchestrator-jobbet ska då sluta grönt | **Ja** — det är checken, inte jobbets exitkod, som blockerar |
-| `build`                       | Ja                                        | **Ja** — tillagd i rulesetet 2026-07-30 (#660)               |
-| `preview-host-guards`         | Ja                                        | **Ja, via `quality`-aggregatet**                             |
-| `dead-code` (orphan-filgrind) | Ja                                        | **Ja, via `quality`-aggregatet**                             |
-| `db-blob-sync`                | Ja                                        | Nej — och på PR körs den utan credentials (ren script-smoke) |
-| `stability`                   | Nej (`continue-on-error`)                 | Nej                                                          |
+| `build`                       | Ja                                                                                   | **Ja** — tillagd i rulesetet 2026-07-30 (#660)               |
+| `preview-host-guards`         | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
+| `dead-code` (orphan-filgrind) | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
+| `db-blob-sync`                | Ja                                                                                   | Nej — och på PR körs den utan credentials (ren script-smoke) |
+| `stability`                   | Nej (`continue-on-error`)                                                            | Nej                                                          |
 
 `db-blob-sync` är fortsatt en separat, icke-required hård kontroll. Preview-host och
 orphan-filgrinden är däremot transitivt blockerande eftersom den required checken
@@ -41,9 +47,10 @@ orphan-filgrinden är däremot transitivt blockerande eftersom den required chec
 
 ## Build-grinden
 
-`build`-jobbet kör `npm run build` (som i sin tur kör `prebuild`: `preflight:common` +
-`scaffolds:embeddings:check`) **utan secrets**. Det finns för att `next build` annars inte
-körs någonstans före merge: preview-deployer är avstängda i
+I den tunga profilen kör `build`-jobbet `npm run build` (som i sin tur kör
+`prebuild`: `preflight:common` + `scaffolds:embeddings:check`) **utan secrets**.
+Det finns för att `next build` annars inte körs någonstans före merge:
+preview-deployer är avstängda i
 [`vercel.json`](../vercel.json) (`deploymentEnabled` bara för `master`), så första riktiga
 bygget av en ändring var prod-deployen efter merge. typecheck och lint täcker inte
 build-tidsfel som route-config, RSC-gränser eller prerender-fel.

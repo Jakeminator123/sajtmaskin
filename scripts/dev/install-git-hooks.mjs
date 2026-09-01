@@ -38,7 +38,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 14;
+export const HOOK_VERSION = 15;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -57,8 +57,9 @@ export const MANAGED_HOOKS = Object.freeze([
  * DB-hookarna är tysta i normalfallet och avbryter aldrig git-kommandot:
  * `--soft` ger alltid exit 0, `--quiet-ok` skriver inget när allt är i synk.
  * `pre-push` är avsiktligt motsatsen: `verify:pr --plan` måste bli grönt, annars
- * stoppas pushen. Full `verify:pr` körs av agenten och i CI. Bara CI och den
- * uttryckliga escape hatchen får hoppa över planen.
+ * stoppas pushen. Riktade kontroller körs lokalt och GitHub Actions äger den
+ * blockerande fullprofilen. Bara CI och den uttryckliga escape hatchen får
+ * hoppa över planen.
  *
  * @param {HookName} hookName
  * @returns {string}
@@ -72,8 +73,8 @@ export function renderHookScript(hookName) {
 # Kor 'npm run hooks:install' for att uppgradera, ta bort filen for att sluta.
 #
 # Fail-closed: en rod lokal PR-plan eller non-fast-forward stoppar
-# pushen. Full verify:pr kors av agenten och i CI. Test-escape far inte
-# samtidigt bli en force-push-escape.
+# pushen. Riktade kontroller kors lokalt och fullprofilen i GitHub Actions.
+# Test-escape far inte samtidigt bli en force-push-escape.
 
 # Global core.hooksPath delas mellan repon. Utan den har repo-signaturen ska
 # hooken inte gora nagonting i ett annat projekt.

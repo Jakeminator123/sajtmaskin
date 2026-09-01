@@ -99,7 +99,8 @@ Att lämna frågan obesvarad är inte ett tredje alternativ.
 > `npm run docs:check`, `npm run docs:links`, `npm run typecheck`,
 > `npx vitest run src/lib/gen/dossiers`.
 >
-> Följ `.agents/skills/pr-workflow/SKILL.md`: kör `npm run verify:pr`, därefter
-> ett oberoende readonly Sol-pass på slutdiffen. Lämna EN draft-PR mot `master`
+> Följ `.agents/skills/pr-workflow/SKILL.md`: kör `npm run verify:pr -- --plan`
+> plus kontrollerna ovan, därefter ett oberoende readonly Sol-pass på
+> slutdiffen. Lämna EN draft-PR mot `master`
 > med en body som säger vad som ändrats och varför. **Merga inte**, och sätt inte
 > `merge:ready` förrän varje fynd är triagerat på aktuell head-SHA.
