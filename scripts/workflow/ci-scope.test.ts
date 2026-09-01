@@ -162,6 +162,47 @@ describe("CI scope decision", () => {
     expect(result.highRiskReasons).toContain("unmapped-runtime");
   });
 
+  it.each([
+    [
+      "config/ai_models/41-tier3-stub-placeholders.env.txt",
+      "generated-site-tier3-stub-placeholders",
+    ],
+    ["config/ai_models/pricing.json", "ai-model-pricing"],
+  ])("keeps a draft-only change to %s on full CI through its hard authority", (path, id) => {
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+
+    expect(impact.authorities).toContainEqual(
+      expect.objectContaining({ id, sourceOfTruth: path, ciStatus: "hard" }),
+    );
+    expect(decideCiScope({ eventName: "pull_request", isDraft: true, impact })).toMatchObject({
+      runHeavy: true,
+      highRisk: true,
+      reason: "high-risk:hard-authority",
+      highRiskReasons: ["hard-authority"],
+    });
+
+    const policyRegistry = structuredClone(inputs.policyRegistry);
+    const registryOwner = policyRegistry.entries.find((entry: { id: string }) => entry.id === id);
+    expect(registryOwner).toBeDefined();
+    registryOwner.ciStatus = "none";
+    const nonBlockingImpact = collectImpact({
+      ...inputs,
+      policyRegistry,
+      changedFiles: [path],
+    });
+
+    expect(nonBlockingImpact.authorities).toContainEqual(
+      expect.objectContaining({ id, sourceOfTruth: path, ciStatus: "none" }),
+    );
+    expect(
+      decideCiScope({ eventName: "pull_request", isDraft: true, impact: nonBlockingImpact }),
+    ).toMatchObject({
+      runHeavy: false,
+      highRisk: false,
+      reason: "draft-low-risk",
+    });
+  });
+
   it("defers owned low-risk runtime checks while a PR is a draft", () => {
     const result = decide(["src/lib/hooks/chat/useAutoFix.ts"], { isDraft: true });
 
