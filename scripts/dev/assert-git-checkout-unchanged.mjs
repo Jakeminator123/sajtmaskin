@@ -47,12 +47,9 @@ function optionalGitOutput(args, cwd) {
 export function parseWorktreeSnapshot(value) {
   const lines = String(value ?? "").split(/\r?\n/u);
   return {
-    // HEAD-raden rör sig legitimt när ett syskon committar. All övrig
-    // worktree-topologi (path, branch, detached/locked) ska ligga still.
+    // HEAD-raderna är projektioner av refs och kontrolleras fail-closed i den
+    // separata refs-snapshotten. Här bevakas bara worktree-topologin.
     topology: lines.filter((line) => !line.startsWith("HEAD ")).join("\n"),
-    branchRefs: lines
-      .filter((line) => line.startsWith("branch "))
-      .map((line) => line.slice("branch ".length)),
   };
 }
 
@@ -253,16 +250,9 @@ export function describeCheckoutDrift(before, after) {
     changes.push("registrerade worktrees ändrades");
   }
 
-  // Alla refs är delade i repots common Git-dir. Ignorera endast en rörelse av
-  // en branch som bevisligen är utcheckad i ett annat registrerat worktree;
-  // tags och oägda branchrefs ska fortfarande avslöja en testläcka.
-  const siblingRefs = new Set([...before.worktrees.branchRefs, ...after.worktrees.branchRefs]);
-  if (before.branch !== "HEAD") siblingRefs.delete(`refs/heads/${before.branch}`);
-  if (after.branch !== "HEAD") siblingRefs.delete(`refs/heads/${after.branch}`);
-  const attributableRefDrift = changedRefNames(before.refs, after.refs).filter(
-    (ref) => !siblingRefs.has(ref),
-  );
-  if (attributableRefDrift.length > 0) {
+  // Heads och tags delas av alla worktrees. Före/efter-snapshots kan inte
+  // bevisa vilken process som flyttade en ref, så varje rörelse måste stoppas.
+  if (changedRefNames(before.refs, after.refs).length > 0) {
     changes.push("heads/tags ändrades");
   }
   return changes;

@@ -228,14 +228,14 @@ describe("assert-git-checkout-unchanged", () => {
     }
   });
 
-  it("ignores a branch advance in a sibling worktree", () => {
+  it("fails closed when a branch advances in a sibling worktree", () => {
     const cwd = seedRepo();
     const sibling = `${cwd}-sibling`;
     try {
       git(cwd, ["worktree", "add", "-b", "sibling", sibling]);
       const before = snapshotCheckout(cwd);
       git(sibling, ["commit", "--allow-empty", "-m", "sibling advance"]);
-      expect(describeCheckoutDrift(before, snapshotCheckout(cwd))).toEqual([]);
+      expect(describeCheckoutDrift(before, snapshotCheckout(cwd))).toContain("heads/tags ändrades");
     } finally {
       rmSync(sibling, { recursive: true, force: true });
       rmSync(cwd, { recursive: true, force: true });
