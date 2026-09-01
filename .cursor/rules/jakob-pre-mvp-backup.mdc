@@ -41,10 +41,14 @@ backup.
 Ändrar du villkoret på ett ställe: ändra båda, annars börjar verktyget och regeln
 säga olika saker.
 
-GitHub-rulesetet **Protect BRA backups** blockerar radering och non-fast-forward
-på `BRA_*`, `*BRA*` och `rescue/*` (ingen admin-bypass). Syskonet **Protect
-JAKOB_BRA_9999_INNNAN_MVP_BRA** täcker den namngivna branchen extra. Ändra inte
-ruleseten för att «städa».
+Gränsen är write-once i **hooken**, inte create-once: att **skapa** en ny
+backup är poängen med namnen, medan varje ändring — inklusive vanlig
+fast-forward — eller radering av en befintlig är stängd där. GitHub-rulesetet
+**Protect BRA backups** (`deletion` + `non_fast_forward`) blockerar radering
+och bakåtskrivning på `BRA_*`, `*BRA*` och `rescue/*` (ingen admin-bypass),
+men en vanlig fast-forward kan fortfarande tillåtas server-side. Hooken är
+alltså ensam om att stoppa FF. Syskonet **Protect JAKOB_BRA_9999_INNNAN_MVP_BRA**
+täcker den namngivna branchen extra. Ändra inte ruleseten för att «städa».
 
 Endast ägaren (`Jakeminator123`) får radera eller flytta en skyddad branch, och
 det måste sägas uttryckligen i chatten.
