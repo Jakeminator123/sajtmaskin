@@ -19,11 +19,11 @@ const THIN_DEFAULT_IMPORT_PAGE = [
 ].join("\n");
 
 describe("buildMissingHomeRouteIssue — composed measure", () => {
-  it("does not block when a resolved default-import has rich body but no default export (prod 57027ae6)", () => {
+  it("measures a same-named local function when default export is missing (prod 57027ae6)", () => {
     // Prod chat 57027ae6 (2026-09-01): thin app/page.tsx rendered
     // <TurtleLanding /> imported as default. The component file had a real
-    // landing body but no default export yet (jsx-checker added it later).
-    // Export lookup returned null and the gate treated that as 0 chars.
+    // landing body but no default export yet. We measure the local function
+    // of the same name — not waive the whole gate.
     const richUnexported = [
       "function TurtleLanding() {",
       "  return (",
@@ -116,6 +116,97 @@ describe("buildMissingHomeRouteIssue — composed measure", () => {
     const issue = trivialHomeIssue([
       { path: "app/page.tsx", content: THIN_DEFAULT_IMPORT_PAGE },
       { path: "components/turtle-landing.tsx", content: emptyWithData },
+    ]);
+
+    expect(issue).toBeDefined();
+    expect(issue?.message).toMatch(/trivial content/i);
+  });
+
+  it("blocks an empty memo() default instead of waiving as not-found", () => {
+    const emptyMemo = [
+      "function TurtleLanding() {",
+      "  return <main />;",
+      "}",
+      "export default memo(TurtleLanding);",
+    ].join("\n");
+
+    const issue = trivialHomeIssue([
+      { path: "app/page.tsx", content: THIN_DEFAULT_IMPORT_PAGE },
+      { path: "components/turtle-landing.tsx", content: emptyMemo },
+    ]);
+
+    expect(issue).toBeDefined();
+    expect(issue?.message).toMatch(/trivial content/i);
+  });
+
+  it("blocks an empty forwardRef() default instead of waiving as not-found", () => {
+    const emptyRef = [
+      "export default forwardRef(function TurtleLanding() {",
+      "  return <main />;",
+      "});",
+    ].join("\n");
+
+    const issue = trivialHomeIssue([
+      { path: "app/page.tsx", content: THIN_DEFAULT_IMPORT_PAGE },
+      { path: "components/turtle-landing.tsx", content: emptyRef },
+    ]);
+
+    expect(issue).toBeDefined();
+    expect(issue?.message).toMatch(/trivial content/i);
+  });
+
+  it("blocks an empty barrel re-export instead of waiving as not-found", () => {
+    const issue = trivialHomeIssue([
+      { path: "app/page.tsx", content: THIN_DEFAULT_IMPORT_PAGE },
+      {
+        path: "components/turtle-landing.tsx",
+        content: 'export { default } from "./turtle-landing-inner";',
+      },
+      {
+        path: "components/turtle-landing-inner.tsx",
+        content: "export default function TurtleLanding() { return <main />; }",
+      },
+    ]);
+
+    expect(issue).toBeDefined();
+    expect(issue?.message).toMatch(/trivial content/i);
+  });
+
+  it("measures a rich memo() default instead of waiving", () => {
+    const richMemo = [
+      "function TurtleLanding() {",
+      "  return (",
+      "    <main>",
+      "      <section>",
+      "        <h1>Futuristiska sköldpaddor</h1>",
+      "        <p>",
+      "          Neonbelysta rev, holografiska skal och tidvatten av data.",
+      "          En landing om kolonier, kartor och nattliga vandringar",
+      "          längs den syntetiska kusten — inte ett tomt skelett.",
+      "        </p>",
+      "        <button>Starta resan</button>",
+      "      </section>",
+      "    </main>",
+      "  );",
+      "}",
+      "export default memo(TurtleLanding);",
+    ].join("\n");
+
+    const issue = trivialHomeIssue([
+      { path: "app/page.tsx", content: THIN_DEFAULT_IMPORT_PAGE },
+      { path: "components/turtle-landing.tsx", content: richMemo },
+    ]);
+
+    expect(issue).toBeNull();
+  });
+
+  it("blocks a file with no measurable component (no not-found waiver)", () => {
+    const issue = trivialHomeIssue([
+      { path: "app/page.tsx", content: THIN_DEFAULT_IMPORT_PAGE },
+      {
+        path: "components/turtle-landing.tsx",
+        content: "export const unused = 1;\n",
+      },
     ]);
 
     expect(issue).toBeDefined();

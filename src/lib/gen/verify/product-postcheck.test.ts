@@ -34,6 +34,7 @@ import {
   evaluateRuntimeErrors,
   CRAWL_DEADLINE_MS,
   isAllowedProductPostcheckUrl,
+  isMeaningfulCtaHref,
   isProductPostcheckAttestation,
   isHydrationConsoleError,
   extractServerCtaBaseline,
@@ -118,6 +119,20 @@ describe("isAllowedProductPostcheckUrl", () => {
     expect(isAllowedProductPostcheckUrl("https://example.com")).toBe(false);
     expect(isAllowedProductPostcheckUrl("javascript:alert(1)")).toBe(false);
     expect(isAllowedProductPostcheckUrl("not a url")).toBe(false);
+  });
+});
+
+describe("isMeaningfulCtaHref", () => {
+  it("rejects empty, hash placeholders and javascript: URLs", () => {
+    for (const href of ["", "   ", "#", "#0", "#!", "#/", "javascript:void(0)", "JavaScript:void(0)"]) {
+      expect(isMeaningfulCtaHref(href), href).toBe(false);
+    }
+  });
+
+  it("accepts real fragments, paths and http(s) targets", () => {
+    for (const href of ["#kontakt", "#/about", "/om-oss", "https://example.com/x"]) {
+      expect(isMeaningfulCtaHref(href), href).toBe(true);
+    }
   });
 });
 
@@ -299,6 +314,49 @@ describe("evaluateProductDomSnapshot", () => {
     );
 
     expect(codes(evaluation)).toEqual([]);
+  });
+
+  it("flags dead hash placeholders #0, #! and #/", () => {
+    for (const href of ["#0", "#!", "#/"]) {
+      const evaluation = evaluateProductDomSnapshot(
+        {
+          anchors: [],
+          images: [],
+          ctas: [
+            {
+              ...deadCtaLink,
+              href,
+              text: "Kom igång",
+              anchorWrapped: true,
+            },
+          ],
+          forms: [],
+        },
+        { status: "not_applicable" },
+      );
+      expect(codes(evaluation), href).toEqual(["cta_no_handler"]);
+    }
+  });
+
+  it("does not flag a real fragment or path href", () => {
+    for (const href of ["#kontakt", "/om-oss", "https://example.com"]) {
+      const evaluation = evaluateProductDomSnapshot(
+        {
+          anchors: [],
+          images: [],
+          ctas: [
+            {
+              ...deadCtaLink,
+              href,
+              text: "Kom igång",
+            },
+          ],
+          forms: [],
+        },
+        { status: "not_applicable" },
+      );
+      expect(codes(evaluation), href).toEqual([]);
+    }
   });
 
   it("flags a dead <a href=''> CTA", () => {

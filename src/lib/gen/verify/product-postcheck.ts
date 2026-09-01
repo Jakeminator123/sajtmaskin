@@ -109,6 +109,20 @@ export function isProductPostcheckAttestation(
   return input.lifecycleToken === null || typeof input.lifecycleToken === "string";
 }
 
+/**
+ * A CTA href is meaningful only when it can actually navigate.
+ * Placeholders (`#`, `#0`, `#!`, `#/`, `javascript:void(0)`) are dead
+ * without a rendered handler — same class as an empty href.
+ */
+export function isMeaningfulCtaHref(href: string | null | undefined): boolean {
+  const value = (href ?? "").trim();
+  if (!value) return false;
+  if (/^javascript:/i.test(value)) return false;
+  if (value === "#") return false;
+  if (/^#([/!?]*|\d+)$/.test(value)) return false;
+  return true;
+}
+
 /** Raw browser-runtime signal collected during Playwright navigation. */
 export type BrowserRuntimeIssue = {
   kind: "console" | "requestfailed" | "http";
@@ -709,11 +723,7 @@ export function evaluateProductDomSnapshot(
       cta.reactPropsProbed === true ? "rendered-dom+react-props" : "rendered-dom";
     if (cta.tag === "a") {
       const href = cta.href?.trim() || "";
-      // `javascript:void(0)` navigerar ingenstans — samma tomma placeholder som
-      // `#`. Den vanliga varianten bär en riktig onClick, och den räddas av
-      // `hasRenderedHandler`; utan handler är länken lika död som `href="#"`.
-      const hrefIsPlaceholder = !href || href === "#" || /^javascript:/i.test(href);
-      if (hrefIsPlaceholder && !hasRenderedHandler) {
+      if (!isMeaningfulCtaHref(href) && !hasRenderedHandler) {
         warnings.push(
           warning("cta_no_handler", "CTA-länk saknar mål.", {
             text: textPreview(cta.text),
@@ -1454,7 +1464,11 @@ export async function runProductPostcheck(params: {
       };
     }
 
-    const snapshot = await page.evaluate<DomSnapshot>(() => {
+    const snapshot = await page.evaluate<DomSnapshot, string>(
+      (meaningfulHrefSource) => {
+      const isMeaningfulCtaHref = new Function(
+        `return (${meaningfulHrefSource});`,
+      )() as (href: string | null | undefined) => boolean;
       const visible = (el: Element): boolean => {
         const html = el as HTMLElement;
         const rect = html.getBoundingClientRect();
@@ -1524,13 +1538,9 @@ export async function runProductPostcheck(params: {
 
       // closest("a[href]") matchar elementet självt, så en `<a href="#">`
       // såg ut som "inlänkad". Kräv en *annan* länk med riktig destination.
-      // `javascript:void(0)` är samma tomma placeholder som `#` — den navigerar
-      // ingenstans. En riktig onClick räddas ändå av handler-proben ovan.
       const hasMeaningfulHref = (anchor: Element | null | undefined): boolean => {
         if (!anchor) return false;
-        const href = (anchor.getAttribute("href") || "").trim();
-        if (!href || href === "#") return false;
-        return !/^javascript:/i.test(href);
+        return isMeaningfulCtaHref(anchor.getAttribute("href"));
       };
 
       return {
@@ -1598,7 +1608,9 @@ export async function runProductPostcheck(params: {
             text: text(form),
           })),
       };
-    });
+    },
+      isMeaningfulCtaHref.toString(),
+    );
     snapshot.hydrationCtaLabels = await page
       .evaluate(captureHydrationCtaLabelsInBrowser)
       .catch(() => []);
