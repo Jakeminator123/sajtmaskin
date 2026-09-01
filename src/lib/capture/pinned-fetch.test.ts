@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const isResolvedAddressPrivate = vi.hoisted(() => vi.fn());
 const dnsLookup = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/ssrf-guard", () => ({ isResolvedAddressPrivate }));
+vi.mock("@/lib/ssrf-address", () => ({ isResolvedAddressPrivate }));
 // Node-inbyggda moduler importeras via default i den transpilerade koden, så
 // mocken måste exponera både den namngivna och default-formen.
 vi.mock("node:dns", () => {
@@ -122,6 +122,16 @@ describe("fetchWithPinnedDns", () => {
     isResolvedAddressPrivate.mockImplementation((address: string) => address === "127.0.0.1");
 
     await expect(fetchWithPinnedDns(`http://blandat.test:${port}/x`)).rejects.toThrow(
+      PINNED_ADDRESS_BLOCKED_MESSAGE,
+    );
+    expect(received).toHaveLength(0);
+  });
+
+  it("stoppar privata IPv6-poster även när ett publikt IPv6-svar finns", async () => {
+    resolveTo("2606:4700:4700::1111", "fe90::1");
+    isResolvedAddressPrivate.mockImplementation((address: string) => address === "fe90::1");
+
+    await expect(fetchWithPinnedDns(`http://ipv6-mix.test:${port}/x`)).rejects.toThrow(
       PINNED_ADDRESS_BLOCKED_MESSAGE,
     );
     expect(received).toHaveLength(0);

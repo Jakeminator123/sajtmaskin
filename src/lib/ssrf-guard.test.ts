@@ -1,5 +1,13 @@
 import { lookup } from "node:dns/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const fetchWithPinnedDns = vi.hoisted(() => vi.fn());
+const PINNED_ADDRESS_BLOCKED_MESSAGE =
+  "Pinned fetch blocked: hostname resolved to a private/internal address";
+vi.mock("@/lib/capture/pinned-fetch", () => ({
+  fetchWithPinnedDns,
+  PINNED_ADDRESS_BLOCKED_MESSAGE,
+}));
 import {
   isAllowedPreviewHost,
   isDisallowedHost,
@@ -20,6 +28,26 @@ beforeEach(() => {
   // Default: hostnames resolve to a public IP so the existing fetch/redirect
   // tests are unaffected. DNS-based-SSRF tests override per-case below.
   mockedLookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }] as never);
+  fetchWithPinnedDns.mockReset();
+  fetchWithPinnedDns.mockImplementation(async (rawUrl: string, init: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: Buffer | null;
+    signal?: AbortSignal;
+  } = {}) => {
+    const response = await globalThis.fetch(rawUrl, {
+      method: init.method,
+      headers: init.headers,
+      body: init.body,
+      signal: init.signal,
+      redirect: "manual",
+    });
+    return {
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: Buffer.from(await response.arrayBuffer()),
+    };
+  });
 });
 
 afterEach(() => {
@@ -40,6 +68,9 @@ describe("ssrf-guard", () => {
     expect(isDisallowedHost("::1")).toBe(true);
     expect(isDisallowedHost("fd00::1")).toBe(true);
     expect(isDisallowedHost("fe80::1")).toBe(true);
+    expect(isDisallowedHost("fe90::1")).toBe(true);
+    expect(isDisallowedHost("::")).toBe(true);
+    expect(isDisallowedHost("ff02::1")).toBe(true);
     expect(isDisallowedHost("::ffff:7f00:1")).toBe(true);
     expect(isDisallowedHost("[::ffff:7f00:1]")).toBe(true);
   });
@@ -245,6 +276,101 @@ describe("ssrf-guard", () => {
     const res = await safeFetch("https://example.com");
     expect(res.status).toBe(403);
     expect(await res.text()).toContain("private/internal IP");
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses connect-time pinned transport for the initial URL and every redirect", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { Location: "https://cdn.example/asset" } }),
+      )
+      .mockResolvedValueOnce(new Response("ok", { status: 200 })) as unknown as typeof fetch;
+
+    const res = await safeFetch("https://example.com/start");
+
+    expect(res.status).toBe(200);
+    expect(fetchWithPinnedDns).toHaveBeenCalledTimes(2);
+    expect(fetchWithPinnedDns.mock.calls[0]?.[0]).toBe("https://example.com/start");
+    expect(fetchWithPinnedDns.mock.calls[1]?.[0]).toBe("https://cdn.example/asset");
+  });
+
+  it("fails closed when the connect-time lookup observes a rebound private address", async () => {
+    mockedLookup.mockResolvedValue([{ address: "93.184.216.34", family: 4 }] as never);
+    fetchWithPinnedDns.mockRejectedValueOnce(new Error(PINNED_ADDRESS_BLOCKED_MESSAGE));
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+
+    const res = await safeFetch("https://rebind.example/start");
+
+    expect(res.status).toBe(403);
+    expect(await res.text()).toContain("connect time");
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("drops credentials on a cross-origin redirect but keeps ordinary headers", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { Location: "https://cdn.example/asset" } }),
+      )
+      .mockResolvedValueOnce(new Response("ok", { status: 200 })) as unknown as typeof fetch;
+
+    await safeFetch("https://example.com/start", {
+      headers: {
+        Authorization: "Bearer secret",
+        Cookie: "session=secret",
+        "X-Request-Id": "trace-1",
+      },
+    });
+
+    const second = fetchWithPinnedDns.mock.calls[1]?.[1] as {
+      headers: Record<string, string>;
+    };
+    expect(second.headers.authorization).toBeUndefined();
+    expect(second.headers.cookie).toBeUndefined();
+    expect(second.headers["x-request-id"]).toBe("trace-1");
+  });
+
+  it("rewrites POST to GET on 303 and removes body headers", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 303, headers: { Location: "/done" } }),
+      )
+      .mockResolvedValueOnce(new Response("ok", { status: 200 })) as unknown as typeof fetch;
+
+    await safeFetch("https://example.com/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ok: true }),
+    });
+
+    const second = fetchWithPinnedDns.mock.calls[1]?.[1] as {
+      method: string;
+      headers: Record<string, string>;
+      body: Buffer | null;
+    };
+    expect(second.method).toBe("GET");
+    expect(second.body).toBeNull();
+    expect(second.headers["content-type"]).toBeUndefined();
+  });
+
+  it("rejects credentials embedded in initial and redirect URLs", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { Location: "https://user:secret@cdn.example/asset" },
+        }),
+      ) as unknown as typeof fetch;
+
+    const initial = await safeFetch("https://user:secret@example.com/");
+    const redirect = await safeFetch("https://example.com/");
+
+    expect(initial.status).toBe(403);
+    expect(redirect.status).toBe(403);
+    expect(await redirect.text()).toContain("credentials");
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 });

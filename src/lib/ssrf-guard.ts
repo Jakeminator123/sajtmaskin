@@ -1,5 +1,13 @@
 import { lookup } from "node:dns/promises";
 import net from "node:net";
+import {
+  fetchWithPinnedDns,
+  PINNED_ADDRESS_BLOCKED_MESSAGE,
+  type PinnedFetchResult,
+} from "@/lib/capture/pinned-fetch";
+import { isResolvedAddressPrivate } from "@/lib/ssrf-address";
+
+export { isResolvedAddressPrivate } from "@/lib/ssrf-address";
 
 const PREVIEW_ALLOWED_HOST_SUFFIXES = [".vusercontent.net"];
 const FETCH_TIMEOUT_MS = 15_000;
@@ -10,71 +18,6 @@ function normalizeHost(hostname: string): string {
     return lowered.slice(1, -1);
   }
   return lowered;
-}
-
-function parseIpv4Literal(host: string): string | null {
-  const parts = host.split(".");
-  if (parts.length !== 4) return null;
-  const normalized = parts.map((part) => Number(part));
-  if (normalized.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) {
-    return null;
-  }
-  return normalized.join(".");
-}
-
-function extractMappedIpv4FromIpv6(host: string): string | null {
-  const normalized = host.toLowerCase();
-  const dotted = normalized.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
-  if (dotted) return parseIpv4Literal(dotted[1]);
-
-  const hex = normalized.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
-  if (!hex) return null;
-  const upper = Number.parseInt(hex[1], 16);
-  const lower = Number.parseInt(hex[2], 16);
-  return `${(upper >> 8) & 0xff}.${upper & 0xff}.${(lower >> 8) & 0xff}.${lower & 0xff}`;
-}
-
-function isPrivateIpv4(host: string): boolean {
-  const parts = host.split(".").map((part) => Number(part));
-  if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255)) {
-    return true;
-  }
-  const [a, b] = parts;
-  if (a === 10) return true;
-  if (a === 127) return true;
-  if (a === 0) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 100 && b >= 64 && b <= 127) return true;
-  if (a === 198 && (b === 18 || b === 19)) return true;
-  return false;
-}
-
-function isPrivateIpv6(host: string): boolean {
-  const normalized = host.toLowerCase();
-  const mappedIpv4 = extractMappedIpv4FromIpv6(normalized);
-  if (mappedIpv4) return isPrivateIpv4(mappedIpv4);
-  if (normalized === "::1") return true;
-  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
-  if (normalized.startsWith("fe80:")) return true;
-  return false;
-}
-
-/** True if a single resolved IP literal is private/internal. Handles
- *  IPv4-mapped IPv6 (`::ffff:a.b.c.d`) by checking the embedded v4.
- *
- *  Exported for connect-time pinning (`@/lib/capture/pinned-fetch`), which must
- *  judge the exact address a socket is about to connect to — not a hostname. */
-export function isResolvedAddressPrivate(address: string): boolean {
-  const version = net.isIP(address);
-  if (version === 4) return isPrivateIpv4(address);
-  if (version === 6) {
-    const mappedIpv4 = extractMappedIpv4FromIpv6(address);
-    if (mappedIpv4) return isPrivateIpv4(mappedIpv4);
-    return isPrivateIpv6(address);
-  }
-  return true; // unparseable → treat as disallowed (defensive)
 }
 
 /**
@@ -118,9 +61,7 @@ export function isDisallowedHost(hostname: string): boolean {
     return true;
   }
 
-  const ipVersion = net.isIP(host);
-  if (ipVersion === 4) return isPrivateIpv4(host);
-  if (ipVersion === 6) return isPrivateIpv6(host);
+  if (net.isIP(host) !== 0) return isResolvedAddressPrivate(host);
   return false;
 }
 
@@ -153,6 +94,9 @@ export function validateSsrfTarget(
   if (!["http:", "https:"].includes(target.protocol)) {
     return { ok: false, reason: "Only http/https URLs allowed" };
   }
+  if (target.username || target.password) {
+    return { ok: false, reason: "URL credentials are not allowed" };
+  }
   if (isDisallowedHost(target.hostname)) {
     return { ok: false, reason: "Forbidden host (private/internal network)" };
   }
@@ -163,6 +107,80 @@ export function validateSsrfTarget(
 }
 
 const MAX_REDIRECTS = 5;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const SENSITIVE_REDIRECT_HEADERS = [
+  "authorization",
+  "cookie",
+  "cookie2",
+  "proxy-authorization",
+] as const;
+const BODY_REDIRECT_HEADERS = [
+  "content-encoding",
+  "content-language",
+  "content-location",
+  "content-type",
+] as const;
+
+function headersToRecord(headers: HeadersInit | undefined): Record<string, string> {
+  const normalized = new Headers(headers);
+  const out: Record<string, string> = {};
+  normalized.forEach((value, key) => {
+    out[key.toLowerCase()] = value;
+  });
+  return out;
+}
+
+async function requestBodyToBuffer(body: BodyInit | null | undefined): Promise<Buffer | null> {
+  if (body === null || body === undefined) return null;
+  if (typeof body === "string") return Buffer.from(body);
+  if (body instanceof URLSearchParams) return Buffer.from(body.toString());
+  if (body instanceof ArrayBuffer) return Buffer.from(body);
+  if (ArrayBuffer.isView(body)) {
+    return Buffer.from(body.buffer, body.byteOffset, body.byteLength);
+  }
+  if (typeof Blob !== "undefined" && body instanceof Blob) {
+    return Buffer.from(await body.arrayBuffer());
+  }
+  // FormData needs a generated multipart boundary and ReadableStream needs
+  // backpressure-aware forwarding. Neither is used by current callers; failing
+  // closed is safer than silently sending a malformed or replayable body.
+  throw new TypeError("safeFetch does not support FormData or streaming request bodies");
+}
+
+function responseFromPinned(result: PinnedFetchResult): Response {
+  return new Response(result.body, {
+    status: result.status,
+    headers: result.headers,
+  });
+}
+
+function stripHeadersForRedirect(
+  headers: Record<string, string>,
+  from: URL,
+  to: URL,
+): void {
+  const crossesOrigin = from.origin !== to.origin;
+  const downgradesTransport = from.protocol === "https:" && to.protocol === "http:";
+  if (!crossesOrigin && !downgradesTransport) return;
+  for (const header of SENSITIVE_REDIRECT_HEADERS) delete headers[header];
+}
+
+function rewriteRequestForRedirect(
+  status: number,
+  method: string,
+  headers: Record<string, string>,
+): { method: string; dropBody: boolean } {
+  const dropBody =
+    (status === 303 && method !== "HEAD") ||
+    ((status === 301 || status === 302) && method === "POST");
+  if (!dropBody) return { method, dropBody: false };
+  for (const header of BODY_REDIRECT_HEADERS) delete headers[header];
+  return { method: "GET", dropBody: true };
+}
+
+function isPinnedAddressBlocked(error: unknown): boolean {
+  return error instanceof Error && error.message.includes(PINNED_ADDRESS_BLOCKED_MESSAGE);
+}
 
 export async function safeFetch(
   url: string,
@@ -176,48 +194,67 @@ export async function safeFetch(
     : controller.signal;
 
   try {
-    let currentUrl: string;
-    let currentHostname: string;
+    let currentUrl: URL;
     try {
-      const initialUrl = new URL(url);
-      const initialCheck = validateSsrfTarget(initialUrl, { allowlistOnly });
+      currentUrl = new URL(url);
+      const initialCheck = validateSsrfTarget(currentUrl, { allowlistOnly });
       if (!initialCheck.ok) {
         return new Response(`Request blocked: ${initialCheck.reason}`, { status: 403 });
       }
-      currentUrl = initialUrl.toString();
-      currentHostname = initialUrl.hostname;
     } catch {
       return new Response("Invalid URL", { status: 400 });
     }
 
-    if (await hostResolvesToPrivate(currentHostname)) {
-      return new Response("Request blocked: hostname resolves to a private/internal IP", {
-        status: 403,
-      });
-    }
-
+    let method = (rest.method ?? "GET").toUpperCase();
+    let headers = headersToRecord(rest.headers);
+    let body = await requestBodyToBuffer(rest.body);
     let redirectCount = 0;
 
     for (;;) {
-      const res = await fetch(currentUrl, { ...rest, signal, redirect: "manual" });
-
-      if (res.status < 300 || res.status >= 400) {
-        return res;
+      // This DNS lookup is only an early rejection. Security does not depend on
+      // its result: fetchWithPinnedDns validates the address returned to the
+      // socket's own lookup callback, so the checked record is the connected
+      // record even if DNS changes between these two calls.
+      if (await hostResolvesToPrivate(currentUrl.hostname)) {
+        const prefix = redirectCount === 0 ? "Request" : "Redirect";
+        return new Response(`${prefix} blocked: hostname resolves to a private/internal IP`, {
+          status: 403,
+        });
       }
 
-      redirectCount++;
+      let pinned: PinnedFetchResult;
+      try {
+        pinned = await fetchWithPinnedDns(currentUrl.toString(), {
+          method,
+          headers,
+          body,
+          timeoutMs,
+          signal,
+        });
+      } catch (error) {
+        if (!isPinnedAddressBlocked(error)) throw error;
+        const prefix = redirectCount === 0 ? "Request" : "Redirect";
+        return new Response(`${prefix} blocked: hostname resolved to a private/internal IP at connect time`, {
+          status: 403,
+        });
+      }
+
+      const response = responseFromPinned(pinned);
+      if (!REDIRECT_STATUSES.has(pinned.status)) return response;
+
+      redirectCount += 1;
       if (redirectCount > MAX_REDIRECTS) {
         return new Response("Too many redirects", { status: 400 });
       }
 
-      const location = res.headers.get("location");
-      if (!location) return res;
+      const location = pinned.headers.location;
+      if (!location) return response;
 
       let redirectUrl: URL;
       try {
         redirectUrl = new URL(location, currentUrl);
       } catch {
-        return res;
+        return response;
       }
 
       const check = validateSsrfTarget(redirectUrl, { allowlistOnly });
@@ -225,13 +262,11 @@ export async function safeFetch(
         return new Response(`Redirect blocked: ${check.reason}`, { status: 403 });
       }
 
-      if (await hostResolvesToPrivate(redirectUrl.hostname)) {
-        return new Response("Redirect blocked: hostname resolves to a private/internal IP", {
-          status: 403,
-        });
-      }
-
-      currentUrl = redirectUrl.toString();
+      stripHeadersForRedirect(headers, currentUrl, redirectUrl);
+      const rewrite = rewriteRequestForRedirect(pinned.status, method, headers);
+      method = rewrite.method;
+      if (rewrite.dropBody) body = null;
+      currentUrl = redirectUrl;
     }
   } finally {
     clearTimeout(timer);

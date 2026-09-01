@@ -25,7 +25,7 @@ import http from "node:http";
 import https from "node:https";
 import { lookup as dnsLookup, type LookupAllOptions } from "node:dns";
 import type { LookupFunction } from "node:net";
-import { isResolvedAddressPrivate } from "@/lib/ssrf-guard";
+import { isResolvedAddressPrivate } from "@/lib/ssrf-address";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 /** Taket finns för att en capture aldrig ska kunna dra ner processens minne. */
@@ -83,6 +83,7 @@ export type PinnedFetchInit = {
   body?: Buffer | null;
   timeoutMs?: number;
   maxBodyBytes?: number;
+  signal?: AbortSignal;
 };
 
 function buildRequestHeaders(
@@ -145,7 +146,29 @@ export async function fetchWithPinnedDns(
 
   try {
     return await new Promise<PinnedFetchResult>((resolve, reject) => {
-      const request = (isHttps ? https : http).request(
+      let settled = false;
+      let request: http.ClientRequest;
+
+      const cleanup = () => init.signal?.removeEventListener("abort", onAbort);
+      const settleReject = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(error);
+      };
+      const settleResolve = (result: PinnedFetchResult) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(result);
+      };
+      const onAbort = () => {
+        const error = new Error("Pinned fetch aborted");
+        error.name = "AbortError";
+        request.destroy(error);
+      };
+
+      request = (isHttps ? https : http).request(
         url,
         {
           method: init.method ?? "GET",
@@ -158,19 +181,21 @@ export async function fetchWithPinnedDns(
           response.on("data", (chunk: Buffer) => {
             received += chunk.byteLength;
             if (received > maxBodyBytes) {
-              response.destroy();
-              request.destroy();
-              reject(new Error(`Pinned fetch aborted: response exceeded ${maxBodyBytes} bytes`));
+              const error = new Error(
+                `Pinned fetch aborted: response exceeded ${maxBodyBytes} bytes`,
+              );
+              response.destroy(error);
+              request.destroy(error);
+              settleReject(error);
               return;
             }
             chunks.push(chunk);
           });
-          response.on("error", reject);
+          response.on("error", settleReject);
           response.on("end", () => {
-            resolve({
-              // Omdirigeringar följs INTE här. Den råa 3xx:an fullföljs till
-              // browsern, som utfärdar nästa hopp som en ny request — och den
-              // går genom värdgrinden och pinningen igen.
+            settleResolve({
+              // Omdirigeringar följs INTE här. safeFetch eller browsern skapar
+              // nästa request, som får en ny guarded socket-lookup.
               status: response.statusCode ?? 502,
               headers: buildResponseHeaders(response.headers),
               body: Buffer.concat(chunks),
@@ -178,10 +203,19 @@ export async function fetchWithPinnedDns(
           });
         },
       );
+
       request.setTimeout(timeoutMs, () => {
         request.destroy(new Error(`Pinned fetch timed out after ${timeoutMs} ms`));
       });
-      request.on("error", reject);
+      request.on("error", settleReject);
+      request.once("close", cleanup);
+
+      if (init.signal?.aborted) {
+        onAbort();
+        return;
+      }
+      init.signal?.addEventListener("abort", onAbort, { once: true });
+
       if (body) request.write(body);
       request.end();
     });
