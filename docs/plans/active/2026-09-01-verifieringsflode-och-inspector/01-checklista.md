@@ -45,13 +45,21 @@ avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
       ätaren. Läs Vercel-loggen efter nästa Degraderad-version.
 - [x] `SM-074` klientfix: self-heal återupptar pollen efter reload-timeout
       (max 3 försök) i stället för att dö permanent (`usePreviewIframe.ts`).
-- [ ] `SM-074` uppföljning efter deploy: REVIDERAD rotorsak (2026-09-01, chat
-      `c2371f9c`) är sessionsrotation — follow-up mot hibernerad VM handoff:ar
-      gammal `previewSessionId` medan boot:en får en ny; höjd reload-timeout
-      hjälper inte (ingen reload försöks). Klientfix: rotation adopteras via
-      `onPreviewSessionRotated` (PR `fix/preview-session-rotation`). Verifiera
-      i prod: follow-up efter >10 min idle ska läka utan banner; överväg
-      serverhärdning av follow-up-lanen (`reason=runtime_not_running`).
+- [x] `SM-074` sessionsrotation: klienten adopterar ny `previewSessionId` /
+      lifecycle via `onPreviewSessionRotated` — mergad [#1232](https://github.com/Jakeminator123/sajtmaskin/pull/1232).
+- [x] `SM-072` burst-härdning: core-dump-prune + exakt 1 postcheck-omkörning
+      vid infra-skip + resume-vakt (3→5 min) — mergad
+      [#1234](https://github.com/Jakeminator123/sajtmaskin/pull/1234). Samma
+      PR skickar `productBlocked`-fynd till en riktad, throttlad LLM-auto-fix.
+- [x] Ägarbeslut 2026-09-01: preview-sanningsraden (`previewTruth`,
+      "Preview klar med luckor" m.fl.) ska aldrig synas — duplicerar
+      versionsbadge + chatt. Borttagen i
+      [#1237](https://github.com/Jakeminator123/sajtmaskin/pull/1237)
+      (öppen vid sessionens avslut; CI körde om efter lintfix).
+- [ ] `SM-074` prod-verifiering efter #1232: follow-up mot hibernerad VM
+      (>10 min idle) ska läka utan `preview_ready_timeout`. Serverhärdning
+      av follow-up-handoff (`reason=runtime_not_running`) är valfri
+      uppföljning, inte blocker för att stänga klientspåret.
 
 ## D. Ägarbeslut (bara Jakob)
 
@@ -72,3 +80,17 @@ avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
 | `SAJTMASKIN_F2_PRODUCT_POSTCHECK` | på (default) | Behåll. |
 
 Inga nya env-nycklar krävs för de landade fixarna.
+
+## F. Session stängd 2026-09-01 — kvar till nästa pass
+
+Kodspåret i den här chatten är levererat (klient + efterkontroll). Planen
+stannar i `active/` tills B (prod-burst) är avbockad. Nästa agent tar en
+rad här, inte en ny utredning.
+
+| Vad | Varför | Inte i denna session |
+|---|---|---|
+| Merga [#1237](https://github.com/Jakeminator123/sajtmaskin/pull/1237) när CI är grön | Sanningsraden borta; kräver separat mergeuppdrag | Inget merge här |
+| Kompakt "Reparation"-kort i chatten | Auto-fix-turen från #1234 ser ut som en hel generering | Presentation, inte grind |
+| `logPassId` på product-postcheck-loggar | "Observationer utan körpass" döljer vad rundan åtgärdade | Telemetri |
+| Skärp `cta_no_handler` | Tidsluckor/hamburgare flaggar trots React-state | Heuristik; falska positiva |
+| `sajtmaskin.vercel.app` vs `.se`/`.com` | Samma Vercel-projekt och samma prod-deploy. Skillnad = per-domän session/cache. Hård-reload, inte env. | Inget att ändra |

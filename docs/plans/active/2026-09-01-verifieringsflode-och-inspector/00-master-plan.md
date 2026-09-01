@@ -57,14 +57,18 @@ får textdomen + bildlänkarna som chatkontext efteråt. Kanoniskt beslut:
 
 ## Kvarvarande arbete (ej i denna ändring)
 
-- **Host-sidan av `SM-073`:** utred varför preview-hostens store tappar
-  sessionsmetadata medan runtimen serverar (`/admin/sessions` = 0), och låt
-  `inspectInjectionScriptSrc` vägra ostämplad injektion när en
-  tier-2-session förväntas. Kräver Fly-deploy (`preview-host/`).
-- **`SM-072`-verifiering:** läs `[capture-browser]`-raderna i Vercel-loggen
-  efter nästa burst; består läckan, identifiera artefakten som äter ~480 MB
-  mellan launches.
+Kodfixar sedan utredningen: #1232 (sessionsrotation), #1234 (`/tmp` +
+infra-retry + Degraderad→LLM-fix), #1237 (sanningsraden bort — öppen vid
+avslut). Host-sidan av `SM-073` landade med Fly-deploy v59 2026-09-01.
+
+- **Prod-burst (checklista B):** fritt `/tmp`, Verifierad vs Degraderad,
+  inspector-hover, kamera-knapp. Utan det stannar `SM-072`/`SM-074` öppna
+  i backlogen även om koden är mergad.
+- **`SM-074` valfri serverhärdning:** follow-up-lanen ska inte handoff:a
+  en session den vet inte kör (`reason=runtime_not_running`).
 - **`SM-070`-beslut:** auto-grant för live review i prod av/på.
+- **UX-svans (checklista F):** kompakt reparationskort, `logPassId` på
+  postcheck, skarpare `cta_no_handler`.
 
 ## Beviskällor
 
