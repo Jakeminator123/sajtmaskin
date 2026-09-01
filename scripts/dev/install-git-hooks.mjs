@@ -38,7 +38,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 16;
+export const HOOK_VERSION = 17;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -123,22 +123,32 @@ peel_to_commit() {
 }
 
 # Ar commiten redan hamtad fran samma remote? Da laddar pushen inte upp nagon ny
-# kod, och det finns ingenting for verify:pr --plan att planera: refen ar bara en
-# etikett pa nagot som redan ar granskat (snapshot-tagg, ny fryst backup). Okand
-# remote ger ingen traff och faller darmed tillbaka pa HEAD-kravet.
+# kod. Undantaget far BARA slappa rena etiketter: ny tagg eller ny fryst backup.
+# En vanlig featurebranch som flyttas till en redan publicerad commit kraver
+# fortfarande HEAD, rent trad och planen — annars kan en smutsig checkout
+# flytta fel remote-ref utan att nagot granskas.
 already_on_push_remote() {
   [ -n "$PUSH_REMOTE" ] || return 1
   [ -n "$(git for-each-ref --contains "$1" --count=1 --format='%(refname)' "refs/remotes/$PUSH_REMOTE/" 2>/dev/null)" ]
 }
 
+is_published_label_create() {
+  [ "$remote_sha" = "$ZERO_SHA" ] || return 1
+  case "$remote_ref" in
+    refs/tags/*|refs/heads/*BRA*|refs/heads/rescue/*) ;;
+    *) return 1 ;;
+  esac
+  already_on_push_remote "$1"
+}
+
 verify_needed=0
 while read -r local_ref local_sha remote_ref remote_sha; do
-  # Agarnas frysta aterstallningspunkter ar write-once, inte create-once: att
-  # SKAPA en ny backup ar hela poangen med dem, medan varje andring eller
-  # radering av en befintlig ar det som aldrig far ske. GitHub-rulesetet
-  # "Protect BRA backups" drar exakt den gransen (deletion + non_fast_forward).
-  # Hooken sa tidigare nej aven till creation, sa agaren kunde inte ta en
-  # snapshot med git push. Det finns fortfarande ingen break-glass har.
+  # Agarnas frysta aterstallningspunkter ar write-once i HOOKEN, inte
+  # create-once: att SKAPA en ny backup ar hela poangen, medan varje andring
+  # eller radering av en befintlig ar stangd har. GitHub-rulesetet
+  # "Protect BRA backups" blockerar bara deletion och non_fast_forward —
+  # en vanlig fast-forward kan fortfarande slappas igenom server-side.
+  # Hooken ar darfor ensam om att stoppa FF. Ingen break-glass har.
   case "$remote_ref" in
     refs/heads/*BRA*|refs/heads/rescue/*)
       if [ "$local_sha" = "$ZERO_SHA" ]; then
@@ -187,7 +197,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     echo "[hooks] Push stoppad: kunde inte lasa commiten bakom \${local_ref}." >&2
     exit 1
   fi
-  if ! already_on_push_remote "$pushed_commit"; then
+  if ! is_published_label_create "$pushed_commit"; then
     require_current_head "$pushed_commit"
     verify_needed=1
   fi

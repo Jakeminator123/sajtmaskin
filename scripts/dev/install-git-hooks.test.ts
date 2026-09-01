@@ -112,7 +112,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(16);
+    expect(HOOK_VERSION).toBe(17);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -450,9 +450,10 @@ describe("renderHookScript", () => {
   // Annoterade taggar var omöjliga att pusha härifrån: git skickar
   // TAGG-objektets sha, hooken jämförde det rakt mot HEAD:s commit-sha, och de
   // två kan aldrig vara lika. En snapshot-tagg av master fastnade alltså i den
-  // egna grinden.
+  // egna grinden. Undantaget från HEAD/plan gäller bara SKAPANDE av ny tagg
+  // eller ny fryst backup — inte en vanlig featurebranch.
   itWithPosixShell(
-    "pre-push peelar annoterade taggar och hoppar över planen för publicerade commits",
+    "pre-push peelar annoterade taggar och hoppar över planen bara för nya etiketter",
     () => {
       const root = mkdtempSync(join(tmpdir(), "sajtmaskin-pre-push-tag-"));
       const bin = join(root, "bin");
@@ -521,6 +522,54 @@ describe("renderHookScript", () => {
       expect(strayTag.stderr).toContain("inte utcheckad HEAD");
       expect(strayTag.stderr).toContain(foreignCommit);
       expect(strayTag.stderr).not.toContain(tagObject);
+
+      // Blockeraren: en redan publicerad commit till en vanlig featurebranch
+      // från fel eller smutsig checkout ska inte kunna skippa HEAD/plan.
+      const featureLine = `refs/heads/fix/x ${head} refs/heads/fix/x ${zero}\n`;
+      const publishedFeatureWrongHead = runHookSync(hook, {
+        cwd: root,
+        input: featureLine,
+        env: {
+          ...baseEnv,
+          HOOK_GIT_HEAD: foreignCommit,
+          HOOK_GIT_PUBLISHED: "1",
+          HOOK_GIT_DIRTY: "1",
+        },
+        encoding: "utf8",
+        testBin: bin,
+        remote: "origin",
+      });
+      expect(publishedFeatureWrongHead.status).toBe(1);
+      expect(publishedFeatureWrongHead.stderr).toContain("inte utcheckad HEAD");
+      expect(publishedFeatureWrongHead.stderr).toContain(foreignCommit);
+
+      const publishedFeatureDirty = runHookSync(hook, {
+        cwd: root,
+        input: featureLine,
+        env: { ...baseEnv, HOOK_GIT_PUBLISHED: "1", HOOK_GIT_DIRTY: "1" },
+        encoding: "utf8",
+        testBin: bin,
+        remote: "origin",
+      });
+      expect(publishedFeatureDirty.status).toBe(1);
+      expect(publishedFeatureDirty.stderr).toContain("arbetskopian har ocommitterade");
+
+      // Avsedd släppväg: ny BRA-etikett på en redan publicerad commit, även
+      // från annan checkout — ingen ny kod laddas upp.
+      const publishedBraCreate = runHookSync(hook, {
+        cwd: root,
+        input: `refs/heads/BRA_snapshot ${head} refs/heads/BRA_snapshot ${zero}\n`,
+        env: {
+          ...baseEnv,
+          HOOK_GIT_HEAD: foreignCommit,
+          HOOK_GIT_PUBLISHED: "1",
+          HOOK_GIT_DIRTY: "1",
+        },
+        encoding: "utf8",
+        testBin: bin,
+        remote: "origin",
+      });
+      expect(publishedBraCreate.status).toBe(0);
     },
     POSIX_HOOK_TEST_TIMEOUT_MS,
   );
