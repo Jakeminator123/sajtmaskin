@@ -142,7 +142,9 @@ function isGitPrefixToken(token) {
     return true;
   }
   if (token.startsWith("-")) return true;
-  if (/^(?:\d+(?:\.\d+)?|\.\d+)[smhd]?$/u.test(token)) return true;
+  if (/^[+]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?[smhd]?$/u.test(token)) {
+    return true;
+  }
   return ENV_ASSIGNMENT.test(token);
 }
 

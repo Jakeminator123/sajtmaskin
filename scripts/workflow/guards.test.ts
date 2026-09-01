@@ -551,6 +551,8 @@ describe("cheap read-only git path", () => {
     "eval $'\\x67it fetch origin JAKOB_BRA:JAKOB_BRA'",
     "timeout 10 $'\\x67it' fetch origin JAKOB_BRA:JAKOB_BRA",
     "timeout 1.5 git fetch origin JAKOB_BRA:JAKOB_BRA",
+    "timeout +1.5 git fetch origin JAKOB_BRA:JAKOB_BRA",
+    "timeout 1.5e1 git fetch origin JAKOB_BRA:JAKOB_BRA",
     "/usr/bin/timeout 10 git fetch origin JAKOB_BRA:JAKOB_BRA",
     "git -c include.path=/tmp/evil.cfg fetch origin",
     "git -c include.path=/tmp/evil.cfg status",
