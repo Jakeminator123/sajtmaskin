@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,9 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showResendVerification, setShowResendVerification] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousActiveElementRef = useRef<HTMLElement | null>(null);
 
   const { setUser } = useAuthStore();
 
@@ -45,6 +48,37 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
       setShowResendVerification(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    previousActiveElementRef.current = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+    return () => previousActiveElementRef.current?.focus();
+  }, [isOpen]);
+
+  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusable = modalRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable?.length) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -157,11 +191,19 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
       <div className="absolute inset-0 bg-black/70 backdrop-blur-lg" onClick={onClose} />
 
       {/* Modal */}
-      <div className="animate-in fade-in zoom-in-95 border-border/35 bg-card/85 relative w-full max-w-md overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-2xl duration-200">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        onKeyDown={handleDialogKeyDown}
+        className="animate-in fade-in zoom-in-95 border-border/35 bg-card/85 relative w-full max-w-md overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-2xl duration-200"
+      >
         <div className="from-primary/12 to-primary/4 pointer-events-none absolute inset-0 bg-linear-to-br via-transparent" />
 
         {/* Close button */}
         <button
+          ref={closeButtonRef}
           onClick={onClose}
           className="border-border/20 bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary absolute top-4 right-4 z-20 rounded-lg border p-1.5 transition-colors"
           aria-label="Stäng inloggning"
@@ -171,7 +213,10 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
 
         {/* Header */}
         <div className="relative z-10 p-6 pb-4 text-center">
-          <h2 className="text-foreground text-2xl font-(--font-heading) tracking-tight">
+          <h2
+            id="auth-modal-title"
+            className="text-foreground text-2xl font-(--font-heading) tracking-tight"
+          >
             {mode === "login" ? "Välkommen tillbaka!" : "Skapa konto"}
           </h2>
           <p className="text-muted-foreground mt-2 text-sm">
@@ -234,10 +279,13 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
           {/* Name field (register only) */}
           {mode === "register" && (
             <div className="space-y-1.5">
-              <label className="text-foreground/90 text-sm font-medium">Namn (valfritt)</label>
+              <label htmlFor="auth-name" className="text-foreground/90 text-sm font-medium">
+                Namn (valfritt)
+              </label>
               <div className="relative">
                 <User className="text-muted-foreground/70 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                 <Input
+                  id="auth-name"
                   type="text"
                   placeholder="Ditt namn"
                   value={name}
@@ -250,10 +298,13 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
 
           {/* Email field */}
           <div className="space-y-1.5">
-            <label className="text-foreground/90 text-sm font-medium">E-post</label>
+            <label htmlFor="auth-email" className="text-foreground/90 text-sm font-medium">
+              E-post
+            </label>
             <div className="relative">
               <Mail className="text-muted-foreground/70 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
               <Input
+                id="auth-email"
                 type="email"
                 placeholder="din@email.se"
                 value={email}
@@ -266,10 +317,13 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
 
           {/* Password field */}
           <div className="space-y-1.5">
-            <label className="text-foreground/90 text-sm font-medium">Lösenord</label>
+            <label htmlFor="auth-password" className="text-foreground/90 text-sm font-medium">
+              Lösenord
+            </label>
             <div className="relative">
               <Lock className="text-muted-foreground/70 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
               <Input
+                id="auth-password"
                 type={showPassword ? "text" : "password"}
                 placeholder={mode === "register" ? "Minst 6 tecken" : "••••••••"}
                 value={password}
@@ -291,13 +345,19 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
 
           {/* Error message */}
           {error && (
-            <div className="border-destructive/35 bg-destructive/10 text-destructive rounded-xl border p-3 text-sm">
+            <div
+              role="alert"
+              className="border-destructive/35 bg-destructive/10 text-destructive rounded-xl border p-3 text-sm"
+            >
               {error}
             </div>
           )}
 
           {successMessage && (
-            <div className="border-primary/35 bg-primary/10 text-primary rounded-xl border p-3 text-sm">
+            <div
+              role="status"
+              className="border-primary/35 bg-primary/10 text-primary rounded-xl border p-3 text-sm"
+            >
               {successMessage}
             </div>
           )}
