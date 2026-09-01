@@ -547,6 +547,9 @@ describe("cheap read-only git path", () => {
     "$'\\x67it' -c $'include\\x2epath=/tmp/evil.cfg' status",
     "$'\\x67it' fetch --refmap=+refs/heads/*:refs/heads/* origin",
     "$'\\x67it' fetch origin $'\\x72escue/foo:\\x72escue/foo'",
+    "eval $'git fetch origin JAKOB_BRA:JAKOB_BRA'",
+    "eval $'\\x67it fetch origin JAKOB_BRA:JAKOB_BRA'",
+    "timeout 10 $'\\x67it' fetch origin JAKOB_BRA:JAKOB_BRA",
     "git -c include.path=/tmp/evil.cfg fetch origin",
     "git -c include.path=/tmp/evil.cfg status",
     "git config remote.origin.fetch +refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA",
@@ -560,6 +563,13 @@ describe("cheap read-only git path", () => {
     expect(cheapShellDecision(command)?.permission).toBe("deny");
     expect(decideCommitCommand(command, { aliases: null }).permission).toBe("deny");
     expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
+  });
+
+  it("denies $@ wrappers that only become git after ANSI-C expand", () => {
+    const command = "set -- $'\\x67it'; \"$@\" fetch origin JAKOB_BRA:JAKOB_BRA";
+    expect(cheapShellDecision(command)).toBeNull();
+    expect(decideWorktree(command, { aliases: new Set() }).permission).toBe("deny");
+    expect(decideCommitCommand(command, { aliases: new Set() }).permission).toBe("deny");
   });
 
   it("does not deny a read of remote.*.fetch as if it were a BRA write", () => {
@@ -635,6 +645,8 @@ describe("hook CLI contract", () => {
     [".cursor/hooks/worktree-force-guard.mjs", "$'\\x67it' config --edit", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "$'\\x67it' $'\\x66etch' origin JAKOB_BRA:JAKOB_BRA", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "$'\\x67it' fetch --refmap=+refs/heads/*:refs/heads/* origin", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "eval $'git fetch origin JAKOB_BRA:JAKOB_BRA'", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "timeout 10 $'\\x67it' fetch origin JAKOB_BRA:JAKOB_BRA", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git -c include.path=/tmp/evil.cfg fetch origin", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git -c include.path=/tmp/evil.cfg status", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git config remote.origin.fetch +refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA", "deny"],

@@ -110,12 +110,36 @@ export function shellTokens(segment) {
   return tokens;
 }
 
+const GIT_WRAPPER_PREFIXES = new Set([
+  "&",
+  "call",
+  "command",
+  "builtin",
+  "exec",
+  "sudo",
+  "env",
+  "nohup",
+  "nice",
+  "eval",
+  "timeout",
+  "xargs",
+  "stdbuf",
+  "time",
+  "watch",
+  "--",
+]);
+
+function isGitPrefixToken(token) {
+  if (GIT_WRAPPER_PREFIXES.has(token.toLowerCase())) return true;
+  if (token.startsWith("-")) return true;
+  if (/^\d+[smhd]?$/u.test(token)) return true;
+  return ENV_ASSIGNMENT.test(token);
+}
+
 export function invokesGit(tokens) {
   const gitIndex = tokens.findIndex((token) => /(?:^|[/\\])git(?:\.exe)?$/i.test(token));
   if (gitIndex < 0) return -1;
-  const allowedPrefix =
-    /^(?:&|call|command|builtin|exec|sudo|env|nohup|nice|--|-[^\s]+|[A-Za-z_][A-Za-z0-9_]*=.*)$/i;
-  return tokens.slice(0, gitIndex).every((token) => allowedPrefix.test(token)) ? gitIndex : -1;
+  return tokens.slice(0, gitIndex).every((token) => isGitPrefixToken(token)) ? gitIndex : -1;
 }
 
 const GIT_OPTIONS_WITH_VALUE = new Set([
@@ -144,19 +168,8 @@ function gitSubcommand(tokens, gitIndex) {
   return null;
 }
 
-const COMMAND_PREFIXES = new Set([
-  "&",
-  "call",
-  "command",
-  "builtin",
-  "exec",
-  "sudo",
-  "env",
-  "nohup",
-  "nice",
-  "--",
-]);
-const SHELL_EXPANSION = /\$\(|`|\$\{|\$[A-Za-z_]/u;
+const COMMAND_PREFIXES = GIT_WRAPPER_PREFIXES;
+const SHELL_EXPANSION = /\$\(|`|\$\{|\$[A-Za-z_]|\$[@*#?!\-]|\$[0-9]/u;
 // Bash ANSI-C / locale quotes (`$'…'` / `$"…"`). The hook must not cheap-allow
 // them: `git -c $'remote.origin.fetch=+refs/heads/BRA:refs/heads/BRA' fetch`
 // tokenizes as `$remote.origin.fetch=…` and would miss the dest-refspec.
@@ -264,8 +277,7 @@ export function looksLikeEncodedGit(command) {
 function firstExecutableIndex(tokens) {
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
-    if (COMMAND_PREFIXES.has(token.toLowerCase()) || ENV_ASSIGNMENT.test(token)) continue;
-    if (token.startsWith("-")) continue;
+    if (isGitPrefixToken(token)) continue;
     return index;
   }
   return -1;
@@ -422,6 +434,15 @@ export function isAmbiguousGitCommand(command, aliases = new Set()) {
     }
     const tokens = shellTokens(segment);
     const gitIndex = invokesGit(tokens);
+    // `"$@" fetch origin BRA:BRA` has no literal `git` token. After ANSI-C
+    // expand the cheap path sees `$@` and returns null; fail closed here.
+    if (
+      SHELL_EXPANSION.test(segment.replace(/'[^']*'/gu, "")) &&
+      /\b(?:fetch|pull)\b/iu.test(segment) &&
+      /BRA|rescue\//u.test(segment)
+    ) {
+      return true;
+    }
     // Single-quoted text is literal to the shell. Double-quoted and unquoted
     // expansions can still assemble the executable after inspection.
     const expandableTokens = shellTokens(segment.replace(/'[^']*'/gu, ""));
@@ -445,7 +466,7 @@ export function isAmbiguousGitCommand(command, aliases = new Set()) {
     // Single-quoted shell text is literal. Everything else below can change
     // the executable/subcommand after the hook has inspected the raw string.
     const expandable = segment.replace(/'[^']*'/gu, "");
-    if (/\$\(|`|\$\{|\$[A-Za-z_]/u.test(expandable)) return true;
+    if (SHELL_EXPANSION.test(expandable)) return true;
     if (/(?:^|\s)-c\s+['"]?alias\.[^\s=]+=/iu.test(segment)) return true;
 
     const subcommand = gitSubcommand(tokens, gitIndex);
