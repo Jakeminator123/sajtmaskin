@@ -21,6 +21,7 @@ export const POLICY_FLOORS = Object.freeze({
     ".github/workflows/",
     "scripts/ci/",
     "scripts/pr-review/",
+    "scripts/workflow/check-contract.mjs",
     "scripts/workflow/ci-scope.mjs",
     "scripts/workflow/path-impact.mjs",
     "config/agent-workflow.json",
@@ -284,6 +285,7 @@ const DB_BLOB_PR_PATH_FLOOR = Object.freeze([
   "requirements.dbtest.txt",
   "scripts/db/**/*.py",
 ]);
+const E2E_CONTRACT_SCRIPT = "playwright test -c playwright.deploy-smoke.config.ts --list";
 
 function hasExactStringSet(actual, expected) {
   if (!Array.isArray(actual) || actual.length !== expected.length) return false;
@@ -295,7 +297,7 @@ function hasExactStringSet(actual, expected) {
  * CI scoping is allowed only inside the workflow. Required job identities must
  * still finish with success, while missing scope output always selects heavy.
  */
-export function evaluateCiScopeWorkflow(source) {
+export function evaluateCiScopeWorkflow(source, packageScripts) {
   const errors = [];
   let document;
   try {
@@ -358,6 +360,9 @@ export function evaluateCiScopeWorkflow(source) {
     e2eContract.if !== undefined
   ) {
     errors.push("heavy quality-core must block unconditionally on Playwright E2E discovery");
+  }
+  if (packageScripts?.["test:e2e:contract"] !== E2E_CONTRACT_SCRIPT) {
+    errors.push("test:e2e:contract must retain its exact Playwright discovery command");
   }
 
   const qualityContracts = document?.jobs?.["quality-contracts"];
@@ -936,7 +941,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const ci = read(root, ".github/workflows/ci.yml");
   const dbBlobSync = read(root, ".github/workflows/db-blob-sync-check.yml");
   const dbSchemaParity = read(root, ".github/workflows/db-schema-parity.yml");
-  errors.push(...evaluateCiScopeWorkflow(ci));
+  errors.push(...evaluateCiScopeWorkflow(ci, pkg.scripts));
   errors.push(...evaluateSecretWorkflowDispatches(dbBlobSync, dbSchemaParity));
   if (!ci.includes("workflow_dispatch: {}") || !dbBlobSync.includes("workflow_dispatch: {}")) {
     errors.push("post-merge CI and DB/blob verification must remain workflow-dispatchable");

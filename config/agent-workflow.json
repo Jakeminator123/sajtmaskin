@@ -24,6 +24,7 @@
     ".github/workflows/",
     "scripts/ci/",
     "scripts/pr-review/",
+    "scripts/workflow/check-contract.mjs",
     "scripts/workflow/ci-scope.mjs",
     "scripts/workflow/path-impact.mjs",
     "config/agent-workflow.json",

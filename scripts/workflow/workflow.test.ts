@@ -587,7 +587,8 @@ describe("agent workflow repository contract", () => {
 
   it("keeps CI scope fail-closed and live credentials on trusted master", () => {
     const source = readFileSync(".github/workflows/ci.yml", "utf8");
-    expect(evaluateCiScopeWorkflow(source)).toEqual([]);
+    const packageScripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
+    expect(evaluateCiScopeWorkflow(source, packageScripts)).toEqual([]);
     const replaceOnce = (search: string, replacement: string) => {
       const candidate = source.replace(search, replacement);
       expect(candidate).not.toBe(source);
@@ -638,8 +639,14 @@ describe("agent workflow repository contract", () => {
       ),
     ];
     for (const candidate of weakened) {
-      expect(evaluateCiScopeWorkflow(candidate).length).toBeGreaterThan(0);
+      expect(evaluateCiScopeWorkflow(candidate, packageScripts).length).toBeGreaterThan(0);
     }
+    expect(
+      evaluateCiScopeWorkflow(source, {
+        ...packageScripts,
+        "test:e2e:contract": "true",
+      }),
+    ).toContain("test:e2e:contract must retain its exact Playwright discovery command");
   });
 
   it("scopes DB/Blob PR smoke to its exact executable inputs", () => {
@@ -833,6 +840,17 @@ describe("agent workflow repository contract", () => {
   it("keeps an independent security floor below the editable policy", () => {
     const policy = loadWorkflowInputs().policy;
     expect(evaluatePolicyFloors(policy)).toEqual([]);
+    expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/check-contract.mjs");
+    expect(
+      evaluatePolicyFloors({
+        ...structuredClone(policy),
+        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+          (candidate: string) => candidate !== "scripts/workflow/check-contract.mjs",
+        ),
+      }),
+    ).toContain(
+      "manualMergePathPrefixes security floor missing: scripts/workflow/check-contract.mjs",
+    );
 
     const weakened = [
       { ...structuredClone(policy), requiredChecks: ["quality"] },
