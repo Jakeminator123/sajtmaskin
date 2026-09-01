@@ -393,9 +393,22 @@ function inspectGitInvocation(tokens) {
   const gitIndex = invokesGit(tokens);
   if (gitIndex < 0) return null;
   const args = [];
+  const configAssignments = [];
   let subcommand = null;
   for (let index = gitIndex + 1; index < tokens.length; index += 1) {
     const token = tokens[index];
+    if (token === "-c" || token === "--config-env") {
+      const assignment = tokens[index + 1] ?? "";
+      configAssignments.push(assignment);
+      if (subcommand) args.push(token, assignment);
+      index += 1;
+      continue;
+    }
+    if (token.startsWith("--config-env=")) {
+      configAssignments.push(token.slice("--config-env=".length));
+      if (subcommand) args.push(token);
+      continue;
+    }
     if (subcommand) {
       args.push(token);
       continue;
@@ -405,11 +418,11 @@ function inspectGitInvocation(tokens) {
       continue;
     }
     if (token.startsWith("--git-dir=") || token.startsWith("--work-tree=")) continue;
-    if (token.startsWith("--namespace=") || token.startsWith("--config-env=")) continue;
+    if (token.startsWith("--namespace=")) continue;
     if (token.startsWith("-")) continue;
     subcommand = token.toLowerCase();
   }
-  return { subcommand, args };
+  return { subcommand, args, configAssignments };
 }
 
 function takeNamedArgs(args, createFlags, valueFlags) {
@@ -446,8 +459,35 @@ function fetchRefspecDestination(token) {
   return spec.slice(colon + 1);
 }
 
-function fetchWritesImmutableBranch(args) {
-  return args.some((token) => {
+function collectFetchRefspecCandidates(args, configAssignments = []) {
+  const specs = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index];
+    if (token === "--refmap" || token === "-c" || token === "--config-env") {
+      specs.push(args[index + 1] ?? "");
+      index += 1;
+      continue;
+    }
+    if (token.startsWith("--refmap=")) {
+      specs.push(token.slice("--refmap=".length));
+      continue;
+    }
+    specs.push(token);
+  }
+  for (const assignment of configAssignments) {
+    if (typeof assignment !== "string") continue;
+    const eq = assignment.indexOf("=");
+    if (eq <= 0) continue;
+    const key = assignment.slice(0, eq).toLowerCase();
+    if (key === "fetch.refspec" || /^remote\.[^.]+\.fetch$/u.test(key)) {
+      specs.push(assignment.slice(eq + 1));
+    }
+  }
+  return specs;
+}
+
+function fetchWritesImmutableBranch(args, configAssignments = []) {
+  return collectFetchRefspecCandidates(args, configAssignments).some((token) => {
     const dest = fetchRefspecDestination(token);
     if (!dest) return false;
     const bare = dest.replace(/^(?:refs\/heads\/|refs\/remotes\/[^/]+\/)/u, "");
@@ -456,11 +496,11 @@ function fetchWritesImmutableBranch(args) {
   });
 }
 
-function classifyGitInvocation(subcommand, args) {
+function classifyGitInvocation(subcommand, args, configAssignments = []) {
   if (!subcommand) return "heavy";
-  if (subcommand === "fetch") {
-    if (fetchWritesImmutableBranch(args)) return "deny-immutable";
-    return "allow";
+  if (subcommand === "fetch" || subcommand === "pull") {
+    if (fetchWritesImmutableBranch(args, configAssignments)) return "deny-immutable";
+    return subcommand === "fetch" ? "allow" : "heavy";
   }
   if (READ_ONLY_GIT_SUBCOMMANDS.has(subcommand)) return "allow";
 
@@ -538,7 +578,11 @@ function classifySegment(segment) {
   if (isRawWorktreeRemove(segment)) return "heavy";
   const invocation = inspectGitInvocation(shellTokens(segment));
   if (!invocation) return "allow";
-  return classifyGitInvocation(invocation.subcommand, invocation.args);
+  return classifyGitInvocation(
+    invocation.subcommand,
+    invocation.args,
+    invocation.configAssignments,
+  );
 }
 
 /**
