@@ -586,6 +586,7 @@ describe("runPostGenerationChecks", () => {
     const store = createMessageStore();
     const files = buildHealthyFiles();
     let settlePersistence!: () => void;
+    let persistStarted = false;
     const delayedPersistence = new Promise<Response>((resolve) => {
       settlePersistence = () => {
         order.push("persistence-settled");
@@ -597,7 +598,10 @@ describe("runPostGenerationChecks", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/error-log")) return delayedPersistence;
+        if (url.includes("/error-log")) {
+          persistStarted = true;
+          return delayedPersistence;
+        }
         if (url.includes("/versions")) {
           return jsonResponse({
             versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
@@ -632,11 +636,15 @@ describe("runPostGenerationChecks", () => {
       onComplete,
     });
 
-    await runPromise;
+    // Persist is now on the generation-tail critical path (awaited before
+    // the quality-gate decision). Join only after the write is in flight
+    // so this still proves refresh cannot outrun the error-log POST.
+    await vi.waitFor(() => expect(persistStarted).toBe(true));
     expect(mutateVersions).not.toHaveBeenCalled();
     expect(onComplete).not.toHaveBeenCalled();
 
     settlePersistence();
+    await runPromise;
     await vi.waitFor(() => {
       expect(mutateVersions).toHaveBeenCalledTimes(1);
       expect(onComplete).toHaveBeenCalledTimes(1);
@@ -646,6 +654,328 @@ describe("runPostGenerationChecks", () => {
       "versions-refreshed",
       "status-refreshed",
     ]);
+  });
+
+  it("POSTar inte /quality-gate förrän /error-log persist har lösts 2xx", async () => {
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    let settlePersistence!: () => void;
+    const delayedPersistence = new Promise<Response>((resolve) => {
+      settlePersistence = () => resolve(jsonResponse({ ok: true }));
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/error-log")) return delayedPersistence;
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                lifecycleStage: "design",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({
+            skipped: false,
+            productBlocked: true,
+            warnings: [{ code: "fake_form", message: "Formuläret är inte kopplat." }],
+            attestation: CURRENT_POSTCHECK_ATTESTATION,
+          });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({ error: "Preview host not configured" }, 501);
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    const runPromise = runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchCalls.some((call) => call.url.includes("/error-log"))).toBe(true);
+    });
+    expect(fetchCalls.some((call) => call.url.includes("/quality-gate"))).toBe(false);
+
+    settlePersistence();
+    await runPromise;
+    await vi.waitFor(() => {
+      expect(fetchCalls.some((call) => call.url.includes("/quality-gate"))).toBe(true);
+    });
+
+    const errorLogIdx = fetchCalls.findIndex((call) => call.url.includes("/error-log"));
+    const qualityGateIdx = fetchCalls.findIndex((call) => call.url.includes("/quality-gate"));
+    expect(errorLogIdx).toBeGreaterThanOrEqual(0);
+    expect(qualityGateIdx).toBeGreaterThan(errorLogIdx);
+  });
+
+  it("startar inte gaten när productBlocked persist faller på 503 — versionen lämnas pending", async () => {
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/error-log")) {
+          return new Response(JSON.stringify({ code: "row_contention", retryable: true }), {
+            status: 503,
+            headers: { "Content-Type": "application/json", "Retry-After": "1" },
+          });
+        }
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                lifecycleStage: "design",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({
+            skipped: false,
+            productBlocked: true,
+            warnings: [{ code: "fake_form", message: "Formuläret är inte kopplat." }],
+            attestation: CURRENT_POSTCHECK_ATTESTATION,
+          });
+        }
+        if (url.includes("/quality-gate")) {
+          throw new Error("quality-gate must not start when blocker persist failed");
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    vi.useFakeTimers();
+    try {
+      const runPromise = runPostGenerationChecks({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        demoUrl: "https://preview.example/ver_1",
+        assistantMessageId: "assistant_1",
+        setMessages: store.setMessages,
+      });
+      await vi.advanceTimersByTimeAsync(30_000);
+      await runPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(fetchCalls.some((call) => call.url.includes("/quality-gate"))).toBe(false);
+    const qualityGate = getToolPart("Quality gate", store);
+    expect(qualityGate?.state).toBe("output-available");
+    const output = (qualityGate?.output ?? {}) as Record<string, unknown>;
+    expect(output.skipped).toBe(true);
+    expect(output.retryPending).toBe(true);
+    expect(output.blockerPersistFailed).toBe(true);
+  });
+
+  it("startar inte gaten på ett oattesterat claim_busy — versionen lämnas pending", async () => {
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                lifecycleStage: "design",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/error-log")) return jsonResponse({ success: true, stored: true });
+        if (url.includes("/product-postcheck")) {
+          // Single-flight: another run owns this exact target and did not
+          // finish inside our wait. No check ran here, so no attestation.
+          return jsonResponse({
+            skipped: true,
+            skippedReason: "claim_busy",
+            productBlocked: false,
+            warnings: [],
+            attestation: null,
+          });
+        }
+        if (url.includes("/quality-gate")) {
+          throw new Error("quality-gate must not start on an unattested claim_busy");
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+    });
+
+    // An attested skip would read as "checked, nothing blocking": the gate
+    // would start, find no product_postcheck.summary row, and F3 goes green.
+    expect(fetchCalls.some((call) => call.url.includes("/quality-gate"))).toBe(false);
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = (qualityGate?.output ?? {}) as Record<string, unknown>;
+    expect(output.skipped).toBe(true);
+    expect(output.retryPending).toBe(true);
+  });
+
+  it("väntar in validate-images innan /product-postcheck anropas", async () => {
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    let releaseValidate!: () => void;
+    const blockedValidate = new Promise<Response>((resolve) => {
+      releaseValidate = () => resolve(jsonResponse({}));
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                lifecycleStage: "design",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return blockedValidate;
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
+        if (url.includes("/error-log")) return jsonResponse({ ok: true });
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({ error: "Preview host not configured" }, 501);
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    const runPromise = runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchCalls.some((call) => call.url.includes("/validate-images"))).toBe(true);
+    });
+    expect(fetchCalls.some((call) => call.url.includes("/product-postcheck"))).toBe(false);
+
+    releaseValidate();
+    await runPromise;
+
+    const validateIdx = fetchCalls.findIndex((call) => call.url.includes("/validate-images"));
+    const postcheckIdx = fetchCalls.findIndex((call) => call.url.includes("/product-postcheck"));
+    expect(validateIdx).toBeGreaterThanOrEqual(0);
+    expect(postcheckIdx).toBeGreaterThan(validateIdx);
+  });
+
+  it("hämtar om filer/preview efter en persisterad bildfix innan product-postcheck", async () => {
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    const refreshedFiles = [
+      ...files,
+      { name: "public/fixed.png", content: "replaced" },
+    ];
+    let filesCalls = 0;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                lifecycleStage: "design",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          filesCalls += 1;
+          return jsonResponse({ files: filesCalls > 1 ? refreshedFiles : files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({ fixed: true, replacedCount: 1 });
+        }
+        if (url.includes("/product-postcheck")) {
+          return featureDisabledProductPostcheckResponse();
+        }
+        if (url.includes("/error-log")) return jsonResponse({ ok: true });
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({ error: "Preview host not configured" }, 501);
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+    });
+
+    const validateIdx = fetchCalls.findIndex((call) => call.url.includes("/validate-images"));
+    const postcheckIdx = fetchCalls.findIndex((call) => call.url.includes("/product-postcheck"));
+    const refreshFilesAfterValidate = fetchCalls.findIndex(
+      (call, index) => index > validateIdx && call.url.includes("/files?versionId=ver_1"),
+    );
+    expect(filesCalls).toBeGreaterThanOrEqual(2);
+    expect(refreshFilesAfterValidate).toBeGreaterThan(validateIdx);
+    expect(postcheckIdx).toBeGreaterThan(refreshFilesAfterValidate);
   });
 
   it("revalidates versions after a successful tier-2 promotion settles", async () => {

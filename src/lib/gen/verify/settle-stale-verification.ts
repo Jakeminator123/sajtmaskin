@@ -202,6 +202,13 @@ export async function settleStaleVerificationIfNeeded(
   const timedOutVersion = await failVersionVerificationIfUnleased(
     version.id,
     concreteFailureSummary ?? GENERIC_TIMEOUT_SUMMARY,
+    {
+      // P1a TOCTOU: CAS on the snapshot this watchdog already read so a
+      // concurrent verify that promoted (and dropped its lease) in the
+      // await-window above cannot be clobbered back to failed/draft.
+      verificationState: version.verification_state,
+      filesRevision: version.files_revision,
+    },
   ).catch(() => null);
 
   if (timedOutVersion) {

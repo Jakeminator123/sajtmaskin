@@ -856,6 +856,48 @@ export const liveReviewRuns = pgTable(
   }),
 );
 
+/**
+ * One Product Postcheck browser run per preview target
+ * (version_id, files_revision, preview_session_id, lifecycle_token).
+ * Concurrent POSTs share the row so two tabs / resume+normal / infra-retry
+ * cannot launch a second Chromium against the same preview.
+ *
+ * `lifecycle_token` is stored as '' when the bind tuple has `null` so the
+ * unique index treats two null-token claims as the same key (Postgres
+ * UNIQUE would otherwise treat NULLs as distinct).
+ */
+export const productPostcheckRuns = pgTable(
+  "product_postcheck_runs",
+  {
+    id: text("id").primaryKey(),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => engineChats.id, { onDelete: "cascade" }),
+    versionId: text("version_id").notNull(),
+    filesRevision: text("files_revision").notNull(),
+    previewSessionId: text("preview_session_id").notNull(),
+    lifecycleToken: text("lifecycle_token").notNull().default(""),
+    verificationRunId: text("verification_run_id"),
+    status: text("status").notNull(),
+    skipReason: text("skip_reason"),
+    result: jsonb("result").$type<Record<string, unknown> | null>(),
+    claimedAt: timestamptz("claimed_at").defaultNow().notNull(),
+    leaseExpiresAt: timestamptz("lease_expires_at").notNull(),
+    completedAt: timestamptz("completed_at"),
+    expiresAt: timestamptz("expires_at").notNull(),
+  },
+  (table) => ({
+    claimUnique: uniqueIndex("product_postcheck_runs_claim_unique").on(
+      table.versionId,
+      table.filesRevision,
+      table.previewSessionId,
+      table.lifecycleToken,
+    ),
+    chatIdx: index("idx_product_postcheck_runs_chat_id").on(table.chatId),
+    expiresIdx: index("idx_product_postcheck_runs_expires_at").on(table.expiresAt),
+  }),
+);
+
 export const generationTelemetry = pgTable(
   "generation_telemetry",
   {

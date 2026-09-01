@@ -1,5 +1,12 @@
 import crypto from "crypto";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  getUserByEmail,
+  isAdminEmail,
+  markEmailVerified,
+  setUserDiamonds,
+  updateUserLastLogin,
+} from "@/lib/db/services/users";
 import { createSessionCookie } from "./session";
 
 vi.mock("next/headers", () => ({
@@ -103,5 +110,42 @@ describe("session cookie flags", () => {
     expect(cookie).toContain("Path=/");
     expect(cookie).toContain("Secure");
     expect(cookie).toContain("Max-Age=");
+  });
+});
+
+describe("loginUser privileged-email gate", () => {
+  let auth: typeof import("./auth");
+
+  beforeAll(async () => {
+    auth = await import("./auth");
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isAdminEmail).mockReturnValue(false);
+  });
+
+  it("blocks an unverified privileged email on the password path and does not bootstrap admin", async () => {
+    const password = "attacker-chosen-password";
+    const passwordHash = auth.hashPassword(password);
+    vi.mocked(isAdminEmail).mockReturnValue(true);
+    vi.mocked(getUserByEmail).mockResolvedValue({
+      id: "hijack_1",
+      email: "admin@sajtmaskin.se",
+      name: "Hijack",
+      password_hash: passwordHash,
+      email_verified: false,
+      diamonds: 0,
+    } as Awaited<ReturnType<typeof getUserByEmail>>);
+
+    const result = await auth.loginUser("admin@sajtmaskin.se", password);
+
+    expect(result).toEqual({
+      error:
+        "Du måste bekräfta din e-post innan du kan logga in. Använd 'Skicka verifieringsmail igen' i inloggningsrutan.",
+    });
+    expect(markEmailVerified).not.toHaveBeenCalled();
+    expect(setUserDiamonds).not.toHaveBeenCalled();
+    expect(updateUserLastLogin).not.toHaveBeenCalled();
   });
 });
