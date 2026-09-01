@@ -18,6 +18,7 @@ const renewVersionLease = vi.hoisted(() => vi.fn());
 const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
+const getVersionById = vi.hoisted(() => vi.fn());
 const markVersionSupersededByRepair = vi.hoisted(() => vi.fn());
 const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const runQualityGateOnExportable = vi.hoisted(() => vi.fn());
@@ -47,6 +48,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion,
   getLatestVersion,
   getChat,
+  getVersionById,
   markVersionSupersededByRepair,
 }));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
@@ -145,6 +147,7 @@ beforeEach(() => {
   getPreferredVersion.mockReset().mockResolvedValue({ id: versionId });
   getLatestVersion.mockReset().mockResolvedValue({ id: versionId });
   getChat.mockReset().mockResolvedValue(null);
+  getVersionById.mockReset().mockResolvedValue({ id: versionId, parent_version_id: null });
   markVersionSupersededByRepair.mockReset().mockResolvedValue(null);
   getVersionFilesSnapshot.mockReset().mockResolvedValue({
     files: projectFiles,

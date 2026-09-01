@@ -4,7 +4,10 @@ import {
   failVersionVerification,
   markVersionSupersededByRepair,
   updateVersionFiles,
+  getChat,
+  getVersionById,
 } from "@/lib/db/chat-repository-pg";
+import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import {
   fullProjectProtectedDroppedPaths,
@@ -147,6 +150,57 @@ export async function triggerServerVerification(params: {
     // (#291 Codex P1 — the first gate can `promoteVersion` before the repair
     // branch is ever reached).
     const previewPolicy = snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
+
+    // F3 readiness (same helper + args as POST /quality-gate): the client
+    // skips that route for `integrations` because this server lane owns it.
+    // Without this gate an F3 version with missing env or a product-blocked
+    // F2 parent would still reach promoteVersion. Run AFTER the files
+    // snapshot is resolved and BEFORE markVersionVerifying / the VM gate.
+    // Fail-closed (not leave-pending): settle-stale-verification treats
+    // integrations+pending as stale and would eventually fail the row with a
+    // generic timeout; an immediate failVersionVerification records the
+    // concrete readiness reason and never reaches promoteVersion. F2 pending
+    // is an intentional rest state and is not a candidate here.
+    if (snapshot.lifecycleStage === "integrations") {
+      // Unguarded reads: a thrown metadata read must reach the outer catch and
+      // fail the version. Swallowing it would leave `parentVersionId` null and
+      // point the product-postcheck block at the F3 row itself, which never
+      // carries the parent's summary — a silent fail-open.
+      const versionRow = await getVersionById(versionId);
+      const chat = await getChat(chatId);
+      const parentVersionId = versionRow?.parent_version_id ?? null;
+      const readiness = await checkTier3ReadinessForVersion({
+        versionId,
+        productPostcheckVersionId: parentVersionId ?? undefined,
+        orchestrationSnapshot: chat?.orchestration_snapshot,
+        projectId: chat?.project_id ?? null,
+        preloadedFiles: codeFiles,
+      });
+      if (!readiness.ok) {
+        const summary =
+          readiness.reason === "missing_env"
+            ? "F3 readiness blocked: required env is missing."
+            : readiness.reason === "product_postcheck_blocked"
+              ? "F3 readiness blocked: product postcheck is blocked on the design version."
+              : `F3 readiness blocked (${readiness.reason}).`;
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId,
+            level: "error",
+            category: "server-verify:f3-readiness",
+            message: summary,
+            meta: {
+              serverOwned: true,
+              reason: readiness.reason,
+              parentVersionId,
+            },
+          },
+        ]).catch(() => null);
+        await failVersionVerification(versionId, summary, runId).catch(() => null);
+        return;
+      }
+    }
 
     await markVersionVerifying(versionId, undefined, runId).catch(() => null);
 
