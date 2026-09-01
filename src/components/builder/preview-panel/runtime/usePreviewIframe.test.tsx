@@ -704,6 +704,198 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(result.current.iframeDiagnosticCode).toBeNull();
   });
 
+  it("återupptar self-heal när boot-pollens ready-reload missar 15s-fönstret", async () => {
+    fetchPreviewStatus.mockResolvedValue(status("running"));
+    const decoratedSrc = `${TIER2_URL}?__sm_viewer=viewer_1`;
+    const iframeRef = makeIframeRef(decoratedSrc);
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    await act(async () => {
+      result.current.handleIframeLoad();
+      await Promise.resolve();
+    });
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(1);
+    expect(result.current.iframeLoading).toBe(true);
+
+    await act(async () => {
+      vi.advanceTimersByTime(15_000);
+      await Promise.resolve();
+    });
+    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
+
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(2);
+    expect(result.current.iframeLoading).toBe(true);
+    expect(result.current.iframeError).toBe(false);
+  });
+
+  it.each(["stopped", "missing", "build_error"] as const)(
+    "stoppar self-heal-pollen vid terminal status %s",
+    async (state) => {
+      fetchPreviewStatus
+        .mockReturnValueOnce(new Promise(() => {}))
+        .mockResolvedValue(status("starting"));
+      const iframeRef = makeIframeRef();
+      const params = makeParams({ iframeRef });
+      const { result } = renderHook(() => usePreviewIframe(params));
+
+      act(() => result.current.handleIframeLoad());
+      await act(async () => {
+        vi.advanceTimersByTime(98_000);
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(30_000);
+        await Promise.resolve();
+      });
+
+      fetchPreviewStatus.mockResolvedValue(status(state));
+      await act(async () => {
+        vi.advanceTimersByTime(12_000);
+        await Promise.resolve();
+      });
+      const callsAfterTerminal = fetchPreviewStatus.mock.calls.length;
+
+      await act(async () => {
+        vi.advanceTimersByTime(36_000);
+        await Promise.resolve();
+      });
+      expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterTerminal);
+      expect(iframeRef.setSrc).not.toHaveBeenCalled();
+      expect(result.current.iframeError).toBe(true);
+    },
+  );
+
+  it("stoppar self-heal när /preview-status svarar missing med null-identitet", async () => {
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const iframeRef = makeIframeRef();
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    fetchPreviewStatus.mockResolvedValue({
+      ok: true,
+      status: "missing",
+      previewSessionId: null,
+      previewUrl: null,
+      versionId: null,
+      lifecycleToken: null,
+      sessionExpiresAt: null,
+      reason: "no_session",
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+    const callsAfterMissing = fetchPreviewStatus.mock.calls.length;
+
+    await act(async () => {
+      vi.advanceTimersByTime(36_000);
+      await Promise.resolve();
+    });
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterMissing);
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
+    expect(result.current.iframeError).toBe(true);
+  });
+
+  it("stoppar self-heal vid version_mismatch med sessionens versionId", async () => {
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const iframeRef = makeIframeRef();
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    fetchPreviewStatus.mockResolvedValue(
+      status("version_mismatch", "ps_1", "ver_other", TIER2_URL, "life_1"),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+    const callsAfterMismatch = fetchPreviewStatus.mock.calls.length;
+
+    await act(async () => {
+      vi.advanceTimersByTime(36_000);
+      await Promise.resolve();
+    });
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterMismatch);
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
+    expect(result.current.iframeError).toBe(true);
+  });
+
+  it("adopterar en roterad session på den glesa self-heal-pollen", async () => {
+    // Merge av #1232: rotation måste läsas även här, inte bara på boot/deadline.
+    // Annars läker 12s-pollen evigt mot ps_ny medan tabben fortfarande har ps_gammal.
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const onPreviewSessionRotated = vi.fn();
+    const iframeRef = makeIframeRef();
+    const params = makeParams({ iframeRef, onPreviewSessionRotated });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    fetchPreviewStatus.mockResolvedValue(
+      status("running", "ps_2", "ver_1", TIER2_URL, "life_2"),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+
+    expect(onPreviewSessionRotated).toHaveBeenCalledTimes(1);
+    expect(onPreviewSessionRotated).toHaveBeenCalledWith({
+      previewSessionId: "ps_2",
+      versionId: "ver_1",
+      lifecycleToken: "life_2",
+    });
+    // Suspect redan från 98s-deadlinen; adoptionen får inte starta en ny pollkedja.
+    const callsAfterRotation = fetchPreviewStatus.mock.calls.length;
+    await act(async () => {
+      vi.advanceTimersByTime(36_000);
+      await Promise.resolve();
+    });
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterRotation);
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
+    expect(result.current.iframeError).toBe(true);
+  });
+
   it("ger upp self-heal-reloads efter taket så ingen reload-loop uppstår", async () => {
     fetchPreviewStatus
       .mockReturnValueOnce(new Promise(() => {}))

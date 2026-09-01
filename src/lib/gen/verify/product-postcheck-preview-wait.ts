@@ -3,8 +3,26 @@ import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 
 /** Bounded wait for a slow Fly VM rebuild before Product Postcheck captures. */
 export const PRODUCT_POSTCHECK_PREVIEW_WAIT_MS = 150_000;
+/** Leave 20s slack under the route `maxDuration` of 300s. */
+export const PRODUCT_POSTCHECK_ROUTE_BUDGET_MS = 280_000;
+/** Floor reserved for Playwright crawl + two JPEGs after the wait. */
+export const PRODUCT_POSTCHECK_CAPTURE_RESERVE_MS = 45_000;
 /** Sparse enough that a 2–3 min budget does not hammer `/status`. */
 export const PRODUCT_POSTCHECK_PREVIEW_POLL_INTERVAL_MS = 8_000;
+
+export function productPostcheckPreviewWaitBudgetMs(params: {
+  liveReviewReserveMs?: number;
+  routeBudgetMs?: number;
+  captureReserveMs?: number;
+}): number {
+  const route = params.routeBudgetMs ?? PRODUCT_POSTCHECK_ROUTE_BUDGET_MS;
+  const review = Math.max(0, params.liveReviewReserveMs ?? 0);
+  const capture = params.captureReserveMs ?? PRODUCT_POSTCHECK_CAPTURE_RESERVE_MS;
+  return Math.max(
+    0,
+    Math.min(PRODUCT_POSTCHECK_PREVIEW_WAIT_MS, route - review - capture),
+  );
+}
 
 export type ProductPostcheckPreviewWaitReason =
   | "preview_not_running"
@@ -49,10 +67,10 @@ function isExpectedVersionRunning(
   expectedVersionId: string,
   expectedFilesRevision: string,
 ): boolean {
+  // A missing probe revision is not a match. Treating it as OK let the wait
+  // succeed and the later bind classify the same snapshot as preview_superseded.
   const revisionOk =
-    !expectedFilesRevision ||
-    !probe.filesRevision ||
-    probe.filesRevision === expectedFilesRevision;
+    Boolean(expectedFilesRevision) && probe.filesRevision === expectedFilesRevision;
   return (
     probe.running &&
     probe.versionId === expectedVersionId &&
@@ -93,6 +111,9 @@ export async function waitForProductPostcheckPreviewRunning(
 
     if (isSupersededByOtherVersion(probe, expectedVersionId)) {
       return { ok: false, reason: "preview_superseded", lastProbe: probe };
+    }
+    if (probe.readinessState === "failed") {
+      return { ok: false, reason: "preview_not_running", lastProbe: probe };
     }
     if (isExpectedVersionRunning(probe, expectedVersionId, expectedFilesRevision)) {
       return { ok: true, probe };

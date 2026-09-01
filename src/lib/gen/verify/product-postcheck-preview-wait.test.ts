@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PRODUCT_POSTCHECK_PREVIEW_POLL_INTERVAL_MS,
+  PRODUCT_POSTCHECK_PREVIEW_WAIT_MS,
+  productPostcheckPreviewWaitBudgetMs,
   waitForProductPostcheckPreviewRunning,
   type ProductPostcheckPreviewProbe,
 } from "./product-postcheck-preview-wait";
@@ -135,5 +137,48 @@ describe("waitForProductPostcheckPreviewRunning", () => {
     if (result.ok) {
       expect(result.probe.filesRevision).toBe("rev_1");
     }
+  });
+
+  it("does not treat a missing probe filesRevision as running", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const result = await waitForProductPostcheckPreviewRunning({
+      expectedVersionId: "v1",
+      expectedFilesRevision: "rev_1",
+      timeoutMs: 0,
+      probe: async () => probe({ running: true, filesRevision: null, readinessState: "ready" }),
+      sleep,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "preview_not_running",
+      lastProbe: expect.objectContaining({ filesRevision: null, running: true }),
+    });
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("aborts immediately when readinessState is failed", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const result = await waitForProductPostcheckPreviewRunning({
+      expectedVersionId: "v1",
+      expectedFilesRevision: "rev_1",
+      probe: async () => probe({ running: false, readinessState: "failed" }),
+      sleep,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "preview_not_running",
+      lastProbe: expect.objectContaining({ readinessState: "failed" }),
+    });
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("reserves capture and live-review time inside the route budget", () => {
+    expect(
+      productPostcheckPreviewWaitBudgetMs({ liveReviewReserveMs: 90_000 }),
+    ).toBeLessThan(PRODUCT_POSTCHECK_PREVIEW_WAIT_MS);
+    expect(productPostcheckPreviewWaitBudgetMs({ liveReviewReserveMs: 90_000 })).toBe(145_000);
+    expect(productPostcheckPreviewWaitBudgetMs({ liveReviewReserveMs: 0 })).toBe(150_000);
   });
 });
