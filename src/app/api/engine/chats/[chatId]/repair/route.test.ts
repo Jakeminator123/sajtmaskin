@@ -1029,6 +1029,33 @@ describe("POST repair — catch re-reads base when the crash precedes staleBaseN
     expect(failVersionVerification).toHaveBeenCalledTimes(1);
     expect(afterCallbacks.value).toHaveLength(0);
   });
+
+  it("CAS-guards the unleased fallback on `repairing` when this run lost ownership", async () => {
+    getVersionFilesSnapshot.mockReset();
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+    });
+    // Lease-scoped write no-ops => this run's lease expired or was taken over.
+    failVersionVerification.mockResolvedValue(null);
+    failVersionVerificationIfUnleased.mockResolvedValue(null);
+
+    await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    // Without the CAS this write matches on id + no-active-lease alone, so a
+    // takeover that already promoted the row would be clobbered to failed.
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(
+      "ver-1",
+      expect.any(String),
+      { verificationState: "repairing" },
+    );
+  });
 });
 
 describe("POST repair — Fas 3 base-aware early abort (superseded mid-loop)", () => {

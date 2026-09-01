@@ -1,11 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fetchPreviewHostReadinessVerdict } from "@/lib/gen/preview/preview-host-client";
+import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 import {
   PRODUCT_POSTCHECK_PREVIEW_POLL_INTERVAL_MS,
   PRODUCT_POSTCHECK_PREVIEW_WAIT_MS,
   productPostcheckPreviewWaitBudgetMs,
+  readProductPostcheckPreviewProbe,
   waitForProductPostcheckPreviewRunning,
   type ProductPostcheckPreviewProbe,
 } from "./product-postcheck-preview-wait";
+
+vi.mock("@/lib/gen/preview/preview-host-client", () => ({
+  fetchPreviewHostReadinessVerdict: vi.fn(),
+}));
+vi.mock("@/lib/gen/preview/session-store", () => ({
+  getActivePreviewSessionAsync: vi.fn(),
+}));
 
 function probe(
   overrides: Partial<ProductPostcheckPreviewProbe> = {},
@@ -281,5 +291,65 @@ describe("waitForProductPostcheckPreviewRunning", () => {
     ).toBeLessThan(PRODUCT_POSTCHECK_PREVIEW_WAIT_MS);
     expect(productPostcheckPreviewWaitBudgetMs({ liveReviewReserveMs: 90_000 })).toBe(145_000);
     expect(productPostcheckPreviewWaitBudgetMs({ liveReviewReserveMs: 0 })).toBe(150_000);
+  });
+});
+
+/**
+ * The wait tests above inject probes, so they cannot catch the probe READER
+ * dropping the host's traffic gate. If `httpReady` is not carried across,
+ * `readinessState: "ready"` alone is treated as ready and the stale-HTML hole
+ * reopens silently.
+ */
+describe("readProductPostcheckPreviewProbe", () => {
+  function mockHost(verdict: Record<string, unknown>) {
+    vi.mocked(getActivePreviewSessionAsync).mockResolvedValue({
+      versionId: "v1",
+      previewSessionId: "ps_1",
+      lifecycleToken: "life_1",
+      filesRevision: "rev_1",
+      previewUrl: "https://preview.example/v1",
+    } as never);
+    vi.mocked(fetchPreviewHostReadinessVerdict).mockResolvedValue(verdict as never);
+  }
+
+  /** Feed the READ probe through the real predicate instead of a fixture. */
+  async function waitOnRealProbe() {
+    const read = await readProductPostcheckPreviewProbe({
+      chatId: "chat-1",
+      expectedVersionId: "v1",
+    });
+    return {
+      read,
+      result: await waitForProductPostcheckPreviewRunning({
+        expectedVersionId: "v1",
+        expectedFilesRevision: "rev_1",
+        probe: async () => read,
+        sleep: async () => undefined,
+        timeoutMs: 0,
+      }),
+    };
+  }
+
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("carries httpReady: false so a host still gating traffic is not ready", async () => {
+    mockHost({ running: true, versionId: "v1", readinessState: "ready", httpReady: false });
+
+    const { read, result } = await waitOnRealProbe();
+
+    expect(read.httpReady).toBe(false);
+    expect(read.readinessState).toBe("ready");
+    expect(result.ok).toBe(false);
+  });
+
+  it("carries httpReady: true so a genuinely ready host is accepted", async () => {
+    mockHost({ running: true, versionId: "v1", readinessState: "ready", httpReady: true });
+
+    const { read, result } = await waitOnRealProbe();
+
+    expect(read.httpReady).toBe(true);
+    expect(result.ok).toBe(true);
   });
 });
