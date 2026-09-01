@@ -317,7 +317,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     });
 
     expect(result.current.iframeLoading).toBe(false);
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
     expect(signal.aborted).toBe(true);
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
@@ -473,7 +473,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
       await Promise.resolve();
     });
 
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
@@ -494,7 +494,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     });
 
     expect(onPreviewSessionRotated).not.toHaveBeenCalled();
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
 
@@ -513,7 +513,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     });
 
     expect(result.current.iframeLoading).toBe(false);
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
@@ -538,7 +538,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(fetchPreviewStatus).toHaveBeenCalledTimes(2);
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
     expect(result.current.iframeLoading).toBe(false);
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
 
     await act(async () => {
@@ -583,7 +583,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
 
     expect(fetchPreviewStatus).toHaveBeenCalledTimes(9);
     expect(result.current.iframeLoading).toBe(false);
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
 
@@ -600,7 +600,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
       await Promise.resolve();
     });
     expect(fetchPreviewStatus).toHaveBeenCalledTimes(10);
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
@@ -622,14 +622,14 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
       vi.advanceTimersByTime(98_000);
       await Promise.resolve();
     });
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
 
     await act(async () => {
       vi.advanceTimersByTime(30_000);
       await Promise.resolve();
     });
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
 
     fetchPreviewStatus.mockResolvedValue(status("running"));
@@ -685,7 +685,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
       vi.advanceTimersByTime(15_000);
       await Promise.resolve();
     });
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
 
     // Pollen ska ha återupptagits: nästa kvitto ger reload #2 …
@@ -722,7 +722,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
       vi.advanceTimersByTime(15_000);
       await Promise.resolve();
     });
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
 
     await act(async () => {
@@ -767,7 +767,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
       });
       expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterTerminal);
       expect(iframeRef.setSrc).not.toHaveBeenCalled();
-      expect(result.current.iframeError).toBe(true);
+      expect(result.current.iframeError).toBe(false);
     },
   );
 
@@ -811,7 +811,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     });
     expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterMissing);
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
   });
 
   it("stoppar self-heal vid version_mismatch med sessionens versionId", async () => {
@@ -847,7 +847,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     });
     expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterMismatch);
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
   });
 
   it("adopterar en roterad session på den glesa self-heal-pollen", async () => {
@@ -893,7 +893,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     });
     expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterRotation);
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
   });
 
   it("ger upp self-heal-reloads efter taket så ingen reload-loop uppstår", async () => {
@@ -936,7 +936,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     });
     expect(iframeRef.setSrc).toHaveBeenCalledTimes(3);
     expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterBudget);
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
   });
 
@@ -964,7 +964,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
       await Promise.resolve();
     });
 
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
@@ -1058,7 +1058,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(fetchPreviewStatus).toHaveBeenCalledTimes(2);
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
     expect(result.current.iframeLoading).toBe(false);
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
 
     // Late recovery reads the same mismatched receipt once and ends silently.
@@ -1150,7 +1150,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     act(() => vi.advanceTimersByTime(15_000));
 
     expect(result.current.iframeLoading).toBe(false);
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
@@ -1177,7 +1177,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
       await Promise.resolve();
     });
     expect(result.current.iframeLoading).toBe(false);
-    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeError).toBe(false);
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
 

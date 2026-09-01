@@ -100,8 +100,8 @@ export function VersionHistory({
 
   const canToggleCollapse = typeof onToggleCollapse === "function";
 
-  // Stängd drawer renderar ingenting — ingen tunn "Versioner"-remsa.
-  // Öppning sker via "Versioner"-knappen i builder-headern.
+  // Infällt läge ägs av builder-shellen (smal fäll-ut-remsa) — panelen
+  // renderar ingenting själv. Header-knappen "Versioner" är borttagen.
   if (isCollapsed) {
     return null;
   }

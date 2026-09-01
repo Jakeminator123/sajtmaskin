@@ -22,6 +22,20 @@ function suggestionText(issue: ReviewDecision["issues"][number]): string {
   return (issue.suggestedOperation || issue.evidence).trim();
 }
 
+function normalizeReviewText(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+export function reasoningAddsDetail(rationale: string, reasoning: string | undefined): boolean {
+  const detail = reasoning?.trim() ?? "";
+  if (!detail) return false;
+  const a = normalizeReviewText(rationale);
+  const b = normalizeReviewText(detail);
+  if (!a || a === b) return false;
+  if (b.startsWith(a) && b.length <= a.length + 24) return false;
+  return true;
+}
+
 export function LiveReviewRow({ result }: { result: LiveReviewResult }) {
   if (result.status === "skipped") {
     return null;
@@ -42,9 +56,9 @@ export function LiveReviewRow({ result }: { result: LiveReviewResult }) {
         </span>
       </div>
       <p className="text-foreground text-sm">{decision.rationale}</p>
-      {decision.reasoning?.trim() ? (
+      {reasoningAddsDetail(decision.rationale, decision.reasoning) ? (
         <Reasoning>
-          <ReasoningTrigger />
+          <ReasoningTrigger>Granskarens motivering</ReasoningTrigger>
           <ReasoningContent>
             <p className="whitespace-pre-wrap">{decision.reasoning}</p>
           </ReasoningContent>

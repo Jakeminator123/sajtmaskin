@@ -247,6 +247,71 @@ describe("validateImages", () => {
       },
     ];
 
+    it("HEAD-verifierar Unsplash-ersättning och tar nästa kandidat vid 404", async () => {
+      const deadUrl = "https://images.unsplash.com/photo-original-broken?w=800";
+      fetchSpy.mockImplementation(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("api.unsplash.com")) {
+          return new Response(
+            JSON.stringify({
+              results: [
+                { id: "1", urls: { raw: "https://images.unsplash.com/photo-dead-candidate" } },
+                { id: "2", urls: { raw: "https://images.unsplash.com/photo-live-candidate" } },
+              ],
+            }),
+            { status: 200 },
+          );
+        }
+        if (url.includes("photo-original-broken") || url.includes("photo-dead-candidate")) {
+          return new Response(null, { status: 404 });
+        }
+        if (url.includes("photo-live-candidate")) {
+          return new Response(null, { status: 200 });
+        }
+        return new Response(null, { status: 404 });
+      });
+
+      const result = await validateImages({
+        files: filesForUrl(deadUrl),
+        autoFix: true,
+        unsplashAccessKey: "test-key",
+      });
+
+      expect(result.replacedCount).toBe(1);
+      expect(result.files[0]?.content).toContain("photo-live-candidate");
+      expect(result.files[0]?.content).not.toContain("photo-dead-candidate");
+      expect(result.files[0]?.content).not.toContain("photo-original-broken");
+    });
+
+    it("onlyUrls begränsar kontrollen till den angivna URL:en", async () => {
+      fetchSpy.mockImplementation(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("keep-me")) return new Response(null, { status: 200 });
+        return new Response(null, { status: 404 });
+      });
+
+      const result = await validateImages({
+        files: [
+          {
+            name: "app/page.tsx",
+            content: `
+              <img src="https://cdn.example.com/keep-me.jpg" alt="Behåll" />
+              <img src="https://cdn.example.com/drop-me.jpg" alt="Byt" />
+            `,
+          },
+        ],
+        autoFix: false,
+        unsplashAccessKey: null,
+        onlyUrls: ["https://cdn.example.com/drop-me.jpg"],
+      });
+
+      expect(result.broken).toHaveLength(1);
+      expect(result.broken[0]?.url).toBe("https://cdn.example.com/drop-me.jpg");
+      expect(fetchSpy.mock.calls.some((call: unknown[]) => String(call[0]).includes("keep-me"))).toBe(
+        false,
+      );
+    });
+
     it("HEAD 200 → ingen broken (1 fetch-anrop, bara HEAD)", async () => {
       fetchSpy.mockResolvedValue(new Response(null, { status: 200 }));
       const result = await validateImages({

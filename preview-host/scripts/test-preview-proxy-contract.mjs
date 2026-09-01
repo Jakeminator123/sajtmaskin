@@ -136,9 +136,9 @@ let rejectNextUpgrade = false;
 const upstreamUpgradeSockets = new Set();
 const upstreamCsp = "default-src 'self'; script-src 'nonce-preview-test' 'strict-dynamic'";
 const normalUpstreamHtml =
-  '<!doctype html><html><head><script nonce="preview-test">self.__mock_next_boot=window.location.search</script></head><body>SKELETON_OR_LAST_GOOD_HTML</body></html>';
+  '<!doctype html><html><head><script type="application/ld+json">{"@type":"WebSite"}</script></head><body><script nonce="preview-test">self.__mock_next_boot=window.location.search</script>SKELETON_OR_LAST_GOOD_HTML</body></html>';
 const largeDocumentStart = Buffer.from(
-  '<!doctype html><html><head><script nonce="preview-test">self.__mock_next_boot=window.location.search</script></head><body>',
+  '<!doctype html><html><head><script type="application/ld+json">{"@type":"WebSite"}</script></head><body><script nonce="preview-test">self.__mock_next_boot=window.location.search</script>',
   "utf8",
 );
 const largePrefix = Buffer.concat([
@@ -224,6 +224,21 @@ const upstream = http.createServer((req, res) => {
     if (requestPath.endsWith("/redirect-backslash")) {
       res.writeHead(302, { location: "\\\\evil.example/path?app=1" });
       res.end();
+      return;
+    }
+    if (requestPath.endsWith("/giant-head")) {
+      res.writeHead(200, {
+        "content-type": "text/html; charset=utf-8",
+        "content-security-policy": upstreamCsp,
+      });
+      // </head> ligger bortom 64KB-skanningsfönstret → fallback-injektion.
+      res.write(Buffer.from("<!doctype html><html><head>", "utf8"));
+      res.write(Buffer.from(`<!--giant${"x".repeat(80 * 1024)}-->`, "utf8"));
+      setImmediate(() =>
+        res.end(
+          '</head><body><script nonce="preview-test">self.__mock_next_boot=window.location.search</script>GIANT_HEAD_BODY</body></html>',
+        ),
+      );
       return;
     }
     if (requestPath.endsWith("/large-stream")) {
@@ -1072,10 +1087,22 @@ try {
     "data-sajtmaskin-preview-bootstrap",
   );
   const nextBootStart = viewerDecoratedPage.body.indexOf("self.__mock_next_boot");
+  const siteHeadScript = viewerDecoratedPage.body.indexOf("application/ld+json");
+  const headClose = viewerDecoratedPage.body.indexOf("</head>");
+  const inspectStart = viewerDecoratedPage.body.indexOf("/api/inspect-bridge");
   assert.ok(bootstrapStart >= 0, "viewer navigation injects the host bootstrap");
+  assert.ok(siteHeadScript >= 0, "fixture keeps the site's own head script");
+  assert.ok(
+    siteHeadScript < bootstrapStart && bootstrapStart < headClose,
+    "host tags are last in <head>, after the site's own head nodes",
+  );
+  assert.ok(
+    inspectStart > siteHeadScript && inspectStart < headClose,
+    "inspect-bridge stays in <head> without shifting the site's first script",
+  );
   assert.ok(
     bootstrapStart < nextBootStart,
-    "viewer bootstrap executes before Next's first bootstrap script",
+    "viewer bootstrap still executes before Next's first bootstrap script",
   );
   const firstBootstrapTag = extractBootstrapTag(viewerDecoratedPage.body);
   assert.equal(
@@ -1685,6 +1712,27 @@ try {
   });
   const largeHmr = await connectBrowserHmr(largeBrowser);
   largeHmr.socket.destroy();
+
+  // A <head> whose close tag lies beyond the scan budget must still get the
+  // bootstrap — injected at the fallback point right after <head> — so the
+  // viewer ACK can never be lost to an oversized head.
+  const giantPage = await rawGet(
+    `/${originSession.chatId}/giant-head?__sm_viewer=${viewerA}`,
+    { "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "iframe" },
+  );
+  assert.equal(giantPage.status, 200);
+  const giantTagIndex = giantPage.body.indexOf("data-sajtmaskin-preview-bootstrap");
+  const giantHeadOpen = giantPage.body.indexOf("<head>");
+  const giantFillerStart = giantPage.body.indexOf("<!--giant");
+  assert.ok(giantTagIndex >= 0, "oversized head still receives the host bootstrap");
+  assert.ok(
+    giantTagIndex > giantHeadOpen && giantTagIndex < giantFillerStart,
+    "budget exhaustion falls back to injecting right after <head>",
+  );
+  assert.ok(
+    giantPage.body.includes("GIANT_HEAD_BODY"),
+    "oversized head document still streams its full body",
+  );
 
   runtime.__testing.markPendingPreviewClientReload(originSession.chatId);
   const abortedLargePage = await rawRequestAllowAbort(

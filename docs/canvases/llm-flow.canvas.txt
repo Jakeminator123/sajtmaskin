@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "22276a507",
+    "commit": "90f651aef",
     "commitDate": "2026-09-01",
     "sinceDays": 14
   },
@@ -91,9 +91,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 10,
+      "churn": 11,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 10 commits / 14d"
+      "note": "Aktiv: 11 commits / 14d"
     },
     {
       "name": "Codegen core",
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 27,
+      "churn": 28,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { FEATURES } from "@/lib/config";
@@ -114,6 +115,7 @@ function emitPostcheckDegraded(params: {
   checkedUrl: string | null;
   durationMs: number | null;
   attestation: ProductPostcheckTarget;
+  verificationRunId?: string | null;
 }): void {
   // `runtime_error` means the postcheck CRASHED, not that it was
   // intentionally skipped. The human-readable `message` must reflect
@@ -139,6 +141,7 @@ function emitPostcheckDegraded(params: {
         attestedPreviewSessionId: params.attestation.previewSessionId,
         attestedLifecycleToken: params.attestation.lifecycleToken,
         attestedFilesRevision: params.attestation.filesRevision,
+        verificationRunId: params.verificationRunId ?? null,
       },
     });
   } catch {
@@ -155,6 +158,7 @@ function emitPostcheckBlocked(params: {
   checkedUrl: string | null;
   durationMs: number | null;
   attestation: ProductPostcheckTarget;
+  verificationRunId?: string | null;
 }): void {
   // The postcheck RAN and judged the product broken (dead mobile menu or
   // 2+ broken in-page anchors). Distinct from a skip: emit a dedicated
@@ -177,6 +181,7 @@ function emitPostcheckBlocked(params: {
         attestedPreviewSessionId: params.attestation.previewSessionId,
         attestedLifecycleToken: params.attestation.lifecycleToken,
         attestedFilesRevision: params.attestation.filesRevision,
+        verificationRunId: params.verificationRunId ?? null,
       },
     });
   } catch {
@@ -234,6 +239,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   let target: ProductPostcheckTarget | null = null;
   let targetIsCurrent: (() => Promise<boolean>) | null = null;
   const routeStartedAt = Date.now();
+  // Ett id per verifieringskörning. Alla persisterade rader, bus-events och
+  // svaret bär samma id så en omkörning aldrig kan förväxlas med en tidigare.
+  const verificationRunId = randomUUID();
   try {
     const filesRevision = scopedVersion.version.files_revision?.trim() || null;
     if (!filesRevision) {
@@ -298,6 +306,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             checkedUrl: previewUrl?.trim() || waitedProbe?.previewUrl || null,
             durationMs: 0,
             attestation: timeoutAttestation,
+            verificationRunId,
           });
           return NextResponse.json({
             ok: true,
@@ -310,6 +319,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             durationMs: 0,
             checkedUrl: previewUrl?.trim() || waitedProbe?.previewUrl || null,
             attestation: timeoutAttestation,
+            verificationRunId,
           });
         }
         return NextResponse.json(
@@ -367,6 +377,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         checkedUrl: null,
         durationMs: 0,
         attestation: boundTarget,
+        verificationRunId,
       });
       return NextResponse.json({
         ok: true,
@@ -379,6 +390,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         durationMs: 0,
         checkedUrl: null,
         attestation: boundTarget,
+        verificationRunId,
       });
     }
 
@@ -482,6 +494,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         checkedUrl: result.checkedUrl ?? null,
         durationMs: result.durationMs ?? null,
         attestation: boundTarget,
+        verificationRunId,
       });
     } else if (result.productBlocked) {
       const blockingCodes = Array.from(
@@ -506,10 +519,12 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         checkedUrl: result.checkedUrl ?? null,
         durationMs: result.durationMs ?? null,
         attestation: boundTarget,
+        verificationRunId,
       });
     }
 
     result.attestation = boundTarget;
+    result.verificationRunId = verificationRunId;
     return NextResponse.json(result);
   } catch (err) {
     if (liveReviewSession?.claim?.kind === "acquired") {
@@ -540,6 +555,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         checkedUrl: previewUrl?.trim() || null,
         durationMs: null,
         attestation: target,
+        verificationRunId,
       });
     }
     return NextResponse.json({
@@ -554,6 +570,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       checkedUrl: previewUrl?.trim() || null,
       error: err instanceof Error ? err.message : "Product postcheck failed",
       attestation: target,
+      verificationRunId,
     });
   }
 }

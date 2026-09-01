@@ -151,6 +151,86 @@ describe("evaluateProductDomSnapshot", () => {
     expect(evaluation.productBlocked).toBe(false);
   });
 
+  it("accepts rendered handlers: React onClick, länk-wrap, aria-haspopup och onclick-attribut", () => {
+    // OpenClaw-genomgång 2026-09-01 (chat 63d0992f): 7 fungerande knappar
+    // flaggades som cta_no_handler för att attribut-heuristiken inte ser
+    // React-handlers eller knappar som ligger i länkar.
+    const base = {
+      href: null,
+      disabled: false,
+      ariaDisabled: false,
+      ariaControls: null,
+      ariaExpanded: null,
+      type: "button",
+      inForm: false,
+      formAction: null,
+      demoOnly: false,
+      reactPropsProbed: true,
+    };
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [
+          { ...base, tag: "button", text: "Spela", hasReactHandler: true },
+          { ...base, tag: "button", text: "Läs mer", anchorWrapped: true },
+          { ...base, tag: "button", text: "Meny", ariaHasPopup: "menu" },
+          { ...base, tag: "button", text: "Boka", onclickAttr: true },
+          { ...base, tag: "a", text: "Kom igång", href: "#", hasReactHandler: true },
+        ],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual([]);
+  });
+
+  it("sätter selector, detection och confidence på cta_no_handler-fynd", () => {
+    const dead = {
+      tag: "button",
+      text: "Boka nu",
+      href: null,
+      disabled: false,
+      ariaDisabled: false,
+      ariaControls: null,
+      ariaExpanded: null,
+      type: "button",
+      inForm: false,
+      formAction: null,
+      demoOnly: false,
+      selector: "button.cta-primary",
+      hasReactHandler: false,
+      anchorWrapped: false,
+      ariaHasPopup: null,
+      onclickAttr: false,
+    };
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [
+          { ...dead, reactPropsProbed: true },
+          { ...dead, text: "Utforska", selector: "button.cta-alt", reactPropsProbed: false },
+        ],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual(["cta_no_handler", "cta_no_handler"]);
+    expect(evaluation.warnings[0]).toMatchObject({
+      selector: "button.cta-primary",
+      detection: "rendered-dom+react-props",
+      confidence: "high",
+    });
+    expect(evaluation.warnings[1]).toMatchObject({
+      selector: "button.cta-alt",
+      detection: "rendered-dom",
+      confidence: "medium",
+    });
+  });
+
   it("reports fake forms", () => {
     const evaluation = evaluateProductDomSnapshot(
       {

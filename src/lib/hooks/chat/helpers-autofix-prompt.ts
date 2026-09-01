@@ -216,6 +216,7 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
         finding.selector ? `selector: ${finding.selector}` : null,
         finding.text ? `text: "${finding.text}"` : null,
         finding.href ? `href: ${finding.href}` : null,
+        finding.src ? `src: ${finding.src}` : null,
         finding.route ? `route: ${finding.route}` : null,
       ].filter((part): part is string => Boolean(part));
       lines.push(

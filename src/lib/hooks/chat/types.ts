@@ -108,6 +108,7 @@ export type RepairContext = {
     selector?: string;
     text?: string;
     href?: string;
+    src?: string;
     route?: string;
   }[];
   previousVersionErrors?: string[];

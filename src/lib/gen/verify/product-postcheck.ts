@@ -70,6 +70,17 @@ export type ProductPostcheckWarning = {
   formId?: string | null;
   /** Pathname for the page being visited when the issue was captured. */
   route?: string | null;
+  /**
+   * Hur fyndet togs fram (t.ex. `rendered-dom+react-props`). Gör varje rad
+   * granskningsbar i efterhand — OpenClaw-genomgång 2026-09-01.
+   */
+  detection?: string | null;
+  /**
+   * `high` när sonden kunde läsa Reacts props-expando och inte hittade någon
+   * handler; `medium` när expandon inte gick att läsa (icke-React-sida eller
+   * blockerad probe) och fyndet vilar på attribut-heuristik ensam.
+   */
+  confidence?: "high" | "medium" | null;
 };
 
 export type ProductPostcheckAttestation = {
@@ -107,6 +118,13 @@ export type ProductPostcheckResult = {
   liveReview?: LiveReviewResult | null;
   /** Exact preview lifecycle/revision this result attests, set by the route. */
   attestation?: ProductPostcheckAttestation | null;
+  /**
+   * Unikt id för exakt DENNA verifieringskörning, myntat av API-routen.
+   * Binder summary-, warning- och live-review-rader till samma körning så
+   * "9 rapporterade / 7 persisterade"-klassen går att utreda i efterhand
+   * (OpenClaw-genomgång 2026-09-01).
+   */
+  verificationRunId?: string | null;
 };
 
 type DomSnapshot = {
@@ -124,6 +142,21 @@ type DomSnapshot = {
     inForm: boolean;
     formAction: string | null;
     demoOnly: boolean;
+    /** Kort CSS-aktig selektor (tag + id/klasser) för granskningsbara fynd. */
+    selector?: string | null;
+    /**
+     * React fäster `__reactProps$<hash>` på host-noder (dev + prod). En
+     * onClick/onPointerDown där — på elementet eller nära förälder — är en
+     * riktig handler som DOM-attribut aldrig visar (SM: 7 falska
+     * `cta_no_handler` på fungerande knappar, OpenClaw 2026-09-01).
+     */
+    hasReactHandler?: boolean;
+    /** Om props-expandon alls gick att läsa — styr fyndets confidence. */
+    reactPropsProbed?: boolean;
+    /** Knappen ligger i eller innehåller en riktig länk (`<a href>`). */
+    anchorWrapped?: boolean;
+    ariaHasPopup?: string | null;
+    onclickAttr?: boolean;
   }>;
   /** All CTA candidates in <main>, including responsive/hidden duplicates. */
   hydrationCtaLabels?: string[];
@@ -631,13 +664,30 @@ export function evaluateProductDomSnapshot(
 
   for (const cta of snapshot.ctas) {
     if (cta.disabled || cta.ariaDisabled || cta.demoOnly) continue;
+    // Renderade handler-signaler (OpenClaw 2026-09-01): en React-onClick i
+    // props-expandon, en riktig länk runt/inuti knappen, ett popup-attribut
+    // eller ett rått onclick-attribut är alla verkliga handlingar som de
+    // gamla attribut-heuristikerna missade → 7 falska cta_no_handler på en
+    // fullt fungerande sajt (chat 63d0992f).
+    const hasRenderedHandler =
+      cta.hasReactHandler === true ||
+      cta.anchorWrapped === true ||
+      cta.onclickAttr === true ||
+      Boolean(cta.ariaHasPopup?.trim());
+    const ctaConfidence: "high" | "medium" =
+      cta.reactPropsProbed === true ? "high" : "medium";
+    const ctaDetection =
+      cta.reactPropsProbed === true ? "rendered-dom+react-props" : "rendered-dom";
     if (cta.tag === "a") {
       const href = cta.href?.trim() || "";
-      if (!href || href === "#") {
+      if ((!href || href === "#") && !hasRenderedHandler) {
         warnings.push(
           warning("cta_no_handler", "CTA-länk saknar mål.", {
             text: textPreview(cta.text),
             href: cta.href,
+            selector: cta.selector ?? "a",
+            detection: ctaDetection,
+            confidence: ctaConfidence,
           }),
         );
       }
@@ -645,6 +695,7 @@ export function evaluateProductDomSnapshot(
     }
 
     const hasAction =
+      hasRenderedHandler ||
       cta.inForm ||
       cta.type === "submit" ||
       Boolean(cta.ariaControls?.trim()) ||
@@ -653,7 +704,9 @@ export function evaluateProductDomSnapshot(
       warnings.push(
         warning("cta_no_handler", "CTA-knapp saknar tydlig handling.", {
           text: textPreview(cta.text),
-          selector: "button",
+          selector: cta.selector ?? "button",
+          detection: ctaDetection,
+          confidence: ctaConfidence,
         }),
       );
     }
@@ -1393,6 +1446,49 @@ export async function runProductPostcheck(params: {
       });
       const hydrationRoot = document.querySelector("main");
 
+      const shortSelector = (el: Element): string => {
+        const tag = el.tagName.toLowerCase();
+        const id = (el as HTMLElement).id;
+        if (id) return `${tag}#${id}`;
+        const classes = ((el as HTMLElement).className?.toString?.() || "")
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .join(".");
+        return classes ? `${tag}.${classes}` : tag;
+      };
+      // React fäster `__reactProps$<hash>` på host-noder i både dev och prod.
+      // En onClick där är en riktig handler även när DOM-attributen är tomma.
+      // Vandra några föräldrar uppåt: handlern kan sitta på ett kort/wrapper.
+      const probeReactHandler = (
+        el: Element,
+      ): { probed: boolean; handler: boolean } => {
+        let node: Element | null = el;
+        let probed = false;
+        for (let depth = 0; node && depth < 4; depth += 1) {
+          const key = Object.keys(node).find(
+            (candidate) => candidate.indexOf("__reactProps$") === 0,
+          );
+          if (key) {
+            probed = true;
+            const props = (node as unknown as Record<string, unknown>)[key] as
+              | Record<string, unknown>
+              | null
+              | undefined;
+            if (
+              props &&
+              (typeof props.onClick === "function" ||
+                typeof props.onMouseDown === "function" ||
+                typeof props.onPointerDown === "function")
+            ) {
+              return { probed: true, handler: true };
+            }
+          }
+          node = node.parentElement;
+        }
+        return { probed, handler: false };
+      };
+
       return {
         anchors: Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]'))
           .map((a) => {
@@ -1411,19 +1507,31 @@ export async function runProductPostcheck(params: {
           })),
         ctas: ctaCandidates
           .filter(visible)
-          .map((el) => ({
-            tag: el.tagName.toLowerCase(),
-            text: text(el),
-            href: el instanceof HTMLAnchorElement ? el.getAttribute("href") : null,
-            disabled: el instanceof HTMLButtonElement ? el.disabled : false,
-            ariaDisabled: el.getAttribute("aria-disabled") === "true",
-            ariaControls: el.getAttribute("aria-controls"),
-            ariaExpanded: el.getAttribute("aria-expanded"),
-            type: el instanceof HTMLButtonElement ? el.type || null : null,
-            inForm: Boolean(el.closest("form")),
-            formAction: el instanceof HTMLButtonElement ? el.formAction || null : null,
-            demoOnly: isDemoOnly(el),
-          })),
+          .map((el) => {
+            const reactProbe = probeReactHandler(el);
+            return {
+              tag: el.tagName.toLowerCase(),
+              text: text(el),
+              href: el instanceof HTMLAnchorElement ? el.getAttribute("href") : null,
+              disabled: el instanceof HTMLButtonElement ? el.disabled : false,
+              ariaDisabled: el.getAttribute("aria-disabled") === "true",
+              ariaControls: el.getAttribute("aria-controls"),
+              ariaExpanded: el.getAttribute("aria-expanded"),
+              type: el instanceof HTMLButtonElement ? el.type || null : null,
+              inForm: Boolean(el.closest("form")),
+              formAction: el instanceof HTMLButtonElement ? el.formAction || null : null,
+              demoOnly: isDemoOnly(el),
+              selector: shortSelector(el),
+              hasReactHandler: reactProbe.handler,
+              reactPropsProbed: reactProbe.probed,
+              anchorWrapped:
+                el.closest("a[href]") !== null || el.querySelector("a[href]") !== null,
+              ariaHasPopup: el.getAttribute("aria-haspopup"),
+              onclickAttr:
+                typeof (el as HTMLElement).onclick === "function" ||
+                el.hasAttribute("onclick"),
+            };
+          }),
         hydrationCtaLabels: hydrationRoot
           ? ctaCandidates
               .filter((el) => hydrationRoot.contains(el) && !isDemoOnly(el))

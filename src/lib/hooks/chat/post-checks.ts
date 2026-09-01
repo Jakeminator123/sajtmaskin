@@ -165,15 +165,20 @@ async function validateImages(params: {
   chatId: string;
   versionId: string;
   signal: AbortSignal;
+  urls?: string[];
 }): Promise<ImageValidationResult | null> {
-  const { chatId, versionId, signal } = params;
+  const { chatId, versionId, signal, urls } = params;
   try {
     const response = await fetch(
       `${engineChatBaseUrl(chatId)}/validate-images`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, autoFix: true }),
+        body: JSON.stringify({
+          versionId,
+          autoFix: true,
+          ...(urls && urls.length > 0 ? { urls } : {}),
+        }),
         signal,
       },
     );
@@ -307,6 +312,9 @@ export function buildProductPostcheckLogItems(
     attestedPreviewSessionId: result.attestation.previewSessionId,
     attestedLifecycleToken: result.attestation.lifecycleToken,
     attestedFilesRevision: result.attestation.filesRevision,
+    // Binder alla rader i samma körning till routens run-id, så omkörningar
+    // och tappade fynd går att skilja åt i efterhand (OpenClaw 2026-09-01).
+    verificationRunId: result.verificationRunId ?? null,
   };
   if (result.skipped) {
     // Krasch-skäl (Playwright dog, navigering föll, timeout) är INTE policy-skips
@@ -360,6 +368,11 @@ export function buildProductPostcheckLogItems(
     meta: {
       ...attestationMeta,
       warningCount: warnings.length,
+      // Routens rapporterade antal vs vad som faktiskt persisteras här. En
+      // diff mellan talen pekar direkt på var fynd försvann (9-vs-7-klassen).
+      reportedWarningCount:
+        typeof result.warningCount === "number" ? result.warningCount : warnings.length,
+      persistedWarningCount: warnings.length,
       productBlocked: result.productBlocked === true,
       durationMs: result.durationMs ?? null,
       checkedUrl: result.checkedUrl ?? null,
@@ -1132,22 +1145,14 @@ async function runTier2VerifyLane(params: {
       });
     } else if (data.passed && visualQa && !visualQa.passed && onAutoFix) {
       handleVisualQaAutofix({ chatId, versionId, visualQa, onAutoFix });
-    } else if (
-      data.passed &&
-      onAutoFix &&
-      productPostcheck &&
-      !productPostcheck.skipped &&
-      productPostcheck.productBlocked === true &&
-      Array.isArray(productPostcheck.warnings) &&
-      productPostcheck.warnings.length > 0
-    ) {
-      // Ägarbeslut 2026-09-01: en Degraderad dom med äkta DOM-fynd (döda
-      // CTA-knappar, trasig mobilmeny) ska inte stanna vid en badge — fynden
-      // är redan strukturerade (kod + selector + text) och går till samma
-      // riktade auto-fix-runda som Visual QA. Auto-fix-vägen är en synlig
-      // chattur med eget resonemang och egen efterkontroll; de befintliga
-      // per-chat/per-reason-throttlarna begränsar automatiska omkörningar.
-      handleProductPostcheckAutofix({ chatId, versionId, productPostcheck, onAutoFix });
+    } else if (data.passed && productPostcheck && !productPostcheck.skipped) {
+      await handlePassedGateProductFollowUp({
+        chatId,
+        versionId,
+        productPostcheck,
+        onAutoFix,
+        signal: abortController?.signal,
+      });
     }
   } catch (error) {
     if (isAbortError(error)) {
@@ -1301,6 +1306,130 @@ async function handleRepairOrAutofix(params: {
   }
 }
 
+const ACTIONABLE_POSTCHECK_CODES = new Set([
+  "broken_image",
+  "broken_anchor",
+  "cta_no_handler",
+  "mobile_menu_failed",
+  "fake_form",
+]);
+
+function readFindingString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function mapPostcheckWarningToFinding(
+  item: ProductPostcheckResult["warnings"][number],
+): NonNullable<RepairContext["productFindings"]>[number] {
+  return {
+    code: readFindingString(item.code) ?? "unknown",
+    message: readFindingString(item.message) ?? "Okänt produktfynd.",
+    selector: readFindingString(item.selector),
+    text: readFindingString(item.text),
+    href: readFindingString(item.href),
+    src: readFindingString(item.src),
+    route: readFindingString(item.route),
+  };
+}
+
+function collectBrokenImageUrls(
+  warnings: ProductPostcheckResult["warnings"],
+): string[] {
+  const urls: string[] = [];
+  for (const warning of warnings) {
+    if (warning.code !== "broken_image") continue;
+    const url = readFindingString(warning.src) ?? readFindingString(warning.href);
+    if (url && !urls.includes(url)) urls.push(url);
+  }
+  return urls;
+}
+
+function collectLiveReviewAutofixFindings(
+  productPostcheck: ProductPostcheckResult,
+): NonNullable<RepairContext["productFindings"]> {
+  const liveReview = productPostcheck.liveReview;
+  if (liveReview?.status !== "completed") return [];
+  const verdict = liveReview.decision.verdict;
+  if (verdict !== "micro_fix" && verdict !== "targeted_repair") return [];
+  const findings: NonNullable<RepairContext["productFindings"]> = [];
+  for (const issue of liveReview.decision.issues) {
+    const target = readFindingString(issue.target);
+    const suggested = readFindingString(issue.suggestedOperation);
+    if (!target || !suggested) continue;
+    findings.push({
+      code: `live_review_${verdict}`,
+      message: suggested,
+      selector: target,
+      text: readFindingString(issue.evidence),
+    });
+  }
+  return findings;
+}
+
+/**
+ * Efter gate-pass: HEAD-verifierad bildersättning för exakta broken_image-URL:er
+ * (ingen LLM), sedan EN batchad auto-fix för övriga strukturerade fynd och
+ * live-review-issues. Fynden förblir icke-blockerande; befintliga throttlar
+ * begränsar omkörningar.
+ */
+async function handlePassedGateProductFollowUp(params: {
+  chatId: string;
+  versionId: string;
+  productPostcheck: ProductPostcheckResult;
+  onAutoFix?: (payload: AutoFixPayload) => void;
+  signal?: AbortSignal;
+}): Promise<void> {
+  const { chatId, versionId, productPostcheck, onAutoFix, signal } = params;
+  const brokenImageUrls = collectBrokenImageUrls(productPostcheck.warnings);
+  if (brokenImageUrls.length > 0) {
+    try {
+      await validateImages({
+        chatId,
+        versionId,
+        signal: signal ?? new AbortController().signal,
+        urls: brokenImageUrls,
+      });
+    } catch (error) {
+      // Ett avbrutet körpass får inte läcka ut som gate-nätverksfel i chatten
+      // — lanen är redan terminal och bildfixen är best-effort.
+      if (isAbortError(error)) return;
+      throw error;
+    }
+  }
+
+  const llmFindings = [
+    ...productPostcheck.warnings
+      .filter((warning) => {
+        if (!ACTIONABLE_POSTCHECK_CODES.has(warning.code)) return false;
+        if (warning.code === "broken_image") {
+          return !readFindingString(warning.src) && !readFindingString(warning.href);
+        }
+        return true;
+      })
+      .map(mapPostcheckWarningToFinding),
+    ...collectLiveReviewAutofixFindings(productPostcheck),
+  ].slice(0, 8);
+
+  if (!onAutoFix || llmFindings.length === 0) return;
+
+  const liveReview = productPostcheck.liveReview;
+  const extraReasons =
+    liveReview?.status === "completed" &&
+    (liveReview.decision.verdict === "micro_fix" ||
+      liveReview.decision.verdict === "targeted_repair")
+      ? [`Live review: ${liveReview.decision.verdict}`]
+      : [];
+
+  handleProductPostcheckAutofix({
+    chatId,
+    versionId,
+    productPostcheck,
+    onAutoFix,
+    findings: llmFindings,
+    extraReasons,
+  });
+}
+
 /**
  * Degraderad-till-fix (ägarbeslut 2026-09-01): postcheckens DOM-fynd är redan
  * strukturerade (kod, selector, knapptext, route) och matas till samma
@@ -1314,29 +1443,21 @@ function handleProductPostcheckAutofix(params: {
   versionId: string;
   productPostcheck: ProductPostcheckResult;
   onAutoFix: (payload: AutoFixPayload) => void;
+  findings?: NonNullable<RepairContext["productFindings"]>;
+  extraReasons?: string[];
 }) {
   const { chatId, versionId, productPostcheck, onAutoFix } = params;
-  const readString = (value: unknown): string | undefined =>
-    typeof value === "string" && value.trim() ? value.trim() : undefined;
-  const findings = productPostcheck.warnings.slice(0, 8).map((item) => {
-    const raw = item as Record<string, unknown>;
-    return {
-      code: readString(raw.code) ?? "unknown",
-      message: readString(raw.message) ?? "Okänt produktfynd.",
-      selector: readString(raw.selector),
-      text: readString(raw.text),
-      href: readString(raw.href),
-      route: readString(raw.route),
-    };
-  });
+  const findings = (params.findings ?? productPostcheck.warnings.map(mapPostcheckWarningToFinding))
+    .slice(0, 8);
   if (findings.length === 0) return;
   const repair: RepairContext = { productFindings: findings };
+  const primaryReason = productPostcheck.productBlocked
+    ? `Product Postcheck hittade ${productPostcheck.warningCount} blockerande produktfynd på den körande sajten`
+    : `Product Postcheck hittade ${findings.length} advisory-fynd på den körande sajten`;
   onAutoFix({
     chatId,
     versionId,
-    reasons: [
-      `Product Postcheck hittade ${productPostcheck.warningCount} blockerande produktfynd på den körande sajten`,
-    ],
+    reasons: [primaryReason, ...(params.extraReasons ?? [])],
     repair,
   });
 }

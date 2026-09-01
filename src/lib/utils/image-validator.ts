@@ -557,18 +557,20 @@ interface UnsplashSearchResult {
 }
 
 /**
- * Search Unsplash API for a replacement image based on alt text.
- * Returns the photo path segment (e.g., "photo-xxx") or null.
+ * Search Unsplash API for replacement images based on alt text.
+ * Returns photo path segments (e.g. "photo-xxx") so the caller can
+ * HEAD-verify each candidate before writing it into the site.
  */
-async function searchUnsplashReplacement(
+async function searchUnsplashReplacementCandidates(
   query: string,
   accessKey: string,
   orientation: "landscape" | "portrait" | "squarish" = "landscape",
-): Promise<string | null> {
-  if (!query.trim() || !accessKey) return null;
+  limit = 3,
+): Promise<string[]> {
+  if (!query.trim() || !accessKey) return [];
   try {
     const res = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=${orientation}`,
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=${limit}&orientation=${orientation}`,
       {
         headers: {
           Authorization: `Client-ID ${accessKey}`,
@@ -577,16 +579,26 @@ async function searchUnsplashReplacement(
         signal: AbortSignal.timeout(6_000),
       },
     );
-    if (!res.ok) return null;
+    if (!res.ok) return [];
     const data = (await res.json()) as { results?: UnsplashSearchResult[] };
-    const photo = data.results?.[0];
-    if (!photo?.urls?.raw) return null;
-    // Extract photo path: "https://images.unsplash.com/photo-xxx?ixid=..." → "photo-xxx"
-    const rawUrl = new URL(photo.urls.raw);
-    return rawUrl.pathname.replace(/^\//, "");
+    const paths: string[] = [];
+    for (const photo of data.results ?? []) {
+      if (!photo?.urls?.raw) continue;
+      try {
+        paths.push(new URL(photo.urls.raw).pathname.replace(/^\//, ""));
+      } catch {
+        // skip malformed raw URLs
+      }
+    }
+    return paths;
   } catch {
-    return null;
+    return [];
   }
+}
+
+async function isLiveReplacementUrl(url: string): Promise<boolean> {
+  const status = await headCheck(url);
+  return typeof status === "number" && status >= 200 && status < 400;
 }
 
 /**
@@ -606,11 +618,21 @@ async function findReplacements(
     if (!isUnsplashUrl(entry.url) && !isDeadUnsplashSourceUrl(entry.url)) continue;
     const orientation = inferUnsplashOrientationFromUrl(entry.url);
     const candidates = buildUnsplashSearchCandidates(entry.alt || "nature landscape");
+    let resolved = false;
     for (const query of candidates) {
-      const photoPath = await searchUnsplashReplacement(query, unsplashAccessKey, orientation);
-      if (!photoPath) continue;
-      entry.replacementUrl = preserveUnsplashParams(entry.url, photoPath);
-      break;
+      const photoPaths = await searchUnsplashReplacementCandidates(
+        query,
+        unsplashAccessKey,
+        orientation,
+      );
+      for (const photoPath of photoPaths) {
+        const candidateUrl = preserveUnsplashParams(entry.url, photoPath);
+        if (!(await isLiveReplacementUrl(candidateUrl))) continue;
+        entry.replacementUrl = candidateUrl;
+        resolved = true;
+        break;
+      }
+      if (resolved) break;
     }
   }
   return updated;
@@ -735,12 +757,19 @@ export async function validateImages(params: {
   unsplashAccessKey: string | null;
   /** URLs known to be valid (freshly resolved by materializer). Skipped in HEAD checks. */
   skipUrls?: Set<string>;
+  /** When set, only these exact URLs are checked and (optionally) replaced. */
+  onlyUrls?: Iterable<string>;
 }): Promise<ImageValidationResult> {
-  const { files, autoFix, unsplashAccessKey, skipUrls } = params;
+  const { files, autoFix, unsplashAccessKey, skipUrls, onlyUrls } = params;
   const warnings: string[] = [];
+  const scopedUrls = onlyUrls ? new Set(onlyUrls) : null;
 
-  const refs = extractImageRefs(files);
-  const danglingBroken = danglingLocalImagesAsBroken(files);
+  const refs = scopedUrls
+    ? extractImageRefs(files).filter((ref) => scopedUrls.has(ref.url))
+    : extractImageRefs(files);
+  const danglingBroken = scopedUrls
+    ? danglingLocalImagesAsBroken(files).filter((entry) => scopedUrls.has(entry.url))
+    : danglingLocalImagesAsBroken(files);
   if (refs.length === 0 && danglingBroken.length === 0) {
     return { total: 0, broken: [], replacedCount: 0, files, warnings };
   }

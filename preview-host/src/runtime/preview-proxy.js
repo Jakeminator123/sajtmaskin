@@ -869,8 +869,8 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
       delete req.headers.origin;
     }
     if (inspectScriptSrc || documentId) {
-      // Buffer/stream the response ourselves: viewer bootstrap is first in
-      // <head>; inspector remains last in <body>.
+      // Buffer/stream the response ourselves. Host tags go last in <head>
+      // (before </head>) so React hydrates the site's own head nodes first.
       req.__inspectScriptSrc = inspectScriptSrc;
       // Be uppströms-runtimen om OKOMPRIMERAD HTML — annars kan svaret komma
       // gzip:at (content-encoding) och proxyRes-handlern hoppar då injektionen
@@ -1136,20 +1136,27 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
 
 function injectPreviewHeadTag(body, tag) {
   if (!tag) return body;
-  const headMatch = /<head(?:\s[^>]*)?>/i.exec(body);
-  if (headMatch?.index !== undefined) {
-    const insertAt = headMatch.index + headMatch[0].length;
-    return body.slice(0, insertAt) + tag + body.slice(insertAt);
-  }
-  const htmlMatch = /<html(?:\s[^>]*)?>/i.exec(body);
-  if (htmlMatch?.index !== undefined) {
-    const insertAt = htmlMatch.index + htmlMatch[0].length;
-    return body.slice(0, insertAt) + tag + body.slice(insertAt);
-  }
-  return tag + body;
+  const insertAt = previewHeadTagInsertionOffset(body);
+  if (insertAt === null) return `${body}${tag}`;
+  return body.slice(0, insertAt) + tag + body.slice(insertAt);
 }
 
-function previewHeadTagInsertionOffset(markup) {
+// Sist i <head> (före </head>) är förstahandsvalet: taggar FÖRE sajtens egna
+// head-noder förskjuter Reacts hydreringsmatchning och gav falska
+// hydration-mismatch på friska sajter (JSON-LD matchades mot bridge-scriptet,
+// prod 2026-09-01 chat 63d0992f). Fallbacken efter <head>-öppningen finns
+// kvar för dokument vars </head> aldrig syns i det skannade prefixet —
+// bootstrap-ACK:en får aldrig gå förlorad för att en head är större än
+// skanningsfönstret.
+function previewHeadTagCloseInsertionOffset(markup) {
+  const headClose = /<\/head>/i.exec(markup);
+  if (headClose?.index !== undefined) return headClose.index;
+  const bodyClose = /<\/body>/i.exec(markup);
+  if (bodyClose?.index !== undefined) return bodyClose.index;
+  return null;
+}
+
+function previewHeadTagFallbackInsertionOffset(markup) {
   const headMatch = /<head(?:\s[^>]*)?>/i.exec(markup);
   if (headMatch?.index !== undefined) {
     return headMatch.index + headMatch[0].length;
@@ -1159,6 +1166,12 @@ function previewHeadTagInsertionOffset(markup) {
     return htmlMatch.index + htmlMatch[0].length;
   }
   return null;
+}
+
+function previewHeadTagInsertionOffset(markup) {
+  const close = previewHeadTagCloseInsertionOffset(markup);
+  if (close !== null) return close;
+  return previewHeadTagFallbackInsertionOffset(markup);
 }
 
 function escapeHtmlAttribute(value) {
@@ -1235,11 +1248,10 @@ function prepareInjectedResponseHeaders(headers) {
   headers["cache-control"] = "no-store";
 }
 
-// Host-owned HTML injection: normal documents buffer only a bounded head
-// prefix, splice the bootstrap into the original bytes, then stream the shell
-// immediately. The browser keeps Next's exact `self.__next_r`; its HMR socket
-// carries the stable viewer separately. The nonce-bearing inspector is a
-// deferred head script, so opt-in previews preserve the same shell streaming.
+// Host-owned HTML injection: buffer a bounded prefix until </head> (fallback
+// </body>), splice bootstrap + inspector just before that close tag, then
+// stream the rest. Last-in-head keeps the site's own head nodes in place so
+// React hydrates JSON-LD and other SSR scripts without a false mismatch.
 proxy.on("proxyRes", (proxyRes, req, res) => {
   const inspectScriptSrc = req.__inspectScriptSrc;
   const documentState = req.__previewDocument;
@@ -1436,10 +1448,15 @@ proxy.on("proxyRes", (proxyRes, req, res) => {
     }
     const prefix = Buffer.concat(chunks, total);
 
-    if (previewHeadTagInsertionOffset(prefix.toString("latin1")) !== null) {
+    // Vänta på </head> så länge skanningsbudgeten räcker (sist-i-head-
+    // placeringen). Tar budgeten slut injicerar beginHeadStream i stället på
+    // fallback-punkten efter <head>-öppningen — bootstrap-ACK:en får aldrig
+    // tappas — och utan någon head alls blir det passthrough som förr.
+    if (
+      previewHeadTagCloseInsertionOffset(prefix.toString("latin1")) !== null ||
+      total >= PREVIEW_HEAD_SCAN_MAX_BYTES
+    ) {
       beginHeadStream(prefix, remainder);
-    } else if (total >= PREVIEW_HEAD_SCAN_MAX_BYTES) {
-      beginPassthrough(prefix, remainder);
     }
   });
   proxyRes.on("end", () => {
