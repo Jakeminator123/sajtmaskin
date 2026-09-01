@@ -1,6 +1,9 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
+
+const IS_CI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
+const IS_LOCAL_PR = !IS_CI && process.env.npm_lifecycle_event === "test:pr";
 /**
  * Stabilitets-lane-filer (grandmaster S1): `*.stability.test.ts(x)` körs ENBART av
  * `npm run test:stability` (egen config: `vitest.stability.config.ts`). De exkluderas
@@ -54,6 +57,16 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    // Den lokala PR-spegeln kör exakt samma filer som CI, men lämnar CPU/IO
+    // till OS och andra worktrees. CI behåller full workerpool, alla gröna
+    // loggar och bail=0 för komplett feldiagnostik i GitHub Actions.
+    ...(IS_LOCAL_PR
+      ? {
+          maxWorkers: "50%",
+          silent: "passed-only" as const,
+          bail: 1,
+        }
+      : {}),
     // Minimal jsdom polyfills for layout/observation APIs the @shadcn/react
     // MessageScroller primitive needs (ResizeObserver/IntersectionObserver/
     // element scroll methods). See vitest.setup.ts.

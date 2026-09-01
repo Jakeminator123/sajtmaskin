@@ -26,15 +26,16 @@ Vakten kör **aldrig DDL själv** — den delegerar till `run-migrations.ts`, so
 
 Samma installerare äger fyra managed hooks med olika hårdhet:
 
-| Hook            | Kör                                   | Hårdhet                                                          |
-| --------------- | ------------------------------------- | ---------------------------------------------------------------- |
-| `pre-push`      | `npm run verify:pr -- --plan`         | **Fail-closed:** röd plan eller saknat `npm` stoppar pushen. Full `verify:pr` körs av agenten och i CI. |
-| `post-merge`    | `ensure-schema.mjs --soft --quiet-ok` | Soft; avbryter aldrig pull/merge                                 |
-| `post-checkout` | Samma DB-synk vid grenbyte            | Soft                                                             |
-| `post-rewrite`  | Samma DB-synk efter rebase            | Soft                                                             |
+| Hook            | Kör                                   | Hårdhet                                                                                                                          |
+| --------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `pre-push`      | `npm run verify:pr -- --plan`         | **Fail-closed:** röd plan eller saknat `npm` stoppar pushen. Riktade kontroller körs lokalt; CI publicerar tung profil eller light-kvitto. |
+| `post-merge`    | `ensure-schema.mjs --soft --quiet-ok` | Soft; avbryter aldrig pull/merge                                                                                                 |
+| `post-checkout` | Samma DB-synk vid grenbyte            | Soft                                                                                                                             |
+| `post-rewrite`  | Samma DB-synk efter rebase            | Soft                                                                                                                             |
 
 `pre-push` gör den lokala plan-kontrollen svår att glömma (färsk base, path-
-impact, protected/Backoffice). Full `verify:pr` är agentens och CI:s ansvar.
+impact, protected/Backoffice). Relevanta riktade kontroller är agentens ansvar;
+GitHub Actions publicerar tung profil eller light-kvitto.
 Endast ett uttryckligt ägarbeslut får använda
 `SAJTMASKIN_SKIP_VERIFY_HOOKS=1`; verifiera och dokumentera i så fall varför
 pushen behöver gå förbi den lokala grinden.

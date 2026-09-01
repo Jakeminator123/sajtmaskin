@@ -11,9 +11,9 @@ name: DB schema parity (scheduled)
 # är en migration i src/lib/db/migrations/ + MIGRATION_ORDER (aldrig mer
 # dashboard-DDL), alternativt att objektet tas bort.
 #
-# SÄKERHET: körs aldrig på pull_request — secrets injiceras bara på schedule/
-# manuell dispatch, så PR-styrd kod aldrig ser DB-creds (samma modell som
-# db-blob-sync-check.yml).
+# SÄKERHET: secret-jobbet kräver exakt master-ref och schedule/manuell dispatch.
+# En manuell feature-ref nekas i ett separat rött jobb innan någon checkout eller
+# secret-injektion kan ske (samma modell som db-blob-sync-check.yml).
 
 on:
   schedule:
@@ -25,7 +25,17 @@ permissions:
   contents: read
 
 jobs:
+  reject-untrusted-manual-ref:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject secret-bearing dispatch outside master
+        run: |
+          echo "::error::Live schema-paritet med DB-secrets får bara dispatchas från refs/heads/master."
+          exit 1
+
   db-schema-parity-scheduled:
+    if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
 
     steps:

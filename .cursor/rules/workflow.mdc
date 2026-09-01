@@ -22,21 +22,25 @@ path-impactmotorn läser control-plane, Backoffice-kartan och
 
 ## Minsta verifiering
 
-| Diff                     | Kör minst                                                                 |
-| ------------------------ | ------------------------------------------------------------------------- |
-| Docs/regler/agentkontext | `npm run verify:pr`                                                       |
-| TypeScript/runtime       | `npm run typecheck` + riktade tester                                      |
-| Backoffice/Python        | `npm run backoffice:test`                                                 |
-| Scaffold                 | ovan + `npm run scaffolds:validate`                                       |
-| Dossier                  | `npm run dossiers:validate-all` + `npm run dossiers:capability-map:check` |
-| Pipeline/status          | typecheck + relevant Vitest + docs-/canvas-sync                           |
-| Stor flytt               | referenssökning + typecheck                                               |
+| Diff                     | Kör minst                                                                  |
+| ------------------------ | -------------------------------------------------------------------------- |
+| Docs/regler/agentkontext | plan + relevant kontrakt (`docs:*`, `workflow:contract` eller motsvarande) |
+| TypeScript/runtime       | `npm run typecheck` + riktade tester                                       |
+| Backoffice/Python        | `npm run backoffice:test`                                                  |
+| Scaffold                 | ovan + `npm run scaffolds:validate`                                        |
+| Dossier                  | `npm run dossiers:validate-all` + `npm run dossiers:capability-map:check`  |
+| Pipeline/status          | typecheck + relevant Vitest + docs-/canvas-sync                            |
+| Stor flytt               | referenssökning + typecheck                                                |
 
-Kommandon ägs av `package.json`. Före push körs alltid `npm run verify:pr`; den
-väljer fler kontroller, full profil för protected diff och rapporterar berörda
-Backoffice-sidor. Skrivande generatorer körs uttryckligt med `sync:derived` när
-deras owner ändrats. `verify:pr` gör inga tracked source-edits, men validators
-kan uppdatera lokala gitignorerade cacheartefakter och lintcache.
+Kommandon ägs av `package.json`. Före push körs alltid
+`npm run verify:pr -- --plan`; den rapporterar berörda ytor och vad den fulla
+profilen omfattar. Kör relevanta riktade kontroller lokalt och redovisa dem i
+PR:n. GitHub Actions publicerar required checks på varje PR-head: tung profil
+körs för ready runtime, högrisk och `master`, medan bevisat safe docs och vanliga
+drafts får ett explicit grönt light-kvitto. Bare `npm run verify:pr` är frivillig
+felsökning/reproduktion, utom när själva CI-/verifieringsmotorn ändras. Skrivande
+generatorer körs uttryckligt med `sync:derived` när deras owner ändrats.
+Validators kan uppdatera lokala gitignorerade cacheartefakter och lintcache.
 
 ## Pausa
 

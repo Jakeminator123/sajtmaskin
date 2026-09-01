@@ -53,6 +53,51 @@ const GODNATT_PROFILES = Object.freeze({
   ".codex/agents/godnatt-worker.toml": "high",
   ".codex/agents/godnatt-reviewer.toml": "xhigh",
 });
+export const REQUIRED_CURSOR_SECRET_IGNORES = Object.freeze([
+  ".env",
+  ".env.*",
+  "OLD.env*",
+  "env.vercel*.local",
+  "*.env.backup",
+  "*.env.bak",
+  "_env.production",
+  "_env.development",
+  "environments.production",
+  "ENV_JAMFORRELSE.txt",
+  "vercel-env-deploy.txt",
+  "git_env.txt",
+  ".env*.local",
+  "files_envvars",
+  ".env-backups/",
+  "*.pem",
+  "*.key",
+  "id_rsa*",
+  "**/client_secret*.json",
+  "google-services.json",
+  ".token-status.json",
+  ".cursor/openclaw-bridge/",
+  ".cursor/openclaw-bridge-message.txt",
+  ".cursor/mcp.json",
+  ".vercel/",
+  "docs/old/**/*.env.local",
+  "docs/old/**/*.env.production",
+  "docs/old/**/*.env",
+  "docs/old/**/*env*.txt",
+  "/old/",
+  "senaste_miljovariablar/",
+  "*_agent_session.txt",
+  "agent-session-*.txt",
+  "tr*_agent.txt",
+]);
+
+export function missingCursorSecretIgnores(value) {
+  const lines = new Set(
+    String(value ?? "")
+      .split(/\r?\n/)
+      .map((line) => line.trim()),
+  );
+  return REQUIRED_CURSOR_SECRET_IGNORES.filter((pattern) => !lines.has(pattern));
+}
 
 function read(root, path) {
   return readFileSync(resolve(root, path), "utf8");
@@ -142,6 +187,10 @@ export function evaluateAgentContext(root = REPO_ROOT) {
     .map((line) => line.trim());
   if (!indexingIgnore.includes("BUG-SWARM-BACKLOG.md")) {
     errors.push("BUG-SWARM-BACKLOG.md must stay in .cursorindexingignore");
+  }
+
+  for (const pattern of missingCursorSecretIgnores(read(root, ".cursorignore"))) {
+    errors.push(`secret-read guard must stay in .cursorignore: ${pattern}`);
   }
 
   const agents = read(root, "AGENTS.md");
