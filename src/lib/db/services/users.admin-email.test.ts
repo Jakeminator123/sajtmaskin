@@ -13,6 +13,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const secrets = vi.hoisted(() => ({ testUserEmail: "", superadminEmail: "" }));
 
 vi.mock("@/lib/config", () => ({ SECRETS: secrets }));
+// `users.ts` pulls in the db client, which resolves a connection string at
+// module scope and throws where none is configured (CI).
+vi.mock("@/lib/db/client", () => ({ db: {}, dbConfigured: true }));
 
 const { isAdminEmail } = await import("@/lib/db/services/users");
 const { isAdminEmailEdge } = await import("@/lib/auth/edge-auth");
