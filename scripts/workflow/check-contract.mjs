@@ -277,6 +277,8 @@ const TRUSTED_REVIEW_GATE_JOB_IF =
   "github.event_name == 'pull_request_target' && " +
   "( github.event.action == 'opened' || github.event.action == 'reopened' || " +
   "github.event.action == 'synchronize' || github.event.action == 'ready_for_review' )";
+const TRUSTED_REVIEW_GATE_CONCURRENCY =
+  "trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number }}";
 // Oberoende golv: ci-scope får inte krympa sin egen allowlist och sedan använda
 // samma krympta lista som bevis för att light-lanen täcker allt den lovar.
 const SAFE_DOCS_COMMAND_FLOOR = Object.freeze([
@@ -314,10 +316,18 @@ export function evaluateTrustedReviewWindowGate(source) {
 
   const gate = document?.jobs?.["trusted-review-window"];
   const errors = [];
+  if (document?.concurrency !== undefined) {
+    errors.push(
+      "merge-ready freshness must not use workflow-level concurrency across independent controller jobs",
+    );
+  }
   if (!hasExactExpression(gate?.if, TRUSTED_REVIEW_GATE_JOB_IF)) {
     errors.push(
       "trusted review-window job may enter gate concurrency only for opened, reopened, synchronize and ready_for_review",
     );
+  }
+  if (!hasExactExpression(gate?.concurrency?.group, TRUSTED_REVIEW_GATE_CONCURRENCY)) {
+    errors.push("trusted review-window concurrency must remain isolated per pull request");
   }
   if (gate?.concurrency?.["cancel-in-progress"] !== true) {
     errors.push("trusted review-window must still cancel stale runs for a newer real gate event");

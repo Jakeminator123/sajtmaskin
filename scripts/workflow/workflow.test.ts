@@ -665,6 +665,14 @@ describe("agent workflow repository contract", () => {
         "      (github.event_name == 'pull_request_target' || " +
           "github.event_name == 'issue_comment') &&\n",
       ),
+      source.replace(
+        "      group: trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number }}\n",
+        "      group: trusted-review-window\n",
+      ),
+      source.replace(
+        "\npermissions:\n",
+        "\nconcurrency:\n  group: merge-ready-freshness-global\n  cancel-in-progress: true\n\npermissions:\n",
+      ),
     ];
 
     for (const candidate of mutations) {
