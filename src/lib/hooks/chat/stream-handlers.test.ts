@@ -173,21 +173,131 @@ describe("handleSseStream", () => {
       chatId: "chat_1",
       versionId: "ver_1",
       enabled: true,
+      // Serialiseringen gör materialiseringen blockerande, så den måste bära
+      // stream-signalen utöver sitt eget tak.
+      signal: expect.any(AbortSignal),
     });
-    expect(runPostGenerationChecks).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chatId: "chat_1",
-        versionId: "ver_1",
-        assistantMessageId: "assistant_1",
-        streamQuality: expect.objectContaining({
-          hasCriticalAnomaly: false,
-          reasons: expect.arrayContaining(["error_event_recovered"]),
+    await vi.waitFor(() => {
+      expect(runPostGenerationChecks).toHaveBeenCalledWith(
+        expect.objectContaining({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          assistantMessageId: "assistant_1",
+          streamQuality: expect.objectContaining({
+            hasCriticalAnomaly: false,
+            reasons: expect.arrayContaining(["error_event_recovered"]),
+          }),
         }),
-      }),
-    );
+      );
+    });
     expect(toast.warning).toHaveBeenCalledTimes(1);
     expect(toast.success).not.toHaveBeenCalled();
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
+  });
+
+  it("awaitar triggerImageMaterialization innan runPostGenerationChecks", async () => {
+    let releaseMaterialize!: () => void;
+    const blockedMaterialize = new Promise<void>((resolve) => {
+      releaseMaterialize = () => resolve();
+    });
+    triggerImageMaterialization.mockImplementation(async () => {
+      await blockedMaterialize;
+      return {
+        attempted: true,
+        strategy: "blob",
+        replaced: 1,
+        uploaded: 1,
+        skipped: 0,
+        warningCount: 0,
+      };
+    });
+
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: "https://preview.example/chat_1/ver_1",
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(triggerImageMaterialization).toHaveBeenCalledWith({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      enabled: true,
+      // Serialiseringen gör materialiseringen blockerande, så den måste bära
+      // stream-signalen utöver sitt eget tak.
+      signal: expect.any(AbortSignal),
+    });
+    expect(runPostGenerationChecks).not.toHaveBeenCalled();
+
+    releaseMaterialize();
+    await vi.waitFor(() => {
+      expect(runPostGenerationChecks).toHaveBeenCalledWith(
+        expect.objectContaining({
+          chatId: "chat_1",
+          versionId: "ver_1",
+        }),
+      );
+    });
+    expect(triggerImageMaterialization.mock.invocationCallOrder[0]).toBeLessThan(
+      runPostGenerationChecks.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("kör post-checks även när bildmaterialiseringen kastar", async () => {
+    triggerImageMaterialization.mockRejectedValue(new Error("blob down"));
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: "https://preview.example/chat_1/ver_1",
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    await vi.waitFor(() => {
+      expect(runPostGenerationChecks).toHaveBeenCalled();
+    });
   });
 
   it("throws when an SSE error is followed by done without a recovered artifact", async () => {

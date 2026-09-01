@@ -693,6 +693,7 @@ const ALL_TABLES = [
   "oc_debug_findings",
   "live_review_grants",
   "live_review_runs",
+  "product_postcheck_runs",
   "llm_usage",
   "generation_billing_settings",
   "generation_billings",

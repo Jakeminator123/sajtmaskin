@@ -6,6 +6,13 @@
 
 export const PRODUCT_POSTCHECK_SKIPPED_KIND = "product_postcheck_skipped" as const;
 
+/**
+ * Ett annat körande anspråk äger exakt samma previewmål och blev inte klart
+ * inom väntebudgeten. Säger ingenting om produkten — kontrollen kördes aldrig
+ * här. Resultatet bär därför ingen attestering och versionen lämnas pending.
+ */
+export const PRODUCT_POSTCHECK_CLAIM_BUSY_SKIP_REASON = "claim_busy" as const;
+
 export function formatProductPostcheckSkippedMessage(reason: string): string {
   const trimmed = reason.trim() || "unknown";
   return `F2 Product Postcheck skipped (${PRODUCT_POSTCHECK_SKIPPED_KIND}: ${trimmed}).`;
@@ -63,6 +70,34 @@ const INFRASTRUCTURE_SKIP_REASONS: ReadonlySet<string> = new Set([
   // Operatören har stängt av postchecken. Inget om sajten.
   "feature_disabled",
 ]);
+
+/**
+ * Utfall som inte är ett slutgiltigt svar för målet. Single-flight-anspråket
+ * får inte servera dem ur cachen — en retry ska köra kontrollen igen.
+ *
+ * Medvetet skild från {@link isInfrastructureSkipReason}, som besvarar en
+ * annan fråga (säger skipen något om produkten?) och där `runtime_error`
+ * avsiktligt är `product` för Degraderad-etiketten.
+ *
+ * `claim_busy` hör hemma HÄR och inte på infrastruktur-allowlistan: den listan
+ * betyder "kontrollens egen apparat dog", medan `claim_busy` bara är ett lås.
+ * Skillnaden är inte kosmetisk — `runProductPostcheckApi` retryar
+ * infrastruktur-skip, så en `claim_busy` där hade lagt en andra väntebudget
+ * ovanpå den första och kunnat starta en andra webbläsare. Utfallet är
+ * oattesterat, så det skrivs ingen skip-rad och versionen blir inte
+ * Degraderad av att sakna infra-klassningen.
+ */
+const NON_FINAL_SKIP_REASONS: ReadonlySet<string> = new Set([
+  PRODUCT_POSTCHECK_CLAIM_BUSY_SKIP_REASON,
+  "timeout",
+  "runtime_error",
+]);
+
+export function isNonFinalProductPostcheckSkipReason(
+  reason: string | null | undefined,
+): boolean {
+  return NON_FINAL_SKIP_REASONS.has(reason?.trim().toLowerCase() ?? "");
+}
 
 export function classifyProductPostcheckSkipReason(
   reason: string | null | undefined,

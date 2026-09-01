@@ -123,7 +123,11 @@ describe("settleStaleVerificationIfNeeded", () => {
     await settleStaleVerificationIfNeeded(makeVersion(), {
       resolveFailureSummary: () => "Typecheck misslyckades: X",
     });
-    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith("v1", "Typecheck misslyckades: X");
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(
+      "v1",
+      "Typecheck misslyckades: X",
+      { verificationState: "verifying", filesRevision: undefined },
+    );
   });
 
   it("falls back to the generic summary when no concrete one is resolved", async () => {
@@ -342,5 +346,40 @@ describe("settleStaleVerificationIfNeeded", () => {
     });
     expect(res.failed).toBe(true);
     expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+  });
+
+  it("passes the snapshot verification_state + files_revision as CAS expected (P1a TOCTOU)", async () => {
+    // Use `repairing` (not `verifying`) so the CAS is proven caller-supplied,
+    // not hardcoded. The lease table must exist or the watchdog skips repair.
+    leaseTableExists.mockResolvedValue(true);
+    failVersionVerificationIfUnleased.mockResolvedValue(
+      makeVersion({ verification_state: "failed" }),
+    );
+    await settleStaleVerificationIfNeeded(
+      makeVersion({ verification_state: "repairing", files_revision: "rev-abc" }),
+    );
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith("v1", expect.any(String), {
+      verificationState: "repairing",
+      filesRevision: "rev-abc",
+    });
+  });
+
+  it("treats a CAS miss (fail returns null / rowCount 0) as a no-op and does not report a failure", async () => {
+    // Concurrent verify finished + promoted + dropped its lease in the
+    // await-window; the fail WHERE no longer matches → null, not a false-red.
+    failVersionVerificationIfUnleased.mockResolvedValue(null);
+    const v = makeVersion({
+      verification_state: "verifying",
+      files_revision: "rev-old",
+    });
+    const res = await settleStaleVerificationIfNeeded(v, {
+      resolveFailureSummary: () => "stale",
+    });
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith("v1", "stale", {
+      verificationState: "verifying",
+      filesRevision: "rev-old",
+    });
+    expect(res.failed).toBe(false);
+    expect(res.version).toBe(v);
   });
 });

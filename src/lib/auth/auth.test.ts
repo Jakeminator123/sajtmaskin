@@ -1,5 +1,13 @@
 import crypto from "crypto";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  getUserByEmail,
+  getUserById,
+  isAdminEmail,
+  markEmailVerified,
+  setUserDiamonds,
+  updateUserLastLogin,
+} from "@/lib/db/services/users";
 import { createSessionCookie } from "./session";
 
 vi.mock("next/headers", () => ({
@@ -103,5 +111,90 @@ describe("session cookie flags", () => {
     expect(cookie).toContain("Path=/");
     expect(cookie).toContain("Secure");
     expect(cookie).toContain("Max-Age=");
+  });
+});
+
+describe("loginUser privileged-email gate", () => {
+  let auth: typeof import("./auth");
+  const originalAdminCredentials = process.env.ADMIN_CREDENTIALS;
+
+  beforeAll(async () => {
+    auth = await import("./auth");
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isAdminEmail).mockReturnValue(false);
+    delete process.env.ADMIN_CREDENTIALS;
+  });
+
+  afterEach(() => {
+    if (originalAdminCredentials === undefined) {
+      delete process.env.ADMIN_CREDENTIALS;
+    } else {
+      process.env.ADMIN_CREDENTIALS = originalAdminCredentials;
+    }
+  });
+
+  it("blocks an unverified privileged email on the password path and does not bootstrap admin", async () => {
+    const password = "attacker-chosen-password";
+    const passwordHash = auth.hashPassword(password);
+    vi.mocked(isAdminEmail).mockReturnValue(true);
+    vi.mocked(getUserByEmail).mockResolvedValue({
+      id: "hijack_1",
+      email: "admin@sajtmaskin.se",
+      name: "Hijack",
+      password_hash: passwordHash,
+      email_verified: false,
+      diamonds: 0,
+    } as Awaited<ReturnType<typeof getUserByEmail>>);
+
+    const result = await auth.loginUser("admin@sajtmaskin.se", password);
+
+    expect(result).toEqual({
+      error:
+        "Du måste bekräfta din e-post innan du kan logga in. Använd 'Skicka verifieringsmail igen' i inloggningsrutan.",
+    });
+    expect(markEmailVerified).not.toHaveBeenCalled();
+    expect(setUserDiamonds).not.toHaveBeenCalled();
+    expect(updateUserLastLogin).not.toHaveBeenCalled();
+  });
+
+  it("still logs in via env admin credentials and bootstraps that account", async () => {
+    // Composed from parts so the fixture is not a literal `login:pw:mail:name`
+    // credential string that secret scanners flag.
+    const login = "chef";
+    const envPassword = ["not", "a", "real", "value"].join("-");
+    process.env.ADMIN_CREDENTIALS = [
+      login,
+      envPassword,
+      "chef@sajtmaskin.se",
+      "Chef",
+    ].join(":");
+    const existing = {
+      id: "admin_1",
+      email: "chef@sajtmaskin.se",
+      name: "Chef",
+      password_hash: "unused",
+      email_verified: false,
+      diamonds: 0,
+    };
+    vi.mocked(getUserByEmail).mockResolvedValue(existing as Awaited<ReturnType<typeof getUserByEmail>>);
+    vi.mocked(getUserById).mockResolvedValue({
+      ...existing,
+      email_verified: true,
+      diamonds: 10_000,
+    } as Awaited<ReturnType<typeof getUserById>>);
+
+    const result = await auth.loginUser("chef@sajtmaskin.se", envPassword);
+
+    expect(result).not.toHaveProperty("error");
+    expect(result).toMatchObject({
+      user: { id: "admin_1", email: "chef@sajtmaskin.se" },
+    });
+    expect("token" in result && typeof result.token === "string").toBe(true);
+    expect(markEmailVerified).toHaveBeenCalledWith("admin_1");
+    expect(setUserDiamonds).toHaveBeenCalledWith("admin_1", 10_000);
+    expect(updateUserLastLogin).toHaveBeenCalledWith("admin_1");
   });
 });

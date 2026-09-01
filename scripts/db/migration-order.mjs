@@ -102,6 +102,11 @@ export const MIGRATION_ORDER = [
   // SM-070: persistad OpenClaw-grant + idempotent live-review-claim per
   // (version_id, files_revision). Additiv CREATE; FK mot engine_chats.
   "add-live-review-gate.sql",
+  // L6: single-flight Product Postcheck per preview-target
+  // (version_id, files_revision, preview_session_id, lifecycle_token).
+  // Additiv CREATE; FK mot engine_chats. Efter live-review-gate (samma
+  // parent) och före parity/ledger-städningen.
+  "add-product-postcheck-runs.sql",
   // Live dev↔prod-paritet (2026-08-05): prod-tabeller födda under äldre
   // CREATE TABLE-definitioner får dagens form (TIMESTAMPTZ, UNIQUE/FK-
   // constraints), dev tappar redundanta dubblett-index. Allt guardat via
