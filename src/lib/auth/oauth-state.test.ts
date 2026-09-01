@@ -68,8 +68,11 @@ describe("OAuth state binding", () => {
     expect(parseOAuthState("github", flow.state)).toMatchObject({
       ok: false,
     });
+    const badSignature = `${signature.slice(0, -1)}${
+      signature.endsWith("A") ? "B" : "A"
+    }`;
     expect(
-      parseOAuthState("google", `${body}.${signature.slice(0, -1)}x`),
+      parseOAuthState("google", `${body}.${badSignature}`),
     ).toMatchObject({ ok: false, reason: "state_signature" });
     expect(
       parseOAuthState(
