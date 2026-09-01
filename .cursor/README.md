@@ -66,8 +66,8 @@ bara när de anropas. Ladda inte både lång command-text och samma skillrecept.
 - Runtimeinventarier: använd `docs/generated/` eller respektive registry.
 
 `BUG-SWARM-BACKLOG.md` ligger utanför semantisk indexering men är fortsatt
-läsbar och kanonisk. `övrigt/` är användarens gitignorerade, icke-kanoniska
-arbetsyta och ligger också utanför indexet.
+läsbar och kanonisk. `övrigt/` är delvis spårad mental modell och ligger
+utanför indexet; läs den riktat, inte som sökfacit.
 
 ## Ignore-filer
 

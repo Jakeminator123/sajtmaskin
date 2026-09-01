@@ -1,19 +1,20 @@
 import { basename, dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  describeRemovalFailure,
+  classifyExistingNodeModules,
   classifyRemovalLifecycle,
+  classifyWorktreePlacement,
+  copyWorktreeIncludeFiles,
+  describeRemovalFailure,
   findLinkedEntries,
   findMainWorktree,
   parseDirtyEntries,
+  parseWorktreeIncludeList,
   parseWorktreeList,
   protectedRemovalPaths,
   removeLink,
   resolveTargetWorktree,
   syncWorktreeMcpJson,
-  parseWorktreeIncludeList,
-  copyWorktreeIncludeFiles,
-  classifyExistingNodeModules,
 } from "./worktree.mjs";
 
 const MAIN = resolve("C:/repo/sajtmaskin");
@@ -267,6 +268,28 @@ describe("classifyExistingNodeModules", () => {
     });
     expect(decision.ok).toBe(false);
     expect(decision.reason).toContain("points at");
+  });
+});
+
+describe("classifyWorktreePlacement", () => {
+  it("accepts a sibling next to the main checkout", () => {
+    expect(classifyWorktreePlacement({ worktreePath: FEATURE, mainWorktree: MAIN })).toEqual({
+      ok: true,
+    });
+  });
+
+  it("refuses a worktree nested under the main checkout, including .cursor/worktrees", () => {
+    const nested = classifyWorktreePlacement({
+      worktreePath: join(MAIN, ".cursor", "worktrees", "agent"),
+      mainWorktree: MAIN,
+    });
+    expect(nested.ok).toBe(false);
+    expect(nested.ok === false && nested.reason).toContain("bredvid repo-roten");
+  });
+
+  it("refuses the main checkout itself", () => {
+    const same = classifyWorktreePlacement({ worktreePath: MAIN, mainWorktree: MAIN });
+    expect(same.ok).toBe(false);
   });
 });
 

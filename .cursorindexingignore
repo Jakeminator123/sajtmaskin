@@ -71,6 +71,7 @@ templates_v0/
 .cursor/migration-archive/
 # Scratch från /logg m.m. — läsbar, inte sökbar. mcp.json och OpenClaw-bryggan
 # stannar i .cursorignore (kan bära tokens / env-citat).
+.cursor/worktrees/
 .cursor/tmp/
 .cursor/*tmp*
 # .cursor/swarms/ utelämnad med flit: .gitignore täcker fynd-filerna redan,
@@ -90,12 +91,10 @@ docs/plans/archived/**
 BUG-SWARM-BACKLOG.md
 
 # --- Ägarens experiment- och inputyta ---
-# `övrigt/` är ägarens arbetsyta för LLM-experiment och felsökningsunderlag
-# (DOM-dumpar, mhtml-snapshots, coach-resonemang, zippar). Den är gitignorerad
-# och finns därför inte i repot — raden här dokumenterar bara avsikten så nästa
-# läsare inte lägger den i .cursorignore: mappen ska vara läsbar med Read när
-# ägaren pekar ut en fil, aldrig sökbar, och aldrig en sanningskälla.
-# .cursorignore blockerar läsning helt och är bara för secrets.
+# `övrigt/` blandar spårad mental modell (FUSKLAPP, OPENCLAW-BUILDER) med
+# ägarens experiment. Den är INTE gitignorerad. Utanför sök med flit — läs
+# riktat när ägaren pekar ut en fil. Lägg den inte i .cursorignore (blockerar
+# Read) och inte i .gitignore (skulle släcka de spårade filerna).
 övrigt/
 
 # --- Lokal scratch ---

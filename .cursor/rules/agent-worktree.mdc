@@ -19,8 +19,9 @@ npm run worktree:setup -- ..\sajtmaskin-<kort>
 `worktree:setup` seedar `.cursor/mcp.json` från den spårade
 `.cursor/mcp.json.example`. Den kopierar **inte** `.env.local` eller live-MCP,
 och junctionar **inte** `node_modules` — kör `npm ci` i worktreet om du ska
-testa där. `worktree:link` är en medveten genväg som sabbar Vitest; använd
-den inte.
+testa där. Setup vägrar ytor **inuti** huvudcheckouten, inklusive
+`.cursor/worktrees`. `worktree:link` är en medveten genväg som sabbar Vitest;
+använd den inte.
 
 Ta bort med `npm run worktree:remove -- <sökväg>`, aldrig rå `git worktree remove`
 (junction-fälla mot huvudcheckoutens `node_modules`). Recept:

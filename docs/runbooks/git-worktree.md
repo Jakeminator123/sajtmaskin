@@ -19,10 +19,11 @@ npm run worktree:setup -- ..\sajtmaskin-<kort>
 ```
 
 `worktree:setup` kopierar bara uttryckligt listade, icke-känsliga filer från
-`.worktreeinclude` och seedar `.cursor/mcp.json` från den spårade
-`.cursor/mcp.json.example`. Den kopierar aldrig huvudcheckoutens live-MCP eller
-`.env.local`, och skapar **ingen** `node_modules`-junction. Behöver du tester i
-worktreet:
+`.worktreeinclude` (tom som default) och seedar `.cursor/mcp.json` från den
+spårade `.cursor/mcp.json.example`. Den kopierar aldrig huvudcheckoutens
+live-MCP eller `.env.local`, skapar **ingen** `node_modules`-junction och
+vägrar ytor inuti checkouten (`.cursor/worktrees` inkluderat). Behöver du
+tester i worktreet:
 
 ```powershell
 npm ci

@@ -27,6 +27,8 @@ export const PATH_GROUP_FLOORS = Object.freeze({
     ".cursor/**",
     ".cursorignore",
     ".cursorindexingignore",
+    ".gitignore",
+    ".worktreeinclude",
     "config/agent-workflow.json",
     "scripts/dev/check-agent-context-budget.mjs",
     "scripts/workflow/**",
