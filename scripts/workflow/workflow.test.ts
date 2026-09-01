@@ -10,6 +10,7 @@ import {
   evaluateReservedWorkflowCheckNames,
   evaluateRetiredBugIdFloor,
   evaluateSecretWorkflowDispatches,
+  evaluateTrustedReviewWindowGate,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
 import {
@@ -647,6 +648,29 @@ describe("agent workflow repository contract", () => {
         "test:e2e:contract": "true",
       }),
     ).toContain("test:e2e:contract must retain its exact Playwright discovery command");
+  });
+
+  it("keeps no-op review events outside trusted gate concurrency", () => {
+    const source = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
+    expect(evaluateTrustedReviewWindowGate(source)).toEqual([]);
+
+    const mutations = [
+      source.replace(
+        "        github.event.action == 'ready_for_review'\n",
+        "        github.event.action == 'ready_for_review' ||\n" +
+          "        github.event.action == 'edited'\n",
+      ),
+      source.replace(
+        "      github.event_name == 'pull_request_target' &&\n",
+        "      (github.event_name == 'pull_request_target' || " +
+          "github.event_name == 'issue_comment') &&\n",
+      ),
+    ];
+
+    for (const candidate of mutations) {
+      expect(candidate).not.toBe(source);
+      expect(evaluateTrustedReviewWindowGate(candidate).length).toBeGreaterThan(0);
+    }
   });
 
   it("scopes DB/Blob PR smoke to its exact executable inputs", () => {

@@ -270,6 +270,13 @@ const TRUSTED_MASTER_PUSH_OR_DISPATCH =
   "${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}";
 const REJECT_NON_MASTER_DISPATCH =
   "${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}";
+// Oberoende från controllerns GATE_PR_ACTIONS: workflow-jobbet måste filtrera
+// innan GitHub placerar körningen i cancel-in-progress-gruppen. Annars kan ett
+// no-op-event avbryta den riktiga gate-körningen utan att publicera ett avslut.
+const TRUSTED_REVIEW_GATE_JOB_IF =
+  "github.event_name == 'pull_request_target' && " +
+  "( github.event.action == 'opened' || github.event.action == 'reopened' || " +
+  "github.event.action == 'synchronize' || github.event.action == 'ready_for_review' )";
 // Oberoende golv: ci-scope får inte krympa sin egen allowlist och sedan använda
 // samma krympta lista som bevis för att light-lanen täcker allt den lovar.
 const SAFE_DOCS_COMMAND_FLOOR = Object.freeze([
@@ -291,6 +298,34 @@ function hasExactStringSet(actual, expected) {
   if (!Array.isArray(actual) || actual.length !== expected.length) return false;
   const values = new Set(actual.map(String));
   return values.size === actual.length && expected.every((value) => values.has(value));
+}
+
+export function evaluateTrustedReviewWindowGate(source) {
+  let document;
+  try {
+    document = yaml.load(source);
+  } catch (error) {
+    return [
+      `merge-ready freshness is not valid YAML: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    ];
+  }
+
+  const gate = document?.jobs?.["trusted-review-window"];
+  const errors = [];
+  if (!hasExactExpression(gate?.if, TRUSTED_REVIEW_GATE_JOB_IF)) {
+    errors.push(
+      "trusted review-window job may enter gate concurrency only for opened, reopened, synchronize and ready_for_review",
+    );
+  }
+  if (gate?.concurrency?.["cancel-in-progress"] !== true) {
+    errors.push("trusted review-window must still cancel stale runs for a newer real gate event");
+  }
+  if (!gate?.steps?.some((step) => step.run === "node scripts/ci/trusted-review-window.mjs gate")) {
+    errors.push("trusted review-window gate job must invoke the default-branch controller");
+  }
+  return errors;
 }
 
 /**
@@ -792,6 +827,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
 
   const freshness = read(root, ".github/workflows/merge-ready-freshness.yml");
+  errors.push(...evaluateTrustedReviewWindowGate(freshness));
   if (!freshness.includes("pull_request_target:")) {
     errors.push("merge-ready freshness must use trusted pull_request_target");
   }
