@@ -88,6 +88,7 @@ const REGISTRIES: Array<{ name: string; file: string; requiredIds: string[] }> =
       "naming-dictionary",
       "agent-context-policy",
       "agent-workflow-policy",
+      "openclaw-builder-prompt-tips",
     ],
   },
 ];

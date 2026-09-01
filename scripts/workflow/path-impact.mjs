@@ -41,6 +41,7 @@ export const PATH_GROUP_FLOORS = Object.freeze({
     "public/**",
     "infra/**",
     "drizzle/**",
+    "data/openclaw/**",
     "config/**",
     "*.config.js",
     "*.config.mjs",

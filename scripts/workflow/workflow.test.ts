@@ -143,6 +143,52 @@ describe("agent workflow impact", () => {
     expect(impact.commands).not.toContain("knip:files");
   });
 
+  it("routes the production OpenClaw prompt tips through their runtime owner", () => {
+    const path = "data/openclaw/builder-prompt-tips.md";
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    const owner = inputs.policyRegistry.entries.find(
+      (entry: { id: string }) => entry.id === "openclaw-builder-prompt-tips",
+    );
+
+    expect(owner).toMatchObject({
+      sourceOfTruth: path,
+      validator: "test:ci",
+      ciStatus: "hard",
+      runtimeEnforced: true,
+      runtimeStatus: "wired",
+      backoffice: { surface: null, editable: false, writePath: null },
+    });
+    expect(impact.groups.runtime).toContain(path);
+    expect(impact.authorities).toContainEqual(
+      expect.objectContaining({
+        id: "openclaw-builder-prompt-tips",
+        sourceOfTruth: path,
+        validator: "test:ci",
+        runtimeStatus: "wired",
+        backofficeSurface: null,
+      }),
+    );
+    expect(impact.unmappedRuntimeFiles).not.toContain(path);
+    expect(impact.backofficePages).toEqual([]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["embeddings:ensure", "typecheck", "lint", "test:ci"]),
+    );
+  });
+
+  it("keeps ownerless OpenClaw debug scenarios on the fail-closed runtime core", () => {
+    const path = "data/openclaw/debug-scenarios.json";
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+
+    expect(impact.groups.runtime).toContain(path);
+    expect(impact.authorities).toEqual([]);
+    expect(impact.unmappedRuntimeFiles).toEqual([path]);
+    expect(impact.unclassifiedFiles).toEqual([]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["embeddings:ensure", "typecheck", "lint", "test:ci"]),
+    );
+    expect(impact.commands).not.toContain("knip:files");
+  });
+
   it.each([".cursorignore", ".cursorindexingignore"])(
     "routes the root Cursor control file %s to the agent profile",
     (path) => {

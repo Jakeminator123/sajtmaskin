@@ -66,6 +66,7 @@ const REGISTRIES = [
       "naming-dictionary",
       "agent-context-policy",
       "agent-workflow-policy",
+      "openclaw-builder-prompt-tips",
     ],
   },
 ];

@@ -10,7 +10,7 @@
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:968f3cfa30cd34b6 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:de9157bb936dbdc1 -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:bdabd528d04d5fad -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:d40c2091e4529b5c -->
 
 # Policies
 
@@ -209,7 +209,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 ## Control-plane registry
 
-This index contains 57 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
+This index contains 58 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
 
 | ID                                            | Type                | Canonical source                                                  | Validator               | CI status | Runtime status  | Runtime enforced |
 | --------------------------------------------- | ------------------- | ----------------------------------------------------------------- | ----------------------- | --------- | --------------- | ---------------- |
@@ -228,6 +228,7 @@ This index contains 57 control-plane entries. It is a map to canonical owners, n
 | `manifest-quality-gate-tiers`                 | `policy`            | `config/ai_models/manifest.json#qualityGateTiers`                 | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `manifest-repair-policies`                    | `policy`            | `config/ai_models/manifest.json#repairPolicies`                   | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `naming-dictionary`                           | `policy`            | `config/naming-dictionary.json`                                   | `check:terms:contract`  | `hard`    | `n/a`           | No               |
+| `openclaw-builder-prompt-tips`                | `policy`            | `data/openclaw/builder-prompt-tips.md`                            | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `openclaw-chat-context-policy`                | `policy`            | `src/lib/openclaw/chat-context-policy.ts`                         | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `orchestration-policy-helpers`                | `policy`            | `src/lib/gen/orchestrate/policy-helpers.ts`                       | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `placeholder-harmless`                        | `policy`            | `src/lib/integrations/placeholder-harmless.ts`                    | `test:ci`               | `hard`    | `wired`         | Yes              |

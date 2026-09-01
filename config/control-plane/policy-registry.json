@@ -375,6 +375,18 @@
       "notes": "Canonical server repair-loop continuation and stop policy."
     },
     {
+      "id": "openclaw-builder-prompt-tips",
+      "sourceOfTruth": "data/openclaw/builder-prompt-tips.md",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": { "surface": null, "editable": false, "writePath": null, "danger": "medium" },
+      "mobility": "leave",
+      "notes": "Canonical OpenClaw prompting guidance loaded with readFileSync at module initialization by the production chat route. The exact path is runtime-wired and intentionally has no Backoffice editor."
+    },
+    {
       "id": "openclaw-chat-context-policy",
       "sourceOfTruth": "src/lib/openclaw/chat-context-policy.ts",
       "type": "policy",

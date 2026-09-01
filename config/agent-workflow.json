@@ -94,6 +94,7 @@
       "public/**",
       "infra/**",
       "drizzle/**",
+      "data/openclaw/**",
       "config/**",
       "*.config.js",
       "*.config.mjs",
