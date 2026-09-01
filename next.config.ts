@@ -13,6 +13,20 @@ const nextConfig: NextConfig = {
   // NFT may miss in serverless traces. Force-include runtime assets for the
   // thumbnail capture route so Chromium can launch on Vercel.
   outputFileTracingIncludes: {
+      // Runtime-lästa repo-assets som varje funktion behöver. Laddarna
+      // (`tier3-sdk-deny.ts`, `static-core-loader.ts`, `dossiers/registry.ts`,
+      // scaffold-ui-läsarna) gömmer avsiktligt sina fs-vägar för Turbopack
+      // (turbopackIgnore) så bundlern inte union-scannar repot — men då MÅSTE
+      // filerna force-inkluderas här. Före #1222 råkade embeddings-/event-bus-
+      // spårningen dra med hela repot i bundlarna och dolde att posterna
+      // saknades; när #1222 stängde läckan 500:ade `/api/engine/chats/stream`
+      // i prod med "Missing tier-3 deny list at /var/task/..." (2026-09-01).
+      // Totalt ~3 MB text/JSON — försumbart mot Chromium-posterna nedan.
+      "*": [
+        "./config/**",
+        "./data/dossiers/**",
+        "./src/components/ui/**",
+      ],
       "/api/projects/*/thumbnail": [
         "./node_modules/playwright-core/browsers.json",
         "./node_modules/@sparticuz/chromium/bin/**",
