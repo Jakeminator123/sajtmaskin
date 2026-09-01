@@ -4,7 +4,9 @@
  *
  * Safe create/remove for optional agent worktrees.
  *
- * Default setup copies env/mcp files and does NOT junction `node_modules`.
+ * Default setup copies only `.worktreeinclude` paths (none by default) and
+ * seeds `.cursor/mcp.json` from the tracked example. It does not copy
+ * `.env.local` or live MCP, and does not junction `node_modules`.
  * A shared junction breaks Vitest on Windows (fork workers + chdir). If you
  * still want the old speed hack, run `worktree:link` explicitly.
  *
@@ -28,14 +30,14 @@ import {
   copyFileSync,
   lstatSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   readlinkSync,
-  readdirSync,
   rmdirSync,
   symlinkSync,
   unlinkSync,
 } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BASE_REF, isExactMergedPr, isProtectedBranch, loadPrLifecycle } from "../dev/tidy.mjs";
 
@@ -88,6 +90,29 @@ export function resolveTargetWorktree({ targetPath, worktrees, protectedWorktree
     };
   }
   return { ok: true, worktreePath: match.path };
+}
+
+/**
+ * Sibling placement only. A worktree under the main checkout — especially
+ * `.cursor/worktrees` — is a second tree inside the shared folder and must
+ * never be seeded or linked.
+ *
+ * @param {{ worktreePath: string, mainWorktree: string }} input
+ * @returns {{ ok: true } | { ok: false, reason: string }}
+ */
+export function classifyWorktreePlacement({ worktreePath, mainWorktree }) {
+  const rel = relative(resolve(mainWorktree), resolve(worktreePath));
+  if (rel === "") {
+    return { ok: false, reason: "huvudcheckouten är inte ett sekundärt worktree" };
+  }
+  if (!rel.startsWith("..") && !isAbsolute(rel)) {
+    return {
+      ok: false,
+      reason:
+        "worktreet ligger inuti huvudcheckouten. Placera det bredvid repo-roten, aldrig under .cursor/.",
+    };
+  }
+  return { ok: true };
 }
 
 export function classifyRemovalLifecycle({
@@ -491,6 +516,14 @@ function resolveSecondaryWorktree(targetPath) {
     console.error("[worktree] Could not determine the main checkout from `git worktree list`.");
     process.exit(1);
   }
+  const placement = classifyWorktreePlacement({
+    worktreePath: plan.worktreePath,
+    mainWorktree,
+  });
+  if (!placement.ok) {
+    console.error(`[worktree] ${placement.reason}`);
+    process.exit(1);
+  }
   return { worktreePath: plan.worktreePath, mainWorktree };
 }
 
@@ -554,6 +587,8 @@ function syncMcpAndWarn(mainWorktree, worktreePath) {
   console.log(
     "[worktree] Kör `npm ci` i worktreet om du ska köra tester där. " +
       "Junctiona inte node_modules — det sabbar Vitest. " +
+      "Lokal grind: `npm run verify:pr -- --plan` plus riktade tester. " +
+      "Kopiera inte `.env.local` eller live `.cursor/mcp.json`. " +
       "Ta bort worktreet med `npm run worktree:remove -- <path>`.",
   );
 }

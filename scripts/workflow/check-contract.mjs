@@ -1,10 +1,10 @@
 #!/usr/bin/env node
+import Ajv2020 from "ajv/dist/2020.js";
+import yaml from "js-yaml";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import Ajv2020 from "ajv/dist/2020.js";
-import yaml from "js-yaml";
 import { SAFE_DOCS_COMMANDS } from "./ci-scope.mjs";
 import { PATH_GROUP_FLOORS } from "./path-impact.mjs";
 
@@ -1174,6 +1174,12 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const gitignore = read(root, ".gitignore");
   if (!gitignore.includes("!.agents/skills/pr-workflow/**")) {
     errors.push(".gitignore must publish the canonical pr-workflow skill to fresh clones");
+  }
+  if (!gitignore.split(/\r?\n/u).includes(".cursor/worktrees/")) {
+    errors.push(".gitignore must ignore nested Cursor worktrees under .cursor/");
+  }
+  if (!read(root, ".cursorignore").split(/\r?\n/u).includes(".cursor/worktrees/")) {
+    errors.push(".cursorignore must block reads of nested .cursor/worktrees");
   }
 
   return { errors, policy };
