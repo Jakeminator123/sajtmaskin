@@ -21,10 +21,10 @@ function deny(reason) {
     permission: "deny",
     user_message:
       `Blockerat: commit-skyddet kunde inte verifiera ändringen (${reason}). ` +
-      "Kontrollera git-läget och kör npm run verify:pr.",
+      "Kontrollera git-läget och kör npm run verify:pr -- --plan.",
     agent_message:
       `Denied fail-closed: commit guard could not verify the change (${reason}). ` +
-      "Inspect git state and run npm run verify:pr.",
+      "Inspect git state and run npm run verify:pr -- --plan.",
   };
 }
 
@@ -135,9 +135,7 @@ export function commitTargetDirectories(command, fallback) {
       const commitIndex = segment.search(COMMIT_WORD_RE);
       const prefix = commitIndex >= 0 ? segment.slice(0, commitIndex) : segment;
       const targets = [];
-      for (const match of prefix.matchAll(
-        /(?:^|\s)-C\s+(?:"([^"]+)"|'([^']+)'|([^\s;&|]+))/gu,
-      )) {
+      for (const match of prefix.matchAll(/(?:^|\s)-C\s+(?:"([^"]+)"|'([^']+)'|([^\s;&|]+))/gu)) {
         const dir = match[1] ?? match[2] ?? match[3];
         if (!dir) continue;
         const resolved = resolve(cwd, dir);
@@ -230,7 +228,9 @@ export function decideCommitCommand(
   }
   if (!isCommitCommand(command, { aliases: resolved })) return { permission: "allow" };
   if (OPAQUE_REPO_OPTION_RE.test(command)) {
-    return deny("--git-dir/--work-tree kan peka på en annan checkout; kör commiten i dess worktree");
+    return deny(
+      "--git-dir/--work-tree kan peka på en annan checkout; kör commiten i dess worktree",
+    );
   }
 
   try {
@@ -283,9 +283,9 @@ export function decideCommitCommand(
       user_message:
         "Committen träffar skyddade eller Backoffice-kopplade ytor.\n\n" +
         `Protected: ${protectedSummary}\nBackoffice: ${backofficeSummary}\n\n` +
-        "Kör `npm run verify:pr` och en färsk oberoende review innan commit.",
+        "Kör `npm run verify:pr -- --plan`, relevanta riktade kontroller och en färsk oberoende review innan commit.",
       agent_message:
-        "Shared workflow-impact policy flagged this commit. Verify the exact diff with npm run verify:pr and report Backoffice/control-plane impact before committing.",
+        "Shared workflow-impact policy flagged this commit. Plan the exact diff, run relevant targeted checks and report Backoffice/control-plane impact before committing.",
     };
   } catch (error) {
     return deny(error instanceof Error ? error.message : "okänt fel");

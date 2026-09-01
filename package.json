@@ -72,6 +72,7 @@
     "redis:health": "node scripts/db/redis-health-check.mjs",
     "test": "vitest",
     "test:ci": "vitest run",
+    "test:pr": "vitest run",
     "test:godnatt-bugg": "node --test .agents/skills/godnatt-bugg/scripts/run-state.test.mjs .agents/skills/godnatt-bugg/scripts/repo-snapshot.test.mjs",
     "test:stability": "npm run db:schema-drift && vitest run --passWithNoTests -c vitest.stability.config.ts",
     "pretest:postgres": "node scripts/db/ensure-schema.mjs --quiet-ok",

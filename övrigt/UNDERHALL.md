@@ -12,8 +12,8 @@ Worktrees: [`docs/runbooks/git-worktree.md`](../docs/runbooks/git-worktree.md).
 
 | När                                        | Kör                                                              |
 | ------------------------------------------ | ---------------------------------------------------------------- |
-| Före PR / “är diffen redo?”                | `npm run verify:pr -- --plan` → `npm run verify:pr`              |
-| Bred manuell underhållskoll                | `npm run hygiene` (ingår normalt automatiskt för protected diff) |
+| Före PR / “är diffen redo?”                | `npm run verify:pr -- --plan` + relevanta riktade kontroller     |
+| Bred manuell underhållskoll                | `npm run hygiene` (manuell; CI kör de blockerande delarna)       |
 | Disken växer / efter många agent-körningar | `npm run clean:scratch:apply`                                    |
 | Efter `/kedja` eller trasiga worktrees     | `npm run kedja:clean` → sedan med `--yes`                        |
 | Varje vecka eller efter många mergar       | `git fetch --prune`                                              |
@@ -32,8 +32,8 @@ termer, bug-backlog-format, oimporterade filer) och _rapporterar_ vad
 själv (dry-run).
 
 **När:** Som bred manuell kontroll, eller när du undrar om docs/död kod glidit
-isär. Före PR väljer `npm run verify:pr` rätt delar automatiskt och är den
-kanoniska knappen.
+isär. Före PR visar `npm run verify:pr -- --plan` följdytorna; riktade lokala
+kontroller ger snabb återkoppling och GitHub Actions äger fullprofilen.
 **Hur ofta:** Vid behov; annars ~1×/vecka.
 
 ### `npm run clean:scratch:apply`

@@ -18,7 +18,7 @@ om inte Jakob nämner en.
 4. Kontrollera öppna PR:er för samma owner om ändringen kan krocka.
 
 Skyddade sökvägar är inte förbjudna. De ska inkludera rätt owner och följdytor
-(schema, Backoffice, test, docs) och får full verifieringsprofil.
+(schema, Backoffice, test, docs) och får full verifieringsprofil i CI.
 
 ## 2. Ändra owner först
 
@@ -31,14 +31,20 @@ rapportens `runtimeStatus`.
 ## 3. Synka och verifiera
 
 - `npm run sync:derived` när owners ändrats.
-- `npm run verify:pr` före push. Protected diff väljer full lokal profil.
-- Fixa eller avfärda riktiga reviewfynd; kör om verifieringen.
+- `npm run verify:pr -- --plan` när diffen fått form och före push; hooken
+  upprepar planen.
+- Kör relevanta riktade kontroller och redovisa dem i PR:n. GitHub Actions äger
+  den blockerande fullprofilen. Bare `npm run verify:pr` är frivillig
+  felsökning/reproduktion, eller ett uttryckligt krav när själva
+  CI-/verifieringsmotorn ändras.
+- Fixa eller avfärda riktiga reviewfynd; kör om berörda riktade kontroller.
 
 ## 4. PR
 
 1. Commit:a exakta paths och push utan force mot master.
 2. Öppna PR med repots template när Jakob ber om det.
-3. Efter ny head-SHA: kör lokal verifiering igen. `review-window` väntar minst
+3. Efter ny head-SHA: vänta in required GitHub-checks för exakt den SHA:n och
+   kör om berörda riktade kontroller vid behov. `review-window` väntar minst
    sju minuter från den nya SHA-körningen.
 4. Läs checks, reviews och kommentarer. Varje konkret fynd ska vara fixat,
    loggat eller avfärdat.

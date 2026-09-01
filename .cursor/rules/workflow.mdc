@@ -24,7 +24,7 @@ path-impactmotorn läser control-plane, Backoffice-kartan och
 
 | Diff                     | Kör minst                                                                 |
 | ------------------------ | ------------------------------------------------------------------------- |
-| Docs/regler/agentkontext | `npm run verify:pr`                                                       |
+| Docs/regler/agentkontext | plan + relevant kontrakt (`docs:*`, `workflow:contract` eller motsvarande) |
 | TypeScript/runtime       | `npm run typecheck` + riktade tester                                      |
 | Backoffice/Python        | `npm run backoffice:test`                                                 |
 | Scaffold                 | ovan + `npm run scaffolds:validate`                                       |
@@ -32,11 +32,14 @@ path-impactmotorn läser control-plane, Backoffice-kartan och
 | Pipeline/status          | typecheck + relevant Vitest + docs-/canvas-sync                           |
 | Stor flytt               | referenssökning + typecheck                                               |
 
-Kommandon ägs av `package.json`. Före push körs alltid `npm run verify:pr`; den
-väljer fler kontroller, full profil för protected diff och rapporterar berörda
-Backoffice-sidor. Skrivande generatorer körs uttryckligt med `sync:derived` när
-deras owner ändrats. `verify:pr` gör inga tracked source-edits, men validators
-kan uppdatera lokala gitignorerade cacheartefakter och lintcache.
+Kommandon ägs av `package.json`. Före push körs alltid
+`npm run verify:pr -- --plan`; den rapporterar berörda ytor och vad den fulla
+profilen omfattar. Kör relevanta riktade kontroller lokalt och redovisa dem i
+PR:n. GitHub Actions äger den blockerande fullprofilen på varje PR-head. Bare
+`npm run verify:pr` är frivillig felsökning/reproduktion, utom när själva
+CI-/verifieringsmotorn ändras. Skrivande generatorer körs uttryckligt med
+`sync:derived` när deras owner ändrats. Validators kan uppdatera lokala
+gitignorerade cacheartefakter och lintcache.
 
 ## Pausa
 

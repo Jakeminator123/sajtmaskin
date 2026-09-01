@@ -10,7 +10,7 @@
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:968f3cfa30cd34b6 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:de9157bb936dbdc1 -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:bdabd528d04d5fad -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
 # Policies
 
@@ -209,12 +209,13 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 ## Control-plane registry
 
-This index contains 57 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
+This index contains 60 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
 
 | ID                                            | Type                | Canonical source                                                  | Validator               | CI status | Runtime status  | Runtime enforced |
 | --------------------------------------------- | ------------------- | ----------------------------------------------------------------- | ----------------------- | --------- | --------------- | ---------------- |
 | `agent-context-policy`                        | `rule`              | `AGENTS.md`                                                       | `check:agent-context`   | `hard`    | `n/a`           | No               |
 | `agent-workflow-policy`                       | `rule`              | `config/agent-workflow.json`                                      | `workflow:contract`     | `hard`    | `n/a`           | No               |
+| `ai-model-pricing`                            | `policy`            | `config/ai_models/pricing.json`                                   | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `backoffice-domain-map`                       | `rule`              | `config/backoffice/domain-map.json`                               | `test:ci`               | `hard`    | `n/a`           | No               |
 | `build-spec-policy-inference`                 | `policy`            | `src/lib/gen/build-spec/policy-inference.ts`                      | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `domain-rules`                                | `policy`            | `config/domain-rules.json`                                        | `backoffice:test`       | `hard`    | `wired`         | Yes              |
@@ -223,11 +224,13 @@ This index contains 57 control-plane entries. It is a map to canonical owners, n
 | `env-policy`                                  | `policy`            | `config/env-policy.json`                                          | `env:audit`             | `manual`  | `declared-only` | No               |
 | `finalize-version-policy`                     | `policy`            | `src/lib/gen/stream/finalize-version/policy.ts`                   | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `generated-site-placeholders`                 | `policy`            | `config/ai_models/40-harmless-placeholders.env.txt`               | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `generated-site-tier3-stub-placeholders`      | `policy`            | `config/ai_models/41-tier3-stub-placeholders.env.txt`             | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `manifest-per-tier-briefing`                  | `policy`            | `config/ai_models/manifest.json#perTierBriefing`                  | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `manifest-pre-generation-contracts`           | `policy`            | `config/ai_models/manifest.json#preGenerationContracts`           | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `manifest-quality-gate-tiers`                 | `policy`            | `config/ai_models/manifest.json#qualityGateTiers`                 | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `manifest-repair-policies`                    | `policy`            | `config/ai_models/manifest.json#repairPolicies`                   | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `naming-dictionary`                           | `policy`            | `config/naming-dictionary.json`                                   | `check:terms:contract`  | `hard`    | `n/a`           | No               |
+| `openclaw-builder-prompt-tips`                | `policy`            | `data/openclaw/builder-prompt-tips.md`                            | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `openclaw-chat-context-policy`                | `policy`            | `src/lib/openclaw/chat-context-policy.ts`                         | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `orchestration-policy-helpers`                | `policy`            | `src/lib/gen/orchestrate/policy-helpers.ts`                       | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `placeholder-harmless`                        | `policy`            | `src/lib/integrations/placeholder-harmless.ts`                    | `test:ci`               | `hard`    | `wired`         | Yes              |
