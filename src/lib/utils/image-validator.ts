@@ -749,6 +749,34 @@ export function applyKnownImageReplacementsToFiles<T extends { content: string }
 // ═══════════════════════════════════════════════════════════════
 
 /**
+ * `next/image` rewrites the rendered src to `/_next/image?url=<encoded>&w=…&q=…`.
+ * The product postcheck reports that browser-resolved value while the source
+ * files still hold the raw remote URL, so an exact-match scope would never hit
+ * on the scaffolds that use `next/image` (ecommerce, portfolio). Unwrap the
+ * `url` parameter so both spellings resolve to the same key.
+ */
+export function unwrapNextImageUrl(value: string): string | null {
+  const markerIndex = value.indexOf("/_next/image");
+  if (markerIndex === -1) return null;
+  const queryIndex = value.indexOf("?", markerIndex);
+  if (queryIndex === -1) return null;
+  const inner = new URLSearchParams(value.slice(queryIndex + 1)).get("url");
+  return inner?.trim() || null;
+}
+
+function buildScopedUrlSet(urls: Iterable<string>): Set<string> {
+  const scoped = new Set<string>();
+  for (const raw of urls) {
+    const value = typeof raw === "string" ? raw.trim() : "";
+    if (!value) continue;
+    scoped.add(value);
+    const unwrapped = unwrapNextImageUrl(value);
+    if (unwrapped) scoped.add(unwrapped);
+  }
+  return scoped;
+}
+
+/**
  * Full image validation: extract → check → replace → apply.
  */
 export async function validateImages(params: {
@@ -757,12 +785,15 @@ export async function validateImages(params: {
   unsplashAccessKey: string | null;
   /** URLs known to be valid (freshly resolved by materializer). Skipped in HEAD checks. */
   skipUrls?: Set<string>;
-  /** When set, only these exact URLs are checked and (optionally) replaced. */
+  /**
+   * When set, only these URLs are checked and (optionally) replaced. Values may
+   * be browser-resolved (`/_next/image?url=…`); both forms are matched.
+   */
   onlyUrls?: Iterable<string>;
 }): Promise<ImageValidationResult> {
   const { files, autoFix, unsplashAccessKey, skipUrls, onlyUrls } = params;
   const warnings: string[] = [];
-  const scopedUrls = onlyUrls ? new Set(onlyUrls) : null;
+  const scopedUrls = onlyUrls ? buildScopedUrlSet(onlyUrls) : null;
 
   const refs = scopedUrls
     ? extractImageRefs(files).filter((ref) => scopedUrls.has(ref.url))

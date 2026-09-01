@@ -312,6 +312,31 @@ describe("validateImages", () => {
       );
     });
 
+    // Produktkontrollen rapporterar `img.currentSrc`, som på next/image-scaffolds
+    // (ecommerce, portfolio) är `/_next/image?url=…` medan filen har rå-URL:en.
+    // Utan uppackning blev den skopade bildfixen en tyst no-op på default-sajterna.
+    it("onlyUrls matchar en browser-upplöst /_next/image-URL mot källfilens rå-URL", async () => {
+      const rawUrl = "https://images.unsplash.com/photo-broken?w=1200";
+      fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
+
+      const result = await validateImages({
+        files: [
+          {
+            name: "app/page.tsx",
+            content: `<Image src="${rawUrl}" alt="Hero" width={1200} height={800} />`,
+          },
+        ],
+        autoFix: false,
+        unsplashAccessKey: null,
+        onlyUrls: [
+          `https://preview.example.com/_next/image?url=${encodeURIComponent(rawUrl)}&w=828&q=75`,
+        ],
+      });
+
+      expect(result.broken).toHaveLength(1);
+      expect(result.broken[0]?.url).toBe(rawUrl);
+    });
+
     it("HEAD 200 → ingen broken (1 fetch-anrop, bara HEAD)", async () => {
       fetchSpy.mockResolvedValue(new Response(null, { status: 200 }));
       const result = await validateImages({

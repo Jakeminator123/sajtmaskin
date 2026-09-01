@@ -1143,16 +1143,25 @@ async function runTier2VerifyLane(params: {
         assistantMessageId,
         onAutoFix,
       });
-    } else if (data.passed && visualQa && !visualQa.passed && onAutoFix) {
-      handleVisualQaAutofix({ chatId, versionId, visualQa, onAutoFix });
-    } else if (data.passed && productPostcheck && !productPostcheck.skipped) {
-      await handlePassedGateProductFollowUp({
-        chatId,
-        versionId,
-        productPostcheck,
-        onAutoFix,
-        signal: abortController?.signal,
-      });
+    } else if (data.passed) {
+      // Trasiga bilder är just det som oftast sänker Visual QA, så en exklusiv
+      // `else if` här stängde av den deterministiska URL-ersättningen i exakt
+      // det läge den behövs mest. Bildfixen körs därför alltid efter gate-pass;
+      // bara LLM-rundan är exklusiv, så turen aldrig får två auto-fix-anrop.
+      const visualQaFailed = Boolean(visualQa && !visualQa.passed);
+      if (productPostcheck && !productPostcheck.skipped) {
+        await handlePassedGateProductFollowUp({
+          chatId,
+          versionId,
+          productPostcheck,
+          onAutoFix,
+          signal: abortController?.signal,
+          allowLlmAutofix: !visualQaFailed,
+        });
+      }
+      if (visualQaFailed && visualQa && onAutoFix && !abortController?.signal.aborted) {
+        handleVisualQaAutofix({ chatId, versionId, visualQa, onAutoFix });
+      }
     }
   } catch (error) {
     if (isAbortError(error)) {
@@ -1332,6 +1341,13 @@ function mapPostcheckWarningToFinding(
   };
 }
 
+/**
+ * Taket för `urls` i `POST /validate-images`. Zod avvisar hela requesten över
+ * taket, och klienten tolkar ett icke-ok svar som "ingen ersättning alls" — en
+ * okapad lista hade alltså tappat även de bilder som ryms.
+ */
+const MAX_SCOPED_IMAGE_URLS = 16;
+
 function collectBrokenImageUrls(
   warnings: ProductPostcheckResult["warnings"],
 ): string[] {
@@ -1341,7 +1357,7 @@ function collectBrokenImageUrls(
     const url = readFindingString(warning.src) ?? readFindingString(warning.href);
     if (url && !urls.includes(url)) urls.push(url);
   }
-  return urls;
+  return urls.slice(0, MAX_SCOPED_IMAGE_URLS);
 }
 
 function collectLiveReviewAutofixFindings(
@@ -1378,9 +1394,22 @@ async function handlePassedGateProductFollowUp(params: {
   productPostcheck: ProductPostcheckResult;
   onAutoFix?: (payload: AutoFixPayload) => void;
   signal?: AbortSignal;
+  /**
+   * `false` när Visual QA redan äger turens LLM-runda. Den deterministiska
+   * bildersättningen körs ändå — den kostar ingen modelltur.
+   */
+  allowLlmAutofix?: boolean;
 }): Promise<void> {
-  const { chatId, versionId, productPostcheck, onAutoFix, signal } = params;
+  const {
+    chatId,
+    versionId,
+    productPostcheck,
+    onAutoFix,
+    signal,
+    allowLlmAutofix = true,
+  } = params;
   const brokenImageUrls = collectBrokenImageUrls(productPostcheck.warnings);
+  const scopedImageUrls = new Set(brokenImageUrls);
   if (brokenImageUrls.length > 0) {
     try {
       await validateImages({
@@ -1402,7 +1431,11 @@ async function handlePassedGateProductFollowUp(params: {
       .filter((warning) => {
         if (!ACTIONABLE_POSTCHECK_CODES.has(warning.code)) return false;
         if (warning.code === "broken_image") {
-          return !readFindingString(warning.src) && !readFindingString(warning.href);
+          const url = readFindingString(warning.src) ?? readFindingString(warning.href);
+          // Bara de URL:er som faktiskt gick till den skopade fixen utesluts.
+          // En bild utan URL — eller en som föll utanför routens tak — måste
+          // fortfarande få en väg framåt i stället för att tappas tyst.
+          return !url || !scopedImageUrls.has(url);
         }
         return true;
       })
@@ -1410,7 +1443,7 @@ async function handlePassedGateProductFollowUp(params: {
     ...collectLiveReviewAutofixFindings(productPostcheck),
   ].slice(0, 8);
 
-  if (!onAutoFix || llmFindings.length === 0) return;
+  if (!allowLlmAutofix || !onAutoFix || llmFindings.length === 0) return;
 
   const liveReview = productPostcheck.liveReview;
   const extraReasons =
