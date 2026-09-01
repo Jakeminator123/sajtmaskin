@@ -20,6 +20,20 @@ describe("portable Python runtime", () => {
     expect(candidates[0]).toEqual({ command: "/repo/.venv/bin/python", args: [] });
   });
 
+  it("resolves the Windows venv path from the requested platform, not the host", () => {
+    const root = "C:\\repo";
+    const candidates = pythonCandidates({
+      root,
+      platform: "win32",
+      forced: "",
+      pathExists: (path) => path === managedVenvPython(root, "win32"),
+    });
+    expect(candidates[0]).toEqual({
+      command: "C:\\repo\\.venv\\Scripts\\python.exe",
+      args: [],
+    });
+  });
+
   it("honors an explicit interpreter without falling through", () => {
     expect(
       pythonCandidates({ root: "/repo", platform: "win32", forced: "C:\\Python\\python.exe" }),

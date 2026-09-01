@@ -1,11 +1,12 @@
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { posix, win32 } from "node:path";
 import { spawnSync } from "node:child_process";
 
 export function managedVenvPython(root, platform = process.platform) {
+  const pathApi = platform === "win32" ? win32 : posix;
   return platform === "win32"
-    ? resolve(root, ".venv", "Scripts", "python.exe")
-    : resolve(root, ".venv", "bin", "python");
+    ? pathApi.resolve(root, ".venv", "Scripts", "python.exe")
+    : pathApi.resolve(root, ".venv", "bin", "python");
 }
 
 export function systemPythonCandidates(platform = process.platform) {
