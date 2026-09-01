@@ -63,14 +63,14 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "7c2248404",
+    "commit": "8cbba9057",
     "commitDate": "2026-09-01",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 2,
+    "openP1": 3,
     "openP2": 4,
     "openP3": 1,
     "blocked": 0,
@@ -91,9 +91,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 11,
+      "churn": 10,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
-      "note": "Aktiv: 11 commits / 14d"
+      "note": "Aktiv: 10 commits / 14d"
     },
     {
       "name": "Codegen core",
@@ -176,26 +176,26 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 30,
+      "churn": 29,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 30 commits / 14d"
+      "note": "Aktiv: 29 commits / 14d"
     },
     {
       "name": "Preview och versioner",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 3,
+      "openBugs": 4,
       "openByPrio": {
         "P0": 0,
-        "P1": 2,
+        "P1": 3,
         "P2": 1,
         "P3": 0,
         "other": 0
       },
       "churn": 8,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "3 oppna backlog-rader (P0:0 P1:2 P2:1 P3:0)"
+      "note": "4 oppna backlog-rader (P0:0 P1:3 P2:1 P3:0)"
     },
     {
       "name": "Eval",
@@ -220,7 +220,7 @@ const DATA: CanvasData = {
       "name": "Preview och versioner",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "3 oppna backlog-rader (P0:0 P1:2 P2:1 P3:0)"
+      "reason": "4 oppna backlog-rader (P0:0 P1:3 P2:1 P3:0)"
     },
     {
       "name": "ai_models",
@@ -245,6 +245,11 @@ const DATA: CanvasData = {
       "prio": "P1",
       "blocker": false,
       "fynd": "`SM-073` Preview-hostens injicerade inspector-bridge saknar identitetsstämpel (`versionId`/`previewSessionId`…"
+    },
+    {
+      "prio": "P1",
+      "blocker": false,
+      "fynd": "`SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt: #1220-självläkningen gör exakt …"
     },
     {
       "prio": "P2",
