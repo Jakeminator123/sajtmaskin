@@ -281,6 +281,7 @@ describe("POST product-postcheck", () => {
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
       chatId: "chat_1",
       versionId: "v1",
+      timeoutMs: 280_000,
       captureEnabled: false,
       captureUserId: "user_1",
       filesRevision: "rev_n",
