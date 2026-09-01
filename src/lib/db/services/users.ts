@@ -136,20 +136,21 @@ function getAdminEmails(): string[] {
     .filter(Boolean);
 }
 
+function getPrivilegedEnvEmails(): string[] {
+  return [SECRETS.testUserEmail, SECRETS.superadminEmail]
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export function isTestUser(user: User | null | undefined): boolean {
   if (!user?.email) return false;
-  const email = user.email.toLowerCase();
-  if (getAdminEmails().includes(email)) return true;
-  return email === SECRETS.testUserEmail || email === SECRETS.superadminEmail;
+  return isAdminEmail(user.email);
 }
 
 export function isAdminEmail(email: string): boolean {
-  const lower = email.toLowerCase();
-  return (
-    getAdminEmails().includes(lower) ||
-    lower === SECRETS.testUserEmail ||
-    lower === SECRETS.superadminEmail
-  );
+  const lower = email.trim().toLowerCase();
+  if (!lower) return false;
+  return getAdminEmails().includes(lower) || getPrivilegedEnvEmails().includes(lower);
 }
 
 // --- Email verification ---
