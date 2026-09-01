@@ -26,8 +26,9 @@ för investigator/reviewer och Sol `high` för worker.
 
 - Cursor: File → Open Folder på `C:\Users\jakob\dev\projects\sajtmaskin`.
   `C:\Users\jakob\dev\projects\sajtmaskin` är läs-, test- och kontrollankare
-  på `master`. Normalt skrivarbete sker i uppgiftens egen worktree/branch enligt
-  `pr-workflow`, aldrig direkt i huvudcheckouten.
+  på `master`. `sandbox_mode = "workspace-write"` gäller den öppnade mappen —
+  öppna worktreet, inte huvudcheckouten, när Codex ska skriva. Normalt
+  skrivarbete sker i uppgiftens egen worktree/branch enligt `pr-workflow`.
 - Primary folder i det sparade lokala Codex-projektet `sajtmaskin` är samma
   repo-root: `C:\Users\jakob\dev\projects\sajtmaskin`. Registreringen gör inte
   huvudcheckouten till en skrivyta.

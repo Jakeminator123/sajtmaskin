@@ -151,6 +151,12 @@ describe("classifyWorktree", () => {
     );
   });
 
+  it("håller en sajtmaskin.protectedWorktree som behåll även när den annars vore FRI", () => {
+    const protectedWt = classifyWorktree({ ...free, isProtected: true });
+    expect(protectedWt.verdict).toBe("keep");
+    expect(protectedWt.reason).toContain("protectedWorktree");
+  });
+
   it("behåller en detached worktree som inte är mergad", () => {
     expect(classifyWorktree({ ...free, branch: null, mergedIntoBase: false }).verdict).toBe("keep");
   });

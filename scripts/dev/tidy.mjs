@@ -194,8 +194,10 @@ export function classifyWorktree({
   mergedIntoBase,
   mergedByExactPr = false,
   isMain,
+  isProtected = false,
 }) {
   if (isMain) return { verdict: "keep", reason: "huvudcheckouten — delas med ägaren" };
+  if (isProtected) return { verdict: "keep", reason: "sajtmaskin.protectedWorktree" };
   if (branch && isProtectedBranch(branch)) return { verdict: "keep", reason: "skyddat branchnamn" };
   if (hasOpenPr) return { verdict: "keep", reason: "branchen har en ÖPPEN PR — någon arbetar" };
   if (isDirty) return { verdict: "keep", reason: "ocommitterat eller ospårat innehåll" };
@@ -436,6 +438,13 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
   // Rapport, aldrig radering. Katalogen tas bort med `npm run worktree:remove`,
   // som kopplar loss junctions först. Poängen här är att säga VILKA som är fria.
   const worktrees = parsePorcelainWorktrees(wtLines);
+  const protectedWorktreePaths = new Set(
+    (git(["config", "--get-all", "sajtmaskin.protectedWorktree"], root, { allowFail: true }) ?? "")
+      .split(/\r?\n/u)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => path.resolve(entry)),
+  );
   // Ett enda gh-anrop återanvänds av branch-, worktree- och remote-klassningen.
   const openPrBranches = lifecycle?.openHeads ?? null;
   if (worktrees.length > 1) {
@@ -456,6 +465,7 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
         mergedIntoBase: merged,
         mergedByExactPr: isExactMergedPr(lifecycle, wt.branch, branchHead),
         isMain: false,
+        isProtected: protectedWorktreePaths.has(path.resolve(wt.path)),
       });
       const label = verdict === "free" ? "FRI" : "behåll";
       log(`[tidy] worktree ${label}: ${wt.path} [${wt.branch ?? "detached"}] — ${reason}`);
