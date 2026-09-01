@@ -38,7 +38,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 15;
+export const HOOK_VERSION = 16;
 
 /** @typedef {"pre-push" | "post-merge" | "post-checkout" | "post-rewrite"} HookName */
 /** @type {readonly HookName[]} */
@@ -101,6 +101,10 @@ if [ "\${#CHECKOUT_SHA}" -ne 40 ]; then
   exit 1
 fi
 
+# Git ger hooken remote-namnet som $1 och URL:en som $2. Namnet avgor vilken
+# remote-tracking-yta som far rakna som "redan publicerat" langre ner.
+PUSH_REMOTE=\${1:-}
+
 require_current_head() {
   pushed_sha="$1"
   if [ "$pushed_sha" != "$CHECKOUT_SHA" ]; then
@@ -110,15 +114,41 @@ require_current_head() {
   fi
 }
 
+# En annoterad tagg bar ett eget tagg-objekt, och git skickar DESS sha som
+# local_sha. Ett tagg-objekt kan per definition aldrig vara lika med en
+# commit-sha, sa utan peeling var varje annoterad tagg omojlig att pusha
+# harifran. Lattviktiga taggar och grenar peelar till sig sjalva.
+peel_to_commit() {
+  git rev-parse --verify --quiet "$1^{commit}" 2>/dev/null
+}
+
+# Ar commiten redan hamtad fran samma remote? Da laddar pushen inte upp nagon ny
+# kod, och det finns ingenting for verify:pr --plan att planera: refen ar bara en
+# etikett pa nagot som redan ar granskat (snapshot-tagg, ny fryst backup). Okand
+# remote ger ingen traff och faller darmed tillbaka pa HEAD-kravet.
+already_on_push_remote() {
+  [ -n "$PUSH_REMOTE" ] || return 1
+  [ -n "$(git for-each-ref --contains "$1" --count=1 --format='%(refname)' "refs/remotes/$PUSH_REMOTE/" 2>/dev/null)" ]
+}
+
 verify_needed=0
 while read -r local_ref local_sha remote_ref remote_sha; do
-  # Agarnas frysta aterstallningspunkter ar write-once. Alla remote-operationer
-  # nekas: delete, fast-forward, force-push och namnatervinning. Det finns ingen
-  # generell break-glass for dessa refs.
+  # Agarnas frysta aterstallningspunkter ar write-once, inte create-once: att
+  # SKAPA en ny backup ar hela poangen med dem, medan varje andring eller
+  # radering av en befintlig ar det som aldrig far ske. GitHub-rulesetet
+  # "Protect BRA backups" drar exakt den gransen (deletion + non_fast_forward).
+  # Hooken sa tidigare nej aven till creation, sa agaren kunde inte ta en
+  # snapshot med git push. Det finns fortfarande ingen break-glass har.
   case "$remote_ref" in
     refs/heads/*BRA*|refs/heads/rescue/*)
-      echo "[hooks] Push stoppad: \${remote_ref} ar en fryst backup och far inte andras." >&2
-      exit 1
+      if [ "$local_sha" = "$ZERO_SHA" ]; then
+        echo "[hooks] Push stoppad: \${remote_ref} ar en fryst backup och far aldrig raderas." >&2
+        exit 1
+      fi
+      if [ "$remote_sha" != "$ZERO_SHA" ]; then
+        echo "[hooks] Push stoppad: \${remote_ref} ar en fryst backup och far aldrig andras." >&2
+        exit 1
+      fi
       ;;
   esac
 
@@ -152,10 +182,17 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     fi
     continue
   fi
-  require_current_head "$local_sha"
-  verify_needed=1
+  pushed_commit=$(peel_to_commit "$local_sha")
+  if [ -z "$pushed_commit" ]; then
+    echo "[hooks] Push stoppad: kunde inte lasa commiten bakom \${local_ref}." >&2
+    exit 1
+  fi
+  if ! already_on_push_remote "$pushed_commit"; then
+    require_current_head "$pushed_commit"
+    verify_needed=1
+  fi
   if [ "$remote_sha" = "$ZERO_SHA" ]; then continue; fi
-  if git merge-base --is-ancestor "$remote_sha" "$local_sha" >/dev/null 2>&1; then continue; fi
+  if git merge-base --is-ancestor "$remote_sha" "$pushed_commit" >/dev/null 2>&1; then continue; fi
 
   reason=\${SAJTMASKIN_BREAK_GLASS_REASON:-}
   if [ "$SAJTMASKIN_BREAK_GLASS" != "1" ] || [ "\${#reason}" -lt 12 ]; then

@@ -57,6 +57,9 @@ type HookSpawnOptions = {
   env: NodeJS.ProcessEnv;
   encoding: BufferEncoding;
   testBin?: string;
+  // Git anropar pre-push med remote-namn och URL. Namnet styr vilken
+  // remote-tracking-yta hooken räknar som redan publicerad.
+  remote?: string;
 };
 
 function runHookSync(
@@ -65,13 +68,13 @@ function runHookSync(
   timeoutMs = POSIX_HOOK_CHILD_TIMEOUT_MS,
 ) {
   if (!posixShell) throw new Error("POSIX shell saknas");
-  const { testBin = "", ...spawnOptions } = options;
+  const { testBin = "", remote = "", ...spawnOptions } = options;
   const wrapper =
     'hook="$1"; test_bin="$2"; ' +
     'if command -v cygpath >/dev/null 2>&1; then hook=$(cygpath -u "$hook"); test_bin=$(cygpath -u "$test_bin"); fi; ' +
     'if [ -n "$test_bin" ]; then PATH="$test_bin:$PATH"; export PATH; fi; ' +
-    'exec sh "$hook"';
-  const result = spawnSync(posixShell, ["-c", wrapper, "hook-test", hook, testBin], {
+    'exec sh "$hook" "$3" "https://example.invalid/repo.git"';
+  const result = spawnSync(posixShell, ["-c", wrapper, "hook-test", hook, testBin, remote], {
     ...spawnOptions,
     timeout: timeoutMs,
   });
@@ -81,6 +84,22 @@ function runHookSync(
   }
   return result;
 }
+
+// Stubbat git. `rev-parse --verify --quiet <rev>^{commit}` peelar: ett
+// tagg-objekt (HOOK_GIT_TAG_OBJECT) svarar med sin commit, allt annat med sig
+// självt. `for-each-ref` avgör om commiten redan finns på push-remoten.
+const FAKE_GIT = [
+  "#!/bin/sh",
+  'if [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then printf "%s\\n" "$HOOK_GIT_HEAD"; exit 0; fi',
+  'if [ "$1" = "rev-parse" ] && [ "$2" = "--show-toplevel" ]; then printf "%s\\n" "$HOOK_GIT_TOPLEVEL"; exit 0; fi',
+  'if [ "$1" = "rev-parse" ] && [ "$2" = "--local-env-vars" ]; then printf "GIT_ALTERNATE_OBJECT_DIRECTORIES\\nGIT_CONFIG\\nGIT_CONFIG_PARAMETERS\\nGIT_CONFIG_COUNT\\nGIT_OBJECT_DIRECTORY\\nGIT_DIR\\nGIT_WORK_TREE\\nGIT_IMPLICIT_WORK_TREE\\nGIT_GRAFT_FILE\\nGIT_INDEX_FILE\\nGIT_NO_REPLACE_OBJECTS\\nGIT_REPLACE_REF_BASE\\nGIT_PREFIX\\nGIT_SHALLOW_FILE\\nGIT_COMMON_DIR\\n"; exit 0; fi',
+  'if [ "$1" = "rev-parse" ] && [ "$2" = "--verify" ]; then rev=${4%%^*}; if [ -n "$HOOK_GIT_TAG_OBJECT" ] && [ "$rev" = "$HOOK_GIT_TAG_OBJECT" ]; then printf "%s\\n" "$HOOK_GIT_TAG_COMMIT"; else printf "%s\\n" "$rev"; fi; exit 0; fi',
+  'if [ "$1" = "for-each-ref" ]; then [ "$HOOK_GIT_PUBLISHED" = "1" ] && printf "refs/remotes/origin/master\\n"; exit 0; fi',
+  'if [ "$1" = "status" ]; then [ "$HOOK_GIT_DIRTY" = "1" ] && printf " M src/example.ts\\n"; exit 0; fi',
+  '[ "$HOOK_GIT_ANCESTOR" = "1" ] && exit 0',
+  "exit 1",
+  "",
+].join("\n");
 
 // Skyddar dev/prod-symmetrin: prod migreras av CI vid push till master, dev av
 // dessa hooks när master dras hem. Går de sönder tyst är vi tillbaka i "kör mot
@@ -93,7 +112,7 @@ describe("renderHookScript", () => {
   });
 
   it("bär markören så en senare installation känner igen sin egen fil", () => {
-    expect(HOOK_VERSION).toBe(15);
+    expect(HOOK_VERSION).toBe(16);
     expect(MANAGED_HOOKS).toContain("pre-push");
     for (const hook of MANAGED_HOOKS) {
       expect(renderHookScript(hook)).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
@@ -224,10 +243,7 @@ describe("renderHookScript", () => {
       mkdirSync(join(root, "scripts", "dev"), { recursive: true });
       mkdirSync(bin);
       writeFileSync(join(root, "scripts", "dev", "install-git-hooks.mjs"), "marker\n");
-      writeFileSync(
-        join(bin, "git"),
-        '#!/bin/sh\nif [ "$1" = "rev-parse" ] && [ "$2" = "HEAD" ]; then printf "%s\\n" "$HOOK_GIT_HEAD"; exit 0; fi\nif [ "$1" = "rev-parse" ] && [ "$2" = "--show-toplevel" ]; then printf "%s\\n" "$HOOK_GIT_TOPLEVEL"; exit 0; fi\nif [ "$1" = "rev-parse" ] && [ "$2" = "--local-env-vars" ]; then printf "GIT_ALTERNATE_OBJECT_DIRECTORIES\\nGIT_CONFIG\\nGIT_CONFIG_PARAMETERS\\nGIT_CONFIG_COUNT\\nGIT_OBJECT_DIRECTORY\\nGIT_DIR\\nGIT_WORK_TREE\\nGIT_IMPLICIT_WORK_TREE\\nGIT_GRAFT_FILE\\nGIT_INDEX_FILE\\nGIT_NO_REPLACE_OBJECTS\\nGIT_REPLACE_REF_BASE\\nGIT_PREFIX\\nGIT_SHALLOW_FILE\\nGIT_COMMON_DIR\\n"; exit 0; fi\nif [ "$1" = "status" ]; then [ "$HOOK_GIT_DIRTY" = "1" ] && printf " M src/example.ts\\n"; exit 0; fi\n[ "$HOOK_GIT_ANCESTOR" = "1" ] && exit 0\nexit 1\n',
-      );
+      writeFileSync(join(bin, "git"), FAKE_GIT);
       writeFileSync(
         join(bin, "npm"),
         '#!/bin/sh\n[ -z "${GIT_DIR:-}" ] && [ -z "${GIT_WORK_TREE:-}" ] && [ -z "${GIT_CONFIG_PARAMETERS:-}" ] && [ -z "${GIT_REPLACE_REF_BASE:-}" ] && [ -z "${GIT_SHALLOW_FILE:-}" ] && [ -z "${GIT_NAMESPACE:-}" ] && [ -z "${GIT_INTERNAL_SUPER_PREFIX:-}" ] && [ "$GIT_CONFIG_COUNT" = "1" ] && [ "$GIT_CONFIG_KEY_0" = "safe.directory" ] && [ "$GIT_CONFIG_VALUE_0" = "$HOOK_GIT_TOPLEVEL" ]\n',
@@ -330,17 +346,31 @@ describe("renderHookScript", () => {
         testBin: bin,
       });
       expect(frozenBackupDelete.status).toBe(1);
-      expect(frozenBackupDelete.stderr).toContain("fryst backup");
+      expect(frozenBackupDelete.stderr).toContain("far aldrig raderas");
 
+      // Fast-forward av en BEFINTLIG backup är fortfarande stängt: att den råkar
+      // vara en ren framåtflytt gör den inte till en snapshot igen.
       const frozenRescueUpdate = runHookSync(hook, {
         cwd: root,
-        input: `refs/heads/rescue/owner ${"a".repeat(40)} refs/heads/rescue/owner ${"0".repeat(40)}\n`,
+        input: `refs/heads/rescue/owner ${"a".repeat(40)} refs/heads/rescue/owner ${"b".repeat(40)}\n`,
         env: { ...env, HOOK_GIT_ANCESTOR: "1" },
         encoding: "utf8",
         testBin: bin,
       });
       expect(frozenRescueUpdate.status).toBe(1);
-      expect(frozenRescueUpdate.stderr).toContain("fryst backup");
+      expect(frozenRescueUpdate.stderr).toContain("far aldrig andras");
+
+      // Att SKAPA en ny fryst backup är hela poängen med namnen, och
+      // GitHub-rulesetet tillåter exakt det. Hooken sa förr nej även här, så
+      // ägaren kunde inte ta en snapshot med git push.
+      const frozenBackupCreate = runHookSync(hook, {
+        cwd: root,
+        input: `refs/heads/BRA_snapshot ${"a".repeat(40)} refs/heads/BRA_snapshot ${"0".repeat(40)}\n`,
+        env: { ...env, HOOK_GIT_ANCESTOR: "1" },
+        encoding: "utf8",
+        testBin: bin,
+      });
+      expect(frozenBackupCreate.status).toBe(0);
 
       const ghaStillRejectsUnsafeRef = runHookSync(hook, {
         cwd: root,
@@ -413,6 +443,84 @@ describe("renderHookScript", () => {
         testBin: bin,
       });
       expect(accepted.status).toBe(0);
+    },
+    POSIX_HOOK_TEST_TIMEOUT_MS,
+  );
+
+  // Annoterade taggar var omöjliga att pusha härifrån: git skickar
+  // TAGG-objektets sha, hooken jämförde det rakt mot HEAD:s commit-sha, och de
+  // två kan aldrig vara lika. En snapshot-tagg av master fastnade alltså i den
+  // egna grinden.
+  itWithPosixShell(
+    "pre-push peelar annoterade taggar och hoppar över planen för publicerade commits",
+    () => {
+      const root = mkdtempSync(join(tmpdir(), "sajtmaskin-pre-push-tag-"));
+      const bin = join(root, "bin");
+      mkdirSync(join(root, "scripts", "dev"), { recursive: true });
+      mkdirSync(bin);
+      writeFileSync(join(root, "scripts", "dev", "install-git-hooks.mjs"), "marker\n");
+      writeFileSync(join(bin, "git"), FAKE_GIT);
+      // En röd plan gör skillnaden synlig: en ren etikett ska inte ens starta
+      // verify:pr, medan ny kod fortfarande måste passera den.
+      writeFileSync(join(bin, "npm"), "#!/bin/sh\nexit 97\n");
+      chmodSync(join(bin, "git"), 0o755);
+      chmodSync(join(bin, "npm"), 0o755);
+      const hook = join(root, "pre-push");
+      writeFileSync(hook, renderHookScript("pre-push"));
+      chmodSync(hook, 0o755);
+
+      const head = "a".repeat(40);
+      const tagObject = "d".repeat(40);
+      const zero = "0".repeat(40);
+      const baseEnv = {
+        ...process.env,
+        PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
+        HOOK_GIT_HEAD: head,
+        HOOK_GIT_TOPLEVEL: root,
+        HOOK_GIT_TAG_OBJECT: tagObject,
+        // Testet får aldrig bli grönt av att det råkar köra i CI.
+        CI: "false",
+        GITHUB_ACTIONS: "false",
+      };
+      const tagLine = `refs/tags/snapshot ${tagObject} refs/tags/snapshot ${zero}\n`;
+
+      const publishedTag = runHookSync(hook, {
+        cwd: root,
+        input: tagLine,
+        env: { ...baseEnv, HOOK_GIT_TAG_COMMIT: head, HOOK_GIT_PUBLISHED: "1" },
+        encoding: "utf8",
+        testBin: bin,
+        remote: "origin",
+      });
+      expect(publishedTag.status).toBe(0);
+      expect(publishedTag.stdout).not.toContain("verify:pr");
+
+      // Samma tagg utan publicerad commit laddar upp ny kod och måste planeras.
+      const unpublishedTag = runHookSync(hook, {
+        cwd: root,
+        input: tagLine,
+        env: { ...baseEnv, HOOK_GIT_TAG_COMMIT: head },
+        encoding: "utf8",
+        testBin: bin,
+        remote: "origin",
+      });
+      expect(unpublishedTag.status).toBe(97);
+
+      // Felmeddelandet ska peka ut commiten, inte tagg-objektet, annars går det
+      // inte att förstå vad som ska checkas ut.
+      const foreignCommit = "c".repeat(40);
+      const strayTag = runHookSync(hook, {
+        cwd: root,
+        input: tagLine,
+        env: { ...baseEnv, HOOK_GIT_TAG_COMMIT: foreignCommit },
+        encoding: "utf8",
+        testBin: bin,
+        remote: "origin",
+      });
+      expect(strayTag.status).toBe(1);
+      expect(strayTag.stderr).toContain("inte utcheckad HEAD");
+      expect(strayTag.stderr).toContain(foreignCommit);
+      expect(strayTag.stderr).not.toContain(tagObject);
     },
     POSIX_HOOK_TEST_TIMEOUT_MS,
   );

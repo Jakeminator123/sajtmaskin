@@ -41,6 +41,11 @@ backup.
 Ändrar du villkoret på ett ställe: ändra båda, annars börjar verktyget och regeln
 säga olika saker.
 
+Gränsen är write-once, inte create-once: att **skapa** en ny backup är poängen
+med namnen, medan varje ändring eller radering av en befintlig är stängd. Både
+pre-push-hooken i `scripts/dev/install-git-hooks.mjs` och GitHub-rulesetet
+**Protect BRA backups** (`deletion` + `non_fast_forward`) drar den gränsen.
+
 GitHub-rulesetet **Protect BRA backups** blockerar radering och non-fast-forward
 på `BRA_*`, `*BRA*` och `rescue/*` (ingen admin-bypass). Syskonet **Protect
 JAKOB_BRA_9999_INNNAN_MVP_BRA** täcker den namngivna branchen extra. Ändra inte
