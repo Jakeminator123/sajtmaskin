@@ -172,9 +172,11 @@ jobs:
           REQUIRE_POSTGRES_TESTS: "1"
         run: npm run test:postgres
 
-      # Deterministic stability contracts: follow-up freeze/capability floors,
-      # false-green projection, and the status-resolver single-writer guard.
-      # Hard-gate only this explicit subset; the broad stability lane stays warn-only.
+      # Deterministic stability contracts (C2): every current `*.stability.test.*`
+      # file is hermetic (no network/DB/wall-clock). Hard-gate them here so a
+      # regression reddens the required `quality` check. The broad `stability`
+      # job stays `continue-on-error` for the glossary check and future flaky
+      # additions that must be classified before they can block.
       - name: Deterministic stability contracts (blocking)
         # Run even if test:ci failed so a contract regression is never masked/skipped.
         if: ${{ !cancelled() }}
@@ -444,8 +446,9 @@ jobs:
   # Blockerande schema-drift-gate (grandmaster S4). Deterministisk, nyckelfri och billig:
   # låser att avsett schema (src/lib/db/schema.ts) == applicerat (db-init.mjs /
   # add-performance-indexes.mjs / migrations/*.sql). Kräver inga DB-creds. På full profil
-  # finns ingen continue-on-error → ett rött resultat blockerar push/PR/merge. Den bredare
-  # vitest-stabilitets-lanen nedan förblir warn-only (kan vara flaky).
+  # finns ingen continue-on-error → ett rött resultat blockerar push/PR/merge.
+  # Deterministiska `*.stability.test.*` blockerar via quality-core ovan; jobbet
+  # `stability` nedan förblir warn-only.
   schema-drift:
     needs: scope
     if: ${{ !cancelled() }}
