@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import {
   createOAuthFlow,
+  oauthOriginNotAllowedResponse,
+  resolveAllowedOAuthStartOrigin,
   sanitizeOAuthReturnTo,
   setOAuthFlowCookie,
 } from "@/lib/auth/oauth-state";
@@ -28,9 +30,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(errorUrl);
   }
 
+  const origin = resolveAllowedOAuthStartOrigin(request);
+  if (!origin) {
+    return oauthOriginNotAllowedResponse();
+  }
+
   const returnTo = sanitizeOAuthReturnTo(
     request.nextUrl.searchParams.get("returnTo"),
-    request.nextUrl.origin,
+    origin,
     "/projects",
   );
   const flow = createOAuthFlow("github", request, {

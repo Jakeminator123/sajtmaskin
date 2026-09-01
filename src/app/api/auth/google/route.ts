@@ -7,15 +7,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getGoogleAuthUrl } from "@/lib/auth/auth";
 import {
   createOAuthFlow,
+  isOAuthOriginNotAllowedError,
+  oauthOriginNotAllowedResponse,
+  resolveAllowedOAuthStartOrigin,
   sanitizeOAuthReturnTo,
   setOAuthFlowCookie,
 } from "@/lib/auth/oauth-state";
 
 export async function GET(req: NextRequest) {
   try {
+    const origin = resolveAllowedOAuthStartOrigin(req);
+    if (!origin) {
+      return oauthOriginNotAllowedResponse();
+    }
+
     const redirect = sanitizeOAuthReturnTo(
       req.nextUrl.searchParams.get("redirect"),
-      req.nextUrl.origin,
+      origin,
       "/",
     );
     const flow = createOAuthFlow("google", req, { returnTo: redirect });
@@ -24,7 +32,7 @@ export async function GET(req: NextRequest) {
     // on the initiating origin also keeps the host-only state cookie available.
     const callbackUrl = new URL(
       "/api/auth/google/callback",
-      req.nextUrl.origin,
+      origin,
     ).toString();
     const authUrl = getGoogleAuthUrl(
       flow.state,
@@ -36,6 +44,9 @@ export async function GET(req: NextRequest) {
     setOAuthFlowCookie(response, "google", flow, req);
     return response;
   } catch (error) {
+    if (isOAuthOriginNotAllowedError(error)) {
+      return oauthOriginNotAllowedResponse();
+    }
     console.error("[API/auth/google] Error:", error);
     const errorMessage = encodeURIComponent(
       "Google-inloggning är inte konfigurerad",

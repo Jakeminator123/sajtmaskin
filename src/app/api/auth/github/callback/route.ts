@@ -4,6 +4,7 @@ import {
   clearOAuthFlowCookie,
   parseOAuthState,
   relayOAuthCallbackIfNeeded,
+  shouldConsumeOAuthCookie,
   verifyOAuthFlow,
 } from "@/lib/auth/oauth-state";
 import { FEATURES, SECRETS, URLS } from "@/lib/config";
@@ -34,22 +35,29 @@ function redirectWithGitHubError(
   return NextResponse.redirect(errorUrl);
 }
 
-function finishOAuthResponse(
-  response: NextResponse,
-  request: NextRequest,
-): NextResponse {
-  clearOAuthFlowCookie(response, "github", request);
+function withOAuthSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("Referrer-Policy", "no-referrer");
   return response;
+}
+
+function finishOAuthResponse(
+  response: NextResponse,
+  request: NextRequest,
+  consumeCookie: boolean,
+): NextResponse {
+  if (consumeCookie) {
+    clearOAuthFlowCookie(response, "github", request);
+  }
+  return withOAuthSecurityHeaders(response);
 }
 
 /**
  * GitHub OAuth - Callback Handler
  *
  * The configured callback may be canonical while the flow began on another
- * first-party app origin. A valid signed state is relayed to that start origin
- * before its host-only auth/state cookies are consumed.
+ * first-party app origin. A valid signed state is relayed only to an
+ * allowlisted start origin before its host-only auth/state cookies are consumed.
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -60,6 +68,14 @@ export async function GET(request: NextRequest) {
   const parsed = parseOAuthState("github", state);
   if (!parsed.ok) {
     console.warn("[GitHub OAuth] Rejected OAuth state:", parsed.reason);
+    if (parsed.reason === "state_origin_not_allowed") {
+      return withOAuthSecurityHeaders(
+        NextResponse.json(
+          { success: false, error: "Otillåten origin för OAuth" },
+          { status: 400 },
+        ),
+      );
+    }
     return finishOAuthResponse(
       redirectWithGitHubError(
         request.nextUrl.origin,
@@ -67,6 +83,7 @@ export async function GET(request: NextRequest) {
         "invalid_state",
       ),
       request,
+      false,
     );
   }
 
@@ -76,6 +93,16 @@ export async function GET(request: NextRequest) {
   const flow = verifyOAuthFlow("github", request, state);
   if (!flow.ok) {
     console.warn("[GitHub OAuth] Rejected OAuth flow:", flow.reason);
+    if (flow.reason === "state_origin_not_allowed") {
+      return finishOAuthResponse(
+        NextResponse.json(
+          { success: false, error: "Otillåten origin för OAuth" },
+          { status: 400 },
+        ),
+        request,
+        false,
+      );
+    }
     return finishOAuthResponse(
       redirectWithGitHubError(
         parsed.payload.origin,
@@ -83,6 +110,7 @@ export async function GET(request: NextRequest) {
         "invalid_state",
       ),
       request,
+      shouldConsumeOAuthCookie(flow),
     );
   }
 
@@ -94,6 +122,7 @@ export async function GET(request: NextRequest) {
     return finishOAuthResponse(
       redirectWithGitHubError(origin, returnTo, providerError),
       request,
+      true,
     );
   }
 
@@ -102,6 +131,7 @@ export async function GET(request: NextRequest) {
     return finishOAuthResponse(
       redirectWithGitHubError(origin, returnTo, "no_code"),
       request,
+      true,
     );
   }
 
@@ -110,6 +140,7 @@ export async function GET(request: NextRequest) {
     return finishOAuthResponse(
       redirectWithGitHubError(origin, returnTo, "not_configured"),
       request,
+      true,
     );
   }
 
@@ -119,6 +150,7 @@ export async function GET(request: NextRequest) {
     return finishOAuthResponse(
       redirectWithGitHubError(origin, "/", "session_changed"),
       request,
+      true,
     );
   }
 
@@ -154,6 +186,7 @@ export async function GET(request: NextRequest) {
           tokenData.error ?? "token_exchange_failed",
         ),
         request,
+        true,
       );
     }
 
@@ -169,6 +202,7 @@ export async function GET(request: NextRequest) {
       return finishOAuthResponse(
         redirectWithGitHubError(origin, returnTo, "user_fetch_failed"),
         request,
+        true,
       );
     }
 
@@ -186,12 +220,14 @@ export async function GET(request: NextRequest) {
     return finishOAuthResponse(
       NextResponse.redirect(successUrl),
       request,
+      true,
     );
   } catch (error) {
     console.error("[GitHub OAuth] Error:", error);
     return finishOAuthResponse(
       redirectWithGitHubError(origin, returnTo, "unknown"),
       request,
+      true,
     );
   }
 }
