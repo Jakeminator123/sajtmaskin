@@ -37,4 +37,13 @@ describe("dossier acceptance workflow contract", () => {
     );
     expect(workflow).toContain("  cancel-in-progress: true");
   });
+
+  it("keeps intentionally-red freshness evidence out of pull-request runs", () => {
+    const start = workflow.indexOf("  verification-evidence:");
+    const end = workflow.indexOf("  dependency-registry:", start);
+
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    expect(workflow.slice(start, end)).toContain("    if: github.event_name != 'pull_request'");
+  });
 });
