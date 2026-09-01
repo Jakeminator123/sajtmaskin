@@ -3,21 +3,25 @@
 Den här sidan finns så att ingen ska behöva _minnas_ städrutinerna. Det mesta är
 redan automatiserat i CI; du behöver i praktiken bara en knapp.
 
-## TL;DR — en knapp väljs åt dig före varje PR
+## TL;DR — plan lokalt, full kontroll i PR:n
 
 ```bash
 npm run verify:pr -- --plan  # visar följdytor och kommandon
-npm run verify:pr            # kör hela diffens valda kontrollprofil
+# kör relevanta riktade kontroller för ytan
 ```
 
-- **Grönt** = diffens runtime, dokumentation och följdytor har klarat sin profil.
-- **Rött** = kommandot skriver ut _exakt_ vad som är fel. Åtgärda det, kör igen.
+- **Grön plan** = diffen kunde klassificeras; det är inte ett testresultat.
+- **Gröna riktade kontroller** = snabb lokal återkoppling på ändringen.
+- **Gröna required GitHub-checks** = hela blockerande PR-profilen är klar för
+  aktuell head-SHA.
 
 Du behöver inte välja checklista ur minnet. `verify:pr` läser
 [`config/agent-workflow.json`](../../config/agent-workflow.json), control-plane-
-registren och Backoffice-kartan. Protected diff inkluderar full `hygiene`;
-smalare diff kör bara relevanta kontroller. Det kompletta agent→PR-flödet finns
-i [`agent-workflow.md`](agent-workflow.md).
+registren och Backoffice-kartan. Protected diff får full profil i GitHub
+Actions; lokalt väljer du relevanta kommandon från planen. Bare
+`npm run verify:pr` är till för felsökning/reproduktion, inte en generell
+push-grind. Det kompletta agent→PR-flödet finns i
+[`agent-workflow.md`](agent-workflow.md).
 
 ## Vad `npm run hygiene` kontrollerar
 

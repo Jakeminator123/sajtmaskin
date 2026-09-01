@@ -25,13 +25,14 @@ EmaCodeHero har base `ema` och kräver ägarens beslut.
 
 ## Författaren efter varje head-SHA
 
-1. Kör `npm run verify:pr` och oberoende readonly Sol-review enligt
-   `subagent-models.mdc`; protected paths kräver alltid ett färskt pass.
-2. Skapa/uppdatera PR:n först när aktuell diff är pushad. Arbete kvar = draft.
+1. Pusha aktuell diff och skapa/uppdatera PR:n. Arbete kvar = draft.
+2. Kräv gröna required GitHub-checks på head-SHA och färsk readonly Sol-review
+   enligt `subagent-models.mdc`; protected kräver färskt pass.
 3. Läs alla botytor, inte bara checks: inline comments, reviews, PR-kommentarer,
    check-run summary/text och annotations.
 4. Triagera varje konkret fynd: **fixat**, **loggat** i rätt canonical tracker
-   eller **avfärdat** med verifierbart skäl. Kör om efter ny commit.
+   eller verifierbart **avfärdat**. Efter ny commit: kör om berört riktat och
+   invänta ny full CI.
 
 En full PR AI-/Codex-review av aktuell SHA kan vara oberoende pass. Usage-limit
 är inget fynd; använd lokal Sol-review. `review-window` kräver trusted botkvitto

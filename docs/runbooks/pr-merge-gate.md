@@ -17,12 +17,12 @@ gammalt runbookpåstående.
 Repoets avsedda required checknamn ägs av
 [`config/agent-workflow.json`](../../config/agent-workflow.json):
 
-| Check              | Roll                                           |
-| ------------------ | ---------------------------------------------- |
-| `quality`          | aggregerad kod- och kontraktsgrind             |
-| `backoffice-tests` | Python-/Backoffice-regression                  |
-| `schema-drift`     | DB-schema                                      |
-| `build`            | nyckelfri produktionsbuild                     |
+| Check              | Roll                                                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `quality`          | aggregerad kod- och kontraktsgrind                                                                                |
+| `backoffice-tests` | Python-/Backoffice-regression                                                                                     |
+| `schema-drift`     | DB-schema                                                                                                         |
+| `build`            | nyckelfri produktionsbuild                                                                                        |
 | `review-window`    | trusted 7 min/review + live head/base; saknat kvitto gör checken `action_required`, inte orchestrator-jobbet rött |
 
 Konsekvenser:
@@ -212,8 +212,9 @@ En Codex-kommentar som **bara** är "usage limit" är inget fynd och blockerar i
 
 **«Docs-only» skyddar inte mot kontraktstester.** Flera tester läser `docs/`,
 registries och agentregler. Därför finns ingen docs-/regelgenväg till master.
-`npm run verify:pr` läser diffen och väljer docs-, control-plane-, agent- och
-Backofficekontroller från samma policy som CI.
+`npm run verify:pr -- --plan` läser diffen och visar docs-, control-plane-,
+agent- och Backofficepåverkan. Riktade kontroller ger lokal återkoppling;
+required GitHub-checks äger den blockerande fullprofilen på aktuell head-SHA.
 
 **`cancelled` är inte `failure`.** CI:s concurrency-grupp avbryter en pågående
 körning när en ny commit landar på samma ref. En `quality: cancelled` på en

@@ -47,6 +47,7 @@ export const POLICY_FLOORS = Object.freeze({
     ".github/**",
     "package.json",
     "package-lock.json",
+    ".node-version",
     "AGENTS.md",
     ".agents/skills/**",
     ".codex/**",
@@ -903,6 +904,30 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (!mergeRule.includes("config/agent-workflow.json")) {
     errors.push("pr-merge.mdc must route checks and timing to config/agent-workflow.json");
   }
+  const agentEntry = read(root, "AGENTS.md");
+  const workflowRule = read(root, ".cursor/rules/workflow.mdc");
+  const prWorkflow = read(root, ".agents/skills/pr-workflow/SKILL.md");
+  for (const [name, source] of [
+    ["AGENTS.md", agentEntry],
+    ["pr-workflow skill", prWorkflow],
+    ["workflow.mdc", workflowRule],
+  ]) {
+    if (
+      !source.includes("npm run verify:pr -- --plan") ||
+      !/(?:GitHub Actions|\bCI\b)/u.test(source) ||
+      !/rikt(?:ade kontroller|at)/iu.test(source)
+    ) {
+      errors.push(`${name} must assign local planning/targeted checks and full verification to CI`);
+    }
+    if (/`npm run verify:pr` före push|efter ny head-SHA:\s*kör lokal verifiering/iu.test(source)) {
+      errors.push(`${name} must not require a bare full local verify:pr run for every push or SHA`);
+    }
+  }
+  if (!mergeRule.includes("required GitHub-checks") || /Kör `npm run verify:pr`/u.test(mergeRule)) {
+    errors.push(
+      "pr-merge.mdc must use current-head GitHub checks instead of a bare local full run",
+    );
+  }
 
   const hooks = json(root, ".cursor/hooks.json");
   const beforeShell = hooks.hooks?.beforeShellExecution ?? [];
@@ -916,8 +941,20 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   }
   if (!existsSync(resolve(root, ".github/pull_request_template.md"))) {
     errors.push("missing pull request template");
-  } else if (!read(root, ".github/pull_request_template.md").includes("npm run verify:pr")) {
-    errors.push("pull request template must require verify:pr");
+  } else {
+    const template = read(root, ".github/pull_request_template.md");
+    if (!template.includes("npm run verify:pr -- --plan")) {
+      errors.push("pull request template must require the local verify:pr plan");
+    }
+    if (/^- \[ \] `npm run verify:pr`\s*$/mu.test(template)) {
+      errors.push("pull request template must not require a bare full local verify:pr run");
+    }
+    if (!template.includes("Körda riktade kontroller")) {
+      errors.push("pull request template must record targeted local checks");
+    }
+    if (!template.includes("aktuell head-SHA")) {
+      errors.push("pull request template must require GitHub checks for the current head SHA");
+    }
   }
   const hookInstaller = read(root, "scripts/dev/install-git-hooks.mjs");
   if (
@@ -952,7 +989,6 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   ) {
     errors.push("Godnatt cleanup must lease remote deletion to the exact merged head SHA");
   }
-  const prWorkflow = read(root, ".agents/skills/pr-workflow/SKILL.md");
   if (!prWorkflow.includes("npm run hooks:install")) {
     errors.push("canonical PR workflow must install the managed local hooks");
   }

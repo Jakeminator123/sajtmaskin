@@ -45,6 +45,7 @@
     ".github/**",
     "package.json",
     "package-lock.json",
+    ".node-version",
     "AGENTS.md",
     ".agents/skills/**",
     ".codex/**",
@@ -77,6 +78,8 @@
       ".agents/**",
       ".codex/**",
       ".cursor/**",
+      ".cursorignore",
+      ".cursorindexingignore",
       "config/agent-workflow.json",
       "scripts/dev/check-agent-context-budget.mjs",
       "scripts/workflow/**"
@@ -91,6 +94,7 @@
       "public/**",
       "infra/**",
       "drizzle/**",
+      "data/openclaw/**",
       "config/**",
       "*.config.js",
       "*.config.mjs",
@@ -140,7 +144,7 @@
     ],
     "controlPlane": ["control-plane:check"],
     "agent": ["check:agent-context"],
-    "runtime": ["embeddings:ensure", "typecheck", "test:ci", "lint"],
+    "runtime": ["embeddings:ensure", "typecheck", "lint", "test:ci"],
     "backoffice": ["backoffice:test"],
     "database": ["db:schema-drift", "db:blob-sync-unit"],
     "dependencies": ["baseline-deps:verify", "baseline-deps:tree"],
@@ -155,9 +159,7 @@
       "route-timeouts:check",
       "check:bug-backlog",
       "canvas:check",
-      "knip:files",
-      "clean:orphans:dry",
-      "clean:scratch"
+      "knip:files"
     ]
   }
 }

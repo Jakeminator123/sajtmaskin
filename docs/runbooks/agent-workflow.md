@@ -44,17 +44,20 @@ det får inte beskrivas som runtime-låst.
 npm run hooks:install       # en gång per clone; idempotent och worktree-delad
 npm run verify:pr -- --plan  # visa vad diffen påverkar (även pre-push-hooken)
 npm run sync:derived         # skriv om genererade projektioner vid behov
-npm run verify:pr            # full PR-ready-kontroll före push; CI kör den igen
+# kör relevanta riktade kontroller; fullprofilen körs av GitHub Actions
 ```
 
 `verify:pr` jämför med färsk `origin/master`. Det läser control-plane-registren
-och Backoffice domain-map samt deduplicerar hårda validators. Okända eller
-oägda filer får både runtime- och full verifiering; `preview-host/**` får också
-paketets egna grindar. Protected paths är tillåtna men får den fulla lokala
-profilen och ska följas genom owner → konsument/validator → schema/Backoffice →
-genererad projektion/docs. Det ändrar inte tracked sourcefiler. Underkommandon kan däremot
-uppdatera lokala gitignorerade cacheartefakter, exempelvis `.eslintcache` och
-validatorcache; kontrollera därför tracked diff, inte en helt orörd arbetsmapp.
+och Backoffice domain-map samt deduplicerar hårda validators. Okända filer får
+fail-safe runtime- och fullprofil; runtimefiler utan en control-plane-owner
+rapporteras som information men har redan runtimeprofilen. `preview-host/**`
+får också paketets egna grindar. Protected paths är tillåtna men får den fulla
+CI-profilen och ska följas genom owner → konsument/validator → schema/Backoffice
+→ genererad projektion/docs. Lokalt körs relevanta riktade kontroller. Bare
+`npm run verify:pr` är frivillig felsökning, eller ett uttryckligt krav när
+själva CI-/verifieringsmotorn ändras. Underkommandon kan uppdatera lokala
+gitignorerade cacheartefakter, exempelvis `.eslintcache` och validatorcache;
+kontrollera därför tracked diff, inte en helt orörd arbetsmapp.
 
 ## Flera agenter utan statuskonflikter
 
@@ -74,9 +77,9 @@ Branchnamn har inget obligatoriskt prefix. `*BRA*` och `rescue/*` är fortfarand
 frysta backuper.
 
 Git-hooken är ett lokalt räcke, inte den yttersta sanningen: den installeras
-idempotent och stoppar push om `verify:pr --plan` är rött. Full `verify:pr` körs
-av agenten och i CI på den pushade committen, så en saknad lokal hook kan inte
-göra en ogiltig PR grön.
+idempotent och stoppar push om `verify:pr --plan` är rött. Riktade kontroller
+körs lokalt och den blockerande fullprofilen i CI på den pushade committen, så
+en saknad lokal hook kan inte göra en ogiltig PR grön.
 
 När `quality`, `backoffice-tests`, `schema-drift`, `build`, Vercel och alla
 reviewfynd är klara — medan `review-window` fortfarande väntar — posta först

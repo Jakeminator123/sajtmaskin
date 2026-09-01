@@ -23,10 +23,14 @@ import {
 import {
   assertBranchSafety,
   classifyProcessResult,
+  executeVerificationCommands,
   isCiRunner,
+  parseArgs,
+  resolveVerificationCommand,
   runNpm,
   trackedPathsForBase,
 } from "./verify-pr.mjs";
+import { missingCursorSecretIgnores } from "../dev/check-agent-context-budget.mjs";
 
 describe("agent workflow path matching", () => {
   it.each([
@@ -80,6 +84,26 @@ describe("agent workflow path matching", () => {
 describe("agent workflow impact", () => {
   const inputs = loadWorkflowInputs();
 
+  it("keeps workstation cleanup out of the PR verification profile", () => {
+    expect(inputs.policy.verificationProfiles.full).not.toEqual(
+      expect.arrayContaining(["clean:orphans:dry", "clean:scratch"]),
+    );
+  });
+
+  it("fails the agent check if a proven Cursor secret guard is removed", () => {
+    const source = readFileSync(".cursorignore", "utf8");
+    expect(missingCursorSecretIgnores(source)).toEqual([]);
+    expect(missingCursorSecretIgnores(source.replace(/^\.env-backups\/$/mu, ""))).toContain(
+      ".env-backups/",
+    );
+  });
+
+  it("orders cheaper runtime gates before the full Vitest suite", () => {
+    const commands = inputs.policy.verificationProfiles.runtime;
+    expect(commands.indexOf("typecheck")).toBeLessThan(commands.indexOf("test:ci"));
+    expect(commands.indexOf("lint")).toBeLessThan(commands.indexOf("test:ci"));
+  });
+
   it("finds the Cursor-agenter Backoffice surface after the skill move", () => {
     const impact = collectImpact({
       ...inputs,
@@ -109,7 +133,7 @@ describe("agent workflow impact", () => {
     if (path.startsWith("docs/")) expect(impact.commands).toContain("docs:test");
   });
 
-  it("reports deleted or unknown runtime paths with fail-safe runtime checks", () => {
+  it("reports runtime paths without a control-plane owner while keeping the core profile", () => {
     const impact = collectImpact({
       ...inputs,
       changedFiles: ["src/lib/new-area/deleted.ts"],
@@ -118,7 +142,121 @@ describe("agent workflow impact", () => {
     expect(impact.commands).toContain("typecheck");
     expect(impact.commands).toContain("test:ci");
     expect(impact.commands).toContain("lint");
+    expect(impact.commands).not.toContain("knip:files");
   });
+
+  it.each([
+    [
+      "config/ai_models/41-tier3-stub-placeholders.env.txt",
+      "generated-site-tier3-stub-placeholders",
+      "Env Readiness (read-only)",
+      "medium",
+    ],
+    ["config/ai_models/pricing.json", "ai-model-pricing", "Generation Cost", "high"],
+  ])("never gives draft changes to %s a shallow verification plan", (path, id, surface, danger) => {
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    const owner = inputs.policyRegistry.entries.find((entry: { id: string }) => entry.id === id);
+
+    expect(owner).toMatchObject({
+      sourceOfTruth: path,
+      validator: "test:ci",
+      ciStatus: "hard",
+      runtimeEnforced: true,
+      runtimeStatus: "wired",
+      backoffice: { surface, editable: false, writePath: null, danger },
+    });
+    expect(impact.groups.runtime).toContain(path);
+    expect(impact.authorities).toContainEqual(
+      expect.objectContaining({
+        id,
+        sourceOfTruth: path,
+        validator: "test:ci",
+        runtimeStatus: "wired",
+        backofficeSurface: surface,
+      }),
+    );
+    expect(impact.unmappedRuntimeFiles).toEqual([]);
+    expect(impact.unclassifiedFiles).toEqual([]);
+    expect(impact.backofficePages).toContain(surface);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining([
+        "embeddings:ensure",
+        "typecheck",
+        "lint",
+        "test:ci",
+        "backoffice:test",
+      ]),
+    );
+    expect(impact.commands).not.toContain("knip:files");
+  });
+
+  it("routes the production OpenClaw prompt tips through their runtime owner", () => {
+    const path = "data/openclaw/builder-prompt-tips.md";
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+    const owner = inputs.policyRegistry.entries.find(
+      (entry: { id: string }) => entry.id === "openclaw-builder-prompt-tips",
+    );
+
+    expect(owner).toMatchObject({
+      sourceOfTruth: path,
+      validator: "test:ci",
+      ciStatus: "hard",
+      runtimeEnforced: true,
+      runtimeStatus: "wired",
+      backoffice: { surface: null, editable: false, writePath: null },
+    });
+    expect(impact.groups.runtime).toContain(path);
+    expect(impact.authorities).toContainEqual(
+      expect.objectContaining({
+        id: "openclaw-builder-prompt-tips",
+        sourceOfTruth: path,
+        validator: "test:ci",
+        runtimeStatus: "wired",
+        backofficeSurface: null,
+      }),
+    );
+    expect(impact.unmappedRuntimeFiles).not.toContain(path);
+    expect(impact.backofficePages).toEqual([]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["embeddings:ensure", "typecheck", "lint", "test:ci"]),
+    );
+  });
+
+  it("keeps ownerless OpenClaw debug scenarios on the fail-closed runtime core", () => {
+    const path = "data/openclaw/debug-scenarios.json";
+    const impact = collectImpact({ ...inputs, changedFiles: [path] });
+
+    expect(impact.groups.runtime).toContain(path);
+    expect(impact.authorities).toEqual([]);
+    expect(impact.unmappedRuntimeFiles).toEqual([path]);
+    expect(impact.unclassifiedFiles).toEqual([]);
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["embeddings:ensure", "typecheck", "lint", "test:ci"]),
+    );
+    expect(impact.commands).not.toContain("knip:files");
+  });
+
+  it.each([".cursorignore", ".cursorindexingignore"])(
+    "routes the root Cursor control file %s to the agent profile",
+    (path) => {
+      const impact = collectImpact({ ...inputs, changedFiles: [path] });
+      expect(impact.unclassifiedFiles).toEqual([]);
+      expect(impact.commands).toEqual(
+        expect.arrayContaining(["workflow:contract", "check:agent-context"]),
+      );
+      expect(impact.commands).not.toContain("test:ci");
+      expect(impact.commands).not.toContain("knip:files");
+    },
+  );
+
+  it.each(["src/components/Foo.tsx", "tests/new.test.ts", "public/worker.js"])(
+    "does not add the supplemental full profile for classified runtime path %s",
+    (path) => {
+      const impact = collectImpact({ ...inputs, changedFiles: [path] });
+      expect(impact.commands).toEqual(expect.arrayContaining(["typecheck", "lint", "test:ci"]));
+      expect(impact.commands).not.toContain("knip:files");
+    },
+  );
 
   it.each([
     "tests/new.test.ts",
@@ -148,6 +286,17 @@ describe("agent workflow impact", () => {
     );
   });
 
+  it("makes an explicit --full request include runtime and supplemental checks", () => {
+    const impact = collectImpact({
+      ...inputs,
+      changedFiles: ["docs/example-guide.md"],
+      forceFull: true,
+    });
+    expect(impact.commands).toEqual(
+      expect.arrayContaining(["typecheck", "lint", "test:ci", "knip:files"]),
+    );
+  });
+
   it.each([
     "övrigt/OPENCLAW-BUILDER/STATUS.yaml",
     "övrigt/OPENCLAW-BUILDER/diagrams/target.mmd",
@@ -171,6 +320,7 @@ describe("agent workflow impact", () => {
   ])("still fails a non-documentation asset into full verification: %s", (path) => {
     const impact = collectImpact({ ...inputs, changedFiles: [path] });
     expect(impact.commands).toContain("test:ci");
+    expect(impact.commands).toContain("knip:files");
   });
 
   it("runs the isolated preview-host package guards", () => {
@@ -335,6 +485,50 @@ describe("local base freshness", () => {
 });
 
 describe("verify:pr command execution", () => {
+  it("uses fail-fast by default and exposes an explicit diagnostic override", () => {
+    expect(parseArgs([]).keepGoing).toBe(false);
+    expect(parseArgs(["--keep-going"]).keepGoing).toBe(true);
+  });
+
+  it("uses the resource-capped test profile only outside CI", () => {
+    expect(resolveVerificationCommand("test:ci", {})).toBe("test:pr");
+    expect(resolveVerificationCommand("test:ci", { CI: "true" })).toBe("test:ci");
+    expect(resolveVerificationCommand("test:ci", { GITHUB_ACTIONS: "true" })).toBe("test:ci");
+    expect(resolveVerificationCommand("lint", {})).toBe("lint");
+  });
+
+  it("stops after the first failed command and reports what was skipped", () => {
+    const calls: string[] = [];
+    const execution = executeVerificationCommands(["first", "broken", "later"], (command) => {
+      calls.push(command);
+      return { signal: null, status: command === "broken" ? 7 : 0 };
+    });
+
+    expect(calls).toEqual(["first", "broken"]);
+    expect(execution.passed).toEqual(["first"]);
+    expect(execution.failures).toEqual([
+      { command: "broken", outcome: { kind: "exit", status: 7 } },
+    ]);
+    expect(execution.skipped).toEqual(["later"]);
+  });
+
+  it("continues only when --keep-going was explicitly requested", () => {
+    const calls: string[] = [];
+    const execution = executeVerificationCommands(
+      ["first", "broken", "later"],
+      (command) => {
+        calls.push(command);
+        return { signal: null, status: command === "broken" ? 7 : 0 };
+      },
+      { keepGoing: true },
+    );
+
+    expect(calls).toEqual(["first", "broken", "later"]);
+    expect(execution.passed).toEqual(["first", "later"]);
+    expect(execution.failures).toHaveLength(1);
+    expect(execution.skipped).toEqual([]);
+  });
+
   it("fails closed on a real spawn error", () => {
     const result = spawnSync(`sajtmaskin-missing-command-${process.pid}`, []);
     expect(classifyProcessResult(result)).toEqual({ kind: "spawn-error", error: result.error });

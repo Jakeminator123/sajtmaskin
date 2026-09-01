@@ -53,17 +53,55 @@ function lines(value) {
     .filter(Boolean);
 }
 
-function parseArgs(argv) {
-  const options = { plan: false, full: false, fetch: true, base: null };
+export function parseArgs(argv) {
+  const options = { plan: false, full: false, fetch: true, keepGoing: false, base: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--plan") options.plan = true;
     else if (arg === "--full") options.full = true;
     else if (arg === "--no-fetch") options.fetch = false;
+    else if (arg === "--keep-going") options.keepGoing = true;
     else if (arg === "--base") options.base = argv[++i] ?? null;
     else throw new Error(`unknown argument: ${arg}`);
   }
   return options;
+}
+
+/**
+ * @param {string[]} commands
+ * @param {(command: string) => { error?: Error, signal?: string | null, status?: number | null }} runCommand
+ * @param {{ keepGoing?: boolean }} [options]
+ */
+export function executeVerificationCommands(commands, runCommand, { keepGoing = false } = {}) {
+  const passed = [];
+  const failures = [];
+
+  for (let index = 0; index < commands.length; index += 1) {
+    const command = commands[index];
+    const outcome = classifyProcessResult(runCommand(command));
+    if (outcome.kind === "exit" && outcome.status === 0) {
+      passed.push(command);
+      continue;
+    }
+
+    failures.push({ command, outcome });
+    if (!keepGoing) {
+      return { passed, failures, skipped: commands.slice(index + 1) };
+    }
+  }
+
+  return { passed, failures, skipped: [] };
+}
+
+export function describeCommandFailure({ command, outcome }) {
+  if (outcome.kind === "spawn-error") {
+    return `npm run ${command} (kunde inte starta: ${outcome.error.message})`;
+  }
+  if (outcome.kind === "signal") {
+    return `npm run ${command} (avbruten av signal ${outcome.signal})`;
+  }
+  if (outcome.kind === "exit") return `npm run ${command} (exit ${outcome.status})`;
+  return `npm run ${command} (saknar exitstatus, signal och spawnfel)`;
 }
 
 function printList(label, values, empty = "inga") {
@@ -73,6 +111,14 @@ function printList(label, values, empty = "inga") {
 /** @param {Record<string, string | undefined>} [env] */
 export function isCiRunner(env = process.env) {
   return env.GITHUB_ACTIONS === "true" || env.CI === "true";
+}
+
+/**
+ * @param {string} command
+ * @param {Record<string, string | undefined>} [env]
+ */
+export function resolveVerificationCommand(command, env = process.env) {
+  return command === "test:ci" && !isCiRunner(env) ? "test:pr" : command;
 }
 
 /**
@@ -107,9 +153,9 @@ export function formatImpactSummary({ branch, base, head, impact }) {
     `[verify:pr] protected: ${impact.protectedFiles.length ? impact.protectedFiles.join(", ") : "inga"}`,
     `[verify:pr] Backoffice: ${impact.backofficePages.length ? impact.backofficePages.join(", ") : "ingen träff"}`,
     `[verify:pr] control-plane: ${impact.authorities.length ? impact.authorities.map((entry) => `${entry.id} (${entry.runtimeStatus})`).join(", ") : "ingen direkt owner-träff"}`,
-    `[verify:pr] omappad runtime: ${impact.unmappedRuntimeFiles.length ? impact.unmappedRuntimeFiles.join(", ") : "ingen"}`,
+    `[verify:pr] runtime utan control-plane-owner (info): ${impact.unmappedRuntimeFiles.length ? impact.unmappedRuntimeFiles.join(", ") : "ingen"}`,
     `[verify:pr] oklassificerat (fail-safe full): ${impact.unclassifiedFiles.length ? impact.unclassifiedFiles.join(", ") : "inget"}`,
-    `[verify:pr] kontroller: ${impact.commands.join(" → ")}`,
+    `[verify:pr] diffvalda kontroller: ${impact.commands.join(" → ")}`,
   ];
   if (impact.manualValidators.length > 0) {
     rows.push(
@@ -166,39 +212,42 @@ async function main() {
     console.log("[verify:pr] ingen diff mot base — klart.");
     return;
   }
+  const executableCommands = impact.commands.map((command) =>
+    resolveVerificationCommand(command, process.env),
+  );
+  if (executableCommands.includes("test:pr")) {
+    console.log("[verify:pr] lokal testprofil: test:ci → test:pr (50% workers, fail-fast)");
+    printList("valfri lokal exekveringsprofil", executableCommands);
+  }
   if (options.plan) return;
 
   const failures = [];
   const diffCheck = git(["diff", "--check", base], { allowFailure: true, inherit: true });
   if (diffCheck.status !== 0) failures.push("git diff --check");
 
-  for (const command of impact.commands) {
-    console.log(`\n[verify:pr] kör npm run ${command}`);
-    const result = runNpm(["run", command], { inherit: true });
-    const outcome = classifyProcessResult(result);
-    if (outcome.kind === "spawn-error") {
-      throw new Error(
-        `kunde inte starta "npm run ${command}": ${outcome.error.message}. ` +
-          `Ingen kontroll är verifierad — behandla inte detta som ett kodfynd.`,
-      );
-    }
-    if (outcome.kind === "unknown") {
-      throw new Error(
-        `"npm run ${command}" rapporterade varken exitstatus, signal eller spawnfel. ` +
-          `Ingen kontroll är verifierad — behandla inte detta som ett godkänt resultat.`,
-      );
-    }
-    if (outcome.kind === "signal") {
-      failures.push(`npm run ${command} (avbruten av signal ${outcome.signal})`);
-    } else if (outcome.status !== 0) {
-      failures.push(`npm run ${command} (exit ${outcome.status})`);
-    }
+  if (failures.length > 0 && !options.keepGoing) {
+    printList("inte körda efter fail-fast", executableCommands);
+    throw new Error(`följande kontroller föll: ${failures.join(", ")}`);
+  }
+
+  const execution = executeVerificationCommands(
+    executableCommands,
+    (command) => {
+      console.log(`\n[verify:pr] kör npm run ${command}`);
+      return runNpm(["run", command], { inherit: true });
+    },
+    { keepGoing: options.keepGoing },
+  );
+  failures.push(...execution.failures.map(describeCommandFailure));
+
+  printList("klara kontroller", execution.passed);
+  if (execution.skipped.length > 0) {
+    printList("inte körda efter fail-fast", execution.skipped);
   }
 
   if (failures.length > 0) {
     throw new Error(`följande kontroller föll: ${failures.join(", ")}`);
   }
-  printList("klara kontroller", impact.commands);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

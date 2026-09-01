@@ -16,12 +16,44 @@ export function gitOutput(args, cwd) {
   });
 }
 
+export function parseWorktreeSnapshot(value) {
+  const lines = String(value ?? "").split(/\r?\n/u);
+  return {
+    // HEAD-raden rör sig legitimt när ett syskon committar. All övrig
+    // worktree-topologi (path, branch, detached/locked) ska ligga still.
+    topology: lines.filter((line) => !line.startsWith("HEAD ")).join("\n"),
+    branchRefs: lines
+      .filter((line) => line.startsWith("branch "))
+      .map((line) => line.slice("branch ".length)),
+  };
+}
+
+export function changedRefNames(before, after) {
+  const parse = (value) =>
+    new Map(
+      String(value ?? "")
+        .split(/\r?\n/u)
+        .filter(Boolean)
+        .map((line) => {
+          const separator = line.indexOf(" ");
+          return [line.slice(0, separator), line.slice(separator + 1)];
+        }),
+    );
+  const beforeRefs = parse(before);
+  const afterRefs = parse(after);
+  return [...new Set([...beforeRefs.keys(), ...afterRefs.keys()])]
+    .filter((ref) => beforeRefs.get(ref) !== afterRefs.get(ref))
+    .sort();
+}
+
 export function snapshotCheckout(cwd) {
+  const branch = gitOutput(["rev-parse", "--abbrev-ref", "HEAD"], cwd).trim();
   return {
     head: gitOutput(["rev-parse", "HEAD"], cwd).trim(),
-    branch: gitOutput(["rev-parse", "--abbrev-ref", "HEAD"], cwd).trim(),
+    branch,
     status: gitOutput(["status", "--porcelain", "--untracked-files=normal"], cwd),
     config: gitOutput(["config", "--local", "--list"], cwd),
+    worktrees: parseWorktreeSnapshot(gitOutput(["worktree", "list", "--porcelain"], cwd)),
     refs: gitOutput(
       ["for-each-ref", "--format=%(refname) %(objectname)", "refs/heads", "refs/tags"],
       cwd,
@@ -35,7 +67,22 @@ export function describeCheckoutDrift(before, after) {
   if (before.branch !== after.branch) changes.push(`branch ${before.branch} → ${after.branch}`);
   if (before.status !== after.status) changes.push("index/worktree/status ändrades");
   if (before.config !== after.config) changes.push("lokal git-config ändrades");
-  if (before.refs !== after.refs) changes.push("heads/tags ändrades");
+  if (before.worktrees.topology !== after.worktrees.topology) {
+    changes.push("registrerade worktrees ändrades");
+  }
+
+  // Alla refs är delade i repots common Git-dir. Ignorera endast en rörelse av
+  // en branch som bevisligen är utcheckad i ett annat registrerat worktree;
+  // tags och oägda branchrefs ska fortfarande avslöja en testläcka.
+  const siblingRefs = new Set([...before.worktrees.branchRefs, ...after.worktrees.branchRefs]);
+  if (before.branch !== "HEAD") siblingRefs.delete(`refs/heads/${before.branch}`);
+  if (after.branch !== "HEAD") siblingRefs.delete(`refs/heads/${after.branch}`);
+  const attributableRefDrift = changedRefNames(before.refs, after.refs).filter(
+    (ref) => !siblingRefs.has(ref),
+  );
+  if (attributableRefDrift.length > 0) {
+    changes.push("heads/tags ändrades");
+  }
   return changes;
 }
 
@@ -58,7 +105,10 @@ function main() {
   const result = spawnSync(command[0], command.slice(1), {
     cwd,
     stdio: "inherit",
-    shell: process.platform === "win32",
+    // Wrappern anropas med `node`, som är ett riktigt executable även på
+    // Windows. Shell skulle ändra quoting/globbning och bredda injektionsytan.
+    shell: false,
+    windowsHide: true,
   });
   let after;
   try {

@@ -85,6 +85,7 @@ rubrik i stället för att slåss mot taket. Det är den tillåtna vägen till m
 > `npm run docs:check`, `npm run docs:links`, `npm run typecheck`,
 > `npx vitest run src/lib/gen/dossiers`.
 >
-> Följ `.agents/skills/pr-workflow/SKILL.md`: kör `npm run verify:pr`, därefter
-> ett oberoende readonly Sol-pass på slutdiffen. Lämna EN draft-PR mot `master`.
+> Följ `.agents/skills/pr-workflow/SKILL.md`: kör `npm run verify:pr -- --plan`
+> plus kontrollerna ovan, därefter ett oberoende readonly Sol-pass på
+> slutdiffen. Lämna EN draft-PR mot `master`.
 > **Merga inte.**
