@@ -126,6 +126,18 @@ export interface PreviewPanelProps {
   /** Ask controller to verify server session and recover preview if needed. */
   onPreviewSessionSuspect?: () => void;
   /**
+   * Adopt a rotated tier-2 session identity: the host reports `running` for
+   * the SAME version and canonical session URL but under a NEW
+   * previewSessionId/lifecycleToken (VM re-keyed on boot after hibernate).
+   * The controller updates activePreviewSessionMeta so the receipt chain can
+   * restart with the live identity instead of failing closed forever (SM-074).
+   */
+  onPreviewSessionRotated?: (meta: {
+    previewSessionId: string;
+    versionId: string;
+    lifecycleToken: string | null;
+  }) => void;
+  /**
    * Explicit/manual forced preview resync (overlay "Försök igen"-knappen).
    * Skiljer sig från `onPreviewSessionSuspect`: den senare är den automatiska
    * heartbeat/iframe-vägen (respekterar auto-resync-loopskyddet), medan denna

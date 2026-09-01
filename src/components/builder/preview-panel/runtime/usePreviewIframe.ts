@@ -49,6 +49,45 @@ const TIER2_SELF_HEAL_MAX_RELOADS = 3;
 // /preview-status request may otherwise suppress the failure state forever.
 const TIER2_FINAL_CHECK_TIMEOUT_MS = 5_000;
 
+type Tier2StatusReceipt = Awaited<ReturnType<typeof fetchPreviewStatus>>;
+
+/**
+ * SM-074, reviderad rotorsak (prod 2026-09-01, chat c2371f9c): en follow-up
+ * mot en hibernerad VM handoff:ade den gamla sessionens identitet medan boot:en
+ * kom upp under en ny (`preview_url_handoff` bar ps_gammal; hosten svarade
+ * `running` med ps_ny). Alla kvitton föll då för evigt på identitetsmatchningen
+ * och varje återhämtningsväg dog — permanent falsk banner + död inspector.
+ *
+ * Det här läser ett sådant kvitto som SESSIONSROTATION: `running`, exakt
+ * förväntad version, samma kanoniska tier-2-session-URL — men annan session/
+ * lifecycle. Allt annat (fel version, annan chat-URL, icke-running) returnerar
+ * null och behåller fail-closed-beteendet.
+ */
+function readTier2SessionRotation(params: {
+  status: Tier2StatusReceipt;
+  expectedVersionId: string;
+  expectedPreviewSessionId: string;
+  expectedLifecycleToken: string | null;
+  expectedPreviewUrl: string;
+}): { previewSessionId: string; lifecycleToken: string | null } | null {
+  const status = params.status;
+  if (!status || status.status !== "running") return null;
+  if (status.versionId !== params.expectedVersionId) return null;
+  if (!isSameTier2PreviewSession(status.previewUrl, params.expectedPreviewUrl)) {
+    return null;
+  }
+  const nextSessionId = status.previewSessionId?.trim() ?? "";
+  if (!nextSessionId) return null;
+  const nextLifecycleToken = status.lifecycleToken ?? null;
+  if (
+    nextSessionId === params.expectedPreviewSessionId &&
+    nextLifecycleToken === params.expectedLifecycleToken
+  ) {
+    return null;
+  }
+  return { previewSessionId: nextSessionId, lifecycleToken: nextLifecycleToken };
+}
+
 export function usePreviewIframe(params: {
   previewUrl: string | null;
   refreshToken?: number;
@@ -59,6 +98,20 @@ export function usePreviewIframe(params: {
   activePreviewLifecycleToken: string | null | undefined;
   isOwnEnginePreview: boolean;
   onPreviewSessionSuspect?: () => void;
+  /**
+   * SM-074 (reviderad rotorsak, prod 2026-09-01 chat c2371f9c): ett `running`-
+   * kvitto för EXAKT förväntad version och samma kanoniska tier-2-session-URL
+   * men NY previewSessionId/lifecycleToken betyder att VM:en nycklade om
+   * sessionen (boot efter hibernate) — inte att previewn är trasig. Callbacken
+   * låter controllern adoptera den nya identiteten; propsbytet startar om
+   * kvitto-kedjan här, som därefter verifierar och släpper fram ytan. Utan
+   * callback behålls det gamla fail-closed-beteendet oförändrat.
+   */
+  onPreviewSessionRotated?: (meta: {
+    previewSessionId: string;
+    versionId: string;
+    lifecycleToken: string | null;
+  }) => void;
   reportOwnEngineRenderFailure: (payload: PreviewIssuePayload) => void;
   /** When set, this ref is used for the iframe element instead of an internal ref (shared with telemetry). */
   iframeRef?: MutableRefObject<HTMLIFrameElement | null>;
@@ -72,6 +125,7 @@ export function usePreviewIframe(params: {
     activePreviewLifecycleToken,
     isOwnEnginePreview,
     onPreviewSessionSuspect,
+    onPreviewSessionRotated,
     reportOwnEngineRenderFailure,
     iframeRef: externalIframeRef,
   } = params;
@@ -95,6 +149,12 @@ export function usePreviewIframe(params: {
   useLayoutEffect(() => {
     onPreviewSessionSuspectRef.current = onPreviewSessionSuspect;
   }, [onPreviewSessionSuspect]);
+  // Samma latest-ref-skäl som ovan: adoption av en roterad session får aldrig
+  // bero på callback-identiteten från förälderns senaste render.
+  const onPreviewSessionRotatedRef = useRef(onPreviewSessionRotated);
+  useLayoutEffect(() => {
+    onPreviewSessionRotatedRef.current = onPreviewSessionRotated;
+  }, [onPreviewSessionRotated]);
   const previewReadyTimerRef = useRef<number | null>(null);
   const tier2LoadTimerRef = useRef<number | null>(null);
   const tier2StatusPollTimerRef = useRef<number | null>(null);
@@ -326,6 +386,25 @@ export function usePreviewIframe(params: {
           return;
         }
 
+        const rotation = readTier2SessionRotation({
+          status,
+          expectedVersionId,
+          expectedPreviewSessionId: previewSessionId,
+          expectedLifecycleToken,
+          expectedPreviewUrl,
+        });
+        if (rotation && onPreviewSessionRotatedRef.current) {
+          // En roterad session kan aldrig matcha den sparade identiteten, så
+          // utan adoption skulle den glesa pollen läsa för evigt utan att läka.
+          stopTier2StatusPolling();
+          onPreviewSessionRotatedRef.current({
+            previewSessionId: rotation.previewSessionId,
+            versionId: expectedVersionId,
+            lifecycleToken: rotation.lifecycleToken,
+          });
+          return;
+        }
+
         // Terminal receipts do not carry this tab's identity. `/preview-status`
         // answers `missing` with versionId/previewSessionId/previewUrl = null,
         // and `version_mismatch` with the *session's* versionId. Requiring a
@@ -409,6 +488,25 @@ export function usePreviewIframe(params: {
             expectedPreviewUrl,
           );
           startTier2ReadyReload(identity, expectedPreviewUrl);
+          return;
+        }
+
+        const rotation = readTier2SessionRotation({
+          status,
+          expectedVersionId,
+          expectedPreviewSessionId: previewSessionId,
+          expectedLifecycleToken,
+          expectedPreviewUrl,
+        });
+        if (rotation && onPreviewSessionRotatedRef.current) {
+          // Rätt version kör, men VM:en nycklade om sessionen — adoptera den
+          // nya identiteten i stället för att döma ut previewn som misstänkt.
+          stopTier2StatusPolling();
+          onPreviewSessionRotatedRef.current({
+            previewSessionId: rotation.previewSessionId,
+            versionId: expectedVersionId,
+            lifecycleToken: rotation.lifecycleToken,
+          });
           return;
         }
 
@@ -497,6 +595,27 @@ export function usePreviewIframe(params: {
             expectedPreviewUrl,
           );
           startTier2ReadyReload(identity, expectedPreviewUrl);
+          return;
+        }
+
+        const rotation = readTier2SessionRotation({
+          status,
+          expectedVersionId,
+          expectedPreviewSessionId: previewSessionId,
+          expectedLifecycleToken,
+          expectedPreviewUrl,
+        });
+        if (rotation && onPreviewSessionRotatedRef.current) {
+          // Före den här grenen dog HELA återhämtningen här: ett running-kvitto
+          // med ny session lästes som "terminal/mismatched" och stängde fönstret
+          // utan att self-heal någonsin armerades (prod 2026-09-01, c2371f9c).
+          tier2LateRecoveryIdentityRef.current = null;
+          stopTier2StatusPolling();
+          onPreviewSessionRotatedRef.current({
+            previewSessionId: rotation.previewSessionId,
+            versionId: expectedVersionId,
+            lifecycleToken: rotation.lifecycleToken,
+          });
           return;
         }
 
@@ -592,6 +711,23 @@ export function usePreviewIframe(params: {
             session.previewUrl,
           );
           startTier2ReadyReload(identity, session.previewUrl);
+          return;
+        }
+        const rotation = readTier2SessionRotation({
+          status,
+          expectedVersionId: session.versionId,
+          expectedPreviewSessionId: session.previewSessionId,
+          expectedLifecycleToken: session.lifecycleToken,
+          expectedPreviewUrl: session.previewUrl,
+        });
+        if (rotation && onPreviewSessionRotatedRef.current) {
+          // Deadline-kontrollen såg rätt version `running` under en omnycklad
+          // session — adoptera identiteten i stället för banner + late recovery.
+          onPreviewSessionRotatedRef.current({
+            previewSessionId: rotation.previewSessionId,
+            versionId: session.versionId,
+            lifecycleToken: rotation.lifecycleToken,
+          });
           return;
         }
         failAndQueueLateRecovery();
