@@ -3,22 +3,21 @@
  * POST /api/auth/register
  *
  * After successful registration a verification email is attempted.
- * Non-admin users must verify email before they can log in.
+ * Privileged addresses (ADMIN_EMAILS / SUPERADMIN_EMAIL / TEST_USER_EMAIL)
+ * cannot be registered here — no row is created and no auth cookie is issued.
+ * Those accounts are provisioned via env-credential login. Regular users
+ * must verify email before they can log in.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { registerUser, setAuthCookie } from "@/lib/auth/auth";
+import { registerUser } from "@/lib/auth/auth";
 import {
   createVerificationToken,
   isAdminEmail,
-  markEmailVerified,
-  setUserDiamonds,
 } from "@/lib/db/services/users";
 import { sendVerificationEmail } from "@/lib/email/send";
 import { withRateLimit } from "@/lib/rate-limit";
 import { URLS } from "@/lib/config";
-
-const ADMIN_DIAMONDS = Number(process.env.SUPERADMIN_DIAMONDS) || 10_000;
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "auth:register", async () => {
@@ -41,6 +40,14 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const normalizedEmail = email.trim().toLowerCase();
+      if (isAdminEmail(normalizedEmail)) {
+        return NextResponse.json(
+          { success: false, error: "Denna adress kan inte registreras här. Logga in med administratörskontot." },
+          { status: 403 },
+        );
+      }
+
       // Register user
       const result = await registerUser(email, password, name);
 
@@ -48,36 +55,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: result.error }, { status: 400 });
       }
 
-      const normalizedEmail = email.trim().toLowerCase();
-      const isAdmin = isAdminEmail(normalizedEmail);
-
-      // Admin users are auto-verified and can be logged in immediately.
-      if (isAdmin) {
-        await markEmailVerified(result.user.id);
-        const diamonds = Math.max(result.user.diamonds, ADMIN_DIAMONDS);
-        if (diamonds !== result.user.diamonds) {
-          await setUserDiamonds(result.user.id, diamonds);
-        }
-
-        await setAuthCookie(result.token, { secure: req.nextUrl.protocol === "https:" });
-        return NextResponse.json({
-          success: true,
-          requiresEmailVerification: false,
-          emailVerificationSent: false,
-          user: {
-            id: result.user.id,
-            email: result.user.email,
-            name: result.user.name,
-            image: result.user.image,
-            diamonds,
-            freeGenerationAvailable: result.user.free_generation_available,
-            provider: result.user.provider,
-            emailVerified: true,
-          },
-        });
-      }
-
-      // Non-admin users must verify by email before login.
+      // Regular users must verify by email before login.
       let emailVerificationSent = true;
       let emailVerificationReason:
         | "provider_missing"

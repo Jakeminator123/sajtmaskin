@@ -377,19 +377,18 @@ export async function loginUser(
     return { error: "Felaktig e-post eller lösenord" };
   }
 
-  const isAdmin = isAdminEmail(user.email || normalizedEmail);
-
-  // Bootstrap admin privileges on regular login too (for ADMIN_EMAILS users)
-  if (isAdmin) {
-    await bootstrapAdminUser(user);
-  }
-
-  // Enforce email verification for regular email/password users.
-  if (!isAdmin && !user.email_verified) {
+  // Enforce email verification for every password login. Privileged addresses
+  // are provisioned via the env-credential branch above, so an unverified row
+  // on such an address is never a legitimate admin.
+  if (!user.email_verified) {
     return {
       error:
         "Du måste bekräfta din e-post innan du kan logga in. Använd 'Skicka verifieringsmail igen' i inloggningsrutan.",
     };
+  }
+
+  if (isAdminEmail(user.email || normalizedEmail)) {
+    await bootstrapAdminUser(user);
   }
 
   // Update last login
