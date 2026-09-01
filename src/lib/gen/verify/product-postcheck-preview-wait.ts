@@ -36,6 +36,8 @@ export type ProductPostcheckPreviewProbe = {
   lifecycleToken: string | null;
   previewUrl: string | null;
   readinessState: "starting" | "ready" | "failed" | null;
+  /** Host traffic gate. `null` when an older host omitted the field. */
+  httpReady: boolean | null;
 };
 
 export type ProductPostcheckPreviewWaitResult =
@@ -62,6 +64,24 @@ function defaultSleep(ms: number): Promise<void> {
   });
 }
 
+function isHostRuntimeReady(probe: ProductPostcheckPreviewProbe): boolean {
+  // Mirror product-postcheck `isHostRuntimeReady`. `httpReady` is the host
+  // traffic gate (`publicRunning && ready`). An explicit `false` means the
+  // runtime is not accepting traffic — never override that with
+  // `readinessState === "ready"` (false-green after a hot patch: previous
+  // boot still serves while the async probe is in flight).
+  if (probe.httpReady === false) return false;
+  if (probe.httpReady === true) return true;
+  // Host omitted `httpReady` (older deploy). Fall back to the fields it did send.
+  if (probe.readinessState === "ready") return true;
+  // Older hosts omitted both signals. `null` readinessState = legacy host →
+  // callers fall back to treating `running` as ready
+  // (preview-host-client.ts: `null` readinessState = legacy host). Current
+  // hosts always emit readinessState after a hot patch (`starting` until the
+  // async probe finishes), so this path is not the stale-HTML hole.
+  return probe.readinessState === null && probe.running;
+}
+
 function isExpectedVersionRunning(
   probe: ProductPostcheckPreviewProbe,
   expectedVersionId: string,
@@ -74,7 +94,8 @@ function isExpectedVersionRunning(
   return (
     probe.running &&
     probe.versionId === expectedVersionId &&
-    revisionOk
+    revisionOk &&
+    isHostRuntimeReady(probe)
   );
 }
 
@@ -86,8 +107,10 @@ function isSupersededByOtherVersion(
 }
 
 /**
- * Poll read-only preview status until the host is `running` for this
- * versionId (and filesRevision when the session has one), or the budget ends.
+ * Poll read-only preview status until the host is running *and* runtime-ready
+ * for this versionId (and filesRevision when the session has one), or the
+ * budget ends. `running` alone is not enough: a hot patch leaves the previous
+ * boot serving while readiness is `starting`.
  *
  * A session already bound to another version is treated as superseded
  * immediately — waiting would only delay the current version's skip.
@@ -148,6 +171,7 @@ export async function readProductPostcheckPreviewProbe(params: {
       lifecycleToken: null,
       previewUrl: null,
       readinessState: null,
+      httpReady: null,
     };
   }
 
@@ -155,6 +179,7 @@ export async function readProductPostcheckPreviewProbe(params: {
   const previewSessionId = session.previewSessionId?.trim() || null;
   let running = false;
   let readinessState: ProductPostcheckPreviewProbe["readinessState"] = null;
+  let httpReady: boolean | null = null;
   let versionId = sessionVersionId;
 
   if (previewSessionId && sessionVersionId === params.expectedVersionId) {
@@ -164,6 +189,7 @@ export async function readProductPostcheckPreviewProbe(params: {
     });
     if (verdict) {
       readinessState = verdict.readinessState;
+      httpReady = verdict.httpReady;
       versionId = verdict.versionId?.trim() || sessionVersionId;
       running =
         verdict.running === true && versionId === params.expectedVersionId;
@@ -178,5 +204,6 @@ export async function readProductPostcheckPreviewProbe(params: {
     lifecycleToken: session.lifecycleToken?.trim() || null,
     previewUrl: session.previewUrl?.trim() || null,
     readinessState,
+    httpReady,
   };
 }
