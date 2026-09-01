@@ -15,7 +15,7 @@ workflowkälla (`.github/workflows/ci.yml` + `pull_request`) och väntetider äg
 av `config/agent-workflow.json`;
 `npm run workflow:contract` stoppar drift mellan policy, workflow, hook och
 router. Lokalt körs `npm run verify:pr -- --plan` och relevanta riktade
-kontroller före push; den blockerande fullprofilen körs här i GitHub Actions.
+kontroller före push; CI publicerar tung profil eller ett explicit light-kvitto.
 
 Controllern binder varje core-check till senaste canonical WorkflowRun och
 senaste serververifierade försök för respektive jobbnamn via jobbets
