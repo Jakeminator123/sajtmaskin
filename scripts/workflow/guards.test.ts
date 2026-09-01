@@ -243,6 +243,12 @@ describe("commit guard", () => {
     expect(matcher.test("git worktree remove ../x")).toBe(true);
     expect(matcher.test("npm run typecheck")).toBe(false);
     expect(matcher.test("echo ok")).toBe(false);
+    // ANSI-C can hide the letters `git` (`$'\\x67it'`). The matcher must
+    // still start the hook; decide allows harmless `$'…'` without git payload.
+    expect(matcher.test("$'\\x67it' fetch origin JAKOB_BRA:JAKOB_BRA")).toBe(true);
+    expect(matcher.test("$'\\x67it' config --edit")).toBe(true);
+    expect(matcher.test("echo $'hello'")).toBe(true);
+    expect(decideWorktree("echo $'hello'", { aliases: new Set() }).permission).toBe("allow");
   });
 
   it("asks for protected unstaged files included by -am", () => {
@@ -524,6 +530,9 @@ describe("cheap read-only git path", () => {
     "git config --edit",
     "git config -e",
     "GIT_EDITOR='cp /tmp/evil .git/config' git config --edit",
+    "$'\\x67it' fetch origin JAKOB_BRA:JAKOB_BRA",
+    "g$'\\x69t' fetch origin JAKOB_BRA:JAKOB_BRA",
+    "$'\\x67it' config --edit",
     "git -c include.path=/tmp/evil.cfg fetch origin",
     "git -c include.path=/tmp/evil.cfg status",
     "git config remote.origin.fetch +refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA",
@@ -608,6 +617,8 @@ describe("hook CLI contract", () => {
     [".cursor/hooks/worktree-force-guard.mjs", "git -c $'include.path=/tmp/evil.cfg' status", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git config --edit", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git config -e", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "$'\\x67it' fetch origin JAKOB_BRA:JAKOB_BRA", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "$'\\x67it' config --edit", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git -c include.path=/tmp/evil.cfg fetch origin", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git -c include.path=/tmp/evil.cfg status", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git config remote.origin.fetch +refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA", "deny"],

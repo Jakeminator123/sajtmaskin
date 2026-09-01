@@ -163,6 +163,23 @@ const SHELL_EXPANSION = /\$\(|`|\$\{|\$[A-Za-z_]/u;
 const ANSI_C_QUOTING = /\$['"]/u;
 const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=.*/u;
 
+/**
+ * `$'\\x67it'` / `g$'\\x69t'` hide the letters `git` from `\\bgit\\b` and from
+ * `mayResolveToGit`'s substring check. The hook still has to fail closed when
+ * the payload is a BRA write, include.path, or `config --edit`.
+ */
+export function looksLikeEncodedGit(command) {
+  if (typeof command !== "string" || !ANSI_C_QUOTING.test(command)) return false;
+  if (/\bconfig\b/iu.test(command) && /(?:--edit|(?:^|\s)-e)(?:\s|$)/u.test(command)) {
+    return true;
+  }
+  if (/\bworktree\b/iu.test(command)) return true;
+  if (/include\.path|includeIf\./iu.test(command)) return true;
+  if (/remote\.[^.]+\.fetch|fetch\.refspec/iu.test(command)) return true;
+  const mutates = /\b(?:fetch|pull|checkout|switch|branch|push|commit)\b/iu.test(command);
+  return mutates && /BRA|rescue\//u.test(command);
+}
+
 function firstExecutableIndex(tokens) {
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
@@ -290,6 +307,7 @@ export function readGitAliases() {
 export function mayResolveToGit(command) {
   if (typeof command !== "string") return true;
   if (SHELL_EXPANSION.test(command)) return true;
+  if (looksLikeEncodedGit(command)) return true;
   return /git/iu.test(command.replace(/["'\\]/gu, ""));
 }
 
@@ -336,7 +354,9 @@ export function isAmbiguousGitCommand(command, aliases = new Set()) {
     if (aliases === null) return true;
 
     if (hasInlineAliasOption(tokens, gitIndex)) return true;
-    if (ANSI_C_QUOTING.test(segment) && (gitIndex >= 0 || dynamicGit)) return true;
+    if (looksLikeEncodedGit(segment) || (ANSI_C_QUOTING.test(segment) && (gitIndex >= 0 || dynamicGit))) {
+      return true;
+    }
     if (injectsGitConfig && (gitIndex >= 0 || dynamicGit)) return true;
     if (injectsAliasEnvironment && (gitIndex >= 0 || dynamicGit)) return true;
     if (dynamicGit) return true;

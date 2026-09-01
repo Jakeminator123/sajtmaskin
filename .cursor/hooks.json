@@ -10,7 +10,7 @@
       },
       {
         "command": "node .cursor/hooks/worktree-force-guard.mjs",
-        "matcher": "\\bgit\\b|\\bworktree\\b",
+        "matcher": "\\bgit\\b|\\bworktree\\b|\\$'|\\$\"",
         "timeout": 120,
         "failClosed": true
       },
