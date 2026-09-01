@@ -3,6 +3,7 @@ import net from "node:net";
 import {
   fetchWithPinnedDns,
   PINNED_ADDRESS_BLOCKED_MESSAGE,
+  PINNED_BODY_LIMIT_PREFIX,
   type PinnedFetchResult,
 } from "@/lib/capture/pinned-fetch";
 import { isResolvedAddressPrivate } from "@/lib/ssrf-address";
@@ -182,11 +183,20 @@ function isPinnedAddressBlocked(error: unknown): boolean {
   return error instanceof Error && error.message.includes(PINNED_ADDRESS_BLOCKED_MESSAGE);
 }
 
+function isPinnedBodyLimit(error: unknown): boolean {
+  return error instanceof Error && error.message.includes(PINNED_BODY_LIMIT_PREFIX);
+}
+
 export async function safeFetch(
   url: string,
-  init?: RequestInit & { timeoutMs?: number; allowlistOnly?: boolean },
+  init?: RequestInit & { timeoutMs?: number; allowlistOnly?: boolean; maxBodyBytes?: number },
 ): Promise<Response> {
-  const { timeoutMs = FETCH_TIMEOUT_MS, allowlistOnly = false, ...rest } = init ?? {};
+  const {
+    timeoutMs = FETCH_TIMEOUT_MS,
+    allowlistOnly = false,
+    maxBodyBytes,
+    ...rest
+  } = init ?? {};
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const signal = rest.signal
@@ -229,9 +239,13 @@ export async function safeFetch(
           headers,
           body,
           timeoutMs,
+          maxBodyBytes,
           signal,
         });
       } catch (error) {
+        if (isPinnedBodyLimit(error)) {
+          return new Response("Response exceeded maxBodyBytes", { status: 413 });
+        }
         if (!isPinnedAddressBlocked(error)) throw error;
         const prefix = redirectCount === 0 ? "Request" : "Redirect";
         return new Response(

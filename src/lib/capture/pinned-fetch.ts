@@ -23,6 +23,8 @@
 
 import http from "node:http";
 import https from "node:https";
+import { promisify } from "node:util";
+import zlib from "node:zlib";
 import { lookup as dnsLookup, type LookupAllOptions } from "node:dns";
 import type { LookupFunction } from "node:net";
 import { isResolvedAddressPrivate } from "@/lib/ssrf-address";
@@ -30,9 +32,13 @@ import { isResolvedAddressPrivate } from "@/lib/ssrf-address";
 const DEFAULT_TIMEOUT_MS = 15_000;
 /** Taket finns för att en capture aldrig ska kunna dra ner processens minne. */
 const DEFAULT_MAX_BODY_BYTES = 12 * 1024 * 1024;
+const gunzip = promisify(zlib.gunzip);
+const inflate = promisify(zlib.inflate);
+const brotliDecompress = promisify(zlib.brotliDecompress);
 
 export const PINNED_ADDRESS_BLOCKED_MESSAGE =
   "Pinned fetch blocked: hostname resolved to a private/internal address";
+export const PINNED_BODY_LIMIT_PREFIX = "Pinned fetch aborted: response exceeded";
 
 /**
  * Hop-by-hop-headers hör till EN uppkoppling och får aldrig vidarebefordras.
@@ -121,6 +127,40 @@ function buildResponseHeaders(headers: http.IncomingHttpHeaders): Record<string,
   return out;
 }
 
+function bodyLimitError(maxBodyBytes: number): Error {
+  return new Error(`${PINNED_BODY_LIMIT_PREFIX} ${maxBodyBytes} bytes`);
+}
+
+/**
+ * Decode gzip/br/deflate so callers see the same readable body contract as
+ * `fetch()`. Wire size is already capped; the decoded size is capped again so
+ * a tiny compressed payload cannot expand past the caller limit.
+ */
+async function decodePinnedBody(
+  body: Buffer,
+  encoding: string | undefined,
+  maxBodyBytes: number,
+): Promise<Buffer> {
+  const normalized = (encoding ?? "identity").toLowerCase().trim();
+  if (!normalized || normalized === "identity") return body;
+
+  let decoded: Buffer;
+  try {
+    if (normalized === "gzip" || normalized === "x-gzip") decoded = await gunzip(body);
+    else if (normalized === "deflate") decoded = await inflate(body);
+    else if (normalized === "br") decoded = await brotliDecompress(body);
+    else {
+      throw new Error(`Pinned fetch blocked: unsupported content-encoding ${normalized}`);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Pinned fetch")) throw error;
+    throw new Error(`Pinned fetch failed: could not decode ${normalized} body`);
+  }
+
+  if (decoded.byteLength > maxBodyBytes) throw bodyLimitError(maxBodyBytes);
+  return decoded;
+}
+
 /**
  * Hämtar `rawUrl` utan att någon annan än den här funktionen slår upp värden.
  * Kastar om namnet pekar på en privat/intern adress vid anslutningstillfället.
@@ -181,9 +221,7 @@ export async function fetchWithPinnedDns(
           response.on("data", (chunk: Buffer) => {
             received += chunk.byteLength;
             if (received > maxBodyBytes) {
-              const error = new Error(
-                `Pinned fetch aborted: response exceeded ${maxBodyBytes} bytes`,
-              );
+              const error = bodyLimitError(maxBodyBytes);
               response.destroy(error);
               request.destroy(error);
               settleReject(error);
@@ -193,13 +231,21 @@ export async function fetchWithPinnedDns(
           });
           response.on("error", settleReject);
           response.on("end", () => {
-            settleResolve({
-              // Omdirigeringar följs INTE här. safeFetch eller browsern skapar
-              // nästa request, som får en ny guarded socket-lookup.
-              status: response.statusCode ?? 502,
-              headers: buildResponseHeaders(response.headers),
-              body: Buffer.concat(chunks),
-            });
+            const headers = buildResponseHeaders(response.headers);
+            void decodePinnedBody(Buffer.concat(chunks), headers["content-encoding"], maxBodyBytes)
+              .then((body) => {
+                delete headers["content-encoding"];
+                settleResolve({
+                  // Omdirigeringar följs INTE här. safeFetch eller browsern skapar
+                  // nästa request, som får en ny guarded socket-lookup.
+                  status: response.statusCode ?? 502,
+                  headers,
+                  body,
+                });
+              })
+              .catch((error: unknown) => {
+                settleReject(error instanceof Error ? error : new Error(String(error)));
+              });
           });
         },
       );

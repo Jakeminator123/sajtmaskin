@@ -7,6 +7,7 @@
  */
 
 import http from "node:http";
+import zlib from "node:zlib";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -78,6 +79,24 @@ beforeEach(async () => {
           "x-keep": "yes",
         });
         res.end("ok");
+        return;
+      }
+      if (req.url === "/slow") {
+        return;
+      }
+      if (req.url === "/gzip") {
+        res.writeHead(200, { "content-type": "text/plain", "content-encoding": "gzip" });
+        res.end(zlib.gzipSync(Buffer.from("gzip-body")));
+        return;
+      }
+      if (req.url === "/br") {
+        res.writeHead(200, { "content-type": "text/plain", "content-encoding": "br" });
+        res.end(zlib.brotliCompressSync(Buffer.from("br-body")));
+        return;
+      }
+      if (req.url === "/gzip-big") {
+        res.writeHead(200, { "content-type": "text/plain", "content-encoding": "gzip" });
+        res.end(zlib.gzipSync(Buffer.alloc(80, 97)));
         return;
       }
       res.writeHead(200, { "content-type": "image/png" });
@@ -210,5 +229,40 @@ describe("fetchWithPinnedDns", () => {
   it("vägrar allt som inte är http(s)", async () => {
     await expect(fetchWithPinnedDns("ftp://asset.test/x")).rejects.toThrow(/http\(s\) only/);
     expect(dnsLookup).not.toHaveBeenCalled();
+  });
+
+  it("avkodar gzip så body-läsning ger klartext", async () => {
+    const result = await fetchWithPinnedDns(`http://asset.test:${port}/gzip`);
+    expect(result.body.toString()).toBe("gzip-body");
+    expect(result.headers["content-encoding"]).toBeUndefined();
+  });
+
+  it("avkodar brotli så body-läsning ger klartext", async () => {
+    const result = await fetchWithPinnedDns(`http://asset.test:${port}/br`);
+    expect(result.body.toString()).toBe("br-body");
+    expect(result.headers["content-encoding"]).toBeUndefined();
+  });
+
+  it("fail-stänger när avkodad body passerar maxBodyBytes", async () => {
+    await expect(
+      fetchWithPinnedDns(`http://asset.test:${port}/gzip-big`, { maxBodyBytes: 16 }),
+    ).rejects.toThrow(/exceeded 16 bytes/);
+  });
+
+  it("avbryter när AbortSignal abortas mitt i ett hängande svar", async () => {
+    const controller = new AbortController();
+    const pending = fetchWithPinnedDns(`http://asset.test:${port}/slow`, {
+      signal: controller.signal,
+      timeoutMs: 5_000,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("timeoutar genom den pinnade transporten när servern inte svarar", async () => {
+    await expect(
+      fetchWithPinnedDns(`http://asset.test:${port}/slow`, { timeoutMs: 40 }),
+    ).rejects.toThrow(/timed out/);
   });
 });

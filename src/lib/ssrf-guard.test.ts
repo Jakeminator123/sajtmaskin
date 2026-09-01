@@ -2,13 +2,17 @@ import { lookup } from "node:dns/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchWithPinnedDns = vi.hoisted(() => vi.fn());
-const PINNED_ADDRESS_BLOCKED_MESSAGE =
-  "Pinned fetch blocked: hostname resolved to a private/internal address";
+const PINNED_ADDRESS_BLOCKED_MESSAGE = vi.hoisted(
+  () => "Pinned fetch blocked: hostname resolved to a private/internal address",
+);
+const PINNED_BODY_LIMIT_PREFIX = vi.hoisted(() => "Pinned fetch aborted: response exceeded");
 vi.mock("@/lib/capture/pinned-fetch", () => ({
   fetchWithPinnedDns,
   PINNED_ADDRESS_BLOCKED_MESSAGE,
+  PINNED_BODY_LIMIT_PREFIX,
 }));
 import {
+  hostResolvesToPrivate,
   isAllowedPreviewHost,
   isDisallowedHost,
   isLoopbackHost,
@@ -62,6 +66,10 @@ describe("ssrf-guard", () => {
     expect(isDisallowedHost("10.10.1.1")).toBe(true);
     expect(isDisallowedHost("192.168.0.42")).toBe(true);
     expect(isDisallowedHost("169.254.169.254")).toBe(true);
+    expect(isDisallowedHost("100.64.1.1")).toBe(true);
+    expect(isDisallowedHost("192.0.2.1")).toBe(true);
+    expect(isDisallowedHost("224.0.0.1")).toBe(true);
+    expect(isDisallowedHost("255.255.255.255")).toBe(true);
   });
 
   it("blocks local IPv6 ranges", () => {
@@ -73,6 +81,10 @@ describe("ssrf-guard", () => {
     expect(isDisallowedHost("ff02::1")).toBe(true);
     expect(isDisallowedHost("::ffff:7f00:1")).toBe(true);
     expect(isDisallowedHost("[::ffff:7f00:1]")).toBe(true);
+    expect(isDisallowedHost("64:ff9b::1")).toBe(true);
+    expect(isDisallowedHost("2001:db8::1")).toBe(true);
+    expect(isDisallowedHost("2001::1")).toBe(true);
+    expect(isDisallowedHost("100::1")).toBe(true);
   });
 
   it("allows IPv4-mapped IPv6 literals that map to public IPv4", () => {
@@ -372,6 +384,104 @@ describe("ssrf-guard", () => {
     expect(redirect.status).toBe(403);
     expect(await redirect.text()).toContain("credentials");
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    expect(fetchWithPinnedDns).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks when any A/AAAA record is private even if another is public", async () => {
+    mockedLookup.mockResolvedValue([
+      { address: "1.1.1.1", family: 4 },
+      { address: "2001:db8::1", family: 6 },
+    ] as never);
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+
+    await expect(hostResolvesToPrivate("mixed.example")).resolves.toBe(true);
+    const res = await safeFetch("https://mixed.example/");
+    expect(res.status).toBe(403);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(fetchWithPinnedDns).not.toHaveBeenCalled();
+  });
+
+  it("allows a mixed A/AAAA answer only when every record is public", async () => {
+    mockedLookup.mockResolvedValue([
+      { address: "1.1.1.1", family: 4 },
+      { address: "2606:4700:4700::1111", family: 6 },
+    ] as never);
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response("ok", { status: 200 })) as unknown as typeof fetch;
+
+    await expect(hostResolvesToPrivate("dual.example")).resolves.toBe(false);
+    const res = await safeFetch("https://dual.example/");
+    expect(res.status).toBe(200);
+    expect(fetchWithPinnedDns).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks a public→private redirect chain after the public hop", async () => {
+    mockedLookup.mockImplementation(((host: string) =>
+      Promise.resolve(
+        host === "private.example"
+          ? [
+              { address: "8.8.8.8", family: 4 },
+              { address: "10.0.0.9", family: 4 },
+            ]
+          : [{ address: "93.184.216.34", family: 4 }],
+      )) as never);
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { Location: "https://private.example/x" } }),
+      ) as unknown as typeof fetch;
+
+    const res = await safeFetch("https://example.com");
+    expect(res.status).toBe(403);
+    expect(await res.text()).toContain("private/internal IP");
+    expect(fetchWithPinnedDns).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps POST body on 307 but still pins the next hop", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 307, headers: { Location: "https://example.com/next" } }),
+      )
+      .mockResolvedValueOnce(new Response("ok", { status: 200 })) as unknown as typeof fetch;
+
+    await safeFetch("https://example.com/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keep: true }),
+    });
+
+    const second = fetchWithPinnedDns.mock.calls[1]?.[1] as {
+      method: string;
+      body: Buffer | null;
+    };
+    expect(second.method).toBe("POST");
+    expect(second.body?.toString()).toBe(JSON.stringify({ keep: true }));
+  });
+
+  it("för vidare caller-styrd maxBodyBytes och fail-stänger med 413", async () => {
+    fetchWithPinnedDns.mockRejectedValueOnce(new Error(`${PINNED_BODY_LIMIT_PREFIX} 4 bytes`));
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+
+    const res = await safeFetch("https://example.com/img", { maxBodyBytes: 4 });
+    expect(res.status).toBe(413);
+    expect(await res.text()).toContain("maxBodyBytes");
+    expect(fetchWithPinnedDns.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ maxBodyBytes: 4 }),
+    );
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("lämnar default-GET utan maxBodyBytes så transportens eget tak gäller", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response("ok", { status: 200 })) as unknown as typeof fetch;
+
+    const res = await safeFetch("https://example.com");
+    expect(res.status).toBe(200);
+    expect((fetchWithPinnedDns.mock.calls[0]?.[1] as { maxBodyBytes?: number }).maxBodyBytes)
+      .toBeUndefined();
   });
 });
 
