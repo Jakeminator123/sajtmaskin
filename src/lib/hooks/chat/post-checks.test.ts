@@ -7,8 +7,14 @@ vi.mock("@/lib/gen/validation/project-sanity", () => ({
   runProjectSanityChecks,
 }));
 
-import { buildProductPostcheckLogItems, runPostGenerationChecks } from "./post-checks";
+import {
+  abortPostChecksForChat,
+  buildProductPostcheckLogItems,
+  hasActivePostCheck,
+  runPostGenerationChecks,
+} from "./post-checks";
 import type { SetMessages } from "./types";
+import { MAX_SCOPED_IMAGE_URLS } from "@/lib/utils/validate-images-limit";
 import {
   acceptClientErrorReport,
   resetClientErrorReportGateForTests,
@@ -186,6 +192,7 @@ describe("runPostGenerationChecks", () => {
 
   beforeEach(() => {
     fetchCalls = [];
+    abortPostChecksForChat("chat_1");
     resetClientErrorReportGateForTests();
     runProjectSanityChecks.mockReset();
     runProjectSanityChecks.mockReturnValue({ valid: true, issues: [] });
@@ -2594,15 +2601,18 @@ describe("runPostGenerationChecks", () => {
     expect(payload.reasons.some((reason) => reason.includes("Product Postcheck"))).toBe(false);
   });
 
-  // Routens `urls` tar max 16. En okapad lista gav 400 på hela requesten, så
-  // klienten hoppade över ALLA ersättningar. Kapa, och låt överskottet — som
-  // annars filtrerades bort från LLM-vägen också — gå vidare till auto-fix.
+  // Samma takkonstant som routens Zod-schema. En okapad lista gav 400 på hela
+  // requesten, så klienten hoppade över ALLA ersättningar. Kapa, och låt
+  // överskottet — som annars filtrerades bort från LLM-vägen också — gå vidare
+  // till auto-fix. Om taket driver isär mot routen blir det rött här och i
+  // validate-images/route.test.ts.
   it("kapar broken_image-URL:erna till routens tak och lämnar överskottet till LLM", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();
     const files = buildHealthyFiles();
+    const overflow = 4;
     const brokenSrcs = Array.from(
-      { length: 20 },
+      { length: MAX_SCOPED_IMAGE_URLS + overflow },
       (_, index) => `https://images.unsplash.com/photo-dead-${index}?w=800`,
     );
 
@@ -2666,16 +2676,18 @@ describe("runPostGenerationChecks", () => {
     const scopedBody = JSON.parse(String(scopedImageCall?.init?.body ?? "{}")) as {
       urls?: string[];
     };
-    expect(scopedBody.urls).toHaveLength(16);
-    expect(scopedBody.urls).toEqual(brokenSrcs.slice(0, 16));
+    expect(scopedBody.urls).toHaveLength(MAX_SCOPED_IMAGE_URLS);
+    expect(scopedBody.urls).toEqual(brokenSrcs.slice(0, MAX_SCOPED_IMAGE_URLS));
 
     expect(onAutoFix).toHaveBeenCalledTimes(1);
     const payload = onAutoFix.mock.calls[0][0] as {
       repair?: { productFindings?: Array<{ code: string; src?: string }> };
     };
     const findings = payload.repair?.productFindings ?? [];
-    expect(findings).toHaveLength(4);
-    expect(findings.map((finding) => finding.src)).toEqual(brokenSrcs.slice(16));
+    expect(findings).toHaveLength(overflow);
+    expect(findings.map((finding) => finding.src)).toEqual(
+      brokenSrcs.slice(MAX_SCOPED_IMAGE_URLS),
+    );
   });
 
   it("kör bara URL-skopad bildersättning när advisory-fyndet är broken_image", async () => {
@@ -2752,6 +2764,250 @@ describe("runPostGenerationChecks", () => {
       }),
     ).toBe(true);
     expect(onAutoFix).not.toHaveBeenCalled();
+  });
+
+  it("startar en ny quality-gate när den skopade bildfixen faktiskt skrev en ersättning", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    const brokenSrc = "https://images.unsplash.com/photo-dead-rewritten?w=800";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) {
+          const body = JSON.parse(String(init?.body ?? "{}")) as { urls?: string[] };
+          if (body.urls?.includes(brokenSrc)) {
+            return jsonResponse({ fixed: true, replacedCount: 1 });
+          }
+          return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({
+            ok: true,
+            skipped: false,
+            warnings: [
+              {
+                code: "broken_image",
+                message: `Bilden laddade inte: ${brokenSrc}`,
+                src: brokenSrc,
+              },
+            ],
+            warningCount: 1,
+            productBlocked: false,
+            durationMs: 40,
+            checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+            attestation: CURRENT_POSTCHECK_ATTESTATION,
+          });
+        }
+        if (url.includes("/error-log")) return jsonResponse({ ok: true });
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: true,
+            checks: [
+              { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 900 },
+            ],
+            verifyLaneDurationMs: 1200,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await vi.waitFor(() => {
+      expect(fetchCalls.filter((call) => call.url.includes("/quality-gate"))).toHaveLength(2);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchCalls.filter((call) => call.url.includes("/quality-gate"))).toHaveLength(2);
+
+    const scopedImageCalls = fetchCalls.filter((call) => {
+      if (!call.url.includes("/validate-images")) return false;
+      const body = JSON.parse(String(call.init?.body ?? "{}")) as { urls?: string[] };
+      return body.urls?.includes(brokenSrc) === true;
+    });
+    expect(scopedImageCalls.length).toBeGreaterThanOrEqual(1);
+    expect(onAutoFix).not.toHaveBeenCalled();
+    expect(hasActivePostCheck("chat_1")).toBe(false);
+    const qualityGate = getToolPart("Quality gate", store);
+    expect(qualityGate?.state).not.toBe("output-error");
+  });
+
+  it("startar ingen ny quality-gate när den skopade bildfixen inte skrev något", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    const brokenSrc = "https://images.unsplash.com/photo-dead-noop?w=800";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) {
+          const body = JSON.parse(String(init?.body ?? "{}")) as { urls?: string[] };
+          if (body.urls?.includes(brokenSrc)) {
+            return jsonResponse({ fixed: false, replacedCount: 0 });
+          }
+          return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({
+            ok: true,
+            skipped: false,
+            warnings: [
+              {
+                code: "broken_image",
+                message: `Bilden laddade inte: ${brokenSrc}`,
+                src: brokenSrc,
+              },
+            ],
+            warningCount: 1,
+            productBlocked: false,
+            durationMs: 40,
+            checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+            attestation: CURRENT_POSTCHECK_ATTESTATION,
+          });
+        }
+        if (url.includes("/error-log")) return jsonResponse({ ok: true });
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: true,
+            checks: [
+              { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 900 },
+            ],
+            verifyLaneDurationMs: 1200,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(fetchCalls.filter((call) => call.url.includes("/quality-gate"))).toHaveLength(1);
+    expect(
+      fetchCalls.some((call) => {
+        if (!call.url.includes("/validate-images")) return false;
+        const body = JSON.parse(String(call.init?.body ?? "{}")) as { urls?: string[] };
+        return body.urls?.includes(brokenSrc) === true;
+      }),
+    ).toBe(true);
+    expect(onAutoFix).not.toHaveBeenCalled();
+    expect(hasActivePostCheck("chat_1")).toBe(false);
+  });
+
+  it("tillåter bara en follow-up-verify per gate-pass även om bildfixen fortsätter rapportera fixed", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    const brokenSrc = "https://images.unsplash.com/photo-dead-loop?w=800";
+    let qualityGateCalls = 0;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) {
+          const body = JSON.parse(String(init?.body ?? "{}")) as { urls?: string[] };
+          if (Array.isArray(body.urls) && body.urls.length > 0) {
+            return jsonResponse({ fixed: true, replacedCount: 1 });
+          }
+          return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({
+            ok: true,
+            skipped: false,
+            warnings: [
+              {
+                code: "broken_image",
+                message: `Bilden laddade inte: ${brokenSrc}`,
+                src: brokenSrc,
+              },
+            ],
+            warningCount: 1,
+            productBlocked: false,
+            durationMs: 40,
+            checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+            attestation: CURRENT_POSTCHECK_ATTESTATION,
+          });
+        }
+        if (url.includes("/error-log")) return jsonResponse({ ok: true });
+        if (url.includes("/quality-gate")) {
+          qualityGateCalls += 1;
+          if (qualityGateCalls > 5) {
+            throw new Error("infinite scoped-image reverify loop");
+          }
+          return jsonResponse({
+            passed: true,
+            checks: [
+              { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 900 },
+            ],
+            verifyLaneDurationMs: 1200,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await vi.waitFor(() => {
+      expect(fetchCalls.filter((call) => call.url.includes("/quality-gate"))).toHaveLength(2);
+    });
+
+    const scopedImageCalls = fetchCalls.filter((call) => {
+      if (!call.url.includes("/validate-images")) return false;
+      const body = JSON.parse(String(call.init?.body ?? "{}")) as { urls?: string[] };
+      return Array.isArray(body.urls) && body.urls.length > 0;
+    });
+    expect(scopedImageCalls).toHaveLength(2);
+    expect(qualityGateCalls).toBe(2);
+    expect(onAutoFix).not.toHaveBeenCalled();
+    expect(hasActivePostCheck("chat_1")).toBe(false);
   });
 
   it("persists Product Postcheck skipped status without warning or autofix", async () => {

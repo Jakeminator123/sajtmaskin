@@ -89,6 +89,26 @@ export type ProductPostcheckAttestation = {
   filesRevision: string;
 };
 
+/**
+ * A receipt is only a receipt when it names a real preview session.
+ * `unbound` was a route-minted sentinel for "we never bound" — persist
+ * already 409s it, but clients that only check object-presence treated it
+ * as attested and continued into the quality gate.
+ */
+export function isProductPostcheckAttestation(
+  value: unknown,
+): value is ProductPostcheckAttestation {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const input = value as Record<string, unknown>;
+  const previewSessionId =
+    typeof input.previewSessionId === "string" ? input.previewSessionId.trim() : "";
+  const filesRevision =
+    typeof input.filesRevision === "string" ? input.filesRevision.trim() : "";
+  if (!previewSessionId || previewSessionId === "unbound") return false;
+  if (!filesRevision) return false;
+  return input.lifecycleToken === null || typeof input.lifecycleToken === "string";
+}
+
 /** Raw browser-runtime signal collected during Playwright navigation. */
 export type BrowserRuntimeIssue = {
   kind: "console" | "requestfailed" | "http";
@@ -153,7 +173,10 @@ type DomSnapshot = {
     hasReactHandler?: boolean;
     /** Om props-expandon alls gick att läsa — styr fyndets confidence. */
     reactPropsProbed?: boolean;
-    /** Knappen ligger i eller innehåller en riktig länk (`<a href>`). */
+    /**
+     * Knappen ligger i eller innehåller en länk med meningsfull destination
+     * (inte tom, inte `#`). Elementets eget ankare räknas inte.
+     */
     anchorWrapped?: boolean;
     ariaHasPopup?: string | null;
     onclickAttr?: boolean;
@@ -669,9 +692,15 @@ export function evaluateProductDomSnapshot(
     // eller ett rått onclick-attribut är alla verkliga handlingar som de
     // gamla attribut-heuristikerna missade → 7 falska cta_no_handler på en
     // fullt fungerande sajt (chat 63d0992f).
+    //
+    // `anchorWrapped` är bara knappsignalen från den fixen. Ett `<a>` som
+    // närmast matchar sig självt (closest börjar på elementet) får inte
+    // räkna en tom/`#`-href som handler — det är den klassiska döda CTA:n.
+    const wrappedByRealLink =
+      cta.tag.toLowerCase() !== "a" && cta.anchorWrapped === true;
     const hasRenderedHandler =
       cta.hasReactHandler === true ||
-      cta.anchorWrapped === true ||
+      wrappedByRealLink ||
       cta.onclickAttr === true ||
       Boolean(cta.ariaHasPopup?.trim());
     const ctaConfidence: "high" | "medium" =
@@ -1489,7 +1518,17 @@ export async function runProductPostcheck(params: {
         return { probed, handler: false };
       };
 
+      // closest("a[href]") matchar elementet självt, så en `<a href="#">`
+      // såg ut som "inlänkad". Kräv en *annan* länk med riktig destination.
+      const hasMeaningfulHref = (anchor: Element | null | undefined): boolean => {
+        if (!anchor) return false;
+        const href = (anchor.getAttribute("href") || "").trim();
+        return href !== "" && href !== "#";
+      };
+
       return {
+        // `href="#"` ägs av cta_no_handler (död CTA), inte broken_anchor
+        // (saknad sektions-id). Lämna filtret så fyndet inte dubbelrapporteras.
         anchors: Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]'))
           .map((a) => {
             const href = a.getAttribute("href") || "";
@@ -1525,7 +1564,8 @@ export async function runProductPostcheck(params: {
               hasReactHandler: reactProbe.handler,
               reactPropsProbed: reactProbe.probed,
               anchorWrapped:
-                el.closest("a[href]") !== null || el.querySelector("a[href]") !== null,
+                hasMeaningfulHref(el.parentElement?.closest("a[href]")) ||
+                hasMeaningfulHref(el.querySelector("a[href]")),
               ariaHasPopup: el.getAttribute("aria-haspopup"),
               onclickAttr:
                 typeof (el as HTMLElement).onclick === "function" ||

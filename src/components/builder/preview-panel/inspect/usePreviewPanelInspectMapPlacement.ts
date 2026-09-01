@@ -16,6 +16,7 @@ import {
 } from "@/lib/builder/section-analyzer";
 import type { ElementMapItem, ElementMapResponse } from "@/lib/builder/types";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import type { InspectEngine } from "../preview-panel-types";
 import {
   useCallback,
@@ -30,6 +31,49 @@ import {
   type SetStateAction,
 } from "react";
 import { toast } from "sonner";
+
+type InspectorMapIdentityInput = {
+  previewUrl?: string | null;
+  chatId: string | null;
+  versionId: string | null;
+  previewSessionId?: string | null;
+  lifecycleToken?: string | null;
+};
+
+/** Same attach-condition as the inspect-map JSON body. */
+export function canAttachInspectorMapIdentity(
+  input: InspectorMapIdentityInput,
+): boolean {
+  return Boolean(
+    input.chatId &&
+      input.versionId &&
+      input.previewSessionId &&
+      input.lifecycleToken !== undefined,
+  );
+}
+
+/**
+ * Grind och payload är samma sanning. Tier-2 utan hydrerad tuple (inkl.
+ * session) är inte redo. Compat-shim saknar session med flit och får
+ * fortfarande den gamla `!session`-luckan.
+ */
+export function isInspectorMapIdentityReady(
+  input: InspectorMapIdentityInput,
+): boolean {
+  if (input.previewUrl && isTier2LivePreviewUrl(input.previewUrl)) {
+    return canAttachInspectorMapIdentity(input);
+  }
+  if (input.previewUrl && isCompatibilityShimPreviewUrl(input.previewUrl)) {
+    return (
+      !input.previewSessionId ||
+      Boolean(input.chatId && input.versionId && input.lifecycleToken !== undefined)
+    );
+  }
+  return (
+    !input.previewSessionId ||
+    Boolean(input.chatId && input.versionId && input.lifecycleToken !== undefined)
+  );
+}
 
 export function usePreviewPanelInspectMapPlacement(options: {
   inspectorEnabled: boolean;
@@ -137,12 +181,32 @@ export function usePreviewPanelInspectMapPlacement(options: {
         }
         return 0;
       }
+      const inspectorUrl = url.startsWith("/") ? `${window.location.origin}${url}` : url;
+      const identityInput = {
+        previewUrl: inspectorUrl,
+        chatId,
+        versionId,
+        previewSessionId,
+        lifecycleToken,
+      };
+      const canAttachIdentity = canAttachInspectorMapIdentity(identityInput);
+      // Samma sanning som PreviewPanel-grinden: en tier-2-URL utan tuple
+      // får aldrig bli en fetch, även om `identityReady` skulle vara sant.
+      if (
+        (isTier2LivePreviewUrl(url) || isTier2LivePreviewUrl(inspectorUrl)) &&
+        !canAttachIdentity
+      ) {
+        if (requestToken === inspectFetchTokenRef.current) {
+          setElementMap([]);
+          setElementMapLoading(false);
+          setInspectorUnavailable(true);
+        }
+        return 0;
+      }
       if (!requestIsCurrent()) return 0;
       setElementMapLoading(true);
       setInspectorUnavailable(false);
       try {
-        const inspectorUrl = url.startsWith("/") ? `${window.location.origin}${url}` : url;
-
         const isOwnEnginePreview = isCompatibilityShimPreviewUrl(inspectorUrl);
 
         const res = await fetch("/api/inspector-element-map", {
@@ -153,7 +217,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
             viewportWidth: width,
             viewportHeight: height,
             maxElements: 300,
-            ...(chatId && versionId && previewSessionId && lifecycleToken !== undefined
+            ...(canAttachIdentity
               ? { chatId, versionId, previewSessionId, lifecycleToken }
               : {}),
           }),

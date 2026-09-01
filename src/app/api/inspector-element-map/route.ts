@@ -17,7 +17,10 @@ export const dynamic = "force-dynamic";
 
 const NAVIGATION_TIMEOUT_MS = 20_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
-const IS_SERVERLESS = Boolean(process.env.VERCEL);
+
+function isServerlessRuntime(): boolean {
+  return Boolean(process.env.VERCEL);
+}
 
 type MapRequest = {
   url: string;
@@ -170,6 +173,15 @@ async function handlePOST(req: Request) {
     );
   }
 
+  // Playwright-fallbacken finns inte på Vercel. Säg det innan
+  // identitetsavvisningen så en tuple-lös prod-request inte blir 400 staleIdentity.
+  if (isServerlessRuntime()) {
+    return NextResponse.json(
+      { success: false, error: "Inspector element map is not available in serverless (local Playwright fallback is unsupported here)." },
+      { status: 503 },
+    );
+  }
+
   const body = (await req.json().catch(() => null)) as MapRequest | null;
   if (!body?.url?.trim()) {
     return NextResponse.json({ success: false, error: "Missing url." }, { status: 400 });
@@ -238,13 +250,6 @@ async function handlePOST(req: Request) {
   const cached = cache.get(key);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
     return NextResponse.json(cached.data);
-  }
-
-  if (IS_SERVERLESS) {
-    return NextResponse.json(
-      { success: false, error: "Inspector element map is not available in serverless (local Playwright fallback is unsupported here)." },
-      { status: 503 },
-    );
   }
 
   const localResult = await localElementMap(
