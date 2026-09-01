@@ -11,6 +11,7 @@ import {
   isNextCacheStale,
   isProtectedBranch,
   isWorktreeDirty,
+  normalizeWorktreePath,
   parsePrLifecycle,
   parsePrLifecycleTsv,
   parsePorcelainWorktrees,
@@ -155,6 +156,11 @@ describe("classifyWorktree", () => {
     const protectedWt = classifyWorktree({ ...free, isProtected: true });
     expect(protectedWt.verdict).toBe("keep");
     expect(protectedWt.reason).toContain("protectedWorktree");
+  });
+
+  it("foldar slash och case likadant som worktree:remove", () => {
+    expect(normalizeWorktreePath("/tmp/foo/")).toBe(normalizeWorktreePath("/tmp/foo"));
+    expect(normalizeWorktreePath("/tmp/Foo")).toBe(normalizeWorktreePath("/tmp/foo"));
   });
 
   it("behåller en detached worktree som inte är mergad", () => {

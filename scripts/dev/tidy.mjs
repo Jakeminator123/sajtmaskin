@@ -89,6 +89,14 @@ function branchPatternRegex(pattern) {
   return new RegExp(`^${source}$`, "u");
 }
 
+/** Same slash/case fold as `worktree:remove` so a protected path cannot read as FRI. */
+export function normalizeWorktreePath(p) {
+  return path
+    .resolve(p)
+    .replace(/[\\/]+$/u, "")
+    .toLowerCase();
+}
+
 /** @param {string} name */
 export function isProtectedBranch(name) {
   return PROTECTED_BRANCH_PATTERNS.some((pattern) => branchPatternRegex(pattern).test(name));
@@ -443,7 +451,7 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
       .split(/\r?\n/u)
       .map((entry) => entry.trim())
       .filter(Boolean)
-      .map((entry) => path.resolve(entry)),
+      .map((entry) => normalizeWorktreePath(entry)),
   );
   // Ett enda gh-anrop återanvänds av branch-, worktree- och remote-klassningen.
   const openPrBranches = lifecycle?.openHeads ?? null;
@@ -465,7 +473,7 @@ export function runTidy({ root = DEFAULT_ROOT, apply = false, fetch = true } = {
         mergedIntoBase: merged,
         mergedByExactPr: isExactMergedPr(lifecycle, wt.branch, branchHead),
         isMain: false,
-        isProtected: protectedWorktreePaths.has(path.resolve(wt.path)),
+        isProtected: protectedWorktreePaths.has(normalizeWorktreePath(wt.path)),
       });
       const label = verdict === "free" ? "FRI" : "behåll";
       log(`[tidy] worktree ${label}: ${wt.path} [${wt.branch ?? "detached"}] — ${reason}`);

@@ -198,8 +198,9 @@ async function logTmpTopConsumersBestEffort(): Promise<void> {
 }
 
 /**
- * /tmp-hygien sker UTANFÖR capture-mutexen. Svepet och topp-listan är
- * budgetstyrda men får inte hålla Chromium-sloten medan de går.
+ * /tmp-hygien: först utanför mutexen så en köad capture inte håller
+ * Chromium-sloten under readdir, sedan igen efter `await previous` så
+ * köns väntan inte lämnar launch mot ett återfyllt /tmp (SM-072).
  */
 async function prepareTmpForCaptureLaunch(): Promise<void> {
   const freeMb = await measureTmpFreeSpaceBestEffort();
@@ -256,6 +257,9 @@ async function launchCaptureBrowserWithRetry(): Promise<Browser> {
 
 export async function launchCaptureBrowser(): Promise<Browser> {
   if (IS_SERVERLESS) {
+    // Heavy /tmp walk stays off the Chromium slot so a waiter does not hold
+    // the mutex during readdir. After the queue gap another capture can refill
+    // /tmp — re-hygiene once we own the slot, immediately before launch.
     await prepareTmpForCaptureLaunch();
   }
   let release!: () => void;
@@ -267,6 +271,9 @@ export async function launchCaptureBrowser(): Promise<Browser> {
   await previous;
 
   try {
+    if (IS_SERVERLESS) {
+      await prepareTmpForCaptureLaunch();
+    }
     const browser = await launchCaptureBrowserWithRetry();
     const originalClose = browser.close.bind(browser);
     let released = false;

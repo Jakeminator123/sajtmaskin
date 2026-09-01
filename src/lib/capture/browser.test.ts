@@ -194,7 +194,7 @@ describe("launchCaptureBrowser", () => {
     const measureCalls = warnSpy.mock.calls.filter((call) =>
       String(call[0]).includes("free space in temporary directory"),
     );
-    expect(measureCalls).toHaveLength(2);
+    expect(measureCalls.length).toBeGreaterThanOrEqual(2);
     warnSpy.mockRestore();
   });
 
