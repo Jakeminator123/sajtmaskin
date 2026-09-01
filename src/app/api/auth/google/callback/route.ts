@@ -5,36 +5,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { handleGoogleCallback, setAuthCookie } from "@/lib/auth/auth";
-
-function sanitizeRedirectTarget(rawRedirect: string | null, req: NextRequest): string {
-  const fallback = "/";
-  if (!rawRedirect) return fallback;
-
-  try {
-    const baseOrigin = req.nextUrl.origin;
-    const candidate = new URL(rawRedirect, baseOrigin);
-    if (candidate.origin !== baseOrigin) return fallback;
-
-    return `${candidate.pathname}${candidate.search}${candidate.hash}` || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function parseRedirectFromState(state: string | null, req: NextRequest): string {
-  const fallback = "/";
-  if (!state) return fallback;
-
-  try {
-    const stateData = JSON.parse(Buffer.from(state, "base64url").toString()) as {
-      redirect?: unknown;
-    };
-    const redirect = typeof stateData.redirect === "string" ? stateData.redirect : fallback;
-    return sanitizeRedirectTarget(redirect, req);
-  } catch {
-    return fallback;
-  }
-}
+import {
+  clearOAuthFlowCookie,
+  verifyOAuthFlow,
+} from "@/lib/auth/oauth-state";
 
 function buildRedirectUrl(
   path: string,
@@ -48,50 +22,100 @@ function buildRedirectUrl(
   return url;
 }
 
+function finishOAuthResponse(
+  response: NextResponse,
+  req: NextRequest,
+): NextResponse {
+  clearOAuthFlowCookie(response, "google", req);
+  response.headers.set("Cache-Control", "no-store");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  return response;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
     const code = searchParams.get("code");
     const state = searchParams.get("state");
     const error = searchParams.get("error");
-    const redirectPath = parseRedirectFromState(state, req);
+    const flow = verifyOAuthFlow("google", req, state);
 
-    // Check for errors from Google
+    if (!flow.ok) {
+      console.warn(
+        "[API/auth/google/callback] Rejected OAuth state:",
+        flow.reason,
+      );
+      return finishOAuthResponse(
+        NextResponse.redirect(
+          buildRedirectUrl("/", req, { error: "Ogiltig OAuth-session" }),
+        ),
+        req,
+      );
+    }
+
+    const redirectPath = flow.payload.returnTo;
+
     if (error) {
       console.error("[API/auth/google/callback] Google error:", error);
-      return NextResponse.redirect(
-        buildRedirectUrl(redirectPath, req, { error: "Google-inloggning avbröts" }),
+      return finishOAuthResponse(
+        NextResponse.redirect(
+          buildRedirectUrl(redirectPath, req, {
+            error: "Google-inloggning avbröts",
+          }),
+        ),
+        req,
       );
     }
 
-    // Verify code is present
     if (!code) {
-      return NextResponse.redirect(
-        buildRedirectUrl(redirectPath, req, { error: "Ogiltig inloggning" }),
+      return finishOAuthResponse(
+        NextResponse.redirect(
+          buildRedirectUrl(redirectPath, req, {
+            error: "Ogiltig inloggning",
+          }),
+        ),
+        req,
       );
     }
 
-    // Keep callback URI aligned with current request origin.
-    const callbackUrl = new URL("/api/auth/google/callback", req.nextUrl.origin).toString();
-
-    // Handle callback
-    const result = await handleGoogleCallback(code, callbackUrl);
+    const callbackUrl = new URL(
+      "/api/auth/google/callback",
+      flow.payload.origin,
+    ).toString();
+    const result = await handleGoogleCallback(
+      code,
+      callbackUrl,
+      flow.codeVerifier,
+    );
 
     if ("error" in result) {
-      return NextResponse.redirect(
-        buildRedirectUrl(redirectPath, req, { error: result.error }),
+      return finishOAuthResponse(
+        NextResponse.redirect(
+          buildRedirectUrl(redirectPath, req, { error: result.error }),
+        ),
+        req,
       );
     }
 
-    // Set auth cookie
-    await setAuthCookie(result.token, { secure: req.nextUrl.protocol === "https:" });
+    await setAuthCookie(result.token, {
+      secure: req.nextUrl.protocol === "https:",
+    });
 
-    // Redirect to original page with success
-    return NextResponse.redirect(buildRedirectUrl(redirectPath, req, { login: "success" }));
+    return finishOAuthResponse(
+      NextResponse.redirect(
+        buildRedirectUrl(redirectPath, req, { login: "success" }),
+      ),
+      req,
+    );
   } catch (error) {
     console.error("[API/auth/google/callback] Error:", error);
-    return NextResponse.redirect(
-      buildRedirectUrl("/", req, { error: "Något gick fel vid Google-inloggning" }),
+    return finishOAuthResponse(
+      NextResponse.redirect(
+        buildRedirectUrl("/", req, {
+          error: "Något gick fel vid Google-inloggning",
+        }),
+      ),
+      req,
     );
   }
 }

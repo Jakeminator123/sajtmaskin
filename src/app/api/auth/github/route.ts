@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SECRETS, URLS, FEATURES } from "@/lib/config";
+import { getCurrentUser } from "@/lib/auth/auth";
+import {
+  createOAuthFlow,
+  sanitizeOAuthReturnTo,
+  setOAuthFlowCookie,
+} from "@/lib/auth/oauth-state";
+import { FEATURES, SECRETS, URLS } from "@/lib/config";
 
 /**
  * GitHub OAuth - Start Flow
  *
- * Redirects user to GitHub to authorize the app.
- * After authorization, GitHub redirects back to /api/auth/github/callback
+ * Redirects a signed-in user to GitHub to connect their account.
  */
-
 export async function GET(request: NextRequest) {
-  // Check if GitHub OAuth is enabled
   if (!FEATURES.useGitHubAuth) {
     console.error("[GitHub OAuth] GitHub OAuth is not configured");
     return NextResponse.json(
@@ -18,51 +21,34 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const GITHUB_CLIENT_ID = SECRETS.githubClientId;
-  const REDIRECT_URI = URLS.githubCallbackUrl;
+  const user = await getCurrentUser(request);
+  if (!user) {
+    const errorUrl = new URL("/", request.nextUrl.origin);
+    errorUrl.searchParams.set("github_error", "not_authenticated");
+    return NextResponse.redirect(errorUrl);
+  }
 
-  // Get the return URL from query params (where to redirect after OAuth)
-  const searchParams = request.nextUrl.searchParams;
-  const returnTo = searchParams.get("returnTo") || "/projects";
+  const returnTo = sanitizeOAuthReturnTo(
+    request.nextUrl.searchParams.get("returnTo"),
+    request.nextUrl.origin,
+    "/projects",
+  );
+  const flow = createOAuthFlow("github", request, {
+    returnTo,
+    subject: user.id,
+  });
 
-  // Sanitize return path to avoid unsafe/remote redirects
-  const sanitizeReturnTo = (value: string | null): { path: string; sanitized: boolean } => {
-    const fallback = "/projects";
-    if (!value) return { path: fallback, sanitized: false };
-
-    try {
-      const baseOrigin = new URL(URLS.baseUrl).origin;
-      const candidate = new URL(value, baseOrigin);
-      // Only allow same-origin redirects
-      if (candidate.origin !== baseOrigin) {
-        return { path: fallback, sanitized: true };
-      }
-      // Always return path+search+hash to avoid host leakage
-      const safePath = `${candidate.pathname}${candidate.search}${candidate.hash}`;
-      return { path: safePath || fallback, sanitized: safePath !== value };
-    } catch {
-      return { path: fallback, sanitized: true };
-    }
-  };
-
-  const { path: safeReturnTo } = sanitizeReturnTo(returnTo);
-
-  // Create state parameter to prevent CSRF and store return URL
-  const state = Buffer.from(
-    JSON.stringify({
-      returnTo: safeReturnTo,
-      timestamp: Date.now(),
-    }),
-  ).toString("base64");
-
-  // Build GitHub OAuth URL
+  // GitHub has one canonical registered callback. oauth-state relays that
+  // callback back to this signed start origin before consuming host cookies.
   const githubAuthUrl = new URL("https://github.com/login/oauth/authorize");
-  githubAuthUrl.searchParams.set("client_id", GITHUB_CLIENT_ID);
-  githubAuthUrl.searchParams.set("redirect_uri", REDIRECT_URI);
+  githubAuthUrl.searchParams.set("client_id", SECRETS.githubClientId);
+  githubAuthUrl.searchParams.set("redirect_uri", URLS.githubCallbackUrl);
   githubAuthUrl.searchParams.set("scope", "repo user:email");
-  githubAuthUrl.searchParams.set("state", state);
+  githubAuthUrl.searchParams.set("state", flow.state);
+  githubAuthUrl.searchParams.set("code_challenge", flow.codeChallenge);
+  githubAuthUrl.searchParams.set("code_challenge_method", "S256");
 
-  console.info("[GitHub OAuth] Redirecting to GitHub for authorization");
-
-  return NextResponse.redirect(githubAuthUrl.toString());
+  const response = NextResponse.redirect(githubAuthUrl);
+  setOAuthFlowCookie(response, "github", flow, request);
+  return response;
 }
