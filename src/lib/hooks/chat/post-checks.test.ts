@@ -2309,6 +2309,91 @@ describe("runPostGenerationChecks", () => {
     expect(onAutoFix).not.toHaveBeenCalled();
   });
 
+  it("skickar productBlocked-fynd till auto-fix när gaten passerar (ägarbeslut 2026-09-01)", async () => {
+    // Prod 2026-09-01 (chat 3b9ca137, v2): Degraderad med 4 döda CTA-knappar
+    // och trasig mobilmeny stannade vid en badge. Fynden är strukturerade och
+    // ska gå till samma riktade auto-fix-runda som Visual QA.
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({
+            ok: true,
+            skipped: false,
+            warnings: [
+              {
+                code: "cta_no_handler",
+                message: "CTA-knapp saknar tydlig handling.",
+                selector: "button",
+                text: "09:00",
+              },
+              {
+                code: "mobile_menu_failed",
+                message: "Mobilmeny kunde inte verifieras: hamburger_button_did_not_change_dom_or_aria",
+              },
+            ],
+            warningCount: 2,
+            productBlocked: true,
+            durationMs: 123,
+            checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+            attestation: CURRENT_POSTCHECK_ATTESTATION,
+          });
+        }
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: true,
+            checks: [
+              { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 900 },
+            ],
+            verifyLaneDurationMs: 1200,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(onAutoFix).toHaveBeenCalledTimes(1);
+    const payload = onAutoFix.mock.calls[0][0] as {
+      reasons: string[];
+      repair?: { productFindings?: Array<{ code: string; selector?: string; text?: string }> };
+    };
+    expect(payload.reasons[0]).toContain("Product Postcheck");
+    expect(payload.repair?.productFindings).toEqual([
+      expect.objectContaining({ code: "cta_no_handler", selector: "button", text: "09:00" }),
+      expect.objectContaining({ code: "mobile_menu_failed" }),
+    ]);
+  });
+
   it("persists Product Postcheck skipped status without warning or autofix", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();

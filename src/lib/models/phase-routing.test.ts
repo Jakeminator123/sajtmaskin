@@ -156,11 +156,13 @@ describe("resolvePhaseThinking", () => {
     expect(resolvePhaseThinking("pro", "deploy-assistant").thinking).toBe(false);
   });
 
-  it("premium fixer runs without thinking, medium effort (ägarbeslut 2026-08-11)", () => {
+  it("premium fixer runs without thinking, high effort (ägarbeslut 2026-09-01)", () => {
+    // Ersätter 2026-08-11:s effort-none-lås: riktade reparationer ska få
+    // resonera; thinking-strömmen förblir av.
     expect(resolvePhaseThinking("premium", "fixer")).toEqual({
       phase: "fixer",
       thinking: false,
-      reasoningEffort: "medium",
+      reasoningEffort: "high",
       reason: "manifest-phase-thinking",
     });
   });

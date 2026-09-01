@@ -672,6 +672,7 @@ export async function runPostGenerationChecks(params: {
         mutateVersions,
         onAutoFix,
         abortController: controller,
+        productPostcheck: productPostcheckResult ?? null,
       });
     } else {
       appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -805,6 +806,13 @@ async function runTier2VerifyLane(params: {
   onAutoFix?: (payload: AutoFixPayload) => void;
   previewPolicy?: "fidelity2" | "fidelity3";
   abortController?: AbortController;
+  /**
+   * Postcheckens attesterade resultat från samma körpass. Bär den in i
+   * gate-utfallet så en promotad version med `productBlocked` (t.ex. döda
+   * CTA-knappar, trasig mobilmeny) kan skicka fynden till en riktad
+   * auto-fix-runda — samma väg som Visual QA, synlig i chatten.
+   */
+  productPostcheck?: ProductPostcheckResult | null;
 }) {
   const {
     chatId,
@@ -815,6 +823,7 @@ async function runTier2VerifyLane(params: {
     onAutoFix,
     previewPolicy = "fidelity2",
     abortController,
+    productPostcheck = null,
   } = params;
   const toolCallId = `quality-gate:${versionId}`;
   const releasePipelineWork = beginPipelineWork();
@@ -1123,6 +1132,22 @@ async function runTier2VerifyLane(params: {
       });
     } else if (data.passed && visualQa && !visualQa.passed && onAutoFix) {
       handleVisualQaAutofix({ chatId, versionId, visualQa, onAutoFix });
+    } else if (
+      data.passed &&
+      onAutoFix &&
+      productPostcheck &&
+      !productPostcheck.skipped &&
+      productPostcheck.productBlocked === true &&
+      Array.isArray(productPostcheck.warnings) &&
+      productPostcheck.warnings.length > 0
+    ) {
+      // Ägarbeslut 2026-09-01: en Degraderad dom med äkta DOM-fynd (döda
+      // CTA-knappar, trasig mobilmeny) ska inte stanna vid en badge — fynden
+      // är redan strukturerade (kod + selector + text) och går till samma
+      // riktade auto-fix-runda som Visual QA. Auto-fix-vägen är en synlig
+      // chattur med eget resonemang och egen efterkontroll; de befintliga
+      // per-chat/per-reason-throttlarna begränsar automatiska omkörningar.
+      handleProductPostcheckAutofix({ chatId, versionId, productPostcheck, onAutoFix });
     }
   } catch (error) {
     if (isAbortError(error)) {
@@ -1274,6 +1299,46 @@ async function handleRepairOrAutofix(params: {
       repair,
     });
   }
+}
+
+/**
+ * Degraderad-till-fix (ägarbeslut 2026-09-01): postcheckens DOM-fynd är redan
+ * strukturerade (kod, selector, knapptext, route) och matas till samma
+ * riktade auto-fix-runda som Visual QA — en synlig chattur med eget
+ * resonemang, ny version och ny efterkontroll. Max 8 fynd så prompten inte
+ * drunknar; de befintliga auto-fix-throttlarna per chat/reason begränsar
+ * automatiska loopar.
+ */
+function handleProductPostcheckAutofix(params: {
+  chatId: string;
+  versionId: string;
+  productPostcheck: ProductPostcheckResult;
+  onAutoFix: (payload: AutoFixPayload) => void;
+}) {
+  const { chatId, versionId, productPostcheck, onAutoFix } = params;
+  const readString = (value: unknown): string | undefined =>
+    typeof value === "string" && value.trim() ? value.trim() : undefined;
+  const findings = productPostcheck.warnings.slice(0, 8).map((item) => {
+    const raw = item as Record<string, unknown>;
+    return {
+      code: readString(raw.code) ?? "unknown",
+      message: readString(raw.message) ?? "Okänt produktfynd.",
+      selector: readString(raw.selector),
+      text: readString(raw.text),
+      href: readString(raw.href),
+      route: readString(raw.route),
+    };
+  });
+  if (findings.length === 0) return;
+  const repair: RepairContext = { productFindings: findings };
+  onAutoFix({
+    chatId,
+    versionId,
+    reasons: [
+      `Product Postcheck hittade ${productPostcheck.warningCount} blockerande produktfynd på den körande sajten`,
+    ],
+    repair,
+  });
 }
 
 function handleVisualQaAutofix(params: {
