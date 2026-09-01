@@ -155,11 +155,33 @@ describe("CI scope decision", () => {
     expect(result.highRiskReasons).toContain("unclassified");
   });
 
-  it("fails classified but ownerless runtime into full CI", () => {
-    const result = decide(["src/components/ExampleCard.tsx"], { isDraft: true });
+  it("defers classified ownerless runtime while a PR is a draft", () => {
+    const impact = collectImpact({
+      ...inputs,
+      changedFiles: ["src/components/ExampleCard.tsx"],
+    });
+    expect(impact.unmappedRuntimeFiles).toEqual(["src/components/ExampleCard.tsx"]);
 
-    expect(result).toMatchObject({ runHeavy: true, highRisk: true });
-    expect(result.highRiskReasons).toContain("unmapped-runtime");
+    const result = decideCiScope({ eventName: "pull_request", isDraft: true, impact });
+
+    expect(result).toMatchObject({
+      runHeavy: false,
+      safeDocsOnly: false,
+      highRisk: false,
+      reason: "draft-low-risk",
+    });
+    expect(result.files).toEqual(["src/components/ExampleCard.tsx"]);
+  });
+
+  it("runs full CI for classified ownerless runtime once the PR is ready", () => {
+    const result = decide(["src/components/ExampleCard.tsx"]);
+
+    expect(result).toMatchObject({
+      runHeavy: true,
+      safeDocsOnly: false,
+      highRisk: false,
+      reason: "ready-runtime",
+    });
   });
 
   it.each([

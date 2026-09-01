@@ -627,9 +627,52 @@ describe("agent workflow repository contract", () => {
         "    # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.\n    if: ${{ always() }}",
       ),
       replaceOnce("run: npm run docs:test", "run: npm run test:ci"),
+      replaceOnce("run: npm run test:e2e:contract", "run: echo e2e-contract-skipped"),
+      replaceOnce(
+        "  dead-code:\n    needs: scope\n    if: ${{ !cancelled() }}",
+        "  dead-code:\n    if: ${{ !cancelled() }}",
+      ),
+      replaceOnce(
+        "      - name: Orphan-file gate (blocking)\n        if: ${{ env.RUN_HEAVY == 'true' }}\n        run: npm run knip:files",
+        "      - name: Orphan-file gate (blocking)\n        run: npm run knip:files",
+      ),
     ];
     for (const candidate of weakened) {
       expect(evaluateCiScopeWorkflow(candidate).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("scopes DB/Blob PR smoke to its exact executable inputs", () => {
+    const blob = readFileSync(".github/workflows/db-blob-sync-check.yml", "utf8");
+    const parity = readFileSync(".github/workflows/db-schema-parity.yml", "utf8");
+    expect(evaluateSecretWorkflowDispatches(blob, parity)).toEqual([]);
+    const replaceOnce = (search: string, replacement: string) => {
+      const candidate = blob.replace(search, replacement);
+      expect(candidate).not.toBe(blob);
+      return candidate;
+    };
+
+    const weakened = [
+      replaceOnce('      - ".github/workflows/db-blob-sync-check.yml"\n', ""),
+      replaceOnce('      - "requirements.dbtest.txt"\n', ""),
+      replaceOnce('      - "scripts/db/**/*.py"', '      - "scripts/db/**"'),
+      replaceOnce(
+        "  push:\n    branches: [master]",
+        "  push:\n    branches: [master]\n    paths: [scripts/db/**]",
+      ),
+      replaceOnce("-r requirements.dbtest.txt", "-r requirements.backoffice.txt"),
+      replaceOnce("python -m unittest test_pydatabastest -v", "python -m unittest -v"),
+      replaceOnce(
+        "      - name: Validate gate script (pull_request, no credentials)\n        if: ${{ github.event_name == 'pull_request' }}\n        # No secrets are injected here, so the PR's (untrusted) script can never run\n        # with production credentials. Each DB/blob target SKIPs with a WARN; this step\n        # only validates that the script parses and runs.\n        run: python scripts/db/pydatabastest.py --ci",
+        "      - name: Validate gate script (pull_request, no credentials)\n        if: ${{ github.event_name == 'pull_request' }}\n        run: python scripts/db/pydatabastest.py --json",
+      ),
+      replaceOnce(
+        "        run: python scripts/db/pydatabastest.py --ci\n        env:",
+        "        run: python scripts/db/pydatabastest.py --ci\n        continue-on-error: true\n        env:",
+      ),
+    ];
+    for (const candidate of weakened) {
+      expect(evaluateSecretWorkflowDispatches(candidate, parity).length).toBeGreaterThan(0);
     }
   });
 
@@ -793,7 +836,12 @@ describe("agent workflow repository contract", () => {
 
     const weakened = [
       { ...structuredClone(policy), requiredChecks: ["quality"] },
-      { ...structuredClone(policy), manualMergePathPrefixes: [] },
+      ...policy.manualMergePathPrefixes.map((prefix: string) => ({
+        ...structuredClone(policy),
+        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+          (candidate: string) => candidate !== prefix,
+        ),
+      })),
       {
         ...structuredClone(policy),
         review: {

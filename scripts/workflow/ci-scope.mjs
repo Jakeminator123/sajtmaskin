@@ -8,9 +8,11 @@ import { collectImpact, loadWorkflowInputs, parseGitNameStatus } from "./path-im
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
-// Runtimekod med en känd owner får vänta på full CI tills en draft märks ready.
-// Dessa ytor är däremot för riskfyllda för att någonsin ta draft-genvägen: de
-// styr CI, dependencies, data-/control-plane eller fristående verifieringslanes.
+// Vanlig klassificerad runtime får vänta på full CI tills en draft märks ready;
+// control-plane-registret är inte en komplett owner-map, så saknad registerowner
+// är information och inte i sig högrisk. Dessa ytor är däremot för riskfyllda
+// för att någonsin ta draft-genvägen: de styr CI, dependencies, data-/control-
+// plane eller fristående verifieringslanes.
 export const HIGH_RISK_GROUPS = Object.freeze([
   "agent",
   "controlPlane",
@@ -93,7 +95,6 @@ export function decideCiScope({ eventName, eventAction = "", isDraft = false, im
   if (files.length === 0) highRiskReasons.push("empty-diff");
   if (nonEmpty(impact?.protectedFiles)) highRiskReasons.push("protected");
   if (nonEmpty(impact?.unclassifiedFiles)) highRiskReasons.push("unclassified");
-  if (nonEmpty(impact?.unmappedRuntimeFiles)) highRiskReasons.push("unmapped-runtime");
   if ((impact?.authorities ?? []).some((entry) => entry.ciStatus === "hard")) {
     highRiskReasons.push("hard-authority");
   }

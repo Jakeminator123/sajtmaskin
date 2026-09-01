@@ -20,7 +20,17 @@
     "breakGlassReason": "SAJTMASKIN_BREAK_GLASS_REASON"
   },
   "requiredChecks": ["quality", "backoffice-tests", "schema-drift", "build", "review-window"],
-  "manualMergePathPrefixes": [".github/workflows/"],
+  "manualMergePathPrefixes": [
+    ".github/workflows/",
+    "scripts/ci/",
+    "scripts/pr-review/",
+    "scripts/workflow/ci-scope.mjs",
+    "scripts/workflow/path-impact.mjs",
+    "config/agent-workflow.json",
+    "config/control-plane/policy-registry.json",
+    "config/control-plane/schema-registry.json",
+    "config/backoffice/domain-map.json"
+  ],
   "review": {
     "minHeadAgeSeconds": 420,
     "botSettleSeconds": 180,

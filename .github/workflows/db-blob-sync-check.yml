@@ -17,6 +17,12 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+    # PR-körningen saknar live-creds och kan därför bara bevisa workflowets
+    # egna Python-inputs. Schema/runtime ägs av required schema-drift i ci.yml.
+    paths:
+      - ".github/workflows/db-blob-sync-check.yml"
+      - "requirements.dbtest.txt"
+      - "scripts/db/**/*.py"
   workflow_dispatch: {}
 
 concurrency:
@@ -60,7 +66,8 @@ jobs:
         run: python -m pip install --disable-pip-version-check -r requirements.dbtest.txt
 
       # Behavior tests for the gate's EMPTY-group decision logic (enforce/warn/info).
-      # No DB or credentials needed, so they run on every event including PRs.
+      # No DB or credentials needed, so they run on every triggered event,
+      # including every PR that matches the executable-input allowlist above.
       - name: Run gate unit tests
         # `working-directory` puts scripts/db on sys.path, which is what lets the
         # test's `from pydatabastest import ...` resolve after the move out of the
