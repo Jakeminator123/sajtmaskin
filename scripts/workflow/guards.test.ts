@@ -503,12 +503,25 @@ describe("cheap read-only git path", () => {
     "git switch rescue/stash-2026-08-14",
     "git checkout -b JAKOB_BRA_new",
     "git switch -c rescue/new",
+    "git checkout -f JAKOB_BRA_9999_INNNAN_MVP_BRA",
+    "git fetch origin JAKOB_BRA:JAKOB_BRA",
+    "git fetch origin +refs/heads/JAKOB_BRA_9999:refs/heads/JAKOB_BRA_9999",
+    "git worktree add ../tmp-bra JAKOB_BRA_9999_INNNAN_MVP_BRA",
     "git branch -D JAKOB_BRA_9999_INNNAN_MVP_BRA",
     "git worktree add -b JAKOB_BRA_tmp ../tmp-bra",
   ])("denies mutating an immutable branch: %s", (command) => {
     expect(cheapShellDecision(command)?.permission).toBe("deny");
     expect(decideCommitCommand(command, { aliases: null }).permission).toBe("deny");
     expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
+  });
+
+  it.each([
+    "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.status GIT_CONFIG_VALUE_0='checkout -f JAKOB_BRA_9999_INNNAN_MVP_BRA' git status",
+    "GIT_CONFIG_PARAMETERS=\"'alias.status=checkout -f JAKOB_BRA'\" git status",
+  ])("denies GIT_CONFIG alias injection that would cheap-allow a read-only subcommand: %s", (command) => {
+    expect(cheapShellDecision(command)).toBeNull();
+    expect(decideCommitCommand(command, { aliases: new Set() }).permission).toBe("deny");
+    expect(decideWorktree(command, { aliases: new Set() }).permission).toBe("deny");
   });
 });
 
@@ -548,6 +561,9 @@ describe("hook CLI contract", () => {
     [".cursor/hooks/worktree-force-guard.mjs", "git switch -c tmp-cli", "allow"],
     [".cursor/hooks/worktree-force-guard.mjs", "git worktree remove ../x --force", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git checkout JAKOB_BRA_9999_INNNAN_MVP_BRA", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git checkout -f JAKOB_BRA_9999_INNNAN_MVP_BRA", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git fetch origin JAKOB_BRA:JAKOB_BRA", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git worktree add ../tmp-bra JAKOB_BRA_9999_INNNAN_MVP_BRA", "deny"],
     ["scripts/workflow/commit-guard.mjs", "git branch -vv", "allow"],
     ["scripts/workflow/commit-guard.mjs", "git fetch --prune origin", "allow"],
     ["scripts/workflow/commit-guard.mjs", "git checkout -b tmp-cli", "allow"],

@@ -183,10 +183,21 @@ function hasInlineAliasOption(tokens, gitIndex) {
   return false;
 }
 
+function isGitConfigInjectionToken(token) {
+  return /^GIT_CONFIG_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)=/iu.test(token);
+}
+
+function hasGitConfigInjection(tokens) {
+  return tokens.some((token) => isGitConfigInjectionToken(token));
+}
+
 function hasAliasEnvironmentAssignment(tokens) {
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
-    if (!/^GIT_CONFIG_KEY_\d+=alias\.[^\s=]+$/iu.test(token)) continue;
+    const injectsAlias =
+      /^GIT_CONFIG_KEY_\d+=alias\./iu.test(token) ||
+      (/^GIT_CONFIG_PARAMETERS=/iu.test(token) && /alias\./iu.test(token));
+    if (!injectsAlias) continue;
     const prefix = tokens.slice(0, index);
     if (
       prefix.every(
@@ -272,6 +283,9 @@ export function isAmbiguousGitCommand(command, aliases = new Set()) {
   const injectsAliasEnvironment = segments.some((segment) =>
     hasAliasEnvironmentAssignment(shellTokens(segment)),
   );
+  const injectsGitConfig = segments.some((segment) =>
+    hasGitConfigInjection(shellTokens(segment)),
+  );
   const inspect = (segment) => {
     if (nestedShellPayloads(segment).some((payload) => shellSegments(payload).some(inspect))) {
       return true;
@@ -291,6 +305,7 @@ export function isAmbiguousGitCommand(command, aliases = new Set()) {
     if (aliases === null) return true;
 
     if (hasInlineAliasOption(tokens, gitIndex)) return true;
+    if (injectsGitConfig && (gitIndex >= 0 || dynamicGit)) return true;
     if (injectsAliasEnvironment && (gitIndex >= 0 || dynamicGit)) return true;
     if (dynamicGit) return true;
 
@@ -328,7 +343,6 @@ const READ_ONLY_GIT_SUBCOMMANDS = new Set([
   "diff",
   "show",
   "rev-parse",
-  "fetch",
   "ls-files",
   "describe",
   "cat-file",
@@ -423,16 +437,42 @@ function takeNamedArgs(args, createFlags, valueFlags) {
   return { creates, positionals, hasPathspec };
 }
 
+function fetchRefspecDestination(token) {
+  if (typeof token !== "string" || token.startsWith("-")) return null;
+  if (/^[a-z+]+:\/\//iu.test(token) || /^git@/iu.test(token)) return null;
+  const spec = token.startsWith("+") ? token.slice(1) : token;
+  const colon = spec.lastIndexOf(":");
+  if (colon <= 0) return null;
+  return spec.slice(colon + 1);
+}
+
+function fetchWritesImmutableBranch(args) {
+  return args.some((token) => {
+    const dest = fetchRefspecDestination(token);
+    if (!dest) return false;
+    const bare = dest.replace(/^(?:refs\/heads\/|refs\/remotes\/[^/]+\/)/u, "");
+    if (bare.includes("*") && /(?:^|\/)heads(?:\/|$)/u.test(dest)) return true;
+    return isImmutableBranchName(dest);
+  });
+}
+
 function classifyGitInvocation(subcommand, args) {
   if (!subcommand) return "heavy";
+  if (subcommand === "fetch") {
+    if (fetchWritesImmutableBranch(args)) return "deny-immutable";
+    return "allow";
+  }
   if (READ_ONLY_GIT_SUBCOMMANDS.has(subcommand)) return "allow";
 
   if (subcommand === "worktree") {
     const action = args.find((token) => !token.startsWith("-"))?.toLowerCase();
     if (action === "list") return "allow";
     if (action === "remove") return "heavy";
-    const created = takeNamedArgs(args, WORKTREE_CREATE_FLAGS, new Set()).creates;
-    if (created.some(isImmutableBranchName)) return "deny-immutable";
+    const parsed = takeNamedArgs(args, WORKTREE_CREATE_FLAGS, new Set());
+    const commitish = parsed.positionals.filter((token) => token.toLowerCase() !== action);
+    if ([...parsed.creates, ...commitish].some(isImmutableBranchName)) {
+      return "deny-immutable";
+    }
     return "allow";
   }
 
@@ -453,6 +493,14 @@ function classifyGitInvocation(subcommand, args) {
   }
 
   if (subcommand === "checkout" || subcommand === "switch") {
+    const parsed = takeNamedArgs(
+      args,
+      subcommand === "switch" ? SWITCH_CREATE_FLAGS : CHECKOUT_CREATE_FLAGS,
+      subcommand === "switch" ? SWITCH_VALUE_FLAGS : CHECKOUT_VALUE_FLAGS,
+    );
+    if ([...parsed.creates, ...parsed.positionals].some(isImmutableBranchName)) {
+      return "deny-immutable";
+    }
     if (
       args.some(
         (token) =>
@@ -465,15 +513,7 @@ function classifyGitInvocation(subcommand, args) {
     ) {
       return "heavy";
     }
-    const parsed = takeNamedArgs(
-      args,
-      subcommand === "switch" ? SWITCH_CREATE_FLAGS : CHECKOUT_CREATE_FLAGS,
-      subcommand === "switch" ? SWITCH_VALUE_FLAGS : CHECKOUT_VALUE_FLAGS,
-    );
     if (parsed.hasPathspec) return "heavy";
-    if ([...parsed.creates, ...parsed.positionals].some(isImmutableBranchName)) {
-      return "deny-immutable";
-    }
     return "allow";
   }
 
@@ -512,6 +552,13 @@ export function cheapShellDecision(command) {
   const expandable = command.replace(/'[^']*'/gu, "");
   if (SHELL_EXPANSION.test(expandable)) return null;
   if (/(?:^|\s)-c\s+['"]?alias\.[^\s=]+=/iu.test(command)) return null;
+  // GIT_CONFIG_KEY_* / PARAMETERS can redefine a "read-only" subcommand
+  // (`alias.status=checkout -f BRA`). Cheap-allow must not run first.
+  if (
+    shellSegments(command).some((segment) => hasGitConfigInjection(shellTokens(segment)))
+  ) {
+    return null;
+  }
 
   const verdicts = [];
   const walk = (value) => {
