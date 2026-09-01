@@ -9,12 +9,6 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
-import {
-  formatRepairPassProgress,
-  type VersionDisplayStatus,
-} from "@/lib/builder/version-status-display";
-import { localizeVerificationSummary } from "@/lib/builder/version-history-status-labels";
 import type { PreviewRouteInfo } from "../pages/preview-route-helpers";
 import { cn } from "@/lib/utils";
 
@@ -24,17 +18,6 @@ interface PreviewPanelChromeProps {
   isTier2LivePreview: boolean;
   previewBuildError?: { stage: string; message: string } | null;
   previewProdBuild?: { verified: boolean; logSnippet?: string | null } | null;
-  previewPending: boolean;
-  previewLifecycle?: PreviewLifecycleState;
-  activeVersionStatus?: VersionDisplayStatus | null;
-  activeVersionSummary?: string | null;
-  activeVersionIsLatest?: boolean;
-  /** Latest repair pass index (0 when none), for bounded "Reparerar (X/2)" copy. */
-  activeVersionRepairPassIndex?: number;
-  iframeError: boolean;
-  iframeErrorMessage?: string | null;
-  /** Diagnostic code for the iframe error, when known (e.g. preview_ready_timeout). */
-  iframeDiagnosticCode?: string | null;
   isCodeView: boolean;
   previewRoutesLoading: boolean;
   previewRoutes: PreviewRouteInfo[];
@@ -61,15 +44,6 @@ export function PreviewPanelChrome({
   isTier2LivePreview,
   previewBuildError,
   previewProdBuild,
-  previewPending,
-  previewLifecycle,
-  activeVersionStatus,
-  activeVersionSummary,
-  activeVersionIsLatest = true,
-  activeVersionRepairPassIndex = 0,
-  iframeError,
-  iframeErrorMessage,
-  iframeDiagnosticCode = null,
   isCodeView,
   previewRoutesLoading,
   previewRoutes,
@@ -108,187 +82,14 @@ export function PreviewPanelChrome({
     }, 0);
   };
 
-  const localizedVersionSummary = localizeVerificationSummary(activeVersionSummary);
-  const versionWorkInProgress =
-    activeVersionStatus === "generating" ||
-    activeVersionStatus === "autofixing" ||
-    activeVersionStatus === "validating" ||
-    activeVersionStatus === "preflighting" ||
-    activeVersionStatus === "verifying" ||
-    activeVersionStatus === "repairing" ||
-    (activeVersionStatus === "retrying" && !activeVersionIsLatest);
-  const previewTruth = (() => {
-    if (isCodeView || !previewUrl) return null;
-    if (iframeError) {
-      // `preview_ready_timeout` är en misstanke, inte ett bevis (samma kontrakt
-      // som den icke-blockerande bannern i PreviewPanelFrame). Att kalla ytan
-      // "trasig" här motsade banner-texten på exakt samma flagga — prod
-      // 2026-09-01 (chat c2371f9c) visade båda över en fullt fungerande sajt.
-      if (iframeDiagnosticCode === "preview_ready_timeout") {
-        return {
-          tone: "warning" as const,
-          title: "Previewn laddade inte klart innan timeout",
-          detail:
-            "Misstanke, inte bevis — fungerar sajten i ytan nedanför kan du fortsätta använda den.",
-        };
-      }
-      return {
-        tone: "error" as const,
-        title: "Preview-iframe är trasig",
-        detail:
-          iframeErrorMessage ||
-          "Iframen kunde inte ladda previewn. Öppna i ny flik eller reparera previewn.",
-      };
-    }
-    if (previewBuildError) {
-      return {
-        tone: "error" as const,
-        title: "Live-preview misslyckades",
-        detail: `Steg: ${previewBuildError.stage}. ${previewBuildError.message}`,
-      };
-    }
-    if (previewLifecycle === "recovering") {
-      return {
-        tone: "pending" as const,
-        title: "Återansluter till live-preview",
-        detail: "Sessionen verifieras mot servern och preview startas om vid behov.",
-      };
-    }
-    if (previewPending || previewLifecycle === "bootstrapping") {
-      return {
-        tone: "pending" as const,
-        title: "Preview startar",
-        detail:
-          "VM-previewn bootar och iframen är inte verifierad ännu. Grön/klar status väntar tills lifecycle-signalen har landat.",
-      };
-    }
-    if (activeVersionStatus === "generating") {
-      return {
-        tone: "pending" as const,
-        title: "Genererar version",
-        detail: localizedVersionSummary || "own-engine streamar fortfarande kod och innehåll.",
-      };
-    }
-    if (activeVersionStatus === "autofixing") {
-      return {
-        tone: "pending" as const,
-        title: "Kör mekanisk autofix",
-        detail:
-          localizedVersionSummary ||
-          "Deterministiska fixers kör innan previewn ska läsas som färdig.",
-      };
-    }
-    if (activeVersionStatus === "validating") {
-      return {
-        tone: "pending" as const,
-        title: "Validerar kod",
-        detail: localizedVersionSummary || "Syntax och typecheck valideras innan versionen sparas.",
-      };
-    }
-    if (activeVersionStatus === "preflighting") {
-      return {
-        tone: "pending" as const,
-        title: "Sparar och preflightar",
-        detail: localizedVersionSummary || "Filer finaliseras och preflight avgör om preview får starta.",
-      };
-    }
-    if (activeVersionStatus === "verifying") {
-      return {
-        tone: "pending" as const,
-        title: "Verifierar version",
-        detail:
-          localizedVersionSummary ||
-          "Preview är startad men verify/QG kör fortfarande. Vänta innan du tolkar den som klar.",
-      };
-    }
-    if (activeVersionStatus === "repairing") {
-      const progress = formatRepairPassProgress(activeVersionRepairPassIndex);
-      return {
-        tone: "warning" as const,
-        title: progress ? `Reparerar version (${progress})` : "Reparerar version",
-        detail:
-          localizedVersionSummary ||
-          "Servern reparerar fel i bakgrunden (max 2 försök). Nuvarande iframe kan vara trasig eller äldre.",
-      };
-    }
-    if (activeVersionStatus === "retrying" && !activeVersionIsLatest) {
-      return {
-        tone: "warning" as const,
-        title: "Byter till reparerad version",
-        detail: localizedVersionSummary || "En nyare reparerad version tar över som aktiv preview.",
-      };
-    }
-    if (activeVersionStatus === "degraded") {
-      return {
-        tone: "warning" as const,
-        title: "Preview klar med luckor",
-        detail:
-          localizedVersionSummary ||
-          "Verifiering eller produkt-postcheck saknas eller hittade blockerande produktfel.",
-      };
-    }
-    if (activeVersionStatus === "blocked") {
-      return {
-        tone: "warning" as const,
-        title: "Preview blockerad",
-        detail:
-          localizedVersionSummary ||
-          "Preview eller verifiering har öppna blockers. Öppna diagnostik för detaljer.",
-      };
-    }
-    if (activeVersionStatus === "failed") {
-      return {
-        tone: "error" as const,
-        title: "Verifiering misslyckades",
-        detail:
-          localizedVersionSummary ||
-          "Verifiering hittade blockerande fel. Reparera versionen innan den används som klar.",
-      };
-    }
-    // Resting states (promoted/ready/design-klar/ej-verifierad) carry no
-    // actionable signal — they only repeated what the version panel already
-    // shows. Declutter: the truth bar now surfaces ONLY active work (pending),
-    // warnings and errors. All calm/success/info states render nothing.
-    return null;
-  })();
-  const previewTruthClassName =
-    previewTruth?.tone === "error"
-      ? "border-rose-900/55 bg-rose-950/45 text-rose-50"
-      : previewTruth?.tone === "warning"
-        ? "border-amber-900/50 bg-amber-950/40 text-amber-50"
-        : "border-sky-900/45 bg-sky-950/30 text-sky-50";
-  const previewTruthTitleClassName =
-    previewTruth?.tone === "error"
-      ? "text-rose-100"
-      : previewTruth?.tone === "warning"
-        ? "text-amber-100"
-        : "text-sky-100";
-  const previewTruthDescriptionClassName =
-    previewTruth?.tone === "error"
-      ? "text-rose-200/95"
-      : previewTruth?.tone === "warning"
-        ? "text-amber-200/90"
-        : "text-sky-200/90";
+  // Sanningsraden ("previewTruth") är borttagen (ägarbeslut 2026-09-01): den
+  // duplicerade versionspanelens badge, chatten och den icke-blockerande
+  // bannern i PreviewPanelFrame — som ett stort alert-block ovanför previewn.
+  // Statusdetaljerna bor kvar i versionspanelen, diagnostikdialogen och
+  // frame-bannern; kvar här är bara ytor med unik, åtgärdbar information
+  // (build-fel med logg, prod-build-verdiktet och variabelvarningarna).
   return (
     <div className="max-h-[40%] shrink-0 overflow-y-auto">
-      {previewTruth ? (
-        <Alert className={cn("mx-4 mt-2", previewTruthClassName)}>
-          {previewTruth.tone === "error" ? (
-            <AlertCircle className="h-4 w-4 text-rose-400" />
-          ) : versionWorkInProgress || previewTruth.tone === "pending" ? (
-            <Loader2 className="h-4 w-4 animate-spin text-sky-300" />
-          ) : (
-            <AlertCircle className="h-4 w-4 text-amber-300" />
-          )}
-          <AlertTitle className={cn("text-sm", previewTruthTitleClassName)}>
-            {previewTruth.title}
-          </AlertTitle>
-          <AlertDescription className={cn("text-[11px]", previewTruthDescriptionClassName)}>
-            {previewTruth.detail}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       {previewBuildError ? (
         <Alert variant="destructive" className="mx-4 mt-2 border-rose-900/55 bg-rose-950/45 text-rose-50">
           <AlertCircle className="h-4 w-4" />

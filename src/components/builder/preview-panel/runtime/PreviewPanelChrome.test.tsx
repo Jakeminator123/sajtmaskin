@@ -15,8 +15,6 @@ const BASE_PROPS = {
   previewUrl: "https://vm.example/chat_1",
   isOwnEnginePreview: true,
   isTier2LivePreview: false,
-  previewPending: false,
-  iframeError: false,
   isCodeView: false,
   previewRoutesLoading: false,
   previewRoutes: [] as PreviewRouteInfo[],
@@ -72,35 +70,26 @@ describe("PreviewPanelChrome sidflik-rad", () => {
   });
 });
 
-describe("PreviewPanelChrome sanningsrad vid iframe-fel", () => {
-  it("kallar preview_ready_timeout misstanke (warning), aldrig 'trasig'", () => {
-    // Prod 2026-09-01 (chat c2371f9c): "Preview-iframe är trasig" låg över en
-    // fullt fungerande sajt medan den icke-blockerande bannern på samma flagga
-    // kallade läget misstanke. Samma diagnostikkod ska ge samma sanningsanspråk.
-    const { queryByText, getByText } = render(
-      <PreviewPanelChrome
-        {...BASE_PROPS}
-        iframeError
-        iframeErrorMessage="Previewn laddade inte klart innan timeout."
-        iframeDiagnosticCode="preview_ready_timeout"
-      />,
-    );
+describe("PreviewPanelChrome sanningsrad", () => {
+  it("renderar ingen status-alert utan build-fel/verdikt (ägarbeslut 2026-09-01)", () => {
+    // Sanningsraden ("Preview klar med luckor" m.fl.) är borttagen: den
+    // duplicerade versionspanelens badge och frame-bannern som ett stort
+    // alert-block ovanför previewn. Endast build-fel och prod-build-verdiktet
+    // får rendera alerts här.
+    const { container } = render(<PreviewPanelChrome {...BASE_PROPS} />);
 
-    expect(queryByText("Preview-iframe är trasig")).toBeNull();
-    const title = getByText("Previewn laddade inte klart innan timeout");
-    expect(title.className).toContain("text-amber-100");
+    expect(container.querySelector('[data-slot="alert"]')).toBeNull();
   });
 
-  it("behåller fel-anspråket för andra iframe-fel", () => {
-    const { getByText } = render(
+  it("behåller alert för tier-2 build-fel (unik, åtgärdbar info)", () => {
+    const { container, getByText } = render(
       <PreviewPanelChrome
         {...BASE_PROPS}
-        iframeError
-        iframeErrorMessage="Preview iframe document could not be read."
-        iframeDiagnosticCode="preview_document_unavailable"
+        previewBuildError={{ stage: "build", message: "Type error in app/page.tsx" }}
       />,
     );
 
-    expect(getByText("Preview-iframe är trasig")).toBeTruthy();
+    expect(container.querySelectorAll('[data-slot="alert"]')).toHaveLength(1);
+    expect(getByText("Tier-2 / build: build")).toBeTruthy();
   });
 });
