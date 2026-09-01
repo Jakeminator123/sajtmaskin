@@ -165,7 +165,7 @@ describe("POST product-postcheck", () => {
         filesRevision: "rev_n",
         previewSessionId: "ps_n",
         lifecycleToken: "life_n",
-        previewUrl: "[REDACTED]/chat_1",
+        previewUrl: "https://preview.test.invalid/chat_1",
         readinessState: "ready",
       },
     });
@@ -175,7 +175,7 @@ describe("POST product-postcheck", () => {
       filesRevision: "rev_n",
       previewSessionId: "ps_n",
       lifecycleToken: "life_n",
-      previewUrl: "[REDACTED]/chat_1",
+      previewUrl: "https://preview.test.invalid/chat_1",
       readinessState: null,
     });
   });
@@ -208,7 +208,7 @@ describe("POST product-postcheck", () => {
     setF2ProductPostcheck(true);
     getVersion.mockResolvedValue({ version: { id: "v1", files_revision: null } });
     getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");
-    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+    const res = await POST(req({ versionId: "v1", previewUrl: "https://preview.test.invalid/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const body = await res.json();
@@ -648,12 +648,12 @@ describe("POST product-postcheck", () => {
         filesRevision: "rev_n",
         previewSessionId: "ps_n",
         lifecycleToken: "life_n",
-        previewUrl: "[REDACTED]/chat_1",
+        previewUrl: "https://preview.test.invalid/chat_1",
         readinessState: "starting",
       },
     });
 
-    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+    const res = await POST(req({ versionId: "v1", previewUrl: "https://preview.test.invalid/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const body = await res.json();
@@ -699,7 +699,7 @@ describe("POST product-postcheck", () => {
       },
     });
 
-    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+    const res = await POST(req({ versionId: "v1", previewUrl: "https://preview.test.invalid/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const body = await res.json();
@@ -787,10 +787,10 @@ describe("POST product-postcheck", () => {
       warningCount: 0,
       productBlocked: false,
       durationMs: 8,
-      checkedUrl: "[REDACTED]/chat_1",
+      checkedUrl: "https://preview.test.invalid/chat_1",
     });
 
-    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+    const res = await POST(req({ versionId: "v1", previewUrl: "https://preview.test.invalid/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const body = await res.json();
@@ -860,7 +860,7 @@ describe("POST product-postcheck", () => {
       warningCount: 0,
       productBlocked: false,
       durationMs: 8,
-      checkedUrl: "[REDACTED]/chat_1",
+      checkedUrl: "https://preview.test.invalid/chat_1",
       routesChecked: 1,
       attestation: {
         previewSessionId: "ps_n",
@@ -906,12 +906,12 @@ describe("POST product-postcheck", () => {
       return true;
     });
 
-    const first = POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+    const first = POST(req({ versionId: "v1", previewUrl: "https://preview.test.invalid/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     await vi.waitFor(() => expect(runProductPostcheck).toHaveBeenCalledTimes(1));
 
-    const second = POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+    const second = POST(req({ versionId: "v1", previewUrl: "https://preview.test.invalid/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     expect(runProductPostcheck).toHaveBeenCalledTimes(1);
@@ -925,7 +925,7 @@ describe("POST product-postcheck", () => {
     expect(runProductPostcheck).toHaveBeenCalledTimes(1);
     expect(firstBody.skipped).toBe(false);
     expect(secondBody.skipped).toBe(false);
-    expect(secondBody.checkedUrl).toBe("[REDACTED]/chat_1");
+    expect(secondBody.checkedUrl).toBe("https://preview.test.invalid/chat_1");
     expect(claimProductPostcheckRun).toHaveBeenCalledTimes(2);
   });
 
@@ -939,7 +939,7 @@ describe("POST product-postcheck", () => {
     });
     waitForProductPostcheckRun.mockResolvedValue(null);
 
-    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+    const res = await POST(req({ versionId: "v1", previewUrl: "https://preview.test.invalid/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const body = await res.json();
@@ -966,7 +966,7 @@ describe("POST product-postcheck", () => {
       warningCount: 0,
       productBlocked: false,
       durationMs: 8,
-      checkedUrl: "[REDACTED]/chat_1",
+      checkedUrl: "https://preview.test.invalid/chat_1",
       routesChecked: 1,
     });
 
@@ -993,7 +993,7 @@ describe("POST product-postcheck", () => {
       },
     );
 
-    const first = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+    const first = await POST(req({ versionId: "v1", previewUrl: "https://preview.test.invalid/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     expect((await first.json()).skipped).toBe(false);
@@ -1002,13 +1002,13 @@ describe("POST product-postcheck", () => {
     getActivePreviewSessionAsync.mockResolvedValue({
       previewSessionId: "ps_other",
       lifecycleToken: "life_other",
-      previewUrl: "[REDACTED]/chat_1",
+      previewUrl: "https://preview.test.invalid/chat_1",
       versionId: "v1",
       filesRevision: "rev_n",
       createdAt: 1,
       lastUsedAt: 1,
     });
-    const second = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+    const second = await POST(req({ versionId: "v1", previewUrl: "https://preview.test.invalid/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     expect((await second.json()).skipped).toBe(false);
@@ -1036,10 +1036,10 @@ describe("POST product-postcheck", () => {
       warningCount: 0,
       productBlocked: false,
       durationMs: 8,
-      checkedUrl: "[REDACTED]/chat_1",
+      checkedUrl: "https://preview.test.invalid/chat_1",
     });
 
-    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+    const res = await POST(req({ versionId: "v1", previewUrl: "https://preview.test.invalid/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const body = await res.json();
