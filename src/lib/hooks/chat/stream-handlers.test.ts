@@ -173,6 +173,9 @@ describe("handleSseStream", () => {
       chatId: "chat_1",
       versionId: "ver_1",
       enabled: true,
+      // Serialiseringen gör materialiseringen blockerande, så den måste bära
+      // stream-signalen utöver sitt eget tak.
+      signal: expect.any(AbortSignal),
     });
     await vi.waitFor(() => {
       expect(runPostGenerationChecks).toHaveBeenCalledWith(
@@ -242,6 +245,9 @@ describe("handleSseStream", () => {
       chatId: "chat_1",
       versionId: "ver_1",
       enabled: true,
+      // Serialiseringen gör materialiseringen blockerande, så den måste bära
+      // stream-signalen utöver sitt eget tak.
+      signal: expect.any(AbortSignal),
     });
     expect(runPostGenerationChecks).not.toHaveBeenCalled();
 

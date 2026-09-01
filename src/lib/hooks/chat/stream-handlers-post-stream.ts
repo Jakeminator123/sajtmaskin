@@ -48,6 +48,7 @@ export function runPostStreamSideEffects(params: {
           chatId: latestMaterialize.chatId,
           versionId: latestMaterialize.versionId,
           enabled: enableImageMaterialization,
+          signal,
         });
         if (result) {
           appendToolPartToMessage(setMessages, assistantMessageId, {

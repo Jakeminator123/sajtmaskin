@@ -85,7 +85,9 @@ export async function triggerImageMaterialization(params: {
   const timeoutController = new AbortController();
   const timer = setTimeout(() => timeoutController.abort(), timeoutMs);
   const onOuterAbort = () => timeoutController.abort();
-  params.signal?.addEventListener("abort", onOuterAbort, { once: true });
+  // `addEventListener` never fires for an already-aborted signal.
+  if (params.signal?.aborted) timeoutController.abort();
+  else params.signal?.addEventListener("abort", onOuterAbort, { once: true });
   try {
     const url = `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(versionId)}&materialize=1`;
     const response = await fetch(url, { method: "GET", signal: timeoutController.signal });
