@@ -281,7 +281,12 @@ describe("POST product-postcheck", () => {
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
       chatId: "chat_1",
       versionId: "v1",
-      timeoutMs: 280_000,
+      // Routen ger postchecken den tid som ÅTERSTÅR av budgeten
+      // (`PRODUCT_POSTCHECK_ROUTE_BUDGET_MS - (Date.now() - routeStartedAt)`), så
+      // ett exakt tal gör assertionen väggklockeberoende: under full svit hann
+      // 1 ms gå och testet blev rött på 279999 utan att något var fel.
+      // Kontraktet är "resten av budgeten", inte ett bestämt heltal.
+      timeoutMs: expect.closeTo(280_000, -2),
       captureEnabled: false,
       captureUserId: "user_1",
       filesRevision: "rev_n",
