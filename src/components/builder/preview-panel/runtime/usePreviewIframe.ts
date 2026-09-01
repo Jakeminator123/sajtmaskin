@@ -326,7 +326,11 @@ export function usePreviewIframe(params: {
           return;
         }
 
-        if (receiptMatchesIdentity && isTerminalPreviewStatus(status?.status)) {
+        // Terminal receipts do not carry this tab's identity. `/preview-status`
+        // answers `missing` with versionId/previewSessionId/previewUrl = null,
+        // and `version_mismatch` with the *session's* versionId. Requiring a
+        // match left the 12s poll running forever on the real payloads.
+        if (isTerminalPreviewStatus(status?.status)) {
           stopTier2StatusPolling();
           return;
         }

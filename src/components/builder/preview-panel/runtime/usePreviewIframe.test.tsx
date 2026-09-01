@@ -642,6 +642,85 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     },
   );
 
+  it("stoppar self-heal när /preview-status svarar missing med null-identitet", async () => {
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const iframeRef = makeIframeRef();
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    fetchPreviewStatus.mockResolvedValue({
+      ok: true,
+      status: "missing",
+      previewSessionId: null,
+      previewUrl: null,
+      versionId: null,
+      lifecycleToken: null,
+      sessionExpiresAt: null,
+      reason: "no_session",
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+    const callsAfterMissing = fetchPreviewStatus.mock.calls.length;
+
+    await act(async () => {
+      vi.advanceTimersByTime(36_000);
+      await Promise.resolve();
+    });
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterMissing);
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
+    expect(result.current.iframeError).toBe(true);
+  });
+
+  it("stoppar self-heal vid version_mismatch med sessionens versionId", async () => {
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const iframeRef = makeIframeRef();
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    fetchPreviewStatus.mockResolvedValue(
+      status("version_mismatch", "ps_1", "ver_other", TIER2_URL, "life_1"),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+    const callsAfterMismatch = fetchPreviewStatus.mock.calls.length;
+
+    await act(async () => {
+      vi.advanceTimersByTime(36_000);
+      await Promise.resolve();
+    });
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterMismatch);
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
+    expect(result.current.iframeError).toBe(true);
+  });
+
   it("ger upp self-heal-reloads efter taket så ingen reload-loop uppstår", async () => {
     fetchPreviewStatus
       .mockReturnValueOnce(new Promise(() => {}))
