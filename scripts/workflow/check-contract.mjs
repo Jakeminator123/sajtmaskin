@@ -80,7 +80,6 @@ export const POLICY_FLOORS = Object.freeze({
     "rescue/*",
     "dependabot/*",
     "archive/*",
-    "codex/workspace",
   ],
 });
 
@@ -696,6 +695,35 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !worktreeWrapper.includes("SAJTMASKIN_DISCARD_REASON")
   ) {
     errors.push("worktree removal wrapper must recompute PR/merge lifecycle fail-closed");
+  }
+  if (
+    !worktreeWrapper.includes(
+      'const source = join(mainWorktree, ".cursor", "mcp.json.example")',
+    ) ||
+    worktreeWrapper.includes('const live = join(mainWorktree, ".cursor", "mcp.json")')
+  ) {
+    errors.push("worktree setup must seed MCP only from the tracked public example");
+  }
+  const worktreeIncludeEntries = read(root, ".worktreeinclude")
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+  const sensitiveWorktreeIncludes = worktreeIncludeEntries.filter((entry) =>
+    /(^|[\\/])\.env($|[.\\/])|(^|[\\/])mcp\.json$|secret|credential|token/iu.test(entry),
+  );
+  if (sensitiveWorktreeIncludes.length > 0) {
+    errors.push(
+      `.worktreeinclude must not copy machine-local secrets: ${sensitiveWorktreeIncludes.join(", ")}`,
+    );
+  }
+  const codexConfig = read(root, ".codex/config.toml");
+  if (
+    !/^approval_policy\s*=\s*"on-request"\s*$/mu.test(codexConfig) ||
+    !/^sandbox_mode\s*=\s*"workspace-write"\s*$/mu.test(codexConfig) ||
+    !/^web_search\s*=\s*"cached"\s*$/mu.test(codexConfig) ||
+    /danger-full-access|web_search\s*=\s*"live"/u.test(codexConfig)
+  ) {
+    errors.push("project Codex defaults must remain interactive, workspace-scoped and cached");
   }
   const decide818 = read(root, ".agents/skills/818-swarm-decide/SKILL.md");
   if (!decide818.includes("../pr-workflow/SKILL.md") || !decide818.includes("before writing")) {

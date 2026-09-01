@@ -18,8 +18,11 @@ git worktree add ..\sajtmaskin-<kort> -b <branch> origin/master
 npm run worktree:setup -- ..\sajtmaskin-<kort>
 ```
 
-`worktree:setup` kopierar `.worktreeinclude` (`.env.local`, `mcp.json`). Den
-skapar **ingen** `node_modules`-junction. Behöver du tester i worktreet:
+`worktree:setup` kopierar bara uttryckligt listade, icke-känsliga filer från
+`.worktreeinclude` och seedar `.cursor/mcp.json` från den spårade
+`.cursor/mcp.json.example`. Den kopierar aldrig huvudcheckoutens live-MCP eller
+`.env.local`, och skapar **ingen** `node_modules`-junction. Behöver du tester i
+worktreet:
 
 ```powershell
 npm ci
@@ -44,5 +47,8 @@ Wrappern kopplar loss ev. länkar först. `--force` kräver
 
 ## Codex
 
-Codex har en egen permanent kopia. Sökväg: [`.codex/README.md`](../../.codex/README.md).
-Ta inte bort den med `worktree:remove`.
+Codex-projektet pekar på repo-roten, men huvudcheckouten är läs- och testankare.
+Codex skriver i ett eget worktree från färsk `origin/master` — se
+[`.codex/README.md`](../../.codex/README.md). En långlivad worktree som verkligen
+behövs skyddas med git-configen `sajtmaskin.protectedWorktree`, inte med ett
+särskilt Codex-branchnamn.

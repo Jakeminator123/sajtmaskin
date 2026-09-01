@@ -430,7 +430,7 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
   });
 
-  it("stops the read-only late-recovery window after 30 seconds", async () => {
+  it("stops the 4s late-recovery cadence after 30 seconds and continues a sparse self-heal poll", async () => {
     fetchPreviewStatus
       .mockReturnValueOnce(new Promise(() => {}))
       .mockResolvedValue(status("starting"));
@@ -458,14 +458,256 @@ describe("usePreviewIframe — Tier-2 readiness", () => {
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
 
+    // 4s cadence must not fire again. The 30s window ends 2s after the
+    // seventh late-recovery tick; the first self-heal read waits 12s more.
     await act(async () => {
-      vi.advanceTimersByTime(22_000);
+      vi.advanceTimersByTime(13_999);
+      await Promise.resolve();
+    });
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(9);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(10);
+    expect(result.current.iframeError).toBe(true);
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
+    expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+  });
+
+  it("self-heals a stale preview_ready_timeout banner via ready-reload after a late matching running receipt", async () => {
+    // Prod 2026-08-31 (chat 47607bca): Fly finished after both the 98s
+    // boot deadline and the 30s late-recovery tail. The red banner stayed
+    // over a running v2 because nothing kept reading /preview-status.
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const decoratedSrc = `${TIER2_URL}?__sm_viewer=viewer_1`;
+    const iframeRef = makeIframeRef(decoratedSrc);
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
+
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+    expect(result.current.iframeError).toBe(true);
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
+
+    fetchPreviewStatus.mockResolvedValue(status("running"));
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
       await Promise.resolve();
     });
 
-    expect(fetchPreviewStatus).toHaveBeenCalledTimes(9);
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(1);
+    expect(iframeRef.setSrc).toHaveBeenCalledWith(decoratedSrc);
+    expect(result.current.iframeLoading).toBe(true);
+    expect(result.current.iframeError).toBe(false);
+    expect(result.current.iframeDiagnosticCode).toBeNull();
+    expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+
+    act(() => result.current.handleIframeLoad());
+    expect(result.current.iframeLoading).toBe(false);
+    expect(result.current.iframeError).toBe(false);
+  });
+
+  it("återupptar self-heal efter en ready-reload vars onLoad missar 15s-fönstret (SM-074)", async () => {
+    // Prod 2026-09-01 (chat 4cac8fb0): hosten rapporterade ready men första
+    // sidladdningen efter VM-omstarten tog >15 s på delad CPU. Den enda
+    // ready-reloaden timeoutade och hela läkningen dog — bannern satt kvar
+    // permanent på en frisk sajt tills identiteten råkade bytas.
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const decoratedSrc = `${TIER2_URL}?__sm_viewer=viewer_1`;
+    const iframeRef = makeIframeRef(decoratedSrc);
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    // Första matchande kvittot → reload #1, vars onLoad aldrig hinner.
+    fetchPreviewStatus.mockResolvedValue(status("running"));
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(15_000);
+      await Promise.resolve();
+    });
+    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
+
+    // Pollen ska ha återupptagits: nästa kvitto ger reload #2 …
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(2);
+    expect(result.current.iframeLoading).toBe(true);
+    expect(result.current.iframeError).toBe(false);
+
+    // … och den här gången hinner sidan ladda → banner borta, allt friskt.
+    act(() => result.current.handleIframeLoad());
+    expect(result.current.iframeLoading).toBe(false);
+    expect(result.current.iframeError).toBe(false);
+    expect(result.current.iframeDiagnosticCode).toBeNull();
+  });
+
+  it("ger upp self-heal-reloads efter taket så ingen reload-loop uppstår", async () => {
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const iframeRef = makeIframeRef();
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    fetchPreviewStatus.mockResolvedValue(status("running"));
+    // Tre kvitto→reload→timeout-varv förbrukar hela budgeten.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(12_000);
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(15_000);
+        await Promise.resolve();
+      });
+    }
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(3);
+    const callsAfterBudget = fetchPreviewStatus.mock.calls.length;
+
+    // Budgeten är slut: inga fler reloads och ingen fortsatt poll.
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+      await Promise.resolve();
+    });
+    expect(iframeRef.setSrc).toHaveBeenCalledTimes(3);
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAfterBudget);
+    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
+  });
+
+  it("does not clear the timeout banner on a mismatched self-heal receipt", async () => {
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const iframeRef = makeIframeRef();
+    const params = makeParams({ iframeRef });
+    const { result } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+
+    fetchPreviewStatus.mockResolvedValue(status("running", "ps_stale"));
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+
+    expect(result.current.iframeError).toBe(true);
+    expect(result.current.iframeDiagnosticCode).toBe("preview_ready_timeout");
     expect(iframeRef.setSrc).not.toHaveBeenCalled();
     expect(params.onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops self-heal polling on unmount", async () => {
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const iframeRef = makeIframeRef();
+    const params = makeParams({ iframeRef });
+    const { result, unmount } = renderHook(() => usePreviewIframe(params));
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+    const callsAtUnmount = fetchPreviewStatus.mock.calls.length;
+    unmount();
+
+    await act(async () => {
+      vi.advanceTimersByTime(36_000);
+      await Promise.resolve();
+    });
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsAtUnmount);
+  });
+
+  it("stops self-heal polling when previewSrc identity changes", async () => {
+    fetchPreviewStatus
+      .mockReturnValueOnce(new Promise(() => {}))
+      .mockResolvedValue(status("starting"));
+    const iframeRef = makeIframeRef();
+    const firstParams = makeParams({ iframeRef });
+    const { result, rerender } = renderHook((params) => usePreviewIframe(params), {
+      initialProps: firstParams,
+    });
+
+    act(() => result.current.handleIframeLoad());
+    await act(async () => {
+      vi.advanceTimersByTime(98_000);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(30_000);
+      await Promise.resolve();
+    });
+    const callsBeforeSrcChange = fetchPreviewStatus.mock.calls.length;
+
+    rerender({
+      ...firstParams,
+      previewUrl: "https://vm-other.fly.dev/chat_1",
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(36_000);
+      await Promise.resolve();
+    });
+    expect(fetchPreviewStatus).toHaveBeenCalledTimes(callsBeforeSrcChange);
+    expect(iframeRef.setSrc).not.toHaveBeenCalled();
   });
 
   it.each([

@@ -108,3 +108,4 @@ chat_till_vanster.txt
 eval-output/
 output/generations/
 /publicerings-material/
+package-lock.json

@@ -37,9 +37,9 @@ $e = (Get-Content .cursor\mcp.json.example -Raw | ConvertFrom-Json).mcpServers.P
 Compare-Object $l $e   # tomt = i synk
 ```
 
-Ny git-worktree får `mcp.json` via `npm run worktree:setup`. Codex-worktrees
-får den via `.worktreeinclude`. På den här maskinen finns också
-`%USERPROFILE%\.cursor\mcp.json` som global fallback.
+Ny git-worktree får `mcp.json` via `npm run worktree:setup`, som seedar den från
+den spårade mallen — aldrig från huvudcheckoutens live-fil. På den här maskinen
+finns också `%USERPROFILE%\.cursor\mcp.json` som global fallback.
 
 Manuell omsync (om något drivit isär):
 

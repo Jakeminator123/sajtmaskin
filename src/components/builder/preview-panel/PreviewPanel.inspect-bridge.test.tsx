@@ -315,4 +315,45 @@ describe("PreviewPanel inspect bridge recovery", () => {
     vi.useRealTimers();
     await waitFor(() => expect(screen.getByRole("menu")).toBeTruthy());
   }, 15000);
+
+  it("visar avvisat ready (fel identitet) som status i stället för tyst död", async () => {
+    // Prod 2026-08-31: hosten injicerade bridge-scriptet utan
+    // identitetsparametrar → parent släppte ready helt tyst och inspektorn
+    // dog spårlöst i kartläget. Avvisningen ska synas — utan att accepteras.
+    render(
+      <InspectOnHarness
+        {...buildPreviewPanelProps({
+          activePreviewSessionId: "ps_new",
+          activePreviewLifecycleToken: "life_new",
+        })}
+      />,
+    );
+
+    // Låt ready-timeouten falla ner till kartläget så statuspanelen renderas.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    const iframe = document.getElementById("preview-iframe") as HTMLIFrameElement | null;
+    expect(iframe).toBeTruthy();
+    const contentWindow = attachFakeContentWindow(iframe!);
+
+    await act(async () => {
+      postBridgeMessage(contentWindow, INSPECT_BRIDGE_MESSAGE.ready, undefined, {
+        versionId: "ver_old",
+        previewSessionId: "ps_old",
+        lifecycleToken: "life_old",
+      });
+    });
+
+    vi.useRealTimers();
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Inspector-bron svarade med fel preview-identitet/i),
+      ).toBeTruthy();
+    });
+    // Fortfarande fail-closed: ingen pick-meny och ingen bridge-återhämtning.
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByText("Inspektion aktiv")).toBeTruthy();
+  }, 15000);
 });

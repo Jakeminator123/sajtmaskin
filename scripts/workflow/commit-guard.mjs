@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { collectImpact, loadWorkflowInputs, parseGitNameStatus } from "./path-impact.mjs";
+import { writeHookResponse } from "../../.cursor/hooks/hook-io.mjs";
 import {
+  cheapShellDecision,
   invokesGit,
   isAmbiguousGitCommand,
   nestedShellPayloads,
@@ -13,13 +14,7 @@ import {
   shellSegments,
   shellTokens,
 } from "../../.cursor/hooks/worktree-force-guard.mjs";
-
-function respond(payload) {
-  process.stdout.once("error", (error) => {
-    if (error?.code !== "EPIPE") process.exitCode = 1;
-  });
-  process.stdout.write(`${JSON.stringify(payload)}\n`);
-}
+import { collectImpact, loadWorkflowInputs, parseGitNameStatus } from "./path-impact.mjs";
 
 function deny(reason) {
   return {
@@ -34,11 +29,17 @@ function deny(reason) {
 }
 
 function gitFiles(args, cwd = process.cwd()) {
-  const output = execFileSync("git", args, {
+  const result = spawnSync("git", args, {
     cwd,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    timeout: 8000,
+    windowsHide: true,
   });
+  if (result.status !== 0) {
+    throw new Error(result.error?.message || result.stderr?.trim() || "git inspection failed");
+  }
+  const output = result.stdout ?? "";
   if (args.includes("--name-status")) return parseGitNameStatus(output);
   return output
     .split(/\r?\n/)
@@ -219,9 +220,10 @@ export function decideCommitCommand(
   { git = gitFiles, env = process.env, aliases, cwd = process.cwd() } = {},
 ) {
   if (typeof command !== "string" || !command.trim()) return deny("saknat kommando");
-  // Resolved after the cheap input check and only when the command could reach
-  // git at all — an eager default argument spent a `git config` subprocess on
-  // every unrelated tool call, including the ones this guard immediately allows.
+  const cheap = cheapShellDecision(command);
+  if (cheap) return cheap;
+  // Resolved only when the command could still be a commit or alias. The cheap
+  // path above already allowed read-only git without a `git config` subprocess.
   const resolved = aliases === undefined ? resolveAliasesFor(command) : aliases;
   if (isAmbiguousGitCommand(command, resolved)) {
     return deny("dynamiskt eller aliasbaserat git-kommando — skriv det explicita git-kommandot");
@@ -303,7 +305,7 @@ function main() {
   } catch (error) {
     response = deny(error instanceof Error ? error.message : "ogiltig hook-input");
   }
-  respond(response);
+  writeHookResponse(response);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

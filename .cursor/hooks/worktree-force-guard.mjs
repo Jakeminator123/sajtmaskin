@@ -14,23 +14,24 @@
  * to raw git. This hook is that stop.
  *
  * Two Windows-specific rules this file follows on purpose:
- *   - never call `process.exit()` after writing, because stdout to a pipe is
- *     async on Windows and exiting can discard the response before Cursor
- *     reads it — an empty response reads as a crashed hook;
+ *   - write the verdict with `writeHookResponse` (`writeSync` on fd 1) and
+ *     never call `process.exit()` afterwards — async `stdout.write` plus a
+ *     process teardown can discard the JSON, and Cursor then reports
+ *     "returned no output", which fail-closed treats as a crash;
  *   - never throw. Unexpected input resolves to an explicit deny because this
  *     hook protects a destructive operation and is configured fail-closed.
+ *
+ * Read-only git is decided before any `git config` / alias subprocess. Both
+ * project matchers must keep a `git` alternative so `git ci` / `git wt`
+ * aliases still reach a hook; the cheap path is what stops that from hanging
+ * the fail-closed runner.
  */
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-function writeResponse(payload) {
-  process.stdout.once("error", (error) => {
-    if (error?.code !== "EPIPE") process.exitCode = 1;
-  });
-  process.stdout.write(`${JSON.stringify(payload)}\n`);
-}
+import { writeHookResponse } from "./hook-io.mjs";
 
 /**
  * Split a shell line into independently executed parts.
@@ -219,6 +220,8 @@ export function readGitAliases() {
   const result = spawnSync("git", ["config", "--get-regexp", "^alias\\."], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    timeout: 2000,
+    windowsHide: true,
   });
   // Git exits 1 when no matching aliases exist; that is a verified empty set.
   if (result.status === 1 && !result.stdout.trim()) return new Set();
@@ -319,6 +322,210 @@ export function nestedShellPayloads(segment) {
   return payloads;
 }
 
+const READ_ONLY_GIT_SUBCOMMANDS = new Set([
+  "status",
+  "log",
+  "diff",
+  "show",
+  "rev-parse",
+  "fetch",
+  "ls-files",
+  "describe",
+  "cat-file",
+  "ls-tree",
+  "name-rev",
+  "for-each-ref",
+  "symbolic-ref",
+  "version",
+  "help",
+  "annotate",
+  "blame",
+  "grep",
+  "shortlog",
+  "range-diff",
+  "whatchanged",
+  "rev-list",
+  "merge-base",
+  "var",
+]);
+
+const BRANCH_MUTATING_FLAG =
+  /^(?:-[a-zA-Z]*[dDmMcCf][a-zA-Z]*|--delete|--move|--copy|--force)$/u;
+
+const CHECKOUT_CREATE_FLAGS = new Set(["-b", "-B", "--orphan"]);
+const SWITCH_CREATE_FLAGS = new Set(["-c", "-C", "--create", "--force-create"]);
+const CHECKOUT_VALUE_FLAGS = new Set(["-c", "--conflict", "--onto"]);
+const SWITCH_VALUE_FLAGS = new Set(["--conflict"]);
+const WORKTREE_CREATE_FLAGS = new Set(["-b", "-B"]);
+
+export function isImmutableBranchName(name) {
+  if (typeof name !== "string" || !name) return false;
+  const bare = name.replace(/^(?:refs\/heads\/|refs\/remotes\/[^/]+\/)/u, "");
+  return bare.includes("BRA") || bare.startsWith("rescue/");
+}
+
+export function immutableBranchDenial(detail = "skyddad branch") {
+  return {
+    permission: "deny",
+    user_message:
+      `Blockerat: ${detail}. Brancher som matchar *BRA* eller rescue/* är ` +
+      "ägarens frysta backuper och får inte skapas, checkas ut, döpas om eller raderas.",
+    agent_message:
+      "Denied: immutable backup branch (*BRA* / rescue/*). Do not create, checkout, rename, or delete these branches.",
+  };
+}
+
+function inspectGitInvocation(tokens) {
+  const gitIndex = invokesGit(tokens);
+  if (gitIndex < 0) return null;
+  const args = [];
+  let subcommand = null;
+  for (let index = gitIndex + 1; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (subcommand) {
+      args.push(token);
+      continue;
+    }
+    if (GIT_OPTIONS_WITH_VALUE.has(token)) {
+      index += 1;
+      continue;
+    }
+    if (token.startsWith("--git-dir=") || token.startsWith("--work-tree=")) continue;
+    if (token.startsWith("--namespace=") || token.startsWith("--config-env=")) continue;
+    if (token.startsWith("-")) continue;
+    subcommand = token.toLowerCase();
+  }
+  return { subcommand, args };
+}
+
+function takeNamedArgs(args, createFlags, valueFlags) {
+  const creates = [];
+  const positionals = [];
+  let hasPathspec = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index];
+    if (token === "--") {
+      hasPathspec = true;
+      break;
+    }
+    if (createFlags.has(token)) {
+      creates.push(args[index + 1] ?? "");
+      index += 1;
+      continue;
+    }
+    if (valueFlags.has(token)) {
+      index += 1;
+      continue;
+    }
+    if (token.startsWith("-")) continue;
+    positionals.push(token);
+  }
+  return { creates, positionals, hasPathspec };
+}
+
+function classifyGitInvocation(subcommand, args) {
+  if (!subcommand) return "heavy";
+  if (READ_ONLY_GIT_SUBCOMMANDS.has(subcommand)) return "allow";
+
+  if (subcommand === "worktree") {
+    const action = args.find((token) => !token.startsWith("-"))?.toLowerCase();
+    if (action === "list") return "allow";
+    if (action === "remove") return "heavy";
+    const created = takeNamedArgs(args, WORKTREE_CREATE_FLAGS, new Set()).creates;
+    if (created.some(isImmutableBranchName)) return "deny-immutable";
+    return "allow";
+  }
+
+  if (subcommand === "branch") {
+    const mutating = args.some((token) => BRANCH_MUTATING_FLAG.test(token));
+    const positionals = args.filter((token) => !token.startsWith("-"));
+    const listing =
+      !mutating &&
+      (positionals.length === 0 ||
+        args.includes("--list") ||
+        args.includes("--all") ||
+        args.includes("--contains") ||
+        args.includes("-a") ||
+        args.includes("-r"));
+    if (listing) return "allow";
+    if (positionals.some(isImmutableBranchName)) return "deny-immutable";
+    return mutating ? "heavy" : "allow";
+  }
+
+  if (subcommand === "checkout" || subcommand === "switch") {
+    if (
+      args.some(
+        (token) =>
+          token === "-f" ||
+          token === "--force" ||
+          token === "--discard-changes" ||
+          token === "--ours" ||
+          token === "--theirs",
+      )
+    ) {
+      return "heavy";
+    }
+    const parsed = takeNamedArgs(
+      args,
+      subcommand === "switch" ? SWITCH_CREATE_FLAGS : CHECKOUT_CREATE_FLAGS,
+      subcommand === "switch" ? SWITCH_VALUE_FLAGS : CHECKOUT_VALUE_FLAGS,
+    );
+    if (parsed.hasPathspec) return "heavy";
+    if ([...parsed.creates, ...parsed.positionals].some(isImmutableBranchName)) {
+      return "deny-immutable";
+    }
+    return "allow";
+  }
+
+  if (subcommand === "push") {
+    if (
+      args.some(
+        (token) =>
+          isImmutableBranchName(token) ||
+          /:(?:refs\/heads\/)?(?:[^\s]*BRA[^\s]*|rescue\/)/u.test(token),
+      )
+    ) {
+      return "deny-immutable";
+    }
+    return "heavy";
+  }
+
+  if (subcommand === "commit") return "heavy";
+  return "heavy";
+}
+
+function classifySegment(segment) {
+  if (isRawWorktreeRemove(segment)) return "heavy";
+  const invocation = inspectGitInvocation(shellTokens(segment));
+  if (!invocation) return "allow";
+  return classifyGitInvocation(invocation.subcommand, invocation.args);
+}
+
+/**
+ * Fast verdict for commands this hook does not need to inspect further.
+ *
+ * Returns `allow` / immutable-branch `deny`, or `null` when the regular
+ * alias + worktree-remove analysis must run. Never spawns git.
+ */
+export function cheapShellDecision(command) {
+  if (typeof command !== "string" || !command.trim()) return null;
+  const expandable = command.replace(/'[^']*'/gu, "");
+  if (SHELL_EXPANSION.test(expandable)) return null;
+  if (/(?:^|\s)-c\s+['"]?alias\.[^\s=]+=/iu.test(command)) return null;
+
+  const verdicts = [];
+  const walk = (value) => {
+    for (const segment of shellSegments(value)) {
+      for (const payload of nestedShellPayloads(segment)) walk(payload);
+      verdicts.push(classifySegment(segment));
+    }
+  };
+  walk(command);
+  if (verdicts.includes("deny-immutable")) return immutableBranchDenial();
+  if (verdicts.includes("heavy")) return null;
+  return { permission: "allow" };
+}
+
 export function isRawWorktreeRemove(segment) {
   // A quoted bash/pwsh payload is executable, not prose. Inspect it before
   // stripping ordinary quoted arguments such as grep patterns or commit text.
@@ -355,9 +562,12 @@ function failure(reason) {
   };
 }
 
-export function decide(command, { aliases = new Set() } = {}) {
+export function decide(command, { aliases } = {}) {
   if (typeof command !== "string" || !command.trim()) return failure("saknat kommando");
-  if (isAmbiguousGitCommand(command, aliases)) {
+  const cheap = cheapShellDecision(command);
+  if (cheap) return cheap;
+  const resolved = aliases === undefined ? resolveAliasesFor(command) : aliases;
+  if (isAmbiguousGitCommand(command, resolved)) {
     return failure("dynamiskt eller aliasbaserat git-kommando; skriv det explicita git-kommandot");
   }
   const offending = shellSegments(command).find(isRawWorktreeRemove);
@@ -405,13 +615,11 @@ function main() {
     if (!input || typeof input !== "object" || typeof input.command !== "string") {
       throw new Error("ogiltig hook-input");
     }
-    response = decide(input.command, { aliases: resolveAliasesFor(input.command) });
+    response = decide(input.command);
   } catch {
     response = failure("ogiltig hook-input");
   }
-  // EPIPE is emitted asynchronously as a stream error; try/catch cannot
-  // intercept it. Other stdout errors remain fail-closed.
-  writeResponse(response);
+  writeHookResponse(response);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

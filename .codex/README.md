@@ -10,29 +10,35 @@ för investigator/reviewer och Sol `high` för worker.
 
 ## Behörighet
 
-- Det här trusted personliga projektet använder avsiktligt
-  `approval_policy = "never"` och `sandbox_mode = "danger-full-access"`.
+- Det här trusted personliga projektet använder den säkra interaktiva
+  standarden `approval_policy = "on-request"` och
+  `sandbox_mode = "workspace-write"`.
 - Inställningen gäller när en ny Codex-uppgift startas från projektet. En redan
   startad uppgift med host-managed sandbox kan fortfarande kräva värdens
   godkännanden; dess behörighetsprofil kan inte bytas mitt i körningen.
-- Full filsystemsåtkomst breddar inte uppdragets mandat. Branch-, worktree-,
-  verifierings- och destructive-action-reglerna gäller fortfarande.
-- Webbsökning är `live`; autentisering och tokens ligger fortfarande utanför
-  repot.
+- Bredare åtkomst är ett uttryckligt undantag för den aktuella uppgiften, inte
+  projektets default. Branch-, worktree-, verifierings- och
+  destructive-action-reglerna gäller alltid.
+- Webbsökning använder `cached` som säkrare default. Autentisering och tokens
+  ligger utanför repot.
 
 ## Så här ska projektet öppnas
 
 - Cursor: File → Open Folder på `C:\Users\jakob\dev\projects\sajtmaskin`.
-  Worktree är valfritt. Terminal/pwsh 7 ligger i `.vscode/settings.json`.
-- Primary folder i det sparade Codex-projektet `sajtmaskin` är den separata
-  Codex-kopian `C:\Users\jakob\Documents\ChatGPT\sajtmasin` på ankarbranchen
-  `codex/workspace`.
-- `codex/workspace` är ett återanvändbart projektankare, inte en featurebranch.
-  `tidy` skyddar namnet; ta inte bort Codex-kopian som `FRI`.
-- Starta nya Codex-chattar från projektet `sajtmaskin`. Jobba i den öppna
-  kopian eller en valfri branch från färsk `origin/master`.
-- Efter mergad PR behålls projektankaret på `codex/workspace`; nästa arbete
-  startas från färsk `origin/master`.
+  `C:\Users\jakob\dev\projects\sajtmaskin` är läs-, test- och kontrollankare
+  på `master`. Normalt skrivarbete sker i uppgiftens egen worktree/branch enligt
+  `pr-workflow`, aldrig direkt i huvudcheckouten.
+- Primary folder i det sparade lokala Codex-projektet `sajtmaskin` är samma
+  repo-root: `C:\Users\jakob\dev\projects\sajtmaskin`. Registreringen gör inte
+  huvudcheckouten till en skrivyta.
+- Starta nya Codex-chattar från projektet `sajtmaskin`. Allt skrivarbete sker
+  i en egen Codex-worktree/branch per uppgift, baserad på färsk
+  `origin/master` — inte i huvudcheckouten.
+- Samma regel gäller när Cursor är stängt och Codex arbetar ensamt. Öppna då
+  Codex-worktreet i önskad editor eller terminal och arbeta färdigt där.
+- Handoff till `Local` görs bara när huvudcheckouten är verifierat ren och ingen
+  annan process äger den. En branch får bara vara utcheckad i en worktree åt
+  gången, och bara en aktör ansvarar för merge.
 
 ## Windows-skal (pwsh 7)
 
@@ -52,10 +58,12 @@ trots att `pwsh` 7 är installerat. 5.1 skriver
 - Ignorering: `.cursorignore` gäller Cursor. Codex har ingen repo-lokal
   `.codexignore`; använd `.gitignore` och var selektiv med vilka filer du ber
   Codex läsa.
-- Worktrees: `.worktreeinclude` kopierar `.env.local` och `.cursor/mcp.json`
-  till Codex-hanterade worktrees.
+- Worktrees: `.worktreeinclude` kopierar inga ignorerade maskinlokala filer som
+  default. `npm run worktree:setup` skapar bara `.cursor/mcp.json` från den
+  spårade, publika `.cursor/mcp.json.example`.
 - Secrets: lägg inte tokens i `.codex/config.toml`. GitHub går via `gh`/SSH
-  eller Codex/GitHub-connectorn. Runtime-env ligger lokalt i `.env.local`.
+  eller Codex/GitHub-connectorn. Behöver ett worktree verkligen runtime-env,
+  skapa en minimal worktree-lokal fil uttryckligen och committa den aldrig.
 
 ## Vanliga kommandon
 

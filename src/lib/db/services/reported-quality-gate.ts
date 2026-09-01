@@ -9,6 +9,7 @@
  */
 
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
+import { formatProductPostcheckSkippedMessage } from "@/lib/gen/verify/product-postcheck-skip";
 
 export const REPORTED_PRODUCT_BLOCKED = "product_blocked";
 export const REPORTED_PRODUCT_POSTCHECK_DEGRADED = "product_postcheck_degraded";
@@ -231,12 +232,13 @@ export function applyProductPostcheckReportToVersionStatus(
     });
   } else if (report.kind === "degraded") {
     const meta = reportMeta(report.skipped?.meta);
-    const reason = typeof meta?.skippedReason === "string" ? meta.skippedReason : "unknown";
+    const reason =
+      typeof meta?.skippedReason === "string" && meta.skippedReason.trim()
+        ? meta.skippedReason.trim()
+        : "unknown";
     degradations.push({
       kind: "product_postcheck_skipped",
-      message:
-        report.skipped?.message?.trim() ||
-        `F2 Product Postcheck gav inget verifierbart resultat (${reason}).`,
+      message: formatProductPostcheckSkippedMessage(reason),
       meta,
     });
   } else if (unresolvedSkippedEvent) {
@@ -266,7 +268,7 @@ export function applyProductPostcheckLogReadFailureToVersionStatus(
       ...status.degradations,
       {
         kind: "product_postcheck_skipped",
-        message: "Produktkontrollens sparade status kunde inte läsas.",
+        message: formatProductPostcheckSkippedMessage("log_read_error"),
         meta: { skippedReason: "log_read_error", transient: true },
       },
     ],

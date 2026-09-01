@@ -69,7 +69,7 @@ export function getEmbeddingsBlobKey(id: EmbeddingsArtifactId): string {
 }
 
 export function getEmbeddingsLocalPath(id: EmbeddingsArtifactId): string {
-  return path.resolve(process.cwd(), EMBEDDINGS_ARTIFACTS[id].localRelPath);
+  return path.resolve(/* turbopackIgnore: true */ process.cwd(), EMBEDDINGS_ARTIFACTS[id].localRelPath);
 }
 
 export function getEmbeddingsBlobManifestPath(): string {
