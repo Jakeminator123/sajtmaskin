@@ -198,6 +198,34 @@ describe("launchCaptureBrowser", () => {
     warnSpy.mockRestore();
   });
 
+  it("raderar Chromium-core-dumps oavsett ålder före serverless-launch (SM-072)", async () => {
+    // Prod 2026-09-01 (chat 3b9ca137): `core.chromium.24` på 913 MB fyllde
+    // ensam tmpfs:en och varje senare launch dog. En core dump i lambdan har
+    // ingen läsare — den ska bort direkt, även om den är nyskriven.
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    const tmp = createSweepTmp();
+    const freshCore = path.join(tmp, "core.chromium.24");
+    fs.writeFileSync(freshCore, "core-dump-bytes");
+    const unrelatedFile = path.join(tmp, "corefile.txt");
+    fs.writeFileSync(unrelatedFile, "keep");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(fs.existsSync(freshCore)).toBe(false);
+    expect(fs.existsSync(unrelatedFile)).toBe(true);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[capture-browser] pruned 1 Chromium core dump(s)",
+    );
+    warnSpy.mockRestore();
+  });
+
   it("behåller en färsk Playwright-profil under 15 minuter", async () => {
     process.env.VERCEL = "1";
     sparticuzLaunch.mockResolvedValue({

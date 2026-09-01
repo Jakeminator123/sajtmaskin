@@ -36,6 +36,7 @@ import type {
   ProductPostcheckAttestation,
   ProductPostcheckResult,
 } from "@/lib/gen/verify/product-postcheck";
+import { isInfrastructureSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
 
 /** Extra försök efter det första, bara vid en retryable 503. */
 const ERROR_LOG_RETRY_ATTEMPTS = 2;
@@ -55,6 +56,20 @@ export function abortPostChecksForChat(chatId: string): void {
   if (!existing) return;
   existing.abort();
   postCheckControllers.delete(chatId);
+}
+
+/**
+ * True medan den normala post-stream-lanen (postcheck → quality gate) äger
+ * verifieringen för chatten i DEN HÄR fliken. Resume-lanen läser vakten innan
+ * den startar: sedan #1221 får normala lanen lagligt vänta in en bootande
+ * preview i upp till 150 s, vilket passerade resume-lanens gamla 3-minuters
+ * åldersgräns — resultatet var dubbla Chromium-launcher per dom (dubbelt
+ * /tmp-tryck, SM-072) och en quality gate som stals via 409-leasen (prod
+ * 2026-09-01, chattar c2371f9c och 3b9ca137). Cross-tab skyddas oförändrat av
+ * routens per-versions-lease.
+ */
+export function hasActivePostCheck(chatId: string): boolean {
+  return postCheckControllers.has(chatId);
 }
 
 function isAbortError(error: unknown): boolean {
@@ -170,7 +185,59 @@ async function validateImages(params: {
   }
 }
 
+/**
+ * En (1) omkörning när kontrollens EGEN apparat dog (infrastruktur-skip enligt
+ * `classifyProductPostcheckSkipReason`). Prod 2026-09-01 (chat 3b9ca137, v2):
+ * första försöket dog med `playwright_unavailable` på en serverless-instans
+ * vars /tmp var fylld av en Chromium-core-dump, medan en omkörning sekunder
+ * senare landade på en frisk instans och fångade sex riktiga produktfynd
+ * (productBlocked). Utan omkörningen hade domen blivit advisory-skip och
+ * fynden aldrig upptäckts. Exakt ett omförsök — aldrig en launch-storm.
+ */
+const PRODUCT_POSTCHECK_INFRA_RETRY_DELAY_MS = 4_000;
+
+function delayUnlessAborted(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 async function runProductPostcheckApi(params: {
+  chatId: string;
+  versionId: string;
+  previewUrl: string | null;
+  signal: AbortSignal;
+}): Promise<ProductPostcheckResult | null> {
+  const first = await postProductPostcheckOnce(params);
+  // `feature_disabled` är infrastrukturklassad men deterministisk för hela
+  // deployn (operatörsflagga) — en omkörning kan aldrig ge ett annat utfall.
+  if (
+    !first?.skipped ||
+    first.skippedReason === "feature_disabled" ||
+    !isInfrastructureSkipReason(first.skippedReason)
+  ) {
+    return first;
+  }
+  await delayUnlessAborted(PRODUCT_POSTCHECK_INFRA_RETRY_DELAY_MS, params.signal);
+  const second = await postProductPostcheckOnce(params);
+  // En transportmiss på omförsöket får inte radera det attesterade första
+  // utfallet — infra-skipen är fortfarande en ärlig (advisory) dom.
+  return second ?? first;
+}
+
+async function postProductPostcheckOnce(params: {
   chatId: string;
   versionId: string;
   previewUrl: string | null;
@@ -605,6 +672,7 @@ export async function runPostGenerationChecks(params: {
         mutateVersions,
         onAutoFix,
         abortController: controller,
+        productPostcheck: productPostcheckResult ?? null,
       });
     } else {
       appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -738,6 +806,13 @@ async function runTier2VerifyLane(params: {
   onAutoFix?: (payload: AutoFixPayload) => void;
   previewPolicy?: "fidelity2" | "fidelity3";
   abortController?: AbortController;
+  /**
+   * Postcheckens attesterade resultat från samma körpass. Bär den in i
+   * gate-utfallet så en promotad version med `productBlocked` (t.ex. döda
+   * CTA-knappar, trasig mobilmeny) kan skicka fynden till en riktad
+   * auto-fix-runda — samma väg som Visual QA, synlig i chatten.
+   */
+  productPostcheck?: ProductPostcheckResult | null;
 }) {
   const {
     chatId,
@@ -748,6 +823,7 @@ async function runTier2VerifyLane(params: {
     onAutoFix,
     previewPolicy = "fidelity2",
     abortController,
+    productPostcheck = null,
   } = params;
   const toolCallId = `quality-gate:${versionId}`;
   const releasePipelineWork = beginPipelineWork();
@@ -1056,6 +1132,22 @@ async function runTier2VerifyLane(params: {
       });
     } else if (data.passed && visualQa && !visualQa.passed && onAutoFix) {
       handleVisualQaAutofix({ chatId, versionId, visualQa, onAutoFix });
+    } else if (
+      data.passed &&
+      onAutoFix &&
+      productPostcheck &&
+      !productPostcheck.skipped &&
+      productPostcheck.productBlocked === true &&
+      Array.isArray(productPostcheck.warnings) &&
+      productPostcheck.warnings.length > 0
+    ) {
+      // Ägarbeslut 2026-09-01: en Degraderad dom med äkta DOM-fynd (döda
+      // CTA-knappar, trasig mobilmeny) ska inte stanna vid en badge — fynden
+      // är redan strukturerade (kod + selector + text) och går till samma
+      // riktade auto-fix-runda som Visual QA. Auto-fix-vägen är en synlig
+      // chattur med eget resonemang och egen efterkontroll; de befintliga
+      // per-chat/per-reason-throttlarna begränsar automatiska omkörningar.
+      handleProductPostcheckAutofix({ chatId, versionId, productPostcheck, onAutoFix });
     }
   } catch (error) {
     if (isAbortError(error)) {
@@ -1207,6 +1299,46 @@ async function handleRepairOrAutofix(params: {
       repair,
     });
   }
+}
+
+/**
+ * Degraderad-till-fix (ägarbeslut 2026-09-01): postcheckens DOM-fynd är redan
+ * strukturerade (kod, selector, knapptext, route) och matas till samma
+ * riktade auto-fix-runda som Visual QA — en synlig chattur med eget
+ * resonemang, ny version och ny efterkontroll. Max 8 fynd så prompten inte
+ * drunknar; de befintliga auto-fix-throttlarna per chat/reason begränsar
+ * automatiska loopar.
+ */
+function handleProductPostcheckAutofix(params: {
+  chatId: string;
+  versionId: string;
+  productPostcheck: ProductPostcheckResult;
+  onAutoFix: (payload: AutoFixPayload) => void;
+}) {
+  const { chatId, versionId, productPostcheck, onAutoFix } = params;
+  const readString = (value: unknown): string | undefined =>
+    typeof value === "string" && value.trim() ? value.trim() : undefined;
+  const findings = productPostcheck.warnings.slice(0, 8).map((item) => {
+    const raw = item as Record<string, unknown>;
+    return {
+      code: readString(raw.code) ?? "unknown",
+      message: readString(raw.message) ?? "Okänt produktfynd.",
+      selector: readString(raw.selector),
+      text: readString(raw.text),
+      href: readString(raw.href),
+      route: readString(raw.route),
+    };
+  });
+  if (findings.length === 0) return;
+  const repair: RepairContext = { productFindings: findings };
+  onAutoFix({
+    chatId,
+    versionId,
+    reasons: [
+      `Product Postcheck hittade ${productPostcheck.warningCount} blockerande produktfynd på den körande sajten`,
+    ],
+    repair,
+  });
 }
 
 function handleVisualQaAutofix(params: {

@@ -169,7 +169,7 @@
         },
         "fixer": {
           "thinking": false,
-          "reasoningEffort": "medium"
+          "reasoningEffort": "high"
         },
         "verifier": {
           "thinking": true,
@@ -271,7 +271,7 @@
         }
       }
     },
-    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. The Premium tier replaces the retired fast/cheap tier and runs GPT-5.6 Sol for planner/generator/verifier/deploy-assistant; its planner and generator use the Responses API with reasoning mode pro and high effort. The Premium FIXER is pinned to gpt-5.6-sol without thinking (owner decision 2026-08-11: prefer Sol for targeted repairs; thinking stays off so repair latency stays bounded — Max still pins fixer to gpt-5.3-codex). The PRO generator runs at medium reasoning effort (owner decision 2026-08-19: hidden reasoning tokens were half of pro codegen output cost; medium is OpenAI's recommended balance for agentic coding, planner keeps high because planning IS the thinking). Max/codex/premium keep high-effort generators as the deliberate expensive tiers. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
+    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. The Premium tier replaces the retired fast/cheap tier and runs GPT-5.6 Sol for planner/generator/verifier/deploy-assistant; its planner and generator use the Responses API with reasoning mode pro and high effort. The Premium FIXER is pinned to gpt-5.6-sol without a thinking stream but WITH high reasoning effort (owner decision 2026-09-01, supersedes 2026-08-11's effort-none latency pin: targeted repairs should reason; llm-fixer.ts honors the manifest effort for gpt-5.6 models and falls back to none only when effort is unset — Max still pins fixer to gpt-5.3-codex). The PRO generator runs at medium reasoning effort (owner decision 2026-08-19: hidden reasoning tokens were half of pro codegen output cost; medium is OpenAI's recommended balance for agentic coding, planner keeps high because planning IS the thinking). Max/codex/premium keep high-effort generators as the deliberate expensive tiers. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
   },
   "perTierBriefing": {
     "premium": {
