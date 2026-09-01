@@ -1,0 +1,26 @@
+name: master-ruleset-drift
+
+# Read-only desired-state audit for GitHub configuration that lives outside Git.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  protect-master:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Compare live Protect master with versioned policy
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ci/check-master-ruleset.mjs
