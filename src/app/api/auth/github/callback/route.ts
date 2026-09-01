@@ -1,5 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
+import {
+  oauthStateMatches,
+  readOAuthStateCookie,
+  redirectClearingOAuthState,
+} from "@/lib/auth/oauth-state";
 import { updateUserGitHub } from "@/lib/db/services/users";
 import { SECRETS, FEATURES, URLS } from "@/lib/config";
 
@@ -31,29 +36,41 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
-  // Parse state to get return URL (sanitized)
-  const parseReturnTo = (rawState: string | null): { path: string; sanitized: boolean } => {
+  // Parse state to get return URL (sanitized) and CSRF nonce
+  const parseReturnTo = (
+    rawState: string | null,
+  ): { path: string; sanitized: boolean; nonce: string | undefined } => {
     const fallback = "/projects";
-    if (!rawState) return { path: fallback, sanitized: false };
+    if (!rawState) return { path: fallback, sanitized: false, nonce: undefined };
     try {
       const stateData = JSON.parse(Buffer.from(rawState, "base64").toString());
+      const nonce = typeof stateData?.nonce === "string" ? stateData.nonce : undefined;
       const value = stateData?.returnTo as string | undefined;
-      if (!value) return { path: fallback, sanitized: false };
+      if (!value) return { path: fallback, sanitized: false, nonce };
 
       const baseOrigin = new URL(URLS.baseUrl).origin;
       const candidate = new URL(value, baseOrigin);
       if (candidate.origin !== baseOrigin) {
-        return { path: fallback, sanitized: true };
+        return { path: fallback, sanitized: true, nonce };
       }
       const safePath = `${candidate.pathname}${candidate.search}${candidate.hash}`;
-      return { path: safePath || fallback, sanitized: safePath !== value };
+      return { path: safePath || fallback, sanitized: safePath !== value, nonce };
     } catch {
       console.warn("[GitHub OAuth] Could not parse state parameter");
-      return { path: fallback, sanitized: true };
+      return { path: fallback, sanitized: true, nonce: undefined };
     }
   };
 
-  const { path: returnTo, sanitized: returnSanitized } = parseReturnTo(state);
+  const { path: returnTo, sanitized: returnSanitized, nonce: stateNonce } = parseReturnTo(state);
+  const redirect = (url: string) => redirectClearingOAuthState(url, request);
+
+  if (!oauthStateMatches(readOAuthStateCookie(request), stateNonce)) {
+    console.error("[GitHub OAuth] Invalid or missing OAuth state");
+    const errorUrl = new URL(returnTo, URLS.baseUrl);
+    errorUrl.searchParams.set("github_error", "invalid_state");
+    if (returnSanitized) errorUrl.searchParams.set("github_error_reason", "unsafe_return");
+    return redirect(errorUrl.toString());
+  }
 
   // Handle OAuth errors
   if (error) {
@@ -61,7 +78,7 @@ export async function GET(request: NextRequest) {
     const errorUrl = new URL(returnTo, URLS.baseUrl);
     errorUrl.searchParams.set("github_error", error);
     if (returnSanitized) errorUrl.searchParams.set("github_error_reason", "unsafe_return");
-    return NextResponse.redirect(errorUrl.toString());
+    return redirect(errorUrl.toString());
   }
 
   if (!code) {
@@ -69,7 +86,7 @@ export async function GET(request: NextRequest) {
     const errorUrl = new URL(returnTo, URLS.baseUrl);
     errorUrl.searchParams.set("github_error", "no_code");
     if (returnSanitized) errorUrl.searchParams.set("github_error_reason", "unsafe_return");
-    return NextResponse.redirect(errorUrl.toString());
+    return redirect(errorUrl.toString());
   }
 
   // Use centralized secrets
@@ -81,7 +98,7 @@ export async function GET(request: NextRequest) {
     const errorUrl = new URL(returnTo, URLS.baseUrl);
     errorUrl.searchParams.set("github_error", "not_configured");
     if (returnSanitized) errorUrl.searchParams.set("github_error_reason", "unsafe_return");
-    return NextResponse.redirect(errorUrl.toString());
+    return redirect(errorUrl.toString());
   }
 
   // Get current user (must be logged in to connect GitHub)
@@ -90,7 +107,7 @@ export async function GET(request: NextRequest) {
     console.error("[GitHub OAuth] No authenticated user");
     const errorUrl = new URL("/", URLS.baseUrl);
     errorUrl.searchParams.set("github_error", "not_authenticated");
-    return NextResponse.redirect(errorUrl.toString());
+    return redirect(errorUrl.toString());
   }
 
   try {
@@ -116,7 +133,7 @@ export async function GET(request: NextRequest) {
       console.error("[GitHub OAuth] Token error:", tokenData.error);
       const errorUrl = new URL(returnTo, request.url);
       errorUrl.searchParams.set("github_error", tokenData.error);
-      return NextResponse.redirect(errorUrl.toString());
+      return redirect(errorUrl.toString());
     }
 
     const accessToken = tokenData.access_token;
@@ -136,7 +153,7 @@ export async function GET(request: NextRequest) {
       const errorUrl = new URL(returnTo, URLS.baseUrl);
       errorUrl.searchParams.set("github_error", "user_fetch_failed");
       if (returnSanitized) errorUrl.searchParams.set("github_error_reason", "unsafe_return");
-      return NextResponse.redirect(errorUrl.toString());
+      return redirect(errorUrl.toString());
     }
 
     const githubUser: GitHubUser = await userResponse.json();
@@ -159,12 +176,12 @@ export async function GET(request: NextRequest) {
 
     console.info("[GitHub OAuth] Successfully connected GitHub account");
 
-    return NextResponse.redirect(successUrl.toString());
+    return redirect(successUrl.toString());
   } catch (error) {
     console.error("[GitHub OAuth] Error:", error);
     const errorUrl = new URL(returnTo, URLS.baseUrl);
     errorUrl.searchParams.set("github_error", "unknown");
     if (returnSanitized) errorUrl.searchParams.set("github_error_reason", "unsafe_return");
-    return NextResponse.redirect(errorUrl.toString());
+    return redirect(errorUrl.toString());
   }
 }

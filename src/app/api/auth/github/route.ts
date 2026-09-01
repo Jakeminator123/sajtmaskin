@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SECRETS, URLS, FEATURES } from "@/lib/config";
+import { createOAuthNonce, redirectWithOAuthState } from "@/lib/auth/oauth-state";
 
 /**
  * GitHub OAuth - Start Flow
@@ -47,11 +48,12 @@ export async function GET(request: NextRequest) {
 
   const { path: safeReturnTo } = sanitizeReturnTo(returnTo);
 
-  // Create state parameter to prevent CSRF and store return URL
+  // Bind a one-time nonce to this browser (HttpOnly cookie + state payload).
+  const nonce = createOAuthNonce();
   const state = Buffer.from(
     JSON.stringify({
       returnTo: safeReturnTo,
-      timestamp: Date.now(),
+      nonce,
     }),
   ).toString("base64");
 
@@ -64,5 +66,5 @@ export async function GET(request: NextRequest) {
 
   console.info("[GitHub OAuth] Redirecting to GitHub for authorization");
 
-  return NextResponse.redirect(githubAuthUrl.toString());
+  return redirectWithOAuthState(githubAuthUrl.toString(), nonce, request);
 }

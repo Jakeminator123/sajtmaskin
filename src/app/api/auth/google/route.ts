@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getGoogleAuthUrl } from "@/lib/auth/auth";
+import { createOAuthNonce, redirectWithOAuthState } from "@/lib/auth/oauth-state";
 
 function sanitizeRedirectTarget(rawRedirect: string | null, req: NextRequest): string {
   const fallback = "/";
@@ -27,8 +28,8 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const redirect = sanitizeRedirectTarget(searchParams.get("redirect"), req);
 
-    // Create state with redirect info
-    const state = Buffer.from(JSON.stringify({ redirect })).toString("base64url");
+    const nonce = createOAuthNonce();
+    const state = Buffer.from(JSON.stringify({ redirect, nonce })).toString("base64url");
 
     // Use current request origin for OAuth callback to avoid cross-env redirects.
     const callbackUrl = new URL("/api/auth/google/callback", req.nextUrl.origin).toString();
@@ -36,8 +37,7 @@ export async function GET(req: NextRequest) {
     // Generate Google OAuth URL
     const authUrl = getGoogleAuthUrl(state, callbackUrl);
 
-    // Redirect to Google
-    return NextResponse.redirect(authUrl);
+    return redirectWithOAuthState(authUrl, nonce, req);
   } catch (error) {
     console.error("[API/auth/google] Error:", error);
 
