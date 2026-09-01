@@ -38,7 +38,7 @@ beforeEach(() => {
     const response = await globalThis.fetch(rawUrl, {
       method: init.method,
       headers: init.headers,
-      body: init.body,
+      body: init.body ? new Uint8Array(init.body) : null,
       signal: init.signal,
       redirect: "manual",
     });

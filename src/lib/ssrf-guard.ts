@@ -148,7 +148,7 @@ async function requestBodyToBuffer(body: BodyInit | null | undefined): Promise<B
 }
 
 function responseFromPinned(result: PinnedFetchResult): Response {
-  return new Response(result.body, {
+  return new Response(new Uint8Array(result.body), {
     status: result.status,
     headers: result.headers,
   });
@@ -234,9 +234,10 @@ export async function safeFetch(
       } catch (error) {
         if (!isPinnedAddressBlocked(error)) throw error;
         const prefix = redirectCount === 0 ? "Request" : "Redirect";
-        return new Response(`${prefix} blocked: hostname resolved to a private/internal IP at connect time`, {
-          status: 403,
-        });
+        return new Response(
+          `${prefix} blocked: hostname resolved to a private/internal IP at connect time`,
+          { status: 403 },
+        );
       }
 
       const response = responseFromPinned(pinned);
