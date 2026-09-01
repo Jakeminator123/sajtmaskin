@@ -1,5 +1,13 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -24,6 +32,18 @@ function seedRepo() {
   return cwd;
 }
 
+function seedNestedRepo(cwd: string, name: string) {
+  const nested = join(cwd, name);
+  mkdirSync(nested);
+  git(nested, ["init"]);
+  git(nested, ["config", "user.name", "Test"]);
+  git(nested, ["config", "user.email", "test@example.com"]);
+  writeFileSync(join(nested, "inside.txt"), "one\n");
+  git(nested, ["add", "inside.txt"]);
+  git(nested, ["commit", "-m", "nested init"]);
+  return nested;
+}
+
 describe("assert-git-checkout-unchanged", () => {
   it("parses the wrapped command after --", () => {
     expect(parseWrappedCommand(["--", "node", "-e", "0"])).toEqual(["node", "-e", "0"]);
@@ -36,6 +56,158 @@ describe("assert-git-checkout-unchanged", () => {
     try {
       const before = snapshotCheckout(cwd);
       expect(describeCheckoutDrift(before, snapshotCheckout(cwd))).toEqual([]);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("detects rewritten content in an already-dirty tracked file", () => {
+    const cwd = seedRepo();
+    try {
+      writeFileSync(join(cwd, "README.md"), "two\n");
+      const before = snapshotCheckout(cwd);
+      writeFileSync(join(cwd, "README.md"), "three\n");
+      const after = snapshotCheckout(cwd);
+
+      expect(after.status).toBe(before.status);
+      expect(describeCheckoutDrift(before, after)).toContain("index/worktree/status ändrades");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("detects rewritten staged content with the same porcelain status", () => {
+    const cwd = seedRepo();
+    try {
+      writeFileSync(join(cwd, "README.md"), "two\n");
+      git(cwd, ["add", "README.md"]);
+      const before = snapshotCheckout(cwd);
+      writeFileSync(join(cwd, "README.md"), "three\n");
+      git(cwd, ["add", "README.md"]);
+      const after = snapshotCheckout(cwd);
+
+      expect(after.status).toBe(before.status);
+      expect(describeCheckoutDrift(before, after)).toContain("index/worktree/status ändrades");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("detects rewritten content in an existing untracked file", () => {
+    const cwd = seedRepo();
+    try {
+      writeFileSync(join(cwd, "notes.txt"), "one\n");
+      const before = snapshotCheckout(cwd);
+      writeFileSync(join(cwd, "notes.txt"), "two\n");
+      const after = snapshotCheckout(cwd);
+
+      expect(after.status).toBe(before.status);
+      expect(describeCheckoutDrift(before, after)).toContain("index/worktree/status ändrades");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("detects rewritten content inside an untracked embedded repository", () => {
+    const cwd = seedRepo();
+    try {
+      const nested = seedNestedRepo(cwd, "nested");
+      writeFileSync(join(nested, "inside.txt"), "two\n");
+      const before = snapshotCheckout(cwd);
+      writeFileSync(join(nested, "inside.txt"), "three\n");
+      const after = snapshotCheckout(cwd);
+
+      expect(after.status).toBe(before.status);
+      expect(describeCheckoutDrift(before, after)).toContain("index/worktree/status ändrades");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("detects rewritten tracked content inside an already-dirty gitlink", () => {
+    const cwd = seedRepo();
+    try {
+      const nested = seedNestedRepo(cwd, "nested");
+      git(cwd, ["add", "nested"]);
+      git(cwd, ["commit", "-m", "add gitlink"]);
+      writeFileSync(join(nested, "inside.txt"), "two\n");
+      const before = snapshotCheckout(cwd);
+      writeFileSync(join(nested, "inside.txt"), "three\n");
+      const after = snapshotCheckout(cwd);
+
+      expect(after.status).toBe(before.status);
+      expect(describeCheckoutDrift(before, after)).toContain("index/worktree/status ändrades");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("detects semantic index-flag changes", () => {
+    for (const flag of ["--assume-unchanged", "--skip-worktree"]) {
+      const cwd = seedRepo();
+      try {
+        const before = snapshotCheckout(cwd);
+        git(cwd, ["update-index", flag, "README.md"]);
+        const after = snapshotCheckout(cwd);
+
+        expect(after.status).toBe(before.status);
+        expect(describeCheckoutDrift(before, after)).toContain("index/worktree/status ändrades");
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "detects worktree mode changes even when Git ignores filemode",
+    () => {
+      const cwd = seedRepo();
+      try {
+        git(cwd, ["config", "core.filemode", "false"]);
+        const path = join(cwd, "README.md");
+        const before = snapshotCheckout(cwd);
+        chmodSync(path, (statSync(path).mode & 0o7777) ^ 0o100);
+        const after = snapshotCheckout(cwd);
+
+        expect(after.status).toBe(before.status);
+        expect(describeCheckoutDrift(before, after)).toContain("index/worktree/status ändrades");
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.skipIf(process.platform === "win32")("keeps non-UTF-8 Git paths byte-safe", () => {
+    const cwd = seedRepo();
+    try {
+      const path = Buffer.concat([Buffer.from(cwd), Buffer.from("/"), Buffer.from([0xff])]);
+      writeFileSync(path, "one\n");
+      git(cwd, ["add", "--all"]);
+      git(cwd, ["commit", "-m", "add byte path"]);
+      writeFileSync(path, "two\n");
+      const before = snapshotCheckout(cwd);
+      writeFileSync(path, "three\n");
+      const after = snapshotCheckout(cwd);
+
+      expect(after.status).toBe(before.status);
+      expect(describeCheckoutDrift(before, after)).toContain("index/worktree/status ändrades");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(process.platform === "win32")("distinguishes special untracked file types", () => {
+    const cwd = seedRepo();
+    try {
+      const path = join(cwd, "special");
+      symlinkSync("missing-target", path);
+      const before = snapshotCheckout(cwd);
+      rmSync(path);
+      writeFileSync(path, "replacement\n");
+      const after = snapshotCheckout(cwd);
+
+      expect(after.status).toBe(before.status);
+      expect(describeCheckoutDrift(before, after)).toContain("index/worktree/status ändrades");
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
