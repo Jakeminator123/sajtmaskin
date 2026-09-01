@@ -352,7 +352,11 @@ export function projectProductPostcheckReadiness(
     return {
       warnings: [
         ...findings.map((row) => row.item),
-        ...(report.kind === "degraded"
+        // Samma regel som utan summary: en senare skip vinner över en äldre
+        // passing summary. `advisory` är infra-skip (t.ex. browser_crashed) —
+        // utan den här grenen blir kortet `ready` trots att senaste körningen
+        // inte gav någon produktdom.
+        ...(report.kind === "degraded" || report.kind === "advisory"
           ? [skippedPostcheckWarning(report.skipped)]
           : []),
       ],
