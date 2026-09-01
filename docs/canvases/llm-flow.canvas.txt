@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "367a586e5",
+    "commit": "378397293",
     "commitDate": "2026-09-01",
     "sinceDays": 14
   },
@@ -249,7 +249,7 @@ const DATA: CanvasData = {
     {
       "prio": "P1",
       "blocker": false,
-      "fynd": "`SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt: #1220-självläkningen gör exakt …"
+      "fynd": "`SM-074` `preview_ready_timeout`-bannern falsklarmar permanent på frisk sajt. REVIDERAD ROTORSAK 2026-09-01: …"
     },
     {
       "prio": "P2",

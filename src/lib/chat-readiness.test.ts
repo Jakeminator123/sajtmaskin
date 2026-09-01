@@ -665,4 +665,42 @@ describe("advisory-skip tystar inte readiness-kortet — SM-072", () => {
     const projection = projectProductPostcheckReadiness([skipLog("runtime_error")]);
     expect(projection.warnings).toHaveLength(1);
   });
+
+  it("varnar när en äldre passing summary följs av infra-skip", () => {
+    const projection = projectProductPostcheckReadiness([
+      {
+        category: "product_postcheck.skipped",
+        message: "F2 Product Postcheck skipped.",
+        meta: { skippedReason: "browser_crashed" },
+        created_at: "2026-09-01T01:20:00Z",
+      },
+      {
+        category: "product_postcheck.summary",
+        message: "F2 Product Postcheck passed.",
+        meta: { warningCount: 0, productBlocked: false },
+        created_at: "2026-09-01T01:10:00Z",
+      },
+    ]);
+
+    expect(projection.warnings).toEqual([
+      expect.objectContaining({
+        id: "product-postcheck-skipped",
+        severity: "warning",
+        detail: expect.stringContaining("browser_crashed"),
+      }),
+    ]);
+    expect(projection.blockers).toEqual([]);
+    expect(projection.blocksF3).toBe(false);
+
+    const readiness = buildChatReadiness({
+      blockers: projection.blockers,
+      warnings: projection.warnings,
+      info: {
+        ...emptyInfo,
+        productPostcheckBlocksF3: projection.blocksF3,
+        productPostcheckBlockedReason: projection.blockedReason,
+      },
+    });
+    expect(readiness.status).toBe("warning");
+  });
 });
