@@ -151,6 +151,36 @@ describe("runLlmFixer merge behavior", () => {
     );
   });
 
+  it("honors an explicit manifest effort for gpt-5.6 when thinking is off (ägarbeslut 2026-09-01)", async () => {
+    streamTextMock.mockReturnValue({
+      text: Promise.resolve(
+        [
+          '```tsx file="app/page.tsx"',
+          "export default function Page(){ return <main />; }",
+          "```",
+        ].join("\n"),
+      ),
+    });
+
+    await runLlmFixer(
+      [
+        '```tsx file="app/page.tsx"',
+        "export default function Page(){ return <div>broken</div> }",
+        "```",
+      ].join("\n"),
+      ["app/page.tsx:1:1 broken"],
+      { model: "gpt-5.6-sol", thinking: false, reasoningEffort: "high" },
+    );
+
+    expect(streamTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: {
+          openai: { reasoningEffort: "high" },
+        },
+      }),
+    );
+  });
+
   it("does not inject openai providerOptions for non-5.6 models when thinking is off", async () => {
     streamTextMock.mockReturnValue({
       text: Promise.resolve([

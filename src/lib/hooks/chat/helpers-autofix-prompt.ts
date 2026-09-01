@@ -209,6 +209,24 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     }
   }
 
+  if (repair?.productFindings?.length) {
+    lines.push("", "Product Postcheck findings (observed on the RUNNING site, blocking):");
+    for (const finding of repair.productFindings) {
+      const details = [
+        finding.selector ? `selector: ${finding.selector}` : null,
+        finding.text ? `text: "${finding.text}"` : null,
+        finding.href ? `href: ${finding.href}` : null,
+        finding.route ? `route: ${finding.route}` : null,
+      ].filter((part): part is string => Boolean(part));
+      lines.push(
+        `- ${finding.code}: ${finding.message}${details.length > 0 ? ` (${details.join(", ")})` : ""}`,
+      );
+    }
+    lines.push(
+      "These elements exist but do nothing for the visitor. Wire REAL behavior (onClick handlers, submit wiring, aria-expanded + menu toggle state) instead of removing the elements. Keep layout and styling unchanged.",
+    );
+  }
+
   if (payload.meta && !repair) {
     const metaStr = JSON.stringify(payload.meta, null, 2);
     const truncated = metaStr.length > 3000 ? metaStr.slice(0, 3000) + "\n..." : metaStr;
