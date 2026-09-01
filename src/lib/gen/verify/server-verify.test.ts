@@ -231,6 +231,26 @@ describe("isTypecheckOnlyAdvisory (F2 render-first #330 — shared route/server-
     }
   });
 
+  it("is NOT advisory for the 'did you mean' / type-used-as-value variants", () => {
+    // Same unresolved-symbol class as TS2305/TS1361, but tsc emits its own codes
+    // when it can suggest a near-miss name or when a type is used as a value.
+    // Both leave the runtime binding undefined → dead preview, so neither may be
+    // advisory-promoted.
+    for (const output of [
+      "app/page.tsx(3,10): error TS2724: '\"@/lib/data\"' has no exported member named 'items'. Did you mean 'item'?",
+      "app/page.tsx(7,12): error TS2693: 'HeroVariant' only refers to a type, but is being used as a value here.",
+    ]) {
+      expect(
+        isTypecheckOnlyAdvisory({
+          isDesignPreview: true,
+          gatePassed: false,
+          buildOriginated: false,
+          results: [fail("typecheck", output)],
+        }),
+      ).toBe(false);
+    }
+  });
+
   it("is NOT advisory when tsc output is unparseable (fail-closed)", () => {
     for (const output of ["", "npm exited with a weird error", undefined]) {
       expect(

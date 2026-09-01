@@ -96,13 +96,92 @@ async function measureTmpFreeSpaceBestEffort(): Promise<number | null> {
  * under tryck flippar avvägningen — en burst av postchecks läcker snabbare än
  * 15-minutersgränsen hinner återvinna, och med < 200 MB fritt dör nästa
  * Chromium ändå. Under tryck sveps därför allt äldre än 2 min.
+ *
+ * Åldern mäts på profilens färskaste mtime i ett bounded träd, inte
+ * katalogens egen — se {@link playwrightProfileIdleAgeMs}.
  */
 const PLAYWRIGHT_PROFILE_PREFIX = "playwright_chromiumdev_profile-";
 const PLAYWRIGHT_PROFILE_MAX_AGE_MS = 15 * 60 * 1000;
 const PLAYWRIGHT_PROFILE_PRESSURE_AGE_MS = 2 * 60 * 1000;
+/**
+ * Product-postcheck `maxDuration` är 300 s. En profil yngre än så kan
+ * tillhöra en levande crawl även om tryckgränsen är 2 min och även om
+ * liveness-walken missar den aktiva filen.
+ */
+const PLAYWRIGHT_PROFILE_MIN_KEEP_MS = 300_000;
+/** Bounds the per-profile liveness walk so the sweep stays inside its budget. */
+const PLAYWRIGHT_PROFILE_LIVENESS_MAX_ENTRIES = 64;
+const PLAYWRIGHT_PROFILE_LIVENESS_MAX_DEPTH = 5;
+const PLAYWRIGHT_PROFILE_LIVENESS_BUDGET_MS = 200;
 const TMP_PRESSURE_FREE_MB = 200;
 const PLAYWRIGHT_PROFILE_SWEEP_MAX_CANDIDATES = 100;
 const PLAYWRIGHT_PROFILE_SWEEP_BUDGET_MS = 2_000;
+
+const PLAYWRIGHT_PROFILE_LIVENESS_HINTS = new Set(["Default", "Cache", "Sessions"]);
+
+function playwrightProfileLivenessRank(name: string, isDirectory: boolean): number {
+  if (PLAYWRIGHT_PROFILE_LIVENESS_HINTS.has(name)) return 0;
+  if (isDirectory) return 1;
+  return 2;
+}
+
+/**
+ * Ålder = FÄRSKASTE mtime i ett bounded BFS av profilträdet.
+ *
+ * En körande Chromium skriver i `Default/Cache/**`, `Default/Sessions/**`
+ * m.m. Katalogens egen mtime — och `Default/`s mtime — ändras bara när
+ * poster läggs till eller tas bort direkt i den katalogen. En skrivning
+ * två nivåer ner tickar alltså varken roten eller `Default/`. En
+ * toppnivå-`lstat` såg därför en levande capture som äldre än
+ * trycksvepets 2-minutersgräns och kunde radera user-data-dir under en
+ * postcheck i en annan process — SM-072 igen.
+ *
+ * Walken kan bara göra en profil FÄRSKARE, aldrig äldre. En dödad
+ * invocation lämnar inga skrivare kvar och alla mtimes står stilla.
+ */
+async function playwrightProfileIdleAgeMs(dir: string, nowMs: number): Promise<number> {
+  let newestMtimeMs = (await fs.promises.stat(dir)).mtimeMs;
+  const started = Date.now();
+  const queue: Array<{ current: string; depth: number }> = [{ current: dir, depth: 0 }];
+  let visited = 0;
+
+  while (queue.length > 0) {
+    if (visited >= PLAYWRIGHT_PROFILE_LIVENESS_MAX_ENTRIES) break;
+    if (Date.now() - started >= PLAYWRIGHT_PROFILE_LIVENESS_BUDGET_MS) break;
+    const { current, depth } = queue.shift()!;
+    let children;
+    try {
+      children = await fs.promises.readdir(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    children.sort(
+      (a, b) =>
+        playwrightProfileLivenessRank(a.name, a.isDirectory()) -
+        playwrightProfileLivenessRank(b.name, b.isDirectory()),
+    );
+    for (const child of children) {
+      if (visited >= PLAYWRIGHT_PROFILE_LIVENESS_MAX_ENTRIES) break;
+      if (Date.now() - started >= PLAYWRIGHT_PROFILE_LIVENESS_BUDGET_MS) break;
+      visited += 1;
+      const childPath = path.join(current, child.name);
+      try {
+        const stat = await fs.promises.lstat(childPath);
+        if (stat.mtimeMs > newestMtimeMs) newestMtimeMs = stat.mtimeMs;
+        if (
+          child.isDirectory() &&
+          !stat.isSymbolicLink() &&
+          depth < PLAYWRIGHT_PROFILE_LIVENESS_MAX_DEPTH
+        ) {
+          queue.push({ current: childPath, depth: depth + 1 });
+        }
+      } catch {
+        // En försvunnen post säger inget om liveness.
+      }
+    }
+  }
+  return nowMs - newestMtimeMs;
+}
 
 async function pruneLeakedPlaywrightProfilesBestEffort(
   maxAgeMs: number = PLAYWRIGHT_PROFILE_MAX_AGE_MS,
@@ -119,7 +198,10 @@ async function pruneLeakedPlaywrightProfilesBestEffort(
       if (!entry.name.startsWith(PLAYWRIGHT_PROFILE_PREFIX)) continue;
       const dir = path.join(tmp, entry.name);
       try {
-        const ageMs = Date.now() - (await fs.promises.stat(dir)).mtimeMs;
+        const dirStat = await fs.promises.stat(dir);
+        const dirAgeMs = Date.now() - dirStat.mtimeMs;
+        if (dirAgeMs < PLAYWRIGHT_PROFILE_MIN_KEEP_MS) continue;
+        const ageMs = await playwrightProfileIdleAgeMs(dir, Date.now());
         if (ageMs < maxAgeMs) continue;
         // Kandidat-taket räknar bara RADERINGSFÖRSÖK (Bugbot high på diffen:
         // färska profiler fick inte äta budgeten så att gamla läckor aldrig

@@ -133,3 +133,47 @@ describe("persistVersionErrorLogs — 503-retry", () => {
     );
   });
 });
+
+/**
+ * En Product Postcheck-rad utan sin exakta preview/revision-tupel får aldrig
+ * skrivas — men resten av batchen är inte livscykelbunden. Förr föll
+ * preflight-, sanity- och bilddiagnostiken med postcheck-raderna, så en körning
+ * kunde sakna varje spår i `engine_version_error_logs`.
+ */
+describe("persistVersionErrorLogs — oattesterbara postcheck-rader", () => {
+  const PLAIN_LOG = { level: "warning" as const, message: "preflight" };
+  const POSTCHECK_LOG = {
+    level: "info" as const,
+    category: "product_postcheck.summary",
+    message: "PASS",
+  };
+
+  it("sparar de icke-livscykelbundna raderna och rapporterar ändå false", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => response(200));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      persistVersionErrorLogs({
+        chatId: "c1",
+        versionId: "v1",
+        logs: [PLAIN_LOG, POSTCHECK_LOG],
+      }),
+    ).resolves.toBe(false);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const body = JSON.parse(String(init.body));
+    expect(body.logs).toEqual([PLAIN_LOG]);
+    expect(body).not.toHaveProperty("productPostcheckAttestation");
+  });
+
+  it("skriver inget när bara postcheck-rader saknar attestering", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => response(200));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      persistVersionErrorLogs({ chatId: "c1", versionId: "v1", logs: [POSTCHECK_LOG] }),
+    ).resolves.toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
