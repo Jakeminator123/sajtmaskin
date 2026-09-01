@@ -39,6 +39,11 @@ vi.mock("@/lib/gen/verify/product-postcheck", () => ({
 vi.mock("@/lib/gen/verify/live-review", () => ({
   pickUserRequest: () => "",
   summarizeBrief: () => "",
+  LIVE_REVIEW_TOTAL_TIMEOUT_MS: 90_000,
+}));
+
+vi.mock("@/lib/openclaw/live-review-access", () => ({
+  isLiveReviewEnabled: () => false,
 }));
 
 vi.mock("@/lib/gen/verify/live-review-session", () => ({
@@ -58,10 +63,14 @@ vi.mock("@/lib/gen/preview/tier2-config", () => ({
   getPreviewHostBaseUrl,
 }));
 
-vi.mock("@/lib/gen/verify/product-postcheck-preview-wait", () => ({
-  waitForProductPostcheckPreviewRunning,
-  readProductPostcheckPreviewProbe,
-}));
+vi.mock("@/lib/gen/verify/product-postcheck-preview-wait", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/verify/product-postcheck-preview-wait")>();
+  return {
+    ...actual,
+    waitForProductPostcheckPreviewRunning,
+    readProductPostcheckPreviewProbe,
+  };
+});
 
 vi.mock("@/lib/db/services/live-review-runs", () => ({
   abandonLiveReviewRun,
@@ -154,6 +163,20 @@ describe("POST product-postcheck", () => {
     expect(body.skippedReason).toBe("feature_disabled");
     expect(getVersion).not.toHaveBeenCalled();
     expect(emitBusEvent).not.toHaveBeenCalled();
+  });
+
+  it("saknad files_revision ⇒ skip preview_not_running, inte preview_superseded", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: null } });
+    getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+    expect(body.skipped).toBe(true);
+    expect(body.skippedReason).toBe("preview_not_running");
+    expect(waitForProductPostcheckPreviewRunning).not.toHaveBeenCalled();
+    expect(runProductPostcheck).not.toHaveBeenCalled();
   });
 
   it("feature flag on + missing previewUrl => skipped + version.degraded (false-green guard)", async () => {
@@ -258,6 +281,7 @@ describe("POST product-postcheck", () => {
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
       chatId: "chat_1",
       versionId: "v1",
+      timeoutMs: 280_000,
       captureEnabled: false,
       captureUserId: "user_1",
       filesRevision: "rev_n",
