@@ -45,9 +45,13 @@ avbockat: flytta mappen till `docs/plans/avklarat/` som en rad i dess README.
       ätaren. Läs Vercel-loggen efter nästa Degraderad-version.
 - [x] `SM-074` klientfix: self-heal återupptar pollen efter reload-timeout
       (max 3 försök) i stället för att dö permanent (`usePreviewIframe.ts`).
-- [ ] `SM-074` uppföljning efter deploy: falsklarmar bannern fortfarande efter
-      3 försök — höj `TIER2_READY_RELOAD_TIMEOUT_MS` (15 s är tajt mot första
-      Next-kompileringen på Flys delade CPU) eller vänta in Fly-maskinbeslutet.
+- [ ] `SM-074` uppföljning efter deploy: REVIDERAD rotorsak (2026-09-01, chat
+      `c2371f9c`) är sessionsrotation — follow-up mot hibernerad VM handoff:ar
+      gammal `previewSessionId` medan boot:en får en ny; höjd reload-timeout
+      hjälper inte (ingen reload försöks). Klientfix: rotation adopteras via
+      `onPreviewSessionRotated` (PR `fix/preview-session-rotation`). Verifiera
+      i prod: follow-up efter >10 min idle ska läka utan banner; överväg
+      serverhärdning av follow-up-lanen (`reason=runtime_not_running`).
 
 ## D. Ägarbeslut (bara Jakob)
 

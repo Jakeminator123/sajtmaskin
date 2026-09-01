@@ -437,6 +437,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               activeVersionIsLatest={activeVersionIsLatest}
               activeVersionRepairPassIndex={activeVersionBusStatus?.repairPassIndex ?? 0}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
+              onPreviewSessionRotated={vm.handlePreviewSessionRotated}
               onForcePreviewResync={() => vm.forcePreviewResync()}
               versionMismatchPayload={vm.versionMismatchPayload}
               onNavigatePreviewUrl={(url) => {
