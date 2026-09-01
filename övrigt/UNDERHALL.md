@@ -33,7 +33,7 @@ själv (dry-run).
 
 **När:** Som bred manuell kontroll, eller när du undrar om docs/död kod glidit
 isär. Före PR visar `npm run verify:pr -- --plan` följdytorna; riktade lokala
-kontroller ger snabb återkoppling och GitHub Actions äger fullprofilen.
+kontroller ger snabb återkoppling och CI publicerar tung profil eller light-kvitto.
 **Hur ofta:** Vid behov; annars ~1×/vecka.
 
 ### `npm run clean:scratch:apply`

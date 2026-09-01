@@ -84,5 +84,6 @@ arbetsyta och ligger också utanför indexet.
 ## Kontroller
 
 `config/agent-workflow.json` äger branch-, protected-path- och verifieringsdata.
-Före push: `npm run verify:pr -- --plan` + riktat. CI äger fullprofilen.
+Före push: `npm run verify:pr -- --plan` + riktat. CI publicerar tung
+profil eller light-kvitto.
 `check:agent-context` låser den tunna startkontexten och enda skill-katalogen.

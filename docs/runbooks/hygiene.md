@@ -12,8 +12,8 @@ npm run verify:pr -- --plan  # visar följdytor och kommandon
 
 - **Grön plan** = diffen kunde klassificeras; det är inte ett testresultat.
 - **Gröna riktade kontroller** = snabb lokal återkoppling på ändringen.
-- **Gröna required GitHub-checks** = hela blockerande PR-profilen är klar för
-  aktuell head-SHA.
+- **Gröna required GitHub-checks** = vald blockerande profil är klar för aktuell
+  head-SHA: tung profil eller ett explicit light-kvitto.
 
 Du behöver inte välja checklista ur minnet. `verify:pr` läser
 [`config/agent-workflow.json`](../../config/agent-workflow.json), control-plane-
@@ -139,13 +139,15 @@ Automatisk körning (t.ex. via `predev`) är **inte** inkopplad — kör manuell
 
 ## Vad som redan är självgående (du behöver inte tänka på det)
 
-CI (`.github/workflows/ci.yml`) kör vid varje PR och merge:
+CI (`.github/workflows/ci.yml`) publicerar required checks vid varje PR och merge:
 
-- **Blockerande:** `quality` aggregerar kärntester, dokumentkontrakt,
-  `preview-host-guards` och `dead-code`-jobbets orphan-filgrind. En stale doc,
-  trasig preview-host eller ny oimporterad fil **kan inte mergas**.
-- **Rådgivande (blockerar aldrig):** `dead-code`-jobbets fulla knip-rapport, så
-  deps/exports-svansen syns utan att låsa någon ute.
+- **Tung profil:** `quality` aggregerar kärntester, dokumentkontrakt,
+  `preview-host-guards` och `dead-code`-jobbets orphan-filgrind.
+- **Light-profil:** alltid körda kontrakt plus explicita gröna kvitton från de
+  required jobb vars tunga arbete skjutits upp i draft eller bevisats irrelevant
+  för en safe docs-diff.
+- **Rådgivande i tung profil:** `dead-code`-jobbets fulla knip-rapport visar
+  deps/exports-svansen utan att blockera.
 
 Så "dokumentationen svarar uppåt" och "skräp ackumuleras inte" upprätthålls av
 maskinen, inte av minnet. Bakgrund: [`documentation-lifecycle.md`](../documentation-lifecycle.md)
