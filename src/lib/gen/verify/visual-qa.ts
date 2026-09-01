@@ -50,13 +50,14 @@ export function analyzeVisualQuality(
   const layout = files.find(
     (f) => f.path === "app/layout.tsx" || f.path === "src/app/layout.tsx",
   );
+  const homeContent = collectHomeRenderedContent(files, mainPage);
 
   checks.push(checkBracketPlaceholders(files));
-  checks.push(checkHeroSection(mainPage?.content));
+  checks.push(checkHeroSection(homeContent));
   checks.push(checkColorAdaptation(globalsCss?.content));
   checks.push(checkMetadata(layout?.content));
-  checks.push(checkImageUsage(mainPage?.content));
-  checks.push(checkSectionVariety(mainPage?.content));
+  checks.push(checkImageUsage(homeContent));
+  checks.push(checkSectionVariety(homeContent));
   checks.push(checkWebGLReadiness(files));
 
   const totalWeight = checks.length * 100;
@@ -71,6 +72,122 @@ export function analyzeVisualQuality(
     checks,
     screenshotCaptured: false,
   };
+}
+
+/** Local (non-package) import sources that can resolve inside the generated set. */
+const LOCAL_IMPORT_PREFIX = /^(?:\.\.?\/|@\/)/;
+
+/**
+ * Content the home route actually renders: the page file plus one hop of
+ * local components that are both imported and used as JSX. A thin
+ * `app/page.tsx` that only mounts `<TurtleLanding />` must not be scored
+ * as an empty page. Unrelated files — even if imported — stay out.
+ */
+function collectHomeRenderedContent(
+  files: Array<{ path: string; content: string }>,
+  mainPage?: { path: string; content: string },
+): string | undefined {
+  if (!mainPage) return undefined;
+
+  const byNorm = new Map<string, { path: string; content: string }>();
+  for (const file of files) {
+    byNorm.set(normalizePath(file.path), file);
+  }
+
+  const seen = new Set<string>([normalizePath(mainPage.path)]);
+  const parts = [mainPage.content];
+
+  for (const { localName, source } of parseLocalComponentImports(mainPage.content)) {
+    if (!isJsxTagUsed(mainPage.content, localName)) continue;
+    const resolved = resolveLocalImport(source, mainPage.path, byNorm);
+    if (!resolved) continue;
+    const key = normalizePath(resolved.path);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    parts.push(resolved.content);
+  }
+
+  return parts.join("\n");
+}
+
+function parseLocalComponentImports(
+  content: string,
+): Array<{ localName: string; source: string }> {
+  const out: Array<{ localName: string; source: string }> = [];
+  const importRe =
+    /import\s+(type\s+)?(?:([A-Za-z_$][\w$]*)\s*,?\s*)?(?:\{([^}]*)\})?\s*from\s*["']([^"']+)["']/g;
+  let match: RegExpExecArray | null;
+  while ((match = importRe.exec(content)) !== null) {
+    const [, typeKw, defaultName, named, source] = match;
+    if (!source || !LOCAL_IMPORT_PREFIX.test(source) || typeKw) continue;
+    if (defaultName) out.push({ localName: defaultName, source });
+    if (!named) continue;
+    for (const part of named.split(",")) {
+      const trimmed = part.trim();
+      if (!trimmed || trimmed.startsWith("type ")) continue;
+      const [original, alias] = trimmed.split(/\s+as\s+/).map((s) => s.trim());
+      const binding = alias || original;
+      if (binding) out.push({ localName: binding, source });
+    }
+  }
+  return out;
+}
+
+function isJsxTagUsed(content: string, name: string): boolean {
+  return new RegExp(`<${name}(?:\\s|/|>)`).test(content);
+}
+
+function normalizePath(filePath: string): string {
+  return filePath.replace(/\\/g, "/");
+}
+
+function posixDirname(filePath: string): string {
+  const norm = normalizePath(filePath);
+  const idx = norm.lastIndexOf("/");
+  return idx === -1 ? "" : norm.slice(0, idx);
+}
+
+function resolveRelativeImport(fromPath: string, relative: string): string {
+  const segments = `${posixDirname(fromPath)}/${relative}`.split("/");
+  const out: string[] = [];
+  for (const segment of segments) {
+    if (segment === "" || segment === ".") continue;
+    if (segment === "..") out.pop();
+    else out.push(segment);
+  }
+  return out.join("/");
+}
+
+function resolveLocalImport(
+  source: string,
+  fromPath: string,
+  byNorm: Map<string, { path: string; content: string }>,
+): { path: string; content: string } | null {
+  let base: string;
+  if (source.startsWith("@/")) {
+    base = source.slice(2);
+  } else if (source.startsWith("./") || source.startsWith("../")) {
+    base = resolveRelativeImport(fromPath, source);
+  } else {
+    return null;
+  }
+  base = base.replace(/^\/+/, "");
+  if (!base) return null;
+
+  const bases = base.startsWith("src/") ? [base] : [base, `src/${base}`];
+  const exts = [".tsx", ".ts", ".jsx", ".js"];
+  for (const candidateBase of bases) {
+    const candidates = [
+      candidateBase,
+      ...exts.map((ext) => `${candidateBase}${ext}`),
+      ...exts.map((ext) => `${candidateBase}/index${ext}`),
+    ];
+    for (const candidate of candidates) {
+      const hit = byNorm.get(candidate);
+      if (hit) return hit;
+    }
+  }
+  return null;
 }
 
 function checkWebGLReadiness(

@@ -41,6 +41,7 @@ vi.mock("@/lib/utils/image-validator", async () => {
 
 import { POST } from "./route";
 import { VersionLeaseHeldError } from "@/lib/db/version-lease-error";
+import { MAX_SCOPED_IMAGE_URLS } from "@/lib/utils/validate-images-limit";
 
 const DEAD_URL = "https://images.unsplash.com/photo-dead?w=800";
 const LIVE_URL = "https://images.unsplash.com/photo-live?w=800";
@@ -93,6 +94,28 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
     expect(updateVersionFiles).not.toHaveBeenCalled();
   });
 
+  it("accepts urls exactly at the shared cap and rejects one over it", async () => {
+    const atCap = Array.from(
+      { length: MAX_SCOPED_IMAGE_URLS },
+      (_, index) => `https://images.unsplash.com/photo-at-cap-${index}?w=800`,
+    );
+    const ok = await POST(postRequest({ versionId: "ver_1", autoFix: true, urls: atCap }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    expect(ok.status).toBe(200);
+    expect(validateImages).toHaveBeenCalledWith(
+      expect.objectContaining({ onlyUrls: atCap }),
+    );
+
+    const overCap = [...atCap, "https://images.unsplash.com/photo-over-cap?w=800"];
+    const rejected = await POST(
+      postRequest({ versionId: "ver_1", autoFix: true, urls: overCap }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    expect(rejected.status).toBe(400);
+    expect(validateImages).toHaveBeenCalledTimes(1);
+  });
+
   it("forwards urls as onlyUrls so a scoped re-fix does not scan the whole site", async () => {
     const res = await POST(
       postRequest({ versionId: "ver_1", autoFix: true, urls: [DEAD_URL] }),
@@ -119,6 +142,48 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
       [DEAD_URL]: LIVE_URL,
     });
     expect(updateVersionFiles).toHaveBeenCalledTimes(1);
+    expect(updateVersionFiles).toHaveBeenCalledWith(
+      "ver_1",
+      expect.any(String),
+      { invalidateVerification: true },
+    );
+  });
+
+  it("a material replacement never persists without invalidateVerification (false-green after gate)", async () => {
+    // Post-#1241 scoped fix can run AFTER quality-gate stamped
+    // `passed`/`promoted` on the same row. The write must reset that
+    // verdict so it cannot describe the previous `files_json` revision.
+    const res = await POST(postRequest({ versionId: "ver_1", autoFix: true }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(updateVersionFiles).toHaveBeenCalledTimes(1);
+    const [, , options] = updateVersionFiles.mock.calls[0] as [
+      string,
+      string,
+      { invalidateVerification?: boolean } | undefined,
+    ];
+    expect(options).toEqual({ invalidateVerification: true });
+  });
+
+  it("does not persist or invalidate when nothing was replaced", async () => {
+    validateImages.mockResolvedValue({
+      total: 1,
+      broken: [],
+      replacedCount: 0,
+      files: [
+        { name: "app/page.tsx", content: `<img src="${DEAD_URL}" alt="Studio" />` },
+      ],
+      warnings: [],
+    });
+
+    const res = await POST(postRequest({ versionId: "ver_1", autoFix: true }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(updateVersionFiles).not.toHaveBeenCalled();
   });
 
   it("autoFix: true does NOT record transient failures even though they were replaced in the pass", async () => {
@@ -147,6 +212,11 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
     expect(res.status).toBe(200);
     expect(recordKnownBrokenImageReplacements).not.toHaveBeenCalled();
     expect(updateVersionFiles).toHaveBeenCalledTimes(1);
+    expect(updateVersionFiles).toHaveBeenCalledWith(
+      "ver_1",
+      expect.any(String),
+      { invalidateVerification: true },
+    );
   });
 
   it("surfaces a foreign version lease as 409 version_busy instead of swallowing it into a soft warning", async () => {

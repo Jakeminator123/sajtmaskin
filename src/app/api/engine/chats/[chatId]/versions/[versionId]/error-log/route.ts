@@ -7,7 +7,10 @@ import {
 } from "@/lib/db/services/version-errors";
 import { buildErrorLogSummary } from "./summary";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
-import type { ProductPostcheckAttestation } from "@/lib/gen/verify/product-postcheck";
+import {
+  isProductPostcheckAttestation,
+  type ProductPostcheckAttestation,
+} from "@/lib/gen/verify/product-postcheck";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 
@@ -35,20 +38,6 @@ function productPostcheckAttestationRequiredResponse() {
       code: "product_postcheck_attestation_required",
     },
     { status: 400 },
-  );
-}
-
-function isProductPostcheckAttestation(
-  value: unknown,
-): value is ProductPostcheckAttestation {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const input = value as Record<string, unknown>;
-  return (
-    typeof input.previewSessionId === "string" &&
-    Boolean(input.previewSessionId.trim()) &&
-    typeof input.filesRevision === "string" &&
-    Boolean(input.filesRevision.trim()) &&
-    (input.lifecycleToken === null || typeof input.lifecycleToken === "string")
   );
 }
 

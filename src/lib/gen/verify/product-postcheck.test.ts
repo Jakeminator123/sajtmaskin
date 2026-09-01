@@ -34,6 +34,8 @@ import {
   evaluateRuntimeErrors,
   CRAWL_DEADLINE_MS,
   isAllowedProductPostcheckUrl,
+  isMeaningfulCtaHref,
+  isProductPostcheckAttestation,
   isHydrationConsoleError,
   extractServerCtaBaseline,
   isPreviewHostBootPage,
@@ -55,6 +57,57 @@ function codes(input: ProductPostcheckWarning[] | ProductDomEvaluation): string[
   return warnings.map((warning) => warning.code).sort();
 }
 
+describe("isProductPostcheckAttestation", () => {
+  it("accepts a bound session tuple", () => {
+    expect(
+      isProductPostcheckAttestation({
+        previewSessionId: "ps_n",
+        lifecycleToken: "life_n",
+        filesRevision: "rev_n",
+      }),
+    ).toBe(true);
+    expect(
+      isProductPostcheckAttestation({
+        previewSessionId: "ps_legacy",
+        lifecycleToken: null,
+        filesRevision: "rev_legacy",
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects unbound or incomplete receipts", () => {
+    expect(
+      isProductPostcheckAttestation({
+        previewSessionId: "unbound",
+        lifecycleToken: null,
+        filesRevision: "rev_n",
+      }),
+    ).toBe(false);
+    expect(
+      isProductPostcheckAttestation({
+        previewSessionId: "  unbound  ",
+        lifecycleToken: null,
+        filesRevision: "rev_n",
+      }),
+    ).toBe(false);
+    expect(
+      isProductPostcheckAttestation({
+        previewSessionId: "",
+        lifecycleToken: null,
+        filesRevision: "rev_n",
+      }),
+    ).toBe(false);
+    expect(
+      isProductPostcheckAttestation({
+        previewSessionId: "ps_n",
+        lifecycleToken: null,
+        filesRevision: "",
+      }),
+    ).toBe(false);
+    expect(isProductPostcheckAttestation(null)).toBe(false);
+  });
+});
+
 describe("isAllowedProductPostcheckUrl", () => {
   it("allows local dev and known Fly preview host", () => {
     expect(isAllowedProductPostcheckUrl("http://localhost:3000/demo")).toBe(true);
@@ -69,7 +122,47 @@ describe("isAllowedProductPostcheckUrl", () => {
   });
 });
 
+describe("isMeaningfulCtaHref", () => {
+  it("rejects empty, hash placeholders and javascript: URLs", () => {
+    for (const href of ["", "   ", "#", "#0", "#!", "#/", "javascript:void(0)", "JavaScript:void(0)"]) {
+      expect(isMeaningfulCtaHref(href), href).toBe(false);
+    }
+  });
+
+  it("accepts real fragments, paths and http(s) targets", () => {
+    for (const href of ["#kontakt", "#/about", "/om-oss", "https://example.com/x"]) {
+      expect(isMeaningfulCtaHref(href), href).toBe(true);
+    }
+  });
+});
+
 describe("evaluateProductDomSnapshot", () => {
+  const deadCtaLink = {
+    tag: "a" as const,
+    text: "Kom igång",
+    href: "#",
+    disabled: false,
+    ariaDisabled: false,
+    ariaControls: null,
+    ariaExpanded: null,
+    type: null,
+    inForm: false,
+    formAction: null,
+    demoOnly: false,
+    hasReactHandler: false,
+    reactPropsProbed: true,
+    anchorWrapped: false,
+    ariaHasPopup: null,
+    onclickAttr: false,
+  };
+  const deadCtaButton = {
+    ...deadCtaLink,
+    tag: "button" as const,
+    text: "Boka",
+    href: null,
+    type: "button",
+  };
+
   it("reports broken anchors", () => {
     const evaluation = evaluateProductDomSnapshot(
       {
@@ -149,6 +242,204 @@ describe("evaluateProductDomSnapshot", () => {
 
     expect(codes(evaluation)).toEqual(["cta_no_handler", "cta_no_handler"]);
     expect(evaluation.productBlocked).toBe(false);
+  });
+
+  it("flags a dead <a href='#'> CTA even when the probe self-matched as wrapped", () => {
+    // PR #1241 satte anchorWrapped via closest("a[href]"), som börjar på
+    // elementet självt. Ett `<a href="#">` matchar → false-green.
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [
+          {
+            ...deadCtaLink,
+            href: "#",
+            text: "Kom igång",
+            anchorWrapped: true,
+          },
+        ],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual(["cta_no_handler"]);
+    expect(evaluation.warnings).toHaveLength(1);
+    expect(evaluation.warnings[0]?.code).toBe("cta_no_handler");
+  });
+
+  it("flags a dead <a href='javascript:void(0)'> CTA without a handler", () => {
+    // Näst vanligaste döda CTA:n efter `#`. Den navigerar ingenstans, och utan
+    // onClick är den lika död — men den slapp igenom eftersom href varken var
+    // tom eller exakt `#`.
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [
+          {
+            ...deadCtaLink,
+            href: "javascript:void(0)",
+            text: "Kom igång",
+            anchorWrapped: true,
+          },
+        ],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual(["cta_no_handler"]);
+  });
+
+  it("does not flag javascript:void(0) when a real React handler is attached", () => {
+    // Den legitima varianten: placeholder-href plus onClick. Falsklarmsfixen
+    // från #1241 måste fortsätta rädda den.
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [
+          {
+            ...deadCtaLink,
+            href: "javascript:void(0)",
+            text: "Kom igång",
+            hasReactHandler: true,
+          },
+        ],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual([]);
+  });
+
+  it("flags dead hash placeholders #0, #! and #/", () => {
+    for (const href of ["#0", "#!", "#/"]) {
+      const evaluation = evaluateProductDomSnapshot(
+        {
+          anchors: [],
+          images: [],
+          ctas: [
+            {
+              ...deadCtaLink,
+              href,
+              text: "Kom igång",
+              anchorWrapped: true,
+            },
+          ],
+          forms: [],
+        },
+        { status: "not_applicable" },
+      );
+      expect(codes(evaluation), href).toEqual(["cta_no_handler"]);
+    }
+  });
+
+  it("does not flag a real fragment or path href", () => {
+    for (const href of ["#kontakt", "/om-oss", "https://example.com"]) {
+      const evaluation = evaluateProductDomSnapshot(
+        {
+          anchors: [],
+          images: [],
+          ctas: [
+            {
+              ...deadCtaLink,
+              href,
+              text: "Kom igång",
+            },
+          ],
+          forms: [],
+        },
+        { status: "not_applicable" },
+      );
+      expect(codes(evaluation), href).toEqual([]);
+    }
+  });
+
+  it("flags a dead <a href=''> CTA", () => {
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [
+          {
+            ...deadCtaLink,
+            href: "",
+            text: "Kontakta oss",
+            anchorWrapped: true,
+          },
+        ],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual(["cta_no_handler"]);
+  });
+
+  it("does not flag a button wrapped in a real <a href='/kontakt'>", () => {
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [
+          {
+            ...deadCtaButton,
+            text: "Boka",
+            anchorWrapped: true,
+          },
+        ],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual([]);
+  });
+
+  it("does not flag a button with a __reactProps$ handler", () => {
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [
+          {
+            ...deadCtaButton,
+            text: "Boka",
+            hasReactHandler: true,
+            reactPropsProbed: true,
+          },
+        ],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual([]);
+  });
+
+  it("does not flag a real <a href='/kontakt'>", () => {
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [
+          {
+            ...deadCtaLink,
+            href: "/kontakt",
+            text: "Kontakta oss",
+            anchorWrapped: true,
+          },
+        ],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual([]);
   });
 
   it("accepts rendered handlers: React onClick, länk-wrap, aria-haspopup och onclick-attribut", () => {
