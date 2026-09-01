@@ -152,6 +152,8 @@ const RENDER_RISK_TS_CODES = new Set([
   "TS2552", // cannot find name, did you mean
   "TS2613", // module has no default export
   "TS2614", // module has no exported member (did you mean to use 'import X from' instead?)
+  "TS2693", // 'X' only refers to a type, but is being used as a value here
+  "TS2724", // module has no exported member named 'X' (did you mean 'Y'?)
 ]);
 
 const TS_CODE_RE = /\bTS(\d{4,5})\b/g;

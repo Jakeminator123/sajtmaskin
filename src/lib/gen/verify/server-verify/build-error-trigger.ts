@@ -1,3 +1,4 @@
+import { failVersionVerification } from "@/lib/db/chat-repository-pg";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 // Side-effect imports: wire default subscribers (devLog-mirror + DB
@@ -230,12 +231,27 @@ export async function triggerBuildErrorRepair(params: {
     // this run's snapshot, don't leave B stuck in `repairing` with no recovery —
     // schedule the post-finally re-verify of B (build kept in the gate) instead
     // of swallowing the error and stranding the row.
+    let staleAfterError = false;
     if (baseFilesJsonForRecovery !== null) {
       const current = await getVersionFilesSnapshot(versionId).catch(() => null);
       if (current && current.filesJson !== baseFilesJsonForRecovery) {
-        supersededByUserEdit = true;
-        reverifyForceBuildCheck = true;
+        staleAfterError = true;
       }
+    }
+    if (staleAfterError) {
+      supersededByUserEdit = true;
+      reverifyForceBuildCheck = true;
+    } else if (started) {
+      // `tryServerRepairLoop` already moved the row to `repairing`; the lease is
+      // released in `finally` and nothing else settles it, so a non-stale crash
+      // left the version stuck there until the readiness watchdog's much later
+      // age cutoff. Mirror `triggerServerVerification`'s catch and resolve the
+      // row to a terminal state on this run's own lease.
+      await failVersionVerification(
+        versionId,
+        "Server verification could not complete.",
+        runId,
+      ).catch(() => null);
     }
   } finally {
     await releaseVerifyLease(versionId, runId);

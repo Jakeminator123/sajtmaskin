@@ -123,16 +123,31 @@ export async function persistVersionErrorLogs(params: {
 }): Promise<boolean> {
   const { chatId, versionId, logs, productPostcheckAttestation } = params;
   if (!logs.length) return true;
-  if (
-    logs.some((log) => log.category?.startsWith("product_postcheck.")) &&
-    !productPostcheckAttestation
-  ) {
-    // Fail closed client-side as well as in the route. Sending a Product
-    // Postcheck row without its exact preview/revision tuple is never valid.
+  const url = `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`;
+  const productPostcheckLogs = logs.filter((log) =>
+    log.category?.startsWith("product_postcheck."),
+  );
+  if (productPostcheckLogs.length > 0 && !productPostcheckAttestation) {
+    // Fail closed client-side as well as in the route: a Product Postcheck row
+    // without its exact preview/revision tuple is never valid. The REST of the
+    // batch is not lifecycle-scoped though — preflight/sanity/image diagnostics
+    // used to be dropped with it, which is how a run could end up with no trace
+    // at all in `engine_version_error_logs`. Persist those unattested and still
+    // report failure for the rows we refused.
+    const plainLogs = logs.filter(
+      (log) => !log.category?.startsWith("product_postcheck."),
+    );
+    if (plainLogs.length > 0) await postErrorLogBatch(url, plainLogs, null);
     return false;
   }
-  const url = `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`;
+  return postErrorLogBatch(url, logs, productPostcheckAttestation ?? null);
+}
 
+async function postErrorLogBatch(
+  url: string,
+  logs: VersionErrorLogPayload[],
+  productPostcheckAttestation: ProductPostcheckAttestation | null,
+): Promise<boolean> {
   for (let attempt = 0; attempt <= ERROR_LOG_RETRY_ATTEMPTS; attempt += 1) {
     let res: Response;
     try {

@@ -57,6 +57,14 @@ type ProductPostcheckTarget = {
   filesRevision: string;
 };
 
+/**
+ * Placeholder for the `version.degraded` meta when the wait ended without ever
+ * binding a preview session. Telemetry-only: it names "no session was bound"
+ * instead of leaving the field empty, and must never reach a response's
+ * `attestation` — no live session can match it.
+ */
+const UNBOUND_ATTESTATION_SENTINEL = "unbound";
+
 function bindProductPostcheckTarget(
   session: {
     previewSessionId?: string | null;
@@ -293,8 +301,14 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         filesRevision,
       );
       if (!previewWait.ok) {
+        // Telemetry may describe a probe we never managed to bind; the RESPONSE
+        // may not. `error-log` only stores an attested batch whose tuple still
+        // matches the live session, so `UNBOUND_ATTESTATION_SENTINEL` could never
+        // be honored there — it just made the write 409 while the client read a
+        // truthy `attestation` as "attested" and released the verify lane.
         const timeoutAttestation: ProductPostcheckTarget = waitedTarget ?? {
-          previewSessionId: waitedProbe?.previewSessionId?.trim() || "unbound",
+          previewSessionId:
+            waitedProbe?.previewSessionId?.trim() || UNBOUND_ATTESTATION_SENTINEL,
           lifecycleToken: waitedProbe?.lifecycleToken?.trim() || null,
           filesRevision: filesRevision || waitedProbe?.filesRevision?.trim() || "",
         };
@@ -318,7 +332,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             routesChecked: 0,
             durationMs: 0,
             checkedUrl: previewUrl?.trim() || waitedProbe?.previewUrl || null,
-            attestation: timeoutAttestation,
+            attestation: waitedTarget,
             verificationRunId,
           });
         }

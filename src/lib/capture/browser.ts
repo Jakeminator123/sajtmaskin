@@ -96,13 +96,50 @@ async function measureTmpFreeSpaceBestEffort(): Promise<number | null> {
  * under tryck flippar avvägningen — en burst av postchecks läcker snabbare än
  * 15-minutersgränsen hinner återvinna, och med < 200 MB fritt dör nästa
  * Chromium ändå. Under tryck sveps därför allt äldre än 2 min.
+ *
+ * Åldern mäts på profilens färskaste mtime, inte katalogens egen — se
+ * {@link playwrightProfileIdleAgeMs}.
  */
 const PLAYWRIGHT_PROFILE_PREFIX = "playwright_chromiumdev_profile-";
 const PLAYWRIGHT_PROFILE_MAX_AGE_MS = 15 * 60 * 1000;
 const PLAYWRIGHT_PROFILE_PRESSURE_AGE_MS = 2 * 60 * 1000;
+/** Bounds the per-profile liveness stat so the sweep stays inside its budget. */
+const PLAYWRIGHT_PROFILE_LIVENESS_MAX_ENTRIES = 24;
 const TMP_PRESSURE_FREE_MB = 200;
 const PLAYWRIGHT_PROFILE_SWEEP_MAX_CANDIDATES = 100;
 const PLAYWRIGHT_PROFILE_SWEEP_BUDGET_MS = 2_000;
+
+/**
+ * Ålder = FÄRSKASTE mtime i profilen, inte katalogens egen.
+ *
+ * En körande Chromium skriver i undermappar (`Default/`, lås- och journalfiler);
+ * profilkatalogens egen mtime ändras bara när poster läggs till eller tas bort
+ * direkt i den. Den slutar därför ticka strax efter start, och en levande
+ * capture såg under tryck ut att vara äldre än 2-minutersgränsen — svepet kunde
+ * radera user-data-dir under en postcheck i en annan process på instansen och
+ * återskapa exakt SM-072:s `Target page, context or browser has been closed`.
+ *
+ * Att titta på barnens mtime kan bara göra en profil FÄRSKARE, aldrig äldre, så
+ * återvinningen av verkligt läckta profiler är oförändrad: en dödad invocation
+ * lämnar inga skrivare kvar och alla mtimes står stilla.
+ */
+async function playwrightProfileIdleAgeMs(dir: string, nowMs: number): Promise<number> {
+  let newestMtimeMs = (await fs.promises.stat(dir)).mtimeMs;
+  try {
+    const children = await fs.promises.readdir(dir, { withFileTypes: true });
+    for (const child of children.slice(0, PLAYWRIGHT_PROFILE_LIVENESS_MAX_ENTRIES)) {
+      try {
+        const { mtimeMs } = await fs.promises.lstat(path.join(dir, child.name));
+        if (mtimeMs > newestMtimeMs) newestMtimeMs = mtimeMs;
+      } catch {
+        // En försvunnen post säger inget om liveness.
+      }
+    }
+  } catch {
+    // Oläsbar profil bedöms på katalogens egen mtime.
+  }
+  return nowMs - newestMtimeMs;
+}
 
 async function pruneLeakedPlaywrightProfilesBestEffort(
   maxAgeMs: number = PLAYWRIGHT_PROFILE_MAX_AGE_MS,
@@ -119,7 +156,7 @@ async function pruneLeakedPlaywrightProfilesBestEffort(
       if (!entry.name.startsWith(PLAYWRIGHT_PROFILE_PREFIX)) continue;
       const dir = path.join(tmp, entry.name);
       try {
-        const ageMs = Date.now() - (await fs.promises.stat(dir)).mtimeMs;
+        const ageMs = await playwrightProfileIdleAgeMs(dir, Date.now());
         if (ageMs < maxAgeMs) continue;
         // Kandidat-taket räknar bara RADERINGSFÖRSÖK (Bugbot high på diffen:
         // färska profiler fick inte äta budgeten så att gamla läckor aldrig

@@ -56,11 +56,18 @@ function createSweepTmp(): string {
   return sweepTmp;
 }
 
+/**
+ * En LÄCKT profil har ingen skrivare kvar, så hela trädet står stilla — därför
+ * åldras även innehållet. Svepet bedömer liveness på profilens färskaste mtime;
+ * ett färskt barn under en gammal katalog betyder "körande Chromium".
+ */
 function makeDir(parent: string, name: string, ageMs: number): string {
   const dir = path.join(parent, name);
   fs.mkdirSync(dir);
-  fs.writeFileSync(path.join(dir, "marker.txt"), "keep-or-prune");
+  const marker = path.join(dir, "marker.txt");
+  fs.writeFileSync(marker, "keep-or-prune");
   const when = new Date(Date.now() - ageMs);
+  fs.utimesSync(marker, when, when);
   fs.utimesSync(dir, when, when);
   return dir;
 }
@@ -318,6 +325,33 @@ describe("launchCaptureBrowser", () => {
     expect(fs.existsSync(midAgedDir)).toBe(false);
     expect(warnSpy).toHaveBeenCalledWith(
       "[capture-browser] pruned 1 leaked Playwright profile dir(s)",
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("behåller en profil som fortfarande skrivs i, även under tryck", async () => {
+    // Chromium skriver i undermappar; profilkatalogens EGEN mtime slutar ticka
+    // strax efter start. Bedömdes åldern på den ensam kunde trycksvepet radera
+    // user-data-dir under en levande postcheck i en annan process på instansen
+    // och återskapa SM-072:s `Target page, context or browser has been closed`.
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
+    const tmp = createSweepTmp();
+    const liveDir = makeDir(tmp, `${PLAYWRIGHT_PROFILE_PREFIX}live`, 5 * 60 * 1000);
+    // Katalogen ser gammal ut, men Chromium skrev nyss i den.
+    fs.writeFileSync(path.join(liveDir, "SingletonLock"), "host-4711");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const browser = await launchCaptureBrowser();
+    await browser.close();
+
+    expect(fs.existsSync(liveDir)).toBe(true);
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringMatching(/pruned \d+ leaked Playwright profile dir/),
     );
     warnSpy.mockRestore();
   });

@@ -625,11 +625,11 @@ describe("POST product-postcheck", () => {
     const body = await res.json();
 
     expect(body.skippedReason).toBe("preview_not_running");
-    expect(body.attestation).toEqual({
-      previewSessionId: "unbound",
-      lifecycleToken: null,
-      filesRevision: "rev_n",
-    });
+    // No session was ever bound, so there is nothing to attest. Returning the
+    // `unbound` sentinel here made `error-log` 409 the whole batch (no live
+    // session can match it) while the client read a truthy `attestation` as
+    // "attested" and released the verify lane on an unattested skip.
+    expect(body.attestation).toBeNull();
     expect(runProductPostcheck).not.toHaveBeenCalled();
     expect(emitBusEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -637,6 +637,8 @@ describe("POST product-postcheck", () => {
         message: "F2 Product Postcheck skipped (product_postcheck_skipped: preview_not_running).",
         meta: expect.objectContaining({
           skippedReason: "preview_not_running",
+          // Telemetry still names the missing bind.
+          attestedPreviewSessionId: "unbound",
           attestedFilesRevision: "rev_n",
         }),
       }),
