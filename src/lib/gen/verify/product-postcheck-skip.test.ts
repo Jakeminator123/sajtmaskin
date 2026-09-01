@@ -3,6 +3,7 @@ import {
   classifyProductPostcheckSkipReason,
   formatProductPostcheckSkippedMessage,
   isInfrastructureSkipReason,
+  isNonFinalProductPostcheckSkipReason,
   productPostcheckSkipReasonFromMessage,
 } from "./product-postcheck-skip";
 
@@ -54,6 +55,18 @@ describe("classifyProductPostcheckSkipReason — SM-072", () => {
       expect(classifyProductPostcheckSkipReason(reason), reason).toBe("infrastructure");
       expect(isInfrastructureSkipReason(reason), reason).toBe(true);
     }
+  });
+
+  it("håller claim_busy utanför infra-allowlistan men markerar den som icke-slutgiltig", () => {
+    // `claim_busy` är ett lås, inte en död apparat. Ligger den på infra-listan
+    // retryar `runProductPostcheckApi` den och lägger en andra väntebudget
+    // ovanpå den första — den kan då starta en andra webbläsare.
+    expect(isInfrastructureSkipReason("claim_busy")).toBe(false);
+    // Men den får aldrig cachas som ett svar för målet.
+    expect(isNonFinalProductPostcheckSkipReason("claim_busy")).toBe(true);
+    expect(isNonFinalProductPostcheckSkipReason("timeout")).toBe(true);
+    expect(isNonFinalProductPostcheckSkipReason("runtime_error")).toBe(true);
+    expect(isNonFinalProductPostcheckSkipReason("preview_not_running")).toBe(false);
   });
 
   it("behåller produktbärande orsaker som product", () => {

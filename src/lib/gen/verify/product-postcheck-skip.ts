@@ -69,8 +69,6 @@ const INFRASTRUCTURE_SKIP_REASONS: ReadonlySet<string> = new Set([
   "capture_failed",
   // Operatören har stängt av postchecken. Inget om sajten.
   "feature_disabled",
-  // Ett annat anspråk ägde målet; den här requesten körde aldrig kontrollen.
-  PRODUCT_POSTCHECK_CLAIM_BUSY_SKIP_REASON,
 ]);
 
 /**
@@ -80,6 +78,14 @@ const INFRASTRUCTURE_SKIP_REASONS: ReadonlySet<string> = new Set([
  * Medvetet skild från {@link isInfrastructureSkipReason}, som besvarar en
  * annan fråga (säger skipen något om produkten?) och där `runtime_error`
  * avsiktligt är `product` för Degraderad-etiketten.
+ *
+ * `claim_busy` hör hemma HÄR och inte på infrastruktur-allowlistan: den listan
+ * betyder "kontrollens egen apparat dog", medan `claim_busy` bara är ett lås.
+ * Skillnaden är inte kosmetisk — `runProductPostcheckApi` retryar
+ * infrastruktur-skip, så en `claim_busy` där hade lagt en andra väntebudget
+ * ovanpå den första och kunnat starta en andra webbläsare. Utfallet är
+ * oattesterat, så det skrivs ingen skip-rad och versionen blir inte
+ * Degraderad av att sakna infra-klassningen.
  */
 const NON_FINAL_SKIP_REASONS: ReadonlySet<string> = new Set([
   PRODUCT_POSTCHECK_CLAIM_BUSY_SKIP_REASON,

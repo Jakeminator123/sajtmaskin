@@ -505,6 +505,35 @@ describe("useResumePendingVerification", () => {
     expect(callsTo("/quality-gate")).toHaveLength(0);
   });
 
+  it("holds on an unattested claim_busy instead of gating an unchecked version", async () => {
+    // Single-flight waiter timed out on another run that owns this target, so
+    // no check ran. An attested skip here would start the gate, and F3 would
+    // read the missing product_postcheck.summary row as "not blocked".
+    mockRoutes({
+      postcheck: {
+        body: {
+          ok: true,
+          skipped: true,
+          skippedReason: "claim_busy",
+          productBlocked: false,
+          warnings: [],
+          attestation: null,
+        },
+      },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+
+    await waitFor(() => expect(callsTo("/product-postcheck")).toHaveLength(1));
+    await Promise.resolve();
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
   it("does nothing while streaming", async () => {
     renderHook(() =>
       useResumePendingVerification({

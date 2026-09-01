@@ -794,6 +794,66 @@ describe("runPostGenerationChecks", () => {
     expect(output.blockerPersistFailed).toBe(true);
   });
 
+  it("startar inte gaten på ett oattesterat claim_busy — versionen lämnas pending", async () => {
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                lifecycleStage: "design",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/error-log")) return jsonResponse({ success: true, stored: true });
+        if (url.includes("/product-postcheck")) {
+          // Single-flight: another run owns this exact target and did not
+          // finish inside our wait. No check ran here, so no attestation.
+          return jsonResponse({
+            skipped: true,
+            skippedReason: "claim_busy",
+            productBlocked: false,
+            warnings: [],
+            attestation: null,
+          });
+        }
+        if (url.includes("/quality-gate")) {
+          throw new Error("quality-gate must not start on an unattested claim_busy");
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+    });
+
+    // An attested skip would read as "checked, nothing blocking": the gate
+    // would start, find no product_postcheck.summary row, and F3 goes green.
+    expect(fetchCalls.some((call) => call.url.includes("/quality-gate"))).toBe(false);
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = (qualityGate?.output ?? {}) as Record<string, unknown>;
+    expect(output.skipped).toBe(true);
+    expect(output.retryPending).toBe(true);
+  });
+
   it("väntar in validate-images innan /product-postcheck anropas", async () => {
     const store = createMessageStore();
     const files = buildHealthyFiles();
