@@ -111,6 +111,17 @@ describe("POST /api/projects/[id]/save — chat ownership guard", () => {
     expect(saveProjectData.mock.calls[0][0]).not.toHaveProperty("meta");
   });
 
+  it("passes a non-object meta as an insert-only snapshot, never together with meta_patch", async () => {
+    const res = await POST(makeRequest({ meta: null }) as never, makeParams());
+
+    expect(res.status).toBe(200);
+    expect(saveProjectData).toHaveBeenCalledWith({
+      project_id: PROJECT_ID,
+      meta: null,
+    });
+    expect(saveProjectData.mock.calls[0][0]).not.toHaveProperty("meta_patch");
+  });
+
   it("does not run the ownership check when no chatId is in the body", async () => {
     const res = await POST(makeRequest({ files: [] }) as never, makeParams());
 

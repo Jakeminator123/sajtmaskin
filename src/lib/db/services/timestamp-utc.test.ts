@@ -139,4 +139,17 @@ describe("saveProjectData — timestamp UTC-korrekthet", () => {
       }),
     ).rejects.toThrow("either meta or meta_patch");
   });
+
+  it("full meta-snapshot är insert-only — conflict-set ersätter inte lagrad meta", async () => {
+    const snapshot = { source: "template-init:own-engine" };
+    await saveProjectData({ project_id: "proj_full_meta", meta: snapshot });
+
+    const inserted = projectInsertCapture.values as Record<string, unknown>;
+    const conflictSet = projectInsertCapture.onConflictSet as Record<string, unknown>;
+
+    expect(inserted.meta).toEqual(snapshot);
+    expect(conflictSet.meta).toBeDefined();
+    expect(conflictSet.meta).not.toEqual(snapshot);
+    expect(conflictSet.meta).toHaveProperty("queryChunks");
+  });
 });

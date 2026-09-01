@@ -104,6 +104,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // then replace each other's palette/preview/preferences changes.
         payload.meta_patch = nextMetaRecord;
       } else {
+        // Non-object (`null` / array): insert-only snapshot. Clearing a stored
+        // document is D1b (needs revision-CAS) and is not offered here.
         payload.meta = nextMeta;
       }
     }

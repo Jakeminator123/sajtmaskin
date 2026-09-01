@@ -603,7 +603,7 @@ export async function POST(req: Request) {
           locked: lockedSet.has(file.path.replace(/^\.?\//, "")),
         })),
         messages: (await chatRepo.getChat(chat.id))?.messages ?? [],
-        meta: {
+        meta_patch: {
           source: "import-init:own-engine",
           importSource: source.type,
           importLockedFiles: configLockedFiles,
