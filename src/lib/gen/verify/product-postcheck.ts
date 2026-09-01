@@ -50,6 +50,13 @@ export type ProductPostcheckSkipReason =
   | "preview_superseded"
   | "preview_not_running"
   | "capture_failed"
+  /**
+   * Chromium startade men dog innan navigeringen kom igång — `Target page,
+   * context or browser has been closed`. Egen orsak sedan `SM-072`, skild från
+   * catch-all-`runtime_error`: bara det här fallet är bevisad infrastruktur och
+   * får därför den icke-anklagande ytan i buildern.
+   */
+  | "browser_crashed"
   | "runtime_error";
 
 export type ProductPostcheckWarning = {
@@ -1038,7 +1045,7 @@ export function productPostcheckSkipReasonFromError(err: unknown): ProductPostch
   if (CAPTURE_ERROR_PATTERN.test(err.message)) return "capture_failed";
   if (/timeout/i.test(err.message)) return "timeout";
   if (NAVIGATION_ERROR_PATTERN.test(err.message)) return "navigation_failed";
-  if (POST_LAUNCH_TARGET_CLOSED_PATTERN.test(err.message)) return "runtime_error";
+  if (POST_LAUNCH_TARGET_CLOSED_PATTERN.test(err.message)) return "browser_crashed";
   if (BROWSER_UNAVAILABLE_PATTERN.test(err.message)) return "playwright_unavailable";
   return "runtime_error";
 }
