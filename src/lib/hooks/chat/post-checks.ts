@@ -36,6 +36,7 @@ import type {
   ProductPostcheckAttestation,
   ProductPostcheckResult,
 } from "@/lib/gen/verify/product-postcheck";
+import { isInfrastructureSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
 
 /** Extra försök efter det första, bara vid en retryable 503. */
 const ERROR_LOG_RETRY_ATTEMPTS = 2;
@@ -55,6 +56,20 @@ export function abortPostChecksForChat(chatId: string): void {
   if (!existing) return;
   existing.abort();
   postCheckControllers.delete(chatId);
+}
+
+/**
+ * True medan den normala post-stream-lanen (postcheck → quality gate) äger
+ * verifieringen för chatten i DEN HÄR fliken. Resume-lanen läser vakten innan
+ * den startar: sedan #1221 får normala lanen lagligt vänta in en bootande
+ * preview i upp till 150 s, vilket passerade resume-lanens gamla 3-minuters
+ * åldersgräns — resultatet var dubbla Chromium-launcher per dom (dubbelt
+ * /tmp-tryck, SM-072) och en quality gate som stals via 409-leasen (prod
+ * 2026-09-01, chattar c2371f9c och 3b9ca137). Cross-tab skyddas oförändrat av
+ * routens per-versions-lease.
+ */
+export function hasActivePostCheck(chatId: string): boolean {
+  return postCheckControllers.has(chatId);
 }
 
 function isAbortError(error: unknown): boolean {
@@ -170,7 +185,59 @@ async function validateImages(params: {
   }
 }
 
+/**
+ * En (1) omkörning när kontrollens EGEN apparat dog (infrastruktur-skip enligt
+ * `classifyProductPostcheckSkipReason`). Prod 2026-09-01 (chat 3b9ca137, v2):
+ * första försöket dog med `playwright_unavailable` på en serverless-instans
+ * vars /tmp var fylld av en Chromium-core-dump, medan en omkörning sekunder
+ * senare landade på en frisk instans och fångade sex riktiga produktfynd
+ * (productBlocked). Utan omkörningen hade domen blivit advisory-skip och
+ * fynden aldrig upptäckts. Exakt ett omförsök — aldrig en launch-storm.
+ */
+const PRODUCT_POSTCHECK_INFRA_RETRY_DELAY_MS = 4_000;
+
+function delayUnlessAborted(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 async function runProductPostcheckApi(params: {
+  chatId: string;
+  versionId: string;
+  previewUrl: string | null;
+  signal: AbortSignal;
+}): Promise<ProductPostcheckResult | null> {
+  const first = await postProductPostcheckOnce(params);
+  // `feature_disabled` är infrastrukturklassad men deterministisk för hela
+  // deployn (operatörsflagga) — en omkörning kan aldrig ge ett annat utfall.
+  if (
+    !first?.skipped ||
+    first.skippedReason === "feature_disabled" ||
+    !isInfrastructureSkipReason(first.skippedReason)
+  ) {
+    return first;
+  }
+  await delayUnlessAborted(PRODUCT_POSTCHECK_INFRA_RETRY_DELAY_MS, params.signal);
+  const second = await postProductPostcheckOnce(params);
+  // En transportmiss på omförsöket får inte radera det attesterade första
+  // utfallet — infra-skipen är fortfarande en ärlig (advisory) dom.
+  return second ?? first;
+}
+
+async function postProductPostcheckOnce(params: {
   chatId: string;
   versionId: string;
   previewUrl: string | null;

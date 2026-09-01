@@ -1021,6 +1021,107 @@ describe("runPostGenerationChecks", () => {
     );
   });
 
+  it("kör om product-postcheck exakt en gång vid infrastruktur-skip (SM-072)", async () => {
+    // Prod 2026-09-01 (chat 3b9ca137, v2): första postchecken dog med
+    // `playwright_unavailable` på en /tmp-förgiftad instans; en omkörning
+    // sekunder senare landade friskt och fångade riktiga produktfynd
+    // (productBlocked). Lanen ska själv göra EN omkörning och använda det
+    // omkörda resultatet — inte förlita sig på att resume-lanen råkar dubblera.
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    let postcheckCalls = 0;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          postcheckCalls += 1;
+          if (postcheckCalls === 1) {
+            return jsonResponse({
+              ok: true,
+              skipped: true,
+              skippedReason: "playwright_unavailable",
+              warnings: [],
+              productBlocked: false,
+              attestation: CURRENT_POSTCHECK_ATTESTATION,
+            });
+          }
+          return jsonResponse({
+            ok: true,
+            skipped: false,
+            warnings: [
+              { code: "cta_no_handler", message: "CTA-knapp saknar tydlig handling." },
+            ],
+            productBlocked: true,
+            attestation: CURRENT_POSTCHECK_ATTESTATION,
+          });
+        }
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: true,
+            checks: [
+              { check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 900 },
+            ],
+            verifyLaneDurationMs: 1200,
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    vi.useFakeTimers();
+    try {
+      const runPromise = runPostGenerationChecks({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        demoUrl: "https://preview.example/ver_1",
+        assistantMessageId: "assistant_1",
+        setMessages: store.setMessages,
+        onAutoFix,
+      });
+      await vi.advanceTimersByTimeAsync(30_000);
+      await runPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(postcheckCalls).toBe(2);
+    // Det omkörda (produktbärande) resultatet är det lanen adopterar — inte
+    // den första infra-skipen.
+    const postCheck = getToolPart("Post-check", store);
+    expect(
+      (postCheck?.output as { productPostcheck?: { productBlocked?: boolean } })
+        .productPostcheck?.productBlocked,
+    ).toBe(true);
+    expect((postCheck?.output as { warnings?: string[] }).warnings).toEqual(
+      expect.arrayContaining(["Product: CTA-knapp saknar tydlig handling."]),
+    );
+  });
+
   it("retries retryable 503 from /quality-gate before surfacing (F2-lane parity with F3)", async () => {
     // Granska-svärm F5 på #504: /quality-gate svarar 503 `lease_unavailable`/
     // `quality_gate_unavailable` när leasen/verify-lanen är tillfälligt nere.

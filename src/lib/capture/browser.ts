@@ -139,6 +139,38 @@ function pruneLeakedPlaywrightProfilesBestEffort(
 }
 
 /**
+ * SM-072, rotorsaken namngiven i prod 2026-09-01 (chat `3b9ca137`):
+ * topplistan pekade ut `core.chromium.24=913MB` — när postcheckens Chromium
+ * kraschar skriver kärnan en core dump i /tmp som ensam kan fylla hela
+ * tmpfs:en (525 MB), och varje senare launch dör direkt i `newPage`
+ * (`Target page, context or browser has been closed`). En core dump i en
+ * serverless-instans har ingen läsare; radera alla, oavsett ålder, före
+ * varje launch. Fail-open — svepet får aldrig stoppa en capture.
+ */
+const CHROMIUM_CORE_DUMP_PREFIX = "core.chromium.";
+
+function pruneChromiumCoreDumpsBestEffort(): number {
+  try {
+    const tmp = os.tmpdir();
+    const entries = fs.readdirSync(tmp, { withFileTypes: true });
+    let pruned = 0;
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      if (!entry.name.startsWith(CHROMIUM_CORE_DUMP_PREFIX)) continue;
+      try {
+        fs.rmSync(path.join(tmp, entry.name), { force: true });
+        pruned += 1;
+      } catch {
+        // En låst/försvunnen fil får inte stoppa resten av svepet.
+      }
+    }
+    return pruned;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * SM-072-diagnos: prod 2026-09-01 (chat `4cac8fb0`) hade 18 MB fritt vid
  * launch och trycksvepet hittade INGA profiler att rensa — ätaren är alltså
  * en annan artefakt. Under tryck listas /tmp:s största toppostposter med
@@ -198,11 +230,17 @@ async function launchCaptureBrowserUnscoped(): Promise<Browser> {
     const freeMb = await measureTmpFreeSpaceBestEffort();
     const underPressure = freeMb !== null && freeMb < TMP_PRESSURE_FREE_MB;
     if (underPressure) logTmpTopConsumersBestEffort();
+    const coreDumpsPruned = pruneChromiumCoreDumpsBestEffort();
+    if (coreDumpsPruned > 0) {
+      console.warn(`[capture-browser] pruned ${coreDumpsPruned} Chromium core dump(s)`);
+    }
     const pruned = pruneLeakedPlaywrightProfilesBestEffort(
       underPressure ? PLAYWRIGHT_PROFILE_PRESSURE_AGE_MS : PLAYWRIGHT_PROFILE_MAX_AGE_MS,
     );
     if (pruned > 0) {
       console.warn(`[capture-browser] pruned ${pruned} leaked Playwright profile dir(s)`);
+    }
+    if (coreDumpsPruned > 0 || pruned > 0) {
       await measureTmpFreeSpaceBestEffort();
     }
     const chromium = (await import("@sparticuz/chromium")).default;
