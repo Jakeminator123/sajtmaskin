@@ -10,6 +10,15 @@ import {
   useResumePendingVerification,
 } from "./useResumePendingVerification";
 
+// Partiell mock: bara same-tab-vakten styrs härifrån (default: ingen aktiv
+// normal lane). Övriga exports (buildProductPostcheckLogItems,
+// persistVersionErrorLogs) förblir riktiga — testerna nedan kör hela kedjan.
+const hasActivePostCheckMock = vi.hoisted(() => vi.fn(() => false));
+vi.mock("./post-checks", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./post-checks")>();
+  return { ...actual, hasActivePostCheck: hasActivePostCheckMock };
+});
+
 vi.mock("sonner", () => ({
   toast: {
     message: vi.fn(),
@@ -269,6 +278,7 @@ describe("useResumePendingVerification", () => {
     fetchMock.mockReset();
     mockRoutes({});
     vi.stubGlobal("fetch", fetchMock);
+    hasActivePostCheckMock.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -276,6 +286,34 @@ describe("useResumePendingVerification", () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+  });
+
+  it("backar medan normala post-stream-lanen äger chatten och kör efteråt med full budget", async () => {
+    // Prod 2026-09-01 (chattar c2371f9c/3b9ca137): #1221 lät normala lanen
+    // lagligt vänta in preview ≤150 s, så resume-lanen startade rutinmässigt
+    // mitt i en levande lane — dubbla Chromium-launcher och en 409-stulen
+    // quality gate. Vakten ska backa UTAN att förbruka försöksbudgeten.
+    hasActivePostCheckMock.mockReturnValue(true);
+    const { rerender } = renderHook(
+      (props: { versions: unknown[] }) =>
+        useResumePendingVerification({
+          chatId: "chat_1",
+          versions: props.versions,
+          isStreaming: false,
+        }),
+      { initialProps: { versions: [pendingRow(), promotedRow()] } },
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(callsTo("/product-postcheck")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+
+    // Normala lanen släpper → nästa /versions-polltick (ny arrayidentitet)
+    // kör resume-kedjan som vanligt.
+    hasActivePostCheckMock.mockReturnValue(false);
+    rerender({ versions: [pendingRow(), promotedRow()] });
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    expect(callsTo("/product-postcheck")).toHaveLength(1);
   });
 
   it("runs image-validation, then product-postcheck, then /quality-gate exactly once", async () => {

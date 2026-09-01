@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { buildProductPostcheckLogItems, persistVersionErrorLogs } from "./post-checks";
+import {
+  buildProductPostcheckLogItems,
+  hasActivePostCheck,
+  persistVersionErrorLogs,
+} from "./post-checks";
 import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 
 /**
@@ -102,11 +106,15 @@ import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck"
  */
 
 /**
- * Minimum age before a `draft`/`pending` row counts as stranded. The normal
- * post-stream lane finishes well under this (observed ~70–120 s including
- * image validation + product-postcheck), so anything older has no live owner.
+ * Minimum age before a `draft`/`pending` row counts as stranded. Höjd från
+ * 3 till 5 min 2026-09-01: #1221 lät normala lanen vänta in en bootande
+ * preview i upp till 150 s FÖRE capture, så dess ärliga världstid är
+ * ~70–120 s + väntan ≈ upp till ~4,5 min. Med 3-minutersgränsen startade
+ * resume-lanen rutinmässigt mitt i en levande lane (dubbla Chromium-launcher,
+ * prod 2026-09-01 chattar c2371f9c/3b9ca137). Samma flik skyddas dessutom av
+ * `hasActivePostCheck`-vakten i effekten nedan.
  */
-export const RESUME_VERIFY_MIN_AGE_MS = 3 * 60_000;
+export const RESUME_VERIFY_MIN_AGE_MS = 5 * 60_000;
 
 /**
  * Minimum age for an `imported_repo` row before the import-verification lane
@@ -536,6 +544,14 @@ export function useResumePendingVerification(params: {
     }
     const { versionId, lane } = candidate;
     if (inFlightRef.current.has(versionId)) return;
+    if (hasActivePostCheck(chatId)) {
+      // Normala post-stream-lanen äger fortfarande verifieringen i den här
+      // fliken (den får lagligt vänta in preview ≤150 s sedan #1221). Att
+      // starta resume nu ger dubbla Chromium-launcher och en 409-stulen
+      // quality gate. Backa utan att förbruka försöksbudgeten och titta igen.
+      scheduleRetry();
+      return;
+    }
     const attemptsUsed = attemptsRef.current.get(versionId) ?? 0;
     if (attemptsUsed >= RESUME_VERIFY_MAX_ATTEMPTS) return;
     attemptsRef.current.set(versionId, attemptsUsed + 1);

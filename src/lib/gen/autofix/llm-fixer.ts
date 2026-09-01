@@ -220,10 +220,14 @@ export async function runLlmFixer(
     } else if (resolvedModelId.startsWith("gpt-5.6-")) {
       // GPT-5.6 goes through Responses API; omitting reasoningEffort defaults to
       // medium and quietly re-enables thinking despite thinking:false in the
-      // phase manifest (Premium fixer pin). Force none so latency stays bounded.
+      // phase manifest. Honor the manifest's EXPLICIT effort when one is
+      // provided (ägarbeslut 2026-09-01: fixern ska få resonera — Premium
+      // pinnar sol med hög effort utan thinking-stream), and keep the
+      // fail-closed "none" only when the manifest left effort unset so an
+      // unpinned tier never silently re-enables hidden reasoning.
       providerOptions = {
         openai: {
-          reasoningEffort: "none",
+          reasoningEffort: options?.reasoningEffort ?? "none",
         },
       };
     }
