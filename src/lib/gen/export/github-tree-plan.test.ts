@@ -5,7 +5,10 @@ import { buildGitHubExportPlan } from "./github-tree-plan";
 describe("buildGitHubExportPlan", () => {
   it("keeps empty files instead of treating empty content as a missing file", () => {
     const files: CodeFile[] = [
-      { path: "app/page.tsx", content: "export default function Page() { return null; }" },
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return null; }",
+      },
       { path: "public/.gitkeep", content: "" },
     ];
 
@@ -16,7 +19,10 @@ describe("buildGitHubExportPlan", () => {
 
   it("adds explicit deletions for every stale entry in the previous GitHub tree", () => {
     const files: CodeFile[] = [
-      { path: "app/page.tsx", content: "export default function Page() { return null; }" },
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return null; }",
+      },
       { path: "public/.gitkeep", content: "" },
     ];
 

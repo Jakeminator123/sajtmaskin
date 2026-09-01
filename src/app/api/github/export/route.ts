@@ -255,7 +255,10 @@ export async function POST(request: NextRequest) {
         : [];
       const { deletionPaths } = buildGitHubExportPlan(portableProject, basePaths);
 
-      const treeEntries = [];
+      const treeEntries: Array<
+        | { path: string; mode: "100644"; type: "blob"; sha: string }
+        | { path: string; sha: null }
+      > = [];
       for (const file of files) {
         const response = await githubRequest<{ sha: string }>(
           token,

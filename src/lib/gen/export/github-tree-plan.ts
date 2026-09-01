@@ -1,7 +1,13 @@
 import type { CodeFile } from "@/lib/gen/parser";
 
 const BLOCKED_PATHS = ["node_modules/", ".git/"];
-const BLOCKED_FILES = [".env", ".env.local", ".env.production", ".env.development", ".env.test"];
+const BLOCKED_FILES = [
+  ".env",
+  ".env.local",
+  ".env.production",
+  ".env.development",
+  ".env.test",
+];
 
 export interface GitHubExportFile {
   path: string;
@@ -20,7 +26,11 @@ export function normalizeGitHubExportPath(raw: string): string | null {
     .replace(/^\/+/, "");
   if (!normalized) return null;
   if (normalized.split("/").some((segment) => segment === "..")) return null;
-  if (BLOCKED_FILES.some((name) => normalized === name || normalized.startsWith(`${name}/`))) {
+  if (
+    BLOCKED_FILES.some(
+      (name) => normalized === name || normalized.startsWith(`${name}/`),
+    )
+  ) {
     return null;
   }
   if (BLOCKED_PATHS.some((prefix) => normalized.startsWith(prefix))) {
@@ -47,7 +57,10 @@ export function buildGitHubExportPlan(
   }
 
   const deletionPaths = Array.from(new Set(basePaths))
-    .filter((path) => typeof path === "string" && path.length > 0 && !currentFiles.has(path))
+    .filter(
+      (path) =>
+        typeof path === "string" && path.length > 0 && !currentFiles.has(path),
+    )
     .sort();
 
   return {

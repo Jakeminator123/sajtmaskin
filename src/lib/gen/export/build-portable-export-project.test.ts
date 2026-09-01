@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const buildExportableProject = vi.hoisted(() => vi.fn());
 const chatUsesVerbatimRepo = vi.hoisted(() => vi.fn());
 
-vi.mock("./build-exportable-project", () => ({
+vi.mock("@/lib/gen/export/build-exportable-project", () => ({
   buildExportableProject,
   chatUsesVerbatimRepo,
 }));

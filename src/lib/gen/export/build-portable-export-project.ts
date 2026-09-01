@@ -2,8 +2,8 @@ import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildExportableProject,
   chatUsesVerbatimRepo,
-} from "./build-exportable-project";
-import { stripGeneratedEnvLocalForZip } from "./strip-env-local-for-zip";
+} from "@/lib/gen/export/build-exportable-project";
+import { stripGeneratedEnvLocalForZip } from "@/lib/gen/export/strip-env-local-for-zip";
 
 /**
  * Canonical owner-facing artifact assembly. GitHub export and ZIP download must
