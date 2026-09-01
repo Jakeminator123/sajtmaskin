@@ -12,12 +12,16 @@ uppgraderingar tas en domän åt gången med full review.**
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | **Patch** (`x.y.Z`) | Grupperas av Dependabot i små PR:ar (`npm-production-patch`, `npm-development-patch`). Låg-risk-patchar kan få labeln `dependabot-patch-safe`. | Samma kanoniska review-window, mänskliga mandat och betrodda merge-controller som övriga PR:ar. |
 | **Minor** (`x.Y.z`) | Små PR:ar, review-light. Låg-risk-paket grupperas (`npm-low-risk-minor`); övriga minors kommer som individuella PR:ar.                         | Kan få snabb review men aldrig en separat auto-merge-väg.                                       |
-| **Major** (`X.y.z`) | **Alltid manuellt.** Dependabot version updates ignorerar majors (`ignore` på `version-update:semver-major`).                                  | Separat branch/PR, läs migration/changelog och kör full verifiering.                            |
+| **Major** (`X.y.z`) | **Alltid manuellt.** Dependabot version updates ignorerar majors (`ignore` på `version-update:semver-major`).                                  | Separat branch/PR, läs migration/changelog, kör riktat lokalt och invänta tung GitHub-profil.   |
 | **Security**        | Security updates är undantagna från `ignore`-reglerna och kommer alltid fram, även för majors.                                                 | Samma grindar, men prioriterad handläggning.                                                    |
 
 ### protected-path-ändringar
 
-En dependency-PR som (utöver lockfilen/`package.json`) rör runtime-kontrakt anses inte längre vara ren och får full verifieringsprofil. Protected paths inkluderar bl.a. `src/lib/db`, `src/lib/auth`, `src/lib/tenant`, `src/lib/gen`, `src/lib/providers`, `src/lib/integrations`, `src/lib/logging`, `src/app/api`, CI-filer, `migrations/**` och `env*`.
+En dependency-PR som (utöver lockfilen/`package.json`) rör runtime-kontrakt anses
+inte längre vara ren och får tung GitHub-profil. Protected paths inkluderar
+bl.a. `src/lib/db`, `src/lib/auth`, `src/lib/tenant`, `src/lib/gen`,
+`src/lib/providers`, `src/lib/integrations`, `src/lib/logging`, `src/app/api`,
+CI-filer, `migrations/**` och `env*`.
 
 ## Core-paket — kräver alltid manuell PR
 
@@ -79,15 +83,18 @@ En gång i månaden (eller vid behov), kör en riktad uppgraderingsomgång:
    - **Billing** — `stripe`
    - **Charts** — `recharts`
 3. Egen branch + egen PR per domän. Läs relevant migration guide / changelog.
-4. Full verifiering innan merge:
+4. Kör planen och de lokala kontroller som träffad domän kräver; kör inte hela
+   `test:ci` eller `build` lokalt slentrianmässigt:
    ```bash
+   npm run verify:pr -- --plan
    npm run typecheck
-   npm run test:ci
+   # välj relevanta validators ur planen, exempelvis:
    npm run scaffolds:validate
    npm run dossiers:validate-all
-   npm run build
    ```
-5. Merge manuellt efter grön CI och review. Aldrig major i samma PR som config-/annan städning.
+5. Före merge ska den tunga GitHub-profilen för aktuell head-SHA vara grön,
+   inklusive `test:ci` i `quality` och det separata `build`-jobbet, följt av
+   review. Aldrig major i samma PR som config-/annan städning.
 
 ## Klassificering — aldrig en separat mergeväg
 
@@ -100,7 +107,7 @@ icke-core-paket. Annars tas en gammal label bort; `--force` håller också
 labelbeskrivningen kanonisk. Workflowen checkar inte ut PR-head, kör inget från
 PR-branchen och innehåller ingen merge- eller auto-merge-åtgärd.
 
-Alla Dependabot-PR:ar går därefter genom samma lokala verifieringsprofil,
-required checks, sjuminutersfönster, bottriage, exakta mänskliga sign-off och
-`merge:execute` som andra agent-PR:ar. Labeln betyder ”låg-risk-kandidat”, aldrig
-”får mergas utan kontroll”.
+Alla Dependabot-PR:ar går därefter genom samma lokala plan + riktade kontroller,
+required GitHub-checks, sjuminutersfönster, bottriage, exakta mänskliga sign-off
+och `merge:execute` som andra agent-PR:ar. Labeln betyder ”låg-risk-kandidat”,
+aldrig ”får mergas utan kontroll”.

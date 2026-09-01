@@ -32,7 +32,7 @@ EmaCodeHero har base `ema` och kräver ägarens beslut.
    check-run summary/text och annotations.
 4. Triagera varje konkret fynd: **fixat**, **loggat** i rätt canonical tracker
    eller verifierbart **avfärdat**. Efter ny commit: kör om berört riktat och
-   invänta ny full CI.
+   invänta nya required checks.
 
 En full PR AI-/Codex-review av aktuell SHA kan vara oberoende pass. Usage-limit
 är inget fynd; använd lokal Sol-review. `review-window` kräver trusted botkvitto

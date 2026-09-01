@@ -33,10 +33,11 @@ rapportens `runtimeStatus`.
 - `npm run sync:derived` när owners ändrats.
 - `npm run verify:pr -- --plan` när diffen fått form och före push; hooken
   upprepar planen.
-- Kör relevanta riktade kontroller och redovisa dem i PR:n. GitHub Actions äger
-  den blockerande fullprofilen. Bare `npm run verify:pr` är frivillig
-  felsökning/reproduktion, eller ett uttryckligt krav när själva
-  CI-/verifieringsmotorn ändras.
+- Kör relevanta riktade kontroller och redovisa dem i PR:n. GitHub Actions
+  publicerar required checks på varje head: tung profil för ready runtime,
+  högrisk och `master`, explicit light-kvitto för safe docs och vanliga drafts.
+  Bare `npm run verify:pr` är frivillig felsökning/reproduktion, eller ett
+  uttryckligt krav när själva CI-/verifieringsmotorn ändras.
 - Fixa eller avfärda riktiga reviewfynd; kör om berörda riktade kontroller.
 
 ## 4. PR

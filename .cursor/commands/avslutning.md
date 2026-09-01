@@ -8,7 +8,7 @@ push av uppgiftens filer, men inte automatiskt för PR eller merge.
    uppgiften. Stage aldrig andras ändringar och använd inte `git add -A`.
 2. Kör `npm run verify:pr -- --plan`, relevanta riktade kontroller och en färsk
    readonly Sol-review. Fixa eller verifierbart avfärda riktiga fynd. GitHub
-   Actions äger den blockerande fullprofilen efter push.
+   Actions publicerar tung profil eller light-kvitto efter push.
 3. Fetch:a origin och kontrollera
    `git rev-list --left-right --count HEAD...origin/<branch>`:
    - `0 0`: synkat;

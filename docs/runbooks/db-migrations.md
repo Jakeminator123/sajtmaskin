@@ -28,14 +28,14 @@ Samma installerare äger fyra managed hooks med olika hårdhet:
 
 | Hook            | Kör                                   | Hårdhet                                                                                                                          |
 | --------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `pre-push`      | `npm run verify:pr -- --plan`         | **Fail-closed:** röd plan eller saknat `npm` stoppar pushen. Riktade kontroller körs lokalt; fullprofilen körs i GitHub Actions. |
+| `pre-push`      | `npm run verify:pr -- --plan`         | **Fail-closed:** röd plan eller saknat `npm` stoppar pushen. Riktade kontroller körs lokalt; CI publicerar tung profil eller light-kvitto. |
 | `post-merge`    | `ensure-schema.mjs --soft --quiet-ok` | Soft; avbryter aldrig pull/merge                                                                                                 |
 | `post-checkout` | Samma DB-synk vid grenbyte            | Soft                                                                                                                             |
 | `post-rewrite`  | Samma DB-synk efter rebase            | Soft                                                                                                                             |
 
 `pre-push` gör den lokala plan-kontrollen svår att glömma (färsk base, path-
 impact, protected/Backoffice). Relevanta riktade kontroller är agentens ansvar;
-GitHub Actions äger den blockerande fullprofilen.
+GitHub Actions publicerar tung profil eller light-kvitto.
 Endast ett uttryckligt ägarbeslut får använda
 `SAJTMASKIN_SKIP_VERIFY_HOOKS=1`; verifiera och dokumentera i så fall varför
 pushen behöver gå förbi den lokala grinden.

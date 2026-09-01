@@ -4,10 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   evaluateCiBranch,
+  evaluateCiScopeWorkflow,
   evaluatePolicyFloors,
   evaluatePrHeadWorkflowPermissions,
   evaluateReservedWorkflowCheckNames,
   evaluateRetiredBugIdFloor,
+  evaluateSecretWorkflowDispatches,
+  evaluateTrustedReviewWindowGate,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
 import {
@@ -583,6 +586,210 @@ describe("agent workflow repository contract", () => {
     expect(evaluateWorkflowContract().errors).toEqual([]);
   });
 
+  it("keeps CI scope fail-closed and live credentials on trusted master", () => {
+    const source = readFileSync(".github/workflows/ci.yml", "utf8");
+    const packageScripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
+    expect(evaluateCiScopeWorkflow(source, packageScripts)).toEqual([]);
+    const replaceOnce = (search: string, replacement: string) => {
+      const candidate = source.replace(search, replacement);
+      expect(candidate).not.toBe(source);
+      return candidate;
+    };
+
+    const weakened = [
+      replaceOnce("ready_for_review, ", ""),
+      replaceOnce(
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+        "cancel-in-progress: true",
+      ),
+      replaceOnce("group: ci-${{ github.ref }}", "group: ci-${{ github.run_id }}"),
+      replaceOnce("github.ref == 'refs/heads/master'", "github.ref == 'refs/heads/feature'"),
+      replaceOnce(
+        "needs: [quality, schema-drift, build, backoffice-tests]",
+        "needs: [quality, schema-drift]",
+      ),
+      replaceOnce(
+        "needs.scope.result != 'success' || needs.scope.outputs.run_heavy != 'false'",
+        "needs.scope.outputs.run_heavy == 'true'",
+      ),
+      replaceOnce(
+        "if: ${{ !cancelled() }}\n    runs-on: ubuntu-latest\n    env:\n      RUN_HEAVY:",
+        "if: ${{ !cancelled() && needs.scope.outputs.run_heavy == 'true' }}\n    runs-on: ubuntu-latest\n    env:\n      RUN_HEAVY:",
+      ),
+      replaceOnce(
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}",
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' || true }}",
+      ),
+      replaceOnce(
+        "github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')",
+        "github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || true)",
+      ),
+      replaceOnce(
+        "    # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.\n    if: ${{ !cancelled() }}",
+        "    # en stale concurrency-cancelled PR-run dö i stället för att leva vidare.\n    if: ${{ always() }}",
+      ),
+      replaceOnce("run: npm run docs:test", "run: npm run test:ci"),
+      replaceOnce("run: npm run test:e2e:contract", "run: echo e2e-contract-skipped"),
+      replaceOnce(
+        "  dead-code:\n    needs: scope\n    if: ${{ !cancelled() }}",
+        "  dead-code:\n    if: ${{ !cancelled() }}",
+      ),
+      replaceOnce(
+        "      - name: Orphan-file gate (blocking)\n        if: ${{ env.RUN_HEAVY == 'true' }}\n        run: npm run knip:files",
+        "      - name: Orphan-file gate (blocking)\n        run: npm run knip:files",
+      ),
+    ];
+    for (const candidate of weakened) {
+      expect(evaluateCiScopeWorkflow(candidate, packageScripts).length).toBeGreaterThan(0);
+    }
+    expect(
+      evaluateCiScopeWorkflow(source, {
+        ...packageScripts,
+        "test:e2e:contract": "true",
+      }),
+    ).toContain("test:e2e:contract must retain its exact Playwright discovery command");
+  });
+
+  it("keeps no-op review events outside trusted gate concurrency", () => {
+    const source = readFileSync(".github/workflows/merge-ready-freshness.yml", "utf8");
+    expect(evaluateTrustedReviewWindowGate(source)).toEqual([]);
+
+    const mutations = [
+      source.replace(
+        "        github.event.action == 'ready_for_review'\n",
+        "        github.event.action == 'ready_for_review' ||\n" +
+          "        github.event.action == 'edited'\n",
+      ),
+      source.replace(
+        "      github.event_name == 'pull_request_target' &&\n",
+        "      (github.event_name == 'pull_request_target' || " +
+          "github.event_name == 'issue_comment') &&\n",
+      ),
+      source.replace(
+        "      group: trusted-review-window-${{ github.event.pull_request.number || github.event.issue.number }}\n",
+        "      group: trusted-review-window\n",
+      ),
+      source.replace(
+        "\npermissions:\n",
+        "\nconcurrency:\n  group: merge-ready-freshness-global\n  cancel-in-progress: true\n\npermissions:\n",
+      ),
+    ];
+
+    for (const candidate of mutations) {
+      expect(candidate).not.toBe(source);
+      expect(evaluateTrustedReviewWindowGate(candidate).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("scopes DB/Blob PR smoke to its exact executable inputs", () => {
+    const blob = readFileSync(".github/workflows/db-blob-sync-check.yml", "utf8");
+    const parity = readFileSync(".github/workflows/db-schema-parity.yml", "utf8");
+    expect(evaluateSecretWorkflowDispatches(blob, parity)).toEqual([]);
+    const replaceOnce = (search: string, replacement: string) => {
+      const candidate = blob.replace(search, replacement);
+      expect(candidate).not.toBe(blob);
+      return candidate;
+    };
+
+    const weakened = [
+      replaceOnce('      - ".github/workflows/db-blob-sync-check.yml"\n', ""),
+      replaceOnce('      - "requirements.dbtest.txt"\n', ""),
+      replaceOnce('      - "scripts/db/**/*.py"', '      - "scripts/db/**"'),
+      replaceOnce(
+        "  push:\n    branches: [master]",
+        "  push:\n    branches: [master]\n    paths: [scripts/db/**]",
+      ),
+      replaceOnce("-r requirements.dbtest.txt", "-r requirements.backoffice.txt"),
+      replaceOnce("python -m unittest test_pydatabastest -v", "python -m unittest -v"),
+      replaceOnce(
+        "      - name: Validate gate script (pull_request, no credentials)\n        if: ${{ github.event_name == 'pull_request' }}\n        # No secrets are injected here, so the PR's (untrusted) script can never run\n        # with production credentials. Each DB/blob target SKIPs with a WARN; this step\n        # only validates that the script parses and runs.\n        run: python scripts/db/pydatabastest.py --ci",
+        "      - name: Validate gate script (pull_request, no credentials)\n        if: ${{ github.event_name == 'pull_request' }}\n        run: python scripts/db/pydatabastest.py --json",
+      ),
+      replaceOnce(
+        "        run: python scripts/db/pydatabastest.py --ci\n        env:",
+        "        run: python scripts/db/pydatabastest.py --ci\n        continue-on-error: true\n        env:",
+      ),
+    ];
+    for (const candidate of weakened) {
+      expect(evaluateSecretWorkflowDispatches(candidate, parity).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("rejects secret-bearing manual workflow runs outside master", () => {
+    const blob = readFileSync(".github/workflows/db-blob-sync-check.yml", "utf8");
+    const parity = readFileSync(".github/workflows/db-schema-parity.yml", "utf8");
+    expect(evaluateSecretWorkflowDispatches(blob, parity)).toEqual([]);
+    const replaceOnce = (source: string, search: string, replacement: string) => {
+      const candidate = source.replace(search, replacement);
+      expect(candidate).not.toBe(source);
+      return candidate;
+    };
+
+    const weakened = [
+      [
+        replaceOnce(
+          blob,
+          "if: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}",
+          "if: ${{ github.event_name == 'workflow_dispatch' }}",
+        ),
+        parity,
+      ],
+      [
+        replaceOnce(
+          blob,
+          "if: ${{ github.event_name == 'pull_request' || (github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) }}",
+          "if: ${{ github.event_name != 'workflow_dispatch' || true }}",
+        ),
+        parity,
+      ],
+      [
+        replaceOnce(
+          blob,
+          "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}",
+          "if: ${{ github.event_name != 'pull_request' }}",
+        ),
+        parity,
+      ],
+      [
+        replaceOnce(
+          blob,
+          "          exit 1\n\n  db-blob-sync:",
+          "          exit 0\n\n  db-blob-sync:",
+        ),
+        parity,
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "if: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/master' }}",
+          "if: ${{ github.event_name == 'workflow_dispatch' }}",
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "if: ${{ github.ref == 'refs/heads/master' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}",
+          "if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}",
+        ),
+      ],
+      [
+        blob,
+        replaceOnce(
+          parity,
+          "          exit 1\n\n  db-schema-parity-scheduled:",
+          "          exit 0\n\n  db-schema-parity-scheduled:",
+        ),
+      ],
+    ];
+    for (const [blobCandidate, parityCandidate] of weakened) {
+      expect(
+        evaluateSecretWorkflowDispatches(blobCandidate, parityCandidate).length,
+      ).toBeGreaterThan(0);
+    }
+  });
+
   it("runs write-capable Dependabot automation only from trusted default-branch code", () => {
     const source = readFileSync(".github/workflows/dependabot-safe-classify.yml", "utf8");
     expect(source).toContain("pull_request_target:");
@@ -665,10 +872,26 @@ describe("agent workflow repository contract", () => {
   it("keeps an independent security floor below the editable policy", () => {
     const policy = loadWorkflowInputs().policy;
     expect(evaluatePolicyFloors(policy)).toEqual([]);
+    expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/check-contract.mjs");
+    expect(
+      evaluatePolicyFloors({
+        ...structuredClone(policy),
+        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+          (candidate: string) => candidate !== "scripts/workflow/check-contract.mjs",
+        ),
+      }),
+    ).toContain(
+      "manualMergePathPrefixes security floor missing: scripts/workflow/check-contract.mjs",
+    );
 
     const weakened = [
       { ...structuredClone(policy), requiredChecks: ["quality"] },
-      { ...structuredClone(policy), manualMergePathPrefixes: [] },
+      ...policy.manualMergePathPrefixes.map((prefix: string) => ({
+        ...structuredClone(policy),
+        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+          (candidate: string) => candidate !== prefix,
+        ),
+      })),
       {
         ...structuredClone(policy),
         review: {
