@@ -312,8 +312,16 @@ export function usePreviewIframe(params: {
     },
     [startTier2ReadyReload, stopTier2StatusPolling],
   );
+  // Latest-ref över en äkta cykel: `handleTier2ReadyReloadTimeout` ovan måste
+  // kunna återuppta pollen (SM-074), men `startTier2SelfHealPolling` beror i sin
+  // tur på `startTier2ReadyReload` — de kan inte båda deklareras först. Till
+  // skillnad från husets övriga latest-refs, som håller props, håller den här en
+  // `useCallback`, och `react-hooks/immutability` förbjuder att ett värde som
+  // passerats in i en hook muteras efteråt. Mutationen är avsiktlig och
+  // begränsad till den här raden.
   const startTier2SelfHealPollingRef = useRef(startTier2SelfHealPolling);
   useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability -- latest-ref, se ovan
     startTier2SelfHealPollingRef.current = startTier2SelfHealPolling;
   }, [startTier2SelfHealPolling]);
 
@@ -541,9 +549,7 @@ export function usePreviewIframe(params: {
   );
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- clear diagnostic when error clears */
     if (!iframeError) setIframeDiagnosticCode(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [iframeError]);
 
   useEffect(() => {
@@ -557,12 +563,10 @@ export function usePreviewIframe(params: {
   }, [chatId, previewUrl, refreshToken]);
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- reset iframe error state when preview identity changes */
     clearPreviewReadyTimer();
     setIframeError(false);
     setIframeErrorMessage(null);
     setIframeDiagnosticCode(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, [
     chatId,
     versionId,
@@ -575,11 +579,9 @@ export function usePreviewIframe(params: {
   useEffect(() => {
     if (!previewUrl) return;
     clearPreviewReadyTimer();
-    /* eslint-disable react-hooks/set-state-in-effect -- loading state when URL or refresh token changes */
     setIframeLoading(true);
     setIframeError(false);
     setIframeErrorMessage(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
 
     if (!isOwnEnginePreview && isTier2LivePreviewUrl(previewUrl)) {
       const previewSessionId = activePreviewSessionId?.trim() ?? "";
