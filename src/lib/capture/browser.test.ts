@@ -198,6 +198,54 @@ describe("launchCaptureBrowser", () => {
     warnSpy.mockRestore();
   });
 
+  it("svepet efter kön raderar en profil som dök upp under väntan (inte bara det första svepet)", async () => {
+    // Kontrakt mot false-green: `measureCalls >= 2` kan passera på ett enda
+    // svep som både mäter och mäter om efter prune. Det här fallet planterar
+    // läckan först när den andra launchen redan väntar på mutexen — utan
+    // `prepareTmpForCaptureLaunch` efter `await previous` överlever mappen.
+    process.env.VERCEL = "1";
+    sparticuzLaunch.mockImplementationOnce(async () => ({
+      id: "first",
+      close: async () => undefined,
+    }));
+    sparticuzLaunch.mockImplementationOnce(async () => ({
+      id: "second",
+      close: async () => undefined,
+    }));
+    const tmp = createSweepTmp();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { launchCaptureBrowser } = await import("./browser");
+
+    const first = await launchCaptureBrowser();
+    const statfsAfterFirst = statfs.mock.calls.length;
+    expect(sparticuzLaunch).toHaveBeenCalledTimes(1);
+
+    const secondPromise = launchCaptureBrowser();
+    await vi.waitFor(() => {
+      expect(statfs.mock.calls.length).toBeGreaterThan(statfsAfterFirst);
+    });
+    const statfsAfterQueuedSweep = statfs.mock.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(statfs.mock.calls.length).toBe(statfsAfterQueuedSweep);
+    expect(sparticuzLaunch).toHaveBeenCalledTimes(1);
+
+    const leakedDuringWait = makeDir(
+      tmp,
+      `${PLAYWRIGHT_PROFILE_PREFIX}queued`,
+      PROFILE_MAX_AGE_MS + 60_000,
+    );
+    expect(fs.existsSync(leakedDuringWait)).toBe(true);
+
+    await first.close();
+    const second = await secondPromise;
+    await second.close();
+
+    expect(sparticuzLaunch).toHaveBeenCalledTimes(2);
+    expect(fs.existsSync(leakedDuringWait)).toBe(false);
+    expect(statfs.mock.calls.length).toBeGreaterThan(statfsAfterQueuedSweep);
+    warnSpy.mockRestore();
+  });
+
   it("behåller en färsk Playwright-profil under 15 minuter", async () => {
     process.env.VERCEL = "1";
     sparticuzLaunch.mockResolvedValue({

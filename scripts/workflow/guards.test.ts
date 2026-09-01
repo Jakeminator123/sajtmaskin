@@ -466,6 +466,7 @@ describe("cheap read-only git path", () => {
     "git show HEAD",
     "git checkout -b tmp-hook-repro",
     "git switch -c tmp-hook-repro",
+    "GIT_CONFIG_NOSYSTEM=1 git fetch --prune origin",
   ];
 
   it.each(readonly)("allows %s before alias inspection", (command) => {
@@ -510,6 +511,19 @@ describe("cheap read-only git path", () => {
     "git fetch --refmap=+refs/heads/*:refs/heads/* origin",
     "git fetch --refmap +refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA origin",
     "git pull origin JAKOB_BRA:JAKOB_BRA",
+    "GIT_CONFIG_GLOBAL=/tmp/evil.gitconfig git fetch origin",
+    "GIT_CONFIG=/tmp/evil.gitconfig git fetch origin",
+    "GIT_CONFIG_SYSTEM=/tmp/evil.gitconfig git fetch origin",
+    "export GIT_CONFIG=/tmp/evil.gitconfig; git fetch origin",
+    "GIT_CONFIG=/tmp/evil.gitconfig; git fetch origin",
+    "git --config-env=remote.origin.fetch=EVIL_FETCH fetch origin",
+    "git --config-env=include.path=EVIL_INCLUDE fetch origin",
+    "git -c include.path=/tmp/evil.cfg fetch origin",
+    "git -c include.path=/tmp/evil.cfg status",
+    "git config remote.origin.fetch +refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA",
+    "git config remote.origin.fetch=+refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA",
+    "git config --add include.path /tmp/evil.cfg",
+    "git config remote.origin.fetch +refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA; git fetch origin",
     "git worktree add ../tmp-bra JAKOB_BRA_9999_INNNAN_MVP_BRA",
     "git branch -D JAKOB_BRA_9999_INNNAN_MVP_BRA",
     "git worktree add -b JAKOB_BRA_tmp ../tmp-bra",
@@ -517,6 +531,16 @@ describe("cheap read-only git path", () => {
     expect(cheapShellDecision(command)?.permission).toBe("deny");
     expect(decideCommitCommand(command, { aliases: null }).permission).toBe("deny");
     expect(decideWorktree(command, { aliases: null }).permission).toBe("deny");
+  });
+
+  it("does not deny a read of remote.*.fetch as if it were a BRA write", () => {
+    expect(cheapShellDecision("git config --get remote.origin.fetch")).toBeNull();
+    expect(
+      decideCommitCommand("git config --get remote.origin.fetch", { aliases: new Set() }).permission,
+    ).toBe("allow");
+    expect(decideWorktree("git config --get remote.origin.fetch", { aliases: new Set() }).permission).toBe(
+      "allow",
+    );
   });
 
   it.each([
@@ -570,6 +594,15 @@ describe("hook CLI contract", () => {
     [".cursor/hooks/worktree-force-guard.mjs", "git -c remote.origin.fetch=+refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA fetch origin", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git fetch --refmap=+refs/heads/*:refs/heads/* origin", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git pull origin JAKOB_BRA:JAKOB_BRA", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "GIT_CONFIG_GLOBAL=/tmp/evil.gitconfig git fetch origin", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "GIT_CONFIG=/tmp/evil.gitconfig git fetch origin", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "export GIT_CONFIG=/tmp/evil.gitconfig; git fetch origin", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git --config-env=remote.origin.fetch=EVIL_FETCH fetch origin", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git -c include.path=/tmp/evil.cfg fetch origin", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git -c include.path=/tmp/evil.cfg status", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git config remote.origin.fetch +refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git config --add include.path /tmp/evil.cfg", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "git config remote.origin.fetch +refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA; git fetch origin", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git worktree add ../tmp-bra JAKOB_BRA_9999_INNNAN_MVP_BRA", "deny"],
     ["scripts/workflow/commit-guard.mjs", "git branch -vv", "allow"],
     ["scripts/workflow/commit-guard.mjs", "git fetch --prune origin", "allow"],

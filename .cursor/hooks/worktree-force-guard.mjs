@@ -183,12 +183,39 @@ function hasInlineAliasOption(tokens, gitIndex) {
   return false;
 }
 
-function isGitConfigInjectionToken(token) {
+function isGitConfigFileEnvToken(token) {
+  return /^GIT_CONFIG(?:|_GLOBAL|_SYSTEM)=/iu.test(token);
+}
+
+function isGitConfigProtocolToken(token) {
   return /^GIT_CONFIG_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)=/iu.test(token);
+}
+
+function isGitConfigInjectionToken(token) {
+  return isGitConfigFileEnvToken(token) || isGitConfigProtocolToken(token);
+}
+
+function hasGitConfigFileEnv(tokens) {
+  return tokens.some((token) => isGitConfigFileEnvToken(token));
+}
+
+function hasGitConfigProtocolInjection(tokens) {
+  return tokens.some((token) => isGitConfigProtocolToken(token));
 }
 
 function hasGitConfigInjection(tokens) {
   return tokens.some((token) => isGitConfigInjectionToken(token));
+}
+
+function configKeyIsOpaqueInclude(key) {
+  return key === "include.path" || key.startsWith("includeif.");
+}
+
+function assignmentConfigKey(assignment) {
+  if (typeof assignment !== "string") return "";
+  const eq = assignment.indexOf("=");
+  if (eq <= 0) return "";
+  return assignment.slice(0, eq).toLowerCase();
 }
 
 function hasAliasEnvironmentAssignment(tokens) {
@@ -486,21 +513,106 @@ function collectFetchRefspecCandidates(args, configAssignments = []) {
   return specs;
 }
 
+function destWritesImmutableBranch(dest) {
+  if (!dest) return false;
+  const bare = dest.replace(/^(?:refs\/heads\/|refs\/remotes\/[^/]+\/)/u, "");
+  if (bare.includes("*") && /(?:^|\/)heads(?:\/|$)/u.test(dest)) return true;
+  return isImmutableBranchName(dest);
+}
+
+function fetchConfigAssignmentIsUnsafe(assignment) {
+  if (typeof assignment !== "string") return false;
+  const key = assignmentConfigKey(assignment);
+  if (!key) return false;
+  const value = assignment.slice(assignment.indexOf("=") + 1);
+  if (configKeyIsOpaqueInclude(key)) return true;
+  if (key !== "fetch.refspec" && !/^remote\.[^.]+\.fetch$/u.test(key)) return false;
+  const dest = fetchRefspecDestination(value);
+  // `--config-env=remote.origin.fetch=VAR` has no parseable dest in the shell
+  // string — the real refspec is in the environment. Fail closed.
+  return !dest || destWritesImmutableBranch(dest);
+}
+
 function fetchWritesImmutableBranch(args, configAssignments = []) {
-  return collectFetchRefspecCandidates(args, configAssignments).some((token) => {
-    const dest = fetchRefspecDestination(token);
-    if (!dest) return false;
-    const bare = dest.replace(/^(?:refs\/heads\/|refs\/remotes\/[^/]+\/)/u, "");
-    if (bare.includes("*") && /(?:^|\/)heads(?:\/|$)/u.test(dest)) return true;
-    return isImmutableBranchName(dest);
-  });
+  if (configAssignments.some(fetchConfigAssignmentIsUnsafe)) return true;
+  return collectFetchRefspecCandidates(args, configAssignments).some((token) =>
+    destWritesImmutableBranch(fetchRefspecDestination(token)),
+  );
+}
+
+function configWritesImmutableFetch(args) {
+  const namesAndValues = [];
+  let readOnly = false;
+  let unset = false;
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index];
+    if (token === "--") {
+      namesAndValues.push(...args.slice(index + 1));
+      break;
+    }
+    if (
+      token === "--get" ||
+      token === "--get-all" ||
+      token === "--get-regexp" ||
+      token === "--get-color" ||
+      token === "--get-colorbool" ||
+      token === "--list" ||
+      token === "-l" ||
+      token === "--name-only" ||
+      token === "--show-origin" ||
+      token === "--show-scope"
+    ) {
+      readOnly = true;
+      continue;
+    }
+    if (token === "--unset" || token === "--unset-all") {
+      unset = true;
+      continue;
+    }
+    if (token.startsWith("-") && !/^[a-z]+\.[^=]/iu.test(token)) continue;
+    namesAndValues.push(token);
+  }
+  // Reads and unsets cannot install a BRA dest-refspec or an include-file.
+  if (readOnly || unset) return false;
+
+  for (let index = 0; index < namesAndValues.length; index += 1) {
+    const raw = namesAndValues[index] ?? "";
+    const inlineEq = raw.indexOf("=");
+    const inlineKey = inlineEq > 0 ? raw.slice(0, inlineEq).toLowerCase() : "";
+    const isInlineWrite =
+      inlineKey === "include.path" ||
+      inlineKey.startsWith("includeif.") ||
+      inlineKey === "fetch.refspec" ||
+      /^remote\.[^.]+\.fetch$/u.test(inlineKey);
+    const name = (isInlineWrite ? inlineKey : raw).toLowerCase();
+    const value = isInlineWrite ? raw.slice(inlineEq + 1) : (namesAndValues[index + 1] ?? "");
+    if (!isInlineWrite && !namesAndValues[index + 1]) continue;
+    if (configKeyIsOpaqueInclude(name)) return true;
+    if (name !== "fetch.refspec" && !/^remote\.[^.]+\.fetch$/u.test(name)) continue;
+    const dest = fetchRefspecDestination(value);
+    if (!dest || destWritesImmutableBranch(dest)) return true;
+  }
+  return false;
 }
 
 function classifyGitInvocation(subcommand, args, configAssignments = []) {
   if (!subcommand) return "heavy";
+  // include.path / includeIf can rewrite aliases or fetch dest from a file
+  // the hook cannot read. Fail closed on every subcommand, not only fetch.
+  if (
+    configAssignments.some((assignment) =>
+      configKeyIsOpaqueInclude(assignmentConfigKey(assignment)),
+    )
+  ) {
+    return "deny-immutable";
+  }
   if (subcommand === "fetch" || subcommand === "pull") {
     if (fetchWritesImmutableBranch(args, configAssignments)) return "deny-immutable";
     return subcommand === "fetch" ? "allow" : "heavy";
+  }
+  if (subcommand === "config") {
+    if (configWritesImmutableFetch(args)) return "deny-immutable";
+    return "heavy";
   }
   if (READ_ONLY_GIT_SUBCOMMANDS.has(subcommand)) return "allow";
 
@@ -576,7 +688,11 @@ function classifyGitInvocation(subcommand, args, configAssignments = []) {
 
 function classifySegment(segment) {
   if (isRawWorktreeRemove(segment)) return "heavy";
-  const invocation = inspectGitInvocation(shellTokens(segment));
+  const tokens = shellTokens(segment);
+  // A file-backed GIT_CONFIG / GIT_CONFIG_GLOBAL / GIT_CONFIG_SYSTEM can
+  // install dest-refspecs or aliases the hook never sees. NOSYSTEM is safe.
+  if (hasGitConfigFileEnv(tokens) && invokesGit(tokens) >= 0) return "deny-immutable";
+  const invocation = inspectGitInvocation(tokens);
   if (!invocation) return "allow";
   return classifyGitInvocation(
     invocation.subcommand,
@@ -598,10 +714,23 @@ export function cheapShellDecision(command) {
   if (/(?:^|\s)-c\s+['"]?alias\.[^\s=]+=/iu.test(command)) return null;
   // GIT_CONFIG_KEY_* / PARAMETERS can redefine a "read-only" subcommand
   // (`alias.status=checkout -f BRA`). Cheap-allow must not run first.
+  // File-backed GIT_CONFIG / GLOBAL / SYSTEM is classified below as
+  // deny-immutable instead — those tokens must not skip the walk.
   if (
-    shellSegments(command).some((segment) => hasGitConfigInjection(shellTokens(segment)))
+    shellSegments(command).some((segment) =>
+      hasGitConfigProtocolInjection(shellTokens(segment)),
+    )
   ) {
     return null;
+  }
+  // File-backed GIT_CONFIG can be assigned in an earlier segment
+  // (`export GIT_CONFIG=/tmp/x; git fetch`) and still rewrite dest-refspecs.
+  const segments = shellSegments(command);
+  if (
+    segments.some((segment) => hasGitConfigFileEnv(shellTokens(segment))) &&
+    segments.some((segment) => invokesGit(shellTokens(segment)) >= 0)
+  ) {
+    return immutableBranchDenial();
   }
 
   const verdicts = [];
