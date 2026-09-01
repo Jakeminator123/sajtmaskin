@@ -51,7 +51,16 @@
         "alt": { "type": ["string", "null"] },
         "selector": { "type": ["string", "null"] },
         "text": { "type": ["string", "null"] },
-        "formId": { "type": ["string", "null"] }
+        "formId": { "type": ["string", "null"] },
+        "verificationRunId": { "type": ["string", "null"] },
+        "reportedWarningCount": { "type": "integer", "minimum": 0 },
+        "persistedWarningCount": { "type": "integer", "minimum": 0 },
+        "routesChecked": { "type": ["integer", "null"], "minimum": 0 },
+        "detection": { "type": ["string", "null"] },
+        "confidence": {
+          "type": ["string", "null"],
+          "enum": ["high", "medium", null]
+        }
       }
     }
   }

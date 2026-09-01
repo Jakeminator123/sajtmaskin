@@ -41,7 +41,6 @@ import {
   FolderGit2,
   Github,
   HelpCircle,
-  History,
   Image as ImageIcon,
   Layers,
   Loader2,
@@ -148,10 +147,6 @@ export function BuilderHeader(props: {
   onRetryDeploymentHistory?: () => void;
   deployDisabledReason?: string | null;
 
-  /** Toggles the version-history drawer (desktop only — panel is hidden < lg). */
-  onToggleVersions?: () => void;
-  isVersionPanelOpen?: boolean;
-
   /**
    * Previewens verktygskluster (`Kod`, `Byggblock`, `Bygg integrationer`,
    * `Rensa`, `Öppna`). Renderas som en avgränsad grupp precis före `Ny chat`.
@@ -219,8 +214,6 @@ export function BuilderHeader(props: {
     deploymentHistoryHydrationFailed,
     onRetryDeploymentHistory,
     deployDisabledReason,
-    onToggleVersions,
-    isVersionPanelOpen = false,
     previewTools,
   } = props;
 
@@ -706,20 +699,6 @@ export function BuilderHeader(props: {
           )}
           <span className="hidden sm:inline">Ny chat</span>
         </Button>
-
-        {onToggleVersions ? (
-          <Button
-            variant={isVersionPanelOpen ? "secondary" : "outline"}
-            size="sm"
-            onClick={onToggleVersions}
-            aria-pressed={isVersionPanelOpen}
-            title={isVersionPanelOpen ? "Stäng versionshistoriken" : "Öppna versionshistoriken"}
-            className="hidden lg:inline-flex"
-          >
-            <History className="h-4 w-4" />
-            <span className="hidden xl:inline">Versioner</span>
-          </Button>
-        ) : null}
 
         <BuilderPublishControl
           activeVersionId={activeVersionId}

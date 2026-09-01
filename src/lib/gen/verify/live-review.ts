@@ -89,6 +89,7 @@ const SYSTEM_PROMPT = [
   "verdict: pass = keeps the promise and is not broken; micro_fix = tiny local fix; targeted_repair = specific known defect; advisory = suggestion only.",
   "In this stage every non-pass verdict is a clickable suggestion — nothing is applied automatically.",
   "Write rationale and reasoning in Swedish. Keep rationale to 1-2 sentences.",
+  "Do not repeat the rationale inside reasoning. Leave reasoning empty when it would only restate the rationale; use it only for extra evidence.",
 ].join(" ");
 
 export function hasBlockingRuntimeCrash(findings: readonly ReviewFinding[]): boolean {

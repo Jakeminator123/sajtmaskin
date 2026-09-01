@@ -155,6 +155,10 @@ export function usePreviewIframe(params: {
   useLayoutEffect(() => {
     onPreviewSessionRotatedRef.current = onPreviewSessionRotated;
   }, [onPreviewSessionRotated]);
+  const reportOwnEngineRenderFailureRef = useRef(reportOwnEngineRenderFailure);
+  useLayoutEffect(() => {
+    reportOwnEngineRenderFailureRef.current = reportOwnEngineRenderFailure;
+  }, [reportOwnEngineRenderFailure]);
   const previewReadyTimerRef = useRef<number | null>(null);
   const tier2LoadTimerRef = useRef<number | null>(null);
   const tier2StatusPollTimerRef = useRef<number | null>(null);
@@ -272,9 +276,18 @@ export function usePreviewIframe(params: {
       tier2LoadIdentityRef.current = null;
       tier2ReadyReloadIdentityRef.current = null;
       setIframeLoading(false);
-      setIframeError(true);
+      // Ägarbeslut 2026-09-01: timeout är tyst i UI. Recovery + telemetri
+      // körs oförändrat; diagnostikkoden stannar för tester och logg.
+      setIframeError(false);
+      setIframeErrorMessage(null);
       setIframeDiagnosticCode("preview_ready_timeout");
-      setIframeErrorMessage(describePreviewDiagnosticCode("preview_ready_timeout"));
+      reportOwnEngineRenderFailureRef.current({
+        message: "Preview remained blank after waiting for a ready receipt.",
+        kind: "transport",
+        code: "preview_ready_timeout",
+        stage: "iframe",
+        source: "tier2-ready-timeout",
+      });
       if (tier2RecoveryRequestedIdentityRef.current !== identity) {
         tier2RecoveryRequestedIdentityRef.current = identity;
         onPreviewSessionSuspectRef.current?.();
@@ -645,11 +658,11 @@ export function usePreviewIframe(params: {
   /**
    * The boot deadline alone is not proof of failure: the running receipt can
    * be seconds late (slow Fly boot, rate-limited /preview-status) while the
-   * site below already renders. Prod 2026-08-31 (chat a3346e1e): the red
-   * `preview_ready_timeout` banner covered a working v2. Do one final
-   * read-only status check at the deadline — a matching running receipt goes
-   * to the normal ready-reload with no banner; anything else fails exactly
-   * like before (banner + one suspect report + bounded late recovery).
+   * site below already renders. Prod 2026-08-31 (chat a3346e1e) and
+   * 2026-09-01 (chat 5efde3c4): a `preview_ready_timeout` UI covered a
+   * working preview. Do one final read-only status check at the deadline —
+   * a matching running receipt goes to ready-reload with no UI; anything
+   * else keeps recovery + telemetry but stays visually silent.
    */
   const confirmOrFailTier2Ready = useCallback(
     (
@@ -989,9 +1002,9 @@ export function usePreviewIframe(params: {
 
         if (Date.now() - startedAt >= PREVIEW_READY_TIMEOUT_MS) {
           setIframeLoading(false);
-          setIframeError(true);
+          setIframeError(false);
+          setIframeErrorMessage(null);
           setIframeDiagnosticCode("preview_ready_timeout");
-          setIframeErrorMessage(describePreviewDiagnosticCode("preview_ready_timeout"));
           clearPreviewReadyTimer();
           if (previewUrl && isTier2LivePreviewUrl(previewUrl)) {
             onPreviewSessionSuspectRef.current?.();

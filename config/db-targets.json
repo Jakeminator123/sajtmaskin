@@ -8,6 +8,6 @@
   "prod": {
     "projectRef": "egcitvwgettkftkyzbvn",
     "region": "us-east-1",
-    "role": "Prod-Supabase — Vercel Production + POSTGRES_URL_PROD (CI) + .env.vercel.production.pulled (explicit lokal snapshot)"
+    "role": "Prod-Supabase — Vercel Production + Vercel Preview + POSTGRES_URL_PROD (CI) + .env.vercel.production.pulled (explicit lokal snapshot)"
   }
 }

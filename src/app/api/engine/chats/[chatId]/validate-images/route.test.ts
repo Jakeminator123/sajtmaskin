@@ -93,6 +93,21 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
     expect(updateVersionFiles).not.toHaveBeenCalled();
   });
 
+  it("forwards urls as onlyUrls so a scoped re-fix does not scan the whole site", async () => {
+    const res = await POST(
+      postRequest({ versionId: "ver_1", autoFix: true, urls: [DEAD_URL] }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(validateImages).toHaveBeenCalledWith(
+      expect.objectContaining({
+        autoFix: true,
+        onlyUrls: [DEAD_URL],
+      }),
+    );
+  });
+
   it("autoFix: true records the definitively-dead mapping and persists the fixed files", async () => {
     const res = await POST(postRequest({ versionId: "ver_1", autoFix: true }), {
       params: Promise.resolve({ chatId: "chat_1" }),

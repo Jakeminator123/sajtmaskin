@@ -17,8 +17,9 @@ import { useAuthStore } from "@/lib/auth/auth-store";
 import { requestF3Rebuild } from "@/lib/builder/project-env-events";
 import { resolveChatCollapseStatusText } from "@/lib/builder/chat-collapse-status";
 import { localizeVerificationSummary } from "@/lib/builder/version-history-status-labels";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Eye, MessageSquare } from "lucide-react";
+import { ChevronLeft, Eye, MessageSquare } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { BuilderLayout } from "../BuilderLayout";
@@ -209,8 +210,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         deploymentHistoryHydrationFailed={vm.deploymentHistoryHydrationFailed}
         onRetryDeploymentHistory={vm.refetchDeploymentHistory}
         deployDisabledReason={deployDisabledReason}
-        onToggleVersions={vm.handleToggleVersionPanel}
-        isVersionPanelOpen={!vm.isVersionPanelCollapsed}
         previewTools={
           <BuilderPreviewTools
             surface={previewSurface}
@@ -465,10 +464,23 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               surface={previewSurface}
             />
           </div>
-          {/* Versionshistoriken är en riktig drawer: helt dold när den är
-              stängd (ingen tunn vertikal remsa) och öppnas/stängs via
-              "Versioner"-knappen i headern eller panelens egen stängknapp. */}
-          {!vm.isVersionPanelCollapsed && (
+          {/* Versionshistoriken öppnas/stängs via panelens egen knapp. Infällt
+              läge är en smal fäll-ut-yta så header-knappen "Versioner" inte
+              behövs. */}
+          {vm.isVersionPanelCollapsed ? (
+            <div className="border-border bg-background hidden h-full w-10 flex-col items-center border-l px-1 py-2 lg:flex">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={vm.handleToggleVersionPanel}
+                title="Fäll ut versioner"
+                aria-label="Fäll ut versioner"
+                className="h-7 w-7"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
             <div className="border-border bg-background hidden h-full w-80 flex-col border-l lg:flex">
               <VersionHistory
                 chatId={vm.chatId}

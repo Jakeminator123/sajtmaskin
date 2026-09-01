@@ -17,6 +17,7 @@ export const runtime = "nodejs";
 const requestSchema = z.object({
   versionId: z.string().min(1),
   autoFix: z.boolean().optional().default(true),
+  urls: z.array(z.string().trim().min(1).max(2000)).max(16).optional(),
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
@@ -32,7 +33,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
       );
     }
 
-    const { versionId, autoFix } = validation.data;
+    const { versionId, autoFix, urls } = validation.data;
 
     const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
     if (!scopedVersion) {
@@ -50,6 +51,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
           files: filePairs,
           autoFix,
         unsplashAccessKey: unsplashKey,
+        onlyUrls: urls,
       });
 
       // Codex P2 (PR #376 round 2): a dry-run (`autoFix: false`) must not
