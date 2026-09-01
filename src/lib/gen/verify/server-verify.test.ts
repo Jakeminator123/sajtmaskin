@@ -1241,10 +1241,11 @@ describe("triggerServerVerification lease fail-closed + F3 readiness (L4/L1)", (
       project_id: "proj-1",
       orchestration_snapshot: { selectedDossiers: [] },
     });
-    getVersionById.mockReset().mockResolvedValue({
-      id: versionId,
-      parent_version_id: parentVersionId,
-    });
+    getVersionById.mockReset().mockImplementation(async (id: string) =>
+      id === parentVersionId
+        ? { id: parentVersionId, chat_id: chatId, parent_version_id: null }
+        : { id: versionId, chat_id: chatId, parent_version_id: parentVersionId },
+    );
     getVersionFilesSnapshot.mockReset().mockResolvedValue({
       files,
       filesJson,
@@ -1320,6 +1321,57 @@ describe("triggerServerVerification lease fail-closed + F3 readiness (L4/L1)", (
       expect.stringMatching(/required env/i),
       "run-l4-l1",
     );
+  });
+
+  it("L1: integrations without a design parent fails closed and never calls readiness", async () => {
+    getVersionById.mockResolvedValue({
+      id: versionId,
+      chat_id: chatId,
+      parent_version_id: null,
+    });
+
+    await triggerServerVerification({ chatId, versionId });
+
+    // Passing `productPostcheckVersionId: undefined` would make the helper
+    // check the F3 row itself, which never carries the parent's summary.
+    expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      versionId,
+      expect.stringMatching(/no design version/i),
+      "run-l4-l1",
+    );
+  });
+
+  it("L1: a design parent belonging to another chat fails closed", async () => {
+    getVersionById.mockImplementation(async (id: string) =>
+      id === parentVersionId
+        ? { id: parentVersionId, chat_id: "someone-elses-chat", parent_version_id: null }
+        : { id: versionId, chat_id: chatId, parent_version_id: parentVersionId },
+    );
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(checkTier3ReadinessForVersion).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      versionId,
+      expect.stringMatching(/could not be resolved/i),
+      "run-l4-l1",
+    );
+  });
+
+  it("L1: the readiness bail still releases the lease and frees the version", async () => {
+    checkTier3ReadinessForVersion.mockResolvedValue({ ok: false, reason: "missing_env" });
+
+    await triggerServerVerification({ chatId, versionId });
+    // A leaked lease would make the retry below a no-op (409 busy).
+    expect(releaseVersionLease).toHaveBeenCalledWith(versionId, "run-l4-l1");
+
+    checkTier3ReadinessForVersion.mockResolvedValue({ ok: true });
+    await triggerServerVerification({ chatId, versionId });
+    expect(runQualityGateOnExportable).toHaveBeenCalled();
   });
 
   it("regression: a design (F2) version is unaffected by the F3 readiness gate", async () => {

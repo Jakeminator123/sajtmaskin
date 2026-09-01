@@ -88,6 +88,7 @@ import { triggerServerVerification } from "./server-verify";
 
 const chatId = "chat-sm024";
 const versionId = "version-sm024";
+const parentVersionId = "version-sm024-parent";
 
 const pageFile = {
   path: "components/map-display.tsx",
@@ -147,7 +148,13 @@ beforeEach(() => {
   getPreferredVersion.mockReset().mockResolvedValue({ id: versionId });
   getLatestVersion.mockReset().mockResolvedValue({ id: versionId });
   getChat.mockReset().mockResolvedValue(null);
-  getVersionById.mockReset().mockResolvedValue({ id: versionId, parent_version_id: null });
+  // F3 readiness resolves the design parent before the gate; these fixtures are
+  // `integrations`, so they need a parent that belongs to the same chat.
+  getVersionById.mockReset().mockImplementation(async (id: string) =>
+    id === parentVersionId
+      ? { id: parentVersionId, chat_id: chatId, parent_version_id: null }
+      : { id: versionId, chat_id: chatId, parent_version_id: parentVersionId },
+  );
   markVersionSupersededByRepair.mockReset().mockResolvedValue(null);
   getVersionFilesSnapshot.mockReset().mockResolvedValue({
     files: projectFiles,
