@@ -104,13 +104,13 @@ const TMP_PRESSURE_FREE_MB = 200;
 const PLAYWRIGHT_PROFILE_SWEEP_MAX_CANDIDATES = 100;
 const PLAYWRIGHT_PROFILE_SWEEP_BUDGET_MS = 2_000;
 
-function pruneLeakedPlaywrightProfilesBestEffort(
+async function pruneLeakedPlaywrightProfilesBestEffort(
   maxAgeMs: number = PLAYWRIGHT_PROFILE_MAX_AGE_MS,
-): number {
+): Promise<number> {
   try {
     const tmp = os.tmpdir();
     const started = Date.now();
-    const entries = fs.readdirSync(tmp, { withFileTypes: true });
+    const entries = await fs.promises.readdir(tmp, { withFileTypes: true });
     let pruned = 0;
     let candidates = 0;
     for (const entry of entries) {
@@ -119,14 +119,14 @@ function pruneLeakedPlaywrightProfilesBestEffort(
       if (!entry.name.startsWith(PLAYWRIGHT_PROFILE_PREFIX)) continue;
       const dir = path.join(tmp, entry.name);
       try {
-        const ageMs = Date.now() - fs.statSync(dir).mtimeMs;
+        const ageMs = Date.now() - (await fs.promises.stat(dir)).mtimeMs;
         if (ageMs < maxAgeMs) continue;
         // Kandidat-taket räknar bara RADERINGSFÖRSÖK (Bugbot high på diffen:
         // färska profiler fick inte äta budgeten så att gamla läckor aldrig
         // nåddes). Unga skips är redan tidsbundna via svep-budgeten ovan.
         candidates += 1;
         if (candidates > PLAYWRIGHT_PROFILE_SWEEP_MAX_CANDIDATES) break;
-        fs.rmSync(dir, { recursive: true, force: true });
+        await fs.promises.rm(dir, { recursive: true, force: true });
         pruned += 1;
       } catch {
         // En låst/försvunnen kandidat får inte stoppa resten av svepet.
@@ -150,23 +150,24 @@ const TMP_TOP_CONSUMER_COUNT = 6;
 const TMP_TOP_SCAN_BUDGET_MS = 1_500;
 const TMP_TOP_SCAN_MAX_ENTRIES = 5_000;
 
-function logTmpTopConsumersBestEffort(): void {
+async function logTmpTopConsumersBestEffort(): Promise<void> {
   try {
     const tmp = os.tmpdir();
     const started = Date.now();
     let scanned = 0;
 
-    const sizeOf = (target: string): number => {
+    const sizeOf = async (target: string): Promise<number> => {
       if (Date.now() - started >= TMP_TOP_SCAN_BUDGET_MS) return 0;
       if (scanned >= TMP_TOP_SCAN_MAX_ENTRIES) return 0;
       scanned += 1;
       try {
-        const stat = fs.lstatSync(target);
+        const stat = await fs.promises.lstat(target);
         if (stat.isFile()) return stat.size;
         if (!stat.isDirectory()) return 0;
         let total = 0;
-        for (const entry of fs.readdirSync(target)) {
-          total += sizeOf(path.join(target, entry));
+        const entries = await fs.promises.readdir(target);
+        for (const entry of entries) {
+          total += await sizeOf(path.join(target, entry));
           if (Date.now() - started >= TMP_TOP_SCAN_BUDGET_MS) break;
         }
         return total;
@@ -175,17 +176,20 @@ function logTmpTopConsumersBestEffort(): void {
       }
     };
 
-    const rows = fs
-      .readdirSync(tmp)
-      .map((name) => ({ name, mb: Math.round(sizeOf(path.join(tmp, name)) / 1_048_576) }))
-      .filter((row) => row.mb >= 1)
-      .sort((a, b) => b.mb - a.mb)
-      .slice(0, TMP_TOP_CONSUMER_COUNT);
+    const names = await fs.promises.readdir(tmp);
+    const rows: Array<{ name: string; mb: number }> = [];
+    for (const name of names) {
+      const mb = Math.round((await sizeOf(path.join(tmp, name))) / 1_048_576);
+      if (mb >= 1) rows.push({ name, mb });
+      if (Date.now() - started >= TMP_TOP_SCAN_BUDGET_MS) break;
+    }
+    rows.sort((a, b) => b.mb - a.mb);
+    const top = rows.slice(0, TMP_TOP_CONSUMER_COUNT);
     const truncated =
       Date.now() - started >= TMP_TOP_SCAN_BUDGET_MS || scanned >= TMP_TOP_SCAN_MAX_ENTRIES;
     console.warn(
       `[capture-browser] tmp top consumers${truncated ? " (truncated scan)" : ""}: ${
-        rows.length > 0 ? rows.map((row) => `${row.name}=${row.mb}MB`).join(", ") : "none >= 1MB"
+        top.length > 0 ? top.map((row) => `${row.name}=${row.mb}MB`).join(", ") : "none >= 1MB"
       }`,
     );
   } catch {
@@ -193,18 +197,25 @@ function logTmpTopConsumersBestEffort(): void {
   }
 }
 
+/**
+ * /tmp-hygien sker UTANFÖR capture-mutexen. Svepet och topp-listan är
+ * budgetstyrda men får inte hålla Chromium-sloten medan de går.
+ */
+async function prepareTmpForCaptureLaunch(): Promise<void> {
+  const freeMb = await measureTmpFreeSpaceBestEffort();
+  const underPressure = freeMb !== null && freeMb < TMP_PRESSURE_FREE_MB;
+  if (underPressure) await logTmpTopConsumersBestEffort();
+  const pruned = await pruneLeakedPlaywrightProfilesBestEffort(
+    underPressure ? PLAYWRIGHT_PROFILE_PRESSURE_AGE_MS : PLAYWRIGHT_PROFILE_MAX_AGE_MS,
+  );
+  if (pruned > 0) {
+    console.warn(`[capture-browser] pruned ${pruned} leaked Playwright profile dir(s)`);
+    await measureTmpFreeSpaceBestEffort();
+  }
+}
+
 async function launchCaptureBrowserUnscoped(): Promise<Browser> {
   if (IS_SERVERLESS) {
-    const freeMb = await measureTmpFreeSpaceBestEffort();
-    const underPressure = freeMb !== null && freeMb < TMP_PRESSURE_FREE_MB;
-    if (underPressure) logTmpTopConsumersBestEffort();
-    const pruned = pruneLeakedPlaywrightProfilesBestEffort(
-      underPressure ? PLAYWRIGHT_PROFILE_PRESSURE_AGE_MS : PLAYWRIGHT_PROFILE_MAX_AGE_MS,
-    );
-    if (pruned > 0) {
-      console.warn(`[capture-browser] pruned ${pruned} leaked Playwright profile dir(s)`);
-      await measureTmpFreeSpaceBestEffort();
-    }
     const chromium = (await import("@sparticuz/chromium")).default;
     const { chromium: pw } = await import("playwright-core");
     return pw.launch({
@@ -244,6 +255,9 @@ async function launchCaptureBrowserWithRetry(): Promise<Browser> {
 }
 
 export async function launchCaptureBrowser(): Promise<Browser> {
+  if (IS_SERVERLESS) {
+    await prepareTmpForCaptureLaunch();
+  }
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
