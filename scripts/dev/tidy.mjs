@@ -184,7 +184,7 @@ export function isWorktreeDirty(statusOutput) {
  * `npm run worktree:remove` vägrar redan på smutsigt eller ospårat innehåll.
  * Den vet däremot ingenting om PR-status — det hålet täcks här.
  *
- * @param {{ branch: string | null, hasOpenPr: boolean, isDirty: boolean, mergedIntoBase: boolean, mergedByExactPr?: boolean, isMain: boolean }} wt
+ * @param {{ branch: string | null, hasOpenPr: boolean, isDirty: boolean, mergedIntoBase: boolean, mergedByExactPr?: boolean, isMain: boolean, isProtected?: boolean }} wt
  * @returns {{ verdict: "keep" | "free", reason: string }}
  */
 export function classifyWorktree({
