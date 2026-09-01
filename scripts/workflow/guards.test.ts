@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   cheapShellDecision,
   decide as decideWorktree,
+  expandAnsiCQuotes,
   isImmutableBranchName,
   mayResolveToGit,
   resolveAliasesFor,
@@ -249,6 +250,12 @@ describe("commit guard", () => {
     expect(matcher.test("$'\\x67it' config --edit")).toBe(true);
     expect(matcher.test("echo $'hello'")).toBe(true);
     expect(decideWorktree("echo $'hello'", { aliases: new Set() }).permission).toBe("allow");
+    expect(expandAnsiCQuotes("$'\\x67it' $'\\x66etch' origin JAKOB_BRA:JAKOB_BRA")).toBe(
+      "git fetch origin JAKOB_BRA:JAKOB_BRA",
+    );
+    expect(expandAnsiCQuotes("$'\\x67it' fetch --refmap=+refs/heads/*:refs/heads/* origin")).toBe(
+      "git fetch --refmap=+refs/heads/*:refs/heads/* origin",
+    );
   });
 
   it("asks for protected unstaged files included by -am", () => {
@@ -533,6 +540,13 @@ describe("cheap read-only git path", () => {
     "$'\\x67it' fetch origin JAKOB_BRA:JAKOB_BRA",
     "g$'\\x69t' fetch origin JAKOB_BRA:JAKOB_BRA",
     "$'\\x67it' config --edit",
+    "$'\\x67it' $'\\x66etch' origin JAKOB_BRA:JAKOB_BRA",
+    "$'\\x67it' fetch origin $'JAKOB_\\x42RA:JAKOB_\\x42RA'",
+    "$'\\x67it' $'\\x63onfig' --edit",
+    "$'\\x67it' config $'--\\x65dit'",
+    "$'\\x67it' -c $'include\\x2epath=/tmp/evil.cfg' status",
+    "$'\\x67it' fetch --refmap=+refs/heads/*:refs/heads/* origin",
+    "$'\\x67it' fetch origin $'\\x72escue/foo:\\x72escue/foo'",
     "git -c include.path=/tmp/evil.cfg fetch origin",
     "git -c include.path=/tmp/evil.cfg status",
     "git config remote.origin.fetch +refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA",
@@ -619,6 +633,8 @@ describe("hook CLI contract", () => {
     [".cursor/hooks/worktree-force-guard.mjs", "git config -e", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "$'\\x67it' fetch origin JAKOB_BRA:JAKOB_BRA", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "$'\\x67it' config --edit", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "$'\\x67it' $'\\x66etch' origin JAKOB_BRA:JAKOB_BRA", "deny"],
+    [".cursor/hooks/worktree-force-guard.mjs", "$'\\x67it' fetch --refmap=+refs/heads/*:refs/heads/* origin", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git -c include.path=/tmp/evil.cfg fetch origin", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git -c include.path=/tmp/evil.cfg status", "deny"],
     [".cursor/hooks/worktree-force-guard.mjs", "git config remote.origin.fetch +refs/heads/JAKOB_BRA:refs/heads/JAKOB_BRA", "deny"],

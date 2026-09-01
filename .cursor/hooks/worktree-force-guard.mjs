@@ -163,10 +163,91 @@ const SHELL_EXPANSION = /\$\(|`|\$\{|\$[A-Za-z_]/u;
 const ANSI_C_QUOTING = /\$['"]/u;
 const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=.*/u;
 
+const ANSI_C_SIMPLE_ESCAPES = {
+  a: "\u0007",
+  b: "\b",
+  e: "\u001b",
+  E: "\u001b",
+  f: "\f",
+  n: "\n",
+  r: "\r",
+  t: "\t",
+  v: "\v",
+  "\\": "\\",
+  "'": "'",
+  '"': '"',
+  "?": "?",
+};
+
+function decodeAnsiCEscape(text, index) {
+  const marker = text[index + 1];
+  if (marker && Object.hasOwn(ANSI_C_SIMPLE_ESCAPES, marker)) {
+    return { ch: ANSI_C_SIMPLE_ESCAPES[marker], next: index + 2 };
+  }
+  if (marker === "x") {
+    const hex = /^[0-9a-fA-F]{1,2}/u.exec(text.slice(index + 2));
+    if (!hex) return { ch: "x", next: index + 2 };
+    return { ch: String.fromCharCode(Number.parseInt(hex[0], 16)), next: index + 2 + hex[0].length };
+  }
+  if (marker === "u" || marker === "U") {
+    const width = marker === "u" ? 4 : 8;
+    const hex = text.slice(index + 2, index + 2 + width);
+    if (hex.length !== width || !/^[0-9a-fA-F]+$/u.test(hex)) {
+      return { ch: marker, next: index + 2 };
+    }
+    return { ch: String.fromCodePoint(Number.parseInt(hex, 16)), next: index + 2 + width };
+  }
+  if (marker >= "0" && marker <= "7") {
+    const oct = /^[0-7]{1,3}/u.exec(text.slice(index + 1));
+    return { ch: String.fromCharCode(Number.parseInt(oct[0], 8)), next: index + 1 + oct[0].length };
+  }
+  if (marker === "c" && text[index + 2]) {
+    return { ch: String.fromCharCode(text[index + 2].toUpperCase().charCodeAt(0) & 31), next: index + 3 };
+  }
+  return { ch: marker ?? "\\", next: index + (marker ? 2 : 1) };
+}
+
 /**
- * `$'\\x67it'` / `g$'\\x69t'` hide the letters `git` from `\\bgit\\b` and from
- * `mayResolveToGit`'s substring check. The hook still has to fail closed when
- * the payload is a BRA write, include.path, or `config --edit`.
+ * Expand bash `$'…'` so dest-refspec / include.path / `git` can be classified.
+ * `$"…"` is locale-quoting, not ANSI-C; leave it to the fail-closed path.
+ * Unclosed `$'` returns null.
+ */
+export function expandAnsiCQuotes(command) {
+  if (typeof command !== "string") return null;
+  let out = "";
+  let index = 0;
+  while (index < command.length) {
+    if (command[index] === "$" && command[index + 1] === "'") {
+      index += 2;
+      let closed = false;
+      while (index < command.length) {
+        if (command[index] === "\\") {
+          const decoded = decodeAnsiCEscape(command, index);
+          out += decoded.ch;
+          index = decoded.next;
+          continue;
+        }
+        if (command[index] === "'") {
+          closed = true;
+          index += 1;
+          break;
+        }
+        out += command[index];
+        index += 1;
+      }
+      if (!closed) return null;
+      continue;
+    }
+    out += command[index];
+    index += 1;
+  }
+  return out;
+}
+
+/**
+ * `$'\\x67it'` hides `git` from `\\bgit\\b`. After ANSI-C expand the ordinary
+ * classifier sees the real command; this remains a fail-closed hint when
+ * expand is skipped (`$"` / unclosed).
  */
 export function looksLikeEncodedGit(command) {
   if (typeof command !== "string" || !ANSI_C_QUOTING.test(command)) return false;
@@ -742,8 +823,14 @@ export function cheapShellDecision(command) {
   if (typeof command !== "string" || !command.trim()) return null;
   const expandable = command.replace(/'[^']*'/gu, "");
   if (SHELL_EXPANSION.test(expandable)) return null;
-  // `$'…'` is not `$VAR` / `$(…)` so the expansion skip above misses it, and
-  // the tokenizer keeps the `$` so dest-refspec / include.path never match.
+  // `$'…'` is not `$VAR` / `$(…)`. Expand hex/octal and classify the result
+  // so `$'\x67it' $'\x66etch' origin BRA:BRA` cannot cheap-allow. `$"` and
+  // failed expand stay fail-closed when the command can reach git.
+  if (command.includes("$'")) {
+    const expanded = expandAnsiCQuotes(command);
+    if (!expanded) return immutableBranchDenial();
+    if (expanded !== command) return cheapShellDecision(expanded);
+  }
   if (ANSI_C_QUOTING.test(command) && mayResolveToGit(command)) {
     return immutableBranchDenial();
   }
