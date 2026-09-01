@@ -126,13 +126,23 @@ const GIT_WRAPPER_PREFIXES = new Set([
   "stdbuf",
   "time",
   "watch",
+  "ionice",
+  "strace",
+  "chrt",
   "--",
 ]);
 
+function commandBasename(token) {
+  const parts = token.split(/[/\\]/u);
+  return (parts[parts.length - 1] || token).toLowerCase();
+}
+
 function isGitPrefixToken(token) {
-  if (GIT_WRAPPER_PREFIXES.has(token.toLowerCase())) return true;
+  if (GIT_WRAPPER_PREFIXES.has(token.toLowerCase()) || GIT_WRAPPER_PREFIXES.has(commandBasename(token))) {
+    return true;
+  }
   if (token.startsWith("-")) return true;
-  if (/^\d+[smhd]?$/u.test(token)) return true;
+  if (/^(?:\d+(?:\.\d+)?|\.\d+)[smhd]?$/u.test(token)) return true;
   return ENV_ASSIGNMENT.test(token);
 }
 
