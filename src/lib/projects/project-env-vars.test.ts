@@ -52,7 +52,7 @@ describe("project env var storage invariants", () => {
       { key: "PUBLIC_URL", value: "https://example.com", sensitive: false },
     ]);
 
-    const savedMeta = saveProjectData.mock.calls[0][0].meta as {
+    const savedMeta = saveProjectData.mock.calls[0][0].meta_patch as {
       projectEnvVars: Array<{ key: string; value: string; sensitive: boolean }>;
     };
     const savedApiKey = savedMeta.projectEnvVars.find((item) => item.key === "API_KEY");
@@ -98,7 +98,7 @@ describe("project env var storage invariants", () => {
       keys: ["PUBLIC_URL"],
     });
 
-    const savedMeta = saveProjectData.mock.calls[0][0].meta as {
+    const savedMeta = saveProjectData.mock.calls[0][0].meta_patch as {
       projectEnvVars: Array<{ key: string; value: string; sensitive: boolean }>;
     };
 
@@ -186,7 +186,7 @@ describe("project env var storage invariants", () => {
 
     await deleteStoredProjectEnvVars("proj_1", { ids: ["legacy:API_KEY"] });
 
-    const savedMeta = saveProjectData.mock.calls[0][0].meta as {
+    const savedMeta = saveProjectData.mock.calls[0][0].meta_patch as {
       projectEnvVars: Array<{ key: string }>;
     };
     expect(savedMeta.projectEnvVars).toEqual([]);

@@ -113,4 +113,30 @@ describe("saveProjectData — timestamp UTC-korrekthet", () => {
     ).toBe(true);
     expect((s.updated_at as Date).toISOString()).toMatch(/Z$/);
   });
+  it("mergar meta_patch med ett SQL-uttryck i samma UPSERT", async () => {
+    const patch = { palette: { primary: "#123456" } };
+    await saveProjectData({ project_id: "proj_meta", meta_patch: patch });
+
+    const inserted = projectInsertCapture.values as Record<string, unknown>;
+    const conflictSet = projectInsertCapture.onConflictSet as Record<string, unknown>;
+
+    // New rows receive the patch directly. Existing rows must use Drizzle SQL
+    // (COALESCE(meta, {}) || patch) rather than replacing the stored
+    // document with the caller\'s stale snapshot.
+    expect(inserted.meta).toEqual(patch);
+    expect(conflictSet.meta).toBeDefined();
+    expect(conflictSet.meta).not.toBe(patch);
+    expect(conflictSet.meta).toHaveProperty("queryChunks");
+  });
+
+  it("avvisar tvetydig full meta + meta_patch", async () => {
+    await expect(
+      saveProjectData({
+        project_id: "proj_meta",
+        meta: { palette: "old" },
+        meta_patch: { previewOverride: null },
+      }),
+    ).rejects.toThrow("either meta or meta_patch");
+  });
+
 });

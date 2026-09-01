@@ -108,7 +108,10 @@ async function handlePATCH(request: NextRequest, { params }: RouteParams) {
 
     await saveProjectData({
       project_id: id,
-      meta: existingMeta,
+      // `seo` owns one top-level namespace. Merge it in PostgreSQL so a
+      // concurrent palette or preview autosave cannot be overwritten by the
+      // stale metadata snapshot used to calculate this SEO patch.
+      meta_patch: parsed.data.seo !== undefined ? { seo: existingMeta.seo } : {},
     });
 
     return NextResponse.json({

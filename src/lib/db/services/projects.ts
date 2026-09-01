@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db/client";
@@ -564,10 +564,17 @@ export async function saveProjectData(data: {
   current_code?: string | null;
   files?: unknown[] | null;
   messages?: unknown[] | null;
+  /** Replace the complete metadata document (legacy/full-snapshot writes). */
   meta?: unknown | null;
+  /** Atomically merge top-level metadata namespaces in PostgreSQL. */
+  meta_patch?: Record<string, unknown>;
 }): Promise<void> {
   assertDbConfigured();
   const now = new Date();
+
+  if ("meta" in data && "meta_patch" in data) {
+    throw new Error("saveProjectData accepts either meta or meta_patch, not both");
+  }
 
   const insertValues: typeof projectData.$inferInsert = {
     project_id: data.project_id,
@@ -598,7 +605,14 @@ export async function saveProjectData(data: {
     insertValues.messages = data.messages ?? [];
     updateValues.messages = data.messages ?? [];
   }
-  if ("meta" in data) {
+  if ("meta_patch" in data) {
+    const metaPatch = data.meta_patch ?? {};
+    insertValues.meta = metaPatch;
+    // Merge inside the single UPSERT statement. A read-merge-write in Node can
+    // lose a concurrent palette, previewOverride, preferences or env-var write
+    // after both requests read the same metadata snapshot.
+    updateValues.meta = sql`COALESCE(${projectData.meta}, '{}'::jsonb) || ${JSON.stringify(metaPatch)}::jsonb`;
+  } else if ("meta" in data) {
     insertValues.meta = data.meta ?? null;
     updateValues.meta = data.meta ?? null;
   }
