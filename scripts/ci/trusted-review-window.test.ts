@@ -286,7 +286,7 @@ describe("trusted review evidence", () => {
         headSha: HEAD,
         trustedActors: ["Jakeminator123"],
       }),
-    ).toMatchObject({ valid: true, completedAtEpoch: 120 });
+    ).toMatchObject({ valid: true, completedAtEpoch: 115 });
     expect(
       validateTrustedPrAiEvidence({
         ...accountEvidence,
@@ -296,6 +296,39 @@ describe("trusted review evidence", () => {
         trustedActors: ["Jakeminator123"],
       }),
     ).toMatchObject({ valid: true });
+  });
+
+  it("does not let a late advisory receipt move the sign-off clock", () => {
+    const reviewId = 912;
+    expect(
+      validateAccountPrReviewEvidence({
+        issueComments: [
+          fallbackRequest(),
+          {
+            id: 71,
+            body: renderAccountReviewReceiptMarker({ headSha: HEAD, reviewId }),
+            created_at: at(500),
+            updated_at: at(500),
+            author_association: "OWNER",
+            user: { login: "Jakeminator123", type: "User" },
+          },
+        ],
+        reviews: [
+          {
+            id: reviewId,
+            body: `${renderAccountReviewMarker(HEAD)}\n\nbugkoll: codex\n\nInga fynd.`,
+            state: "COMMENTED",
+            commit_id: HEAD,
+            submitted_at: at(115),
+            updated_at: at(115),
+            author_association: "OWNER",
+            user: { login: "Jakeminator123", type: "User" },
+          },
+        ],
+        headSha: HEAD,
+        trustedActors: ["Jakeminator123"],
+      }),
+    ).toMatchObject({ valid: true, completedAtEpoch: 115 });
   });
 
   it.each([
@@ -374,7 +407,7 @@ describe("trusted review evidence", () => {
         ...evidence,
         prAuthor: { login: "dependabot[bot]", type: "Bot" },
       }),
-    ).toMatchObject({ valid: true, completedAtEpoch: 120 });
+    ).toMatchObject({ valid: true, completedAtEpoch: 115 });
     expect(
       validateAccountPrReviewEvidence({
         ...evidence,

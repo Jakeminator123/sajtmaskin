@@ -423,7 +423,10 @@ export function validateAccountPrReviewEvidence({
     return {
       valid: true,
       reason: `konto-review ${review.id} täcker live head ${normalizedHead.slice(0, 7)}`,
-      completedAtEpoch: Math.max(fallbackEpoch, receiptEpoch, reviewEpoch),
+      // Receipt is advisory proof that the review exists. Its updated_at must
+      // not move the sign-off clock — a late kvitto used to invalidate an
+      // already-correct merge:ready.
+      completedAtEpoch: Math.max(fallbackEpoch, reviewEpoch),
     };
   }
   return {
