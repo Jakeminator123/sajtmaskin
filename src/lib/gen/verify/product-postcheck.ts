@@ -709,7 +709,11 @@ export function evaluateProductDomSnapshot(
       cta.reactPropsProbed === true ? "rendered-dom+react-props" : "rendered-dom";
     if (cta.tag === "a") {
       const href = cta.href?.trim() || "";
-      if ((!href || href === "#") && !hasRenderedHandler) {
+      // `javascript:void(0)` navigerar ingenstans — samma tomma placeholder som
+      // `#`. Den vanliga varianten bär en riktig onClick, och den räddas av
+      // `hasRenderedHandler`; utan handler är länken lika död som `href="#"`.
+      const hrefIsPlaceholder = !href || href === "#" || /^javascript:/i.test(href);
+      if (hrefIsPlaceholder && !hasRenderedHandler) {
         warnings.push(
           warning("cta_no_handler", "CTA-länk saknar mål.", {
             text: textPreview(cta.text),
@@ -1520,10 +1524,13 @@ export async function runProductPostcheck(params: {
 
       // closest("a[href]") matchar elementet självt, så en `<a href="#">`
       // såg ut som "inlänkad". Kräv en *annan* länk med riktig destination.
+      // `javascript:void(0)` är samma tomma placeholder som `#` — den navigerar
+      // ingenstans. En riktig onClick räddas ändå av handler-proben ovan.
       const hasMeaningfulHref = (anchor: Element | null | undefined): boolean => {
         if (!anchor) return false;
         const href = (anchor.getAttribute("href") || "").trim();
-        return href !== "" && href !== "#";
+        if (!href || href === "#") return false;
+        return !/^javascript:/i.test(href);
       };
 
       return {

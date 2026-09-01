@@ -50,6 +50,36 @@ describe("buildMissingHomeRouteIssue — composed measure", () => {
     expect(issue).toBeNull();
   });
 
+  it("passes by MEASURING a resolved rich export, not by waiving it", () => {
+    // Skiljer de två gröna vägarna åt: här finns exporten, så kroppen mäts och
+    // räknas. Utan det här testet kunde hela sviten vara grön enbart tack vare
+    // `not-found`-friskrivningen, och en trasig mätning hade sett rätt ut.
+    const richExported = [
+      "export default function TurtleLanding() {",
+      "  return (",
+      "    <main>",
+      "      <section>",
+      "        <h1>Futuristiska sköldpaddor</h1>",
+      "        <p>",
+      "          Neonbelysta rev, holografiska skal och tidvatten av data.",
+      "          En landing om kolonier, kartor och nattliga vandringar",
+      "          längs den syntetiska kusten — inte ett tomt skelett.",
+      "        </p>",
+      "        <button>Starta resan</button>",
+      "      </section>",
+      "    </main>",
+      "  );",
+      "}",
+    ].join("\n");
+
+    const issue = trivialHomeIssue([
+      { path: "app/page.tsx", content: THIN_DEFAULT_IMPORT_PAGE },
+      { path: "components/turtle-landing.tsx", content: richExported },
+    ]);
+
+    expect(issue).toBeNull();
+  });
+
   it("still blocks a genuinely empty delegated default export", () => {
     const emptyDefault = [
       "export default function TurtleLanding() {",

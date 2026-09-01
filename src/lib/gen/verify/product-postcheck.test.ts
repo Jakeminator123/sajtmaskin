@@ -254,6 +254,53 @@ describe("evaluateProductDomSnapshot", () => {
     expect(evaluation.warnings[0]?.code).toBe("cta_no_handler");
   });
 
+  it("flags a dead <a href='javascript:void(0)'> CTA without a handler", () => {
+    // Näst vanligaste döda CTA:n efter `#`. Den navigerar ingenstans, och utan
+    // onClick är den lika död — men den slapp igenom eftersom href varken var
+    // tom eller exakt `#`.
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [
+          {
+            ...deadCtaLink,
+            href: "javascript:void(0)",
+            text: "Kom igång",
+            anchorWrapped: true,
+          },
+        ],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual(["cta_no_handler"]);
+  });
+
+  it("does not flag javascript:void(0) when a real React handler is attached", () => {
+    // Den legitima varianten: placeholder-href plus onClick. Falsklarmsfixen
+    // från #1241 måste fortsätta rädda den.
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [],
+        images: [],
+        ctas: [
+          {
+            ...deadCtaLink,
+            href: "javascript:void(0)",
+            text: "Kom igång",
+            hasReactHandler: true,
+          },
+        ],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual([]);
+  });
+
   it("flags a dead <a href=''> CTA", () => {
     const evaluation = evaluateProductDomSnapshot(
       {

@@ -109,7 +109,11 @@ function resolveAuthoritativePreviewUrl(params: {
   const sessionKey = previewUrlOriginAndPath(sessionUrl);
   const clientKey = previewUrlOriginAndPath(clientUrl);
   if (sessionKey && clientKey && sessionKey !== clientKey) {
-    return sessionUrl;
+    // Sessionen vinner ändå, men divergensen är värd att se: den betyder att
+    // klienten satt kvar på en äldre preview-adress än den bundna sessionen.
+    console.warn(
+      `[product-postcheck] Ignorerar klientens preview-URL (${clientKey}) — bunden session pekar på ${sessionKey}.`,
+    );
   }
   return sessionUrl;
 }
