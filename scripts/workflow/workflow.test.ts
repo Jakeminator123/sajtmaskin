@@ -237,7 +237,7 @@ describe("agent workflow impact", () => {
     expect(impact.commands).not.toContain("knip:files");
   });
 
-  it.each([".cursorignore", ".cursorindexingignore"])(
+  it.each([".cursorignore", ".cursorindexingignore", ".gitignore", ".worktreeinclude"])(
     "routes the root Cursor control file %s to the agent profile",
     (path) => {
       const impact = collectImpact({ ...inputs, changedFiles: [path] });

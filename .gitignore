@@ -156,6 +156,8 @@ services/mpc/logs/
 Thumbs.db
 .vscode.bak/
 # Cursor-specific (plans are session-specific)
+# Nested agent worktrees under the repo are forbidden; siblings go beside the root.
+.cursor/worktrees/
 .cursor/plans/
 /*.plan.md
 .cursor/documents/

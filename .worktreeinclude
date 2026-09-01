@@ -1,3 +1,4 @@
-# No ignored machine-local files are copied into Codex-managed worktrees by
-# default. Add only an explicitly reviewed, non-sensitive path when a task
-# genuinely needs it. Never add `.env.local` or live connector credentials.
+# Default is empty on purpose. `worktree:setup` seeds `.cursor/mcp.json` from
+# the tracked `.cursor/mcp.json.example` and copies only paths listed here.
+# Add only an explicitly reviewed, non-sensitive path when a task genuinely
+# needs it. Never add `.env.local` or live connector credentials.
