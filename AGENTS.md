@@ -31,8 +31,7 @@ projektion → mental modell → historik. Git är arkivet; inga backupdocs. Pol
   Jakob ber om det. Policy: `config/agent-workflow.json`.
 - Kör `npm run hooks:install` vid färsk clone eller workflowändring; främmande
   hookkonflikt är ett stopp.
-- Före push: `npm run verify:pr -- --plan` + riktat. CI publicerar tung
-  profil eller light-kvitto; lokal fullkörning är frivillig.
+- Före push: `npm run verify:pr -- --plan` + riktat. CI: tung eller light.
 - Branch, commit, push, PR och merge kräver mandat enligt `git.mdc`; force-pusha
   aldrig master eller en delad remote-branch.
 - Merga aldrig utan ett separat uttryckligt mergeuppdrag.
