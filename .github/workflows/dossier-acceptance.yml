@@ -46,7 +46,11 @@ jobs:
         id: matrix
         run: echo "dossiers=$(node scripts/dossiers/list-acceptance-matrix.mjs)" >> "$GITHUB_OUTPUT"
 
+  # Catalog freshness is a scheduled/manual sentinel and may intentionally be
+  # red for an explicit `unverified` dossier. It must not false-red an otherwise
+  # valid PR whose acceptance projects all build.
   verification-evidence:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
