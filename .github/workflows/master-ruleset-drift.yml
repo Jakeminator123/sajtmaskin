@@ -1,10 +1,16 @@
 name: master-ruleset-drift
 
 # Read-only desired-state audit for GitHub configuration that lives outside Git.
+# Not a pull_request check: desired != live until the owner updates Protect
+# master after merge, so a PR trigger would fail this C1 PR (and later policy
+# PRs) before that manual step. Runs on master (post-merge remaining drift),
+# nightly schedule (UI drift) and workflow_dispatch (operator verify).
 on:
-  workflow_dispatch:
+  push:
+    branches: [master]
   schedule:
     - cron: "17 5 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read

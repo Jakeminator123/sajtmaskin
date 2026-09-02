@@ -7,6 +7,8 @@ export const DEFAULT_SPEC_PATH = resolve(
   ROOT,
   ".github/rulesets/protect-master.expected.json",
 );
+export const DEFAULT_POLICY_PATH = resolve(ROOT, "config/agent-workflow.json");
+export const REQUIRED_CHECKS_SOURCE = "config/agent-workflow.json#requiredChecks";
 
 function stableStrings(values) {
   return [...values].map(String).sort();
@@ -38,13 +40,72 @@ function expectEqual(issues, label, actual, expected) {
   }
 }
 
-export function evaluateMasterRuleset(live, spec) {
+function expectExactlyOneRule(issues, live, type) {
+  const rules = findRules(live, type);
+  if (rules.length !== 1) {
+    issues.push("expected exactly one " + type + " rule, got " + rules.length);
+    return null;
+  }
+  return rules[0];
+}
+
+export function resolveExpectedStatusChecks(spec, policy) {
+  const seen = new Set();
+  const checks = [];
+  const fromPolicy = Array.isArray(policy?.requiredChecks) ? policy.requiredChecks : [];
+  const extra = spec?.expected?.required_status_checks?.additional_status_checks ?? [];
+
+  for (const check of [
+    ...fromPolicy.map((context) => ({ context: String(context) })),
+    ...extra,
+  ]) {
+    const key = statusCheckKey(check);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    checks.push(check);
+  }
+  return checks;
+}
+
+function evaluateSpecIntegrity(spec, policy) {
   const issues = [];
   const expected = spec?.expected;
 
   if (spec?.schemaVersion !== 1 || !expected) {
     return ["invalid expected ruleset spec"];
   }
+  if (!Array.isArray(policy?.requiredChecks) || policy.requiredChecks.length === 0) {
+    return ["invalid agent-workflow requiredChecks"];
+  }
+  if (expected.deletion !== true) {
+    issues.push("expected spec must require deletion");
+  }
+  if (expected.non_fast_forward !== true) {
+    issues.push("expected spec must require non_fast_forward");
+  }
+  const requiredMethods = expected.pull_request?.allowed_merge_methods_must_include;
+  if (!Array.isArray(requiredMethods) || !requiredMethods.includes("squash")) {
+    issues.push("expected spec must require squash in allowed_merge_methods");
+  }
+  if (expected.required_status_checks?.required_status_checks_source !== REQUIRED_CHECKS_SOURCE) {
+    issues.push(
+      "required status checks must be sourced from " + REQUIRED_CHECKS_SOURCE,
+    );
+  }
+  if (Array.isArray(expected.required_status_checks?.required_status_checks)) {
+    issues.push(
+      "expected spec must not copy requiredChecks; use additional_status_checks",
+    );
+  }
+  return issues;
+}
+
+export function evaluateMasterRuleset(live, spec, policy) {
+  const specIssues = evaluateSpecIntegrity(spec, policy);
+  if (specIssues.length > 0) return specIssues;
+
+  const issues = [];
+  const expected = spec.expected;
 
   expectEqual(issues, "ruleset id", live?.id, spec.rulesetId);
   expectEqual(issues, "ruleset name", live?.name, expected.name);
@@ -63,13 +124,12 @@ export function evaluateMasterRuleset(live, spec) {
     stableStrings(expected.conditions.ref_name.exclude),
   );
 
-  const pullRequestRules = findRules(live, "pull_request");
-  if (pullRequestRules.length !== 1) {
-    issues.push(
-      "expected exactly one pull_request rule, got " + pullRequestRules.length,
-    );
-  } else {
-    const parameters = pullRequestRules[0]?.parameters ?? {};
+  expectExactlyOneRule(issues, live, "deletion");
+  expectExactlyOneRule(issues, live, "non_fast_forward");
+
+  const pullRequestRule = expectExactlyOneRule(issues, live, "pull_request");
+  if (pullRequestRule) {
+    const parameters = pullRequestRule.parameters ?? {};
     expectEqual(
       issues,
       "required approving review count",
@@ -82,15 +142,23 @@ export function evaluateMasterRuleset(live, spec) {
       parameters.required_review_thread_resolution,
       expected.pull_request.required_review_thread_resolution,
     );
+
+    const actualMethods = (parameters.allowed_merge_methods ?? []).map(String);
+    for (const method of expected.pull_request.allowed_merge_methods_must_include) {
+      if (!actualMethods.includes(method)) {
+        issues.push(
+          "allowed merge methods missing " +
+            method +
+            ": got " +
+            JSON.stringify(actualMethods),
+        );
+      }
+    }
   }
 
-  const statusRules = findRules(live, "required_status_checks");
-  if (statusRules.length !== 1) {
-    issues.push(
-      "expected exactly one required_status_checks rule, got " + statusRules.length,
-    );
-  } else {
-    const parameters = statusRules[0]?.parameters ?? {};
+  const statusRule = expectExactlyOneRule(issues, live, "required_status_checks");
+  if (statusRule) {
+    const parameters = statusRule.parameters ?? {};
     expectEqual(
       issues,
       "strict required status checks",
@@ -107,7 +175,7 @@ export function evaluateMasterRuleset(live, spec) {
     const actualChecks = (parameters.required_status_checks ?? [])
       .map(statusCheckKey)
       .sort();
-    const expectedChecks = expected.required_status_checks.required_status_checks
+    const expectedChecks = resolveExpectedStatusChecks(spec, policy)
       .map(statusCheckKey)
       .sort();
     expectEqual(issues, "required status checks", actualChecks, expectedChecks);
@@ -117,6 +185,10 @@ export function evaluateMasterRuleset(live, spec) {
 }
 
 export async function loadExpectedSpec(path = DEFAULT_SPEC_PATH) {
+  return JSON.parse(await readFile(path, "utf8"));
+}
+
+export async function loadWorkflowPolicy(path = DEFAULT_POLICY_PATH) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
@@ -159,13 +231,16 @@ async function fetchLiveRuleset(spec) {
 
 async function main() {
   const spec = await loadExpectedSpec();
+  const policy = await loadWorkflowPolicy();
   const live = await fetchLiveRuleset(spec);
-  const issues = evaluateMasterRuleset(live, spec);
+  const issues = evaluateMasterRuleset(live, spec, policy);
 
   if (issues.length === 0) {
     console.log(
       "Protect master matches " +
-        ".github/rulesets/protect-master.expected.json",
+        ".github/rulesets/protect-master.expected.json" +
+        " + " +
+        REQUIRED_CHECKS_SOURCE,
     );
     return;
   }

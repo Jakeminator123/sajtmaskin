@@ -12,19 +12,19 @@
         "exclude": []
       }
     },
+    "deletion": true,
+    "non_fast_forward": true,
     "pull_request": {
       "required_approving_review_count": 0,
-      "required_review_thread_resolution": true
+      "required_review_thread_resolution": true,
+      "allowed_merge_methods_must_include": ["squash"]
     },
     "required_status_checks": {
       "strict_required_status_checks_policy": true,
       "do_not_enforce_on_create": false,
-      "required_status_checks": [
-        { "context": "quality" },
-        { "context": "backoffice-tests" },
-        { "context": "schema-drift" },
-        { "context": "build" },
-        { "context": "review-window" },
+      "required_status_checks_source": "config/agent-workflow.json#requiredChecks",
+      "additional_status_checks": [
+        { "context": "dossier-acceptance" },
         {
           "context": "GitGuardian Security Checks",
           "integration_id": 46505
@@ -36,6 +36,9 @@
     "currentBase": "strict_required_status_checks_policy must stay enabled so a PR head contains the live master tip before merge.",
     "reviewThreads": "All review threads must be resolved before merge.",
     "approval": "Native approval count stays at 0 while the repository has one human owner: GitHub does not count an author's self-approval. Human authorization remains SHA/base-bound through review-window and merge:execute. Raise this value when an independent required reviewer exists.",
-    "mutation": "This file and its checker are read-only. Apply live ruleset changes separately after merge."
+    "requiredChecks": "App-owned required check names are read from config/agent-workflow.json requiredChecks at evaluation time, not copied here. dossier-acceptance is listed in additional_status_checks until C3 lands it in requiredChecks; the resolver dedupes. GitGuardian is the only extra external check.",
+    "deletion": "deletion and non_fast_forward must remain present so master cannot be deleted or force-pushed.",
+    "squash": "allowed_merge_methods must include squash because merge:execute uses squash. Other methods may remain.",
+    "mutation": "This file and its checker are read-only. Apply live ruleset changes separately after C3 (so dossier-acceptance exists) and this desired-state is on master."
   }
 }
