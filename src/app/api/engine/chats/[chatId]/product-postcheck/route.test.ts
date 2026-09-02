@@ -126,8 +126,10 @@ describe("POST product-postcheck", () => {
         filesRevision: "rev_n",
         previewSessionId: "ps_n",
         lifecycleToken: "life_n",
+        mutationRevision: 1,
         previewUrl: "[REDACTED]/chat_1",
         readinessState: "ready",
+        httpReady: true,
       },
     });
     readProductPostcheckPreviewProbe.mockResolvedValue({
@@ -136,8 +138,10 @@ describe("POST product-postcheck", () => {
       filesRevision: "rev_n",
       previewSessionId: "ps_n",
       lifecycleToken: "life_n",
+      mutationRevision: 1,
       previewUrl: "[REDACTED]/chat_1",
       readinessState: null,
+      httpReady: null,
     });
   });
 
@@ -596,21 +600,23 @@ describe("POST product-postcheck", () => {
     expect(emitBusEvent).not.toHaveBeenCalled();
   });
 
-  it("host configured + wait budget slut ⇒ skip preview_not_running med emit", async () => {
+  it("L7 (b): host still starting ⇒ oattesterat preview_not_ready, ingen emit", async () => {
     setF2ProductPostcheck(true);
     getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");
     getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
     waitForProductPostcheckPreviewRunning.mockResolvedValue({
       ok: false,
-      reason: "preview_not_running",
+      reason: "preview_not_ready",
       lastProbe: {
-        running: false,
+        running: true,
         versionId: "v1",
         filesRevision: "rev_n",
         previewSessionId: "ps_n",
         lifecycleToken: "life_n",
+        mutationRevision: 1,
         previewUrl: "[REDACTED]/chat_1",
         readinessState: "starting",
+        httpReady: false,
       },
     });
 
@@ -620,43 +626,30 @@ describe("POST product-postcheck", () => {
     const body = await res.json();
 
     expect(body.skipped).toBe(true);
-    expect(body.skippedReason).toBe("preview_not_running");
-    expect(body.attestation).toEqual({
-      previewSessionId: "ps_n",
-      lifecycleToken: "life_n",
-      filesRevision: "rev_n",
-    });
+    expect(body.skippedReason).toBe("preview_not_ready");
+    expect(body.attestation).toBeNull();
+    expect(body.productBlocked).toBe(false);
     expect(runProductPostcheck).not.toHaveBeenCalled();
-    expect(emitBusEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        t: "version.degraded",
-        kind: "product_postcheck_skipped",
-        message: "F2 Product Postcheck skipped (product_postcheck_skipped: preview_not_running).",
-        meta: expect.objectContaining({
-          skippedReason: "preview_not_running",
-          attestedPreviewSessionId: "ps_n",
-          attestedLifecycleToken: "life_n",
-          attestedFilesRevision: "rev_n",
-        }),
-      }),
-    );
+    expect(emitBusEvent).not.toHaveBeenCalled();
   });
 
-  it("host configured + wait budget slut utan bind ⇒ skip preview_not_running med emit", async () => {
+  it("L7 (a)+(d)+(f): httpReady:false / timeout attesterar inte — preview_not_running släpper inte grinden", async () => {
     setF2ProductPostcheck(true);
     getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");
     getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
     waitForProductPostcheckPreviewRunning.mockResolvedValue({
       ok: false,
-      reason: "preview_not_running",
+      reason: "preview_not_ready",
       lastProbe: {
-        running: false,
-        versionId: null,
-        filesRevision: null,
-        previewSessionId: null,
-        lifecycleToken: null,
-        previewUrl: null,
-        readinessState: null,
+        running: true,
+        versionId: "v1",
+        filesRevision: "rev_n",
+        previewSessionId: "ps_n",
+        lifecycleToken: "life_n",
+        mutationRevision: 1,
+        previewUrl: "[REDACTED]/chat_1",
+        readinessState: "ready",
+        httpReady: false,
       },
     });
 
@@ -665,25 +658,47 @@ describe("POST product-postcheck", () => {
     });
     const body = await res.json();
 
-    expect(body.skippedReason).toBe("preview_not_running");
+    expect(body.skippedReason).toBe("preview_not_ready");
+    expect(body.skippedReason).not.toBe("preview_not_running");
     expect(body.attestation).toBeNull();
     expect(body).not.toEqual(
       expect.objectContaining({
-        attestation: expect.objectContaining({ previewSessionId: "unbound" }),
+        attestation: expect.objectContaining({ previewSessionId: "ps_n" }),
       }),
     );
     expect(runProductPostcheck).not.toHaveBeenCalled();
-    expect(emitBusEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "product_postcheck_skipped",
-        message: "F2 Product Postcheck skipped (product_postcheck_skipped: preview_not_running).",
-        meta: expect.objectContaining({
-          skippedReason: "preview_not_running",
-          attestedPreviewSessionId: null,
-          attestedFilesRevision: null,
-        }),
-      }),
-    );
+    expect(emitBusEvent).not.toHaveBeenCalled();
+  });
+
+  it("L7 (c): wait superseded on filesRevision ⇒ preview_superseded utan attest", async () => {
+    setF2ProductPostcheck(true);
+    getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    waitForProductPostcheckPreviewRunning.mockResolvedValue({
+      ok: false,
+      reason: "preview_superseded",
+      lastProbe: {
+        running: true,
+        versionId: "v1",
+        filesRevision: "rev_stale",
+        previewSessionId: "ps_n",
+        lifecycleToken: "life_n",
+        mutationRevision: 1,
+        previewUrl: "[REDACTED]/chat_1",
+        readinessState: "ready",
+        httpReady: true,
+      },
+    });
+
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+
+    expect(body.skippedReason).toBe("preview_superseded");
+    expect(body.attestation).toBeNull();
+    expect(runProductPostcheck).not.toHaveBeenCalled();
+    expect(emitBusEvent).not.toHaveBeenCalled();
   });
 
   it("sessionens previewUrl vinner över klientens på samma tillåtna host", async () => {
@@ -736,7 +751,7 @@ describe("POST product-postcheck", () => {
     });
   });
 
-  it("host configured + wait tills running ⇒ kör postcheck", async () => {
+  it("L7 (e): full tupel ⇒ ready och postcheck körs", async () => {
     setF2ProductPostcheck(true);
     getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");
     getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
@@ -756,10 +771,56 @@ describe("POST product-postcheck", () => {
     });
     const body = await res.json();
 
-    expect(waitForProductPostcheckPreviewRunning).toHaveBeenCalled();
+    expect(waitForProductPostcheckPreviewRunning).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedVersionId: "v1",
+        expectedFilesRevision: "rev_n",
+        expectedPreviewSessionId: "ps_n",
+        expectedLifecycleToken: "life_n",
+      }),
+    );
+    expect(waitForProductPostcheckPreviewRunning.mock.calls[0]?.[0]).not.toHaveProperty(
+      "expectedMutationRevision",
+    );
     expect(body.skipped).toBe(false);
+    expect(body.attestation).toEqual({
+      previewSessionId: "ps_n",
+      lifecycleToken: "life_n",
+      filesRevision: "rev_n",
+    });
     expect(runProductPostcheck).toHaveBeenCalled();
     expect(emitBusEvent).not.toHaveBeenCalled();
+  });
+
+  it("L7 (f): även ett gammalt wait-skäl preview_not_running attesteras inte", async () => {
+    setF2ProductPostcheck(true);
+    getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    waitForProductPostcheckPreviewRunning.mockResolvedValue({
+      ok: false,
+      reason: "preview_not_running",
+      lastProbe: {
+        running: true,
+        versionId: "v1",
+        filesRevision: "rev_n",
+        previewSessionId: "ps_n",
+        lifecycleToken: "life_n",
+        mutationRevision: 1,
+        previewUrl: "[REDACTED]/chat_1",
+        readinessState: "starting",
+        httpReady: false,
+      },
+    });
+
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+
+    expect(body.skippedReason).toBe("preview_not_ready");
+    expect(body.attestation).toBeNull();
+    expect(emitBusEvent).not.toHaveBeenCalled();
+    expect(runProductPostcheck).not.toHaveBeenCalled();
   });
 
   it("discardar legacy-resultatet när samma session får lifecycle-token", async () => {

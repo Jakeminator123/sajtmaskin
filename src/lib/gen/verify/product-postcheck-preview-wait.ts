@@ -24,8 +24,13 @@ export function productPostcheckPreviewWaitBudgetMs(params: {
   );
 }
 
+/**
+ * Wait outcomes that must never become a block-free `preview_not_running`
+ * attestation. `preview_not_ready` is retryable pending (no attestation).
+ * Identity drift is `preview_superseded` (also unattested).
+ */
 export type ProductPostcheckPreviewWaitReason =
-  | "preview_not_running"
+  | "preview_not_ready"
   | "preview_superseded";
 
 export type ProductPostcheckPreviewProbe = {
@@ -34,8 +39,12 @@ export type ProductPostcheckPreviewProbe = {
   filesRevision: string | null;
   previewSessionId: string | null;
   lifecycleToken: string | null;
+  /** Host/session mutation receipt. Null on older hosts or untouched sessions. */
+  mutationRevision: number | null;
   previewUrl: string | null;
   readinessState: "starting" | "ready" | "failed" | null;
+  /** Host traffic gate. `null` when the host omitted the field. */
+  httpReady: boolean | null;
 };
 
 export type ProductPostcheckPreviewWaitResult =
@@ -48,12 +57,31 @@ export type ProductPostcheckPreviewWaitResult =
 
 export type WaitForProductPostcheckPreviewRunningParams = {
   expectedVersionId: string;
+  /** Exact `files_revision` L3 confirms persisted and sends to this wait. */
   expectedFilesRevision: string;
+  expectedPreviewSessionId?: string | null;
+  expectedLifecycleToken?: string | null;
+  /**
+   * Forward-compatible with L3. Required only when the caller supplies a
+   * positive integer — a present-but-different probe receipt is superseded.
+   */
+  expectedMutationRevision?: number | null;
   timeoutMs?: number;
   pollIntervalMs?: number;
   probe: () => Promise<ProductPostcheckPreviewProbe>;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
+};
+
+type PreviewTupleExpectation = {
+  versionId: string;
+  filesRevision: string;
+  previewSessionId: string | null;
+  hasSessionExpectation: boolean;
+  lifecycleToken: string | null;
+  hasLifecycleExpectation: boolean;
+  mutationRevision: number | null;
+  hasMutationExpectation: boolean;
 };
 
 function defaultSleep(ms: number): Promise<void> {
@@ -62,35 +90,115 @@ function defaultSleep(ms: number): Promise<void> {
   });
 }
 
-function isExpectedVersionRunning(
-  probe: ProductPostcheckPreviewProbe,
-  expectedVersionId: string,
-  expectedFilesRevision: string,
-): boolean {
-  // A missing probe revision is not a match. Treating it as OK let the wait
-  // succeed and the later bind classify the same snapshot as preview_superseded.
-  const revisionOk =
-    Boolean(expectedFilesRevision) && probe.filesRevision === expectedFilesRevision;
-  return (
-    probe.running &&
-    probe.versionId === expectedVersionId &&
-    revisionOk
-  );
+function normalizeToken(value: string | null | undefined): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function isSupersededByOtherVersion(
-  probe: ProductPostcheckPreviewProbe,
-  expectedVersionId: string,
-): boolean {
-  return Boolean(probe.versionId && probe.versionId !== expectedVersionId);
+function parseExpectedMutationRevision(raw: number | null | undefined): number | null {
+  return typeof raw === "number" && Number.isSafeInteger(raw) && raw > 0 ? raw : null;
+}
+
+function readTupleExpectation(
+  params: WaitForProductPostcheckPreviewRunningParams,
+): PreviewTupleExpectation {
+  const hasSessionExpectation = Object.prototype.hasOwnProperty.call(
+    params,
+    "expectedPreviewSessionId",
+  );
+  const hasLifecycleExpectation = Object.prototype.hasOwnProperty.call(
+    params,
+    "expectedLifecycleToken",
+  );
+  const hasMutationExpectation = Object.prototype.hasOwnProperty.call(
+    params,
+    "expectedMutationRevision",
+  );
+  return {
+    versionId: params.expectedVersionId.trim(),
+    filesRevision: params.expectedFilesRevision.trim(),
+    previewSessionId: normalizeToken(params.expectedPreviewSessionId),
+    hasSessionExpectation,
+    lifecycleToken: normalizeToken(params.expectedLifecycleToken),
+    hasLifecycleExpectation,
+    mutationRevision: parseExpectedMutationRevision(params.expectedMutationRevision),
+    hasMutationExpectation,
+  };
 }
 
 /**
- * Poll read-only preview status until the host is `running` for this
- * versionId (and filesRevision when the session has one), or the budget ends.
+ * Identity drift on any supplied tuple component. A missing probe field is
+ * not drift — it is still pending. A *different* known value is superseded.
+ */
+function isProductPostcheckPreviewTupleSuperseded(
+  probe: ProductPostcheckPreviewProbe,
+  expected: PreviewTupleExpectation,
+): boolean {
+  if (probe.versionId && probe.versionId !== expected.versionId) return true;
+  if (probe.filesRevision && probe.filesRevision !== expected.filesRevision) {
+    return true;
+  }
+  if (
+    expected.hasSessionExpectation &&
+    expected.previewSessionId &&
+    probe.previewSessionId &&
+    probe.previewSessionId !== expected.previewSessionId
+  ) {
+    return true;
+  }
+  if (expected.hasLifecycleExpectation && probe.lifecycleToken !== null) {
+    if (probe.lifecycleToken !== expected.lifecycleToken) return true;
+  }
+  if (
+    expected.hasMutationExpectation &&
+    expected.mutationRevision != null &&
+    probe.mutationRevision != null &&
+    probe.mutationRevision !== expected.mutationRevision
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Full readiness tuple. `running` alone is the stale-HTML hole: a hot patch
+ * writes files, flips `readinessState` to `starting`, and re-probes
+ * asynchronously while the previous boot still serves.
+ */
+function isProductPostcheckPreviewTupleReady(
+  probe: ProductPostcheckPreviewProbe,
+  expected: PreviewTupleExpectation,
+): boolean {
+  if (probe.running !== true) return false;
+  if (probe.readinessState !== "ready") return false;
+  if (probe.httpReady !== true) return false;
+  if (probe.versionId !== expected.versionId) return false;
+  if (!expected.filesRevision || probe.filesRevision !== expected.filesRevision) {
+    return false;
+  }
+  if (!probe.previewSessionId) return false;
+  if (
+    expected.hasSessionExpectation &&
+    expected.previewSessionId &&
+    probe.previewSessionId !== expected.previewSessionId
+  ) {
+    return false;
+  }
+  if (expected.hasLifecycleExpectation) {
+    if (probe.lifecycleToken !== expected.lifecycleToken) return false;
+  }
+  if (expected.hasMutationExpectation && expected.mutationRevision != null) {
+    if (probe.mutationRevision !== expected.mutationRevision) return false;
+  }
+  return true;
+}
+
+/**
+ * Poll read-only preview status until the host matches the full readiness
+ * tuple for this version + filesRevision, or the budget ends.
  *
- * A session already bound to another version is treated as superseded
- * immediately — waiting would only delay the current version's skip.
+ * `starting`, `httpReady: false`, or timeout → `preview_not_ready`
+ * (retryable, never an attestation). A different version / filesRevision /
+ * session / lifecycle / mutation → `preview_superseded`.
  */
 export async function waitForProductPostcheckPreviewRunning(
   params: WaitForProductPostcheckPreviewRunningParams,
@@ -100,8 +208,7 @@ export async function waitForProductPostcheckPreviewRunning(
     params.pollIntervalMs ?? PRODUCT_POSTCHECK_PREVIEW_POLL_INTERVAL_MS;
   const now = params.now ?? Date.now;
   const sleep = params.sleep ?? defaultSleep;
-  const expectedVersionId = params.expectedVersionId.trim();
-  const expectedFilesRevision = params.expectedFilesRevision.trim();
+  const expected = readTupleExpectation(params);
   const deadlineAt = now() + Math.max(0, timeoutMs);
 
   let lastProbe: ProductPostcheckPreviewProbe | null = null;
@@ -109,13 +216,15 @@ export async function waitForProductPostcheckPreviewRunning(
     const probe = await params.probe();
     lastProbe = probe;
 
-    if (isSupersededByOtherVersion(probe, expectedVersionId)) {
+    if (isProductPostcheckPreviewTupleSuperseded(probe, expected)) {
       return { ok: false, reason: "preview_superseded", lastProbe: probe };
     }
     if (probe.readinessState === "failed") {
-      return { ok: false, reason: "preview_not_running", lastProbe: probe };
+      // Host gave up on this boot. Still pending — never a
+      // `preview_not_running` attestation that releases the quality gate.
+      return { ok: false, reason: "preview_not_ready", lastProbe: probe };
     }
-    if (isExpectedVersionRunning(probe, expectedVersionId, expectedFilesRevision)) {
+    if (isProductPostcheckPreviewTupleReady(probe, expected)) {
       return { ok: true, probe };
     }
 
@@ -124,10 +233,10 @@ export async function waitForProductPostcheckPreviewRunning(
     await sleep(Math.min(pollIntervalMs, remainingMs));
   }
 
-  if (lastProbe && isSupersededByOtherVersion(lastProbe, expectedVersionId)) {
+  if (lastProbe && isProductPostcheckPreviewTupleSuperseded(lastProbe, expected)) {
     return { ok: false, reason: "preview_superseded", lastProbe };
   }
-  return { ok: false, reason: "preview_not_running", lastProbe };
+  return { ok: false, reason: "preview_not_ready", lastProbe };
 }
 
 /**
@@ -146,8 +255,10 @@ export async function readProductPostcheckPreviewProbe(params: {
       filesRevision: null,
       previewSessionId: null,
       lifecycleToken: null,
+      mutationRevision: null,
       previewUrl: null,
       readinessState: null,
+      httpReady: null,
     };
   }
 
@@ -155,7 +266,10 @@ export async function readProductPostcheckPreviewProbe(params: {
   const previewSessionId = session.previewSessionId?.trim() || null;
   let running = false;
   let readinessState: ProductPostcheckPreviewProbe["readinessState"] = null;
+  let httpReady: boolean | null = null;
   let versionId = sessionVersionId;
+  let lifecycleToken = session.lifecycleToken?.trim() || null;
+  let mutationRevision = session.mutationRevision ?? null;
 
   if (previewSessionId && sessionVersionId === params.expectedVersionId) {
     const verdict = await fetchPreviewHostReadinessVerdict(previewSessionId, {
@@ -164,9 +278,16 @@ export async function readProductPostcheckPreviewProbe(params: {
     });
     if (verdict) {
       readinessState = verdict.readinessState;
+      httpReady = verdict.httpReady;
       versionId = verdict.versionId?.trim() || sessionVersionId;
       running =
         verdict.running === true && versionId === params.expectedVersionId;
+      if (verdict.lifecycleToken !== undefined) {
+        lifecycleToken = verdict.lifecycleToken?.trim() || null;
+      }
+      if (verdict.mutationRevision != null) {
+        mutationRevision = verdict.mutationRevision;
+      }
     }
   }
 
@@ -175,8 +296,10 @@ export async function readProductPostcheckPreviewProbe(params: {
     versionId,
     filesRevision: session.filesRevision?.trim() || null,
     previewSessionId,
-    lifecycleToken: session.lifecycleToken?.trim() || null,
+    lifecycleToken,
+    mutationRevision,
     previewUrl: session.previewUrl?.trim() || null,
     readinessState,
+    httpReady,
   };
 }

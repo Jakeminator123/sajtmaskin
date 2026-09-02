@@ -3228,4 +3228,24 @@ describe("buildProductPostcheckLogItems live review", () => {
       }),
     ).toEqual([]);
   });
+
+  it("L7: oattesterad preview_not_ready/preview_not_running lämnar ingen durabel skip", () => {
+    const pending = {
+      ok: true as const,
+      skipped: true,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 1,
+      checkedUrl: "https://preview.example",
+      routesChecked: 0,
+      attestation: null,
+    };
+    expect(
+      buildProductPostcheckLogItems({ ...pending, skippedReason: "preview_not_ready" }),
+    ).toEqual([]);
+    expect(
+      buildProductPostcheckLogItems({ ...pending, skippedReason: "preview_not_running" }),
+    ).toEqual([]);
+  });
 });
