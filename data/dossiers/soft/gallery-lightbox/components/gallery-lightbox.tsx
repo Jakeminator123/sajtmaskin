@@ -109,7 +109,7 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
                 openerRef.current = event.currentTarget;
                 setOpenIndex(idx);
               }}
-              aria-label={`Open image: ${item.alt}`}
+              aria-label={`Öppna bild: ${item.alt}`}
               className="group block w-full overflow-hidden rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               {/* Plain <img> on purpose — next/image would force the project to
@@ -119,7 +119,7 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
                 src={item.src}
                 alt={item.alt}
                 loading="lazy"
-                className="aspect-[4/3] w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                className="aspect-[4/3] w-full object-cover motion-safe:transition-transform motion-safe:duration-300 motion-safe:group-hover:scale-105"
               />
             </button>
           </li>
@@ -149,7 +149,7 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
               ref={closeRef}
               type="button"
               onClick={close}
-              aria-label="Close"
+              aria-label="Stäng"
               className="absolute -right-3 -top-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background text-foreground shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span aria-hidden="true" className="text-lg leading-none">
@@ -162,7 +162,7 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
                 <button
                   type="button"
                   onClick={() => step(-1)}
-                  aria-label="Previous image"
+                  aria-label="Föregående bild"
                   className="absolute left-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span aria-hidden="true" className="text-xl leading-none">
@@ -172,7 +172,7 @@ export function GalleryLightbox({ items, title, className }: GalleryLightboxProp
                 <button
                   type="button"
                   onClick={() => step(1)}
-                  aria-label="Next image"
+                  aria-label="Nästa bild"
                   className="absolute right-2 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span aria-hidden="true" className="text-xl leading-none">

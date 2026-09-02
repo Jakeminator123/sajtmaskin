@@ -45,6 +45,7 @@ export default function Section() {
 - Use consistent aspect-ratio source images where possible; thumbnails crop to 4:3 via `object-cover`.
 - Keep captions short (a title or year), not paragraphs.
 - 6–12 images is a comfortable gallery size; beyond that, paginate or split into albums.
+- Thumbnail hover-scale is gated with `motion-safe:` so `prefers-reduced-motion: reduce` shows a still grid. Control labels are Swedish (`Öppna bild`, `Stäng`, `Föregående bild`, `Nästa bild`).
 
 # Avoid
 

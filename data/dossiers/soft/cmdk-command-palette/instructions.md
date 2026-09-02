@@ -73,7 +73,7 @@ A small clickable trigger that shows the shortcut hint is a common pattern in ap
 - Show a shortcut hint (`<kbd>` chips on the right side of an item) whenever a command has a shortcut. Do not invent shortcuts that conflict with browser/OS defaults (cmd+T, cmd+W, cmd+R, cmd+L).
 - Respect `prefers-reduced-motion`: the dialog opens with no transition under reduced motion. The wrapper handles this.
 - Restore focus to the element that opened the palette when it closes. The wrapper handles this via `onOpenChange`.
-- Empty state ("No results found") MUST be present. cmdk does not show one by default; the wrapper does.
+- Empty state MUST be present. cmdk does not show one by default; the wrapper ships the Swedish default "Inga träffar." (override via `emptyMessage`).
 
 # Avoid
 
@@ -89,7 +89,7 @@ A small clickable trigger that shows the shortcut hint is a common pattern in ap
 - Type 3 characters → fuzzy match narrows results live.
 - Press ↑/↓ → highlighted item changes. Press Enter → command fires, palette closes.
 - Press Esc → palette closes, focus returns to the element that triggered it (or `<body>` if opened via shortcut).
-- Open the palette, type something with no matches → "No results found" empty state renders.
+- Open the palette, type something with no matches → "Inga träffar." empty state renders (or the `emptyMessage` you passed).
 - Set `prefers-reduced-motion: reduce` in DevTools → palette open/close has no transition.
 - Tab through the page with the palette closed → no stray focus inside the palette's hidden DOM.
 - Mount two independent `<CommandPalette>` instances temporarily → confirm only one global listener is registered (the wrapper warns in dev when a second mounts). Remove the duplicate before merging.
