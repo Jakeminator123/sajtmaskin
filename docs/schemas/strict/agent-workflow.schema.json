@@ -15,6 +15,7 @@
     "protectedBranchPatterns",
     "directMaster",
     "requiredChecks",
+    "requiredCheckOwners",
     "manualMergePathPrefixes",
     "review",
     "protectedPaths",
@@ -71,6 +72,14 @@
       "minItems": 1,
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/nonEmpty" }
+    },
+    "requiredCheckOwners": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]*\\.yml$"
+      }
     },
     "manualMergePathPrefixes": {
       "type": "array",

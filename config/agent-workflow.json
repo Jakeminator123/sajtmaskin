@@ -19,7 +19,21 @@
     "breakGlassFlag": "SAJTMASKIN_BREAK_GLASS",
     "breakGlassReason": "SAJTMASKIN_BREAK_GLASS_REASON"
   },
-  "requiredChecks": ["quality", "backoffice-tests", "schema-drift", "build", "review-window"],
+  "requiredChecks": [
+    "quality",
+    "backoffice-tests",
+    "schema-drift",
+    "build",
+    "review-window",
+    "dossier-acceptance"
+  ],
+  "requiredCheckOwners": {
+    "quality": "ci.yml",
+    "backoffice-tests": "ci.yml",
+    "schema-drift": "ci.yml",
+    "build": "ci.yml",
+    "dossier-acceptance": "dossier-acceptance.yml"
+  },
   "manualMergePathPrefixes": [
     ".github/workflows/",
     "scripts/ci/",

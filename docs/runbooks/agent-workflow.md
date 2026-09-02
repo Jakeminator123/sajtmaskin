@@ -85,8 +85,9 @@ körs lokalt. CI publicerar required checks för den pushade committen och välj
 fail-closed tung profil eller ett explicit light-kvitto, så en saknad lokal hook
 kan inte göra en ogiltig PR grön.
 
-När `quality`, `backoffice-tests`, `schema-drift`, `build`, Vercel och alla
-reviewfynd är klara — medan `review-window` fortfarande väntar — posta först
+När `quality`, `backoffice-tests`, `schema-drift`, `build`,
+`dossier-acceptance`, Vercel och alla reviewfynd är klara — medan
+`review-window` fortfarande väntar — posta först
 `merge:ready — head-sha: <40 hex>, base-sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
 som PR-kommentar och sätt sedan labeln `merge:ready`. Label-eventet läser
 aktuell head och base-refens levande tip via GitHub. Båda måste matcha
