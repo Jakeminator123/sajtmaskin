@@ -39,7 +39,11 @@ import type {
   ProductPostcheckAttestation,
   ProductPostcheckResult,
 } from "@/lib/gen/verify/product-postcheck";
-import { isInfrastructureSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
+import {
+  isInfrastructureSkipReason,
+  isNonFinalProductPostcheckSkipReason,
+  retryableProductPostcheckUnavailableReason,
+} from "@/lib/gen/verify/product-postcheck-skip";
 import {
   isUnattestedProductPostcheckVerdictWriteAllowed,
   verdictFromProductPostcheckResult,
@@ -82,6 +86,36 @@ export function hasActivePostCheck(chatId: string): boolean {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+/**
+ * 503 `claim_unavailable` / `lease_unavailable` is a retryable infra skip,
+ * not a transport hole. Other non-OK statuses stay `null` (transport_error).
+ */
+export function productPostcheckResultFromUnavailableHttp(params: {
+  status: number;
+  code?: string | null;
+  skippedReason?: string | null;
+  previewUrl?: string | null;
+}): ProductPostcheckResult | null {
+  if (params.status !== 503) return null;
+  const reason = retryableProductPostcheckUnavailableReason(
+    params.code,
+    params.skippedReason,
+  );
+  if (!reason) return null;
+  return {
+    ok: true,
+    skipped: true,
+    skippedReason: reason,
+    warnings: [],
+    warningCount: 0,
+    productBlocked: false,
+    routesChecked: 0,
+    durationMs: 0,
+    checkedUrl: params.previewUrl ?? null,
+    attestation: null,
+  };
 }
 
 const ABORTED_VERIFY_REASON =
@@ -310,7 +344,18 @@ async function postProductPostcheckOnce(params: {
         signal,
       },
     );
-    if (!response.ok) return null;
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        code?: string;
+        skippedReason?: string;
+      } | null;
+      return productPostcheckResultFromUnavailableHttp({
+        status: response.status,
+        code: body?.code,
+        skippedReason: body?.skippedReason,
+        previewUrl,
+      });
+    }
     return (await response.json()) as ProductPostcheckResult;
   } catch (error) {
     if (isAbortError(error)) throw error;
@@ -1815,11 +1860,12 @@ export function shouldHoldBeforeProductPostcheck(
 function productPostcheckNeedsRetry(
   result: ProductPostcheckResult | null,
 ): boolean {
-  return (
-    !result ||
-    result.skippedReason === "preview_superseded" ||
-    (result.skippedReason !== "feature_disabled" && !result.attestation)
-  );
+  if (!result) return true;
+  if (result.skippedReason === "preview_superseded") return true;
+  if (isNonFinalProductPostcheckSkipReason(result.skippedReason)) return true;
+  if (result.skippedReason === "claim_settled") return false;
+  if (result.skippedReason === "feature_disabled") return false;
+  return !result.attestation;
 }
 
 /**

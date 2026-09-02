@@ -12,7 +12,10 @@
 import {
   isInfrastructureSkipReason,
 } from "@/lib/gen/verify/product-postcheck-skip";
-import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
+import type {
+  ProductPostcheckAttestation,
+  ProductPostcheckResult,
+} from "@/lib/gen/verify/product-postcheck";
 
 export const PRODUCT_POSTCHECK_VERDICTS = [
   "passed",
@@ -192,8 +195,9 @@ function stricterVerdict(
 }
 
 /**
- * L6 (unmerged) will persist a running claim. Until then this only maps an
- * explicit `pending`/`running` signal — missing claim is not a pass.
+ * L6 persists a running claim. A `running`/`pending` signal is `pending`.
+ * Terminal claim statuses are not a pass by themselves — missing logs stay
+ * `pending` (L2: a missing summary is never pass).
  */
 export function interpretProductPostcheckClaim(
   claim: ProductPostcheckClaimSignal | null | undefined,
@@ -330,4 +334,86 @@ export function isUnattestedProductPostcheckVerdictWriteAllowed(
       skippedReasonFromMeta(log.meta) === "feature_disabled"
     );
   });
+}
+
+/**
+ * Report-state for an L6 loser poll. Derived from the L2 domain, not from
+ * inventing a new Chromium result. `activeRunId` stays the winner pointer.
+ */
+export function productPostcheckResultFromVerdict(params: {
+  verdict: ProductPostcheckVerdict;
+  runId: string;
+  claimStatus?: ProductPostcheckResult["claimStatus"];
+  previewUrl: string;
+  durationMs?: number | null;
+  attestation?: ProductPostcheckAttestation | null;
+}): ProductPostcheckResult {
+  const pointer = {
+    verificationRunId: params.runId,
+    activeRunId: params.runId,
+    claimStatus: params.claimStatus ?? null,
+  };
+  const base = {
+    ok: true as const,
+    warnings: [] as ProductPostcheckResult["warnings"],
+    warningCount: 0,
+    routesChecked: 0,
+    durationMs: params.durationMs ?? 0,
+    checkedUrl: params.previewUrl,
+    screenshots: null,
+    domSummary: null,
+    ...pointer,
+  };
+  switch (params.verdict) {
+    case "passed":
+      return {
+        ...base,
+        skipped: false,
+        skippedReason: null,
+        productBlocked: false,
+        attestation: params.attestation ?? null,
+      };
+    case "blocked":
+      return {
+        ...base,
+        skipped: false,
+        skippedReason: null,
+        productBlocked: true,
+        attestation: params.attestation ?? null,
+      };
+    case "allowed_skip":
+      return {
+        ...base,
+        skipped: true,
+        skippedReason: "claim_settled",
+        productBlocked: false,
+        attestation: params.attestation ?? null,
+      };
+    case "superseded":
+      return {
+        ...base,
+        skipped: true,
+        skippedReason: "preview_superseded",
+        productBlocked: false,
+        attestation: null,
+      };
+    case "pending":
+    case "indeterminate":
+      if (params.claimStatus === "running") {
+        return {
+          ...base,
+          skipped: true,
+          skippedReason: "claim_busy",
+          productBlocked: false,
+          attestation: null,
+        };
+      }
+      return {
+        ...base,
+        skipped: true,
+        skippedReason: "claim_settled",
+        productBlocked: false,
+        attestation: null,
+      };
+  }
 }

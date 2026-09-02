@@ -151,13 +151,14 @@ export type ProductPostcheckVerdictRead = {
  */
 export async function readProductPostcheckVerdictForVersion(
   versionId: string,
+  options?: { claim?: { status?: string | null } | null },
 ): Promise<ProductPostcheckVerdictRead> {
   try {
     const logs = await getEngineVersionErrorLogsForCategories(versionId, [
       PRODUCT_POSTCHECK_SUMMARY_CATEGORY,
       PRODUCT_POSTCHECK_SKIPPED_CATEGORY,
     ]);
-    const verdict = interpretProductPostcheckLogs(logs);
+    const verdict = interpretProductPostcheckLogs(logs, { claim: options?.claim });
     return {
       verdict,
       retryable: isRetryableProductPostcheckVerdict(verdict),

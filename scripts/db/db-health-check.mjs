@@ -82,6 +82,7 @@ const EXPECTED_TABLES = [
   "oc_debug_findings",
   "live_review_grants",
   "live_review_runs",
+  "product_postcheck_runs",
   // Tokenförbrukning per LLM-anrop
   "llm_usage",
   // Usage-baserad generationskostnad + operatörsinställningar
@@ -162,6 +163,21 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
     { name: "live_review_runs_version_revision_unique", columns: ["version_id", "files_revision"] },
     { name: "idx_live_review_runs_chat_id", columns: ["chat_id"] },
     { name: "idx_live_review_runs_expires_at", columns: ["expires_at"] },
+  ],
+  product_postcheck_runs: [
+    {
+      name: "product_postcheck_runs_claim_unique",
+      columns: [
+        "version_id",
+        "files_revision",
+        "preview_session",
+        "lifecycle_token",
+        "mutation_revision",
+      ],
+      unique: true,
+    },
+    { name: "idx_product_postcheck_runs_chat_id", columns: ["chat_id"] },
+    { name: "idx_product_postcheck_runs_expires_at", columns: ["expires_at"] },
   ],
   // Codex P3: declare the lease indexes so migrated DBs don't report them as
   // `extra_indexes`. Both are required by the acquire path: the partial unique

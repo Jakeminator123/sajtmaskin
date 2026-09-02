@@ -8,6 +8,7 @@ import {
   isRetryableProductPostcheckVerdict,
   isUnattestedProductPostcheckVerdictWriteAllowed,
   productPostcheckF3GateReason,
+  productPostcheckResultFromVerdict,
   verdictFromProductPostcheckResult,
   verdictFromSummaryMeta,
 } from "./product-postcheck-verdict";
@@ -321,5 +322,38 @@ describe("Product Postcheck verdict (L2)", () => {
         },
       ]),
     ).toBe(false);
+  });
+
+  it("L6 loser-replay: report-state kommer från L2-domen + activeRunId", () => {
+    const passed = productPostcheckResultFromVerdict({
+      verdict: "passed",
+      runId: "run_winner",
+      claimStatus: "passed",
+      previewUrl: "https://preview.example",
+      attestation: ATTESTATION,
+    });
+    expect(passed.skipped).toBe(false);
+    expect(passed.productBlocked).toBe(false);
+    expect(passed.activeRunId).toBe("run_winner");
+    expect(passed.attestation).toEqual(ATTESTATION);
+
+    const busy = productPostcheckResultFromVerdict({
+      verdict: "pending",
+      runId: "run_winner",
+      claimStatus: "running",
+      previewUrl: "https://preview.example",
+    });
+    expect(busy.skippedReason).toBe("claim_busy");
+    expect(busy.activeRunId).toBe("run_winner");
+    expect(busy.attestation).toBeNull();
+
+    const settled = productPostcheckResultFromVerdict({
+      verdict: "pending",
+      runId: "run_winner",
+      claimStatus: "failed",
+      previewUrl: "https://preview.example",
+    });
+    expect(settled.skippedReason).toBe("claim_settled");
+    expect(settled.activeRunId).toBe("run_winner");
   });
 });

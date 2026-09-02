@@ -62,7 +62,37 @@ const INFRASTRUCTURE_SKIP_REASONS: ReadonlySet<string> = new Set([
   "capture_failed",
   // Operatören har stängt av postchecken. Inget om sajten.
   "feature_disabled",
+  // L6: en annan POST äger redan Chromium-slotten för samma revisionstupel.
+  // Ingen produktinformation — klienten ska försöka igen.
+  "claim_busy",
+  // L6: claim-tabellen saknas eller probe/DB dog. Fail-closed, ingen Chromium.
+  "claim_unavailable",
+  "lease_unavailable",
+  // L6: tupeln är redan passed/blocked/failed. Ingen ny produktinformation.
+  "claim_settled",
 ]);
+
+const NON_FINAL_SKIP_REASONS: ReadonlySet<string> = new Set([
+  "claim_busy",
+  "claim_unavailable",
+  "lease_unavailable",
+]);
+
+export function retryableProductPostcheckUnavailableReason(
+  code: string | null | undefined,
+  skippedReason?: string | null,
+): "claim_unavailable" | "lease_unavailable" | null {
+  const raw = (code || skippedReason || "").trim().toLowerCase();
+  if (raw === "claim_unavailable" || raw === "lease_unavailable") return raw;
+  return null;
+}
+
+/** Skip that is not a finished verdict for this revision tuple. */
+export function isNonFinalProductPostcheckSkipReason(
+  reason: string | null | undefined,
+): boolean {
+  return NON_FINAL_SKIP_REASONS.has(reason?.trim().toLowerCase() ?? "");
+}
 
 export function classifyProductPostcheckSkipReason(
   reason: string | null | undefined,

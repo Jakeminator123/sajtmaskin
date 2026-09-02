@@ -11,6 +11,7 @@ import {
   abortPostChecksForChat,
   buildProductPostcheckLogItems,
   hasActivePostCheck,
+  productPostcheckResultFromUnavailableHttp,
   runPostGenerationChecks,
 } from "./post-checks";
 import type { SetMessages } from "./types";
@@ -3346,5 +3347,29 @@ describe("buildProductPostcheckLogItems live review", () => {
     expect(
       buildProductPostcheckLogItems({ ...pending, skippedReason: "preview_not_running" }),
     ).toEqual([]);
+  });
+});
+
+describe("productPostcheckResultFromUnavailableHttp", () => {
+  it("mappar 503 claim_unavailable till retrybar infra-skip", () => {
+    const result = productPostcheckResultFromUnavailableHttp({
+      status: 503,
+      code: "claim_unavailable",
+    });
+    expect(result?.skippedReason).toBe("claim_unavailable");
+    expect(result?.attestation).toBeNull();
+  });
+
+  it("mappar 503 lease_unavailable till retrybar infra-skip", () => {
+    const result = productPostcheckResultFromUnavailableHttp({
+      status: 503,
+      code: "lease_unavailable",
+    });
+    expect(result?.skippedReason).toBe("lease_unavailable");
+  });
+
+  it("lämnar 500 och okänd 503 som transport (null)", () => {
+    expect(productPostcheckResultFromUnavailableHttp({ status: 500, code: "claim_unavailable" })).toBeNull();
+    expect(productPostcheckResultFromUnavailableHttp({ status: 503, code: "row_contention" })).toBeNull();
   });
 });

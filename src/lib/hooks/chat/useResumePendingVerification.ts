@@ -10,10 +10,14 @@ import {
   imageValidationHoldMessage,
   interpretValidateImagesHttp,
   persistVersionErrorLogs,
+  productPostcheckResultFromUnavailableHttp,
   shouldHoldBeforeProductPostcheck,
 } from "./post-checks";
 import type { ImageValidationResult } from "./post-checks-results";
 import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
+import { isNonFinalProductPostcheckSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
+import { verdictFromProductPostcheckResult } from "@/lib/gen/verify/product-postcheck-verdict";
+import { parseRetryAfterMs } from "@/lib/builder/preview-bootstrap-retry";
 
 /**
  * Resume of the browser-driven F2 verify lane for stranded draft versions.
@@ -449,7 +453,19 @@ async function runResumeProductPostcheck(params: {
   blockerPersistFailed: boolean;
   persistFailed: boolean;
   superseded: boolean;
+  pendingHold: boolean;
+  alreadySettled: boolean;
+  retryAfterMs: number | null;
 }> {
+  const idle = {
+    productBlocked: false,
+    blockerPersistFailed: false,
+    persistFailed: false,
+    superseded: false,
+    pendingHold: false,
+    alreadySettled: false,
+    retryAfterMs: null as number | null,
+  };
   let data: ProductPostcheckResult | null = null;
   try {
     const res = await fetch(`${engineChatBaseUrl(params.chatId)}/product-postcheck`, {
@@ -463,6 +479,24 @@ async function runResumeProductPostcheck(params: {
     });
     if (res.ok) {
       data = (await res.json().catch(() => null)) as ProductPostcheckResult | null;
+    } else {
+      const body = (await res.json().catch(() => null)) as {
+        code?: string;
+        skippedReason?: string;
+      } | null;
+      const unavailable = productPostcheckResultFromUnavailableHttp({
+        status: res.status,
+        code: body?.code,
+        skippedReason: body?.skippedReason,
+        previewUrl: params.previewUrl,
+      });
+      if (unavailable) {
+        return {
+          ...idle,
+          pendingHold: true,
+          retryAfterMs: parseRetryAfterMs(res.headers, RESUME_VERIFY_RUNTIME_RETRY_MS),
+        };
+      }
     }
   } catch {
     // Persist the transport-level degradation below, then retry. Promoting on
@@ -474,27 +508,23 @@ async function runResumeProductPostcheck(params: {
       versionId: params.versionId,
       logs: buildProductPostcheckLogItems(null),
     });
-    return {
-      productBlocked: false,
-      blockerPersistFailed: false,
-      persistFailed: !persisted,
-      superseded: true,
-    };
+    return { ...idle, persistFailed: !persisted, superseded: true };
   }
-  if (data?.skippedReason === "preview_superseded") {
+  if (data.skippedReason === "preview_superseded") {
     const persisted = await persistVersionErrorLogs({
       chatId: params.chatId,
       versionId: params.versionId,
       logs: buildProductPostcheckLogItems(data),
     });
-    return {
-      productBlocked: false,
-      blockerPersistFailed: false,
-      persistFailed: !persisted,
-      superseded: true,
-    };
+    return { ...idle, persistFailed: !persisted, superseded: true };
   }
-  if (data && data.skippedReason !== "feature_disabled" && !data.attestation) {
+  if (isNonFinalProductPostcheckSkipReason(data.skippedReason)) {
+    return { ...idle, pendingHold: true };
+  }
+  if (data.skippedReason === "claim_settled") {
+    return { ...idle, alreadySettled: true };
+  }
+  if (data.skippedReason !== "feature_disabled" && !data.attestation) {
     // A current route response is always attested. Treat an older/unscoped
     // response as a retryable hold instead of promoting without durable proof.
     const persisted = await persistVersionErrorLogs({
@@ -502,29 +532,25 @@ async function runResumeProductPostcheck(params: {
       versionId: params.versionId,
       logs: buildProductPostcheckLogItems(data),
     });
-    return {
-      productBlocked: false,
-      blockerPersistFailed: false,
-      persistFailed: !persisted,
-      superseded: true,
-    };
+    return { ...idle, persistFailed: !persisted, superseded: true };
   }
-  // Normal-lane parity: persist both a concrete result and a missing/transport
-  // result. Without the summary row, a product-blocked resume would be
-  // liftable to F3 after reload; without the transport row, the version would
-  // read as fully verified although DOM verification never produced a result.
+  // Winner replay (L6 `activeRunId`) is report-state from the L2 domain
+  // (`readProductPostcheckVerdictForVersion` on the route). Persist the
+  // same rows the winner would have written so F3 never sees a missing
+  // summary as pass.
   const persisted = await persistVersionErrorLogs({
     chatId: params.chatId,
     versionId: params.versionId,
     logs: buildProductPostcheckLogItems(data),
     productPostcheckAttestation: data?.attestation ?? null,
   });
-  const productBlocked = data?.productBlocked === true;
+  const verdict = verdictFromProductPostcheckResult(data);
+  const productBlocked = verdict === "blocked";
   return {
+    ...idle,
     productBlocked,
     blockerPersistFailed: productBlocked && !persisted,
     persistFailed: !persisted,
-    superseded: false,
   };
 }
 
@@ -751,6 +777,21 @@ export function useResumePendingVerification(params: {
           previewUrl,
           filesRevision,
         });
+        if (postcheck.pendingHold) {
+          // L6: claim_busy / claim_unavailable. Same-tab Chromium is already
+          // running or the claim table is briefly down — refund and wait.
+          // Do not treat this as superseded (that loop takeovers a passed
+          // row) and do not persist transport_error.
+          attemptsRef.current.set(versionId, attemptsUsed);
+          const waits = (runtimeWaitsRef.current.get(versionId) ?? 0) + 1;
+          runtimeWaitsRef.current.set(versionId, waits);
+          if (waits >= RESUME_VERIFY_MAX_RUNTIME_WAITS) {
+            consumeAllAttempts();
+            return;
+          }
+          scheduleRetry(postcheck.retryAfterMs ?? RESUME_VERIFY_RUNTIME_RETRY_MS);
+          return;
+        }
         if (postcheck.superseded) {
           // The inspected lifecycle was replaced while the browser work ran.
           // Refund the slot and retry against the new active tuple; never emit
