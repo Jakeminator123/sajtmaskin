@@ -237,12 +237,18 @@ describe("projectProductPostcheckReadiness", () => {
     ]);
   });
 
-  it("returns empty warnings when there is no postcheck summary (unchanged)", () => {
+  it("(a) saknad summary är pending och blockerar F3 utan att måla kortet rött", () => {
     expect(
       projectProductPostcheckReadiness([
         log("preview", "Förhandsvisningen kraschade.", {}, "2026-08-14T10:00:00Z"),
       ]),
-    ).toEqual({ warnings: [], blockers: [], blocksF3: false, blockedReason: null });
+    ).toEqual({
+      warnings: [],
+      blockers: [],
+      blocksF3: true,
+      blockedReason: null,
+      verdict: "pending",
+    });
   });
 
   it("does not treat live_review rows as findings", () => {
@@ -256,7 +262,13 @@ describe("projectProductPostcheckReadiness", () => {
           productBlocked: false,
         }, "2026-08-14T10:00:01Z"),
       ]),
-    ).toEqual({ warnings: [], blockers: [], blocksF3: false, blockedReason: null });
+    ).toEqual({
+      warnings: [],
+      blockers: [],
+      blocksF3: false,
+      blockedReason: null,
+      verdict: "passed",
+    });
   });
 
   it("returns empty warnings for a clean passing summary", () => {
@@ -267,7 +279,13 @@ describe("projectProductPostcheckReadiness", () => {
           productBlocked: false,
         }, "2026-08-14T10:00:00Z"),
       ]),
-    ).toEqual({ warnings: [], blockers: [], blocksF3: false, blockedReason: null });
+    ).toEqual({
+      warnings: [],
+      blockers: [],
+      blocksF3: false,
+      blockedReason: null,
+      verdict: "passed",
+    });
   });
 
   it("ignores skipped rows and older-run findings after a later passing summary", () => {
@@ -291,10 +309,16 @@ describe("projectProductPostcheckReadiness", () => {
       }, "2026-08-14T09:00:00Z"),
     ]);
 
-    expect(projection).toEqual({ warnings: [], blockers: [], blocksF3: false, blockedReason: null });
+    expect(projection).toEqual({
+      warnings: [],
+      blockers: [],
+      blocksF3: false,
+      blockedReason: null,
+      verdict: "passed",
+    });
   });
 
-  it("projects a newer persisted skip as advisory degradation without blocking F3", () => {
+  it("projects a newer persisted product skip as pending (blocks F3, paints advisory)", () => {
     const projection = projectProductPostcheckReadiness([
       log("product_postcheck.skipped", "F2 Product Postcheck skipped.", {
         skippedReason: "transport_error",
@@ -305,7 +329,8 @@ describe("projectProductPostcheckReadiness", () => {
       }, "2026-08-14T10:00:00Z"),
     ]);
 
-    expect(projection.blocksF3).toBe(false);
+    expect(projection.verdict).toBe("pending");
+    expect(projection.blocksF3).toBe(true);
     expect(projection.blockers).toEqual([]);
     expect(projection.warnings).toEqual([
       expect.objectContaining({
@@ -453,7 +478,8 @@ describe("buildChatReadiness + postcheck projection", () => {
     expect(readiness.canDeploy).toBe(true);
     expect(readiness.warnings).toEqual([]);
     expect(readiness.blockers).toEqual([]);
-    expect(readiness.info.productPostcheckBlocksF3).toBe(false);
+    expect(readiness.info.productPostcheckBlocksF3).toBe(true);
+    expect(projection.verdict).toBe("pending");
   });
 
   it("still flips canDeploy on a real deploy blocker next to a postcheck status-blocker", () => {
@@ -659,6 +685,8 @@ describe("advisory-skip tystar inte readiness-kortet — SM-072", () => {
     const projection = projectProductPostcheckReadiness([skipLog("preview_not_running")]);
     expect(projection.warnings).toHaveLength(1);
     expect(projection.warnings[0]?.detail).toContain("preview_not_running");
+    expect(projection.verdict).toBe("pending");
+    expect(projection.blocksF3).toBe(true);
   });
 
   it("catch-all runtime_error varnar ocksa", () => {

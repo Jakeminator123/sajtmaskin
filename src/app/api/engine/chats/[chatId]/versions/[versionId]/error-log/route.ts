@@ -11,6 +11,7 @@ import {
   isProductPostcheckAttestation,
   type ProductPostcheckAttestation,
 } from "@/lib/gen/verify/product-postcheck";
+import { isUnattestedProductPostcheckVerdictWriteAllowed } from "@/lib/gen/verify/product-postcheck-verdict";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 
@@ -166,7 +167,12 @@ export async function POST(request: Request, ctx: RouteParams) {
       // new Product Postcheck write must use the attested all-or-nothing path
       // above. Otherwise an old client could publish a false PASS after N+1.
       if (body.logs.some((log) => isProductPostcheckCategory(log.category))) {
-        return productPostcheckAttestationRequiredResponse();
+        // L2: an explicit non-release verdict (pending/superseded/allowed_skip)
+        // may be stored without a preview tuple. `passed`/`blocked` still
+        // require attestation so an old client cannot publish a false PASS.
+        if (!isUnattestedProductPostcheckVerdictWriteAllowed(body.logs)) {
+          return productPostcheckAttestationRequiredResponse();
+        }
       }
       const requestedCount = body.logs.length;
       const rows = await createEngineVersionErrorLogs(

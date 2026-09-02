@@ -447,6 +447,7 @@ async function runResumeProductPostcheck(params: {
 }): Promise<{
   productBlocked: boolean;
   blockerPersistFailed: boolean;
+  persistFailed: boolean;
   superseded: boolean;
 }> {
   let data: ProductPostcheckResult | null = null;
@@ -468,20 +469,45 @@ async function runResumeProductPostcheck(params: {
     // an absent response would create the exact false-green this lane repairs.
   }
   if (!data) {
-    await persistVersionErrorLogs({
+    const persisted = await persistVersionErrorLogs({
       chatId: params.chatId,
       versionId: params.versionId,
       logs: buildProductPostcheckLogItems(null),
     });
-    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+    return {
+      productBlocked: false,
+      blockerPersistFailed: false,
+      persistFailed: !persisted,
+      superseded: true,
+    };
   }
   if (data?.skippedReason === "preview_superseded") {
-    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+    const persisted = await persistVersionErrorLogs({
+      chatId: params.chatId,
+      versionId: params.versionId,
+      logs: buildProductPostcheckLogItems(data),
+    });
+    return {
+      productBlocked: false,
+      blockerPersistFailed: false,
+      persistFailed: !persisted,
+      superseded: true,
+    };
   }
   if (data && data.skippedReason !== "feature_disabled" && !data.attestation) {
     // A current route response is always attested. Treat an older/unscoped
     // response as a retryable hold instead of promoting without durable proof.
-    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+    const persisted = await persistVersionErrorLogs({
+      chatId: params.chatId,
+      versionId: params.versionId,
+      logs: buildProductPostcheckLogItems(data),
+    });
+    return {
+      productBlocked: false,
+      blockerPersistFailed: false,
+      persistFailed: !persisted,
+      superseded: true,
+    };
   }
   // Normal-lane parity: persist both a concrete result and a missing/transport
   // result. Without the summary row, a product-blocked resume would be
@@ -497,6 +523,7 @@ async function runResumeProductPostcheck(params: {
   return {
     productBlocked,
     blockerPersistFailed: productBlocked && !persisted,
+    persistFailed: !persisted,
     superseded: false,
   };
 }
@@ -732,11 +759,10 @@ export function useResumePendingVerification(params: {
           scheduleRetry();
           return;
         }
-        if (postcheck.blockerPersistFailed) {
-          // Fail closed (Codex P1 round 4): the blocker row never reached the
-          // /error-log enforcement surface — promoting now could let the
-          // version be lifted to F3 without its product block. Hold the
-          // resume and self-schedule; a later tick retries the chain.
+        if (postcheck.persistFailed || postcheck.blockerPersistFailed) {
+          // L2: 503 row_contention after retries (or any failed verdict write)
+          // leaves the version pending. Never start the quality gate without
+          // a durable domain — a missing summary is never pass.
           scheduleRetry();
           return;
         }

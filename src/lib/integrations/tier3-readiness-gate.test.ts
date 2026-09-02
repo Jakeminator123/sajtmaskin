@@ -62,7 +62,10 @@ beforeEach(() => {
   detectIntegrationsFromVersionFiles.mockReturnValue(stripeDetection);
   getStoredProjectEnvVarMap.mockResolvedValue({});
   loadPlaceholderKeySet.mockReturnValue(new Set<string>());
-  getLatestEngineVersionErrorLogForCategory.mockResolvedValue(null);
+  getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
+    category: "product_postcheck.summary",
+    meta: { verdict: "passed", productBlocked: false },
+  });
 });
 
 describe("checkTier3ReadinessForVersion (M#818-2)", () => {
@@ -187,7 +190,12 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       orchestrationSnapshot: null,
       projectId: "proj_1",
     });
-    expect(result).toEqual({ ok: false, reason: "product_postcheck_blocked" });
+    expect(result).toEqual({
+      ok: false,
+      reason: "product_postcheck_blocked",
+      verdict: "blocked",
+      retryable: false,
+    });
     // The block fires before any spec derivation.
     expect(getVersionFiles).not.toHaveBeenCalled();
   });
@@ -205,7 +213,12 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: "proj_1",
     });
 
-    expect(result).toEqual({ ok: false, reason: "product_postcheck_blocked" });
+    expect(result).toEqual({
+      ok: false,
+      reason: "product_postcheck_blocked",
+      verdict: "blocked",
+      retryable: false,
+    });
     // Category-scoped read (Codex P2 #353): exact query, no 200-row window
     // that per-warning postcheck rows could crowd the summary out of.
     expect(getLatestEngineVersionErrorLogForCategory).toHaveBeenCalledWith(
@@ -215,12 +228,12 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     expect(getVersionFiles).not.toHaveBeenCalled();
   });
 
-  it("lets a later passing summary unblock (newest row wins) and fails open on read errors", async () => {
+  it("lets a later passing summary unblock (newest row wins)", async () => {
     // The category-scoped service query returns the NEWEST summary row only
     // (ORDER BY created_at DESC LIMIT 1) — an older blocking row is invisible.
     getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
       category: "product_postcheck.summary",
-      meta: { productBlocked: false },
+      meta: { productBlocked: false, verdict: "passed" },
     });
     detectIntegrationsFromVersionFiles.mockReturnValue([]);
     const unblocked = await checkTier3ReadinessForVersion({
@@ -229,13 +242,69 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: null,
     });
     expect(unblocked.ok).toBe(true);
+  });
 
+  it("(a) saknad summary blockerar F3 som pending — aldrig pass", async () => {
+    getLatestEngineVersionErrorLogForCategory.mockResolvedValue(null);
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "product_postcheck_pending",
+      verdict: "pending",
+      retryable: true,
+    });
+    expect(getVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("(b) DB-fel vid läsning är indeterminate och blockerar F3", async () => {
     getLatestEngineVersionErrorLogForCategory.mockRejectedValue(new Error("db down"));
-    const failOpen = await checkTier3ReadinessForVersion({
+    const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,
       projectId: null,
     });
-    expect(failOpen.ok).toBe(true);
+    expect(result).toEqual({
+      ok: false,
+      reason: "product_postcheck_indeterminate",
+      verdict: "indeterminate",
+      retryable: true,
+    });
+  });
+
+  it("(e) passed persisterad släpper F3", async () => {
+    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
+      category: "product_postcheck.summary",
+      meta: { verdict: "passed", productBlocked: false },
+    });
+    detectIntegrationsFromVersionFiles.mockReturnValue([]);
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: null,
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("(g) superseded är retrybar och släpper inte F3", async () => {
+    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
+      category: "product_postcheck.summary",
+      meta: { verdict: "superseded" },
+    });
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "product_postcheck_superseded",
+      verdict: "superseded",
+      retryable: true,
+    });
+    expect(getVersionFiles).not.toHaveBeenCalled();
   });
 });

@@ -238,6 +238,39 @@ describe("POST product-postcheck-attested error log", () => {
     expect(createAttestedProductPostcheckErrorLogs).not.toHaveBeenCalled();
   });
 
+  it("stores an unattested non-release verdict (pending/superseded)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat_1" },
+      version: { id: "v1", files_revision: "rev_n" },
+    });
+
+    const response = await POST(
+      unattestedRequest({
+        logs: [
+          {
+            level: "warning",
+            category: "product_postcheck.summary",
+            message: "F2 Product Postcheck superseded — versionen lämnas pending.",
+            meta: { verdict: "superseded", skippedReason: "preview_superseded" },
+          },
+        ],
+      }),
+      ctx,
+    );
+
+    expect(response.status).toBe(200);
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          category: "product_postcheck.summary",
+          meta: expect.objectContaining({ verdict: "superseded" }),
+        }),
+      ],
+      expect.anything(),
+    );
+    expect(createAttestedProductPostcheckErrorLogs).not.toHaveBeenCalled();
+  });
+
   it("rejects an unattested single Product Postcheck row", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1" },

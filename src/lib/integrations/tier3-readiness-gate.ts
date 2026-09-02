@@ -39,6 +39,14 @@ import type {
 } from "@/lib/gen/plan/schema";
 import type { CodeFile } from "@/lib/gen/parser";
 import type { SelectedDossier } from "@/lib/gen/dossiers/types";
+import {
+  f3MayReleaseOnVerdict,
+  interpretProductPostcheckSummaryRead,
+  isRetryableProductPostcheckVerdict,
+  productPostcheckF3GateReason,
+  type ProductPostcheckF3GateReason,
+  type ProductPostcheckVerdict,
+} from "@/lib/gen/verify/product-postcheck-verdict";
 
 export function buildContractsFromDetectedIntegrations(
   detected: ReturnType<typeof detectIntegrationsFromVersionFiles>,
@@ -104,10 +112,17 @@ export async function deriveTier3BuildSpecForVersion(
   return deriveTier3BuildSpec(contracts);
 }
 
+export type Tier3ProductPostcheckHold = {
+  ok: false;
+  reason: ProductPostcheckF3GateReason;
+  verdict: ProductPostcheckVerdict;
+  retryable: boolean;
+};
+
 export type Tier3GateResult =
   | { ok: true; spec: Tier3BuildSpec }
   | { ok: false; reason: "version_files_unavailable" }
-  | { ok: false; reason: "product_postcheck_blocked" }
+  | Tier3ProductPostcheckHold
   | {
       ok: false;
       reason: "missing_env";
@@ -115,40 +130,52 @@ export type Tier3GateResult =
       readiness: Tier3ReadinessReport;
     };
 
+export type ProductPostcheckVerdictRead = {
+  verdict: ProductPostcheckVerdict;
+  retryable: boolean;
+};
+
 /**
- * Server-side Product Postcheck block (Codex P1 rounds 3+5 on #353) — shared
- * by BOTH F3 entry points (`/finalize-design` and the stream route via
- * {@link checkTier3ReadinessForVersion}), so a client that skips
- * finalize-design cannot lift a product-blocked F2 version to F3 either.
- * The F3 trigger button reads `product_postcheck.summary` from `/error-log`
- * and refetches after version-status refreshes, but this remains the
- * authoritative check against stale or bypassed clients. The newest summary
- * row wins (a later passing postcheck unblocks). Read failures fail open with
- * a log — defense-in-depth on top of the client button; a telemetry hiccup
- * must not brick the legit F3 flow.
+ * Server-side Product Postcheck domain (L2). Shared by BOTH F3 entry points
+ * (`/finalize-design` and the stream route via
+ * {@link checkTier3ReadinessForVersion}). A missing summary is `pending`,
+ * never pass. A DB read error is `indeterminate`, never pass. F3 may
+ * release only on `passed` or `allowed_skip`.
  *
  * Codex P2 on #353 (backlog): reads the summary row via a category-scoped
  * `LIMIT 1` query — the previous 200-row window could be crowded out by
  * per-warning postcheck rows, silently unblocking the gate.
  */
-export async function isProductPostcheckBlocked(versionId: string): Promise<boolean> {
+export async function readProductPostcheckVerdictForVersion(
+  versionId: string,
+): Promise<ProductPostcheckVerdictRead> {
   try {
     const summary = await getLatestEngineVersionErrorLogForCategory(
       versionId,
       "product_postcheck.summary",
     );
-    const meta =
-      summary?.meta && typeof summary.meta === "object"
-        ? (summary.meta as Record<string, unknown>)
-        : null;
-    return meta?.productBlocked === true;
+    const verdict = interpretProductPostcheckSummaryRead(
+      summary
+        ? { status: "ok", meta: summary.meta }
+        : { status: "missing" },
+    );
+    return {
+      verdict,
+      retryable: isRetryableProductPostcheckVerdict(verdict),
+    };
   } catch (err) {
     console.warn(
-      "[tier3-readiness-gate] product-postcheck block read failed (fail-open):",
+      "[tier3-readiness-gate] product-postcheck verdict read failed (indeterminate):",
       err,
     );
-    return false;
+    return { verdict: "indeterminate", retryable: true };
   }
+}
+
+/** @deprecated L2 — use {@link readProductPostcheckVerdictForVersion}. */
+export async function isProductPostcheckBlocked(versionId: string): Promise<boolean> {
+  const read = await readProductPostcheckVerdictForVersion(versionId);
+  return read.verdict === "blocked";
 }
 
 function dedupeApprovedProviderKeys(providerKeys: readonly string[]): string[] {
@@ -318,12 +345,17 @@ export async function checkTier3ReadinessForVersion(params: {
   /** Exact planned dossier ids approved by the F2 → F3 transition. */
   pendingApprovedDossierIds?: readonly string[];
 }): Promise<Tier3GateResult> {
-  if (
-    await isProductPostcheckBlocked(
-      params.productPostcheckVersionId ?? params.versionId,
-    )
-  ) {
-    return { ok: false, reason: "product_postcheck_blocked" };
+  const postcheck = await readProductPostcheckVerdictForVersion(
+    params.productPostcheckVersionId ?? params.versionId,
+  );
+  if (!f3MayReleaseOnVerdict(postcheck.verdict)) {
+    const reason = productPostcheckF3GateReason(postcheck.verdict);
+    return {
+      ok: false,
+      reason: reason ?? "product_postcheck_pending",
+      verdict: postcheck.verdict,
+      retryable: postcheck.retryable,
+    };
   }
   const versionFiles =
     params.preloadedFiles !== undefined

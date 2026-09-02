@@ -10,6 +10,25 @@ vi.mock("sonner", () => {
   throw new Error("F3 trigger must not use Sonner.");
 });
 
+const PASSED_ERROR_LOG = {
+  logs: [
+    {
+      category: "product_postcheck.summary",
+      meta: { verdict: "passed", productBlocked: false },
+      created_at: "2026-08-15T10:00:00.000Z",
+    },
+  ],
+};
+
+async function waitForF3Enabled() {
+  await waitFor(() => {
+    expect(screen.getByRole("button", { name: /bygg integrationer/i })).toHaveProperty(
+      "disabled",
+      false,
+    );
+  });
+}
+
 describe("PreviewPanelF3Trigger", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -160,7 +179,7 @@ describe("PreviewPanelF3Trigger", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input);
       if (url.includes("/error-log")) {
-        return Response.json({ logs: [] });
+        return Response.json(PASSED_ERROR_LOG);
       }
       if (url.includes("/finalize-design")) {
         return Response.json(
@@ -191,6 +210,7 @@ describe("PreviewPanelF3Trigger", () => {
       />,
     );
 
+    await waitForF3Enabled();
     fireEvent.click(screen.getByRole("button", { name: /bygg integrationer/i }));
 
     await waitFor(() => {
@@ -214,7 +234,7 @@ describe("PreviewPanelF3Trigger", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/error-log")) return Response.json({ logs: [] });
+        if (url.includes("/error-log")) return Response.json(PASSED_ERROR_LOG);
         if (url.includes("/finalize-design")) {
           return Response.json(
             {
@@ -243,6 +263,7 @@ describe("PreviewPanelF3Trigger", () => {
       />,
     );
 
+    await waitForF3Enabled();
     fireEvent.click(screen.getByRole("button", { name: /bygg integrationer/i }));
 
     await waitFor(() => {
@@ -268,7 +289,7 @@ describe("PreviewPanelF3Trigger", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
-        if (url.includes("/error-log")) return Response.json({ logs: [] });
+        if (url.includes("/error-log")) return Response.json(PASSED_ERROR_LOG);
         if (url.includes("/finalize-design")) {
           requestedBodies.push(
             JSON.parse(String(init?.body)) as Record<string, unknown>,
@@ -293,6 +314,7 @@ describe("PreviewPanelF3Trigger", () => {
         versionId="ver_transient_active"
       />,
     );
+    await waitForF3Enabled();
     act(() => {
       window.dispatchEvent(
         new CustomEvent(F3_REBUILD_REQUEST_EVENT, {
@@ -312,7 +334,7 @@ describe("PreviewPanelF3Trigger", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input);
       if (url.includes("/error-log")) {
-        return Response.json({ logs: [] });
+        return Response.json(PASSED_ERROR_LOG);
       }
       if (url.includes("/finalize-design")) {
         return Response.json({
@@ -361,6 +383,7 @@ describe("PreviewPanelF3Trigger", () => {
       />,
     );
 
+    await waitForF3Enabled();
     fireEvent.click(screen.getByRole("button", { name: /bygg integrationer/i }));
 
     await waitFor(() => {
@@ -421,7 +444,7 @@ describe("PreviewPanelF3Trigger", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/error-log")) return Response.json({ logs: [] });
+        if (url.includes("/error-log")) return Response.json(PASSED_ERROR_LOG);
         if (url.includes("/finalize-design")) {
           return Response.json({
             ready: true,
@@ -443,6 +466,7 @@ describe("PreviewPanelF3Trigger", () => {
 
     render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" onStatus={onStatus} />);
 
+    await waitForF3Enabled();
     fireEvent.click(screen.getByRole("button", { name: /bygg integrationer/i }));
 
     await waitFor(() => {
@@ -463,7 +487,7 @@ describe("PreviewPanelF3Trigger", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/error-log")) return Response.json({ logs: [] });
+        if (url.includes("/error-log")) return Response.json(PASSED_ERROR_LOG);
         if (url.includes("/finalize-design")) {
           return Response.json({
             ready: true,
@@ -482,6 +506,7 @@ describe("PreviewPanelF3Trigger", () => {
 
     render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" onStatus={onStatus} />);
 
+    await waitForF3Enabled();
     fireEvent.click(screen.getByRole("button", { name: /bygg integrationer/i }));
 
     // Same title contract as a fresh ReleaseGate pass — "redan godkänd" was
@@ -506,7 +531,7 @@ describe("PreviewPanelF3Trigger", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/error-log")) return Response.json({ logs: [] });
+        if (url.includes("/error-log")) return Response.json(PASSED_ERROR_LOG);
         if (url.includes("/finalize-design")) {
           return Response.json({
             ready: true,
@@ -540,6 +565,7 @@ describe("PreviewPanelF3Trigger", () => {
       />,
     );
 
+    await waitForF3Enabled();
     fireEvent.click(screen.getByRole("button", { name: /bygg integrationer/i }));
 
     await waitFor(() => {
@@ -590,7 +616,7 @@ describe("PreviewPanelF3Trigger", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/error-log")) return Response.json({ logs: [] });
+        if (url.includes("/error-log")) return Response.json(PASSED_ERROR_LOG);
         if (url.includes("/finalize-design")) {
           return Response.json({
             ready: true,
@@ -617,6 +643,7 @@ describe("PreviewPanelF3Trigger", () => {
       />,
     );
 
+    await waitForF3Enabled();
     fireEvent.click(screen.getByRole("button", { name: /bygg integrationer/i }));
 
     await waitFor(() => {
@@ -628,6 +655,87 @@ describe("PreviewPanelF3Trigger", () => {
         expect.objectContaining({
           title: expected,
         }),
+      );
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("(a) saknad summary håller knappen disabled (pending, aldrig pass)", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ logs: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: /bygg integrationer/i })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it("(b) DB/fetch-fel är indeterminate och blockerar F3", async () => {
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: /bygg integrationer/i })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it("(d) blocked persisterad håller knappen disabled", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          logs: [
+            {
+              category: "product_postcheck.summary",
+              meta: { verdict: "blocked", productBlocked: true },
+              created_at: "2026-08-15T10:00:00.000Z",
+            },
+          ],
+        }),
+      ),
+    );
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /bygg integrationer/i })).toHaveProperty(
+        "disabled",
+        true,
+      );
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("(e) passed persisterad släpper F3-knappen", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(PASSED_ERROR_LOG)));
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+    await waitForF3Enabled();
+    vi.unstubAllGlobals();
+  });
+
+  it("(g) superseded håller knappen disabled (retry, aldrig pass)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          logs: [
+            {
+              category: "product_postcheck.summary",
+              meta: { verdict: "superseded" },
+              created_at: "2026-08-15T10:00:00.000Z",
+            },
+          ],
+        }),
+      ),
+    );
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /bygg integrationer/i })).toHaveProperty(
+        "disabled",
+        true,
       );
     });
     vi.unstubAllGlobals();

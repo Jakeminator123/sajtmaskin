@@ -477,15 +477,21 @@ describe("useResumePendingVerification", () => {
     const persisted = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
       logs: Array<{ category: string; meta?: { skippedReason?: string } }>;
     };
-    expect(persisted.logs).toEqual([
-      expect.objectContaining({
-        category: "post-check.product-postcheck-transport",
-        meta: expect.objectContaining({ skippedReason: "transport_error" }),
-      }),
-    ]);
+    expect(persisted.logs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "post-check.product-postcheck-transport",
+          meta: expect.objectContaining({ skippedReason: "transport_error" }),
+        }),
+        expect.objectContaining({
+          category: "product_postcheck.summary",
+          meta: expect.objectContaining({ verdict: "pending" }),
+        }),
+      ]),
+    );
   });
 
-  it("silently retries a superseded postcheck without logging or gating the stale DOM", async () => {
+  it("persists superseded as an explicit verdict and does not start quality-gate", async () => {
     mockRoutes({
       postcheck: {
         body: {
@@ -505,10 +511,14 @@ describe("useResumePendingVerification", () => {
       }),
     );
 
-    await waitFor(() => expect(callsTo("/product-postcheck")).toHaveLength(1));
-    await Promise.resolve();
-    expect(callsTo("/error-log")).toHaveLength(0);
+    await waitFor(() => expect(callsTo("/error-log")).toHaveLength(1));
     expect(callsTo("/quality-gate")).toHaveLength(0);
+    const supersededBody = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
+      logs?: Array<{ category?: string; meta?: { verdict?: string } }>;
+    };
+    expect(
+      supersededBody.logs?.find((log) => log.category === "product_postcheck.summary")?.meta,
+    ).toEqual(expect.objectContaining({ verdict: "superseded" }));
   });
 
   it("does nothing while streaming", async () => {
@@ -757,12 +767,18 @@ describe("useResumePendingVerification", () => {
     const persisted = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
       logs: Array<{ category: string; meta?: { skippedReason?: string } }>;
     };
-    expect(persisted.logs).toEqual([
-      expect.objectContaining({
-        category: "post-check.product-postcheck-transport",
-        meta: expect.objectContaining({ skippedReason: "transport_error" }),
-      }),
-    ]);
+    expect(persisted.logs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "post-check.product-postcheck-transport",
+          meta: expect.objectContaining({ skippedReason: "transport_error" }),
+        }),
+        expect.objectContaining({
+          category: "product_postcheck.summary",
+          meta: expect.objectContaining({ verdict: "pending" }),
+        }),
+      ]),
+    );
   });
 
   it("import lane rehydrates a missing preview before the gate", async () => {
@@ -1065,6 +1081,48 @@ describe("useResumePendingVerification", () => {
     await waitFor(() => expect(callsTo("/error-log")).toHaveLength(1));
     await Promise.resolve();
     // The blocker never reached the enforcement surface — do not promote.
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("(c) 503 after retries on a passing postcheck leaves resume pending without gate", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/product-postcheck")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            skipped: false,
+            productBlocked: false,
+            warnings: [],
+            attestation: currentAttestation,
+          }),
+        };
+      }
+      if (u.includes("/error-log")) {
+        return new Response(JSON.stringify({ code: "row_contention", retryable: true }), {
+          status: 503,
+          headers: { "Content-Type": "application/json", "Retry-After": "1" },
+        });
+      }
+      if (u.includes("/validate-images")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      }
+      if (u.includes("/preview-status")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true, status: "running" }) };
+      }
+      throw new Error(`quality-gate must not start after persist 503: ${u}`);
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/error-log").length).toBeGreaterThanOrEqual(3), {
+      timeout: 10_000,
+    });
     expect(callsTo("/quality-gate")).toHaveLength(0);
   });
 

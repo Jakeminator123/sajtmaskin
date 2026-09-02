@@ -164,7 +164,11 @@ Typisk ordning i runtime:
     bildmaterialisering (`persisted` ≠ `replaced`) → bekräftad
     `validate-images`-mutation → läs serverns nya revision → resynka preview
     för just den revisionen → Product Postcheck attesterar den →
-    `persistVersionErrorLogs` awaitas (misslyckad blocker-persist → pending)
+    `persistVersionErrorLogs` awaitas (misslyckad persist inkl. `503
+    row_contention` → pending, aldrig gate). Domen är explicit
+    `passed|blocked|allowed_skip|pending|indeterminate|superseded` på
+    `product_postcheck.summary`. Saknad eller oläsbar dom är aldrig pass;
+    F3 släpper bara på `passed` eller `allowed_skip`.
     → RenderGate/ReleaseGate. Klienttimeout abortar fetch så servern hoppar
     över `files_json`-persist. Inget steg startar innan föregående är
     bekräftat.

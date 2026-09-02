@@ -2309,7 +2309,7 @@ describe("runPostGenerationChecks", () => {
       expect.arrayContaining(["product_postcheck.summary", "product_postcheck.mobile_menu_failed"]),
     );
     expect(body.logs?.find((log) => log.category === "product_postcheck.summary")?.meta).toEqual(
-      expect.objectContaining({ productBlocked: true }),
+      expect.objectContaining({ productBlocked: true, verdict: "blocked" }),
     );
     expect(body.logs?.find((log) => log.category === "product_postcheck.mobile_menu_failed")?.meta).toEqual(
       expect.objectContaining({ code: "mobile_menu_failed" }),
@@ -3092,6 +3092,13 @@ describe("buildProductPostcheckLogItems live review", () => {
         category: "post-check.product-postcheck-transport",
         meta: expect.objectContaining({ skippedReason: "transport_error" }),
       }),
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "pending",
+          skippedReason: "transport_error",
+        }),
+      }),
     ]);
   });
 
@@ -3177,6 +3184,7 @@ describe("buildProductPostcheckLogItems live review", () => {
         reportedWarningCount: 9,
         persistedWarningCount: 2,
         warningCount: 2,
+        verdict: "passed",
       }),
     );
   });

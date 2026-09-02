@@ -93,6 +93,8 @@ describe("POST finalize-design", () => {
     checkTier3ReadinessForVersion.mockResolvedValue({
       ok: false,
       reason: "product_postcheck_blocked",
+      verdict: "blocked",
+      retryable: false,
     });
 
     const res = await POST(request({ versionId: "ver_current" }), {
@@ -110,6 +112,30 @@ describe("POST finalize-design", () => {
         projectId: null,
       }),
     );
+  });
+
+  it("(f) pending postcheck returns retryable 409 and does not finalize", async () => {
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: false,
+      reason: "product_postcheck_pending",
+      verdict: "pending",
+      retryable: true,
+    });
+
+    const res = await POST(request({ versionId: "ver_current" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      ready: false,
+      reason: "product_postcheck_pending",
+      verdict: "pending",
+      retryable: true,
+    });
+    expect(createDraftVersion).not.toHaveBeenCalled();
+    expect(appendF3ApprovedToSnapshot).not.toHaveBeenCalled();
   });
 
   it("rejects an explicit stale design version before deriving F3 requirements", async () => {

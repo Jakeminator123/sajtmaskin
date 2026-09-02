@@ -11,7 +11,11 @@ import {
   describeF3SuccessTitle,
 } from "@/lib/builder/project-env-events";
 import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
-import { projectProductPostcheckReadiness } from "@/lib/chat-readiness";
+import {
+  f3MayReleaseOnVerdict,
+  interpretProductPostcheckLogs,
+  type ProductPostcheckVerdict,
+} from "@/lib/gen/verify/product-postcheck-verdict";
 
 export interface PreviewPanelF3TriggerProps {
   chatId: string;
@@ -83,9 +87,9 @@ type DiagnosticsResponse = {
   }>;
 };
 
-function hasBlockingProductPostcheck(data: DiagnosticsResponse | null): boolean {
+function verdictFromErrorLog(data: DiagnosticsResponse | null): ProductPostcheckVerdict {
   const logs = Array.isArray(data?.logs) ? data.logs : [];
-  return projectProductPostcheckReadiness(logs).blocksF3;
+  return interpretProductPostcheckLogs(logs);
 }
 
 /**
@@ -107,11 +111,12 @@ export function PreviewPanelF3Trigger({
   requiresRealBuildKeys = null,
 }: PreviewPanelF3TriggerProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [productBlocked, setProductBlocked] = useState(false);
+  const [verdict, setVerdict] = useState<ProductPostcheckVerdict>("pending");
+  const productBlocked = !f3MayReleaseOnVerdict(verdict);
 
   useEffect(() => {
     if (!chatId || !versionId) {
-      setProductBlocked(false);
+      setVerdict("pending");
       return;
     }
     let active = true;
@@ -129,12 +134,16 @@ export function PreviewPanelF3Trigger({
           { signal: requestController.signal },
         );
         const data = (await response.json().catch(() => null)) as DiagnosticsResponse | null;
-        if (active && controller === requestController && response.ok) {
-          setProductBlocked(hasBlockingProductPostcheck(data));
+        if (active && controller === requestController) {
+          if (!response.ok) {
+            setVerdict("indeterminate");
+          } else {
+            setVerdict(verdictFromErrorLog(data));
+          }
         }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
-        if (active && controller === requestController) setProductBlocked(false);
+        if (active && controller === requestController) setVerdict("indeterminate");
       } finally {
         if (controller === requestController) controller = null;
       }
@@ -180,10 +189,21 @@ export function PreviewPanelF3Trigger({
       return;
     }
     if (productBlocked) {
+      const retryable =
+        verdict === "pending" ||
+        verdict === "indeterminate" ||
+        verdict === "superseded";
       reportStatus({
         tone: "warning",
-        title: "Integrationsbygget är spärrat av Product Postcheck",
-        description: "Åtgärda blockerande previewproblem i designläget innan du bygger integrationer.",
+        title: retryable
+          ? "Integrationsbygget väntar på Product Postcheck"
+          : "Integrationsbygget är spärrat av Product Postcheck",
+        description:
+          verdict === "superseded"
+            ? "Produktkontrollen ersattes av en nyare preview — försök igen."
+            : retryable
+              ? "Produktkontrollens dom saknas eller kunde inte läsas. Försök igen när kontrollen är klar."
+              : "Åtgärda blockerande previewproblem i designläget innan du bygger integrationer.",
       });
       return;
     }
@@ -308,6 +328,7 @@ export function PreviewPanelF3Trigger({
     onReleaseSettled,
     onStatus,
     productBlocked,
+    verdict,
     isBusy,
     isLoading,
   ]);
@@ -374,7 +395,9 @@ export function PreviewPanelF3Trigger({
           : noVersion
             ? "Vänta tills första versionen är skapad innan du startar integrationsbygget."
             : disabledByProduct
-              ? "Product Postcheck hittade blockerande previewproblem i designläget. Åtgärda dem innan du startar integrationsbygget."
+              ? verdict === "blocked"
+                ? "Product Postcheck hittade blockerande previewproblem i designläget. Åtgärda dem innan du startar integrationsbygget."
+                : "Produktkontrollens dom saknas eller kunde inte läsas — F3 släpper bara på passed eller allowed_skip."
             : enabledTitle
       }
       aria-label={iconOnly ? `Bygg integrationer (${costTag})` : undefined}
