@@ -32,6 +32,7 @@ const runDeterministicImportRepair = vi.hoisted(() => vi.fn());
 const runLlmRepairGate = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
+const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/client", () => ({ dbConfigured: true, db: {}, pool: null }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
@@ -79,6 +80,15 @@ vi.mock("./preview-quality-gate", () => ({
   qualityGateAllPassed,
   shouldPromoteAfterRepair,
   maybeAnalyzeVisualQAForPassedExportable,
+}));
+vi.mock("./tier3-readiness", () => ({
+  checkTier3ReadinessForVersion,
+  serverOwnedF3ReadinessParams: (input: Record<string, unknown>) => ({
+    ...input,
+    requireF2Parent: true,
+    productPostcheckVersionId: input.parentVersionId ?? undefined,
+  }),
+  md5FilesRevision: (json: string) => `md5:${json.length}`,
 }));
 
 import { serializeCodeProject } from "@/lib/gen/parser";
@@ -144,12 +154,24 @@ beforeEach(() => {
   renewVersionLease.mockReset().mockResolvedValue(undefined);
   getPreferredVersion.mockReset().mockResolvedValue({ id: versionId });
   getLatestVersion.mockReset().mockResolvedValue({ id: versionId });
-  getChat.mockReset().mockResolvedValue(null);
   markVersionSupersededByRepair.mockReset().mockResolvedValue(null);
   getVersionFilesSnapshot.mockReset().mockResolvedValue({
     files: projectFiles,
     filesJson,
     lifecycleStage: "integrations",
+    filesRevision: "rev_f3",
+    parentVersionId: "ver_f2",
+    verificationState: "pending",
+  });
+  checkTier3ReadinessForVersion.mockReset().mockResolvedValue({
+    ready: true,
+    ok: true,
+    spec: { requirements: [] },
+  });
+  getChat.mockReset().mockResolvedValue({
+    id: chatId,
+    project_id: "proj_1",
+    orchestration_snapshot: null,
   });
   runQualityGateOnExportable.mockReset().mockResolvedValue(gateFailTypecheck());
   qualityGateAllPassed.mockReset().mockReturnValue(false);

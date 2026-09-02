@@ -9,8 +9,10 @@ const detectIntegrationsFromVersionFiles = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
 const getLatestEngineVersionErrorLogForCategory = vi.hoisted(() => vi.fn());
+const getVersionById = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
+vi.mock("@/lib/db/chat-repository-pg", () => ({ getVersionById }));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
 vi.mock("@/lib/projects/project-env-vars", () => ({
   getStoredProjectEnvVarMap,
@@ -66,6 +68,7 @@ beforeEach(() => {
     category: "product_postcheck.summary",
     meta: { verdict: "passed", productBlocked: false },
   });
+  getVersionById.mockResolvedValue({ id: "ver_f2", chat_id: "chat_1" });
 });
 
 describe("checkTier3ReadinessForVersion (M#818-2)", () => {
@@ -76,7 +79,12 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       orchestrationSnapshot: null,
       projectId: "proj_1",
     });
-    expect(result).toEqual({ ok: false, reason: "version_files_unavailable" });
+    expect(result).toEqual({
+      ready: false,
+      ok: false,
+      reason: "version_files_unavailable",
+      retryable: true,
+    });
   });
 
   it("blocks with missing_env when a required real key is absent AND has no placeholder", async () => {
@@ -191,6 +199,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: "proj_1",
     });
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_blocked",
       verdict: "blocked",
@@ -214,6 +223,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     });
 
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_blocked",
       verdict: "blocked",
@@ -252,6 +262,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: "proj_1",
     });
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_pending",
       verdict: "pending",
@@ -268,6 +279,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: null,
     });
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_indeterminate",
       verdict: "indeterminate",
@@ -300,6 +312,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: "proj_1",
     });
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_superseded",
       verdict: "superseded",

@@ -3259,7 +3259,7 @@ describe("buildProductPostcheckLogItems live review", () => {
     ]);
   });
 
-  it("L7: oattesterad preview_not_ready/preview_not_running lämnar ingen durabel skip", () => {
+  it("L7+L2: oattesterad preview_not_ready/preview_not_running är explicit pending — aldrig pass", () => {
     const pending = {
       ok: true as const,
       skipped: true,
@@ -3273,9 +3273,25 @@ describe("buildProductPostcheckLogItems live review", () => {
     };
     expect(
       buildProductPostcheckLogItems({ ...pending, skippedReason: "preview_not_ready" }),
-    ).toEqual([]);
+    ).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "pending",
+          skippedReason: "preview_not_ready",
+        }),
+      }),
+    ]);
     expect(
       buildProductPostcheckLogItems({ ...pending, skippedReason: "preview_not_running" }),
-    ).toEqual([]);
+    ).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "pending",
+          skippedReason: "preview_not_running",
+        }),
+      }),
+    ]);
   });
 });
