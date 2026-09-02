@@ -15,5 +15,8 @@ alwaysApply: false
 - Template/import, Scaffold och Dossier är olika system.
 - Prompt-assist, Briefing/Deep Brief och Orkestrering är olika lager.
 - Builder-agenten är inte produktens Builder-UI; Steward är merge/städ.
+- Ordet **preview** är flertydigt. Gissa inte: slå upp `preview` i glossaryn.
+  Kort: `preview`-grenen (preview.sajtmaskin.se) ≠ Preview-ytan (builder-iframe /
+  `PreviewPanel`) ≠ `preview_host` / `previewUrl` ≠ Vercel deploy-preview.
 
 Ny signal: hitta canonical source först och ändra ägaren, inte fem konsumenter.

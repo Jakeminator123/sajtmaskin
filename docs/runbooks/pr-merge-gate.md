@@ -14,8 +14,11 @@ bevisar inte ensam vilka rulesets, bypasser eller required checks som gäller.
 Kontrollera därför aktuell PR och GitHub-inställningen; luta dig aldrig mot ett
 gammalt runbookpåstående.
 
-Repoets avsedda required checknamn ägs av
-[`config/agent-workflow.json`](../../config/agent-workflow.json):
+Repoets avsedda **agent-grind**-checknamn ägs av
+[`config/agent-workflow.json`](../../config/agent-workflow.json).
+GitHub Protect master kräver en **mindre** live-lista (ägs av
+[`.github/rulesets/protect-master.expected.json`](../../.github/rulesets/protect-master.expected.json));
+`review-window` är grind, inte live ruleset-check.
 
 | Check              | Roll                                                                                                              |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
@@ -34,6 +37,13 @@ Konsekvenser:
   att passera rött, pending eller otriagerade fynd.
 - `stability` och andra warn-only-signaler ska läsas men är inte samma sak som
   required checks.
+
+### Extra bekräftelse till master
+
+Ägarbeslut 2026-09-02: live Protect master lämnas löst. Innan `merge:execute`
+ska agenten varna att mergen går till master/produktion, namnge PR:n och vänta
+på Jakobs bekräftelse i **samma chatt efter varningen**. «kör på»,
+«merga allteftersom», ett äldre «ok» eller «merga» före varningen räcker inte.
 
 ## Varför sign-off-kommentaren måste komma före labeln
 
@@ -143,15 +153,12 @@ Efter exakt head/base-kontroll används expected-head-squash och post-merge-CI
 körs på nya master.
 
 Expected head stänger head-racet. GitHubs merge-endpoint tar däremot ingen
-expected base-SHA. Native ruleset/branch protection måste därför kräva
-up-to-date branch; den serialiserade controllern och sista compare-läsningen
-minimerar men kan inte matematiskt ersätta base-CAS. Manuell webbmerge/bypass är
-inte den kanoniska agentvägen. Live-auditen 2026-08-24 visade
-`strict_required_status_checks_policy=false`. Desired-state och
-driftkontrollen ägs av
-[`.github/rulesets/protect-master.expected.json`](../../.github/rulesets/protect-master.expected.json)
-plus `config/agent-workflow.json` `requiredChecks`. Live-ändringen är ett
-separat manuellt steg — se avsnittet **C1: manuellt Protect master-steg** längst ner.
+expected base-SHA. Native Protect master kräver **inte** up-to-date/strict
+(ägarbeslut 2026-09-02; expected-filen speglar live). Den serialiserade
+controllern, extra master-bekräftelsen och sista compare-läsningen minimerar
+men kan inte matematiskt ersätta base-CAS. Manuell webbmerge/bypass är inte
+den kanoniska agentvägen. Påstå inte att grinden är racesäker; rapportera
+inte `NEEDS_HUMAN` bara för att native strict saknas.
 
 GitHubs native UI kan inte skilja två checkpublicerare som båda är GitHub
 Actions-appen. Manuell webb-/API-merge och separat auto-merge är därför
@@ -236,40 +243,3 @@ körning när en ny commit landar på samma ref. En `quality: cancelled` på en
 | **Produkt** | Modeller i `config/ai_models/manifest.json` som betjänar användarsajter         | id, t.ex. `gpt-5.5`, `openai/gpt-5.5`      |
 
 Ange alltid vilket plan ett fynd hör till så de inte blandas ihop.
-
-## C1: manuellt Protect master-steg
-
-Live-rulesetet **Protect master** (`17926309`)
-ändras **inte** av en PR. Versionerad desired-state:
-[`.github/rulesets/protect-master.expected.json`](../../.github/rulesets/protect-master.expected.json).
-App-ägda required checks läses från
-[`config/agent-workflow.json`](../../config/agent-workflow.json) `requiredChecks`
-vid utvärdering (ingen kopia i specen). GitGuardian är enda extra externa
-checken. Driftjobbet `master-ruleset-drift` jämför live mot det tillståndet och
-är medvetet **inte** en PR-required check — det körs på `push` till `master`,
-nattligt schema och `workflow_dispatch`.
-
-Gör live-ändringen **efter** att C2 och C3 är mergade (C3 publicerar
-`dossier-acceptance`; C2 gör deterministiska stability-kontrakt blockerande i
-`quality`) **och** C1:s desired-state finns på `master`. Lägg inte till
-`dossier-acceptance` i rulesetet innan C3 publicerar checken — GitHub blockerar
-då alla PR:er som saknar den.
-
-Ordning i GitHub UI / API för ruleset `17926309`:
-
-1. `pull_request.required_review_thread_resolution` = `true`
-2. `required_status_checks.strict_required_status_checks_policy` = `true`
-3. Required checks, exakt mängd:
-   - från `requiredChecks` efter C3: `quality`, `backoffice-tests`,
-     `schema-drift`, `build`, `review-window`, `dossier-acceptance`
-   - plus `GitGuardian Security Checks` (`integration_id` `46505`)
-4. Bekräfta att reglerna `deletion` och `non_fast_forward` finns (blockera
-   radering och force-push av `master`)
-5. Bekräfta att `pull_request.allowed_merge_methods` innehåller `squash`
-6. Lämna `pull_request.required_approving_review_count` = `0` (ensam repoägare;
-   GitHub räknar inte self-approval)
-
-Verifiering: kör Actions-workflow `master-ruleset-drift` via `workflow_dispatch`
-på `master`. Grön = live matchar desired-state. Röd = avvikelse; läs
-annoteringarna, rätta live eller specen, kör om. Jobbet skriver aldrig
-GitHub-konfiguration.

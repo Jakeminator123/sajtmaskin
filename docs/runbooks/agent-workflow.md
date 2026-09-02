@@ -17,7 +17,9 @@ flowchart TD
   E --> F["Betrodd head+base-exakt merge:ready"]
   F --> G["Required review-window blir grön"]
   G --> H["Jakob ger uttryckligt mergeuppdrag"]
-  H --> I["Trusted controller läser allt igen och squash-mergar"]
+  H --> H2["Agent varnar: master = produktion"]
+  H2 --> H3["Jakob bekräftar extra gång"]
+  H3 --> I["Trusted controller läser allt igen och squash-mergar"]
   I --> K["CI på nya master + omvärdera andra PR:ar"]
   K --> J["tidy visar FRI → säker städning"]
 ```
@@ -30,7 +32,9 @@ flowchart TD
 3. Agenten ändrar, testar och öppnar PR när du ber om det.
 4. Agenten pausar vid dataförlust, security/cross-tenant eller oväntat stort
    scope.
-5. När PR-head är grön: säg uttryckligen att den får mergas.
+5. När PR-head är grön: säg uttryckligen att den får mergas. Agenten ska då
+   varna att det går till **master (produktion)** och vänta på en extra
+   bekräftelse i samma chatt.
 
 Skyddade ytor betyder alltså **extra bevis, inte förbjudet område**. Om en
 produktändring påverkar ett strict schema, en policy, Sajtmaskins Backoffice
@@ -85,9 +89,8 @@ körs lokalt. CI publicerar required checks för den pushade committen och välj
 fail-closed tung profil eller ett explicit light-kvitto, så en saknad lokal hook
 kan inte göra en ogiltig PR grön.
 
-När `quality`, `backoffice-tests`, `schema-drift`, `build`,
-`dossier-acceptance`, Vercel och alla reviewfynd är klara — medan
-`review-window` fortfarande väntar — posta först
+När `quality`, `backoffice-tests`, `schema-drift`, `build`, Vercel och alla
+reviewfynd är klara — medan `review-window` fortfarande väntar — posta först
 `merge:ready — head-sha: <40 hex>, base-sha: <40 hex>, at: <UTC>, bugkoll: <källa>, triage: <utfall>, P0/P1: 0`
 som PR-kommentar och sätt sedan labeln `merge:ready`. Label-eventet läser
 aktuell head och base-refens levande tip via GitHub. Båda måste matcha
@@ -167,13 +170,10 @@ Historiska konto-kvitton kan fortfarande läsas, men nya PR:er ska inte
 lämnas över till Codex-kontot.
 
 Expected-head är en riktig CAS för head, men GitHubs merge-API saknar motsvarande
-base-SHA-parameter. Därför måste native branch protection/ruleset dessutom
-kräva att branchen är uppdaterad före merge. Controllern serialiserar merges och
-minimerar racet med en sista base/compare-läsning, men en manuell webbmerge eller
-bypass utanför den vägen har kvar base-racet om den native inställningen saknas.
-Live-auditen 2026-08-24 visade att `Protect master` ännu hade
-`strict_required_status_checks_policy=false`; rolloutens GitHub-inställningssteg
-måste slå på strict innan det kvarvarande base-racet kan betraktas som stängt.
+base-SHA-parameter. Native Protect master kräver inte up-to-date/strict
+(ägarbeslut 2026-09-02). Controllern serialiserar merges och minimerar racet med
+en sista base/compare-läsning plus extra mänsklig master-bekräftelse. En manuell
+webbmerge eller bypass har kvar base-racet. Påstå inte att racet är stängt.
 
 Native GitHub visar fortfarande required checks som namn + GitHub Actions-app,
 inte som en kryptografiskt unik workflow-publicerare. Därför är manuell

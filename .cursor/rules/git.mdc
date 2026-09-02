@@ -16,10 +16,17 @@ rollen eller kör `/scout`, `/builder` eller `/steward`.
 
 - Commit, push, PR, rebase och merge när Jakob ber om det.
 - Stage bara uppgiftens filer. Vid oklar status: visa status och pausa.
-- Force-pusha aldrig `master` eller en delad remote-branch.
+- Force-pusha aldrig `master`, `preview` eller en delad remote-branch.
+- `preview` är produktens staging (`preview.sajtmaskin.se`). Promovera till
+  `master` med extra bekräftelse. Rör inte `*BRA*`; gamla restore-tips hör i
+  `archive/`.
 - Rör aldrig `*BRA*` eller `rescue/*`.
 - Branchprefix (`fix/` …) är inte obligatoriskt.
 - Worktree är valfritt för parallellt arbete — se `agent-worktree.mdc`.
 - Merga inte utan ett separat uttryckligt mergeuppdrag.
+- Master-merge: visa en tydlig varning (produktion) och vänta på extra
+  bekräftelse i samma chatt. Detalj: `pr-merge.mdc`.
+- Ordet **preview** är flertydigt — slå upp det i glossaryn. `preview`-grenen
+  ≠ Preview-ytan (builder-iframe) ≠ `preview_host`.
 
 Ignore: `.cursorignore` är secrets/Read-fällor. Ta aldrig bort secretsmönster.

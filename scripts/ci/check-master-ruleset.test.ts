@@ -8,14 +8,9 @@ import {
 } from "./check-master-ruleset.mjs";
 
 const spec = JSON.parse(
-  readFileSync(
-    resolve(".github/rulesets/protect-master.expected.json"),
-    "utf8",
-  ),
+  readFileSync(resolve(".github/rulesets/protect-master.expected.json"), "utf8"),
 );
-const policy = JSON.parse(
-  readFileSync(resolve("config/agent-workflow.json"), "utf8"),
-);
+const policy = JSON.parse(readFileSync(resolve("config/agent-workflow.json"), "utf8"));
 
 type StatusCheck = { context: string; integration_id?: number };
 
@@ -40,10 +35,7 @@ type LiveRuleset = {
   rules: RulesetRule[];
 };
 
-function matchingLiveRuleset(
-  activeSpec = spec,
-  activePolicy = policy,
-): LiveRuleset {
+function matchingLiveRuleset(activeSpec = spec): LiveRuleset {
   return {
     id: activeSpec.rulesetId,
     name: activeSpec.expected.name,
@@ -67,14 +59,10 @@ function matchingLiveRuleset(
         type: "required_status_checks",
         parameters: {
           strict_required_status_checks_policy:
-            activeSpec.expected.required_status_checks
-              .strict_required_status_checks_policy,
+            activeSpec.expected.required_status_checks.strict_required_status_checks_policy,
           do_not_enforce_on_create:
             activeSpec.expected.required_status_checks.do_not_enforce_on_create,
-          required_status_checks: resolveExpectedStatusChecks(
-            activeSpec,
-            activePolicy,
-          ),
+          required_status_checks: resolveExpectedStatusChecks(activeSpec),
         },
       },
     ],
@@ -91,80 +79,37 @@ function rule(live: LiveRuleset, type: string): RulesetRule {
 
 describe("Protect master ruleset drift", () => {
   it("accepts the versioned expected state", () => {
-    expect(evaluateMasterRuleset(matchingLiveRuleset(), spec, policy)).toEqual(
-      [],
-    );
+    expect(evaluateMasterRuleset(matchingLiveRuleset(), spec, policy)).toEqual([]);
   });
 
-  it("reads app-owned required checks from agent-workflow, not a copied list", () => {
-    expect(
-      spec.expected.required_status_checks.required_status_checks,
-    ).toBeUndefined();
-    expect(
-      spec.expected.required_status_checks.required_status_checks_source,
-    ).toBe(REQUIRED_CHECKS_SOURCE);
-    expect(
-      spec.expected.required_status_checks.additional_status_checks.map(
-        (check: { context: string }) => check.context,
-      ),
-    ).toEqual(["dossier-acceptance", "GitGuardian Security Checks"]);
-
-    const contexts = resolveExpectedStatusChecks(spec, policy).map(
-      (check: StatusCheck) => check.context,
+  it("keeps GitHub ruleset checks inline and independent of agent-workflow", () => {
+    expect(spec.expected.required_status_checks.required_status_checks_source).toBe(
+      REQUIRED_CHECKS_SOURCE,
     );
+    expect(spec.expected.pull_request.required_review_thread_resolution).toBe(false);
+    expect(spec.expected.required_status_checks.strict_required_status_checks_policy).toBe(false);
+
+    const contexts = resolveExpectedStatusChecks(spec).map((check: StatusCheck) => check.context);
     expect(contexts).toEqual([
-      ...policy.requiredChecks,
+      "quality",
+      "backoffice-tests",
+      "schema-drift",
+      "build",
       "GitGuardian Security Checks",
     ]);
-    expect(policy.requiredChecks).toContain("dossier-acceptance");
-    expect(contexts).toEqual(
-      expect.arrayContaining([
-        "quality",
-        "backoffice-tests",
-        "schema-drift",
-        "build",
-        "review-window",
-        "dossier-acceptance",
-      ]),
-    );
+    expect(contexts).not.toContain("review-window");
+    expect(contexts).not.toContain("dossier-acceptance");
+    expect(policy.requiredChecks).toEqual(expect.arrayContaining(["review-window"]));
   });
 
-  it("includes C3 dossier-acceptance when policy.requiredChecks does", () => {
-    const c3Policy = {
-      ...policy,
-      requiredChecks: [...policy.requiredChecks, "dossier-acceptance"],
-    };
-    const live = matchingLiveRuleset(spec, c3Policy);
-    const status = rule(live, "required_status_checks");
-
-    expect(evaluateMasterRuleset(live, spec, c3Policy)).toEqual([]);
-    expect(
-      resolveExpectedStatusChecks(spec, c3Policy).map(
-        (check: StatusCheck) => check.context,
-      ),
-    ).toContain("dossier-acceptance");
-
-    status.parameters!.required_status_checks =
-      status.parameters!.required_status_checks!.filter(
-        (check) => check.context !== "dossier-acceptance",
-      );
-    expect(evaluateMasterRuleset(live, spec, c3Policy)).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("required status checks"),
-      ]),
-    );
-  });
-
-  it("detects the verified live C1 drift", () => {
+  it("treats a tighter live GitHub ruleset as drift until expected is changed", () => {
     const live = matchingLiveRuleset();
-    rule(live, "pull_request").parameters!.required_review_thread_resolution =
-      false;
-    rule(live, "required_status_checks").parameters!.strict_required_status_checks_policy =
-      false;
-    rule(live, "required_status_checks").parameters!.required_status_checks =
-      rule(live, "required_status_checks").parameters!.required_status_checks!.filter(
-        (check) => check.context !== "review-window",
-      );
+    rule(live, "pull_request").parameters!.required_review_thread_resolution = true;
+    rule(live, "required_status_checks").parameters!.strict_required_status_checks_policy = true;
+    rule(live, "required_status_checks").parameters!.required_status_checks = [
+      ...rule(live, "required_status_checks").parameters!.required_status_checks!,
+      { context: "review-window" },
+    ];
 
     expect(evaluateMasterRuleset(live, spec, policy)).toEqual(
       expect.arrayContaining([
@@ -186,17 +131,13 @@ describe("Protect master ruleset drift", () => {
 
   it("fails closed when deletion or non_fast_forward disappears", () => {
     const withoutDeletion = matchingLiveRuleset();
-    withoutDeletion.rules = withoutDeletion.rules.filter(
-      (item) => item.type !== "deletion",
-    );
+    withoutDeletion.rules = withoutDeletion.rules.filter((item) => item.type !== "deletion");
     expect(evaluateMasterRuleset(withoutDeletion, spec, policy)).toEqual([
       "expected exactly one deletion rule, got 0",
     ]);
 
     const withoutNff = matchingLiveRuleset();
-    withoutNff.rules = withoutNff.rules.filter(
-      (item) => item.type !== "non_fast_forward",
-    );
+    withoutNff.rules = withoutNff.rules.filter((item) => item.type !== "non_fast_forward");
     expect(evaluateMasterRuleset(withoutNff, spec, policy)).toEqual([
       "expected exactly one non_fast_forward rule, got 0",
     ]);
@@ -204,10 +145,7 @@ describe("Protect master ruleset drift", () => {
 
   it("fails closed when squash is removed from allowed merge methods", () => {
     const live = matchingLiveRuleset();
-    rule(live, "pull_request").parameters!.allowed_merge_methods = [
-      "merge",
-      "rebase",
-    ];
+    rule(live, "pull_request").parameters!.allowed_merge_methods = ["merge", "rebase"];
 
     expect(evaluateMasterRuleset(live, spec, policy)).toEqual([
       'allowed merge methods missing squash: got ["merge","rebase"]',
@@ -216,20 +154,18 @@ describe("Protect master ruleset drift", () => {
 
   it("fails closed when a protected rule disappears", () => {
     const live = matchingLiveRuleset();
-    live.rules = live.rules.filter(
-      (item) => item.type !== "required_status_checks",
-    );
+    live.rules = live.rules.filter((item) => item.type !== "required_status_checks");
 
     expect(evaluateMasterRuleset(live, spec, policy)).toEqual([
       "expected exactly one required_status_checks rule, got 0",
     ]);
   });
 
-  it("does not run on pull_request so PR CI cannot go red before the live ruleset is updated", () => {
+  it("does not run on pull_request so PR CI cannot go red from GitHub UI drift", () => {
     const source = readFileSync(
       resolve(".github/workflows/master-ruleset-drift.yml"),
       "utf8",
-    );
+    ).replace(/\r\n/g, "\n");
 
     expect(source).toMatch(/\n  push:\n    branches: \[master\]\n/);
     expect(source).toMatch(/\n  schedule:\n    - cron: "17 5 \* \* \*"\n/);
