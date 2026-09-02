@@ -663,10 +663,13 @@ describe("buildChatReadiness + late client-error projection", () => {
 });
 
 describe("advisory-skip tystar inte readiness-kortet — SM-072", () => {
-  const skipLog = (reason: string) => ({
+  const skipLog = (reason: string, attested = true) => ({
     category: "product_postcheck.skipped",
     message: "F2 Product Postcheck skipped.",
-    meta: { skippedReason: reason },
+    meta: {
+      skippedReason: reason,
+      ...(attested ? { attestedFilesRevision: "rev_1" } : {}),
+    },
     created_at: "2026-09-01T01:16:24Z",
   });
 
@@ -699,7 +702,7 @@ describe("advisory-skip tystar inte readiness-kortet — SM-072", () => {
       {
         category: "product_postcheck.skipped",
         message: "F2 Product Postcheck skipped.",
-        meta: { skippedReason: "browser_crashed" },
+        meta: { skippedReason: "browser_crashed", attestedFilesRevision: "rev_1" },
         created_at: "2026-09-01T01:20:00Z",
       },
       {

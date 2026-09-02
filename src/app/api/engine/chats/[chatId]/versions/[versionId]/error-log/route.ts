@@ -167,9 +167,10 @@ export async function POST(request: Request, ctx: RouteParams) {
       // new Product Postcheck write must use the attested all-or-nothing path
       // above. Otherwise an old client could publish a false PASS after N+1.
       if (body.logs.some((log) => isProductPostcheckCategory(log.category))) {
-        // L2: an explicit non-release verdict (pending/superseded/allowed_skip)
-        // may be stored without a preview tuple. `passed`/`blocked` still
-        // require attestation so an old client cannot publish a false PASS.
+        // L2: `pending`/`indeterminate`/`superseded` may be stored without a
+        // preview tuple. `allowed_skip` is an F3-release domain: unattested
+        // only when `skippedReason` is server-config `feature_disabled`.
+        // Infra skips and `passed`/`blocked` still require the preview tuple.
         if (!isUnattestedProductPostcheckVerdictWriteAllowed(body.logs)) {
           return productPostcheckAttestationRequiredResponse();
         }

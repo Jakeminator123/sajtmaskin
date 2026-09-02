@@ -361,6 +361,32 @@ export async function getLatestEngineVersionErrorLogs(
 }
 
 /**
+ * All error-log rows for a version within the given categories (no row
+ * window). Used by the L2 verdict reader so a later skip summary cannot hide
+ * an older `blocked` on the same filesRevision. Category-scoped, so
+ * per-warning `product_postcheck.*` rows cannot crowd the result out.
+ */
+export async function getEngineVersionErrorLogsForCategories(
+  versionId: string,
+  categories: readonly string[],
+): Promise<VersionErrorLog[]> {
+  if (categories.length === 0) return [];
+  assertDbConfigured();
+  const rows = await db
+    .select()
+    .from(engineVersionErrorLogs)
+    .where(
+      and(
+        eq(engineVersionErrorLogs.version_id, versionId),
+        inArray(engineVersionErrorLogs.category, [...categories]),
+        currentRevisionErrorLogPredicate(versionId),
+      ),
+    )
+    .orderBy(desc(engineVersionErrorLogs.created_at));
+  return rows as VersionErrorLog[];
+}
+
+/**
  * Newest error-log row for a version within ONE category (exact `LIMIT 1`
  * query). Codex P2 on #353 (backlog): the F3 gate previously fetched the
  * latest 200 rows and searched them for `product_postcheck.summary` — the

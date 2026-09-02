@@ -14,7 +14,7 @@
 
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
-import { getLatestEngineVersionErrorLogForCategory } from "@/lib/db/services/version-errors";
+import { getEngineVersionErrorLogsForCategories } from "@/lib/db/services/version-errors";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import { getStoredProjectEnvVarMap } from "@/lib/projects/project-env-vars";
 import {
@@ -41,8 +41,10 @@ import type { CodeFile } from "@/lib/gen/parser";
 import type { SelectedDossier } from "@/lib/gen/dossiers/types";
 import {
   f3MayReleaseOnVerdict,
-  interpretProductPostcheckSummaryRead,
+  interpretProductPostcheckLogs,
   isRetryableProductPostcheckVerdict,
+  PRODUCT_POSTCHECK_SKIPPED_CATEGORY,
+  PRODUCT_POSTCHECK_SUMMARY_CATEGORY,
   productPostcheckF3GateReason,
   type ProductPostcheckF3GateReason,
   type ProductPostcheckVerdict,
@@ -142,23 +144,20 @@ export type ProductPostcheckVerdictRead = {
  * never pass. A DB read error is `indeterminate`, never pass. F3 may
  * release only on `passed` or `allowed_skip`.
  *
- * Codex P2 on #353 (backlog): reads the summary row via a category-scoped
- * `LIMIT 1` query — the previous 200-row window could be crowded out by
- * per-warning postcheck rows, silently unblocking the gate.
+ * Signature is stable for L1. Implementation reads every
+ * `product_postcheck.summary` and `product_postcheck.skipped` row for the
+ * current revision (category-scoped, no 200-row window) and takes the
+ * strictest domain per filesRevision.
  */
 export async function readProductPostcheckVerdictForVersion(
   versionId: string,
 ): Promise<ProductPostcheckVerdictRead> {
   try {
-    const summary = await getLatestEngineVersionErrorLogForCategory(
-      versionId,
-      "product_postcheck.summary",
-    );
-    const verdict = interpretProductPostcheckSummaryRead(
-      summary
-        ? { status: "ok", meta: summary.meta }
-        : { status: "missing" },
-    );
+    const logs = await getEngineVersionErrorLogsForCategories(versionId, [
+      PRODUCT_POSTCHECK_SUMMARY_CATEGORY,
+      PRODUCT_POSTCHECK_SKIPPED_CATEGORY,
+    ]);
+    const verdict = interpretProductPostcheckLogs(logs);
     return {
       verdict,
       retryable: isRetryableProductPostcheckVerdict(verdict),

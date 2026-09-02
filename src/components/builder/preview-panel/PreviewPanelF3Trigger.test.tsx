@@ -716,6 +716,89 @@ describe("PreviewPanelF3Trigger", () => {
     vi.unstubAllGlobals();
   });
 
+  it("blocked sedan senare skip håller knappen disabled", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          logs: [
+            {
+              category: "product_postcheck.skipped",
+              meta: {
+                verdict: "allowed_skip",
+                skippedReason: "browser_crashed",
+                attestedFilesRevision: "rev_1",
+              },
+              created_at: "2026-09-02T10:01:00.000Z",
+            },
+            {
+              category: "product_postcheck.summary",
+              meta: {
+                verdict: "blocked",
+                productBlocked: true,
+                attestedFilesRevision: "rev_1",
+              },
+              created_at: "2026-09-02T10:00:00.000Z",
+            },
+          ],
+        }),
+      ),
+    );
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /bygg integrationer/i })).toHaveProperty(
+        "disabled",
+        true,
+      );
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("oattesterad skip håller knappen disabled", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          logs: [
+            {
+              category: "product_postcheck.summary",
+              meta: { verdict: "pending", skippedReason: "unknown" },
+              created_at: "2026-09-02T10:00:00.000Z",
+            },
+          ],
+        }),
+      ),
+    );
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /bygg integrationer/i })).toHaveProperty(
+        "disabled",
+        true,
+      );
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("attesterad feature_disabled släpper F3-knappen", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          logs: [
+            {
+              category: "product_postcheck.summary",
+              meta: { verdict: "allowed_skip", skippedReason: "feature_disabled" },
+              created_at: "2026-09-02T10:00:00.000Z",
+            },
+          ],
+        }),
+      ),
+    );
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" />);
+    await waitForF3Enabled();
+    vi.unstubAllGlobals();
+  });
+
   it("(g) superseded håller knappen disabled (retry, aldrig pass)", async () => {
     vi.stubGlobal(
       "fetch",

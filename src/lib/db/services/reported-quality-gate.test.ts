@@ -5,6 +5,7 @@ import {
   filterProductPostcheckEventsForCurrentFilesRevision,
   isReportedQualityGateGreen,
   productPostcheckEventMatchesCurrentFilesRevision,
+  productBlockedFromSummaryMeta,
   resolveProductPostcheckReportState,
   resolveReportedQualityGateFromSignals,
   resolveReportedQualityGateResult,
@@ -438,5 +439,87 @@ describe("infrastruktur-skip blir advisory, inte degraded — SM-072", () => {
       skipLog("browser_crashed"),
     ]);
     expect(state.kind).toBe("blocked");
+  });
+
+  it("pending/indeterminate-summary är waiting — inte clear/ej-blockerad", () => {
+    expect(
+      productBlockedFromSummaryMeta({ verdict: "pending", productBlocked: false }),
+    ).toBe(false);
+    expect(
+      resolveProductPostcheckReportState([
+        {
+          category: "product_postcheck.summary",
+          meta: { verdict: "pending", productBlocked: false },
+          created_at: "2026-09-02T10:00:00Z",
+        },
+      ]).kind,
+    ).toBe("waiting");
+    expect(
+      resolveProductPostcheckReportState([
+        {
+          category: "product_postcheck.summary",
+          meta: { verdict: "indeterminate", productBlocked: false },
+          created_at: "2026-09-02T10:00:00Z",
+        },
+      ]).kind,
+    ).toBe("waiting");
+  });
+
+  it("blocked sedan allowed_skip-summary på samma revision förblir blocked", () => {
+    expect(
+      resolveProductPostcheckReportState([
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "allowed_skip",
+            productBlocked: false,
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:01:00Z",
+        },
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "blocked",
+            productBlocked: true,
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:00:00Z",
+        },
+      ]).kind,
+    ).toBe("blocked");
+  });
+
+  it("waiting overlayar inte bort en tidigare blocked-degradering", () => {
+    const status = applyProductPostcheckReportToVersionStatus(
+      {
+        runId: "run_1",
+        phase: "done",
+        previewBlocked: false,
+        verificationBlocked: false,
+        repairPassIndex: 0,
+        lastBuildError: null,
+        eventCount: 1,
+        done: true,
+        verifierOutcome: "passed",
+        degradations: [
+          {
+            kind: "product_postcheck_blocked",
+            message: "Mobilmeny",
+            meta: { productBlocked: true },
+          },
+        ],
+      },
+      [
+        {
+          category: "product_postcheck.summary",
+          meta: { verdict: "pending", productBlocked: false },
+          created_at: "2026-09-02T10:00:00Z",
+        },
+      ],
+    );
+    expect(status.degradations.map((item) => item.kind)).toEqual([
+      "product_postcheck_blocked",
+    ]);
   });
 });

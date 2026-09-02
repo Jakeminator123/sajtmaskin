@@ -8,7 +8,7 @@ const getVersionFiles = vi.hoisted(() => vi.fn());
 const detectIntegrationsFromVersionFiles = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
-const getLatestEngineVersionErrorLogForCategory = vi.hoisted(() => vi.fn());
+const getEngineVersionErrorLogsForCategories = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
@@ -24,7 +24,7 @@ vi.mock("@/lib/gen/preview/env-local", async (importOriginal) => ({
   loadPlaceholderKeySet,
 }));
 vi.mock("@/lib/db/services/version-errors", () => ({
-  getLatestEngineVersionErrorLogForCategory,
+  getEngineVersionErrorLogsForCategories,
 }));
 
 import { checkTier3ReadinessForVersion } from "./tier3-readiness-gate";
@@ -62,10 +62,12 @@ beforeEach(() => {
   detectIntegrationsFromVersionFiles.mockReturnValue(stripeDetection);
   getStoredProjectEnvVarMap.mockResolvedValue({});
   loadPlaceholderKeySet.mockReturnValue(new Set<string>());
-  getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
-    category: "product_postcheck.summary",
-    meta: { verdict: "passed", productBlocked: false },
-  });
+  getEngineVersionErrorLogsForCategories.mockResolvedValue([
+    {
+      category: "product_postcheck.summary",
+      meta: { verdict: "passed", productBlocked: false },
+    },
+  ]);
 });
 
 describe("checkTier3ReadinessForVersion (M#818-2)", () => {
@@ -181,10 +183,12 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   });
 
   it("blocks with product_postcheck_blocked when the newest summary row is blocking (Codex P1 r5)", async () => {
-    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
-      category: "product_postcheck.summary",
-      meta: { productBlocked: true },
-    });
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([
+      {
+        category: "product_postcheck.summary",
+        meta: { productBlocked: true },
+      },
+    ]);
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,
@@ -201,10 +205,12 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   });
 
   it("can inherit Product Postcheck from an exact-file F2 parent", async () => {
-    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
-      category: "product_postcheck.summary",
-      meta: { productBlocked: true },
-    });
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([
+      {
+        category: "product_postcheck.summary",
+        meta: { productBlocked: true },
+      },
+    ]);
 
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_f3_exact",
@@ -221,9 +227,9 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     });
     // Category-scoped read (Codex P2 #353): exact query, no 200-row window
     // that per-warning postcheck rows could crowd the summary out of.
-    expect(getLatestEngineVersionErrorLogForCategory).toHaveBeenCalledWith(
+    expect(getEngineVersionErrorLogsForCategories).toHaveBeenCalledWith(
       "ver_f2_parent",
-      "product_postcheck.summary",
+      ["product_postcheck.summary", "product_postcheck.skipped"],
     );
     expect(getVersionFiles).not.toHaveBeenCalled();
   });
@@ -231,10 +237,12 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   it("lets a later passing summary unblock (newest row wins)", async () => {
     // The category-scoped service query returns the NEWEST summary row only
     // (ORDER BY created_at DESC LIMIT 1) — an older blocking row is invisible.
-    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
-      category: "product_postcheck.summary",
-      meta: { productBlocked: false, verdict: "passed" },
-    });
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([
+      {
+        category: "product_postcheck.summary",
+        meta: { productBlocked: false, verdict: "passed" },
+      },
+    ]);
     detectIntegrationsFromVersionFiles.mockReturnValue([]);
     const unblocked = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
@@ -245,7 +253,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   });
 
   it("(a) saknad summary blockerar F3 som pending — aldrig pass", async () => {
-    getLatestEngineVersionErrorLogForCategory.mockResolvedValue(null);
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([]);
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,
@@ -261,7 +269,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   });
 
   it("(b) DB-fel vid läsning är indeterminate och blockerar F3", async () => {
-    getLatestEngineVersionErrorLogForCategory.mockRejectedValue(new Error("db down"));
+    getEngineVersionErrorLogsForCategories.mockRejectedValue(new Error("db down"));
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,
@@ -276,10 +284,12 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   });
 
   it("(e) passed persisterad släpper F3", async () => {
-    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
-      category: "product_postcheck.summary",
-      meta: { verdict: "passed", productBlocked: false },
-    });
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([
+      {
+        category: "product_postcheck.summary",
+        meta: { verdict: "passed", productBlocked: false },
+      },
+    ]);
     detectIntegrationsFromVersionFiles.mockReturnValue([]);
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
@@ -290,10 +300,12 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   });
 
   it("(g) superseded är retrybar och släpper inte F3", async () => {
-    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
-      category: "product_postcheck.summary",
-      meta: { verdict: "superseded" },
-    });
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([
+      {
+        category: "product_postcheck.summary",
+        meta: { verdict: "superseded" },
+      },
+    ]);
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,
@@ -306,5 +318,81 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       retryable: true,
     });
     expect(getVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("blocked sedan skip på samma revision blockerar fortfarande F3", async () => {
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([
+      {
+        category: "product_postcheck.skipped",
+        meta: {
+          verdict: "allowed_skip",
+          skippedReason: "browser_crashed",
+          attestedFilesRevision: "rev_1",
+        },
+        created_at: "2026-09-02T10:01:00Z",
+      },
+      {
+        category: "product_postcheck.summary",
+        meta: {
+          verdict: "blocked",
+          productBlocked: true,
+          attestedFilesRevision: "rev_1",
+        },
+        created_at: "2026-09-02T10:00:00Z",
+      },
+    ]);
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "product_postcheck_blocked",
+      verdict: "blocked",
+      retryable: false,
+    });
+    expect(getVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("oattesterad skip är pending och släpper inte F3", async () => {
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([
+      {
+        category: "product_postcheck.summary",
+        meta: { verdict: "pending", skippedReason: "feature_disabled" },
+      },
+    ]);
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+    expect(result).toEqual({
+      ok: false,
+      reason: "product_postcheck_pending",
+      verdict: "pending",
+      retryable: true,
+    });
+  });
+
+  it("attesterad feature_disabled släpper F3 som allowed_skip", async () => {
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([
+      {
+        category: "product_postcheck.skipped",
+        meta: {
+          skippedReason: "feature_disabled",
+          attestedFilesRevision: "rev_1",
+          attestedPreviewSessionId: "ps_1",
+        },
+        created_at: "2026-09-02T10:00:00Z",
+      },
+    ]);
+    detectIntegrationsFromVersionFiles.mockReturnValue([]);
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: null,
+    });
+    expect(result.ok).toBe(true);
   });
 });

@@ -112,7 +112,7 @@ describe("Product Postcheck verdict (L2)", () => {
     );
   });
 
-  it("allowed_skip släpper F3 (infra / feature_disabled)", () => {
+  it("allowed_skip släpper F3 bara när skipet är attesterat", () => {
     expect(
       verdictFromProductPostcheckResult(
         result({
@@ -124,10 +124,123 @@ describe("Product Postcheck verdict (L2)", () => {
     ).toBe("allowed_skip");
     expect(
       verdictFromProductPostcheckResult(
+        result({ skipped: true, skippedReason: "feature_disabled" }),
+      ),
+    ).toBe("allowed_skip");
+    expect(
+      verdictFromProductPostcheckResult(
+        result({
+          skipped: true,
+          skippedReason: "browser_crashed",
+          attestation: null,
+        }),
+      ),
+    ).toBe("pending");
+    expect(
+      verdictFromProductPostcheckResult(
         result({ skipped: true, skippedReason: "browser_crashed" }),
       ),
     ).toBe("allowed_skip");
     expect(f3MayReleaseOnVerdict("allowed_skip")).toBe(true);
+    expect(f3MayReleaseOnVerdict("pending")).toBe(false);
+  });
+
+  it("blocked sedan skip på samma revision förblir blocked", () => {
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.skipped",
+          meta: {
+            skippedReason: "browser_crashed",
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:01:00Z",
+        },
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "blocked",
+            productBlocked: true,
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:00:00Z",
+        },
+      ]),
+    ).toBe("blocked");
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "allowed_skip",
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:01:00Z",
+        },
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "blocked",
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:00:00Z",
+        },
+      ]),
+    ).toBe("blocked");
+  });
+
+  it("oattesterad skip är pending — F3 blockerar; attesterad feature_disabled släpper", () => {
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.summary",
+          meta: { verdict: "pending", skippedReason: "unknown" },
+        },
+      ]),
+    ).toBe("pending");
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.skipped",
+          meta: { skippedReason: "browser_crashed" },
+        },
+      ]),
+    ).toBe("pending");
+    expect(f3MayReleaseOnVerdict("pending")).toBe(false);
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.summary",
+          meta: { verdict: "allowed_skip", skippedReason: "feature_disabled" },
+        },
+      ]),
+    ).toBe("allowed_skip");
+    expect(f3MayReleaseOnVerdict("allowed_skip")).toBe(true);
+  });
+
+  it("senare passed på samma revision släpper en äldre blocked", () => {
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "passed",
+            productBlocked: false,
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:01:00Z",
+        },
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "blocked",
+            productBlocked: true,
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:00:00Z",
+        },
+      ]),
+    ).toBe("passed");
   });
 
   it("produkt-skip utan produktdom är pending", () => {
@@ -189,6 +302,22 @@ describe("Product Postcheck verdict (L2)", () => {
         {
           category: "product_postcheck.summary",
           meta: { productBlocked: false },
+        },
+      ]),
+    ).toBe(false);
+    expect(
+      isUnattestedProductPostcheckVerdictWriteAllowed([
+        {
+          category: "product_postcheck.summary",
+          meta: { verdict: "allowed_skip", skippedReason: "feature_disabled" },
+        },
+      ]),
+    ).toBe(true);
+    expect(
+      isUnattestedProductPostcheckVerdictWriteAllowed([
+        {
+          category: "product_postcheck.summary",
+          meta: { verdict: "allowed_skip", skippedReason: "browser_crashed" },
         },
       ]),
     ).toBe(false);
