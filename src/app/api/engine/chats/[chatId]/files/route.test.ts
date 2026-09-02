@@ -11,6 +11,7 @@ const getLatestVersion = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() =>
   vi.fn((files: unknown) => ({ files, fixes: [] as unknown[] })),
 );
+const materializeImagesInTextFiles = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/tenant", () => ({
   getChatByV0ChatIdForRequest: vi.fn(),
   getEngineChatByIdForRequest,
@@ -64,7 +65,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 }));
 
 vi.mock("@/lib/images/image-assets", () => ({
-  materializeImagesInTextFiles: vi.fn(),
+  materializeImagesInTextFiles,
 }));
 
 vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
@@ -291,3 +292,107 @@ describe("GET /files heal-persist (M#files1 write-on-read)", () => {
     expect(body.files[0]?.content).toBe("after");
   });
 });
+
+describe("GET /files?materialize=1 — replaced vs persisted", () => {
+  const originalFiles = [
+    { path: "src/app/page.tsx", content: '<img src="https://example.com/a.png" />', language: "tsx" },
+  ];
+  const materializedFiles = [
+    { name: "src/app/page.tsx", content: '<img src="https://blob.example/a.png" />' },
+  ];
+
+  beforeEach(() => {
+    shouldUseV0Fallback.mockReturnValue(false);
+    getEngineChatByIdForRequest.mockReset();
+    getEngineVersionForChatByIdForRequest.mockReset();
+    getVersionFiles.mockReset();
+    updateVersionFiles.mockReset();
+    materializeImagesInTextFiles.mockReset();
+    repairGeneratedFiles.mockReset();
+    repairGeneratedFiles.mockImplementation((files: unknown) => ({ files, fixes: [] }));
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionFiles.mockResolvedValue(originalFiles);
+    process.env.BLOB_READ_WRITE_TOKEN = "blob-token";
+  });
+
+  function materializeReq(signal?: AbortSignal) {
+    return GET(
+      new Request(
+        "https://example.com/api/engine/chats/chat_1/files?versionId=ver_1&materialize=1",
+        signal ? { signal } : undefined,
+      ),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+  }
+
+  it("reports persisted=true and the new filesRevision when the write lands", async () => {
+    getEngineVersionForChatByIdForRequest
+      .mockResolvedValueOnce({ version: { id: "ver_1", files_revision: "rev_old" } })
+      .mockResolvedValueOnce({ version: { id: "ver_1", files_revision: "rev_old" } })
+      .mockResolvedValueOnce({ version: { id: "ver_1", files_revision: "rev_new" } });
+    materializeImagesInTextFiles.mockResolvedValue({
+      files: materializedFiles,
+      strategyUsed: "blob",
+      warnings: [],
+      summary: { scannedFiles: 1, foundUrls: 1, uploaded: 1, replaced: 1, skipped: 0, totalBytesUploaded: 10 },
+      assets: [],
+    });
+    updateVersionFiles.mockResolvedValue(true);
+
+    const res = await materializeReq();
+    const body = (await res.json()) as {
+      imageMaterialization?: { replaced?: number; persisted?: boolean; filesRevision?: string };
+    };
+    expect(res.status).toBe(200);
+    expect(body.imageMaterialization).toEqual(
+      expect.objectContaining({
+        replaced: 1,
+        persisted: true,
+        filesRevision: "rev_new",
+      }),
+    );
+    expect(updateVersionFiles).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps replaced>0 with persisted=false when files_json write is skipped", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "ver_1", files_revision: "rev_old" },
+    });
+    materializeImagesInTextFiles.mockResolvedValue({
+      files: materializedFiles,
+      strategyUsed: "blob",
+      warnings: [],
+      summary: { scannedFiles: 1, foundUrls: 1, uploaded: 1, replaced: 1, skipped: 0, totalBytesUploaded: 10 },
+      assets: [],
+    });
+    updateVersionFiles.mockResolvedValue(false);
+
+    const res = await materializeReq();
+    const body = (await res.json()) as {
+      imageMaterialization?: { replaced?: number; persisted?: boolean; filesRevision?: string | null };
+    };
+    expect(body.imageMaterialization).toEqual(
+      expect.objectContaining({
+        replaced: 1,
+        persisted: false,
+        filesRevision: "rev_old",
+      }),
+    );
+  });
+
+  it("does not persist when the request is already aborted", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: { id: "ver_1", files_revision: "rev_old" },
+    });
+    const res = await materializeReq(AbortSignal.abort());
+    const body = (await res.json()) as {
+      imageMaterialization?: { persisted?: boolean; replaced?: number; reason?: string };
+    };
+    expect(body.imageMaterialization).toEqual(
+      expect.objectContaining({ persisted: true, replaced: 0, reason: "aborted" }),
+    );
+    expect(materializeImagesInTextFiles).not.toHaveBeenCalled();
+    expect(updateVersionFiles).not.toHaveBeenCalled();
+  });
+});
+

@@ -528,13 +528,16 @@ Do **not** bump `lastVerified` just to make CI green. A completed pass means:
    can be obtained, and dependency/API usage still matches current official
    provider documentation.
 
-The weekly [dossier-acceptance workflow](../../.github/workflows/dossier-acceptance.yml)
+The always-on PR, weekly and manual [dossier-acceptance workflow](../../.github/workflows/dossier-acceptance.yml)
 automates the first, keyless layer for **every dossier that ships files —
 hard AND soft** (instructions-only dossiers have nothing to build and are
-skipped). It materializes the exact dossier files on the common
-generated-project scaffold, merges the canonical export baseline and manifest
-dependency ranges, installs from scratch, runs `tsc --noEmit`, then runs a
-production build with only the pipeline's harmless preview placeholders.
+skipped). Every pull request runs a path-scope job against the materialization
+contract (`scripts/dossiers/acceptance-paths.mjs`). Hits install, typecheck and
+production-build the matrix; misses skip the matrix and still publish the
+required `dossier-acceptance` aggregate as green. The same workflow materializes
+the exact dossier files on the common generated-project scaffold, merges the
+canonical export baseline and manifest dependency ranges, then runs `tsc --noEmit`
+and a production build with only the pipeline's harmless preview placeholders.
 Soft coverage was added 2026-08-06 after `maplibre-map`'s verbatim component
 rotted unnoticed under the former hard-only matrix (maplibre-gl v6 dropped its
 default export; prod chat 3a6c5472 shipped a broken map and lost an F3 build

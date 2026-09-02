@@ -33,6 +33,14 @@ export interface ImageValidationResult {
   replacedCount?: number;
   warnings?: string[];
   fixed?: boolean;
+  persisted?: boolean;
+  filesRevision?: string | null;
+  timeout?: boolean;
+  /** HTTP/lease hold — not an in-memory replacement. */
+  holdReason?: "timeout" | "version_busy" | "http_error" | "unconfirmed_persist";
+  httpStatus?: number;
+  /** 404 «No files» — nothing to validate, continue the tail. */
+  skippedReason?: "no_files";
   demoUrl?: string;
 }
 
