@@ -19,6 +19,14 @@ export function matchesAcceptanceContract(path) {
  * Non-PR events always run. PR classification errors fail closed to the
  * matrix so a broken diff never looks like a legitimate skip. An empty or
  * out-of-contract PR diff is a legitimate skip.
+ *
+ * @param {{
+ *   eventName?: string,
+ *   baseSha?: string,
+ *   headSha?: string,
+ *   cwd?: string,
+ *   gitCommand?: (...args: unknown[]) => { status?: number, stdout?: string, stderr?: string, error?: Error },
+ * }} [input]
  */
 export function decideAcceptanceScope({
   eventName,
