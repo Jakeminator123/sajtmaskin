@@ -8,6 +8,7 @@ import { requireAdminAccess } from "@/lib/auth/admin";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getAnalyticsStats, recordPageView } from "@/lib/db/services/analytics";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
+import { withRateLimit } from "@/lib/rate-limit";
 import { after, NextRequest, NextResponse } from "next/server";
 
 // Safely parse JSON without throwing on empty/invalid bodies
@@ -24,17 +25,20 @@ async function parseJsonBody<T>(req: NextRequest): Promise<T | Record<string, ne
 
 // Record page view
 export async function POST(req: NextRequest) {
+  return withRateLimit(req, "analytics:pageview", () => handlePOST(req));
+}
+
+async function handlePOST(req: NextRequest) {
   try {
     const body = await parseJsonBody<{ path?: string; referrer?: string }>(req);
     const { path, referrer } = body as { path?: string; referrer?: string };
 
-    if (!path) {
+    if (!path || typeof path !== "string") {
       return NextResponse.json({ success: false, error: "Path required" }, { status: 400 });
     }
 
     const sessionId = getSessionIdFromRequest(req);
-    const ipAddress =
-      req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const ipAddress = req.headers.get("x-real-ip") || "unknown";
     const userAgent = req.headers.get("user-agent") || undefined;
 
     after(async () => {
