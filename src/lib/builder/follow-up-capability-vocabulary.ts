@@ -94,7 +94,9 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     patterns: [
       /(?<![\p{L}\p{N}_])(?:3d|tre\s+dimension(?:er|ell)?|three\.?js|@?react-three(?:\/(?:fiber|drei|rapier))?|webgl|r3f)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])3d-?[\p{L}\p{N}_]+/iu,
-      /(?<![\p{L}\p{N}_])(?:interaktiv\s+canvas|3d-?canvas|3d-?scen|3d-?objekt|3d-?modell|3d-?animation)(?![\p{L}\p{N}_])/iu,
+      // `interaktiv canvas` left this entry 2026-09-02: a bare canvas is not a
+      // 3D ask (a pannable node canvas is `spatial-canvas`). 3D needs a 3D token.
+      /(?<![\p{L}\p{N}_])(?:3d-?canvas|3d-?scen|3d-?objekt|3d-?modell|3d-?animation)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:gltf|glb|usegltf|use-gltf)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:bubbla|bubblan|sfär(?:en)?|orb(?:en)?|cirkel(?:n)?)[\s\S]{0,120}(?:flyg(?:a|er|ande)?|sväv(?:a|er|ande)?|hovr(?:a|ar|ande)?|ovanför|över)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:flyg(?:a|er|ande)?|sväv(?:a|er|ande)?|hovr(?:a|ar|ande)?|ovanför|över)[\s\S]{0,120}(?:bubbla|bubblan|sfär(?:en)?|orb(?:en)?|cirkel(?:n)?|hamburgare|burger)(?![\p{L}\p{N}_])/iu,
@@ -128,6 +130,27 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:scener(?:na)?|kapitel(?:en)?|scenes?|chapters?)\s+som\s+(?:byts|växlar|bläddras)\s+(?:när|medan|i\s+takt\s+med\s+att)\s+(?:man|du|besökaren|användaren)\s+scrollar(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:scenes?|chapters?)\s+that\s+(?:change|switch|advance)\s+(?:as|while)\s+(?:you|the\s+(?:user|visitor))\s+scrolls?(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])apple-?(?:liknande|style|like)\s+(?:produkt|product)[-\s]?(?:presentation(?:en)?|showcase)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
+    // Pannable/zoomable React Flow canvas (xyflow-spatial-canvas, 2026-09-02).
+    // Explicit-ask-only: a static flowchart, an org chart illustration, a
+    // geographic map or a chart never reach here. `tankekarta` is safe from
+    // `map-display` (its `karta` pattern is word-bounded).
+    capability: "spatial-canvas",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:react[-\s]?flow|xy-?flow|@xyflow(?:\/react)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:oändlig|infinite|zoombar|panorerbar|pannable|zoomable)\s+(?:canvas|arbetsyta(?:n)?|yta(?:n)?|whiteboard|board|workspace)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:tankekarta(?:n)?|mind-?map(?:s)?|mindmapp(?:en|ar)?|nod-?graf(?:en)?|node[-\s]?graph|nod-?karta(?:n)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:workflow[-\s]?editor|flödes-?editor|flödesredigerare|whiteboard)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:panorera|zooma|pan|zoom)(?:\s*(?:,|och|and|\/)\s*(?:panorera|zooma|pan|zoom|dra|drag))+[^.!?]{0,60}(?:kort(?:en)?|noder(?:na)?|objekt(?:en)?|cards?|nodes?|objects?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:kort(?:en)?|noder(?:na)?|objekt(?:en)?|cards?|nodes?)\s+(?:som\s+)?(?:man|du|besökaren|you|visitors?)\s+kan\s+(?:panorera|zooma|dra\s+runt)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])minimap(?![\p{L}\p{N}_])/iu,
+    ],
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:3d|three\.?js|webgl|r3f|rapier|gltf|glb)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:flödesschema(?:t)?|processchema(?:t)?|organisationsschema(?:t)?|org-?chart|flow-?chart|process\s+diagram)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:google\s+maps|hitta\s+hit|vägbeskrivning|geografisk|gatuadress|kartnål(?:ar)?)(?![\p{L}\p{N}_])/iu,
     ],
   },
   // Parallax entries removed 2026-07-22: the parallax dossier pair was parked

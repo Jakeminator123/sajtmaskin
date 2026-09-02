@@ -25,7 +25,9 @@
       "@clerk/nextjs": ["./tests/stubs/clerk-nextjs.tsx"],
       "@clerk/nextjs/server": ["./tests/stubs/clerk-nextjs-server.ts"],
       "@calcom/embed-react": ["./tests/stubs/calcom-embed-react.tsx"],
-      "matter-js": ["./tests/stubs/matter-js.ts"]
+      "matter-js": ["./tests/stubs/matter-js.ts"],
+      "@xyflow/react/dist/style.css": ["./tests/stubs/xyflow-react-style.css"],
+      "@xyflow/react": ["./tests/stubs/xyflow-react.tsx"]
     },
     "target": "ES2022",
     "forceConsistentCasingInFileNames": true

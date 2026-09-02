@@ -98,6 +98,9 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   // physics — explicit-ask-only, separate from parallax and from `physics-3d`.
   "scroll-story": "interactive",
   "physics-2d": "interactive",
+  // Soft wave 2 (2026-09-02): pannable/zoomable React Flow canvas — not a
+  // geographic map (`map-display`), not a chart, not 3D.
+  "spatial-canvas": "interactive",
   // Operations: fire-and-forget observability. `realtime`, `error-tracking`
   // and `image-generation` left the map 2026-08-06 when their sole provider
   // dossiers were parked 2026-08-06 (träd borttaget 2026-08-10; git-historik).

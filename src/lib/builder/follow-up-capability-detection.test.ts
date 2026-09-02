@@ -1168,6 +1168,45 @@ describe("detectFollowUpCapabilities — physics-2d", () => {
   });
 });
 
+describe("detectFollowUpCapabilities — spatial-canvas", () => {
+  it("detects an explicit pannable/zoomable canvas or node-graph ask", () => {
+    for (const prompt of [
+      "lägg till en interaktiv tankekarta över våra tjänster med react flow",
+      "skapa en oändlig arbetsyta där man kan panorera och zooma mellan korten",
+      "add a whiteboard with drag, pan, zoom and a minimap",
+      "bygg en workflow-editor med noder som kan kopplas ihop",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds, prompt).toContain("spatial-canvas");
+    }
+  });
+
+  it("does NOT route flowcharts, org charts, geographic maps, charts or 3D to spatial-canvas", () => {
+    for (const prompt of [
+      "lägg till ett flödesschema som visar hur en beställning går till",
+      "lägg till ett organisationsschema över teamet",
+      "lägg till en karta med kartnålar så man kan hitta hit",
+      "lägg till ett stapeldiagram över försäljningen",
+      "lägg till en 3d-scen med en snurrande logotyp",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds, prompt).not.toContain("spatial-canvas");
+    }
+  });
+
+  it("a bare 'interaktiv canvas' is neither 3D nor a spatial canvas", () => {
+    const result = detectFollowUpCapabilities("lägg till en interaktiv canvas på startsidan");
+    expect(result.capabilityIds).not.toContain("visual-3d");
+    expect(result.capabilityIds).not.toContain("spatial-canvas");
+  });
+
+  it("a spatial-canvas prompt does not co-select visual-3d", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till en zoombar canvas med noder och minimap för vårt produktuniversum",
+    );
+    expect(result.capabilityIds).toContain("spatial-canvas");
+    expect(result.capabilityIds).not.toContain("visual-3d");
+  });
+});
+
 describe("detectFollowUpCapabilities — scroll-story", () => {
   it("detects explicit scrollytelling asks", () => {
     for (const prompt of [
