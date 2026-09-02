@@ -58,7 +58,9 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 | dossierEnvScope | Preflight-scope som begränsar `env.example` och pipeline-skapad `.env.local` till valda dossiers relevanta env-nycklar. |
 | pipeline-authored `.env.local` | Placeholder-`.env.local` som Sajtmaskins scaffold-merge kan injicera i genererade projekt, identifierad via markörraden `PIPELINE_ENV_LOCAL_MARKER` (`env-local.ts`). |
 | buildBlockingKeys | Dossiernycklar med `enforcement: "build"` som saknar både riktigt värde och godkänd placeholder; de blockerar integrationspublicering. |
-| Preview / VM / preview_host | Live-runtime för iteration. Inte samma sak som deploy. |
+| Preview / VM / preview_host | Live-runtime för **användarsajten** (preview-host). Inte samma sak som deploy, `preview`-grenen eller Preview-ytan. |
+| Preview-yta / PreviewPanel | Builderns högra yta där användarsajten visas i en iframe (`PreviewPanel` / `PreviewPanelFrame`). Jakob kan säga «preview-ytan» eller «iframen». |
+| preview-gren | Långlivad git-gren `preview` (samma namn Vercel redan trackar). Staging för **produkten** Sajtmaskin: `preview.sajtmaskin.se`. Inte användarsajter, inte Preview-ytan, inte trunk. BRA-restorepunkten hör i `archive/` eller `*BRA*`, inte här. Force-pusha den inte utan eget mandat. Promovera till `master` när något ska till produktion. |
 | Preview-förvärmning | Default-av latensoptimering som kan väcka preview-hosten och överlappa installationen med en ny chats första riktiga codegen. |
 | Normalize | Mekanisk kodstädning före LLM: URL-expansion, deterministiska fixers och diagnostikdriven import-repair. |
 | RepairGate | Den enda LLM-repair-porten i finalize när Normalize och statiska kontroller lämnar residual. |
@@ -104,7 +106,9 @@ respektive kod, manifest eller policy. Aktuella inventarier finns i
 
 | Term | Kort |
 |---|---|
-| `previewUrl` | Nivå 1: VM-/preview_host-länken ("Öppna" under bygge). |
+| `previewUrl` | Nivå 1: VM-/preview_host-länken ("Öppna" under bygge). Inte `preview.sajtmaskin.se`. |
+| `preview.sajtmaskin.se` | Stabil Vercel-URL för git-grenen `preview`. Produktens egen staging, inte en användarsajt. |
+| Vercel deploy-preview | Tillfällig `*.vercel.app`-deploy av en feature-PR eller annan oassignad branch. Inte `preview`-grenen och inte Preview-ytan. |
 | `liveUrl` | Nivå 2: aktuell publik produktions-URL. |
 | `customDomain` | Nivå 3: kundens verifierade egna domän, kopplad till samma hosting-projekt och vald som `liveUrl` när DNS/TLS är korrekt. |
 | `providerUrl` | Teknisk hosting-URL (t.ex. `*.vercel.app`) för status, felsökning och rollback. |
@@ -158,12 +162,16 @@ persisterade token- eller kluster-id:n utifrån ordlistan.
 | warning / soft fail / degraded | `Advisory` |
 | blocking / hard fail | `Blocker` |
 | product postcheck | `CapabilitySmoke` |
-| sandbox | `preview`, `VM` eller `preview_host` |
+| sandbox | `preview_host` när VM:en avses; inte preview-grenen och inte Preview-ytan |
 | template-library | `Scaffold`, `Dossier` eller `Template (v0-mall)` beroende på kontext |
 | mall / template (ospecificerat) | `Template (v0-mall)` för galleriet · `Scaffold` för runtime-startpunkt · `Dossier` för capability-modul · `Template-referens` för dossier-kurationsinput |
 | shadcn | `shadcn primitive` eller `UI Recipe` |
 | 3D/game | `visual-3d`, `physics-3d` eller `interactive-game` |
-| preview (om Vercels deploy-previews) | `Vercel deploy-preview` — reservera "preview" för VM-previewn |
+| preview (ospecificerat) | Fråga eller slå upp: `preview-gren`, `Preview-yta`, `preview_host`/`previewUrl`, eller `Vercel deploy-preview` |
+| preview (om builder-iframe) | `Preview-yta` (`PreviewPanel`) |
+| preview (om preview.sajtmaskin.se eller staging) | `preview-gren` |
+| preview (om Vercels PR-deploys) | `Vercel deploy-preview` |
+| iframe (om builder-previewn) | `Preview-yta` |
 | publicerad | bara när `liveUrl` finns; en delad `previewUrl` är inte "publicerad" |
 | Vercel i användar-copy | skriv leverantörsneutralt ("publicera", "hosting", "domän") — Sajtmaskin är varumärket; Vercel är infrastruktur |
 | AI Gateway | Direkt provider / modellregistry |

@@ -16,15 +16,18 @@
     "non_fast_forward": true,
     "pull_request": {
       "required_approving_review_count": 0,
-      "required_review_thread_resolution": true,
+      "required_review_thread_resolution": false,
       "allowed_merge_methods_must_include": ["squash"]
     },
     "required_status_checks": {
-      "strict_required_status_checks_policy": true,
+      "strict_required_status_checks_policy": false,
       "do_not_enforce_on_create": false,
-      "required_status_checks_source": "config/agent-workflow.json#requiredChecks",
-      "additional_status_checks": [
-        { "context": "dossier-acceptance" },
+      "required_status_checks_source": "inline",
+      "required_status_checks": [
+        { "context": "quality" },
+        { "context": "backoffice-tests" },
+        { "context": "schema-drift" },
+        { "context": "build" },
         {
           "context": "GitGuardian Security Checks",
           "integration_id": 46505
@@ -33,12 +36,11 @@
     }
   },
   "policyNotes": {
-    "currentBase": "strict_required_status_checks_policy must stay enabled so a PR head contains the live master tip before merge.",
-    "reviewThreads": "All review threads must be resolved before merge.",
-    "approval": "Native approval count stays at 0 while the repository has one human owner: GitHub does not count an author's self-approval. Human authorization remains SHA/base-bound through review-window and merge:execute. Raise this value when an independent required reviewer exists.",
-    "requiredChecks": "App-owned required check names are read from config/agent-workflow.json requiredChecks at evaluation time, not copied here. dossier-acceptance is now in that list; additional_status_checks keeps it only so the resolver can still dedupe older live rulesets. GitGuardian is the only extra external check.",
+    "intent": "Owner decision 2026-09-02: keep live Protect master as it is. Do not tighten GitHub (thread resolution, strict/up-to-date, review-window, dossier-acceptance). Extra master-merge confirmation lives in agent rules.",
+    "approval": "Native approval count stays at 0 while the repository has one human owner. Human authorization is SHA/base-bound through merge:ready, merge:execute and the extra master confirmation in pr-merge.mdc.",
+    "requiredChecks": "This file lists the checks GitHub actually requires. Agent-grind names in config/agent-workflow.json#requiredChecks (review-window, dossier-acceptance) are not copied here and must not be treated as live ruleset drift.",
     "deletion": "deletion and non_fast_forward must remain present so master cannot be deleted or force-pushed.",
     "squash": "allowed_merge_methods must include squash because merge:execute uses squash. Other methods may remain.",
-    "mutation": "This file and its checker are read-only. Apply live ruleset changes separately after C3 (so dossier-acceptance exists) and this desired-state is on master."
+    "mutation": "This file and its checker are read-only against the live GitHub API. Do not edit the live ruleset to match an older stricter C1 picture."
   }
 }

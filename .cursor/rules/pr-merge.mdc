@@ -1,5 +1,5 @@
 ---
-description: "Kanonisk PR-grind. Läs efter skapad PR, vid PR-review/sign-off och före merge; inte under vanlig kodning."
+description: "Kanonisk PR-grind. Läs efter skapad PR, vid review/sign-off och före merge."
 alwaysApply: false
 ---
 
@@ -7,6 +7,11 @@ alwaysApply: false
 
 Mergeable betyder bara konfliktfri. Merga endast med uttryckligt mergeuppdrag.
 Bakgrund: `docs/runbooks/pr-merge-gate.md`.
+
+## Extra bekräftelse till master
+
+Innan `merge:execute`: varna att det går till master/produktion, namnge PR:n
+och vänta på bekräftelse i samma chatt efter varningen. «kör på» räcker inte.
 
 Körordning ägs av `.agents/skills/pr-workflow/SKILL.md`; checknamn, väntetider
 och protected globs ägs av `config/agent-workflow.json`, inte av denna prosa.
@@ -87,14 +92,10 @@ Default-branch-controllern hämtar kommentaren igen, kräver att den är oredige
 och strikt senare än all evidens, läser live head/base/checks/reviews/
 kommentarer i ett settle-fönster och squash-mergar med expected head-SHA.
 
-Native branch protection/ruleset måste dessutom kräva att branchen är
-uppdaterad före merge; expected-head stänger inte base-racet. Saknas den
-inställningen: rapportera `NEEDS_HUMAN` i stället för att beskriva grinden som
-fullt racesäker.
-
 `--admin` och manuell webbmerge är inte normalvägen och får aldrig passera en
-röd/väntande grind. Serialisera merges och hämta master efter varje. Röd
-post-merge-dispatch återkörs på master; merga aldrig samma PR igen.
+röd/väntande grind. Serialisera merges och hämta master efter varje. Inte
+`NEEDS_HUMAN` bara för saknad native strict. Röd post-merge-dispatch återkörs
+på master; merga aldrig samma PR igen.
 
 ## Väntan
 
