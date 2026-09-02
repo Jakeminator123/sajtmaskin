@@ -184,15 +184,40 @@ export function evaluatePrHeadWorkflowPermissions(workflowSources) {
   return errors;
 }
 
-function ownerWorkflowForRequiredCheck(check, policy = POLICY_FLOORS) {
-  const canonicalWorkflow = String(policy.review?.requiredCheckWorkflow?.path ?? "")
-    .split("/")
-    .at(-1);
+export function requiredCheckOwnerSpec(check, policy = POLICY_FLOORS) {
+  const canonical = policy.review?.requiredCheckWorkflow ?? POLICY_FLOORS.review.requiredCheckWorkflow;
   const owners = {
     ...POLICY_FLOORS.requiredCheckOwners,
     ...(policy.requiredCheckOwners ?? {}),
   };
-  return owners[check] ?? canonicalWorkflow;
+  const owner = owners[check];
+  if (!owner) {
+    return {
+      path: canonical.path,
+      event: canonical.event,
+      file: String(canonical.path ?? "")
+        .split("/")
+        .at(-1),
+    };
+  }
+  if (typeof owner === "string") {
+    return {
+      path: `.github/workflows/${owner}`,
+      event: "pull_request",
+      file: owner,
+    };
+  }
+  return {
+    path: owner.path,
+    event: owner.event ?? "pull_request",
+    file: String(owner.path ?? "")
+      .split("/")
+      .at(-1),
+  };
+}
+
+function ownerWorkflowForRequiredCheck(check, policy = POLICY_FLOORS) {
+  return requiredCheckOwnerSpec(check, policy).file;
 }
 
 export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POLICY_FLOORS) {
@@ -1043,6 +1068,8 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !trustedReviewWindow.includes('endsWith("[bot]")') ||
     !trustedReviewWindow.includes("review.updated_at") ||
     !trustedReviewWindow.includes("policy.review.requiredCheckWorkflow") ||
+    !trustedReviewWindow.includes("requiredCheckOwnerSpec") ||
+    !trustedReviewWindow.includes("latest owned required-check workflow/job") ||
     !trustedReviewWindow.includes("run.provenance?.workflowRun?.created_at") ||
     !trustedReviewWindow.includes("manualMergeFiles") ||
     !trustedReviewWindow.includes("policy.requiredChecks.filter") ||

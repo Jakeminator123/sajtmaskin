@@ -8,6 +8,7 @@ import {
   validateMergeExecuteMandate,
   validateMergeReadySignoff,
 } from "./merge-ready-freshness.mjs";
+import { requiredCheckOwnerSpec } from "../workflow/check-contract.mjs";
 import { decodeMarker, EXHAUSTIVE_MARKER_PREFIX, parseStateComment } from "../pr-review/core.mjs";
 import {
   parseAccountFallbackRequest,
@@ -1004,6 +1005,39 @@ export async function enrichCheckRunProvenance({
             valid: false,
             collision: false,
             reason: "step-less custom review-check är endast UX; live state + review-ID krävs",
+            workflowRun,
+            job,
+          });
+          continue;
+        }
+        const owner = requiredNames.has(check.name)
+          ? requiredCheckOwnerSpec(check.name, policy)
+          : null;
+        const canonicalOwner = policy.review?.requiredCheckWorkflow;
+        const isExternalOwner =
+          Boolean(owner) &&
+          (owner.path !== canonicalOwner?.path || owner.event !== canonicalOwner?.event);
+        const ownedHere =
+          isExternalOwner &&
+          normalizedWorkflowPath(workflowRun.path) === owner.path &&
+          workflowRun.event === owner.event &&
+          workflowRun.head_sha === expectedHeadSha &&
+          workflowRun.repository?.full_name === repository;
+        if (ownedHere) {
+          const jobMatches =
+            executionBacked &&
+            job.name === check.name &&
+            job.status === check.status &&
+            (job.conclusion ?? null) === (check.conclusion ?? null) &&
+            job.started_at === check.started_at &&
+            (job.completed_at ?? null) === (check.completed_at ?? null);
+          provenanceByCheckId.set(check.id, {
+            kind: "workflow-job",
+            valid: jobMatches,
+            collision: !jobMatches,
+            reason: jobMatches
+              ? "latest owned required-check workflow/job"
+              : "check/job är inte senaste identiska owned workflow-försöket",
             workflowRun,
             job,
           });

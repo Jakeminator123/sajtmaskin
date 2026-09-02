@@ -1302,6 +1302,96 @@ describe("check workflow provenance", () => {
       collision: true,
     });
   });
+
+  it("accepts dossier-acceptance from its owning workflow and rejects impersonation", async () => {
+    const dossierPolicy = {
+      ...policy,
+      requiredChecks: [...policy.requiredChecks, "dossier-acceptance"],
+    };
+    const rawCheck = run("dossier-acceptance", {
+      id: 461,
+      check_suite: { id: 761 },
+      provenance: undefined,
+    });
+    const ownedRun = {
+      id: 9601,
+      check_suite_id: 761,
+      run_attempt: 1,
+      path: ".github/workflows/dossier-acceptance.yml",
+      event: "pull_request",
+      head_sha: HEAD,
+      repository: { full_name: REPOSITORY },
+      created_at: at(100),
+    };
+    const impersonatingRun = {
+      ...ownedRun,
+      path: ".github/workflows/other.yml",
+    };
+    const job = {
+      id: 8461,
+      name: "dossier-acceptance",
+      status: "completed",
+      conclusion: "success",
+      started_at: at(100),
+      completed_at: at(110),
+      steps: [{ name: "Aggregate required dossier-acceptance result" }],
+      check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/461`,
+    };
+    const enrich = async (workflowRun: Record<string, unknown>) => {
+      const client = {
+        async request(path: string) {
+          if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+            return { workflow_runs: [] };
+          }
+          if (path.startsWith("/actions/runs?check_suite_id=761")) {
+            return { workflow_runs: [workflowRun] };
+          }
+          throw new Error(`unexpected request ${path}`);
+        },
+        async paginate(path: string) {
+          if (path === "/actions/runs/9601/attempts/1/jobs") return [job];
+          throw new Error(`unexpected paginate ${path}`);
+        },
+      };
+      return enrichCheckRunProvenance({
+        client: client as never,
+        checkRuns: [rawCheck],
+        expectedHeadSha: HEAD,
+        prNumber: 1,
+        repository: REPOSITORY,
+        policy: dossierPolicy as never,
+      });
+    };
+
+    const owned = await enrich(ownedRun);
+    expect(owned[0].provenance).toMatchObject({
+      kind: "workflow-job",
+      valid: true,
+      collision: false,
+      reason: "latest owned required-check workflow/job",
+    });
+    const ownedState = evaluateHeadChecks(
+      [...greenRuns(), ...owned],
+      dossierPolicy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(ownedState.requiredDone).toBe(true);
+    expect(ownedState.requiredCollisions).toEqual([]);
+
+    const impersonated = await enrich(impersonatingRun);
+    expect(impersonated[0].provenance).toMatchObject({
+      kind: "workflow-job",
+      valid: false,
+      collision: true,
+    });
+    const impersonatedState = evaluateHeadChecks(
+      [...greenRuns(), ...impersonated],
+      dossierPolicy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(impersonatedState.requiredDone).toBe(false);
+    expect(impersonatedState.requiredCollisions).toContain("dossier-acceptance");
+  });
 });
 
 describe("trusted review-window check decisions", () => {
