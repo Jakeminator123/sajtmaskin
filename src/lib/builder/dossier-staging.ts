@@ -121,6 +121,7 @@ const STAGING_BY_ID: Record<string, DossierStagingSpec> = {
   "three-fiber-physics": GENERIC_PLACEMENT,
   "scroll-story-orchestrator": GENERIC_PLACEMENT,
   "matter-physics-2d": GENERIC_PLACEMENT,
+  "xyflow-spatial-canvas": GENERIC_PLACEMENT,
   "postgres-drizzle": DATABASE_CONTENT,
   "vercel-blob-media": GENERIC_PLACEMENT,
   "vercel-analytics": NONE,

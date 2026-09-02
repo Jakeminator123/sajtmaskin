@@ -55,6 +55,10 @@ export default defineConfig({
       // matter-physics-2d dossier: the generated site installs matter-js; the
       // repo tests drive the stage through this inert, typed engine fake.
       "matter-js": path.resolve(__dirname, "tests/stubs/matter-js.ts"),
+      // xyflow-spatial-canvas dossier: same idea for React Flow. The stylesheet
+      // subpath must come first (prefix matching, see the clerk note above).
+      "@xyflow/react/dist/style.css": path.resolve(__dirname, "tests/stubs/xyflow-react-style.css"),
+      "@xyflow/react": path.resolve(__dirname, "tests/stubs/xyflow-react.tsx"),
     },
   },
   test: {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   inferCapabilities,
   buildCapabilityHints,
+  explicitlyRequests3D,
 } from "./capability-inference";
 
 describe("inferCapabilities", () => {
@@ -498,6 +499,25 @@ describe("buildCapabilityHints (pack-based)", () => {
     }
     expect(inferCapabilities("sticky parallax i hero").needsParallax).toBe(true);
     expect(inferCapabilities("pinned parallax bakgrund").needsParallax).toBe(true);
+  });
+
+  // xyflow-spatial-canvas (2026-09-02): a bare `canvas` / `scene` is not a 3D
+  // ask — a pannable node canvas, a Matter stage or a scroll scene must not
+  // pull the WebGL stack in. 3D compounds still count.
+  it("does NOT treat a bare canvas / scene as 3D, but keeps 3D compounds", () => {
+    for (const prompt of [
+      "en interaktiv canvas där man kan panorera och zooma mellan korten",
+      "en oändlig arbetsyta med noder och minimap",
+      "tre scener som byts när man scrollar",
+    ]) {
+      const caps = inferCapabilities(prompt);
+      expect(caps.needs3D, prompt).toBe(false);
+      expect(explicitlyRequests3D(prompt), prompt).toBe(false);
+    }
+    for (const prompt of ["en 3d-canvas i hero", "a webgl canvas with a rotating mesh", "en three.js-scen"]) {
+      expect(inferCapabilities(prompt).needs3D, prompt).toBe(true);
+      expect(explicitlyRequests3D(prompt), prompt).toBe(true);
+    }
   });
 
   it("3D hint does not mention rapier for decorative hovering/floating motion", () => {

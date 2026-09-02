@@ -72,7 +72,7 @@ Aktuell capability→grupp-vy:
 | 5   | `ai`           | AI                  | `ai-chat` (`ai-tool-calling` / `rag-chat` lämnade 2026-08-06 med etapp 4)    |
 | 6   | `search-maps`  | Sök & karta         | `site-search`, `map-display`, `command-palette`                              |
 | 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`, `media-storage` (vercel-blob-media, 2026-09-02) |
-| 8   | `interactive`  | Interaktivt & 3D    | `visual-3d`, `physics-3d`, `physics-2d`, `scroll-story`, `interactive-game`, `dashboard-charts` |
+| 8   | `interactive`  | Interaktivt & 3D    | `visual-3d`, `physics-3d`, `physics-2d`, `scroll-story`, `spatial-canvas`, `interactive-game`, `dashboard-charts` |
 | 9   | `ops`          | Drift & mätning     | `analytics` (visitor-counter default sedan 2026-09-02, vercel-analytics syskon) |
 | 10  | `other`        | Övrigt              | (fångstnät för omappade capabilities)                                        |
 
@@ -140,9 +140,26 @@ Aktuell capability→grupp-vy:
 > ett statiskt grid vid reduced motion; en ny inferensflagga `needsPhysics2D`
 > tar över fysikverben från `needsPhysics` när prompten är explicit 2D/Matter
 > utan 3D-stack-token, så WebGL-stacken aldrig dras in. `matter-js` stubbas i
-> repots tester (`tests/stubs/matter-js.ts`). Vidare kandidater (spatial
-> canvas, view transitions, kinetic typography, Redis/QStash/Algolia) är
-> medvetet inte med i den här vågen.
+> repots tester (`tests/stubs/matter-js.ts`). Hårda kandidater
+> (Redis/QStash/Algolia) är medvetet inte med i dessa vågor.
+>
+> **Mjuk våg 2 2026-09-02:** `xyflow-spatial-canvas` (capability
+> `spatial-canvas`, `@xyflow/react` v12) — panorerbar/zoombar arbetsyta med
+> kort-noder, relationer, minimap, fit-view och detaljpanel utan att lämna
+> ytan; state i minnet med ärlig "sparas inte"-notis i redigerbart läge,
+> embedded-läge stjäl aldrig sidscroll. Samtidigt snävades 3D-detektionen:
+> bara `canvas`/`scene` är inte längre en 3D-signal (`NEEDS_3D_PATTERNS`,
+> `explicitlyRequests3D`, vokabulären `visual-3d`) — 3D kräver ett 3D-token
+> eller en sammansättning (`3d-canvas`, `webgl canvas`). `@xyflow/react`
+> stubbas i repots tester (`tests/stubs/xyflow-react.tsx`). Två kandidater
+> från samma review parkerades medvetet: **shared-view-transitions** — Next
+> 16.3.1 exponerar `viewTransition` bara i de experimentella
+> app-page-runtimes (ingen flagga i `config-schema`), så Reacts
+> `<ViewTransition>` kräver canary och den nakna `document.startViewTransition`
+> är skör mot App Routers asynkrona commits; omprövas när baseline har stabilt
+> stöd. **kinetic-type-engine** — en rubrikanimation är frihandsjobb; blir
+> dossier först om ett återkommande behov av den gemensamma säkra kärnan
+> (Intl.Segmenter, aria-hidden-span, reduced motion) bevisas.
 
 **Fallback-principen:** demo-_mönstret_ (seed-data, canned-svar, fejkad
 success) är gemensamt per capability, men garantin gäller **per dossier**:

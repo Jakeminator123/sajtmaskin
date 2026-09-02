@@ -2,7 +2,7 @@
 
 Handskrivna providerfalsker för **det här repots** dossier-tester och typecheck. Inte en lokal körningsdump, och inte Sajtmaskins produktion.
 
-`@clerk/nextjs`, `@calcom/embed-react` och `matter-js` tillhör _genererade_ användarsajter (Byggblocken `clerk-auth`, `calcom-booking` respektive `matter-physics-2d`). Sajtmaskin själv har inte paketen installerade. Därför aliasar `tsconfig.json` och `vitest.config.ts` importerna hit, så dossier-komponenttester kan resolva utan riktiga SDK:er.
+`@clerk/nextjs`, `@calcom/embed-react`, `matter-js` och `@xyflow/react` tillhör _genererade_ användarsajter (Byggblocken `clerk-auth`, `calcom-booking`, `matter-physics-2d` respektive `xyflow-spatial-canvas`). Sajtmaskin själv har inte paketen installerade. Därför aliasar `tsconfig.json` och `vitest.config.ts` importerna hit, så dossier-komponenttester kan resolva utan riktiga SDK:er.
 
 | Yta                                       | Vad som körs                                                            |
 | ----------------------------------------- | ----------------------------------------------------------------------- |
