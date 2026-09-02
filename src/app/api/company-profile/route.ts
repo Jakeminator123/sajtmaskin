@@ -120,16 +120,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!project_id || typeof project_id !== "string") {
+      return NextResponse.json(
+        { success: false, error: "project_id is required" },
+        { status: 400 },
+      );
+    }
+
     const scope = { userId: user?.id ?? null, sessionId };
 
-    if (project_id) {
-      const project = await getProjectByIdForOwner(project_id, scope);
-      if (!project) {
-        return NextResponse.json(
-          { success: false, error: "Project not found" },
-          { status: 404 },
-        );
-      }
+    const project = await getProjectByIdForOwner(project_id, scope);
+    if (!project) {
+      return NextResponse.json(
+        { success: false, error: "Project not found" },
+        { status: 404 },
+      );
     }
 
     // Build profile object
@@ -200,6 +205,9 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[API/company-profile] PATCH error:", error);
-    return NextResponse.json({ success: false, error: "Failed to link profile" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to link profile";
+    const status =
+      message.includes("not found") || message.includes("access denied") ? 404 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }

@@ -48,20 +48,19 @@ export async function saveCompanyProfile(
 ): Promise<CompanyProfile> {
   assertDbConfigured();
 
-  if (profile.project_id) {
-    const owned = await verifyProjectOwnership(profile.project_id, scope);
-    if (!owned) throw new Error("Project not found or access denied");
+  if (!profile.project_id) {
+    throw new Error("Project not found or access denied");
   }
+  const owned = await verifyProjectOwnership(profile.project_id, scope);
+  if (!owned) throw new Error("Project not found or access denied");
 
   const now = new Date();
 
-  const existing = profile.project_id
-    ? await db
-        .select()
-        .from(companyProfiles)
-        .where(eq(companyProfiles.project_id, profile.project_id))
-        .limit(1)
-    : [];
+  const existing = await db
+    .select()
+    .from(companyProfiles)
+    .where(eq(companyProfiles.project_id, profile.project_id))
+    .limit(1);
 
   if (existing[0]) {
     const rows = await db
@@ -156,21 +155,20 @@ export async function linkCompanyProfileToProject(
   const id = typeof profileId === "string" ? parseInt(profileId, 10) : profileId;
   if (!Number.isFinite(id)) throw new Error("Invalid profile id");
 
-  // Verify the caller actually owns the profile being linked. A profile
-  // is considered owned when it is unattached (project_id IS NULL) or
-  // already attached to a project owned by the same scope. Without this
-  // check, anyone with a valid `projectId` could re-attach another
-  // user's company profile to their own project.
+  // Verify the caller owns the profile being linked. Unattached rows are
+  // not world-claimable — create them on an owned project instead.
   const [profile] = await db
     .select({ id: companyProfiles.id, project_id: companyProfiles.project_id })
     .from(companyProfiles)
     .where(eq(companyProfiles.id, id))
     .limit(1);
   if (!profile) throw new Error("Profile not found");
-  if (profile.project_id) {
-    const ownedByScope = await verifyProjectOwnership(profile.project_id, scope);
-    if (!ownedByScope) throw new Error("Profile not found or access denied");
+  // Unattached rows are not world-claimable. Create them on an owned project.
+  if (!profile.project_id) {
+    throw new Error("Profile not found or access denied");
   }
+  const ownedByScope = await verifyProjectOwnership(profile.project_id, scope);
+  if (!ownedByScope) throw new Error("Profile not found or access denied");
 
   await db
     .update(companyProfiles)
