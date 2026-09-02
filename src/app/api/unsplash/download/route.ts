@@ -1,5 +1,13 @@
 import { FEATURES, SECRETS } from "@/lib/config";
+import { safeFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 import { NextRequest, NextResponse } from "next/server";
+
+const UNSPLASH_DOWNLOAD_MAX_BYTES = 256_000;
+const UNSPLASH_DOWNLOAD_HOSTS = new Set(["api.unsplash.com"]);
+
+function isAllowedUnsplashDownloadUrl(url: URL): boolean {
+  return url.protocol === "https:" && UNSPLASH_DOWNLOAD_HOSTS.has(url.hostname.toLowerCase());
+}
 
 /**
  * Unsplash Download Tracking Endpoint
@@ -34,9 +42,26 @@ export async function POST(req: NextRequest) {
     }
 
     // Use downloadLocation if provided, otherwise construct from photoId
-    let trackUrl = downloadLocation;
+    let trackUrl: string | null = null;
 
-    if (!trackUrl && photoId) {
+    if (typeof downloadLocation === "string" && downloadLocation.trim()) {
+      let parsed: URL;
+      try {
+        parsed = new URL(downloadLocation);
+      } catch {
+        return NextResponse.json(
+          { success: false, error: "Download URL is not allowed" },
+          { status: 400 },
+        );
+      }
+      if (!isAllowedUnsplashDownloadUrl(parsed) || !validateSsrfTarget(parsed).ok) {
+        return NextResponse.json(
+          { success: false, error: "Download URL is not allowed" },
+          { status: 400 },
+        );
+      }
+      trackUrl = parsed.toString();
+    } else if (typeof photoId === "string" && photoId.trim()) {
       trackUrl = `https://api.unsplash.com/photos/${photoId}/download`;
     }
 
@@ -47,11 +72,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const response = await fetch(trackUrl, {
+    const response = await safeFetch(trackUrl, {
       headers: {
         Authorization: `Client-ID ${SECRETS.unsplashAccessKey}`,
         "Accept-Version": "v1",
       },
+      timeoutMs: 10_000,
+      maxBodyBytes: UNSPLASH_DOWNLOAD_MAX_BYTES,
     });
 
     if (!response.ok) {

@@ -49,6 +49,11 @@ export type ProductPostcheckSkipReason =
   | "timeout"
   | "preview_superseded"
   | "preview_not_running"
+  /**
+   * Preview was still `starting`, `httpReady: false`, or the wait budget
+   * ended. Retryable pending — must never carry an attestation.
+   */
+  | "preview_not_ready"
   | "capture_failed"
   /**
    * Chromium startade men dog innan navigeringen kom igång — `Target page,
@@ -57,7 +62,27 @@ export type ProductPostcheckSkipReason =
    * får därför den icke-anklagande ytan i buildern.
    */
   | "browser_crashed"
-  | "runtime_error";
+  | "runtime_error"
+  /**
+   * Another POST already holds the L6 single-flight claim for this
+   * revision tuple. Non-final / retryable — not a product verdict.
+   */
+  | "claim_busy"
+  /**
+   * Claim table missing or DB probe failed. Non-final / retryable —
+   * fail-closed, no Chromium.
+   */
+  | "claim_unavailable"
+  /**
+   * Same fail-closed 503 class as verify-lease `lease_unavailable`.
+   * Retryable infrastructure — not a product verdict.
+   */
+  | "lease_unavailable"
+  /**
+   * A finished `passed`/`blocked`/`failed` row already exists for this tuple.
+   * Final for this revision — do not start Chromium again.
+   */
+  | "claim_settled";
 
 export type ProductPostcheckWarning = {
   code: ProductPostcheckWarningCode;
@@ -159,6 +184,19 @@ export type ProductPostcheckResult = {
    * (OpenClaw-genomgång 2026-09-01).
    */
   verificationRunId?: string | null;
+  /**
+   * L6: the run that holds (or held) the single-flight slot. Set on
+   * `claim_busy` / settled replay so the loser can poll the winner.
+   */
+  activeRunId?: string | null;
+  claimStatus?:
+    | "running"
+    | "passed"
+    | "blocked"
+    | "failed"
+    | "superseded"
+    | "expired"
+    | null;
 };
 
 type DomSnapshot = {

@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
+import { getCurrentUser } from "@/lib/auth/auth";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -175,6 +176,10 @@ async function checkDomainViaDns(domain: string): Promise<boolean | null> {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser(req);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   return withRateLimit(req, "domains:suggest", async () => {
     try {
       const body = await req.json();
@@ -225,5 +230,5 @@ export async function POST(req: NextRequest) {
       console.error("[domain-suggestions] Error:", error);
       return NextResponse.json({ error: "Failed to generate domain suggestions" }, { status: 500 });
     }
-  });
+  }, { userId: user.id });
 }

@@ -167,6 +167,39 @@ describe("persistVersionErrorLogs — oattesterbara postcheck-rader", () => {
     expect(body).not.toHaveProperty("productPostcheckAttestation");
   });
 
+  it("skriver oattesterad pending-dom i hela batchen", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => response(200));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      persistVersionErrorLogs({
+        chatId: "c1",
+        versionId: "v1",
+        logs: [
+          PLAIN_LOG,
+          {
+            level: "warning",
+            category: "product_postcheck.summary",
+            message: "pending",
+            meta: { verdict: "pending" },
+          },
+        ],
+      }),
+    ).resolves.toBe(true);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const body = JSON.parse(String(init.body));
+    expect(body.logs).toEqual([
+      PLAIN_LOG,
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: { verdict: "pending" },
+      }),
+    ]);
+    expect(body).not.toHaveProperty("productPostcheckAttestation");
+  });
+
   it("skriver inget när bara postcheck-rader saknar attestering", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => response(200));
     vi.stubGlobal("fetch", fetchMock);

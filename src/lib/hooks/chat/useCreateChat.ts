@@ -29,8 +29,7 @@ import {
   updateCreateChatLockChatId,
   writeCreateChatLock,
 } from "./helpers";
-import { runPostGenerationChecks } from "./post-checks";
-import { triggerImageMaterialization } from "./post-checks-fetch";
+import { runSerializedGenerationTail } from "./stream-handlers-post-stream";
 import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
@@ -411,16 +410,11 @@ export function useCreateChat(
         });
         mutateVersions();
         if (resolvedVersionId) {
-          void triggerImageMaterialization({
-            chatId: String(newChatId),
-            versionId: String(resolvedVersionId),
-            enabled: enableImageMaterialization,
-          });
-        }
-        if (resolvedVersionId) {
-          void runPostGenerationChecks({
-            chatId: String(newChatId),
-            versionId: String(resolvedVersionId),
+          const tailChatId = String(newChatId);
+          const tailVersionId = String(resolvedVersionId);
+          void runSerializedGenerationTail({
+            chatId: tailChatId,
+            versionId: tailVersionId,
             demoUrl: resolvedDemoUrl,
             preflight,
             assistantMessageId,
@@ -428,6 +422,8 @@ export function useCreateChat(
             mutateVersions,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
             onComplete: onVersionStatusRefresh,
+            enableImageMaterialization,
+            materialize: true,
           });
         }
 

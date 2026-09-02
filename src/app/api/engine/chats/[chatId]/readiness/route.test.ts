@@ -391,7 +391,9 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     expect(getLatestVersion).toHaveBeenCalledTimes(1);
     // The promote callback is now head-agnostic (the gate sits before it).
     await capturedOpts?.promoteReconciledVersion?.();
-    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String), {
+      filesRevision: null,
+    });
   });
 
   it("head gate resolves FALSE when the version is not the chat head (bugbot medium #518)", async () => {
@@ -449,7 +451,9 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     await GET(req, ctx);
 
     await capturedOpts?.promoteReconciledVersion?.();
-    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String), {
+      filesRevision: null,
+    });
     expect(emit).toHaveBeenCalledWith(
       expect.objectContaining({
         t: "version.degraded",
@@ -488,7 +492,9 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     await GET(req, ctx);
 
     await capturedOpts?.promoteReconciledVersion?.();
-    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String), {
+      filesRevision: null,
+    });
     expect(emit).not.toHaveBeenCalled();
   });
 
@@ -585,7 +591,7 @@ describe("GET readiness — Product Postcheck (B1 / SM-049)", () => {
     expect(json.readiness?.info.productPostcheckBlocksF3).toBe(false);
   });
 
-  it("shows a latest persisted transport skip as warning without blocking F3 or deploy", async () => {
+  it("shows a latest persisted transport skip as warning; F3 stays blocked (pending)", async () => {
     getEngineVersionErrorLogs.mockResolvedValue([
       {
         category: "product_postcheck.skipped",
@@ -612,7 +618,7 @@ describe("GET readiness — Product Postcheck (B1 / SM-049)", () => {
     expect(json.readiness?.warnings.map((warning) => warning.id)).toContain(
       "product-postcheck-skipped",
     );
-    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(false);
+    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(true);
   });
 
   it("sets status blocked with the preview_boot_page cause and leaves canDeploy true (B1)", async () => {
@@ -720,7 +726,7 @@ describe("GET readiness — Product Postcheck (B1 / SM-049)", () => {
     expect(json.readiness?.status).toBe("ready");
     expect(json.readiness?.canDeploy).toBe(true);
     expect(json.readiness?.warnings).toEqual([]);
-    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(false);
+    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(true);
   });
 });
 

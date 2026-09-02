@@ -122,7 +122,7 @@ vi.mock("@/lib/gen/scaffolds/protected-paths", async (importOriginal) => {
     }),
   };
 });
-vi.mock("@/lib/models/catalog", () => ({ ownModelIdToCanonicalModelId: () => null }));
+vi.mock("@/lib/models/catalog", () => ({ resolveChatModelTier: () => null }));
 vi.mock("@/lib/models/phase-routing", () => ({
   resolvePhaseModel: () => ({ modelId: "fixer-model" }),
   resolvePhaseThinking: () => null,
@@ -216,6 +216,31 @@ describe("POST repair — lease before snapshot (Codex P2)", () => {
     );
     // Lease released in finally even on the early 404.
     expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
+  });
+
+  it("returns retryable 503 lease_unavailable when acquiring the lease throws — never starts repair", async () => {
+    acquireVersionLease.mockRejectedValue(new Error("relation engine_version_jobs does not exist"));
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "x" }],
+      filesJson: '[{"path":"app/page.tsx","content":"x"}]',
+    });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body).toMatchObject({
+      success: false,
+      code: "lease_unavailable",
+      retryable: true,
+    });
+    expect(res.headers.get("Retry-After")).toBe("3");
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(markVersionRepairing).not.toHaveBeenCalled();
+    expect(runRepairLoop).not.toHaveBeenCalled();
+    expect(releaseVersionLease).not.toHaveBeenCalled();
   });
 
   it("returns 409 version_busy without reading files when another job owns the lease", async () => {
@@ -1003,6 +1028,58 @@ describe("POST repair — catch re-reads base when the crash precedes staleBaseN
     // No concurrent edit -> the crash legitimately fails the version.
     expect(failVersionVerification).toHaveBeenCalledTimes(1);
     expect(afterCallbacks.value).toHaveLength(0);
+  });
+
+  it("binds the unleased fail CAS to the post-lease snapshot revision, not the pre-lease tenant read (L5)", async () => {
+    getRequestUserId.mockResolvedValue("user-1");
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: {
+        id: "ver-1",
+        files_revision: "rev-pre-lease",
+        verification_state: "failed",
+      },
+    });
+    getVersionFilesSnapshot.mockReset();
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "B" }],
+      filesJson: '[{"path":"app/page.tsx","content":"B"}]',
+      filesRevision: "rev-post-lease",
+      verificationState: "failed",
+    });
+    failVersionVerification.mockResolvedValue(null);
+    failVersionVerificationIfUnleased.mockResolvedValue({
+      applied: false,
+      reason: "cas_miss",
+    });
+
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(500);
+    expect(acquireVersionLease.mock.invocationCallOrder[0]).toBeLessThan(
+      getVersionFilesSnapshot.mock.invocationCallOrder[0],
+    );
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(
+      "ver-1",
+      expect.stringContaining("Repair crashed"),
+      { verificationState: "repairing", filesRevision: "rev-post-lease" },
+    );
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalledWith(
+      "ver-1",
+      expect.anything(),
+      expect.objectContaining({ filesRevision: "rev-pre-lease" }),
+    );
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalledWith(
+      "ver-1",
+      expect.anything(),
+      expect.objectContaining({ verificationState: "failed" }),
+    );
   });
 });
 

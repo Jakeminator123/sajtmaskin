@@ -26,10 +26,12 @@ import {
   renderAccountReviewMarker,
   renderAccountReviewReceiptMarker,
 } from "../pr-review/account-fallback.mjs";
+import { POLICY_FLOORS, requiredCheckOwnerSpec } from "../workflow/check-contract.mjs";
 
 const at = (seconds: number) => new Date(seconds * 1000).toISOString();
 const policy = {
-  requiredChecks: ["quality", "backoffice-tests", "schema-drift", "build", "review-window"],
+  requiredChecks: [...POLICY_FLOORS.requiredChecks],
+  requiredCheckOwners: { ...POLICY_FLOORS.requiredCheckOwners },
   review: {
     requiredCheckWorkflow: { path: ".github/workflows/ci.yml", event: "pull_request" },
     qualifyingCheckPatterns: ["trusted-pr-ai-review", "bugbot"],
@@ -37,6 +39,18 @@ const policy = {
     deploymentCheckNames: ["Vercel"],
   },
 };
+
+function ownerWorkflowFile(name: string) {
+  return requiredCheckOwnerSpec(name, policy).file;
+}
+
+function isCanonicalOwnedRequired(name: string) {
+  return (
+    policy.requiredChecks.includes(name) &&
+    name !== "review-window" &&
+    ownerWorkflowFile(name) === "ci.yml"
+  );
+}
 const HEAD = "a".repeat(40);
 const OTHER_HEAD = "b".repeat(40);
 const BASE = "c".repeat(40);
@@ -180,17 +194,55 @@ function timedRun(
   };
 }
 
+function greenRequiredRuns() {
+  return policy.requiredChecks
+    .filter((name) => name !== "review-window")
+    .map((name) => {
+      const owner = requiredCheckOwnerSpec(name, policy);
+      const suiteId = owner.file === "ci.yml" ? 700 : 761;
+      return run(name, {
+        check_suite: { id: suiteId },
+        provenance: {
+          kind: "workflow-job",
+          valid: true,
+          workflowRun: {
+            id: owner.file === "ci.yml" ? 500 : 9601,
+            check_suite_id: suiteId,
+            path: owner.path,
+            event: owner.event,
+            head_sha: HEAD,
+            repository: { full_name: REPOSITORY },
+            pull_requests: [{ number: 1, head: { sha: HEAD } }],
+            created_at: at(100),
+            run_attempt: 1,
+          },
+          job: {
+            name,
+            status: "completed",
+            conclusion: "success",
+            started_at: at(100),
+            completed_at: at(110),
+            steps: [{ name: "Complete job" }],
+          },
+        },
+      });
+    });
+}
+
 function greenRuns() {
   return [
-    run("quality"),
-    run("backoffice-tests"),
-    run("schema-drift"),
-    run("build"),
+    ...greenRequiredRuns(),
     run("trusted-pr-ai-review", {
       provenance: { kind: "custom-check", valid: false },
     }),
     run("GitGuardian", { app: { id: 999, slug: "gitguardian" } }),
   ];
+}
+
+function canonicalOwnedGreenRuns() {
+  return greenRuns().filter(
+    (check) => !policy.requiredChecks.includes(String(check.name)) || isCanonicalOwnedRequired(String(check.name)),
+  );
 }
 
 function trustedReviewEvidence(headSha = HEAD) {
@@ -819,7 +871,7 @@ describe("check workflow provenance", () => {
   });
 
   it("never fills a newer queued CI run with green jobs from an older run", async () => {
-    const olderChecks = rawChecks(greenRuns()).map((check) => ({
+    const olderChecks = rawChecks(canonicalOwnedGreenRuns()).map((check) => ({
       ...check,
       check_suite: { id: 701 },
     }));
@@ -1302,6 +1354,263 @@ describe("check workflow provenance", () => {
       collision: true,
     });
   });
+
+  it("locks required-check provenance to the workflow-contract owner map", () => {
+    expect(policy.requiredChecks).toEqual([...POLICY_FLOORS.requiredChecks]);
+    expect(policy.requiredCheckOwners).toEqual({ ...POLICY_FLOORS.requiredCheckOwners });
+    expect(requiredCheckOwnerSpec("quality", policy)).toMatchObject({
+      path: ".github/workflows/ci.yml",
+      event: "pull_request",
+      file: "ci.yml",
+    });
+    expect(requiredCheckOwnerSpec("dossier-acceptance", policy)).toMatchObject({
+      path: ".github/workflows/dossier-acceptance.yml",
+      event: "pull_request",
+      file: "dossier-acceptance.yml",
+    });
+  });
+
+  it("accepts a required check only from its declared owner workflow", async () => {
+    const rawCheck = run("dossier-acceptance", {
+      id: 461,
+      check_suite: { id: 761 },
+      provenance: undefined,
+    });
+    const ownedRun = {
+      id: 9601,
+      check_suite_id: 761,
+      run_attempt: 1,
+      path: ".github/workflows/dossier-acceptance.yml",
+      event: "pull_request",
+      head_sha: HEAD,
+      repository: { full_name: REPOSITORY },
+      created_at: at(100),
+    };
+    const impersonatingRun = {
+      ...ownedRun,
+      path: ".github/workflows/other.yml",
+    };
+    const job = {
+      id: 8461,
+      name: "dossier-acceptance",
+      status: "completed",
+      conclusion: "success",
+      started_at: at(100),
+      completed_at: at(110),
+      steps: [{ name: "Aggregate required dossier-acceptance result" }],
+      check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/461`,
+    };
+    const enrich = async (workflowRun: Record<string, unknown>) => {
+      const client = {
+        async request(path: string) {
+          if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+            return { workflow_runs: [] };
+          }
+          if (path.startsWith("/actions/runs?check_suite_id=761")) {
+            return { workflow_runs: [workflowRun] };
+          }
+          throw new Error(`unexpected request ${path}`);
+        },
+        async paginate(path: string) {
+          if (path === "/actions/runs/9601/attempts/1/jobs") return [job];
+          throw new Error(`unexpected paginate ${path}`);
+        },
+      };
+      return enrichCheckRunProvenance({
+        client: client as never,
+        checkRuns: [rawCheck],
+        expectedHeadSha: HEAD,
+        prNumber: 1,
+        repository: REPOSITORY,
+        policy: policy as never,
+      });
+    };
+
+    const owned = await enrich(ownedRun);
+    expect(owned[0].provenance).toMatchObject({
+      kind: "workflow-job",
+      valid: true,
+      collision: false,
+      reason: "latest owned required-check workflow/job",
+    });
+    const ownedState = evaluateHeadChecks(
+      [...greenRuns().filter((item) => item.name !== "dossier-acceptance"), ...owned],
+      policy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(ownedState.requiredDone).toBe(true);
+    expect(ownedState.requiredCollisions).toEqual([]);
+
+    const impersonated = await enrich(impersonatingRun);
+    expect(impersonated[0].provenance).toMatchObject({
+      kind: "workflow-job",
+      valid: false,
+      collision: true,
+      reason: "check kommer från annan workflow än dess deklarerade ägare",
+    });
+    const impersonatedState = evaluateHeadChecks(
+      [...greenRuns().filter((item) => item.name !== "dossier-acceptance"), ...impersonated],
+      policy as never,
+      TRUSTED_REVIEW,
+    );
+    expect(impersonatedState.requiredDone).toBe(false);
+    expect(impersonatedState.requiredCollisions).toContain("dossier-acceptance");
+  });
+
+  it("rejects a mapped required check even when canonical CI publishes the same name", async () => {
+    const rawCheck = run("dossier-acceptance", {
+      id: 462,
+      check_suite: { id: 701 },
+      provenance: undefined,
+    });
+    const canonicalRun = { ...canonicalWorkflowRun(), id: 9001, check_suite_id: 701 };
+    const client = {
+      async request(path: string) {
+        if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [canonicalRun] };
+        }
+        throw new Error(`unexpected request ${path}`);
+      },
+      async paginate(path: string) {
+        if (path.startsWith("/actions/runs/9001/attempts/1/jobs")) {
+          return [
+            {
+              id: 8462,
+              name: "dossier-acceptance",
+              status: "completed",
+              conclusion: "success",
+              started_at: at(100),
+              completed_at: at(110),
+              steps: [{ name: "Complete job" }],
+              check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/462`,
+            },
+          ];
+        }
+        throw new Error(`unexpected paginate ${path}`);
+      },
+    };
+    const enriched = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: [rawCheck],
+      expectedHeadSha: HEAD,
+      prNumber: 1,
+      repository: REPOSITORY,
+      policy: policy as never,
+    });
+    expect(enriched[0].provenance).toMatchObject({
+      kind: "workflow-job",
+      valid: false,
+      collision: true,
+      reason: "check kommer från annan workflow än dess deklarerade ägare",
+    });
+  });
+
+  it("leaves unknown names unbound and keeps unmapped required names on canonical CI", async () => {
+    const unknown = run("not-a-required-check", {
+      id: 470,
+      check_suite: { id: 770 },
+      provenance: undefined,
+    });
+    const unmappedRequired = run("mystery-check", {
+      id: 471,
+      check_suite: { id: 701 },
+      provenance: undefined,
+    });
+    const unmappedImpersonator = run("mystery-check", {
+      id: 472,
+      check_suite: { id: 772 },
+      provenance: undefined,
+    });
+    const unmappedPolicy = {
+      ...policy,
+      requiredChecks: ["mystery-check", "review-window"],
+      requiredCheckOwners: { ...policy.requiredCheckOwners },
+    };
+    const canonicalRun = { ...canonicalWorkflowRun(), id: 9001, check_suite_id: 701 };
+    const otherRun = {
+      id: 9701,
+      check_suite_id: 772,
+      run_attempt: 1,
+      path: ".github/workflows/other.yml",
+      event: "pull_request",
+      head_sha: HEAD,
+      repository: { full_name: REPOSITORY },
+      created_at: at(100),
+    };
+    const jobFor = (id: number, name: string) => ({
+      id: 8000 + id,
+      name,
+      status: "completed",
+      conclusion: "success",
+      started_at: at(100),
+      completed_at: at(110),
+      steps: [{ name: "Complete job" }],
+      check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/${id}`,
+    });
+    const client = {
+      async request(path: string) {
+        if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
+          return { workflow_runs: [canonicalRun] };
+        }
+        if (path.startsWith("/actions/runs?check_suite_id=772")) {
+          return { workflow_runs: [otherRun] };
+        }
+        if (path.startsWith("/actions/runs?check_suite_id=770")) {
+          return { workflow_runs: [] };
+        }
+        throw new Error(`unexpected request ${path}`);
+      },
+      async paginate(path: string) {
+        if (path.startsWith("/actions/runs/9001/attempts/1/jobs")) {
+          return [jobFor(471, "mystery-check")];
+        }
+        if (path === "/actions/runs/9701/attempts/1/jobs") {
+          return [jobFor(472, "mystery-check")];
+        }
+        throw new Error(`unexpected paginate ${path}`);
+      },
+    };
+
+    const unbound = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: [unknown],
+      expectedHeadSha: HEAD,
+      prNumber: 1,
+      repository: REPOSITORY,
+      policy: policy as never,
+    });
+    expect(unbound[0].provenance).toBeUndefined();
+
+    const accepted = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: [unmappedRequired],
+      expectedHeadSha: HEAD,
+      prNumber: 1,
+      repository: REPOSITORY,
+      policy: unmappedPolicy as never,
+    });
+    expect(accepted[0].provenance).toMatchObject({
+      kind: "workflow-job",
+      valid: true,
+      collision: false,
+      reason: "latest canonical CI workflow/job",
+    });
+
+    const rejected = await enrichCheckRunProvenance({
+      client: client as never,
+      checkRuns: [unmappedImpersonator],
+      expectedHeadSha: HEAD,
+      prNumber: 1,
+      repository: REPOSITORY,
+      policy: unmappedPolicy as never,
+    });
+    expect(rejected[0].provenance).toMatchObject({
+      kind: "workflow-job",
+      valid: false,
+      collision: true,
+      reason: "check kommer från annan workflow än dess deklarerade ägare",
+    });
+  });
 });
 
 describe("trusted review-window check decisions", () => {
@@ -1609,6 +1918,7 @@ function integrationPolicy() {
   return {
     trunk: "master",
     requiredChecks: policy.requiredChecks,
+    requiredCheckOwners: policy.requiredCheckOwners,
     review: {
       ...policy.review,
       minHeadAgeSeconds: 0,
@@ -1637,8 +1947,47 @@ function canonicalWorkflowRun() {
   };
 }
 
+function ownedWorkflowRunForSuite(checks: Array<Record<string, unknown>>, suiteId: number) {
+  const check = checks.find((item) => {
+    const suite = item.check_suite as { id?: number } | undefined;
+    return Number(suite?.id) === suiteId;
+  });
+  if (!check || !policy.requiredChecks.includes(String(check.name))) return null;
+  const owner = requiredCheckOwnerSpec(String(check.name), policy);
+  if (owner.file === "ci.yml") return null;
+  return {
+    id: 9601,
+    check_suite_id: suiteId,
+    path: owner.path,
+    event: owner.event,
+    head_sha: HEAD,
+    repository: { full_name: REPOSITORY },
+    pull_requests: [{ number: 1, head: { sha: HEAD } }],
+    created_at: at(100),
+    run_attempt: 1,
+  };
+}
+
+function ownedJobs(checks: Array<Record<string, unknown>>) {
+  return checks
+    .filter((check) => {
+      const name = String(check.name);
+      return policy.requiredChecks.includes(name) && !isCanonicalOwnedRequired(name);
+    })
+    .map((check, index) => ({
+      id: 20_000 + index,
+      name: check.name,
+      status: check.status,
+      conclusion: check.conclusion,
+      started_at: check.started_at,
+      completed_at: check.completed_at,
+      steps: [{ name: "Complete job" }],
+      check_run_url: `https://api.github.com/repos/${REPOSITORY}/check-runs/${check.id}`,
+    }));
+}
+
 function canonicalJobs(checks: Array<Record<string, unknown>>) {
-  const required = new Set(policy.requiredChecks.filter((name) => name !== "review-window"));
+  const required = new Set(policy.requiredChecks.filter((name) => isCanonicalOwnedRequired(name)));
   return checks
     .filter((check) => required.has(String(check.name)))
     .map((check, index) => ({
@@ -1733,6 +2082,13 @@ function integrationHarness({
       if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
         return { workflow_runs: [canonicalWorkflowRun()] };
       }
+      if (path.startsWith("/actions/runs?check_suite_id=")) {
+        const suiteId = Number(
+          new URL(`https://example.test${path}`).searchParams.get("check_suite_id"),
+        );
+        const owned = ownedWorkflowRunForSuite(checks, suiteId);
+        return { workflow_runs: owned ? [owned] : [] };
+      }
       throw new Error(`unexpected request ${options.method ?? "GET"} ${path}`);
     },
     async listReviewsWithServerTimes() {
@@ -1756,6 +2112,7 @@ function integrationHarness({
         return structuredClone(changedFiles);
       }
       if (path.startsWith("/actions/runs/500/attempts/1/jobs")) return canonicalJobs(checks);
+      if (path.startsWith("/actions/runs/9601/attempts/1/jobs")) return ownedJobs(checks);
       throw new Error(`unexpected paginate ${path} ${key ?? ""}`);
     },
   };
@@ -1847,6 +2204,13 @@ function mergeHarness({
       if (path.startsWith("/actions/workflows/ci.yml/runs?")) {
         return { workflow_runs: [canonicalWorkflowRun()] };
       }
+      if (path.startsWith("/actions/runs?check_suite_id=")) {
+        const suiteId = Number(
+          new URL(`https://example.test${path}`).searchParams.get("check_suite_id"),
+        );
+        const owned = ownedWorkflowRunForSuite(checks, suiteId);
+        return { workflow_runs: owned ? [owned] : [] };
+      }
       if (path === "/pulls/1/merge" && options.method === "PUT") {
         return { merged: true, sha: "d".repeat(40) };
       }
@@ -1894,6 +2258,7 @@ function mergeHarness({
       if (path === "/pulls/1/comments") return [];
       if (path === "/pulls/1/files") return structuredClone(changedFiles);
       if (path.startsWith("/actions/runs/500/attempts/1/jobs")) return canonicalJobs(checks);
+      if (path.startsWith("/actions/runs/9601/attempts/1/jobs")) return ownedJobs(checks);
       throw new Error(`unexpected paginate ${path}`);
     },
   };

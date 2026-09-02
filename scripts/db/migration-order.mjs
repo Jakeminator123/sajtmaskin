@@ -38,6 +38,13 @@ export const MIGRATION_ORDER = [
   "add-engine-versions-chat-version-unique.sql",
   "add-engine-version-jobs.sql",
   "add-transactions-stripe-session-unique.sql",
+  // B1: one durable credit entitlement per wizard run, shared by lookup,
+  // competitors and every enrich/prefetch request.
+  "add-transactions-idempotency-key.sql",
+  // B1 follow-up: server-owned wizard_runs. Start creates the row and
+  // debits once (idempotency_key = run id). Wizard routes authorize the
+  // run; a client-invented UUID is never a valid entitlement.
+  "add-wizard-runs.sql",
   "rename-engine-version-preview-url.sql",
   "add-cascade-engine-chats-project.sql",
   "add-cascade-to-engine-fks.sql",
@@ -102,6 +109,11 @@ export const MIGRATION_ORDER = [
   // SM-070: persistad OpenClaw-grant + idempotent live-review-claim per
   // (version_id, files_revision). Additiv CREATE; FK mot engine_chats.
   "add-live-review-gate.sql",
+  // L6: Product Postcheck single-flight claim per revisionstupel
+  // (version, files_revision, preview_session, lifecycle_token, mutation_revision).
+  // Eget filnamn — schemat skiljer sig från stängda #1251
+  // (`add-product-postcheck-runs.sql`: fail-open + result-cache).
+  "add-product-postcheck-run-claims.sql",
   // Live dev↔prod-paritet (2026-08-05): prod-tabeller födda under äldre
   // CREATE TABLE-definitioner får dagens form (TIMESTAMPTZ, UNIQUE/FK-
   // constraints), dev tappar redundanta dubblett-index. Allt guardat via

@@ -8,6 +8,7 @@ import {
   validateMergeExecuteMandate,
   validateMergeReadySignoff,
 } from "./merge-ready-freshness.mjs";
+import { requiredCheckOwnerSpec } from "../workflow/required-check-owners.mjs";
 import { decodeMarker, EXHAUSTIVE_MARKER_PREFIX, parseStateComment } from "../pr-review/core.mjs";
 import {
   parseAccountFallbackRequest,
@@ -814,6 +815,22 @@ export async function enrichCheckRunProvenance({
     const suiteId = Number(check.check_suite?.id);
     if (!Number.isSafeInteger(suiteId) || suiteId <= 0) continue;
     if (canonicalRun && suiteId === Number(canonicalRun.check_suite_id)) {
+      if (requiredNames.has(check.name)) {
+        const owner = requiredCheckOwnerSpec(check.name, policy);
+        if (
+          normalizedWorkflowPath(canonicalRun.path) !== owner.path ||
+          canonicalRun.event !== owner.event
+        ) {
+          provenanceByCheckId.set(check.id, {
+            kind: "workflow-job",
+            valid: false,
+            collision: true,
+            reason: "check kommer från annan workflow än dess deklarerade ägare",
+            workflowRun: canonicalRun,
+          });
+          continue;
+        }
+      }
       const matchingJobs = canonicalJobs.filter(
         (job) => checkRunIdFromUrl(job.check_run_url) === Number(check.id),
       );
@@ -1009,11 +1026,46 @@ export async function enrichCheckRunProvenance({
           });
           continue;
         }
+        const owner = requiredNames.has(check.name)
+          ? requiredCheckOwnerSpec(check.name, policy)
+          : null;
+        const canonicalOwner = policy.review?.requiredCheckWorkflow;
+        const isExternalOwner =
+          Boolean(owner) &&
+          (owner.path !== canonicalOwner?.path || owner.event !== canonicalOwner?.event);
+        const ownedHere =
+          isExternalOwner &&
+          normalizedWorkflowPath(workflowRun.path) === owner.path &&
+          workflowRun.event === owner.event &&
+          workflowRun.head_sha === expectedHeadSha &&
+          workflowRun.repository?.full_name === repository;
+        if (ownedHere) {
+          const jobMatches =
+            executionBacked &&
+            job.name === check.name &&
+            job.status === check.status &&
+            (job.conclusion ?? null) === (check.conclusion ?? null) &&
+            job.started_at === check.started_at &&
+            (job.completed_at ?? null) === (check.completed_at ?? null);
+          provenanceByCheckId.set(check.id, {
+            kind: "workflow-job",
+            valid: jobMatches,
+            collision: !jobMatches,
+            reason: jobMatches
+              ? "latest owned required-check workflow/job"
+              : "check/job är inte senaste identiska owned workflow-försöket",
+            workflowRun,
+            job,
+          });
+          continue;
+        }
         provenanceByCheckId.set(check.id, {
           kind: "workflow-job",
           valid: false,
           collision: true,
-          reason: "check kommer från annan workflow/event/head än senaste canonical CI",
+          reason: requiredNames.has(check.name)
+            ? "check kommer från annan workflow än dess deklarerade ägare"
+            : "check kommer från annan workflow/event/head än senaste canonical CI",
           workflowRun,
           job,
         });

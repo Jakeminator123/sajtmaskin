@@ -14,6 +14,10 @@ import {
   isInfrastructureSkipReason,
   productPostcheckSkipReasonFromMessage,
 } from "@/lib/gen/verify/product-postcheck-skip";
+import {
+  filesRevisionFromPostcheckMeta,
+  verdictFromSummaryMeta,
+} from "@/lib/gen/verify/product-postcheck-verdict";
 
 export const REPORTED_PRODUCT_BLOCKED = "product_blocked";
 export const REPORTED_PRODUCT_POSTCHECK_DEGRADED = "product_postcheck_degraded";
@@ -42,8 +46,10 @@ export type ProductPostcheckReportState = {
    * kontrollkedjan. Den är avsiktligt skild från `degraded`: båda betyder
    * "ingen produktdom finns", men bara `degraded` får läsas som ett påstående
    * om sajten.
+   * `waiting` = durable dom är `pending`/`indeterminate`/`superseded` — inte
+   * "ej blockerad" och inte en färdig produktdom.
    */
-  kind: "unknown" | "clear" | "advisory" | "degraded" | "blocked";
+  kind: "unknown" | "clear" | "advisory" | "degraded" | "blocked" | "waiting";
   summary: ProductPostcheckReportLog | null;
   skipped: ProductPostcheckReportLog | null;
 };
@@ -138,6 +144,38 @@ function isLaterSignal(
  * A later completed summary is authoritative and therefore clears an older
  * skip; a later skip only degrades a clean/absent summary.
  */
+function newestRevisionKey(
+  summary: ProductPostcheckReportLog | null,
+  skipped: ProductPostcheckReportLog | null,
+): string {
+  const summaryMs = signalClock(summary?.created_at);
+  const skippedMs = signalClock(skipped?.created_at);
+  if (skipped && (summaryMs == null || (skippedMs != null && skippedMs >= summaryMs))) {
+    return filesRevisionFromPostcheckMeta(skipped.meta);
+  }
+  return filesRevisionFromPostcheckMeta(summary?.meta);
+}
+
+function newestCompletedSummaryForRevision(
+  logs: readonly ProductPostcheckReportLog[],
+  revision: string,
+): ProductPostcheckReportLog | null {
+  let match: ProductPostcheckReportLog | null = null;
+  let matchMs: number | null = null;
+  for (const log of logs) {
+    if (log.category !== PRODUCT_POSTCHECK_SUMMARY) continue;
+    if (filesRevisionFromPostcheckMeta(log.meta) !== revision) continue;
+    const verdict = verdictFromSummaryMeta(log.meta);
+    if (verdict !== "passed" && verdict !== "blocked") continue;
+    const ms = signalClock(log.created_at);
+    if (!match || (ms != null && (matchMs == null || ms > matchMs))) {
+      match = log;
+      matchMs = ms;
+    }
+  }
+  return match;
+}
+
 export function resolveProductPostcheckReportState(
   logs: readonly ProductPostcheckReportLog[],
 ): ProductPostcheckReportState {
@@ -147,8 +185,27 @@ export function resolveProductPostcheckReportState(
     return { kind: "unknown", summary: null, skipped: null };
   }
 
-  if (summary && productBlockedFromSummaryMeta(summary.log.meta)) {
-    return { kind: "blocked", summary: summary.log, skipped: skipped?.log ?? null };
+  const revision = newestRevisionKey(summary?.log ?? null, skipped?.log ?? null);
+  const completedSummary = newestCompletedSummaryForRevision(logs, revision);
+  if (completedSummary && verdictFromSummaryMeta(completedSummary.meta) === "blocked") {
+    return {
+      kind: "blocked",
+      summary: completedSummary,
+      skipped: skipped?.log ?? null,
+    };
+  }
+
+  const newestVerdict = summary ? verdictFromSummaryMeta(summary.log.meta) : null;
+  if (
+    newestVerdict === "pending" ||
+    newestVerdict === "indeterminate" ||
+    newestVerdict === "superseded"
+  ) {
+    return {
+      kind: "waiting",
+      summary: summary!.log,
+      skipped: skipped?.log ?? null,
+    };
   }
 
   if (skipped && (!summary || isLaterSignal(skipped, summary))) {
@@ -235,7 +292,7 @@ export function applyProductPostcheckReportToVersionStatus(
   events: readonly ProductPostcheckEventSignal[] = [],
 ): VersionStatus {
   const report = resolveProductPostcheckReportState(logs);
-  if (report.kind === "unknown") return status;
+  if (report.kind === "unknown" || report.kind === "waiting") return status;
 
   const blockedEvent = latestEventSignal(events, "product_postcheck_blocked");
   const skippedEvent = latestEventSignal(events, "product_postcheck_skipped");
@@ -333,6 +390,8 @@ export function isReportedQualityGateGreen(
 }
 
 export function productBlockedFromSummaryMeta(meta: unknown): boolean {
+  const verdict = verdictFromSummaryMeta(meta);
+  if (verdict) return verdict === "blocked";
   if (!meta || typeof meta !== "object" || Array.isArray(meta)) return false;
   return (meta as { productBlocked?: unknown }).productBlocked === true;
 }

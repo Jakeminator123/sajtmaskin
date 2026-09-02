@@ -6,9 +6,18 @@ import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
   buildProductPostcheckLogItems,
   hasActivePostCheck,
+  imageValidationHoldCategory,
+  imageValidationHoldMessage,
+  interpretValidateImagesHttp,
   persistVersionErrorLogs,
+  productPostcheckResultFromUnavailableHttp,
+  shouldHoldBeforeProductPostcheck,
 } from "./post-checks";
+import type { ImageValidationResult } from "./post-checks-results";
 import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
+import { isNonFinalProductPostcheckSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
+import { verdictFromProductPostcheckResult } from "@/lib/gen/verify/product-postcheck-verdict";
+import { parseRetryAfterMs } from "@/lib/builder/preview-bootstrap-retry";
 
 /**
  * Resume of the browser-driven F2 verify lane for stranded draft versions.
@@ -306,24 +315,42 @@ export function findResumeEligibleAtMs(versions: unknown, nowMs: number): number
 }
 
 /**
- * Best-effort mirror of the normal lane's image-validation step (broken
- * external image URLs get auto-replaced + persisted server-side via
- * `autoFix: true` before the version is promoted). Transport failures are
- * swallowed — the normal lane also proceeds when `validateImages` yields
- * null (Codex P2 round 2 on #353).
+ * Same `interpretValidateImagesHttp` + `shouldHoldBeforeProductPostcheck`
+ * contract as the normal tail (L3): 404 continues, 409/5xx and
+ * replaced-without-persisted hold, persisted revision is pinned.
  */
 async function runResumeImageValidation(params: {
   chatId: string;
   versionId: string;
-}): Promise<void> {
+}): Promise<{
+  proceed: boolean;
+  filesRevision: string | null;
+  persistedMutation: boolean;
+  hold?: ImageValidationResult | null;
+}> {
   try {
-    await fetch(`${engineChatBaseUrl(params.chatId)}/validate-images`, {
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/validate-images`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ versionId: params.versionId, autoFix: true }),
     });
+    const body = (await res.json().catch(() => null)) as ImageValidationResult | null;
+    const data = res.ok ? body : interpretValidateImagesHttp(res.status, body);
+    if (shouldHoldBeforeProductPostcheck(data)) {
+      return { proceed: false, filesRevision: null, persistedMutation: false, hold: data };
+    }
+    const filesRevision =
+      typeof data?.filesRevision === "string" && data.filesRevision.trim()
+        ? data.filesRevision.trim()
+        : null;
+    const persistedMutation =
+      (data?.replacedCount ?? 0) > 0 &&
+      data?.persisted === true &&
+      Boolean(filesRevision);
+    return { proceed: true, filesRevision, persistedMutation };
   } catch {
-    // Best-effort parity step only.
+    const hold = interpretValidateImagesHttp(0, null);
+    return { proceed: false, filesRevision: null, persistedMutation: false, hold };
   }
 }
 
@@ -420,56 +447,110 @@ async function runResumeProductPostcheck(params: {
   chatId: string;
   versionId: string;
   previewUrl: string | null;
+  filesRevision?: string | null;
 }): Promise<{
   productBlocked: boolean;
   blockerPersistFailed: boolean;
+  persistFailed: boolean;
   superseded: boolean;
+  pendingHold: boolean;
+  alreadySettled: boolean;
+  retryAfterMs: number | null;
 }> {
+  const idle = {
+    productBlocked: false,
+    blockerPersistFailed: false,
+    persistFailed: false,
+    superseded: false,
+    pendingHold: false,
+    alreadySettled: false,
+    retryAfterMs: null as number | null,
+  };
   let data: ProductPostcheckResult | null = null;
   try {
     const res = await fetch(`${engineChatBaseUrl(params.chatId)}/product-postcheck`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ versionId: params.versionId, previewUrl: params.previewUrl }),
+      body: JSON.stringify({
+        versionId: params.versionId,
+        previewUrl: params.previewUrl,
+        ...(params.filesRevision ? { filesRevision: params.filesRevision } : {}),
+      }),
     });
     if (res.ok) {
       data = (await res.json().catch(() => null)) as ProductPostcheckResult | null;
+    } else {
+      const body = (await res.json().catch(() => null)) as {
+        code?: string;
+        skippedReason?: string;
+      } | null;
+      const unavailable = productPostcheckResultFromUnavailableHttp({
+        status: res.status,
+        code: body?.code,
+        skippedReason: body?.skippedReason,
+        previewUrl: params.previewUrl,
+      });
+      if (unavailable) {
+        return {
+          ...idle,
+          pendingHold: true,
+          retryAfterMs: parseRetryAfterMs(res.headers, RESUME_VERIFY_RUNTIME_RETRY_MS),
+        };
+      }
     }
   } catch {
     // Persist the transport-level degradation below, then retry. Promoting on
     // an absent response would create the exact false-green this lane repairs.
   }
   if (!data) {
-    await persistVersionErrorLogs({
+    const persisted = await persistVersionErrorLogs({
       chatId: params.chatId,
       versionId: params.versionId,
       logs: buildProductPostcheckLogItems(null),
     });
-    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+    return { ...idle, persistFailed: !persisted, superseded: true };
   }
-  if (data?.skippedReason === "preview_superseded") {
-    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+  if (data.skippedReason === "preview_superseded") {
+    const persisted = await persistVersionErrorLogs({
+      chatId: params.chatId,
+      versionId: params.versionId,
+      logs: buildProductPostcheckLogItems(data),
+    });
+    return { ...idle, persistFailed: !persisted, superseded: true };
   }
-  if (data && data.skippedReason !== "feature_disabled" && !data.attestation) {
+  if (isNonFinalProductPostcheckSkipReason(data.skippedReason)) {
+    return { ...idle, pendingHold: true };
+  }
+  if (data.skippedReason === "claim_settled") {
+    return { ...idle, alreadySettled: true };
+  }
+  if (data.skippedReason !== "feature_disabled" && !data.attestation) {
     // A current route response is always attested. Treat an older/unscoped
     // response as a retryable hold instead of promoting without durable proof.
-    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+    const persisted = await persistVersionErrorLogs({
+      chatId: params.chatId,
+      versionId: params.versionId,
+      logs: buildProductPostcheckLogItems(data),
+    });
+    return { ...idle, persistFailed: !persisted, superseded: true };
   }
-  // Normal-lane parity: persist both a concrete result and a missing/transport
-  // result. Without the summary row, a product-blocked resume would be
-  // liftable to F3 after reload; without the transport row, the version would
-  // read as fully verified although DOM verification never produced a result.
+  // Winner replay (L6 `activeRunId`) is report-state from the L2 domain
+  // (`readProductPostcheckVerdictForVersion` on the route). Persist the
+  // same rows the winner would have written so F3 never sees a missing
+  // summary as pass.
   const persisted = await persistVersionErrorLogs({
     chatId: params.chatId,
     versionId: params.versionId,
     logs: buildProductPostcheckLogItems(data),
     productPostcheckAttestation: data?.attestation ?? null,
   });
-  const productBlocked = data?.productBlocked === true;
+  const verdict = verdictFromProductPostcheckResult(data);
+  const productBlocked = verdict === "blocked";
   return {
+    ...idle,
     productBlocked,
     blockerPersistFailed: productBlocked && !persisted,
-    superseded: false,
+    persistFailed: !persisted,
   };
 }
 
@@ -589,8 +670,32 @@ export function useResumePendingVerification(params: {
         // (Codex P2 round 2). SKIPPED for the import lane: `autoFix: true`
         // mutates files, and an imported repo is a verbatim contract — the
         // verification pass must never silently rewrite the import.
+        let filesRevision: string | null = null;
+        let previewUrl = candidate.previewUrl;
         if (lane !== "imported") {
-          await runResumeImageValidation({ chatId, versionId });
+          const image = await runResumeImageValidation({ chatId, versionId });
+          if (!image.proceed) {
+            // Unconfirmed image mutation — do not attest or promote.
+            await persistVersionErrorLogs({
+              chatId,
+              versionId,
+              logs: [
+                {
+                  level: "warning",
+                  category: imageValidationHoldCategory(image.hold ?? null),
+                  message: imageValidationHoldMessage(image.hold ?? null),
+                },
+              ],
+            });
+            attemptsRef.current.set(versionId, attemptsUsed);
+            scheduleRetry();
+            return;
+          }
+          filesRevision = image.filesRevision;
+          if (image.persistedMutation) {
+            const resynced = await rehydratePreviewUrl({ chatId, versionId });
+            if (resynced) previewUrl = resynced;
+          }
         }
 
         // Step 2 — a gate target needs a live preview. The normal lane never
@@ -598,7 +703,6 @@ export function useResumePendingVerification(params: {
         // failure), so a stranded row without a persisted previewUrl gets a
         // preview-session boot first — which also persists the URL
         // server-side. Unbootable → hold as retryable (Codex P1 round 4).
-        let previewUrl = candidate.previewUrl;
         if (!previewUrl) {
           previewUrl = await rehydratePreviewUrl({ chatId, versionId });
           if (!previewUrl) {
@@ -667,7 +771,27 @@ export function useResumePendingVerification(params: {
         // the row the F3 trigger + /finalize-design enforce) so a resumed
         // promotion can never read as solid green without DOM verification
         // (Codex P1 rounds 1+2).
-        const postcheck = await runResumeProductPostcheck({ chatId, versionId, previewUrl });
+        const postcheck = await runResumeProductPostcheck({
+          chatId,
+          versionId,
+          previewUrl,
+          filesRevision,
+        });
+        if (postcheck.pendingHold) {
+          // L6: claim_busy / claim_unavailable. Same-tab Chromium is already
+          // running or the claim table is briefly down — refund and wait.
+          // Do not treat this as superseded (that loop takeovers a passed
+          // row) and do not persist transport_error.
+          attemptsRef.current.set(versionId, attemptsUsed);
+          const waits = (runtimeWaitsRef.current.get(versionId) ?? 0) + 1;
+          runtimeWaitsRef.current.set(versionId, waits);
+          if (waits >= RESUME_VERIFY_MAX_RUNTIME_WAITS) {
+            consumeAllAttempts();
+            return;
+          }
+          scheduleRetry(postcheck.retryAfterMs ?? RESUME_VERIFY_RUNTIME_RETRY_MS);
+          return;
+        }
         if (postcheck.superseded) {
           // The inspected lifecycle was replaced while the browser work ran.
           // Refund the slot and retry against the new active tuple; never emit
@@ -676,11 +800,10 @@ export function useResumePendingVerification(params: {
           scheduleRetry();
           return;
         }
-        if (postcheck.blockerPersistFailed) {
-          // Fail closed (Codex P1 round 4): the blocker row never reached the
-          // /error-log enforcement surface — promoting now could let the
-          // version be lifted to F3 without its product block. Hold the
-          // resume and self-schedule; a later tick retries the chain.
+        if (postcheck.persistFailed || postcheck.blockerPersistFailed) {
+          // L2: 503 row_contention after retries (or any failed verdict write)
+          // leaves the version pending. Never start the quality gate without
+          // a durable domain — a missing summary is never pass.
           scheduleRetry();
           return;
         }

@@ -58,6 +58,7 @@ const EXPECTED_TABLES = [
   "users",
   "user_integrations",
   "transactions",
+  "wizard_runs",
   "guest_usage",
   "company_profiles",
   "template_cache",
@@ -81,6 +82,7 @@ const EXPECTED_TABLES = [
   "oc_debug_findings",
   "live_review_grants",
   "live_review_runs",
+  "product_postcheck_runs",
   // Tokenförbrukning per LLM-anrop
   "llm_usage",
   // Usage-baserad generationskostnad + operatörsinställningar
@@ -162,6 +164,21 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
     { name: "idx_live_review_runs_chat_id", columns: ["chat_id"] },
     { name: "idx_live_review_runs_expires_at", columns: ["expires_at"] },
   ],
+  product_postcheck_runs: [
+    {
+      name: "product_postcheck_runs_claim_unique",
+      columns: [
+        "version_id",
+        "files_revision",
+        "preview_session",
+        "lifecycle_token",
+        "mutation_revision",
+      ],
+      unique: true,
+    },
+    { name: "idx_product_postcheck_runs_chat_id", columns: ["chat_id"] },
+    { name: "idx_product_postcheck_runs_expires_at", columns: ["expires_at"] },
+  ],
   // Codex P3: declare the lease indexes so migrated DBs don't report them as
   // `extra_indexes`. Both are required by the acquire path: the partial unique
   // index enforces one active lease per version_id; the plain index speeds the
@@ -239,6 +256,10 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
     { name: "transactions_stripe_session_idx", columns: ["stripe_session_id"] },
     { name: "idx_transactions_user_id", columns: ["user_id"] },
     { name: "idx_transactions_user_created", columns: ["user_id", "created_at"] },
+  ],
+  wizard_runs: [
+    { name: "idx_wizard_runs_user_id", columns: ["user_id"] },
+    { name: "wizard_runs_user_active_idx", columns: ["user_id"] },
   ],
   guest_usage: [{ name: "guest_usage_session_idx", columns: ["session_id"] }],
   company_profiles: [{ name: "idx_company_profiles_project", columns: ["project_id"] }],

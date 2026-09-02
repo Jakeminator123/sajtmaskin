@@ -6,13 +6,16 @@
  * and provides constructive feedback on tone, pitch quality, clarity,
  * confidence, posture, and eye contact.
  *
- * When frames are provided, uses GPT-4o (vision) via OpenAI directly
- * for visual body language analysis. Text-only path also prefers direct provider calls.
+ * When frames are provided, uses the analyze_presentation_vision workload
+ * (gpt-5.6-terra by default) via OpenAI Chat Completions with image_url parts.
+ * Text-only path also prefers direct provider calls.
  */
 
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
+import { getCurrentUser } from "@/lib/auth/auth";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { withRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import {
@@ -28,12 +31,24 @@ function toOpenAiDirectModelId(model: string): string {
   return model.replace(/^openai\//, "");
 }
 
+function isReasoningChatModel(model: string): boolean {
+  const id = toOpenAiDirectModelId(model).toLowerCase();
+  return id.startsWith("gpt-5") || id.startsWith("o1") || id.startsWith("o3") || id.startsWith("o4");
+}
+
+const DATA_IMAGE_RE = /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=\s]+$/i;
+const MAX_FRAME_CHARS = 1_500_000;
+
+export function isAllowedPresentationFrame(value: string): boolean {
+  return value.length <= MAX_FRAME_CHARS && DATA_IMAGE_RE.test(value);
+}
+
 const requestSchema = z.object({
-  transcript: z.string().min(1, "Transcript required"),
+  transcript: z.string().min(1, "Transcript required").max(20_000),
   companyName: z.string().optional().default(""),
   industry: z.string().optional().default(""),
   language: z.string().optional().default("sv"),
-  frames: z.array(z.string()).max(6).optional(),
+  frames: z.array(z.string().max(MAX_FRAME_CHARS)).max(6).optional(),
 });
 
 const TEXT_ONLY_PROMPT = `Du är en uppmuntrande presentationscoach. Analysera denna transkribering av en elevator pitch / företagspresentation.
@@ -156,6 +171,14 @@ function buildFallbackAnalysis(
 }
 
 export async function POST(req: Request) {
+  const user = await getCurrentUser(req);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return withRateLimit(req, "analyze:presentation", () => handlePOST(req), { userId: user.id });
+}
+
+async function handlePOST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
     const parsed = requestSchema.safeParse(body);
@@ -168,6 +191,12 @@ export async function POST(req: Request) {
 
     const { companyName, industry, frames } = parsed.data;
     const transcript = parsed.data.transcript.trim();
+    if (frames?.some((frame) => !isAllowedPresentationFrame(frame))) {
+      return NextResponse.json(
+        { error: "Frames must be data:image PNG/JPEG/WebP URLs" },
+        { status: 400 },
+      );
+    }
     const hasFrames = Boolean(frames && frames.length > 0);
 
     if (transcript.length < 10) {
@@ -238,7 +267,7 @@ export async function POST(req: Request) {
   }
 }
 
-/** Analyze with vision model (OpenAI GPT-4o) -- reads images */
+/** Analyze with the vision workload model (gpt-5.6-terra default) -- reads images */
 async function analyzeWithVision(userText: string, frames: string[]): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
@@ -258,10 +287,11 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
     },
   }));
 
+  const model = toOpenAiDirectModelId(
+    getWorkloadDefaultModelFromManifest("analyze_presentation_vision") ?? "gpt-5.6-terra",
+  );
   const completion = await openai.chat.completions.create({
-    model: toOpenAiDirectModelId(
-      getWorkloadDefaultModelFromManifest("analyze_presentation_vision") ?? "gpt-4o",
-    ),
+    model,
     messages: [
       { role: "system", content: VISION_PROMPT },
       {
@@ -272,8 +302,10 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
         ],
       },
     ],
-    max_tokens: 600,
-    temperature: 0.7,
+    // GPT-5.x rejects `max_tokens` + custom temperature (same class as
+    // backoffice/wizard_support.py). Chat Completions still accepts image_url.
+    max_completion_tokens: isReasoningChatModel(model) ? 2_400 : 600,
+    ...(isReasoningChatModel(model) ? {} : { temperature: 0.7 }),
   });
 
   return completion.choices[0]?.message?.content?.trim() || "";
@@ -302,16 +334,17 @@ async function analyzeTextOnly(userText: string): Promise<string> {
   const { default: OpenAI } = await import("openai");
   const openai = new OpenAI({ apiKey });
 
+  const fallbackModel = toOpenAiDirectModelId(
+    ANALYZE_PRESENTATION_FALLBACK_MODELS[0] || ANALYZE_PRESENTATION_DEFAULT_MODEL,
+  );
   const completion = await openai.chat.completions.create({
-    model: toOpenAiDirectModelId(
-      ANALYZE_PRESENTATION_FALLBACK_MODELS[0] || ANALYZE_PRESENTATION_DEFAULT_MODEL,
-    ),
+    model: fallbackModel,
     messages: [
       { role: "system", content: TEXT_ONLY_PROMPT },
       { role: "user", content: userText },
     ],
-    max_tokens: 500,
-    temperature: 0.7,
+    max_completion_tokens: isReasoningChatModel(fallbackModel) ? 2_000 : 500,
+    ...(isReasoningChatModel(fallbackModel) ? {} : { temperature: 0.7 }),
   });
 
   return completion.choices[0]?.message?.content?.trim() || "";

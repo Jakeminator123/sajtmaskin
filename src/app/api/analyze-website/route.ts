@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
+import { getCurrentUser } from "@/lib/auth/auth";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { quickScrapeWebsite } from "@/lib/webscraper";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -56,7 +57,14 @@ function hasOpenAIApiKey(): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  return withRateLimit(req, "analyze:website", async () => {
+  const user = await getCurrentUser(req);
+  if (!user) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+  return withRateLimit(
+    req,
+    "analyze:website",
+    async () => {
     console.info("[API/analyze-website] Request received");
 
     try {
@@ -183,5 +191,7 @@ export async function POST(req: NextRequest) {
         { status: 500 },
       );
     }
-  });
+  },
+    { userId: user.id },
+  );
 }

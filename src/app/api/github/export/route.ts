@@ -4,6 +4,13 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { getEngineChatByIdForRequest } from "@/lib/tenant";
 import { getVersionById } from "@/lib/db/chat-repository-pg";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
+import { buildPortableExportProject } from "@/lib/gen/export/build-portable-export-project";
+import {
+  GITHUB_EXPORT_MANIFEST_PATH,
+  GitHubExportPathConflictError,
+  buildGitHubExportPlan,
+  parseGitHubExportManifest,
+} from "@/lib/gen/export/github-tree-plan";
 import { getCurrentUser } from "@/lib/auth/auth";
 
 export const runtime = "nodejs";
@@ -34,9 +41,21 @@ type GitHubTreeResponse = {
   sha: string;
 };
 
+type GitHubTreeListingResponse = {
+  tree: Array<{
+    path: string;
+    type: "blob" | "tree" | "commit";
+    sha?: string;
+  }>;
+  truncated?: boolean;
+};
+
+type GitHubBlobResponse = {
+  content?: string;
+  encoding?: string;
+};
+
 const GITHUB_API = "https://api.github.com";
-const BLOCKED_PATHS = ["node_modules/", ".git/"];
-const BLOCKED_FILES = [".env", ".env.local", ".env.production", ".env.development", ".env.test"];
 
 function normalizeRepoInput(
   input: string,
@@ -61,19 +80,6 @@ function sanitizeRepoName(value: string): string {
     .replace(/^-+/, "")
     .replace(/-+$/, "")
     .slice(0, 80);
-}
-
-function normalizeFilePath(raw: string): string | null {
-  const normalized = raw.replace(/^\.?\//, "").replace(/^\/+/, "");
-  if (!normalized) return null;
-  if (normalized.split("/").some((seg) => seg === "..")) return null;
-  if (BLOCKED_FILES.some((name) => normalized === name || normalized.startsWith(`${name}/`))) {
-    return null;
-  }
-  if (BLOCKED_PATHS.some((prefix) => normalized.startsWith(prefix))) {
-    return null;
-  }
-  return normalized;
 }
 
 async function githubRequest<T>(
@@ -155,6 +161,52 @@ async function getBaseCommit(params: {
   return { commitSha: commit.data.sha, treeSha: commit.data.tree.sha };
 }
 
+async function getBaseTree(params: {
+  token: string;
+  owner: string;
+  repo: string;
+  treeSha: string;
+}): Promise<GitHubTreeListingResponse["tree"]> {
+  const { token, owner, repo, treeSha } = params;
+  const tree = await githubRequest<GitHubTreeListingResponse>(
+    token,
+    `/repos/${owner}/${repo}/git/trees/${treeSha}?recursive=1`,
+  );
+  if (!tree.ok || !tree.data) {
+    throw new Error("Failed to inspect existing GitHub tree");
+  }
+  if (tree.data.truncated) {
+    throw new Error("Existing GitHub tree is too large to export safely");
+  }
+  return tree.data.tree;
+}
+
+async function readPreviousExportManifest(params: {
+  token: string;
+  owner: string;
+  repo: string;
+  tree: GitHubTreeListingResponse["tree"];
+}): Promise<string[]> {
+  const { token, owner, repo, tree } = params;
+  const manifestEntry = tree.find(
+    (entry) => entry.type === "blob" && entry.path === GITHUB_EXPORT_MANIFEST_PATH && entry.sha,
+  );
+  if (!manifestEntry?.sha) return [];
+
+  const blob = await githubRequest<GitHubBlobResponse>(
+    token,
+    `/repos/${owner}/${repo}/git/blobs/${manifestEntry.sha}`,
+  );
+  if (!blob.ok || !blob.data?.content) {
+    throw new Error("Failed to read previous Sajtmaskin export manifest");
+  }
+  const encoded =
+    blob.data.encoding === "base64"
+      ? blob.data.content
+      : Buffer.from(blob.data.content, "utf8").toString("base64");
+  return parseGitHubExportManifest(Buffer.from(encoded, "base64").toString("utf8"));
+}
+
 export async function POST(request: NextRequest) {
   return withRateLimit(request, "github:export", async () => {
     try {
@@ -203,15 +255,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 });
       }
       const rawFiles = parseCodeFilesFromFilesJson(ev.files_json) ?? [];
-      const files = rawFiles
-        .map((file) => ({
-          path: normalizeFilePath(file.path),
-          content: file.content,
-        }))
-        .filter((file): file is { path: string; content: string } =>
-          Boolean(file.path && file.content),
-        );
-      if (files.length === 0) {
+      const portableProject = await buildPortableExportProject(rawFiles, chatId);
+      const previewFiles = buildGitHubExportPlan(portableProject).files.filter(
+        (file) => file.path !== GITHUB_EXPORT_MANIFEST_PATH,
+      );
+      if (previewFiles.length === 0) {
         return NextResponse.json(
           { success: false, error: "No files available to export" },
           { status: 400 },
@@ -234,8 +282,51 @@ export async function POST(request: NextRequest) {
         repo: repoName,
         branch: repoResult.repo.default_branch || "main",
       });
+      const existingTree = base
+        ? await getBaseTree({
+            token,
+            owner,
+            repo: repoName,
+            treeSha: base.treeSha,
+          })
+        : [];
+      const previousManifestPaths = base
+        ? await readPreviousExportManifest({
+            token,
+            owner,
+            repo: repoName,
+            tree: existingTree,
+          })
+        : [];
+      const existingBlobPaths = existingTree
+        .filter((entry) => entry.type !== "tree")
+        .map((entry) => entry.path);
 
-      const treeEntries = [];
+      let files: ReturnType<typeof buildGitHubExportPlan>["files"];
+      let deletionPaths: string[];
+      try {
+        const plan = buildGitHubExportPlan(portableProject, {
+          previousManifestPaths,
+          existingBlobPaths,
+        });
+        files = plan.files;
+        deletionPaths = plan.deletionPaths;
+      } catch (error) {
+        if (error instanceof GitHubExportPathConflictError) {
+          return NextResponse.json(
+            { success: false, error: error.message },
+            { status: 409 },
+          );
+        }
+        throw error;
+      }
+
+      const treeEntries: Array<{
+        path: string;
+        mode: "100644";
+        type: "blob";
+        sha: string | null;
+      }> = [];
       for (const file of files) {
         const response = await githubRequest<{ sha: string }>(
           token,
@@ -259,6 +350,15 @@ export async function POST(request: NextRequest) {
           mode: "100644",
           type: "blob",
           sha: response.data.sha,
+        });
+      }
+      for (const path of deletionPaths) {
+        // GitHub Create-tree requires path+mode+type+sha; sha:null deletes.
+        treeEntries.push({
+          path,
+          mode: "100644",
+          type: "blob",
+          sha: null,
         });
       }
 

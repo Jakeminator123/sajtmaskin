@@ -159,6 +159,19 @@ Typisk ordning i runtime:
 11. preview startas, patchas eller resyncas mot den persistade versionen. En
     tidigare best-effort-förvärmning får återanvändas, men är aldrig själv ett
     bevis på att den persistade versionen är redo.
+11b. Generationssvansen efter SSE-done (klient, `stream-handlers-post-stream.ts`
+    → `post-checks.ts`) är **serialiserad mot `files_revision`**: bekräftad
+    bildmaterialisering (`persisted` ≠ `replaced`) → bekräftad
+    `validate-images`-mutation → läs serverns nya revision → resynka preview
+    för just den revisionen → Product Postcheck attesterar den →
+    `persistVersionErrorLogs` awaitas (misslyckad persist inkl. `503
+    row_contention` → pending, aldrig gate). Domen är explicit
+    `passed|blocked|allowed_skip|pending|indeterminate|superseded` på
+    `product_postcheck.summary`. Saknad eller oläsbar dom är aldrig pass;
+    F3 släpper bara på `passed` eller `allowed_skip`.
+    → RenderGate/ReleaseGate. Klienttimeout abortar fetch så servern hoppar
+    över `files_json`-persist. Inget steg startar innan föregående är
+    bekräftat.
 12. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
     typecheck är Advisory utom render-risk-koder. Ägare: **klienten**
     (`post-checks.ts` → `POST /quality-gate`) — server-verify skippas för F2
@@ -170,8 +183,13 @@ Typisk ordning i runtime:
     byggbara sajter); den kan återaktiveras via manifestets `qualityGateTiers`.
     Ägare: **servern** (post-finalize `triggerServerVerification`) — klientens
     post-check-lane POSTar sedan 2026-07 aldrig `/quality-gate` för
-    `integrations`-versioner utan följer utfallet via status-polling. Den
-    deterministiska F3-forken (finalize-design utan LLM) är undantaget: där
+    `integrations`-versioner utan följer utfallet via status-polling. Servern
+    äger även F3-readiness (`checkTier3ReadinessForVersion` i
+    `src/lib/gen/verify/tier3-readiness.ts`) under lease mot exakt snapshot,
+    så en klient-skip inte kan promota utan env-/parent-/postcheck-grind.
+    L2-domen (`readProductPostcheckVerdictForVersion`) släpper bara
+    `passed`/`allowed_skip`; L6 `running`-claim är `pending`.
+    Den deterministiska F3-forken (finalize-design utan LLM) är undantaget: där
     är klientens `runF3FinalizeAction` enda gate-anropare.
 14. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån
     gate-resultat och promote-guard. En version som hinner ersättas av en

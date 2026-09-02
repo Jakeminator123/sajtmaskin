@@ -395,6 +395,8 @@ export const transactions = pgTable(
     description: text("description"),
     stripe_payment_intent: text("stripe_payment_intent"),
     stripe_session_id: text("stripe_session_id"),
+    /** Stable entitlement key for retry/concurrency-safe fixed charges. */
+    idempotency_key: text("idempotency_key"),
     created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -402,8 +404,39 @@ export const transactions = pgTable(
     // ever produce one transaction row, so a duplicate webhook delivery
     // surfaces as a unique-violation we can swallow.
     stripeSessionIdx: uniqueIndex("transactions_stripe_session_idx").on(table.stripe_session_id),
+    idempotencyIdx: uniqueIndex("transactions_user_type_idempotency_idx")
+      .on(table.user_id, table.type, table.idempotency_key)
+      .where(sql`${table.idempotency_key} is not null`),
     userIdx: index("idx_transactions_user_id").on(table.user_id),
     userCreatedIdx: index("idx_transactions_user_created").on(table.user_id, table.created_at),
+  }),
+);
+
+/**
+ * Server-owned wizard session. Start creates the row and debits 11 credits
+ * once (`transactions.idempotency_key = wizard_runs.id`). Lookup, competitors
+ * and enrich only accept an active, unexpired run owned by the signed-in
+ * user — a client-invented UUID cannot become a valid entitlement.
+ *
+ * At most one `active` run per user (partial unique). The transaction
+ * idempotency index remains the last ledger invariant.
+ */
+export const wizardRuns = pgTable(
+  "wizard_runs",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: text("status").notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    expires_at: timestamptz("expires_at").notNull(),
+  },
+  (table) => ({
+    userIdx: index("idx_wizard_runs_user_id").on(table.user_id),
+    userActiveIdx: uniqueIndex("wizard_runs_user_active_idx")
+      .on(table.user_id)
+      .where(sql`${table.status} = 'active'`),
   }),
 );
 
@@ -853,6 +886,50 @@ export const liveReviewRuns = pgTable(
     ),
     chatIdx: index("idx_live_review_runs_chat_id").on(table.chatId),
     expiresIdx: index("idx_live_review_runs_expires_at").on(table.expiresAt),
+  }),
+);
+
+/**
+ * Distributed single-flight for Product Postcheck (L6).
+ *
+ * Unique claim key is the L3/L7 revision tuple: version + files_revision +
+ * preview session + lifecycle token + mutation revision. `run_id` +
+ * `claim_generation` are the CAS pair: takeover after `expires_at` bumps
+ * generation so a displaced owner cannot complete. Status is
+ * running|passed|blocked|failed|superseded|expired.
+ *
+ * Sentinels: `lifecycle_token` '' and `mutation_revision` 0 mean absent/legacy
+ * so UNIQUE collapses two null-token claims (Postgres UNIQUE allows NULLs).
+ */
+export const productPostcheckRuns = pgTable(
+  "product_postcheck_runs",
+  {
+    runId: text("run_id").primaryKey(),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => engineChats.id, { onDelete: "cascade" }),
+    versionId: text("version_id").notNull(),
+    filesRevision: text("files_revision").notNull(),
+    previewSession: text("preview_session").notNull(),
+    lifecycleToken: text("lifecycle_token").notNull().default(""),
+    mutationRevision: integer("mutation_revision").notNull().default(0),
+    owner: text("owner").notNull(),
+    claimGeneration: integer("claim_generation").notNull().default(1),
+    status: text("status").notNull(),
+    claimedAt: timestamptz("claimed_at").defaultNow().notNull(),
+    expiresAt: timestamptz("expires_at").notNull(),
+    completedAt: timestamptz("completed_at"),
+  },
+  (table) => ({
+    claimUnique: uniqueIndex("product_postcheck_runs_claim_unique").on(
+      table.versionId,
+      table.filesRevision,
+      table.previewSession,
+      table.lifecycleToken,
+      table.mutationRevision,
+    ),
+    chatIdx: index("idx_product_postcheck_runs_chat_id").on(table.chatId),
+    expiresIdx: index("idx_product_postcheck_runs_expires_at").on(table.expiresAt),
   }),
 );
 

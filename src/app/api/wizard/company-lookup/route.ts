@@ -14,15 +14,18 @@ import { z } from "zod";
 import { withRateLimit } from "@/lib/rate-limit";
 import { requireNotBot } from "@/lib/bot-protection";
 import { debugLog } from "@/lib/utils/debug";
-import { prepareCredits } from "@/lib/credits/server";
+import { authorizeWizardRun } from "@/lib/wizard/authorize-wizard-run";
 import { braveWebSearch } from "@/lib/brave-search";
+import { safeFetch } from "@/lib/ssrf-guard";
+import { ALLABOLAG_BASE, resolveAllabolagCompanyUrl } from "./allabolag-url";
 
 export const runtime = "nodejs";
 export const maxDuration = 25;
 
-const ALLABOLAG_BASE = "https://www.allabolag.se";
+const ALLABOLAG_PAGE_MAX_BYTES = 1_500_000;
 
 const requestSchema = z.object({
+  wizardRunId: z.string().uuid(),
   companyName: z.string().min(1).max(300),
   orgNr: z.string().max(20).optional(),
 });
@@ -95,9 +98,10 @@ async function parseAllabolagPage(html: string, companyName: string): Promise<Co
 
 async function lookupViaCheerio(companyName: string): Promise<CompanyLookupResult> {
   const searchUrl = `${ALLABOLAG_BASE}/bransch-sok?q=${encodeURIComponent(companyName)}`;
-  const searchRes = await fetch(searchUrl, {
+  const searchRes = await safeFetch(searchUrl, {
     headers: BROWSER_HEADERS,
-    signal: AbortSignal.timeout(8000),
+    timeoutMs: 8000,
+    maxBodyBytes: ALLABOLAG_PAGE_MAX_BYTES,
   });
   if (!searchRes.ok) throw new Error(`Search returned ${searchRes.status}`);
 
@@ -112,10 +116,12 @@ async function lookupViaCheerio(companyName: string): Promise<CompanyLookupResul
 
   if (!firstLink) throw new Error("No company link found");
 
-  const companyUrl = firstLink.startsWith("http") ? firstLink : `${ALLABOLAG_BASE}${firstLink}`;
-  const companyRes = await fetch(companyUrl, {
+  const companyUrl = resolveAllabolagCompanyUrl(firstLink);
+  if (!companyUrl) throw new Error("No company link found");
+  const companyRes = await safeFetch(companyUrl.toString(), {
     headers: BROWSER_HEADERS,
-    signal: AbortSignal.timeout(8000),
+    timeoutMs: 8000,
+    maxBodyBytes: ALLABOLAG_PAGE_MAX_BYTES,
   });
   if (!companyRes.ok) throw new Error(`Company page returned ${companyRes.status}`);
 
@@ -128,13 +134,15 @@ async function lookupViaBraveSearch(companyName: string): Promise<CompanyLookupR
 
   const allabolagUrl = results
     .map((r) => r.url)
-    .find((u) => u.includes("allabolag.se/foretag/"));
+    .map((u) => resolveAllabolagCompanyUrl(u))
+    .find((u): u is URL => u !== null);
 
   if (!allabolagUrl) throw new Error("No allabolag company URL in Brave results");
 
-  const companyRes = await fetch(allabolagUrl, {
+  const companyRes = await safeFetch(allabolagUrl.toString(), {
     headers: BROWSER_HEADERS,
-    signal: AbortSignal.timeout(8000),
+    timeoutMs: 8000,
+    maxBodyBytes: ALLABOLAG_PAGE_MAX_BYTES,
   });
   if (!companyRes.ok) throw new Error(`Company page returned ${companyRes.status}`);
 
@@ -190,11 +198,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Validation failed", ...EMPTY_RESULT }, { status: 400 });
       }
 
-      const { companyName } = parsed.data;
+      const { companyName, wizardRunId } = parsed.data;
       debugLog("WIZARD", "Company lookup", { companyName });
 
-      const creditCheck = await prepareCredits(req, "wizard.enrich");
-      if (!creditCheck.ok) return creditCheck.response;
+      const authorized = await authorizeWizardRun(req, wizardRunId);
+      if (!authorized.ok) return authorized.response;
 
       let result: CompanyLookupResult = EMPTY_RESULT;
 
@@ -226,10 +234,6 @@ export async function POST(req: Request) {
             });
           }
         }
-      }
-
-      try { await creditCheck.commit(); } catch (err) {
-        console.error("[credits] Failed to charge company-lookup:", err);
       }
 
       return NextResponse.json(result);

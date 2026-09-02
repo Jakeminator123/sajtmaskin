@@ -18,7 +18,6 @@ import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   failVersionVerification,
   isPreferredHeadVersion,
-  getVersionById,
   markVersionVerifying,
   markVersionSupersededByRepair,
   promoteVersion,
@@ -58,7 +57,10 @@ import {
   buildServerVerifyQualityGateMeta,
   compactVisualQAForQualityGateLog,
 } from "@/lib/gen/verify/server-verify-log-meta";
-import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
+import {
+  checkTier3ReadinessForVersion,
+  serverOwnedF3ReadinessParams,
+} from "@/lib/gen/verify/tier3-readiness";
 
 export const runtime = "nodejs";
 export const maxDuration = 950;
@@ -333,22 +335,6 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         );
       }
       parentVersionId = scopedVersion.version.parent_version_id;
-      if (!parentVersionId) {
-        return NextResponse.json(
-          {
-            error: "Integrationsversionen saknar sin designversion.",
-            code: "f3_parent_version_missing",
-          },
-          { status: 409 },
-        );
-      }
-      const parentVersion = await getVersionById(parentVersionId);
-      if (!parentVersion || parentVersion.chat_id !== scopedVersion.chat.id) {
-        return NextResponse.json(
-          { error: "Parent version not found for chat" },
-          { status: 404 },
-        );
-      }
     }
 
     // M#p4qg — server-authoritative verify lane for F3.
@@ -480,14 +466,18 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       }
 
       if (effectiveGate === "integrationsBuild") {
-        const readiness = await checkTier3ReadinessForVersion({
-          versionId: internalVersionId,
-          productPostcheckVersionId: parentVersionId ?? undefined,
-          orchestrationSnapshot: scopedVersion.chat.orchestration_snapshot,
-          projectId: scopedVersion.chat.project_id ?? null,
-          preloadedFiles: codeFiles,
-        });
-        if (!readiness.ok && readiness.reason === "missing_env") {
+        const readiness = await checkTier3ReadinessForVersion(
+          serverOwnedF3ReadinessParams({
+            versionId: internalVersionId,
+            chatId,
+            parentVersionId,
+            filesRevision: scopedVersion.version.files_revision ?? null,
+            preloadedFiles: codeFiles,
+            orchestrationSnapshot: scopedVersion.chat.orchestration_snapshot,
+            projectId: scopedVersion.chat.project_id ?? null,
+          }),
+        );
+        if (!readiness.ready && readiness.reason === "missing_env") {
           // R7: durable observation for /logg — best-effort, never blocks 412.
           // Prefer parent (design) version id; fall back to the F3 fork.
           const observationVersionId = parentVersionId ?? internalVersionId;
@@ -511,22 +501,55 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             { status: 412 },
           );
         }
-        if (!readiness.ok && readiness.reason === "product_postcheck_blocked") {
+        if (
+          !readiness.ready &&
+          (readiness.reason === "product_postcheck_blocked" ||
+            readiness.reason === "product_postcheck_pending" ||
+            readiness.reason === "product_postcheck_indeterminate" ||
+            readiness.reason === "product_postcheck_superseded")
+        ) {
           return NextResponse.json(
             {
-              error: "product_postcheck_blocked",
+              error: readiness.reason,
               ready: false,
               parentVersionId,
+              verdict: readiness.verdict,
+              retryable: readiness.retryable === true,
             },
             { status: 409 },
           );
         }
-        if (!readiness.ok) {
+        if (!readiness.ready && readiness.reason === "f3_parent_version_missing") {
           return NextResponse.json(
             {
-              error: "version_files_unavailable",
+              error: "Integrationsversionen saknar sin designversion.",
+              code: "f3_parent_version_missing",
               ready: false,
               parentVersionId,
+              retryable: false,
+            },
+            { status: 409 },
+          );
+        }
+        if (!readiness.ready && readiness.reason === "readiness_unavailable") {
+          return NextResponse.json(
+            {
+              error: "F3 readiness unavailable (database error). Try again shortly.",
+              code: "readiness_unavailable",
+              ready: false,
+              parentVersionId,
+              retryable: true,
+            },
+            { status: 503 },
+          );
+        }
+        if (!readiness.ready) {
+          return NextResponse.json(
+            {
+              error: readiness.reason,
+              ready: false,
+              parentVersionId,
+              retryable: readiness.retryable === true,
             },
             { status: 409 },
           );

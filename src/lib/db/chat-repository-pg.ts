@@ -58,7 +58,7 @@ export {
 
 export { updateVersionFiles } from "./chat-repository/version-files";
 
-export type { SaveRepairedFilesResult } from "./chat-repository/repair";
+export type { SaveRepairedFilesResult, AcceptRepairResult } from "./chat-repository/repair";
 export {
   saveRepairedFiles,
   getRepairStatus,
@@ -68,7 +68,7 @@ export {
 
 export { updateVersionPreviewUrl } from "./chat-repository/preview-url";
 
-export type { VersionJobKind } from "./chat-repository/leases";
+export type { VersionJobKind, LeaseTablePresence } from "./chat-repository/leases";
 export {
   VERSION_LEASE_TTL_SECONDS,
   acquireVersionLease,
@@ -78,6 +78,10 @@ export {
   hasActiveVersionLease,
 } from "./chat-repository/leases";
 
+export type {
+  UnleasedWriteResult,
+  WatchdogCasExpected,
+} from "./chat-repository/version-lifecycle";
 export {
   markVersionVerifying,
   resetVersionVerificationToPending,

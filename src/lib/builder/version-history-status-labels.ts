@@ -60,6 +60,7 @@ const ORANGE = "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-
 
 const PRODUCT_POSTCHECK_SKIP_REASON_SV: Record<string, string> = {
   preview_not_running: "previewn var inte igång för den här versionen",
+  preview_not_ready: "previewn var inte redo för den här versionen",
   capture_failed: "skärmdumparna kunde inte tas",
   missing_preview_url: "preview-URL saknades",
   url_not_allowed: "preview-URL:en var inte tillåten",

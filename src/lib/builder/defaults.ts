@@ -27,7 +27,13 @@
 import { ANTHROPIC_ASSIST_MODELS, ASSIST_MODELS } from "./prompt-assist";
 import { ASSIST_MODEL } from "@/lib/gen/defaults";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
-import { DEFAULT_MODEL_ID, aliasRetiredModelId } from "@/lib/models/catalog";
+import {
+  DEFAULT_MODEL_ID,
+  MODEL_LABELS,
+  MODEL_TIER_DESCRIPTIONS,
+  SELECTABLE_MODEL_IDS,
+  aliasRetiredModelId,
+} from "@/lib/models/catalog";
 import type { ModelTier } from "@/lib/validations/chat-schemas";
 
 // ============================================
@@ -41,39 +47,24 @@ export interface ModelTierOption {
   hint?: string;
 }
 
-export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
-  {
-    value: "premium",
-    label: "Premium",
-    description:
-      "GPT-5.6 Sol i hela byggkedjan. Planner och generator kör high med thinking i pro-läge.",
-    hint: "högsta kvalitet",
-  },
-  {
-    value: "pro",
-    label: "Lagom",
-    description: "Mellanprofil. GPT-5.3 Codex för bra balans mellan kvalitet och hastighet.",
-    hint: "rekommenderad",
-  },
-  {
-    value: "max",
-    label: "Tänker",
-    description:
-      "GPT-5.5 med thinking på (resonemang, hög effort) som standard i strömmen — inte samma profil som «Kod Max»/codex nedan.",
-    hint: "dyr",
-  },
-  {
-    value: "codex",
-    label: "Kod Max",
-    description: "Separat tung kodprofil (gpt-5.3-codex) med hög reasoning-effort.",
-  },
-  {
-    value: "anthropic",
-    label: "Anthropic",
-    description: "Jämförelseläge. Claude Opus 4.8 via Anthropic API för hela byggflödet.",
-    hint: "jämför",
-  },
-];
+const MODEL_TIER_HINTS: Partial<Record<ModelTier, string>> = {
+  pro: "snabbast",
+  max: "rekommenderad",
+  premium: "mest genomarbetad",
+  anthropic: "jämför",
+};
+
+/**
+ * Builder-selectable tiers in slider order (Låg → Mellan → Hög → Anthropic).
+ * Labels/descriptions come from the catalog so UI, pricing and backoffice
+ * cannot drift apart. `codex` is intentionally not offered (hidden tier).
+ */
+export const MODEL_TIER_OPTIONS: ModelTierOption[] = SELECTABLE_MODEL_IDS.map((value) => ({
+  value,
+  label: MODEL_LABELS[value],
+  description: MODEL_TIER_DESCRIPTIONS[value],
+  ...(MODEL_TIER_HINTS[value] ? { hint: MODEL_TIER_HINTS[value] } : {}),
+}));
 
 /** Default build tier for new chats */
 export const DEFAULT_MODEL_TIER: ModelTier = DEFAULT_MODEL_ID;

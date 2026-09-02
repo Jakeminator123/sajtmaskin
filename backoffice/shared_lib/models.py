@@ -35,7 +35,15 @@ MODEL_LABELS = {
     "selected_build_model": "Följ vald byggprofil (`selected_build_model`)",
 }
 
-BUILD_PROFILE_ORDER = ("premium", "pro", "max", "codex", "anthropic")
+# Slider order (cheapest first). `codex` is a hidden compatibility profile.
+BUILD_PROFILE_ORDER = ("pro", "max", "premium", "codex", "anthropic")
+TIER_LABELS_SV = {
+    "pro": "Låg (pro)",
+    "max": "Mellan (max)",
+    "premium": "Hög (premium)",
+    "codex": "Kod Max (codex, dold)",
+    "anthropic": "Anthropic",
+}
 PHASE_ORDER = (
     "planner",
     "generator",
@@ -68,31 +76,31 @@ PHASE_LABELS = {
 }
 DEFAULT_PHASE_THINKING_BY_TIER: dict[str, dict[str, dict[str, Any]]] = {
     "premium": {
-        "planner": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "pro"},
-        "generator": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "pro"},
-        "fixer": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
-        "verifier": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
-        "deploy-assistant": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
-    },
-    "pro": {
-        "planner": {"thinking": True, "reasoningEffort": "medium"},
-        "generator": {"thinking": True, "reasoningEffort": "medium"},
-        "fixer": {"thinking": False, "reasoningEffort": "medium"},
-        "verifier": {"thinking": False, "reasoningEffort": "medium"},
+        "planner": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
+        "generator": {"thinking": True, "reasoningEffort": "xhigh", "reasoningMode": "standard"},
+        "fixer": {"thinking": False, "reasoningEffort": "high"},
+        "verifier": {"thinking": False, "reasoningEffort": "low"},
         "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
     },
-    "max": {
-        "planner": {"thinking": True, "reasoningEffort": "high"},
-        "generator": {"thinking": True, "reasoningEffort": "high"},
+    "pro": {
+        "planner": {"thinking": True, "reasoningEffort": "medium", "reasoningMode": "standard"},
+        "generator": {"thinking": True, "reasoningEffort": "medium", "reasoningMode": "standard"},
         "fixer": {"thinking": False, "reasoningEffort": "medium"},
-        "verifier": {"thinking": False, "reasoningEffort": "medium"},
+        "verifier": {"thinking": False, "reasoningEffort": "low"},
+        "deploy-assistant": {"thinking": False, "reasoningEffort": "low"},
+    },
+    "max": {
+        "planner": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
+        "generator": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
+        "fixer": {"thinking": False, "reasoningEffort": "medium"},
+        "verifier": {"thinking": False, "reasoningEffort": "low"},
         "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
     },
     "codex": {
-        "planner": {"thinking": True, "reasoningEffort": "high"},
-        "generator": {"thinking": True, "reasoningEffort": "high"},
+        "planner": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
+        "generator": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
         "fixer": {"thinking": False, "reasoningEffort": "medium"},
-        "verifier": {"thinking": False, "reasoningEffort": "medium"},
+        "verifier": {"thinking": False, "reasoningEffort": "low"},
         "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
     },
     "anthropic": {
@@ -177,7 +185,7 @@ def summarize_tier_models(models_by_tier: dict[str, str]) -> str:
     for tier in BUILD_PROFILE_ORDER:
         model = models_by_tier.get(tier, "").strip()
         if model:
-            parts.append(f"{tier}: {human_model_label(model)}")
+            parts.append(f"{TIER_LABELS_SV.get(tier, tier)}: {human_model_label(model)}")
     return " | ".join(parts) if parts else "—"
 
 

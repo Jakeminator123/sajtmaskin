@@ -57,6 +57,8 @@ import {
   type FillChatInputDetail,
 } from "@/lib/builder/fill-chat-input";
 import { toast } from "sonner";
+import type { ModelTier } from "@/lib/validations/chat-schemas";
+import { ModelTierSlider } from "./ModelTierSlider";
 
 type MessageOptions = {
   attachments?: V0UserFileAttachment[];
@@ -167,6 +169,8 @@ interface ChatInterfaceProps {
     onToggleInspect: () => void;
     inspectDisabled?: boolean;
   } | null;
+  selectedModelTier?: ModelTier;
+  onSelectedModelTierChange?: (tier: ModelTier) => void;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -224,6 +228,8 @@ export function ChatInterface({
   continuePlanMode = false,
   followUpBaseInfo,
   previewModes,
+  selectedModelTier,
+  onSelectedModelTierChange,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -1041,6 +1047,13 @@ export function ChatInterface({
                   setInput((prev) => (prev ? `${prev} ${text}` : text))
                 }
               />
+              {selectedModelTier && onSelectedModelTierChange ? (
+                <ModelTierSlider
+                  value={selectedModelTier}
+                  onChange={onSelectedModelTierChange}
+                  disabled={inputDisabled}
+                />
+              ) : null}
             </PromptInputTools>
             <PromptInputSubmit
               data-openclaw-send-target="builder.chat.primary"

@@ -245,7 +245,16 @@ const setupQueries = [
     description TEXT,
     stripe_payment_intent TEXT,
     stripe_session_id TEXT,
+    idempotency_key TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS wizard_runs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    CONSTRAINT wizard_runs_status_check CHECK (status IN ('active', 'completed', 'expired'))
   )`,
   `CREATE TABLE IF NOT EXISTS guest_usage (
     id BIGSERIAL PRIMARY KEY,
@@ -414,6 +423,30 @@ const setupQueries = [
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
+  // L6: Product Postcheck single-flight. Same body as
+  // add-product-postcheck-run-claims.sql so db:init and the SQL ledger
+  // cannot drift. Leftover #1251 tables are dropped in the migration.
+  `CREATE TABLE IF NOT EXISTS product_postcheck_runs (
+    run_id TEXT PRIMARY KEY,
+    chat_id TEXT NOT NULL REFERENCES engine_chats(id) ON DELETE CASCADE,
+    version_id TEXT NOT NULL,
+    files_revision TEXT NOT NULL,
+    preview_session TEXT NOT NULL,
+    lifecycle_token TEXT NOT NULL DEFAULT '',
+    mutation_revision INTEGER NOT NULL DEFAULT 0,
+    owner TEXT NOT NULL,
+    claim_generation INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL,
+    claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    completed_at TIMESTAMPTZ,
+    CONSTRAINT product_postcheck_runs_status_check
+      CHECK (status IN ('running', 'passed', 'blocked', 'failed', 'superseded', 'expired')),
+    CONSTRAINT product_postcheck_runs_generation_check
+      CHECK (claim_generation >= 1),
+    CONSTRAINT product_postcheck_runs_mutation_check
+      CHECK (mutation_revision >= 0)
+  )`,
 ];
 
 const schemaQueries = [
@@ -429,6 +462,9 @@ const schemaQueries = [
   // engine_version_jobs lease lock: only ONE active (running) lease per version.
   `CREATE UNIQUE INDEX IF NOT EXISTS engine_version_jobs_active_uq ON engine_version_jobs(version_id) WHERE status = 'running'`,
   `CREATE INDEX IF NOT EXISTS idx_engine_version_jobs_version ON engine_version_jobs(version_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS product_postcheck_runs_claim_unique ON product_postcheck_runs(version_id, files_revision, preview_session, lifecycle_token, mutation_revision)`,
+  `CREATE INDEX IF NOT EXISTS idx_product_postcheck_runs_chat_id ON product_postcheck_runs(chat_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_product_postcheck_runs_expires_at ON product_postcheck_runs(expires_at)`,
   `ALTER TABLE engine_messages ADD COLUMN IF NOT EXISTS ui_parts JSONB`,
   `ALTER TABLE engine_messages ADD COLUMN IF NOT EXISTS thinking TEXT`,
   `DO $$
@@ -512,6 +548,9 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_media_library_user_id ON media_library(user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_media_library_project_id ON media_library(project_id)`,
   `CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS transactions_user_type_idempotency_idx ON transactions(user_id, type, idempotency_key) WHERE idempotency_key IS NOT NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_wizard_runs_user_id ON wizard_runs(user_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS wizard_runs_user_active_idx ON wizard_runs(user_id) WHERE status = 'active'`,
   `CREATE INDEX IF NOT EXISTS idx_user_audits_user_id ON user_audits(user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_page_views_created_at ON page_views(created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_page_views_path ON page_views(path)`,
@@ -672,6 +711,7 @@ const ALL_TABLES = [
   "users",
   "user_integrations",
   "transactions",
+  "wizard_runs",
   "guest_usage",
   "company_profiles",
   "template_cache",
@@ -693,6 +733,7 @@ const ALL_TABLES = [
   "oc_debug_findings",
   "live_review_grants",
   "live_review_runs",
+  "product_postcheck_runs",
   "llm_usage",
   "generation_billing_settings",
   "generation_billings",

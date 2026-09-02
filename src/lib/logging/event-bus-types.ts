@@ -116,8 +116,12 @@ export interface VersionVerifierDoneEvent extends EngineEventBase {
   t: "version.verifier.done";
   blocked: boolean;
   findings?: Array<{ id: string; detail: string }>;
-  /** `skipped` when policy elected not to run (e.g. design-only). */
-  outcome: "passed" | "failed" | "skipped";
+  /**
+   * `skipped` when policy elected not to run (e.g. design-only).
+   * `pending` is a retryable hold (L1 F3-readiness / L2/L3 retryPending) —
+   * never a pass and never a terminal fail.
+   */
+  outcome: "passed" | "failed" | "skipped" | "pending";
   reason?: string | null;
 }
 

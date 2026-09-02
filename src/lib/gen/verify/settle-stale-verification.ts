@@ -31,10 +31,10 @@ export const RECONCILED_PROMOTE_SUMMARY =
  * running verify/repair that keeps renewing its lease is never failed out from
  * under it).
  *
- * `repairing` additionally requires the lease table to exist before we treat it
- * as stale: without the lease table the fail would degrade to unconditional and
- * could kill a still-running unlocked repair (Codex P2). Fail-safe: any DB error
- * leaves the version unchanged.
+ * `repairing` additionally requires the lease table to *exist* before we treat
+ * it as stale: `missing` would make the fail degrade to unconditional and could
+ * kill a still-running unlocked repair (Codex P2). `unavailable` is also a
+ * no-op — a probe error is not proof that no lease exists.
  *
  * @returns the (possibly updated) version row and whether it was failed.
  */
@@ -113,7 +113,11 @@ export async function settleStaleVerificationIfNeeded(
     version.created_at,
   );
   if (staleCandidate && version.verification_state === "repairing") {
-    staleCandidate = await leaseTableExists().catch(() => false);
+    try {
+      staleCandidate = (await leaseTableExists()) === "exists";
+    } catch {
+      staleCandidate = false;
+    }
   }
   if (!staleCandidate) {
     return { version, failed: false };
@@ -202,10 +206,18 @@ export async function settleStaleVerificationIfNeeded(
   const timedOutVersion = await failVersionVerificationIfUnleased(
     version.id,
     concreteFailureSummary ?? GENERIC_TIMEOUT_SUMMARY,
+    {
+      // L5 CAS: bind the fail to the snapshot this watchdog already read so a
+      // concurrent promote or files rewrite during the await window above
+      // cannot be clobbered back to failed/draft. `null` revision is an
+      // explicit IS NULL match, not "skip the column".
+      verificationState: version.verification_state,
+      filesRevision: version.files_revision ?? null,
+    },
   ).catch(() => null);
 
-  if (timedOutVersion) {
-    return { version: timedOutVersion, failed: true };
+  if (timedOutVersion?.applied) {
+    return { version: timedOutVersion.version, failed: true };
   }
   return { version, failed: false };
 }

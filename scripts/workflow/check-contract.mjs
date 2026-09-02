@@ -4,9 +4,17 @@ import yaml from "js-yaml";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { dirname as posixDirname, join as posixJoin, normalize as posixNormalize } from "node:path/posix";
 import { fileURLToPath } from "node:url";
 import { SAFE_DOCS_COMMANDS } from "./ci-scope.mjs";
 import { PATH_GROUP_FLOORS } from "./path-impact.mjs";
+import {
+  REQUIRED_CHECK_OWNERS,
+  REQUIRED_CHECK_WORKFLOW,
+  requiredCheckOwnerSpec,
+} from "./required-check-owners.mjs";
+
+export { requiredCheckOwnerSpec };
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -16,12 +24,17 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 // scripts/workflow/.
 export const POLICY_FLOORS = Object.freeze({
   retiredBugIdsSha256: "6cb7f4b94e167f05471dd6c08ae928672927a41a972856992ca2a1cbd54b5634",
-  requiredChecks: ["quality", "backoffice-tests", "schema-drift", "build", "review-window"],
+  // Required PR-head checks and the workflow file that may publish them.
+  // `review-window` is owned by the trusted default-branch controller, not a
+  // PR-head job, and is filtered out before this map is consulted.
+  requiredCheckOwners: REQUIRED_CHECK_OWNERS,
+  requiredChecks: Object.freeze([...Object.keys(REQUIRED_CHECK_OWNERS), "review-window"]),
   manualMergePathPrefixes: [
     ".github/workflows/",
     "scripts/ci/",
     "scripts/pr-review/",
     "scripts/workflow/check-contract.mjs",
+    "scripts/workflow/required-check-owners.mjs",
     "scripts/workflow/ci-scope.mjs",
     "scripts/workflow/path-impact.mjs",
     "config/agent-workflow.json",
@@ -30,10 +43,7 @@ export const POLICY_FLOORS = Object.freeze({
     "config/backoffice/domain-map.json",
   ],
   review: {
-    requiredCheckWorkflow: {
-      path: ".github/workflows/ci.yml",
-      event: "pull_request",
-    },
+    requiredCheckWorkflow: REQUIRED_CHECK_WORKFLOW,
     qualifyingCheckPatterns: ["trusted-pr-ai-review"],
     securityVetoCheckPatterns: ["gitguardian"],
     deploymentCheckNames: ["Vercel"],
@@ -104,6 +114,106 @@ function json(root, path) {
   return JSON.parse(read(root, path));
 }
 
+const TRUSTED_CONTROLLER_ENTRIES = Object.freeze([
+  "scripts/ci/trusted-review-window.mjs",
+  "scripts/ci/merge-ready-freshness.mjs",
+]);
+
+function normalizeRepoRelative(value) {
+  return posixNormalize(String(value ?? "").replaceAll("\\", "/")).replace(/^\.\//u, "");
+}
+
+function stripJsComments(source) {
+  return String(source ?? "")
+    .replace(/\/\*[\s\S]*?\*\//gu, "")
+    .replace(/(^|[^:\\])\/\/.*$/gmu, "$1");
+}
+
+/** Static ESM specifiers only — no package resolution. */
+export function collectEsmSpecifiers(source) {
+  const text = stripJsComments(source);
+  const specifiers = [];
+  const seen = new Set();
+  const remember = (spec) => {
+    if (!spec || seen.has(spec)) return;
+    seen.add(spec);
+    specifiers.push(spec);
+  };
+  const fromRe =
+    /(?:^|[\n;])\s*(?:import|export)(?:\s+type)?\s+(?:[\w*{}\s,\n]|\sas\s)+from\s+["']([^"']+)["']/gu;
+  const sideEffectRe = /(?:^|[\n;])\s*import\s+["']([^"']+)["']/gu;
+  const dynamicRe = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/gu;
+  let match;
+  while ((match = fromRe.exec(text))) remember(match[1]);
+  while ((match = sideEffectRe.exec(text))) remember(match[1]);
+  while ((match = dynamicRe.exec(text))) remember(match[1]);
+  return specifiers;
+}
+
+/**
+ * Fail-closed: every import reachable from a CI trust-root entry must be
+ * `node:*` or a relative file. Bare package specifiers (ajv, js-yaml, …)
+ * break merge-ready-freshness, which runs without `npm install`.
+ *
+ * @param {Record<string, string | null | undefined>} fileSources
+ * @param {readonly string[]} entryRelPaths
+ */
+export function evaluateDependencyFreeImportGraph(fileSources, entryRelPaths) {
+  const errors = [];
+  const visited = new Set();
+  const queue = entryRelPaths.map((path) => normalizeRepoRelative(path));
+  while (queue.length > 0) {
+    const rel = queue.shift();
+    if (!rel || visited.has(rel)) continue;
+    visited.add(rel);
+    const source = fileSources?.[rel];
+    if (typeof source !== "string") {
+      errors.push(`trusted controller import graph missing file: ${rel}`);
+      continue;
+    }
+    for (const spec of collectEsmSpecifiers(source)) {
+      if (spec.startsWith("node:")) continue;
+      if (spec.startsWith("./") || spec.startsWith("../")) {
+        queue.push(normalizeRepoRelative(posixJoin(posixDirname(rel), spec)));
+        continue;
+      }
+      errors.push(`${rel} imports non-node package '${spec}'`);
+    }
+  }
+  return errors;
+}
+
+export function loadTrustedControllerImportGraph(root = REPO_ROOT) {
+  const fileSources = /** @type {Record<string, string | null>} */ ({});
+  const queue = [...TRUSTED_CONTROLLER_ENTRIES];
+  const seen = new Set();
+  while (queue.length > 0) {
+    const rel = normalizeRepoRelative(queue.shift());
+    if (!rel || seen.has(rel)) continue;
+    seen.add(rel);
+    const abs = resolve(root, rel);
+    if (!existsSync(abs)) {
+      fileSources[rel] = null;
+      continue;
+    }
+    const source = readFileSync(abs, "utf8");
+    fileSources[rel] = source;
+    for (const spec of collectEsmSpecifiers(source)) {
+      if (spec.startsWith("./") || spec.startsWith("../")) {
+        queue.push(posixJoin(posixDirname(rel), spec));
+      }
+    }
+  }
+  return fileSources;
+}
+
+export function evaluateTrustedControllerImportGraph(root = REPO_ROOT) {
+  return evaluateDependencyFreeImportGraph(
+    loadTrustedControllerImportGraph(root),
+    TRUSTED_CONTROLLER_ENTRIES,
+  );
+}
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -171,11 +281,12 @@ export function evaluatePrHeadWorkflowPermissions(workflowSources) {
   return errors;
 }
 
+function ownerWorkflowForRequiredCheck(check, policy = POLICY_FLOORS) {
+  return requiredCheckOwnerSpec(check, policy).file;
+}
+
 export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POLICY_FLOORS) {
   const errors = [];
-  const canonicalWorkflow = String(policy.review?.requiredCheckWorkflow?.path ?? "")
-    .split("/")
-    .at(-1);
   const coreNames = new Set(
     (policy.requiredChecks ?? [])
       .map((name) => String(name).trim().toLowerCase())
@@ -208,7 +319,8 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
           errors.push(`${workflow.name} job ${jobId} may not use reserved identity review-window`);
         }
         if (coreNames.has(identity)) {
-          if (workflow.name !== canonicalWorkflow) {
+          const owner = ownerWorkflowForRequiredCheck(identity, policy);
+          if (workflow.name !== owner) {
             errors.push(
               `${workflow.name} job ${jobId} may not use canonical CI identity ${identity}`,
             );
@@ -227,9 +339,8 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
   }
   for (const [name, count] of canonicalCoreCounts) {
     if (count !== 1) {
-      errors.push(
-        `${canonicalWorkflow || "canonical CI workflow"} must publish ${name} exactly once (found ${count})`,
-      );
+      const owner = ownerWorkflowForRequiredCheck(name, policy);
+      errors.push(`${owner || "canonical CI workflow"} must publish ${name} exactly once (found ${count})`);
     }
   }
   return errors;
@@ -295,11 +406,105 @@ const DB_BLOB_PR_PATH_FLOOR = Object.freeze([
   "scripts/db/**/*.py",
 ]);
 const E2E_CONTRACT_SCRIPT = "playwright test -c playwright.deploy-smoke.config.ts --list";
+// Explicit allowlist: every current `*.stability.test.*` is deterministic
+// (no network/DB/wall-clock). A new file must be added here — there is no
+// silent warn-only path — so C2 cannot regress by exclusion.
+export const BLOCKING_STABILITY_TESTS = Object.freeze([
+  "src/lib/builder/aao-invariant.stability.test.ts",
+  "src/lib/builder/status-resolver-single-writer.stability.test.ts",
+  "src/lib/gen/autofix/rules/refuse-dossier-stubs.stability.test.ts",
+  "src/lib/gen/followup-capabilities.stability.test.ts",
+  "src/lib/gen/followup-freeze.stability.test.ts",
+  "src/lib/logging/false-green-projection.stability.test.ts",
+]);
+export const BLOCKING_STABILITY_SCRIPT = `vitest run -c vitest.stability.config.ts ${BLOCKING_STABILITY_TESTS.join(" ")}`;
 
 function hasExactStringSet(actual, expected) {
   if (!Array.isArray(actual) || actual.length !== expected.length) return false;
   const values = new Set(actual.map(String));
   return values.size === actual.length && expected.every((value) => values.has(value));
+}
+
+const DOSSIER_ACCEPTANCE_MATRIX_IF =
+  "${{ !cancelled() && needs.scope.result == 'success' && (github.event_name != 'pull_request' || needs.scope.outputs.run_matrix == 'true') }}";
+const DOSSIER_ACCEPTANCE_BUILD_IF = "${{ !cancelled() && needs.discover.result == 'success' }}";
+
+export function evaluateDossierAcceptanceWorkflow(source) {
+  const errors = [];
+  let document;
+  try {
+    document = yaml.load(source);
+  } catch (error) {
+    return [
+      `dossier-acceptance is not valid YAML: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    ];
+  }
+
+  const pullRequest = document?.on?.pull_request;
+  if (pullRequest === undefined) {
+    errors.push("dossier-acceptance must run on every pull_request");
+  } else if (pullRequest && typeof pullRequest === "object" && pullRequest.paths) {
+    errors.push("dossier-acceptance must not path-filter the pull_request trigger");
+  }
+  const requiredTypes = [
+    "opened",
+    "synchronize",
+    "reopened",
+    "ready_for_review",
+    "converted_to_draft",
+  ];
+  if (pullRequest && typeof pullRequest === "object" && !includesEvery(pullRequest.types, requiredTypes)) {
+    errors.push("dossier-acceptance pull_request events must rerun when draft readiness changes");
+  }
+
+  const scope = document?.jobs?.scope;
+  if (
+    !scope ||
+    !scope.outputs?.run_matrix ||
+    !scope.steps?.some((step) => step.run === "node scripts/dossiers/acceptance-scope.mjs")
+  ) {
+    errors.push("dossier-acceptance scope must publish fail-closed run_matrix");
+  }
+
+  for (const jobName of ["discover", "dependency-registry"]) {
+    const job = document?.jobs?.[jobName];
+    if (!values(job?.needs).includes("scope") || !hasExactExpression(job?.if, DOSSIER_ACCEPTANCE_MATRIX_IF)) {
+      errors.push(`${jobName} may run the expensive dossier matrix only after a successful in-scope decision`);
+    }
+  }
+
+  const keyless = document?.jobs?.["keyless-production-build"];
+  if (
+    !includesEvery(keyless?.needs, ["scope", "discover"]) ||
+    !hasExactExpression(keyless?.if, DOSSIER_ACCEPTANCE_BUILD_IF)
+  ) {
+    errors.push("keyless-production-build may run only after a successful in-scope discover job");
+  }
+
+  if (!hasExactExpression(document?.jobs?.["verification-evidence"]?.if, "github.event_name != 'pull_request'")) {
+    errors.push("verification-evidence must stay off pull-request runs");
+  }
+
+  const aggregate = document?.jobs?.["dossier-acceptance"];
+  const aggregateNeeds = [
+    "scope",
+    "discover",
+    "verification-evidence",
+    "dependency-registry",
+    "keyless-production-build",
+  ];
+  if (!includesEvery(aggregate?.needs, aggregateNeeds)) {
+    errors.push("dossier-acceptance must aggregate scope, discover, evidence, registry and keyless builds");
+  }
+  if (!hasExactExpression(aggregate?.if, "${{ !cancelled() }}")) {
+    errors.push(
+      "dossier-acceptance must publish after failed/skipped dependencies without surviving cancellation",
+    );
+  }
+
+  return errors;
 }
 
 export function evaluateTrustedReviewWindowGate(source) {
@@ -408,6 +613,23 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   }
   if (packageScripts?.["test:e2e:contract"] !== E2E_CONTRACT_SCRIPT) {
     errors.push("test:e2e:contract must retain its exact Playwright discovery command");
+  }
+
+  const blockingStability = qualityCore?.steps?.find(
+    (step) => step.run === "npm run test:stability:blocking",
+  );
+  if (
+    !blockingStability ||
+    Object.hasOwn(blockingStability, "continue-on-error") ||
+    !hasExactExpression(blockingStability.if, "${{ !cancelled() }}")
+  ) {
+    errors.push("heavy quality-core must block on deterministic stability contracts");
+  }
+  if (packageScripts?.["test:stability:blocking"] !== BLOCKING_STABILITY_SCRIPT) {
+    errors.push("test:stability:blocking must run the explicit deterministic stability subset");
+  }
+  if (document?.jobs?.stability?.["continue-on-error"] !== true) {
+    errors.push("broad stability job must remain warn-only");
   }
 
   const qualityContracts = document?.jobs?.["quality-contracts"];
@@ -673,6 +895,13 @@ export function evaluatePolicyFloors(policy) {
   };
 
   requireValues("requiredChecks", policy.requiredChecks, POLICY_FLOORS.requiredChecks);
+  const ownerFile = (owner) =>
+    typeof owner === "string" ? owner : String(owner?.path ?? "").split("/").at(-1);
+  for (const [check, floorOwner] of Object.entries(POLICY_FLOORS.requiredCheckOwners)) {
+    if (ownerFile(policy.requiredCheckOwners?.[check]) !== ownerFile(floorOwner)) {
+      errors.push(`requiredCheckOwners security floor missing: ${check}=${ownerFile(floorOwner)}`);
+    }
+  }
   requireValues(
     "manualMergePathPrefixes",
     policy.manualMergePathPrefixes,
@@ -775,6 +1004,21 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     }
   }
   errors.push(...evaluatePolicyFloors(policy));
+  for (const check of policy.requiredChecks ?? []) {
+    if (check === "review-window") continue;
+    if (!policy.requiredCheckOwners?.[check]) {
+      errors.push(`required check ${check} missing requiredCheckOwners entry`);
+    }
+  }
+  for (const [check, owner] of Object.entries(policy.requiredCheckOwners ?? {})) {
+    if (!(policy.requiredChecks ?? []).includes(check)) {
+      errors.push(`requiredCheckOwners has unused check ${check}`);
+    }
+    const file = typeof owner === "string" ? owner : String(owner?.path ?? "").split("/").at(-1);
+    if (!file || !existsSync(resolve(root, ".github/workflows", file))) {
+      errors.push(`requiredCheckOwners ${check} points at missing workflow ${file}`);
+    }
+  }
   if (typeof policy.directMaster?.allowed !== "boolean") {
     errors.push("directMaster.allowed must be a boolean");
   }
@@ -940,6 +1184,10 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !trustedReviewWindow.includes('endsWith("[bot]")') ||
     !trustedReviewWindow.includes("review.updated_at") ||
     !trustedReviewWindow.includes("policy.review.requiredCheckWorkflow") ||
+    !trustedReviewWindow.includes("requiredCheckOwnerSpec") ||
+    !trustedReviewWindow.includes('from "../workflow/required-check-owners.mjs"') ||
+    !trustedReviewWindow.includes("latest owned required-check workflow/job") ||
+    !trustedReviewWindow.includes("check kommer från annan workflow än dess deklarerade ägare") ||
     !trustedReviewWindow.includes("run.provenance?.workflowRun?.created_at") ||
     !trustedReviewWindow.includes("manualMergeFiles") ||
     !trustedReviewWindow.includes("policy.requiredChecks.filter") ||
@@ -951,6 +1199,12 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
       "trusted default-branch controller must publish the head-bound required review-window",
     );
   }
+  if (/\bcheck-contract\.mjs\b/u.test(trustedReviewWindow)) {
+    errors.push(
+      "trusted default-branch controller must not import check-contract; that module pulls npm packages",
+    );
+  }
+  errors.push(...evaluateTrustedControllerImportGraph(root));
   if (
     !trustedReviewWindow.includes("new Set(policy.review.deploymentCheckNames ?? [])") ||
     !trustedReviewWindow.includes("deploymentPending === 0") ||
@@ -987,7 +1241,9 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const ci = read(root, ".github/workflows/ci.yml");
   const dbBlobSync = read(root, ".github/workflows/db-blob-sync-check.yml");
   const dbSchemaParity = read(root, ".github/workflows/db-schema-parity.yml");
+  const dossierAcceptance = read(root, ".github/workflows/dossier-acceptance.yml");
   errors.push(...evaluateCiScopeWorkflow(ci, pkg.scripts));
+  errors.push(...evaluateDossierAcceptanceWorkflow(dossierAcceptance));
   errors.push(...evaluateSecretWorkflowDispatches(dbBlobSync, dbSchemaParity));
   if (!ci.includes("workflow_dispatch: {}") || !dbBlobSync.includes("workflow_dispatch: {}")) {
     errors.push("post-merge CI and DB/blob verification must remain workflow-dispatchable");
@@ -1000,7 +1256,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (checkoutCount === 0 || nonPersistingCheckoutCount !== checkoutCount) {
     errors.push("every PR-head CI checkout must disable persisted GitHub credentials");
   }
-  const allWorkflowJobs = `${ci}\n${freshness}`;
+  const allWorkflowJobs = `${ci}\n${freshness}\n${dossierAcceptance}`;
   for (const check of policy.requiredChecks) {
     // `review-window` is a policy-owned check run published by the trusted
     // default-branch controller above, not a PR-head workflow job.

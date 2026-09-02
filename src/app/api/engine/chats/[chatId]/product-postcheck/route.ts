@@ -36,7 +36,18 @@ import {
   waitForProductPostcheckPreviewRunning,
   type ProductPostcheckPreviewProbe,
 } from "@/lib/gen/verify/product-postcheck-preview-wait";
-import { formatProductPostcheckSkippedMessage } from "@/lib/gen/verify/product-postcheck-skip";
+import {
+  formatProductPostcheckSkippedMessage,
+  isNonFinalProductPostcheckSkipReason,
+} from "@/lib/gen/verify/product-postcheck-skip";
+import {
+  claimProductPostcheckRun,
+  completeProductPostcheckRun,
+  mapProductPostcheckResultToStatus,
+  normalizeProductPostcheckMutationRevision,
+} from "@/lib/db/services/product-postcheck-runs";
+import { readProductPostcheckVerdictForVersion } from "@/lib/integrations/tier3-readiness-gate";
+import { productPostcheckResultFromVerdict } from "@/lib/gen/verify/product-postcheck-verdict";
 
 export const runtime = "nodejs";
 // Postcheck alone can approach ~150s worst case (boot wait, crawl with the
@@ -49,6 +60,12 @@ export const maxDuration = 300;
 const requestSchema = z.object({
   versionId: z.string().min(1),
   previewUrl: z.string().trim().optional().nullable(),
+  /**
+   * Exact `files_revision` the caller confirmed persisted. When set, a DB
+   * mismatch is `preview_superseded` — never an attestation of a stale
+   * client snapshot.
+   */
+  filesRevision: z.string().trim().min(1).max(160).optional(),
 });
 
 type ProductPostcheckTarget = {
@@ -118,6 +135,56 @@ function resolveAuthoritativePreviewUrl(params: {
   return sessionUrl;
 }
 
+function winnerAttestationForVerdict(
+  verdict: "passed" | "blocked" | "allowed_skip" | "pending" | "indeterminate" | "superseded",
+  target: ProductPostcheckTarget,
+): ProductPostcheckTarget | null {
+  return verdict === "passed" || verdict === "blocked" || verdict === "allowed_skip"
+    ? target
+    : null;
+}
+
+async function replayWinnerFromL2Verdict(params: {
+  versionId: string;
+  runId: string;
+  claimStatus: string;
+  previewUrl: string;
+  durationMs: number;
+  attestation: ProductPostcheckTarget;
+}): Promise<ProductPostcheckResult> {
+  const read = await readProductPostcheckVerdictForVersion(params.versionId, {
+    claim: { status: params.claimStatus },
+  });
+  return productPostcheckResultFromVerdict({
+    verdict: read.verdict,
+    runId: params.runId,
+    claimStatus: params.claimStatus as ProductPostcheckResult["claimStatus"],
+    previewUrl: params.previewUrl,
+    durationMs: params.durationMs,
+    attestation: winnerAttestationForVerdict(read.verdict, params.attestation),
+  });
+}
+
+function claimUnavailableResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: "Product postcheck claim unavailable (database error). Try again shortly.",
+      code: "claim_unavailable",
+      retryable: true,
+      skipped: true,
+      skippedReason: "claim_unavailable",
+    },
+    { status: 503, headers: { "Retry-After": "3" } },
+  );
+}
+
+function mutationRevisionFromSession(session: unknown): number {
+  if (!session || typeof session !== "object") return 0;
+  return normalizeProductPostcheckMutationRevision(
+    (session as { mutationRevision?: number | null }).mutationRevision,
+  );
+}
+
 function supersededPostcheckResult(params: {
   previewUrl: string;
   durationMs?: number | null;
@@ -136,6 +203,33 @@ function supersededPostcheckResult(params: {
     screenshots: null,
     domSummary: null,
     attestation: null,
+  };
+}
+
+/**
+ * Wait budget ended, host still starting, or `httpReady: false`.
+ * No attestation and no `version.degraded` emit — L3's
+ * `productPostcheckNeedsRetry` treats a missing attestation as pending.
+ */
+function pendingPreviewNotReadyResult(params: {
+  previewUrl: string | null;
+  durationMs?: number | null;
+  verificationRunId?: string | null;
+}): ProductPostcheckResult {
+  return {
+    ok: true,
+    skipped: true,
+    skippedReason: "preview_not_ready",
+    warnings: [],
+    warningCount: 0,
+    productBlocked: false,
+    routesChecked: 0,
+    durationMs: params.durationMs ?? 0,
+    checkedUrl: params.previewUrl,
+    screenshots: null,
+    domSummary: null,
+    attestation: null,
+    verificationRunId: params.verificationRunId ?? null,
   };
 }
 
@@ -238,7 +332,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     );
   }
 
-  const { versionId, previewUrl } = validation.data;
+  const { versionId, previewUrl, filesRevision: requestedFilesRevision } = validation.data;
   if (!FEATURES.f2ProductPostcheck) {
     return NextResponse.json({
       ok: true,
@@ -279,9 +373,30 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   const routeStartedAt = Date.now();
   // Ett id per verifieringskörning. Alla persisterade rader, bus-events och
   // svaret bär samma id så en omkörning aldrig kan förväxlas med en tidigare.
-  const verificationRunId = randomUUID();
+  let verificationRunId: string = randomUUID();
+  let claimHeld: { runId: string; claimGeneration: number } | null = null;
+  const finishHeldClaim = async (
+    status: "passed" | "blocked" | "failed" | "superseded" | "expired",
+  ): Promise<void> => {
+    if (!claimHeld) return;
+    const held = claimHeld;
+    claimHeld = null;
+    await completeProductPostcheckRun({
+      runId: held.runId,
+      claimGeneration: held.claimGeneration,
+      status,
+    }).catch(() => false);
+  };
   try {
-    const filesRevision = scopedVersion.version.files_revision?.trim() || null;
+    const dbFilesRevision = scopedVersion.version.files_revision?.trim() || null;
+    if (requestedFilesRevision && requestedFilesRevision !== dbFilesRevision) {
+      return NextResponse.json(
+        supersededPostcheckResult({
+          previewUrl: previewUrl?.trim() || "",
+        }),
+      );
+    }
+    const filesRevision = requestedFilesRevision ?? dbFilesRevision;
     if (!filesRevision) {
       return NextResponse.json({
         ok: true,
@@ -302,9 +417,22 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     let waitedProbe: ProductPostcheckPreviewProbe | null = null;
     const liveReviewReserveMs = isLiveReviewEnabled() ? LIVE_REVIEW_TOTAL_TIMEOUT_MS : 0;
     if (getPreviewHostBaseUrl()) {
+      const sessionHint = await getActivePreviewSessionAsync(chatId);
+      const pinnedSessionId = sessionHint?.previewSessionId?.trim() || "";
+      const pinIdentity = Boolean(
+        pinnedSessionId &&
+          sessionHint?.versionId === resolvedVersionId &&
+          sessionHint.filesRevision === filesRevision,
+      );
       const previewWait = await waitForProductPostcheckPreviewRunning({
         expectedVersionId: resolvedVersionId,
         expectedFilesRevision: filesRevision,
+        ...(pinIdentity
+          ? {
+              expectedPreviewSessionId: pinnedSessionId,
+              expectedLifecycleToken: sessionHint?.lifecycleToken ?? null,
+            }
+          : {}),
         timeoutMs: productPostcheckPreviewWaitBudgetMs({ liveReviewReserveMs }),
         probe: () =>
           readProductPostcheckPreviewProbe({
@@ -320,69 +448,19 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           }),
         );
       }
-      waitedProbe = previewWait.ok ? previewWait.probe : previewWait.lastProbe;
-      const waitedTarget = bindProductPostcheckTarget(
-        waitedProbe
-          ? {
-              previewSessionId: waitedProbe.previewSessionId,
-              lifecycleToken: waitedProbe.lifecycleToken,
-              versionId: waitedProbe.versionId,
-              filesRevision: waitedProbe.filesRevision,
-            }
-          : null,
-        resolvedVersionId,
-        filesRevision,
-      );
       if (!previewWait.ok) {
-        const timeoutCheckedUrl =
-          waitedProbe?.previewUrl?.trim() || previewUrl?.trim() || null;
-        if (waitedTarget) {
-          emitPostcheckDegraded({
-            versionId: resolvedVersionId,
-            chatId,
-            reason: "preview_not_running",
-            checkedUrl: timeoutCheckedUrl,
-            durationMs: 0,
-            attestation: waitedTarget,
+        // starting / httpReady:false / timeout / failed. Never attest —
+        // an attested `preview_not_running` used to release the quality gate.
+        return NextResponse.json(
+          pendingPreviewNotReadyResult({
+            previewUrl:
+              previewWait.lastProbe?.previewUrl?.trim() || previewUrl?.trim() || null,
+            durationMs: Date.now() - routeStartedAt,
             verificationRunId,
-          });
-          return NextResponse.json({
-            ok: true,
-            skipped: true,
-            skippedReason: "preview_not_running",
-            warnings: [],
-            warningCount: 0,
-            productBlocked: false,
-            routesChecked: 0,
-            durationMs: 0,
-            checkedUrl: timeoutCheckedUrl,
-            attestation: waitedTarget,
-            verificationRunId,
-          });
-        }
-        emitPostcheckDegraded({
-          versionId: resolvedVersionId,
-          chatId,
-          reason: "preview_not_running",
-          checkedUrl: timeoutCheckedUrl,
-          durationMs: 0,
-          attestation: null,
-          verificationRunId,
-        });
-        return NextResponse.json({
-          ok: true,
-          skipped: true,
-          skippedReason: "preview_not_running",
-          warnings: [],
-          warningCount: 0,
-          productBlocked: false,
-          routesChecked: 0,
-          durationMs: 0,
-          checkedUrl: timeoutCheckedUrl,
-          attestation: null,
-          verificationRunId,
-        });
+          }),
+        );
       }
+      waitedProbe = previewWait.probe;
     }
 
     const previewSession = waitedProbe
@@ -392,6 +470,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           versionId: waitedProbe.versionId,
           filesRevision: waitedProbe.filesRevision,
           previewUrl: waitedProbe.previewUrl,
+          mutationRevision: waitedProbe.mutationRevision,
         }
       : await getActivePreviewSessionAsync(chatId);
     const boundTarget = bindProductPostcheckTarget(
@@ -459,6 +538,38 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       });
     }
 
+    const claim = await claimProductPostcheckRun({
+      chatId,
+      owner: usageOwnerId ?? "anonymous",
+      key: {
+        versionId: resolvedVersionId,
+        filesRevision: boundTarget.filesRevision,
+        previewSession: boundTarget.previewSessionId,
+        lifecycleToken: boundTarget.lifecycleToken,
+        mutationRevision: mutationRevisionFromSession(previewSession),
+      },
+    });
+    if (claim.kind === "unavailable") {
+      return claimUnavailableResponse();
+    }
+    if (claim.kind === "busy" || claim.kind === "settled") {
+      // L6 loser poll: do not start Chromium. Report-state comes from the
+      // L2 domain (`readProductPostcheckVerdictForVersion`), not the claim
+      // row alone. A still-running winner with no logs stays `claim_busy`.
+      return NextResponse.json(
+        await replayWinnerFromL2Verdict({
+          versionId: resolvedVersionId,
+          runId: claim.runId,
+          claimStatus: claim.status,
+          previewUrl: resolvedPreviewUrl,
+          durationMs: Date.now() - routeStartedAt,
+          attestation: boundTarget,
+        }),
+      );
+    }
+    claimHeld = { runId: claim.runId, claimGeneration: claim.claimGeneration };
+    verificationRunId = claim.runId;
+
     liveReviewSession = await beginLiveReviewSession({
       chatId,
       versionId: resolvedVersionId,
@@ -496,6 +607,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           liveReviewSession.claim.row.claimedAt,
         ).catch(() => undefined);
       }
+      await finishHeldClaim("superseded");
       return NextResponse.json(
         supersededPostcheckResult({
           previewUrl: resolvedPreviewUrl,
@@ -538,6 +650,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     // HTTP result becomes durable client-side evidence; no pass/block event
     // is emitted until this fence succeeds.
     if (!(await isTargetCurrent().catch(() => false))) {
+      await finishHeldClaim("superseded");
       return NextResponse.json(
         supersededPostcheckResult({
           previewUrl: resolvedPreviewUrl,
@@ -551,7 +664,11 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     // product-postcheck never ran. The route already returns
     // `skipped: true` to the caller and post-checks.ts persists the skip,
     // but neither surface may attest a superseded lifecycle/revision.
-    if (result.skipped && result.skippedReason !== "preview_superseded") {
+    if (
+      result.skipped &&
+      result.skippedReason !== "preview_superseded" &&
+      !isNonFinalProductPostcheckSkipReason(result.skippedReason)
+    ) {
       emitPostcheckDegraded({
         versionId: resolvedVersionId,
         chatId,
@@ -590,6 +707,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
 
     result.attestation = boundTarget;
     result.verificationRunId = verificationRunId;
+    await finishHeldClaim(mapProductPostcheckResultToStatus(result));
     return NextResponse.json(result);
   } catch (err) {
     if (liveReviewSession?.claim?.kind === "acquired") {
@@ -604,12 +722,14 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       targetIsCurrent &&
       !(await targetIsCurrent().catch(() => false))
     ) {
+      await finishHeldClaim("superseded");
       return NextResponse.json(
         supersededPostcheckResult({
           previewUrl: resolvedPreviewUrl || previewUrl?.trim() || "",
         }),
       );
     }
+    await finishHeldClaim("failed");
     // Mirror the skip emission for the runtime-error branch — same
     // observability surface for "ran but threw" as for the planned
     // skip cases above. Without this the version-status projection

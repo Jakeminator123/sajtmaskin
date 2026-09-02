@@ -8,6 +8,7 @@ from backoffice import REPO_ROOT
 from backoffice.shared import (
     AVAILABLE_PHASE_MODELS,
     BUILD_PROFILE_ORDER,
+    TIER_LABELS_SV,
     PHASE_ORDER,
     build_backoffice_context,
     build_profile_defaults,
@@ -37,6 +38,13 @@ class SharedManifestParityTests(unittest.TestCase):
         build_defaults = build_profile_defaults(manifest)
         thinking = phase_thinking_defaults(manifest)
 
+        self.assertEqual(
+            BUILD_PROFILE_ORDER, ("pro", "max", "premium", "codex", "anthropic")
+        )
+        self.assertEqual(TIER_LABELS_SV["pro"], "Låg (pro)")
+        self.assertEqual(TIER_LABELS_SV["max"], "Mellan (max)")
+        self.assertEqual(TIER_LABELS_SV["premium"], "Hög (premium)")
+        self.assertEqual(TIER_LABELS_SV["codex"], "Kod Max (codex, dold)")
         for tier in BUILD_PROFILE_ORDER:
             self.assertIn(tier, build_defaults)
             self.assertTrue(str(build_defaults[tier]).strip())
@@ -45,9 +53,17 @@ class SharedManifestParityTests(unittest.TestCase):
                 self.assertIn(phase, thinking[tier])
                 self.assertIn("thinking", thinking[tier][phase])
                 self.assertIn("reasoningEffort", thinking[tier][phase])
-        self.assertEqual(thinking["premium"]["planner"]["reasoningMode"], "pro")
+                self.assertNotEqual(
+                    thinking[tier][phase].get("reasoningMode"),
+                    "pro",
+                    msg=f"{tier}/{phase} still has reasoningMode=pro",
+                )
+        self.assertEqual(thinking["premium"]["planner"]["reasoningMode"], "standard")
         self.assertEqual(thinking["premium"]["planner"]["reasoningEffort"], "high")
-        self.assertEqual(thinking["premium"]["generator"]["reasoningEffort"], "high")
+        self.assertEqual(thinking["premium"]["generator"]["reasoningEffort"], "xhigh")
+        self.assertEqual(thinking["premium"]["generator"]["reasoningMode"], "standard")
+        self.assertEqual(thinking["premium"]["verifier"]["thinking"], False)
+        self.assertEqual(thinking["premium"]["verifier"]["reasoningEffort"], "low")
 
 
 if __name__ == "__main__":

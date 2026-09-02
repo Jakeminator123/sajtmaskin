@@ -9,12 +9,13 @@ PR-head. Godnatt-buggs egna skripttester (`npm run test:godnatt-bugg`) är
 on-demand och ingår inte i `test:ci`, CI eller `verify:pr`. Ovanpå den finns två
 smalare testlanes och ett separat E2E-discoverykontrakt:
 
-| Lane         | Kommando                    | Filnamn                  | Blockerar merge?                 |
-| ------------ | --------------------------- | ------------------------ | -------------------------------- |
-| Full svit    | `npm run test:ci`           | `*.test.ts(x)`           | **Ja i tung profil** (`quality`) |
-| E2E-kontrakt | `npm run test:e2e:contract` | `e2e/**/*.smoke.spec.ts` | **Ja i tung profil** (`quality`) |
-| Stabilitet   | `npm run test:stability`    | `*.stability.test.ts(x)` | Nej — warn-only                  |
-| DB-backad    | `npm run test:postgres`     | `*.postgres.test.ts`     | **Ja** (steg i `quality`)        |
+| Lane                      | Kommando                          | Filnamn                                  | Blockerar merge?                     |
+| ------------------------- | --------------------------------- | ---------------------------------------- | ------------------------------------ |
+| Full svit                 | `npm run test:ci`                 | `*.test.ts(x)`                           | **Ja i tung profil** (`quality`)     |
+| E2E-kontrakt              | `npm run test:e2e:contract`       | `e2e/**/*.smoke.spec.ts`                 | **Ja i tung profil** (`quality`)     |
+| Deterministisk stabilitet | `npm run test:stability:blocking` | allowlist i `check-contract.mjs`         | **Ja i tung profil** (`quality`)     |
+| Bred stabilitets-lane     | `npm run test:stability`          | `*.stability.test.ts(x)`                 | Nej — warn-only (`stability`-jobbet) |
+| DB-backad                 | `npm run test:postgres`           | `*.postgres.test.ts`                     | **Ja** (steg i `quality`)            |
 
 Den fulla sviten körs **utan databas**, med flit — se `test:postgres` nedan.
 E2E-kontraktet kör Playwrights `--list`: det kompilerar och discoverar sviten
@@ -23,11 +24,13 @@ utan browser eller nätverk. Själva deploy-smoken är fortsatt separat.
 ## Vilka CI-jobb blockerar faktiskt merge
 
 Ett jobb som failar hårt är inte samma sak som ett jobb som **hindrar merge** — det senare
-kräver att jobbnamnet står som required status check i master-rulesetet. Tabellen beskriver
-repots avsedda kontrakt och en historisk snapshot (verifierad mot rulesetet `Protect master`
-2026-07-31 via `gh api repos/.../rules/branches/master`). GitHub-inställningar kan drifta:
-mergeagenten måste därför live-verifiera aktuellt ruleset och checks för exakt head-SHA före
-varje merge; snapshoten nedan är aldrig ensam mergeauktoritet.
+kräver att jobbnamnet står som required status check i master-rulesetet. Desired-state
+ägs av [`.github/rulesets/protect-master.expected.json`](../.github/rulesets/protect-master.expected.json)
+och `config/agent-workflow.json` `requiredChecks`; live jämförs av
+`master-ruleset-drift`. Tabellen är en historisk snapshot (verifierad mot rulesetet
+`Protect master` 2026-07-31). GitHub-inställningar kan drifta: mergeagenten måste
+live-verifiera aktuellt ruleset och checks för exakt head-SHA före varje merge;
+snapshoten nedan är aldrig ensam mergeauktoritet.
 
 | Jobb                          | Failar hårt?                                                                         | Required (blockerar merge)?                                  |
 | ----------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -39,7 +42,7 @@ varje merge; snapshoten nedan är aldrig ensam mergeauktoritet.
 | `preview-host-guards`         | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
 | `dead-code` (orphan-filgrind) | Ja                                                                                   | **Ja, via `quality`-aggregatet**                             |
 | `db-blob-sync`                | Ja                                                                                   | Nej — och på PR körs den utan credentials (ren script-smoke) |
-| `stability`                   | Nej (`continue-on-error`)                                                            | Nej                                                          |
+| `stability`                   | Nej (`continue-on-error`)                                                            | Nej — den deterministiska subseten blockerar via `quality`   |
 
 `db-blob-sync` är fortsatt en separat, icke-required hård kontroll. Preview-host och
 orphan-filgrinden är däremot transitivt blockerande eftersom den required checken
@@ -80,7 +83,8 @@ in efter hand (t.ex. aktivitet S2/S3) och varje fall ska peka på sin källa (se
 | Del                                                                   | CI-jobb                                                                                            | Trigger                                                                                          | Blockerande?                               | Varför                                                                                                                                                                                                                                          |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `db:schema-drift`                                                     | `schema-drift`                                                                                     | push + PR mot `master`                                                                           | **Ja** — hård gate                         | Deterministisk, nyckelfri, billig → trygg att blockera                                                                                                                                                                                          |
-| Bredare stabilitets-lane (`*.stability.test.ts(x)`)                   | `stability`                                                                                        | push + PR mot `master`                                                                           | **Nej** — warn-only                        | Kan vara flaky medan lanen stabiliseras                                                                                                                                                                                                         |
+| Deterministisk `*.stability.test.*`-allowlist                         | `quality` (`quality-core`-steget `test:stability:blocking`)                                        | tung profil (ready/runtime/högrisk/`master`)                                                     | **Ja** — hård gate                         | Alla nuvarande stability-filer är hermetiska (ingen nätverk/DB/väggklocka); allowlisten ägs av `scripts/workflow/check-contract.mjs`                                                                                                                                                                           |
+| Bredare stabilitets-lane (`*.stability.test.ts(x)` + ordlista-check)  | `stability`                                                                                        | push + PR mot `master`                                                                           | **Nej** — warn-only                        | Jobbet förblir `continue-on-error` så en ny oklassificerad/flaky fil inte kan blockera innan den tas in i allowlisten                                                                                                                                                                                           |
 | Extern review + live-sign-off                                         | `review-window`                                                                                    | Betrodd default-branch-controller mot exakt PR-head                                              | **Ja** — required check                    | Väntar på övriga required checks, minst 7 min och reviewkvitton; blir först därefter grön när mänsklig sign-off + label matchar live head/base och är nyare än senaste botfynd. Master-rörelse publicerar `action_required` på oförändrad head. |
 | Prod-migrationer (`scripts/db/migrate-prod.mjs`)                      | `prod-migrations-apply`                                                                            | push till `master` + manuell dispatch (aldrig PR — prod-secret injiceras inte på `pull_request`) | Gate:ad bakom `quality` + `schema-drift`   | Migrationer körs inte av Vercel-deployen; idempotent + bokför `schema_migrations`-ledgern                                                                                                                                                       |
 | Ledger-verifiering (`scripts/db/check-migrations-applied.mjs`)        | `prod-migrations-applied`                                                                          | efter `prod-migrations-apply`                                                                    | Post-condition (skippas när apply skippas) | Verifierar att prod-ledgern täcker alla migrationsfiler — fångar tyst missad apply                                                                                                                                                              |
@@ -91,16 +95,19 @@ in efter hand (t.ex. aktivitet S2/S3) och varje fall ska peka på sin källa (se
   Ett rött resultat stoppar push/PR/merge → fångar t.ex. tabell/index som finns i `schema.ts`
   men saknas i `db-init.mjs` (tyst drift på nya miljöer).
 - Det `stability`-jobbet är medvetet `continue-on-error` (warn-only) — kör hela `npm run test:stability`
-  men ett rött vitest-resultat blockerar inte merge ännu. Blockering av vitest-delen kopplas in först
-  när lanen är stabil (separat beslut).
+  plus ordlista-checken. Ett rött resultat där blockerar inte merge. Den deterministiska
+  allowlisten körs separat som `test:stability:blocking` i `quality-core` och blockerar.
 
 | Körläge | Kommando / trigger                                | Blockerande?                           |
 | ------- | ------------------------------------------------- | -------------------------------------- |
+| Lokalt  | `npm run test:stability:blocking`                 | —                                      |
 | Lokalt  | `npm run test:stability` (innan commit, sekunder) | —                                      |
 | PR      | jobbet `schema-drift` på `pull_request`           | **Ja** — hård gate (bara schema-drift) |
-| PR      | jobbet `stability` på `pull_request`              | **Nej** — warn-only (vitest-delen)     |
+| PR      | `test:stability:blocking` i `quality-core`        | **Ja** — hård gate (allowlist)         |
+| PR      | jobbet `stability` på `pull_request`              | **Nej** — warn-only (bred lane)        |
 | Push    | jobbet `schema-drift` på push till `master`       | **Ja** — hård gate (bara schema-drift) |
-| Push    | jobbet `stability` på push till `master`          | **Nej** — warn-only (vitest-delen)     |
+| Push    | `test:stability:blocking` i `quality-core`        | **Ja** — hård gate (allowlist)         |
+| Push    | jobbet `stability` på push till `master`          | **Nej** — warn-only (bred lane)        |
 
 ## Dokumentations- och kontraktsgates
 

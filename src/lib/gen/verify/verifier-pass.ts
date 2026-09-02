@@ -6,7 +6,7 @@ import { z } from "zod";
 import { generateObject } from "ai";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { resolveHtmlInterfaceTag } from "@/lib/gen/autofix/rules/dom-builtin-jsx-fixer";
-import { toAnthropicEffort } from "@/lib/gen/engine";
+import { toAnthropicEffort, type ReasoningEffort, type ReasoningMode } from "@/lib/gen/engine";
 import { getOpenAIModel, isAnthropicModel } from "@/lib/gen/models";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
 import { isBuildBreakingImportFindingId } from "@/lib/gen/preview/should-start-preview";
@@ -410,6 +410,45 @@ export function suppressTier3StrippedImportFindings(
 type JsonValue = null | string | number | boolean | JsonObject | JsonValue[];
 type JsonObject = { [key: string]: JsonValue | undefined };
 type ProviderOptionsRecord = Record<string, JsonObject>;
+
+/**
+ * Honor the phase manifest when thinking is off. GPT-5.6 Responses defaults
+ * omitted `reasoningEffort` to medium and silently re-enables hidden
+ * reasoning — same trap as llm-fixer.ts. Never send `reasoningSummary` here
+ * (verifier has no thinking stream).
+ */
+export function resolveVerifierProviderOptions(params: {
+  modelId: string;
+  thinking: boolean;
+  reasoningEffort?: ReasoningEffort;
+  reasoningMode?: ReasoningMode;
+}): ProviderOptionsRecord | undefined {
+  const { modelId, thinking, reasoningEffort, reasoningMode } = params;
+  if (isAnthropicModel(modelId)) {
+    return {
+      anthropic: {
+        thinking: thinking ? { type: "adaptive" as const } : { type: "disabled" as const },
+        effort: toAnthropicEffort(reasoningEffort ?? "low"),
+      },
+    };
+  }
+  if (thinking) {
+    return {
+      openai: {
+        reasoningEffort: reasoningEffort ?? "low",
+        ...(reasoningMode ? { reasoningMode } : {}),
+      },
+    };
+  }
+  if (modelId.startsWith("gpt-5.6-")) {
+    return {
+      openai: {
+        reasoningEffort: reasoningEffort ?? "none",
+      },
+    };
+  }
+  return undefined;
+}
 
 export function isVerifierPassEnabled(): boolean {
   const v = process.env.SAJTMASKIN_VERIFIER_PASS?.trim().toLowerCase();
@@ -1346,24 +1385,12 @@ Use those exact ids so downstream tooling can recognise them.`;
       externalAbort.addEventListener("abort", onExternalAbort, { once: true });
     }
   }
-  let providerOptions: ProviderOptionsRecord | undefined;
-  if (thinkingConfig.thinking) {
-    providerOptions = isAnthropicModel(modelId)
-      ? {
-          anthropic: {
-            thinking: { type: "adaptive" as const },
-            effort: toAnthropicEffort(thinkingConfig.reasoningEffort),
-          },
-        }
-      : {
-          openai: {
-            reasoningEffort: thinkingConfig.reasoningEffort,
-            ...(thinkingConfig.reasoningMode
-              ? { reasoningMode: thinkingConfig.reasoningMode }
-              : {}),
-          },
-        };
-  }
+  const providerOptions = resolveVerifierProviderOptions({
+    modelId,
+    thinking: thinkingConfig.thinking,
+    reasoningEffort: thinkingConfig.reasoningEffort,
+    reasoningMode: thinkingConfig.reasoningMode,
+  });
 
   const llmCallStartedAt = Date.now();
   // Ett API-anrop = EN rad: efterbehandlingen nedan kan kasta efter att den

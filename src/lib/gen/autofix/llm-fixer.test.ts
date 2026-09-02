@@ -17,7 +17,8 @@ vi.mock("@/lib/logging/dev-log", () => ({
   devLogAppend: devLogAppendMock,
 }));
 
-import { runLlmFixer } from "./llm-fixer";
+import { fixerFeasibleMaxOutputTokens, runLlmFixer } from "./llm-fixer";
+import { AUTOFIX_MAX_OUTPUT_TOKENS, LLM_FIXER_TIMEOUT_MS } from "../defaults";
 
 describe("runLlmFixer merge behavior", () => {
   beforeEach(() => {
@@ -181,6 +182,32 @@ describe("runLlmFixer merge behavior", () => {
     );
   });
 
+  it("caps maxOutputTokens to what the fixer timeout can produce", async () => {
+    streamTextMock.mockReturnValue({
+      text: Promise.resolve([
+        '```tsx file="app/page.tsx"',
+        "export default function Page(){ return <main />; }",
+        "```",
+      ].join("\n")),
+    });
+
+    await runLlmFixer(
+      [
+        '```tsx file="app/page.tsx"',
+        "export default function Page(){ return <div>broken</div> }",
+        "```",
+      ].join("\n"),
+      ["app/page.tsx:1:1 broken"],
+    );
+
+    const expected = fixerFeasibleMaxOutputTokens(AUTOFIX_MAX_OUTPUT_TOKENS);
+    expect(expected).toBeLessThan(AUTOFIX_MAX_OUTPUT_TOKENS);
+    expect(expected).toBeLessThanOrEqual(Math.floor((LLM_FIXER_TIMEOUT_MS / 1000) * 150));
+    expect(streamTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({ maxOutputTokens: expected }),
+    );
+  });
+
   it("does not inject openai providerOptions for non-5.6 models when thinking is off", async () => {
     streamTextMock.mockReturnValue({
       text: Promise.resolve([
@@ -202,6 +229,27 @@ describe("runLlmFixer merge behavior", () => {
 
     const call = streamTextMock.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(call.providerOptions).toBeUndefined();
+  });
+
+  it("rejects a copied // ... unchanged stub so merge keeps the original file", async () => {
+    const originalBody = "export const keep = true;\nexport const note = 'ok';";
+    const original = ['```ts file="app/page.ts"', originalBody, "```"].join("\n");
+    const llmOutput = [
+      '```ts file="app/page.ts"',
+      originalBody,
+      "// ... unchanged",
+      "```",
+    ].join("\n");
+    streamTextMock.mockReturnValue({
+      text: Promise.resolve(llmOutput),
+    });
+
+    const result = await runLlmFixer(original, ["app/page.ts:1:1 broken"]);
+
+    expect(result.success).toBe(false);
+    expect(result.incompleteFiles[0]?.reason).toBe("ellipsis_or_rest_unchanged_tail");
+    expect(result.fixedContent).toContain(originalBody);
+    expect(result.fixedContent).not.toContain("// ... unchanged");
   });
 
   it("logs partial-response telemetry when incomplete files are excluded", async () => {

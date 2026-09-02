@@ -122,6 +122,7 @@ export async function runDeployBuildRepair(
       return { status: "superseded", skippedReason: outcome.skippedReason };
     case "no_files":
     case "auto_repair_disabled":
+    case "f3_readiness_hold":
       return { status: "unavailable", skippedReason: outcome.skippedReason };
     default:
       // Loopen kördes (started) men sparade ingen repair → kunde inte fixa.

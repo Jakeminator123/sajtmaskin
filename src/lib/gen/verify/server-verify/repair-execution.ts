@@ -35,7 +35,7 @@ import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
 } from "../preview-quality-gate";
-import { DEFAULT_MODEL_ID, ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
+import { DEFAULT_MODEL_ID, resolveChatModelTier } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import {
   LLM_FIXER_RETRY_TIMEOUT_MS,
@@ -60,6 +60,11 @@ import {
 } from "../server-verify-log-meta";
 import { resolvePostRepairFinalize } from "../server-repair-policy";
 import { isLatestVersionForChat } from "./lease";
+import {
+  evaluateServerOwnedF3Readiness,
+  persistF3ReadinessHold,
+  resolveSnapshotFilesRevision,
+} from "./f3-readiness";
 
 /**
  * Outcome of a server-repair loop run. `supersededByUserEdit` is set when the
@@ -124,6 +129,15 @@ export async function tryServerRepairLoop(params: {
   /** Fas 3 (RepairGate): shared ledger + scope for cross-lane dedupe. */
   repairLedger?: RepairLedger;
   repairScopeId?: string;
+  /**
+   * L1: F3 snapshot context so post-repair readiness re-runs against the
+   * repaired files before the post-repair gate / persist.
+   */
+  f3Readiness?: {
+    parentVersionId: string | null;
+    orchestrationSnapshot: unknown;
+    projectId: string | null;
+  } | null;
 }): Promise<ServerRepairLoopOutcome> {
   const {
     chatId,
@@ -140,6 +154,7 @@ export async function tryServerRepairLoop(params: {
     previewPolicy,
     forceBuildGate = false,
     repairDeadlineEpochMs,
+    f3Readiness = null,
   } = params;
   // Fas 3: without a finalize handover, use a fresh per-run ledger + a
   // version-bound scope (mirrors runner.ts's `{base}:{pass}` pattern) so the
@@ -232,6 +247,31 @@ export async function tryServerRepairLoop(params: {
       fallbackFiles: codeFiles,
     });
     const repairedFiles = reinjection.files;
+    if (previewPolicy === "fidelity3" && f3Readiness) {
+      const repairedFilesJson = JSON.stringify(repairedFiles);
+      const repairedRevision = resolveSnapshotFilesRevision({
+        filesJson: repairedFilesJson,
+      });
+      const readiness = await evaluateServerOwnedF3Readiness({
+        chatId,
+        versionId,
+        parentVersionId: f3Readiness.parentVersionId,
+        filesRevision: repairedRevision,
+        preloadedFiles: repairedFiles,
+        orchestrationSnapshot: f3Readiness.orchestrationSnapshot,
+        projectId: f3Readiness.projectId,
+      });
+      if (!readiness.ready) {
+        await persistF3ReadinessHold({
+          chatId,
+          versionId,
+          filesRevision: repairedRevision,
+          result: readiness,
+          at: "after_repair",
+        });
+        return false;
+      }
+    }
     if (
       protectedPartition.dropped.length > 0 ||
       reinjection.reinjected.length > 0 ||
@@ -422,7 +462,7 @@ export async function tryServerRepairLoop(params: {
   }
 
   const originatingChat = await getChat(chatId).catch(() => null);
-  const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
+  const originatingTier = resolveChatModelTier(originatingChat);
   // Bug 01#3 (2026-04-22 audit): fallback till default-tier (pro) när chat-
   // modellen inte mappar till en känd canonical tier. Tidigare blev fixerModel
   // `undefined` och runLlmFixer använde sin interna default — det bröt

@@ -246,6 +246,42 @@ describe("isLatestGateVerdictGreen (BB#299 watchdog reconciliation)", () => {
     expect(isLatestGateVerdictGreen(logs)).toBe(true);
   });
 
+  it("is false when a newer F3-readiness hold supersedes a green gate verdict", () => {
+    const logs = [
+      makeLog({
+        category: "server-verify:f3-readiness",
+        level: "warning",
+        created_at: at("2026-09-02T10:06:00.000Z"),
+        meta: { reason: "product_postcheck_pending", at: "before_promotion" },
+      }),
+      makeLog({
+        category: "preflight:quality-gate",
+        level: "info",
+        created_at: at("2026-09-02T10:05:00.000Z"),
+        meta: { passed: true },
+      }),
+    ];
+    expect(isLatestGateVerdictGreen(logs)).toBe(false);
+  });
+
+  it("keeps a later green gate verdict after an older F3 hold", () => {
+    const logs = [
+      makeLog({
+        category: "preflight:quality-gate",
+        level: "info",
+        created_at: at("2026-09-02T10:10:00.000Z"),
+        meta: { passed: true },
+      }),
+      makeLog({
+        category: "server-verify:f3-readiness",
+        level: "warning",
+        created_at: at("2026-09-02T10:00:00.000Z"),
+        meta: { reason: "product_postcheck_pending", at: "before_first_gate" },
+      }),
+    ];
+    expect(isLatestGateVerdictGreen(logs)).toBe(true);
+  });
+
   it("uses the NEWEST verdict: a later failure wins over an older pass", () => {
     const logs = [
       makeLog({

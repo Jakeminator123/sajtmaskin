@@ -3,13 +3,17 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  collectEsmSpecifiers,
   evaluateCiBranch,
   evaluateCiScopeWorkflow,
+  evaluateDependencyFreeImportGraph,
+  evaluateDossierAcceptanceWorkflow,
   evaluatePolicyFloors,
   evaluatePrHeadWorkflowPermissions,
   evaluateReservedWorkflowCheckNames,
   evaluateRetiredBugIdFloor,
   evaluateSecretWorkflowDispatches,
+  evaluateTrustedControllerImportGraph,
   evaluateTrustedReviewWindowGate,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
@@ -648,6 +652,27 @@ describe("agent workflow repository contract", () => {
         "test:e2e:contract": "true",
       }),
     ).toContain("test:e2e:contract must retain its exact Playwright discovery command");
+    expect(
+      evaluateCiScopeWorkflow(
+        replaceOnce("run: npm run test:stability:blocking", "run: npm run test:followup-contract"),
+        packageScripts,
+      ),
+    ).toContain("heavy quality-core must block on deterministic stability contracts");
+    expect(
+      evaluateCiScopeWorkflow(source, {
+        ...packageScripts,
+        "test:stability:blocking": "true",
+      }),
+    ).toContain("test:stability:blocking must run the explicit deterministic stability subset");
+    expect(
+      evaluateCiScopeWorkflow(
+        replaceOnce(
+          "  stability:\n    runs-on: ubuntu-latest\n    continue-on-error: true\n",
+          "  stability:\n    runs-on: ubuntu-latest\n",
+        ),
+        packageScripts,
+      ),
+    ).toContain("broad stability job must remain warn-only");
   });
 
   it("keeps no-op review events outside trusted gate concurrency", () => {
@@ -679,6 +704,42 @@ describe("agent workflow repository contract", () => {
       expect(candidate).not.toBe(source);
       expect(evaluateTrustedReviewWindowGate(candidate).length).toBeGreaterThan(0);
     }
+  });
+
+  it("keeps the trusted controller import graph free of npm packages", () => {
+    expect(collectEsmSpecifiers(readFileSync("scripts/ci/trusted-review-window.mjs", "utf8"))).toEqual(
+      expect.arrayContaining([
+        "node:crypto",
+        "node:fs",
+        "node:path",
+        "node:url",
+        "./merge-ready-freshness.mjs",
+        "../workflow/required-check-owners.mjs",
+        "../pr-review/core.mjs",
+        "../pr-review/account-fallback.mjs",
+      ]),
+    );
+    expect(evaluateTrustedControllerImportGraph()).toEqual([]);
+    expect(
+      evaluateDependencyFreeImportGraph(
+        {
+          "scripts/ci/trusted-review-window.mjs":
+            'import { requiredCheckOwnerSpec } from "../workflow/check-contract.mjs";\n',
+          "scripts/ci/merge-ready-freshness.mjs": "",
+          "scripts/workflow/check-contract.mjs":
+            'import Ajv2020 from "ajv/dist/2020.js";\nimport yaml from "js-yaml";\n',
+        },
+        [
+          "scripts/ci/trusted-review-window.mjs",
+          "scripts/ci/merge-ready-freshness.mjs",
+        ],
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        "scripts/workflow/check-contract.mjs imports non-node package 'ajv/dist/2020.js'",
+        "scripts/workflow/check-contract.mjs imports non-node package 'js-yaml'",
+      ]),
+    );
   });
 
   it("scopes DB/Blob PR smoke to its exact executable inputs", () => {
@@ -842,7 +903,12 @@ describe("agent workflow repository contract", () => {
       "on: push\njobs:\n  fake:\n    name: review-window\n    runs-on: ubuntu-latest\n",
     ],
     ["other.yml", "on: push\njobs:\n  quality:\n    name: harmless\n    runs-on: ubuntu-latest\n"],
+    [
+      "other.yml",
+      "on: push\njobs:\n  dossier-acceptance:\n    name: harmless\n    runs-on: ubuntu-latest\n",
+    ],
     ["other.yml", "on: push\njobs:\n  fake:\n    name: build\n    runs-on: ubuntu-latest\n"],
+    ["other.yml", "on: push\njobs:\n  fake:\n    name: dossier-acceptance\n    runs-on: ubuntu-latest\n"],
     [
       "other.yml",
       "on: push\njobs:\n  fake:\n    name: trusted-pr-ai-review\n    runs-on: ubuntu-latest\n",
@@ -855,8 +921,8 @@ describe("agent workflow repository contract", () => {
     expect(evaluateReservedWorkflowCheckNames([{ name, source }]).length).toBeGreaterThan(0);
   });
 
-  it("allows every core context exactly once only in canonical CI", () => {
-    const source = [
+  it("allows every core context exactly once only in its owning workflow", () => {
+    const ci = [
       "on: pull_request",
       "permissions: { contents: read }",
       "jobs:",
@@ -866,13 +932,39 @@ describe("agent workflow repository contract", () => {
       "  schema-drift: { runs-on: ubuntu-latest, steps: [] }",
       "",
     ].join("\n");
-    expect(evaluateReservedWorkflowCheckNames([{ name: "ci.yml", source }])).toEqual([]);
+    const dossierAcceptance = [
+      "on: pull_request",
+      "permissions: { contents: read }",
+      "jobs:",
+      "  dossier-acceptance: { runs-on: ubuntu-latest, steps: [] }",
+      "",
+    ].join("\n");
+    expect(
+      evaluateReservedWorkflowCheckNames([
+        { name: "ci.yml", source: ci },
+        { name: "dossier-acceptance.yml", source: dossierAcceptance },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("rejects a path-filtered dossier-acceptance pull_request trigger", () => {
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    expect(evaluateDossierAcceptanceWorkflow(source)).toEqual([]);
+    expect(
+      evaluateDossierAcceptanceWorkflow(
+        source.replace(
+          "    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]\n",
+          "    paths: [\"data/dossiers/**\"]\n",
+        ),
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it("keeps an independent security floor below the editable policy", () => {
     const policy = loadWorkflowInputs().policy;
     expect(evaluatePolicyFloors(policy)).toEqual([]);
     expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/check-contract.mjs");
+    expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/required-check-owners.mjs");
     expect(
       evaluatePolicyFloors({
         ...structuredClone(policy),
@@ -883,9 +975,30 @@ describe("agent workflow repository contract", () => {
     ).toContain(
       "manualMergePathPrefixes security floor missing: scripts/workflow/check-contract.mjs",
     );
+    expect(
+      evaluatePolicyFloors({
+        ...structuredClone(policy),
+        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+          (candidate: string) => candidate !== "scripts/workflow/required-check-owners.mjs",
+        ),
+      }),
+    ).toContain(
+      "manualMergePathPrefixes security floor missing: scripts/workflow/required-check-owners.mjs",
+    );
 
     const weakened = [
       { ...structuredClone(policy), requiredChecks: ["quality"] },
+      {
+        ...structuredClone(policy),
+        requiredCheckOwners: { quality: "ci.yml" },
+      },
+      {
+        ...structuredClone(policy),
+        requiredCheckOwners: {
+          ...policy.requiredCheckOwners,
+          "dossier-acceptance": "ci.yml",
+        },
+      },
       ...policy.manualMergePathPrefixes.map((prefix: string) => ({
         ...structuredClone(policy),
         manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(

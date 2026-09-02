@@ -21,6 +21,7 @@ import {
   persistImportedRepoInitialization,
   recordImportedRepoPreviewOutcome,
 } from "@/lib/templates/imported-repo-initialization";
+import { safeFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 
 export const runtime = "nodejs";
 
@@ -178,17 +179,68 @@ function buildGithubZipUrl(repo: GitHubRepoRef, branch: string): string {
   )}.zip`;
 }
 
+class ZipImportError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ZipImportError";
+    this.status = status;
+  }
+}
+
+const ZIP_UPSTREAM_ERRORS: Record<number, string> = {
+  401: "Archive download unauthorized",
+  403: "Archive download forbidden",
+  404: "Archive not found",
+  429: "Archive download rate limited",
+};
+
+function isSafeFetchSsrfBlock(status: number, body: string): boolean {
+  if (status !== 400 && status !== 403) return false;
+  return (
+    body.includes("Request blocked") ||
+    body.includes("Redirect blocked") ||
+    body === "Invalid URL" ||
+    body === "Too many redirects"
+  );
+}
+
 async function downloadZipBufferFromUrl(params: {
   url: string;
   maxBytes: number;
   headers?: Record<string, string>;
 }): Promise<Buffer> {
-  const response = await fetch(params.url, {
+  let parsed: URL;
+  try {
+    parsed = new URL(params.url);
+  } catch {
+    throw new ZipImportError("Invalid ZIP URL", 400);
+  }
+  const ssrfCheck = validateSsrfTarget(parsed);
+  if (!ssrfCheck.ok) {
+    throw new ZipImportError("ZIP URL is not allowed", 400);
+  }
+
+  const response = await safeFetch(params.url, {
     headers: params.headers,
+    timeoutMs: 30_000,
+    maxBodyBytes: params.maxBytes,
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to download ZIP archive (HTTP ${response.status})`);
+    if (response.status === 413) {
+      throw new ZipImportError("Repository ZIP is too large for import", 413);
+    }
+    const body = await response.text();
+    if (isSafeFetchSsrfBlock(response.status, body)) {
+      throw new ZipImportError("ZIP URL is not allowed", 400);
+    }
+    const mapped = ZIP_UPSTREAM_ERRORS[response.status];
+    if (mapped) {
+      throw new ZipImportError(mapped, response.status);
+    }
+    throw new ZipImportError(`Failed to download ZIP archive (HTTP ${response.status})`, 500);
   }
 
   const contentLength = response.headers.get("content-length");
@@ -630,6 +682,11 @@ export async function POST(req: Request) {
       );
     } catch (err) {
       console.error("Init chat error:", err);
+      if (err instanceof ZipImportError) {
+        return attachSessionCookie(
+          NextResponse.json({ error: err.message }, { status: err.status }),
+        );
+      }
       const message = err instanceof Error ? err.message : "Unknown error";
       const status = message.includes("Connect GitHub")
         ? 401
