@@ -80,6 +80,135 @@ describe("buildGenerationQuote", () => {
   });
 });
 
+function decisionFromQuote(
+  rows: Array<ReturnType<typeof usageRow>>,
+  overrides: Partial<Parameters<typeof resolveGenerationChargeDecision>[0]> = {},
+) {
+  const quote = buildGenerationQuote(rows as never);
+  return {
+    quote,
+    decision: resolveGenerationChargeDecision({
+      hasOwner: true,
+      ownerIsTest: false,
+      hasCompletePrice:
+        quote.llmCalls > 0 &&
+        quote.unpricedModels.length === 0 &&
+        quote.incompleteUsageIds.length === 0,
+      hasEstimatedPrice: quote.estimatedModels.length > 0,
+      llmCalls: quote.llmCalls,
+      hasIncompleteUsage: quote.incompleteUsageIds.length > 0,
+      calculatedCredits: 7,
+      lockedCredits: 0,
+      existingFreeGenerationApplied: false,
+      freeGenerationEligible: true,
+      freeGenerationAvailable: false,
+      ...overrides,
+    }),
+  };
+}
+
+const failedTokenlessRow = () =>
+  usageRow({
+    id: "failed-brief",
+    phase: "brief",
+    ok: false,
+    error_code: "provider_timeout",
+    input_tokens: null,
+    cached_input_tokens: null,
+    cache_write_tokens: null,
+    output_tokens: null,
+    reasoning_tokens: null,
+    cost_microusd: null,
+    cost_breakdown: null,
+  });
+
+const pendingUsageRow = () =>
+  usageRow({
+    id: "pending-usage",
+    ok: true,
+    input_tokens: null,
+    cached_input_tokens: null,
+    cache_write_tokens: null,
+    output_tokens: null,
+    reasoning_tokens: null,
+  });
+
+describe("settlement snapshot with failed or pending usage", () => {
+  it("charges the priced amount when a failed tokenless row sits beside a priced call", () => {
+    const priced = usageRow({ id: "priced-codegen" });
+    const { quote, decision } = decisionFromQuote([failedTokenlessRow(), priced]);
+    const pricedOnly = buildGenerationQuote([priced as never]);
+
+    expect(quote.incompleteUsageIds).toEqual([]);
+    expect(quote.providerCostMicroUsd).toBe(pricedOnly.providerCostMicroUsd);
+    expect(quote.providerCostMicroUsd).toBeGreaterThan(0);
+    expect(decision).toMatchObject({
+      desiredCredits: 7,
+      status: "charged",
+      freeGenerationApplied: false,
+    });
+  });
+
+  it("still settles as usage_incomplete when a succeeded row has no tokens yet", () => {
+    const { quote, decision } = decisionFromQuote([
+      pendingUsageRow(),
+      usageRow({ id: "priced-codegen" }),
+    ]);
+
+    expect(quote.incompleteUsageIds).toEqual(["pending-usage"]);
+    expect(decision).toMatchObject({
+      desiredCredits: 0,
+      status: "usage_incomplete",
+      freeGenerationApplied: false,
+    });
+  });
+
+  it("charges the priced row when a failed unknown-model row sits beside it", () => {
+    const priced = usageRow({ id: "priced-codegen" });
+    const failedUnknown = usageRow({
+      id: "failed-unknown",
+      phase: "brief",
+      ok: false,
+      error_code: "provider_timeout",
+      model: "unknown",
+      input_tokens: null,
+      cached_input_tokens: null,
+      cache_write_tokens: null,
+      output_tokens: null,
+      reasoning_tokens: null,
+      cost_microusd: null,
+      cost_breakdown: null,
+    });
+    const { quote, decision } = decisionFromQuote([failedUnknown, priced]);
+    const pricedOnly = buildGenerationQuote([priced as never]);
+
+    expect(quote.incompleteUsageIds).toEqual([]);
+    expect(quote.unpricedModels).toEqual([]);
+    expect(quote.providerCostMicroUsd).toBe(pricedOnly.providerCostMicroUsd);
+    expect(quote.providerCostMicroUsd).toBeGreaterThan(0);
+    expect(decision).toMatchObject({
+      desiredCredits: 7,
+      status: "charged",
+      freeGenerationApplied: false,
+    });
+  });
+
+  it("still applies the free entitlement when a failed tokenless row is present", () => {
+    const { quote, decision } = decisionFromQuote(
+      [failedTokenlessRow(), usageRow({ id: "priced-codegen" })],
+      { freeGenerationAvailable: true, calculatedCredits: 7 },
+    );
+
+    expect(quote.incompleteUsageIds).toEqual([]);
+    expect(decision).toMatchObject({
+      desiredCredits: 0,
+      status: "free_generation",
+      freeGenerationApplied: true,
+      shouldClaimFreeGeneration: true,
+    });
+  });
+});
+
 describe("resolveGenerationChargeDecision", () => {
   const complete = {
     hasOwner: true,
