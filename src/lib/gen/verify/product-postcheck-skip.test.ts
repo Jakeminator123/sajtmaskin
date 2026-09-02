@@ -61,6 +61,7 @@ describe("classifyProductPostcheckSkipReason — SM-072", () => {
   it("behåller produktbärande orsaker som product", () => {
     for (const reason of [
       "preview_not_running",
+      "preview_not_ready",
       "missing_preview_url",
       "url_not_allowed",
       "navigation_failed",
