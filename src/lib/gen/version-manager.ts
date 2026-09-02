@@ -5,6 +5,7 @@ import {
   getVersionById,
   type Version,
 } from "@/lib/db/chat-repository-pg";
+import type { EngineVersionVerificationState } from "@/lib/db/engine-version-lifecycle";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { incIngressEvent } from "@/lib/observability/metrics";
 import { parseCodeProject, type CodeFile } from "./parser";
@@ -76,6 +77,8 @@ export async function getVersionFilesSnapshot(
   lifecycleStage: "design" | "integrations";
   /** DB-generated md5 of `filesJson`; same row as the parsed files. */
   filesRevision: string | null;
+  /** Same `getVersionById` row as `files` / `filesRevision` (L5 CAS). */
+  verificationState: EngineVersionVerificationState;
 } | null> {
   const version = await getVersionById(versionId);
   if (!version) return null;
@@ -89,6 +92,7 @@ export async function getVersionFilesSnapshot(
     filesJson: version.files_json,
     lifecycleStage: version.lifecycle_stage,
     filesRevision: version.files_revision ?? null,
+    verificationState: version.verification_state,
   };
 }
 

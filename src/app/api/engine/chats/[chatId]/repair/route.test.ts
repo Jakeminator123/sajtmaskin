@@ -1009,13 +1009,18 @@ describe("POST repair — catch re-reads base when the crash precedes staleBaseN
     getRequestUserId.mockResolvedValue("user-1");
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat-1" },
-      version: { id: "ver-1", files_revision: "rev-pre-lease" },
+      version: {
+        id: "ver-1",
+        files_revision: "rev-pre-lease",
+        verification_state: "failed",
+      },
     });
     getVersionFilesSnapshot.mockReset();
     getVersionFilesSnapshot.mockResolvedValue({
-      files: [{ path: "app/page.tsx", content: "A" }],
-      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+      files: [{ path: "app/page.tsx", content: "B" }],
+      filesJson: '[{"path":"app/page.tsx","content":"B"}]',
       filesRevision: "rev-post-lease",
+      verificationState: "failed",
     });
     failVersionVerification.mockResolvedValue(null);
     failVersionVerificationIfUnleased.mockResolvedValue({
@@ -1032,10 +1037,23 @@ describe("POST repair — catch re-reads base when the crash precedes staleBaseN
     );
 
     expect(res.status).toBe(500);
+    expect(acquireVersionLease.mock.invocationCallOrder[0]).toBeLessThan(
+      getVersionFilesSnapshot.mock.invocationCallOrder[0],
+    );
     expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(
       "ver-1",
       expect.stringContaining("Repair crashed"),
       { verificationState: "repairing", filesRevision: "rev-post-lease" },
+    );
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalledWith(
+      "ver-1",
+      expect.anything(),
+      expect.objectContaining({ filesRevision: "rev-pre-lease" }),
+    );
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalledWith(
+      "ver-1",
+      expect.anything(),
+      expect.objectContaining({ verificationState: "failed" }),
     );
   });
 });
