@@ -3,6 +3,11 @@ import { safeFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 import { NextRequest, NextResponse } from "next/server";
 
 const UNSPLASH_DOWNLOAD_MAX_BYTES = 256_000;
+const UNSPLASH_DOWNLOAD_HOSTS = new Set(["api.unsplash.com"]);
+
+function isAllowedUnsplashDownloadUrl(url: URL): boolean {
+  return url.protocol === "https:" && UNSPLASH_DOWNLOAD_HOSTS.has(url.hostname.toLowerCase());
+}
 
 /**
  * Unsplash Download Tracking Endpoint
@@ -49,8 +54,7 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
-      const ssrfCheck = validateSsrfTarget(parsed);
-      if (!ssrfCheck.ok) {
+      if (!isAllowedUnsplashDownloadUrl(parsed) || !validateSsrfTarget(parsed).ok) {
         return NextResponse.json(
           { success: false, error: "Download URL is not allowed" },
           { status: 400 },

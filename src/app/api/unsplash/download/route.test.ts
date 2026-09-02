@@ -39,6 +39,14 @@ describe("POST /api/unsplash/download", () => {
     expect(safeFetch).not.toHaveBeenCalled();
   });
 
+  it("does not send the Client-ID to a public attacker host", async () => {
+    const response = await POST(makeRequest({ downloadLocation: "https://attacker.example/" }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "Download URL is not allowed" });
+    expect(safeFetch).not.toHaveBeenCalled();
+  });
+
   it("tracks a download location through safeFetch", async () => {
     const response = await POST(
       makeRequest({ downloadLocation: "https://api.unsplash.com/photos/abc123/download" }),
