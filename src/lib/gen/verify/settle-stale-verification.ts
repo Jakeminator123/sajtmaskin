@@ -206,10 +206,18 @@ export async function settleStaleVerificationIfNeeded(
   const timedOutVersion = await failVersionVerificationIfUnleased(
     version.id,
     concreteFailureSummary ?? GENERIC_TIMEOUT_SUMMARY,
+    {
+      // L5 CAS: bind the fail to the snapshot this watchdog already read so a
+      // concurrent promote or files rewrite during the await window above
+      // cannot be clobbered back to failed/draft. `null` revision is an
+      // explicit IS NULL match, not "skip the column".
+      verificationState: version.verification_state,
+      filesRevision: version.files_revision ?? null,
+    },
   ).catch(() => null);
 
-  if (timedOutVersion) {
-    return { version: timedOutVersion, failed: true };
+  if (timedOutVersion?.applied) {
+    return { version: timedOutVersion.version, failed: true };
   }
   return { version, failed: false };
 }
