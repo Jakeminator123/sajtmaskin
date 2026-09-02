@@ -3,6 +3,7 @@ import {
   classifyProductPostcheckSkipReason,
   formatProductPostcheckSkippedMessage,
   isInfrastructureSkipReason,
+  isNonFinalProductPostcheckSkipReason,
   productPostcheckSkipReasonFromMessage,
 } from "./product-postcheck-skip";
 
@@ -50,6 +51,7 @@ describe("classifyProductPostcheckSkipReason — SM-072", () => {
       "browser_crashed",
       "capture_failed",
       "feature_disabled",
+      "claim_busy",
     ]) {
       expect(classifyProductPostcheckSkipReason(reason), reason).toBe("infrastructure");
       expect(isInfrastructureSkipReason(reason), reason).toBe(true);
@@ -88,6 +90,11 @@ describe("classifyProductPostcheckSkipReason — SM-072", () => {
     expect(classifyProductPostcheckSkipReason("")).toBe("product");
     expect(classifyProductPostcheckSkipReason(null)).toBe("product");
     expect(classifyProductPostcheckSkipReason(undefined)).toBe("product");
+  });
+
+  it("claim_busy är icke-final och inte en produktverdikt", () => {
+    expect(isNonFinalProductPostcheckSkipReason("claim_busy")).toBe(true);
+    expect(isNonFinalProductPostcheckSkipReason("preview_not_running")).toBe(false);
   });
 
   it("normaliserar skiftläge och blanksteg", () => {

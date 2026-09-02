@@ -62,7 +62,19 @@ const INFRASTRUCTURE_SKIP_REASONS: ReadonlySet<string> = new Set([
   "capture_failed",
   // Operatören har stängt av postchecken. Inget om sajten.
   "feature_disabled",
+  // L6: en annan POST äger redan Chromium-slotten för samma revisionstupel.
+  // Ingen produktinformation — klienten ska försöka igen.
+  "claim_busy",
 ]);
+
+const NON_FINAL_SKIP_REASONS: ReadonlySet<string> = new Set(["claim_busy"]);
+
+/** Skip that is not a finished verdict for this revision tuple. */
+export function isNonFinalProductPostcheckSkipReason(
+  reason: string | null | undefined,
+): boolean {
+  return NON_FINAL_SKIP_REASONS.has(reason?.trim().toLowerCase() ?? "");
+}
 
 export function classifyProductPostcheckSkipReason(
   reason: string | null | undefined,

@@ -57,7 +57,12 @@ export type ProductPostcheckSkipReason =
    * får därför den icke-anklagande ytan i buildern.
    */
   | "browser_crashed"
-  | "runtime_error";
+  | "runtime_error"
+  /**
+   * Another POST already holds the L6 single-flight claim for this
+   * revision tuple. Non-final / retryable — not a product verdict.
+   */
+  | "claim_busy";
 
 export type ProductPostcheckWarning = {
   code: ProductPostcheckWarningCode;

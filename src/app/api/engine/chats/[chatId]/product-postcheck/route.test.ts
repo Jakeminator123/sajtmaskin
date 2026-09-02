@@ -15,6 +15,8 @@ const deleteLiveReviewScreenshotUrls = vi.hoisted(() => vi.fn());
 const getPreviewHostBaseUrl = vi.hoisted(() => vi.fn((): string | null => null));
 const waitForProductPostcheckPreviewRunning = vi.hoisted(() => vi.fn());
 const readProductPostcheckPreviewProbe = vi.hoisted(() => vi.fn());
+const claimProductPostcheckRun = vi.hoisted(() => vi.fn());
+const completeProductPostcheckRun = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) =>
@@ -75,6 +77,23 @@ vi.mock("@/lib/gen/verify/product-postcheck-preview-wait", async (importOriginal
 vi.mock("@/lib/db/services/live-review-runs", () => ({
   abandonLiveReviewRun,
   deleteLiveReviewScreenshotUrls,
+}));
+
+vi.mock("@/lib/db/services/product-postcheck-runs", () => ({
+  claimProductPostcheckRun,
+  completeProductPostcheckRun,
+  mapProductPostcheckResultToStatus: (result: {
+    skipped: boolean;
+    skippedReason: string | null;
+    productBlocked: boolean;
+  }) => {
+    if (result.skippedReason === "preview_superseded") return "superseded";
+    if (result.productBlocked) return "blocked";
+    if (result.skipped) return "failed";
+    return "passed";
+  },
+  normalizeProductPostcheckMutationRevision: (value: number | null | undefined) =>
+    typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : 0,
 }));
 
 function req(body: unknown): Request {
@@ -139,6 +158,13 @@ describe("POST product-postcheck", () => {
       previewUrl: "[REDACTED]/chat_1",
       readinessState: null,
     });
+    claimProductPostcheckRun.mockResolvedValue({
+      kind: "acquired",
+      runId: "run_test",
+      claimGeneration: 1,
+      owner: "user_1",
+    });
+    completeProductPostcheckRun.mockResolvedValue(true);
   });
 
   it("feature flag off => skipped utan DB/Playwright-körning", async () => {
@@ -759,6 +785,96 @@ describe("POST product-postcheck", () => {
     expect(waitForProductPostcheckPreviewRunning).toHaveBeenCalled();
     expect(body.skipped).toBe(false);
     expect(runProductPostcheck).toHaveBeenCalled();
+    expect(emitBusEvent).not.toHaveBeenCalled();
+  });
+
+  it("(a) två samtidiga POST → en claim, ett browserjobb, andra claim_busy", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    claimProductPostcheckRun
+      .mockResolvedValueOnce({
+        kind: "acquired",
+        runId: "run_winner",
+        claimGeneration: 1,
+        owner: "user_1",
+      })
+      .mockResolvedValueOnce({
+        kind: "busy",
+        runId: "run_winner",
+        claimGeneration: 1,
+        status: "running",
+      });
+    let releaseWinner: (() => void) | undefined;
+    runProductPostcheck.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseWinner = () =>
+            resolve({
+              ok: true,
+              skipped: false,
+              skippedReason: null,
+              warnings: [],
+              warningCount: 0,
+              productBlocked: false,
+              durationMs: 8,
+              checkedUrl: "[REDACTED]/chat_1",
+              routesChecked: 1,
+            });
+        }),
+    );
+
+    const pending = [
+      POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      }),
+      POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      }),
+    ];
+    await vi.waitFor(() => {
+      expect(claimProductPostcheckRun).toHaveBeenCalledTimes(2);
+    });
+    expect(runProductPostcheck).toHaveBeenCalledTimes(1);
+    releaseWinner?.();
+    const settled = await Promise.all(
+      pending.map(async (p) => {
+        const res = await p;
+        return { status: res.status, body: await res.json() };
+      }),
+    );
+    const busy = settled.find((item) => item.body.skippedReason === "claim_busy");
+    const winner = settled.find((item) => item.body.skipped !== true);
+    expect(winner?.status).toBe(200);
+    expect(winner?.body.verificationRunId).toBe("run_winner");
+    expect(busy?.status).toBe(200);
+    expect(busy?.body.skippedReason).toBe("claim_busy");
+    expect(busy?.body.verificationRunId).toBe("run_winner");
+    expect(busy?.body.attestation).toBeNull();
+    expect(runProductPostcheck).toHaveBeenCalledTimes(1);
+    expect(emitBusEvent).not.toHaveBeenCalled();
+  });
+
+  it("(b) DB-fel vid claim → 503 + Retry-After, ingen browser", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    claimProductPostcheckRun.mockResolvedValue({
+      kind: "unavailable",
+      reason: "db_error",
+    });
+
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Retry-After")).toBe("3");
+    expect(body).toEqual({
+      error: "Product postcheck claim unavailable (database error). Try again shortly.",
+      code: "claim_unavailable",
+      retryable: true,
+    });
+    expect(runProductPostcheck).not.toHaveBeenCalled();
+    expect(beginLiveReviewSession).not.toHaveBeenCalled();
     expect(emitBusEvent).not.toHaveBeenCalled();
   });
 
