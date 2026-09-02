@@ -93,6 +93,16 @@ describe("ssrf-guard", () => {
     expect(isDisallowedHost("::ffff:0808:0808")).toBe(false);
   });
 
+  it("blocks deprecated IPv4-compatible IPv6 URL literals via the embedded IPv4", () => {
+    expect(isDisallowedHost("::169.254.169.254")).toBe(true);
+    expect(isDisallowedHost("::127.0.0.1")).toBe(true);
+    expect(isDisallowedHost("::10.0.0.1")).toBe(true);
+    expect(validateSsrfTarget(new URL("http://[::169.254.169.254]/")).ok).toBe(false);
+    expect(validateSsrfTarget(new URL("http://[::127.0.0.1]/")).ok).toBe(false);
+    expect(validateSsrfTarget(new URL("http://[::10.0.0.1]/")).ok).toBe(false);
+    expect(validateSsrfTarget(new URL("http://[::8.8.8.8]/")).ok).toBe(true);
+  });
+
   it("allows regular public hosts", () => {
     expect(isDisallowedHost("example.com")).toBe(false);
     expect(isDisallowedHost("api.openai.com")).toBe(false);

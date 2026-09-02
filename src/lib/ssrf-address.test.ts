@@ -97,8 +97,13 @@ describe("isResolvedAddressPrivate", () => {
     expect(isResolvedAddressPrivate("::169.254.169.254")).toBe(true);
     expect(isResolvedAddressPrivate("::127.0.0.1")).toBe(true);
     expect(isResolvedAddressPrivate("::10.0.0.1")).toBe(true);
+    // Node's URL parser rewrites dotted tails to hex (`[::a9fe:a9fe]`).
+    expect(isResolvedAddressPrivate("::a9fe:a9fe")).toBe(true);
+    expect(isResolvedAddressPrivate("::7f00:1")).toBe(true);
+    expect(isResolvedAddressPrivate("::a00:1")).toBe(true);
     // Policy: do not blanket-block ::/96. A public embedded IPv4 stays public.
     expect(isResolvedAddressPrivate("::8.8.8.8")).toBe(false);
+    expect(isResolvedAddressPrivate("::808:808")).toBe(false);
   });
 
   it("fails closed on unparseable addresses", () => {

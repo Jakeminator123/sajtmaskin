@@ -67,13 +67,16 @@ function expandIpv6(host: string): ExpandedIpv6 | null {
   const hextets = [...left, ...Array<number>(zeros).fill(0), ...right];
   if (hextets.length !== 8) return null;
 
+  // Both IPv4-mapped (`::ffff:0:0/96`) and deprecated IPv4-compatible (`::/96`)
+  // embed an IPv4 address in the last 32 bits. Node parses both as IPv6
+  // literals and skips DNS, so callers never see a separate IPv4 lookup.
   const mapped =
     hextets[0] === 0 &&
     hextets[1] === 0 &&
     hextets[2] === 0 &&
     hextets[3] === 0 &&
     hextets[4] === 0 &&
-    hextets[5] === 0xffff
+    (hextets[5] === 0xffff || hextets[5] === 0)
       ? hextetsToIpv4(hextets[6] ?? 0, hextets[7] ?? 0)
       : null;
 
@@ -115,18 +118,15 @@ function isPrivateIpv4(host: string): boolean {
 function isPrivateIpv6(host: string): boolean {
   const expanded = expandIpv6(host);
   if (!expanded) return true;
-  if (expanded.mappedIpv4) return isPrivateIpv4(expanded.mappedIpv4);
 
-  const { hextets } = expanded;
+  const { hextets, mappedIpv4 } = expanded;
   const unspecified = hextets.every((value) => value === 0);
   const loopback = hextets.slice(0, 7).every((value) => value === 0) && hextets[7] === 1;
   if (unspecified || loopback) return true;
-  // Deprecated IPv4-compatible `::a.b.c.d` (`::/96`, hextet 5 ≠ 0xffff).
-  // Policy: same as mapped — classify the embedded IPv4. Public destinations
-  // such as `::8.8.8.8` stay allowed; RFC1918/loopback/link-local do not.
-  if (hextets.slice(0, 6).every((value) => value === 0)) {
-    return isPrivateIpv4(hextetsToIpv4(hextets[6] ?? 0, hextets[7] ?? 0));
-  }
+  // Policy: classify the embedded IPv4 of mapped (`::ffff:0:0/96`) and
+  // deprecated compatible (`::/96`) addresses. Do not blanket-block `::/96`
+  // — a public tail such as `::8.8.8.8` stays allowed.
+  if (mappedIpv4) return isPrivateIpv4(mappedIpv4);
 
   // Well-known NAT64 prefix. A local translator would turn the last 32 bits
   // into an IPv4 connect, so the prefix is never a safe global destination.

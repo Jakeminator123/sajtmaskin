@@ -130,8 +130,9 @@ function buildResponseHeaders(headers: http.IncomingHttpHeaders): Record<string,
 }
 
 function bodyLimitError(maxBodyBytes: number): NodeJS.ErrnoException {
-  const error = new Error(`${PINNED_BODY_LIMIT_PREFIX} ${maxBodyBytes} bytes`) as NodeJS.ErrnoException;
-  error.name = "RangeError";
+  const error = new RangeError(
+    `${PINNED_BODY_LIMIT_PREFIX} ${maxBodyBytes} bytes`,
+  ) as NodeJS.ErrnoException;
   error.code = PINNED_BODY_LIMIT_CODE;
   return error;
 }
