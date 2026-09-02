@@ -3,6 +3,7 @@ import {
   promoteVersion,
   failVersionVerification,
   markVersionSupersededByRepair,
+  resetVersionVerificationToPending,
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
@@ -293,6 +294,44 @@ export async function triggerServerVerification(params: {
     // the advisory promotion actually took.
     const outcomeIsGreen = passed || advisoryPromoted;
 
+    // L1: F3 before_promotion must run BEFORE the passed bus + green
+    // `preflight:quality-gate` log. Otherwise UI (`reconcileTerminalDbState`)
+    // treats bus `done` as klar, and the stale watchdog
+    // (`isLatestGateVerdictGreen` → `promoteVersionIfUnleased`) can promote
+    // without this grind.
+    if (
+      passed &&
+      !advisoryPromoted &&
+      !diagnosticOnly &&
+      previewPolicy === "fidelity3" &&
+      f3ReadinessContext
+    ) {
+      const readiness = await evaluateServerOwnedF3Readiness({
+        chatId,
+        versionId,
+        parentVersionId,
+        filesRevision,
+        preloadedFiles: codeFiles,
+        orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
+        projectId: f3ReadinessContext.projectId,
+      });
+      if (!readiness.ready) {
+        await persistF3ReadinessHold({
+          chatId,
+          versionId,
+          filesRevision,
+          result: readiness,
+          at: "before_promotion",
+        });
+        await resetVersionVerificationToPending(
+          versionId,
+          `F3 readiness blocked (${readiness.reason}) at before_promotion.`,
+          runId,
+        ).catch(() => null);
+        return;
+      }
+    }
+
     // OMTAG-06: emit `version.verifier.done` as the canonical outcome
     // signal. The DB sink subscriber (see `event-bus-error-log-sink.ts`)
     // still persists the legacy `engine_version_error_logs` row via the
@@ -398,27 +437,6 @@ export async function triggerServerVerification(params: {
           runId,
         ).catch(() => null);
         return;
-      }
-      if (previewPolicy === "fidelity3" && f3ReadinessContext) {
-        const readiness = await evaluateServerOwnedF3Readiness({
-          chatId,
-          versionId,
-          parentVersionId,
-          filesRevision,
-          preloadedFiles: codeFiles,
-          orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
-          projectId: f3ReadinessContext.projectId,
-        });
-        if (!readiness.ready) {
-          await persistF3ReadinessHold({
-            chatId,
-            versionId,
-            filesRevision,
-            result: readiness,
-            at: "before_promotion",
-          });
-          return;
-        }
       }
       const promoted = await promoteVersion(
         versionId,

@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const promoteVersion = vi.hoisted(() => vi.fn());
 const failVersionVerification = vi.hoisted(() => vi.fn());
+const resetVersionVerificationToPending = vi.hoisted(() => vi.fn());
 const saveRepairedFiles = vi.hoisted(() => vi.fn());
 const updateVersionFiles = vi.hoisted(() => vi.fn());
 const markVersionVerifying = vi.hoisted(() => vi.fn());
@@ -38,6 +39,7 @@ vi.mock("@/lib/db/client", () => ({ dbConfigured: true, db: {}, pool: null }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   promoteVersion,
   failVersionVerification,
+  resetVersionVerificationToPending,
   saveRepairedFiles,
   updateVersionFiles,
   markVersionVerifying,
@@ -161,6 +163,7 @@ function gateFailTypecheck() {
 beforeEach(() => {
   promoteVersion.mockReset().mockResolvedValue({ id: versionId });
   failVersionVerification.mockReset().mockResolvedValue(null);
+  resetVersionVerificationToPending.mockReset().mockResolvedValue({ id: versionId });
   saveRepairedFiles.mockReset().mockResolvedValue({ status: "failed" });
   updateVersionFiles.mockReset().mockResolvedValue(true);
   markVersionVerifying.mockReset().mockResolvedValue(null);
@@ -379,5 +382,55 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
         filesRevision: "rev_f3",
       }),
     );
+  });
+
+  it("before_promotion-hold: ingen passed-buss, ingen grön gatelogg, pending istället för promotion", async () => {
+    checkTier3ReadinessForVersion
+      .mockResolvedValueOnce({
+        ready: true,
+        ok: true,
+        spec: { requirements: [] },
+      })
+      .mockResolvedValueOnce({
+        ready: false,
+        ok: false,
+        reason: "product_postcheck_pending",
+        verdict: "pending",
+        retryable: true,
+      });
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(runQualityGateOnExportable).toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(resetVersionVerificationToPending).toHaveBeenCalledWith(
+      versionId,
+      expect.stringContaining("product_postcheck_pending"),
+      "run-l1",
+    );
+    expect(emitBusEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ t: "version.verifier.done", outcome: "passed" }),
+    );
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "server-verify:f3-readiness",
+          meta: expect.objectContaining({
+            reason: "product_postcheck_pending",
+            at: "before_promotion",
+          }),
+        }),
+      ]),
+    );
+    expect(
+      createEngineVersionErrorLogs.mock.calls.some((call) =>
+        (call[0] as Array<{ category?: string; message?: string }>).some(
+          (row) =>
+            row.category === "preflight:quality-gate" &&
+            row.message === "Server verify passed.",
+        ),
+      ),
+    ).toBe(false);
   });
 });

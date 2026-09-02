@@ -49,6 +49,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getLatestVersion,
   getChat,
   markVersionSupersededByRepair,
+  resetVersionVerificationToPending: vi.fn(),
 }));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({

@@ -49,7 +49,8 @@ function readLogMetaStringArray(meta: unknown, key: string): string[] {
  *
  * `errorLogs` is expected newest-first (created_at desc, as returned by
  * `getEngineVersionErrorLogs`). Returns false when there is no gate verdict at
- * all (nothing proves the version launchable → the watchdog fails it as before).
+ * all (nothing proves the version launchable → the watchdog fails it as before),
+ * or when a newer `server-verify:f3-readiness` hold supersedes a green verdict.
  *
  * Green/advisory detection (all on the newest `preflight:quality-gate` row):
  *   - `meta.passed === true`          → clean pass.
@@ -63,10 +64,15 @@ function readLogMetaStringArray(meta: unknown, key: string): string[] {
  *   - `level === "error"`             → a hard failure → not green.
  */
 export function isLatestGateVerdictGreen(errorLogs: VersionErrorLog[]): boolean {
-  const latestVerdict = errorLogs.find(
-    (log) => log.category === "preflight:quality-gate",
+  const latestRelevant = errorLogs.find(
+    (log) =>
+      log.category === "preflight:quality-gate" ||
+      log.category === "server-verify:f3-readiness",
   );
-  if (!latestVerdict) return false;
+  if (!latestRelevant) return false;
+  // A newer F3 hold is not launchable — watchdog must not promote past L1.
+  if (latestRelevant.category === "server-verify:f3-readiness") return false;
+  const latestVerdict = latestRelevant;
   if (readLogMetaBoolean(latestVerdict.meta, "passed") === true) return true;
   if (latestVerdict.level === "info") return true;
   if (
