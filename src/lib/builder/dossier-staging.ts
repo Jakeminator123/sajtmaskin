@@ -96,12 +96,6 @@ const DATABASE_CONTENT = {
   defaultText: DOSSIER_STAGING_CONTENT_DEFAULT,
 } as const satisfies DossierStagingSpec;
 
-const CMS_CONTENT = {
-  kind: "content",
-  question: "Vilka innehållstyper?",
-  defaultText: DOSSIER_STAGING_CONTENT_DEFAULT,
-} as const satisfies DossierStagingSpec;
-
 const NONE = { kind: "none" } as const satisfies DossierStagingSpec;
 
 /**
@@ -126,7 +120,7 @@ const STAGING_BY_ID: Record<string, DossierStagingSpec> = {
   "three-fiber-canvas": GENERIC_PLACEMENT,
   "three-fiber-physics": GENERIC_PLACEMENT,
   "postgres-drizzle": DATABASE_CONTENT,
-  "sanity-cms": CMS_CONTENT,
+  "vercel-blob-media": GENERIC_PLACEMENT,
   "vercel-analytics": NONE,
   "cmdk-command-palette": NONE,
 };

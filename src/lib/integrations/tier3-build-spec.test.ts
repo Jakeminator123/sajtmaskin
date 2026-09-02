@@ -1,18 +1,18 @@
-import { describe, expect, it } from "vitest";
-import {
-  approvedProvidersShipConfigNotice,
-  deriveTier3BuildSpec,
-  deriveTier3BuildSpecForProviderKeys,
-  hasRequiredRealBuildKeys,
-  mapProviderKeysToBackingDossierIds,
-  mapProviderKeysToDossierCapabilities,
-  providerKeysWithoutBackingDossier,
-  renderTier3BuildPlanBlock,
-  validateTier3Readiness,
-} from "./tier3-build-spec";
-import { resolveIntegrationIdentityKey } from "./suggestion-display";
-import { integrationRegistryByKey } from "./registry";
 import type { PlanContracts } from "@/lib/gen/plan/schema";
+import { describe, expect, it } from "vitest";
+import { integrationRegistryByKey } from "./registry";
+import { resolveIntegrationIdentityKey } from "./suggestion-display";
+import {
+    approvedProvidersShipConfigNotice,
+    deriveTier3BuildSpec,
+    deriveTier3BuildSpecForProviderKeys,
+    hasRequiredRealBuildKeys,
+    mapProviderKeysToBackingDossierIds,
+    mapProviderKeysToDossierCapabilities,
+    providerKeysWithoutBackingDossier,
+    renderTier3BuildPlanBlock,
+    validateTier3Readiness,
+} from "./tier3-build-spec";
 
 const emptyContracts: PlanContracts = {
   dataMode: "none",
@@ -131,13 +131,14 @@ describe("providerKeysWithoutBackingDossier (coach edge case on #503)", () => {
 });
 
 describe("config-notice advertisement uses strict backing (Codex P1 on #506)", () => {
-  it("does NOT advertise a category sibling's config notice for a dossierless provider (contentful vs sanity-cms)", () => {
+  it("does NOT advertise a config notice for a dossierless provider (contentful)", () => {
     const spec = deriveTier3BuildSpecForProviderKeys(["contentful"]);
     const contentful = spec.requirements.find((r) => r.key === "contentful");
     expect(contentful).toBeDefined();
-    // sanity-cms matches contentful only via the category fallback ("cms") —
-    // it is never injected for a contentful approval, so its notice file must
-    // not be advertised (the model would import a component never emitted).
+    // A generic (dossierless) requirement never ships the notice file, so the
+    // graceful-fallback instruction must not be emitted for it (the model
+    // would import a component never emitted). Originally guarded against the
+    // "cms" category sibling sanity-cms; that dossier is parked 2026-09-02.
     expect(contentful?.hasConfigNoticeComponent).toBe(false);
   });
 

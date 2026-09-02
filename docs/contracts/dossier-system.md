@@ -65,13 +65,13 @@ Aktuell capability→grupp-vy:
 
 | #   | Grupp-id       | Svensk label        | Capabilities                                                                 |
 | --- | -------------- | ------------------- | ---------------------------------------------------------------------------- |
-| 1   | `data-content` | Data & innehåll     | `database`, `cms`                                                            |
+| 1   | `data-content` | Data & innehåll     | `database` (`cms` lämnade 2026-09-02 med parkerade sanity-cms)               |
 | 2   | `auth`         | Inloggning & konton | `auth` (en capability — clerk-auth default, supabase-auth leverantörssyskon) |
 | 3   | `commerce`     | Betalning & handel  | `payments` (`subscriptions` lämnade 2026-08-06 med parkerade paddle-billing) |
 | 4   | `contact`      | Kontakt & utskick   | `contact-form`, `newsletter-subscribe`, `booking`                            |
 | 5   | `ai`           | AI                  | `ai-chat` (`ai-tool-calling` / `rag-chat` lämnade 2026-08-06 med etapp 4)    |
 | 6   | `search-maps`  | Sök & karta         | `site-search`, `map-display`, `command-palette`                              |
-| 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`                                               |
+| 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`, `media-storage` (vercel-blob-media, 2026-09-02) |
 | 8   | `interactive`  | Interaktivt & 3D    | `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`            |
 | 9   | `ops`          | Drift & mätning     | `analytics`                                                                  |
 | 10  | `other`        | Övrigt              | (fångstnät för omappade capabilities)                                        |
@@ -102,6 +102,18 @@ Aktuell capability→grupp-vy:
 > capability-id eller parkerat dossier-id selekterar tyst ingenting; ett
 > F3-godkännande av providern (`mongodb`/`neon` m.fl.) går den generiska
 > vägen (`providerKeysWithoutBackingDossier`).
+>
+> **Småföretagar-översyn 2026-09-02 (ägarbeslut):** `sanity-cms` parkerades
+> (träd borttaget; git-historik) — den levererade bara frontend-glue utan
+> Studio eller innehållsmodeller, vilket en sajtägare utan utvecklare inte kan
+> använda. Capability `cms` lämnade grupper, brief-prompt, follow-up-vokabulär
+> och negationstermer; `contentful` m.fl. går den generiska providervägen.
+> Samtidigt tillkom `vercel-blob-media` under den nya capability
+> `media-storage` (grupp `media`): sajtägarens egna tunga media (MP4, större
+> bildsamlingar) serveras från en Vercel Blob-store i stället för repot, med
+> `mock: seed` (medskickad `seedMedia` + `<MediaConfigNotice />`) och utan
+> publik upload-route. `next-sanity` ligger kvar som frihandspin i
+> `dep-completer.ts` (samma behandling som `@paddle/paddle-node-sdk`).
 
 **Fallback-principen:** demo-_mönstret_ (seed-data, canned-svar, fejkad
 success) är gemensamt per capability, men garantin gäller **per dossier**:
@@ -240,7 +252,7 @@ Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/t
 | `mock`                         | Beteende i F2/preview utan livekonfiguration                                                                                                                                                                                                                                                                                                                                                                                                                                             | Exempel-dossiers                                                                    |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `canned`                       | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar). Riktiga vägen återupptas när en riktig nyckel sätts.                                                                                                                                                                                                                                                                                                                          | `openai-chat`                                                                       |
-| `seed`                         | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps.                                                                                                                                  | `postgres-drizzle`                                                                  |
+| `seed`                         | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps.                                                                                                                                  | `postgres-drizzle`, `vercel-blob-media`                                             |
 | `success`                      | Mutations-endpoints returnerar en fejkad success + en demo-notis (`demo: true`) så formulär går igenom i F2 utan att koppla providern.                                                                                                                                                                                                                                                                                                                                                  | `resend-contact-form`, `mailchimp-newsletter`                                       |
 | `visual` (nytt 2026-07-22)     | Den interaktiva ytan renderas fullt ut (betalknapp, inloggningsknappar, live-widget) och **handlingen** öppnar en ärlig demo-notis/modal i stället för att utföra den riktiga operationen — aldrig fejkade sessioner, debiteringar eller transport. Riktiga backend aktiveras när leverantörsvärden sparas. Exempel: stripe-checkouts `CheckoutButton` är klickbar och öppnar "Demoläge — ingen riktig betalning"-modalen; clerk-auths knappar öppnar "Inloggning i demoläge"-dialogen. | `stripe-checkout`, `clerk-auth`, `supabase-auth`                                    |
 | `none` (default vid utelämnat) | Ingen användarsynlig demo-yta alls → komponenten self-disablar (analytics) eller visar en diskret konfigurationsbanner.                                                                                                                                                                                                                                                                                                                                                                 | `vercel-analytics`                                                                  |

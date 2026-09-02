@@ -1,14 +1,56 @@
+import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
 import {
-  readF3ApprovedFromSnapshot,
-  readMutedCapabilitiesFromSnapshot,
-  readMutedDossierIdsFromSnapshot,
+    readF3ApprovedFromSnapshot,
+    readMutedCapabilitiesFromSnapshot,
+    readMutedDossierIdsFromSnapshot,
 } from "@/lib/gen/orchestration-snapshot";
+import type { CodeFile } from "@/lib/gen/parser";
 import { mapProviderKeysToBackingDossierIds } from "@/lib/integrations/tier3-build-spec";
 import { getDossierById } from "./registry";
 import { isDossierConfigured, selectDossiersForRequest } from "./select";
-import type { SelectedDossier } from "./types";
+import type { DossierEntry, SelectedDossier } from "./types";
 import { resolveDossierIdsPresentInVersion } from "./version-presence";
-import type { CodeFile } from "@/lib/gen/parser";
+
+/**
+ * Double-mount guard for CLIENT-ONLY dossiers (no `role: "server"` file —
+ * currently vercel-analytics and calcom-booking). Their capability is muted in
+ * F2, but the design round may still hand-write the same provider (the coding
+ * direction lets the model add `<Analytics />` from `@vercel/analytics` when
+ * a brief implies measurable flows). Installing the dossier on top in F3 then
+ * mounts the provider twice — for analytics that is double-counted page views.
+ *
+ * `version-presence` only recognises the dossier's own file, so the guard
+ * asks the registry-pattern detector whether the provider is already in the
+ * version's code. Server-backed dossiers are deliberately NOT covered: for
+ * them the F3 build is what makes the integration functional, and a stray
+ * SDK mention in F2 must not silently cancel it (the Byggblock panel already
+ * hides that duplicate at view level via
+ * {@link isPlannedDossierCoveredByModelBuiltBlock}).
+ */
+function createModelBuiltProviderGuard(
+  versionFiles: readonly CodeFile[],
+): (entry: DossierEntry) => boolean {
+  let detectedProviders: Set<string> | null = null;
+  return (entry) => {
+    const files = entry.files ?? [];
+    if (files.length === 0 || files.some((file) => file.role === "server")) return false;
+    const providers = entry.providers ?? [];
+    if (providers.length === 0 || versionFiles.length === 0) return false;
+    if (detectedProviders === null) {
+      detectedProviders = new Set(
+        detectIntegrationsFromVersionFiles(
+          versionFiles.map((file) => ({ name: file.path, content: file.content })),
+          // Registry/manifest detection only — the custom `process.env` scan
+          // is noise here and is muted in design anyway.
+          { lifecycleStage: "design" },
+        )
+          .map((integration) => integration.provider)
+          .filter((provider): provider is string => typeof provider === "string"),
+      );
+    }
+    return providers.some((provider) => detectedProviders!.has(provider));
+  };
+}
 
 /**
  * Resolve provider-specific integration dossiers the user requested in F2 or
@@ -27,11 +69,11 @@ export function resolvePendingIntegrationDossiers(params: {
   versionFiles: readonly CodeFile[] | null | undefined;
   configuredEnvKeys?: ReadonlySet<string>;
 }): SelectedDossier[] {
+  const versionFiles = params.versionFiles ?? [];
   const presentIds = new Set(
-    resolveDossierIdsPresentInVersion(
-      (params.versionFiles ?? []).map((file) => file.path),
-    ),
+    resolveDossierIdsPresentInVersion(versionFiles.map((file) => file.path)),
   );
+  const providerAlreadyBuiltByModel = createModelBuiltProviderGuard(versionFiles);
   const removedCapabilities = new Set(
     Array.isArray(params.snapshot?.removedCapabilities)
       ? params.snapshot.removedCapabilities
@@ -62,7 +104,9 @@ export function resolvePendingIntegrationDossiers(params: {
     // deferred client-only integrations (currently analytics) too: they do not
     // satisfy dossierRequiresF3's build-env/server-file rule, but their files
     // were still intentionally withheld from F2 and must be installed when the
-    // user clicks "Bygg integrationer".
+    // user clicks "Bygg integrationer" — unless the design round already
+    // hand-wrote that provider (double-mount guard).
+    if (providerAlreadyBuiltByModel(entry)) return [];
     return [{
       entry,
       reason: "relevance-keyword",
@@ -85,7 +129,10 @@ export function resolvePendingIntegrationDossiers(params: {
     requestedCapabilities: uncoveredLegacyCapabilities,
     disableBriefFallback: true,
     configuredEnvKeys: params.configuredEnvKeys,
-  }).selected.filter((selected) => !presentIds.has(selected.entry.id));
+  }).selected.filter(
+    (selected) =>
+      !presentIds.has(selected.entry.id) && !providerAlreadyBuiltByModel(selected.entry),
+  );
   return [...exactSelections, ...legacySelections];
 }
 

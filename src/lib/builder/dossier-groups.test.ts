@@ -5,9 +5,9 @@ import { describe, expect, it } from "vitest";
 import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 
 import {
-  DOSSIER_GROUPS,
-  DOSSIER_GROUP_ORDER,
-  resolveDossierGroup,
+    DOSSIER_GROUPS,
+    DOSSIER_GROUP_ORDER,
+    resolveDossierGroup,
 } from "./dossier-groups";
 
 interface CapabilityMapFile {
@@ -65,7 +65,7 @@ describe("resolveDossierGroup", () => {
     // A capability landing in the wrong bucket (not just "Övrigt") must fail.
     const expectedGroupByCapability: Record<string, string> = {
       database: "data-content",
-      cms: "data-content",
+      // cms left the table 2026-09-02 with the parked sanity-cms dossier.
       auth: "auth",
       // subscriptions left the table 2026-08-06 (etapp 2) with the parked
       // paddle-billing dossier — commerce holds one-off payments only.
@@ -79,6 +79,7 @@ describe("resolveDossierGroup", () => {
       "command-palette": "search-maps",
       "gallery-lightbox": "media",
       carousel: "media",
+      "media-storage": "media",
       "visual-3d": "interactive",
       "physics-3d": "interactive",
       "interactive-game": "interactive",

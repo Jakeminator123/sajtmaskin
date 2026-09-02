@@ -1,9 +1,9 @@
+import { getAllDossiers, getDossierById } from "@/lib/gen/dossiers/registry";
+import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
+import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
 import platformPackageJson from "../../../../package.json";
 import type { AutoFixEntry } from "./pipeline";
-import { getAllDossiers, getDossierById } from "@/lib/gen/dossiers/registry";
-import type { DossierEntry } from "@/lib/gen/dossiers/types";
-import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
-import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
 
 const PLATFORM_DECLARED_DEPENDENCIES: Readonly<Record<string, string>> = {
   ...platformPackageJson.dependencies,
@@ -306,6 +306,9 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "pg": "^8",
   "@types/pg": "^8",
   "server-only": "0.0.1",
+  // vercel-blob-media dossier (2026-09-02). Major verified against the npm
+  // registry 2026-09-02 (`npm view @vercel/blob version` → 2.8.0).
+  "@vercel/blob": "^2",
   // neon-postgres / mongodb-atlas (parked 2026-08-06) — the pins stay as an
   // import-scan fallback for legacy-version code, like ably/@ai-sdk/fal /
   // @paddle above.
@@ -321,8 +324,8 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@paddle/paddle-node-sdk": "^3",
   "@supabase/ssr": "^0.12",
   "@supabase/supabase-js": "^2",
-  // Dossier Fas D (legacy import 2026-07-09, capability `cms`): sanity-cms.
-  // Major verified against the npm registry 2026-07-09 (npm view → 13.1.1).
+  // Kept as a freehand-import pin after sanity-cms was parked 2026-09-02 (same
+  // treatment as @paddle/paddle-node-sdk above). Major verified 2026-07-09.
   "next-sanity": "^13",
   // Remaining dossier-declared SDKs (2026-07-25). These were reachable through
   // `resolveCapabilityDependencies` (manifest fallback → "latest") but NOT

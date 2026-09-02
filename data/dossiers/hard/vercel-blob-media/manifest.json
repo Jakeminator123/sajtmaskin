@@ -1,0 +1,92 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "vercel-blob-media",
+  "mock": "seed",
+  "label": "Mediabibliotek — Vercel Blob",
+  "capability": "media-storage",
+  "providers": ["vercel-blob"],
+  "codeFidelity": "verbatim",
+  "complexity": "medium",
+  "defaultForCapability": true,
+  "summary": "Hosted storage for the site's own heavy media (MP4 video, large photo sets) on Vercel Blob, served from the storage CDN instead of the repo. Ships a server helper (listMedia/uploadMedia), a read-only /api/media route and a <MediaGallery /> grid. Demo mode (mock: seed): without a real BLOB_READ_WRITE_TOKEN the gallery renders the shipped seedMedia with a discreet <MediaConfigNotice /> — no crash, no storage call. uploadMedia is server-only and must never be exposed without owner authentication.",
+  "summarySv": "Plats för sajtens egna filmer och tyngre bilder — till exempel referensbilder, produktfoton eller en presentationsfilm — så att de laddar snabbt utan att ligga i själva sajtkoden. Ett galleri visar filerna automatiskt. Tills lagringen är kopplad visas exempelbilder och en exempelfilm i demoläge, med en tydlig notis; inga filer kan läggas upp förrän kopplingen är klar.",
+  "envVars": [
+    {
+      "key": "BLOB_READ_WRITE_TOKEN",
+      "required": true,
+      "enforcement": "feature-runtime",
+      "setupUrl": "https://vercel.com/docs/vercel-blob",
+      "purpose": "Read/write token for the project's Vercel Blob store (created automatically when a Blob store is attached under the project's Storage tab; format vercel_blob_rw_…). Tagged feature-runtime: isMediaStorageConfigured() gates every storage call, so a missing or placeholder value renders seedMedia + MediaConfigNotice instead of crashing."
+    }
+  ],
+  "dependencies": ["@vercel/blob", "server-only"],
+  "files": [
+    {
+      "path": "components/lib/media-storage/config.ts",
+      "role": "shared",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/media-storage/seed-media.ts",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    },
+    {
+      "path": "components/lib/media-storage/server.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/api/media/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/media-config-notice.tsx",
+      "role": "shared",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/media-gallery.tsx",
+      "role": "client",
+      "injectionMode": "verbatim"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "MediaGallery",
+      "type": "component",
+      "import": "@/components/media-gallery"
+    },
+    {
+      "name": "MediaConfigNotice",
+      "type": "component",
+      "import": "@/components/media-config-notice"
+    },
+    {
+      "name": "listMedia",
+      "type": "function",
+      "import": "@/lib/media-storage/server"
+    },
+    {
+      "name": "uploadMedia",
+      "type": "function",
+      "import": "@/lib/media-storage/server"
+    },
+    {
+      "name": "isMediaStorageConfigured",
+      "type": "function",
+      "import": "@/lib/media-storage/config"
+    },
+    {
+      "name": "seedMedia",
+      "type": "constant",
+      "import": "@/lib/media-storage/seed-media"
+    }
+  ],
+  "lastVerified": "2026-09-02",
+  "verificationStatus": "unverified",
+  "notes": "New 2026-09-02 (owner decision: small-business owners need a home for heavy media). Keyless typecheck + the seed/demo gallery are covered by unit tests; a live list against a real Blob store in a deployed preview is still required before verificationStatus becomes accepted. Deliberately ships NO public upload route — uploads require an owner-authenticated caller.",
+  "sourceRepoUrl": "https://github.com/vercel/storage/tree/main/packages/blob",
+  "promptInstructionMode": "selected-sections"
+}

@@ -1086,77 +1086,77 @@ describe("detectFollowUpCapabilities — recurring vocabulary is not a capabilit
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Dossier Fas D — capability `cms` (2026-07-09): sanity-cms (default).
-// Detection only says "the user wants a headless CMS"; Sanity is the
-// capability default in select.ts.
+// Parked capability (2026-09-02): `cms` left the vocabulary with the parked
+// sanity-cms dossier (sole provider). A CMS ask is ordinary content guidance
+// now and must not nominate a capability that no dossier backs.
 // ─────────────────────────────────────────────────────────────────────────
-describe("detectFollowUpCapabilities — cms", () => {
-  it("detects 'lägg till ett cms' as cms", () => {
-    const result = detectFollowUpCapabilities("lägg till ett cms för blogginläggen");
-    expect(result.capabilityIds).toContain("cms");
-  });
-
-  it("detects an explicit Sanity ask ('koppla på sanity')", () => {
-    const result = detectFollowUpCapabilities("koppla på sanity för innehållet");
-    expect(result.capabilityIds).toContain("cms");
-  });
-
-  it("detects 'innehållshantering'", () => {
-    const result = detectFollowUpCapabilities(
+describe("detectFollowUpCapabilities — cms (parked 2026-09-02)", () => {
+  it("does NOT nominate `cms` for headless-CMS / Sanity / editor asks", () => {
+    for (const prompt of [
+      "lägg till ett cms för blogginläggen",
+      "koppla på sanity för innehållet",
       "vi behöver innehållshantering för nyhetssidan",
-    );
-    expect(result.capabilityIds).toContain("cms");
-  });
-
-  it("detects English 'headless CMS'", () => {
-    const result = detectFollowUpCapabilities("add a headless cms for the blog posts");
-    expect(result.capabilityIds).toContain("cms");
-  });
-
-  it("detects an edit-content-without-code ask", () => {
-    const result = detectFollowUpCapabilities(
-      "gör så att vi kan redigera innehållet utan kod",
-    );
-    expect(result.capabilityIds).toContain("cms");
-  });
-
-  it("detects an editors-can-publish ask", () => {
-    const result = detectFollowUpCapabilities(
+      "add a headless cms for the blog posts",
       "lägg till så att redaktörerna kan publicera nyheter själva",
-    );
-    expect(result.capabilityIds).toContain("cms");
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("cms");
+    }
   });
 
-  // Veto: an explicit competing CMS choice must not inject the Sanity dossier
-  // (Chart.js precedent from dashboard-charts).
-  it("does NOT detect cms for an explicit WordPress choice", () => {
-    const result = detectFollowUpCapabilities("lägg till wordpress som cms för bloggen");
-    expect(result.capabilityIds).not.toContain("cms");
-  });
-
-  it("does NOT detect cms for an explicit Contentful choice", () => {
-    const result = detectFollowUpCapabilities("lägg till ett cms med contentful");
-    expect(result.capabilityIds).not.toContain("cms");
-  });
-
-  // "sanity check" is an ordinary English phrase, not the Sanity provider.
-  it("does NOT detect cms for 'gör en sanity check på formuläret'", () => {
-    const result = detectFollowUpCapabilities("gör en sanity check på formuläret");
-    expect(result.capabilityIds).not.toContain("cms");
-  });
-
-  // A plain content tweak is a refine, never a CMS integration ask.
-  it("does NOT detect cms for an ordinary content edit", () => {
-    const result = detectFollowUpCapabilities("ändra innehållet i hero-sektionen");
-    expect(result.capabilityIds).not.toContain("cms");
-  });
-
-  // Negation guard: "utan cms" suppresses the capability.
-  it("does NOT detect cms when the user explicitly forbids one", () => {
+  it("still routes a database ask next to a CMS phrase to `database`", () => {
     const result = detectFollowUpCapabilities(
-      "bygg en enkel statisk blogg utan cms eller backend",
+      "lägg till en databas så att nyheterna sparas, inget cms",
     );
+    expect(result.capabilityIds).toContain("database");
     expect(result.capabilityIds).not.toContain("cms");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// `media-storage` (vercel-blob-media, 2026-09-02): the owner's OWN heavy
+// media hosted in a Blob store. Embeds and visitor uploads must not route here.
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — media-storage", () => {
+  it("detects an own-media / upload ask", () => {
+    for (const prompt of [
+      "lägg till ett mediabibliotek där jag kan ladda upp egna filmer",
+      "skapa en videosida med våra egna filmer",
+      "add a section with our own mp4 videos from the workshop",
+      "koppla på vercel blob för filmerna",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).toContain("media-storage");
+    }
+  });
+
+  it("co-detects gallery-lightbox when the ask is an uploadable photo gallery", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till ett bildgalleri där vi kan ladda upp nya bilder själva",
+    );
+    expect(result.capabilityIds).toContain("media-storage");
+    expect(result.capabilityIds).toContain("gallery-lightbox");
+  });
+
+  it("does NOT detect media-storage for an embedded third-party video", () => {
+    for (const prompt of [
+      "lägg till vår youtube-film i heron",
+      "bädda in en vimeo-video på startsidan",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("media-storage");
+    }
+  });
+
+  it("does NOT detect media-storage for visitor uploads (UGC is out of scope)", () => {
+    for (const prompt of [
+      "lägg till så att besökare kan ladda upp bilder",
+      "add a form where users can upload photos",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("media-storage");
+    }
+  });
+
+  it("does NOT detect media-storage for an ordinary image tweak", () => {
+    const result = detectFollowUpCapabilities("byt bilden i hero-sektionen till något ljusare");
+    expect(result.capabilityIds).not.toContain("media-storage");
   });
 });
 

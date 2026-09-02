@@ -62,9 +62,9 @@ export const DOSSIER_GROUP_ORDER: DossierGroup[] = [
  */
 const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   database: "data-content",
-  // Headless CMS (sanity-cms): storage/content-management, same bucket as
-  // the database dossiers.
-  cms: "data-content",
+  // `cms` left the map 2026-09-02 with the parked sanity-cms dossier (owner
+  // decision: it shipped frontend glue only — no Studio, no content models —
+  // which a small-business owner cannot use). Git history holds the tree.
   // One capability since 2026-07-22 — clerk-auth (default) and supabase-auth
   // are provider siblings under `auth`.
   auth: "auth",
@@ -84,9 +84,11 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   "site-search": "search-maps",
   "map-display": "search-maps",
   "command-palette": "search-maps",
-  // Media & gallery: showing images — click-to-enlarge vs swipe slider.
+  // Media & gallery: showing images — click-to-enlarge vs swipe slider — and
+  // the owner's own hosted heavy media (vercel-blob-media, 2026-09-02).
   "gallery-lightbox": "media",
   carousel: "media",
+  "media-storage": "media",
   // Interactive & 3D: motion/3D/games/data-viz where presentation is the point.
   "visual-3d": "interactive",
   "physics-3d": "interactive",

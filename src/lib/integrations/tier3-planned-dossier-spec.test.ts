@@ -20,10 +20,13 @@ describe("deriveTier3BuildSpecForDossierIds", () => {
     expect(spec.requirements[0].requiredRealEnvKeys).toContain("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY");
     expect(spec.requirements[0].placeholderOkEnvKeys).toEqual([]);
 
-    const sanity = deriveTier3BuildSpecForDossierIds(["sanity-cms"]).requirements[0];
-    expect(sanity.featureRuntimeEnvKeys).toEqual(
-      expect.arrayContaining(["NEXT_PUBLIC_SANITY_PROJECT_ID", "NEXT_PUBLIC_SANITY_DATASET"]),
+    // A public NEXT_PUBLIC_* key that the manifest tags feature-runtime must
+    // stay feature-runtime — never demoted to placeholder-ok by the global
+    // harmless-key catalog (sanity-cms used to be the fixture; parked 2026-09-02).
+    const supabase = deriveTier3BuildSpecForDossierIds(["supabase-auth"]).requirements[0];
+    expect(supabase.featureRuntimeEnvKeys).toEqual(
+      expect.arrayContaining(["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"]),
     );
-    expect(sanity.placeholderOkEnvKeys).toEqual([]);
+    expect(supabase.placeholderOkEnvKeys).toEqual([]);
   });
 });

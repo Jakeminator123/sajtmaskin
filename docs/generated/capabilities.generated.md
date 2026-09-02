@@ -6,9 +6,9 @@
 > Source: `src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: validated dossier registry sha256:478997d6c7dafdfd -->
-<!-- source-fingerprint: src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities sha256:598c26d6f0c08460 -->
-<!-- source-fingerprint: src/lib/builder/dossier-groups.ts#resolveDossierGroup sha256:06bccb523740d4c8 -->
+<!-- source-fingerprint: validated dossier registry sha256:d9afdd27bcab9f1b -->
+<!-- source-fingerprint: src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities sha256:4c270839b579be81 -->
+<!-- source-fingerprint: src/lib/builder/dossier-groups.ts#resolveDossierGroup sha256:e862534a175d1eef -->
 
 # Capabilities
 
@@ -23,7 +23,6 @@ Canonical owners: dossier manifest `capability`; `resolveDossierGroup()` for pre
 | `auth` (Inloggning & konton)     | `auth`                 | Planned (deferred) | `clerk-auth`, `supabase-auth` | `clerk-auth`            | `hard`  | `visual`            | `clerk-auth`, `supabase-auth`  |
 | `contact` (Kontakt & utskick)    | `booking`              | Available          | `calcom-booking`              | `calcom-booking`        | `hard`  | `visual`            | —                              |
 | `media` (Media & galleri)        | `carousel`             | Available          | `embla-carousel`              | `embla-carousel`        | `soft`  | `none`              | —                              |
-| `data-content` (Data & innehåll) | `cms`                  | Planned (deferred) | `sanity-cms`                  | `sanity-cms`            | `hard`  | `seed`              | `sanity-cms`                   |
 | `search-maps` (Sök & karta)      | `command-palette`      | Available          | `cmdk-command-palette`        | `cmdk-command-palette`  | `soft`  | `none`              | —                              |
 | `contact` (Kontakt & utskick)    | `contact-form`         | Planned (deferred) | `resend-contact-form`         | `resend-contact-form`   | `hard`  | `success`           | `resend-contact-form`          |
 | `interactive` (Interaktivt & 3D) | `dashboard-charts`     | Available          | `dashboard-charts`            | `dashboard-charts`      | `soft`  | `none`              | —                              |
@@ -31,6 +30,7 @@ Canonical owners: dossier manifest `capability`; `resolveDossierGroup()` for pre
 | `media` (Media & galleri)        | `gallery-lightbox`     | Available          | `gallery-lightbox`            | `gallery-lightbox`      | `soft`  | `none`              | —                              |
 | `interactive` (Interaktivt & 3D) | `interactive-game`     | Available          | `interactive-game-loop`       | `interactive-game-loop` | `soft`  | `none`              | —                              |
 | `search-maps` (Sök & karta)      | `map-display`          | Available          | `maplibre-map`                | `maplibre-map`          | `soft`  | `none`              | —                              |
+| `media` (Media & galleri)        | `media-storage`        | Planned (deferred) | `vercel-blob-media`           | `vercel-blob-media`     | `hard`  | `seed`              | `vercel-blob-media`            |
 | `contact` (Kontakt & utskick)    | `newsletter-subscribe` | Planned (deferred) | `mailchimp-newsletter`        | `mailchimp-newsletter`  | `hard`  | `success`           | `mailchimp-newsletter`         |
 | `commerce` (Betalning & handel)  | `payments`             | Planned (deferred) | `stripe-checkout`             | `stripe-checkout`       | `hard`  | `visual`            | `stripe-checkout`              |
 | `interactive` (Interaktivt & 3D) | `physics-3d`           | Available          | `three-fiber-physics`         | `three-fiber-physics`   | `soft`  | `none`              | —                              |

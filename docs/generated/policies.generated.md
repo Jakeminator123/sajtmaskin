@@ -9,7 +9,7 @@
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:8ba5885c840e33f8 -->
-<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:de9157bb936dbdc1 -->
+<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:3dbcb42b164c74e4 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
 # Policies
@@ -198,15 +198,11 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `resend-contact-form`  | `contact-form`         | `CONTACT_EMAIL_TO`                   | Yes      | `feature-runtime` | `success` |
 | `resend-contact-form`  | `contact-form`         | `EMAIL_FROM`                         | Yes      | `feature-runtime` | `success` |
 | `resend-contact-form`  | `contact-form`         | `RESEND_API_KEY`                     | Yes      | `feature-runtime` | `success` |
-| `sanity-cms`           | `cms`                  | `NEXT_PUBLIC_SANITY_API_VERSION`     | No       | `warn-only`       | `seed`    |
-| `sanity-cms`           | `cms`                  | `NEXT_PUBLIC_SANITY_DATASET`         | Yes      | `feature-runtime` | `seed`    |
-| `sanity-cms`           | `cms`                  | `NEXT_PUBLIC_SANITY_PROJECT_ID`      | Yes      | `feature-runtime` | `seed`    |
-| `sanity-cms`           | `cms`                  | `NEXT_PUBLIC_SANITY_STUDIO_URL`      | No       | `warn-only`       | `seed`    |
-| `sanity-cms`           | `cms`                  | `SANITY_API_TOKEN`                   | No       | `feature-runtime` | `seed`    |
 | `stripe-checkout`      | `payments`             | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | No       | `warn-only`       | `visual`  |
 | `stripe-checkout`      | `payments`             | `STRIPE_SECRET_KEY`                  | Yes      | `feature-runtime` | `visual`  |
 | `supabase-auth`        | `auth`                 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Yes      | `feature-runtime` | `visual`  |
 | `supabase-auth`        | `auth`                 | `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | `feature-runtime` | `visual`  |
+| `vercel-blob-media`    | `media-storage`        | `BLOB_READ_WRITE_TOKEN`              | Yes      | `feature-runtime` | `seed`    |
 
 ## Control-plane registry
 

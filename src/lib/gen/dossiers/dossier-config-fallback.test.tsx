@@ -21,15 +21,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // the inert stub in `tests/stubs/clerk-nextjs.tsx`; the demo-mode branch under
 // test never mounts the Clerk components.
 import { AuthButtons } from "../../../../data/dossiers/hard/clerk-auth/components/auth-buttons";
-import { CheckoutButton } from "../../../../data/dossiers/hard/stripe-checkout/components/checkout-button";
 import { ContactForm } from "../../../../data/dossiers/hard/resend-contact-form/components/contact-form";
+import { CheckoutButton } from "../../../../data/dossiers/hard/stripe-checkout/components/checkout-button";
 import { IntegrationConfigNotice } from "../../../../data/dossiers/hard/stripe-checkout/components/integration-config-notice";
 import {
-  isPlaceholderValue as sanityIsPlaceholderValue,
-  isSanityConfigured,
-} from "../../../../data/dossiers/hard/sanity-cms/components/lib/sanity/api";
-import { seedContent } from "../../../../data/dossiers/hard/sanity-cms/components/lib/sanity/seed-content";
-import { SanityConfigNotice } from "../../../../data/dossiers/hard/sanity-cms/components/sanity-config-notice";
+    isMediaStorageConfigured,
+    isPlaceholderValue as mediaIsPlaceholderValue,
+    mediaKindFromPath,
+    titleFromPath,
+} from "../../../../data/dossiers/hard/vercel-blob-media/components/lib/media-storage/config";
+import { seedMedia } from "../../../../data/dossiers/hard/vercel-blob-media/components/lib/media-storage/seed-media";
 
 function mockFetchOnce(status: number, body: unknown): ReturnType<typeof vi.fn> {
   const fn = vi.fn().mockResolvedValue({
@@ -500,75 +501,74 @@ describe("dossier API routes — recognizable not-configured error codes", () =>
   // import-tested here because their SDKs (`@ai-sdk/fal`, `@neondatabase/
   // serverless`, `mongodb`) are dossier-only dependencies, not installed in
   // the Sajtmaskin app, so a direct `import` would fail to resolve. Their mock
-  // behavior is covered by the manifest `mock` field + validator + docs. The
-  // sanity-cms client/fetch/draft-mode routes are likewise not import-tested
-  // (`next-sanity` is dossier-only + they are `server-only`-guarded); the
-  // dossier's mock contract is covered by the env-gate tests below.
+  // behavior is covered by the manifest `mock` field + validator + docs.
+  // (sanity-cms and its seed-fallback suite left with the parked dossier
+  // 2026-09-02.) The vercel-blob-media server helper/route are `server-only`-
+  // guarded and therefore not import-tested here; the env gate they branch on
+  // is covered below and the gallery in dossier-client-mount.test.tsx.
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// sanity-cms (mock: seed, Fas D 2026-07-09): the placeholder-aware config
-// gate + the seed-fallback surface. The gate is what every Sanity-backed
-// page branches on — if it misreads an F2 stub as "configured", pages query
-// a nonexistent project instead of rendering seedContent.
+// vercel-blob-media (mock: seed, 2026-09-02): the placeholder-aware config
+// gate + the seed list. `listMedia()` branches on this gate — if it misreads
+// an F2 stub as "configured", the gallery calls a nonexistent store instead
+// of rendering seedMedia.
 // ─────────────────────────────────────────────────────────────────────────
-describe("sanity-cms — seed fallback contract (mock: seed)", () => {
-  const SANITY_KEYS = [
-    "NEXT_PUBLIC_SANITY_PROJECT_ID",
-    "NEXT_PUBLIC_SANITY_DATASET",
-  ] as const;
-  const savedSanity = new Map<string, string | undefined>();
+describe("vercel-blob-media — seed fallback contract (mock: seed)", () => {
+  const KEY = "BLOB_READ_WRITE_TOKEN";
+  const saved = process.env[KEY];
 
   beforeEach(() => {
-    for (const key of SANITY_KEYS) {
-      savedSanity.set(key, process.env[key]);
-      delete process.env[key];
-    }
+    delete process.env[KEY];
   });
 
   afterEach(() => {
-    for (const key of SANITY_KEYS) {
-      const value = savedSanity.get(key);
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
+    if (saved === undefined) delete process.env[KEY];
+    else process.env[KEY] = saved;
   });
 
-  it("isSanityConfigured() is false with missing env (seed-fallback path)", () => {
-    expect(isSanityConfigured()).toBe(false);
+  it("isMediaStorageConfigured() is false with missing env (seed-fallback path)", () => {
+    expect(isMediaStorageConfigured()).toBe(false);
   });
 
-  it("isSanityConfigured() is false for F2 preview stubs (placeholder-aware, not mere presence)", () => {
-    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID =
-      "next_public_sanity_project_id_placeholder_preview_not_real";
-    process.env.NEXT_PUBLIC_SANITY_DATASET =
-      "next_public_sanity_dataset_placeholder_preview_not_real";
-    expect(isSanityConfigured()).toBe(false);
+  it("isMediaStorageConfigured() is false for F2 preview stubs and wrong-shaped tokens", () => {
+    process.env[KEY] = "blob_read_write_token_placeholder_preview_not_real";
+    expect(isMediaStorageConfigured()).toBe(false);
+    process.env[KEY] = "vercel_blob_ro_store_abc123";
+    expect(isMediaStorageConfigured()).toBe(false);
   });
 
-  it("isSanityConfigured() is true only when BOTH values are real", () => {
-    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID = "abc12345";
-    expect(isSanityConfigured()).toBe(false);
-    process.env.NEXT_PUBLIC_SANITY_DATASET = "production";
-    expect(isSanityConfigured()).toBe(true);
+  it("isMediaStorageConfigured() is true only for a real vercel_blob_rw_ token", () => {
+    process.env[KEY] = "vercel_blob_rw_store_abc123DEF456";
+    expect(isMediaStorageConfigured()).toBe(true);
   });
 
   it("isPlaceholderValue matches the stub vocabulary and accepts real values", () => {
-    expect(sanityIsPlaceholderValue(undefined)).toBe(true);
-    expect(sanityIsPlaceholderValue("   ")).toBe(true);
-    expect(sanityIsPlaceholderValue("sanity_api_read_token_placeholder_preview_not_real")).toBe(true);
-    expect(sanityIsPlaceholderValue("your_project_id")).toBe(true);
-    expect(sanityIsPlaceholderValue("abc12345")).toBe(false);
-    expect(sanityIsPlaceholderValue("production")).toBe(false);
+    expect(mediaIsPlaceholderValue(undefined)).toBe(true);
+    expect(mediaIsPlaceholderValue("   ")).toBe(true);
+    expect(mediaIsPlaceholderValue("your_token_here")).toBe(true);
+    expect(mediaIsPlaceholderValue("vercel_blob_rw_store_abc123DEF456")).toBe(false);
   });
 
-  it("ships non-empty seedContent + renders the discreet SanityConfigNotice", () => {
-    expect(seedContent.length).toBeGreaterThan(0);
-    for (const doc of seedContent) {
-      expect(doc.title.length).toBeGreaterThan(0);
-      expect(doc.slug.length).toBeGreaterThan(0);
+  it("classifies media by extension and skips non-media files", () => {
+    expect(mediaKindFromPath("media/kok-2024.JPG")).toBe("image");
+    expect(mediaKindFromPath("media/film.mp4?x=1")).toBe("video");
+    expect(mediaKindFromPath("media/prislista.pdf")).toBeNull();
+  });
+
+  it("derives a readable title and drops the random blob suffix", () => {
+    expect(titleFromPath("media/vara-arbeten/kok-2024-a1B2c3D4e5.jpg")).toBe("Kok 2024");
+    expect(titleFromPath("media/presentation_film.mp4")).toBe("Presentation film");
+  });
+
+  it("ships non-empty seedMedia with at least one image and one video", () => {
+    expect(seedMedia.length).toBeGreaterThan(0);
+    expect(seedMedia.some((item) => item.kind === "image")).toBe(true);
+    expect(seedMedia.some((item) => item.kind === "video")).toBe(true);
+    for (const item of seedMedia) {
+      expect(item.url.startsWith("https://")).toBe(true);
+      expect(mediaKindFromPath(item.url)).toBe(item.kind);
+      expect(item.title.length).toBeGreaterThan(0);
     }
-    render(<SanityConfigNotice />);
-    expect(screen.getByText(/CMS ej konfigurerat/i)).toBeTruthy();
   });
 });
