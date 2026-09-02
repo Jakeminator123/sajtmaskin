@@ -9,6 +9,8 @@ const detectIntegrationsFromVersionFiles = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
 const getEngineVersionErrorLogsForCategories = vi.hoisted(() => vi.fn());
+const getRunningProductPostcheckClaimForVersion = vi.hoisted(() => vi.fn());
+const getVersionById = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
@@ -26,6 +28,13 @@ vi.mock("@/lib/gen/preview/env-local", async (importOriginal) => ({
 vi.mock("@/lib/db/services/version-errors", () => ({
   getEngineVersionErrorLogsForCategories,
 }));
+vi.mock("@/lib/db/services/product-postcheck-runs", () => ({
+  getRunningProductPostcheckClaimForVersion,
+}));
+// L1 readiness loads chat-repository-pg for the optional F2-parent check.
+// CI quality-core has no POSTGRES_URL; this mock keeps module load from
+// throwing Missing database connection string.
+vi.mock("@/lib/db/chat-repository-pg", () => ({ getVersionById }));
 
 import { checkTier3ReadinessForVersion } from "./tier3-readiness-gate";
 
@@ -68,6 +77,7 @@ beforeEach(() => {
       meta: { verdict: "passed", productBlocked: false },
     },
   ]);
+  getRunningProductPostcheckClaimForVersion.mockResolvedValue(null);
 });
 
 describe("checkTier3ReadinessForVersion (M#818-2)", () => {
@@ -78,7 +88,12 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       orchestrationSnapshot: null,
       projectId: "proj_1",
     });
-    expect(result).toEqual({ ok: false, reason: "version_files_unavailable" });
+    expect(result).toEqual({
+      ready: false,
+      ok: false,
+      reason: "version_files_unavailable",
+      retryable: true,
+    });
   });
 
   it("blocks with missing_env when a required real key is absent AND has no placeholder", async () => {
@@ -195,6 +210,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: "proj_1",
     });
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_blocked",
       verdict: "blocked",
@@ -220,6 +236,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     });
 
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_blocked",
       verdict: "blocked",
@@ -260,6 +277,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: "proj_1",
     });
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_pending",
       verdict: "pending",
@@ -276,6 +294,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: null,
     });
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_indeterminate",
       verdict: "indeterminate",
@@ -312,6 +331,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: "proj_1",
     });
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_superseded",
       verdict: "superseded",
@@ -347,6 +367,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: "proj_1",
     });
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_blocked",
       verdict: "blocked",
@@ -368,6 +389,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: "proj_1",
     });
     expect(result).toEqual({
+      ready: false,
       ok: false,
       reason: "product_postcheck_pending",
       verdict: "pending",
@@ -394,5 +416,25 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
       projectId: null,
     });
     expect(result.ok).toBe(true);
+  });
+
+  it("L6 running-claim blockerar F3 som pending även med passed-summary", async () => {
+    getRunningProductPostcheckClaimForVersion.mockResolvedValue({
+      status: "running",
+      runId: "run_live",
+    });
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+    expect(result).toEqual({
+      ready: false,
+      ok: false,
+      reason: "product_postcheck_pending",
+      verdict: "pending",
+      retryable: true,
+    });
+    expect(getVersionFiles).not.toHaveBeenCalled();
   });
 });

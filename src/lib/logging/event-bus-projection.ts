@@ -285,5 +285,9 @@ function deriveFinalPhase(params: {
     return "done";
   }
 
+  // L1 retryPending: a verifier `pending` hold is not launchable and must
+  // not settle to `done`. Leave the last lifecycle signal so the client
+  // keeps polling instead of showing Klar without promotion.
+
   return lastSignal;
 }

@@ -239,6 +239,40 @@ export async function productPostcheckRunsTablePresence(): Promise<ProductPostch
   }
 }
 
+/**
+ * Live L6 `running` row for a version. F3 readiness uses this so an in-flight
+ * Product Postcheck cannot be read as an older `passed` summary.
+ *
+ * Missing table → no claim (null). Probe/DB errors throw so the L2 reader
+ * can map them to `indeterminate` instead of inventing a pass.
+ */
+export async function getRunningProductPostcheckClaimForVersion(
+  versionId: string,
+): Promise<{ status: "running"; runId: string } | null> {
+  if (!dbConfigured) return null;
+  const trimmed = versionId.trim();
+  if (!trimmed) return null;
+
+  const presence = await productPostcheckRunsTablePresence();
+  if (presence === "missing") return null;
+  if (presence !== "exists") {
+    throw new Error("product_postcheck_runs unavailable");
+  }
+
+  const result = await db.execute(sql`
+    SELECT run_id, status
+    FROM product_postcheck_runs
+    WHERE version_id = ${trimmed}
+      AND status = 'running'
+      AND expires_at > now()
+    ORDER BY claimed_at DESC
+    LIMIT 1
+  `);
+  const row = asRows(result)[0];
+  if (!row) return null;
+  return { status: "running", runId: row.run_id };
+}
+
 async function selectClaimRow(
   key: NormalizedProductPostcheckClaimKey,
 ): Promise<(ClaimRow & { expires_at: Date | string }) | null> {

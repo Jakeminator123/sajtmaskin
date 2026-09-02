@@ -15,6 +15,7 @@ vi.mock("@/lib/db/client", () => ({
 import {
   claimProductPostcheckRun,
   completeProductPostcheckRun,
+  getRunningProductPostcheckClaimForVersion,
   isProductPostcheckClaimExpired,
   isTakeoverEligibleProductPostcheckRow,
   mapProductPostcheckResultToStatus,
@@ -305,5 +306,35 @@ describe("completeProductPostcheckRun CAS", () => {
         status: "passed",
       }),
     ).toBe(true);
+  });
+});
+
+describe("getRunningProductPostcheckClaimForVersion", () => {
+  beforeEach(() => {
+    execute.mockReset();
+    dbConfigured.value = true;
+  });
+
+  it("returnerar live running-rad", async () => {
+    execute.mockResolvedValueOnce(existsProbe()).mockResolvedValueOnce({
+      rows: [row({ run_id: "run_live" })],
+    });
+    await expect(getRunningProductPostcheckClaimForVersion("v1")).resolves.toEqual({
+      status: "running",
+      runId: "run_live",
+    });
+  });
+
+  it("saknad tabell är null, probe-fel kastar", async () => {
+    execute.mockResolvedValueOnce({ rows: [{ oid: null }] });
+    await expect(getRunningProductPostcheckClaimForVersion("v1")).resolves.toBeNull();
+
+    execute.mockResolvedValueOnce({ rows: [] });
+    await expect(getRunningProductPostcheckClaimForVersion("v1")).rejects.toThrow(
+      /product_postcheck_runs unavailable/,
+    );
+
+    dbConfigured.value = false;
+    await expect(getRunningProductPostcheckClaimForVersion("v1")).resolves.toBeNull();
   });
 });
