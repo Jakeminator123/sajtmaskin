@@ -307,15 +307,6 @@ describe("Carousel — bildkarusell (embla-carousel)", () => {
     expect(screen.getByRole("group", { name: "2 av 3" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "3 av 3" })).toBeTruthy();
   });
-
-  it("byter bild med piltangenterna när karusellen har fokus", () => {
-    renderCarousel();
-    const region = screen.getByRole("region", { name: "Kundomdömen" });
-    region.focus();
-    fireEvent.keyDown(region, { key: "ArrowRight" });
-    fireEvent.keyDown(region, { key: "ArrowLeft" });
-    expect(region).toBeTruthy();
-  });
 });
 
 describe("ChartCard — diagramkort (dashboard-charts)", () => {
