@@ -197,9 +197,6 @@ function ownerWorkflowForRequiredCheck(check, policy = POLICY_FLOORS) {
 
 export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POLICY_FLOORS) {
   const errors = [];
-  const canonicalWorkflow = String(policy.review?.requiredCheckWorkflow?.path ?? "")
-    .split("/")
-    .at(-1);
   const coreNames = new Set(
     (policy.requiredChecks ?? [])
       .map((name) => String(name).trim().toLowerCase())
