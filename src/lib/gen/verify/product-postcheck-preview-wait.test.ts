@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchPreviewHostReadinessVerdict } from "@/lib/gen/preview/preview-host-client";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 import {
+  PRODUCT_POSTCHECK_FILES_REVISION_GRACE_MAX_PROBES,
+  PRODUCT_POSTCHECK_FILES_REVISION_GRACE_MS,
+  PRODUCT_POSTCHECK_FILES_REVISION_GRACE_POLL_MS,
   PRODUCT_POSTCHECK_PREVIEW_POLL_INTERVAL_MS,
   PRODUCT_POSTCHECK_PREVIEW_WAIT_MS,
   productPostcheckPreviewWaitBudgetMs,
@@ -154,12 +157,15 @@ describe("waitForProductPostcheckPreviewRunning", () => {
     });
   });
 
-  it("L7 (c): right version but wrong filesRevision is superseded, not attested pending", async () => {
+  it("L7 (c): present-but-different filesRevision polls grace before superseded", async () => {
     const sleep = vi.fn(async () => undefined);
     const result = await waitForProductPostcheckPreviewRunning({
       expectedVersionId: "v1",
       expectedFilesRevision: "rev_1",
       timeoutMs: 30_000,
+      filesRevisionGraceMs: PRODUCT_POSTCHECK_FILES_REVISION_GRACE_MS,
+      filesRevisionGracePollMs: PRODUCT_POSTCHECK_FILES_REVISION_GRACE_POLL_MS,
+      filesRevisionGraceMaxProbes: PRODUCT_POSTCHECK_FILES_REVISION_GRACE_MAX_PROBES,
       probe: async () => readyProbe({ filesRevision: "rev_0" }),
       sleep,
     });
@@ -168,6 +174,80 @@ describe("waitForProductPostcheckPreviewRunning", () => {
       ok: false,
       reason: "preview_superseded",
       lastProbe: expect.objectContaining({ versionId: "v1", filesRevision: "rev_0" }),
+    });
+    expect(sleep).toHaveBeenCalled();
+    expect(sleep.mock.calls.length).toBe(PRODUCT_POSTCHECK_FILES_REVISION_GRACE_MAX_PROBES - 1);
+  });
+
+  it("filesRevision pointer that catches up within grace becomes ready", async () => {
+    const reads = [
+      readyProbe({ filesRevision: "rev_stale" }),
+      readyProbe({ filesRevision: "rev_1" }),
+    ];
+    let index = 0;
+    const sleep = vi.fn(async () => undefined);
+    const result = await waitForProductPostcheckPreviewRunning({
+      expectedVersionId: "v1",
+      expectedFilesRevision: "rev_1",
+      timeoutMs: 30_000,
+      filesRevisionGraceMs: PRODUCT_POSTCHECK_FILES_REVISION_GRACE_MS,
+      filesRevisionGracePollMs: PRODUCT_POSTCHECK_FILES_REVISION_GRACE_POLL_MS,
+      filesRevisionGraceMaxProbes: PRODUCT_POSTCHECK_FILES_REVISION_GRACE_MAX_PROBES,
+      probe: async () => reads[Math.min(index++, reads.length - 1)]!,
+      sleep,
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.probe.filesRevision).toBe("rev_1");
+    expect(index).toBe(2);
+    expect(sleep).toHaveBeenCalledTimes(1);
+  });
+
+  it("filesRevision pointer that stays wrong after grace is superseded", async () => {
+    let calls = 0;
+    const sleep = vi.fn(async () => undefined);
+    const result = await waitForProductPostcheckPreviewRunning({
+      expectedVersionId: "v1",
+      expectedFilesRevision: "rev_1",
+      timeoutMs: 30_000,
+      filesRevisionGraceMs: 50,
+      filesRevisionGracePollMs: 10,
+      filesRevisionGraceMaxProbes: 3,
+      probe: async () => {
+        calls += 1;
+        return readyProbe({ filesRevision: "rev_stale" });
+      },
+      sleep,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "preview_superseded",
+      lastProbe: expect.objectContaining({ filesRevision: "rev_stale" }),
+    });
+    expect(calls).toBe(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+  });
+
+  it("older mutationRevision is superseded immediately even when filesRevision also differs", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const result = await waitForProductPostcheckPreviewRunning({
+      expectedVersionId: "v1",
+      expectedFilesRevision: "rev_1",
+      expectedMutationRevision: 5,
+      timeoutMs: 30_000,
+      probe: async () => readyProbe({ filesRevision: "rev_0", mutationRevision: 2 }),
+      sleep,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "preview_superseded",
+      lastProbe: expect.objectContaining({
+        versionId: "v1",
+        filesRevision: "rev_0",
+        mutationRevision: 2,
+      }),
     });
     expect(sleep).not.toHaveBeenCalled();
   });
@@ -444,7 +524,7 @@ describe("readProductPostcheckPreviewProbe", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("L7 (c) via the real reader: session filesRevision drift is superseded", async () => {
+  it("L7 (c) via the real reader: stale filesRevision is superseded when the wait budget is already 0", async () => {
     vi.mocked(getActivePreviewSessionAsync).mockResolvedValue({
       versionId: "v1",
       previewSessionId: "ps_1",
