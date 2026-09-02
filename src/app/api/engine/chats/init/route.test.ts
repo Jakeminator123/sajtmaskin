@@ -15,6 +15,7 @@ const resolveAppProjectIdForRequest = vi.hoisted(() => vi.fn());
 const startPreviewSession = vi.hoisted(() => vi.fn());
 const persistImportedRepoInitialization = vi.hoisted(() => vi.fn());
 const recordImportedRepoPreviewOutcome = vi.hoisted(() => vi.fn());
+const safeFetch = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/projects", () => ({
   createProject,
@@ -62,6 +63,11 @@ vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
 }));
 
+vi.mock("@/lib/ssrf-guard", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ssrf-guard")>();
+  return { ...actual, safeFetch };
+});
+
 import { POST } from "./route";
 
 describe("POST /api/engine/chats/init", () => {
@@ -80,6 +86,7 @@ describe("POST /api/engine/chats/init", () => {
     startPreviewSession.mockReset();
     persistImportedRepoInitialization.mockReset();
     recordImportedRepoPreviewOutcome.mockReset();
+    safeFetch.mockReset();
 
     getCurrentUser.mockResolvedValue({
       id: "user_import",
@@ -302,5 +309,51 @@ describe("POST /api/engine/chats/init", () => {
       versionId: "ver_import",
       outcome: "failed",
     });
+  });
+
+  it("rejects a ZIP URL that points at a private/metadata host", async () => {
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: { type: "zip", url: "http://169.254.169.254/latest/meta-data" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "ZIP URL is not allowed" });
+    expect(safeFetch).not.toHaveBeenCalled();
+    expect(createChat).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [401, "Archive download unauthorized"],
+    [403, "Archive download forbidden"],
+    [404, "Archive not found"],
+    [429, "Archive download rate limited"],
+  ] as const)("propagates upstream ZIP HTTP %s without calling it SSRF", async (status, error) => {
+    safeFetch.mockResolvedValueOnce(new Response("rate limit or token problem", { status }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: { type: "zip", url: "https://example.com/repo.zip" },
+        }),
+      }),
+    );
+
+    const body = await response.json();
+    expect(response.status).toBe(status);
+    expect(body).toEqual({ error });
+    expect(JSON.stringify(body).toLowerCase()).not.toContain("bearer");
+    expect(createChat).not.toHaveBeenCalled();
+    expect(safeFetch).toHaveBeenCalledWith(
+      "https://example.com/repo.zip",
+      expect.objectContaining({ maxBodyBytes: 50 * 1024 * 1024 }),
+    );
   });
 });
