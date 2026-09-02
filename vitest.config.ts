@@ -5,10 +5,11 @@ import path from "path";
 const IS_CI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 const IS_LOCAL_PR = !IS_CI && process.env.npm_lifecycle_event === "test:pr";
 /**
- * Stabilitets-lane-filer (grandmaster S1): `*.stability.test.ts(x)` körs ENBART av
- * `npm run test:stability` (egen config: `vitest.stability.config.ts`). De exkluderas
- * från standard-sviten här så att ett flaky/failande stability-case INTE kan fälla den
- * BLOCKERANDE `test:ci`/`quality`-grinden — annars vore warn-only-syftet undergrävt.
+ * Stabilitets-lane-filer (grandmaster S1): `*.stability.test.ts(x)` körs av
+ * `vitest.stability.config.ts` via `test:stability` (warn-only-jobb) och
+ * `test:stability:blocking` (deterministisk subset i quality-core). De
+ * exkluderas från standard-sviten här så att ett oklassificerat/flaky case
+ * inte kan smyga in i `test:ci`.
  */
 export const STABILITY_TEST_GLOBS = ["**/*.stability.test.{ts,tsx}"];
 
