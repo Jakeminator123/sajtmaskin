@@ -7,6 +7,7 @@ const PATH_MAX = 512;
 const REFERRER_MAX = 1024;
 const USER_AGENT_MAX = 512;
 const IP_MAX = 128;
+const SESSION_MAX = 128;
 
 export function clipAnalyticsField(value: string | undefined | null, max: number): string | null {
   if (!value) return null;
@@ -28,7 +29,7 @@ export async function recordPageView(
   if (!clippedPath) return;
   await db.insert(pageViews).values({
     path: clippedPath,
-    session_id: sessionId || null,
+    session_id: clipAnalyticsField(sessionId, SESSION_MAX),
     user_id: userId || null,
     ip_address: clipAnalyticsField(ipAddress, IP_MAX),
     user_agent: clipAnalyticsField(userAgent, USER_AGENT_MAX),
