@@ -24,6 +24,7 @@ import {
   resetVersionVerificationToPending,
   saveRepairedFiles,
   getChat,
+  getVersionById,
   acquireVersionLease,
   releaseVersionLease,
   renewVersionLease,
@@ -188,7 +189,11 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       return null;
     });
     if (owned) return true;
-    await failVersionVerificationIfUnleased(versionId, summary).catch((err) => {
+    const snapshot = await getVersionById(versionId).catch(() => null);
+    await failVersionVerificationIfUnleased(versionId, summary, {
+      verificationState: snapshot?.verification_state ?? "repairing",
+      filesRevision: snapshot?.files_revision ?? null,
+    }).catch((err) => {
       console.warn("[repair] Unleased fail fallback errored:", err);
     });
     return false;

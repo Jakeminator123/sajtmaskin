@@ -19,6 +19,7 @@ const failVersionVerificationIfUnleased = vi.hoisted(() => vi.fn());
 const resetVersionVerificationToPending = vi.hoisted(() => vi.fn());
 const saveRepairedFiles = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
+const getVersionById = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const getGenerationBillingMarkerPolicy = vi.hoisted(() => vi.fn());
 const establishGenerationBilling = vi.hoisted(() => vi.fn());
@@ -71,6 +72,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   resetVersionVerificationToPending,
   saveRepairedFiles,
   getChat,
+  getVersionById,
   acquireVersionLease,
   releaseVersionLease,
   renewVersionLease,

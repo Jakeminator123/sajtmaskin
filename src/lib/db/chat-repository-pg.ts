@@ -78,6 +78,10 @@ export {
   hasActiveVersionLease,
 } from "./chat-repository/leases";
 
+export type {
+  UnleasedWriteResult,
+  WatchdogCasExpected,
+} from "./chat-repository/version-lifecycle";
 export {
   markVersionVerifying,
   resetVersionVerificationToPending,
