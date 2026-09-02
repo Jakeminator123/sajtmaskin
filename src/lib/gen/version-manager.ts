@@ -74,6 +74,8 @@ export async function getVersionFilesSnapshot(
   files: CodeFile[];
   filesJson: string;
   lifecycleStage: "design" | "integrations";
+  /** DB-generated md5 of `filesJson`; same row as the parsed files. */
+  filesRevision: string | null;
 } | null> {
   const version = await getVersionById(versionId);
   if (!version) return null;
@@ -86,6 +88,7 @@ export async function getVersionFilesSnapshot(
     files,
     filesJson: version.files_json,
     lifecycleStage: version.lifecycle_stage,
+    filesRevision: version.files_revision ?? null,
   };
 }
 

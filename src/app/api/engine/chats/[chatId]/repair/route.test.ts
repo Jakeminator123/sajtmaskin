@@ -1004,6 +1004,40 @@ describe("POST repair — catch re-reads base when the crash precedes staleBaseN
     expect(failVersionVerification).toHaveBeenCalledTimes(1);
     expect(afterCallbacks.value).toHaveLength(0);
   });
+
+  it("binds the unleased fail CAS to the post-lease snapshot revision, not the pre-lease tenant read (L5)", async () => {
+    getRequestUserId.mockResolvedValue("user-1");
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1", files_revision: "rev-pre-lease" },
+    });
+    getVersionFilesSnapshot.mockReset();
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "A" }],
+      filesJson: '[{"path":"app/page.tsx","content":"A"}]',
+      filesRevision: "rev-post-lease",
+    });
+    failVersionVerification.mockResolvedValue(null);
+    failVersionVerificationIfUnleased.mockResolvedValue({
+      applied: false,
+      reason: "cas_miss",
+    });
+
+    const res = await POST(
+      req({
+        versionId: "ver-1",
+        repairContext: { qualityGate: [{ check: "typecheck", exitCode: 1, output: "boom" }] },
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(500);
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(
+      "ver-1",
+      expect.stringContaining("Repair crashed"),
+      { verificationState: "repairing", filesRevision: "rev-post-lease" },
+    );
+  });
 });
 
 describe("POST repair — Fas 3 base-aware early abort (superseded mid-loop)", () => {

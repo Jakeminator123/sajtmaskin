@@ -189,10 +189,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       return null;
     });
     if (owned) return true;
-    // L5: bind the unleased fallback to the snapshot this repair started on
-    // (`repairing` + files_revision at request start). Do NOT re-read the row
-    // (A1 / #1251: a re-read would CAS against a concurrent promote/edit and
-    // clobber it).
+    // L5: bind the unleased fallback to the post-lease snapshot this repair
+    // actually worked on (`repairing` + files_revision from
+    // getVersionFilesSnapshot). Do NOT re-read the row at fail time (A1 /
+    // #1251: that would CAS against a concurrent promote/edit and clobber it).
     await failVersionVerificationIfUnleased(versionId, summary, {
       verificationState: "repairing",
       filesRevision: repairCasFilesRevision,
@@ -247,7 +247,6 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     }
 
     internalVersionId = scopedVersion.version.id;
-    repairCasFilesRevision = scopedVersion.version.files_revision ?? null;
 
     // A current generation gets its completion marker from successful
     // finalize. Historical/imported rows predate that contract and can be
@@ -346,6 +345,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     // binds its write to it so a concurrent user edit is never clobbered.
     const baseFilesJson = snapshot.filesJson;
     baseFilesJsonForRecovery = baseFilesJson;
+    // Post-lease revision: the files this repair works on. A pre-lease tenant
+    // read can be stale if an edit landed before acquire; CAS against that
+    // older revision would miss and leave the row spinning in `repairing`.
+    repairCasFilesRevision = snapshot.filesRevision ?? null;
 
     if (dbConfigured) {
       await markVersionRepairing(internalVersionId, undefined, leaseRunId).catch((err) => {
