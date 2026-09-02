@@ -57,12 +57,15 @@ describe("useWizardRun", () => {
       useWizardRun({ isOpen: true, isAuthenticated: true, isInitialized: true }),
     );
     await waitFor(() => expect(result.current.wizardRunId).toBe(SERVER_RUN_ID));
+    const startCallsBeforeComplete = fetchMock.mock.calls.filter(
+      (call) => call[0] === "/api/wizard/start",
+    ).length;
 
     await act(async () => {
       await result.current.completeRun();
     });
 
-    expect(fetchMock).toHaveBeenLastCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       "/api/wizard/complete",
       expect.objectContaining({
         method: "POST",
@@ -71,5 +74,8 @@ describe("useWizardRun", () => {
     );
     expect(result.current.wizardRunId).toBe("");
     expect(window.localStorage.getItem(WIZARD_RUN_STORAGE_KEY)).toBeNull();
+    expect(
+      fetchMock.mock.calls.filter((call) => call[0] === "/api/wizard/start"),
+    ).toHaveLength(startCallsBeforeComplete);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export const WIZARD_RUN_STORAGE_KEY = "sajtmaskin:prompt-wizard-run-id";
 
@@ -20,9 +20,14 @@ export function useWizardRun({
   const [wizardRunId, setWizardRunId] = useState("");
   const [startError, setStartError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const skipStartRef = useRef(false);
 
   useEffect(() => {
-    if (!isOpen || !isInitialized || !isAuthenticated || wizardRunId) return;
+    if (!isOpen) {
+      skipStartRef.current = false;
+      return;
+    }
+    if (!isInitialized || !isAuthenticated || wizardRunId || skipStartRef.current) return;
     const controller = new AbortController();
     setIsStarting(true);
     setStartError(null);
@@ -58,6 +63,7 @@ export function useWizardRun({
   }, [isOpen, isAuthenticated, isInitialized, wizardRunId]);
 
   const completeRun = useCallback(async () => {
+    skipStartRef.current = true;
     const id = wizardRunId;
     setWizardRunId("");
     window.localStorage.removeItem(WIZARD_RUN_STORAGE_KEY);
