@@ -172,17 +172,15 @@ jobs:
           REQUIRE_POSTGRES_TESTS: "1"
         run: npm run test:postgres
 
-      # Grandmaster 5-7: the follow-up CONTRACT invariants (5-3/5-3b scaffold+route
-      # freeze/clamp, 5-5 capability floor) are deterministic hard contracts — promote
-      # them from the warn-only stability lane to a BLOCKING step so a regression reddens
-      # CI instead of only warning. They still also run in the warn-only `stability` job
-      # below (full set); this step hard-gates only the follow-up contract subset.
-      - name: Follow-up contract invariants (blocking, grandmaster 5-7)
-        # B14 (mirrors the C2 step below): run even if an earlier step (test:ci)
-        # failed, so a follow-up-contract regression is never masked/skipped by a
-        # red test:ci. Step gating defaults to success(); !cancelled() overrides.
+      # Deterministic stability contracts (C2): every current `*.stability.test.*`
+      # file is hermetic (no network/DB/wall-clock). Hard-gate them here so a
+      # regression reddens the required `quality` check. The broad `stability`
+      # job stays `continue-on-error` for the glossary check and future flaky
+      # additions that must be classified before they can block.
+      - name: Deterministic stability contracts (blocking)
+        # Run even if test:ci failed so a contract regression is never masked/skipped.
         if: ${{ !cancelled() }}
-        run: npm run test:followup-contract
+        run: npm run test:stability:blocking
 
       # CI/Vercel-paritet (2026-07-03): Vercels prebuild kör `preflight:common`
       # — men detta jobb gjorde det inte, så en commit kunde bli CI-grön och
@@ -448,8 +446,9 @@ jobs:
   # Blockerande schema-drift-gate (grandmaster S4). Deterministisk, nyckelfri och billig:
   # låser att avsett schema (src/lib/db/schema.ts) == applicerat (db-init.mjs /
   # add-performance-indexes.mjs / migrations/*.sql). Kräver inga DB-creds. På full profil
-  # finns ingen continue-on-error → ett rött resultat blockerar push/PR/merge. Den bredare
-  # vitest-stabilitets-lanen nedan förblir warn-only (kan vara flaky).
+  # finns ingen continue-on-error → ett rött resultat blockerar push/PR/merge.
+  # Deterministiska `*.stability.test.*` blockerar via quality-core ovan; jobbet
+  # `stability` nedan förblir warn-only.
   schema-drift:
     needs: scope
     if: ${{ !cancelled() }}
