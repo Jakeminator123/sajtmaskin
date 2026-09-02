@@ -122,6 +122,8 @@ const STAGING_BY_ID: Record<string, DossierStagingSpec> = {
   "postgres-drizzle": DATABASE_CONTENT,
   "vercel-blob-media": GENERIC_PLACEMENT,
   "vercel-analytics": NONE,
+  // Beacon goes in the root layout and /statistik is a fixed page — nothing to place.
+  "visitor-counter": NONE,
   "cmdk-command-palette": NONE,
 };
 

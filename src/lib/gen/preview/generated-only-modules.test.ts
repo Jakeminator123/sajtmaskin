@@ -22,7 +22,8 @@ describe("getGeneratedOnlyPackages", () => {
       "@supabase/ssr",
       "@supabase/supabase-js",
       "@clerk/nextjs",
-      "next-sanity",
+      // next-sanity left the set 2026-09-02 with the parked sanity-cms dossier.
+      "@vercel/blob",
       "maplibre-gl",
       "minisearch",
       "server-only",
@@ -81,17 +82,22 @@ describe("partitionUndecidableModuleDiagnostics", () => {
 
   it("drops unresolved-module errors for dossier SDKs the cache cannot install", () => {
     const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(
-      [unresolved("next-sanity"), unresolved("@supabase/ssr")],
+      [unresolved("@vercel/blob"), unresolved("@supabase/ssr")],
       cacheDir,
     );
     expect(kept).toEqual([]);
-    expect(suppressedModules).toEqual(["@supabase/ssr", "next-sanity"]);
+    expect(suppressedModules).toEqual(["@supabase/ssr", "@vercel/blob"]);
   });
 
-  it("keeps TS2307 for parked database SDKs (mongodb / @neondatabase)", () => {
+  it("keeps TS2307 for parked dossier SDKs (mongodb / @neondatabase / next-sanity)", () => {
     // Same pattern as the ably case after etapp 1: no live dossier declares
     // these packages, so pre-VM typecheck must surface the unresolved import.
-    const diagnostics = [unresolved("mongodb"), unresolved("@neondatabase/serverless")];
+    // next-sanity joined the list 2026-09-02 when sanity-cms was parked.
+    const diagnostics = [
+      unresolved("mongodb"),
+      unresolved("@neondatabase/serverless"),
+      unresolved("next-sanity"),
+    ];
     const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(
       diagnostics,
       cacheDir,

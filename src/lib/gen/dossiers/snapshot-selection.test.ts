@@ -37,15 +37,15 @@ describe("resolveSelectedDossiersFromSnapshot", () => {
     ).toEqual([]);
   });
 
-  it("resolves a known capability into a SelectedDossier (analytics → vercel-analytics)", () => {
+  it("resolves a known capability into a SelectedDossier (analytics → visitor-counter)", () => {
     const result = resolveSelectedDossiersFromSnapshot({
       briefSummary: { requestedCapabilities: ["analytics"] },
     });
     expect(result.length).toBeGreaterThan(0);
-    const ids = result.map((d) => d.entry.id);
-    // Either vercel-analytics (default) or plausible-analytics depending on
-    // tie-break; both are valid analytics dossiers.
-    expect(ids.some((id) => id.includes("analytics"))).toBe(true);
+    // visitor-counter is the analytics default since 2026-09-02 (owner-visible
+    // /statistik page); vercel-analytics is the explicit sibling.
+    expect(result.map((d) => d.entry.id)).toEqual(["visitor-counter"]);
+    expect(result[0].entry.capability).toBe("analytics");
   });
 
   it("resolves multiple capabilities into one SelectedDossier each (mostly)", () => {

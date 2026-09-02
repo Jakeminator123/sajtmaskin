@@ -12,15 +12,16 @@ import { getF3RequiredCapabilities } from "./registry";
 
 /**
  * Non-secret integration capabilities that F2 mutes by POLICY
- * (`.cursor/rules/env-flow-f2-mute.mdc`) even though their dossier has no
- * build-enforced env secret AND no server-file surface — today only
- * analytics (`<Analytics/>` needs no build key and ships no server file).
- * Everything else is derived from each dossier's own contract via
- * `getF3RequiredCapabilities()` (see `dossierRequiresF3`: build-enforced
- * env var OR a `files[].role === "server"` file — the latter now covers
- * contact-form/resend, newsletter-subscribe/mailchimp and
- * error-tracking/sentry). Keep this residual minimal; prefer expressing
- * "needs F3" through the dossier manifest.
+ * (`.cursor/rules/env-flow-f2-mute.mdc`) even when a dossier under them has
+ * no build-enforced env secret AND no server-file surface — today only
+ * analytics, for the client-only `vercel-analytics` sibling (`<Analytics/>`
+ * needs no build key and ships no server file). Since 2026-09-02 the analytics
+ * DEFAULT (`visitor-counter`) ships server files and is derived into F3 on its
+ * own; the residual stays so the capability is muted regardless of which
+ * sibling the prompt picks. Everything else is derived from each dossier's
+ * own contract via `getF3RequiredCapabilities()` (see `dossierRequiresF3`:
+ * build-enforced env var OR a `files[].role === "server"` file). Keep this
+ * residual minimal; prefer expressing "needs F3" through the dossier manifest.
  */
 const F2_MUTE_POLICY_ONLY_CAPABILITIES = new Set(["analytics"]);
 

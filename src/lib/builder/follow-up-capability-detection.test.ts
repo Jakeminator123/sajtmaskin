@@ -364,6 +364,27 @@ describe("detectFollowUpCapabilities — assorted dossier capabilities", () => {
     expect(result.capabilityIds).toContain("analytics");
   });
 
+  // visitor-counter (2026-09-02): owners ask for a "räknare", not "analytics".
+  it("detects a plain-language visitor counter ask as `analytics`", () => {
+    for (const prompt of [
+      "lägg till en räknare för hur många besökare som kommer till hemsidan",
+      "jag vill ha en besöksräknare",
+      "skapa en statistiksida så jag kan se hur många som besöker sajten",
+      "add a visitor counter",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds, prompt).toContain("analytics");
+    }
+  });
+
+  it("does NOT read an ordinary user list or a countdown as `analytics`", () => {
+    for (const prompt of [
+      "visa användare i en lista på adminsidan",
+      "lägg till en nedräknare till releasen",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds, prompt).not.toContain("analytics");
+    }
+  });
+
   it("does NOT detect parked `error-tracking` (sentry-error-tracking parkerad 2026-08-06)", () => {
     const result = detectFollowUpCapabilities("lägg till sentry för error-tracking");
     expect(result.capabilityIds).not.toContain("error-tracking");

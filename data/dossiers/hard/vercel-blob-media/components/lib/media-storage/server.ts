@@ -85,7 +85,7 @@ export class MediaStorageNotConfiguredError extends Error {
  * when no real token is configured so callers can answer 503.
  */
 export async function uploadMedia(
-  file: Blob | ArrayBuffer | Uint8Array | string,
+  file: Blob | ArrayBuffer | Buffer | ReadableStream | string,
   options: UploadMediaOptions,
 ): Promise<MediaItem> {
   if (!isMediaStorageConfigured()) {

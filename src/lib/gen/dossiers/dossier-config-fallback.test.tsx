@@ -31,6 +31,16 @@ import {
     titleFromPath,
 } from "../../../../data/dossiers/hard/vercel-blob-media/components/lib/media-storage/config";
 import { seedMedia } from "../../../../data/dossiers/hard/vercel-blob-media/components/lib/media-storage/seed-media";
+import {
+    VISIT_HISTORY_DAYS,
+    dayKey,
+    getVisitStoreConfig,
+    isLikelyBot,
+    isVisitorCounterConfigured,
+    readDemoStats,
+    recentDayKeys,
+    recordDemoVisit,
+} from "../../../../data/dossiers/hard/visitor-counter/components/lib/visits/config";
 
 function mockFetchOnce(status: number, body: unknown): ReturnType<typeof vi.fn> {
   const fn = vi.fn().mockResolvedValue({
@@ -503,9 +513,11 @@ describe("dossier API routes — recognizable not-configured error codes", () =>
   // the Sajtmaskin app, so a direct `import` would fail to resolve. Their mock
   // behavior is covered by the manifest `mock` field + validator + docs.
   // (sanity-cms and its seed-fallback suite left with the parked dossier
-  // 2026-09-02.) The vercel-blob-media server helper/route are `server-only`-
-  // guarded and therefore not import-tested here; the env gate they branch on
-  // is covered below and the gallery in dossier-client-mount.test.tsx.
+  // 2026-09-02.) The vercel-blob-media and visitor-counter server helpers/
+  // routes are `server-only`-guarded (and import `@/lib/...` paths the dossier
+  // itself ships) and therefore not import-tested here; the env gates and demo
+  // stores they branch on are covered below, the UI in
+  // dossier-client-mount.test.tsx.
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -570,5 +582,102 @@ describe("vercel-blob-media — seed fallback contract (mock: seed)", () => {
       expect(mediaKindFromPath(item.url)).toBe(item.kind);
       expect(item.title.length).toBeGreaterThan(0);
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// visitor-counter (mock: seed, 2026-09-02): the env gate that decides between
+// Upstash and the in-memory demo store, the day bucketing the keys are built
+// from, the bot filter and the demo store's "still ticks live" contract.
+// ─────────────────────────────────────────────────────────────────────────
+describe("visitor-counter — seed fallback contract (mock: seed)", () => {
+  const KEYS = [
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
+    "KV_REST_API_URL",
+    "KV_REST_API_TOKEN",
+  ] as const;
+  const saved = Object.fromEntries(KEYS.map((key) => [key, process.env[key]]));
+
+  beforeEach(() => {
+    for (const key of KEYS) delete process.env[key];
+  });
+
+  afterEach(() => {
+    for (const key of KEYS) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  });
+
+  it("is unconfigured with missing env or F2 preview placeholders (demo path)", () => {
+    expect(isVisitorCounterConfigured()).toBe(false);
+    process.env.UPSTASH_REDIS_REST_URL = "upstash_redis_rest_url_placeholder_preview_not_real";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "upstash_redis_rest_token_placeholder_preview_not_real";
+    expect(isVisitorCounterConfigured()).toBe(false);
+    // Half a pair is not a store either.
+    process.env.UPSTASH_REDIS_REST_URL = "https://eu1-example.upstash.io";
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    expect(getVisitStoreConfig()).toBeNull();
+  });
+
+  it("accepts the Upstash console pair and the Vercel Marketplace KV_* alias", () => {
+    process.env.UPSTASH_REDIS_REST_URL = "https://eu1-example.upstash.io/";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "AX1example_real_token";
+    expect(getVisitStoreConfig()).toEqual({
+      url: "https://eu1-example.upstash.io",
+      token: "AX1example_real_token",
+    });
+
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    process.env.KV_REST_API_URL = "https://kv-example.upstash.io";
+    process.env.KV_REST_API_TOKEN = "AX2example_real_token";
+    expect(isVisitorCounterConfigured()).toBe(true);
+  });
+
+  it("rejects a non-https store URL so a stub never becomes a network call", () => {
+    process.env.UPSTASH_REDIS_REST_URL = "http://localhost:6379";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "AX1example_real_token";
+    expect(getVisitStoreConfig()).toBeNull();
+  });
+
+  it("buckets by Stockholm calendar day and lists the last days oldest-first ending today", () => {
+    // 23:30 UTC on 1 Sep is already 2 Sep in Stockholm (UTC+2).
+    expect(dayKey(new Date("2026-09-01T23:30:00Z"))).toBe("2026-09-02");
+    const now = new Date("2026-09-02T10:00:00Z");
+    const keys = recentDayKeys(VISIT_HISTORY_DAYS, now);
+    expect(keys).toHaveLength(VISIT_HISTORY_DAYS);
+    expect(keys[0]).toBe("2026-08-20");
+    expect(keys[keys.length - 1]).toBe("2026-09-02");
+  });
+
+  it("treats crawlers, headless browsers and an empty UA as bots, real browsers not", () => {
+    expect(isLikelyBot("Mozilla/5.0 (compatible; Googlebot/2.1)")).toBe(true);
+    expect(isLikelyBot("HeadlessChrome/128.0")).toBe(true);
+    expect(isLikelyBot("")).toBe(true);
+    expect(isLikelyBot(null)).toBe(true);
+    expect(
+      isLikelyBot(
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1",
+      ),
+    ).toBe(false);
+  });
+
+  it("demo store: seeds a full history, is flagged demo and still ticks live views/visits", () => {
+    const now = new Date("2026-09-02T10:00:00Z");
+    const before = readDemoStats(now);
+    expect(before.demo).toBe(true);
+    expect(before.days).toHaveLength(VISIT_HISTORY_DAYS);
+    expect(before.today.date).toBe("2026-09-02");
+    expect(before.days.every((day) => day.views >= day.visitors && day.visitors >= 0)).toBe(true);
+    expect(before.total.views).toBe(before.days.reduce((sum, day) => sum + day.views, 0));
+
+    recordDemoVisit({ newVisitor: true, now });
+    recordDemoVisit({ newVisitor: false, now });
+    const after = readDemoStats(now);
+    expect(after.today.views).toBe(before.today.views + 2);
+    expect(after.today.visitors).toBe(before.today.visitors + 1);
+    expect(after.total.views).toBe(before.total.views + 2);
   });
 });

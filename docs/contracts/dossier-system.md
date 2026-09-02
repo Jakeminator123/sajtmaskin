@@ -73,7 +73,7 @@ Aktuell capability→grupp-vy:
 | 6   | `search-maps`  | Sök & karta         | `site-search`, `map-display`, `command-palette`                              |
 | 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`, `media-storage` (vercel-blob-media, 2026-09-02) |
 | 8   | `interactive`  | Interaktivt & 3D    | `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`            |
-| 9   | `ops`          | Drift & mätning     | `analytics`                                                                  |
+| 9   | `ops`          | Drift & mätning     | `analytics` (visitor-counter default sedan 2026-09-02, vercel-analytics syskon) |
 | 10  | `other`        | Övrigt              | (fångstnät för omappade capabilities)                                        |
 
 > **Taxonomi-omtag 2026-07-22 (ägarbeslut):** elva soft-dossiers parkerades
@@ -114,6 +114,19 @@ Aktuell capability→grupp-vy:
 > `mock: seed` (medskickad `seedMedia` + `<MediaConfigNotice />`) och utan
 > publik upload-route. `next-sanity` ligger kvar som frihandspin i
 > `dep-completer.ts` (samma behandling som `@paddle/paddle-node-sdk`).
+> `analytics` fick en ägarsynlig default: sajter deployas i Sajtmaskins
+> Vercel-team, så Vercel Analytics-siffrorna når aldrig sajtägaren. Nya
+> `visitor-counter` (providers `upstash`, `mock: seed`) skeppar
+> `<VisitBeacon />` för root-layouten, `/api/visits` (page views + besök per
+> lokal dag i Upstash Redis via ren REST) och en standardiserad
+> `/statistik`-sida med `<VisitorStats />`; utan lagring tickar en in-memory
+> demoserie med ärlig notis. `vercel-analytics` kvarstår som explicit syskon
+> (`relevanceKeywords` "vercel analytics"/"speed insights"). Eftersom
+> defaulten har serverfiler härleds `analytics` nu till F3 av kontraktet;
+> policy-residualen i `f2-mute.ts` behålls för det klient-only-syskonet.
+> `resolvePendingIntegrationDossiers` fick samtidigt en dubbelmonteringsspärr:
+> en klient-only dossier vars provider designrundan redan skrivit in
+> (`@vercel/analytics`) installeras inte en andra gång i F3.
 
 **Fallback-principen:** demo-_mönstret_ (seed-data, canned-svar, fejkad
 success) är gemensamt per capability, men garantin gäller **per dossier**:
@@ -252,7 +265,7 @@ Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/t
 | `mock`                         | Beteende i F2/preview utan livekonfiguration                                                                                                                                                                                                                                                                                                                                                                                                                                             | Exempel-dossiers                                                                    |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `canned`                       | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar). Riktiga vägen återupptas när en riktig nyckel sätts.                                                                                                                                                                                                                                                                                                                          | `openai-chat`                                                                       |
-| `seed`                         | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps.                                                                                                                                  | `postgres-drizzle`, `vercel-blob-media`                                             |
+| `seed`                         | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps.                                                                                                                                  | `postgres-drizzle`, `vercel-blob-media`, `visitor-counter`                          |
 | `success`                      | Mutations-endpoints returnerar en fejkad success + en demo-notis (`demo: true`) så formulär går igenom i F2 utan att koppla providern.                                                                                                                                                                                                                                                                                                                                                  | `resend-contact-form`, `mailchimp-newsletter`                                       |
 | `visual` (nytt 2026-07-22)     | Den interaktiva ytan renderas fullt ut (betalknapp, inloggningsknappar, live-widget) och **handlingen** öppnar en ärlig demo-notis/modal i stället för att utföra den riktiga operationen — aldrig fejkade sessioner, debiteringar eller transport. Riktiga backend aktiveras när leverantörsvärden sparas. Exempel: stripe-checkouts `CheckoutButton` är klickbar och öppnar "Demoläge — ingen riktig betalning"-modalen; clerk-auths knappar öppnar "Inloggning i demoläge"-dialogen. | `stripe-checkout`, `clerk-auth`, `supabase-auth`                                    |
 | `none` (default vid utelämnat) | Ingen användarsynlig demo-yta alls → komponenten self-disablar (analytics) eller visar en diskret konfigurationsbanner.                                                                                                                                                                                                                                                                                                                                                                 | `vercel-analytics`                                                                  |

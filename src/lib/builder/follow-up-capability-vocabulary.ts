@@ -314,6 +314,11 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       // (Codex P2 på #482): användare skriver etiketten de ser i panelen.
       /(?<![\p{L}\p{N}_])besök(?:s|ar)-?statistik(?:en)?(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:spåra\s+besökare|track[-\s]?visitors|page[-\s]?views|sidvisningar)(?![\p{L}\p{N}_])/iu,
+      // visitor-counter (2026-09-02): the owner-visible default asks for a
+      // "räknare" or "hur många besökare" rather than the word analytics.
+      /(?<![\p{L}\p{N}_])(?:besöks-?räknare|besökar-?räknare|visitor[-\s]?counter|hit[-\s]?counter|statistik-?sida)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:räknare\s+(?:för|på|över)|räkna(?:r)?|mät(?:a|er)?)\s+(?:hur\s+många\s+)?(?:besökare|besök(?:en)?|användare|personer)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])hur\s+många\s+(?:(?:besökare|användare|personer)\s+)?(?:som\s+)?(?:besöker|besökt|kommer\s+(?:in\s+)?(?:på|till)|tittar\s+på|går\s+in\s+på)(?![\p{L}\p{N}_])/iu,
     ],
   },
   // `error-tracking` (sentry-error-tracking) left the vocabulary 2026-08-06

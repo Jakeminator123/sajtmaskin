@@ -9,7 +9,7 @@
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:8ba5885c840e33f8 -->
-<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:3dbcb42b164c74e4 -->
+<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:6fdc4794d0a6a606 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
 # Policies
@@ -203,6 +203,8 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `supabase-auth`        | `auth`                 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Yes      | `feature-runtime` | `visual`  |
 | `supabase-auth`        | `auth`                 | `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | `feature-runtime` | `visual`  |
 | `vercel-blob-media`    | `media-storage`        | `BLOB_READ_WRITE_TOKEN`              | Yes      | `feature-runtime` | `seed`    |
+| `visitor-counter`      | `analytics`            | `UPSTASH_REDIS_REST_TOKEN`           | Yes      | `feature-runtime` | `seed`    |
+| `visitor-counter`      | `analytics`            | `UPSTASH_REDIS_REST_URL`             | Yes      | `feature-runtime` | `seed`    |
 
 ## Control-plane registry
 

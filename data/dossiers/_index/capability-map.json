@@ -1,12 +1,13 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-09-02T00:31:04.748Z",
+  "generatedAt": "2026-09-02T01:14:22.443Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
     ],
     "analytics": [
-      "vercel-analytics"
+      "vercel-analytics",
+      "visitor-counter"
     ],
     "auth": [
       "clerk-auth",
@@ -571,7 +572,7 @@
       "providers": [
         "vercel-analytics"
       ],
-      "defaultForCapability": true,
+      "defaultForCapability": false,
       "mock": "none",
       "envVars": [],
       "fileRoles": {
@@ -630,6 +631,60 @@
         "server-only"
       ],
       "summarySv": "Plats för sajtens egna filmer och tyngre bilder — till exempel referensbilder, produktfoton eller en presentationsfilm — så att de laddar snabbt utan att ligga i själva sajtkoden. Ett galleri visar filerna automatiskt. Tills lagringen är kopplad visas exempelbilder och en exempelfilm i demoläge, med en tydlig notis; inga filer kan läggas upp förrän kopplingen är klar.",
+      "verificationStatus": "unverified",
+      "lastVerified": "2026-09-02",
+      "f2Disposition": "deferred",
+      "f2Reason": "build-server",
+      "buildServerRequirement": true,
+      "buildServerReasons": [
+        "server-file"
+      ],
+      "labelsSv": {
+        "class": {
+          "label": "Kopplad",
+          "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
+        },
+        "mock": {
+          "label": "Medskickad demo-data",
+          "hint": "Data-lagret använder medskickad exempeldata och en diskret notis tills en riktig databas kopplas in."
+        },
+        "requiresF3": {
+          "label": "Kräver integrationsbygge",
+          "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
+        }
+      }
+    },
+    {
+      "id": "visitor-counter",
+      "label": "Besöksräknare — egen statistiksida",
+      "class": "hard",
+      "capability": "analytics",
+      "providers": [
+        "upstash"
+      ],
+      "defaultForCapability": true,
+      "mock": "seed",
+      "envVars": [
+        {
+          "key": "UPSTASH_REDIS_REST_TOKEN",
+          "required": true,
+          "enforcement": "feature-runtime"
+        },
+        {
+          "key": "UPSTASH_REDIS_REST_URL",
+          "required": true,
+          "enforcement": "feature-runtime"
+        }
+      ],
+      "fileRoles": {
+        "client": 2,
+        "server": 2,
+        "shared": 2
+      },
+      "dependencies": [
+        "server-only"
+      ],
+      "summarySv": "En egen besöksräknare med en färdig statistiksida på /statistik: hur många som besökt sajten idag, totalt och per dag de senaste två veckorna. Räknar utan cookies och sparar inget om enskilda besökare. Tills statistiklagringen är kopplad visas exempelsiffror i demoläge med en tydlig notis; därefter räknas riktiga besök.",
       "verificationStatus": "unverified",
       "lastVerified": "2026-09-02",
       "f2Disposition": "deferred",
@@ -1055,8 +1110,9 @@
     "data/dossiers/hard/resend-contact-form/manifest.json": "da4af8a189ec7b304eee50bf8bc0157b6a1bd365b16344f6e6f8ded4ff035a9a",
     "data/dossiers/hard/stripe-checkout/manifest.json": "09c25e6b5449cc37a177add0dddd02d51cc109441df5b99d5ada748c98d6ab3e",
     "data/dossiers/hard/supabase-auth/manifest.json": "3077977e752b0c11c8c0c466cf661b9c7868cb2577c85151066b7fe2a8efc40d",
-    "data/dossiers/hard/vercel-analytics/manifest.json": "85913f69e9ca853141f4bf115b55afabd6637bcb7853b6fa16552c92e7ce6de4",
+    "data/dossiers/hard/vercel-analytics/manifest.json": "cdc8f4b0bb84fb10eef49b397504f192fa96bef4ff387485ae413343c6a353da",
     "data/dossiers/hard/vercel-blob-media/manifest.json": "d6862608011b45e2676f3f45b55e1c49269971fd2e3d651d8eb567c401f7c83d",
+    "data/dossiers/hard/visitor-counter/manifest.json": "91407c60034e2947355332eb0a711d3cb214bd979a9cd640690853c48bf26913",
     "data/dossiers/soft/cmdk-command-palette/manifest.json": "f199ee6dfacebc40193ee48324c77c488048b78a197d848394176e1cfbbd5f99",
     "data/dossiers/soft/dashboard-charts/manifest.json": "fd254bcb85080f163833baf666a5810db2a8f60eda7663d7ac67642ebc5b6683",
     "data/dossiers/soft/embla-carousel/manifest.json": "d016ba15b9f322656c283d37d48407a21c3308030416e485518874d8da0da520",
@@ -1070,7 +1126,7 @@
     "scripts/dossiers/regenerate-capability-map.ts": "ce15a798da3ac8056091104ae83854a2a92ade98b8468b077e1ebc4977035163",
     "src/lib/builder/dossier-axes.ts": "e216ee94304cf5f02a308c7be4c653d1d3d1d6fb128597bf555bf6938ffa825a",
     "src/lib/builder/dossier-groups.ts": "04ca71c795ef5a22946172606fd7271e151276f784cef2682972b6391f202fda",
-    "src/lib/gen/dossiers/f2-mute.ts": "f9fe5879bdd327277423c2a82374c11d303b6c1484fb17b88edb6d8bbd6882ed",
+    "src/lib/gen/dossiers/f2-mute.ts": "709ac6df9c5eec5d03f7249c732023614865577e61e8a1bc86a5f2d3d5b902b7",
     "src/lib/gen/dossiers/registry.ts": "2766260fb71f0bef126a9f30274869b507bc466b84edb50501568a8b9cee7c11",
     "src/lib/gen/dossiers/types.ts": "07e75ba9f0ecd48a1eae6f5fe9f57bd1bf5e57cb31cbb1b02d820bedef6fe26d",
     "src/lib/gen/dossiers/validate-manifest.ts": "2dd162db2796daec5a18a5d5c3ed308a1de4944abea2c837015a4d7019c72ecc"

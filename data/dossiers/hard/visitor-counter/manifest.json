@@ -1,0 +1,90 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "visitor-counter",
+  "mock": "seed",
+  "label": "Besöksräknare — egen statistiksida",
+  "capability": "analytics",
+  "providers": ["upstash"],
+  "relevanceKeywords": ["räknare", "besöksräknare", "statistiksida", "upstash"],
+  "codeFidelity": "verbatim",
+  "complexity": "advanced",
+  "defaultForCapability": true,
+  "summary": "First-party visitor counter the site OWNER can actually see: an invisible <VisitBeacon /> in the root layout posts one hit per navigation to /api/visits, the server counts page views and visits per local day in Upstash Redis (plain REST, no SDK), and a standardized /statistik page renders today's numbers, totals and a 14-day bar chart via <VisitorStats />. Cookieless, no personal data. Demo mode (mock: seed): without a real store the counter ticks an in-memory sample series and the page shows an honest demo notice — never a crash, never a fake 'real' number.",
+  "summarySv": "En egen besöksräknare med en färdig statistiksida på /statistik: hur många som besökt sajten idag, totalt och per dag de senaste två veckorna. Räknar utan cookies och sparar inget om enskilda besökare. Tills statistiklagringen är kopplad visas exempelsiffror i demoläge med en tydlig notis; därefter räknas riktiga besök.",
+  "envVars": [
+    {
+      "key": "UPSTASH_REDIS_REST_URL",
+      "required": true,
+      "enforcement": "feature-runtime",
+      "setupUrl": "https://vercel.com/marketplace/upstash",
+      "purpose": "REST endpoint of the Upstash Redis database that stores the counters (https://…upstash.io). Created under the project's Storage tab (Upstash Redis) or at console.upstash.com; the code also accepts the Marketplace alias KV_REST_API_URL. Tagged feature-runtime: a missing or placeholder value keeps the counter in in-memory demo mode instead of crashing."
+    },
+    {
+      "key": "UPSTASH_REDIS_REST_TOKEN",
+      "required": true,
+      "enforcement": "feature-runtime",
+      "setupUrl": "https://vercel.com/marketplace/upstash",
+      "purpose": "REST token for the same Upstash Redis database (server-only, never sent to the browser). Marketplace alias KV_REST_API_TOKEN is accepted too. Tagged feature-runtime: missing or placeholder → demo mode with a notice on /statistik."
+    }
+  ],
+  "dependencies": ["server-only"],
+  "files": [
+    {
+      "path": "components/lib/visits/config.ts",
+      "role": "shared",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/lib/visits/server.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/api/visits/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/visit-beacon.tsx",
+      "role": "client",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/visitor-stats.tsx",
+      "role": "client",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "app/statistik/page.tsx",
+      "role": "shared",
+      "injectionMode": "rewritable"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "VisitBeacon",
+      "type": "component",
+      "import": "@/components/visit-beacon"
+    },
+    {
+      "name": "VisitorStats",
+      "type": "component",
+      "import": "@/components/visitor-stats"
+    },
+    {
+      "name": "readVisitStats",
+      "type": "function",
+      "import": "@/lib/visits/server"
+    },
+    {
+      "name": "isVisitorCounterConfigured",
+      "type": "function",
+      "import": "@/lib/visits/config"
+    }
+  ],
+  "lastVerified": "2026-09-02",
+  "verificationStatus": "unverified",
+  "sourceRepoUrl": "https://upstash.com/docs/redis/features/restapi",
+  "notes": "New 2026-09-02 (owner decision): sites deploy into Sajtmaskin's Vercel team, so Vercel Analytics is invisible to the site owner — this dossier is the owner-visible default for `analytics`; vercel-analytics stays as the explicit sibling. Demo store + env gate + route contract are unit-tested; a live INCR against a real Upstash database in a deployed preview is still required before verificationStatus becomes accepted.",
+  "promptInstructionMode": "selected-sections"
+}

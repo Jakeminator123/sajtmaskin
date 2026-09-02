@@ -30,11 +30,19 @@ import path from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// `usePathname` (visit-beacon) only works inside the App Router; the beacon
+// tests drive the path through this mock.
+const pathnameMock = vi.fn<() => string | null>(() => "/");
+vi.mock("next/navigation", () => ({ usePathname: () => pathnameMock() }));
+
 import { BookingCalendar } from "../../../../data/dossiers/hard/calcom-booking/components/booking-calendar";
 import { NewsletterForm } from "../../../../data/dossiers/hard/mailchimp-newsletter/components/newsletter-form";
 import { DbConfigNotice } from "../../../../data/dossiers/hard/postgres-drizzle/components/db-config-notice";
 import { MediaConfigNotice } from "../../../../data/dossiers/hard/vercel-blob-media/components/media-config-notice";
 import { MediaGallery } from "../../../../data/dossiers/hard/vercel-blob-media/components/media-gallery";
+import StatistikPage from "../../../../data/dossiers/hard/visitor-counter/app/statistik/page";
+import { VisitBeacon } from "../../../../data/dossiers/hard/visitor-counter/components/visit-beacon";
+import { VisitorStats } from "../../../../data/dossiers/hard/visitor-counter/components/visitor-stats";
 
 const HARD_DIR = path.resolve(__dirname, "../../../../data/dossiers/hard");
 
@@ -48,6 +56,9 @@ const MOUNTED: Record<string, string> = {
   "postgres-drizzle/components/db-config-notice.tsx": "denna fil",
   "vercel-blob-media/components/media-config-notice.tsx": "denna fil",
   "vercel-blob-media/components/media-gallery.tsx": "denna fil",
+  "visitor-counter/components/visit-beacon.tsx": "denna fil",
+  "visitor-counter/components/visitor-stats.tsx": "denna fil",
+  "visitor-counter/app/statistik/page.tsx": "denna fil",
   "resend-contact-form/components/integration-config-notice.tsx":
     "denna fil (via kopie-vakten)",
   "clerk-auth/components/auth-buttons.tsx": "dossier-config-fallback.test.tsx",
@@ -142,6 +153,9 @@ function mockFetchOnce(status: number, body?: unknown): void {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  pathnameMock.mockReset();
+  pathnameMock.mockReturnValue("/");
+  window.sessionStorage.clear();
 });
 
 describe("täckningsgrind: varje Kopplad dossiers renderbara komponenter", () => {
@@ -335,6 +349,120 @@ describe("MediaConfigNotice — seed-läge (vercel-blob-media)", () => {
     expect(screen.getByText(/Visar exempelbilder och -filmer/)).toBeTruthy();
     expect(container.innerHTML).not.toContain("destructive");
     expect(container.textContent).not.toMatch(/fel|error/i);
+  });
+});
+
+// visitor-counter (2026-09-02): the owner-visible analytics default. Contract:
+// the beacon counts exactly once per navigation, never on /statistik, and the
+// stats page is honest about demo numbers without ever looking broken.
+describe("VisitBeacon — en träff per navigation (visitor-counter)", () => {
+  function postedBodies(): Array<{ newVisitor: boolean }> {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    return fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body)));
+  }
+
+  it("postar en träff med newVisitor=true första gången i sessionen, sedan false", () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+    pathnameMock.mockReturnValue("/");
+    const { rerender } = render(<VisitBeacon />);
+    // Re-render without a route change must NOT count again.
+    rerender(<VisitBeacon />);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("/api/visits");
+    expect(init.method).toBe("POST");
+    expect(init.keepalive).toBe(true);
+
+    pathnameMock.mockReturnValue("/kontakt");
+    rerender(<VisitBeacon />);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(postedBodies()).toEqual([{ newVisitor: true }, { newVisitor: false }]);
+  });
+
+  it("räknar aldrig statistiksidan själv", () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
+    pathnameMock.mockReturnValue("/statistik");
+    render(<VisitBeacon />);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("renderar ingenting synligt och överlever ett misslyckat anrop", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const { container } = render(<VisitBeacon />);
+    expect(container.innerHTML).toBe("");
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("VisitorStats — seed-läge (visitor-counter, mock: seed)", () => {
+  const days = Array.from({ length: 14 }, (_, i) => ({
+    date: `2026-08-${String(1 + i).padStart(2, "0")}`,
+    views: 10 + i,
+    visitors: 5 + i,
+  }));
+  const stats = {
+    today: days[days.length - 1],
+    total: { views: 1234, visitors: 567 },
+    days,
+    demo: true,
+  };
+
+  it("visar dagens siffror, totaler, stapeldiagram och den ärliga demo-notisen", async () => {
+    mockFetchOnce(200, { ok: true, demo: true, stats });
+    const { container } = render(<VisitorStats />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Besökare idag")).toBeTruthy();
+    });
+    expect(screen.getByText("18")).toBeTruthy();
+    expect(screen.getByText("567")).toBeTruthy();
+    expect(screen.getByRole("list", { name: "Besökare per dag" }).children).toHaveLength(14);
+    expect(screen.getByRole("note").textContent).toMatch(/Demoläge/);
+    // Seed-läget ska läsa som "inte kopplat ännu", inte som ett fel.
+    expect(container.textContent).not.toMatch(/fel|error/i);
+    expect(globalThis.fetch).toHaveBeenCalledWith("/api/visits", { cache: "no-store" });
+  });
+
+  it("visar INGEN demo-notis när lagringen är riktigt kopplad", async () => {
+    mockFetchOnce(200, { ok: true, demo: false, stats: { ...stats, demo: false } });
+    render(<VisitorStats />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Besökare idag")).toBeTruthy();
+    });
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
+  it("visar en lugn 'Försök igen' utan statuskod när läsningen fallerar", async () => {
+    mockFetchOnce(502, { ok: false, error: "visits-read-failed" });
+    render(<VisitorStats />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toBeTruthy();
+    });
+    expect(screen.getByRole("button", { name: "Försök igen" })).toBeTruthy();
+    expect(screen.queryByText(/502/)).toBeNull();
+  });
+});
+
+describe("StatistikPage — den standardiserade statistiksidan (visitor-counter)", () => {
+  it("renderar rubriken och monterar VisitorStats", async () => {
+    mockFetchOnce(200, {
+      ok: true,
+      demo: true,
+      stats: {
+        today: { date: "2026-09-02", views: 3, visitors: 2 },
+        total: { views: 3, visitors: 2 },
+        days: [{ date: "2026-09-02", views: 3, visitors: 2 }],
+        demo: true,
+      },
+    });
+    render(<StatistikPage />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "Besöksstatistik" })).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("Besökare idag")).toBeTruthy();
+    });
   });
 });
 

@@ -40,13 +40,15 @@ describe("provider-specific pending integration dossiers", () => {
       },
       versionFiles: [],
     });
+    // Legacy capability-only snapshots resolve to the analytics default, which
+    // since 2026-09-02 is the owner-visible visitor-counter.
     const legacy = resolvePendingIntegrationDossiers({
       snapshot: { mutedCapabilities: ["analytics"] },
       versionFiles: [],
     });
 
     expect(exact.map((selected) => selected.entry.id)).toEqual(["vercel-analytics"]);
-    expect(legacy.map((selected) => selected.entry.id)).toEqual(["vercel-analytics"]);
+    expect(legacy.map((selected) => selected.entry.id)).toEqual(["visitor-counter"]);
   });
 
   // Double-mount guard: F2 muted analytics but the design round still hand-
@@ -69,13 +71,15 @@ describe("provider-specific pending integration dossiers", () => {
       },
       versionFiles: [layoutWithAnalytics],
     });
+    // The visitor-counter default is a different provider (own /statistik page
+    // backed by Upstash) — a hand-written Vercel beacon does not replace it.
     const legacy = resolvePendingIntegrationDossiers({
       snapshot: { mutedCapabilities: ["analytics"] },
       versionFiles: [layoutWithAnalytics],
     });
 
     expect(exact).toEqual([]);
-    expect(legacy).toEqual([]);
+    expect(legacy.map((selected) => selected.entry.id)).toEqual(["visitor-counter"]);
   });
 
   it("does not let a stray SDK mention cancel a server-backed dossier", () => {
