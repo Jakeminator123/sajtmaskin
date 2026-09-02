@@ -81,9 +81,34 @@ describe("buildGitHubExportPlan", () => {
         ".github/workflows/ci.yml",
         "app/gone.tsx",
       ],
+      existingBlobPaths: [
+        "app/page.tsx",
+        "README.md",
+        "LICENSE",
+        ".github/workflows/ci.yml",
+        "app/gone.tsx",
+      ],
     });
 
     expect(plan.deletionPaths).toEqual(["app/gone.tsx"]);
+  });
+
+  it("skips a previous manifest path that is already gone from the base tree", () => {
+    const plan = buildGitHubExportPlan([file("app/page.tsx", "ok", "tsx")], {
+      previousManifestPaths: [
+        "app/page.tsx",
+        "app/already-gone.tsx",
+        GITHUB_EXPORT_MANIFEST_PATH,
+      ],
+      existingBlobPaths: ["app/page.tsx", GITHUB_EXPORT_MANIFEST_PATH],
+    });
+
+    expect(plan.deletionPaths).toEqual([]);
+    const manifest = parseGitHubExportManifest(
+      plan.files.find((entry) => entry.path === GITHUB_EXPORT_MANIFEST_PATH)!.content,
+    );
+    expect(manifest).toEqual([GITHUB_EXPORT_MANIFEST_PATH, "app/page.tsx"]);
+    expect(manifest).not.toContain("app/already-gone.tsx");
   });
 
   it("deletes a previous manifest file so a directory can replace it", () => {

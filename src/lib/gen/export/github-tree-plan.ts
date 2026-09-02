@@ -40,7 +40,11 @@ export interface GitHubExportPlanOptions {
    * export: delete nothing.
    */
   previousManifestPaths?: Iterable<string>;
-  /** Blob paths currently in the target repo (for file↔directory conflicts). */
+  /**
+   * Blob paths currently in the target repo. Used to emit deletions only for
+   * paths that still exist in the base tree, and to detect file↔directory
+   * conflicts.
+   */
   existingBlobPaths?: Iterable<string>;
 }
 
@@ -146,11 +150,12 @@ function collectCurrentFiles(projectFiles: CodeFile[]): Map<string, GitHubExport
  *
  * Deletion policy (E1): never blindly wipe the target repo. The export writes
  * `.sajtmaskin/export-manifest.json` listing Sajtmaskin-owned paths and sends
- * deletion entries ONLY for paths that were in that previous manifest but are
- * missing from the current portable artifact. README, LICENSE,
- * `.github/workflows/**` and every path outside the previous manifest are
- * left untouched. A repo without a previous manifest is a first export and
- * deletes nothing.
+ * deletion entries ONLY for paths that were in that previous manifest, are
+ * missing from the current portable artifact, and still exist in the read
+ * base tree. A stale manifest path that is already gone is skipped; the new
+ * manifest still drops it. README, LICENSE, `.github/workflows/**` and every
+ * path outside the previous manifest are left untouched. A repo without a
+ * previous manifest is a first export and deletes nothing.
  *
  * File↔directory swaps on the same path are allowed only when the conflicting
  * existing blob is Sajtmaskin-owned (listed in the previous manifest). An
@@ -177,19 +182,23 @@ export function buildGitHubExportPlan(
         .filter((path): path is string => typeof path === "string" && path.length > 0),
     ),
   );
+  const existingBlobSet = new Set(existingBlobPaths);
 
   const ownedPrevious = new Set(
     previousManifestPaths.filter((path) => !isProtectedGitHubExportPath(path)),
   );
 
-  // Only previous Sajtmaskin-owned paths that disappeared from this export.
-  // First export (empty previous manifest) therefore deletes nothing.
+  // Only previous Sajtmaskin-owned paths that disappeared from this export
+  // and still exist in the base tree. GitHub Create-tree errors on a
+  // deletion for a path that is not in `base_tree`. First export (empty
+  // previous manifest) therefore deletes nothing.
   const deletionPaths = previousManifestPaths
     .filter(
       (path) =>
         !currentPaths.has(path) &&
         path !== GITHUB_EXPORT_MANIFEST_PATH &&
-        !isProtectedGitHubExportPath(path),
+        !isProtectedGitHubExportPath(path) &&
+        existingBlobSet.has(path),
     )
     .sort();
   const deletionSet = new Set(deletionPaths);
@@ -208,7 +217,9 @@ export function buildGitHubExportPlan(
     }
   }
 
-  const resolvedDeletions = Array.from(deletionSet).sort();
+  const resolvedDeletions = Array.from(deletionSet)
+    .filter((path) => existingBlobSet.has(path))
+    .sort();
 
   const manifestPaths = [...currentPaths, GITHUB_EXPORT_MANIFEST_PATH].sort();
   currentFiles.set(GITHUB_EXPORT_MANIFEST_PATH, {

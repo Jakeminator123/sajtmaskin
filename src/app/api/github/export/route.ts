@@ -321,10 +321,12 @@ export async function POST(request: NextRequest) {
         throw error;
       }
 
-      const treeEntries: Array<
-        | { path: string; mode: "100644"; type: "blob"; sha: string }
-        | { path: string; sha: null }
-      > = [];
+      const treeEntries: Array<{
+        path: string;
+        mode: "100644";
+        type: "blob";
+        sha: string | null;
+      }> = [];
       for (const file of files) {
         const response = await githubRequest<{ sha: string }>(
           token,
@@ -351,7 +353,13 @@ export async function POST(request: NextRequest) {
         });
       }
       for (const path of deletionPaths) {
-        treeEntries.push({ path, sha: null });
+        // GitHub Create-tree requires path+mode+type+sha; sha:null deletes.
+        treeEntries.push({
+          path,
+          mode: "100644",
+          type: "blob",
+          sha: null,
+        });
       }
 
       const treeResponse = await githubRequest<GitHubTreeResponse>(

@@ -37,9 +37,16 @@ vi.mock("@/lib/gen/export/build-portable-export-project", () => ({
 
 const { POST } = await import("./route");
 
-type TreeEntry =
-  | { path: string; mode: "100644"; type: "blob"; sha: string }
-  | { path: string; sha: null };
+type TreeEntry = {
+  path: string;
+  mode: "100644";
+  type: "blob";
+  sha: string | null;
+};
+
+function deletionEntry(path: string): TreeEntry {
+  return { path, mode: "100644", type: "blob", sha: null };
+}
 
 type GitHubState = {
   truncated?: boolean;
@@ -193,11 +200,40 @@ describe("POST /api/github/export", () => {
 
     expect(res.status).toBe(200);
     expect(recorded.tree).toEqual(
-      expect.arrayContaining([{ path: "app/old.tsx", sha: null }]),
+      expect.arrayContaining([deletionEntry("app/old.tsx")]),
+    );
+    expect(recorded.tree?.find((entry) => entry.path === "app/old.tsx")).toEqual(
+      deletionEntry("app/old.tsx"),
     );
     expect(recorded.tree?.some((entry) => entry.path === "LICENSE" && entry.sha === null)).toBe(
       false,
     );
+  });
+
+  it("skips a stale manifest path that is already gone from the base tree", async () => {
+    buildPortableExportProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "page", language: "tsx" },
+    ]);
+    const { recorded } = installGitHubMock({
+      tree: [
+        { path: "app/page.tsx", type: "blob", sha: "sha-page" },
+        { path: GITHUB_EXPORT_MANIFEST_PATH, type: "blob", sha: "sha-manifest" },
+      ],
+      blobs: {
+        "sha-manifest": serializeGitHubExportManifest([
+          "app/page.tsx",
+          "app/already-gone.tsx",
+          GITHUB_EXPORT_MANIFEST_PATH,
+        ]),
+      },
+    });
+
+    const res = await POST(exportRequest());
+
+    expect(res.status).toBe(200);
+    expect(recorded.tree?.find((entry) => entry.path === "app/already-gone.tsx")).toBeUndefined();
+    expect(recorded.tree?.filter((entry) => entry.sha === null)).toEqual([]);
+    expect(recorded.tree?.some((entry) => entry.path === GITHUB_EXPORT_MANIFEST_PATH)).toBe(true);
   });
 
   it("preserves a user file that is not in the previous Sajtmaskin manifest", async () => {
@@ -256,10 +292,11 @@ describe("POST /api/github/export", () => {
     expect(res.status).toBe(200);
     expect(recorded.tree).toEqual(
       expect.arrayContaining([
-        { path: "docs", sha: null },
+        deletionEntry("docs"),
         expect.objectContaining({ path: "docs/guide.md", type: "blob" }),
       ]),
     );
+    expect(recorded.tree?.find((entry) => entry.path === "docs")).toEqual(deletionEntry("docs"));
   });
 
   it("refuses a file/directory swap that would delete a user-owned path", async () => {
