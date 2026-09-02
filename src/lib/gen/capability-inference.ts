@@ -107,15 +107,20 @@ interface CapabilityRule {
  * `src/lib/providers/own-engine/follow-up-clarification.test.ts`.
  */
 export const NEEDS_3D_PATTERNS: RegExp[] = [
-  /\b(3d|three\.?js|webgl|canvas|mesh|orb|sphere|particle|three-fiber|@react-three|drei|scene|3d-?model)\b/i,
+  // `canvas` and `scene` left the bare list 2026-09-02: a pannable node canvas
+  // (`spatial-canvas`), a Matter.js stage or a scrollytelling scene is not a
+  // WebGL ask. They still count in a 3D compound (`3d-canvas`, `webgl canvas`).
+  /\b(3d|three\.?js|webgl|mesh|orb|sphere|particle|three-fiber|@react-three|drei|3d-?model)\b/i,
+  /\b(3d[-\s]?(canvas|scene|scen)|webgl[-\s]?(canvas|scene)|three[-\s]?(canvas|scene))\b/i,
   /\b3d[a-zåäö-]+\b/i,
   /\b(rotat.*3d|tilt|perspect.*card|floating.*object)\b/i,
   /\b(gltf|glb|usegltf)\b/i,
 ];
 
 /**
- * True when the prompt literally asks for 3D / WebGL / Canvas, using the exact
- * same pattern bank as the `needs3D` capability rule. Consumed by
+ * True when the prompt literally asks for 3D / WebGL (a bare `canvas` or
+ * `scene` no longer counts — see the pattern bank), using the exact same
+ * pattern bank as the `needs3D` capability rule. Consumed by
  * `filterDossierCapabilitiesForPrompt` in `src/lib/gen/orchestrate.ts` to drop
  * an LLM-suggested `visual-3d` dossier capability when the prompt only implies
  * a cinematic/immersive/dramatic mood (which belongs to `motionLevel`/

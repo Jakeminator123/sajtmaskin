@@ -7,12 +7,12 @@
 > Source: `src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: validated dossier registry sha256:a70680660f6e743d -->
+<!-- source-fingerprint: validated dossier registry sha256:2265c748867a4beb -->
 <!-- source-fingerprint: src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities sha256:4c270839b579be81 -->
 
 # Dossiers
 
-This catalog contains 22 manifests accepted by the runtime dossier registry.
+This catalog contains 23 manifests accepted by the runtime dossier registry.
 Env values and instruction text are intentionally excluded. Manifest mock mode describes behavior after dossier materialization without live configuration; it does not mean the dossier is injected during normal designläge.
 Canonical owners: dossier manifests; designläge disposition in `getF2MutedIntegrationCapabilities()`; build/server requirement in `dossierRequiresF3()`; presentation group in `resolveDossierGroup()`. Validator/schema mirror: runtime manifest validation and the strict dossier schema.
 
@@ -40,3 +40,4 @@ Canonical owners: dossier manifests; designläge disposition in `getF2MutedInteg
 | `interactive`  | `scroll-story`         | `scroll-story-orchestrator` | Scrollberättelse (scrollytelling)  | `soft` | —                  | Available          | `none`        | No                       | Yes     | —                                                                                                                                                                                                         | `framer-motion`                                                | client: 3                       | `unverified`        | `2026-09-02`  |
 | `interactive`  | `visual-3d`            | `three-fiber-canvas`        | 3D-scen (Three.js)                 | `soft` | —                  | Available          | `none`        | No                       | Yes     | —                                                                                                                                                                                                         | `three`, `@react-three/fiber`, `@react-three/drei`             | client: 1                       | `accepted`          | `2026-04-22`  |
 | `interactive`  | `physics-3d`           | `three-fiber-physics`       | 3D-fysik                           | `soft` | —                  | Available          | `none`        | No                       | Yes     | —                                                                                                                                                                                                         | `@react-three/rapier`                                          | —                               | `accepted`          | `2026-04-30`  |
+| `interactive`  | `spatial-canvas`       | `xyflow-spatial-canvas`     | Interaktiv arbetsyta (React Flow)  | `soft` | —                  | Available          | `none`        | No                       | Yes     | —                                                                                                                                                                                                         | `@xyflow/react`                                                | client: 2, shared: 1            | `unverified`        | `2026-09-02`  |

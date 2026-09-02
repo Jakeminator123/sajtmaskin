@@ -6,13 +6,13 @@
 > Source: `src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: validated dossier registry sha256:a70680660f6e743d -->
+<!-- source-fingerprint: validated dossier registry sha256:2265c748867a4beb -->
 <!-- source-fingerprint: src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities sha256:4c270839b579be81 -->
-<!-- source-fingerprint: src/lib/builder/dossier-groups.ts#resolveDossierGroup sha256:b65e6ca77d3a320a -->
+<!-- source-fingerprint: src/lib/builder/dossier-groups.ts#resolveDossierGroup sha256:bfb77d6fdf0d1026 -->
 
 # Capabilities
 
-This index contains 20 capabilities derived from 22 validated dossier manifests.
+This index contains 21 capabilities derived from 23 validated dossier manifests.
 Capability is the selection key. Dossier groups are presentation only. Designläge disposition and the integrationsbygge/build-server contract are independent: Analytics is currently planned in designläge while having no build/server requirement.
 Canonical owners: dossier manifest `capability`; `resolveDossierGroup()` for presentation groups; `getF2MutedIntegrationCapabilities()` for designläge disposition; `dossierRequiresF3()` for the build/server contract.
 
@@ -37,4 +37,5 @@ Canonical owners: dossier manifest `capability`; `resolveDossierGroup()` for pre
 | `interactive` (Interaktivt & 3D) | `physics-3d`           | Available          | `three-fiber-physics`                 | `three-fiber-physics`       | `soft`  | `none`              | —                              |
 | `interactive` (Interaktivt & 3D) | `scroll-story`         | Available          | `scroll-story-orchestrator`           | `scroll-story-orchestrator` | `soft`  | `none`              | —                              |
 | `search-maps` (Sök & karta)      | `site-search`          | Available          | `local-site-search`                   | `local-site-search`         | `soft`  | `none`              | —                              |
+| `interactive` (Interaktivt & 3D) | `spatial-canvas`       | Available          | `xyflow-spatial-canvas`               | `xyflow-spatial-canvas`     | `soft`  | `none`              | —                              |
 | `interactive` (Interaktivt & 3D) | `visual-3d`            | Available          | `three-fiber-canvas`                  | `three-fiber-canvas`        | `soft`  | `none`              | —                              |

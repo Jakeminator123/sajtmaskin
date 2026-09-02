@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-09-02T02:12:23.159Z",
+  "generatedAt": "2026-09-02T02:43:28.081Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -60,6 +60,9 @@
     ],
     "site-search": [
       "local-site-search"
+    ],
+    "spatial-canvas": [
+      "xyflow-spatial-canvas"
     ],
     "visual-3d": [
       "three-fiber-canvas"
@@ -122,6 +125,7 @@
         "physics-2d",
         "physics-3d",
         "scroll-story",
+        "spatial-canvas",
         "visual-3d"
       ]
     },
@@ -1122,6 +1126,44 @@
           "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
         }
       }
+    },
+    {
+      "id": "xyflow-spatial-canvas",
+      "label": "Interaktiv arbetsyta (React Flow)",
+      "class": "soft",
+      "capability": "spatial-canvas",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {
+        "client": 2,
+        "shared": 1
+      },
+      "dependencies": [
+        "@xyflow/react"
+      ],
+      "summarySv": "En panorbar och zoombar arbetsyta där tjänster, projekt eller personer ligger som kort i rummet, med valfria kopplingar och en detaljpanel som öppnas utan att lämna sidan. Välj det när du vill visa ett universum man kan röra sig i — inte en vanlig processbild, karta, graf eller 3D-scen. I redigeringsläge sparas ändringar inte.",
+      "verificationStatus": "unverified",
+      "lastVerified": "2026-09-02",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar utan extra bygge",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
     }
   ],
   "labelsSv": {
@@ -1208,10 +1250,11 @@
     "data/dossiers/soft/scroll-story-orchestrator/manifest.json": "9f4dff0e4a2480cd2f82afdcccbeb2ffa8d7a5bc82289e6eaeafef1acbc92302",
     "data/dossiers/soft/three-fiber-canvas/manifest.json": "a465b0c30f26663c8b0067f16f4e99ec2bfae59d3463d170a38c04d3f6bffad2",
     "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
+    "data/dossiers/soft/xyflow-spatial-canvas/manifest.json": "2260965a683b5994fc683fedeafc75dcc10fa8772a875e9bf5789e7adeba366d",
     "docs/schemas/strict/dossier.schema.json": "9493baa6dd5c99cc93011d1e328d45048c1ee964da624cc558481c5abd535cda",
     "scripts/dossiers/regenerate-capability-map.ts": "ce15a798da3ac8056091104ae83854a2a92ade98b8468b077e1ebc4977035163",
     "src/lib/builder/dossier-axes.ts": "e216ee94304cf5f02a308c7be4c653d1d3d1d6fb128597bf555bf6938ffa825a",
-    "src/lib/builder/dossier-groups.ts": "77cb535fab9fab912d9efbcf9a224fe2fb17814e51b185be833fca0a8e2813d3",
+    "src/lib/builder/dossier-groups.ts": "cec7995deac773287a69ff81951e4ebf4b344fd7ca4c8b5a2c022f9930f3abe1",
     "src/lib/gen/dossiers/f2-mute.ts": "709ac6df9c5eec5d03f7249c732023614865577e61e8a1bc86a5f2d3d5b902b7",
     "src/lib/gen/dossiers/registry.ts": "2766260fb71f0bef126a9f30274869b507bc466b84edb50501568a8b9cee7c11",
     "src/lib/gen/dossiers/types.ts": "07e75ba9f0ecd48a1eae6f5fe9f57bd1bf5e57cb31cbb1b02d820bedef6fe26d",
