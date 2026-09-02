@@ -33,6 +33,9 @@ export interface ImageValidationResult {
   replacedCount?: number;
   warnings?: string[];
   fixed?: boolean;
+  persisted?: boolean;
+  filesRevision?: string | null;
+  timeout?: boolean;
   demoUrl?: string;
 }
 

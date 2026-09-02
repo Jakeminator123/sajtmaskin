@@ -159,6 +159,15 @@ Typisk ordning i runtime:
 11. preview startas, patchas eller resyncas mot den persistade versionen. En
     tidigare best-effort-förvärmning får återanvändas, men är aldrig själv ett
     bevis på att den persistade versionen är redo.
+11b. Generationssvansen efter SSE-done (klient, `stream-handlers-post-stream.ts`
+    → `post-checks.ts`) är **serialiserad mot `files_revision`**: bekräftad
+    bildmaterialisering (`persisted` ≠ `replaced`) → bekräftad
+    `validate-images`-mutation → läs serverns nya revision → resynka preview
+    för just den revisionen → Product Postcheck attesterar den →
+    `persistVersionErrorLogs` awaitas (misslyckad blocker-persist → pending)
+    → RenderGate/ReleaseGate. Klienttimeout abortar fetch så servern hoppar
+    över `files_json`-persist. Inget steg startar innan föregående är
+    bekräftat.
 12. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
     typecheck är Advisory utom render-risk-koder. Ägare: **klienten**
     (`post-checks.ts` → `POST /quality-gate`) — server-verify skippas för F2

@@ -70,37 +70,55 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
         }
       }
 
-      let fixed = false;
+      let persisted = result.replacedCount <= 0;
+      let filesRevision = scopedVersion.version.files_revision?.trim() || null;
       if (autoFix && result.replacedCount > 0) {
-        try {
-          const updatedFiles = codeFiles.map((file) => {
-            const replacement = result.files.find((f) => f.name === file.path);
-            return replacement ? { ...file, content: replacement.content } : file;
-          });
-          // Material mutation: the replacement image is different content
-          // than the verdict (if any) was earned on. Same flag as PUT
-          // `/files` — never leave `passed`/`promoted` describing revision N
-          // after `files_json` advanced to N+1. Gated on `replacedCount > 0`
-          // above, so a no-op scan never resets the row.
-          const updated = await updateVersionFiles(
-            scopedVersion.version.id,
-            JSON.stringify(updatedFiles),
-            { invalidateVerification: true },
-          );
-          // Bugbot on #507: only report `fixed` when the write actually
-          // persisted — a no-op (missing row / degraded guard) must not 200
-          // as if the replacement images were saved.
-          fixed = updated;
-        } catch (updateError) {
-          // A foreign verify/repair lease must surface as a retryable 409 — do
-          // NOT swallow it into a soft warning (that would 200 as if nothing
-          // was busy). Re-throw so the outer catch translates it to
-          // `version_busy`; other write failures stay soft as before.
-          if (updateError instanceof VersionLeaseHeldError) throw updateError;
-          console.error("[validate-images] Failed to update version:", updateError);
-          result.warnings.push("Kunde inte spara fixade bilder till versionen.");
+        if (req.signal.aborted) {
+          persisted = false;
+          result.warnings.push("Kunde inte spara fixade bilder — requesten avbröts.");
+        } else {
+          try {
+            const updatedFiles = codeFiles.map((file) => {
+              const replacement = result.files.find((f) => f.name === file.path);
+              return replacement ? { ...file, content: replacement.content } : file;
+            });
+            // Material mutation: the replacement image is different content
+            // than the verdict (if any) was earned on. Same flag as PUT
+            // `/files` — never leave `passed`/`promoted` describing revision N
+            // after `files_json` advanced to N+1. Gated on `replacedCount > 0`
+            // above, so a no-op scan never resets the row.
+            const updated = await updateVersionFiles(
+              scopedVersion.version.id,
+              JSON.stringify(updatedFiles),
+              { invalidateVerification: true },
+            );
+            // Bugbot on #507: only report `fixed`/`persisted` when the write
+            // actually landed — a no-op (missing row / degraded guard) must
+            // not 200 as if the replacement images were saved. `replacedCount`
+            // stays the in-memory/planned swap count.
+            persisted = updated;
+            if (updated) {
+              const refreshed = await getEngineVersionForChatByIdForRequest(
+                req,
+                chatId,
+                versionId,
+              );
+              filesRevision = refreshed?.version.files_revision?.trim() || filesRevision;
+            }
+          } catch (updateError) {
+            // A foreign verify/repair lease must surface as a retryable 409 — do
+            // NOT swallow it into a soft warning (that would 200 as if nothing
+            // was busy). Re-throw so the outer catch translates it to
+            // `version_busy`; other write failures stay soft as before.
+            if (updateError instanceof VersionLeaseHeldError) throw updateError;
+            console.error("[validate-images] Failed to update version:", updateError);
+            result.warnings.push("Kunde inte spara fixade bilder till versionen.");
+            persisted = false;
+          }
         }
       }
+
+      const fixed = persisted && result.replacedCount > 0;
 
       return NextResponse.json({
         valid: result.broken.length === 0,
@@ -109,6 +127,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
         replacedCount: result.replacedCount,
         warnings: result.warnings,
         fixed,
+        persisted,
+        filesRevision,
         ...previewUrlField(null),
         message: result.broken.length === 0
           ? `Alla ${result.total} bild-URL:er är giltiga`
@@ -124,6 +144,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
         replacedCount: 0,
         warnings: [],
         fixed: false,
+        persisted: true,
+        filesRevision: null,
         message: "No files to validate",
       },
       { status: 404 },

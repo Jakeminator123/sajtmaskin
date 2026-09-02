@@ -25,7 +25,13 @@ vi.mock("./post-checks", () => ({
   runPostGenerationChecks: vi.fn(),
   abortPostChecksForChat: vi.fn(),
 }));
-vi.mock("./post-checks-fetch", () => ({ triggerImageMaterialization: vi.fn() }));
+vi.mock("./post-checks-fetch", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./post-checks-fetch")>();
+  return {
+    ...actual,
+    triggerImageMaterialization: vi.fn(),
+  };
+});
 vi.mock("./post-checks-preview", () => ({ readPreviewPreflight: vi.fn(() => null) }));
 vi.mock("@/lib/utils/debug", () => ({
   debugLog: vi.fn(),
