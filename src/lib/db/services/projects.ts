@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db/client";
@@ -564,10 +564,21 @@ export async function saveProjectData(data: {
   current_code?: string | null;
   files?: unknown[] | null;
   messages?: unknown[] | null;
+  /**
+   * Full metadata snapshot. Seeds a new `project_data` row (or a still-NULL
+   * column). Replacing a stored document is refused — that would wipe sibling
+   * namespaces. Same-document replace needs revision-CAS and is D1b.
+   */
   meta?: unknown | null;
+  /** Atomically merge top-level metadata namespaces in PostgreSQL. */
+  meta_patch?: Record<string, unknown>;
 }): Promise<void> {
   assertDbConfigured();
   const now = new Date();
+
+  if ("meta" in data && "meta_patch" in data) {
+    throw new Error("saveProjectData accepts either meta or meta_patch, not both");
+  }
 
   const insertValues: typeof projectData.$inferInsert = {
     project_id: data.project_id,
@@ -598,9 +609,21 @@ export async function saveProjectData(data: {
     insertValues.messages = data.messages ?? [];
     updateValues.messages = data.messages ?? [];
   }
-  if ("meta" in data) {
+  if ("meta_patch" in data) {
+    const metaPatch = data.meta_patch ?? {};
+    insertValues.meta = metaPatch;
+    // Merge inside the single UPSERT statement. JSONB `||` is a shallow
+    // top-level merge: each caller owns whole namespaces (`palette`, `seo`,
+    // `projectEnvVars`, …). A Node read-merge-write can lose a concurrent
+    // write to a *different* namespace after both requests read the same
+    // snapshot. Same-namespace races (two SEO patches) remain D1b.
+    updateValues.meta = sql`COALESCE(${projectData.meta}, '{}'::jsonb) || ${JSON.stringify(metaPatch)}::jsonb`;
+  } else if ("meta" in data) {
     insertValues.meta = data.meta ?? null;
-    updateValues.meta = data.meta ?? null;
+    // Insert-only snapshot. COALESCE keeps a stored document so a stale
+    // full-meta writer cannot wipe palette/seo/projectEnvVars. D1b if a
+    // caller ever needs an explicit replace (revision-CAS).
+    updateValues.meta = sql`COALESCE(${projectData.meta}, ${JSON.stringify(data.meta ?? null)}::jsonb)`;
   }
 
   await db
