@@ -1,0 +1,52 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "scroll-story-orchestrator",
+  "label": "Scrollberättelse (scrollytelling)",
+  "capability": "scroll-story",
+  "codeFidelity": "rewritable",
+  "complexity": "medium",
+  "defaultForCapability": true,
+  "promptInstructionMode": "selected-sections",
+  "summary": "Sticky-pinned scrollytelling: chapter media stays pinned on desktop while text scrolls past, with one shared scroll progress and a chapter indicator. Use for 3–6 chapter stories (Apple-style product presentation, before/after renovation). Safety: sticky only on desktop when motion is allowed; mobile and reduced-motion stay linear document order; all chapter text is in the DOM once; no scroll hijacking and no body lock.",
+  "summarySv": "Visar en berättelse i flera kapitel där bilderna stannar kvar på skärmen medan texten rullar förbi på dator. På mobil och när besökaren stängt av rörelser visas kapitlen i vanlig ordning. Passar till exempel före/efter-renovering eller en varumärkeshistoria. All text finns alltid på sidan och scrollen låses inte.",
+  "envVars": [],
+  "dependencies": ["framer-motion"],
+  "files": [
+    {
+      "path": "components/use-scroll-story.ts",
+      "role": "client",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/scroll-story.tsx",
+      "role": "client",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/scroll-story-progress.tsx",
+      "role": "client",
+      "injectionMode": "rewritable"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "ScrollStory",
+      "type": "component",
+      "import": "@/components/scroll-story"
+    },
+    {
+      "name": "ScrollStoryProgress",
+      "type": "component",
+      "import": "@/components/scroll-story-progress"
+    },
+    {
+      "name": "useScrollStory",
+      "type": "hook",
+      "import": "@/components/use-scroll-story"
+    }
+  ],
+  "lastVerified": "2026-09-02",
+  "verificationStatus": "unverified",
+  "sourceRepoUrl": "https://github.com/motiondivision/motion",
+  "notes": "New 2026-09-02, owner decision. Explicit-ask-only. A live browser check on a materialized preview is still required before accepted."
+}

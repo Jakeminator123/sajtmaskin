@@ -1134,6 +1134,74 @@ describe("detectFollowUpCapabilities — cms (parked 2026-09-02)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
+// Soft wave 1 (2026-09-02): `physics-2d` (matter-physics-2d) and
+// `scroll-story` (scroll-story-orchestrator) are explicit-ask-only. Mood
+// words, plain parallax, hover effects and 3D wording must not reach them.
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — physics-2d", () => {
+  it("detects an explicit Matter.js / 2D / DOM physics ask", () => {
+    for (const prompt of [
+      "lägg till produktbilder som faller ner och staplas med Matter.js",
+      "skapa en hero med 2D-fysik där korten kan dras och kastas",
+      "add physics-driven cards that fall and stack in the hero",
+      "gör en sektion med fysikdrivna etiketter",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds, prompt).toContain("physics-2d");
+    }
+  });
+
+  it("does NOT route 3D physics, hover bounce, confetti or drag-to-sort to physics-2d", () => {
+    for (const prompt of [
+      "lägg till 3d-bollar som studsar med rapier",
+      "lägg till en studsande bounce-effekt på knapparna vid hover",
+      "lägg till konfetti när formuläret skickas",
+      "lägg till drag och släpp för att sortera korten",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds, prompt).not.toContain("physics-2d");
+    }
+  });
+
+  it("a 3D-stack token vetoes physics-2d even next to Matter wording", () => {
+    const result = detectFollowUpCapabilities("lägg till Matter.js-kort i en webgl-scen");
+    expect(result.capabilityIds).not.toContain("physics-2d");
+    expect(result.capabilityIds).toContain("visual-3d");
+  });
+});
+
+describe("detectFollowUpCapabilities — scroll-story", () => {
+  it("detects explicit scrollytelling asks", () => {
+    for (const prompt of [
+      "lägg till scrollytelling med tre fastnålade scener om renoveringen",
+      "skapa en scrollberättelse där kapitlen byts när man scrollar",
+      "add a scroll story with pinned scenes for the product launch",
+      "bygg en Apple-liknande produktpresentation som scrollas igenom",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds, prompt).toContain("scroll-story");
+    }
+  });
+
+  it("does NOT treat parallax, scroll reveal, sticky header or mood words as scroll-story", () => {
+    for (const prompt of [
+      "lägg till parallax på hjältesektionen",
+      "lägg till fade-in när sektionerna scrollas in",
+      "gör headern sticky när man scrollar",
+      "gör sajten mer cinematic och premium",
+      "skapa en lång landningssida med många sektioner",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds, prompt).not.toContain("scroll-story");
+    }
+  });
+
+  it("accepts a first-turn scrollytelling brief in init mode", () => {
+    expect(
+      detectFollowUpCapabilities("En sajt för en snickare med scrollytelling om ett köksbygge", {
+        mode: "init",
+      }).capabilityIds,
+    ).toContain("scroll-story");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
 // `media-storage` (vercel-blob-media, 2026-09-02): the owner's OWN heavy
 // media hosted in a Blob store. Embeds and visitor uploads must not route here.
 // ─────────────────────────────────────────────────────────────────────────

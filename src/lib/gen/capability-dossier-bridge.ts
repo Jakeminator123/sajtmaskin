@@ -8,6 +8,10 @@ type CapabilityDossierBridgeEntry = {
 export const INFERRED_CAPABILITY_DOSSIER_BRIDGE = [
   { flag: "needs3D", dossierCapabilities: ["visual-3d"] },
   { flag: "needsPhysics", dossierCapabilities: ["physics-3d"] },
+  // Explicit Matter.js / DOM physics (2026-09-02). `inferCapabilities` clears
+  // `needsPhysics`/`needs3D` for a 2D ask without a 3D-stack token, so the two
+  // physics bridges never fire together by accident.
+  { flag: "needsPhysics2D", dossierCapabilities: ["physics-2d"] },
   // `needsParallax` no longer bridges to dossiers — the parallax pair was
   // parked (taxonomy 2026-07-22: trivial CSS/transform patterns the codegen
   // LLM writes better freehand). The flag still drives the freehand parallax
