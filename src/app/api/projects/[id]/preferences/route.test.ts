@@ -119,12 +119,12 @@ describe("PATCH /api/projects/[id]/preferences — seo", () => {
     expect(res.status).toBe(200);
     expect(saveProjectData).toHaveBeenCalledTimes(1);
     const persisted = saveProjectData.mock.calls[0]?.[0] as {
-      meta: { seo?: { optIn: boolean; siteUrl: string | null; brand: unknown; lastSetAt: string } };
+      meta_patch: { seo?: { optIn: boolean; siteUrl: string | null; brand: unknown; lastSetAt: string } };
     };
-    expect(persisted.meta.seo?.optIn).toBe(true);
-    expect(persisted.meta.seo?.siteUrl).toBe("https://kund.se");
-    expect(persisted.meta.seo?.brand).toEqual({ companyName: "Kund AB", locale: "sv_SE" });
-    expect(typeof persisted.meta.seo?.lastSetAt).toBe("string");
+    expect(persisted.meta_patch.seo?.optIn).toBe(true);
+    expect(persisted.meta_patch.seo?.siteUrl).toBe("https://kund.se");
+    expect(persisted.meta_patch.seo?.brand).toEqual({ companyName: "Kund AB", locale: "sv_SE" });
+    expect(typeof persisted.meta_patch.seo?.lastSetAt).toBe("string");
 
     const body = (await res.json()) as { preferences: { seo: { optIn: boolean } } };
     expect(body.preferences.seo.optIn).toBe(true);
@@ -234,13 +234,13 @@ describe("PATCH /api/projects/[id]/preferences — seo", () => {
 
     expect(res.status).toBe(200);
     const persisted = saveProjectData.mock.calls[0]?.[0] as {
-      meta: { seo: { siteUrl: string; brand: { tagline?: string }; optIn: boolean; lastSetAt: string } };
+      meta_patch: { seo: { siteUrl: string; brand: { tagline?: string }; optIn: boolean; lastSetAt: string } };
     };
-    expect(persisted.meta.seo.siteUrl).toBe("https://kund.se");
-    expect(persisted.meta.seo.optIn).toBe(true);
-    expect(persisted.meta.seo.brand.tagline).toBe("Ny tagline");
+    expect(persisted.meta_patch.seo.siteUrl).toBe("https://kund.se");
+    expect(persisted.meta_patch.seo.optIn).toBe(true);
+    expect(persisted.meta_patch.seo.brand.tagline).toBe("Ny tagline");
     // lastSetAt is refreshed
-    expect(persisted.meta.seo.lastSetAt).not.toBe("2026-04-20T00:00:00.000Z");
+    expect(persisted.meta_patch.seo.lastSetAt).not.toBe("2026-04-20T00:00:00.000Z");
   });
 
   it("ignores the removed allowPlaceholdersInF3 field (placeholders är alltid tillåtna)", async () => {
@@ -256,10 +256,10 @@ describe("PATCH /api/projects/[id]/preferences — seo", () => {
 
     expect(res.status).toBe(200);
     const persisted = saveProjectData.mock.calls[0]?.[0] as {
-      meta: Record<string, unknown> & { seo: { optIn: boolean } };
+      meta_patch: Record<string, unknown> & { seo: { optIn: boolean } };
     };
-    expect(persisted.meta).not.toHaveProperty("allowPlaceholdersInF3");
-    expect(persisted.meta.seo.optIn).toBe(true);
+    expect(persisted.meta_patch).not.toHaveProperty("allowPlaceholdersInF3");
+    expect(persisted.meta_patch.seo.optIn).toBe(true);
   });
 
   it("does not write seo key when seo not present in PATCH", async () => {
@@ -268,8 +268,8 @@ describe("PATCH /api/projects/[id]/preferences — seo", () => {
     const res = await PATCH(makeRequest({}) as never, makeParams());
 
     expect(res.status).toBe(200);
-    const persisted = saveProjectData.mock.calls[0]?.[0] as { meta: Record<string, unknown> };
-    expect(persisted.meta).not.toHaveProperty("seo");
+    const persisted = saveProjectData.mock.calls[0]?.[0] as { meta_patch: Record<string, unknown> };
+    expect(persisted.meta_patch).not.toHaveProperty("seo");
   });
 
   it("returns 404 when project owner-check fails", async () => {
