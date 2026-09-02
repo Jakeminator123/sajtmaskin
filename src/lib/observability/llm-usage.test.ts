@@ -266,6 +266,22 @@ describe("buildLlmUsageRecord", () => {
     });
     expect(record).toMatchObject({ ok: false, errorCode: "insufficient_quota" });
   });
+
+  it("lägger errorMessage i meta så fixerns felorsak når llm_usage", () => {
+    const record = buildLlmUsageRecord({
+      phase: "fixer",
+      model: "gpt-5.6-terra",
+      usage: null,
+      ok: false,
+      errorCode: "llm_fixer_failed:APICallError",
+      errorMessage: "  400 unsupported parameter  ",
+      meta: { errorClass: "APICallError" },
+    });
+    expect(record?.meta).toEqual({
+      errorClass: "APICallError",
+      errorMessage: "400 unsupported parameter",
+    });
+  });
 });
 
 describe("recordLlmUsageAsync", () => {
