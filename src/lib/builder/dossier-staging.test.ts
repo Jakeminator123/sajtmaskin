@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest";
 import { getAllDossiers } from "@/lib/gen/dossiers/registry";
+import { describe, expect, it } from "vitest";
 import {
-  buildDossierStagingLines,
-  defaultDossierStagingAnswer,
-  DOSSIER_STAGING_CONTENT_DEFAULT,
-  getDossierStagingSpec,
-  listExplicitStagingIds,
+    buildDossierStagingLines,
+    defaultDossierStagingAnswer,
+    DOSSIER_STAGING_CONTENT_DEFAULT,
+    getDossierStagingSpec,
+    listExplicitStagingIds,
 } from "./dossier-staging";
 
 describe("getDossierStagingSpec", () => {
@@ -47,15 +47,10 @@ describe("getDossierStagingSpec", () => {
 
   it("asks a content question for data blocks", () => {
     const db = getDossierStagingSpec("postgres-drizzle");
-    const cms = getDossierStagingSpec("sanity-cms");
     expect(db.kind).toBe("content");
-    expect(cms.kind).toBe("content");
     if (db.kind === "content") {
       expect(db.question).toBe("Vad ska sparas?");
       expect(db.defaultText).toBe(DOSSIER_STAGING_CONTENT_DEFAULT);
-    }
-    if (cms.kind === "content") {
-      expect(cms.question).toBe("Vilka innehållstyper?");
     }
   });
 

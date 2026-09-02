@@ -517,9 +517,10 @@ describe("getF3RequiredCapabilities (derived from the real dossier contract)", (
     // error-tracking left the derived set 2026-08-06: its only dossier
     // (sentry-error-tracking) is parked, so no contract makes it F3-required.
     expect(caps.has("error-tracking")).toBe(false);
-    // Analytics has neither a build-enforced env nor a server file → stays a
-    // pure F2-mute POLICY residual, not derived from the dossier contract.
-    expect(caps.has("analytics")).toBe(false);
+    // Analytics is derived since 2026-09-02: the visitor-counter default ships
+    // server files (/api/visits). The F2-mute policy residual for analytics is
+    // kept as belt-and-braces for the client-only vercel-analytics sibling.
+    expect(caps.has("analytics")).toBe(true);
   });
 });
 

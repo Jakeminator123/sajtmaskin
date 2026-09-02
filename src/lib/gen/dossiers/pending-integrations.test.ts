@@ -1,12 +1,12 @@
+import {
+    mergePersistedOrchestrationSnapshots,
+    readMutedDossierIdsFromSnapshot,
+} from "@/lib/gen/orchestration-snapshot";
 import { describe, expect, it } from "vitest";
 import {
-  mergePersistedOrchestrationSnapshots,
-  readMutedDossierIdsFromSnapshot,
-} from "@/lib/gen/orchestration-snapshot";
-import {
-  isPlannedDossierCoveredByModelBuiltBlock,
-  preferPendingIntegrationDossiers,
-  resolvePendingIntegrationDossiers,
+    isPlannedDossierCoveredByModelBuiltBlock,
+    preferPendingIntegrationDossiers,
+    resolvePendingIntegrationDossiers,
 } from "./pending-integrations";
 import { resolveSelectedDossiersWithVersionPresence } from "./version-presence";
 
@@ -40,13 +40,65 @@ describe("provider-specific pending integration dossiers", () => {
       },
       versionFiles: [],
     });
+    // Legacy capability-only snapshots resolve to the analytics default, which
+    // since 2026-09-02 is the owner-visible visitor-counter.
     const legacy = resolvePendingIntegrationDossiers({
       snapshot: { mutedCapabilities: ["analytics"] },
       versionFiles: [],
     });
 
     expect(exact.map((selected) => selected.entry.id)).toEqual(["vercel-analytics"]);
-    expect(legacy.map((selected) => selected.entry.id)).toEqual(["vercel-analytics"]);
+    expect(legacy.map((selected) => selected.entry.id)).toEqual(["visitor-counter"]);
+  });
+
+  // Double-mount guard: F2 muted analytics but the design round still hand-
+  // wrote `<Analytics />`. Installing the dossier on top would count every
+  // page view twice.
+  it("drops a deferred client-only dossier when the design already mounts its provider", () => {
+    const layoutWithAnalytics = {
+      path: "app/layout.tsx",
+      content:
+        'import { Analytics } from "@vercel/analytics/next";\n' +
+        "export default function RootLayout({ children }) {\n" +
+        "  return <html><body>{children}<Analytics /></body></html>;\n" +
+        "}\n",
+      language: "tsx",
+    };
+    const exact = resolvePendingIntegrationDossiers({
+      snapshot: {
+        mutedCapabilities: ["analytics"],
+        mutedDossierIds: ["vercel-analytics"],
+      },
+      versionFiles: [layoutWithAnalytics],
+    });
+    // The visitor-counter default is a different provider (own /statistik page
+    // backed by Upstash) — a hand-written Vercel beacon does not replace it.
+    const legacy = resolvePendingIntegrationDossiers({
+      snapshot: { mutedCapabilities: ["analytics"] },
+      versionFiles: [layoutWithAnalytics],
+    });
+
+    expect(exact).toEqual([]);
+    expect(legacy.map((selected) => selected.entry.id)).toEqual(["visitor-counter"]);
+  });
+
+  it("does not let a stray SDK mention cancel a server-backed dossier", () => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: {
+        mutedCapabilities: ["payments"],
+        mutedDossierIds: ["stripe-checkout"],
+      },
+      versionFiles: [
+        {
+          path: "app/pricing/page.tsx",
+          content:
+            '// TODO: wire up Stripe here\nimport Stripe from "stripe";\nexport default function Pricing() {}',
+          language: "tsx",
+        },
+      ],
+    });
+
+    expect(pending.map((selected) => selected.entry.id)).toEqual(["stripe-checkout"]);
   });
 
   it("combines exact and legacy pending selections in a rollout-era hybrid snapshot", () => {

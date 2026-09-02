@@ -1,25 +1,25 @@
+import { getAllDossiers } from "@/lib/gen/dossiers/registry";
+import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import platformPackageJson from "../../../../package.json";
-import { getAllDossiers } from "@/lib/gen/dossiers/registry";
-import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import {
-  buildDossierDeclaredVersions,
-  buildStaleLockfileMarkerContent,
-  completeProjectDependencies,
-  detectLockfilePackageManager,
-  isBuiltinPackage,
-  isCssPackageImportSource,
-  KNOWN_PACKAGES,
-  LOCKFILE_STALE_MARKER_PATH,
-  markLockfileStaleInFiles,
-  mergeMissingDependenciesIntoPackageJson,
-  parseManifestDependencySpec,
-  resolveCapabilityDependencies,
-  resolveExportableVersion,
-  resolveKnownVersion,
-  runDepCompleter,
+    buildDossierDeclaredVersions,
+    buildStaleLockfileMarkerContent,
+    completeProjectDependencies,
+    detectLockfilePackageManager,
+    isBuiltinPackage,
+    isCssPackageImportSource,
+    KNOWN_PACKAGES,
+    LOCKFILE_STALE_MARKER_PATH,
+    markLockfileStaleInFiles,
+    mergeMissingDependenciesIntoPackageJson,
+    parseManifestDependencySpec,
+    resolveCapabilityDependencies,
+    resolveExportableVersion,
+    resolveKnownVersion,
+    runDepCompleter,
 } from "./dep-completer";
 
 function extractLeadingMajor(versionSpec: string): number | null {
@@ -345,20 +345,14 @@ describe("dep-completer", () => {
     expect(result.unknownPackages).not.toContain("@neondatabase/serverless");
   });
 
-  // Dossier Fas D (capability `cms`, 2026-07-09): the sanity-cms manifest
-  // deps must resolve through KNOWN_PACKAGES pins, never `latest`.
-  it("injects next-sanity + server-only when cms is selected", () => {
+  // `cms` parked 2026-09-02 (sanity-cms tree removed): the capability selects
+  // nothing and must not inject dossier deps.
+  it("selects no dossier and injects no deps for the parked cms capability", () => {
     const dossierSelection = selectDossiersForRequest({
       requestedCapabilities: ["cms"],
     });
-    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("sanity-cms");
-
-    const deps = resolveCapabilityDependencies(["cms"]);
-    expect(deps["next-sanity"]).toBe(KNOWN_PACKAGES["next-sanity"]);
-    expect(deps["server-only"]).toBe(KNOWN_PACKAGES["server-only"]);
-    for (const pkg of ["next-sanity", "server-only"]) {
-      expect(deps[pkg]).not.toBe("latest");
-    }
+    expect(dossierSelection.selected).toEqual([]);
+    expect(resolveCapabilityDependencies(["cms"])).toEqual({});
   });
 
   // Taxonomy 2026-07-22: `supabase-auth` is a legacy capability ALIAS that

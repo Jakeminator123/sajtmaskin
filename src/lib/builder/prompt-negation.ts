@@ -50,13 +50,6 @@ const DATABASE_TERMS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:databas(?:en|er|erna)?|databases?|datalager|backend|persist(?:ed|ence)?)(?![\p{L}\p{N}_])/iu,
 ];
 
-// Fas D (sanity-cms): only GENERIC cms nouns — "utan cms" suppresses the
-// capability; a negated competing provider ("inte wordpress") is handled by
-// the vocabulary veto, not negation (same split as DATABASE_TERMS).
-const CMS_TERMS: RegExp[] = [
-  /(?<![\p{L}\p{N}_])(?:cms|innehållshantering(?:ssystem)?|content[-\s]?management)(?![\p{L}\p{N}_])/iu,
-];
-
 const NEGATED_CAPABILITY_TERMS: Record<string, RegExp[]> = {
   auth: AUTH_TERMS,
   // Dossier wave 3: "lägg inte till (supabase-)inloggning" must suppress the
@@ -71,7 +64,7 @@ const NEGATED_CAPABILITY_TERMS: Record<string, RegExp[]> = {
   // Dossier wave 2: "utan databas/backend" suppresses the capability, but a
   // negated PROVIDER ("inte postgres") must not — see DATABASE_TERMS.
   database: DATABASE_TERMS,
-  cms: CMS_TERMS,
+  // (`cms` left the map 2026-09-02 with the parked sanity-cms dossier.)
   analytics: INTEGRATION_TERMS,
 };
 

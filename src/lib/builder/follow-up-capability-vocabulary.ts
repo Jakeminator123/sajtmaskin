@@ -314,6 +314,11 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       // (Codex P2 på #482): användare skriver etiketten de ser i panelen.
       /(?<![\p{L}\p{N}_])besök(?:s|ar)-?statistik(?:en)?(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:spåra\s+besökare|track[-\s]?visitors|page[-\s]?views|sidvisningar)(?![\p{L}\p{N}_])/iu,
+      // visitor-counter (2026-09-02): the owner-visible default asks for a
+      // "räknare" or "hur många besökare" rather than the word analytics.
+      /(?<![\p{L}\p{N}_])(?:besöks-?räknare|besökar-?räknare|visitor[-\s]?counter|hit[-\s]?counter|statistik-?sida)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:räknare\s+(?:för|på|över)|räkna(?:r)?|mät(?:a|er)?)\s+(?:hur\s+många\s+)?(?:besökare|besök(?:en)?|användare|personer)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])hur\s+många\s+(?:(?:besökare|användare|personer)\s+)?(?:som\s+)?(?:besöker|besökt|kommer\s+(?:in\s+)?(?:på|till)|tittar\s+på|går\s+in\s+på)(?![\p{L}\p{N}_])/iu,
     ],
   },
   // `error-tracking` (sentry-error-tracking) left the vocabulary 2026-08-06
@@ -380,6 +385,29 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
   // like "lägg till en FAQ" is now an ordinary content edit, not a dossier
   // injection.
   {
+    // Hosted storage for the owner's OWN heavy media (vercel-blob-media,
+    // 2026-09-02): their MP4s / growing photo library served from a Blob store
+    // instead of the repo. High-precision on purpose — a plain "lägg till en
+    // video i heron" is an embed/content edit, and a click-to-enlarge gallery
+    // is `gallery-lightbox` (listed after this entry so both can co-detect on
+    // "ladda upp egna bilder till bildgalleriet").
+    capability: "media-storage",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:mediabibliotek(?:et)?|media[-\s]?library|vercel[-\s]?blob|blob[-\s]?(?:storage|store|lagring)|fil[-\s]?lagring(?:en)?|file[-\s]?storage|media[-\s]?lagring(?:en)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])ladda\s+upp\s+(?:(?:egna|våra|mina|nya)\s+)?(?:bilder(?:na)?|foton|filmer(?:na)?|videor(?:na)?|videos?|videoklipp|filer(?:na)?|mp4(?:-?filer)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])upload\s+(?:(?:our|my|their|own|new)\s+)?(?:photos|images|pictures|videos?|files|clips)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:egna|våra|mina)\s+(?:video)?filmer(?:na)?(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])mp4(?:-?(?:filer|filmer|video(?:r|s)?))?(?![\p{L}\p{N}_])/iu,
+    ],
+    // Embedding a third-party video/feed is page content, not storage; and
+    // visitor uploads (UGC) are explicitly outside the dossier.
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:youtube|vimeo|instagram|tiktok|facebook)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:besökar(?:e|na)|kunder(?:na)?|användar(?:e|na))\s+(?:ska\s+|kan\s+|får\s+)?(?:kunna\s+)?ladda\s+upp(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:visitors?|users?|customers?)\s+(?:can|should|may)\s+upload(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
     // Click-to-enlarge image gallery / lightbox. Inherits the image-gallery
     // tokens that used to live on `carousel`, so "ett bildgalleri där man kan
     // förstora bilder" reaches the lightbox dossier instead of a swipe slider.
@@ -427,34 +455,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:chart[-.\s]?js|react-?chartjs(?:-2)?|recharts|highcharts|apexcharts|plotly|nivo|d3(?:\.js)?)(?![\p{L}\p{N}_])/iu,
     ],
   },
-  {
-    // Headless CMS integration (sanity-cms is the capability default). The
-    // ask is "content editable WITHOUT code" — a named CMS, Sanity, Swedish
-    // "innehållshantering", or an editors-can-update-it-themselves phrasing.
-    // NOT ordinary page-content edits ("ändra innehållet i heron" is a
-    // refine, guarded by the add-verb gate + the phrase patterns requiring an
-    // utan-kod/själv tail), and NOT "the site has a blog" on its own.
-    capability: "cms",
-    patterns: [
-      // High-signal acronym / compound asks.
-      /(?<![\p{L}\p{N}_])(?:headless[-\s]?cms|cms)(?![\p{L}\p{N}_])/iu,
-      // Sanity-the-provider. "sanity check" is an ordinary English phrase —
-      // the trailing lookahead refuses the check(s) continuation.
-      /(?<![\p{L}\p{N}_])sanity(?:\.io)?(?![\p{L}\p{N}_])(?![-\s]?checks?)/iu,
-      /(?<![\p{L}\p{N}_])(?:innehållshantering(?:en|ssystem(?:et)?)?|content[-\s]?management(?:[-\s]?system)?)(?![\p{L}\p{N}_])/iu,
-      // "redigera/uppdatera innehållet utan kod / själva" — the tail is
-      // required so a plain content tweak never routes here.
-      /(?<![\p{L}\p{N}_])(?:redigera|uppdatera|hantera|ändra)\s+(?:sitt\s+|sajtens\s+|webbplatsens\s+)?innehåll(?:et)?\s+(?:utan\s+(?:kod|utvecklare|programmering)|själv(?:a)?)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:edit|manage|update)\s+(?:the\s+|their\s+|site\s+)?content\s+(?:without\s+(?:code|coding|a\s+developer)|themselves)(?![\p{L}\p{N}_])/iu,
-      // Editors/staff as the acting persona.
-      /(?<![\p{L}\p{N}_])redaktör(?:er|en|erna)?[\s\S]{0,60}(?:redigera|uppdatera|ändra|publicera|hantera)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])editors?\s+(?:can|should)\s+(?:edit|update|manage|publish)(?![\p{L}\p{N}_])/iu,
-    ],
-    // An explicit competing CMS choice must not pull in the Sanity dossier
-    // (Chart.js precedent on dashboard-charts). Kept to actual CMS products;
-    // generic site-builder names are a different ask and stay unlisted.
-    vetoes: [
-      /(?<![\p{L}\p{N}_])(?:wordpress|contentful|strapi|prismic|storyblok|datocms|payload[-\s]?cms|craft[-\s]?cms|ghost[-\s]?cms|butter[-\s]?cms|sitecore|umbraco|drupal|joomla|keystone(?:js)?|directus)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
+  // `cms` left the vocabulary 2026-09-02 with the parked sanity-cms dossier
+  // (sole provider). A capability without a backing dossier selects nothing,
+  // so detecting it would only mute a freehand-able content surface.
 ];
