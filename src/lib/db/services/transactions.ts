@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { transactions, users } from "@/lib/db/schema";
@@ -30,7 +30,7 @@ export async function createTransaction(
   description?: string,
   stripePaymentIntent?: string,
   stripeSessionId?: string,
-  options?: { rejectIfNegative?: boolean },
+  options?: { rejectIfNegative?: boolean; idempotencyKey?: string | null },
 ): Promise<Transaction> {
   assertDbConfigured();
 
@@ -48,6 +48,26 @@ export async function createTransaction(
     const lockedUser = lockedUsers[0];
     if (!lockedUser) {
       throw new Error("User not found");
+    }
+
+    const idempotencyKey = options?.idempotencyKey?.trim() || null;
+    if (idempotencyKey) {
+      // The user-row lock serializes all debits for this account. A concurrent
+      // retry therefore observes the first committed entitlement before it can
+      // mutate the balance. The unique index is the final database invariant.
+      const existingRows = await tx
+        .select()
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.user_id, userId),
+            eq(transactions.type, type),
+            eq(transactions.idempotency_key, idempotencyKey),
+          ),
+        )
+        .limit(1);
+      const existing = existingRows[0];
+      if (existing) return existing;
     }
 
     const currentBalance = lockedUser.diamonds || 0;
@@ -80,12 +100,35 @@ export async function createTransaction(
         description: description || null,
         stripe_payment_intent: stripePaymentIntent || null,
         stripe_session_id: stripeSessionId || null,
+        idempotency_key: idempotencyKey,
         created_at: now,
       })
       .returning();
 
     return rows[0];
   });
+}
+
+export async function getTransactionByIdempotency(
+  userId: string,
+  type: string,
+  idempotencyKey: string,
+): Promise<Transaction | null> {
+  assertDbConfigured();
+  const key = idempotencyKey.trim();
+  if (!key) return null;
+  const rows = await db
+    .select()
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.user_id, userId),
+        eq(transactions.type, type),
+        eq(transactions.idempotency_key, key),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 export async function getUserTransactions(userId: string, limit = 10): Promise<Transaction[]> {

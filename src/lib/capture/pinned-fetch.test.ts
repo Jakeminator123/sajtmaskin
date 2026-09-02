@@ -7,13 +7,14 @@
  */
 
 import http from "node:http";
+import zlib from "node:zlib";
 import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const isResolvedAddressPrivate = vi.hoisted(() => vi.fn());
 const dnsLookup = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/ssrf-guard", () => ({ isResolvedAddressPrivate }));
+vi.mock("@/lib/ssrf-address", () => ({ isResolvedAddressPrivate }));
 // Node-inbyggda moduler importeras via default i den transpilerade koden, så
 // mocken måste exponera både den namngivna och default-formen.
 vi.mock("node:dns", () => {
@@ -21,7 +22,8 @@ vi.mock("node:dns", () => {
   return { ...mocked, default: mocked };
 });
 
-const { fetchWithPinnedDns, PINNED_ADDRESS_BLOCKED_MESSAGE } = await import("./pinned-fetch");
+const { fetchWithPinnedDns, PINNED_ADDRESS_BLOCKED_MESSAGE, PINNED_BODY_LIMIT_CODE } =
+  await import("./pinned-fetch");
 
 type ReceivedRequest = {
   url: string | undefined;
@@ -80,6 +82,26 @@ beforeEach(async () => {
         res.end("ok");
         return;
       }
+      if (req.url === "/slow") {
+        return;
+      }
+      if (req.url === "/gzip") {
+        res.writeHead(200, { "content-type": "text/plain", "content-encoding": "gzip" });
+        res.end(zlib.gzipSync(Buffer.from("gzip-body")));
+        return;
+      }
+      if (req.url === "/br") {
+        res.writeHead(200, { "content-type": "text/plain", "content-encoding": "br" });
+        res.end(zlib.brotliCompressSync(Buffer.from("br-body")));
+        return;
+      }
+      if (req.url === "/gzip-big") {
+        res.writeHead(200, { "content-type": "text/plain", "content-encoding": "gzip" });
+        // Highly compressible zeros: a small wire payload that would expand
+        // far past the 1 KiB caller cap if inflate ran unbounded.
+        res.end(zlib.gzipSync(Buffer.alloc(256 * 1024, 0)));
+        return;
+      }
       res.writeHead(200, { "content-type": "image/png" });
       res.end("asset-bytes");
     });
@@ -122,6 +144,16 @@ describe("fetchWithPinnedDns", () => {
     isResolvedAddressPrivate.mockImplementation((address: string) => address === "127.0.0.1");
 
     await expect(fetchWithPinnedDns(`http://blandat.test:${port}/x`)).rejects.toThrow(
+      PINNED_ADDRESS_BLOCKED_MESSAGE,
+    );
+    expect(received).toHaveLength(0);
+  });
+
+  it("stoppar privata IPv6-poster även när ett publikt IPv6-svar finns", async () => {
+    resolveTo("2606:4700:4700::1111", "fe90::1");
+    isResolvedAddressPrivate.mockImplementation((address: string) => address === "fe90::1");
+
+    await expect(fetchWithPinnedDns(`http://ipv6-mix.test:${port}/x`)).rejects.toThrow(
       PINNED_ADDRESS_BLOCKED_MESSAGE,
     );
     expect(received).toHaveLength(0);
@@ -200,5 +232,44 @@ describe("fetchWithPinnedDns", () => {
   it("vägrar allt som inte är http(s)", async () => {
     await expect(fetchWithPinnedDns("ftp://asset.test/x")).rejects.toThrow(/http\(s\) only/);
     expect(dnsLookup).not.toHaveBeenCalled();
+  });
+
+  it("avkodar gzip så body-läsning ger klartext", async () => {
+    const result = await fetchWithPinnedDns(`http://asset.test:${port}/gzip`);
+    expect(result.body.toString()).toBe("gzip-body");
+    expect(result.headers["content-encoding"]).toBeUndefined();
+  });
+
+  it("avkodar brotli så body-läsning ger klartext", async () => {
+    const result = await fetchWithPinnedDns(`http://asset.test:${port}/br`);
+    expect(result.body.toString()).toBe("br-body");
+    expect(result.headers["content-encoding"]).toBeUndefined();
+  });
+
+  it("fail-stänger zip-bomb med ERR_BUFFER_TOO_LARGE", async () => {
+    await expect(
+      fetchWithPinnedDns(`http://asset.test:${port}/gzip-big`, { maxBodyBytes: 1024 }),
+    ).rejects.toMatchObject({
+      code: PINNED_BODY_LIMIT_CODE,
+      name: "RangeError",
+      message: expect.stringContaining("exceeded 1024 bytes"),
+    });
+  });
+
+  it("avbryter när AbortSignal abortas mitt i ett hängande svar", async () => {
+    const controller = new AbortController();
+    const pending = fetchWithPinnedDns(`http://asset.test:${port}/slow`, {
+      signal: controller.signal,
+      timeoutMs: 5_000,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("timeoutar genom den pinnade transporten när servern inte svarar", async () => {
+    await expect(
+      fetchWithPinnedDns(`http://asset.test:${port}/slow`, { timeoutMs: 40 }),
+    ).rejects.toThrow(/timed out/);
   });
 });

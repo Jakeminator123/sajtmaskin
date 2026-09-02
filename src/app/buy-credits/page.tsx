@@ -8,6 +8,7 @@ import { ShaderBackground } from "@/components/layout/shader-background";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
 import { CREDIT_COST_BREAKDOWN } from "@/lib/credits/pricing";
+import { MODEL_LABELS } from "@/lib/models/catalog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -530,38 +531,38 @@ function BuyCreditsContent() {
                   <div className="mx-auto grid max-w-2xl gap-3 sm:grid-cols-2">
                     {[
                       {
-                        label: "Generering (Premium)",
-                        cost: CREDIT_COST_BREAKDOWN.generatePremium,
-                        icon: Wand2,
-                        color: "text-brand-teal",
-                      },
-                      {
-                        label: "Generering (Pro)",
+                        label: `Generering (${MODEL_LABELS.pro})`,
                         cost: CREDIT_COST_BREAKDOWN.generatePro,
                         icon: Wand2,
                         color: "text-brand-teal",
                       },
                       {
-                        label: "Generering (Max)",
+                        label: `Generering (${MODEL_LABELS.max})`,
                         cost: CREDIT_COST_BREAKDOWN.generateMax,
                         icon: Wand2,
                         color: "text-brand-teal",
                       },
                       {
-                        label: "Förfining (Premium)",
-                        cost: CREDIT_COST_BREAKDOWN.refinePremium,
-                        icon: Zap,
-                        color: "text-brand-amber",
+                        label: `Generering (${MODEL_LABELS.premium})`,
+                        cost: CREDIT_COST_BREAKDOWN.generatePremium,
+                        icon: Wand2,
+                        color: "text-brand-teal",
                       },
                       {
-                        label: "Förfining (Pro)",
+                        label: `Förfining (${MODEL_LABELS.pro})`,
                         cost: CREDIT_COST_BREAKDOWN.refinePro,
                         icon: Zap,
                         color: "text-brand-amber",
                       },
                       {
-                        label: "Förfining (Max)",
+                        label: `Förfining (${MODEL_LABELS.max})`,
                         cost: CREDIT_COST_BREAKDOWN.refineMax,
+                        icon: Zap,
+                        color: "text-brand-amber",
+                      },
+                      {
+                        label: `Förfining (${MODEL_LABELS.premium})`,
+                        cost: CREDIT_COST_BREAKDOWN.refinePremium,
                         icon: Zap,
                         color: "text-brand-amber",
                       },

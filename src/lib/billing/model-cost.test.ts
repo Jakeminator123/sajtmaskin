@@ -18,8 +18,17 @@ describe("model-cost", () => {
     });
 
     expect(cost).not.toBeNull();
-    // 70k*$5 + 20k*$0.5 + 10k*$6.25 + 10k*$30 = $0.7225
-    expect(cost?.costUsd).toBeCloseTo(0.7225, 6);
+    // Kampanjpris gpt-5.6-sol (config/ai_models/pricing.json verifiedAt 2026-09-02,
+    // samma siffror i 25-pricing.md): $4 / $0.40 cache-read / $5 cache-write / $20.
+    // Tidigare listpris $5/$0.50/$6.25/$30 gav $0.7225 för samma mix.
+    // 70k*$4 + 20k*$0.40 + 10k*$5 + 10k*$20 = $0.538
+    expect(cost?.rates).toEqual({
+      input: 4,
+      cachedInput: 0.4,
+      cacheWriteInput: 5,
+      output: 20,
+    });
+    expect(cost?.costUsd).toBeCloseTo(0.538, 6);
     expect(cost?.uncachedInputTokens).toBe(70_000);
   });
 
@@ -31,7 +40,10 @@ describe("model-cost", () => {
       outputTokens: 100_000,
     });
     expect(cost?.longContext).toBe(true);
-    expect(cost?.costUsd).toBeCloseTo(3.75, 6);
+    // gpt-5.6-terra $2/$12 med 2× input / 1.5× output över 272k input
+    // (pricing.json / 25-pricing.md, 2026-09-02). 300k*$4 + 100k*$18 = $3.00.
+    // Tidigare Terra-kort $2.50/$15 gav $3.75 för samma volym.
+    expect(cost?.costUsd).toBeCloseTo(3, 6);
   });
 
   it("does not double-count Anthropic cache counters already included in SDK input", () => {

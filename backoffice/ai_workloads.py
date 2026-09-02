@@ -42,12 +42,12 @@ WORKLOAD_DOSSIER_CURATION = "backoffice_dossier_curation"
 # manifestet grindas i `backoffice/test_wizard_support_models.py`, så tuplarna
 # kan inte drifta från posterna.
 MODEL_FALLBACKS: dict[str, tuple[str, ...]] = {
-    WORKLOAD_SCAFFOLD_WIZARD_PERSONA: ("gpt-4o", "gpt-5.5"),
-    WORKLOAD_SCAFFOLD_WIZARD_GUIDE: ("gpt-5.4-mini", "gpt-5.5", "gpt-4o"),
-    WORKLOAD_DOSSIER_CURATION: ("gpt-5.5", "gpt-5.4-mini"),
+    WORKLOAD_SCAFFOLD_WIZARD_PERSONA: ("gpt-5.6-terra", "gpt-5.6-sol"),
+    WORKLOAD_SCAFFOLD_WIZARD_GUIDE: ("gpt-5.6-luna", "gpt-5.6-terra"),
+    WORKLOAD_DOSSIER_CURATION: ("gpt-5.6-sol", "gpt-5.6-terra"),
 }
 VISION_FALLBACKS: dict[str, frozenset[str]] = {
-    WORKLOAD_SCAFFOLD_WIZARD_PERSONA: frozenset({"gpt-4o", "gpt-5.5"}),
+    WORKLOAD_SCAFFOLD_WIZARD_PERSONA: frozenset({"gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"}),
 }
 
 

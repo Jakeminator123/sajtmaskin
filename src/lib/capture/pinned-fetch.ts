@@ -23,16 +23,24 @@
 
 import http from "node:http";
 import https from "node:https";
+import { promisify } from "node:util";
+import zlib from "node:zlib";
 import { lookup as dnsLookup, type LookupAllOptions } from "node:dns";
 import type { LookupFunction } from "node:net";
-import { isResolvedAddressPrivate } from "@/lib/ssrf-guard";
+import { isResolvedAddressPrivate } from "@/lib/ssrf-address";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 /** Taket finns för att en capture aldrig ska kunna dra ner processens minne. */
 const DEFAULT_MAX_BODY_BYTES = 12 * 1024 * 1024;
+const gunzip = promisify(zlib.gunzip);
+const inflate = promisify(zlib.inflate);
+const brotliDecompress = promisify(zlib.brotliDecompress);
 
 export const PINNED_ADDRESS_BLOCKED_MESSAGE =
   "Pinned fetch blocked: hostname resolved to a private/internal address";
+export const PINNED_BODY_LIMIT_PREFIX = "Pinned fetch aborted: response exceeded";
+/** Same Node code zlib uses when `maxOutputLength` is exceeded. */
+export const PINNED_BODY_LIMIT_CODE = "ERR_BUFFER_TOO_LARGE";
 
 /**
  * Hop-by-hop-headers hör till EN uppkoppling och får aldrig vidarebefordras.
@@ -83,6 +91,7 @@ export type PinnedFetchInit = {
   body?: Buffer | null;
   timeoutMs?: number;
   maxBodyBytes?: number;
+  signal?: AbortSignal;
 };
 
 function buildRequestHeaders(
@@ -120,6 +129,50 @@ function buildResponseHeaders(headers: http.IncomingHttpHeaders): Record<string,
   return out;
 }
 
+function bodyLimitError(maxBodyBytes: number): NodeJS.ErrnoException {
+  const error = new RangeError(
+    `${PINNED_BODY_LIMIT_PREFIX} ${maxBodyBytes} bytes`,
+  ) as NodeJS.ErrnoException;
+  error.code = PINNED_BODY_LIMIT_CODE;
+  return error;
+}
+
+/**
+ * Decode gzip/br/deflate so callers see the same readable body contract as
+ * `fetch()`. Wire size is already capped; `maxOutputLength` caps inflate so a
+ * tiny zip-bomb cannot allocate past the caller limit before the byte check.
+ */
+function isDecompressLimitError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = "code" in error ? String((error as NodeJS.ErrnoException).code) : "";
+  return error instanceof RangeError || error.name === "RangeError" || code === PINNED_BODY_LIMIT_CODE;
+}
+
+async function decodePinnedBody(
+  body: Buffer,
+  encoding: string | undefined,
+  maxBodyBytes: number,
+): Promise<Buffer> {
+  const normalized = (encoding ?? "identity").toLowerCase().trim();
+  if (!normalized || normalized === "identity") return body;
+
+  // Cap output during inflate so a tiny gzip/br payload cannot allocate first
+  // and only then trip maxBodyBytes (zip-bomb / TOCTOU on the size check).
+  const zlibOptions = { maxOutputLength: maxBodyBytes };
+  try {
+    if (normalized === "gzip" || normalized === "x-gzip") {
+      return await gunzip(body, zlibOptions);
+    }
+    if (normalized === "deflate") return await inflate(body, zlibOptions);
+    if (normalized === "br") return await brotliDecompress(body, zlibOptions);
+    throw new Error(`Pinned fetch blocked: unsupported content-encoding ${normalized}`);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Pinned fetch")) throw error;
+    if (isDecompressLimitError(error)) throw bodyLimitError(maxBodyBytes);
+    throw new Error(`Pinned fetch failed: could not decode ${normalized} body`);
+  }
+}
+
 /**
  * Hämtar `rawUrl` utan att någon annan än den här funktionen slår upp värden.
  * Kastar om namnet pekar på en privat/intern adress vid anslutningstillfället.
@@ -145,6 +198,8 @@ export async function fetchWithPinnedDns(
 
   try {
     return await new Promise<PinnedFetchResult>((resolve, reject) => {
+      let settled = false;
+
       const request = (isHttps ? https : http).request(
         url,
         {
@@ -152,36 +207,74 @@ export async function fetchWithPinnedDns(
           headers: buildRequestHeaders(init.headers, body),
           agent,
         },
-        (response) => {
-          const chunks: Buffer[] = [];
-          let received = 0;
-          response.on("data", (chunk: Buffer) => {
-            received += chunk.byteLength;
-            if (received > maxBodyBytes) {
-              response.destroy();
-              request.destroy();
-              reject(new Error(`Pinned fetch aborted: response exceeded ${maxBodyBytes} bytes`));
-              return;
-            }
-            chunks.push(chunk);
-          });
-          response.on("error", reject);
-          response.on("end", () => {
-            resolve({
-              // Omdirigeringar följs INTE här. Den råa 3xx:an fullföljs till
-              // browsern, som utfärdar nästa hopp som en ny request — och den
-              // går genom värdgrinden och pinningen igen.
-              status: response.statusCode ?? 502,
-              headers: buildResponseHeaders(response.headers),
-              body: Buffer.concat(chunks),
-            });
-          });
-        },
+        onResponse,
       );
+
+      const onAbort = () => {
+        const error = new Error("Pinned fetch aborted");
+        error.name = "AbortError";
+        request.destroy(error);
+      };
+      const cleanup = () => init.signal?.removeEventListener("abort", onAbort);
+      const settleReject = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(error);
+      };
+      const settleResolve = (result: PinnedFetchResult) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(result);
+      };
+
+      function onResponse(response: http.IncomingMessage) {
+        const chunks: Buffer[] = [];
+        let received = 0;
+        response.on("data", (chunk: Buffer) => {
+          received += chunk.byteLength;
+          if (received > maxBodyBytes) {
+            const error = bodyLimitError(maxBodyBytes);
+            response.destroy(error);
+            request.destroy(error);
+            settleReject(error);
+            return;
+          }
+          chunks.push(chunk);
+        });
+        response.on("error", settleReject);
+        response.on("end", () => {
+          const headers = buildResponseHeaders(response.headers);
+          void decodePinnedBody(Buffer.concat(chunks), headers["content-encoding"], maxBodyBytes)
+            .then((decodedBody) => {
+              delete headers["content-encoding"];
+              settleResolve({
+                // Omdirigeringar följs INTE här. safeFetch eller browsern skapar
+                // nästa request, som får en ny guarded socket-lookup.
+                status: response.statusCode ?? 502,
+                headers,
+                body: decodedBody,
+              });
+            })
+            .catch((error: unknown) => {
+              settleReject(error instanceof Error ? error : new Error(String(error)));
+            });
+        });
+      }
+
       request.setTimeout(timeoutMs, () => {
         request.destroy(new Error(`Pinned fetch timed out after ${timeoutMs} ms`));
       });
-      request.on("error", reject);
+      request.on("error", settleReject);
+      request.once("close", cleanup);
+
+      if (init.signal?.aborted) {
+        onAbort();
+        return;
+      }
+      init.signal?.addEventListener("abort", onAbort, { once: true });
+
       if (body) request.write(body);
       request.end();
     });

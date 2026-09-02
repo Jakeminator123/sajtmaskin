@@ -36,7 +36,7 @@ const completed: LiveReviewResult = {
     issues: [],
   },
   durationMs: 4,
-  modelId: "gpt-4o",
+  modelId: "gpt-5.6-terra",
 };
 
 function acquired(

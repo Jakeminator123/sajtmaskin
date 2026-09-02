@@ -1,3 +1,5 @@
+import { parseCodeProject, serializeCodeProject } from "../parser";
+
 export const FIXER_SYSTEM_PROMPT = `You are a code fixer for Next.js/React/TypeScript projects. You receive broken code in CodeProject format (fenced code blocks with file="path" attributes) along with specific error messages.
 
 Your job:
@@ -39,6 +41,38 @@ const MAX_CONTEXT_LINES = 20;
 const MAX_REQUIRED_FILES = 20;
 const MAX_RECURRING_PATTERNS = 6;
 const MIN_RECURRING_OCCURRENCES = 2;
+/** Only truncate the prompt copy — merge still uses the original full project. */
+const FOCUS_CHAR_THRESHOLD = 150_000;
+const UNREFERENCED_HEAD_CHARS = 800;
+const UNCHANGED_MARKER = "// ... unchanged";
+
+/**
+ * Keep error-referenced files in full. Truncate the rest so a large project
+ * does not blow the model's practical input budget. Merge is safe: this
+ * string is prompt-only; `runLlmFixer` still merges against the original
+ * `content`. A model that copies a stub is rejected by `validateCompleteFiles`
+ * (`ellipsis_or_rest_unchanged_tail`) and the original file is kept.
+ */
+export function focusCodeProjectForFixer(
+  content: string,
+  keepPaths: readonly string[],
+): { promptContent: string; truncated: boolean } {
+  const project = parseCodeProject(content);
+  if (project.files.length === 0) return { promptContent: content, truncated: false };
+  const total = project.files.reduce((sum, file) => sum + file.content.length, 0);
+  if (total <= FOCUS_CHAR_THRESHOLD) return { promptContent: content, truncated: false };
+
+  const keep = new Set(keepPaths.map((path) => path.trim()).filter(Boolean));
+  const focused = project.files.map((file) => {
+    if (keep.has(file.path.trim())) return file;
+    const head = file.content.slice(0, UNREFERENCED_HEAD_CHARS).replace(/\s+$/, "");
+    return { ...file, content: `${head}\n${UNCHANGED_MARKER}` };
+  });
+  if (focused.length !== project.files.length) {
+    return { promptContent: content, truncated: false };
+  }
+  return { promptContent: serializeCodeProject(focused), truncated: true };
+}
 
 /**
  * En subset av `RunFixPattern` (i `@/lib/logging/generation-log-writer`)
@@ -203,15 +237,22 @@ export function buildFixerUserPrompt(
     }
   }
 
+  const { promptContent, truncated } = focusCodeProjectForFixer(content, requiredFiles);
+
   sections.push("", "IMPORTANT:");
   sections.push("- Return only changed files.");
   sections.push("- Every returned file block must contain the complete file from first line to last line.");
   sections.push("- Never return snippets, partial imports, or diff-style patches.");
   sections.push("- Prioritize the listed files and resolve the primary blocking diagnostics before touching anything else.");
+  if (truncated) {
+    sections.push(
+      "- Unreferenced files may be truncated with `// ... unchanged`. Do not return those stubs; omit unchanged files so the merge keeps the original.",
+    );
+  }
   if (recurringPatterns.length > 0) {
     sections.push("- For any recurring failure listed above, change the approach (different import path, different component, different type) instead of re-applying the same fix.");
   }
-  sections.push("", "---", "", "Code:", "", content);
+  sections.push("", "---", "", "Code:", "", promptContent);
 
   return sections.join("\n");
 }

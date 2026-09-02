@@ -126,13 +126,25 @@ class FallbackParityTests(unittest.TestCase):
                     fallback, frozenset(_workload(workload_id).get("visionModels", []))
                 )
 
-    def test_vision_models_are_a_subset_of_the_offered_models(self) -> None:
-        """En vision-modell som inte går att välja i UI:t är död konfiguration."""
+    def test_vision_models_cover_every_offered_5_6_id(self) -> None:
+        """visionModels listar vilka id:n som får bilder, inte bara pickern.
+
+        Stegen 2026-09-02: alla GPT-5.6-modeller tar bild. Persona-pickern är
+        Terra (+ Sol fallback) men Luna finns i visionModels så en framtida
+        picker-rad inte plötsligt blir text-only.
+        """
         for workload_id in ALL_WORKLOADS:
             entry = _workload(workload_id)
+            vision = set(entry.get("visionModels", []))
             offered = {entry["defaultModel"], *entry.get("fallbackModels", [])}
             with self.subTest(workload_id=workload_id):
-                self.assertTrue(set(entry.get("visionModels", [])) <= offered)
+                if not vision:
+                    continue
+                self.assertTrue(
+                    offered <= vision,
+                    f"{workload_id}: offered {offered} is not covered by visionModels {vision}",
+                )
+                self.assertNotIn("gpt-4o", vision)
 
 
 class ResolveFromManifestTests(unittest.TestCase):

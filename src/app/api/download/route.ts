@@ -7,11 +7,7 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import {
-  buildExportableProject,
-  chatUsesVerbatimRepo,
-} from "@/lib/gen/export/build-exportable-project";
-import { stripGeneratedEnvLocalForZip } from "@/lib/gen/export/strip-env-local-for-zip";
+import { buildPortableExportProject } from "@/lib/gen/export/build-portable-export-project";
 
 /**
  * Download endpoint with optional backoffice injection
@@ -35,14 +31,8 @@ async function buildZipBufferFromEngineVersion(
   if (!files || files.length === 0) {
     return null;
   }
-  // Imported repos (v0-templates / ZIP imports) download verbatim — no
-  // scaffold merge / baseline dep pins on top of the template's own stack.
-  const verbatimRepo = await chatUsesVerbatimRepo(chatId);
-  // Strip the verify-lane placeholder `.env.local` at the download boundary
-  // (the shared builder keeps it for the verify/quality-gate lane).
-  const completeProject = stripGeneratedEnvLocalForZip(
-    await buildExportableProject(files, { verbatimRepo }),
-  );
+  // GitHub export and ZIP download share this exact portable artifact builder.
+  const completeProject = await buildPortableExportProject(files, chatId);
   const zip = new JSZip();
   for (const file of completeProject) {
     const path = typeof file.path === "string" ? file.path.trim() : "";

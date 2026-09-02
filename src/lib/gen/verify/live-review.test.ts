@@ -3,14 +3,24 @@ import { resetServerEnvCacheForTests } from "@/lib/env";
 
 const generateObject = vi.hoisted(() => vi.fn());
 const createDirectModel = vi.hoisted(() => vi.fn(() => ({ id: "mock-model" })));
-const getWorkloadDefaultModelFromManifest = vi.hoisted(() => vi.fn(() => "gpt-4o"));
+const getWorkloadDefaultModelFromManifest = vi.hoisted(() => vi.fn(() => "gpt-5.6-terra"));
 const uploadBlob = vi.hoisted(() => vi.fn());
 
 vi.mock("ai", () => ({ generateObject }));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
 vi.mock("@/lib/ai-models/load-manifest", () => ({
+  getAiModelsManifest: () => ({
+    workloads: [
+      {
+        id: "live_review",
+        defaultModel: "gpt-5.6-terra",
+        fallbackModels: ["gpt-5.6-luna"],
+        visionModels: ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.6-sol"],
+      },
+    ],
+  }),
   getWorkloadDefaultModelFromManifest,
-  getWorkloadFallbackModelsFromManifest: () => ["gpt-5.5"],
+  getWorkloadFallbackModelsFromManifest: () => ["gpt-5.6-luna"],
 }));
 vi.mock("@/lib/vercel/blob-service", () => ({ uploadBlob }));
 vi.mock("@/lib/observability/llm-usage", () => ({ recordLlmUsage: vi.fn() }));
@@ -31,6 +41,7 @@ import {
   persistLiveReviewJpeg,
   pickPreviousVersionInChat,
   pickUserRequest,
+  resolveLiveReviewModelIds,
   runLiveReview,
   shouldRunLiveReview,
   summarizeBrief,
@@ -278,6 +289,13 @@ describe("persistLiveReviewJpeg", () => {
   });
 });
 
+describe("resolveLiveReviewModelIds", () => {
+  it("reads default + fallback and keeps only visionModels", () => {
+    expect(resolveLiveReviewModelIds()).toEqual(["gpt-5.6-terra", "gpt-5.6-luna"]);
+    expect(resolveLiveReviewModelIds("gpt-5.6-sol")).toEqual(["gpt-5.6-sol"]);
+  });
+});
+
 describe("review timeouts", () => {
   it("uses a 45s per-attempt budget and a 90s chain cap", () => {
     expect(LIVE_REVIEW_ATTEMPT_TIMEOUT_MS).toBe(45_000);
@@ -319,11 +337,19 @@ describe("runLiveReview", () => {
     expect(result.status).toBe("completed");
     if (result.status === "completed") {
       expect(result.decision.verdict).toBe("pass");
-      expect(result.modelId).toBe("gpt-4o");
+      expect(result.modelId).toBe("gpt-5.6-terra");
     }
     expect(generateObject).toHaveBeenCalledWith(
       expect.objectContaining({
         providerOptions: { openai: { strictJsonSchema: false } },
+        messages: [
+          expect.objectContaining({
+            content: expect.arrayContaining([
+              expect.objectContaining({ type: "text" }),
+              expect.objectContaining({ type: "image", image: expect.any(URL) }),
+            ]),
+          }),
+        ],
       }),
     );
   });
@@ -457,9 +483,9 @@ describe("runLiveReview", () => {
         domSummary: null,
       }),
     );
-    expect(createDirectModel).toHaveBeenCalledWith("gpt-4o");
-    expect(createDirectModel).toHaveBeenCalledWith("gpt-5.5");
-    expect(result).toMatchObject({ status: "completed", modelId: "gpt-5.5" });
+    expect(createDirectModel).toHaveBeenCalledWith("gpt-5.6-terra");
+    expect(createDirectModel).toHaveBeenCalledWith("gpt-5.6-luna");
+    expect(result).toMatchObject({ status: "completed", modelId: "gpt-5.6-luna" });
   });
 
   it("provar fallback-modellen när generateObject på default misslyckas", async () => {
@@ -488,7 +514,7 @@ describe("runLiveReview", () => {
       }),
     );
     expect(generateObject).toHaveBeenCalledTimes(2);
-    expect(result).toMatchObject({ status: "completed", modelId: "gpt-5.5" });
+    expect(result).toMatchObject({ status: "completed", modelId: "gpt-5.6-luna" });
   });
 
   it("degraderar när alla modeller saknar nyckel", async () => {
