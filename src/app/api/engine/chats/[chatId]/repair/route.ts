@@ -27,6 +27,7 @@ import {
   acquireVersionLease,
   releaseVersionLease,
   renewVersionLease,
+  type WatchdogCasExpected,
 } from "@/lib/db/chat-repository-pg";
 import {
   buildExportableProject,
@@ -175,6 +176,10 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   // gate when the abandoned manual repair was build/preview-start originated.
   // Set once `repairContext` is known below.
   let reverifyForceBuildCheck = false;
+  // Set only from the post-lease `getVersionFilesSnapshot` row (same read as
+  // `baseFilesJson`). Never from the pre-lease tenant read — an edit in that
+  // window advances `files_revision` and would CAS-miss or bind the wrong rev.
+  let repairCasExpected: WatchdogCasExpected | null = null;
   // Fail a version after an unsuccessful repair, recovering from lease loss.
   // The lease-conditioned write no-ops if this run lost ownership (expired lease
   // or a takeover), which would otherwise strand the row in `repairing` — the
@@ -188,9 +193,16 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       return null;
     });
     if (owned) return true;
-    await failVersionVerificationIfUnleased(versionId, summary).catch((err) => {
-      console.warn("[repair] Unleased fail fallback errored:", err);
-    });
+    // L5: bind the unleased fallback to the post-lease snapshot this repair
+    // actually worked on. Do NOT re-read the row at fail time (A1 / #1251:
+    // that would CAS against a concurrent promote/edit and clobber it).
+    if (repairCasExpected) {
+      await failVersionVerificationIfUnleased(versionId, summary, repairCasExpected).catch(
+        (err) => {
+          console.warn("[repair] Unleased fail fallback errored:", err);
+        },
+      );
+    }
     return false;
   };
   try {
@@ -346,6 +358,15 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     // binds its write to it so a concurrent user edit is never clobbered.
     const baseFilesJson = snapshot.filesJson;
     baseFilesJsonForRecovery = baseFilesJson;
+    // Same post-lease row as the files this repair works on. Fail-fallback
+    // targets `repairing` (the state this lease writes next) + that revision.
+    // Snapshot `verificationState` is the pre-mark value and must not be used:
+    // after `markVersionRepairing` a CAS against `failed`/`repair_available`
+    // would miss and leave the row spinning.
+    repairCasExpected = {
+      verificationState: "repairing",
+      filesRevision: snapshot.filesRevision ?? null,
+    };
 
     if (dbConfigured) {
       await markVersionRepairing(internalVersionId, undefined, leaseRunId).catch((err) => {

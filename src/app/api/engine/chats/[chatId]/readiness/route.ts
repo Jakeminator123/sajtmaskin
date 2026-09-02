@@ -310,6 +310,7 @@ async function buildEngineReadiness(
   // lease, and prefers the concrete already-logged gate failure over the
   // generic "took too long" copy. Fail-safe: a DB error leaves state unchanged.
   const versionIdForReconcile = version.id;
+  const filesRevisionForReconcile = version.files_revision ?? null;
   // Read the chat head at most once per settle and reuse for the head gate
   // (bugbot medium #518) — mirrors the quality-gate route's
   // `isLatestVersionForChat` (`!latest || latest.id === versionId`). A
@@ -339,6 +340,7 @@ async function buildEngineReadiness(
       const promoted = await promoteVersionIfUnleased(
         versionIdForReconcile,
         RECONCILED_PROMOTE_SUMMARY,
+        { filesRevision: filesRevisionForReconcile },
       );
       // Bugbot medium (#518): mirror the quality-gate route — an advisory
       // (typecheck-only) promotion is NOT solid-green, so emit `version.degraded`
