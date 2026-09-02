@@ -14,6 +14,14 @@ import {
 } from "./physics-2d-layout";
 
 const WALL_THICKNESS = 64;
+// Matter warns above this delta and the simulation gets springy; longer frames
+// are split into equal sub-steps (at most MAX_SUBSTEPS, so a paused tab does
+// not fast-forward the world when it comes back).
+const MAX_STEP_MS = 16.667;
+const MAX_SUBSTEPS = 3;
+// A circle body only fits a near-square element; a wide pill on a circle body
+// would visually stick out past the walls and roll on its end.
+const CIRCLE_ASPECT_TOLERANCE = 0.25;
 
 export interface CreatePhysicsSceneParams {
   stageWidth: number;
@@ -60,8 +68,11 @@ function createItemBody(
   friction: number,
 ): MatterBody {
   const opts = { restitution, friction, label: item.id };
-  if (item.shape === "circle") {
-    const radius = Math.max(Math.min(item.width, item.height) / 2, 1);
+  const nearSquare =
+    Math.abs(item.width - item.height) <=
+    Math.min(item.width, item.height) * CIRCLE_ASPECT_TOLERANCE;
+  if (item.shape === "circle" && nearSquare) {
+    const radius = Math.max(Math.max(item.width, item.height) / 2, 1);
     return Bodies.circle(x, y, radius, opts);
   }
   return Bodies.rectangle(x, y, item.width, item.height, opts);
@@ -108,7 +119,10 @@ export function createPhysicsScene(params: CreatePhysicsSceneParams): PhysicsSce
     engine,
     bodies,
     step(deltaMs: number) {
-      Engine.update(engine, Math.min(deltaMs, 33));
+      if (!(deltaMs > 0)) return;
+      const substeps = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil(deltaMs / MAX_STEP_MS)));
+      const dt = Math.min(deltaMs / substeps, MAX_STEP_MS);
+      for (let i = 0; i < substeps; i += 1) Engine.update(engine, dt);
     },
     reset() {
       placeItems(stageWidth);

@@ -72,7 +72,9 @@ export function ScrollStory({
       aria-label={ariaLabel}
       ref={containerRef}
       data-scroll-story-mode={mode}
-      className={["overflow-x-hidden", className].filter(Boolean).join(" ")}
+      // `overflow-x-hidden` would turn the section into a scroll container and
+      // silently disable `position: sticky` on the media column; `clip` does not.
+      className={["overflow-x-clip", className].filter(Boolean).join(" ")}
     >
       {mode === "sticky" ? (
         <div className="grid md:grid-cols-2">

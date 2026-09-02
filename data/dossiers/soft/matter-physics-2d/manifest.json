@@ -9,7 +9,10 @@
   "promptInstructionMode": "selected-sections",
   "summary": "Drives 2D product images, cards or labels with Matter.js so they fall, stack, bounce and can be dragged inside a bounded stage. Use only for explicit 2D DOM physics — never CSS bounce, parallax, confetti or Rapier/3D. The engine stays bounded (≤30 bodies), real DOM nodes stay semantic, a static grid replaces the sim on SSR and prefers-reduced-motion, the loop pauses when hidden or offscreen, wheel listeners are stripped so page scroll is never hijacked, and destroy() runs on unmount.",
   "summarySv": "Låter produktbilder, kort eller etiketter falla, staplas och studsa på sidan, och besökaren kan dra dem. Välj det bara när du uttryckligen vill ha 2D-fysik i sidan — inte 3D och inte bara en snygg hover-effekt. Innehållet är vanlig text och bilder; om besökaren inte vill ha rörelse visas samma saker som ett stilla rutnät.",
-  "dependencies": ["matter-js", "@types/matter-js"],
+  "dependencies": [
+    "matter-js",
+    "@types/matter-js"
+  ],
   "files": [
     {
       "path": "components/physics-2d-layout.ts",
@@ -47,5 +50,5 @@
   "lastVerified": "2026-09-02",
   "verificationStatus": "unverified",
   "sourceRepoUrl": "https://github.com/liabru/matter-js",
-  "notes": "New 2026-09-02 owner decision; explicit-ask-only; stubbed in repo tests via tests/stubs/matter-js.ts; live browser check on a materialized preview still required before accepted."
+  "notes": "New 2026-09-02 owner decision; explicit-ask-only; stubbed in repo tests via tests/stubs/matter-js.ts. Materialized keyless build + real Chrome check 2026-09-02: bodies fall, stack and rest inside the walls (fixed: circle bodies only for near-square items, ≤16.667 ms sub-steps). Still open before accepted: touch drag and reduced-motion grid in a real browser, one sample brief through the pipeline."
 }

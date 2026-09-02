@@ -23,7 +23,7 @@ export const spatialCanvasSeed: { nodes: SpatialSeedNode[]; edges: SpatialSeedEd
   nodes: [
     {
       id: "hub",
-      position: { x: 280, y: 40 },
+      position: { x: 320, y: 0 },
       data: {
         title: "Våra tjänster",
         description: "Ett universum av vad vi gör — panorera och zooma.",
@@ -32,7 +32,7 @@ export const spatialCanvasSeed: { nodes: SpatialSeedNode[]; edges: SpatialSeedEd
     },
     {
       id: "consult",
-      position: { x: 40, y: 220 },
+      position: { x: 0, y: 220 },
       data: {
         title: "Rådgivning",
         description: "Genomgång av behov, material och tidsplan.",
@@ -41,7 +41,7 @@ export const spatialCanvasSeed: { nodes: SpatialSeedNode[]; edges: SpatialSeedEd
     },
     {
       id: "craft",
-      position: { x: 280, y: 240 },
+      position: { x: 320, y: 240 },
       data: {
         title: "Utförande",
         description: "Vi gör jobbet på plats, med tydlig avstämning.",
@@ -50,7 +50,7 @@ export const spatialCanvasSeed: { nodes: SpatialSeedNode[]; edges: SpatialSeedEd
     },
     {
       id: "finish",
-      position: { x: 520, y: 220 },
+      position: { x: 640, y: 220 },
       data: {
         title: "Efterarbete",
         description: "Städning, besiktning och ev. justeringar.",
@@ -59,7 +59,7 @@ export const spatialCanvasSeed: { nodes: SpatialSeedNode[]; edges: SpatialSeedEd
     },
     {
       id: "quote",
-      position: { x: 160, y: 420 },
+      position: { x: 160, y: 470 },
       data: {
         title: "Offert",
         description: "Fast pris innan vi sätter igång.",
@@ -68,7 +68,7 @@ export const spatialCanvasSeed: { nodes: SpatialSeedNode[]; edges: SpatialSeedEd
     },
     {
       id: "contact",
-      position: { x: 400, y: 420 },
+      position: { x: 480, y: 470 },
       data: {
         title: "Kontakt",
         description: "Ring eller skriv — vi svarar samma dag.",
