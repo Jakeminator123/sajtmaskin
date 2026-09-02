@@ -156,7 +156,7 @@ function newestRevisionKey(
   return filesRevisionFromPostcheckMeta(summary?.meta);
 }
 
-function blockedSummaryForRevision(
+function newestCompletedSummaryForRevision(
   logs: readonly ProductPostcheckReportLog[],
   revision: string,
 ): ProductPostcheckReportLog | null {
@@ -165,7 +165,8 @@ function blockedSummaryForRevision(
   for (const log of logs) {
     if (log.category !== PRODUCT_POSTCHECK_SUMMARY) continue;
     if (filesRevisionFromPostcheckMeta(log.meta) !== revision) continue;
-    if (!productBlockedFromSummaryMeta(log.meta)) continue;
+    const verdict = verdictFromSummaryMeta(log.meta);
+    if (verdict !== "passed" && verdict !== "blocked") continue;
     const ms = signalClock(log.created_at);
     if (!match || (ms != null && (matchMs == null || ms > matchMs))) {
       match = log;
@@ -185,9 +186,13 @@ export function resolveProductPostcheckReportState(
   }
 
   const revision = newestRevisionKey(summary?.log ?? null, skipped?.log ?? null);
-  const blockedSummary = blockedSummaryForRevision(logs, revision);
-  if (blockedSummary) {
-    return { kind: "blocked", summary: blockedSummary, skipped: skipped?.log ?? null };
+  const completedSummary = newestCompletedSummaryForRevision(logs, revision);
+  if (completedSummary && verdictFromSummaryMeta(completedSummary.meta) === "blocked") {
+    return {
+      kind: "blocked",
+      summary: completedSummary,
+      skipped: skipped?.log ?? null,
+    };
   }
 
   const newestVerdict = summary ? verdictFromSummaryMeta(summary.log.meta) : null;

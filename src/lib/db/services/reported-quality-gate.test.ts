@@ -465,6 +465,31 @@ describe("infrastruktur-skip blir advisory, inte degraded — SM-072", () => {
     ).toBe("waiting");
   });
 
+  it("senare passed-summary på samma revision rensar äldre blocked", () => {
+    expect(
+      resolveProductPostcheckReportState([
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "passed",
+            productBlocked: false,
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:01:00Z",
+        },
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "blocked",
+            productBlocked: true,
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:00:00Z",
+        },
+      ]).kind,
+    ).toBe("clear");
+  });
+
   it("blocked sedan allowed_skip-summary på samma revision förblir blocked", () => {
     expect(
       resolveProductPostcheckReportState([
