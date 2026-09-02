@@ -49,6 +49,11 @@ export type ProductPostcheckSkipReason =
   | "timeout"
   | "preview_superseded"
   | "preview_not_running"
+  /**
+   * Preview was still `starting`, `httpReady: false`, or the wait budget
+   * ended. Retryable pending — must never carry an attestation.
+   */
+  | "preview_not_ready"
   | "capture_failed"
   /**
    * Chromium startade men dog innan navigeringen kom igång — `Target page,
