@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import yaml from "js-yaml";
 import {
   REQUIRED_CHECKS_SOURCE,
   evaluateMasterRuleset,
@@ -18,10 +17,33 @@ const policy = JSON.parse(
   readFileSync(resolve("config/agent-workflow.json"), "utf8"),
 );
 
+type StatusCheck = { context: string; integration_id?: number };
+
+type RulesetRule = {
+  type: string;
+  parameters?: {
+    required_approving_review_count?: number;
+    required_review_thread_resolution?: boolean;
+    allowed_merge_methods?: string[];
+    strict_required_status_checks_policy?: boolean;
+    do_not_enforce_on_create?: boolean;
+    required_status_checks?: StatusCheck[];
+  };
+};
+
+type LiveRuleset = {
+  id: number;
+  name: string;
+  target: string;
+  enforcement: string;
+  conditions: unknown;
+  rules: RulesetRule[];
+};
+
 function matchingLiveRuleset(
   activeSpec = spec,
   activePolicy = policy,
-) {
+): LiveRuleset {
   return {
     id: activeSpec.rulesetId,
     name: activeSpec.expected.name,
@@ -29,12 +51,8 @@ function matchingLiveRuleset(
     enforcement: activeSpec.expected.enforcement,
     conditions: structuredClone(activeSpec.expected.conditions),
     rules: [
-      {
-        type: "deletion",
-      },
-      {
-        type: "non_fast_forward",
-      },
+      { type: "deletion" },
+      { type: "non_fast_forward" },
       {
         type: "pull_request",
         parameters: {
@@ -63,6 +81,14 @@ function matchingLiveRuleset(
   };
 }
 
+function rule(live: LiveRuleset, type: string): RulesetRule {
+  const found = live.rules.find((item) => item.type === type);
+  if (!found?.parameters) {
+    throw new Error("missing parameterized rule " + type);
+  }
+  return found;
+}
+
 describe("Protect master ruleset drift", () => {
   it("accepts the versioned expected state", () => {
     expect(evaluateMasterRuleset(matchingLiveRuleset(), spec, policy)).toEqual(
@@ -84,7 +110,7 @@ describe("Protect master ruleset drift", () => {
     ).toEqual(["dossier-acceptance", "GitGuardian Security Checks"]);
 
     const contexts = resolveExpectedStatusChecks(spec, policy).map(
-      (check) => check.context,
+      (check: StatusCheck) => check.context,
     );
     expect(contexts).toEqual([
       ...policy.requiredChecks,
@@ -109,15 +135,18 @@ describe("Protect master ruleset drift", () => {
       requiredChecks: [...policy.requiredChecks, "dossier-acceptance"],
     };
     const live = matchingLiveRuleset(spec, c3Policy);
+    const status = rule(live, "required_status_checks");
 
     expect(evaluateMasterRuleset(live, spec, c3Policy)).toEqual([]);
     expect(
-      resolveExpectedStatusChecks(spec, c3Policy).map((check) => check.context),
+      resolveExpectedStatusChecks(spec, c3Policy).map(
+        (check: StatusCheck) => check.context,
+      ),
     ).toContain("dossier-acceptance");
 
-    live.rules[3].parameters.required_status_checks =
-      live.rules[3].parameters.required_status_checks.filter(
-        (check: { context: string }) => check.context !== "dossier-acceptance",
+    status.parameters!.required_status_checks =
+      status.parameters!.required_status_checks!.filter(
+        (check) => check.context !== "dossier-acceptance",
       );
     expect(evaluateMasterRuleset(live, spec, c3Policy)).toEqual(
       expect.arrayContaining([
@@ -128,11 +157,13 @@ describe("Protect master ruleset drift", () => {
 
   it("detects the verified live C1 drift", () => {
     const live = matchingLiveRuleset();
-    live.rules[2].parameters.required_review_thread_resolution = false;
-    live.rules[3].parameters.strict_required_status_checks_policy = false;
-    live.rules[3].parameters.required_status_checks =
-      live.rules[3].parameters.required_status_checks.filter(
-        (check: { context: string }) => check.context !== "review-window",
+    rule(live, "pull_request").parameters!.required_review_thread_resolution =
+      false;
+    rule(live, "required_status_checks").parameters!.strict_required_status_checks_policy =
+      false;
+    rule(live, "required_status_checks").parameters!.required_status_checks =
+      rule(live, "required_status_checks").parameters!.required_status_checks!.filter(
+        (check) => check.context !== "review-window",
       );
 
     expect(evaluateMasterRuleset(live, spec, policy)).toEqual(
@@ -146,7 +177,7 @@ describe("Protect master ruleset drift", () => {
 
   it("keeps the declared native approval count exact", () => {
     const live = matchingLiveRuleset();
-    live.rules[2].parameters.required_approving_review_count = 1;
+    rule(live, "pull_request").parameters!.required_approving_review_count = 1;
 
     expect(evaluateMasterRuleset(live, spec, policy)).toEqual([
       expect.stringContaining("required approving review count"),
@@ -156,7 +187,7 @@ describe("Protect master ruleset drift", () => {
   it("fails closed when deletion or non_fast_forward disappears", () => {
     const withoutDeletion = matchingLiveRuleset();
     withoutDeletion.rules = withoutDeletion.rules.filter(
-      (rule: { type: string }) => rule.type !== "deletion",
+      (item) => item.type !== "deletion",
     );
     expect(evaluateMasterRuleset(withoutDeletion, spec, policy)).toEqual([
       "expected exactly one deletion rule, got 0",
@@ -164,7 +195,7 @@ describe("Protect master ruleset drift", () => {
 
     const withoutNff = matchingLiveRuleset();
     withoutNff.rules = withoutNff.rules.filter(
-      (rule: { type: string }) => rule.type !== "non_fast_forward",
+      (item) => item.type !== "non_fast_forward",
     );
     expect(evaluateMasterRuleset(withoutNff, spec, policy)).toEqual([
       "expected exactly one non_fast_forward rule, got 0",
@@ -173,7 +204,10 @@ describe("Protect master ruleset drift", () => {
 
   it("fails closed when squash is removed from allowed merge methods", () => {
     const live = matchingLiveRuleset();
-    live.rules[2].parameters.allowed_merge_methods = ["merge", "rebase"];
+    rule(live, "pull_request").parameters!.allowed_merge_methods = [
+      "merge",
+      "rebase",
+    ];
 
     expect(evaluateMasterRuleset(live, spec, policy)).toEqual([
       'allowed merge methods missing squash: got ["merge","rebase"]',
@@ -183,7 +217,7 @@ describe("Protect master ruleset drift", () => {
   it("fails closed when a protected rule disappears", () => {
     const live = matchingLiveRuleset();
     live.rules = live.rules.filter(
-      (rule: { type: string }) => rule.type !== "required_status_checks",
+      (item) => item.type !== "required_status_checks",
     );
 
     expect(evaluateMasterRuleset(live, spec, policy)).toEqual([
@@ -192,23 +226,14 @@ describe("Protect master ruleset drift", () => {
   });
 
   it("does not run on pull_request so PR CI cannot go red before the live ruleset is updated", () => {
-    const workflow = yaml.load(
-      readFileSync(
-        resolve(".github/workflows/master-ruleset-drift.yml"),
-        "utf8",
-      ),
-    ) as {
-      on: {
-        pull_request?: unknown;
-        push?: { branches?: string[] };
-        schedule?: Array<{ cron: string }>;
-        workflow_dispatch?: unknown;
-      };
-    };
+    const source = readFileSync(
+      resolve(".github/workflows/master-ruleset-drift.yml"),
+      "utf8",
+    );
 
-    expect(workflow.on.pull_request).toBeUndefined();
-    expect(workflow.on.push?.branches).toEqual(["master"]);
-    expect(workflow.on.schedule).toEqual([{ cron: "17 5 * * *" }]);
-    expect(workflow.on.workflow_dispatch).toBeDefined();
+    expect(source).toMatch(/\n  push:\n    branches: \[master\]\n/);
+    expect(source).toMatch(/\n  schedule:\n    - cron: "17 5 \* \* \*"\n/);
+    expect(source).toMatch(/\n  workflow_dispatch:\n/);
+    expect(source).not.toMatch(/\n  pull_request:/);
   });
 });
