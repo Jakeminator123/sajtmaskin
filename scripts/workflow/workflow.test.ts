@@ -938,6 +938,17 @@ describe("agent workflow repository contract", () => {
 
     const weakened = [
       { ...structuredClone(policy), requiredChecks: ["quality"] },
+      {
+        ...structuredClone(policy),
+        requiredCheckOwners: { quality: "ci.yml" },
+      },
+      {
+        ...structuredClone(policy),
+        requiredCheckOwners: {
+          ...policy.requiredCheckOwners,
+          "dossier-acceptance": "ci.yml",
+        },
+      },
       ...policy.manualMergePathPrefixes.map((prefix: string) => ({
         ...structuredClone(policy),
         manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(

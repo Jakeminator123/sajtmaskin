@@ -14,22 +14,21 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 // skydd, men får inte kunna sänka sin egen verifiering och sedan godkänna sig
 // själv. Att ändra golvet kräver därför en synlig kod- och teständring under
 // scripts/workflow/.
+const REQUIRED_CHECK_OWNERS = Object.freeze({
+  quality: "ci.yml",
+  "backoffice-tests": "ci.yml",
+  "schema-drift": "ci.yml",
+  build: "ci.yml",
+  "dossier-acceptance": "dossier-acceptance.yml",
+});
+
 export const POLICY_FLOORS = Object.freeze({
   retiredBugIdsSha256: "6cb7f4b94e167f05471dd6c08ae928672927a41a972856992ca2a1cbd54b5634",
-  requiredChecks: [
-    "quality",
-    "backoffice-tests",
-    "schema-drift",
-    "build",
-    "review-window",
-    "dossier-acceptance",
-  ],
-  // Required checks that are not published by the canonical CI workflow.
+  // Required PR-head checks and the workflow file that may publish them.
   // `review-window` is owned by the trusted default-branch controller, not a
   // PR-head job, and is filtered out before this map is consulted.
-  requiredCheckOwners: {
-    "dossier-acceptance": "dossier-acceptance.yml",
-  },
+  requiredCheckOwners: REQUIRED_CHECK_OWNERS,
+  requiredChecks: Object.freeze([...Object.keys(REQUIRED_CHECK_OWNERS), "review-window"]),
   manualMergePathPrefixes: [
     ".github/workflows/",
     "scripts/ci/",
@@ -184,6 +183,13 @@ export function evaluatePrHeadWorkflowPermissions(workflowSources) {
   return errors;
 }
 
+/**
+ * @param {string} check
+ * @param {{
+ *   review?: { requiredCheckWorkflow?: { path?: string, event?: string } },
+ *   requiredCheckOwners?: Record<string, string | { path?: string, event?: string }>
+ * }} [policy]
+ */
 export function requiredCheckOwnerSpec(check, policy = POLICY_FLOORS) {
   const canonical = policy.review?.requiredCheckWorkflow ?? POLICY_FLOORS.review.requiredCheckWorkflow;
   const owners = {
@@ -830,6 +836,13 @@ export function evaluatePolicyFloors(policy) {
   };
 
   requireValues("requiredChecks", policy.requiredChecks, POLICY_FLOORS.requiredChecks);
+  const ownerFile = (owner) =>
+    typeof owner === "string" ? owner : String(owner?.path ?? "").split("/").at(-1);
+  for (const [check, floorOwner] of Object.entries(POLICY_FLOORS.requiredCheckOwners)) {
+    if (ownerFile(policy.requiredCheckOwners?.[check]) !== ownerFile(floorOwner)) {
+      errors.push(`requiredCheckOwners security floor missing: ${check}=${ownerFile(floorOwner)}`);
+    }
+  }
   requireValues(
     "manualMergePathPrefixes",
     policy.manualMergePathPrefixes,
@@ -932,6 +945,21 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     }
   }
   errors.push(...evaluatePolicyFloors(policy));
+  for (const check of policy.requiredChecks ?? []) {
+    if (check === "review-window") continue;
+    if (!policy.requiredCheckOwners?.[check]) {
+      errors.push(`required check ${check} missing requiredCheckOwners entry`);
+    }
+  }
+  for (const [check, owner] of Object.entries(policy.requiredCheckOwners ?? {})) {
+    if (!(policy.requiredChecks ?? []).includes(check)) {
+      errors.push(`requiredCheckOwners has unused check ${check}`);
+    }
+    const file = typeof owner === "string" ? owner : String(owner?.path ?? "").split("/").at(-1);
+    if (!file || !existsSync(resolve(root, ".github/workflows", file))) {
+      errors.push(`requiredCheckOwners ${check} points at missing workflow ${file}`);
+    }
+  }
   if (typeof policy.directMaster?.allowed !== "boolean") {
     errors.push("directMaster.allowed must be a boolean");
   }
@@ -1099,6 +1127,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !trustedReviewWindow.includes("policy.review.requiredCheckWorkflow") ||
     !trustedReviewWindow.includes("requiredCheckOwnerSpec") ||
     !trustedReviewWindow.includes("latest owned required-check workflow/job") ||
+    !trustedReviewWindow.includes("check kommer från annan workflow än dess deklarerade ägare") ||
     !trustedReviewWindow.includes("run.provenance?.workflowRun?.created_at") ||
     !trustedReviewWindow.includes("manualMergeFiles") ||
     !trustedReviewWindow.includes("policy.requiredChecks.filter") ||

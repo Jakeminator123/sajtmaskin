@@ -27,6 +27,13 @@
     "review-window",
     "dossier-acceptance"
   ],
+  "requiredCheckOwners": {
+    "quality": "ci.yml",
+    "backoffice-tests": "ci.yml",
+    "schema-drift": "ci.yml",
+    "build": "ci.yml",
+    "dossier-acceptance": "dossier-acceptance.yml"
+  },
   "manualMergePathPrefixes": [
     ".github/workflows/",
     "scripts/ci/",

@@ -815,6 +815,22 @@ export async function enrichCheckRunProvenance({
     const suiteId = Number(check.check_suite?.id);
     if (!Number.isSafeInteger(suiteId) || suiteId <= 0) continue;
     if (canonicalRun && suiteId === Number(canonicalRun.check_suite_id)) {
+      if (requiredNames.has(check.name)) {
+        const owner = requiredCheckOwnerSpec(check.name, policy);
+        if (
+          normalizedWorkflowPath(canonicalRun.path) !== owner.path ||
+          canonicalRun.event !== owner.event
+        ) {
+          provenanceByCheckId.set(check.id, {
+            kind: "workflow-job",
+            valid: false,
+            collision: true,
+            reason: "check kommer från annan workflow än dess deklarerade ägare",
+            workflowRun: canonicalRun,
+          });
+          continue;
+        }
+      }
       const matchingJobs = canonicalJobs.filter(
         (job) => checkRunIdFromUrl(job.check_run_url) === Number(check.id),
       );
@@ -1047,7 +1063,9 @@ export async function enrichCheckRunProvenance({
           kind: "workflow-job",
           valid: false,
           collision: true,
-          reason: "check kommer från annan workflow/event/head än senaste canonical CI",
+          reason: requiredNames.has(check.name)
+            ? "check kommer från annan workflow än dess deklarerade ägare"
+            : "check kommer från annan workflow/event/head än senaste canonical CI",
           workflowRun,
           job,
         });
