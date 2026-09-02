@@ -327,7 +327,15 @@ describe("handleSseStream", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(triggerImageMaterialization).toHaveBeenCalled();
-    expect(runPostGenerationChecks).not.toHaveBeenCalled();
+    expect(runPostGenerationChecks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        holdBeforeChecks: expect.objectContaining({
+          category: "post-check.image-materialization-timeout",
+        }),
+      }),
+    );
   });
 
   it("kör post-checks när bildmaterialiseringen är en no-op", async () => {

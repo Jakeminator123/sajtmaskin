@@ -380,4 +380,85 @@ describe("L3 revision order", () => {
     };
     expect(postcheckBody.filesRevision).toBe("rev_after_images");
   });
+
+  it("håller inte svansen när validate-images svarar HTTP-fel utan mutation", async () => {
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    mockFetch(async (url) => {
+      if (url.includes("/versions")) {
+        return jsonResponse({
+          versions: [
+            {
+              id: "ver_1",
+              versionId: "ver_1",
+              lifecycleStage: "design",
+              demoUrl: "https://preview.example/ver_1",
+            },
+          ],
+        });
+      }
+      if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+      if (url.includes("/validate-images")) {
+        return jsonResponse({ error: "version_busy" }, 409);
+      }
+      if (url.includes("/product-postcheck")) {
+        return jsonResponse({
+          skipped: true,
+          skippedReason: "feature_disabled",
+          warnings: [],
+        });
+      }
+      if (url.includes("/error-log")) return jsonResponse({ ok: true });
+      if (url.includes("/quality-gate")) {
+        return jsonResponse({ error: "Preview host not configured" }, 501);
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+    });
+
+    expect(fetchCalls.some((call) => call.url.includes("/product-postcheck"))).toBe(true);
+    const qualityGate = getToolPart("Quality gate", store);
+    expect((qualityGate?.output as { retryPending?: boolean } | undefined)?.retryPending).not.toBe(
+      true,
+    );
+  });
+
+  it("holdBeforeChecks hoppar över mutate-steg och lämnar retryPending + onComplete", async () => {
+    const store = createMessageStore();
+    const onComplete = vi.fn();
+    mockFetch(async (url) => {
+      if (url.includes("/error-log")) return jsonResponse({ ok: true });
+      if (url.includes("/validate-images") || url.includes("/product-postcheck")) {
+        throw new Error("mutating checks must not start on holdBeforeChecks");
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onComplete,
+      holdBeforeChecks: {
+        reason: "Bildmaterialiseringen nådde tidsgränsen innan persistens bekräftades — versionen lämnas pending.",
+        category: "post-check.image-materialization-timeout",
+        meta: { error: "timeout" },
+      },
+    });
+
+    expect(fetchCalls.some((call) => call.url.includes("/validate-images"))).toBe(false);
+    expect(fetchCalls.some((call) => call.url.includes("/product-postcheck"))).toBe(false);
+    expect(fetchCalls.some((call) => call.url.includes("/error-log"))).toBe(true);
+    const qualityGate = getToolPart("Quality gate", store);
+    expect((qualityGate?.output as { retryPending?: boolean }).retryPending).toBe(true);
+    await vi.waitFor(() => expect(onComplete).toHaveBeenCalled());
+  });
 });

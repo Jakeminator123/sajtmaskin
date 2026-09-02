@@ -512,6 +512,16 @@ export async function runPostGenerationChecks(params: {
   priorFilesRevision?: string | null;
   /** True when materialize confirmed a `files_json` write. */
   imageMutationPersisted?: boolean;
+  /**
+   * Materialize (or another confirmed predecessor) already fail-closed.
+   * Skip mutating validate-images / Product Postcheck and leave the version
+   * pending with the same retryPending surface as an in-lane hold.
+   */
+  holdBeforeChecks?: {
+    reason: string;
+    category: string;
+    meta?: Record<string, unknown>;
+  } | null;
 }) {
   const {
     chatId,
@@ -526,6 +536,7 @@ export async function runPostGenerationChecks(params: {
     onComplete,
     priorFilesRevision = null,
     imageMutationPersisted = false,
+    holdBeforeChecks = null,
   } = params;
   const toolCallId = `post-check:${versionId}`;
   abortPostChecksForChat(chatId);
@@ -549,6 +560,41 @@ export async function runPostGenerationChecks(params: {
   });
 
   try {
+    if (holdBeforeChecks) {
+      completionPersistence = persistVersionErrorLogs({
+        chatId,
+        versionId,
+        logs: [
+          {
+            level: "warning",
+            category: holdBeforeChecks.category,
+            message: holdBeforeChecks.reason,
+            meta: holdBeforeChecks.meta ?? {},
+          },
+        ],
+      });
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:post-check",
+        toolName: "Post-check",
+        toolCallId,
+        state: "output-available",
+        input: { chatId, versionId },
+        output: {
+          skipped: true,
+          retryPending: true,
+          reason: holdBeforeChecks.reason,
+          steps: [holdBeforeChecks.reason],
+        },
+      });
+      appendRetryPendingQualityGate(
+        setMessages,
+        assistantMessageId,
+        versionId,
+        holdBeforeChecks.reason,
+      );
+      return;
+    }
+
     const [currentFiles, versions] = await Promise.all([
       fetchChatFiles(chatId, versionId, controller.signal, true),
       fetchChatVersions(chatId, controller.signal),
@@ -1599,11 +1645,18 @@ function didPersistImageMutation(result: ImageValidationResult | null): boolean 
   return result?.persisted == null && result?.fixed === true;
 }
 
-function shouldHoldBeforeProductPostcheck(
+/**
+ * Hold only when a mutating image step reported replacements without a
+ * durable revision, or timed out mid-write. Transport/HTTP failures
+ * (`null`) are not mutations — Product Postcheck may continue against the
+ * last confirmed server revision (pre-L3 Promise.all parity).
+ */
+export function shouldHoldBeforeProductPostcheck(
   result: ImageValidationResult | null,
 ): boolean {
-  if (!result) return true;
+  if (!result) return false;
   if (result.timeout) return true;
+  if (didPersistImageMutation(result)) return false;
   const replaced = result.replacedCount ?? 0;
   return replaced > 0 && (result.persisted !== true || !result.filesRevision);
 }

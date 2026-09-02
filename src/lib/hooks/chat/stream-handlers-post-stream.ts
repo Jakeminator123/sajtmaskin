@@ -100,15 +100,14 @@ export async function runSerializedGenerationTail(params: {
   }
 
   if (signal?.aborted) return;
-  if (
+  const materializeHold =
     params.materialize !== false &&
     !canProceedToPostcheckAfterMaterialization(
       materializeResult,
       enableImageMaterialization,
     )
-  ) {
-    return;
-  }
+      ? materializeHoldBeforeChecks(materializeResult)
+      : null;
 
   await runPostGenerationChecks({
     chatId,
@@ -124,7 +123,37 @@ export async function runSerializedGenerationTail(params: {
     priorFilesRevision: materializeResult?.filesRevision ?? null,
     imageMutationPersisted:
       Boolean(materializeResult?.persisted) && (materializeResult?.replaced ?? 0) > 0,
+    holdBeforeChecks: materializeHold,
   });
+}
+
+function materializeHoldBeforeChecks(
+  result: ImageMaterializationStatus | null,
+): {
+  reason: string;
+  category: string;
+  meta: Record<string, unknown>;
+} {
+  const timeout = result?.error === "timeout" || result?.error === "aborted";
+  const replacedWithoutPersist =
+    (result?.replaced ?? 0) > 0 && result?.persisted !== true;
+  const reason = timeout
+    ? "Bildmaterialiseringen nådde tidsgränsen innan persistens bekräftades — versionen lämnas pending."
+    : replacedWithoutPersist
+      ? "Bildreferenser byttes i minnet men files_json persistens bekräftades inte — versionen lämnas pending."
+      : "Bildmaterialiseringen kunde inte bekräfta files_json-persistens — versionen lämnas pending.";
+  return {
+    reason,
+    category: timeout
+      ? "post-check.image-materialization-timeout"
+      : "post-check.image-materialization-unconfirmed",
+    meta: {
+      replaced: result?.replaced ?? 0,
+      persisted: result?.persisted ?? false,
+      filesRevision: result?.filesRevision ?? null,
+      error: result?.error ?? null,
+    },
+  };
 }
 
 export function runPostStreamSideEffects(params: {
