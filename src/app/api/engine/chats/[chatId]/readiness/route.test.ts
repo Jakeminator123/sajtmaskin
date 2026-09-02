@@ -391,7 +391,9 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     expect(getLatestVersion).toHaveBeenCalledTimes(1);
     // The promote callback is now head-agnostic (the gate sits before it).
     await capturedOpts?.promoteReconciledVersion?.();
-    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String), {
+      filesRevision: null,
+    });
   });
 
   it("head gate resolves FALSE when the version is not the chat head (bugbot medium #518)", async () => {
@@ -449,7 +451,9 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     await GET(req, ctx);
 
     await capturedOpts?.promoteReconciledVersion?.();
-    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String), {
+      filesRevision: null,
+    });
     expect(emit).toHaveBeenCalledWith(
       expect.objectContaining({
         t: "version.degraded",
@@ -488,7 +492,9 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     await GET(req, ctx);
 
     await capturedOpts?.promoteReconciledVersion?.();
-    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String));
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("ver_1", expect.any(String), {
+      filesRevision: null,
+    });
     expect(emit).not.toHaveBeenCalled();
   });
 

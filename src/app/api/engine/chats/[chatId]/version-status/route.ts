@@ -115,6 +115,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       // (failure-summary + BB#299 green reconciliation), so the 4s poll stays a
       // single DB read even when the row is actually stale.
       const versionIdForReconcile = dbVersion.id;
+      const filesRevisionForReconcile = dbVersion.files_revision ?? null;
       // Read the chat head at most once per settle and reuse for the head gate
       // (bugbot medium #518) — mirrors the quality-gate route's
       // `isLatestVersionForChat` (`!latest || latest.id === versionId`). A
@@ -145,6 +146,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
           const promoted = await promoteVersionIfUnleased(
             versionIdForReconcile,
             RECONCILED_PROMOTE_SUMMARY,
+            { filesRevision: filesRevisionForReconcile },
           );
           // Bugbot medium (#518): mirror the quality-gate route — an advisory
           // (typecheck-only) promotion is NOT solid-green, so emit
