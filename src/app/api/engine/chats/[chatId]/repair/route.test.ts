@@ -218,6 +218,31 @@ describe("POST repair — lease before snapshot (Codex P2)", () => {
     expect(releaseVersionLease).toHaveBeenCalledWith("ver-1", "run-1");
   });
 
+  it("returns retryable 503 lease_unavailable when acquiring the lease throws — never starts repair", async () => {
+    acquireVersionLease.mockRejectedValue(new Error("relation engine_version_jobs does not exist"));
+    getVersionFilesSnapshot.mockResolvedValue({
+      files: [{ path: "app/page.tsx", content: "x" }],
+      filesJson: '[{"path":"app/page.tsx","content":"x"}]',
+    });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body).toMatchObject({
+      success: false,
+      code: "lease_unavailable",
+      retryable: true,
+    });
+    expect(res.headers.get("Retry-After")).toBe("3");
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(markVersionRepairing).not.toHaveBeenCalled();
+    expect(runRepairLoop).not.toHaveBeenCalled();
+    expect(releaseVersionLease).not.toHaveBeenCalled();
+  });
+
   it("returns 409 version_busy without reading files when another job owns the lease", async () => {
     acquireVersionLease.mockResolvedValue(null);
     getVersionFilesSnapshot.mockResolvedValue({
