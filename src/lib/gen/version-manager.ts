@@ -79,6 +79,8 @@ export async function getVersionFilesSnapshot(
   filesRevision: string | null;
   /** Same `getVersionById` row as `files` / `filesRevision` (L5 CAS). */
   verificationState: EngineVersionVerificationState;
+  /** F3 lineage — the F2 parent whose Product Postcheck guards promotion. */
+  parentVersionId: string | null;
 } | null> {
   const version = await getVersionById(versionId);
   if (!version) return null;
@@ -93,6 +95,7 @@ export async function getVersionFilesSnapshot(
     lifecycleStage: version.lifecycle_stage,
     filesRevision: version.files_revision ?? null,
     verificationState: version.verification_state,
+    parentVersionId: version.parent_version_id ?? null,
   };
 }
 

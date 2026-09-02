@@ -51,6 +51,13 @@ import {
 } from "./lease";
 import { logQualityGateFailuresBestEffort, partitionServerVerifyFailures } from "./failures";
 import { tryServerRepairLoop } from "./repair-execution";
+import {
+  evaluateServerOwnedF3Readiness,
+  loadServerVerifyF3ReadinessContext,
+  persistF3ReadinessHold,
+  resolveSnapshotFilesRevision,
+  type ServerVerifyF3ReadinessContext,
+} from "./f3-readiness";
 
 /**
  * Fire-and-forget server-side verification + capped repair loop.
@@ -148,6 +155,45 @@ export async function triggerServerVerification(params: {
     // (#291 Codex P1 — the first gate can `promoteVersion` before the repair
     // branch is ever reached).
     const previewPolicy = snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
+    const filesRevision = resolveSnapshotFilesRevision({
+      filesRevision: snapshot.filesRevision,
+      filesJson: baseFilesJson,
+    });
+    const parentVersionId = snapshot.parentVersionId ?? null;
+    let f3ReadinessContext: ServerVerifyF3ReadinessContext | null = null;
+    if (previewPolicy === "fidelity3") {
+      const loaded = await loadServerVerifyF3ReadinessContext(chatId);
+      if ("error" in loaded) {
+        await persistF3ReadinessHold({
+          chatId,
+          versionId,
+          filesRevision,
+          result: { ready: false, ok: false, reason: "readiness_unavailable", retryable: true },
+          at: "before_first_gate",
+        });
+        return;
+      }
+      f3ReadinessContext = loaded;
+      const readiness = await evaluateServerOwnedF3Readiness({
+        chatId,
+        versionId,
+        parentVersionId,
+        filesRevision,
+        preloadedFiles: codeFiles,
+        orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
+        projectId: f3ReadinessContext.projectId,
+      });
+      if (!readiness.ready) {
+        await persistF3ReadinessHold({
+          chatId,
+          versionId,
+          filesRevision,
+          result: readiness,
+          at: "before_first_gate",
+        });
+        return;
+      }
+    }
 
     await markVersionVerifying(versionId, undefined, runId).catch(() => null);
 
@@ -352,6 +398,27 @@ export async function triggerServerVerification(params: {
           runId,
         ).catch(() => null);
         return;
+      }
+      if (previewPolicy === "fidelity3" && f3ReadinessContext) {
+        const readiness = await evaluateServerOwnedF3Readiness({
+          chatId,
+          versionId,
+          parentVersionId,
+          filesRevision,
+          preloadedFiles: codeFiles,
+          orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
+          projectId: f3ReadinessContext.projectId,
+        });
+        if (!readiness.ready) {
+          await persistF3ReadinessHold({
+            chatId,
+            versionId,
+            filesRevision,
+            result: readiness,
+            at: "before_promotion",
+          });
+          return;
+        }
       }
       const promoted = await promoteVersion(
         versionId,
@@ -590,6 +657,14 @@ export async function triggerServerVerification(params: {
       }),
       repairLedger,
       repairScopeId,
+      f3Readiness:
+        previewPolicy === "fidelity3" && f3ReadinessContext
+          ? {
+              parentVersionId,
+              orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
+              projectId: f3ReadinessContext.projectId,
+            }
+          : null,
     });
     supersededByUserEdit = repairOutcome.supersededByUserEdit;
     reverifyForceBuildCheck = repairOutcome.buildOriginated;
