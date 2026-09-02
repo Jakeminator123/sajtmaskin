@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { INSPECTOR_AI_MATCH_DEFAULT_MODEL } from "@/lib/gen/defaults";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -64,15 +63,24 @@ function truncateCode(files: Array<{ name: string; content: string }>): string {
 
 async function requireInspectorIdentity(req: Request): Promise<Response | null> {
   const user = await getCurrentUser(req);
-  const sessionId = getSessionIdFromRequest(req);
-  if (!user && !sessionId) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Logga in för att använda AI-matchning." },
+      { status: 401 },
+    );
   }
   return null;
 }
 
 export async function POST(req: Request) {
-  return withRateLimit(req, "inspector:ai-match", () => handlePOST(req));
+  const user = await getCurrentUser(req);
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Logga in för att använda AI-matchning." },
+      { status: 401 },
+    );
+  }
+  return withRateLimit(req, "inspector:ai-match", () => handlePOST(req), { userId: user.id });
 }
 
 async function handlePOST(req: Request) {
