@@ -248,6 +248,14 @@ const setupQueries = [
     idempotency_key TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS wizard_runs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    CONSTRAINT wizard_runs_status_check CHECK (status IN ('active', 'completed', 'expired'))
+  )`,
   `CREATE TABLE IF NOT EXISTS guest_usage (
     id BIGSERIAL PRIMARY KEY,
     session_id TEXT UNIQUE NOT NULL,
@@ -513,6 +521,9 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_media_library_user_id ON media_library(user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_media_library_project_id ON media_library(project_id)`,
   `CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS transactions_user_type_idempotency_idx ON transactions(user_id, type, idempotency_key) WHERE idempotency_key IS NOT NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_wizard_runs_user_id ON wizard_runs(user_id)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS wizard_runs_user_active_idx ON wizard_runs(user_id) WHERE status = 'active'`,
   `CREATE INDEX IF NOT EXISTS idx_user_audits_user_id ON user_audits(user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_page_views_created_at ON page_views(created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_page_views_path ON page_views(path)`,
@@ -673,6 +684,7 @@ const ALL_TABLES = [
   "users",
   "user_integrations",
   "transactions",
+  "wizard_runs",
   "guest_usage",
   "company_profiles",
   "template_cache",

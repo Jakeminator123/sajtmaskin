@@ -5,7 +5,7 @@ const config = vi.hoisted(() => ({
   secrets: { openaiApiKey: "openai-key" },
 }));
 const requireNotBot = vi.hoisted(() => vi.fn());
-const prepareCredits = vi.hoisted(() => vi.fn());
+const authorizeWizardRun = vi.hoisted(() => vi.fn());
 const generateText = vi.hoisted(() => vi.fn());
 const createDirectModel = vi.hoisted(() => vi.fn(() => "model"));
 const scrapeWebsite = vi.hoisted(() => vi.fn());
@@ -21,7 +21,7 @@ vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_request: Request, _bucket: string, handler: () => Promise<Response>) =>
     handler(),
 }));
-vi.mock("@/lib/credits/server", () => ({ prepareCredits }));
+vi.mock("@/lib/wizard/authorize-wizard-run", () => ({ authorizeWizardRun }));
 vi.mock("ai", () => ({ generateText }));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
 vi.mock("@/lib/webscraper", () => ({ scrapeWebsite }));
@@ -56,39 +56,41 @@ function validBody(overrides: Record<string, unknown> = {}) {
 }
 
 describe("POST /api/wizard/enrich", () => {
-  const commit = vi.fn();
-
   beforeEach(() => {
     vi.clearAllMocks();
     config.features.useResponsesApi = false;
     config.secrets.openaiApiKey = "openai-key";
     requireNotBot.mockReturnValue(null);
-    prepareCredits.mockResolvedValue({ ok: true, commit });
+    authorizeWizardRun.mockResolvedValue({
+      ok: true,
+      user: { id: "user_1" },
+      run: { id: WIZARD_RUN_ID },
+    });
   });
 
-  it("rejects malformed payloads before reserving credits", async () => {
+  it("rejects malformed payloads before authorizing the run", async () => {
     const response = await POST(makeRequest({ step: 9, data: {} }));
 
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: "Validation failed" });
-    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(authorizeWizardRun).not.toHaveBeenCalled();
   });
 
-  it("forwards bot protection and credit rejections", async () => {
+  it("forwards bot protection and run rejections", async () => {
     requireNotBot.mockReturnValue(Response.json({ error: "Bot blocked" }, { status: 403 }));
     const blocked = await POST(makeRequest(validBody()));
 
     expect(blocked.status).toBe(403);
-    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(authorizeWizardRun).not.toHaveBeenCalled();
 
     requireNotBot.mockReturnValue(null);
-    prepareCredits.mockResolvedValue({
+    authorizeWizardRun.mockResolvedValue({
       ok: false,
-      response: Response.json({ error: "Insufficient credits" }, { status: 402 }),
+      response: Response.json({ error: "Wizard-körningen är avslutad." }, { status: 409 }),
     });
-    const noCredits = await POST(makeRequest(validBody()));
+    const denied = await POST(makeRequest(validBody()));
 
-    expect(noCredits.status).toBe(402);
+    expect(denied.status).toBe(409);
     expect(generateText).not.toHaveBeenCalled();
   });
 
@@ -100,10 +102,9 @@ describe("POST /api/wizard/enrich", () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "OPENAI_API_KEY saknas" });
     expect(generateText).not.toHaveBeenCalled();
-    expect(commit).not.toHaveBeenCalled();
   });
 
-  it("normalizes generated guidance, includes scrape context and commits credits", async () => {
+  it("normalizes generated guidance and includes scrape context without a second debit", async () => {
     scrapeWebsite.mockResolvedValue({
       title: "Befintlig sajt",
       description: "Beskrivning",
@@ -152,10 +153,6 @@ describe("POST /api/wizard/enrich", () => {
         prompt: expect.stringContaining('Befintlig sajt: "Befintlig sajt"'),
       }),
     );
-    expect(prepareCredits).toHaveBeenCalledWith(
-      expect.any(Request), "wizard.enrich", {},
-      { idempotencyKey: `wizard:${WIZARD_RUN_ID}` },
-    );
-    expect(commit).toHaveBeenCalledTimes(1);
+    expect(authorizeWizardRun).toHaveBeenCalledWith(expect.any(Request), WIZARD_RUN_ID);
   });
 });

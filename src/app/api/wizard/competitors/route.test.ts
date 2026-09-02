@@ -5,7 +5,7 @@ const config = vi.hoisted(() => ({
   secrets: { openaiApiKey: "openai-key" },
 }));
 const requireNotBot = vi.hoisted(() => vi.fn());
-const prepareCredits = vi.hoisted(() => vi.fn());
+const authorizeWizardRun = vi.hoisted(() => vi.fn());
 const generateText = vi.hoisted(() => vi.fn());
 const createDirectModel = vi.hoisted(() => vi.fn(() => "model"));
 const braveWebSearch = vi.hoisted(() => vi.fn());
@@ -21,7 +21,7 @@ vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_request: Request, _bucket: string, handler: () => Promise<Response>) =>
     handler(),
 }));
-vi.mock("@/lib/credits/server", () => ({ prepareCredits }));
+vi.mock("@/lib/wizard/authorize-wizard-run", () => ({ authorizeWizardRun }));
 vi.mock("ai", () => ({ generateText }));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
 vi.mock("@/lib/brave-search", () => ({ braveWebSearch }));
@@ -44,19 +44,21 @@ function makeRequest(body: unknown): Request {
 }
 
 describe("POST /api/wizard/competitors", () => {
-  const commit = vi.fn();
-
   beforeEach(() => {
     vi.clearAllMocks();
     config.features.useResponsesApi = false;
     config.features.useBraveSearch = true;
     config.secrets.openaiApiKey = "openai-key";
     requireNotBot.mockReturnValue(null);
-    prepareCredits.mockResolvedValue({ ok: true, commit });
+    authorizeWizardRun.mockResolvedValue({
+      ok: true,
+      user: { id: "user_1" },
+      run: { id: WIZARD_RUN_ID },
+    });
     braveWebSearch.mockResolvedValue([]);
   });
 
-  it("rejects invalid input before reserving credits", async () => {
+  it("rejects invalid input before authorizing the run", async () => {
     const response = await POST(makeRequest({ companyName: "Sajtstudio" }));
 
     expect(response.status).toBe(400);
@@ -64,24 +66,24 @@ describe("POST /api/wizard/competitors", () => {
       error: "Validation failed",
       competitors: [],
     });
-    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(authorizeWizardRun).not.toHaveBeenCalled();
   });
 
-  it("forwards bot protection and credit rejections", async () => {
+  it("forwards bot protection and run rejections without calling the model", async () => {
     requireNotBot.mockReturnValue(Response.json({ error: "Bot blocked" }, { status: 403 }));
     const blocked = await POST(makeRequest({ companyName: "Sajtstudio", industry: "Webb" }));
 
     expect(blocked.status).toBe(403);
-    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(authorizeWizardRun).not.toHaveBeenCalled();
 
     requireNotBot.mockReturnValue(null);
-    prepareCredits.mockResolvedValue({
+    authorizeWizardRun.mockResolvedValue({
       ok: false,
-      response: Response.json({ error: "Insufficient credits" }, { status: 402 }),
+      response: Response.json({ error: "Ogiltig wizard-körning." }, { status: 403 }),
     });
-    const noCredits = await POST(makeRequest({ companyName: "Sajtstudio", industry: "Webb" }));
+    const denied = await POST(makeRequest({ companyName: "Sajtstudio", industry: "Webb" }));
 
-    expect(noCredits.status).toBe(402);
+    expect(denied.status).toBe(403);
     expect(generateText).not.toHaveBeenCalled();
   });
 
@@ -97,10 +99,9 @@ describe("POST /api/wizard/competitors", () => {
     });
     expect(braveWebSearch).not.toHaveBeenCalled();
     expect(generateText).not.toHaveBeenCalled();
-    expect(commit).not.toHaveBeenCalled();
   });
 
-  it("uses search context, normalizes AI output and commits credits", async () => {
+  it("uses search context and normalizes AI output without a second debit", async () => {
     braveWebSearch.mockResolvedValue([
       {
         title: "Konkurrent AB",
@@ -143,10 +144,6 @@ describe("POST /api/wizard/competitors", () => {
         prompt: expect.stringContaining("https://konkurrent.example"),
       }),
     );
-    expect(prepareCredits).toHaveBeenCalledWith(
-      expect.any(Request), "wizard.enrich", {},
-      { idempotencyKey: `wizard:${WIZARD_RUN_ID}` },
-    );
-    expect(commit).toHaveBeenCalledTimes(1);
+    expect(authorizeWizardRun).toHaveBeenCalledWith(expect.any(Request), WIZARD_RUN_ID);
   });
 });

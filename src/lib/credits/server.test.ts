@@ -75,37 +75,37 @@ describe("prepareCredits account-bound free generation", () => {
 });
 
 
-describe("prepareCredits wizard-run entitlement (B1)", () => {
+describe("prepareCredits durable entitlement helper (B1 ledger)", () => {
   it("passes the durable key to the atomic debit", async () => {
     getCurrentUser.mockResolvedValue(account({ diamonds: 22, free_generation_available: false }));
     const prepared = await prepareCredits(
       new Request("https://example.test"),
       "wizard.enrich",
       {},
-      { idempotencyKey: "wizard:run-1" },
+      { idempotencyKey: "11111111-1111-4111-8111-111111111111" },
     );
     expect(prepared.ok).toBe(true);
     if (!prepared.ok) return;
     await prepared.commit();
     expect(createTransaction).toHaveBeenCalledWith(
       "user_1", "wizard_enrich", -11, "Wizard-analys", undefined, undefined,
-      { idempotencyKey: "wizard:run-1" },
+      { idempotencyKey: "11111111-1111-4111-8111-111111111111" },
     );
   });
 
-  it("allows a retry with no remaining balance when the run is already entitled", async () => {
+  it("allows a retry with no remaining balance when the key is already entitled", async () => {
     getCurrentUser.mockResolvedValue(account({ diamonds: 0, free_generation_available: false }));
     getTransactionByIdempotency.mockResolvedValue({
       id: "tx_1",
       user_id: "user_1",
       type: "wizard_enrich",
-      idempotency_key: "wizard:run-1",
+      idempotency_key: "11111111-1111-4111-8111-111111111111",
     });
     const prepared = await prepareCredits(
       new Request("https://example.test"),
       "wizard.enrich",
       {},
-      { idempotencyKey: "wizard:run-1" },
+      { idempotencyKey: "11111111-1111-4111-8111-111111111111" },
     );
     expect(prepared.ok).toBe(true);
     if (!prepared.ok) return;

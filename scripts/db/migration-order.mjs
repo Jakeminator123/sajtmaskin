@@ -41,6 +41,10 @@ export const MIGRATION_ORDER = [
   // B1: one durable credit entitlement per wizard run, shared by lookup,
   // competitors and every enrich/prefetch request.
   "add-transactions-idempotency-key.sql",
+  // B1 follow-up: server-owned wizard_runs. Start creates the row and
+  // debits once (idempotency_key = run id). Wizard routes authorize the
+  // run; a client-invented UUID is never a valid entitlement.
+  "add-wizard-runs.sql",
   "rename-engine-version-preview-url.sql",
   "add-cascade-engine-chats-project.sql",
   "add-cascade-to-engine-fks.sql",

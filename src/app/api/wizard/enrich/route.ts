@@ -19,7 +19,7 @@ import { requireNotBot } from "@/lib/bot-protection";
 import { withRateLimit } from "@/lib/rate-limit";
 import { scrapeWebsite } from "@/lib/webscraper";
 import { debugLog, errorLog } from "@/lib/utils/debug";
-import { prepareCredits } from "@/lib/credits/server";
+import { authorizeWizardRun } from "@/lib/wizard/authorize-wizard-run";
 import { FEATURES, SECRETS } from "@/lib/config";
 
 export const runtime = "nodejs";
@@ -299,16 +299,8 @@ export async function POST(req: Request) {
 
       debugLog("WIZARD", "Enrich request", { mode, step, industry: data.industry, scrapeUrl });
 
-      // Check credits (wizard enrich costs 11 credits)
-      const creditCheck = await prepareCredits(
-        req,
-        "wizard.enrich",
-        {},
-        { idempotencyKey: `wizard:${wizardRunId}` },
-      );
-      if (!creditCheck.ok) {
-        return creditCheck.response;
-      }
+      const authorized = await authorizeWizardRun(req, wizardRunId);
+      if (!authorized.ok) return authorized.response;
 
       if (!FEATURES.useResponsesApi) {
         if (!SECRETS.openaiApiKey) {
@@ -503,13 +495,6 @@ ${suggestionRule}
         suggestionCount: responsePayload.suggestions.length,
         needsClarification: responsePayload.meta?.needsClarification || false,
       });
-
-      // Charge credits after successful generation
-      try {
-        await creditCheck.commit();
-      } catch (error) {
-        console.error("[credits] Failed to charge wizard enrich:", error);
-      }
 
       return NextResponse.json(responsePayload);
     } catch (err) {

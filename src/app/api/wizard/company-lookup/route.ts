@@ -14,7 +14,7 @@ import { z } from "zod";
 import { withRateLimit } from "@/lib/rate-limit";
 import { requireNotBot } from "@/lib/bot-protection";
 import { debugLog } from "@/lib/utils/debug";
-import { prepareCredits } from "@/lib/credits/server";
+import { authorizeWizardRun } from "@/lib/wizard/authorize-wizard-run";
 import { braveWebSearch } from "@/lib/brave-search";
 
 export const runtime = "nodejs";
@@ -194,13 +194,8 @@ export async function POST(req: Request) {
       const { companyName, wizardRunId } = parsed.data;
       debugLog("WIZARD", "Company lookup", { companyName });
 
-      const creditCheck = await prepareCredits(
-        req,
-        "wizard.enrich",
-        {},
-        { idempotencyKey: `wizard:${wizardRunId}` },
-      );
-      if (!creditCheck.ok) return creditCheck.response;
+      const authorized = await authorizeWizardRun(req, wizardRunId);
+      if (!authorized.ok) return authorized.response;
 
       let result: CompanyLookupResult = EMPTY_RESULT;
 
@@ -232,10 +227,6 @@ export async function POST(req: Request) {
             });
           }
         }
-      }
-
-      try { await creditCheck.commit(); } catch (err) {
-        console.error("[credits] Failed to charge company-lookup:", err);
       }
 
       return NextResponse.json(result);

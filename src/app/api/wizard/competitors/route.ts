@@ -14,7 +14,7 @@ import { z } from "zod";
 import { withRateLimit } from "@/lib/rate-limit";
 import { requireNotBot } from "@/lib/bot-protection";
 import { debugLog, errorLog } from "@/lib/utils/debug";
-import { prepareCredits } from "@/lib/credits/server";
+import { authorizeWizardRun } from "@/lib/wizard/authorize-wizard-run";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { braveWebSearch } from "@/lib/brave-search";
 
@@ -121,13 +121,8 @@ export async function POST(req: Request) {
       const { companyName, industry, location, existingWebsite, wizardRunId } = parsed.data;
       debugLog("WIZARD", "Competitors request", { companyName, industry, location });
 
-      const creditCheck = await prepareCredits(
-        req,
-        "wizard.enrich",
-        {},
-        { idempotencyKey: `wizard:${wizardRunId}` },
-      );
-      if (!creditCheck.ok) return creditCheck.response;
+      const authorized = await authorizeWizardRun(req, wizardRunId);
+      if (!authorized.ok) return authorized.response;
 
       if (!FEATURES.useResponsesApi) {
         if (!SECRETS.openaiApiKey) {
@@ -221,10 +216,6 @@ Returnera BARA JSON (inget annat):
         count: normalized.competitors.length,
         hasInsight: Boolean(normalized.marketInsight),
       });
-
-      try { await creditCheck.commit(); } catch (err) {
-        console.error("[credits] Failed to charge competitors:", err);
-      }
 
       return NextResponse.json(normalized);
     } catch (err) {
