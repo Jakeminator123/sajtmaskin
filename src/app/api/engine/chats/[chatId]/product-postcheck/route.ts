@@ -328,7 +328,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   const routeStartedAt = Date.now();
   // Ett id per verifieringskörning. Alla persisterade rader, bus-events och
   // svaret bär samma id så en omkörning aldrig kan förväxlas med en tidigare.
-  let verificationRunId = randomUUID();
+  let verificationRunId: string = randomUUID();
   let claimHeld: { runId: string; claimGeneration: number } | null = null;
   const finishHeldClaim = async (
     status: "passed" | "blocked" | "failed" | "superseded" | "expired",
