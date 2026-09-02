@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:968f3cfa30cd34b6 -->
+<!-- source-fingerprint: config/env-policy.json sha256:8ba5885c840e33f8 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:de9157bb936dbdc1 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:a8960846756ea033 -->
 
@@ -78,6 +78,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE`             | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `NODE_ENV`                                           | `vercel_managed`       | —                                      | No            | Yes          |
+| `OAUTH_ALLOWED_ORIGINS`                              | `environment_specific` | `preview`, `production`                | Yes           | No           |
 | `OC_DEBUG`                                           | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_DEBUG_RUN_TOKEN`                                 | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_DEBUGG`                                          | `optional_runtime`     | `development`, `preview`               | No            | No           |
