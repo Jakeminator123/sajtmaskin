@@ -7,8 +7,10 @@ import { SHARED_TEST_EXCLUDE, STABILITY_TEST_GLOBS } from "./vitest.config";
  * Lane-config för `npm run test:stability` (grandmaster S1, warn-only).
  *
  * Kör ENBART stabilitetsfiler (`*.stability.test.ts(x)`). Standard-configen
- * (`vitest.config.ts`) exkluderar samma glob från den blockerande `test:ci`-sviten,
- * så dessa case körs uteslutande via denna lane och kan aldrig fälla `quality`-grinden.
+ * (`vitest.config.ts`) exkluderar samma glob från `test:ci`. Den deterministiska
+ * mängden körs separat som `test:stability:blocking` i quality-core och fäller
+ * då `quality`. Denna config används både av den blockerande subseten och av
+ * den warn-only `stability`-lanen.
  */
 export default defineConfig({
   plugins: [react()],
