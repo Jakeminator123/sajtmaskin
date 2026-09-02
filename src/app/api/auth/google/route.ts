@@ -5,44 +5,52 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getGoogleAuthUrl } from "@/lib/auth/auth";
-
-function sanitizeRedirectTarget(rawRedirect: string | null, req: NextRequest): string {
-  const fallback = "/";
-  if (!rawRedirect) return fallback;
-
-  try {
-    const baseOrigin = req.nextUrl.origin;
-    const candidate = new URL(rawRedirect, baseOrigin);
-    if (candidate.origin !== baseOrigin) return fallback;
-
-    return `${candidate.pathname}${candidate.search}${candidate.hash}` || fallback;
-  } catch {
-    return fallback;
-  }
-}
+import {
+  createOAuthFlow,
+  isOAuthOriginNotAllowedError,
+  oauthOriginNotAllowedResponse,
+  resolveAllowedOAuthStartOrigin,
+  sanitizeOAuthReturnTo,
+  setOAuthFlowCookie,
+} from "@/lib/auth/oauth-state";
 
 export async function GET(req: NextRequest) {
   try {
-    // Get optional redirect URL from query params (same-origin only)
-    const searchParams = req.nextUrl.searchParams;
-    const redirect = sanitizeRedirectTarget(searchParams.get("redirect"), req);
+    const origin = resolveAllowedOAuthStartOrigin(req);
+    if (!origin) {
+      return oauthOriginNotAllowedResponse();
+    }
 
-    // Create state with redirect info
-    const state = Buffer.from(JSON.stringify({ redirect })).toString("base64url");
+    const redirect = sanitizeOAuthReturnTo(
+      req.nextUrl.searchParams.get("redirect"),
+      origin,
+      "/",
+    );
+    const flow = createOAuthFlow("google", req, { returnTo: redirect });
 
-    // Use current request origin for OAuth callback to avoid cross-env redirects.
-    const callbackUrl = new URL("/api/auth/google/callback", req.nextUrl.origin).toString();
+    // Google accepts one callback per first-party origin. Keeping the callback
+    // on the initiating origin also keeps the host-only state cookie available.
+    const callbackUrl = new URL(
+      "/api/auth/google/callback",
+      origin,
+    ).toString();
+    const authUrl = getGoogleAuthUrl(
+      flow.state,
+      callbackUrl,
+      flow.codeChallenge,
+    );
 
-    // Generate Google OAuth URL
-    const authUrl = getGoogleAuthUrl(state, callbackUrl);
-
-    // Redirect to Google
-    return NextResponse.redirect(authUrl);
+    const response = NextResponse.redirect(authUrl);
+    setOAuthFlowCookie(response, "google", flow, req);
+    return response;
   } catch (error) {
+    if (isOAuthOriginNotAllowedError(error)) {
+      return oauthOriginNotAllowedResponse();
+    }
     console.error("[API/auth/google] Error:", error);
-
-    // If Google OAuth is not configured, redirect to home with error
-    const errorMessage = encodeURIComponent("Google-inloggning är inte konfigurerad");
+    const errorMessage = encodeURIComponent(
+      "Google-inloggning är inte konfigurerad",
+    );
     return NextResponse.redirect(new URL(`/?error=${errorMessage}`, req.url));
   }
 }
