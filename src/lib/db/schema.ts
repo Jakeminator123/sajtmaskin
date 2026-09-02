@@ -395,6 +395,8 @@ export const transactions = pgTable(
     description: text("description"),
     stripe_payment_intent: text("stripe_payment_intent"),
     stripe_session_id: text("stripe_session_id"),
+    /** Stable entitlement key for retry/concurrency-safe fixed charges. */
+    idempotency_key: text("idempotency_key"),
     created_at: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -402,8 +404,39 @@ export const transactions = pgTable(
     // ever produce one transaction row, so a duplicate webhook delivery
     // surfaces as a unique-violation we can swallow.
     stripeSessionIdx: uniqueIndex("transactions_stripe_session_idx").on(table.stripe_session_id),
+    idempotencyIdx: uniqueIndex("transactions_user_type_idempotency_idx")
+      .on(table.user_id, table.type, table.idempotency_key)
+      .where(sql`${table.idempotency_key} is not null`),
     userIdx: index("idx_transactions_user_id").on(table.user_id),
     userCreatedIdx: index("idx_transactions_user_created").on(table.user_id, table.created_at),
+  }),
+);
+
+/**
+ * Server-owned wizard session. Start creates the row and debits 11 credits
+ * once (`transactions.idempotency_key = wizard_runs.id`). Lookup, competitors
+ * and enrich only accept an active, unexpired run owned by the signed-in
+ * user — a client-invented UUID cannot become a valid entitlement.
+ *
+ * At most one `active` run per user (partial unique). The transaction
+ * idempotency index remains the last ledger invariant.
+ */
+export const wizardRuns = pgTable(
+  "wizard_runs",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: text("status").notNull(),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    expires_at: timestamptz("expires_at").notNull(),
+  },
+  (table) => ({
+    userIdx: index("idx_wizard_runs_user_id").on(table.user_id),
+    userActiveIdx: uniqueIndex("wizard_runs_user_active_idx")
+      .on(table.user_id)
+      .where(sql`${table.status} = 'active'`),
   }),
 );
 

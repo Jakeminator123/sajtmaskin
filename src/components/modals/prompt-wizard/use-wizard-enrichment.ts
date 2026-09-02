@@ -11,6 +11,7 @@ import {
 import type { CompanyLookupResult } from "@/app/api/wizard/company-lookup/route";
 import type { Competitor } from "@/app/api/wizard/competitors/route";
 import { looksLikeDomain } from "@/components/modals/prompt-wizard/constants";
+import { isStaleWizardRunResponse } from "@/components/modals/prompt-wizard/use-wizard-run";
 import type {
   EnrichMeta,
   EnrichResponsePayload,
@@ -30,6 +31,7 @@ export function useWizardEnrichment({
   isOpen,
   isAuthenticated,
   isInitialized,
+  wizardRunId,
   step,
   companyName,
   industry,
@@ -44,10 +46,12 @@ export function useWizardEnrichment({
   companyLookup,
   competitors,
   setWebsiteAnalysis,
+  onInvalidWizardRun,
 }: {
   isOpen: boolean;
   isAuthenticated: boolean;
   isInitialized: boolean;
+  wizardRunId: string;
   step: number;
   companyName: string;
   industry: string;
@@ -62,6 +66,7 @@ export function useWizardEnrichment({
   companyLookup: CompanyLookupResult | null;
   competitors: Competitor[];
   setWebsiteAnalysis: Dispatch<SetStateAction<string | null>>;
+  onInvalidWizardRun?: () => void;
 }) {
   const stepRef = useRef(step);
   stepRef.current = step;
@@ -153,7 +158,7 @@ export function useWizardEnrichment({
       const scrapeUrl = options.scrapeUrl;
       const contextHash = buildEnrichContextHash(currentStep, mode, scrapeUrl);
       // Wizard enrich requires auth (credits action). Skip calls for guests.
-      if (!isInitialized || !isAuthenticated) return null;
+      if (!isInitialized || !isAuthenticated || !wizardRunId) return null;
 
       if (!options.force) {
         const cached = enrichCacheRef.current.get(contextHash);
@@ -181,6 +186,7 @@ export function useWizardEnrichment({
           headers: { "Content-Type": "application/json" },
           signal: controller.signal,
           body: JSON.stringify({
+            wizardRunId,
             mode,
             step: currentStep,
             data: {
@@ -214,6 +220,10 @@ export function useWizardEnrichment({
         if (!response.ok) {
           // Expected when auth/session is stale. Keep this non-fatal and quiet.
           if (response.status === 401) return null;
+          if (isStaleWizardRunResponse(response)) {
+            onInvalidWizardRun?.();
+            return null;
+          }
           console.warn("[Wizard] Enrich request failed:", response.status);
           return null;
         }
@@ -244,7 +254,7 @@ export function useWizardEnrichment({
         setIsEnriching(false);
       }
     },
-    [applyEnrichmentToActiveStep, buildEnrichContextHash, isAuthenticated, isInitialized, companyLookup, competitors],
+    [applyEnrichmentToActiveStep, buildEnrichContextHash, isAuthenticated, isInitialized, wizardRunId, companyLookup, competitors, onInvalidWizardRun],
   );
 
   // ── Scrape website: quick-scrape first, then AI analysis with real content ──

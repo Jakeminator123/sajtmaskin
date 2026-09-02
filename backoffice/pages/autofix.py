@@ -20,6 +20,7 @@ import streamlit as st
 
 from backoffice.shared import (
     BUILD_PROFILE_ORDER,
+    TIER_LABELS_SV,
     BackofficeContext,
     human_model_label,
     load_fault_fix_csv,
@@ -146,6 +147,7 @@ LLM-generering
             fixer_rows.append(
                 {
                     "byggprofil": tier,
+                    "etikett": TIER_LABELS_SV.get(tier, tier),
                     "fixer-modell (routing)": routing.get(tier, {}).get("fixer", "—"),
                     "resolverad modell": human_model_label(resolved),
                 }

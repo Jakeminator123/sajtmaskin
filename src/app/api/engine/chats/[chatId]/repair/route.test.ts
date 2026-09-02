@@ -122,7 +122,7 @@ vi.mock("@/lib/gen/scaffolds/protected-paths", async (importOriginal) => {
     }),
   };
 });
-vi.mock("@/lib/models/catalog", () => ({ ownModelIdToCanonicalModelId: () => null }));
+vi.mock("@/lib/models/catalog", () => ({ resolveChatModelTier: () => null }));
 vi.mock("@/lib/models/phase-routing", () => ({
   resolvePhaseModel: () => ({ modelId: "fixer-model" }),
   resolvePhaseThinking: () => null,

@@ -303,7 +303,7 @@ describe("buildModelInfoSteps — Swedish labels", () => {
       modelId: "gpt-5.6-sol",
       modelTier: "premium",
       enginePath: "own-engine",
-      buildProfileLabel: "Premium",
+      buildProfileLabel: "Hög",
       buildProfileId: "premium",
     });
 

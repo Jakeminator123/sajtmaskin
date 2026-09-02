@@ -1,6 +1,6 @@
 import { streamText } from "ai";
 
-import { AUTOFIX_MAX_OUTPUT_TOKENS } from "../defaults";
+import { AUTOFIX_MAX_OUTPUT_TOKENS, LLM_FIXER_TIMEOUT_MS } from "../defaults";
 import type { ReasoningEffort, ReasoningMode } from "../engine";
 import { toAnthropicEffort } from "../engine";
 import { getOpenAIModel, isAnthropicModel } from "../models";
@@ -79,6 +79,66 @@ function validateCompleteFiles(
     }
   }
   return { incomplete };
+}
+
+/** ~150 tok/s — a 110k output budget cannot finish inside LLM_FIXER_TIMEOUT_MS. */
+const FIXER_OUTPUT_TOKENS_PER_SEC = 150;
+const ERROR_MESSAGE_MAX_CHARS = 300;
+const ERROR_CLASS_MAX_CHARS = 48;
+
+export function fixerFeasibleMaxOutputTokens(requested?: number): number {
+  const requestedTokens = requested ?? AUTOFIX_MAX_OUTPUT_TOKENS;
+  const feasible = Math.max(
+    4_096,
+    Math.floor((LLM_FIXER_TIMEOUT_MS / 1000) * FIXER_OUTPUT_TOKENS_PER_SEC),
+  );
+  return Math.min(requestedTokens, feasible);
+}
+
+function errorClassName(err: unknown): string {
+  const name =
+    err && typeof err === "object" && "name" in err && typeof err.name === "string"
+      ? err.name.trim()
+      : "";
+  const cleaned = name.replace(/[^A-Za-z0-9_]/g, "").slice(0, ERROR_CLASS_MAX_CHARS);
+  return cleaned || "Error";
+}
+
+export function sanitizeFixerErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  return raw
+    .replace(/(sk-|key-|Bearer\s+)[A-Za-z0-9_\-]+/gi, "$1[redacted]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, ERROR_MESSAGE_MAX_CHARS);
+}
+
+/**
+ * AI SDK wraps AbortError in NoOutputGeneratedError / APICallError. The outer
+ * name is then not AbortError and the outer message is often "No output
+ * generated..." — walking the cause chain is what distinguishes a timeout
+ * abort (`llm_fixer_aborted`) from a provider 400 (`llm_fixer_failed`).
+ */
+export function isFixerAbortError(err: unknown, abortSignal?: AbortSignal): boolean {
+  if (abortSignal?.aborted) return true;
+  let current: unknown = err;
+  const seen = new Set<unknown>();
+  for (
+    let depth = 0;
+    depth < 6 && current && typeof current === "object" && !seen.has(current);
+    depth++
+  ) {
+    seen.add(current);
+    const name = "name" in current && typeof current.name === "string" ? current.name : "";
+    const message = "message" in current && typeof current.message === "string" ? current.message : "";
+    if (name === "AbortError" || name === "TimeoutError") return true;
+    if (current instanceof DOMException && current.name === "AbortError") return true;
+    if (/aborted|aborterror|bodystreambuffer was aborted/i.test(`${name} ${message}`)) {
+      return true;
+    }
+    current = "cause" in current ? (current as { cause?: unknown }).cause : undefined;
+  }
+  return false;
 }
 
 function balancedDelimiters(src: string): boolean {
@@ -237,7 +297,7 @@ export async function runLlmFixer(
       model,
       system: FIXER_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
-      maxOutputTokens: options?.maxTokens ?? AUTOFIX_MAX_OUTPUT_TOKENS,
+      maxOutputTokens: fixerFeasibleMaxOutputTokens(options?.maxTokens),
       abortSignal: options?.abortSignal,
       ...(providerOptions ? { providerOptions } : {}),
     });
@@ -318,9 +378,12 @@ export async function runLlmFixer(
       durationMs: performance.now() - start,
     };
   } catch (err) {
-    const isAbort =
-      err instanceof Error && (err.name === "AbortError" || /aborted/i.test(err.message));
-    const message = err instanceof Error ? err.message : String(err);
+    const isAbort = isFixerAbortError(err, options?.abortSignal);
+    const errorClass = errorClassName(err);
+    const shortMessage = sanitizeFixerErrorMessage(err);
+    // No error_message column on llm_usage — persist class on error_code so
+    // /logg can see the cause without a migration. Message goes in meta.
+    const errorCode = isAbort ? "llm_fixer_aborted" : `llm_fixer_failed:${errorClass}`;
     if (!usageRecorded) {
       // Avbrott/timeout/providerfel: strömmen hann kosta tokens även om ingen
       // text kom ut. Utan den här raden underrapporteras precis de körningar
@@ -331,12 +394,14 @@ export async function runLlmFixer(
         usage: streamResult ? await Promise.resolve(streamResult.usage).catch(() => null) : null,
         durationMs: Math.round(performance.now() - start),
         ok: false,
-        errorCode: isAbort ? "llm_fixer_aborted" : "llm_fixer_failed",
+        errorCode,
+        errorMessage: shortMessage,
+        meta: { errorClass },
       });
       usageRecorded = true;
     }
     if (isAbort) {
-      console.error("[llm-fixer] aborted (AbortSignal/timeout):", message);
+      console.error(`[llm-fixer] aborted (AbortSignal/timeout): ${errorClass}: ${shortMessage}`);
       const inputFiles = parseCodeProject(content).files;
       devLogAppend("in-progress", {
         type: "llm_fixer_aborted",
@@ -348,7 +413,7 @@ export async function runLlmFixer(
         promptCharLength: errors.join("\n").length,
       });
     } else {
-      console.error("[llm-fixer] failed:", message);
+      console.error(`[llm-fixer] failed: ${errorClass}: ${shortMessage}`);
     }
     return {
       fixedContent: content,

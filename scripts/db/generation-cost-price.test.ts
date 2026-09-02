@@ -41,7 +41,11 @@ describe("generation-cost pricing matches billing model-cost", () => {
 
     expect(priced.priced).toBe(true);
     expect(priced.uncachedInputTokens).toBe(70_000);
-    expect(priced.totalUsd).toBeCloseTo(0.7225, 6);
+    // Kampanjpris gpt-5.6-sol (config/ai_models/pricing.json verifiedAt 2026-09-02,
+    // samma siffror i 25-pricing.md): $4 / $0.40 cache-read / $5 cache-write / $20.
+    // Tidigare listpris $5/$0.50/$6.25/$30 gav $0.7225 för samma mix.
+    // 70k*$4 + 20k*$0.40 + 10k*$5 + 10k*$20 = $0.538
+    expect(priced.totalUsd).toBeCloseTo(0.538, 6);
   });
 
   it("does not apply long-context uplift on aggregated volumes", () => {

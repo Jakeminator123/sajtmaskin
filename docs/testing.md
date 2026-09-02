@@ -24,11 +24,13 @@ utan browser eller nätverk. Själva deploy-smoken är fortsatt separat.
 ## Vilka CI-jobb blockerar faktiskt merge
 
 Ett jobb som failar hårt är inte samma sak som ett jobb som **hindrar merge** — det senare
-kräver att jobbnamnet står som required status check i master-rulesetet. Tabellen beskriver
-repots avsedda kontrakt och en historisk snapshot (verifierad mot rulesetet `Protect master`
-2026-07-31 via `gh api repos/.../rules/branches/master`). GitHub-inställningar kan drifta:
-mergeagenten måste därför live-verifiera aktuellt ruleset och checks för exakt head-SHA före
-varje merge; snapshoten nedan är aldrig ensam mergeauktoritet.
+kräver att jobbnamnet står som required status check i master-rulesetet. Desired-state
+ägs av [`.github/rulesets/protect-master.expected.json`](../.github/rulesets/protect-master.expected.json)
+och `config/agent-workflow.json` `requiredChecks`; live jämförs av
+`master-ruleset-drift`. Tabellen är en historisk snapshot (verifierad mot rulesetet
+`Protect master` 2026-07-31). GitHub-inställningar kan drifta: mergeagenten måste
+live-verifiera aktuellt ruleset och checks för exakt head-SHA före varje merge;
+snapshoten nedan är aldrig ensam mergeauktoritet.
 
 | Jobb                          | Failar hårt?                                                                         | Required (blockerar merge)?                                  |
 | ----------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |

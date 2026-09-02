@@ -65,14 +65,18 @@ describe("curation model resolution", () => {
     expect(() => resolveCurationModel("gpt-4o-mini")).toThrow(
       /not listed for workload "backoffice_dossier_curation"/,
     );
+    expect(() => resolveCurationModel("gpt-4o")).toThrow(
+      /not listed for workload "backoffice_dossier_curation"/,
+    );
     expect(() => resolveCurationModel("gpt-4o-mini")).toThrow(
       new RegExp(allowedCurationModels().join(", ")),
     );
     expect(() => parseArgs([...BASE_ARGV, "--model=totally-made-up"])).toThrow(/Allowed:/);
   });
 
-  it("no longer hardcodes the legacy gpt-4o-mini id", () => {
+  it("no longer hardcodes the legacy gpt-4o / gpt-4o-mini ids", () => {
     expect(allowedCurationModels()).not.toContain("gpt-4o-mini");
+    expect(allowedCurationModels()).not.toContain("gpt-4o");
   });
 
   it("still enforces the pre-existing argument rules", () => {

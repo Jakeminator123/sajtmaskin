@@ -1,7 +1,5 @@
-import {
-  MODEL_TIER_OPTIONS,
-  getPromptAssistModelLabel,
-} from "@/lib/builder/defaults";
+import { getPromptAssistModelLabel } from "@/lib/builder/defaults";
+import { MODEL_LABELS, isCanonicalModelId } from "@/lib/models/catalog";
 import { useEffect } from "react";
 import type { BuilderViewModel } from "../useBuilderPageController";
 import {
@@ -69,9 +67,9 @@ export function useShellDevContextEffects(
   }, []);
 
   useEffect(() => {
-    const selectedModelLabel =
-      MODEL_TIER_OPTIONS.find((option) => option.value === vm.selectedModelTier)?.label ??
-      vm.selectedModelTier;
+    const selectedModelLabel = isCanonicalModelId(vm.selectedModelTier)
+      ? MODEL_LABELS[vm.selectedModelTier]
+      : vm.selectedModelTier;
 
     window.__SITEMASKIN_CONTEXT = {
       page: "builder",

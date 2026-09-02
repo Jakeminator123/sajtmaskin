@@ -50,11 +50,12 @@
   "buildProfiles": {
     "defaults": {
       "premium": "gpt-5.6-sol",
-      "pro": "gpt-5.3-codex",
-      "max": "gpt-5.5",
-      "codex": "gpt-5.3-codex",
+      "pro": "gpt-5.6-sol",
+      "max": "gpt-5.6-sol",
+      "codex": "gpt-5.6-sol",
       "anthropic": "claude-opus-4.8"
     },
+    "notes": "Tier ladder 2026-09-02 (ägarbeslut): pro = «Låg», max = «Mellan», premium = «Hög». Alla tre kör GPT-5.6 Sol som byggmodell; skillnaden ligger i phaseRouting.thinkingByTier (reasoningEffort medium → high → xhigh, alltid reasoningMode standard) och i vilka 5.6-syskon (Terra/Luna) som tar fixer/verifier/brief. `codex` är en dold kompatibilitetsprofil (samma routing som max) som inte visas i UI. `anthropic` är orörd.",
     "envKeys": {
       "premium": "SAJTMASKIN_MODEL_PREMIUM",
       "pro": "SAJTMASKIN_MODEL_PRO",
@@ -65,10 +66,10 @@
   },
   "qualityToOwnEngineModel": {
     "light": "gpt-5.6-sol",
-    "standard": "gpt-5.3-codex",
-    "pro": "gpt-5.3-codex",
+    "standard": "gpt-5.6-sol",
+    "pro": "gpt-5.6-sol",
     "premium": "gpt-5.6-sol",
-    "max": "gpt-5.3-codex"
+    "max": "gpt-5.6-sol"
   },
   "briefing": {
     "defaults": {
@@ -123,29 +124,29 @@
         "planner": "selected_build_model",
         "generator": "selected_build_model",
         "fixer": "gpt-5.6-sol",
-        "verifier": "selected_build_model",
+        "verifier": "gpt-5.6-terra",
         "deploy-assistant": "selected_build_model"
       },
       "pro": {
-        "planner": "gpt-5.3-codex",
-        "generator": "gpt-5.3-codex",
-        "fixer": "selected_build_model",
-        "verifier": "gpt-5.3-codex",
-        "deploy-assistant": "gpt-5.3-codex"
+        "planner": "selected_build_model",
+        "generator": "selected_build_model",
+        "fixer": "gpt-5.6-terra",
+        "verifier": "gpt-5.6-luna",
+        "deploy-assistant": "gpt-5.6-terra"
       },
       "max": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
-        "fixer": "gpt-5.3-codex",
-        "verifier": "gpt-5.3-codex",
-        "deploy-assistant": "gpt-5.3-codex"
+        "fixer": "gpt-5.6-sol",
+        "verifier": "gpt-5.6-terra",
+        "deploy-assistant": "selected_build_model"
       },
       "codex": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
-        "fixer": "selected_build_model",
-        "verifier": "gpt-5.3-codex",
-        "deploy-assistant": "gpt-5.3-codex"
+        "fixer": "gpt-5.6-sol",
+        "verifier": "gpt-5.6-terra",
+        "deploy-assistant": "selected_build_model"
       },
       "anthropic": {
         "planner": "claude-opus-4.8",
@@ -160,36 +161,36 @@
         "planner": {
           "thinking": true,
           "reasoningEffort": "high",
-          "reasoningMode": "pro"
+          "reasoningMode": "standard"
         },
         "generator": {
           "thinking": true,
-          "reasoningEffort": "high",
-          "reasoningMode": "pro"
+          "reasoningEffort": "xhigh",
+          "reasoningMode": "standard"
         },
         "fixer": {
           "thinking": false,
           "reasoningEffort": "high"
         },
         "verifier": {
-          "thinking": true,
-          "reasoningEffort": "high",
-          "reasoningMode": "standard"
+          "thinking": false,
+          "reasoningEffort": "low"
         },
         "deploy-assistant": {
-          "thinking": true,
-          "reasoningEffort": "high",
-          "reasoningMode": "standard"
+          "thinking": false,
+          "reasoningEffort": "medium"
         }
       },
       "pro": {
         "planner": {
           "thinking": true,
-          "reasoningEffort": "high"
+          "reasoningEffort": "medium",
+          "reasoningMode": "standard"
         },
         "generator": {
           "thinking": true,
-          "reasoningEffort": "medium"
+          "reasoningEffort": "medium",
+          "reasoningMode": "standard"
         },
         "fixer": {
           "thinking": false,
@@ -197,21 +198,23 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "medium"
+          "reasoningEffort": "low"
         },
         "deploy-assistant": {
           "thinking": false,
-          "reasoningEffort": "medium"
+          "reasoningEffort": "low"
         }
       },
       "max": {
         "planner": {
           "thinking": true,
-          "reasoningEffort": "high"
+          "reasoningEffort": "high",
+          "reasoningMode": "standard"
         },
         "generator": {
           "thinking": true,
-          "reasoningEffort": "high"
+          "reasoningEffort": "high",
+          "reasoningMode": "standard"
         },
         "fixer": {
           "thinking": false,
@@ -219,7 +222,7 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "medium"
+          "reasoningEffort": "low"
         },
         "deploy-assistant": {
           "thinking": false,
@@ -229,11 +232,13 @@
       "codex": {
         "planner": {
           "thinking": true,
-          "reasoningEffort": "high"
+          "reasoningEffort": "high",
+          "reasoningMode": "standard"
         },
         "generator": {
           "thinking": true,
-          "reasoningEffort": "high"
+          "reasoningEffort": "high",
+          "reasoningMode": "standard"
         },
         "fixer": {
           "thinking": false,
@@ -241,7 +246,7 @@
         },
         "verifier": {
           "thinking": false,
-          "reasoningEffort": "medium"
+          "reasoningEffort": "low"
         },
         "deploy-assistant": {
           "thinking": false,
@@ -271,20 +276,20 @@
         }
       }
     },
-    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. The Premium tier replaces the retired fast/cheap tier and runs GPT-5.6 Sol for planner/generator/verifier/deploy-assistant; its planner and generator use the Responses API with reasoning mode pro and high effort. The Premium FIXER is pinned to gpt-5.6-sol without a thinking stream but WITH high reasoning effort (owner decision 2026-09-01, supersedes 2026-08-11's effort-none latency pin: targeted repairs should reason; llm-fixer.ts honors the manifest effort for gpt-5.6 models and falls back to none only when effort is unset — Max still pins fixer to gpt-5.3-codex). The PRO generator runs at medium reasoning effort (owner decision 2026-08-19: hidden reasoning tokens were half of pro codegen output cost; medium is OpenAI's recommended balance for agentic coding, planner keeps high because planning IS the thinking). Max/codex/premium keep high-effort generators as the deliberate expensive tiers. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
+    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. Tier ladder (owner decision 2026-09-02): pro=«Låg», max=«Mellan», premium=«Hög» all build with GPT-5.6 Sol; the tiers differ by generator reasoningEffort (medium / high / xhigh) and by which 5.6 sibling handles the side phases (Låg: Terra fixer + deploy-assistant, Luna verifier; Mellan/Hög: Sol fixer, Terra verifier). reasoningMode is always `standard`: prod llm_usage (28 jul–1 sep 2026) showed Premium's `pro` mode inflating billed input ~6x (142k vs 22k p50, 40% cache) for identical prompts — OpenAI's reasoning guide confirms pro mode «aggregates the model work performed» and bills all of it. Verifiers run without a thinking stream at low effort: the previous Sol/high verifier spent 26 s p50 with 90% of its output being reasoning for a ~200-token verdict. Fixers keep thinking:false but honor the manifest effort (llm-fixer.ts passes it for gpt-5.6 models). `codex` is a hidden compatibility tier that mirrors Mellan. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
   },
   "perTierBriefing": {
     "premium": {
       "briefingModel": "openai/gpt-5.6-sol"
     },
     "pro": {
-      "briefingModel": "openai/gpt-5.3-codex"
+      "briefingModel": "openai/gpt-5.6-terra"
     },
     "max": {
-      "briefingModel": "openai/gpt-5.5"
+      "briefingModel": "openai/gpt-5.6-sol"
     },
     "codex": {
-      "briefingModel": "openai/gpt-5.5"
+      "briefingModel": "openai/gpt-5.6-sol"
     },
     "anthropic": {
       "briefingModel": "anthropic/claude-opus-4.8"
@@ -934,7 +939,10 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/analyze-presentation/route.ts"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-4o"
+      "defaultModel": "gpt-5.6-terra",
+      "fallbackModels": ["gpt-5.6-sol"],
+      "visionModels": ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"],
+      "notes": "gpt-4o retired from this workload 2026-09-02: every GPT-5.6 model accepts image input (OpenAI model pages), Terra is the cost/quality balance."
     },
     {
       "id": "backoffice_scaffold_wizard_persona",
@@ -944,10 +952,10 @@
       "provider": "openai_direct",
       "codeEntry": ["backoffice/wizard_support.py", "backoffice/pages/scaffold_wizard.py"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-4o",
-      "fallbackModels": ["gpt-5.5"],
-      "visionModels": ["gpt-4o", "gpt-5.5"],
-      "notes": "Own entry on purpose: the wizard must NOT inherit analyze_presentation_vision, which belongs to the body-language feature in src/app/api/analyze-presentation/route.ts. Sharing it would tie two unrelated features to one model decision. Kept separate from backoffice_scaffold_wizard_guide because this path needs vision and the guide does not."
+      "defaultModel": "gpt-5.6-terra",
+      "fallbackModels": ["gpt-5.6-sol"],
+      "visionModels": ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"],
+      "notes": "Own entry on purpose: the wizard must NOT inherit analyze_presentation_vision, which belongs to the body-language feature in src/app/api/analyze-presentation/route.ts. Sharing it would tie two unrelated features to one model decision. Kept separate from backoffice_scaffold_wizard_guide because this path needs vision and the guide does not. gpt-4o retired 2026-09-02 — all GPT-5.6 models accept image input."
     },
     {
       "id": "backoffice_scaffold_wizard_guide",
@@ -957,8 +965,8 @@
       "provider": "openai_direct",
       "codeEntry": ["backoffice/wizard_support.py", "backoffice/pages/scaffold_wizard.py"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-5.4-mini",
-      "fallbackModels": ["gpt-5.5", "gpt-4o"]
+      "defaultModel": "gpt-5.6-luna",
+      "fallbackModels": ["gpt-5.6-terra"]
     },
     {
       "id": "backoffice_dossier_curation",
@@ -968,8 +976,8 @@
       "provider": "openai_direct",
       "codeEntry": ["scripts/dossiers/curate-from-reference.ts", "backoffice/pages/dossiers.py"],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-5.5",
-      "fallbackModels": ["gpt-5.4-mini"],
+      "defaultModel": "gpt-5.6-sol",
+      "fallbackModels": ["gpt-5.6-terra"],
       "notes": "Replaces the hardcoded gpt-4o-mini in curate-from-reference.ts. The script takes --model=<id> and rejects an id that is not defaultModel or one of fallbackModels BEFORE the LLM call."
     },
     {
@@ -1006,10 +1014,10 @@
         "src/lib/gen/verify/product-postcheck.ts"
       ],
       "authEnv": ["OPENAI_API_KEY"],
-      "defaultModel": "gpt-4o",
-      "fallbackModels": ["gpt-5.5"],
-      "visionModels": ["gpt-4o", "gpt-5.5"],
-      "notes": "Reuses existing vision slugs already listed on backoffice_scaffold_wizard_persona and analyze_presentation_vision. Do not invent a new model id. Etapp 1 is critic only."
+      "defaultModel": "gpt-5.6-terra",
+      "fallbackModels": ["gpt-5.6-luna"],
+      "visionModels": ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.6-sol"],
+      "notes": "Reuses the vision slugs listed on backoffice_scaffold_wizard_persona and analyze_presentation_vision. Do not invent a new model id. Etapp 1 is critic only. gpt-4o retired 2026-09-02: Terra reads the desktop+mobile screenshots at ~1/5 of gpt-4o's output price, Luna is the cheap fallback."
     }
   ]
 }

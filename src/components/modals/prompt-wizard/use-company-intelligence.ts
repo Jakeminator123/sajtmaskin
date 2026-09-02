@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { CompanyLookupResult } from "@/app/api/wizard/company-lookup/route";
 import type { Competitor } from "@/app/api/wizard/competitors/route";
+import { isStaleWizardRunResponse } from "@/components/modals/prompt-wizard/use-wizard-run";
 
 /**
  * V3 intelligence: automatic company lookup + competitor discovery,
@@ -13,6 +14,7 @@ export function useCompanyIntelligence({
   isOpen,
   isAuthenticated,
   isInitialized,
+  wizardRunId,
   companyName,
   industry,
   location,
@@ -20,10 +22,12 @@ export function useCompanyIntelligence({
   locationLng,
   existingWebsite,
   setLocation,
+  onInvalidWizardRun,
 }: {
   isOpen: boolean;
   isAuthenticated: boolean;
   isInitialized: boolean;
+  wizardRunId: string;
   companyName: string;
   industry: string;
   location: string;
@@ -31,6 +35,7 @@ export function useCompanyIntelligence({
   locationLng: number | undefined;
   existingWebsite: string;
   setLocation: Dispatch<SetStateAction<string>>;
+  onInvalidWizardRun?: () => void;
 }) {
   const [companyLookup, setCompanyLookup] = useState<CompanyLookupResult | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
@@ -42,29 +47,34 @@ export function useCompanyIntelligence({
 
   // ── V3: Auto company lookup from companyName ──────────────────
   useEffect(() => {
-    if (!isOpen || !isAuthenticated || !isInitialized) return;
+    if (!isOpen || !isAuthenticated || !isInitialized || !wizardRunId) return;
     const name = companyName.trim();
-    if (name.length < 3 || companyLookupRef.current === name) return;
+    const lookupKey = `${wizardRunId}:${name}`;
+    if (name.length < 3 || companyLookupRef.current === lookupKey) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      if (companyLookupRef.current === name) return;
-      companyLookupRef.current = name;
+      if (companyLookupRef.current === lookupKey) return;
+      companyLookupRef.current = lookupKey;
       setIsLookingUp(true);
       fetch("/api/wizard/company-lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({ companyName: name }),
+        body: JSON.stringify({ wizardRunId, companyName: name }),
       })
-        .then((r) => r.json())
-        .then((data: CompanyLookupResult) => {
+        .then(async (response) => {
+          const data = (await response.json().catch(() => ({}))) as CompanyLookupResult;
+          if (isStaleWizardRunResponse(response)) {
+            onInvalidWizardRun?.();
+            return;
+          }
           if (data.found) setCompanyLookup(data);
         })
         .catch(() => {})
         .finally(() => setIsLookingUp(false));
     }, 1200);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [companyName, isOpen, isAuthenticated, isInitialized]);
+  }, [companyName, isOpen, isAuthenticated, isInitialized, wizardRunId, onInvalidWizardRun]);
 
   // Auto-fill location from company lookup (only if user hasn't set one)
   useEffect(() => {
@@ -74,9 +84,9 @@ export function useCompanyIntelligence({
 
   // ── V3: Auto competitor discovery ─────────────────────────────
   useEffect(() => {
-    if (!isOpen || !isAuthenticated || !isInitialized) return;
+    if (!isOpen || !isAuthenticated || !isInitialized || !wizardRunId) return;
     if (!companyName.trim() || !industry) return;
-    const key = `${companyName.trim()}|${industry}|${location.trim()}|${locationLat?.toFixed(5) ?? ""}|${locationLng?.toFixed(5) ?? ""}`;
+    const key = `${wizardRunId}|${companyName.trim()}|${industry}|${location.trim()}|${locationLat?.toFixed(5) ?? ""}|${locationLng?.toFixed(5) ?? ""}`;
     if (competitorsRef.current === key) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
@@ -88,6 +98,7 @@ export function useCompanyIntelligence({
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
+          wizardRunId,
           companyName: companyName.trim(),
           industry,
           location: location.trim(),
@@ -96,8 +107,15 @@ export function useCompanyIntelligence({
           existingWebsite: existingWebsite.trim(),
         }),
       })
-        .then((r) => r.json())
-        .then((data: { competitors?: Competitor[]; marketInsight?: string }) => {
+        .then(async (response) => {
+          const data = (await response.json().catch(() => ({}))) as {
+            competitors?: Competitor[];
+            marketInsight?: string;
+          };
+          if (isStaleWizardRunResponse(response)) {
+            onInvalidWizardRun?.();
+            return;
+          }
           if (data.competitors?.length) setCompetitors(data.competitors);
           if (data.marketInsight) setMarketInsight(data.marketInsight);
         })
@@ -105,7 +123,7 @@ export function useCompanyIntelligence({
         .finally(() => setIsLoadingCompetitors(false));
     }, 1500);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [companyName, industry, location, locationLat, locationLng, existingWebsite, isOpen, isAuthenticated, isInitialized]);
+  }, [companyName, industry, location, locationLat, locationLng, existingWebsite, isOpen, isAuthenticated, isInitialized, wizardRunId, onInvalidWizardRun]);
 
   return { companyLookup, isLookingUp, competitors, marketInsight, isLoadingCompetitors };
 }

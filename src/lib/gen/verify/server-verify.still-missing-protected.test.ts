@@ -61,7 +61,7 @@ vi.mock("./server-verify/lease", () => ({
 }));
 vi.mock("@/lib/models/catalog", () => ({
   DEFAULT_MODEL_ID: "pro",
-  ownModelIdToCanonicalModelId: () => null,
+  resolveChatModelTier: () => null,
 }));
 vi.mock("@/lib/models/phase-routing", () => ({
   resolvePhaseModel: () => ({ modelId: "fixer-model" }),
