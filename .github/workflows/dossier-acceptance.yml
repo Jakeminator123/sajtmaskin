@@ -2,21 +2,7 @@ name: Dossier acceptance
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/dossier-acceptance.yml"
-      - "data/dossiers/**"
-      - "scripts/dossiers/**"
-      - "src/lib/gen/dossiers/**"
-      - "src/lib/gen/export/**"
-      - "src/lib/gen/scaffolds/landing-page/**"
-      - "src/lib/gen/autofix/dep-completer.ts"
-      - "src/lib/gen/data/shadcn-components.ts"
-      - "src/lib/gen/parser.ts"
-      - "src/lib/gen/preview/env-local.ts"
-      - "src/lib/utils/infer-file-language.ts"
-      - "src/lib/utils/path-utils.ts"
-      - "package.json"
-      - "package-lock.json"
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   schedule:
     - cron: "17 3 * * 2"
   workflow_dispatch: {}
@@ -32,7 +18,31 @@ permissions:
   contents: read
 
 jobs:
+  # Always-on classifier. Irrelevant PR diffs publish run_matrix=false so the
+  # expensive matrix can skip while the required aggregate stays green.
+  # Classification errors fail closed to the matrix.
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      run_matrix: ${{ steps.classify.outputs.run_matrix }}
+      reason: ${{ steps.classify.outputs.reason }}
+    steps:
+      - name: Checkout with PR history
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Classify dossier-acceptance scope
+        id: classify
+        env:
+          SAJTMASKIN_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SAJTMASKIN_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/dossiers/acceptance-scope.mjs
+
   discover:
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.result == 'success' && (github.event_name != 'pull_request' || needs.scope.outputs.run_matrix == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       dossiers: ${{ steps.matrix.outputs.dossiers }}
@@ -74,6 +84,8 @@ jobs:
         run: npm run dossiers:check-freshness
 
   dependency-registry:
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.result == 'success' && (github.event_name != 'pull_request' || needs.scope.outputs.run_matrix == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -94,7 +106,8 @@ jobs:
         run: npm run dossiers:check-dependencies:registry
 
   keyless-production-build:
-    needs: discover
+    needs: [scope, discover]
+    if: ${{ !cancelled() && needs.discover.result == 'success' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -136,3 +149,55 @@ jobs:
           ACCEPTANCE_ROOT: ${{ runner.temp }}/dossier-${{ matrix.dossier }}
           NEXT_TELEMETRY_DISABLED: "1"
         run: npm --prefix "$ACCEPTANCE_ROOT" run build
+
+  # Required aggregate. Green when the matrix is green, or when a successful
+  # scope decision legitimately skipped it. Red if scope failed, the matrix
+  # failed, or a skip was not legitimate. Same pattern as CI `quality`.
+  dossier-acceptance:
+    needs:
+      - scope
+      - discover
+      - verification-evidence
+      - dependency-registry
+      - keyless-production-build
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate required dossier-acceptance result
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          RUN_MATRIX: ${{ needs.scope.outputs.run_matrix }}
+          DISCOVER_RESULT: ${{ needs.discover.result }}
+          EVIDENCE_RESULT: ${{ needs.verification-evidence.result }}
+          REGISTRY_RESULT: ${{ needs.dependency-registry.result }}
+          BUILD_RESULT: ${{ needs.keyless-production-build.result }}
+        run: |
+          set -euo pipefail
+          EXPECT_MATRIX=true
+          if [ "$EVENT_NAME" = "pull_request" ] && [ "$SCOPE_RESULT" = "success" ] && [ "$RUN_MATRIX" = "false" ]; then
+            EXPECT_MATRIX=false
+          fi
+          if [ "$SCOPE_RESULT" != "success" ]; then
+            echo "::error::scope=${SCOPE_RESULT} (run_matrix=${RUN_MATRIX})"
+            exit 1
+          fi
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if [ "$EVIDENCE_RESULT" != "skipped" ]; then
+              echo "::error::PR must skip freshness evidence, got ${EVIDENCE_RESULT}"
+              exit 1
+            fi
+          elif [ "$EVIDENCE_RESULT" != "success" ]; then
+            echo "::error::scheduled/manual freshness=${EVIDENCE_RESULT}"
+            exit 1
+          fi
+          if [ "$EXPECT_MATRIX" = "true" ]; then
+            if [ "$DISCOVER_RESULT" != "success" ] || [ "$REGISTRY_RESULT" != "success" ] || [ "$BUILD_RESULT" != "success" ]; then
+              echo "::error::matrix required but discover=${DISCOVER_RESULT} registry=${REGISTRY_RESULT} build=${BUILD_RESULT}"
+              exit 1
+            fi
+          elif [ "$DISCOVER_RESULT" != "skipped" ] || [ "$REGISTRY_RESULT" != "skipped" ] || [ "$BUILD_RESULT" != "skipped" ]; then
+            echo "::error::irrelevant PR must skip matrix, got discover=${DISCOVER_RESULT} registry=${REGISTRY_RESULT} build=${BUILD_RESULT}"
+            exit 1
+          fi
+          echo "✓ dossier-acceptance aggregate green (matrix=${EXPECT_MATRIX}, reason scope=${SCOPE_RESULT}/${RUN_MATRIX})"
