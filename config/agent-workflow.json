@@ -19,7 +19,14 @@
     "breakGlassFlag": "SAJTMASKIN_BREAK_GLASS",
     "breakGlassReason": "SAJTMASKIN_BREAK_GLASS_REASON"
   },
-  "requiredChecks": ["quality", "backoffice-tests", "schema-drift", "build", "review-window"],
+  "requiredChecks": [
+    "quality",
+    "backoffice-tests",
+    "schema-drift",
+    "build",
+    "review-window",
+    "dossier-acceptance"
+  ],
   "manualMergePathPrefixes": [
     ".github/workflows/",
     "scripts/ci/",

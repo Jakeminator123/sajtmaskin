@@ -16,7 +16,20 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 // scripts/workflow/.
 export const POLICY_FLOORS = Object.freeze({
   retiredBugIdsSha256: "6cb7f4b94e167f05471dd6c08ae928672927a41a972856992ca2a1cbd54b5634",
-  requiredChecks: ["quality", "backoffice-tests", "schema-drift", "build", "review-window"],
+  requiredChecks: [
+    "quality",
+    "backoffice-tests",
+    "schema-drift",
+    "build",
+    "review-window",
+    "dossier-acceptance",
+  ],
+  // Required checks that are not published by the canonical CI workflow.
+  // `review-window` is owned by the trusted default-branch controller, not a
+  // PR-head job, and is filtered out before this map is consulted.
+  requiredCheckOwners: {
+    "dossier-acceptance": "dossier-acceptance.yml",
+  },
   manualMergePathPrefixes: [
     ".github/workflows/",
     "scripts/ci/",
@@ -171,6 +184,17 @@ export function evaluatePrHeadWorkflowPermissions(workflowSources) {
   return errors;
 }
 
+function ownerWorkflowForRequiredCheck(check, policy = POLICY_FLOORS) {
+  const canonicalWorkflow = String(policy.review?.requiredCheckWorkflow?.path ?? "")
+    .split("/")
+    .at(-1);
+  const owners = {
+    ...POLICY_FLOORS.requiredCheckOwners,
+    ...(policy.requiredCheckOwners ?? {}),
+  };
+  return owners[check] ?? canonicalWorkflow;
+}
+
 export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POLICY_FLOORS) {
   const errors = [];
   const canonicalWorkflow = String(policy.review?.requiredCheckWorkflow?.path ?? "")
@@ -208,7 +232,8 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
           errors.push(`${workflow.name} job ${jobId} may not use reserved identity review-window`);
         }
         if (coreNames.has(identity)) {
-          if (workflow.name !== canonicalWorkflow) {
+          const owner = ownerWorkflowForRequiredCheck(identity, policy);
+          if (workflow.name !== owner) {
             errors.push(
               `${workflow.name} job ${jobId} may not use canonical CI identity ${identity}`,
             );
@@ -227,9 +252,8 @@ export function evaluateReservedWorkflowCheckNames(workflowSources, policy = POL
   }
   for (const [name, count] of canonicalCoreCounts) {
     if (count !== 1) {
-      errors.push(
-        `${canonicalWorkflow || "canonical CI workflow"} must publish ${name} exactly once (found ${count})`,
-      );
+      const owner = ownerWorkflowForRequiredCheck(name, policy);
+      errors.push(`${owner || "canonical CI workflow"} must publish ${name} exactly once (found ${count})`);
     }
   }
   return errors;
@@ -300,6 +324,88 @@ function hasExactStringSet(actual, expected) {
   if (!Array.isArray(actual) || actual.length !== expected.length) return false;
   const values = new Set(actual.map(String));
   return values.size === actual.length && expected.every((value) => values.has(value));
+}
+
+const DOSSIER_ACCEPTANCE_MATRIX_IF =
+  "${{ !cancelled() && needs.scope.result == 'success' && (github.event_name != 'pull_request' || needs.scope.outputs.run_matrix == 'true') }}";
+const DOSSIER_ACCEPTANCE_BUILD_IF = "${{ !cancelled() && needs.discover.result == 'success' }}";
+
+export function evaluateDossierAcceptanceWorkflow(source) {
+  const errors = [];
+  let document;
+  try {
+    document = yaml.load(source);
+  } catch (error) {
+    return [
+      `dossier-acceptance is not valid YAML: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    ];
+  }
+
+  const pullRequest = document?.on?.pull_request;
+  if (pullRequest === undefined) {
+    errors.push("dossier-acceptance must run on every pull_request");
+  } else if (pullRequest && typeof pullRequest === "object" && pullRequest.paths) {
+    errors.push("dossier-acceptance must not path-filter the pull_request trigger");
+  }
+  const requiredTypes = [
+    "opened",
+    "synchronize",
+    "reopened",
+    "ready_for_review",
+    "converted_to_draft",
+  ];
+  if (pullRequest && typeof pullRequest === "object" && !includesEvery(pullRequest.types, requiredTypes)) {
+    errors.push("dossier-acceptance pull_request events must rerun when draft readiness changes");
+  }
+
+  const scope = document?.jobs?.scope;
+  if (
+    !scope ||
+    !scope.outputs?.run_matrix ||
+    !scope.steps?.some((step) => step.run === "node scripts/dossiers/acceptance-scope.mjs")
+  ) {
+    errors.push("dossier-acceptance scope must publish fail-closed run_matrix");
+  }
+
+  for (const jobName of ["discover", "dependency-registry"]) {
+    const job = document?.jobs?.[jobName];
+    if (!values(job?.needs).includes("scope") || !hasExactExpression(job?.if, DOSSIER_ACCEPTANCE_MATRIX_IF)) {
+      errors.push(`${jobName} may run the expensive dossier matrix only after a successful in-scope decision`);
+    }
+  }
+
+  const keyless = document?.jobs?.["keyless-production-build"];
+  if (
+    !includesEvery(keyless?.needs, ["scope", "discover"]) ||
+    !hasExactExpression(keyless?.if, DOSSIER_ACCEPTANCE_BUILD_IF)
+  ) {
+    errors.push("keyless-production-build may run only after a successful in-scope discover job");
+  }
+
+  if (!hasExactExpression(document?.jobs?.["verification-evidence"]?.if, "github.event_name != 'pull_request'")) {
+    errors.push("verification-evidence must stay off pull-request runs");
+  }
+
+  const aggregate = document?.jobs?.["dossier-acceptance"];
+  const aggregateNeeds = [
+    "scope",
+    "discover",
+    "verification-evidence",
+    "dependency-registry",
+    "keyless-production-build",
+  ];
+  if (!includesEvery(aggregate?.needs, aggregateNeeds)) {
+    errors.push("dossier-acceptance must aggregate scope, discover, evidence, registry and keyless builds");
+  }
+  if (!hasExactExpression(aggregate?.if, "${{ !cancelled() }}")) {
+    errors.push(
+      "dossier-acceptance must publish after failed/skipped dependencies without surviving cancellation",
+    );
+  }
+
+  return errors;
 }
 
 export function evaluateTrustedReviewWindowGate(source) {
@@ -987,7 +1093,9 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   const ci = read(root, ".github/workflows/ci.yml");
   const dbBlobSync = read(root, ".github/workflows/db-blob-sync-check.yml");
   const dbSchemaParity = read(root, ".github/workflows/db-schema-parity.yml");
+  const dossierAcceptance = read(root, ".github/workflows/dossier-acceptance.yml");
   errors.push(...evaluateCiScopeWorkflow(ci, pkg.scripts));
+  errors.push(...evaluateDossierAcceptanceWorkflow(dossierAcceptance));
   errors.push(...evaluateSecretWorkflowDispatches(dbBlobSync, dbSchemaParity));
   if (!ci.includes("workflow_dispatch: {}") || !dbBlobSync.includes("workflow_dispatch: {}")) {
     errors.push("post-merge CI and DB/blob verification must remain workflow-dispatchable");
@@ -1000,7 +1108,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
   if (checkoutCount === 0 || nonPersistingCheckoutCount !== checkoutCount) {
     errors.push("every PR-head CI checkout must disable persisted GitHub credentials");
   }
-  const allWorkflowJobs = `${ci}\n${freshness}`;
+  const allWorkflowJobs = `${ci}\n${freshness}\n${dossierAcceptance}`;
   for (const check of policy.requiredChecks) {
     // `review-window` is a policy-owned check run published by the trusted
     // default-branch controller above, not a PR-head workflow job.

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateCiBranch,
   evaluateCiScopeWorkflow,
+  evaluateDossierAcceptanceWorkflow,
   evaluatePolicyFloors,
   evaluatePrHeadWorkflowPermissions,
   evaluateReservedWorkflowCheckNames,
@@ -842,7 +843,12 @@ describe("agent workflow repository contract", () => {
       "on: push\njobs:\n  fake:\n    name: review-window\n    runs-on: ubuntu-latest\n",
     ],
     ["other.yml", "on: push\njobs:\n  quality:\n    name: harmless\n    runs-on: ubuntu-latest\n"],
+    [
+      "other.yml",
+      "on: push\njobs:\n  dossier-acceptance:\n    name: harmless\n    runs-on: ubuntu-latest\n",
+    ],
     ["other.yml", "on: push\njobs:\n  fake:\n    name: build\n    runs-on: ubuntu-latest\n"],
+    ["other.yml", "on: push\njobs:\n  fake:\n    name: dossier-acceptance\n    runs-on: ubuntu-latest\n"],
     [
       "other.yml",
       "on: push\njobs:\n  fake:\n    name: trusted-pr-ai-review\n    runs-on: ubuntu-latest\n",
@@ -855,8 +861,8 @@ describe("agent workflow repository contract", () => {
     expect(evaluateReservedWorkflowCheckNames([{ name, source }]).length).toBeGreaterThan(0);
   });
 
-  it("allows every core context exactly once only in canonical CI", () => {
-    const source = [
+  it("allows every core context exactly once only in its owning workflow", () => {
+    const ci = [
       "on: pull_request",
       "permissions: { contents: read }",
       "jobs:",
@@ -866,7 +872,32 @@ describe("agent workflow repository contract", () => {
       "  schema-drift: { runs-on: ubuntu-latest, steps: [] }",
       "",
     ].join("\n");
-    expect(evaluateReservedWorkflowCheckNames([{ name: "ci.yml", source }])).toEqual([]);
+    const dossierAcceptance = [
+      "on: pull_request",
+      "permissions: { contents: read }",
+      "jobs:",
+      "  dossier-acceptance: { runs-on: ubuntu-latest, steps: [] }",
+      "",
+    ].join("\n");
+    expect(
+      evaluateReservedWorkflowCheckNames([
+        { name: "ci.yml", source: ci },
+        { name: "dossier-acceptance.yml", source: dossierAcceptance },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("rejects a path-filtered dossier-acceptance pull_request trigger", () => {
+    const source = readFileSync(".github/workflows/dossier-acceptance.yml", "utf8");
+    expect(evaluateDossierAcceptanceWorkflow(source)).toEqual([]);
+    expect(
+      evaluateDossierAcceptanceWorkflow(
+        source.replace(
+          "    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]\n",
+          "    paths: [\"data/dossiers/**\"]\n",
+        ),
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it("keeps an independent security floor below the editable policy", () => {
