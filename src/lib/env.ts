@@ -83,6 +83,12 @@ export const serverSchema = z.object({
   GITHUB_CLIENT_ID_DEV: z.string().optional(),
   GITHUB_CLIENT_SECRET_DEV: z.string().optional(),
   GITHUB_REDIRECT_URI: z.string().optional(),
+  /**
+   * Comma-separated exact first-party origins allowed as OAuth start / relay
+   * destinations, in addition to `URLS.baseUrl` and the intended Vercel origin.
+   * Wildcards are ignored. Unset = only those two built-in origins.
+   */
+  OAUTH_ALLOWED_ORIGINS: z.string().optional(),
 
   // Email
   EMAIL_FROM: z.string().default("Sajtmaskin <noreply@sajtmaskin.se>"),
