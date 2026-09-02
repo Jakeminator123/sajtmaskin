@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import {
+  CompanyProfileAccessDeniedError,
+  CompanyProfileNotFoundError,
+} from "@/lib/db/services/company-profile-errors";
 
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const getSessionIdFromRequest = vi.hoisted(() => vi.fn());
@@ -112,7 +116,7 @@ describe("PATCH /api/company-profile", () => {
   });
 
   it("does not claim an unattached profile", async () => {
-    linkCompanyProfileToProject.mockRejectedValue(new Error("Profile not found or access denied"));
+    linkCompanyProfileToProject.mockRejectedValue(new CompanyProfileAccessDeniedError());
     const req = new NextRequest("http://localhost/api/company-profile", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -121,10 +125,43 @@ describe("PATCH /api/company-profile", () => {
 
     const res = await PATCH(req);
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ success: false, error: "Access denied" });
     expect(linkCompanyProfileToProject).toHaveBeenCalledWith(1, "proj_mine", {
       userId: "user_1",
       sessionId: "session_1",
     });
+  });
+
+  it("returns 404 for a missing profile without leaking internals", async () => {
+    linkCompanyProfileToProject.mockRejectedValue(new CompanyProfileNotFoundError());
+    const req = new NextRequest("http://localhost/api/company-profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: 99, projectId: "proj_mine" }),
+    });
+
+    const res = await PATCH(req);
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ success: false, error: "Profile not found" });
+  });
+
+  it("returns a generic 500 for unexpected errors", async () => {
+    linkCompanyProfileToProject.mockRejectedValue(
+      new Error("relation company_profiles does not exist"),
+    );
+    const req = new NextRequest("http://localhost/api/company-profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId: 1, projectId: "proj_mine" }),
+    });
+
+    const res = await PATCH(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body).toEqual({ success: false, error: "Failed to link profile" });
+    expect(JSON.stringify(body)).not.toContain("relation");
   });
 });

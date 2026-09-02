@@ -11,6 +11,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import {
+  CompanyProfileAccessDeniedError,
+  CompanyProfileNotFoundError,
+} from "@/lib/db/services/company-profile-errors";
+import {
   getAllCompanyProfiles,
   getCompanyProfileByNameForOwner,
   getCompanyProfileByProjectId,
@@ -205,9 +209,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[API/company-profile] PATCH error:", error);
-    const message = error instanceof Error ? error.message : "Failed to link profile";
-    const status =
-      message.includes("not found") || message.includes("access denied") ? 404 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
+    if (error instanceof CompanyProfileNotFoundError) {
+      return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
+    }
+    if (error instanceof CompanyProfileAccessDeniedError) {
+      return NextResponse.json({ success: false, error: "Access denied" }, { status: 403 });
+    }
+    return NextResponse.json({ success: false, error: "Failed to link profile" }, { status: 500 });
   }
 }

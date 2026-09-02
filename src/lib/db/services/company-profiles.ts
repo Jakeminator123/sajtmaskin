@@ -3,11 +3,17 @@ import { db } from "@/lib/db/client";
 import { appProjects, companyProfiles } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 import type { CompanyProfile } from "./shared";
+import {
+  CompanyProfileAccessDeniedError,
+  CompanyProfileNotFoundError,
+} from "./company-profile-errors";
 
 export type OwnerScope = {
   userId?: string | null;
   sessionId?: string | null;
 };
+
+export { CompanyProfileAccessDeniedError, CompanyProfileNotFoundError };
 
 function buildOwnerCondition(scope: OwnerScope) {
   const userId = scope.userId?.trim();
@@ -150,10 +156,10 @@ export async function linkCompanyProfileToProject(
   assertDbConfigured();
 
   const owned = await verifyProjectOwnership(projectId, scope);
-  if (!owned) throw new Error("Project not found or access denied");
+  if (!owned) throw new CompanyProfileAccessDeniedError();
 
   const id = typeof profileId === "string" ? parseInt(profileId, 10) : profileId;
-  if (!Number.isFinite(id)) throw new Error("Invalid profile id");
+  if (!Number.isFinite(id)) throw new CompanyProfileNotFoundError();
 
   // Verify the caller owns the profile being linked. Unattached rows are
   // not world-claimable — create them on an owned project instead.
@@ -162,13 +168,12 @@ export async function linkCompanyProfileToProject(
     .from(companyProfiles)
     .where(eq(companyProfiles.id, id))
     .limit(1);
-  if (!profile) throw new Error("Profile not found");
-  // Unattached rows are not world-claimable. Create them on an owned project.
+  if (!profile) throw new CompanyProfileNotFoundError();
   if (!profile.project_id) {
-    throw new Error("Profile not found or access denied");
+    throw new CompanyProfileAccessDeniedError();
   }
   const ownedByScope = await verifyProjectOwnership(profile.project_id, scope);
-  if (!ownedByScope) throw new Error("Profile not found or access denied");
+  if (!ownedByScope) throw new CompanyProfileAccessDeniedError();
 
   await db
     .update(companyProfiles)

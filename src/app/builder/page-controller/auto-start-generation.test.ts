@@ -7,7 +7,7 @@ const base = {
   buildMethod: "kostnadsfri" as const,
   resolvedPrompt: "Bygg en sajt",
   chatId: null,
-  promptId: "prompt_1",
+  handoffPromptId: "prompt_1",
   promptParam: null,
 };
 
@@ -20,7 +20,7 @@ describe("canAutoStartKostnadsfriGeneration", () => {
     expect(
       canAutoStartKostnadsfriGeneration({
         ...base,
-        promptId: null,
+        handoffPromptId: null,
         promptParam: "attacker-controlled",
         resolvedPrompt: "attacker-controlled",
       }),

@@ -40,6 +40,12 @@ export function useBuilderAutoStartGeneration({
   promptActions,
 }: Params) {
   const autoGenerateTriggeredRef = useRef(false);
+  // CSRF: only the first-hydration query may authorize auto-start.
+  // `useBuilderEntryHydration` strips `promptId` via router.replace in the
+  // same fetch that sets `resolvedPrompt`; a live-URL check would cancel
+  // the 500 ms timer and never retry.
+  const hydrationPromptIdRef = useRef(promptId);
+  const hydrationPromptParamRef = useRef(promptParam);
 
   useEffect(() => {
     if (
@@ -49,8 +55,8 @@ export function useBuilderAutoStartGeneration({
         buildMethod,
         resolvedPrompt,
         chatId,
-        promptId,
-        promptParam,
+        handoffPromptId: hydrationPromptIdRef.current,
+        promptParam: hydrationPromptParamRef.current,
       })
     ) {
       return;
@@ -70,8 +76,6 @@ export function useBuilderAutoStartGeneration({
     buildMethod,
     resolvedPrompt,
     chatId,
-    promptId,
-    promptParam,
     setSelectedModelTier,
     promptActions,
   ]);

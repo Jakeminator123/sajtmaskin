@@ -11,7 +11,9 @@ export function canAutoStartKostnadsfriGeneration(input: {
   buildMethod: BuildMethod | null;
   resolvedPrompt: string | null;
   chatId: string | null;
-  promptId: string | null;
+  /** `promptId` from the first hydration, not the live URL after `router.replace`. */
+  handoffPromptId: string | null;
+  /** Raw `?prompt=` from the first hydration. */
   promptParam: string | null;
 }): boolean {
   if (!input.isAuthenticated) return false;
@@ -19,7 +21,7 @@ export function canAutoStartKostnadsfriGeneration(input: {
   if (input.buildMethod !== "kostnadsfri") return false;
   if (!input.resolvedPrompt?.trim()) return false;
   if (input.chatId) return false;
-  if (!input.promptId?.trim()) return false;
+  if (!input.handoffPromptId?.trim()) return false;
   if (input.promptParam?.trim()) return false;
   return true;
 }
