@@ -328,3 +328,34 @@ describe("triggerServerVerification diagnostic persist — omitted protected pat
     ).toBe(true);
   });
 });
+
+describe("triggerServerVerification — lease fail-closed (L4)", () => {
+  it("starts no work when acquireVersionLease throws — no snapshot, gate, or mutation", async () => {
+    acquireVersionLease.mockRejectedValue(
+      new Error('relation "engine_version_jobs" does not exist'),
+    );
+
+    await triggerServerVerification({ chatId, versionId, diagnosticOnly: true });
+
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(runQualityGateOnExportable).not.toHaveBeenCalled();
+    expect(runAutoFix).not.toHaveBeenCalled();
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+    expect(updateVersionFiles).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(releaseVersionLease).not.toHaveBeenCalled();
+  });
+
+  it("starts no work when another live lease already owns the version", async () => {
+    acquireVersionLease.mockResolvedValue(null);
+
+    await triggerServerVerification({ chatId, versionId });
+
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
+    expect(runQualityGateOnExportable).not.toHaveBeenCalled();
+    expect(releaseVersionLease).not.toHaveBeenCalled();
+  });
+});

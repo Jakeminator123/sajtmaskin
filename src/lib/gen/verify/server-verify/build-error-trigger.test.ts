@@ -114,6 +114,22 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
     expect(triggerServerVerification).not.toHaveBeenCalled();
   });
 
+  it("startar inget arbete när leasen inte kan bevisas (DB-fel)", async () => {
+    acquireVerifyLease.mockResolvedValue({ proceed: false, reason: "lease_unavailable" });
+
+    const outcome = await run();
+
+    expect(outcome).toEqual({
+      started: false,
+      repairAvailable: false,
+      skippedReason: "lease_unavailable",
+    });
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(tryServerRepairLoop).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(releaseVerifyLease).not.toHaveBeenCalled();
+  });
+
   it("lämnar ett lyckat utfall orört", async () => {
     tryServerRepairLoop.mockResolvedValue({
       supersededByUserEdit: false,

@@ -17,6 +17,7 @@ const updateWhere = vi.hoisted(() => ({ value: undefined as unknown }));
 const updateRowCount = vi.hoisted(() => ({ value: 0 }));
 // leaseTableExists() → db.execute(to_regclass) — null oid means "table missing".
 const regclassOid = vi.hoisted(() => ({ value: "12345" as string | null }));
+const regclassThrows = vi.hoisted(() => ({ value: false }));
 // Row-existence probe after a 0-row guarded UPDATE → db.select(...).limit(1).
 // Non-empty = the version row EXISTS, so the 0-row can only mean the lease
 // blocked the write (exact classification, no lease re-probe race).
@@ -48,9 +49,11 @@ vi.mock("@/lib/db/client", () => {
         }),
       }),
       execute: () =>
-        Promise.resolve({
-          rows: regclassOid.value == null ? [{ oid: null }] : [{ oid: regclassOid.value }],
-        }),
+        regclassThrows.value
+          ? Promise.reject(new Error("connection reset"))
+          : Promise.resolve({
+              rows: regclassOid.value == null ? [{ oid: null }] : [{ oid: regclassOid.value }],
+            }),
       transaction: async (fn: (tx: unknown) => unknown) =>
         fn({
           execute: () => Promise.resolve({ rows: [] }),
@@ -81,6 +84,7 @@ describe("updateVersionFiles — version-lease guard (P1 files_json false-green-
     updateWhere.value = undefined;
     updateRowCount.value = 0;
     regclassOid.value = "12345"; // lease table exists by default
+    regclassThrows.value = false;
     probeRows.value = [];
   });
 
@@ -175,8 +179,18 @@ describe("updateVersionFiles — version-lease guard (P1 files_json false-green-
     expect(sql).toContain("engine_version_jobs");
   });
 
+  it("keeps the lease guard when the catalog probe throws (unavailable is not missing)", async () => {
+    regclassThrows.value = true;
+    updateRowCount.value = 1;
+    const ok = await updateVersionFiles("ver-1", FILES, { invalidateVerification: true });
+    expect(ok).toBe(true);
+    const sql = renderWhere();
+    expect(sql).toContain("not exists");
+    expect(sql).toContain("engine_version_jobs");
+  });
+
   it("degrades to the legacy unconditional write before the lease table exists (pre-migration)", async () => {
-    regclassOid.value = null; // leaseTableExists() → false
+    regclassOid.value = null; // leaseTableExists() → "missing"
     updateRowCount.value = 1;
     const ok = await updateVersionFiles("ver-1", FILES, { invalidateVerification: true });
     expect(ok).toBe(true);
@@ -197,6 +211,7 @@ describe("updateVersionFiles — compare-and-swap på basen (expectedFilesJson)"
     updateWhere.value = undefined;
     updateRowCount.value = 1;
     regclassOid.value = "12345";
+    regclassThrows.value = false;
     probeRows.value = [];
   });
 

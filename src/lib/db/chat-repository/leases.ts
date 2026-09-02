@@ -111,26 +111,43 @@ export async function releaseVersionLease(
     .where(and(eq(engineVersionJobs.versionId, versionId), eq(engineVersionJobs.runId, runId)));
 }
 
-/** True when an UNEXPIRED active lease exists for the version (any owner). */
 /**
- * True when the engine_version_jobs lease table exists. Used to keep the shared
- * accept/watchdog paths working before add-engine-version-jobs.sql is applied
- * (rollout / local DB drift): we must decide whether to reference the table
- * BEFORE building a statement, because Postgres resolves relation names at
- * parse/plan time (an in-statement `to_regclass(...) IS NULL OR ...` guard
- * cannot short-circuit a missing relation). `to_regclass(text)` itself never
- * references the table as a relation, so this probe is safe pre-migration.
+ * Definitive presence of `engine_version_jobs`.
+ *
+ * Postgres resolves relation names at parse/plan time, so callers that name the
+ * table in a statement must decide BEFORE building SQL. Collapsing probe errors
+ * into "missing" is a distributed-ownership hole: watchdog/accept then drop the
+ * lease EXISTS and can fail or promote under a live lease.
+ *
+ *  - `exists`       — `to_regclass` returned a non-null oid
+ *  - `missing`      — `to_regclass` returned NULL without error (pre-migration)
+ *  - `unavailable`  — error, timeout, or an empty/unreadable probe result
  */
-export async function leaseTableExists(): Promise<boolean> {
+export type LeaseTablePresence = "exists" | "missing" | "unavailable";
+
+export async function leaseTableExists(): Promise<LeaseTablePresence> {
   try {
     const res = await db.execute(sql`SELECT to_regclass('public.engine_version_jobs') AS oid`);
     const rows = (res as unknown as { rows?: Array<{ oid: string | null }> }).rows ?? [];
-    return rows.length > 0 && rows[0]?.oid != null;
+    // `missing` is only a successful NULL. An empty result set is not NULL —
+    // we did not observe the catalog answer, so fail closed as unavailable.
+    if (rows.length === 0) return "unavailable";
+    return rows[0]?.oid != null ? "exists" : "missing";
   } catch {
-    return false;
+    return "unavailable";
   }
 }
 
+/**
+ * True when an UNEXPIRED active lease exists for the version (any owner).
+ *
+ * Throws when the lease table cannot be queried (`unavailable` or a query
+ * error against a table that exists). Callers must treat a throw as
+ * retryable / no-op — never as "no lease". HTTP routes map the throw to
+ * `503 lease_unavailable` + `Retry-After`; they must not
+ * `.catch(() => false)`. A definitive `missing` table returns false
+ * (pre-migration: no leases can exist).
+ */
 export async function hasActiveVersionLease(versionId: string): Promise<boolean> {
   try {
     const rows = await db
@@ -146,12 +163,11 @@ export async function hasActiveVersionLease(versionId: string): Promise<boolean>
       .limit(1);
     return rows.length > 0;
   } catch (err) {
-    // Codex P2 (missing-table fail-safe): before add-engine-version-jobs.sql is
-    // applied (rollout / local DB drift) this query throws "relation does not
-    // exist". Fail open here so the legacy accept/readiness paths keep working;
-    // the authoritative no-active-lease guard is the atomic UPDATE predicate in
-    // acceptRepair / failVersionVerificationIfUnleased (gated by leaseTableExists).
-    console.warn(`[lease] hasActiveVersionLease degraded for ${versionId}:`, err);
-    return false;
+    const presence = await leaseTableExists();
+    if (presence === "missing") {
+      return false;
+    }
+    console.warn(`[lease] hasActiveVersionLease unavailable for ${versionId}:`, err);
+    throw err instanceof Error ? err : new Error("lease query unavailable");
   }
 }

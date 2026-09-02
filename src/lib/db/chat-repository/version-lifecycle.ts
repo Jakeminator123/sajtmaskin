@@ -170,10 +170,17 @@ export async function failVersionVerificationIfUnleased(
   versionId: string,
   verificationSummary: string,
 ): Promise<Version | null> {
-  // Codex P2 (missing-table fail-safe): decide whether to reference the lease
-  // table BEFORE building the statement (Postgres resolves relations at plan
-  // time; an in-statement to_regclass guard cannot short-circuit a missing one).
-  const jobsExist = await leaseTableExists();
+  // Decide whether to reference the lease table BEFORE building the statement
+  // (Postgres resolves relations at plan time). `unavailable` is NOT `missing`:
+  // a probe error must no-op so we never fail a row that may still hold a lease.
+  const presence = await leaseTableExists();
+  if (presence === "unavailable") {
+    console.warn(
+      `[lease] failVersionVerificationIfUnleased probe unavailable on ${versionId} — no-op, next poll retries.`,
+    );
+    return null;
+  }
+  const jobsExist = presence === "exists";
   let updated: boolean;
   try {
     updated = await db.transaction(async (tx) => {
@@ -274,10 +281,16 @@ export async function promoteVersionIfUnleased(
     // so the watchdog settles the row terminally instead of spinning forever.
     return indeterminate ? null : "guard_denied";
   }
-  // Codex P2 (missing-table fail-safe): decide whether to reference the lease
-  // table BEFORE building the statement (Postgres resolves relations at plan
-  // time; an in-statement to_regclass guard cannot short-circuit a missing one).
-  const jobsExist = await leaseTableExists();
+  // Same tri-state as `failVersionVerificationIfUnleased`: `unavailable` no-ops
+  // so a probe error cannot promote a row that may still hold a lease.
+  const presence = await leaseTableExists();
+  if (presence === "unavailable") {
+    console.warn(
+      `[lease] promoteVersionIfUnleased probe unavailable on ${versionId} — no-op, next poll retries.`,
+    );
+    return null;
+  }
+  const jobsExist = presence === "exists";
   const promotedAt = new Date();
   let updated: boolean;
   try {

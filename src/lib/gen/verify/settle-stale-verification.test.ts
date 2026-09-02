@@ -95,7 +95,7 @@ describe("settleStaleVerificationIfNeeded", () => {
   });
 
   it("skips a stale 'repairing' row when the lease table is absent (legacy fallback)", async () => {
-    leaseTableExists.mockResolvedValue(false);
+    leaseTableExists.mockResolvedValue("missing");
     const res = await settleStaleVerificationIfNeeded(
       makeVersion({ verification_state: "repairing" }),
     );
@@ -104,8 +104,17 @@ describe("settleStaleVerificationIfNeeded", () => {
     expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
   });
 
+  it("no-ops a stale 'repairing' row when the lease probe is unavailable", async () => {
+    leaseTableExists.mockResolvedValue("unavailable");
+    const res = await settleStaleVerificationIfNeeded(
+      makeVersion({ verification_state: "repairing" }),
+    );
+    expect(res.failed).toBe(false);
+    expect(failVersionVerificationIfUnleased).not.toHaveBeenCalled();
+  });
+
   it("fails a stale 'repairing' row once the lease table exists", async () => {
-    leaseTableExists.mockResolvedValue(true);
+    leaseTableExists.mockResolvedValue("exists");
     failVersionVerificationIfUnleased.mockResolvedValue(
       makeVersion({ verification_state: "failed" }),
     );
@@ -289,7 +298,7 @@ describe("settleStaleVerificationIfNeeded", () => {
     // A `repairing` row's latest preflight:quality-gate log can predate
     // markVersionRepairing; the green reconciliation must be scoped to `verifying`
     // so a pre-repair verdict can't promote a mid/abandoned-repair row.
-    leaseTableExists.mockResolvedValue(true);
+    leaseTableExists.mockResolvedValue("exists");
     failVersionVerificationIfUnleased.mockResolvedValue(
       makeVersion({ verification_state: "failed" }),
     );

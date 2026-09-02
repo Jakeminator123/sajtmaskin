@@ -266,6 +266,22 @@ describe("OpenClawQuickEditCard — execution", () => {
     });
   });
 
+  it("translates lease_unavailable to the Swedish retry copy", async () => {
+    grantQuickEdit();
+    quickEditMock.mockResolvedValue({
+      ok: false,
+      error: "Version lease unavailable",
+      reason: "lease_unavailable",
+    });
+    render(<OpenClawMessage msg={quickEditMessage()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Godkänn och genomför" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Versionlåset kunde inte bevisas/)).toBeTruthy();
+    });
+  });
+
   it("translates base_busy to the Swedish verify-lock copy", async () => {
     grantQuickEdit();
     quickEditMock.mockResolvedValue({

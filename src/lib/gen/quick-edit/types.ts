@@ -63,6 +63,8 @@ export type QuickEditFailureReason =
   | "integrations_base"
   /** Base version is owned by an active verify/repair lease — retry shortly (M#qe1). */
   | "base_busy"
+  /** Lease table / DB could not be proven — retry, never continue unlocked (L4). */
+  | "lease_unavailable"
   /** `delete_jsx_node` against a file/locator that cannot carry a JSX node. */
   | "jsx_delete_unsupported"
   /** `delete_jsx_node` would break the component or the file's syntax. */

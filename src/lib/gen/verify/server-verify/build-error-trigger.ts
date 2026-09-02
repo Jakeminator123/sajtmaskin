@@ -76,7 +76,12 @@ export type BuildErrorRepairOutcome = {
   repairAvailable: boolean;
   /** Varför loopen inte kördes, när `started === false`. */
   skippedReason?:
-    "auto_repair_disabled" | "not_eligible" | "lease_busy" | "not_latest" | "no_files";
+    | "auto_repair_disabled"
+    | "not_eligible"
+    | "lease_busy"
+    | "lease_unavailable"
+    | "not_latest"
+    | "no_files";
 };
 
 export async function triggerBuildErrorRepair(params: {
@@ -151,10 +156,14 @@ export async function triggerBuildErrorRepair(params: {
   inflight.add(versionId);
   const lease = await acquireVerifyLease(versionId, "build_error_repair");
   if (!lease.proceed) {
-    // Another live lease already owns this version — the build-error event is
-    // already emitted above; skip only the mutating repair to avoid racing it.
+    // Another live lease, or the distributed lock could not be proven — the
+    // build-error event is already emitted above; skip the mutating repair.
     inflight.delete(versionId);
-    return { started: false, repairAvailable: false, skippedReason: "lease_busy" };
+    return {
+      started: false,
+      repairAvailable: false,
+      skippedReason: lease.reason,
+    };
   }
   const runId = lease.runId;
   // A3-utfall: sätts när loopen faktiskt körs / hoppas över inuti try/finally.
