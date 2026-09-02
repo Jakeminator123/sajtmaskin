@@ -45,7 +45,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
 import { devLogAppend } from "@/lib/logging/dev-log";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
-import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
+import { resolveChatModelTier } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import {
   LLM_FIXER_RETRY_TIMEOUT_MS,
@@ -615,7 +615,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     ];
     let llmPasses = 0;
     const originatingChat = await getChat(chatId).catch(() => null);
-    const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
+    const originatingTier = resolveChatModelTier(originatingChat);
     const fixerModel = originatingTier
       ? resolvePhaseModel(originatingTier, "fixer").modelId
       : undefined;

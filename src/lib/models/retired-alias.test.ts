@@ -1,5 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { aliasRetiredModelId, ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
+import {
+  aliasRetiredModelId,
+  ownModelIdToCanonicalModelId,
+  resolveChatModelTier,
+} from "@/lib/models/catalog";
+
+describe("resolveChatModelTier — shared Sol build model", () => {
+  it("prefers the persisted snapshot tier over the ambiguous chat.model", () => {
+    expect(
+      resolveChatModelTier({
+        model: "gpt-5.6-sol",
+        orchestration_snapshot: { modelTier: "premium" },
+      }),
+    ).toBe("premium");
+    expect(
+      resolveChatModelTier({ model: "gpt-5.6-sol", orchestration_snapshot: { modelTier: "pro" } }),
+    ).toBe("pro");
+  });
+
+  it("falls back to the model heuristic without a usable snapshot tier", () => {
+    expect(resolveChatModelTier({ model: "gpt-5.6-sol", orchestration_snapshot: null })).toBe("max");
+    expect(
+      resolveChatModelTier({ model: "gpt-5.6-sol", orchestration_snapshot: { modelTier: "nope" } }),
+    ).toBe("max");
+    expect(resolveChatModelTier({ model: "claude-opus-4.8" })).toBe("anthropic");
+    expect(resolveChatModelTier(null)).toBeNull();
+  });
+});
 
 describe("retired cheap model → shared Sol / Mellan", () => {
   it("aliases gpt-5.4-mini to Sol and resolves that shared build model to max", () => {

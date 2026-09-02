@@ -157,6 +157,30 @@ export function ownModelIdToCanonicalModelId(
 }
 
 /**
+ * Resolve the tier a persisted chat was built with. `chat.model` is the shared
+ * `gpt-5.6-sol` for Låg/Mellan/Hög, so prefer the `modelTier` that finalize
+ * stores in `orchestration_snapshot` (stream meta from the actual run) and only
+ * fall back to the model-id heuristic for chats predating that snapshot.
+ */
+export function resolveChatModelTier(
+  chat:
+    | { model?: string | null; orchestration_snapshot?: unknown }
+    | null
+    | undefined,
+): CanonicalModelId | null {
+  if (!chat) return null;
+  const snapshot = chat.orchestration_snapshot;
+  if (snapshot && typeof snapshot === "object") {
+    const tier = (snapshot as Record<string, unknown>).modelTier;
+    if (typeof tier === "string") {
+      const canonical = canonicalizeModelId(tier);
+      if (canonical) return canonical;
+    }
+  }
+  return ownModelIdToCanonicalModelId(chat.model ?? null);
+}
+
+/**
  * User-facing labels for the builder profiles.
  *
  * Tier ladder (2026-09-02): `pro` = Låg, `max` = Mellan, `premium` = Hög. The
