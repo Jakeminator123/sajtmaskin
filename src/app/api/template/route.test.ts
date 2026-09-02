@@ -302,7 +302,7 @@ describe("POST /api/template", () => {
         project_id: "proj_new",
         chat_id: "chat_import",
         demo_url: "https://vm-fly-jakem.fly.dev/chat_import",
-        meta: expect.objectContaining({
+        meta_patch: expect.objectContaining({
           source: "template-init:local-v0-import",
           templateId: "tmpl_1",
         }),
