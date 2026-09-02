@@ -1,21 +1,13 @@
 import { NextResponse } from "next/server";
 import { getDefaultRegistryScopes, refreshRegistryCache } from "@/lib/shadcn/registry-cache";
 import { getRegistryBaseUrl } from "@/lib/shadcn/registry-url";
+import { isCronRefreshAuthorized } from "./cron-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-function isAuthorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) return true;
-  const authHeader = req.headers.get("authorization") || "";
-  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
-  const headerSecret = req.headers.get("x-cron-secret") || "";
-  return bearer === secret || headerSecret === secret;
-}
-
 export async function GET(req: Request) {
-  if (!isAuthorized(req)) {
+  if (!isCronRefreshAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

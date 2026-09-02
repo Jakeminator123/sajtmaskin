@@ -760,6 +760,8 @@ export function useBuilderPageController() {
     buildMethod,
     resolvedPrompt,
     chatId,
+    promptId,
+    promptParam,
     setSelectedModelTier,
     promptActions,
   });

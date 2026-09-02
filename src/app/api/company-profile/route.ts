@@ -11,6 +11,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import {
+  CompanyProfileAccessDeniedError,
+  CompanyProfileNotFoundError,
+} from "@/lib/db/services/company-profile-errors";
+import {
   getAllCompanyProfiles,
   getCompanyProfileByNameForOwner,
   getCompanyProfileByProjectId,
@@ -120,16 +124,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!project_id || typeof project_id !== "string") {
+      return NextResponse.json(
+        { success: false, error: "project_id is required" },
+        { status: 400 },
+      );
+    }
+
     const scope = { userId: user?.id ?? null, sessionId };
 
-    if (project_id) {
-      const project = await getProjectByIdForOwner(project_id, scope);
-      if (!project) {
-        return NextResponse.json(
-          { success: false, error: "Project not found" },
-          { status: 404 },
-        );
-      }
+    const project = await getProjectByIdForOwner(project_id, scope);
+    if (!project) {
+      return NextResponse.json(
+        { success: false, error: "Project not found" },
+        { status: 404 },
+      );
     }
 
     // Build profile object
@@ -200,6 +209,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[API/company-profile] PATCH error:", error);
+    if (error instanceof CompanyProfileNotFoundError) {
+      return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
+    }
+    if (error instanceof CompanyProfileAccessDeniedError) {
+      return NextResponse.json({ success: false, error: "Access denied" }, { status: 403 });
+    }
     return NextResponse.json({ success: false, error: "Failed to link profile" }, { status: 500 });
   }
 }
