@@ -2238,7 +2238,21 @@ describe("runPostGenerationChecks", () => {
     const errorLogCall = fetchCalls.find(
       (call) => call.url.includes("/error-log") && call.init?.method === "POST",
     );
-    expect(errorLogCall).toBeUndefined();
+    const errorLogBody = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
+      logs?: Array<{ category?: string; meta?: { verdict?: string } }>;
+    };
+    expect(errorLogBody.logs).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "allowed_skip",
+          skippedReason: "feature_disabled",
+        }),
+      }),
+    ]);
+    expect(
+      errorLogBody.logs?.some((log) => log.category?.toLowerCase().includes("seo")),
+    ).toBe(false);
 
     expect(onAutoFix).not.toHaveBeenCalled();
   });
@@ -3220,7 +3234,7 @@ describe("buildProductPostcheckLogItems live review", () => {
     );
   });
 
-  it("drops a superseded result instead of persisting a legacy skip", () => {
+  it("persists superseded as an explicit non-release verdict, never a legacy skip", () => {
     expect(
       buildProductPostcheckLogItems({
         ok: true,
@@ -3234,6 +3248,14 @@ describe("buildProductPostcheckLogItems live review", () => {
         routesChecked: 1,
         attestation: null,
       }),
-    ).toEqual([]);
+    ).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "superseded",
+          skippedReason: "preview_superseded",
+        }),
+      }),
+    ]);
   });
 });
