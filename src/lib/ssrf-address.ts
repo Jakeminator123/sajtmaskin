@@ -121,8 +121,9 @@ function isPrivateIpv6(host: string): boolean {
   const unspecified = hextets.every((value) => value === 0);
   const loopback = hextets.slice(0, 7).every((value) => value === 0) && hextets[7] === 1;
   if (unspecified || loopback) return true;
-  // Deprecated IPv4-compatible `::a.b.c.d` (first 96 bits zero). Node treats
-  // the literal as IPv6 and skips DNS, so the embedded IPv4 must be classified.
+  // Deprecated IPv4-compatible `::a.b.c.d` (`::/96`, hextet 5 ≠ 0xffff).
+  // Policy: same as mapped — classify the embedded IPv4. Public destinations
+  // such as `::8.8.8.8` stay allowed; RFC1918/loopback/link-local do not.
   if (hextets.slice(0, 6).every((value) => value === 0)) {
     return isPrivateIpv4(hextetsToIpv4(hextets[6] ?? 0, hextets[7] ?? 0));
   }

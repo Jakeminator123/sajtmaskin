@@ -22,7 +22,8 @@ vi.mock("node:dns", () => {
   return { ...mocked, default: mocked };
 });
 
-const { fetchWithPinnedDns, PINNED_ADDRESS_BLOCKED_MESSAGE } = await import("./pinned-fetch");
+const { fetchWithPinnedDns, PINNED_ADDRESS_BLOCKED_MESSAGE, PINNED_BODY_LIMIT_CODE } =
+  await import("./pinned-fetch");
 
 type ReceivedRequest = {
   url: string | undefined;
@@ -96,7 +97,9 @@ beforeEach(async () => {
       }
       if (req.url === "/gzip-big") {
         res.writeHead(200, { "content-type": "text/plain", "content-encoding": "gzip" });
-        res.end(zlib.gzipSync(Buffer.alloc(80, 97)));
+        // Highly compressible zeros: a small wire payload that would expand
+        // far past the 1 KiB caller cap if inflate ran unbounded.
+        res.end(zlib.gzipSync(Buffer.alloc(256 * 1024, 0)));
         return;
       }
       res.writeHead(200, { "content-type": "image/png" });
@@ -243,10 +246,14 @@ describe("fetchWithPinnedDns", () => {
     expect(result.headers["content-encoding"]).toBeUndefined();
   });
 
-  it("fail-stänger när avkodad body passerar maxBodyBytes", async () => {
+  it("fail-stänger zip-bomb med ERR_BUFFER_TOO_LARGE", async () => {
     await expect(
-      fetchWithPinnedDns(`http://asset.test:${port}/gzip-big`, { maxBodyBytes: 16 }),
-    ).rejects.toThrow(/exceeded 16 bytes/);
+      fetchWithPinnedDns(`http://asset.test:${port}/gzip-big`, { maxBodyBytes: 1024 }),
+    ).rejects.toMatchObject({
+      code: PINNED_BODY_LIMIT_CODE,
+      name: "RangeError",
+      message: expect.stringContaining("exceeded 1024 bytes"),
+    });
   });
 
   it("avbryter när AbortSignal abortas mitt i ett hängande svar", async () => {

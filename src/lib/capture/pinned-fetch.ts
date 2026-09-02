@@ -39,6 +39,8 @@ const brotliDecompress = promisify(zlib.brotliDecompress);
 export const PINNED_ADDRESS_BLOCKED_MESSAGE =
   "Pinned fetch blocked: hostname resolved to a private/internal address";
 export const PINNED_BODY_LIMIT_PREFIX = "Pinned fetch aborted: response exceeded";
+/** Same Node code zlib uses when `maxOutputLength` is exceeded. */
+export const PINNED_BODY_LIMIT_CODE = "ERR_BUFFER_TOO_LARGE";
 
 /**
  * Hop-by-hop-headers hör till EN uppkoppling och får aldrig vidarebefordras.
@@ -127,17 +129,22 @@ function buildResponseHeaders(headers: http.IncomingHttpHeaders): Record<string,
   return out;
 }
 
-function bodyLimitError(maxBodyBytes: number): Error {
-  return new Error(`${PINNED_BODY_LIMIT_PREFIX} ${maxBodyBytes} bytes`);
+function bodyLimitError(maxBodyBytes: number): NodeJS.ErrnoException {
+  const error = new Error(`${PINNED_BODY_LIMIT_PREFIX} ${maxBodyBytes} bytes`) as NodeJS.ErrnoException;
+  error.name = "RangeError";
+  error.code = PINNED_BODY_LIMIT_CODE;
+  return error;
 }
 
 /**
  * Decode gzip/br/deflate so callers see the same readable body contract as
- * `fetch()`. Wire size is already capped; the decoded size is capped again so
- * a tiny compressed payload cannot expand past the caller limit.
+ * `fetch()`. Wire size is already capped; `maxOutputLength` caps inflate so a
+ * tiny zip-bomb cannot allocate past the caller limit before the byte check.
  */
 function isDecompressLimitError(error: unknown): boolean {
-  return error instanceof RangeError || (error instanceof Error && error.name === "RangeError");
+  if (!(error instanceof Error)) return false;
+  const code = "code" in error ? String((error as NodeJS.ErrnoException).code) : "";
+  return error instanceof RangeError || error.name === "RangeError" || code === PINNED_BODY_LIMIT_CODE;
 }
 
 async function decodePinnedBody(

@@ -3,6 +3,7 @@ import net from "node:net";
 import {
   fetchWithPinnedDns,
   PINNED_ADDRESS_BLOCKED_MESSAGE,
+  PINNED_BODY_LIMIT_CODE,
   PINNED_BODY_LIMIT_PREFIX,
   type PinnedFetchResult,
 } from "@/lib/capture/pinned-fetch";
@@ -184,7 +185,9 @@ function isPinnedAddressBlocked(error: unknown): boolean {
 }
 
 function isPinnedBodyLimit(error: unknown): boolean {
-  return error instanceof Error && error.message.includes(PINNED_BODY_LIMIT_PREFIX);
+  if (!(error instanceof Error)) return false;
+  if (error.message.includes(PINNED_BODY_LIMIT_PREFIX)) return true;
+  return "code" in error && (error as NodeJS.ErrnoException).code === PINNED_BODY_LIMIT_CODE;
 }
 
 export async function safeFetch(

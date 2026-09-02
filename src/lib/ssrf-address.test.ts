@@ -93,9 +93,11 @@ describe("isResolvedAddressPrivate", () => {
     expect(isResolvedAddressPrivate("::ffff:c000:201")).toBe(true); // 192.0.2.1
   });
 
-  it("classifies deprecated IPv4-compatible ::a.b.c.d via the embedded IPv4", () => {
-    expect(isResolvedAddressPrivate("::10.0.0.1")).toBe(true);
+  it("classifies deprecated IPv4-compatible ::/96 via the embedded IPv4", () => {
     expect(isResolvedAddressPrivate("::169.254.169.254")).toBe(true);
+    expect(isResolvedAddressPrivate("::127.0.0.1")).toBe(true);
+    expect(isResolvedAddressPrivate("::10.0.0.1")).toBe(true);
+    // Policy: do not blanket-block ::/96. A public embedded IPv4 stays public.
     expect(isResolvedAddressPrivate("::8.8.8.8")).toBe(false);
   });
 

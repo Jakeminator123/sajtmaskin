@@ -6,10 +6,12 @@ const PINNED_ADDRESS_BLOCKED_MESSAGE = vi.hoisted(
   () => "Pinned fetch blocked: hostname resolved to a private/internal address",
 );
 const PINNED_BODY_LIMIT_PREFIX = vi.hoisted(() => "Pinned fetch aborted: response exceeded");
+const PINNED_BODY_LIMIT_CODE = vi.hoisted(() => "ERR_BUFFER_TOO_LARGE");
 vi.mock("@/lib/capture/pinned-fetch", () => ({
   fetchWithPinnedDns,
   PINNED_ADDRESS_BLOCKED_MESSAGE,
   PINNED_BODY_LIMIT_PREFIX,
+  PINNED_BODY_LIMIT_CODE,
 }));
 import {
   hostResolvesToPrivate,
@@ -461,7 +463,10 @@ describe("ssrf-guard", () => {
   });
 
   it("för vidare caller-styrd maxBodyBytes och fail-stänger med 413", async () => {
-    fetchWithPinnedDns.mockRejectedValueOnce(new Error(`${PINNED_BODY_LIMIT_PREFIX} 4 bytes`));
+    const limitError = new Error(`${PINNED_BODY_LIMIT_PREFIX} 4 bytes`) as NodeJS.ErrnoException;
+    limitError.name = "RangeError";
+    limitError.code = PINNED_BODY_LIMIT_CODE;
+    fetchWithPinnedDns.mockRejectedValueOnce(limitError);
     globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
     const res = await safeFetch("https://example.com/img", { maxBodyBytes: 4 });
@@ -470,6 +475,17 @@ describe("ssrf-guard", () => {
     expect(fetchWithPinnedDns.mock.calls[0]?.[1]).toEqual(
       expect.objectContaining({ maxBodyBytes: 4 }),
     );
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("mappar rå RangeError ERR_BUFFER_TOO_LARGE till samma 413-utgång", async () => {
+    const raw = new RangeError("Cannot create a Buffer larger than 4 bytes") as NodeJS.ErrnoException;
+    raw.code = PINNED_BODY_LIMIT_CODE;
+    fetchWithPinnedDns.mockRejectedValueOnce(raw);
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+
+    const res = await safeFetch("https://example.com/img", { maxBodyBytes: 4 });
+    expect(res.status).toBe(413);
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
