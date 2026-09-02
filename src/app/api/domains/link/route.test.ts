@@ -8,6 +8,7 @@ const isLoopiaConfigured = vi.hoisted(() => vi.fn());
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getProjectById = vi.hoisted(() => vi.fn());
 const getLatestVercelProjectIdForChat = vi.hoisted(() => vi.fn());
+const dbSelect = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/auth", () => ({
   getCurrentUser,
@@ -36,11 +37,27 @@ vi.mock("@/lib/db/services/projects", () => ({
   getProjectById,
 }));
 
+vi.mock("@/lib/db/client", () => ({
+  db: { select: dbSelect },
+  dbConfigured: true,
+}));
+
 vi.mock("@/lib/deployment", () => ({
   getLatestVercelProjectIdForChat,
 }));
 
 const { POST } = await import("./route");
+
+/** Mimics a resolved drizzle `db.select(...).from(...).where(...).limit(1)` chain. */
+function dbRows(rows: unknown[]) {
+  return {
+    from: () => ({ where: () => ({ limit: () => Promise.resolve(rows) }) }),
+  };
+}
+
+function grantRegisteredOwnership() {
+  dbSelect.mockReturnValue(dbRows([{ id: "ord_1" }]));
+}
 
 function linkRequest(body: Record<string, unknown>) {
   return new Request("http://localhost/api/domains/link", {
@@ -68,6 +85,7 @@ describe("POST /api/domains/link", () => {
       vercel_project_name: "sajtmaskin-chat_1",
     });
     getLatestVercelProjectIdForChat.mockResolvedValue(null);
+    dbSelect.mockReturnValue(dbRows([]));
   });
 
   it("links the domain to the persisted Vercel project when there is no newer deployment (app_projects)", async () => {
@@ -148,6 +166,7 @@ describe("POST /api/domains/link", () => {
   });
 
   it("returns linked=true with success=false when automatic DNS setup fails", async () => {
+    grantRegisteredOwnership();
     isLoopiaConfigured.mockReturnValue(true);
     addZoneRecord.mockResolvedValueOnce("OK").mockResolvedValueOnce("ZONE_ERROR");
 
@@ -162,6 +181,7 @@ describe("POST /api/domains/link", () => {
   });
 
   it("returns success=true when automatic DNS setup succeeds", async () => {
+    grantRegisteredOwnership();
     isLoopiaConfigured.mockReturnValue(true);
     addZoneRecord.mockResolvedValue("OK");
 
@@ -169,6 +189,51 @@ describe("POST /api/domains/link", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
+    expect(body.linked).toBe(true);
+    expect(body.success).toBe(true);
+    expect(body.dnsSetup).toMatchObject({ success: true, method: "loopia" });
+  });
+
+  it("skips Loopia DNS when the caller has no registered domain_orders row", async () => {
+    isLoopiaConfigured.mockReturnValue(true);
+
+    const res = await POST(linkRequest({ domain: "mittforetag.se", chatId: "chat_1" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(addZoneRecord).not.toHaveBeenCalled();
+    expect(body.linked).toBe(true);
+    expect(body.success).toBe(true);
+    expect(body.dnsSetup).toBeNull();
+    expect(body.dnsInstructions).toMatchObject({
+      message: "Peka din domän till Vercel genom att lägga till dessa DNS-poster hos din registrar:",
+      records: [
+        { type: "CNAME", host: "www", value: "cname.vercel-dns.com", ttl: 3600 },
+        { type: "A", host: "@", value: "76.76.21.21", ttl: 3600 },
+      ],
+    });
+  });
+
+  it("mutates Loopia DNS when the caller has a registered domain_orders row", async () => {
+    grantRegisteredOwnership();
+    isLoopiaConfigured.mockReturnValue(true);
+    addZoneRecord.mockResolvedValue("OK");
+
+    const res = await POST(linkRequest({ domain: "mittforetag.se", chatId: "chat_1" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(addZoneRecord).toHaveBeenCalledTimes(2);
+    expect(addZoneRecord).toHaveBeenNthCalledWith(1, "mittforetag.se", "@", {
+      type: "A",
+      data: "76.76.21.21",
+      ttl: 3600,
+    });
+    expect(addZoneRecord).toHaveBeenNthCalledWith(2, "mittforetag.se", "www", {
+      type: "CNAME",
+      data: "cname.vercel-dns.com",
+      ttl: 3600,
+    });
     expect(body.linked).toBe(true);
     expect(body.success).toBe(true);
     expect(body.dnsSetup).toMatchObject({ success: true, method: "loopia" });
