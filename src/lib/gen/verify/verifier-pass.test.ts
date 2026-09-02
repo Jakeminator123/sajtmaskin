@@ -10,6 +10,7 @@ import {
   formatVerifierFindingsAsFixerErrors,
   parseImportRepairRefsFromFinding,
   promoteForcedBlockingFindings,
+  resolveVerifierProviderOptions,
   suppressTier3StrippedImportFindings,
   suppressValidInPageAnchorNavigationFindings,
 } from "./verifier-pass";
@@ -1273,5 +1274,39 @@ describe("extractFilePathsFromVerifierFindings", () => {
     const b = extractFilePathsFromVerifierFindings(findings);
     expect(a).toEqual(b);
     expect(a).toEqual(["components/foo.tsx"]);
+  });
+});
+
+describe("resolveVerifierProviderOptions", () => {
+  it("sends manifest effort for gpt-5.6 when thinking is off (no reasoningSummary)", () => {
+    expect(
+      resolveVerifierProviderOptions({
+        modelId: "gpt-5.6-luna",
+        thinking: false,
+        reasoningEffort: "low",
+      }),
+    ).toEqual({ openai: { reasoningEffort: "low" } });
+  });
+
+  it("disables Anthropic thinking but keeps explicit effort", () => {
+    expect(
+      resolveVerifierProviderOptions({
+        modelId: "claude-opus-4.8",
+        thinking: false,
+        reasoningEffort: "low",
+      }),
+    ).toEqual({
+      anthropic: { thinking: { type: "disabled" }, effort: "low" },
+    });
+  });
+
+  it("omits OpenAI providerOptions for non-5.6 models when thinking is off", () => {
+    expect(
+      resolveVerifierProviderOptions({
+        modelId: "gpt-5.3-codex",
+        thinking: false,
+        reasoningEffort: "low",
+      }),
+    ).toBeUndefined();
   });
 });

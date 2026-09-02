@@ -49,7 +49,7 @@ describe("decideLiveReviewClaim", () => {
               issues: [],
             },
             durationMs: 1,
-            modelId: "gpt-4o",
+            modelId: "gpt-5.6-terra",
           },
         }),
       ).kind,

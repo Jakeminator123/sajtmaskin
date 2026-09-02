@@ -213,19 +213,18 @@ describe("resolveServerAutoBriefPreferredModel", () => {
         "openai/gpt-5.6-sol",
       );
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "max" })).toBe(
-        "openai/gpt-5.5",
+        "openai/gpt-5.6-sol",
       );
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "anthropic" })).toBe(
         "anthropic/claude-opus-4.8",
       );
-      // `pro` är DEFAULT_MODEL_TIER och pekar mot en kodmodell — den nivån
-      // hade ingen täckning, trots att den bär mest trafik den dag prioritets-
-      // ordningen nedan ändras.
+      // `pro` är DEFAULT_MODEL_TIER och briefs på Terra; de övriga OpenAI-
+      // profilerna briefs på Sol.
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "pro" })).toBe(
-        "openai/gpt-5.3-codex",
+        "openai/gpt-5.6-terra",
       );
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "codex" })).toBe(
-        "openai/gpt-5.5",
+        "openai/gpt-5.6-sol",
       );
     } finally {
       if (previousOpenAI === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
@@ -275,7 +274,7 @@ describe("resolveServerAutoBriefPreferredModel", () => {
           modelTier: "pro",
           assistModelHint: getDefaultPromptAssistModel(),
         }),
-      ).not.toBe("openai/gpt-5.3-codex");
+      ).not.toBe("openai/gpt-5.6-terra");
     } finally {
       if (previousOpenAI === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
       else process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = previousOpenAI;

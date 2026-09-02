@@ -63,14 +63,14 @@ describe("resolveModelSelection", () => {
 });
 
 describe("resolveEngineModelId", () => {
-  it("maps the canonical profile to the own-engine model", () => {
+  it("maps every OpenAI build profile to GPT-5.6 Sol; Anthropic stays Opus 4.8", () => {
     expect(resolveEngineModelId("premium")).toBe("gpt-5.6-sol");
     expect(
       resolveEngineModelId(resolveModelSelection({ requestedModelId: "fast" }).modelTier),
     ).toBe("gpt-5.6-sol");
-    expect(resolveEngineModelId("pro")).toBe("gpt-5.3-codex");
-    expect(resolveEngineModelId("codex")).toBe("gpt-5.3-codex");
-    expect(resolveEngineModelId("max")).toBe("gpt-5.5");
+    expect(resolveEngineModelId("pro")).toBe("gpt-5.6-sol");
+    expect(resolveEngineModelId("codex")).toBe("gpt-5.6-sol");
+    expect(resolveEngineModelId("max")).toBe("gpt-5.6-sol");
     expect(resolveEngineModelId("anthropic")).toBe("claude-opus-4.8");
   });
 

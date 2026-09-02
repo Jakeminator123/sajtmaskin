@@ -64,8 +64,28 @@ describe("RepairGate-tokenloggning", () => {
     expect(recordLlmUsage.mock.calls[0][0]).toMatchObject({
       phase: "fixer",
       ok: false,
-      errorCode: "llm_fixer_failed",
+      errorCode: "llm_fixer_failed:Error",
+      errorMessage: "provider exploded",
       usage: null,
+    });
+  });
+
+  it("klassificerar AI SDK-wrapad AbortError som aborted, inte failed", async () => {
+    const abort = Object.assign(new Error("The operation was aborted"), { name: "AbortError" });
+    const wrapped = Object.assign(new Error("No output generated. Check the stream for errors."), {
+      name: "AI_NoOutputGeneratedError",
+      cause: abort,
+    });
+    streamText.mockReturnValue({
+      text: Promise.reject(wrapped),
+      usage: Promise.resolve({ inputTokens: 12, outputTokens: 0 }),
+    });
+    const result = await runLlmFixer(CODE, ["TS2304: Cannot find name 'Foo'"]);
+    expect(result.aborted).toBe(true);
+    expect(recordLlmUsage.mock.calls[0][0]).toMatchObject({
+      phase: "fixer",
+      ok: false,
+      errorCode: "llm_fixer_aborted",
     });
   });
 
