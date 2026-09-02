@@ -114,9 +114,9 @@ describe("Protect master ruleset drift", () => {
     );
     expect(contexts).toEqual([
       ...policy.requiredChecks,
-      "dossier-acceptance",
       "GitGuardian Security Checks",
     ]);
+    expect(policy.requiredChecks).toContain("dossier-acceptance");
     expect(contexts).toEqual(
       expect.arrayContaining([
         "quality",
