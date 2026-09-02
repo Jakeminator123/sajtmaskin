@@ -254,6 +254,11 @@ export type RecordLlmUsageInput = {
   durationMs?: number | null;
   ok?: boolean;
   errorCode?: string | null;
+  /**
+   * Short sanitized diagnostic stored in `meta.errorMessage`. The llm_usage
+   * table has no `error_message` column — do not add one from this layer.
+   */
+  errorMessage?: string | null;
   meta?: Record<string, unknown> | null;
 } & LlmUsageContext;
 
@@ -309,10 +314,20 @@ export function buildLlmUsageRecord(input: RecordLlmUsageInput): CreateLlmUsageR
     durationMs: input.durationMs ?? null,
     ok: !failed,
     errorCode: input.errorCode ?? null,
-    meta: context.claimKey
-      ? { ...(input.meta ?? {}), claimKey: context.claimKey }
-      : (input.meta ?? null),
+    meta: buildUsageMeta(input.meta, input.errorMessage, context.claimKey),
   };
+}
+
+function buildUsageMeta(
+  meta: Record<string, unknown> | null | undefined,
+  errorMessage: string | null | undefined,
+  claimKey: string | null | undefined,
+): Record<string, unknown> | null {
+  const merged: Record<string, unknown> = { ...(meta ?? {}) };
+  const trimmed = typeof errorMessage === "string" ? errorMessage.trim() : "";
+  if (trimmed) merged.errorMessage = trimmed;
+  if (claimKey) merged.claimKey = claimKey;
+  return Object.keys(merged).length > 0 ? merged : null;
 }
 
 /**

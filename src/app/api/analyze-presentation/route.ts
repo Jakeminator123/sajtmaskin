@@ -6,8 +6,9 @@
  * and provides constructive feedback on tone, pitch quality, clarity,
  * confidence, posture, and eye contact.
  *
- * When frames are provided, uses GPT-4o (vision) via OpenAI directly
- * for visual body language analysis. Text-only path also prefers direct provider calls.
+ * When frames are provided, uses the analyze_presentation_vision workload
+ * (gpt-5.6-terra by default) via OpenAI Chat Completions with image_url parts.
+ * Text-only path also prefers direct provider calls.
  */
 
 import { NextResponse } from "next/server";
@@ -26,6 +27,11 @@ export const maxDuration = 45;
 
 function toOpenAiDirectModelId(model: string): string {
   return model.replace(/^openai\//, "");
+}
+
+function isReasoningChatModel(model: string): boolean {
+  const id = toOpenAiDirectModelId(model).toLowerCase();
+  return id.startsWith("gpt-5") || id.startsWith("o1") || id.startsWith("o3") || id.startsWith("o4");
 }
 
 const requestSchema = z.object({
@@ -238,7 +244,7 @@ export async function POST(req: Request) {
   }
 }
 
-/** Analyze with vision model (OpenAI GPT-4o) -- reads images */
+/** Analyze with the vision workload model (gpt-5.6-terra default) -- reads images */
 async function analyzeWithVision(userText: string, frames: string[]): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
@@ -258,10 +264,11 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
     },
   }));
 
+  const model = toOpenAiDirectModelId(
+    getWorkloadDefaultModelFromManifest("analyze_presentation_vision") ?? "gpt-5.6-terra",
+  );
   const completion = await openai.chat.completions.create({
-    model: toOpenAiDirectModelId(
-      getWorkloadDefaultModelFromManifest("analyze_presentation_vision") ?? "gpt-4o",
-    ),
+    model,
     messages: [
       { role: "system", content: VISION_PROMPT },
       {
@@ -272,8 +279,10 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
         ],
       },
     ],
-    max_tokens: 600,
-    temperature: 0.7,
+    // GPT-5.x rejects `max_tokens` + custom temperature (same class as
+    // backoffice/wizard_support.py). Chat Completions still accepts image_url.
+    max_completion_tokens: isReasoningChatModel(model) ? 2_400 : 600,
+    ...(isReasoningChatModel(model) ? {} : { temperature: 0.7 }),
   });
 
   return completion.choices[0]?.message?.content?.trim() || "";
@@ -302,16 +311,17 @@ async function analyzeTextOnly(userText: string): Promise<string> {
   const { default: OpenAI } = await import("openai");
   const openai = new OpenAI({ apiKey });
 
+  const fallbackModel = toOpenAiDirectModelId(
+    ANALYZE_PRESENTATION_FALLBACK_MODELS[0] || ANALYZE_PRESENTATION_DEFAULT_MODEL,
+  );
   const completion = await openai.chat.completions.create({
-    model: toOpenAiDirectModelId(
-      ANALYZE_PRESENTATION_FALLBACK_MODELS[0] || ANALYZE_PRESENTATION_DEFAULT_MODEL,
-    ),
+    model: fallbackModel,
     messages: [
       { role: "system", content: TEXT_ONLY_PROMPT },
       { role: "user", content: userText },
     ],
-    max_tokens: 500,
-    temperature: 0.7,
+    max_completion_tokens: isReasoningChatModel(fallbackModel) ? 2_000 : 500,
+    ...(isReasoningChatModel(fallbackModel) ? {} : { temperature: 0.7 }),
   });
 
   return completion.choices[0]?.message?.content?.trim() || "";

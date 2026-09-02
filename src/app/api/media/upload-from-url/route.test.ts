@@ -62,8 +62,26 @@ describe("POST /api/media/upload-from-url", () => {
       expect(firstLog).toContain("https://images.example/photo.png");
       expect(firstLog).not.toContain("secret-presigned-token");
       expect(firstLog).not.toContain("?token=");
+      expect(safeFetch).toHaveBeenCalledWith(
+        "https://images.example/photo.png?token=secret-presigned-token",
+        expect.objectContaining({ maxBodyBytes: 4 * 1024 * 1024 }),
+      );
     } finally {
       info.mockRestore();
     }
+  });
+
+  it("mappar safeFetch 413 till den svenska storleksgränsen", async () => {
+    safeFetch.mockResolvedValue(new Response("Response exceeded maxBodyBytes", { status: 413 }));
+
+    const res = await POST(makeRequest("https://images.example/huge.png"));
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toContain("för stor");
+    expect(safeFetch).toHaveBeenCalledWith(
+      "https://images.example/huge.png",
+      expect.objectContaining({ maxBodyBytes: 4 * 1024 * 1024 }),
+    );
   });
 });

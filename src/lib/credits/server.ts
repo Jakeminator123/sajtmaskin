@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { createTransaction } from "@/lib/db/services/transactions";
+import {
+  createTransaction,
+  getTransactionByIdempotency,
+} from "@/lib/db/services/transactions";
 import { isTestUser } from "@/lib/db/services/users";
 import type { User } from "@/lib/db/services/shared";
 import {
@@ -40,6 +43,7 @@ export type CreditsEvaluation = {
   user: User | null;
   isTest: boolean;
   usingFreeGeneration: boolean;
+  usingExistingEntitlement: boolean;
   failureType?: "auth" | "insufficient";
   currentBalance?: number;
 };
@@ -48,13 +52,27 @@ async function evaluateCredits(
   req: Request,
   action: CreditAction,
   context: PricingContext = {},
-  options: { sessionId?: string | null; allowFreeGeneration?: boolean } = {},
+  options: {
+    sessionId?: string | null;
+    allowFreeGeneration?: boolean;
+    idempotencyKey?: string | null;
+  } = {},
 ): Promise<CreditsEvaluation> {
   const cost = getCreditCost(action, context);
   const user = await getCurrentUser(req);
 
   if (user) {
     const isTest = isTestUser(user);
+    const idempotencyKey = options.idempotencyKey?.trim() || null;
+    const usingExistingEntitlement = idempotencyKey
+      ? Boolean(
+          await getTransactionByIdempotency(
+            user.id,
+            getCreditTransactionType(action),
+            idempotencyKey,
+          ),
+        )
+      : false;
     // This is a preliminary request gate, not the authoritative entitlement
     // claim. Version settlement locks the user row, grants the entitlement to
     // at most one completed version, and rejects a concurrent paid loser when
@@ -64,7 +82,8 @@ async function evaluateCredits(
       options.allowFreeGeneration === true &&
       VERSION_SETTLED_GENERATION_ACTIONS.has(action) &&
       user.free_generation_available;
-    const canProceed = isTest || usingFreeGeneration || user.diamonds >= cost;
+    const canProceed =
+      isTest || usingFreeGeneration || usingExistingEntitlement || user.diamonds >= cost;
     return {
       allowed: canProceed,
       cost,
@@ -74,6 +93,7 @@ async function evaluateCredits(
       user,
       isTest,
       usingFreeGeneration,
+      usingExistingEntitlement,
       failureType: canProceed ? undefined : "insufficient",
       currentBalance: user.diamonds,
     };
@@ -86,6 +106,7 @@ async function evaluateCredits(
     user: null,
     isTest: false,
     usingFreeGeneration: false,
+    usingExistingEntitlement: false,
     failureType: "auth",
   };
 }
@@ -99,6 +120,7 @@ export type PreparedCredits =
       user: User;
       isTest: boolean;
       usingFreeGeneration: boolean;
+      usingExistingEntitlement: boolean;
       /**
        * Charge the credits. Pass `{ rejectIfNegative: true }` from charge-FIRST
        * call sites so a raced/insufficient debit throws `InsufficientCreditsError`
@@ -116,7 +138,11 @@ export async function prepareCredits(
   req: Request,
   action: CreditAction,
   context: PricingContext = {},
-  options: { sessionId?: string | null; allowFreeGeneration?: boolean } = {},
+  options: {
+    sessionId?: string | null;
+    allowFreeGeneration?: boolean;
+    idempotencyKey?: string | null;
+  } = {},
 ): Promise<PreparedCredits> {
   const evaluation = await evaluateCredits(req, action, context, options);
 
@@ -137,7 +163,12 @@ export async function prepareCredits(
   }
 
   const commit = async (commitOptions?: { rejectIfNegative?: boolean }) => {
-    if (evaluation.isTest || evaluation.usingFreeGeneration || evaluation.cost <= 0) return;
+    if (
+      evaluation.isTest ||
+      evaluation.usingFreeGeneration ||
+      evaluation.usingExistingEntitlement ||
+      evaluation.cost <= 0
+    ) return;
     await createTransaction(
       evaluation.user!.id,
       getCreditTransactionType(action),
@@ -145,12 +176,20 @@ export async function prepareCredits(
       getCreditDescription(action, context),
       undefined,
       undefined,
-      commitOptions,
+      {
+        ...commitOptions,
+        idempotencyKey: options.idempotencyKey,
+      },
     );
   };
 
   const refund = async () => {
-    if (evaluation.isTest || evaluation.usingFreeGeneration || evaluation.cost <= 0) return;
+    if (
+      evaluation.isTest ||
+      evaluation.usingFreeGeneration ||
+      evaluation.usingExistingEntitlement ||
+      evaluation.cost <= 0
+    ) return;
     await createTransaction(
       evaluation.user!.id,
       `${getCreditTransactionType(action)}_refund`,
@@ -167,6 +206,7 @@ export async function prepareCredits(
     user: evaluation.user!,
     isTest: evaluation.isTest,
     usingFreeGeneration: evaluation.usingFreeGeneration,
+    usingExistingEntitlement: evaluation.usingExistingEntitlement,
     commit,
     refund,
   };

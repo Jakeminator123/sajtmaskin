@@ -5,8 +5,8 @@
 > Source: `src/**/*.{ts,tsx}#resolvePhaseModel-literals`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:1f42f00790c45228 -->
-<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:d86cef922e896311 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:2893e79a9f210b53 -->
+<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:29ce856496533bd1 -->
 <!-- source-fingerprint: src/**/*.{ts,tsx}#resolvePhaseModel-literals sha256:df1d0e127dc60443 -->
 
 # Models
@@ -19,20 +19,20 @@ Canonical owner: committed AI-model manifest. Validator/runtime consumer: `getAi
 | Profile     | Default model     | Override env key             |
 | ----------- | ----------------- | ---------------------------- |
 | `anthropic` | `claude-opus-4.8` | `SAJTMASKIN_MODEL_ANTHROPIC` |
-| `codex`     | `gpt-5.3-codex`   | `SAJTMASKIN_MODEL_CODEX`     |
-| `max`       | `gpt-5.5`         | `SAJTMASKIN_MODEL_MAX`       |
+| `codex`     | `gpt-5.6-sol`     | `SAJTMASKIN_MODEL_CODEX`     |
+| `max`       | `gpt-5.6-sol`     | `SAJTMASKIN_MODEL_MAX`       |
 | `premium`   | `gpt-5.6-sol`     | `SAJTMASKIN_MODEL_PREMIUM`   |
-| `pro`       | `gpt-5.3-codex`   | `SAJTMASKIN_MODEL_PRO`       |
+| `pro`       | `gpt-5.6-sol`     | `SAJTMASKIN_MODEL_PRO`       |
 
 ## Quality mapping
 
 | Quality    | Own-engine model |
 | ---------- | ---------------- |
 | `light`    | `gpt-5.6-sol`    |
-| `max`      | `gpt-5.3-codex`  |
+| `max`      | `gpt-5.6-sol`    |
 | `premium`  | `gpt-5.6-sol`    |
-| `pro`      | `gpt-5.3-codex`  |
-| `standard` | `gpt-5.3-codex`  |
+| `pro`      | `gpt-5.6-sol`    |
+| `standard` | `gpt-5.6-sol`    |
 
 ## Briefing
 
@@ -54,8 +54,8 @@ A runtime caller is a non-test `src/` call to `resolvePhaseModel` or `resolvePha
 
 | Phase              | `anthropic`            | `codex`                | `max`                  | `premium`              | `pro`                  | Runtime caller                                                                                                                                                                                                                                 |
 | ------------------ | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deploy-assistant` | `claude-opus-4.8`      | `gpt-5.3-codex`        | `gpt-5.3-codex`        | `selected_build_model` | `gpt-5.3-codex`        | No                                                                                                                                                                                                                                             |
-| `fixer`            | `selected_build_model` | `selected_build_model` | `gpt-5.3-codex`        | `gpt-5.6-sol`          | `selected_build_model` | Yes (`src/app/api/engine/chats/[chatId]/repair/route.ts`, `src/lib/gen/autofix/llm-repair-gate.ts`, `src/lib/gen/verify/server-verify/repair-execution.ts`)                                                                                    |
-| `generator`        | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `gpt-5.3-codex`        | Yes (`src/lib/api/engine/chats/chat-message-stream/codegen-turn.ts`, `src/lib/api/engine/chats/create-chat-stream-post.ts`, `src/lib/own-engine/generate-site-from-prompt.ts`, `src/lib/own-engine/session/own-engine-pipeline-generation.ts`) |
-| `planner`          | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `gpt-5.3-codex`        | Yes (`src/lib/own-engine/session/own-engine-plan-mode.ts`, `src/lib/providers/own-engine/plan-mode-response.ts`)                                                                                                                               |
-| `verifier`         | `selected_build_model` | `gpt-5.3-codex`        | `gpt-5.3-codex`        | `selected_build_model` | `gpt-5.3-codex`        | Yes (`src/lib/gen/verify/verifier-pass.ts`)                                                                                                                                                                                                    |
+| `deploy-assistant` | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `gpt-5.6-terra`        | No                                                                                                                                                                                                                                             |
+| `fixer`            | `selected_build_model` | `gpt-5.6-sol`          | `gpt-5.6-sol`          | `gpt-5.6-sol`          | `gpt-5.6-terra`        | Yes (`src/app/api/engine/chats/[chatId]/repair/route.ts`, `src/lib/gen/autofix/llm-repair-gate.ts`, `src/lib/gen/verify/server-verify/repair-execution.ts`)                                                                                    |
+| `generator`        | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | Yes (`src/lib/api/engine/chats/chat-message-stream/codegen-turn.ts`, `src/lib/api/engine/chats/create-chat-stream-post.ts`, `src/lib/own-engine/generate-site-from-prompt.ts`, `src/lib/own-engine/session/own-engine-pipeline-generation.ts`) |
+| `planner`          | `claude-opus-4.8`      | `selected_build_model` | `selected_build_model` | `selected_build_model` | `selected_build_model` | Yes (`src/lib/own-engine/session/own-engine-plan-mode.ts`, `src/lib/providers/own-engine/plan-mode-response.ts`)                                                                                                                               |
+| `verifier`         | `selected_build_model` | `gpt-5.6-terra`        | `gpt-5.6-terra`        | `gpt-5.6-terra`        | `gpt-5.6-luna`         | Yes (`src/lib/gen/verify/verifier-pass.ts`)                                                                                                                                                                                                    |

@@ -1,9 +1,7 @@
 "use client";
 
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import type { ModelTier } from "@/lib/validations/chat-schemas";
 import {
-  MODEL_TIER_OPTIONS,
   getDefaultCustomInstructions,
   isDefaultCustomInstructions,
 } from "@/lib/builder/defaults";
@@ -35,12 +33,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Bot,
   ChevronDown,
   Download,
   FolderGit2,
   Github,
-  HelpCircle,
   Image as ImageIcon,
   Layers,
   Loader2,
@@ -69,13 +65,6 @@ const MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST = SCAFFOLD_CLIENT_LIST.filter(
 );
 
 export function BuilderHeader(props: {
-  selectedModelTier: ModelTier;
-  onSelectedModelTierChange: (tier: ModelTier) => void;
-
-  promptAssistModel: string;
-  promptAssistDeep: boolean;
-  canUseDeepBrief: boolean;
-
   scaffoldMode: ScaffoldMode;
   scaffoldId: string | null;
   onScaffoldModeChange: (mode: ScaffoldMode) => void;
@@ -155,11 +144,6 @@ export function BuilderHeader(props: {
   previewTools?: ReactNode;
 }) {
   const {
-    selectedModelTier,
-    onSelectedModelTierChange,
-    promptAssistModel: _promptAssistModel,
-    promptAssistDeep,
-    canUseDeepBrief,
     scaffoldMode,
     scaffoldId,
     onScaffoldModeChange,
@@ -220,8 +204,6 @@ export function BuilderHeader(props: {
   const isBusy = isAnyStreaming || isCreatingChat;
   const actionsLocked = isBusy || pipelineLocked;
   const isConfigLocked = isAnyStreaming;
-  const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
-  const modelButtonLabel = currentModel?.label || "AI";
   const scaffoldButtonLabel =
     scaffoldMode === "off"
       ? "Av"
@@ -233,8 +215,6 @@ export function BuilderHeader(props: {
   const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
-  const assistStatusSummary =
-    promptAssistDeep && canUseDeepBrief ? "Deep Brief aktiv" : "Deep Brief av";
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();
@@ -278,10 +258,6 @@ export function BuilderHeader(props: {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {/* Byggmodell-väljaren flyttade in i Mer → Inställningar 2026-07-31
-            (Ö1, meny-konsolidering N2) — ingen genväg eller kompakt etikett
-            kvar i headern. Vald profil syns första klicket in i Inställningar
-            (sub-triggerns "Byggmodell: <profil>"-etikett nedan). */}
         <DropdownMenu>
           <TooltipProvider>
             <Tooltip>
@@ -289,9 +265,9 @@ export function BuilderHeader(props: {
                 <DropdownMenuTrigger asChild>
                   {/* Triggern lämnas aktiv — varje item/submeny har egen spärr
                       (actionsLocked för import/export och Spara, isConfigLocked för
-                      inställningar och dess nästlade scaffold-/byggmodellval),
-                      så inställningar förblir nåbara under chat-skapande
-                      precis som tidigare. */}
+                      inställningar och dess nästlade scaffoldval), så
+                      inställningar förblir nåbara under chat-skapande precis
+                      som tidigare. */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -374,57 +350,6 @@ export function BuilderHeader(props: {
                     </DropdownMenuRadioGroup>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger disabled={isConfigLocked}>
-                    <Bot className="mr-2 h-4 w-4" />
-                    <span className="max-w-[160px] truncate">Byggmodell: {modelButtonLabel}</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-64">
-                    <DropdownMenuLabel className="flex items-center gap-2">
-                      <span>Byggmodell</span>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="text-muted-foreground ml-auto flex cursor-help items-center">
-                              <HelpCircle className="h-3 w-3" />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="left" className="max-w-xs">
-                            <p className="text-xs">
-                              Byggprofiler: Premium, Lagom, Tänker, Kod Max och Anthropic. Varje
-                              profil väljer en konkret modell i den egna motorn. Deep Brief-modellen
-                              är en hint till brief-lanen före första bygget — inte Prompt-assist-knappen.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </DropdownMenuLabel>
-                    {/* assistStatusSummary bodde tidigare bara i trigger-tooltipen
-                    på den fristående Modell-knappen. Den knappen är borta
-                    (Ö1), så det här är nu den enda ytan som visar
-                    Deep Brief-statusen. "Assist aktiv" är pensionerat —
-                    Prompt-assist är knappen bredvid Plan, inte brief-lanen. */}
-                    <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                      {assistStatusSummary}
-                    </DropdownMenuLabel>
-                    <DropdownMenuRadioGroup
-                      value={selectedModelTier}
-                      onValueChange={(v) => onSelectedModelTierChange(v as ModelTier)}
-                    >
-                      {MODEL_TIER_OPTIONS.map((option) => (
-                        <DropdownMenuRadioItem key={option.value} value={option.value}>
-                          <span className="font-medium">{option.label}</span>
-                          <span className="text-muted-foreground ml-2 text-xs">
-                            {option.description}
-                          </span>
-                          {option.hint && (
-                            <span className="text-primary ml-1 text-xs">({option.hint})</span>
-                          )}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Generering</DropdownMenuLabel>
                 <TooltipProvider>
@@ -443,8 +368,9 @@ export function BuilderHeader(props: {
                     </TooltipTrigger>
                     <TooltipContent side="left" className="max-w-xs">
                       <p className="text-xs">
-                        Aktiverar provider-reasoning. Premium använder GPT-5.6 Sol med high och
-                        pro-läge enligt fasinställningarna.
+                        Aktiverar provider-reasoning. Låg/Mellan/Hög kör GPT-5.6 Sol med
+                        medium/high/xhigh enligt fasinställningarna; reglaget vid chatten
+                        väljer väg.
                       </p>
                     </TooltipContent>
                   </Tooltip>

@@ -58,6 +58,7 @@ const EXPECTED_TABLES = [
   "users",
   "user_integrations",
   "transactions",
+  "wizard_runs",
   "guest_usage",
   "company_profiles",
   "template_cache",
@@ -239,6 +240,10 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
     { name: "transactions_stripe_session_idx", columns: ["stripe_session_id"] },
     { name: "idx_transactions_user_id", columns: ["user_id"] },
     { name: "idx_transactions_user_created", columns: ["user_id", "created_at"] },
+  ],
+  wizard_runs: [
+    { name: "idx_wizard_runs_user_id", columns: ["user_id"] },
+    { name: "wizard_runs_user_active_idx", columns: ["user_id"] },
   ],
   guest_usage: [{ name: "guest_usage_session_idx", columns: ["session_id"] }],
   company_profiles: [{ name: "idx_company_profiles_project", columns: ["project_id"] }],

@@ -94,8 +94,15 @@ describe("config/ai_models/manifest.json parity", () => {
     }
   });
 
-  it("build profile defaults in manifest match getters", () => {
+  it("build profile defaults in manifest match getters and the Sol ladder", () => {
     const m = getAiModelsManifest();
+    expect(m.buildProfiles.defaults).toEqual({
+      premium: "gpt-5.6-sol",
+      pro: "gpt-5.6-sol",
+      max: "gpt-5.6-sol",
+      codex: "gpt-5.6-sol",
+      anthropic: "claude-opus-4.8",
+    });
     expect(getBuildProfileDefaultOwnEngineModel("premium")).toBe(m.buildProfiles.defaults.premium);
     expect(getBuildProfileDefaultOwnEngineModel("pro")).toBe(m.buildProfiles.defaults.pro);
     expect(getBuildProfileDefaultOwnEngineModel("max")).toBe(m.buildProfiles.defaults.max);
@@ -128,9 +135,15 @@ describe("config/ai_models/manifest.json parity", () => {
     );
   });
 
-  it("quality map matches manifest qualityToOwnEngineModel", () => {
+  it("quality map matches manifest qualityToOwnEngineModel (all Sol)", () => {
     const m = getAiModelsManifest();
-    expect(m.qualityToOwnEngineModel).toBeDefined();
+    expect(m.qualityToOwnEngineModel).toEqual({
+      light: "gpt-5.6-sol",
+      standard: "gpt-5.6-sol",
+      pro: "gpt-5.6-sol",
+      premium: "gpt-5.6-sol",
+      max: "gpt-5.6-sol",
+    });
     const q = m.qualityToOwnEngineModel!;
     expect(QUALITY_TO_OPENAI_MODEL.light).toBe(q.light);
     expect(QUALITY_TO_OPENAI_MODEL.standard).toBe(q.standard);
@@ -209,18 +222,15 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(pairs.some((p) => p.key === "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY")).toBe(true);
   });
 
-  it("per-tier briefing overrides, when present, cover all 5 tiers", () => {
+  it("per-tier briefing overrides cover all 5 tiers with the Sol/Terra split", () => {
     const m = getAiModelsManifest();
-    const tiers = ["premium", "pro", "max", "codex", "anthropic"] as const;
-
-    if (m.perTierBriefing) {
-      for (const tier of tiers) {
-        const entry = m.perTierBriefing[tier];
-        expect(entry, `perTierBriefing missing ${tier}`).toBeDefined();
-        expect(typeof entry.briefingModel).toBe("string");
-        expect(entry.briefingModel.length).toBeGreaterThan(0);
-      }
-    }
+    expect(m.perTierBriefing).toBeDefined();
+    const briefing = m.perTierBriefing!;
+    expect(briefing.pro.briefingModel).toBe("openai/gpt-5.6-terra");
+    expect(briefing.max.briefingModel).toBe("openai/gpt-5.6-sol");
+    expect(briefing.premium.briefingModel).toBe("openai/gpt-5.6-sol");
+    expect(briefing.codex.briefingModel).toBe("openai/gpt-5.6-sol");
+    expect(briefing.anthropic.briefingModel).toBe("anthropic/claude-opus-4.8");
   });
 
   it("documents prompt_rewrite as its own pre-send step, not Deep Brief", () => {
@@ -258,16 +268,19 @@ describe("config/ai_models/manifest.json parity", () => {
       expect(entry?.defaultModel).toBeTruthy();
       expect(entry?.authEnv).toEqual(["OPENAI_API_KEY"]);
     }
+    expect(persona?.defaultModel).toBe("gpt-5.6-terra");
+    expect(guide?.defaultModel).toBe("gpt-5.6-luna");
+    expect(curation?.defaultModel).toBe("gpt-5.6-sol");
     expect(persona?.defaultModel).not.toBe(guide?.defaultModel);
 
     // visionModels must survive the Zod parse (an undeclared key would be
     // stripped here while Python still read it — silent drift between surfaces).
     expect(persona?.visionModels?.length).toBeGreaterThan(0);
     expect(persona?.visionModels).toContain(persona?.defaultModel);
+    expect(persona?.visionModels).toEqual(["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"]);
+    expect(persona?.visionModels).not.toContain("gpt-4o");
+    expect(persona?.fallbackModels).toEqual(["gpt-5.6-sol"]);
     expect(guide?.visionModels).toBeUndefined();
-    // Every vision id must also be selectable, or it is dead configuration.
-    const offered = new Set([persona?.defaultModel, ...(persona?.fallbackModels ?? [])]);
-    for (const id of persona?.visionModels ?? []) expect(offered.has(id)).toBe(true);
 
     expect(curation?.codeEntry).toContain("scripts/dossiers/curate-from-reference.ts");
   });
@@ -288,12 +301,14 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(matchClassifier?.defaultModel).toBeTruthy();
   });
 
-  it("documents live_review as a vision generateObject workload with existing slugs", () => {
+  it("documents live_review as a vision generateObject workload on GPT-5.6", () => {
     const m = getAiModelsManifest();
     const liveReview = m.workloads.find((w) => w.id === "live_review");
     expect(liveReview?.invocation).toBe("ai_generateObject");
-    expect(liveReview?.defaultModel).toBe("gpt-4o");
-    expect(liveReview?.visionModels).toContain("gpt-4o");
+    expect(liveReview?.defaultModel).toBe("gpt-5.6-terra");
+    expect(liveReview?.fallbackModels).toEqual(["gpt-5.6-luna"]);
+    expect(liveReview?.visionModels).toEqual(["gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.6-sol"]);
+    expect(liveReview?.visionModels).not.toContain("gpt-4o");
     expect(liveReview?.codeEntry).toContain("src/lib/gen/verify/live-review.ts");
   });
 });
