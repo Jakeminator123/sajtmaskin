@@ -280,7 +280,10 @@ export function buildGenerationQuote(rows: UsageRow[]): GenerationQuote {
       row.output_tokens,
       row.reasoning_tokens,
     ].some((value) => value !== null);
-    if (!hasTokenUsage) incompleteUsageIds.push(row.id);
+    // Failed calls are persisted even without tokens and will never gain any.
+    // Only a still-pending successful row (ok !== false, all token cols null)
+    // must block pricing as incomplete usage.
+    if (!hasTokenUsage && row.ok !== false) incompleteUsageIds.push(row.id);
 
     const frozenBreakdown =
       row.cost_breakdown &&
