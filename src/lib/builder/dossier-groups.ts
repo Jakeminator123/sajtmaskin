@@ -94,6 +94,10 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   "physics-3d": "interactive",
   "interactive-game": "interactive",
   "dashboard-charts": "interactive",
+  // Soft wave 1 (2026-09-02): pinned-scene scrollytelling and Matter.js DOM
+  // physics — explicit-ask-only, separate from parallax and from `physics-3d`.
+  "scroll-story": "interactive",
+  "physics-2d": "interactive",
   // Operations: fire-and-forget observability. `realtime`, `error-tracking`
   // and `image-generation` left the map 2026-08-06 when their sole provider
   // dossiers were parked 2026-08-06 (träd borttaget 2026-08-10; git-historik).

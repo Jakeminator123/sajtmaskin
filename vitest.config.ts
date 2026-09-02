@@ -53,6 +53,9 @@ export default defineConfig({
       "@clerk/nextjs/server": path.resolve(__dirname, "tests/stubs/clerk-nextjs-server.ts"),
       "@clerk/nextjs": path.resolve(__dirname, "tests/stubs/clerk-nextjs.tsx"),
       "@calcom/embed-react": path.resolve(__dirname, "tests/stubs/calcom-embed-react.tsx"),
+      // matter-physics-2d dossier: the generated site installs matter-js; the
+      // repo tests drive the stage through this inert, typed engine fake.
+      "matter-js": path.resolve(__dirname, "tests/stubs/matter-js.ts"),
     },
   },
   test: {

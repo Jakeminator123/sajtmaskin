@@ -84,6 +84,8 @@ describe("resolveDossierGroup", () => {
       "physics-3d": "interactive",
       "interactive-game": "interactive",
       "dashboard-charts": "interactive",
+      "scroll-story": "interactive",
+      "physics-2d": "interactive",
       // realtime / error-tracking / image-generation left the table
       // 2026-08-06 with their parked sole-provider dossiers.
       analytics: "ops",
