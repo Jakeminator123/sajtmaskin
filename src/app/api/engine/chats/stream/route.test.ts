@@ -183,7 +183,7 @@ vi.mock("@/lib/models/catalog", () => ({
   DEFAULT_OWN_MODEL_ID: "gpt-5.4",
   MODEL_LABELS: {
     "test-tier": "Test Tier",
-    premium: "Premium",
+    premium: "Hög",
   },
   canonicalModelIdToOwnModelId: () => "gpt-5.4",
   aliasRetiredModelId: (value: string) => value,

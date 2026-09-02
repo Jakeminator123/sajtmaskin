@@ -1,22 +1,49 @@
 # Own engine (byggprofiler)
 
-## Profiler, etiketter och Premium (GPT-5.6 Sol)
+## Profiler, etiketter och stegen Låg / Mellan / Hög
 
-- **Intern nyckel `premium`** heter **`Premium`** i buildern och kör
-  **`gpt-5.6-sol` i alla faser** (inkl. fixer). Planner och generator kör
-  `reasoningEffort: "high"`; båda använder Responses API och `reasoningMode: "pro"`.
-  Fixern hålls **utan thinking** (`thinking: false`) så reparationslatens
-  hålls begränsad. `gpt-5.6-terra` och `gpt-5.6-luna` är valbara per fas i backoffice.
-- **Intern nyckel `max`** (i kod och `manifest.json`) är **inte** engelska «Max» i UI. I buildern heter den **`Tänker`** och mappar standard till **`gpt-5.5`** (`buildProfiles.defaults.max`).
-- **`codex`** är en **egen** byggprofil (standardmodell `gpt-5.3-codex` enligt manifest — samma modell-id som `pro`, men med codex-tirets högre reasoning-effort i fasrouting). Inte samma som `max` (GPT-5.5). Vardagsläge för stark resonemangsmodell är `max` / GPT-5.5.
-- **Effort-balans (ägarbeslut 2026-08-19):** `pro`-tirets **generator** kör `reasoningEffort: "medium"` — dolda reasoning-tokens var halva output-notan för default-tirets codegen, och medium är OpenAI:s rekommenderade balans för agentic coding. `pro`-plannern behåller `high` (planering ÄR tänkandet). `codex`/`max`/`premium` behåller high-effort-generatorer som medvetet dyra lägen.
-- **`thinking` i SSE:** [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts) skickar fasens `reasoningEffort`, `reasoningSummary: "detailed"` och valfria `reasoningMode` när thinking är på. **Alla** OpenAI-modeller går via Responses API — i `@ai-sdk/openai` v3 är default-anropet `openai(id)` samma sak som `openai.responses(id)`; den explicita `.responses()`-grenen för GPT-5.6 är hängslen för `reasoningMode`.
-- **Synligt resonemang:** OpenAI exponerar aldrig rå chain-of-thought. `reasoningSummary: "detailed"` beställer i stället modellens omfattande sammanfattning (AI SDK: `auto` = kort, `detailed` = rik; mappas 1:1 till Responses `reasoning.summary`), som streamas som `reasoning-delta` → SSE-eventet `thinking` → chattens Reasoning-ruta (`MessageList.tsx`), samma väg som Anthropics riktiga thinking-deltas alltid tagit. Summary-tokens ingår i output-prissättningen som allt annat reasoning.
+- **En axel, en byggmodell.** Intern nyckel `pro` = **Låg**, `max` = **Mellan**,
+  `premium` = **Hög**. Alla tre kör **`gpt-5.6-sol`** som byggmodell
+  (`buildProfiles.defaults`). Skillnaden är `phaseRouting.thinkingByTier`:
+  generator-effort **medium → high → xhigh**, alltid `reasoningMode: "standard"`.
+  `codex` är en **dold** kompatibilitetsprofil som speglar Mellan och syns inte
+  i UI. `anthropic` är orörd (Opus 4.8 i alla faser).
+- **Sidofaser på 5.6-syskon.** Låg: Terra fixer + deploy-assistant, Luna
+  verifier. Mellan/Hög: Sol fixer, Terra verifier. Hög-fixern är
+  `thinking: false` men `reasoningEffort: "high"`. Alla OpenAI-verifiers kör
+  `thinking: false` / `low` — den tidigare Sol/high-verifierm passade 26 s p50
+  med ~90 % reasoning för en ~200-token-dom.
+- **`reasoningMode: "pro"` är inte längre default.** Prod `llm_usage`
+  28 jul–1 sep 2026 visade att Premiums Responses `reasoning.mode: pro` blåste
+  upp fakturerad input ~6× (142k vs 22k p50, ~40 % cache-träff). OpenAI:s
+  reasoning-guide säger att pro-läge «aggregates the model work performed» och
+  fakturerar allt. Läget finns kvar som val i backoffice, inte som
+  `thinkingByTier`-default.
+- **2026-08-19 medium-beslutet är ersatt.** Då sänktes bara Låg-generatorn till
+  medium medan plannern stod kvar på high och Mellan/Hög körde andra modeller.
+  Stegen 2026-09-02 är en enda effort-axel på Sol + billigare syskon på
+  sidofaserna. Lagom(codex, medium) hade krympt till ~4–5k content-tokens.
+- **`thinking` i SSE:** [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts)
+  skickar fasens `reasoningEffort`, `reasoningSummary: "detailed"` och valfria
+  `reasoningMode` när thinking är på. **Alla** OpenAI-modeller går via
+  Responses API — i `@ai-sdk/openai` v3 är default-anropet `openai(id)` samma
+  sak som `openai.responses(id)`; den explicita `.responses()`-grenen för
+  GPT-5.6 är hängslen för `reasoningMode`.
+- **Synligt resonemang:** OpenAI exponerar aldrig rå chain-of-thought.
+  `reasoningSummary: "detailed"` beställer modellens omfattande sammanfattning
+  (AI SDK: `auto` = kort, `detailed` = rik; mappas 1:1 till Responses
+  `reasoning.summary`), som streamas som `reasoning-delta` → SSE-eventet
+  `thinking` → chattens Reasoning-ruta (`MessageList.tsx`), samma väg som
+  Anthropics riktiga thinking-deltas. Summary-tokens ingår i output-priset.
 
 ## Flöde
 
-1. Användaren väljer **byggprofil** (`premium`, `pro`, `max`, `codex`, `anthropic`) i UI. Äldre `fast` normaliseras till `premium` vid inputgränsen.
-2. `canonicalModelIdToOwnModelId` i [`src/lib/models/catalog.ts`](../../src/lib/models/catalog.ts) mappar profilen till en **konkret modellsträng** (t.ex. `gpt-5.5` eller `claude-opus-4.8`).
+1. Användaren väljer **byggprofil** i UI (Låg / Mellan / Hög / Anthropic;
+   intern nyckel `pro` / `max` / `premium` / `anthropic`). `codex` finns bara
+   som dolt kompatibilitetsval. Äldre `fast` normaliseras till `premium`.
+2. `canonicalModelIdToOwnModelId` i [`src/lib/models/catalog.ts`](../../src/lib/models/catalog.ts)
+   mappar profilen till en **konkret modellsträng** (`gpt-5.6-sol` eller
+   `claude-opus-4.8`). Delad Sol-byggmodell reverse-mappar till `max` (Mellan).
 3. [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts) anropar `streamText` med modellen från [`getOpenAIModel`](../../src/lib/gen/models.ts) (namnet är historiskt — även Anthropic går här).
 
 ## Standardmodeller och env

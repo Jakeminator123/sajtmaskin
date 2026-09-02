@@ -110,7 +110,15 @@ export async function POST(request: NextRequest) {
         "User-Agent": "Mozilla/5.0 (compatible; Sajtmaskin/1.0)",
       },
       timeoutMs: 15_000,
+      maxBodyBytes: MAX_REMOTE_IMAGE_BYTES,
     });
+
+    if (response.status === 413) {
+      return NextResponse.json(
+        { success: false, error: "Bilden är för stor (max 4MB för Blob-preview)" },
+        { status: 400 },
+      );
+    }
 
     if (!response.ok) {
       return NextResponse.json(

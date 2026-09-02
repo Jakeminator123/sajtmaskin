@@ -35,7 +35,7 @@ import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
 } from "../preview-quality-gate";
-import { DEFAULT_MODEL_ID, ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
+import { DEFAULT_MODEL_ID, resolveChatModelTier } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import {
   LLM_FIXER_RETRY_TIMEOUT_MS,
@@ -422,7 +422,7 @@ export async function tryServerRepairLoop(params: {
   }
 
   const originatingChat = await getChat(chatId).catch(() => null);
-  const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
+  const originatingTier = resolveChatModelTier(originatingChat);
   // Bug 01#3 (2026-04-22 audit): fallback till default-tier (pro) när chat-
   // modellen inte mappar till en känd canonical tier. Tidigare blev fixerModel
   // `undefined` och runLlmFixer använde sin interna default — det bröt

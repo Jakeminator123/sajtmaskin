@@ -6,6 +6,7 @@ import streamlit as st
 
 from backoffice.shared import (
     BUILD_PROFILE_ORDER,
+    TIER_LABELS_SV,
     BackofficeContext,
     build_profile_defaults,
     human_model_label,
@@ -53,7 +54,11 @@ def render(ctx: BackofficeContext) -> None:
             bp = build_profile_defaults(manifest)
             st.dataframe(
                 [
-                    {"profil": tier, "standardmodell": human_model_label(bp.get(tier, ""))}
+                    {
+                        "profil": tier,
+                        "etikett": TIER_LABELS_SV.get(tier, tier),
+                        "standardmodell": human_model_label(bp.get(tier, "")),
+                    }
                     for tier in BUILD_PROFILE_ORDER
                 ],
                 width="stretch",
@@ -69,7 +74,10 @@ def render(ctx: BackofficeContext) -> None:
             phase_keys = ("planner", "generator", "fixer", "verifier", "deploy-assistant")
             pr_rows: list[dict[str, str]] = []
             for tier in BUILD_PROFILE_ORDER:
-                row: dict[str, str] = {"profil": tier}
+                row: dict[str, str] = {
+                    "profil": tier,
+                    "etikett": TIER_LABELS_SV.get(tier, tier),
+                }
                 for ph in phase_keys:
                     row[ph] = routing.get(tier, {}).get(ph, "—")
                 pr_rows.append(row)

@@ -140,11 +140,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
       <BuilderHeader
-        selectedModelTier={vm.selectedModelTier}
-        onSelectedModelTierChange={vm.setSelectedModelTier}
-        promptAssistModel={vm.promptAssistModel}
-        promptAssistDeep={vm.promptAssistDeep}
-        canUseDeepBrief={!vm.chatId}
         scaffoldMode={vm.scaffoldMode}
         scaffoldId={vm.scaffoldId}
         onScaffoldModeChange={vm.setScaffoldMode}
@@ -381,6 +376,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               mediaEnabled={vm.mediaEnabled}
               continuePlanMode={Boolean(latestPendingReply?.planMode)}
               followUpBaseInfo={followUpBaseInfo}
+              selectedModelTier={vm.selectedModelTier}
+              onSelectedModelTierChange={vm.setSelectedModelTier}
               previewModes={
                 vm.currentPreviewUrl
                   ? {
