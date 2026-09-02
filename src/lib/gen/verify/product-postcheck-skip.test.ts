@@ -52,6 +52,8 @@ describe("classifyProductPostcheckSkipReason — SM-072", () => {
       "capture_failed",
       "feature_disabled",
       "claim_busy",
+      "claim_unavailable",
+      "claim_settled",
     ]) {
       expect(classifyProductPostcheckSkipReason(reason), reason).toBe("infrastructure");
       expect(isInfrastructureSkipReason(reason), reason).toBe(true);
@@ -93,8 +95,10 @@ describe("classifyProductPostcheckSkipReason — SM-072", () => {
     expect(classifyProductPostcheckSkipReason(undefined)).toBe("product");
   });
 
-  it("claim_busy är icke-final och inte en produktverdikt", () => {
+  it("claim_busy/unavailable är icke-final; claim_settled är slut för tupeln", () => {
     expect(isNonFinalProductPostcheckSkipReason("claim_busy")).toBe(true);
+    expect(isNonFinalProductPostcheckSkipReason("claim_unavailable")).toBe(true);
+    expect(isNonFinalProductPostcheckSkipReason("claim_settled")).toBe(false);
     expect(isNonFinalProductPostcheckSkipReason("preview_not_running")).toBe(false);
   });
 

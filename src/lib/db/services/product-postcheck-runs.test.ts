@@ -103,6 +103,12 @@ describe("product-postcheck claim key helpers", () => {
       true,
     );
     expect(isTakeoverEligibleProductPostcheckRow({ status: "passed", expiresAt: future })).toBe(
+      false,
+    );
+    expect(isTakeoverEligibleProductPostcheckRow({ status: "blocked", expiresAt: future })).toBe(
+      false,
+    );
+    expect(isTakeoverEligibleProductPostcheckRow({ status: "failed", expiresAt: future })).toBe(
       true,
     );
   });
@@ -225,6 +231,31 @@ describe("claimProductPostcheckRun", () => {
       claimGeneration: 5,
       owner: "intruder",
     });
+  });
+
+  it("passed/blocked återtas inte — settled utan ny Chromium-slot", async () => {
+    const done = row({
+      run_id: "run_done",
+      claim_generation: 2,
+      status: "passed",
+    });
+    execute
+      .mockResolvedValueOnce(existsProbe())
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [done] });
+
+    const claim = await claimProductPostcheckRun({
+      chatId: "chat_1",
+      owner: "resume",
+      key: KEY,
+    });
+    expect(claim).toEqual({
+      kind: "settled",
+      runId: "run_done",
+      claimGeneration: 2,
+      status: "passed",
+    });
+    expect(execute).toHaveBeenCalledTimes(3);
   });
 });
 

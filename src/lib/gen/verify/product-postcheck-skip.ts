@@ -65,9 +65,16 @@ const INFRASTRUCTURE_SKIP_REASONS: ReadonlySet<string> = new Set([
   // L6: en annan POST äger redan Chromium-slotten för samma revisionstupel.
   // Ingen produktinformation — klienten ska försöka igen.
   "claim_busy",
+  // L6: claim-tabellen saknas eller probe/DB dog. Fail-closed, ingen Chromium.
+  "claim_unavailable",
+  // L6: tupeln är redan passed/blocked. Ingen ny produktinformation.
+  "claim_settled",
 ]);
 
-const NON_FINAL_SKIP_REASONS: ReadonlySet<string> = new Set(["claim_busy"]);
+const NON_FINAL_SKIP_REASONS: ReadonlySet<string> = new Set([
+  "claim_busy",
+  "claim_unavailable",
+]);
 
 /** Skip that is not a finished verdict for this revision tuple. */
 export function isNonFinalProductPostcheckSkipReason(

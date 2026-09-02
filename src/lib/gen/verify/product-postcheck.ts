@@ -67,7 +67,17 @@ export type ProductPostcheckSkipReason =
    * Another POST already holds the L6 single-flight claim for this
    * revision tuple. Non-final / retryable — not a product verdict.
    */
-  | "claim_busy";
+  | "claim_busy"
+  /**
+   * Claim table missing or DB probe failed. Non-final / retryable —
+   * fail-closed, no Chromium.
+   */
+  | "claim_unavailable"
+  /**
+   * A finished `passed`/`blocked` row already exists for this tuple.
+   * Final for this revision — do not start Chromium again.
+   */
+  | "claim_settled";
 
 export type ProductPostcheckWarning = {
   code: ProductPostcheckWarningCode;

@@ -227,6 +227,30 @@ describe.skipIf(!target.url)("product_postcheck_runs mot riktig Postgres", () =>
     expect(afterFresh.rows[0]?.status).toBe("passed");
     expect(afterFresh.rows[0]?.claim_generation).toBe(2);
     expect(afterFresh.rows[0]?.completed_at).toBeInstanceOf(Date);
+
+    const afterPassed = await claims.claimProductPostcheckRun({
+      chatId,
+      owner: "resume_after_pass",
+      key: claimKey,
+    });
+    expect(afterPassed).toMatchObject({
+      kind: "settled",
+      status: "passed",
+      runId: takeover.runId,
+      claimGeneration: 2,
+    });
+    const stillPassed = await pool.query<{
+      status: string;
+      claim_generation: number;
+      run_id: string;
+    }>(
+      `select status, claim_generation, run_id
+         from product_postcheck_runs where version_id = $1`,
+      [claimKey.versionId],
+    );
+    expect(stillPassed.rows[0]?.status).toBe("passed");
+    expect(stillPassed.rows[0]?.claim_generation).toBe(2);
+    expect(stillPassed.rows[0]?.run_id).toBe(takeover.runId);
   });
 
   it("UNIQUE-nyckeln inkluderar mutation_revision — annan mutation är ny claim", async () => {

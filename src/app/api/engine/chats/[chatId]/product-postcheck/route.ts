@@ -155,12 +155,36 @@ function claimBusyPostcheckResult(params: {
   };
 }
 
+function claimSettledPostcheckResult(params: {
+  previewUrl: string;
+  runId: string;
+  durationMs?: number | null;
+}): ProductPostcheckResult {
+  return {
+    ok: true,
+    skipped: true,
+    skippedReason: "claim_settled",
+    warnings: [],
+    warningCount: 0,
+    productBlocked: false,
+    routesChecked: 0,
+    durationMs: params.durationMs ?? 0,
+    checkedUrl: params.previewUrl,
+    screenshots: null,
+    domSummary: null,
+    attestation: null,
+    verificationRunId: params.runId,
+  };
+}
+
 function claimUnavailableResponse(): NextResponse {
   return NextResponse.json(
     {
       error: "Product postcheck claim unavailable (database error). Try again shortly.",
       code: "claim_unavailable",
       retryable: true,
+      skipped: true,
+      skippedReason: "claim_unavailable",
     },
     { status: 503, headers: { "Retry-After": "3" } },
   );
@@ -543,6 +567,15 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     if (claim.kind === "busy") {
       return NextResponse.json(
         claimBusyPostcheckResult({
+          previewUrl: resolvedPreviewUrl,
+          runId: claim.runId,
+          durationMs: Date.now() - routeStartedAt,
+        }),
+      );
+    }
+    if (claim.kind === "settled") {
+      return NextResponse.json(
+        claimSettledPostcheckResult({
           previewUrl: resolvedPreviewUrl,
           runId: claim.runId,
           durationMs: Date.now() - routeStartedAt,

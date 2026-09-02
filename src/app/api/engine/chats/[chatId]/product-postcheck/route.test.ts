@@ -913,7 +913,32 @@ describe("POST product-postcheck", () => {
       error: "Product postcheck claim unavailable (database error). Try again shortly.",
       code: "claim_unavailable",
       retryable: true,
+      skipped: true,
+      skippedReason: "claim_unavailable",
     });
+    expect(runProductPostcheck).not.toHaveBeenCalled();
+    expect(beginLiveReviewSession).not.toHaveBeenCalled();
+    expect(emitBusEvent).not.toHaveBeenCalled();
+  });
+
+  it("passed-rad → claim_settled, ingen andra Chromium", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    claimProductPostcheckRun.mockResolvedValue({
+      kind: "settled",
+      runId: "run_winner",
+      claimGeneration: 2,
+      status: "passed",
+    });
+
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.skippedReason).toBe("claim_settled");
+    expect(body.verificationRunId).toBe("run_winner");
+    expect(body.attestation).toBeNull();
     expect(runProductPostcheck).not.toHaveBeenCalled();
     expect(beginLiveReviewSession).not.toHaveBeenCalled();
     expect(emitBusEvent).not.toHaveBeenCalled();

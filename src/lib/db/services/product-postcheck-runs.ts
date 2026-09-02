@@ -49,6 +49,12 @@ export type ClaimedProductPostcheck =
       status: ProductPostcheckRunStatus;
     }
   | {
+      kind: "settled";
+      runId: string;
+      claimGeneration: number;
+      status: "passed" | "blocked";
+    }
+  | {
       kind: "unavailable";
       reason: "missing" | "unavailable" | "db_error" | "not_configured";
     };
@@ -105,12 +111,28 @@ export function isProductPostcheckClaimExpired(
   return now.getTime() >= ms;
 }
 
+const RETRYABLE_TERMINAL_STATUSES = new Set(["failed", "superseded", "expired"]);
+
+export function isSettledProductPostcheckStatus(
+  status: string,
+): status is "passed" | "blocked" {
+  return status === "passed" || status === "blocked";
+}
+
+/**
+ * Takeover is only for a dead holder: expired `running`, or a retryable
+ * terminal (`failed` / `superseded` / `expired`). `passed` / `blocked` are
+ * finished product verdicts — reclaiming them starts a second Chromium
+ * for the same tuple (resume after `claim_busy`).
+ */
 export function isTakeoverEligibleProductPostcheckRow(
   row: { status: string; expiresAt: Date | string },
   now: Date = new Date(),
 ): boolean {
-  if (row.status !== "running") return true;
-  return isProductPostcheckClaimExpired(row.expiresAt, now);
+  if (row.status === "running") {
+    return isProductPostcheckClaimExpired(row.expiresAt, now);
+  }
+  return RETRYABLE_TERMINAL_STATUSES.has(row.status);
 }
 
 export function mapProductPostcheckResultToStatus(
@@ -243,10 +265,20 @@ export async function claimProductPostcheckRun(input: {
     const existing = await selectClaimRow(key);
     if (!existing) return { kind: "unavailable", reason: "db_error" };
 
+    const existingMapped = mapClaimRow(existing);
+    if (isSettledProductPostcheckStatus(existingMapped.status)) {
+      return {
+        kind: "settled",
+        runId: existingMapped.runId,
+        claimGeneration: existingMapped.claimGeneration,
+        status: existingMapped.status,
+      };
+    }
+
     // Takeover authority is Postgres `now()`, not this process clock.
-    // Running + unexpired → 0 rows → busy. Expired running or any
-    // terminal row may be reclaimed; CAS on claim_generation serializes
-    // two concurrent takeovers.
+    // Running + unexpired → 0 rows → busy. Expired running or
+    // failed/superseded/expired may be reclaimed. passed/blocked never.
+    // CAS on claim_generation serializes two concurrent takeovers.
     const taken = asRows(
       await db.execute(sql`
         UPDATE product_postcheck_runs
@@ -263,7 +295,10 @@ export async function claimProductPostcheckRun(input: {
           AND lifecycle_token = ${key.lifecycleToken}
           AND mutation_revision = ${key.mutationRevision}
           AND claim_generation = ${Number(existing.claim_generation)}
-          AND (status <> 'running' OR expires_at <= now())
+          AND (
+            (status = 'running' AND expires_at <= now())
+            OR status IN ('failed', 'superseded', 'expired')
+          )
         RETURNING run_id, owner, claim_generation, status, expires_at
       `),
     );
@@ -279,6 +314,14 @@ export async function claimProductPostcheckRun(input: {
 
     const raced = (await selectClaimRow(key)) ?? existing;
     const row = mapClaimRow(raced);
+    if (isSettledProductPostcheckStatus(row.status)) {
+      return {
+        kind: "settled",
+        runId: row.runId,
+        claimGeneration: row.claimGeneration,
+        status: row.status,
+      };
+    }
     return {
       kind: "busy",
       runId: row.runId,

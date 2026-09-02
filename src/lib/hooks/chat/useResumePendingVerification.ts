@@ -14,6 +14,8 @@ import {
 } from "./post-checks";
 import type { ImageValidationResult } from "./post-checks-results";
 import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
+import { isNonFinalProductPostcheckSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
+import { parseRetryAfterMs } from "@/lib/builder/preview-bootstrap-retry";
 
 /**
  * Resume of the browser-driven F2 verify lane for stranded draft versions.
@@ -448,7 +450,18 @@ async function runResumeProductPostcheck(params: {
   productBlocked: boolean;
   blockerPersistFailed: boolean;
   superseded: boolean;
+  pendingHold: boolean;
+  alreadySettled: boolean;
+  retryAfterMs: number | null;
 }> {
+  const idle = {
+    productBlocked: false,
+    blockerPersistFailed: false,
+    superseded: false,
+    pendingHold: false,
+    alreadySettled: false,
+    retryAfterMs: null as number | null,
+  };
   let data: ProductPostcheckResult | null = null;
   try {
     const res = await fetch(`${engineChatBaseUrl(params.chatId)}/product-postcheck`, {
@@ -462,6 +475,21 @@ async function runResumeProductPostcheck(params: {
     });
     if (res.ok) {
       data = (await res.json().catch(() => null)) as ProductPostcheckResult | null;
+    } else if (res.status === 503) {
+      const body = (await res.json().catch(() => null)) as {
+        code?: string;
+        skippedReason?: string;
+      } | null;
+      if (
+        body?.code === "claim_unavailable" ||
+        body?.skippedReason === "claim_unavailable"
+      ) {
+        return {
+          ...idle,
+          pendingHold: true,
+          retryAfterMs: parseRetryAfterMs(res.headers, RESUME_VERIFY_RUNTIME_RETRY_MS),
+        };
+      }
     }
   } catch {
     // Persist the transport-level degradation below, then retry. Promoting on
@@ -473,15 +501,21 @@ async function runResumeProductPostcheck(params: {
       versionId: params.versionId,
       logs: buildProductPostcheckLogItems(null),
     });
-    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+    return { ...idle, superseded: true };
   }
-  if (data?.skippedReason === "preview_superseded") {
-    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+  if (data.skippedReason === "preview_superseded") {
+    return { ...idle, superseded: true };
   }
-  if (data && data.skippedReason !== "feature_disabled" && !data.attestation) {
+  if (isNonFinalProductPostcheckSkipReason(data.skippedReason)) {
+    return { ...idle, pendingHold: true };
+  }
+  if (data.skippedReason === "claim_settled") {
+    return { ...idle, alreadySettled: true };
+  }
+  if (data.skippedReason !== "feature_disabled" && !data.attestation) {
     // A current route response is always attested. Treat an older/unscoped
     // response as a retryable hold instead of promoting without durable proof.
-    return { productBlocked: false, blockerPersistFailed: false, superseded: true };
+    return { ...idle, superseded: true };
   }
   // Normal-lane parity: persist both a concrete result and a missing/transport
   // result. Without the summary row, a product-blocked resume would be
@@ -495,9 +529,9 @@ async function runResumeProductPostcheck(params: {
   });
   const productBlocked = data?.productBlocked === true;
   return {
+    ...idle,
     productBlocked,
     blockerPersistFailed: productBlocked && !persisted,
-    superseded: false,
   };
 }
 
@@ -724,6 +758,21 @@ export function useResumePendingVerification(params: {
           previewUrl,
           filesRevision,
         });
+        if (postcheck.pendingHold) {
+          // L6: claim_busy / claim_unavailable. Same-tab Chromium is already
+          // running or the claim table is briefly down — refund and wait.
+          // Do not treat this as superseded (that loop takeovers a passed
+          // row) and do not persist transport_error.
+          attemptsRef.current.set(versionId, attemptsUsed);
+          const waits = (runtimeWaitsRef.current.get(versionId) ?? 0) + 1;
+          runtimeWaitsRef.current.set(versionId, waits);
+          if (waits >= RESUME_VERIFY_MAX_RUNTIME_WAITS) {
+            consumeAllAttempts();
+            return;
+          }
+          scheduleRetry(postcheck.retryAfterMs ?? RESUME_VERIFY_RUNTIME_RETRY_MS);
+          return;
+        }
         if (postcheck.superseded) {
           // The inspected lifecycle was replaced while the browser work ran.
           // Refund the slot and retry against the new active tuple; never emit

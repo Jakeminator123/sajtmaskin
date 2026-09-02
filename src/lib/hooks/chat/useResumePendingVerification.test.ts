@@ -215,7 +215,12 @@ describe("useResumePendingVerification", () => {
   };
 
   function mockRoutes(params: {
-    postcheck?: { ok?: boolean; body?: unknown };
+    postcheck?: {
+      ok?: boolean;
+      status?: number;
+      body?: unknown;
+      headers?: Record<string, string>;
+    };
     qualityGate?: { ok?: boolean; status?: number; body?: unknown };
     errorLog?: { ok?: boolean };
     previewSession?: { ok?: boolean; body?: unknown };
@@ -233,9 +238,11 @@ describe("useResumePendingVerification", () => {
         };
       }
       if (u.includes("/product-postcheck")) {
+        const ok = params.postcheck?.ok ?? true;
         return {
-          ok: params.postcheck?.ok ?? true,
-          status: (params.postcheck?.ok ?? true) ? 200 : 500,
+          ok,
+          status: params.postcheck?.status ?? (ok ? 200 : 500),
+          headers: new Headers(params.postcheck?.headers),
           json: async () =>
             params.postcheck?.body ?? {
               skipped: false,
@@ -461,6 +468,83 @@ describe("useResumePendingVerification", () => {
     resolvePostcheck();
 
     await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+  });
+
+  it("holds on claim_busy without transport_error or quality-gate", async () => {
+    mockRoutes({
+      postcheck: {
+        body: {
+          ok: true,
+          skipped: true,
+          skippedReason: "claim_busy",
+          productBlocked: false,
+          warnings: [],
+          attestation: null,
+          verificationRunId: "run_winner",
+        },
+      },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/product-postcheck")).toHaveLength(1));
+    expect(callsTo("/error-log")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("holds on 503 claim_unavailable and does not persist transport_error", async () => {
+    mockRoutes({
+      postcheck: {
+        ok: false,
+        status: 503,
+        headers: { "Retry-After": "3" },
+        body: {
+          code: "claim_unavailable",
+          retryable: true,
+          skipped: true,
+          skippedReason: "claim_unavailable",
+        },
+      },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/product-postcheck")).toHaveLength(1));
+    expect(callsTo("/error-log")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("continues to quality-gate on claim_settled without a second Chromium persist", async () => {
+    mockRoutes({
+      postcheck: {
+        body: {
+          ok: true,
+          skipped: true,
+          skippedReason: "claim_settled",
+          productBlocked: false,
+          warnings: [],
+          attestation: null,
+          verificationRunId: "run_winner",
+        },
+      },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    expect(callsTo("/error-log")).toHaveLength(0);
   });
 
   it("holds the gate and persists a non-product diagnostic on transport failure", async () => {

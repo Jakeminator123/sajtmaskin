@@ -39,7 +39,10 @@ import type {
   ProductPostcheckAttestation,
   ProductPostcheckResult,
 } from "@/lib/gen/verify/product-postcheck";
-import { isInfrastructureSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
+import {
+  isInfrastructureSkipReason,
+  isNonFinalProductPostcheckSkipReason,
+} from "@/lib/gen/verify/product-postcheck-skip";
 import { MAX_SCOPED_IMAGE_URLS } from "@/lib/utils/validate-images-limit";
 
 /** Extra försök efter det första, bara vid en retryable 503. */
@@ -299,7 +302,32 @@ async function postProductPostcheckOnce(params: {
         signal,
       },
     );
-    if (!response.ok) return null;
+    if (!response.ok) {
+      if (response.status === 503) {
+        const body = (await response.json().catch(() => null)) as {
+          code?: string;
+          skippedReason?: string;
+        } | null;
+        if (
+          body?.code === "claim_unavailable" ||
+          body?.skippedReason === "claim_unavailable"
+        ) {
+          return {
+            ok: true,
+            skipped: true,
+            skippedReason: "claim_unavailable",
+            warnings: [],
+            warningCount: 0,
+            productBlocked: false,
+            routesChecked: 0,
+            durationMs: 0,
+            checkedUrl: previewUrl,
+            attestation: null,
+          };
+        }
+      }
+      return null;
+    }
     return (await response.json()) as ProductPostcheckResult;
   } catch (error) {
     if (isAbortError(error)) throw error;
@@ -1742,11 +1770,12 @@ export function shouldHoldBeforeProductPostcheck(
 function productPostcheckNeedsRetry(
   result: ProductPostcheckResult | null,
 ): boolean {
-  return (
-    !result ||
-    result.skippedReason === "preview_superseded" ||
-    (result.skippedReason !== "feature_disabled" && !result.attestation)
-  );
+  if (!result) return true;
+  if (result.skippedReason === "preview_superseded") return true;
+  if (isNonFinalProductPostcheckSkipReason(result.skippedReason)) return true;
+  if (result.skippedReason === "claim_settled") return false;
+  if (result.skippedReason === "feature_disabled") return false;
+  return !result.attestation;
 }
 
 /**
