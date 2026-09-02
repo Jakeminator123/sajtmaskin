@@ -9,13 +9,14 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/server/config.js && node --check src/server/http.js && node --check src/server/sessions.js && node --check src/server/storage.js && node --check src/server/routes.js && node --check src/server/create-server.js && node --check src/session-lifecycle.js && node --check src/runtime.js && node --check src/runtime/shared.js && node --check src/runtime/workspace-files.js && node --check src/runtime/package-install.js && node --check src/runtime/verify-jobs.js && node --check src/runtime/process-lifecycle.js && node --check src/runtime/preview-proxy.js && node --check src/runtime/storage-cleanup.js && node --check src/store.js && node --check src/validate.js && node --check src/prewarm-leases.js",
+    "check": "node --check src/server.js && node --check src/server/config.js && node --check src/server/http.js && node --check src/server/sessions.js && node --check src/server/storage.js && node --check src/server/routes.js && node --check src/server/create-server.js && node --check src/session-lifecycle.js && node --check src/runtime.js && node --check src/runtime/shared.js && node --check src/runtime/workspace-files.js && node --check src/runtime/package-install.js && node --check src/runtime/verify-jobs.js && node --check src/runtime/process-lifecycle.js && node --check src/runtime/inspect-bridge-src.js && node --check src/runtime/preview-proxy.js && node --check src/runtime/storage-cleanup.js && node --check src/store.js && node --check src/validate.js && node --check src/prewarm-leases.js",
     "smoke": "node scripts/smoke.js",
     "test:patch": "node scripts/test-patch.mjs",
     "test:proxy-contract": "node scripts/test-preview-proxy-contract.mjs",
     "test:next-source-contract": "node scripts/test-preview-proxy-contract.mjs --next-source-only",
     "test:swap-reload": "node scripts/test-runtime-swap-reload.mjs",
-    "test:guards": "node scripts/test-runtime-guards.mjs && node scripts/test-prewarm-guards.mjs && node scripts/test-patch-lane-contract.mjs && node scripts/test-session-lifecycle-race.mjs && node scripts/test-binary-workspace-materialization.mjs && npm run test:proxy-contract && npm run test:swap-reload"
+    "test:inspect-parent-allowlist": "node scripts/test-inspect-parent-allowlist.mjs",
+    "test:guards": "node scripts/test-runtime-guards.mjs && node scripts/test-prewarm-guards.mjs && node scripts/test-patch-lane-contract.mjs && node scripts/test-session-lifecycle-race.mjs && node scripts/test-binary-workspace-materialization.mjs && npm run test:inspect-parent-allowlist && npm run test:proxy-contract && npm run test:swap-reload"
   },
   "dependencies": {
     "acorn": "^8.16.0",
