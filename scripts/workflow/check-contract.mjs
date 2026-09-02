@@ -295,6 +295,18 @@ const DB_BLOB_PR_PATH_FLOOR = Object.freeze([
   "scripts/db/**/*.py",
 ]);
 const E2E_CONTRACT_SCRIPT = "playwright test -c playwright.deploy-smoke.config.ts --list";
+// Explicit allowlist: every current `*.stability.test.*` is deterministic
+// (no network/DB/wall-clock). A new file must be added here — there is no
+// silent warn-only path — so C2 cannot regress by exclusion.
+export const BLOCKING_STABILITY_TESTS = Object.freeze([
+  "src/lib/builder/aao-invariant.stability.test.ts",
+  "src/lib/builder/status-resolver-single-writer.stability.test.ts",
+  "src/lib/gen/autofix/rules/refuse-dossier-stubs.stability.test.ts",
+  "src/lib/gen/followup-capabilities.stability.test.ts",
+  "src/lib/gen/followup-freeze.stability.test.ts",
+  "src/lib/logging/false-green-projection.stability.test.ts",
+]);
+export const BLOCKING_STABILITY_SCRIPT = `vitest run -c vitest.stability.config.ts ${BLOCKING_STABILITY_TESTS.join(" ")}`;
 
 function hasExactStringSet(actual, expected) {
   if (!Array.isArray(actual) || actual.length !== expected.length) return false;
@@ -408,6 +420,23 @@ export function evaluateCiScopeWorkflow(source, packageScripts) {
   }
   if (packageScripts?.["test:e2e:contract"] !== E2E_CONTRACT_SCRIPT) {
     errors.push("test:e2e:contract must retain its exact Playwright discovery command");
+  }
+
+  const blockingStability = qualityCore?.steps?.find(
+    (step) => step.run === "npm run test:stability:blocking",
+  );
+  if (
+    !blockingStability ||
+    Object.hasOwn(blockingStability, "continue-on-error") ||
+    !hasExactExpression(blockingStability.if, "${{ !cancelled() }}")
+  ) {
+    errors.push("heavy quality-core must block on deterministic stability contracts");
+  }
+  if (packageScripts?.["test:stability:blocking"] !== BLOCKING_STABILITY_SCRIPT) {
+    errors.push("test:stability:blocking must run the explicit deterministic stability subset");
+  }
+  if (document?.jobs?.stability?.["continue-on-error"] !== true) {
+    errors.push("broad stability job must remain warn-only");
   }
 
   const qualityContracts = document?.jobs?.["quality-contracts"];
