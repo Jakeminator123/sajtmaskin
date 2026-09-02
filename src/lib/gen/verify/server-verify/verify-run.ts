@@ -3,6 +3,7 @@ import {
   promoteVersion,
   failVersionVerification,
   markVersionSupersededByRepair,
+  resetVersionVerificationToPending,
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
@@ -51,6 +52,13 @@ import {
 } from "./lease";
 import { logQualityGateFailuresBestEffort, partitionServerVerifyFailures } from "./failures";
 import { tryServerRepairLoop } from "./repair-execution";
+import {
+  evaluateServerOwnedF3Readiness,
+  loadServerVerifyF3ReadinessContext,
+  persistF3ReadinessHold,
+  resolveSnapshotFilesRevision,
+  type ServerVerifyF3ReadinessContext,
+} from "./f3-readiness";
 
 /**
  * Fire-and-forget server-side verification + capped repair loop.
@@ -148,6 +156,45 @@ export async function triggerServerVerification(params: {
     // (#291 Codex P1 — the first gate can `promoteVersion` before the repair
     // branch is ever reached).
     const previewPolicy = snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
+    const filesRevision = resolveSnapshotFilesRevision({
+      filesRevision: snapshot.filesRevision,
+      filesJson: baseFilesJson,
+    });
+    const parentVersionId = snapshot.parentVersionId ?? null;
+    let f3ReadinessContext: ServerVerifyF3ReadinessContext | null = null;
+    if (previewPolicy === "fidelity3") {
+      const loaded = await loadServerVerifyF3ReadinessContext(chatId);
+      if ("error" in loaded) {
+        await persistF3ReadinessHold({
+          chatId,
+          versionId,
+          filesRevision,
+          result: { ready: false, ok: false, reason: "readiness_unavailable", retryable: true },
+          at: "before_first_gate",
+        });
+        return;
+      }
+      f3ReadinessContext = loaded;
+      const readiness = await evaluateServerOwnedF3Readiness({
+        chatId,
+        versionId,
+        parentVersionId,
+        filesRevision,
+        preloadedFiles: codeFiles,
+        orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
+        projectId: f3ReadinessContext.projectId,
+      });
+      if (!readiness.ready) {
+        await persistF3ReadinessHold({
+          chatId,
+          versionId,
+          filesRevision,
+          result: readiness,
+          at: "before_first_gate",
+        });
+        return;
+      }
+    }
 
     await markVersionVerifying(versionId, undefined, runId).catch(() => null);
 
@@ -246,6 +293,44 @@ export async function triggerServerVerification(params: {
     // Green for the outcome bus signal / summary log when the VM gate passed OR
     // the advisory promotion actually took.
     const outcomeIsGreen = passed || advisoryPromoted;
+
+    // L1: F3 before_promotion must run BEFORE the passed bus + green
+    // `preflight:quality-gate` log. Otherwise UI (`reconcileTerminalDbState`)
+    // treats bus `done` as klar, and the stale watchdog
+    // (`isLatestGateVerdictGreen` → `promoteVersionIfUnleased`) can promote
+    // without this grind.
+    if (
+      passed &&
+      !advisoryPromoted &&
+      !diagnosticOnly &&
+      previewPolicy === "fidelity3" &&
+      f3ReadinessContext
+    ) {
+      const readiness = await evaluateServerOwnedF3Readiness({
+        chatId,
+        versionId,
+        parentVersionId,
+        filesRevision,
+        preloadedFiles: codeFiles,
+        orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
+        projectId: f3ReadinessContext.projectId,
+      });
+      if (!readiness.ready) {
+        await persistF3ReadinessHold({
+          chatId,
+          versionId,
+          filesRevision,
+          result: readiness,
+          at: "before_promotion",
+        });
+        await resetVersionVerificationToPending(
+          versionId,
+          `F3 readiness blocked (${readiness.reason}) at before_promotion.`,
+          runId,
+        ).catch(() => null);
+        return;
+      }
+    }
 
     // OMTAG-06: emit `version.verifier.done` as the canonical outcome
     // signal. The DB sink subscriber (see `event-bus-error-log-sink.ts`)
@@ -590,6 +675,14 @@ export async function triggerServerVerification(params: {
       }),
       repairLedger,
       repairScopeId,
+      f3Readiness:
+        previewPolicy === "fidelity3" && f3ReadinessContext
+          ? {
+              parentVersionId,
+              orchestrationSnapshot: f3ReadinessContext.orchestrationSnapshot,
+              projectId: f3ReadinessContext.projectId,
+            }
+          : null,
     });
     supersededByUserEdit = repairOutcome.supersededByUserEdit;
     reverifyForceBuildCheck = repairOutcome.buildOriginated;

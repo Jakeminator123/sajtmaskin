@@ -67,10 +67,17 @@ Aktuella checklistor per lane ägs av
    (`design_preview_skip_verify`).
 2. **Explicit route** `POST /api/engine/chats/[chatId]/quality-gate`.
    `lifecycle_stage` väljer lanen; klient-body kan varken upp- eller
-   nedgradera checks. För `integrationsBuild` kör routen först
-   `checkTier3ReadinessForVersion` (saknad env → 412
-   `tier3_env_not_ready`; `product_postcheck_blocked` från F2-föräldern
-   via `productPostcheckVersionId` → 409) innan VM-ReleaseGate.
+   nedgradera checks. För `integrationsBuild` kör routen först den
+   serverägda `checkTier3ReadinessForVersion`
+   (`src/lib/gen/verify/tier3-readiness.ts` — saknad env → 412
+   `tier3_env_not_ready`; saknad F2-parent / L2-dom
+   `blocked`/`pending`/`indeterminate`/`superseded` → 409; L6 `running`-claim
+   är `pending`) innan VM-ReleaseGate.
+   Samma funktion körs i `triggerServerVerification` och
+   `triggerBuildErrorRepair` under lease mot exakt `filesRevision`:
+   före första F3-gaten, efter varje reparation och omedelbart före
+   varje F3-promotion. Klientens skip av `/quality-gate` för
+   integrationsversioner hoppar inte över grinden.
 3. **Efter repair** — både `server-verify` och `/repair` re-kör samma gate.
 4. **Browser-resume** (`useResumePendingVerification`): strandade F2-drafts
    och **importerade basversioner** (`edit_kind="imported_repo"` —

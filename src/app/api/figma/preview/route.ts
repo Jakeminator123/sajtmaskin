@@ -1,4 +1,5 @@
 import { FEATURES, SECRETS } from "@/lib/config";
+import { getCurrentUser } from "@/lib/auth/auth";
 import { requireNotBot } from "@/lib/bot-protection";
 import { FIGMA_PREVIEW_NOT_CONFIGURED } from "@/lib/api/figma-preview-contract";
 import { withRateLimit } from "@/lib/rate-limit";
@@ -97,6 +98,10 @@ async function fetchWithTimeout(url: string, options: RequestInit) {
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser(request);
+  if (!user) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
   return withRateLimit(request, "figma:preview", async () => {
     const botError = requireNotBot(request);
     if (botError) return botError;
@@ -261,5 +266,5 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
-  });
+  }, { userId: user.id });
 }

@@ -19,6 +19,12 @@ import {
 } from "./lease";
 import { logQualityGateFailuresBestEffort } from "./failures";
 import { tryServerRepairLoop } from "./repair-execution";
+import {
+  evaluateServerOwnedF3Readiness,
+  loadServerVerifyF3ReadinessContext,
+  persistF3ReadinessHold,
+  resolveSnapshotFilesRevision,
+} from "./f3-readiness";
 import { triggerServerVerification } from "./verify-run";
 
 /**
@@ -81,7 +87,8 @@ export type BuildErrorRepairOutcome = {
     | "lease_busy"
     | "lease_unavailable"
     | "not_latest"
-    | "no_files";
+    | "no_files"
+    | "f3_readiness_hold";
 };
 
 export async function triggerBuildErrorRepair(params: {
@@ -191,6 +198,59 @@ export async function triggerBuildErrorRepair(params: {
     const codeFiles = snapshot.files;
     const baseFilesJson = snapshot.filesJson;
     baseFilesJsonForRecovery = baseFilesJson;
+    const previewPolicy =
+      snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
+    const filesRevision = resolveSnapshotFilesRevision({
+      filesRevision: snapshot.filesRevision,
+      filesJson: baseFilesJson,
+    });
+    const parentVersionId = snapshot.parentVersionId ?? null;
+    let f3Readiness: {
+      parentVersionId: string | null;
+      orchestrationSnapshot: unknown;
+      projectId: string | null;
+    } | null = null;
+    if (previewPolicy === "fidelity3") {
+      const loaded = await loadServerVerifyF3ReadinessContext(chatId);
+      if ("error" in loaded) {
+        await persistF3ReadinessHold({
+          chatId,
+          versionId,
+          filesRevision,
+          result: { ready: false, ok: false, reason: "readiness_unavailable", retryable: true },
+          at: "before_first_gate",
+        });
+        skippedReason = "f3_readiness_hold";
+        started = false;
+        return { started, repairAvailable, skippedReason };
+      }
+      const readiness = await evaluateServerOwnedF3Readiness({
+        chatId,
+        versionId,
+        parentVersionId,
+        filesRevision,
+        preloadedFiles: codeFiles,
+        orchestrationSnapshot: loaded.orchestrationSnapshot,
+        projectId: loaded.projectId,
+      });
+      if (!readiness.ready) {
+        await persistF3ReadinessHold({
+          chatId,
+          versionId,
+          filesRevision,
+          result: readiness,
+          at: "before_first_gate",
+        });
+        skippedReason = "f3_readiness_hold";
+        started = false;
+        return { started, repairAvailable, skippedReason };
+      }
+      f3Readiness = {
+        parentVersionId,
+        orchestrationSnapshot: loaded.orchestrationSnapshot,
+        projectId: loaded.projectId,
+      };
+    }
     const failureCodeSuffix = buildError.failureCode ? ` [${buildError.failureCode}]` : "";
     const failedOutput: ServerVerifyFailedOutput = {
       check: "build",
@@ -208,7 +268,8 @@ export async function triggerBuildErrorRepair(params: {
       versionId,
       codeFiles,
       baseFilesJson,
-      previewPolicy: snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2",
+      previewPolicy,
+      f3Readiness,
       failedOutputs: [failedOutput],
       verifyLaneDurationMs: 0,
       firstFailureCheck: "build",

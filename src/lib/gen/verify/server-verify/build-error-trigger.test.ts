@@ -19,6 +19,9 @@ const isLatestVersionForChat = vi.hoisted(() => vi.fn());
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
 const logQualityGateFailuresBestEffort = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
+const loadServerVerifyF3ReadinessContext = vi.hoisted(() => vi.fn());
+const evaluateServerOwnedF3Readiness = vi.hoisted(() => vi.fn());
+const persistF3ReadinessHold = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({ failVersionVerification }));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
@@ -35,6 +38,18 @@ vi.mock("./lease", () => ({
 vi.mock("@/lib/logging/event-bus", () => ({ emit: emitBusEvent }));
 vi.mock("@/lib/logging/event-bus-subscribers", () => ({}));
 vi.mock("@/lib/logging/event-bus-error-log-sink", () => ({}));
+vi.mock("./f3-readiness", () => ({
+  loadServerVerifyF3ReadinessContext,
+  evaluateServerOwnedF3Readiness,
+  persistF3ReadinessHold,
+  resolveSnapshotFilesRevision: ({
+    filesRevision,
+    filesJson,
+  }: {
+    filesRevision?: string | null;
+    filesJson: string;
+  }) => filesRevision?.trim() || `md5:${filesJson.length}`,
+}));
 
 import { triggerBuildErrorRepair } from "./build-error-trigger";
 
@@ -68,6 +83,16 @@ beforeEach(() => {
   failVersionVerification.mockResolvedValue(undefined);
   getVersionFilesSnapshot.mockResolvedValue(snapshot(BASE_FILES_JSON));
   triggerServerVerification.mockResolvedValue(undefined);
+  loadServerVerifyF3ReadinessContext.mockResolvedValue({
+    orchestrationSnapshot: null,
+    projectId: "proj_1",
+  });
+  evaluateServerOwnedF3Readiness.mockResolvedValue({
+    ready: true,
+    ok: true,
+    spec: { requirements: [] },
+  });
+  persistF3ReadinessHold.mockResolvedValue(undefined);
 });
 
 describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => {
@@ -140,5 +165,37 @@ describe("triggerBuildErrorRepair — terminalt tillstånd efter krasch", () => 
 
     expect(failVersionVerification).not.toHaveBeenCalled();
     expect(outcome.started).toBe(true);
+  });
+
+  it("L1: F3-readiness-hold startar ingen repair och promoverar inte", async () => {
+    getVersionFilesSnapshot.mockResolvedValue({
+      ...snapshot(BASE_FILES_JSON),
+      lifecycleStage: "integrations",
+      filesRevision: "rev_f3",
+      parentVersionId: "ver_f2",
+    });
+    evaluateServerOwnedF3Readiness.mockResolvedValue({
+      ready: false,
+      ok: false,
+      reason: "missing_env",
+      retryable: false,
+      spec: { requirements: [] },
+      readiness: { ready: false, missingByIntegration: [] },
+    });
+
+    const outcome = await run();
+
+    expect(outcome).toEqual({
+      started: false,
+      repairAvailable: false,
+      skippedReason: "f3_readiness_hold",
+    });
+    expect(tryServerRepairLoop).not.toHaveBeenCalled();
+    expect(persistF3ReadinessHold).toHaveBeenCalledWith(
+      expect.objectContaining({
+        at: "before_first_gate",
+        result: expect.objectContaining({ reason: "missing_env" }),
+      }),
+    );
   });
 });

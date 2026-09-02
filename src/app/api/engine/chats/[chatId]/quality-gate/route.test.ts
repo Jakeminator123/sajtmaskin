@@ -82,8 +82,29 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   resetVersionVerificationToPending,
 }));
 
-vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
+vi.mock("@/lib/gen/verify/tier3-readiness", () => ({
   checkTier3ReadinessForVersion,
+  serverOwnedF3ReadinessParams: (input: {
+    versionId: string;
+    chatId: string;
+    parentVersionId: string | null;
+    filesRevision: string | null;
+    preloadedFiles: unknown;
+    orchestrationSnapshot: unknown;
+    projectId: string | null;
+    previewIdentity?: unknown;
+  }) => ({
+    versionId: input.versionId,
+    chatId: input.chatId,
+    parentVersionId: input.parentVersionId,
+    requireF2Parent: true,
+    filesRevision: input.filesRevision,
+    preloadedFiles: input.preloadedFiles,
+    productPostcheckVersionId: input.parentVersionId ?? undefined,
+    orchestrationSnapshot: input.orchestrationSnapshot,
+    projectId: input.projectId,
+    previewIdentity: input.previewIdentity ?? undefined,
+  }),
 }));
 
 vi.mock("@/lib/gen/export/build-exportable-project", () => ({
@@ -127,6 +148,7 @@ describe("POST quality-gate", () => {
     isPreferredHeadVersion.mockResolvedValue(true);
     getVersionById.mockResolvedValue({ id: "ver-f2", chat_id: "chat-1" });
     checkTier3ReadinessForVersion.mockResolvedValue({
+      ready: true,
       ok: true,
       spec: { requirements: [] },
     });
@@ -590,7 +612,11 @@ describe("POST quality-gate", () => {
     getVersionFiles.mockResolvedValue([
       { path: "app/page.tsx", content: "export default function Page(){}" },
     ]);
-    checkTier3ReadinessForVersion.mockResolvedValue({ ok: true, spec: { requirements: [] } });
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ready: true,
+      ok: true,
+      spec: { requirements: [] },
+    });
     isQualityGateConfigured.mockReturnValue(true);
     buildExportableProject.mockResolvedValue([
       { path: "app/page.tsx", content: "export default function Page(){}" },
@@ -1346,6 +1372,7 @@ describe("POST quality-gate", () => {
     getVersionFiles.mockResolvedValue(snapshotFiles);
     isQualityGateConfigured.mockReturnValue(true);
     checkTier3ReadinessForVersion.mockResolvedValue({
+      ready: true,
       ok: true,
       spec: { requirements: [] },
     });
@@ -1569,10 +1596,15 @@ describe("POST quality-gate", () => {
     // Readiness is fed the SAME fileset the route read once under the lease.
     expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith({
       versionId: "ver-1",
+      chatId: "chat-1",
+      parentVersionId: "ver-f2",
+      requireF2Parent: true,
+      filesRevision: null,
       productPostcheckVersionId: "ver-f2",
       orchestrationSnapshot: { selectedDossierIds: ["openai-chat"] },
       projectId: "project-1",
       preloadedFiles: [{ path: "app/page.tsx", content: "export default function Page(){}" }],
+      previewIdentity: undefined,
     });
     expect(await res.json()).toMatchObject({ passed: true, promoted: true });
   });

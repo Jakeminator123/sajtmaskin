@@ -200,6 +200,43 @@ function isFilesRevisionCatchUpCandidate(
  * writes files, flips `readinessState` to `starting`, and re-probes
  * asynchronously while the previous boot still serves.
  */
+/**
+ * L7 exact preview identity. `running` alone is not ready — the host must
+ * also be `readinessState=ready`, `httpReady=true`, same version/filesRevision,
+ * and a real session. Session/lifecycle/mutation are matched only when the
+ * caller supplies them.
+ */
+export function matchesExactPreviewReadinessTuple(
+  probe: ProductPostcheckPreviewProbe,
+  expected: {
+    versionId: string;
+    filesRevision: string;
+    previewSessionId?: string | null;
+    lifecycleToken?: string | null;
+    mutationRevision?: number | null;
+  },
+): boolean {
+  return isProductPostcheckPreviewTupleReady(probe, {
+    versionId: expected.versionId.trim(),
+    filesRevision: expected.filesRevision.trim(),
+    previewSessionId: normalizeToken(expected.previewSessionId),
+    hasSessionExpectation: Object.prototype.hasOwnProperty.call(
+      expected,
+      "previewSessionId",
+    ),
+    lifecycleToken: normalizeToken(expected.lifecycleToken),
+    hasLifecycleExpectation: Object.prototype.hasOwnProperty.call(
+      expected,
+      "lifecycleToken",
+    ),
+    mutationRevision: parseExpectedMutationRevision(expected.mutationRevision),
+    hasMutationExpectation: Object.prototype.hasOwnProperty.call(
+      expected,
+      "mutationRevision",
+    ),
+  });
+}
+
 function isProductPostcheckPreviewTupleReady(
   probe: ProductPostcheckPreviewProbe,
   expected: PreviewTupleExpectation,
