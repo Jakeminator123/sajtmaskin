@@ -79,13 +79,12 @@ vi.mock("@/lib/db/services/live-review-runs", () => ({
   deleteLiveReviewScreenshotUrls,
 }));
 
-vi.mock("@/lib/db/services/product-postcheck-runs", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/db/services/product-postcheck-runs")>();
-  return {
-    ...actual,
-    claimProductPostcheckRun,
-    completeProductPostcheckRun,
-    mapProductPostcheckResultToStatus: (result: {
+// Do not `importOriginal` this module: it loads `@/lib/db/client` at import
+// time, and `test:ci` has no POSTGRES_URL (DB steps are a later job).
+vi.mock("@/lib/db/services/product-postcheck-runs", () => ({
+  claimProductPostcheckRun,
+  completeProductPostcheckRun,
+  mapProductPostcheckResultToStatus: (result: {
     skipped: boolean;
     skippedReason: string | null;
     productBlocked: boolean;
@@ -95,10 +94,58 @@ vi.mock("@/lib/db/services/product-postcheck-runs", async (importOriginal) => {
     if (result.skipped) return "failed";
     return "passed";
   },
-    normalizeProductPostcheckMutationRevision: (value: number | null | undefined) =>
-      typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : 0,
-  };
-});
+  normalizeProductPostcheckMutationRevision: (value: number | null | undefined) =>
+    typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : 0,
+  productPostcheckResultFromSettledClaim: (params: {
+    status: "passed" | "blocked" | "failed";
+    runId: string;
+    previewUrl: string;
+    durationMs?: number | null;
+    attestation?: {
+      previewSessionId: string;
+      lifecycleToken: string | null;
+      filesRevision: string;
+    } | null;
+  }) => {
+    const pointer = {
+      verificationRunId: params.runId,
+      activeRunId: params.runId,
+      claimStatus: params.status,
+    };
+    if (params.status === "failed") {
+      return {
+        ok: true,
+        skipped: true,
+        skippedReason: "claim_settled",
+        warnings: [],
+        warningCount: 0,
+        productBlocked: false,
+        routesChecked: 0,
+        durationMs: params.durationMs ?? 0,
+        checkedUrl: params.previewUrl,
+        screenshots: null,
+        domSummary: null,
+        attestation: null,
+        ...pointer,
+      };
+    }
+    return {
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: params.status === "blocked",
+      routesChecked: 0,
+      durationMs: params.durationMs ?? 0,
+      checkedUrl: params.previewUrl,
+      screenshots: null,
+      domSummary: null,
+      attestation: params.attestation ?? null,
+      ...pointer,
+    };
+  },
+}));
 
 function req(body: unknown): Request {
   return new Request("http://localhost/api/engine/chats/chat_1/product-postcheck", {
