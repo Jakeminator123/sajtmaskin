@@ -93,6 +93,12 @@ describe("isResolvedAddressPrivate", () => {
     expect(isResolvedAddressPrivate("::ffff:c000:201")).toBe(true); // 192.0.2.1
   });
 
+  it("classifies deprecated IPv4-compatible ::a.b.c.d via the embedded IPv4", () => {
+    expect(isResolvedAddressPrivate("::10.0.0.1")).toBe(true);
+    expect(isResolvedAddressPrivate("::169.254.169.254")).toBe(true);
+    expect(isResolvedAddressPrivate("::8.8.8.8")).toBe(false);
+  });
+
   it("fails closed on unparseable addresses", () => {
     expect(isResolvedAddressPrivate("not-an-ip")).toBe(true);
     expect(isResolvedAddressPrivate("")).toBe(true);

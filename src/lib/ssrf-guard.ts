@@ -216,7 +216,7 @@ export async function safeFetch(
     }
 
     let method = (rest.method ?? "GET").toUpperCase();
-    let headers = headersToRecord(rest.headers);
+    const headers = headersToRecord(rest.headers);
     let body = await requestBodyToBuffer(rest.body);
     let redirectCount = 0;
 

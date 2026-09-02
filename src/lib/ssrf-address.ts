@@ -121,6 +121,11 @@ function isPrivateIpv6(host: string): boolean {
   const unspecified = hextets.every((value) => value === 0);
   const loopback = hextets.slice(0, 7).every((value) => value === 0) && hextets[7] === 1;
   if (unspecified || loopback) return true;
+  // Deprecated IPv4-compatible `::a.b.c.d` (first 96 bits zero). Node treats
+  // the literal as IPv6 and skips DNS, so the embedded IPv4 must be classified.
+  if (hextets.slice(0, 6).every((value) => value === 0)) {
+    return isPrivateIpv4(hextetsToIpv4(hextets[6] ?? 0, hextets[7] ?? 0));
+  }
 
   // Well-known NAT64 prefix. A local translator would turn the last 32 bits
   // into an IPv4 connect, so the prefix is never a safe global destination.
