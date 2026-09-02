@@ -58,7 +58,7 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
   beforeEach(() => {
     vi.clearAllMocks();
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
-      version: { id: "ver_1" },
+      version: { id: "ver_1", files_revision: "rev_n" },
     });
     getVersionFiles.mockResolvedValue([
       { path: "app/page.tsx", content: `<img src="${DEAD_URL}" alt="Studio" />`, language: "tsx" },
@@ -233,5 +233,57 @@ describe("POST validate-images — autoFix gating of the known-dead map", () => 
     const body = (await res.json()) as { code?: string; retryable?: boolean };
     expect(body.code).toBe("version_busy");
     expect(body.retryable).toBe(true);
+  });
+
+  it("distinguishes replacedCount from persisted and returns the new filesRevision", async () => {
+    getEngineVersionForChatByIdForRequest
+      .mockResolvedValueOnce({ version: { id: "ver_1", files_revision: "rev_old" } })
+      .mockResolvedValueOnce({ version: { id: "ver_1", files_revision: "rev_new" } });
+
+    const res = await POST(postRequest({ versionId: "ver_1", autoFix: true }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = (await res.json()) as {
+      replacedCount?: number;
+      persisted?: boolean;
+      fixed?: boolean;
+      filesRevision?: string;
+    };
+    expect(res.status).toBe(200);
+    expect(body.replacedCount).toBe(1);
+    expect(body.persisted).toBe(true);
+    expect(body.fixed).toBe(true);
+    expect(body.filesRevision).toBe("rev_new");
+  });
+
+  it("reports replacedCount without persisted when the write is a no-op", async () => {
+    updateVersionFiles.mockResolvedValue(false);
+    const res = await POST(postRequest({ versionId: "ver_1", autoFix: true }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = (await res.json()) as {
+      replacedCount?: number;
+      persisted?: boolean;
+      fixed?: boolean;
+    };
+    expect(body.replacedCount).toBe(1);
+    expect(body.persisted).toBe(false);
+    expect(body.fixed).toBe(false);
+    expect(updateVersionFiles).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not persist replacements when the request is already aborted", async () => {
+    const aborted = new Request("http://localhost/api/engine/chats/chat_1/validate-images", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ versionId: "ver_1", autoFix: true }),
+      signal: AbortSignal.abort(),
+    });
+    const res = await POST(aborted, { params: Promise.resolve({ chatId: "chat_1" }) });
+    const body = (await res.json()) as { persisted?: boolean; replacedCount?: number; fixed?: boolean };
+    expect(body.replacedCount).toBe(1);
+    expect(body.persisted).toBe(false);
+    expect(body.fixed).toBe(false);
+    expect(updateVersionFiles).not.toHaveBeenCalled();
   });
 });

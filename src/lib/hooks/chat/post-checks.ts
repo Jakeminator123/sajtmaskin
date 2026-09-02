@@ -14,6 +14,9 @@ import { resolvePreviousVersionId } from "./post-checks-diff";
 import {
   fetchChatFiles,
   fetchChatVersions,
+  resyncPreviewForRevision,
+  bindTimeoutSignal,
+  VALIDATE_IMAGES_TIMEOUT_MS,
 } from "./post-checks-fetch";
 import {
   buildPostCheckArtifacts,
@@ -104,9 +107,10 @@ function appendAbortedQualityGateCard(
  * `product_postcheck.summary` row that `PreviewPanelF3Trigger` reads to block
  * F3 on product-blocked versions (Codex P1 on #353).
  *
- * Returns whether the write verifiably succeeded (2xx). The normal lane
- * stays fire-and-forget, but the resume lane must fail closed when a
- * product-BLOCKER row could not be persisted (Codex P1 round 4).
+ * Returns whether the write verifiably succeeded (2xx). Both the generation
+ * tail and the resume lane await this write before `/quality-gate`. When a
+ * product-BLOCKER row could not be persisted the caller fail-closes
+ * (`blockerPersistFailed`) and leaves the version pending (Codex P1 round 4).
  *
  * **Retryar på 503 (spår B).** Routen degraderar medvetet till
  * `503 row_contention` + `Retry-After` när verify/lease håller `FOR UPDATE` på
@@ -184,6 +188,7 @@ async function validateImages(params: {
   urls?: string[];
 }): Promise<ImageValidationResult | null> {
   const { chatId, versionId, signal, urls } = params;
+  const bound = bindTimeoutSignal(signal, VALIDATE_IMAGES_TIMEOUT_MS);
   try {
     const response = await fetch(
       `${engineChatBaseUrl(chatId)}/validate-images`,
@@ -195,14 +200,27 @@ async function validateImages(params: {
           autoFix: true,
           ...(urls && urls.length > 0 ? { urls } : {}),
         }),
-        signal,
+        signal: bound.signal,
       },
     );
-    if (!response.ok) return null;
-    return (await response.json()) as ImageValidationResult;
+    const body = (await response.json().catch(() => null)) as ImageValidationResult | null;
+    if (!response.ok) return interpretValidateImagesHttp(response.status, body);
+    return body;
   } catch (error) {
-    if (isAbortError(error)) throw error;
-    return null;
+    if (isAbortError(error)) {
+      if (signal.aborted) throw error;
+      return {
+        replacedCount: 0,
+        persisted: false,
+        filesRevision: null,
+        timeout: true,
+        holdReason: "timeout",
+        warnings: ["Bildvalideringen avbröts vid tidsgränsen."],
+      };
+    }
+    return interpretValidateImagesHttp(0, null);
+  } finally {
+    bound.cleanup();
   }
 }
 
@@ -239,6 +257,7 @@ async function runProductPostcheckApi(params: {
   chatId: string;
   versionId: string;
   previewUrl: string | null;
+  filesRevision?: string | null;
   signal: AbortSignal;
 }): Promise<ProductPostcheckResult | null> {
   const first = await postProductPostcheckOnce(params);
@@ -262,16 +281,21 @@ async function postProductPostcheckOnce(params: {
   chatId: string;
   versionId: string;
   previewUrl: string | null;
+  filesRevision?: string | null;
   signal: AbortSignal;
 }): Promise<ProductPostcheckResult | null> {
-  const { chatId, versionId, previewUrl, signal } = params;
+  const { chatId, versionId, previewUrl, filesRevision, signal } = params;
   try {
     const response = await fetch(
       `${engineChatBaseUrl(chatId)}/product-postcheck`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, previewUrl }),
+        body: JSON.stringify({
+          versionId,
+          previewUrl,
+          ...(filesRevision ? { filesRevision } : {}),
+        }),
         signal,
       },
     );
@@ -483,6 +507,23 @@ export async function runPostGenerationChecks(params: {
    * product-postcheck has emitted any late `version.degraded`.
    */
   onComplete?: () => void;
+  /**
+   * Durable `files_revision` confirmed by the materialize step that
+   * ran immediately before this lane. Never a client snapshot.
+   */
+  priorFilesRevision?: string | null;
+  /** True when materialize confirmed a `files_json` write. */
+  imageMutationPersisted?: boolean;
+  /**
+   * Materialize (or another confirmed predecessor) already fail-closed.
+   * Skip mutating validate-images / Product Postcheck and leave the version
+   * pending with the same retryPending surface as an in-lane hold.
+   */
+  holdBeforeChecks?: {
+    reason: string;
+    category: string;
+    meta?: Record<string, unknown>;
+  } | null;
 }) {
   const {
     chatId,
@@ -495,6 +536,9 @@ export async function runPostGenerationChecks(params: {
     mutateVersions,
     onAutoFix,
     onComplete,
+    priorFilesRevision = null,
+    imageMutationPersisted = false,
+    holdBeforeChecks = null,
   } = params;
   const toolCallId = `post-check:${versionId}`;
   abortPostChecksForChat(chatId);
@@ -518,6 +562,41 @@ export async function runPostGenerationChecks(params: {
   });
 
   try {
+    if (holdBeforeChecks) {
+      completionPersistence = persistVersionErrorLogs({
+        chatId,
+        versionId,
+        logs: [
+          {
+            level: "warning",
+            category: holdBeforeChecks.category,
+            message: holdBeforeChecks.reason,
+            meta: holdBeforeChecks.meta ?? {},
+          },
+        ],
+      });
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:post-check",
+        toolName: "Post-check",
+        toolCallId,
+        state: "output-available",
+        input: { chatId, versionId },
+        output: {
+          skipped: true,
+          retryPending: true,
+          reason: holdBeforeChecks.reason,
+          steps: [holdBeforeChecks.reason],
+        },
+      });
+      appendRetryPendingQualityGate(
+        setMessages,
+        assistantMessageId,
+        versionId,
+        holdBeforeChecks.reason,
+      );
+      return;
+    }
+
     const [currentFiles, versions] = await Promise.all([
       fetchChatFiles(chatId, versionId, controller.signal, true),
       fetchChatVersions(chatId, controller.signal),
@@ -527,37 +606,128 @@ export async function runPostGenerationChecks(params: {
       ? await fetchChatFiles(chatId, previousVersionId, controller.signal, true)
       : [];
 
+    // Mutating validate-images first: `autoFix: true` can rewrite files_json
+    // (generated `files_revision` follows). Running Product Postcheck in
+    // parallel attested the revision captured at start against a fileset
+    // that no longer existed.
+    const imageValidation = await validateImages({
+      chatId,
+      versionId,
+      signal: controller.signal,
+    });
+
+    if (shouldHoldBeforeProductPostcheck(imageValidation)) {
+      const holdReason = imageValidationHoldMessage(imageValidation);
+      completionPersistence = persistVersionErrorLogs({
+        chatId,
+        versionId,
+        logs: [
+          {
+            level: "warning",
+            category: imageValidationHoldCategory(imageValidation),
+            message: holdReason,
+            meta: {
+              replacedCount: imageValidation?.replacedCount ?? 0,
+              persisted: imageValidation?.persisted ?? false,
+              timeout: imageValidation?.timeout === true,
+              holdReason: imageValidation?.holdReason ?? null,
+              httpStatus: imageValidation?.httpStatus ?? null,
+            },
+          },
+        ],
+      });
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:post-check",
+        toolName: "Post-check",
+        toolCallId,
+        state: "output-available",
+        input: { chatId, versionId },
+        output: {
+          skipped: true,
+          retryPending: true,
+          reason: holdReason,
+          steps: [holdReason],
+        },
+      });
+      appendRetryPendingQualityGate(setMessages, assistantMessageId, versionId, holdReason);
+      return;
+    }
+
+    let filesForBaseline = currentFiles;
+    let versionsForBaseline = versions;
+    let previewUrl = imageValidation?.demoUrl ?? demoUrl;
+    const filesRevision =
+      imageValidation?.filesRevision?.trim() || priorFilesRevision?.trim() || null;
+    const validatePersistedMutation = didPersistImageMutation(imageValidation);
+    if (validatePersistedMutation) {
+      const [refreshedFiles, refreshedVersions] = await Promise.all([
+        fetchChatFiles(chatId, versionId, controller.signal, true),
+        fetchChatVersions(chatId, controller.signal),
+      ]);
+      filesForBaseline = refreshedFiles;
+      versionsForBaseline = refreshedVersions;
+    }
+
+    if (validatePersistedMutation || imageMutationPersisted) {
+      const resync = await resyncPreviewForRevision({
+        chatId,
+        versionId,
+        signal: controller.signal,
+      });
+      if (!resync.ok) {
+        const holdReason =
+          "Preview kunde inte resynkas mot den persistade revisionen — versionen lämnas pending.";
+        completionPersistence = persistVersionErrorLogs({
+          chatId,
+          versionId,
+          logs: [
+            {
+              level: "warning",
+              category: "post-check.preview-resync-failed",
+              message: holdReason,
+              meta: { filesRevision },
+            },
+          ],
+        });
+        appendToolPartToMessage(setMessages, assistantMessageId, {
+          type: "tool:post-check",
+          toolName: "Post-check",
+          toolCallId,
+          state: "output-available",
+          input: { chatId, versionId },
+          output: {
+            skipped: true,
+            retryPending: true,
+            reason: holdReason,
+            steps: [holdReason],
+          },
+        });
+        appendRetryPendingQualityGate(setMessages, assistantMessageId, versionId, holdReason);
+        return;
+      }
+      if (resync.previewUrl) previewUrl = resync.previewUrl;
+    }
+
     const baseline = buildPostCheckBaseline({
-      currentFiles,
+      currentFiles: filesForBaseline,
       previousFiles,
       previousVersionId,
-      versions,
+      versions: versionsForBaseline,
       versionId,
-      demoUrl,
+      demoUrl: previewUrl,
       preflight,
     });
 
-    // Independent HTTP checks — run in parallel so the post-check tail (and
-    // the verify-lane behind it) is not serialized on two network round-trips.
-    const [imageValidation, resolvedProductPostcheck] = await Promise.all([
-      validateImages({
-        chatId,
-        versionId,
-        signal: controller.signal,
-      }),
-      runProductPostcheckApi({
-        chatId,
-        versionId,
-        previewUrl: baseline.resolvedDemoUrl ?? null,
-        signal: controller.signal,
-      }),
-    ]);
+    const resolvedProductPostcheck = await runProductPostcheckApi({
+      chatId,
+      versionId,
+      previewUrl: baseline.resolvedDemoUrl ?? null,
+      filesRevision,
+      signal: controller.signal,
+    });
     productPostcheckResult = resolvedProductPostcheck;
     const productPostcheck = resolvedProductPostcheck;
-    const productPostcheckNeedsRetry =
-      !productPostcheck ||
-      productPostcheck.skippedReason === "preview_superseded" ||
-      (productPostcheck.skippedReason !== "feature_disabled" && !productPostcheck.attestation);
+    const needsPostcheckRetry = productPostcheckNeedsRetry(productPostcheck);
     const warnings = [...baseline.warnings];
     if (imageValidation?.warnings?.length) {
       warnings.push(...imageValidation.warnings);
@@ -570,7 +740,7 @@ export async function runPostGenerationChecks(params: {
     }
 
     const artifacts = buildPostCheckArtifacts({
-      currentFileCount: currentFiles.length,
+      currentFileCount: filesForBaseline.length,
       versionId,
       changes: baseline.changes,
       warnings,
@@ -590,13 +760,16 @@ export async function runPostGenerationChecks(params: {
       resolvedDemoUrl: baseline.resolvedDemoUrl,
     });
 
-    completionPersistence = persistVersionErrorLogs({
+    const persisted = await persistVersionErrorLogs({
       chatId,
       versionId,
       logs: [...artifacts.logItems, ...buildProductPostcheckLogItems(productPostcheck)],
       productPostcheckAttestation: productPostcheck?.attestation ?? null,
     });
+    completionPersistence = Promise.resolve(persisted);
     productPostcheckPersistenceScheduled = true;
+    const blockerPersistFailed =
+      productPostcheck?.productBlocked === true && !persisted;
 
     if (artifacts.autoFixReasons.length > 0) {
       onAutoFix?.({
@@ -651,7 +824,7 @@ export async function runPostGenerationChecks(params: {
     // lease (409 `version_busy` noise, duplicated VM work). The client
     // observes the outcome via the existing status polling
     // (`useVersionStatus` / `useVersions`) instead.
-    const currentVersionEntry = versions.find(
+    const currentVersionEntry = versionsForBaseline.find(
       (v) => v.versionId === versionId || v.id === versionId,
     );
     const serverOwnsVerifyLane = currentVersionEntry?.lifecycleStage === "integrations";
@@ -675,22 +848,28 @@ export async function runPostGenerationChecks(params: {
         },
       } as UiMessagePart);
     } else if (
-      productPostcheckNeedsRetry &&
+      needsPostcheckRetry &&
       artifacts.autoFixReasons.length === 0 &&
       artifacts.verifyPending
     ) {
-      appendToolPartToMessage(setMessages, assistantMessageId, {
-        type: "tool:quality-gate",
-        toolName: "Quality gate",
-        toolCallId: `quality-gate:${versionId}`,
-        state: "output-available",
-        output: {
-          skipped: true,
-          retryPending: true,
-          reason:
-            "Produktkontrollen saknar ett aktuellt attesterat resultat — versionen lämnas pending och återupptas mot rätt preview.",
-        },
-      } as UiMessagePart);
+      appendRetryPendingQualityGate(
+        setMessages,
+        assistantMessageId,
+        versionId,
+        "Produktkontrollen saknar ett aktuellt attesterat resultat — versionen lämnas pending och återupptas mot rätt preview.",
+      );
+    } else if (
+      blockerPersistFailed &&
+      artifacts.autoFixReasons.length === 0 &&
+      artifacts.verifyPending
+    ) {
+      appendRetryPendingQualityGate(
+        setMessages,
+        assistantMessageId,
+        versionId,
+        "Produktkontrollens blockerare kunde inte sparas — versionen lämnas pending.",
+        { blockerPersistFailed: true },
+      );
     } else if (artifacts.autoFixReasons.length === 0 && artifacts.verifyPending) {
       spawnedVerifyLane = true;
       void runTier2VerifyLane({
@@ -770,9 +949,8 @@ export async function runPostGenerationChecks(params: {
     // post-check's own error-log write has settled. In particular, the
     // product_postcheck.summary row is an input to the F3 trigger; refreshing
     // before that row exists can cache the previous summary for another SWR
-    // interval. The write remains fire-and-forget for the generation tail —
-    // its retry policy owns settlement and either outcome releases the
-    // refresh callback.
+    // interval. The success path already awaited the write before deciding
+    // whether to start the quality gate; the catch path still settles here.
     const refreshStatusSurfaces = () => {
       mutateVersions?.();
       onComplete?.();
@@ -1433,11 +1611,142 @@ function collectLiveReviewAutofixFindings(
   return findings;
 }
 
-/** Routen sätter `fixed` bara när `updateVersionFiles` faktiskt persistade. */
+function appendRetryPendingQualityGate(
+  setMessages: SetMessages,
+  assistantMessageId: string,
+  versionId: string,
+  reason: string,
+  extra?: Record<string, unknown>,
+): void {
+  appendToolPartToMessage(setMessages, assistantMessageId, {
+    type: "tool:quality-gate",
+    toolName: "Quality gate",
+    toolCallId: `quality-gate:${versionId}`,
+    state: "output-available",
+    output: {
+      skipped: true,
+      retryPending: true,
+      reason,
+      ...extra,
+    },
+  } as UiMessagePart);
+}
+
+/** Routen sätter `fixed`/`persisted` bara när `updateVersionFiles` faktiskt persistade. */
 function didPersistScopedImageReplacement(
   result: ImageValidationResult | null,
 ): boolean {
-  return result?.fixed === true;
+  return didPersistImageMutation(result);
+}
+
+function didPersistImageMutation(result: ImageValidationResult | null): boolean {
+  const replaced = result?.replacedCount ?? 0;
+  if (replaced <= 0) return false;
+  if (result?.persisted === true && result.filesRevision) return true;
+  // Legacy payloads (pre-L3) only had `fixed`.
+  return result?.persisted == null && result?.fixed === true;
+}
+
+/**
+ * Shared HTTP → result mapping for the normal tail and resume.
+ * 404 «No files» continues; 409 lease and 5xx/transport are retryable holds.
+ */
+export function interpretValidateImagesHttp(
+  status: number,
+  body: ImageValidationResult | null = null,
+): ImageValidationResult {
+  if (status === 404) {
+    return {
+      replacedCount: 0,
+      persisted: true,
+      filesRevision:
+        typeof body?.filesRevision === "string" && body.filesRevision.trim()
+          ? body.filesRevision.trim()
+          : null,
+      skippedReason: "no_files",
+      httpStatus: 404,
+    };
+  }
+  if (status === 409) {
+    return {
+      replacedCount: 0,
+      persisted: false,
+      filesRevision: null,
+      holdReason: "version_busy",
+      httpStatus: 409,
+    };
+  }
+  return {
+    replacedCount: 0,
+    persisted: false,
+    filesRevision: null,
+    holdReason: "http_error",
+    httpStatus: status,
+  };
+}
+
+export function imageValidationHoldMessage(
+  result: ImageValidationResult | null,
+): string {
+  if (result?.timeout || result?.holdReason === "timeout") {
+    return "Bildvalideringen nådde tidsgränsen innan persistens bekräftades — versionen lämnas pending.";
+  }
+  if (result?.holdReason === "version_busy") {
+    return "Bildvalideringen väntar på versionslås (409 version_busy) — versionen lämnas pending.";
+  }
+  if (result?.holdReason === "http_error") {
+    const status = result.httpStatus && result.httpStatus > 0 ? result.httpStatus : null;
+    return status
+      ? `Bildvalideringen misslyckades (HTTP ${status}) — versionen lämnas pending.`
+      : "Bildvalideringen nådde inte servern — versionen lämnas pending.";
+  }
+  return "Bildersättningar rapporterades utan bekräftad files_json-persistens — versionen lämnas pending.";
+}
+
+export function imageValidationHoldCategory(
+  result: ImageValidationResult | null,
+): string {
+  if (result?.timeout || result?.holdReason === "timeout") {
+    return "post-check.image-validation-timeout";
+  }
+  if (result?.holdReason === "version_busy") {
+    return "post-check.image-validation-version-busy";
+  }
+  if (result?.holdReason === "http_error") {
+    return "post-check.image-validation-http-error";
+  }
+  return "post-check.image-mutation-unconfirmed";
+}
+
+/**
+ * Hold on timeout, 409 lease, 5xx/transport, or replacements without a
+ * durable revision. 404 «No files» and a missing result are not mutations.
+ */
+export function shouldHoldBeforeProductPostcheck(
+  result: ImageValidationResult | null,
+): boolean {
+  if (!result) return false;
+  if (result.timeout || result.holdReason === "timeout") return true;
+  if (result.holdReason === "version_busy" || result.holdReason === "http_error") {
+    return true;
+  }
+  if (didPersistImageMutation(result)) return false;
+  const replaced = result.replacedCount ?? 0;
+  return replaced > 0 && (result.persisted !== true || !result.filesRevision);
+}
+
+/**
+ * Same hold as the resume lane: no attested current result → leave pending
+ * instead of promoting or starting the VM gate against a stale preview.
+ */
+function productPostcheckNeedsRetry(
+  result: ProductPostcheckResult | null,
+): boolean {
+  return (
+    !result ||
+    result.skippedReason === "preview_superseded" ||
+    (result.skippedReason !== "feature_disabled" && !result.attestation)
+  );
 }
 
 /**

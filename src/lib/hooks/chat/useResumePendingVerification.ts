@@ -6,8 +6,13 @@ import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
   buildProductPostcheckLogItems,
   hasActivePostCheck,
+  imageValidationHoldCategory,
+  imageValidationHoldMessage,
+  interpretValidateImagesHttp,
   persistVersionErrorLogs,
+  shouldHoldBeforeProductPostcheck,
 } from "./post-checks";
+import type { ImageValidationResult } from "./post-checks-results";
 import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 
 /**
@@ -306,24 +311,42 @@ export function findResumeEligibleAtMs(versions: unknown, nowMs: number): number
 }
 
 /**
- * Best-effort mirror of the normal lane's image-validation step (broken
- * external image URLs get auto-replaced + persisted server-side via
- * `autoFix: true` before the version is promoted). Transport failures are
- * swallowed — the normal lane also proceeds when `validateImages` yields
- * null (Codex P2 round 2 on #353).
+ * Same `interpretValidateImagesHttp` + `shouldHoldBeforeProductPostcheck`
+ * contract as the normal tail (L3): 404 continues, 409/5xx and
+ * replaced-without-persisted hold, persisted revision is pinned.
  */
 async function runResumeImageValidation(params: {
   chatId: string;
   versionId: string;
-}): Promise<void> {
+}): Promise<{
+  proceed: boolean;
+  filesRevision: string | null;
+  persistedMutation: boolean;
+  hold?: ImageValidationResult | null;
+}> {
   try {
-    await fetch(`${engineChatBaseUrl(params.chatId)}/validate-images`, {
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/validate-images`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ versionId: params.versionId, autoFix: true }),
     });
+    const body = (await res.json().catch(() => null)) as ImageValidationResult | null;
+    const data = res.ok ? body : interpretValidateImagesHttp(res.status, body);
+    if (shouldHoldBeforeProductPostcheck(data)) {
+      return { proceed: false, filesRevision: null, persistedMutation: false, hold: data };
+    }
+    const filesRevision =
+      typeof data?.filesRevision === "string" && data.filesRevision.trim()
+        ? data.filesRevision.trim()
+        : null;
+    const persistedMutation =
+      (data?.replacedCount ?? 0) > 0 &&
+      data?.persisted === true &&
+      Boolean(filesRevision);
+    return { proceed: true, filesRevision, persistedMutation };
   } catch {
-    // Best-effort parity step only.
+    const hold = interpretValidateImagesHttp(0, null);
+    return { proceed: false, filesRevision: null, persistedMutation: false, hold };
   }
 }
 
@@ -420,6 +443,7 @@ async function runResumeProductPostcheck(params: {
   chatId: string;
   versionId: string;
   previewUrl: string | null;
+  filesRevision?: string | null;
 }): Promise<{
   productBlocked: boolean;
   blockerPersistFailed: boolean;
@@ -430,7 +454,11 @@ async function runResumeProductPostcheck(params: {
     const res = await fetch(`${engineChatBaseUrl(params.chatId)}/product-postcheck`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ versionId: params.versionId, previewUrl: params.previewUrl }),
+      body: JSON.stringify({
+        versionId: params.versionId,
+        previewUrl: params.previewUrl,
+        ...(params.filesRevision ? { filesRevision: params.filesRevision } : {}),
+      }),
     });
     if (res.ok) {
       data = (await res.json().catch(() => null)) as ProductPostcheckResult | null;
@@ -589,8 +617,32 @@ export function useResumePendingVerification(params: {
         // (Codex P2 round 2). SKIPPED for the import lane: `autoFix: true`
         // mutates files, and an imported repo is a verbatim contract — the
         // verification pass must never silently rewrite the import.
+        let filesRevision: string | null = null;
+        let previewUrl = candidate.previewUrl;
         if (lane !== "imported") {
-          await runResumeImageValidation({ chatId, versionId });
+          const image = await runResumeImageValidation({ chatId, versionId });
+          if (!image.proceed) {
+            // Unconfirmed image mutation — do not attest or promote.
+            await persistVersionErrorLogs({
+              chatId,
+              versionId,
+              logs: [
+                {
+                  level: "warning",
+                  category: imageValidationHoldCategory(image.hold ?? null),
+                  message: imageValidationHoldMessage(image.hold ?? null),
+                },
+              ],
+            });
+            attemptsRef.current.set(versionId, attemptsUsed);
+            scheduleRetry();
+            return;
+          }
+          filesRevision = image.filesRevision;
+          if (image.persistedMutation) {
+            const resynced = await rehydratePreviewUrl({ chatId, versionId });
+            if (resynced) previewUrl = resynced;
+          }
         }
 
         // Step 2 — a gate target needs a live preview. The normal lane never
@@ -598,7 +650,6 @@ export function useResumePendingVerification(params: {
         // failure), so a stranded row without a persisted previewUrl gets a
         // preview-session boot first — which also persists the URL
         // server-side. Unbootable → hold as retryable (Codex P1 round 4).
-        let previewUrl = candidate.previewUrl;
         if (!previewUrl) {
           previewUrl = await rehydratePreviewUrl({ chatId, versionId });
           if (!previewUrl) {
@@ -667,7 +718,12 @@ export function useResumePendingVerification(params: {
         // the row the F3 trigger + /finalize-design enforce) so a resumed
         // promotion can never read as solid green without DOM verification
         // (Codex P1 rounds 1+2).
-        const postcheck = await runResumeProductPostcheck({ chatId, versionId, previewUrl });
+        const postcheck = await runResumeProductPostcheck({
+          chatId,
+          versionId,
+          previewUrl,
+          filesRevision,
+        });
         if (postcheck.superseded) {
           // The inspected lifecycle was replaced while the browser work ran.
           // Refund the slot and retry against the new active tuple; never emit

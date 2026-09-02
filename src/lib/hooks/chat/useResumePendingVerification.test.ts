@@ -220,6 +220,7 @@ describe("useResumePendingVerification", () => {
     errorLog?: { ok?: boolean };
     previewSession?: { ok?: boolean; body?: unknown };
     previewStatus?: { ok?: boolean; body?: unknown };
+    validateImages?: { ok?: boolean; status?: number; body?: unknown };
   }) {
     fetchMock.mockImplementation(async (url: string) => {
       const u = String(url);
@@ -258,7 +259,12 @@ describe("useResumePendingVerification", () => {
         return { ok, status: ok ? 200 : 500, json: async () => ({ ok }) };
       }
       if (u.includes("/validate-images")) {
-        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+        const ok = params.validateImages?.ok ?? true;
+        return {
+          ok,
+          status: params.validateImages?.status ?? (ok ? 200 : 500),
+          json: async () => params.validateImages?.body ?? { ok: true },
+        };
       }
       return {
         ok: params.qualityGate?.ok ?? true,
@@ -1060,5 +1066,106 @@ describe("useResumePendingVerification", () => {
     await Promise.resolve();
     // The blocker never reached the enforcement surface — do not promote.
     expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("holds resume when validate-images reports replaced without persisted", async () => {
+    mockRoutes({
+      validateImages: {
+        body: { replacedCount: 2, persisted: false, filesRevision: null, fixed: false },
+      },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/validate-images")).toHaveLength(1));
+    await waitFor(() => expect(callsTo("/error-log")).toHaveLength(1));
+    expect(callsTo("/product-postcheck")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("holds resume on 409 version_busy and does not start product-postcheck", async () => {
+    mockRoutes({
+      validateImages: { ok: false, status: 409, body: { error: "version_busy" } },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/error-log")).toHaveLength(1));
+    const logged = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
+      logs?: Array<{ category?: string; message?: string }>;
+    };
+    expect(logged.logs?.[0]?.category).toBe("post-check.image-validation-version-busy");
+    expect(logged.logs?.[0]?.message).toContain("409 version_busy");
+    expect(callsTo("/product-postcheck")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("continues resume when validate-images is 404 No files", async () => {
+    mockRoutes({
+      validateImages: { ok: false, status: 404, body: { error: "No files" } },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    expect(callsTo("/product-postcheck")).toHaveLength(1);
+  });
+
+  it("holds resume on validate-images 500", async () => {
+    mockRoutes({
+      validateImages: { ok: false, status: 500, body: { error: "boom" } },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/error-log")).toHaveLength(1));
+    const logged = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
+      logs?: Array<{ category?: string; message?: string }>;
+    };
+    expect(logged.logs?.[0]?.category).toBe("post-check.image-validation-http-error");
+    expect(logged.logs?.[0]?.message).toContain("HTTP 500");
+    expect(callsTo("/product-postcheck")).toHaveLength(0);
+  });
+
+  it("pins product-postcheck to the persisted filesRevision after resume validate-images", async () => {
+    mockRoutes({
+      validateImages: {
+        body: {
+          replacedCount: 1,
+          persisted: true,
+          filesRevision: "rev_resume",
+          fixed: true,
+        },
+      },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    const postcheckBody = JSON.parse(String(callsTo("/product-postcheck")[0][1].body)) as {
+      filesRevision?: string;
+    };
+    expect(postcheckBody.filesRevision).toBe("rev_resume");
+    expect(callsTo("/preview-session")).toHaveLength(1);
   });
 });

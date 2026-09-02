@@ -586,6 +586,7 @@ describe("runPostGenerationChecks", () => {
     const store = createMessageStore();
     const files = buildHealthyFiles();
     let settlePersistence!: () => void;
+    let persistStarted = false;
     const delayedPersistence = new Promise<Response>((resolve) => {
       settlePersistence = () => {
         order.push("persistence-settled");
@@ -597,7 +598,10 @@ describe("runPostGenerationChecks", () => {
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url.includes("/error-log")) return delayedPersistence;
+        if (url.includes("/error-log")) {
+          persistStarted = true;
+          return delayedPersistence;
+        }
         if (url.includes("/versions")) {
           return jsonResponse({
             versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
@@ -632,11 +636,15 @@ describe("runPostGenerationChecks", () => {
       onComplete,
     });
 
-    await runPromise;
+    // Persist is now on the generation-tail critical path (awaited before
+    // the quality-gate decision). Join only after the write is in flight
+    // so this still proves refresh cannot outrun the error-log POST.
+    await vi.waitFor(() => expect(persistStarted).toBe(true));
     expect(mutateVersions).not.toHaveBeenCalled();
     expect(onComplete).not.toHaveBeenCalled();
 
     settlePersistence();
+    await runPromise;
     await vi.waitFor(() => {
       expect(mutateVersions).toHaveBeenCalledTimes(1);
       expect(onComplete).toHaveBeenCalledTimes(1);
