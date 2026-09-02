@@ -10,6 +10,7 @@ const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
 const getEngineVersionErrorLogsForCategories = vi.hoisted(() => vi.fn());
 const getRunningProductPostcheckClaimForVersion = vi.hoisted(() => vi.fn());
+const getVersionById = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
 vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionFiles }));
@@ -30,6 +31,10 @@ vi.mock("@/lib/db/services/version-errors", () => ({
 vi.mock("@/lib/db/services/product-postcheck-runs", () => ({
   getRunningProductPostcheckClaimForVersion,
 }));
+// L1 readiness loads chat-repository-pg for the optional F2-parent check.
+// CI quality-core has no POSTGRES_URL; this mock keeps module load from
+// throwing Missing database connection string.
+vi.mock("@/lib/db/chat-repository-pg", () => ({ getVersionById }));
 
 import { checkTier3ReadinessForVersion } from "./tier3-readiness-gate";
 
