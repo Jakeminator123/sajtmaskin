@@ -9,16 +9,51 @@
  * (`elementFromPoint`) — ingen Playwright/worker behövs. Det postar element-info
  * upp till buildern via `postMessage`. Inert tills parent skickar `set-mode`.
  *
+ * Cross-origin (tier-2): `parent=`-parametrarna är preview-hostens validerade
+ * allowlist. Same-origin-shimmen utelämnar dem och scriptet använder då
+ * `location.origin`. Aldrig `"*"`. Inkommande `set-mode`/`request-sections`
+ * kräver `event.source === window.parent` och `event.origin` på listan.
+ *
  * Plain ES5/ES2017 (serveras rått, ingen transpilering). Håll i synk med
  * `INSPECT_BRIDGE_MESSAGE` i `inspect-bridge-feature.ts`.
  */
 export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
   "use strict";
   var me = document.currentScript;
-  function qp(name) {
-    try { return new URL(me && me.src ? me.src : location.href).searchParams.get(name); } catch (e) { return null; }
+  function scriptUrl() {
+    try { return new URL(me && me.src ? me.src : location.href); } catch (e) { return null; }
   }
-  var PARENT = qp("parent") || "";
+  function qp(name) {
+    var url = scriptUrl();
+    try { return url ? url.searchParams.get(name) : null; } catch (e) { return null; }
+  }
+  function qpAll(name) {
+    var url = scriptUrl();
+    try { return url ? url.searchParams.getAll(name) : []; } catch (e) { return []; }
+  }
+  function exactHttpOrigins(values) {
+    var out = [];
+    var seen = Object.create(null);
+    if (!values) return out;
+    for (var i = 0; i < values.length; i++) {
+      var candidate = typeof values[i] === "string" ? values[i].trim() : "";
+      if (!candidate) continue;
+      try {
+        var parsed = new URL(candidate);
+        if (!/^https?:$/.test(parsed.protocol) || parsed.origin === "null") continue;
+        if (candidate !== parsed.origin) continue;
+        if (seen[parsed.origin]) continue;
+        seen[parsed.origin] = 1;
+        out.push(parsed.origin);
+      } catch (e) {}
+    }
+    return out;
+  }
+  var PARENT_PARAMS = qpAll("parent");
+  var PARENTS = exactHttpOrigins(PARENT_PARAMS);
+  if (PARENT_PARAMS.length === 0) {
+    PARENTS = exactHttpOrigins([location.origin]);
+  }
   var IDENTITY = {
     versionId: qp("versionId"),
     previewSessionId: qp("previewSessionId"),
@@ -156,7 +191,10 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     else setTimeout(fn, 16);
   }
   function post(type, payload) {
-    try { window.parent.postMessage({ type: type, source: "sajtmaskin-inspect", identity: IDENTITY, payload: payload }, PARENT || "*"); } catch (e) {}
+    var message = { type: type, source: "sajtmaskin-inspect", identity: IDENTITY, payload: payload };
+    for (var i = 0; i < PARENTS.length; i++) {
+      try { window.parent.postMessage(message, PARENTS[i]); } catch (e) {}
+    }
   }
   function truncateStr(v, max) {
     if (v == null) return "";
@@ -446,9 +484,15 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
       document.documentElement.style.cursor = "";
     }
   }
-  function originOk(origin) { if (!PARENT) return true; return origin === PARENT; }
+  function originOk(origin) {
+    for (var i = 0; i < PARENTS.length; i++) {
+      if (origin === PARENTS[i]) return true;
+    }
+    return false;
+  }
   window.addEventListener("message", function (e) {
-    if (!e || !e.data || typeof e.data.type !== "string") return;
+    if (!e || e.source !== window.parent) return;
+    if (!e.data || typeof e.data.type !== "string") return;
     if (!originOk(e.origin)) return;
     if (e.data.type === T.setMode) {
       setEnabled(!!e.data.enabled);

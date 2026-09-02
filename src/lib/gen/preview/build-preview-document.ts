@@ -34,7 +34,8 @@ export function buildPreviewHtml(rawFiles: CodeFile[], routePath?: string | null
   const htmlClass = wantsDark ? ' class="dark"' : "";
 
   // Inspector-bridge (opt-in, default av). Same-origin shim → relativ src,
-  // ingen parent-param (scriptet accepterar same-origin). Reversibelt via flagga.
+  // ingen parent-param. Scriptet använder då `location.origin` som enda
+  // tillåtna parent — aldrig wildcard. Reversibelt via flagga.
   const inspectBridgeTag = isInspectBridgeEnabled()
     ? `<script src="${INSPECT_BRIDGE_SCRIPT_ROUTE}"><\/script>`
     : "";
