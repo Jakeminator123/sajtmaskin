@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // allowed through.
 
 const getProjectByIdForOwner = vi.hoisted(() => vi.fn());
-const getProjectData = vi.hoisted(() => vi.fn());
 const saveProjectData = vi.hoisted(() => vi.fn());
 const deleteCache = vi.hoisted(() => vi.fn());
 const getCurrentUser = vi.hoisted(() => vi.fn());
@@ -14,7 +13,6 @@ const resolveEngineChatOwnershipForRequest = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/projects", () => ({
   getProjectByIdForOwner,
-  getProjectData,
   saveProjectData,
 }));
 
@@ -48,7 +46,6 @@ type SaveResponse = { success: boolean; error?: string };
 
 beforeEach(() => {
   getProjectByIdForOwner.mockReset();
-  getProjectData.mockReset();
   saveProjectData.mockReset();
   deleteCache.mockReset();
   getCurrentUser.mockReset();
@@ -56,7 +53,6 @@ beforeEach(() => {
 
   getCurrentUser.mockResolvedValue({ id: "user_1" });
   getProjectByIdForOwner.mockResolvedValue({ id: PROJECT_ID });
-  getProjectData.mockResolvedValue(null);
   saveProjectData.mockResolvedValue(undefined);
   deleteCache.mockResolvedValue(undefined);
   resolveEngineChatOwnershipForRequest.mockResolvedValue("owned");
@@ -99,6 +95,31 @@ describe("POST /api/projects/[id]/save — chat ownership guard", () => {
       project_id: PROJECT_ID,
       chat_id: "ghost_chat",
     });
+  });
+
+  it("passes metadata objects as an atomic top-level patch", async () => {
+    const res = await POST(
+      makeRequest({ meta: { palette: { primary: "#123456" } } }) as never,
+      makeParams(),
+    );
+
+    expect(res.status).toBe(200);
+    expect(saveProjectData).toHaveBeenCalledWith({
+      project_id: PROJECT_ID,
+      meta_patch: { palette: { primary: "#123456" } },
+    });
+    expect(saveProjectData.mock.calls[0][0]).not.toHaveProperty("meta");
+  });
+
+  it("passes a non-object meta as an insert-only snapshot, never together with meta_patch", async () => {
+    const res = await POST(makeRequest({ meta: null }) as never, makeParams());
+
+    expect(res.status).toBe(200);
+    expect(saveProjectData).toHaveBeenCalledWith({
+      project_id: PROJECT_ID,
+      meta: null,
+    });
+    expect(saveProjectData.mock.calls[0][0]).not.toHaveProperty("meta_patch");
   });
 
   it("does not run the ownership check when no chatId is in the body", async () => {
