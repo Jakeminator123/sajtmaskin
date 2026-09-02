@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-09-02T01:14:22.443Z",
+  "generatedAt": "2026-09-02T02:12:23.159Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -49,8 +49,14 @@
     "payments": [
       "stripe-checkout"
     ],
+    "physics-2d": [
+      "matter-physics-2d"
+    ],
     "physics-3d": [
       "three-fiber-physics"
+    ],
+    "scroll-story": [
+      "scroll-story-orchestrator"
     ],
     "site-search": [
       "local-site-search"
@@ -113,7 +119,9 @@
       "capabilities": [
         "dashboard-charts",
         "interactive-game",
+        "physics-2d",
         "physics-3d",
+        "scroll-story",
         "visual-3d"
       ]
     },
@@ -966,6 +974,82 @@
       }
     },
     {
+      "id": "matter-physics-2d",
+      "label": "2D-fysik (Matter.js)",
+      "class": "soft",
+      "capability": "physics-2d",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {
+        "client": 2,
+        "shared": 1
+      },
+      "dependencies": [
+        "@types/matter-js",
+        "matter-js"
+      ],
+      "summarySv": "Låter produktbilder, kort eller etiketter falla, staplas och studsa på sidan, och besökaren kan dra dem. Välj det bara när du uttryckligen vill ha 2D-fysik i sidan — inte 3D och inte bara en snygg hover-effekt. Innehållet är vanlig text och bilder; om besökaren inte vill ha rörelse visas samma saker som ett stilla rutnät.",
+      "verificationStatus": "unverified",
+      "lastVerified": "2026-09-02",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar utan extra bygge",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
+    },
+    {
+      "id": "scroll-story-orchestrator",
+      "label": "Scrollberättelse (scrollytelling)",
+      "class": "soft",
+      "capability": "scroll-story",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {
+        "client": 3
+      },
+      "dependencies": [
+        "framer-motion"
+      ],
+      "summarySv": "Visar en berättelse i flera kapitel där bilderna stannar kvar på skärmen medan texten rullar förbi på dator. På mobil och när besökaren stängt av rörelser visas kapitlen i vanlig ordning. Passar till exempel före/efter-renovering eller en varumärkeshistoria. All text finns alltid på sidan och scrollen låses inte.",
+      "verificationStatus": "unverified",
+      "lastVerified": "2026-09-02",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar utan extra bygge",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
+    },
+    {
       "id": "three-fiber-canvas",
       "label": "3D-scen (Three.js)",
       "class": "soft",
@@ -1120,12 +1204,14 @@
     "data/dossiers/soft/interactive-game-loop/manifest.json": "09c61bd792680e8d846a776dd459937d56f4b7f80b1cf85a07546343e5a98e69",
     "data/dossiers/soft/local-site-search/manifest.json": "a71d090610f5e8784bcc1b8773ee6678fc7f8748ba0aa2d3843c3a22727600c2",
     "data/dossiers/soft/maplibre-map/manifest.json": "45ecfd3588c401895e9850b0d18f4e98a67029aa207fc164551974902006ac02",
+    "data/dossiers/soft/matter-physics-2d/manifest.json": "f81e40023d887748796264e0316d2f84f1681dce6c3ae6d379dd7c0bba3ad279",
+    "data/dossiers/soft/scroll-story-orchestrator/manifest.json": "9f4dff0e4a2480cd2f82afdcccbeb2ffa8d7a5bc82289e6eaeafef1acbc92302",
     "data/dossiers/soft/three-fiber-canvas/manifest.json": "a465b0c30f26663c8b0067f16f4e99ec2bfae59d3463d170a38c04d3f6bffad2",
     "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
     "docs/schemas/strict/dossier.schema.json": "9493baa6dd5c99cc93011d1e328d45048c1ee964da624cc558481c5abd535cda",
     "scripts/dossiers/regenerate-capability-map.ts": "ce15a798da3ac8056091104ae83854a2a92ade98b8468b077e1ebc4977035163",
     "src/lib/builder/dossier-axes.ts": "e216ee94304cf5f02a308c7be4c653d1d3d1d6fb128597bf555bf6938ffa825a",
-    "src/lib/builder/dossier-groups.ts": "04ca71c795ef5a22946172606fd7271e151276f784cef2682972b6391f202fda",
+    "src/lib/builder/dossier-groups.ts": "77cb535fab9fab912d9efbcf9a224fe2fb17814e51b185be833fca0a8e2813d3",
     "src/lib/gen/dossiers/f2-mute.ts": "709ac6df9c5eec5d03f7249c732023614865577e61e8a1bc86a5f2d3d5b902b7",
     "src/lib/gen/dossiers/registry.ts": "2766260fb71f0bef126a9f30274869b507bc466b84edb50501568a8b9cee7c11",
     "src/lib/gen/dossiers/types.ts": "07e75ba9f0ecd48a1eae6f5fe9f57bd1bf5e57cb31cbb1b02d820bedef6fe26d",

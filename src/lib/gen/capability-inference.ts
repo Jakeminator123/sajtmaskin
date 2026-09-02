@@ -47,6 +47,15 @@ export interface InferredCapabilities {
    */
   needsPhysics?: boolean;
   /**
+   * Explicit Matter.js / 2D / DOM physics ask (physics-driven cards, images or
+   * labels that fall, stack, bounce and can be dragged on the page). Bridges
+   * to the `physics-2d` dossier capability. When set WITHOUT a narrow 3D token
+   * (`3d`, `three`, `webgl`, `rapier`, …) it clears `needsPhysics`/`needs3D`,
+   * so the physics verbs shared with the 3D rule ("faller", "studsar") never
+   * drag the WebGL stack into a 2D request. Optional for older fixtures.
+   */
+  needsPhysics2D?: boolean;
+  /**
    * Subset of `needsMotion` for parallax patterns specifically. Distinguished
    * because parallax has its own dossier pair (`scroll-parallax` and
    * `pointer-parallax`) with safety contracts (reduced-motion + viewport
@@ -117,6 +126,14 @@ export function explicitlyRequests3D(prompt: string): boolean {
   return NEEDS_3D_PATTERNS.some((pattern) => pattern.test(prompt));
 }
 
+/**
+ * Unambiguous 3D-stack tokens only (no `canvas`/`scene`/`orb`, which a 2D
+ * physics prompt may legitimately use). Decides whether an explicit 2D physics
+ * ask should still keep the 3D flags — see `inferCapabilities`.
+ */
+const NARROW_3D_STACK_PATTERN =
+  /(?<![\p{L}\p{N}_])(?:3d|three\.?js|@?react-three(?:\/[\p{L}\p{N}-]+)?|webgl|r3f|rapier|gltf|glb)(?![\p{L}\p{N}_])/iu;
+
 const RULES: CapabilityRule[] = [
   {
     key: "needsMotion",
@@ -137,7 +154,25 @@ const RULES: CapabilityRule[] = [
       /\b(parallax|paralaks|parallax-?effekt|parallax-?scroll|parallax-?pointer|parallax-?header|parallax på (scroll|mus|pointer))\b/i,
       /\b(mouse.?parallax|pointer.?parallax|cursor.?parallax|mus.?parallax)\b/i,
       /\b(följer (mus(en|pekaren)|cursor|pointer)|hover.?tilt|tilt.?card)\b/i,
-      /\b(scroll-?parallax|scroll-?driven|sticky.?parallax|pinned.?(section|parallax))\b/i,
+      // `scroll-driven` and `pinned section` left this rule 2026-09-02: alone
+      // they describe scrollytelling (`scroll-story` dossier), not parallax.
+      // A parallax signal now needs the word itself or a parallax compound.
+      /\b(scroll-?parallax|sticky.?parallax|pinned.?parallax)\b/i,
+    ],
+  },
+  {
+    // Explicit 2D / DOM physics — Matter.js on real page elements. The bare
+    // physics verbs stay in `needsPhysics`; this rule needs a 2D/DOM/Matter
+    // marker or a physics word tied to page objects. See `physics-2d` in
+    // `follow-up-capability-vocabulary.ts` (kept in sync by hand, different
+    // consumer thresholds — see that file's header).
+    key: "needsPhysics2D",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:matter\.?js|matter-js|2d[-\s]?(?:physics|fysik(?:en)?)|(?:physics|fysik)[-\s]?(?:i\s+)?2d|dom[-\s]?(?:physics|fysik(?:en)?))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])fysik(?:drivna|styrda|baserade)?\s+(?:kort(?:en)?|bilder(?:na)?|produktbilder(?:na)?|etiketter(?:na)?|element(?:en)?|knappar(?:na)?|objekt(?:en)?|brickor(?:na)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])physics[-\s]?(?:driven|based)?\s+(?:cards?|images?|tags?|labels?|elements?|buttons?|objects?|tiles?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:kort|bilder|produktbilder|etiketter|brickor)(?:na|en)?\s+som\s+(?:faller|ramlar|trillar|studsar|staplas|kan\s+(?:dras|kastas|släpas))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:cards?|images?|tags?|tiles?)\s+that\s+(?:fall|drop|tumble|bounce|stack|can\s+be\s+(?:dragged|thrown|tossed))(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -285,6 +320,7 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     needsMotion: false,
     needs3D: false,
     needsPhysics: false,
+    needsPhysics2D: false,
     needsParallax: false,
     needsPayments: false,
     needsCharts: false,
@@ -323,13 +359,26 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     result.needsDataUI = false;
   }
 
+  // An explicit 2D/DOM physics ask owns the physics verbs unless the prompt
+  // also names the 3D stack. Otherwise "produktbilder som faller och staplas
+  // med Matter.js" would light `needsPhysics` → `needs3D` and the hint would
+  // demand a WebGL canvas for a DOM effect.
+  const explicit3DStack = NARROW_3D_STACK_PATTERN.test(prompt);
+  if (result.needsPhysics2D && !explicit3DStack) {
+    result.needsPhysics = false;
+    result.needs3D = false;
+  }
   if (result.needsPhysics) result.needs3D = true;
   if (result.needsGame) {
     result.needsMotion = true;
-    if (/3d|three|webgl|canvas|physics|fysik|studs|gravity|collision|rapier/i.test(prompt)) {
+    if (
+      (!result.needsPhysics2D || explicit3DStack) &&
+      /3d|three|webgl|canvas|physics|fysik|studs|gravity|collision|rapier/i.test(prompt)
+    ) {
       result.needs3D = true;
     }
   }
+  if (result.needsPhysics2D) result.needsMotion = true;
   if (result.needs3D) result.needsMotion = true;
   if (result.needsPremiumVisuals) result.needsMotion = true;
   if (result.needsCalendar) result.needsForms = true;
@@ -378,6 +427,7 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
 export const HEAVY_CAPABILITY_KEYS = [
   "needs3D",
   "needsPhysics",
+  "needsPhysics2D",
   "needsParallax",
   "needsPayments",
   "needsAuth",
@@ -437,7 +487,12 @@ export function buildCapabilityHints(
       `- **3D/WebGL detected**: You MUST implement 3D elements using @react-three/fiber code — NEVER as placeholder SVGs or static images. Create a real \`<Canvas>\` scene with meshes, lighting, and camera. Wrap the Canvas component in \`"use client"\`. Add three, @react-three/fiber, @react-three/drei to deps. Use **lucide-react** only for 2D UI icons (e.g. TreePine) — not for WebGL meshes. ${physicsClause} For **GLB/GLTF**, use useGLTF from drei and put assets under public/. **Reduced-motion trap (do NOT trip):** NEVER apply '${reducedMotionTrap}' on the entire Canvas — that hides the 3D layer for users with reduced-motion preference. Use 'motion-safe:'-prefixed animation classes on the inner mesh so the static scene still renders. If the requested 3D content is too complex, create a simplified but real Three.js version (rotating shape, abstract geometry, or particle system with the requested theme) rather than falling back to an image.`,
     );
   }
-  if (caps.needsMotion && !caps.needs3D && !caps.needsParallax) {
+  if (caps.needsPhysics2D) {
+    lines.push(
+      "- **2D / DOM physics requested**: Use the `matter-physics-2d` dossier — mount `<PhysicsStage>` from `@/components/physics-stage` with the real page elements (cards, images, labels) as `items[].children`; Matter.js drives their positions, the DOM keeps the content readable. Do NOT add the three.js / React Three Fiber / Rapier stack and do NOT draw the content into a canvas — this is not a 3D request. Keep the stage bounded (360–560px tall, ≤30 bodies); reduced motion renders the same items as a static grid.",
+    );
+  }
+  if (caps.needsMotion && !caps.needs3D && !caps.needsParallax && !caps.needsPhysics2D) {
     lines.push(
       "- **Motion/animation requested**: Use framer-motion for entrance animations, scroll reveals, and microinteractions. Add framer-motion to deps.",
     );
@@ -467,7 +522,7 @@ export function buildCapabilityHints(
     // verbatim in the capability hint so the model sees the same mental
     // model in both places. Output MUST be playable — not a mockup.
     lines.push(
-      "- **Game / playable mechanic requested**: Build a real, playable game using the `interactive-game-loop` dossier contract: **state** (React state with `status: \"idle\" | \"playing\" | \"won\" | \"lost\"` + `score` + mechanic-specific fields) + **loop** (`requestAnimationFrame` inside `useEffect` with `cancelAnimationFrame` cleanup, OR keyboard-driven state transitions for grid games; stop loop when `status !== \"playing\"`) + **controls** (`window.addEventListener(\"keydown\", ...)` + removal on unmount AND a visible touch fallback; wrap game component in `\"use client\"`) + **collision** (AABB or distance check, no physics library unless `needsPhysics` is also set) + **score/win-lose** (large visible score area and clear transition) + **restart** (button AND keyboard shortcut that fully resets state). A static illustration or one-shot animation is NOT a game.",
+      "- **Game / playable mechanic requested**: Build a real, playable game using the `interactive-game-loop` dossier contract: **state** (React state with `status: \"idle\" | \"playing\" | \"won\" | \"lost\"` + `score` + mechanic-specific fields) + **loop** (`requestAnimationFrame` inside `useEffect` with `cancelAnimationFrame` cleanup, OR keyboard-driven state transitions for grid games; stop loop when `status !== \"playing\"`) + **controls** (`window.addEventListener(\"keydown\", ...)` + removal on unmount AND a visible touch fallback; wrap game component in `\"use client\"`) + **collision** (AABB or distance check, no physics library unless `needsPhysics` or `needsPhysics2D` is also set) + **score/win-lose** (large visible score area and clear transition) + **restart** (button AND keyboard shortcut that fully resets state). A static illustration or one-shot animation is NOT a game.",
     );
   }
   if (caps.needsCharts) {

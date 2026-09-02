@@ -338,6 +338,9 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@sentry/nextjs": "^10",
   "maplibre-gl": "^6",
   minisearch: "^7",
+  // matter-physics-2d dossier (verified `npm view` 2026-09-02: 0.20.0 / 0.20.2).
+  "matter-js": "^0.20",
+  "@types/matter-js": "^0.20",
   // Pinned to the platform's own range so the generated site gets the major the
   // vercel-analytics dossier was verified against (repo: ^1.3.1).
   "@vercel/speed-insights": "^1.3.1",

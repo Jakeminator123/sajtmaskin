@@ -100,6 +100,36 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:flyg(?:a|er|ande)?|sväv(?:a|er|ande)?|hovr(?:a|ar|ande)?|ovanför|över)[\s\S]{0,120}(?:bubbla|bubblan|sfär(?:en)?|orb(?:en)?|cirkel(?:n)?|hamburgare|burger)(?![\p{L}\p{N}_])/iu,
     ],
   },
+  {
+    // Matter.js DOM physics (matter-physics-2d, 2026-09-02). Explicit-ask-only:
+    // the bare physics verbs ("studsar", "faller") stay with `needsPhysics` →
+    // `physics-3d`; this entry needs a 2D/DOM/Matter marker or a physics word
+    // tied to page objects (kort/bilder/etiketter). A narrow 3D token vetoes.
+    capability: "physics-2d",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:matter\.?js|matter-js|2d[-\s]?(?:physics|fysik(?:en)?)|(?:physics|fysik)[-\s]?(?:i\s+)?2d|dom[-\s]?(?:physics|fysik(?:en)?))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])fysik(?:drivna|styrda|baserade)?\s+(?:kort(?:en)?|bilder(?:na)?|produktbilder(?:na)?|etiketter(?:na)?|element(?:en)?|knappar(?:na)?|objekt(?:en)?|brickor(?:na)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])physics[-\s]?(?:driven|based)?\s+(?:cards?|images?|tags?|labels?|elements?|buttons?|objects?|tiles?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:kort|bilder|produktbilder|etiketter|brickor)(?:na|en)?\s+som\s+(?:faller|ramlar|trillar|studsar|staplas|kan\s+(?:dras|kastas|släpas))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:cards?|images?|tags?|tiles?)\s+that\s+(?:fall|drop|tumble|bounce|stack|can\s+be\s+(?:dragged|thrown|tossed))(?![\p{L}\p{N}_])/iu,
+    ],
+    vetoes: [
+      /(?<![\p{L}\p{N}_])(?:3d|three\.?js|@?react-three(?:\/[\p{L}\p{N}-]+)?|webgl|r3f|rapier|gltf|glb)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
+    // Pinned-scene scrollytelling (scroll-story-orchestrator, 2026-09-02).
+    // Explicit-ask-only: "parallax", "scroll reveal", "sticky header" and mood
+    // words never reach here — plain parallax stays freehand (`needsParallax`).
+    capability: "scroll-story",
+    patterns: [
+      /(?<![\p{L}\p{N}_])(?:scrolly-?telling|scroll[-\s]?stor(?:y|ies)|scroll-?berättelse(?:n|r)?|scrollstyrd(?:a)?\s+berättelse(?:n|r)?|scroll-?driven\s+stor(?:y|ies))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:fastnålade?|fästa|pinnade?|sticky|pinned)\s+(?:scener(?:na)?|kapitel(?:en)?|scenes?|chapters?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:scener(?:na)?|kapitel(?:en)?|scenes?|chapters?)\s+som\s+(?:byts|växlar|bläddras)\s+(?:när|medan|i\s+takt\s+med\s+att)\s+(?:man|du|besökaren|användaren)\s+scrollar(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:scenes?|chapters?)\s+that\s+(?:change|switch|advance)\s+(?:as|while)\s+(?:you|the\s+(?:user|visitor))\s+scrolls?(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])apple-?(?:liknande|style|like)\s+(?:produkt|product)[-\s]?(?:presentation(?:en)?|showcase)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
   // Parallax entries removed 2026-07-22: the parallax dossier pair was parked
   // (utfasade-träd borttaget 2026-08-10; återställ via git-historik). Parallax intent is still
   // detected by `capability-inference.ts` (`needsParallax`) which now drives

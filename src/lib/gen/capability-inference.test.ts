@@ -438,6 +438,68 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(hints).toContain("RigidBody");
   });
 
+  // matter-physics-2d (2026-09-02): an explicit 2D/DOM physics ask must never
+  // escalate to the WebGL stack through the shared physics verbs.
+  it("routes an explicit Matter.js / 2D physics ask to needsPhysics2D, not 3D", () => {
+    for (const prompt of [
+      "produktbilder som faller ner och staplas med Matter.js",
+      "2D-fysik: kort som studsar och kan dras runt på startsidan",
+      "physics-driven cards that fall and stack in the hero",
+      "fysikdrivna etiketter som ramlar in när sidan laddas",
+    ]) {
+      const caps = inferCapabilities(prompt);
+      expect(caps.needsPhysics2D, prompt).toBe(true);
+      expect(caps.needsPhysics, prompt).toBe(false);
+      expect(caps.needs3D, prompt).toBe(false);
+      expect(caps.needsMotion, prompt).toBe(true);
+      const hints = buildCapabilityHints(caps)!;
+      expect(hints).toContain("2D / DOM physics requested");
+      expect(hints).toContain("PhysicsStage");
+      expect(hints).not.toContain("3D/WebGL detected");
+      expect(hints).not.toContain("@react-three/rapier");
+      expect(hints).not.toContain("Motion/animation requested");
+    }
+  });
+
+  it("keeps the 3D path when a 2D physics ask also names the 3D stack", () => {
+    const caps = inferCapabilities("kort som faller med Matter.js i en 3d-scen med rapier");
+    expect(caps.needsPhysics2D).toBe(true);
+    expect(caps.needsPhysics).toBe(true);
+    expect(caps.needs3D).toBe(true);
+  });
+
+  it("does not flag needsPhysics2D for bare physics verbs, hover bounce or confetti", () => {
+    for (const prompt of [
+      "en figur som åker omkring och studsar",
+      "knappar med bounce på hover",
+      "konfetti när man skickar formuläret",
+      "dra och släpp för att sortera listan",
+    ]) {
+      expect(inferCapabilities(prompt).needsPhysics2D, prompt).toBe(false);
+    }
+  });
+
+  it("a Matter.js arcade game is a 2D game, not a WebGL one", () => {
+    const caps = inferCapabilities("bygg ett litet arkadspel med Matter.js där bollar studsar");
+    expect(caps.needsGame).toBe(true);
+    expect(caps.needsPhysics2D).toBe(true);
+    expect(caps.needs3D).toBe(false);
+  });
+
+  // scroll-story-orchestrator (2026-09-02): scrollytelling words alone no longer
+  // count as parallax — otherwise the freehand parallax hint would compete with
+  // the dossier's pinned-scene contract.
+  it("does NOT flag needsParallax for scroll-driven / pinned-section scrollytelling wording", () => {
+    for (const prompt of [
+      "en scroll-driven story med pinned sections för varje kapitel",
+      "scrollytelling med fastnålade scener",
+    ]) {
+      expect(inferCapabilities(prompt).needsParallax, prompt).toBe(false);
+    }
+    expect(inferCapabilities("sticky parallax i hero").needsParallax).toBe(true);
+    expect(inferCapabilities("pinned parallax bakgrund").needsParallax).toBe(true);
+  });
+
   it("3D hint does not mention rapier for decorative hovering/floating motion", () => {
     const caps = inferCapabilities("lägg till en hovrande 3d-klocka som svävar i hero");
     expect(caps.needs3D).toBe(true);

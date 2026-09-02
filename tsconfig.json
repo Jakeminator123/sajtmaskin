@@ -24,7 +24,8 @@
       // riktiga providerpaket, inte dessa inerta alias.
       "@clerk/nextjs": ["./tests/stubs/clerk-nextjs.tsx"],
       "@clerk/nextjs/server": ["./tests/stubs/clerk-nextjs-server.ts"],
-      "@calcom/embed-react": ["./tests/stubs/calcom-embed-react.tsx"]
+      "@calcom/embed-react": ["./tests/stubs/calcom-embed-react.tsx"],
+      "matter-js": ["./tests/stubs/matter-js.ts"]
     },
     "target": "ES2022",
     "forceConsistentCasingInFileNames": true

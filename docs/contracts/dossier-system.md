@@ -72,7 +72,7 @@ Aktuell capability→grupp-vy:
 | 5   | `ai`           | AI                  | `ai-chat` (`ai-tool-calling` / `rag-chat` lämnade 2026-08-06 med etapp 4)    |
 | 6   | `search-maps`  | Sök & karta         | `site-search`, `map-display`, `command-palette`                              |
 | 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`, `media-storage` (vercel-blob-media, 2026-09-02) |
-| 8   | `interactive`  | Interaktivt & 3D    | `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`            |
+| 8   | `interactive`  | Interaktivt & 3D    | `visual-3d`, `physics-3d`, `physics-2d`, `scroll-story`, `interactive-game`, `dashboard-charts` |
 | 9   | `ops`          | Drift & mätning     | `analytics` (visitor-counter default sedan 2026-09-02, vercel-analytics syskon) |
 | 10  | `other`        | Övrigt              | (fångstnät för omappade capabilities)                                        |
 
@@ -127,6 +127,22 @@ Aktuell capability→grupp-vy:
 > `resolvePendingIntegrationDossiers` fick samtidigt en dubbelmonteringsspärr:
 > en klient-only dossier vars provider designrundan redan skrivit in
 > (`@vercel/analytics`) installeras inte en andra gång i F3.
+>
+> **Mjuk våg 1 2026-09-02 (ägarbeslut efter extern review):** två nya soft-
+> dossiers under `interactive`, båda explicit-ask-only (mood-ord som "cool",
+> "premium", "cinematic" väljer dem aldrig). `scroll-story-orchestrator`
+> (capability `scroll-story`, framer-motion) ger scrollytelling med fastnålade
+> scener på desktop och linjär dokumentordning på mobil/reduced motion — all
+> kapiteltext finns alltid i DOM, ingen scroll-hijack; `needsParallax` snävades
+> samtidigt så `scroll-driven`/`pinned section` ensamt inte längre räknas som
+> parallax. `matter-physics-2d` (capability `physics-2d`, matter-js) driver
+> riktiga DOM-element med 2D-fysik i en avgränsad scen och faller tillbaka på
+> ett statiskt grid vid reduced motion; en ny inferensflagga `needsPhysics2D`
+> tar över fysikverben från `needsPhysics` när prompten är explicit 2D/Matter
+> utan 3D-stack-token, så WebGL-stacken aldrig dras in. `matter-js` stubbas i
+> repots tester (`tests/stubs/matter-js.ts`). Vidare kandidater (spatial
+> canvas, view transitions, kinetic typography, Redis/QStash/Algolia) är
+> medvetet inte med i den här vågen.
 
 **Fallback-principen:** demo-_mönstret_ (seed-data, canned-svar, fejkad
 success) är gemensamt per capability, men garantin gäller **per dossier**:

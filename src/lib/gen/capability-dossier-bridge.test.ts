@@ -124,10 +124,19 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
     ).toEqual(["visual-3d", "physics-3d", "interactive-game"]);
   });
 
+  it("bridges needsPhysics2D to the physics-2d dossier capability only (matter-physics-2d)", () => {
+    expect(
+      resolveDossierCapabilitiesFromInferredCapabilities(
+        capabilities({ needsPhysics2D: true }),
+      ),
+    ).toEqual(["physics-2d"]);
+  });
+
   it("keeps the declarative bridge table narrow", () => {
     expect(INFERRED_CAPABILITY_DOSSIER_BRIDGE.map((entry) => entry.flag)).toEqual([
       "needs3D",
       "needsPhysics",
+      "needsPhysics2D",
       "needsPayments",
       "needsAuth",
       "needsDatabase",
