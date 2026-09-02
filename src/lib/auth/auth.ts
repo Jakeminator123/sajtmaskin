@@ -430,7 +430,11 @@ async function bootstrapAdminUser(user: User): Promise<void> {
 /**
  * Get Google OAuth authorization URL
  */
-export function getGoogleAuthUrl(state?: string, redirectUri?: string): string {
+export function getGoogleAuthUrl(
+  state?: string,
+  redirectUri?: string,
+  codeChallenge?: string,
+): string {
   if (!GOOGLE_CLIENT_ID) {
     throw new Error("GOOGLE_CLIENT_ID is not configured");
   }
@@ -444,6 +448,10 @@ export function getGoogleAuthUrl(state?: string, redirectUri?: string): string {
     prompt: "consent",
     ...(state && { state }),
   });
+  if (codeChallenge) {
+    params.set("code_challenge", codeChallenge);
+    params.set("code_challenge_method", "S256");
+  }
 
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
@@ -454,6 +462,7 @@ export function getGoogleAuthUrl(state?: string, redirectUri?: string): string {
 export async function exchangeGoogleCode(
   code: string,
   redirectUri?: string,
+  codeVerifier?: string,
 ): Promise<{ accessToken: string; idToken: string } | null> {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     console.error("[Auth] Google OAuth not configured");
@@ -472,6 +481,7 @@ export async function exchangeGoogleCode(
         client_secret: GOOGLE_CLIENT_SECRET,
         redirect_uri: resolveGoogleRedirectUri(redirectUri),
         grant_type: "authorization_code",
+        ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
       }),
     });
 
@@ -537,9 +547,10 @@ export async function getGoogleUserInfo(accessToken: string): Promise<{
 export async function handleGoogleCallback(
   code: string,
   redirectUri?: string,
+  codeVerifier?: string,
 ): Promise<{ user: User; token: string } | { error: string }> {
   // Exchange code for tokens
-  const tokens = await exchangeGoogleCode(code, redirectUri);
+  const tokens = await exchangeGoogleCode(code, redirectUri, codeVerifier);
   if (!tokens) {
     return { error: "Kunde inte verifiera med Google" };
   }
