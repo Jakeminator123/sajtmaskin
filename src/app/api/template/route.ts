@@ -148,7 +148,7 @@ async function persistTemplateProjectData(params: {
     current_code: currentCode,
     files: files ?? [],
     messages: persistedChat?.messages ?? [],
-    meta: {
+    meta_patch: {
       source: projectDataSource ?? "template-init:own-engine",
       templateId,
       templateTitle,
