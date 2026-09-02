@@ -195,11 +195,20 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
     expect(where).toContain("lease_expires_at");
   });
 
-  it("refuses the accept (no transaction) when the lease probe is unavailable", async () => {
+  it("returns lease_unavailable (not null) when the lease probe cannot be proven", async () => {
     mockLeaseTableUnavailable();
     const res = await acceptRepair("ver-1");
-    expect(res).toBeNull();
+    expect(res).toBe("lease_unavailable");
     expect(transaction).not.toHaveBeenCalled();
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("returns null (not lease_unavailable) when there is genuinely no pending repair", async () => {
+    mockLeaseTableExists(true);
+    selectRows.value = [{ repairedFilesJson: null, filesJson: BASE_A }];
+    const res = await acceptRepair("ver-1");
+    expect(res).toBeNull();
+    expect(transaction).toHaveBeenCalledTimes(1);
     expect(txUpdateSet.value).toBeUndefined();
   });
 

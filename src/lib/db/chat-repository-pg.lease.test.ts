@@ -80,4 +80,15 @@ describe("maybeAutoAcceptTimedOutRepair — shared-path active-lease guard (Code
     expect(result.wasAutoAccepted).toBe(false);
     expect(transaction).not.toHaveBeenCalled();
   });
+
+  it("does NOT auto-accept when acceptRepair reports lease_unavailable after a clean pre-check", async () => {
+    limit.mockResolvedValue([]); // hasActiveVersionLease -> false
+    execute.mockRejectedValue(new Error("connection reset")); // acceptRepair probe
+
+    const result = await maybeAutoAcceptTimedOutRepair(timedOutRepairVersion());
+
+    expect(result.wasAutoAccepted).toBe(false);
+    expect(result.version.id).toBe("ver-1");
+    expect(transaction).not.toHaveBeenCalled();
+  });
 });

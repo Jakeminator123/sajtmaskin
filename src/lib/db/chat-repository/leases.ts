@@ -143,8 +143,10 @@ export async function leaseTableExists(): Promise<LeaseTablePresence> {
  *
  * Throws when the lease table cannot be queried (`unavailable` or a query
  * error against a table that exists). Callers must treat a throw as
- * retryable / no-op — never as "no lease". A definitive `missing` table
- * returns false (pre-migration: no leases can exist).
+ * retryable / no-op — never as "no lease". HTTP routes map the throw to
+ * `503 lease_unavailable` + `Retry-After`; they must not
+ * `.catch(() => false)`. A definitive `missing` table returns false
+ * (pre-migration: no leases can exist).
  */
 export async function hasActiveVersionLease(versionId: string): Promise<boolean> {
   try {

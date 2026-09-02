@@ -58,7 +58,7 @@ export {
 
 export { updateVersionFiles } from "./chat-repository/version-files";
 
-export type { SaveRepairedFilesResult } from "./chat-repository/repair";
+export type { SaveRepairedFilesResult, AcceptRepairResult } from "./chat-repository/repair";
 export {
   saveRepairedFiles,
   getRepairStatus,

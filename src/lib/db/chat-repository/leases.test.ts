@@ -80,6 +80,12 @@ describe("hasActiveVersionLease — fail-closed on query error (L4)", () => {
     execute.mockRejectedValue(new Error("connection reset"));
     await expect(hasActiveVersionLease("ver-1")).rejects.toThrow("connection reset");
   });
+
+  it("throws when the query fails and the probe returns no row (unavailable, not missing)", async () => {
+    selectLimit.mockRejectedValue(new Error("connection reset"));
+    execute.mockResolvedValue({ rows: [] });
+    await expect(hasActiveVersionLease("ver-1")).rejects.toThrow("connection reset");
+  });
 });
 
 describe("acquireVersionLease — exactly one owner (L4)", () => {

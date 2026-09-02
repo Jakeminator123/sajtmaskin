@@ -134,20 +134,27 @@ export async function getRepairStatus(versionId: string): Promise<VersionRepairS
   };
 }
 
+/**
+ * Outcome of {@link acceptRepair}. `lease_unavailable` is distinct from
+ * `null`: the caller could not prove lease-table presence, so HTTP routes
+ * must retry (503) instead of treating it as "no pending repair" (409).
+ */
+export type AcceptRepairResult = Version | null | "lease_unavailable";
+
 export async function acceptRepair(
   versionId: string,
   verificationSummary: string | null = "Server repair accepted.",
-): Promise<Version | null> {
+): Promise<AcceptRepairResult> {
   // Resolve lease-table presence ONCE, out of band. We must NOT name
   // engine_version_jobs inside the UPDATE when it is absent — Postgres
   // resolves relations at parse/plan time. `unavailable` refuses the accept
-  // (retryable) instead of dropping the EXISTS guard.
+  // as its own retryable state — never as `null` ("no pending repair").
   const presence = await leaseTableExists();
   if (presence === "unavailable") {
     console.warn(
       `[lease] acceptRepair probe unavailable on ${versionId} — refusing accept (retryable).`,
     );
-    return null;
+    return "lease_unavailable";
   }
   const jobsExist = presence === "exists";
   return db.transaction(async (tx) => {
@@ -348,7 +355,7 @@ export async function maybeAutoAcceptTimedOutRepair(version: Version): Promise<A
     version.id,
     "Server repair auto-accepted after timeout.",
   );
-  if (!accepted) {
+  if (!accepted || accepted === "lease_unavailable") {
     return { version, wasAutoAccepted: false };
   }
   return { version: accepted, wasAutoAccepted: true };
