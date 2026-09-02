@@ -13,7 +13,9 @@
 
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
+import { getCurrentUser } from "@/lib/auth/auth";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { withRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import {
@@ -34,12 +36,19 @@ function isReasoningChatModel(model: string): boolean {
   return id.startsWith("gpt-5") || id.startsWith("o1") || id.startsWith("o3") || id.startsWith("o4");
 }
 
+const DATA_IMAGE_RE = /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=\s]+$/i;
+const MAX_FRAME_CHARS = 1_500_000;
+
+export function isAllowedPresentationFrame(value: string): boolean {
+  return value.length <= MAX_FRAME_CHARS && DATA_IMAGE_RE.test(value);
+}
+
 const requestSchema = z.object({
-  transcript: z.string().min(1, "Transcript required"),
+  transcript: z.string().min(1, "Transcript required").max(20_000),
   companyName: z.string().optional().default(""),
   industry: z.string().optional().default(""),
   language: z.string().optional().default("sv"),
-  frames: z.array(z.string()).max(6).optional(),
+  frames: z.array(z.string().max(MAX_FRAME_CHARS)).max(6).optional(),
 });
 
 const TEXT_ONLY_PROMPT = `Du är en uppmuntrande presentationscoach. Analysera denna transkribering av en elevator pitch / företagspresentation.
@@ -162,6 +171,14 @@ function buildFallbackAnalysis(
 }
 
 export async function POST(req: Request) {
+  const user = await getCurrentUser(req);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return withRateLimit(req, "analyze:presentation", () => handlePOST(req), { userId: user.id });
+}
+
+async function handlePOST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
     const parsed = requestSchema.safeParse(body);
@@ -174,6 +191,12 @@ export async function POST(req: Request) {
 
     const { companyName, industry, frames } = parsed.data;
     const transcript = parsed.data.transcript.trim();
+    if (frames?.some((frame) => !isAllowedPresentationFrame(frame))) {
+      return NextResponse.json(
+        { error: "Frames must be data:image PNG/JPEG/WebP URLs" },
+        { status: 400 },
+      );
+    }
     const hasFrames = Boolean(frames && frames.length > 0);
 
     if (transcript.length < 10) {

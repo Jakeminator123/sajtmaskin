@@ -3,6 +3,18 @@ import { db } from "@/lib/db/client";
 import { appProjects, guestUsage, pageViews, users } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 
+const PATH_MAX = 512;
+const REFERRER_MAX = 1024;
+const USER_AGENT_MAX = 512;
+const IP_MAX = 128;
+
+export function clipAnalyticsField(value: string | undefined | null, max: number): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.length <= max ? trimmed : trimmed.slice(0, max);
+}
+
 export async function recordPageView(
   path: string,
   sessionId?: string,
@@ -12,13 +24,15 @@ export async function recordPageView(
   referrer?: string,
 ): Promise<void> {
   assertDbConfigured();
+  const clippedPath = clipAnalyticsField(path, PATH_MAX);
+  if (!clippedPath) return;
   await db.insert(pageViews).values({
-    path,
+    path: clippedPath,
     session_id: sessionId || null,
     user_id: userId || null,
-    ip_address: ipAddress || null,
-    user_agent: userAgent || null,
-    referrer: referrer || null,
+    ip_address: clipAnalyticsField(ipAddress, IP_MAX),
+    user_agent: clipAnalyticsField(userAgent, USER_AGENT_MAX),
+    referrer: clipAnalyticsField(referrer, REFERRER_MAX),
     created_at: new Date(),
   });
 }

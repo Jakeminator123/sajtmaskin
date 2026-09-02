@@ -2,10 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const config = vi.hoisted(() => ({ useFigmaApi: true }));
+const getCurrentUser = vi.hoisted(() => vi.fn());
+const withRateLimit = vi.hoisted(() =>
+  vi.fn((_request: Request, _bucket: string, handler: () => Promise<Response>) => handler()),
+);
 
 vi.mock("@/lib/config", () => ({
   FEATURES: config,
   SECRETS: { figmaAccessToken: "figma-token" },
+}));
+
+vi.mock("@/lib/auth/auth", () => ({
+  getCurrentUser,
 }));
 
 vi.mock("@/lib/bot-protection", () => ({
@@ -13,8 +21,7 @@ vi.mock("@/lib/bot-protection", () => ({
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
-  withRateLimit: (_request: Request, _bucket: string, handler: () => Promise<Response>) =>
-    handler(),
+  withRateLimit,
 }));
 
 import { FIGMA_PREVIEW_NOT_CONFIGURED } from "@/lib/api/figma-preview-contract";
@@ -56,6 +63,43 @@ describe("POST /api/figma/preview", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     config.useFigmaApi = true;
+    getCurrentUser.mockResolvedValue({ id: "user_1" });
+    withRateLimit.mockImplementation(
+      (_request: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
+    );
+  });
+
+  it("rejects anonymous callers before contacting Figma", async () => {
+    getCurrentUser.mockResolvedValueOnce(null);
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    const response = await POST(
+      makeRequest({ url: "https://www.figma.com/design/file-key/name?node-id=1-2" }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(withRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 when the figma preview bucket is exhausted", async () => {
+    withRateLimit.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "Too many requests" }), { status: 429 }),
+    );
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    const response = await POST(
+      makeRequest({ url: "https://www.figma.com/design/file-key/name?node-id=1-2" }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(withRateLimit).toHaveBeenCalledWith(
+      expect.anything(),
+      "figma:preview",
+      expect.any(Function),
+      { userId: "user_1" },
+    );
   });
 
   it("rejects missing and invalid Figma URLs before calling Figma", async () => {
