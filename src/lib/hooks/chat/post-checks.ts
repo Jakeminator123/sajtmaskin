@@ -39,7 +39,11 @@ import type {
   ProductPostcheckAttestation,
   ProductPostcheckResult,
 } from "@/lib/gen/verify/product-postcheck";
-import { isInfrastructureSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
+import {
+  isInfrastructureSkipReason,
+  isNonFinalProductPostcheckSkipReason,
+  retryableProductPostcheckUnavailableReason,
+} from "@/lib/gen/verify/product-postcheck-skip";
 import {
   isUnattestedProductPostcheckVerdictWriteAllowed,
   verdictFromProductPostcheckResult,
@@ -82,6 +86,36 @@ export function hasActivePostCheck(chatId: string): boolean {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+/**
+ * 503 `claim_unavailable` / `lease_unavailable` is a retryable infra skip,
+ * not a transport hole. Other non-OK statuses stay `null` (transport_error).
+ */
+export function productPostcheckResultFromUnavailableHttp(params: {
+  status: number;
+  code?: string | null;
+  skippedReason?: string | null;
+  previewUrl?: string | null;
+}): ProductPostcheckResult | null {
+  if (params.status !== 503) return null;
+  const reason = retryableProductPostcheckUnavailableReason(
+    params.code,
+    params.skippedReason,
+  );
+  if (!reason) return null;
+  return {
+    ok: true,
+    skipped: true,
+    skippedReason: reason,
+    warnings: [],
+    warningCount: 0,
+    productBlocked: false,
+    routesChecked: 0,
+    durationMs: 0,
+    checkedUrl: params.previewUrl ?? null,
+    attestation: null,
+  };
 }
 
 const ABORTED_VERIFY_REASON =
@@ -138,9 +172,9 @@ export async function persistVersionErrorLogs(params: {
   );
   if (productPostcheckLogs.length > 0 && !productPostcheckAttestation) {
     // `passed`/`blocked` still require the exact preview/revision tuple.
-    // Non-release verdicts (pending/superseded/allowed_skip/indeterminate)
-    // may be written unattested so F3 sees an explicit domain instead of a
-    // missing row that used to be read as pass.
+    // Non-release verdicts (pending/superseded/indeterminate) may be written
+    // unattested. `allowed_skip` is unattested only for server-config
+    // `feature_disabled` — otherwise it is an F3-release domain.
     if (isUnattestedProductPostcheckVerdictWriteAllowed(productPostcheckLogs)) {
       return postErrorLogBatch(url, logs, null);
     }
@@ -310,7 +344,18 @@ async function postProductPostcheckOnce(params: {
         signal,
       },
     );
-    if (!response.ok) return null;
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        code?: string;
+        skippedReason?: string;
+      } | null;
+      return productPostcheckResultFromUnavailableHttp({
+        status: response.status,
+        code: body?.code,
+        skippedReason: body?.skippedReason,
+        previewUrl,
+      });
+    }
     return (await response.json()) as ProductPostcheckResult;
   } catch (error) {
     if (isAbortError(error)) throw error;
@@ -355,31 +400,45 @@ export function buildProductPostcheckLogItems(
         meta: {
           verdict: "pending",
           skippedReason: "transport_error",
-          productBlocked: false,
         },
       },
     ];
   }
   const verdict = verdictFromProductPostcheckResult(result);
-  // A superseded / unscoped response must not persist a false PASS. It may
-  // persist an explicit non-release verdict so F3 retries instead of reading
-  // a missing summary as pass.
+  // A superseded response persists an explicit non-release verdict so F3
+  // retries. L7 hold-reasons (preview not ready/running) still leave no
+  // durable skip — missing is already `pending` at read time. Other
+  // unattested skips persist `pending`, never `allowed_skip`.
+  if (result.skippedReason === "preview_superseded") {
+    return [
+      {
+        level: "warning",
+        category: "product_postcheck.summary",
+        message: "F2 Product Postcheck superseded — versionen lämnas pending.",
+        meta: {
+          verdict: "superseded",
+          skippedReason: "preview_superseded",
+        },
+      },
+    ];
+  }
   if (
-    result.skippedReason === "preview_superseded" ||
-    (!result.attestation && result.skippedReason !== "feature_disabled")
+    !result.attestation &&
+    (result.skippedReason === "preview_not_ready" ||
+      result.skippedReason === "preview_not_running")
   ) {
+    return [];
+  }
+  if (!result.attestation && result.skippedReason !== "feature_disabled") {
     return [
       {
         level: "warning",
         category: "product_postcheck.summary",
         message:
-          verdict === "superseded"
-            ? "F2 Product Postcheck superseded — versionen lämnas pending."
-            : "F2 Product Postcheck har ingen attesterad dom — versionen lämnas pending.",
+          "F2 Product Postcheck har ingen attesterad dom — versionen lämnas pending.",
         meta: {
-          verdict,
+          verdict: "pending",
           skippedReason: result.skippedReason ?? "unknown",
-          productBlocked: false,
         },
       },
     ];
@@ -392,8 +451,7 @@ export function buildProductPostcheckLogItems(
         message: "F2 Product Postcheck skipped.",
         meta: {
           verdict,
-          skippedReason: result.skippedReason ?? "feature_disabled",
-          productBlocked: false,
+          skippedReason: "feature_disabled",
         },
       },
     ];
@@ -422,6 +480,9 @@ export function buildProductPostcheckLogItems(
       "runtime_error",
     ]);
     const skippedReason = result.skippedReason ?? "unknown";
+    // Skip is its own log type. A new summary here would become "newest" and
+    // could erase a previous `blocked` on the same filesRevision. The verdict
+    // reader takes the strictest domain per revision from skipped + summaries.
     return [
       {
         level: crashReasons.has(skippedReason) ? "warning" : "info",
@@ -430,18 +491,6 @@ export function buildProductPostcheckLogItems(
         meta: {
           ...attestationMeta,
           skippedReason,
-          durationMs: result.durationMs ?? null,
-          checkedUrl: result.checkedUrl ?? null,
-        },
-      },
-      {
-        level: crashReasons.has(skippedReason) ? "warning" : "info",
-        category: "product_postcheck.summary",
-        message: "F2 Product Postcheck skipped.",
-        meta: {
-          ...attestationMeta,
-          skippedReason,
-          productBlocked: false,
           durationMs: result.durationMs ?? null,
           checkedUrl: result.checkedUrl ?? null,
         },
@@ -1811,11 +1860,12 @@ export function shouldHoldBeforeProductPostcheck(
 function productPostcheckNeedsRetry(
   result: ProductPostcheckResult | null,
 ): boolean {
-  return (
-    !result ||
-    result.skippedReason === "preview_superseded" ||
-    (result.skippedReason !== "feature_disabled" && !result.attestation)
-  );
+  if (!result) return true;
+  if (result.skippedReason === "preview_superseded") return true;
+  if (isNonFinalProductPostcheckSkipReason(result.skippedReason)) return true;
+  if (result.skippedReason === "claim_settled") return false;
+  if (result.skippedReason === "feature_disabled") return false;
+  return !result.attestation;
 }
 
 /**

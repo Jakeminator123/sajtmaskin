@@ -889,6 +889,50 @@ export const liveReviewRuns = pgTable(
   }),
 );
 
+/**
+ * Distributed single-flight for Product Postcheck (L6).
+ *
+ * Unique claim key is the L3/L7 revision tuple: version + files_revision +
+ * preview session + lifecycle token + mutation revision. `run_id` +
+ * `claim_generation` are the CAS pair: takeover after `expires_at` bumps
+ * generation so a displaced owner cannot complete. Status is
+ * running|passed|blocked|failed|superseded|expired.
+ *
+ * Sentinels: `lifecycle_token` '' and `mutation_revision` 0 mean absent/legacy
+ * so UNIQUE collapses two null-token claims (Postgres UNIQUE allows NULLs).
+ */
+export const productPostcheckRuns = pgTable(
+  "product_postcheck_runs",
+  {
+    runId: text("run_id").primaryKey(),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => engineChats.id, { onDelete: "cascade" }),
+    versionId: text("version_id").notNull(),
+    filesRevision: text("files_revision").notNull(),
+    previewSession: text("preview_session").notNull(),
+    lifecycleToken: text("lifecycle_token").notNull().default(""),
+    mutationRevision: integer("mutation_revision").notNull().default(0),
+    owner: text("owner").notNull(),
+    claimGeneration: integer("claim_generation").notNull().default(1),
+    status: text("status").notNull(),
+    claimedAt: timestamptz("claimed_at").defaultNow().notNull(),
+    expiresAt: timestamptz("expires_at").notNull(),
+    completedAt: timestamptz("completed_at"),
+  },
+  (table) => ({
+    claimUnique: uniqueIndex("product_postcheck_runs_claim_unique").on(
+      table.versionId,
+      table.filesRevision,
+      table.previewSession,
+      table.lifecycleToken,
+      table.mutationRevision,
+    ),
+    chatIdx: index("idx_product_postcheck_runs_chat_id").on(table.chatId),
+    expiresIdx: index("idx_product_postcheck_runs_expires_at").on(table.expiresAt),
+  }),
+);
+
 export const generationTelemetry = pgTable(
   "generation_telemetry",
   {

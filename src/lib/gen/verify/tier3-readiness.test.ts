@@ -4,7 +4,8 @@ const getVersionFiles = vi.hoisted(() => vi.fn());
 const detectIntegrationsFromVersionFiles = vi.hoisted(() => vi.fn());
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
-const getLatestEngineVersionErrorLogForCategory = vi.hoisted(() => vi.fn());
+const getEngineVersionErrorLogsForCategories = vi.hoisted(() => vi.fn());
+const getRunningProductPostcheckClaimForVersion = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFiles }));
@@ -17,7 +18,10 @@ vi.mock("@/lib/gen/preview/env-local", async (importOriginal) => ({
   loadPlaceholderKeySet,
 }));
 vi.mock("@/lib/db/services/version-errors", () => ({
-  getLatestEngineVersionErrorLogForCategory,
+  getEngineVersionErrorLogsForCategories,
+}));
+vi.mock("@/lib/db/services/product-postcheck-runs", () => ({
+  getRunningProductPostcheckClaimForVersion,
 }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({ getVersionById }));
 
@@ -63,10 +67,13 @@ beforeEach(() => {
   detectIntegrationsFromVersionFiles.mockReturnValue([]);
   getStoredProjectEnvVarMap.mockResolvedValue({});
   loadPlaceholderKeySet.mockReturnValue(new Set<string>());
-  getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
-    category: "product_postcheck.summary",
-    meta: { verdict: "passed", productBlocked: false },
-  });
+  getEngineVersionErrorLogsForCategories.mockResolvedValue([
+    {
+      category: "product_postcheck.summary",
+      meta: { verdict: "passed", productBlocked: false },
+    },
+  ]);
+  getRunningProductPostcheckClaimForVersion.mockResolvedValue(null);
   getVersionById.mockResolvedValue({ id: "ver_f2", chat_id: "chat_1" });
 });
 
@@ -86,7 +93,8 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
       reason: "f3_parent_version_missing",
       retryable: false,
     });
-    expect(getLatestEngineVersionErrorLogForCategory).not.toHaveBeenCalled();
+    expect(getEngineVersionErrorLogsForCategories).not.toHaveBeenCalled();
+    expect(getRunningProductPostcheckClaimForVersion).not.toHaveBeenCalled();
   });
 
   it("DB-fel vid parent-läsning är readiness_unavailable + retry", async () => {
@@ -108,7 +116,7 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
   });
 
   it("pending/indeterminate postcheck-dom släpper inte och är retrybar", async () => {
-    getLatestEngineVersionErrorLogForCategory.mockResolvedValue(null);
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([]);
     const pending = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,
@@ -121,7 +129,7 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
       retryable: true,
     });
 
-    getLatestEngineVersionErrorLogForCategory.mockRejectedValue(new Error("db down"));
+    getEngineVersionErrorLogsForCategories.mockRejectedValue(new Error("db down"));
     const indeterminate = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,
@@ -133,6 +141,25 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
       verdict: "indeterminate",
       retryable: true,
     });
+  });
+
+  it("L6 running-claim håller F3 som pending även när äldre passed-summary finns", async () => {
+    getRunningProductPostcheckClaimForVersion.mockResolvedValue({
+      status: "running",
+      runId: "run_live",
+    });
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+    expect(result).toMatchObject({
+      ready: false,
+      reason: "product_postcheck_pending",
+      verdict: "pending",
+      retryable: true,
+    });
+    expect(getEngineVersionErrorLogsForCategories).not.toHaveBeenCalled();
   });
 
   it("DB-fel i env-läsning är never ready + retry", async () => {
@@ -208,10 +235,12 @@ describe("checkTier3ReadinessForVersion (L1)", () => {
   });
 
   it("allowed_skip kräver inte live preview-tupel", async () => {
-    getLatestEngineVersionErrorLogForCategory.mockResolvedValue({
-      category: "product_postcheck.summary",
-      meta: { verdict: "allowed_skip" },
-    });
+    getEngineVersionErrorLogsForCategories.mockResolvedValue([
+      {
+        category: "product_postcheck.summary",
+        meta: { verdict: "allowed_skip" },
+      },
+    ]);
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_f3",
       filesRevision: "rev_f3",

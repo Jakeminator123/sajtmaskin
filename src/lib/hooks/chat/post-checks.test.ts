@@ -11,6 +11,7 @@ import {
   abortPostChecksForChat,
   buildProductPostcheckLogItems,
   hasActivePostCheck,
+  productPostcheckResultFromUnavailableHttp,
   runPostGenerationChecks,
 } from "./post-checks";
 import type { SetMessages } from "./types";
@@ -3259,7 +3260,76 @@ describe("buildProductPostcheckLogItems live review", () => {
     ]);
   });
 
-  it("L7+L2: oattesterad preview_not_ready/preview_not_running är explicit pending — aldrig pass", () => {
+  it("attesterad skip skriver bara skipped — ingen ny summary som kan radera blocked", () => {
+    const logs = buildProductPostcheckLogItems({
+      ok: true,
+      skipped: true,
+      skippedReason: "browser_crashed",
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 12,
+      checkedUrl: "https://preview.example",
+      routesChecked: 0,
+      attestation: CURRENT_POSTCHECK_ATTESTATION,
+    });
+    expect(logs.map((log) => log.category)).toEqual(["product_postcheck.skipped"]);
+    expect(logs[0]?.meta).toEqual(
+      expect.objectContaining({
+        verdict: "allowed_skip",
+        skippedReason: "browser_crashed",
+      }),
+    );
+  });
+
+  it("oattesterad skip persisteras som pending; feature_disabled som allowed_skip", () => {
+    expect(
+      buildProductPostcheckLogItems({
+        ok: true,
+        skipped: true,
+        skippedReason: "browser_crashed",
+        warnings: [],
+        warningCount: 0,
+        productBlocked: false,
+        durationMs: 1,
+        checkedUrl: "https://preview.example",
+        routesChecked: 0,
+        attestation: null,
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "pending",
+          skippedReason: "browser_crashed",
+        }),
+      }),
+    ]);
+    expect(
+      buildProductPostcheckLogItems({
+        ok: true,
+        skipped: true,
+        skippedReason: "feature_disabled",
+        warnings: [],
+        warningCount: 0,
+        productBlocked: false,
+        durationMs: 1,
+        checkedUrl: null,
+        routesChecked: 0,
+        attestation: null,
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "allowed_skip",
+          skippedReason: "feature_disabled",
+        }),
+      }),
+    ]);
+  });
+
+  it("L7: oattesterad preview_not_ready/preview_not_running lämnar ingen durabel skip", () => {
     const pending = {
       ok: true as const,
       skipped: true,
@@ -3273,25 +3343,33 @@ describe("buildProductPostcheckLogItems live review", () => {
     };
     expect(
       buildProductPostcheckLogItems({ ...pending, skippedReason: "preview_not_ready" }),
-    ).toEqual([
-      expect.objectContaining({
-        category: "product_postcheck.summary",
-        meta: expect.objectContaining({
-          verdict: "pending",
-          skippedReason: "preview_not_ready",
-        }),
-      }),
-    ]);
+    ).toEqual([]);
     expect(
       buildProductPostcheckLogItems({ ...pending, skippedReason: "preview_not_running" }),
-    ).toEqual([
-      expect.objectContaining({
-        category: "product_postcheck.summary",
-        meta: expect.objectContaining({
-          verdict: "pending",
-          skippedReason: "preview_not_running",
-        }),
-      }),
-    ]);
+    ).toEqual([]);
+  });
+});
+
+describe("productPostcheckResultFromUnavailableHttp", () => {
+  it("mappar 503 claim_unavailable till retrybar infra-skip", () => {
+    const result = productPostcheckResultFromUnavailableHttp({
+      status: 503,
+      code: "claim_unavailable",
+    });
+    expect(result?.skippedReason).toBe("claim_unavailable");
+    expect(result?.attestation).toBeNull();
+  });
+
+  it("mappar 503 lease_unavailable till retrybar infra-skip", () => {
+    const result = productPostcheckResultFromUnavailableHttp({
+      status: 503,
+      code: "lease_unavailable",
+    });
+    expect(result?.skippedReason).toBe("lease_unavailable");
+  });
+
+  it("lämnar 500 och okänd 503 som transport (null)", () => {
+    expect(productPostcheckResultFromUnavailableHttp({ status: 500, code: "claim_unavailable" })).toBeNull();
+    expect(productPostcheckResultFromUnavailableHttp({ status: 503, code: "row_contention" })).toBeNull();
   });
 });

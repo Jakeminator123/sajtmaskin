@@ -71,7 +71,8 @@ Aktuella checklistor per lane ägs av
    serverägda `checkTier3ReadinessForVersion`
    (`src/lib/gen/verify/tier3-readiness.ts` — saknad env → 412
    `tier3_env_not_ready`; saknad F2-parent / L2-dom
-   `blocked`/`pending`/`indeterminate` → 409) innan VM-ReleaseGate.
+   `blocked`/`pending`/`indeterminate`/`superseded` → 409; L6 `running`-claim
+   är `pending`) innan VM-ReleaseGate.
    Samma funktion körs i `triggerServerVerification` och
    `triggerBuildErrorRepair` under lease mot exakt `filesRevision`:
    före första F3-gaten, efter varje reparation och omedelbart före

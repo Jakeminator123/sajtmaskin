@@ -271,6 +271,52 @@ describe("POST product-postcheck-attested error log", () => {
     expect(createAttestedProductPostcheckErrorLogs).not.toHaveBeenCalled();
   });
 
+  it("stores unattested allowed_skip only for server-config feature_disabled", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat_1" },
+      version: { id: "v1", files_revision: "rev_n" },
+    });
+
+    const allowed = await POST(
+      unattestedRequest({
+        logs: [
+          {
+            level: "info",
+            category: "product_postcheck.summary",
+            message: "F2 Product Postcheck skipped.",
+            meta: { verdict: "allowed_skip", skippedReason: "feature_disabled" },
+          },
+        ],
+      }),
+      ctx,
+    );
+    expect(allowed.status).toBe(200);
+    expect(createEngineVersionErrorLogs).toHaveBeenCalled();
+
+    createEngineVersionErrorLogs.mockClear();
+    const rejected = await POST(
+      unattestedRequest({
+        logs: [
+          {
+            level: "info",
+            category: "product_postcheck.summary",
+            message: "F2 Product Postcheck skipped.",
+            meta: { verdict: "allowed_skip", skippedReason: "browser_crashed" },
+          },
+        ],
+      }),
+      ctx,
+    );
+    expect(rejected.status).toBe(400);
+    expect(await rejected.json()).toEqual(
+      expect.objectContaining({
+        stored: false,
+        code: "product_postcheck_attestation_required",
+      }),
+    );
+    expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
+  });
+
   it("rejects an unattested single Product Postcheck row", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1" },

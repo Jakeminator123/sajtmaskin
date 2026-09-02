@@ -187,6 +187,8 @@ Typisk ordning i runtime:
     äger även F3-readiness (`checkTier3ReadinessForVersion` i
     `src/lib/gen/verify/tier3-readiness.ts`) under lease mot exakt snapshot,
     så en klient-skip inte kan promota utan env-/parent-/postcheck-grind.
+    L2-domen (`readProductPostcheckVerdictForVersion`) släpper bara
+    `passed`/`allowed_skip`; L6 `running`-claim är `pending`.
     Den deterministiska F3-forken (finalize-design utan LLM) är undantaget: där
     är klientens `runF3FinalizeAction` enda gate-anropare.
 14. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån

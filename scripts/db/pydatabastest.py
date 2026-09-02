@@ -174,6 +174,10 @@ CACHE_TABLES: Tuple[str, ...] = (
     # repair run. Classified here for existence-only verification, row count
     # informational (Codex P1 on #267).
     "engine_version_jobs",
+    # L6 single-flight claims. Rows are retained (status changes, no delete)
+    # so EMPTY would false-fail prod-sync after the first postcheck, same
+    # class as engine_version_jobs.
+    "product_postcheck_runs",
 )
 
 EXPECTED_TABLES: Tuple[str, ...] = EMPTY_TABLES + PRESERVED_TABLES + CACHE_TABLES

@@ -12,7 +12,10 @@
 import {
   isInfrastructureSkipReason,
 } from "@/lib/gen/verify/product-postcheck-skip";
-import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
+import type {
+  ProductPostcheckAttestation,
+  ProductPostcheckResult,
+} from "@/lib/gen/verify/product-postcheck";
 
 export const PRODUCT_POSTCHECK_VERDICTS = [
   "passed",
@@ -41,11 +44,23 @@ const F3_RETRYABLE_VERDICTS: ReadonlySet<ProductPostcheckVerdict> = new Set([
 ]);
 
 const UNATTESTED_WRITABLE_VERDICTS: ReadonlySet<ProductPostcheckVerdict> = new Set([
-  "allowed_skip",
   "pending",
   "indeterminate",
   "superseded",
 ]);
+
+/**
+ * Strictest durable domain for one filesRevision.
+ * A later skip/`allowed_skip` must not erase `blocked` on the same revision.
+ */
+const VERDICT_STRICTNESS: Record<ProductPostcheckVerdict, number> = {
+  blocked: 4,
+  pending: 3,
+  indeterminate: 3,
+  superseded: 3,
+  allowed_skip: 1,
+  passed: 1,
+};
 
 export type ProductPostcheckF3GateReason =
   | "product_postcheck_blocked"
@@ -99,23 +114,28 @@ export function productPostcheckF3GateReason(
   }
 }
 
+export function isAttestedAllowedSkipReason(
+  reason: string | null | undefined,
+): boolean {
+  const normalized = reason?.trim() || "";
+  return normalized === "feature_disabled" || isInfrastructureSkipReason(normalized);
+}
+
 export function verdictFromProductPostcheckResult(
   result: ProductPostcheckResult | null,
 ): ProductPostcheckVerdict {
   if (!result) return "pending";
   if (result.skippedReason === "preview_superseded") return "superseded";
   if (result.skipped) {
-    if (
-      result.skippedReason === "feature_disabled" ||
-      isInfrastructureSkipReason(result.skippedReason)
-    ) {
+    // Server-config `feature_disabled` is itself the attestation — no preview
+    // tuple exists when the gate is off. Other release skips need the tuple.
+    if (result.skippedReason === "feature_disabled") return "allowed_skip";
+    if (result.attestation && isAttestedAllowedSkipReason(result.skippedReason)) {
       return "allowed_skip";
     }
     return "pending";
   }
-  if (result.skippedReason !== "feature_disabled" && !result.attestation) {
-    return "pending";
-  }
+  if (!result.attestation) return "pending";
   return result.productBlocked === true ? "blocked" : "passed";
 }
 
@@ -134,33 +154,50 @@ function createdAtMs(log: ProductPostcheckVerdictLog): number | null {
   return Number.isFinite(ms) ? ms : null;
 }
 
-function pickNewest(
-  logs: readonly ProductPostcheckVerdictLog[],
-  category: string,
-): ProductPostcheckVerdictLog | null {
-  const matches = logs.filter((log) => log.category === category);
-  if (matches.length === 0) return null;
-  let newest = matches[0]!;
-  let newestMs = createdAtMs(newest);
-  for (const candidate of matches) {
-    const ms = createdAtMs(candidate);
-    if (ms != null && (newestMs == null || ms > newestMs)) {
-      newest = candidate;
-      newestMs = ms;
-    }
-  }
-  return newest;
-}
-
 function skippedReasonFromMeta(meta: unknown): string | null {
   if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
   const reason = (meta as { skippedReason?: unknown }).skippedReason;
   return typeof reason === "string" && reason.trim() ? reason.trim() : null;
 }
 
+export function filesRevisionFromPostcheckMeta(meta: unknown): string {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return "";
+  const record = meta as Record<string, unknown>;
+  for (const key of ["attestedFilesRevision", "filesRevision"] as const) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function isAttestedPostcheckMeta(meta: unknown): boolean {
+  if (filesRevisionFromPostcheckMeta(meta)) return true;
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return false;
+  const session = (meta as { attestedPreviewSessionId?: unknown }).attestedPreviewSessionId;
+  return typeof session === "string" && session.trim().length > 0;
+}
+
+function verdictFromSkippedLog(meta: unknown): ProductPostcheckVerdict {
+  const reason = skippedReasonFromMeta(meta);
+  if (reason === "preview_superseded") return "superseded";
+  if (reason === "feature_disabled") return "allowed_skip";
+  if (isAttestedPostcheckMeta(meta) && isAttestedAllowedSkipReason(reason)) {
+    return "allowed_skip";
+  }
+  return "pending";
+}
+
+function stricterVerdict(
+  left: ProductPostcheckVerdict,
+  right: ProductPostcheckVerdict,
+): ProductPostcheckVerdict {
+  return VERDICT_STRICTNESS[left] >= VERDICT_STRICTNESS[right] ? left : right;
+}
+
 /**
- * L6 (unmerged) will persist a running claim. Until then this only maps an
- * explicit `pending`/`running` signal — missing claim is not a pass.
+ * L6 persists a running claim. A `running`/`pending` signal is `pending`.
+ * Terminal claim statuses are not a pass by themselves — missing logs stay
+ * `pending` (L2: a missing summary is never pass).
  */
 export function interpretProductPostcheckClaim(
   claim: ProductPostcheckClaimSignal | null | undefined,
@@ -170,9 +207,54 @@ export function interpretProductPostcheckClaim(
   return null;
 }
 
+type CollectedVerdict = {
+  verdict: ProductPostcheckVerdict;
+  revision: string;
+  createdAt: number | null;
+};
+
+function pickNewestCollected(rows: readonly CollectedVerdict[]): CollectedVerdict {
+  let newest = rows[0]!;
+  for (const row of rows) {
+    if (row.createdAt != null && (newest.createdAt == null || row.createdAt > newest.createdAt)) {
+      newest = row;
+    }
+  }
+  return newest;
+}
+
+function collectRevisionVerdicts(
+  logs: readonly ProductPostcheckVerdictLog[],
+): CollectedVerdict[] {
+  const collected: CollectedVerdict[] = [];
+  for (const log of logs) {
+    if (log.category === PRODUCT_POSTCHECK_SUMMARY_CATEGORY) {
+      collected.push({
+        verdict: verdictFromSummaryMeta(log.meta) ?? "pending",
+        revision: filesRevisionFromPostcheckMeta(log.meta),
+        createdAt: createdAtMs(log),
+      });
+      continue;
+    }
+    if (log.category === PRODUCT_POSTCHECK_SKIPPED_CATEGORY) {
+      collected.push({
+        verdict: verdictFromSkippedLog(log.meta),
+        revision: filesRevisionFromPostcheckMeta(log.meta),
+        createdAt: createdAtMs(log),
+      });
+    }
+  }
+  return collected;
+}
+
 /**
  * Client/server log interpreter. A missing summary is `pending`, never pass.
  * A failed read must be passed as `readFailed: true` → `indeterminate`.
+ *
+ * For one filesRevision: a later skip/`allowed_skip` never erases `blocked`.
+ * Newest completed `passed`/`blocked` wins among those two; a later incomplete
+ * skip (`pending`) after `passed` still holds F3. Among non-completed domains
+ * the strictest wins (`pending`/`indeterminate`/`superseded` > `allowed_skip`).
  */
 export function interpretProductPostcheckLogs(
   logs: readonly ProductPostcheckVerdictLog[],
@@ -182,22 +264,39 @@ export function interpretProductPostcheckLogs(
   },
 ): ProductPostcheckVerdict {
   if (options?.readFailed) return "indeterminate";
-  const summary = pickNewest(logs, PRODUCT_POSTCHECK_SUMMARY_CATEGORY);
-  if (summary) {
-    return verdictFromSummaryMeta(summary.meta) ?? "pending";
+  const collected = collectRevisionVerdicts(logs);
+  if (collected.length === 0) {
+    return interpretProductPostcheckClaim(options?.claim) ?? "pending";
   }
-  const claimVerdict = interpretProductPostcheckClaim(options?.claim);
-  if (claimVerdict) return claimVerdict;
-  const skipped = pickNewest(logs, PRODUCT_POSTCHECK_SKIPPED_CATEGORY);
-  if (skipped) {
-    const reason = skippedReasonFromMeta(skipped.meta);
-    if (reason === "preview_superseded") return "superseded";
-    if (reason === "feature_disabled" || isInfrastructureSkipReason(reason)) {
-      return "allowed_skip";
+  const newest = pickNewestCollected(collected);
+  const sameRevision = collected.filter((row) => row.revision === newest.revision);
+  const completed = sameRevision.filter(
+    (row) => row.verdict === "passed" || row.verdict === "blocked",
+  );
+  if (completed.length > 0) {
+    const newestCompleted = pickNewestCollected(completed);
+    if (newestCompleted.verdict === "blocked") return "blocked";
+    const laterIncomplete = sameRevision.filter(
+      (row) =>
+        (row.verdict === "pending" ||
+          row.verdict === "indeterminate" ||
+          row.verdict === "superseded") &&
+        row.createdAt != null &&
+        newestCompleted.createdAt != null &&
+        row.createdAt > newestCompleted.createdAt,
+    );
+    if (laterIncomplete.length > 0) {
+      return laterIncomplete.reduce(
+        (acc, row) => stricterVerdict(acc, row.verdict),
+        laterIncomplete[0]!.verdict,
+      );
     }
-    return "pending";
+    return "passed";
   }
-  return "pending";
+  return sameRevision.reduce(
+    (acc, row) => stricterVerdict(acc, row.verdict),
+    sameRevision[0]!.verdict,
+  );
 }
 
 export function interpretProductPostcheckSummaryRead(input: {
@@ -213,9 +312,10 @@ export function interpretProductPostcheckSummaryRead(input: {
 }
 
 /**
- * Attestation still guards `passed`/`blocked` (a false PASS after N+1).
- * Non-release verdicts may be written without a preview tuple so F3 can
- * see `pending`/`superseded`/`allowed_skip` instead of a missing row.
+ * Attestation still guards `passed`/`blocked` and non-config `allowed_skip`.
+ * `allowed_skip` is an F3-release domain: writable unattested only when
+ * `skippedReason` is `feature_disabled` (server-config). Infra skips need a
+ * preview tuple. Other unattested writes are `pending`/`indeterminate`/`superseded`.
  */
 export function isUnattestedProductPostcheckVerdictWriteAllowed(
   logs: readonly { category?: string | null; meta?: unknown }[],
@@ -227,6 +327,93 @@ export function isUnattestedProductPostcheckVerdictWriteAllowed(
   return productLogs.every((log) => {
     if (log.category !== PRODUCT_POSTCHECK_SUMMARY_CATEGORY) return false;
     const verdict = verdictFromSummaryMeta(log.meta);
-    return verdict != null && UNATTESTED_WRITABLE_VERDICTS.has(verdict);
+    if (verdict == null) return false;
+    if (UNATTESTED_WRITABLE_VERDICTS.has(verdict)) return true;
+    return (
+      verdict === "allowed_skip" &&
+      skippedReasonFromMeta(log.meta) === "feature_disabled"
+    );
   });
+}
+
+/**
+ * Report-state for an L6 loser poll. Derived from the L2 domain, not from
+ * inventing a new Chromium result. `activeRunId` stays the winner pointer.
+ */
+export function productPostcheckResultFromVerdict(params: {
+  verdict: ProductPostcheckVerdict;
+  runId: string;
+  claimStatus?: ProductPostcheckResult["claimStatus"];
+  previewUrl: string;
+  durationMs?: number | null;
+  attestation?: ProductPostcheckAttestation | null;
+}): ProductPostcheckResult {
+  const pointer = {
+    verificationRunId: params.runId,
+    activeRunId: params.runId,
+    claimStatus: params.claimStatus ?? null,
+  };
+  const base = {
+    ok: true as const,
+    warnings: [] as ProductPostcheckResult["warnings"],
+    warningCount: 0,
+    routesChecked: 0,
+    durationMs: params.durationMs ?? 0,
+    checkedUrl: params.previewUrl,
+    screenshots: null,
+    domSummary: null,
+    ...pointer,
+  };
+  switch (params.verdict) {
+    case "passed":
+      return {
+        ...base,
+        skipped: false,
+        skippedReason: null,
+        productBlocked: false,
+        attestation: params.attestation ?? null,
+      };
+    case "blocked":
+      return {
+        ...base,
+        skipped: false,
+        skippedReason: null,
+        productBlocked: true,
+        attestation: params.attestation ?? null,
+      };
+    case "allowed_skip":
+      return {
+        ...base,
+        skipped: true,
+        skippedReason: "claim_settled",
+        productBlocked: false,
+        attestation: params.attestation ?? null,
+      };
+    case "superseded":
+      return {
+        ...base,
+        skipped: true,
+        skippedReason: "preview_superseded",
+        productBlocked: false,
+        attestation: null,
+      };
+    case "pending":
+    case "indeterminate":
+      if (params.claimStatus === "running") {
+        return {
+          ...base,
+          skipped: true,
+          skippedReason: "claim_busy",
+          productBlocked: false,
+          attestation: null,
+        };
+      }
+      return {
+        ...base,
+        skipped: true,
+        skippedReason: "claim_settled",
+        productBlocked: false,
+        attestation: null,
+      };
+  }
 }

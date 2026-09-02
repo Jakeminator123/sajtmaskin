@@ -12,7 +12,8 @@
 import { createHash } from "node:crypto";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
-import { getLatestEngineVersionErrorLogForCategory } from "@/lib/db/services/version-errors";
+import { getEngineVersionErrorLogsForCategories } from "@/lib/db/services/version-errors";
+import { getRunningProductPostcheckClaimForVersion } from "@/lib/db/services/product-postcheck-runs";
 import { getVersionById } from "@/lib/db/chat-repository-pg";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import { getStoredProjectEnvVarMap } from "@/lib/projects/project-env-vars";
@@ -40,8 +41,11 @@ import type { CodeFile } from "@/lib/gen/parser";
 import type { SelectedDossier } from "@/lib/gen/dossiers/types";
 import {
   f3MayReleaseOnVerdict,
-  interpretProductPostcheckSummaryRead,
+  interpretProductPostcheckClaim,
+  interpretProductPostcheckLogs,
   isRetryableProductPostcheckVerdict,
+  PRODUCT_POSTCHECK_SKIPPED_CATEGORY,
+  PRODUCT_POSTCHECK_SUMMARY_CATEGORY,
   productPostcheckF3GateReason,
   type ProductPostcheckF3GateReason,
   type ProductPostcheckVerdict,
@@ -175,18 +179,28 @@ export function md5FilesRevision(filesJson: string): string {
 /**
  * L2 domain reader. A missing summary is `pending`, never pass. A DB read
  * error is `indeterminate`, never pass. Only `passed` / `allowed_skip` release.
+ *
+ * L6: an unexpired `running` claim holds F3 as `pending` even when an older
+ * `passed` summary exists. Callers may pass `claim` explicitly (product-postcheck
+ * route); otherwise the live claim row is loaded here.
  */
 export async function readProductPostcheckVerdictForVersion(
   versionId: string,
+  options?: { claim?: { status?: string | null } | null },
 ): Promise<ProductPostcheckVerdictRead> {
   try {
-    const summary = await getLatestEngineVersionErrorLogForCategory(
-      versionId,
-      "product_postcheck.summary",
-    );
-    const verdict = interpretProductPostcheckSummaryRead(
-      summary ? { status: "ok", meta: summary.meta } : { status: "missing" },
-    );
+    const claim =
+      options && "claim" in options
+        ? options.claim
+        : await getRunningProductPostcheckClaimForVersion(versionId);
+    if (interpretProductPostcheckClaim(claim) === "pending") {
+      return { verdict: "pending", retryable: true };
+    }
+    const logs = await getEngineVersionErrorLogsForCategories(versionId, [
+      PRODUCT_POSTCHECK_SUMMARY_CATEGORY,
+      PRODUCT_POSTCHECK_SKIPPED_CATEGORY,
+    ]);
+    const verdict = interpretProductPostcheckLogs(logs, { claim });
     return {
       verdict,
       retryable: isRetryableProductPostcheckVerdict(verdict),
@@ -366,11 +380,12 @@ export type CheckTier3ReadinessForVersionParams = {
 
 /**
  * Full readiness decision: F2 parent (when required), L2 Product Postcheck
- * domain, optional L7 preview identity, file-based build spec, stored env.
- * Placeholders are always accepted for build keys (owner decision 2026-07-22).
+ * domain, L6 running-claim, optional L7 preview identity, file-based build
+ * spec, stored env. Placeholders are always accepted for build keys
+ * (owner decision 2026-07-22).
  *
- * Missing parent, missing env, unknown/`pending`/`indeterminate` domain, or
- * a DB error is never `ready: true`.
+ * Missing parent, missing env, unknown/`pending`/`indeterminate`/`superseded`
+ * domain, an in-flight L6 `running` claim, or a DB error is never `ready: true`.
  */
 export async function checkTier3ReadinessForVersion(
   params: CheckTier3ReadinessForVersionParams,

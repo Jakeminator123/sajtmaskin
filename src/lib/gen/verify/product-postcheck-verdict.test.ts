@@ -8,6 +8,7 @@ import {
   isRetryableProductPostcheckVerdict,
   isUnattestedProductPostcheckVerdictWriteAllowed,
   productPostcheckF3GateReason,
+  productPostcheckResultFromVerdict,
   verdictFromProductPostcheckResult,
   verdictFromSummaryMeta,
 } from "./product-postcheck-verdict";
@@ -112,7 +113,7 @@ describe("Product Postcheck verdict (L2)", () => {
     );
   });
 
-  it("allowed_skip släpper F3 (infra / feature_disabled)", () => {
+  it("allowed_skip släpper F3 bara när skipet är attesterat", () => {
     expect(
       verdictFromProductPostcheckResult(
         result({
@@ -124,10 +125,123 @@ describe("Product Postcheck verdict (L2)", () => {
     ).toBe("allowed_skip");
     expect(
       verdictFromProductPostcheckResult(
+        result({ skipped: true, skippedReason: "feature_disabled" }),
+      ),
+    ).toBe("allowed_skip");
+    expect(
+      verdictFromProductPostcheckResult(
+        result({
+          skipped: true,
+          skippedReason: "browser_crashed",
+          attestation: null,
+        }),
+      ),
+    ).toBe("pending");
+    expect(
+      verdictFromProductPostcheckResult(
         result({ skipped: true, skippedReason: "browser_crashed" }),
       ),
     ).toBe("allowed_skip");
     expect(f3MayReleaseOnVerdict("allowed_skip")).toBe(true);
+    expect(f3MayReleaseOnVerdict("pending")).toBe(false);
+  });
+
+  it("blocked sedan skip på samma revision förblir blocked", () => {
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.skipped",
+          meta: {
+            skippedReason: "browser_crashed",
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:01:00Z",
+        },
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "blocked",
+            productBlocked: true,
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:00:00Z",
+        },
+      ]),
+    ).toBe("blocked");
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "allowed_skip",
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:01:00Z",
+        },
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "blocked",
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:00:00Z",
+        },
+      ]),
+    ).toBe("blocked");
+  });
+
+  it("oattesterad skip är pending — F3 blockerar; attesterad feature_disabled släpper", () => {
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.summary",
+          meta: { verdict: "pending", skippedReason: "unknown" },
+        },
+      ]),
+    ).toBe("pending");
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.skipped",
+          meta: { skippedReason: "browser_crashed" },
+        },
+      ]),
+    ).toBe("pending");
+    expect(f3MayReleaseOnVerdict("pending")).toBe(false);
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.summary",
+          meta: { verdict: "allowed_skip", skippedReason: "feature_disabled" },
+        },
+      ]),
+    ).toBe("allowed_skip");
+    expect(f3MayReleaseOnVerdict("allowed_skip")).toBe(true);
+  });
+
+  it("senare passed på samma revision släpper en äldre blocked", () => {
+    expect(
+      interpretProductPostcheckLogs([
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "passed",
+            productBlocked: false,
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:01:00Z",
+        },
+        {
+          category: "product_postcheck.summary",
+          meta: {
+            verdict: "blocked",
+            productBlocked: true,
+            attestedFilesRevision: "rev_1",
+          },
+          created_at: "2026-09-02T10:00:00Z",
+        },
+      ]),
+    ).toBe("passed");
   });
 
   it("produkt-skip utan produktdom är pending", () => {
@@ -192,5 +306,54 @@ describe("Product Postcheck verdict (L2)", () => {
         },
       ]),
     ).toBe(false);
+    expect(
+      isUnattestedProductPostcheckVerdictWriteAllowed([
+        {
+          category: "product_postcheck.summary",
+          meta: { verdict: "allowed_skip", skippedReason: "feature_disabled" },
+        },
+      ]),
+    ).toBe(true);
+    expect(
+      isUnattestedProductPostcheckVerdictWriteAllowed([
+        {
+          category: "product_postcheck.summary",
+          meta: { verdict: "allowed_skip", skippedReason: "browser_crashed" },
+        },
+      ]),
+    ).toBe(false);
+  });
+
+  it("L6 loser-replay: report-state kommer från L2-domen + activeRunId", () => {
+    const passed = productPostcheckResultFromVerdict({
+      verdict: "passed",
+      runId: "run_winner",
+      claimStatus: "passed",
+      previewUrl: "https://preview.example",
+      attestation: ATTESTATION,
+    });
+    expect(passed.skipped).toBe(false);
+    expect(passed.productBlocked).toBe(false);
+    expect(passed.activeRunId).toBe("run_winner");
+    expect(passed.attestation).toEqual(ATTESTATION);
+
+    const busy = productPostcheckResultFromVerdict({
+      verdict: "pending",
+      runId: "run_winner",
+      claimStatus: "running",
+      previewUrl: "https://preview.example",
+    });
+    expect(busy.skippedReason).toBe("claim_busy");
+    expect(busy.activeRunId).toBe("run_winner");
+    expect(busy.attestation).toBeNull();
+
+    const settled = productPostcheckResultFromVerdict({
+      verdict: "pending",
+      runId: "run_winner",
+      claimStatus: "failed",
+      previewUrl: "https://preview.example",
+    });
+    expect(settled.skippedReason).toBe("claim_settled");
+    expect(settled.activeRunId).toBe("run_winner");
   });
 });
