@@ -31,10 +31,10 @@ export const RECONCILED_PROMOTE_SUMMARY =
  * running verify/repair that keeps renewing its lease is never failed out from
  * under it).
  *
- * `repairing` additionally requires the lease table to exist before we treat it
- * as stale: without the lease table the fail would degrade to unconditional and
- * could kill a still-running unlocked repair (Codex P2). Fail-safe: any DB error
- * leaves the version unchanged.
+ * `repairing` additionally requires the lease table to *exist* before we treat
+ * it as stale: `missing` would make the fail degrade to unconditional and could
+ * kill a still-running unlocked repair (Codex P2). `unavailable` is also a
+ * no-op — a probe error is not proof that no lease exists.
  *
  * @returns the (possibly updated) version row and whether it was failed.
  */
@@ -113,7 +113,11 @@ export async function settleStaleVerificationIfNeeded(
     version.created_at,
   );
   if (staleCandidate && version.verification_state === "repairing") {
-    staleCandidate = await leaseTableExists().catch(() => false);
+    try {
+      staleCandidate = (await leaseTableExists()) === "exists";
+    } catch {
+      staleCandidate = false;
+    }
   }
   if (!staleCandidate) {
     return { version, failed: false };

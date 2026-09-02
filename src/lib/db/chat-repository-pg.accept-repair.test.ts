@@ -134,6 +134,10 @@ function mockLeaseTableExists(exists: boolean) {
   execute.mockResolvedValue({ rows: [{ oid: exists ? "16384" : null }] });
 }
 
+function mockLeaseTableUnavailable() {
+  execute.mockRejectedValue(new Error("connection reset"));
+}
+
 function resetCaptures() {
   vi.clearAllMocks();
   dbUpdateWhere.value = undefined;
@@ -197,6 +201,23 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
     expect(where).toContain("not exists");
     expect(where).toContain("engine_version_jobs");
     expect(where).toContain("lease_expires_at");
+  });
+
+  it("returns lease_unavailable (not null) when the lease probe cannot be proven", async () => {
+    mockLeaseTableUnavailable();
+    const res = await acceptRepair("ver-1");
+    expect(res).toBe("lease_unavailable");
+    expect(transaction).not.toHaveBeenCalled();
+    expect(txUpdateSet.value).toBeUndefined();
+  });
+
+  it("returns null (not lease_unavailable) when there is genuinely no pending repair", async () => {
+    mockLeaseTableExists(true);
+    selectRows.value = [{ repairedFilesJson: null, filesJson: BASE_A }];
+    const res = await acceptRepair("ver-1");
+    expect(res).toBeNull();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(txUpdateSet.value).toBeUndefined();
   });
 
   it("does NOT name engine_version_jobs in the statement when the table is absent (pre-migration fail-safe)", async () => {
@@ -306,6 +327,18 @@ describe("failVersionVerificationIfUnleased — lease-safe stuck-repair recovery
     expect(where).toContain("engine_version_jobs");
     expect(where).toContain("lease_expires_at");
     expect(where).toContain("now()");
+  });
+
+  it("no-ops without building an UPDATE when the lease probe is unavailable", async () => {
+    mockLeaseTableUnavailable();
+    const res = await failVersionVerificationIfUnleased(
+      "ver-1",
+      "stuck repair recovered",
+      CAS_VERIFYING_NULL,
+    );
+    expect(res).toBeNull();
+    expect(transaction).not.toHaveBeenCalled();
+    expect(txUpdateWhere.value).toBeUndefined();
   });
 
   it("degrades to an unconditional watchdog (no lease table reference) pre-migration", async () => {
@@ -422,6 +455,14 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
     const where = renderSql(txUpdateWhere.value);
     expect(where).toContain("verification_state");
     expect(where).not.toContain("files_revision");
+  });
+
+  it("no-ops without building a promote when the lease probe is unavailable", async () => {
+    mockLeaseTableUnavailable();
+    const res = await promoteVersionIfUnleased("ver-1", "reconciled");
+    expect(res).toBeNull();
+    expect(transaction).not.toHaveBeenCalled();
+    expect(txUpdateSet.value).toBeUndefined();
   });
 
   it("degrades to an unconditional promote (no lease table reference) pre-migration — but still guards verifying-state", async () => {

@@ -809,4 +809,78 @@ describe("POST product-postcheck", () => {
     );
     expect(emitBusEvent).not.toHaveBeenCalled();
   });
+
+  it("client filesRevision that no longer matches DB → preview_superseded without attest", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n_plus_1" } });
+    const res = await POST(
+      req({
+        versionId: "v1",
+        previewUrl: "[REDACTED]/chat_1",
+        filesRevision: "rev_n",
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    const body = await res.json();
+    expect(body).toEqual(
+      expect.objectContaining({
+        skipped: true,
+        skippedReason: "preview_superseded",
+        attestation: null,
+      }),
+    );
+    expect(runProductPostcheck).not.toHaveBeenCalled();
+    expect(waitForProductPostcheckPreviewRunning).not.toHaveBeenCalled();
+  });
+
+  it("skickar klientens exakta filesRevision till preview-wait", async () => {
+    setF2ProductPostcheck(true);
+    getPreviewHostBaseUrl.mockReturnValue("https://preview-host.example");
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_exact" } });
+    waitForProductPostcheckPreviewRunning.mockResolvedValue({
+      ok: true,
+      probe: {
+        running: true,
+        versionId: "v1",
+        filesRevision: "rev_exact",
+        previewSessionId: "ps_n",
+        lifecycleToken: "life_n",
+        previewUrl: "[REDACTED]/chat_1",
+        readinessState: "ready",
+      },
+    });
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_n",
+      lifecycleToken: "life_n",
+      previewUrl: "[REDACTED]/chat_1",
+      versionId: "v1",
+      filesRevision: "rev_exact",
+    });
+    runProductPostcheck.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      skippedReason: null,
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 8,
+      checkedUrl: "[REDACTED]/chat_1",
+    });
+
+    await POST(
+      req({
+        versionId: "v1",
+        previewUrl: "[REDACTED]/chat_1",
+        filesRevision: "rev_exact",
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(waitForProductPostcheckPreviewRunning).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedVersionId: "v1",
+        expectedFilesRevision: "rev_exact",
+      }),
+    );
+  });
 });

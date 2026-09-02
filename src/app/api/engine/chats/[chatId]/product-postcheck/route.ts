@@ -49,6 +49,12 @@ export const maxDuration = 300;
 const requestSchema = z.object({
   versionId: z.string().min(1),
   previewUrl: z.string().trim().optional().nullable(),
+  /**
+   * Exact `files_revision` the caller confirmed persisted. When set, a DB
+   * mismatch is `preview_superseded` — never an attestation of a stale
+   * client snapshot.
+   */
+  filesRevision: z.string().trim().min(1).max(160).optional(),
 });
 
 type ProductPostcheckTarget = {
@@ -238,7 +244,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     );
   }
 
-  const { versionId, previewUrl } = validation.data;
+  const { versionId, previewUrl, filesRevision: requestedFilesRevision } = validation.data;
   if (!FEATURES.f2ProductPostcheck) {
     return NextResponse.json({
       ok: true,
@@ -281,7 +287,15 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   // svaret bär samma id så en omkörning aldrig kan förväxlas med en tidigare.
   const verificationRunId = randomUUID();
   try {
-    const filesRevision = scopedVersion.version.files_revision?.trim() || null;
+    const dbFilesRevision = scopedVersion.version.files_revision?.trim() || null;
+    if (requestedFilesRevision && requestedFilesRevision !== dbFilesRevision) {
+      return NextResponse.json(
+        supersededPostcheckResult({
+          previewUrl: previewUrl?.trim() || "",
+        }),
+      );
+    }
+    const filesRevision = requestedFilesRevision ?? dbFilesRevision;
     if (!filesRevision) {
       return NextResponse.json({
         ok: true,

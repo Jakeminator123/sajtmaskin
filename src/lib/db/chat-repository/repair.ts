@@ -134,17 +134,29 @@ export async function getRepairStatus(versionId: string): Promise<VersionRepairS
   };
 }
 
+/**
+ * Outcome of {@link acceptRepair}. `lease_unavailable` is distinct from
+ * `null`: the caller could not prove lease-table presence, so HTTP routes
+ * must retry (503) instead of treating it as "no pending repair" (409).
+ */
+export type AcceptRepairResult = Version | null | "lease_unavailable";
+
 export async function acceptRepair(
   versionId: string,
   verificationSummary: string | null = "Server repair accepted.",
-): Promise<Version | null> {
-  // Codex P2 (missing-table fail-safe): resolve whether the lease table exists
-  // ONCE, out of band. We must NOT name engine_version_jobs inside the UPDATE
-  // when it is absent — Postgres resolves relations at parse/plan time, so a
-  // `to_regclass(...) IS NULL OR ...` guard *inside* the statement still errors
-  // "relation does not exist". to_regclass() in a standalone SELECT takes text
-  // and never references the table as a relation, so it is safe pre-migration.
-  const jobsExist = await leaseTableExists();
+): Promise<AcceptRepairResult> {
+  // Resolve lease-table presence ONCE, out of band. We must NOT name
+  // engine_version_jobs inside the UPDATE when it is absent — Postgres
+  // resolves relations at parse/plan time. `unavailable` refuses the accept
+  // as its own retryable state — never as `null` ("no pending repair").
+  const presence = await leaseTableExists();
+  if (presence === "unavailable") {
+    console.warn(
+      `[lease] acceptRepair probe unavailable on ${versionId} — refusing accept (retryable).`,
+    );
+    return "lease_unavailable";
+  }
+  const jobsExist = presence === "exists";
   return db.transaction(async (tx) => {
     // Codex P2 (serialize with acquireVersionLease): take the version-row lock
     // FIRST (FOR UPDATE). acquireVersionLease locks the same row before inserting
@@ -326,15 +338,24 @@ export async function maybeAutoAcceptTimedOutRepair(version: Version): Promise<A
   // but auto-accept reaches `acceptRepair` from polling paths (readiness /
   // versions / chat GET). Guard it here too so a still-running verify/repair job
   // (which holds the lease) can never have its row promoted out from under it.
-  // Fail-safe: a DB error degrades to the legacy always-try-accept behaviour.
-  if (await hasActiveVersionLease(version.id).catch(() => false)) {
+  // Fail-closed: a probe/query error is treated as "lease may exist" — never
+  // as permission to accept unlocked.
+  try {
+    if (await hasActiveVersionLease(version.id)) {
+      return { version, wasAutoAccepted: false };
+    }
+  } catch (err) {
+    console.warn(
+      `[lease] maybeAutoAcceptTimedOutRepair lease probe unavailable on ${version.id} — no-op.`,
+      err,
+    );
     return { version, wasAutoAccepted: false };
   }
   const accepted = await acceptRepair(
     version.id,
     "Server repair auto-accepted after timeout.",
   );
-  if (!accepted) {
+  if (!accepted || accepted === "lease_unavailable") {
     return { version, wasAutoAccepted: false };
   }
   return { version: accepted, wasAutoAccepted: true };

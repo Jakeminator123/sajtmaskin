@@ -233,11 +233,18 @@ export async function failVersionVerificationIfUnleased(
   verificationSummary: string,
   expected: WatchdogCasExpected,
 ): Promise<UnleasedWriteResult | null> {
-  // Codex P2 (missing-table fail-safe): decide whether to reference the lease
-  // table BEFORE building the statement (Postgres resolves relations at plan
-  // time; an in-statement to_regclass guard cannot short-circuit a missing one).
-  // L5 does not change this probe — L4 (#1264) owns tri-state / fail-closed.
-  const jobsExist = await leaseTableExists();
+  // Decide whether to reference the lease table BEFORE building the statement
+  // (Postgres resolves relations at plan time). `unavailable` is NOT `missing`:
+  // a probe error must no-op so we never fail a row that may still hold a lease.
+  // L4 owns this tri-state probe; L5 only adds CAS on the write.
+  const presence = await leaseTableExists();
+  if (presence === "unavailable") {
+    console.warn(
+      `[lease] failVersionVerificationIfUnleased probe unavailable on ${versionId} — no-op, next poll retries.`,
+    );
+    return null;
+  }
+  const jobsExist = presence === "exists";
   let outcome: { applied: true } | { applied: false; reason: "cas_miss" } | null;
   try {
     outcome = await db.transaction(async (tx) => {
@@ -358,10 +365,16 @@ export async function promoteVersionIfUnleased(
     // so the watchdog settles the row terminally instead of spinning forever.
     return indeterminate ? null : "guard_denied";
   }
-  // Codex P2 (missing-table fail-safe): decide whether to reference the lease
-  // table BEFORE building the statement (Postgres resolves relations at plan
-  // time; an in-statement to_regclass guard cannot short-circuit a missing one).
-  const jobsExist = await leaseTableExists();
+  // Same tri-state as `failVersionVerificationIfUnleased`: `unavailable` no-ops
+  // so a probe error cannot promote a row that may still hold a lease.
+  const presence = await leaseTableExists();
+  if (presence === "unavailable") {
+    console.warn(
+      `[lease] promoteVersionIfUnleased probe unavailable on ${versionId} — no-op, next poll retries.`,
+    );
+    return null;
+  }
+  const jobsExist = presence === "exists";
   const promotedAt = new Date();
   let updated: boolean;
   try {

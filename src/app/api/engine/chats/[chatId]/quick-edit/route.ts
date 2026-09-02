@@ -64,6 +64,8 @@ function httpStatusForQuickEditFailure(reason: string): number {
     case "ambiguous_match":
     case "base_busy":
       return 409;
+    case "lease_unavailable":
+      return 503;
     case "file_not_found":
     case "no_match":
     case "no_base_files":
@@ -174,9 +176,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       });
 
       if (!result.ok) {
+        const status = httpStatusForQuickEditFailure(result.reason);
         return NextResponse.json(
-          { ok: false, reason: result.reason, error: result.message },
-          { status: httpStatusForQuickEditFailure(result.reason) },
+          {
+            ok: false,
+            reason: result.reason,
+            error: result.message,
+            retryable: status === 503,
+          },
+          {
+            status,
+            headers: status === 503 ? { "Retry-After": "3" } : undefined,
+          },
         );
       }
 

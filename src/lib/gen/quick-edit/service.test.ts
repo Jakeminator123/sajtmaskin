@@ -99,15 +99,15 @@ describe("runQuickEdit — base-version lease (M#qe1)", () => {
     expect(releaseVersionLease).not.toHaveBeenCalled();
   });
 
-  it("degrades to the unlocked path when lease infra errors (missing table)", async () => {
+  it("aborts fail-closed when lease infra errors (missing table / DB) — never persists unlocked", async () => {
     acquireVersionLease.mockRejectedValue(new Error("relation does not exist"));
     const result = await runQuickEdit(runParams());
-    expect(result.ok).toBe(true);
-    expect(addAssistantMessageAndCreateDraftVersion).toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: false, reason: "lease_unavailable" });
+    expect(addAssistantMessageAndCreateDraftVersion).not.toHaveBeenCalled();
     expect(releaseVersionLease).not.toHaveBeenCalled();
     expect(warnLog).toHaveBeenCalledWith(
       "engine",
-      expect.stringContaining("lease acquire failed"),
+      expect.stringContaining("fail-closed"),
       expect.objectContaining({ baseVersionId: "ver_base" }),
     );
   });

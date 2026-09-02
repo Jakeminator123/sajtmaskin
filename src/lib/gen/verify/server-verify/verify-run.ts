@@ -100,8 +100,9 @@ export async function triggerServerVerification(params: {
   inflight.add(versionId);
   const lease = await acquireVerifyLease(versionId, "server_verify");
   if (!lease.proceed) {
-    // Another live lease already owns this version (another instance/run) —
-    // bail exactly like the old process-local Set short-circuit.
+    // Another live lease, or the distributed lock could not be proven.
+    // Do not fall back to the process-local Set — no file read, gate, LLM,
+    // or mutation without a real runId.
     inflight.delete(versionId);
     return;
   }

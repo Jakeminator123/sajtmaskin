@@ -319,8 +319,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       // Distributed lease (Plan C / P1 + Codex P2): acquire the per-version
       // lease BEFORE reading the version files, so the repair always operates on
       // the snapshot the lease protects — never a stale pre-lease read that a
-      // concurrent job could overwrite. 409 if another job owns it. Fail-safe: a
-      // DB error/missing table degrades to the legacy unlocked path.
+      // concurrent job could overwrite. 409 if another job owns it. Fail-closed:
+      // a thrown acquire (DB error / missing table) must not continue unlocked —
+      // `runId === undefined` would drop lease scoping on every mutation.
       try {
         const lease = await acquireVersionLease(internalVersionId, "manual_repair");
         if (!lease) {
@@ -335,8 +336,16 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         }
         leaseRunId = lease.runId;
       } catch (err) {
-        console.warn("[repair] Lease acquire failed; proceeding without distributed lock:", err);
-        leaseRunId = undefined;
+        console.warn("[repair] Lease acquire failed; failing closed (retryable):", err);
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Version lease unavailable (database error). Try again shortly.",
+            code: "lease_unavailable",
+            retryable: true,
+          },
+          { status: 503, headers: { "Retry-After": "3" } },
+        );
       }
     }
 
