@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { db, dbConfigured } from "@/lib/db/client";
-import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
+import type {
+  ProductPostcheckAttestation,
+  ProductPostcheckResult,
+} from "@/lib/gen/verify/product-postcheck";
 
 /**
  * Lease must outlive the route `maxDuration` (300s). A live handler still
@@ -52,7 +55,7 @@ export type ClaimedProductPostcheck =
       kind: "settled";
       runId: string;
       claimGeneration: number;
-      status: "passed" | "blocked";
+      status: "passed" | "blocked" | "failed";
     }
   | {
       kind: "unavailable";
@@ -111,19 +114,18 @@ export function isProductPostcheckClaimExpired(
   return now.getTime() >= ms;
 }
 
-const RETRYABLE_TERMINAL_STATUSES = new Set(["failed", "superseded", "expired"]);
+const RECLAIMABLE_STATUSES = new Set(["superseded", "expired"]);
 
 export function isSettledProductPostcheckStatus(
   status: string,
-): status is "passed" | "blocked" {
-  return status === "passed" || status === "blocked";
+): status is "passed" | "blocked" | "failed" {
+  return status === "passed" || status === "blocked" || status === "failed";
 }
 
 /**
- * Takeover is only for a dead holder: expired `running`, or a retryable
- * terminal (`failed` / `superseded` / `expired`). `passed` / `blocked` are
- * finished product verdicts — reclaiming them starts a second Chromium
- * for the same tuple (resume after `claim_busy`).
+ * Takeover is only for a dead holder: expired `running`, or
+ * `superseded` / `expired`. `passed` / `blocked` / `failed` are final for
+ * the tuple — a later POST must return that verdict, not start Chromium.
  */
 export function isTakeoverEligibleProductPostcheckRow(
   row: { status: string; expiresAt: Date | string },
@@ -132,7 +134,7 @@ export function isTakeoverEligibleProductPostcheckRow(
   if (row.status === "running") {
     return isProductPostcheckClaimExpired(row.expiresAt, now);
   }
-  return RETRYABLE_TERMINAL_STATUSES.has(row.status);
+  return RECLAIMABLE_STATUSES.has(row.status);
 }
 
 export function mapProductPostcheckResultToStatus(
@@ -142,6 +144,57 @@ export function mapProductPostcheckResultToStatus(
   if (result.productBlocked) return "blocked";
   if (result.skipped) return "failed";
   return "passed";
+}
+
+/**
+ * Idempotent replay of a finished tuple. No Chromium. `passed`/`blocked`
+ * carry the current bind as attestation so the loser can persist the
+ * winner's verdict. `failed` stays unattested (`claim_settled`).
+ */
+export function productPostcheckResultFromSettledClaim(params: {
+  status: "passed" | "blocked" | "failed";
+  runId: string;
+  previewUrl: string;
+  durationMs?: number | null;
+  attestation?: ProductPostcheckAttestation | null;
+}): ProductPostcheckResult {
+  const pointer = {
+    verificationRunId: params.runId,
+    activeRunId: params.runId,
+    claimStatus: params.status,
+  };
+  if (params.status === "failed") {
+    return {
+      ok: true,
+      skipped: true,
+      skippedReason: "claim_settled",
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      routesChecked: 0,
+      durationMs: params.durationMs ?? 0,
+      checkedUrl: params.previewUrl,
+      screenshots: null,
+      domSummary: null,
+      attestation: null,
+      ...pointer,
+    };
+  }
+  return {
+    ok: true,
+    skipped: false,
+    skippedReason: null,
+    warnings: [],
+    warningCount: 0,
+    productBlocked: params.status === "blocked",
+    routesChecked: 0,
+    durationMs: params.durationMs ?? 0,
+    checkedUrl: params.previewUrl,
+    screenshots: null,
+    domSummary: null,
+    attestation: params.attestation ?? null,
+    ...pointer,
+  };
 }
 
 function parseStatus(value: string): ProductPostcheckRunStatus {
@@ -277,8 +330,7 @@ export async function claimProductPostcheckRun(input: {
 
     // Takeover authority is Postgres `now()`, not this process clock.
     // Running + unexpired → 0 rows → busy. Expired running or
-    // failed/superseded/expired may be reclaimed. passed/blocked never.
-    // CAS on claim_generation serializes two concurrent takeovers.
+    // superseded/expired may be reclaimed. passed/blocked/failed never.
     const taken = asRows(
       await db.execute(sql`
         UPDATE product_postcheck_runs
@@ -297,7 +349,7 @@ export async function claimProductPostcheckRun(input: {
           AND claim_generation = ${Number(existing.claim_generation)}
           AND (
             (status = 'running' AND expires_at <= now())
-            OR status IN ('failed', 'superseded', 'expired')
+            OR status IN ('superseded', 'expired')
           )
         RETURNING run_id, owner, claim_generation, status, expires_at
       `),

@@ -21,6 +21,7 @@ import {
   normalizeProductPostcheckClaimKey,
   normalizeProductPostcheckLifecycleToken,
   normalizeProductPostcheckMutationRevision,
+  productPostcheckResultFromSettledClaim,
   productPostcheckRunsTablePresence,
 } from "./product-postcheck-runs";
 
@@ -109,8 +110,25 @@ describe("product-postcheck claim key helpers", () => {
       false,
     );
     expect(isTakeoverEligibleProductPostcheckRow({ status: "failed", expiresAt: future })).toBe(
+      false,
+    );
+    expect(isTakeoverEligibleProductPostcheckRow({ status: "superseded", expiresAt: future })).toBe(
       true,
     );
+    const replay = productPostcheckResultFromSettledClaim({
+      status: "passed",
+      runId: "run_done",
+      previewUrl: "https://preview.example",
+      attestation: {
+        previewSessionId: "ps_n",
+        lifecycleToken: "life_n",
+        filesRevision: "rev_n",
+      },
+    });
+    expect(replay.skipped).toBe(false);
+    expect(replay.activeRunId).toBe("run_done");
+    expect(replay.claimStatus).toBe("passed");
+    expect(replay.attestation?.filesRevision).toBe("rev_n");
   });
 });
 
@@ -233,11 +251,11 @@ describe("claimProductPostcheckRun", () => {
     });
   });
 
-  it("passed/blocked återtas inte — settled utan ny Chromium-slot", async () => {
+  it("passed/blocked/failed återtas inte — settled utan ny Chromium-slot", async () => {
     const done = row({
       run_id: "run_done",
       claim_generation: 2,
-      status: "passed",
+      status: "failed",
     });
     execute
       .mockResolvedValueOnce(existsProbe())
@@ -253,7 +271,7 @@ describe("claimProductPostcheckRun", () => {
       kind: "settled",
       runId: "run_done",
       claimGeneration: 2,
-      status: "passed",
+      status: "failed",
     });
     expect(execute).toHaveBeenCalledTimes(3);
   });

@@ -74,7 +74,12 @@ export type ProductPostcheckSkipReason =
    */
   | "claim_unavailable"
   /**
-   * A finished `passed`/`blocked` row already exists for this tuple.
+   * Same fail-closed 503 class as verify-lease `lease_unavailable`.
+   * Retryable infrastructure — not a product verdict.
+   */
+  | "lease_unavailable"
+  /**
+   * A finished `passed`/`blocked`/`failed` row already exists for this tuple.
    * Final for this revision — do not start Chromium again.
    */
   | "claim_settled";
@@ -179,6 +184,19 @@ export type ProductPostcheckResult = {
    * (OpenClaw-genomgång 2026-09-01).
    */
   verificationRunId?: string | null;
+  /**
+   * L6: the run that holds (or held) the single-flight slot. Set on
+   * `claim_busy` / settled replay so the loser can poll the winner.
+   */
+  activeRunId?: string | null;
+  claimStatus?:
+    | "running"
+    | "passed"
+    | "blocked"
+    | "failed"
+    | "superseded"
+    | "expired"
+    | null;
 };
 
 type DomSnapshot = {

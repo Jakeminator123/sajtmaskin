@@ -481,6 +481,116 @@ describe("useResumePendingVerification", () => {
           warnings: [],
           attestation: null,
           verificationRunId: "run_winner",
+          activeRunId: "run_winner",
+          claimStatus: "running",
+        },
+      },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/product-postcheck")).toHaveLength(1));
+    expect(callsTo("/error-log")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("förlorare pollar claim_busy och konvergerar på vinnarens passed utan ny Chromium-persistloop", async () => {
+    vi.useFakeTimers();
+    let postcheckCalls = 0;
+    fetchMock.mockImplementation(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/product-postcheck")) {
+        postcheckCalls += 1;
+        if (postcheckCalls === 1) {
+          return {
+            ok: true,
+            status: 200,
+            headers: new Headers(),
+            json: async () => ({
+              ok: true,
+              skipped: true,
+              skippedReason: "claim_busy",
+              productBlocked: false,
+              warnings: [],
+              attestation: null,
+              verificationRunId: "run_winner",
+              activeRunId: "run_winner",
+              claimStatus: "running",
+            }),
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => ({
+            ok: true,
+            skipped: false,
+            skippedReason: null,
+            productBlocked: false,
+            warnings: [],
+            warningCount: 0,
+            routesChecked: 1,
+            durationMs: 8,
+            attestation: currentAttestation,
+            verificationRunId: "run_winner",
+            activeRunId: "run_winner",
+            claimStatus: "passed",
+          }),
+        };
+      }
+      if (u.includes("/error-log")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      }
+      if (u.includes("/validate-images")) {
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ passed: true }),
+      };
+    });
+    const { unmount } = renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(callsTo("/product-postcheck")).toHaveLength(1);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RESUME_VERIFY_RUNTIME_RETRY_MS);
+    });
+    expect(callsTo("/product-postcheck")).toHaveLength(2);
+    expect(callsTo("/quality-gate")).toHaveLength(1);
+    const persisted = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
+      logs: Array<{ category: string }>;
+    };
+    expect(persisted.logs.some((log) => log.category === "product_postcheck.summary")).toBe(true);
+    unmount();
+    vi.useRealTimers();
+  });
+
+  it("holds on 503 lease_unavailable and does not persist transport_error", async () => {
+    mockRoutes({
+      postcheck: {
+        ok: false,
+        status: 503,
+        headers: { "Retry-After": "3" },
+        body: {
+          code: "lease_unavailable",
+          retryable: true,
         },
       },
     });

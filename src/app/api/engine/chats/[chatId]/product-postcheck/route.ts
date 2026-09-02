@@ -45,6 +45,7 @@ import {
   completeProductPostcheckRun,
   mapProductPostcheckResultToStatus,
   normalizeProductPostcheckMutationRevision,
+  productPostcheckResultFromSettledClaim,
 } from "@/lib/db/services/product-postcheck-runs";
 
 export const runtime = "nodejs";
@@ -136,6 +137,7 @@ function resolveAuthoritativePreviewUrl(params: {
 function claimBusyPostcheckResult(params: {
   previewUrl: string;
   runId: string;
+  status: string;
   durationMs?: number | null;
 }): ProductPostcheckResult {
   return {
@@ -152,28 +154,8 @@ function claimBusyPostcheckResult(params: {
     domSummary: null,
     attestation: null,
     verificationRunId: params.runId,
-  };
-}
-
-function claimSettledPostcheckResult(params: {
-  previewUrl: string;
-  runId: string;
-  durationMs?: number | null;
-}): ProductPostcheckResult {
-  return {
-    ok: true,
-    skipped: true,
-    skippedReason: "claim_settled",
-    warnings: [],
-    warningCount: 0,
-    productBlocked: false,
-    routesChecked: 0,
-    durationMs: params.durationMs ?? 0,
-    checkedUrl: params.previewUrl,
-    screenshots: null,
-    domSummary: null,
-    attestation: null,
-    verificationRunId: params.runId,
+    activeRunId: params.runId,
+    claimStatus: params.status as ProductPostcheckResult["claimStatus"],
   };
 }
 
@@ -569,16 +551,19 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
         claimBusyPostcheckResult({
           previewUrl: resolvedPreviewUrl,
           runId: claim.runId,
+          status: claim.status,
           durationMs: Date.now() - routeStartedAt,
         }),
       );
     }
     if (claim.kind === "settled") {
       return NextResponse.json(
-        claimSettledPostcheckResult({
-          previewUrl: resolvedPreviewUrl,
+        productPostcheckResultFromSettledClaim({
+          status: claim.status,
           runId: claim.runId,
+          previewUrl: resolvedPreviewUrl,
           durationMs: Date.now() - routeStartedAt,
+          attestation: claim.status === "failed" ? null : boundTarget,
         }),
       );
     }

@@ -10,6 +10,7 @@ import {
   imageValidationHoldMessage,
   interpretValidateImagesHttp,
   persistVersionErrorLogs,
+  productPostcheckResultFromUnavailableHttp,
   shouldHoldBeforeProductPostcheck,
 } from "./post-checks";
 import type { ImageValidationResult } from "./post-checks-results";
@@ -475,15 +476,18 @@ async function runResumeProductPostcheck(params: {
     });
     if (res.ok) {
       data = (await res.json().catch(() => null)) as ProductPostcheckResult | null;
-    } else if (res.status === 503) {
+    } else {
       const body = (await res.json().catch(() => null)) as {
         code?: string;
         skippedReason?: string;
       } | null;
-      if (
-        body?.code === "claim_unavailable" ||
-        body?.skippedReason === "claim_unavailable"
-      ) {
+      const unavailable = productPostcheckResultFromUnavailableHttp({
+        status: res.status,
+        code: body?.code,
+        skippedReason: body?.skippedReason,
+        previewUrl: params.previewUrl,
+      });
+      if (unavailable) {
         return {
           ...idle,
           pendingHold: true,

@@ -5,6 +5,7 @@ import {
   isInfrastructureSkipReason,
   isNonFinalProductPostcheckSkipReason,
   productPostcheckSkipReasonFromMessage,
+  retryableProductPostcheckUnavailableReason,
 } from "./product-postcheck-skip";
 
 describe("formatProductPostcheckSkippedMessage", () => {
@@ -53,6 +54,7 @@ describe("classifyProductPostcheckSkipReason — SM-072", () => {
       "feature_disabled",
       "claim_busy",
       "claim_unavailable",
+      "lease_unavailable",
       "claim_settled",
     ]) {
       expect(classifyProductPostcheckSkipReason(reason), reason).toBe("infrastructure");
@@ -98,8 +100,19 @@ describe("classifyProductPostcheckSkipReason — SM-072", () => {
   it("claim_busy/unavailable är icke-final; claim_settled är slut för tupeln", () => {
     expect(isNonFinalProductPostcheckSkipReason("claim_busy")).toBe(true);
     expect(isNonFinalProductPostcheckSkipReason("claim_unavailable")).toBe(true);
+    expect(isNonFinalProductPostcheckSkipReason("lease_unavailable")).toBe(true);
     expect(isNonFinalProductPostcheckSkipReason("claim_settled")).toBe(false);
     expect(isNonFinalProductPostcheckSkipReason("preview_not_running")).toBe(false);
+  });
+
+  it("känner igen 503-koder claim_unavailable och lease_unavailable", () => {
+    expect(retryableProductPostcheckUnavailableReason("claim_unavailable")).toBe(
+      "claim_unavailable",
+    );
+    expect(retryableProductPostcheckUnavailableReason("lease_unavailable")).toBe(
+      "lease_unavailable",
+    );
+    expect(retryableProductPostcheckUnavailableReason("row_contention")).toBeNull();
   });
 
   it("normaliserar skiftläge och blanksteg", () => {

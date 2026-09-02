@@ -79,10 +79,13 @@ vi.mock("@/lib/db/services/live-review-runs", () => ({
   deleteLiveReviewScreenshotUrls,
 }));
 
-vi.mock("@/lib/db/services/product-postcheck-runs", () => ({
-  claimProductPostcheckRun,
-  completeProductPostcheckRun,
-  mapProductPostcheckResultToStatus: (result: {
+vi.mock("@/lib/db/services/product-postcheck-runs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/db/services/product-postcheck-runs")>();
+  return {
+    ...actual,
+    claimProductPostcheckRun,
+    completeProductPostcheckRun,
+    mapProductPostcheckResultToStatus: (result: {
     skipped: boolean;
     skippedReason: string | null;
     productBlocked: boolean;
@@ -92,9 +95,10 @@ vi.mock("@/lib/db/services/product-postcheck-runs", () => ({
     if (result.skipped) return "failed";
     return "passed";
   },
-  normalizeProductPostcheckMutationRevision: (value: number | null | undefined) =>
-    typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : 0,
-}));
+    normalizeProductPostcheckMutationRevision: (value: number | null | undefined) =>
+      typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : 0,
+  };
+});
 
 function req(body: unknown): Request {
   return new Request("http://localhost/api/engine/chats/chat_1/product-postcheck", {
@@ -890,6 +894,8 @@ describe("POST product-postcheck", () => {
     expect(busy?.status).toBe(200);
     expect(busy?.body.skippedReason).toBe("claim_busy");
     expect(busy?.body.verificationRunId).toBe("run_winner");
+    expect(busy?.body.activeRunId).toBe("run_winner");
+    expect(busy?.body.claimStatus).toBe("running");
     expect(busy?.body.attestation).toBeNull();
     expect(runProductPostcheck).toHaveBeenCalledTimes(1);
     expect(emitBusEvent).not.toHaveBeenCalled();
@@ -921,7 +927,7 @@ describe("POST product-postcheck", () => {
     expect(emitBusEvent).not.toHaveBeenCalled();
   });
 
-  it("passed-rad → claim_settled, ingen andra Chromium", async () => {
+  it("POST efter passed → samma resultat, 0 browserjobb", async () => {
     setF2ProductPostcheck(true);
     getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
     claimProductPostcheckRun.mockResolvedValue({
@@ -936,9 +942,16 @@ describe("POST product-postcheck", () => {
     });
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(body.skippedReason).toBe("claim_settled");
+    expect(body.skipped).toBe(false);
+    expect(body.productBlocked).toBe(false);
     expect(body.verificationRunId).toBe("run_winner");
-    expect(body.attestation).toBeNull();
+    expect(body.activeRunId).toBe("run_winner");
+    expect(body.claimStatus).toBe("passed");
+    expect(body.attestation).toEqual({
+      previewSessionId: "ps_n",
+      lifecycleToken: "life_n",
+      filesRevision: "rev_n",
+    });
     expect(runProductPostcheck).not.toHaveBeenCalled();
     expect(beginLiveReviewSession).not.toHaveBeenCalled();
     expect(emitBusEvent).not.toHaveBeenCalled();
