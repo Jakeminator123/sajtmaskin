@@ -648,6 +648,27 @@ describe("agent workflow repository contract", () => {
         "test:e2e:contract": "true",
       }),
     ).toContain("test:e2e:contract must retain its exact Playwright discovery command");
+    expect(
+      evaluateCiScopeWorkflow(
+        replaceOnce("run: npm run test:stability:blocking", "run: npm run test:followup-contract"),
+        packageScripts,
+      ),
+    ).toContain("heavy quality-core must block on deterministic stability contracts");
+    expect(
+      evaluateCiScopeWorkflow(source, {
+        ...packageScripts,
+        "test:stability:blocking": "true",
+      }),
+    ).toContain("test:stability:blocking must run the explicit deterministic stability subset");
+    expect(
+      evaluateCiScopeWorkflow(
+        replaceOnce(
+          "  stability:\n    runs-on: ubuntu-latest\n    continue-on-error: true\n",
+          "  stability:\n    runs-on: ubuntu-latest\n",
+        ),
+        packageScripts,
+      ),
+    ).toContain("broad stability job must remain warn-only");
   });
 
   it("keeps no-op review events outside trusted gate concurrency", () => {
