@@ -24,8 +24,8 @@ vi.mock("@/lib/db/services/users", () => ({
 vi.mock("@/lib/config", () => ({
   SECRETS: {
     jwtSecret: "unit-test-jwt-secret",
-    googleClientId: "",
-    googleClientSecret: "",
+    googleClientId: "google-client-id",
+    googleClientSecret: "google-client-secret",
     superadminEmail: "",
     superadminPassword: "",
     testUserEmail: "",
@@ -79,6 +79,23 @@ describe("auth token security", () => {
 
     const expiredToken = `${header}.${body}.${signature}`;
     expect(auth.verifyToken(expiredToken)).toBeNull();
+  });
+
+  it("adds OAuth state and PKCE to the Google authorization URL", () => {
+    const url = new URL(
+      auth.getGoogleAuthUrl(
+        "signed-state",
+        "https://sajtmaskin.se/api/auth/google/callback",
+        "pkce-challenge",
+      ),
+    );
+
+    expect(url.searchParams.get("state")).toBe("signed-state");
+    expect(url.searchParams.get("code_challenge")).toBe("pkce-challenge");
+    expect(url.searchParams.get("code_challenge_method")).toBe("S256");
+    expect(url.searchParams.get("redirect_uri")).toBe(
+      "https://sajtmaskin.se/api/auth/google/callback",
+    );
   });
 
   it("extracts token from authorization header and cookie", () => {
