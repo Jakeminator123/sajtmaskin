@@ -8,7 +8,7 @@ export const DEFAULT_SPEC_PATH = resolve(
   ".github/rulesets/protect-master.expected.json",
 );
 export const DEFAULT_POLICY_PATH = resolve(ROOT, "config/agent-workflow.json");
-export const REQUIRED_CHECKS_SOURCE = "config/agent-workflow.json#requiredChecks";
+export const REQUIRED_CHECKS_SOURCE = "inline";
 
 function stableStrings(values) {
   return [...values].map(String).sort();
@@ -23,19 +23,13 @@ function statusCheckKey(check) {
 }
 
 function findRules(live, type) {
-  return Array.isArray(live?.rules)
-    ? live.rules.filter((rule) => rule?.type === type)
-    : [];
+  return Array.isArray(live?.rules) ? live.rules.filter((rule) => rule?.type === type) : [];
 }
 
 function expectEqual(issues, label, actual, expected) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     issues.push(
-      label +
-        " drifted: expected " +
-        JSON.stringify(expected) +
-        ", got " +
-        JSON.stringify(actual),
+      label + " drifted: expected " + JSON.stringify(expected) + ", got " + JSON.stringify(actual),
     );
   }
 }
@@ -49,33 +43,17 @@ function expectExactlyOneRule(issues, live, type) {
   return rules[0];
 }
 
-export function resolveExpectedStatusChecks(spec, policy) {
-  const seen = new Set();
-  const checks = [];
-  const fromPolicy = Array.isArray(policy?.requiredChecks) ? policy.requiredChecks : [];
-  const extra = spec?.expected?.required_status_checks?.additional_status_checks ?? [];
-
-  for (const check of [
-    ...fromPolicy.map((context) => ({ context: String(context) })),
-    ...extra,
-  ]) {
-    const key = statusCheckKey(check);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    checks.push(check);
-  }
-  return checks;
+export function resolveExpectedStatusChecks(spec) {
+  const checks = spec?.expected?.required_status_checks?.required_status_checks;
+  return Array.isArray(checks) ? checks : [];
 }
 
-function evaluateSpecIntegrity(spec, policy) {
+function evaluateSpecIntegrity(spec) {
   const issues = [];
   const expected = spec?.expected;
 
   if (spec?.schemaVersion !== 1 || !expected) {
     return ["invalid expected ruleset spec"];
-  }
-  if (!Array.isArray(policy?.requiredChecks) || policy.requiredChecks.length === 0) {
-    return ["invalid agent-workflow requiredChecks"];
   }
   if (expected.deletion !== true) {
     issues.push("expected spec must require deletion");
@@ -88,20 +66,17 @@ function evaluateSpecIntegrity(spec, policy) {
     issues.push("expected spec must require squash in allowed_merge_methods");
   }
   if (expected.required_status_checks?.required_status_checks_source !== REQUIRED_CHECKS_SOURCE) {
-    issues.push(
-      "required status checks must be sourced from " + REQUIRED_CHECKS_SOURCE,
-    );
+    issues.push("required status checks must be sourced from " + REQUIRED_CHECKS_SOURCE);
   }
-  if (Array.isArray(expected.required_status_checks?.required_status_checks)) {
-    issues.push(
-      "expected spec must not copy requiredChecks; use additional_status_checks",
-    );
+  const inlineChecks = expected.required_status_checks?.required_status_checks;
+  if (!Array.isArray(inlineChecks) || inlineChecks.length === 0) {
+    issues.push("expected spec must list inline required_status_checks");
   }
   return issues;
 }
 
-export function evaluateMasterRuleset(live, spec, policy) {
-  const specIssues = evaluateSpecIntegrity(spec, policy);
+export function evaluateMasterRuleset(live, spec, _policy) {
+  const specIssues = evaluateSpecIntegrity(spec);
   if (specIssues.length > 0) return specIssues;
 
   const issues = [];
@@ -147,10 +122,7 @@ export function evaluateMasterRuleset(live, spec, policy) {
     for (const method of expected.pull_request.allowed_merge_methods_must_include) {
       if (!actualMethods.includes(method)) {
         issues.push(
-          "allowed merge methods missing " +
-            method +
-            ": got " +
-            JSON.stringify(actualMethods),
+          "allowed merge methods missing " + method + ": got " + JSON.stringify(actualMethods),
         );
       }
     }
@@ -172,12 +144,8 @@ export function evaluateMasterRuleset(live, spec, policy) {
       expected.required_status_checks.do_not_enforce_on_create,
     );
 
-    const actualChecks = (parameters.required_status_checks ?? [])
-      .map(statusCheckKey)
-      .sort();
-    const expectedChecks = resolveExpectedStatusChecks(spec, policy)
-      .map(statusCheckKey)
-      .sort();
+    const actualChecks = (parameters.required_status_checks ?? []).map(statusCheckKey).sort();
+    const expectedChecks = resolveExpectedStatusChecks(spec).map(statusCheckKey).sort();
     expectEqual(issues, "required status checks", actualChecks, expectedChecks);
   }
 
@@ -195,12 +163,7 @@ export async function loadWorkflowPolicy(path = DEFAULT_POLICY_PATH) {
 async function fetchLiveRuleset(spec) {
   const repository = process.env.GITHUB_REPOSITORY || spec.repository;
   if (repository !== spec.repository) {
-    throw new Error(
-      "repository mismatch: expected " +
-        spec.repository +
-        ", got " +
-        repository,
-    );
+    throw new Error("repository mismatch: expected " + spec.repository + ", got " + repository);
   }
 
   const headers = {
@@ -212,19 +175,11 @@ async function fetchLiveRuleset(spec) {
   if (token) headers.Authorization = "Bearer " + token;
 
   const response = await fetch(
-    "https://api.github.com/repos/" +
-      repository +
-      "/rulesets/" +
-      spec.rulesetId,
+    "https://api.github.com/repos/" + repository + "/rulesets/" + spec.rulesetId,
     { headers },
   );
   if (!response.ok) {
-    throw new Error(
-      "GitHub ruleset read failed: " +
-        response.status +
-        " " +
-        (await response.text()),
-    );
+    throw new Error("GitHub ruleset read failed: " + response.status + " " + (await response.text()));
   }
   return response.json();
 }
@@ -239,8 +194,9 @@ async function main() {
     console.log(
       "Protect master matches " +
         ".github/rulesets/protect-master.expected.json" +
-        " + " +
-        REQUIRED_CHECKS_SOURCE,
+        " (" +
+        REQUIRED_CHECKS_SOURCE +
+        " GitHub checks; agent grind is separate)",
     );
     return;
   }
@@ -255,9 +211,7 @@ async function main() {
   process.exitCode = 1;
 }
 
-const invokedPath = process.argv[1]
-  ? pathToFileURL(resolve(process.argv[1])).href
-  : "";
+const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";
 if (invokedPath === import.meta.url) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.stack : error);

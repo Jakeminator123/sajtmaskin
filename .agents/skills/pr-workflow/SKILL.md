@@ -42,7 +42,7 @@ rapportens `runtimeStatus`.
 
 ## 4. PR
 
-1. Commit:a exakta paths och push utan force mot master.
+1. Commit:a exakta paths och push utan force. Nya PR:ar mot `preview`.
 2. Öppna PR med repots template när Jakob ber om det.
 3. Efter ny head-SHA: vänta in required GitHub-checks för exakt den SHA:n och
    kör om berörda riktade kontroller vid behov. `review-window` väntar minst
@@ -53,7 +53,10 @@ rapportens `runtimeStatus`.
 ## 5. Merge och städ
 
 När Jakob ger ett uttryckligt mergeuppdrag: följ `pr-merge.mdc` och den
-befintliga `merge:ready` / `merge:execute`-grinden. Merga inte på eget bevåg.
+befintliga `merge:ready` / `merge:execute`-grinden. Innan `merge:execute` till
+master: varna att det går till produktion och vänta på extra bekräftelse i
+samma chatt. Merga inte på eget bevåg. `preview` är en delad remote-gren, inte
+trunk och inte builder-ytan.
 
 Efter merge: kör först `npm run tidy` och kräv att ytan rapporteras som `FRI`.
 Först då: `npm run worktree:remove -- <sökväg>`. Rör aldrig `BRA` eller
