@@ -11,6 +11,7 @@ import {
 import type { CompanyLookupResult } from "@/app/api/wizard/company-lookup/route";
 import type { Competitor } from "@/app/api/wizard/competitors/route";
 import { looksLikeDomain } from "@/components/modals/prompt-wizard/constants";
+import { isStaleWizardRunResponse } from "@/components/modals/prompt-wizard/use-wizard-run";
 import type {
   EnrichMeta,
   EnrichResponsePayload,
@@ -45,6 +46,7 @@ export function useWizardEnrichment({
   companyLookup,
   competitors,
   setWebsiteAnalysis,
+  onInvalidWizardRun,
 }: {
   isOpen: boolean;
   isAuthenticated: boolean;
@@ -64,6 +66,7 @@ export function useWizardEnrichment({
   companyLookup: CompanyLookupResult | null;
   competitors: Competitor[];
   setWebsiteAnalysis: Dispatch<SetStateAction<string | null>>;
+  onInvalidWizardRun?: () => void;
 }) {
   const stepRef = useRef(step);
   stepRef.current = step;
@@ -217,6 +220,10 @@ export function useWizardEnrichment({
         if (!response.ok) {
           // Expected when auth/session is stale. Keep this non-fatal and quiet.
           if (response.status === 401) return null;
+          if (isStaleWizardRunResponse(response)) {
+            onInvalidWizardRun?.();
+            return null;
+          }
           console.warn("[Wizard] Enrich request failed:", response.status);
           return null;
         }
@@ -247,7 +254,7 @@ export function useWizardEnrichment({
         setIsEnriching(false);
       }
     },
-    [applyEnrichmentToActiveStep, buildEnrichContextHash, isAuthenticated, isInitialized, wizardRunId, companyLookup, competitors],
+    [applyEnrichmentToActiveStep, buildEnrichContextHash, isAuthenticated, isInitialized, wizardRunId, companyLookup, competitors, onInvalidWizardRun],
   );
 
   // ── Scrape website: quick-scrape first, then AI analysis with real content ──

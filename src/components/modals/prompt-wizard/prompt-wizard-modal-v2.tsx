@@ -70,7 +70,7 @@ export function PromptWizardModalV2({
 }: PromptWizardModalProps) {
   const { isAuthenticated, isInitialized } = useAuth();
   const [step, setStep] = useState<number>(1);
-  const { wizardRunId, startError, completeRun } = useWizardRun({
+  const { wizardRunId, startError, completeRun, restartRun } = useWizardRun({
     isOpen,
     isAuthenticated,
     isInitialized,
@@ -148,6 +148,7 @@ export function PromptWizardModalV2({
       locationLng,
       existingWebsite,
       setLocation,
+      onInvalidWizardRun: restartRun,
     });
 
   // Get current industry data
@@ -217,6 +218,7 @@ export function PromptWizardModalV2({
     companyLookup,
     competitors,
     setWebsiteAnalysis,
+    onInvalidWizardRun: restartRun,
   });
 
   // ── Persist wizard state in localStorage ──────────────────────
