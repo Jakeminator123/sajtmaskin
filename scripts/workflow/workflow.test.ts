@@ -3,14 +3,17 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  collectEsmSpecifiers,
   evaluateCiBranch,
   evaluateCiScopeWorkflow,
+  evaluateDependencyFreeImportGraph,
   evaluateDossierAcceptanceWorkflow,
   evaluatePolicyFloors,
   evaluatePrHeadWorkflowPermissions,
   evaluateReservedWorkflowCheckNames,
   evaluateRetiredBugIdFloor,
   evaluateSecretWorkflowDispatches,
+  evaluateTrustedControllerImportGraph,
   evaluateTrustedReviewWindowGate,
   evaluateWorkflowContract,
 } from "./check-contract.mjs";
@@ -703,6 +706,42 @@ describe("agent workflow repository contract", () => {
     }
   });
 
+  it("keeps the trusted controller import graph free of npm packages", () => {
+    expect(collectEsmSpecifiers(readFileSync("scripts/ci/trusted-review-window.mjs", "utf8"))).toEqual(
+      expect.arrayContaining([
+        "node:crypto",
+        "node:fs",
+        "node:path",
+        "node:url",
+        "./merge-ready-freshness.mjs",
+        "../workflow/required-check-owners.mjs",
+        "../pr-review/core.mjs",
+        "../pr-review/account-fallback.mjs",
+      ]),
+    );
+    expect(evaluateTrustedControllerImportGraph()).toEqual([]);
+    expect(
+      evaluateDependencyFreeImportGraph(
+        {
+          "scripts/ci/trusted-review-window.mjs":
+            'import { requiredCheckOwnerSpec } from "../workflow/check-contract.mjs";\n',
+          "scripts/ci/merge-ready-freshness.mjs": "",
+          "scripts/workflow/check-contract.mjs":
+            'import Ajv2020 from "ajv/dist/2020.js";\nimport yaml from "js-yaml";\n',
+        },
+        [
+          "scripts/ci/trusted-review-window.mjs",
+          "scripts/ci/merge-ready-freshness.mjs",
+        ],
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        "scripts/workflow/check-contract.mjs imports non-node package 'ajv/dist/2020.js'",
+        "scripts/workflow/check-contract.mjs imports non-node package 'js-yaml'",
+      ]),
+    );
+  });
+
   it("scopes DB/Blob PR smoke to its exact executable inputs", () => {
     const blob = readFileSync(".github/workflows/db-blob-sync-check.yml", "utf8");
     const parity = readFileSync(".github/workflows/db-schema-parity.yml", "utf8");
@@ -925,6 +964,7 @@ describe("agent workflow repository contract", () => {
     const policy = loadWorkflowInputs().policy;
     expect(evaluatePolicyFloors(policy)).toEqual([]);
     expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/check-contract.mjs");
+    expect(policy.manualMergePathPrefixes).toContain("scripts/workflow/required-check-owners.mjs");
     expect(
       evaluatePolicyFloors({
         ...structuredClone(policy),
@@ -934,6 +974,16 @@ describe("agent workflow repository contract", () => {
       }),
     ).toContain(
       "manualMergePathPrefixes security floor missing: scripts/workflow/check-contract.mjs",
+    );
+    expect(
+      evaluatePolicyFloors({
+        ...structuredClone(policy),
+        manualMergePathPrefixes: policy.manualMergePathPrefixes.filter(
+          (candidate: string) => candidate !== "scripts/workflow/required-check-owners.mjs",
+        ),
+      }),
+    ).toContain(
+      "manualMergePathPrefixes security floor missing: scripts/workflow/required-check-owners.mjs",
     );
 
     const weakened = [
