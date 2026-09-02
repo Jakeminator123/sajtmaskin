@@ -428,6 +428,28 @@ describe("selectVersionStatus", () => {
     expect(status.degradations).toEqual([]);
   });
 
+  it("L1 F3-hold pending-outcome settlar inte till done", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", {
+        outcome: "pending",
+        blocked: false,
+        reason: "product_postcheck_pending",
+      }),
+    ]);
+    expect(status.phase).toBe("verifying");
+    expect(status.done).toBe(false);
+    expect(status.verifierOutcome).toBe("pending");
+  });
+
   it("F2 design-skip path (verifier skipped + degraded, no version.done) settles to done", () => {
     const status = selectVersionStatus([
       ev("version.started", { generationKind: "create" }),

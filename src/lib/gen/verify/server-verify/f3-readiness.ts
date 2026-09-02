@@ -1,5 +1,6 @@
 import { getChat } from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import type { CodeFile } from "@/lib/gen/parser";
 import {
   checkTier3ReadinessForVersion,
@@ -68,10 +69,21 @@ export async function persistF3ReadinessHold(params: {
         serverOwned: true,
         reason: params.result.reason,
         retryable: params.result.retryable,
+        retryPending: params.result.retryable,
         verdict: "verdict" in params.result ? params.result.verdict : undefined,
         filesRevision: params.filesRevision,
         at: params.at,
       },
     },
   ]).catch(() => null);
+  // Never a silent hold: same retryPending surface as L2/L3 client holds.
+  emitBusEvent({
+    t: "version.verifier.done",
+    versionId: params.versionId,
+    chatId: params.chatId,
+    outcome: "pending",
+    blocked: false,
+    reason: params.result.reason,
+    findings: [],
+  });
 }

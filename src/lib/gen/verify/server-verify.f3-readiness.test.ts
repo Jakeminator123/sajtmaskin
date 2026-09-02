@@ -373,6 +373,9 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
       "Automatic server verification passed.",
       "run-l1",
     );
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ t: "version.verifier.done", outcome: "passed" }),
+    );
     expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
       expect.objectContaining({
         versionId,
@@ -408,6 +411,13 @@ describe("triggerServerVerification F3 readiness (L1)", () => {
       versionId,
       expect.stringContaining("product_postcheck_pending"),
       "run-l1",
+    );
+    expect(emitBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: "version.verifier.done",
+        outcome: "pending",
+        reason: "product_postcheck_pending",
+      }),
     );
     expect(emitBusEvent).not.toHaveBeenCalledWith(
       expect.objectContaining({ t: "version.verifier.done", outcome: "passed" }),
