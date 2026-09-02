@@ -170,7 +170,7 @@ describe("classifyRemovalLifecycle", () => {
   it.each([
     "master",
     "main",
-    "ema",
+    "preview",
     "JAKOB_BRA_9999_INNNAN_MVP_BRA",
     "rescue/stash-2026-08-14",
     "dependabot/npm_and_yarn/next-16.3.1",

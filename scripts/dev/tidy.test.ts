@@ -26,7 +26,7 @@ describe("isProtectedBranch", () => {
     for (const name of [
       "master",
       "main",
-      "ema",
+      "preview",
       "JAKOB_BRA_9999_INNNAN_MVP_BRA",
       "BRA_19191919",
       "rescue/stash-2026-08-14-natt-regler-och-backlog",
@@ -38,7 +38,7 @@ describe("isProtectedBranch", () => {
   });
 
   it("skyddar inte vanliga arbetsbrancher", () => {
-    for (const name of ["fix/nagot", "feat/nytt", "chore/stad", "cursor/agent-abc1"]) {
+    for (const name of ["fix/nagot", "feat/nytt", "chore/stad", "cursor/agent-abc1", "ema"]) {
       expect(isProtectedBranch(name), name).toBe(false);
     }
   });

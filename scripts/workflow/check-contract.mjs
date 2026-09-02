@@ -98,7 +98,7 @@ export const POLICY_FLOORS = Object.freeze({
   protectedBranchPatterns: [
     "master",
     "main",
-    "ema",
+    "preview",
     "*BRA*",
     "rescue/*",
     "dependabot/*",
