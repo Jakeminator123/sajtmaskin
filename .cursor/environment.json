@@ -3,7 +3,7 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "install": "npm ci --no-audit --no-fund && npm run embeddings:ensure",
+  "install": "npm ci --no-audit --no-fund && npm run embeddings:ensure && node scripts/dev/ensure-backoffice-python.mjs",
   "start": "node scripts/db/db-init.mjs || true",
   "terminals": [
     { "name": "dev", "command": "npm run dev" },

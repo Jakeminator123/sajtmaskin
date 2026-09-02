@@ -27,6 +27,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CommandPalette } from "../../../../data/dossiers/soft/cmdk-command-palette/components/command-palette";
 import { ChartCard } from "../../../../data/dossiers/soft/dashboard-charts/components/chart-card";
+import { Carousel } from "../../../../data/dossiers/soft/embla-carousel/components/carousel";
 import { GalleryLightbox } from "../../../../data/dossiers/soft/gallery-lightbox/components/gallery-lightbox";
 
 const SOFT_DIR = path.resolve(__dirname, "../../../../data/dossiers/soft");
@@ -38,6 +39,7 @@ const SOFT_DIR = path.resolve(__dirname, "../../../../data/dossiers/soft");
 const MOUNTED: Record<string, string> = {
   "cmdk-command-palette/components/command-palette.tsx": "denna fil",
   "gallery-lightbox/components/gallery-lightbox.tsx": "denna fil",
+  "embla-carousel/components/carousel.tsx": "denna fil",
   "dashboard-charts/components/chart-card.tsx": "denna fil",
   "scroll-story-orchestrator/components/scroll-story.tsx":
     "scroll-story-dossier.test.tsx",
@@ -58,8 +60,6 @@ const MOUNTED: Record<string, string> = {
  * testas, hör den i `MOUNTED`.
  */
 const UNMOUNTABLE: Record<string, string> = {
-  "embla-carousel/components/carousel.tsx":
-    "`embla-carousel-autoplay` saknas i det här repot (ingen stub, ingen tsconfig-alias). Komponenten importerar paketet på toppnivå även när autoplay är av, så en montering faller redan vid modulupplösning och typecheck.",
   "dashboard-charts/components/visactor-chart.tsx":
     "`@visactor/react-vchart` är ett genererad-sajtsberoende som inte är installerat i det här repot och saknar stub; en montering skulle inte ens resolva.",
   "local-site-search/components/site-search.tsx":
@@ -172,7 +172,7 @@ describe("CommandPalette — kommandopalett (cmdk-command-palette)", () => {
     renderPalette();
     openWithShortcut();
 
-    expect(screen.getByRole("dialog", { name: "Command palette" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Kommandopalett" })).toBeTruthy();
     expect(screen.getByRole("option", { name: /Gå hem/ })).toBeTruthy();
     expect(screen.getByRole("option", { name: /Logga ut/ })).toBeTruthy();
   });
@@ -197,6 +197,17 @@ describe("CommandPalette — kommandopalett (cmdk-command-palette)", () => {
 
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("använder svenska standardtexter för dialog, platshållare och tom lista", () => {
+    render(<CommandPalette groups={groups} />);
+    openWithShortcut();
+
+    expect(screen.getByRole("dialog", { name: "Kommandopalett" })).toBeTruthy();
+    expect(screen.getByPlaceholderText("Sök kommando…")).toBeTruthy();
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "xyzzy" } });
+    expect(screen.getByText("Inga träffar.")).toBeTruthy();
+  });
 });
 
 describe("GalleryLightbox — bildgalleri (gallery-lightbox)", () => {
@@ -214,9 +225,9 @@ describe("GalleryLightbox — bildgalleri (gallery-lightbox)", () => {
     renderGallery();
 
     expect(screen.getByRole("heading", { name: "Våra rum" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Open image: Kök" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Open image: Badrum" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Open image: Trädgård" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Öppna bild: Kök" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Öppna bild: Badrum" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Öppna bild: Trädgård" })).toBeTruthy();
     expect(screen.getByRole("img", { name: "Kök" })).toBeTruthy();
     expect(screen.getByRole("img", { name: "Badrum" })).toBeTruthy();
     expect(screen.getByRole("img", { name: "Trädgård" })).toBeTruthy();
@@ -224,7 +235,7 @@ describe("GalleryLightbox — bildgalleri (gallery-lightbox)", () => {
 
   it("öppnar en dialog med den stora bilden vid klick", () => {
     renderGallery();
-    fireEvent.click(screen.getByRole("button", { name: "Open image: Kök" }));
+    fireEvent.click(screen.getByRole("button", { name: "Öppna bild: Kök" }));
 
     const dialog = screen.getByRole("dialog");
     expect(dialog.getAttribute("aria-label")).toBe("Köket efter renovering");
@@ -234,20 +245,20 @@ describe("GalleryLightbox — bildgalleri (gallery-lightbox)", () => {
 
   it("stänger med Escape och med stängknappen", () => {
     renderGallery();
-    fireEvent.click(screen.getByRole("button", { name: "Open image: Kök" }));
+    fireEvent.click(screen.getByRole("button", { name: "Öppna bild: Kök" }));
     expect(screen.getByRole("dialog")).toBeTruthy();
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Open image: Badrum" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Öppna bild: Badrum" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stäng" }));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("byter bild med ArrowRight och ArrowLeft", () => {
     renderGallery();
-    fireEvent.click(screen.getByRole("button", { name: "Open image: Kök" }));
+    fireEvent.click(screen.getByRole("button", { name: "Öppna bild: Kök" }));
 
     fireEvent.keyDown(document, { key: "ArrowRight" });
     let dialog = screen.getByRole("dialog");
@@ -258,6 +269,43 @@ describe("GalleryLightbox — bildgalleri (gallery-lightbox)", () => {
     dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("img").getAttribute("src")).toBe("/kok.jpg");
     expect(within(dialog).getByRole("img").getAttribute("alt")).toBe("Kök");
+  });
+
+  it("gatar hover-skalan bakom motion-safe och använder svenska styrknappar", () => {
+    renderGallery();
+
+    const thumb = screen.getByRole("img", { name: "Kök" });
+    expect(thumb.className).toContain("motion-safe:group-hover:scale-105");
+    expect(thumb.className).not.toMatch(/(?<!motion-safe:)group-hover:scale-105/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Öppna bild: Kök" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Stäng" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Föregående bild" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Nästa bild" })).toBeTruthy();
+  });
+});
+
+describe("Carousel — bildkarusell (embla-carousel)", () => {
+  function renderCarousel() {
+    return render(
+      <Carousel ariaLabel="Kundomdömen">
+        <div>Ett</div>
+        <div>Två</div>
+        <div>Tre</div>
+      </Carousel>,
+    );
+  }
+
+  it("monterar regionen med svenska pilknappar utan att kräva autoplay", () => {
+    renderCarousel();
+
+    expect(screen.getByRole("region", { name: "Kundomdömen" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Föregående bild i Kundomdömen" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Nästa bild i Kundomdömen" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "1 av 3" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "2 av 3" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "3 av 3" })).toBeTruthy();
   });
 });
 

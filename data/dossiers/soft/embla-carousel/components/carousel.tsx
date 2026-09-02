@@ -121,7 +121,7 @@ export function Carousel({
               key={i}
               role="group"
               aria-roledescription="slide"
-              aria-label={`${i + 1} of ${slideCount}`}
+              aria-label={`${i + 1} av ${slideCount}`}
               className={`min-w-0 ${SLIDE_BASIS[slidesPerView]}`}
             >
               {slide}
@@ -135,7 +135,7 @@ export function Carousel({
           <button
             type="button"
             onClick={scrollPrev}
-            aria-label={`Previous slide in ${ariaLabel}`}
+            aria-label={`Föregående bild i ${ariaLabel}`}
             className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-background/80 p-2 shadow ring-1 ring-border backdrop-blur hover:bg-background"
           >
             <span aria-hidden="true">‹</span>
@@ -143,7 +143,7 @@ export function Carousel({
           <button
             type="button"
             onClick={scrollNext}
-            aria-label={`Next slide in ${ariaLabel}`}
+            aria-label={`Nästa bild i ${ariaLabel}`}
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-background/80 p-2 shadow ring-1 ring-border backdrop-blur hover:bg-background"
           >
             <span aria-hidden="true">›</span>
@@ -158,7 +158,7 @@ export function Carousel({
               key={i}
               type="button"
               onClick={() => scrollTo(i)}
-              aria-label={`Go to slide ${i + 1}`}
+              aria-label={`Gå till bild ${i + 1}`}
               aria-current={i === selectedIndex ? "true" : undefined}
               className={`h-2 rounded-full transition-all ${
                 i === selectedIndex ? "w-6 bg-primary" : "w-2 bg-muted-foreground/40"

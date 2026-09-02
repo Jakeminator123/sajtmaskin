@@ -38,8 +38,8 @@ let globalListenerCount = 0;
 
 export function CommandPalette({
   groups,
-  placeholder = "Type a command or search…",
-  emptyMessage = "No results found.",
+  placeholder = "Sök kommando…",
+  emptyMessage = "Inga träffar.",
   openSignalRef,
   disableShortcut = false,
 }: CommandPaletteProps) {
@@ -87,7 +87,7 @@ export function CommandPalette({
     <Command.Dialog
       open={open}
       onOpenChange={setOpen}
-      label="Command palette"
+      label="Kommandopalett"
       ref={dialogRef}
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 motion-safe:animate-in motion-safe:fade-in-0 sm:pt-[15vh]"
     >
