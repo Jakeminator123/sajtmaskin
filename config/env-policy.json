@@ -22,6 +22,7 @@
     "NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT",
     "NEXT_PUBLIC_SAJTMASKIN_SHADCN_DESCRIBE",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
+    "OAUTH_ALLOWED_ORIGINS",
     "PEXELS_API_KEY",
     "POSTGRES_URL_NON_POOLING",
     "REGISTRY_AUTH_TOKEN",
@@ -160,6 +161,7 @@
     "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
     "NEXT_PUBLIC_TYPESENSE_HOST",
     "NEXT_PUBLIC_TYPESENSE_SEARCH_ONLY_API_KEY",
+    "OAUTH_ALLOWED_ORIGINS",
     "OC_DEBUG",
     "OC_DEBUGG",
     "OC_DEBUG_RUN_TOKEN",
@@ -638,6 +640,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": [],
       "notes": "Optional override. If unset, the GitHub callback is derived from the current app base URL."
+    },
+    {
+      "key": "OAUTH_ALLOWED_ORIGINS",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Comma-separated exact first-party HTTP(S) origins allowed as OAuth start and GitHub relay destinations, in addition to URLS.baseUrl and https://sajtmaskin.vercel.app. No wildcards. Unset is valid and keeps only those two built-in origins. Must be set in Vercel production and preview before deploy if users start OAuth on .se / .com / www hosts."
     },
     {
       "key": "GITHUB_TOKEN",
