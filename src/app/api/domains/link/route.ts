@@ -12,14 +12,21 @@
  * Flow:
  *  1. Resolve the customer's project from the chat
  *  2. Add domain to that project
- *  3. If .se/.nu + Loopia configured: create records pointing to the platform
+ *  3. If .se/.nu + Loopia configured AND the caller has a fulfilled
+ *     `domain_orders` row (`status = registered`, keyed to their user id):
+ *     create records pointing to the platform. Otherwise skip Loopia and
+ *     return manual DNS instructions — the shared Loopia account must not
+ *     be rewritten for a name the caller did not buy.
  *  4. Return verification status and DNS instructions
  */
 
+import { and, eq, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { addDomainToProject, isVercelConfigured } from "@/lib/vercel/vercel-client";
 import { addZoneRecord, isLoopiaConfigured } from "@/lib/loopia/loopia-client";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { db, dbConfigured } from "@/lib/db/client";
+import { domainOrders } from "@/lib/db/schema";
 import { withRateLimit } from "@/lib/rate-limit";
 import { resolveVercelProjectForChat } from "@/lib/domains/resolve-vercel-project";
 
@@ -27,6 +34,38 @@ export const maxDuration = 15;
 
 const VERCEL_CNAME_TARGET = "cname.vercel-dns.com";
 const VERCEL_APEX_A_RECORD = "76.76.21.21";
+
+/**
+ * Proven ownership of a platform-purchased name.
+ *
+ * Same tenant key as `getDomainOrderById(..., userId)`: every read of
+ * `domain_orders` filters on `user_id`. `registered` is the fulfilled
+ * state (`markDomainOrderRegistered`); pending/paid/registering only hold
+ * the name, they do not prove the registrar has delivered the zone.
+ */
+async function callerOwnsRegisteredDomain(
+  userId: string,
+  domain: string,
+): Promise<boolean> {
+  if (!dbConfigured) return false;
+  try {
+    const rows = await db
+      .select({ id: domainOrders.id })
+      .from(domainOrders)
+      .where(
+        and(
+          eq(domainOrders.user_id, userId),
+          eq(domainOrders.status, "registered"),
+          sql`lower(${domainOrders.domain}) = ${domain.toLowerCase()}`,
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  } catch (err) {
+    console.error("[domains/link] Ownership lookup failed:", err);
+    return false;
+  }
+}
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "domains:link", async () => {
@@ -78,7 +117,8 @@ export async function POST(req: NextRequest) {
       const isSwedish = tld === "se" || tld === "nu";
       let dnsSetup: { success: boolean; method: string; error?: string } | null = null;
 
-      if (isSwedish && isLoopiaConfigured()) {
+      const ownsRegisteredDomain = await callerOwnsRegisteredDomain(user.id, domain);
+      if (isSwedish && isLoopiaConfigured() && ownsRegisteredDomain) {
         try {
           const baseDomain = domain;
           // The zone apex (`@`) must be an A record — a CNAME on the apex is
