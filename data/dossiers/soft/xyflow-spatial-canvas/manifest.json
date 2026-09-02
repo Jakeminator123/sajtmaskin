@@ -9,7 +9,9 @@
   "promptInstructionMode": "selected-sections",
   "summary": "Pannable zoomable @xyflow/react (React Flow v12) canvas for cards in space — portfolio, moodboard, service map, roadmap, family tree — with optional edges, minimap, fit-view and an in-canvas detail panel. Use for an interactive workspace, never a flowchart, map, chart or 3D scene. Wrap ReactFlowProvider, size the container, keep nodeTypes stable at module scope, disable wheel-zoom and preventScrolling when embedded so page scroll is not stolen, keep nodes keyboard-focusable, close the detail panel with a button and Escape, hold state in memory and show an honest not-saved notice when editable.",
   "summarySv": "En panorbar och zoombar arbetsyta där tjänster, projekt eller personer ligger som kort i rummet, med valfria kopplingar och en detaljpanel som öppnas utan att lämna sidan. Välj det när du vill visa ett universum man kan röra sig i — inte en vanlig processbild, karta, graf eller 3D-scen. I redigeringsläge sparas ändringar inte.",
-  "dependencies": ["@xyflow/react"],
+  "dependencies": [
+    "@xyflow/react"
+  ],
   "files": [
     {
       "path": "components/spatial-canvas-seed.ts",
@@ -47,5 +49,5 @@
   "lastVerified": "2026-09-02",
   "verificationStatus": "unverified",
   "sourceRepoUrl": "https://github.com/xyflow/xyflow",
-  "notes": "New 2026-09-02 owner decision; explicit-ask-only; stubbed in repo tests via tests/stubs/xyflow-react.tsx; live browser check on a materialized preview still required before accepted."
+  "notes": "New 2026-09-02 owner decision; explicit-ask-only; stubbed in repo tests via tests/stubs/xyflow-react.tsx. Materialized keyless build + real Chrome check 2026-09-02: six cards, edges, minimap, detail dialog on click (fixed: seed positions no longer overlap). Still open before accepted: pan/zoom/keyboard pass in a real browser, one sample brief through the pipeline."
 }

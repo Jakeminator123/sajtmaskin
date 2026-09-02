@@ -47,6 +47,7 @@ Pass images the same way (`<img alt="…" src="…">` or `next/image` inside `ch
 # UX rules
 
 - Stage height 360–560px (default 480). At most 30 physics bodies (`maxBodies`).
+- `shape: "circle"` only for near-square items (round badges, avatar images); a wide pill or card is a box even if you pass `circle` (the scene falls back to a rectangle so the element never sticks out past the walls).
 - Content stays semantic DOM and readable at rest; Matter only writes `transform`.
 - `prefers-reduced-motion: reduce`, SSR, missing `matchMedia`, or a thrown scene → static grid with the same item children (no controls).
 - Live controls: “Starta om” and “Pausa” / “Fortsätt”. No autoplay sound.

@@ -10,7 +10,9 @@
   "summary": "Sticky-pinned scrollytelling: chapter media stays pinned on desktop while text scrolls past, with one shared scroll progress and a chapter indicator. Use for 3–6 chapter stories (Apple-style product presentation, before/after renovation). Safety: sticky only on desktop when motion is allowed; mobile and reduced-motion stay linear document order; all chapter text is in the DOM once; no scroll hijacking and no body lock.",
   "summarySv": "Visar en berättelse i flera kapitel där bilderna stannar kvar på skärmen medan texten rullar förbi på dator. På mobil och när besökaren stängt av rörelser visas kapitlen i vanlig ordning. Passar till exempel före/efter-renovering eller en varumärkeshistoria. All text finns alltid på sidan och scrollen låses inte.",
   "envVars": [],
-  "dependencies": ["framer-motion"],
+  "dependencies": [
+    "framer-motion"
+  ],
   "files": [
     {
       "path": "components/use-scroll-story.ts",
@@ -48,5 +50,5 @@
   "lastVerified": "2026-09-02",
   "verificationStatus": "unverified",
   "sourceRepoUrl": "https://github.com/motiondivision/motion",
-  "notes": "New 2026-09-02, owner decision. Explicit-ask-only. A live browser check on a materialized preview is still required before accepted."
+  "notes": "New 2026-09-02, owner decision. Explicit-ask-only. Materialized keyless build + real Chrome check 2026-09-02 (desktop 1280: sticky media column, aria-current and chapter indicator follow scroll; 375 px: linear mode) — this found and fixed the overflow-x-hidden bug that disabled position: sticky. Still open before accepted: reduced-motion and keyboard pass in a real browser, and one sample brief through the pipeline."
 }
