@@ -4,9 +4,17 @@ import yaml from "js-yaml";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { dirname as posixDirname, join as posixJoin, normalize as posixNormalize } from "node:path/posix";
 import { fileURLToPath } from "node:url";
 import { SAFE_DOCS_COMMANDS } from "./ci-scope.mjs";
 import { PATH_GROUP_FLOORS } from "./path-impact.mjs";
+import {
+  REQUIRED_CHECK_OWNERS,
+  REQUIRED_CHECK_WORKFLOW,
+  requiredCheckOwnerSpec,
+} from "./required-check-owners.mjs";
+
+export { requiredCheckOwnerSpec };
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -14,14 +22,6 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 // skydd, men får inte kunna sänka sin egen verifiering och sedan godkänna sig
 // själv. Att ändra golvet kräver därför en synlig kod- och teständring under
 // scripts/workflow/.
-const REQUIRED_CHECK_OWNERS = Object.freeze({
-  quality: "ci.yml",
-  "backoffice-tests": "ci.yml",
-  "schema-drift": "ci.yml",
-  build: "ci.yml",
-  "dossier-acceptance": "dossier-acceptance.yml",
-});
-
 export const POLICY_FLOORS = Object.freeze({
   retiredBugIdsSha256: "6cb7f4b94e167f05471dd6c08ae928672927a41a972856992ca2a1cbd54b5634",
   // Required PR-head checks and the workflow file that may publish them.
@@ -34,6 +34,7 @@ export const POLICY_FLOORS = Object.freeze({
     "scripts/ci/",
     "scripts/pr-review/",
     "scripts/workflow/check-contract.mjs",
+    "scripts/workflow/required-check-owners.mjs",
     "scripts/workflow/ci-scope.mjs",
     "scripts/workflow/path-impact.mjs",
     "config/agent-workflow.json",
@@ -42,10 +43,7 @@ export const POLICY_FLOORS = Object.freeze({
     "config/backoffice/domain-map.json",
   ],
   review: {
-    requiredCheckWorkflow: {
-      path: ".github/workflows/ci.yml",
-      event: "pull_request",
-    },
+    requiredCheckWorkflow: REQUIRED_CHECK_WORKFLOW,
     qualifyingCheckPatterns: ["trusted-pr-ai-review"],
     securityVetoCheckPatterns: ["gitguardian"],
     deploymentCheckNames: ["Vercel"],
@@ -116,6 +114,106 @@ function json(root, path) {
   return JSON.parse(read(root, path));
 }
 
+const TRUSTED_CONTROLLER_ENTRIES = Object.freeze([
+  "scripts/ci/trusted-review-window.mjs",
+  "scripts/ci/merge-ready-freshness.mjs",
+]);
+
+function normalizeRepoRelative(value) {
+  return posixNormalize(String(value ?? "").replaceAll("\\", "/")).replace(/^\.\//u, "");
+}
+
+function stripJsComments(source) {
+  return String(source ?? "")
+    .replace(/\/\*[\s\S]*?\*\//gu, "")
+    .replace(/(^|[^:\\])\/\/.*$/gmu, "$1");
+}
+
+/** Static ESM specifiers only — no package resolution. */
+export function collectEsmSpecifiers(source) {
+  const text = stripJsComments(source);
+  const specifiers = [];
+  const seen = new Set();
+  const remember = (spec) => {
+    if (!spec || seen.has(spec)) return;
+    seen.add(spec);
+    specifiers.push(spec);
+  };
+  const fromRe =
+    /(?:^|[\n;])\s*(?:import|export)(?:\s+type)?\s+(?:[\w*{}\s,\n]|\sas\s)+from\s+["']([^"']+)["']/gu;
+  const sideEffectRe = /(?:^|[\n;])\s*import\s+["']([^"']+)["']/gu;
+  const dynamicRe = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/gu;
+  let match;
+  while ((match = fromRe.exec(text))) remember(match[1]);
+  while ((match = sideEffectRe.exec(text))) remember(match[1]);
+  while ((match = dynamicRe.exec(text))) remember(match[1]);
+  return specifiers;
+}
+
+/**
+ * Fail-closed: every import reachable from a CI trust-root entry must be
+ * `node:*` or a relative file. Bare package specifiers (ajv, js-yaml, …)
+ * break merge-ready-freshness, which runs without `npm install`.
+ *
+ * @param {Record<string, string | null | undefined>} fileSources
+ * @param {readonly string[]} entryRelPaths
+ */
+export function evaluateDependencyFreeImportGraph(fileSources, entryRelPaths) {
+  const errors = [];
+  const visited = new Set();
+  const queue = entryRelPaths.map((path) => normalizeRepoRelative(path));
+  while (queue.length > 0) {
+    const rel = queue.shift();
+    if (!rel || visited.has(rel)) continue;
+    visited.add(rel);
+    const source = fileSources?.[rel];
+    if (typeof source !== "string") {
+      errors.push(`trusted controller import graph missing file: ${rel}`);
+      continue;
+    }
+    for (const spec of collectEsmSpecifiers(source)) {
+      if (spec.startsWith("node:")) continue;
+      if (spec.startsWith("./") || spec.startsWith("../")) {
+        queue.push(normalizeRepoRelative(posixJoin(posixDirname(rel), spec)));
+        continue;
+      }
+      errors.push(`${rel} imports non-node package '${spec}'`);
+    }
+  }
+  return errors;
+}
+
+export function loadTrustedControllerImportGraph(root = REPO_ROOT) {
+  const fileSources = /** @type {Record<string, string | null>} */ ({});
+  const queue = [...TRUSTED_CONTROLLER_ENTRIES];
+  const seen = new Set();
+  while (queue.length > 0) {
+    const rel = normalizeRepoRelative(queue.shift());
+    if (!rel || seen.has(rel)) continue;
+    seen.add(rel);
+    const abs = resolve(root, rel);
+    if (!existsSync(abs)) {
+      fileSources[rel] = null;
+      continue;
+    }
+    const source = readFileSync(abs, "utf8");
+    fileSources[rel] = source;
+    for (const spec of collectEsmSpecifiers(source)) {
+      if (spec.startsWith("./") || spec.startsWith("../")) {
+        queue.push(posixJoin(posixDirname(rel), spec));
+      }
+    }
+  }
+  return fileSources;
+}
+
+export function evaluateTrustedControllerImportGraph(root = REPO_ROOT) {
+  return evaluateDependencyFreeImportGraph(
+    loadTrustedControllerImportGraph(root),
+    TRUSTED_CONTROLLER_ENTRIES,
+  );
+}
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -181,45 +279,6 @@ export function evaluatePrHeadWorkflowPermissions(workflowSources) {
     }
   }
   return errors;
-}
-
-/**
- * @param {string} check
- * @param {{
- *   review?: { requiredCheckWorkflow?: { path?: string, event?: string } },
- *   requiredCheckOwners?: Record<string, string | { path?: string, event?: string }>
- * }} [policy]
- */
-export function requiredCheckOwnerSpec(check, policy = POLICY_FLOORS) {
-  const canonical = policy.review?.requiredCheckWorkflow ?? POLICY_FLOORS.review.requiredCheckWorkflow;
-  const owners = {
-    ...POLICY_FLOORS.requiredCheckOwners,
-    ...(policy.requiredCheckOwners ?? {}),
-  };
-  const owner = owners[check];
-  if (!owner) {
-    return {
-      path: canonical.path,
-      event: canonical.event,
-      file: String(canonical.path ?? "")
-        .split("/")
-        .at(-1),
-    };
-  }
-  if (typeof owner === "string") {
-    return {
-      path: `.github/workflows/${owner}`,
-      event: "pull_request",
-      file: owner,
-    };
-  }
-  return {
-    path: owner.path,
-    event: owner.event ?? "pull_request",
-    file: String(owner.path ?? "")
-      .split("/")
-      .at(-1),
-  };
 }
 
 function ownerWorkflowForRequiredCheck(check, policy = POLICY_FLOORS) {
@@ -1126,6 +1185,7 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
     !trustedReviewWindow.includes("review.updated_at") ||
     !trustedReviewWindow.includes("policy.review.requiredCheckWorkflow") ||
     !trustedReviewWindow.includes("requiredCheckOwnerSpec") ||
+    !trustedReviewWindow.includes('from "../workflow/required-check-owners.mjs"') ||
     !trustedReviewWindow.includes("latest owned required-check workflow/job") ||
     !trustedReviewWindow.includes("check kommer från annan workflow än dess deklarerade ägare") ||
     !trustedReviewWindow.includes("run.provenance?.workflowRun?.created_at") ||
@@ -1139,6 +1199,12 @@ export function evaluateWorkflowContract(root = REPO_ROOT, env = process.env) {
       "trusted default-branch controller must publish the head-bound required review-window",
     );
   }
+  if (/\bcheck-contract\.mjs\b/u.test(trustedReviewWindow)) {
+    errors.push(
+      "trusted default-branch controller must not import check-contract; that module pulls npm packages",
+    );
+  }
+  errors.push(...evaluateTrustedControllerImportGraph(root));
   if (
     !trustedReviewWindow.includes("new Set(policy.review.deploymentCheckNames ?? [])") ||
     !trustedReviewWindow.includes("deploymentPending === 0") ||

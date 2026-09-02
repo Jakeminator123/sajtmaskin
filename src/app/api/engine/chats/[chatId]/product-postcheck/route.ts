@@ -145,6 +145,33 @@ function supersededPostcheckResult(params: {
   };
 }
 
+/**
+ * Wait budget ended, host still starting, or `httpReady: false`.
+ * No attestation and no `version.degraded` emit — L3's
+ * `productPostcheckNeedsRetry` treats a missing attestation as pending.
+ */
+function pendingPreviewNotReadyResult(params: {
+  previewUrl: string | null;
+  durationMs?: number | null;
+  verificationRunId?: string | null;
+}): ProductPostcheckResult {
+  return {
+    ok: true,
+    skipped: true,
+    skippedReason: "preview_not_ready",
+    warnings: [],
+    warningCount: 0,
+    productBlocked: false,
+    routesChecked: 0,
+    durationMs: params.durationMs ?? 0,
+    checkedUrl: params.previewUrl,
+    screenshots: null,
+    domSummary: null,
+    attestation: null,
+    verificationRunId: params.verificationRunId ?? null,
+  };
+}
+
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "engine:product-postcheck", () =>
     runWithLlmUsageContext({}, () => handlePOST(req, ctx)),
@@ -316,9 +343,22 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     let waitedProbe: ProductPostcheckPreviewProbe | null = null;
     const liveReviewReserveMs = isLiveReviewEnabled() ? LIVE_REVIEW_TOTAL_TIMEOUT_MS : 0;
     if (getPreviewHostBaseUrl()) {
+      const sessionHint = await getActivePreviewSessionAsync(chatId);
+      const pinnedSessionId = sessionHint?.previewSessionId?.trim() || "";
+      const pinIdentity = Boolean(
+        pinnedSessionId &&
+          sessionHint?.versionId === resolvedVersionId &&
+          sessionHint.filesRevision === filesRevision,
+      );
       const previewWait = await waitForProductPostcheckPreviewRunning({
         expectedVersionId: resolvedVersionId,
         expectedFilesRevision: filesRevision,
+        ...(pinIdentity
+          ? {
+              expectedPreviewSessionId: pinnedSessionId,
+              expectedLifecycleToken: sessionHint?.lifecycleToken ?? null,
+            }
+          : {}),
         timeoutMs: productPostcheckPreviewWaitBudgetMs({ liveReviewReserveMs }),
         probe: () =>
           readProductPostcheckPreviewProbe({
@@ -334,69 +374,19 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           }),
         );
       }
-      waitedProbe = previewWait.ok ? previewWait.probe : previewWait.lastProbe;
-      const waitedTarget = bindProductPostcheckTarget(
-        waitedProbe
-          ? {
-              previewSessionId: waitedProbe.previewSessionId,
-              lifecycleToken: waitedProbe.lifecycleToken,
-              versionId: waitedProbe.versionId,
-              filesRevision: waitedProbe.filesRevision,
-            }
-          : null,
-        resolvedVersionId,
-        filesRevision,
-      );
       if (!previewWait.ok) {
-        const timeoutCheckedUrl =
-          waitedProbe?.previewUrl?.trim() || previewUrl?.trim() || null;
-        if (waitedTarget) {
-          emitPostcheckDegraded({
-            versionId: resolvedVersionId,
-            chatId,
-            reason: "preview_not_running",
-            checkedUrl: timeoutCheckedUrl,
-            durationMs: 0,
-            attestation: waitedTarget,
+        // starting / httpReady:false / timeout / failed. Never attest —
+        // an attested `preview_not_running` used to release the quality gate.
+        return NextResponse.json(
+          pendingPreviewNotReadyResult({
+            previewUrl:
+              previewWait.lastProbe?.previewUrl?.trim() || previewUrl?.trim() || null,
+            durationMs: Date.now() - routeStartedAt,
             verificationRunId,
-          });
-          return NextResponse.json({
-            ok: true,
-            skipped: true,
-            skippedReason: "preview_not_running",
-            warnings: [],
-            warningCount: 0,
-            productBlocked: false,
-            routesChecked: 0,
-            durationMs: 0,
-            checkedUrl: timeoutCheckedUrl,
-            attestation: waitedTarget,
-            verificationRunId,
-          });
-        }
-        emitPostcheckDegraded({
-          versionId: resolvedVersionId,
-          chatId,
-          reason: "preview_not_running",
-          checkedUrl: timeoutCheckedUrl,
-          durationMs: 0,
-          attestation: null,
-          verificationRunId,
-        });
-        return NextResponse.json({
-          ok: true,
-          skipped: true,
-          skippedReason: "preview_not_running",
-          warnings: [],
-          warningCount: 0,
-          productBlocked: false,
-          routesChecked: 0,
-          durationMs: 0,
-          checkedUrl: timeoutCheckedUrl,
-          attestation: null,
-          verificationRunId,
-        });
+          }),
+        );
       }
+      waitedProbe = previewWait.probe;
     }
 
     const previewSession = waitedProbe
