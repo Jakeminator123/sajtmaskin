@@ -81,7 +81,7 @@ export async function generateSiteFromPrompt(
       current_code: generated.contentForVersion,
       files: generated.files,
       messages: persistedChat?.messages ?? [],
-      meta: {
+      meta_patch: {
         source: "mcp.generate-site",
         scaffoldId: generated.scaffoldId,
         runtimeMode: generated.runtimeMode,

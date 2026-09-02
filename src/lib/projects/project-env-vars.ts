@@ -151,13 +151,10 @@ function readProjectEnvVarsFromMeta(meta: unknown): ProjectEnvVarItem[] {
   return readStoredProjectEnvVarsFromMeta(meta).map((item) => toDisplayProjectEnvVarItem(item));
 }
 
-function mergeStoredProjectEnvVarsIntoMeta(
-  meta: unknown,
+function buildStoredProjectEnvVarsMetaPatch(
   envVars: StoredProjectEnvVarItem[],
 ): Record<string, unknown> {
-  const existing = asRecord(meta) ?? {};
   return {
-    ...existing,
     [META_ENV_VARS_KEY]: sortStoredEnvVars(envVars),
   };
 }
@@ -200,7 +197,7 @@ export async function upsertStoredProjectEnvVars(
   const nextEnvVars = sortStoredEnvVars(Array.from(byKey.values()));
   await saveProjectData({
     project_id: projectId,
-    meta: mergeStoredProjectEnvVarsIntoMeta(existingMeta, nextEnvVars),
+    meta_patch: buildStoredProjectEnvVarsMetaPatch(nextEnvVars),
   });
   return nextEnvVars.map((item) => toDisplayProjectEnvVarItem(item));
 }
@@ -218,7 +215,7 @@ export async function deleteStoredProjectEnvVars(
 
   await saveProjectData({
     project_id: projectId,
-    meta: mergeStoredProjectEnvVarsIntoMeta(existingMeta, nextEnvVars),
+    meta_patch: buildStoredProjectEnvVarsMetaPatch(nextEnvVars),
   });
   return nextEnvVars.map((item) => toDisplayProjectEnvVarItem(item));
 }
