@@ -8,7 +8,7 @@ import {
   validateMergeExecuteMandate,
   validateMergeReadySignoff,
 } from "./merge-ready-freshness.mjs";
-import { requiredCheckOwnerSpec } from "../workflow/check-contract.mjs";
+import { requiredCheckOwnerSpec } from "../workflow/required-check-owners.mjs";
 import { decodeMarker, EXHAUSTIVE_MARKER_PREFIX, parseStateComment } from "../pr-review/core.mjs";
 import {
   parseAccountFallbackRequest,
