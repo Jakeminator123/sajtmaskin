@@ -132,6 +132,9 @@ export function describeQuickEditHardError(result: { error: string; reason?: str
   if (result.reason === "base_busy" || result.error === "base_busy") {
     return VERSION_BUSY_USER_MESSAGE;
   }
+  if (result.reason === "lease_unavailable" || result.error === "lease_unavailable") {
+    return VERSION_LEASE_UNAVAILABLE_USER_MESSAGE;
+  }
   return result.error;
 }
 
@@ -143,6 +146,9 @@ export function describeQuickEditHardError(result: { error: string; reason?: str
  */
 const VERSION_BUSY_USER_MESSAGE =
   "Versionen verifieras just nu — dina ändringar finns kvar lokalt. Vänta en stund och spara igen.";
+
+const VERSION_LEASE_UNAVAILABLE_USER_MESSAGE =
+  "Versionlåset kunde inte bevisas just nu — dina ändringar finns kvar lokalt. Vänta en stund och spara igen.";
 
 /**
  * Save a single file's full content. When the Fast Edit Lane flag is on this

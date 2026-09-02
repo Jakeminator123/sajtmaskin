@@ -11,6 +11,7 @@ import {
   LEASE_LOCK_TIMEOUT_MS,
   versionWriteWhere,
 } from "./internal";
+import { leaseTableExists } from "./leases";
 
 export async function updateVersionFiles(
   versionId: string,
@@ -146,17 +147,12 @@ export async function updateVersionFiles(
   // (fail-closed, Codex P1 on #507): if the table then really is missing the
   // guarded UPDATE fails loudly instead of silently saving through a lease.
   const holderRunId = options?.holderRunId;
+  // Shared tri-state probe. ONLY a definitive `missing` may drop the guard.
+  // `unavailable` keeps it ON (same fail-closed as the previous inline catch):
+  // a transient catalog error must not silently save through a live lease.
   let jobsExist = true;
   if (!holderRunId) {
-    try {
-      const res = await db.execute(
-        sql`SELECT to_regclass('public.engine_version_jobs') AS oid`,
-      );
-      const rows = (res as unknown as { rows?: Array<{ oid: string | null }> }).rows ?? [];
-      jobsExist = rows.length > 0 && rows[0]?.oid != null;
-    } catch {
-      jobsExist = true;
-    }
+    jobsExist = (await leaseTableExists()) !== "missing";
   }
   const leaseWhere = holderRunId
     ? versionWriteWhere(versionId, holderRunId)

@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const limit = vi.hoisted(() => vi.fn());
 const transaction = vi.hoisted(() => vi.fn());
+const execute = vi.hoisted(() => vi.fn());
 
 const selectChain = {
   from: () => selectChain,
@@ -23,6 +24,7 @@ vi.mock("@/lib/db/client", () => ({
   db: {
     select: () => selectChain,
     transaction,
+    execute: (...args: unknown[]) => execute(...args),
     update: () => ({ set: () => ({ where: () => Promise.resolve({ rowCount: 0 }) }) }),
   },
 }));
@@ -42,6 +44,7 @@ function timedOutRepairVersion() {
 describe("maybeAutoAcceptTimedOutRepair — shared-path active-lease guard (Codex P2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    execute.mockResolvedValue({ rows: [{ oid: "16384" }] });
   });
   afterEach(() => {
     vi.clearAllMocks();
@@ -66,5 +69,15 @@ describe("maybeAutoAcceptTimedOutRepair — shared-path active-lease guard (Code
     expect(result.wasAutoAccepted).toBe(false);
     // No active lease -> the guard lets the accept path run.
     expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT auto-accept when the lease query is unavailable (fail-closed)", async () => {
+    limit.mockRejectedValue(new Error("connection reset"));
+    execute.mockRejectedValue(new Error("connection reset"));
+
+    const result = await maybeAutoAcceptTimedOutRepair(timedOutRepairVersion());
+
+    expect(result.wasAutoAccepted).toBe(false);
+    expect(transaction).not.toHaveBeenCalled();
   });
 });

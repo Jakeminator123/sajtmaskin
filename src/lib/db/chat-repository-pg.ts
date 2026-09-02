@@ -68,7 +68,7 @@ export {
 
 export { updateVersionPreviewUrl } from "./chat-repository/preview-url";
 
-export type { VersionJobKind } from "./chat-repository/leases";
+export type { VersionJobKind, LeaseTablePresence } from "./chat-repository/leases";
 export {
   VERSION_LEASE_TTL_SECONDS,
   acquireVersionLease,

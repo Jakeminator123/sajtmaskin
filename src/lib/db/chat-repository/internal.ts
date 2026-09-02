@@ -62,6 +62,8 @@ export const LEASE_LOCK_TIMEOUT_MS = 5_000;
  * unexpired lease — so a run whose lease was taken over no-ops instead of
  * clobbering. When `runId` is omitted, behaviour is unchanged (finalize /
  * createAndPromote paths own the row inline, before any background job).
+ * L4: lease-holding jobs (server-verify, repair, quick-edit) must never call
+ * this with a missing `runId` — that degrades to `WHERE id = versionId`.
  */
 export function versionWriteWhere(versionId: string, runId?: string): SQL | undefined {
   const byId = eq(engineVersions.id, versionId);
