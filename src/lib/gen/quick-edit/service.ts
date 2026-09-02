@@ -107,11 +107,12 @@ export async function runQuickEdit(params: {
       ? baseVersion.selected_dossier_env_keys
       : null;
 
-  // M#qe1: take the per-version lease on the BASE version around the persist,
-  // so a minor is never created from a base that a concurrent server-verify /
-  // repair job is mutating (same lease the verify/repair paths hold). An owned
-  // lease → decline retryable; a lease-infra error (missing table, DB hiccup)
-  // degrades to the legacy unlocked path — same fail-safe as repair/route.ts.
+  // M#qe1 + L4: take the per-version lease on the BASE version around the
+  // persist, so a minor is never created from a base that a concurrent
+  // server-verify / repair job is mutating. An owned lease → decline
+  // retryable (`base_busy`). A lease-infra error (missing table, DB hiccup)
+  // must NOT continue unlocked — `runId` would be absent and the persist
+  // would race the verify/repair job.
   let leaseRunId: string | null = null;
   try {
     const lease = await acquireVersionLease(baseVersion.id, "quick_edit");
@@ -125,11 +126,16 @@ export async function runQuickEdit(params: {
     }
     leaseRunId = lease.runId;
   } catch (err) {
-    warnLog("engine", "[quick-edit] version lease acquire failed; continuing unlocked", {
+    warnLog("engine", "[quick-edit] version lease acquire failed; aborting (fail-closed)", {
       chatId: params.chatId,
       baseVersionId: baseVersion.id,
       error: err instanceof Error ? err.message : String(err),
     });
+    return {
+      ok: false,
+      reason: "lease_unavailable",
+      message: "Version lease unavailable (database error). Try again shortly.",
+    };
   }
 
   let persisted: Awaited<ReturnType<typeof addAssistantMessageAndCreateDraftVersion>>;

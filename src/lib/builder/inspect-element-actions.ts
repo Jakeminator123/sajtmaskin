@@ -450,6 +450,8 @@ export function describeInspectQuickEditError(result: {
       return "Den här filen går inte att ändra härifrån.";
     case "base_busy":
       return "Versionen kontrolleras just nu. Vänta en stund och försök igen.";
+    case "lease_unavailable":
+      return "Versionlåset kunde inte bevisas just nu. Vänta en stund och försök igen.";
     case "stale_base_version":
       return "En nyare version finns redan. Ladda om för att fortsätta från den senaste.";
     case "integrations_base":

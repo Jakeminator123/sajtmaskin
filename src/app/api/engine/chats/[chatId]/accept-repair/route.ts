@@ -13,6 +13,19 @@ const requestSchema = z.object({
   versionId: z.string().min(1),
 });
 
+/** Same fail-closed contract as POST /repair when the lease cannot be proven. */
+function leaseUnavailableResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "lease_unavailable",
+      code: "lease_unavailable",
+      retryable: true,
+    },
+    { status: 503, headers: { "Retry-After": "3" } },
+  );
+}
+
 export async function POST(
   req: Request,
   ctx: { params: Promise<{ chatId: string }> },
@@ -42,24 +55,35 @@ export async function POST(
       );
     }
 
-    // Distributed lease (Plan C / P1): don't accept (= promote) while a
+    // Distributed lease (Plan C / P1 + L4): don't accept (= promote) while a
     // verify/repair job still holds an active lease on this version — that
-    // job may still be mutating the row. Fail-safe: a DB error degrades to
-    // allowing the accept (legacy behaviour).
-    if (await hasActiveVersionLease(scoped.version.id).catch(() => false)) {
-      return NextResponse.json(
-        {
-          error: "A verify/repair job is currently running on this version. Try again shortly.",
-          code: "version_busy",
-        },
-        { status: 409 },
+    // job may still be mutating the row. Fail-closed: a probe/query error is
+    // retryable 503, never "no lease" / "no pending repair".
+    try {
+      if (await hasActiveVersionLease(scoped.version.id)) {
+        return NextResponse.json(
+          {
+            error: "A verify/repair job is currently running on this version. Try again shortly.",
+            code: "version_busy",
+          },
+          { status: 409 },
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `[accept-repair] Lease probe unavailable on ${scoped.version.id}; failing closed (retryable):`,
+        err,
       );
+      return leaseUnavailableResponse();
     }
 
     const accepted = await acceptRepair(
       scoped.version.id,
       "Server repair accepted and applied.",
     );
+    if (accepted === "lease_unavailable") {
+      return leaseUnavailableResponse();
+    }
     if (!accepted) {
       return NextResponse.json(
         { error: "No pending server repair found for this version." },

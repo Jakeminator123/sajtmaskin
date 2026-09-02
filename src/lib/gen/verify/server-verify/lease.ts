@@ -18,34 +18,43 @@ export function isServerVerifyEligible(versionId: string): boolean {
   return true;
 }
 
-type LeaseOutcome = { proceed: true; runId?: string } | { proceed: false };
+export type VerifyLeaseDeniedReason = "lease_busy" | "lease_unavailable";
+
+export type VerifyLeaseOutcome =
+  | { proceed: true; runId: string }
+  | { proceed: false; reason: VerifyLeaseDeniedReason };
 
 /**
  * Acquire the distributed per-version lease (Plan C / P1). The local `inflight`
- * Set is the cheap pre-DB short-circuit; this is the cross-instance truth.
+ * Set is only an intra-process short-circuit — never a substitute for a proven
+ * `runId`. `proceed: true` is unrepresentable without one.
  *
  *  - lease granted        -> { proceed: true, runId }
- *  - another live lease   -> { proceed: false } (another instance owns it; bail)
- *  - DB error / no table  -> { proceed: true, runId: undefined } — degrade to the
- *    legacy Set-only behaviour rather than disabling verify/repair or crashing a
- *    fire-and-forget job (the additive migration ships before this code per the
- *    plan's deploy order, so this window is normally zero).
+ *  - another live lease   -> { proceed: false, reason: "lease_busy" }
+ *  - DB error / no table  -> { proceed: false, reason: "lease_unavailable" }
+ *
+ * A thrown acquire (missing `engine_version_jobs`, transient outage) must not
+ * proceed with only the process-local Set: two pods would then both mutate the
+ * same version, and `runId === undefined` drops the lease EXISTS so downstream
+ * writes degrade to `WHERE id = versionId`. `isServerVerifyEligible` already
+ * requires `dbConfigured`, so a DB-less local/test environment never reaches
+ * this path. Callers no-op on `proceed: false` — they do not throw.
  */
 export async function acquireVerifyLease(
   versionId: string,
   kind: VersionJobKind,
-): Promise<LeaseOutcome> {
+): Promise<VerifyLeaseOutcome> {
   try {
     const lease = await acquireVersionLease(versionId, kind);
-    if (!lease) return { proceed: false };
+    if (!lease) return { proceed: false, reason: "lease_busy" };
     return { proceed: true, runId: lease.runId };
   } catch (err) {
     warnLog(
       "engine",
-      "[server-verify] version lease acquire failed; falling back to process-local Set only",
+      "[server-verify] version lease acquire failed; skipping job (fail-closed)",
       { versionId, kind, error: err instanceof Error ? err.message : String(err) },
     );
-    return { proceed: true, runId: undefined };
+    return { proceed: false, reason: "lease_unavailable" };
   }
 }
 
