@@ -16,6 +16,7 @@ import {
 import type { ImageValidationResult } from "./post-checks-results";
 import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 import { isNonFinalProductPostcheckSkipReason } from "@/lib/gen/verify/product-postcheck-skip";
+import { verdictFromProductPostcheckResult } from "@/lib/gen/verify/product-postcheck-verdict";
 import { parseRetryAfterMs } from "@/lib/builder/preview-bootstrap-retry";
 
 /**
@@ -450,6 +451,7 @@ async function runResumeProductPostcheck(params: {
 }): Promise<{
   productBlocked: boolean;
   blockerPersistFailed: boolean;
+  persistFailed: boolean;
   superseded: boolean;
   pendingHold: boolean;
   alreadySettled: boolean;
@@ -458,6 +460,7 @@ async function runResumeProductPostcheck(params: {
   const idle = {
     productBlocked: false,
     blockerPersistFailed: false,
+    persistFailed: false,
     superseded: false,
     pendingHold: false,
     alreadySettled: false,
@@ -500,15 +503,20 @@ async function runResumeProductPostcheck(params: {
     // an absent response would create the exact false-green this lane repairs.
   }
   if (!data) {
-    await persistVersionErrorLogs({
+    const persisted = await persistVersionErrorLogs({
       chatId: params.chatId,
       versionId: params.versionId,
       logs: buildProductPostcheckLogItems(null),
     });
-    return { ...idle, superseded: true };
+    return { ...idle, persistFailed: !persisted, superseded: true };
   }
   if (data.skippedReason === "preview_superseded") {
-    return { ...idle, superseded: true };
+    const persisted = await persistVersionErrorLogs({
+      chatId: params.chatId,
+      versionId: params.versionId,
+      logs: buildProductPostcheckLogItems(data),
+    });
+    return { ...idle, persistFailed: !persisted, superseded: true };
   }
   if (isNonFinalProductPostcheckSkipReason(data.skippedReason)) {
     return { ...idle, pendingHold: true };
@@ -519,23 +527,30 @@ async function runResumeProductPostcheck(params: {
   if (data.skippedReason !== "feature_disabled" && !data.attestation) {
     // A current route response is always attested. Treat an older/unscoped
     // response as a retryable hold instead of promoting without durable proof.
-    return { ...idle, superseded: true };
+    const persisted = await persistVersionErrorLogs({
+      chatId: params.chatId,
+      versionId: params.versionId,
+      logs: buildProductPostcheckLogItems(data),
+    });
+    return { ...idle, persistFailed: !persisted, superseded: true };
   }
-  // Normal-lane parity: persist both a concrete result and a missing/transport
-  // result. Without the summary row, a product-blocked resume would be
-  // liftable to F3 after reload; without the transport row, the version would
-  // read as fully verified although DOM verification never produced a result.
+  // Winner replay (L6 `activeRunId`) is report-state from the L2 domain
+  // (`readProductPostcheckVerdictForVersion` on the route). Persist the
+  // same rows the winner would have written so F3 never sees a missing
+  // summary as pass.
   const persisted = await persistVersionErrorLogs({
     chatId: params.chatId,
     versionId: params.versionId,
     logs: buildProductPostcheckLogItems(data),
     productPostcheckAttestation: data?.attestation ?? null,
   });
-  const productBlocked = data?.productBlocked === true;
+  const verdict = verdictFromProductPostcheckResult(data);
+  const productBlocked = verdict === "blocked";
   return {
     ...idle,
     productBlocked,
     blockerPersistFailed: productBlocked && !persisted,
+    persistFailed: !persisted,
   };
 }
 
@@ -785,11 +800,10 @@ export function useResumePendingVerification(params: {
           scheduleRetry();
           return;
         }
-        if (postcheck.blockerPersistFailed) {
-          // Fail closed (Codex P1 round 4): the blocker row never reached the
-          // /error-log enforcement surface — promoting now could let the
-          // version be lifted to F3 without its product block. Hold the
-          // resume and self-schedule; a later tick retries the chain.
+        if (postcheck.persistFailed || postcheck.blockerPersistFailed) {
+          // L2: 503 row_contention after retries (or any failed verdict write)
+          // leaves the version pending. Never start the quality gate without
+          // a durable domain — a missing summary is never pass.
           scheduleRetry();
           return;
         }

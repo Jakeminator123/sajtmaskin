@@ -214,18 +214,29 @@ export async function runF3ReadinessGate(params: {
             ),
           );
         }
-        if (!gate.ok && gate.reason === "product_postcheck_blocked") {
-          // Codex P1 round 5 (#353): the Product Postcheck block must
-          // hold on BOTH F3 entry points — build/lint gates cannot catch
-          // DOM product failures (dead mobile menu, broken anchors).
+        if (
+          !gate.ok &&
+          (gate.reason === "product_postcheck_blocked" ||
+            gate.reason === "product_postcheck_pending" ||
+            gate.reason === "product_postcheck_indeterminate" ||
+            gate.reason === "product_postcheck_superseded")
+        ) {
+          const retryable = gate.retryable === true;
+          const message =
+            gate.reason === "product_postcheck_blocked"
+              ? "Integrationsbygget är spärrat av Product Postcheck. Åtgärda blockerande previewproblem i designläget innan du bygger integrationer."
+              : gate.reason === "product_postcheck_superseded"
+                ? "Produktkontrollen ersattes av en nyare preview — försök igen."
+                : "Produktkontrollens dom saknas eller kunde inte läsas — försök igen.";
           return attachSessionCookie(
             NextResponse.json(
               {
-                error: "product_postcheck_blocked",
+                error: gate.reason,
                 ready: false,
                 parentVersionId: gateVersionId,
-                message:
-                  "Integrationsbygget är spärrat av Product Postcheck. Åtgärda blockerande previewproblem i designläget innan du bygger integrationer.",
+                verdict: gate.verdict,
+                retryable,
+                message,
               },
               { status: 409 },
             ),

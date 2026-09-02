@@ -45,8 +45,9 @@ import {
   completeProductPostcheckRun,
   mapProductPostcheckResultToStatus,
   normalizeProductPostcheckMutationRevision,
-  productPostcheckResultFromSettledClaim,
 } from "@/lib/db/services/product-postcheck-runs";
+import { readProductPostcheckVerdictForVersion } from "@/lib/integrations/tier3-readiness-gate";
+import { productPostcheckResultFromVerdict } from "@/lib/gen/verify/product-postcheck-verdict";
 
 export const runtime = "nodejs";
 // Postcheck alone can approach ~150s worst case (boot wait, crawl with the
@@ -134,29 +135,34 @@ function resolveAuthoritativePreviewUrl(params: {
   return sessionUrl;
 }
 
-function claimBusyPostcheckResult(params: {
-  previewUrl: string;
+function winnerAttestationForVerdict(
+  verdict: "passed" | "blocked" | "allowed_skip" | "pending" | "indeterminate" | "superseded",
+  target: ProductPostcheckTarget,
+): ProductPostcheckTarget | null {
+  return verdict === "passed" || verdict === "blocked" || verdict === "allowed_skip"
+    ? target
+    : null;
+}
+
+async function replayWinnerFromL2Verdict(params: {
+  versionId: string;
   runId: string;
-  status: string;
-  durationMs?: number | null;
-}): ProductPostcheckResult {
-  return {
-    ok: true,
-    skipped: true,
-    skippedReason: "claim_busy",
-    warnings: [],
-    warningCount: 0,
-    productBlocked: false,
-    routesChecked: 0,
-    durationMs: params.durationMs ?? 0,
-    checkedUrl: params.previewUrl,
-    screenshots: null,
-    domSummary: null,
-    attestation: null,
-    verificationRunId: params.runId,
-    activeRunId: params.runId,
-    claimStatus: params.status as ProductPostcheckResult["claimStatus"],
-  };
+  claimStatus: string;
+  previewUrl: string;
+  durationMs: number;
+  attestation: ProductPostcheckTarget;
+}): Promise<ProductPostcheckResult> {
+  const read = await readProductPostcheckVerdictForVersion(params.versionId, {
+    claim: { status: params.claimStatus },
+  });
+  return productPostcheckResultFromVerdict({
+    verdict: read.verdict,
+    runId: params.runId,
+    claimStatus: params.claimStatus as ProductPostcheckResult["claimStatus"],
+    previewUrl: params.previewUrl,
+    durationMs: params.durationMs,
+    attestation: winnerAttestationForVerdict(read.verdict, params.attestation),
+  });
 }
 
 function claimUnavailableResponse(): NextResponse {
@@ -546,24 +552,18 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     if (claim.kind === "unavailable") {
       return claimUnavailableResponse();
     }
-    if (claim.kind === "busy") {
+    if (claim.kind === "busy" || claim.kind === "settled") {
+      // L6 loser poll: do not start Chromium. Report-state comes from the
+      // L2 domain (`readProductPostcheckVerdictForVersion`), not the claim
+      // row alone. A still-running winner with no logs stays `claim_busy`.
       return NextResponse.json(
-        claimBusyPostcheckResult({
-          previewUrl: resolvedPreviewUrl,
+        await replayWinnerFromL2Verdict({
+          versionId: resolvedVersionId,
           runId: claim.runId,
-          status: claim.status,
-          durationMs: Date.now() - routeStartedAt,
-        }),
-      );
-    }
-    if (claim.kind === "settled") {
-      return NextResponse.json(
-        productPostcheckResultFromSettledClaim({
-          status: claim.status,
-          runId: claim.runId,
+          claimStatus: claim.status,
           previewUrl: resolvedPreviewUrl,
           durationMs: Date.now() - routeStartedAt,
-          attestation: claim.status === "failed" ? null : boundTarget,
+          attestation: boundTarget,
         }),
       );
     }

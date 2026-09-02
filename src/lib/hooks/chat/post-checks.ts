@@ -44,6 +44,10 @@ import {
   isNonFinalProductPostcheckSkipReason,
   retryableProductPostcheckUnavailableReason,
 } from "@/lib/gen/verify/product-postcheck-skip";
+import {
+  isUnattestedProductPostcheckVerdictWriteAllowed,
+  verdictFromProductPostcheckResult,
+} from "@/lib/gen/verify/product-postcheck-verdict";
 import { MAX_SCOPED_IMAGE_URLS } from "@/lib/utils/validate-images-limit";
 
 /** Extra försök efter det första, bara vid en retryable 503. */
@@ -167,6 +171,13 @@ export async function persistVersionErrorLogs(params: {
     log.category?.startsWith("product_postcheck."),
   );
   if (productPostcheckLogs.length > 0 && !productPostcheckAttestation) {
+    // `passed`/`blocked` still require the exact preview/revision tuple.
+    // Non-release verdicts (pending/superseded/indeterminate) may be written
+    // unattested. `allowed_skip` is unattested only for server-config
+    // `feature_disabled` — otherwise it is an F3-release domain.
+    if (isUnattestedProductPostcheckVerdictWriteAllowed(productPostcheckLogs)) {
+      return postErrorLogBatch(url, logs, null);
+    }
     // Fail closed client-side as well as in the route: a Product Postcheck row
     // without its exact preview/revision tuple is never valid. The REST of the
     // batch is not lifecycle-scoped though — preflight/sanity/image diagnostics
@@ -381,18 +392,70 @@ export function buildProductPostcheckLogItems(
         message: "F2 Product Postcheck failed before an attested result was returned.",
         meta: { skippedReason: "transport_error" },
       },
+      {
+        level: "warning",
+        category: "product_postcheck.summary",
+        message:
+          "F2 Product Postcheck har ingen attesterad dom — versionen lämnas pending.",
+        meta: {
+          verdict: "pending",
+          skippedReason: "transport_error",
+        },
+      },
     ];
   }
-  // A superseded response deliberately carries no tuple and must leave no
-  // durable evidence for the replaced preview. Other unscoped responses are
-  // likewise unsafe, except the explicit deployment-level feature kill-switch.
+  const verdict = verdictFromProductPostcheckResult(result);
+  // A superseded response persists an explicit non-release verdict so F3
+  // retries. L7 hold-reasons (preview not ready/running) still leave no
+  // durable skip — missing is already `pending` at read time. Other
+  // unattested skips persist `pending`, never `allowed_skip`.
+  if (result.skippedReason === "preview_superseded") {
+    return [
+      {
+        level: "warning",
+        category: "product_postcheck.summary",
+        message: "F2 Product Postcheck superseded — versionen lämnas pending.",
+        meta: {
+          verdict: "superseded",
+          skippedReason: "preview_superseded",
+        },
+      },
+    ];
+  }
   if (
-    result.skippedReason === "preview_superseded" ||
-    (!result.attestation && result.skippedReason !== "feature_disabled")
+    !result.attestation &&
+    (result.skippedReason === "preview_not_ready" ||
+      result.skippedReason === "preview_not_running")
   ) {
     return [];
   }
-  if (!result.attestation) return [];
+  if (!result.attestation && result.skippedReason !== "feature_disabled") {
+    return [
+      {
+        level: "warning",
+        category: "product_postcheck.summary",
+        message:
+          "F2 Product Postcheck har ingen attesterad dom — versionen lämnas pending.",
+        meta: {
+          verdict: "pending",
+          skippedReason: result.skippedReason ?? "unknown",
+        },
+      },
+    ];
+  }
+  if (!result.attestation) {
+    return [
+      {
+        level: "info",
+        category: "product_postcheck.summary",
+        message: "F2 Product Postcheck skipped.",
+        meta: {
+          verdict,
+          skippedReason: "feature_disabled",
+        },
+      },
+    ];
+  }
   const attestationMeta = {
     attestedPreviewSessionId: result.attestation.previewSessionId,
     attestedLifecycleToken: result.attestation.lifecycleToken,
@@ -400,6 +463,7 @@ export function buildProductPostcheckLogItems(
     // Binder alla rader i samma körning till routens run-id, så omkörningar
     // och tappade fynd går att skilja åt i efterhand (OpenClaw 2026-09-01).
     verificationRunId: result.verificationRunId ?? null,
+    verdict,
   };
   if (result.skipped) {
     // Krasch-skäl (Playwright dog, navigering föll, timeout) är INTE policy-skips
@@ -416,6 +480,9 @@ export function buildProductPostcheckLogItems(
       "runtime_error",
     ]);
     const skippedReason = result.skippedReason ?? "unknown";
+    // Skip is its own log type. A new summary here would become "newest" and
+    // could erase a previous `blocked` on the same filesRevision. The verdict
+    // reader takes the strictest domain per revision from skipped + summaries.
     return [
       {
         level: crashReasons.has(skippedReason) ? "warning" : "info",
@@ -813,8 +880,9 @@ export async function runPostGenerationChecks(params: {
     });
     completionPersistence = Promise.resolve(persisted);
     productPostcheckPersistenceScheduled = true;
+    const persistFailed = !persisted;
     const blockerPersistFailed =
-      productPostcheck?.productBlocked === true && !persisted;
+      productPostcheck?.productBlocked === true && persistFailed;
 
     if (artifacts.autoFixReasons.length > 0) {
       onAutoFix?.({
@@ -893,6 +961,23 @@ export async function runPostGenerationChecks(params: {
         },
       } as UiMessagePart);
     } else if (
+      persistFailed &&
+      artifacts.autoFixReasons.length === 0 &&
+      artifacts.verifyPending
+    ) {
+      appendRetryPendingQualityGate(
+        setMessages,
+        assistantMessageId,
+        versionId,
+        blockerPersistFailed
+          ? "Produktkontrollens blockerare kunde inte sparas — versionen lämnas pending."
+          : "Produktkontrollens dom kunde inte sparas — versionen lämnas pending.",
+        {
+          persistFailed: true,
+          ...(blockerPersistFailed ? { blockerPersistFailed: true } : {}),
+        },
+      );
+    } else if (
       needsPostcheckRetry &&
       artifacts.autoFixReasons.length === 0 &&
       artifacts.verifyPending
@@ -902,18 +987,6 @@ export async function runPostGenerationChecks(params: {
         assistantMessageId,
         versionId,
         "Produktkontrollen saknar ett aktuellt attesterat resultat — versionen lämnas pending och återupptas mot rätt preview.",
-      );
-    } else if (
-      blockerPersistFailed &&
-      artifacts.autoFixReasons.length === 0 &&
-      artifacts.verifyPending
-    ) {
-      appendRetryPendingQualityGate(
-        setMessages,
-        assistantMessageId,
-        versionId,
-        "Produktkontrollens blockerare kunde inte sparas — versionen lämnas pending.",
-        { blockerPersistFailed: true },
       );
     } else if (artifacts.autoFixReasons.length === 0 && artifacts.verifyPending) {
       spawnedVerifyLane = true;

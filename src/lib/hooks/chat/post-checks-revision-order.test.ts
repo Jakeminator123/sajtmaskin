@@ -220,16 +220,15 @@ describe("L3 revision order", () => {
     const qualityGate = getToolPart("Quality gate", store);
     expect((qualityGate?.output as { retryPending?: boolean }).retryPending).toBe(true);
     const errorLog = fetchCalls.find((call) => call.url.includes("/error-log"));
-    if (errorLog) {
-      const body = JSON.parse(String(errorLog.init?.body ?? "{}")) as {
-        productPostcheckAttestation?: unknown;
-        logs?: Array<{ category?: string }>;
-      };
-      expect(body.productPostcheckAttestation ?? null).toBeNull();
-      expect(body.logs?.some((log) => log.category?.startsWith("product_postcheck."))).not.toBe(
-        true,
-      );
-    }
+    expect(errorLog).toBeDefined();
+    const body = JSON.parse(String(errorLog?.init?.body ?? "{}")) as {
+      productPostcheckAttestation?: unknown;
+      logs?: Array<{ category?: string; meta?: { verdict?: string } }>;
+    };
+    expect(body.productPostcheckAttestation ?? null).toBeNull();
+    expect(body.logs?.find((log) => log.category === "product_postcheck.summary")?.meta).toEqual(
+      expect.objectContaining({ verdict: "superseded" }),
+    );
   });
 
   it("(c) replaced utan persisted blockerar product-postcheck", async () => {
@@ -334,6 +333,69 @@ describe("L3 revision order", () => {
     const output = (qualityGate?.output ?? {}) as Record<string, unknown>;
     expect(output.retryPending).toBe(true);
     expect(output.blockerPersistFailed).toBe(true);
+  });
+
+  it("(c) 503 row_contention efter retries på pass lämnar pending utan gate", async () => {
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    mockFetch(async (url) => {
+      if (url.includes("/error-log")) {
+        return new Response(JSON.stringify({ code: "row_contention", retryable: true }), {
+          status: 503,
+          headers: { "Content-Type": "application/json", "Retry-After": "1" },
+        });
+      }
+      if (url.includes("/versions")) {
+        return jsonResponse({
+          versions: [
+            {
+              id: "ver_1",
+              versionId: "ver_1",
+              lifecycleStage: "design",
+              demoUrl: "https://preview.example/ver_1",
+            },
+          ],
+        });
+      }
+      if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
+      if (url.includes("/validate-images")) {
+        return jsonResponse({ replacedCount: 0, persisted: true, filesRevision: "rev_n" });
+      }
+      if (url.includes("/product-postcheck")) {
+        return jsonResponse({
+          skipped: false,
+          productBlocked: false,
+          warnings: [],
+          attestation: CURRENT_POSTCHECK_ATTESTATION,
+        });
+      }
+      if (url.includes("/quality-gate")) {
+        throw new Error("quality-gate must not start when pass persist failed");
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    vi.useFakeTimers();
+    try {
+      const runPromise = runPostGenerationChecks({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        demoUrl: "https://preview.example/ver_1",
+        assistantMessageId: "assistant_1",
+        setMessages: store.setMessages,
+      });
+      await vi.advanceTimersByTimeAsync(30_000);
+      await runPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(fetchCalls.some((call) => call.url.includes("/quality-gate"))).toBe(false);
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = (qualityGate?.output ?? {}) as Record<string, unknown>;
+    expect(output.retryPending).toBe(true);
+    expect(output.persistFailed).toBe(true);
+    expect(output.blockerPersistFailed).toBeUndefined();
   });
 
   it("hämtar om filer och resynkar preview efter bekräftad persistens innan postcheck", async () => {

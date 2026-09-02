@@ -1,4 +1,9 @@
 import { resolveProductPostcheckReportState } from "@/lib/db/services/reported-quality-gate";
+import {
+  f3MayReleaseOnVerdict,
+  interpretProductPostcheckLogs,
+  type ProductPostcheckVerdict,
+} from "@/lib/gen/verify/product-postcheck-verdict";
 
 export type ChatReadinessSeverity = "blocker" | "warning" | "info";
 
@@ -145,6 +150,8 @@ export type ProductPostcheckReadinessProjection = {
   blockers: ChatReadinessItem[];
   blocksF3: boolean;
   blockedReason: string | null;
+  /** L2 explicit domain. Missing summary is `pending`, never pass. */
+  verdict: ProductPostcheckVerdict;
 };
 
 function createdAtMs(log: ProductPostcheckReadinessLog): number | null {
@@ -225,8 +232,9 @@ const PREVIEW_PROBE_UNREADABLE_CODE = "preview_probe_unreadable";
 const EMPTY_PRODUCT_POSTCHECK_PROJECTION: ProductPostcheckReadinessProjection = {
   warnings: [],
   blockers: [],
-  blocksF3: false,
+  blocksF3: true,
   blockedReason: null,
+  verdict: "pending",
 };
 
 function skippedPostcheckWarning(
@@ -298,15 +306,21 @@ export function projectProductPostcheckReadiness(
     // finns, bara att orsaken låg i kontrollkedjan. Utan den här grenen tystnar
     // readiness-kortet helt när Chromium dog — användaren skulle då tro att
     // sajten var fullt kontrollerad.
+    const verdict = interpretProductPostcheckLogs(logs);
     if (report.kind === "degraded" || report.kind === "advisory") {
       return {
         warnings: [skippedPostcheckWarning(report.skipped)],
         blockers: [],
-        blocksF3: false,
+        blocksF3: !f3MayReleaseOnVerdict(verdict),
         blockedReason: null,
+        verdict,
       };
     }
-    return EMPTY_PRODUCT_POSTCHECK_PROJECTION;
+    return {
+      ...EMPTY_PRODUCT_POSTCHECK_PROJECTION,
+      verdict,
+      blocksF3: !f3MayReleaseOnVerdict(verdict),
+    };
   }
 
   const newestMs = createdAtMs(newestSummary);
@@ -347,8 +361,16 @@ export function projectProductPostcheckReadiness(
     findings.every((row) => row.code === PREVIEW_PROBE_UNREADABLE_CODE);
   // Defense for a buggy summary that marks unreadable as productBlocked:
   // that code must not paint readiness red (#1002 / B1).
-  const blocksF3 = productBlocked && !unreadableOnly;
-  if (!blocksF3) {
+  const verdict = unreadableOnly
+    ? "allowed_skip"
+    : report.kind === "advisory"
+      ? "allowed_skip"
+      : report.kind === "degraded"
+        ? interpretProductPostcheckLogs(report.skipped ? [report.skipped] : [])
+        : interpretProductPostcheckLogs(logs);
+  const paintBlocked = productBlocked && !unreadableOnly;
+  const blocksF3 = unreadableOnly ? false : !f3MayReleaseOnVerdict(verdict);
+  if (!paintBlocked) {
     return {
       warnings: [
         ...findings.map((row) => row.item),
@@ -361,8 +383,9 @@ export function projectProductPostcheckReadiness(
           : []),
       ],
       blockers: [],
-      blocksF3: false,
+      blocksF3,
       blockedReason: null,
+      verdict: unreadableOnly ? "allowed_skip" : verdict,
     };
   }
 
@@ -385,7 +408,7 @@ export function projectProductPostcheckReadiness(
     .filter((row) => !gatingIds.has(row.item.id))
     .map((row) => row.item);
 
-  return { warnings, blockers, blocksF3, blockedReason };
+  return { warnings, blockers, blocksF3, blockedReason, verdict };
 }
 
 /**

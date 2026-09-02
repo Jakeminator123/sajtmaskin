@@ -591,7 +591,7 @@ describe("GET readiness — Product Postcheck (B1 / SM-049)", () => {
     expect(json.readiness?.info.productPostcheckBlocksF3).toBe(false);
   });
 
-  it("shows a latest persisted transport skip as warning without blocking F3 or deploy", async () => {
+  it("shows a latest persisted transport skip as warning; F3 stays blocked (pending)", async () => {
     getEngineVersionErrorLogs.mockResolvedValue([
       {
         category: "product_postcheck.skipped",
@@ -618,7 +618,7 @@ describe("GET readiness — Product Postcheck (B1 / SM-049)", () => {
     expect(json.readiness?.warnings.map((warning) => warning.id)).toContain(
       "product-postcheck-skipped",
     );
-    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(false);
+    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(true);
   });
 
   it("sets status blocked with the preview_boot_page cause and leaves canDeploy true (B1)", async () => {
@@ -726,7 +726,7 @@ describe("GET readiness — Product Postcheck (B1 / SM-049)", () => {
     expect(json.readiness?.status).toBe("ready");
     expect(json.readiness?.canDeploy).toBe(true);
     expect(json.readiness?.warnings).toEqual([]);
-    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(false);
+    expect(json.readiness?.info.productPostcheckBlocksF3).toBe(true);
   });
 });
 

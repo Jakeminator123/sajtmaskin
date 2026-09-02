@@ -17,6 +17,7 @@ const waitForProductPostcheckPreviewRunning = vi.hoisted(() => vi.fn());
 const readProductPostcheckPreviewProbe = vi.hoisted(() => vi.fn());
 const claimProductPostcheckRun = vi.hoisted(() => vi.fn());
 const completeProductPostcheckRun = vi.hoisted(() => vi.fn());
+const readProductPostcheckVerdictForVersion = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rate-limit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) =>
@@ -77,6 +78,10 @@ vi.mock("@/lib/gen/verify/product-postcheck-preview-wait", async (importOriginal
 vi.mock("@/lib/db/services/live-review-runs", () => ({
   abandonLiveReviewRun,
   deleteLiveReviewScreenshotUrls,
+}));
+
+vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
+  readProductPostcheckVerdictForVersion,
 }));
 
 // Do not `importOriginal` this module: it loads `@/lib/db/client` at import
@@ -163,6 +168,10 @@ describe("POST product-postcheck", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     setF2ProductPostcheck(false);
+    readProductPostcheckVerdictForVersion.mockResolvedValue({
+      verdict: "pending",
+      retryable: true,
+    });
     beginLiveReviewSession.mockResolvedValue({
       captureEnabled: false,
       claim: null,
@@ -977,6 +986,10 @@ describe("POST product-postcheck", () => {
   it("POST efter passed → samma resultat, 0 browserjobb", async () => {
     setF2ProductPostcheck(true);
     getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    readProductPostcheckVerdictForVersion.mockResolvedValue({
+      verdict: "passed",
+      retryable: false,
+    });
     claimProductPostcheckRun.mockResolvedValue({
       kind: "settled",
       runId: "run_winner",
@@ -1002,6 +1015,58 @@ describe("POST product-postcheck", () => {
     expect(runProductPostcheck).not.toHaveBeenCalled();
     expect(beginLiveReviewSession).not.toHaveBeenCalled();
     expect(emitBusEvent).not.toHaveBeenCalled();
+    expect(readProductPostcheckVerdictForVersion).toHaveBeenCalledWith("v1", {
+      claim: { status: "passed" },
+    });
+  });
+
+  it("claim_busy + L2 passed → vinnarens dom, 0 browserjobb", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    readProductPostcheckVerdictForVersion.mockResolvedValue({
+      verdict: "passed",
+      retryable: false,
+    });
+    claimProductPostcheckRun.mockResolvedValue({
+      kind: "busy",
+      runId: "run_winner",
+      claimGeneration: 1,
+      status: "running",
+    });
+
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.skipped).toBe(false);
+    expect(body.productBlocked).toBe(false);
+    expect(body.activeRunId).toBe("run_winner");
+    expect(runProductPostcheck).not.toHaveBeenCalled();
+  });
+
+  it("settled + L2 blocked → productBlocked från verdikten, inte claim-raden", async () => {
+    setF2ProductPostcheck(true);
+    getVersion.mockResolvedValue({ version: { id: "v1", files_revision: "rev_n" } });
+    readProductPostcheckVerdictForVersion.mockResolvedValue({
+      verdict: "blocked",
+      retryable: false,
+    });
+    claimProductPostcheckRun.mockResolvedValue({
+      kind: "settled",
+      runId: "run_winner",
+      claimGeneration: 2,
+      status: "passed",
+    });
+
+    const res = await POST(req({ versionId: "v1", previewUrl: "[REDACTED]/chat_1" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = await res.json();
+    expect(body.skipped).toBe(false);
+    expect(body.productBlocked).toBe(true);
+    expect(body.activeRunId).toBe("run_winner");
+    expect(runProductPostcheck).not.toHaveBeenCalled();
   });
 
   it("L7 (f): även ett gammalt wait-skäl preview_not_running attesteras inte", async () => {

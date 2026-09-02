@@ -308,6 +308,8 @@ describe("POST quality-gate", () => {
     checkTier3ReadinessForVersion.mockResolvedValue({
       ok: false,
       reason: "product_postcheck_blocked",
+      verdict: "blocked",
+      retryable: false,
     });
 
     const res = await POST(
@@ -331,6 +333,48 @@ describe("POST quality-gate", () => {
       expect.objectContaining({ productPostcheckVersionId: "ver-f2" }),
     );
     expect(runQualityGateChecks).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+  });
+
+  it("(f) server-F3 med pending postcheck promoverar inte", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", project_id: null, orchestration_snapshot: null },
+      version: {
+        id: "ver-f3",
+        lifecycle_stage: "integrations",
+        parent_version_id: "ver-f2",
+      },
+    });
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: false,
+      reason: "product_postcheck_pending",
+      verdict: "pending",
+      retryable: true,
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: "ver-f3",
+          gate: "integrationsBuild",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      error: "product_postcheck_pending",
+      ready: false,
+      retryable: true,
+      verdict: "pending",
+      parentVersionId: "ver-f2",
+    });
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(markVersionVerifying).not.toHaveBeenCalled();
   });
 
   it("marks the result superseded when a newer version exists before state mutation", async () => {
