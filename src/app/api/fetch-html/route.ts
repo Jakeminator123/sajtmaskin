@@ -31,6 +31,27 @@ function stripElement(html: string, tag: string): string {
   return stripVoid(html.replace(closed, ""), tag);
 }
 
+/**
+ * HTML5 after a tag name: tab/LF/FF/space enter before-attribute-name;
+ * `/` enters self-closing start tag and the next non-`>` becomes an attribute
+ * (`<img/onerror=...>`). Quoted values are masked so `/onclick` in a URL path
+ * is not treated as a handler.
+ */
+function stripInlineEventHandlers(html: string): string {
+  return html.replace(/<[a-zA-Z][^>]*>/g, (tag) => {
+    const held: string[] = [];
+    const masked = tag.replace(/"[^"]*"|'[^']*'/g, (quoted) => {
+      held.push(quoted);
+      return `\u0000${held.length - 1}\u0000`;
+    });
+    const stripped = masked.replace(
+      /(?:[\s/])on\w+(?:\s*=\s*(?:\u0000\d+\u0000|[^\s>"'/]+))?/gi,
+      (match) => (match.startsWith("/") ? "/" : ""),
+    );
+    return stripped.replace(/\u0000(\d+)\u0000/g, (_, idx) => held[Number(idx)] ?? "");
+  });
+}
+
 function stripDangerous(html: string): string {
   let out = html;
 
@@ -43,10 +64,10 @@ function stripDangerous(html: string): string {
   out = stripVoid(out, "embed");
   out = stripVoid(out, "base");
 
-  // Remove inline event handlers (quoted and unquoted).
-  out = out.replace(/\son\w+\s*=\s*(?:"[^"\n\r]*"|'[^'\n\r]*'|[^\s>]+)/gi, "");
+  out = stripInlineEventHandlers(out);
 
-  // Neutralize javascript: URLs in navigation and resource attributes.
+  // Neutralize javascript: URLs. `\b` treats `/` as a boundary, so
+  // `<a/href=javascript:...>` is covered the same as whitespace.
   out = out.replace(
     /(\b(?:href|src|action|formaction)\s*=\s*)(["'])\s*javascript\s*:[\s\S]*?\2/gi,
     "$1$2#$2",

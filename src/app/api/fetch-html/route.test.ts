@@ -130,6 +130,60 @@ describe("GET /api/fetch-html", () => {
     },
   );
 
+  it.each([
+    ["<img/onerror=alert(1) src=x>", /onerror/i],
+    ["<svg/onload=alert(1)>", /onload/i],
+    ["<svg\tonload=alert(1)>", /onload/i],
+    ["<svg\nonload=alert(1)>", /onload/i],
+    ["<svg ONERROR=alert(1)>", /onerror/i],
+    ["<svg onload>", /onload/i],
+  ])("strips HTML5 slash/whitespace event handler %j", async (snippet, handler) => {
+    safeFetch.mockResolvedValue(
+      new Response(`<!doctype html><html><body>${snippet}<p>safe</p></body></html>`, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    );
+
+    const body = await (await GET(request())).text();
+    expect(body).not.toMatch(handler);
+    expect(body).not.toContain("alert(1)");
+    expect(body).toContain("safe");
+  });
+
+  it("does not treat /onclick inside a quoted URL as an event handler", async () => {
+    safeFetch.mockResolvedValue(
+      new Response(
+        '<!doctype html><html><body><a href="https://cdn.example/onclick=keep">keep-url</a></body></html>',
+        { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
+      ),
+    );
+
+    const body = await (await GET(request())).text();
+    expect(body).toContain("https://cdn.example/onclick=keep");
+    expect(body).toContain("keep-url");
+  });
+
+  it("treats slash after a tag name as the attribute boundary for javascript: and base", async () => {
+    safeFetch.mockResolvedValue(
+      new Response(
+        [
+          "<!doctype html><html><head>",
+          '<base/href="https://evil.example/hijack/">',
+          "</head><body>",
+          "<a/href=javascript:alert(1)>xss</a>",
+          "</body></html>",
+        ].join(""),
+        { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
+      ),
+    );
+
+    const body = await (await GET(request())).text();
+    expect(body).not.toContain("javascript:");
+    expect(body).not.toContain("evil.example");
+    expect(body).toContain('<base href="https://remote.example/path/" target="_blank">');
+  });
+
   it("keeps the raw-text contract for clients that call response.text()", async () => {
     const res = await GET(request());
     const body = await res.text();
