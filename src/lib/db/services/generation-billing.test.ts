@@ -163,6 +163,36 @@ describe("settlement snapshot with failed or pending usage", () => {
     });
   });
 
+  it("charges the priced row when a failed unknown-model row sits beside it", () => {
+    const priced = usageRow({ id: "priced-codegen" });
+    const failedUnknown = usageRow({
+      id: "failed-unknown",
+      phase: "brief",
+      ok: false,
+      error_code: "provider_timeout",
+      model: "unknown",
+      input_tokens: null,
+      cached_input_tokens: null,
+      cache_write_tokens: null,
+      output_tokens: null,
+      reasoning_tokens: null,
+      cost_microusd: null,
+      cost_breakdown: null,
+    });
+    const { quote, decision } = decisionFromQuote([failedUnknown, priced]);
+    const pricedOnly = buildGenerationQuote([priced as never]);
+
+    expect(quote.incompleteUsageIds).toEqual([]);
+    expect(quote.unpricedModels).toEqual([]);
+    expect(quote.providerCostMicroUsd).toBe(pricedOnly.providerCostMicroUsd);
+    expect(quote.providerCostMicroUsd).toBeGreaterThan(0);
+    expect(decision).toMatchObject({
+      desiredCredits: 7,
+      status: "charged",
+      freeGenerationApplied: false,
+    });
+  });
+
   it("still applies the free entitlement when a failed tokenless row is present", () => {
     const { quote, decision } = decisionFromQuote(
       [failedTokenlessRow(), usageRow({ id: "priced-codegen" })],

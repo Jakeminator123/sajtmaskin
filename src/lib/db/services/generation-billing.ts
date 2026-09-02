@@ -284,6 +284,10 @@ export function buildGenerationQuote(rows: UsageRow[]): GenerationQuote {
     // Only a still-pending successful row (ok !== false, all token cols null)
     // must block pricing as incomplete usage.
     if (!hasTokenUsage && row.ok !== false) incompleteUsageIds.push(row.id);
+    // Exclude failed rows from pricing entirely. calculateModelCost of an
+    // unknown/unpriced model would otherwise populate unpricedModels, set
+    // hasCompletePrice=false and fall back to lockedCredits (often 0).
+    if (row.ok === false) continue;
 
     const frozenBreakdown =
       row.cost_breakdown &&
