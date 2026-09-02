@@ -175,6 +175,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
   // gate when the abandoned manual repair was build/preview-start originated.
   // Set once `repairContext` is known below.
   let reverifyForceBuildCheck = false;
+  let repairCasFilesRevision: string | null = null;
   // Fail a version after an unsuccessful repair, recovering from lease loss.
   // The lease-conditioned write no-ops if this run lost ownership (expired lease
   // or a takeover), which would otherwise strand the row in `repairing` — the
@@ -188,7 +189,14 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       return null;
     });
     if (owned) return true;
-    await failVersionVerificationIfUnleased(versionId, summary).catch((err) => {
+    // L5: bind the unleased fallback to the snapshot this repair started on
+    // (`repairing` + files_revision at request start). Do NOT re-read the row
+    // (A1 / #1251: a re-read would CAS against a concurrent promote/edit and
+    // clobber it).
+    await failVersionVerificationIfUnleased(versionId, summary, {
+      verificationState: "repairing",
+      filesRevision: repairCasFilesRevision,
+    }).catch((err) => {
       console.warn("[repair] Unleased fail fallback errored:", err);
     });
     return false;
@@ -239,6 +247,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     }
 
     internalVersionId = scopedVersion.version.id;
+    repairCasFilesRevision = scopedVersion.version.files_revision ?? null;
 
     // A current generation gets its completion marker from successful
     // finalize. Historical/imported rows predate that contract and can be

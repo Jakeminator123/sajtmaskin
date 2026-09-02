@@ -364,7 +364,9 @@ describe("GET version-status (engine)", () => {
     expect(getLatestVersion).toHaveBeenCalledTimes(1);
     // The promote callback is head-agnostic (the gate sits before it).
     await capturedOpts?.promoteReconciledVersion?.();
-    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("v1", expect.any(String));
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("v1", expect.any(String), {
+      filesRevision: null,
+    });
   });
 
   it("head gate resolves FALSE when the version is not the chat head (bugbot medium #518)", async () => {
@@ -419,7 +421,9 @@ describe("GET version-status (engine)", () => {
     );
 
     await capturedOpts?.promoteReconciledVersion?.();
-    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("v1", expect.any(String));
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("v1", expect.any(String), {
+      filesRevision: null,
+    });
     expect(emit).toHaveBeenCalledWith(
       expect.objectContaining({
         t: "version.degraded",
@@ -514,7 +518,9 @@ describe("GET version-status (engine)", () => {
     );
 
     await capturedOpts?.promoteReconciledVersion?.();
-    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("v1", expect.any(String));
+    expect(promoteVersionIfUnleased).toHaveBeenCalledWith("v1", expect.any(String), {
+      filesRevision: null,
+    });
     expect(emit).not.toHaveBeenCalled();
   });
 

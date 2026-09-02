@@ -27,6 +27,10 @@ const acceptSelectForUpdate = vi.hoisted(() => ({ value: false }));
 const acquireWins = vi.hoisted(() => ({ value: true }));
 // The row acceptRepair SELECTs FOR UPDATE: { repairedFilesJson, filesJson }.
 const selectRows = vi.hoisted(() => ({ value: [] as Array<Record<string, unknown>> }));
+// Snapshot returned by fail/promote `SELECT … FOR UPDATE` (L5 CAS classify).
+const lockSnap = vi.hoisted(() => ({
+  value: { verification_state: "verifying", files_revision: null } as Record<string, unknown>,
+}));
 
 function renderSql(value: unknown): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,7 +73,10 @@ const tx = {
     if (rendered.includes("insert into engine_version_jobs")) {
       return Promise.resolve({ rows: acquireWins.value ? [{ run_id: "run-x" }] : [] });
     }
-    // FOR UPDATE row lock (or any other probe).
+    // FOR UPDATE row lock (or any other probe). L5 reads CAS columns here.
+    if (rendered.includes("for update") && rendered.includes("engine_versions")) {
+      return Promise.resolve({ rows: [lockSnap.value] });
+    }
     return Promise.resolve({ rows: [{}] });
   },
 };
@@ -137,6 +144,7 @@ function resetCaptures() {
   acquireWins.value = true;
   // Default: a base-matching envelope so the promote path runs.
   selectRows.value = [envelopeRow(BASE_A)];
+  lockSnap.value = { verification_state: "verifying", files_revision: null };
 }
 
 describe("acceptRepair — envelope base-hash guard, atomic promote, missing-table + row-lock (Codex P2 + #260 #5)", () => {
@@ -273,11 +281,20 @@ describe("failVersionVerificationIfUnleased — lease-safe stuck-repair recovery
   // which must (a) only fail when NO active lease owns the row, (b) serialize
   // with acquireVersionLease via a FOR UPDATE row lock, and (c) degrade safely
   // before the jobs migration.
+  const CAS_VERIFYING_NULL = {
+    verificationState: "verifying" as const,
+    filesRevision: null,
+  };
+
   beforeEach(resetCaptures);
 
   it("locks the version row (FOR UPDATE) and enforces no-active-lease when the table exists", async () => {
     mockLeaseTableExists(true);
-    const res = await failVersionVerificationIfUnleased("ver-1", "stuck repair recovered");
+    const res = await failVersionVerificationIfUnleased(
+      "ver-1",
+      "stuck repair recovered",
+      CAS_VERIFYING_NULL,
+    );
     expect(res).toBeNull(); // rowCount 0 -> an active lease still owns it; left intact
     // Row lock taken before the conditional UPDATE.
     const lockStmts = txExecSqls.value.map((s) => renderSql(s));
@@ -293,13 +310,67 @@ describe("failVersionVerificationIfUnleased — lease-safe stuck-repair recovery
 
   it("degrades to an unconditional watchdog (no lease table reference) pre-migration", async () => {
     mockLeaseTableExists(false);
-    await failVersionVerificationIfUnleased("ver-1", "stuck repair recovered");
+    await failVersionVerificationIfUnleased("ver-1", "stuck repair recovered", CAS_VERIFYING_NULL);
     const where = renderSql(txUpdateWhere.value);
     expect(where).not.toContain("engine_version_jobs");
     expect(where).not.toContain("to_regclass");
     // Still serializes via the row lock even pre-migration.
     const lockStmts = txExecSqls.value.map((s) => renderSql(s));
     expect(lockStmts.some((s) => s.includes("for update"))).toBe(true);
+  });
+
+  it("CAS-binds the fail UPDATE to expected verification_state and IS NULL files_revision (L5 c)", async () => {
+    mockLeaseTableExists(true);
+    await failVersionVerificationIfUnleased("ver-1", "stale timeout", CAS_VERIFYING_NULL);
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("verification_state");
+    expect(where).toContain("files_revision");
+    expect(where).toContain("is null");
+  });
+
+  it("CAS-binds a non-null files_revision with equality, not IS NULL (L5)", async () => {
+    mockLeaseTableExists(true);
+    lockSnap.value = { verification_state: "verifying", files_revision: "rev-a" };
+    await failVersionVerificationIfUnleased("ver-1", "stale timeout", {
+      verificationState: "verifying",
+      filesRevision: "rev-a",
+    });
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("files_revision");
+    expect(where).not.toContain("is null");
+  });
+
+  it("returns cas_miss with no error log when the row was promoted under the await (L5 a)", async () => {
+    mockLeaseTableExists(true);
+    lockSnap.value = { verification_state: "passed", files_revision: "rev-a" };
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const res = await failVersionVerificationIfUnleased("ver-1", "stale timeout", {
+      verificationState: "verifying",
+      filesRevision: "rev-a",
+    });
+    expect(res).toEqual({ applied: false, reason: "cas_miss" });
+    expect(error).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+    error.mockRestore();
+    warn.mockRestore();
+  });
+
+  it("returns cas_miss when files_revision advanced to B under the await (L5 b)", async () => {
+    mockLeaseTableExists(true);
+    lockSnap.value = { verification_state: "verifying", files_revision: "rev-b" };
+    const res = await failVersionVerificationIfUnleased("ver-1", "stale timeout", {
+      verificationState: "verifying",
+      filesRevision: "rev-a",
+    });
+    expect(res).toEqual({ applied: false, reason: "cas_miss" });
+  });
+
+  it("returns cas_miss when expected NULL revision meets a hashed row (L5 c)", async () => {
+    mockLeaseTableExists(true);
+    lockSnap.value = { verification_state: "verifying", files_revision: "hashed" };
+    const res = await failVersionVerificationIfUnleased("ver-1", "stale timeout", CAS_VERIFYING_NULL);
+    expect(res).toEqual({ applied: false, reason: "cas_miss" });
   });
 });
 
@@ -334,6 +405,23 @@ describe("promoteVersionIfUnleased — lease-safe reconciliation promote (Bugbot
     // `verifying`, so a concurrent client-retry that already failed/passed it
     // makes this a no-op (can't flip a freshly-failed row back to passed).
     expect(where).toContain("verification_state");
+  });
+
+  it("CAS-binds files_revision when the caller supplies the snapshot (L5)", async () => {
+    mockLeaseTableExists(true);
+    await promoteVersionIfUnleased("ver-1", "reconciled", { filesRevision: null });
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("verification_state");
+    expect(where).toContain("files_revision");
+    expect(where).toContain("is null");
+  });
+
+  it("omits files_revision CAS when the snapshot is not supplied (pre-L5 callers / L4 tests)", async () => {
+    mockLeaseTableExists(true);
+    await promoteVersionIfUnleased("ver-1", "reconciled");
+    const where = renderSql(txUpdateWhere.value);
+    expect(where).toContain("verification_state");
+    expect(where).not.toContain("files_revision");
   });
 
   it("degrades to an unconditional promote (no lease table reference) pre-migration — but still guards verifying-state", async () => {

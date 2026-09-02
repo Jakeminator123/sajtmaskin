@@ -1,7 +1,8 @@
 import { db } from "../client";
 import { engineVersions } from "../schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { assertPromoteAllowed } from "../promote-guard";
+import type { EngineVersionVerificationState } from "../engine-version-lifecycle";
 import type { Version } from "./types";
 import {
   getStoredVersion,
@@ -10,6 +11,60 @@ import {
   versionWriteWhere,
 } from "./internal";
 import { leaseTableExists } from "./leases";
+
+/**
+ * Snapshot the stale-watchdog (or another unleased writer) already read.
+ * The UPDATE must require both columns — never id + no-lease alone —
+ * so a promote or files rewrite during the await window cannot be
+ * clobbered (L5). `filesRevision: null` is an explicit `IS NULL` match,
+ * never "skip the column".
+ */
+export type WatchdogCasExpected = {
+  verificationState: EngineVersionVerificationState;
+  filesRevision: string | null;
+};
+
+export type UnleasedWriteResult =
+  | { applied: true; version: Version }
+  | { applied: false; reason: "cas_miss" };
+
+function filesRevisionCas(expected: string | null) {
+  return expected == null
+    ? isNull(engineVersions.filesRevision)
+    : eq(engineVersions.filesRevision, expected);
+}
+
+function lockedCasRow(result: unknown): {
+  verification_state?: unknown;
+  files_revision?: unknown;
+  verificationState?: unknown;
+  filesRevision?: unknown;
+} | undefined {
+  const asRows = (result as { rows?: Array<Record<string, unknown>> } | undefined)?.rows;
+  if (Array.isArray(asRows) && asRows[0]) return asRows[0];
+  if (Array.isArray(result) && result[0] && typeof result[0] === "object") {
+    return result[0] as Record<string, unknown>;
+  }
+  return undefined;
+}
+
+function casMatchesLockedRow(
+  row: {
+    verification_state?: unknown;
+    files_revision?: unknown;
+    verificationState?: unknown;
+    filesRevision?: unknown;
+  },
+  expected: WatchdogCasExpected,
+): boolean {
+  const state = row.verification_state ?? row.verificationState;
+  const revision = row.files_revision ?? row.filesRevision;
+  // Unreadable lock snapshot: do not claim cas_miss (lease/gone stays null).
+  if (state === undefined && revision === undefined) return true;
+  if (state !== expected.verificationState) return false;
+  if (expected.filesRevision == null) return revision == null;
+  return revision === expected.filesRevision;
+}
 
 export async function markVersionVerifying(
   versionId: string,
@@ -160,23 +215,32 @@ export async function failVersionVerification(
 }
 
 /**
- * Watchdog-only fail (Codex P2): marks a stale version failed ONLY if no active
- * lease owns it, atomically (single UPDATE with a NOT EXISTS guard). Stops a
- * readiness poll from failing a version that a verify/repair run legitimately
- * acquired in the gap between a separate `hasActiveVersionLease` check and the
- * write. Returns null (no-op) when a job holds the lease or the row is gone.
+ * Watchdog-only fail (Codex P2 + L5): marks a stale version failed ONLY if no
+ * active lease owns it AND the row still has the `verification_state` +
+ * `files_revision` the caller already read (CAS). Stops a readiness poll from
+ * failing a version that a verify/repair run legitimately acquired in the gap
+ * between a separate `hasActiveVersionLease` check and the write, and from
+ * writing `failed`/`draft` over a row that was promoted or rewritten while the
+ * watchdog awaited logs/gate/head. A CAS miss is a silent no-op
+ * (`{ applied: false, reason: "cas_miss" }`) — never an error log.
+ *
+ * `null` stays the retryable no-op (lease held, row gone, lock-timeout, and
+ * after L4 an unavailable lease probe) so those paths rebase without a
+ * return-type clash.
  */
 export async function failVersionVerificationIfUnleased(
   versionId: string,
   verificationSummary: string,
-): Promise<Version | null> {
+  expected: WatchdogCasExpected,
+): Promise<UnleasedWriteResult | null> {
   // Codex P2 (missing-table fail-safe): decide whether to reference the lease
   // table BEFORE building the statement (Postgres resolves relations at plan
   // time; an in-statement to_regclass guard cannot short-circuit a missing one).
+  // L5 does not change this probe — L4 (#1264) owns tri-state / fail-closed.
   const jobsExist = await leaseTableExists();
-  let updated: boolean;
+  let outcome: { applied: true } | { applied: false; reason: "cas_miss" } | null;
   try {
-    updated = await db.transaction(async (tx) => {
+    outcome = await db.transaction(async (tx) => {
     // Fas 4 P2-fix (2026-07-03): bounded lock wait — a watchdog that can't get
     // the row lock quickly no-ops (returns null) and retries on the next poll,
     // instead of blocking to statement_timeout (57014).
@@ -188,7 +252,15 @@ export async function failVersionVerificationIfUnleased(
     // verify/repair that starts in the gap can't slip its lease in after our
     // no-active-lease snapshot — the conditional UPDATE below is a separate
     // statement and re-snapshots after the lock, seeing the committed lease.
-    await tx.execute(sql`SELECT 1 FROM engine_versions WHERE id = ${versionId} FOR UPDATE`);
+    // L5: read the CAS columns in the same lock so a rowCount-0 UPDATE can be
+    // classified as cas_miss vs lease/gone without a second race.
+    const locked = await tx.execute(sql`
+      SELECT verification_state, files_revision
+      FROM engine_versions
+      WHERE id = ${versionId}
+      FOR UPDATE
+    `);
+    const snap = lockedCasRow(locked);
     const result = await tx
       .update(engineVersions)
       .set({
@@ -202,6 +274,8 @@ export async function failVersionVerificationIfUnleased(
       .where(
         and(
           eq(engineVersions.id, versionId),
+          eq(engineVersions.verificationState, expected.verificationState),
+          filesRevisionCas(expected.filesRevision),
           // Only enforce the no-active-lease guard once the table exists; before
           // migration this degrades to the legacy unconditional watchdog.
           jobsExist
@@ -209,7 +283,13 @@ export async function failVersionVerificationIfUnleased(
             : undefined,
         ),
       );
-    return (result.rowCount ?? 0) > 0;
+    if ((result.rowCount ?? 0) > 0) {
+      return { applied: true as const };
+    }
+    if (snap && !casMatchesLockedRow(snap, expected)) {
+      return { applied: false as const, reason: "cas_miss" as const };
+    }
+    return null;
   });
   } catch (err) {
     if (isLockTimeoutError(err)) {
@@ -220,10 +300,13 @@ export async function failVersionVerificationIfUnleased(
     }
     throw err;
   }
-  if (!updated) {
+  if (!outcome) {
     return null;
   }
-  return getStoredVersion(versionId);
+  if (!outcome.applied) {
+    return outcome;
+  }
+  return { applied: true, version: await getStoredVersion(versionId) };
 }
 
 /**
@@ -255,6 +338,7 @@ export async function failVersionVerificationIfUnleased(
 export async function promoteVersionIfUnleased(
   versionId: string,
   verificationSummary: string | null = "Automatic verification passed.",
+  expected?: { filesRevision: string | null },
 ): Promise<Version | "guard_denied" | null> {
   // Same false-green invariant guard as `promoteVersion`: refuse while the
   // finalize quality-gate telemetry says the version is blocked, and fail
@@ -312,6 +396,13 @@ export async function promoteVersionIfUnleased(
             // rowCount 0 → null, so a stale green decision can't flip a freshly
             // `failed` row back to `passed`/`promoted`.
             eq(engineVersions.verificationState, "verifying"),
+            // L5: same files_revision CAS as fail, when the caller supplies the
+            // snapshot it decided on. Omitted keeps the pre-L5 verifying-only
+            // guard so non-watchdog callers (and L4's tests) compile; watchdog
+            // routes pass it. Single-flight/takeover is L6 — not this predicate.
+            expected
+              ? filesRevisionCas(expected.filesRevision)
+              : undefined,
             // Only enforce the no-active-lease guard once the table exists; before
             // migration this degrades to the legacy unconditional write.
             jobsExist

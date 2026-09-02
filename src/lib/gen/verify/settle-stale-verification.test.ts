@@ -17,6 +17,11 @@ import { settleStaleVerificationIfNeeded } from "./settle-stale-verification";
 
 type TestVersion = Parameters<typeof settleStaleVerificationIfNeeded>[0];
 
+const EXPECTED_VERIFYING_NULL_REV = {
+  verificationState: "verifying" as const,
+  filesRevision: null,
+};
+
 function makeVersion(overrides: Record<string, unknown> = {}): TestVersion {
   return {
     id: "v1",
@@ -24,6 +29,13 @@ function makeVersion(overrides: Record<string, unknown> = {}): TestVersion {
     created_at: new Date(Date.now() - STALE_VERIFICATION_TIMEOUT_MS - 10_000).toISOString(),
     ...overrides,
   } as unknown as TestVersion;
+}
+
+function appliedFail(overrides: Record<string, unknown> = {}) {
+  return {
+    applied: true as const,
+    version: makeVersion({ verification_state: "failed", ...overrides }),
+  };
 }
 
 beforeEach(() => {
@@ -56,9 +68,7 @@ describe("settleStaleVerificationIfNeeded", () => {
   });
 
   it("DOES fail a stale pending integrations row (server-verify was expected)", async () => {
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     const res = await settleStaleVerificationIfNeeded(
       makeVersion({ verification_state: "pending", lifecycle_stage: "integrations" }),
     );
@@ -67,9 +77,7 @@ describe("settleStaleVerificationIfNeeded", () => {
   });
 
   it("DOES fail a stale verifying design row (verify actually started)", async () => {
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     const res = await settleStaleVerificationIfNeeded(
       makeVersion({ verification_state: "verifying", lifecycle_stage: "design" }),
     );
@@ -79,7 +87,7 @@ describe("settleStaleVerificationIfNeeded", () => {
 
   it("fails a stale verifying version (lease-safe) and returns the updated row", async () => {
     const updated = makeVersion({ verification_state: "failed" });
-    failVersionVerificationIfUnleased.mockResolvedValue(updated);
+    failVersionVerificationIfUnleased.mockResolvedValue({ applied: true, version: updated });
     const res = await settleStaleVerificationIfNeeded(makeVersion());
     expect(res.failed).toBe(true);
     expect(res.version).toBe(updated);
@@ -106,9 +114,7 @@ describe("settleStaleVerificationIfNeeded", () => {
 
   it("fails a stale 'repairing' row once the lease table exists", async () => {
     leaseTableExists.mockResolvedValue(true);
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     const res = await settleStaleVerificationIfNeeded(
       makeVersion({ verification_state: "repairing" }),
     );
@@ -117,19 +123,19 @@ describe("settleStaleVerificationIfNeeded", () => {
   });
 
   it("prefers the resolved concrete failure summary over the generic copy", async () => {
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     await settleStaleVerificationIfNeeded(makeVersion(), {
       resolveFailureSummary: () => "Typecheck misslyckades: X",
     });
-    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith("v1", "Typecheck misslyckades: X");
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(
+      "v1",
+      "Typecheck misslyckades: X",
+      EXPECTED_VERIFYING_NULL_REV,
+    );
   });
 
   it("falls back to the generic summary when no concrete one is resolved", async () => {
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     await settleStaleVerificationIfNeeded(makeVersion(), {
       resolveFailureSummary: () => null,
     });
@@ -138,9 +144,7 @@ describe("settleStaleVerificationIfNeeded", () => {
   });
 
   it("still settles (generic summary) when resolveFailureSummary throws (Bugbot #337)", async () => {
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     const res = await settleStaleVerificationIfNeeded(makeVersion(), {
       resolveFailureSummary: async () => {
         throw new Error("transient log-read failure");
@@ -208,9 +212,7 @@ describe("settleStaleVerificationIfNeeded", () => {
     // "guard_denied" means the promote-guard's telemetry is a fresher truth than
     // the stale gate log — the row is actually blocked, so settle it terminally
     // instead of protecting it forever.
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     const promoteReconciledVersion = vi.fn().mockResolvedValue("guard_denied");
     const res = await settleStaleVerificationIfNeeded(makeVersion(), {
       resolveLatestGateGreen: () => true,
@@ -237,9 +239,7 @@ describe("settleStaleVerificationIfNeeded", () => {
   it("does NOT reconcile a stale 'verifying' row that is NOT head — terminal-fails, promote never attempted (bugbot medium #518)", async () => {
     // A green but non-head (superseded) stale row must not sit in limbo: the
     // whole green branch is gated on head, so it falls through to terminal-fail.
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     const resolveLatestGateGreen = vi.fn().mockReturnValue(true);
     const promoteReconciledVersion = vi.fn();
     const res = await settleStaleVerificationIfNeeded(makeVersion(), {
@@ -290,9 +290,7 @@ describe("settleStaleVerificationIfNeeded", () => {
     // markVersionRepairing; the green reconciliation must be scoped to `verifying`
     // so a pre-repair verdict can't promote a mid/abandoned-repair row.
     leaseTableExists.mockResolvedValue(true);
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     const resolveLatestGateGreen = vi.fn().mockReturnValue(true);
     const promoteReconciledVersion = vi.fn();
     const res = await settleStaleVerificationIfNeeded(
@@ -307,9 +305,7 @@ describe("settleStaleVerificationIfNeeded", () => {
   });
 
   it("does NOT attempt promotion when the gate is not green (no callback invocation, fails as today)", async () => {
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     const promoteReconciledVersion = vi.fn();
     const res = await settleStaleVerificationIfNeeded(makeVersion(), {
       resolveLatestGateGreen: () => false,
@@ -321,9 +317,7 @@ describe("settleStaleVerificationIfNeeded", () => {
   });
 
   it("still fails a stale verifying row when the latest gate verdict is NOT green (no passing gate log)", async () => {
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     const res = await settleStaleVerificationIfNeeded(makeVersion(), {
       resolveLatestGateGreen: () => false,
     });
@@ -332,9 +326,7 @@ describe("settleStaleVerificationIfNeeded", () => {
   });
 
   it("still fails when the green reconciliation resolver throws (best-effort, falls through)", async () => {
-    failVersionVerificationIfUnleased.mockResolvedValue(
-      makeVersion({ verification_state: "failed" }),
-    );
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
     const res = await settleStaleVerificationIfNeeded(makeVersion(), {
       resolveLatestGateGreen: async () => {
         throw new Error("transient log-read failure");
@@ -342,5 +334,72 @@ describe("settleStaleVerificationIfNeeded", () => {
     });
     expect(res.failed).toBe(true);
     expect(failVersionVerificationIfUnleased).toHaveBeenCalledOnce();
+  });
+
+  it("passes the snapshot verification_state + files_revision as CAS expected (L5)", async () => {
+    // Use `repairing` (not `verifying`) so the CAS is proven caller-supplied,
+    // not hardcoded. The lease table must exist or the watchdog skips repair.
+    // Truthy on master (boolean probe) and `"exists"` after L4 (#1264).
+    leaseTableExists.mockResolvedValue("exists");
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
+    await settleStaleVerificationIfNeeded(
+      makeVersion({ verification_state: "repairing", files_revision: "rev-abc" }),
+    );
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith("v1", expect.any(String), {
+      verificationState: "repairing",
+      filesRevision: "rev-abc",
+    });
+  });
+
+  it("passes filesRevision: null (not omitted) when the snapshot revision is NULL (L5)", async () => {
+    failVersionVerificationIfUnleased.mockResolvedValue(appliedFail());
+    await settleStaleVerificationIfNeeded(makeVersion({ files_revision: null }));
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith(
+      "v1",
+      expect.any(String),
+      EXPECTED_VERIFYING_NULL_REV,
+    );
+  });
+
+  it("does not report failed when a concurrent promote CAS-misses (L5 a)", async () => {
+    failVersionVerificationIfUnleased.mockResolvedValue({
+      applied: false,
+      reason: "cas_miss",
+    });
+    const v = makeVersion({ verification_state: "verifying", files_revision: "rev-a" });
+    const res = await settleStaleVerificationIfNeeded(v, {
+      resolveFailureSummary: async () => "stale after promote",
+    });
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith("v1", "stale after promote", {
+      verificationState: "verifying",
+      filesRevision: "rev-a",
+    });
+    expect(res.failed).toBe(false);
+    expect(res.version).toBe(v);
+  });
+
+  it("does not report failed when revision B lands during await (L5 b)", async () => {
+    failVersionVerificationIfUnleased.mockResolvedValue({
+      applied: false,
+      reason: "cas_miss",
+    });
+    const v = makeVersion({ verification_state: "verifying", files_revision: "rev-a" });
+    const res = await settleStaleVerificationIfNeeded(v);
+    expect(failVersionVerificationIfUnleased).toHaveBeenCalledWith("v1", expect.any(String), {
+      verificationState: "verifying",
+      filesRevision: "rev-a",
+    });
+    expect(res.failed).toBe(false);
+    expect(res.version).toBe(v);
+  });
+
+  it("fails a stale row when the unleased write applies (L5 d — no race)", async () => {
+    const failed = makeVersion({ verification_state: "failed" });
+    failVersionVerificationIfUnleased.mockResolvedValue({ applied: true, version: failed });
+    const res = await settleStaleVerificationIfNeeded(
+      makeVersion({ verification_state: "verifying", files_revision: "rev-a" }),
+    );
+    expect(res.failed).toBe(true);
+    expect(res.version).toBe(failed);
   });
 });
