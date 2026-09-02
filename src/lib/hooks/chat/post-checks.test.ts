@@ -2238,7 +2238,21 @@ describe("runPostGenerationChecks", () => {
     const errorLogCall = fetchCalls.find(
       (call) => call.url.includes("/error-log") && call.init?.method === "POST",
     );
-    expect(errorLogCall).toBeUndefined();
+    const errorLogBody = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
+      logs?: Array<{ category?: string; meta?: { verdict?: string } }>;
+    };
+    expect(errorLogBody.logs).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "allowed_skip",
+          skippedReason: "feature_disabled",
+        }),
+      }),
+    ]);
+    expect(
+      errorLogBody.logs?.some((log) => log.category?.toLowerCase().includes("seo")),
+    ).toBe(false);
 
     expect(onAutoFix).not.toHaveBeenCalled();
   });
@@ -2309,7 +2323,7 @@ describe("runPostGenerationChecks", () => {
       expect.arrayContaining(["product_postcheck.summary", "product_postcheck.mobile_menu_failed"]),
     );
     expect(body.logs?.find((log) => log.category === "product_postcheck.summary")?.meta).toEqual(
-      expect.objectContaining({ productBlocked: true }),
+      expect.objectContaining({ productBlocked: true, verdict: "blocked" }),
     );
     expect(body.logs?.find((log) => log.category === "product_postcheck.mobile_menu_failed")?.meta).toEqual(
       expect.objectContaining({ code: "mobile_menu_failed" }),
@@ -3092,6 +3106,13 @@ describe("buildProductPostcheckLogItems live review", () => {
         category: "post-check.product-postcheck-transport",
         meta: expect.objectContaining({ skippedReason: "transport_error" }),
       }),
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "pending",
+          skippedReason: "transport_error",
+        }),
+      }),
     ]);
   });
 
@@ -3177,6 +3198,7 @@ describe("buildProductPostcheckLogItems live review", () => {
         reportedWarningCount: 9,
         persistedWarningCount: 2,
         warningCount: 2,
+        verdict: "passed",
       }),
     );
   });
@@ -3212,7 +3234,7 @@ describe("buildProductPostcheckLogItems live review", () => {
     );
   });
 
-  it("drops a superseded result instead of persisting a legacy skip", () => {
+  it("persists superseded as an explicit non-release verdict, never a legacy skip", () => {
     expect(
       buildProductPostcheckLogItems({
         ok: true,
@@ -3226,7 +3248,84 @@ describe("buildProductPostcheckLogItems live review", () => {
         routesChecked: 1,
         attestation: null,
       }),
-    ).toEqual([]);
+    ).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "superseded",
+          skippedReason: "preview_superseded",
+        }),
+      }),
+    ]);
+  });
+
+  it("attesterad skip skriver bara skipped — ingen ny summary som kan radera blocked", () => {
+    const logs = buildProductPostcheckLogItems({
+      ok: true,
+      skipped: true,
+      skippedReason: "browser_crashed",
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 12,
+      checkedUrl: "https://preview.example",
+      routesChecked: 0,
+      attestation: CURRENT_POSTCHECK_ATTESTATION,
+    });
+    expect(logs.map((log) => log.category)).toEqual(["product_postcheck.skipped"]);
+    expect(logs[0]?.meta).toEqual(
+      expect.objectContaining({
+        verdict: "allowed_skip",
+        skippedReason: "browser_crashed",
+      }),
+    );
+  });
+
+  it("oattesterad skip persisteras som pending; feature_disabled som allowed_skip", () => {
+    expect(
+      buildProductPostcheckLogItems({
+        ok: true,
+        skipped: true,
+        skippedReason: "browser_crashed",
+        warnings: [],
+        warningCount: 0,
+        productBlocked: false,
+        durationMs: 1,
+        checkedUrl: "https://preview.example",
+        routesChecked: 0,
+        attestation: null,
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "pending",
+          skippedReason: "browser_crashed",
+        }),
+      }),
+    ]);
+    expect(
+      buildProductPostcheckLogItems({
+        ok: true,
+        skipped: true,
+        skippedReason: "feature_disabled",
+        warnings: [],
+        warningCount: 0,
+        productBlocked: false,
+        durationMs: 1,
+        checkedUrl: null,
+        routesChecked: 0,
+        attestation: null,
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        category: "product_postcheck.summary",
+        meta: expect.objectContaining({
+          verdict: "allowed_skip",
+          skippedReason: "feature_disabled",
+        }),
+      }),
+    ]);
   });
 
   it("L7: oattesterad preview_not_ready/preview_not_running lämnar ingen durabel skip", () => {

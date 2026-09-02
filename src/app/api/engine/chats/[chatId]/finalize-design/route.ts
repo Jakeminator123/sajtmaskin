@@ -158,14 +158,28 @@ export async function POST(
       );
     }
 
-    if (!gate.ok && gate.reason === "product_postcheck_blocked") {
+    if (
+      !gate.ok &&
+      (gate.reason === "product_postcheck_blocked" ||
+        gate.reason === "product_postcheck_pending" ||
+        gate.reason === "product_postcheck_indeterminate" ||
+        gate.reason === "product_postcheck_superseded")
+    ) {
+      const retryable = gate.retryable === true;
+      const message =
+        gate.reason === "product_postcheck_blocked"
+          ? "Integrationsbygget är spärrat av Product Postcheck. Åtgärda blockerande previewproblem i designläget innan du bygger integrationer."
+          : gate.reason === "product_postcheck_superseded"
+            ? "Produktkontrollen ersattes av en nyare preview — försök igen."
+            : "Produktkontrollens dom saknas eller kunde inte läsas — försök igen.";
       return NextResponse.json(
         {
           ready: false,
-          reason: "product_postcheck_blocked",
+          reason: gate.reason,
           parentVersionId: baseVersion.id,
-          message:
-            "Integrationsbygget är spärrat av Product Postcheck. Åtgärda blockerande previewproblem i designläget innan du bygger integrationer.",
+          verdict: gate.verdict,
+          retryable,
+          message,
         },
         { status: 409 },
       );

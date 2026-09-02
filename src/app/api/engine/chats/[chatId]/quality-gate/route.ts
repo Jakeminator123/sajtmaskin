@@ -511,12 +511,20 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             { status: 412 },
           );
         }
-        if (!readiness.ok && readiness.reason === "product_postcheck_blocked") {
+        if (
+          !readiness.ok &&
+          (readiness.reason === "product_postcheck_blocked" ||
+            readiness.reason === "product_postcheck_pending" ||
+            readiness.reason === "product_postcheck_indeterminate" ||
+            readiness.reason === "product_postcheck_superseded")
+        ) {
           return NextResponse.json(
             {
-              error: "product_postcheck_blocked",
+              error: readiness.reason,
               ready: false,
               parentVersionId,
+              verdict: readiness.verdict,
+              retryable: readiness.retryable === true,
             },
             { status: 409 },
           );

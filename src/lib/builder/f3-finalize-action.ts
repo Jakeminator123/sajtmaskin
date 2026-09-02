@@ -112,7 +112,10 @@ function errorResult(params: {
     retryable:
       (payload as ReleaseGateResponse | null)?.retryable === true ||
       status === 503 ||
-      code === "version_busy",
+      code === "version_busy" ||
+      code === "product_postcheck_pending" ||
+      code === "product_postcheck_indeterminate" ||
+      code === "product_postcheck_superseded",
   };
 }
 
