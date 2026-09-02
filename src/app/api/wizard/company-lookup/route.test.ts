@@ -5,6 +5,7 @@ const authorizeWizardRun = vi.hoisted(() => vi.fn());
 const debugLog = vi.hoisted(() => vi.fn());
 const braveWebSearch = vi.hoisted(() => vi.fn());
 const generateText = vi.hoisted(() => vi.fn());
+const createDirectModel = vi.hoisted(() => vi.fn(() => "model"));
 const safeFetch = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/bot-protection", () => ({ requireNotBot }));
@@ -16,6 +17,7 @@ vi.mock("@/lib/wizard/authorize-wizard-run", () => ({ authorizeWizardRun }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog }));
 vi.mock("@/lib/brave-search", () => ({ braveWebSearch }));
 vi.mock("ai", () => ({ generateText }));
+vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel }));
 vi.mock("@/lib/ssrf-guard", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/ssrf-guard")>();
   return { ...actual, safeFetch };
