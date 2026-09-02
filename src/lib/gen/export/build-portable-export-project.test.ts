@@ -31,8 +31,8 @@ describe("buildPortableExportProject", () => {
       verbatimRepo: true,
     });
     expect(result).toEqual([
-      { path: "app/page.tsx", content: "page" },
-      { path: "public/.gitkeep", content: "" },
+      { path: "app/page.tsx", content: "page", language: "tsx" },
+      { path: "public/.gitkeep", content: "", language: "text" },
     ]);
   });
 });
