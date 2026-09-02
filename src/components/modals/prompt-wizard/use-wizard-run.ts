@@ -19,7 +19,6 @@ export function useWizardRun({
 }) {
   const [wizardRunId, setWizardRunId] = useState("");
   const [startError, setStartError] = useState<string | null>(null);
-  const [isStarting, setIsStarting] = useState(false);
   const skipStartRef = useRef(false);
 
   useEffect(() => {
@@ -29,8 +28,6 @@ export function useWizardRun({
     }
     if (!isInitialized || !isAuthenticated || wizardRunId || skipStartRef.current) return;
     const controller = new AbortController();
-    setIsStarting(true);
-    setStartError(null);
     fetch("/api/wizard/start", { method: "POST", signal: controller.signal })
       .then(async (response) => {
         const data = (await response.json().catch(() => ({}))) as {
@@ -49,15 +46,13 @@ export function useWizardRun({
       })
       .then((id) => {
         if (controller.signal.aborted) return;
+        setStartError(null);
         setWizardRunId(id);
         window.localStorage.setItem(WIZARD_RUN_STORAGE_KEY, id);
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
         setStartError(error instanceof Error ? error.message : "Kunde inte starta wizarden.");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setIsStarting(false);
       });
     return () => controller.abort();
   }, [isOpen, isAuthenticated, isInitialized, wizardRunId]);
@@ -80,5 +75,5 @@ export function useWizardRun({
     }
   }, [wizardRunId]);
 
-  return { wizardRunId, startError, isStarting, completeRun };
+  return { wizardRunId, startError, completeRun };
 }
