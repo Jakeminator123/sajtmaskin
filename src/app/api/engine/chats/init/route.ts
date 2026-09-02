@@ -21,6 +21,7 @@ import {
   persistImportedRepoInitialization,
   recordImportedRepoPreviewOutcome,
 } from "@/lib/templates/imported-repo-initialization";
+import { safeFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 
 export const runtime = "nodejs";
 
@@ -183,11 +184,29 @@ async function downloadZipBufferFromUrl(params: {
   maxBytes: number;
   headers?: Record<string, string>;
 }): Promise<Buffer> {
-  const response = await fetch(params.url, {
+  let parsed: URL;
+  try {
+    parsed = new URL(params.url);
+  } catch {
+    throw new Error("Invalid ZIP URL");
+  }
+  const ssrfCheck = validateSsrfTarget(parsed);
+  if (!ssrfCheck.ok) {
+    throw new Error("ZIP URL is not allowed");
+  }
+
+  const response = await safeFetch(params.url, {
     headers: params.headers,
+    timeoutMs: 30_000,
+    maxBodyBytes: params.maxBytes,
   });
 
   if (!response.ok) {
+    if (response.status === 400 || response.status === 403 || response.status === 413) {
+      throw new Error(
+        response.status === 413 ? "Repository ZIP is too large for import" : "ZIP URL is not allowed",
+      );
+    }
     throw new Error(`Failed to download ZIP archive (HTTP ${response.status})`);
   }
 
@@ -635,7 +654,9 @@ export async function POST(req: Request) {
         ? 401
         : message.includes("too large")
           ? 413
-          : 500;
+          : message.includes("not allowed") || message.includes("Invalid ZIP URL")
+            ? 400
+            : 500;
       return attachSessionCookie(NextResponse.json({ error: message }, { status }));
     }
   });

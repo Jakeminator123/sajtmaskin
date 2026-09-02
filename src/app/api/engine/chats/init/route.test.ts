@@ -303,4 +303,20 @@ describe("POST /api/engine/chats/init", () => {
       outcome: "failed",
     });
   });
+
+  it("rejects a ZIP URL that points at a private/metadata host", async () => {
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: { type: "zip", url: "http://169.254.169.254/latest/meta-data" },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "ZIP URL is not allowed" });
+    expect(createChat).not.toHaveBeenCalled();
+  });
 });
