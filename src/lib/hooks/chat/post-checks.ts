@@ -203,8 +203,9 @@ async function validateImages(params: {
         signal: bound.signal,
       },
     );
-    if (!response.ok) return null;
-    return (await response.json()) as ImageValidationResult;
+    const body = (await response.json().catch(() => null)) as ImageValidationResult | null;
+    if (!response.ok) return interpretValidateImagesHttp(response.status, body);
+    return body;
   } catch (error) {
     if (isAbortError(error)) {
       if (signal.aborted) throw error;
@@ -213,10 +214,11 @@ async function validateImages(params: {
         persisted: false,
         filesRevision: null,
         timeout: true,
+        holdReason: "timeout",
         warnings: ["Bildvalideringen avbröts vid tidsgränsen."],
       };
     }
-    return null;
+    return interpretValidateImagesHttp(0, null);
   } finally {
     bound.cleanup();
   }
@@ -615,21 +617,21 @@ export async function runPostGenerationChecks(params: {
     });
 
     if (shouldHoldBeforeProductPostcheck(imageValidation)) {
-      const holdReason = imageValidation?.timeout
-        ? "Bildvalideringen nådde tidsgränsen innan persistens bekräftades — versionen lämnas pending."
-        : "Bildersättningar rapporterades utan bekräftad files_json-persistens — versionen lämnas pending.";
+      const holdReason = imageValidationHoldMessage(imageValidation);
       completionPersistence = persistVersionErrorLogs({
         chatId,
         versionId,
         logs: [
           {
             level: "warning",
-            category: "post-check.image-mutation-unconfirmed",
+            category: imageValidationHoldCategory(imageValidation),
             message: holdReason,
             meta: {
               replacedCount: imageValidation?.replacedCount ?? 0,
               persisted: imageValidation?.persisted ?? false,
               timeout: imageValidation?.timeout === true,
+              holdReason: imageValidation?.holdReason ?? null,
+              httpStatus: imageValidation?.httpStatus ?? null,
             },
           },
         ],
@@ -1646,16 +1648,88 @@ function didPersistImageMutation(result: ImageValidationResult | null): boolean 
 }
 
 /**
- * Hold only when a mutating image step reported replacements without a
- * durable revision, or timed out mid-write. Transport/HTTP failures
- * (`null`) are not mutations — Product Postcheck may continue against the
- * last confirmed server revision (pre-L3 Promise.all parity).
+ * Shared HTTP → result mapping for the normal tail and resume.
+ * 404 «No files» continues; 409 lease and 5xx/transport are retryable holds.
+ */
+export function interpretValidateImagesHttp(
+  status: number,
+  body: ImageValidationResult | null = null,
+): ImageValidationResult {
+  if (status === 404) {
+    return {
+      replacedCount: 0,
+      persisted: true,
+      filesRevision:
+        typeof body?.filesRevision === "string" && body.filesRevision.trim()
+          ? body.filesRevision.trim()
+          : null,
+      skippedReason: "no_files",
+      httpStatus: 404,
+    };
+  }
+  if (status === 409) {
+    return {
+      replacedCount: 0,
+      persisted: false,
+      filesRevision: null,
+      holdReason: "version_busy",
+      httpStatus: 409,
+    };
+  }
+  return {
+    replacedCount: 0,
+    persisted: false,
+    filesRevision: null,
+    holdReason: "http_error",
+    httpStatus: status,
+  };
+}
+
+export function imageValidationHoldMessage(
+  result: ImageValidationResult | null,
+): string {
+  if (result?.timeout || result?.holdReason === "timeout") {
+    return "Bildvalideringen nådde tidsgränsen innan persistens bekräftades — versionen lämnas pending.";
+  }
+  if (result?.holdReason === "version_busy") {
+    return "Bildvalideringen väntar på versionslås (409 version_busy) — versionen lämnas pending.";
+  }
+  if (result?.holdReason === "http_error") {
+    const status = result.httpStatus && result.httpStatus > 0 ? result.httpStatus : null;
+    return status
+      ? `Bildvalideringen misslyckades (HTTP ${status}) — versionen lämnas pending.`
+      : "Bildvalideringen nådde inte servern — versionen lämnas pending.";
+  }
+  return "Bildersättningar rapporterades utan bekräftad files_json-persistens — versionen lämnas pending.";
+}
+
+export function imageValidationHoldCategory(
+  result: ImageValidationResult | null,
+): string {
+  if (result?.timeout || result?.holdReason === "timeout") {
+    return "post-check.image-validation-timeout";
+  }
+  if (result?.holdReason === "version_busy") {
+    return "post-check.image-validation-version-busy";
+  }
+  if (result?.holdReason === "http_error") {
+    return "post-check.image-validation-http-error";
+  }
+  return "post-check.image-mutation-unconfirmed";
+}
+
+/**
+ * Hold on timeout, 409 lease, 5xx/transport, or replacements without a
+ * durable revision. 404 «No files» and a missing result are not mutations.
  */
 export function shouldHoldBeforeProductPostcheck(
   result: ImageValidationResult | null,
 ): boolean {
   if (!result) return false;
-  if (result.timeout) return true;
+  if (result.timeout || result.holdReason === "timeout") return true;
+  if (result.holdReason === "version_busy" || result.holdReason === "http_error") {
+    return true;
+  }
   if (didPersistImageMutation(result)) return false;
   const replaced = result.replacedCount ?? 0;
   return replaced > 0 && (result.persisted !== true || !result.filesRevision);

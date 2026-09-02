@@ -6,6 +6,9 @@ import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
   buildProductPostcheckLogItems,
   hasActivePostCheck,
+  imageValidationHoldCategory,
+  imageValidationHoldMessage,
+  interpretValidateImagesHttp,
   persistVersionErrorLogs,
   shouldHoldBeforeProductPostcheck,
 } from "./post-checks";
@@ -308,11 +311,9 @@ export function findResumeEligibleAtMs(versions: unknown, nowMs: number): number
 }
 
 /**
- * Mirror of the normal lane's image-validation step. Transport/HTTP
- * failures are not mutations — proceed without a pinned revision (same as
- * `shouldHoldBeforeProductPostcheck(null)`). `replaced` without durable
- * `persisted`+`filesRevision` holds so resume cannot attest a stale
- * revision (L3).
+ * Same `interpretValidateImagesHttp` + `shouldHoldBeforeProductPostcheck`
+ * contract as the normal tail (L3): 404 continues, 409/5xx and
+ * replaced-without-persisted hold, persisted revision is pinned.
  */
 async function runResumeImageValidation(params: {
   chatId: string;
@@ -321,6 +322,7 @@ async function runResumeImageValidation(params: {
   proceed: boolean;
   filesRevision: string | null;
   persistedMutation: boolean;
+  hold?: ImageValidationResult | null;
 }> {
   try {
     const res = await fetch(`${engineChatBaseUrl(params.chatId)}/validate-images`, {
@@ -328,12 +330,10 @@ async function runResumeImageValidation(params: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ versionId: params.versionId, autoFix: true }),
     });
-    if (!res.ok) {
-      return { proceed: true, filesRevision: null, persistedMutation: false };
-    }
-    const data = (await res.json().catch(() => null)) as ImageValidationResult | null;
+    const body = (await res.json().catch(() => null)) as ImageValidationResult | null;
+    const data = res.ok ? body : interpretValidateImagesHttp(res.status, body);
     if (shouldHoldBeforeProductPostcheck(data)) {
-      return { proceed: false, filesRevision: null, persistedMutation: false };
+      return { proceed: false, filesRevision: null, persistedMutation: false, hold: data };
     }
     const filesRevision =
       typeof data?.filesRevision === "string" && data.filesRevision.trim()
@@ -345,7 +345,8 @@ async function runResumeImageValidation(params: {
       Boolean(filesRevision);
     return { proceed: true, filesRevision, persistedMutation };
   } catch {
-    return { proceed: true, filesRevision: null, persistedMutation: false };
+    const hold = interpretValidateImagesHttp(0, null);
+    return { proceed: false, filesRevision: null, persistedMutation: false, hold };
   }
 }
 
@@ -628,9 +629,8 @@ export function useResumePendingVerification(params: {
               logs: [
                 {
                   level: "warning",
-                  category: "post-check.image-mutation-unconfirmed",
-                  message:
-                    "Resume: bildersättningar utan bekräftad files_json-persistens — versionen lämnas pending.",
+                  category: imageValidationHoldCategory(image.hold ?? null),
+                  message: imageValidationHoldMessage(image.hold ?? null),
                 },
               ],
             });

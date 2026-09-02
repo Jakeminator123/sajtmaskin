@@ -1087,6 +1087,62 @@ describe("useResumePendingVerification", () => {
     expect(callsTo("/quality-gate")).toHaveLength(0);
   });
 
+  it("holds resume on 409 version_busy and does not start product-postcheck", async () => {
+    mockRoutes({
+      validateImages: { ok: false, status: 409, body: { error: "version_busy" } },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/error-log")).toHaveLength(1));
+    const logged = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
+      logs?: Array<{ category?: string; message?: string }>;
+    };
+    expect(logged.logs?.[0]?.category).toBe("post-check.image-validation-version-busy");
+    expect(logged.logs?.[0]?.message).toContain("409 version_busy");
+    expect(callsTo("/product-postcheck")).toHaveLength(0);
+    expect(callsTo("/quality-gate")).toHaveLength(0);
+  });
+
+  it("continues resume when validate-images is 404 No files", async () => {
+    mockRoutes({
+      validateImages: { ok: false, status: 404, body: { error: "No files" } },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/quality-gate")).toHaveLength(1));
+    expect(callsTo("/product-postcheck")).toHaveLength(1);
+  });
+
+  it("holds resume on validate-images 500", async () => {
+    mockRoutes({
+      validateImages: { ok: false, status: 500, body: { error: "boom" } },
+    });
+    renderHook(() =>
+      useResumePendingVerification({
+        chatId: "chat_1",
+        versions: [pendingRow()],
+        isStreaming: false,
+      }),
+    );
+    await waitFor(() => expect(callsTo("/error-log")).toHaveLength(1));
+    const logged = JSON.parse(String(callsTo("/error-log")[0][1].body)) as {
+      logs?: Array<{ category?: string; message?: string }>;
+    };
+    expect(logged.logs?.[0]?.category).toBe("post-check.image-validation-http-error");
+    expect(logged.logs?.[0]?.message).toContain("HTTP 500");
+    expect(callsTo("/product-postcheck")).toHaveLength(0);
+  });
+
   it("pins product-postcheck to the persisted filesRevision after resume validate-images", async () => {
     mockRoutes({
       validateImages: {

@@ -2,12 +2,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "@/lib/builder/types";
 
 const runProjectSanityChecks = vi.hoisted(() => vi.fn());
+const triggerImageMaterialization = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/validation/project-sanity", () => ({
   runProjectSanityChecks,
 }));
 
-import { abortPostChecksForChat, runPostGenerationChecks } from "./post-checks";
+vi.mock("./post-checks-fetch", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./post-checks-fetch")>();
+  return { ...actual, triggerImageMaterialization };
+});
+
+import {
+  abortPostChecksForChat,
+  interpretValidateImagesHttp,
+  runPostGenerationChecks,
+  shouldHoldBeforeProductPostcheck,
+} from "./post-checks";
+import { runSerializedGenerationTail } from "./stream-handlers-post-stream";
 import type { SetMessages } from "./types";
 
 type FetchCall = {
@@ -75,6 +87,17 @@ describe("L3 revision order", () => {
     abortPostChecksForChat("chat_1");
     runProjectSanityChecks.mockReset();
     runProjectSanityChecks.mockReturnValue({ valid: true, issues: [] });
+    triggerImageMaterialization.mockReset();
+    triggerImageMaterialization.mockResolvedValue({
+      attempted: true,
+      strategy: "blob",
+      replaced: 0,
+      uploaded: 0,
+      skipped: 0,
+      warningCount: 0,
+      persisted: true,
+      filesRevision: "rev_n",
+    });
   });
 
   function mockFetch(
@@ -381,7 +404,7 @@ describe("L3 revision order", () => {
     expect(postcheckBody.filesRevision).toBe("rev_after_images");
   });
 
-  it("håller inte svansen när validate-images svarar HTTP-fel utan mutation", async () => {
+  async function runValidateImagesStatusCase(status: number, body: unknown) {
     const store = createMessageStore();
     const files = buildHealthyFiles();
     mockFetch(async (url) => {
@@ -398,9 +421,7 @@ describe("L3 revision order", () => {
         });
       }
       if (url.includes("/files?versionId=ver_1")) return jsonResponse({ files });
-      if (url.includes("/validate-images")) {
-        return jsonResponse({ error: "version_busy" }, 409);
-      }
+      if (url.includes("/validate-images")) return jsonResponse(body, status);
       if (url.includes("/product-postcheck")) {
         return jsonResponse({
           skipped: true,
@@ -422,10 +443,49 @@ describe("L3 revision order", () => {
       assistantMessageId: "assistant_1",
       setMessages: store.setMessages,
     });
+    return store;
+  }
 
+  it("409 version_busy håller svansen med lease-text", async () => {
+    const store = await runValidateImagesStatusCase(409, { error: "version_busy" });
+    expect(fetchCalls.some((call) => call.url.includes("/product-postcheck"))).toBe(false);
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = qualityGate?.output as { retryPending?: boolean; reason?: string };
+    expect(output.retryPending).toBe(true);
+    expect(output.reason).toContain("409 version_busy");
+    const errorLog = fetchCalls.find((call) => call.url.includes("/error-log"));
+    const logged = JSON.parse(String(errorLog?.init?.body ?? "{}")) as {
+      logs?: Array<{ category?: string }>;
+    };
+    expect(logged.logs?.some((log) => log.category === "post-check.image-validation-version-busy")).toBe(
+      true,
+    );
+  });
+
+  it("404 No files fortsätter utan bildvalideringshold", async () => {
+    const store = await runValidateImagesStatusCase(404, { error: "No files" });
     expect(fetchCalls.some((call) => call.url.includes("/product-postcheck"))).toBe(true);
     const qualityGate = getToolPart("Quality gate", store);
     expect((qualityGate?.output as { retryPending?: boolean } | undefined)?.retryPending).not.toBe(
+      true,
+    );
+    expect(getToolPart("Quality gate", store)?.output).not.toEqual(
+      expect.objectContaining({ reason: expect.stringContaining("bildersättningar") }),
+    );
+  });
+
+  it("500 håller svansen med HTTP-felorsak", async () => {
+    const store = await runValidateImagesStatusCase(500, { error: "boom" });
+    expect(fetchCalls.some((call) => call.url.includes("/product-postcheck"))).toBe(false);
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = qualityGate?.output as { retryPending?: boolean; reason?: string };
+    expect(output.retryPending).toBe(true);
+    expect(output.reason).toContain("HTTP 500");
+    const errorLog = fetchCalls.find((call) => call.url.includes("/error-log"));
+    const logged = JSON.parse(String(errorLog?.init?.body ?? "{}")) as {
+      logs?: Array<{ category?: string }>;
+    };
+    expect(logged.logs?.some((log) => log.category === "post-check.image-validation-http-error")).toBe(
       true,
     );
   });
@@ -460,5 +520,74 @@ describe("L3 revision order", () => {
     const qualityGate = getToolPart("Quality gate", store);
     expect((qualityGate?.output as { retryPending?: boolean }).retryPending).toBe(true);
     await vi.waitFor(() => expect(onComplete).toHaveBeenCalled());
+  });
+
+  it("materialize-timeout sätter retryPending, error-log, onComplete och samma resume-kontrakt", async () => {
+    const store = createMessageStore();
+    const onComplete = vi.fn();
+    triggerImageMaterialization.mockResolvedValue({
+      attempted: true,
+      strategy: "blob",
+      replaced: 1,
+      uploaded: 0,
+      skipped: 0,
+      warningCount: 0,
+      persisted: false,
+      filesRevision: null,
+      error: "timeout",
+    });
+    mockFetch(async (url) => {
+      if (url.includes("/error-log")) return jsonResponse({ ok: true });
+      if (url.includes("/validate-images") || url.includes("/product-postcheck")) {
+        throw new Error("mutating checks must not start after materialize timeout");
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    await runSerializedGenerationTail({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix: () => undefined,
+      onComplete,
+      enableImageMaterialization: true,
+    });
+
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = qualityGate?.output as { retryPending?: boolean; reason?: string };
+    expect(output.retryPending).toBe(true);
+    expect(output.reason).toContain("tidsgränsen");
+
+    const errorLog = fetchCalls.find((call) => call.url.includes("/error-log"));
+    expect(errorLog).toBeTruthy();
+    const logged = JSON.parse(String(errorLog?.init?.body ?? "{}")) as {
+      logs?: Array<{ category?: string }>;
+    };
+    expect(
+      logged.logs?.some((log) => log.category === "post-check.image-materialization-timeout"),
+    ).toBe(true);
+
+    await vi.waitFor(() => expect(onComplete).toHaveBeenCalled());
+
+    expect(
+      shouldHoldBeforeProductPostcheck({
+        replacedCount: 2,
+        persisted: false,
+        filesRevision: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldHoldBeforeProductPostcheck({
+        replacedCount: 1,
+        persisted: true,
+        filesRevision: "rev_resume",
+      }),
+    ).toBe(false);
+    expect(shouldHoldBeforeProductPostcheck(interpretValidateImagesHttp(409, null))).toBe(true);
+    expect(shouldHoldBeforeProductPostcheck(interpretValidateImagesHttp(404, null))).toBe(
+      false,
+    );
+    expect(shouldHoldBeforeProductPostcheck(interpretValidateImagesHttp(500, null))).toBe(true);
   });
 });
