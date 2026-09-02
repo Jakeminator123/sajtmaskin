@@ -110,7 +110,7 @@ async function startProvider(
   getCurrentUser.mockResolvedValue({ id: "user-a" });
   const path =
     provider === "google" ? "/api/auth/google" : "/api/auth/github";
-  const cookies =
+  const cookies: Record<string, string> =
     provider === "github" ? { sajtmaskin_auth: session } : {};
   const response = await (provider === "google" ? startGoogle : startGitHub)(
     req(`${origin}${path}`, cookies),
@@ -374,7 +374,7 @@ describe("OAuth route handlers", () => {
     const started = await startProvider("github", origin);
     expect(started.state).toBeTruthy();
 
-    const canonicalCookies =
+    const canonicalCookies: Record<string, string> =
       origin === "https://sajtmaskin.vercel.app"
         ? {
             sajtmaskin_auth: "session-a",
