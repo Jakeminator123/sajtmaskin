@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProjectByIdForOwner, getProjectData, saveProjectData } from "@/lib/db/services/projects";
+import { getProjectByIdForOwner, saveProjectData } from "@/lib/db/services/projects";
 import { deleteCache } from "@/lib/data/redis";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
@@ -99,13 +99,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const nextMeta = meta ?? null;
       const nextMetaRecord = asRecord(nextMeta);
       if (nextMetaRecord) {
-        const currentProjectData = await getProjectData(id);
-        const currentMetaRecord = asRecord(currentProjectData?.meta ?? null);
-        payload.meta = {
-          ...(currentMetaRecord ?? {}),
-          ...nextMetaRecord,
-        };
+        // PostgreSQL merges these top-level namespaces inside the UPSERT. Do
+        // not read + merge here: two autosaves can read the same snapshot and
+        // then replace each other's palette/preview/preferences changes.
+        payload.meta_patch = nextMetaRecord;
       } else {
+        // Non-object (`null` / array): insert-only snapshot. Clearing a stored
+        // document is D1b (needs revision-CAS) and is not offered here.
         payload.meta = nextMeta;
       }
     }
