@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { safeFetch } from "@/lib/ssrf-guard";
 import { VercelBlobProvider } from "@/lib/storage/vercel-blob-provider";
 
 export type ImageAssetStrategy = "external" | "blob";
@@ -143,67 +144,61 @@ async function fetchWithLimits(
   url: string,
   limits: MaterializeImagesLimits,
 ): Promise<{ buffer: Buffer; contentType: string | null }> {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), limits.timeoutMs);
+  const res = await safeFetch(url, {
+    timeoutMs: limits.timeoutMs,
+    maxBodyBytes: limits.maxBytesPerImage,
+    headers: {
+      "User-Agent": "sajtmaskin/1.0 (+https://localhost)",
+    },
+  });
 
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "sajtmaskin/1.0 (+https://localhost)",
-      },
-    });
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-
-    const contentType = res.headers.get("content-type");
-    const contentLengthHeader = res.headers.get("content-length");
-    const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
-    if (
-      contentLength != null &&
-      Number.isFinite(contentLength) &&
-      contentLength > limits.maxBytesPerImage
-    ) {
-      throw new Error(`Image too large (${contentLength} bytes)`);
-    }
-
-    const body = res.body;
-    const streamBody = body as ReadableStream<Uint8Array>;
-    if (!body || typeof streamBody.getReader !== "function") {
-      const arrayBuffer = await res.arrayBuffer();
-      const buf = Buffer.from(arrayBuffer);
-      if (buf.byteLength > limits.maxBytesPerImage)
-        throw new Error(`Image too large (${buf.byteLength} bytes)`);
-      return { buffer: buf, contentType };
-    }
-
-    const reader = (body as ReadableStream<Uint8Array>).getReader();
-    const chunks: Buffer[] = [];
-    let total = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-
-      total += value.byteLength;
-      if (total > limits.maxBytesPerImage) {
-        try {
-          reader.cancel();
-        } catch {
-          // ignore
-        }
-        throw new Error(`Image too large (>${limits.maxBytesPerImage} bytes)`);
-      }
-      chunks.push(Buffer.from(value));
-    }
-
-    return { buffer: Buffer.concat(chunks), contentType };
-  } finally {
-    clearTimeout(t);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
   }
+
+  const contentType = res.headers.get("content-type");
+  const contentLengthHeader = res.headers.get("content-length");
+  const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
+  if (
+    contentLength != null &&
+    Number.isFinite(contentLength) &&
+    contentLength > limits.maxBytesPerImage
+  ) {
+    throw new Error(`Image too large (${contentLength} bytes)`);
+  }
+
+  const body = res.body;
+  const streamBody = body as ReadableStream<Uint8Array>;
+  if (!body || typeof streamBody.getReader !== "function") {
+    const arrayBuffer = await res.arrayBuffer();
+    const buf = Buffer.from(arrayBuffer);
+    if (buf.byteLength > limits.maxBytesPerImage)
+      throw new Error(`Image too large (${buf.byteLength} bytes)`);
+    return { buffer: buf, contentType };
+  }
+
+  const reader = (body as ReadableStream<Uint8Array>).getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+
+    total += value.byteLength;
+    if (total > limits.maxBytesPerImage) {
+      try {
+        await reader.cancel();
+      } catch {
+        // ignore
+      }
+      throw new Error(`Image too large (>${limits.maxBytesPerImage} bytes)`);
+    }
+    chunks.push(Buffer.from(value));
+  }
+
+  return { buffer: Buffer.concat(chunks), contentType };
 }
 
 export async function materializeImagesInTextFiles(params: {
