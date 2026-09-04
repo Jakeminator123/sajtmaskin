@@ -8,7 +8,7 @@ on:
   # Kör den betrodda workflow-/skriptversionen från default-branchen. Jobbet
   # skriver labels och får därför aldrig exekvera kod från PR-headen.
   pull_request_target:
-    branches: [master]
+    branches: [master, preview]
     types:
       [
         opened,
@@ -31,7 +31,7 @@ on:
   # En PR:s testade merge-resultat kan bli inaktuellt även utan ny head-commit
   # när dess bas flyttas. Ogiltigförklara därför alla öppna, sign-offade PR:er.
   push:
-    branches: [master]
+    branches: [master, preview]
 
 permissions:
   actions: read
@@ -155,8 +155,8 @@ jobs:
           pr_json=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")
           HEAD_SHA=$(printf '%s' "$pr_json" | jq -r '.head.sha')
           BASE_REF=$(printf '%s' "$pr_json" | jq -r '.base.ref')
-          if [ "$BASE_REF" != "master" ]; then
-            echo "PR #${PR_NUMBER} har base ${BASE_REF}, inte master — no-op."
+          if [ "$BASE_REF" != "master" ] && [ "$BASE_REF" != "preview" ]; then
+            echo "PR #${PR_NUMBER} har base ${BASE_REF}, inte master/preview — no-op."
             exit 0
           fi
           BASE_SHA=""
