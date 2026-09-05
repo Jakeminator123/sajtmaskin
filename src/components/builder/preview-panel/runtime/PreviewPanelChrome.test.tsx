@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PreviewPanelChrome } from "./PreviewPanelChrome";
 import type { PreviewRouteInfo } from "../pages/preview-route-helpers";
@@ -80,15 +80,44 @@ describe("PreviewPanelChrome sanningsrad", () => {
     expect(container.querySelector('[data-slot="alert"]')).toBeNull();
   });
 
-  it("behåller alert för tier-2 build-fel (unik, åtgärdbar info)", () => {
-    const { container, getByText } = render(
+  it("behåller alert för tier-2 build-fel med en mänsklig rubrik (aldrig stage-id:t)", () => {
+    const { container, getByText, queryByText } = render(
       <PreviewPanelChrome
         {...BASE_PROPS}
         previewBuildError={{ stage: "build", message: "Type error in app/page.tsx" }}
       />,
     );
 
+    const alert = container.querySelector('[data-testid="preview-build-error-banner"]');
     expect(container.querySelectorAll('[data-slot="alert"]')).toHaveLength(1);
-    expect(getByText("Tier-2 / build: build")).toBeTruthy();
+    expect(alert?.getAttribute("data-severity")).toBe("error");
+    expect(queryByText(/Tier-2 \/ build/)).toBeNull();
+    expect(getByText("Type error in app/page.tsx")).toBeTruthy();
+  });
+
+  it("visar ett info-kort utan rå logg för en ej verifierbar (klientrenderad) preview", () => {
+    // Prod chat 28af0778: det här var en röd "byggfel"-banner med 30 rader
+    // `GET / 200 in 3xms`. Nu: lugn notis, loggen bara bakom en knapp.
+    const { container, getByText, queryByText, getByRole } = render(
+      <PreviewPanelChrome
+        {...BASE_PROPS}
+        previewBuildError={{
+          stage: "preview-unverified",
+          severity: "info",
+          title: "Förhandsvisningen kunde inte kontrolleras automatiskt",
+          message: "Sidan svarar men visar inget innehåll förrän den körts i webbläsaren.",
+          detail: "Runtime served HTML with an empty body for 90000ms\nGET / 200 in 35ms",
+        }}
+      />,
+    );
+
+    const alert = container.querySelector('[data-testid="preview-build-error-banner"]');
+    expect(alert?.getAttribute("data-severity")).toBe("info");
+    expect(getByText("Förhandsvisningen kunde inte kontrolleras automatiskt")).toBeTruthy();
+    expect(queryByText(/GET \/ 200/)).toBeNull();
+    expect(queryByText(/byggfel/i)).toBeNull();
+
+    fireEvent.click(getByRole("button", { name: "Visa teknisk detalj" }));
+    expect(getByText(/GET \/ 200 in 35ms/)).toBeTruthy();
   });
 });

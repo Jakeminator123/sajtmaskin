@@ -33,7 +33,7 @@ brief**. Inte «brief eller ingen brief».
 | `clear-refine` | Snapshot-Brief (`buildFollowUpBriefFromSnapshot`) — rikare än redesign-reserven (stil, ton, quality, motion, CTA) | nej |
 | `capability-add` / `capability-modify` | Snapshot-Brief + deterministisk dossier-signal (`requestedDossierCapabilities` / `capabilityModifyHint`) | nej |
 | `neutral` | Snapshot-Brief + rå ändring | nej |
-| `ambiguous-redesign` / `ambiguous-followup` | klargörande fråga först (`resolveFollowUpClarification`) | nej (rätt så) |
+| `ambiguous-redesign` / `ambiguous-followup` | Snapshot-Brief + rå ändring, som `neutral` (scope-kortet `resolveFollowUpClarification` togs bort 2026-09-05; intenten är bara telemetri) | nej |
 
 Källor:
 

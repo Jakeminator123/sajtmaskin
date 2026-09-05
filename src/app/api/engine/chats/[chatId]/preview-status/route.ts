@@ -11,14 +11,33 @@ import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-teleme
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import { fetchPreviewHostReadinessVerdict } from "@/lib/gen/preview/preview-host-client";
-import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
+import type {
+  PreviewStatusApiJson,
+  PreviewStatusReason,
+} from "@/lib/gen/preview/preview-contract";
 import { getVersionById } from "@/lib/db/chat-repository-pg";
 import {
   applyPreviewReadinessOutcome,
   decidePreviewReadinessOutcome,
 } from "@/lib/gen/preview/readiness-stamp";
+import {
+  classifyReadinessFailure,
+  isUnverifiedReadinessFailure,
+} from "@/lib/gen/preview/readiness-failure";
 
 const BOOT_GRACE_MS = 90_000;
+
+/**
+ * `build_error_overlay` only when the host actually saw a compile failure.
+ * An empty-body verdict (client-rendered page) is reported honestly as
+ * `preview_unverified_empty_body` so the client renders a notice instead of
+ * a red build-error banner.
+ */
+function readinessFailureReason(buildError: string | null): PreviewStatusReason {
+  return isUnverifiedReadinessFailure(classifyReadinessFailure(buildError))
+    ? "preview_unverified_empty_body"
+    : "build_error_overlay";
+}
 
 function sessionSoftExpiryAt(entry: PreviewSessionEntry): number {
   return Math.min(entry.createdAt + PREVIEW_SESSION_HARD_CAP_MS, entry.lastUsedAt + PREVIEW_SESSION_IDLE_MS);
@@ -185,7 +204,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             previewUrl: session.previewUrl,
             versionId: sessionVid,
             sessionExpiresAt: sessionSoftExpiryAt(session),
-            reason: "build_error_overlay",
+            reason: readinessFailureReason(failureDecision.buildError),
             readinessError: failureDecision.buildError,
           };
           logPreviewLifecycleTelemetry({
@@ -252,7 +271,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           previewUrl: resumed.primaryUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session),
-          reason: "build_error_overlay",
+          reason: readinessFailureReason(readinessDecision.buildError),
           readinessError: readinessDecision.buildError,
         };
         logPreviewLifecycleTelemetry({

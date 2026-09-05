@@ -111,6 +111,12 @@ export interface BuilderStreamEventMap {
   integration: BuilderIntegrationPayload;
   "tool-call": BuilderToolCallPayload;
   progress: BuilderProgressPayload;
+  /**
+   * Plain-language account of the finished turn (`turn-summary.ts`), sent
+   * once after the code stream and before `done`. Separate from `content`
+   * so the client appends it verbatim instead of stream-merging it.
+   */
+  "turn-summary": BuilderTextPayload;
   ping: BuilderPingPayload;
   chatId: BuilderChatIdPayload;
   projectId: BuilderProjectIdPayload;
@@ -136,6 +142,7 @@ const BUILDER_STREAM_EVENT_NAMES = new Set<BuilderStreamEventName>([
   "integration",
   "tool-call",
   "progress",
+  "turn-summary",
   "ping",
   "chatId",
   "projectId",

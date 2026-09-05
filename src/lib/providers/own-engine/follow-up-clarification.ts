@@ -1,6 +1,4 @@
-import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { FOCUS_POINT_MARKER as FOLLOW_UP_FOCUS_POINT_MARKER } from "@/lib/builder/focus-point-prompt";
-import { formatSSEEvent } from "@/lib/streaming";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import { hasNegatedRedesignIntent } from "@/lib/builder/prompt-negation";
 import { type FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
@@ -205,18 +203,6 @@ export function shouldIgnorePersistedScaffoldForMatch(params: {
   return true;
 }
 
-export type FollowUpClarificationReason =
-  | "followup_redesign_ambiguous"
-  | "followup_edit_underspecified";
-
-export type FollowUpClarification = {
-  question: string;
-  options: string[];
-  reason: FollowUpClarificationReason;
-  intro: string;
-  toolCallPrefix: string;
-};
-
 function isUnderspecifiedFollowUp(message: string): boolean {
   const trimmed = message.trim();
   if (!trimmed || trimmed.length > 300) return false;
@@ -325,86 +311,15 @@ export function classifyFollowUpIntent(message: string): FollowUpIntentMode {
   return "neutral";
 }
 
-export function resolveFollowUpClarification(message: string): FollowUpClarification | null {
-  switch (classifyFollowUpIntent(message)) {
-    case "ambiguous-redesign":
-      return {
-        question: "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?",
-        options: [
-          "Förfina nuvarande design",
-          "Gör en tydlig redesign i samma projekt",
-          "Starta om från en ny grund",
-        ],
-        reason: "followup_redesign_ambiguous",
-        intro:
-          "Jag kan fortsätta direkt, men först behöver jag veta om du vill förfina den nuvarande sajten eller göra en verklig redesign.",
-        toolCallPrefix: "clarify-redesign",
-      };
-    case "ambiguous-followup":
-      return {
-        question: "Vad vill du att jag fokuserar på i nästa ändring?",
-        options: [
-          "Layout och design",
-          "Text och innehåll",
-          "Ny sektion eller sida",
-          "Tydlig redesign",
-        ],
-        reason: "followup_edit_underspecified",
-        intro:
-          "Jag kan fortsätta direkt, men din follow-up är lite för öppen. Säg gärna vad du vill att jag prioriterar i nästa ändring.",
-        toolCallPrefix: "clarify-followup",
-      };
-    default:
-      return null;
-  }
-}
-
-export async function persistFollowUpClarification(params: {
-  chatId: string;
-  message: string;
-  clarification: FollowUpClarification;
-  addMessage: (
-    chatId: string,
-    role: "user" | "assistant",
-    content: string,
-    parentMessageId?: string | undefined,
-    uiParts?: Array<Record<string, unknown>> | undefined,
-  ) => Promise<unknown>;
-}): Promise<void> {
-  const { chatId, message, clarification, addMessage } = params;
-
-  try {
-    await addMessage(chatId, "user", message);
-  } catch {
-    // Best effort persistence only.
-  }
-
-  try {
-    await addMessage(chatId, "assistant", clarification.question, undefined, [{
-      type: "tool:awaiting-input",
-      toolName: "Klargörande fråga",
-      state: "approval-requested",
-      output: {
-        question: clarification.question,
-        options: clarification.options,
-        kind: "scope",
-        blocking: true,
-        reason: clarification.reason,
-        awaitingInput: true,
-        // Machine-readable retry marker (prod chat e8bd3ba6): the next turn's
-        // collectFollowUpClarificationAnswer() recovers the ORIGINAL follow-up
-        // prompt when the user answers with a quick-reply option — otherwise
-        // the short option text becomes the whole generation prompt.
-        // Deliberately NOT `f3Continuation` — same marker discipline as
-        // buildF3AwaitingInputUiPart.
-        followUpClarification: true,
-        sourceUserMessage: message,
-      },
-    }]);
-  } catch {
-    // Best effort persistence only.
-  }
-}
+/**
+ * The canned scope-clarification card ("Vad vill du att jag fokuserar på…",
+ * "…förfina eller riktig redesign?") was removed 2026-09-05: it fired on
+ * short vague edits and even on bug reports, and the option list ("Tydlig
+ * redesign", "Starta om från en ny grund") had nothing to do with what the
+ * user asked. Follow-ups now always generate. The answer-recovery helpers
+ * below are kept so chats that still have a pending card from before the
+ * change can answer it and get their original request back.
+ */
 
 /**
  * Heading for the wrapped retry prompt once a follow-up scope clarification
@@ -453,7 +368,7 @@ function readFollowUpClarificationMarker(
 }
 
 /**
- * Known quick-reply strings from {@link resolveFollowUpClarification}.
+ * Known quick-reply strings from the retired scope-clarification card.
  * Unknown persisted options stay exact-match-only — do not invent stems.
  * Lower rank = more specific; used when two stems both fire
  * ("gör om från grunden" → start-over, not redesign).
@@ -750,7 +665,7 @@ function matchFollowUpClarificationOption(
 
 /**
  * Collects a follow-up SCOPE clarification answer from chat history
- * ({@link persistFollowUpClarification}). Finds the latest
+ * (legacy `followUpClarification` marker rows). Finds the latest
  * assistant message carrying the `followUpClarification` marker with no user
  * message after it (same pending semantics as `getLatestPendingReply` /
  * `hasUserMessageAfter` in BuilderMessageTooling).
@@ -831,47 +746,4 @@ export function classifyFollowUpClarificationAnswerIntent(
   const fromSource = classifyFollowUpIntent(sourceUserMessage);
   if (isClear(fromSource)) return fromSource;
   return "neutral";
-}
-
-export function buildAwaitingClarificationStream(params: {
-  chatId: string;
-  clarification: FollowUpClarification;
-}) {
-  const { chatId, clarification } = params;
-  const enc = new TextEncoder();
-
-  return new ReadableStream({
-    start(controller) {
-      controller.enqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
-      controller.enqueue(
-        enc.encode(
-          formatSSEEvent("tool-call", {
-            toolName: "askClarifyingQuestion",
-            toolCallId: `${clarification.toolCallPrefix}:${chatId}:${Date.now()}`,
-            args: {
-              question: clarification.question,
-              options: clarification.options,
-              kind: "scope",
-              blocking: true,
-            },
-          }),
-        ),
-      );
-      controller.enqueue(enc.encode(formatSSEEvent("content", clarification.intro)));
-      controller.enqueue(
-        enc.encode(
-          formatSSEEvent("done", {
-            chatId,
-            versionId: null,
-            messageId: null,
-            ...previewUrlField(null),
-            awaitingInput: true,
-            awaitingInputPrompt: clarification.question,
-            reason: clarification.reason,
-          }),
-        ),
-      );
-      controller.close();
-    },
-  });
 }

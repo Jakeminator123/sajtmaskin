@@ -1,4 +1,5 @@
 import type { PreviewHostStatusResult } from "./preview-host-client";
+import { classifyReadinessFailure, isUnverifiedReadinessFailure } from "./readiness-failure";
 import { LOCKFILE_STALE_MARKER_PATH } from "@/lib/gen/autofix/dep-completer";
 
 /**
@@ -108,16 +109,23 @@ export async function applyPreviewReadinessOutcome(params: {
       const { createEngineVersionErrorLogs } = await import(
         "@/lib/db/services/version-errors"
       );
+      // An empty-body verdict is "could not verify", not "broken": the JS-less
+      // probe cannot see a client-rendered page. Keep the row (it explains the
+      // `preview_success=false` stamp) but log it as a warning and tag the
+      // kind so /logg and the defect grouping can tell it from real compile
+      // failures (prod chat 28af0778: 7 such rows read as build errors).
+      const readinessFailureKind = classifyReadinessFailure(decision.buildError);
       await createEngineVersionErrorLogs(
         [
           {
             chatId: params.chatId,
             versionId: params.versionId,
-            level: "error",
+            level: isUnverifiedReadinessFailure(readinessFailureKind) ? "warning" : "error",
             category: "preview",
             message: decision.buildError,
             meta: {
               source: "preview_readiness_probe",
+              readinessFailureKind,
               ...(params.resumed.installDiagnostics
                 ? { installDiagnostics: params.resumed.installDiagnostics }
                 : {}),
