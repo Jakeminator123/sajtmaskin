@@ -13,7 +13,11 @@ import {
   formatRepairPassProgress,
   type VersionDisplayStatus,
 } from "@/lib/builder/version-status-display";
-import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
+import {
+  previewBuildErrorTitle,
+  type PreviewBuildErrorState,
+  type PreviewLifecycleState,
+} from "@/lib/builder/preview-lifecycle";
 import type { DesignTheme } from "@/lib/builder/theme-presets";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +38,7 @@ interface PreviewPanelEmptyStateProps {
   awaitingInputQuestion?: string | null;
   awaitingInputOptions: string[];
   previewPending: boolean;
-  previewBuildError?: { stage: string; message: string } | null;
+  previewBuildError?: PreviewBuildErrorState | null;
   previewLifecycle?: PreviewLifecycleState;
   activeVersionStatus?: VersionDisplayStatus | null;
   activeVersionSummary?: string | null;
@@ -131,7 +135,7 @@ export function PreviewPanelEmptyState({
                 "Versionen repareras i bakgrunden innan nästa användbara preview blir aktiv."
               : null;
   const title = previewBuildError
-    ? "Live-preview misslyckades"
+    ? previewBuildErrorTitle(previewBuildError)
     : versionlessAborted
       ? "Genereringen avbröts"
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
@@ -150,8 +154,10 @@ export function PreviewPanelEmptyState({
                 : externalLoading
                   ? "Genererar kod"
                   : "Ingen förhandsvisning ännu");
+  // Plain-language body only — the stage id and any host log tail belong in
+  // the chrome banner's collapsed detail, not in the empty-state headline.
   const subtitle = previewBuildError
-    ? `Steg: ${previewBuildError.stage}. ${previewBuildError.message}`
+    ? previewBuildError.message
     : versionlessAborted
       ? "Strömmen avbröts innan en version sparades. Den här chatten kan inte repareras — starta om genereringen i en ny chat."
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
@@ -190,7 +196,9 @@ export function PreviewPanelEmptyState({
       !previewPending,
   );
   const EmptyIcon = previewBuildError
-    ? AlertCircle
+    ? previewBuildError.severity === "info"
+      ? MessageCircleQuestion
+      : AlertCircle
     : versionlessAborted
       ? RotateCcw
       : previewPending || pendingTemplateInit

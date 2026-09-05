@@ -25,6 +25,7 @@ import { useProjectThumbnail } from "./useProjectThumbnail";
 import { useBuilderVmPreview } from "./useBuilderVmPreview";
 import { usePreviewSession } from "./usePreviewSession";
 import { isShimOrMissingPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { presentReadinessFailure } from "@/lib/gen/preview/readiness-failure";
 import { useBuilderActiveVersionInfo } from "./page-controller/useBuilderActiveVersionInfo";
 import { useBuilderAutoStartGeneration } from "./page-controller/useBuilderAutoStartGeneration";
 import { useBuilderDeploymentStatusSync } from "./page-controller/useBuilderDeploymentStatusSync";
@@ -367,16 +368,31 @@ export function useBuilderPageController() {
   // handlePreviewSessionSuspect matar även heartbeat och inspector.
   const handlePreviewRecoverFailed = useCallback(
     ({ reason, detail }: { reason: string; detail?: string | null }) => {
+      if (reason === "build_error") {
+        // The host verdict text is diagnostic material, not UI copy. Prod
+        // chat 28af0778 saw "Live-preview stoppade på ett byggfel:" followed
+        // by 30 lines of `GET / 200 in 3xms` for a page that simply rendered
+        // client-side. `presentReadinessFailure` decides severity and wording;
+        // the raw text survives only as collapsed detail.
+        const presented = presentReadinessFailure(detail);
+        setPreviewBuildError({
+          stage:
+            presented.severity === "info" ? "preview-unverified" : "preview-build-error",
+          severity: presented.severity,
+          title: presented.title,
+          message: presented.message,
+          detail: presented.detail,
+        });
+        setPreviewPending(false);
+        return;
+      }
       setPreviewBuildError({
-        stage: reason === "build_error" ? "preview-build-error" : "preview-recover",
+        stage: "preview-recover",
+        severity: "error",
         message:
-          reason === "build_error"
-            ? detail?.trim()
-              ? `Live-preview stoppade på ett byggfel: ${detail.trim()}`
-              : "Live-preview stoppade på ett byggfel — koden kompilerar inte. En omstart hjälper inte; åtgärda felet."
-            : reason === "status_unavailable"
-              ? "Live-preview kunde inte verifieras mot servern efter flera försök."
-              : "Live-preview kunde inte återansluta efter flera försök.",
+          reason === "status_unavailable"
+            ? "Live-preview kunde inte verifieras mot servern efter flera försök."
+            : "Live-preview kunde inte återansluta efter flera försök.",
       });
       setPreviewPending(false);
     },

@@ -30,7 +30,14 @@ export type PreviewStatusReason =
   | "preview_session_id_mismatch"
   | "provider_not_running_or_unreachable"
   | "boot_grace_period"
-  | "build_error_overlay";
+  | "build_error_overlay"
+  /**
+   * Host readiness gave up because the page served HTTP 200 HTML with no
+   * visible text (client-rendered / locally gated page). `status` is still
+   * `build_error` so the client stops its recover loop, but this is NOT
+   * evidence that the site is broken — the UI shows a notice, not a failure.
+   */
+  | "preview_unverified_empty_body";
 
 export type PreviewRuntimeStatus =
   | "running"

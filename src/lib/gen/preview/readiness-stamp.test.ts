@@ -221,18 +221,19 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     });
   });
 
-  it("stamps preview_success=false + category preview when host fails on persistent empty HTML body", async () => {
-    // Host waitForReady now rejects empty <body> at the readiness deadline
-    // (readinessState=failed) instead of accepting after ~5 polls. App-side
-    // translation must stay on the existing failed → stamp false + error-log
-    // path — never preview_success=true, no new UI surface.
+  it("stamps preview_success=false + logs a WARNING tagged empty_body when host fails on persistent empty HTML body", async () => {
+    // Host waitForReady rejects empty <body> at its own deadline
+    // (readinessState=failed). App-side the stamp stays false (never a
+    // false-green), but the row is a warning tagged `empty_body`: the JS-less
+    // probe cannot see a client-rendered page, so this is "unverified", not
+    // "broken" (prod chat 28af0778 logged 7 of these as build errors).
     await applyPreviewReadinessOutcome({
       chatId: "chat_1",
       versionId: "v1",
       resumed: {
         readinessState: "failed",
         readinessError:
-          "Runtime did not become ready within 600000ms. Last error: HTTP 200 HTML but body text still empty (compiling or blank page)",
+          "Runtime served HTML with an empty body for 90000ms (not ready): HTTP 200 HTML but body text still empty (compiling or blank page)\nLast Next.js output:\n GET / 200 in 35ms",
         regeneratedLockfile: null,
         httpReady: false,
       },
@@ -241,14 +242,44 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false);
     expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
     const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
-      Array<{ versionId: string; level: string; category: string; message: string }>,
+      Array<{
+        versionId: string;
+        level: string;
+        category: string;
+        message: string;
+        meta: Record<string, unknown>;
+      }>,
     ];
     expect(payloads[0]).toMatchObject({
       versionId: "v1",
-      level: "error",
+      level: "warning",
       category: "preview",
     });
+    expect(payloads[0].meta).toMatchObject({
+      source: "preview_readiness_probe",
+      readinessFailureKind: "empty_body",
+    });
     expect(payloads[0].message).toMatch(/body text still empty/i);
+  });
+
+  it("keeps level=error and tags build_error_overlay for a real compile failure", async () => {
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      resumed: {
+        readinessState: "failed",
+        readinessError:
+          "Runtime is serving a Next.js build error overlay (not ready): Module not found: Can't resolve 'radix-ui'",
+        regeneratedLockfile: null,
+        httpReady: false,
+      },
+    });
+
+    const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
+      Array<{ level: string; meta: Record<string, unknown> }>,
+    ];
+    expect(payloads[0].level).toBe("error");
+    expect(payloads[0].meta).toMatchObject({ readinessFailureKind: "build_error_overlay" });
   });
 
   it("stamps preview_success=true and never logs an error when ready", async () => {

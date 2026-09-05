@@ -55,6 +55,12 @@ import {
   pruneStaleLogsIfCleanRepair,
 } from "./persist-side-effects";
 import { persistTelemetryRecord } from "./persist-telemetry";
+import {
+  appendTurnSummary,
+  buildTurnSummary,
+  hasModelProseSummary,
+  parseTurnSummaryFiles,
+} from "../turn-summary";
 import { attachVersionToPendingUsage, setLlmUsageContext } from "@/lib/observability/llm-usage";
 import { buildWarmPassTelemetry } from "./warm-pass-telemetry";
 import type {
@@ -444,11 +450,31 @@ export async function finalizeAndSaveVersion(
       ),
     ),
   );
+  // Plain-language account of the turn for the chat (see turn-summary.ts).
+  // Appended to the persisted MESSAGE only — `contentForVersion` (the code)
+  // is what the rest of the pipeline keeps reading. Skipped when the model
+  // itself explained its work outside the code blocks.
+  const turnSummary = hasModelProseSummary(contentForVersion)
+    ? null
+    : buildTurnSummary({
+        generationMode: buildSpec?.generationMode === "followUp" ? "followUp" : "init",
+        repairPassIndex,
+        userPrompt: originalPrompt ?? null,
+        files: parseTurnSummaryFiles(filesJson),
+        previousFiles: previousFiles ?? null,
+        routeNames: routePlan?.routes?.map((route) => route.name) ?? null,
+        dossierLabels: selectedDossiers.map((dossier) => dossier.label),
+        autofixFixCount: autoFixFixCount,
+        rejectedShrinks,
+        rejectedStructural,
+        previewBlocked: Boolean(previewBlockingReason),
+      });
+  const contentForMessage = appendTurnSummary(contentForVersion, turnSummary);
   const { message: assistantMsg, version: initialVersion } = targetVersionId
     ? await chatRepo.addAssistantMessageAndUpdateExistingVersion(
         chatId,
         targetVersionId,
-        contentForVersion,
+        contentForMessage,
         filesJson,
         {
           thinking: thinkingForPersist,
@@ -459,7 +485,7 @@ export async function finalizeAndSaveVersion(
             selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
         },
       )
-    : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson, {
+    : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForMessage, filesJson, {
         lifecycleStage: buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design",
         parentVersionId: lifecycleParentVersionId ?? null,
         thinking: thinkingForPersist,
@@ -824,6 +850,7 @@ export async function finalizeAndSaveVersion(
     tier2PreviewUrl: null,
     filesJson,
     contentForVersion,
+    turnSummary,
     preflight: {
       verificationBlocked: hasVerificationBlockingErrors,
       previewBlocked: hasPreviewBlockingPreflightErrors,

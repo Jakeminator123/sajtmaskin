@@ -75,6 +75,36 @@ export function handleContentEvent(
   }
 }
 
+/**
+ * `turn-summary`: the finalize pipeline's plain-language account of the
+ * turn (server `turn-summary.ts`), sent once after the code stream and
+ * before `done`. Appended verbatim as a trailing paragraph — deliberately
+ * NOT through `mergeStreamingText`, whose full-replace heuristic could
+ * swallow a short turn's code text when the summary is longer than it.
+ * The persisted message carries the same suffix, so live view and reload
+ * agree.
+ */
+export function handleTurnSummaryEvent(
+  data: unknown,
+  state: StreamRunState,
+  ctx: StreamContext,
+  deps: ContentDeps,
+) {
+  const summaryText =
+    typeof data === "string"
+      ? data
+      : (data as Record<string, unknown>)?.text ||
+        (data as Record<string, unknown>)?.summary ||
+        null;
+  const summary = summaryText ? String(summaryText).trim() : "";
+  if (!summary) return;
+  const previous = state.accumulatedContent.replace(/\s+$/, "");
+  const merged = previous ? `${previous}\n\n${summary}\n` : `${summary}\n`;
+  recordStreamText(state.streamStats, "content", state.accumulatedContent, merged, summary.length);
+  state.accumulatedContent = merged;
+  deps.requestStreamingTextFlush("content");
+}
+
 export function handlePartsEvent(data: unknown, state: StreamRunState, ctx: StreamContext) {
   const nextParts = coerceUiParts(data);
   if (nextParts.length > 0) {

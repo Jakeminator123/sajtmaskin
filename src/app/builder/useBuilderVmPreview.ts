@@ -8,6 +8,7 @@ import {
   PREVIEW_BOOTSTRAP_RETRY_FALLBACK_MS,
   shouldRetryPreviewBootstrapFetch,
 } from "@/lib/builder/preview-bootstrap-retry";
+import type { PreviewBuildErrorState } from "@/lib/builder/preview-lifecycle";
 import {
   PROJECT_ENV_VARS_UPDATED_EVENT,
   readProjectEnvVarsUpdatedDetail,
@@ -109,10 +110,9 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
     onBootstrapRecoverSucceeded,
   } = params;
 
-  const [previewBuildError, setPreviewBuildError] = useState<{
-    stage: string;
-    message: string;
-  } | null>(null);
+  const [previewBuildError, setPreviewBuildError] = useState<PreviewBuildErrorState | null>(
+    null,
+  );
   const [previewProdBuild, setPreviewProdBuild] = useState<PreviewProdBuildPayload | null>(null);
   const [previewPending, setPreviewPending] = useState(false);
   const [activePreviewSessionMeta, setActivePreviewSessionMeta] = useState<{

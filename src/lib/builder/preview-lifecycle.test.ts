@@ -1,8 +1,53 @@
 import { describe, expect, it } from "vitest";
 import {
   derivePreviewLifecycleState,
+  isPreviewBuildErrorBlocking,
+  previewBuildErrorTitle,
   shouldBlockPreviewWithLoadingOverlay,
 } from "./preview-lifecycle";
+
+describe("isPreviewBuildErrorBlocking", () => {
+  it("treats error/unspecified severity as blocking and info as a notice", () => {
+    expect(isPreviewBuildErrorBlocking(null)).toBe(false);
+    expect(isPreviewBuildErrorBlocking({ stage: "preview-build-error", message: "x" })).toBe(true);
+    expect(
+      isPreviewBuildErrorBlocking({ stage: "preview-build-error", message: "x", severity: "error" }),
+    ).toBe(true);
+    expect(
+      isPreviewBuildErrorBlocking({ stage: "preview-unverified", message: "x", severity: "info" }),
+    ).toBe(false);
+  });
+
+  it("an info notice keeps a live tier-2 preview live instead of failed", () => {
+    const notice = { stage: "preview-unverified", message: "x", severity: "info" as const };
+    expect(
+      derivePreviewLifecycleState({
+        previewBuildErrorStage: notice.stage,
+        hasPreviewBuildError: isPreviewBuildErrorBlocking(notice),
+        previewSessionRecovering: false,
+        previewPending: false,
+        currentPreviewUrl: "https://vm-fly-jakem.fly.dev/chat-1",
+      }),
+    ).toBe("live");
+  });
+});
+
+describe("previewBuildErrorTitle", () => {
+  it("never leaks the raw stage id and prefers an explicit title", () => {
+    expect(previewBuildErrorTitle({ stage: "preview-build-error", message: "m" })).not.toContain(
+      "preview-build-error",
+    );
+    expect(previewBuildErrorTitle({ stage: "weird-stage", message: "m" })).not.toContain(
+      "weird-stage",
+    );
+    expect(
+      previewBuildErrorTitle({ stage: "preview-build-error", message: "m", title: "Egen rubrik" }),
+    ).toBe("Egen rubrik");
+    expect(previewBuildErrorTitle({ stage: "sandbox_disabled", message: "m" })).toBe(
+      "Live-förhandsvisning inte tillgänglig",
+    );
+  });
+});
 
 describe("derivePreviewLifecycleState", () => {
   it("returns failed when preview session is disabled", () => {
