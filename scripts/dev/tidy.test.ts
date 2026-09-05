@@ -38,7 +38,7 @@ describe("isProtectedBranch", () => {
   });
 
   it("skyddar inte vanliga arbetsbrancher", () => {
-    for (const name of ["fix/nagot", "feat/nytt", "chore/stad", "cursor/agent-abc1", "ema"]) {
+    for (const name of ["fix/nagot", "feat/nytt", "chore/stad", "cursor/agent-abc1", "explore/spar"]) {
       expect(isProtectedBranch(name), name).toBe(false);
     }
   });

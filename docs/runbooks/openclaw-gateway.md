@@ -11,7 +11,7 @@ Detaljerad konfiguration och felkatalog finns i
    rätt `controlUi.allowedOrigins`.
 3. Vercel ska ha `OPENCLAW_GATEWAY_URL` mot den **live** gatewayn
    (`https://openclaw-sajtagenten.onrender.com` — en läsbar/non-sensitive rad
-   på development, preview, production och pre-production). Samma
+   på development, preview och production). Samma
    `OPENCLAW_GATEWAY_TOKEN` som Render, plus `IMPLEMENT_UNDERSCORE_CLAW=true`.
    Peka inte på `https://sajtagenten.onrender.com` — den tjänsten är
    suspended. En ny env slår igenom först efter ny Vercel-deploy.
