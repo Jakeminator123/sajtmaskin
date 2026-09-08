@@ -246,8 +246,14 @@ async function probeReadinessAfterPatch({
   lifecycleToken,
   mutationRevision,
 }) {
-  const { runtimePort } = getRuntimeStateForChat(chatId);
-  if (!runtimePort || !sessionId || !versionId) return;
+  const runtimeState = getRuntimeStateForChat(chatId);
+  // Defense for the same stale-port hole as the route skip: a persisted
+  // session.runtimePort is the previous child. While `booting && !running`
+  // there is no tracked process, so using that port probes a dead listener
+  // and can overwrite the in-flight boot's later `ready` with `failed`.
+  if (runtimeState.booting || !runtimeState.running || !runtimeState.runtimePort) return;
+  const runtimePort = runtimeState.runtimePort;
+  if (!sessionId || !versionId) return;
   const probeLifecycle = {
     sessionId,
     lifecycleToken: lifecycleToken ?? null,

@@ -218,6 +218,106 @@ try {
     );
   }
 
+  // 5) boot_in_flight must not start a readiness probe against the persisted
+  //    previous-runtime port. The in-flight boot owns readiness; a late
+  //    waitForReady on 4293 while the new child binds 4294 used to stamp
+  //    `failed` after the boot already wrote `ready`.
+  {
+    const { once } = await import("node:events");
+    seedSession(
+      {
+        "package.json": JSON.stringify({ name: "boot-patch", private: true }),
+        "app/page.tsx": PAGE_V1,
+      },
+      { runtimePort: 4293, readinessState: "starting" },
+    );
+    runtime.__testing.setRuntimeStateForTesting({
+      chatId,
+      sessionId,
+      previewSessionId,
+      running: false,
+      booting: true,
+    });
+    runtime.__testing.setBootRunnerForTesting(async () => ({ runtimePort: 4294 }));
+    runtime.__testing.takeRestartBootsQueuedForTesting();
+
+    const probeCalls = [];
+    runtime.probeReadinessAfterPatch = async (args) => {
+      probeCalls.push(args);
+    };
+    runtime.queueRuntimeBoot = () => {};
+    const { createServer } = require("../src/server/create-server.js");
+    const server = createServer();
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    const baseUrl = `http://127.0.0.1:${address.port}`;
+
+    try {
+      const patched = await fetch(`${baseUrl}/preview/session/patch`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          previewSessionId,
+          lifecycleToken,
+          versionId,
+          expectedBaseVersionId: versionId,
+          files: { "app/page.tsx": PAGE_V2 },
+        }),
+      });
+      const body = await patched.json();
+      assert.equal(patched.status, 200, body.message ?? "patch should succeed");
+      assert.equal(body.patchMode, "patched");
+      assert.equal(body.patchReason, "boot_in_flight");
+      assert.equal(probeCalls.length, 0, "route must not start a probe during boot_in_flight");
+
+      const readyStamp = store.readStoreSync();
+      readyStamp.sessions[sessionId].readinessState = "ready";
+      readyStamp.sessions[sessionId].readinessError = null;
+      store.writeStoreAtomicSync(readyStamp);
+      const afterPatch = readyStamp.sessions[sessionId];
+
+      const originalFetch = globalThis.fetch;
+      let fetchHits = 0;
+      globalThis.fetch = async () => {
+        fetchHits += 1;
+        throw new Error("stale previous-runtime port must not be probed");
+      };
+      try {
+        const startedAt = Date.now();
+        await runtime.__testing.probeReadinessAfterPatch({
+          chatId,
+          sessionId,
+          previewSessionId,
+          versionId,
+          lifecycleToken,
+          mutationRevision: afterPatch.mutationRevision,
+        });
+        assert.ok(Date.now() - startedAt < 1000, "probe must return immediately while booting");
+        assert.equal(fetchHits, 0, "probe must not hit the persisted previous-runtime port");
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+
+      const afterProbe = store.readStoreSync().sessions[sessionId];
+      assert.equal(
+        afterProbe.readinessState,
+        "ready",
+        "boot's own ready stamp must survive a skipped boot_in_flight probe",
+      );
+      assert.equal(afterProbe.readinessError, null);
+    } finally {
+      await new Promise((resolve) => {
+        server.close(() => resolve());
+        server.closeAllConnections?.();
+      });
+    }
+
+    runtime.__testing.setBootRunnerForTesting(null);
+    runtime.__testing.clearRuntimeStateForTesting(chatId, sessionId);
+  }
+
   console.log("[test-patch-during-boot] All guards green.");
 } finally {
   runtime.__testing.setBootRunnerForTesting(null);
