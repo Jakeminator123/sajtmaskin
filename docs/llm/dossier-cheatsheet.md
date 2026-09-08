@@ -2,7 +2,6 @@
 
 Kort användarguide. Full sanningsmodell:
 [`docs/contracts/dossier-system.md`](../contracts/dossier-system.md).
-Begreppsöversikt: [`FUSKLAPP-BYGGBLOCK.md`](../../övrigt/FUSKLAPP-BYGGBLOCK.md).
 Aktuell katalog: [`docs/generated/capabilities.generated.md`](../generated/capabilities.generated.md)
 / [`docs/generated/dossiers.generated.md`](../generated/dossiers.generated.md).
 

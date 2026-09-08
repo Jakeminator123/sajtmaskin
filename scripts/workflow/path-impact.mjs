@@ -9,12 +9,13 @@ import { resolve } from "node:path";
 export const PATH_GROUP_FLOORS = Object.freeze({
   // Dokumentationsassets måste vara scopade till dokumentationsrötter, inte
   // globala mönster. `**/*.svg` skulle klassa emit-bart dossierinnehåll som
-  // `data/dossiers/hard/*/public/icon.svg` som docs, och `övrigt/**/*.yml`
+  // `data/dossiers/hard/*/public/icon.svg` som docs, och ett `övrigt/**`
   // skulle klassa `övrigt/testyta/docker-compose.yml` — en yta som ligger i
   // tsconfig `exclude` just för att den innehåller kod. Båda skulle då slippa
   // unknown-path-skyddet längre ner. `docs/**` täcker redan alla filtyper
-  // under `docs/`; nya dokumentationsträd läggs till uttryckligen här.
-  docs: Object.freeze(["**/*.md", "**/*.mdx", "docs/**", "övrigt/OPENCLAW-BUILDER/**"]),
+  // under `docs/` (inkl. arkiverade planpaket med .yaml/.mmd/.svg); nya
+  // dokumentationsträd utanför `docs/` läggs till uttryckligen här.
+  docs: Object.freeze(["**/*.md", "**/*.mdx", "docs/**"]),
   controlPlane: Object.freeze([
     "docs/schemas/**",
     "config/control-plane/**",

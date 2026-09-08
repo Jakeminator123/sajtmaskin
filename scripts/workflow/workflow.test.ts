@@ -303,9 +303,9 @@ describe("agent workflow impact", () => {
   });
 
   it.each([
-    "övrigt/OPENCLAW-BUILDER/STATUS.yaml",
-    "övrigt/OPENCLAW-BUILDER/diagrams/target.mmd",
-    "övrigt/OPENCLAW-BUILDER/diagrams/target.svg",
+    "docs/plans/archived/2026-08-24-openclaw-builder/STATUS.yaml",
+    "docs/plans/archived/2026-08-24-openclaw-builder/diagrams/target.mmd",
+    "docs/plans/archived/2026-08-24-openclaw-builder/diagrams/target.svg",
     "docs/architecture/flow.svg",
   ])("treats documentation assets as docs instead of unknown paths: %s", (path) => {
     const impact = collectImpact({ ...inputs, changedFiles: [path] });
@@ -315,9 +315,10 @@ describe("agent workflow impact", () => {
   });
 
   // The documentation-asset classification must stay scoped to documentation
-  // roots. A global `**/*.svg` or `övrigt/**/*.yml` would let emit-capable
-  // dossier content and the excluded code surface `övrigt/testyta` skip the
-  // fail-safe.
+  // roots. A global `**/*.svg` or `övrigt/**` would let emit-capable dossier
+  // content and the excluded code surface `övrigt/testyta` skip the fail-safe.
+  // `övrigt/` is the owner's local scratch area (gitignored for new files) and
+  // carries no documentation roots any more.
   it.each([
     "deploy/cluster.yaml",
     "data/dossiers/hard/demo/public/icon.svg",
