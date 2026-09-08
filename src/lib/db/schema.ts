@@ -601,6 +601,13 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
 export const engineChats = pgTable("engine_chats", {
   id: text("id").primaryKey(),
   projectId: text("project_id").references(() => appProjects.id, { onDelete: "cascade" }),
+  /**
+   * Unpopulated. `createChat` never writes this column, and no other
+   * `src/lib/db` owner updates it. Display readers must fall back to
+   * `app_projects.name` via `project_id` (the FK target — not v0 `projects`),
+   * then the first user-prompt excerpt. Do not treat a null title as
+   * "namnlös".
+   */
   title: text("title"),
   model: text("model").notNull().default("gpt-5.4"),
   systemPrompt: text("system_prompt"),

@@ -10,6 +10,7 @@ import {
   MODEL_PRICE_VERSION,
   type ModelCost,
 } from "@/lib/billing/model-cost";
+import { resolveChatDisplayTitle } from "@/lib/db/chat-display-title";
 import { db } from "@/lib/db/client";
 import {
   appProjects,
@@ -846,6 +847,7 @@ export async function getGenerationBillingAdminData(
       ec.title AS "chatTitle",
       ap.id AS "projectId",
       ap.name AS "projectName",
+      first_user.content AS "firstUserPrompt",
       gb.user_id AS "userId",
       u.name AS "userName",
       u.email AS "userEmail",
@@ -873,6 +875,13 @@ export async function getGenerationBillingAdminData(
     LEFT JOIN engine_versions ev ON ev.id = gb.version_id
     LEFT JOIN engine_chats ec ON ec.id = gb.chat_id
     LEFT JOIN app_projects ap ON ap.id = ec.project_id
+    LEFT JOIN LATERAL (
+      SELECT em.content
+      FROM engine_messages em
+      WHERE em.chat_id = gb.chat_id AND em.role = 'user'
+      ORDER BY em.created_at ASC
+      LIMIT 1
+    ) first_user ON true
     LEFT JOIN users u ON u.id = gb.user_id
     LEFT JOIN LATERAL (
       SELECT pl.prompt_original
@@ -935,24 +944,33 @@ export async function getGenerationBillingAdminData(
         AND gb.created_at < ${normalizedWindowEnd}
     `),
   ]);
-  const rows = ((result as unknown as { rows?: AdminGenerationBillingRow[] }).rows ?? []).map(
-    (row) => ({
-      ...row,
-      providerCostMicroUsd: Number(row.providerCostMicroUsd),
-      providerCostOre: Number(row.providerCostOre),
-      markupBasisPoints: Number(row.markupBasisPoints),
-      billableOre: Number(row.billableOre),
-      usdToSekOre: Number(row.usdToSekOre),
-      sekPerCreditOre: Number(row.sekPerCreditOre),
-      creditsCharged: Number(row.creditsCharged),
-      llmCalls: Number(row.llmCalls),
-      inputTokens: Number(row.inputTokens),
-      cachedInputTokens: Number(row.cachedInputTokens),
-      cacheWriteTokens: Number(row.cacheWriteTokens),
-      outputTokens: Number(row.outputTokens),
-      reasoningTokens: Number(row.reasoningTokens),
-    }),
-  );
+  const rows = (
+    (result as unknown as { rows?: Array<AdminGenerationBillingRow & { firstUserPrompt?: string | null }> })
+      .rows ?? []
+  ).map((row) => {
+    const { firstUserPrompt, ...rest } = row;
+    return {
+      ...rest,
+      chatTitle: resolveChatDisplayTitle({
+        title: rest.chatTitle,
+        projectName: rest.projectName,
+        firstUserPrompt,
+      }),
+      providerCostMicroUsd: Number(rest.providerCostMicroUsd),
+      providerCostOre: Number(rest.providerCostOre),
+      markupBasisPoints: Number(rest.markupBasisPoints),
+      billableOre: Number(rest.billableOre),
+      usdToSekOre: Number(rest.usdToSekOre),
+      sekPerCreditOre: Number(rest.sekPerCreditOre),
+      creditsCharged: Number(rest.creditsCharged),
+      llmCalls: Number(rest.llmCalls),
+      inputTokens: Number(rest.inputTokens),
+      cachedInputTokens: Number(rest.cachedInputTokens),
+      cacheWriteTokens: Number(rest.cacheWriteTokens),
+      outputTokens: Number(rest.outputTokens),
+      reasoningTokens: Number(rest.reasoningTokens),
+    };
+  });
 
   type SummaryRow = {
     generations: number;
