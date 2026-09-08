@@ -42,9 +42,7 @@ export async function createKostnadsfriPage(data: {
   return rows[0];
 }
 
-export async function getKostnadsfriPageBySlug(
-  slug: string,
-): Promise<KostnadsfriPage | null> {
+export async function getKostnadsfriPageBySlug(slug: string): Promise<KostnadsfriPage | null> {
   assertDbConfigured();
   const rows = await db
     .select()
@@ -123,18 +121,12 @@ export async function getKostnadsfriVisitStats(
     .from(pageViews)
     .leftJoin(users, eq(pageViews.user_id, users.id))
     .where(
-      and(
-        like(pageViews.path, `${KOSTNADSFRI_PATH_PREFIX}%`),
-        gt(pageViews.created_at, startDate),
-      ),
+      and(like(pageViews.path, `${KOSTNADSFRI_PATH_PREFIX}%`), gt(pageViews.created_at, startDate)),
     )
     .orderBy(desc(pageViews.created_at))
     .limit(VISIT_ROW_LIMIT);
 
-  const bySlug = new Map<
-    string,
-    KostnadsfriSlugStats & { visitorKeys: Set<string> }
-  >();
+  const bySlug = new Map<string, KostnadsfriSlugStats & { visitorKeys: Set<string> }>();
   const recent: KostnadsfriVisitRow[] = [];
 
   for (const row of rows) {

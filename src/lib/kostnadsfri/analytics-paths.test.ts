@@ -28,10 +28,10 @@ describe("kostnadsfri analytics paths", () => {
     });
   });
 
-  it("marks only `verifierad` as server-only", () => {
+  it("marks the funnel events as server-only, the landing visit not", () => {
     expect(isServerOnlyKostnadsfriPath(kostnadsfriEventPath("ikea-ab", "verifierad"))).toBe(true);
     expect(isServerOnlyKostnadsfriPath("/kostnadsfri/ikea-ab/verifierad/")).toBe(true);
-    expect(isServerOnlyKostnadsfriPath(kostnadsfriEventPath("ikea-ab", "skapad"))).toBe(false);
+    expect(isServerOnlyKostnadsfriPath(kostnadsfriEventPath("ikea-ab", "skapad"))).toBe(true);
     expect(isServerOnlyKostnadsfriPath(kostnadsfriVisitPath("ikea-ab"))).toBe(false);
     expect(isServerOnlyKostnadsfriPath("/builder")).toBe(false);
   });

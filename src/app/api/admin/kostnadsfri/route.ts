@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { requireAdminAccess } from "@/lib/auth/admin";
-import { hashPassword } from "@/lib/auth/auth";
+import { hashPassword, verifyPassword } from "@/lib/auth/auth";
 import {
   createKostnadsfriPage,
   getKostnadsfriPageBySlug,
@@ -33,6 +33,36 @@ const generateSchema = z.object({
   contactName: z.string().trim().max(120).optional(),
   expiresInDays: z.number().int().positive().max(3650).optional(),
 });
+
+/**
+ * Human-readable truth about a saved row: does the link the admin is about to
+ * mail actually open, and with which password? Mirrors the order the verify
+ * route uses (accessibility first, then the stored hash).
+ */
+type InviteWarning = { level: "error" | "info"; message: string };
+
+function describeExistingPage(
+  page: NonNullable<Awaited<ReturnType<typeof getKostnadsfriPageBySlug>>>,
+  derivedPassword: string,
+): InviteWarning {
+  const access = isPageAccessible(page);
+  if (!access.accessible) {
+    return {
+      level: "error",
+      message: `Sluggen har en sparad sida som inte längre är öppen — besökaren möts av «${access.reason ?? "Denna länk är inte aktiv."}». Ändra eller ta bort raden innan du skickar.`,
+    };
+  }
+  if (!verifyPassword(derivedPassword, page.password_hash)) {
+    return {
+      level: "error",
+      message: `Sluggen har en sparad sida med ett eget lösenord ("${page.company_name}"). Lösenordet som visas här fungerar inte — använd det som sattes när sidan skapades.`,
+    };
+  }
+  return {
+    level: "info",
+    message: `Sluggen har redan en sparad sida ("${page.company_name}"); länken och lösenordet ovan gäller.`,
+  };
+}
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdminAccess(req);
@@ -107,23 +137,51 @@ export async function POST(req: NextRequest) {
     throw error;
   }
 
+  // The landing page and the verify route prefer a DB row when one exists, so
+  // a saved page (expired, or created via the API key with its own password)
+  // decides whether the derived password shown here actually works. Always
+  // look the slug up — also on the plain "just give me the link" path.
+  let existing: Awaited<ReturnType<typeof getKostnadsfriPageBySlug>> = null;
+  let lookupFailed = false;
+  try {
+    existing = await getKostnadsfriPageBySlug(invite.slug);
+  } catch (error) {
+    console.error("[API/admin/kostnadsfri] Failed to check existing page:", error);
+    lookupFailed = true;
+  }
+  const warning: InviteWarning | undefined = existing
+    ? describeExistingPage(existing, invite.password)
+    : lookupFailed
+      ? {
+          level: "error",
+          message:
+            "Kunde inte kontrollera mot databasen — om en sparad sida finns för sluggen gäller dess lösenord och giltighetstid, inte det som visas här.",
+        }
+      : undefined;
+
   if (!saveRecord) {
-    return NextResponse.json({ success: true, invite, saved: false });
+    return NextResponse.json({ success: true, invite, saved: false, warning });
+  }
+
+  if (lookupFailed) {
+    return NextResponse.json(
+      { success: false, error: "Länken skapades men databasen svarade inte.", invite, warning },
+      { status: 500 },
+    );
+  }
+  if (existing) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Det finns redan en sparad sida för "${invite.slug}".`,
+        invite,
+        warning,
+      },
+      { status: 409 },
+    );
   }
 
   try {
-    const existing = await getKostnadsfriPageBySlug(invite.slug);
-    if (existing) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Det finns redan en sparad sida för "${invite.slug}". Länken och lösenordet ovan gäller ändå.`,
-          invite,
-        },
-        { status: 409 },
-      );
-    }
-
     await createKostnadsfriPage({
       slug: invite.slug,
       passwordHash: hashPassword(invite.password),

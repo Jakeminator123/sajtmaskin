@@ -78,6 +78,11 @@ export interface KostnadsfriAdminPayload {
 export interface KostnadsfriInvitePayload {
   invite: { slug: string; companyName: string; password: string; url: string };
   saved: boolean;
+  /**
+   * Set when a saved DB row (or a failed lookup) changes what the shown link
+   * and password actually do. `error` = the shown values will not work as-is.
+   */
+  warning?: { level: "error" | "info"; message: string };
 }
 
 export interface DatabaseStats {

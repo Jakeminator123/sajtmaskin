@@ -3,9 +3,9 @@
  *
  * Visits to `/kostnadsfri/<slug>` are already recorded by the global
  * `AnalyticsTracker` into `page_views`. The two later steps of the flow
- * (password verified, wizard completed) are recorded into the same table as
- * synthetic paths so the admin console can show, per slug, how far each
- * invited company got — without a second event table.
+ * (password verified, wizard completed) are recorded server-side into the same
+ * table as synthetic paths so the admin console can show, per slug, how far
+ * each invited company got — without a second event table.
  *
  * Client-safe: no Node imports (the flow page bundles this file).
  */
@@ -33,13 +33,15 @@ export function kostnadsfriEventPath(
 }
 
 /**
- * `verifierad` is written only by the verify route after a correct password.
- * A browser beacon must never be able to record it, or the admin column
- * "Rätt lösenord" could be forged by anyone who knows the path convention.
- * (`besok` and `skapad` are client-reported by design and read as such.)
+ * `verifierad` is written only by the verify route after a correct password,
+ * `skapad` only by `POST /api/prompts` when the handoff row is created. A
+ * browser beacon (or the page-view tracker on a 404 at that URL) must never
+ * record them, or the admin funnel could be forged by anyone who knows the
+ * path convention. Only `besok` is client-reported, like every other page view.
  */
 export function isServerOnlyKostnadsfriPath(path: string): boolean {
-  return parseKostnadsfriAnalyticsPath(path)?.event === "verifierad";
+  const event = parseKostnadsfriAnalyticsPath(path)?.event;
+  return event === "verifierad" || event === "skapad";
 }
 
 /**

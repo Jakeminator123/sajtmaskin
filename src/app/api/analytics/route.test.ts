@@ -48,17 +48,18 @@ describe("POST /api/analytics", () => {
     expect(res.status).toBe(400);
   });
 
-  it("refuses the server-only kostnadsfri `verifierad` event from the browser", async () => {
+  it("refuses the server-only kostnadsfri funnel events from the browser", async () => {
     const { recordPageView } = await import("@/lib/db/services/analytics");
-    const res = await POST(
-      new NextRequest("http://localhost/api/analytics", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: "/kostnadsfri/ikea-ab/verifierad" }),
-      }),
-    );
-
-    expect(res.status).toBe(400);
+    for (const path of ["/kostnadsfri/ikea-ab/verifierad", "/kostnadsfri/ikea-ab/skapad"]) {
+      const res = await POST(
+        new NextRequest("http://localhost/api/analytics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path }),
+        }),
+      );
+      expect(res.status).toBe(400);
+    }
     expect(recordPageView).not.toHaveBeenCalled();
   });
 

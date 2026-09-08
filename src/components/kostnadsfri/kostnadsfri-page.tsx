@@ -7,7 +7,6 @@ import { MiniWizard } from "./mini-wizard";
 import { ThinkingSpinner } from "./thinking-spinner";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
 import { buildPromptFromWizardData } from "@/lib/kostnadsfri";
-import { kostnadsfriEventPath } from "@/lib/kostnadsfri/analytics-paths";
 import type { KostnadsfriOpenClawConfig } from "@/lib/kostnadsfri/openclaw-config";
 import { createProject } from "@/lib/projects/project-client";
 
@@ -25,9 +24,9 @@ declare global {
  * 4. Redirect to /builder with promptId
  *
  * The landing-page visit is recorded by the global AnalyticsTracker; the
- * password step is recorded server-side by the verify route; the completed
- * wizard is recorded here as `/kostnadsfri/<slug>/skapad` so the admin console
- * can follow each invited company through the funnel.
+ * password step by the verify route and the completed wizard by
+ * `POST /api/prompts` (`kostnadsfriSlug`) — both server-side, so the admin
+ * console's funnel cannot be inflated from the browser.
  */
 
 type Phase = "password" | "wizard" | "thinking" | "done";
@@ -36,16 +35,6 @@ interface KostnadsfriPageProps {
   slug: string;
   companyName: string;
   openclawConfig?: KostnadsfriOpenClawConfig | null;
-}
-
-function recordWizardCompleted(slug: string) {
-  // Fire-and-forget beacon through the same endpoint as the page-view tracker.
-  void fetch("/api/analytics", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path: kostnadsfriEventPath(slug, "skapad") }),
-    keepalive: true,
-  }).catch(() => undefined);
 }
 
 export function KostnadsfriPage({
@@ -112,6 +101,8 @@ export function KostnadsfriPage({
             prompt,
             source: "kostnadsfri",
             projectId: project.id,
+            // Lets the server record the "skapad" funnel step for this slug.
+            kostnadsfriSlug: slug,
           }),
         });
 
@@ -125,8 +116,6 @@ export function KostnadsfriPage({
         if (!promptId) {
           throw new Error("No promptId returned");
         }
-
-        recordWizardCompleted(slug);
 
         // Small delay so the spinner animation feels intentional
         await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -152,19 +141,11 @@ export function KostnadsfriPage({
   return (
     <div className="min-h-screen bg-black">
       {phase === "password" && (
-        <PasswordGate
-          slug={slug}
-          companyName={companyName}
-          onSuccess={handlePasswordSuccess}
-        />
+        <PasswordGate slug={slug} companyName={companyName} onSuccess={handlePasswordSuccess} />
       )}
 
       {phase === "wizard" && companyData && (
-        <MiniWizard
-          companyData={companyData}
-          onComplete={handleWizardComplete}
-          error={error}
-        />
+        <MiniWizard companyData={companyData} onComplete={handleWizardComplete} error={error} />
       )}
 
       {(phase === "thinking" || phase === "done") && (

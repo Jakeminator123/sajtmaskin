@@ -2,17 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import {
-  Check,
-  Copy,
-  Eye,
-  KeyRound,
-  Link2,
-  Mail,
-  Rocket,
-  Users,
-  Wand2,
-} from "lucide-react";
+import { Check, Copy, Eye, KeyRound, Link2, Mail, Rocket, Users, Wand2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,12 +48,14 @@ const EVENT_LABEL: Record<KostnadsfriAdminPayload["recent"][number]["event"], st
   skapad: "Skapade webbplats",
 };
 
-const EVENT_TONE: Record<KostnadsfriAdminPayload["recent"][number]["event"], "off" | "ok" | "warn"> =
-  {
-    besok: "off",
-    verifierad: "warn",
-    skapad: "ok",
-  };
+const EVENT_TONE: Record<
+  KostnadsfriAdminPayload["recent"][number]["event"],
+  "off" | "ok" | "warn"
+> = {
+  besok: "off",
+  verifierad: "warn",
+  skapad: "ok",
+};
 
 function formatTime(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -125,20 +117,21 @@ export function KostnadsfriSection() {
           companyName: companyName.trim(),
           saveRecord,
           contactEmail: saveRecord && contactEmail.trim() ? contactEmail.trim() : undefined,
-          expiresInDays: saveRecord && Number.isFinite(expires) && expires > 0 ? expires : undefined,
+          expiresInDays:
+            saveRecord && Number.isFinite(expires) && expires > 0 ? expires : undefined,
         }),
       });
       const json = (await response.json().catch(() => null)) as
-        | (Partial<KostnadsfriInvitePayload> & { success?: boolean; error?: string })
-        | null;
+        (Partial<KostnadsfriInvitePayload> & { success?: boolean; error?: string }) | null;
 
       if (!json) {
         toast.error(`Kunde inte skapa länk (HTTP ${response.status})`);
         return;
       }
       if (json.invite) {
-        // A 409 (already saved) still carries the invite — the link is valid.
-        setResult({ invite: json.invite, saved: Boolean(json.saved) });
+        // A 409/500 still carries the invite; `warning` says whether a saved
+        // DB row makes the shown link or password unusable.
+        setResult({ invite: json.invite, saved: Boolean(json.saved), warning: json.warning });
       }
       if (!response.ok || json.success === false) {
         toast.error(json.error || "Kunde inte skapa länk");
@@ -228,8 +221,8 @@ export function KostnadsfriSection() {
         <Alert>
           <AlertTitle>Statistiken är avhuggen</AlertTitle>
           <AlertDescription>
-            Perioden har fler händelser än servern räknar (5 000). Siffrorna nedan är en undre
-            gräns — välj en kortare period för exakta tal.
+            Perioden har fler händelser än servern räknar (5 000). Siffrorna nedan är en undre gräns
+            — välj en kortare period för exakta tal.
           </AlertDescription>
         </Alert>
       )}
@@ -259,11 +252,7 @@ export function KostnadsfriSection() {
 
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <Switch
-                id="kostnadsfri-save"
-                checked={saveRecord}
-                onCheckedChange={setSaveRecord}
-              />
+              <Switch id="kostnadsfri-save" checked={saveRecord} onCheckedChange={setSaveRecord} />
               <Label htmlFor="kostnadsfri-save" className="text-sm">
                 Spara i databasen (ger företagsnamn med rätt stavning, kontakt och giltighetstid)
               </Label>
@@ -305,6 +294,12 @@ export function KostnadsfriSection() {
                 {result.saved ? "Sparad i databasen" : "Bara länk (inget sparat)"}
               </StatusBadge>
             </div>
+            {result.warning && (
+              <Alert variant={result.warning.level === "error" ? "destructive" : "default"}>
+                <AlertTitle>Kontroll mot databasen</AlertTitle>
+                <AlertDescription>{result.warning.message}</AlertDescription>
+              </Alert>
+            )}
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1">
                 <p className="text-muted-foreground text-xs">Länk</p>
@@ -366,7 +361,12 @@ export function KostnadsfriSection() {
         {data && (
           <>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <StatCard label="Länkar med besök" value={totals.slugs} hint={periodLabel} icon={Link2} />
+              <StatCard
+                label="Länkar med besök"
+                value={totals.slugs}
+                hint={periodLabel}
+                icon={Link2}
+              />
               <StatCard label="Besök" value={totals.visits} hint={periodLabel} icon={Eye} />
               <StatCard
                 label="Rätt lösenord"
@@ -402,7 +402,7 @@ export function KostnadsfriSection() {
                       <TableHead className="text-right">Rätt lösenord</TableHead>
                       <TableHead
                         className="text-right"
-                        title="Rapporteras från besökarens webbläsare när wizarden är klar; kan inte verifieras server-side."
+                        title="Räknas server-side när wizarden skapat sin prompt-handoff."
                       >
                         Skapade
                       </TableHead>
@@ -481,13 +481,15 @@ export function KostnadsfriSection() {
                         </TableCell>
                         <TableCell className="font-mono text-xs">{row.slug}</TableCell>
                         <TableCell>
-                          <StatusBadge tone={EVENT_TONE[row.event]}>{EVENT_LABEL[row.event]}</StatusBadge>
+                          <StatusBadge tone={EVENT_TONE[row.event]}>
+                            {EVENT_LABEL[row.event]}
+                          </StatusBadge>
                         </TableCell>
                         <TableCell className="text-xs">
                           <p>{row.userEmail ?? row.ipAddress ?? "okänd"}</p>
                           {row.userAgent && (
                             <TechnicalDetails summary="Webbläsare">
-                              <p className="text-muted-foreground max-w-[360px] break-words font-mono text-[11px]">
+                              <p className="text-muted-foreground max-w-[360px] font-mono text-[11px] break-words">
                                 {row.userAgent}
                               </p>
                             </TechnicalDetails>

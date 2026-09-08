@@ -37,8 +37,9 @@ async function handlePOST(req: NextRequest) {
     if (!path || typeof path !== "string") {
       return NextResponse.json({ success: false, error: "Path required" }, { status: 400 });
     }
-    // Server-authored funnel events (kostnadsfri "verifierad") may not be
-    // planted from the browser; they would forge the admin console's counts.
+    // Server-authored funnel events (kostnadsfri "verifierad"/"skapad") may not
+    // be planted from the browser — also not by the page-view tracker on a 404
+    // at that URL; they would forge the admin console's counts.
     if (isServerOnlyKostnadsfriPath(path)) {
       return NextResponse.json({ success: false, error: "Path not allowed" }, { status: 400 });
     }
@@ -50,7 +51,14 @@ async function handlePOST(req: NextRequest) {
     after(async () => {
       try {
         const user = await getCurrentUser(req);
-        await recordPageView(path, sessionId || undefined, user?.id, ipAddress, userAgent, referrer);
+        await recordPageView(
+          path,
+          sessionId || undefined,
+          user?.id,
+          ipAddress,
+          userAgent,
+          referrer,
+        );
       } catch (error) {
         console.error("[API/analytics] Error recording page view:", error);
       }
@@ -82,8 +90,7 @@ export async function GET(req: NextRequest) {
     }
 
     const rawDays = parseInt(req.nextUrl.searchParams.get("days") || "30", 10);
-    const days =
-      Number.isFinite(rawDays) && rawDays >= 1 && rawDays <= 366 ? rawDays : 30;
+    const days = Number.isFinite(rawDays) && rawDays >= 1 && rawDays <= 366 ? rawDays : 30;
     const stats = await getAnalyticsStats(days);
 
     return NextResponse.json({
